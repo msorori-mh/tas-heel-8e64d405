@@ -152,6 +152,7 @@ function SubjectIndexPage() {
           return (
             <UnitBlock
               key={u.id}
+              unitId={u.id}
               index={idx + 1}
               title={u.title}
               description={u.description}
