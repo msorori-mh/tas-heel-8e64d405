@@ -5,8 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
-import { Home, ClipboardList, Lock, Send } from "lucide-react";
-import { toast } from "sonner";
+import { Home, ClipboardList, Lock, Send, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/units/$unitId/practice")({
   component: UnitPracticePage,
@@ -169,8 +168,19 @@ type QuestionRow = {
   sort_order: number | null;
 };
 
+type ServerResult = {
+  total: number;
+  answered: number;
+  correct: number;
+  score: number;
+  per_question: { question_id: string; is_correct: boolean }[];
+};
+
 function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectId: string }) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [serverResult, setServerResult] = useState<ServerResult | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const { data: lessons } = useQuery({
     queryKey: ["practice-lessons", unitId, subjectId],
@@ -241,6 +251,60 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
 
   const answeredCount = Object.keys(answers).length;
   const totalCount = sorted.length;
+  const isLocked = serverResult !== null;
+
+  const resultByQuestion = new Map<string, boolean>(
+    (serverResult?.per_question ?? []).map((p) => [p.question_id, p.is_correct])
+  );
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const payload = Object.entries(answers).map(([question_id, selected_index]) => ({
+        question_id,
+        selected_index,
+      }));
+      const { data, error } = await supabase.rpc("grade_unit_practice", {
+        _unit_id: unitId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        _answers: payload as any,
+      });
+      if (error) {
+        setSubmitError("تعذر تصحيح الاختبار.");
+        return;
+      }
+      const res = data as unknown as { error?: string } & Partial<ServerResult>;
+      if (res && typeof res === "object" && "error" in res && res.error) {
+        const map: Record<string, string> = {
+          forbidden: "هذا الاختبار غير متاح.",
+          not_found: "الوحدة غير موجودة.",
+          no_valid_questions: "لا توجد أسئلة صالحة للتصحيح.",
+          unauthorized: "يجب تسجيل الدخول.",
+        };
+        setSubmitError(map[res.error] ?? "تعذر تصحيح الاختبار.");
+        return;
+      }
+      setServerResult(data as unknown as ServerResult);
+    } catch {
+      setSubmitError("تعذر تصحيح الاختبار.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRetry = () => {
+    setServerResult(null);
+    setSubmitError(null);
+    setAnswers({});
+  };
+
+  const scoreMessage = (score: number) =>
+    score >= 80
+      ? "أداء ممتاز"
+      : score >= 50
+        ? "أداء جيد، واصل المراجعة"
+        : "راجع دروس الوحدة ثم حاول مرة أخرى";
 
   return (
     <section className="space-y-3">
@@ -251,20 +315,57 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
         </span>
       </div>
 
+      {serverResult && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-card">
+          <p className="text-2xl font-bold text-foreground">
+            النتيجة: {serverResult.score}%
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {serverResult.correct} صحيح من {serverResult.total}
+          </p>
+          <p className="mt-2 text-sm font-medium text-foreground">
+            {scoreMessage(serverResult.score)}
+          </p>
+        </div>
+      )}
+
       <ol className="space-y-3">
         {sorted.map((q, idx) => {
           const opts = Array.isArray(q.options) ? (q.options as unknown[]) : [];
           const selected = answers[q.id];
+          const qResult = resultByQuestion.get(q.id);
           return (
             <li
               key={q.id}
               className="rounded-2xl border border-border bg-card p-4 shadow-card"
             >
-              <div className="flex items-start gap-2">
-                <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
-                  {idx + 1}
-                </span>
-                <p className="text-sm font-medium text-foreground">{q.question_text}</p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2">
+                  <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
+                    {idx + 1}
+                  </span>
+                  <p className="text-sm font-medium text-foreground">{q.question_text}</p>
+                </div>
+                {isLocked && qResult !== undefined && (
+                  <span
+                    className={[
+                      "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                      qResult
+                        ? "bg-green-500/15 text-green-700 dark:text-green-400"
+                        : "bg-destructive/15 text-destructive",
+                    ].join(" ")}
+                  >
+                    {qResult ? (
+                      <>
+                        <CheckCircle2 className="h-3.5 w-3.5" /> صحيح
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-3.5 w-3.5" /> غير صحيح
+                      </>
+                    )}
+                  </span>
+                )}
               </div>
               {opts.length > 0 && (
                 <ul className="mt-3 space-y-2 ps-8">
@@ -274,6 +375,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
                       <li key={i}>
                         <button
                           type="button"
+                          disabled={isLocked || submitting}
                           onClick={() =>
                             setAnswers((prev) => ({ ...prev, [q.id]: i }))
                           }
@@ -282,7 +384,10 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
                             isSelected
                               ? "border-primary bg-primary/10 text-foreground"
                               : "border-border bg-muted/30 text-foreground hover:bg-muted/60",
-                          ].join(" ")}
+                            (isLocked || submitting) && "opacity-80 cursor-not-allowed",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
                         >
                           <span className="inline-flex items-center gap-2">
                             <span
@@ -313,20 +418,33 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
       <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
           <p className="text-xs text-muted-foreground">
-            {answeredCount < totalCount
-              ? "أجب على جميع الأسئلة قبل التسليم."
-              : "جميع الأسئلة مُجابة. يمكنك التسليم الآن."}
+            {submitError
+              ? submitError
+              : serverResult
+                ? "تم تصحيح الاختبار."
+                : answeredCount < totalCount
+                  ? "أجب على جميع الأسئلة قبل التسليم."
+                  : "جميع الأسئلة مُجابة. يمكنك التسليم الآن."}
           </p>
-          <Button
-            disabled={answeredCount < totalCount}
-            className="w-full gap-1 sm:w-auto"
-            onClick={() => {
-              toast("سيتم تفعيل التصحيح في المرحلة التالية.");
-            }}
-          >
-            <Send className="h-4 w-4" />
-            تسليم الاختبار
-          </Button>
+          {serverResult ? (
+            <Button
+              variant="outline"
+              className="w-full gap-1 sm:w-auto"
+              onClick={handleRetry}
+            >
+              <RotateCcw className="h-4 w-4" />
+              إعادة المحاولة
+            </Button>
+          ) : (
+            <Button
+              disabled={answeredCount < totalCount || submitting}
+              className="w-full gap-1 sm:w-auto"
+              onClick={handleSubmit}
+            >
+              <Send className="h-4 w-4" />
+              {submitting ? "جاري التصحيح..." : "تسليم الاختبار"}
+            </Button>
+          )}
         </div>
       </div>
     </section>
