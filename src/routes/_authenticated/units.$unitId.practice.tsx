@@ -169,6 +169,7 @@ type QuestionRow = {
 };
 
 type ServerResult = {
+  attempt_id?: string;
   total: number;
   answered: number;
   correct: number;
