@@ -428,7 +428,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
             {submitError
               ? submitError
               : serverResult
-                ? "تم تصحيح الاختبار."
+                ? "تم تصحيح الاختبار وحفظ النتيجة."
                 : answeredCount < totalCount
                   ? "أجب على جميع الأسئلة قبل التسليم."
                   : "جميع الأسئلة مُجابة. يمكنك التسليم الآن."}
