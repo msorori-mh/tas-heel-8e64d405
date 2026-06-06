@@ -14,6 +14,152 @@ export type Database = {
   }
   public: {
     Tables: {
+      certificates: {
+        Row: {
+          id: string
+          issued_at: string
+          subject_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          issued_at?: string
+          subject_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          issued_at?: string
+          subject_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificates_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_submissions: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_read: boolean
+          message: string
+          subject: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          is_read?: boolean
+          message: string
+          subject: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      email_send_log: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          message_id: string | null
+          metadata: Json | null
+          recipient_email: string
+          status: string
+          template_name: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          recipient_email: string
+          status: string
+          template_name: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          recipient_email?: string
+          status?: string
+          template_name?: string
+        }
+        Relationships: []
+      }
+      email_send_state: {
+        Row: {
+          auth_email_ttl_minutes: number
+          batch_size: number
+          id: number
+          retry_after_until: string | null
+          send_delay_ms: number
+          transactional_email_ttl_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          auth_email_ttl_minutes?: number
+          batch_size?: number
+          id?: number
+          retry_after_until?: string | null
+          send_delay_ms?: number
+          transactional_email_ttl_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          auth_email_ttl_minutes?: number
+          batch_size?: number
+          id?: number
+          retry_after_until?: string | null
+          send_delay_ms?: number
+          transactional_email_ttl_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_unsubscribe_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
       grades: {
         Row: {
           category: string
@@ -49,6 +195,7 @@ export type Database = {
           duration: string | null
           id: string
           is_free: boolean | null
+          semester: number | null
           slug: string
           sort_order: number
           subject_id: string
@@ -63,6 +210,7 @@ export type Database = {
           duration?: string | null
           id?: string
           is_free?: boolean | null
+          semester?: number | null
           slug: string
           sort_order?: number
           subject_id: string
@@ -77,6 +225,7 @@ export type Database = {
           duration?: string | null
           id?: string
           is_free?: boolean | null
+          semester?: number | null
           slug?: string
           sort_order?: number
           subject_id?: string
@@ -168,6 +317,7 @@ export type Database = {
           currency: string
           id: string
           payment_method_id: string | null
+          plan_id: string | null
           receipt_url: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -182,6 +332,7 @@ export type Database = {
           currency?: string
           id?: string
           payment_method_id?: string | null
+          plan_id?: string | null
           receipt_url?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -196,6 +347,7 @@ export type Database = {
           currency?: string
           id?: string
           payment_method_id?: string | null
+          plan_id?: string | null
           receipt_url?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -209,6 +361,13 @@ export type Database = {
             columns: ["payment_method_id"]
             isOneToOne: false
             referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_requests_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
             referencedColumns: ["id"]
           },
           {
@@ -319,6 +478,7 @@ export type Database = {
           id: string
           lessons_count: number | null
           name: string
+          semester: number | null
           slug: string
           sort_order: number
         }
@@ -330,6 +490,7 @@ export type Database = {
           id?: string
           lessons_count?: number | null
           name: string
+          semester?: number | null
           slug: string
           sort_order?: number
         }
@@ -341,6 +502,7 @@ export type Database = {
           id?: string
           lessons_count?: number | null
           name?: string
+          semester?: number | null
           slug?: string
           sort_order?: number
         }
@@ -354,12 +516,50 @@ export type Database = {
           },
         ]
       }
+      subscription_plans: {
+        Row: {
+          created_at: string
+          currency: string
+          duration_months: number
+          duration_type: string
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          duration_months?: number
+          duration_type: string
+          id?: string
+          is_active?: boolean
+          name: string
+          price: number
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          duration_months?: number
+          duration_type?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          sort_order?: number
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string
           expires_at: string | null
           grade_id: string | null
           id: string
+          plan_id: string | null
+          semester: number | null
           starts_at: string | null
           status: string
           updated_at: string
@@ -370,6 +570,8 @@ export type Database = {
           expires_at?: string | null
           grade_id?: string | null
           id?: string
+          plan_id?: string | null
+          semester?: number | null
           starts_at?: string | null
           status?: string
           updated_at?: string
@@ -380,6 +582,8 @@ export type Database = {
           expires_at?: string | null
           grade_id?: string | null
           id?: string
+          plan_id?: string | null
+          semester?: number | null
           starts_at?: string | null
           status?: string
           updated_at?: string
@@ -393,7 +597,38 @@ export type Database = {
             referencedRelation: "grades"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      suppressed_emails: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          metadata: Json | null
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          metadata?: Json | null
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          metadata?: Json | null
+          reason?: string
+        }
+        Relationships: []
       }
       user_progress: {
         Row: {
@@ -459,6 +694,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_email: {
+        Args: { message_id: number; queue_name: string }
+        Returns: boolean
+      }
+      enqueue_email: {
+        Args: { payload: Json; queue_name: string }
+        Returns: number
+      }
+      get_user_email: { Args: { _user_id: string }; Returns: string }
       has_active_subscription: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -466,6 +710,27 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      is_first_lesson_in_subject: {
+        Args: { _lesson_id: string }
+        Returns: boolean
+      }
+      move_to_dlq: {
+        Args: {
+          dlq_name: string
+          message_id: number
+          payload: Json
+          source_queue: string
+        }
+        Returns: number
+      }
+      read_email_batch: {
+        Args: { batch_size: number; queue_name: string; vt: number }
+        Returns: {
+          message: Json
+          msg_id: number
+          read_ct: number
+        }[]
       }
     }
     Enums: {
