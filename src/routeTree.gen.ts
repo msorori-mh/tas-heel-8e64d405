@@ -26,6 +26,7 @@ import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/ap
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedLessonsLessonIdRouteImport } from './routes/_authenticated/lessons.$lessonId'
+import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
 import { Route as AuthenticatedUnitsUnitIdPracticeRouteImport } from './routes/_authenticated/units.$unitId.practice'
 import { Route as AuthenticatedGradesGradeIdSubjectsRouteImport } from './routes/_authenticated/grades.$gradeId.subjects'
 
@@ -115,6 +116,12 @@ const AuthenticatedLessonsLessonIdRoute =
     path: '/lessons/$lessonId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminStudentsRoute =
+  AuthenticatedAdminStudentsRouteImport.update({
+    id: '/students',
+    path: '/students',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedUnitsUnitIdPracticeRoute =
   AuthenticatedUnitsUnitIdPracticeRouteImport.update({
     id: '/units/$unitId/practice',
@@ -139,10 +146,11 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
-  '/admin': typeof AuthenticatedAdminRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/app': typeof AuthenticatedAppRoute
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/grades/$gradeId/subjects': typeof AuthenticatedGradesGradeIdSubjectsRoute
@@ -159,10 +167,11 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
-  '/admin': typeof AuthenticatedAdminRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/app': typeof AuthenticatedAppRoute
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/grades/$gradeId/subjects': typeof AuthenticatedGradesGradeIdSubjectsRoute
@@ -181,10 +190,11 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
-  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/app': typeof AuthenticatedAppRoute
   '/_authenticated/grades': typeof AuthenticatedGradesRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/_authenticated/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/_authenticated/grades/$gradeId/subjects': typeof AuthenticatedGradesGradeIdSubjectsRoute
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/grades'
     | '/auth/callback'
+    | '/admin/students'
     | '/lessons/$lessonId'
     | '/subjects/$subjectId'
     | '/grades/$gradeId/subjects'
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/grades'
     | '/auth/callback'
+    | '/admin/students'
     | '/lessons/$lessonId'
     | '/subjects/$subjectId'
     | '/grades/$gradeId/subjects'
@@ -248,6 +260,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app'
     | '/_authenticated/grades'
     | '/auth/callback'
+    | '/_authenticated/admin/students'
     | '/_authenticated/lessons/$lessonId'
     | '/_authenticated/subjects/$subjectId'
     | '/_authenticated/grades/$gradeId/subjects'
@@ -389,6 +402,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLessonsLessonIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/students': {
+      id: '/_authenticated/admin/students'
+      path: '/students'
+      fullPath: '/admin/students'
+      preLoaderRoute: typeof AuthenticatedAdminStudentsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/units/$unitId/practice': {
       id: '/_authenticated/units/$unitId/practice'
       path: '/units/$unitId/practice'
@@ -406,6 +426,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminStudentsRoute: typeof AuthenticatedAdminStudentsRoute
+}
+
+const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminStudentsRoute: AuthenticatedAdminStudentsRoute,
+}
+
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
+
 interface AuthenticatedGradesRouteChildren {
   AuthenticatedGradesGradeIdSubjectsRoute: typeof AuthenticatedGradesGradeIdSubjectsRoute
 }
@@ -419,7 +450,7 @@ const AuthenticatedGradesRouteWithChildren =
   AuthenticatedGradesRoute._addFileChildren(AuthenticatedGradesRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAppRoute: typeof AuthenticatedAppRoute
   AuthenticatedGradesRoute: typeof AuthenticatedGradesRouteWithChildren
   AuthenticatedLessonsLessonIdRoute: typeof AuthenticatedLessonsLessonIdRoute
@@ -428,7 +459,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAppRoute: AuthenticatedAppRoute,
   AuthenticatedGradesRoute: AuthenticatedGradesRouteWithChildren,
   AuthenticatedLessonsLessonIdRoute: AuthenticatedLessonsLessonIdRoute,

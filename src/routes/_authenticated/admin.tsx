@@ -164,11 +164,20 @@ function AdminPage() {
 
       {/* Coming soon placeholder cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <AdminCard
-          icon={<Users className="h-5 w-5" />}
-          title="الطلاب"
-          description="إدارة حسابات الطلاب والمتابعة"
-        />
+        <Link
+          to="/admin/students"
+          className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 hover:border-primary hover:shadow-md transition-all"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+            <Users className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-foreground">الطلاب</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              قائمة الطلاب المسجلين (قراءة فقط)
+            </p>
+          </div>
+        </Link>
         <AdminCard
           icon={<BookOpen className="h-5 w-5" />}
           title="المحتوى الدراسي"
