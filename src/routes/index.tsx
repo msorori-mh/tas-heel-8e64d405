@@ -160,15 +160,22 @@ const CTAFooter = () => (
               اختر صفك وافتح درس اليوم.
             </p>
           </div>
-          <a href={startHref} className="w-full sm:w-auto">
-            <Button
-              size="lg"
-              className="w-full sm:w-auto px-8 py-5 text-base gap-2 bg-accent text-accent-foreground hover:bg-accent/90 shadow-card"
-            >
-              <BookOpen className="h-5 w-5" />
-              ابدأ الآن
-            </Button>
-          </a>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Link to="/auth" search={{ mode: "signup" }} className="w-full sm:w-auto">
+              <Button
+                size="lg"
+                className="w-full sm:w-auto px-6 py-5 text-base gap-2 bg-accent text-accent-foreground hover:bg-accent/90 shadow-card"
+              >
+                <BookOpen className="h-5 w-5" />
+                إنشاء حساب جديد
+              </Button>
+            </Link>
+            <Link to="/auth" search={{ mode: "login" }} className="w-full sm:w-auto">
+              <Button size="lg" variant="secondary" className="w-full sm:w-auto px-6 py-5 text-base">
+                تسجيل دخول
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </section>
