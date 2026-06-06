@@ -1,9 +1,9 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BookOpen, LogOut } from "lucide-react";
+import { BookOpen, LogOut, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 export function StudentNav() {
-  const { signOut } = useAuth();
+  const { signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card/90 backdrop-blur">
@@ -22,6 +22,16 @@ export function StudentNav() {
           >
             الرئيسية
           </Link>
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+              activeProps={{ className: "text-primary font-semibold" }}
+            >
+              <Shield className="h-4 w-4" />
+              الإدارة
+            </Link>
+          )}
           <button
             type="button"
             onClick={async () => {
