@@ -187,12 +187,14 @@ function Breadcrumbs({ subjectName }: { subjectName: string | null }) {
 }
 
 function UnitBlock({
+  unitId,
   index,
   title,
   description,
   isFree,
   lessons,
 }: {
+  unitId?: string;
   index?: number;
   title: string;
   description: string | null;
