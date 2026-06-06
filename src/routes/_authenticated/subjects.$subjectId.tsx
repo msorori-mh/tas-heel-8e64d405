@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, BookOpen, Layers, FileText, Home } from "lucide-react";
+import { ClipboardList, ChevronLeft, BookOpen, Layers, FileText, Home } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/subjects/$subjectId")({
   component: SubjectIndexPage,
@@ -251,6 +251,20 @@ function UnitBlock({
           ))}
         </ul>
       )}
+
+      <div className="mt-3">
+        <button
+          disabled
+          className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground opacity-60 transition-colors"
+          aria-label="اختبار الوحدة — سيتوفر قريبًا"
+        >
+          <ClipboardList className="h-4 w-4 shrink-0" />
+          <div className="min-w-0 text-right">
+            <div className="font-medium">اختبار الوحدة</div>
+            <div className="text-xs">اختبر فهمك بعد إكمال دروس الوحدة.</div>
+          </div>
+        </button>
+      </div>
     </section>
   );
 }
