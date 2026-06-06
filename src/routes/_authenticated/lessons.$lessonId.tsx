@@ -611,3 +611,117 @@ function BackToApp() {
     </Button>
   );
 }
+
+type EnhancementItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  url: string;
+};
+
+function EnhancementGroup({
+  title,
+  icon,
+  locked,
+  lockedMessage,
+  emptyMessage,
+  items,
+  lessonId,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  locked: boolean;
+  lockedMessage: string;
+  emptyMessage: string;
+  items: EnhancementItem[];
+  lessonId: string;
+}) {
+  return (
+    <div className="mt-3 rounded-xl border border-border bg-background p-3">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+        {icon} {title}
+      </div>
+      {locked ? (
+        <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+          <Lock className="h-4 w-4" />
+          <span>{lockedMessage}</span>
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{emptyMessage}</p>
+      ) : (
+        <ul className="space-y-2">
+          {items.map((it) => (
+            <li key={it.id}>
+              <EnhancementItemRow item={it} lessonId={lessonId} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function isExternalUrl(u: string) {
+  return /^https?:\/\//i.test(u.trim());
+}
+
+function EnhancementItemRow({
+  item,
+  lessonId,
+}: {
+  item: EnhancementItem;
+  lessonId: string;
+}) {
+  const getUrl = useServerFn(getLessonFileUrl);
+  const [resolved, setResolved] = useState<string | null>(
+    isExternalUrl(item.url) ? item.url : null,
+  );
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isExternalUrl(item.url)) {
+      setResolved(item.url);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    getUrl({ data: { lessonId, url: item.url } })
+      .then((res) => {
+        if (!cancelled) setResolved(res.url);
+      })
+      .catch(() => {
+        if (!cancelled) setErr("تعذّر تحميل الملف.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.url, lessonId, getUrl]);
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-2">
+      <div className="text-sm font-semibold text-foreground">{item.title}</div>
+      {item.description && (
+        <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
+      )}
+      <div className="mt-2">
+        {loading && <span className="text-xs text-muted-foreground">جارٍ التحضير…</span>}
+        {err && <span className="text-xs text-destructive">{err}</span>}
+        {resolved && !loading && !err && (
+          <a
+            href={resolved}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            <Link2 className="h-3.5 w-3.5" /> فتح
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
