@@ -1,11 +1,26 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
-import { Home, BookOpen, Layers, CheckCircle2, XCircle, HelpCircle } from "lucide-react";
+import { getLessonFileUrl } from "@/lib/api/lesson-file.functions";
+import {
+  Home,
+  BookOpen,
+  Layers,
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
+  Lock,
+  Sparkles,
+  Video,
+  FlaskConical,
+  Map as MapIcon,
+  Link2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
   component: LessonPage,
@@ -27,7 +42,25 @@ type Subject = {
   curriculum_track_id: string | null;
 };
 
-type Unit = { id: string; title: string; sort_order: number } | null;
+type Unit = { id: string; title: string; sort_order: number; is_free: boolean } | null;
+
+type LessonExtra = { id: string; title: string | null; video_url: string | null };
+
+type ResourceRow = {
+  id: string;
+  resource_type: "video" | "mindmap" | "experiment" | "pdf" | "link";
+  title: string;
+  url: string;
+  description: string | null;
+  sort_order: number;
+};
+
+type SimulationRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  phet_url: string;
+};
 
 type QuestionRow = {
   id: string;
