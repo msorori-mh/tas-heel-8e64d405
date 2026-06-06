@@ -176,6 +176,86 @@ function LessonPage() {
     },
   });
 
+  // ── Phase N2D: unit-level access gate for enhancements ──
+  const { data: hasActiveSub } = useQuery({
+    enabled: !!profile?.user_id,
+    queryKey: ["has-active-subscription", profile?.user_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("has_active_subscription", {
+        _user_id: profile!.user_id,
+      });
+      if (error) return false;
+      return Boolean(data);
+    },
+  });
+
+  const { data: isAdmin } = useQuery({
+    enabled: !!profile?.user_id,
+    queryKey: ["is-admin", profile?.user_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("has_role", {
+        _user_id: profile!.user_id,
+        _role: "admin",
+      });
+      if (error) return false;
+      return Boolean(data);
+    },
+  });
+
+  const unitIsFree = unit?.is_free === true;
+  const canAccessEnhancements =
+    Boolean(isAdmin) || unitIsFree || Boolean(hasActiveSub);
+
+  // Lesson extras (video_url) — fetched only when allowed
+  const { data: lessonExtra } = useQuery({
+    enabled: !!lesson && accessible === true && canAccessEnhancements,
+    queryKey: ["lesson-extra", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lessons")
+        .select("id,title,video_url")
+        .eq("id", lessonId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as LessonExtra | null) ?? null;
+    },
+  });
+
+  const { data: resources } = useQuery({
+    enabled: !!lesson && accessible === true && canAccessEnhancements,
+    queryKey: ["lesson-resources", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lesson_resources")
+        .select("id,resource_type,title,url,description,sort_order")
+        .eq("lesson_id", lessonId)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as ResourceRow[];
+    },
+  });
+
+  const { data: simulations } = useQuery({
+    enabled: !!lesson && accessible === true && canAccessEnhancements,
+    queryKey: ["lesson-simulations", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lesson_simulations")
+        .select("id,title,description,phet_url")
+        .eq("lesson_id", lessonId)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as SimulationRow[];
+    },
+  });
+
+  const mindmaps = (resources ?? []).filter((r) => r.resource_type === "mindmap");
+  const videos = (resources ?? []).filter((r) => r.resource_type === "video");
+  const experiments = (resources ?? []).filter((r) => r.resource_type === "experiment");
+  const extras = (resources ?? []).filter(
+    (r) => r.resource_type === "pdf" || r.resource_type === "link",
+  );
+
   if (loadingLesson) return <StateMessage variant="loading">جارٍ تحميل الدرس…</StateMessage>;
   if (lessonErr || !lesson) {
     return (
