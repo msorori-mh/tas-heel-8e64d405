@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
@@ -169,6 +169,8 @@ type QuestionRow = {
 };
 
 function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectId: string }) {
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+
   const { data: lessons } = useQuery({
     queryKey: ["practice-lessons", unitId, subjectId],
     queryFn: async () => {
@@ -236,16 +238,22 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
     return (a.question_text ?? "").localeCompare(b.question_text ?? "");
   });
 
+  const answeredCount = Object.keys(answers).length;
+  const totalCount = sorted.length;
+
   return (
     <section className="space-y-3">
       <div className="flex items-baseline justify-between">
         <h2 className="text-base font-semibold text-foreground">أسئلة اختبار الوحدة</h2>
-        <span className="text-xs text-muted-foreground">{sorted.length} سؤالًا</span>
+        <span className="text-xs text-muted-foreground">
+          تمت الإجابة على {answeredCount} من {totalCount}
+        </span>
       </div>
 
       <ol className="space-y-3">
         {sorted.map((q, idx) => {
           const opts = Array.isArray(q.options) ? (q.options as unknown[]) : [];
+          const selected = answers[q.id];
           return (
             <li
               key={q.id}
@@ -259,14 +267,41 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
               </div>
               {opts.length > 0 && (
                 <ul className="mt-3 space-y-2 ps-8">
-                  {opts.map((opt, i) => (
-                    <li
-                      key={i}
-                      className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground"
-                    >
-                      {String(opt)}
-                    </li>
-                  ))}
+                  {opts.map((opt, i) => {
+                    const isSelected = selected === i;
+                    return (
+                      <li key={i}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAnswers((prev) => ({ ...prev, [q.id]: i }))
+                          }
+                          className={[
+                            "w-full text-right rounded-md border px-3 py-2 text-sm transition-colors",
+                            isSelected
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border bg-muted/30 text-foreground hover:bg-muted/60",
+                          ].join(" ")}
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            <span
+                              className={[
+                                "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
+                                isSelected
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-muted-foreground/40",
+                              ].join(" ")}
+                            >
+                              {isSelected && (
+                                <span className="block h-1.5 w-1.5 rounded-full bg-current" />
+                              )}
+                            </span>
+                            {String(opt)}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </li>
@@ -276,4 +311,3 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
     </section>
   );
 }
-
