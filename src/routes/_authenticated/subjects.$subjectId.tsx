@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, BookOpen, Layers, FileText, Home } from "lucide-react";
+import { ClipboardList, ChevronLeft, BookOpen, Layers, FileText, Home } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/subjects/$subjectId")({
   component: SubjectIndexPage,
