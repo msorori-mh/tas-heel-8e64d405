@@ -9,11 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WhatsappPolicyRouteImport } from './routes/whatsapp-policy'
-import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DataDeletionRouteImport } from './routes/data-deletion'
@@ -31,16 +28,6 @@ import { Route as AuthenticatedLessonsLessonIdRouteImport } from './routes/_auth
 import { Route as AuthenticatedUnitsUnitIdPracticeRouteImport } from './routes/_authenticated/units.$unitId.practice'
 import { Route as AuthenticatedGradesGradeIdSubjectsRouteImport } from './routes/_authenticated/grades.$gradeId.subjects'
 
-const WhatsappPolicyRoute = WhatsappPolicyRouteImport.update({
-  id: '/whatsapp-policy',
-  path: '/whatsapp-policy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TermsOfServiceRoute = TermsOfServiceRouteImport.update({
-  id: '/terms-of-service',
-  path: '/terms-of-service',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -49,11 +36,6 @@ const TermsRoute = TermsRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
-  id: '/privacy-policy',
-  path: '/privacy-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -149,11 +131,8 @@ export interface FileRoutesByFullPath {
   '/data-deletion': typeof DataDeletionRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/privacy': typeof PrivacyRoute
-  '/privacy-policy': typeof PrivacyPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
-  '/terms-of-service': typeof TermsOfServiceRoute
-  '/whatsapp-policy': typeof WhatsappPolicyRoute
   '/app': typeof AuthenticatedAppRoute
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -171,11 +150,8 @@ export interface FileRoutesByTo {
   '/data-deletion': typeof DataDeletionRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/privacy': typeof PrivacyRoute
-  '/privacy-policy': typeof PrivacyPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
-  '/terms-of-service': typeof TermsOfServiceRoute
-  '/whatsapp-policy': typeof WhatsappPolicyRoute
   '/app': typeof AuthenticatedAppRoute
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -195,11 +171,8 @@ export interface FileRoutesById {
   '/data-deletion': typeof DataDeletionRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/privacy': typeof PrivacyRoute
-  '/privacy-policy': typeof PrivacyPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
-  '/terms-of-service': typeof TermsOfServiceRoute
-  '/whatsapp-policy': typeof WhatsappPolicyRoute
   '/_authenticated/app': typeof AuthenticatedAppRoute
   '/_authenticated/grades': typeof AuthenticatedGradesRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -219,11 +192,8 @@ export interface FileRouteTypes {
     | '/data-deletion'
     | '/forgot-password'
     | '/privacy'
-    | '/privacy-policy'
     | '/reset-password'
     | '/terms'
-    | '/terms-of-service'
-    | '/whatsapp-policy'
     | '/app'
     | '/grades'
     | '/auth/callback'
@@ -241,11 +211,8 @@ export interface FileRouteTypes {
     | '/data-deletion'
     | '/forgot-password'
     | '/privacy'
-    | '/privacy-policy'
     | '/reset-password'
     | '/terms'
-    | '/terms-of-service'
-    | '/whatsapp-policy'
     | '/app'
     | '/grades'
     | '/auth/callback'
@@ -264,11 +231,8 @@ export interface FileRouteTypes {
     | '/data-deletion'
     | '/forgot-password'
     | '/privacy'
-    | '/privacy-policy'
     | '/reset-password'
     | '/terms'
-    | '/terms-of-service'
-    | '/whatsapp-policy'
     | '/_authenticated/app'
     | '/_authenticated/grades'
     | '/auth/callback'
@@ -288,29 +252,12 @@ export interface RootRouteChildren {
   DataDeletionRoute: typeof DataDeletionRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   PrivacyRoute: typeof PrivacyRoute
-  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
-  TermsOfServiceRoute: typeof TermsOfServiceRoute
-  WhatsappPolicyRoute: typeof WhatsappPolicyRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/whatsapp-policy': {
-      id: '/whatsapp-policy'
-      path: '/whatsapp-policy'
-      fullPath: '/whatsapp-policy'
-      preLoaderRoute: typeof WhatsappPolicyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/terms-of-service': {
-      id: '/terms-of-service'
-      path: '/terms-of-service'
-      fullPath: '/terms-of-service'
-      preLoaderRoute: typeof TermsOfServiceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/terms': {
       id: '/terms'
       path: '/terms'
@@ -323,13 +270,6 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy-policy': {
-      id: '/privacy-policy'
-      path: '/privacy-policy'
-      fullPath: '/privacy-policy'
-      preLoaderRoute: typeof PrivacyPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -498,11 +438,8 @@ const rootRouteChildren: RootRouteChildren = {
   DataDeletionRoute: DataDeletionRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   PrivacyRoute: PrivacyRoute,
-  PrivacyPolicyRoute: PrivacyPolicyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
-  TermsOfServiceRoute: TermsOfServiceRoute,
-  WhatsappPolicyRoute: WhatsappPolicyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
