@@ -59,23 +59,35 @@ const HeroSection = () => (
           </h1>
 
           <p className="mx-auto md:mx-0 mb-5 max-w-md text-sm leading-relaxed text-muted-foreground md:text-base">
-            دروسك، ملخصاتك، وأسئلتك في مكان واحد — حسب صفك ومحافظتك.
+            ابدأ بتنظيم مذاكرتك حسب صفك ومحافظتك.
           </p>
 
-          <a href={startHref} className="inline-block w-full sm:w-auto">
-            <Button
-              size="lg"
-              className="w-full sm:w-auto gap-2 text-base px-8 py-5 bg-accent text-accent-foreground hover:bg-accent/90 shadow-card"
-            >
-              <BookOpen className="h-5 w-5" />
-              ابدأ الآن
-            </Button>
-          </a>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+            <Link to="/auth" search={{ mode: "signup" }} className="w-full sm:w-auto">
+              <Button
+                size="lg"
+                className="w-full sm:w-auto gap-2 text-base px-6 py-5 bg-accent text-accent-foreground hover:bg-accent/90 shadow-card"
+              >
+                <BookOpen className="h-5 w-5" />
+                إنشاء حساب جديد
+              </Button>
+            </Link>
+            <Link to="/auth" search={{ mode: "login" }} className="w-full sm:w-auto">
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto gap-2 text-base px-6 py-5"
+              >
+                تسجيل دخول
+              </Button>
+            </Link>
+          </div>
 
           <p className="mt-3 text-xs text-muted-foreground">
             دقيقة واحدة لاختيار صفك والبدء.
           </p>
         </div>
+
 
         <div className="order-1 md:order-2 flex justify-center">
           <div className="relative w-full max-w-[280px] sm:max-w-xs md:max-w-sm">
