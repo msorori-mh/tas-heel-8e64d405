@@ -38,7 +38,7 @@ function CompleteProfile() {
     if (profile) {
       setFullName(profile.full_name ?? "");
       if (profile.grade_uuid) setGradeId(profile.grade_uuid);
-      else if (profile.grade_id) setGradeId(profile.grade_id);
+      else if (profile.grade_id) setGradeId(String(profile.grade_id));
       if (profile.governorate_id) setGovId(profile.governorate_id);
       setSchool(profile.school_name ?? "");
     }

@@ -13,7 +13,7 @@ export type Profile = {
   id: string;
   user_id: string;
   full_name: string | null;
-  grade_id: number | null;
+  grade_id: string | number | null;
   grade_uuid: string | null;
   governorate: string | null;
   governorate_id: string | null;
