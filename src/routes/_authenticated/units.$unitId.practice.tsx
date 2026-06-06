@@ -143,12 +143,7 @@ function UnitPracticePage() {
       </header>
 
       {canAccessPractice ? (
-        <section className="rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-center">
-          <ClipboardList className="mx-auto h-10 w-10 text-muted-foreground opacity-60" />
-          <p className="mt-4 text-sm text-muted-foreground">
-            سيتم عرض أسئلة اختبار الوحدة هنا قريبًا.
-          </p>
-        </section>
+        <PracticeQuestionsList unitId={unit.id} subjectId={subjectId} />
       ) : (
         <section className="rounded-2xl border border-border bg-card p-6 text-center shadow-card">
           <Lock className="mx-auto h-10 w-10 text-muted-foreground" />
@@ -162,3 +157,123 @@ function UnitPracticePage() {
     </div>
   );
 }
+
+type LessonRow = { id: string; sort_order: number | null };
+type QuestionRow = {
+  id: string;
+  lesson_id: string | null;
+  question_text: string;
+  options: unknown;
+  question_type: string | null;
+  sort_order: number | null;
+};
+
+function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectId: string }) {
+  const { data: lessons } = useQuery({
+    queryKey: ["practice-lessons", unitId, subjectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lessons")
+        .select("id,sort_order")
+        .eq("unit_id", unitId)
+        .eq("subject_id", subjectId);
+      if (error) throw error;
+      return (data as LessonRow[]) ?? [];
+    },
+  });
+
+  const lessonIds = (lessons ?? []).map((l) => l.id);
+  const lessonOrder = new Map<string, number>(
+    (lessons ?? []).map((l) => [l.id, l.sort_order ?? 9999])
+  );
+
+  const { data: questions, isLoading } = useQuery({
+    enabled: lessonIds.length > 0,
+    queryKey: ["practice-questions", unitId, lessonIds.join(",")],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("questions")
+        .select("id,lesson_id,question_text,options,question_type,sort_order")
+        .in("lesson_id", lessonIds);
+      if (error) throw error;
+      return (data as QuestionRow[]) ?? [];
+    },
+  });
+
+  if (lessons && lessonIds.length === 0) {
+    return (
+      <section className="rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-center">
+        <ClipboardList className="mx-auto h-10 w-10 text-muted-foreground opacity-60" />
+        <p className="mt-4 text-sm text-muted-foreground">
+          لم تُضاف أسئلة اختبار لهذه الوحدة بعد.
+        </p>
+      </section>
+    );
+  }
+
+  if (isLoading || !questions) {
+    return <StateMessage variant="loading">جارٍ تحميل الأسئلة…</StateMessage>;
+  }
+
+  if (questions.length === 0) {
+    return (
+      <section className="rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-center">
+        <ClipboardList className="mx-auto h-10 w-10 text-muted-foreground opacity-60" />
+        <p className="mt-4 text-sm text-muted-foreground">
+          لم تُضاف أسئلة اختبار لهذه الوحدة بعد.
+        </p>
+      </section>
+    );
+  }
+
+  const sorted = [...questions].sort((a, b) => {
+    const la = lessonOrder.get(a.lesson_id ?? "") ?? 9999;
+    const lb = lessonOrder.get(b.lesson_id ?? "") ?? 9999;
+    if (la !== lb) return la - lb;
+    const sa = a.sort_order ?? 9999;
+    const sb = b.sort_order ?? 9999;
+    if (sa !== sb) return sa - sb;
+    return (a.question_text ?? "").localeCompare(b.question_text ?? "");
+  });
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-base font-semibold text-foreground">أسئلة اختبار الوحدة</h2>
+        <span className="text-xs text-muted-foreground">{sorted.length} سؤالًا</span>
+      </div>
+
+      <ol className="space-y-3">
+        {sorted.map((q, idx) => {
+          const opts = Array.isArray(q.options) ? (q.options as unknown[]) : [];
+          return (
+            <li
+              key={q.id}
+              className="rounded-2xl border border-border bg-card p-4 shadow-card"
+            >
+              <div className="flex items-start gap-2">
+                <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
+                  {idx + 1}
+                </span>
+                <p className="text-sm font-medium text-foreground">{q.question_text}</p>
+              </div>
+              {opts.length > 0 && (
+                <ul className="mt-3 space-y-2 ps-8">
+                  {opts.map((opt, i) => (
+                    <li
+                      key={i}
+                      className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground"
+                    >
+                      {String(opt)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
