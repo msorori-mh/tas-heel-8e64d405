@@ -11,8 +11,8 @@ export const Route = createFileRoute("/complete-profile")({
   component: CompleteProfile,
 });
 
-type Grade = { id: number; name_ar: string };
-type Gov = { id: string; name_ar: string };
+type Grade = { id: string; name: string };
+type Gov = { id: string; name: string };
 
 function CompleteProfile() {
   const navigate = useNavigate();
@@ -37,7 +37,8 @@ function CompleteProfile() {
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name ?? "");
-      if (profile.grade_id) setGradeId(String(profile.grade_id));
+      if (profile.grade_uuid) setGradeId(profile.grade_uuid);
+      else if (profile.grade_id) setGradeId(profile.grade_id);
       if (profile.governorate_id) setGovId(profile.governorate_id);
       setSchool(profile.school_name ?? "");
     }
@@ -46,11 +47,11 @@ function CompleteProfile() {
   useEffect(() => {
     (async () => {
       const [g, gv] = await Promise.all([
-        supabase.from("grades").select("id,name_ar").order("id"),
-        supabase.from("governorates").select("id,name_ar").order("name_ar"),
+        supabase.from("grades").select("id,name").order("sort_order"),
+        supabase.from("governorates").select("id,name").order("sort_order"),
       ]);
-      if (g.data) setGrades(g.data as Grade[]);
-      if (gv.data) setGovs(gv.data as Gov[]);
+      if (g.data) setGrades(g.data as unknown as Grade[]);
+      if (gv.data) setGovs(gv.data as unknown as Gov[]);
     })();
   }, []);
 
@@ -61,17 +62,19 @@ function CompleteProfile() {
     setErr(null);
     try {
       const gov = govs.find((x) => x.id === govId);
-      const payload: Record<string, unknown> = {
+      const payload = {
         user_id: user.id,
         full_name: fullName.trim(),
-        grade_id: Number(gradeId),
+        grade_id: gradeId,
+        grade_uuid: gradeId,
         governorate_id: govId,
-        governorate: gov?.name_ar ?? null,
+        governorate: gov?.name ?? null,
         school_name: school.trim() || null,
       };
       const { error } = await supabase
         .from("profiles")
-        .upsert(payload, { onConflict: "user_id" });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .upsert(payload as any, { onConflict: "user_id" });
       if (error) throw error;
       await refreshProfile();
       navigate({ to: "/", replace: true });
@@ -111,7 +114,7 @@ function CompleteProfile() {
             >
               <option value="">-- اختر الصف --</option>
               {grades.map((g) => (
-                <option key={g.id} value={g.id}>{g.name_ar}</option>
+                <option key={g.id} value={g.id}>{g.name}</option>
               ))}
             </select>
           </div>
@@ -127,7 +130,7 @@ function CompleteProfile() {
             >
               <option value="">-- اختر المحافظة --</option>
               {govs.map((g) => (
-                <option key={g.id} value={g.id}>{g.name_ar}</option>
+                <option key={g.id} value={g.id}>{g.name}</option>
               ))}
             </select>
           </div>

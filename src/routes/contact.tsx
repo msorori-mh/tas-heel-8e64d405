@@ -24,8 +24,9 @@ function ContactPage() {
     setErr(null);
     try {
       const { error } = await supabase.from("contact_submissions").insert({
-        name: name.trim(),
+        full_name: name.trim(),
         email: email.trim(),
+        subject: "رسالة من نموذج التواصل",
         message: message.trim(),
       });
       if (error) throw error;
