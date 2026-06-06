@@ -5,7 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
-import { Home, ClipboardList, Lock } from "lucide-react";
+import { Home, ClipboardList, Lock, Send } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/units/$unitId/practice")({
   component: UnitPracticePage,
@@ -308,6 +309,26 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
           );
         })}
       </ol>
+
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            {answeredCount < totalCount
+              ? "أجب على جميع الأسئلة قبل التسليم."
+              : "جميع الأسئلة مُجابة. يمكنك التسليم الآن."}
+          </p>
+          <Button
+            disabled={answeredCount < totalCount}
+            className="w-full gap-1 sm:w-auto"
+            onClick={() => {
+              toast("سيتم تفعيل التصحيح في المرحلة التالية.");
+            }}
+          >
+            <Send className="h-4 w-4" />
+            تسليم الاختبار
+          </Button>
+        </div>
+      </div>
     </section>
   );
 }
