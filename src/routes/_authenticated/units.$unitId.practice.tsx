@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -178,6 +178,8 @@ type ServerResult = {
 };
 
 function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectId: string }) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
   const [serverResult, setServerResult] = useState<ServerResult | null>(null);
@@ -211,6 +213,22 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
         .in("lesson_id", lessonIds);
       if (error) throw error;
       return (data as QuestionRow[]) ?? [];
+    },
+  });
+
+  const { data: attempts } = useQuery({
+    enabled: !!user?.id,
+    queryKey: ["unit-practice-attempts", unitId, user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("unit_practice_attempts")
+        .select("id,score,correct,total,created_at")
+        .eq("unit_id", unitId)
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data as { id: string; score: number; correct: number; total: number; created_at: string }[];
     },
   });
 
@@ -288,6 +306,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
         return;
       }
       setServerResult(data as unknown as ServerResult);
+      queryClient.invalidateQueries({ queryKey: ["unit-practice-attempts", unitId, user?.id] });
     } catch {
       setSubmitError("تعذر حفظ نتيجة الاختبار.");
     } finally {
@@ -453,6 +472,34 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">محاولاتك السابقة</h3>
+        {attempts && attempts.length > 0 ? (
+          <ul className="space-y-2">
+            {attempts.map((a) => (
+              <li
+                key={a.id}
+                className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+              >
+                <span className="text-sm font-medium text-foreground">{a.score}%</span>
+                <span className="text-xs text-muted-foreground">
+                  {a.correct} صحيح من {a.total}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(a.created_at).toLocaleDateString("ar-YE", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">لا توجد محاولات سابقة لهذه الوحدة.</p>
+        )}
       </div>
     </section>
   );
