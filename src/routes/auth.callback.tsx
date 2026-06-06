@@ -57,7 +57,7 @@ function AuthCallback() {
           !!profile.curriculum_track_id;
 
         if (cancelled) return;
-        navigate({ to: complete ? "/" : "/complete-profile", replace: true });
+        navigate({ to: complete ? "/app" : "/complete-profile", replace: true });
       } catch (e) {
         if (!cancelled) setError(translateAuthError(e));
       }
