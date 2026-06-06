@@ -47,6 +47,78 @@ export type Database = {
         }
         Relationships: []
       }
+      assessment_questions: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          id: string
+          points: number
+          question_id: string
+          sort_order: number
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          id?: string
+          points?: number
+          question_id: string
+          sort_order?: number
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          id?: string
+          points?: number
+          question_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_questions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: []
+      }
       badges: {
         Row: {
           color: string
@@ -145,6 +217,33 @@ export type Database = {
         }
         Relationships: []
       }
+      curriculum_tracks: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          track_code: string
+          track_name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          track_code: string
+          track_name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          track_code?: string
+          track_name?: string
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -232,10 +331,79 @@ export type Database = {
         }
         Relationships: []
       }
+      governorate_curriculum_map: {
+        Row: {
+          created_at: string
+          curriculum_track_id: string
+          governorate_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          curriculum_track_id: string
+          governorate_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          curriculum_track_id?: string
+          governorate_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governorate_curriculum_map_curriculum_track_id_fkey"
+            columns: ["curriculum_track_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_tracks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "governorate_curriculum_map_governorate_id_fkey"
+            columns: ["governorate_id"]
+            isOneToOne: false
+            referencedRelation: "governorates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      governorates: {
+        Row: {
+          created_at: string
+          default_curriculum_track_id: string | null
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          default_curriculum_track_id?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          default_curriculum_track_id?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governorates_default_curriculum_track_id_fkey"
+            columns: ["default_curriculum_track_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grades: {
         Row: {
           category: string
           created_at: string
+          curriculum_track_id: string | null
           id: string
           name: string
           slug: string
@@ -244,6 +412,7 @@ export type Database = {
         Insert: {
           category: string
           created_at?: string
+          curriculum_track_id?: string | null
           id?: string
           name: string
           slug: string
@@ -252,12 +421,91 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
+          curriculum_track_id?: string | null
           id?: string
           name?: string
           slug?: string
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "grades_curriculum_track_id_fkey"
+            columns: ["curriculum_track_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_assessments: {
+        Row: {
+          created_at: string
+          id: string
+          instructions: string | null
+          lesson_id: string
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instructions?: string | null
+          lesson_id: string
+          sort_order?: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instructions?: string | null
+          lesson_id?: string
+          sort_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_assessments_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_book_contents: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          lesson_id: string
+          pdf_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          lesson_id: string
+          pdf_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          pdf_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_book_contents_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: true
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lesson_comments: {
         Row: {
@@ -303,6 +551,126 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "lesson_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_explanations: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          lesson_id: string
+          sort_order: number
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          lesson_id: string
+          sort_order?: number
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          sort_order?: number
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_explanations_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_resources: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          lesson_id: string
+          resource_type: Database["public"]["Enums"]["lesson_resource_type"]
+          sort_order: number
+          title: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          lesson_id: string
+          resource_type: Database["public"]["Enums"]["lesson_resource_type"]
+          sort_order?: number
+          title: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          lesson_id?: string
+          resource_type?: Database["public"]["Enums"]["lesson_resource_type"]
+          sort_order?: number
+          title?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_resources_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_simulations: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          lesson_id: string
+          phet_url: string
+          sort_order: number
+          thumbnail_url: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          lesson_id: string
+          phet_url: string
+          sort_order?: number
+          thumbnail_url?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          lesson_id?: string
+          phet_url?: string
+          sort_order?: number
+          thumbnail_url?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_simulations_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
             referencedColumns: ["id"]
           },
         ]
@@ -358,6 +726,7 @@ export type Database = {
           sort_order: number
           subject_id: string
           title: string
+          unit_id: string | null
           updated_at: string
           video_url: string | null
         }
@@ -373,6 +742,7 @@ export type Database = {
           sort_order?: number
           subject_id: string
           title: string
+          unit_id?: string | null
           updated_at?: string
           video_url?: string | null
         }
@@ -388,6 +758,7 @@ export type Database = {
           sort_order?: number
           subject_id?: string
           title?: string
+          unit_id?: string | null
           updated_at?: string
           video_url?: string | null
         }
@@ -397,6 +768,13 @@ export type Database = {
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lessons_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
             referencedColumns: ["id"]
           },
         ]
@@ -473,14 +851,24 @@ export type Database = {
           amount: number
           created_at: string
           currency: string
+          fraud_flags: Json
           id: string
+          normalized_amount: number | null
+          payment_date: string | null
           payment_method_id: string | null
           plan_id: string | null
+          receipt_hash: string | null
           receipt_url: string | null
+          refund_transaction_id: string | null
+          refunded_at: string | null
+          refunded_by: string | null
+          reversal_reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          sender_name: string | null
           status: string
           subscription_id: string | null
+          transaction_reference: string | null
           user_id: string
         }
         Insert: {
@@ -488,14 +876,24 @@ export type Database = {
           amount: number
           created_at?: string
           currency?: string
+          fraud_flags?: Json
           id?: string
+          normalized_amount?: number | null
+          payment_date?: string | null
           payment_method_id?: string | null
           plan_id?: string | null
+          receipt_hash?: string | null
           receipt_url?: string | null
+          refund_transaction_id?: string | null
+          refunded_at?: string | null
+          refunded_by?: string | null
+          reversal_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          sender_name?: string | null
           status?: string
           subscription_id?: string | null
+          transaction_reference?: string | null
           user_id: string
         }
         Update: {
@@ -503,14 +901,24 @@ export type Database = {
           amount?: number
           created_at?: string
           currency?: string
+          fraud_flags?: Json
           id?: string
+          normalized_amount?: number | null
+          payment_date?: string | null
           payment_method_id?: string | null
           plan_id?: string | null
+          receipt_hash?: string | null
           receipt_url?: string | null
+          refund_transaction_id?: string | null
+          refunded_at?: string | null
+          refunded_by?: string | null
+          reversal_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          sender_name?: string | null
           status?: string
           subscription_id?: string | null
+          transaction_reference?: string | null
           user_id?: string
         }
         Relationships: [
@@ -529,6 +937,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payment_requests_refund_transaction_id_fkey"
+            columns: ["refund_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_transactions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "payment_requests_subscription_id_fkey"
             columns: ["subscription_id"]
             isOneToOne: false
@@ -541,9 +956,12 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          curriculum_track_id: string | null
           full_name: string | null
           governorate: string | null
+          governorate_id: string | null
           grade_id: string | null
+          grade_uuid: string | null
           id: string
           parent_email: string | null
           parent_phone: string | null
@@ -557,9 +975,12 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          curriculum_track_id?: string | null
           full_name?: string | null
           governorate?: string | null
+          governorate_id?: string | null
           grade_id?: string | null
+          grade_uuid?: string | null
           id?: string
           parent_email?: string | null
           parent_phone?: string | null
@@ -573,9 +994,12 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          curriculum_track_id?: string | null
           full_name?: string | null
           governorate?: string | null
+          governorate_id?: string | null
           grade_id?: string | null
+          grade_uuid?: string | null
           id?: string
           parent_email?: string | null
           parent_phone?: string | null
@@ -586,7 +1010,29 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_curriculum_track_id_fkey"
+            columns: ["curriculum_track_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_tracks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_governorate_id_fkey"
+            columns: ["governorate_id"]
+            isOneToOne: false
+            referencedRelation: "governorates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_grade_uuid_fkey"
+            columns: ["grade_uuid"]
+            isOneToOne: false
+            referencedRelation: "grades"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       questions: {
         Row: {
@@ -747,6 +1193,7 @@ export type Database = {
         Row: {
           color: string | null
           created_at: string
+          curriculum_track_id: string | null
           grade_id: string
           icon: string | null
           id: string
@@ -759,6 +1206,7 @@ export type Database = {
         Insert: {
           color?: string | null
           created_at?: string
+          curriculum_track_id?: string | null
           grade_id: string
           icon?: string | null
           id?: string
@@ -771,6 +1219,7 @@ export type Database = {
         Update: {
           color?: string | null
           created_at?: string
+          curriculum_track_id?: string | null
           grade_id?: string
           icon?: string | null
           id?: string
@@ -781,6 +1230,13 @@ export type Database = {
           sort_order?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "subjects_curriculum_track_id_fkey"
+            columns: ["curriculum_track_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_tracks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "subjects_grade_id_fkey"
             columns: ["grade_id"]
@@ -828,11 +1284,17 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string
           expires_at: string | null
           grade_id: string | null
           id: string
           plan_id: string | null
+          refund_reason: string | null
+          refunded_at: string | null
+          refunded_by: string | null
           semester: number | null
           starts_at: string | null
           status: string
@@ -840,11 +1302,17 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
           expires_at?: string | null
           grade_id?: string | null
           id?: string
           plan_id?: string | null
+          refund_reason?: string | null
+          refunded_at?: string | null
+          refunded_by?: string | null
           semester?: number | null
           starts_at?: string | null
           status?: string
@@ -852,11 +1320,17 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
           expires_at?: string | null
           grade_id?: string | null
           id?: string
           plan_id?: string | null
+          refund_reason?: string | null
+          refunded_at?: string | null
+          refunded_by?: string | null
           semester?: number | null
           starts_at?: string | null
           status?: string
@@ -903,6 +1377,47 @@ export type Database = {
           reason?: string
         }
         Relationships: []
+      }
+      units: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          semester: number | null
+          sort_order: number
+          subject_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          semester?: number | null
+          sort_order?: number
+          subject_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          semester?: number | null
+          sort_order?: number
+          subject_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "units_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_progress: {
         Row: {
@@ -963,6 +1478,108 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_accounts: {
+        Row: {
+          balance: number
+          created_at: string
+          currency: string
+          id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          balance_after: number
+          balance_before: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          direction: string
+          id: string
+          metadata: Json
+          reference_id: string | null
+          reference_type: string | null
+          reverses_transaction_id: string | null
+          type: string
+          user_id: string
+          wallet_account_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          balance_before: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          direction: string
+          id?: string
+          metadata?: Json
+          reference_id?: string | null
+          reference_type?: string | null
+          reverses_transaction_id?: string | null
+          type: string
+          user_id: string
+          wallet_account_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          balance_before?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          direction?: string
+          id?: string
+          metadata?: Json
+          reference_id?: string | null
+          reference_type?: string | null
+          reverses_transaction_id?: string | null
+          type?: string
+          user_id?: string
+          wallet_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_reverses_transaction_id_fkey"
+            columns: ["reverses_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_transactions_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weekly_schedule: {
         Row: {
           created_at: string
@@ -995,6 +1612,46 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_wallet: {
+        Args: {
+          _amount: number
+          _direction: string
+          _idempotency_key?: string
+          _reason: string
+          _user_id: string
+        }
+        Returns: Json
+      }
+      admin_refund_subscription: {
+        Args: {
+          _amount?: number
+          _cancel_subscription?: boolean
+          _idempotency_key?: string
+          _reason?: string
+          _subscription_id: string
+        }
+        Returns: Json
+      }
+      approve_payment_request: {
+        Args: { _admin_notes?: string; _request_id: string }
+        Returns: Json
+      }
+      can_access_lesson: { Args: { _lesson_id: string }; Returns: boolean }
+      can_access_subject: { Args: { _subject_id: string }; Returns: boolean }
+      create_wallet_transaction: {
+        Args: {
+          _amount: number
+          _currency?: string
+          _description?: string
+          _direction: string
+          _metadata?: Json
+          _reference_id?: string
+          _reference_type?: string
+          _type: string
+          _user_id: string
+        }
+        Returns: Json
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -1002,6 +1659,10 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      ensure_wallet_account: {
+        Args: { _currency?: string; _user_id: string }
+        Returns: string
       }
       get_dashboard_stats: {
         Args: never
@@ -1020,8 +1681,61 @@ export type Database = {
           total_subjects: number
         }[]
       }
+      get_lesson_full_content: { Args: { _lesson_id: string }; Returns: Json }
+      get_lesson_quiz_questions: {
+        Args: { _lesson_id: string }
+        Returns: {
+          id: string
+          options: Json
+          question_text: string
+          question_type: string
+          sort_order: number
+        }[]
+      }
+      get_report_governorate_data: {
+        Args: { _grade_id?: string; _months_back?: number }
+        Returns: {
+          governorate: string
+          student_count: number
+        }[]
+      }
+      get_report_grade_content: {
+        Args: never
+        Returns: {
+          grade_name: string
+          lessons_count: number
+          subjects_count: number
+        }[]
+      }
+      get_report_monthly_data: {
+        Args: { _grade_id?: string; _months_back?: number }
+        Returns: {
+          new_students: number
+          revenue: number
+          year_month: string
+        }[]
+      }
+      get_report_school_data: {
+        Args: { _grade_id?: string; _limit?: number; _months_back?: number }
+        Returns: {
+          governorate: string
+          school_name: string
+          student_count: number
+        }[]
+      }
+      get_report_subscription_status: {
+        Args: { _grade_id?: string; _months_back?: number }
+        Returns: {
+          status: string
+          sub_count: number
+        }[]
+      }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       get_user_total_points: { Args: { _user_id: string }; Returns: number }
+      grade_lesson_quiz: {
+        Args: { _answers: Json; _lesson_id: string }
+        Returns: Json
+      }
       has_active_subscription: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -1043,6 +1757,15 @@ export type Database = {
         }
         Returns: number
       }
+      pay_subscription_from_wallet: {
+        Args: {
+          _grade_id?: string
+          _idempotency_key?: string
+          _plan_id: string
+          _semester?: number
+        }
+        Returns: Json
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -1052,9 +1775,31 @@ export type Database = {
         }[]
       }
       refresh_dashboard_stats: { Args: never; Returns: undefined }
+      reject_payment_request: {
+        Args: { _admin_notes?: string; _request_id: string }
+        Returns: Json
+      }
+      subject_matches_track: {
+        Args: { _subject_id: string; _track_id: string }
+        Returns: boolean
+      }
+      user_can_access_subject_curriculum: {
+        Args: { _subject_id: string }
+        Returns: boolean
+      }
+      write_audit_log: {
+        Args: {
+          _action: string
+          _metadata?: Json
+          _target_id: string
+          _target_type: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      lesson_resource_type: "video" | "mindmap" | "experiment" | "pdf" | "link"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1183,6 +1928,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      lesson_resource_type: ["video", "mindmap", "experiment", "pdf", "link"],
     },
   },
 } as const
