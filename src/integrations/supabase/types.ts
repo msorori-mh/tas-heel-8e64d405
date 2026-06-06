@@ -1847,6 +1847,10 @@ export type Database = {
         Args: { _subject_id: string; _track_id: string }
         Returns: boolean
       }
+      submit_unit_practice_attempt: {
+        Args: { _answers: Json; _unit_id: string }
+        Returns: Json
+      }
       user_can_access_subject_curriculum: {
         Args: { _subject_id: string }
         Returns: boolean
