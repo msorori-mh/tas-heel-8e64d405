@@ -33,7 +33,8 @@ export const Route = createFileRoute("/")({
   component: LandingPage,
 });
 
-const startHref = "/auth";
+const signupHref = "/auth?mode=signup";
+const loginHref = "/auth?mode=login";
 
 const HeroSection = () => (
   <section className="relative overflow-hidden px-4 pt-8 pb-10 md:pt-12 md:pb-14">
