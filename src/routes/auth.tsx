@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { translateAuthError, getAuthRedirectUrl } from "@/lib/auth-helpers";
@@ -7,72 +8,77 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
-import { useEffect } from "react";
+
+const searchSchema = z.object({
+  mode: z.enum(["signup", "login"]).catch("login"),
+});
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "تسجيل الدخول — تنوير" },
-      { name: "description", content: "سجّل دخولك إلى منصة تنوير التعليمية" },
+      { title: "الدخول إلى تنوير" },
+      { name: "description", content: "سجّل دخولك أو أنشئ حسابًا جديدًا في تنوير." },
     ],
   }),
   component: AuthPage,
 });
 
+const PHONE_OTP_ENABLED = false; // فعّلها لاحقًا عند جاهزية SMS
+
 function AuthPage() {
   const navigate = useNavigate();
+  const { mode } = Route.useSearch();
   const { session, profileComplete, loading } = useAuth();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
-    if (session) {
-      navigate({ to: profileComplete ? "/" : "/complete-profile" });
-    }
+    if (session) navigate({ to: profileComplete ? "/app" : "/complete-profile", replace: true });
   }, [session, loading, profileComplete, navigate]);
 
-  const handleEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErr(null);
-    setMsg(null);
-    setBusy(true);
-    try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: getAuthRedirectUrl("/auth/callback"),
-            data: { full_name: fullName },
-          },
-        });
-        if (error) throw error;
-        setMsg("تم إنشاء الحساب. تحقّق من بريدك لتأكيد الحساب.");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
-    } catch (e) {
-      setErr(translateAuthError(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const setMode = (m: "signup" | "login") =>
+    navigate({ to: "/auth", search: { mode: m }, replace: true });
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10" dir="rtl">
+      <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-card">
+        <Link to="/" className="text-sm text-muted-foreground">→ العودة للرئيسية</Link>
+
+        <div className="mt-3 inline-flex w-full rounded-lg border bg-secondary/40 p-1 text-sm">
+          <button
+            type="button"
+            onClick={() => setMode("signup")}
+            className={`flex-1 rounded-md py-1.5 ${mode === "signup" ? "bg-card font-bold shadow-sm" : "text-muted-foreground"}`}
+          >
+            إنشاء حساب جديد
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("login")}
+            className={`flex-1 rounded-md py-1.5 ${mode === "login" ? "bg-card font-bold shadow-sm" : "text-muted-foreground"}`}
+          >
+            تسجيل دخول
+          </button>
+        </div>
+
+        {mode === "signup" ? <SignupPanel /> : <LoginPanel />}
+      </div>
+    </div>
+  );
+}
+
+function SignupPanel() {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   const handleGoogle = async () => {
     setErr(null);
     setBusy(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
+      const r = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: getAuthRedirectUrl("/auth/callback"),
       });
-      if (result.error) throw result.error;
+      if (r.error) throw r.error;
     } catch (e) {
       setErr(translateAuthError(e));
       setBusy(false);
@@ -80,69 +86,126 @@ function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-card">
-        <Link to="/" className="text-sm text-muted-foreground">→ العودة للرئيسية</Link>
-        <h1 className="mt-3 text-2xl font-bold text-foreground">
-          {mode === "signin" ? "تسجيل الدخول" : "إنشاء حساب جديد"}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {mode === "signin" ? "ادخل إلى حسابك في تنوير" : "ابدأ رحلتك مع تنوير"}
+    <div className="mt-5 space-y-3">
+      <h1 className="text-xl font-bold">إنشاء حساب جديد</h1>
+      <p className="text-sm text-muted-foreground">اختر طريقة التسجيل المناسبة لك.</p>
+
+      <Button type="button" className="w-full" onClick={handleGoogle} disabled={busy}>
+        التسجيل بحساب Google
+      </Button>
+
+      <Button type="button" variant="outline" className="w-full" disabled={!PHONE_OTP_ENABLED}>
+        التسجيل برقم الهاتف
+      </Button>
+      {!PHONE_OTP_ENABLED && (
+        <p className="text-xs text-muted-foreground text-center">
+          التسجيل برقم الهاتف سيتوفر قريبًا.
         </p>
+      )}
 
-        <Button
-          type="button"
-          variant="outline"
-          className="mt-5 w-full"
-          onClick={handleGoogle}
-          disabled={busy}
-        >
-          متابعة بحساب Google
-        </Button>
+      {err && <p className="text-sm text-destructive">{err}</p>}
+    </div>
+  );
+}
 
-        <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="h-px flex-1 bg-border" />
-          أو
-          <div className="h-px flex-1 bg-border" />
-        </div>
+function LoginPanel() {
+  const [identifier, setIdentifier] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
 
-        <form onSubmit={handleEmail} className="space-y-3">
-          {mode === "signup" && (
-            <div>
-              <Label htmlFor="fn">الاسم الكامل</Label>
-              <Input id="fn" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-            </div>
-          )}
-          <div>
-            <Label htmlFor="em">البريد الإلكتروني</Label>
-            <Input id="em" type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </div>
-          <div>
-            <Label htmlFor="pw">كلمة المرور</Label>
-            <Input id="pw" type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
-          </div>
+  const isEmail = (v: string) => /\S+@\S+\.\S+/.test(v.trim());
+  const isPhoneLike = (v: string) => /^\+?\d[\d\s-]{6,}$/.test(v.trim());
 
-          {err && <p className="text-sm text-destructive">{err}</p>}
-          {msg && <p className="text-sm text-primary">{msg}</p>}
+  const handleGoogle = async () => {
+    setErr(null);
+    setBusy(true);
+    try {
+      const r = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: getAuthRedirectUrl("/auth/callback"),
+      });
+      if (r.error) throw r.error;
+    } catch (e) {
+      setErr(translateAuthError(e));
+      setBusy(false);
+    }
+  };
 
-          <Button type="submit" className="w-full" disabled={busy}>
-            {busy ? "..." : mode === "signin" ? "دخول" : "إنشاء الحساب"}
-          </Button>
-        </form>
+  const handleSendCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setMsg(null);
 
-        <div className="mt-4 flex justify-between text-sm">
-          <button
-            type="button"
-            className="text-primary"
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          >
-            {mode === "signin" ? "ليس لديك حساب؟ سجّل" : "لديك حساب؟ ادخل"}
-          </button>
-          {mode === "signin" && (
-            <Link to="/forgot-password" className="text-muted-foreground">نسيت كلمة المرور؟</Link>
-          )}
-        </div>
+    const v = identifier.trim();
+    if (isEmail(v)) {
+      setBusy(true);
+      try {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: v,
+          options: { emailRedirectTo: getAuthRedirectUrl("/auth/callback") },
+        });
+        if (error) throw error;
+        setMsg("أرسلنا رابط/كود تسجيل الدخول إلى بريدك. افتح الرسالة لإتمام الدخول.");
+      } catch (e2) {
+        setErr(translateAuthError(e2));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
+    if (isPhoneLike(v)) {
+      if (!PHONE_OTP_ENABLED) {
+        setErr("تسجيل الدخول برقم الهاتف سيتوفر قريبًا. استخدم البريد الإلكتروني أو حساب Google.");
+        return;
+      }
+      // Phone OTP placeholder for future
+      return;
+    }
+
+    setErr("أدخل بريدًا إلكترونيًا صالحًا أو رقم هاتف.");
+  };
+
+  return (
+    <div className="mt-5 space-y-3">
+      <h1 className="text-xl font-bold">تسجيل الدخول</h1>
+      <p className="text-sm text-muted-foreground">
+        أدخل بريدك أو رقم هاتفك لنرسل كود التحقق.
+      </p>
+
+      <Button type="button" className="w-full" onClick={handleGoogle} disabled={busy}>
+        الدخول بحساب Google
+      </Button>
+
+      <div className="my-2 flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="h-px flex-1 bg-border" /> أو <div className="h-px flex-1 bg-border" />
       </div>
+
+      <form onSubmit={handleSendCode} className="space-y-3">
+        <div>
+          <Label htmlFor="id">رقم الهاتف أو البريد الإلكتروني</Label>
+          <Input
+            id="id"
+            dir="ltr"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder="you@example.com"
+            required
+          />
+          {!PHONE_OTP_ENABLED && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              تسجيل الدخول برقم الهاتف سيتوفر قريبًا.
+            </p>
+          )}
+        </div>
+
+        {err && <p className="text-sm text-destructive">{err}</p>}
+        {msg && <p className="text-sm text-primary">{msg}</p>}
+
+        <Button type="submit" variant="outline" className="w-full" disabled={busy}>
+          {busy ? "..." : "إرسال كود التحقق"}
+        </Button>
+      </form>
     </div>
   );
 }
