@@ -23,8 +23,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
+import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedLessonsLessonIdRouteImport } from './routes/_authenticated/lessons.$lessonId'
-import { Route as AuthenticatedSubjectsSubjectIdLessonsRouteImport } from './routes/_authenticated/subjects.$subjectId.lessons'
 import { Route as AuthenticatedGradesGradeIdSubjectsRouteImport } from './routes/_authenticated/grades.$gradeId.subjects'
 
 const TermsRoute = TermsRouteImport.update({
@@ -96,16 +96,16 @@ const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
   path: '/app',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSubjectsSubjectIdRoute =
+  AuthenticatedSubjectsSubjectIdRouteImport.update({
+    id: '/subjects/$subjectId',
+    path: '/subjects/$subjectId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedLessonsLessonIdRoute =
   AuthenticatedLessonsLessonIdRouteImport.update({
     id: '/lessons/$lessonId',
     path: '/lessons/$lessonId',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedSubjectsSubjectIdLessonsRoute =
-  AuthenticatedSubjectsSubjectIdLessonsRouteImport.update({
-    id: '/subjects/$subjectId/lessons',
-    path: '/subjects/$subjectId/lessons',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedGradesGradeIdSubjectsRoute =
@@ -130,8 +130,8 @@ export interface FileRoutesByFullPath {
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
+  '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/grades/$gradeId/subjects': typeof AuthenticatedGradesGradeIdSubjectsRoute
-  '/subjects/$subjectId/lessons': typeof AuthenticatedSubjectsSubjectIdLessonsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -148,8 +148,8 @@ export interface FileRoutesByTo {
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
+  '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/grades/$gradeId/subjects': typeof AuthenticatedGradesGradeIdSubjectsRoute
-  '/subjects/$subjectId/lessons': typeof AuthenticatedSubjectsSubjectIdLessonsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -168,8 +168,8 @@ export interface FileRoutesById {
   '/_authenticated/grades': typeof AuthenticatedGradesRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/_authenticated/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
+  '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/_authenticated/grades/$gradeId/subjects': typeof AuthenticatedGradesGradeIdSubjectsRoute
-  '/_authenticated/subjects/$subjectId/lessons': typeof AuthenticatedSubjectsSubjectIdLessonsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -188,8 +188,8 @@ export interface FileRouteTypes {
     | '/grades'
     | '/auth/callback'
     | '/lessons/$lessonId'
+    | '/subjects/$subjectId'
     | '/grades/$gradeId/subjects'
-    | '/subjects/$subjectId/lessons'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -206,8 +206,8 @@ export interface FileRouteTypes {
     | '/grades'
     | '/auth/callback'
     | '/lessons/$lessonId'
+    | '/subjects/$subjectId'
     | '/grades/$gradeId/subjects'
-    | '/subjects/$subjectId/lessons'
   id:
     | '__root__'
     | '/'
@@ -225,8 +225,8 @@ export interface FileRouteTypes {
     | '/_authenticated/grades'
     | '/auth/callback'
     | '/_authenticated/lessons/$lessonId'
+    | '/_authenticated/subjects/$subjectId'
     | '/_authenticated/grades/$gradeId/subjects'
-    | '/_authenticated/subjects/$subjectId/lessons'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -343,18 +343,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/subjects/$subjectId': {
+      id: '/_authenticated/subjects/$subjectId'
+      path: '/subjects/$subjectId'
+      fullPath: '/subjects/$subjectId'
+      preLoaderRoute: typeof AuthenticatedSubjectsSubjectIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/lessons/$lessonId': {
       id: '/_authenticated/lessons/$lessonId'
       path: '/lessons/$lessonId'
       fullPath: '/lessons/$lessonId'
       preLoaderRoute: typeof AuthenticatedLessonsLessonIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/subjects/$subjectId/lessons': {
-      id: '/_authenticated/subjects/$subjectId/lessons'
-      path: '/subjects/$subjectId/lessons'
-      fullPath: '/subjects/$subjectId/lessons'
-      preLoaderRoute: typeof AuthenticatedSubjectsSubjectIdLessonsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/grades/$gradeId/subjects': {
@@ -383,15 +383,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppRoute: typeof AuthenticatedAppRoute
   AuthenticatedGradesRoute: typeof AuthenticatedGradesRouteWithChildren
   AuthenticatedLessonsLessonIdRoute: typeof AuthenticatedLessonsLessonIdRoute
-  AuthenticatedSubjectsSubjectIdLessonsRoute: typeof AuthenticatedSubjectsSubjectIdLessonsRoute
+  AuthenticatedSubjectsSubjectIdRoute: typeof AuthenticatedSubjectsSubjectIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppRoute: AuthenticatedAppRoute,
   AuthenticatedGradesRoute: AuthenticatedGradesRouteWithChildren,
   AuthenticatedLessonsLessonIdRoute: AuthenticatedLessonsLessonIdRoute,
-  AuthenticatedSubjectsSubjectIdLessonsRoute:
-    AuthenticatedSubjectsSubjectIdLessonsRoute,
+  AuthenticatedSubjectsSubjectIdRoute: AuthenticatedSubjectsSubjectIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
