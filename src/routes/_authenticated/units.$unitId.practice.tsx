@@ -5,8 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
-import { Home, ClipboardList, Lock, Send } from "lucide-react";
-import { toast } from "sonner";
+import { Home, ClipboardList, Lock, Send, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/units/$unitId/practice")({
   component: UnitPracticePage,
