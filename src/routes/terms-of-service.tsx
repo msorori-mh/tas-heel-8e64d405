@@ -1,0 +1,44 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import PublicFooter from "@/components/PublicFooter";
+
+export const Route = createFileRoute("/terms-of-service")({
+  head: () => ({
+    meta: [
+      { title: "شروط الاستخدام — تنوير" },
+      { name: "description", content: "شروط استخدام منصة تنوير التعليمية. باستخدامك المنصة فإنك توافق على هذه الشروط." },
+      { property: "og:title", content: "شروط الاستخدام — تنوير" },
+      { property: "og:description", content: "شروط استخدام منصة تنوير التعليمية. باستخدامك المنصة فإنك توافق على هذه الشروط." },
+      { property: "og:type", content: "website" },
+    ],
+    links: [{ rel: "canonical", href: "/terms-of-service" }],
+  }),
+  component: () => (
+    <div className="min-h-screen bg-background flex flex-col">
+      <article className="flex-1 px-4 py-10">
+        <div className="mx-auto max-w-3xl">
+          <Link to="/" className="text-sm text-muted-foreground">→ الرئيسية</Link>
+          <h1 className="mt-3 text-3xl font-bold">شروط الاستخدام</h1>
+          <p className="mt-4 text-muted-foreground">
+            باستخدامك منصة "تنوير"، فإنك توافق على الالتزام بهذه الشروط. المنصة مخصّصة
+            لطلاب الثانوية في اليمن لأغراض تعليمية شخصية.
+          </p>
+          <h2 className="mt-6 text-xl font-semibold">الاستخدام المسموح</h2>
+          <p className="mt-2 text-muted-foreground">
+            لا يُسمح بإعادة نشر المحتوى أو بيعه أو مشاركة الحساب مع أشخاص آخرين. أي
+            استخدام مخالف قد يؤدي إلى إيقاف الحساب.
+          </p>
+          <h2 className="mt-6 text-xl font-semibold">الاشتراكات</h2>
+          <p className="mt-2 text-muted-foreground">
+            الاشتراكات مدفوعة وتنتهي حسب المدة المختارة. تُحفظ المدفوعات في محفظتك ضمن
+            المنصة.
+          </p>
+          <p className="mt-6 text-muted-foreground">
+            للاستفسار:{" "}
+            <a href="mailto:support@studentamkeen.com" className="text-primary">support@studentamkeen.com</a>
+          </p>
+        </div>
+      </article>
+      <PublicFooter />
+    </div>
+  ),
+});
