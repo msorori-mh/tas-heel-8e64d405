@@ -165,5 +165,3 @@ function InfoChip({
   );
 }
 
-// Silence unused Button import while keeping it available for future CTAs
-void Button;
