@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   BookOpen,
   FileText,
@@ -60,7 +60,7 @@ const HeroSection = () => (
             دروسك، ملخصاتك، وأسئلتك في مكان واحد — حسب صفك ومحافظتك.
           </p>
 
-          <Link to={startHref} className="inline-block w-full sm:w-auto">
+          <a href={startHref} className="inline-block w-full sm:w-auto">
             <Button
               size="lg"
               className="w-full sm:w-auto gap-2 text-base px-8 py-5 bg-accent text-accent-foreground hover:bg-accent/90 shadow-card"
@@ -68,7 +68,7 @@ const HeroSection = () => (
               <BookOpen className="h-5 w-5" />
               ابدأ الآن
             </Button>
-          </Link>
+          </a>
 
           <p className="mt-3 text-xs text-muted-foreground">
             دقيقة واحدة لاختيار صفك والبدء.
@@ -146,7 +146,7 @@ const CTAFooter = () => (
               اختر صفك وافتح درس اليوم.
             </p>
           </div>
-          <Link to={startHref} className="w-full sm:w-auto">
+          <a href={startHref} className="w-full sm:w-auto">
             <Button
               size="lg"
               className="w-full sm:w-auto px-8 py-5 text-base gap-2 bg-accent text-accent-foreground hover:bg-accent/90 shadow-card"
@@ -154,7 +154,7 @@ const CTAFooter = () => (
               <BookOpen className="h-5 w-5" />
               ابدأ الآن
             </Button>
-          </Link>
+          </a>
         </div>
       </div>
     </section>
