@@ -73,7 +73,7 @@ function SubjectsPage() {
           {data.map((s) => (
             <li key={s.id}>
               <Link
-                to="/subjects/$subjectId/lessons"
+                to="/subjects/$subjectId"
                 params={{ subjectId: s.id }}
                 className="flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
               >
