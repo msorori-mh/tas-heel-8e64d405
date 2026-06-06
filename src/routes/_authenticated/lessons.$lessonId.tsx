@@ -108,7 +108,7 @@ function LessonPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("units")
-        .select("id,title,sort_order")
+        .select("id,title,sort_order,is_free")
         .eq("id", lesson!.unit_id!)
         .maybeSingle();
       if (error) throw error;
