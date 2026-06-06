@@ -473,6 +473,34 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
           )}
         </div>
       </div>
+
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">محاولاتك السابقة</h3>
+        {attempts && attempts.length > 0 ? (
+          <ul className="space-y-2">
+            {attempts.map((a) => (
+              <li
+                key={a.id}
+                className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+              >
+                <span className="text-sm font-medium text-foreground">{a.score}%</span>
+                <span className="text-xs text-muted-foreground">
+                  {a.correct} صحيح من {a.total}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(a.created_at).toLocaleDateString("ar-YE", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">لا توجد محاولات سابقة لهذه الوحدة.</p>
+        )}
+      </div>
     </section>
   );
 }
