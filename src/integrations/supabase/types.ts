@@ -1739,6 +1739,10 @@ export type Database = {
         Args: { _answers: Json; _lesson_id: string }
         Returns: Json
       }
+      grade_unit_practice: {
+        Args: { _answers: Json; _unit_id: string }
+        Returns: Json
+      }
       has_active_subscription: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
