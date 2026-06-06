@@ -1378,6 +1378,63 @@ export type Database = {
         }
         Relationships: []
       }
+      unit_practice_attempts: {
+        Row: {
+          answered: number
+          answers: Json
+          correct: number
+          created_at: string
+          id: string
+          per_question: Json
+          score: number
+          subject_id: string
+          total: number
+          unit_id: string
+          user_id: string
+        }
+        Insert: {
+          answered: number
+          answers?: Json
+          correct: number
+          created_at?: string
+          id?: string
+          per_question?: Json
+          score: number
+          subject_id: string
+          total: number
+          unit_id: string
+          user_id: string
+        }
+        Update: {
+          answered?: number
+          answers?: Json
+          correct?: number
+          created_at?: string
+          id?: string
+          per_question?: Json
+          score?: number
+          subject_id?: string
+          total?: number
+          unit_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_practice_attempts_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_practice_attempts_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       units: {
         Row: {
           created_at: string
