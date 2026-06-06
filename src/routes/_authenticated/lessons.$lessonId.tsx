@@ -1,227 +1,407 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
-import { useLessonFileUrl } from "@/hooks/use-lesson-file-url";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, FileText, Video, FlaskConical, Link as LinkIcon } from "lucide-react";
+import { Home, BookOpen, Layers, CheckCircle2, XCircle, HelpCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
   component: LessonPage,
 });
 
-type Resource = {
+type Lesson = {
   id: string;
-  resource_type: string;
   title: string;
-  url: string;
-  description: string | null;
+  subject_id: string;
+  unit_id: string | null;
   sort_order: number;
+  content_text: string | null;
 };
-type LessonPayload = {
-  error?: "forbidden" | "not_found";
-  lesson?: {
-    id: string;
-    title: string;
-    subject_id: string;
-    content_text: string | null;
-    content_pdf_url: string | null;
-    video_url: string | null;
-  };
-  book?: { content: string | null; pdf_url: string | null } | null;
-  summary?: { summary: string | null; key_points: string[] | null; study_tip: string | null } | null;
-  explanations?: { id: string; title: string; content: string }[];
-  resources?: Resource[];
+
+type Subject = {
+  id: string;
+  name: string;
+  grade_id: string;
+  curriculum_track_id: string | null;
+};
+
+type Unit = { id: string; title: string; sort_order: number } | null;
+
+type QuestionRow = {
+  id: string;
+  question_text: string;
+  options: unknown;
+  correct_index: number;
+  explanation: string | null;
+  sort_order: number;
 };
 
 function LessonPage() {
   const { lessonId } = Route.useParams();
-  const router = useRouter();
+  const { profile } = useAuth();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["lesson-full", lessonId],
-    queryFn: async (): Promise<LessonPayload> => {
-      const { data, error } = await supabase.rpc("get_lesson_full_content", {
-        _lesson_id: lessonId,
-      });
+  const { data: lesson, isLoading: loadingLesson, error: lessonErr } = useQuery({
+    queryKey: ["lesson-meta", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lessons")
+        .select("id,title,subject_id,unit_id,sort_order,content_text")
+        .eq("id", lessonId)
+        .maybeSingle();
       if (error) throw error;
-      return (data ?? {}) as LessonPayload;
+      return (data as Lesson | null) ?? null;
     },
   });
 
-  if (isLoading) return <StateMessage variant="loading">جارٍ تحميل الدرس…</StateMessage>;
-  if (error)
-    return <StateMessage variant="error">تعذّر تحميل الدرس. حاول مجدداً.</StateMessage>;
+  const { data: subject } = useQuery({
+    enabled: !!lesson?.subject_id,
+    queryKey: ["lesson-subject", lesson?.subject_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subjects")
+        .select("id,name,grade_id,curriculum_track_id")
+        .eq("id", lesson!.subject_id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as Subject | null) ?? null;
+    },
+  });
 
-  if (data?.error === "forbidden") {
+  const { data: unit } = useQuery({
+    enabled: !!lesson?.unit_id,
+    queryKey: ["lesson-unit", lesson?.unit_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("units")
+        .select("id,title,sort_order")
+        .eq("id", lesson!.unit_id!)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as Unit) ?? null;
+    },
+  });
+
+  const accessible = useMemo(() => {
+    if (!subject || !profile) return null;
+    const profileGrade =
+      profile.grade_uuid ?? (profile.grade_id ? String(profile.grade_id) : null);
+    if (profileGrade && subject.grade_id !== profileGrade) return false;
+    if (
+      subject.curriculum_track_id &&
+      profile.curriculum_track_id &&
+      subject.curriculum_track_id !== profile.curriculum_track_id
+    ) {
+      return false;
+    }
+    return true;
+  }, [subject, profile]);
+
+  const { data: book } = useQuery({
+    enabled: !!lesson && accessible === true,
+    queryKey: ["lesson-book", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lesson_book_contents")
+        .select("content")
+        .eq("lesson_id", lessonId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as { content: string | null } | null) ?? null;
+    },
+  });
+
+  const { data: summary } = useQuery({
+    enabled: !!lesson && accessible === true,
+    queryKey: ["lesson-summary", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lesson_summaries")
+        .select("summary,key_points,study_tip")
+        .eq("lesson_id", lessonId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as
+        | { summary: string | null; key_points: unknown; study_tip: string | null }
+        | null;
+    },
+  });
+
+  const { data: questions } = useQuery({
+    enabled: !!lesson && accessible === true,
+    queryKey: ["lesson-questions", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("questions")
+        .select("id,question_text,options,correct_index,explanation,sort_order")
+        .eq("lesson_id", lessonId)
+        .order("sort_order")
+        .order("created_at");
+      if (error) throw error;
+      return (data ?? []) as QuestionRow[];
+    },
+  });
+
+  if (loadingLesson) return <StateMessage variant="loading">جارٍ تحميل الدرس…</StateMessage>;
+  if (lessonErr || !lesson) {
     return (
       <div className="space-y-4">
-        <StateMessage variant="error">
-          هذا الدرس غير متاح ضمن اشتراكك أو مسارك الحالي.
-        </StateMessage>
-        <Button variant="outline" onClick={() => router.history.back()}>
-          <ArrowRight className="ml-2 h-4 w-4" /> رجوع
-        </Button>
+        <Breadcrumbs subjectName={null} subjectId={null} lessonName={null} />
+        <StateMessage>هذا الدرس غير متاح.</StateMessage>
+        <BackToApp />
       </div>
     );
   }
-  if (data?.error === "not_found" || !data?.lesson) {
+  if (subject && accessible === false) {
     return (
       <div className="space-y-4">
-        <StateMessage>الدرس غير موجود.</StateMessage>
-        <Button variant="outline" onClick={() => router.history.back()}>
-          <ArrowRight className="ml-2 h-4 w-4" /> رجوع
-        </Button>
+        <Breadcrumbs subjectName={null} subjectId={null} lessonName={null} />
+        <StateMessage>هذا الدرس غير متاح.</StateMessage>
+        <BackToApp />
       </div>
     );
   }
 
-  const lesson = data.lesson;
-  const bookPdf = data.book?.pdf_url ?? lesson.content_pdf_url ?? null;
-  const bookContent = data.book?.content ?? lesson.content_text ?? null;
-  const resources = data.resources ?? [];
+  const bookContent = (book?.content ?? lesson.content_text ?? "").trim();
 
   return (
-    <article className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-extrabold text-foreground">{lesson.title}</h1>
+    <article className="space-y-5">
+      <Breadcrumbs
+        subjectName={subject?.name ?? null}
+        subjectId={subject?.id ?? null}
+        lessonName={lesson.title}
+      />
+
+      <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
+        <h1 className="text-xl font-bold text-foreground">{lesson.title}</h1>
+        <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+          {subject && (
+            <span className="inline-flex items-center gap-1">
+              <BookOpen className="h-3.5 w-3.5" /> {subject.name}
+            </span>
+          )}
+          {unit && (
+            <span className="inline-flex items-center gap-1">
+              <Layers className="h-3.5 w-3.5" /> {unit.title}
+            </span>
+          )}
+        </div>
       </header>
 
-      {bookContent && (
-        <section className="rounded-xl border border-border bg-card p-4 shadow-card">
-          <h2 className="mb-2 text-base font-bold">المحتوى</h2>
+      <Section title="محتوى الدرس من الكتاب">
+        {bookContent ? (
           <div className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
             {bookContent}
           </div>
-        </section>
-      )}
+        ) : (
+          <EmptyText>لم يُضف محتوى الكتاب لهذا الدرس بعد.</EmptyText>
+        )}
+      </Section>
 
-      {bookPdf && <SecureFileBlock lessonId={lessonId} url={bookPdf} kind="pdf" title="كتاب الدرس (PDF)" />}
+      <Section title="ملخص الدرس">
+        {summary?.summary ? (
+          <>
+            <p className="text-sm leading-relaxed text-card-foreground">{summary.summary}</p>
+            {Array.isArray(summary.key_points) && summary.key_points.length > 0 && (
+              <ul className="mt-3 list-disc space-y-1 pr-5 text-sm text-card-foreground">
+                {(summary.key_points as unknown[]).map((p, i) => (
+                  <li key={i}>{String(p)}</li>
+                ))}
+              </ul>
+            )}
+            {summary.study_tip && (
+              <p className="mt-3 rounded-md bg-accent/10 p-2 text-xs">💡 {summary.study_tip}</p>
+            )}
+          </>
+        ) : (
+          <EmptyText>لم يُضف ملخص لهذا الدرس بعد.</EmptyText>
+        )}
+      </Section>
 
-      {lesson.video_url && (
-        <SecureFileBlock lessonId={lessonId} url={lesson.video_url} kind="video" title="فيديو الدرس" />
-      )}
-
-      {data.summary?.summary && (
-        <section className="rounded-xl border border-border bg-card p-4 shadow-card">
-          <h2 className="mb-2 text-base font-bold">ملخص الدرس</h2>
-          <p className="text-sm leading-relaxed">{data.summary.summary}</p>
-          {data.summary.key_points && data.summary.key_points.length > 0 && (
-            <ul className="mt-3 list-disc space-y-1 pr-5 text-sm">
-              {data.summary.key_points.map((p, i) => (
-                <li key={i}>{p}</li>
-              ))}
-            </ul>
-          )}
-          {data.summary.study_tip && (
-            <p className="mt-3 rounded-md bg-accent/10 p-2 text-xs text-accent-foreground">
-              💡 {data.summary.study_tip}
-            </p>
-          )}
-        </section>
-      )}
-
-      {data.explanations && data.explanations.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-base font-bold">شروحات الدرس</h2>
-          {data.explanations.map((e) => (
-            <div key={e.id} className="rounded-xl border border-border bg-card p-4 shadow-card">
-              <h3 className="mb-1 font-semibold">{e.title}</h3>
-              <div className="whitespace-pre-wrap text-sm leading-relaxed">{e.content}</div>
-            </div>
-          ))}
-        </section>
-      )}
-
-      {resources.length > 0 && (
-        <section className="space-y-2">
-          <h2 className="text-base font-bold">موارد الدرس</h2>
-          <ul className="space-y-2">
-            {resources.map((r) => (
-              <ResourceItem key={r.id} lessonId={lessonId} resource={r} />
+      <Section title="أسئلة الدرس" icon={<HelpCircle className="h-4 w-4 text-primary" />}>
+        {questions && questions.length > 0 ? (
+          <ol className="space-y-4">
+            {questions.map((q, idx) => (
+              <li key={q.id}>
+                <QuestionCard index={idx + 1} q={q} />
+              </li>
             ))}
-          </ul>
-        </section>
-      )}
+          </ol>
+        ) : (
+          <EmptyText>لم تُضف أسئلة لهذا الدرس بعد.</EmptyText>
+        )}
+      </Section>
+
+      <div className="pt-1">
+        {subject ? (
+          <Button asChild variant="outline" className="gap-1">
+            <Link to="/subjects/$subjectId" params={{ subjectId: subject.id }}>
+              <Home className="h-4 w-4" /> العودة إلى المادة
+            </Link>
+          </Button>
+        ) : (
+          <BackToApp />
+        )}
+      </div>
     </article>
   );
 }
 
-function ResourceIcon({ type }: { type: string }) {
-  if (type === "pdf") return <FileText className="h-5 w-5 text-primary" />;
-  if (type === "video") return <Video className="h-5 w-5 text-primary" />;
-  if (type === "experiment") return <FlaskConical className="h-5 w-5 text-primary" />;
-  return <LinkIcon className="h-5 w-5 text-primary" />;
-}
+function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
+  const options = Array.isArray(q.options) ? (q.options as unknown[]) : [];
+  const [selected, setSelected] = useState<number | null>(null);
+  const [checked, setChecked] = useState(false);
+  const isCorrect = checked && selected === q.correct_index;
 
-function ResourceItem({ lessonId, resource }: { lessonId: string; resource: Resource }) {
-  const { url, loading, error } = useLessonFileUrl(lessonId, resource.url);
-  const href = url ?? "#";
   return (
-    <li>
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => {
-          if (!url) e.preventDefault();
-        }}
-        className="flex items-center justify-between rounded-lg border border-border bg-card p-3 shadow-card hover:bg-secondary/40"
-      >
-        <div className="flex items-center gap-3">
-          <ResourceIcon type={resource.resource_type} />
-          <div>
-            <div className="text-sm font-semibold">{resource.title}</div>
-            {resource.description && (
-              <div className="text-xs text-muted-foreground">{resource.description}</div>
+    <div className="rounded-xl border border-border bg-background p-3">
+      <div className="mb-2 text-sm font-semibold text-foreground">
+        <span className="text-muted-foreground">س{index}: </span>
+        {q.question_text}
+      </div>
+
+      <div className="space-y-2">
+        {options.map((opt, i) => {
+          const active = selected === i;
+          const showCorrectness = checked && active;
+          const correctnessClass = showCorrectness
+            ? isCorrect
+              ? "border-emerald-500 bg-emerald-500/10"
+              : "border-destructive bg-destructive/10"
+            : checked && i === q.correct_index
+              ? "border-emerald-500 bg-emerald-500/5"
+              : active
+                ? "border-primary bg-primary/5"
+                : "border-border bg-card";
+          return (
+            <button
+              key={i}
+              type="button"
+              disabled={checked}
+              onClick={() => setSelected(i)}
+              className={`flex w-full items-start gap-2 rounded-lg border p-2 text-right text-sm transition-colors ${correctnessClass}`}
+            >
+              <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs">
+                {String.fromCharCode(0x0623 + i) /* أ ب ت ث … */}
+              </span>
+              <span className="min-w-0 flex-1 text-card-foreground">{String(opt)}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {!checked ? (
+        <Button
+          className="mt-3"
+          size="sm"
+          disabled={selected === null}
+          onClick={() => setChecked(true)}
+        >
+          تحقق من الإجابة
+        </Button>
+      ) : (
+        <div className="mt-3 space-y-2">
+          <div
+            className={`flex items-center gap-2 rounded-md p-2 text-sm font-semibold ${
+              isCorrect
+                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                : "bg-destructive/10 text-destructive"
+            }`}
+          >
+            {isCorrect ? (
+              <>
+                <CheckCircle2 className="h-4 w-4" /> إجابة صحيحة
+              </>
+            ) : (
+              <>
+                <XCircle className="h-4 w-4" /> إجابة غير صحيحة
+              </>
             )}
-            {loading && <div className="text-xs text-muted-foreground">جارٍ التجهيز…</div>}
-            {error && <div className="text-xs text-destructive">تعذّر فتح الملف</div>}
           </div>
+          {q.explanation && (
+            <p className="rounded-md bg-secondary/40 p-2 text-xs leading-relaxed text-muted-foreground">
+              {q.explanation}
+            </p>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setSelected(null);
+              setChecked(false);
+            }}
+          >
+            إعادة المحاولة
+          </Button>
         </div>
-      </a>
-    </li>
+      )}
+    </div>
   );
 }
 
-function SecureFileBlock({
-  lessonId,
-  url,
-  kind,
+function Section({
   title,
+  icon,
+  children,
 }: {
-  lessonId: string;
-  url: string;
-  kind: "pdf" | "video";
   title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
 }) {
-  const { url: resolved, loading, error } = useLessonFileUrl(lessonId, url);
-
   return (
-    <section className="rounded-xl border border-border bg-card p-4 shadow-card">
-      <h2 className="mb-2 text-base font-bold">{title}</h2>
-      {loading && <StateMessage variant="loading">جارٍ تجهيز الملف…</StateMessage>}
-      {error && <StateMessage variant="error">تعذّر فتح الملف.</StateMessage>}
-      {resolved && kind === "video" && (
-        <video src={resolved} controls className="w-full rounded-lg" />
-      )}
-      {resolved && kind === "pdf" && (
-        <div className="space-y-2">
-          <iframe
-            src={resolved}
-            title={title}
-            className="h-[60vh] w-full rounded-lg border border-border"
-          />
-          <a
-            href={resolved}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block text-sm text-primary hover:underline"
-          >
-            فتح في تبويب جديد
-          </a>
-        </div>
-      )}
+    <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
+      <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-foreground">
+        {icon} {title}
+      </h2>
+      {children}
     </section>
+  );
+}
+
+function EmptyText({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm text-muted-foreground">{children}</p>;
+}
+
+function Breadcrumbs({
+  subjectName,
+  subjectId,
+  lessonName,
+}: {
+  subjectName: string | null;
+  subjectId: string | null;
+  lessonName: string | null;
+}) {
+  return (
+    <nav className="text-xs text-muted-foreground" aria-label="مسار التنقل">
+      <Link to="/app" className="hover:text-primary">
+        موادي
+      </Link>
+      <span className="mx-1">/</span>
+      {subjectId && subjectName ? (
+        <Link
+          to="/subjects/$subjectId"
+          params={{ subjectId }}
+          className="hover:text-primary"
+        >
+          {subjectName}
+        </Link>
+      ) : (
+        <span>المادة</span>
+      )}
+      <span className="mx-1">/</span>
+      <span className="text-foreground">{lessonName ?? "الدرس"}</span>
+    </nav>
+  );
+}
+
+function BackToApp() {
+  return (
+    <Button asChild variant="outline" className="gap-1">
+      <Link to="/app">
+        <Home className="h-4 w-4" /> العودة إلى موادي
+      </Link>
+    </Button>
   );
 }
