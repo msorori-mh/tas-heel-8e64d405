@@ -259,6 +259,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
   );
 
   const handleSubmit = async () => {
+    if (submitting || serverResult) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -266,13 +267,13 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
         question_id,
         selected_index,
       }));
-      const { data, error } = await supabase.rpc("grade_unit_practice", {
+      const { data, error } = await supabase.rpc("submit_unit_practice_attempt", {
         _unit_id: unitId,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         _answers: payload as any,
       });
       if (error) {
-        setSubmitError("تعذر تصحيح الاختبار.");
+        setSubmitError("تعذر حفظ نتيجة الاختبار.");
         return;
       }
       const res = data as unknown as { error?: string } & Partial<ServerResult>;
@@ -283,12 +284,12 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
           no_valid_questions: "لا توجد أسئلة صالحة للتصحيح.",
           unauthorized: "يجب تسجيل الدخول.",
         };
-        setSubmitError(map[res.error] ?? "تعذر تصحيح الاختبار.");
+        setSubmitError(map[res.error] ?? "تعذر حفظ نتيجة الاختبار.");
         return;
       }
       setServerResult(data as unknown as ServerResult);
     } catch {
-      setSubmitError("تعذر تصحيح الاختبار.");
+      setSubmitError("تعذر حفظ نتيجة الاختبار.");
     } finally {
       setSubmitting(false);
     }
