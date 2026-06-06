@@ -189,7 +189,7 @@ function LoginPanel() {
             dir="ltr"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
-            placeholder="you@example.com"
+            placeholder="مثال: 7xxxxxxxx أو name@example.com"
             required
           />
           {!PHONE_OTP_ENABLED && (
