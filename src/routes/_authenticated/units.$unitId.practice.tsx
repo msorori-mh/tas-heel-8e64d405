@@ -143,12 +143,7 @@ function UnitPracticePage() {
       </header>
 
       {canAccessPractice ? (
-        <section className="rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-center">
-          <ClipboardList className="mx-auto h-10 w-10 text-muted-foreground opacity-60" />
-          <p className="mt-4 text-sm text-muted-foreground">
-            سيتم عرض أسئلة اختبار الوحدة هنا قريبًا.
-          </p>
-        </section>
+        <PracticeQuestionsList unitId={unit.id} subjectId={subjectId} />
       ) : (
         <section className="rounded-2xl border border-border bg-card p-6 text-center shadow-card">
           <Lock className="mx-auto h-10 w-10 text-muted-foreground" />
