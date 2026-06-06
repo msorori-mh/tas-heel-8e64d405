@@ -23,6 +23,7 @@ type Unit = {
   title: string;
   description: string | null;
   sort_order: number;
+  is_free: boolean;
 };
 
 type Lesson = {
@@ -71,7 +72,7 @@ function SubjectIndexPage() {
       const [u, l] = await Promise.all([
         supabase
           .from("units")
-          .select("id,title,description,sort_order")
+          .select("id,title,description,sort_order,is_free")
           .eq("subject_id", subjectId)
           .order("sort_order")
           .order("title"),
@@ -139,6 +140,12 @@ function SubjectIndexPage() {
 
       {!hasAny && <StateMessage>لم تُضاف دروس لهذه المادة بعد.</StateMessage>}
 
+      {hasAny && (
+        <p className="rounded-lg border border-dashed border-border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
+          المحتوى الأساسي لكل درس متاح، وبعض الإضافات قد تتطلب اشتراكًا.
+        </p>
+      )}
+
       <div className="space-y-5">
         {units.map((u, idx) => {
           const items = lessonsByUnit.get(u.id) ?? [];
@@ -148,13 +155,14 @@ function SubjectIndexPage() {
               index={idx + 1}
               title={u.title}
               description={u.description}
+              isFree={u.is_free}
               lessons={items}
             />
           );
         })}
 
         {orphans.length > 0 && (
-          <UnitBlock title="دروس أخرى" description={null} lessons={orphans} />
+          <UnitBlock title="دروس أخرى" description={null} isFree={null} lessons={orphans} />
         )}
       </div>
 
@@ -181,17 +189,19 @@ function UnitBlock({
   index,
   title,
   description,
+  isFree,
   lessons,
 }: {
   index?: number;
   title: string;
   description: string | null;
+  isFree: boolean | null;
   lessons: Lesson[];
 }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
       <div className="mb-2 flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-base font-bold text-foreground">
             {index ? <span className="text-muted-foreground">الوحدة {index}: </span> : null}
             {title}
@@ -200,6 +210,17 @@ function UnitBlock({
             <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{description}</p>
           )}
         </div>
+        {isFree !== null && (
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+              isFree
+                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+            }`}
+          >
+            {isFree ? "مجانية" : "ضمن الاشتراك"}
+          </span>
+        )}
       </div>
 
       {lessons.length === 0 ? (

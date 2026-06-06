@@ -1,11 +1,26 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
-import { Home, BookOpen, Layers, CheckCircle2, XCircle, HelpCircle } from "lucide-react";
+import { getLessonFileUrl } from "@/lib/api/lesson-file.functions";
+import {
+  Home,
+  BookOpen,
+  Layers,
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
+  Lock,
+  Sparkles,
+  Video,
+  FlaskConical,
+  Map as MapIcon,
+  Link2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
   component: LessonPage,
@@ -27,7 +42,25 @@ type Subject = {
   curriculum_track_id: string | null;
 };
 
-type Unit = { id: string; title: string; sort_order: number } | null;
+type Unit = { id: string; title: string; sort_order: number; is_free: boolean } | null;
+
+type LessonExtra = { id: string; title: string | null; video_url: string | null };
+
+type ResourceRow = {
+  id: string;
+  resource_type: "video" | "mindmap" | "experiment" | "pdf" | "link";
+  title: string;
+  url: string;
+  description: string | null;
+  sort_order: number;
+};
+
+type SimulationRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  phet_url: string;
+};
 
 type QuestionRow = {
   id: string;
@@ -75,7 +108,7 @@ function LessonPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("units")
-        .select("id,title,sort_order")
+        .select("id,title,sort_order,is_free")
         .eq("id", lesson!.unit_id!)
         .maybeSingle();
       if (error) throw error;
@@ -142,6 +175,86 @@ function LessonPage() {
       return (data ?? []) as QuestionRow[];
     },
   });
+
+  // ── Phase N2D: unit-level access gate for enhancements ──
+  const { data: hasActiveSub } = useQuery({
+    enabled: !!profile?.user_id,
+    queryKey: ["has-active-subscription", profile?.user_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("has_active_subscription", {
+        _user_id: profile!.user_id,
+      });
+      if (error) return false;
+      return Boolean(data);
+    },
+  });
+
+  const { data: isAdmin } = useQuery({
+    enabled: !!profile?.user_id,
+    queryKey: ["is-admin", profile?.user_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("has_role", {
+        _user_id: profile!.user_id,
+        _role: "admin",
+      });
+      if (error) return false;
+      return Boolean(data);
+    },
+  });
+
+  const unitIsFree = unit?.is_free === true;
+  const canAccessEnhancements =
+    Boolean(isAdmin) || unitIsFree || Boolean(hasActiveSub);
+
+  // Lesson extras (video_url) — fetched only when allowed
+  const { data: lessonExtra } = useQuery({
+    enabled: !!lesson && accessible === true && canAccessEnhancements,
+    queryKey: ["lesson-extra", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lessons")
+        .select("id,title,video_url")
+        .eq("id", lessonId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as LessonExtra | null) ?? null;
+    },
+  });
+
+  const { data: resources } = useQuery({
+    enabled: !!lesson && accessible === true && canAccessEnhancements,
+    queryKey: ["lesson-resources", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lesson_resources")
+        .select("id,resource_type,title,url,description,sort_order")
+        .eq("lesson_id", lessonId)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as ResourceRow[];
+    },
+  });
+
+  const { data: simulations } = useQuery({
+    enabled: !!lesson && accessible === true && canAccessEnhancements,
+    queryKey: ["lesson-simulations", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lesson_simulations")
+        .select("id,title,description,phet_url")
+        .eq("lesson_id", lessonId)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as SimulationRow[];
+    },
+  });
+
+  const mindmaps = (resources ?? []).filter((r) => r.resource_type === "mindmap");
+  const videos = (resources ?? []).filter((r) => r.resource_type === "video");
+  const experiments = (resources ?? []).filter((r) => r.resource_type === "experiment");
+  const extras = (resources ?? []).filter(
+    (r) => r.resource_type === "pdf" || r.resource_type === "link",
+  );
 
   if (loadingLesson) return <StateMessage variant="loading">جارٍ تحميل الدرس…</StateMessage>;
   if (lessonErr || !lesson) {
@@ -232,6 +345,99 @@ function LessonPage() {
           <EmptyText>لم تُضف أسئلة لهذا الدرس بعد.</EmptyText>
         )}
       </Section>
+
+      <Section
+        title="إضافات تساعدك تفهم أكثر"
+        icon={<Sparkles className="h-4 w-4 text-primary" />}
+      >
+        {!canAccessEnhancements && !unitIsFree && (
+          <p className="mb-3 rounded-lg border border-dashed border-border bg-muted/30 p-2 text-xs leading-relaxed text-muted-foreground">
+            هذه الإضافات ضمن اشتراك الوحدة. المحتوى الأساسي للدرس متاح لك بالكامل.
+          </p>
+        )}
+
+        <EnhancementGroup
+          title="الخريطة الذهنية"
+          icon={<MapIcon className="h-4 w-4 text-primary" />}
+          locked={!canAccessEnhancements}
+          lockedMessage="الخريطة الذهنية متاحة ضمن الاشتراك."
+          emptyMessage="لم تُضَف خريطة ذهنية لهذا الدرس بعد."
+          items={mindmaps.map((r) => ({
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            url: r.url,
+          }))}
+          lessonId={lessonId}
+        />
+
+        <EnhancementGroup
+          title="شرح الفيديو"
+          icon={<Video className="h-4 w-4 text-primary" />}
+          locked={!canAccessEnhancements}
+          lockedMessage="شرح الفيديو متاح ضمن الاشتراك."
+          emptyMessage="لم يُضَف شرح فيديو لهذا الدرس بعد."
+          items={[
+            ...videos.map((r) => ({
+              id: r.id,
+              title: r.title,
+              description: r.description,
+              url: r.url,
+            })),
+            ...(lessonExtra?.video_url
+              ? [
+                  {
+                    id: `lesson-video-${lessonExtra.id}`,
+                    title: "فيديو الدرس",
+                    description: null,
+                    url: lessonExtra.video_url,
+                  },
+                ]
+              : []),
+          ]}
+          lessonId={lessonId}
+        />
+
+        <EnhancementGroup
+          title="التطبيق العملي / التجربة"
+          icon={<FlaskConical className="h-4 w-4 text-primary" />}
+          locked={!canAccessEnhancements}
+          lockedMessage="التجربة العملية متاحة ضمن الاشتراك."
+          emptyMessage="لا توجد تجربة عملية لهذا الدرس."
+          items={[
+            ...experiments.map((r) => ({
+              id: r.id,
+              title: r.title,
+              description: r.description,
+              url: r.url,
+            })),
+            ...(simulations ?? []).map((s) => ({
+              id: s.id,
+              title: s.title,
+              description: s.description,
+              url: s.phet_url,
+            })),
+          ]}
+          lessonId={lessonId}
+        />
+
+        <EnhancementGroup
+          title="موارد إضافية"
+          icon={<Link2 className="h-4 w-4 text-primary" />}
+          locked={!canAccessEnhancements}
+          lockedMessage="الموارد الإضافية متاحة ضمن الاشتراك."
+          emptyMessage="لا توجد موارد إضافية لهذا الدرس."
+          items={extras.map((r) => ({
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            url: r.url,
+          }))}
+          lessonId={lessonId}
+        />
+      </Section>
+
+
 
       <div className="pt-1">
         {subject ? (
@@ -405,3 +611,117 @@ function BackToApp() {
     </Button>
   );
 }
+
+type EnhancementItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  url: string;
+};
+
+function EnhancementGroup({
+  title,
+  icon,
+  locked,
+  lockedMessage,
+  emptyMessage,
+  items,
+  lessonId,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  locked: boolean;
+  lockedMessage: string;
+  emptyMessage: string;
+  items: EnhancementItem[];
+  lessonId: string;
+}) {
+  return (
+    <div className="mt-3 rounded-xl border border-border bg-background p-3">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+        {icon} {title}
+      </div>
+      {locked ? (
+        <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+          <Lock className="h-4 w-4" />
+          <span>{lockedMessage}</span>
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{emptyMessage}</p>
+      ) : (
+        <ul className="space-y-2">
+          {items.map((it) => (
+            <li key={it.id}>
+              <EnhancementItemRow item={it} lessonId={lessonId} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function isExternalUrl(u: string) {
+  return /^https?:\/\//i.test(u.trim());
+}
+
+function EnhancementItemRow({
+  item,
+  lessonId,
+}: {
+  item: EnhancementItem;
+  lessonId: string;
+}) {
+  const getUrl = useServerFn(getLessonFileUrl);
+  const [resolved, setResolved] = useState<string | null>(
+    isExternalUrl(item.url) ? item.url : null,
+  );
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isExternalUrl(item.url)) {
+      setResolved(item.url);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    getUrl({ data: { lessonId, url: item.url } })
+      .then((res) => {
+        if (!cancelled) setResolved(res.url);
+      })
+      .catch(() => {
+        if (!cancelled) setErr("تعذّر تحميل الملف.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.url, lessonId, getUrl]);
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-2">
+      <div className="text-sm font-semibold text-foreground">{item.title}</div>
+      {item.description && (
+        <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
+      )}
+      <div className="mt-2">
+        {loading && <span className="text-xs text-muted-foreground">جارٍ التحضير…</span>}
+        {err && <span className="text-xs text-destructive">{err}</span>}
+        {resolved && !loading && !err && (
+          <a
+            href={resolved}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            <Link2 className="h-3.5 w-3.5" /> فتح
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+

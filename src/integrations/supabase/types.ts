@@ -1383,6 +1383,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          is_free: boolean
           semester: number | null
           sort_order: number
           subject_id: string
@@ -1393,6 +1394,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_free?: boolean
           semester?: number | null
           sort_order?: number
           subject_id: string
@@ -1403,6 +1405,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_free?: boolean
           semester?: number | null
           sort_order?: number
           subject_id?: string
