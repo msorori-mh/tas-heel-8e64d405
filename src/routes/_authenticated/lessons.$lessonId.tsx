@@ -346,6 +346,99 @@ function LessonPage() {
         )}
       </Section>
 
+      <Section
+        title="إضافات تساعدك تفهم أكثر"
+        icon={<Sparkles className="h-4 w-4 text-primary" />}
+      >
+        {!canAccessEnhancements && !unitIsFree && (
+          <p className="mb-3 rounded-lg border border-dashed border-border bg-muted/30 p-2 text-xs leading-relaxed text-muted-foreground">
+            هذه الإضافات ضمن اشتراك الوحدة. المحتوى الأساسي للدرس متاح لك بالكامل.
+          </p>
+        )}
+
+        <EnhancementGroup
+          title="الخريطة الذهنية"
+          icon={<MapIcon className="h-4 w-4 text-primary" />}
+          locked={!canAccessEnhancements}
+          lockedMessage="الخريطة الذهنية متاحة ضمن الاشتراك."
+          emptyMessage="لم تُضَف خريطة ذهنية لهذا الدرس بعد."
+          items={mindmaps.map((r) => ({
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            url: r.url,
+          }))}
+          lessonId={lessonId}
+        />
+
+        <EnhancementGroup
+          title="شرح الفيديو"
+          icon={<Video className="h-4 w-4 text-primary" />}
+          locked={!canAccessEnhancements}
+          lockedMessage="شرح الفيديو متاح ضمن الاشتراك."
+          emptyMessage="لم يُضَف شرح فيديو لهذا الدرس بعد."
+          items={[
+            ...videos.map((r) => ({
+              id: r.id,
+              title: r.title,
+              description: r.description,
+              url: r.url,
+            })),
+            ...(lessonExtra?.video_url
+              ? [
+                  {
+                    id: `lesson-video-${lessonExtra.id}`,
+                    title: "فيديو الدرس",
+                    description: null,
+                    url: lessonExtra.video_url,
+                  },
+                ]
+              : []),
+          ]}
+          lessonId={lessonId}
+        />
+
+        <EnhancementGroup
+          title="التطبيق العملي / التجربة"
+          icon={<FlaskConical className="h-4 w-4 text-primary" />}
+          locked={!canAccessEnhancements}
+          lockedMessage="التجربة العملية متاحة ضمن الاشتراك."
+          emptyMessage="لا توجد تجربة عملية لهذا الدرس."
+          items={[
+            ...experiments.map((r) => ({
+              id: r.id,
+              title: r.title,
+              description: r.description,
+              url: r.url,
+            })),
+            ...(simulations ?? []).map((s) => ({
+              id: s.id,
+              title: s.title,
+              description: s.description,
+              url: s.phet_url,
+            })),
+          ]}
+          lessonId={lessonId}
+        />
+
+        <EnhancementGroup
+          title="موارد إضافية"
+          icon={<Link2 className="h-4 w-4 text-primary" />}
+          locked={!canAccessEnhancements}
+          lockedMessage="الموارد الإضافية متاحة ضمن الاشتراك."
+          emptyMessage="لا توجد موارد إضافية لهذا الدرس."
+          items={extras.map((r) => ({
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            url: r.url,
+          }))}
+          lessonId={lessonId}
+        />
+      </Section>
+
+
+
       <div className="pt-1">
         {subject ? (
           <Button asChild variant="outline" className="gap-1">
