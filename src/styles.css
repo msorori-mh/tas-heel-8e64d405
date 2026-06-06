@@ -147,3 +147,11 @@
     color: var(--color-foreground);
   }
 }
+
+@layer utilities {
+  .bg-hero-gradient { background: var(--hero-gradient); }
+  .shadow-card { box-shadow: var(--card-shadow); }
+  .shadow-card-hover { box-shadow: var(--card-shadow-hover); }
+}
+
+html[dir="rtl"] body { font-family: 'Cairo', system-ui, sans-serif; }
