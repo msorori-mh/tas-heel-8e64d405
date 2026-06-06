@@ -216,6 +216,22 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
     },
   });
 
+  const { data: attempts } = useQuery({
+    enabled: !!user?.id,
+    queryKey: ["unit-practice-attempts", unitId, user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("unit_practice_attempts")
+        .select("id,score,correct,total,created_at")
+        .eq("unit_id", unitId)
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data as { id: string; score: number; correct: number; total: number; created_at: string }[];
+    },
+  });
+
   if (lessons && lessonIds.length === 0) {
     return (
       <section className="rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-center">
