@@ -8,7 +8,7 @@ export function StudentNav() {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-        <Link to="/grades" className="flex items-center gap-2 font-bold text-foreground">
+        <Link to="/app" className="flex items-center gap-2 font-bold text-foreground">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-hero-gradient">
             <BookOpen className="h-4 w-4 text-primary-foreground" />
           </span>
@@ -16,17 +16,17 @@ export function StudentNav() {
         </Link>
         <nav className="flex items-center gap-3 text-sm">
           <Link
-            to="/grades"
+            to="/app"
             className="text-muted-foreground hover:text-foreground"
             activeProps={{ className: "text-primary font-semibold" }}
           >
-            الصفوف
+            الرئيسية
           </Link>
           <button
             type="button"
             onClick={async () => {
               await signOut();
-              navigate({ to: "/auth", replace: true });
+              navigate({ to: "/auth", search: { mode: "login" }, replace: true });
             }}
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground hover:text-destructive"
           >
