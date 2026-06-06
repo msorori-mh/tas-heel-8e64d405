@@ -306,6 +306,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
         return;
       }
       setServerResult(data as unknown as ServerResult);
+      queryClient.invalidateQueries({ queryKey: ["unit-practice-attempts", unitId, user?.id] });
     } catch {
       setSubmitError("تعذر حفظ نتيجة الاختبار.");
     } finally {
