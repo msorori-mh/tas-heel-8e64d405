@@ -1,13 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Users,
   BookOpen,
-  CreditCard,
+  GraduationCap,
   MessageSquare,
   ArrowLeft,
   Shield,
+  Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -15,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 });
 
 function AdminPage() {
-  const { isAdmin, loading, user } = useAuth();
+  const { isAdmin, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,6 +26,61 @@ function AdminPage() {
       navigate({ to: "/app", replace: true });
     }
   }, [loading, isAdmin, navigate]);
+
+  const enabled = !loading && isAdmin;
+
+  const studentsQ = useQuery({
+    enabled,
+    queryKey: ["admin-count", "profiles"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const subjectsQ = useQuery({
+    enabled,
+    queryKey: ["admin-count", "subjects"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("subjects")
+        .select("*", { count: "exact", head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const lessonsQ = useQuery({
+    enabled,
+    queryKey: ["admin-count", "lessons"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("lessons")
+        .select("*", { count: "exact", head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const contactsQ = useQuery({
+    enabled,
+    queryKey: ["admin-count", "contact_submissions"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("contact_submissions")
+        .select("*", { count: "exact", head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const anyLoading =
+    studentsQ.isLoading || subjectsQ.isLoading || lessonsQ.isLoading || contactsQ.isLoading;
+  const anyError =
+    studentsQ.isError || subjectsQ.isError || lessonsQ.isError || contactsQ.isError;
 
   if (loading) {
     return (
@@ -62,7 +120,49 @@ function AdminPage() {
         </Link>
       </div>
 
-      {/* Placeholder cards */}
+      {/* Stats cards */}
+      {anyError ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-6 text-center text-sm text-destructive">
+          تعذر تحميل الإحصائيات.
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            icon={<Users className="h-5 w-5" />}
+            label="الطلاب"
+            value={studentsQ.data}
+            loading={studentsQ.isLoading}
+            color="bg-blue-50 text-blue-600"
+            iconBg="bg-blue-100"
+          />
+          <StatCard
+            icon={<BookOpen className="h-5 w-5" />}
+            label="المواد"
+            value={subjectsQ.data}
+            loading={subjectsQ.isLoading}
+            color="bg-emerald-50 text-emerald-600"
+            iconBg="bg-emerald-100"
+          />
+          <StatCard
+            icon={<GraduationCap className="h-5 w-5" />}
+            label="الدروس"
+            value={lessonsQ.data}
+            loading={lessonsQ.isLoading}
+            color="bg-amber-50 text-amber-600"
+            iconBg="bg-amber-100"
+          />
+          <StatCard
+            icon={<MessageSquare className="h-5 w-5" />}
+            label="رسائل التواصل"
+            value={contactsQ.data}
+            loading={contactsQ.isLoading}
+            color="bg-rose-50 text-rose-600"
+            iconBg="bg-rose-100"
+          />
+        </div>
+      )}
+
+      {/* Coming soon placeholder cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <AdminCard
           icon={<Users className="h-5 w-5" />}
@@ -75,7 +175,7 @@ function AdminPage() {
           description="إدارة المواد والوحدات والدروس"
         />
         <AdminCard
-          icon={<CreditCard className="h-5 w-5" />}
+          icon={<Shield className="h-5 w-5" />}
           title="الاشتراكات"
           description="خطط الاشتراك والمدفوعات"
         />
@@ -92,6 +192,40 @@ function AdminPage() {
           سيتم إضافة المزيد من أدوات الإدارة قريبًا.
         </p>
       </div>
+    </div>
+  );
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+  loading,
+  color,
+  iconBg,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number | undefined;
+  loading: boolean;
+  color: string;
+  iconBg: string;
+}) {
+  return (
+    <div className={`rounded-xl border border-border bg-card p-5 shadow-card ${color}`}>
+      <div className="flex items-center justify-between">
+        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconBg}`}>
+          {icon}
+        </div>
+        {loading ? (
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        ) : (
+          <span className="text-2xl font-bold text-foreground">
+            {value === undefined || value === null ? "--" : value}
+          </span>
+        )}
+      </div>
+      <p className="mt-3 text-sm font-medium text-muted-foreground">{label}</p>
     </div>
   );
 }
