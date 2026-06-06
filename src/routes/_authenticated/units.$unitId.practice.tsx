@@ -178,6 +178,8 @@ type ServerResult = {
 };
 
 function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectId: string }) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
   const [serverResult, setServerResult] = useState<ServerResult | null>(null);
