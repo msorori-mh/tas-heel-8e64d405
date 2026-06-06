@@ -12,6 +12,7 @@ import {
   Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "@tanstack/react-router";
 import heroStudent from "@/assets/hero-student.png";
 
 export const Route = createFileRoute("/")({
