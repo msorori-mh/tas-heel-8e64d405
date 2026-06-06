@@ -169,6 +169,7 @@ type QuestionRow = {
 };
 
 type ServerResult = {
+  attempt_id?: string;
   total: number;
   answered: number;
   correct: number;
@@ -258,6 +259,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
   );
 
   const handleSubmit = async () => {
+    if (submitting || serverResult) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -265,13 +267,13 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
         question_id,
         selected_index,
       }));
-      const { data, error } = await supabase.rpc("grade_unit_practice", {
+      const { data, error } = await supabase.rpc("submit_unit_practice_attempt", {
         _unit_id: unitId,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         _answers: payload as any,
       });
       if (error) {
-        setSubmitError("تعذر تصحيح الاختبار.");
+        setSubmitError("تعذر حفظ نتيجة الاختبار.");
         return;
       }
       const res = data as unknown as { error?: string } & Partial<ServerResult>;
@@ -282,12 +284,12 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
           no_valid_questions: "لا توجد أسئلة صالحة للتصحيح.",
           unauthorized: "يجب تسجيل الدخول.",
         };
-        setSubmitError(map[res.error] ?? "تعذر تصحيح الاختبار.");
+        setSubmitError(map[res.error] ?? "تعذر حفظ نتيجة الاختبار.");
         return;
       }
       setServerResult(data as unknown as ServerResult);
     } catch {
-      setSubmitError("تعذر تصحيح الاختبار.");
+      setSubmitError("تعذر حفظ نتيجة الاختبار.");
     } finally {
       setSubmitting(false);
     }
@@ -326,6 +328,11 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
           <p className="mt-2 text-sm font-medium text-foreground">
             {scoreMessage(serverResult.score)}
           </p>
+          {serverResult.attempt_id && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              تم حفظ محاولتك.
+            </p>
+          )}
         </div>
       )}
 
@@ -421,7 +428,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
             {submitError
               ? submitError
               : serverResult
-                ? "تم تصحيح الاختبار."
+                ? "تم تصحيح الاختبار وحفظ النتيجة."
                 : answeredCount < totalCount
                   ? "أجب على جميع الأسئلة قبل التسليم."
                   : "جميع الأسئلة مُجابة. يمكنك التسليم الآن."}
