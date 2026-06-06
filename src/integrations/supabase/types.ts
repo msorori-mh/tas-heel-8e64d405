@@ -89,6 +89,36 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: []
+      }
       badges: {
         Row: {
           color: string
@@ -821,14 +851,24 @@ export type Database = {
           amount: number
           created_at: string
           currency: string
+          fraud_flags: Json
           id: string
+          normalized_amount: number | null
+          payment_date: string | null
           payment_method_id: string | null
           plan_id: string | null
+          receipt_hash: string | null
           receipt_url: string | null
+          refund_transaction_id: string | null
+          refunded_at: string | null
+          refunded_by: string | null
+          reversal_reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          sender_name: string | null
           status: string
           subscription_id: string | null
+          transaction_reference: string | null
           user_id: string
         }
         Insert: {
@@ -836,14 +876,24 @@ export type Database = {
           amount: number
           created_at?: string
           currency?: string
+          fraud_flags?: Json
           id?: string
+          normalized_amount?: number | null
+          payment_date?: string | null
           payment_method_id?: string | null
           plan_id?: string | null
+          receipt_hash?: string | null
           receipt_url?: string | null
+          refund_transaction_id?: string | null
+          refunded_at?: string | null
+          refunded_by?: string | null
+          reversal_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          sender_name?: string | null
           status?: string
           subscription_id?: string | null
+          transaction_reference?: string | null
           user_id: string
         }
         Update: {
@@ -851,14 +901,24 @@ export type Database = {
           amount?: number
           created_at?: string
           currency?: string
+          fraud_flags?: Json
           id?: string
+          normalized_amount?: number | null
+          payment_date?: string | null
           payment_method_id?: string | null
           plan_id?: string | null
+          receipt_hash?: string | null
           receipt_url?: string | null
+          refund_transaction_id?: string | null
+          refunded_at?: string | null
+          refunded_by?: string | null
+          reversal_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          sender_name?: string | null
           status?: string
           subscription_id?: string | null
+          transaction_reference?: string | null
           user_id?: string
         }
         Relationships: [
@@ -874,6 +934,13 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_requests_refund_transaction_id_fkey"
+            columns: ["refund_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_transactions"
             referencedColumns: ["id"]
           },
           {
@@ -1217,11 +1284,17 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string
           expires_at: string | null
           grade_id: string | null
           id: string
           plan_id: string | null
+          refund_reason: string | null
+          refunded_at: string | null
+          refunded_by: string | null
           semester: number | null
           starts_at: string | null
           status: string
@@ -1229,11 +1302,17 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
           expires_at?: string | null
           grade_id?: string | null
           id?: string
           plan_id?: string | null
+          refund_reason?: string | null
+          refunded_at?: string | null
+          refunded_by?: string | null
           semester?: number | null
           starts_at?: string | null
           status?: string
@@ -1241,11 +1320,17 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
           expires_at?: string | null
           grade_id?: string | null
           id?: string
           plan_id?: string | null
+          refund_reason?: string | null
+          refunded_at?: string | null
+          refunded_by?: string | null
           semester?: number | null
           starts_at?: string | null
           status?: string
@@ -1437,6 +1522,7 @@ export type Database = {
           metadata: Json
           reference_id: string | null
           reference_type: string | null
+          reverses_transaction_id: string | null
           type: string
           user_id: string
           wallet_account_id: string
@@ -1454,6 +1540,7 @@ export type Database = {
           metadata?: Json
           reference_id?: string | null
           reference_type?: string | null
+          reverses_transaction_id?: string | null
           type: string
           user_id: string
           wallet_account_id: string
@@ -1471,11 +1558,19 @@ export type Database = {
           metadata?: Json
           reference_id?: string | null
           reference_type?: string | null
+          reverses_transaction_id?: string | null
           type?: string
           user_id?: string
           wallet_account_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_reverses_transaction_id_fkey"
+            columns: ["reverses_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_transactions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "wallet_transactions_wallet_account_id_fkey"
             columns: ["wallet_account_id"]
@@ -1517,6 +1612,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_wallet: {
+        Args: {
+          _amount: number
+          _direction: string
+          _idempotency_key?: string
+          _reason: string
+          _user_id: string
+        }
+        Returns: Json
+      }
+      admin_refund_subscription: {
+        Args: {
+          _amount?: number
+          _cancel_subscription?: boolean
+          _idempotency_key?: string
+          _reason?: string
+          _subscription_id: string
+        }
+        Returns: Json
+      }
+      approve_payment_request: {
+        Args: { _admin_notes?: string; _request_id: string }
+        Returns: Json
+      }
       can_access_lesson: { Args: { _lesson_id: string }; Returns: boolean }
       can_access_subject: { Args: { _subject_id: string }; Returns: boolean }
       create_wallet_transaction: {
@@ -1638,6 +1757,15 @@ export type Database = {
         }
         Returns: number
       }
+      pay_subscription_from_wallet: {
+        Args: {
+          _grade_id?: string
+          _idempotency_key?: string
+          _plan_id: string
+          _semester?: number
+        }
+        Returns: Json
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -1647,6 +1775,10 @@ export type Database = {
         }[]
       }
       refresh_dashboard_stats: { Args: never; Returns: undefined }
+      reject_payment_request: {
+        Args: { _admin_notes?: string; _request_id: string }
+        Returns: Json
+      }
       subject_matches_track: {
         Args: { _subject_id: string; _track_id: string }
         Returns: boolean
@@ -1654,6 +1786,15 @@ export type Database = {
       user_can_access_subject_curriculum: {
         Args: { _subject_id: string }
         Returns: boolean
+      }
+      write_audit_log: {
+        Args: {
+          _action: string
+          _metadata?: Json
+          _target_id: string
+          _target_type: string
+        }
+        Returns: string
       }
     }
     Enums: {
