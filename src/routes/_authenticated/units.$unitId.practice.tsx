@@ -328,6 +328,11 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
           <p className="mt-2 text-sm font-medium text-foreground">
             {scoreMessage(serverResult.score)}
           </p>
+          {serverResult.attempt_id && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              تم حفظ محاولتك.
+            </p>
+          )}
         </div>
       )}
 
