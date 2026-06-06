@@ -87,7 +87,7 @@ function SignupPanel() {
 
   return (
     <div className="mt-5 space-y-3">
-      <h1 className="text-xl font-bold">إنشاء حساب جديد</h1>
+      <h1 className="text-xl font-bold">ابدأ رحلتك الدراسية في تنوير</h1>
       <p className="text-sm text-muted-foreground">اختر طريقة التسجيل المناسبة لك.</p>
 
       <Button type="button" className="w-full" onClick={handleGoogle} disabled={busy}>
@@ -168,9 +168,9 @@ function LoginPanel() {
 
   return (
     <div className="mt-5 space-y-3">
-      <h1 className="text-xl font-bold">تسجيل الدخول</h1>
+      <h1 className="text-xl font-bold">ادخل إلى حسابك لمتابعة دروسك</h1>
       <p className="text-sm text-muted-foreground">
-        أدخل بريدك أو رقم هاتفك لنرسل كود التحقق.
+        أدخل بريدك أو رقم هاتفك لنرسل لك كود التحقق.
       </p>
 
       <Button type="button" className="w-full" onClick={handleGoogle} disabled={busy}>
@@ -189,7 +189,7 @@ function LoginPanel() {
             dir="ltr"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
-            placeholder="you@example.com"
+            placeholder="مثال: 7xxxxxxxx أو name@example.com"
             required
           />
           {!PHONE_OTP_ENABLED && (
