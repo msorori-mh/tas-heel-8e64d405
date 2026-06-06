@@ -14,12 +14,26 @@ export const Route = createFileRoute("/complete-profile")({
 type Grade = { id: string; name: string };
 type Gov = { id: string; name: string };
 
+function splitName(full: string | null | undefined): [string, string, string] {
+  if (!full) return ["", "", ""];
+  const parts = full.trim().split(/\s+/);
+  if (parts.length === 0) return ["", "", ""];
+  if (parts.length === 1) return [parts[0], "", ""];
+  if (parts.length === 2) return [parts[0], "", parts[1]];
+  const first = parts[0];
+  const last = parts[parts.length - 1];
+  const middle = parts.slice(1, -1).join(" ");
+  return [first, middle, last];
+}
+
 function CompleteProfile() {
   const navigate = useNavigate();
   const { user, profile, loading, refreshProfile, profileComplete, signOut } = useAuth();
   const [grades, setGrades] = useState<Grade[]>([]);
   const [govs, setGovs] = useState<Gov[]>([]);
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [secondName, setSecondName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [gradeId, setGradeId] = useState<string>("");
   const [govId, setGovId] = useState<string>("");
   const [school, setSchool] = useState("");
@@ -27,16 +41,19 @@ function CompleteProfile() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && !user) navigate({ to: "/auth", replace: true });
+    if (!loading && !user) navigate({ to: "/auth", search: { mode: "login" }, replace: true });
   }, [loading, user, navigate]);
 
   useEffect(() => {
-    if (!loading && profileComplete) navigate({ to: "/grades", replace: true });
+    if (!loading && profileComplete) navigate({ to: "/app", replace: true });
   }, [loading, profileComplete, navigate]);
 
   useEffect(() => {
     if (profile) {
-      setFullName(profile.full_name ?? "");
+      const [f, s, l] = splitName(profile.full_name);
+      setFirstName(f);
+      setSecondName(s);
+      setLastName(l);
       if (profile.grade_uuid) setGradeId(profile.grade_uuid);
       else if (profile.grade_id) setGradeId(String(profile.grade_id));
       if (profile.governorate_id) setGovId(profile.governorate_id);
@@ -61,15 +78,34 @@ function CompleteProfile() {
     setBusy(true);
     setErr(null);
     try {
+      const fullName = [firstName, secondName, lastName]
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .join(" ");
+      if (!fullName) throw new Error("الاسم مطلوب");
+
+      // اشتقاق المسار من المحافظة (لا يُكتب من الواجهة)
+      let trackId: string | null = profile?.curriculum_track_id ?? null;
+      if (govId) {
+        const { data: mapRow } = await supabase
+          .from("governorate_curriculum_map")
+          .select("curriculum_track_id")
+          .eq("governorate_id", govId)
+          .limit(1)
+          .maybeSingle();
+        if (mapRow?.curriculum_track_id) trackId = mapRow.curriculum_track_id as string;
+      }
+
       const gov = govs.find((x) => x.id === govId);
       const payload = {
         user_id: user.id,
-        full_name: fullName.trim(),
+        full_name: fullName,
         grade_id: gradeId,
         grade_uuid: gradeId,
         governorate_id: govId,
         governorate: gov?.name ?? null,
         school_name: school.trim() || null,
+        ...(trackId ? { curriculum_track_id: trackId } : {}),
       };
       const { error } = await supabase
         .from("profiles")
@@ -77,9 +113,9 @@ function CompleteProfile() {
         .upsert(payload as any, { onConflict: "user_id" });
       if (error) throw error;
       await refreshProfile();
-      navigate({ to: "/grades", replace: true });
-    } catch (e) {
-      setErr(translateAuthError(e));
+      navigate({ to: "/app", replace: true });
+    } catch (e2) {
+      setErr(translateAuthError(e2));
     } finally {
       setBusy(false);
     }
@@ -90,7 +126,7 @@ function CompleteProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8">
+    <div className="min-h-screen bg-background px-4 py-8" dir="rtl">
       <div className="mx-auto max-w-lg rounded-2xl border bg-card p-6 shadow-card">
         <h1 className="text-2xl font-bold">أكمل بياناتك</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -98,25 +134,19 @@ function CompleteProfile() {
         </p>
 
         <form onSubmit={submit} className="mt-5 space-y-4">
-          <div>
-            <Label htmlFor="fn">الاسم الكامل</Label>
-            <Input id="fn" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-          </div>
-
-          <div>
-            <Label htmlFor="gr">الصف</Label>
-            <select
-              id="gr"
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={gradeId}
-              onChange={(e) => setGradeId(e.target.value)}
-              required
-            >
-              <option value="">-- اختر الصف --</option>
-              {grades.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <Label htmlFor="fn">الاسم الأول</Label>
+              <Input id="fn" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+            </div>
+            <div>
+              <Label htmlFor="sn">الاسم الثاني</Label>
+              <Input id="sn" value={secondName} onChange={(e) => setSecondName(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="ln">اللقب</Label>
+              <Input id="ln" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+            </div>
           </div>
 
           <div>
@@ -136,8 +166,24 @@ function CompleteProfile() {
           </div>
 
           <div>
-            <Label htmlFor="sc">المدرسة (اختياري)</Label>
-            <Input id="sc" value={school} onChange={(e) => setSchool(e.target.value)} />
+            <Label htmlFor="sc">المدرسة</Label>
+            <Input id="sc" value={school} onChange={(e) => setSchool(e.target.value)} required />
+          </div>
+
+          <div>
+            <Label htmlFor="gr">الصف الدراسي</Label>
+            <select
+              id="gr"
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={gradeId}
+              onChange={(e) => setGradeId(e.target.value)}
+              required
+            >
+              <option value="">-- اختر الصف --</option>
+              {grades.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
           </div>
 
           {err && <p className="text-sm text-destructive">{err}</p>}
@@ -149,7 +195,7 @@ function CompleteProfile() {
           <button
             type="button"
             className="w-full text-sm text-muted-foreground"
-            onClick={async () => { await signOut(); navigate({ to: "/auth" }); }}
+            onClick={async () => { await signOut(); navigate({ to: "/auth", search: { mode: "login" } }); }}
           >
             تسجيل الخروج
           </button>
