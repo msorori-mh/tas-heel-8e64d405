@@ -31,7 +31,7 @@ function CompleteProfile() {
   }, [loading, user, navigate]);
 
   useEffect(() => {
-    if (!loading && profileComplete) navigate({ to: "/", replace: true });
+    if (!loading && profileComplete) navigate({ to: "/grades", replace: true });
   }, [loading, profileComplete, navigate]);
 
   useEffect(() => {
@@ -77,7 +77,7 @@ function CompleteProfile() {
         .upsert(payload as any, { onConflict: "user_id" });
       if (error) throw error;
       await refreshProfile();
-      navigate({ to: "/", replace: true });
+      navigate({ to: "/grades", replace: true });
     } catch (e) {
       setErr(translateAuthError(e));
     } finally {
