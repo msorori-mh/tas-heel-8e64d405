@@ -260,13 +260,22 @@ function AdminLessonsPage() {
               قائمة الدروس — قراءة فقط.
             </p>
           </div>
-          <Link
-            to="/admin/academic"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
-          >
-            <ArrowRight className="h-4 w-4" />
-            المحتوى الدراسي
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" />
+              إضافة درس
+            </button>
+            <Link
+              to="/admin/academic"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+            >
+              <ArrowRight className="h-4 w-4" />
+              المحتوى الدراسي
+            </Link>
+          </div>
         </div>
 
         {/* Filters */}
