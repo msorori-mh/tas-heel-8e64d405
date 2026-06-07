@@ -454,6 +454,14 @@ function AdminUnitsPage() {
           mode="create"
           subjects={subjectsQ.data ?? []}
         />
+
+        <UnitDeleteDialog
+          open={deletingUnit !== null}
+          onOpenChange={(o) => {
+            if (!o) setDeletingUnit(null);
+          }}
+          unit={deletingUnit}
+        />
       </div>
     </AdminLayout>
   );
