@@ -94,16 +94,22 @@ function AdminLessonDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_summaries")
-        .select("id, summary, key_points")
-        .eq("lesson_id", lessonId)
-        .maybeSingle();
+        .select("id, summary, key_points, study_tip")
+        .eq("lesson_id", lessonId);
       if (error) throw error;
-      if (!data) return null;
-      const kp = Array.isArray(data.key_points) ? data.key_points : [];
+      const rows = data ?? [];
+      const first = rows[0];
+      const kp = first && Array.isArray(first.key_points) ? first.key_points : [];
       return {
-        exists: true,
+        items: rows.map((r) => ({
+          id: r.id,
+          summary: r.summary,
+          key_points: r.key_points,
+          study_tip: r.study_tip,
+        })),
+        count: rows.length,
         keyPointsCount: kp.length,
-        preview: data.summary ? data.summary.slice(0, 200) : "",
+        preview: first?.summary ? first.summary.slice(0, 200) : "",
       };
     },
   });
