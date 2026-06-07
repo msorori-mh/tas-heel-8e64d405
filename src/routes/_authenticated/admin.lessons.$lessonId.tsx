@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { LessonBookContentDialog } from "@/components/admin/LessonBookContentDialog";
+import { LessonSummaryDialog } from "@/components/admin/LessonSummaryDialog";
 import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil } from "lucide-react";
 
 
@@ -44,6 +45,7 @@ function AdminLessonDetailPage() {
 
   const enabled = !loading && isAdmin;
   const [openBookDialog, setOpenBookDialog] = useState(false);
+  const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
 
   const lessonQ = useQuery({
     enabled,
@@ -92,16 +94,22 @@ function AdminLessonDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_summaries")
-        .select("id, summary, key_points")
-        .eq("lesson_id", lessonId)
-        .maybeSingle();
+        .select("id, summary, key_points, study_tip")
+        .eq("lesson_id", lessonId);
       if (error) throw error;
-      if (!data) return null;
-      const kp = Array.isArray(data.key_points) ? data.key_points : [];
+      const rows = data ?? [];
+      const first = rows[0];
+      const kp = first && Array.isArray(first.key_points) ? first.key_points : [];
       return {
-        exists: true,
+        items: rows.map((r) => ({
+          id: r.id,
+          summary: r.summary,
+          key_points: r.key_points,
+          study_tip: r.study_tip,
+        })),
+        count: rows.length,
         keyPointsCount: kp.length,
-        preview: data.summary ? data.summary.slice(0, 200) : "",
+        preview: first?.summary ? first.summary.slice(0, 200) : "",
       };
     },
   });
@@ -317,23 +325,40 @@ function AdminLessonDetailPage() {
         <Section title="الملخص">
           {summaryQ.isLoading ? (
             <Loading />
-          ) : !summaryQ.data ? (
-            <p className="text-sm text-muted-foreground">لا يوجد ملخص.</p>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <Stat label="الحالة" value={<YesNo on={true} />} />
-                <Stat label="النقاط الرئيسية" value={summaryQ.data.keyPointsCount} />
-              </div>
-              {summaryQ.data.preview && (
-                <p className="mt-3 line-clamp-3 rounded-lg border border-border bg-muted/30 p-3 text-xs text-foreground/80 whitespace-pre-wrap">
-                  {summaryQ.data.preview}
-                  {summaryQ.data.preview.length >= 200 ? "…" : ""}
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  عدد السجلات: <span className="text-foreground font-medium">{summaryQ.data?.count ?? 0}</span>
                 </p>
+                <button
+                  onClick={() => setOpenSummaryDialog(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-muted"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  تحرير ملخص الدرس
+                </button>
+              </div>
+              {summaryQ.data && summaryQ.data.count > 0 ? (
+                <>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <Stat label="الحالة" value={<YesNo on={true} />} />
+                    <Stat label="النقاط الرئيسية" value={summaryQ.data.keyPointsCount} />
+                  </div>
+                  {summaryQ.data.preview && (
+                    <p className="mt-3 line-clamp-3 rounded-lg border border-border bg-muted/30 p-3 text-xs text-foreground/80 whitespace-pre-wrap">
+                      {summaryQ.data.preview}
+                      {summaryQ.data.preview.length >= 200 ? "…" : ""}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">لا يوجد ملخص.</p>
               )}
             </>
           )}
         </Section>
+
 
         {/* Questions */}
         <Section title="الأسئلة">
@@ -426,6 +451,13 @@ function AdminLessonDetailPage() {
           lessonId={lessonId}
           lessonTitle={(lesson as any)?.title ?? null}
           items={bookQ.data?.items ?? []}
+        />
+
+        <LessonSummaryDialog
+          open={openSummaryDialog}
+          onOpenChange={setOpenSummaryDialog}
+          lessonTitle={(lesson as any)?.title ?? null}
+          items={summaryQ.data?.items ?? []}
         />
       </div>
     </AdminLayout>
