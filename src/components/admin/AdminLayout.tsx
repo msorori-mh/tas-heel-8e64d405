@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 type LinkItem = {
-  href: "/admin" | "/admin/students" | "/admin/academic" | "/admin/subjects" | "/admin/units" | "/admin/lessons";
+  href: "/admin" | "/admin/students" | "/admin/academic" | "/admin/subjects" | "/admin/units" | "/admin/lessons" | "/admin/questions";
   label: string;
   icon: typeof LayoutDashboard;
   end?: boolean;
