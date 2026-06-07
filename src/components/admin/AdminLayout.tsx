@@ -7,6 +7,7 @@ import {
   Users,
   BookOpen,
   Layers,
+  HelpCircle,
   CreditCard,
   MessageSquare,
   Settings,
@@ -18,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 type LinkItem = {
-  href: "/admin" | "/admin/students" | "/admin/academic" | "/admin/subjects" | "/admin/units" | "/admin/lessons";
+  href: "/admin" | "/admin/students" | "/admin/academic" | "/admin/subjects" | "/admin/units" | "/admin/lessons" | "/admin/questions";
   label: string;
   icon: typeof LayoutDashboard;
   end?: boolean;
@@ -36,6 +37,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/subjects", label: "المواد", icon: BookOpen },
   { href: "/admin/units", label: "الوحدات", icon: Layers },
   { href: "/admin/lessons", label: "الدروس", icon: BookOpen },
+  { href: "/admin/questions", label: "الأسئلة", icon: HelpCircle },
 ];
 
 const upcomingLinks: DisabledItem[] = [
