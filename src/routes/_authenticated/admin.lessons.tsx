@@ -345,7 +345,15 @@ function AdminLessonsPage() {
                     return (
                       <tr key={r.id} className="border-t border-border">
                         <td className="px-3 py-3 text-muted-foreground">{r.sort_order}</td>
-                        <td className="px-3 py-3 text-foreground font-medium">{r.title}</td>
+                        <td className="px-3 py-3 text-foreground font-medium">
+                          <Link
+                            to="/admin/lessons/$lessonId"
+                            params={{ lessonId: r.id }}
+                            className="hover:text-primary hover:underline"
+                          >
+                            {r.title}
+                          </Link>
+                        </td>
                         <td className="px-3 py-3 text-muted-foreground">{r.unit?.title || "—"}</td>
                         <td className="px-3 py-3 text-muted-foreground">{r.subject?.name || "—"}</td>
                         <td className="px-3 py-3 text-muted-foreground">
