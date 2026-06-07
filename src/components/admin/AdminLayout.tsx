@@ -7,6 +7,7 @@ import {
   Users,
   BookOpen,
   Layers,
+  HelpCircle,
   CreditCard,
   MessageSquare,
   Settings,
