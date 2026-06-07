@@ -204,7 +204,7 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="create-unit">الوحة</Label>
+            <Label htmlFor="create-unit">الوحدة</Label>
             <select
               id="create-unit"
               value={unitId}
