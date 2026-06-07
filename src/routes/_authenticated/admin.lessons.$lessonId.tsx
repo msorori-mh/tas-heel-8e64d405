@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { LessonBookContentDialog } from "@/components/admin/LessonBookContentDialog";
 import { LessonSummaryDialog } from "@/components/admin/LessonSummaryDialog";
+import { LessonExplanationsDialog } from "@/components/admin/LessonExplanationsDialog";
 import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil } from "lucide-react";
 
 
@@ -46,6 +47,7 @@ function AdminLessonDetailPage() {
   const enabled = !loading && isAdmin;
   const [openBookDialog, setOpenBookDialog] = useState(false);
   const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
+  const [openExplanationsDialog, setOpenExplanationsDialog] = useState(false);
 
   const lessonQ = useQuery({
     enabled,
