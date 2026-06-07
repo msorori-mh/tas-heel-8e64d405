@@ -126,7 +126,7 @@ function AdminLessonsPage() {
       let q = supabase
         .from("lessons")
         .select(
-          "id, title, sort_order, duration, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)",
+          "id, title, sort_order, duration, is_free, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)",
           { count: "exact" }
         )
         .order("sort_order", { ascending: true })
