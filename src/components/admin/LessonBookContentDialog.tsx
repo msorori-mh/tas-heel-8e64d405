@@ -89,7 +89,6 @@ export function LessonBookContentDialog({
           .insert({
             lesson_id: lessonId,
             content: trimmed,
-            sort_order: 0,
           });
         if (error) throw error;
       }
