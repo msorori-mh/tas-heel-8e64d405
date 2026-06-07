@@ -452,6 +452,13 @@ function AdminLessonDetailPage() {
           lessonTitle={(lesson as any)?.title ?? null}
           items={bookQ.data?.items ?? []}
         />
+
+        <LessonSummaryDialog
+          open={openSummaryDialog}
+          onOpenChange={setOpenSummaryDialog}
+          lessonTitle={(lesson as any)?.title ?? null}
+          items={summaryQ.data?.items ?? []}
+        />
       </div>
     </AdminLayout>
   );
