@@ -384,6 +384,31 @@ export function LessonResourcesDialog({
                     </div>
                   </div>
 
+                  {r.resource_type === "pdf" && (
+                    <div className="rounded-md border border-dashed border-border bg-muted/20 p-2 space-y-1">
+                      <p className="text-[11px] text-muted-foreground">
+                        أو ارفع ملف PDF (PDF فقط — حد أقصى 25 ميغابايت). سيتم
+                        ملء حقل الرابط تلقائيًا كمرجع تخزين خاص ولن يُحفظ إلا
+                        بعد الضغط على "حفظ الموارد".
+                      </p>
+                      <FileUpload
+                        bucket="lesson-pdfs"
+                        folder={lessonId}
+                        accept="application/pdf,.pdf"
+                        allowedMimeTypes={["application/pdf"]}
+                        maxSizeMB={25}
+                        icon="pdf"
+                        label=""
+                        value={
+                          (r.url ?? "").startsWith("supabase-storage://")
+                            ? r.url
+                            : ""
+                        }
+                        onChange={(v) => updateRow(r.id, { url: v })}
+                      />
+                    </div>
+                  )}
+
                   <div>
                     <label className="text-[11px] text-muted-foreground">
                       الوصف (اختياري)
