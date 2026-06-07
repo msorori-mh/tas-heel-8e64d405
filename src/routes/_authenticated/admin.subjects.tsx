@@ -23,6 +23,8 @@ type SubjectRow = {
   lessons_count: number | null;
   grade_id: string;
   curriculum_track_id: string | null;
+  icon: string | null;
+  color: string | null;
   grade?: { id: string; name: string | null } | null;
   track?: { id: string; track_name: string | null } | null;
 };
@@ -34,6 +36,7 @@ function AdminSubjectsPage() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
+  const [editing, setEditing] = useState<SubjectEditValue | null>(null);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
