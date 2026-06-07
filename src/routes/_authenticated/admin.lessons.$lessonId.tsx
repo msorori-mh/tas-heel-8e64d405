@@ -456,6 +456,7 @@ function AdminLessonDetailPage() {
         <LessonSummaryDialog
           open={openSummaryDialog}
           onOpenChange={setOpenSummaryDialog}
+          lessonId={lessonId}
           lessonTitle={(lesson as any)?.title ?? null}
           items={summaryQ.data?.items ?? []}
         />
