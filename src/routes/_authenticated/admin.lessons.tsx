@@ -512,6 +512,8 @@ function AdminLessonsPage() {
           }}
           lesson={editingLesson ?? undefined}
         />
+
+        <LessonCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
       </div>
     </AdminLayout>
   );
