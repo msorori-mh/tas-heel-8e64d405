@@ -374,7 +374,7 @@ function AdminUnitsPage() {
                       {lessonsCountQ.isLoading ? "…" : lessonsMap[r.id] ?? 0}
                     </span>
                   </div>
-                  <div className="mt-3 flex justify-end">
+                  <div className="mt-3 flex justify-end gap-1.5">
                     <button
                       onClick={() =>
                         setEditing({
@@ -392,6 +392,20 @@ function AdminUnitsPage() {
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       تعديل
+                    </button>
+                    <button
+                      onClick={() =>
+                        setDeletingUnit({
+                          id: r.id,
+                          title: r.title,
+                          subject_name: r.subject?.name ?? null,
+                        })
+                      }
+                      className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                      title="حذف"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      حذف
                     </button>
                   </div>
                 </div>
