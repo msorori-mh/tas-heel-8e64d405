@@ -351,6 +351,30 @@ function LessonPage() {
         )}
       </Section>
 
+      <Section title="موارد الدرس" icon={<Link2 className="h-4 w-4 text-primary" />}>
+        {!canAccessEnhancements && !unitIsFree ? (
+          <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+            <Lock className="h-4 w-4" />
+            <span>موارد الدرس متاحة ضمن الاشتراك.</span>
+          </div>
+        ) : resourcesLoading ? (
+          <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            جارٍ تحميل الموارد…
+          </div>
+        ) : resourcesError ? (
+          <p className="text-sm text-destructive">تعذر تحميل موارد الدرس.</p>
+        ) : resources && resources.length > 0 ? (
+          <div className="space-y-3">
+            {resources.map((r) => (
+              <ResourceCard key={r.id} resource={r} />
+            ))}
+          </div>
+        ) : (
+          <EmptyText>لا توجد موارد لهذا الدرس حاليًا.</EmptyText>
+        )}
+      </Section>
+
       <Section
         title="إضافات تساعدك تفهم أكثر"
         icon={<Sparkles className="h-4 w-4 text-primary" />}
