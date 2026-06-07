@@ -54,6 +54,7 @@ function AdminLessonsPage() {
     unit_name: string | null;
     is_free: boolean | null;
   } | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
