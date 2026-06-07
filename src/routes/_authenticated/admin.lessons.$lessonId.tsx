@@ -49,6 +49,7 @@ function AdminLessonDetailPage() {
   const [openBookDialog, setOpenBookDialog] = useState(false);
   const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
   const [openExplanationsDialog, setOpenExplanationsDialog] = useState(false);
+  const [openResourcesDialog, setOpenResourcesDialog] = useState(false);
 
   const lessonQ = useQuery({
     enabled,
