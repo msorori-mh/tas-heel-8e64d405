@@ -7,6 +7,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { LessonBookContentDialog } from "@/components/admin/LessonBookContentDialog";
 import { LessonSummaryDialog } from "@/components/admin/LessonSummaryDialog";
 import { LessonExplanationsDialog } from "@/components/admin/LessonExplanationsDialog";
+import { LessonResourcesDialog } from "@/components/admin/LessonResourcesDialog";
 import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil } from "lucide-react";
 
 
@@ -48,6 +49,7 @@ function AdminLessonDetailPage() {
   const [openBookDialog, setOpenBookDialog] = useState(false);
   const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
   const [openExplanationsDialog, setOpenExplanationsDialog] = useState(false);
+  const [openResourcesDialog, setOpenResourcesDialog] = useState(false);
 
   const lessonQ = useQuery({
     enabled,
@@ -153,11 +155,15 @@ function AdminLessonDetailPage() {
     enabled: enabled && !!lessonQ.data,
     queryKey: ["admin-lesson-detail", "resources", lessonId],
     queryFn: async () => {
-      // Do NOT select url.
+      // Select full fields for the admin editor dialog; admin-only route.
       const { data, error, count } = await supabase
         .from("lesson_resources")
-        .select("id, resource_type, title", { count: "exact" })
-        .eq("lesson_id", lessonId);
+        .select(
+          "id, lesson_id, resource_type, title, url, description, sort_order",
+          { count: "exact" }
+        )
+        .eq("lesson_id", lessonId)
+        .order("sort_order", { ascending: true });
       if (error) throw error;
       const types: Record<string, number> = {};
       for (const r of data ?? []) {
@@ -449,9 +455,18 @@ function AdminLessonDetailPage() {
             <Loading />
           ) : (
             <>
-              <p className="text-sm text-muted-foreground">
-                عدد الموارد: <span className="text-foreground font-medium">{resourcesQ.data?.count ?? 0}</span>
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  عدد الموارد: <span className="text-foreground font-medium">{resourcesQ.data?.count ?? 0}</span>
+                </p>
+                <button
+                  onClick={() => setOpenResourcesDialog(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-muted"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  إدارة موارد الدرس
+                </button>
+              </div>
               {Object.keys(resourcesQ.data?.types ?? {}).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {Object.entries(resourcesQ.data!.types).map(([t, n]) => (
@@ -522,6 +537,14 @@ function AdminLessonDetailPage() {
           lessonId={lessonId}
           lessonTitle={(lesson as any)?.title ?? null}
           items={explanationsQ.data?.items ?? []}
+        />
+
+        <LessonResourcesDialog
+          open={openResourcesDialog}
+          onOpenChange={setOpenResourcesDialog}
+          lessonId={lessonId}
+          lessonTitle={(lesson as any)?.title ?? null}
+          items={(resourcesQ.data?.items ?? []) as any}
         />
       </div>
     </AdminLayout>
