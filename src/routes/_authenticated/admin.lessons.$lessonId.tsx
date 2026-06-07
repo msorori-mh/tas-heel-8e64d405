@@ -1,10 +1,12 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { Loader2, ArrowRight, Check, Minus, BookOpen } from "lucide-react";
+import { LessonBookContentDialog } from "@/components/admin/LessonBookContentDialog";
+import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/admin/lessons/$lessonId")({
   component: AdminLessonDetailPage,
