@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { AlertTriangle, Loader2 } from "lucide-react";
 
 interface Props {
@@ -24,7 +26,18 @@ interface Props {
     | null;
 }
 
-async function fetchLessonCounts(lessonId: string) {
+type Counts = {
+  questions: number;
+  books: number;
+  summaries: number;
+  explanations: number;
+  resources: number;
+  simulations: number;
+  hasVideo: boolean;
+  hasPdf: boolean;
+};
+
+async function fetchLessonCounts(lessonId: string): Promise<Counts> {
   const countIn = async (
     table:
       | "questions"
@@ -42,7 +55,6 @@ async function fetchLessonCounts(lessonId: string) {
     return r.count ?? 0;
   };
 
-  // Existence-only checks for video_url / content_pdf_url — never read URLs.
   const videoExistsRes = await supabase
     .from("lessons")
     .select("id", { count: "exact", head: true })
@@ -79,8 +91,24 @@ async function fetchLessonCounts(lessonId: string) {
   };
 }
 
+function isSafeToDelete(c: Counts) {
+  return (
+    c.questions === 0 &&
+    c.books === 0 &&
+    c.summaries === 0 &&
+    c.explanations === 0 &&
+    c.resources === 0 &&
+    c.simulations === 0 &&
+    !c.hasVideo &&
+    !c.hasPdf
+  );
+}
+
 export function LessonDeleteDialog({ open, onOpenChange, lesson }: Props) {
+  const queryClient = useQueryClient();
   const enabled = open && !!lesson;
+  const [deleting, setDeleting] = useState(false);
+  const [blockMsg, setBlockMsg] = useState<string | null>(null);
 
   const countsQ = useQuery({
     enabled,
@@ -89,9 +117,64 @@ export function LessonDeleteDialog({ open, onOpenChange, lesson }: Props) {
   });
 
   const c = countsQ.data;
+  const safe = !!c && isSafeToDelete(c);
+
+  const canDelete =
+    enabled &&
+    !countsQ.isLoading &&
+    !countsQ.isFetching &&
+    !countsQ.isError &&
+    safe &&
+    !deleting;
+
+  const handleDelete = async () => {
+    if (!lesson || deleting) return;
+    setBlockMsg(null);
+    setDeleting(true);
+    try {
+      const fresh = await fetchLessonCounts(lesson.id);
+      if (!isSafeToDelete(fresh)) {
+        setBlockMsg(
+          "لا يمكن حذف هذا الدرس لأنه يحتوي على محتوى أو أسئلة أو ملفات مرتبطة."
+        );
+        await queryClient.invalidateQueries({
+          queryKey: ["admin-lessons", "delete-counts", lesson.id],
+        });
+        setDeleting(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from("lessons")
+        .delete()
+        .eq("id", lesson.id);
+      if (error) {
+        toast.error("تعذر حذف الدرس.");
+        setBlockMsg("تعذر حذف الدرس.");
+        setDeleting(false);
+        return;
+      }
+
+      toast.success("تم حذف الدرس بنجاح.");
+      await queryClient.invalidateQueries({ queryKey: ["admin-lessons"] });
+      setDeleting(false);
+      onOpenChange(false);
+    } catch {
+      toast.error("تعذر حذف الدرس.");
+      setBlockMsg("تعذر حذف الدرس.");
+      setDeleting(false);
+    }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (deleting) return;
+        if (!o) setBlockMsg(null);
+        onOpenChange(o);
+      }}
+    >
       <DialogContent dir="rtl" className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle className="text-right flex items-center gap-2">
@@ -119,6 +202,7 @@ export function LessonDeleteDialog({ open, onOpenChange, lesson }: Props) {
 
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             حذف الدرس قد يؤدي إلى حذف الأسئلة والمحتوى والموارد المرتبطة به.
+            لذلك لا يُسمح بالحذف إلا إذا كان الدرس فارغًا تمامًا.
           </div>
 
           {countsQ.isLoading ? (
@@ -142,16 +226,42 @@ export function LessonDeleteDialog({ open, onOpenChange, lesson }: Props) {
                 <BoolStat label="فيديو" on={!!c?.hasVideo} />
                 <BoolStat label="ملف PDF" on={!!c?.hasPdf} />
               </div>
+              {!safe && (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                  لا يمكن حذف هذا الدرس لأنه يحتوي على محتوى أو أسئلة أو ملفات مرتبطة.
+                </div>
+              )}
             </>
+          )}
+
+          {blockMsg && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {blockMsg}
+            </div>
           )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={deleting}
+          >
             إلغاء
           </Button>
-          <Button variant="destructive" disabled title="الحذف في المرحلة التالية">
-            الحذف في المرحلة التالية
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={!canDelete}
+          >
+            {deleting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                جاري الحذف...
+              </>
+            ) : (
+              "حذف الدرس"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
