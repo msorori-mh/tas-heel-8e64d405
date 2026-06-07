@@ -331,6 +331,231 @@ export type Database = {
         }
         Relationships: []
       }
+      exam_session_answers: {
+        Row: {
+          answered_at: string | null
+          created_at: string
+          id: string
+          is_correct: boolean | null
+          points_awarded: number
+          question_id: string
+          selected_index: number | null
+          session_id: string
+          updated_at: string
+        }
+        Insert: {
+          answered_at?: string | null
+          created_at?: string
+          id?: string
+          is_correct?: boolean | null
+          points_awarded?: number
+          question_id: string
+          selected_index?: number | null
+          session_id: string
+          updated_at?: string
+        }
+        Update: {
+          answered_at?: string | null
+          created_at?: string
+          id?: string
+          is_correct?: boolean | null
+          points_awarded?: number
+          question_id?: string
+          selected_index?: number | null
+          session_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_session_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_session_answers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_sessions: {
+        Row: {
+          answered_questions: number
+          correct_answers: number
+          created_at: string
+          expires_at: string | null
+          id: string
+          mode: Database["public"]["Enums"]["exam_mode"]
+          result_json: Json | null
+          score: number
+          started_at: string
+          status: Database["public"]["Enums"]["exam_session_status"]
+          submitted_at: string | null
+          template_id: string
+          total_points: number
+          total_questions: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answered_questions?: number
+          correct_answers?: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          mode: Database["public"]["Enums"]["exam_mode"]
+          result_json?: Json | null
+          score?: number
+          started_at?: string
+          status?: Database["public"]["Enums"]["exam_session_status"]
+          submitted_at?: string | null
+          template_id: string
+          total_points?: number
+          total_questions?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answered_questions?: number
+          correct_answers?: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          mode?: Database["public"]["Enums"]["exam_mode"]
+          result_json?: Json | null
+          score?: number
+          started_at?: string
+          status?: Database["public"]["Enums"]["exam_session_status"]
+          submitted_at?: string | null
+          template_id?: string
+          total_points?: number
+          total_questions?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_sessions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "exam_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_template_questions: {
+        Row: {
+          created_at: string
+          id: string
+          points: number
+          question_id: string
+          sort_order: number
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          points?: number
+          question_id: string
+          sort_order?: number
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          points?: number
+          question_id?: string
+          sort_order?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_template_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_template_questions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "exam_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_seconds: number | null
+          id: string
+          is_active: boolean
+          lesson_id: string | null
+          mode: Database["public"]["Enums"]["exam_mode"]
+          subject_id: string | null
+          title: string
+          unit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          is_active?: boolean
+          lesson_id?: string | null
+          mode?: Database["public"]["Enums"]["exam_mode"]
+          subject_id?: string | null
+          title: string
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          is_active?: boolean
+          lesson_id?: string | null
+          mode?: Database["public"]["Enums"]["exam_mode"]
+          subject_id?: string | null
+          title?: string
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_templates_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_templates_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_templates_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       governorate_curriculum_map: {
         Row: {
           created_at: string
@@ -1692,6 +1917,14 @@ export type Database = {
         }
         Returns: Json
       }
+      answer_exam_question: {
+        Args: {
+          _question_id: string
+          _selected_index: number
+          _session_id: string
+        }
+        Returns: Json
+      }
       approve_payment_request: {
         Args: { _admin_notes?: string; _request_id: string }
         Returns: Json
@@ -1741,6 +1974,7 @@ export type Database = {
           total_subjects: number
         }[]
       }
+      get_exam_session_state: { Args: { _session_id: string }; Returns: Json }
       get_lesson_full_content: { Args: { _lesson_id: string }; Returns: Json }
       get_lesson_quiz_questions: {
         Args: { _lesson_id: string }
@@ -1843,10 +2077,12 @@ export type Database = {
         Args: { _admin_notes?: string; _request_id: string }
         Returns: Json
       }
+      start_exam_session: { Args: { _template_id: string }; Returns: string }
       subject_matches_track: {
         Args: { _subject_id: string; _track_id: string }
         Returns: boolean
       }
+      submit_exam_session: { Args: { _session_id: string }; Returns: Json }
       submit_unit_practice_attempt: {
         Args: { _answers: Json; _unit_id: string }
         Returns: Json
@@ -1867,6 +2103,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      exam_mode: "training" | "strict" | "ministry"
+      exam_session_status: "in_progress" | "submitted" | "expired"
       lesson_resource_type: "video" | "mindmap" | "experiment" | "pdf" | "link"
     }
     CompositeTypes: {
@@ -1996,6 +2234,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      exam_mode: ["training", "strict", "ministry"],
+      exam_session_status: ["in_progress", "submitted", "expired"],
       lesson_resource_type: ["video", "mindmap", "experiment", "pdf", "link"],
     },
   },
