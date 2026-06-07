@@ -278,6 +278,26 @@ function AdminSubjectsPage() {
                     <span>الوحدات: {unitsCountQ.isLoading ? "…" : unitsMap[r.id] ?? 0}</span>
                     <span>الدروس: {r.lessons_count ?? 0}</span>
                   </div>
+                  <div className="mt-3">
+                    <button
+                      onClick={() =>
+                        setEditing({
+                          id: r.id,
+                          name: r.name,
+                          sort_order: r.sort_order,
+                          icon: r.icon,
+                          color: r.color,
+                          curriculum_track_id: r.curriculum_track_id,
+                          grade_id: r.grade_id,
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground hover:bg-muted"
+                      aria-label={`تعديل ${r.name}`}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      تعديل
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
