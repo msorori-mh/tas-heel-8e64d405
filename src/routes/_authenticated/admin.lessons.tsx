@@ -491,6 +491,14 @@ function AdminLessonsPage() {
             </div>
           </>
         )}
+
+        <LessonBasicEditDialog
+          open={!!editingLesson}
+          onOpenChange={(o) => {
+            if (!o) setEditingLesson(null);
+          }}
+          lesson={editingLesson ?? undefined}
+        />
       </div>
     </AdminLayout>
   );
