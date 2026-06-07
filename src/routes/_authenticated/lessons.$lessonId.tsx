@@ -20,6 +20,7 @@ import {
   FlaskConical,
   Map as MapIcon,
   Link2,
+  FileText,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
