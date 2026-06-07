@@ -3,12 +3,12 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminLayout } from "@/components/admin/AdminLayout";
 import {
   Users,
   BookOpen,
   GraduationCap,
   MessageSquare,
-  ArrowLeft,
   Shield,
   Loader2,
 } from "lucide-react";
@@ -84,21 +84,26 @@ function AdminPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
-        جارٍ التحقق من الصلاحيات…
-      </div>
+      <AdminLayout>
+        <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
+          جارٍ التحقق من الصلاحيات…
+        </div>
+      </AdminLayout>
     );
   }
 
   if (!isAdmin) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
-        ليست لديك صلاحية الوصول لهذه الصفحة.
-      </div>
+      <AdminLayout>
+        <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
+          ليست لديك صلاحية الوصول لهذه الصفحة.
+        </div>
+      </AdminLayout>
     );
   }
 
   return (
+    <AdminLayout>
     <div className="space-y-6" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -111,13 +116,6 @@ function AdminPage() {
             مرحبًا بك في لوحة إدارة تنوير.
           </p>
         </div>
-        <Link
-          to="/app"
-          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          العودة للتطبيق
-        </Link>
       </div>
 
       {/* Stats cards */}
@@ -202,6 +200,7 @@ function AdminPage() {
         </p>
       </div>
     </div>
+    </AdminLayout>
   );
 }
 

@@ -1,9 +1,10 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight, Users, Loader2, Search } from "lucide-react";
+import { AdminLayout } from "@/components/admin/AdminLayout";
+import { Users, Loader2, Search } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
   component: AdminStudentsPage,
@@ -66,17 +67,21 @@ function AdminStudentsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
-        جارٍ التحقق من الصلاحيات…
-      </div>
+      <AdminLayout>
+        <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
+          جارٍ التحقق من الصلاحيات…
+        </div>
+      </AdminLayout>
     );
   }
 
   if (!isAdmin) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
-        ليست لديك صلاحية الوصول لهذه الصفحة.
-      </div>
+      <AdminLayout>
+        <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
+          ليست لديك صلاحية الوصول لهذه الصفحة.
+        </div>
+      </AdminLayout>
     );
   }
 
@@ -85,6 +90,7 @@ function AdminStudentsPage() {
   const rows = query.data?.rows ?? [];
 
   return (
+    <AdminLayout>
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -96,13 +102,6 @@ function AdminStudentsPage() {
             قائمة الطلاب المسجلين — قراءة فقط.
           </p>
         </div>
-        <Link
-          to="/admin"
-          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-        >
-          <ArrowRight className="h-4 w-4" />
-          لوحة الإدارة
-        </Link>
       </div>
 
       <div className="relative">
@@ -202,5 +201,6 @@ function AdminStudentsPage() {
         </>
       )}
     </div>
+    </AdminLayout>
   );
 }
