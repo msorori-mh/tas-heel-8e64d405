@@ -498,6 +498,19 @@ function AdminLessonsPage() {
                         <Pencil className="h-3.5 w-3.5" />
                         تعديل
                       </button>
+                      <button
+                        onClick={() =>
+                          setDeletingLesson({
+                            id: r.id,
+                            title: r.title,
+                            subject_name: r.subject?.name || null,
+                            unit_name: r.unit?.title || null,
+                          })
+                        }
+                        className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-card px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        حذف
                     </div>
                   </div>
                 );
