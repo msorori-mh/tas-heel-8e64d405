@@ -4,7 +4,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { Layers, Loader2, Search, ArrowRight } from "lucide-react";
+import { UnitEditDialog, type UnitEditValue } from "@/components/admin/UnitEditDialog";
+import { Layers, Loader2, Search, ArrowRight, Pencil } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/units")({
   component: AdminUnitsPage,
@@ -31,6 +32,7 @@ function AdminUnitsPage() {
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [freeFilter, setFreeFilter] = useState<string>("all");
+  const [editing, setEditing] = useState<UnitEditValue | null>(null);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
@@ -259,12 +261,13 @@ function AdminUnitsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 text-right font-medium">الترتيب</th>
+                  <th className="px-4 py-3 text-right font-medium">الترتيب</th>
                     <th className="px-4 py-3 text-right font-medium">الوحدة</th>
                     <th className="px-4 py-3 text-right font-medium">المادة</th>
                     <th className="px-4 py-3 text-right font-medium">الصف</th>
                     <th className="px-4 py-3 text-right font-medium">الحالة</th>
                     <th className="px-4 py-3 text-right font-medium">الدروس</th>
+                    <th className="px-4 py-3 text-right font-medium">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -289,6 +292,26 @@ function AdminUnitsPage() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {lessonsCountQ.isLoading ? "…" : lessonsMap[r.id] ?? 0}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() =>
+                            setEditing({
+                              id: r.id,
+                              title: r.title,
+                              description: r.description,
+                              sort_order: r.sort_order,
+                              is_free: r.is_free,
+                              subject_id: r.subject_id,
+                              subject_name: r.subject?.name ?? null,
+                            })
+                          }
+                          className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                          title="تعديل"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          تعديل
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -323,6 +346,26 @@ function AdminUnitsPage() {
                       {lessonsCountQ.isLoading ? "…" : lessonsMap[r.id] ?? 0}
                     </span>
                   </div>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={() =>
+                        setEditing({
+                          id: r.id,
+                          title: r.title,
+                          description: r.description,
+                          sort_order: r.sort_order,
+                          is_free: r.is_free,
+                          subject_id: r.subject_id,
+                          subject_name: r.subject?.name ?? null,
+                        })
+                      }
+                      className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                      title="تعديل"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      تعديل
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -351,6 +394,14 @@ function AdminUnitsPage() {
             </div>
           </>
         )}
+
+        <UnitEditDialog
+          open={editing !== null}
+          onOpenChange={(o) => {
+            if (!o) setEditing(null);
+          }}
+          unit={editing ?? undefined}
+        />
       </div>
     </AdminLayout>
   );
