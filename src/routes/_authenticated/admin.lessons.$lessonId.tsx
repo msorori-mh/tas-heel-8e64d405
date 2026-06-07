@@ -68,7 +68,7 @@ function AdminLessonDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_book_contents")
-        .select("id, content, sort_order, pdf_url")
+        .select("id, content, pdf_url")
         .eq("lesson_id", lessonId);
       if (error) throw error;
       const rows = data ?? [];
@@ -76,7 +76,6 @@ function AdminLessonDetailPage() {
         items: rows.map((r) => ({
           id: r.id,
           content: r.content,
-          sort_order: r.sort_order,
         })),
         display: rows.map((r) => ({
           id: r.id,
