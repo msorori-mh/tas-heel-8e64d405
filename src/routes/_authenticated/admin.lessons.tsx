@@ -345,7 +345,15 @@ function AdminLessonsPage() {
                     return (
                       <tr key={r.id} className="border-t border-border">
                         <td className="px-3 py-3 text-muted-foreground">{r.sort_order}</td>
-                        <td className="px-3 py-3 text-foreground font-medium">{r.title}</td>
+                        <td className="px-3 py-3 text-foreground font-medium">
+                          <Link
+                            to="/admin/lessons/$lessonId"
+                            params={{ lessonId: r.id }}
+                            className="hover:text-primary hover:underline"
+                          >
+                            {r.title}
+                          </Link>
+                        </td>
                         <td className="px-3 py-3 text-muted-foreground">{r.unit?.title || "—"}</td>
                         <td className="px-3 py-3 text-muted-foreground">{r.subject?.name || "—"}</td>
                         <td className="px-3 py-3 text-muted-foreground">
@@ -372,7 +380,13 @@ function AdminLessonsPage() {
                 return (
                   <div key={r.id} className="rounded-xl border border-border bg-card p-4">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="font-medium text-foreground">{r.title}</div>
+                      <Link
+                        to="/admin/lessons/$lessonId"
+                        params={{ lessonId: r.id }}
+                        className="font-medium text-foreground hover:text-primary hover:underline"
+                      >
+                        {r.title}
+                      </Link>
                       <span className="text-[11px] text-muted-foreground">#{r.sort_order}</span>
                     </div>
                     <div className="mt-2 grid grid-cols-2 gap-y-1 text-xs text-muted-foreground">
