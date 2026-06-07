@@ -796,8 +796,47 @@ function ResourceTypeBadge({ type }: { type: string }) {
   );
 }
 
-function ResourceCard({ resource }: { resource: ResourceRow }) {
-  const safe = isSafeHttpUrl(resource.url);
+function ResourceCard({
+  resource,
+  lessonId,
+}: {
+  resource: ResourceRow;
+  lessonId: string;
+}) {
+  const getUrl = useServerFn(getLessonFileUrl);
+  const isStorageRef = resource.url.trim().startsWith("supabase-storage://");
+  const safeHttp = !isStorageRef && isSafeHttpUrl(resource.url);
+
+  const [resolved, setResolved] = useState<string | null>(
+    safeHttp ? resource.url : null,
+  );
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isStorageRef) return;
+    let cancelled = false;
+    setLoading(true);
+    setErr(null);
+    getUrl({ data: { lessonId, url: resource.url } })
+      .then((res) => {
+        if (!cancelled) setResolved(res.url);
+      })
+      .catch(() => {
+        if (!cancelled) setErr("تعذّر تحضير الملف.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isStorageRef, resource.url, lessonId, getUrl]);
+
+  const buttonLabel = isStorageRef ? "فتح PDF" : "فتح المورد";
+  const showOpen = resolved && !loading && !err;
+  const showInvalid = !isStorageRef && !safeHttp;
+
   return (
     <div className="rounded-xl border border-border bg-background p-3">
       <div className="flex items-start justify-between gap-3">
@@ -810,22 +849,30 @@ function ResourceCard({ resource }: { resource: ResourceRow }) {
             <ResourceTypeBadge type={resource.resource_type} />
           </div>
         </div>
-        {safe ? (
-          <a
-            href={resource.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            فتح المورد
-          </a>
-        ) : (
-          <span className="shrink-0 text-xs text-muted-foreground">
-            رابط المورد غير صالح.
-          </span>
-        )}
+        <div className="shrink-0">
+          {loading && (
+            <span className="text-xs text-muted-foreground">جارٍ التحضير…</span>
+          )}
+          {err && <span className="text-xs text-destructive">{err}</span>}
+          {showInvalid && (
+            <span className="text-xs text-muted-foreground">
+              رابط المورد غير صالح.
+            </span>
+          )}
+          {showOpen && (
+            <a
+              href={resolved}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              {buttonLabel}
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
 
