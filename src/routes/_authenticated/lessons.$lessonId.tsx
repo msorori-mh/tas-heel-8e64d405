@@ -755,3 +755,48 @@ function EnhancementItemRow({
   );
 }
 
+function ResourceTypeBadge({ type }: { type: string }) {
+  const config: Record<
+    string,
+    { label: string; icon: React.ReactNode }
+  > = {
+    pdf: { label: "ملف PDF", icon: <FileText className="h-3.5 w-3.5" /> },
+    video: { label: "فيديو", icon: <Video className="h-3.5 w-3.5" /> },
+    link: { label: "رابط", icon: <Link2 className="h-3.5 w-3.5" /> },
+    mindmap: { label: "خريطة ذهنية", icon: <MapIcon className="h-3.5 w-3.5" /> },
+    experiment: { label: "تجربة", icon: <FlaskConical className="h-3.5 w-3.5" /> },
+  };
+  const c = config[type] ?? { label: type, icon: null };
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs text-foreground">
+      {c.icon} {c.label}
+    </span>
+  );
+}
+
+function ResourceCard({ resource }: { resource: ResourceRow }) {
+  return (
+    <div className="rounded-xl border border-border bg-background p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-foreground">{resource.title}</div>
+          {resource.description && (
+            <p className="mt-1 text-xs text-muted-foreground">{resource.description}</p>
+          )}
+          <div className="mt-2">
+            <ResourceTypeBadge type={resource.resource_type} />
+          </div>
+        </div>
+        <a
+          href={resource.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          فتح المورد
+        </a>
+      </div>
+    </div>
+  );
+}
+
