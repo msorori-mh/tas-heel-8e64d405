@@ -423,6 +423,7 @@ function AdminLessonDetailPage() {
         <LessonBookContentDialog
           open={openBookDialog}
           onOpenChange={setOpenBookDialog}
+          lessonId={lessonId}
           lessonTitle={(lesson as any)?.title ?? null}
           items={bookQ.data?.items ?? []}
         />
