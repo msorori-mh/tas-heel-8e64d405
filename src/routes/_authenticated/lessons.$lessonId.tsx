@@ -691,6 +691,18 @@ function EnhancementGroup({
   );
 }
 
+function isSafeHttpUrl(value: string): boolean {
+  const v = (value ?? "").trim();
+  if (!v) return false;
+  if (!/^https?:\/\//i.test(v)) return false;
+  try {
+    const u = new URL(v);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function isExternalUrl(u: string) {
   return /^https?:\/\//i.test(u.trim());
 }
@@ -703,15 +715,25 @@ function EnhancementItemRow({
   lessonId: string;
 }) {
   const getUrl = useServerFn(getLessonFileUrl);
+  const externalRaw = isExternalUrl(item.url);
+  const externalSafe = isSafeHttpUrl(item.url);
+  const externalUnsafe = externalRaw && !externalSafe;
   const [resolved, setResolved] = useState<string | null>(
-    isExternalUrl(item.url) ? item.url : null,
+    externalSafe ? item.url : null,
   );
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(
+    externalUnsafe ? "رابط المورد غير صالح." : null,
+  );
 
   useEffect(() => {
-    if (isExternalUrl(item.url)) {
+    if (externalSafe) {
       setResolved(item.url);
+      return;
+    }
+    if (externalUnsafe) {
+      setErr("رابط المورد غير صالح.");
+      setResolved(null);
       return;
     }
     let cancelled = false;
@@ -729,7 +751,7 @@ function EnhancementItemRow({
     return () => {
       cancelled = true;
     };
-  }, [item.url, lessonId, getUrl]);
+  }, [item.url, lessonId, getUrl, externalSafe, externalUnsafe]);
 
   return (
     <div className="rounded-lg border border-border bg-card p-2">
@@ -744,7 +766,7 @@ function EnhancementItemRow({
           <a
             href={resolved}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
           >
             <Link2 className="h-3.5 w-3.5" /> فتح
@@ -775,6 +797,7 @@ function ResourceTypeBadge({ type }: { type: string }) {
 }
 
 function ResourceCard({ resource }: { resource: ResourceRow }) {
+  const safe = isSafeHttpUrl(resource.url);
   return (
     <div className="rounded-xl border border-border bg-background p-3">
       <div className="flex items-start justify-between gap-3">
@@ -787,14 +810,20 @@ function ResourceCard({ resource }: { resource: ResourceRow }) {
             <ResourceTypeBadge type={resource.resource_type} />
           </div>
         </div>
-        <a
-          href={resource.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          فتح المورد
-        </a>
+        {safe ? (
+          <a
+            href={resource.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            فتح المورد
+          </a>
+        ) : (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            رابط المورد غير صالح.
+          </span>
+        )}
       </div>
     </div>
   );

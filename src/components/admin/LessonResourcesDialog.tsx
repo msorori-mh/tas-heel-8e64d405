@@ -55,6 +55,18 @@ const makeTempId = () => `__tmp_${Date.now()}_${++_tmpCounter}`;
 const isLocal = (r: LessonResourceItem) =>
   r.__local === true || r.id.startsWith("__tmp_");
 
+export function isSafeHttpUrl(value: string): boolean {
+  const v = (value ?? "").trim();
+  if (!v) return false;
+  if (!/^https?:\/\//i.test(v)) return false;
+  try {
+    const u = new URL(v);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function LessonResourcesDialog({
   open,
   onOpenChange,
@@ -123,6 +135,13 @@ export function LessonResourcesDialog({
       if (!url) {
         setErrMsg(`الرابط مطلوب للمورد #${i + 1}.`);
         toast.error("بعض الحقول غير مكتملة.");
+        return;
+      }
+      if (!isSafeHttpUrl(url)) {
+        setErrMsg(
+          `رابط المورد #${i + 1} يجب أن يبدأ بـ http:// أو https://`,
+        );
+        toast.error("رابط المورد يجب أن يبدأ بـ http:// أو https://");
         return;
       }
       if (!ALLOWED_TYPES.has(r.resource_type as any)) {
