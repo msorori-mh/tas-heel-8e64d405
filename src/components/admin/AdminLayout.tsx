@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 type LinkItem = {
-  href: "/admin" | "/admin/students" | "/admin/academic" | "/admin/subjects" | "/admin/units";
+  href: "/admin" | "/admin/students" | "/admin/academic" | "/admin/subjects" | "/admin/units" | "/admin/lessons";
   label: string;
   icon: typeof LayoutDashboard;
   end?: boolean;
@@ -35,6 +35,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/academic", label: "المحتوى الدراسي", icon: BookOpen },
   { href: "/admin/subjects", label: "المواد", icon: BookOpen },
   { href: "/admin/units", label: "الوحدات", icon: Layers },
+  { href: "/admin/lessons", label: "الدروس", icon: BookOpen },
 ];
 
 const upcomingLinks: DisabledItem[] = [
