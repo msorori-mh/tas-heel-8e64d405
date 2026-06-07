@@ -222,6 +222,7 @@ function AdminSubjectsPage() {
                     <th className="px-4 py-3 text-right font-medium">المسار</th>
                     <th className="px-4 py-3 text-right font-medium">الوحدات</th>
                     <th className="px-4 py-3 text-right font-medium">الدروس</th>
+                    <th className="px-4 py-3 text-right font-medium">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -237,6 +238,26 @@ function AdminSubjectsPage() {
                         {unitsCountQ.isLoading ? "…" : unitsMap[r.id] ?? 0}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{r.lessons_count ?? 0}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() =>
+                            setEditing({
+                              id: r.id,
+                              name: r.name,
+                              sort_order: r.sort_order,
+                              icon: r.icon,
+                              color: r.color,
+                              curriculum_track_id: r.curriculum_track_id,
+                              grade_id: r.grade_id,
+                            })
+                          }
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs text-foreground hover:bg-muted"
+                          aria-label={`تعديل ${r.name}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          تعديل
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
