@@ -38,6 +38,7 @@ function AdminSubjectsPage() {
   const [debounced, setDebounced] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [editing, setEditing] = useState<SubjectEditValue | null>(null);
+  const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
