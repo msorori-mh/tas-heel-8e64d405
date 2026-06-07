@@ -5,7 +5,8 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { UnitEditDialog, type UnitEditValue } from "@/components/admin/UnitEditDialog";
-import { Layers, Loader2, Search, ArrowRight, Pencil, Plus } from "lucide-react";
+import { UnitDeleteDialog } from "@/components/admin/UnitDeleteDialog";
+import { Layers, Loader2, Search, ArrowRight, Pencil, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/units")({
   component: AdminUnitsPage,
@@ -34,6 +35,7 @@ function AdminUnitsPage() {
   const [freeFilter, setFreeFilter] = useState<string>("all");
   const [editing, setEditing] = useState<UnitEditValue | null>(null);
   const [creating, setCreating] = useState(false);
+  const [deletingUnit, setDeletingUnit] = useState<{ id: string; title: string; subject_name: string | null } | null>(null);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
@@ -304,24 +306,40 @@ function AdminUnitsPage() {
                         {lessonsCountQ.isLoading ? "…" : lessonsMap[r.id] ?? 0}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() =>
-                            setEditing({
-                              id: r.id,
-                              title: r.title,
-                              description: r.description,
-                              sort_order: r.sort_order,
-                              is_free: r.is_free,
-                              subject_id: r.subject_id,
-                              subject_name: r.subject?.name ?? null,
-                            })
-                          }
-                          className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
-                          title="تعديل"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                          تعديل
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() =>
+                              setEditing({
+                                id: r.id,
+                                title: r.title,
+                                description: r.description,
+                                sort_order: r.sort_order,
+                                is_free: r.is_free,
+                                subject_id: r.subject_id,
+                                subject_name: r.subject?.name ?? null,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                            title="تعديل"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            تعديل
+                          </button>
+                          <button
+                            onClick={() =>
+                              setDeletingUnit({
+                                id: r.id,
+                                title: r.title,
+                                subject_name: r.subject?.name ?? null,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                            title="حذف"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            حذف
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -356,7 +374,7 @@ function AdminUnitsPage() {
                       {lessonsCountQ.isLoading ? "…" : lessonsMap[r.id] ?? 0}
                     </span>
                   </div>
-                  <div className="mt-3 flex justify-end">
+                  <div className="mt-3 flex justify-end gap-1.5">
                     <button
                       onClick={() =>
                         setEditing({
@@ -374,6 +392,20 @@ function AdminUnitsPage() {
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       تعديل
+                    </button>
+                    <button
+                      onClick={() =>
+                        setDeletingUnit({
+                          id: r.id,
+                          title: r.title,
+                          subject_name: r.subject?.name ?? null,
+                        })
+                      }
+                      className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                      title="حذف"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      حذف
                     </button>
                   </div>
                 </div>
@@ -421,6 +453,14 @@ function AdminUnitsPage() {
           }}
           mode="create"
           subjects={subjectsQ.data ?? []}
+        />
+
+        <UnitDeleteDialog
+          open={deletingUnit !== null}
+          onOpenChange={(o) => {
+            if (!o) setDeletingUnit(null);
+          }}
+          unit={deletingUnit}
         />
       </div>
     </AdminLayout>
