@@ -4,7 +4,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { BookOpen, Loader2, Search, ArrowRight, Check, Minus } from "lucide-react";
+import { BookOpen, Loader2, Search, ArrowRight, Check, Minus, Pencil } from "lucide-react";
+import { LessonBasicEditDialog } from "@/components/admin/LessonBasicEditDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/lessons")({
   component: AdminLessonsPage,
