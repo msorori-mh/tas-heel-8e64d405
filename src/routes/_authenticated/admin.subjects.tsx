@@ -92,7 +92,7 @@ function AdminSubjectsPage() {
       let q = supabase
         .from("subjects")
         .select(
-          "id, name, sort_order, lessons_count, grade_id, curriculum_track_id, grade:grades!subjects_grade_id_fkey(id, name), track:curriculum_tracks!subjects_curriculum_track_id_fkey(id, track_name)",
+          "id, name, sort_order, lessons_count, grade_id, curriculum_track_id, icon, color, grade:grades!subjects_grade_id_fkey(id, name), track:curriculum_tracks!subjects_curriculum_track_id_fkey(id, track_name)",
           { count: "exact" }
         )
         .order("sort_order", { ascending: true })
