@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
@@ -148,14 +148,22 @@ function AdminAcademicPage() {
     <AdminLayout>
       <div className="space-y-6" dir="rtl">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <BookOpen className="h-6 w-6 text-primary" />
-            المحتوى الدراسي
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            نظرة عامة على المحتوى الأكاديمي — قراءة فقط.
-          </p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <BookOpen className="h-6 w-6 text-primary" />
+              المحتوى الدراسي
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              نظرة عامة على المحتوى الأكاديمي — قراءة فقط.
+            </p>
+          </div>
+          <Link
+            to="/admin/subjects"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            عرض المواد
+          </Link>
         </div>
 
         {/* Stats cards */}
