@@ -20,6 +20,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import FileUpload from "@/components/admin/FileUpload";
+
+const PDF_STORAGE_PREFIX = "supabase-storage://lesson-pdfs/";
+
+export function isSafeStorageRef(value: string, lessonId: string): boolean {
+  const v = (value ?? "").trim();
+  if (!v.startsWith(PDF_STORAGE_PREFIX)) return false;
+  const rest = v.slice(PDF_STORAGE_PREFIX.length);
+  if (!rest.toLowerCase().endsWith(".pdf")) return false;
+  const parts = rest.split("/");
+  if (parts.length < 2) return false;
+  if (parts[0] !== lessonId) return false;
+  return true;
+}
+
+export function isAcceptableResourceUrl(value: string, lessonId: string): boolean {
+  const v = (value ?? "").trim();
+  if (!v) return false;
+  if (v.startsWith("supabase-storage://")) return isSafeStorageRef(v, lessonId);
+  return isSafeHttpUrl(v);
+}
 
 export type LessonResourceItem = {
   id: string;
