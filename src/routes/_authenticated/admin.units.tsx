@@ -33,6 +33,7 @@ function AdminUnitsPage() {
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [freeFilter, setFreeFilter] = useState<string>("all");
   const [editing, setEditing] = useState<UnitEditValue | null>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
