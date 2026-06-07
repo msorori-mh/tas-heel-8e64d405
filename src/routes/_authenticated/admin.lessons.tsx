@@ -349,6 +349,7 @@ function AdminLessonsPage() {
                     <th className="px-3 py-3 text-center font-medium" title="موارد">موارد</th>
                     <th className="px-3 py-3 text-center font-medium" title="فيديو">فيديو</th>
                     <th className="px-3 py-3 text-center font-medium" title="محاكاة">محاكاة</th>
+                    <th className="px-3 py-3 text-center font-medium">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
