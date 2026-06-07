@@ -155,11 +155,15 @@ function AdminLessonDetailPage() {
     enabled: enabled && !!lessonQ.data,
     queryKey: ["admin-lesson-detail", "resources", lessonId],
     queryFn: async () => {
-      // Do NOT select url.
+      // Select full fields for the admin editor dialog; admin-only route.
       const { data, error, count } = await supabase
         .from("lesson_resources")
-        .select("id, resource_type, title", { count: "exact" })
-        .eq("lesson_id", lessonId);
+        .select(
+          "id, lesson_id, resource_type, title, url, description, sort_order",
+          { count: "exact" }
+        )
+        .eq("lesson_id", lessonId)
+        .order("sort_order", { ascending: true });
       if (error) throw error;
       const types: Record<string, number> = {};
       for (const r of data ?? []) {
