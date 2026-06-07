@@ -201,5 +201,6 @@ function AdminStudentsPage() {
         </>
       )}
     </div>
+    </AdminLayout>
   );
 }
