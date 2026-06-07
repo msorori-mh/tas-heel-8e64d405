@@ -41,6 +41,17 @@ function AdminLessonsPage() {
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [unitFilter, setUnitFilter] = useState<string>("all");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
+  const [editingLesson, setEditingLesson] = useState<{
+    id: string;
+    title: string;
+    sort_order: number;
+    duration: string | null;
+    subject_id: string;
+    subject_name: string | null;
+    unit_id: string | null;
+    unit_name: string | null;
+    is_free: boolean | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
