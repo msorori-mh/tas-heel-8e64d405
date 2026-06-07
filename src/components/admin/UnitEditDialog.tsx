@@ -32,29 +32,91 @@ interface Props {
 }
 
 export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [isFree, setIsFree] = useState(false);
   const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setError(null);
+      setSaving(false);
+      return;
+    }
     if (unit) {
       setTitle(unit.title ?? "");
       setSortOrder(unit.sort_order ?? 0);
       setIsFree(unit.is_free ?? false);
       setDescription(unit.description ?? "");
+      setError(null);
     }
   }, [open, unit]);
 
-  const handleSave = () => {
-    // UI only — no database writes in this phase
-  };
+  const handleSave = useCallback(async () => {
+    setError(null);
+
+    if (!unit) {
+      setError("لا توجد وحدة محددة للتعديل.");
+      return;
+    }
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError("عنوان الوحدة مطلوب.");
+      return;
+    }
+
+    const order = Number(sortOrder);
+    if (!Number.isFinite(order) || order < 0 || !Number.isInteger(order)) {
+      setError("الترتيب يجب أن يكون رقمًا صحيحًا غير سالب.");
+      return;
+    }
+
+    const payload: {
+      title: string;
+      sort_order: number;
+      is_free: boolean;
+      description?: string | null;
+    } = {
+      title: trimmedTitle,
+      sort_order: order,
+      is_free: !!isFree,
+    };
+
+    if (description.trim().length > 0) {
+      payload.description = description.trim();
+    } else {
+      payload.description = null;
+    }
+
+    setSaving(true);
+    try {
+      const { error: updateError } = await supabase
+        .from("units")
+        .update(payload)
+        .eq("id", unit.id);
+
+      if (updateError) throw updateError;
+
+      toast.success("تم تحديث الوحدة بنجاح.");
+      queryClient.invalidateQueries({ queryKey: ["admin-units"] });
+      onOpenChange(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      setError(`تعذر تحديث الوحدة.${msg ? " " + msg : ""}`);
+    } finally {
+      setSaving(false);
+    }
+  }, [unit, title, sortOrder, isFree, description, onOpenChange, queryClient]);
 
   return (
     <Dialog
       open={open}
       onOpenChange={(o) => {
+        if (!o) setError(null);
         onOpenChange(o);
       }}
     >
@@ -62,9 +124,15 @@ export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
         <DialogHeader>
           <DialogTitle className="text-right">تعديل الوحدة</DialogTitle>
           <DialogDescription className="text-right">
-            يمكنك تعديل بيانات الوحدة هنا. الحفظ سيتوفر في المرحلة التالية.
+            يمكنك تعديل بيانات الوحدة هنا.
           </DialogDescription>
         </DialogHeader>
+
+        {error && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive text-right">
+            {error}
+          </div>
+        )}
 
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
@@ -73,6 +141,7 @@ export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
               id="unit-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              disabled={saving}
               dir="rtl"
             />
           </div>
@@ -86,6 +155,7 @@ export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
                 min={0}
                 value={sortOrder}
                 onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
+                disabled={saving}
               />
             </div>
             <div className="space-y-1.5">
@@ -106,8 +176,9 @@ export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary resize-none"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary resize-none disabled:opacity-50"
               dir="rtl"
+              disabled={saving}
             />
           </div>
 
@@ -121,6 +192,7 @@ export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
                   checked={isFree}
                   onChange={() => setIsFree(true)}
                   className="h-4 w-4 accent-primary"
+                  disabled={saving}
                 />
                 مجانية
               </label>
@@ -131,6 +203,7 @@ export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
                   checked={!isFree}
                   onChange={() => setIsFree(false)}
                   className="h-4 w-4 accent-primary"
+                  disabled={saving}
                 />
                 ضمن الاشتراك
               </label>
@@ -142,11 +215,19 @@ export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={saving}
           >
             إلغاء
           </Button>
-          <Button onClick={handleSave} disabled>
-            الحفظ في المرحلة التالية
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                جاري الحفظ...
+              </>
+            ) : (
+              "حفظ"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
