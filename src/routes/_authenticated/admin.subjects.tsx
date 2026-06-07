@@ -153,7 +153,7 @@ function AdminSubjectsPage() {
   return (
     <AdminLayout>
       <div className="space-y-6" dir="rtl">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <BookOpen className="h-6 w-6 text-primary" />
@@ -163,13 +163,22 @@ function AdminSubjectsPage() {
               قائمة المواد — قراءة فقط.
             </p>
           </div>
-          <Link
-            to="/admin/academic"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
-          >
-            <ArrowRight className="h-4 w-4" />
-            المحتوى الدراسي
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCreating(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              إضافة مادة
+            </button>
+            <Link
+              to="/admin/academic"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+            >
+              <ArrowRight className="h-4 w-4" />
+              المحتوى الدراسي
+            </Link>
+          </div>
         </div>
 
         {/* Filters */}
