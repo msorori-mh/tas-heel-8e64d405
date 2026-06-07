@@ -182,7 +182,7 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
           </DialogTitle>
           <DialogDescription className="text-right">
             {isCreate
-              ? "أدخل بيانات الوحدة الجديدة. الحفظ سيتوفر في المرحلة التالية."
+              ? "أدخل بيانات الوحدة الجديدة."
               : "يمكنك تعديل بيانات الوحدة هنا."}
           </DialogDescription>
         </DialogHeader>
