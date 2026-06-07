@@ -293,6 +293,26 @@ function AdminUnitsPage() {
                       <td className="px-4 py-3 text-muted-foreground">
                         {lessonsCountQ.isLoading ? "…" : lessonsMap[r.id] ?? 0}
                       </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() =>
+                            setEditing({
+                              id: r.id,
+                              title: r.title,
+                              description: r.description,
+                              sort_order: r.sort_order,
+                              is_free: r.is_free,
+                              subject_id: r.subject_id,
+                              subject_name: r.subject?.name ?? null,
+                            })
+                          }
+                          className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                          title="تعديل"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          تعديل
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
