@@ -20,6 +20,8 @@ import {
   FlaskConical,
   Map as MapIcon,
   Link2,
+  FileText,
+  Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
@@ -221,7 +223,11 @@ function LessonPage() {
     },
   });
 
-  const { data: resources } = useQuery({
+  const {
+    data: resources,
+    isLoading: resourcesLoading,
+    error: resourcesError,
+  } = useQuery({
     enabled: !!lesson && accessible === true && canAccessEnhancements,
     queryKey: ["lesson-resources", lessonId],
     queryFn: async () => {
@@ -343,6 +349,30 @@ function LessonPage() {
           </ol>
         ) : (
           <EmptyText>لم تُضف أسئلة لهذا الدرس بعد.</EmptyText>
+        )}
+      </Section>
+
+      <Section title="موارد الدرس" icon={<Link2 className="h-4 w-4 text-primary" />}>
+        {!canAccessEnhancements && !unitIsFree ? (
+          <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+            <Lock className="h-4 w-4" />
+            <span>موارد الدرس متاحة ضمن الاشتراك.</span>
+          </div>
+        ) : resourcesLoading ? (
+          <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            جارٍ تحميل الموارد…
+          </div>
+        ) : resourcesError ? (
+          <p className="text-sm text-destructive">تعذر تحميل موارد الدرس.</p>
+        ) : resources && resources.length > 0 ? (
+          <div className="space-y-3">
+            {resources.map((r) => (
+              <ResourceCard key={r.id} resource={r} />
+            ))}
+          </div>
+        ) : (
+          <EmptyText>لا توجد موارد لهذا الدرس حاليًا.</EmptyText>
         )}
       </Section>
 
@@ -720,6 +750,51 @@ function EnhancementItemRow({
             <Link2 className="h-3.5 w-3.5" /> فتح
           </a>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ResourceTypeBadge({ type }: { type: string }) {
+  const config: Record<
+    string,
+    { label: string; icon: React.ReactNode }
+  > = {
+    pdf: { label: "ملف PDF", icon: <FileText className="h-3.5 w-3.5" /> },
+    video: { label: "فيديو", icon: <Video className="h-3.5 w-3.5" /> },
+    link: { label: "رابط", icon: <Link2 className="h-3.5 w-3.5" /> },
+    mindmap: { label: "خريطة ذهنية", icon: <MapIcon className="h-3.5 w-3.5" /> },
+    experiment: { label: "تجربة", icon: <FlaskConical className="h-3.5 w-3.5" /> },
+  };
+  const c = config[type] ?? { label: type, icon: null };
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs text-foreground">
+      {c.icon} {c.label}
+    </span>
+  );
+}
+
+function ResourceCard({ resource }: { resource: ResourceRow }) {
+  return (
+    <div className="rounded-xl border border-border bg-background p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-foreground">{resource.title}</div>
+          {resource.description && (
+            <p className="mt-1 text-xs text-muted-foreground">{resource.description}</p>
+          )}
+          <div className="mt-2">
+            <ResourceTypeBadge type={resource.resource_type} />
+          </div>
+        </div>
+        <a
+          href={resource.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          فتح المورد
+        </a>
       </div>
     </div>
   );
