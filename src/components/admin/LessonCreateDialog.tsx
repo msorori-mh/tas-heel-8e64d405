@@ -120,6 +120,13 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
     const trimmedDuration = duration.trim();
     const durationVal = trimmedDuration || null;
 
+    const slugBase = trimmedTitle
+      .toLowerCase()
+      .replace(/[^a-z0-9\u0600-\u06FF]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "lesson";
+    const slug = `${slugBase}-${Math.random().toString(36).slice(2, 8)}`;
+
     const payload = {
       title: trimmedTitle,
       subject_id: subjectId,
@@ -127,6 +134,7 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
       sort_order: sortOrder,
       duration: durationVal,
       is_free: !!isFree,
+      slug,
     };
 
     setSaving(true);
