@@ -116,6 +116,20 @@ function AdminLessonDetailPage() {
     },
   });
 
+  const explanationsQ = useQuery({
+    enabled: enabled && !!lessonQ.data,
+    queryKey: ["admin-lesson-detail", "explanations", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lesson_explanations")
+        .select("id, lesson_id, title, content, sort_order")
+        .eq("lesson_id", lessonId)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return { items: data ?? [], count: (data ?? []).length };
+    },
+  });
+
   const questionsQ = useQuery({
     enabled: enabled && !!lessonQ.data,
     queryKey: ["admin-lesson-detail", "questions", lessonId],
