@@ -4,7 +4,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { BookOpen, Loader2, Search, ArrowRight, Check, Minus } from "lucide-react";
+import { BookOpen, Loader2, Search, ArrowRight, Check, Minus, Pencil } from "lucide-react";
+import { LessonBasicEditDialog } from "@/components/admin/LessonBasicEditDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/lessons")({
   component: AdminLessonsPage,
@@ -19,6 +20,7 @@ type LessonRow = {
   duration: string | null;
   unit_id: string | null;
   subject_id: string;
+  is_free: boolean | null;
   unit?: { id: string; title: string | null } | null;
   subject?: { id: string; name: string | null; grade_id: string | null } | null;
 };
@@ -40,6 +42,17 @@ function AdminLessonsPage() {
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [unitFilter, setUnitFilter] = useState<string>("all");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
+  const [editingLesson, setEditingLesson] = useState<{
+    id: string;
+    title: string;
+    sort_order: number;
+    duration: string | null;
+    subject_id: string;
+    subject_name: string | null;
+    unit_id: string | null;
+    unit_name: string | null;
+    is_free: boolean | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
@@ -113,7 +126,7 @@ function AdminLessonsPage() {
       let q = supabase
         .from("lessons")
         .select(
-          "id, title, sort_order, duration, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)",
+          "id, title, sort_order, duration, is_free, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)",
           { count: "exact" }
         )
         .order("sort_order", { ascending: true })
@@ -134,6 +147,7 @@ function AdminLessonsPage() {
         title: r.title as string,
         sort_order: (r.sort_order as number) ?? 0,
         duration: (r.duration as string | null) ?? null,
+        is_free: (r.is_free as boolean | null) ?? null,
         unit_id: (r.unit_id as string | null) ?? null,
         subject_id: r.subject_id as string,
         unit: r.unit ?? null,
@@ -337,6 +351,7 @@ function AdminLessonsPage() {
                     <th className="px-3 py-3 text-center font-medium" title="موارد">موارد</th>
                     <th className="px-3 py-3 text-center font-medium" title="فيديو">فيديو</th>
                     <th className="px-3 py-3 text-center font-medium" title="محاكاة">محاكاة</th>
+                    <th className="px-3 py-3 text-center font-medium">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -366,6 +381,28 @@ function AdminLessonsPage() {
                         <td className="px-3 py-3 text-center"><Indicator on={!!flags.resources} /></td>
                         <td className="px-3 py-3 text-center"><Indicator on={!!flags.video} /></td>
                         <td className="px-3 py-3 text-center"><Indicator on={!!flags.simulations} /></td>
+                        <td className="px-3 py-3 text-center">
+                          <button
+                            onClick={() =>
+                              setEditingLesson({
+                                id: r.id,
+                                title: r.title,
+                                sort_order: r.sort_order,
+                                duration: r.duration,
+                                subject_id: r.subject_id,
+                                subject_name: r.subject?.name || null,
+                                unit_id: r.unit_id,
+                                unit_name: r.unit?.title || null,
+                                is_free: r.is_free,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                            title="تعديل"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            تعديل
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -406,6 +443,27 @@ function AdminLessonsPage() {
                       <span>فيديو <Indicator on={!!flags.video} /></span>
                       <span>محاكاة <Indicator on={!!flags.simulations} /></span>
                     </div>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() =>
+                          setEditingLesson({
+                            id: r.id,
+                            title: r.title,
+                            sort_order: r.sort_order,
+                            duration: r.duration,
+                                subject_id: r.subject_id,
+                                subject_name: r.subject?.name || null,
+                                unit_id: r.unit_id,
+                                unit_name: r.unit?.title || null,
+                                is_free: r.is_free,
+                              })
+                        }
+                        className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        تعديل
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -435,6 +493,14 @@ function AdminLessonsPage() {
             </div>
           </>
         )}
+
+        <LessonBasicEditDialog
+          open={!!editingLesson}
+          onOpenChange={(o) => {
+            if (!o) setEditingLesson(null);
+          }}
+          lesson={editingLesson ?? undefined}
+        />
       </div>
     </AdminLayout>
   );
