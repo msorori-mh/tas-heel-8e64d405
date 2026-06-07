@@ -148,6 +148,23 @@ function AdminLessonDetailPage() {
     },
   });
 
+  const gradeId =
+    (lessonQ.data as any)?.subject?.grade_id ?? null;
+  const gradeQ = useQuery({
+    enabled: enabled && !!gradeId,
+    queryKey: ["admin-lesson-detail", "grade", gradeId],
+    queryFn: async () => {
+      if (!gradeId) return null;
+      const { data, error } = await supabase
+        .from("grades")
+        .select("name")
+        .eq("id", gradeId)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.name ?? null;
+    },
+  });
+
   if (loading) {
     return (
       <AdminLayout>
