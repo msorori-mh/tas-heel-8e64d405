@@ -691,6 +691,18 @@ function EnhancementGroup({
   );
 }
 
+function isSafeHttpUrl(value: string): boolean {
+  const v = (value ?? "").trim();
+  if (!v) return false;
+  if (!/^https?:\/\//i.test(v)) return false;
+  try {
+    const u = new URL(v);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function isExternalUrl(u: string) {
   return /^https?:\/\//i.test(u.trim());
 }
