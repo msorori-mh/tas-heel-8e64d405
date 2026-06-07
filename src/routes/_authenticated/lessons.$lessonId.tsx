@@ -769,7 +769,8 @@ function EnhancementItemRow({
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
           >
-            <Link2 className="h-3.5 w-3.5" /> فتح
+            <Link2 className="h-3.5 w-3.5" />
+            {item.url.trim().startsWith("supabase-storage://") ? "فتح PDF" : "فتح"}
           </a>
         )}
       </div>
