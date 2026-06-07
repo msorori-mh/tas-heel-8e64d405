@@ -15,7 +15,7 @@ import { Pencil } from "lucide-react";
 export type BookContentItem = {
   id: string;
   content: string | null;
-  sort_order: number | null;
+  sort_order?: number | null;
 };
 
 interface Props {
