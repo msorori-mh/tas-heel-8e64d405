@@ -144,6 +144,7 @@ export function LessonResourcesDialog({
         toast.error("رابط المورد يجب أن يبدأ بـ http:// أو https://");
         return;
       }
+      if (!ALLOWED_TYPES.has(r.resource_type as any)) {
         setErrMsg(`نوع المورد غير مدعوم للمورد #${i + 1}.`);
         toast.error("نوع مورد غير مدعوم.");
         return;
