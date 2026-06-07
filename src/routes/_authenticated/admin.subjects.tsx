@@ -378,6 +378,14 @@ function AdminSubjectsPage() {
         grades={gradesQ.data ?? []}
         tracks={tracksQ.data ?? []}
       />
+
+      <SubjectDeleteDialog
+        open={deleting !== null}
+        onOpenChange={(o) => {
+          if (!o) setDeleting(null);
+        }}
+        subject={deleting}
+      />
     </AdminLayout>
   );
 }
