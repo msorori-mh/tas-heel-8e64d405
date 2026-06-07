@@ -10,6 +10,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 export type LessonBasicEditValue = {
   id: string;
@@ -30,15 +34,18 @@ interface Props {
 }
 
 export function LessonBasicEditDialog({ open, onOpenChange, lesson }: Props) {
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [duration, setDuration] = useState("");
   const [isFree, setIsFree] = useState<boolean>(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
       setError(null);
+      setSaving(false);
       return;
     }
     if (lesson) {
@@ -47,30 +54,75 @@ export function LessonBasicEditDialog({ open, onOpenChange, lesson }: Props) {
       setDuration(lesson.duration ?? "");
       setIsFree(lesson.is_free ?? false);
       setError(null);
+      setSaving(false);
     }
   }, [open, lesson]);
 
   const handleSave = async () => {
-    // UI only — no actual save in this phase
+    if (saving) return;
     setError(null);
+
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
       setError("عنوان الدرس مطلوب.");
       return;
     }
+
     const order = Number(sortOrder);
     if (!Number.isFinite(order) || order < 0 || !Number.isInteger(order)) {
       setError("الترتيب يجب أن يكون رقمًا صحيحًا غير سالب.");
       return;
     }
-    // Intentionally no-op for Phase A1.5a.1
+
+    // duration: empty string → null; otherwise trimmed string
+    const trimmedDuration = duration.trim();
+    const durationValue: string | null = trimmedDuration.length > 0 ? trimmedDuration : null;
+
+    if (!lesson) {
+      setError("لا يوجد درس محدد للتعديل.");
+      return;
+    }
+
+    const payload: {
+      title: string;
+      sort_order: number;
+      duration: string | null;
+      is_free: boolean;
+    } = {
+      title: trimmedTitle,
+      sort_order: order,
+      duration: durationValue,
+      is_free: !!isFree,
+    };
+
+    setSaving(true);
+    try {
+      const { error: updateError } = await supabase
+        .from("lessons")
+        .update(payload)
+        .eq("id", lesson.id);
+
+      if (updateError) throw updateError;
+
+      toast.success("تم تحديث الدرس بنجاح.");
+      queryClient.invalidateQueries({ queryKey: ["admin-lessons"] });
+      onOpenChange(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      setError(`تعذر تحديث الدرس.${msg ? " " + msg : ""}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Dialog
       open={open}
       onOpenChange={(o) => {
-        if (!o) setError(null);
+        if (!o) {
+          setError(null);
+          setSaving(false);
+        }
         onOpenChange(o);
       }}
     >
@@ -78,7 +130,7 @@ export function LessonBasicEditDialog({ open, onOpenChange, lesson }: Props) {
         <DialogHeader>
           <DialogTitle className="text-right">تعديل الدرس</DialogTitle>
           <DialogDescription className="text-right">
-            يمكنك تعديل البيانات الأساسية للدرس. الحفظ سيتوفر في المرحلة التالية.
+            يمكنك تعديل البيانات الأساسية للدرس هنا.
           </DialogDescription>
         </DialogHeader>
 
@@ -95,6 +147,7 @@ export function LessonBasicEditDialog({ open, onOpenChange, lesson }: Props) {
               id="lesson-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              disabled={saving}
               dir="rtl"
             />
           </div>
@@ -108,6 +161,7 @@ export function LessonBasicEditDialog({ open, onOpenChange, lesson }: Props) {
                 min={0}
                 value={sortOrder}
                 onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
+                disabled={saving}
               />
             </div>
             <div className="space-y-1.5">
@@ -117,6 +171,7 @@ export function LessonBasicEditDialog({ open, onOpenChange, lesson }: Props) {
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
                 placeholder="مثال: 45 دقيقة"
+                disabled={saving}
                 dir="rtl"
               />
             </div>
@@ -153,6 +208,7 @@ export function LessonBasicEditDialog({ open, onOpenChange, lesson }: Props) {
                   checked={isFree}
                   onChange={() => setIsFree(true)}
                   className="h-4 w-4 accent-primary"
+                  disabled={saving}
                 />
                 مجاني
               </label>
@@ -163,6 +219,7 @@ export function LessonBasicEditDialog({ open, onOpenChange, lesson }: Props) {
                   checked={!isFree}
                   onChange={() => setIsFree(false)}
                   className="h-4 w-4 accent-primary"
+                  disabled={saving}
                 />
                 ضمن الاشتراك
               </label>
@@ -171,11 +228,22 @@ export function LessonBasicEditDialog({ open, onOpenChange, lesson }: Props) {
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
             إلغاء
           </Button>
-          <Button onClick={handleSave} disabled>
-            الحفظ في المرحلة التالية
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                جاري الحفظ...
+              </>
+            ) : (
+              "حفظ التعديلات"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
