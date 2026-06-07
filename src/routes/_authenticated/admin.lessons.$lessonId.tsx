@@ -422,19 +422,3 @@ function Loading() {
   );
 }
 
-function useQueryGrade(enabled: boolean, gradeId: string | null) {
-  return useQuery({
-    enabled: enabled && !!gradeId,
-    queryKey: ["admin-lesson-detail", "grade", gradeId],
-    queryFn: async () => {
-      if (!gradeId) return null;
-      const { data, error } = await supabase
-        .from("grades")
-        .select("name")
-        .eq("id", gradeId)
-        .maybeSingle();
-      if (error) throw error;
-      return data?.name ?? null;
-    },
-  });
-}
