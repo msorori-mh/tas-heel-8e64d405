@@ -300,7 +300,7 @@ function AdminSubjectsPage() {
                     <span>الوحدات: {unitsCountQ.isLoading ? "…" : unitsMap[r.id] ?? 0}</span>
                     <span>الدروس: {r.lessons_count ?? 0}</span>
                   </div>
-                  <div className="mt-3">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       onClick={() =>
                         setEditing({
@@ -318,6 +318,14 @@ function AdminSubjectsPage() {
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       تعديل
+                    </button>
+                    <button
+                      onClick={() => setDeleting({ id: r.id, name: r.name })}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-background px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10"
+                      aria-label={`حذف ${r.name}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      حذف
                     </button>
                   </div>
                 </div>
