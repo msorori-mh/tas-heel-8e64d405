@@ -411,6 +411,16 @@ function AdminUnitsPage() {
             if (!o) setEditing(null);
           }}
           unit={editing ?? undefined}
+          mode="edit"
+        />
+
+        <UnitEditDialog
+          open={creating}
+          onOpenChange={(o) => {
+            if (!o) setCreating(false);
+          }}
+          mode="create"
+          subjects={subjectsQ.data ?? []}
         />
       </div>
     </AdminLayout>
