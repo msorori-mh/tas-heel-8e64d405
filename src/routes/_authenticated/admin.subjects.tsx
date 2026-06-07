@@ -37,6 +37,7 @@ function AdminSubjectsPage() {
   const [debounced, setDebounced] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [editing, setEditing] = useState<SubjectEditValue | null>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
