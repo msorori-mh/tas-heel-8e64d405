@@ -20,6 +20,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import FileUpload from "@/components/admin/FileUpload";
+
+const PDF_STORAGE_PREFIX = "supabase-storage://lesson-pdfs/";
+
+export function isSafeStorageRef(value: string, lessonId: string): boolean {
+  const v = (value ?? "").trim();
+  if (!v.startsWith(PDF_STORAGE_PREFIX)) return false;
+  const rest = v.slice(PDF_STORAGE_PREFIX.length);
+  if (!rest.toLowerCase().endsWith(".pdf")) return false;
+  const parts = rest.split("/");
+  if (parts.length < 2) return false;
+  if (parts[0] !== lessonId) return false;
+  return true;
+}
+
+export function isAcceptableResourceUrl(value: string, lessonId: string): boolean {
+  const v = (value ?? "").trim();
+  if (!v) return false;
+  if (v.startsWith("supabase-storage://")) return isSafeStorageRef(v, lessonId);
+  return isSafeHttpUrl(v);
+}
 
 export type LessonResourceItem = {
   id: string;
@@ -137,11 +158,11 @@ export function LessonResourcesDialog({
         toast.error("بعض الحقول غير مكتملة.");
         return;
       }
-      if (!isSafeHttpUrl(url)) {
+      if (!isAcceptableResourceUrl(url, lessonId)) {
         setErrMsg(
-          `رابط المورد #${i + 1} يجب أن يبدأ بـ http:// أو https://`,
+          `رابط المورد #${i + 1} غير صالح. يجب أن يكون http(s) أو ملف PDF مرفوع لهذا الدرس.`,
         );
-        toast.error("رابط المورد يجب أن يبدأ بـ http:// أو https://");
+        toast.error("رابط المورد غير صالح.");
         return;
       }
       if (!ALLOWED_TYPES.has(r.resource_type as any)) {
@@ -235,8 +256,9 @@ export function LessonResourcesDialog({
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
-            يمكنك تعديل الموارد المحفوظة وإضافة موارد جديدة. لا يوجد رفع ملفات
-            في هذه المرحلة، وحذف الموارد المحفوظة سيتم دعمه لاحقًا.
+            يمكنك تعديل الموارد المحفوظة وإضافة موارد جديدة. عند اختيار النوع
+            PDF يمكنك رفع ملف PDF (≤ 25MB) أو إدخال رابط خارجي آمن. حذف
+            الموارد المحفوظة سيتم دعمه لاحقًا.
           </span>
         </div>
 
@@ -362,6 +384,31 @@ export function LessonResourcesDialog({
                       />
                     </div>
                   </div>
+
+                  {r.resource_type === "pdf" && (
+                    <div className="rounded-md border border-dashed border-border bg-muted/20 p-2 space-y-1">
+                      <p className="text-[11px] text-muted-foreground">
+                        أو ارفع ملف PDF (PDF فقط — حد أقصى 25 ميغابايت). سيتم
+                        ملء حقل الرابط تلقائيًا كمرجع تخزين خاص ولن يُحفظ إلا
+                        بعد الضغط على "حفظ الموارد".
+                      </p>
+                      <FileUpload
+                        bucket="lesson-pdfs"
+                        folder={lessonId}
+                        accept="application/pdf,.pdf"
+                        allowedMimeTypes={["application/pdf"]}
+                        maxSizeMB={25}
+                        icon="pdf"
+                        label=""
+                        value={
+                          (r.url ?? "").startsWith("supabase-storage://")
+                            ? r.url
+                            : ""
+                        }
+                        onChange={(v) => updateRow(r.id, { url: v })}
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <label className="text-[11px] text-muted-foreground">
