@@ -85,11 +85,7 @@ export function SubjectEditDialog({
   const gradeName = grades.find((g) => g.id === (isCreate ? gradeId : subject?.grade_id))?.name ?? "—";
 
   const handleSave = async () => {
-    if (isCreate) {
-      toast.info("الحفظ سيتوفر في المرحلة التالية.");
-      return;
-    }
-
+    if (saving) return;
     setError(null);
 
     const trimmedName = name.trim();
@@ -109,6 +105,39 @@ export function SubjectEditDialog({
     }
     if (trackId && !tracks.some((t) => t.id === trackId)) {
       setError("المسار المحدد غير صالح.");
+      return;
+    }
+
+    if (isCreate) {
+      if (!gradeId || !grades.some((g) => g.id === gradeId)) {
+        setError("الصف مطلوب ويجب اختياره من القائمة.");
+        return;
+      }
+
+      const payload = {
+        name: trimmedName,
+        grade_id: gradeId,
+        sort_order: sortOrder,
+        icon: trimmedIcon || null,
+        color: trimmedColor || null,
+        curriculum_track_id: trackId || null,
+      };
+
+      setSaving(true);
+      const { error: insertError } = await supabase
+        .from("subjects")
+        .insert(payload);
+      setSaving(false);
+
+      if (insertError) {
+        setError("تعذر إنشاء المادة.");
+        toast.error("تعذر إنشاء المادة.");
+        return;
+      }
+
+      toast.success("تم إنشاء المادة بنجاح.");
+      await queryClient.invalidateQueries({ queryKey: ["admin-subjects"] });
+      onOpenChange(false);
       return;
     }
 
