@@ -176,11 +176,20 @@ function AdminPage() {
             </p>
           </div>
         </Link>
-        <AdminCard
-          icon={<BookOpen className="h-5 w-5" />}
-          title="المحتوى الدراسي"
-          description="إدارة المواد والوحدات والدروس"
-        />
+        <Link
+          to="/admin/academic"
+          className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 hover:border-primary hover:shadow-md transition-all"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+            <BookOpen className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-foreground">المحتوى الدراسي</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              نظرة عامة على المواد والوحدات والدروس
+            </p>
+          </div>
+        </Link>
         <AdminCard
           icon={<Shield className="h-5 w-5" />}
           title="الاشتراكات"
