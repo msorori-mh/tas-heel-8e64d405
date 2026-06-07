@@ -31,41 +31,65 @@ type TrackOption = { id: string; track_name: string | null };
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  subject: SubjectEditValue | null;
+  mode?: "edit" | "create";
+  subject?: SubjectEditValue | null;
   grades: GradeOption[];
   tracks: TrackOption[];
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
-export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks }: Props) {
+export function SubjectEditDialog({
+  open,
+  onOpenChange,
+  mode = "edit",
+  subject,
+  grades,
+  tracks,
+}: Props) {
   const queryClient = useQueryClient();
+  const isCreate = mode === "create";
 
   const [name, setName] = useState("");
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [icon, setIcon] = useState("");
-  const [color, setColor] = useState("#3b82f6");
+  const [color, setColor] = useState("#0d7377");
   const [trackId, setTrackId] = useState<string>("");
+  const [gradeId, setGradeId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open && subject) {
+    if (!open) return;
+    if (isCreate) {
+      setName("");
+      setSortOrder(0);
+      setIcon("");
+      setColor("#0d7377");
+      setTrackId("");
+      setGradeId(grades[0]?.id ?? "");
+      setError(null);
+      setSaving(false);
+    } else if (subject) {
       setName(subject.name ?? "");
       setSortOrder(subject.sort_order ?? 0);
       setIcon(subject.icon ?? "");
-      setColor(subject.color ?? "#3b82f6");
+      setColor(subject.color ?? "#0d7377");
       setTrackId(subject.curriculum_track_id ?? "");
+      setGradeId(subject.grade_id ?? "");
       setError(null);
       setSaving(false);
     }
-  }, [open, subject]);
+  }, [open, isCreate, subject, grades]);
 
-  if (!subject) return null;
-
-  const gradeName = grades.find((g) => g.id === subject.grade_id)?.name ?? "—";
+  const gradeName = grades.find((g) => g.id === (isCreate ? gradeId : subject?.grade_id))?.name ?? "—";
 
   const handleSave = async () => {
+    if (isCreate) {
+      toast.info("الحفظ سيتوفر في المرحلة التالية.");
+      return;
+    }
+
     setError(null);
 
     const trimmedName = name.trim();
@@ -87,6 +111,8 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
       setError("المسار المحدد غير صالح.");
       return;
     }
+
+    if (!subject) return;
 
     const payload = {
       name: trimmedName,
@@ -124,9 +150,13 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
     >
       <DialogContent dir="rtl" className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle className="text-right">تعديل المادة</DialogTitle>
+          <DialogTitle className="text-right">
+            {isCreate ? "إضافة مادة جديدة" : "تعديل المادة"}
+          </DialogTitle>
           <DialogDescription className="text-right">
-            يمكنك تعديل البيانات الأساسية للمادة. لا يمكن تغيير الصف من هنا.
+            {isCreate
+              ? "أدخل بيانات المادة الجديدة. الحفظ سيتوفر في المرحلة التالية."
+              : "يمكنك تعديل البيانات الأساسية للمادة. لا يمكن تغيير الصف من هنا."}
           </DialogDescription>
         </DialogHeader>
 
@@ -160,7 +190,7 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
                 <Input
                   id="subject-color"
                   type="color"
-                  value={HEX_RE.test(color) ? color : "#3b82f6"}
+                  value={HEX_RE.test(color) ? color : "#0d7377"}
                   onChange={(e) => setColor(e.target.value)}
                   disabled={saving}
                   className="w-14 p-1"
@@ -191,7 +221,24 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="subject-grade">الصف</Label>
-              <Input id="subject-grade" value={gradeName} disabled dir="rtl" />
+              {isCreate ? (
+                <select
+                  id="subject-grade"
+                  value={gradeId}
+                  onChange={(e) => setGradeId(e.target.value)}
+                  disabled={saving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
+                >
+                  <option value="">اختر الصف</option>
+                  {grades.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input id="subject-grade" value={gradeName} disabled dir="rtl" />
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="subject-track">المسار</Label>
@@ -227,12 +274,14 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
           >
             إلغاء
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving || isCreate}>
             {saving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
                 جاري الحفظ...
               </>
+            ) : isCreate ? (
+              "الحفظ في المرحلة التالية"
             ) : (
               "حفظ التعديلات"
             )}

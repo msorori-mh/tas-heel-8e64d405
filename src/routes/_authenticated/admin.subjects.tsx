@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { BookOpen, Loader2, Search, ArrowRight, Pencil } from "lucide-react";
+import { BookOpen, Loader2, Search, ArrowRight, Pencil, Plus } from "lucide-react";
 import {
   SubjectEditDialog,
   type SubjectEditValue,
@@ -37,6 +37,7 @@ function AdminSubjectsPage() {
   const [debounced, setDebounced] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [editing, setEditing] = useState<SubjectEditValue | null>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
@@ -152,7 +153,7 @@ function AdminSubjectsPage() {
   return (
     <AdminLayout>
       <div className="space-y-6" dir="rtl">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <BookOpen className="h-6 w-6 text-primary" />
@@ -162,13 +163,22 @@ function AdminSubjectsPage() {
               قائمة المواد — قراءة فقط.
             </p>
           </div>
-          <Link
-            to="/admin/academic"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
-          >
-            <ArrowRight className="h-4 w-4" />
-            المحتوى الدراسي
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCreating(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              إضافة مادة
+            </button>
+            <Link
+              to="/admin/academic"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+            >
+              <ArrowRight className="h-4 w-4" />
+              المحتوى الدراسي
+            </Link>
+          </div>
         </div>
 
         {/* Filters */}
@@ -333,7 +343,18 @@ function AdminSubjectsPage() {
         onOpenChange={(o) => {
           if (!o) setEditing(null);
         }}
+        mode="edit"
         subject={editing}
+        grades={gradesQ.data ?? []}
+        tracks={tracksQ.data ?? []}
+      />
+
+      <SubjectEditDialog
+        open={creating}
+        onOpenChange={(o) => {
+          if (!o) setCreating(false);
+        }}
+        mode="create"
         grades={gradesQ.data ?? []}
         tracks={tracksQ.data ?? []}
       />
