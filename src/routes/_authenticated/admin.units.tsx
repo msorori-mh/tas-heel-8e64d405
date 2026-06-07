@@ -392,7 +392,14 @@ function AdminUnitsPage() {
                 </button>
               </div>
             </div>
-          </>
+          <UnitEditDialog
+            open={editing !== null}
+            onOpenChange={(o) => {
+              if (!o) setEditing(null);
+            }}
+            unit={editing ?? undefined}
+          />
+        </>
         )}
       </div>
     </AdminLayout>
