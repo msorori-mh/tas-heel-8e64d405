@@ -1,9 +1,10 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight, Users, Loader2, Search } from "lucide-react";
+import { AdminLayout } from "@/components/admin/AdminLayout";
+import { Users, Loader2, Search } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
   component: AdminStudentsPage,
