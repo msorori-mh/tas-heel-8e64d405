@@ -419,6 +419,13 @@ function AdminLessonDetailPage() {
             </>
           )}
         </Section>
+
+        <LessonBookContentDialog
+          open={openBookDialog}
+          onOpenChange={setOpenBookDialog}
+          lessonTitle={(lesson as any)?.title ?? null}
+          items={bookQ.data?.items ?? []}
+        />
       </div>
     </AdminLayout>
   );
