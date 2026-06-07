@@ -125,7 +125,7 @@ export function LessonResourcesDialog({
         toast.error("بعض الحقول غير مكتملة.");
         return;
       }
-      if (!ALLOWED_TYPES.has(r.resource_type)) {
+      if (!ALLOWED_TYPES.has(r.resource_type as any)) {
         setErrMsg(`نوع المورد غير مدعوم للمورد #${i + 1}.`);
         toast.error("نوع مورد غير مدعوم.");
         return;
