@@ -455,9 +455,18 @@ function AdminLessonDetailPage() {
             <Loading />
           ) : (
             <>
-              <p className="text-sm text-muted-foreground">
-                عدد الموارد: <span className="text-foreground font-medium">{resourcesQ.data?.count ?? 0}</span>
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  عدد الموارد: <span className="text-foreground font-medium">{resourcesQ.data?.count ?? 0}</span>
+                </p>
+                <button
+                  onClick={() => setOpenResourcesDialog(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-muted"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  إدارة موارد الدرس
+                </button>
+              </div>
               {Object.keys(resourcesQ.data?.types ?? {}).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {Object.entries(resourcesQ.data!.types).map(([t, n]) => (
