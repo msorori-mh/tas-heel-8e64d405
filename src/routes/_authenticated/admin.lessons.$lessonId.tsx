@@ -229,9 +229,6 @@ function AdminLessonDetailPage() {
   const hasLessonPdf = !!(lesson as any).content_pdf_url;
   const subjectName = (lesson as any).subject?.name ?? "—";
   const unitTitle = (lesson as any).unit?.title ?? "—";
-  const gradeId = (lesson as any).subject?.grade_id ?? null;
-
-  const gradeQ = useQueryGrade(enabled && !!gradeId, gradeId);
 
   return (
     <AdminLayout>
