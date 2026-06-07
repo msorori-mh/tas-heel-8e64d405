@@ -157,11 +157,18 @@ function AdminLessonsPage() {
         "lesson_resources",
         "lesson_simulations",
       ] as const;
-      const results = await Promise.all(
+      const tableResults = await Promise.all(
         tables.map((t) =>
           supabase.from(t).select("lesson_id").in("lesson_id", lessonIds)
         )
       );
+      // Existence flag for video (do not read the URL value).
+      const videoRes = await supabase
+        .from("lessons")
+        .select("id")
+        .in("id", lessonIds)
+        .not("video_url", "is", null);
+
       const map: Record<string, Record<string, boolean>> = {};
       for (const id of lessonIds) {
         map[id] = {
@@ -170,15 +177,20 @@ function AdminLessonsPage() {
           questions: false,
           resources: false,
           simulations: false,
+          video: false,
         };
       }
       const keys = ["book", "summary", "questions", "resources", "simulations"];
-      results.forEach((res, i) => {
+      tableResults.forEach((res, i) => {
         for (const row of res.data ?? []) {
           const lid = (row as any).lesson_id;
           if (lid && map[lid]) map[lid][keys[i]] = true;
         }
       });
+      for (const row of videoRes.data ?? []) {
+        const lid = (row as any).id;
+        if (lid && map[lid]) map[lid].video = true;
+      }
       return map;
     },
   });
