@@ -158,11 +158,11 @@ export function LessonResourcesDialog({
         toast.error("بعض الحقول غير مكتملة.");
         return;
       }
-      if (!isSafeHttpUrl(url)) {
+      if (!isAcceptableResourceUrl(url, lessonId)) {
         setErrMsg(
-          `رابط المورد #${i + 1} يجب أن يبدأ بـ http:// أو https://`,
+          `رابط المورد #${i + 1} غير صالح. يجب أن يكون http(s) أو ملف PDF مرفوع لهذا الدرس.`,
         );
-        toast.error("رابط المورد يجب أن يبدأ بـ http:// أو https://");
+        toast.error("رابط المورد غير صالح.");
         return;
       }
       if (!ALLOWED_TYPES.has(r.resource_type as any)) {
