@@ -19,8 +19,7 @@ type UnitRow = {
   sort_order: number;
   is_free: boolean;
   subject_id: string;
-  subject?: { id: string; name: string | null } | null;
-  grade?: { id: string; name: string | null } | null;
+  subject?: { id: string; name: string | null; grade_id: string | null } | null;
 };
 
 function AdminUnitsPage() {
@@ -77,6 +76,12 @@ function AdminUnitsPage() {
     },
   });
 
+  // Compute subject ids for grade filter to pass to the units query
+  const gradeSubjectIds =
+    gradeFilter !== "all"
+      ? (subjectsQ.data?.filter((s) => s.grade_id === gradeFilter).map((s) => s.id) ?? [])
+      : [];
+
   const unitsQ = useQuery({
     enabled,
     placeholderData: keepPreviousData,
@@ -87,7 +92,7 @@ function AdminUnitsPage() {
       let q = supabase
         .from("units")
         .select(
-          "id, title, description, sort_order, is_free, subject_id, subject:subjects!units_subject_id_fkey(id, name, grade_id), grade:grades!subjects!inner(id, name)",
+          "id, title, description, sort_order, is_free, subject_id, subject:subjects!units_subject_id_fkey(id, name, grade_id)",
           { count: "exact" }
         )
         .order("sort_order", { ascending: true })
@@ -95,6 +100,9 @@ function AdminUnitsPage() {
 
       if (debounced) q = q.ilike("title", `%${debounced}%`);
       if (subjectFilter !== "all") q = q.eq("subject_id", subjectFilter);
+      if (gradeFilter !== "all" && gradeSubjectIds.length > 0) {
+        q = q.in("subject_id", gradeSubjectIds);
+      }
       if (freeFilter !== "all") q = q.eq("is_free", freeFilter === "free");
 
       const { data, count, error } = await q;
@@ -107,8 +115,7 @@ function AdminUnitsPage() {
         sort_order: (r.sort_order as number) ?? 0,
         is_free: (r.is_free as boolean) ?? false,
         subject_id: r.subject_id as string,
-        subject: r.subject as { id: string; name: string | null } | null,
-        grade: r.grade as { id: string; name: string | null } | null,
+        subject: r.subject as { id: string; name: string | null; grade_id: string | null } | null,
       }));
 
       return { rows, count: count ?? 0 };
@@ -133,6 +140,11 @@ function AdminUnitsPage() {
       return map;
     },
   });
+
+  const gradeNameMap: Record<string, string> = {};
+  for (const g of gradesQ.data ?? []) {
+    if (g.id && g.name) gradeNameMap[g.id] = g.name;
+  }
 
   if (loading) {
     return (
@@ -261,7 +273,9 @@ function AdminUnitsPage() {
                       <td className="px-4 py-3 text-muted-foreground">{r.sort_order}</td>
                       <td className="px-4 py-3 text-foreground font-medium">{r.title}</td>
                       <td className="px-4 py-3 text-muted-foreground">{r.subject?.name || "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{r.grade?.name || "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
+                      </td>
                       <td className="px-4 py-3">
                         {r.is_free ? (
                           <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
@@ -292,7 +306,10 @@ function AdminUnitsPage() {
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-y-1 text-xs text-muted-foreground">
                     <span>المادة: {r.subject?.name || "—"}</span>
-                    <span>الصف: {r.grade?.name || "—"}</span>
+                    <span>
+                      الصف:{" "}
+                      {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
+                    </span>
                     <span>
                       الحالة:{" "}
                       {r.is_free ? (
