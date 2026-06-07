@@ -71,16 +71,6 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
   const handleSave = async () => {
     setError(null);
 
-    if (isCreate) {
-      // UI only in this phase — no insert
-      return;
-    }
-
-    if (!unit) {
-      setError("لا توجد وحدة محددة للتعديل.");
-      return;
-    }
-
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
       setError("عنوان الوحدة مطلوب.");
@@ -90,6 +80,53 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
     const order = Number(sortOrder);
     if (!Number.isFinite(order) || order < 0 || !Number.isInteger(order)) {
       setError("الترتيب يجب أن يكون رقمًا صحيحًا غير سالب.");
+      return;
+    }
+
+    if (isCreate) {
+      if (!selectedSubjectId) {
+        setError("اختيار المادة مطلوب.");
+        return;
+      }
+      const subjectExists = subjects.some((s) => s.id === selectedSubjectId);
+      if (!subjectExists) {
+        setError("المادة المختارة غير موجودة.");
+        return;
+      }
+
+      const payload: {
+        title: string;
+        subject_id: string;
+        sort_order: number;
+        is_free: boolean;
+        description: string | null;
+      } = {
+        title: trimmedTitle,
+        subject_id: selectedSubjectId,
+        sort_order: order,
+        is_free: !!isFree,
+        description: description.trim().length > 0 ? description.trim() : null,
+      };
+
+      setSaving(true);
+      try {
+        const { error: insertError } = await supabase.from("units").insert(payload);
+        if (insertError) throw insertError;
+
+        toast.success("تم إنشاء الوحدة بنجاح.");
+        queryClient.invalidateQueries({ queryKey: ["admin-units"] });
+        onOpenChange(false);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        setError(`تعذر إنشاء الوحدة.${msg ? " " + msg : ""}`);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    if (!unit) {
+      setError("لا توجد وحدة محددة للتعديل.");
       return;
     }
 
@@ -145,7 +182,7 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
           </DialogTitle>
           <DialogDescription className="text-right">
             {isCreate
-              ? "أدخل بيانات الوحدة الجديدة. الحفظ سيتوفر في المرحلة التالية."
+              ? "أدخل بيانات الوحدة الجديدة."
               : "يمكنك تعديل بيانات الوحدة هنا."}
           </DialogDescription>
         </DialogHeader>
@@ -258,14 +295,14 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
           >
             إلغاء
           </Button>
-          <Button onClick={handleSave} disabled={saving || isCreate}>
+          <Button onClick={handleSave} disabled={saving}>
             {saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 جاري الحفظ...
               </>
             ) : isCreate ? (
-              "الحفظ في المرحلة التالية"
+              "إنشاء"
             ) : (
               "حفظ"
             )}
