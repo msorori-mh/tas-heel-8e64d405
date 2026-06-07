@@ -137,7 +137,13 @@ export function LessonResourcesDialog({
         toast.error("بعض الحقول غير مكتملة.");
         return;
       }
-      if (!ALLOWED_TYPES.has(r.resource_type as any)) {
+      if (!isSafeHttpUrl(url)) {
+        setErrMsg(
+          `رابط المورد #${i + 1} يجب أن يبدأ بـ http:// أو https://`,
+        );
+        toast.error("رابط المورد يجب أن يبدأ بـ http:// أو https://");
+        return;
+      }
         setErrMsg(`نوع المورد غير مدعوم للمورد #${i + 1}.`);
         toast.error("نوع مورد غير مدعوم.");
         return;
