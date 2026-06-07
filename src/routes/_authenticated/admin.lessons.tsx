@@ -451,12 +451,12 @@ function AdminLessonsPage() {
                             title: r.title,
                             sort_order: r.sort_order,
                             duration: r.duration,
-                            subject_id: r.subject_id,
-                            subject_name: r.subject?.name || null,
-                            unit_id: r.unit_id,
-                            unit_name: r.unit?.title || null,
-                            is_free: null,
-                          })
+                                subject_id: r.subject_id,
+                                subject_name: r.subject?.name || null,
+                                unit_id: r.unit_id,
+                                unit_name: r.unit?.title || null,
+                                is_free: r.is_free,
+                              })
                         }
                         className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
                       >
