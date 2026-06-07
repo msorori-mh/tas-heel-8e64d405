@@ -114,6 +114,13 @@ export function SubjectEditDialog({
         return;
       }
 
+      const slugBase = trimmedName
+        .toLowerCase()
+        .replace(/[^a-z0-9\u0600-\u06FF]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40) || "subject";
+      const slug = `${slugBase}-${Math.random().toString(36).slice(2, 8)}`;
+
       const payload = {
         name: trimmedName,
         grade_id: gradeId,
@@ -121,6 +128,7 @@ export function SubjectEditDialog({
         icon: trimmedIcon || null,
         color: trimmedColor || null,
         curriculum_track_id: trackId || null,
+        slug,
       };
 
       setSaving(true);
