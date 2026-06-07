@@ -4,11 +4,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { BookOpen, Loader2, Search, ArrowRight, Pencil, Plus } from "lucide-react";
+import { BookOpen, Loader2, Search, ArrowRight, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   SubjectEditDialog,
   type SubjectEditValue,
 } from "@/components/admin/SubjectEditDialog";
+import { SubjectDeleteDialog } from "@/components/admin/SubjectDeleteDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/subjects")({
   component: AdminSubjectsPage,
@@ -37,6 +38,7 @@ function AdminSubjectsPage() {
   const [debounced, setDebounced] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [editing, setEditing] = useState<SubjectEditValue | null>(null);
+  const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -249,24 +251,34 @@ function AdminSubjectsPage() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{r.lessons_count ?? 0}</td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() =>
-                            setEditing({
-                              id: r.id,
-                              name: r.name,
-                              sort_order: r.sort_order,
-                              icon: r.icon,
-                              color: r.color,
-                              curriculum_track_id: r.curriculum_track_id,
-                              grade_id: r.grade_id,
-                            })
-                          }
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs text-foreground hover:bg-muted"
-                          aria-label={`تعديل ${r.name}`}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                          تعديل
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() =>
+                              setEditing({
+                                id: r.id,
+                                name: r.name,
+                                sort_order: r.sort_order,
+                                icon: r.icon,
+                                color: r.color,
+                                curriculum_track_id: r.curriculum_track_id,
+                                grade_id: r.grade_id,
+                              })
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs text-foreground hover:bg-muted"
+                            aria-label={`تعديل ${r.name}`}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            تعديل
+                          </button>
+                          <button
+                            onClick={() => setDeleting({ id: r.id, name: r.name })}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-card px-2.5 py-1 text-xs text-destructive hover:bg-destructive/10"
+                            aria-label={`حذف ${r.name}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            حذف
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -288,7 +300,7 @@ function AdminSubjectsPage() {
                     <span>الوحدات: {unitsCountQ.isLoading ? "…" : unitsMap[r.id] ?? 0}</span>
                     <span>الدروس: {r.lessons_count ?? 0}</span>
                   </div>
-                  <div className="mt-3">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       onClick={() =>
                         setEditing({
@@ -306,6 +318,14 @@ function AdminSubjectsPage() {
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       تعديل
+                    </button>
+                    <button
+                      onClick={() => setDeleting({ id: r.id, name: r.name })}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-background px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10"
+                      aria-label={`حذف ${r.name}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      حذف
                     </button>
                   </div>
                 </div>
@@ -357,6 +377,14 @@ function AdminSubjectsPage() {
         mode="create"
         grades={gradesQ.data ?? []}
         tracks={tracksQ.data ?? []}
+      />
+
+      <SubjectDeleteDialog
+        open={deleting !== null}
+        onOpenChange={(o) => {
+          if (!o) setDeleting(null);
+        }}
+        subject={deleting}
       />
     </AdminLayout>
   );
