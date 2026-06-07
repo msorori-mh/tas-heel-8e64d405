@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Users,
   BookOpen,
+  Layers,
   CreditCard,
   MessageSquare,
   Settings,
