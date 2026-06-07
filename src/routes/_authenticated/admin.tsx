@@ -3,12 +3,12 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminLayout } from "@/components/admin/AdminLayout";
 import {
   Users,
   BookOpen,
   GraduationCap,
   MessageSquare,
-  ArrowLeft,
   Shield,
   Loader2,
 } from "lucide-react";
