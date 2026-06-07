@@ -538,6 +538,14 @@ function AdminLessonDetailPage() {
           lessonTitle={(lesson as any)?.title ?? null}
           items={explanationsQ.data?.items ?? []}
         />
+
+        <LessonResourcesDialog
+          open={openResourcesDialog}
+          onOpenChange={setOpenResourcesDialog}
+          lessonId={lessonId}
+          lessonTitle={(lesson as any)?.title ?? null}
+          items={(resourcesQ.data?.items ?? []) as any}
+        />
       </div>
     </AdminLayout>
   );
