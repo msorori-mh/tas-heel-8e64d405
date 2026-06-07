@@ -200,6 +200,7 @@ function AdminPage() {
         </p>
       </div>
     </div>
+    </AdminLayout>
   );
 }
 
