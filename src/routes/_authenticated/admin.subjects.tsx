@@ -69,6 +69,19 @@ function AdminSubjectsPage() {
     },
   });
 
+  const tracksQ = useQuery({
+    enabled,
+    queryKey: ["admin-subjects", "tracks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("curriculum_tracks")
+        .select("id, track_name")
+        .order("track_name", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const subjectsQ = useQuery({
     enabled,
     placeholderData: keepPreviousData,
