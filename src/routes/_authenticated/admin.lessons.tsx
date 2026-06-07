@@ -20,6 +20,7 @@ type LessonRow = {
   duration: string | null;
   unit_id: string | null;
   subject_id: string;
+  is_free: boolean | null;
   unit?: { id: string; title: string | null } | null;
   subject?: { id: string; name: string | null; grade_id: string | null } | null;
 };
