@@ -7,6 +7,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { LessonBookContentDialog } from "@/components/admin/LessonBookContentDialog";
 import { LessonSummaryDialog } from "@/components/admin/LessonSummaryDialog";
 import { LessonExplanationsDialog } from "@/components/admin/LessonExplanationsDialog";
+import { LessonResourcesDialog } from "@/components/admin/LessonResourcesDialog";
 import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil } from "lucide-react";
 
 
