@@ -283,10 +283,19 @@ function AdminLessonDetailPage() {
             <Loading />
           ) : (
             <>
-              <p className="text-sm text-muted-foreground">
-                عدد السجلات: <span className="text-foreground font-medium">{bookQ.data?.length ?? 0}</span>
-              </p>
-              {(bookQ.data ?? []).map((b, idx) => (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  عدد السجلات: <span className="text-foreground font-medium">{bookQ.data?.display?.length ?? 0}</span>
+                </p>
+                <button
+                  onClick={() => setOpenBookDialog(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-muted"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  تحرير محتوى الكتاب
+                </button>
+              </div>
+              {(bookQ.data?.display ?? []).map((b: any, idx: number) => (
                 <div key={b.id} className="mt-2 rounded-lg border border-border bg-muted/30 p-3 text-xs">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-muted-foreground">سجل #{idx + 1}</span>
