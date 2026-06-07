@@ -4,7 +4,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { BookOpen, Loader2, Search, ArrowRight } from "lucide-react";
+import { BookOpen, Loader2, Search, ArrowRight, Pencil } from "lucide-react";
+import {
+  SubjectEditDialog,
+  type SubjectEditValue,
+} from "@/components/admin/SubjectEditDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/subjects")({
   component: AdminSubjectsPage,
@@ -19,6 +23,8 @@ type SubjectRow = {
   lessons_count: number | null;
   grade_id: string;
   curriculum_track_id: string | null;
+  icon: string | null;
+  color: string | null;
   grade?: { id: string; name: string | null } | null;
   track?: { id: string; track_name: string | null } | null;
 };
@@ -30,6 +36,7 @@ function AdminSubjectsPage() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
+  const [editing, setEditing] = useState<SubjectEditValue | null>(null);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
@@ -62,6 +69,19 @@ function AdminSubjectsPage() {
     },
   });
 
+  const tracksQ = useQuery({
+    enabled,
+    queryKey: ["admin-subjects", "tracks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("curriculum_tracks")
+        .select("id, track_name")
+        .order("track_name", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const subjectsQ = useQuery({
     enabled,
     placeholderData: keepPreviousData,
@@ -72,7 +92,7 @@ function AdminSubjectsPage() {
       let q = supabase
         .from("subjects")
         .select(
-          "id, name, sort_order, lessons_count, grade_id, curriculum_track_id, grade:grades!subjects_grade_id_fkey(id, name), track:curriculum_tracks!subjects_curriculum_track_id_fkey(id, track_name)",
+          "id, name, sort_order, lessons_count, grade_id, curriculum_track_id, icon, color, grade:grades!subjects_grade_id_fkey(id, name), track:curriculum_tracks!subjects_curriculum_track_id_fkey(id, track_name)",
           { count: "exact" }
         )
         .order("sort_order", { ascending: true })
@@ -202,6 +222,7 @@ function AdminSubjectsPage() {
                     <th className="px-4 py-3 text-right font-medium">المسار</th>
                     <th className="px-4 py-3 text-right font-medium">الوحدات</th>
                     <th className="px-4 py-3 text-right font-medium">الدروس</th>
+                    <th className="px-4 py-3 text-right font-medium">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -217,6 +238,26 @@ function AdminSubjectsPage() {
                         {unitsCountQ.isLoading ? "…" : unitsMap[r.id] ?? 0}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{r.lessons_count ?? 0}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() =>
+                            setEditing({
+                              id: r.id,
+                              name: r.name,
+                              sort_order: r.sort_order,
+                              icon: r.icon,
+                              color: r.color,
+                              curriculum_track_id: r.curriculum_track_id,
+                              grade_id: r.grade_id,
+                            })
+                          }
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs text-foreground hover:bg-muted"
+                          aria-label={`تعديل ${r.name}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          تعديل
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -236,6 +277,26 @@ function AdminSubjectsPage() {
                     <span>المسار: {r.track?.track_name || "عام"}</span>
                     <span>الوحدات: {unitsCountQ.isLoading ? "…" : unitsMap[r.id] ?? 0}</span>
                     <span>الدروس: {r.lessons_count ?? 0}</span>
+                  </div>
+                  <div className="mt-3">
+                    <button
+                      onClick={() =>
+                        setEditing({
+                          id: r.id,
+                          name: r.name,
+                          sort_order: r.sort_order,
+                          icon: r.icon,
+                          color: r.color,
+                          curriculum_track_id: r.curriculum_track_id,
+                          grade_id: r.grade_id,
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground hover:bg-muted"
+                      aria-label={`تعديل ${r.name}`}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      تعديل
+                    </button>
                   </div>
                 </div>
               ))}
@@ -266,6 +327,16 @@ function AdminSubjectsPage() {
           </>
         )}
       </div>
+
+      <SubjectEditDialog
+        open={editing !== null}
+        onOpenChange={(o) => {
+          if (!o) setEditing(null);
+        }}
+        subject={editing}
+        grades={gradesQ.data ?? []}
+        tracks={tracksQ.data ?? []}
+      />
     </AdminLayout>
   );
 }
