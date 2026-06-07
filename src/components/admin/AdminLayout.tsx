@@ -37,6 +37,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/subjects", label: "المواد", icon: BookOpen },
   { href: "/admin/units", label: "الوحدات", icon: Layers },
   { href: "/admin/lessons", label: "الدروس", icon: BookOpen },
+  { href: "/admin/questions", label: "الأسئلة", icon: HelpCircle },
 ];
 
 const upcomingLinks: DisabledItem[] = [
