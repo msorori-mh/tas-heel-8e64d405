@@ -4,7 +4,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { BookOpen, Loader2, Search, ArrowRight } from "lucide-react";
+import { BookOpen, Loader2, Search, ArrowRight, Pencil } from "lucide-react";
+import {
+  SubjectEditDialog,
+  type SubjectEditValue,
+} from "@/components/admin/SubjectEditDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/subjects")({
   component: AdminSubjectsPage,
