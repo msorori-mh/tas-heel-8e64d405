@@ -327,6 +327,16 @@ function AdminSubjectsPage() {
           </>
         )}
       </div>
+
+      <SubjectEditDialog
+        open={editing !== null}
+        onOpenChange={(o) => {
+          if (!o) setEditing(null);
+        }}
+        subject={editing}
+        grades={gradesQ.data ?? []}
+        tracks={tracksQ.data ?? []}
+      />
     </AdminLayout>
   );
 }
