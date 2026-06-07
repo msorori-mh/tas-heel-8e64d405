@@ -375,6 +375,45 @@ function AdminLessonDetailPage() {
           )}
         </Section>
 
+        {/* Explanations */}
+        <Section title="الشروحات">
+          {explanationsQ.isLoading ? (
+            <Loading />
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  عدد الشروحات:{" "}
+                  <span className="text-foreground font-medium">
+                    {explanationsQ.data?.count ?? 0}
+                  </span>
+                </p>
+                <button
+                  onClick={() => setOpenExplanationsDialog(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-muted"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  إدارة شروحات الدرس
+                </button>
+              </div>
+              {(explanationsQ.data?.items ?? []).length > 0 && (
+                <ul className="mt-3 space-y-1 text-xs text-foreground/80">
+                  {explanationsQ.data!.items.map((e: any, idx: number) => (
+                    <li key={e.id} className="flex items-center gap-2">
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">
+                        #{idx + 1}
+                      </span>
+                      <span>{e.title || "بدون عنوان"}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </Section>
+
+
+
 
         {/* Questions */}
         <Section title="الأسئلة">
@@ -475,6 +514,14 @@ function AdminLessonDetailPage() {
           lessonId={lessonId}
           lessonTitle={(lesson as any)?.title ?? null}
           items={summaryQ.data?.items ?? []}
+        />
+
+        <LessonExplanationsDialog
+          open={openExplanationsDialog}
+          onOpenChange={setOpenExplanationsDialog}
+          lessonId={lessonId}
+          lessonTitle={(lesson as any)?.title ?? null}
+          items={explanationsQ.data?.items ?? []}
         />
       </div>
     </AdminLayout>
