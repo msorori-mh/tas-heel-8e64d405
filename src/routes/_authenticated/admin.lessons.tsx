@@ -379,6 +379,28 @@ function AdminLessonsPage() {
                         <td className="px-3 py-3 text-center"><Indicator on={!!flags.resources} /></td>
                         <td className="px-3 py-3 text-center"><Indicator on={!!flags.video} /></td>
                         <td className="px-3 py-3 text-center"><Indicator on={!!flags.simulations} /></td>
+                        <td className="px-3 py-3 text-center">
+                          <button
+                            onClick={() =>
+                              setEditingLesson({
+                                id: r.id,
+                                title: r.title,
+                                sort_order: r.sort_order,
+                                duration: r.duration,
+                                subject_id: r.subject_id,
+                                subject_name: r.subject?.name || null,
+                                unit_id: r.unit_id,
+                                unit_name: r.unit?.title || null,
+                                is_free: null, // will be refined when schema supports per-lesson is_free
+                              })
+                            }
+                            className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                            title="تعديل"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            تعديل
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
