@@ -787,6 +787,7 @@ function ResourceTypeBadge({ type }: { type: string }) {
 }
 
 function ResourceCard({ resource }: { resource: ResourceRow }) {
+  const safe = isSafeHttpUrl(resource.url);
   return (
     <div className="rounded-xl border border-border bg-background p-3">
       <div className="flex items-start justify-between gap-3">
@@ -799,14 +800,20 @@ function ResourceCard({ resource }: { resource: ResourceRow }) {
             <ResourceTypeBadge type={resource.resource_type} />
           </div>
         </div>
-        <a
-          href={resource.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          فتح المورد
-        </a>
+        {safe ? (
+          <a
+            href={resource.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            فتح المورد
+          </a>
+        ) : (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            رابط المورد غير صالح.
+          </span>
+        )}
       </div>
     </div>
   );
