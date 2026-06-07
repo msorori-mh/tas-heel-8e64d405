@@ -4,9 +4,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { BookOpen, Loader2, Search, ArrowRight, Check, Minus, Pencil, Plus } from "lucide-react";
+import { BookOpen, Loader2, Search, ArrowRight, Check, Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import { LessonBasicEditDialog } from "@/components/admin/LessonBasicEditDialog";
 import { LessonCreateDialog } from "@/components/admin/LessonCreateDialog";
+import { LessonDeleteDialog } from "@/components/admin/LessonDeleteDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/lessons")({
   component: AdminLessonsPage,
@@ -55,6 +56,12 @@ function AdminLessonsPage() {
     is_free: boolean | null;
   } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [deletingLesson, setDeletingLesson] = useState<{
+    id: string;
+    title: string;
+    subject_name: string | null;
+    unit_name: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
@@ -393,26 +400,43 @@ function AdminLessonsPage() {
                         <td className="px-3 py-3 text-center"><Indicator on={!!flags.video} /></td>
                         <td className="px-3 py-3 text-center"><Indicator on={!!flags.simulations} /></td>
                         <td className="px-3 py-3 text-center">
-                          <button
-                            onClick={() =>
-                              setEditingLesson({
-                                id: r.id,
-                                title: r.title,
-                                sort_order: r.sort_order,
-                                duration: r.duration,
-                                subject_id: r.subject_id,
-                                subject_name: r.subject?.name || null,
-                                unit_id: r.unit_id,
-                                unit_name: r.unit?.title || null,
-                                is_free: r.is_free,
-                              })
-                            }
-                            className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
-                            title="تعديل"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            تعديل
-                          </button>
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              onClick={() =>
+                                setEditingLesson({
+                                  id: r.id,
+                                  title: r.title,
+                                  sort_order: r.sort_order,
+                                  duration: r.duration,
+                                  subject_id: r.subject_id,
+                                  subject_name: r.subject?.name || null,
+                                  unit_id: r.unit_id,
+                                  unit_name: r.unit?.title || null,
+                                  is_free: r.is_free,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                              title="تعديل"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              تعديل
+                            </button>
+                            <button
+                              onClick={() =>
+                                setDeletingLesson({
+                                  id: r.id,
+                                  title: r.title,
+                                  subject_name: r.subject?.name || null,
+                                  unit_name: r.unit?.title || null,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-card px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                              title="حذف"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              حذف
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -474,6 +498,20 @@ function AdminLessonsPage() {
                         <Pencil className="h-3.5 w-3.5" />
                         تعديل
                       </button>
+                      <button
+                        onClick={() =>
+                          setDeletingLesson({
+                            id: r.id,
+                            title: r.title,
+                            subject_name: r.subject?.name || null,
+                            unit_name: r.unit?.title || null,
+                          })
+                        }
+                        className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-card px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        حذف
+                      </button>
                     </div>
                   </div>
                 );
@@ -514,6 +552,14 @@ function AdminLessonsPage() {
         />
 
         <LessonCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+        <LessonDeleteDialog
+          open={!!deletingLesson}
+          onOpenChange={(o) => {
+            if (!o) setDeletingLesson(null);
+          }}
+          lesson={deletingLesson}
+        />
       </div>
     </AdminLayout>
   );
