@@ -5,7 +5,8 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { UnitEditDialog, type UnitEditValue } from "@/components/admin/UnitEditDialog";
-import { Layers, Loader2, Search, ArrowRight, Pencil, Plus } from "lucide-react";
+import { UnitDeleteDialog } from "@/components/admin/UnitDeleteDialog";
+import { Layers, Loader2, Search, ArrowRight, Pencil, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/units")({
   component: AdminUnitsPage,
