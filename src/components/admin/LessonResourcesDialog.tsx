@@ -256,8 +256,9 @@ export function LessonResourcesDialog({
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
-            يمكنك تعديل الموارد المحفوظة وإضافة موارد جديدة. لا يوجد رفع ملفات
-            في هذه المرحلة، وحذف الموارد المحفوظة سيتم دعمه لاحقًا.
+            يمكنك تعديل الموارد المحفوظة وإضافة موارد جديدة. عند اختيار النوع
+            PDF يمكنك رفع ملف PDF (≤ 25MB) أو إدخال رابط خارجي آمن. حذف
+            الموارد المحفوظة سيتم دعمه لاحقًا.
           </span>
         </div>
 
