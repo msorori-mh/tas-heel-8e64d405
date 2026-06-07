@@ -147,6 +147,7 @@ function AdminLessonsPage() {
         title: r.title as string,
         sort_order: (r.sort_order as number) ?? 0,
         duration: (r.duration as string | null) ?? null,
+        is_free: (r.is_free as boolean | null) ?? null,
         unit_id: (r.unit_id as string | null) ?? null,
         subject_id: r.subject_id as string,
         unit: r.unit ?? null,
