@@ -343,7 +343,18 @@ function AdminSubjectsPage() {
         onOpenChange={(o) => {
           if (!o) setEditing(null);
         }}
+        mode="edit"
         subject={editing}
+        grades={gradesQ.data ?? []}
+        tracks={tracksQ.data ?? []}
+      />
+
+      <SubjectEditDialog
+        open={creating}
+        onOpenChange={(o) => {
+          if (!o) setCreating(false);
+        }}
+        mode="create"
         grades={gradesQ.data ?? []}
         tracks={tracksQ.data ?? []}
       />
