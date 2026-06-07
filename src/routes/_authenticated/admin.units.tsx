@@ -261,12 +261,13 @@ function AdminUnitsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 text-right font-medium">الترتيب</th>
+                  <th className="px-4 py-3 text-right font-medium">الترتيب</th>
                     <th className="px-4 py-3 text-right font-medium">الوحدة</th>
                     <th className="px-4 py-3 text-right font-medium">المادة</th>
                     <th className="px-4 py-3 text-right font-medium">الصف</th>
                     <th className="px-4 py-3 text-right font-medium">الحالة</th>
                     <th className="px-4 py-3 text-right font-medium">الدروس</th>
+                    <th className="px-4 py-3 text-right font-medium">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
