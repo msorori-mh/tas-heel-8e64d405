@@ -251,24 +251,34 @@ function AdminSubjectsPage() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{r.lessons_count ?? 0}</td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() =>
-                            setEditing({
-                              id: r.id,
-                              name: r.name,
-                              sort_order: r.sort_order,
-                              icon: r.icon,
-                              color: r.color,
-                              curriculum_track_id: r.curriculum_track_id,
-                              grade_id: r.grade_id,
-                            })
-                          }
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs text-foreground hover:bg-muted"
-                          aria-label={`تعديل ${r.name}`}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                          تعديل
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() =>
+                              setEditing({
+                                id: r.id,
+                                name: r.name,
+                                sort_order: r.sort_order,
+                                icon: r.icon,
+                                color: r.color,
+                                curriculum_track_id: r.curriculum_track_id,
+                                grade_id: r.grade_id,
+                              })
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs text-foreground hover:bg-muted"
+                            aria-label={`تعديل ${r.name}`}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            تعديل
+                          </button>
+                          <button
+                            onClick={() => setDeleting({ id: r.id, name: r.name })}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-card px-2.5 py-1 text-xs text-destructive hover:bg-destructive/10"
+                            aria-label={`حذف ${r.name}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            حذف
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
