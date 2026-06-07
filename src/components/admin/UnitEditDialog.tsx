@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -29,14 +29,19 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   unit?: UnitEditValue | null;
+  mode?: "edit" | "create";
+  subjects?: { id: string; name: string | null }[];
 }
 
-export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
+export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjects = [] }: Props) {
   const queryClient = useQueryClient();
+  const isCreate = mode === "create";
+
   const [title, setTitle] = useState("");
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [isFree, setIsFree] = useState(false);
   const [description, setDescription] = useState("");
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,17 +51,30 @@ export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
       setSaving(false);
       return;
     }
-    if (unit) {
+    if (isCreate) {
+      setTitle("");
+      setSortOrder(0);
+      setIsFree(false);
+      setDescription("");
+      setSelectedSubjectId("");
+      setError(null);
+    } else if (unit) {
       setTitle(unit.title ?? "");
       setSortOrder(unit.sort_order ?? 0);
       setIsFree(unit.is_free ?? false);
       setDescription(unit.description ?? "");
+      setSelectedSubjectId(unit.subject_id ?? "");
       setError(null);
     }
-  }, [open, unit]);
+  }, [open, unit, isCreate]);
 
-  const handleSave = useCallback(async () => {
+  const handleSave = async () => {
     setError(null);
+
+    if (isCreate) {
+      // UI only in this phase — no insert
+      return;
+    }
 
     if (!unit) {
       setError("لا توجد وحدة محددة للتعديل.");
@@ -110,7 +128,7 @@ export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
     } finally {
       setSaving(false);
     }
-  }, [unit, title, sortOrder, isFree, description, onOpenChange, queryClient]);
+  };
 
   return (
     <Dialog
@@ -122,9 +140,13 @@ export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
     >
       <DialogContent dir="rtl" className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle className="text-right">تعديل الوحدة</DialogTitle>
+          <DialogTitle className="text-right">
+            {isCreate ? "إضافة وحدة" : "تعديل الوحدة"}
+          </DialogTitle>
           <DialogDescription className="text-right">
-            يمكنك تعديل بيانات الوحدة هنا.
+            {isCreate
+              ? "أدخل بيانات الوحدة الجديدة. الحفظ سيتوفر في المرحلة التالية."
+              : "يمكنك تعديل بيانات الوحدة هنا."}
           </DialogDescription>
         </DialogHeader>
 
@@ -160,12 +182,29 @@ export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-subject">المادة</Label>
-              <Input
-                id="unit-subject"
-                value={unit?.subject_name || "—"}
-                disabled
-                dir="rtl"
-              />
+              {isCreate ? (
+                <select
+                  id="unit-subject"
+                  value={selectedSubjectId}
+                  onChange={(e) => setSelectedSubjectId(e.target.value)}
+                  disabled={saving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">اختر المادة…</option>
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name || "—"}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  id="unit-subject"
+                  value={unit?.subject_name || "—"}
+                  disabled
+                  dir="rtl"
+                />
+              )}
             </div>
           </div>
 
@@ -219,12 +258,14 @@ export function UnitEditDialog({ open, onOpenChange, unit }: Props) {
           >
             إلغاء
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving || isCreate}>
             {saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 جاري الحفظ...
               </>
+            ) : isCreate ? (
+              "الحفظ في المرحلة التالية"
             ) : (
               "حفظ"
             )}
