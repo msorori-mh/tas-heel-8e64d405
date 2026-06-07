@@ -13,9 +13,38 @@ interface FileUploadProps {
   onChange: (url: string) => void;
   icon?: "video" | "pdf";
   maxSizeMB?: number;
+  /** Optional folder prefix inside the bucket. Final path = `${folder}/${uuid}.${ext}` */
+  folder?: string;
+  /** Optional MIME whitelist enforced before upload (e.g. ["application/pdf"]) */
+  allowedMimeTypes?: string[];
 }
 
-const FileUpload = ({ bucket, accept, label, value, onChange, icon = "pdf", maxSizeMB = 100 }: FileUploadProps) => {
+const PRIVATE_LESSON_BUCKETS = new Set(["lesson-pdfs", "lesson-videos"]);
+
+function makeUuid(): string {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch {
+    /* ignore */
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+}
+
+const FileUpload = ({
+  bucket,
+  accept,
+  label,
+  value,
+  onChange,
+  icon = "pdf",
+  maxSizeMB = 100,
+  folder,
+  allowedMimeTypes,
+}: FileUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -26,29 +55,38 @@ const FileUpload = ({ bucket, accept, label, value, onChange, icon = "pdf", maxS
 
     if (file.size > maxSizeMB * 1024 * 1024) {
       alert(`الحد الأقصى لحجم الملف ${maxSizeMB} ميغابايت`);
+      if (inputRef.current) inputRef.current.value = "";
       return;
+    }
+
+    if (allowedMimeTypes && allowedMimeTypes.length > 0) {
+      if (!file.type || !allowedMimeTypes.includes(file.type)) {
+        alert("نوع الملف غير مسموح. PDF فقط.");
+        if (inputRef.current) inputRef.current.value = "";
+        return;
+      }
     }
 
     setUploading(true);
     setProgress(0);
 
-    const ext = file.name.split(".").pop();
-    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    const fileName = `${makeUuid()}.${ext}`;
+    const path = folder && folder.length > 0 ? `${folder}/${fileName}` : fileName;
 
     const { error } = await supabase.storage.from(bucket).upload(path, file, {
       cacheControl: "3600",
       upsert: false,
+      contentType: file.type || undefined,
     });
 
     if (error) {
       alert("فشل الرفع: " + error.message);
       setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
       return;
     }
 
-    // Private lesson buckets: store an internal reference (never a public URL).
-    // Public/other buckets: keep existing publicUrl behaviour.
-    const PRIVATE_LESSON_BUCKETS = new Set(["lesson-pdfs", "lesson-videos"]);
     if (PRIVATE_LESSON_BUCKETS.has(bucket)) {
       onChange(`supabase-storage://${bucket}/${path}`);
     } else {
@@ -58,6 +96,7 @@ const FileUpload = ({ bucket, accept, label, value, onChange, icon = "pdf", maxS
 
     setUploading(false);
     setProgress(100);
+    if (inputRef.current) inputRef.current.value = "";
   };
 
   const clear = () => {
