@@ -21,6 +21,7 @@ import {
   Map as MapIcon,
   Link2,
   FileText,
+  Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
