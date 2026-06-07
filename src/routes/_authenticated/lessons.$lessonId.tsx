@@ -222,7 +222,11 @@ function LessonPage() {
     },
   });
 
-  const { data: resources } = useQuery({
+  const {
+    data: resources,
+    isLoading: resourcesLoading,
+    error: resourcesError,
+  } = useQuery({
     enabled: !!lesson && accessible === true && canAccessEnhancements,
     queryKey: ["lesson-resources", lessonId],
     queryFn: async () => {
