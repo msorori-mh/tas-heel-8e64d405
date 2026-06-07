@@ -10,6 +10,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 export type SubjectEditValue = {
   id: string;
@@ -32,13 +36,18 @@ interface Props {
   tracks: TrackOption[];
 }
 
+const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
 export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks }: Props) {
-  // Local-only form state — never persisted in this phase.
+  const queryClient = useQueryClient();
+
   const [name, setName] = useState("");
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [icon, setIcon] = useState("");
   const [color, setColor] = useState("#3b82f6");
   const [trackId, setTrackId] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && subject) {
@@ -47,6 +56,8 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
       setIcon(subject.icon ?? "");
       setColor(subject.color ?? "#3b82f6");
       setTrackId(subject.curriculum_track_id ?? "");
+      setError(null);
+      setSaving(false);
     }
   }, [open, subject]);
 
@@ -54,13 +65,68 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
 
   const gradeName = grades.find((g) => g.id === subject.grade_id)?.name ?? "—";
 
+  const handleSave = async () => {
+    setError(null);
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("اسم المادة مطلوب.");
+      return;
+    }
+    if (!Number.isFinite(sortOrder) || !Number.isInteger(sortOrder) || sortOrder < 0) {
+      setError("الترتيب يجب أن يكون رقمًا صحيحًا أكبر من أو يساوي صفر.");
+      return;
+    }
+    const trimmedIcon = icon.trim();
+    const trimmedColor = color.trim();
+    if (trimmedColor && !HEX_RE.test(trimmedColor)) {
+      setError("اللون يجب أن يكون بصيغة hex صالحة مثل #0d7377.");
+      return;
+    }
+    if (trackId && !tracks.some((t) => t.id === trackId)) {
+      setError("المسار المحدد غير صالح.");
+      return;
+    }
+
+    const payload = {
+      name: trimmedName,
+      sort_order: sortOrder,
+      icon: trimmedIcon || null,
+      color: trimmedColor || null,
+      curriculum_track_id: trackId || null,
+    };
+
+    setSaving(true);
+    const { error: updateError } = await supabase
+      .from("subjects")
+      .update(payload)
+      .eq("id", subject.id);
+    setSaving(false);
+
+    if (updateError) {
+      setError("تعذر تحديث المادة.");
+      toast.error("تعذر تحديث المادة.");
+      return;
+    }
+
+    toast.success("تم تحديث المادة بنجاح.");
+    await queryClient.invalidateQueries({ queryKey: ["admin-subjects"] });
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (saving) return;
+        onOpenChange(o);
+      }}
+    >
       <DialogContent dir="rtl" className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle className="text-right">تعديل المادة</DialogTitle>
           <DialogDescription className="text-right">
-            معاينة نموذج التعديل. الحفظ غير مفعّل في هذه المرحلة.
+            يمكنك تعديل البيانات الأساسية للمادة. لا يمكن تغيير الصف من هنا.
           </DialogDescription>
         </DialogHeader>
 
@@ -71,6 +137,7 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
               id="subject-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              disabled={saving}
               dir="rtl"
             />
           </div>
@@ -81,8 +148,10 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
               <Input
                 id="subject-order"
                 type="number"
+                min={0}
                 value={sortOrder}
                 onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
+                disabled={saving}
               />
             </div>
             <div className="space-y-1.5">
@@ -91,13 +160,15 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
                 <Input
                   id="subject-color"
                   type="color"
-                  value={color || "#3b82f6"}
+                  value={HEX_RE.test(color) ? color : "#3b82f6"}
                   onChange={(e) => setColor(e.target.value)}
+                  disabled={saving}
                   className="w-14 p-1"
                 />
                 <Input
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
+                  disabled={saving}
                   dir="ltr"
                   className="flex-1"
                 />
@@ -112,6 +183,7 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
               value={icon}
               onChange={(e) => setIcon(e.target.value)}
               placeholder="BookOpen"
+              disabled={saving}
               dir="ltr"
             />
           </div>
@@ -127,7 +199,8 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
                 id="subject-track"
                 value={trackId}
                 onChange={(e) => setTrackId(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                disabled={saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
               >
                 <option value="">عام</option>
                 {tracks.map((t) => (
@@ -138,18 +211,31 @@ export function SubjectEditDialog({ open, onOpenChange, subject, grades, tracks 
               </select>
             </div>
           </div>
+
+          {error && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {error}
+            </div>
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            إغلاق
-          </Button>
           <Button
-            disabled
-            title="الحفظ سيتوفر في المرحلة التالية"
-            aria-disabled
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
           >
-            الحفظ في المرحلة التالية
+            إلغاء
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                جاري الحفظ...
+              </>
+            ) : (
+              "حفظ التعديلات"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
