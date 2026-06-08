@@ -34,6 +34,7 @@ import { Route as AuthenticatedAdminLessonsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminAcademicRouteImport } from './routes/_authenticated/admin.academic'
 import { Route as AuthenticatedUnitsUnitIdPracticeRouteImport } from './routes/_authenticated/units.$unitId.practice'
 import { Route as AuthenticatedGradesGradeIdSubjectsRouteImport } from './routes/_authenticated/grades.$gradeId.subjects'
+import { Route as AuthenticatedExamsTrainingTemplateIdRouteImport } from './routes/_authenticated/exams.training.$templateId'
 import { Route as AuthenticatedAdminLessonsLessonIdRouteImport } from './routes/_authenticated/admin.lessons.$lessonId'
 
 const TermsRoute = TermsRouteImport.update({
@@ -169,6 +170,12 @@ const AuthenticatedGradesGradeIdSubjectsRoute =
     path: '/$gradeId/subjects',
     getParentRoute: () => AuthenticatedGradesRoute,
   } as any)
+const AuthenticatedExamsTrainingTemplateIdRoute =
+  AuthenticatedExamsTrainingTemplateIdRouteImport.update({
+    id: '/exams/training/$templateId',
+    path: '/exams/training/$templateId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminLessonsLessonIdRoute =
   AuthenticatedAdminLessonsLessonIdRouteImport.update({
     id: '/$lessonId',
@@ -200,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
+  '/exams/training/$templateId': typeof AuthenticatedExamsTrainingTemplateIdRoute
   '/grades/$gradeId/subjects': typeof AuthenticatedGradesGradeIdSubjectsRoute
   '/units/$unitId/practice': typeof AuthenticatedUnitsUnitIdPracticeRoute
 }
@@ -227,6 +235,7 @@ export interface FileRoutesByTo {
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
+  '/exams/training/$templateId': typeof AuthenticatedExamsTrainingTemplateIdRoute
   '/grades/$gradeId/subjects': typeof AuthenticatedGradesGradeIdSubjectsRoute
   '/units/$unitId/practice': typeof AuthenticatedUnitsUnitIdPracticeRoute
 }
@@ -256,6 +265,7 @@ export interface FileRoutesById {
   '/_authenticated/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/_authenticated/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
+  '/_authenticated/exams/training/$templateId': typeof AuthenticatedExamsTrainingTemplateIdRoute
   '/_authenticated/grades/$gradeId/subjects': typeof AuthenticatedGradesGradeIdSubjectsRoute
   '/_authenticated/units/$unitId/practice': typeof AuthenticatedUnitsUnitIdPracticeRoute
 }
@@ -285,6 +295,7 @@ export interface FileRouteTypes {
     | '/lessons/$lessonId'
     | '/subjects/$subjectId'
     | '/admin/lessons/$lessonId'
+    | '/exams/training/$templateId'
     | '/grades/$gradeId/subjects'
     | '/units/$unitId/practice'
   fileRoutesByTo: FileRoutesByTo
@@ -312,6 +323,7 @@ export interface FileRouteTypes {
     | '/lessons/$lessonId'
     | '/subjects/$subjectId'
     | '/admin/lessons/$lessonId'
+    | '/exams/training/$templateId'
     | '/grades/$gradeId/subjects'
     | '/units/$unitId/practice'
   id:
@@ -340,6 +352,7 @@ export interface FileRouteTypes {
     | '/_authenticated/lessons/$lessonId'
     | '/_authenticated/subjects/$subjectId'
     | '/_authenticated/admin/lessons/$lessonId'
+    | '/_authenticated/exams/training/$templateId'
     | '/_authenticated/grades/$gradeId/subjects'
     | '/_authenticated/units/$unitId/practice'
   fileRoutesById: FileRoutesById
@@ -535,6 +548,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGradesGradeIdSubjectsRouteImport
       parentRoute: typeof AuthenticatedGradesRoute
     }
+    '/_authenticated/exams/training/$templateId': {
+      id: '/_authenticated/exams/training/$templateId'
+      path: '/exams/training/$templateId'
+      fullPath: '/exams/training/$templateId'
+      preLoaderRoute: typeof AuthenticatedExamsTrainingTemplateIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/lessons/$lessonId': {
       id: '/_authenticated/admin/lessons/$lessonId'
       path: '/$lessonId'
@@ -599,6 +619,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGradesRoute: typeof AuthenticatedGradesRouteWithChildren
   AuthenticatedLessonsLessonIdRoute: typeof AuthenticatedLessonsLessonIdRoute
   AuthenticatedSubjectsSubjectIdRoute: typeof AuthenticatedSubjectsSubjectIdRoute
+  AuthenticatedExamsTrainingTemplateIdRoute: typeof AuthenticatedExamsTrainingTemplateIdRoute
   AuthenticatedUnitsUnitIdPracticeRoute: typeof AuthenticatedUnitsUnitIdPracticeRoute
 }
 
@@ -608,6 +629,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGradesRoute: AuthenticatedGradesRouteWithChildren,
   AuthenticatedLessonsLessonIdRoute: AuthenticatedLessonsLessonIdRoute,
   AuthenticatedSubjectsSubjectIdRoute: AuthenticatedSubjectsSubjectIdRoute,
+  AuthenticatedExamsTrainingTemplateIdRoute:
+    AuthenticatedExamsTrainingTemplateIdRoute,
   AuthenticatedUnitsUnitIdPracticeRoute: AuthenticatedUnitsUnitIdPracticeRoute,
 }
 
