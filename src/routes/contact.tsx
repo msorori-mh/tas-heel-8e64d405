@@ -6,7 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/contact")({
-  head: () => ({ meta: [{ title: "تواصل معنا — تنوير" }] }),
+  head: () => ({
+    meta: [
+      { title: "تواصل معنا — تنوير" },
+      { name: "description", content: "تواصل مع فريق تنوير عبر البريد أو نموذج التواصل للحصول على الدعم والإجابة على استفساراتك." },
+      { property: "og:title", content: "تواصل معنا — تنوير" },
+      { property: "og:description", content: "تواصل مع فريق تنوير عبر البريد أو نموذج التواصل للحصول على الدعم والإجابة على استفساراتك." },
+      { property: "og:url", content: "https://tas-heel.lovable.app/contact" },
+    ],
+    links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/contact" }],
+  }),
   component: ContactPage,
 });
 
