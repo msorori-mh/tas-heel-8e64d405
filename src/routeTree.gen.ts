@@ -26,6 +26,7 @@ import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/ap
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedLessonsLessonIdRouteImport } from './routes/_authenticated/lessons.$lessonId'
+import { Route as AuthenticatedExamsHistoryRouteImport } from './routes/_authenticated/exams.history'
 import { Route as AuthenticatedAdminUnitsRouteImport } from './routes/_authenticated/admin.units'
 import { Route as AuthenticatedAdminSubjectsRouteImport } from './routes/_authenticated/admin.subjects'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
@@ -36,6 +37,7 @@ import { Route as AuthenticatedUnitsUnitIdPracticeRouteImport } from './routes/_
 import { Route as AuthenticatedGradesGradeIdSubjectsRouteImport } from './routes/_authenticated/grades.$gradeId.subjects'
 import { Route as AuthenticatedExamsTrainingTemplateIdRouteImport } from './routes/_authenticated/exams.training.$templateId'
 import { Route as AuthenticatedExamsStrictTemplateIdRouteImport } from './routes/_authenticated/exams.strict.$templateId'
+import { Route as AuthenticatedExamsHistorySessionIdRouteImport } from './routes/_authenticated/exams.history.$sessionId'
 import { Route as AuthenticatedAdminLessonsLessonIdRouteImport } from './routes/_authenticated/admin.lessons.$lessonId'
 
 const TermsRoute = TermsRouteImport.update({
@@ -124,6 +126,12 @@ const AuthenticatedLessonsLessonIdRoute =
     path: '/lessons/$lessonId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedExamsHistoryRoute =
+  AuthenticatedExamsHistoryRouteImport.update({
+    id: '/exams/history',
+    path: '/exams/history',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminUnitsRoute = AuthenticatedAdminUnitsRouteImport.update({
   id: '/units',
   path: '/units',
@@ -183,6 +191,12 @@ const AuthenticatedExamsStrictTemplateIdRoute =
     path: '/exams/strict/$templateId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedExamsHistorySessionIdRoute =
+  AuthenticatedExamsHistorySessionIdRouteImport.update({
+    id: '/$sessionId',
+    path: '/$sessionId',
+    getParentRoute: () => AuthenticatedExamsHistoryRoute,
+  } as any)
 const AuthenticatedAdminLessonsLessonIdRoute =
   AuthenticatedAdminLessonsLessonIdRouteImport.update({
     id: '/$lessonId',
@@ -211,9 +225,11 @@ export interface FileRoutesByFullPath {
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/admin/subjects': typeof AuthenticatedAdminSubjectsRoute
   '/admin/units': typeof AuthenticatedAdminUnitsRoute
+  '/exams/history': typeof AuthenticatedExamsHistoryRouteWithChildren
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
+  '/exams/history/$sessionId': typeof AuthenticatedExamsHistorySessionIdRoute
   '/exams/strict/$templateId': typeof AuthenticatedExamsStrictTemplateIdRoute
   '/exams/training/$templateId': typeof AuthenticatedExamsTrainingTemplateIdRoute
   '/grades/$gradeId/subjects': typeof AuthenticatedGradesGradeIdSubjectsRoute
@@ -240,9 +256,11 @@ export interface FileRoutesByTo {
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/admin/subjects': typeof AuthenticatedAdminSubjectsRoute
   '/admin/units': typeof AuthenticatedAdminUnitsRoute
+  '/exams/history': typeof AuthenticatedExamsHistoryRouteWithChildren
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
+  '/exams/history/$sessionId': typeof AuthenticatedExamsHistorySessionIdRoute
   '/exams/strict/$templateId': typeof AuthenticatedExamsStrictTemplateIdRoute
   '/exams/training/$templateId': typeof AuthenticatedExamsTrainingTemplateIdRoute
   '/grades/$gradeId/subjects': typeof AuthenticatedGradesGradeIdSubjectsRoute
@@ -271,9 +289,11 @@ export interface FileRoutesById {
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/_authenticated/admin/subjects': typeof AuthenticatedAdminSubjectsRoute
   '/_authenticated/admin/units': typeof AuthenticatedAdminUnitsRoute
+  '/_authenticated/exams/history': typeof AuthenticatedExamsHistoryRouteWithChildren
   '/_authenticated/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/_authenticated/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
+  '/_authenticated/exams/history/$sessionId': typeof AuthenticatedExamsHistorySessionIdRoute
   '/_authenticated/exams/strict/$templateId': typeof AuthenticatedExamsStrictTemplateIdRoute
   '/_authenticated/exams/training/$templateId': typeof AuthenticatedExamsTrainingTemplateIdRoute
   '/_authenticated/grades/$gradeId/subjects': typeof AuthenticatedGradesGradeIdSubjectsRoute
@@ -302,9 +322,11 @@ export interface FileRouteTypes {
     | '/admin/students'
     | '/admin/subjects'
     | '/admin/units'
+    | '/exams/history'
     | '/lessons/$lessonId'
     | '/subjects/$subjectId'
     | '/admin/lessons/$lessonId'
+    | '/exams/history/$sessionId'
     | '/exams/strict/$templateId'
     | '/exams/training/$templateId'
     | '/grades/$gradeId/subjects'
@@ -331,9 +353,11 @@ export interface FileRouteTypes {
     | '/admin/students'
     | '/admin/subjects'
     | '/admin/units'
+    | '/exams/history'
     | '/lessons/$lessonId'
     | '/subjects/$subjectId'
     | '/admin/lessons/$lessonId'
+    | '/exams/history/$sessionId'
     | '/exams/strict/$templateId'
     | '/exams/training/$templateId'
     | '/grades/$gradeId/subjects'
@@ -361,9 +385,11 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/students'
     | '/_authenticated/admin/subjects'
     | '/_authenticated/admin/units'
+    | '/_authenticated/exams/history'
     | '/_authenticated/lessons/$lessonId'
     | '/_authenticated/subjects/$subjectId'
     | '/_authenticated/admin/lessons/$lessonId'
+    | '/_authenticated/exams/history/$sessionId'
     | '/_authenticated/exams/strict/$templateId'
     | '/_authenticated/exams/training/$templateId'
     | '/_authenticated/grades/$gradeId/subjects'
@@ -505,6 +531,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLessonsLessonIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/exams/history': {
+      id: '/_authenticated/exams/history'
+      path: '/exams/history'
+      fullPath: '/exams/history'
+      preLoaderRoute: typeof AuthenticatedExamsHistoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/units': {
       id: '/_authenticated/admin/units'
       path: '/units'
@@ -575,6 +608,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedExamsStrictTemplateIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/exams/history/$sessionId': {
+      id: '/_authenticated/exams/history/$sessionId'
+      path: '/$sessionId'
+      fullPath: '/exams/history/$sessionId'
+      preLoaderRoute: typeof AuthenticatedExamsHistorySessionIdRouteImport
+      parentRoute: typeof AuthenticatedExamsHistoryRoute
+    }
     '/_authenticated/admin/lessons/$lessonId': {
       id: '/_authenticated/admin/lessons/$lessonId'
       path: '/$lessonId'
@@ -633,10 +673,26 @@ const AuthenticatedGradesRouteChildren: AuthenticatedGradesRouteChildren = {
 const AuthenticatedGradesRouteWithChildren =
   AuthenticatedGradesRoute._addFileChildren(AuthenticatedGradesRouteChildren)
 
+interface AuthenticatedExamsHistoryRouteChildren {
+  AuthenticatedExamsHistorySessionIdRoute: typeof AuthenticatedExamsHistorySessionIdRoute
+}
+
+const AuthenticatedExamsHistoryRouteChildren: AuthenticatedExamsHistoryRouteChildren =
+  {
+    AuthenticatedExamsHistorySessionIdRoute:
+      AuthenticatedExamsHistorySessionIdRoute,
+  }
+
+const AuthenticatedExamsHistoryRouteWithChildren =
+  AuthenticatedExamsHistoryRoute._addFileChildren(
+    AuthenticatedExamsHistoryRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAppRoute: typeof AuthenticatedAppRoute
   AuthenticatedGradesRoute: typeof AuthenticatedGradesRouteWithChildren
+  AuthenticatedExamsHistoryRoute: typeof AuthenticatedExamsHistoryRouteWithChildren
   AuthenticatedLessonsLessonIdRoute: typeof AuthenticatedLessonsLessonIdRoute
   AuthenticatedSubjectsSubjectIdRoute: typeof AuthenticatedSubjectsSubjectIdRoute
   AuthenticatedExamsStrictTemplateIdRoute: typeof AuthenticatedExamsStrictTemplateIdRoute
@@ -648,6 +704,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAppRoute: AuthenticatedAppRoute,
   AuthenticatedGradesRoute: AuthenticatedGradesRouteWithChildren,
+  AuthenticatedExamsHistoryRoute: AuthenticatedExamsHistoryRouteWithChildren,
   AuthenticatedLessonsLessonIdRoute: AuthenticatedLessonsLessonIdRoute,
   AuthenticatedSubjectsSubjectIdRoute: AuthenticatedSubjectsSubjectIdRoute,
   AuthenticatedExamsStrictTemplateIdRoute:
