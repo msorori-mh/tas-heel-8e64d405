@@ -1,7 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/terms")({
-  head: () => ({ meta: [{ title: "شروط الاستخدام — تنوير" }] }),
+  head: () => ({
+    meta: [
+      { title: "شروط الاستخدام — تنوير" },
+      { name: "description", content: "شروط استخدام منصة تنوير التعليمية لطلاب الثانوية في اليمن، الاستخدام المسموح وسياسة الاشتراكات." },
+      { property: "og:title", content: "شروط الاستخدام — تنوير" },
+      { property: "og:description", content: "شروط استخدام منصة تنوير التعليمية لطلاب الثانوية في اليمن، الاستخدام المسموح وسياسة الاشتراكات." },
+      { property: "og:url", content: "https://tas-heel.lovable.app/terms" },
+    ],
+    links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/terms" }],
+  }),
   component: () => (
     <article className="min-h-screen bg-background px-4 py-10">
       <div className="mx-auto max-w-3xl">

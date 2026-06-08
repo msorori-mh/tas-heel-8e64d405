@@ -1,7 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/privacy")({
-  head: () => ({ meta: [{ title: "سياسة الخصوصية — تنوير" }] }),
+  head: () => ({
+    meta: [
+      { title: "سياسة الخصوصية — تنوير" },
+      { name: "description", content: "كيف تجمع منصة تنوير بيانات طلاب الثانوية في اليمن وتحميها، وحقوقك في الوصول والحذف." },
+      { property: "og:title", content: "سياسة الخصوصية — تنوير" },
+      { property: "og:description", content: "كيف تجمع منصة تنوير بيانات طلاب الثانوية في اليمن وتحميها، وحقوقك في الوصول والحذف." },
+      { property: "og:url", content: "https://tas-heel.lovable.app/privacy" },
+    ],
+    links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/privacy" }],
+  }),
   component: () => (
     <article className="min-h-screen bg-background px-4 py-10">
       <div className="mx-auto max-w-3xl prose-rtl">

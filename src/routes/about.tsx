@@ -4,8 +4,12 @@ export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
       { title: "عن تنوير — منصة تعليمية لطلاب الثانوية في اليمن" },
-      { name: "description", content: "تنوير منصة رقمية تعليمية متخصّصة لطلاب الثانوية في اليمن." },
+      { name: "description", content: "تنوير منصة رقمية تعليمية متخصّصة لطلاب الثانوية في اليمن — دروس وملخصات وبنوك أسئلة حسب المنهج والمحافظة." },
+      { property: "og:title", content: "عن تنوير — منصة تعليمية لطلاب الثانوية في اليمن" },
+      { property: "og:description", content: "تنوير منصة رقمية تعليمية متخصّصة لطلاب الثانوية في اليمن — دروس وملخصات وبنوك أسئلة حسب المنهج والمحافظة." },
+      { property: "og:url", content: "https://tas-heel.lovable.app/about" },
     ],
+    links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/about" }],
   }),
   component: () => (
     <article className="min-h-screen bg-background px-4 py-10">
