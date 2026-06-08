@@ -15,11 +15,12 @@ import {
   Menu,
   X,
   LogOut,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type LinkItem = {
-  href: "/admin" | "/admin/students" | "/admin/academic" | "/admin/subjects" | "/admin/units" | "/admin/lessons" | "/admin/questions";
+  href: "/admin" | "/admin/students" | "/admin/academic" | "/admin/subjects" | "/admin/units" | "/admin/lessons" | "/admin/questions" | "/admin/exam-templates";
   label: string;
   icon: typeof LayoutDashboard;
   end?: boolean;
@@ -38,6 +39,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/units", label: "الوحدات", icon: Layers },
   { href: "/admin/lessons", label: "الدروس", icon: BookOpen },
   { href: "/admin/questions", label: "الأسئلة", icon: HelpCircle },
+  { href: "/admin/exam-templates", label: "قوالب الاختبارات", icon: ClipboardList },
 ];
 
 const upcomingLinks: DisabledItem[] = [

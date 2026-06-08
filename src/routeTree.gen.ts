@@ -32,6 +32,7 @@ import { Route as AuthenticatedAdminSubjectsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin.questions'
 import { Route as AuthenticatedAdminLessonsRouteImport } from './routes/_authenticated/admin.lessons'
+import { Route as AuthenticatedAdminExamTemplatesRouteImport } from './routes/_authenticated/admin.exam-templates'
 import { Route as AuthenticatedAdminAcademicRouteImport } from './routes/_authenticated/admin.academic'
 import { Route as AuthenticatedUnitsUnitIdPracticeRouteImport } from './routes/_authenticated/units.$unitId.practice'
 import { Route as AuthenticatedGradesGradeIdSubjectsRouteImport } from './routes/_authenticated/grades.$gradeId.subjects'
@@ -161,6 +162,12 @@ const AuthenticatedAdminLessonsRoute =
     path: '/lessons',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminExamTemplatesRoute =
+  AuthenticatedAdminExamTemplatesRouteImport.update({
+    id: '/exam-templates',
+    path: '/exam-templates',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminAcademicRoute =
   AuthenticatedAdminAcademicRouteImport.update({
     id: '/academic',
@@ -220,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
+  '/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/admin/lessons': typeof AuthenticatedAdminLessonsRouteWithChildren
   '/admin/questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
@@ -251,6 +259,7 @@ export interface FileRoutesByTo {
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
+  '/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/admin/lessons': typeof AuthenticatedAdminLessonsRouteWithChildren
   '/admin/questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
@@ -284,6 +293,7 @@ export interface FileRoutesById {
   '/_authenticated/grades': typeof AuthenticatedGradesRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/_authenticated/admin/academic': typeof AuthenticatedAdminAcademicRoute
+  '/_authenticated/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/_authenticated/admin/lessons': typeof AuthenticatedAdminLessonsRouteWithChildren
   '/_authenticated/admin/questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
@@ -317,6 +327,7 @@ export interface FileRouteTypes {
     | '/grades'
     | '/auth/callback'
     | '/admin/academic'
+    | '/admin/exam-templates'
     | '/admin/lessons'
     | '/admin/questions'
     | '/admin/students'
@@ -348,6 +359,7 @@ export interface FileRouteTypes {
     | '/grades'
     | '/auth/callback'
     | '/admin/academic'
+    | '/admin/exam-templates'
     | '/admin/lessons'
     | '/admin/questions'
     | '/admin/students'
@@ -380,6 +392,7 @@ export interface FileRouteTypes {
     | '/_authenticated/grades'
     | '/auth/callback'
     | '/_authenticated/admin/academic'
+    | '/_authenticated/admin/exam-templates'
     | '/_authenticated/admin/lessons'
     | '/_authenticated/admin/questions'
     | '/_authenticated/admin/students'
@@ -573,6 +586,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLessonsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/exam-templates': {
+      id: '/_authenticated/admin/exam-templates'
+      path: '/exam-templates'
+      fullPath: '/admin/exam-templates'
+      preLoaderRoute: typeof AuthenticatedAdminExamTemplatesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/academic': {
       id: '/_authenticated/admin/academic'
       path: '/academic'
@@ -642,6 +662,7 @@ const AuthenticatedAdminLessonsRouteWithChildren =
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAcademicRoute: typeof AuthenticatedAdminAcademicRoute
+  AuthenticatedAdminExamTemplatesRoute: typeof AuthenticatedAdminExamTemplatesRoute
   AuthenticatedAdminLessonsRoute: typeof AuthenticatedAdminLessonsRouteWithChildren
   AuthenticatedAdminQuestionsRoute: typeof AuthenticatedAdminQuestionsRoute
   AuthenticatedAdminStudentsRoute: typeof AuthenticatedAdminStudentsRoute
@@ -651,6 +672,7 @@ interface AuthenticatedAdminRouteChildren {
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAcademicRoute: AuthenticatedAdminAcademicRoute,
+  AuthenticatedAdminExamTemplatesRoute: AuthenticatedAdminExamTemplatesRoute,
   AuthenticatedAdminLessonsRoute: AuthenticatedAdminLessonsRouteWithChildren,
   AuthenticatedAdminQuestionsRoute: AuthenticatedAdminQuestionsRoute,
   AuthenticatedAdminStudentsRoute: AuthenticatedAdminStudentsRoute,
