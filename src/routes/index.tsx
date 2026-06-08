@@ -28,7 +28,9 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "دروسك، ملخصاتك، وأسئلتك في مكان واحد — حسب صفك ومحافظتك.",
       },
+      { property: "og:url", content: "https://tas-heel.lovable.app/" },
     ],
+    links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/" }],
   }),
   component: LandingPage,
 });
