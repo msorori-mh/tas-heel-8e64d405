@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   LogOut,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
