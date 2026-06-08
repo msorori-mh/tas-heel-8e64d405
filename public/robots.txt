@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /app
+Disallow: /auth
+Disallow: /complete-profile
+Disallow: /forgot-password
+Disallow: /reset-password
+
+Sitemap: https://tas-heel.lovable.app/sitemap.xml
