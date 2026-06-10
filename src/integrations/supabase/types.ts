@@ -1931,6 +1931,10 @@ export type Database = {
       }
       can_access_lesson: { Args: { _lesson_id: string }; Returns: boolean }
       can_access_subject: { Args: { _subject_id: string }; Returns: boolean }
+      check_lesson_question: {
+        Args: { _question_id: string; _selected_index: number }
+        Returns: Json
+      }
       create_wallet_transaction: {
         Args: {
           _amount: number
