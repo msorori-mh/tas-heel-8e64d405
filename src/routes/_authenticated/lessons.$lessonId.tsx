@@ -166,14 +166,17 @@ function LessonPage() {
     enabled: !!lesson && accessible === true,
     queryKey: ["lesson-questions", lessonId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("questions")
-        .select("id,question_text,options,correct_index,explanation,sort_order")
-        .eq("lesson_id", lessonId)
-        .order("sort_order")
-        .order("created_at");
+      // SECURITY: use SECURITY DEFINER RPC which omits correct_index/explanation.
+      const { data, error } = await supabase.rpc("get_lesson_quiz_questions", {
+        _lesson_id: lessonId,
+      });
       if (error) throw error;
-      return (data ?? []) as QuestionRow[];
+      return ((data ?? []) as any[]).map((r) => ({
+        id: r.id,
+        question_text: r.question_text,
+        options: r.options,
+        sort_order: r.sort_order ?? 0,
+      })) as QuestionRow[];
     },
   });
 
