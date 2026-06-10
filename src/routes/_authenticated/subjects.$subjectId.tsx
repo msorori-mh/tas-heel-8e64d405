@@ -195,6 +195,14 @@ function SubjectIndexPage() {
         )}
       </div>
 
+      <ExamTemplatesSection
+        scope={{ kind: "subject", subjectId: subject.id }}
+        canAccess={canAccessExams}
+        title="اختبارات المادة"
+        emptyMessage="لا توجد اختبارات شاملة للمادة بعد."
+        lockedMessage="اختبارات المادة متاحة ضمن الاشتراك."
+      />
+
       <div className="pt-2">
         <Button asChild variant="outline" className="gap-1">
           <Link to="/app"><Home className="h-4 w-4" /> العودة إلى موادي</Link>
