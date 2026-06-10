@@ -186,7 +186,7 @@ function AdminPaymentRequestsPage() {
     const rpc = actionFor.kind === "approve" ? "approve_payment_request" : "reject_payment_request";
     const { error } = await supabase.rpc(rpc, {
       _request_id: actionFor.row.id,
-      _admin_notes: trimmed.length > 0 ? trimmed : null,
+      _admin_notes: trimmed.length > 0 ? trimmed : undefined,
     });
     setSubmitting(false);
     if (error) {
