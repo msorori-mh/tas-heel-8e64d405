@@ -28,6 +28,7 @@ import { Route as AuthenticatedPaymentsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedPaymentsIndexRouteImport } from './routes/_authenticated/payments.index'
 import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedPaymentsNewRouteImport } from './routes/_authenticated/payments.new'
 import { Route as AuthenticatedLessonsLessonIdRouteImport } from './routes/_authenticated/lessons.$lessonId'
@@ -142,6 +143,12 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPaymentsIndexRoute =
+  AuthenticatedPaymentsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedPaymentsRoute,
+  } as any)
 const AuthenticatedSubjectsSubjectIdRoute =
   AuthenticatedSubjectsSubjectIdRouteImport.update({
     id: '/subjects/$subjectId',
@@ -281,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/payments/new': typeof AuthenticatedPaymentsNewRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
+  '/payments/': typeof AuthenticatedPaymentsIndexRoute
   '/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
   '/exams/history/$sessionId': typeof AuthenticatedExamsHistorySessionIdRoute
   '/exams/strict/$templateId': typeof AuthenticatedExamsStrictTemplateIdRoute
@@ -303,7 +311,6 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/app': typeof AuthenticatedAppRoute
   '/grades': typeof AuthenticatedGradesRouteWithChildren
-  '/payments': typeof AuthenticatedPaymentsRouteWithChildren
   '/subscription': typeof AuthenticatedSubscriptionRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -319,6 +326,7 @@ export interface FileRoutesByTo {
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/payments/new': typeof AuthenticatedPaymentsNewRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
+  '/payments': typeof AuthenticatedPaymentsIndexRoute
   '/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
   '/exams/history/$sessionId': typeof AuthenticatedExamsHistorySessionIdRoute
   '/exams/strict/$templateId': typeof AuthenticatedExamsStrictTemplateIdRoute
@@ -359,6 +367,7 @@ export interface FileRoutesById {
   '/_authenticated/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/_authenticated/payments/new': typeof AuthenticatedPaymentsNewRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
+  '/_authenticated/payments/': typeof AuthenticatedPaymentsIndexRoute
   '/_authenticated/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
   '/_authenticated/exams/history/$sessionId': typeof AuthenticatedExamsHistorySessionIdRoute
   '/_authenticated/exams/strict/$templateId': typeof AuthenticatedExamsStrictTemplateIdRoute
@@ -399,6 +408,7 @@ export interface FileRouteTypes {
     | '/lessons/$lessonId'
     | '/payments/new'
     | '/subjects/$subjectId'
+    | '/payments/'
     | '/admin/lessons/$lessonId'
     | '/exams/history/$sessionId'
     | '/exams/strict/$templateId'
@@ -421,7 +431,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/grades'
-    | '/payments'
     | '/subscription'
     | '/wallet'
     | '/auth/callback'
@@ -437,6 +446,7 @@ export interface FileRouteTypes {
     | '/lessons/$lessonId'
     | '/payments/new'
     | '/subjects/$subjectId'
+    | '/payments'
     | '/admin/lessons/$lessonId'
     | '/exams/history/$sessionId'
     | '/exams/strict/$templateId'
@@ -476,6 +486,7 @@ export interface FileRouteTypes {
     | '/_authenticated/lessons/$lessonId'
     | '/_authenticated/payments/new'
     | '/_authenticated/subjects/$subjectId'
+    | '/_authenticated/payments/'
     | '/_authenticated/admin/lessons/$lessonId'
     | '/_authenticated/exams/history/$sessionId'
     | '/_authenticated/exams/strict/$templateId'
@@ -633,6 +644,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/payments/': {
+      id: '/_authenticated/payments/'
+      path: '/'
+      fullPath: '/payments/'
+      preLoaderRoute: typeof AuthenticatedPaymentsIndexRouteImport
+      parentRoute: typeof AuthenticatedPaymentsRoute
     }
     '/_authenticated/subjects/$subjectId': {
       id: '/_authenticated/subjects/$subjectId'
@@ -818,10 +836,12 @@ const AuthenticatedGradesRouteWithChildren =
 
 interface AuthenticatedPaymentsRouteChildren {
   AuthenticatedPaymentsNewRoute: typeof AuthenticatedPaymentsNewRoute
+  AuthenticatedPaymentsIndexRoute: typeof AuthenticatedPaymentsIndexRoute
 }
 
 const AuthenticatedPaymentsRouteChildren: AuthenticatedPaymentsRouteChildren = {
   AuthenticatedPaymentsNewRoute: AuthenticatedPaymentsNewRoute,
+  AuthenticatedPaymentsIndexRoute: AuthenticatedPaymentsIndexRoute,
 }
 
 const AuthenticatedPaymentsRouteWithChildren =
