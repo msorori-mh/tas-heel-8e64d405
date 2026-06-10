@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
+import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import { ClipboardList, ChevronLeft, BookOpen, Layers, FileText, Home } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/subjects/$subjectId")({
@@ -92,6 +93,33 @@ function SubjectIndexPage() {
     },
   });
 
+  const { data: hasActiveSub } = useQuery({
+    enabled: !!profile?.user_id,
+    queryKey: ["has-active-subscription", profile?.user_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("has_active_subscription", {
+        _user_id: profile!.user_id,
+      });
+      if (error) return false;
+      return Boolean(data);
+    },
+  });
+
+  const { data: isAdmin } = useQuery({
+    enabled: !!profile?.user_id,
+    queryKey: ["is-admin", profile?.user_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("has_role", {
+        _user_id: profile!.user_id,
+        _role: "admin",
+      });
+      if (error) return false;
+      return Boolean(data);
+    },
+  });
+
+  const canAccessExams = Boolean(isAdmin) || Boolean(hasActiveSub);
+
   if (loadingSubject) return <StateMessage variant="loading">جارٍ التحميل…</StateMessage>;
   if (!subject || accessible === false) {
     return (
@@ -166,6 +194,14 @@ function SubjectIndexPage() {
           <UnitBlock title="دروس أخرى" description={null} isFree={null} lessons={orphans} />
         )}
       </div>
+
+      <ExamTemplatesSection
+        scope={{ kind: "subject", subjectId: subject.id }}
+        canAccess={canAccessExams}
+        title="اختبارات المادة"
+        emptyMessage="لا توجد اختبارات شاملة للمادة بعد."
+        lockedMessage="اختبارات المادة متاحة ضمن الاشتراك."
+      />
 
       <div className="pt-2">
         <Button asChild variant="outline" className="gap-1">
