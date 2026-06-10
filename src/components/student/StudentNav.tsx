@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BookOpen, LogOut, Shield } from "lucide-react";
+import { BookOpen, LogOut, Shield, Wallet } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 export function StudentNav() {
