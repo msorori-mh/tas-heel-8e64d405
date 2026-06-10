@@ -495,8 +495,34 @@ function LessonPage() {
 function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
   const options = Array.isArray(q.options) ? (q.options as unknown[]) : [];
   const [selected, setSelected] = useState<number | null>(null);
-  const [checked, setChecked] = useState(false);
-  const isCorrect = checked && selected === q.correct_index;
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<{
+    is_correct: boolean;
+    correct_index: number | null;
+    explanation: string | null;
+  } | null>(null);
+  const checked = result !== null;
+  const isCorrect = checked && result!.is_correct;
+
+  const handleCheck = async () => {
+    if (selected === null) return;
+    setChecking(true);
+    try {
+      const { data, error } = await supabase.rpc("check_lesson_question", {
+        _question_id: q.id,
+        _selected_index: selected,
+      });
+      if (error) throw error;
+      const r = data as { is_correct: boolean; correct_index: number; explanation: string | null };
+      setResult({
+        is_correct: !!r.is_correct,
+        correct_index: typeof r.correct_index === "number" ? r.correct_index : null,
+        explanation: r.explanation ?? null,
+      });
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <div className="rounded-xl border border-border bg-background p-3">
@@ -513,7 +539,7 @@ function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
             ? isCorrect
               ? "border-emerald-500 bg-emerald-500/10"
               : "border-destructive bg-destructive/10"
-            : checked && i === q.correct_index
+            : checked && result!.correct_index !== null && i === result!.correct_index
               ? "border-emerald-500 bg-emerald-500/5"
               : active
                 ? "border-primary bg-primary/5"
@@ -539,10 +565,10 @@ function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
         <Button
           className="mt-3"
           size="sm"
-          disabled={selected === null}
-          onClick={() => setChecked(true)}
+          disabled={selected === null || checking}
+          onClick={handleCheck}
         >
-          تحقق من الإجابة
+          {checking ? "جارٍ التحقق…" : "تحقق من الإجابة"}
         </Button>
       ) : (
         <div className="mt-3 space-y-2">
@@ -563,9 +589,9 @@ function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
               </>
             )}
           </div>
-          {q.explanation && (
+          {result!.explanation && (
             <p className="rounded-md bg-secondary/40 p-2 text-xs leading-relaxed text-muted-foreground">
-              {q.explanation}
+              {result!.explanation}
             </p>
           )}
           <Button
@@ -574,7 +600,7 @@ function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
             variant="ghost"
             onClick={() => {
               setSelected(null);
-              setChecked(false);
+              setResult(null);
             }}
           >
             إعادة المحاولة
