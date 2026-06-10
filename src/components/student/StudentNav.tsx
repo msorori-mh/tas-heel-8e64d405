@@ -22,6 +22,13 @@ export function StudentNav() {
           >
             الرئيسية
           </Link>
+          <Link
+            to="/payments"
+            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+            activeProps={{ className: "text-primary font-semibold" }}
+          >
+            <Wallet className="h-4 w-4" />
+            طلباتي
           {isAdmin && (
             <Link
               to="/admin"
