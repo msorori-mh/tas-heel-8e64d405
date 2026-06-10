@@ -69,8 +69,6 @@ type QuestionRow = {
   id: string;
   question_text: string;
   options: unknown;
-  correct_index: number;
-  explanation: string | null;
   sort_order: number;
 };
 
