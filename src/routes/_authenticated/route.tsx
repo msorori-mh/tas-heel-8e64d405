@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,6 +17,8 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthenticatedLayout() {
   const { loading, profile, profileComplete, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isAdminArea = pathname.startsWith("/admin");
 
   useEffect(() => {
     if (loading) return;
@@ -25,6 +27,15 @@ function AuthenticatedLayout() {
       navigate({ to: "/complete-profile", replace: true });
     }
   }, [loading, profile, profileComplete, isAdmin, navigate]);
+
+  // Admin pages render their own AdminLayout — no StudentNav and no max-width wrapper.
+  if (isAdminArea) {
+    return (
+      <div className="min-h-screen bg-background text-foreground" dir="rtl">
+        <Outlet />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground" dir="rtl">
