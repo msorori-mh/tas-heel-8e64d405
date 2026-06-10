@@ -34,6 +34,7 @@ import { Route as AuthenticatedAdminUnitsRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminSubjectsRouteImport } from './routes/_authenticated/admin.subjects'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin.questions'
+import { Route as AuthenticatedAdminPaymentRequestsRouteImport } from './routes/_authenticated/admin.payment-requests'
 import { Route as AuthenticatedAdminLessonsRouteImport } from './routes/_authenticated/admin.lessons'
 import { Route as AuthenticatedAdminExamTemplatesRouteImport } from './routes/_authenticated/admin.exam-templates'
 import { Route as AuthenticatedAdminAcademicRouteImport } from './routes/_authenticated/admin.academic'
@@ -175,6 +176,12 @@ const AuthenticatedAdminQuestionsRoute =
     path: '/questions',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminPaymentRequestsRoute =
+  AuthenticatedAdminPaymentRequestsRouteImport.update({
+    id: '/payment-requests',
+    path: '/payment-requests',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminLessonsRoute =
   AuthenticatedAdminLessonsRouteImport.update({
     id: '/lessons',
@@ -250,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/admin/lessons': typeof AuthenticatedAdminLessonsRouteWithChildren
+  '/admin/payment-requests': typeof AuthenticatedAdminPaymentRequestsRoute
   '/admin/questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/admin/subjects': typeof AuthenticatedAdminSubjectsRoute
@@ -285,6 +293,7 @@ export interface FileRoutesByTo {
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/admin/lessons': typeof AuthenticatedAdminLessonsRouteWithChildren
+  '/admin/payment-requests': typeof AuthenticatedAdminPaymentRequestsRoute
   '/admin/questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/admin/subjects': typeof AuthenticatedAdminSubjectsRoute
@@ -322,6 +331,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/_authenticated/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/_authenticated/admin/lessons': typeof AuthenticatedAdminLessonsRouteWithChildren
+  '/_authenticated/admin/payment-requests': typeof AuthenticatedAdminPaymentRequestsRoute
   '/_authenticated/admin/questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/_authenticated/admin/subjects': typeof AuthenticatedAdminSubjectsRoute
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | '/admin/academic'
     | '/admin/exam-templates'
     | '/admin/lessons'
+    | '/admin/payment-requests'
     | '/admin/questions'
     | '/admin/students'
     | '/admin/subjects'
@@ -394,6 +405,7 @@ export interface FileRouteTypes {
     | '/admin/academic'
     | '/admin/exam-templates'
     | '/admin/lessons'
+    | '/admin/payment-requests'
     | '/admin/questions'
     | '/admin/students'
     | '/admin/subjects'
@@ -430,6 +442,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/academic'
     | '/_authenticated/admin/exam-templates'
     | '/_authenticated/admin/lessons'
+    | '/_authenticated/admin/payment-requests'
     | '/_authenticated/admin/questions'
     | '/_authenticated/admin/students'
     | '/_authenticated/admin/subjects'
@@ -638,6 +651,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminQuestionsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/payment-requests': {
+      id: '/_authenticated/admin/payment-requests'
+      path: '/payment-requests'
+      fullPath: '/admin/payment-requests'
+      preLoaderRoute: typeof AuthenticatedAdminPaymentRequestsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/lessons': {
       id: '/_authenticated/admin/lessons'
       path: '/lessons'
@@ -723,6 +743,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAcademicRoute: typeof AuthenticatedAdminAcademicRoute
   AuthenticatedAdminExamTemplatesRoute: typeof AuthenticatedAdminExamTemplatesRoute
   AuthenticatedAdminLessonsRoute: typeof AuthenticatedAdminLessonsRouteWithChildren
+  AuthenticatedAdminPaymentRequestsRoute: typeof AuthenticatedAdminPaymentRequestsRoute
   AuthenticatedAdminQuestionsRoute: typeof AuthenticatedAdminQuestionsRoute
   AuthenticatedAdminStudentsRoute: typeof AuthenticatedAdminStudentsRoute
   AuthenticatedAdminSubjectsRoute: typeof AuthenticatedAdminSubjectsRoute
@@ -733,6 +754,8 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAcademicRoute: AuthenticatedAdminAcademicRoute,
   AuthenticatedAdminExamTemplatesRoute: AuthenticatedAdminExamTemplatesRoute,
   AuthenticatedAdminLessonsRoute: AuthenticatedAdminLessonsRouteWithChildren,
+  AuthenticatedAdminPaymentRequestsRoute:
+    AuthenticatedAdminPaymentRequestsRoute,
   AuthenticatedAdminQuestionsRoute: AuthenticatedAdminQuestionsRoute,
   AuthenticatedAdminStudentsRoute: AuthenticatedAdminStudentsRoute,
   AuthenticatedAdminSubjectsRoute: AuthenticatedAdminSubjectsRoute,
