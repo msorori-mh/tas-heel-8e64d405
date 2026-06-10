@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
+import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import { Home, ClipboardList, Lock, Send, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/units/$unitId/practice")({
@@ -152,6 +153,14 @@ function UnitPracticePage() {
           </p>
         </section>
       )}
+
+      <ExamTemplatesSection
+        scope={{ kind: "unit", unitId: unit.id }}
+        canAccess={canAccessPractice}
+        title="اختبارات الوحدة"
+        emptyMessage="لا توجد اختبارات لهذه الوحدة بعد."
+        lockedMessage="اختبارات الوحدة متاحة ضمن الاشتراك."
+      />
 
       {BackBtn}
     </div>

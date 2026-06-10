@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
 import { getLessonFileUrl } from "@/lib/api/lesson-file.functions";
+import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import {
   Home,
   BookOpen,
@@ -467,7 +468,13 @@ function LessonPage() {
         />
       </Section>
 
-
+      <ExamTemplatesSection
+        scope={{ kind: "lesson", lessonId }}
+        canAccess={canAccessEnhancements}
+        title="اختبارات الدرس"
+        emptyMessage="لا توجد اختبارات لهذا الدرس بعد."
+        lockedMessage="اختبارات الدرس متاحة ضمن الاشتراك."
+      />
 
       <div className="pt-1">
         {subject ? (
