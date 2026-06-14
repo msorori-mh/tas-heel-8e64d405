@@ -200,6 +200,28 @@ function CompleteProfile() {
             </select>
           </div>
 
+          {allowedTracks.length > 1 && (
+            <div>
+              <Label htmlFor="tr">المنهج الدراسي</Label>
+              <select
+                id="tr"
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={trackId}
+                onChange={(e) => setTrackId(e.target.value)}
+                required
+              >
+                <option value="">-- اختر المنهج --</option>
+                {allowedTracks.map((t) => (
+                  <option key={t.id} value={t.id}>{t.track_name}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                محافظتك يُدرَّس فيها أكثر من منهج. اختر المنهج المعتمد في مدرستك.
+              </p>
+            </div>
+          )}
+
+
           <div>
             <Label htmlFor="sc">المدرسة</Label>
             <Input id="sc" value={school} onChange={(e) => setSchool(e.target.value)} required />
