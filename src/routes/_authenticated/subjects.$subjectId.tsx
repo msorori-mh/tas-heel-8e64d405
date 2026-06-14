@@ -145,7 +145,7 @@ function SubjectIndexPage() {
         <StateMessage>هذه المادة غير متاحة.</StateMessage>
         <div className="mt-4 text-center">
           <Button asChild variant="outline">
-            <Link to="/app"><Home className="ml-1 h-4 w-4" /> العودة إلى موادي</Link>
+            <Link to="/app" search={{ semester }}><Home className="ml-1 h-4 w-4" /> العودة إلى موادي</Link>
           </Button>
         </div>
       </div>
