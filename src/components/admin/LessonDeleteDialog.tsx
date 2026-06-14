@@ -59,14 +59,14 @@ async function fetchLessonCounts(lessonId: string): Promise<Counts> {
     .from("lessons")
     .select("id", { count: "exact", head: true })
     .eq("id", lessonId)
-    .not("video_url", "is", null);
+    .eq("has_video", true);
   if (videoExistsRes.error) throw videoExistsRes.error;
 
   const pdfExistsRes = await supabase
     .from("lessons")
     .select("id", { count: "exact", head: true })
     .eq("id", lessonId)
-    .not("content_pdf_url", "is", null);
+    .eq("has_content_pdf", true);
   if (pdfExistsRes.error) throw pdfExistsRes.error;
 
   const [questions, books, summaries, explanations, resources, simulations] =
