@@ -116,17 +116,14 @@ function CompleteProfile() {
         .join(" ");
       if (!fullName) throw new Error("الاسم مطلوب");
 
-      // اشتقاق المسار من المحافظة (لا يُكتب من الواجهة)
-      let trackId: string | null = profile?.curriculum_track_id ?? null;
-      if (govId) {
-        const { data: mapRow } = await supabase
-          .from("governorate_curriculum_map")
-          .select("curriculum_track_id")
-          .eq("governorate_id", govId)
-          .limit(1)
-          .maybeSingle();
-        if (mapRow?.curriculum_track_id) trackId = mapRow.curriculum_track_id as string;
+      if (!govId) throw new Error("المحافظة مطلوبة");
+      if (allowedTracks.length > 1 && !trackId) {
+        throw new Error("اختر المنهج الدراسي");
       }
+
+      // Curriculum track: explicit if multi-track; trigger fills the default for single-track govs.
+      const effectiveTrackId: string | null =
+        trackId && allowedTracks.some((t) => t.id === trackId) ? trackId : null;
 
       const gov = govs.find((x) => x.id === govId);
       const payload = {
@@ -137,7 +134,7 @@ function CompleteProfile() {
         governorate_id: govId,
         governorate: gov?.name ?? null,
         school_name: school.trim() || null,
-        ...(trackId ? { curriculum_track_id: trackId } : {}),
+        ...(effectiveTrackId ? { curriculum_track_id: effectiveTrackId } : {}),
       };
       const { error } = await supabase
         .from("profiles")
@@ -147,7 +144,13 @@ function CompleteProfile() {
       await refreshProfile();
       navigate({ to: "/app", replace: true });
     } catch (e2) {
-      setErr(translateAuthError(e2));
+      // Distinguish curriculum-track trigger errors for clarity.
+      const msg = e2 instanceof Error ? e2.message : "";
+      if (msg.includes("curriculum_track")) {
+        setErr(translateTrackError(e2));
+      } else {
+        setErr(translateAuthError(e2));
+      }
     } finally {
       setBusy(false);
     }
