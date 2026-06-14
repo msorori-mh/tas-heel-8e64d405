@@ -1,21 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
 import { StateMessage } from "@/components/student/StudentNav";
-import {
-  BookOpen,
-  GraduationCap,
-  MapPin,
-  School,
-  ChevronLeft,
-  CalendarDays,
-  ArrowRight,
-} from "lucide-react";
+import { StudentProfileCard } from "@/components/student/StudentProfileCard";
+import { BookOpen, ChevronLeft, CalendarDays, ArrowRight } from "lucide-react";
 
 const searchSchema = z.object({
   semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
@@ -43,32 +35,6 @@ function StudentHome() {
 
   const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
 
-  const { data: grade } = useQuery({
-    enabled: !!gradeKey,
-    queryKey: ["grade-name", gradeKey],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("grades")
-        .select("id,name")
-        .eq("id", gradeKey!)
-        .maybeSingle();
-      return data as { id: string; name: string } | null;
-    },
-  });
-
-  const { data: gov } = useQuery({
-    enabled: !!profile?.governorate_id,
-    queryKey: ["gov-name", profile?.governorate_id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("governorates")
-        .select("id,name")
-        .eq("id", profile!.governorate_id!)
-        .maybeSingle();
-      return data as { id: string; name: string } | null;
-    },
-  });
-
   const {
     data: subjects,
     isLoading: subjLoading,
@@ -93,31 +59,14 @@ function StudentHome() {
     },
   });
 
-  const govName = useMemo(
-    () => gov?.name ?? profile?.governorate ?? null,
-    [gov, profile?.governorate],
-  );
-
   if (loading) {
     return <StateMessage variant="loading">جارٍ التحميل…</StateMessage>;
   }
 
   return (
     <div className="space-y-5" dir="rtl">
-      <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
-        <h1 className="text-xl font-bold text-foreground">
-          مرحبًا {profile?.full_name ?? "بك"} 👋
-        </h1>
-        <p className="mt-1 text-xs text-muted-foreground">جاهز لمذاكرة اليوم؟</p>
+      <StudentProfileCard />
 
-        <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
-          <InfoChip icon={<GraduationCap className="h-4 w-4" />} label="الصف" value={grade?.name ?? "—"} />
-          <InfoChip icon={<MapPin className="h-4 w-4" />} label="المحافظة" value={govName ?? "—"} />
-          {profile?.school_name && (
-            <InfoChip icon={<School className="h-4 w-4" />} label="المدرسة" value={profile.school_name} />
-          )}
-        </div>
-      </section>
 
       {!semester ? (
         <section>
@@ -226,25 +175,5 @@ function SemesterCard({
       </div>
       <ChevronLeft className="h-5 w-5 text-muted-foreground transition-transform group-hover:-translate-x-1" />
     </button>
-  );
-}
-
-function InfoChip({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
-      <span className="text-primary">{icon}</span>
-      <div className="min-w-0">
-        <div className="text-[11px] text-muted-foreground">{label}</div>
-        <div className="truncate text-sm font-semibold text-foreground">{value}</div>
-      </div>
-    </div>
   );
 }
