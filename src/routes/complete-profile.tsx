@@ -75,6 +75,35 @@ function CompleteProfile() {
     })();
   }, []);
 
+  // Load allowed curriculum tracks for the selected governorate (source of truth: governorate_curriculum_map).
+  useEffect(() => {
+    let cancelled = false;
+    if (!govId) {
+      setAllowedTracks([]);
+      setTrackId("");
+      return;
+    }
+    (async () => {
+      try {
+        const tracks = await fetchTracksForGovernorate(govId);
+        if (cancelled) return;
+        setAllowedTracks(tracks);
+        // Auto-pick when single; preserve existing valid choice; otherwise reset.
+        if (tracks.length === 1) {
+          setTrackId(tracks[0].id);
+        } else if (tracks.length > 1) {
+          const current = profile?.curriculum_track_id ?? "";
+          setTrackId(current && tracks.some((t) => t.id === current) ? current : "");
+        } else {
+          setTrackId("");
+        }
+      } catch {
+        if (!cancelled) setAllowedTracks([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [govId, profile?.curriculum_track_id]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
