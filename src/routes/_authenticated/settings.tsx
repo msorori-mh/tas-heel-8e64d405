@@ -275,6 +275,9 @@ function SettingsPage() {
             </div>
             <ChangeCurriculumTrackButton />
           </div>
+          <div className="mt-3 flex justify-end">
+            <EditProfileDialog />
+          </div>
         </SectionItem>
 
         {/* الاشتراك */}
