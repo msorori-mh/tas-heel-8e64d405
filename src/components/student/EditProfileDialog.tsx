@@ -111,19 +111,20 @@ export function EditProfileDialog() {
       const effectiveTrackId =
         trackId && allowedTracks.some((t) => t.id === trackId) ? trackId : null;
 
-      const patch: Record<string, unknown> = {
+      const patch = {
         full_name: name,
         school_name: school.trim() || null,
         governorate_id: govId,
         governorate: govName,
         grade_uuid: gradeId,
         grade_id: gradeId,
+        ...(effectiveTrackId ? { curriculum_track_id: effectiveTrackId } : {}),
       };
-      if (effectiveTrackId) patch.curriculum_track_id = effectiveTrackId;
 
       const { error } = await supabase
         .from("profiles")
-        .update(patch)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .update(patch as any)
         .eq("user_id", user.id);
       if (error) throw error;
 
