@@ -6,6 +6,7 @@ import { translateAuthError } from "@/lib/auth-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { fetchTracksForGovernorate, translateTrackError, type CurriculumTrack } from "@/lib/curriculum-tracks";
 
 export const Route = createFileRoute("/complete-profile")({
   component: CompleteProfile,
