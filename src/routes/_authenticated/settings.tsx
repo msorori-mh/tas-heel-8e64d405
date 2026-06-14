@@ -43,6 +43,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { deleteMyAccount } from "@/lib/account.functions";
 import { ChangeCurriculumTrackButton } from "@/components/student/ChangeCurriculumTrackButton";
+import { EditProfileDialog } from "@/components/student/EditProfileDialog";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
