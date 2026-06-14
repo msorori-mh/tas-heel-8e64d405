@@ -1,15 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Upload, X, FileText, ArrowRight } from "lucide-react";
+import { Loader2, Upload, X, FileText, ArrowRight, Sparkles, Info } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { extractReceiptData, type ReceiptExtraction } from "@/lib/payments-ocr.functions";
 
 export const Route = createFileRoute("/_authenticated/payments/new")({
   component: NewPaymentRequestPage,
@@ -60,6 +62,10 @@ function NewPaymentRequestPage() {
   const [receiptPath, setReceiptPath] = useState("");
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrResult, setOcrResult] = useState<ReceiptExtraction | null>(null);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const runOcr = useServerFn(extractReceiptData);
 
   const plansQ = useQuery({
     queryKey: ["active-plans"],
@@ -128,10 +134,76 @@ function NewPaymentRequestPage() {
     }
     setReceiptPath(path);
     toast.success("تم رفع السند.");
+
+    // Auto-extract receipt fields (images only; PDFs skipped).
+    const ocrMime = file.type as "image/jpeg" | "image/png" | "image/webp";
+    if (ocrMime === "image/jpeg" || ocrMime === "image/png" || ocrMime === "image/webp") {
+      setOcrResult(null);
+      setOcrError(null);
+      setOcrLoading(true);
+      try {
+        const base64 = await fileToBase64(file);
+        const result = await runOcr({ data: { imageBase64: base64, mimeType: ocrMime } });
+        setOcrResult(result);
+        applyExtractionToForm(result);
+      } catch {
+        setOcrError("تعذر قراءة بيانات السند تلقائيًا، يمكنك إدخالها يدويًا.");
+      } finally {
+        setOcrLoading(false);
+      }
+    }
+  };
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const out = String(reader.result ?? "");
+        const idx = out.indexOf(",");
+        resolve(idx >= 0 ? out.slice(idx + 1) : out);
+      };
+      reader.onerror = () => reject(new Error("read_failed"));
+      reader.readAsDataURL(file);
+    });
+
+  const MIN_CONF = 0.5;
+
+  const applyExtractionToForm = (r: ReceiptExtraction) => {
+    if (
+      r.sender_name &&
+      r.confidence.sender_name >= MIN_CONF &&
+      senderName.trim().length === 0
+    ) {
+      setSenderName(r.sender_name);
+    }
+    if (
+      r.transaction_number &&
+      r.confidence.transaction_number >= MIN_CONF &&
+      txRef.trim().length === 0
+    ) {
+      setTxRef(r.transaction_number);
+    }
+    if (
+      r.amount != null &&
+      r.confidence.amount >= MIN_CONF &&
+      (amount === "" || amount === String(selectedPlan?.price ?? ""))
+    ) {
+      setAmount(String(r.amount));
+    }
+    if (
+      r.transfer_date &&
+      r.confidence.transfer_date >= MIN_CONF &&
+      payDate.trim().length === 0
+    ) {
+      setPayDate(r.transfer_date);
+    }
   };
 
   const clearReceipt = () => {
     setReceiptPath("");
+    setOcrResult(null);
+    setOcrError(null);
+    setOcrLoading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -375,6 +447,66 @@ function NewPaymentRequestPage() {
             className="hidden"
             onChange={handleUpload}
           />
+
+          {ocrLoading && (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              جارٍ قراءة بيانات السند…
+            </div>
+          )}
+
+          {ocrError && !ocrLoading && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{ocrError}</span>
+            </div>
+          )}
+
+          {ocrResult && !ocrLoading && (
+            <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+                <Sparkles className="h-4 w-4" />
+                البيانات المقروءة من السند:
+              </div>
+              <ul className="space-y-1 text-xs text-foreground">
+                <li>
+                  اسم المرسل:{" "}
+                  <span className="font-medium">
+                    {ocrResult.sender_name ?? "—"}
+                  </span>
+                </li>
+                <li>
+                  رقم العملية:{" "}
+                  <span className="font-medium" dir="ltr">
+                    {ocrResult.transaction_number ?? "—"}
+                  </span>
+                </li>
+                <li>
+                  المبلغ:{" "}
+                  <span className="font-medium">
+                    {ocrResult.amount != null
+                      ? Number(ocrResult.amount).toLocaleString("ar-EG")
+                      : "—"}
+                  </span>
+                </li>
+                <li>
+                  التاريخ:{" "}
+                  <span className="font-medium">
+                    {ocrResult.transfer_date ?? "—"}
+                  </span>
+                </li>
+              </ul>
+              <p className="rounded-md bg-background/60 p-2 text-[11px] leading-relaxed text-muted-foreground">
+                تم استخراج البيانات تلقائيًا، يرجى مراجعتها قبل الإرسال.
+                {(ocrResult.confidence.sender_name < MIN_CONF ||
+                  ocrResult.confidence.transaction_number < MIN_CONF ||
+                  ocrResult.confidence.amount < MIN_CONF ||
+                  ocrResult.confidence.transfer_date < MIN_CONF) && (
+                  <> {" "}لم نتمكن من قراءة كل البيانات بدقة، يرجى إكمالها يدويًا.</>
+                )}
+              </p>
+            </div>
+          )}
         </section>
 
         <div className="flex items-center gap-2">
