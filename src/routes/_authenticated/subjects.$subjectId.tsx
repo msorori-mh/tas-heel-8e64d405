@@ -229,7 +229,7 @@ function SubjectIndexPage() {
 
       <div className="pt-2">
         <Button asChild variant="outline" className="gap-1">
-          <Link to="/app"><Home className="h-4 w-4" /> العودة إلى موادي</Link>
+          <Link to="/app" search={{ semester }}><Home className="h-4 w-4" /> العودة إلى موادي</Link>
         </Button>
       </div>
     </div>
