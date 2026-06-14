@@ -171,6 +171,7 @@ function StudentHome() {
                   <Link
                     to="/subjects/$subjectId"
                     params={{ subjectId: s.id }}
+                    search={{ semester }}
                     className="group flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
                   >
                     <div className="flex min-w-0 items-center gap-3">
