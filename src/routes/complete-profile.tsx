@@ -6,6 +6,7 @@ import { translateAuthError } from "@/lib/auth-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { fetchTracksForGovernorate, translateTrackError, type CurriculumTrack } from "@/lib/curriculum-tracks";
 
 export const Route = createFileRoute("/complete-profile")({
   component: CompleteProfile,
@@ -39,6 +40,8 @@ function CompleteProfile() {
   const [school, setSchool] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [allowedTracks, setAllowedTracks] = useState<CurriculumTrack[]>([]);
+  const [trackId, setTrackId] = useState<string>("");
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth", search: { mode: "login" }, replace: true });
@@ -72,6 +75,35 @@ function CompleteProfile() {
     })();
   }, []);
 
+  // Load allowed curriculum tracks for the selected governorate (source of truth: governorate_curriculum_map).
+  useEffect(() => {
+    let cancelled = false;
+    if (!govId) {
+      setAllowedTracks([]);
+      setTrackId("");
+      return;
+    }
+    (async () => {
+      try {
+        const tracks = await fetchTracksForGovernorate(govId);
+        if (cancelled) return;
+        setAllowedTracks(tracks);
+        // Auto-pick when single; preserve existing valid choice; otherwise reset.
+        if (tracks.length === 1) {
+          setTrackId(tracks[0].id);
+        } else if (tracks.length > 1) {
+          const current = profile?.curriculum_track_id ?? "";
+          setTrackId(current && tracks.some((t) => t.id === current) ? current : "");
+        } else {
+          setTrackId("");
+        }
+      } catch {
+        if (!cancelled) setAllowedTracks([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [govId, profile?.curriculum_track_id]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -84,17 +116,14 @@ function CompleteProfile() {
         .join(" ");
       if (!fullName) throw new Error("الاسم مطلوب");
 
-      // اشتقاق المسار من المحافظة (لا يُكتب من الواجهة)
-      let trackId: string | null = profile?.curriculum_track_id ?? null;
-      if (govId) {
-        const { data: mapRow } = await supabase
-          .from("governorate_curriculum_map")
-          .select("curriculum_track_id")
-          .eq("governorate_id", govId)
-          .limit(1)
-          .maybeSingle();
-        if (mapRow?.curriculum_track_id) trackId = mapRow.curriculum_track_id as string;
+      if (!govId) throw new Error("المحافظة مطلوبة");
+      if (allowedTracks.length > 1 && !trackId) {
+        throw new Error("اختر المنهج الدراسي");
       }
+
+      // Curriculum track: explicit if multi-track; trigger fills the default for single-track govs.
+      const effectiveTrackId: string | null =
+        trackId && allowedTracks.some((t) => t.id === trackId) ? trackId : null;
 
       const gov = govs.find((x) => x.id === govId);
       const payload = {
@@ -105,7 +134,7 @@ function CompleteProfile() {
         governorate_id: govId,
         governorate: gov?.name ?? null,
         school_name: school.trim() || null,
-        ...(trackId ? { curriculum_track_id: trackId } : {}),
+        ...(effectiveTrackId ? { curriculum_track_id: effectiveTrackId } : {}),
       };
       const { error } = await supabase
         .from("profiles")
@@ -115,7 +144,13 @@ function CompleteProfile() {
       await refreshProfile();
       navigate({ to: "/app", replace: true });
     } catch (e2) {
-      setErr(translateAuthError(e2));
+      // Distinguish curriculum-track trigger errors for clarity.
+      const msg = e2 instanceof Error ? e2.message : "";
+      if (msg.includes("curriculum_track")) {
+        setErr(translateTrackError(e2));
+      } else {
+        setErr(translateAuthError(e2));
+      }
     } finally {
       setBusy(false);
     }
@@ -164,6 +199,28 @@ function CompleteProfile() {
               ))}
             </select>
           </div>
+
+          {allowedTracks.length > 1 && (
+            <div>
+              <Label htmlFor="tr">المنهج الدراسي</Label>
+              <select
+                id="tr"
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={trackId}
+                onChange={(e) => setTrackId(e.target.value)}
+                required
+              >
+                <option value="">-- اختر المنهج --</option>
+                {allowedTracks.map((t) => (
+                  <option key={t.id} value={t.id}>{t.track_name}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                محافظتك يُدرَّس فيها أكثر من منهج. اختر المنهج المعتمد في مدرستك.
+              </p>
+            </div>
+          )}
+
 
           <div>
             <Label htmlFor="sc">المدرسة</Label>

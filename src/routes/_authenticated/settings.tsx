@@ -42,6 +42,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { deleteMyAccount } from "@/lib/account.functions";
+import { ChangeCurriculumTrackButton } from "@/components/student/ChangeCurriculumTrackButton";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -263,6 +264,15 @@ function SettingsPage() {
                 )}
               </div>
             </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-background p-3">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">المنهج الدراسي الحالي</p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground">
+                {trackName ?? "—"}
+              </p>
+            </div>
+            <ChangeCurriculumTrackButton />
           </div>
         </SectionItem>
 
