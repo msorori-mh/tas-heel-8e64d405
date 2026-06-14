@@ -134,10 +134,76 @@ function NewPaymentRequestPage() {
     }
     setReceiptPath(path);
     toast.success("تم رفع السند.");
+
+    // Auto-extract receipt fields (images only; PDFs skipped).
+    const ocrMime = file.type as "image/jpeg" | "image/png" | "image/webp";
+    if (ocrMime === "image/jpeg" || ocrMime === "image/png" || ocrMime === "image/webp") {
+      setOcrResult(null);
+      setOcrError(null);
+      setOcrLoading(true);
+      try {
+        const base64 = await fileToBase64(file);
+        const result = await runOcr({ data: { imageBase64: base64, mimeType: ocrMime } });
+        setOcrResult(result);
+        applyExtractionToForm(result);
+      } catch {
+        setOcrError("تعذر قراءة بيانات السند تلقائيًا، يمكنك إدخالها يدويًا.");
+      } finally {
+        setOcrLoading(false);
+      }
+    }
+  };
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const out = String(reader.result ?? "");
+        const idx = out.indexOf(",");
+        resolve(idx >= 0 ? out.slice(idx + 1) : out);
+      };
+      reader.onerror = () => reject(new Error("read_failed"));
+      reader.readAsDataURL(file);
+    });
+
+  const MIN_CONF = 0.5;
+
+  const applyExtractionToForm = (r: ReceiptExtraction) => {
+    if (
+      r.sender_name &&
+      r.confidence.sender_name >= MIN_CONF &&
+      senderName.trim().length === 0
+    ) {
+      setSenderName(r.sender_name);
+    }
+    if (
+      r.transaction_number &&
+      r.confidence.transaction_number >= MIN_CONF &&
+      txRef.trim().length === 0
+    ) {
+      setTxRef(r.transaction_number);
+    }
+    if (
+      r.amount != null &&
+      r.confidence.amount >= MIN_CONF &&
+      (amount === "" || amount === String(selectedPlan?.price ?? ""))
+    ) {
+      setAmount(String(r.amount));
+    }
+    if (
+      r.transfer_date &&
+      r.confidence.transfer_date >= MIN_CONF &&
+      payDate.trim().length === 0
+    ) {
+      setPayDate(r.transfer_date);
+    }
   };
 
   const clearReceipt = () => {
     setReceiptPath("");
+    setOcrResult(null);
+    setOcrError(null);
+    setOcrLoading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
