@@ -24,6 +24,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
 import { Route as AuthenticatedSubscriptionRouteImport } from './routes/_authenticated/subscription'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedPaymentsRouteImport } from './routes/_authenticated/payments'
 import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
@@ -123,6 +124,11 @@ const AuthenticatedSubscriptionRoute =
     path: '/subscription',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPaymentsRoute = AuthenticatedPaymentsRouteImport.update({
   id: '/payments',
   path: '/payments',
@@ -273,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AuthenticatedAppRoute
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/payments': typeof AuthenticatedPaymentsRouteWithChildren
+  '/settings': typeof AuthenticatedSettingsRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -311,6 +318,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/app': typeof AuthenticatedAppRoute
   '/grades': typeof AuthenticatedGradesRouteWithChildren
+  '/settings': typeof AuthenticatedSettingsRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -352,6 +360,7 @@ export interface FileRoutesById {
   '/_authenticated/app': typeof AuthenticatedAppRoute
   '/_authenticated/grades': typeof AuthenticatedGradesRouteWithChildren
   '/_authenticated/payments': typeof AuthenticatedPaymentsRouteWithChildren
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/subscription': typeof AuthenticatedSubscriptionRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -393,6 +402,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/grades'
     | '/payments'
+    | '/settings'
     | '/subscription'
     | '/wallet'
     | '/auth/callback'
@@ -431,6 +441,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/grades'
+    | '/settings'
     | '/subscription'
     | '/wallet'
     | '/auth/callback'
@@ -471,6 +482,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app'
     | '/_authenticated/grades'
     | '/_authenticated/payments'
+    | '/_authenticated/settings'
     | '/_authenticated/subscription'
     | '/_authenticated/wallet'
     | '/auth/callback'
@@ -615,6 +627,13 @@ declare module '@tanstack/react-router' {
       path: '/subscription'
       fullPath: '/subscription'
       preLoaderRoute: typeof AuthenticatedSubscriptionRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/payments': {
@@ -869,6 +888,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppRoute: typeof AuthenticatedAppRoute
   AuthenticatedGradesRoute: typeof AuthenticatedGradesRouteWithChildren
   AuthenticatedPaymentsRoute: typeof AuthenticatedPaymentsRouteWithChildren
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSubscriptionRoute: typeof AuthenticatedSubscriptionRoute
   AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
   AuthenticatedExamsHistoryRoute: typeof AuthenticatedExamsHistoryRouteWithChildren
@@ -884,6 +904,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppRoute: AuthenticatedAppRoute,
   AuthenticatedGradesRoute: AuthenticatedGradesRouteWithChildren,
   AuthenticatedPaymentsRoute: AuthenticatedPaymentsRouteWithChildren,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSubscriptionRoute: AuthenticatedSubscriptionRoute,
   AuthenticatedWalletRoute: AuthenticatedWalletRoute,
   AuthenticatedExamsHistoryRoute: AuthenticatedExamsHistoryRouteWithChildren,
