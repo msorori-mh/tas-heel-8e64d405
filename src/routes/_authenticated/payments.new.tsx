@@ -225,6 +225,14 @@ function NewPaymentRequestPage() {
       return;
     }
 
+    // Soft check: amount must cover the selected plan's price (server is source of truth)
+    if (selectedPlan && Number(parsed.data.amount) < Number(selectedPlan.price)) {
+      toast.error(
+        `المبلغ المُدخل أقل من سعر الخطة (${Number(selectedPlan.price).toLocaleString("ar-EG")} ${selectedPlan.currency}).`,
+      );
+      return;
+    }
+
     setSubmitting(true);
     const { error } = await supabase.from("payment_requests").insert({
       user_id: user.id,
@@ -241,7 +249,20 @@ function NewPaymentRequestPage() {
     setSubmitting(false);
 
     if (error) {
-      toast.error("تعذّر إنشاء الطلب: " + error.message);
+      // Friendly mapping for the DB-level uniqueness guards (Mufadhala-style fraud protection)
+      const code = (error as { code?: string }).code;
+      const msg = error.message || "";
+      if (code === "23505") {
+        if (msg.includes("transaction_reference")) {
+          toast.error("رقم العملية مستخدم سابقًا لنفس طريقة الدفع. تأكد من الرقم.");
+        } else if (msg.includes("receipt_hash")) {
+          toast.error("هذه الصورة مرفوعة مسبقًا في طلب آخر. ارفع صورة مختلفة.");
+        } else {
+          toast.error("الطلب مكرّر، يرجى مراجعة البيانات.");
+        }
+      } else {
+        toast.error("تعذّر إنشاء الطلب: " + msg);
+      }
       return;
     }
     toast.success("تم إرسال الطلب، بانتظار المراجعة.");
