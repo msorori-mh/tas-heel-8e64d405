@@ -168,10 +168,17 @@ function SubjectIndexPage() {
 
   return (
     <div className="space-y-5">
-      <Breadcrumbs subjectName={subject.name} />
+      <Breadcrumbs subjectName={subject.name} semester={semester} />
 
       <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
-        <h1 className="text-xl font-bold text-foreground">{subject.name}</h1>
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="text-xl font-bold text-foreground">{subject.name}</h1>
+          {semester && (
+            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              {semester === 1 ? "الفصل الأول" : "الفصل الثاني"}
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-xs text-muted-foreground">فهرس المادة</p>
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
