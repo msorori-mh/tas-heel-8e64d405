@@ -448,6 +448,14 @@ function NewPaymentRequestPage() {
             onChange={handleUpload}
           />
 
+          {/* OCR disclosure notice */}
+          <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 p-3">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              قد يتم تحليل صورة السند آليًا لاستخراج بيانات الحوالة وتعبئتها تلقائيًا. يرجى مراجعة البيانات والتأكد من صحتها قبل إرسال الطلب.
+            </p>
+          </div>
+
           {ocrLoading && (
             <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
