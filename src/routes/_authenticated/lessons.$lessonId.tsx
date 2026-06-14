@@ -950,7 +950,11 @@ function EnhancementItemRow({
     }
     let cancelled = false;
     setLoading(true);
-    getUrl({ data: { lessonId, url: item.url } })
+    const isInternalLessonMedia = item.url.startsWith("lesson-internal://");
+    const payload = isInternalLessonMedia
+      ? { lessonId, kind: item.url.slice("lesson-internal://".length) as "video" | "pdf" }
+      : { lessonId, url: item.url };
+    getUrl({ data: payload })
       .then((res) => {
         if (!cancelled) setResolved(res.url);
       })
