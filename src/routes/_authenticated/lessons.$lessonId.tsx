@@ -23,7 +23,13 @@ import {
   Link2,
   FileText,
   Loader2,
+  ChevronDown,
+  Trophy,
+  Target,
+  ScrollText,
+  Library,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
   component: LessonPage,
