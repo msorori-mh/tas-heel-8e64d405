@@ -532,13 +532,15 @@ function LessonPage() {
                     description: r.description,
                     url: r.url,
                   })),
-                  ...(lessonExtra?.video_url
+                  ...(lessonExtra?.has_video
                     ? [
                         {
                           id: `lesson-video-${lessonExtra.id}`,
                           title: "فيديو الدرس",
                           description: null,
-                          url: lessonExtra.video_url,
+                          url:
+                            lessonExtra.external_video_url ??
+                            "lesson-internal://video",
                         },
                       ]
                     : []),
