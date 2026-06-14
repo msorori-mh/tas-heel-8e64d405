@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
@@ -8,7 +10,12 @@ import { Button } from "@/components/ui/button";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import { ClipboardList, ChevronLeft, BookOpen, Layers, FileText, Home } from "lucide-react";
 
+const searchSchema = z.object({
+  semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
+});
+
 export const Route = createFileRoute("/_authenticated/subjects/$subjectId")({
+  validateSearch: zodValidator(searchSchema),
   component: SubjectIndexPage,
 });
 
@@ -25,6 +32,7 @@ type Unit = {
   description: string | null;
   sort_order: number;
   is_free: boolean;
+  semester: number | null;
 };
 
 type Lesson = {
@@ -33,10 +41,12 @@ type Lesson = {
   duration: string | null;
   unit_id: string | null;
   sort_order: number;
+  semester: number | null;
 };
 
 function SubjectIndexPage() {
   const { subjectId } = Route.useParams();
+  const { semester } = Route.useSearch();
   const { profile } = useAuth();
 
   const { data: subject, isLoading: loadingSubject } = useQuery({
@@ -68,28 +78,35 @@ function SubjectIndexPage() {
 
   const { data, isLoading, error } = useQuery({
     enabled: !!subject && accessible === true,
-    queryKey: ["subject-index", subjectId],
+    queryKey: ["subject-index", subjectId, semester ?? null],
     queryFn: async () => {
       const [u, l] = await Promise.all([
         supabase
           .from("units")
-          .select("id,title,description,sort_order,is_free")
+          .select("id,title,description,sort_order,is_free,semester")
           .eq("subject_id", subjectId)
           .order("sort_order")
           .order("title"),
         supabase
           .from("lessons")
-          .select("id,title,duration,unit_id,sort_order")
+          .select("id,title,duration,unit_id,sort_order,semester")
           .eq("subject_id", subjectId)
           .order("sort_order")
           .order("title"),
       ]);
       if (u.error) throw u.error;
       if (l.error) throw l.error;
-      return {
-        units: (u.data ?? []) as Unit[],
-        lessons: (l.data ?? []) as Lesson[],
-      };
+      const allUnits = (u.data ?? []) as Unit[];
+      const allLessons = (l.data ?? []) as Lesson[];
+      // Filter by selected semester. Items with semester=null are shown in both
+      // semesters so unconfigured content remains visible until the admin sets it.
+      const units = semester
+        ? allUnits.filter((x) => x.semester === null || x.semester === semester)
+        : allUnits;
+      const lessons = semester
+        ? allLessons.filter((x) => x.semester === null || x.semester === semester)
+        : allLessons;
+      return { units, lessons };
     },
   });
 
@@ -128,7 +145,7 @@ function SubjectIndexPage() {
         <StateMessage>هذه المادة غير متاحة.</StateMessage>
         <div className="mt-4 text-center">
           <Button asChild variant="outline">
-            <Link to="/app"><Home className="ml-1 h-4 w-4" /> العودة إلى موادي</Link>
+            <Link to="/app" search={{ semester }}><Home className="ml-1 h-4 w-4" /> العودة إلى موادي</Link>
           </Button>
         </div>
       </div>
@@ -151,10 +168,17 @@ function SubjectIndexPage() {
 
   return (
     <div className="space-y-5">
-      <Breadcrumbs subjectName={subject.name} />
+      <Breadcrumbs subjectName={subject.name} semester={semester} />
 
       <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
-        <h1 className="text-xl font-bold text-foreground">{subject.name}</h1>
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="text-xl font-bold text-foreground">{subject.name}</h1>
+          {semester && (
+            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              {semester === 1 ? "الفصل الأول" : "الفصل الثاني"}
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-xs text-muted-foreground">فهرس المادة</p>
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
@@ -205,17 +229,23 @@ function SubjectIndexPage() {
 
       <div className="pt-2">
         <Button asChild variant="outline" className="gap-1">
-          <Link to="/app"><Home className="h-4 w-4" /> العودة إلى موادي</Link>
+          <Link to="/app" search={{ semester }}><Home className="h-4 w-4" /> العودة إلى موادي</Link>
         </Button>
       </div>
     </div>
   );
 }
 
-function Breadcrumbs({ subjectName }: { subjectName: string | null }) {
+function Breadcrumbs({
+  subjectName,
+  semester,
+}: {
+  subjectName: string | null;
+  semester?: 1 | 2;
+}) {
   return (
     <nav className="text-xs text-muted-foreground" aria-label="مسار التنقل">
-      <Link to="/app" className="hover:text-primary">موادي</Link>
+      <Link to="/app" search={{ semester }} className="hover:text-primary">موادي</Link>
       <span className="mx-1">/</span>
       <span className="text-foreground">{subjectName ?? "المادة"}</span>
     </nav>
