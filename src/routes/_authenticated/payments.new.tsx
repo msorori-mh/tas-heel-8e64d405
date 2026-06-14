@@ -447,6 +447,66 @@ function NewPaymentRequestPage() {
             className="hidden"
             onChange={handleUpload}
           />
+
+          {ocrLoading && (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              جارٍ قراءة بيانات السند…
+            </div>
+          )}
+
+          {ocrError && !ocrLoading && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{ocrError}</span>
+            </div>
+          )}
+
+          {ocrResult && !ocrLoading && (
+            <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+                <Sparkles className="h-4 w-4" />
+                البيانات المقروءة من السند:
+              </div>
+              <ul className="space-y-1 text-xs text-foreground">
+                <li>
+                  اسم المرسل:{" "}
+                  <span className="font-medium">
+                    {ocrResult.sender_name ?? "—"}
+                  </span>
+                </li>
+                <li>
+                  رقم العملية:{" "}
+                  <span className="font-medium" dir="ltr">
+                    {ocrResult.transaction_number ?? "—"}
+                  </span>
+                </li>
+                <li>
+                  المبلغ:{" "}
+                  <span className="font-medium">
+                    {ocrResult.amount != null
+                      ? Number(ocrResult.amount).toLocaleString("ar-EG")
+                      : "—"}
+                  </span>
+                </li>
+                <li>
+                  التاريخ:{" "}
+                  <span className="font-medium">
+                    {ocrResult.transfer_date ?? "—"}
+                  </span>
+                </li>
+              </ul>
+              <p className="rounded-md bg-background/60 p-2 text-[11px] leading-relaxed text-muted-foreground">
+                تم استخراج البيانات تلقائيًا، يرجى مراجعتها قبل الإرسال.
+                {(ocrResult.confidence.sender_name < MIN_CONF ||
+                  ocrResult.confidence.transaction_number < MIN_CONF ||
+                  ocrResult.confidence.amount < MIN_CONF ||
+                  ocrResult.confidence.transfer_date < MIN_CONF) && (
+                  <> {" "}لم نتمكن من قراءة كل البيانات بدقة، يرجى إكمالها يدويًا.</>
+                )}
+              </p>
+            </div>
+          )}
         </section>
 
         <div className="flex items-center gap-2">
