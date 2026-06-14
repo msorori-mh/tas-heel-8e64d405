@@ -75,7 +75,7 @@ function StudentHome() {
     error: subjError,
   } = useQuery({
     enabled: !!gradeKey && !!semester,
-    queryKey: ["my-subjects", gradeKey, profile?.curriculum_track_id ?? null, semester],
+    queryKey: ["my-subjects", gradeKey, profile?.curriculum_track_id ?? null],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subjects")
@@ -85,12 +85,11 @@ function StudentHome() {
       if (error) throw error;
       const rows = (data ?? []) as Subject[];
       const trackId = profile?.curriculum_track_id ?? null;
-      return rows.filter((s) => {
-        const trackOk = s.curriculum_track_id === null || s.curriculum_track_id === trackId;
-        // Include subjects where semester matches OR is unset (so unconfigured data still appears).
-        const semOk = s.semester === null || s.semester === semester;
-        return trackOk && semOk;
-      });
+      // Subjects are shared across both semesters; semester filtering happens
+      // on units/lessons inside each subject. Only filter by curriculum track here.
+      return rows.filter(
+        (s) => s.curriculum_track_id === null || s.curriculum_track_id === trackId,
+      );
     },
   });
 
