@@ -236,10 +236,16 @@ function SubjectIndexPage() {
   );
 }
 
-function Breadcrumbs({ subjectName }: { subjectName: string | null }) {
+function Breadcrumbs({
+  subjectName,
+  semester,
+}: {
+  subjectName: string | null;
+  semester?: 1 | 2;
+}) {
   return (
     <nav className="text-xs text-muted-foreground" aria-label="مسار التنقل">
-      <Link to="/app" className="hover:text-primary">موادي</Link>
+      <Link to="/app" search={{ semester }} className="hover:text-primary">موادي</Link>
       <span className="mx-1">/</span>
       <span className="text-foreground">{subjectName ?? "المادة"}</span>
     </nav>
