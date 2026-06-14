@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
@@ -8,7 +10,12 @@ import { Button } from "@/components/ui/button";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import { ClipboardList, ChevronLeft, BookOpen, Layers, FileText, Home } from "lucide-react";
 
+const searchSchema = z.object({
+  semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
+});
+
 export const Route = createFileRoute("/_authenticated/subjects/$subjectId")({
+  validateSearch: zodValidator(searchSchema),
   component: SubjectIndexPage,
 });
 
