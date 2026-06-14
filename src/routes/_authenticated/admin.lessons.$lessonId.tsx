@@ -265,8 +265,8 @@ function AdminLessonDetailPage() {
     );
   }
 
-  const hasVideo = !!(lesson as any).video_url;
-  const hasLessonPdf = !!(lesson as any).content_pdf_url;
+  const hasVideo = !!(lesson as any).has_video;
+  const hasLessonPdf = !!(lesson as any).has_content_pdf;
   const subjectName = (lesson as any).subject?.name ?? "—";
   const unitTitle = (lesson as any).unit?.title ?? "—";
 
