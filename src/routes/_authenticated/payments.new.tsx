@@ -1,15 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Upload, X, FileText, ArrowRight } from "lucide-react";
+import { Loader2, Upload, X, FileText, ArrowRight, Sparkles, Info } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { extractReceiptData, type ReceiptExtraction } from "@/lib/payments-ocr.functions";
 
 export const Route = createFileRoute("/_authenticated/payments/new")({
   component: NewPaymentRequestPage,
