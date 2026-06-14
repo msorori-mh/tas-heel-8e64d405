@@ -78,28 +78,35 @@ function SubjectIndexPage() {
 
   const { data, isLoading, error } = useQuery({
     enabled: !!subject && accessible === true,
-    queryKey: ["subject-index", subjectId],
+    queryKey: ["subject-index", subjectId, semester ?? null],
     queryFn: async () => {
       const [u, l] = await Promise.all([
         supabase
           .from("units")
-          .select("id,title,description,sort_order,is_free")
+          .select("id,title,description,sort_order,is_free,semester")
           .eq("subject_id", subjectId)
           .order("sort_order")
           .order("title"),
         supabase
           .from("lessons")
-          .select("id,title,duration,unit_id,sort_order")
+          .select("id,title,duration,unit_id,sort_order,semester")
           .eq("subject_id", subjectId)
           .order("sort_order")
           .order("title"),
       ]);
       if (u.error) throw u.error;
       if (l.error) throw l.error;
-      return {
-        units: (u.data ?? []) as Unit[],
-        lessons: (l.data ?? []) as Lesson[],
-      };
+      const allUnits = (u.data ?? []) as Unit[];
+      const allLessons = (l.data ?? []) as Lesson[];
+      // Filter by selected semester. Items with semester=null are shown in both
+      // semesters so unconfigured content remains visible until the admin sets it.
+      const units = semester
+        ? allUnits.filter((x) => x.semester === null || x.semester === semester)
+        : allUnits;
+      const lessons = semester
+        ? allLessons.filter((x) => x.semester === null || x.semester === semester)
+        : allLessons;
+      return { units, lessons };
     },
   });
 
