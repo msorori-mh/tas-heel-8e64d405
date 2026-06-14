@@ -40,6 +40,8 @@ function CompleteProfile() {
   const [school, setSchool] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [allowedTracks, setAllowedTracks] = useState<CurriculumTrack[]>([]);
+  const [trackId, setTrackId] = useState<string>("");
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth", search: { mode: "login" }, replace: true });
