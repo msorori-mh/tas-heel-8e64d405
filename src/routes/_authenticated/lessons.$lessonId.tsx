@@ -263,6 +263,24 @@ function LessonPage() {
     },
   });
 
+  // Detect availability of a training template (for the journey CTA hint).
+  const { data: trainingTemplates } = useQuery({
+    enabled: !!lesson && accessible === true,
+    queryKey: ["lesson-training-templates-count", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("exam_templates")
+        .select("id,mode,questions:exam_template_questions(count)")
+        .eq("is_active", true)
+        .eq("lesson_id", lessonId);
+      if (error) throw error;
+      const rows = ((data ?? []) as any[]).filter(
+        (r) => (r.questions?.[0]?.count ?? 0) > 0,
+      );
+      return rows.length;
+    },
+  });
+
   const mindmaps = (resources ?? []).filter((r) => r.resource_type === "mindmap");
   const videos = (resources ?? []).filter((r) => r.resource_type === "video");
   const experiments = (resources ?? []).filter((r) => r.resource_type === "experiment");
