@@ -58,8 +58,8 @@ function AdminLessonDetailPage() {
       const { data, error } = await supabase
         .from("lessons")
         .select(
-          // Pull only existence flags for video/pdf; do NOT expose raw urls.
-          "id, title, sort_order, duration, video_url, content_pdf_url, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)"
+          // Existence flags only; raw URLs are admin-only via RPC.
+          "id, title, sort_order, duration, has_video, has_content_pdf, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)"
         )
         .eq("id", lessonId)
         .maybeSingle();
@@ -265,8 +265,8 @@ function AdminLessonDetailPage() {
     );
   }
 
-  const hasVideo = !!(lesson as any).video_url;
-  const hasLessonPdf = !!(lesson as any).content_pdf_url;
+  const hasVideo = !!(lesson as any).has_video;
+  const hasLessonPdf = !!(lesson as any).has_content_pdf;
   const subjectName = (lesson as any).subject?.name ?? "—";
   const unitTitle = (lesson as any).unit?.title ?? "—";
 

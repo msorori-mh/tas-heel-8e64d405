@@ -944,6 +944,8 @@ export type Database = {
           content_text: string | null
           created_at: string
           duration: string | null
+          has_content_pdf: boolean | null
+          has_video: boolean | null
           id: string
           is_free: boolean | null
           semester: number | null
@@ -960,6 +962,8 @@ export type Database = {
           content_text?: string | null
           created_at?: string
           duration?: string | null
+          has_content_pdf?: boolean | null
+          has_video?: boolean | null
           id?: string
           is_free?: boolean | null
           semester?: number | null
@@ -976,6 +980,8 @@ export type Database = {
           content_text?: string | null
           created_at?: string
           duration?: string | null
+          has_content_pdf?: boolean | null
+          has_video?: boolean | null
           id?: string
           is_free?: boolean | null
           semester?: number | null
@@ -1916,6 +1922,13 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_get_lesson_media_urls: {
+        Args: { _lesson_id: string }
+        Returns: {
+          content_pdf_url: string
+          video_url: string
+        }[]
+      }
       admin_refund_subscription: {
         Args: {
           _amount?: number
@@ -1997,6 +2010,16 @@ export type Database = {
           question_text: string
           question_type: string
           sort_order: number
+        }[]
+      }
+      get_lesson_safe_extras: {
+        Args: { _lesson_id: string }
+        Returns: {
+          external_video_url: string
+          has_content_pdf: boolean
+          has_video: boolean
+          id: string
+          title: string
         }[]
       }
       get_report_governorate_data: {

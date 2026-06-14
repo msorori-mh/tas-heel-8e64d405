@@ -37,7 +37,10 @@ export const getLessonFileUrl = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       lessonId: z.string().uuid(),
-      url: z.string().min(1).max(2048),
+      url: z.string().min(1).max(2048).optional(),
+      kind: z.enum(["video", "pdf"]).optional(),
+    }).refine((v) => !!v.url || !!v.kind, {
+      message: "url_or_kind_required",
     }),
   )
   .handler(async ({ data, context }) => {
@@ -51,23 +54,37 @@ export const getLessonFileUrl = createServerFn({ method: "POST" })
     if (rpcErr) throw new Error("access_check_failed");
     if (!allowed) throw new Error("forbidden");
 
-    // 2) Verify the URL/path actually belongs to this lesson (no client-supplied paths)
-    const ref = parseStorageRef(data.url);
+    // 2a) Resolve URL: prefer server-side lookup via kind so the client
+    //     never has to know (or be able to read) the raw storage path.
+    let resolvedUrl: string | null = data.url ?? null;
+    if (!resolvedUrl && data.kind) {
+      const { data: row, error: lookupErr } = await supabaseAdmin
+        .from("lessons")
+        .select("video_url,content_pdf_url")
+        .eq("id", data.lessonId)
+        .maybeSingle();
+      if (lookupErr || !row) throw new Error("forbidden");
+      resolvedUrl =
+        data.kind === "video"
+          ? (row as { video_url: string | null }).video_url
+          : (row as { content_pdf_url: string | null }).content_pdf_url;
+      if (!resolvedUrl) throw new Error("not_found");
+    }
+    if (!resolvedUrl) throw new Error("forbidden");
+
+    // 2b) Verify the URL/path actually belongs to this lesson when the
+    //     client supplied it. When resolved via kind, lookup is authoritative.
+    const ref = parseStorageRef(resolvedUrl);
     if (!ref) {
       // Not a managed bucket → return as-is (e.g. public YouTube)
-      return { url: data.url, signed: false };
+      return { url: resolvedUrl, signed: false };
     }
     if (!ALLOWED_BUCKETS.has(ref.bucket)) {
-      return { url: data.url, signed: false };
+      return { url: resolvedUrl, signed: false };
     }
 
-    const { data: belongs, error: lkpErr } = await supabaseAdmin.rpc(
-      "url_belongs_to_lesson" as never,
-      { _lesson_id: data.lessonId, _url: data.url } as never,
-    );
-    // If the RPC isn't defined, fall back to a direct lookup.
-    let ok = !lkpErr && Boolean(belongs);
-    if (lkpErr) {
+    let ok = !data.url; // when resolved via kind, already authoritative
+    if (data.url) {
       const checks = await Promise.all([
         supabaseAdmin
           .from("lessons")
