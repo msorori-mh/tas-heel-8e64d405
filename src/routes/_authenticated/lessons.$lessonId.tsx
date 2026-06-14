@@ -53,7 +53,13 @@ type Subject = {
 
 type Unit = { id: string; title: string; sort_order: number; is_free: boolean } | null;
 
-type LessonExtra = { id: string; title: string | null; video_url: string | null };
+type LessonExtra = {
+  id: string;
+  title: string | null;
+  has_video: boolean;
+  has_content_pdf: boolean;
+  external_video_url: string | null;
+};
 
 type ResourceRow = {
   id: string;
