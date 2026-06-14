@@ -190,7 +190,7 @@ function AdminLessonsPage() {
         .from("lessons")
         .select("id")
         .in("id", lessonIds)
-        .not("video_url", "is", null);
+        .eq("has_video", true);
 
       const map: Record<string, Record<string, boolean>> = {};
       for (const id of lessonIds) {
