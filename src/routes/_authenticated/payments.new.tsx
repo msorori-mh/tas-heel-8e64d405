@@ -62,6 +62,10 @@ function NewPaymentRequestPage() {
   const [receiptPath, setReceiptPath] = useState("");
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrResult, setOcrResult] = useState<ReceiptExtraction | null>(null);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const runOcr = useServerFn(extractReceiptData);
 
   const plansQ = useQuery({
     queryKey: ["active-plans"],
