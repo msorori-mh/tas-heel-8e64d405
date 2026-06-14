@@ -32,6 +32,7 @@ type Unit = {
   description: string | null;
   sort_order: number;
   is_free: boolean;
+  semester: number | null;
 };
 
 type Lesson = {
@@ -40,10 +41,12 @@ type Lesson = {
   duration: string | null;
   unit_id: string | null;
   sort_order: number;
+  semester: number | null;
 };
 
 function SubjectIndexPage() {
   const { subjectId } = Route.useParams();
+  const { semester } = Route.useSearch();
   const { profile } = useAuth();
 
   const { data: subject, isLoading: loadingSubject } = useQuery({
