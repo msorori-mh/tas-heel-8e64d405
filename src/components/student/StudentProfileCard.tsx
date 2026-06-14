@@ -170,13 +170,23 @@ export function StudentProfileCard() {
         </div>
       </div>
 
+      {/* Curriculum track — prominent badge */}
+      {trackName && (
+        <div className="mt-3">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-bold text-primary shadow-sm"
+            aria-label="المنهج الدراسي"
+          >
+            <Compass className="h-3.5 w-3.5" />
+            <span>{trackName}</span>
+          </span>
+        </div>
+      )}
+
       {/* Identity chips */}
       <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
         {gradeName && (
           <Chip icon={<GraduationCap className="h-3 w-3" />}>{gradeName}</Chip>
-        )}
-        {trackName && (
-          <Chip icon={<Compass className="h-3 w-3" />}>{trackName}</Chip>
         )}
         {govName && (
           <Chip icon={<MapPin className="h-3 w-3" />}>{govName}</Chip>
