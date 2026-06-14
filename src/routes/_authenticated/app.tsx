@@ -1,6 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,15 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 
 import { StateMessage } from "@/components/student/StudentNav";
 import { StudentProfileCard } from "@/components/student/StudentProfileCard";
-import {
-  BookOpen,
-  GraduationCap,
-  MapPin,
-  School,
-  ChevronLeft,
-  CalendarDays,
-  ArrowRight,
-} from "lucide-react";
+import { BookOpen, ChevronLeft, CalendarDays, ArrowRight } from "lucide-react";
 
 const searchSchema = z.object({
   semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
@@ -44,32 +35,6 @@ function StudentHome() {
 
   const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
 
-  const { data: grade } = useQuery({
-    enabled: !!gradeKey,
-    queryKey: ["grade-name", gradeKey],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("grades")
-        .select("id,name")
-        .eq("id", gradeKey!)
-        .maybeSingle();
-      return data as { id: string; name: string } | null;
-    },
-  });
-
-  const { data: gov } = useQuery({
-    enabled: !!profile?.governorate_id,
-    queryKey: ["gov-name", profile?.governorate_id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("governorates")
-        .select("id,name")
-        .eq("id", profile!.governorate_id!)
-        .maybeSingle();
-      return data as { id: string; name: string } | null;
-    },
-  });
-
   const {
     data: subjects,
     isLoading: subjLoading,
@@ -93,11 +58,6 @@ function StudentHome() {
       );
     },
   });
-
-  const govName = useMemo(
-    () => gov?.name ?? profile?.governorate ?? null,
-    [gov, profile?.governorate],
-  );
 
   if (loading) {
     return <StateMessage variant="loading">جارٍ التحميل…</StateMessage>;
