@@ -1038,35 +1038,44 @@ export type Database = {
         Row: {
           account_name: string | null
           account_number: string | null
+          barcode_url: string | null
           created_at: string
           details: string | null
           id: string
           is_active: boolean
+          logo_url: string | null
           name: string
           sort_order: number
           type: string
+          updated_at: string
         }
         Insert: {
           account_name?: string | null
           account_number?: string | null
+          barcode_url?: string | null
           created_at?: string
           details?: string | null
           id?: string
           is_active?: boolean
+          logo_url?: string | null
           name: string
           sort_order?: number
           type: string
+          updated_at?: string
         }
         Update: {
           account_name?: string | null
           account_number?: string | null
+          barcode_url?: string | null
           created_at?: string
           details?: string | null
           id?: string
           is_active?: boolean
+          logo_url?: string | null
           name?: string
           sort_order?: number
           type?: string
+          updated_at?: string
         }
         Relationships: []
       }
