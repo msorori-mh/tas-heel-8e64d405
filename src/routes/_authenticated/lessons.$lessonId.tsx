@@ -222,18 +222,25 @@ function LessonPage() {
   const canAccessEnhancements =
     Boolean(isAdmin) || unitIsFree || Boolean(hasActiveSub);
 
-  // Lesson extras (video_url) — fetched only when allowed
+  // Lesson extras (existence flags + safe external URL) — fetched only when allowed
   const { data: lessonExtra } = useQuery({
     enabled: !!lesson && accessible === true && canAccessEnhancements,
     queryKey: ["lesson-extra", lessonId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lessons")
-        .select("id,title,video_url")
-        .eq("id", lessonId)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc(
+        "get_lesson_safe_extras" as never,
+        { _lesson_id: lessonId } as never,
+      );
       if (error) throw error;
-      return (data as LessonExtra | null) ?? null;
+      const row = Array.isArray(data) ? (data[0] as any) : (data as any);
+      if (!row) return null;
+      return {
+        id: row.id,
+        title: row.title ?? null,
+        has_video: !!row.has_video,
+        has_content_pdf: !!row.has_content_pdf,
+        external_video_url: row.external_video_url ?? null,
+      } as LessonExtra;
     },
   });
 
