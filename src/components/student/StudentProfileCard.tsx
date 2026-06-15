@@ -11,10 +11,7 @@ import {
   Clock,
   XCircle,
   CalendarDays,
-  CreditCard,
-  Receipt,
   History,
-  Wallet,
   Settings,
 } from "lucide-react";
 
@@ -194,11 +191,8 @@ export function StudentProfileCard() {
       </div>
 
       {/* Shortcuts */}
-      <nav className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="اختصارات">
+      <nav className="mt-4 grid grid-cols-2 gap-2" aria-label="اختصارات">
         <Shortcut to="/exams/history" icon={<History className="h-4 w-4" />} label="سجل الاختبارات" />
-        <Shortcut to="/subscription" icon={<CreditCard className="h-4 w-4" />} label="اشتراكي" />
-        <Shortcut to="/payments" icon={<Receipt className="h-4 w-4" />} label="طلباتي" />
-        <Shortcut to="/wallet" icon={<Wallet className="h-4 w-4" />} label="المحفظة" />
         <Shortcut to="/settings" icon={<Settings className="h-4 w-4" />} label="الإعدادات" />
       </nav>
     </section>
@@ -351,7 +345,7 @@ function Shortcut({
   icon,
   label,
 }: {
-  to: "/exams/history" | "/subscription" | "/payments" | "/wallet" | "/settings";
+  to: "/exams/history" | "/settings";
   icon: React.ReactNode;
   label: string;
 }) {
