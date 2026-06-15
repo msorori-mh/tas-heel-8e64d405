@@ -23,28 +23,12 @@ export function StudentNav() {
             الرئيسية
           </Link>
           <Link
-            to="/wallet"
+            to="/settings"
             className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
             activeProps={{ className: "text-primary font-semibold" }}
           >
-            <Wallet className="h-4 w-4" />
-            المحفظة
-          </Link>
-          <Link
-            to="/subscription"
-            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-            activeProps={{ className: "text-primary font-semibold" }}
-          >
-            <CreditCard className="h-4 w-4" />
-            اشتراكي
-          </Link>
-          <Link
-            to="/payments"
-            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-            activeProps={{ className: "text-primary font-semibold" }}
-          >
-            <Receipt className="h-4 w-4" />
-            طلباتي
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">الإعدادات</span>
           </Link>
           {isAdmin && (
             <Link
