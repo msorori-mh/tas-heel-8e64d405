@@ -491,6 +491,7 @@ export type Database = {
       }
       exam_templates: {
         Row: {
+          code: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -505,6 +506,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          code?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -519,6 +521,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          code?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1276,6 +1279,7 @@ export type Database = {
       }
       questions: {
         Row: {
+          code: string | null
           correct_index: number
           created_at: string
           explanation: string | null
@@ -1291,6 +1295,7 @@ export type Database = {
           year: number | null
         }
         Insert: {
+          code?: string | null
           correct_index: number
           created_at?: string
           explanation?: string | null
@@ -1306,6 +1311,7 @@ export type Database = {
           year?: number | null
         }
         Update: {
+          code?: string | null
           correct_index?: number
           created_at?: string
           explanation?: string | null
@@ -1431,6 +1437,7 @@ export type Database = {
       }
       subjects: {
         Row: {
+          code: string | null
           color: string | null
           created_at: string
           curriculum_track_id: string | null
@@ -1444,6 +1451,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          code?: string | null
           color?: string | null
           created_at?: string
           curriculum_track_id?: string | null
@@ -1457,6 +1465,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          code?: string | null
           color?: string | null
           created_at?: string
           curriculum_track_id?: string | null
@@ -1677,6 +1686,7 @@ export type Database = {
       }
       units: {
         Row: {
+          code: string | null
           created_at: string
           description: string | null
           id: string
@@ -1688,6 +1698,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          code?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1699,6 +1710,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          code?: string | null
           created_at?: string
           description?: string | null
           id?: string
