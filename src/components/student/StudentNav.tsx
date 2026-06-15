@@ -22,14 +22,6 @@ export function StudentNav() {
           >
             الرئيسية
           </Link>
-          <Link
-            to="/settings"
-            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-            activeProps={{ className: "text-primary font-semibold" }}
-          >
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">الإعدادات</span>
-          </Link>
           {isAdmin && (
             <Link
               to="/admin"
