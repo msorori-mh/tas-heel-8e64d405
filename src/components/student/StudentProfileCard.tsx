@@ -7,7 +7,6 @@ import {
   GraduationCap,
   MapPin,
   School,
-  Compass,
   CheckCircle2,
   Clock,
   XCircle,
