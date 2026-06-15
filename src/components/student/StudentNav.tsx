@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BookOpen, LogOut, Shield, Wallet, CreditCard, Receipt, Settings } from "lucide-react";
+import { BookOpen, LogOut, Shield, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 export function StudentNav() {
@@ -21,30 +21,6 @@ export function StudentNav() {
             activeProps={{ className: "text-primary font-semibold" }}
           >
             الرئيسية
-          </Link>
-          <Link
-            to="/wallet"
-            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-            activeProps={{ className: "text-primary font-semibold" }}
-          >
-            <Wallet className="h-4 w-4" />
-            المحفظة
-          </Link>
-          <Link
-            to="/subscription"
-            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-            activeProps={{ className: "text-primary font-semibold" }}
-          >
-            <CreditCard className="h-4 w-4" />
-            اشتراكي
-          </Link>
-          <Link
-            to="/payments"
-            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-            activeProps={{ className: "text-primary font-semibold" }}
-          >
-            <Receipt className="h-4 w-4" />
-            طلباتي
           </Link>
           {isAdmin && (
             <Link
