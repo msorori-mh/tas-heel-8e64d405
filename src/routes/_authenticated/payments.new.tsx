@@ -49,7 +49,7 @@ const schema = z.object({
 });
 
 function NewPaymentRequestPage() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 

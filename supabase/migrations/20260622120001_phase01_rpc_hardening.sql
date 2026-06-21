@@ -10,8 +10,11 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF auth.uid() IS NOT NULL
-     AND auth.uid() <> _user_id
+  IF auth.uid() IS NULL THEN
+    RETURN false;
+  END IF;
+
+  IF auth.uid() <> _user_id
      AND NOT public.has_role(auth.uid(), 'admin'::app_role) THEN
     RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
   END IF;
@@ -39,8 +42,11 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF auth.uid() IS NOT NULL
-     AND auth.uid() <> _user_id
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'unauthorized' USING ERRCODE = '42501';
+  END IF;
+
+  IF auth.uid() <> _user_id
      AND NOT public.has_role(auth.uid(), 'admin'::app_role) THEN
     RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
   END IF;
