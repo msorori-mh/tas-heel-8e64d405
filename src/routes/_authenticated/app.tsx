@@ -4,10 +4,18 @@ import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useHomeDashboard } from "@/hooks/use-home-dashboard";
 
 import { StateMessage } from "@/components/student/StudentNav";
-import { StudentProfileCard } from "@/components/student/StudentProfileCard";
-import { BookOpen, ChevronLeft, CalendarDays, ArrowRight } from "lucide-react";
+import { HomeHero } from "@/components/home/HomeHero";
+import { HomeSubscriptionBanner } from "@/components/home/HomeSubscriptionBanner";
+import { ProgressSummary } from "@/components/home/ProgressSummary";
+import { ContinueSection } from "@/components/home/ContinueSection";
+import { AchievementsSection } from "@/components/home/AchievementsSection";
+import { AiAssistantCard } from "@/components/home/AiAssistantCard";
+import { MotivationFooter } from "@/components/home/MotivationFooter";
+import { SemesterPicker } from "@/components/home/SemesterPicker";
+import { BookOpen, ChevronLeft, ArrowRight } from "lucide-react";
 
 const searchSchema = z.object({
   semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
@@ -33,6 +41,15 @@ function StudentHome() {
   const { semester } = Route.useSearch();
   const navigate = useNavigate();
 
+  const {
+    stats,
+    statsLoading,
+    continueItems,
+    continueLoading,
+    badges,
+    badgesLoading,
+  } = useHomeDashboard();
+
   const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
 
   const {
@@ -51,46 +68,53 @@ function StudentHome() {
       if (error) throw error;
       const rows = (data ?? []) as Subject[];
       const trackId = profile?.curriculum_track_id ?? null;
-      // Subjects are shared across both semesters; semester filtering happens
-      // on units/lessons inside each subject. Only filter by curriculum track here.
       return rows.filter(
         (s) => s.curriculum_track_id === null || s.curriculum_track_id === trackId,
       );
     },
   });
 
+  const scrollToStudy = () => {
+    if (semester) {
+      document.getElementById("subjects-list")?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    document.getElementById("start-studying")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const pickSemester = (s: 1 | 2) => {
+    navigate({ to: "/app", search: { semester: s } });
+  };
+
   if (loading) {
     return <StateMessage variant="loading">جارٍ التحميل…</StateMessage>;
   }
 
   return (
-    <div className="space-y-5" dir="rtl">
-      <StudentProfileCard />
+    <div className="space-y-6 pb-4" dir="rtl">
+      <HomeHero onStartStudy={scrollToStudy} stats={stats} />
 
+      <HomeSubscriptionBanner />
+
+      <ProgressSummary stats={stats} loading={statsLoading} />
+
+      <ContinueSection
+        items={continueItems}
+        loading={continueLoading}
+        onStartStudy={scrollToStudy}
+      />
+
+      <AchievementsSection badges={badges} loading={badgesLoading} />
+
+      <AiAssistantCard />
 
       {!semester ? (
-        <section>
-          <h2 className="mb-3 text-base font-bold text-foreground">اختر الفصل الدراسي</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SemesterCard
-              label="الفصل الدراسي الأول"
-              subtitle="مواد الفصل الأول"
-              onClick={() => navigate({ to: "/app", search: { semester: 1 } })}
-              gradient="from-primary/15 to-primary/5"
-            />
-            <SemesterCard
-              label="الفصل الدراسي الثاني"
-              subtitle="مواد الفصل الثاني"
-              onClick={() => navigate({ to: "/app", search: { semester: 2 } })}
-              gradient="from-accent/20 to-accent/5"
-            />
-          </div>
-        </section>
+        <SemesterPicker onSelect={pickSemester} />
       ) : (
-        <section>
+        <section id="subjects-list" className="scroll-mt-4">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-foreground">
+              <h2 className="text-sm font-bold text-foreground">
                 مواد {semester === 1 ? "الفصل الأول" : "الفصل الثاني"}
               </h2>
               {subjects && (
@@ -98,6 +122,7 @@ function StudentHome() {
               )}
             </div>
             <button
+              type="button"
               onClick={() => navigate({ to: "/app", search: {} })}
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
@@ -114,26 +139,26 @@ function StudentHome() {
           )}
 
           {subjects && subjects.length > 0 && (
-            <ul className="grid gap-3 sm:grid-cols-2">
+            <ul className="grid gap-2.5 sm:grid-cols-2">
               {subjects.map((s) => (
                 <li key={s.id}>
                   <Link
                     to="/subjects/$subjectId"
                     params={{ subjectId: s.id }}
                     search={{ semester }}
-                    className="group flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
+                    className="group flex items-center justify-between rounded-xl border border-border/60 bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <span
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-base font-bold text-white"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
                         style={{ backgroundColor: s.color ?? undefined }}
                         aria-hidden
                       >
-                        {s.name?.[0] ?? <BookOpen className="h-5 w-5" />}
+                        {s.name?.[0] ?? <BookOpen className="h-4 w-4" />}
                       </span>
                       <div className="min-w-0">
                         <div className="truncate text-sm font-bold text-foreground">{s.name}</div>
-                        <div className="text-xs text-primary group-hover:underline">ابدأ المذاكرة</div>
+                        <div className="text-[11px] text-primary">ابدأ المذاكرة</div>
                       </div>
                     </div>
                     <ChevronLeft className="h-4 w-4 text-muted-foreground" />
@@ -144,36 +169,8 @@ function StudentHome() {
           )}
         </section>
       )}
-    </div>
-  );
-}
 
-function SemesterCard({
-  label,
-  subtitle,
-  onClick,
-  gradient,
-}: {
-  label: string;
-  subtitle: string;
-  onClick: () => void;
-  gradient: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`group flex items-center justify-between rounded-2xl border border-border bg-gradient-to-br ${gradient} p-5 text-right shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover`}
-    >
-      <div className="flex items-center gap-3">
-        <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary">
-          <CalendarDays className="h-6 w-6" />
-        </span>
-        <div>
-          <div className="text-base font-bold text-foreground">{label}</div>
-          <div className="text-xs text-muted-foreground">{subtitle}</div>
-        </div>
-      </div>
-      <ChevronLeft className="h-5 w-5 text-muted-foreground transition-transform group-hover:-translate-x-1" />
-    </button>
+      <MotivationFooter />
+    </div>
   );
 }
