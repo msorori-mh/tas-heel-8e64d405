@@ -8,6 +8,7 @@ import { useHomeDashboard } from "@/hooks/use-home-dashboard";
 
 import { StateMessage } from "@/components/student/StudentNav";
 import { HomeHero } from "@/components/home/HomeHero";
+import { HomeSubscriptionBanner } from "@/components/home/HomeSubscriptionBanner";
 import { ProgressSummary } from "@/components/home/ProgressSummary";
 import { ContinueSection } from "@/components/home/ContinueSection";
 import { AchievementsSection } from "@/components/home/AchievementsSection";
@@ -92,6 +93,8 @@ function StudentHome() {
   return (
     <div className="space-y-6 pb-4" dir="rtl">
       <HomeHero onStartStudy={scrollToStudy} stats={stats} />
+
+      <HomeSubscriptionBanner />
 
       <ProgressSummary stats={stats} loading={statsLoading} />
 
