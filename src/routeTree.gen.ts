@@ -40,7 +40,6 @@ import { Route as AuthenticatedAdminSubjectsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin.questions'
 import { Route as AuthenticatedAdminPaymentRequestsRouteImport } from './routes/_authenticated/admin.payment-requests'
-import { Route as AuthenticatedAdminLoginRouteImport } from './routes/_authenticated/admin.login'
 import { Route as AuthenticatedAdminLessonsRouteImport } from './routes/_authenticated/admin.lessons'
 import { Route as AuthenticatedAdminExamTemplatesRouteImport } from './routes/_authenticated/admin.exam-templates'
 import { Route as AuthenticatedAdminAcademicRouteImport } from './routes/_authenticated/admin.academic'
@@ -215,11 +214,6 @@ const AuthenticatedAdminPaymentRequestsRoute =
     path: '/payment-requests',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedAdminLoginRoute = AuthenticatedAdminLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any)
 const AuthenticatedAdminLessonsRoute =
   AuthenticatedAdminLessonsRouteImport.update({
     id: '/lessons',
@@ -298,7 +292,6 @@ export interface FileRoutesByFullPath {
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/admin/lessons': typeof AuthenticatedAdminLessonsRouteWithChildren
-  '/admin/login': typeof AuthenticatedAdminLoginRoute
   '/admin/payment-requests': typeof AuthenticatedAdminPaymentRequestsRoute
   '/admin/questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
@@ -338,7 +331,6 @@ export interface FileRoutesByTo {
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/admin/lessons': typeof AuthenticatedAdminLessonsRouteWithChildren
-  '/admin/login': typeof AuthenticatedAdminLoginRoute
   '/admin/payment-requests': typeof AuthenticatedAdminPaymentRequestsRoute
   '/admin/questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
@@ -382,7 +374,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/_authenticated/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/_authenticated/admin/lessons': typeof AuthenticatedAdminLessonsRouteWithChildren
-  '/_authenticated/admin/login': typeof AuthenticatedAdminLoginRoute
   '/_authenticated/admin/payment-requests': typeof AuthenticatedAdminPaymentRequestsRoute
   '/_authenticated/admin/questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
@@ -426,7 +417,6 @@ export interface FileRouteTypes {
     | '/admin/academic'
     | '/admin/exam-templates'
     | '/admin/lessons'
-    | '/admin/login'
     | '/admin/payment-requests'
     | '/admin/questions'
     | '/admin/students'
@@ -466,7 +456,6 @@ export interface FileRouteTypes {
     | '/admin/academic'
     | '/admin/exam-templates'
     | '/admin/lessons'
-    | '/admin/login'
     | '/admin/payment-requests'
     | '/admin/questions'
     | '/admin/students'
@@ -509,7 +498,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/academic'
     | '/_authenticated/admin/exam-templates'
     | '/_authenticated/admin/lessons'
-    | '/_authenticated/admin/login'
     | '/_authenticated/admin/payment-requests'
     | '/_authenticated/admin/questions'
     | '/_authenticated/admin/students'
@@ -763,13 +751,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminPaymentRequestsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/admin/login': {
-      id: '/_authenticated/admin/login'
-      path: '/login'
-      fullPath: '/admin/login'
-      preLoaderRoute: typeof AuthenticatedAdminLoginRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
     '/_authenticated/admin/lessons': {
       id: '/_authenticated/admin/lessons'
       path: '/lessons'
@@ -855,7 +836,6 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAcademicRoute: typeof AuthenticatedAdminAcademicRoute
   AuthenticatedAdminExamTemplatesRoute: typeof AuthenticatedAdminExamTemplatesRoute
   AuthenticatedAdminLessonsRoute: typeof AuthenticatedAdminLessonsRouteWithChildren
-  AuthenticatedAdminLoginRoute: typeof AuthenticatedAdminLoginRoute
   AuthenticatedAdminPaymentRequestsRoute: typeof AuthenticatedAdminPaymentRequestsRoute
   AuthenticatedAdminQuestionsRoute: typeof AuthenticatedAdminQuestionsRoute
   AuthenticatedAdminStudentsRoute: typeof AuthenticatedAdminStudentsRoute
@@ -868,7 +848,6 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAcademicRoute: AuthenticatedAdminAcademicRoute,
   AuthenticatedAdminExamTemplatesRoute: AuthenticatedAdminExamTemplatesRoute,
   AuthenticatedAdminLessonsRoute: AuthenticatedAdminLessonsRouteWithChildren,
-  AuthenticatedAdminLoginRoute: AuthenticatedAdminLoginRoute,
   AuthenticatedAdminPaymentRequestsRoute:
     AuthenticatedAdminPaymentRequestsRoute,
   AuthenticatedAdminQuestionsRoute: AuthenticatedAdminQuestionsRoute,
@@ -987,13 +966,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
