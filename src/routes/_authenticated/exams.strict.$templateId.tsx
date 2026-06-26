@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   RotateCcw,
 } from "lucide-react";
+import { mapStartExamError } from "@/lib/exam-start-errors";
 
 export const Route = createFileRoute(
   "/_authenticated/exams/strict/$templateId",
@@ -114,8 +115,8 @@ function StrictExamPage() {
         if (rpcErr) throw rpcErr;
         if (cancelled) return;
         setSessionId(newId as unknown as string);
-      } catch {
-        if (!cancelled) setStartError("تعذّر بدء الاختبار.");
+      } catch (e) {
+        if (!cancelled) setStartError(mapStartExamError(e));
       } finally {
         if (!cancelled) setStarting(false);
       }

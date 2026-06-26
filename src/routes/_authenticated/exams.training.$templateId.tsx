@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   RotateCcw,
 } from "lucide-react";
+import { mapStartExamError } from "@/lib/exam-start-errors";
 
 export const Route = createFileRoute(
   "/_authenticated/exams/training/$templateId",
@@ -99,8 +100,8 @@ function TrainingExamPage() {
         if (rpcErr) throw rpcErr;
         if (cancelled) return;
         setSessionId(newId as unknown as string);
-      } catch {
-        if (!cancelled) setStartError("تعذّر بدء جلسة التدريب.");
+      } catch (e) {
+        if (!cancelled) setStartError(mapStartExamError(e));
       } finally {
         if (!cancelled) setStarting(false);
       }
