@@ -48,8 +48,39 @@ const schema = z.object({
   receipt_path: z.string().min(1, "صورة السند مطلوبة"),
 });
 
+async function ensurePendingSubscription(
+  userId: string,
+  planId: string,
+  gradeId: string | null,
+): Promise<string | null> {
+  const { data: existing, error: findErr } = await supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("plan_id", planId)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  if (findErr) return null;
+  if (existing?.id) return existing.id;
+
+  const { data: created, error: insertErr } = await supabase
+    .from("subscriptions")
+    .insert({
+      user_id: userId,
+      plan_id: planId,
+      grade_id: gradeId,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (insertErr || !created?.id) return null;
+  return created.id;
+}
+
 function NewPaymentRequestPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -211,6 +242,11 @@ function NewPaymentRequestPage() {
     e.preventDefault();
     if (!user) return;
 
+    if (!planId) {
+      toast.error("تعذر إنشاء طلب الدفع لأن الخطة أو الاشتراك غير محدد.");
+      return;
+    }
+
     const parsed = schema.safeParse({
       plan_id: planId,
       payment_method_id: methodId,
@@ -233,10 +269,25 @@ function NewPaymentRequestPage() {
       return;
     }
 
+    const gradeKey =
+      profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
+
     setSubmitting(true);
+    const subscriptionId = await ensurePendingSubscription(
+      user.id,
+      parsed.data.plan_id,
+      gradeKey,
+    );
+    if (!subscriptionId) {
+      setSubmitting(false);
+      toast.error("تعذر إنشاء طلب الدفع لأن الخطة أو الاشتراك غير محدد.");
+      return;
+    }
+
     const { error } = await supabase.from("payment_requests").insert({
       user_id: user.id,
       plan_id: parsed.data.plan_id,
+      subscription_id: subscriptionId,
       payment_method_id: parsed.data.payment_method_id,
       sender_name: parsed.data.sender_name,
       transaction_reference: parsed.data.transaction_reference,
