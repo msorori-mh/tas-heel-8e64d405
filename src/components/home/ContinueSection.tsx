@@ -2,11 +2,13 @@ import { Link } from "@tanstack/react-router";
 import { ChevronLeft, BookOpen, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import type { ContinueItem } from "@/hooks/use-home-dashboard";
+import { resolveSemesterSearch, type Semester } from "@/lib/subject-semester";
 
 type ContinueSectionProps = {
   items: ContinueItem[];
   loading: boolean;
   onStartStudy: () => void;
+  selectedSemester?: Semester;
 };
 
 function lessonProgress(item: ContinueItem): number {
@@ -15,7 +17,12 @@ function lessonProgress(item: ContinueItem): number {
   return 35;
 }
 
-export function ContinueSection({ items, loading, onStartStudy }: ContinueSectionProps) {
+export function ContinueSection({
+  items,
+  loading,
+  onStartStudy,
+  selectedSemester,
+}: ContinueSectionProps) {
   return (
     <section aria-label="أكمل من حيث توقفت">
       <div className="mb-3 flex items-center justify-between">
@@ -57,11 +64,13 @@ export function ContinueSection({ items, loading, onStartStudy }: ContinueSectio
         <ul className="space-y-2.5">
           {items.map((item) => {
             const pct = lessonProgress(item);
+            const semesterSearch = resolveSemesterSearch(item.semester, selectedSemester);
             return (
               <li key={item.lessonId}>
                 <Link
                   to="/lessons/$lessonId"
                   params={{ lessonId: item.lessonId }}
+                  search={semesterSearch}
                   className="group flex items-center gap-3 rounded-xl border border-border/60 bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
                 >
                   <span

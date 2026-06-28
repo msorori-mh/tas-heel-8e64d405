@@ -9,6 +9,7 @@ import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import { ClipboardList, ChevronLeft, BookOpen, Layers, FileText, Home } from "lucide-react";
+import { semesterLabel, type Semester } from "@/lib/subject-semester";
 
 const searchSchema = z.object({
   semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
@@ -179,7 +180,11 @@ function SubjectIndexPage() {
             </span>
           )}
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">فهرس المادة</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {semester
+            ? `فهرس المادة — ${semesterLabel(semester as Semester)}`
+            : "فهرس المادة"}
+        </p>
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <Layers className="h-3.5 w-3.5" /> {units.length} وحدة
@@ -194,7 +199,9 @@ function SubjectIndexPage() {
 
       {hasAny && (
         <p className="rounded-lg border border-dashed border-border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
-          المحتوى الأساسي لكل درس متاح، وبعض الإضافات قد تتطلب اشتراكًا.
+          {semester
+            ? `يعرض هذا الفهرس وحدات ودروس ${semesterLabel(semester as Semester)}. المحتوى الأساسي لكل درس متاح، وبعض الإضافات قد تتطلب اشتراكًا.`
+            : "المحتوى الأساسي لكل درس متاح، وبعض الإضافات قد تتطلب اشتراكًا."}
         </p>
       )}
 
