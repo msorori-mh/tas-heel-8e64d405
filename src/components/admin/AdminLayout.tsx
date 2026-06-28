@@ -16,11 +16,22 @@ import {
   X,
   LogOut,
   ClipboardList,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type LinkItem = {
-  href: "/admin" | "/admin/students" | "/admin/academic" | "/admin/subjects" | "/admin/units" | "/admin/lessons" | "/admin/questions" | "/admin/exam-templates" | "/admin/payment-requests";
+  href:
+    | "/admin"
+    | "/admin/students"
+    | "/admin/academic"
+    | "/admin/subjects"
+    | "/admin/units"
+    | "/admin/lessons"
+    | "/admin/questions"
+    | "/admin/exam-templates"
+    | "/admin/import"
+    | "/admin/payment-requests";
   label: string;
   icon: typeof LayoutDashboard;
   end?: boolean;
@@ -40,6 +51,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/lessons", label: "الدروس", icon: BookOpen },
   { href: "/admin/questions", label: "الأسئلة", icon: HelpCircle },
   { href: "/admin/exam-templates", label: "قوالب الاختبارات", icon: ClipboardList },
+  { href: "/admin/import", label: "الاستيراد", icon: FileSpreadsheet },
   { href: "/admin/payment-requests", label: "طلبات الدفع", icon: CreditCard },
 ];
 
