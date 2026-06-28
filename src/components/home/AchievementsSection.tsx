@@ -42,9 +42,12 @@ export function AchievementsSection({ badges, loading }: AchievementsSectionProp
       )}
 
       {!loading && badges.length === 0 && (
-        <p className="rounded-xl border border-border bg-card p-4 text-center text-sm text-muted-foreground">
-          أكمل دروسك لتحصل على شارات الإنجاز.
-        </p>
+        <div className="card-edu-achievement p-4 text-center">
+          <p className="text-sm font-semibold text-foreground">شارات الإنجاز بانتظارك</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            أكمل دروسك واختباراتك لتحصل على شارات تقدّمك.
+          </p>
+        </div>
       )}
 
       {!loading && badges.length > 0 && (

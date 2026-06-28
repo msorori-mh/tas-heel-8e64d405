@@ -31,14 +31,14 @@ function AuthenticatedLayout() {
   // Admin pages render their own AdminLayout — no StudentNav and no max-width wrapper.
   if (isAdminArea) {
     return (
-      <div className="surface-soft min-h-screen text-foreground" dir="rtl">
+      <div className="admin-app-bg min-h-screen text-foreground" dir="rtl">
         <Outlet />
       </div>
     );
   }
 
   return (
-    <div className="surface-soft min-h-screen text-foreground" dir="rtl">
+    <div className="student-app-bg min-h-screen text-foreground" dir="rtl">
       <StudentNav />
       <main className="mx-auto max-w-5xl px-4 py-6">
         <Outlet />

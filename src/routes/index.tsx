@@ -10,6 +10,7 @@ import {
   Sparkles,
   CalendarDays,
   Layers,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
@@ -58,9 +59,20 @@ const HeroSection = () => (
             </span>
           </h1>
 
-          <p className="text-body-lg mx-auto md:mx-0 mb-5 max-w-md text-muted-foreground">
+          <p className="text-body-lg mx-auto md:mx-0 mb-4 max-w-md text-muted-foreground">
             ابدأ بتنظيم مذاكرتك حسب صفك ومحافظتك.
           </p>
+
+          <div className="mb-5 flex flex-wrap justify-center gap-2 md:justify-start">
+            <span className="edu-exam inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold">
+              <ClipboardList className="h-3.5 w-3.5" />
+              اختبارات محاكية
+            </span>
+            <span className="edu-lesson inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold">
+              <BookOpen className="h-3.5 w-3.5" />
+              تدريب ذكي
+            </span>
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
             <Link to="/auth" search={{ mode: "signup" }} className="w-full sm:w-auto">
@@ -106,32 +118,40 @@ const HeroSection = () => (
   </section>
 );
 
-const features = [
-  { icon: Layers, title: "مرتب حسب صفك", desc: "محتوى يطابق منهجك." },
-  { icon: FileText, title: "ملخصات سريعة", desc: "أهم النقاط بدون تشتيت." },
-  { icon: HelpCircle, title: "5 أسئلة مراجعة", desc: "اختبر فهمك بدقيقتين." },
-  { icon: LineChart, title: "تابع تقدمك", desc: "اعرف وين وصلت." },
-  { icon: CalendarDays, title: "مذاكرة يومية", desc: "ليس فقط قبل الاختبار." },
-  { icon: WifiOff, title: "خفيف على النت", desc: "يعمل مع الإنترنت الضعيف." },
-  { icon: Smartphone, title: "يعمل على الجوال", desc: "تجربة مريحة دائمًا." },
-  { icon: MapPin, title: "يراعي محافظتك", desc: "قريب من واقع منهجك." },
+const features: {
+  icon: typeof Layers;
+  title: string;
+  desc: string;
+  cardClass?: string;
+  iconClass?: string;
+}[] = [
+  { icon: Layers, title: "مرتب حسب صفك", desc: "محتوى يطابق منهجك.", cardClass: "card-student-quiet", iconClass: "edu-lesson" },
+  { icon: FileText, title: "ملخصات سريعة", desc: "أهم النقاط بدون تشتيت.", cardClass: "card-student-quiet", iconClass: "edu-lesson" },
+  { icon: HelpCircle, title: "5 أسئلة مراجعة", desc: "اختبر فهمك بدقيقتين.", cardClass: "card-edu-exam", iconClass: "edu-exam" },
+  { icon: LineChart, title: "تابع تقدمك", desc: "اعرف وين وصلت.", cardClass: "card-edu-progress", iconClass: "edu-progress" },
+  { icon: CalendarDays, title: "مذاكرة يومية", desc: "ليس فقط قبل الاختبار.", cardClass: "card-student-quiet" },
+  { icon: WifiOff, title: "خفيف على النت", desc: "يعمل مع الإنترنت الضعيف.", cardClass: "card-student-quiet" },
+  { icon: Smartphone, title: "يعمل على الجوال", desc: "تجربة مريحة دائمًا.", cardClass: "card-student-quiet" },
+  { icon: MapPin, title: "يراعي محافظتك", desc: "قريب من واقع منهجك.", cardClass: "card-student-quiet" },
 ];
 
 const FeaturesSection = () => (
-  <section id="features" className="px-4 py-10 md:py-14 bg-secondary/40">
+  <section id="features" className="px-4 py-10 md:py-14">
     <div className="container mx-auto max-w-5xl">
       <div className="mb-6 text-center">
-        <h2 className="text-xl font-bold text-foreground md:text-2xl">ليش تنوير؟</h2>
-        <p className="mt-1 text-sm text-muted-foreground">تجربة مذاكرة أبسط وأذكى</p>
+        <h2 className="text-headline text-foreground">ليش تنوير؟</h2>
+        <p className="mt-1 text-sm text-muted-foreground">مذاكرة، تدريب، واختبارات في مكان واحد</p>
       </div>
       <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
         {features.map((f) => (
           <div
             key={f.title}
-            className="rounded-xl border border-border bg-card p-3 sm:p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
+            className={`${f.cardClass ?? "card-student-quiet"} p-3 sm:p-4 transition-all hover:-translate-y-0.5 hover:shadow-card-hover`}
           >
-            <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <f.icon className="h-4 w-4 text-primary" />
+            <div
+              className={`mb-2 flex h-9 w-9 items-center justify-center rounded-lg ${f.iconClass ?? "edu-lesson"}`}
+            >
+              <f.icon className="h-4 w-4" />
             </div>
             <h3 className="text-sm font-bold text-card-foreground leading-tight">
               {f.title}
@@ -159,10 +179,7 @@ const CTAFooter = () => (
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Link to="/auth" search={{ mode: "signup" }} className="w-full sm:w-auto">
-              <Button
-                size="lg"
-                className="w-full sm:w-auto px-6 py-5 text-base gap-2 bg-accent text-accent-foreground hover:bg-accent/90 shadow-card"
-              >
+              <Button size="lg" variant="hero" className="w-full sm:w-auto gap-2 px-6 py-5">
                 <BookOpen className="h-5 w-5" />
                 إنشاء حساب جديد
               </Button>
@@ -212,7 +229,7 @@ const CTAFooter = () => (
 
 function LandingPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="landing-page-bg min-h-screen text-foreground">
       <HeroSection />
       <FeaturesSection />
       <CTAFooter />

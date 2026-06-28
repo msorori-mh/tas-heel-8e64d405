@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronLeft, BookOpen, Loader2 } from "lucide-react";
+import { ChevronLeft, BookOpen, Loader2, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { ContinueItem } from "@/hooks/use-home-dashboard";
 import { resolveSemesterSearch, type Semester } from "@/lib/subject-semester";
@@ -26,12 +27,12 @@ export function ContinueSection({
   return (
     <section aria-label="أكمل من حيث توقفت">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-bold text-foreground">أكمل من حيث توقفت</h2>
+        <h2 className="text-headline text-foreground">أكمل من حيث توقفت</h2>
         {items.length > 0 && (
           <button
             type="button"
             onClick={onStartStudy}
-            className="text-xs text-primary hover:underline"
+            className="text-xs font-semibold text-primary hover:underline"
           >
             كل المواد
           </button>
@@ -39,24 +40,24 @@ export function ContinueSection({
       </div>
 
       {loading && (
-        <div className="flex items-center justify-center rounded-xl border border-border bg-card py-8">
+        <div className="card-student-quiet flex items-center justify-center py-8">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       )}
 
       {!loading && items.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-center">
-          <BookOpen className="mx-auto h-8 w-8 text-muted-foreground/50" />
-          <p className="mt-2 text-sm text-muted-foreground">
-            لم تبدأ أي درس بعد. اختر فصلك وابدأ أول درس اليوم.
+        <div className="empty-state-boost">
+          <div className="edu-lesson mx-auto flex h-14 w-14 items-center justify-center rounded-2xl">
+            <Sparkles className="h-7 w-7 text-primary" />
+          </div>
+          <h3 className="mt-3 text-sm font-bold text-foreground">أول خطوة في رحلتك</h3>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            لم تبدأ أي درس بعد. اختر فصلك وافتح أول درس — كل خطوة تقربك من الاختبار.
           </p>
-          <button
-            type="button"
-            onClick={onStartStudy}
-            className="mt-3 text-sm font-medium text-primary hover:underline"
-          >
-            ابدأ الدراسة الآن
-          </button>
+          <Button variant="accent" size="lg" className="mt-4 gap-2" onClick={onStartStudy}>
+            <BookOpen className="h-4 w-4" />
+            ابدأ أول درس الآن
+          </Button>
         </div>
       )}
 
@@ -71,10 +72,10 @@ export function ContinueSection({
                   to="/lessons/$lessonId"
                   params={{ lessonId: item.lessonId }}
                   search={semesterSearch}
-                  className="subject-card-accent surface-elevated group flex items-center gap-3 p-3 transition-shadow hover:shadow-card-hover"
+                  className="subject-card-accent card-edu-lesson group flex items-center gap-3 p-3 transition-shadow hover:shadow-card-hover"
                 >
                   <span
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white shadow-sm"
                     style={{ backgroundColor: item.subjectColor ?? undefined }}
                     aria-hidden
                   >
@@ -87,7 +88,7 @@ export function ContinueSection({
                     <p className="text-[11px] text-muted-foreground">{item.subjectName}</p>
                     <div className="mt-2 flex items-center gap-2">
                       <Progress value={pct} className="h-1.5 flex-1" />
-                      <span className="text-[10px] font-medium text-muted-foreground">{pct}%</span>
+                      <span className="text-[10px] font-semibold text-primary">{pct}%</span>
                     </div>
                   </div>
                   <ChevronLeft

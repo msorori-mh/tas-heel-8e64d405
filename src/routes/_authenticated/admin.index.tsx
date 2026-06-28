@@ -7,10 +7,9 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import {
   Users,
   BookOpen,
-  GraduationCap,
+  FileText,
   MessageSquare,
   Shield,
-  Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
@@ -126,32 +125,28 @@ function AdminIndexPage() {
               label="الطلاب"
               value={studentsQ.data}
               loading={studentsQ.isLoading}
-              color="bg-blue-50 text-blue-600"
-              iconBg="bg-blue-100"
+              iconBg="bg-blue-100 text-blue-600"
             />
             <StatCard
               icon={<BookOpen className="h-5 w-5" />}
               label="المواد"
               value={subjectsQ.data}
               loading={subjectsQ.isLoading}
-              color="bg-emerald-50 text-emerald-600"
-              iconBg="bg-emerald-100"
+              iconBg="bg-emerald-100 text-emerald-600"
             />
             <StatCard
-              icon={<GraduationCap className="h-5 w-5" />}
+              icon={<FileText className="h-5 w-5" />}
               label="الدروس"
               value={lessonsQ.data}
               loading={lessonsQ.isLoading}
-              color="bg-amber-50 text-amber-600"
-              iconBg="bg-amber-100"
+              iconBg="bg-amber-100 text-amber-700"
             />
             <StatCard
               icon={<MessageSquare className="h-5 w-5" />}
               label="رسائل التواصل"
               value={contactsQ.data}
               loading={contactsQ.isLoading}
-              color="bg-rose-50 text-rose-600"
-              iconBg="bg-rose-100"
+              iconBg="bg-rose-100 text-rose-600"
             />
           </div>
         )}
@@ -212,24 +207,27 @@ function StatCard({
   label,
   value,
   loading,
-  color,
   iconBg,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number | undefined;
   loading: boolean;
-  color: string;
   iconBg: string;
 }) {
   return (
-    <div className={`rounded-xl border border-border bg-card p-5 shadow-card ${color}`}>
+    <div className="rounded-xl border border-border bg-card p-5 shadow-card">
       <div className="flex items-center justify-between">
         <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconBg}`}>
           {icon}
         </div>
         {loading ? (
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <span
+            className="text-2xl font-bold text-muted-foreground/50 animate-pulse"
+            aria-label="جارٍ التحميل"
+          >
+            —
+          </span>
         ) : (
           <span className="text-2xl font-bold text-foreground">
             {value === undefined || value === null ? "--" : value}

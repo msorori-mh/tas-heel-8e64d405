@@ -6,7 +6,7 @@ export function StudentNav() {
   const { signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   return (
-    <header className="sticky top-0 z-30 border-b border-border/60 bg-card/95 backdrop-blur-md shadow-elevated">
+    <header className="sticky top-0 z-30 border-b border-primary/10 bg-card/95 backdrop-blur-md shadow-elevated">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
         <Link to="/app" className="flex items-center gap-2 font-bold text-foreground">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-hero-gradient">

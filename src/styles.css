@@ -57,7 +57,7 @@
 :root {
   --radius: 0.875rem;
   /* Core palette */
-  --background: oklch(0.975 0.028 88);
+  --background: oklch(0.968 0.022 285);
   --foreground: oklch(0.28 0.045 278);
   --card: oklch(0.995 0.012 92);
   --card-foreground: oklch(0.28 0.045 278);
@@ -121,8 +121,29 @@
   );
   --surface-soft-gradient: linear-gradient(
     180deg,
-    oklch(0.975 0.028 88) 0%,
-    oklch(0.96 0.035 285) 100%
+    oklch(0.968 0.022 285) 0%,
+    oklch(0.955 0.035 285) 100%
+  );
+  --student-app-bg: radial-gradient(
+      ellipse 90% 55% at 100% -10%,
+      oklch(0.55 0.22 278 / 0.11),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 45% at 0% 100%,
+      oklch(0.68 0.19 52 / 0.08),
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse 55% 40% at 50% 40%,
+      oklch(0.55 0.14 250 / 0.06),
+      transparent 60%
+    ),
+    oklch(0.966 0.024 285);
+  --admin-app-bg: linear-gradient(
+    180deg,
+    oklch(0.972 0.012 265) 0%,
+    oklch(0.965 0.018 280) 100%
   );
   --surface-featured-gradient: linear-gradient(
     145deg,
@@ -238,11 +259,19 @@
     box-shadow: var(--elevated-shadow);
   }
   .surface-featured {
-    @apply rounded-3xl border border-primary/10 bg-card/90 shadow-card;
+    @apply rounded-3xl border border-primary/10 bg-card/90;
+    box-shadow: var(--card-shadow);
     background-image: var(--surface-featured-gradient);
   }
+  .student-app-bg {
+    background: var(--student-app-bg);
+  }
+  .admin-app-bg {
+    background: var(--admin-app-bg);
+  }
   .app-hero-surface {
-    @apply rounded-2xl border border-primary/12 bg-card shadow-card;
+    @apply rounded-2xl border border-primary/12 bg-card;
+    box-shadow: var(--card-shadow);
     background-image: linear-gradient(
       145deg,
       oklch(0.99 0.02 92) 0%,
@@ -250,11 +279,102 @@
       oklch(0.94 0.06 250 / 0.25) 100%
     );
   }
+  .student-hero-boost {
+    @apply rounded-2xl border border-primary/20 bg-card;
+    box-shadow:
+      var(--card-shadow-hover),
+      0 0 0 1px oklch(0.55 0.22 278 / 0.08);
+    background-image: linear-gradient(
+      145deg,
+      oklch(0.99 0.03 92) 0%,
+      oklch(0.95 0.06 278 / 0.35) 45%,
+      oklch(0.94 0.08 52 / 0.12) 100%
+    );
+  }
   .dark .app-hero-surface {
     background-image: linear-gradient(
       145deg,
       oklch(0.24 0.05 278),
       oklch(0.22 0.06 250 / 0.4)
+    );
+  }
+  .dark .student-hero-boost {
+    background-image: linear-gradient(
+      145deg,
+      oklch(0.26 0.06 278),
+      oklch(0.24 0.08 250 / 0.35),
+      oklch(0.28 0.06 52 / 0.15)
+    );
+  }
+  .landing-page-bg {
+    background: radial-gradient(
+        ellipse 80% 50% at 90% 0%,
+        oklch(0.55 0.22 278 / 0.09),
+        transparent 50%
+      ),
+      radial-gradient(
+        ellipse 60% 40% at 10% 80%,
+        oklch(0.68 0.19 52 / 0.07),
+        transparent 45%
+      ),
+      var(--background);
+  }
+  .card-student-featured {
+    @apply rounded-2xl border border-primary/15 bg-card;
+    box-shadow: var(--card-shadow-hover);
+    background-image: linear-gradient(
+      160deg,
+      oklch(0.99 0.02 92),
+      oklch(0.96 0.05 278 / 0.2)
+    );
+  }
+  .card-student-quiet {
+    @apply rounded-2xl border border-border/45 bg-card/95;
+    box-shadow: 0 1px 3px oklch(0.35 0.08 278 / 0.06);
+  }
+  .card-edu-lesson {
+    @apply rounded-2xl border border-primary/20 bg-card;
+    box-shadow: var(--card-shadow);
+    background-image: linear-gradient(
+      160deg,
+      oklch(0.99 0.02 250 / 0.5),
+      oklch(0.97 0.04 278 / 0.15)
+    );
+  }
+  .card-edu-exam {
+    @apply rounded-2xl border border-primary/25 bg-card;
+    box-shadow: var(--card-shadow);
+    background-image: linear-gradient(
+      160deg,
+      oklch(0.97 0.06 278 / 0.25),
+      oklch(0.95 0.05 250 / 0.2)
+    );
+  }
+  .card-edu-progress {
+    @apply rounded-2xl border border-success/25 bg-card;
+    box-shadow: var(--card-shadow);
+    background-image: linear-gradient(
+      160deg,
+      oklch(0.97 0.04 155 / 0.2),
+      oklch(0.98 0.02 92)
+    );
+  }
+  .card-edu-achievement {
+    @apply rounded-2xl border border-accent/25 bg-card;
+    box-shadow: var(--card-shadow);
+    background-image: linear-gradient(
+      160deg,
+      oklch(0.97 0.06 52 / 0.2),
+      oklch(0.98 0.02 92)
+    );
+  }
+  .empty-state-boost {
+    @apply rounded-2xl border border-dashed border-primary/25 p-6 text-center;
+    box-shadow: var(--card-shadow);
+    background-image: linear-gradient(
+      145deg,
+      oklch(0.98 0.04 278 / 0.15),
+      oklch(0.99 0.02 92)
     );
   }
   .subject-card-accent {
@@ -274,10 +394,11 @@
 
   /* Educational semantics (optional chips / badges) */
   .edu-lesson {
-    @apply bg-primary/12 text-primary border border-primary/15;
+    @apply bg-primary/14 text-primary border border-primary/20;
   }
   .edu-exam {
-    @apply bg-secondary text-secondary-foreground border border-primary/10;
+    @apply text-primary border border-primary/20;
+    background: oklch(0.55 0.14 250 / 0.14);
   }
   .edu-achievement {
     @apply text-accent-foreground border border-accent/20;
