@@ -665,6 +665,146 @@ export type Database = {
           },
         ]
       }
+      import_errors: {
+        Row: {
+          column_name: string | null
+          created_at: string
+          entity_code: string | null
+          entity_type: string | null
+          error_code: string
+          field_name: string | null
+          id: string
+          job_id: string
+          message: string
+          metadata: Json
+          raw_value: string | null
+          row_data: Json
+          row_number: number | null
+          severity: string
+          sheet_name: string | null
+        }
+        Insert: {
+          column_name?: string | null
+          created_at?: string
+          entity_code?: string | null
+          entity_type?: string | null
+          error_code: string
+          field_name?: string | null
+          id?: string
+          job_id: string
+          message: string
+          metadata?: Json
+          raw_value?: string | null
+          row_data?: Json
+          row_number?: number | null
+          severity?: string
+          sheet_name?: string | null
+        }
+        Update: {
+          column_name?: string | null
+          created_at?: string
+          entity_code?: string | null
+          entity_type?: string | null
+          error_code?: string
+          field_name?: string | null
+          id?: string
+          job_id?: string
+          message?: string
+          metadata?: Json
+          raw_value?: string | null
+          row_data?: Json
+          row_number?: number | null
+          severity?: string
+          sheet_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_errors_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          error_message: string | null
+          file_size_bytes: number | null
+          id: string
+          import_type: string
+          inserted_count: number
+          invalid_rows: number
+          metadata: Json
+          mime_type: string | null
+          mode: string
+          original_filename: string | null
+          skipped_count: number
+          started_at: string | null
+          status: string
+          summary: Json
+          template_key: string | null
+          total_rows: number
+          updated_at: string
+          updated_count: number
+          valid_rows: number
+          warning_rows: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          error_message?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          import_type: string
+          inserted_count?: number
+          invalid_rows?: number
+          metadata?: Json
+          mime_type?: string | null
+          mode?: string
+          original_filename?: string | null
+          skipped_count?: number
+          started_at?: string | null
+          status?: string
+          summary?: Json
+          template_key?: string | null
+          total_rows?: number
+          updated_at?: string
+          updated_count?: number
+          valid_rows?: number
+          warning_rows?: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          error_message?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          import_type?: string
+          inserted_count?: number
+          invalid_rows?: number
+          metadata?: Json
+          mime_type?: string | null
+          mode?: string
+          original_filename?: string | null
+          skipped_count?: number
+          started_at?: string | null
+          status?: string
+          summary?: Json
+          template_key?: string | null
+          total_rows?: number
+          updated_at?: string
+          updated_count?: number
+          valid_rows?: number
+          warning_rows?: number
+        }
+        Relationships: []
+      }
       lesson_assessments: {
         Row: {
           created_at: string
