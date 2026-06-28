@@ -1,6 +1,7 @@
 /**
- * IMPORT-SYSTEM-02: Generate 12 Excel templates under public/import-templates/
- * Run with: bun run scripts/generate-import-templates.ts
+ * Generate 12 Excel import templates under public/import-templates/
+ * Run with: npm run generate:import-templates
+ * (or: bun run scripts/generate-import-templates.ts)
  */
 import ExcelJS from "exceljs";
 import { mkdirSync } from "node:fs";
@@ -113,9 +114,10 @@ const templates: Template[] = [
       { key: "title", label: "title", required: true, example: "الوحدة الأولى: الأعداد الحقيقية" },
       { key: "description", label: "description", required: false, example: "" },
       { key: "sort_order", label: "sort_order", required: false, example: 1 },
+      { key: "semester", label: "semester", required: false, example: 1, note: "1 أو 2" },
       { key: "is_free", label: "is_free", required: false, example: "FALSE", note: "TRUE/FALSE" },
     ],
-    examples: [["math-g10-sanaa-u02", "math-g10-sanaa", "الوحدة الثانية: المعادلات", "", 2, "FALSE"]],
+    examples: [["math-g10-sanaa-u02", "math-g10-sanaa", "الوحدة الثانية: المعادلات", "", 2, 1, "FALSE"]],
     notes: ["يتطلب 05_subjects"],
   },
   {
@@ -176,7 +178,7 @@ const templates: Template[] = [
         name: "resources",
         columns: [
           { key: "lesson_slug", label: "lesson_slug", required: true, example: "math-g10-u1-l1" },
-          { key: "resource_type", label: "resource_type", required: true, example: "video", note: "video|pdf|link|image" },
+          { key: "resource_type", label: "resource_type", required: true, example: "video", note: "video|pdf|link|mindmap|experiment" },
           { key: "title", label: "title", required: true, example: "فيديو شرح" },
           { key: "url", label: "url", required: true, example: "https://..." },
           { key: "description", label: "description", required: false, example: "" },
@@ -352,10 +354,13 @@ function fillReadme(ws: ExcelJS.Worksheet, t: Template) {
   ws.addRow(["حد الملف 5 MB، حد الصفوف 10000"]);
 }
 
+/** Fixed metadata so regenerated files are byte-stable aside from Excel internals. */
+const TEMPLATE_CREATED = new Date("2026-01-01T00:00:00.000Z");
+
 async function generate(t: Template) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Tanweer Import System";
-  wb.created = new Date();
+  wb.created = TEMPLATE_CREATED;
 
   // main sheet
   const main = wb.addWorksheet(t.sheet);
