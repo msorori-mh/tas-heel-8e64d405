@@ -25,6 +25,7 @@ import {
   ListOrdered,
   Lock,
 } from "lucide-react";
+import { ImportDryRunGovernorates } from "@/components/admin/ImportDryRunGovernorates";
 
 export const Route = createFileRoute("/_authenticated/admin/import")({
   component: AdminImportPage,
@@ -77,12 +78,15 @@ function AdminImportPage() {
               <p className="font-medium text-foreground">تنبيه — المرحلة الحالية</p>
               <ul className="space-y-1 text-muted-foreground list-none ps-0">
                 <li>• القوالب متاحة للتحميل حالياً.</li>
-                <li>• الرفع والمعاينة والتنفيذ غير مفعلة في هذه المرحلة.</li>
-                <li>• لا يتم تعديل أي بيانات من هذه الصفحة حالياً.</li>
+                <li>• تجربة المعاينة الجافة متاحة لقالب المحافظات فقط (قراءة محلية).</li>
+                <li>• التنفيذ في قاعدة البيانات غير مفعّل في هذه المرحلة.</li>
+                <li>• لا يتم تعديل أي بيانات من هذه الصفحة.</li>
               </ul>
             </div>
           </div>
         </div>
+
+        <ImportDryRunGovernorates />
 
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-foreground">قوالب الاستيراد</h2>

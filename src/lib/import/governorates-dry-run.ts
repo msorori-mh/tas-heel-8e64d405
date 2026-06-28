@@ -1,0 +1,218 @@
+/** Governorates import template (02) — dry-run constants aligned with generate-import-templates.ts */
+
+export const GOVERNORATES_TEMPLATE_FILE = "02_governorates_template.xlsx";
+export const GOVERNORATES_SHEET_NAME = "governorates";
+export const GOVERNORATES_UPSERT_KEY = "name";
+
+/** Column keys from the official template (sheet `governorates`). */
+export const GOVERNORATES_REQUIRED_COLUMNS = ["name"] as const;
+export const GOVERNORATES_OPTIONAL_COLUMNS = ["default_track_code", "sort_order"] as const;
+export const GOVERNORATES_ALL_COLUMNS = [
+  ...GOVERNORATES_REQUIRED_COLUMNS,
+  ...GOVERNORATES_OPTIONAL_COLUMNS,
+] as const;
+
+export type GovernoratesColumnKey = (typeof GOVERNORATES_ALL_COLUMNS)[number];
+
+export const GOVERNORATES_MAX_ROWS = 500;
+export const GOVERNORATES_PREVIEW_ROWS = 10;
+export const GOVERNORATES_MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+export interface GovernoratesRow {
+  rowNumber: number;
+  name: string;
+  default_track_code: string;
+  sort_order: string;
+}
+
+export type GovernoratesValidationCode =
+  | "MISSING_COLUMNS"
+  | "MISSING_NAME"
+  | "DUPLICATE_NAME"
+  | "ROW_LIMIT"
+  | "INVALID_SORT_ORDER"
+  | "EMPTY_FILE"
+  | "WRONG_SHEET";
+
+export interface GovernoratesValidationIssue {
+  row?: number;
+  field?: GovernoratesColumnKey;
+  code: GovernoratesValidationCode;
+  message: string;
+}
+
+export interface GovernoratesDryRunResult {
+  columns: GovernoratesColumnKey[];
+  rows: GovernoratesRow[];
+  previewRows: GovernoratesRow[];
+  totalRowCount: number;
+  issues: GovernoratesValidationIssue[];
+  fileName: string;
+}
+
+function normalizeHeader(label: string): string {
+  return label.replace(/\s*\*\s*$/, "").trim().toLowerCase();
+}
+
+function cellToString(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "object" && "text" in (value as object)) {
+    return String((value as { text: unknown }).text ?? "").trim();
+  }
+  return String(value).trim();
+}
+
+function isRowEmpty(values: Record<GovernoratesColumnKey, string>): boolean {
+  return GOVERNORATES_ALL_COLUMNS.every((col) => values[col] === "");
+}
+
+export function validateGovernoratesRows(
+  rows: GovernoratesRow[],
+  presentColumns: GovernoratesColumnKey[],
+): GovernoratesValidationIssue[] {
+  const issues: GovernoratesValidationIssue[] = [];
+
+  for (const col of GOVERNORATES_REQUIRED_COLUMNS) {
+    if (!presentColumns.includes(col)) {
+      issues.push({
+        code: "MISSING_COLUMNS",
+        field: col,
+        message: `العمود المطلوب «${col}» غير موجود في الملف.`,
+      });
+    }
+  }
+
+  if (rows.length === 0 && issues.length === 0) {
+    issues.push({
+      code: "EMPTY_FILE",
+      message: "لا توجد صفوف بيانات بعد تجاهل الصفوف الفارغة.",
+    });
+  }
+
+  if (rows.length > GOVERNORATES_MAX_ROWS) {
+    issues.push({
+      code: "ROW_LIMIT",
+      message: `عدد الصفوف (${rows.length}) يتجاوز الحد الأقصى (${GOVERNORATES_MAX_ROWS}).`,
+    });
+  }
+
+  const seenNames = new Map<string, number>();
+
+  for (const row of rows) {
+    if (!row.name) {
+      issues.push({
+        row: row.rowNumber,
+        field: "name",
+        code: "MISSING_NAME",
+        message: "حقل الاسم (name) مطلوب ولا يمكن أن يكون فارغاً.",
+      });
+    } else {
+      const key = row.name.toLowerCase();
+      const first = seenNames.get(key);
+      if (first != null) {
+        issues.push({
+          row: row.rowNumber,
+          field: "name",
+          code: "DUPLICATE_NAME",
+          message: `اسم مكرر «${row.name}» (مكرر مع الصف ${first}).`,
+        });
+      } else {
+        seenNames.set(key, row.rowNumber);
+      }
+    }
+
+    if (row.sort_order !== "") {
+      const n = Number(row.sort_order);
+      if (!Number.isFinite(n) || !Number.isInteger(n)) {
+        issues.push({
+          row: row.rowNumber,
+          field: "sort_order",
+          code: "INVALID_SORT_ORDER",
+          message: "حقل sort_order يجب أن يكون رقماً صحيحاً عند وجوده.",
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
+export async function parseGovernoratesXlsx(file: File): Promise<GovernoratesDryRunResult> {
+  if (file.size > GOVERNORATES_MAX_FILE_BYTES) {
+    throw new Error(
+      `حجم الملف يتجاوز الحد المسموح (${GOVERNORATES_MAX_FILE_BYTES / (1024 * 1024)} MB).`,
+    );
+  }
+
+  const ExcelJS = await import("exceljs");
+  const workbook = new ExcelJS.Workbook();
+  const buffer = await file.arrayBuffer();
+  await workbook.xlsx.load(buffer);
+
+  const sheet =
+    workbook.getWorksheet(GOVERNORATES_SHEET_NAME) ?? workbook.worksheets[0];
+
+  if (!sheet) {
+    return {
+      columns: [],
+      rows: [],
+      previewRows: [],
+      totalRowCount: 0,
+      issues: [
+        {
+          code: "WRONG_SHEET",
+          message: `لم يُعثر على شيت «${GOVERNORATES_SHEET_NAME}» أو أي شيت في الملف.`,
+        },
+      ],
+      fileName: file.name,
+    };
+  }
+
+  const headerRow = sheet.getRow(1);
+  const headerMap = new Map<number, GovernoratesColumnKey>();
+
+  headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+    const normalized = normalizeHeader(cellToString(cell.value));
+    if (GOVERNORATES_ALL_COLUMNS.includes(normalized as GovernoratesColumnKey)) {
+      headerMap.set(colNumber, normalized as GovernoratesColumnKey);
+    }
+  });
+
+  const presentColumns = GOVERNORATES_ALL_COLUMNS.filter((col) =>
+    [...headerMap.values()].includes(col),
+  );
+
+  const rows: GovernoratesRow[] = [];
+
+  sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber === 1) return;
+
+    const values = {
+      name: "",
+      default_track_code: "",
+      sort_order: "",
+    } satisfies Record<GovernoratesColumnKey, string>;
+
+    headerMap.forEach((col, colNumber) => {
+      values[col] = cellToString(row.getCell(colNumber).value);
+    });
+
+    if (isRowEmpty(values)) return;
+
+    rows.push({
+      rowNumber,
+      ...values,
+    });
+  });
+
+  const issues = validateGovernoratesRows(rows, presentColumns);
+
+  return {
+    columns: presentColumns,
+    rows,
+    previewRows: rows.slice(0, GOVERNORATES_PREVIEW_ROWS),
+    totalRowCount: rows.length,
+    issues,
+    fileName: file.name,
+  };
+}
