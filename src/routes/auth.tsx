@@ -2,7 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { translateAuthError, getAuthRedirectUrl } from "@/lib/auth-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +24,16 @@ export const Route = createFileRoute("/auth")({
 });
 
 const PHONE_OTP_ENABLED = false; // فعّلها لاحقًا عند جاهزية SMS
+
+async function signInWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: getAuthRedirectUrl("/auth/callback"),
+    },
+  });
+  if (error) throw error;
+}
 
 function AuthPage() {
   const navigate = useNavigate();
@@ -75,10 +84,7 @@ function SignupPanel() {
     setErr(null);
     setBusy(true);
     try {
-      const r = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: getAuthRedirectUrl("/auth/callback"),
-      });
-      if (r.error) throw r.error;
+      await signInWithGoogle();
     } catch (e) {
       setErr(translateAuthError(e));
       setBusy(false);
@@ -121,10 +127,7 @@ function LoginPanel() {
     setErr(null);
     setBusy(true);
     try {
-      const r = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: getAuthRedirectUrl("/auth/callback"),
-      });
-      if (r.error) throw r.error;
+      await signInWithGoogle();
     } catch (e) {
       setErr(translateAuthError(e));
       setBusy(false);
