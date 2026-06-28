@@ -44,30 +44,27 @@ const HeroSection = () => (
     </div>
 
     <div className="container relative mx-auto max-w-5xl">
-      <div className="grid items-center gap-6 md:grid-cols-2 md:gap-10">
+      <div className="surface-featured grid items-center gap-6 p-6 md:grid-cols-2 md:gap-10 md:p-8">
         <div className="text-center md:text-right order-2 md:order-1">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-card/80 backdrop-blur-sm px-3 py-1 mb-4 text-xs text-primary shadow-card">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-card/90 backdrop-blur-sm px-3 py-1 mb-4 text-xs font-medium text-primary shadow-card">
             <Sparkles className="h-3.5 w-3.5" />
             منصة مذاكرة لطلاب الثانوية في اليمن
           </div>
 
-          <h1 className="mb-3 text-2xl font-extrabold leading-tight text-foreground sm:text-3xl md:text-4xl">
+          <h1 className="text-display mb-3 text-foreground">
             مذاكرتك صارت أوضح
-            <span className="block mt-1 text-primary text-xl sm:text-2xl md:text-3xl">
+            <span className="mt-1 block text-primary text-xl sm:text-2xl md:text-3xl font-extrabold">
               من أول درس إلى آخر مراجعة
             </span>
           </h1>
 
-          <p className="mx-auto md:mx-0 mb-5 max-w-md text-sm leading-relaxed text-muted-foreground md:text-base">
+          <p className="text-body-lg mx-auto md:mx-0 mb-5 max-w-md text-muted-foreground">
             ابدأ بتنظيم مذاكرتك حسب صفك ومحافظتك.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
             <Link to="/auth" search={{ mode: "signup" }} className="w-full sm:w-auto">
-              <Button
-                size="lg"
-                className="w-full sm:w-auto gap-2 text-base px-6 py-5 bg-accent text-accent-foreground hover:bg-accent/90 shadow-card"
-              >
+              <Button size="lg" variant="hero" className="w-full sm:w-auto gap-2 px-6 py-5">
                 <BookOpen className="h-5 w-5" />
                 إنشاء حساب جديد
               </Button>
@@ -76,7 +73,7 @@ const HeroSection = () => (
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full sm:w-auto gap-2 text-base px-6 py-5"
+                className="w-full sm:w-auto gap-2 px-6 py-5"
               >
                 تسجيل دخول
               </Button>

@@ -29,20 +29,21 @@ export function HomeHero({ onStartStudy, stats }: HomeHeroProps) {
   ];
 
   return (
-    <section className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-5">
+    <section className="app-hero-surface p-4 sm:p-5">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 text-right">
-          <p className="text-xs font-medium text-primary">مرحبًا {name}</p>
-          <h1 className="mt-1 text-2xl font-bold leading-snug text-foreground sm:text-3xl">
+          <p className="text-xs font-semibold text-primary">مرحبًا {name}</p>
+          <h1 className="text-display mt-1 text-foreground">
             اليوم خطوة،<br />
             <span className="text-primary">غداً إنجاز.</span>
           </h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          <p className="text-body-lg mt-2 text-muted-foreground">
             رفيقك اليومي للنجاح في الثانوية — تابع تقدمك واكمل من حيث توقفت.
           </p>
           <Button
             size="lg"
-            className="mt-4 w-full gap-2 bg-primary text-primary-foreground shadow-sm sm:w-auto"
+            variant="accent"
+            className="mt-4 w-full gap-2 sm:w-auto"
             onClick={onStartStudy}
           >
             <BookOpen className="h-4 w-4" />
@@ -50,10 +51,7 @@ export function HomeHero({ onStartStudy, stats }: HomeHeroProps) {
           </Button>
         </div>
 
-        <div
-          className="relative mx-auto w-full max-w-[220px] shrink-0 rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/5 via-background to-blue-500/5 p-4 sm:max-w-[240px]"
-          aria-hidden
-        >
+        <div className="surface-elevated relative mx-auto w-full max-w-[220px] shrink-0 p-4 sm:max-w-[240px]" aria-hidden>
           <div className="flex items-center gap-2 text-primary">
             <Sparkles className="h-4 w-4" />
             <span className="text-xs font-semibold">تقدمك اليوم</span>
@@ -66,10 +64,7 @@ export function HomeHero({ onStartStudy, stats }: HomeHeroProps) {
                   <span>{row.pct}%</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all"
-                    style={{ width: `${row.pct}%` }}
-                  />
+                  <div className="progress-bar-fill" style={{ width: `${row.pct}%` }} />
                 </div>
               </div>
             ))}

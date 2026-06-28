@@ -71,7 +71,7 @@ export function ContinueSection({
                   to="/lessons/$lessonId"
                   params={{ lessonId: item.lessonId }}
                   search={semesterSearch}
-                  className="group flex items-center gap-3 rounded-xl border border-border/60 bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+                  className="subject-card-accent surface-elevated group flex items-center gap-3 p-3 transition-shadow hover:shadow-card-hover"
                 >
                   <span
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
