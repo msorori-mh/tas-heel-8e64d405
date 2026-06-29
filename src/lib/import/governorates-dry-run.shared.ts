@@ -1,5 +1,7 @@
 /** Shared types/constants/validation for governorates dry-run (client + server safe). */
 
+import type { ImportJobStatus } from "./import-job.types";
+
 export const GOVERNORATES_TEMPLATE_FILE = "02_governorates_template.xlsx";
 export const GOVERNORATES_SHEET_NAME = "governorates";
 export const GOVERNORATES_UPSERT_KEY = "name";
@@ -53,12 +55,56 @@ export type GovernoratesDryRunStatus = "valid" | "invalid";
 
 export interface GovernoratesDryRunApiResponse {
   status: GovernoratesDryRunStatus;
+  jobId: string;
+  jobStatus: ImportJobStatus;
+  persisted: true;
+  message: string;
   detectedColumns: GovernoratesColumnKey[];
   previewRows: GovernoratesRow[];
   issues: GovernoratesValidationIssue[];
   totalRowCount: number;
   errorCount: number;
+  counts: {
+    totalRows: number;
+    validRows: number;
+    invalidRows: number;
+    warningRows: number;
+  };
   fileName: string;
+}
+
+export function sanitizeGovernorateRowData(
+  row: GovernoratesRow | undefined,
+): Record<GovernoratesColumnKey, string> {
+  if (!row) {
+    return { name: "", default_track_code: "", sort_order: "" };
+  }
+  return {
+    name: row.name,
+    default_track_code: row.default_track_code,
+    sort_order: row.sort_order,
+  };
+}
+
+const FILE_LEVEL_ERROR_CODES: GovernoratesValidationCode[] = [
+  "MISSING_COLUMNS",
+  "EMPTY_FILE",
+  "ROW_LIMIT",
+  "WRONG_SHEET",
+];
+
+export function computeGovernorateDryRunCounts(
+  parsed: GovernoratesDryRunParseResult,
+  issues: GovernoratesValidationIssue[],
+): { totalRows: number; validRows: number; invalidRows: number; warningRows: number } {
+  const totalRows = parsed.totalRowCount;
+  const hasFileLevelError = issues.some((i) => FILE_LEVEL_ERROR_CODES.includes(i.code));
+  const rowNumbersWithErrors = new Set(
+    issues.filter((i) => i.row != null).map((i) => i.row as number),
+  );
+  const invalidRows = hasFileLevelError ? totalRows : rowNumbersWithErrors.size;
+  const validRows = Math.max(0, totalRows - invalidRows);
+  return { totalRows, validRows, invalidRows, warningRows: 0 };
 }
 
 export function normalizeGovernorateHeader(label: string): string {
@@ -150,15 +196,23 @@ export function validateGovernoratesRows(
 
 export function toGovernoratesDryRunApiResponse(
   parsed: GovernoratesDryRunParseResult,
+  jobId: string,
+  jobStatus: ImportJobStatus,
 ): GovernoratesDryRunApiResponse {
   const errorCount = parsed.issues.filter((i) => i.code !== "EMPTY_FILE").length;
+  const counts = computeGovernorateDryRunCounts(parsed, parsed.issues);
   return {
     status: parsed.issues.length === 0 ? "valid" : "invalid",
+    jobId,
+    jobStatus,
+    persisted: true,
+    message: "تم إنشاء سجل معاينة جافة، ولم يتم تنفيذ أي استيراد.",
     detectedColumns: parsed.columns,
     previewRows: parsed.previewRows,
     issues: parsed.issues,
     totalRowCount: parsed.totalRowCount,
     errorCount,
+    counts,
     fileName: parsed.fileName,
   };
 }

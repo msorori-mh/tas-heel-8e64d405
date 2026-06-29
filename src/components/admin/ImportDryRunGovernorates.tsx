@@ -140,7 +140,8 @@ export function ImportDryRunGovernorates() {
         </h2>
         <p className="text-sm text-muted-foreground max-w-3xl leading-relaxed">
           المرحلة الحالية مخصصة للتجربة على قالب المحافظات فقط ({GOVERNORATES_TEMPLATE_FILE}).
-          المعالجة تتم الآن على السيرفر كمعاينة جافة، ولا يتم حفظ أي بيانات في قاعدة البيانات.
+          المعالجة تتم على السيرفر كمعاينة جافة، ويتم حفظ نتيجة المعاينة في سجل الاستيراد دون
+          تعديل بيانات المحافظات.
         </p>
       </div>
 
@@ -285,6 +286,32 @@ export function ImportDryRunGovernorates() {
         </Card>
       )}
 
+      {result && !parsing && result.persisted && (
+        <Card className="border-emerald-500/25 bg-emerald-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              سجل المعاينة الجافة
+            </CardTitle>
+            <CardDescription className="space-y-2 text-sm">
+              <p>{result.message}</p>
+              <p className="text-foreground">
+                تم حفظ نتيجة المعاينة الجافة فقط. لم يتم تعديل بيانات المحافظات.
+              </p>
+              <p className="font-mono text-xs text-muted-foreground break-all">
+                jobId: {result.jobId}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                حالة السجل: <span className="font-mono">{result.jobStatus}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                سجل عمليات الاستيراد الكامل سيُعرض في مرحلة 01C-B3.
+              </p>
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
       {result && !parsing && (
         <>
           <Card>
@@ -379,7 +406,7 @@ export function ImportDryRunGovernorates() {
           <Badge variant="secondary" className="text-[10px] ms-2">قريباً</Badge>
         </Button>
         <p className="text-xs text-muted-foreground">
-          لن يُفعَّل التنفيذ في قاعدة البيانات حتى مرحلة لاحقة (01C-B2 / 01D).
+          لن يُفعَّل التنفيذ في قاعدة البيانات حتى مرحلة لاحقة (01D).
         </p>
       </div>
     </section>

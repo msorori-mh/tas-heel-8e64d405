@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireAdminAuth } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   GOVERNORATES_MAX_FILE_BYTES,
   toGovernoratesDryRunApiResponse,
@@ -19,14 +21,21 @@ const DryRunInput = z.object({
     .max(GOVERNORATES_MAX_FILE_BYTES),
 });
 
+type AdminAuthContext = {
+  supabase: SupabaseClient<Database>;
+  userId: string;
+};
+
 /**
- * Server-side dry-run for governorates template — parse + validate only.
- * Does not persist to import_jobs/import_errors (01C-B2).
+ * Server-side dry-run for governorates — parse, validate, persist to import_jobs/import_errors.
+ * Does not write to governorates or execute import.
  */
 export const dryRunGovernoratesImport = createServerFn({ method: "POST" })
   .middleware([requireAdminAuth])
   .inputValidator((input) => DryRunInput.parse(input))
-  .handler(async ({ data }): Promise<GovernoratesDryRunApiResponse> => {
+  .handler(async ({ data, context }): Promise<GovernoratesDryRunApiResponse> => {
+    const { supabase, userId } = context as AdminAuthContext;
+
     const lowerName = data.fileName.toLowerCase();
     if (!lowerName.endsWith(".xlsx")) {
       throw new Error("يُقبل ملف Excel بصيغة .xlsx فقط.");
@@ -45,5 +54,14 @@ export const dryRunGovernoratesImport = createServerFn({ method: "POST" })
 
     const { parseGovernoratesBuffer } = await import("./governorates-dry-run.server");
     const parsed = await parseGovernoratesBuffer(buffer, data.fileName);
-    return toGovernoratesDryRunApiResponse(parsed);
+
+    const { persistGovernoratesDryRun } = await import("./import-dry-run-persist.server");
+    const { jobId, jobStatus } = await persistGovernoratesDryRun(
+      supabase,
+      userId,
+      parsed,
+      data.fileSize,
+    );
+
+    return toGovernoratesDryRunApiResponse(parsed, jobId, jobStatus);
   });
