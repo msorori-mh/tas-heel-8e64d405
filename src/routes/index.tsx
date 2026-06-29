@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 import heroStudent from "@/assets/hero-student.png";
+import { PwaInstallHint } from "@/components/pwa/PwaInstallHint";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -231,6 +232,9 @@ function LandingPage() {
   return (
     <div className="landing-page-bg min-h-screen text-foreground">
       <HeroSection />
+      <div className="container mx-auto max-w-5xl">
+        <PwaInstallHint />
+      </div>
       <FeaturesSection />
       <CTAFooter />
     </div>
