@@ -26,6 +26,7 @@ import {
   Lock,
 } from "lucide-react";
 import { ImportDryRunGovernorates } from "@/components/admin/ImportDryRunGovernorates";
+import { ImportJobsHistory } from "@/components/admin/ImportJobsHistory";
 
 export const Route = createFileRoute("/_authenticated/admin/import")({
   component: AdminImportPage,
@@ -87,6 +88,8 @@ function AdminImportPage() {
         </div>
 
         <ImportDryRunGovernorates />
+
+        <ImportJobsHistory />
 
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-foreground">قوالب الاستيراد</h2>
@@ -196,8 +199,8 @@ function AdminImportPage() {
         </section>
 
         <p className="text-xs leading-relaxed text-muted-foreground/90 border-t border-border/40 pt-4">
-          سيتم ربط هذه الصفحة لاحقاً بسجل عمليات الاستيراد، ثم بلوحة تحكم الإدارة الشاملة ضمن
-          ADMIN-CONTROL-CENTER-01 بعد اكتمال نظام الاستيراد.
+          سجل عمليات الاستيراد أعلاه للقراءة فقط في هذه المرحلة. بلوحة تحكم الإدارة الشاملة ضمن
+          ADMIN-CONTROL-CENTER-01 ستُربط لاحقاً بعد اكتمال نظام الاستيراد.
         </p>
       </div>
     </AdminLayout>

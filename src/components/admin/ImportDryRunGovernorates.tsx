@@ -305,7 +305,7 @@ export function ImportDryRunGovernorates() {
                 حالة السجل: <span className="font-mono">{result.jobStatus}</span>
               </p>
               <p className="text-xs text-muted-foreground">
-                سجل عمليات الاستيراد الكامل سيُعرض في مرحلة 01C-B3.
+                راجع قسم «سجل عمليات الاستيراد» أدناه لعرض آخر العمليات المسجلة.
               </p>
             </CardDescription>
           </CardHeader>
