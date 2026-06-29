@@ -1,10 +1,9 @@
-/** Governorates import template (02) — dry-run constants aligned with generate-import-templates.ts */
+/** Shared types/constants/validation for governorates dry-run (client + server safe). */
 
 export const GOVERNORATES_TEMPLATE_FILE = "02_governorates_template.xlsx";
 export const GOVERNORATES_SHEET_NAME = "governorates";
 export const GOVERNORATES_UPSERT_KEY = "name";
 
-/** Column keys from the official template (sheet `governorates`). */
 export const GOVERNORATES_REQUIRED_COLUMNS = ["name"] as const;
 export const GOVERNORATES_OPTIONAL_COLUMNS = ["default_track_code", "sort_order"] as const;
 export const GOVERNORATES_ALL_COLUMNS = [
@@ -41,7 +40,7 @@ export interface GovernoratesValidationIssue {
   message: string;
 }
 
-export interface GovernoratesDryRunResult {
+export interface GovernoratesDryRunParseResult {
   columns: GovernoratesColumnKey[];
   rows: GovernoratesRow[];
   previewRows: GovernoratesRow[];
@@ -50,11 +49,23 @@ export interface GovernoratesDryRunResult {
   fileName: string;
 }
 
-function normalizeHeader(label: string): string {
+export type GovernoratesDryRunStatus = "valid" | "invalid";
+
+export interface GovernoratesDryRunApiResponse {
+  status: GovernoratesDryRunStatus;
+  detectedColumns: GovernoratesColumnKey[];
+  previewRows: GovernoratesRow[];
+  issues: GovernoratesValidationIssue[];
+  totalRowCount: number;
+  errorCount: number;
+  fileName: string;
+}
+
+export function normalizeGovernorateHeader(label: string): string {
   return label.replace(/\s*\*\s*$/, "").trim().toLowerCase();
 }
 
-function cellToString(value: unknown): string {
+export function cellToString(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "object" && "text" in (value as object)) {
     return String((value as { text: unknown }).text ?? "").trim();
@@ -62,7 +73,7 @@ function cellToString(value: unknown): string {
   return String(value).trim();
 }
 
-function isRowEmpty(values: Record<GovernoratesColumnKey, string>): boolean {
+export function isGovernorateRowEmpty(values: Record<GovernoratesColumnKey, string>): boolean {
   return GOVERNORATES_ALL_COLUMNS.every((col) => values[col] === "");
 }
 
@@ -137,82 +148,17 @@ export function validateGovernoratesRows(
   return issues;
 }
 
-export async function parseGovernoratesXlsx(file: File): Promise<GovernoratesDryRunResult> {
-  if (file.size > GOVERNORATES_MAX_FILE_BYTES) {
-    throw new Error(
-      `حجم الملف يتجاوز الحد المسموح (${GOVERNORATES_MAX_FILE_BYTES / (1024 * 1024)} MB).`,
-    );
-  }
-
-  const ExcelJS = await import("exceljs");
-  const workbook = new ExcelJS.Workbook();
-  const buffer = await file.arrayBuffer();
-  await workbook.xlsx.load(buffer);
-
-  const sheet =
-    workbook.getWorksheet(GOVERNORATES_SHEET_NAME) ?? workbook.worksheets[0];
-
-  if (!sheet) {
-    return {
-      columns: [],
-      rows: [],
-      previewRows: [],
-      totalRowCount: 0,
-      issues: [
-        {
-          code: "WRONG_SHEET",
-          message: `لم يُعثر على شيت «${GOVERNORATES_SHEET_NAME}» أو أي شيت في الملف.`,
-        },
-      ],
-      fileName: file.name,
-    };
-  }
-
-  const headerRow = sheet.getRow(1);
-  const headerMap = new Map<number, GovernoratesColumnKey>();
-
-  headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
-    const normalized = normalizeHeader(cellToString(cell.value));
-    if (GOVERNORATES_ALL_COLUMNS.includes(normalized as GovernoratesColumnKey)) {
-      headerMap.set(colNumber, normalized as GovernoratesColumnKey);
-    }
-  });
-
-  const presentColumns = GOVERNORATES_ALL_COLUMNS.filter((col) =>
-    [...headerMap.values()].includes(col),
-  );
-
-  const rows: GovernoratesRow[] = [];
-
-  sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber === 1) return;
-
-    const values = {
-      name: "",
-      default_track_code: "",
-      sort_order: "",
-    } satisfies Record<GovernoratesColumnKey, string>;
-
-    headerMap.forEach((col, colNumber) => {
-      values[col] = cellToString(row.getCell(colNumber).value);
-    });
-
-    if (isRowEmpty(values)) return;
-
-    rows.push({
-      rowNumber,
-      ...values,
-    });
-  });
-
-  const issues = validateGovernoratesRows(rows, presentColumns);
-
+export function toGovernoratesDryRunApiResponse(
+  parsed: GovernoratesDryRunParseResult,
+): GovernoratesDryRunApiResponse {
+  const errorCount = parsed.issues.filter((i) => i.code !== "EMPTY_FILE").length;
   return {
-    columns: presentColumns,
-    rows,
-    previewRows: rows.slice(0, GOVERNORATES_PREVIEW_ROWS),
-    totalRowCount: rows.length,
-    issues,
-    fileName: file.name,
+    status: parsed.issues.length === 0 ? "valid" : "invalid",
+    detectedColumns: parsed.columns,
+    previewRows: parsed.previewRows,
+    issues: parsed.issues,
+    totalRowCount: parsed.totalRowCount,
+    errorCount,
+    fileName: parsed.fileName,
   };
 }

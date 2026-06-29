@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,13 +17,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { dryRunGovernoratesImport } from "@/lib/import/import-dry-run.functions";
 import {
   GOVERNORATES_ALL_COLUMNS,
+  GOVERNORATES_MAX_FILE_BYTES,
   GOVERNORATES_PREVIEW_ROWS,
   GOVERNORATES_TEMPLATE_FILE,
-  type GovernoratesDryRunResult,
-  parseGovernoratesXlsx,
-} from "@/lib/import/governorates-dry-run";
+  type GovernoratesDryRunApiResponse,
+} from "@/lib/import/governorates-dry-run.shared";
 import {
   AlertCircle,
   CheckCircle2,
@@ -40,10 +42,26 @@ const STEPS = [
   { id: 5, label: "التنفيذ لاحقاً" },
 ] as const;
 
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      if (typeof dataUrl !== "string" || !dataUrl.includes(",")) {
+        reject(new Error("تعذر قراءة الملف."));
+        return;
+      }
+      resolve(dataUrl.split(",")[1] ?? "");
+    };
+    reader.onerror = () => reject(new Error("تعذر قراءة الملف."));
+    reader.readAsDataURL(file);
+  });
+}
+
 function stepStatus(
   stepId: number,
   hasFile: boolean,
-  result: GovernoratesDryRunResult | null,
+  result: GovernoratesDryRunApiResponse | null,
   parsing: boolean,
 ): "done" | "active" | "pending" | "disabled" {
   if (stepId === 5) return "disabled";
@@ -51,49 +69,68 @@ function stepStatus(
   if (!hasFile) return "pending";
   if (parsing) return stepId === 2 ? "active" : "pending";
   if (!result) return "pending";
-  if (stepId === 2) return result.columns.length > 0 ? "done" : "active";
+  if (stepId === 2) return result.detectedColumns.length > 0 ? "done" : "active";
   if (stepId === 3) return "done";
   if (stepId === 4) return "done";
   return "pending";
 }
 
 export function ImportDryRunGovernorates() {
+  const runDryRun = useServerFn(dryRunGovernoratesImport);
   const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
-  const [result, setResult] = useState<GovernoratesDryRunResult | null>(null);
+  const [result, setResult] = useState<GovernoratesDryRunApiResponse | null>(null);
 
-  const handleFileChange = useCallback(async (file: File | null) => {
-    setParseError(null);
-    setResult(null);
-    if (!file) {
-      setFileName(null);
-      return;
-    }
+  const handleFileChange = useCallback(
+    async (file: File | null) => {
+      setParseError(null);
+      setResult(null);
+      if (!file) {
+        setFileName(null);
+        return;
+      }
 
-    if (!file.name.toLowerCase().endsWith(".xlsx")) {
-      setParseError("يُقبل ملف Excel بصيغة .xlsx فقط.");
+      if (!file.name.toLowerCase().endsWith(".xlsx")) {
+        setParseError("يُقبل ملف Excel بصيغة .xlsx فقط.");
+        setFileName(file.name);
+        return;
+      }
+
+      if (file.size > GOVERNORATES_MAX_FILE_BYTES) {
+        setParseError(
+          `حجم الملف يتجاوز الحد المسموح (${GOVERNORATES_MAX_FILE_BYTES / (1024 * 1024)} MB).`,
+        );
+        setFileName(file.name);
+        return;
+      }
+
       setFileName(file.name);
-      return;
-    }
-
-    setFileName(file.name);
-    setParsing(true);
-    try {
-      const parsed = await parseGovernoratesXlsx(file);
-      setResult(parsed);
-    } catch (err) {
-      setParseError(
-        err instanceof Error ? err.message : "تعذّر قراءة الملف. جرّب ملفاً آخر.",
-      );
-    } finally {
-      setParsing(false);
-    }
-  }, []);
+      setParsing(true);
+      try {
+        const fileBase64 = await fileToBase64(file);
+        const response = await runDryRun({
+          data: {
+            fileName: file.name,
+            fileBase64,
+            fileSize: file.size,
+          },
+        });
+        setResult(response);
+      } catch (err) {
+        setParseError(
+          err instanceof Error ? err.message : "تعذّر قراءة الملف. جرّب ملفاً آخر.",
+        );
+      } finally {
+        setParsing(false);
+      }
+    },
+    [runDryRun],
+  );
 
   const hasFile = Boolean(fileName);
-  const errorCount = result?.issues.filter((i) => i.code !== "EMPTY_FILE").length ?? 0;
+  const errorCount = result?.errorCount ?? 0;
 
   return (
     <section className="space-y-4" aria-labelledby="dry-run-heading">
@@ -103,7 +140,7 @@ export function ImportDryRunGovernorates() {
         </h2>
         <p className="text-sm text-muted-foreground max-w-3xl leading-relaxed">
           المرحلة الحالية مخصصة للتجربة على قالب المحافظات فقط ({GOVERNORATES_TEMPLATE_FILE}).
-          المعاينة محلية في المتصفح ولا تعدّل أي بيانات في قاعدة البيانات.
+          المعالجة تتم الآن على السيرفر كمعاينة جافة، ولا يتم حفظ أي بيانات في قاعدة البيانات.
         </p>
       </div>
 
@@ -124,7 +161,7 @@ export function ImportDryRunGovernorates() {
             </p>
             <p className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
               <ShieldCheck className="h-4 w-4 shrink-0" />
-              المعاينة لا تعدّل البيانات — قراءة وتحقق فقط.
+              المعاينة لا تعدّل البيانات — قراءة وتحقق على السيرفر فقط.
             </p>
           </CardDescription>
         </CardHeader>
@@ -219,12 +256,18 @@ export function ImportDryRunGovernorates() {
             {parsing ? (
               <p className="text-sm text-muted-foreground flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                جاري قراءة الملف…
+                جاري المعالجة على السيرفر…
               </p>
             ) : result ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant={result.status === "valid" ? "default" : "destructive"}
+                  className="text-[11px]"
+                >
+                  {result.status === "valid" ? "صالح" : "غير صالح"}
+                </Badge>
                 {GOVERNORATES_ALL_COLUMNS.map((col) => {
-                  const found = result.columns.includes(col);
+                  const found = result.detectedColumns.includes(col);
                   return (
                     <Badge
                       key={col}
@@ -336,7 +379,7 @@ export function ImportDryRunGovernorates() {
           <Badge variant="secondary" className="text-[10px] ms-2">قريباً</Badge>
         </Button>
         <p className="text-xs text-muted-foreground">
-          لن يُفعَّل التنفيذ في قاعدة البيانات حتى مرحلة لاحقة (01C-B / 01D).
+          لن يُفعَّل التنفيذ في قاعدة البيانات حتى مرحلة لاحقة (01C-B2 / 01D).
         </p>
       </div>
     </section>

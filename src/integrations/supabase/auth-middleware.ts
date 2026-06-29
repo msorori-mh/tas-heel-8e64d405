@@ -78,3 +78,28 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
     });
   },
 );
+
+/** Requires authenticated user with admin role (JWT + has_role RPC). */
+export const requireAdminAuth = createMiddleware({ type: "function" })
+  .middleware([requireSupabaseAuth])
+  .server(async ({ next, context }) => {
+    const { supabase, userId } = context as {
+      supabase: import("@supabase/supabase-js").SupabaseClient<Database>;
+      userId: string;
+    };
+
+    const { data: isAdmin, error } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "admin",
+    });
+
+    if (error) {
+      throw new Error("تعذر التحقق من صلاحيات الإدارة.");
+    }
+
+    if (!isAdmin) {
+      throw new Error("غير مصرح — صلاحيات الإدارة مطلوبة.");
+    }
+
+    return next({ context });
+  });
