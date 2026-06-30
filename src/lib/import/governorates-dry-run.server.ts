@@ -28,7 +28,9 @@ export async function parseGovernoratesBuffer(
   }
 
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer);
+  // exceljs's load() typing expects a Node Buffer; cast through unknown to
+  // bridge @types/node's generic Buffer<ArrayBufferLike> vs exceljs's Buffer.
+  await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
 
   const sheet =
     workbook.getWorksheet(GOVERNORATES_SHEET_NAME) ?? workbook.worksheets[0];
