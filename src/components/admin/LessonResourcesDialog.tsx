@@ -160,7 +160,7 @@ export function LessonResourcesDialog({
             .insert({
               lesson_id: lessonId,
               title,
-              resource_type: r.resource_type,
+              resource_type: r.resource_type as ResourceTypeValue,
               url,
               description,
               sort_order: sortOrder,
