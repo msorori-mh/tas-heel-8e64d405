@@ -32,13 +32,19 @@ export type LessonResourceItem = {
   __local?: boolean;
 };
 
-const RESOURCE_TYPES = [
+type ResourceTypeValue =
+  | "pdf"
+  | "video"
+  | "link"
+  | "mindmap"
+  | "experiment";
+
+const RESOURCE_TYPES: ReadonlyArray<{ value: ResourceTypeValue; label: string }> = [
   { value: "pdf", label: "PDF" },
   { value: "video", label: "فيديو" },
   { value: "link", label: "رابط" },
   { value: "mindmap", label: "خريطة ذهنية" },
   { value: "experiment", label: "تجربة" },
-  { value: "other", label: "أخرى" },
 ] as const;
 
 const ALLOWED_TYPES = RESOURCE_TYPES.map((t) => t.value) as string[];
