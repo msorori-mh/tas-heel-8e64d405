@@ -171,7 +171,7 @@ export function LessonResourcesDialog({
             .from("lesson_resources")
             .update({
               title,
-              resource_type: r.resource_type,
+              resource_type: r.resource_type as ResourceTypeValue,
               url,
               description,
               sort_order: sortOrder,
