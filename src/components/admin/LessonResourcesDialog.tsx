@@ -1,7 +1,4 @@
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -19,28 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, AlertTriangle, Loader2 } from "lucide-react";
-import FileUpload from "@/components/admin/FileUpload";
-
-const PDF_STORAGE_PREFIX = "supabase-storage://lesson-pdfs/";
-
-export function isSafeStorageRef(value: string, lessonId: string): boolean {
-  const v = (value ?? "").trim();
-  if (!v.startsWith(PDF_STORAGE_PREFIX)) return false;
-  const rest = v.slice(PDF_STORAGE_PREFIX.length);
-  if (!rest.toLowerCase().endsWith(".pdf")) return false;
-  const parts = rest.split("/");
-  if (parts.length < 2) return false;
-  if (parts[0] !== lessonId) return false;
-  return true;
-}
-
-export function isAcceptableResourceUrl(value: string, lessonId: string): boolean {
-  const v = (value ?? "").trim();
-  if (!v) return false;
-  if (v.startsWith("supabase-storage://")) return isSafeStorageRef(v, lessonId);
-  return isSafeHttpUrl(v);
-}
+import { Plus, Trash2, AlertTriangle } from "lucide-react";
 
 export type LessonResourceItem = {
   id: string;
@@ -59,9 +35,8 @@ const RESOURCE_TYPES = [
   { value: "link", label: "رابط" },
   { value: "mindmap", label: "خريطة ذهنية" },
   { value: "experiment", label: "تجربة" },
+  { value: "other", label: "أخرى" },
 ] as const;
-
-const ALLOWED_TYPES = new Set(RESOURCE_TYPES.map((t) => t.value));
 
 interface Props {
   open: boolean;
@@ -76,38 +51,21 @@ const makeTempId = () => `__tmp_${Date.now()}_${++_tmpCounter}`;
 const isLocal = (r: LessonResourceItem) =>
   r.__local === true || r.id.startsWith("__tmp_");
 
-export function isSafeHttpUrl(value: string): boolean {
-  const v = (value ?? "").trim();
-  if (!v) return false;
-  if (!/^https?:\/\//i.test(v)) return false;
-  try {
-    const u = new URL(v);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 export function LessonResourcesDialog({
   open,
   onOpenChange,
-  lessonId,
+  lessonId: _lessonId,
   lessonTitle,
   items,
 }: Props) {
-  const qc = useQueryClient();
   const [rows, setRows] = useState<LessonResourceItem[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [errMsg, setErrMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
-      setErrMsg(null);
-      setSaving(false);
       setRows(
         [...items]
           .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-          .map((x) => ({ ...x }))
+          .map((x) => ({ ...x })),
       );
     }
   }, [open, items]);
@@ -139,105 +97,8 @@ export function LessonResourcesDialog({
     setRows((rs) => rs.filter((r) => r.id !== id));
   };
 
-  const handleSave = async () => {
-    if (saving) return;
-    setErrMsg(null);
-
-    // Validation pass
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i];
-      const title = (r.title ?? "").trim();
-      const url = (r.url ?? "").trim();
-      if (!title) {
-        setErrMsg(`العنوان مطلوب للمورد #${i + 1}.`);
-        toast.error("بعض الحقول غير مكتملة.");
-        return;
-      }
-      if (!url) {
-        setErrMsg(`الرابط مطلوب للمورد #${i + 1}.`);
-        toast.error("بعض الحقول غير مكتملة.");
-        return;
-      }
-      if (!isAcceptableResourceUrl(url, lessonId)) {
-        setErrMsg(
-          `رابط المورد #${i + 1} غير صالح. يجب أن يكون http(s) أو ملف PDF مرفوع لهذا الدرس.`,
-        );
-        toast.error("رابط المورد غير صالح.");
-        return;
-      }
-      if (!ALLOWED_TYPES.has(r.resource_type as any)) {
-        setErrMsg(`نوع المورد غير مدعوم للمورد #${i + 1}.`);
-        toast.error("نوع مورد غير مدعوم.");
-        return;
-      }
-      const so = Number(r.sort_order);
-      if (!Number.isInteger(so) || so < 0) {
-        setErrMsg(`الترتيب غير صالح للمورد #${i + 1}.`);
-        toast.error("ترتيب غير صالح.");
-        return;
-      }
-    }
-
-    setSaving(true);
-    try {
-      for (const r of rows) {
-        const title = r.title.trim();
-        const url = r.url.trim();
-        const descTrim = (r.description ?? "").trim();
-        const description = descTrim.length > 0 ? descTrim : null;
-        const sort_order = Number(r.sort_order);
-        const resource_type = r.resource_type as
-          | "video"
-          | "mindmap"
-          | "experiment"
-          | "pdf"
-          | "link";
-
-        if (isLocal(r)) {
-          const { error } = await supabase.from("lesson_resources").insert({
-            lesson_id: lessonId,
-            title,
-            resource_type,
-            url,
-            description,
-            sort_order,
-          });
-          if (error) throw error;
-        } else {
-          const { error } = await supabase
-            .from("lesson_resources")
-            .update({
-              title,
-              resource_type,
-              url,
-              description,
-              sort_order,
-            })
-            .eq("id", r.id);
-          if (error) throw error;
-        }
-      }
-
-      toast.success("تم حفظ موارد الدرس بنجاح");
-      await qc.invalidateQueries({
-        queryKey: ["admin-lesson-detail", "resources", lessonId],
-      });
-      onOpenChange(false);
-    } catch (e: any) {
-      toast.error("تعذر حفظ موارد الدرس.");
-      setErrMsg(
-        e?.message ? `تعذر الحفظ: ${e.message}` : "تعذر حفظ موارد الدرس."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => (!saving ? onOpenChange(o) : null)}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         dir="rtl"
         className="max-w-2xl text-right max-h-[90vh] overflow-y-auto"
@@ -256,17 +117,11 @@ export function LessonResourcesDialog({
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
-            يمكنك تعديل الموارد المحفوظة وإضافة موارد جديدة. عند اختيار النوع
-            PDF يمكنك رفع ملف PDF (≤ 25MB) أو إدخال رابط خارجي آمن. حذف
-            الموارد المحفوظة سيتم دعمه لاحقًا.
+            هذه مرحلة واجهة فقط (UI Only). يمكنك تعديل القيم وإضافة/حذف موارد
+            محليًا، لكن لن يتم حفظ أي تغيير في قاعدة البيانات. سيتم تفعيل الحفظ
+            في المرحلة التالية.
           </span>
         </div>
-
-        {errMsg && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive text-right">
-            {errMsg}
-          </div>
-        )}
 
         <div className="space-y-3">
           {rows.length === 0 ? (
@@ -296,7 +151,6 @@ export function LessonResourcesDialog({
                         size="sm"
                         variant="ghost"
                         onClick={() => removeLocal(r.id)}
-                        disabled={saving}
                         className="h-7 px-2 text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-3.5 w-3.5 ml-1" />
@@ -304,7 +158,7 @@ export function LessonResourcesDialog({
                       </Button>
                     ) : (
                       <span className="text-[11px] text-muted-foreground">
-                        حذف المورد المحفوظ سيتم دعمه لاحقًا.
+                        محفوظ — لا يمكن حذفه في هذه المرحلة.
                       </span>
                     )}
                   </div>
@@ -321,7 +175,6 @@ export function LessonResourcesDialog({
                         }
                         placeholder="عنوان المورد"
                         className="text-right"
-                        disabled={saving}
                       />
                     </div>
                     <div>
@@ -334,7 +187,6 @@ export function LessonResourcesDialog({
                           updateRow(r.id, { resource_type: v })
                         }
                         dir="rtl"
-                        disabled={saving}
                       >
                         <SelectTrigger className="text-right">
                           <SelectValue placeholder="اختر النوع" />
@@ -363,7 +215,6 @@ export function LessonResourcesDialog({
                         placeholder="https://…"
                         className="text-right font-mono text-xs"
                         dir="ltr"
-                        disabled={saving}
                       />
                     </div>
                     <div>
@@ -380,35 +231,9 @@ export function LessonResourcesDialog({
                           })
                         }
                         className="text-right"
-                        disabled={saving}
                       />
                     </div>
                   </div>
-
-                  {r.resource_type === "pdf" && (
-                    <div className="rounded-md border border-dashed border-border bg-muted/20 p-2 space-y-1">
-                      <p className="text-[11px] text-muted-foreground">
-                        أو ارفع ملف PDF (PDF فقط — حد أقصى 25 ميغابايت). سيتم
-                        ملء حقل الرابط تلقائيًا كمرجع تخزين خاص ولن يُحفظ إلا
-                        بعد الضغط على "حفظ الموارد".
-                      </p>
-                      <FileUpload
-                        bucket="lesson-pdfs"
-                        folder={lessonId}
-                        accept="application/pdf,.pdf"
-                        allowedMimeTypes={["application/pdf"]}
-                        maxSizeMB={25}
-                        icon="pdf"
-                        label=""
-                        value={
-                          (r.url ?? "").startsWith("supabase-storage://")
-                            ? r.url
-                            : ""
-                        }
-                        onChange={(v) => updateRow(r.id, { url: v })}
-                      />
-                    </div>
-                  )}
 
                   <div>
                     <label className="text-[11px] text-muted-foreground">
@@ -424,7 +249,6 @@ export function LessonResourcesDialog({
                       rows={3}
                       className="text-right"
                       placeholder="وصف مختصر…"
-                      disabled={saving}
                     />
                   </div>
                 </div>
@@ -436,7 +260,6 @@ export function LessonResourcesDialog({
             type="button"
             variant="outline"
             onClick={addLocal}
-            disabled={saving}
             className="w-full"
           >
             <Plus className="h-4 w-4 ml-1" />
@@ -445,22 +268,11 @@ export function LessonResourcesDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             إغلاق
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin ml-2" />
-                جارٍ الحفظ...
-              </>
-            ) : (
-              "حفظ الموارد"
-            )}
+          <Button disabled title="سيتم تفعيل الحفظ في المرحلة التالية">
+            الحفظ في المرحلة التالية
           </Button>
         </DialogFooter>
       </DialogContent>
