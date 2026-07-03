@@ -2230,10 +2230,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_content_staff: { Args: { _user_id: string }; Returns: boolean }
       is_first_lesson_in_subject: {
         Args: { _lesson_id: string }
         Returns: boolean
       }
+      is_full_admin: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string
