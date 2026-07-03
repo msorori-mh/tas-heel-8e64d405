@@ -127,7 +127,7 @@ export function getImportTemplatesForStaff(isFullAdmin: boolean): ImportTemplate
 
 export function getImportOrderGroupsForStaff(
   isFullAdmin: boolean,
-): typeof IMPORT_ORDER_GROUPS {
+): readonly (typeof IMPORT_ORDER_GROUPS)[number][] {
   if (isFullAdmin) return IMPORT_ORDER_GROUPS;
   return IMPORT_ORDER_GROUPS.filter((group) => group.range !== "11–12");
 }
