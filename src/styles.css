@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Tanweer design system — Smart Exam Coach + National Learning Platform.
- * Colors use oklch. Register new tokens in @theme inline and :root / .dark.
+ * تمكين طلاب الثانوية — homepage & shared tokens.
+ * Primary #1E2A78 · Secondary #14B8A6 · Accent #F59E0B
  */
 
 @theme inline {
@@ -56,104 +56,80 @@
 
 :root {
   --radius: 0.875rem;
-  /* Core palette */
-  --background: oklch(0.968 0.022 285);
-  --foreground: oklch(0.28 0.045 278);
-  --card: oklch(0.995 0.012 92);
-  --card-foreground: oklch(0.28 0.045 278);
-  --popover: oklch(0.995 0.012 92);
-  --popover-foreground: oklch(0.28 0.045 278);
-  --primary: oklch(0.46 0.24 278);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.93 0.045 250);
-  --secondary-foreground: oklch(0.32 0.08 265);
-  --muted: oklch(0.94 0.028 285);
-  --muted-foreground: oklch(0.48 0.04 280);
-  --accent: oklch(0.68 0.19 52);
-  --accent-foreground: oklch(0.99 0.02 90);
-  --success: oklch(0.52 0.16 155);
-  --success-foreground: oklch(0.99 0.01 155);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.91 0.025 285);
-  --input: oklch(0.92 0.022 285);
-  --ring: oklch(0.46 0.24 278);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.55 0.14 250);
-  --chart-3: oklch(0.52 0.16 155);
-  --chart-4: oklch(0.68 0.19 52);
-  --chart-5: oklch(0.46 0.24 278);
-  --sidebar: oklch(0.985 0.02 88);
-  --sidebar-foreground: oklch(0.28 0.045 278);
-  --sidebar-primary: oklch(0.46 0.24 278);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.93 0.045 250);
-  --sidebar-accent-foreground: oklch(0.32 0.08 265);
-  --sidebar-border: oklch(0.91 0.025 285);
-  --sidebar-ring: oklch(0.46 0.24 278);
+  /* Core palette — high school identity */
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #1E2A78;
+  --primary-foreground: #FFFFFF;
+  --secondary: #14B8A6;
+  --secondary-foreground: #FFFFFF;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --accent: #F59E0B;
+  --accent-foreground: #0F172A;
+  --success: #14B8A6;
+  --success-foreground: #FFFFFF;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #1E2A78;
+  --chart-1: #1E2A78;
+  --chart-2: #14B8A6;
+  --chart-3: #F59E0B;
+  --chart-4: #64748B;
+  --chart-5: #0F172A;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0F172A;
+  --sidebar-primary: #1E2A78;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F1F5F9;
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #1E2A78;
 
   /* Gradients & elevation */
   --hero-gradient: linear-gradient(
     135deg,
-    oklch(0.42 0.24 278) 0%,
-    oklch(0.48 0.2 265) 45%,
-    oklch(0.52 0.16 250) 100%
+    #1E2A78 0%,
+    #243089 45%,
+    #14B8A6 100%
   );
-  --exam-gradient: linear-gradient(
-    135deg,
-    oklch(0.44 0.24 278),
-    oklch(0.5 0.18 250)
-  );
-  --progress-gradient: linear-gradient(
-    90deg,
-    oklch(0.52 0.16 155),
-    oklch(0.5 0.22 278)
-  );
-  --achievement-gradient: linear-gradient(
-    135deg,
-    oklch(0.68 0.19 52),
-    oklch(0.55 0.22 278)
-  );
-  --subscription-gradient: linear-gradient(
-    135deg,
-    oklch(0.55 0.14 250),
-    oklch(0.46 0.24 278)
-  );
-  --surface-soft-gradient: linear-gradient(
-    180deg,
-    oklch(0.968 0.022 285) 0%,
-    oklch(0.955 0.035 285) 100%
-  );
+  --exam-gradient: linear-gradient(135deg, #1E2A78, #2D3A8C);
+  --progress-gradient: linear-gradient(90deg, #14B8A6, #1E2A78);
+  --achievement-gradient: linear-gradient(135deg, #F59E0B, #1E2A78);
+  --subscription-gradient: linear-gradient(135deg, #14B8A6, #1E2A78);
+  --surface-soft-gradient: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
   --student-app-bg: radial-gradient(
       ellipse 90% 55% at 100% -10%,
-      oklch(0.55 0.22 278 / 0.11),
+      rgb(30 42 120 / 0.08),
       transparent 55%
     ),
     radial-gradient(
       ellipse 70% 45% at 0% 100%,
-      oklch(0.68 0.19 52 / 0.08),
+      rgb(245 158 11 / 0.06),
       transparent 50%
     ),
     radial-gradient(
       ellipse 55% 40% at 50% 40%,
-      oklch(0.55 0.14 250 / 0.06),
+      rgb(20 184 166 / 0.06),
       transparent 60%
     ),
-    oklch(0.966 0.024 285);
-  --admin-app-bg: linear-gradient(
-    180deg,
-    oklch(0.972 0.012 265) 0%,
-    oklch(0.965 0.018 280) 100%
-  );
+    #F8FAFC;
+  --admin-app-bg: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
   --surface-featured-gradient: linear-gradient(
     145deg,
-    oklch(0.97 0.04 285 / 0.9) 0%,
-    oklch(0.99 0.02 92) 40%,
-    oklch(0.95 0.05 250 / 0.35) 100%
+    rgb(248 250 252 / 0.95) 0%,
+    #FFFFFF 40%,
+    rgb(20 184 166 / 0.08) 100%
   );
-  --card-shadow: 0 4px 24px -8px oklch(0.35 0.12 278 / 0.14);
-  --card-shadow-hover: 0 16px 40px -12px oklch(0.35 0.15 278 / 0.22);
-  --elevated-shadow: 0 8px 28px -10px oklch(0.35 0.12 278 / 0.16);
+  --card-shadow: 0 4px 24px -8px rgb(30 42 120 / 0.12);
+  --card-shadow-hover: 0 16px 40px -12px rgb(30 42 120 / 0.18);
+  --elevated-shadow: 0 8px 28px -10px rgb(30 42 120 / 0.14);
 }
 
 .dark {
@@ -309,12 +285,12 @@
   .landing-page-bg {
     background: radial-gradient(
         ellipse 80% 50% at 90% 0%,
-        oklch(0.55 0.22 278 / 0.09),
+        rgb(30 42 120 / 0.08),
         transparent 50%
       ),
       radial-gradient(
         ellipse 60% 40% at 10% 80%,
-        oklch(0.68 0.19 52 / 0.07),
+        rgb(20 184 166 / 0.07),
         transparent 45%
       ),
       var(--background);

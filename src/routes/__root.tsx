@@ -80,20 +80,37 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "تنوير — منصة مذاكرة لطلاب الثانوية في اليمن" },
-      { name: "description", content: "دروسك، ملخصاتك، وأسئلتك، واختباراتك في مكان واحد — حسب صفك ومحافظتك." },
-      { property: "og:site_name", content: "تنوير" },
-      { property: "og:title", content: "تنوير — منصة مذاكرة لطلاب الثانوية في اليمن" },
-      { property: "og:description", content: "دروسك، ملخصاتك، وأسئلتك، واختباراتك في مكان واحد — حسب صفك ومحافظتك." },
+      {
+        title: "تمكين طلاب الثانوية | الاستعداد للثانوية والاختبارات الوزارية",
+      },
+      {
+        name: "description",
+        content:
+          "منصة تعليمية تساعد طلاب الثانوية على المذاكرة، مراجعة الدروس، حل الاختبارات، والتدرب على نماذج وزارية تناسب الصف والمنهج والمحافظة.",
+      },
+      { property: "og:site_name", content: "تمكين طلاب الثانوية" },
+      { property: "og:title", content: "تمكين طلاب الثانوية" },
+      {
+        property: "og:description",
+        content:
+          "منصتك الذكية للاستعداد للثانوية والاختبارات الوزارية، مع محتوى منظم ونماذج تدريبية تراعي اختلاف المناهج والمحافظات.",
+      },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "ar_YE" },
       { property: "og:url", content: "https://tas-heel.lovable.app/" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "تنوير — منصة مذاكرة لطلاب الثانوية في اليمن" },
-      { name: "twitter:description", content: "دروسك، ملخصاتك، وأسئلتك، واختباراتك في مكان واحد — حسب صفك ومحافظتك." },
-      { name: "theme-color", content: "#4f46e5" },
+      {
+        name: "twitter:title",
+        content: "تمكين طلاب الثانوية | الاستعداد للثانوية والاختبارات الوزارية",
+      },
+      {
+        name: "twitter:description",
+        content:
+          "منصتك الذكية للاستعداد للثانوية والاختبارات الوزارية، مع محتوى منظم ونماذج تدريبية تراعي اختلاف المناهج والمحافظات.",
+      },
+      { name: "theme-color", content: "#1E2A78" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-title", content: "طلاب الثانوية" },
+      { name: "apple-mobile-web-app-title", content: "تمكين طلاب الثانوية" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { name: "mobile-web-app-capable", content: "yes" },
     ],
@@ -118,16 +135,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             {
               "@type": "Organization",
               "@id": "https://tas-heel.lovable.app/#organization",
-              name: "تنوير",
+              name: "تمكين طلاب الثانوية",
               url: "https://tas-heel.lovable.app/",
-              email: "support@studentamkeen.com",
             },
             {
               "@type": "WebSite",
               "@id": "https://tas-heel.lovable.app/#website",
               url: "https://tas-heel.lovable.app/",
-              name: "تنوير",
-              description: "منصة مذاكرة لطلاب الثانوية في اليمن.",
+              name: "تمكين طلاب الثانوية",
+              description:
+                "منصة تعليمية لطلاب الثانوية تساعدهم على المراجعة والتدرب على الاختبارات، مع اهتمام خاص بالصف الثالث الثانوي والاختبارات الوزارية السابقة.",
               inLanguage: "ar-YE",
               publisher: { "@id": "https://tas-heel.lovable.app/#organization" },
             },

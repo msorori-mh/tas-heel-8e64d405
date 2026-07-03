@@ -1,16 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BookOpen,
-  FileText,
-  HelpCircle,
-  WifiOff,
-  MapPin,
+  ClipboardList,
+  GraduationCap,
   LineChart,
+  MapPin,
   Smartphone,
   Sparkles,
-  CalendarDays,
-  Layers,
-  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
@@ -20,15 +16,20 @@ import { PwaInstallHint } from "@/components/pwa/PwaInstallHint";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "تنوير — مذاكرتك صارت أوضح" },
+      { title: "تمكين طلاب الثانوية — منصتك للاستعداد والتفوّق" },
       {
         name: "description",
-        content: "دروسك، ملخصاتك، وأسئلتك في مكان واحد — حسب صفك ومحافظتك.",
+        content:
+          "منصة تعليمية تساعد طلاب الثانوية على المذاكرة، مراجعة الدروس، حل الاختبارات، والتدرب على نماذج تناسب الصف والمنهج والمحافظة.",
       },
-      { property: "og:title", content: "تنوير — مذاكرتك صارت أوضح" },
+      {
+        property: "og:title",
+        content: "تمكين طلاب الثانوية — منصتك للاستعداد والتفوّق",
+      },
       {
         property: "og:description",
-        content: "دروسك، ملخصاتك، وأسئلتك في مكان واحد — حسب صفك ومحافظتك.",
+        content:
+          "منصتك الذكية للاستعداد للثانوية والاختبارات الوزارية — محتوى منظم، تدريب، ومتابعة تقدم.",
       },
       { property: "og:url", content: "https://tas-heel.lovable.app/" },
     ],
@@ -37,205 +38,280 @@ export const Route = createFileRoute("/")({
   component: LandingPage,
 });
 
-
-const HeroSection = () => (
-  <section className="relative overflow-hidden px-4 pt-8 pb-10 md:pt-12 md:pb-14">
-    <div className="absolute inset-0 pointer-events-none" aria-hidden>
-      <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-      <div className="absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-accent/15 blur-3xl" />
-    </div>
-
-    <div className="container relative mx-auto max-w-5xl">
-      <div className="surface-featured grid items-center gap-6 p-6 md:grid-cols-2 md:gap-10 md:p-8">
-        <div className="text-center md:text-right order-2 md:order-1">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-card/90 backdrop-blur-sm px-3 py-1 mb-4 text-xs font-medium text-primary shadow-card">
-            <Sparkles className="h-3.5 w-3.5" />
-            منصة مذاكرة لطلاب الثانوية في اليمن
-          </div>
-
-          <h1 className="text-display mb-3 text-foreground">
-            مذاكرتك صارت أوضح
-            <span className="mt-1 block text-primary text-xl sm:text-2xl md:text-3xl font-extrabold">
-              من أول درس إلى آخر مراجعة
-            </span>
-          </h1>
-
-          <p className="text-body-lg mx-auto md:mx-0 mb-4 max-w-md text-muted-foreground">
-            ابدأ بتنظيم مذاكرتك حسب صفك ومحافظتك.
-          </p>
-
-          <div className="mb-5 flex flex-wrap justify-center gap-2 md:justify-start">
-            <span className="edu-exam inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold">
-              <ClipboardList className="h-3.5 w-3.5" />
-              اختبارات محاكية
-            </span>
-            <span className="edu-lesson inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold">
-              <BookOpen className="h-3.5 w-3.5" />
-              تدريب ذكي
-            </span>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-            <Link to="/auth" search={{ mode: "signup" }} className="w-full sm:w-auto">
-              <Button size="lg" variant="hero" className="w-full sm:w-auto gap-2 px-6 py-5">
-                <BookOpen className="h-5 w-5" />
-                إنشاء حساب جديد
-              </Button>
-            </Link>
-            <Link to="/auth" search={{ mode: "login" }} className="w-full sm:w-auto">
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full sm:w-auto gap-2 px-6 py-5"
-              >
-                تسجيل دخول
-              </Button>
-            </Link>
-          </div>
-
-          <p className="mt-3 text-xs text-muted-foreground">
-            دقيقة واحدة لاختيار صفك والبدء.
-          </p>
-        </div>
-
-
-        <div className="order-1 md:order-2 flex justify-center">
-          <div className="relative w-full max-w-[280px] sm:max-w-xs md:max-w-sm">
-            <div
-              className="absolute inset-0 bg-hero-gradient opacity-15 blur-3xl rounded-full"
-              aria-hidden
-            />
-            <img
-              src={heroStudent}
-              alt="طالب يذاكر مع تنوير"
-              width={1024}
-              height={1024}
-              className="relative w-full h-auto drop-shadow-xl"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-);
-
 const features: {
-  icon: typeof Layers;
+  icon: typeof BookOpen;
   title: string;
   desc: string;
   cardClass?: string;
   iconClass?: string;
 }[] = [
-  { icon: Layers, title: "مرتب حسب صفك", desc: "محتوى يطابق منهجك.", cardClass: "card-student-quiet", iconClass: "edu-lesson" },
-  { icon: FileText, title: "ملخصات سريعة", desc: "أهم النقاط بدون تشتيت.", cardClass: "card-student-quiet", iconClass: "edu-lesson" },
-  { icon: HelpCircle, title: "5 أسئلة مراجعة", desc: "اختبر فهمك بدقيقتين.", cardClass: "card-edu-exam", iconClass: "edu-exam" },
-  { icon: LineChart, title: "تابع تقدمك", desc: "اعرف وين وصلت.", cardClass: "card-edu-progress", iconClass: "edu-progress" },
-  { icon: CalendarDays, title: "مذاكرة يومية", desc: "ليس فقط قبل الاختبار.", cardClass: "card-student-quiet" },
-  { icon: WifiOff, title: "خفيف على النت", desc: "يعمل مع الإنترنت الضعيف.", cardClass: "card-student-quiet" },
-  { icon: Smartphone, title: "يعمل على الجوال", desc: "تجربة مريحة دائمًا.", cardClass: "card-student-quiet" },
-  { icon: MapPin, title: "يراعي محافظتك", desc: "قريب من واقع منهجك.", cardClass: "card-student-quiet" },
+  {
+    icon: BookOpen,
+    title: "محتوى دراسي منظم",
+    desc: "دروس ووحدات مرتبة حسب المادة والصف والمنهج.",
+    cardClass: "card-student-quiet",
+    iconClass: "edu-lesson",
+  },
+  {
+    icon: ClipboardList,
+    title: "اختبارات تدريبية ونماذج وزارية",
+    desc: "تدرّب على أسئلة واختبارات تناسب صفك ومنهج محافظتك، مع اهتمام خاص بنماذج الثالث الثانوي الوزارية.",
+    cardClass: "card-edu-exam",
+    iconClass: "edu-exam",
+  },
+  {
+    icon: GraduationCap,
+    title: "مراجعة الثالث الثانوي",
+    desc: "مساحة مخصصة لطلاب الصف الثالث الثانوي لمراجعة الاختبارات الوزارية السابقة والتدرب عليها قبل الاختبار النهائي.",
+    cardClass: "card-edu-exam",
+    iconClass: "edu-exam",
+  },
+  {
+    icon: LineChart,
+    title: "متابعة التقدم",
+    desc: "اعرف نقاط القوة والضعف وتابع إنجازك خطوة بخطوة.",
+    cardClass: "card-edu-progress",
+    iconClass: "edu-progress",
+  },
+  {
+    icon: MapPin,
+    title: "مناسب للمحافظات والمناهج المختلفة",
+    desc: "تراعي المنصة اختلاف نماذج الأسئلة بين منهج صنعاء ومنهج عدن، بحيث يحصل الطالب على تدريب مناسب لنظامه.",
+    cardClass: "card-student-quiet",
+    iconClass: "edu-lesson",
+  },
+  {
+    icon: Smartphone,
+    title: "واجهة سهلة للطلاب",
+    desc: "تجربة عربية خفيفة وسهلة الاستخدام من الجوال.",
+    cardClass: "card-student-quiet",
+  },
 ];
 
-const FeaturesSection = () => (
-  <section id="features" className="px-4 py-10 md:py-14">
-    <div className="container mx-auto max-w-5xl">
-      <div className="mb-6 text-center">
-        <h2 className="text-headline text-foreground">ليش تنوير؟</h2>
-        <p className="mt-1 text-sm text-muted-foreground">مذاكرة، تدريب، واختبارات في مكان واحد</p>
+function HeroSection() {
+  return (
+    <section className="relative overflow-hidden px-4 pt-8 pb-10 md:pt-12 md:pb-14">
+      <div className="absolute inset-0 pointer-events-none" aria-hidden>
+        <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-secondary/15 blur-3xl" />
       </div>
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-        {features.map((f) => (
-          <div
-            key={f.title}
-            className={`${f.cardClass ?? "card-student-quiet"} p-3 sm:p-4 transition-all hover:-translate-y-0.5 hover:shadow-card-hover`}
-          >
-            <div
-              className={`mb-2 flex h-9 w-9 items-center justify-center rounded-lg ${f.iconClass ?? "edu-lesson"}`}
-            >
-              <f.icon className="h-4 w-4" />
-            </div>
-            <h3 className="text-sm font-bold text-card-foreground leading-tight">
-              {f.title}
-            </h3>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground">{f.desc}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-);
 
-const CTAFooter = () => (
-  <>
-    <section className="px-4 py-8 md:py-10">
-      <div className="container mx-auto max-w-4xl">
-        <div className="relative overflow-hidden rounded-2xl bg-hero-gradient p-5 md:p-7 shadow-card-hover flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-right">
-          <div className="flex-1">
-            <h2 className="text-lg md:text-xl font-bold text-primary-foreground">
-              جاهز تبدأ مذاكرة أوضح؟
-            </h2>
-            <p className="mt-1 text-sm text-primary-foreground/90">
-              اختر صفك وافتح درس اليوم.
+      <div className="container relative mx-auto max-w-5xl">
+        <div className="surface-featured grid items-center gap-6 p-6 md:grid-cols-2 md:gap-10 md:p-8">
+          <div className="text-center md:text-right order-2 md:order-1">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-card/90 backdrop-blur-sm px-3 py-1 mb-3 text-xs font-medium text-primary shadow-card">
+              <Sparkles className="h-3.5 w-3.5" />
+              تمكين طلاب الثانوية
+            </div>
+
+            <p className="mb-4 text-sm font-semibold text-secondary">
+              منصتك الذكية للاستعداد للثانوية والاختبارات الوزارية
             </p>
+
+            <h1 className="text-display mb-4 text-foreground">
+              طريقك المنظم للتفوّق في الثانوية
+            </h1>
+
+            <p className="text-body-lg mx-auto md:mx-0 mb-6 max-w-lg text-muted-foreground">
+              منصة تعليمية تساعد طلاب الثانوية على المذاكرة، مراجعة الدروس، حل
+              الاختبارات، والتدرب على نماذج تناسب الصف والمنهج والمحافظة.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+              <Link to="/auth" search={{ mode: "signup" }} className="w-full sm:w-auto">
+                <Button size="lg" variant="hero" className="w-full sm:w-auto gap-2 px-6 py-5">
+                  ابدأ الآن
+                </Button>
+              </Link>
+              <Link to="/auth" search={{ mode: "login" }} className="w-full sm:w-auto">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full sm:w-auto gap-2 px-6 py-5 border-secondary/40 text-foreground hover:bg-secondary/10"
+                >
+                  تسجيل الدخول
+                </Button>
+              </Link>
+            </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Link to="/auth" search={{ mode: "signup" }} className="w-full sm:w-auto">
-              <Button size="lg" variant="hero" className="w-full sm:w-auto gap-2 px-6 py-5">
-                <BookOpen className="h-5 w-5" />
-                إنشاء حساب جديد
-              </Button>
-            </Link>
-            <Link to="/auth" search={{ mode: "login" }} className="w-full sm:w-auto">
-              <Button size="lg" variant="secondary" className="w-full sm:w-auto px-6 py-5 text-base">
-                تسجيل دخول
-              </Button>
-            </Link>
+
+          <div className="order-1 md:order-2 flex justify-center">
+            <div className="relative w-full max-w-[280px] sm:max-w-xs md:max-w-sm">
+              <div
+                className="absolute inset-0 bg-hero-gradient opacity-15 blur-3xl rounded-full"
+                aria-hidden
+              />
+              <img
+                src={heroStudent}
+                alt="طالب ثانوي يذاكر عبر المنصة"
+                width={1024}
+                height={1024}
+                className="relative w-full h-auto drop-shadow-xl"
+              />
+            </div>
           </div>
         </div>
       </div>
     </section>
+  );
+}
 
-    <footer className="border-t border-border bg-card px-4 py-6">
+function FeaturesSection() {
+  return (
+    <section id="features" className="px-4 py-10 md:py-14">
       <div className="container mx-auto max-w-5xl">
-        <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-hero-gradient">
-              <BookOpen className="h-4 w-4 text-primary-foreground" />
+        <div className="mb-6 text-center">
+          <h2 className="text-headline text-foreground">لماذا هذه المنصة؟</h2>
+          <p className="mt-2 text-sm text-muted-foreground max-w-2xl mx-auto">
+            محتوى منظم، تدريب واقعي، ومتابعة تقدم — مصممة لرحلة طالب الثانوية
+          </p>
+        </div>
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {features.map((f) => (
+            <div
+              key={f.title}
+              className={`${f.cardClass ?? "card-student-quiet"} p-4 transition-all hover:-translate-y-0.5 hover:shadow-card-hover`}
+            >
+              <div
+                className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${f.iconClass ?? "edu-lesson"}`}
+              >
+                <f.icon className="h-5 w-5" />
+              </div>
+              <h3 className="text-sm font-bold text-card-foreground leading-snug">
+                {f.title}
+              </h3>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                {f.desc}
+              </p>
             </div>
-            <div className="text-sm">
-              <span className="font-bold text-foreground">تنوير</span>
-              <span className="text-muted-foreground mx-1">·</span>
-              <span className="text-xs text-muted-foreground">studentamkeen.com</span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function GradeTwelveSection() {
+  return (
+    <section className="px-4 py-8 md:py-10">
+      <div className="container mx-auto max-w-4xl">
+        <div className="rounded-2xl border border-primary/15 bg-card p-6 md:p-8 shadow-card card-edu-exam">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl edu-exam">
+              <GraduationCap className="h-6 w-6" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-headline text-foreground">
+                استعد للاختبارات الوزارية بثقة
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                لطلاب الصف الثالث الثانوي، توفر المنصة مساحة خاصة لمراجعة نماذج
+                الاختبارات الوزارية السابقة والتدرب عليها حسب المنهج والمحافظة،
+                مع مراعاة اختلاف نماذج صنعاء وعدن وطبيعة الأسئلة في كل نظام.
+              </p>
             </div>
           </div>
-
-          <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <a href="#features" className="hover:text-primary">المزايا</a>
-            <a
-              href="mailto:support@studentamkeen.com"
-              className="hover:text-primary"
-            >
-              support@studentamkeen.com
-            </a>
-          </nav>
         </div>
-
-        <p className="mt-4 pt-4 border-t border-border text-center text-[11px] text-muted-foreground">
-          © {new Date().getFullYear()} تنوير — جميع الحقوق محفوظة
-        </p>
       </div>
-    </footer>
-  </>
-);
+    </section>
+  );
+}
+
+function CurriculumSection() {
+  return (
+    <section className="px-4 pb-8 md:pb-10">
+      <div className="container mx-auto max-w-4xl">
+        <div className="rounded-2xl border border-secondary/25 bg-secondary/5 p-6 md:p-8">
+          <h2 className="text-headline text-foreground">تدريب يناسب منهجك</h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            لا تتعامل المنصة مع جميع الطلاب بنفس النموذج؛ بل تراعي اختلاف المنهج
+            والمحافظة وطبيعة الأسئلة، خصوصاً في الاختبارات الوزارية للصف الثالث
+            الثانوي.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CTAFooter() {
+  return (
+    <>
+      <section className="px-4 py-8 md:py-10">
+        <div className="container mx-auto max-w-4xl">
+          <div className="relative overflow-hidden rounded-2xl bg-hero-gradient p-5 md:p-7 shadow-card-hover flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-right">
+            <div className="flex-1">
+              <h2 className="text-lg md:text-xl font-bold text-primary-foreground">
+                ابدأ رحلتك الدراسية اليوم
+              </h2>
+              <p className="mt-1 text-sm text-primary-foreground/90">
+                ذاكر بثقة، اختبر بذكاء، وتابع تقدمك يومًا بعد يوم.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Link to="/auth" search={{ mode: "signup" }} className="w-full sm:w-auto">
+                <Button size="lg" variant="hero" className="w-full sm:w-auto px-6 py-5">
+                  ابدأ الآن
+                </Button>
+              </Link>
+              <Link to="/auth" search={{ mode: "login" }} className="w-full sm:w-auto">
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="w-full sm:w-auto px-6 py-5 text-base bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                >
+                  تسجيل الدخول
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-border bg-card px-4 py-6">
+        <div className="container mx-auto max-w-5xl">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-hero-gradient">
+                <BookOpen className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <span className="text-sm font-bold text-foreground">
+                تمكين طلاب الثانوية
+              </span>
+            </div>
+
+            <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <a href="#features" className="hover:text-primary">
+                المزايا
+              </a>
+              <Link to="/contact" className="hover:text-primary">
+                تواصل معنا
+              </Link>
+              <Link to="/about" className="hover:text-primary">
+                عن المنصة
+              </Link>
+            </nav>
+          </div>
+
+          <p className="mt-4 pt-4 border-t border-border text-center text-[11px] text-muted-foreground">
+            © {new Date().getFullYear()} تمكين طلاب الثانوية — جميع الحقوق محفوظة
+          </p>
+        </div>
+      </footer>
+    </>
+  );
+}
 
 function LandingPage() {
   return (
-    <div className="landing-page-bg min-h-screen text-foreground">
+    <div className="landing-page-bg min-h-screen text-foreground" dir="rtl">
       <HeroSection />
-      <div className="container mx-auto max-w-5xl">
+      <div className="container mx-auto max-w-5xl px-4">
         <PwaInstallHint />
       </div>
       <FeaturesSection />
+      <GradeTwelveSection />
+      <CurriculumSection />
       <CTAFooter />
     </div>
   );
