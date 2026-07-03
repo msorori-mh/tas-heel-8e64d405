@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "generate:import-templates": "bun run scripts/generate-import-templates.ts"
+    "generate:import-templates": "bun run scripts/generate-import-templates.ts",
+    "generate:content-templates": "node scripts/generate-content-templates.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
