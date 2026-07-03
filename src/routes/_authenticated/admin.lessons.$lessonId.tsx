@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -37,15 +37,9 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 function AdminLessonDetailPage() {
-  const { isAdmin, loading } = useAuth();
-  const navigate = useNavigate();
+  const { loading, enabled } = useRequireAdminSection("content");
   const { lessonId } = Route.useParams();
 
-  useEffect(() => {
-    if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
-  }, [loading, isAdmin, navigate]);
-
-  const enabled = !loading && isAdmin;
   const [openBookDialog, setOpenBookDialog] = useState(false);
   const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
   const [openExplanationsDialog, setOpenExplanationsDialog] = useState(false);
@@ -215,7 +209,7 @@ function AdminLessonDetailPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!enabled) {
     return (
       <AdminLayout>
         <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">

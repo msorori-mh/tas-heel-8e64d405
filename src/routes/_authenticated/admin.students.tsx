@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -23,15 +23,10 @@ type Row = {
 };
 
 function AdminStudentsPage() {
-  const { isAdmin, loading } = useAuth();
-  const navigate = useNavigate();
+  const { loading, enabled } = useRequireAdminSection("full");
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
-
-  useEffect(() => {
-    if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
-  }, [loading, isAdmin, navigate]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -40,8 +35,6 @@ function AdminStudentsPage() {
     }, 300);
     return () => clearTimeout(t);
   }, [search]);
-
-  const enabled = !loading && isAdmin;
 
   const query = useQuery({
     enabled,
@@ -75,7 +68,7 @@ function AdminStudentsPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!enabled) {
     return (
       <AdminLayout>
         <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">

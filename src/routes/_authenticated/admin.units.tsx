@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -25,8 +25,7 @@ type UnitRow = {
 };
 
 function AdminUnitsPage() {
-  const { isAdmin, loading } = useAuth();
-  const navigate = useNavigate();
+  const { loading, enabled } = useRequireAdminSection("content");
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -36,10 +35,6 @@ function AdminUnitsPage() {
   const [editing, setEditing] = useState<UnitEditValue | null>(null);
   const [creating, setCreating] = useState(false);
   const [deletingUnit, setDeletingUnit] = useState<{ id: string; title: string; subject_name: string | null } | null>(null);
-
-  useEffect(() => {
-    if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
-  }, [loading, isAdmin, navigate]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -52,8 +47,6 @@ function AdminUnitsPage() {
   useEffect(() => {
     setPage(0);
   }, [subjectFilter, gradeFilter, freeFilter]);
-
-  const enabled = !loading && isAdmin;
 
   const subjectsQ = useQuery({
     enabled,
@@ -161,7 +154,7 @@ function AdminUnitsPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!enabled) {
     return (
       <AdminLayout>
         <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">

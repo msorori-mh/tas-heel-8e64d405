@@ -15,18 +15,18 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  const { loading, profile, profileComplete, isAdmin } = useAuth();
+  const { loading, profile, profileComplete, isAdmin, isContentStaff } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAdminArea = pathname.startsWith("/admin");
 
   useEffect(() => {
     if (loading) return;
-    if (!profile && !isAdmin) return; // wait for profile load
-    if (!profileComplete && !isAdmin) {
+    if (!profile && !isAdmin && !isContentStaff) return; // wait for profile load
+    if (!profileComplete && !isAdmin && !isContentStaff) {
       navigate({ to: "/complete-profile", replace: true });
     }
-  }, [loading, profile, profileComplete, isAdmin, navigate]);
+  }, [loading, profile, profileComplete, isAdmin, isContentStaff, navigate]);
 
   // Admin pages render their own AdminLayout — no StudentNav and no max-width wrapper.
   if (isAdminArea) {

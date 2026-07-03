@@ -1,8 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireAdminAuth } from "@/integrations/supabase/auth-middleware";
-import type { Database } from "@/integrations/supabase/types";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  requireContentStaffAuth,
+  type ContentStaffAuthContext,
+} from "@/integrations/supabase/auth-middleware";
+import { assertImportJobAllowed } from "./import-auth.server";
+import { IMPORT_TYPE_STRUCTURE } from "./import-job.types";
 import {
   GOVERNORATES_MAX_FILE_BYTES,
   toGovernoratesDryRunApiResponse,
@@ -21,20 +24,20 @@ const DryRunInput = z.object({
     .max(GOVERNORATES_MAX_FILE_BYTES),
 });
 
-type AdminAuthContext = {
-  supabase: SupabaseClient<Database>;
-  userId: string;
-};
+type ContentStaffAuthContextLocal = ContentStaffAuthContext;
 
 /**
  * Server-side dry-run for governorates — parse, validate, persist to import_jobs/import_errors.
  * Does not write to governorates or execute import.
  */
 export const dryRunGovernoratesImport = createServerFn({ method: "POST" })
-  .middleware([requireAdminAuth])
+  .middleware([requireContentStaffAuth])
   .inputValidator((input) => DryRunInput.parse(input))
   .handler(async ({ data, context }): Promise<GovernoratesDryRunApiResponse> => {
-    const { supabase, userId } = context as AdminAuthContext;
+    const { supabase, userId, isFullAdmin } =
+      context as ContentStaffAuthContextLocal;
+
+    assertImportJobAllowed(IMPORT_TYPE_STRUCTURE, isFullAdmin);
 
     const lowerName = data.fileName.toLowerCase();
     if (!lowerName.endsWith(".xlsx")) {

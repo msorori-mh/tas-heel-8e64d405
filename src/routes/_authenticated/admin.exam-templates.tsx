@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -31,8 +31,7 @@ type TemplateRow = ExamTemplateValue & {
 };
 
 function AdminExamTemplatesPage() {
-  const { isAdmin, loading } = useAuth();
-  const navigate = useNavigate();
+  const { loading, enabled } = useRequireAdminSection("content");
   const queryClient = useQueryClient();
 
   const [dialogState, setDialogState] = useState<
@@ -41,12 +40,6 @@ function AdminExamTemplatesPage() {
     | { kind: "edit"; tpl: ExamTemplateValue }
   >({ kind: "closed" });
   const [questionsFor, setQuestionsFor] = useState<{ id: string; title: string } | null>(null);
-
-  useEffect(() => {
-    if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
-  }, [loading, isAdmin, navigate]);
-
-  const enabled = !loading && isAdmin;
 
   const templatesQ = useQuery({
     enabled,
@@ -106,7 +99,7 @@ function AdminExamTemplatesPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!enabled) {
     return (
       <AdminLayout>
         <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
