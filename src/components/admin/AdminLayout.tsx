@@ -18,6 +18,8 @@ import {
   ClipboardList,
   FileSpreadsheet,
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { filterAdminSidebarLinks } from "@/lib/admin-route-access";
 import { Button } from "@/components/ui/button";
 
 type LinkItem = {
@@ -68,6 +70,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
+  const visibleLinks = filterAdminSidebarLinks(activeLinks, isAdmin);
   const currentPath = useRouterState({
     select: (s) => s.location.pathname,
   });
@@ -116,7 +120,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </div>
 
         <nav className="p-3 space-y-1">
-          {activeLinks.map((link) => {
+          {visibleLinks.map((link) => {
             const Icon = link.icon;
             const active = isActive(link.href, link.end);
             return (

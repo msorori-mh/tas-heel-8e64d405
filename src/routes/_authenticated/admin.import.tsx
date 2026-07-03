@@ -1,6 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { createFileRoute } from "@tanstack/react-router";
+import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,8 +13,8 @@ import {
 } from "@/components/ui/card";
 import {
   IMPORT_NOT_ENABLED_YET,
-  IMPORT_ORDER_GROUPS,
-  IMPORT_TEMPLATE_CATALOG,
+  getImportOrderGroupsForStaff,
+  getImportTemplatesForStaff,
   importTemplateDownloadUrl,
 } from "@/lib/import-template-catalog";
 import {
@@ -33,14 +32,9 @@ export const Route = createFileRoute("/_authenticated/admin/import")({
 });
 
 function AdminImportPage() {
-  const { isAdmin, loading } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!loading && !isAdmin) {
-      navigate({ to: "/app", replace: true });
-    }
-  }, [loading, isAdmin, navigate]);
+  const { loading, enabled, isAdmin } = useRequireAdminSection("content");
+  const templates = getImportTemplatesForStaff(isAdmin);
+  const orderGroups = getImportOrderGroupsForStaff(isAdmin);
 
   if (loading) {
     return (
@@ -52,7 +46,7 @@ function AdminImportPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!enabled) {
     return null;
   }
 
@@ -94,7 +88,7 @@ function AdminImportPage() {
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-foreground">قوالب الاستيراد</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {IMPORT_TEMPLATE_CATALOG.map((template) => (
+            {templates.map((template) => (
               <Card key={template.file} className="flex flex-col overflow-hidden">
                 <CardHeader className="space-y-3 pb-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -164,7 +158,7 @@ function AdminImportPage() {
             <h2 className="text-lg font-semibold text-foreground">ترتيب الاستيراد الموصى به</h2>
           </div>
           <ol className="grid gap-3 sm:grid-cols-2">
-            {IMPORT_ORDER_GROUPS.map((group) => (
+            {orderGroups.map((group) => (
               <li
                 key={group.range}
                 className="rounded-xl border border-border/50 bg-muted/30 px-4 py-3 text-sm"

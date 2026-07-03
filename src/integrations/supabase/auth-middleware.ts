@@ -101,5 +101,68 @@ export const requireAdminAuth = createMiddleware({ type: "function" })
       throw new Error("غير مصرح — صلاحيات الإدارة مطلوبة.");
     }
 
-    return next({ context });
+    return next({
+      context: {
+        ...context,
+        isFullAdmin: true,
+        isContentStaff: true,
+      },
+    });
+  });
+
+export type ContentStaffAuthContext = {
+  supabase: import("@supabase/supabase-js").SupabaseClient<Database>;
+  userId: string;
+  isFullAdmin: boolean;
+  isContentStaff: boolean;
+};
+
+/** Requires authenticated user with admin or content_manager role. */
+export const requireContentStaffAuth = createMiddleware({ type: "function" })
+  .middleware([requireSupabaseAuth])
+  .server(async ({ next, context }) => {
+    const { supabase, userId } = context as {
+      supabase: import("@supabase/supabase-js").SupabaseClient<Database>;
+      userId: string;
+    };
+
+    const { data: isAdmin, error: adminErr } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "admin",
+    });
+
+    if (adminErr) {
+      throw new Error("تعذر التحقق من صلاحيات الإدارة.");
+    }
+
+    if (isAdmin) {
+      return next({
+        context: {
+          ...context,
+          isFullAdmin: true,
+          isContentStaff: true,
+        },
+      });
+    }
+
+    const { data: isContentManager, error: cmErr } = await supabase.rpc(
+      "has_role",
+      { _user_id: userId, _role: "content_manager" },
+    );
+
+    if (cmErr) {
+      throw new Error("تعذر التحقق من صلاحيات إدارة المحتوى.");
+    }
+
+    if (!isContentManager) {
+      throw new Error("غير مصرح — صلاحيات إدارة المحتوى مطلوبة.");
+    }
+
+    return next({
+      context: {
+        ...context,
+        isFullAdmin: false,
+        isContentStaff: true,
+      },
+    });
   });

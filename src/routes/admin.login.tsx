@@ -22,7 +22,7 @@ export const Route = createFileRoute("/admin/login")({
 
 function AdminLoginPage() {
   const navigate = useNavigate();
-  const { session, isAdmin, loading } = useAuth();
+  const { session, isAdmin, isContentStaff, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -34,8 +34,12 @@ function AdminLoginPage() {
     if (loading) return;
     if (session && isAdmin) {
       navigate({ to: "/admin", replace: true });
+      return;
     }
-  }, [loading, session, isAdmin, navigate]);
+    if (session && isContentStaff) {
+      navigate({ to: "/admin/academic", replace: true });
+    }
+  }, [loading, session, isAdmin, isContentStaff, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,19 +59,27 @@ function AdminLoginPage() {
         return;
       }
 
-      const { data: adminCheck, error: roleErr } = await supabase.rpc(
-        "has_role",
-        { _user_id: userId, _role: "admin" },
-      );
-      if (roleErr) throw roleErr;
+      const [{ data: adminCheck, error: adminErr }, { data: cmCheck, error: cmErr }] =
+        await Promise.all([
+          supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+          supabase.rpc("has_role", {
+            _user_id: userId,
+            _role: "content_manager",
+          }),
+        ]);
+      if (adminErr) throw adminErr;
+      if (cmErr) throw cmErr;
 
-      if (!adminCheck) {
+      if (!adminCheck && !cmCheck) {
         await supabase.auth.signOut();
         setErr("هذا الحساب لا يملك صلاحية دخول لوحة الإدارة.");
         return;
       }
 
-      navigate({ to: "/admin", replace: true });
+      navigate({
+        to: adminCheck ? "/admin" : "/admin/academic",
+        replace: true,
+      });
     } catch (e) {
       setErr(translateAuthError(e));
     } finally {
@@ -105,7 +117,7 @@ function AdminLoginPage() {
 
         <h1 className="mt-3 text-xl font-bold">دخول لوحة الإدارة</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          هذه الصفحة مخصصة لحسابات الإدارة فقط.
+          هذه الصفحة مخصصة لحسابات الإدارة وإدارة المحتوى.
         </p>
 
         {forgotMode ? (

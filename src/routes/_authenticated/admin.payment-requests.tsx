@@ -1,8 +1,8 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -133,8 +133,7 @@ function ReceiptViewer({ path }: { path: string | null }) {
 }
 
 function AdminPaymentRequestsPage() {
-  const { isAdmin, loading } = useAuth();
-  const navigate = useNavigate();
+  const { loading, enabled } = useRequireAdminSection("full");
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<StatusFilter>("pending");
   const [actionFor, setActionFor] = useState<{ row: Row; kind: "approve" | "reject" } | null>(
@@ -143,12 +142,8 @@ function AdminPaymentRequestsPage() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!loading && !isAdmin) navigate({ to: "/app", replace: true });
-  }, [loading, isAdmin, navigate]);
-
   const q = useQuery({
-    enabled: !loading && isAdmin,
+    enabled,
     queryKey: ["admin-payment-requests", filter],
     queryFn: async () => {
       let req = supabase
@@ -207,7 +202,7 @@ function AdminPaymentRequestsPage() {
       </AdminLayout>
     );
   }
-  if (!isAdmin) return null;
+  if (!enabled) return null;
 
   const rows = q.data ?? [];
   const filters: { key: StatusFilter; label: string }[] = [

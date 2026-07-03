@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireAdminAuth } from "@/integrations/supabase/auth-middleware";
-import type { Database } from "@/integrations/supabase/types";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  requireContentStaffAuth,
+  type ContentStaffAuthContext,
+} from "@/integrations/supabase/auth-middleware";
 import {
   pickSafeJobMetadata,
   type ImportJobHistoryItem,
@@ -9,11 +10,6 @@ import {
 } from "./import-jobs-history.types";
 
 const HISTORY_LIMIT = 10;
-
-type AdminAuthContext = {
-  supabase: SupabaseClient<Database>;
-  userId: string;
-};
 
 const IMPORT_JOBS_LIST_COLUMNS =
   "id, created_at, completed_at, import_type, template_key, mode, status, original_filename, total_rows, valid_rows, invalid_rows, warning_rows, inserted_count, updated_count, skipped_count, metadata";
@@ -23,9 +19,9 @@ const IMPORT_JOBS_LIST_COLUMNS =
  * Does not query import_errors or row_data.
  */
 export const listRecentImportJobs = createServerFn({ method: "GET" })
-  .middleware([requireAdminAuth])
+  .middleware([requireContentStaffAuth])
   .handler(async ({ context }): Promise<ImportJobsHistoryResponse> => {
-    const { supabase } = context as AdminAuthContext;
+    const { supabase } = context as ContentStaffAuthContext;
 
     const { data, error } = await supabase
       .from("import_jobs")

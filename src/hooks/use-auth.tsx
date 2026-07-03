@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { deriveAuthRoles } from "@/lib/auth-roles";
 
 export type Profile = {
   id: string;
@@ -29,6 +30,8 @@ type AuthCtx = {
   user: User | null;
   profile: Profile | null;
   isAdmin: boolean;
+  isContentManager: boolean;
+  isContentStaff: boolean;
   profileComplete: boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -50,6 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isContentManager, setIsContentManager] = useState(false);
+  const [isContentStaff, setIsContentStaff] = useState(false);
 
   const loadProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
@@ -61,11 +66,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
     setProfile((data as Profile | null) ?? null);
 
-    const { data: adminCheck } = await supabase.rpc("has_role", {
-      _user_id: userId,
-      _role: "admin",
+    const [{ data: adminCheck }, { data: contentManagerCheck }] =
+      await Promise.all([
+        supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+        supabase.rpc("has_role", {
+          _user_id: userId,
+          _role: "content_manager",
+        }),
+      ]);
+    const roles = deriveAuthRoles({
+      hasAdmin: Boolean(adminCheck),
+      hasContentManager: Boolean(contentManagerCheck),
     });
-    setIsAdmin(Boolean(adminCheck));
+    setIsAdmin(roles.isAdmin);
+    setIsContentManager(roles.isContentManager);
+    setIsContentStaff(roles.isContentStaff);
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -82,6 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === "SIGNED_OUT" || !sess?.user) {
         setProfile(null);
         setIsAdmin(false);
+        setIsContentManager(false);
+        setIsContentStaff(false);
       } else {
         setTimeout(() => {
           loadProfile(sess.user.id).catch(console.error);
@@ -119,6 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: session?.user ?? null,
         profile,
         isAdmin,
+        isContentManager,
+        isContentStaff,
         profileComplete: computeComplete(profile),
         refreshProfile,
         signOut,

@@ -1,6 +1,5 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -18,16 +17,7 @@ export const Route = createFileRoute("/_authenticated/admin/academic")({
 });
 
 function AdminAcademicPage() {
-  const { isAdmin, loading } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!loading && !isAdmin) {
-      navigate({ to: "/app", replace: true });
-    }
-  }, [loading, isAdmin, navigate]);
-
-  const enabled = !loading && isAdmin;
+  const { loading, enabled } = useRequireAdminSection("content");
 
   const gradesQ = useQuery({
     enabled,
@@ -134,7 +124,7 @@ function AdminAcademicPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!enabled) {
     return (
       <AdminLayout>
         <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">

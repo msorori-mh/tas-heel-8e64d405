@@ -111,6 +111,27 @@ export const IMPORT_NOT_ENABLED_YET = [
   "سجل عمليات الاستيراد",
 ] as const;
 
+export const FINANCIAL_IMPORT_ORDERS = [11, 12] as const;
+
+export const CONTENT_STAFF_IMPORT_ORDERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+
+export function getImportTemplatesForStaff(isFullAdmin: boolean): ImportTemplateMeta[] {
+  if (isFullAdmin) return IMPORT_TEMPLATE_CATALOG;
+  return IMPORT_TEMPLATE_CATALOG.filter(
+    (template) =>
+      !FINANCIAL_IMPORT_ORDERS.includes(
+        template.order as (typeof FINANCIAL_IMPORT_ORDERS)[number],
+      ),
+  );
+}
+
+export function getImportOrderGroupsForStaff(
+  isFullAdmin: boolean,
+): typeof IMPORT_ORDER_GROUPS {
+  if (isFullAdmin) return IMPORT_ORDER_GROUPS;
+  return IMPORT_ORDER_GROUPS.filter((group) => group.range !== "11–12");
+}
+
 export function importTemplateDownloadUrl(file: string): string {
   return `/import-templates/${file}`;
 }

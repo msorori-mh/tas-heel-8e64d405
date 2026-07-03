@@ -3,7 +3,7 @@ import { BookOpen, LogOut, Shield, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 export function StudentNav() {
-  const { signOut, isAdmin } = useAuth();
+  const { signOut, isAdmin, isContentStaff } = useAuth();
   const navigate = useNavigate();
   return (
     <header className="sticky top-0 z-30 border-b border-primary/10 bg-card/95 backdrop-blur-md shadow-elevated">
@@ -22,9 +22,9 @@ export function StudentNav() {
           >
             الرئيسية
           </Link>
-          {isAdmin && (
+          {isContentStaff && (
             <Link
-              to="/admin"
+              to={isAdmin ? "/admin" : "/admin/academic"}
               className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
               activeProps={{ className: "text-primary font-semibold" }}
             >
