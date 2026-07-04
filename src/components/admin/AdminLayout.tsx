@@ -17,6 +17,7 @@ import {
   LogOut,
   ClipboardList,
   FileSpreadsheet,
+  UserCog,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { filterAdminSidebarLinks } from "@/lib/admin-route-access";
@@ -26,6 +27,7 @@ type LinkItem = {
   href:
     | "/admin"
     | "/admin/students"
+    | "/admin/users"
     | "/admin/academic"
     | "/admin/subjects"
     | "/admin/units"
@@ -47,6 +49,7 @@ type DisabledItem = {
 const activeLinks: LinkItem[] = [
   { href: "/admin", label: "لوحة الإدارة", icon: LayoutDashboard, end: true },
   { href: "/admin/students", label: "الطلاب", icon: Users },
+  { href: "/admin/users", label: "المستخدمون والصلاحيات", icon: UserCog },
   { href: "/admin/academic", label: "المحتوى الدراسي", icon: BookOpen },
   { href: "/admin/subjects", label: "المواد", icon: BookOpen },
   { href: "/admin/units", label: "الوحدات", icon: Layers },

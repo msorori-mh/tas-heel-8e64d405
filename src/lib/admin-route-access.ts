@@ -16,6 +16,7 @@ export const CONTENT_MANAGER_ADMIN_PATHS = [
 export const FULL_ADMIN_ONLY_ADMIN_PATHS = [
   "/admin",
   "/admin/students",
+  "/admin/users",
   "/admin/payment-requests",
 ] as const;
 
@@ -35,6 +36,7 @@ export function canAccessAdminPath(
   if (!flags.isContentStaff) return false;
   if (path === "/admin" || path === "/admin/") return false;
   if (path.startsWith("/admin/students")) return false;
+  if (path.startsWith("/admin/users")) return false;
   if (path.startsWith("/admin/payment-requests")) return false;
   return isContentManagerAdminPath(path);
 }
@@ -43,6 +45,7 @@ type SidebarLink = {
   href:
     | "/admin"
     | "/admin/students"
+    | "/admin/users"
     | "/admin/academic"
     | "/admin/subjects"
     | "/admin/units"
@@ -64,6 +67,7 @@ export function filterAdminSidebarLinks<T extends SidebarLink>(
     (link) =>
       link.href !== "/admin" &&
       link.href !== "/admin/students" &&
+      link.href !== "/admin/users" &&
       link.href !== "/admin/payment-requests",
   );
 }
