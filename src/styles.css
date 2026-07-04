@@ -6,8 +6,9 @@
 
 /*
  * تمكين طلاب الثانوية — homepage & shared tokens.
- * Primary #1E2A78 · Secondary #14B8A6 · Accent #F59E0B
+ * Electric Youth palette: Primary #5B4BFF · Accent #FF6B4A · Secondary #22D3EE · Gold #FBBF24
  */
+
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
