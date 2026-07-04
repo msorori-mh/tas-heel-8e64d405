@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { ImportDryRunGovernorates } from "@/components/admin/ImportDryRunGovernorates";
 import { ImportJobsHistory } from "@/components/admin/ImportJobsHistory";
+import { ContentImportDryRunPanel } from "@/components/admin/ContentImportDryRunPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/import")({
   component: AdminImportPage,
@@ -79,7 +80,8 @@ function AdminImportPage() {
               <p className="font-medium text-foreground">تنبيه — المرحلة الحالية</p>
               <ul className="space-y-1 text-muted-foreground list-none ps-0">
                 <li>• القوالب متاحة للتحميل حالياً.</li>
-                <li>• تجربة المعاينة الجافة متاحة لقالب المحافظات فقط (قراءة محلية).</li>
+                <li>• فحص Dry-run لقوالب محتوى الدروس 01–09 متاح (بدون كتابة في قاعدة البيانات).</li>
+                <li>• تجربة المعاينة الجافة متاحة لقالب المحافظات أيضاً.</li>
                 <li>• التنفيذ في قاعدة البيانات غير مفعّل في هذه المرحلة.</li>
                 <li>• لا يتم تعديل أي بيانات من هذه الصفحة.</li>
               </ul>
@@ -101,18 +103,20 @@ function AdminImportPage() {
               <Badge variant="secondary" className="text-[11px]">قوالب 01–09</Badge>
             </div>
             <p className="text-sm leading-relaxed text-muted-foreground max-w-3xl">
-              هذه القوالب مخصصة لإعداد محتوى الدروس دفعة واحدة. ابدأ بدرس واحد كتجربة، ثم
-              سنفعّل Dry-run في المرحلة التالية.
+              هذه القوالب مخصصة لإعداد محتوى الدروس دفعة واحدة. ابدأ بدرس واحد كتجربة،
+              ثم استخدم «فحص ملف قبل الاستيراد» للتحقق قبل التنفيذ الفعلي لاحقاً.
             </p>
           </div>
 
+          <ContentImportDryRunPanel />
+
           <div
             role="alert"
-            className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm"
+            className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm"
           >
-            <p className="font-medium text-foreground">الرفع والتحقق والتنفيذ الفعلي غير مفعّل في هذه المرحلة.</p>
+            <p className="font-medium text-foreground">التنفيذ الفعلي غير مفعّل</p>
             <p className="mt-1 text-muted-foreground text-xs">
-              سيتم تفعيل التحقق Dry-run في المرحلة التالية — التنزيل والتعبئة فقط الآن.
+              Dry-run يتحقق من الملف فقط — لا يُكتب أي محتوى في قاعدة البيانات.
             </p>
           </div>
 
