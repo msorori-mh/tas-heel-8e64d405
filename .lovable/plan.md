@@ -1,30 +1,56 @@
-## المطلوب
-مزامنة مشروع Lovable مع آخر commit على GitHub `main`، ثم تشغيل Preview فقط للتحقق البصري — بدون Publish وبدون أي تعديل كود أو migration.
+## الهدف
+استبدال اللوحة الحالية (إندي غامق #1E2A78 بارد ورسمي) بلوحة **حيوية شبابية** تناسب أعمار 15–18 دون تغيير أي منطق أو هيكل — تعديل رموز الألوان (design tokens) فقط في `src/styles.css`.
 
-## الخطوات
+## اللوحة المقترحة: "Electric Youth" (طاقة شبابية)
 
-1. **تحديد الـ repo الفعلي المرتبط بـ Lovable حالياً**
-   - قراءة `git remote -v` وسجل آخر commits من داخل الـ sandbox لمعرفة أين يشير `origin`.
-   - ملاحظة: بحسب آخر قرار متفق عليه، Source of Truth الرسمي هو `msorori-mh/qconcursos-unlocked` والمزامنة معه **يدوية**. لذلك "GitHub main" هنا = فرع `main` للـ repo المرتبط فعلياً بـ Lovable.
+| الدور | اللون | الوصف |
+|---|---|---|
+| Primary (أساسي) | `#5B4BFF` | بنفسجي-إندي كهربائي — يوحي بالطموح والحداثة، أكثر حيوية من الإندي الغامق الحالي |
+| Primary Glow | `#8B7BFF` | إشراقة للـ gradients |
+| Accent (لهجة) | `#FF6B4A` | مرجاني/برتقالي دافئ — يجذب النظر ويعطي طاقة إيجابية |
+| Secondary | `#22D3EE` | سماوي كهربائي — للأزرار الثانوية والشارات |
+| Success | `#22C55E` | أخضر حيوي واضح |
+| Warning/Gold | `#FBBF24` | ذهبي دافئ للإنجازات والنجوم |
+| Background | `#FAFAFF` | أوف-وايت بلمسة بنفسجية خفيفة |
+| Foreground | `#0F0B2E` | ليلي عميق للنصوص (تباين AAA) |
+| Card | `#FFFFFF` | بطاقات نظيفة |
+| Muted | `#F1F0FA` | مساحات هادئة |
 
-2. **التحقق من حالة المزامنة**
-   - مقارنة آخر commit في الـ sandbox مع آخر commit على `origin/main`.
-   - إن كان الـ sandbox متأخراً: الإشارة إلى ذلك في التقرير (لا يستطيع الـ agent تنفيذ pull/merge/checkout — هذه أوامر git محظورة، وتتم عبر واجهة Lovable "Sync with GitHub").
+**Gradients جاهزة:**
+- `--gradient-hero`: `linear-gradient(135deg, #5B4BFF 0%, #8B7BFF 50%, #22D3EE 100%)`
+- `--gradient-accent`: `linear-gradient(135deg, #FF6B4A 0%, #FBBF24 100%)`
 
-3. **تشغيل Preview فقط (Read-Only)**
-   - التأكد من أن dev server يعمل عبر فتح `/` و `/admin/login` والتقاط لقطات شاشة بـ Playwright.
-   - قراءة console/network للتأكد من عدم وجود أخطاء runtime.
-   - **لا publish**، لا استدعاء لـ `preview_ui--publish`.
+**لماذا تناسب الفئة 15–18؟**
+- البنفسجي الكهربائي = هوية Gen-Z (Discord/Twitch/ألعاب) لكن ناضج بما يكفي لسياق تعليمي.
+- المرجاني كـ accent يكسر برودة الإندي ويعطي دفء ومرح.
+- السماوي يذكّر بالتقنية والابتكار.
+- الذهبي يحفّز الشعور بالإنجاز في شاشات التقدم والاختبارات.
 
-4. **التقرير النهائي**
-   يشمل:
-   - آخر commit على `origin/main` للـ repo المرتبط.
-   - آخر commit في الـ sandbox + هل هما متطابقان.
-   - نتيجة فتح Preview (`/`, `/admin/login`) + أي أخطاء console.
-   - القرار: `SYNC_PREVIEW_OK` أو `SYNC_LAG_DETECTED` (يتطلب Sync يدوي من واجهة Lovable) أو `PREVIEW_RUNTIME_ERROR`.
+## الملفات المستهدفة (تعديل tokens فقط)
+
+- `src/styles.css` — تحديث `:root` tokens: `--primary`, `--primary-glow`, `--accent`, `--secondary`, `--background`, gradients، و`--shadow-*` الملوّنة. الحفاظ على أسماء الـ tokens كما هي بحيث لا يحتاج أي component تعديل.
 
 ## قيود صارمة
-- بدون تعديل ملفات.
-- بدون migration.
-- بدون publish.
-- بدون git write commands.
+
+- ❌ لا تغيير للنصوص (تمكين طلاب الثانوية، شعارات، محتوى).
+- ❌ لا تعديل لأي component `.tsx`.
+- ❌ لا migrations، لا Supabase، لا auth/RBAC/OAuth.
+- ❌ لا publish/deploy — تعديل + Preview فقط.
+- ✅ تعديل `src/styles.css` فقط.
+- ✅ التحقق البصري عبر Playwright على `/`, `/auth`, `/admin/login`.
+
+## خطوات التنفيذ
+
+1. قراءة `src/styles.css` الحالي لتحديد أسماء الـ tokens وصيغتها (HSL/OKLCH/HEX).
+2. تحديث قيم الـ tokens في `:root` (والوضع الليلي إن وُجد) بالقيم أعلاه محوَّلة إلى نفس الصيغة المستخدمة.
+3. تحديث الـ gradients والـ shadows المرتبطة بـ primary.
+4. تشغيل Preview + التقاط لقطات `/` و `/auth?mode=login` و `/admin/login`.
+5. التقرير: مقارنة قبل/بعد + تأكيد عدم كسر الهوية النصية.
+
+## تقرير متوقع
+- ✅ اللوحة الجديدة مطبقة.
+- ✅ النصوص الهوية (تمكين طلاب الثانوية، الاختبارات الوزارية…) كما هي.
+- ✅ لقطات `/`, `/auth`, `/admin/login`.
+- ❌ لا publish.
+
+هل توافق على هذه اللوحة، أم تفضل لوحة أخرى (مثلاً: نعناع مستقبلي #10B981، أو غروب دافئ #FF6B35 + #EC4899)؟
