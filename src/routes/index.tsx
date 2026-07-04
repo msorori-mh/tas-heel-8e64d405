@@ -138,12 +138,13 @@ function HeroSection() {
           </div>
 
 
-          <div className="order-1 md:order-2 flex justify-center">
+          <div className="relative order-1 md:order-2 flex justify-center">
             <div className="relative w-full max-w-[280px] sm:max-w-xs md:max-w-sm">
               <div
-                className="absolute inset-0 bg-hero-gradient opacity-15 blur-3xl rounded-full"
+                className="absolute inset-0 bg-white/20 blur-3xl rounded-full"
                 aria-hidden
               />
+
               <img
                 src={heroStudent}
                 alt="طالب ثانوي يذاكر عبر المنصة"
