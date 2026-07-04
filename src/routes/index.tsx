@@ -97,37 +97,39 @@ function HeroSection() {
       </div>
 
       <div className="container relative mx-auto max-w-5xl">
-        <div className="surface-featured grid items-center gap-6 p-6 md:grid-cols-2 md:gap-10 md:p-8">
-          <div className="text-center md:text-right order-2 md:order-1">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-card/90 backdrop-blur-sm px-3 py-1 mb-3 text-xs font-medium text-primary shadow-card">
+        <div className="relative overflow-hidden rounded-3xl bg-hero-gradient shadow-card-hover grid items-center gap-6 p-6 md:grid-cols-2 md:gap-10 md:p-10">
+          <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-white/10 blur-3xl pointer-events-none" aria-hidden />
+          <div className="absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-accent/25 blur-3xl pointer-events-none" aria-hidden />
+
+          <div className="relative text-center md:text-right order-2 md:order-1">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/15 backdrop-blur-sm px-3 py-1 mb-3 text-xs font-medium text-white shadow-card">
               <Sparkles className="h-3.5 w-3.5" />
               تمكين طلاب الثانوية
             </div>
 
-            <p className="mb-4 text-sm font-semibold text-secondary">
+            <p className="mb-4 text-sm font-semibold text-white/90">
               منصتك الذكية للاستعداد للثانوية والاختبارات الوزارية
             </p>
 
-            <h1 className="text-display mb-4 text-foreground">
+            <h1 className="text-display mb-4 text-white">
               طريقك المنظم للتفوّق في الثانوية
             </h1>
 
-            <p className="text-body-lg mx-auto md:mx-0 mb-6 max-w-lg text-muted-foreground">
+            <p className="text-body-lg mx-auto md:mx-0 mb-6 max-w-lg text-white/85">
               منصة تعليمية تساعد طلاب الثانوية على المذاكرة، مراجعة الدروس، حل
               الاختبارات، والتدرب على نماذج تناسب الصف والمنهج والمحافظة.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
               <Link to="/auth" search={{ mode: "signup" }} className="w-full sm:w-auto">
-                <Button size="lg" variant="hero" className="w-full sm:w-auto gap-2 px-6 py-5">
+                <Button size="lg" className="w-full sm:w-auto gap-2 px-6 py-5 bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
                   ابدأ الآن
                 </Button>
               </Link>
               <Link to="/auth" search={{ mode: "login" }} className="w-full sm:w-auto">
                 <Button
                   size="lg"
-                  variant="outline"
-                  className="w-full sm:w-auto gap-2 px-6 py-5 border-secondary/40 text-foreground hover:bg-secondary/10"
+                  className="w-full sm:w-auto gap-2 px-6 py-5 bg-secondary text-secondary-foreground hover:bg-secondary/90 shadow-lg"
                 >
                   تسجيل الدخول
                 </Button>
@@ -135,12 +137,14 @@ function HeroSection() {
             </div>
           </div>
 
-          <div className="order-1 md:order-2 flex justify-center">
+
+          <div className="relative order-1 md:order-2 flex justify-center">
             <div className="relative w-full max-w-[280px] sm:max-w-xs md:max-w-sm">
               <div
-                className="absolute inset-0 bg-hero-gradient opacity-15 blur-3xl rounded-full"
+                className="absolute inset-0 bg-white/20 blur-3xl rounded-full"
                 aria-hidden
               />
+
               <img
                 src={heroStudent}
                 alt="طالب ثانوي يذاكر عبر المنصة"
