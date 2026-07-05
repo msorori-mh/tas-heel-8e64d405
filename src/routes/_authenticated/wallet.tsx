@@ -70,12 +70,25 @@ type TopupRequest = {
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const MAX_MB = 8;
 
+function todayDateInputMax(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 const topupSchema = z.object({
   payment_method_id: z.string().uuid({ message: "اختر طريقة الدفع" }),
   sender_name: z.string().trim().min(2, "اسم المرسل قصير").max(120),
   sender_account: z.string().trim().max(120).optional(),
   transaction_reference: z.string().trim().max(80).optional(),
-  payment_date: z.string().min(1, "تاريخ التحويل مطلوب"),
+  payment_date: z
+    .string()
+    .min(1, "تاريخ التحويل مطلوب")
+    .refine((d) => d <= todayDateInputMax(), {
+      message: "لا يمكن أن يكون تاريخ التحويل في المستقبل.",
+    }),
   amount: z.number().positive("المبلغ غير صالح"),
   receipt_path: z.string().min(1, "صورة السند مطلوبة"),
 });
@@ -400,10 +413,54 @@ function WalletPage() {
             submitTopup.mutate();
           }}
         >
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            ارفع صورة إيصال التحويل أولاً. الاستخلاص التلقائي من الإيصال غير مفعّل حالياً،
-            لذلك يرجى إدخال بيانات الحوالة يدوياً.
-          </p>
+          <section className="space-y-3">
+            <Label className="text-sm font-semibold">طريقة الدفع إلى المحفظة</Label>
+            <div className="space-y-2">
+              {(methodsQ.data ?? []).map((m) => (
+                <label
+                  key={m.id}
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
+                    methodId === m.id
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="method"
+                    value={m.id}
+                    checked={methodId === m.id}
+                    onChange={() => setMethodId(m.id)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{m.name}</p>
+                    {m.account_name && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        اسم الحساب: <span className="text-foreground">{m.account_name}</span>
+                      </p>
+                    )}
+                    {m.account_number && (
+                      <p className="text-xs text-muted-foreground mt-0.5" dir="ltr">
+                        رقم الحساب: <span className="text-foreground">{m.account_number}</span>
+                      </p>
+                    )}
+                    {m.details && (
+                      <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-line">
+                        {m.details}
+                      </p>
+                    )}
+                  </div>
+                </label>
+              ))}
+              {methodsQ.isLoading && (
+                <StateMessage variant="loading">جارٍ تحميل طرق الدفع…</StateMessage>
+              )}
+              {!methodsQ.isLoading && (methodsQ.data ?? []).length === 0 && (
+                <p className="text-xs text-muted-foreground">لا توجد طرق دفع متاحة.</p>
+              )}
+            </div>
+          </section>
 
           <section className="space-y-3">
             <Label className="text-sm font-semibold">إيصال التحويل</Label>
@@ -456,56 +513,11 @@ function WalletPage() {
           </section>
 
           <section className="space-y-3">
-            <Label className="text-sm font-semibold">طريقة الدفع</Label>
-            <div className="space-y-2">
-              {(methodsQ.data ?? []).map((m) => (
-                <label
-                  key={m.id}
-                  className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
-                    methodId === m.id
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/40"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="method"
-                    value={m.id}
-                    checked={methodId === m.id}
-                    onChange={() => setMethodId(m.id)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{m.name}</p>
-                    {m.account_name && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        اسم الحساب: <span className="text-foreground">{m.account_name}</span>
-                      </p>
-                    )}
-                    {m.account_number && (
-                      <p className="text-xs text-muted-foreground mt-0.5" dir="ltr">
-                        رقم الحساب: <span className="text-foreground">{m.account_number}</span>
-                      </p>
-                    )}
-                    {m.details && (
-                      <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-line">
-                        {m.details}
-                      </p>
-                    )}
-                  </div>
-                </label>
-              ))}
-              {methodsQ.isLoading && (
-                <StateMessage variant="loading">جارٍ تحميل طرق الدفع…</StateMessage>
-              )}
-              {!methodsQ.isLoading && (methodsQ.data ?? []).length === 0 && (
-                <p className="text-xs text-muted-foreground">لا توجد طرق دفع متاحة.</p>
-              )}
-            </div>
-          </section>
-
-          <section className="space-y-3">
             <Label className="text-sm font-semibold">بيانات الحوالة</Label>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              بعد قراءة الإيصال ستظهر البيانات هنا تلقائياً عند تفعيل الميزة. حالياً يرجى
+              إدخال البيانات يدوياً ومراجعتها قبل إرسال الطلب.
+            </p>
             <div className="space-y-3">
               <div>
                 <Label htmlFor="amount" className="text-xs">
@@ -569,7 +581,15 @@ function WalletPage() {
                   id="pay_date"
                   type="date"
                   value={payDate}
-                  onChange={(e) => setPayDate(e.target.value)}
+                  max={todayDateInputMax()}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val && val > todayDateInputMax()) {
+                      toast.error("لا يمكن أن يكون تاريخ التحويل في المستقبل.");
+                      return;
+                    }
+                    setPayDate(val);
+                  }}
                   required
                 />
               </div>
@@ -579,7 +599,14 @@ function WalletPage() {
           <Button
             type="submit"
             className="w-full gap-1"
-            disabled={submitTopup.isPending || uploading || !receiptPath || !methodId}
+            disabled={
+              submitTopup.isPending ||
+              uploading ||
+              !receiptPath ||
+              !methodId ||
+              !payDate ||
+              payDate > todayDateInputMax()
+            }
           >
             {submitTopup.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             إرسال طلب الشحن
