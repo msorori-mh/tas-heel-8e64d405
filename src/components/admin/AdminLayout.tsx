@@ -18,6 +18,7 @@ import {
   ClipboardList,
   FileSpreadsheet,
   UserCog,
+  Wallet,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { filterAdminSidebarLinks } from "@/lib/admin-route-access";
@@ -35,7 +36,8 @@ type LinkItem = {
     | "/admin/questions"
     | "/admin/exam-templates"
     | "/admin/import"
-    | "/admin/payment-requests";
+    | "/admin/payment-requests"
+    | "/admin/wallet-topups";
   label: string;
   icon: typeof LayoutDashboard;
   end?: boolean;
@@ -58,6 +60,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/exam-templates", label: "قوالب الاختبارات", icon: ClipboardList },
   { href: "/admin/import", label: "الاستيراد", icon: FileSpreadsheet },
   { href: "/admin/payment-requests", label: "طلبات الدفع", icon: CreditCard },
+  { href: "/admin/wallet-topups", label: "طلبات شحن المحفظة", icon: Wallet },
 ];
 
 const upcomingLinks: DisabledItem[] = [
