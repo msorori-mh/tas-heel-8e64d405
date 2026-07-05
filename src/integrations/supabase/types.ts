@@ -1960,6 +1960,100 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_topup_requests: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          created_at: string
+          credited_transaction_id: string | null
+          currency: string
+          fraud_flags: Json
+          id: string
+          payment_date: string | null
+          payment_method_id: string
+          receipt_hash: string | null
+          receipt_path: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sender_account: string | null
+          sender_name: string | null
+          status: string
+          transaction_reference: string | null
+          updated_at: string
+          user_id: string
+          wallet_account_id: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount: number
+          created_at?: string
+          credited_transaction_id?: string | null
+          currency?: string
+          fraud_flags?: Json
+          id?: string
+          payment_date?: string | null
+          payment_method_id: string
+          receipt_hash?: string | null
+          receipt_path: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sender_account?: string | null
+          sender_name?: string | null
+          status?: string
+          transaction_reference?: string | null
+          updated_at?: string
+          user_id: string
+          wallet_account_id?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          amount?: number
+          created_at?: string
+          credited_transaction_id?: string | null
+          currency?: string
+          fraud_flags?: Json
+          id?: string
+          payment_date?: string | null
+          payment_method_id?: string
+          receipt_hash?: string | null
+          receipt_path?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sender_account?: string | null
+          sender_name?: string | null
+          status?: string
+          transaction_reference?: string | null
+          updated_at?: string
+          user_id?: string
+          wallet_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_topup_requests_credited_transaction_id_fkey"
+            columns: ["credited_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_topup_requests_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_topup_requests_wallet_account_id_fkey"
+            columns: ["wallet_account_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wallet_transactions: {
         Row: {
           amount: number
@@ -2103,10 +2197,28 @@ export type Database = {
         Args: { _admin_notes?: string; _request_id: string }
         Returns: Json
       }
+      approve_wallet_topup_request: {
+        Args: { p_admin_notes?: string; p_request_id: string }
+        Returns: Json
+      }
       can_access_lesson: { Args: { _lesson_id: string }; Returns: boolean }
       can_access_subject: { Args: { _subject_id: string }; Returns: boolean }
       check_lesson_question: {
         Args: { _question_id: string; _selected_index: number }
+        Returns: Json
+      }
+      create_wallet_topup_request: {
+        Args: {
+          p_amount: number
+          p_currency?: string
+          p_payment_date?: string
+          p_payment_method_id: string
+          p_receipt_hash?: string
+          p_receipt_path: string
+          p_sender_account?: string
+          p_sender_name?: string
+          p_transaction_reference?: string
+        }
         Returns: Json
       }
       create_wallet_transaction: {
@@ -2265,6 +2377,10 @@ export type Database = {
       refresh_dashboard_stats: { Args: never; Returns: undefined }
       reject_payment_request: {
         Args: { _admin_notes?: string; _request_id: string }
+        Returns: Json
+      }
+      reject_wallet_topup_request: {
+        Args: { p_rejection_reason: string; p_request_id: string }
         Returns: Json
       }
       start_exam_session: { Args: { _template_id: string }; Returns: string }
