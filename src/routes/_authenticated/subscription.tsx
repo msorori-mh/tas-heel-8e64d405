@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,7 +66,6 @@ function durationLabel(p: Plan) {
 function SubscriptionPage() {
   const { user, profile } = useAuth();
   const qc = useQueryClient();
-  const navigate = useNavigate();
   const [payingId, setPayingId] = useState<string | null>(null);
 
   const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
@@ -263,13 +262,11 @@ function SubscriptionPage() {
                         {(Number(p.price) - balance).toLocaleString("ar-EG")}{" "}
                         {p.currency} إضافية.
                       </div>
-                      <Button
-                        variant="outline"
-                        className="w-full gap-1"
-                        onClick={() => navigate({ to: "/payments/new" })}
-                      >
-                        <WalletIcon className="h-4 w-4" />
-                        شحن الرصيد
+                      <Button asChild variant="outline" className="w-full gap-1">
+                        <Link to="/wallet" hash="topup">
+                          <WalletIcon className="h-4 w-4" />
+                          اشحن المحفظة
+                        </Link>
                       </Button>
                     </div>
                   )}
