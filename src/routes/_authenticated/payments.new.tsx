@@ -337,7 +337,11 @@ function NewPaymentRequestPage() {
       <header className="space-y-1">
         <h1 className="text-lg font-bold text-foreground">رفع إيصال دفع جديد</h1>
         <p className="text-xs text-muted-foreground">
-          أرسل تفاصيل الحوالة وصورة السند، وستراجعها الإدارة قبل تفعيل اشتراكك.
+          مسار قديم — لشحن المحفظة استخدم{" "}
+          <Link to="/wallet" hash="topup" className="text-primary hover:underline">
+            صفحة المحفظة
+          </Link>
+          . هذا النموذج يرسل طلب دفع مرتبطاً باشتراك (legacy).
         </p>
       </header>
 
