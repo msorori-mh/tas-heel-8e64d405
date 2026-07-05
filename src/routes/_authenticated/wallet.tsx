@@ -150,6 +150,7 @@ function WalletPage() {
   const [payDate, setPayDate] = useState("");
   const [amount, setAmount] = useState("");
   const [receiptPath, setReceiptPath] = useState("");
+  const [receiptFileName, setReceiptFileName] = useState("");
   const [uploading, setUploading] = useState(false);
 
   const wallet = useQuery({
@@ -252,11 +253,13 @@ function WalletPage() {
       return;
     }
     setReceiptPath(path);
+    setReceiptFileName(file.name);
     toast.success("تم رفع الإيصال.");
   };
 
   const clearReceipt = () => {
     setReceiptPath("");
+    setReceiptFileName("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -397,6 +400,61 @@ function WalletPage() {
             submitTopup.mutate();
           }}
         >
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            ارفع صورة إيصال التحويل أولاً. الاستخلاص التلقائي من الإيصال غير مفعّل حالياً،
+            لذلك يرجى إدخال بيانات الحوالة يدوياً.
+          </p>
+
+          <section className="space-y-3">
+            <Label className="text-sm font-semibold">إيصال التحويل</Label>
+            {receiptPath ? (
+              <div className="space-y-2">
+                <p className="text-xs text-foreground">
+                  تم اختيار الإيصال:{" "}
+                  <span className="font-medium" dir="ltr">
+                    {receiptFileName || receiptPath.split("/").pop()}
+                  </span>
+                </p>
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-2">
+                  <FileText className="h-4 w-4 shrink-0 text-primary" />
+                  <span className="flex-1 truncate text-xs text-muted-foreground" dir="ltr">
+                    {receiptPath.split("/").pop()}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={clearReceipt}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => !uploading && fileInputRef.current?.click()}
+                className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-border p-6 transition-colors hover:border-primary/50 hover:bg-muted/30"
+              >
+                {uploading ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                ) : (
+                  <Upload className="h-6 w-6 text-muted-foreground" />
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {uploading ? "جارٍ الرفع…" : "اضغط لرفع الإيصال (PDF/JPG/PNG، حتى 8MB)"}
+                </span>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ALLOWED_MIME.join(",")}
+              className="hidden"
+              onChange={handleUpload}
+            />
+          </section>
+
           <section className="space-y-3">
             <Label className="text-sm font-semibold">طريقة الدفع</Label>
             <div className="space-y-2">
@@ -450,6 +508,21 @@ function WalletPage() {
             <Label className="text-sm font-semibold">بيانات الحوالة</Label>
             <div className="space-y-3">
               <div>
+                <Label htmlFor="amount" className="text-xs">
+                  المبلغ
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
                 <Label htmlFor="sender_name" className="text-xs">
                   اسم المرسل
                 </Label>
@@ -488,72 +561,19 @@ function WalletPage() {
                   placeholder="TXN-..."
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="pay_date" className="text-xs">
-                    تاريخ التحويل
-                  </Label>
-                  <Input
-                    id="pay_date"
-                    type="date"
-                    value={payDate}
-                    onChange={(e) => setPayDate(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="amount" className="text-xs">
-                    المبلغ
-                  </Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    required
-                  />
-                </div>
+              <div>
+                <Label htmlFor="pay_date" className="text-xs">
+                  تاريخ التحويل
+                </Label>
+                <Input
+                  id="pay_date"
+                  type="date"
+                  value={payDate}
+                  onChange={(e) => setPayDate(e.target.value)}
+                  required
+                />
               </div>
             </div>
-          </section>
-
-          <section className="space-y-3">
-            <Label className="text-sm font-semibold">إيصال التحويل</Label>
-            {receiptPath ? (
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-2">
-                <FileText className="h-4 w-4 shrink-0 text-primary" />
-                <span className="flex-1 truncate text-xs text-muted-foreground" dir="ltr">
-                  {receiptPath.split("/").pop()}
-                </span>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={clearReceipt}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <div
-                onClick={() => !uploading && fileInputRef.current?.click()}
-                className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-border p-6 transition-colors hover:border-primary/50 hover:bg-muted/30"
-              >
-                {uploading ? (
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                ) : (
-                  <Upload className="h-6 w-6 text-muted-foreground" />
-                )}
-                <span className="text-xs text-muted-foreground">
-                  {uploading ? "جارٍ الرفع…" : "اضغط لرفع الإيصال (PDF/JPG/PNG، حتى 8MB)"}
-                </span>
-              </div>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ALLOWED_MIME.join(",")}
-              className="hidden"
-              onChange={handleUpload}
-            />
           </section>
 
           <Button

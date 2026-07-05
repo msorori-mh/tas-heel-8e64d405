@@ -78,33 +78,54 @@ function StatusBadge({ status }: { status: TopupStatus }) {
   );
 }
 
-async function getSignedReceiptUrl(path: string): Promise<string | null> {
-  if (!path) return null;
-  if (/^https?:\/\//i.test(path)) return path;
-  const clean = path.replace(/^supabase-storage:\/\/receipts\//, "");
+function normalizeReceiptStoragePath(path: string): string {
+  let clean = path.trim();
+  clean = clean.replace(/^supabase-storage:\/\/receipts\//i, "");
+  clean = clean.replace(/^receipts\//i, "");
+  clean = clean.replace(/^\/+/, "");
+  return clean;
+}
+
+async function getSignedReceiptUrl(
+  path: string,
+): Promise<{ url: string | null; errorMessage: string | null }> {
+  if (!path) return { url: null, errorMessage: "missing_path" };
+  if (/^https?:\/\//i.test(path)) return { url: path, errorMessage: null };
+  const clean = normalizeReceiptStoragePath(path);
+  if (!clean) return { url: null, errorMessage: "invalid_path" };
   const { data, error } = await supabase.storage
     .from("receipts")
     .createSignedUrl(clean, 60 * 10);
-  if (error) return null;
-  return data?.signedUrl ?? null;
+  if (error) {
+    console.warn("[admin-wallet-topup-receipt]", error.message);
+    return { url: null, errorMessage: error.message };
+  }
+  if (!data?.signedUrl) return { url: null, errorMessage: "signed_url_missing" };
+  return { url: data.signedUrl, errorMessage: null };
 }
 
 function ReceiptViewer({ path }: { path: string | null }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     if (!path) {
       setUrl(null);
       setFailed(false);
+      setLoadError(null);
       return;
     }
     setFailed(false);
-    getSignedReceiptUrl(path).then((u) => {
+    setLoadError(null);
+    getSignedReceiptUrl(path).then(({ url: signedUrl, errorMessage }) => {
       if (!active) return;
-      if (!u) setFailed(true);
-      setUrl(u);
+      if (!signedUrl) {
+        setFailed(true);
+        setLoadError(errorMessage);
+      }
+      setUrl(signedUrl);
     });
     return () => {
       active = false;
@@ -114,9 +135,20 @@ function ReceiptViewer({ path }: { path: string | null }) {
   if (!path) return <p className="text-xs text-muted-foreground">لا يوجد إيصال مرفق.</p>;
   if (failed)
     return (
-      <p className="text-xs text-destructive">
-        تعذّر إنشاء رابط آمن لعرض الإيصال. تحقق من الصلاحيات أو مسار الملف.
-      </p>
+      <div className="space-y-1 text-xs text-destructive">
+        <p>
+          تعذّر إنشاء رابط آمن لعرض الإيصال. تحقق من الصلاحيات أو مسار الملف.
+        </p>
+        {loadError && loadError !== "missing_path" && (
+          <p className="text-[11px] text-muted-foreground" dir="ltr">
+            {loadError === "Object not found" || /not found/i.test(loadError)
+              ? "الملف غير موجود في bucket receipts أو المسار غير مطابق."
+              : loadError === "invalid_path"
+                ? "مسار الإيصال فارغ أو غير صالح."
+                : "تعذّر الوصول إلى الملف. قد تحتاج سياسة Storage للأدمن."}
+          </p>
+        )}
+      </div>
     );
   if (!url)
     return (
