@@ -36,6 +36,7 @@ import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_au
 import { Route as AuthenticatedPaymentsNewRouteImport } from './routes/_authenticated/payments.new'
 import { Route as AuthenticatedLessonsLessonIdRouteImport } from './routes/_authenticated/lessons.$lessonId'
 import { Route as AuthenticatedExamsHistoryRouteImport } from './routes/_authenticated/exams.history'
+import { Route as AuthenticatedAdminWalletTopupsRouteImport } from './routes/_authenticated/admin.wallet-topups'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminUnitsRouteImport } from './routes/_authenticated/admin.units'
 import { Route as AuthenticatedAdminSubjectsRouteImport } from './routes/_authenticated/admin.subjects'
@@ -193,6 +194,12 @@ const AuthenticatedExamsHistoryRoute =
     path: '/exams/history',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminWalletTopupsRoute =
+  AuthenticatedAdminWalletTopupsRouteImport.update({
+    id: '/wallet-topups',
+    path: '/wallet-topups',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -319,6 +326,7 @@ export interface FileRoutesByFullPath {
   '/admin/subjects': typeof AuthenticatedAdminSubjectsRoute
   '/admin/units': typeof AuthenticatedAdminUnitsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin/wallet-topups': typeof AuthenticatedAdminWalletTopupsRoute
   '/exams/history': typeof AuthenticatedExamsHistoryRouteWithChildren
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/payments/new': typeof AuthenticatedPaymentsNewRoute
@@ -361,6 +369,7 @@ export interface FileRoutesByTo {
   '/admin/subjects': typeof AuthenticatedAdminSubjectsRoute
   '/admin/units': typeof AuthenticatedAdminUnitsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin/wallet-topups': typeof AuthenticatedAdminWalletTopupsRoute
   '/exams/history': typeof AuthenticatedExamsHistoryRouteWithChildren
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/payments/new': typeof AuthenticatedPaymentsNewRoute
@@ -407,6 +416,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/subjects': typeof AuthenticatedAdminSubjectsRoute
   '/_authenticated/admin/units': typeof AuthenticatedAdminUnitsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/admin/wallet-topups': typeof AuthenticatedAdminWalletTopupsRoute
   '/_authenticated/exams/history': typeof AuthenticatedExamsHistoryRouteWithChildren
   '/_authenticated/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/_authenticated/payments/new': typeof AuthenticatedPaymentsNewRoute
@@ -453,6 +463,7 @@ export interface FileRouteTypes {
     | '/admin/subjects'
     | '/admin/units'
     | '/admin/users'
+    | '/admin/wallet-topups'
     | '/exams/history'
     | '/lessons/$lessonId'
     | '/payments/new'
@@ -495,6 +506,7 @@ export interface FileRouteTypes {
     | '/admin/subjects'
     | '/admin/units'
     | '/admin/users'
+    | '/admin/wallet-topups'
     | '/exams/history'
     | '/lessons/$lessonId'
     | '/payments/new'
@@ -540,6 +552,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/subjects'
     | '/_authenticated/admin/units'
     | '/_authenticated/admin/users'
+    | '/_authenticated/admin/wallet-topups'
     | '/_authenticated/exams/history'
     | '/_authenticated/lessons/$lessonId'
     | '/_authenticated/payments/new'
@@ -761,6 +774,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedExamsHistoryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/wallet-topups': {
+      id: '/_authenticated/admin/wallet-topups'
+      path: '/wallet-topups'
+      fullPath: '/admin/wallet-topups'
+      preLoaderRoute: typeof AuthenticatedAdminWalletTopupsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/users': {
       id: '/_authenticated/admin/users'
       path: '/users'
@@ -902,6 +922,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminSubjectsRoute: typeof AuthenticatedAdminSubjectsRoute
   AuthenticatedAdminUnitsRoute: typeof AuthenticatedAdminUnitsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
+  AuthenticatedAdminWalletTopupsRoute: typeof AuthenticatedAdminWalletTopupsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
@@ -917,6 +938,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminSubjectsRoute: AuthenticatedAdminSubjectsRoute,
   AuthenticatedAdminUnitsRoute: AuthenticatedAdminUnitsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
+  AuthenticatedAdminWalletTopupsRoute: AuthenticatedAdminWalletTopupsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
@@ -1030,3 +1052,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
