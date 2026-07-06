@@ -17,6 +17,7 @@ export const FULL_ADMIN_ONLY_ADMIN_PATHS = [
   "/admin",
   "/admin/students",
   "/admin/users",
+  "/admin/payment-methods",
   "/admin/payment-requests",
   "/admin/wallet-topups",
 ] as const;
@@ -38,6 +39,7 @@ export function canAccessAdminPath(
   if (path === "/admin" || path === "/admin/") return false;
   if (path.startsWith("/admin/students")) return false;
   if (path.startsWith("/admin/users")) return false;
+  if (path.startsWith("/admin/payment-methods")) return false;
   if (path.startsWith("/admin/payment-requests")) return false;
   if (path.startsWith("/admin/wallet-topups")) return false;
   return isContentManagerAdminPath(path);
@@ -55,6 +57,7 @@ type SidebarLink = {
     | "/admin/questions"
     | "/admin/exam-templates"
     | "/admin/import"
+    | "/admin/payment-methods"
     | "/admin/payment-requests"
     | "/admin/wallet-topups";
   label: string;
@@ -71,6 +74,7 @@ export function filterAdminSidebarLinks<T extends SidebarLink>(
       link.href !== "/admin" &&
       link.href !== "/admin/students" &&
       link.href !== "/admin/users" &&
+      link.href !== "/admin/payment-methods" &&
       link.href !== "/admin/payment-requests" &&
       link.href !== "/admin/wallet-topups",
   );
