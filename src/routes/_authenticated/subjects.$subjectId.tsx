@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import { ClipboardList, ChevronLeft, BookOpen, Layers, FileText, Home } from "lucide-react";
 import { semesterLabel, type Semester } from "@/lib/subject-semester";
+import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 
 const searchSchema = z.object({
   semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
@@ -112,7 +113,7 @@ function SubjectIndexPage() {
   });
 
   const { data: hasActiveSub } = useQuery({
-    enabled: !!profile?.user_id,
+    enabled: !!profile?.user_id && !STUDENT_FREE_ACCESS,
     queryKey: ["has-active-subscription", profile?.user_id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("has_active_subscription", {
@@ -124,7 +125,7 @@ function SubjectIndexPage() {
   });
 
   const { data: isAdmin } = useQuery({
-    enabled: !!profile?.user_id,
+    enabled: !!profile?.user_id && !STUDENT_FREE_ACCESS,
     queryKey: ["is-admin", profile?.user_id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("has_role", {
@@ -136,7 +137,8 @@ function SubjectIndexPage() {
     },
   });
 
-  const canAccessExams = Boolean(isAdmin) || Boolean(hasActiveSub);
+  const canAccessExams =
+    STUDENT_FREE_ACCESS || Boolean(isAdmin) || Boolean(hasActiveSub);
 
   if (loadingSubject) return <StateMessage variant="loading">جارٍ التحميل…</StateMessage>;
   if (!subject || accessible === false) {
@@ -199,9 +201,13 @@ function SubjectIndexPage() {
 
       {hasAny && (
         <p className="rounded-lg border border-dashed border-border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
-          {semester
-            ? `يعرض هذا الفهرس وحدات ودروس ${semesterLabel(semester as Semester)}. المحتوى الأساسي لكل درس متاح، وبعض الإضافات قد تتطلب اشتراكًا.`
-            : "المحتوى الأساسي لكل درس متاح، وبعض الإضافات قد تتطلب اشتراكًا."}
+          {STUDENT_FREE_ACCESS
+            ? semester
+              ? `يعرض هذا الفهرس وحدات ودروس ${semesterLabel(semester as Semester)}. المحتوى متاح حالياً مجاناً للطلاب المسجّلين.`
+              : "المحتوى متاح حالياً مجاناً للطلاب المسجّلين."
+            : semester
+              ? `يعرض هذا الفهرس وحدات ودروس ${semesterLabel(semester as Semester)}. المحتوى الأساسي لكل درس متاح، وبعض الإضافات قد تتطلب اشتراكًا.`
+              : "المحتوى الأساسي لكل درس متاح، وبعض الإضافات قد تتطلب اشتراكًا."}
         </p>
       )}
 
@@ -231,7 +237,7 @@ function SubjectIndexPage() {
         canAccess={canAccessExams}
         title="اختبارات المادة"
         emptyMessage="لا توجد اختبارات شاملة للمادة بعد."
-        lockedMessage="اختبارات المادة متاحة ضمن الاشتراك."
+        lockedMessage="اختبارات المادة غير متاحة حالياً."
       />
 
       <div className="pt-2">
@@ -286,7 +292,7 @@ function UnitBlock({
             <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{description}</p>
           )}
         </div>
-        {isFree !== null && (
+        {isFree !== null && !STUDENT_FREE_ACCESS && (
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
               isFree

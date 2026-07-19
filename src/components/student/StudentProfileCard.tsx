@@ -13,7 +13,13 @@ import {
   CalendarDays,
   History,
   Settings,
+  Gift,
 } from "lucide-react";
+import {
+  FREE_ACCESS_BADGE,
+  FREE_ACCESS_SHORT,
+  STUDENT_FREE_ACCESS,
+} from "@/lib/student-free-access";
 
 type SubRow = {
   id: string;
@@ -86,7 +92,7 @@ export function StudentProfileCard() {
   });
 
   const subQ = useQuery({
-    enabled: !!user?.id,
+    enabled: !!user?.id && !STUDENT_FREE_ACCESS,
     queryKey: ["pcard-sub", user?.id],
     queryFn: async (): Promise<SubRow | null> => {
       const { data } = await supabase
@@ -101,7 +107,7 @@ export function StudentProfileCard() {
   });
 
   const payQ = useQuery({
-    enabled: !!user?.id,
+    enabled: !!user?.id && !STUDENT_FREE_ACCESS,
     queryKey: ["pcard-lastpay", user?.id],
     queryFn: async (): Promise<PayReq | null> => {
       const { data } = await supabase
@@ -180,14 +186,28 @@ export function StudentProfileCard() {
         )}
       </div>
 
-      {/* Subscription block */}
+      {/* Access / subscription block */}
       <div className="mt-4 rounded-xl border border-border bg-background/60 p-3">
-        <SubscriptionBlock
-          state={subState}
-          sub={sub ?? null}
-          daysLeft={daysLeft}
-          lastPay={lastPay ?? null}
-        />
+        {STUDENT_FREE_ACCESS ? (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Gift className="h-4 w-4 text-emerald-600" aria-hidden />
+              <span className="text-sm font-semibold text-foreground">
+                {FREE_ACCESS_BADGE}
+              </span>
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              {FREE_ACCESS_SHORT}
+            </p>
+          </div>
+        ) : (
+          <SubscriptionBlock
+            state={subState}
+            sub={sub ?? null}
+            daysLeft={daysLeft}
+            lastPay={lastPay ?? null}
+          />
+        )}
       </div>
 
       {/* Shortcuts */}

@@ -6,7 +6,7 @@ export function mapStartExamError(err: unknown): string {
     "";
 
   if (msg.includes("subscription_required")) {
-    return "تحتاج إلى اشتراك نشط لبدء هذا الاختبار.";
+    return "تعذر بدء هذا الاختبار حالياً. إن استمرت المشكلة، تواصل مع الدعم.";
   }
   if (msg.includes("curriculum_mismatch")) {
     return "هذا الاختبار غير متاح لمنهجك الحالي.";
