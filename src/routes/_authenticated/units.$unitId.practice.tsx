@@ -7,6 +7,7 @@ import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import { Home, ClipboardList, Lock, Send, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
+import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 
 export const Route = createFileRoute("/_authenticated/units/$unitId/practice")({
   component: UnitPracticePage,
@@ -52,7 +53,7 @@ function UnitPracticePage() {
   });
 
   const { data: hasActiveSub } = useQuery({
-    enabled: !!profile?.user_id,
+    enabled: !!profile?.user_id && !STUDENT_FREE_ACCESS,
     queryKey: ["has-active-subscription", profile?.user_id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("has_active_subscription", {
@@ -64,7 +65,7 @@ function UnitPracticePage() {
   });
 
   const { data: isAdmin } = useQuery({
-    enabled: !!profile?.user_id,
+    enabled: !!profile?.user_id && !STUDENT_FREE_ACCESS,
     queryKey: ["is-admin", profile?.user_id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("has_role", {
@@ -130,7 +131,10 @@ function UnitPracticePage() {
   }
 
   const canAccessPractice =
-    Boolean(isAdmin) || unit.is_free === true || Boolean(hasActiveSub);
+    STUDENT_FREE_ACCESS ||
+    Boolean(isAdmin) ||
+    unit.is_free === true ||
+    Boolean(hasActiveSub);
 
   return (
     <div className="space-y-5">
@@ -149,7 +153,7 @@ function UnitPracticePage() {
         <section className="rounded-2xl border border-border bg-card p-6 text-center shadow-card">
           <Lock className="mx-auto h-10 w-10 text-muted-foreground" />
           <p className="mt-4 text-sm font-medium text-foreground">
-            اختبار هذه الوحدة متاح ضمن الاشتراك.
+            اختبار هذه الوحدة غير متاح حالياً.
           </p>
         </section>
       )}
@@ -159,7 +163,7 @@ function UnitPracticePage() {
         canAccess={canAccessPractice}
         title="اختبارات الوحدة"
         emptyMessage="لا توجد اختبارات لهذه الوحدة بعد."
-        lockedMessage="اختبارات الوحدة متاحة ضمن الاشتراك."
+        lockedMessage="اختبارات الوحدة غير متاحة حالياً."
       />
 
       {BackBtn}

@@ -44,6 +44,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { deleteMyAccount } from "@/lib/account.functions";
 import { ChangeCurriculumTrackButton } from "@/components/student/ChangeCurriculumTrackButton";
 import { EditProfileDialog } from "@/components/student/EditProfileDialog";
+import {
+  FREE_ACCESS_BADGE,
+  FREE_ACCESS_SHORT,
+  STUDENT_FREE_ACCESS,
+} from "@/lib/student-free-access";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -122,7 +127,7 @@ function SettingsPage() {
   });
 
   const subQ = useQuery({
-    enabled: !!user?.id,
+    enabled: !!user?.id && !STUDENT_FREE_ACCESS,
     queryKey: ["pcard-sub", user?.id],
     queryFn: async () => {
       const { data } = await supabase
@@ -143,7 +148,7 @@ function SettingsPage() {
   });
 
   const paymentsQ = useQuery({
-    enabled: !!user?.id,
+    enabled: !!user?.id && !STUDENT_FREE_ACCESS,
     queryKey: ["settings-payments-summary", user?.id],
     queryFn: async () => {
       const { data, count } = await supabase
@@ -280,57 +285,72 @@ function SettingsPage() {
           </div>
         </SectionItem>
 
-        {/* الاشتراك */}
-        <SectionItem value="sub" icon={<CreditCard className="h-4 w-4" />} title="الاشتراك">
+        {/* الوصول / الاشتراك */}
+        <SectionItem
+          value="sub"
+          icon={<CreditCard className="h-4 w-4" />}
+          title={STUDENT_FREE_ACCESS ? "الوصول للمحتوى" : "الاشتراك"}
+        >
           <div className="space-y-3">
-            {subState === "active" && sub ? (
+            {STUDENT_FREE_ACCESS ? (
               <>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-semibold text-foreground">اشتراك نشط</span>
-                  {sub.plan?.name && (
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                      {sub.plan.name}
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
-                  <Detail icon={<CalendarDays className="h-3 w-3" />} label="البداية">
-                    {fmtDate(sub.starts_at)}
-                  </Detail>
-                  <Detail icon={<CalendarDays className="h-3 w-3" />} label="الانتهاء">
-                    {fmtDate(sub.expires_at)}
-                  </Detail>
-                </div>
-                {daysLeft !== null && daysLeft >= 0 && (
-                  <p className="text-[11px] text-muted-foreground">
-                    متبقّي{" "}
-                    <span className="font-semibold text-foreground">
-                      {daysLeft.toLocaleString("ar-EG")}
-                    </span>{" "}
-                    يوم
-                  </p>
-                )}
+                <p className="text-sm font-semibold text-foreground">{FREE_ACCESS_BADGE}</p>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  {FREE_ACCESS_SHORT}
+                </p>
               </>
-            ) : subState === "pending" ? (
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-amber-600" />
-                <span className="text-sm font-semibold text-foreground">طلبك قيد المراجعة</span>
-              </div>
-            ) : subState === "expired" ? (
-              <div className="flex items-center gap-2">
-                <XCircle className="h-4 w-4 text-destructive" />
-                <span className="text-sm font-semibold text-foreground">اشتراكك منتهٍ</span>
-              </div>
             ) : (
-              <p className="text-sm text-muted-foreground">لا يوجد اشتراك نشط حاليًا.</p>
+              <>
+                {subState === "active" && sub ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-semibold text-foreground">اشتراك نشط</span>
+                      {sub.plan?.name && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                          {sub.plan.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                      <Detail icon={<CalendarDays className="h-3 w-3" />} label="البداية">
+                        {fmtDate(sub.starts_at)}
+                      </Detail>
+                      <Detail icon={<CalendarDays className="h-3 w-3" />} label="الانتهاء">
+                        {fmtDate(sub.expires_at)}
+                      </Detail>
+                    </div>
+                    {daysLeft !== null && daysLeft >= 0 && (
+                      <p className="text-[11px] text-muted-foreground">
+                        متبقّي{" "}
+                        <span className="font-semibold text-foreground">
+                          {daysLeft.toLocaleString("ar-EG")}
+                        </span>{" "}
+                        يوم
+                      </p>
+                    )}
+                  </>
+                ) : subState === "pending" ? (
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-amber-600" />
+                    <span className="text-sm font-semibold text-foreground">طلبك قيد المراجعة</span>
+                  </div>
+                ) : subState === "expired" ? (
+                  <div className="flex items-center gap-2">
+                    <XCircle className="h-4 w-4 text-destructive" />
+                    <span className="text-sm font-semibold text-foreground">اشتراكك منتهٍ</span>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">لا يوجد اشتراك نشط حاليًا.</p>
+                )}
+                <Link
+                  to="/subscription"
+                  className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  إدارة الاشتراك
+                </Link>
+              </>
             )}
-            <Link
-              to="/subscription"
-              className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              إدارة الاشتراك
-            </Link>
           </div>
         </SectionItem>
 
@@ -343,30 +363,32 @@ function SettingsPage() {
           </div>
         </SectionItem>
 
-        {/* المدفوعات والمحفظة */}
-        <SectionItem value="pay" icon={<WalletIcon className="h-4 w-4" />} title="المدفوعات والمحفظة">
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-lg border border-border bg-background p-2">
-                <p className="text-muted-foreground">عدد الطلبات</p>
-                <p className="mt-0.5 font-semibold text-foreground">
-                  {totalPays.toLocaleString("ar-EG")}
-                </p>
+        {/* المدفوعات والمحفظة — مخفية من مسار الطالب أثناء الإتاحة المجانية */}
+        {!STUDENT_FREE_ACCESS && (
+          <SectionItem value="pay" icon={<WalletIcon className="h-4 w-4" />} title="المدفوعات والمحفظة">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg border border-border bg-background p-2">
+                  <p className="text-muted-foreground">عدد الطلبات</p>
+                  <p className="mt-0.5 font-semibold text-foreground">
+                    {totalPays.toLocaleString("ar-EG")}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-2">
+                  <p className="text-muted-foreground">آخر حالة</p>
+                  <p className="mt-0.5 font-semibold text-foreground">
+                    {lastPay ? translateStatus(lastPay.status) : "—"}
+                  </p>
+                </div>
               </div>
-              <div className="rounded-lg border border-border bg-background p-2">
-                <p className="text-muted-foreground">آخر حالة</p>
-                <p className="mt-0.5 font-semibold text-foreground">
-                  {lastPay ? translateStatus(lastPay.status) : "—"}
-                </p>
+              <div className="flex flex-wrap gap-2">
+                <QuickLink to="/payments/new" icon={<Receipt className="h-4 w-4" />} label="طلب جديد" />
+                <QuickLink to="/payments" icon={<History className="h-4 w-4" />} label="سجل الطلبات" />
+                <QuickLink to="/wallet" icon={<WalletIcon className="h-4 w-4" />} label="المحفظة" />
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <QuickLink to="/payments/new" icon={<Receipt className="h-4 w-4" />} label="طلب جديد" />
-              <QuickLink to="/payments" icon={<History className="h-4 w-4" />} label="سجل الطلبات" />
-              <QuickLink to="/wallet" icon={<WalletIcon className="h-4 w-4" />} label="المحفظة" />
-            </div>
-          </div>
-        </SectionItem>
+          </SectionItem>
+        )}
 
         {/* الدعم والمساعدة */}
         <SectionItem value="help" icon={<LifeBuoy className="h-4 w-4" />} title="الدعم والمساعدة">

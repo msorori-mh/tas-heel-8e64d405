@@ -30,6 +30,7 @@ import {
   Library,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
   component: LessonPage,
@@ -193,8 +194,9 @@ function LessonPage() {
   });
 
   // ── Phase N2D: unit-level access gate for enhancements ──
+  // Free-access pivot: skip subscription RPC for UI gating.
   const { data: hasActiveSub } = useQuery({
-    enabled: !!profile?.user_id,
+    enabled: !!profile?.user_id && !STUDENT_FREE_ACCESS,
     queryKey: ["has-active-subscription", profile?.user_id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("has_active_subscription", {
@@ -206,7 +208,7 @@ function LessonPage() {
   });
 
   const { data: isAdmin } = useQuery({
-    enabled: !!profile?.user_id,
+    enabled: !!profile?.user_id && !STUDENT_FREE_ACCESS,
     queryKey: ["is-admin", profile?.user_id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("has_role", {
@@ -220,7 +222,10 @@ function LessonPage() {
 
   const unitIsFree = unit?.is_free === true;
   const canAccessEnhancements =
-    Boolean(isAdmin) || unitIsFree || Boolean(hasActiveSub);
+    STUDENT_FREE_ACCESS ||
+    Boolean(isAdmin) ||
+    unitIsFree ||
+    Boolean(hasActiveSub);
 
   // Lesson extras (existence flags + safe external URL) — fetched only when allowed
   const { data: lessonExtra } = useQuery({
@@ -463,7 +468,7 @@ function LessonPage() {
             canAccess={canAccessEnhancements}
             title="اختبارات الدرس"
             emptyMessage="لا توجد اختبارات لهذا الدرس بعد."
-            lockedMessage="اختبارات الدرس متاحة ضمن الاشتراك."
+            lockedMessage="اختبارات الدرس غير متاحة حالياً."
           />
         </JourneyCard>
 
@@ -480,10 +485,10 @@ function LessonPage() {
           ctaLabel="استعراض الموارد"
           ctaDisabled={false}
         >
-          {!canAccessEnhancements && !unitIsFree ? (
+          {!canAccessEnhancements ? (
             <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
               <Lock className="h-4 w-4" />
-              <span>موارد الدرس متاحة ضمن الاشتراك.</span>
+              <span>موارد الدرس غير متاحة حالياً.</span>
             </div>
           ) : resourcesLoading ? (
             <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
@@ -508,7 +513,7 @@ function LessonPage() {
                 title="الخريطة الذهنية"
                 icon={<MapIcon className="h-4 w-4 text-primary" />}
                 locked={!canAccessEnhancements}
-                lockedMessage="الخريطة الذهنية متاحة ضمن الاشتراك."
+                lockedMessage="الخريطة الذهنية غير متاحة حالياً."
                 emptyMessage="لم تُضَف خريطة ذهنية لهذا الدرس بعد."
                 items={mindmaps.map((r) => ({
                   id: r.id,
@@ -523,7 +528,7 @@ function LessonPage() {
                 title="شرح الفيديو"
                 icon={<Video className="h-4 w-4 text-primary" />}
                 locked={!canAccessEnhancements}
-                lockedMessage="شرح الفيديو متاح ضمن الاشتراك."
+                lockedMessage="شرح الفيديو غير متاح حالياً."
                 emptyMessage="لم يُضَف شرح فيديو لهذا الدرس بعد."
                 items={[
                   ...videos.map((r) => ({
@@ -552,7 +557,7 @@ function LessonPage() {
                 title="التطبيق العملي / التجربة"
                 icon={<FlaskConical className="h-4 w-4 text-primary" />}
                 locked={!canAccessEnhancements}
-                lockedMessage="التجربة العملية متاحة ضمن الاشتراك."
+                lockedMessage="التجربة العملية غير متاحة حالياً."
                 emptyMessage="لا توجد تجربة عملية لهذا الدرس."
                 items={[
                   ...experiments.map((r) => ({
@@ -575,7 +580,7 @@ function LessonPage() {
                 title="موارد إضافية"
                 icon={<Link2 className="h-4 w-4 text-primary" />}
                 locked={!canAccessEnhancements}
-                lockedMessage="الموارد الإضافية متاحة ضمن الاشتراك."
+                lockedMessage="الموارد الإضافية غير متاحة حالياً."
                 emptyMessage="لا توجد موارد إضافية لهذا الدرس."
                 items={extras.map((r) => ({
                   id: r.id,

@@ -44,7 +44,7 @@ export function ExamTemplatesSection({
   canAccess,
   title = "اختبارات",
   emptyMessage = "لا توجد اختبارات متاحة حاليًا.",
-  lockedMessage = "تتطلب الاختبارات اشتراكًا.",
+  lockedMessage = "الاختبارات غير متاحة حالياً.",
 }: {
   scope: Scope;
   canAccess: boolean;
