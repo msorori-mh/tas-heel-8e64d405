@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { mapStartExamError } from "@/lib/exam-start-errors";
 import {
+  canRetryAfterServerReconciliation,
   createSingleFlightGuard,
   redactExamAnswers,
   safeExamMutationMessage,
@@ -167,21 +168,20 @@ function TrainingExamPage() {
   const submitMutation = useMutation({
     mutationFn: async () => {
       if (!submitGuard.current.enter()) return null;
-      try {
-        const { data, error } = await supabase.rpc("submit_exam_session", {
-          _session_id: sessionId!,
-        });
-        if (error) throw error;
-        return data;
-      } catch (error) {
-        submitGuard.current.leave();
-        throw error;
-      }
+      const { data, error } = await supabase.rpc("submit_exam_session", {
+        _session_id: sessionId!,
+      });
+      if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
+    onSettled: async () => {
+      await queryClient.invalidateQueries({
         queryKey: ["exam-session-state", sessionId],
       });
+      const reconciled = queryClient.getQueryData<SessionState>(["exam-session-state", sessionId]);
+      if (canRetryAfterServerReconciliation(reconciled)) {
+        submitGuard.current.leave();
+      }
     },
   });
 

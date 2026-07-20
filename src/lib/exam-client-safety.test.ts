@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  canRetryAfterServerReconciliation,
   createSingleFlightGuard,
   redactExamAnswers,
   safeExamMutationMessage,
@@ -28,8 +29,14 @@ test("single-flight guard prevents double result submission", () => {
   assert.equal(guard.enter(), true);
 });
 
+test("ambiguous submission can retry only after server confirms in-progress", () => {
+  assert.equal(canRetryAfterServerReconciliation({ session: { status: "in_progress" } }), true);
+  assert.equal(canRetryAfterServerReconciliation({ session: { status: "submitted" } }), false);
+  assert.equal(canRetryAfterServerReconciliation(undefined), false);
+});
+
 test("network loss produces a safe, non-committal submission message", () => {
   const message = safeExamMutationMessage(new TypeError("Failed to fetch"), "submit");
   assert.match(message, /لم نتأكد/);
-  assert.match(message, /لن ترسل الواجهة طلبين متزامنين/);
+  assert.match(message, /حدّث الصفحة للتحقق/);
 });

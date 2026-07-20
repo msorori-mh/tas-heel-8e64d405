@@ -35,7 +35,7 @@ export function safeExamMutationMessage(error: unknown, action: "answer" | "subm
   if (networkFailure) {
     return action === "answer"
       ? "انقطع الاتصال ولم تُحفظ الإجابة. تحقق من الشبكة ثم أعد اختيارها."
-      : "انقطع الاتصال ولم نتأكد من تسليم الاختبار. أعد الاتصال ثم حاول التسليم مرة واحدة؛ لن ترسل الواجهة طلبين متزامنين.";
+      : "انقطع الاتصال ولم نتأكد من تسليم الاختبار. بعد عودة الاتصال حدّث الصفحة للتحقق من حالة الجلسة قبل أي محاولة أخرى.";
   }
   return action === "answer"
     ? "تعذر حفظ الإجابة. حاول مرة أخرى."
@@ -58,4 +58,8 @@ export function createSingleFlightGuard() {
       return active;
     },
   };
+}
+
+export function canRetryAfterServerReconciliation(state: unknown): boolean {
+  return (state as { session?: { status?: unknown } } | null)?.session?.status === "in_progress";
 }

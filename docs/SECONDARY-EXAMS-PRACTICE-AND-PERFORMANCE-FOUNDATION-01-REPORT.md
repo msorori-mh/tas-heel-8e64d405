@@ -26,11 +26,11 @@
 
 ## تحقق الجودة
 
-- الاختبارات: PASS.
-- Lint scoped للملفات المعدلة: PASS.
+- الاختبارات: PASS (7/7).
+- Lint scoped للملفات المعدلة: PASS. فحص المستودع الكامل يتوقف على مخالفات Prettier/CRLF سابقة خارج نطاق هذا PR.
 - `git diff --check`: PASS.
-- Typecheck الكامل: BLOCKED بسبب بيئة اعتماديات baseline: `package-lock.json` غير متزامن مع `package.json`، ونسخة `node_modules` المشتركة لا تحتوي `vite/client`. لم تُغيّر lockfile.
-- Build: يعتمد على نفس بيئة الاعتماديات؛ يجب الاعتماد على Web CI أو clean install بعد إصلاح lockfile قبل الدمج.
+- Typecheck الكامل (`tsc --noEmit`): PASS باستخدام مجموعة اعتماديات مشتركة سليمة؛ لم تُغيّر lockfile.
+- Build (`vite build`، client وSSR): PASS مع تحذيرات حجم chunks وتحذيرات TanStack الموجودة في baseline.
 
 ## قيود وفجوات تحتاج تحققاً مستقلاً
 
