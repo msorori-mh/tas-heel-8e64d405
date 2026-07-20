@@ -47,14 +47,8 @@ function StudentHome() {
   const { semester } = Route.useSearch();
   const navigate = useNavigate();
 
-  const {
-    stats,
-    statsLoading,
-    continueItems,
-    continueLoading,
-    badges,
-    badgesLoading,
-  } = useHomeDashboard();
+  const { stats, statsLoading, continueItems, continueLoading, badges, badgesLoading } =
+    useHomeDashboard();
 
   const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
 
@@ -62,14 +56,10 @@ function StudentHome() {
     data: subjects,
     isLoading: subjLoading,
     error: subjError,
+    refetch: refetchSubjects,
   } = useQuery({
     enabled: !!gradeKey && !!semester,
-    queryKey: [
-      "my-subjects",
-      gradeKey,
-      profile?.curriculum_track_id ?? null,
-      semester,
-    ],
+    queryKey: ["my-subjects", gradeKey, profile?.curriculum_track_id ?? null, semester],
     queryFn: async () => {
       const selectedSemester = semester as Semester;
       const { data, error } = await supabase
@@ -171,10 +161,38 @@ function StudentHome() {
           </div>
 
           {subjLoading && <StateMessage variant="loading">جارٍ تحميل المواد…</StateMessage>}
-          {subjError && <StateMessage variant="error">تعذّر تحميل المواد.</StateMessage>}
+          {subjError && (
+            <div className="space-y-3">
+              <StateMessage variant="error">
+                تعذّر تحميل المواد. تحقق من اتصالك ثم حاول مرة أخرى.
+              </StateMessage>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => void refetchSubjects()}
+                  className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  إعادة المحاولة
+                </button>
+              </div>
+            </div>
+          )}
 
-          {subjects && subjects.length === 0 && (
-            <StateMessage>لا توجد مواد لهذا الفصل بعد.</StateMessage>
+          {!subjError && subjects && subjects.length === 0 && (
+            <div className="space-y-3">
+              <StateMessage>
+                لا توجد مواد مضافة لهذا الفصل بعد. يمكنك اختيار الفصل الآخر.
+              </StateMessage>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => navigate({ to: "/app", search: {} })}
+                  className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  اختيار فصل آخر
+                </button>
+              </div>
+            </div>
           )}
 
           {subjects && subjects.length > 0 && (

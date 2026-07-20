@@ -25,7 +25,7 @@ export function ContinueSection({
   selectedSemester,
 }: ContinueSectionProps) {
   return (
-    <section aria-label="أكمل من حيث توقفت">
+    <section aria-label="أكمل من حيث توقفت" aria-busy={loading}>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-headline text-foreground">أكمل من حيث توقفت</h2>
         {items.length > 0 && (
@@ -41,7 +41,8 @@ export function ContinueSection({
 
       {loading && (
         <div className="card-student-quiet flex items-center justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+          <span className="sr-only">جارٍ تحميل الدروس الأخيرة</span>
         </div>
       )}
 
@@ -91,9 +92,7 @@ export function ContinueSection({
                       <span className="text-[10px] font-semibold text-primary">{pct}%</span>
                     </div>
                   </div>
-                  <ChevronLeft
-                    className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-x-0.5"
-                  />
+                  <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-x-0.5" />
                 </Link>
               </li>
             );
