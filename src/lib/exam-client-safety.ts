@@ -60,6 +60,10 @@ export function createSingleFlightGuard() {
   };
 }
 
-export function canRetryAfterServerReconciliation(state: unknown): boolean {
-  return (state as { session?: { status?: unknown } } | null)?.session?.status === "in_progress";
+export function canRetryAfterServerReconciliation(result: unknown): boolean {
+  return (
+    (result as { status?: unknown } | null)?.status === "success" &&
+    (result as { data?: { session?: { status?: unknown } } } | null)?.data?.session?.status ===
+      "in_progress"
+  );
 }

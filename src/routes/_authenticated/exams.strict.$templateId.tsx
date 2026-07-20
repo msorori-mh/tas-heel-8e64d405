@@ -190,10 +190,7 @@ function StrictExamPage() {
       return data;
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["exam-session-state", sessionId],
-      });
-      const reconciled = queryClient.getQueryData<SessionState>(["exam-session-state", sessionId]);
+      const reconciled = await stateQuery.refetch();
       if (canRetryAfterServerReconciliation(reconciled)) {
         submitGuard.current.leave();
       }

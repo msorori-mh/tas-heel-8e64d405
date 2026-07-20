@@ -30,9 +30,32 @@ test("single-flight guard prevents double result submission", () => {
 });
 
 test("ambiguous submission can retry only after server confirms in-progress", () => {
-  assert.equal(canRetryAfterServerReconciliation({ session: { status: "in_progress" } }), true);
-  assert.equal(canRetryAfterServerReconciliation({ session: { status: "submitted" } }), false);
+  assert.equal(
+    canRetryAfterServerReconciliation({
+      status: "success",
+      data: { session: { status: "in_progress" } },
+    }),
+    true,
+  );
+  assert.equal(
+    canRetryAfterServerReconciliation({
+      status: "success",
+      data: { session: { status: "submitted" } },
+    }),
+    false,
+  );
   assert.equal(canRetryAfterServerReconciliation(undefined), false);
+});
+
+test("failed reconciliation stays locked even when stale cache says in-progress", () => {
+  assert.equal(
+    canRetryAfterServerReconciliation({
+      status: "error",
+      data: { session: { status: "in_progress" } },
+      error: new TypeError("Failed to fetch"),
+    }),
+    false,
+  );
 });
 
 test("network loss produces a safe, non-committal submission message", () => {
