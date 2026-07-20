@@ -4,8 +4,10 @@
  * but student UX treats the app as free while this flag is true.
  *
  * NOTE: Full content unlock still depends on DB RPCs/RLS
- * (can_access_lesson, start_exam_session, grade_unit_practice).
- * UI gates are opened here; a follow-up migration is required for true free access.
+ * (can_access_lesson, can_access_subject, start_exam_session,
+ * grade_unit_practice). This client flag does not prove that a migration is
+ * applied in any deployed environment; production readiness must be verified
+ * independently before relying on free access.
  */
 export const STUDENT_FREE_ACCESS = true;
 
