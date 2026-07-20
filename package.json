@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
+    "test": "node --experimental-strip-types --test src/lib/*.test.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "generate:import-templates": "bun run scripts/generate-import-templates.ts",

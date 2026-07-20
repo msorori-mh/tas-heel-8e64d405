@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
@@ -15,10 +15,14 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { mapStartExamError } from "@/lib/exam-start-errors";
+import {
+  canRetryAfterServerReconciliation,
+  createSingleFlightGuard,
+  redactExamAnswers,
+  safeExamMutationMessage,
+} from "@/lib/exam-client-safety";
 
-export const Route = createFileRoute(
-  "/_authenticated/exams/training/$templateId",
-)({
+export const Route = createFileRoute("/_authenticated/exams/training/$templateId")({
   component: TrainingExamPage,
 });
 
@@ -69,6 +73,7 @@ function TrainingExamPage() {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [startError, setStartError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const submitGuard = useRef(createSingleFlightGuard());
 
   // On mount: find existing in_progress session or create one
   useEffect(() => {
@@ -93,10 +98,9 @@ function TrainingExamPage() {
           setSessionId(existing.id);
           return;
         }
-        const { data: newId, error: rpcErr } = await supabase.rpc(
-          "start_exam_session",
-          { _template_id: templateId },
-        );
+        const { data: newId, error: rpcErr } = await supabase.rpc("start_exam_session", {
+          _template_id: templateId,
+        });
         if (rpcErr) throw rpcErr;
         if (cancelled) return;
         setSessionId(newId as unknown as string);
@@ -136,10 +140,7 @@ function TrainingExamPage() {
       await queryClient.cancelQueries({
         queryKey: ["exam-session-state", sessionId],
       });
-      const prev = queryClient.getQueryData<SessionState>([
-        "exam-session-state",
-        sessionId,
-      ]);
+      const prev = queryClient.getQueryData<SessionState>(["exam-session-state", sessionId]);
       if (prev) {
         const answers = [...prev.answers];
         const idx = answers.findIndex((a) => a.question_id === vars.questionId);
@@ -152,39 +153,40 @@ function TrainingExamPage() {
         };
         if (idx >= 0) answers[idx] = updated;
         else answers.push(updated);
-        queryClient.setQueryData<SessionState>(
-          ["exam-session-state", sessionId],
-          { ...prev, answers },
-        );
+        queryClient.setQueryData<SessionState>(["exam-session-state", sessionId], {
+          ...prev,
+          answers,
+        });
       }
       return { prev };
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev)
-        queryClient.setQueryData(
-          ["exam-session-state", sessionId],
-          ctx.prev,
-        );
+      if (ctx?.prev) queryClient.setQueryData(["exam-session-state", sessionId], ctx.prev);
     },
   });
 
   const submitMutation = useMutation({
     mutationFn: async () => {
+      if (!submitGuard.current.enter()) return null;
       const { data, error } = await supabase.rpc("submit_exam_session", {
         _session_id: sessionId!,
       });
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["exam-session-state", sessionId],
-      });
+    onSettled: async () => {
+      const reconciled = await stateQuery.refetch();
+      if (canRetryAfterServerReconciliation(reconciled)) {
+        submitGuard.current.leave();
+      }
     },
   });
 
   const state = stateQuery.data;
-  const questions = useMemo(() => state?.questions ?? [], [state]);
+  const questions = useMemo(
+    () => redactExamAnswers(state?.questions ?? [], state?.reveal === true),
+    [state],
+  );
   const answersMap = useMemo(() => {
     const m = new Map<string, AnswerItem>();
     for (const a of state?.answers ?? []) m.set(a.question_id, a);
@@ -236,6 +238,7 @@ function TrainingExamPage() {
       <ResultView
         state={state}
         onRetry={() => {
+          submitGuard.current.leave();
           setSessionId(null);
           setCurrentIdx(0);
         }}
@@ -246,9 +249,7 @@ function TrainingExamPage() {
   const q = questions[Math.min(currentIdx, questions.length - 1)];
   const opts = Array.isArray(q.options) ? (q.options as unknown[]) : [];
   const currentAnswer = answersMap.get(q.id);
-  const answeredCount = state.answers.filter(
-    (a) => a.selected_index !== null,
-  ).length;
+  const answeredCount = state.answers.filter((a) => a.selected_index !== null).length;
   const totalCount = questions.length;
   const allAnswered = answeredCount >= totalCount;
 
@@ -257,12 +258,9 @@ function TrainingExamPage() {
       {Breadcrumb}
 
       <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
-        <h1 className="text-lg font-bold text-foreground">
-          {state.template?.title ?? "تدريب"}
-        </h1>
+        <h1 className="text-lg font-bold text-foreground">{state.template?.title ?? "تدريب"}</h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          السؤال {currentIdx + 1} من {totalCount} • تمت الإجابة على{" "}
-          {answeredCount}
+          السؤال {currentIdx + 1} من {totalCount} • تمت الإجابة على {answeredCount}
         </p>
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
@@ -279,9 +277,7 @@ function TrainingExamPage() {
           <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
             {currentIdx + 1}
           </span>
-          <p className="text-sm font-medium text-foreground">
-            {q.question_text}
-          </p>
+          <p className="text-sm font-medium text-foreground">{q.question_text}</p>
         </div>
         {opts.length > 0 && (
           <ul className="mt-3 space-y-2">
@@ -344,9 +340,7 @@ function TrainingExamPage() {
         {currentIdx < totalCount - 1 ? (
           <Button
             className="gap-1"
-            onClick={() =>
-              setCurrentIdx((i) => Math.min(totalCount - 1, i + 1))
-            }
+            onClick={() => setCurrentIdx((i) => Math.min(totalCount - 1, i + 1))}
           >
             التالي
             <ChevronLeft className="h-4 w-4" />
@@ -370,20 +364,19 @@ function TrainingExamPage() {
       )}
       {submitMutation.isError && (
         <p className="text-center text-xs text-destructive">
-          تعذّر تسليم التدريب. حاول مرة أخرى.
+          {safeExamMutationMessage(submitMutation.error, "submit")}
+        </p>
+      )}
+      {answerMutation.isError && (
+        <p className="text-center text-xs text-destructive" role="alert">
+          {safeExamMutationMessage(answerMutation.error, "answer")}
         </p>
       )}
     </div>
   );
 }
 
-function ResultView({
-  state,
-  onRetry,
-}: {
-  state: SessionState;
-  onRetry: () => void;
-}) {
+function ResultView({ state, onRetry }: { state: SessionState; onRetry: () => void }) {
   const s = state.session;
   const score = s.percentage ?? s.score ?? 0;
   const msg =
@@ -395,6 +388,7 @@ function ResultView({
 
   const answersMap = new Map<string, AnswerItem>();
   for (const a of state.answers) answersMap.set(a.question_id, a);
+  const questions = redactExamAnswers(state.questions, state.reveal === true);
 
   return (
     <div className="space-y-4">
@@ -407,34 +401,26 @@ function ResultView({
       </nav>
 
       <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-card">
-        <p className="text-2xl font-bold text-foreground">
-          النتيجة: {Math.round(score)}%
-        </p>
+        <p className="text-2xl font-bold text-foreground">النتيجة: {Math.round(score)}%</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          {s.correct_count ?? 0} صحيح من {s.total_questions ?? 0} •{" "}
-          {s.answered_count ?? 0} مُجاب
+          {s.correct_count ?? 0} صحيح من {s.total_questions ?? 0} • {s.answered_count ?? 0} مُجاب
         </p>
         <p className="mt-2 text-sm font-medium text-foreground">{msg}</p>
       </div>
 
       <ol className="space-y-3">
-        {state.questions.map((q, idx) => {
+        {questions.map((q, idx) => {
           const a = answersMap.get(q.id);
           const isCorrect = a?.is_correct === true;
           const opts = Array.isArray(q.options) ? (q.options as unknown[]) : [];
           return (
-            <li
-              key={q.id}
-              className="rounded-2xl border border-border bg-card p-4 shadow-card"
-            >
+            <li key={q.id} className="rounded-2xl border border-border bg-card p-4 shadow-card">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2">
                   <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
                     {idx + 1}
                   </span>
-                  <p className="text-sm font-medium text-foreground">
-                    {q.question_text}
-                  </p>
+                  <p className="text-sm font-medium text-foreground">{q.question_text}</p>
                 </div>
                 <span
                   className={[
@@ -481,9 +467,7 @@ function ResultView({
                             </span>
                           )}
                           {isStudent && !isRight && (
-                            <span className="text-xs text-destructive">
-                              (إجابتك)
-                            </span>
+                            <span className="text-xs text-destructive">(إجابتك)</span>
                           )}
                         </span>
                       </li>

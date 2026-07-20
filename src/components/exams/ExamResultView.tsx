@@ -1,4 +1,5 @@
 import { CheckCircle2, XCircle } from "lucide-react";
+import { redactExamAnswers } from "@/lib/exam-client-safety";
 
 export type ExamAnswerItem = {
   question_id: string;
@@ -51,38 +52,31 @@ export function ExamResultView({ state }: { state: ExamSessionState }) {
 
   const answersMap = new Map<string, ExamAnswerItem>();
   for (const a of state.answers) answersMap.set(a.question_id, a);
+  const questions = redactExamAnswers(state.questions, state.reveal === true);
 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-card">
-        <p className="text-2xl font-bold text-foreground">
-          النتيجة: {Math.round(score)}%
-        </p>
+        <p className="text-2xl font-bold text-foreground">النتيجة: {Math.round(score)}%</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          {s.correct_count ?? 0} صحيح من {s.total_questions ?? 0} •{" "}
-          {s.answered_count ?? 0} مُجاب
+          {s.correct_count ?? 0} صحيح من {s.total_questions ?? 0} • {s.answered_count ?? 0} مُجاب
         </p>
         <p className="mt-2 text-sm font-medium text-foreground">{msg}</p>
       </div>
 
       <ol className="space-y-3">
-        {state.questions.map((q, idx) => {
+        {questions.map((q, idx) => {
           const a = answersMap.get(q.id);
           const isCorrect = a?.is_correct === true;
           const opts = Array.isArray(q.options) ? (q.options as unknown[]) : [];
           return (
-            <li
-              key={q.id}
-              className="rounded-2xl border border-border bg-card p-4 shadow-card"
-            >
+            <li key={q.id} className="rounded-2xl border border-border bg-card p-4 shadow-card">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2">
                   <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
                     {idx + 1}
                   </span>
-                  <p className="text-sm font-medium text-foreground">
-                    {q.question_text}
-                  </p>
+                  <p className="text-sm font-medium text-foreground">{q.question_text}</p>
                 </div>
                 <span
                   className={[
@@ -129,9 +123,7 @@ export function ExamResultView({ state }: { state: ExamSessionState }) {
                             </span>
                           )}
                           {isStudent && !isRight && (
-                            <span className="text-xs text-destructive">
-                              (إجابتك)
-                            </span>
+                            <span className="text-xs text-destructive">(إجابتك)</span>
                           )}
                         </span>
                       </li>
