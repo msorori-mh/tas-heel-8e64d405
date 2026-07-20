@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+// Audit characterization suite: assertions named "known gap" intentionally
+// describe the reviewed baseline. They are evidence for remediation planning,
+// not a secure regression contract to preserve unchanged.
 const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
 const freeAccessMigration = read(
@@ -37,7 +40,7 @@ test("free access removes subscription gates but retains exam and practice ident
   }
 });
 
-test("the audit detects the P0 lesson gate regression", () => {
+test("audit characterization (known gap): lesson gate omits auth and grade checks", () => {
   const lessonGate = functionBody(freeAccessMigration, "can_access_lesson");
 
   assert.doesNotMatch(lessonGate, /auth\.uid\(\) IS NOT NULL/);
@@ -45,14 +48,14 @@ test("the audit detects the P0 lesson gate regression", () => {
   assert.match(lessonGate, /user_can_access_subject_curriculum/);
 });
 
-test("the audit detects that subject-only questions remain subscription gated", () => {
+test("audit characterization (known gap): subject-only questions remain subscription gated", () => {
   const subjectGate = functionBody(baselineMigration, "can_access_subject");
 
   assert.match(subjectGate, /has_active_subscription/);
   assert.doesNotMatch(freeAccessMigration, /FUNCTION public\.can_access_subject/);
 });
 
-test("the audit detects incomplete anon hardening on subject and lesson helpers", () => {
+test("audit characterization (known gap): helper EXECUTE grants are not hardened from PUBLIC", () => {
   assert.match(baselineMigration, /REVOKE EXECUTE ON FUNCTION public\.can_access_lesson\(uuid\) FROM anon/);
   assert.match(baselineMigration, /REVOKE EXECUTE ON FUNCTION public\.can_access_subject\(uuid\) FROM anon/);
   assert.doesNotMatch(
@@ -86,7 +89,7 @@ test("content managers are denied full-admin financial and student administratio
   }
 });
 
-test("the audit detects that content staff are not centrally excluded from student routes", () => {
+test("audit characterization (known gap): content staff lack a central student-route redirect", () => {
   assert.match(authenticatedLayout, /!profileComplete && !isAdmin && !isContentStaff/);
   assert.doesNotMatch(authenticatedLayout, /isContentStaff.*navigate\(\{ to: \"\/admin\/academic\"/s);
 });
