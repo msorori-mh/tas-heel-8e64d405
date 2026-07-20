@@ -32,6 +32,7 @@ export function StudentNav() {
           {isContentStaff && (
             <Link
               to={isAdmin ? "/admin" : "/admin/academic"}
+              aria-label="الإدارة"
               className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2"
               activeProps={{ className: "text-primary font-semibold" }}
             >
