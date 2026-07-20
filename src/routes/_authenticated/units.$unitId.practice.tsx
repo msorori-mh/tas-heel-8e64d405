@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import { Home, ClipboardList, Lock, Send, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
+import { createSingleFlightGuard, safeExamMutationMessage } from "@/lib/exam-client-safety";
 
 export const Route = createFileRoute("/_authenticated/units/$unitId/practice")({
   component: UnitPracticePage,
@@ -25,7 +26,11 @@ function UnitPracticePage() {
   const { unitId } = Route.useParams();
   const { profile } = useAuth();
 
-  const { data: unit, isLoading: loadingUnit, error: unitErr } = useQuery({
+  const {
+    data: unit,
+    isLoading: loadingUnit,
+    error: unitErr,
+  } = useQuery({
     queryKey: ["unit-practice-unit", unitId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -79,8 +84,7 @@ function UnitPracticePage() {
 
   const accessibleGradeTrack = useMemo(() => {
     if (!subject || !profile) return null;
-    const profileGrade =
-      profile.grade_uuid ?? (profile.grade_id ? String(profile.grade_id) : null);
+    const profileGrade = profile.grade_uuid ?? (profile.grade_id ? String(profile.grade_id) : null);
     if (profileGrade && subject.grade_id !== profileGrade) return false;
     if (
       subject.curriculum_track_id &&
@@ -110,7 +114,9 @@ function UnitPracticePage() {
 
   const Breadcrumb = (
     <nav className="text-xs text-muted-foreground" aria-label="مسار التنقل">
-      <Link to="/app" className="hover:text-primary">موادي</Link>
+      <Link to="/app" className="hover:text-primary">
+        موادي
+      </Link>
       <span className="mx-1">/</span>
       <Link to="/subjects/$subjectId" params={{ subjectId }} className="hover:text-primary">
         {subject?.name ?? "المادة"}
@@ -131,10 +137,7 @@ function UnitPracticePage() {
   }
 
   const canAccessPractice =
-    STUDENT_FREE_ACCESS ||
-    Boolean(isAdmin) ||
-    unit.is_free === true ||
-    Boolean(hasActiveSub);
+    STUDENT_FREE_ACCESS || Boolean(isAdmin) || unit.is_free === true || Boolean(hasActiveSub);
 
   return (
     <div className="space-y-5">
@@ -142,9 +145,7 @@ function UnitPracticePage() {
 
       <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
         <h1 className="text-xl font-bold text-foreground">اختبار الوحدة</h1>
-        {unit.title && (
-          <p className="mt-1 text-sm text-muted-foreground">{unit.title}</p>
-        )}
+        {unit.title && <p className="mt-1 text-sm text-muted-foreground">{unit.title}</p>}
       </header>
 
       {canAccessPractice ? (
@@ -197,6 +198,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
   const [submitting, setSubmitting] = useState(false);
   const [serverResult, setServerResult] = useState<ServerResult | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const submitGuard = useRef(createSingleFlightGuard());
 
   const { data: lessons } = useQuery({
     queryKey: ["practice-lessons", unitId, subjectId],
@@ -213,7 +215,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
 
   const lessonIds = (lessons ?? []).map((l) => l.id);
   const lessonOrder = new Map<string, number>(
-    (lessons ?? []).map((l) => [l.id, l.sort_order ?? 9999])
+    (lessons ?? []).map((l) => [l.id, l.sort_order ?? 9999]),
   );
 
   const { data: questions, isLoading } = useQuery({
@@ -241,7 +243,13 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
         .order("created_at", { ascending: false })
         .limit(5);
       if (error) throw error;
-      return data as { id: string; score: number; correct: number; total: number; created_at: string }[];
+      return data as {
+        id: string;
+        score: number;
+        correct: number;
+        total: number;
+        created_at: string;
+      }[];
     },
   });
 
@@ -249,9 +257,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
     return (
       <section className="rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-center">
         <ClipboardList className="mx-auto h-10 w-10 text-muted-foreground opacity-60" />
-        <p className="mt-4 text-sm text-muted-foreground">
-          لم تُضاف أسئلة اختبار لهذه الوحدة بعد.
-        </p>
+        <p className="mt-4 text-sm text-muted-foreground">لم تُضاف أسئلة اختبار لهذه الوحدة بعد.</p>
       </section>
     );
   }
@@ -264,9 +270,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
     return (
       <section className="rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-center">
         <ClipboardList className="mx-auto h-10 w-10 text-muted-foreground opacity-60" />
-        <p className="mt-4 text-sm text-muted-foreground">
-          لم تُضاف أسئلة اختبار لهذه الوحدة بعد.
-        </p>
+        <p className="mt-4 text-sm text-muted-foreground">لم تُضاف أسئلة اختبار لهذه الوحدة بعد.</p>
       </section>
     );
   }
@@ -286,11 +290,15 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
   const isLocked = serverResult !== null;
 
   const resultByQuestion = new Map<string, boolean>(
-    (serverResult?.per_question ?? []).map((p) => [p.question_id, p.is_correct])
+    (serverResult?.per_question ?? []).map((p) => [p.question_id, p.is_correct]),
   );
 
   const handleSubmit = async () => {
-    if (submitting || serverResult) return;
+    if (submitting || serverResult || !submitGuard.current.enter()) return;
+    const releaseSubmission = () => {
+      submitGuard.current.leave();
+      setSubmitting(false);
+    };
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -305,6 +313,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
       });
       if (error) {
         setSubmitError("تعذر حفظ نتيجة الاختبار.");
+        releaseSubmission();
         return;
       }
       const res = data as unknown as { error?: string } & Partial<ServerResult>;
@@ -316,18 +325,20 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
           unauthorized: "يجب تسجيل الدخول.",
         };
         setSubmitError(map[res.error] ?? "تعذر حفظ نتيجة الاختبار.");
+        releaseSubmission();
         return;
       }
       setServerResult(data as unknown as ServerResult);
       queryClient.invalidateQueries({ queryKey: ["unit-practice-attempts", unitId, user?.id] });
-    } catch {
-      setSubmitError("تعذر حفظ نتيجة الاختبار.");
-    } finally {
-      setSubmitting(false);
+    } catch (error) {
+      setSubmitError(safeExamMutationMessage(error, "submit"));
+      releaseSubmission();
     }
   };
 
   const handleRetry = () => {
+    submitGuard.current.leave();
+    setSubmitting(false);
     setServerResult(null);
     setSubmitError(null);
     setAnswers({});
@@ -351,9 +362,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
 
       {serverResult && (
         <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-card">
-          <p className="text-2xl font-bold text-foreground">
-            النتيجة: {serverResult.score}%
-          </p>
+          <p className="text-2xl font-bold text-foreground">النتيجة: {serverResult.score}%</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {serverResult.correct} صحيح من {serverResult.total}
           </p>
@@ -361,9 +370,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
             {scoreMessage(serverResult.score)}
           </p>
           {serverResult.attempt_id && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              تم حفظ محاولتك.
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">تم حفظ محاولتك.</p>
           )}
         </div>
       )}
@@ -374,10 +381,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
           const selected = answers[q.id];
           const qResult = resultByQuestion.get(q.id);
           return (
-            <li
-              key={q.id}
-              className="rounded-2xl border border-border bg-card p-4 shadow-card"
-            >
+            <li key={q.id} className="rounded-2xl border border-border bg-card p-4 shadow-card">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2">
                   <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
@@ -415,9 +419,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
                         <button
                           type="button"
                           disabled={isLocked || submitting}
-                          onClick={() =>
-                            setAnswers((prev) => ({ ...prev, [q.id]: i }))
-                          }
+                          onClick={() => setAnswers((prev) => ({ ...prev, [q.id]: i }))}
                           className={[
                             "w-full text-right rounded-md border px-3 py-2 text-sm transition-colors",
                             isSelected
@@ -466,11 +468,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
                   : "جميع الأسئلة مُجابة. يمكنك التسليم الآن."}
           </p>
           {serverResult ? (
-            <Button
-              variant="outline"
-              className="w-full gap-1 sm:w-auto"
-              onClick={handleRetry}
-            >
+            <Button variant="outline" className="w-full gap-1 sm:w-auto" onClick={handleRetry}>
               <RotateCcw className="h-4 w-4" />
               إعادة المحاولة
             </Button>
