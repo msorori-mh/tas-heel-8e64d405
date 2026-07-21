@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { registerServiceWorker } from "@/lib/pwa/register-sw";
+import { PwaUpdateNotice } from "@/components/pwa/PwaUpdateNotice";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -79,7 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       {
         title: "تمكين طلاب الثانوية | الاستعداد للثانوية والاختبارات الوزارية",
       },
@@ -184,6 +185,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Outlet />
+        <PwaUpdateNotice />
         <Toaster position="top-center" richColors />
       </AuthProvider>
     </QueryClientProvider>
