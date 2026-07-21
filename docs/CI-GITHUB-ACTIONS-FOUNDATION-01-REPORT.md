@@ -51,6 +51,12 @@ Validation ran from an isolated worktree based on `origin/main` at `d0bd0b1ce690
 
 The lockfile synchronization is mechanical and required because the latest `main` changed `package.json` from `2.7.6` to `2.7.7` without the matching lockfile update. The first GitHub run then exposed missing Linux optional-dependency entries; the lockfile was regenerated with npm 10.9.8 (the version selected by Node 22 in Actions) and optional dependencies included. No application source was changed. `npm ci` also reported five existing audit findings (one low, two moderate, and two high); this phase did not run an automatic dependency remediation.
 
+## GitHub validation
+
+- Web CI run `29866956610`: **PASS** on `ubuntu-latest` in approximately 1 minute 6 seconds.
+- Every required step passed: install, typecheck, unit tests, PWA policy test, and client/SSR build.
+- GitHub emitted a non-blocking platform annotation because `actions/checkout@v4` and `actions/setup-node@v4` currently use an older internal action runtime. The configured project runtime remained Node.js 22 (`22.23.1`) as required.
+
 ## Safety confirmation
 
 - Deploy/Publish: **no**.
