@@ -192,7 +192,7 @@ export function SubjectEditDialog({
           </DialogTitle>
           <DialogDescription className="text-right">
             {isCreate
-              ? "أدخل بيانات المادة الجديدة. الحفظ سيتوفر في المرحلة التالية."
+              ? "أدخل بيانات المادة الجديدة ثم اضغط حفظ."
               : "يمكنك تعديل البيانات الأساسية للمادة. لا يمكن تغيير الصف من هنا."}
           </DialogDescription>
         </DialogHeader>
