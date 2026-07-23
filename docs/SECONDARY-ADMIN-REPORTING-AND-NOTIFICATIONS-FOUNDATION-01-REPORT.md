@@ -2,7 +2,7 @@
 
 ## Decision
 
-`PASS_ADMIN_REPORTING_NOTIFICATIONS_FOUNDATION_PR_READY`
+`HOLD_ADMIN_REPORTING_NOTIFICATIONS_FOUNDATION`
 
 ## Baseline
 
@@ -55,6 +55,9 @@ No payment, wallet, subscription, storage, or authentication table is queried or
 - `node tests/pwa/service-worker-policy.static.test.mjs`: **PASS**, 7/7 tests.
 - Scoped ESLint for all changed TypeScript/TSX files: **PASS**. Full repository lint remains outside this phase because of the established CRLF/Prettier baseline.
 - `npm run build`: **PASS** for client and SSR bundles with existing non-fatal bundler/chunk warnings.
+- GitHub Web CI run `29969632448`: **BLOCKED BEFORE START**. GitHub created no runner and executed no steps. Its check annotation states that recent account payments failed or the spending limit must be increased. This is an external repository/account billing blocker, not a code/test failure.
+
+Owner action required: resolve GitHub Billing & plans/spending-limit status, then re-run the failed `Web CI` check on PR #26. The phase remains HOLD until that published run passes.
 
 ## Changed files
 
