@@ -311,14 +311,14 @@ export function SubjectEditDialog({
           >
             إلغاء
           </Button>
-          <Button onClick={handleSave} disabled={saving || isCreate}>
+          <Button onClick={handleSave} disabled={saving}>
             {saving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
                 جاري الحفظ...
               </>
             ) : isCreate ? (
-              "الحفظ في المرحلة التالية"
+              "حفظ"
             ) : (
               "حفظ التعديلات"
             )}
