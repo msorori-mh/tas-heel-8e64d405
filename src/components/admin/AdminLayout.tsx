@@ -20,6 +20,7 @@ import {
   UserCog,
   Wallet,
   Landmark,
+  BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { filterAdminSidebarLinks } from "@/lib/admin-route-access";
@@ -28,6 +29,7 @@ import { Button } from "@/components/ui/button";
 type LinkItem = {
   href:
     | "/admin"
+    | "/admin/reports"
     | "/admin/students"
     | "/admin/users"
     | "/admin/academic"
@@ -52,6 +54,7 @@ type DisabledItem = {
 
 const activeLinks: LinkItem[] = [
   { href: "/admin", label: "لوحة الإدارة", icon: LayoutDashboard, end: true },
+  { href: "/admin/reports", label: "التقارير والإشعارات", icon: BarChart3 },
   { href: "/admin/students", label: "الطلاب", icon: Users },
   { href: "/admin/users", label: "المستخدمون والصلاحيات", icon: UserCog },
   { href: "/admin/academic", label: "المحتوى الدراسي", icon: BookOpen },
