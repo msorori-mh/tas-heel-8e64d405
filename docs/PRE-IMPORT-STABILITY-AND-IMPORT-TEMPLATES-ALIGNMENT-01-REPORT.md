@@ -81,7 +81,7 @@ npm ci PASS • tsc PASS • npm test 19/19 • PWA 7/7 • build PASS.
 | `node tests/pwa/service-worker-policy.static.test.mjs` | 7/7 PASS |
 | security static (شاملة الجديدة) | 24/24 PASS |
 | `npm run build` | PASS |
-| Web CI | (يُحدَّث على الـ PR) |
+| Web CI | **pass** (run 30601386482 — PR #34) |
 
 ## الامتثال
 
