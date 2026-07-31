@@ -1,0 +1,500 @@
+{
+  "payload_hash_version": "canonical_payload_v1",
+  "serialization": "JCS RFC 8785",
+  "encoding": "UTF-8 no BOM LF",
+  "digest_algorithm": "SHA-256 lowercase hex",
+  "jcs_library": "canonicalize@3.0.0",
+  "vectors": [
+    {
+      "id": "V1A_null_stimulus",
+      "expect": "digest",
+      "digest": "902ee3319e1a3953cf264a754ee98b17c0a97aefc90d8cadf228467ebf3a271f",
+      "source": {
+        "question_code": "PHYS-G12-0001",
+        "revision_number": 1,
+        "interaction_type": "SINGLE_CHOICE",
+        "grading_mode": "AUTO_SINGLE",
+        "question_text": "ما وحدة القوة؟",
+        "stimulus_text": null,
+        "max_score": 1,
+        "allow_partial": false,
+        "options": [
+          {
+            "option_code": "A",
+            "body": "نيوتن",
+            "sort_order": 0,
+            "is_correct": true
+          },
+          {
+            "option_code": "B",
+            "body": "جول",
+            "sort_order": 1,
+            "is_correct": false
+          }
+        ],
+        "accepted_answers": [],
+        "solutions": [],
+        "solution_steps": [],
+        "media": [],
+        "targets": [
+          {
+            "is_primary": true,
+            "target_type": "LESSON",
+            "target_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      }
+    },
+    {
+      "id": "V1B_empty_stimulus",
+      "expect": "digest",
+      "digest": "ad349b398edc32d1f584ec11cfc967ec0725a9a086dcc409f94c5632be2338ea",
+      "source": {
+        "question_code": "PHYS-G12-0001",
+        "revision_number": 1,
+        "interaction_type": "SINGLE_CHOICE",
+        "grading_mode": "AUTO_SINGLE",
+        "question_text": "ما وحدة القوة؟",
+        "stimulus_text": "",
+        "max_score": 1,
+        "allow_partial": false,
+        "options": [
+          {
+            "option_code": "A",
+            "body": "نيوتن",
+            "sort_order": 0,
+            "is_correct": true
+          },
+          {
+            "option_code": "B",
+            "body": "جول",
+            "sort_order": 1,
+            "is_correct": false
+          }
+        ],
+        "accepted_answers": [],
+        "solutions": [],
+        "solution_steps": [],
+        "media": [],
+        "targets": [
+          {
+            "is_primary": true,
+            "target_type": "LESSON",
+            "target_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      },
+      "assert_ne": "V1A_null_stimulus"
+    },
+    {
+      "id": "V2_key_order_independence",
+      "expect": "same_as",
+      "same_as": "V1A_null_stimulus",
+      "digest": "902ee3319e1a3953cf264a754ee98b17c0a97aefc90d8cadf228467ebf3a271f",
+      "source": {
+        "targets": [
+          {
+            "is_primary": true,
+            "target_type": "LESSON",
+            "target_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ],
+        "allow_partial": false,
+        "max_score": 1,
+        "stimulus_text": null,
+        "question_text": "ما وحدة القوة؟",
+        "grading_mode": "AUTO_SINGLE",
+        "interaction_type": "SINGLE_CHOICE",
+        "revision_number": 1,
+        "question_code": "PHYS-G12-0001",
+        "options": [
+          {
+            "is_correct": false,
+            "sort_order": 1,
+            "body": "جول",
+            "option_code": "B"
+          },
+          {
+            "is_correct": true,
+            "sort_order": 0,
+            "body": "نيوتن",
+            "option_code": "A"
+          }
+        ],
+        "media": [],
+        "solution_steps": [],
+        "solutions": [],
+        "accepted_answers": []
+      }
+    },
+    {
+      "id": "V3A_crlf_question_text",
+      "expect": "digest",
+      "digest": "4a455ee7eae4035b4dd4fc84ffdf6b9f7f39d3eba84e22e0e80122849e02717a",
+      "source": {
+        "question_code": "PHYS-G12-0001",
+        "revision_number": 1,
+        "interaction_type": "SINGLE_CHOICE",
+        "grading_mode": "AUTO_SINGLE",
+        "question_text": "سطر1\r\nسطر2",
+        "stimulus_text": null,
+        "max_score": 1,
+        "allow_partial": false,
+        "options": [
+          {
+            "option_code": "A",
+            "body": "نيوتن",
+            "sort_order": 0,
+            "is_correct": true
+          },
+          {
+            "option_code": "B",
+            "body": "جول",
+            "sort_order": 1,
+            "is_correct": false
+          }
+        ],
+        "accepted_answers": [],
+        "solutions": [],
+        "solution_steps": [],
+        "media": [],
+        "targets": [
+          {
+            "is_primary": true,
+            "target_type": "LESSON",
+            "target_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      }
+    },
+    {
+      "id": "V3B_lf_question_text",
+      "expect": "same_as",
+      "same_as": "V3A_crlf_question_text",
+      "digest": "4a455ee7eae4035b4dd4fc84ffdf6b9f7f39d3eba84e22e0e80122849e02717a",
+      "source": {
+        "question_code": "PHYS-G12-0001",
+        "revision_number": 1,
+        "interaction_type": "SINGLE_CHOICE",
+        "grading_mode": "AUTO_SINGLE",
+        "question_text": "سطر1\nسطر2",
+        "stimulus_text": null,
+        "max_score": 1,
+        "allow_partial": false,
+        "options": [
+          {
+            "option_code": "A",
+            "body": "نيوتن",
+            "sort_order": 0,
+            "is_correct": true
+          },
+          {
+            "option_code": "B",
+            "body": "جول",
+            "sort_order": 1,
+            "is_correct": false
+          }
+        ],
+        "accepted_answers": [],
+        "solutions": [],
+        "solution_steps": [],
+        "media": [],
+        "targets": [
+          {
+            "is_primary": true,
+            "target_type": "LESSON",
+            "target_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      }
+    },
+    {
+      "id": "V4A_options_B_then_A",
+      "expect": "digest",
+      "digest": "902ee3319e1a3953cf264a754ee98b17c0a97aefc90d8cadf228467ebf3a271f",
+      "source": {
+        "question_code": "PHYS-G12-0001",
+        "revision_number": 1,
+        "interaction_type": "SINGLE_CHOICE",
+        "grading_mode": "AUTO_SINGLE",
+        "question_text": "ما وحدة القوة؟",
+        "stimulus_text": null,
+        "max_score": 1,
+        "allow_partial": false,
+        "options": [
+          {
+            "option_code": "B",
+            "body": "جول",
+            "sort_order": 1,
+            "is_correct": false
+          },
+          {
+            "option_code": "A",
+            "body": "نيوتن",
+            "sort_order": 0,
+            "is_correct": true
+          }
+        ],
+        "accepted_answers": [],
+        "solutions": [],
+        "solution_steps": [],
+        "media": [],
+        "targets": [
+          {
+            "is_primary": true,
+            "target_type": "LESSON",
+            "target_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      }
+    },
+    {
+      "id": "V4B_options_A_then_B",
+      "expect": "same_as",
+      "same_as": "V4A_options_B_then_A",
+      "digest": "902ee3319e1a3953cf264a754ee98b17c0a97aefc90d8cadf228467ebf3a271f",
+      "source": {
+        "question_code": "PHYS-G12-0001",
+        "revision_number": 1,
+        "interaction_type": "SINGLE_CHOICE",
+        "grading_mode": "AUTO_SINGLE",
+        "question_text": "ما وحدة القوة؟",
+        "stimulus_text": null,
+        "max_score": 1,
+        "allow_partial": false,
+        "options": [
+          {
+            "option_code": "A",
+            "body": "نيوتن",
+            "sort_order": 0,
+            "is_correct": true
+          },
+          {
+            "option_code": "B",
+            "body": "جول",
+            "sort_order": 1,
+            "is_correct": false
+          }
+        ],
+        "accepted_answers": [],
+        "solutions": [],
+        "solution_steps": [],
+        "media": [],
+        "targets": [
+          {
+            "is_primary": true,
+            "target_type": "LESSON",
+            "target_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      }
+    },
+    {
+      "id": "V4C_swapped_bodies",
+      "expect": "digest",
+      "digest": "861805066d9768e24086634cef3f6bc6fbcdc578764bca5da743495dcaf0f8e9",
+      "source": {
+        "question_code": "PHYS-G12-0001",
+        "revision_number": 1,
+        "interaction_type": "SINGLE_CHOICE",
+        "grading_mode": "AUTO_SINGLE",
+        "question_text": "ما وحدة القوة؟",
+        "stimulus_text": null,
+        "max_score": 1,
+        "allow_partial": false,
+        "options": [
+          {
+            "option_code": "A",
+            "body": "جول",
+            "sort_order": 0,
+            "is_correct": true
+          },
+          {
+            "option_code": "B",
+            "body": "نيوتن",
+            "sort_order": 1,
+            "is_correct": false
+          }
+        ],
+        "accepted_answers": [],
+        "solutions": [],
+        "solution_steps": [],
+        "media": [],
+        "targets": [
+          {
+            "is_primary": true,
+            "target_type": "LESSON",
+            "target_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      },
+      "assert_ne": "V4A_options_B_then_A"
+    },
+    {
+      "id": "V5A_accepted_alpha_beta",
+      "expect": "digest",
+      "digest": "5c8e144e114e0670e6a6007497e042b868e9bc55ca89fe41a30751fb7eddc056",
+      "source": {
+        "question_code": "PHYS-G12-0001",
+        "revision_number": 1,
+        "interaction_type": "SHORT_TEXT",
+        "grading_mode": "AUTO_TEXT",
+        "question_text": "ما وحدة القوة؟",
+        "stimulus_text": null,
+        "max_score": 1,
+        "allow_partial": false,
+        "options": [],
+        "accepted_answers": [
+          {
+            "answer_text": "alpha",
+            "normalized_answer": "alpha",
+            "normalization_policy": "TRIM",
+            "is_primary": true,
+            "sort_order": 0
+          },
+          {
+            "answer_text": "beta",
+            "normalized_answer": "beta",
+            "normalization_policy": "TRIM",
+            "is_primary": false,
+            "sort_order": 0
+          }
+        ],
+        "solutions": [],
+        "solution_steps": [],
+        "media": [],
+        "targets": [
+          {
+            "is_primary": true,
+            "target_type": "LESSON",
+            "target_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      }
+    },
+    {
+      "id": "V5B_accepted_reverse_insert",
+      "expect": "same_as",
+      "same_as": "V5A_accepted_alpha_beta",
+      "digest": "5c8e144e114e0670e6a6007497e042b868e9bc55ca89fe41a30751fb7eddc056",
+      "source": {
+        "question_code": "PHYS-G12-0001",
+        "revision_number": 1,
+        "interaction_type": "SHORT_TEXT",
+        "grading_mode": "AUTO_TEXT",
+        "question_text": "ما وحدة القوة؟",
+        "stimulus_text": null,
+        "max_score": 1,
+        "allow_partial": false,
+        "options": [],
+        "accepted_answers": [
+          {
+            "answer_text": "beta",
+            "normalized_answer": "beta",
+            "normalization_policy": "TRIM",
+            "is_primary": false,
+            "sort_order": 0
+          },
+          {
+            "answer_text": "alpha",
+            "normalized_answer": "alpha",
+            "normalization_policy": "TRIM",
+            "is_primary": true,
+            "sort_order": 0
+          }
+        ],
+        "solutions": [],
+        "solution_steps": [],
+        "media": [],
+        "targets": [
+          {
+            "is_primary": true,
+            "target_type": "LESSON",
+            "target_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      }
+    },
+    {
+      "id": "V6A_combining_marks_as_typed",
+      "expect": "digest",
+      "digest": "161fb044fb298d7a4351924d1df126383ffd894de81bbff1190d1dec4620655c",
+      "source": {
+        "question_code": "PHYS-G12-0001",
+        "revision_number": 1,
+        "interaction_type": "SINGLE_CHOICE",
+        "grading_mode": "AUTO_SINGLE",
+        "question_text": "قوةّ",
+        "stimulus_text": null,
+        "max_score": 1,
+        "allow_partial": false,
+        "options": [
+          {
+            "option_code": "A",
+            "body": "نيوتن",
+            "sort_order": 0,
+            "is_correct": true
+          },
+          {
+            "option_code": "B",
+            "body": "جول",
+            "sort_order": 1,
+            "is_correct": false
+          }
+        ],
+        "accepted_answers": [],
+        "solutions": [],
+        "solution_steps": [],
+        "media": [],
+        "targets": [
+          {
+            "is_primary": true,
+            "target_type": "LESSON",
+            "target_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      }
+    },
+    {
+      "id": "V6B_alternate_unicode_form",
+      "expect": "digest",
+      "digest": "e08355164cfbefbea84171291afc653618ee4eb0eca49a7026cb3098db2aec8e",
+      "source": {
+        "question_code": "PHYS-G12-0001",
+        "revision_number": 1,
+        "interaction_type": "SINGLE_CHOICE",
+        "grading_mode": "AUTO_SINGLE",
+        "question_text": "قوّة",
+        "stimulus_text": null,
+        "max_score": 1,
+        "allow_partial": false,
+        "options": [
+          {
+            "option_code": "A",
+            "body": "نيوتن",
+            "sort_order": 0,
+            "is_correct": true
+          },
+          {
+            "option_code": "B",
+            "body": "جول",
+            "sort_order": 1,
+            "is_correct": false
+          }
+        ],
+        "accepted_answers": [],
+        "solutions": [],
+        "solution_steps": [],
+        "media": [],
+        "targets": [
+          {
+            "is_primary": true,
+            "target_type": "LESSON",
+            "target_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      },
+      "note": "May differ from V6A; must not be silently folded in P0"
+    }
+  ]
+}
