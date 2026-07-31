@@ -42,4 +42,4 @@
 
 ## المتبقي حسب الخطة
 
-TASK 04 (release stability snapshot) ثم خطوات المالك: دمج PR #34 ← تطبيق migration الوحدات ← تنظيف QA ← dry-run فعلي على ملفات يوسف.
+TASK 04 (release stability snapshot) ثم خطوات المالك: ~~دمج PR #34~~ (تم) ← ~~تطبيق migration الوحدات~~ (تم — Lovable PASS على main @ f5d714d) ← تنظيف QA ← dry-run فعلي على ملفات يوسف.
