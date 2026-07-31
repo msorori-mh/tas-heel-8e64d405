@@ -55,8 +55,8 @@
 | `npm test` | 8/8 PASS | 19/19 PASS (8 قديمة + 11 جديدة) |
 | `node tests/pwa/service-worker-policy.static.test.mjs` | 7/7 PASS | 7/7 PASS |
 | `npm run build` | PASS | PASS |
-| Web CI | — | pass (يُحدَّث على صفحة الـ PR) |
+| Web CI | — | **pass** (run 30599601529) |
 
 ## رابط PR
 
-(يُحدَّث عند الإنشاء)
+https://github.com/msorori-mh/tas-heel-8e64d405/pull/32 — **مفتوح، غير مُدمج.**
