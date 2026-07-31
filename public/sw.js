@@ -6,7 +6,7 @@
  * - Never intercept cross-origin requests (Supabase, fonts, storage, etc.).
  * - Never cache non-GET requests or credentialed/private/no-store responses.
  * - Never cache sensitive routes (auth, admin, api, server, wallet,
- *   subscription, payments) or any dynamic account/progress/exam data.
+ *   subscription, payments, exams) or any dynamic account/progress/exam data.
  * - Exams and unit practice stay online-required: no cached HTML, no
  *   offline queue, no local persistence of questions/answers/submissions.
  * - Updates are user-driven: the worker waits until the client sends
@@ -41,6 +41,7 @@ const SENSITIVE_DENYLIST = [
   /^\/wallet/,
   /^\/subscription/,
   /^\/payments/,
+  /^\/exams/,
   /^\/import-templates\//,
   /\/callback/,
 ];

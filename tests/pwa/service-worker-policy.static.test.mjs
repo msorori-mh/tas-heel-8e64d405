@@ -21,6 +21,7 @@ test("sensitive routes are denylisted and never cached", () => {
     "/wallet",
     "/subscription",
     "/payments",
+    "/exams",
   ]) {
     const expectedPattern = "/^" + route.replaceAll("/", "\\/");
     assert.ok(
