@@ -4,12 +4,13 @@
 
 | حقل | قيمة |
 |---|---|
-| التاريخ | 2026-07-31 |
+| التاريخ | 2026-07-31 (تدقيق Runtime) / 2026-08-01 (HOLD-CORRECTION-11 docs) |
 | المستودع | `msorori-mh/tas-heel-8e64d405` |
 | فرع التوثيق (آخر تجميد) | `docs/qb-01-design-freeze-source-only-07` |
 | **Runtime architecture baseline audited** | `9d6eb603fead085f8fa86f29647a8c5e51cab2af` |
 | **Documentation on main (PR #46 merge)** | `6e35245ed73eb4c3c8ea76a2c010d8e4d7b0348c` |
 | **Design freeze** | `docs/QB-01-DESIGN-FREEZE-DECISION-07.md` |
+| **Rereview HOLD closed** | `HOLD_QB_01_DESIGN_FREEZE_INDEPENDENT_REREVIEW_10` → **HOLD-CORRECTION-11** |
 | Migration مطبّقة في هذه المهمة | **NO** |
 | كتابة إنتاج | **ZERO** |
 
@@ -133,18 +134,21 @@
 
 ---
 
-## F. تجميد تنفيذي بعد HOLD-CORRECTION-09
+## F. تجميد تنفيذي بعد HOLD-CORRECTION-11
 
-`NORMALIZED_WITH_COMPATIBILITY_LAYER` + Freeze 07 بعد إغلاق مراجعة 08:
+`NORMALIZED_WITH_COMPATIBILITY_LAYER` + Freeze 07 بعد إغلاق `HOLD_QB_01_DESIGN_FREEZE_INDEPENDENT_REREVIEW_10`:
 
-- HYBRID responses (exam extend + practice_* tables + read-only unified view)
-- Model A pinning + named cutover config (default LEGACY)
-- Backfill R1 deterministic
-- Capability grants (grader ≠ editor)
+- HYBRID responses (exam extend + practice_* + `logical_question_id` + read-only unified view)
+- Model A pinning + cutover **NOT NULL** + transactional `create_*_with_snapshot` (`FOR SHARE`)
+- Backfill priority `INVALID > USAGE > UNUSED_VALID` + SQL evidence / `HOLD_ROW` / `HOLD_REVIEW`
+- Capability grants: Admin-only administration + partial unique active grant
 - Accepted answers بلا CASEFOLD_AR في P0
-- Composite published pointer + canonical_payload_v1
+- Published pointer: composite FK + `publish_question_revision` + defensive trigger
+- `canonical_payload_v1` (null/missing/ties closed) + golden vectors doc
+- Session grading statuses + `final_score <= max_score` + dual FK reviews
+- Target retarget hierarchy checks (PASS_WITH_NOTES)
 
-تطبيق Migration ما زال محظوراً حتى rereview مستقل + حزمة executable.
+تطبيق Migration ما زال محظوراً حتى **final independent rereview** + حزمة executable.
 
 انظر:
 
@@ -152,4 +156,5 @@
 - `docs/QUESTION-BANK-OFFICIAL-DESIGN-01.md`
 - `docs/QUESTION-BANK-TEMPLATE-COMPATIBILITY-MATRIX-01.md`
 - `docs/QUESTION-BANK-IMPLEMENTATION-PLAN-01.md`
+- `docs/QUESTION-BANK-PAYLOAD-HASH-GOLDEN-VECTORS-01.md`
 - `docs/migration-drafts/QUESTION-BANK-SCHEMA-FOUNDATION-01.NOT_APPLIED.sql`
