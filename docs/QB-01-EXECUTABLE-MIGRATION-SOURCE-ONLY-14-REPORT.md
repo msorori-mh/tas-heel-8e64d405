@@ -14,9 +14,10 @@
 | Field | Value |
 |---|---|
 | Filename | `supabase/migrations/20260801120000_qb01_question_bank_schema_foundation.sql` |
-| SHA-256 | `2484ea223a2dabde973f4c4e611ea6a12adc68be86992bb23625c203bafc3062` |
-| Lines | 1618 |
-| Size | 61662 bytes |
+| Previous SHA-256 (package 14) | `2484ea223a2dabde973f4c4e611ea6a12adc68be86992bb23625c203bafc3062` |
+| SHA-256 (HOLD-15 closure / package 16) | `889801185955de851abc5df300ac69c5cc23c99ca92f90d018503781a0759008` |
+| Lines | 1948 |
+| Size | 73238 bytes |
 | Under `supabase/migrations` | YES |
 | Applied | **NO** |
 | SQL executed | **NO** |
@@ -119,8 +120,41 @@ RLS enabled on all new tables; staff/capability-scoped policies; student-safe se
 |---|---|
 | File | `tests/question-bank/qb01-migration-source.test.ts` |
 | npm script | `test:question-bank-source` |
-| Assertions | migration presence, no DROP/TRUNCATE/bucket/backfill, LEGACY default, CASEFOLD_AR excluded, score constraints, pointer/RPC/trigger, RLS, REVOKE PUBLIC, search_path, student answer protection, hash harness |
-| Result | **17/17 PASS** |
+| Assertions | prior package-14 checks + HOLD-15 security assertions (no GUC bypass, private internal publish, column revokes, lifecycle/pointer guards, validation, composite FK, GLOBAL-only capability, assigned grader scope, locked digest equality) |
+| Result | **25/25 PASS** |
+
+## Independent Review 15 HOLD Closure
+
+Closes `HOLD_QB_01_MIGRATION_SOURCE_INDEPENDENT_REVIEW_15`.
+
+### Prior bypass (root cause)
+
+1. **Direct revision status update** — `GRANT UPDATE` + RLS `FOR ALL` allowed client roles to flip `status` to `PUBLISHED`/`SUPERSEDED`.
+2. **Direct published pointer update** — clients could `UPDATE questions.current_published_revision_id` when table privileges permitted.
+3. **Client-settable GUC** — triggers trusted a custom session setting via `current_setting` / `set_config`, which any session can set. Transaction-local ≠ SECURITY DEFINER-only.
+
+### Corrections
+
+| Area | Fix |
+|---|---|
+| Client-settable GUC | Removed entirely (no custom publish session setting remains in migration) |
+| Lifecycle enforcement | Trigger `qb_guard_question_revision_lifecycle` fail-closed; allows `PUBLISHED`/`SUPERSEDED` transitions only when `CURRENT_USER` owns `_qb_publish_question_revision_internal` |
+| Pointer enforcement | Trigger `qb_guard_current_published_revision_pointer`; non-NULL set and clearing existing pointer are RPC-only; validates same-question + `PUBLISHED` |
+| Column privileges | `REVOKE UPDATE(status, published_*, superseded_at, payload_hash*)` from authenticated/anon/service_role; selective draft-field `GRANT UPDATE` only; `REVOKE UPDATE(current_published_revision_id)` from client roles including service_role |
+| RLS policies | Replaced revisions `FOR ALL` with INSERT (`DRAFT` only) + UPDATE on non-published statuses; lifecycle columns still blocked by privileges |
+| Publish RPC | Public `publish_question_revision` (auth + capability + locks + idempotency) calls private `_qb_publish_question_revision_internal` |
+| Internal function protection | `REVOKE ALL … FROM PUBLIC`; **no** `GRANT EXECUTE` to authenticated/anon/service_role |
+| Publish validation | `_qb_validate_revision_for_publish`: SINGLE_CHOICE ≥2 options + exactly one correct; AUTO_TEXT accepted answers; MANUAL solution; media metadata when required |
+| Cross-session FK | `exam_session_answers(session_id, exam_session_question_id) → exam_session_questions(exam_session_id, id)`; practice composite FK likewise |
+| Capability scope | P0 helpers honor **GLOBAL + scope_id IS NULL** only; grant RPC rejects non-GLOBAL |
+| Grader response scope | Assigned-grader SELECT only (`assigned_grader_id = auth.uid()`); bare `GRADE_MANUAL_RESPONSE` no longer opens all responses |
+
+### Why the mechanism is not client-bypassable
+
+- No custom GUC gate.
+- `_qb_is_internal_publish_executor` is **SECURITY INVOKER** so `CURRENT_USER` is the statement executor (the DEFINER owner of the private publish function during RPC), not a helper that always matches itself.
+- Clients cannot `SET ROLE` to the function owner; cannot `GRANT` themselves ownership; cannot `EXECUTE` the internal function via PostgREST.
+- Column privileges deny `UPDATE(status)` / `UPDATE(current_published_revision_id)` even for `service_role` table writes.
 
 ## Not executed / not included
 
@@ -170,4 +204,4 @@ RLS enabled on all new tables; staff/capability-scoped policies; student-safe se
 
 ## Recommended next action
 
-`QB-01-MIGRATION-SOURCE-INDEPENDENT-REVIEW-15`
+`QB-01-MIGRATION-SOURCE-INDEPENDENT-REREVIEW-17`

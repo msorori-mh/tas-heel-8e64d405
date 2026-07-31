@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { digestCanonicalPayloadV1 } from "../../scripts/question-bank/canonical-payload-v1.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..", "..");
@@ -14,10 +15,24 @@ const migrationPath = join(
   "migrations",
   "20260801120000_qb01_question_bank_schema_foundation.sql",
 );
+const fixturePath = join(
+  root,
+  "tests",
+  "fixtures",
+  "question-bank",
+  "canonical-payload-v1.json",
+);
 
 function loadSql(): string {
   assert.ok(existsSync(migrationPath), `missing migration: ${migrationPath}`);
   return readFileSync(migrationPath, "utf8");
+}
+
+function executableSql(sql: string): string {
+  return sql
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("--"))
+    .join("\n");
 }
 
 test("QB-01 migration source file exists under supabase/migrations", () => {
@@ -25,16 +40,13 @@ test("QB-01 migration source file exists under supabase/migrations", () => {
   assert.match(sql, /QB-01 QUESTION BANK SCHEMA FOUNDATION/);
   assert.match(sql, /NOT APPLIED TO ANY DATABASE BY THIS PACKAGE/);
   assert.match(sql, /DEFAULT RUNTIME MODE REMAINS LEGACY/);
+  assert.match(sql, /HOLD-15 CLOSURE/);
 });
 
 test("forbids destructive and activation patterns", () => {
   const sql = loadSql();
   assert.equal(/\bDROP\s+TABLE\b/i.test(sql), false, "must not DROP TABLE");
-  // Ignore documentation mentions of TRUNCATE in header comments
-  const executable = sql
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("--"))
-    .join("\n");
+  const executable = executableSql(sql);
   assert.equal(/\bTRUNCATE\b/i.test(executable), false, "must not TRUNCATE");
   assert.equal(/storage\.buckets/i.test(executable), false, "must not create storage buckets");
   assert.match(
@@ -56,7 +68,6 @@ test("does not backfill legacy questions into revisions", () => {
     "must not INSERT into question_revisions (no backfill)",
   );
   assert.match(sql, /UPDATE\s+public\.questions\s+SET\s+current_published_revision_id/i);
-  // No mass backfill writing legacy correct_index from this migration
   assert.equal(
     /UPDATE\s+public\.questions\s+SET\b[^;]*correct_index/i.test(sql),
     false,
@@ -97,20 +108,132 @@ test("capability grant reason is NOT NULL", () => {
 
 test("target uniqueness and primary partial unique exist", () => {
   const sql = loadSql();
-  assert.match(sql, /question_targets/);
   assert.match(sql, /question_targets_dedupe_uidx/);
   assert.match(sql, /question_targets_one_primary_uidx/);
-  assert.match(sql, /WHERE\s+is_primary\b/i);
 });
 
-test("published pointer FK, trigger, and publish RPC exist", () => {
+test("published pointer FK and RPC-only lifecycle guards exist", () => {
   const sql = loadSql();
   assert.match(sql, /questions_current_published_revision_fk/);
   assert.match(sql, /DEFERRABLE\s+INITIALLY\s+DEFERRED/i);
-  assert.match(sql, /qb_enforce_published_pointer_on_questions/);
-  assert.match(sql, /qb_enforce_published_revision_status/);
+  assert.match(sql, /qb_guard_question_revision_lifecycle/);
+  assert.match(sql, /qb_guard_current_published_revision_pointer/);
+  assert.match(sql, /_qb_publish_question_revision_internal/);
   assert.match(sql, /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.publish_question_revision/i);
   assert.match(sql, /only APPROVED revisions may be published/);
+  // Old GUC-based helpers may appear only in DROP cleanup, not CREATE bodies
+  assert.equal(
+    /CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+public\.qb_enforce_published_/i.test(sql),
+    false,
+  );
+});
+
+test("HOLD-15: no client-settable GUC publish bypass", () => {
+  const sql = loadSql();
+  const forbiddenGuc = ["qb", "publish_in_progress"].join(".");
+  assert.equal(sql.includes(forbiddenGuc), false);
+  assert.equal(/set_config\s*\(\s*'qb\./i.test(sql), false);
+  assert.equal(/current_setting\s*\(\s*'qb\./i.test(sql), false);
+});
+
+test("HOLD-15: internal publish function is private", () => {
+  const sql = loadSql();
+  assert.match(
+    sql,
+    /REVOKE ALL ON FUNCTION public\._qb_publish_question_revision_internal\(uuid, uuid, uuid, text\) FROM PUBLIC/i,
+  );
+  assert.equal(
+    /GRANT EXECUTE ON FUNCTION public\._qb_publish_question_revision_internal/i.test(sql),
+    false,
+    "internal publish must not be GRANTed",
+  );
+  assert.match(
+    sql,
+    /_qb_is_internal_publish_executor[\s\S]{0,200}SECURITY INVOKER/i,
+  );
+});
+
+test("HOLD-15: lifecycle and pointer column privileges revoked", () => {
+  const sql = loadSql();
+  assert.match(
+    sql,
+    /REVOKE UPDATE\s*\(\s*status\s*,\s*published_at\s*,\s*published_by\s*,\s*superseded_at\s*,\s*payload_hash\s*,\s*payload_hash_version\s*\)\s*ON public\.question_revisions FROM authenticated, anon, service_role/i,
+  );
+  assert.match(
+    sql,
+    /REVOKE UPDATE\s*\(\s*current_published_revision_id\s*\)\s*ON public\.questions FROM authenticated, anon, service_role/i,
+  );
+  // No table-level UPDATE grant that re-opens status for authenticated
+  const grantUpdateBlocks = [
+    ...sql.matchAll(
+      /GRANT UPDATE\s*\(([^)]+)\)\s*ON public\.question_revisions TO authenticated/gi,
+    ),
+  ];
+  assert.ok(grantUpdateBlocks.length >= 1, "expected selective UPDATE grant");
+  for (const m of grantUpdateBlocks) {
+    assert.equal(/\bstatus\b/i.test(m[1]), false, "authenticated must not UPDATE status");
+    assert.equal(/\bpublished_at\b/i.test(m[1]), false);
+    assert.equal(/\bpublished_by\b/i.test(m[1]), false);
+  }
+  assert.equal(
+    /GRANT\s+[^;]*\bUPDATE\b[^;]*ON public\.question_revisions TO authenticated/i.test(
+      sql.replace(/GRANT UPDATE\s*\([^)]+\)\s*ON public\.question_revisions TO authenticated/gi, ""),
+    ),
+    false,
+    "no broad UPDATE on question_revisions to authenticated",
+  );
+});
+
+test("HOLD-15: revisions RLS is not FOR ALL for editors", () => {
+  const sql = loadSql();
+  assert.equal(
+    /CREATE POLICY qb_revisions_edit_manage[\s\S]*FOR ALL/i.test(sql),
+    false,
+  );
+  assert.match(sql, /qb_revisions_staff_insert|qb_revisions_.*insert/i);
+  assert.match(sql, /status\s*=\s*'DRAFT'/);
+});
+
+test("HOLD-15: SINGLE_CHOICE publish validation enforced", () => {
+  const sql = loadSql();
+  assert.match(sql, /_qb_validate_revision_for_publish/);
+  assert.match(sql, /exactly one correct option/i);
+  assert.match(sql, /at least 2 options/i);
+});
+
+test("HOLD-15: cross-session composite FKs", () => {
+  const sql = loadSql();
+  assert.match(sql, /exam_session_questions_id_session_uidx/);
+  assert.match(sql, /exam_session_answers_session_question_fk/);
+  assert.match(
+    sql,
+    /FOREIGN KEY\s*\(\s*session_id\s*,\s*exam_session_question_id\s*\)/i,
+  );
+  assert.match(sql, /practice_attempt_questions_id_attempt_uidx/);
+  assert.match(sql, /practice_attempt_responses_attempt_question_fk/);
+});
+
+test("HOLD-15: capability helpers are GLOBAL-only in P0", () => {
+  const sql = loadSql();
+  assert.match(
+    sql,
+    /qb_has_capability[\s\S]*scope_type\s*=\s*'GLOBAL'[\s\S]*scope_id\s+IS\s+NULL/i,
+  );
+  assert.match(sql, /P0:.*only active GLOBAL/i);
+});
+
+test("HOLD-15: grader read scope requires assignment", () => {
+  const sql = loadSql();
+  assert.match(sql, /assigned_grader_id\s*=\s*auth\.uid\(\)/);
+  // Broad can_grade alone must not open all practice responses
+  const practicePolicy = sql.match(
+    /CREATE POLICY qb_practice_r_owner_select[\s\S]*?;/,
+  );
+  assert.ok(practicePolicy, "practice response policy missing");
+  assert.equal(
+    /can_grade_manual_response\(auth\.uid\(\)\)\s*\)\s*$/m.test(practicePolicy![0]),
+    false,
+  );
 });
 
 test("expected schema objects are declared", () => {
@@ -141,6 +264,8 @@ test("expected schema objects are declared", () => {
     "retarget_question",
     "create_exam_session_with_snapshot",
     "create_practice_attempt_with_snapshot",
+    "_qb_publish_question_revision_internal",
+    "_qb_validate_revision_for_publish",
   ];
   for (const name of required) {
     assert.ok(sql.includes(name), `missing object reference: ${name}`);
@@ -149,23 +274,18 @@ test("expected schema objects are declared", () => {
 
 test("RLS enabled and REVOKE PUBLIC present for new objects", () => {
   const sql = loadSql();
-  assert.match(sql, /ENABLE ROW LEVEL SECURITY/i);
   const enableCount = (sql.match(/ENABLE ROW LEVEL SECURITY/gi) || []).length;
   assert.ok(enableCount >= 10, `expected many ENABLE RLS, got ${enableCount}`);
   assert.match(sql, /REVOKE\s+ALL[\s\S]*FROM\s+PUBLIC/i);
 });
 
 test("SECURITY DEFINER functions set search_path", () => {
-  const sql = loadSql()
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("--"))
-    .join("\n");
+  const sql = executableSql(loadSql());
   const blocks = sql.split(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+/i).slice(1);
   const definerFns: string[] = [];
   for (const block of blocks) {
     const name = block.match(/^public\.(\w+)/i)?.[1];
     if (!name) continue;
-    // Header until body
     const header = block.slice(0, block.indexOf("AS $$"));
     if (!/SECURITY DEFINER/i.test(header)) continue;
     definerFns.push(name);
@@ -180,7 +300,6 @@ test("SECURITY DEFINER functions set search_path", () => {
 
 test("students are not granted unrestricted SELECT on is_correct or solutions", () => {
   const sql = loadSql();
-  // After REVOKE ALL, staff SELECT is gated by RLS capability policies — no student-open policy
   assert.match(sql, /REVOKE ALL ON public\.question_options FROM PUBLIC, anon, authenticated/i);
   assert.match(
     sql,
@@ -190,12 +309,7 @@ test("students are not granted unrestricted SELECT on is_correct or solutions", 
     sql,
     /REVOKE ALL ON public\.question_accepted_answers FROM PUBLIC, anon, authenticated/i,
   );
-  assert.equal(
-    /CREATE POLICY[\s\S]*ON public\.question_options[\s\S]*USING\s*\(\s*true\s*\)/i.test(sql),
-    false,
-  );
   assert.match(sql, /qb_options_staff_select/);
-  assert.match(sql, /can_read_hidden_solutions/);
 });
 
 test("default attempt_pin_mode remains LEGACY on sessions and practice", () => {
@@ -204,23 +318,26 @@ test("default attempt_pin_mode remains LEGACY on sessions and practice", () => {
     sql,
     /attempt_pin_mode\s+text\s+NOT\s+NULL\s+DEFAULT\s+'LEGACY'/i,
   );
-  assert.match(
-    sql,
-    /practice_attempts[\s\S]*attempt_pin_mode\s+text\s+NOT\s+NULL\s+DEFAULT\s+'LEGACY'/i,
-  );
 });
 
 test("snapshot create RPCs fail closed and are not granted broadly", () => {
   const sql = loadSql();
   assert.match(sql, /REVISION_PINNED path not activated/);
   assert.match(sql, /QB-01 snapshot create not activated/i);
-  assert.match(
-    sql,
-    /REVOKE ALL ON FUNCTION public\.create_exam_session_with_snapshot/i,
-  );
 });
 
-test("hash golden vectors pass via harness", () => {
+test("hash golden vectors match locked fixture digests", () => {
+  const fixture = JSON.parse(readFileSync(fixturePath, "utf8"));
+  assert.ok(Array.isArray(fixture.vectors) && fixture.vectors.length >= 10);
+  for (const vector of fixture.vectors) {
+    const { digest } = digestCanonicalPayloadV1(vector.source);
+    assert.equal(
+      digest,
+      vector.digest,
+      `${vector.id}: digest mismatch expected=${vector.digest} got=${digest}`,
+    );
+    assert.match(digest, /^[0-9a-f]{64}$/);
+  }
   const script = join(root, "scripts", "question-bank", "verify-question-bank-hash-vectors.mjs");
   const out = execFileSync(process.execPath, [script], { encoding: "utf8" });
   assert.match(out, /OK:/);

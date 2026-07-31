@@ -3,6 +3,9 @@
 -- NOT APPLIED TO ANY DATABASE BY THIS PACKAGE
 -- DEFAULT RUNTIME MODE REMAINS LEGACY
 --
+-- HOLD-15 CLOSURE: no client-settable GUC publish bypass; RPC-only PUBLISHED/SUPERSEDED;
+-- column privileges deny direct status/pointer updates from client roles.
+--
 -- Package invariants:
 --   * CASEFOLD_AR normalization is NOT allowed in QB-01.
 --   * Legacy questions.correct_index remains a 0-based cache (see qb_sync_question_legacy).
@@ -156,22 +159,108 @@ BEGIN
 END $$;
 
 -- ============================================================================
--- 6) Publish guard triggers
+-- 6) Publish guard triggers (RPC-only lifecycle; no GUC bypass)
 -- ============================================================================
-CREATE OR REPLACE FUNCTION public.qb_enforce_published_pointer_on_questions()
+DROP TRIGGER IF EXISTS trg_qb_enforce_published_pointer ON public.questions;
+DROP TRIGGER IF EXISTS trg_qb_enforce_published_revision_status ON public.question_revisions;
+DROP FUNCTION IF EXISTS public.qb_enforce_published_pointer_on_questions();
+DROP FUNCTION IF EXISTS public.qb_enforce_published_revision_status();
+
+-- SECURITY INVOKER on purpose: CURRENT_USER must reflect the role executing the
+-- UPDATE (the SECURITY DEFINER owner of _qb_publish_question_revision_internal),
+-- not the owner of this helper. A DEFINER helper would always match itself and
+-- become a universal bypass.
+CREATE OR REPLACE FUNCTION public._qb_is_internal_publish_executor()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = '_qb_publish_question_revision_internal'
+      AND pg_get_function_identity_arguments(p.oid) = 'uuid, uuid, uuid, text'
+      AND p.proowner = (SELECT oid FROM pg_roles WHERE rolname = CURRENT_USER)
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public._qb_is_internal_publish_executor() FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION public.qb_guard_question_revision_lifecycle()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_pointed boolean;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.status IN ('PUBLISHED', 'SUPERSEDED')
+       AND NOT public._qb_is_internal_publish_executor() THEN
+      RAISE EXCEPTION 'PUBLISHED/SUPERSEDED revisions require publish RPC';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.status IN ('PUBLISHED', 'SUPERSEDED') THEN
+      RAISE EXCEPTION 'cannot delete PUBLISHED or SUPERSEDED revision';
+    END IF;
+    SELECT EXISTS (
+      SELECT 1 FROM public.questions q
+      WHERE q.current_published_revision_id = OLD.id
+    ) INTO v_pointed;
+    IF v_pointed THEN
+      RAISE EXCEPTION 'cannot delete revision currently pointed by questions.current_published_revision_id';
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.status IS DISTINCT FROM OLD.status THEN
+      IF (
+        OLD.status IN ('PUBLISHED', 'SUPERSEDED')
+        OR NEW.status IN ('PUBLISHED', 'SUPERSEDED')
+      ) AND NOT public._qb_is_internal_publish_executor() THEN
+        RAISE EXCEPTION 'revision status lifecycle changes require publish RPC';
+      END IF;
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qb_guard_question_revision_lifecycle() FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION public.qb_guard_current_published_revision_pointer()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_rev record;
 BEGIN
+  -- INSERT with NULL pointer is allowed (new unpublished question).
+  -- Clearing an existing pointer, or setting a non-NULL pointer, is RPC-only.
   IF NEW.current_published_revision_id IS NULL THEN
+    IF TG_OP = 'UPDATE'
+       AND OLD.current_published_revision_id IS NOT NULL
+       AND NOT public._qb_is_internal_publish_executor() THEN
+      RAISE EXCEPTION 'clearing published pointer requires publish/archive RPC';
+    END IF;
     RETURN NEW;
   END IF;
 
-  IF current_setting('qb.publish_in_progress', true) = '1' THEN
-    RETURN NEW;
+  IF NOT public._qb_is_internal_publish_executor() THEN
+    RAISE EXCEPTION 'published pointer updates require publish RPC';
   END IF;
 
   SELECT qr.question_id, qr.status
@@ -195,57 +284,19 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.qb_enforce_published_revision_status()
-RETURNS trigger
-LANGUAGE plpgsql
-SET search_path = public, pg_temp
-AS $$
-DECLARE
-  v_pointed boolean;
-BEGIN
-  IF current_setting('qb.publish_in_progress', true) = '1' THEN
-    IF TG_OP = 'DELETE' THEN
-      RETURN OLD;
-    END IF;
-    RETURN NEW;
-  END IF;
+REVOKE ALL ON FUNCTION public.qb_guard_current_published_revision_pointer() FROM PUBLIC;
 
-  IF TG_OP = 'DELETE' THEN
-    SELECT EXISTS (
-      SELECT 1 FROM public.questions q
-      WHERE q.current_published_revision_id = OLD.id
-    ) INTO v_pointed;
-    IF v_pointed THEN
-      RAISE EXCEPTION 'cannot delete revision currently pointed by questions.current_published_revision_id';
-    END IF;
-    RETURN OLD;
-  END IF;
+DROP TRIGGER IF EXISTS trg_qb_guard_question_revision_lifecycle ON public.question_revisions;
+CREATE TRIGGER trg_qb_guard_question_revision_lifecycle
+  BEFORE INSERT OR UPDATE OF status OR DELETE ON public.question_revisions
+  FOR EACH ROW
+  EXECUTE FUNCTION public.qb_guard_question_revision_lifecycle();
 
-  IF OLD.status = 'PUBLISHED' AND NEW.status <> 'PUBLISHED' THEN
-    SELECT EXISTS (
-      SELECT 1 FROM public.questions q
-      WHERE q.current_published_revision_id = OLD.id
-    ) INTO v_pointed;
-    IF v_pointed THEN
-      RAISE EXCEPTION 'cannot demote a revision while it is the published pointer';
-    END IF;
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_qb_enforce_published_pointer ON public.questions;
-CREATE TRIGGER trg_qb_enforce_published_pointer
+DROP TRIGGER IF EXISTS trg_qb_guard_current_published_revision_pointer ON public.questions;
+CREATE TRIGGER trg_qb_guard_current_published_revision_pointer
   BEFORE INSERT OR UPDATE OF current_published_revision_id ON public.questions
   FOR EACH ROW
-  EXECUTE FUNCTION public.qb_enforce_published_pointer_on_questions();
-
-DROP TRIGGER IF EXISTS trg_qb_enforce_published_revision_status ON public.question_revisions;
-CREATE TRIGGER trg_qb_enforce_published_revision_status
-  BEFORE UPDATE OF status OR DELETE ON public.question_revisions
-  FOR EACH ROW
-  EXECUTE FUNCTION public.qb_enforce_published_revision_status();
+  EXECUTE FUNCTION public.qb_guard_current_published_revision_pointer();
 
 -- ============================================================================
 -- 7) RPC idempotency store
@@ -399,9 +450,14 @@ BEGIN
     WHERE g.user_id = p_user_id
       AND g.capability = p_capability
       AND g.revoked_at IS NULL
+      AND g.scope_type = 'GLOBAL'
+      AND g.scope_id IS NULL
   );
 END;
 $$;
+
+COMMENT ON FUNCTION public.qb_has_capability(uuid, text) IS
+  'P0: only active GLOBAL grants (scope_id IS NULL) are effective. Non-GLOBAL scopes are reserved for future use.';
 
 CREATE OR REPLACE FUNCTION public.can_edit_question_bank(p_user_id uuid DEFAULT auth.uid())
 RETURNS boolean
@@ -468,8 +524,205 @@ GRANT EXECUTE ON FUNCTION public.can_grade_manual_response(uuid) TO authenticate
 GRANT EXECUTE ON FUNCTION public.can_read_hidden_solutions(uuid) TO authenticated;
 
 -- ============================================================================
--- 11) publish_question_revision RPC
+-- 11) publish_question_revision RPC (public + private internal)
 -- ============================================================================
+CREATE OR REPLACE FUNCTION public._qb_validate_revision_for_publish(p_revision_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_revision public.question_revisions%ROWTYPE;
+  v_option_count int;
+  v_correct_count int;
+  v_answer_count int;
+  v_bad_policy_count int;
+  v_solution_ok boolean;
+  v_media_count int;
+BEGIN
+  SELECT * INTO v_revision
+  FROM public.question_revisions
+  WHERE id = p_revision_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'revision not found';
+  END IF;
+
+  IF v_revision.max_score <= 0 THEN
+    RAISE EXCEPTION 'revision max_score must be greater than zero';
+  END IF;
+
+  IF v_revision.interaction_type = 'SINGLE_CHOICE'
+     OR v_revision.grading_mode = 'AUTO_SINGLE' THEN
+    SELECT count(*), count(*) FILTER (WHERE is_correct)
+    INTO v_option_count, v_correct_count
+    FROM public.question_options
+    WHERE question_revision_id = p_revision_id;
+
+    IF v_option_count < 2 THEN
+      RAISE EXCEPTION 'SINGLE_CHOICE/AUTO_SINGLE requires at least 2 options';
+    END IF;
+
+    IF v_correct_count <> 1 THEN
+      RAISE EXCEPTION 'SINGLE_CHOICE/AUTO_SINGLE requires exactly one correct option';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM public.question_options
+      WHERE question_revision_id = p_revision_id
+        AND (option_code IS NULL OR char_length(trim(option_code)) = 0)
+    ) THEN
+      RAISE EXCEPTION 'SINGLE_CHOICE/AUTO_SINGLE requires non-empty option_codes';
+    END IF;
+  END IF;
+
+  IF v_revision.interaction_type = 'SHORT_TEXT'
+     OR v_revision.grading_mode = 'AUTO_TEXT' THEN
+    SELECT count(*) INTO v_answer_count
+    FROM public.question_accepted_answers
+    WHERE question_revision_id = p_revision_id;
+
+    IF v_answer_count < 1 THEN
+      RAISE EXCEPTION 'SHORT_TEXT/AUTO_TEXT requires at least one accepted answer';
+    END IF;
+
+    SELECT count(*) INTO v_bad_policy_count
+    FROM public.question_accepted_answers
+    WHERE question_revision_id = p_revision_id
+      AND normalization_policy NOT IN ('EXACT', 'TRIM', 'TRIM_COLLAPSE');
+
+    IF v_bad_policy_count > 0 THEN
+      RAISE EXCEPTION 'accepted answers must use EXACT, TRIM, or TRIM_COLLAPSE normalization';
+    END IF;
+  END IF;
+
+  IF v_revision.grading_mode = 'MANUAL' THEN
+    SELECT EXISTS (
+      SELECT 1 FROM public.question_solutions qs
+      WHERE qs.question_revision_id = p_revision_id
+        AND (
+          (qs.model_answer IS NOT NULL AND char_length(trim(qs.model_answer)) > 0)
+          OR (qs.explanation IS NOT NULL AND char_length(trim(qs.explanation)) > 0)
+          OR (qs.solution_code IS NOT NULL AND char_length(trim(qs.solution_code)) > 0)
+        )
+    ) INTO v_solution_ok;
+
+    IF NOT v_solution_ok THEN
+      RAISE EXCEPTION 'MANUAL grading requires a solution with model_answer, explanation, or solution_code';
+    END IF;
+  END IF;
+
+  IF v_revision.requires_media THEN
+    SELECT count(*) INTO v_media_count
+    FROM public.question_media qm
+    WHERE qm.question_revision_id = p_revision_id
+      AND qm.storage_path IS NOT NULL AND char_length(trim(qm.storage_path)) > 0
+      AND qm.alt_text_ar IS NOT NULL AND char_length(trim(qm.alt_text_ar)) > 0;
+
+    IF v_media_count < 1 THEN
+      RAISE EXCEPTION 'requires_media revision must have at least one media row with storage_path and alt_text_ar';
+    END IF;
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public._qb_validate_revision_for_publish(uuid) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION public._qb_publish_question_revision_internal(
+  p_question_id uuid,
+  p_revision_id uuid,
+  p_actor_id uuid,
+  p_idempotency_key text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_revision public.question_revisions%ROWTYPE;
+  v_prior_id uuid;
+  v_result jsonb;
+BEGIN
+  SELECT * INTO v_revision
+  FROM public.question_revisions
+  WHERE id = p_revision_id
+    AND question_id = p_question_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'revision not found for question';
+  END IF;
+
+  IF v_revision.status <> 'APPROVED' THEN
+    RAISE EXCEPTION 'only APPROVED revisions may be published';
+  END IF;
+
+  IF v_revision.payload_hash IS NULL THEN
+    RAISE EXCEPTION 'published revision requires payload_hash';
+  END IF;
+
+  PERFORM public._qb_validate_revision_for_publish(p_revision_id);
+
+  SELECT qr.id INTO v_prior_id
+  FROM public.question_revisions qr
+  WHERE qr.question_id = p_question_id
+    AND qr.status = 'PUBLISHED'
+    AND qr.id <> p_revision_id
+  FOR UPDATE;
+
+  IF v_prior_id IS NOT NULL THEN
+    UPDATE public.question_revisions
+    SET status = 'SUPERSEDED',
+        superseded_at = now()
+    WHERE id = v_prior_id;
+
+    PERFORM public.write_audit_log(
+      'REVISION_SUPERSEDED',
+      'question_revision',
+      v_prior_id,
+      jsonb_build_object(
+        'question_id', p_question_id,
+        'superseded_by', p_revision_id,
+        'idempotency_key', p_idempotency_key
+      )
+    );
+  END IF;
+
+  UPDATE public.question_revisions
+  SET status = 'PUBLISHED',
+      published_at = now(),
+      published_by = p_actor_id
+  WHERE id = p_revision_id;
+
+  UPDATE public.questions
+  SET current_published_revision_id = p_revision_id
+  WHERE id = p_question_id;
+
+  PERFORM public.write_audit_log(
+    'REVISION_PUBLISHED',
+    'question',
+    p_question_id,
+    jsonb_build_object(
+      'revision_id', p_revision_id,
+      'published_by', p_actor_id,
+      'idempotency_key', p_idempotency_key
+    )
+  );
+
+  v_result := jsonb_build_object(
+    'success', true,
+    'question_id', p_question_id,
+    'revision_id', p_revision_id
+  );
+
+  RETURN v_result;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public._qb_publish_question_revision_internal(uuid, uuid, uuid, text) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION public.publish_question_revision(
   p_question_id uuid,
   p_revision_id uuid,
@@ -538,12 +791,6 @@ BEGIN
     RAISE EXCEPTION 'only APPROVED revisions may be published';
   END IF;
 
-  IF v_revision.payload_hash IS NULL THEN
-    RAISE EXCEPTION 'published revision requires payload_hash';
-  END IF;
-
-  PERFORM set_config('qb.publish_in_progress', '1', true);
-
   SELECT qr.id INTO v_prior_id
   FROM public.question_revisions qr
   WHERE qr.question_id = p_question_id
@@ -551,49 +798,14 @@ BEGIN
     AND qr.id <> p_revision_id
   FOR UPDATE;
 
-  IF v_prior_id IS NOT NULL THEN
-    UPDATE public.question_revisions
-    SET status = 'SUPERSEDED',
-        superseded_at = now()
-    WHERE id = v_prior_id;
-
-    PERFORM public.write_audit_log(
-      'REVISION_SUPERSEDED',
-      'question_revision',
-      v_prior_id,
-      jsonb_build_object(
-        'question_id', p_question_id,
-        'superseded_by', p_revision_id,
-        'idempotency_key', p_idempotency_key
-      )
-    );
-  END IF;
-
-  UPDATE public.question_revisions
-  SET status = 'PUBLISHED',
-      published_at = now(),
-      published_by = v_actor
-  WHERE id = p_revision_id;
-
-  UPDATE public.questions
-  SET current_published_revision_id = p_revision_id
-  WHERE id = p_question_id;
-
-  PERFORM public.write_audit_log(
-    'REVISION_PUBLISHED',
-    'question',
+  v_result := public._qb_publish_question_revision_internal(
     p_question_id,
-    jsonb_build_object(
-      'revision_id', p_revision_id,
-      'previous_revision_id', p_expected_current_revision_id,
-      'idempotency_key', p_idempotency_key
-    )
+    p_revision_id,
+    v_actor,
+    p_idempotency_key
   );
 
-  v_result := jsonb_build_object(
-    'success', true,
-    'question_id', p_question_id,
-    'revision_id', p_revision_id,
+  v_result := v_result || jsonb_build_object(
     'previous_revision_id', p_expected_current_revision_id
   );
 
@@ -818,6 +1030,10 @@ BEGIN
     RAISE EXCEPTION 'invalid scope_type';
   END IF;
 
+  IF p_scope_type <> 'GLOBAL' THEN
+    RAISE EXCEPTION 'non-GLOBAL scopes are not supported in P0; only GLOBAL grants are effective';
+  END IF;
+
   IF (p_scope_type = 'GLOBAL' AND p_scope_id IS NOT NULL)
      OR (p_scope_type <> 'GLOBAL' AND p_scope_id IS NULL) THEN
     RAISE EXCEPTION 'scope_type/scope_id shape invalid';
@@ -1024,6 +1240,24 @@ BEGIN
   END IF;
 END $$;
 
+CREATE UNIQUE INDEX IF NOT EXISTS exam_session_questions_id_session_uidx
+  ON public.exam_session_questions (exam_session_id, id);
+
+DO $$ BEGIN
+  ALTER TABLE public.exam_session_answers
+    DROP CONSTRAINT IF EXISTS exam_session_answers_exam_session_question_id_fkey;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'exam_session_answers_session_question_fk') THEN
+    ALTER TABLE public.exam_session_answers
+      ADD CONSTRAINT exam_session_answers_session_question_fk
+      FOREIGN KEY (session_id, exam_session_question_id)
+      REFERENCES public.exam_session_questions (exam_session_id, id);
+  END IF;
+END $$;
+
 -- ============================================================================
 -- 15) Practice attempt surfaces
 -- ============================================================================
@@ -1094,6 +1328,24 @@ CREATE TABLE IF NOT EXISTS public.practice_attempt_responses (
   UNIQUE (practice_attempt_question_id),
   CHECK (final_score IS NULL OR max_score IS NULL OR final_score <= max_score)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS practice_attempt_questions_id_attempt_uidx
+  ON public.practice_attempt_questions (practice_attempt_id, id);
+
+DO $$ BEGIN
+  ALTER TABLE public.practice_attempt_responses
+    DROP CONSTRAINT IF EXISTS practice_attempt_responses_practice_attempt_question_id_fkey;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'practice_attempt_responses_attempt_question_fk') THEN
+    ALTER TABLE public.practice_attempt_responses
+      ADD CONSTRAINT practice_attempt_responses_attempt_question_fk
+      FOREIGN KEY (practice_attempt_id, practice_attempt_question_id)
+      REFERENCES public.practice_attempt_questions (practice_attempt_id, id);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- 16) Manual grading reviews (append-only)
@@ -1332,6 +1584,7 @@ ALTER TABLE public.practice_attempt_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.practice_attempt_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.question_response_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.question_bank_rpc_idempotency ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.exam_session_answers ENABLE ROW LEVEL SECURITY;
 
 -- runtime_config
 DROP POLICY IF EXISTS qb_runtime_config_admin_select ON public.question_bank_runtime_config;
@@ -1363,10 +1616,25 @@ CREATE POLICY qb_revisions_staff_select ON public.question_revisions
   );
 
 DROP POLICY IF EXISTS qb_revisions_edit_manage ON public.question_revisions;
-CREATE POLICY qb_revisions_edit_manage ON public.question_revisions
-  FOR ALL TO authenticated
-  USING (public.can_edit_question_bank(auth.uid()) OR public.is_full_admin(auth.uid()))
-  WITH CHECK (public.can_edit_question_bank(auth.uid()) OR public.is_full_admin(auth.uid()));
+DROP POLICY IF EXISTS qb_revisions_edit_insert ON public.question_revisions;
+CREATE POLICY qb_revisions_edit_insert ON public.question_revisions
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    (public.can_edit_question_bank(auth.uid()) OR public.is_full_admin(auth.uid()))
+    AND status = 'DRAFT'
+  );
+
+DROP POLICY IF EXISTS qb_revisions_edit_update ON public.question_revisions;
+CREATE POLICY qb_revisions_edit_update ON public.question_revisions
+  FOR UPDATE TO authenticated
+  USING (
+    (public.can_edit_question_bank(auth.uid()) OR public.is_full_admin(auth.uid()))
+    AND status IN ('DRAFT', 'READY_FOR_REVIEW', 'REJECTED', 'APPROVED')
+  )
+  WITH CHECK (
+    (public.can_edit_question_bank(auth.uid()) OR public.is_full_admin(auth.uid()))
+    AND status IN ('DRAFT', 'READY_FOR_REVIEW', 'REJECTED', 'APPROVED')
+  );
 
 -- Sensitive revision children (includes is_correct / accepted answers / solutions)
 DROP POLICY IF EXISTS qb_options_staff_select ON public.question_options;
@@ -1470,11 +1738,15 @@ CREATE POLICY qb_esq_owner_select ON public.exam_session_questions
   FOR SELECT TO authenticated
   USING (
     public.is_full_admin(auth.uid())
-    OR public.can_grade_manual_response(auth.uid())
     OR public.can_review_question_content(auth.uid())
     OR EXISTS (
       SELECT 1 FROM public.exam_sessions es
       WHERE es.id = exam_session_id AND es.user_id = auth.uid()
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.exam_session_answers esa
+      WHERE esa.exam_session_question_id = exam_session_questions.id
+        AND esa.assigned_grader_id = auth.uid()
     )
   );
 
@@ -1485,7 +1757,6 @@ CREATE POLICY qb_practice_owner_select ON public.practice_attempts
   USING (
     public.is_full_admin(auth.uid())
     OR user_id = auth.uid()
-    OR public.can_grade_manual_response(auth.uid())
   );
 
 DROP POLICY IF EXISTS qb_practice_q_owner_select ON public.practice_attempt_questions;
@@ -1493,10 +1764,15 @@ CREATE POLICY qb_practice_q_owner_select ON public.practice_attempt_questions
   FOR SELECT TO authenticated
   USING (
     public.is_full_admin(auth.uid())
-    OR public.can_grade_manual_response(auth.uid())
     OR EXISTS (
       SELECT 1 FROM public.practice_attempts pa
       WHERE pa.id = practice_attempt_id AND pa.user_id = auth.uid()
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.practice_attempt_responses par
+      JOIN public.question_response_reviews r ON r.practice_response_id = par.id
+      WHERE par.practice_attempt_question_id = practice_attempt_questions.id
+        AND (r.assigned_grader_id = auth.uid() OR r.grader_id = auth.uid())
     )
   );
 
@@ -1505,10 +1781,14 @@ CREATE POLICY qb_practice_r_owner_select ON public.practice_attempt_responses
   FOR SELECT TO authenticated
   USING (
     public.is_full_admin(auth.uid())
-    OR public.can_grade_manual_response(auth.uid())
     OR EXISTS (
       SELECT 1 FROM public.practice_attempts pa
       WHERE pa.id = practice_attempt_id AND pa.user_id = auth.uid()
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.question_response_reviews r
+      WHERE r.practice_response_id = practice_attempt_responses.id
+        AND (r.assigned_grader_id = auth.uid() OR r.grader_id = auth.uid())
     )
   );
 
@@ -1520,7 +1800,6 @@ CREATE POLICY qb_reviews_grader_select ON public.question_response_reviews
     public.is_full_admin(auth.uid())
     OR grader_id = auth.uid()
     OR assigned_grader_id = auth.uid()
-    OR public.can_grade_manual_response(auth.uid())
   );
 
 DROP POLICY IF EXISTS qb_reviews_admin_mutate ON public.question_response_reviews;
@@ -1528,6 +1807,15 @@ CREATE POLICY qb_reviews_admin_mutate ON public.question_response_reviews
   FOR ALL TO authenticated
   USING (public.is_full_admin(auth.uid()))
   WITH CHECK (public.is_full_admin(auth.uid()));
+
+-- exam_session_answers: assigned grader read
+DROP POLICY IF EXISTS qb_esa_assigned_grader_select ON public.exam_session_answers;
+CREATE POLICY qb_esa_assigned_grader_select ON public.exam_session_answers
+  FOR SELECT TO authenticated
+  USING (
+    public.is_full_admin(auth.uid())
+    OR assigned_grader_id = auth.uid()
+  );
 
 -- idempotency: service_role / definer RPCs only
 DROP POLICY IF EXISTS qb_idempotency_service ON public.question_bank_rpc_idempotency;
@@ -1541,7 +1829,7 @@ CREATE POLICY qb_idempotency_service ON public.question_bank_rpc_idempotency
 -- ============================================================================
 REVOKE ALL ON public.question_bank_runtime_config FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.question_bank_capability_grants FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON public.question_revisions FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.question_revisions FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON public.question_options FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.question_accepted_answers FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.question_solutions FROM PUBLIC, anon, authenticated;
@@ -1557,7 +1845,31 @@ REVOKE ALL ON public.question_bank_rpc_idempotency FROM PUBLIC, anon, authentica
 
 GRANT SELECT ON public.question_bank_runtime_config TO authenticated;
 GRANT SELECT ON public.question_bank_capability_grants TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.question_revisions TO authenticated;
+GRANT SELECT, INSERT ON public.question_revisions TO authenticated;
+GRANT UPDATE (
+  interaction_type,
+  grading_mode,
+  educational_label,
+  question_text,
+  stimulus_text,
+  max_score,
+  allow_partial,
+  requires_media,
+  manual_grading_required,
+  reviewed_at,
+  reviewed_by,
+  rejected_at,
+  rejected_by,
+  rejection_reason
+) ON public.question_revisions TO authenticated;
+REVOKE UPDATE (
+  status,
+  published_at,
+  published_by,
+  superseded_at,
+  payload_hash,
+  payload_hash_version
+) ON public.question_revisions FROM authenticated, anon, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.question_options TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.question_accepted_answers TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.question_solutions TO authenticated;
@@ -1572,7 +1884,23 @@ GRANT SELECT ON public.question_response_reviews TO authenticated;
 
 GRANT ALL ON public.question_bank_runtime_config TO service_role;
 GRANT ALL ON public.question_bank_capability_grants TO service_role;
-GRANT ALL ON public.question_revisions TO service_role;
+GRANT SELECT, INSERT ON public.question_revisions TO service_role;
+GRANT UPDATE (
+  interaction_type,
+  grading_mode,
+  educational_label,
+  question_text,
+  stimulus_text,
+  max_score,
+  allow_partial,
+  requires_media,
+  manual_grading_required,
+  reviewed_at,
+  reviewed_by,
+  rejected_at,
+  rejected_by,
+  rejection_reason
+) ON public.question_revisions TO service_role;
 GRANT ALL ON public.question_options TO service_role;
 GRANT ALL ON public.question_accepted_answers TO service_role;
 GRANT ALL ON public.question_solutions TO service_role;
@@ -1589,6 +1917,7 @@ GRANT ALL ON public.question_bank_rpc_idempotency TO service_role;
 -- ============================================================================
 -- 23) Re-assert questions column grants (extends 20260731120000 allowlist)
 -- ============================================================================
+REVOKE UPDATE ON public.questions FROM authenticated, anon;
 REVOKE SELECT ON public.questions FROM anon;
 REVOKE SELECT ON public.questions FROM authenticated;
 
@@ -1613,5 +1942,6 @@ GRANT SELECT (
 REVOKE SELECT (correct_index, explanation, archived_by) ON public.questions FROM anon, authenticated;
 
 GRANT ALL ON public.questions TO service_role;
+REVOKE UPDATE (current_published_revision_id) ON public.questions FROM authenticated, anon, service_role;
 
 -- END QB-01 QUESTION BANK SCHEMA FOUNDATION (SOURCE ONLY — NOT APPLIED BY PACKAGE)
