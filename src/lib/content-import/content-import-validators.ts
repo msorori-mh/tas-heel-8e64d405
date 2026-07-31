@@ -6,12 +6,13 @@ import {
   type ContentImportDryRunReport,
   type ContentImportDryRunStatus,
   type ContentImportParsedSheet,
-} from "./content-import-types";
+} from "./content-import-types.ts";
 import {
   CONTENT_IMPORT_TEMPLATE_KEYS,
   getContentImportDryRunConfig,
   type ContentImportTemplateKey,
-} from "./content-import-templates";
+} from "./content-import-templates.ts";
+import { getSubjectMainCategory } from "../subjects/subject-grouping.ts";
 
 const INSTRUCTION_SHEET_NAMES = new Set(["تعليمات", "instructions", "readme"]);
 
@@ -145,6 +146,71 @@ function validateResourceRow(
   }
 }
 
+/** Non-standard dash variants that must be normalized to " - ". */
+const NONSTANDARD_SUBJECT_DASH = /[‐‑‒–—―−]/;
+
+/**
+ * Subject grouping naming checks (docs/SUBJECT-GROUPING-GRADE-10-YEMEN-CONTENT-GUIDE.md).
+ * Warnings only — a naming issue never blocks the dry-run unless it clearly
+ * breaks grouping. The approved convention is:
+ *   "<main subject> - <sub-section>" with a space-hyphen-space separator.
+ */
+function validateSubjectGroupingNames(
+  rows: ContentImportParsedSheet["rows"],
+  warnings: ContentImportDryRunIssue[],
+): void {
+  const parentFirstRow = new Map<string, number>();
+
+  for (const row of rows) {
+    const name = row.data.name?.trim();
+    if (!name) continue;
+
+    if (NONSTANDARD_SUBJECT_DASH.test(name)) {
+      pushWarning(warnings, {
+        rowNumber: row.rowNumber,
+        column: "name",
+        code: "NONSTANDARD_SEPARATOR",
+        message: `الفاصل في «${name}» غير موحد. المعتمد: " - " (مسافة + شرطة + مسافة) — حوّل الشرطات من نوع – — − إلى "-".`,
+      });
+    }
+
+    const parent = getSubjectMainCategory(name);
+    if (parent === "الإسلامية") {
+      pushWarning(warnings, {
+        rowNumber: row.rowNumber,
+        column: "name",
+        code: "NONSTANDARD_PARENT_SPELLING",
+        message: `المعتمد دائماً «التربية الإسلامية - اسم القسم» وليس «الإسلامية - ...»: راجع «${name}».`,
+      });
+    }
+
+    if (!parentFirstRow.has(parent)) parentFirstRow.set(parent, row.rowNumber);
+  }
+
+  // Different parent spellings of the same family (one name contains the
+  // other, e.g. "الإسلامية" vs "التربية الإسلامية") split one subject into
+  // two groups in the student UI — warn once per mismatched pair.
+  const parents = [...parentFirstRow.keys()];
+  const reported = new Set<string>();
+  for (let i = 0; i < parents.length; i++) {
+    for (let j = i + 1; j < parents.length; j++) {
+      const a = parents[i];
+      const b = parents[j];
+      if (a === b) continue;
+      if (!a.includes(b) && !b.includes(a)) continue;
+      const pairKey = [a, b].sort().join("::");
+      if (reported.has(pairKey)) continue;
+      reported.add(pairKey);
+      pushWarning(warnings, {
+        rowNumber: parentFirstRow.get(b) ?? null,
+        column: "name",
+        code: "PARENT_SPELLING_MISMATCH",
+        message: `هجاءان مختلفان لنفس المادة الكبرى: «${a}» (صف ${parentFirstRow.get(a)}) و«${b}» (صف ${parentFirstRow.get(b)}) — وحّد الاسم الكبير حرفياً وإلا ظهرت كمادتين منفصلتين للطالب.`,
+      });
+    }
+  }
+}
+
 function duplicateKeyForRow(
   templateKey: ContentImportTemplateKey,
   data: Record<string, string>,
@@ -265,6 +331,10 @@ export function validateContentImportSheet(
         rowNumbersWithErrors.add(row.rowNumber);
       }
     }
+  }
+
+  if (templateKey === "subjects") {
+    validateSubjectGroupingNames(parsed.rows, warnings);
   }
 
   const hasFileLevelError = errors.some((e) => e.rowNumber == null);
