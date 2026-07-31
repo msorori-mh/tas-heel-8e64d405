@@ -69,7 +69,7 @@
 | `node tests/pwa/service-worker-policy.static.test.mjs` | 7/7 PASS |
 | `node --test tests/security/*.mjs` | 18/18 PASS (8 القديمة + 10 الجديدة) |
 | `npm run build` | PASS |
-| Web CI على الـ PR | (يُحدَّث بعد فتح الـ PR) |
+| Web CI على الـ PR | pass (run 30597368492) |
 
 ملاحظة: `node --test tests/security/` بصيغة المجلد يفشل على Windows (خلل runner في تمرير المسار، وليس فشل اختبار) — الاستدعاء الصحيح بأسماء الملفات أو glob.
 
@@ -85,4 +85,4 @@
 
 ## رابط PR
 
-(يُحدَّث عند الإنشاء)
+https://github.com/msorori-mh/tas-heel-8e64d405/pull/31 — **مفتوح، غير مُدمج.** الـ migration لم تُطبَّق على Supabase؛ تطبيقها بيد المالك بعد المراجعة والدمج.
