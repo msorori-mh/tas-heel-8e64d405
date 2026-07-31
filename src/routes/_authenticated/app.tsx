@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
@@ -15,7 +15,8 @@ import { AchievementsSection } from "@/components/home/AchievementsSection";
 import { AiAssistantCard } from "@/components/home/AiAssistantCard";
 import { MotivationFooter } from "@/components/home/MotivationFooter";
 import { SemesterPicker } from "@/components/home/SemesterPicker";
-import { BookOpen, ChevronLeft, ArrowRight } from "lucide-react";
+import { SubjectGroupsGrid } from "@/components/home/SubjectGroupsGrid";
+import { ArrowRight } from "lucide-react";
 import {
   type Semester,
   buildSemesterMap,
@@ -196,33 +197,7 @@ function StudentHome() {
           )}
 
           {subjects && subjects.length > 0 && (
-            <ul className="grid gap-2.5 sm:grid-cols-2">
-              {subjects.map((s) => (
-                <li key={s.id}>
-                  <Link
-                    to="/subjects/$subjectId"
-                    params={{ subjectId: s.id }}
-                    search={{ semester }}
-                    className="group flex items-center justify-between rounded-xl border border-border/60 bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
-                        style={{ backgroundColor: s.color ?? undefined }}
-                        aria-hidden
-                      >
-                        {s.name?.[0] ?? <BookOpen className="h-4 w-4" />}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-bold text-foreground">{s.name}</div>
-                        <div className="text-[11px] text-primary">ابدأ المذاكرة</div>
-                      </div>
-                    </div>
-                    <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <SubjectGroupsGrid subjects={subjects} semester={semester as 1 | 2} />
           )}
         </section>
       )}
