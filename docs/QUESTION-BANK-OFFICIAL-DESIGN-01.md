@@ -1,235 +1,122 @@
 # QUESTION-BANK-OFFICIAL-DESIGN-01
 
-التصميم الرسمي المتوافق مع Runtime الحالي + أدلة Excel الفعلية.
+التصميم الرسمي — متوافق مع **QB-01 Design Freeze** (`docs/QB-01-DESIGN-FREEZE-DECISION-07.md`).
 
 | حقل | قيمة |
 |---|---|
 | القرار المعماري | **NORMALIZED_WITH_COMPATIBILITY_LAYER** |
+| Design freeze | QB-01-DESIGN-FREEZE-DECISION-07 |
 | Runtime baseline audited | `9d6eb603fead085f8fa86f29647a8c5e51cab2af` |
-| Excel schemas observed | teacher_flat_ar_v0 · official_flat_v0 · legacy_flat_15col |
-| official_normalized_v1 | **TARGET DESIGN ONLY — لا عيّنة Excel بعد** |
-| Migration في هذه المهمة | **NO** |
+| Docs base HEAD | `6e35245ed73eb4c3c8ea76a2c010d8e4d7b0348c` |
+| Migration apply | **NO** (هذه الحزمة توثيق فقط) |
 
 ---
 
-## 1. القرار المعماري
+## 1. المعمارية
 
-| خيار | الحكم |
+**New revision SoT → Legacy cache فقط** عبر `qb_sync_question_legacy` (ذري).
+لا Dual Write من العميل.
+`lesson_assessments` / `exam_templates` يُعاد استخدامهما — لا `question_sets` موازٍ في الإطلاق الأول.
+
+---
+
+## 2. الهوية والنسخ
+
+| طبقة | الكيان |
 |---|---|
-| EXTEND_EXISTING_TABLE_ONLY | مرفوض كنهائي — لا يغطي نص/accepted/media/targets بأمان |
-| FULL_REPLACEMENT | مرفوض الآن — يكسر exams/quiz/practice |
-| DUAL_WRITE من العميل | مرفوض |
-| **NORMALIZED_WITH_COMPATIBILITY_LAYER** | **معتمد** — New → Legacy عبر RPC ذري فقط |
+| منطقي | `questions` (`id`, `code`, `current_published_revision_id`, …) |
+| نسخة | `question_revisions` (محتوى السؤال + grading_mode + stimulus_text + …) |
 
-الكيانات الحالية `lesson_assessments` / `exam_templates` (+ junctions) **تُعاد استخدامها** — لا `question_sets` موازٍ في الإطلاق الأول.
+حالات Revision: `DRAFT` | `READY_FOR_REVIEW` | `APPROVED` | `PUBLISHED` | `SUPERSEDED` | `REJECTED`.
+
+قواعد: Published/used immutable؛ التعديل = revision جديدة؛ إعادة الاستيراد بـ `question_code` = DRAFT جديد؛ `updated_at` ≠ versioning؛ لا hard-delete لتاريخ المحاولات.
 
 ---
 
-## 2. أنواع الأسئلة — نطاق الإطلاق الواقعي
+## 3. Revision-scoped children
 
-فرّق دائماً بين:
+ترتبط بـ **`question_revision_id`**: options، accepted_answers، solutions، media، rubrics.
+`question_targets` على **`question_id`** في P0 (استهداف منهج مستقر).
 
-1. **الاسم التعليمي الظاهر** (مقالي، PARSE، إكمال فراغ…)
-2. **`interaction_type` التقني**
-3. **`grading_mode`**
+SoT للصحة: `option_code` + `is_correct` على النسخة.
+**ممنوع** إبقاء خيارات/حلول قابلة للتغيير على logical id مع ادعاء Immutable.
+
+---
+
+## 4. أنواع الأسئلة و`grading_mode`
+
+فرّق: `educational_label` / `interaction_type` / `grading_mode`.
+
+| | |
+|---|---|
+| P0 | `SINGLE_CHOICE`, `SHORT_TEXT`, `LONG_TEXT` |
+| P1 | `TRUE_FALSE` |
+| مؤجل | MULTI_SELECT، NUMERIC، MATCHING، … وبقية قائمة الـ26 |
+
+`grading_mode`: `AUTO_SINGLE` | `AUTO_TEXT` | `MANUAL`.
+PARSE/EXTRACT/EXPLAIN لا تُحوَّل تلقائياً إلى MCQ.
+
+---
+
+## 5. correct_index — مغلق
 
 ```text
-grading_mode:
-  AUTO_SINGLE   — اختيار واحد / صح وخطأ
-  AUTO_TEXT     — نص قصير بقواعد accepted answers صريحة
-  MANUAL        — مصحح بشري (مقالي وغيرها)
+Runtime / Legacy cache: 0-based
+Legacy Excel / dry-run: 1-based
+Official import: option_code only
+Excel 1-based → option_code → is_correct → sync cache 0-based
 ```
 
-### P0
-
-| interaction_type | ملاحظات |
-|---|---|
-| SINGLE_CHOICE | MCQ؛ خيارات مطبّعة؛ تصحيح AUTO_SINGLE |
-| SHORT_TEXT | يشمل إكمال الفراغ دلالياً عند الحاجة؛ AUTO_TEXT فقط بقواعد صريحة وإلا MANUAL |
-| LONG_TEXT | مقالي؛ MANUAL؛ model answer + hint/explanation؛ **لا تدّعِ Rubric كاملاً من عيّنات Excel** |
-
-- أسئلة الإعراب/الاستخراج/التعليل (PARSE/EXTRACT/EXPLAIN…) **لا تُحوَّل تلقائياً إلى MCQ**؛ تُعامل كـ LONG_TEXT/SHORT_TEXT + educational_label ما لم يوفّر القالب خيارات صريحة.
-
-### P1
-
-| TRUE_FALSE | خياران؛ AUTO_SINGLE |
-
-### مؤجل
-
-MULTIPLE_CHOICE/MULTI_SELECT، NUMERIC، MATCHING، ORDERING، TABLE_INPUT، IMAGE_LABELING، DRAWING_UPLOAD، CODE، CODE_OUTPUT، وبقية قائمة الـ26 غير المستخدمة بعيّنات كافية.
+لا تحويل صامت. لا `OWNER_DECISION_REQUIRED` لهذه الاتفاقية.
 
 ---
 
-## 3. مخطط الكيانات (P0)
+## 6. Attempt pinning — Model A
 
-```text
-questions (hub + legacy cache)
-  ├── question_revisions          (أو ما يعادلها — انظر §7؛ حاجز قبل QB-01 إن تعذّر)
-  ├── question_targets            (SUBJECT|UNIT|LESSON, is_primary)
-  ├── question_options            (option_code, body, sort_order, is_correct)
-  ├── question_accepted_answers   (SHORT_TEXT / AUTO_TEXT فقط في P0)
-  ├── question_solutions          (model_answer, explanation, hint, common_mistakes?, reveal_policy)
-  ├── question_media              (media_code, storage_path, alt_text_ar, mime_type, sort_order)
-  └── stimulus_text               (نص اختياري على مستوى السؤال/التنقيح — P0 بسيط)
-
-reuse:
-  lesson_assessments + assessment_questions
-  exam_templates + exam_template_questions
-```
-
-Stimulus مشترك متعدد الأسئلة: **ترقية لاحقة** (العيّنات تستخدم سياقاً لكل سؤال عبر `context_text`).
+`exam_session_questions`: يثبت `question_revision_id` + نص السؤال + stimulus + `rendered_options` + `option_order_mapping` + hash.
+الإجابات ترتبط بالـ snapshot؛ MCQ عبر `selected_option_code`؛ النص عبر `response_text` — **ليس** `selected_index` كـ SoT.
+المحاولات القديمة: `pin_mode=LEGACY`؛ لا إعادة تفسير درجات.
 
 ---
 
-## 4. الإجابات والحلول
+## 7. إجابات وحلول وتصحيح يدوي
 
-| مفهوم | التخزين | ملاحظات |
-|---|---|---|
-| Model answer | `question_solutions.model_answer` | MANUAL / مرجع مصحح |
-| Accepted answers | `question_accepted_answers` | P0 لـ SHORT_TEXT/AUTO_TEXT فقط |
-| Explanation / Hint | solutions | كشف حسب السياسة |
-| Maximum score | points على السؤال/الربط | marks من Excel |
-| Allow partial | metadata / grading | MANUAL أو قواعد نصية موثّقة |
-| Simplified rubric | اختياري | **ليس** مدعوماً كاملاً من عيّنات Excel؛ حزمة قبل إطلاق تصحيح يدوي غني إن لزم |
-
-`questions.explanation` يبقى **cache مشتق** أثناء التوافق.
+- Model answer / hint / explanation على revision.
+- `question_accepted_answers` لـ SHORT_TEXT/AUTO_TEXT فقط.
+- تدفق يدوي: `PENDING_MANUAL_REVIEW` → مراجعة → `FINALIZED` + `question_response_reviews` audit.
+- الجلسة: `submitted_pending_grading` / `partially_graded` / `completed`.
+- لا كتابة صامتة لمقالي في `user_progress.quiz_score`.
 
 ---
 
-## 5. التصحيح اليدوي (رسمي)
+## 8. Stimulus / Media
 
-```text
-Student submits response
-  → status: pending_manual_review
-Authorized grader reads response + permitted solution/rubric
-  → records score + feedback
-Optional second review/audit
-  → final score immutable OR correction audited
-```
-
-| قاعدة | قرار |
-|---|---|
-| من يصحح؟ | **grader capability** — تُطابق في QB-01/05 على الأدوار الحالية (`admin` / `is_content_staff` أو توسيع لاحق). **لا تفترض** enum role اسمه `reviewer` موجوداً الآن |
-| من يقرأ الحل النموذجي؟ | staff/grader حسب السياسة؛ ليس الطالب قبل الكشف |
-| درجات جزئية | مسموحة عند `allow_partial` + MANUAL |
-| Audit | كل تغيير درجة يُسجَّل (من، وقت، قيمة قديمة/جديدة، سبب) |
-| طالب | لا يرى الحل/النموذج قبل سياسة الكشف |
+`stimulus_text` على revision.
+`question_media` revision-scoped؛ bucket تصميمي `question-media` (غير مُنشأ هنا)؛ `alt_text_ar`؛ `requires_media` يمنع النشر بلا ملف صالح.
 
 ---
 
-## 6. Stimulus والوسائط (P0 أدنى)
+## 9. Capabilities (بدون enum reviewer/grader)
 
-| عنصر | قرار P0 |
-|---|---|
-| `stimulus_text` | اختياري لكل سؤال/تنقيح (من `context_text`) |
-| وسائط السؤال | `question_media` منظم — ليس اسم ملف عشوائي فقط |
-| حقول إلزامية للوسائط | `media_code`, `storage_path` (أو مرجع آمن), `alt_text_ar`, `mime_type`, `sort_order` |
-| `requires_media` | إن true: منع النشر بلا ملف صالح + بديل وصفي؛ مع السماح بأن بعض الأسئلة لا تُحل دون صورة |
-| التحميل | عند الحاجة؛ weak-internet: thumbnail أولاً |
-| Offline | تضمين الوسائط المطلوبة ضمن ميزانية — لا استبعاد تلقائي دون قرار |
-| Stimulus مشترك معقد | مؤجل |
+`can_edit_question_bank` | `can_review_question_content` | `can_publish_question_revision` | `can_grade_manual_response` | `can_read_hidden_solutions`
 
----
-
-## 7. استهداف الأسئلة (Resolve)
-
-### UNIT
-
-لا يُقبل رقم وحدة مجرد. أحد:
-
-- `unit_code`، أو
-- المجموعة الكاملة: `grade_code + semester + subject_code + unit_number`
-
-### LESSON
-
-- الرسمي: `lesson_code`
-- Legacy adapter قد يقبل الاسم العربي **فقط** إذا التطابق فريد داخل `grade + semester + subject + unit` — وإلا **رفض ambiguous**
-
-### is_repeated
-
-مشتق من الروابط/الاستخدام — **ليس** مصدر حقيقة من القالب الرسمي.
-
-### Legacy cache
-
-`questions.lesson_id` / `subject_id` / `unit` (نص) = مشتقات من الهدف الأساسي عبر sync فقط.
-`questions.unit` ليس SoT بعد تفعيل targets (انظر §8).
-
----
-
-## 8. مصير الحقول القديمة
-
-| حقل Legacy | الدور | بعد QB-09 |
-|---|---|---|
-| `options` | cache من `question_options` | مرشّح للحذف |
-| `correct_index` | cache (تمثيل التخزين الداخلي الموثّق) | مرشّح للحذف |
-| `explanation` | cache من solutions | مرشّح للحذف |
-| `lesson_id` / `subject_id` | cache للهدف الأساسي | عبر targets |
-| `unit` (text) | Legacy نصي مشتق مؤقتاً؛ **ليس SoT**؛ لا كتابة UI مباشرة؛ Read-only بعد QB-02+QB-07 | إيقاف ثم حذف لاحق |
-
-المزامنة: **New → Legacy فقط** عبر `qb_sync_question_legacy` (ذري). ممنوع Dual Write من العميل.
-
----
-
-## 9. النشر والنسخ (Versioning) — قرار صريح
-
-حماية نتائج الطلاب تتطلب أكثر من `updated_at`.
-
-**الاستراتيجية المفضّلة (ما لم يثبت تعارض قاتل مع exam attempts):**
-
-```text
-Published question revisions are immutable.
-Editing a published/used question creates a new revision.
-Exam attempts / session answers reference the exact revision used.
-Option order and rendered payload are snapshotted when required.
-```
-
-مفاهيم:
-
-- logical question identity (`question_code` / stable id)
-- revision identity
-- published revision / superseded / draft
-- إعادة الاستيراد بـ `question_code` → تنقيح جديد لا طمس صامت لنسخة مستخدمة
-- منع تعديل نسخة استُخدمت في محاولة اختبار
-
-**حاجز:** إذا تعذّر دمج versioning بأمان مع `exam_session_answers.question_id` الحالية دون خطة هجرة واضحة → **HOLD قبل تطبيق QB-01** (موثّق في خطة التنفيذ). لا يُخفى.
+P0: تُبنى على `is_content_staff` / admin. المصحح لا يعدّل البنك.
 
 ---
 
 ## 10. عقد الاستيراد
 
-```text
-Upload → Parse → Normalize → Validate → Resolve Codes
-  → Dry Run → Review → Atomic Apply (DRAFT only until QB-05)
-  → Post-Apply Verify → Audit Log
-```
-
-قواعد إلزامية:
-
-1. الرسمي لا يقبل ID رقمي يدوي.
-2. `question_code` إلزامي في الرسمي/operational.
-3. حالات Excel عند الإدخال: `DRAFT` | `READY_FOR_REVIEW` فقط.
-4. `Published` يُرفض.
-5. `متاح` يُرفض أو يُحوَّل في Legacy adapter فقط مع **تحذير**.
-6. `فارغ` و`-` → NULL في Legacy adapters فقط.
-7. صف فارغ بالكامل يُتجاهل؛ صف مزاح/غير متسق يُرفض.
-8. `answer_data` غير مطلوب من المستخدم غير التقني.
-9. `correct_index` **غير موجود** في official_normalized_v1؛ مسموح فقط في adapters مع اتفاقية معلنة.
-10. `legacy_flat_15col` و dry-run التشغيلي: **1-based** (مثبت بالعيّنة والكود).
-11. لا تحويل صامت 0↔1؛ التحويل إلى تمثيل DB الداخلي يُوثَّق في Apply.
-12. الخيار الصحيح يُطبع إلى `option_code` + `is_correct`.
-13. حتى اكتمال QB-05: **Apply ينشئ/يحدّث DRAFT فقط — لا نشر.**
+`question_code` إلزامي؛ لا id يدوي؛ Excel in = DRAFT|READY_FOR_REVIEW؛ رفض Published؛ Apply = DRAFT فقط حتى QB-05؛ adapters تعلن اتفاقية correct_index؛ فارغ/- → NULL في legacy adapters؛ صف مزاح يُرفض.
 
 ---
 
-## 11. الأمن
+## 11. أمن
 
-- طالب: نص + خيارات بلا `is_correct`؛ لا solutions/accepted/model قبل السياسة.
-- Grader capability: قراءة حلول للتصحيح؛ لا كتابة بنك إلا لطاقم المحتوى.
-- REVOKE عمودي + RPC SECURITY DEFINER + `search_path` صريح.
-- لا الاعتماد على إخفاء الواجهة وحده.
+طالب: بلا `is_correct` / accepted / solutions قبل السياسة.
+REVOKE PUBLIC؛ SECURITY DEFINER + `search_path`؛ deny-by-default RLS. انظر مصفوفة freeze §15.
 
 ---
 
 ## 12. مبادئ
 
-Arabic-first · Mobile-first · Offline-aware · Weak Internet Optimized · RLS-first · Idempotent Imports · Dry Run Before Write · Auditability · Immutable published revisions
+Arabic-first · Mobile-first · Offline-aware · Weak Internet Optimized · RLS-first · Idempotent Imports · Dry Run Before Write · Auditability · Immutable published revisions · New→Legacy only

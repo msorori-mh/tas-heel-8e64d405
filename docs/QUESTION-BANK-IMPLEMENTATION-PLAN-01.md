@@ -1,26 +1,27 @@
 # QUESTION-BANK-IMPLEMENTATION-PLAN-01
 
-خطة تنفيذ متوافقة مع أدلة Excel الثلاثة + التصميم الرسمي.
+خطة تنفيذ بعد **QB-01 Design Freeze** — انظر `docs/QB-01-DESIGN-FREEZE-DECISION-07.md`.
 
 | حقل | قيمة |
 |---|---|
 | القرار | NORMALIZED_WITH_COMPATIBILITY_LAYER |
-| Runtime baseline | `9d6eb603fead085f8fa86f29647a8c5e51cab2af` |
-| Excel schemas | teacher_flat_ar_v0 · official_flat_v0 · legacy_flat_15col |
-| official_normalized_v1 | TARGET ONLY |
-| Migration في هذه المهمة | **NO** |
+| Design freeze | CLOSED (source) |
+| VERSIONING_DECISION (design) | **CLOSED** — Model A + revision-scoped children |
+| Apply QB-01 migration | **ما زال ممنوعاً** حتى حزمة executable + مراجعة مستقلة |
+| Docs base | `6e35245ed73eb4c3c8ea76a2c010d8e4d7b0348c` |
 
 ---
 
-## شرط HOLD قبل QB-01 التنفيذي
+## بوابات قبل إنشاء/تطبيق Migration التنفيذية
 
-```text
-لا يبدأ QB-01 التنفيذي (تطبيق Migration) قبل حسم استراتيجية نسخ الأسئلة المنشورة
-ومطابقتها مع exam attempts / exam_session_answers الحالية.
-updated_at وحده ليس versioning.
-```
-
-إن تعذّر الدمج الآمن → HOLD موثّق؛ لا إخفاء.
+1. Legacy `correct_index` = **0-based** (مثبت Runtime) — **مغلق**.
+2. Excel 1-based → `option_code` → cache 0-based — **مغلق تصميماً**.
+3. Children على `question_revision_id` — **مغلق**.
+4. Attempt pinning Model A + option-order snapshot — **مغلق**.
+5. تخزين نصي مستقل + lifecycle يدوي + audit — **مغلق تصميماً**.
+6. Capabilities على الأدوار الحالية — **مغلق P0**.
+7. Bucket `question-media` تصميمي — **مغلق**؛ الإنشاء لاحقاً.
+8. لا تفعيل أنواع جديدة للطلاب قبل QB-06 safe reads.
 
 ---
 
@@ -30,167 +31,58 @@ updated_at وحده ليس versioning.
 QB-01 → QB-02 → QB-07 → QB-03 → QB-04 → QB-05 → QB-06 → QB-08 → QB-09
 ```
 
----
+### QB-01 — Schema Foundation (executable لاحقاً)
 
-## QB-01 — Schema Foundation (NOT APPLIED هنا)
+يشمل: logical hub additives؛ `question_revisions`؛ revision-scoped options/accepted/solutions/media؛ targets؛ `exam_session_questions`؛ response/grading columns؛ capability helpers؛ RLS/GRANT deny-by-default؛ sync stub 0-based.
 
-| عنصر | مطلوب |
-|---|---|
-| questions hub + legacy cache | نعم |
-| question_targets | نعم |
-| question_options مطبّعة | نعم |
-| question_accepted_answers | نعم (SHORT_TEXT P0) |
-| question_solutions + hints | نعم |
-| stimulus_text أدنى / per-question | نعم |
-| question_media metadata | نعم |
-| manual grading metadata | نعم |
-| version/revision foundation **أو** HOLD موثّق | نعم — حاجز قبل apply |
-| interaction_type مرن (مرجع أو TEXT + validation) — لا CHECK مغلق بـ26 | نعم |
-| grading_mode | نعم |
-| created_by / updated_at | نعم |
-| RLS + GRANT كاملة deny-by-default | نعم |
-| reviewer/grader capability mapped to current roles | نعم — لا اختراع enum `reviewer` أعمى |
-| Indexes / FKs / triggers New→Legacy | نعم |
-
-**PASS:** تصميم كامل + مراجعة أمنية + قرار versioning مكتوب.
-**HOLD:** تعارض versioning مع attempts؛ أو GRANT واسع؛ أو RLS ناقصة.
+**PASS apply:** مراجعة مستقلة للـ migration + اختبارات مصدرية.
+**HOLD apply:** أي انحراف عن freeze (children على question_id، أو بقاء selected_index كـ SoT).
 
 مسودة: `docs/migration-drafts/QUESTION-BANK-SCHEMA-FOUNDATION-01.NOT_APPLIED.sql`
 
----
+### QB-02 — Backfill
 
-## QB-02 — Backfill Legacy → New
+Revision #1 لكل legacy row؛ options من JSON؛ `correct_index` 0-based → `is_correct`؛ solutions؛ targets؛ hashes؛ dry-run؛ لا تخمين لمحاولات قديمة.
 
-- صف واحد لكل سؤال legacy → options/targets/solutions حسب النوع.
-- لا حذف legacy.
-- تقرير gaps (بلا lesson، بلا صحيح، JSON تالف، unit نصي فقط).
+### QB-07 — Compatibility Sync
 
-**HOLD:** فقدان بيانات بلا تقرير؛ مسح legacy.
+New→Legacy فقط؛ `correct_index` cache 0-based؛ لا Dual Write.
 
----
+### QB-03 — Import Validation & Dry Run
 
-## QB-07 — Compatibility Sync Layer (قبل الاستيراد)
+Adapters الثلاثة + normalized path؛ 1-based معلن؛ رفض Published؛ resolve codes؛ media؛ صف مزاح؛ أخطاء row/column/sheet.
 
-- `qb_sync_question_legacy` ذري.
-- مصدر الحقيقة = New.
-- اتجاه واحد New → Legacy.
-- `questions.unit` نصي = مشتق مؤقت Read-only بعد التفعيل — **ليس SoT**.
-- لا Dual Write من العميل.
+### QB-04 — Atomic Apply
 
-**HOLD:** كتابة من العميل لكلا الطبقتين؛ تعارض بعد sync.
+DRAFT only حتى QB-05؛ لا نشر.
 
----
+### QB-05 — Review / Publish / Versioning ops
 
-## QB-03 — Import Validation & Dry Run
+Approve/reject؛ publish revision؛ منع تعديل used/published؛ capabilities.
 
-قبل PASS يجب:
+### QB-06 — Runtime APIs (تقسيم داخلي مصدر)
 
-1. تعريف adapters الثلاثة (+ مسار official_normalized_v1 لاحقاً).
-2. تثبيت اتفاقية correct_index لكل adapter (legacy/operational = 1-based مثبت).
-3. كشف الصف المزاح ورفضه.
-4. تطبيع `فارغ` / `-` → NULL في adapters فقط.
-5. رفض `Published`؛ قبول DRAFT / READY_FOR_REVIEW فقط.
-6. Resolve codes (unit/lesson) حسب التصميم.
-7. التحقق من الوسائط (`requires_media`, alt, path).
-8. التحقق من interaction_type + grading_mode.
-9. أخطاء/تحذيرات مرتبطة بـ row/column/sheet.
-10. عدم إنشاء جداول فعلية في هذه الحزمة التوثيقية.
+1) Safe student reads
+2) Text submit + pin
+3) Manual grading + audit
+لا تفعيل SHORT/LONG للطلاب قبل (1).
 
-**HOLD:** 0↔1 صامت؛ قبول نشر من Excel؛ resolve غامض بلا رفض.
+### QB-08 — UI
+
+محتوى / طالب / مصحح / وسائط / ضعف اتصال.
+
+### QB-09 — Deprecate legacy cache fields
+
+بعد إثبات عدم اعتماد القراءة المباشرة.
 
 ---
 
-## QB-04 — Atomic Apply
+## سيناريوهات (مختصر — التفاصيل في الحزم)
 
-حتى اكتمال QB-05:
-
-```text
-Atomic Apply may create/update DRAFT only.
-It must not publish content.
-```
-
-- Upsert بـ `question_code`.
-- استدعاء sync داخل نفس المعاملة عند الحاجة.
-- لا نشر؛ لا حذف legacy.
-
-**HOLD:** نشر من Apply؛ نجاح جزئي بلا rollback.
+مقالي+model؛ SHORT+accepted؛ جزئي+audit؛ صورة+requires_media؛ stimulus؛ بلا code؛ Published في Excel؛ صف مزاح؛ فارغ؛ correct_index 1-based؛ غامض؛ وحدة برقم؛ درس مكرر؛ تعديل منشور مستخدم؛ إعادة استيراد revision؛ grader يقرأ بلا كتابة بنك؛ طالب يقرأ حلاً مبكراً؛ تغيير درجة+audit؛ فشل وسائط؛ resume بعد انقطاع؛ محاولة LEGACY لا تُعاد تفسيرها؛ shuffle لاحق يجمّد mapping.
 
 ---
 
-## QB-05 — Review / Approve / Publish + Versioning
+## خارج النطاق الآن
 
-- Content review + approve/reject.
-- Reviewer/grader capability (مطابقة الأدوار).
-- نشر تنقيح؛ منع تعديل النسخة المنشورة المستخدمة.
-- إنشاء revision جديدة عند التعديل بعد النشر/الاستخدام.
-- كشف حلول حسب السياسة.
-
-**HOLD:** نشر بلا مراجعة؛ تعديل صامت لنسخة مستخدمة في attempt.
-
----
-
-## QB-06 — Runtime APIs
-
-- Safe student reads (بلا is_correct / solutions مبكرة).
-- Safe answer reveal.
-- Submission APIs للنص القصير/المقالي.
-- Manual grading APIs + audit trail.
-- Offline-aware reads.
-
-**HOLD:** تسريب حلول؛ grading بلا audit.
-
----
-
-## QB-08 — UI
-
-- إدخال/مراجعة محتوى.
-- واجهة طالب.
-- واجهة تصحيح يدوي.
-- عرض وسائط + weak internet.
-- استكمال بعد انقطاع.
-
-**HOLD:** اعتماد على إخفاء UI للأمن؛ نشر من شاشة الاستيراد.
-
----
-
-## QB-09 — Deprecate Legacy Fields
-
-- بعد إثبات عدم اعتماد القراءة المباشرة على cache.
-- إيقاف ثم حذف لاحق لـ options/correct_index/explanation/unit النصي عند الجاهزية.
-- لا DROP مبكّر.
-
----
-
-## مصفوفة سيناريوهات التوثيق (PASS / HOLD)
-
-| # | سيناريو | Package | Expected | PASS | HOLD |
-|---|---|---|---|---|---|
-| 1 | مقالي + model answer | QB-01/05/06 | LONG_TEXT + MANUAL + solution | model مخزّن؛ طالب لا يراه مبكراً | تسريب |
-| 2 | نص قصير + accepted | QB-01/03/06 | SHORT_TEXT + AUTO_TEXT | تطابق قواعد صريحة | auto بلا قواعد |
-| 3 | درجات جزئية | QB-05/06 | allow_partial + MANUAL | درجة جزئية + audit | بلا سجل |
-| 4 | يعتمد على صورة | QB-03/04/08 | requires_media | رفض نشر بلا ملف+alt | نشر بلا وسائط |
-| 5 | stimulus نصي | QB-01/08 | stimulus_text | يظهر للطالب | فقدان السياق |
-| 6 | بلا question_code | QB-03 | رفض رسمي | error على الصف | قبول صامت |
-| 7 | status=Published في Excel | QB-03/04 | رفض | لا apply | نشر من Excel |
-| 8 | صف مزاح | QB-03 | رفض | error | تفسير خاطئ |
-| 9 | قيمة `فارغ` | QB-03 | NULL في adapter | تطبيع موثّق | تخزين نص فارغ |
-| 10 | correct_index 1-based | QB-03/07 | تحويل معلن | خيار صحيح عبر option_code | قلب صامت |
-| 11 | correct_index غامض | QB-03 | رفض | error | تخمين |
-| 12 | وحدة برقم فقط | QB-03 | رفض | error | ربط خاطئ |
-| 13 | درس عربي مكرر | QB-03 | رفض ambiguous | error | أول تطابق |
-| 14 | تعديل منشور مستخدم | QB-05 | revision جديدة | attempt يثبت القديم | طمس |
-| 15 | إعادة استيراد revision | QB-04/05 | تنقيح جديد بـ question_code | لا كسر محاولات | overwrite أعمى |
-| 16 | مراجع يقرأ الحل ولا يعدّل | QB-05/06 | grader read | SELECT حلول؛ لا UPDATE بنك | كتابة زائدة |
-| 17 | طالب يقرأ الحل مبكراً | QB-06 | منع | RLS/RPC | تسريب |
-| 18 | مصحح يغيّر الدرجة + Audit | QB-06 | سجل كامل | audit row | تغيير صامت |
-| 19 | فشل ملف وسائط | QB-03/04 | رفض/تحذير حسب requires_media | لا نشر معطوب | تجاهل |
-| 20 | استكمال بعد انقطاع | QB-06/08 | resume آمن | لا فقدان إجابة | إعادة إرسال مزدوج بلا حماية |
-
----
-
-## ما هو خارج النطاق الآن
-
-- لا Migration تحت `supabase/migrations`
-- لا إنشاء جداول فعلية
-- لا افتراض 26 نوعاً كلها للإطلاق
-- لا دمج PR / Deploy من هذه الخطة وحدها
+لا ملف تحت `supabase/migrations` · لا SQL منفَّذ · لا Runtime · لا تفعيل طلاب · لا إنشاء bucket فعلي
