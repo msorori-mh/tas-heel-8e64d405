@@ -31,10 +31,10 @@ type SessionRow = {
   status: "in_progress" | "submitted" | "expired";
   template_id: string;
   total_questions: number | null;
-  answered_count: number | null;
-  correct_count: number | null;
+  answered_questions: number | null;
+  correct_answers: number | null;
   score: number | null;
-  percentage: number | null;
+  total_points: number | null;
   result_json: unknown;
 };
 
@@ -378,7 +378,9 @@ function TrainingExamPage() {
 
 function ResultView({ state, onRetry }: { state: SessionState; onRetry: () => void }) {
   const s = state.session;
-  const score = s.percentage ?? s.score ?? 0;
+  const totalPts = Number(s.total_points ?? 0);
+  const rawScore = Number(s.score ?? 0);
+  const score = totalPts > 0 ? Math.round((rawScore / totalPts) * 100) : 0;
   const msg =
     score >= 80
       ? "أداء ممتاز"
@@ -401,9 +403,10 @@ function ResultView({ state, onRetry }: { state: SessionState; onRetry: () => vo
       </nav>
 
       <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-card">
-        <p className="text-2xl font-bold text-foreground">النتيجة: {Math.round(score)}%</p>
+        <p className="text-2xl font-bold text-foreground">النتيجة: {score}%</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          {s.correct_count ?? 0} صحيح من {s.total_questions ?? 0} • {s.answered_count ?? 0} مُجاب
+          {s.correct_answers ?? 0} صحيح من {s.total_questions ?? 0} • {s.answered_questions ?? 0}{" "}
+          مُجاب • {rawScore}/{totalPts} نقطة
         </p>
         <p className="mt-2 text-sm font-medium text-foreground">{msg}</p>
       </div>
