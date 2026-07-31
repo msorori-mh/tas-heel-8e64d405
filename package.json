@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "generate:import-templates": "bun run scripts/generate-import-templates.ts",
-    "generate:content-templates": "node scripts/generate-content-templates.mjs"
+    "generate:content-templates": "node scripts/generate-content-templates.mjs",
+    "content:preflight": "node scripts/content-import/validate-content-package.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
