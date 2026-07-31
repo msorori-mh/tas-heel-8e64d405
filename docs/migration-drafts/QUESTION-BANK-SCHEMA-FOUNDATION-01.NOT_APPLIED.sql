@@ -2,33 +2,64 @@
 -- NOT APPLIED
 -- DO NOT EXECUTE WITHOUT EXPLICIT APPROVAL
 -- DESIGN FREEZE SOURCE ONLY
+-- HOLD-CORRECTION-09 — single schema topology (HYBRID responses)
 -- DO NOT PLACE THIS FILE UNDER supabase/migrations
 --
--- QB-01 Schema Foundation — aligned with docs/QB-01-DESIGN-FREEZE-DECISION-07.md
--- All statements below are COMMENTED. Zero executable SQL in this file.
---
--- Frozen rules:
---   * Logical hub = public.questions
---   * Content SoT = question_revisions + revision-scoped children
---   * Legacy cache correct_index = 0-based (New -> Legacy sync only)
---   * Attempts after cutover = Model A exam_session_questions snapshots
---   * No student SELECT on is_correct / solutions / accepted_answers
---   * No DROP/RENAME of legacy columns in QB-01
+-- All statements below are COMMENTED. Zero executable SQL.
+-- Locked: correct_index legacy cache = 0-based; CASEFOLD_AR not in P0;
+-- attempt_pin_mode default LEGACY after future apply.
 
 -- ---------------------------------------------------------------------------
--- 0) Flexible interaction taxonomy (optional reference; not closed CHECK of 26)
+-- 0) Runtime cutover config (singleton)
 -- ---------------------------------------------------------------------------
--- CREATE TABLE IF NOT EXISTS public.question_interaction_types (
---   code text PRIMARY KEY,
---   educational_label_ar text,
---   default_grading_mode text NOT NULL
---     CHECK (default_grading_mode IN ('AUTO_SINGLE', 'AUTO_TEXT', 'MANUAL')),
---   is_launch_enabled boolean NOT NULL DEFAULT false,
---   created_at timestamptz NOT NULL DEFAULT now()
+-- CREATE TABLE IF NOT EXISTS public.question_bank_runtime_config (
+--   id int PRIMARY KEY CHECK (id = 1),
+--   attempt_pin_mode text NOT NULL DEFAULT 'LEGACY'
+--     CHECK (attempt_pin_mode IN ('LEGACY', 'REVISION_PINNED')),
+--   enabled_at timestamptz,
+--   enabled_by uuid REFERENCES auth.users(id),
+--   updated_at timestamptz NOT NULL DEFAULT now(),
+--   updated_by uuid REFERENCES auth.users(id)
 -- );
+-- INSERT INTO public.question_bank_runtime_config (id, attempt_pin_mode)
+-- VALUES (1, 'LEGACY')
+-- ON CONFLICT (id) DO NOTHING;
+-- -- QB-01 apply MUST leave attempt_pin_mode = LEGACY.
 
 -- ---------------------------------------------------------------------------
--- 1) Logical hub additive columns (non-breaking)
+-- 1) Capability grants (grader ≠ editor)
+-- ---------------------------------------------------------------------------
+-- CREATE TABLE IF NOT EXISTS public.question_bank_capability_grants (
+--   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+--   capability text NOT NULL CHECK (capability IN (
+--     'EDIT_QUESTION_BANK',
+--     'REVIEW_QUESTION_CONTENT',
+--     'PUBLISH_QUESTION_REVISION',
+--     'GRADE_MANUAL_RESPONSE',
+--     'READ_HIDDEN_SOLUTIONS'
+--   )),
+--   scope_type text NOT NULL DEFAULT 'GLOBAL',
+--   scope_id uuid,
+--   granted_by uuid REFERENCES auth.users(id),
+--   granted_at timestamptz NOT NULL DEFAULT now(),
+--   revoked_by uuid REFERENCES auth.users(id),
+--   revoked_at timestamptz,
+--   reason text,
+--   CHECK (revoked_at IS NULL OR revoked_at >= granted_at)
+-- );
+-- CREATE INDEX IF NOT EXISTS qb_cap_grants_user_active_idx
+--   ON public.question_bank_capability_grants (user_id, capability)
+--   WHERE revoked_at IS NULL;
+--
+-- -- Helpers (shape): SECURITY DEFINER; SET search_path TO 'public';
+-- -- fail closed; REVOKE EXECUTE FROM PUBLIC;
+-- -- Admin bypass explicit; else active grant; content_manager defaults
+-- -- EDIT+REVIEW+READ_HIDDEN only (NOT GRADE/PUBLISH unless granted).
+-- -- Grader grants: GRADE + READ_HIDDEN only — never EDIT/PUBLISH.
+
+-- ---------------------------------------------------------------------------
+-- 2) Logical hub additives
 -- ---------------------------------------------------------------------------
 -- ALTER TABLE public.questions
 --   ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES auth.users(id);
@@ -36,24 +67,22 @@
 --   ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 -- ALTER TABLE public.questions
 --   ADD COLUMN IF NOT EXISTS current_published_revision_id uuid;
--- -- NOTE: updated_at is NOT versioning.
--- -- Legacy columns options / correct_index / explanation / lesson_id / subject_id / unit remain.
--- -- correct_index cache convention: 0-based (LOCKED).
+-- -- Legacy cache columns retained; correct_index remains 0-based cache via sync.
 
 -- ---------------------------------------------------------------------------
--- 2) question_revisions
+-- 3) question_revisions + same-question published pointer
 -- ---------------------------------------------------------------------------
 -- CREATE TABLE IF NOT EXISTS public.question_revisions (
 --   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 --   question_id uuid NOT NULL REFERENCES public.questions(id) ON DELETE RESTRICT,
 --   revision_number int NOT NULL,
---   status text NOT NULL
---     CHECK (status IN (
---       'DRAFT', 'READY_FOR_REVIEW', 'APPROVED', 'PUBLISHED', 'SUPERSEDED', 'REJECTED'
---     )),
+--   status text NOT NULL CHECK (status IN (
+--     'DRAFT','READY_FOR_REVIEW','APPROVED','PUBLISHED','SUPERSEDED','REJECTED'
+--   )),
 --   interaction_type text,
---   grading_mode text
---     CHECK (grading_mode IS NULL OR grading_mode IN ('AUTO_SINGLE', 'AUTO_TEXT', 'MANUAL')),
+--   grading_mode text CHECK (
+--     grading_mode IS NULL OR grading_mode IN ('AUTO_SINGLE','AUTO_TEXT','MANUAL')
+--   ),
 --   educational_label text,
 --   question_text text NOT NULL,
 --   stimulus_text text,
@@ -62,7 +91,9 @@
 --   requires_media boolean NOT NULL DEFAULT false,
 --   manual_grading_required boolean NOT NULL DEFAULT false,
 --   payload_hash text,
---   source_import_hash text,
+--   payload_hash_version text NOT NULL DEFAULT 'canonical_payload_v1',
+--   source_payload_hash text,
+--   backfill_version text,
 --   created_at timestamptz NOT NULL DEFAULT now(),
 --   created_by uuid REFERENCES auth.users(id),
 --   reviewed_at timestamptz,
@@ -70,40 +101,33 @@
 --   published_at timestamptz,
 --   published_by uuid REFERENCES auth.users(id),
 --   superseded_at timestamptz,
---   UNIQUE (question_id, revision_number)
+--   UNIQUE (question_id, revision_number),
+--   UNIQUE (question_id, id)
 -- );
 -- CREATE UNIQUE INDEX IF NOT EXISTS question_revisions_one_published
---   ON public.question_revisions (question_id)
---   WHERE status = 'PUBLISHED';
--- -- ALTER TABLE public.questions
--- --   ADD CONSTRAINT questions_current_published_revision_fk
--- --   FOREIGN KEY (current_published_revision_id)
--- --   REFERENCES public.question_revisions(id);
+--   ON public.question_revisions (question_id) WHERE status = 'PUBLISHED';
+--
+-- ALTER TABLE public.questions
+--   ADD CONSTRAINT questions_current_published_revision_fk
+--   FOREIGN KEY (id, current_published_revision_id)
+--   REFERENCES public.question_revisions (question_id, id)
+--   DEFERRABLE INITIALLY DEFERRED;
+-- -- current_published_revision_id may be NULL (no FK row required when null).
 
 -- ---------------------------------------------------------------------------
--- 3) Targets (logical question_id for P0 stable curriculum binding)
+-- 4) Targets (logical) + revision-scoped children
 -- ---------------------------------------------------------------------------
 -- CREATE TABLE IF NOT EXISTS public.question_targets (
 --   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 --   question_id uuid NOT NULL REFERENCES public.questions(id) ON DELETE CASCADE,
---   target_type text NOT NULL CHECK (target_type IN ('SUBJECT', 'UNIT', 'LESSON')),
+--   target_type text NOT NULL CHECK (target_type IN ('SUBJECT','UNIT','LESSON')),
 --   subject_id uuid REFERENCES public.subjects(id) ON DELETE CASCADE,
 --   unit_id uuid REFERENCES public.units(id) ON DELETE CASCADE,
 --   lesson_id uuid REFERENCES public.lessons(id) ON DELETE CASCADE,
 --   is_primary boolean NOT NULL DEFAULT false,
---   created_at timestamptz NOT NULL DEFAULT now(),
---   CONSTRAINT question_targets_type_shape CHECK (
---     (target_type = 'SUBJECT' AND subject_id IS NOT NULL AND unit_id IS NULL AND lesson_id IS NULL)
---     OR (target_type = 'UNIT' AND unit_id IS NOT NULL AND lesson_id IS NULL)
---     OR (target_type = 'LESSON' AND lesson_id IS NOT NULL)
---   )
+--   created_at timestamptz NOT NULL DEFAULT now()
 -- );
--- CREATE UNIQUE INDEX IF NOT EXISTS question_targets_one_primary
---   ON public.question_targets (question_id) WHERE is_primary;
-
--- ---------------------------------------------------------------------------
--- 4) Revision-scoped children
--- ---------------------------------------------------------------------------
+--
 -- CREATE TABLE IF NOT EXISTS public.question_options (
 --   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 --   question_revision_id uuid NOT NULL REFERENCES public.question_revisions(id) ON DELETE CASCADE,
@@ -121,7 +145,8 @@
 --   answer_text text NOT NULL,
 --   normalized_answer text,
 --   normalization_policy text NOT NULL DEFAULT 'TRIM_COLLAPSE'
---     CHECK (normalization_policy IN ('EXACT', 'TRIM', 'TRIM_COLLAPSE', 'CASEFOLD_AR')),
+--     CHECK (normalization_policy IN ('EXACT','TRIM','TRIM_COLLAPSE')),
+--   -- CASEFOLD_AR: DEFERRED_TO_P1 / NOT ALLOWED IN QB-01
 --   is_primary boolean NOT NULL DEFAULT false,
 --   sort_order int NOT NULL DEFAULT 0,
 --   created_at timestamptz NOT NULL DEFAULT now()
@@ -134,8 +159,7 @@
 --   hint text,
 --   common_mistakes text,
 --   simplified_rubric text,
---   reveal_policy text NOT NULL DEFAULT 'AFTER_SUBMIT'
---     CHECK (reveal_policy IN ('AFTER_ANSWER', 'AFTER_SUBMIT', 'NEVER_STUDENT', 'STAFF_ONLY')),
+--   reveal_policy text NOT NULL DEFAULT 'AFTER_SUBMIT',
 --   created_at timestamptz NOT NULL DEFAULT now(),
 --   updated_at timestamptz NOT NULL DEFAULT now()
 -- );
@@ -156,11 +180,15 @@
 --   created_by uuid REFERENCES auth.users(id),
 --   UNIQUE (question_revision_id, media_code)
 -- );
--- -- Storage bucket question-media is DESIGN ONLY — not created here.
+-- -- Bucket question-media is NOT created in this documentation draft.
 
 -- ---------------------------------------------------------------------------
--- 5) Model A — exam session question snapshots (attempt pinning)
+-- 5) Exam Model A — session question snapshots + answer extensions
 -- ---------------------------------------------------------------------------
+-- ALTER TABLE public.exam_sessions
+--   ADD COLUMN IF NOT EXISTS attempt_pin_mode text
+--     CHECK (attempt_pin_mode IS NULL OR attempt_pin_mode IN ('LEGACY','REVISION_PINNED'));
+--
 -- CREATE TABLE IF NOT EXISTS public.exam_session_questions (
 --   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 --   exam_session_id uuid NOT NULL REFERENCES public.exam_sessions(id) ON DELETE CASCADE,
@@ -168,65 +196,143 @@
 --   logical_question_id uuid NOT NULL REFERENCES public.questions(id) ON DELETE RESTRICT,
 --   question_order int NOT NULL,
 --   rendered_question_text text NOT NULL,
---   rendered_stimulus text,
+--   rendered_stimulus_text text,
 --   rendered_options jsonb NOT NULL DEFAULT '[]'::jsonb,
+--   -- rendered_options MUST NOT include is_correct for student-visible payloads
 --   option_order_mapping jsonb NOT NULL DEFAULT '[]'::jsonb,
---   max_score numeric NOT NULL DEFAULT 1,
+--   max_score numeric NOT NULL DEFAULT 1 CHECK (max_score > 0),
 --   payload_hash text NOT NULL,
---   pin_mode text NOT NULL DEFAULT 'REVISION_PINNED'
---     CHECK (pin_mode IN ('REVISION_PINNED', 'LEGACY')),
+--   payload_hash_version text NOT NULL DEFAULT 'canonical_payload_v1',
+--   pin_mode text NOT NULL CHECK (pin_mode IN ('REVISION_PINNED','LEGACY')),
 --   created_at timestamptz NOT NULL DEFAULT now(),
 --   UNIQUE (exam_session_id, question_revision_id)
 -- );
 --
--- -- Extend answers (shape; exact ALTER chosen in executable migration package):
--- -- ALTER TABLE public.exam_session_answers
--- --   ADD COLUMN IF NOT EXISTS exam_session_question_id uuid REFERENCES public.exam_session_questions(id),
--- --   ADD COLUMN IF NOT EXISTS question_revision_id uuid REFERENCES public.question_revisions(id),
--- --   ADD COLUMN IF NOT EXISTS selected_option_code text,
--- --   ADD COLUMN IF NOT EXISTS response_text text,
--- --   ADD COLUMN IF NOT EXISTS response_payload jsonb,
--- --   ADD COLUMN IF NOT EXISTS grading_status text,
--- --   ADD COLUMN IF NOT EXISTS auto_score numeric,
--- --   ADD COLUMN IF NOT EXISTS manual_score numeric,
--- --   ADD COLUMN IF NOT EXISTS final_score numeric,
--- --   ADD COLUMN IF NOT EXISTS requires_manual_review boolean NOT NULL DEFAULT false,
--- --   ADD COLUMN IF NOT EXISTS pin_mode text DEFAULT 'LEGACY';
--- -- Legacy rows keep question_id + selected_index; scores not reinterpreted.
--- -- selected_index MUST NOT be used as SoT for text responses.
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS exam_session_question_id uuid
+--     REFERENCES public.exam_session_questions(id) ON DELETE RESTRICT;
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS question_revision_id uuid
+--     REFERENCES public.question_revisions(id) ON DELETE RESTRICT;
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS selected_option_code text;
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS response_text text;
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS response_payload jsonb;
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS requires_manual_review boolean NOT NULL DEFAULT false;
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS grading_status text;
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS auto_score numeric CHECK (auto_score IS NULL OR auto_score >= 0);
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS manual_score numeric CHECK (manual_score IS NULL OR manual_score >= 0);
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS final_score numeric CHECK (final_score IS NULL OR final_score >= 0);
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS max_score numeric CHECK (max_score IS NULL OR max_score > 0);
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS submitted_at timestamptz;
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS graded_at timestamptz;
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS finalized_at timestamptz;
+-- ALTER TABLE public.exam_session_answers
+--   ADD COLUMN IF NOT EXISTS pin_mode text
+--     CHECK (pin_mode IS NULL OR pin_mode IN ('LEGACY','REVISION_PINNED'));
+-- -- selected_index remains for LEGACY rows only; not SoT for text or new MCQ.
+-- -- New REVISION_PINNED rows require exam_session_question_id + matching revision_id.
 
 -- ---------------------------------------------------------------------------
--- 6) Manual grading reviews
+-- 6) Practice surfaces (lesson/unit) — HYBRID second branch
+-- ---------------------------------------------------------------------------
+-- CREATE TABLE IF NOT EXISTS public.practice_attempts (
+--   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+--   attempt_type text NOT NULL CHECK (attempt_type IN ('LESSON','UNIT')),
+--   lesson_assessment_id uuid REFERENCES public.lesson_assessments(id) ON DELETE RESTRICT,
+--   unit_id uuid REFERENCES public.units(id) ON DELETE RESTRICT,
+--   started_at timestamptz NOT NULL DEFAULT now(),
+--   submitted_at timestamptz,
+--   grading_status text,
+--   total_score numeric CHECK (total_score IS NULL OR total_score >= 0),
+--   max_score numeric CHECK (max_score IS NULL OR max_score > 0),
+--   attempt_pin_mode text NOT NULL CHECK (attempt_pin_mode IN ('LEGACY','REVISION_PINNED')),
+--   CONSTRAINT practice_attempts_type_shape CHECK (
+--     (attempt_type = 'LESSON' AND lesson_assessment_id IS NOT NULL AND unit_id IS NULL)
+--     OR (attempt_type = 'UNIT' AND unit_id IS NOT NULL AND lesson_assessment_id IS NULL)
+--   )
+-- );
+--
+-- CREATE TABLE IF NOT EXISTS public.practice_attempt_questions (
+--   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+--   practice_attempt_id uuid NOT NULL REFERENCES public.practice_attempts(id) ON DELETE CASCADE,
+--   question_revision_id uuid NOT NULL REFERENCES public.question_revisions(id) ON DELETE RESTRICT,
+--   question_order int NOT NULL,
+--   rendered_question_text text NOT NULL,
+--   rendered_stimulus_text text,
+--   rendered_options jsonb NOT NULL DEFAULT '[]'::jsonb,
+--   option_order_mapping jsonb NOT NULL DEFAULT '[]'::jsonb,
+--   max_score numeric NOT NULL DEFAULT 1 CHECK (max_score > 0),
+--   payload_hash text NOT NULL,
+--   payload_hash_version text NOT NULL DEFAULT 'canonical_payload_v1',
+--   created_at timestamptz NOT NULL DEFAULT now(),
+--   UNIQUE (practice_attempt_id, question_revision_id)
+-- );
+--
+-- CREATE TABLE IF NOT EXISTS public.practice_attempt_responses (
+--   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+--   practice_attempt_id uuid NOT NULL REFERENCES public.practice_attempts(id) ON DELETE CASCADE,
+--   practice_attempt_question_id uuid NOT NULL REFERENCES public.practice_attempt_questions(id) ON DELETE RESTRICT,
+--   selected_option_code text,
+--   response_text text,
+--   response_payload jsonb,
+--   requires_manual_review boolean NOT NULL DEFAULT false,
+--   grading_status text,
+--   auto_score numeric CHECK (auto_score IS NULL OR auto_score >= 0),
+--   manual_score numeric CHECK (manual_score IS NULL OR manual_score >= 0),
+--   final_score numeric CHECK (final_score IS NULL OR final_score >= 0),
+--   max_score numeric CHECK (max_score IS NULL OR max_score > 0),
+--   submitted_at timestamptz,
+--   graded_at timestamptz,
+--   finalized_at timestamptz,
+--   created_at timestamptz NOT NULL DEFAULT now(),
+--   UNIQUE (practice_attempt_question_id)
+-- );
+--
+-- -- Read-only analytics view (NOT a write SoT; created in executable package):
+-- -- CREATE VIEW public.v_question_responses_unified AS
+-- --   SELECT 'EXAM'::text AS surface_type, ... FROM exam_session_answers ...
+-- --   UNION ALL
+-- --   SELECT 'PRACTICE'::text AS surface_type, ... FROM practice_attempt_responses ...;
+
+-- ---------------------------------------------------------------------------
+-- 7) Manual grading reviews
 -- ---------------------------------------------------------------------------
 -- CREATE TABLE IF NOT EXISTS public.question_response_reviews (
 --   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
---   response_id uuid NOT NULL, -- FK to exam_session_answers.id or unified response id
+--   surface_type text NOT NULL CHECK (surface_type IN ('EXAM','PRACTICE')),
+--   response_id uuid NOT NULL,
+--   -- response_id references exam_session_answers.id OR practice_attempt_responses.id
+--   -- enforced by RPC (polymorphic), not a single FK
 --   grader_id uuid NOT NULL REFERENCES auth.users(id),
---   score_awarded numeric NOT NULL,
+--   assigned_grader_id uuid REFERENCES auth.users(id),
+--   score_awarded numeric NOT NULL CHECK (score_awarded >= 0),
 --   feedback text,
 --   previous_score numeric,
 --   reason text,
 --   is_final boolean NOT NULL DEFAULT false,
---   created_at timestamptz NOT NULL DEFAULT now()
+--   action_id uuid NOT NULL,
+--   idempotency_key text NOT NULL,
+--   created_at timestamptz NOT NULL DEFAULT now(),
+--   UNIQUE (surface_type, response_id, idempotency_key)
 -- );
--- -- grading_status values (app/RPC enforced):
--- -- NOT_REQUIRED | PENDING_MANUAL_REVIEW | IN_REVIEW | GRADED |
--- -- RETURNED_FOR_SECOND_REVIEW | FINALIZED
+-- -- grading_status transitions enforced in RPC per freeze matrix:
+-- -- PENDING_MANUAL_REVIEW -> IN_REVIEW -> GRADED -> FINALIZED / RETURNED_FOR_SECOND_REVIEW
 
 -- ---------------------------------------------------------------------------
--- 7) Capability helper placeholders (map to current roles; no new enum required)
--- ---------------------------------------------------------------------------
--- -- CREATE OR REPLACE FUNCTION public.can_edit_question_bank(_user_id uuid)
--- -- RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
--- -- AS $$ SELECT public.is_content_staff(_user_id); $$;
--- -- CREATE OR REPLACE FUNCTION public.can_review_question_content(_user_id uuid) ...
--- -- CREATE OR REPLACE FUNCTION public.can_publish_question_revision(_user_id uuid) ...
--- -- CREATE OR REPLACE FUNCTION public.can_grade_manual_response(_user_id uuid) ...
--- -- CREATE OR REPLACE FUNCTION public.can_read_hidden_solutions(_user_id uuid) ...
--- -- Grader helpers MUST NOT grant UPDATE on question_revisions / options / solutions.
-
--- ---------------------------------------------------------------------------
--- 8) RLS / GRANT matrix placeholders (deny-by-default)
+-- 8) RLS placeholders (deny-by-default)
 -- ---------------------------------------------------------------------------
 -- ALTER TABLE public.question_revisions ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE public.question_options ENABLE ROW LEVEL SECURITY;
@@ -235,21 +341,21 @@
 -- ALTER TABLE public.question_media ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE public.question_targets ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE public.exam_session_questions ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.practice_attempts ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.practice_attempt_questions ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.practice_attempt_responses ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE public.question_response_reviews ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.question_bank_capability_grants ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.question_bank_runtime_config ENABLE ROW LEVEL SECURITY;
 --
 -- REVOKE ALL ON public.question_options FROM PUBLIC;
 -- REVOKE ALL ON public.question_accepted_answers FROM PUBLIC;
 -- REVOKE ALL ON public.question_solutions FROM PUBLIC;
--- -- NO GRANT of is_correct / accepted_answers / solutions to authenticated.
--- -- Student option bodies via SECURITY DEFINER RPC only.
--- -- Example staff policy sketch:
--- -- CREATE POLICY question_options_staff_all ON public.question_options
--- --   FOR ALL TO authenticated
--- --   USING (public.can_edit_question_bank(auth.uid()))
--- --   WITH CHECK (public.can_edit_question_bank(auth.uid()));
+-- -- No authenticated GRANT on is_correct / solutions / accepted_answers.
+-- -- Student bodies via SECURITY DEFINER RPC only (rendered_options without is_correct).
 
 -- ---------------------------------------------------------------------------
--- 9) Compatibility sync — New revision SoT -> Legacy cache (0-based)
+-- 9) Legacy sync — 0-based cache only
 -- ---------------------------------------------------------------------------
 -- CREATE OR REPLACE FUNCTION public.qb_sync_question_legacy(_question_id uuid)
 -- RETURNS void
@@ -257,22 +363,14 @@
 -- SECURITY DEFINER
 -- SET search_path TO 'public'
 -- AS $$
--- DECLARE
---   v_rev uuid;
---   v_options jsonb;
---   v_correct int; -- 0-based cache
---   v_explanation text;
 -- BEGIN
---   SELECT current_published_revision_id INTO v_rev FROM public.questions WHERE id = _question_id;
---   -- Build options jsonb array ordered by sort_order from question_options(v_rev).
---   -- Set v_correct = zero-based index of first is_correct option (SINGLE_CHOICE).
---   -- NEVER apply Excel 1-based values here.
---   -- Copy explanation from question_solutions(v_rev).
---   -- UPDATE questions SET options = v_options, correct_index = v_correct, explanation = ...
+--   -- Read current_published_revision_id; build options jsonb by sort_order;
+--   -- set correct_index to ZERO-BASED index of first is_correct option;
+--   -- NEVER write Excel 1-based values; copy explanation from solutions;
+--   -- derive lesson_id/subject_id/unit text cache from primary target.
 --   NULL;
 -- END;
 -- $$;
 -- REVOKE ALL ON FUNCTION public.qb_sync_question_legacy(uuid) FROM PUBLIC;
--- -- GRANT EXECUTE ... TO service_role / content staff path only (executable package).
 
--- END OF DOCUMENTATION DRAFT - NOT APPLIED - DESIGN FREEZE SOURCE ONLY
+-- END OF DOCUMENTATION DRAFT - NOT APPLIED - DESIGN FREEZE SOURCE ONLY - HOLD-CORRECTION-09

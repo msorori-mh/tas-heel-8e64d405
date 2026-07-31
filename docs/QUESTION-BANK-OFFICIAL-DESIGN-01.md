@@ -1,122 +1,105 @@
 # QUESTION-BANK-OFFICIAL-DESIGN-01
 
-التصميم الرسمي — متوافق مع **QB-01 Design Freeze** (`docs/QB-01-DESIGN-FREEZE-DECISION-07.md`).
+التصميم الرسمي — متوافق مع Design Freeze بعد **HOLD-CORRECTION-09**.
 
 | حقل | قيمة |
 |---|---|
-| القرار المعماري | **NORMALIZED_WITH_COMPATIBILITY_LAYER** |
-| Design freeze | QB-01-DESIGN-FREEZE-DECISION-07 |
-| Runtime baseline audited | `9d6eb603fead085f8fa86f29647a8c5e51cab2af` |
-| Docs base HEAD | `6e35245ed73eb4c3c8ea76a2c010d8e4d7b0348c` |
-| Migration apply | **NO** (هذه الحزمة توثيق فقط) |
+| القرار | NORMALIZED_WITH_COMPATIBILITY_LAYER |
+| Design freeze | `docs/QB-01-DESIGN-FREEZE-DECISION-07.md` |
+| RESPONSE_STORAGE_MODEL | **HYBRID** |
+| Migration apply | **NO** |
 
 ---
 
 ## 1. المعمارية
 
-**New revision SoT → Legacy cache فقط** عبر `qb_sync_question_legacy` (ذري).
-لا Dual Write من العميل.
-`lesson_assessments` / `exam_templates` يُعاد استخدامهما — لا `question_sets` موازٍ في الإطلاق الأول.
+Revision SoT → Legacy cache فقط عبر `qb_sync_question_legacy`.
+`correct_index` cache = **0-based**.
+Excel 1-based → `option_code` → `is_correct` → sync 0-based.
+لا Dual Write.
 
 ---
 
 ## 2. الهوية والنسخ
 
-| طبقة | الكيان |
+`questions` منطقي + `question_revisions` محتوى.
+مؤشر منشور: Composite FK `(questions.id, current_published_revision_id) → (question_revisions.question_id, id)` DEFERRABLE؛ NULL مسموح؛ partial unique لنسخة PUBLISHED واحدة.
+
+Children على `question_revision_id`. Targets على `question_id` + RPC `retarget_question` مع Audit.
+
+---
+
+## 3. أنواع وgrading
+
+P0: SINGLE_CHOICE / SHORT_TEXT / LONG_TEXT. P1: TRUE_FALSE.
+`grading_mode`: AUTO_SINGLE | AUTO_TEXT | MANUAL.
+CASEFOLD_AR وغيره من طيّ العربية → MANUAL حتى P1.
+
+---
+
+## 4. RESPONSE_STORAGE_MODEL = HYBRID
+
+| سطح | التخزين |
 |---|---|
-| منطقي | `questions` (`id`, `code`, `current_published_revision_id`, …) |
-| نسخة | `question_revisions` (محتوى السؤال + grading_mode + stimulus_text + …) |
+| Exams | `exam_sessions` + `exam_session_questions` + **امتداد** `exam_session_answers` |
+| Lesson/Unit | `practice_attempts` + `practice_attempt_questions` + `practice_attempt_responses` |
+| تقارير | `v_question_responses_unified` قراءة فقط — ليست SoT |
 
-حالات Revision: `DRAFT` | `READY_FOR_REVIEW` | `APPROVED` | `PUBLISHED` | `SUPERSEDED` | `REJECTED`.
-
-قواعد: Published/used immutable؛ التعديل = revision جديدة؛ إعادة الاستيراد بـ `question_code` = DRAFT جديد؛ `updated_at` ≠ versioning؛ لا hard-delete لتاريخ المحاولات.
-
----
-
-## 3. Revision-scoped children
-
-ترتبط بـ **`question_revision_id`**: options، accepted_answers، solutions، media، rubrics.
-`question_targets` على **`question_id`** في P0 (استهداف منهج مستقر).
-
-SoT للصحة: `option_code` + `is_correct` على النسخة.
-**ممنوع** إبقاء خيارات/حلول قابلة للتغيير على logical id مع ادعاء Immutable.
+MCQ الجديد: `selected_option_code`. النص: `response_text`. `selected_index` = Legacy فقط.
 
 ---
 
-## 4. أنواع الأسئلة و`grading_mode`
+## 5. Cutover
 
-فرّق: `educational_label` / `interaction_type` / `grading_mode`.
-
-| | |
-|---|---|
-| P0 | `SINGLE_CHOICE`, `SHORT_TEXT`, `LONG_TEXT` |
-| P1 | `TRUE_FALSE` |
-| مؤجل | MULTI_SELECT، NUMERIC، MATCHING، … وبقية قائمة الـ26 |
-
-`grading_mode`: `AUTO_SINGLE` | `AUTO_TEXT` | `MANUAL`.
-PARSE/EXTRACT/EXPLAIN لا تُحوَّل تلقائياً إلى MCQ.
+`question_bank_runtime_config.attempt_pin_mode` = `LEGACY` | `REVISION_PINNED`.
+افتراضي بعد QB-01: **LEGACY**. لا يقلب Apply إلى REVISION_PINNED.
+الجلسة تنسخ الوضع عند الإنشاء؛ الجلسات المفتوحة لا تتأثر.
 
 ---
 
-## 5. correct_index — مغلق
+## 6. Backfill R1 (حتمي)
 
-```text
-Runtime / Legacy cache: 0-based
-Legacy Excel / dry-run: 1-based
-Official import: option_code only
-Excel 1-based → option_code → is_correct → sync cache 0-based
-```
-
-لا تحويل صامت. لا `OWNER_DECISION_REQUIRED` لهذه الاتفاقية.
+PUBLISHED إن مستخدم/مربوط بمسار طلابي أو محاولات.
+DRAFT إن قابل للتحويل وغير مستخدم.
+HOLD ROW إن بيانات غير صالحة.
+Idempotency: `question_id+revision_number=1` + hashes؛ اختلاف hash → HOLD_RECONCILIATION.
 
 ---
 
-## 6. Attempt pinning — Model A
+## 7. Accepted answers
 
-`exam_session_questions`: يثبت `question_revision_id` + نص السؤال + stimulus + `rendered_options` + `option_order_mapping` + hash.
-الإجابات ترتبط بالـ snapshot؛ MCQ عبر `selected_option_code`؛ النص عبر `response_text` — **ليس** `selected_index` كـ SoT.
-المحاولات القديمة: `pin_mode=LEGACY`؛ لا إعادة تفسير درجات.
-
----
-
-## 7. إجابات وحلول وتصحيح يدوي
-
-- Model answer / hint / explanation على revision.
-- `question_accepted_answers` لـ SHORT_TEXT/AUTO_TEXT فقط.
-- تدفق يدوي: `PENDING_MANUAL_REVIEW` → مراجعة → `FINALIZED` + `question_response_reviews` audit.
-- الجلسة: `submitted_pending_grading` / `partially_graded` / `completed`.
-- لا كتابة صامتة لمقالي في `user_progress.quiz_score`.
+سياسات P0 فقط: **EXACT | TRIM | TRIM_COLLAPSE** (تعريفات في Freeze).
+`CASEFOLD_AR`: **DEFERRED_TO_P1 / NOT ALLOWED IN QB-01**.
 
 ---
 
-## 8. Stimulus / Media
+## 8. Capabilities
 
-`stimulus_text` على revision.
-`question_media` revision-scoped؛ bucket تصميمي `question-media` (غير مُنشأ هنا)؛ `alt_text_ar`؛ `requires_media` يمنع النشر بلا ملف صالح.
-
----
-
-## 9. Capabilities (بدون enum reviewer/grader)
-
-`can_edit_question_bank` | `can_review_question_content` | `can_publish_question_revision` | `can_grade_manual_response` | `can_read_hidden_solutions`
-
-P0: تُبنى على `is_content_staff` / admin. المصحح لا يعدّل البنك.
+`question_bank_capability_grants` + helpers منفصلة.
+Admin: الكل. Content manager: EDIT+REVIEW+READ_HIDDEN (بدون GRADE/PUBLISH تلقائياً).
+Grader: GRADE+READ_HIDDEN فقط — **لا EDIT**. Moderator/User: لا شيء.
 
 ---
 
-## 10. عقد الاستيراد
+## 9. Manual grading
 
-`question_code` إلزامي؛ لا id يدوي؛ Excel in = DRAFT|READY_FOR_REVIEW؛ رفض Published؛ Apply = DRAFT فقط حتى QB-05؛ adapters تعلن اتفاقية correct_index؛ فارغ/- → NULL في legacy adapters؛ صف مزاح يُرفض.
-
----
-
-## 11. أمن
-
-طالب: بلا `is_correct` / accepted / solutions قبل السياسة.
-REVOKE PUBLIC؛ SECURITY DEFINER + `search_path`؛ deny-by-default RLS. انظر مصفوفة freeze §15.
+مصفوفة انتقالات Freeze؛ Claim ذري؛ idempotency_key؛ final عبر RPC؛ الجلسة completed بعد FINALIZED لكل يدوي مطلوب.
 
 ---
 
-## 12. مبادئ
+## 10. Payload hash
 
-Arabic-first · Mobile-first · Offline-aware · Weak Internet Optimized · RLS-first · Idempotent Imports · Dry Run Before Write · Auditability · Immutable published revisions · New→Legacy only
+`canonical_payload_v1` + JCS/RFC 8785 + SHA-256 hex.
+`payload_hash_version` مخزّن؛ لا إعادة تفسير hashes قديمة.
+
+---
+
+## 11. Media
+
+`question_media` على revision؛ bucket تصميمي `question-media` غير مُنشأ هنا.
+
+---
+
+## 12. أمن
+
+طالب بلا `is_correct` / accepted / solutions قبل السياسة؛ `rendered_options` بلا مفتاح إجابة؛ REVOKE PUBLIC؛ SECURITY DEFINER + search_path؛ deny-by-default.

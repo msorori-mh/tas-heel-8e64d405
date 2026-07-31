@@ -113,26 +113,38 @@
 
 **قوة:** column grants؛ exam reveal؛ junctions لإعادة الاستخدام؛ `code` + dry-run 1-based موثّق.
 
-**فجوات:** لا جداول options/solutions/targets/media/accepted_answers؛ لا versioning منشور؛ لا مسار تصحيح يدوي؛ apply الذري للبنك المطبّع غير مكتمل؛ `questions.unit` نص legacy.
+**فجوات Runtime الحالية (ما زالت غير مطبّقة):** لا Snapshot للمحاولات؛ لا `question_revision_id`؛ لا جداول options/solutions/media المطبّعة؛ لا مسار تصحيح يدوي؛ لا Apply writer يحوّل Excel 1-based→0-based؛ `questions.unit` نص legacy. **لا تدّعِ أن كيانات Design Freeze مطبقة في الإنتاج.**
+
+### حقائق مثبتة إضافية (Audit)
+
+| الادعاء | النتيجة |
+|---|---|
+| Runtime بلا attempt snapshot/revision pin | VERIFIED |
+| Runtime `correct_index` 0-based | VERIFIED / LOCKED |
+| Import Excel/dry-run 1-based | VERIFIED |
+| لا يوجد Apply writer حالي لـ questions import | VERIFIED |
+| Design Freeze اختار RESPONSE_STORAGE_MODEL=HYBRID | DESIGN ONLY — غير مطبّق |
 
 ---
 
-## E. سيناريوهات موسّعة (انظر خطة التنفيذ للتفاصيل)
+## E. سيناريوهات موسّعة
 
-مقالي + model answer؛ SHORT + accepted؛ جزئي؛ صورة؛ stimulus نصي؛ بلا code؛ Published؛ صف مزاح؛ فارغ؛ correct_index 1-based/غامض؛ وحدة برقم؛ درس عربي مكرر؛ تعديل منشور مستخدم؛ revision؛ مراجع يقرأ فقط؛ طالب يقرأ مبكراً؛ تغيير درجة مع audit؛ فشل وسائط؛ ضعف اتصال.
+انظر Freeze §13 (20 سيناريو HOLD closure) + خطة التنفيذ.
 
 ---
 
-## F. القرار التمهيدي → تجميد تنفيذي
+## F. تجميد تنفيذي بعد HOLD-CORRECTION-09
 
-`NORMALIZED_WITH_COMPATIBILITY_LAYER` + **QB-01 Design Freeze 07**:
+`NORMALIZED_WITH_COMPATIBILITY_LAYER` + Freeze 07 بعد إغلاق مراجعة 08:
 
-- Revision-scoped children
-- Attempt pinning Model A
-- Legacy cache `correct_index` = 0-based
-- Capabilities على `is_content_staff` دون enum reviewer
+- HYBRID responses (exam extend + practice_* tables + read-only unified view)
+- Model A pinning + named cutover config (default LEGACY)
+- Backfill R1 deterministic
+- Capability grants (grader ≠ editor)
+- Accepted answers بلا CASEFOLD_AR في P0
+- Composite published pointer + canonical_payload_v1
 
-تطبيق Migration ما زال محظوراً حتى حزمة executable منفصلة.
+تطبيق Migration ما زال محظوراً حتى rereview مستقل + حزمة executable.
 
 انظر:
 

@@ -7,399 +7,329 @@ Source-only design freeze for Question Bank QB-01. No migration apply. No runtim
 | Repository | `msorori-mh/tas-heel-8e64d405` |
 | Base HEAD | `6e35245ed73eb4c3c8ea76a2c010d8e4d7b0348c` |
 | Branch | `docs/qb-01-design-freeze-source-only-07` |
-| Runtime baseline (architecture audit) | `9d6eb603fead085f8fa86f29647a8c5e51cab2af` |
+| Independent review HOLD closed by | **HOLD-CORRECTION-09** |
 | Migration under `supabase/migrations` | **NO** |
 | SQL executed | **NO** |
-| Decision status | **FROZEN for source design** — apply still gated |
+
+---
+
+## Independent Review HOLD Closure
+
+Source: `HOLD_QB_01_DESIGN_FREEZE_INDEPENDENT_REVIEW_08`
+
+| # | Blocker | Decision | Status |
+|---|---|---|---|
+| 1 | Response topology | **HYBRID** | CLOSED |
+| 2 | Backfill R1 status | Deterministic PUBLISHED / DRAFT / HOLD ROW | CLOSED |
+| 3 | Accepted-answer normalization | EXACT / TRIM / TRIM_COLLAPSE only; **CASEFOLD_AR = DEFERRED_TO_P1 / NOT ALLOWED IN QB-01** | CLOSED |
+| 4 | Grader/editor separation | `question_bank_capability_grants` + separate helpers | CLOSED |
+| 5 | Named cutover | `question_bank_runtime_config.attempt_pin_mode` default **LEGACY** | CLOSED |
+| 6 | Published pointer | Composite FK `(id, current_published_revision_id) → (question_id, id)` DEFERRABLE | CLOSED |
+| 7 | Payload hash | SHA-256 over `canonical_payload_v1` (JCS / RFC 8785) | CLOSED |
+| 8 | Manual grading transitions | Formal matrix + claim/idempotency | CLOSED |
+| 9 | Target retarget | Audited `retarget_question` RPC; targets stay logical P0 | CLOSED (PASS_WITH_NOTES for P1 versioned targets) |
 
 ---
 
 ## Runtime evidence (pre-freeze)
 
-### correct_index
-
 | Surface | Convention | Evidence |
 |---|---|---|
-| Exam UI / lesson quiz / unit practice | **0-based** array index `i` | `exams.strict.$templateId.tsx` (~366–377); `lessons.$lessonId.tsx` (~718–735); `units.$unitId.practice.tsx` (~415–422) |
-| `answer_exam_question` | allows `selected_index = 0` | `20260607234143_…sql:230-232` |
-| `check_lesson_question` / `grade_lesson_quiz` / `submit_exam_session` / unit grade | `selected_index = correct_index` (no ±1) | migrations cited in audit |
-| Content-import validators / templates | **1-based 1–6** | `content-import-validators.ts:107-117` |
-
-**Frozen:**
+| Exam / lesson / unit UI | **0-based** `i` | routes compare `correct_index === i` |
+| RPCs | `selected_index = correct_index` | check/grade/submit/unit |
+| Import validators | **1-based 1–6** | `content-import-validators.ts` |
+| Attempt storage today | `question_id + selected_index` only | no revision/snapshot |
+| Apply writer 1→0 | **absent** | dry-run only |
+| Roles | `admin\|moderator\|user\|content_manager` | `is_content_staff` = admin\|content_manager |
 
 ```text
 Runtime DB / legacy cache: questions.correct_index = 0-based
-Legacy Excel / dry-run: correct_index = 1-based
-Official normalized import: option_code only (no correct_index column)
-Conversion (explicit, never silent):
-  Excel 1-based → resolve option position → option_code
-  → question_options.is_correct
-  → legacy questions.correct_index 0-based cache via qb_sync_question_legacy
+Legacy Excel / dry-run: 1-based
+Official import: option_code only
+Excel 1-based → option_code → is_correct → sync writes 0-based cache
 ```
 
-`OWNER_DECISION_REQUIRED` for this convention is **closed**.
-
-### Current attempt storage
-
-| Fact | Answer |
-|---|---|
-| Pins revision? | **NO** |
-| Question text snapshot? | **NO** |
-| Option order snapshot? | **NO** |
-| `question_revision_id`? | **NO** |
-| Editable after session start? | **YES** (schema allows content-staff UPDATE on `questions`) |
-| Grading basis | **LIVE** join to `questions` |
-| Option shuffle in product today | **NO** (not implemented) |
-| Legacy attempts may exist | **YES** — must not re-interpret scores |
-
-`exam_session_answers` today: `session_id`, `question_id`, `selected_index`, grade fields only (`types.ts` / `20260607234143_…`).
-
-### Role model
-
-`app_role`: `admin | moderator | user | content_manager`.
-`is_content_staff` = admin OR content_manager.
-**No** `reviewer` / `grader` enum values. Do not invent them by default.
-
 ---
 
-## 1. Logical question identity
+## 1. Logical + revision identity
 
-**Frozen:** keep `public.questions` as the logical hub.
+- Logical: `public.questions` (`id`, `code`, `current_published_revision_id`, created_*, legacy cache cols).
+- Revision: `question_revisions` with content, grading_mode, stimulus, scores, status, review/publish metadata, `payload_hash`, `payload_hash_version`, `source_payload_hash`, `backfill_version`.
 
-Minimum logical fields (additive, non-breaking):
+Statuses: `DRAFT | READY_FOR_REVIEW | APPROVED | PUBLISHED | SUPERSEDED | REJECTED`.
 
-- `id`, `code` (stable `question_code`)
-- `current_published_revision_id` (nullable until first publish)
-- `created_at`, `created_by`, `updated_at` (metadata only — **not** versioning)
-- Legacy cache columns retained until QB-09: `options`, `correct_index` (0-based), `explanation`, `lesson_id`, `subject_id`, `unit` (text)
+Rules: published/used immutable; edit → new revision; re-import → new DRAFT; `updated_at` ≠ versioning; no hard-delete of used revisions.
 
-Permanent taxonomy that may stay on logical row (non-versioned): stable code, created_by, archival flags.
-**Versioned content never lives solely on the logical row as SoT.**
-
----
-
-## 2. Revision identity
-
-**Frozen:** `question_revisions`
-
-| Column | Notes |
-|---|---|
-| `id` | revision identity |
-| `question_id` | logical FK |
-| `revision_number` | monotonic per question |
-| `status` | see below |
-| `interaction_type` | TEXT + import/admin validation (no closed CHECK of 26) |
-| `grading_mode` | `AUTO_SINGLE` \| `AUTO_TEXT` \| `MANUAL` |
-| `educational_label` | optional display |
-| `question_text` | required |
-| `stimulus_text` | optional |
-| `max_score` / default points | |
-| `allow_partial` | |
-| `requires_media` | |
-| `manual_grading_required` | |
-| `created_at` / `created_by` | |
-| `reviewed_at` / `reviewed_by` | |
-| `published_at` / `published_by` | |
-| `superseded_at` | |
-| `payload_hash` | integrity |
-| `source_import_hash` | backfill/import provenance |
-
-### Revision statuses
+### Published pointer — PASS
 
 ```text
-DRAFT
-READY_FOR_REVIEW
-APPROVED
-PUBLISHED
-SUPERSEDED
-REJECTED
+question_revisions: UNIQUE (question_id, id)
+questions (id, current_published_revision_id)
+  REFERENCES question_revisions (question_id, id)
+  DEFERRABLE INITIALLY DEFERRED
+current_published_revision_id nullable
+Partial unique: one PUBLISHED per question_id
 ```
 
-Import Excel allowed inbound statuses: `DRAFT` \| `READY_FOR_REVIEW` only.
-`Published` / `متاح` rejected (or legacy-warn only). Publishing is a **server-side capability action**, never an Excel apply side effect.
-
-### Revision rules
-
-1. Published revision is **immutable**.
-2. Revision referenced by any attempt/session snapshot is **immutable**.
-3. Edit of published content → **new** revision (DRAFT).
-4. Re-import by `question_code` → new DRAFT revision; never mutate PUBLISHED/SUPERSEDED used rows.
-5. At most **one** PUBLISHED revision per logical question (`current_published_revision_id`).
-6. `updated_at` is **not** versioning.
-7. Soft-archive logical question; never hard-delete history needed by attempts.
-8. Used revisions: no hard delete.
+Future migration order: create revisions → unique(question_id,id) → add pointer column → composite FK → later backfill pointer in separate txn.
 
 ---
 
-## 3. Revision-scoped children
+## 2. Revision-scoped children
 
-**Frozen:** all mutable content attaches to `question_revision_id`, **not** logical `question_id`.
+Attach to **`question_revision_id`**: options, accepted_answers, solutions, media, rubrics.
+`question_targets` → logical **`question_id`** (P0) with audited retarget.
 
-| Entity | Attachment |
+SoT correctness: `option_code` + `is_correct` on revision.
+
+---
+
+## 3. RESPONSE_STORAGE_MODEL = HYBRID — PASS
+
+### Exam surface
+
+Keep `exam_sessions` + add `exam_session_questions` + **extend** `exam_session_answers` (no parallel exam response table).
+
+`exam_session_questions`: session_id, question_revision_id, logical_question_id, question_order, rendered_question_text, rendered_stimulus_text, rendered_options, option_order_mapping, max_score, payload_hash, pin_mode, created_at.
+
+`exam_session_answers` extensions: exam_session_question_id, question_revision_id, selected_option_code, response_text, response_payload, requires_manual_review, grading_status, auto/manual/final_score, max_score, submitted_at, graded_at, finalized_at; keep `question_id` + nullable `selected_index` for LEGACY.
+
+Rules: new answers require `exam_session_question_id`; revision_id must match pin; `selected_option_code` is MCQ SoT; `selected_index` legacy-only; text never in selected_index; no reinterpret of legacy rows.
+
+### Lesson / unit practice surface
+
+```text
+practice_attempts
+practice_attempt_questions
+practice_attempt_responses
+```
+
+`practice_attempts.attempt_type`: `LESSON | UNIT` with CHECK:
+
+- LESSON → `lesson_assessment_id NOT NULL AND unit_id IS NULL`
+- UNIT → `unit_id NOT NULL AND lesson_assessment_id IS NULL`
+
+Also: user_id, started_at, submitted_at, grading_status, total/max score, `attempt_pin_mode`.
+
+Pin/snapshot columns mirror exam session questions. Responses mirror exam answer new fields (no selected_index as SoT).
+
+### Unified analytics (read-only)
+
+```text
+v_question_responses_unified
+```
+
+UNION of exam + practice responses for reporting only. **No writes** through the view. **Not** a source of truth.
+
+```text
+RESPONSE_STORAGE_DECISION: PASS
+Chosen model: HYBRID
+```
+
+---
+
+## 4. Attempt pinning + cutover — PASS
+
+Model A snapshots for REVISION_PINNED sessions. Grade by `option_code`. Shuffle only at snapshot creation. `rendered_options` must **omit** `is_correct`.
+
+### `question_bank_runtime_config` (singleton id=1)
+
+- `attempt_pin_mode`: `LEGACY` | `REVISION_PINNED`
+- Default after QB-01 apply: **`LEGACY`** (apply must not flip to REVISION_PINNED)
+- Change only via audited admin RPC
+- Session copies mode at create into `exam_sessions.attempt_pin_mode` / `practice_attempts.attempt_pin_mode`
+- In-flight sessions keep their mode; no silent fallback; snapshot failure aborts new REVISION_PINNED session start
+
+```text
+CUTOVER_CONFIG_DECISION: PASS
+```
+
+Legacy attempts: `pin_mode=LEGACY`; scores immutable; no guessed revision backfill.
+
+---
+
+## 5. Backfill Revision #1 — PASS (deterministic)
+
+### PUBLISHED if any of
+
+1. In `assessment_questions`
+2. In `exam_template_questions`
+3. Linked to a lesson reachable in current student UI
+4. Used by unit/subject practice RPC/query paths
+5. Any student answer/attempt references the question
+6. On a published/available content path per current runtime
+
+### DRAFT if
+
+Convertible; not on any student delivery path; no historical attempt/answer; no evidence published/used.
+
+### HOLD ROW (no backfill) if
+
+Invalid options JSON; correct_index OOB; SINGLE_CHOICE not exactly one correct; empty question_text; unresolved lesson/subject; code conflict; data that would change a correct answer. Dry-run reports; batch apply blocked until critical rows cleared.
+
+### Historically used, not currently shown
+
+R1 = **PUBLISHED**, later **SUPERSEDED** when newer revision published. Never reinterpret old attempts.
+
+### Idempotency
+
+Key: `question_id + revision_number=1` + `source_payload_hash` + `backfill_version`.
+Rerun: same hash → NOOP; different → `HOLD_RECONCILIATION`; never auto-mutate R1.
+
+```text
+BACKFILL_DECISION: PASS
+```
+
+---
+
+## 6. Accepted answers — PASS
+
+Revision-scoped. P0 policies only:
+
+| Policy | Definition |
 |---|---|
-| `question_options` | `question_revision_id` |
-| `question_accepted_answers` | `question_revision_id` |
-| `question_solutions` | `question_revision_id` |
-| `question_solution_steps` (optional P1) | `question_revision_id` |
-| `question_media` | `question_revision_id` |
-| Rubric / grading criteria | `question_revision_id` |
-| `question_targets` | **logical `question_id`** for P0 curriculum binding (stable targeting); if a future edit must version targets, add revision-level override later — document as P1 |
-| Stimulus text | column on `question_revisions` |
-| Exam/assessment membership | pin `question_revision_id` at publish/session (see §4) |
-
-**HOLD condition avoided:** options/solutions must not remain mutable on logical `question_id` while claiming immutable published revisions.
-
-Normalized SoT for correctness: `question_options.option_code` + `is_correct` on the revision.
-
----
-
-## 4. Attempt pinning model — **Model A (official)**
-
-**Frozen choice: Model A — Session question snapshot**
-
-New entity (design only):
+| EXACT | UTF-8 equality as stored; no trim/fold |
+| TRIM | Strip leading/trailing Unicode whitespace only |
+| TRIM_COLLAPSE | NFKC → trim ends → collapse internal whitespace runs to one ASCII space; **keep** diacritics/hamza/alef/ya/ta-marbuta/punctuation; exact compare |
 
 ```text
-exam_session_questions
-  exam_session_id
-  question_revision_id
-  logical_question_id          -- denormalized for joins
-  question_order
-  rendered_question_text
-  rendered_stimulus
-  rendered_options jsonb       -- [{option_code, body, display_index}, ...]
-  option_order_mapping jsonb   -- display_index → option_code
-  max_score
-  payload_hash
-  pin_mode = 'REVISION_PINNED'
+CASEFOLD_AR: DEFERRED_TO_P1 / NOT ALLOWED IN QB-01
 ```
 
-Answers link to `exam_session_questions.id` (preferred) and store:
-
-- `selected_option_code` (MCQ) **or** `response_text` / `response_payload` (text)
-- optional `display_selected_index` only as derived of the **frozen** mapping (never sole SoT)
-
-**Rejected as durable SoT:** `question_id + selected_index` alone.
-
-Lesson quiz / unit practice: same pin pattern in their packages (QB-06), or temporary LEGACY path until cutover — new attempts after cutover must pin.
-
-### Why not Model B alone
-
-Model B (revision pin + option-order on answer row) is lighter but easier to under-specify for rendered text/stimulus. Model A makes the student-visible payload explicit and hashable.
-
-### Shuffle
-
-Not implemented today. When enabled: shuffle **only** at snapshot creation into `rendered_options` / `option_order_mapping`. Grade via `option_code`, never via live `sort_order`.
-
----
-
-## 5. Option-order snapshot
-
-Mandatory for REVISION_PINNED attempts:
-
-- Persist display order at session start (or first render freeze).
-- Grade MCQ by `selected_option_code` against revision’s `is_correct`.
-- `selected_index` may exist as legacy/display helper **only** against frozen mapping.
-
----
-
-## 6. Correct-index conventions (closed)
-
-See Runtime evidence. Sync RPC writes **0-based** cache. Import adapters convert 1-based Excel explicitly.
-
----
-
-## 7. Manual response storage
-
-**Frozen:** do not overload `selected_index` for text.
-
-Design entity (name may be unified with exam answer row extensions):
+Need diacritic/hamza/ya/ta-marbuta folding or semantic match → `grading_mode = MANUAL` until a tested Arabic algorithm exists. No AI grading in QB-01.
 
 ```text
-student_question_responses  (or extended exam_session_answers + lesson/unit equivalents)
-  pin_ref                    -- exam_session_questions.id or equivalent
-  question_revision_id
-  response_text
-  selected_option_code
-  response_payload jsonb
-  submitted_at
-  grading_status
-  auto_score
-  manual_score
-  final_score
-  max_score
-  requires_manual_review
+ACCEPTED_ANSWER_NORMALIZATION_DECISION: PASS
 ```
 
 ---
 
-## 8. Manual grading lifecycle
+## 7. Authorization — PASS
 
-```text
-NOT_REQUIRED
-PENDING_MANUAL_REVIEW
-IN_REVIEW
-GRADED
-RETURNED_FOR_SECOND_REVIEW
-FINALIZED
-```
+Table: `question_bank_capability_grants`
+(`user_id`, `capability`, `scope_type`, `scope_id`, grant/revoke audit, `reason`)
 
-Entity: `question_response_reviews`
+Capabilities: `EDIT_QUESTION_BANK` | `REVIEW_QUESTION_CONTENT` | `PUBLISH_QUESTION_REVISION` | `GRADE_MANUAL_RESPONSE` | `READ_HIDDEN_SOLUTIONS`
 
-- `response_id`, `grader_id`, `score_awarded`, `feedback`, `previous_score`, `reason`, `created_at`, `is_final`
-- Full audit on every score change
-
-Session academic completion:
-
-- `submitted_pending_grading` / `partially_graded` / `completed`
-- Must not mark academically complete while required items remain `PENDING_MANUAL_REVIEW`
-- `user_progress.quiz_score` remains MCQ legacy contract until a new contract in QB-06 — **no silent essay write**
-- Post-FINALIZED score change: higher privilege + reason + audit
-
----
-
-## 9. Accepted answers
-
-`question_accepted_answers` → `question_revision_id`
-
-- P0: `SHORT_TEXT` + `grading_mode=AUTO_TEXT` only with explicit rules
-- Policies: `EXACT` | `TRIM` | `TRIM_COLLAPSE` | `CASEFOLD_AR`
-- Linguistic ambiguity → `MANUAL`
-- No fuzzy/AI matching in QB-01
-
----
-
-## 10. Capability model
-
-Logical capabilities (not new enum values by default):
-
-| Capability | P0 mapping |
+| Principal | Default |
 |---|---|
-| `can_edit_question_bank` | `is_content_staff` |
-| `can_review_question_content` | `is_content_staff` |
-| `can_publish_question_revision` | `is_content_staff` (may tighten to admin later) |
-| `can_grade_manual_response` | `is_content_staff` |
-| `can_read_hidden_solutions` | `is_content_staff` OR grader path via SECURITY DEFINER RPC |
+| Admin | all via explicit admin helper bypass |
+| Content manager | EDIT + REVIEW + READ_HIDDEN only; **not** GRADE or PUBLISH unless explicit grant |
+| Moderator | none |
+| User | none |
+| Grader (grant) | GRADE + READ_HIDDEN only; **never** EDIT or PUBLISH |
 
-Future: optional `question_bank_capabilities` table for split reviewer/grader without inventing `app_role` values.
-**Grader must not UPDATE bank tables** — only responses/reviews via RPC.
+Helpers (separate, SECURITY DEFINER, `search_path`, REVOKE PUBLIC, fail-closed):
+`can_edit_question_bank` / `can_review_question_content` / `can_publish_question_revision` / `can_grade_manual_response` / `can_read_hidden_solutions`.
 
----
-
-## 11. Media architecture
-
-`question_media` → `question_revision_id`
-
-Fields: `media_code`, `storage_path`, `mime_type`, `file_size`, `sha256`, `alt_text_ar`, `caption`, `sort_order`, `requires_media`, audit cols.
-
-Bucket (design only, **not created now**): `question-media`
-
-- Path: `qb/{question_code}/{revision_id}/{media_code}.{ext}`
-- MIME allowlist: image/png, image/jpeg, image/webp, application/pdf (P0); audio later
-- Max size: images 5MB, pdf 10MB (tunable)
-- Thumbnails for weak-internet
-- Signed URL read for entitled students
-- Reject `..`, absolute paths, foreign buckets
-- Never replace/delete object still referenced by PUBLISHED/used revision
-- Orphan cleanup = separate job
-- Offline: required media within budget only
-
----
-
-## 12. Backfill model
-
-For each legacy `questions` row:
-
-1. Treat row as logical identity (`code` required or generate with report).
-2. Create revision `#1` status `PUBLISHED` or `DRAFT` per policy (prefer DRAFT then controlled publish — **owner ops**; default freeze: backfill as `PUBLISHED` only if already served, else `DRAFT` — **implementation chooses with report**; recommended: revision 1 = `PUBLISHED` mirroring current production content to avoid breaking live joins during dual-read, then freeze immutability going forward).
-3. Expand `options` JSON → `question_options` on that revision.
-4. Map `correct_index` **0-based** → `is_correct` on matching sort position.
-5. Copy `explanation` → `question_solutions`.
-6. Create primary LESSON/SUBJECT target from `lesson_id`/`subject_id`.
-7. Store source hash; dry-run compare.
-8. Do not mutate legacy during dry-run.
-9. Abort row on invalid data (missing options for MCQ, out-of-range index, etc.).
-
----
-
-## 13. Compatibility direction
+**Not** all mapped to `is_content_staff`.
 
 ```text
-Normalized revision (SoT) → Legacy cache  ONLY
-via SECURITY DEFINER qb_sync_question_legacy (atomic)
+AUTHORIZATION_DECISION: PASS
 ```
 
-Writes:
+---
 
-- `options` JSON array by `sort_order`
-- `correct_index` **0-based** index of first correct option (SINGLE_CHOICE phase)
-- `explanation` from solutions
-- `lesson_id` / `subject_id` / derived `unit` text cache from primary target
+## 8. Manual grading — PASS
 
-No client dual-write. Legacy attempts remain `pin_mode=LEGACY` and are not re-graded.
+Statuses: `NOT_REQUIRED | PENDING_MANUAL_REVIEW | IN_REVIEW | GRADED | RETURNED_FOR_SECOND_REVIEW | FINALIZED`
+
+| From | To | Who | Conditions |
+|---|---|---|---|
+| PENDING_MANUAL_REVIEW | IN_REVIEW | Authorized grader | Atomic claim/assign |
+| IN_REVIEW | GRADED | Assigned grader | Score in 0..max_score |
+| GRADED | RETURNED_FOR_SECOND_REVIEW | Authorized reviewer | Reason required |
+| GRADED | FINALIZED | Authorized finalizer | All session manual items ready |
+| RETURNED_FOR_SECOND_REVIEW | IN_REVIEW | Second/authorized grader | Separation when required |
+| FINALIZED | IN_REVIEW | Admin/authorized correction | Reason + corrective audit |
+| else | else | — | Reject |
+
+Assignment: optional `assigned_grader_id`; atomic claim; no dual claim; no self-grade if dual student/staff; scope enforced; `action_id`/idempotency_key; scores ≥0 and final ≤ max; client cannot write final_score; session `completed` only when autos done and manuals FINALIZED.
+
+```text
+MANUAL_GRADING_DECISION: PASS
+```
 
 ---
 
-## 14. Legacy attempts strategy
+## 9. Canonical payload hash — PASS
 
-| Mode | Behavior |
-|---|---|
-| `LEGACY` | Existing rows: `question_id + selected_index`; scores immutable; no guessed backfill of revisions |
-| `REVISION_PINNED` | New attempts after cutover |
+```text
+payload_hash_algorithm: SHA-256 over canonical_payload_v1
+payload_hash_version: 'canonical_payload_v1'
+payload_hash: lowercase hex SHA-256
+```
 
-Marker column on session/answer (design): `attempt_schema_version` or `pin_mode`.
+Canonical fields (semantic order): schema_version, question_code, revision_number, interaction_type, grading_mode, question_text, stimulus_text, max_score, allow_partial, options by option_code, accepted_answers by sort_order then normalized_answer, solution fields, media by sort_order then media_code.
 
----
+Serialization: **JCS / RFC 8785**, UTF-8, no BOM, LF inside text, arrays keep listed semantic order. Exclude created/updated/by, signed/temp URLs, session data. Recipe change → new version; never reinterpret old hashes.
 
-## 15. RLS / GRANT principles (matrix summary)
-
-| Entity | Student | Content editor | Reviewer* | Publisher* | Grader* | Admin |
-|---|---|---|---|---|---|---|
-| questions (logical meta) | limited RPC | RW draft meta | R | R | R | ALL |
-| question_revisions | published text via RPC only | RW DRAFT/REJECTED own flow | R + review fields | publish action | R published+needed | ALL |
-| question_options | body via RPC **without** `is_correct` | RW on draft rev | R | R | R | ALL |
-| accepted_answers | **deny** until reveal policy | RW draft | R | R | R when grading | ALL |
-| solutions | **deny** until reveal | RW draft | R | R | R when grading | ALL |
-| media metadata | entitled read via signed URL RPC | RW draft | R | R | R | ALL |
-| targets | R via content RPC | RW | R | R | — | ALL |
-| session snapshots | own session R | — | — | — | R for grade | ALL |
-| responses | own insert/update pre-submit rules | — | — | — | R + grade RPC | ALL |
-| response_reviews | deny | — | — | — | insert via RPC | ALL |
-
-\*P0: reviewer/publisher/grader capabilities map to `is_content_staff` helpers; still **no** broad `GRANT` to `authenticated` on sensitive columns.
-`REVOKE … FROM PUBLIC`; SECURITY DEFINER + `SET search_path TO 'public'`; deny-by-default RLS.
+```text
+PAYLOAD_HASH_DECISION: PASS
+```
 
 ---
 
-## 16. Remaining implementation risks (non-blocking for this freeze doc; blocking for apply)
+## 10. Target retarget — PASS_WITH_NOTES
 
-1. Exact cutover flag for when REVISION_PINNED becomes mandatory for exams.
-2. Whether backfill revision 1 starts PUBLISHED vs DRAFT (ops choice with report).
-3. Targets versioning if curriculum retarget mid-life (P1).
-4. Unified vs per-surface response tables (exam vs lesson vs unit).
-5. Thumbnail pipeline implementation details.
+Targets remain on logical `question_id` for P0. Mutations only via `retarget_question` RPC (`can_edit_question_bank`); published questions require reason; audit old/new/actor/time/reason; no mutation of historical snapshots/attempts; affects future selection only; cannot remove last primary target from published question without valid replacement. Versioned targets = P1.
 
-None of these reopen 0-based/1-based, revision-scoped children, or attempt pin SoT.
+```text
+TARGET_SCOPE_DECISION: PASS_WITH_NOTES
+```
 
 ---
 
-## 17. Conditions before creating **executable** migration (later package)
+## 11. Media (unchanged P0 design)
 
-1. This freeze PASS (or PASS_WITH_NOTES) + independent review PASS.
-2. VERSIONING_DECISION no longer HOLD — **closed by this freeze** for design; apply still requires migration PR review.
-3. SQL draft remains commented until a dedicated QB-01 migration authoring package.
-4. No student-facing new interaction types enabled until QB-06 safe reads.
-5. Capability helpers implemented as deny-by-default.
-6. Sync RPC proves 0-based cache in tests (source tests, not prod writes).
-
-**QB-01 apply remains forbidden in this package.**
+`question_media` on revision; designed bucket `question-media` (**not created here**); path `qb/{question_code}/{revision_id}/{media_code}.{ext}`; MIME allowlist; sizes; sha256; alt_text_ar; no replace/delete if referenced by published/used revision; signed URLs; not public by default.
 
 ---
 
-## Cross-links
+## 12. Compatibility
 
-- `docs/QUESTION-BANK-OFFICIAL-DESIGN-01.md`
-- `docs/QUESTION-BANK-IMPLEMENTATION-PLAN-01.md`
-- `docs/QUESTION-BANK-TEMPLATE-COMPATIBILITY-MATRIX-01.md`
-- `docs/QUESTION-BANK-CURRENT-ARCHITECTURE-AUDIT-01.md`
-- `docs/migration-drafts/QUESTION-BANK-SCHEMA-FOUNDATION-01.NOT_APPLIED.sql`
+```text
+Normalized revision SoT → Legacy cache ONLY via qb_sync_question_legacy
+correct_index cache = 0-based
+```
+
+No client dual-write.
+
+---
+
+## 13. Static consistency scenarios (HOLD closure)
+
+| # | Scenario | Expected | Enforcement | PASS | HOLD if |
+|---|---|---|---|---|---|
+| 1 | Legacy session open when pin enabled | Stays LEGACY | session.attempt_pin_mode copy | Completes on legacy path | Mode flipped mid-flight |
+| 2 | New REVISION_PINNED snapshot fails | Session start aborts | start RPC | No partial session | Silent LEGACY fallback |
+| 3 | MCQ shuffled | Mapping frozen; grade by option_code | snapshot | Stable answer | Live sort_order grade |
+| 4 | Resume app | Same snapshot/mapping | pin row | Same selection meaning | Regen shuffle |
+| 5 | Legacy Q in template | R1 PUBLISHED | backfill rules | Linked + published | Draft while live |
+| 6 | Unused convertible Q | R1 DRAFT | backfill rules | Not student-visible | Auto-publish |
+| 7 | Invalid legacy Q | HOLD ROW | dry-run | No R1 | Published invalid |
+| 8 | Backfill same hash | NOOP | idempotency | No second R1 | Duplicate rev |
+| 9 | Backfill different hash | HOLD_RECONCILIATION | hash compare | No auto-mutate | Silent overwrite |
+| 10 | Grader without edit | Can grade; cannot edit bank | capability grants | Edit denied | is_content_staff implies edit |
+| 11 | CM without grade grant | Cannot grade | grants | Grade denied | Auto GRADE |
+| 12 | Admin emergency grade | Allowed + audit | admin helper | Audited | Unguarded |
+| 13 | Duplicate grade submit | Reject/idempotent | action_id | One effect | Double score |
+| 14 | Change FINALIZED score | Correction path only | matrix | Reason+audit | Silent update |
+| 15 | Needs diacritic fold | MANUAL | policy | Not AUTO_TEXT | CASEFOLD_AR used |
+| 16 | Retarget published | Audited RPC | retarget_question | Reason logged | Direct table write |
+| 17 | Old attempt no revision | LEGACY read | pin_mode | Score unchanged | Forced backfill |
+| 18 | Unified report | Read-only view | v_question_responses_unified | No writes | View as SoT |
+| 19 | Config change mid-open | Open sessions unchanged | session copy | Stable mode | Retroactive flip |
+| 20 | Pointer to other question’s rev | Rejected | composite FK | Insert/update fails | Trigger-only hope |
+
+---
+
+## 14. Conditions before executable migration
+
+1. Independent **rereview** PASS on this corrected freeze.
+2. SQL draft still commented / not under `supabase/migrations`.
+3. QB-01 apply leaves `attempt_pin_mode=LEGACY`.
+4. No student-facing new types until QB-06A+.
+5. Bucket/storage not created in docs package.
+
+**Executable migration source authorized only after rereview — not by this correction alone.**
