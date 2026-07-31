@@ -1,210 +1,196 @@
 # QUESTION-BANK-IMPLEMENTATION-PLAN-01
 
-خطة تنفيذ مرحلية لبنك الأسئلة — حزم صغيرة، كل حزمة قابلة لـ PASS/HOLD.
+خطة تنفيذ متوافقة مع أدلة Excel الثلاثة + التصميم الرسمي.
 
 | حقل | قيمة |
 |---|---|
 | القرار | NORMALIZED_WITH_COMPATIBILITY_LAYER |
-| الاعتماد | وثائق AUDIT + DESIGN + MATRIX |
+| Runtime baseline | `9d6eb603fead085f8fa86f29647a8c5e51cab2af` |
+| Excel schemas | teacher_flat_ar_v0 · official_flat_v0 · legacy_flat_15col |
+| official_normalized_v1 | TARGET ONLY |
 | Migration في هذه المهمة | **NO** |
 
 ---
 
-## الترتيب التنفيذي الرسمي (مصدر الحقيقة للجدولة)
-
-> الأرقام `QB-0x` تسميات وظيفية ثابتة. **ترتيب التنفيذ** أدناه هو الملزم عند التعارض مع أي رسم قديم.
+## شرط HOLD قبل QB-01 التنفيذي
 
 ```text
-QB-01 Schema Foundation
-QB-02 Compatibility Layer
-QB-07 Legacy Backfill and Reconciliation
-QB-03 Import Dry Run
-QB-04 Atomic Apply
-QB-05 Admin Review Workflow
-QB-06 Student Safe Read API
-QB-08 UI Migration
-QB-09 Verification and Legacy Retirement
+لا يبدأ QB-01 التنفيذي (تطبيق Migration) قبل حسم استراتيجية نسخ الأسئلة المنشورة
+ومطابقتها مع exam attempts / exam_session_answers الحالية.
+updated_at وحده ليس versioning.
 ```
 
-### قواعد الجدولة
+إن تعذّر الدمج الآمن → HOLD موثّق؛ لا إخفاء.
 
-1. **QB-07** يحمل رقماً وظيفياً تاريخياً، لكنه **يُنفَّذ مباشرة بعد QB-02** وقبل أي استيراد مطبّع.
-2. **لا يبدأ الاستيراد الجديد (QB-03/QB-04)** قبل اكتمال Backfill وReconciliation في QB-07.
-3. **لا تُعلَن الجداول الجديدة مصدر حقيقة تشغيلية** قبل نجاح التحقق من التطابق (عدّ + عيّنة تصحيح) في QB-07.
-4. المزامنة المعتمدة بعد الانتقال: **New → Legacy فقط** عبر RPC ذري — لا Dual Write من العميل، ولا اعتماد `Legacy → New` كمسار كتابة مستمر بعد QB-07.
-5. لا حذف لأعمدة Legacy (`options` / `correct_index` / `explanation` / `lesson_id` / `subject_id` / `unit`) قبل QB-09.
+---
 
-### خريطة الاعتماد (مطابقة للترتيب الرسمي)
+## الترتيب الرسمي
 
 ```text
-QB-01 Schema Foundation
-  → QB-02 Compatibility Layer
-    → QB-07 Legacy Backfill and Reconciliation
-      → QB-03 Import Dry Run
-        → QB-04 Atomic Apply
-          → QB-05 Admin Review Workflow
-          → QB-06 Student Safe Read API
-            → QB-08 UI Migration
-              → QB-09 Verification and Legacy Retirement
+QB-01 → QB-02 → QB-07 → QB-03 → QB-04 → QB-05 → QB-06 → QB-08 → QB-09
 ```
 
 ---
 
-## QB-01 — Schema Foundation
+## QB-01 — Schema Foundation (NOT APPLIED هنا)
 
-| بند | محتوى |
+| عنصر | مطلوب |
 |---|---|
-| النطاق | جداول `question_targets`, `question_options`, `question_solutions` (+ steps اختياري)؛ أعمدة nullable على `questions` (`status`, `interaction_type`)؛ RLS صارم؛ **بدون** حذف Legacy؛ **بدون** كسر RPCs |
-| الملفات | migrations جديدة؛ تحديث types؛ docs |
-| migrations المتوقعة | نعم (لاحقاً بموافقة) — مسودة: `docs/migration-drafts/QUESTION-BANK-SCHEMA-FOUNDATION-01.NOT_APPLIED.sql` |
-| الاختبارات | static + سلبية/إيجابية لأمن الأعمدة (انظر Acceptance أدناه) |
-| المخاطر | قيود FK خاطئة؛ نسيان revoke عمودي؛ سياسات طالب واسعة |
-| PASS | جداول موجودة، Legacy كما هو، exams/practice/quiz خضراء، **مصفوفة RLS/GRANT كاملة ومختبرة** |
-| HOLD | أي تعديل يكسر SELECT allowlist الحالي أو يحذف أعمدة؛ **أو** مصفوفة RLS/GRANT غير كاملة/غير مختبرة للخيارات والحلول والأهداف |
-| يعتمد على | لا شيء |
+| questions hub + legacy cache | نعم |
+| question_targets | نعم |
+| question_options مطبّعة | نعم |
+| question_accepted_answers | نعم (SHORT_TEXT P0) |
+| question_solutions + hints | نعم |
+| stimulus_text أدنى / per-question | نعم |
+| question_media metadata | نعم |
+| manual grading metadata | نعم |
+| version/revision foundation **أو** HOLD موثّق | نعم — حاجز قبل apply |
+| interaction_type مرن (مرجع أو TEXT + validation) — لا CHECK مغلق بـ26 | نعم |
+| grading_mode | نعم |
+| created_by / updated_at | نعم |
+| RLS + GRANT كاملة deny-by-default | نعم |
+| reviewer/grader capability mapped to current roles | نعم — لا اختراع enum `reviewer` أعمى |
+| Indexes / FKs / triggers New→Legacy | نعم |
 
-### Acceptance Criteria — RLS / GRANT (إلزامي لـ QB-01)
+**PASS:** تصميم كامل + مراجعة أمنية + قرار versioning مكتوب.
+**HOLD:** تعارض versioning مع attempts؛ أو GRANT واسع؛ أو RLS ناقصة.
 
-يجب استيفاء كل البنود قبل اعتبار QB-01 ناجحاً أو تطبيق هجرته:
-
-- RLS enabled على جميع الجداول الجديدة.
-- لا توجد سياسة طالب مباشرة على `question_solutions`.
-- لا توجد سياسة طالب تسمح بقراءة `question_options.is_correct`.
-- لا يحصل `authenticated` أو `anon` على SELECT للأعمدة السرية.
-- قراءة الطالب تتم عبر View أو RPC آمنة ومحددة الأعمدة.
-- وظائف SECURITY DEFINER تضبط `search_path` صراحة.
-- EXECUTE يمنح فقط للأدوار المطلوبة.
-- يتم REVOKE للـ PUBLIC قبل GRANT الانتقائي.
-- مسؤولو المحتوى فقط يستطيعون INSERT/UPDATE.
-- أي جدول بلا سياسة مناسبة يبقى deny-by-default.
-- اختبارات سلبية تثبت رفض الطالب لقراءة الحلول والإجابات.
-- اختبارات إيجابية تثبت أن RPC الآمنة تعيد نص السؤال والخيارات دون مفاتيح الإجابة.
-
-**شرط HOLD صريح:** يُمنع تطبيق QB-01 إذا لم تكن مصفوفة RLS/GRANT كاملة ومختبرة للخيارات والحلول والأهداف.
+مسودة: `docs/migration-drafts/QUESTION-BANK-SCHEMA-FOUNDATION-01.NOT_APPLIED.sql`
 
 ---
 
-## QB-02 — Compatibility Layer
+## QB-02 — Backfill Legacy → New
 
-| بند | محتوى |
-|---|---|
-| النطاق | RPC/دالة `qb_sync_question_legacy(question_id)`؛ كتابة مشتقة إلى `options` / `correct_index` / `explanation` / `lesson_id` / `subject_id` / `unit` (نص مشتق اختيارياً من هدف UNIT)؛ منع كتابتين غير متزامنتين من UI |
-| الملفات | migration functions؛ اختبارات وحدة SQL/static |
-| المخاطر | SoT مزدوج إن كُتب Legacy مباشرة بعد التفعيل |
-| PASS | تحديث المطبّع ينعكس على Legacy؛ RPCs القديمة تصلح كما هي؛ الواجهة لا تكتب Legacy مباشرة |
-| HOLD | اختلاف نتائج التصحيح قبل/بعد sync؛ أو Dual Write من العميل |
-| يعتمد على | QB-01 |
+- صف واحد لكل سؤال legacy → options/targets/solutions حسب النوع.
+- لا حذف legacy.
+- تقرير gaps (بلا lesson، بلا صحيح، JSON تالف، unit نصي فقط).
+
+**HOLD:** فقدان بيانات بلا تقرير؛ مسح legacy.
 
 ---
 
-## QB-07 — Legacy Backfill and Reconciliation
+## QB-07 — Compatibility Sync Layer (قبل الاستيراد)
 
-| بند | محتوى |
-|---|---|
-| النطاق | نقل كل صفوف `questions` → `question_options` / `question_solutions` / `question_targets`؛ اشتقاق `unit` النصي عند الحاجة؛ التحقق العددي؛ إعادة sync New→Legacy؛ تقرير reconciliation |
-| الملفات | scripts one-shot (مشغّل بموافقة)؛ تقارير |
-| المخاطر | خيارات فارغة؛ `correct_index` خارج النطاق؛ أسئلة بلا lesson/subject؛ اختلاف درجات |
-| PASS | count مطابقة؛ عيّنة تصحح كما قبل؛ **إعلان SoT للمطبّع مسموح بعده فقط** |
-| HOLD | فقدان بيانات أو اختلاف درجات أو فشل reconciliation |
-| يعتمد على | QB-02 |
-| ملاحظة التسمية | الرقم QB-07 تاريخي؛ **التنفيذ بعد QB-02 وقبل QB-03** |
+- `qb_sync_question_legacy` ذري.
+- مصدر الحقيقة = New.
+- اتجاه واحد New → Legacy.
+- `questions.unit` نصي = مشتق مؤقت Read-only بعد التفعيل — **ليس SoT**.
+- لا Dual Write من العميل.
+
+**HOLD:** كتابة من العميل لكلا الطبقتين؛ تعارض بعد sync.
 
 ---
 
-## QB-03 — Import Dry Run
+## QB-03 — Import Validation & Dry Run
 
-| بند | محتوى |
-|---|---|
-| النطاق | دعم وضعين: `legacy_flat_09` و`official_normalized_v1`؛ Validate/Resolve Codes؛ رفض `correct_index` في الوضع الرسمي؛ تقارير أخطاء بلا كتابة |
-| الملفات | `src/lib/content-import/*`؛ preflight script؛ docs قوالب |
-| المخاطر | قبول ملفات رسمية غير مكتملة الخيارات |
-| PASS | dry-run يمر على عينات؛ لا DB writes |
-| HOLD | غموض في تخطيط الأعمدة أو تعارض المصفوفة؛ أو محاولة تشغيله قبل نجاح QB-07 |
-| يعتمد على | QB-07 (بعد اكتمال Backfill/Reconciliation) |
+قبل PASS يجب:
+
+1. تعريف adapters الثلاثة (+ مسار official_normalized_v1 لاحقاً).
+2. تثبيت اتفاقية correct_index لكل adapter (legacy/operational = 1-based مثبت).
+3. كشف الصف المزاح ورفضه.
+4. تطبيع `فارغ` / `-` → NULL في adapters فقط.
+5. رفض `Published`؛ قبول DRAFT / READY_FOR_REVIEW فقط.
+6. Resolve codes (unit/lesson) حسب التصميم.
+7. التحقق من الوسائط (`requires_media`, alt, path).
+8. التحقق من interaction_type + grading_mode.
+9. أخطاء/تحذيرات مرتبطة بـ row/column/sheet.
+10. عدم إنشاء جداول فعلية في هذه الحزمة التوثيقية.
+
+**HOLD:** 0↔1 صامت؛ قبول نشر من Excel؛ resolve غامض بلا رفض.
 
 ---
 
 ## QB-04 — Atomic Apply
 
-| بند | محتوى |
-|---|---|
-| النطاق | Transaction: upsert questions + options + solutions + targets؛ استدعاء sync New→Legacy؛ تحديث `import_jobs`؛ ROLLBACK عند خطأ حرج |
-| الملفات | server apply path / Edge أو RPC SECURITY DEFINER؛ admin import |
-| المخاطر | تطبيق جزئي؛ تضارب codes؛ أداء ملفات كبيرة |
-| PASS | إعادة نفس الملف idempotent؛ فشل صف حرج يمنع الكل (أو سياسة دفعات موثّقة) |
-| HOLD | أي مسار service_role من العميل مباشرة؛ أو تطبيق قبل QB-07 |
-| يعتمد على | QB-02, QB-03, QB-07 |
+حتى اكتمال QB-05:
+
+```text
+Atomic Apply may create/update DRAFT only.
+It must not publish content.
+```
+
+- Upsert بـ `question_code`.
+- استدعاء sync داخل نفس المعاملة عند الحاجة.
+- لا نشر؛ لا حذف legacy.
+
+**HOLD:** نشر من Apply؛ نجاح جزئي بلا rollback.
 
 ---
 
-## QB-05 — Admin Review Workflow
+## QB-05 — Review / Approve / Publish + Versioning
 
-| بند | محتوى |
-|---|---|
-| النطاق | حالات DRAFT → READY_FOR_REVIEW → PUBLISHED؛ مراجعة حلول/خيارات؛ منع نشر Excel مباشر |
-| الملفات | `admin.questions.tsx` ومكوّنات مراجعة |
-| المخاطر | عرض `is_correct` لغير المخوّلين |
-| PASS | طاقم فقط يعدّل؛ طالب لا يرى مسارات الإدارة |
-| يعتمد على | QB-04 |
+- Content review + approve/reject.
+- Reviewer/grader capability (مطابقة الأدوار).
+- نشر تنقيح؛ منع تعديل النسخة المنشورة المستخدمة.
+- إنشاء revision جديدة عند التعديل بعد النشر/الاستخدام.
+- كشف حلول حسب السياسة.
 
----
-
-## QB-06 — Student Safe Read API
-
-| بند | محتوى |
-|---|---|
-| النطاق | RPCs/Views تعرض خيارات بلا `is_correct`؛ سياسات حلول حسب reveal؛ الإبقاء على عقد exams الحالي |
-| الملفات | migrations RPC؛ عميل طالب إن لزم |
-| المخاطر | تسريب عبر view؛ كسر `get_exam_session_state` |
-| PASS | اختبارات أمنية + smoke؛ لا correct قبل التسليم |
-| يعتمد على | QB-01, QB-02, QB-07 |
+**HOLD:** نشر بلا مراجعة؛ تعديل صامت لنسخة مستخدمة في attempt.
 
 ---
 
-## QB-08 — UI Migration
+## QB-06 — Runtime APIs
 
-| بند | محتوى |
-|---|---|
-| النطاق | إدارة تقرأ/تكتب المطبّع؛ واجهات طالب تبقى على RPCs؛ دعم TRUE_FALSE/تحضيرات MULTIPLE لاحقاً |
-| الملفات | routes admin + exams/lessons حسب الحاجة |
-| المخاطر | كسر Mobile UX؛ رجوع لـ select مباشر للإجابات |
-| PASS | نفس سيناريوهات الامتحان/الدرس خضراء |
-| يعتمد على | QB-05, QB-06 |
+- Safe student reads (بلا is_correct / solutions مبكرة).
+- Safe answer reveal.
+- Submission APIs للنص القصير/المقالي.
+- Manual grading APIs + audit trail.
+- Offline-aware reads.
 
----
-
-## QB-09 — Verification and Legacy Retirement
-
-| بند | محتوى |
-|---|---|
-| النطاق | إثبات صفر اعتماد SoT على JSON وعلى `questions.unit` كنص مرجعي؛ إيقاف محوّل `correct_index` في الاستيراد الرسمي؛ Migration **منفصلة** لحذف أعمدة Legacy فقط بعد موافقة صريحة |
-| الملفات | tests؛ migration مستقبلية |
-| المخاطر | كسر مسارات قديمة غير مكتشفة |
-| PASS | فترة مراقبة + اختبارات؛ ثم قرار حذف |
-| HOLD | أي مسار إنتاج ما زال يكتب Legacy كـ SoT |
-| يعتمد على | QB-08 |
+**HOLD:** تسريب حلول؛ grading بلا audit.
 
 ---
 
-## قائمة التنفيذ السريعة (بعد موافقة المالك)
+## QB-08 — UI
 
-1. QB-01
-2. QB-02
-3. QB-07 (Backfill + Reconciliation)
-4. QB-03
-5. QB-04
-6. QB-05 / QB-06
-7. QB-08
-8. QB-09 (متأخر ومتعمد)
+- إدخال/مراجعة محتوى.
+- واجهة طالب.
+- واجهة تصحيح يدوي.
+- عرض وسائط + weak internet.
+- استكمال بعد انقطاع.
 
-## خارج النطاق لكل الحزم حتى إشعار
+**HOLD:** اعتماد على إخفاء UI للأمن؛ نشر من شاشة الاستيراد.
 
-- Deploy / Publish
-- حذف بيانات QA (مهمة منفصلة)
-- Storage policies جديدة دون حزمة وسائط
-- أنواع MATCHING/CODE/…
-- إنشاء `question_sets` موازٍ لـ `exam_templates`
+---
 
-## الحزمة التالية الموصى بها الآن
+## QB-09 — Deprecate Legacy Fields
 
-**QB-01** — بعد اعتماد المالك لهذه الوثائق ومراجعة مسودة SQL التوثيقية، وبشرط اكتمال مصفوفة RLS/GRANT قبل أي apply.
+- بعد إثبات عدم اعتماد القراءة المباشرة على cache.
+- إيقاف ثم حذف لاحق لـ options/correct_index/explanation/unit النصي عند الجاهزية.
+- لا DROP مبكّر.
+
+---
+
+## مصفوفة سيناريوهات التوثيق (PASS / HOLD)
+
+| # | سيناريو | Package | Expected | PASS | HOLD |
+|---|---|---|---|---|---|
+| 1 | مقالي + model answer | QB-01/05/06 | LONG_TEXT + MANUAL + solution | model مخزّن؛ طالب لا يراه مبكراً | تسريب |
+| 2 | نص قصير + accepted | QB-01/03/06 | SHORT_TEXT + AUTO_TEXT | تطابق قواعد صريحة | auto بلا قواعد |
+| 3 | درجات جزئية | QB-05/06 | allow_partial + MANUAL | درجة جزئية + audit | بلا سجل |
+| 4 | يعتمد على صورة | QB-03/04/08 | requires_media | رفض نشر بلا ملف+alt | نشر بلا وسائط |
+| 5 | stimulus نصي | QB-01/08 | stimulus_text | يظهر للطالب | فقدان السياق |
+| 6 | بلا question_code | QB-03 | رفض رسمي | error على الصف | قبول صامت |
+| 7 | status=Published في Excel | QB-03/04 | رفض | لا apply | نشر من Excel |
+| 8 | صف مزاح | QB-03 | رفض | error | تفسير خاطئ |
+| 9 | قيمة `فارغ` | QB-03 | NULL في adapter | تطبيع موثّق | تخزين نص فارغ |
+| 10 | correct_index 1-based | QB-03/07 | تحويل معلن | خيار صحيح عبر option_code | قلب صامت |
+| 11 | correct_index غامض | QB-03 | رفض | error | تخمين |
+| 12 | وحدة برقم فقط | QB-03 | رفض | error | ربط خاطئ |
+| 13 | درس عربي مكرر | QB-03 | رفض ambiguous | error | أول تطابق |
+| 14 | تعديل منشور مستخدم | QB-05 | revision جديدة | attempt يثبت القديم | طمس |
+| 15 | إعادة استيراد revision | QB-04/05 | تنقيح جديد بـ question_code | لا كسر محاولات | overwrite أعمى |
+| 16 | مراجع يقرأ الحل ولا يعدّل | QB-05/06 | grader read | SELECT حلول؛ لا UPDATE بنك | كتابة زائدة |
+| 17 | طالب يقرأ الحل مبكراً | QB-06 | منع | RLS/RPC | تسريب |
+| 18 | مصحح يغيّر الدرجة + Audit | QB-06 | سجل كامل | audit row | تغيير صامت |
+| 19 | فشل ملف وسائط | QB-03/04 | رفض/تحذير حسب requires_media | لا نشر معطوب | تجاهل |
+| 20 | استكمال بعد انقطاع | QB-06/08 | resume آمن | لا فقدان إجابة | إعادة إرسال مزدوج بلا حماية |
+
+---
+
+## ما هو خارج النطاق الآن
+
+- لا Migration تحت `supabase/migrations`
+- لا إنشاء جداول فعلية
+- لا افتراض 26 نوعاً كلها للإطلاق
+- لا دمج PR / Deploy من هذه الخطة وحدها

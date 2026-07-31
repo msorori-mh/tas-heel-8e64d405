@@ -1,198 +1,133 @@
 # QUESTION-BANK-CURRENT-ARCHITECTURE-AUDIT-01
 
-تدقيق البنية الفعلية لنظام الأسئلة والحلول — بدون Migration أو كتابة إنتاج.
+تدقيق البنية الفعلية لنظام الأسئلة والحلول + أدلة ملفات Excel الفعلية — بدون Migration أو كتابة إنتاج.
 
 | حقل | قيمة |
 |---|---|
 | التاريخ | 2026-07-31 |
 | المستودع | `msorori-mh/tas-heel-8e64d405` |
-| فرع التدقيق | `docs/question-bank-architecture-audit-01` |
-| HEAD (`origin/main`) | `9d6eb603fead085f8fa86f29647a8c5e51cab2af` |
-| working tree عند البدء | clean |
-| طبيعة النسخة | مستودع GitHub التشغيلي (Lovable + وكلاء)، ليس مخططاً تاريخياً منفصلاً |
+| فرع التوثيق | `docs/question-bank-architecture-audit-01` |
+| **Runtime architecture baseline audited** | `9d6eb603fead085f8fa86f29647a8c5e51cab2af` |
+| **Documentation revision reviewed (base)** | `e01276330807295fa3fc7192489cad8cd57be33d` |
+| **Documentation revision (هذه الحزمة)** | HEAD بعد commit التصحيح — لا يستبدل Runtime baseline |
 | Migration مطبّقة في هذه المهمة | **NO** |
 | كتابة إنتاج | **ZERO** |
 
 ---
 
-## A. حالة المستودع
+## A. حالة Runtime (ملخص ثابت)
 
-```
-origin  https://github.com/msorori-mh/tas-heel-8e64d405.git
-HEAD    9d6eb60 Merge pull request #39 (QA preflight docs)
-```
+المستودع التشغيلي على GitHub (Lovable + وكلاء). لا Edge Functions تحت `supabase/functions/`.
 
-آخر migrations ذات الصلة بالأسئلة/الاستيراد/`code`:
+آخر migrations ذات الصلة: إنشاء `questions` (JSONB `options` + `correct_index`)، `unit` text، assessments/exams RPCs، column grants على `correct_index`/`explanation`، `questions.code`، `import_jobs`.
 
-| Migration | الموضوع |
-|---|---|
-| `20260606003842_…` | إنشاء `questions` (JSONB options + correct_index) |
-| `20260606004422_…` | `unit` text + `semester` |
-| `20260606004917_…` | assessments + RPCs درس + تقييد SELECT questions |
-| `20260607234143_…` | exam_templates / sessions / get_exam_session_state |
-| `20260615005248_…` | `questions.code` + partial unique |
-| `20260622140000_…` / `20260731120000_…` | column grants — حجب `correct_index`/`explanation` |
-| `20260628171431_…` + `20260628190000_…` | `import_jobs` / `import_errors` (تعريف مكرر) |
-| `20260719204006_…` | `grade_unit_practice` / `start_exam_session` (free-access) |
+### أعمدة `questions` الحالية (types)
 
-### ملفات القالب المرجعية المطلوبة من المالك
+`id`, `code`, `question_text`, `question_type`, `options` (Json), `correct_index`, `explanation`, `lesson_id`, `subject_id`, `unit` (text), `semester`, `year`, `sort_order`, `created_at` — **لا `unit_id`**.
 
-| الملف | الحالة في المستودع |
-|---|---|
-| `قالب_لاستيراد_أسئلة_الثانوية.xlsx` | **غير موجود** |
-| `نموذج_استيراد_الاسئله_للتجربة_فقط (2).xlsx` | **غير موجود** |
-| `حل اسئله الدرس الاول -للتجربه.xlsx` | **غير موجود** |
-| `القالب_الرسمي_الموحد_لاستيراد_أسئلة_الثانوية_v1.xlsx` | **غير موجود** |
-| `نموذج_تطبيقي_موحد_لأسئلة_الثانوية_وحلولها_v1.xlsx` | **غير موجود** |
+### حقائق تشغيلية مثبتة
 
-**الموجود فعلياً:** قوالب المحتوى التشغيلية `01`–`09` تحت `public/content-import-templates/` و`docs/content-templates/` (مولَّدة من `scripts/generate-content-templates.mjs`)، بما فيها `09_questions_template.xlsx` (MCQ + `correct_index`).
-
-لا Edge Functions تحت `supabase/functions/` في هذا المستودع.
-
----
-
-## B. جرد الكائنات
-
-| الكائن | النوع | الملف المنشئ (أساس) | الأعمدة/الحقول الرئيسية | العلاقات | RLS / Grants | الاستخدام الفعلي |
-|---|---|---|---|---|---|---|
-| `subjects` | table | `20260606003842_…` | id, name, grade_id, code, … | ← units, lessons, questions | SELECT authenticated + staff ALL | واجهة طالب + إدارة + استيراد |
-| `units` | table | نفس الموجة + لاحق | id, subject_id, title, … | ← lessons; practice | SELECT authenticated (`can_access_subject`) بعد #34 | طالب + إدارة |
-| `lessons` | table | نفس الموجة | id, subject_id, unit_id, slug, … | ← questions, assessments, resources | column grants (بدون URLs حساسة) | درس + تدريب وحدة |
-| `questions` | table | `20260606003842_…:82-94` | انظر §C | lesson_id?, subject_id?; junctions | SELECT صفوف + **column revoke** على الإجابات | بنك مركزي |
-| `questions.options` | JSONB | إنشاء الجدول | مصفوفة نصوص خيارات | — | **مقروء للطالب** (عرض) | كل واجهات MCQ |
-| `questions.correct_index` | INT NOT NULL | إنشاء الجدول | فهرس الخيار الصحيح | — | **محجوب** عن client SELECT | RPCs فقط |
-| `questions.explanation` | TEXT | إنشاء الجدول | شرح بعد الإجابة | — | **محجوب** عن client SELECT | RPCs بعد كشف |
-| `questions.code` | TEXT | `20260615005248_…:28` | رمز استيراد | unique partial | في allowlist القراءة | استيراد/idempotent |
-| `questions.unit` | TEXT | `20260606004422_…:227` | تسمية نصية قديمة | **لا FK** | مقروء | نادر/legacy |
-| `lesson_assessments` | table | `20260606004917_…:177` | lesson_id, title, … | → assessment_questions | staff + view per lesson | اختبار درس |
-| `assessment_questions` | junction | `20260606004917_…:271` | assessment_id, question_id, points, sort_order | questions reusable | staff + view per lesson | ربط أسئلة الاختبار |
-| `exam_templates` | table | `20260607234143_…:12` | mode, subject/unit/lesson, code, duration | → template_questions, sessions | active templates readable | محاكي/تدريب/صارم |
-| `exam_template_questions` | junction | `20260607234143_…:52` | template_id, question_id, points | questions reusable | active templates | ترتيب الاختبار |
-| `exam_sessions` | table | `20260607234143_…:85` | user, status, score, … | → answers | own sessions | محاكي |
-| `exam_session_answers` | table | `20260607234143_…:132` | selected_index, is_correct (بعد تسليم) | question_id | own answers | محاكي |
-| `unit_practice_attempts` | table | `20260606175402_…` | unit_id, score, answers JSON | عبر lessons | own attempts | تدريب وحدة |
-| `import_jobs` / `import_errors` | tables | `20260628171431_…` (+ duplicate `…28190000_…`) | حالة dry-run/apply، أخطاء صفوف | created_by | content staff | `/admin/import` |
-| `lesson_resources` | table | موجة المحتوى | resource_type, urls, … | lesson_id | staff + lesson access | وسائط الدرس (ليست بنك أسئلة) |
-| `lesson_explanations` | table | موجة المحتوى | title, content | lesson_id | منفصل عن `questions.explanation` | شروح الدرس |
-| `get_lesson_quiz_questions` | RPC | `20260606004917_…:457` | بدون correct/explanation | SECURITY DEFINER | طالب | quiz درس |
-| `check_lesson_question` | RPC | `20260610005557_…:3` | يكشف correct+explanation فوراً | بعد إجابة | formative UX | `lessons.$lessonId.tsx` |
-| `grade_lesson_quiz` | RPC | `20260606004917_…:430` | نتيجة + explanations | بعد تسليم دفعة | طالب | quiz |
-| `grade_unit_practice` | RPC | `20260719204006_…` | score بلا explanation في الرد | server uses correct_index | طالب | practice |
-| `get_exam_session_state` | RPC | `20260607234143_…:355` | reveal فقط إن status≠in_progress | gated | امتحانات |
-| `answer_exam_question` / `submit_exam_session` / `start_exam_session` | RPCs | exam migrations | لا مفتاح إجابة قبل التسليم | gated | امتحانات |
-| Edge Functions أسئلة | — | — | — | — | **غير موجودة** في المستودع |
-
-### تفريق الحالات
-
-| الحالة | أمثلة |
-|---|---|
-| في migrations + types + UI | `questions`, junctions, exam RPCs |
-| في types ومستخدم | `code` على questions/exam_templates |
-| legacy/ضعيف الاستخدام | `questions.unit` (نص بلا FK) |
-| متوقع في قالب رسمي مقترح وغير موجود في DB | Options table, Solutions, Stimuli, Rubrics, QuestionTargets, QuestionSets كجداول مستقلة |
-| تطبيق جزئي للاستيراد | dry-run محلي/خادمي موجود؛ apply الذري الكامل لبنك مطبّع **غير مبني** |
-
----
-
-## C. تدقيق جدول `questions` — إجابات دقيقة
-
-أعمدة الحالية (types `1420-1436` + migrations):
-
-`id`, `code`, `question_text`, `question_type`, `options` (Json), `correct_index`, `explanation`, `lesson_id`, `subject_id`, `unit` (text), `semester`, `year`, `sort_order`, `created_at`
-
-**لا يوجد `unit_id` على questions.**
-
-| # | سؤال | الجواب |
+| الادعاء | الدليل | النتيجة |
 |---|---|---|
-| 1 | هل `options` مصدر حقيقة الخيارات؟ | **نعم حالياً** — JSONB إلزامي؛ الواجهة تقرأه مباشرة (practice/exams/admin). |
-| 2 | هل `correct_index` مستخدم في التصحيح؟ | **نعم على الخادم** — كل RPCs التصحيح تقارن `selected_index = correct_index`. الواجهة تعرضه فقط بعد reveal. |
-| 3 | هل توجد أسئلة بلا خيارات؟ | schema يفرض `options JSONB NOT NULL`؛ النموذج التشغيلي = MCQ بمصفوفة. لا دعم أسئلة بلا خيارات في DB. |
-| 4 | أكثر من إجابة صحيحة؟ | **لا** — `correct_index INT` مفرد. |
-| 5 | ربط بوحدة دون درس؟ | **جزئياً فقط عبر نص `unit` أو عبر دروس الوحدة**. لا FK `unit_id`. تدريب الوحدة يجلب عبر `lessons.unit_id` ثم `questions.lesson_id IN (…)`. |
-| 6 | ربط بالمادة مباشرة؟ | **نعم** — `subject_id` اختياري؛ سياسات SELECT تدعم مسار subject-only. |
-| 7 | سؤال مشترك بين دروس/وحدات؟ | **عبر junctions** (`assessment_questions`, `exam_template_questions`) يمكن إعادة استخدام `question_id`. الحقل `lesson_id` على السؤال نفسه مفرد (رابط «أساسي» فعلي ضعيف التوثيق). |
-| 8 | مقالية وحلول؟ | **لا جدول حلول/rubric**. فقط `explanation` نصي بعد الكشف. لا SHORT_TEXT/LONG_TEXT محرَّك. |
-| 9 | متى يظهر `explanation`؟ | بعد `check_lesson_question` / `grade_lesson_quiz`؛ في الامتحانات عبر `get_exam_session_state` فقط عندما `reveal=true` (بعد تسليم). |
-| 10 | قراءة مباشرة قد تكشف الإجابة؟ | **محميّة بـ column grants** (`20260731120000_…:30-50`). العميل لا يملك SELECT على `correct_index`/`explanation`. الخطر المتبقي: أي GRANT جدولي لاحق، أو RPC formative يكشف فوراً (`check_lesson_question`) — مقصود للدرس. |
-| 11 | أثر تعديل الجدول؟ | يكسر: quiz درس، practice وحدة، exams training/strict، admin questions، import 09، اختبارات الأمن الثابتة. |
-| 12 | أعمدة `code` (IMPORT-SYSTEM-02)؟ | **موجودة** على `questions` (+ templates أخرى) ومستخدمة كمفتاح استيراد/`question_code` في dry-run وpreflight. |
-
-### استخدام الواجهة (أدلة)
-
-| مسار | السلوك | مرجع |
-|---|---|---|
-| درس — جلب أسئلة | RPC بدون مفتاح | `lessons.$lessonId.tsx` ~182-183 |
-| درس — بعد إجابة | RPC يكشف | نفس الملف ~694-703 |
-| تدريب وحدة | SELECT آمن بلا correct/explanation | `units.$unitId.practice.tsx:225-228` |
-| امتحان | state + redact عميل | `exam-client-safety.ts`, exams.*.tsx |
-| إدارة | تجنب select للإجابات في القوائم | `admin.questions.tsx:131-133` |
+| `options` مصدر حقيقة الخيارات حالياً | types + UI practice/exams | VERIFIED |
+| `correct_index` للتصحيح الخادمي | RPCs grade/check/exam | VERIFIED |
+| حجب الإجابة عن PostgREST | `20260731120000_…` column grants | VERIFIED |
+| exam reveal بعد التسليم | `get_exam_session_state` `v_reveal` | VERIFIED |
+| dry-run التشغيلي `correct_index` **1-based (1–6)** | `content-import-validators.ts:96-117` | VERIFIED |
+| UI تقارن غالباً بفهرس مصفوفة 0-based | exams `correct_index === i` | VERIFIED — **فجوة تحويل عند Apply** |
+| قوالب المحتوى 01–09 في الريبو | `public/content-import-templates/` | VERIFIED |
 
 ---
 
-## D. نقاط القوة
+## B. ملفات Excel المرجعية (تحليل مستقل)
 
-1. فصل عمودي حقيقي لمفتاح الإجابة عن PostgREST.
-2. محاكي الاختبارات بوابة `reveal` على مستوى الجلسة.
-3. إعادة استخدام السؤال عبر junctions (assessments/exams).
-4. `code` + dry-run + preflight محلي لمسار الاستيراد.
-5. RLS + `can_access_lesson` / `can_access_subject` لحدود الصف/المنهج.
-6. اختبارات أمنية ثابتة ضد ارتداد grants.
+> مصدر القراءة: نسخة محلية للمراجعة فقط (ليست مساراً رسمياً دائماً داخل Git).
+> **لم تُنسَخ ملفات Excel إلى المستودع.**
 
-## E. الفجوات
+| الملف | الحجم | SHA-256 | المخطط المكتشف |
+|---|---:|---|---|
+| `حل اسئله الدرس الاول -للتجربه.xlsx` | 15548 | `8c26a1647d552bf5929b3f026b247437ddfbea2d251df30adc3851c3fd379484` | **teacher_flat_ar_v0** |
+| `قالب_لاستيراد_أسئلة_الثانوية.xlsx` | 12239 | `f6e2fbf9f106260f91cdac206ed392cf6f18688255affc6b879f92f7c10b113d` | **official_flat_v0** |
+| `نموذج_استيراد_الاسئله_للتجربة_فقط (2).xlsx` | 12117 | `981a834eecdbd66f522962237184be7787708896d26de140a1bf2b072765366d` | **legacy_flat_15col** |
 
-1. لا جداول Options/Solutions/Targets/Stimuli/Rubrics/Media-for-questions.
-2. نوع السؤال التشغيلي ≈ MCQ فقط (`question_type` تسمية فضفاضة، افتراضي `'lesson'`).
-3. لا multi-correct / numeric tolerance / matching.
-4. لا ربط رسمي متعدد الأهداف مع «أساسي واحد».
-5. `questions.unit` نص legacy بلا سلامة مرجعية.
-6. استيراد apply الذري الكامل للبنك المطبّع غير موجود؛ dry-run أقوى من apply.
-7. تعريف مكرر لـ `import_jobs` في migrations.
-8. قوالب Excel العربية الرسمية المطلوبة في المهمة **غير موجودة** في المستودع.
-9. لا Edge Functions للاستيراد/التصحيح في هذا الريبو.
+ملفات بأسماء `القالب_الرسمي_الموحد_…v1` / `نموذج_تطبيقي_موحد_…v1`: **ما زالت غير موجودة** كعيّنات.
+`official_normalized_v1` = **تصميم مستهدف فقط** (لا عيّنة Excel بعد).
 
-## F. التعارضات / المخاطر
+### B.1 teacher_flat_ar_v0
 
-| مخاطرة | المستوى | ملاحظة |
-|---|---|---|
-| مصدر حقيقة واحد اليوم = JSON + correct_index | متوسط | أي تطبيع بلا طبقة توافق يكسر RPCs |
-| `check_lesson_question` يكشف فوراً | منخفض/مقصود | لا يُخلط مع سياسة الامتحان الصارم |
-| ظهور `options` للطالب | مقبول لـ MCQ | لا يصلح لتخزين `is_correct` داخل JSON لاحقاً دون حجب |
-| ازدواج SoT أثناء انتقال سيئ | عالٍ إن نُفّذ بلا sync | يجب قرار sync أحادي الاتجاه |
-| كسر exams عند حذف correct_index مبكراً | عالٍ | التقاعد آخر حزمة فقط |
+| Observed fact | Inferred requirement | Owner decision | Deferred |
+|---|---|---|---|
+| ورقة واحدة `ورقة2`، أبعاد 19×29، **18** صف بيانات | محول معلم عربي مسطّح | اعتماد كـ adapter | — |
+| 29 عموداً بما فيها `correct_answer`, `acceptable_answers`, `explanation`, `hint`, `allow_partial`, `status` | دعم نصي/مقالي + تلميح/شرح | P0 SHORT/LONG | Rubric كامل |
+| **لا عمود `question_code`** | توليد/رفض عند الاستيراد الرسمي | رفض في الرسمي؛ Legacy adapter قد يولّد بقرار | — |
+| `question_type`: مقالي≈16، إكمال فراغ≈1، اختيار≈1 | P0: LONG_TEXT / SHORT_TEXT / SINGLE_CHOICE | نعم | 26 نوعاً |
+| `unit` رقمي `1`؛ `lesson` نص عربي «الأول» | Resolve غير فريد بالرقم وحده | unit_code أو (grade+semester+subject+unit_number) | — |
+| `status` = «متاح» (ومع صف واحد status فارغ/None) | ليس DRAFT/READY_FOR_REVIEW | رفض أو تحويل Legacy بتحذير فقط | — |
+| قيم `-` بكثافة في خيارات/وسائط (empty_like≈180) | تطبيع إلى NULL | نعم في adapters | — |
+| صفوف خيارات `-` مع أسئلة مقالية | ليست MCQ | grading_mode MANUAL/AUTO_TEXT | — |
 
----
+### B.2 official_flat_v0
 
-## G. سيناريوهات التحقق النظري (ملخص)
+| Observed fact | Inferred requirement | Owner decision | Deferred |
+|---|---|---|---|
+| أوراق: `Questions`, `Media`, `QuestionTypes` | قالب متعدد الأوراق | نعم | — |
+| `Questions` 4×32، **3** صفوف عيّنة؛ `id` رقمي 1001–1003 | IDs يدوية مرفوضة رسمياً | **رفض** id يدوي؛ إلزام `question_code` | — |
+| `status=Published` في العيّنة | نشر من Excel خطر | **رفض Published** عند الإدخال | — |
+| أنواع عيّنة: MCQ / PARSE / FILL | taxonomy تعليمي ≠ interaction_type | فصل الاسم/التفاعل/التصحيح | PARSE كدلالة فوق LONG/SHORT |
+| ورقة `QuestionTypes` = **26** نوعاً؛ **لا Data Validation** على Questions | القائمة مرجع تعليمي لا عقد إطلاق | لا تُثبَّت 26 في CHECK | أغلبها مؤجل |
+| `correct_answer` = `B` أو نص؛ `answer_data` = `{}` | لا تعتمد answer_data على المستخدم | option_code / accepted_answers | — |
+| `Media`: `question_id,file_type,file_name` (صف واحد) | وسائط بالسؤال | media_code + storage_path | Stimulus مشترك |
 
-| # | سيناريو | الوضع الحالي |
-|---|---|---|
-| 1 | MCQ قديم JSON | **مدعوم** — المسار الأساسي |
-| 2 | متعدد صحيح | **غير مدعوم** |
-| 3 | مقالي + rubric | **غير مدعوم** |
-| 4 | رقمي + tolerance | **غير مدعوم** |
-| 5 | مرتبط بدرس | **مدعوم** |
-| 6 | وحدة دون درس | **ضعيف** — عبر دروس الوحدة أو نص unit |
-| 7 | مشترك بين دروس | **عبر junctions** فقط |
-| 8 | بصورة | وسائط الدرس منفصلة؛ لا media للسؤال |
-| 9 | Stimulus مشترك | **غير موجود** |
-| 10 | اختبار درس مرتب | **مدعوم** (assessment_questions.sort_order) |
-| 11 | عشوائي | **غير واضح/غير مركزي** في RPC |
-| 12 | إعادة استيراد بنفس code | مقصود عبر `code` — يعتمد على apply |
-| 13 | تعديل بـ question_code | مصمم في الاستيراد؛ يحتاج apply |
-| 14 | فشل جزئي apply | يحتاج معاملة ذرية (غير مكتملة) |
-| 15 | طالب يقرأ الإجابة قبل التسليم | **مرفوض** على PostgREST؛ exams gated |
-| 16 | غير مخول يستورد | staff/admin على import UI |
-| 17 | واجهة قديمة أثناء انتقال | ممكنة فقط مع compatibility layer |
+### B.3 legacy_flat_15col
+
+| Observed fact | Inferred requirement | Owner decision | Deferred |
+|---|---|---|---|
+| ورقة 12×15؛ **10** صفوف بيانات؛ الصف 12 فارغ بالكامل | تجاهل الصف الفارغ | نعم | — |
+| أعمدة: `option_1..4`, `correct_index`, `context_text`, `question_image`, `lesson_code`, `is_repeated`, `topic` | أقرب للتشغيل الحالي | adapter legacy | — |
+| `correct_index` ∈ {1,2,3} للـ mcq و«فارغ» للمقالي | **1-based** في العيّنة | توثيق صريح؛ لا تحويل صامت | مطابقة DB 0-based عند Apply |
+| `lesson_code` مثل `L_PHY_01` | مرجع درس رسمي | إلزامي للـ LESSON | — |
+| `فارغ` في context/options/image/index | تطبيع NULL | نعم | — |
+| صور: `mitochondria.png`, `yemen_strait_map.png` | requires_media | P0 media | — |
+| `is_repeated` 0/1 | مشتق لا SoT | DERIVED | — |
 
 ---
 
-## H. القرار التمهيدي (يُفصَّل في وثيقة التصميم)
+## C. Actual Excel Evidence and Data Quality Findings
 
-البنية الحالية **حية ومعتمدة تشغيلياً** على `options` + `correct_index` + RPCs.
-التوصية: **`NORMALIZED_WITH_COMPATIBILITY_LAYER`** — لا استبدال فوري ولا تمديد JSON فقط لكل متطلبات القالب الرسمي.
+1. **اختلاف المخططات الثلاثة** — لا يمكن محول واحد صامت.
+2. **غياب `question_code`** في ملف المعلم؛ IDs رقمية في official_flat_v0.
+3. **حالات نشر غير مقبولة عند الإدخال:** `Published` / `متاح`.
+4. **قيم فراغ نصية:** `-` و`فارغ` يجب تطبيعها؛ ليست إجابات.
+5. **صف فارغ أخير** في legacy يجب تجاهله؛ صف status=None في المعلم يحتاج رفض/إصلاح.
+6. **مراجع وحدة/درس ضعيفة:** رقم وحدة أو اسم عربي دون نطاق كامل → ambiguous.
+7. **وسائط وسياق:** `context_text` / `question_image` / ورقة Media مستخدمة فعلياً → ليست اختياراً نظرياً.
+8. **تمثيل الإجابة:** حرف خيار (`B`) vs `correct_index` vs نص نموذجي vs `acceptable_answers`.
+9. **26 نوعاً في قائمة** دون validation ودون عيّنات كافية → لا تُفرض كـ P0.
+10. **فجوة 1-based (Excel/dry-run) vs 0-based (مقارنات UI/DB شائعة)** — يجب عقد تحويل صريح في Apply (OWNER/QB-03).
+
+---
+
+## D. نقاط قوة / فجوات Runtime (مختصر)
+
+**قوة:** column grants؛ exam reveal؛ junctions لإعادة الاستخدام؛ `code` + dry-run 1-based موثّق.
+
+**فجوات:** لا جداول options/solutions/targets/media/accepted_answers؛ لا versioning منشور؛ لا مسار تصحيح يدوي؛ apply الذري للبنك المطبّع غير مكتمل؛ `questions.unit` نص legacy.
+
+---
+
+## E. سيناريوهات موسّعة (انظر خطة التنفيذ للتفاصيل)
+
+مقالي + model answer؛ SHORT + accepted؛ جزئي؛ صورة؛ stimulus نصي؛ بلا code؛ Published؛ صف مزاح؛ فارغ؛ correct_index 1-based/غامض؛ وحدة برقم؛ درس عربي مكرر؛ تعديل منشور مستخدم؛ revision؛ مراجع يقرأ فقط؛ طالب يقرأ مبكراً؛ تغيير درجة مع audit؛ فشل وسائط؛ ضعف اتصال.
+
+---
+
+## F. القرار التمهيدي
+
+`NORMALIZED_WITH_COMPATIBILITY_LAYER` يبقى صالحاً، مع توسيع P0 ليشمل النص/الحلول/الوسائط الدنيا و**حسم versioning قبل QB-01 التنفيذي**.
 
 انظر:
 
 - `docs/QUESTION-BANK-OFFICIAL-DESIGN-01.md`
 - `docs/QUESTION-BANK-TEMPLATE-COMPATIBILITY-MATRIX-01.md`
 - `docs/QUESTION-BANK-IMPLEMENTATION-PLAN-01.md`
+- `docs/migration-drafts/QUESTION-BANK-SCHEMA-FOUNDATION-01.NOT_APPLIED.sql`
