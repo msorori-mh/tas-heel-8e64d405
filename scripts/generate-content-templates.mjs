@@ -38,7 +38,7 @@ const templates = [
     purpose: "تجهيز قائمة المواد قبل الوحدات والدروس.",
     columns: [
       { key: "subject_code", header: "subject_code", required: true, example: "phys-g10-aden", note: "كود فريد للمادة" },
-      { key: "name", header: "name", required: true, example: "الفيزياء" },
+      { key: "name", header: "name", required: true, example: "التربية الإسلامية - السيرة النبوية", note: "مادة عادية: «الفيزياء» — مادة مقسّمة: «المادة الكبرى - القسم»" },
       { key: "grade_slug", header: "grade_slug", required: true, example: "grade-10" },
       { key: "track_code", header: "track_code", example: "aden", note: "sanaa | aden" },
       { key: "semester", header: "semester", example: 1, note: "1 أو 2" },
@@ -48,8 +48,18 @@ const templates = [
       { key: "editor_notes", header: "editor_notes", example: "راجع مع منسق المادة" },
       { key: "review_status", header: "review_status", example: "مسودة" },
     ],
-    exampleRows: [["phys-g10-aden", "الفيزياء", "grade-10", "aden", 1, "⚛️", "#dc2626", 1, "", "مسودة"]],
-    notes: [...COMMON_NOTES, "ابدأ بتحديد grade_slug و track_code قبل تعبئة المواد."],
+    exampleRows: [
+      ["phys-g10-aden", "الفيزياء", "grade-10", "aden", 1, "⚛️", "#dc2626", 9, "", "مسودة"],
+      ["islam-g10-sira", "التربية الإسلامية - السيرة النبوية", "grade-10", "", 1, "BookOpen", "#27ae60", 2, "", "مسودة"],
+    ],
+    notes: [
+      ...COMMON_NOTES,
+      "ابدأ بتحديد grade_slug و track_code قبل تعبئة المواد.",
+      "تقسيم المواد: الاسم بصيغة «اسم المادة الكبرى - اسم القسم الفرعي» والفاصل مسافة + شرطة + مسافة (\" - \") حرفياً.",
+      "المعتمد دائماً «التربية الإسلامية - ...» — لا تستخدم «الإسلامية - ...».",
+      "وحّد هجاء اسم المادة الكبرى عبر كل أقسامها وإلا ظهرت كمواد منفصلة للطالب.",
+      "القيم المعتمدة للصف الأول: docs/SUBJECT-GROUPING-GRADE-10-YEMEN-CONTENT-GUIDE.md",
+    ],
   },
   {
     file: "02_units_template.xlsx",
