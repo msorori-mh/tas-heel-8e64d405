@@ -1,0 +1,132 @@
+-- DOCUMENTATION DRAFT ONLY
+-- NOT APPLIED
+-- DO NOT EXECUTE WITHOUT EXPLICIT APPROVAL
+--
+-- QUESTION-BANK-SCHEMA-FOUNDATION-01 (QB-01 draft)
+-- Compatible with current public.questions legacy columns.
+-- Does NOT drop/rename options, correct_index, explanation, lesson_id, subject_id.
+-- Does NOT alter exam RPCs.
+-- Does NOT touch wallets/payments/auth/storage policies.
+
+-- ---------------------------------------------------------------------------
+-- 1) Optional nullable hub columns (non-breaking)
+-- ---------------------------------------------------------------------------
+-- ALTER TABLE public.questions
+--   ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'DRAFT'
+--     CHECK (status IN ('DRAFT', 'READY_FOR_REVIEW', 'PUBLISHED', 'ARCHIVED'));
+--
+-- ALTER TABLE public.questions
+--   ADD COLUMN IF NOT EXISTS interaction_type text
+--     CHECK (
+--       interaction_type IS NULL
+--       OR interaction_type IN (
+--         'SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'TRUE_FALSE',
+--         'SHORT_TEXT', 'LONG_TEXT', 'NUMERIC'
+--       )
+--     );
+
+-- ---------------------------------------------------------------------------
+-- 2) question_targets
+-- ---------------------------------------------------------------------------
+-- CREATE TABLE IF NOT EXISTS public.question_targets (
+--   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+--   question_id uuid NOT NULL REFERENCES public.questions(id) ON DELETE CASCADE,
+--   target_type text NOT NULL CHECK (target_type IN ('SUBJECT', 'UNIT', 'LESSON')),
+--   subject_id uuid REFERENCES public.subjects(id) ON DELETE CASCADE,
+--   unit_id uuid REFERENCES public.units(id) ON DELETE CASCADE,
+--   lesson_id uuid REFERENCES public.lessons(id) ON DELETE CASCADE,
+--   is_primary boolean NOT NULL DEFAULT false,
+--   created_at timestamptz NOT NULL DEFAULT now(),
+--   CONSTRAINT question_targets_type_shape CHECK (
+--     (target_type = 'SUBJECT' AND subject_id IS NOT NULL AND unit_id IS NULL AND lesson_id IS NULL)
+--     OR (target_type = 'UNIT' AND unit_id IS NOT NULL AND lesson_id IS NULL)
+--     OR (target_type = 'LESSON' AND lesson_id IS NOT NULL)
+--   )
+-- );
+--
+-- CREATE UNIQUE INDEX IF NOT EXISTS question_targets_one_primary
+--   ON public.question_targets (question_id)
+--   WHERE is_primary;
+--
+-- CREATE INDEX IF NOT EXISTS question_targets_question_id_idx
+--   ON public.question_targets (question_id);
+
+-- ---------------------------------------------------------------------------
+-- 3) question_options  (is_correct must NOT be granted to authenticated)
+-- ---------------------------------------------------------------------------
+-- CREATE TABLE IF NOT EXISTS public.question_options (
+--   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+--   question_id uuid NOT NULL REFERENCES public.questions(id) ON DELETE CASCADE,
+--   option_code text NOT NULL,
+--   body text NOT NULL,
+--   sort_order int NOT NULL DEFAULT 0,
+--   is_correct boolean NOT NULL DEFAULT false,
+--   created_at timestamptz NOT NULL DEFAULT now(),
+--   UNIQUE (question_id, option_code)
+-- );
+--
+-- CREATE INDEX IF NOT EXISTS question_options_question_id_idx
+--   ON public.question_options (question_id);
+
+-- ---------------------------------------------------------------------------
+-- 4) question_solutions
+-- ---------------------------------------------------------------------------
+-- CREATE TABLE IF NOT EXISTS public.question_solutions (
+--   question_id uuid PRIMARY KEY REFERENCES public.questions(id) ON DELETE CASCADE,
+--   model_answer text,
+--   explanation text,
+--   hint text,
+--   common_mistakes text,
+--   reveal_policy text NOT NULL DEFAULT 'AFTER_SUBMIT'
+--     CHECK (reveal_policy IN ('AFTER_ANSWER', 'AFTER_SUBMIT', 'NEVER_STUDENT', 'STAFF_ONLY')),
+--   created_at timestamptz NOT NULL DEFAULT now(),
+--   updated_at timestamptz NOT NULL DEFAULT now()
+-- );
+
+-- ---------------------------------------------------------------------------
+-- 5) RLS sketch (staff write; student read only non-sensitive columns via RPC)
+-- ---------------------------------------------------------------------------
+-- ALTER TABLE public.question_targets ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.question_options ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.question_solutions ENABLE ROW LEVEL SECURITY;
+--
+-- CREATE POLICY "Content staff manage question_targets"
+--   ON public.question_targets FOR ALL TO authenticated
+--   USING (public.is_content_staff(auth.uid()))
+--   WITH CHECK (public.is_content_staff(auth.uid()));
+--
+-- -- IMPORTANT: do NOT grant SELECT(is_correct) to authenticated.
+-- -- Prefer SECURITY DEFINER RPCs for student option payloads without is_correct.
+--
+-- REVOKE ALL ON public.question_options FROM PUBLIC;
+-- REVOKE ALL ON public.question_solutions FROM PUBLIC;
+-- GRANT SELECT (id, question_id, option_code, body, sort_order, created_at)
+--   ON public.question_options TO authenticated;  -- optional; RPC-only is safer
+-- REVOKE SELECT (is_correct) ON public.question_options FROM authenticated, anon;
+
+-- ---------------------------------------------------------------------------
+-- 6) Compatibility sync stub (implemented in QB-02)
+-- ---------------------------------------------------------------------------
+-- CREATE OR REPLACE FUNCTION public.qb_sync_question_legacy(_question_id uuid)
+-- RETURNS void
+-- LANGUAGE plpgsql
+-- SECURITY DEFINER
+-- SET search_path TO 'public'
+-- AS $$
+-- DECLARE
+--   v_options jsonb;
+--   v_correct int;
+--   v_explanation text;
+--   v_lesson uuid;
+--   v_subject uuid;
+-- BEGIN
+--   -- Build options array from question_options ordered by sort_order.
+--   -- Set correct_index from the first is_correct option (SINGLE_CHOICE phase).
+--   -- Copy explanation from question_solutions.
+--   -- Copy primary LESSON/SUBJECT targets into questions.lesson_id/subject_id.
+--   -- UPDATE public.questions SET options = ..., correct_index = ..., ...
+--   NULL; -- stub
+-- END;
+-- $$;
+
+-- END OF DOCUMENTATION DRAFT — NOT APPLIED
