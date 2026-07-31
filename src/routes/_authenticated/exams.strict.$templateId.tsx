@@ -223,7 +223,17 @@ function StrictExamPage() {
   useEffect(() => {
     if (autoSubmittedRef.current) return;
     if (!sessionId) return;
-    if (state?.session.status !== "in_progress") return;
+    const status = state?.session.status;
+    if (status === "expired") {
+      // The server already marked this session expired (e.g. an answer
+      // arrived after the deadline, or the page was reopened past expiry).
+      // submit_exam_session accepts expired sessions, so finish it instead
+      // of leaving the student stuck on the auto-submit notice forever.
+      autoSubmittedRef.current = true;
+      submitMutation.mutate();
+      return;
+    }
+    if (status !== "in_progress") return;
     if (remainingMs === null) return;
     if (remainingMs > 0) return;
     autoSubmittedRef.current = true;
