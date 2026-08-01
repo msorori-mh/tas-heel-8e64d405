@@ -179,3 +179,6 @@ Do not classify subscription/storage candidates before the verified prefix as re
 - Decision: **PASS_WITH_NOTES** because SQL compilation/runtime authorization and remote drift are deliberately outside scope
 
 Recommended next action: **PR52_INDEPENDENT_REVIEW**.
+# Correction 35 addendum
+
+Correction 35 supersedes snapshot-driven calibration in this document. Current parser results, lifecycle state, and the schema-validated empirical evidence artifact are now authoritative. See `PR52-CORRECTION-35-REPORT.md`; historical counts below are retained only as review history and are not decision inputs.

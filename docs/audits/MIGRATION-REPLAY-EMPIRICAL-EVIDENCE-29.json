@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "evidence_type": "observed_local_fresh_replay",
+  "source_reports": [
+    "IMPORT_JOBS_BASELINE_LOCAL_REPLAY_VERIFY_21",
+    "CONTENT_STAFF_RBAC_STACKED_LOCAL_REPLAY_VERIFY_24",
+    "UNITS_POLICY_STACKED_LOCAL_REPLAY_VERIFY_27"
+  ],
+  "first_applied_migration": "20260606003616",
+  "last_confirmed_successful_migration": "20260731120000",
+  "former_first_unresolved_migration": "20260731180000",
+  "confirmed_blockers": [
+    { "id": "import_jobs_duplicate", "sqlstate": "42P07", "object_type": "table", "object": "public.import_jobs", "status": "resolved" },
+    { "id": "content_staff_policy_duplicate", "sqlstate": "42710", "object_type": "policy", "object": "public.grades|Content staff manage grades", "status": "resolved" },
+    { "id": "units_policy_duplicate", "sqlstate": "42710", "object_type": "policy", "object": "public.units|Units viewable per subject access", "status": "resolved" }
+  ],
+  "limitations": [
+    "Evidence is transcribed from prior disposable local replay reports.",
+    "This artifact does not replace SQL compilation.",
+    "Verified migration prefix disproves compilation blockers only, not security findings."
+  ]
+}

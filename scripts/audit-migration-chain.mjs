@@ -7,9 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const IDENT = String.raw`(?:"(?:[^"]|"")+"|[a-zA-Z_][\w$]*)(?:\s*\.\s*(?:"(?:[^"]|"")+"|[a-zA-Z_][\w$]*))*`;
-export const VERIFIED_PREFIX = '20260731120000';
 export const EXTERNAL_SCHEMAS = new Set(['auth', 'storage', 'realtime', 'extensions', 'vault', 'cron', 'net', 'graphql', 'graphql_public', 'supabase_functions']);
-const PRE_CALIBRATION_SNAPSHOT = '7583183e677c87a71add75d979ae5689fa339d3a';
+const DEFAULT_EVIDENCE_PATH = resolve(ROOT, 'docs/audits/MIGRATION-REPLAY-EMPIRICAL-EVIDENCE-29.json');
+const BUILTIN_FUNCTIONS = new Set(['now','current_timestamp','coalesce','lower','upper','jsonb_build_object','jsonb_agg','array_agg','array_length','count','exists','format','quote_literal','quote_ident','gen_random_uuid','auth.uid','auth.role','nullif','current_setting']);
 const LIMITATIONS = [
   'This is a conservative static linter, not a complete PostgreSQL parser.',
   'Dynamic SQL, psql meta-commands, conditional PL/pgSQL, and identifiers assembled at runtime are not resolved.',
@@ -24,6 +24,27 @@ const shortName = (value) => cleanIdent(value).split('.').at(-1);
 const normalize = (value = '') => value.replace(/\r\n?/g, '\n').replace(/\s+/g, ' ').trim().toLowerCase();
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const timestampOf = (filename) => filename.match(/^(\d{14})/)?.[1] ?? '';
+
+export function readReplayEvidence(path = DEFAULT_EVIDENCE_PATH) {
+  if (!existsSync(path)) throw new Error(`Replay evidence artifact not found: ${path}`);
+  let evidence;
+  try { evidence = JSON.parse(readFileSync(path, 'utf8')); } catch (error) { throw new Error(`Invalid replay evidence JSON: ${error.message}`); }
+  const requiredStrings = ['evidence_type','first_applied_migration','last_confirmed_successful_migration','former_first_unresolved_migration'];
+  if (evidence.schema_version !== 1 || evidence.evidence_type !== 'observed_local_fresh_replay' || requiredStrings.some((key) => typeof evidence[key] !== 'string') || !/^\d{14}$/.test(evidence.last_confirmed_successful_migration) || !Array.isArray(evidence.source_reports) || evidence.source_reports.length === 0 || !Array.isArray(evidence.confirmed_blockers) || !Array.isArray(evidence.limitations)) throw new Error('Invalid replay evidence schema');
+  for (const blocker of evidence.confirmed_blockers) if (!['id','sqlstate','object_type','object','status'].every((key) => typeof blocker[key] === 'string')) throw new Error('Invalid replay evidence blocker schema');
+  const canonical = `${JSON.stringify(evidence, null, 2)}\n`;
+  return { ...evidence, path: resolve(path), sha256: sha256(canonical) };
+}
+
+function splitTopLevel(value = '') {
+  const parts = []; let start = 0, depth = 0, single = false, double = false;
+  for (let i = 0; i < value.length; i += 1) { const c = value[i], n = value[i + 1];
+    if (single) { if (c === "'" && n === "'") i += 1; else if (c === "'") single = false; continue; }
+    if (double) { if (c === '"' && n === '"') i += 1; else if (c === '"') double = false; continue; }
+    if (c === "'") single = true; else if (c === '"') double = true; else if (c === '(' || c === '[') depth += 1; else if (c === ')' || c === ']') depth -= 1; else if (c === ',' && depth === 0) { parts.push(value.slice(start, i)); start = i + 1; }
+  }
+  parts.push(value.slice(start)); return parts;
+}
 
 export function stripCommentsAndSplit(input) {
   const sql = input.replace(/\r\n?/g, '\n');
@@ -66,27 +87,31 @@ export function stripCommentsAndSplit(input) {
   return { stripped: out, statements };
 }
 
-function list(value = '') { return value.split(',').map((x) => cleanIdent(x.trim().split(/\s+/)[0])).filter(Boolean); }
+function dependencySurface(raw) {
+  return raw.replace(/\$([a-zA-Z_\d]*)\$[\s\S]*?\$\1\$/g, ' ').replace(/'(?:''|[^'])*'/g, ' ');
+}
+
+function list(value = '') { return splitTopLevel(value).map((x) => cleanIdent(x.trim().split(/\s+/)[0])).filter(Boolean); }
 function bodyColumns(body = '') {
   const columns = [];
-  for (const part of body.split(/,(?![^()]*\))/)) {
-    const match = part.trim().match(new RegExp(`^(${IDENT})\\s+([^,]+)$`, 'i'));
+  for (const part of splitTopLevel(body)) {
+    const match = part.trim().match(new RegExp(`^(${IDENT})\\s+([\\s\\S]+)$`, 'i'));
     if (match && !/^(constraint|primary|foreign|unique|check)\b/i.test(match[1])) columns.push({ name: cleanIdent(match[1]), definition: normalize(match[2]) });
   }
   return columns;
 }
 function functionSignature(name, args = '') {
-  const types = args.split(/,(?![^()]*\))/).map((arg) => {
+  const types = splitTopLevel(args).map((arg) => {
     const tokens = normalize(arg).replace(/\s+(?:default\s+|=\s*)[\s\S]*$/i, '').split(/\s+/).filter((x) => !/^(in|out|inout|variadic)$/i.test(x));
     if (tokens.length > 1 && /^[_a-z][\w$]*$/i.test(tokens[0])) tokens.shift();
-    return tokens.join(' ');
+    return tokens.join(' ').replace(/\bint\b/g, 'integer').replace(/\bint4\b/g, 'integer').replace(/\bint8\b/g, 'bigint').replace(/\bbool\b/g, 'boolean').replace(/\bfloat8\b/g, 'double precision').replace(/\bvarchar\b/g, 'character varying');
   }).filter(Boolean);
   return `${cleanIdent(name)}(${types.join(',')})`;
 }
 const schemaOf = (value = '') => cleanIdent(value).split('.').length > 1 ? cleanIdent(value).split('.')[0] : 'public';
 const isExternalObject = (value = '') => EXTERNAL_SCHEMAS.has(schemaOf(value));
 function callsIn(value = '') {
-  return [...value.matchAll(/\b((?:[a-zA-Z_]\w*\.)?[a-zA-Z_]\w*)\s*\(/g)].map((m) => cleanIdent(m[1])).filter((x) => !['and','or','not','exists','select','coalesce','nullif','current_setting','auth.uid'].includes(x));
+  return [...value.matchAll(/\b((?:[a-zA-Z_]\w*\.)?[a-zA-Z_]\w*)\s*\(/g)].map((m) => cleanIdent(m[1])).filter((x) => !['and','or','not','select','in','any','like','case','when','where','values'].includes(x) && !BUILTIN_FUNCTIONS.has(x));
 }
 
 export function parseMigrationText(sql, filename = 'fixture.sql') {
@@ -104,8 +129,10 @@ export function parseMigrationText(sql, filename = 'fixture.sql') {
       const addColumn = raw.match(new RegExp(`\\bADD\\s+COLUMN\\s+(IF\\s+NOT\\s+EXISTS\\s+)?(${IDENT})\\s+([\\s\\S]+)`, 'i'));
       const renameTable = raw.match(new RegExp(`\\bRENAME\\s+TO\\s+(${IDENT})`, 'i'));
       const renameColumn = raw.match(new RegExp(`\\bRENAME\\s+COLUMN\\s+(${IDENT})\\s+TO\\s+(${IDENT})`, 'i'));
+      const addColumns = [...raw.matchAll(new RegExp(`(?:^|,)\\s*ADD\\s+COLUMN\\s+(IF\\s+NOT\\s+EXISTS\\s+)?(${IDENT})\\s+([\\s\\S]*?)(?=,\\s*ADD\\s+COLUMN|$)`, 'gi'))].map((x) => ({ name: cleanIdent(x[2]), definition: normalize(x[3]), ifNotExists: !!x[1] }));
       Object.assign(item, { kind: 'table', action: 'alter', objectType: 'table', name: cleanIdent(m[1]), key: cleanIdent(m[1]), definition: text,
         addColumn: addColumn ? { name: cleanIdent(addColumn[2]), definition: normalize(addColumn[3]), ifNotExists: !!addColumn[1] } : null,
+        addColumns,
         renameTable: renameTable ? cleanIdent(renameTable[1]) : null,
         renameColumn: renameColumn ? { from: cleanIdent(renameColumn[1]), to: cleanIdent(renameColumn[2]) } : null }); result.tables.push(item);
       if (/\b(enable|disable|force|no force)\s+row level security\b/i.test(raw)) result.rls.push(item);
@@ -122,8 +149,10 @@ export function parseMigrationText(sql, filename = 'fixture.sql') {
       const signature = functionSignature(m[2], m[3]), tail = m[4]; Object.assign(item, { kind: 'function', action: 'create', objectType: 'function', name: cleanIdent(m[2]), key: signature, signature, arguments: normalize(m[3]), returns: normalize(tail.match(/\bRETURNS\s+(.+?)(?=\bLANGUAGE\b|\bAS\b)/is)?.[1] ?? ''), security: /\bSECURITY\s+DEFINER\b/i.test(tail) ? 'DEFINER' : 'INVOKER', searchPath: normalize(tail.match(/\bSET\s+search_path\s*(?:=|TO)\s*([^\n;]+)/i)?.[1] ?? ''), body: normalize(tail.match(/\bAS\s+(\$[\w]*\$[\s\S]*\$[\w]*\$|'[\s\S]*')/i)?.[1] ?? ''), flags: { orReplace: !!m[1] } }); result.functions.push(item);
     } else if ((m = raw.match(new RegExp(`^\\s*DROP\\s+FUNCTION\\s+(IF\\s+EXISTS\\s+)?(${IDENT})\\s*(?:\\(([^)]*)\\))?`, 'i')))) {
       const signature = functionSignature(m[2], m[3] ?? ''); Object.assign(item, { kind: 'function', action: 'drop', objectType: 'function', name: cleanIdent(m[2]), key: signature, signature, flags: { ifExists: !!m[1] } }); result.functions.push(item);
+    } else if ((m = raw.match(new RegExp(`^\\s*ALTER\\s+FUNCTION\\s+(${IDENT})\\s*\\(([^)]*)\\)([\\s\\S]*)`, 'i')))) {
+      const signature = functionSignature(m[1], m[2]); Object.assign(item, { kind: 'function', action: 'alter', objectType: 'function', name: cleanIdent(m[1]), key: signature, signature, searchPath: normalize(m[3].match(/\bSET\s+search_path\s*(?:=|TO)\s*([^;]+)/i)?.[1] ?? ''), definition: normalize(m[3]) }); result.functions.push(item);
     } else if ((m = raw.match(new RegExp(`^\\s*CREATE\\s+(UNIQUE\\s+)?INDEX\\s+(?:CONCURRENTLY\\s+)?(IF\\s+NOT\\s+EXISTS\\s+)?(${IDENT})\\s+ON\\s+(${IDENT})[^\\(]*\\(([^)]*)\\)([\\s\\S]*)`, 'i')))) {
-      const name = cleanIdent(m[3]), table = cleanIdent(m[4]); Object.assign(item, { kind: 'index', action: 'create', objectType: 'index', name, table, key: name, unique: !!m[1], columns: list(m[5]), predicate: normalize(m[6].match(/\\bWHERE\\s+([\\s\\S]*)/i)?.[1] ?? ''), flags: { ifNotExists: !!m[2] }, definition: normalize(raw) }); result.indexes.push(item);
+      const name = cleanIdent(m[3]), table = cleanIdent(m[4]), columnExpressions = splitTopLevel(m[5]).map((x) => x.trim()); Object.assign(item, { kind: 'index', action: 'create', objectType: 'index', name, table, key: name, unique: !!m[1], columns: list(m[5]), columnExpressions, predicate: normalize(m[6].match(/\\bWHERE\\s+([\\s\\S]*)/i)?.[1] ?? ''), flags: { ifNotExists: !!m[2] }, definition: normalize(raw) }); result.indexes.push(item);
     } else if ((m = raw.match(new RegExp(`^\\s*DROP\\s+INDEX\\s+(?:CONCURRENTLY\\s+)?(IF\\s+EXISTS\\s+)?(${IDENT})`, 'i')))) {
       Object.assign(item, { kind: 'index', action: 'drop', objectType: 'index', name: cleanIdent(m[2]), key: cleanIdent(m[2]), flags: { ifExists: !!m[1] } }); result.indexes.push(item);
     } else if ((m = raw.match(new RegExp(`^\\s*CREATE\\s+TRIGGER\\s+(${IDENT})\\s+([\\s\\S]*?)\\s+ON\\s+(${IDENT})([\\s\\S]*?)EXECUTE\\s+(?:FUNCTION|PROCEDURE)\\s+(${IDENT})\\s*\\(([^)]*)\\)`, 'i')))) {
@@ -147,7 +176,7 @@ export function parseMigrationText(sql, filename = 'fixture.sql') {
     } else if (/^\s*(INSERT|UPDATE|DELETE|MERGE)\b/i.test(raw)) {
       const table = cleanIdent(raw.match(new RegExp(`(?:INTO|UPDATE|FROM)\\s+(${IDENT})`, 'i'))?.[1] ?? 'unknown'); Object.assign(item, { kind: 'dml', action: raw.trim().split(/\s+/)[0].toLowerCase(), objectType: 'dml', name: table, table, key: table, definition: text }); result.dml.push(item); if (/storage\.(buckets|objects)/i.test(raw)) result.storage.push(item);
     }
-    const externalRefs = [...raw.matchAll(/\b(auth|storage|realtime|extensions|vault|cron|net|graphql|graphql_public|supabase_functions)\s*\.\s*(?:"(?:[^"]|"")+"|[a-zA-Z_][\w$]*)/gi)].map((x) => cleanIdent(x[0]));
+    const externalRefs = [...dependencySurface(raw).matchAll(/\b(auth|storage|realtime|extensions|vault|cron|net|graphql|graphql_public|supabase_functions)\s*\.\s*(?:"(?:[^"]|"")+"|[a-zA-Z_][\w$]*)/gi)].map((x) => cleanIdent(x[0]));
     result.dependencies.push(...externalRefs);
     if (/\b(?:EXECUTE|format)\s*\(/i.test(raw) || /\bEXECUTE\s+['$]/i.test(raw)) result.uncertainties.push({ order, kind: 'dynamic-sql', evidence: raw.slice(0, 500) });
     result.statements.push(item);
@@ -160,22 +189,16 @@ function introducedCommit(path) {
   try { return execFileSync('git', ['log', '--follow', '--diff-filter=A', '--format=%H', '-n', '1', '--', path], { cwd: ROOT, encoding: 'utf8' }).trim() || null; }
   catch { return null; }
 }
-function preCalibrationFindings() {
-  try {
-    const json = execFileSync('git', ['show', `${PRE_CALIBRATION_SNAPSHOT}:docs/audits/MIGRATION-CHAIN-INVENTORY-28.json`], { cwd: ROOT, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
-    return JSON.parse(json).conflicts ?? [];
-  } catch { return []; }
-}
 function conflict(id, severity, first, current, extra = {}) {
   return { id, severity, confidence: extra.confidence ?? 'HIGH', likelySqlstate: extra.sqlstate ?? null, firstCreatorMigration: first?.filename ?? null, conflictingMigration: current.filename, objectType: current.objectType, objectName: current.key || current.name, semanticComparison: extra.comparison ?? 'UNRESOLVED', exactDuplicate: extra.comparison === 'EXACT_DUPLICATE', securityDifference: extra.comparison === 'SECURITY_DIFFERENCE', recommendedResolution: extra.resolution ?? 'requires human decision', filesThatWouldNeedModification: [first?.filename, current.filename].filter(Boolean), testsRequired: extra.tests ?? ['static replay regression test'], evidence: current.raw?.slice(0, 500) ?? '' };
 }
 const same = (a, b, fields) => fields.every((key) => normalize(JSON.stringify(a[key] ?? '')) === normalize(JSON.stringify(b[key] ?? '')));
-const hasFailClosed = (value) => /auth\.uid\(\)\s+is\s+not\s+null|coalesce\s*\(/i.test(value);
+const hasFailClosed = (value) => /auth\.uid\(\)\s+is\s+not\s+null|auth\.uid\(\)\s*=|=\s*auth\.uid\(\)/i.test(value);
 
 export function analyzeParsedMigrations(migrations) {
   const active = new Map(), conflicts = [], edges = [], securityFindings = [], missingDependencies = [], orderingRisks = [];
-  const createdTables = new Map(), tableColumns = new Map(), createdFunctions = new Map(), policyLogic = new Map(), rlsTables = new Set(), selectPolicyTables = new Set(), enumValues = new Map();
-  const addEdge = (from, to, kind, object) => edges.push({ from, to, kind, object });
+  const createdTables = new Map(), tableColumns = new Map(), createdFunctions = new Map(), policyLogic = new Map(), grantSecurity = new Map(), rlsTables = new Set(), selectPolicyTables = new Set(), enumValues = new Map();
+  const addEdge = (from, to, relationship, object) => { if (from !== to) edges.push({ from, to, relationship, object }); };
   for (const migration of migrations) {
     for (const item of migration.statements) {
       item.filename = migration.filename;
@@ -206,7 +229,7 @@ export function analyzeParsedMigrations(migrations) {
         if (item.action === 'alter') {
           const prior = createdTables.get(item.name); if (!prior && !isExternalObject(item.name)) { missingDependencies.push({ migration: migration.filename, object: item.name, kind: 'table' }); conflicts.push(conflict('TABLE_USED_BEFORE_CREATE', 'P0', null, item, { sqlstate: '42P01' })); }
           if (prior) addEdge(migration.filename, prior.filename, 'depends_on', item.name);
-          if (item.addColumn) { const columns = tableColumns.get(item.name) ?? new Set(); columns.add(item.addColumn.name); tableColumns.set(item.name, columns); }
+          if (item.addColumn) { const columns = tableColumns.get(item.name) ?? new Set(); columns.add(item.addColumn.name); for (const added of item.addColumns ?? []) columns.add(added.name); tableColumns.set(item.name, columns); }
           if (item.renameColumn) { const columns = tableColumns.get(item.name) ?? new Set(); columns.delete(item.renameColumn.from); columns.add(item.renameColumn.to); tableColumns.set(item.name, columns); }
           if (item.renameTable) { const columns = tableColumns.get(item.name) ?? new Set(); createdTables.delete(item.name); tableColumns.delete(item.name); createdTables.set(item.renameTable, item); tableColumns.set(item.renameTable, columns); }
           if (/\bENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(item.raw)) rlsTables.add(item.name);
@@ -220,20 +243,27 @@ export function analyzeParsedMigrations(migrations) {
         addEdge(migration.filename, `object:table:${item.table}`, 'depends_on', item.table);
         if (!createdTables.has(item.table) && !isExternalObject(item.table)) { missingDependencies.push({ migration: migration.filename, object: item.table, kind: 'policy-table' }); conflicts.push(conflict('POLICY_TABLE_BEFORE_CREATE', 'P0', null, item, { sqlstate: '42P01' })); }
         if (item.command === 'SELECT' || item.command === 'ALL') selectPolicyTables.add(item.table);
-        for (const call of item.calls) { addEdge(migration.filename, `object:function:${call}`, 'references', call); if (!createdFunctions.has(call) && !createdFunctions.has(`public.${call}`)) conflicts.push(conflict('POLICY_FUNCTION_BEFORE_CREATE', 'P1', null, { ...item, key: call }, { confidence: 'LOW', sqlstate: '42883' })); }
+        for (const call of item.calls) { addEdge(migration.filename, `object:function:${call}`, 'references', call); if (!isExternalObject(call) && !createdFunctions.has(call) && !createdFunctions.has(`public.${call}`)) conflicts.push(conflict('POLICY_FUNCTION_BEFORE_CREATE', 'P1', null, { ...item, key: call }, { confidence: 'LOW', sqlstate: '42883' })); }
         const logic = `${item.table}|${item.command}|${item.roles}|${item.using}|${item.withCheck}`, prior = policyLogic.get(logic);
         if (prior && prior.name !== item.name) conflicts.push(conflict('DUPLICATE_POLICY_LOGIC_DIFFERENT_NAME', 'P2', prior, item, { comparison: 'SEMANTIC_DUPLICATE', resolution: 'preserve unique objects' })); else policyLogic.set(logic, item);
         if (/^true$|\(true\)/i.test(item.using) || /^true$|\(true\)/i.test(item.withCheck)) securityFindings.push({ severity: 'HIGH', id: 'PERMISSIVE_TRUE_POLICY', migration: migration.filename, object: item.key, evidence: item.raw.slice(0, 500) });
-        if (/auth\.uid\(\)/i.test(`${item.using} ${item.withCheck}`) && !hasFailClosed(`${item.using} ${item.withCheck}`)) securityFindings.push({ severity: 'MEDIUM', id: 'AUTH_UID_WITHOUT_EXPLICIT_FAIL_CLOSED', migration: migration.filename, object: item.key, evidence: item.raw.slice(0, 500) });
+        if (/auth\.uid\(\)/i.test(`${item.using} ${item.withCheck}`) && /\b(?:coalesce|or)\b/i.test(`${item.using} ${item.withCheck}`) && !hasFailClosed(`${item.using} ${item.withCheck}`)) securityFindings.push({ severity: 'MEDIUM', id: 'AUTH_UID_POTENTIALLY_OPEN_EXPRESSION', migration: migration.filename, object: item.key, evidence: item.raw.slice(0, 500) });
       }
       if (item.kind === 'function' && item.action === 'create') {
         createdFunctions.set(item.name, item); createdFunctions.set(item.signature, item);
         if (item.security === 'DEFINER' && !item.searchPath) securityFindings.push({ severity: 'HIGH', id: 'SECURITY_DEFINER_WITHOUT_SEARCH_PATH', migration: migration.filename, object: item.signature, evidence: item.raw.slice(0, 500) });
       }
-      if (item.kind === 'trigger' && item.action === 'create') { addEdge(migration.filename, `object:table:${item.table}`, 'depends_on', item.table); addEdge(migration.filename, `object:function:${item.function}`, 'references', item.function); if (!createdFunctions.has(item.function) && !createdFunctions.has(item.function.replace(/\(.*$/, ''))) conflicts.push(conflict('TRIGGER_FUNCTION_MISSING', 'P0', null, item, { sqlstate: '42883', confidence: 'MEDIUM' })); }
+      if (item.kind === 'function' && item.action === 'alter') {
+        const prior = active.get(`function:${item.signature}`) ?? createdFunctions.get(item.signature);
+        if (prior) { const updated = { ...prior, searchPath: item.searchPath || prior.searchPath, filename: migration.filename }; active.set(`function:${item.signature}`, updated); createdFunctions.set(item.signature, updated); createdFunctions.set(item.name, updated); addEdge(migration.filename, prior.filename, 'alters', item.signature); }
+        else conflicts.push(conflict('ALTER_FUNCTION_BEFORE_CREATE', 'P1', null, item, { confidence: 'LOW', sqlstate: '42883' }));
+      }
+      if (item.kind === 'trigger' && item.action === 'create') { addEdge(migration.filename, `object:table:${item.table}`, 'depends_on', item.table); addEdge(migration.filename, `object:function:${item.function}`, 'references', item.function); const fnName=item.function.replace(/\(.*$/, ''), publicFn=item.function.includes('.')?item.function:`public.${item.function}`; if (!createdFunctions.has(item.function) && !createdFunctions.has(fnName) && !createdFunctions.has(publicFn) && !createdFunctions.has(publicFn.replace(/\(.*$/, ''))) conflicts.push(conflict('TRIGGER_FUNCTION_MISSING', 'P0', null, item, { sqlstate: '42883', confidence: 'MEDIUM' })); }
       if (item.kind === 'index' && item.action === 'create') {
         addEdge(migration.filename, `object:table:${item.table}`, 'depends_on', item.table);
-        if (!isExternalObject(item.table) && (!createdTables.has(item.table) || item.columns.some((x) => !/[()]/.test(x) && !(tableColumns.get(item.table)?.has(x))))) conflicts.push(conflict('INDEX_COLUMN_MISSING', 'P0', null, item, { sqlstate: '42703', confidence: 'MEDIUM' }));
+        const simpleColumns = (item.columnExpressions ?? []).filter((x) => new RegExp(`^${IDENT}$`, 'i').test(x)).map(cleanIdent);
+        const relationExists = createdTables.has(item.table) || active.has(`view:${item.table}`) || active.has(`materialized view:${item.table}`);
+        if (!isExternalObject(item.table) && (!relationExists || (createdTables.has(item.table) && simpleColumns.some((x) => !(tableColumns.get(item.table)?.has(x)))))) conflicts.push(conflict('INDEX_COLUMN_MISSING', 'P0', null, item, { sqlstate: '42703', confidence: 'MEDIUM' }));
       }
       if (item.kind === 'type' && item.action === 'create') enumValues.set(item.name, new Set(item.values));
       if (item.kind === 'type' && item.action === 'add-value') { const values = enumValues.get(item.name); if (values?.has(item.value) && !item.flags.ifNotExists) conflicts.push(conflict('DUPLICATE_ENUM_VALUE', 'P0', null, item, { sqlstate: '42710' })); values?.add(item.value); }
@@ -243,50 +273,87 @@ export function analyzeParsedMigrations(migrations) {
       }
       if (item.kind === 'grant') {
         addEdge(migration.filename, `object:${item.target}`, 'grants', item.target);
-        if (item.action === 'grant' && /\ball\b/i.test(item.name) && item.roles.some((x) => ['anon','authenticated'].includes(shortName(x)))) securityFindings.push({ severity: 'HIGH', id: 'GRANT_ALL_TO_CLIENT_ROLE', migration: migration.filename, object: item.target, evidence: item.raw.slice(0, 500) });
-        if (item.action === 'grant' && /function/i.test(item.target) && item.roles.some((x) => shortName(x) === 'anon')) securityFindings.push({ severity: 'HIGH', id: 'FUNCTION_GRANTED_TO_ANON', migration: migration.filename, object: item.target, evidence: item.raw.slice(0, 500) });
+        for (const role of item.roles) {
+          const grantKey = `${item.name}|${item.target}|${shortName(role)}`;
+          if (item.action === 'revoke') { const prior = grantSecurity.get(grantKey); if (prior) { prior.laterResolution = migration.filename; prior.finalState = 'DOWNSTREAM_RESOLVED'; prior.finalSeverity = 'INFORMATIONAL'; prior.finalClassification = 'DOWNSTREAM_RESOLVED'; prior.confidence = 'HIGH'; } grantSecurity.delete(grantKey); continue; }
+          let finding = null;
+          if (/\ball\b/i.test(item.name) && ['anon','authenticated'].includes(shortName(role))) finding = { severity: 'HIGH', id: 'GRANT_ALL_TO_CLIENT_ROLE', migration: migration.filename, object: item.target, evidence: item.raw.slice(0, 500) };
+          if (/function/i.test(item.target) && shortName(role) === 'anon') finding = { severity: 'HIGH', id: 'FUNCTION_GRANTED_TO_ANON', migration: migration.filename, object: item.target, evidence: item.raw.slice(0, 500) };
+          if (finding) { securityFindings.push(finding); grantSecurity.set(grantKey, finding); }
+        }
       }
     }
   }
   for (const table of rlsTables) if (!selectPolicyTables.has(table)) securityFindings.push({ severity: 'MEDIUM', id: 'RLS_TABLE_WITHOUT_SELECT_POLICY', migration: createdTables.get(table)?.filename ?? null, object: table, evidence: 'RLS enabled without a statically visible SELECT/ALL policy.' });
-  return { conflicts, securityFindings, edges, missingDependencies, orderingRisks, cycles: [] };
+  for (const finding of securityFindings) {
+    const [table] = finding.object.split('|');
+    const key = finding.id === 'PERMISSIVE_TRUE_POLICY' ? `policy:${finding.object}` : finding.id === 'SECURITY_DEFINER_WITHOUT_SEARCH_PATH' ? `function:${finding.object}` : null;
+    if (finding.laterResolution) continue;
+    const finalItem = key ? active.get(key) : null;
+    finding.laterResolution = finalItem && finalItem.filename !== finding.migration ? finalItem.filename : !finalItem && key ? 'dropped downstream' : null;
+    finding.finalState = finding.laterResolution ? 'DOWNSTREAM_RESOLVED' : 'ACTIVE_FINAL_STATE';
+    finding.finalSeverity = finding.finalState === 'ACTIVE_FINAL_STATE' ? finding.severity : 'INFORMATIONAL';
+    finding.confidence = finding.finalState === 'ACTIVE_FINAL_STATE' && finding.id === 'PERMISSIVE_TRUE_POLICY' && ['grades','contact_submissions','badges','curriculum_tracks','governorates','governorate_curriculum_map'].some((x) => table.includes(x)) ? 'MEDIUM' : 'HIGH';
+    if (finding.id === 'PERMISSIVE_TRUE_POLICY' && /service role/i.test(finding.object)) { finding.finalClassification = 'FALSE_POSITIVE'; finding.finalSeverity = 'INFORMATIONAL'; }
+    else if (finding.finalState === 'DOWNSTREAM_RESOLVED') finding.finalClassification = 'DOWNSTREAM_RESOLVED';
+    else if (/badges|curriculum_tracks|governorates|governorate_curriculum_map/.test(table)) finding.finalClassification = 'INTENTIONAL_PUBLIC_REFERENCE_DATA';
+    else if (/grades|contact_submissions/.test(table)) finding.finalClassification = 'NEEDS_PRODUCT_REVIEW';
+    else finding.finalClassification = 'NEEDS_PRODUCT_REVIEW';
+  }
+  return { conflicts, securityFindings, edges, missingDependencies, orderingRisks };
 }
 
 const collect = (migration, key) => migration[key].map((x) => ({ action: x.action, name: x.name, table: x.table, key: x.key, statement: x.raw }));
-function calibrateFinding(finding, index) {
+function calibrateFinding(finding, index, evidence) {
   const timestamp = timestampOf(finding.conflictingMigration);
   const resolvedMigration = new Set(['20260628190000_import_jobs_foundation.sql', '20260703204450_5223b435-1a4d-44ab-ad03-ab3d9a8f4432.sql', '20260731180000_restrict_units_select_to_authenticated.sql']).has(finding.conflictingMigration);
   const parserLimitation = finding.confidence !== 'HIGH' || ['INDEX_COLUMN_MISSING', 'TRIGGER_FUNCTION_MISSING', 'POLICY_FUNCTION_BEFORE_CREATE'].includes(finding.id);
-  const externalSchema = isExternalObject(finding.objectName) || /\b(?:auth|storage|realtime|extensions|vault|cron|net|graphql|graphql_public|supabase_functions)\s*\./i.test(finding.evidence);
-  const beforeOrAtPrefix = timestamp && timestamp <= VERIFIED_PREFIX;
+  const externalSchema = isExternalObject(finding.objectName);
+  const beforeOrAtPrefix = timestamp && timestamp <= evidence.last_confirmed_successful_migration;
+  const compilationRule = /(?:DUPLICATE|TABLE_USED_BEFORE_CREATE|POLICY_TABLE_BEFORE_CREATE|INDEX_COLUMN|TRIGGER_FUNCTION|FOREIGN_KEY|ENUM_VALUE|STORAGE_BUCKET|SEED_INSERT|ALTER_FUNCTION_BEFORE_CREATE)/.test(finding.id) && finding.id !== 'POLICY_FUNCTION_BEFORE_CREATE';
   const finalClassification = resolvedMigration ? 'RESOLVED_REPLAY_BLOCKER'
-    : beforeOrAtPrefix ? 'EMPIRICALLY_DISPROVEN_BLOCKER'
     : externalSchema ? 'EXTERNAL_SCHEMA_DEPENDENCY'
-      : timestamp > VERIFIED_PREFIX ? 'POST_VERIFIED_PREFIX_RISK'
-        : parserLimitation ? 'PARSER_LIMITATION' : 'STATIC_UNCERTAINTY';
+      : beforeOrAtPrefix && compilationRule ? 'EMPIRICALLY_DISPROVEN_COMPILATION_BLOCKER'
+        : 'STATIC_UNCERTAINTY';
   return {
     findingId: `CAL-${String(index + 1).padStart(3, '0')}`,
     migration: finding.conflictingMigration,
     object: finding.objectName,
     originalClassification: finding.severity,
-    verifiedPrefixPosition: beforeOrAtPrefix ? 'AT_OR_BEFORE_VERIFIED_PREFIX' : timestamp > VERIFIED_PREFIX ? 'AFTER_VERIFIED_PREFIX' : 'UNKNOWN',
+    rule: finding.id,
+    statement: finding.evidence,
+    verifiedPrefixPosition: beforeOrAtPrefix ? 'AT_OR_BEFORE_VERIFIED_PREFIX' : timestamp > evidence.last_confirmed_successful_migration ? 'AFTER_VERIFIED_PREFIX' : 'UNKNOWN',
     empiricalStatus: resolvedMigration ? 'RESOLVED_BY_COMMENTS_ONLY_NO_OP' : beforeOrAtPrefix ? 'FRESH_REPLAY_PASSED' : 'NOT_EMPIRICALLY_VERIFIED',
     externalSchemaStatus: externalSchema ? 'SUPABASE_EXTERNAL_SCHEMA_REFERENCE' : 'PROJECT_OR_UNQUALIFIED_OBJECT',
     parserLimitation,
     securityOnlyStatus: finding.securityDifference ? 'SECURITY_REVIEW_ONLY' : 'NOT_SECURITY_ONLY',
     finalClassification,
-    finalConfidence: resolvedMigration || beforeOrAtPrefix ? 'HIGH' : parserLimitation ? 'LOW' : finding.confidence,
+    evidenceReference: { path: 'docs/audits/MIGRATION-REPLAY-EMPIRICAL-EVIDENCE-29.json', sha256: evidence.sha256 },
+    finalConfidence: resolvedMigration || (beforeOrAtPrefix && compilationRule) ? 'HIGH' : parserLimitation ? 'LOW' : finding.confidence,
     evidence: resolvedMigration
       ? `${finding.conflictingMigration} is now a comments-only timestamp-preserving no-op; the canonical earlier migration remains executable.`
       : beforeOrAtPrefix
-      ? `Fresh replay passed ${finding.conflictingMigration} on the verified run through ${VERIFIED_PREFIX}; static signal ${finding.id} (${finding.likelySqlstate ?? 'no SQLSTATE'}) is not a replay blocker.`
+      ? `Fresh replay passed ${finding.conflictingMigration} on the observed run through ${evidence.last_confirmed_successful_migration}; compilation signal ${finding.id} (${finding.likelySqlstate ?? 'no SQLSTATE'}) is disproven as a replay blocker, while the original finding remains traceable.`
       : finding.evidence,
     sourceFinding: finding,
   };
 }
 
+export function detectGraphCycles(nodeValues, edges) {
+  const nodeIds = new Set(nodeValues.map((x) => typeof x === 'string' ? x : x.id));
+  const adjacency = new Map([...nodeIds].map((x) => [x, []]));
+  for (const edge of edges) if (nodeIds.has(edge.from) && nodeIds.has(edge.to) && edge.from !== edge.to) adjacency.get(edge.from).push(edge.to);
+  for (const values of adjacency.values()) values.sort();
+  const state = new Map(), path = [], cycles = [], indexes = new Map(), lows = new Map(), onStack = new Set(), tarjanStack = [], components = []; let nextIndex = 0;
+  const visit = (node) => { state.set(node, 1); path.push(node); for (const next of adjacency.get(node)) { if (!state.has(next)) visit(next); else if (state.get(next) === 1) cycles.push([...path.slice(path.indexOf(next)), next]); } path.pop(); state.set(node, 2); };
+  const strong = (node) => { indexes.set(node,nextIndex); lows.set(node,nextIndex++); tarjanStack.push(node); onStack.add(node); for(const next of adjacency.get(node)){ if(!indexes.has(next)){strong(next);lows.set(node,Math.min(lows.get(node),lows.get(next)));}else if(onStack.has(next))lows.set(node,Math.min(lows.get(node),indexes.get(next)));} if(lows.get(node)===indexes.get(node)){const part=[];let value;do{value=tarjanStack.pop();onStack.delete(value);part.push(value);}while(value!==node);if(part.length>1)components.push(part.sort());}};
+  for (const node of [...nodeIds].sort()) { if (!state.has(node)) visit(node); if (!indexes.has(node)) strong(node); }
+  return { cycles, stronglyConnectedComponents: components };
+}
+
 export function auditMigrationDirectory(directory, options = {}) {
   const migrationDir = resolve(directory);
+  const empiricalEvidence = readReplayEvidence(options.evidencePath ?? DEFAULT_EVIDENCE_PATH);
   const files = readdirSync(migrationDir).filter((x) => x.endsWith('.sql')).sort((a, b) => a.localeCompare(b));
   const parsed = files.map((filename) => {
     const sql = readFileSync(resolve(migrationDir, filename), 'utf8');
@@ -306,13 +373,22 @@ export function auditMigrationDirectory(directory, options = {}) {
   ].map((x) => ({ ...x, present: files.includes(x.migration) }));
   const nodes = parsed.map((x) => ({ id: x.filename, timestamp: x.timestamp, commentsOnly: x.commentsOnly, creates: x.statements.filter((s) => s.action === 'create').map((s) => `${s.objectType}:${s.key}`), drops: x.statements.filter((s) => s.action === 'drop').map((s) => `${s.objectType}:${s.key}`) }));
   const conflicts = analysis.conflicts.sort((a,b) => `${a.severity}|${a.conflictingMigration}|${a.id}|${a.objectName}`.localeCompare(`${b.severity}|${b.conflictingMigration}|${b.id}|${b.objectName}`));
-  const originalFindings = preCalibrationFindings();
-  const calibratedFindings = (originalFindings.length ? originalFindings : conflicts).map(calibrateFinding);
+  const originalFindings = conflicts;
+  const calibratedFindings = conflicts.map((finding, index) => calibrateFinding(finding, index, empiricalEvidence));
   const externalDependencies = parsed.flatMap((x) => [...new Set(x.dependencies)].sort().map((object) => ({ migration: x.filename, object, finalClassification: 'EXTERNAL_SCHEMA_DEPENDENCY', confidence: 'HIGH', evidence: `${schemaOf(object)} is provided by the Supabase platform and is not expected to be created by project migrations.` })));
   const staticUncertainties = parsed.flatMap((x) => x.uncertainties.map((u) => ({ migration: x.filename, object: 'dynamic SQL', finalClassification: 'PARSER_LIMITATION', confidence: 'HIGH', evidence: u.evidence })));
-  const postPrefixRisks = calibratedFindings.filter((x) => x.finalClassification === 'POST_VERIFIED_PREFIX_RISK');
-  const graph = { schemaVersion: 2, generatedBy: 'scripts/audit-migration-chain.mjs', nodes, edges: analysis.edges.sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), summary: { cycles: analysis.cycles, missingDependencies: analysis.missingDependencies, orderingRisks: analysis.orderingRisks, timestampCollisions: collisions, lovableResyncCandidates: conflicts.filter((x) => /DUPLICATE/.test(x.id)).map((x) => x.conflictingMigration), externalDependencies, verifiedPrefix: VERIFIED_PREFIX } };
-  return { schemaVersion: 2, verifiedPrefix: VERIFIED_PREFIX, preCalibrationSnapshot: PRE_CALIBRATION_SNAPSHOT, limitations: LIMITATIONS, inventory, resolvedConflicts, originalFindings, conflicts, calibratedFindings, externalDependencies, staticUncertainties, postPrefixRisks, securityFindings: analysis.securityFindings.sort((a,b) => `${a.severity}|${a.migration}|${a.id}`.localeCompare(`${b.severity}|${b.migration}|${b.id}`)), graph };
+  const postPrefixRisks = calibratedFindings.filter((x) => x.verifiedPrefixPosition === 'AFTER_VERIFIED_PREFIX' && x.finalClassification === 'STATIC_UNCERTAINTY');
+  const edgeMap = new Map(); let duplicateEdgesRemoved = 0; const selfReferenceRecords = [];
+  for (const edge of analysis.edges) { if (edge.from === edge.to) { selfReferenceRecords.push(edge); continue; } const key = `${edge.from}\0${edge.to}\0${edge.relationship}\0${edge.object}`; if (edgeMap.has(key)) duplicateEdgesRemoved += 1; else edgeMap.set(key, edge); }
+  const uniqueEdges = [...edgeMap.values()].sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  const nodeIds = new Set(nodes.map((x) => x.id)); const adjacency = new Map([...nodeIds].map((x) => [x, []]));
+  for (const edge of uniqueEdges) if (nodeIds.has(edge.from) && nodeIds.has(edge.to)) adjacency.get(edge.from).push(edge.to);
+  const state = new Map(), stack = [], cycles = [], sccs = []; let nextIndex = 0; const indexes = new Map(), lows = new Map(), onStack = new Set(), tarjanStack = [];
+  const visitCycle = (node) => { state.set(node, 1); stack.push(node); for (const next of adjacency.get(node)) { if (!state.has(next)) visitCycle(next); else if (state.get(next) === 1) cycles.push([...stack.slice(stack.indexOf(next)), next]); } stack.pop(); state.set(node, 2); };
+  const strong = (node) => { indexes.set(node, nextIndex); lows.set(node, nextIndex++); tarjanStack.push(node); onStack.add(node); for (const next of adjacency.get(node)) { if (!indexes.has(next)) { strong(next); lows.set(node, Math.min(lows.get(node), lows.get(next))); } else if (onStack.has(next)) lows.set(node, Math.min(lows.get(node), indexes.get(next))); } if (lows.get(node) === indexes.get(node)) { const component=[]; let value; do { value=tarjanStack.pop(); onStack.delete(value); component.push(value); } while(value!==node); if(component.length>1) sccs.push(component.sort()); } };
+  for (const node of [...nodeIds].sort()) { if (!state.has(node)) visitCycle(node); if (!indexes.has(node)) strong(node); }
+  const graph = { schemaVersion: 3, generatedBy: 'scripts/audit-migration-chain.mjs', nodes, unique_edges: uniqueEdges, external_edges: uniqueEdges.filter((x) => String(x.to).startsWith('object:') && isExternalObject(String(x.object))), cycles, strongly_connected_components: sccs, self_reference_records: selfReferenceRecords, duplicate_edges_removed: duplicateEdgesRemoved, deterministic_order: nodes.map((x) => x.id), summary: { cycles, stronglyConnectedComponents: sccs, missingDependencies: analysis.missingDependencies, orderingRisks: analysis.orderingRisks, timestampCollisions: collisions, externalDependencies, verifiedPrefix: empiricalEvidence.last_confirmed_successful_migration } };
+  return { schemaVersion: 3, verifiedPrefix: empiricalEvidence.last_confirmed_successful_migration, empiricalEvidence, historicalSnapshotUsedForDecisions: false, limitations: LIMITATIONS, inventory, resolvedConflicts, originalFindings, conflicts, calibratedFindings, externalDependencies, staticUncertainties, postPrefixRisks, securityFindings: analysis.securityFindings.sort((a,b) => `${a.severity}|${a.migration}|${a.id}`.localeCompare(`${b.severity}|${b.migration}|${b.id}`)), graph };
 }
 
 function countObjects(inventory, key) { return inventory.reduce((sum, item) => sum + item[key].filter((x) => x.action === 'create').length, 0); }
@@ -378,7 +454,7 @@ The scan covers SECURITY DEFINER/search_path, client-role grants, permissive pol
 ## Dependency graph
 
 - Nodes: ${audit.graph.nodes.length}
-- Edges: ${audit.graph.edges.length}
+- Unique edges: ${audit.graph.unique_edges.length}
 - Missing dependencies: ${audit.graph.summary.missingDependencies.length}
 - Ordering risks: ${audit.graph.summary.orderingRisks.length}
 - Cycles: ${audit.graph.summary.cycles.length}
@@ -426,7 +502,7 @@ Static analysis calibrated against the supplied successful Fresh replay evidence
 
 - Confirmed replay blockers: ${finalCount('CONFIRMED_REPLAY_BLOCKER')}
 - Resolved replay blockers: ${audit.resolvedConflicts.filter((x) => x.present).length}
-- Empirically disproven blockers retained in the current static candidate set: ${finalCount('EMPIRICALLY_DISPROVEN_BLOCKER')}
+- Empirically disproven compilation blockers retained for traceability: ${finalCount('EMPIRICALLY_DISPROVEN_COMPILATION_BLOCKER')}
 - External Supabase schema dependency references: ${audit.externalDependencies.length}
 - Static security findings: ${audit.securityFindings.length}
 - Static uncertainties: ${finalCount('STATIC_UNCERTAINTY')}
@@ -469,12 +545,14 @@ export function writeAuditReports(audit, paths = {}) {
   const graphPath = resolve(paths.graph ?? resolve(ROOT, 'docs/audits/MIGRATION-DEPENDENCY-GRAPH-28.json'));
   const reportPath = resolve(paths.report ?? resolve(ROOT, 'docs/audits/MIGRATION-CHAIN-CONFLICT-CENSUS-28.md'));
   const calibrationPath = resolve(paths.calibration ?? resolve(ROOT, 'docs/audits/MIGRATION-LINTER-CALIBRATION-29.json'));
-  for (const path of [inventoryPath, graphPath, reportPath, calibrationPath]) mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(inventoryPath, `${JSON.stringify({ schemaVersion: audit.schemaVersion, verifiedPrefix: audit.verifiedPrefix, preCalibrationSnapshot: audit.preCalibrationSnapshot, limitations: audit.limitations, migrations: audit.inventory, resolvedConflicts: audit.resolvedConflicts, originalFindings: audit.originalFindings, conflicts: audit.conflicts, calibratedFindings: audit.calibratedFindings, externalDependencies: audit.externalDependencies, staticUncertainties: audit.staticUncertainties, postPrefixRisks: audit.postPrefixRisks, securityFindings: audit.securityFindings }, null, 2)}\n`);
+  const calibrationMarkdownPath = resolve(paths.calibrationMarkdown ?? resolve(ROOT, 'docs/audits/MIGRATION-LINTER-CALIBRATION-29.md'));
+  for (const path of [inventoryPath, graphPath, reportPath, calibrationPath, calibrationMarkdownPath]) mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(inventoryPath, `${JSON.stringify({ schemaVersion: audit.schemaVersion, verifiedPrefix: audit.verifiedPrefix, empiricalEvidence: audit.empiricalEvidence, historicalSnapshotUsedForDecisions: false, limitations: audit.limitations, migrations: audit.inventory, resolvedConflicts: audit.resolvedConflicts, originalFindings: audit.originalFindings, conflicts: audit.conflicts, calibratedFindings: audit.calibratedFindings, externalDependencies: audit.externalDependencies, staticUncertainties: audit.staticUncertainties, postPrefixRisks: audit.postPrefixRisks, securityFindings: audit.securityFindings }, null, 2)}\n`);
   writeFileSync(graphPath, `${JSON.stringify(audit.graph, null, 2)}\n`);
   writeFileSync(reportPath, markdown(audit));
-  writeFileSync(calibrationPath, `${JSON.stringify({ schemaVersion: audit.schemaVersion, verifiedPrefix: audit.verifiedPrefix, preCalibration: { P0: 48, P1: 40, missingDependencies: 38, unresolved: 88 }, resolvedBlockers: audit.resolvedConflicts, findings: audit.calibratedFindings, externalDependencies: audit.externalDependencies, parserLimitations: audit.staticUncertainties, securityFindings: audit.securityFindings, actionablePostPrefixReplayRisks: audit.postPrefixRisks, postPrefixDecision: audit.postPrefixRisks.length ? 'REVIEW_REQUIRED' : 'NO_STATIC_POST_PREFIX_REPLAY_BLOCKER_IDENTIFIED' }, null, 2)}\n`);
-  return { inventoryPath, graphPath, reportPath, calibrationPath };
+  writeFileSync(calibrationPath, `${JSON.stringify({ schemaVersion: audit.schemaVersion, verifiedPrefix: audit.verifiedPrefix, evidence: audit.empiricalEvidence, calibrationSource: 'CURRENT_PARSER_OUTPUT', historicalSnapshotUsedForDecisions: false, timestampOnlyDowngrade: false, currentParserFindingCount: audit.conflicts.length, resolvedBlockers: audit.resolvedConflicts, findings: audit.calibratedFindings, externalDependencies: audit.externalDependencies, parserLimitations: audit.staticUncertainties, securityFindings: audit.securityFindings, actionablePostPrefixReplayRisks: audit.postPrefixRisks, postPrefixDecision: audit.postPrefixRisks.length ? 'REVIEW_REQUIRED' : 'NO_STATIC_POST_PREFIX_REPLAY_BLOCKER_IDENTIFIED' }, null, 2)}\n`);
+  writeFileSync(calibrationMarkdownPath, markdown(audit));
+  return { inventoryPath, graphPath, reportPath, calibrationPath, calibrationMarkdownPath };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
