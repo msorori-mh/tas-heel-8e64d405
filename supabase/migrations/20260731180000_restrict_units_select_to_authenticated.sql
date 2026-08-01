@@ -1,24 +1,43 @@
--- PRE-IMPORT-STABILITY-AND-IMPORT-TEMPLATES-ALIGNMENT-01
--- Source-only: NOT applied to Supabase from this PR. Application is an
--- explicit owner step after merge.
+-- Historical fresh-replay compatibility repair
+-- UNITS_POLICY_BASELINE_MIGRATION_RECONCILIATION_25
 --
--- Gap: the legacy policy
---   "Units viewable by everyone" ON public.units FOR SELECT USING (true)
--- has no TO clause, so it applies to PUBLIC — including the anon role —
--- letting any visitor read unit titles while subjects stay authenticated-only
--- (verified live: anon GET /rest/v1/units returns rows).
+-- Historical replay reconciliation.
+-- Policy "Units viewable per subject access" ON public.units is created by
+-- migration 20260731033950_a583b6d4-0360-414e-95f8-83b01f470a02.sql
+-- (introduced by Lovable/gpt-engineer commit 1f3f1dd / applied-units sync
+-- f5d714d, 2026-07-31).
 --
--- Fix: drop the public SELECT policy and replace it with an
--- authenticated-only policy scoped by the same gate the rest of the content
--- model uses (can_access_subject): students read units of subjects in their
--- own grade/track, admins bypass, and content staff keep full access via the
--- existing "Content staff manage units" FOR ALL policy (unchanged here).
-
-DROP POLICY IF EXISTS "Units viewable by everyone" ON public.units;
-
-CREATE POLICY "Units viewable per subject access" ON public.units
-  FOR SELECT TO authenticated
-  USING (public.can_access_subject(subject_id));
-
--- No DML, no data changes, no schema changes, no financial/storage/auth
--- changes. questions/lessons/exams policies are untouched.
+-- This file originally duplicated that SELECT hardening via PR #34
+-- (commit 2f04932, PRE-IMPORT-STABILITY-AND-IMPORT-TEMPLATES-ALIGNMENT-01)
+-- with identical executable statements (formatting differences only):
+--   drop legacy "Units viewable by everyone" on public.units
+--   recreate "Units viewable per subject access"
+--     FOR SELECT TO authenticated
+--     USING (public.can_access_subject(subject_id))
+-- Fresh baseline replay failed with:
+--   SQLSTATE 42710 — policy "Units viewable per subject access" for table
+--   "units" already exists
+--
+-- Pre-repair SHA-256 of this file:
+--   92D2D448384F166196B4F9F20F838ED807FEEF55DFBE5B17648FB1944FED3A13
+-- Canonical creator SHA-256:
+--   1AB87ED0892E98E2F1CF3AAA9B2629D85BCD59B5948C3FD30B84071ABF6A5FDB
+--
+-- Original security intent (preserved by the earlier migration, unchanged):
+--   Gap: legacy "Units viewable by everyone" FOR SELECT USING (true) had no
+--   TO clause (PUBLIC), so anon could read unit titles while subjects stayed
+--   authenticated-only. Fix: drop that public SELECT and replace with
+--   authenticated-only + can_access_subject. Content staff keep management
+--   via existing "Content staff manage units" FOR ALL (untouched).
+--
+-- This migration intentionally performs only missing additive operations.
+-- Audit found no unique additive DDL beyond the earlier migration, so
+-- this version is intentionally a no-op documentation marker.
+--
+-- Timestamp and filename preserved. Do not delete this migration version
+-- from the ledger; environments that already recorded 20260731180000
+-- keep a stable version entry without re-executing CREATE POLICY.
+--
+-- Not a CREATE POLICY IF NOT EXISTS workaround: the CREATE POLICY name,
+-- table, command, role, and USING expression were compared object-by-object
+-- before removing the duplicate statements. Authorization was not widened.
