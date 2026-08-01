@@ -5,6 +5,9 @@
 --
 -- HOLD-15 CLOSURE: no client-settable GUC publish bypass; RPC-only PUBLISHED/SUPERSEDED;
 -- column privileges deny direct status/pointer updates from client roles.
+-- PUBLISH-INVARIANTS-39B: no caller introspection (no CURRENT_USER/owner/OID/name gate).
+-- Triggers enforce transition + payload invariants only. Public publish RPC is the
+-- sole client entry. APPROVED/PUBLISHED/SUPERSEDED payloads are immutable.
 --
 -- Package invariants:
 --   * CASEFOLD_AR normalization is NOT allowed in QB-01.
@@ -159,37 +162,15 @@ BEGIN
 END $$;
 
 -- ============================================================================
--- 6) Publish guard triggers (RPC-only lifecycle; no GUC bypass)
+-- 6) Lifecycle / pointer / payload invariant triggers (no caller introspection)
 -- ============================================================================
 DROP TRIGGER IF EXISTS trg_qb_enforce_published_pointer ON public.questions;
 DROP TRIGGER IF EXISTS trg_qb_enforce_published_revision_status ON public.question_revisions;
 DROP FUNCTION IF EXISTS public.qb_enforce_published_pointer_on_questions();
 DROP FUNCTION IF EXISTS public.qb_enforce_published_revision_status();
+DROP FUNCTION IF EXISTS public._qb_is_internal_publish_executor();
 
--- SECURITY INVOKER on purpose: CURRENT_USER must reflect the role executing the
--- UPDATE (the SECURITY DEFINER owner of _qb_publish_question_revision_internal),
--- not the owner of this helper. A DEFINER helper would always match itself and
--- become a universal bypass.
-CREATE OR REPLACE FUNCTION public._qb_is_internal_publish_executor()
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY INVOKER
-SET search_path = public, pg_temp
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public'
-      AND p.proname = '_qb_publish_question_revision_internal'
-      AND pg_get_function_identity_arguments(p.oid) = 'uuid, uuid, uuid, text'
-      AND p.proowner = (SELECT oid FROM pg_roles WHERE rolname = CURRENT_USER)
-  );
-$$;
-
-REVOKE ALL ON FUNCTION public._qb_is_internal_publish_executor() FROM PUBLIC;
-
+-- Transition + payload invariants only. Does NOT inspect caller / owner / OID / GUC.
 CREATE OR REPLACE FUNCTION public.qb_guard_question_revision_lifecycle()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -198,18 +179,21 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_pointed boolean;
+  v_payload_changed boolean;
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    IF NEW.status IN ('PUBLISHED', 'SUPERSEDED')
-       AND NOT public._qb_is_internal_publish_executor() THEN
-      RAISE EXCEPTION 'PUBLISHED/SUPERSEDED revisions require publish RPC';
+    IF NEW.status IN ('PUBLISHED', 'SUPERSEDED') THEN
+      RAISE EXCEPTION 'cannot insert revision directly as PUBLISHED or SUPERSEDED';
+    END IF;
+    IF NEW.status NOT IN ('DRAFT', 'READY_FOR_REVIEW', 'APPROVED', 'REJECTED') THEN
+      RAISE EXCEPTION 'invalid initial revision status';
     END IF;
     RETURN NEW;
   END IF;
 
   IF TG_OP = 'DELETE' THEN
-    IF OLD.status IN ('PUBLISHED', 'SUPERSEDED') THEN
-      RAISE EXCEPTION 'cannot delete PUBLISHED or SUPERSEDED revision';
+    IF OLD.status IN ('APPROVED', 'PUBLISHED', 'SUPERSEDED') THEN
+      RAISE EXCEPTION 'cannot delete APPROVED, PUBLISHED, or SUPERSEDED revision';
     END IF;
     SELECT EXISTS (
       SELECT 1 FROM public.questions q
@@ -221,16 +205,57 @@ BEGIN
     RETURN OLD;
   END IF;
 
-  IF TG_OP = 'UPDATE' THEN
-    IF NEW.status IS DISTINCT FROM OLD.status THEN
-      IF (
-        OLD.status IN ('PUBLISHED', 'SUPERSEDED')
-        OR NEW.status IN ('PUBLISHED', 'SUPERSEDED')
-      ) AND NOT public._qb_is_internal_publish_executor() THEN
-        RAISE EXCEPTION 'revision status lifecycle changes require publish RPC';
+  -- UPDATE
+  v_payload_changed :=
+       NEW.interaction_type IS DISTINCT FROM OLD.interaction_type
+    OR NEW.grading_mode IS DISTINCT FROM OLD.grading_mode
+    OR NEW.educational_label IS DISTINCT FROM OLD.educational_label
+    OR NEW.question_text IS DISTINCT FROM OLD.question_text
+    OR NEW.stimulus_text IS DISTINCT FROM OLD.stimulus_text
+    OR NEW.max_score IS DISTINCT FROM OLD.max_score
+    OR NEW.allow_partial IS DISTINCT FROM OLD.allow_partial
+    OR NEW.requires_media IS DISTINCT FROM OLD.requires_media
+    OR NEW.manual_grading_required IS DISTINCT FROM OLD.manual_grading_required
+    OR NEW.payload_hash IS DISTINCT FROM OLD.payload_hash
+    OR NEW.payload_hash_version IS DISTINCT FROM OLD.payload_hash_version
+    OR NEW.source_payload_hash IS DISTINCT FROM OLD.source_payload_hash
+    OR NEW.backfill_version IS DISTINCT FROM OLD.backfill_version
+    OR NEW.question_id IS DISTINCT FROM OLD.question_id
+    OR NEW.revision_number IS DISTINCT FROM OLD.revision_number;
+
+  IF OLD.status IN ('APPROVED', 'PUBLISHED', 'SUPERSEDED') AND v_payload_changed THEN
+    RAISE EXCEPTION 'payload fields of % revisions are immutable', OLD.status;
+  END IF;
+
+  IF NEW.status IS DISTINCT FROM OLD.status THEN
+    IF OLD.status = 'APPROVED' AND NEW.status = 'PUBLISHED' THEN
+      IF NEW.published_at IS NULL OR NEW.published_by IS NULL THEN
+        RAISE EXCEPTION 'PUBLISHED requires published_at and published_by';
       END IF;
+      IF NEW.payload_hash IS NULL OR NEW.payload_hash_version IS NULL
+         OR NEW.payload_hash !~ '^[0-9a-f]{64}$' THEN
+        RAISE EXCEPTION 'PUBLISHED requires valid payload_hash and payload_hash_version';
+      END IF;
+    ELSIF OLD.status = 'PUBLISHED' AND NEW.status = 'SUPERSEDED' THEN
+      IF NEW.superseded_at IS NULL THEN
+        RAISE EXCEPTION 'SUPERSEDED requires superseded_at';
+      END IF;
+    ELSIF OLD.status IN ('DRAFT', 'READY_FOR_REVIEW', 'REJECTED')
+          AND NEW.status IN ('DRAFT', 'READY_FOR_REVIEW', 'APPROVED', 'REJECTED') THEN
+      NULL; -- editorial / review transitions (not publish)
+    ELSE
+      RAISE EXCEPTION 'illegal revision status transition: % → %', OLD.status, NEW.status;
     END IF;
-    RETURN NEW;
+  END IF;
+
+  IF OLD.status IN ('PUBLISHED', 'SUPERSEDED')
+     AND NEW.status IS NOT DISTINCT FROM OLD.status
+     AND (
+       NEW.published_at IS DISTINCT FROM OLD.published_at
+       OR NEW.published_by IS DISTINCT FROM OLD.published_by
+       OR NEW.superseded_at IS DISTINCT FROM OLD.superseded_at
+     ) THEN
+    RAISE EXCEPTION 'publish metadata of % revisions is immutable', OLD.status;
   END IF;
 
   RETURN NEW;
@@ -239,6 +264,8 @@ $$;
 
 REVOKE ALL ON FUNCTION public.qb_guard_question_revision_lifecycle() FROM PUBLIC;
 
+-- Pointer integrity only (same-question + PUBLISHED). Client column UPDATE is revoked;
+-- this trigger does not authorize callers — it validates row shape.
 CREATE OR REPLACE FUNCTION public.qb_guard_current_published_revision_pointer()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -248,19 +275,8 @@ AS $$
 DECLARE
   v_rev record;
 BEGIN
-  -- INSERT with NULL pointer is allowed (new unpublished question).
-  -- Clearing an existing pointer, or setting a non-NULL pointer, is RPC-only.
   IF NEW.current_published_revision_id IS NULL THEN
-    IF TG_OP = 'UPDATE'
-       AND OLD.current_published_revision_id IS NOT NULL
-       AND NOT public._qb_is_internal_publish_executor() THEN
-      RAISE EXCEPTION 'clearing published pointer requires publish/archive RPC';
-    END IF;
     RETURN NEW;
-  END IF;
-
-  IF NOT public._qb_is_internal_publish_executor() THEN
-    RAISE EXCEPTION 'published pointer updates require publish RPC';
   END IF;
 
   SELECT qr.question_id, qr.status
@@ -288,7 +304,7 @@ REVOKE ALL ON FUNCTION public.qb_guard_current_published_revision_pointer() FROM
 
 DROP TRIGGER IF EXISTS trg_qb_guard_question_revision_lifecycle ON public.question_revisions;
 CREATE TRIGGER trg_qb_guard_question_revision_lifecycle
-  BEFORE INSERT OR UPDATE OF status OR DELETE ON public.question_revisions
+  BEFORE INSERT OR UPDATE OR DELETE ON public.question_revisions
   FOR EACH ROW
   EXECUTE FUNCTION public.qb_guard_question_revision_lifecycle();
 
@@ -299,13 +315,14 @@ CREATE TRIGGER trg_qb_guard_current_published_revision_pointer
   EXECUTE FUNCTION public.qb_guard_current_published_revision_pointer();
 
 -- ============================================================================
--- 7) RPC idempotency store
+-- 7) RPC idempotency store (request-bound fingerprint)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.question_bank_rpc_idempotency (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   rpc_name text NOT NULL,
   actor_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   idempotency_key text NOT NULL,
+  request_fingerprint text NOT NULL,
   result jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (rpc_name, actor_id, idempotency_key)
@@ -390,6 +407,105 @@ CREATE TABLE IF NOT EXISTS public.question_media (
 
 COMMENT ON TABLE public.question_media IS
   'Revision-scoped media metadata. Storage bucket question-media is NOT created in QB-01.';
+
+-- ============================================================================
+-- 8b) Child payload immutability for APPROVED / PUBLISHED / SUPERSEDED parents
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.qb_guard_revision_children_immutable()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_rid uuid;
+  v_status text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_rid := OLD.question_revision_id;
+  ELSE
+    v_rid := NEW.question_revision_id;
+  END IF;
+
+  SELECT status INTO v_status
+  FROM public.question_revisions
+  WHERE id = v_rid;
+
+  IF v_status IN ('APPROVED', 'PUBLISHED', 'SUPERSEDED') THEN
+    RAISE EXCEPTION
+      'cannot % child rows of % revision (payload frozen)',
+      TG_OP, v_status;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qb_guard_revision_children_immutable() FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS trg_qb_options_immutable ON public.question_options;
+CREATE TRIGGER trg_qb_options_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON public.question_options
+  FOR EACH ROW EXECUTE FUNCTION public.qb_guard_revision_children_immutable();
+
+DROP TRIGGER IF EXISTS trg_qb_accepted_immutable ON public.question_accepted_answers;
+CREATE TRIGGER trg_qb_accepted_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON public.question_accepted_answers
+  FOR EACH ROW EXECUTE FUNCTION public.qb_guard_revision_children_immutable();
+
+DROP TRIGGER IF EXISTS trg_qb_solutions_immutable ON public.question_solutions;
+CREATE TRIGGER trg_qb_solutions_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON public.question_solutions
+  FOR EACH ROW EXECUTE FUNCTION public.qb_guard_revision_children_immutable();
+
+CREATE OR REPLACE FUNCTION public.qb_guard_solution_steps_immutable()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_sid uuid;
+  v_status text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_sid := OLD.solution_id;
+  ELSE
+    v_sid := NEW.solution_id;
+  END IF;
+
+  SELECT qr.status INTO v_status
+  FROM public.question_solutions qs
+  JOIN public.question_revisions qr ON qr.id = qs.question_revision_id
+  WHERE qs.id = v_sid;
+
+  IF v_status IN ('APPROVED', 'PUBLISHED', 'SUPERSEDED') THEN
+    RAISE EXCEPTION
+      'cannot % solution steps of % revision (payload frozen)',
+      TG_OP, v_status;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qb_guard_solution_steps_immutable() FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS trg_qb_solution_steps_immutable ON public.question_solution_steps;
+CREATE TRIGGER trg_qb_solution_steps_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON public.question_solution_steps
+  FOR EACH ROW EXECUTE FUNCTION public.qb_guard_solution_steps_immutable();
+
+DROP TRIGGER IF EXISTS trg_qb_media_immutable ON public.question_media;
+CREATE TRIGGER trg_qb_media_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON public.question_media
+  FOR EACH ROW EXECUTE FUNCTION public.qb_guard_revision_children_immutable();
 
 -- ============================================================================
 -- 9) Logical targets
@@ -628,11 +744,16 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public._qb_validate_revision_for_publish(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._qb_validate_revision_for_publish(uuid)
+  FROM anon, authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public._qb_publish_question_revision_internal(
+-- Drop legacy private executor if present (39B merges publish into the public RPC).
+DROP FUNCTION IF EXISTS public._qb_publish_question_revision_internal(uuid, uuid, uuid, text);
+
+CREATE OR REPLACE FUNCTION public.publish_question_revision(
   p_question_id uuid,
   p_revision_id uuid,
-  p_actor_id uuid,
+  p_expected_current_revision_id uuid,
   p_idempotency_key text
 )
 RETURNS jsonb
@@ -641,10 +762,75 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+  v_actor uuid := auth.uid();
+  v_question public.questions%ROWTYPE;
   v_revision public.question_revisions%ROWTYPE;
   v_prior_id uuid;
   v_result jsonb;
+  v_fingerprint text;
+  v_existing public.question_bank_rpc_idempotency%ROWTYPE;
 BEGIN
+  IF v_actor IS NULL THEN
+    RAISE EXCEPTION 'authentication required';
+  END IF;
+
+  IF p_idempotency_key IS NULL OR char_length(trim(p_idempotency_key)) = 0 THEN
+    RAISE EXCEPTION 'idempotency_key is required';
+  END IF;
+
+  IF NOT public.can_publish_question_revision(v_actor) THEN
+    RAISE EXCEPTION 'not authorized to publish question revisions';
+  END IF;
+
+  v_fingerprint := encode(
+    sha256(
+      convert_to(
+        concat_ws(
+          '|',
+          'publish_question_revision',
+          v_actor::text,
+          coalesce(p_question_id::text, ''),
+          coalesce(p_revision_id::text, ''),
+          coalesce(p_expected_current_revision_id::text, '')
+        ),
+        'utf8'
+      )
+    ),
+    'hex'
+  );
+
+  -- Serialize concurrent publish attempts for the same actor+key.
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('qb:publish:' || v_actor::text || ':' || p_idempotency_key, 0)
+  );
+
+  SELECT * INTO v_existing
+  FROM public.question_bank_rpc_idempotency
+  WHERE rpc_name = 'publish_question_revision'
+    AND actor_id = v_actor
+    AND idempotency_key = p_idempotency_key
+  FOR UPDATE;
+
+  IF FOUND THEN
+    IF v_existing.request_fingerprint IS DISTINCT FROM v_fingerprint THEN
+      RAISE EXCEPTION 'idempotency key reused with different input';
+    END IF;
+    RETURN v_existing.result;
+  END IF;
+
+  SELECT * INTO v_question
+  FROM public.questions
+  WHERE id = p_question_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'question not found';
+  END IF;
+
+  IF v_question.current_published_revision_id IS DISTINCT FROM p_expected_current_revision_id THEN
+    RAISE EXCEPTION 'optimistic concurrency failure: published pointer changed';
+  END IF;
+
   SELECT * INTO v_revision
   FROM public.question_revisions
   WHERE id = p_revision_id
@@ -693,7 +879,7 @@ BEGIN
   UPDATE public.question_revisions
   SET status = 'PUBLISHED',
       published_at = now(),
-      published_by = p_actor_id
+      published_by = v_actor
   WHERE id = p_revision_id;
 
   UPDATE public.questions
@@ -706,7 +892,7 @@ BEGIN
     p_question_id,
     jsonb_build_object(
       'revision_id', p_revision_id,
-      'published_by', p_actor_id,
+      'published_by', v_actor,
       'idempotency_key', p_idempotency_key
     )
   );
@@ -714,103 +900,16 @@ BEGIN
   v_result := jsonb_build_object(
     'success', true,
     'question_id', p_question_id,
-    'revision_id', p_revision_id
+    'revision_id', p_revision_id,
+    'previous_revision_id', p_expected_current_revision_id,
+    'request_fingerprint', v_fingerprint
   );
 
-  RETURN v_result;
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public._qb_publish_question_revision_internal(uuid, uuid, uuid, text) FROM PUBLIC;
-
-CREATE OR REPLACE FUNCTION public.publish_question_revision(
-  p_question_id uuid,
-  p_revision_id uuid,
-  p_expected_current_revision_id uuid,
-  p_idempotency_key text
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-DECLARE
-  v_actor uuid := auth.uid();
-  v_question public.questions%ROWTYPE;
-  v_revision public.question_revisions%ROWTYPE;
-  v_prior_id uuid;
-  v_result jsonb;
-  v_cached jsonb;
-BEGIN
-  IF v_actor IS NULL THEN
-    RAISE EXCEPTION 'authentication required';
-  END IF;
-
-  IF p_idempotency_key IS NULL OR char_length(trim(p_idempotency_key)) = 0 THEN
-    RAISE EXCEPTION 'idempotency_key is required';
-  END IF;
-
-  IF NOT public.can_publish_question_revision(v_actor) THEN
-    RAISE EXCEPTION 'not authorized to publish question revisions';
-  END IF;
-
-  SELECT result INTO v_cached
-  FROM public.question_bank_rpc_idempotency
-  WHERE rpc_name = 'publish_question_revision'
-    AND actor_id = v_actor
-    AND idempotency_key = p_idempotency_key;
-
-  IF FOUND THEN
-    RETURN v_cached;
-  END IF;
-
-  SELECT * INTO v_question
-  FROM public.questions
-  WHERE id = p_question_id
-  FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'question not found';
-  END IF;
-
-  IF v_question.current_published_revision_id IS DISTINCT FROM p_expected_current_revision_id THEN
-    RAISE EXCEPTION 'optimistic concurrency failure: published pointer changed';
-  END IF;
-
-  SELECT * INTO v_revision
-  FROM public.question_revisions
-  WHERE id = p_revision_id
-    AND question_id = p_question_id
-  FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'revision not found for question';
-  END IF;
-
-  IF v_revision.status <> 'APPROVED' THEN
-    RAISE EXCEPTION 'only APPROVED revisions may be published';
-  END IF;
-
-  SELECT qr.id INTO v_prior_id
-  FROM public.question_revisions qr
-  WHERE qr.question_id = p_question_id
-    AND qr.status = 'PUBLISHED'
-    AND qr.id <> p_revision_id
-  FOR UPDATE;
-
-  v_result := public._qb_publish_question_revision_internal(
-    p_question_id,
-    p_revision_id,
-    v_actor,
-    p_idempotency_key
+  INSERT INTO public.question_bank_rpc_idempotency (
+    rpc_name, actor_id, idempotency_key, request_fingerprint, result
+  ) VALUES (
+    'publish_question_revision', v_actor, p_idempotency_key, v_fingerprint, v_result
   );
-
-  v_result := v_result || jsonb_build_object(
-    'previous_revision_id', p_expected_current_revision_id
-  );
-
-  INSERT INTO public.question_bank_rpc_idempotency (rpc_name, actor_id, idempotency_key, result)
-  VALUES ('publish_question_revision', v_actor, p_idempotency_key, v_result);
 
   RETURN v_result;
 END;
@@ -1304,6 +1403,62 @@ CREATE TABLE IF NOT EXISTS public.practice_attempt_questions (
 COMMENT ON COLUMN public.practice_attempt_questions.rendered_options IS
   'Student-readable snapshot JSON. MUST NOT contain is_correct.';
 
+-- Snapshot freeze point: after successful INSERT. UPDATE of payload fields rejected.
+-- DELETE remains allowed so parent CASCADE / authorized cleanup still works.
+CREATE OR REPLACE FUNCTION public.qb_guard_attempt_snapshot_immutable()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_changed boolean := false;
+BEGIN
+  IF TG_OP <> 'UPDATE' THEN
+    RETURN NEW;
+  END IF;
+
+  v_changed :=
+       NEW.question_revision_id IS DISTINCT FROM OLD.question_revision_id
+    OR NEW.logical_question_id IS DISTINCT FROM OLD.logical_question_id
+    OR NEW.question_order IS DISTINCT FROM OLD.question_order
+    OR NEW.rendered_question_text IS DISTINCT FROM OLD.rendered_question_text
+    OR NEW.rendered_stimulus_text IS DISTINCT FROM OLD.rendered_stimulus_text
+    OR NEW.rendered_options IS DISTINCT FROM OLD.rendered_options
+    OR NEW.option_order_mapping IS DISTINCT FROM OLD.option_order_mapping
+    OR NEW.max_score IS DISTINCT FROM OLD.max_score
+    OR NEW.payload_hash IS DISTINCT FROM OLD.payload_hash
+    OR NEW.payload_hash_version IS DISTINCT FROM OLD.payload_hash_version;
+
+  IF TG_TABLE_NAME = 'exam_session_questions' THEN
+    v_changed := v_changed
+      OR NEW.pin_mode IS DISTINCT FROM OLD.pin_mode
+      OR NEW.exam_session_id IS DISTINCT FROM OLD.exam_session_id;
+  ELSIF TG_TABLE_NAME = 'practice_attempt_questions' THEN
+    v_changed := v_changed
+      OR NEW.practice_attempt_id IS DISTINCT FROM OLD.practice_attempt_id;
+  END IF;
+
+  IF v_changed THEN
+    RAISE EXCEPTION 'attempt snapshot payload is immutable after creation';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qb_guard_attempt_snapshot_immutable() FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS trg_qb_esq_snapshot_immutable ON public.exam_session_questions;
+CREATE TRIGGER trg_qb_esq_snapshot_immutable
+  BEFORE UPDATE ON public.exam_session_questions
+  FOR EACH ROW EXECUTE FUNCTION public.qb_guard_attempt_snapshot_immutable();
+
+DROP TRIGGER IF EXISTS trg_qb_paq_snapshot_immutable ON public.practice_attempt_questions;
+CREATE TRIGGER trg_qb_paq_snapshot_immutable
+  BEFORE UPDATE ON public.practice_attempt_questions
+  FOR EACH ROW EXECUTE FUNCTION public.qb_guard_attempt_snapshot_immutable();
+
 CREATE TABLE IF NOT EXISTS public.practice_attempt_responses (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   practice_attempt_id uuid NOT NULL REFERENCES public.practice_attempts(id) ON DELETE CASCADE,
@@ -1629,11 +1784,11 @@ CREATE POLICY qb_revisions_edit_update ON public.question_revisions
   FOR UPDATE TO authenticated
   USING (
     (public.can_edit_question_bank(auth.uid()) OR public.is_full_admin(auth.uid()))
-    AND status IN ('DRAFT', 'READY_FOR_REVIEW', 'REJECTED', 'APPROVED')
+    AND status IN ('DRAFT', 'READY_FOR_REVIEW', 'REJECTED')
   )
   WITH CHECK (
     (public.can_edit_question_bank(auth.uid()) OR public.is_full_admin(auth.uid()))
-    AND status IN ('DRAFT', 'READY_FOR_REVIEW', 'REJECTED', 'APPROVED')
+    AND status IN ('DRAFT', 'READY_FOR_REVIEW', 'REJECTED')
   );
 
 -- Sensitive revision children (includes is_correct / accepted answers / solutions)

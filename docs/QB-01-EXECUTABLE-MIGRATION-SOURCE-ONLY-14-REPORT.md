@@ -16,12 +16,11 @@
 | Filename | `supabase/migrations/20260801120000_qb01_question_bank_schema_foundation.sql` |
 | Previous SHA-256 (package 14) | `2484ea223a2dabde973f4c4e611ea6a12adc68be86992bb23625c203bafc3062` |
 | SHA-256 (HOLD-15 closure / package 16) | `889801185955de851abc5df300ac69c5cc23c99ca92f90d018503781a0759008` |
-| Lines | 1948 |
-| Size | 73238 bytes |
+| SHA-256 (PUBLISH-EXECUTOR-39 / superseded) | `37fba8bf37c80a461409dfcff15aace06814b344e9b13ee4ed766c171a513496` |
+| SHA-256 (PUBLISH-INVARIANTS-39B) | `c1c26af41f6f4485a1f7dc05c1dc06e14372ef8ac550f8fad365d278a7f8cff3` |
 | Under `supabase/migrations` | YES |
-| Applied | **NO** |
-| SQL executed | **NO** |
-| Database writes | **ZERO** |
+| Applied by this package | **NO** (local disposable Docker compilation only) |
+| Remote SQL / remote DB writes | **ZERO** |
 
 Header:
 
@@ -120,8 +119,8 @@ RLS enabled on all new tables; staff/capability-scoped policies; student-safe se
 |---|---|
 | File | `tests/question-bank/qb01-migration-source.test.ts` |
 | npm script | `test:question-bank-source` |
-| Assertions | prior package-14 checks + HOLD-15 security assertions (no GUC bypass, private internal publish, column revokes, lifecycle/pointer guards, validation, composite FK, GLOBAL-only capability, assigned grader scope, locked digest equality) |
-| Result | **25/25 PASS** |
+| Assertions | package-14 + HOLD-15 + 39B (no caller introspection, fingerprint idempotency, payload/child/snapshot immutability) |
+| Result | **27/27 PASS** (source); runtime 39B suite **22/22 PASS** ×2 fresh compiles |
 
 ## Independent Review 15 HOLD Closure
 
@@ -138,23 +137,50 @@ Closes `HOLD_QB_01_MIGRATION_SOURCE_INDEPENDENT_REVIEW_15`.
 | Area | Fix |
 |---|---|
 | Client-settable GUC | Removed entirely (no custom publish session setting remains in migration) |
-| Lifecycle enforcement | Trigger `qb_guard_question_revision_lifecycle` fail-closed; allows `PUBLISHED`/`SUPERSEDED` transitions only when `CURRENT_USER` owns `_qb_publish_question_revision_internal` |
-| Pointer enforcement | Trigger `qb_guard_current_published_revision_pointer`; non-NULL set and clearing existing pointer are RPC-only; validates same-question + `PUBLISHED` |
-| Column privileges | `REVOKE UPDATE(status, published_*, superseded_at, payload_hash*)` from authenticated/anon/service_role; selective draft-field `GRANT UPDATE` only; `REVOKE UPDATE(current_published_revision_id)` from client roles including service_role |
-| RLS policies | Replaced revisions `FOR ALL` with INSERT (`DRAFT` only) + UPDATE on non-published statuses; lifecycle columns still blocked by privileges |
-| Publish RPC | Public `publish_question_revision` (auth + capability + locks + idempotency) calls private `_qb_publish_question_revision_internal` |
-| Internal function protection | `REVOKE ALL … FROM PUBLIC`; **no** `GRANT EXECUTE` to authenticated/anon/service_role |
-| Publish validation | `_qb_validate_revision_for_publish`: SINGLE_CHOICE ≥2 options + exactly one correct; AUTO_TEXT accepted answers; MANUAL solution; media metadata when required |
-| Cross-session FK | `exam_session_answers(session_id, exam_session_question_id) → exam_session_questions(exam_session_id, id)`; practice composite FK likewise |
-| Capability scope | P0 helpers honor **GLOBAL + scope_id IS NULL** only; grant RPC rejects non-GLOBAL |
-| Grader response scope | Assigned-grader SELECT only (`assigned_grader_id = auth.uid()`); bare `GRADE_MANUAL_RESPONSE` no longer opens all responses |
+| Lifecycle enforcement | Trigger validates legal transitions + PUBLISHED/SUPERSEDED metadata; **no caller introspection** |
+| Pointer enforcement | Trigger validates same-question + `PUBLISHED` shape; client `UPDATE` of pointer column revoked |
+| Column privileges | `REVOKE UPDATE(status, published_*, superseded_at, payload_hash*)` from authenticated/anon/service_role; pointer column revoked likewise |
+| RLS policies | INSERT `DRAFT` only; UPDATE limited to `DRAFT`/`READY_FOR_REVIEW`/`REJECTED` (not `APPROVED`) |
+| Publish RPC | Single public `publish_question_revision` (auth.uid + capability + validation + locked updates + fingerprint idempotency + audit) |
+| Private executor | Removed (`DROP` legacy internal executor); validator EXECUTE revoked from anon/authenticated/service_role |
+| Payload immutability | Parent + children frozen at `APPROVED`/`PUBLISHED`/`SUPERSEDED` |
+| Snapshot immutability | Attempt snapshot payload UPDATE rejected after INSERT; DELETE/CASCADE cleanup retained |
+| Publish validation | `_qb_validate_revision_for_publish`: SINGLE_CHOICE / AUTO_TEXT / MANUAL / media rules |
+| Cross-session FK | Composite FKs on exam/practice answers |
+| Capability scope | P0 GLOBAL-only |
+| Grader response scope | Assigned-grader SELECT only |
 
 ### Why the mechanism is not client-bypassable
 
-- No custom GUC gate.
-- `_qb_is_internal_publish_executor` is **SECURITY INVOKER** so `CURRENT_USER` is the statement executor (the DEFINER owner of the private publish function during RPC), not a helper that always matches itself.
-- Clients cannot `SET ROLE` to the function owner; cannot `GRANT` themselves ownership; cannot `EXECUTE` the internal function via PostgREST.
-- Column privileges deny `UPDATE(status)` / `UPDATE(current_published_revision_id)` even for `service_role` table writes.
+- No custom GUC gate; no caller/owner/OID/name introspection in triggers.
+- Clients lack column privileges for lifecycle/pointer writes.
+- RLS blocks editor UPDATE of `APPROVED`/`PUBLISHED` revisions.
+- Payload/child/snapshot triggers reject mutations even from privileged writers that skip RLS (fail-closed invariants).
+- Public publish RPC derives actor solely from `auth.uid()`.
+
+## PUBLISH-INVARIANTS-39B — caller introspection removed + payload freeze
+
+### Supersedes package 39
+
+Package 39 attempted `to_regprocedure`/OID ownership allowlisting. That approach is **rejected**: PostgreSQL cannot reliably prove the calling function inside a trigger, and shared-owner SECURITY DEFINER would still share the allowlist. 39B removes caller introspection entirely.
+
+### Selected design
+
+```text
+authenticated → publish_question_revision
+  → auth.uid()
+  → capability
+  → request_fingerprint idempotency
+  → validate
+  → supersede prior / publish / set pointer
+  → audit
+```
+
+Triggers enforce **transition and data invariants only**.
+
+### Local evidence
+
+Recorded in package 39B verification (fresh compilation ×2, positive/negative runtime suite).
 
 ## Not executed / not included
 

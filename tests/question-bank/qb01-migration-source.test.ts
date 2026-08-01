@@ -118,10 +118,8 @@ test("published pointer FK and RPC-only lifecycle guards exist", () => {
   assert.match(sql, /DEFERRABLE\s+INITIALLY\s+DEFERRED/i);
   assert.match(sql, /qb_guard_question_revision_lifecycle/);
   assert.match(sql, /qb_guard_current_published_revision_pointer/);
-  assert.match(sql, /_qb_publish_question_revision_internal/);
   assert.match(sql, /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.publish_question_revision/i);
   assert.match(sql, /only APPROVED revisions may be published/);
-  // Old GUC-based helpers may appear only in DROP cleanup, not CREATE bodies
   assert.equal(
     /CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+public\.qb_enforce_published_/i.test(sql),
     false,
@@ -136,21 +134,66 @@ test("HOLD-15: no client-settable GUC publish bypass", () => {
   assert.equal(/current_setting\s*\(\s*'qb\./i.test(sql), false);
 });
 
-test("HOLD-15: internal publish function is private", () => {
+test("39B: caller introspection removed from security boundary", () => {
+  const sql = loadSql();
+  const executable = executableSql(sql);
+  assert.match(sql, /DROP FUNCTION IF EXISTS public\._qb_is_internal_publish_executor/i);
+  assert.match(sql, /DROP FUNCTION IF EXISTS public\._qb_publish_question_revision_internal/i);
+  assert.equal(
+    /CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+public\._qb_is_internal_publish_executor/i.test(sql),
+    false,
+  );
+  assert.equal(
+    /CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+public\._qb_publish_question_revision_internal/i.test(sql),
+    false,
+  );
+  assert.equal(/to_regprocedure\s*\(/i.test(executable), false);
+  assert.equal(/pg_get_function_identity_arguments\s*\(/i.test(executable), false);
+  assert.equal(/current_query\s*\(/i.test(executable), false);
+  assert.equal(/CURRENT_USER/i.test(executableSql(
+    (sql.match(/CREATE OR REPLACE FUNCTION public\.qb_guard_question_revision_lifecycle[\s\S]*?\$\$;/) || [""])[0],
+  )), false);
+  assert.equal(/CURRENT_USER/i.test(executableSql(
+    (sql.match(/CREATE OR REPLACE FUNCTION public\.qb_guard_current_published_revision_pointer[\s\S]*?\$\$;/) || [""])[0],
+  )), false);
+  assert.match(sql, /illegal revision status transition/i);
+  assert.match(sql, /payload fields of % revisions are immutable/i);
+});
+
+test("39B: public publish RPC is sole client entry; request fingerprint idempotency", () => {
   const sql = loadSql();
   assert.match(
     sql,
-    /REVOKE ALL ON FUNCTION public\._qb_publish_question_revision_internal\(uuid, uuid, uuid, text\) FROM PUBLIC/i,
+    /GRANT EXECUTE ON FUNCTION public\.publish_question_revision\(uuid, uuid, uuid, text\) TO authenticated/i,
   );
-  assert.equal(
-    /GRANT EXECUTE ON FUNCTION public\._qb_publish_question_revision_internal/i.test(sql),
-    false,
-    "internal publish must not be GRANTed",
-  );
+  assert.match(sql, /request_fingerprint text NOT NULL/i);
+  assert.match(sql, /idempotency key reused with different input/i);
+  assert.match(sql, /v_actor uuid := auth\.uid\(\)/);
+  assert.match(sql, /not authorized to publish question revisions/i);
+  assert.match(sql, /pg_advisory_xact_lock/i);
   assert.match(
     sql,
-    /_qb_is_internal_publish_executor[\s\S]{0,200}SECURITY INVOKER/i,
+    /REVOKE ALL ON FUNCTION public\._qb_validate_revision_for_publish\(uuid\)\s*FROM anon,\s*authenticated,\s*service_role/i,
   );
+});
+
+test("39B: approved/published payload and child immutability guards declared", () => {
+  const sql = loadSql();
+  assert.match(sql, /qb_guard_revision_children_immutable/);
+  assert.match(sql, /qb_guard_solution_steps_immutable/);
+  assert.match(sql, /trg_qb_options_immutable/);
+  assert.match(sql, /trg_qb_accepted_immutable/);
+  assert.match(sql, /trg_qb_solutions_immutable/);
+  assert.match(sql, /trg_qb_media_immutable/);
+  assert.match(sql, /qb_guard_attempt_snapshot_immutable/);
+  assert.match(sql, /attempt snapshot payload is immutable after creation/i);
+  // Editors must not UPDATE APPROVED via RLS
+  const updatePolicy = sql.match(
+    /CREATE POLICY qb_revisions_edit_update[\s\S]*?status IN \(([^)]+)\)/i,
+  );
+  assert.ok(updatePolicy, "edit_update policy missing");
+  assert.equal(/APPROVED/i.test(updatePolicy![1]), false);
+  assert.equal(/PUBLISHED/i.test(updatePolicy![1]), false);
 });
 
 test("HOLD-15: lifecycle and pointer column privileges revoked", () => {
@@ -264,8 +307,10 @@ test("expected schema objects are declared", () => {
     "retarget_question",
     "create_exam_session_with_snapshot",
     "create_practice_attempt_with_snapshot",
-    "_qb_publish_question_revision_internal",
+    "publish_question_revision",
     "_qb_validate_revision_for_publish",
+    "qb_guard_revision_children_immutable",
+    "qb_guard_attempt_snapshot_immutable",
   ];
   for (const name of required) {
     assert.ok(sql.includes(name), `missing object reference: ${name}`);
