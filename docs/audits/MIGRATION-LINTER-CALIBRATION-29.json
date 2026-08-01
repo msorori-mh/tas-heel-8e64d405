@@ -1,0 +1,801 @@
+{
+  "schemaVersion": 3,
+  "verifiedPrefix": "20260731120000",
+  "evidence": {
+    "schema_version": 1,
+    "evidence_type": "observed_local_fresh_replay",
+    "source_reports": [
+      "IMPORT_JOBS_BASELINE_LOCAL_REPLAY_VERIFY_21",
+      "CONTENT_STAFF_RBAC_STACKED_LOCAL_REPLAY_VERIFY_24",
+      "UNITS_POLICY_STACKED_LOCAL_REPLAY_VERIFY_27"
+    ],
+    "first_applied_migration": "20260606003616",
+    "last_confirmed_successful_migration": "20260731120000",
+    "former_first_unresolved_migration": "20260731180000",
+    "confirmed_blockers": [
+      {
+        "id": "import_jobs_duplicate",
+        "sqlstate": "42P07",
+        "object_type": "table",
+        "object": "public.import_jobs",
+        "status": "resolved"
+      },
+      {
+        "id": "content_staff_policy_duplicate",
+        "sqlstate": "42710",
+        "object_type": "policy",
+        "object": "public.grades|Content staff manage grades",
+        "status": "resolved"
+      },
+      {
+        "id": "units_policy_duplicate",
+        "sqlstate": "42710",
+        "object_type": "policy",
+        "object": "public.units|Units viewable per subject access",
+        "status": "resolved"
+      }
+    ],
+    "limitations": [
+      "Evidence is transcribed from prior disposable local replay reports.",
+      "This artifact does not replace SQL compilation.",
+      "Verified migration prefix disproves compilation blockers only, not security findings."
+    ],
+    "path": "C:\\projects\\tas-heel-8e64d405-migration-audit-28\\docs\\audits\\MIGRATION-REPLAY-EMPIRICAL-EVIDENCE-29.json",
+    "sha256": "b3db232f27b1c7729300b42ea5642b87c72640571ecf4243b25c275ffecd7eb3"
+  },
+  "calibrationSource": "CURRENT_PARSER_OUTPUT",
+  "historicalSnapshotUsedForDecisions": false,
+  "timestampOnlyDowngrade": false,
+  "currentParserFindingCount": 0,
+  "resolvedBlockers": [
+    {
+      "id": "RESOLVED_IMPORT_JOBS_DUPLICATE",
+      "status": "RESOLVED",
+      "migration": "20260628190000_import_jobs_foundation.sql",
+      "present": true
+    },
+    {
+      "id": "RESOLVED_CONTENT_STAFF_RBAC_DUPLICATE",
+      "status": "RESOLVED",
+      "migration": "20260703204450_5223b435-1a4d-44ab-ad03-ab3d9a8f4432.sql",
+      "present": true
+    },
+    {
+      "id": "RESOLVED_UNITS_POLICY_DUPLICATE",
+      "status": "RESOLVED",
+      "migration": "20260731180000_restrict_units_select_to_authenticated.sql",
+      "present": true
+    }
+  ],
+  "findings": [],
+  "externalDependencies": [
+    {
+      "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
+      "object": "auth.users",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
+      "object": "storage.objects",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "auth.users",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "cron.schedule",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "cron is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+      "object": "auth.role",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+      "object": "auth.users",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "object": "auth.users",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "object": "storage.foldername",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "object": "storage.objects",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
+      "object": "auth.users",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
+      "object": "storage.objects",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606175402_dc7889b1-ecd6-42e0-b351-9f1f3fffef14.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606175402_dc7889b1-ecd6-42e0-b351-9f1f3fffef14.sql",
+      "object": "auth.users",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606212639_85b7fae6-0a18-470c-8467-4630cd626dcf.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606212639_85b7fae6-0a18-470c-8467-4630cd626dcf.sql",
+      "object": "storage.objects",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260606231535_1e991ebe-7c6f-4570-9316-76829e5b8d30.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260607225920_2a8e6cb9-b82a-4886-abd4-f7c6f903b3af.sql",
+      "object": "storage.foldername",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260607225920_2a8e6cb9-b82a-4886-abd4-f7c6f903b3af.sql",
+      "object": "storage.objects",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260607234143_a6084a8b-78b7-4fdf-8b6c-7d36fe1d7f58.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260607234143_a6084a8b-78b7-4fdf-8b6c-7d36fe1d7f58.sql",
+      "object": "auth.users",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260614183507_2a2bc795-da9d-4e7a-bbc7-d59b869d3817.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260614183507_2a2bc795-da9d-4e7a-bbc7-d59b869d3817.sql",
+      "object": "storage.objects",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260614215738_b0660b60-e115-4db7-b301-42403ef4a4ef.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260614215738_b0660b60-e115-4db7-b301-42403ef4a4ef.sql",
+      "object": "storage.objects",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260622120000_phase01_security_fixes.sql",
+      "object": "extensions.dashboard_stats",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "extensions is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260623030305_af134642-7b95-4412-99e6-8b92434e6183.sql",
+      "object": "extensions.dashboard_stats",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "extensions is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260628171431_298a038b-a740-482a-9530-10cb6cb377e0.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260628171431_298a038b-a740-482a-9530-10cb6cb377e0.sql",
+      "object": "auth.users",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260703121000_content_manager_rbac_policies.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260703121000_content_manager_rbac_policies.sql",
+      "object": "storage.objects",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260704150000_wallet_topup_requests.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260704150000_wallet_topup_requests.sql",
+      "object": "auth.users",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260704150000_wallet_topup_requests.sql",
+      "object": "storage.objects",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
+      "object": "auth.users",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
+      "object": "storage.objects",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260705101800_admin_wallet_topup_receipt_storage_select.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260705101800_admin_wallet_topup_receipt_storage_select.sql",
+      "object": "storage.objects",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260705204247_48801e4d-8bee-4ebb-a55c-4253cb9bc3ad.sql",
+      "object": "auth.uid",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+    },
+    {
+      "migration": "20260705204247_48801e4d-8bee-4ebb-a55c-4253cb9bc3ad.sql",
+      "object": "storage.objects",
+      "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+      "confidence": "HIGH",
+      "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+    }
+  ],
+  "parserLimitations": [],
+  "securityFindings": [
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
+      "object": "public.grades|Grades are viewable by everyone",
+      "evidence": "CREATE POLICY \"Grades are viewable by everyone\" ON public.grades FOR SELECT USING (true)",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "HIGH",
+      "confidence": "MEDIUM",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
+      "object": "public.subjects|Subjects are viewable by everyone",
+      "evidence": "CREATE POLICY \"Subjects are viewable by everyone\" ON public.subjects FOR SELECT USING (true)",
+      "laterResolution": "dropped downstream",
+      "finalState": "DOWNSTREAM_RESOLVED",
+      "finalSeverity": "INFORMATIONAL",
+      "confidence": "HIGH",
+      "finalClassification": "DOWNSTREAM_RESOLVED"
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
+      "object": "public.questions|Questions viewable by authenticated",
+      "evidence": "CREATE POLICY \"Questions viewable by authenticated\" ON public.questions FOR SELECT TO authenticated USING (true)",
+      "laterResolution": "dropped downstream",
+      "finalState": "DOWNSTREAM_RESOLVED",
+      "finalSeverity": "INFORMATIONAL",
+      "confidence": "HIGH",
+      "finalClassification": "DOWNSTREAM_RESOLVED"
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "public.contact_submissions|Anyone can submit contact form",
+      "evidence": "CREATE POLICY \"Anyone can submit contact form\" ON public.contact_submissions FOR INSERT TO anon, authenticated WITH CHECK (true)",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "HIGH",
+      "confidence": "MEDIUM",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "HIGH",
+      "id": "SECURITY_DEFINER_WITHOUT_SEARCH_PATH",
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "public.enqueue_email(text,jsonb)",
+      "evidence": "CREATE OR REPLACE FUNCTION public.enqueue_email(queue_name TEXT, payload JSONB)\nRETURNS BIGINT LANGUAGE plpgsql SECURITY DEFINER AS $$\nBEGIN\n  RETURN pgmq.send(queue_name, payload);\nEXCEPTION WHEN undefined_table THEN\n  PERFORM pgmq.create(queue_name);\n  RETURN pgmq.send(queue_name, payload);\nEND;\n$$",
+      "laterResolution": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+      "finalState": "DOWNSTREAM_RESOLVED",
+      "finalSeverity": "INFORMATIONAL",
+      "confidence": "HIGH",
+      "finalClassification": "DOWNSTREAM_RESOLVED"
+    },
+    {
+      "severity": "HIGH",
+      "id": "SECURITY_DEFINER_WITHOUT_SEARCH_PATH",
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "public.read_email_batch(text,integer,integer)",
+      "evidence": "CREATE OR REPLACE FUNCTION public.read_email_batch(queue_name TEXT, batch_size INT, vt INT)\nRETURNS TABLE(msg_id BIGINT, read_ct INT, message JSONB) LANGUAGE plpgsql SECURITY DEFINER AS $$\nBEGIN\n  RETURN QUERY SELECT r.msg_id, r.read_ct, r.message FROM pgmq.read(queue_name, vt, batch_size) r;\nEXCEPTION WHEN undefined_table THEN\n  PERFORM pgmq.create(queue_name);\n  RETURN;\nEND;\n$$",
+      "laterResolution": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+      "finalState": "DOWNSTREAM_RESOLVED",
+      "finalSeverity": "INFORMATIONAL",
+      "confidence": "HIGH",
+      "finalClassification": "DOWNSTREAM_RESOLVED"
+    },
+    {
+      "severity": "HIGH",
+      "id": "SECURITY_DEFINER_WITHOUT_SEARCH_PATH",
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "public.delete_email(text,bigint)",
+      "evidence": "CREATE OR REPLACE FUNCTION public.delete_email(queue_name TEXT, message_id BIGINT)\nRETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER AS $$\nBEGIN\n  RETURN pgmq.delete(queue_name, message_id);\nEXCEPTION WHEN undefined_table THEN\n  RETURN FALSE;\nEND;\n$$",
+      "laterResolution": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+      "finalState": "DOWNSTREAM_RESOLVED",
+      "finalSeverity": "INFORMATIONAL",
+      "confidence": "HIGH",
+      "finalClassification": "DOWNSTREAM_RESOLVED"
+    },
+    {
+      "severity": "HIGH",
+      "id": "SECURITY_DEFINER_WITHOUT_SEARCH_PATH",
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "public.move_to_dlq(text,text,bigint,jsonb)",
+      "evidence": "CREATE OR REPLACE FUNCTION public.move_to_dlq(source_queue TEXT, dlq_name TEXT, message_id BIGINT, payload JSONB)\nRETURNS BIGINT LANGUAGE plpgsql SECURITY DEFINER AS $$\nDECLARE new_id BIGINT;\nBEGIN\n  SELECT pgmq.send(dlq_name, payload) INTO new_id;\n  PERFORM pgmq.delete(source_queue, message_id);\n  RETURN new_id;\nEXCEPTION WHEN undefined_table THEN\n  BEGIN PERFORM pgmq.create(dlq_name); EXCEPTION WHEN OTHERS THEN NULL; END;\n  SELECT pgmq.send(dlq_name, payload) INTO new_id;\n  BEGIN PERFORM pgmq.",
+      "laterResolution": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+      "finalState": "DOWNSTREAM_RESOLVED",
+      "finalSeverity": "INFORMATIONAL",
+      "confidence": "HIGH",
+      "finalClassification": "DOWNSTREAM_RESOLVED"
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+      "object": "public.badges|Badges viewable by everyone",
+      "evidence": "CREATE POLICY \"Badges viewable by everyone\" ON public.badges FOR SELECT TO public USING (true)",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "HIGH",
+      "confidence": "MEDIUM",
+      "finalClassification": "INTENTIONAL_PUBLIC_REFERENCE_DATA"
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+      "object": "public.lesson_comments|Anyone can view comments",
+      "evidence": "CREATE POLICY \"Anyone can view comments\" ON public.lesson_comments FOR SELECT TO authenticated USING (true)",
+      "laterResolution": "dropped downstream",
+      "finalState": "DOWNSTREAM_RESOLVED",
+      "finalSeverity": "INFORMATIONAL",
+      "confidence": "HIGH",
+      "finalClassification": "DOWNSTREAM_RESOLVED"
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+      "object": "public.ai_usage_logs|Service role can insert AI logs",
+      "evidence": "CREATE POLICY \"Service role can insert AI logs\" ON public.ai_usage_logs FOR INSERT TO public WITH CHECK (true)",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "INFORMATIONAL",
+      "confidence": "HIGH",
+      "finalClassification": "FALSE_POSITIVE"
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+      "object": "public.lesson_summaries|Anyone authenticated can view summaries",
+      "evidence": "CREATE POLICY \"Anyone authenticated can view summaries\" ON public.lesson_summaries FOR SELECT TO authenticated USING (true)",
+      "laterResolution": "dropped downstream",
+      "finalState": "DOWNSTREAM_RESOLVED",
+      "finalSeverity": "INFORMATIONAL",
+      "confidence": "HIGH",
+      "finalClassification": "DOWNSTREAM_RESOLVED"
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "object": "public.lesson_simulations|Simulations viewable by everyone",
+      "evidence": "CREATE POLICY \"Simulations viewable by everyone\" ON public.lesson_simulations FOR SELECT TO public USING (true)",
+      "laterResolution": "dropped downstream",
+      "finalState": "DOWNSTREAM_RESOLVED",
+      "finalSeverity": "INFORMATIONAL",
+      "confidence": "HIGH",
+      "finalClassification": "DOWNSTREAM_RESOLVED"
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "object": "public.curriculum_tracks|Tracks viewable by authenticated",
+      "evidence": "CREATE POLICY \"Tracks viewable by authenticated\" ON public.curriculum_tracks FOR SELECT TO authenticated USING (true)",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "HIGH",
+      "confidence": "MEDIUM",
+      "finalClassification": "INTENTIONAL_PUBLIC_REFERENCE_DATA"
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "object": "public.governorates|Governorates viewable by authenticated",
+      "evidence": "CREATE POLICY \"Governorates viewable by authenticated\" ON public.governorates FOR SELECT TO authenticated USING (true)",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "HIGH",
+      "confidence": "MEDIUM",
+      "finalClassification": "INTENTIONAL_PUBLIC_REFERENCE_DATA"
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "object": "public.governorate_curriculum_map|Map viewable by authenticated",
+      "evidence": "CREATE POLICY \"Map viewable by authenticated\" ON public.governorate_curriculum_map FOR SELECT TO authenticated USING (true)",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "HIGH",
+      "confidence": "MEDIUM",
+      "finalClassification": "INTENTIONAL_PUBLIC_REFERENCE_DATA"
+    },
+    {
+      "severity": "HIGH",
+      "id": "PERMISSIVE_TRUE_POLICY",
+      "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "object": "public.units|Units viewable by everyone",
+      "evidence": "CREATE POLICY \"Units viewable by everyone\" ON public.units FOR SELECT USING (true)",
+      "laterResolution": "dropped downstream",
+      "finalState": "DOWNSTREAM_RESOLVED",
+      "finalSeverity": "INFORMATIONAL",
+      "confidence": "HIGH",
+      "finalClassification": "DOWNSTREAM_RESOLVED"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
+      "object": "public.lessons|Paid lessons viewable by active subscribers",
+      "evidence": "CREATE POLICY \"Paid lessons viewable by active subscribers\" ON public.lessons FOR SELECT TO authenticated\nUSING (is_free = true OR public.has_active_subscription(auth.uid()) OR public.has_role(auth.uid(), 'admin'))",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "public.lessons|Paid lessons viewable by active subscribers",
+      "evidence": "CREATE POLICY \"Paid lessons viewable by active subscribers\" ON public.lessons FOR SELECT TO authenticated\nUSING (is_free = true OR is_first_lesson_in_subject(id) OR has_active_subscription(auth.uid()) OR has_role(auth.uid(), 'admin'::app_role))",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "RLS_TABLE_WITHOUT_SELECT_POLICY",
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "public.email_send_log",
+      "evidence": "RLS enabled without a statically visible SELECT/ALL policy.",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "RLS_TABLE_WITHOUT_SELECT_POLICY",
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "public.email_send_state",
+      "evidence": "RLS enabled without a statically visible SELECT/ALL policy.",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "RLS_TABLE_WITHOUT_SELECT_POLICY",
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "public.suppressed_emails",
+      "evidence": "RLS enabled without a statically visible SELECT/ALL policy.",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "RLS_TABLE_WITHOUT_SELECT_POLICY",
+      "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+      "object": "public.email_unsubscribe_tokens",
+      "evidence": "RLS enabled without a statically visible SELECT/ALL policy.",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "object": "storage.objects|Users can view own receipts",
+      "evidence": "CREATE POLICY \"Users can view own receipts\" ON storage.objects FOR SELECT TO authenticated\nUSING (bucket_id = 'receipts' AND (auth.uid()::text = (storage.foldername(name))[1] OR public.has_role(auth.uid(), 'admin'::public.app_role)))",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "object": "public.questions|Questions viewable per access",
+      "evidence": "CREATE POLICY \"Questions viewable per access\" ON public.questions FOR SELECT TO authenticated\nUSING (public.has_role(auth.uid(), 'admin'::app_role) OR (lesson_id IS NOT NULL AND public.can_access_lesson(lesson_id)) OR (lesson_id IS NULL AND subject_id IS NOT NULL AND public.can_access_subject(subject_id)))",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "object": "public.questions|Questions viewable per access",
+      "evidence": "CREATE POLICY \"Questions viewable per access\" ON public.questions FOR SELECT TO authenticated\nUSING (public.has_role(auth.uid(), 'admin'::app_role) OR (lesson_id IS NOT NULL AND public.can_access_lesson(lesson_id))\n  OR (lesson_id IS NULL AND subject_id IS NOT NULL AND public.can_access_subject(subject_id) AND public.user_can_access_subject_curriculum(subject_id)))",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
+      "object": "public.lesson_comments|Users with lesson access can view comments",
+      "evidence": "CREATE POLICY \"Users with lesson access can view comments\" ON public.lesson_comments FOR SELECT TO authenticated\nUSING (public.has_role(auth.uid(), 'admin'::app_role) OR public.can_access_lesson(lesson_id))",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
+      "object": "storage.objects|Students can read lesson media with lesson access",
+      "evidence": "CREATE POLICY \"Students can read lesson media with lesson access\" ON storage.objects FOR SELECT TO authenticated\nUSING (bucket_id IN ('lesson-pdfs', 'lesson-videos') AND (\n  public.has_role(auth.uid(), 'admin'::public.app_role)\n  OR EXISTS (SELECT 1 FROM public.lessons l WHERE public.can_access_lesson(l.id) AND (l.video_url LIKE '%/' || objects.name OR l.video_url LIKE '%' || objects.name OR l.content_pdf_url LIKE '%/' || objects.name OR l.content_pdf_url LIKE '%' || objects.name))\n  OR EXISTS (",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260607234143_a6084a8b-78b7-4fdf-8b6c-7d36fe1d7f58.sql",
+      "object": "public.exam_templates|Authenticated can read active templates",
+      "evidence": "CREATE POLICY \"Authenticated can read active templates\"\n  ON public.exam_templates FOR SELECT TO authenticated\n  USING (is_active = true OR public.has_role(auth.uid(), 'admin'::app_role))",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260607234143_a6084a8b-78b7-4fdf-8b6c-7d36fe1d7f58.sql",
+      "object": "public.exam_template_questions|Authenticated can read questions of active templates",
+      "evidence": "CREATE POLICY \"Authenticated can read questions of active templates\"\n  ON public.exam_template_questions FOR SELECT TO authenticated\n  USING (\n    public.has_role(auth.uid(), 'admin'::app_role)\n    OR EXISTS (SELECT 1 FROM public.exam_templates t WHERE t.id = template_id AND t.is_active = true)\n  )",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260614215738_b0660b60-e115-4db7-b301-42403ef4a4ef.sql",
+      "object": "storage.objects|Students can read lesson media with lesson access",
+      "evidence": "CREATE POLICY \"Students can read lesson media with lesson access\" ON storage.objects\n  FOR SELECT\n  TO authenticated\n  USING (\n    (bucket_id = ANY (ARRAY['lesson-pdfs'::text, 'lesson-videos'::text]))\n    AND (\n      has_role(auth.uid(), 'admin'::app_role)\n      OR EXISTS (\n        SELECT 1 FROM public.lessons l\n        WHERE can_access_lesson(l.id)\n          AND (\n            l.video_url LIKE ('%/' || objects.name)\n            OR l.content_pdf_url LIKE ('%/' || objects.name)\n          )\n      )",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260703121000_content_manager_rbac_policies.sql",
+      "object": "public.exam_templates|Authenticated can read active templates",
+      "evidence": "CREATE POLICY \"Authenticated can read active templates\"\n  ON public.exam_templates FOR SELECT TO authenticated\n  USING (is_active = true OR public.is_content_staff(auth.uid()))",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260703121000_content_manager_rbac_policies.sql",
+      "object": "public.exam_template_questions|Authenticated can read questions of active templates",
+      "evidence": "CREATE POLICY \"Authenticated can read questions of active templates\"\n  ON public.exam_template_questions FOR SELECT TO authenticated\n  USING (\n    public.is_content_staff(auth.uid())\n    OR EXISTS (\n      SELECT 1 FROM public.exam_templates t\n      WHERE t.id = template_id AND t.is_active = true\n    )\n  )",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "AUTH_UID_POTENTIALLY_OPEN_EXPRESSION",
+      "migration": "20260703121000_content_manager_rbac_policies.sql",
+      "object": "public.import_jobs|Content staff manage import jobs",
+      "evidence": "CREATE POLICY \"Content staff manage import jobs\"\n  ON public.import_jobs FOR ALL TO authenticated\n  USING (public.is_content_staff(auth.uid()))\n  WITH CHECK (\n    public.is_content_staff(auth.uid())\n    AND (\n      public.is_full_admin(auth.uid())\n      OR import_type <> 'config'\n    )\n  )",
+      "laterResolution": null,
+      "finalState": "ACTIVE_FINAL_STATE",
+      "finalSeverity": "MEDIUM",
+      "confidence": "HIGH",
+      "finalClassification": "NEEDS_PRODUCT_REVIEW"
+    }
+  ],
+  "actionablePostPrefixReplayRisks": [],
+  "postPrefixDecision": "NO_STATIC_POST_PREFIX_REPLAY_BLOCKER_IDENTIFIED"
+}
