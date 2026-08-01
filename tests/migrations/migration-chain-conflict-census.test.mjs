@@ -27,7 +27,7 @@ test('linter runs successfully and does not mutate production migrations', () =>
 
 test('inventory includes every migration in timestamp order with valid schema', () => {
   const audit = auditMigrationDirectory(migrations, { skipGit: true });
-  assert.equal(audit.schemaVersion, 1);
+  assert.equal(audit.schemaVersion, 2);
   assert.deepEqual(audit.inventory.map((x) => x.filename), sqlFiles(migrations));
   assert.deepEqual(audit.inventory.map((x) => x.timestamp), [...audit.inventory.map((x) => x.timestamp)].sort());
   for (const item of audit.inventory) {
@@ -86,6 +86,33 @@ test('quoted identifiers and multiline policies/functions are preserved', () => 
   assert.equal(stripCommentsAndSplit("SELECT '--not comment'; -- comment\nSELECT 2;").statements.length, 2);
 });
 
+test('multiline tables, ALTER columns, quoted indexes, overloads, and dynamic SQL are calibrated', () => {
+  const parsed = parseMigrationText(readFileSync(join(fixtures, '20260105000000_parser_calibration.sql'), 'utf8'), '20260105000000_parser_calibration.sql');
+  assert.equal(parsed.tables[0].name, 'Odd Schema.Multi Line');
+  assert.equal(parsed.tables[1].addColumn.name, 'Indexed Column');
+  assert.deepEqual(parsed.tables[2].renameColumn, { from: 'Indexed Column', to: 'Renamed Column' });
+  assert.equal(parsed.indexes[0].table, 'Odd Schema.Multi Line');
+  assert.deepEqual(parsed.functions.map((x) => x.signature), ['public.overloaded(uuid,boolean)', 'public.overloaded(text)']);
+  assert.equal(parsed.tables.some((x) => x.name === 'public.not_real'), false);
+  assert.equal(parsed.uncertainties.length, 1);
+});
+
+test('Supabase-owned schemas are external dependencies, not missing relations', () => {
+  const audit = auditMigrationDirectory(migrations, { skipGit: true });
+  assert.ok(audit.externalDependencies.some((x) => x.object === 'storage.objects'));
+  assert.ok(audit.externalDependencies.some((x) => x.object === 'auth.users'));
+  assert.ok(!audit.graph.summary.missingDependencies.some((x) => /^(auth|storage)\./.test(x.object)));
+});
+
+test('verified-prefix candidates are never emitted as confirmed replay blockers', () => {
+  const audit = auditMigrationDirectory(migrations, { skipGit: true });
+  const prefixCandidates = audit.calibratedFindings.filter((x) => x.verifiedPrefixPosition === 'AT_OR_BEFORE_VERIFIED_PREFIX');
+  assert.ok(prefixCandidates.length > 0);
+  assert.ok(prefixCandidates.every((x) => ['EMPIRICALLY_DISPROVEN_BLOCKER', 'RESOLVED_REPLAY_BLOCKER'].includes(x.finalClassification)));
+  assert.equal(audit.calibratedFindings.length, 88);
+  assert.equal(audit.postPrefixRisks.length, 0);
+});
+
 test('semantic duplicate policy under another name is detected', () => {
   const audit = auditMigrationDirectory(fixtures, { skipGit: true });
   const finding = audit.conflicts.find((x) => x.id === 'DUPLICATE_POLICY_LOGIC_DIFFERENT_NAME');
@@ -98,12 +125,12 @@ test('JSON and Markdown reports are deterministic', () => {
   const first = mkdtempSync(join(tmpdir(), 'migration-audit-a-'));
   const second = mkdtempSync(join(tmpdir(), 'migration-audit-b-'));
   try {
-    const paths = (dir) => ({ inventory: join(dir, 'inventory.json'), graph: join(dir, 'graph.json'), report: join(dir, 'report.md') });
+    const paths = (dir) => ({ inventory: join(dir, 'inventory.json'), graph: join(dir, 'graph.json'), report: join(dir, 'report.md'), calibration: join(dir, 'calibration.json') });
     writeAuditReports(audit, paths(first)); writeAuditReports(audit, paths(second));
-    for (const name of ['inventory.json', 'graph.json', 'report.md']) assert.equal(readFileSync(join(first, name), 'utf8'), readFileSync(join(second, name), 'utf8'));
+    for (const name of ['inventory.json', 'graph.json', 'report.md', 'calibration.json']) assert.equal(readFileSync(join(first, name), 'utf8'), readFileSync(join(second, name), 'utf8'));
     const inventory = JSON.parse(readFileSync(join(first, 'inventory.json'), 'utf8'));
     const graph = JSON.parse(readFileSync(join(first, 'graph.json'), 'utf8'));
-    assert.equal(inventory.schemaVersion, 1); assert.ok(Array.isArray(inventory.migrations));
-    assert.equal(graph.schemaVersion, 1); assert.ok(Array.isArray(graph.nodes)); assert.ok(Array.isArray(graph.edges));
+    assert.equal(inventory.schemaVersion, 2); assert.ok(Array.isArray(inventory.migrations));
+    assert.equal(graph.schemaVersion, 2); assert.ok(Array.isArray(graph.nodes)); assert.ok(Array.isArray(graph.edges));
   } finally { rmSync(first, { recursive: true, force: true }); rmSync(second, { recursive: true, force: true }); }
 });

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedBy": "scripts/audit-migration-chain.mjs",
   "nodes": [
     {
@@ -221,10 +221,10 @@
       "timestamp": "20260606004917",
       "commentsOnly": false,
       "creates": [
-        "function:public.get_report_monthly_data(12,null)",
-        "function:public.get_report_governorate_data(0,null)",
-        "function:public.get_report_school_data(0,null,15)",
-        "function:public.get_report_subscription_status(0,null)",
+        "function:public.get_report_monthly_data(integer,uuid)",
+        "function:public.get_report_governorate_data(integer,uuid)",
+        "function:public.get_report_school_data(integer,uuid,integer)",
+        "function:public.get_report_subscription_status(integer,uuid)",
         "function:public.get_report_grade_content()",
         "function:public.notify_admins_on_pending_payment()",
         "trigger:public.payment_requests|on_pending_payment_request",
@@ -315,8 +315,8 @@
         "function:public.prevent_wallet_tx_mutation()",
         "trigger:public.wallet_transactions|trg_wallet_tx_no_update",
         "trigger:public.wallet_transactions|trg_wallet_tx_no_delete",
-        "function:public.create_wallet_transaction(uuid,text,text,numeric,'yer',null,null,null,'{}'::jsonb)",
-        "function:public.ensure_wallet_account(uuid,'yer')",
+        "function:public.create_wallet_transaction(uuid,text,text,numeric,text,text,uuid,text,jsonb)",
+        "function:public.ensure_wallet_account(uuid,text)",
         "function:public.auto_create_wallet_for_profile()",
         "trigger:public.profiles|trg_profile_create_wallet",
         "policy:public.wallet_accounts|Users can view own wallet",
@@ -354,20 +354,20 @@
         "index:idx_audit_logs_target",
         "index:idx_audit_logs_created",
         "policy:public.audit_logs|Admins can view audit logs",
-        "function:public.write_audit_log(text,text,uuid,'{}'::jsonb)",
-        "function:public.reject_payment_request(uuid,null)",
+        "function:public.write_audit_log(text,text,uuid,jsonb)",
+        "function:public.reject_payment_request(uuid,text)",
         "index:uniq_wallet_tx_subscription_payment",
-        "function:public.approve_payment_request(uuid,null::text)",
-        "function:public.pay_subscription_from_wallet(uuid,null,null,null)",
+        "function:public.approve_payment_request(uuid,text)",
+        "function:public.pay_subscription_from_wallet(uuid,uuid,integer,text)",
         "index:uniq_wallet_tx_idempotency_key",
         "index:idx_wallet_tx_reverses",
         "index:uniq_wallet_tx_subscription_refund",
         "index:uniq_wallet_tx_payment_request_refund",
         "index:uniq_wallet_tx_external_refund",
         "index:uniq_wallet_tx_adjustment_idempotency",
-        "function:public.admin_adjust_wallet(uuid,numeric,text,text,null)",
+        "function:public.admin_adjust_wallet(uuid,numeric,text,text,text)",
         "index:uniq_wallet_tx_one_refund_per_subscription",
-        "function:public.admin_refund_subscription(uuid,null,null,true,null)",
+        "function:public.admin_refund_subscription(uuid,numeric,text,boolean,text)",
         "policy:storage.objects|Admins manage lesson files - select",
         "policy:storage.objects|Admins manage lesson files - insert",
         "policy:storage.objects|Admins manage lesson files - update",
@@ -377,11 +377,11 @@
         "policy:public.referrals|Users can insert valid referrals",
         "function:public.get_dashboard_stats()",
         "function:public.refresh_dashboard_stats()",
-        "function:public.get_report_subscription_status(0,null::uuid)",
+        "function:public.get_report_subscription_status(integer,uuid)",
         "function:public.get_report_grade_content()",
-        "function:public.get_report_monthly_data(12,null::uuid)",
-        "function:public.get_report_governorate_data(0,null::uuid)",
-        "function:public.get_report_school_data(0,null::uuid,15)",
+        "function:public.get_report_monthly_data(integer,uuid)",
+        "function:public.get_report_governorate_data(integer,uuid)",
+        "function:public.get_report_school_data(integer,uuid,integer)",
         "policy:storage.objects|Students can read lesson media with lesson access"
       ],
       "drops": [
@@ -627,7 +627,7 @@
       "creates": [
         "function:public.has_active_subscription(uuid)",
         "function:public.get_user_total_points(uuid)",
-        "function:public.ensure_wallet_account(uuid,'yer')"
+        "function:public.ensure_wallet_account(uuid,text)"
       ],
       "drops": []
     },
@@ -645,7 +645,7 @@
       "creates": [
         "function:public.has_active_subscription(uuid)",
         "function:public.get_user_total_points(uuid)",
-        "function:public.ensure_wallet_account(uuid,'yer')"
+        "function:public.ensure_wallet_account(uuid,text)"
       ],
       "drops": []
     },
@@ -792,8 +792,8 @@
         "trigger:public.wallet_topup_requests|trg_wallet_topup_requests_updated_at",
         "policy:public.wallet_topup_requests|Users can view own wallet topup requests",
         "policy:public.wallet_topup_requests|Admins can view all wallet topup requests",
-        "function:public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)",
-        "function:public.approve_wallet_topup_request(uuid,null)",
+        "function:public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)",
+        "function:public.approve_wallet_topup_request(uuid,text)",
         "function:public.reject_wallet_topup_request(uuid,text)",
         "policy:storage.objects|Users can delete own receipts when not under review",
         "policy:storage.objects|Users can update own receipts when not submitted"
@@ -822,8 +822,8 @@
         "trigger:public.wallet_topup_requests|trg_wallet_topup_requests_updated_at",
         "policy:public.wallet_topup_requests|Users can view own wallet topup requests",
         "policy:public.wallet_topup_requests|Admins can view all wallet topup requests",
-        "function:public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)",
-        "function:public.approve_wallet_topup_request(uuid,null)",
+        "function:public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)",
+        "function:public.approve_wallet_topup_request(uuid,text)",
         "function:public.reject_wallet_topup_request(uuid,text)",
         "policy:storage.objects|Users can delete own receipts when not under review",
         "policy:storage.objects|Users can update own receipts when not submitted"
@@ -852,7 +852,7 @@
       "timestamp": "20260705113000",
       "commentsOnly": false,
       "creates": [
-        "function:public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)"
+        "function:public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)"
       ],
       "drops": []
     },
@@ -883,7 +883,7 @@
       "timestamp": "20260705235147",
       "commentsOnly": false,
       "creates": [
-        "function:public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)"
+        "function:public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)"
       ],
       "drops": []
     },
@@ -3768,15 +3768,15 @@
     },
     {
       "from": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
-      "to": "object:function:public.create_wallet_transaction(uuid,text,text,numeric,'yer',null,null,null,'{}'::jsonb)",
+      "to": "object:function:public.create_wallet_transaction(uuid,text,text,numeric,text,text,uuid,text,jsonb)",
       "kind": "creates",
-      "object": "public.create_wallet_transaction(uuid,text,text,numeric,'yer',null,null,null,'{}'::jsonb)"
+      "object": "public.create_wallet_transaction(uuid,text,text,numeric,text,text,uuid,text,jsonb)"
     },
     {
       "from": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
-      "to": "object:function:public.ensure_wallet_account(uuid,'yer')",
+      "to": "object:function:public.ensure_wallet_account(uuid,text)",
       "kind": "creates",
-      "object": "public.ensure_wallet_account(uuid,'yer')"
+      "object": "public.ensure_wallet_account(uuid,text)"
     },
     {
       "from": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
@@ -3792,9 +3792,9 @@
     },
     {
       "from": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
-      "to": "object:function:public.get_report_governorate_data(0,null)",
+      "to": "object:function:public.get_report_governorate_data(integer,uuid)",
       "kind": "creates",
-      "object": "public.get_report_governorate_data(0,null)"
+      "object": "public.get_report_governorate_data(integer,uuid)"
     },
     {
       "from": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
@@ -3804,21 +3804,21 @@
     },
     {
       "from": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
-      "to": "object:function:public.get_report_monthly_data(12,null)",
+      "to": "object:function:public.get_report_monthly_data(integer,uuid)",
       "kind": "creates",
-      "object": "public.get_report_monthly_data(12,null)"
+      "object": "public.get_report_monthly_data(integer,uuid)"
     },
     {
       "from": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
-      "to": "object:function:public.get_report_school_data(0,null,15)",
+      "to": "object:function:public.get_report_school_data(integer,uuid,integer)",
       "kind": "creates",
-      "object": "public.get_report_school_data(0,null,15)"
+      "object": "public.get_report_school_data(integer,uuid,integer)"
     },
     {
       "from": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
-      "to": "object:function:public.get_report_subscription_status(0,null)",
+      "to": "object:function:public.get_report_subscription_status(integer,uuid)",
       "kind": "creates",
-      "object": "public.get_report_subscription_status(0,null)"
+      "object": "public.get_report_subscription_status(integer,uuid)"
     },
     {
       "from": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
@@ -5048,7 +5048,31 @@
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
       "to": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
       "kind": "replaces",
+      "object": "public.get_report_governorate_data(integer,uuid)"
+    },
+    {
+      "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
+      "to": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "kind": "replaces",
       "object": "public.get_report_grade_content()"
+    },
+    {
+      "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
+      "to": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "kind": "replaces",
+      "object": "public.get_report_monthly_data(integer,uuid)"
+    },
+    {
+      "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
+      "to": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "kind": "replaces",
+      "object": "public.get_report_school_data(integer,uuid,integer)"
+    },
+    {
+      "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
+      "to": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+      "kind": "replaces",
+      "object": "public.get_report_subscription_status(integer,uuid)"
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
@@ -5208,21 +5232,21 @@
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-      "to": "object:function:public.admin_adjust_wallet(uuid,numeric,text,text,null)",
+      "to": "object:function:public.admin_adjust_wallet(uuid,numeric,text,text,text)",
       "kind": "creates",
-      "object": "public.admin_adjust_wallet(uuid,numeric,text,text,null)"
+      "object": "public.admin_adjust_wallet(uuid,numeric,text,text,text)"
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-      "to": "object:function:public.admin_refund_subscription(uuid,null,null,true,null)",
+      "to": "object:function:public.admin_refund_subscription(uuid,numeric,text,boolean,text)",
       "kind": "creates",
-      "object": "public.admin_refund_subscription(uuid,null,null,true,null)"
+      "object": "public.admin_refund_subscription(uuid,numeric,text,boolean,text)"
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-      "to": "object:function:public.approve_payment_request(uuid,null::text)",
+      "to": "object:function:public.approve_payment_request(uuid,text)",
       "kind": "creates",
-      "object": "public.approve_payment_request(uuid,null::text)"
+      "object": "public.approve_payment_request(uuid,text)"
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
@@ -5256,9 +5280,9 @@
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-      "to": "object:function:public.get_report_governorate_data(0,null::uuid)",
+      "to": "object:function:public.get_report_governorate_data(integer,uuid)",
       "kind": "creates",
-      "object": "public.get_report_governorate_data(0,null::uuid)"
+      "object": "public.get_report_governorate_data(integer,uuid)"
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
@@ -5268,21 +5292,21 @@
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-      "to": "object:function:public.get_report_monthly_data(12,null::uuid)",
+      "to": "object:function:public.get_report_monthly_data(integer,uuid)",
       "kind": "creates",
-      "object": "public.get_report_monthly_data(12,null::uuid)"
+      "object": "public.get_report_monthly_data(integer,uuid)"
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-      "to": "object:function:public.get_report_school_data(0,null::uuid,15)",
+      "to": "object:function:public.get_report_school_data(integer,uuid,integer)",
       "kind": "creates",
-      "object": "public.get_report_school_data(0,null::uuid,15)"
+      "object": "public.get_report_school_data(integer,uuid,integer)"
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-      "to": "object:function:public.get_report_subscription_status(0,null::uuid)",
+      "to": "object:function:public.get_report_subscription_status(integer,uuid)",
       "kind": "creates",
-      "object": "public.get_report_subscription_status(0,null::uuid)"
+      "object": "public.get_report_subscription_status(integer,uuid)"
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
@@ -5334,9 +5358,9 @@
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-      "to": "object:function:public.pay_subscription_from_wallet(uuid,null,null,null)",
+      "to": "object:function:public.pay_subscription_from_wallet(uuid,uuid,integer,text)",
       "kind": "creates",
-      "object": "public.pay_subscription_from_wallet(uuid,null,null,null)"
+      "object": "public.pay_subscription_from_wallet(uuid,uuid,integer,text)"
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
@@ -5346,15 +5370,15 @@
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-      "to": "object:function:public.reject_payment_request(uuid,null)",
+      "to": "object:function:public.reject_payment_request(uuid,text)",
       "kind": "creates",
-      "object": "public.reject_payment_request(uuid,null)"
+      "object": "public.reject_payment_request(uuid,text)"
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-      "to": "object:function:public.write_audit_log(text,text,uuid,'{}'::jsonb)",
+      "to": "object:function:public.write_audit_log(text,text,uuid,jsonb)",
       "kind": "creates",
-      "object": "public.write_audit_log(text,text,uuid,'{}'::jsonb)"
+      "object": "public.write_audit_log(text,text,uuid,jsonb)"
     },
     {
       "from": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
@@ -6944,7 +6968,7 @@
       "from": "20260622120001_phase01_rpc_hardening.sql",
       "to": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
       "kind": "replaces",
-      "object": "public.ensure_wallet_account(uuid,'yer')"
+      "object": "public.ensure_wallet_account(uuid,text)"
     },
     {
       "from": "20260622120001_phase01_rpc_hardening.sql",
@@ -7002,9 +7026,9 @@
     },
     {
       "from": "20260622120001_phase01_rpc_hardening.sql",
-      "to": "object:function:public.ensure_wallet_account(uuid,'yer')",
+      "to": "object:function:public.ensure_wallet_account(uuid,text)",
       "kind": "creates",
-      "object": "public.ensure_wallet_account(uuid,'yer')"
+      "object": "public.ensure_wallet_account(uuid,text)"
     },
     {
       "from": "20260622120001_phase01_rpc_hardening.sql",
@@ -7046,7 +7070,7 @@
       "from": "20260623030305_af134642-7b95-4412-99e6-8b92434e6183.sql",
       "to": "20260622120001_phase01_rpc_hardening.sql",
       "kind": "replaces",
-      "object": "public.ensure_wallet_account(uuid,'yer')"
+      "object": "public.ensure_wallet_account(uuid,text)"
     },
     {
       "from": "20260623030305_af134642-7b95-4412-99e6-8b92434e6183.sql",
@@ -7158,9 +7182,9 @@
     },
     {
       "from": "20260623030305_af134642-7b95-4412-99e6-8b92434e6183.sql",
-      "to": "object:function:public.ensure_wallet_account(uuid,'yer')",
+      "to": "object:function:public.ensure_wallet_account(uuid,text)",
       "kind": "creates",
-      "object": "public.ensure_wallet_account(uuid,'yer')"
+      "object": "public.ensure_wallet_account(uuid,text)"
     },
     {
       "from": "20260623030305_af134642-7b95-4412-99e6-8b92434e6183.sql",
@@ -8358,15 +8382,15 @@
     },
     {
       "from": "20260704150000_wallet_topup_requests.sql",
-      "to": "object:function:public.approve_wallet_topup_request(uuid,null)",
+      "to": "object:function:public.approve_wallet_topup_request(uuid,text)",
       "kind": "creates",
-      "object": "public.approve_wallet_topup_request(uuid,null)"
+      "object": "public.approve_wallet_topup_request(uuid,text)"
     },
     {
       "from": "20260704150000_wallet_topup_requests.sql",
-      "to": "object:function:public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)",
+      "to": "object:function:public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)",
       "kind": "creates",
-      "object": "public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)"
+      "object": "public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)"
     },
     {
       "from": "20260704150000_wallet_topup_requests.sql",
@@ -8582,13 +8606,13 @@
       "from": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
       "to": "20260704150000_wallet_topup_requests.sql",
       "kind": "replaces",
-      "object": "public.approve_wallet_topup_request(uuid,null)"
+      "object": "public.approve_wallet_topup_request(uuid,text)"
     },
     {
       "from": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
       "to": "20260704150000_wallet_topup_requests.sql",
       "kind": "replaces",
-      "object": "public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)"
+      "object": "public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)"
     },
     {
       "from": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
@@ -8664,15 +8688,15 @@
     },
     {
       "from": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
-      "to": "object:function:public.approve_wallet_topup_request(uuid,null)",
+      "to": "object:function:public.approve_wallet_topup_request(uuid,text)",
       "kind": "creates",
-      "object": "public.approve_wallet_topup_request(uuid,null)"
+      "object": "public.approve_wallet_topup_request(uuid,text)"
     },
     {
       "from": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
-      "to": "object:function:public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)",
+      "to": "object:function:public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)",
       "kind": "creates",
-      "object": "public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)"
+      "object": "public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)"
     },
     {
       "from": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
@@ -8888,7 +8912,7 @@
       "from": "20260705113000_wallet_topup_payment_date_validation.sql",
       "to": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
       "kind": "replaces",
-      "object": "public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)"
+      "object": "public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)"
     },
     {
       "from": "20260705113000_wallet_topup_payment_date_validation.sql",
@@ -8904,9 +8928,9 @@
     },
     {
       "from": "20260705113000_wallet_topup_payment_date_validation.sql",
-      "to": "object:function:public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)",
+      "to": "object:function:public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)",
       "kind": "creates",
-      "object": "public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)"
+      "object": "public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)"
     },
     {
       "from": "20260705160000_free_access_student_content_gates.sql",
@@ -9002,7 +9026,7 @@
       "from": "20260705235147_04a0df9a-ec9d-4208-b641-280619e4aa46.sql",
       "to": "20260705113000_wallet_topup_payment_date_validation.sql",
       "kind": "replaces",
-      "object": "public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)"
+      "object": "public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)"
     },
     {
       "from": "20260705235147_04a0df9a-ec9d-4208-b641-280619e4aa46.sql",
@@ -9018,9 +9042,9 @@
     },
     {
       "from": "20260705235147_04a0df9a-ec9d-4208-b641-280619e4aa46.sql",
-      "to": "object:function:public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)",
+      "to": "object:function:public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)",
       "kind": "creates",
-      "object": "public.create_wallet_topup_request(uuid,numeric,text,'yer',null,null,null,null,null)"
+      "object": "public.create_wallet_topup_request(uuid,numeric,text,text,text,text,text,date,text)"
     },
     {
       "from": "20260719204006_6e612827-6040-4c8c-9c09-bea5554b5cea.sql",
@@ -9265,200 +9289,460 @@
   ],
   "summary": {
     "cycles": [],
-    "missingDependencies": [
+    "missingDependencies": [],
+    "orderingRisks": [],
+    "timestampCollisions": [],
+    "lovableResyncCandidates": [],
+    "externalDependencies": [
       {
         "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
+        "object": "auth.users",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
         "object": "storage.objects",
-        "kind": "policy-table"
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+        "object": "auth.role",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+        "object": "auth.users",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+        "object": "cron.schedule",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "cron is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+        "object": "net.http_post",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "net is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260606004257_79e8e87c-d0a5-4f61-8ef1-ca79f2343cc8.sql",
+        "object": "vault.decrypted_secrets",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "vault is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+        "object": "auth.role",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+        "object": "auth.users",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260606004422_29190c16-119e-4b16-aeaf-91337912dd09.sql",
+        "object": "extensions.dashboard_stats",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "extensions is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+        "object": "auth.users",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
+        "object": "storage.foldername",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
         "object": "storage.objects",
-        "kind": "policy-table"
-      },
-      {
-        "migration": "20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-        "object": "auth.users(id)",
-        "kind": "foreign-key"
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-        "object": "auth.users(id)",
-        "kind": "foreign-key"
+        "object": "auth.users",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-        "object": "auth.users(id)",
-        "kind": "foreign-key"
-      },
-      {
-        "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "object": "extensions.dashboard_stats",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "extensions is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
         "object": "storage.objects",
-        "kind": "policy-table"
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260606172150_54d1bfb5-16c2-4d06-8cdd-03449165af63.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260606175402_dc7889b1-ecd6-42e0-b351-9f1f3fffef14.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260606005147_ab90ad0c-c166-4251-b9c2-b0aae8c881c6.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260606175402_dc7889b1-ecd6-42e0-b351-9f1f3fffef14.sql",
+        "object": "auth.users",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260606180707_191e9932-5cef-41e1-b548-afc6be3a158c.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260606212639_85b7fae6-0a18-470c-8467-4630cd626dcf.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260606212639_85b7fae6-0a18-470c-8467-4630cd626dcf.sql",
         "object": "storage.objects",
-        "kind": "policy-table"
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260606212639_85b7fae6-0a18-470c-8467-4630cd626dcf.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260606231535_1e991ebe-7c6f-4570-9316-76829e5b8d30.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260607225920_2a8e6cb9-b82a-4886-abd4-f7c6f903b3af.sql",
+        "object": "storage.foldername",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260607225920_2a8e6cb9-b82a-4886-abd4-f7c6f903b3af.sql",
         "object": "storage.objects",
-        "kind": "policy-table"
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260607234143_a6084a8b-78b7-4fdf-8b6c-7d36fe1d7f58.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260607234143_a6084a8b-78b7-4fdf-8b6c-7d36fe1d7f58.sql",
+        "object": "auth.users",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260608000727_d9fb7845-f9ad-44f7-8009-416518545f69.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260610005557_8b05fd17-d764-4509-bffe-a678183b85e3.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260614183507_2a2bc795-da9d-4e7a-bbc7-d59b869d3817.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260614183507_2a2bc795-da9d-4e7a-bbc7-d59b869d3817.sql",
         "object": "storage.objects",
-        "kind": "policy-table"
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260614183507_2a2bc795-da9d-4e7a-bbc7-d59b869d3817.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
-      },
-      {
-        "migration": "20260614183507_2a2bc795-da9d-4e7a-bbc7-d59b869d3817.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
-      },
-      {
-        "migration": "20260614183507_2a2bc795-da9d-4e7a-bbc7-d59b869d3817.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260614215738_b0660b60-e115-4db7-b301-42403ef4a4ef.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260614215738_b0660b60-e115-4db7-b301-42403ef4a4ef.sql",
         "object": "storage.objects",
-        "kind": "policy-table"
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260622120000_phase01_security_fixes.sql",
+        "object": "extensions.dashboard_stats",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "extensions is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260622120001_phase01_rpc_hardening.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260623030305_af134642-7b95-4412-99e6-8b92434e6183.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260623030305_af134642-7b95-4412-99e6-8b92434e6183.sql",
+        "object": "extensions.dashboard_stats",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "extensions is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260626061947_14ffc7c4-40ba-433d-8e60-228827d7ddd0.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260626120000_c02_start_exam_session_gate.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260628171431_298a038b-a740-482a-9530-10cb6cb377e0.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260628171431_298a038b-a740-482a-9530-10cb6cb377e0.sql",
+        "object": "auth.users",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260703121000_content_manager_rbac_policies.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260703121000_content_manager_rbac_policies.sql",
         "object": "storage.objects",
-        "kind": "policy-table"
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260703121000_content_manager_rbac_policies.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260704150000_wallet_topup_requests.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260703121000_content_manager_rbac_policies.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
-      },
-      {
-        "migration": "20260703121000_content_manager_rbac_policies.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260704150000_wallet_topup_requests.sql",
+        "object": "auth.users",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260704150000_wallet_topup_requests.sql",
         "object": "storage.objects",
-        "kind": "policy-table"
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260704150000_wallet_topup_requests.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
+        "object": "auth.users",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
         "object": "storage.objects",
-        "kind": "policy-table"
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
-        "migration": "20260705020909_454bd8d4-8d41-4b5f-9263-e4b82c212de2.sql",
-        "object": "storage.objects",
-        "kind": "policy-table"
+        "migration": "20260705101800_admin_wallet_topup_receipt_storage_select.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260705101800_admin_wallet_topup_receipt_storage_select.sql",
         "object": "storage.objects",
-        "kind": "policy-table"
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260705113000_wallet_topup_payment_date_validation.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260705160000_free_access_student_content_gates.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260705204247_48801e4d-8bee-4ebb-a55c-4253cb9bc3ad.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       },
       {
         "migration": "20260705204247_48801e4d-8bee-4ebb-a55c-4253cb9bc3ad.sql",
         "object": "storage.objects",
-        "kind": "policy-table"
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "storage is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260705235147_04a0df9a-ec9d-4208-b641-280619e4aa46.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260719204006_6e612827-6040-4c8c-9c09-bea5554b5cea.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260720120000_free_access_content_gates_security_hardening.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
+      },
+      {
+        "migration": "20260720214619_ced976cd-9745-4f81-94c7-6aa2134b8fd8.sql",
+        "object": "auth.uid",
+        "finalClassification": "EXTERNAL_SCHEMA_DEPENDENCY",
+        "confidence": "HIGH",
+        "evidence": "auth is provided by the Supabase platform and is not expected to be created by project migrations."
       }
     ],
-    "orderingRisks": [],
-    "timestampCollisions": [],
-    "lovableResyncCandidates": []
+    "verifiedPrefix": "20260731120000"
   }
 }

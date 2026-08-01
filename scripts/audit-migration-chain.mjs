@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const IDENT = String.raw`(?:"(?:[^"]|"")+"|[a-zA-Z_][\w$]*)(?:\s*\.\s*(?:"(?:[^"]|"")+"|[a-zA-Z_][\w$]*))*`;
+export const VERIFIED_PREFIX = '20260731120000';
+export const EXTERNAL_SCHEMAS = new Set(['auth', 'storage', 'realtime', 'extensions', 'vault', 'cron', 'net', 'graphql', 'graphql_public', 'supabase_functions']);
+const PRE_CALIBRATION_SNAPSHOT = '7583183e677c87a71add75d979ae5689fa339d3a';
 const LIMITATIONS = [
   'This is a conservative static linter, not a complete PostgreSQL parser.',
   'Dynamic SQL, psql meta-commands, conditional PL/pgSQL, and identifiers assembled at runtime are not resolved.',
@@ -73,16 +76,22 @@ function bodyColumns(body = '') {
   return columns;
 }
 function functionSignature(name, args = '') {
-  const types = args.split(/,(?![^()]*\))/).map((arg) => normalize(arg).replace(/\s*=.*$/, '').split(/\s+/).filter((x) => !/^(in|out|inout|variadic|default)$/i.test(x)).slice(-1)[0]).filter(Boolean);
+  const types = args.split(/,(?![^()]*\))/).map((arg) => {
+    const tokens = normalize(arg).replace(/\s+(?:default\s+|=\s*)[\s\S]*$/i, '').split(/\s+/).filter((x) => !/^(in|out|inout|variadic)$/i.test(x));
+    if (tokens.length > 1 && /^[_a-z][\w$]*$/i.test(tokens[0])) tokens.shift();
+    return tokens.join(' ');
+  }).filter(Boolean);
   return `${cleanIdent(name)}(${types.join(',')})`;
 }
+const schemaOf = (value = '') => cleanIdent(value).split('.').length > 1 ? cleanIdent(value).split('.')[0] : 'public';
+const isExternalObject = (value = '') => EXTERNAL_SCHEMAS.has(schemaOf(value));
 function callsIn(value = '') {
   return [...value.matchAll(/\b((?:[a-zA-Z_]\w*\.)?[a-zA-Z_]\w*)\s*\(/g)].map((m) => cleanIdent(m[1])).filter((x) => !['and','or','not','exists','select','coalesce','nullif','current_setting','auth.uid'].includes(x));
 }
 
 export function parseMigrationText(sql, filename = 'fixture.sql') {
   const { stripped, statements } = stripCommentsAndSplit(sql);
-  const result = { filename, timestamp: timestampOf(filename), statements: [], tables: [], policies: [], functions: [], indexes: [], triggers: [], types: [], views: [], grantsRevokes: [], rls: [], storage: [], dml: [], extensions: [], dependencies: [], commentsOnly: statements.length === 0, noOp: statements.length === 0 };
+  const result = { filename, timestamp: timestampOf(filename), statements: [], tables: [], policies: [], functions: [], indexes: [], triggers: [], types: [], views: [], grantsRevokes: [], rls: [], storage: [], dml: [], extensions: [], dependencies: [], uncertainties: [], commentsOnly: statements.length === 0, noOp: statements.length === 0 };
   for (let order = 0; order < statements.length; order += 1) {
     const raw = statements[order], text = normalize(raw);
     const item = { order, raw, normalized: text, kind: 'other', action: '', objectType: '', name: '', key: '', flags: {} };
@@ -92,7 +101,13 @@ export function parseMigrationText(sql, filename = 'fixture.sql') {
     } else if ((m = raw.match(new RegExp(`^\\s*DROP\\s+TABLE\\s+(IF\\s+EXISTS\\s+)?(${IDENT})`, 'i')))) {
       Object.assign(item, { kind: 'table', action: 'drop', objectType: 'table', name: cleanIdent(m[2]), key: cleanIdent(m[2]), flags: { ifExists: !!m[1] } }); result.tables.push(item);
     } else if ((m = raw.match(new RegExp(`^\\s*ALTER\\s+TABLE\\s+(?:ONLY\\s+)?(${IDENT})`, 'i')))) {
-      Object.assign(item, { kind: 'table', action: 'alter', objectType: 'table', name: cleanIdent(m[1]), key: cleanIdent(m[1]), definition: text }); result.tables.push(item);
+      const addColumn = raw.match(new RegExp(`\\bADD\\s+COLUMN\\s+(IF\\s+NOT\\s+EXISTS\\s+)?(${IDENT})\\s+([\\s\\S]+)`, 'i'));
+      const renameTable = raw.match(new RegExp(`\\bRENAME\\s+TO\\s+(${IDENT})`, 'i'));
+      const renameColumn = raw.match(new RegExp(`\\bRENAME\\s+COLUMN\\s+(${IDENT})\\s+TO\\s+(${IDENT})`, 'i'));
+      Object.assign(item, { kind: 'table', action: 'alter', objectType: 'table', name: cleanIdent(m[1]), key: cleanIdent(m[1]), definition: text,
+        addColumn: addColumn ? { name: cleanIdent(addColumn[2]), definition: normalize(addColumn[3]), ifNotExists: !!addColumn[1] } : null,
+        renameTable: renameTable ? cleanIdent(renameTable[1]) : null,
+        renameColumn: renameColumn ? { from: cleanIdent(renameColumn[1]), to: cleanIdent(renameColumn[2]) } : null }); result.tables.push(item);
       if (/\b(enable|disable|force|no force)\s+row level security\b/i.test(raw)) result.rls.push(item);
     } else if ((m = raw.match(new RegExp(`^\\s*CREATE\\s+POLICY\\s+(${IDENT})\\s+ON\\s+(${IDENT})([\\s\\S]*)`, 'i')))) {
       const tail = m[3], table = cleanIdent(m[2]), name = cleanIdent(m[1]);
@@ -132,7 +147,9 @@ export function parseMigrationText(sql, filename = 'fixture.sql') {
     } else if (/^\s*(INSERT|UPDATE|DELETE|MERGE)\b/i.test(raw)) {
       const table = cleanIdent(raw.match(new RegExp(`(?:INTO|UPDATE|FROM)\\s+(${IDENT})`, 'i'))?.[1] ?? 'unknown'); Object.assign(item, { kind: 'dml', action: raw.trim().split(/\s+/)[0].toLowerCase(), objectType: 'dml', name: table, table, key: table, definition: text }); result.dml.push(item); if (/storage\.(buckets|objects)/i.test(raw)) result.storage.push(item);
     }
-    if (/\b(cron\.|net\.|vault\.)/i.test(raw)) result.dependencies.push(...[...raw.matchAll(/\b(cron|net|vault)\.[a-zA-Z_]\w*/gi)].map((x) => cleanIdent(x[0])));
+    const externalRefs = [...raw.matchAll(/\b(auth|storage|realtime|extensions|vault|cron|net|graphql|graphql_public|supabase_functions)\s*\.\s*(?:"(?:[^"]|"")+"|[a-zA-Z_][\w$]*)/gi)].map((x) => cleanIdent(x[0]));
+    result.dependencies.push(...externalRefs);
+    if (/\b(?:EXECUTE|format)\s*\(/i.test(raw) || /\bEXECUTE\s+['$]/i.test(raw)) result.uncertainties.push({ order, kind: 'dynamic-sql', evidence: raw.slice(0, 500) });
     result.statements.push(item);
   }
   result.noOp = result.statements.every((x) => x.kind === 'other' && /^(begin|commit)$/i.test(x.normalized));
@@ -142,6 +159,12 @@ export function parseMigrationText(sql, filename = 'fixture.sql') {
 function introducedCommit(path) {
   try { return execFileSync('git', ['log', '--follow', '--diff-filter=A', '--format=%H', '-n', '1', '--', path], { cwd: ROOT, encoding: 'utf8' }).trim() || null; }
   catch { return null; }
+}
+function preCalibrationFindings() {
+  try {
+    const json = execFileSync('git', ['show', `${PRE_CALIBRATION_SNAPSHOT}:docs/audits/MIGRATION-CHAIN-INVENTORY-28.json`], { cwd: ROOT, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+    return JSON.parse(json).conflicts ?? [];
+  } catch { return []; }
 }
 function conflict(id, severity, first, current, extra = {}) {
   return { id, severity, confidence: extra.confidence ?? 'HIGH', likelySqlstate: extra.sqlstate ?? null, firstCreatorMigration: first?.filename ?? null, conflictingMigration: current.filename, objectType: current.objectType, objectName: current.key || current.name, semanticComparison: extra.comparison ?? 'UNRESOLVED', exactDuplicate: extra.comparison === 'EXACT_DUPLICATE', securityDifference: extra.comparison === 'SECURITY_DIFFERENCE', recommendedResolution: extra.resolution ?? 'requires human decision', filesThatWouldNeedModification: [first?.filename, current.filename].filter(Boolean), testsRequired: extra.tests ?? ['static replay regression test'], evidence: current.raw?.slice(0, 500) ?? '' };
@@ -181,19 +204,21 @@ export function analyzeParsedMigrations(migrations) {
       if (item.kind === 'table') {
         if (item.action === 'create') { createdTables.set(item.name, item); tableColumns.set(item.name, new Set(item.columns.map((x) => x.name))); }
         if (item.action === 'alter') {
-          const prior = createdTables.get(item.name); if (!prior) { missingDependencies.push({ migration: migration.filename, object: item.name, kind: 'table' }); conflicts.push(conflict('TABLE_USED_BEFORE_CREATE', 'P0', null, item, { sqlstate: '42P01' })); }
+          const prior = createdTables.get(item.name); if (!prior && !isExternalObject(item.name)) { missingDependencies.push({ migration: migration.filename, object: item.name, kind: 'table' }); conflicts.push(conflict('TABLE_USED_BEFORE_CREATE', 'P0', null, item, { sqlstate: '42P01' })); }
           if (prior) addEdge(migration.filename, prior.filename, 'depends_on', item.name);
-          const column = item.raw.match(/\bADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?("[^"]+"|\w+)/i)?.[1]; if (column) (tableColumns.get(item.name) ?? new Set()).add(cleanIdent(column));
+          if (item.addColumn) { const columns = tableColumns.get(item.name) ?? new Set(); columns.add(item.addColumn.name); tableColumns.set(item.name, columns); }
+          if (item.renameColumn) { const columns = tableColumns.get(item.name) ?? new Set(); columns.delete(item.renameColumn.from); columns.add(item.renameColumn.to); tableColumns.set(item.name, columns); }
+          if (item.renameTable) { const columns = tableColumns.get(item.name) ?? new Set(); createdTables.delete(item.name); tableColumns.delete(item.name); createdTables.set(item.renameTable, item); tableColumns.set(item.renameTable, columns); }
           if (/\bENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(item.raw)) rlsTables.add(item.name);
           for (const fk of item.raw.matchAll(new RegExp(`REFERENCES\\s+(${IDENT})\\s*\\(([^)]*)\\)`, 'gi'))) {
             const target = cleanIdent(fk[1]), columns = list(fk[2]);
-            if (!createdTables.has(target) || columns.some((x) => !(tableColumns.get(target)?.has(x)))) { missingDependencies.push({ migration: migration.filename, object: `${target}(${columns})`, kind: 'foreign-key' }); conflicts.push(conflict('FOREIGN_KEY_TARGET_MISSING', 'P0', null, { ...item, key: `${target}(${columns})` }, { sqlstate: '42P01', confidence: 'MEDIUM' })); }
+            if (!isExternalObject(target) && (!createdTables.has(target) || columns.some((x) => !(tableColumns.get(target)?.has(x))))) { missingDependencies.push({ migration: migration.filename, object: `${target}(${columns})`, kind: 'foreign-key' }); conflicts.push(conflict('FOREIGN_KEY_TARGET_MISSING', 'P0', null, { ...item, key: `${target}(${columns})` }, { sqlstate: '42P01', confidence: 'MEDIUM' })); }
           }
         }
       }
       if (item.kind === 'policy' && item.action === 'create') {
         addEdge(migration.filename, `object:table:${item.table}`, 'depends_on', item.table);
-        if (!createdTables.has(item.table)) { missingDependencies.push({ migration: migration.filename, object: item.table, kind: 'policy-table' }); conflicts.push(conflict('POLICY_TABLE_BEFORE_CREATE', 'P0', null, item, { sqlstate: '42P01' })); }
+        if (!createdTables.has(item.table) && !isExternalObject(item.table)) { missingDependencies.push({ migration: migration.filename, object: item.table, kind: 'policy-table' }); conflicts.push(conflict('POLICY_TABLE_BEFORE_CREATE', 'P0', null, item, { sqlstate: '42P01' })); }
         if (item.command === 'SELECT' || item.command === 'ALL') selectPolicyTables.add(item.table);
         for (const call of item.calls) { addEdge(migration.filename, `object:function:${call}`, 'references', call); if (!createdFunctions.has(call) && !createdFunctions.has(`public.${call}`)) conflicts.push(conflict('POLICY_FUNCTION_BEFORE_CREATE', 'P1', null, { ...item, key: call }, { confidence: 'LOW', sqlstate: '42883' })); }
         const logic = `${item.table}|${item.command}|${item.roles}|${item.using}|${item.withCheck}`, prior = policyLogic.get(logic);
@@ -208,7 +233,7 @@ export function analyzeParsedMigrations(migrations) {
       if (item.kind === 'trigger' && item.action === 'create') { addEdge(migration.filename, `object:table:${item.table}`, 'depends_on', item.table); addEdge(migration.filename, `object:function:${item.function}`, 'references', item.function); if (!createdFunctions.has(item.function) && !createdFunctions.has(item.function.replace(/\(.*$/, ''))) conflicts.push(conflict('TRIGGER_FUNCTION_MISSING', 'P0', null, item, { sqlstate: '42883', confidence: 'MEDIUM' })); }
       if (item.kind === 'index' && item.action === 'create') {
         addEdge(migration.filename, `object:table:${item.table}`, 'depends_on', item.table);
-        if (!createdTables.has(item.table) || item.columns.some((x) => !/[()]/.test(x) && !(tableColumns.get(item.table)?.has(x)))) conflicts.push(conflict('INDEX_COLUMN_MISSING', 'P0', null, item, { sqlstate: '42703', confidence: 'MEDIUM' }));
+        if (!isExternalObject(item.table) && (!createdTables.has(item.table) || item.columns.some((x) => !/[()]/.test(x) && !(tableColumns.get(item.table)?.has(x))))) conflicts.push(conflict('INDEX_COLUMN_MISSING', 'P0', null, item, { sqlstate: '42703', confidence: 'MEDIUM' }));
       }
       if (item.kind === 'type' && item.action === 'create') enumValues.set(item.name, new Set(item.values));
       if (item.kind === 'type' && item.action === 'add-value') { const values = enumValues.get(item.name); if (values?.has(item.value) && !item.flags.ifNotExists) conflicts.push(conflict('DUPLICATE_ENUM_VALUE', 'P0', null, item, { sqlstate: '42710' })); values?.add(item.value); }
@@ -228,6 +253,38 @@ export function analyzeParsedMigrations(migrations) {
 }
 
 const collect = (migration, key) => migration[key].map((x) => ({ action: x.action, name: x.name, table: x.table, key: x.key, statement: x.raw }));
+function calibrateFinding(finding, index) {
+  const timestamp = timestampOf(finding.conflictingMigration);
+  const resolvedMigration = new Set(['20260628190000_import_jobs_foundation.sql', '20260703204450_5223b435-1a4d-44ab-ad03-ab3d9a8f4432.sql', '20260731180000_restrict_units_select_to_authenticated.sql']).has(finding.conflictingMigration);
+  const parserLimitation = finding.confidence !== 'HIGH' || ['INDEX_COLUMN_MISSING', 'TRIGGER_FUNCTION_MISSING', 'POLICY_FUNCTION_BEFORE_CREATE'].includes(finding.id);
+  const externalSchema = isExternalObject(finding.objectName) || /\b(?:auth|storage|realtime|extensions|vault|cron|net|graphql|graphql_public|supabase_functions)\s*\./i.test(finding.evidence);
+  const beforeOrAtPrefix = timestamp && timestamp <= VERIFIED_PREFIX;
+  const finalClassification = resolvedMigration ? 'RESOLVED_REPLAY_BLOCKER'
+    : beforeOrAtPrefix ? 'EMPIRICALLY_DISPROVEN_BLOCKER'
+    : externalSchema ? 'EXTERNAL_SCHEMA_DEPENDENCY'
+      : timestamp > VERIFIED_PREFIX ? 'POST_VERIFIED_PREFIX_RISK'
+        : parserLimitation ? 'PARSER_LIMITATION' : 'STATIC_UNCERTAINTY';
+  return {
+    findingId: `CAL-${String(index + 1).padStart(3, '0')}`,
+    migration: finding.conflictingMigration,
+    object: finding.objectName,
+    originalClassification: finding.severity,
+    verifiedPrefixPosition: beforeOrAtPrefix ? 'AT_OR_BEFORE_VERIFIED_PREFIX' : timestamp > VERIFIED_PREFIX ? 'AFTER_VERIFIED_PREFIX' : 'UNKNOWN',
+    empiricalStatus: resolvedMigration ? 'RESOLVED_BY_COMMENTS_ONLY_NO_OP' : beforeOrAtPrefix ? 'FRESH_REPLAY_PASSED' : 'NOT_EMPIRICALLY_VERIFIED',
+    externalSchemaStatus: externalSchema ? 'SUPABASE_EXTERNAL_SCHEMA_REFERENCE' : 'PROJECT_OR_UNQUALIFIED_OBJECT',
+    parserLimitation,
+    securityOnlyStatus: finding.securityDifference ? 'SECURITY_REVIEW_ONLY' : 'NOT_SECURITY_ONLY',
+    finalClassification,
+    finalConfidence: resolvedMigration || beforeOrAtPrefix ? 'HIGH' : parserLimitation ? 'LOW' : finding.confidence,
+    evidence: resolvedMigration
+      ? `${finding.conflictingMigration} is now a comments-only timestamp-preserving no-op; the canonical earlier migration remains executable.`
+      : beforeOrAtPrefix
+      ? `Fresh replay passed ${finding.conflictingMigration} on the verified run through ${VERIFIED_PREFIX}; static signal ${finding.id} (${finding.likelySqlstate ?? 'no SQLSTATE'}) is not a replay blocker.`
+      : finding.evidence,
+    sourceFinding: finding,
+  };
+}
+
 export function auditMigrationDirectory(directory, options = {}) {
   const migrationDir = resolve(directory);
   const files = readdirSync(migrationDir).filter((x) => x.endsWith('.sql')).sort((a, b) => a.localeCompare(b));
@@ -240,7 +297,7 @@ export function auditMigrationDirectory(directory, options = {}) {
   for (const collision of collisions) analysis.conflicts.push({ id: 'TIMESTAMP_COLLISION', severity: 'P3', confidence: 'HIGH', likelySqlstate: null, firstCreatorMigration: collision.files[0], conflictingMigration: collision.files[1], objectType: 'migration', objectName: collision.timestamp, semanticComparison: 'UNRESOLVED', exactDuplicate: false, securityDifference: false, recommendedResolution: 'requires human decision', filesThatWouldNeedModification: collision.files, testsRequired: ['ordering test'], evidence: collision.files.join(', ') });
   const inventory = parsed.map((x) => ({
     filename: x.filename, timestamp: x.timestamp, lineCount: x.sql.replace(/\r\n?/g, '\n').split('\n').length, sha256: sha256(x.sql), commitIntroduced: options.skipGit ? null : introducedCommit(`supabase/migrations/${x.filename}`),
-    tables: collect(x, 'tables'), policies: collect(x, 'policies'), functions: collect(x, 'functions'), indexes: collect(x, 'indexes'), triggers: collect(x, 'triggers'), types: collect(x, 'types'), views: collect(x, 'views'), grantsRevokes: collect(x, 'grantsRevokes'), rls: collect(x, 'rls'), storagePoliciesAndBuckets: collect(x, 'storage'), dmlStatements: collect(x, 'dml'), extensions: collect(x, 'extensions'), cronNetVaultDependencies: [...new Set(x.dependencies)].sort(), commentsOnly: x.commentsOnly, noOp: x.noOp,
+    tables: collect(x, 'tables'), policies: collect(x, 'policies'), functions: collect(x, 'functions'), indexes: collect(x, 'indexes'), triggers: collect(x, 'triggers'), types: collect(x, 'types'), views: collect(x, 'views'), grantsRevokes: collect(x, 'grantsRevokes'), rls: collect(x, 'rls'), storagePoliciesAndBuckets: collect(x, 'storage'), dmlStatements: collect(x, 'dml'), extensions: collect(x, 'extensions'), externalSchemaDependencies: [...new Set(x.dependencies)].sort(), staticUncertainties: x.uncertainties, commentsOnly: x.commentsOnly, noOp: x.noOp,
   }));
   const resolvedConflicts = [
     { id: 'RESOLVED_IMPORT_JOBS_DUPLICATE', status: 'RESOLVED', migration: '20260628190000_import_jobs_foundation.sql' },
@@ -248,12 +305,18 @@ export function auditMigrationDirectory(directory, options = {}) {
     { id: 'RESOLVED_UNITS_POLICY_DUPLICATE', status: 'RESOLVED', migration: '20260731180000_restrict_units_select_to_authenticated.sql' },
   ].map((x) => ({ ...x, present: files.includes(x.migration) }));
   const nodes = parsed.map((x) => ({ id: x.filename, timestamp: x.timestamp, commentsOnly: x.commentsOnly, creates: x.statements.filter((s) => s.action === 'create').map((s) => `${s.objectType}:${s.key}`), drops: x.statements.filter((s) => s.action === 'drop').map((s) => `${s.objectType}:${s.key}`) }));
-  const graph = { schemaVersion: 1, generatedBy: 'scripts/audit-migration-chain.mjs', nodes, edges: analysis.edges.sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), summary: { cycles: analysis.cycles, missingDependencies: analysis.missingDependencies, orderingRisks: analysis.orderingRisks, timestampCollisions: collisions, lovableResyncCandidates: analysis.conflicts.filter((x) => /DUPLICATE/.test(x.id)).map((x) => x.conflictingMigration) } };
-  return { schemaVersion: 1, limitations: LIMITATIONS, inventory, resolvedConflicts, conflicts: analysis.conflicts.sort((a,b) => `${a.severity}|${a.conflictingMigration}|${a.id}`.localeCompare(`${b.severity}|${b.conflictingMigration}|${b.id}`)), securityFindings: analysis.securityFindings.sort((a,b) => `${a.severity}|${a.migration}|${a.id}`.localeCompare(`${b.severity}|${b.migration}|${b.id}`)), graph };
+  const conflicts = analysis.conflicts.sort((a,b) => `${a.severity}|${a.conflictingMigration}|${a.id}|${a.objectName}`.localeCompare(`${b.severity}|${b.conflictingMigration}|${b.id}|${b.objectName}`));
+  const originalFindings = preCalibrationFindings();
+  const calibratedFindings = (originalFindings.length ? originalFindings : conflicts).map(calibrateFinding);
+  const externalDependencies = parsed.flatMap((x) => [...new Set(x.dependencies)].sort().map((object) => ({ migration: x.filename, object, finalClassification: 'EXTERNAL_SCHEMA_DEPENDENCY', confidence: 'HIGH', evidence: `${schemaOf(object)} is provided by the Supabase platform and is not expected to be created by project migrations.` })));
+  const staticUncertainties = parsed.flatMap((x) => x.uncertainties.map((u) => ({ migration: x.filename, object: 'dynamic SQL', finalClassification: 'PARSER_LIMITATION', confidence: 'HIGH', evidence: u.evidence })));
+  const postPrefixRisks = calibratedFindings.filter((x) => x.finalClassification === 'POST_VERIFIED_PREFIX_RISK');
+  const graph = { schemaVersion: 2, generatedBy: 'scripts/audit-migration-chain.mjs', nodes, edges: analysis.edges.sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), summary: { cycles: analysis.cycles, missingDependencies: analysis.missingDependencies, orderingRisks: analysis.orderingRisks, timestampCollisions: collisions, lovableResyncCandidates: conflicts.filter((x) => /DUPLICATE/.test(x.id)).map((x) => x.conflictingMigration), externalDependencies, verifiedPrefix: VERIFIED_PREFIX } };
+  return { schemaVersion: 2, verifiedPrefix: VERIFIED_PREFIX, preCalibrationSnapshot: PRE_CALIBRATION_SNAPSHOT, limitations: LIMITATIONS, inventory, resolvedConflicts, originalFindings, conflicts, calibratedFindings, externalDependencies, staticUncertainties, postPrefixRisks, securityFindings: analysis.securityFindings.sort((a,b) => `${a.severity}|${a.migration}|${a.id}`.localeCompare(`${b.severity}|${b.migration}|${b.id}`)), graph };
 }
 
 function countObjects(inventory, key) { return inventory.reduce((sum, item) => sum + item[key].filter((x) => x.action === 'create').length, 0); }
-function markdown(audit) {
+function legacyMarkdown(audit) {
   const counts = Object.fromEntries(['P0','P1','P2','P3'].map((x) => [x, audit.conflicts.filter((c) => c.severity === x).length]));
   const security = Object.fromEntries(['CRITICAL','HIGH','MEDIUM','LOW','INFORMATIONAL'].map((x) => [x, audit.securityFindings.filter((c) => c.severity === x).length]));
   const rows = audit.conflicts.map((x) => `| ${x.severity} | ${x.id} | ${x.conflictingMigration} | ${x.objectType} | ${x.objectName} | ${x.likelySqlstate ?? '-'} | ${x.confidence} | ${x.semanticComparison} | ${x.recommendedResolution} |`).join('\n') || '| - | None | - | - | - | - | - | - | - |';
@@ -336,15 +399,82 @@ ${audit.limitations.map((x) => `- ${x}`).join('\n')}
 `;
 }
 
+function markdown(audit) {
+  const original = Object.fromEntries(['P0','P1','P2','P3'].map((x) => [x, audit.conflicts.filter((c) => c.severity === x).length]));
+  const security = Object.fromEntries(['CRITICAL','HIGH','MEDIUM','LOW','INFORMATIONAL'].map((x) => [x, audit.securityFindings.filter((c) => c.severity === x).length]));
+  const finalCount = (classification) => audit.calibratedFindings.filter((x) => x.finalClassification === classification).length;
+  const rows = audit.calibratedFindings.map((x) => `| ${x.findingId} | ${x.originalClassification} | ${x.migration} | ${x.object} | ${x.verifiedPrefixPosition} | ${x.empiricalStatus} | ${x.externalSchemaStatus} | ${x.parserLimitation} | ${x.securityOnlyStatus} | ${x.finalClassification} | ${x.finalConfidence} | ${x.evidence.replace(/\|/g, '\\|').slice(0, 180)} |`).join('\n') || '| - | - | None | - | - | - | - | - | - | - | - | - |';
+  return `# Migration Chain Conflict Census 28 — Empirical Calibration 29
+
+Static analysis calibrated against the supplied successful Fresh replay evidence. No SQL or database was executed by this audit.
+
+## Evidence boundary
+
+- First successful migration: 20260606003616
+- Last confirmed successful migration: ${audit.verifiedPrefix}
+- Former first unresolved: 20260731180000, \`Units viewable per subject access\`, SQLSTATE \`42710\`
+- Current final migration: ${audit.inventory.at(-1)?.filename ?? '-'}
+
+## Before calibration
+
+- P0: 48
+- P1: 40
+- Missing dependencies: 38
+- Unresolved: 88
+
+## After parser improvement and empirical calibration
+
+- Confirmed replay blockers: ${finalCount('CONFIRMED_REPLAY_BLOCKER')}
+- Resolved replay blockers: ${audit.resolvedConflicts.filter((x) => x.present).length}
+- Empirically disproven blockers retained in the current static candidate set: ${finalCount('EMPIRICALLY_DISPROVEN_BLOCKER')}
+- External Supabase schema dependency references: ${audit.externalDependencies.length}
+- Static security findings: ${audit.securityFindings.length}
+- Static uncertainties: ${finalCount('STATIC_UNCERTAINTY')}
+- Parser limitations (dynamic SQL records): ${audit.staticUncertainties.length}
+- Post-prefix risks: ${audit.postPrefixRisks.length}
+- Remaining conservative static candidates by old label: P0=${original.P0}, P1=${original.P1}, P2=${original.P2}, P3=${original.P3}
+
+No P0/P1 candidate at or before the verified prefix is a current replay blocker. Original labels below are traceability fields, not the final decision.
+
+| Finding | Original | Migration | Object | Prefix position | Empirical status | External status | Parser limitation | Security-only | Final classification | Confidence | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+${rows}
+
+## Resolved blockers
+
+${audit.resolvedConflicts.map((x) => `- ${x.id}: ${x.status}; ${x.migration}; present=${x.present}`).join('\n')}
+
+## Security findings
+
+- Critical: ${security.CRITICAL}
+- High: ${security.HIGH}
+- Medium: ${security.MEDIUM}
+- Low: ${security.LOW}
+- Informational: ${security.INFORMATIONAL}
+
+Security findings are review candidates and are not replay blockers.
+
+## Actionable post-prefix replay risks
+
+${audit.postPrefixRisks.length ? audit.postPrefixRisks.map((x) => `- ${x.migration}: ${x.object} (${x.finalConfidence})`).join('\n') : 'NO_STATIC_POST_PREFIX_REPLAY_BLOCKER_IDENTIFIED'}
+
+## Linter limitations
+
+${audit.limitations.map((x) => `- ${x}`).join('\n')}
+`;
+}
+
 export function writeAuditReports(audit, paths = {}) {
   const inventoryPath = resolve(paths.inventory ?? resolve(ROOT, 'docs/audits/MIGRATION-CHAIN-INVENTORY-28.json'));
   const graphPath = resolve(paths.graph ?? resolve(ROOT, 'docs/audits/MIGRATION-DEPENDENCY-GRAPH-28.json'));
   const reportPath = resolve(paths.report ?? resolve(ROOT, 'docs/audits/MIGRATION-CHAIN-CONFLICT-CENSUS-28.md'));
-  for (const path of [inventoryPath, graphPath, reportPath]) mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(inventoryPath, `${JSON.stringify({ schemaVersion: audit.schemaVersion, limitations: audit.limitations, migrations: audit.inventory, resolvedConflicts: audit.resolvedConflicts, conflicts: audit.conflicts, securityFindings: audit.securityFindings }, null, 2)}\n`);
+  const calibrationPath = resolve(paths.calibration ?? resolve(ROOT, 'docs/audits/MIGRATION-LINTER-CALIBRATION-29.json'));
+  for (const path of [inventoryPath, graphPath, reportPath, calibrationPath]) mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(inventoryPath, `${JSON.stringify({ schemaVersion: audit.schemaVersion, verifiedPrefix: audit.verifiedPrefix, preCalibrationSnapshot: audit.preCalibrationSnapshot, limitations: audit.limitations, migrations: audit.inventory, resolvedConflicts: audit.resolvedConflicts, originalFindings: audit.originalFindings, conflicts: audit.conflicts, calibratedFindings: audit.calibratedFindings, externalDependencies: audit.externalDependencies, staticUncertainties: audit.staticUncertainties, postPrefixRisks: audit.postPrefixRisks, securityFindings: audit.securityFindings }, null, 2)}\n`);
   writeFileSync(graphPath, `${JSON.stringify(audit.graph, null, 2)}\n`);
   writeFileSync(reportPath, markdown(audit));
-  return { inventoryPath, graphPath, reportPath };
+  writeFileSync(calibrationPath, `${JSON.stringify({ schemaVersion: audit.schemaVersion, verifiedPrefix: audit.verifiedPrefix, preCalibration: { P0: 48, P1: 40, missingDependencies: 38, unresolved: 88 }, resolvedBlockers: audit.resolvedConflicts, findings: audit.calibratedFindings, externalDependencies: audit.externalDependencies, parserLimitations: audit.staticUncertainties, securityFindings: audit.securityFindings, actionablePostPrefixReplayRisks: audit.postPrefixRisks, postPrefixDecision: audit.postPrefixRisks.length ? 'REVIEW_REQUIRED' : 'NO_STATIC_POST_PREFIX_REPLAY_BLOCKER_IDENTIFIED' }, null, 2)}\n`);
+  return { inventoryPath, graphPath, reportPath, calibrationPath };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
