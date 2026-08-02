@@ -1,0 +1,38 @@
+{
+  "schema_hint": "legacy_flat_15col",
+  "headers": [
+    "question_code",
+    "question_text",
+    "option_1",
+    "option_2",
+    "option_3",
+    "option_4",
+    "correct_index",
+    "subject_code",
+    "lesson_code"
+  ],
+  "rows": [
+    {
+      "question_code": "PHYS-001",
+      "question_text": "ما وحدة القوة؟",
+      "option_1": "نيوتن",
+      "option_2": "جول",
+      "option_3": "واط",
+      "option_4": "باسكال",
+      "correct_index": 1,
+      "subject_code": "PHYS",
+      "lesson_code": "L1"
+    },
+    {
+      "question_code": "PHYS-002",
+      "question_text": "ما وحدة الطاقة؟",
+      "option_1": "نيوتن",
+      "option_2": "جول",
+      "option_3": "واط",
+      "option_4": "باسكال",
+      "correct_index": "B",
+      "subject_code": "PHYS",
+      "lesson_code": "L1"
+    }
+  ]
+}
