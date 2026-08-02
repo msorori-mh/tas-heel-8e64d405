@@ -158,7 +158,7 @@
 
 
 | `TC-GATE-001` | فحص إنفاذ بوابات قرارات المالك قبل الإطلاق | Owner Gates Enforcement | `TASK-MG-080` | `HIGH` | وجود قرار مالك مفتوح يمنع صدور قرار الجاهزية PASS | `FAIL` |
-| `TC-SEC-019` | فحص فشل البوابة الأمنية عند سقوط أي حالة اختبار إلزامية | Security Gate Failure on Mandatory Control | `TASK-MG-075` | `CRITICAL` | رسوب حالة واحدة من الـ 13 حالة يغير نتيجة TASK-MG-075 إلى FAIL | `FAIL` |
+| `TC-SEC-022` | فحص فشل البوابة الأمنية عند سقوط أي حالة اختبار إلزامية | Security Gate Failure on Mandatory Control | `TASK-MG-075` | `CRITICAL` | رسوب حالة واحدة من الـ 13 حالة يغير نتيجة TASK-MG-075 إلى FAIL | `FAIL` |
 | `TC-E2E-010` | فحص فشل بوابة E2E عند تعثر أي حزمة اختبار | E2E Gate Failure on Mandatory Suite | `TASK-MG-079` | `CRITICAL` | تعثر مسار واحد من الـ 10 حزم يغير نتيجة TASK-MG-079 إلى FAIL | `FAIL` |
 | `TC-OBS-001` | فحص حظر الإطلاق عند عدم تفعيل المراقبة والتنبيهات | Observability Inactive Blocks Launch | `TASK-MG-080` | `HIGH` | عدم تفعيل التنبيهات أو المؤشرات يمنع اعتماد الإطلاق | `FAIL` |
 | `TC-GATE-002` | فحص حظر الإطلاق عند وجود ملاحظات عالية أو حرجة مفتوحة | High / Critical Findings Block Launch | `TASK-MG-080` | `CRITICAL` | وجود ثغرة أو انحراف حرج مفتوح يمنع الاعتماد | `FAIL` |

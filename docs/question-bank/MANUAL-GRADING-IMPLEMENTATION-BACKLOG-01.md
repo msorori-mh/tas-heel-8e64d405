@@ -436,7 +436,7 @@
 
 - **TASK-MG-053: تنفيذ مسار إعادة التقييم `return_for_second_review` (`RETURNED_FOR_SECOND_REVIEW`)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-051`
-  - **Security Prerequisite**: توجيه التقييم غير المستوفي وتغيير حالته لـ RETURNED_FOR_SECOND_REVIEW مع إنشاء Assignment جديد أو Reclaim منضبط، زيادة assignment_generation، إصدار lease_token جديد، عدم تعديل Review Row السابق، حفظ سبب الإعادة، ومنع المصحح غير المعين من الاستلام (UNASSIGNED_GRADER_CLAIM_BLOCKED).
+  - **Security Prerequisite**: توجيه التقييم غير المستوفي وتغيير حالته لـ RETURNED_FOR_SECOND_REVIEW والانتقال عبر المسار القانوني RETURNED_FOR_SECOND_REVIEW -> IN_GRADING -> SUBMITTED_FOR_REVIEW مع إنشاء Assignment جديد أو Reclaim منضبط، زيادة assignment_generation، إصدار lease_token جديد، عدم تعديل Review Row السابق، حفظ سبب الإعادة، ومنع المصحح غير المعين من الاستلام (UNASSIGNED_GRADER_CLAIM_BLOCKED).
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-001` | **Deliverable Type**: `RPC`, `UI`
@@ -600,7 +600,7 @@
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-005`, `TASK-MG-006`, `TASK-MG-008`, `TASK-MG-011`, `TASK-MG-012`, `TASK-MG-013`, `TASK-MG-014`, `TASK-MG-020`, `TASK-MG-021`, `TASK-MG-023`, `TASK-MG-025`, `TASK-MG-030`, `TASK-MG-031`, `TASK-MG-045`, `TASK-MG-051`, `TASK-MG-054`, `TASK-MG-057`, `TASK-MG-058`, `TASK-MG-064`, `TASK-MG-068`
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
-  - **Acceptance Test**: `TC-SEC-019` | **Deliverable Type**: `TEST`, `SECURITY_VERIFICATION`, `AUDIT`, `UI`, `RPC`
+  - **Acceptance Test**: `TC-SEC-022` | **Deliverable Type**: `TEST`, `SECURITY_VERIFICATION`, `AUDIT`, `UI`, `RPC`
   - **Security Prerequisite**: تفعيل بوابة التحقق الأمني المانعة لنموذج الصلاحيات والتكليفات وحظر التدرج الفردي والوصول بين الطلاب وتدقيق سجل المحاولات وقواعد RLS وتراخيص RPC وحماية الإجابات المكتومة وعزل التصحيح المزدوج والتظلمات والإنعاش والفتح الاستثنائي والإشعارات. (تعتبر واجهات المراقبة وعقود RPC أدوات مساعدة وليست سبب اجتياز البوابة).
   - **Blocking Acceptance Matrix (13 Mandatory Security Controls)**:
     1. Positive RLS matrix verification (السماح بالمصرح لهم فقط)

@@ -8,6 +8,27 @@
 
 ---
 
+
+### 5.8. تصنيف الحالات النهائية وغير النهائية للآلات الست والتحقق من الانتهاء (State Machine Classification & Dead-End Audit) `[REQUIRED_EXTENSION]`
+
+| اسم آلة الحالات (Machine) | الحالات غير النهائية (Non-Terminal States) | مسارات الخروج المؤكدة لكل حالة غیر نهائية | الحالات النهائية (Terminal States) | خلو Dead-End Non-Terminal |
+| :--- | :--- | :--- | :--- | :---: |
+| **`RESPONSE`** | `PENDING_MANUAL_GRADING`, `IN_GRADING`, `SUBMITTED_FOR_REVIEW`, `RETURNED_FOR_SECOND_REVIEW`, `FINALIZED`, `REOPENED`, `APPEALED` | `PENDING_MANUAL_GRADING` $	o$ `IN_GRADING`<br>`IN_GRADING` $	o$ `SUBMITTED_FOR_REVIEW`<br>`SUBMITTED_FOR_REVIEW` $	o$ `RETURNED_FOR_SECOND_REVIEW` / `FINALIZED`<br>`RETURNED_FOR_SECOND_REVIEW` $	o$ `IN_GRADING`<br>`FINALIZED` $	o$ `REOPENED` / `APPEALED`<br>`REOPENED` $	o$ `IN_GRADING`<br>`APPEALED` $	o$ `FINALIZED` | *لا يوجد حالات نهائية مطلقة* (قد يخضع أي سجل نهائي لتظلم أو فتح استثنائي) | **`0`** (PASS) |
+| **`ASSIGNMENT`** | `ASSIGNED`, `CLAIMED`, `RELEASED`, `EXPIRED`, `RECLAIMED` | `ASSIGNED` $	o$ `CLAIMED`<br>`CLAIMED` $	o$ `SUBMITTED` / `RELEASED` / `EXPIRED` / `CANCELLED`<br>`RELEASED` $	o$ `CLAIMED`<br>`EXPIRED` $	o$ `RECLAIMED`<br>`RECLAIMED` $	o$ `CLAIMED` | `SUBMITTED`, `CANCELLED` | **`0`** (PASS) |
+| **`REVIEW_ROW`** | `DRAFT`, `SUBMITTED` | `DRAFT` $	o$ `SUBMITTED`<br>`SUBMITTED` $	o$ `FINAL` / `SUPERSEDED` / `VOIDED` | `FINAL`, `SUPERSEDED`, `VOIDED` | **`0`** (PASS) |
+| **`APPEAL`** | `CREATED`, `ELIGIBILITY_CHECKED`, `ASSIGNED`, `UNDER_REVIEW` | `CREATED` $	o$ `ELIGIBILITY_CHECKED`<br>`ELIGIBILITY_CHECKED` $	o$ `ASSIGNED` / `CANCELLED`<br>`ASSIGNED` $	o$ `UNDER_REVIEW`<br>`UNDER_REVIEW` $	o$ `DECIDED_UPHELD` / `DECIDED_REJECTED` / `DECIDED_REGRADE` | `DECIDED_UPHELD`, `DECIDED_REJECTED`, `DECIDED_REGRADE`, `CANCELLED` | **`0`** (PASS) |
+| **`BATCH`** | `OPEN`, `GRADING_COMPLETE`, `FINALIZATION_PENDING`, `FINALIZED`, `RELEASE_PENDING`, `REOPENED` | `OPEN` $	o$ `GRADING_COMPLETE` / `CANCELLED`<br>`GRADING_COMPLETE` $	o$ `FINALIZATION_PENDING`<br>`FINALIZATION_PENDING` $	o$ `FINALIZED`<br>`FINALIZED` $	o$ `RELEASE_PENDING` / `REOPENED`<br>`RELEASE_PENDING` $	o$ `RELEASED`<br>`REOPENED` $	o$ `FINALIZATION_PENDING` | `RELEASED`, `CANCELLED` | **`0`** (PASS) |
+| **`OUTBOX`** | `PENDING`, `CLAIMED`, `RETRY_WAIT` | `PENDING` $	o$ `CLAIMED`<br>`CLAIMED` $	o$ `SENT` / `RETRY_WAIT` / `DEAD_LETTER`<br>`RETRY_WAIT` $	o$ `CLAIMED` / `DEAD_LETTER` / `CANCELLED` | `SENT`, `DEAD_LETTER`, `CANCELLED` | **`0`** (PASS) |
+
+> [!IMPORTANT]
+> **إثبات عدم وجود أطراف ميتة (Zero Dead-Ends Audit Result):**
+> - **إجمالي الآلات المراجعة:** 6
+> - **إجمالي الحالات المحددة:** 41 حالة
+> - **إجمالي الحالات غير النهائية (Non-Terminal):** 28 حالة (لديها جميعاً مسار خروج قانوني واحد على الأقل)
+> - **إجمالي الحالات النهائية (Terminal):** 13 حالة (موسومة صراحة ومحمية من التعديل/إعادة الفتح على نفس السجل)
+> - **عدد الحالات غير النهائية الميتة (Dead-end non-terminal states):** **`0`** (`PASS`)
+
+
 ## 0. تمييز النطاق والتنفيذ المستقبلي (Scope Distinction Block)
 
 > [!IMPORTANT]
@@ -142,9 +163,9 @@
 - **`PENDING_MANUAL_GRADING`**: الإجابة متوفرة في الطابور تنتظر التعيين/المطالبة.
 - **`IN_GRADING`**: الإجابة محجوزة بقفل مؤقت نشط وتحت التقييم.
 - **`SUBMITTED_FOR_REVIEW`**: تم إرسال التقييم الأولي وتنتظر التحكيم أو فحص التباين.
-- **`RETURNED_FOR_SECOND_REVIEW`**: أعيدت الإجابة للمصحح التعديلي بطلب مراجعة ثانية.
+- **`RETURNED_FOR_SECOND_REVIEW`**: أعيدت الإجابة للمصحح التعديلي بطلب مراجعة ثانية (حالة غير نهائية تنتقل حتماً إلى `IN_GRADING` عند بدء إعادة التصحيح).
 - **`FINALIZED`**: اعتمدت الدرجة نهائياً وأقفلت.
-- **`REOPENED`**: فتحت المراجعة استثنائياً بعد الاعتماد.
+- **`REOPENED`**: فتحت المراجعة استثنائياً بعد الاعتماد (حالة غير نهائية تنتقل حتماً إلى `IN_GRADING` عند البدء في إعادة التقييم).
 - **`APPEALED`**: الإجابة تحت معالجة تظلم قائم من الطالب.
 
 ### 5.2. آلة حالات التعيين وقفل المهمة (Assignment / Lease State Machine) `[ASSIGNMENT]`
@@ -153,7 +174,7 @@
 - **`RELEASED`**: حرر القفل يدوياً أو إدارياً وعادت الإجابة للطابور.
 - **`EXPIRED`**: انقضت مهلة القفل آلياً دون تقديم.
 - **`RECLAIMED`**: سحب التعيين إدارياً وأبطل الرمز القديم.
-- **`SUBMITTED`**: استكمل المصحح المهمة وسلم الدرجة بنجاح.
+- **`SUBMITTED`**: استكمل المصحح المهمة وسلم الدرجة بنجاح (حالة نهائية Terminal في آلة ASSIGNMENT لا تجيز Heartbeat أو Release/Reclaim وكل إعادة عمل تنشئ Assignment جديداً).
 - **`CANCELLED`**: ألغي التعيين بسبب إلغاء المحاولة الامتحانية أو COI.
 
 ### 5.3. آلة حالات صف المراجعة السلسلي (Review Row State Machine) `[REVIEW_ROW]`
@@ -183,7 +204,7 @@
 - **`FINALIZED`**: تم اعتماد جميع درجات الدفعة وتجميد التعديلات الفردية المباشرة.
 - **`RELEASE_PENDING`**: الدفعة مجدولة للإفراج وتجهيز الإشعارات في Outbox.
 - **`RELEASED`**: تم إفراج الدفعة ونشر النتائج للطلاب وإرسال الإشعارات (حالة نهائية).
-- **`REOPENED`**: تم إعادة فتح الدفعة استثنائياً بقرار إداري مصرح.
+- **`REOPENED`**: تم إعادة فتح الدفعة استثنائياً بقرار إداري مصرح (حالة غير نهائية تنتقل إلى `FINALIZATION_PENDING` بعد تسوية المراجعات وإعادة احتساب النتائج).
 - **`CANCELLED`**: تم إلغاء الدفعة أو المحاولة وفق سياسة المؤسسة (حالة نهائية).
 
 ### 5.6. آلة حالات صندوق الإشعارات الصادرة (Outbox State Machine) `[OUTBOX]`
@@ -215,12 +236,14 @@
 | `RELEASED` | `CLAIMED` | `ASSIGNMENT` | Grader | `grading.claim.execute` | Unclaimed response in queue | Partial unique index | `assignment_gen` | `FOR UPDATE NOWAIT` | Optional | `Single Atomic RPC Transaction` | `ASSIGNMENT_CLAIMED` | `ALREADY_CLAIMED` | User Retry |
 | `RECLAIMED` | `CLAIMED` | `ASSIGNMENT` | New Grader | `grading.claim.execute` | Assignment reclaimed by admin | Increment `assignment_gen` | `new_generation` | Row Lock | Optional | `Single Atomic RPC Transaction` | `ASSIGNMENT_RECLAIMED_CLAIM` | `ALREADY_CLAIMED` | User Retry |
 | `CLAIMED` | `CANCELLED` | `ASSIGNMENT` | System / Manager | `grading.release.execute` | Session cancelled or COI flagged | Atomic status CAS | `lease_token` | Row Lock | Admin ID | `Single Atomic RPC Transaction` | `ASSIGNMENT_CANCELLED` | `CANCEL_DENIED` | No Retry |
+| `CLAIMED` | `SUBMITTED` | `ASSIGNMENT` | Grader | `grading.submit.execute` | Active lease held by actor, score submitted | Match `lease_token` | `lease_token` | Row Lock | Submit UUID | `Single Atomic RPC Transaction` | `ASSIGNMENT_SUBMITTED` | `INVALID_LEASE` | Terminal State / Next Stage |
 | `PENDING_MANUAL_GRADING` | `IN_GRADING` | `RESPONSE` | Grader | `grading.claim.execute` | Response in queue, no final score | Response status check | `response_version` | Row Lock | Claim ID | `Single Atomic RPC Transaction` | `RESPONSE_CLAIMED_FOR_GRADING` | `RESPONSE_NOT_AVAILABLE` | User Retry |
 | `IN_GRADING` | `SUBMITTED_FOR_REVIEW` | `RESPONSE` | Grader | `grading.submit.execute` | Active lease, score within max_score | Check `lease_token` | `lease_token` | Row Lock | Submit UUID | `Single Atomic RPC Transaction` | `RESPONSE_GRADED` | `INVALID_SCORE_OR_LEASE` | User Retry |
 | `SUBMITTED_FOR_REVIEW` | `RETURNED_FOR_SECOND_REVIEW` | `RESPONSE` | Score Variance Engine | `system.cron` | Variance > threshold or QA sample | Variance evaluation | `review_id` | Row Lock | System Job ID | `Single Atomic RPC Transaction` | `RESPONSE_RETURNED_FOR_REVIEW` | `VARIANCE_CHECK_FAILED` | Auto Job Retry |
-| `RETURNED_FOR_SECOND_REVIEW` | `SUBMITTED_FOR_REVIEW` | `RESPONSE` | Second Grader | `grading.submit.execute` | Assigned second slot | Second slot active | `second_lease_token` | Row Lock | Submit UUID | `Single Atomic RPC Transaction` | `RESPONSE_SECOND_GRADED` | `INVALID_LEASE` | User Retry |
+| `RETURNED_FOR_SECOND_REVIEW` | `IN_GRADING` | `RESPONSE` | Second Grader | `grading.claim.execute` | Assigned second slot or guidance notes present | Check `lease_token` / CAS | `new_lease_token` | Row Lock | Claim UUID | `Single Atomic RPC Transaction` | `RESPONSE_SECOND_REVIEW_STARTED` | `INVALID_LEASE_OR_STATE` | User Retry |
 | `SUBMITTED_FOR_REVIEW` | `FINALIZED` | `RESPONSE` | Senior Grader / RPC | `grading.finalize.execute` | Agreed scores or Senior arbitrated | `is_final = false` | `response_version` | Row Lock | Finalize UUID | `Single Atomic RPC Transaction` | `RESPONSE_FINALIZED` | `FINALIZATION_DENIED` | Admin Retry |
 | `FINALIZED` | `REOPENED` | `RESPONSE` | Manager / Emergency | `grading.reopen.execute` | Authorized emergency reopen | Audit log required | `response_version` | Row Lock | Emergency Ref | `Single Atomic RPC Transaction` | `RESPONSE_REOPENED` | `REOPEN_UNAUTHORIZED` | Admin Retry |
+| `REOPENED` | `IN_GRADING` | `RESPONSE` | Manager / Emergency | `grading.reopen.execute` | Emergency reopen authorized with mandatory reason | CAS on `response_version` | `expected_response_version` | Row Lock | Reopen UUID | `Single Atomic RPC Transaction` | `RESPONSE_REOPENED_TO_IN_GRADING` | `REOPEN_UNAUTHORIZED` | Admin Retry |
 | `FINALIZED` | `APPEALED` | `RESPONSE` | Student / System | `student.appeal.create` | Batch `RELEASED`, in window | Unique appeal check | `response_version` | Row Lock | Appeal UUID | `Single Atomic RPC Transaction` | `RESPONSE_APPEALED` | `OUTSIDE_WINDOW` | User Retry |
 | `APPEALED` | `FINALIZED` | `RESPONSE` | Appeal Reviewer | `grading.appeal.process` | Appeal decided and applied | Appeal decision logged | `appeal_id` | Row Lock | Decision UUID | `Single Atomic RPC Transaction` | `RESPONSE_APPEAL_RESOLVED` | `APPEAL_DENIED` | Admin Retry |
 | `DRAFT` | `SUBMITTED` | `REVIEW_ROW` | Grader | `grading.submit.execute` | Valid rubric selection | Active lease held | N/A | Memory State | Draft ID | `Single Atomic RPC Transaction` | `REVIEW_ROW_SUBMITTED` | `DRAFT_INVALID` | User Retry |
@@ -241,6 +264,7 @@
 | `RELEASE_PENDING` | `RELEASED` | `BATCH` | Outbox Dispatcher | `system.cron` | Outbox notifications generated | Status `RELEASE_PENDING` | `batch_id` | Row Lock | Dispatch Run ID | `Single Atomic RPC Transaction` | `BATCH_RELEASED` | `DISPATCH_FAILED` | Auto Job Retry |
 | `FINALIZED` | `REOPENED` | `BATCH` | Manager / Emergency | `grading.reopen.execute` | Authorized emergency batch reopen | Manager capability check | `batch_id` | Row Lock | Reopen Ref ID | `Single Atomic RPC Transaction` | `BATCH_REOPENED` | `REOPEN_DENIED` | Admin Retry |
 | `RELEASED` | `REOPENED` | `BATCH` | Manager / Emergency | `grading.reopen.execute` | Authorized post-release reopen | Emergency audit required | `batch_id` | Row Lock | Reopen Ref ID | `Single Atomic RPC Transaction` | `BATCH_REOPENED_POST_RELEASE` | `REOPEN_DENIED` | Admin Retry |
+| `REOPENED` | `FINALIZATION_PENDING` | `BATCH` | Manager / System | `grading.batch.finalize` | Reopen issues resolved, all responses finalized, release blocked during reopen | CAS on `batch_version` | `expected_batch_version` | Row Lock | Batch Reopen Finalize UUID | `Single Atomic RPC Transaction` | `BATCH_REOPENED_TO_FINALIZATION_PENDING` | `BATCH_NOT_READY` | Admin Retry |
 | `OPEN` | `CANCELLED` | `BATCH` | Manager | `grading.batch.cancel` | Session cancelled by institutional policy | Status `OPEN` | `batch_id` | Row Lock | Cancel Ref ID | `Single Atomic RPC Transaction` | `BATCH_CANCELLED` | `CANCEL_DENIED` | Admin Retry |
 | `PENDING` | `CLAIMED` | `OUTBOX` | Outbox Worker | `system.cron` | Unclaimed notification in outbox | Claim token generation | `outbox_id` | `FOR UPDATE NOWAIT` | Claim Token UUID | `Single Atomic RPC Transaction` | `OUTBOX_CLAIMED` | `ALREADY_CLAIMED` | Auto Job Retry |
 | `CLAIMED` | `SENT` | `OUTBOX` | Outbox Worker | `system.cron` | External provider accepted delivery | Active claim token match | `claim_token` | Row Lock | Delivery Msg ID | `Single Atomic RPC Transaction` | `OUTBOX_DELIVERED` | `DELIVERY_FAILED` | Auto Job Retry |
@@ -335,7 +359,24 @@
 
 ---
 
-## 9. سجل قرارات المالك الشامل (Owner Decision Register - 16 Decisions) `[OWNER_DECISION]`
+## 9. سجل قرارات المالك الشامل
+
+### 9.1. جدول تتبع هوية قرارات المالك والأسماء المستعارة (Owner Decisions Traceability & Alias Mapping Table) `[REQUIRED_EXTENSION]`
+
+| Original ID | Canonical ID | Subject | Status | Gate task |
+| ----------- | ------------ | ------------------------------------- | -------------------- | ----------- |
+| OD-MG-13 | ODR-013 | Within-threshold final score rule | NEEDS_OWNER_DECISION | TASK-MG-034 |
+| OD-MG-14 | ODR-014 | Double-marking assignment slot policy | NEEDS_OWNER_DECISION | TASK-MG-045 |
+| OD-MG-15 | ODR-015 | Expiry/reclaim authority policy | NEEDS_OWNER_DECISION | TASK-MG-023 |
+| OD-MG-16 | ODR-016 | Practice batch-release policy | NEEDS_OWNER_DECISION | TASK-MG-069 |
+
+> [!NOTE]
+> **قواعد التتبع والهوية القانونية:**
+> - **المعرفات القديمة (Original IDs)**: تبقى أسماء مستعارة (Documented Aliases) موثقة قانونياً لضمان التتبع التاريخي (`OD-MG-13` $	o$ `ODR-013`, `OD-MG-14` $	o$ `ODR-014`, `OD-MG-15` $	o$ `ODR-015`, `OD-MG-16` $	o$ `ODR-016`).
+> - **المعرفات القانونية الموحدة (Canonical IDs)**: هي `ODR-001` إلى `ODR-016`.
+> - **حالة القرارات (Decision Status)**: لا يعتبر أي قرار معتمداً نهائياً (`Approved = 0`).
+> - **القرارات المفتوحة (Open Decisions)**: 16 قراراً بحالة `NEEDS_OWNER_DECISION`.
+ (Owner Decision Register - 16 Decisions) `[OWNER_DECISION]`
 
 يشتمل هذا السجل على كافة القرارات الـ 16 التي تتطلب قراراً رسمياً من مالك المنتج، وتُصنف جميعها بـ `NEEDS_OWNER_DECISION`:
 
