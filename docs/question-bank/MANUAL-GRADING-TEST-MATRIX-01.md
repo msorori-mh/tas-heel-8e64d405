@@ -14,7 +14,7 @@
 > **التصحيح القانوني لنطاق الحزمة الحالية مقابل التنفيذ المستقبلي:**
 >
 > **Current PR (الحزمة الحالية):**
-> - **Test Specifications**: 72 مواصفة اختبار تصميمية مدونة في هذا المستند.
+> - **Test Specifications**: 84 مواصفة اختبار تصميمية مدونة في هذا المستند.
 > - **Executable Tests**: 0 (لا توجد أي حالات اختبار تنفيذية برمجية في هذا PR).
 > - **Automation Planned**: مخطط لها في مرحلة التنفيذ المستقبلي.
 > - **Migration changes = ZERO / Runtime changes = ZERO / SQL = NO**.
@@ -28,7 +28,7 @@
 
 ## 1. استراتيجية مواصفات الاختبار وتصحيح التغطية (Testing Strategy & Canonical Scope) `[REQUIRED_EXTENSION]`
 
-تنقسم مصفوفة مواصفات حالات الاختبار إلى ست فئات هيكلية تحتوي على **72 مواصفة فريدة**:
+تنقسم مصفوفة مواصفات حالات الاختبار إلى ست فئات هيكلية تحتوي على **84 مواصفة فريدة**:
 1. **فئة A: الأمن الصارم، الصلاحيات، و RLS (TC-SEC-001 إلى TC-SEC-021)**: 21 مواصفة.
 2. **فئة B: قواعد احتساب الدرجات والحدود المعتمدة (TC-SCR-001 إلى TC-SCR-007)**: 7 مواصفات.
 3. **فئة C: طابور العمل، الأقفال المؤقتة، المحاصرة، و SLA (TC-QCL-001 إلى TC-QCL-012)**: 12 مواصفة.
@@ -38,7 +38,7 @@
 
 ---
 
-## 2. جدول مواصفات حالات الاختبار التفصيلي الـ 72 (Detailed 72 Test Specifications Matrix) `[REQUIRED_EXTENSION]`
+## 2. جدول مواصفات حالات الاختبار التفصيلي الـ 84 (Detailed 84 Test Specifications Matrix) `[REQUIRED_EXTENSION]`
 
 ### 2.1. فئة A: الأمن الصارم، الصلاحيات، وسياسات RLS (Security & RLS) `[REQUIRED_EXTENSION]`
 
@@ -154,16 +154,30 @@
 
 ---
 
+
+| `TC-GATE-001` | فحص إنفاذ بوابات قرارات المالك قبل الإطلاق | Owner Gates Enforcement | `TASK-MG-080` | `HIGH` | وجود قرار مالك مفتوح يمنع صدور قرار الجاهزية PASS | `FAIL` |
+| `TC-SEC-019` | فحص فشل البوابة الأمنية عند سقوط أي حالة اختبار إلزامية | Security Gate Failure on Mandatory Control | `TASK-MG-075` | `CRITICAL` | رسوب حالة واحدة من الـ 13 حالة يغير نتيجة TASK-MG-075 إلى FAIL | `FAIL` |
+| `TC-E2E-010` | فحص فشل بوابة E2E عند تعثر أي حزمة اختبار | E2E Gate Failure on Mandatory Suite | `TASK-MG-079` | `CRITICAL` | تعثر مسار واحد من الـ 10 حزم يغير نتيجة TASK-MG-079 إلى FAIL | `FAIL` |
+| `TC-OBS-001` | فحص حظر الإطلاق عند عدم تفعيل المراقبة والتنبيهات | Observability Inactive Blocks Launch | `TASK-MG-080` | `HIGH` | عدم تفعيل التنبيهات أو المؤشرات يمنع اعتماد الإطلاق | `FAIL` |
+| `TC-GATE-002` | فحص حظر الإطلاق عند وجود ملاحظات عالية أو حرجة مفتوحة | High / Critical Findings Block Launch | `TASK-MG-080` | `CRITICAL` | وجود ثغرة أو انحراف حرج مفتوح يمنع الاعتماد | `FAIL` |
+| `TC-GATE-003` | فحص حظر الإطلاق عند عدم إثبات مسار التراجع | Rollback Failure Blocks Launch | `TASK-MG-080` | `HIGH` | فشل التحقق من مسار التراجع يمنع الإطلاق | `FAIL` |
+| `TC-SM-001` | فحص دورة حياة آلة حالات التظلمات والاعتراضات | Appeal Lifecycle Transitions | `TASK-MG-055` | `HIGH` | التحقق من كافة الانتقالات ومسارات الخروج للحالات غير النهائية | `PASS` |
+| `TC-SM-002` | فحص دورة حياة آلة حالات الدفعة والإفراج | Batch Lifecycle Transitions | `TASK-MG-062` | `HIGH` | التحقق من انتقالات الدفعة والإعادة والإلغاء وفق الصلاحية | `PASS` |
+| `TC-SM-003` | فحص دورة حياة آلة حالات صندوق الإشعارات Outbox | Outbox Lifecycle Transitions | `TASK-MG-064` | `HIGH` | التحقق من المطالبة والتأكيد والإعادة والحجز الزمني | `PASS` |
+| `TC-SM-004` | فحص تحويل الإشعارات المتعثرة إلى DLQ وسلطة Replay | Outbox Dead-Letter & Replay Authority | `TASK-MG-065` | `HIGH` | التحقق من التحويل للـ DLQ بعد تجاوز المحاولات وحصر Replay بـ Admin | `PASS` |
+| `TC-SM-005` | فحص رفض الانتقالات التنفيذية بين الكائنات المختلفة | Mixed-Machine Transition Rejection | `TASK-MG-075` | `CRITICAL` | حظر خلط حالات Response مع Review Row أو Assignment أو Appeal | `REJECTED` |
+| `TC-SM-006` | فحص كشف وتجنيب الحالات غير النهائية الميتة | Non-Terminal State Dead-End Detection | `TASK-MG-080` | `HIGH` | إثبات وجود مسار خروج لكل حالة غير نهائية في آلات الحالات الـ 6 | `PASS` |
+
 ## 3. مراجعة وتأكيد إحصائيات مواصفات حالات الاختبار (Verification Summary Block) `[REQUIRED_EXTENSION]`
 
 ```
 ============================================================
            مصفوفة التثبت الإحصائي لمواصفات حالات الاختبار
 ============================================================
-- إجمالي مواصفات حالات الاختبار (Specifications):   72 مواصفة فريدة
+- إجمالي مواصفات حالات الاختبار (Specifications):   84 مواصفة فريدة
 - حالات الاختبار البرمجية التنفيذية (Executable):  0
 - حالة الأتمتة (Automation Status):               Planned in future implementation
-- المعرفات الفريدة (Unique IDs):                    72 / 72
+- المعرفات الفريدة (Unique IDs):                    84 / 84
 - حالات الاختبار المفقودة (Missing):                0
 - حالات الاختبار المكررة (Duplicate):               0
 - التغطية لكافة فئات الأمان والمنطق والـ UX:         100%

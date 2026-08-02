@@ -190,3 +190,10 @@
 
 ---
 *نهاية الوثيقة MANUAL-GRADING-SECURITY-MODEL-01 (Canonical Correction 05)*
+
+
+> [!IMPORTANT]
+> **ضوابط البوابة الأمنية المانعة (TASK-MG-075 Security Gate Integration):**
+> تشتمل بوابة تحقق الأمان TASK-MG-075 على مصفوفة فحص أمني مانعة تضم 13 حالة فحص إلزامية:
+> 1. Positive RLS matrix | 2. Negative RLS matrix | 3. Direct RPC authorization tests | 4. Cross-student denial | 5. Cross-subject denial | 6. Counterpart-grader isolation (`TASK-MG-045`) | 7. Hidden-answer denial | 8. Admin-bypass denial | 9. Emergency expiry denial (`TASK-MG-054`) | 10. Emergency revocation denial | 11. Audit deletion/tampering denial (`TASK-MG-006`, `TASK-MG-020`) | 12. Appeals authorization denial/allow (`TASK-MG-057`, `TASK-MG-058`) | 13. Notification/reveal authorization (`TASK-MG-064`, `TASK-MG-068`).
+> **شرط مانع:** فشل أي حالة إلزامية واحدة يؤدي فوراً إلى رسوب البوابة الأمني `Security Gate FAIL` وحظر الإطلاق.
