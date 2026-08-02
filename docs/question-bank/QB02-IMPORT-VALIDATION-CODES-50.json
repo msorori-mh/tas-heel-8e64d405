@@ -1,0 +1,546 @@
+{
+  "oracle_version": "QB02-IMPORT-VALIDATION-CODES-50",
+  "closed_registry": true,
+  "codes": [
+    {
+      "code": "FILE_TYPE_UNSUPPORTED",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "File is not a plain .xlsx workbook.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "FILE_TOO_LARGE",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Compressed workbook exceeds 5 MiB.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "ZIP_BOMB_SUSPECTED",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Archive expansion ratio or uncompressed limit exceeded.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "ZIP_ENTRY_LIMIT",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Archive contains more than 200 entries.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "WORKBOOK_ENCRYPTED",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Encrypted workbook is unsupported.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "MACRO_CONTENT",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Macro or active-content part detected.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "EXTERNAL_LINK",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "External workbook relationship detected.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "PATH_TRAVERSAL",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Unsafe archive or relationship path detected.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "FORMULA_CELL",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Formula cell detected; cached values are not trusted.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "MERGED_DATA_CELL",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Merged cell intersects the data region.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "HIDDEN_SHEET_DATA",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Hidden sheet contains data.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "HIDDEN_ROW_DATA",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Hidden row contains data.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "HIDDEN_COLUMN_DATA",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Hidden semantic column contains data.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "SHEET_COUNT_INVALID",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Visible workbook sheet layout is unsupported.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "ROW_LIMIT",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Workbook exceeds 1000 data rows.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "COLUMN_LIMIT",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Workbook exceeds 256 columns.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "CELL_TOO_LARGE",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Decoded cell exceeds 64 KiB.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "MALFORMED_UNICODE",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Invalid or prohibited Unicode was detected.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "MISSING_HEADER",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "A required header is absent.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "DUPLICATE_HEADER",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "A normalized header occurs more than once.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "UNKNOWN_COLUMN",
+      "severity": "warning",
+      "scope": "row",
+      "row_blocking": false,
+      "file_blocking": false,
+      "message": "An unknown non-sensitive column is ignored.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "FORBIDDEN_COLUMN",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "A security-sensitive or writer-controlled column is present.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "LEGACY_COLUMN_COUNT",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Legacy contract must contain exactly 15 visible columns.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "LEGACY_COLUMN_ORDER",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Legacy positional columns are reordered.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "MISSING_VALUE",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "A required row value is absent.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "INVALID_CONTRACT",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Source contract is missing or unsupported.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "INVALID_INTERACTION_TYPE",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Interaction type is unsupported.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "INVALID_GRADING_MODE",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Grading mode is unsupported.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "INCOMPATIBLE_TYPE_MODE",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Interaction and grading mode are incompatible.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "OPTION_COUNT",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Choice question must contain 2 to 6 contiguous options.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "DUPLICATE_OPTION",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Normalized option bodies must be distinct.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "MISSING_CORRECT_INDEX",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Auto-single question lacks a correct index.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "INVALID_CORRECT_INDEX",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Correct index is not a valid contract-specific integer.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "CORRECT_INDEX_NO_OPTION",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Correct index points to an empty option.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "ANSWER_NOT_ALLOWED",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Answer material is forbidden for manual grading.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "ACCEPTED_ANSWER_REQUIRED",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Auto-text question requires an accepted answer.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "DUPLICATE_ACCEPTED_ANSWER",
+      "severity": "warning",
+      "scope": "row",
+      "row_blocking": false,
+      "file_blocking": false,
+      "message": "Duplicate normalized accepted answer is removed.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "INVALID_SCORE",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Score must be finite and positive.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "PARTIAL_NOT_ALLOWED",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Partial credit is incompatible with this question.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "QUESTION_CODE_INVALID",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Question code has invalid syntax or length.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "DUPLICATE_CODE_IN_FILE",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Question code repeats within the file.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "DUPLICATE_CODE_EXISTS",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Question code already exists and policy forbids implicit takeover.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "UNKNOWN_SUBJECT",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Subject code is not found in authorized scope.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "UNKNOWN_LESSON",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Lesson code is not found in authorized scope.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "CROSS_SUBJECT_MAPPING",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Target subject is outside authorized/import scope.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "CROSS_LESSON_MAPPING",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Lesson does not belong to the supplied subject/scope.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "MEDIA_URL_INVALID",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Media URL fails scheme, host, credential, or allowlist policy.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "MEDIA_TYPE_REQUIRED",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Media type cannot be determined safely.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "FORMULA_INJECTION",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Formula-like text is unsafe for ingestion/export.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "MIXED_NUMERAL_SCRIPTS",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "One numeric token mixes numeral scripts.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "SCIENTIFIC_NOTATION_LOSS",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Identifier/answer was coerced to scientific notation.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "LEGACY_INFORMATION_LOSS",
+      "severity": "error",
+      "scope": "row",
+      "row_blocking": true,
+      "file_blocking": false,
+      "message": "Legacy row cannot express required normalized semantics.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "UNAUTHORIZED_IMPORT",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Actor lacks import permission.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "PRIVILEGE_ESCALATION",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Input attempts to control role, status, approval, or publisher.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "PREVIEW_TOKEN_INVALID",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Preview token is invalid, expired, wrong actor, or already consumed.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "STALE_VALIDATION",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Authorization or reference snapshot changed after preview.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "CONTENT_HASH_MISMATCH",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Apply content does not match preview canonical hash.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "IMPORT_REPLAY_CONFLICT",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Idempotency token was reused with different content.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "ATOMIC_APPLY_FAILED",
+      "severity": "error",
+      "scope": "file",
+      "row_blocking": false,
+      "file_blocking": true,
+      "message": "Apply failed and all content changes must roll back.",
+      "decision": "READY_TO_APPROVE"
+    },
+    {
+      "code": "NORMALIZATION_CHANGED",
+      "severity": "warning",
+      "scope": "row",
+      "row_blocking": false,
+      "file_blocking": false,
+      "message": "Safe canonical normalization changed source representation.",
+      "decision": "READY_TO_APPROVE"
+    }
+  ]
+}
