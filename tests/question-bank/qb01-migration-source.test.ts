@@ -208,29 +208,137 @@ test("HOLD-15: lifecycle and pointer column privileges revoked", () => {
   );
 });
 
-test("42: service_role questions UPDATE is column-allowlisted without pointer", () => {
+test("42/45B: service_role questions are SELECT-only; pointer deferred invariants retained", () => {
   const sql = loadSql();
+  const exec = executableSql(sql);
   assert.match(sql, /REVOKE ALL ON public\.questions FROM service_role/i);
-  assert.match(sql, /GRANT SELECT,\s*INSERT,\s*DELETE ON public\.questions TO service_role/i);
+  assert.match(sql, /GRANT SELECT ON public\.questions TO service_role/i);
+  assert.equal(/GRANT ALL ON public\.questions TO service_role/i.test(exec), false);
   assert.equal(
-    /GRANT ALL ON public\.questions TO service_role/i.test(sql),
+    /GRANT UPDATE\s*\([^)]*\)\s*ON public\.questions TO service_role/i.test(exec),
     false,
-    "must not GRANT ALL on questions to service_role",
   );
-  const allow = sql.match(
-    /GRANT UPDATE\s*\(([^)]+)\)\s*ON public\.questions TO service_role/i,
-  );
-  assert.ok(allow, "service_role questions UPDATE allowlist missing");
   assert.equal(
-    /current_published_revision_id/i.test(allow![1]),
+    /GRANT (SELECT,\s*)?INSERT.*ON public\.questions TO service_role/i.test(exec),
     false,
-    "pointer must be excluded from service_role UPDATE allowlist",
   );
   assert.match(sql, /qb_assert_published_pointer_consistency/);
   assert.match(sql, /CONSTRAINT TRIGGER trg_qb_questions_pointer_consistency/i);
-  assert.match(sql, /CONSTRAINT TRIGGER trg_qb_revisions_pointer_consistency/i);
   assert.match(sql, /DEFERRABLE INITIALLY DEFERRED/i);
   assert.match(sql, /array_agg\(qr\.id ORDER BY qr\.id\)/);
+});
+
+test("45B: no sensitive GRANT ALL to service_role", () => {
+  const sql = loadSql();
+  const exec = executableSql(sql);
+  for (const t of [
+    "question_bank_runtime_config",
+    "question_bank_capability_grants",
+    "question_targets",
+    "practice_attempts",
+    "practice_attempt_responses",
+    "question_response_reviews",
+    "question_bank_rpc_idempotency",
+    "exam_session_answers",
+    "exam_session_questions",
+    "practice_attempt_questions",
+  ]) {
+    assert.equal(
+      new RegExp(`GRANT ALL ON public\\.${t} TO service_role`, "i").test(exec),
+      false,
+      `must not GRANT ALL on ${t}`,
+    );
+  }
+});
+
+test("45B: capability self-check; internal probe not client-executable", () => {
+  const sql = loadSql();
+  assert.match(sql, /qb_i_have_capability/);
+  assert.match(
+    sql,
+    /REVOKE ALL ON FUNCTION public\.qb_has_capability\(uuid,\s*text\) FROM anon,\s*authenticated,\s*service_role/i,
+  );
+  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.qb_i_have_capability\(text\) TO authenticated/i);
+  assert.match(sql, /p_user_id IS DISTINCT FROM auth\.uid\(\) THEN false/i);
+  assert.match(sql, /DELETE_DRAFT_QUESTION/);
+  assert.match(sql, /self-grant is not allowed/i);
+});
+
+test("45B: canonical payload_hash verification before APPROVED/PUBLISH", () => {
+  const sql = loadSql();
+  assert.match(sql, /_qb_compute_revision_payload_hash/);
+  assert.match(sql, /_qb_assert_revision_payload_hash/);
+  assert.match(sql, /compute_and_set_revision_payload_hash/);
+  assert.match(sql, /payload_hash does not match canonical revision content/);
+  assert.match(sql, /cannot insert revision directly as APPROVED/);
+});
+
+test("45B: append-only capability/idempotency/reviews; snapshot direct delete blocked", () => {
+  const sql = loadSql();
+  assert.match(sql, /qb_guard_capability_grants_append_only/);
+  assert.match(sql, /qb_guard_idempotency_append_only/);
+  assert.match(sql, /qb_guard_reviews_append_only/);
+  assert.match(sql, /attempt snapshot rows cannot be deleted directly/);
+});
+
+test("45: capability and idempotency closed to service_role DML", () => {
+  const sql = loadSql();
+  const exec = executableSql(sql);
+  assert.equal(
+    /GRANT ALL ON public\.question_bank_capability_grants TO service_role/i.test(exec),
+    false,
+  );
+  assert.match(sql, /REVOKE ALL ON public\.question_bank_capability_grants FROM service_role/i);
+  assert.equal(
+    /GRANT ALL ON public\.question_bank_rpc_idempotency TO service_role/i.test(exec),
+    false,
+  );
+  assert.match(sql, /REVOKE ALL ON public\.question_bank_rpc_idempotency FROM service_role/i);
+  assert.match(sql, /grant_question_bank_capability/);
+  assert.match(sql, /revoke_question_bank_capability/);
+});
+
+test("45B: service_role has SELECT-only on correctness children", () => {
+  const sql = loadSql();
+  const exec = executableSql(sql);
+  assert.match(sql, /GRANT SELECT ON public\.question_options TO service_role/i);
+  assert.equal(
+    /GRANT UPDATE\s*\([^)]*\)\s*ON public\.question_options TO service_role/i.test(exec),
+    false,
+  );
+  assert.equal(
+    /GRANT UPDATE\s*\([^)]*\)\s*ON public\.question_accepted_answers TO service_role/i.test(exec),
+    false,
+  );
+  assert.equal(
+    /GRANT UPDATE\s*\([^)]*\)\s*ON public\.question_solutions TO service_role/i.test(exec),
+    false,
+  );
+});
+
+test("45B: controlled delete_draft_question RPC and direct DELETE revoked", () => {
+  const sql = loadSql();
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.delete_draft_question\s*\(/i);
+  assert.match(
+    sql,
+    /GRANT EXECUTE ON FUNCTION public\.delete_draft_question\(uuid,\s*text,\s*text\) TO authenticated/i,
+  );
+  assert.match(sql, /DELETE_DRAFT_QUESTION or admin authorization required/i);
+  assert.match(sql, /idempotency_key is required/i);
+  assert.match(sql, /cannot delete question: non-DRAFT revisions exist/i);
+  assert.match(sql, /cannot delete question: historical or operational usage exists/i);
+  assert.match(sql, /DRAFT_QUESTION_DELETED/);
+  assert.match(sql, /assessment_questions/);
+  assert.match(sql, /exam_template_questions/);
+  assert.match(sql, /REVOKE DELETE ON public\.questions FROM anon,\s*authenticated,\s*service_role/i);
+  assert.match(
+    sql,
+    /CREATE TABLE IF NOT EXISTS public\.question_revisions\s*\([\s\S]*?question_id uuid NOT NULL REFERENCES public\.questions\(id\) ON DELETE RESTRICT/i,
+  );
+  const exec = executableSql(sql);
+  assert.equal(/current_setting\s*\(\s*'request\.jwt\.claim\.role'/i.test(exec), false);
+  assert.equal(/\bCURRENT_USER\b/.test(exec), false);
+  assert.equal(/\bSESSION_USER\b/.test(exec), false);
 });
 
 test("42: child parent FK immutable; OLD and NEW freeze checks", () => {
@@ -249,7 +357,7 @@ test("42: child parent FK immutable; OLD and NEW freeze checks", () => {
   assert.ok(stepGuard, "step guard missing");
   assert.match(stepGuard![0], /OLD\.solution_id/);
   assert.match(stepGuard![0], /NEW\.solution_id/);
-  assert.match(sql, /GRANT SELECT,\s*INSERT,\s*DELETE ON public\.exam_session_questions TO service_role/i);
+  assert.match(sql, /GRANT SELECT ON public\.exam_session_questions TO service_role/i);
   assert.equal(
     /GRANT ALL ON public\.exam_session_questions TO service_role/i.test(sql),
     false,

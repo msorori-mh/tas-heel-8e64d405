@@ -11,6 +11,7 @@
     "test": "node --experimental-strip-types --test src/lib/*.test.ts",
     "test:question-bank-hash": "node scripts/question-bank/verify-question-bank-hash-vectors.mjs",
     "test:question-bank-source": "node --experimental-strip-types --test tests/question-bank/qb01-migration-source.test.ts",
+    "test:question-bank-runtime-45": "node tests/question-bank/runtime/run-qb01-security-ci-delete-45.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
     "generate:import-templates": "bun run scripts/generate-import-templates.ts",

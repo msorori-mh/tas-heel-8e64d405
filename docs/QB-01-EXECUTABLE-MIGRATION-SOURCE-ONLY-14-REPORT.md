@@ -19,6 +19,7 @@
 | SHA-256 (PUBLISH-EXECUTOR-39 / superseded) | `37fba8bf37c80a461409dfcff15aace06814b344e9b13ee4ed766c171a513496` |
 | SHA-256 (PUBLISH-INVARIANTS-39B) | `c1c26af41f6f4485a1f7dc05c1dc06e14372ef8ac550f8fad365d278a7f8cff3` |
 | SHA-256 (POINTER-CHILD-42) | `0a486fb327f88706ceb5eaca1bbe34a8c7e1996adb01b28da2b5ea75c32e4e21` |
+| SHA-256 (CAPABILITY-CI-DELETE-45 / 45B) | `c84cfdf06a8622c0269ad0762b98a878f8065cda7e38e52b90156b935610c443` |
 | Under `supabase/migrations` | YES |
 | Applied by this package | **NO** (local disposable Docker compilation only) |
 | Remote SQL / remote DB writes | **ZERO** |
@@ -224,6 +225,44 @@ Parent foreign keys are immutable after INSERT. Draft edits use Delete+Insert un
 
 Local note: Windows Hyper-V excluded default ports `54321–54344`; verification used temporary local port remap `5502x` (not committed).
 
+## CAPABILITY-CI-DELETE-45 / 45B — service_role ACL, hash, draft delete, lockfile
+
+### Blockers closed
+
+1. **Capability escalation** — `GRANT ALL` on `question_bank_capability_grants` to `service_role` allowed direct INSERT of `PUBLISH_QUESTION_REVISION`.
+2. **Correct-answer mutation** — `service_role` could `UPDATE question_options.is_correct` (and other correctness columns).
+3. **CI `npm ci`** — lockfile missing optional transitive entries under Node 22 / npm 10.9.x (`@emnapi/*`, `lru-cache@11.5.2`).
+4. **Draft-question delete** — `question_revisions.question_id` `ON DELETE RESTRICT` blocked uncontrolled deletes; needed a controlled RPC contract (not blind CASCADE).
+
+### 45B expansions (Codex 46)
+
+| Area | Decision |
+|---|---|
+| Sensitive `GRANT ALL` | Removed for runtime_config, capability_grants, targets, practice_attempts, responses, reviews, idempotency, exam_session_answers, snapshots |
+| service_role DML | SELECT-only on QB sensitive tables; mutations via SECURITY DEFINER RPCs |
+| payload_hash | SQL canonical JCS builder + SHA-256; assert before APPROVED and PUBLISH; `compute_and_set_revision_payload_hash` RPC |
+| Capability probe | `qb_has_capability(uuid,text)` revoked from clients; `qb_i_have_capability(text)` self-only; `can_*` refuse other `user_id` |
+| Append-only | capability revoke-only UPDATE; idempotency/reviews no UPDATE/DELETE; snapshot direct DELETE blocked (CASCADE parent cleanup allowed) |
+| Draft delete | `delete_draft_question(question_id, reason, idempotency_key)`; admin or `DELETE_DRAFT_QUESTION`; pristine-DRAFT + usage guards |
+
+### Dynamic harness
+
+Committed at `tests/question-bank/runtime/` (`npm run test:question-bank-runtime-45`).
+
+| Gate | Result |
+|---|---|
+| Fresh compilation ×2 | PASS |
+| Dynamic suite | 37/37 PASS ×2 |
+| Source tests | 37/37 PASS |
+| Hash vectors | 12/12 PASS |
+| Node 22 / npm 10.9.8 `npm ci` + tsc + unit + PWA + build | PASS |
+| Remote SQL | ZERO |
+
+### CI lockfile
+
+- Root cause: optional transitive packages absent from lock under Linux/Node 22.
+- Fix: `npm install --package-lock-only --ignore-scripts` inside `node:22-bookworm-slim`, verified with `npm ci`.
+
 ## Not executed / not included
 
 - Migration apply (`db push` / `migration up` / `db reset` / Dashboard SQL / psql)
@@ -251,7 +290,9 @@ Local note: Windows Hyper-V excluded default ports `54321–54344`; verification
 |---|---|
 | `git diff --check` | clean |
 | `npm run test:question-bank-hash` | PASS (12/12) |
-| `npm run test:question-bank-source` | PASS (30/30) |
+| `npm run test:question-bank-source` | PASS (37/37) |
+| `npm run test:question-bank-runtime-45` | PASS (37/37 ×2) |
+| Node 22 CI-equivalent (`npm ci`, tsc, tests, build) | PASS |
 | Local disposable Docker SQL | YES (fresh ×2 + dynamic suite) |
 | Remote SQL / remote DB writes | ZERO |
 
@@ -271,4 +312,4 @@ Local note: Windows Hyper-V excluded default ports `54321–54344`; verification
 
 ## Recommended next action
 
-`QB01_PR48_INDEPENDENT_REREVIEW_44`
+`QB01_PR48_INDEPENDENT_REREVIEW_47`
