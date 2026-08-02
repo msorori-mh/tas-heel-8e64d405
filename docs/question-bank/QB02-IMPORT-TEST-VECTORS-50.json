@@ -361,11 +361,6 @@
             "target_type": "SUBJECT",
             "target_code": "MATH-G10",
             "is_primary": true
-          },
-          {
-            "target_type": "LESSON",
-            "target_code": "MATH-L1",
-            "is_primary": false
           }
         ],
         "provenance": {
@@ -421,11 +416,6 @@
             "target_type": "SUBJECT",
             "target_code": "MATH-G10",
             "is_primary": true
-          },
-          {
-            "target_type": "LESSON",
-            "target_code": "MATH-L1",
-            "is_primary": false
           }
         ],
         "provenance": {
@@ -647,11 +637,6 @@
             "target_type": "SUBJECT",
             "target_code": "MATH-G10",
             "is_primary": true
-          },
-          {
-            "target_type": "LESSON",
-            "target_code": "MATH-L1",
-            "is_primary": false
           }
         ],
         "provenance": {
@@ -784,11 +769,6 @@
             "target_type": "SUBJECT",
             "target_code": "MATH-G10",
             "is_primary": true
-          },
-          {
-            "target_type": "LESSON",
-            "target_code": "MATH-L1",
-            "is_primary": false
           }
         ],
         "provenance": {
@@ -933,11 +913,6 @@
             "target_type": "SUBJECT",
             "target_code": "MATH-G10",
             "is_primary": true
-          },
-          {
-            "target_type": "LESSON",
-            "target_code": "MATH-L1",
-            "is_primary": false
           }
         ],
         "provenance": {
@@ -1147,11 +1122,6 @@
             "target_type": "SUBJECT",
             "target_code": "MATH-G10",
             "is_primary": true
-          },
-          {
-            "target_type": "LESSON",
-            "target_code": "MATH-L1",
-            "is_primary": false
           }
         ],
         "provenance": {
@@ -1454,11 +1424,6 @@
             "target_type": "SUBJECT",
             "target_code": "MATH-G10",
             "is_primary": true
-          },
-          {
-            "target_type": "LESSON",
-            "target_code": "MATH-L1",
-            "is_primary": false
           }
         ],
         "provenance": {
@@ -1515,11 +1480,6 @@
             "target_type": "SUBJECT",
             "target_code": "MATH-G10",
             "is_primary": true
-          },
-          {
-            "target_type": "LESSON",
-            "target_code": "MATH-L1",
-            "is_primary": false
           }
         ],
         "provenance": {
@@ -1744,11 +1704,6 @@
             "target_type": "SUBJECT",
             "target_code": "MATH-G10",
             "is_primary": true
-          },
-          {
-            "target_type": "LESSON",
-            "target_code": "MATH-L1",
-            "is_primary": false
           }
         ],
         "provenance": {
@@ -1883,11 +1838,6 @@
             "target_type": "SUBJECT",
             "target_code": "MATH-G10",
             "is_primary": true
-          },
-          {
-            "target_type": "LESSON",
-            "target_code": "MATH-L1",
-            "is_primary": false
           }
         ],
         "provenance": {
@@ -2034,11 +1984,6 @@
             "target_type": "SUBJECT",
             "target_code": "MATH-G10",
             "is_primary": true
-          },
-          {
-            "target_type": "LESSON",
-            "target_code": "MATH-L1",
-            "is_primary": false
           }
         ],
         "provenance": {
@@ -2251,11 +2196,6 @@
             "target_type": "SUBJECT",
             "target_code": "MATH-G10",
             "is_primary": true
-          },
-          {
-            "target_type": "LESSON",
-            "target_code": "MATH-L1",
-            "is_primary": false
           }
         ],
         "provenance": {
