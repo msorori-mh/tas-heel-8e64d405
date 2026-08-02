@@ -1,5 +1,6 @@
 import {
   QB_IMPORT_AR_MESSAGES,
+  VALIDATION_CODE_DEFAULTS,
   type QbImportCode,
 } from "./validation-codes.ts";
 
@@ -18,11 +19,9 @@ export type QbImportIssue = {
 
 export function issue(
   code: QbImportCode,
-  opts: Partial<Omit<QbImportIssue, "code" | "message_ar">> & {
-    suggested_fix: string;
-  },
+  opts: Partial<Omit<QbImportIssue, "code" | "message_ar">> = {},
 ): QbImportIssue {
-  const rowBlocking = opts.row_blocking ?? true;
+  const defaults = VALIDATION_CODE_DEFAULTS[code];
   return {
     code,
     message_ar: QB_IMPORT_AR_MESSAGES[code],
@@ -30,9 +29,16 @@ export function issue(
     sheet: opts.sheet ?? null,
     row: opts.row ?? null,
     column: opts.column ?? null,
-    severity: opts.severity ?? "error",
-    row_blocking: rowBlocking,
-    file_blocking: opts.file_blocking ?? false,
-    suggested_fix: opts.suggested_fix,
+    severity: opts.severity ?? defaults.severity,
+    row_blocking: opts.row_blocking ?? defaults.row_blocking,
+    file_blocking: opts.file_blocking ?? defaults.file_blocking,
+    suggested_fix: opts.suggested_fix ?? "صحح البيانات وفق قالب الاستيراد المعتمد.",
   };
+}
+
+export function sortIssues(issues: QbImportIssue[]): QbImportIssue[] {
+  return [...issues].sort((a, b) =>
+    String(a.file).localeCompare(String(b.file)) || String(a.sheet).localeCompare(String(b.sheet)) ||
+    (a.row ?? -1) - (b.row ?? -1) || String(a.column).localeCompare(String(b.column)) ||
+    a.code.localeCompare(b.code));
 }

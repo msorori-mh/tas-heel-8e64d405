@@ -1,20 +1,24 @@
-import type { OfficialNormalizedV1, CatalogLookup } from "./official-normalized-v1.ts";
-import { NORMALIZATION_POLICIES, QUESTION_TYPES } from "./official-normalized-v1.ts";
+import type { OfficialNormalizedV1 } from "./official-normalized-v1.ts";
 import { issue, type QbImportIssue } from "./errors.ts";
 import { QB_IMPORT_CODES } from "./validation-codes.ts";
-import { createHash } from "node:crypto";
+import { hasUnsafeUnicode, isFormulaLike, mixedNumeralScripts } from "./unicode.ts";
+import { canonicalHash } from "./canonical-json.ts";
 
 export function contentFingerprint(row: OfficialNormalizedV1): string {
-  const payload = {
-    question_text: row.question_text,
-    options: row.options.map((o) => ({
-      option_code: o.option_code,
-      option_text: o.option_text,
-      is_correct: o.is_correct,
-    })),
-  };
-  return createHash("sha256").update(JSON.stringify(payload), "utf8").digest("hex");
+  return canonicalHash({
+    revision: row.revision,
+    options: row.options,
+    accepted_answers: row.accepted_answers,
+  });
 }
+
+export type CatalogLookup = {
+  subjects: Set<string>;
+  lessons: Set<string>;
+  lessonSubjects?: Map<string, string>;
+  authorizedSubjects?: Set<string>;
+  existing?: Map<string, string>;
+};
 
 export function validateNormalizedRow(
   row: OfficialNormalizedV1,
@@ -28,71 +32,97 @@ export function validateNormalizedRow(
   },
 ): QbImportIssue[] {
   const issues: QbImportIssue[] = [];
-  const file = ctx.file ?? null;
-  const sheet = ctx.sheet ?? null;
-  const rowNumber = ctx.rowNumber ?? null;
-
-  if (!QUESTION_TYPES.includes(row.question_type)) {
-    issues.push(
-      issue(QB_IMPORT_CODES.QB_IMPORT_UNKNOWN_QUESTION_TYPE, {
-        file,
-        sheet,
-        row: rowNumber,
-        column: "question_type",
-        suggested_fix: `الأنواع المسموحة: ${QUESTION_TYPES.join(", ")}`,
-      }),
-    );
-  }
+  const base = {
+    file: ctx.file ?? null,
+    sheet: ctx.sheet ?? null,
+    row: ctx.rowNumber ?? null,
+  };
+  const { interaction_type: type, grading_mode: grading } = row.revision;
 
   if (
-    row.normalization_policy &&
-    !NORMALIZATION_POLICIES.includes(row.normalization_policy)
+    type === "MULTIPLE_CHOICE" ||
+    !["SINGLE_CHOICE", "SHORT_TEXT", "LONG_TEXT"].includes(type)
   ) {
-    issues.push(
-      issue(QB_IMPORT_CODES.QB_IMPORT_UNSUPPORTED_NORMALIZATION, {
-        file,
-        sheet,
-        row: rowNumber,
-        column: "normalization_policy",
-        suggested_fix: "استخدم EXACT أو TRIM أو TRIM_COLLAPSE فقط.",
-      }),
-    );
+    issues.push(issue(QB_IMPORT_CODES.INVALID_INTERACTION_TYPE, base));
+  }
+  if (!["AUTO_SINGLE", "AUTO_TEXT", "MANUAL"].includes(grading)) {
+    issues.push(issue(QB_IMPORT_CODES.INVALID_GRADING_MODE, base));
+  }
+  if (
+    (type === "SINGLE_CHOICE" && grading !== "AUTO_SINGLE") ||
+    (type === "SHORT_TEXT" && grading !== "AUTO_TEXT") ||
+    (type === "LONG_TEXT" && grading !== "MANUAL")
+  ) {
+    issues.push(issue(QB_IMPORT_CODES.INCOMPATIBLE_TYPE_MODE, base));
+  }
+  if (!Number.isFinite(row.revision.max_score) || row.revision.max_score <= 0) {
+    issues.push(issue(QB_IMPORT_CODES.INVALID_SCORE, base));
+  }
+  if (
+    type === "SINGLE_CHOICE" &&
+    (row.options.length < 2 ||
+      row.options.length > 6 ||
+      row.options.filter((o) => o.is_correct).length !== 1)
+  ) {
+    issues.push(issue(QB_IMPORT_CODES.OPTION_COUNT, base));
+  }
+  if (
+    new Set(row.options.map((o) => o.option_code)).size !== row.options.length ||
+    new Set(row.options.map((o) => o.body.normalize("NFC"))).size !== row.options.length
+  ) {
+    issues.push(issue(QB_IMPORT_CODES.DUPLICATE_OPTION, base));
+  }
+  if (type === "SHORT_TEXT" && !row.accepted_answers.length) {
+    issues.push(issue(QB_IMPORT_CODES.ACCEPTED_ANSWER_REQUIRED, base));
+  }
+  if (type === "LONG_TEXT" && (row.options.length || row.accepted_answers.length)) {
+    issues.push(issue(QB_IMPORT_CODES.ANSWER_NOT_ALLOWED, base));
   }
 
-  if (ctx.catalog) {
-    if (!ctx.catalog.subjects.has(row.subject_code)) {
-      issues.push(
-        issue(QB_IMPORT_CODES.QB_IMPORT_UNKNOWN_SUBJECT, {
-          file,
-          sheet,
-          row: rowNumber,
-          column: "subject_code",
-          suggested_fix: "طابق رمز المادة مع الكتالوج.",
-        }),
-      );
+  for (const value of [
+    row.question_code,
+    row.revision.question_text,
+    ...row.options.map((o) => o.body),
+  ]) {
+    if (hasUnsafeUnicode(value)) {
+      issues.push(issue(QB_IMPORT_CODES.MALFORMED_UNICODE, base));
+    } else if (isFormulaLike(value)) {
+      issues.push(issue(QB_IMPORT_CODES.FORMULA_INJECTION, base));
     }
-    if (row.lesson_code && !ctx.catalog.lessons.has(row.lesson_code)) {
-      issues.push(
-        issue(QB_IMPORT_CODES.QB_IMPORT_UNKNOWN_LESSON, {
-          file,
-          sheet,
-          row: rowNumber,
-          column: "lesson_code",
-          suggested_fix: "طابق رمز الدرس مع الكتالوج.",
-        }),
-      );
+  }
+
+  const subject = row.targets.find((t) => t.target_type === "SUBJECT");
+  const lesson = row.targets.find((t) => t.target_type === "LESSON");
+
+  if (ctx.catalog && subject) {
+    if (!ctx.catalog.subjects.has(subject.target_code)) {
+      issues.push(issue(QB_IMPORT_CODES.UNKNOWN_SUBJECT, base));
+    } else if (
+      ctx.catalog.authorizedSubjects &&
+      !ctx.catalog.authorizedSubjects.has(subject.target_code)
+    ) {
+      issues.push(issue(QB_IMPORT_CODES.CROSS_SUBJECT_MAPPING, base));
     }
+  }
+  if (ctx.catalog && lesson && !ctx.catalog.lessons.has(lesson.target_code)) {
+    issues.push(issue(QB_IMPORT_CODES.UNKNOWN_LESSON, base));
+  }
+  if (
+    ctx.catalog?.lessonSubjects &&
+    subject &&
+    lesson &&
+    ctx.catalog.lessonSubjects.get(lesson.target_code) !== subject.target_code
+  ) {
+    issues.push(issue(QB_IMPORT_CODES.CROSS_LESSON_MAPPING, base));
   }
 
   if (ctx.seenCodes) {
     if (ctx.seenCodes.has(row.question_code)) {
       issues.push(
-        issue(QB_IMPORT_CODES.QB_IMPORT_DUPLICATE_QUESTION_CODE, {
-          file,
-          sheet,
-          row: rowNumber,
-          column: "question_code",
-          suggested_fix: "اجعل question_code فريداً داخل الملف.",
+        issue(QB_IMPORT_CODES.DUPLICATE_CODE_IN_FILE, {
+          ...base,
+          file_blocking: true,
+          row_blocking: false,
         }),
       );
     } else {
@@ -100,23 +130,39 @@ export function validateNormalizedRow(
     }
   }
 
-  if (ctx.seenFingerprints) {
-    const fp = contentFingerprint(row);
-    if (ctx.seenFingerprints.has(fp)) {
+  if (ctx.catalog?.existing?.has(row.question_code)) {
+    const prior = ctx.catalog.existing.get(row.question_code);
+    const current = contentFingerprint(row);
+    if (prior && prior !== current) {
       issues.push(
-        issue(QB_IMPORT_CODES.QB_IMPORT_DUPLICATE_CONTENT, {
-          file,
-          sheet,
-          row: rowNumber,
-          column: "question_text",
-          severity: "warning",
+        issue(QB_IMPORT_CODES.DUPLICATE_CODE_EXISTS, {
+          ...base,
+          file_blocking: true,
           row_blocking: false,
-          suggested_fix: "راجع التكرار المحتمل لنفس المحتوى.",
         }),
       );
     } else {
-      ctx.seenFingerprints.add(fp);
+      issues.push(
+        issue(QB_IMPORT_CODES.DUPLICATE_CODE_EXISTS, {
+          ...base,
+          file_blocking: true,
+          row_blocking: false,
+        }),
+      );
     }
+  }
+
+  if (ctx.seenFingerprints) {
+    ctx.seenFingerprints.add(contentFingerprint(row));
+  }
+
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(row.question_code)) {
+    issues.push(
+      issue(QB_IMPORT_CODES.QUESTION_CODE_INVALID, {
+        ...base,
+        column: "question_code",
+      }),
+    );
   }
 
   return issues;

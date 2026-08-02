@@ -1,15 +1,12 @@
-/**
- * Excel correct markers → option_code → is_correct → legacy 0-based correct_index.
- * Excel indexes are 1-based. 0-based Excel values are rejected as suspect.
- */
+import { normalizeNumeric, normalizeText } from "./unicode.ts";
 
-export type OptionInput = { option_code: string; option_text: string };
+export type OptionInput = { option_code: string; body: string };
 
 export type CorrectResolveOk = {
   ok: true;
   option_code: string;
   options: Array<OptionInput & { is_correct: boolean; sort_order: number }>;
-  legacy_correct_index_0_based: number;
+  correct_index_0_based: number;
 };
 
 export type CorrectResolveErr = {
@@ -17,119 +14,98 @@ export type CorrectResolveErr = {
   reason:
     | "EMPTY"
     | "NOT_FOUND"
-    | "ZERO_BASED_SUSPECT"
     | "MULTIPLE_NOT_ALLOWED"
-    | "MANUAL_NO_INDEX";
+    | "EMPTY_OPTION"
+    | "INVALID_INDEX";
 };
 
-const ARABIC_DIGITS: Record<string, string> = {
-  "٠": "0",
-  "١": "1",
-  "٢": "2",
-  "٣": "3",
-  "٤": "4",
-  "٥": "5",
-  "٦": "6",
-  "٧": "7",
-  "٨": "8",
-  "٩": "9",
+const ARABIC_LETTER_TO_CODE: Record<string, string> = {
+  أ: "A",
+  ا: "A",
+  إ: "A",
+  آ: "A",
+  ب: "B",
+  ج: "C",
+  د: "D",
+  ه: "E",
+  و: "F",
 };
 
 export function normalizeArabicDigits(raw: string): string {
-  return [...raw].map((ch) => ARABIC_DIGITS[ch] ?? ch).join("");
+  return normalizeNumeric(raw) ?? raw;
 }
 
 export function normalizeLf(value: string): string {
-  return value.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+  return normalizeText(value);
 }
 
-const ARABIC_OPTION_LETTERS: Record<string, number> = {
-  أ: 1,
-  ا: 1,
-  أَ: 1,
-  ب: 2,
-  ج: 3,
-  د: 4,
-  ه: 5,
-  و: 6,
-};
-
-function letterToIndex(letter: string): number | null {
-  if (letter.length !== 1) return null;
-  if (ARABIC_OPTION_LETTERS[letter] != null) return ARABIC_OPTION_LETTERS[letter]!;
-  const u = letter.toUpperCase();
-  const code = u.charCodeAt(0);
-  if (code < 65 || code > 90) return null;
-  return code - 64; // A=1
+function resolveLetterToCode(text: string): string | null {
+  if (text.length !== 1) return null;
+  if (ARABIC_LETTER_TO_CODE[text]) return ARABIC_LETTER_TO_CODE[text]!;
+  const upper = text.toUpperCase();
+  if (upper >= "A" && upper <= "F") return upper;
+  return null;
 }
 
 /**
- * Resolve a correct-answer cell against ordered options (display order).
- * @param allowMultiple when false, multiple matches → error
+ * Resolve a correct-answer marker.
+ * - Letters A–F / a–f / Arabic أ–و resolve by option_code (not array position).
+ * - Numeric indexes use contract-specific indexBase (1 for teacher/official, 0 for legacy).
  */
 export function resolveCorrectAnswer(
   raw: unknown,
   options: OptionInput[],
-  opts?: { allowMultiple?: boolean; manual?: boolean },
+  opts?: { allowMultiple?: boolean; indexBase?: 0 | 1 },
 ): CorrectResolveOk | CorrectResolveErr {
   const allowMultiple = opts?.allowMultiple ?? false;
-  const manual = opts?.manual ?? false;
-
-  if (manual && (raw === null || raw === undefined || String(raw).trim() === "")) {
-    return { ok: false, reason: "MANUAL_NO_INDEX" };
-  }
+  const indexBase = opts?.indexBase ?? 1;
 
   if (raw === null || raw === undefined || String(raw).trim() === "") {
     return { ok: false, reason: "EMPTY" };
   }
 
-  const text = normalizeLf(normalizeArabicDigits(String(raw)));
-
-  // Explicit 0 → suspect zero-based
-  if (text === "0") {
-    return { ok: false, reason: "ZERO_BASED_SUSPECT" };
-  }
-
+  const text = normalizeLf(String(raw));
   let matchedCodes: string[] = [];
 
-  // Letter A-D (or beyond)
-  const asLetter = letterToIndex(text);
-  if (asLetter !== null) {
-    const idx = asLetter - 1;
-    if (idx >= 0 && idx < options.length) {
-      matchedCodes = [options[idx]!.option_code];
+  const letterCode = resolveLetterToCode(text);
+  if (letterCode) {
+    const byCode = options.find((o) => o.option_code.toUpperCase() === letterCode);
+    if (!byCode) return { ok: false, reason: "NOT_FOUND" };
+    if (!byCode.body) return { ok: false, reason: "EMPTY_OPTION" };
+    matchedCodes = [byCode.option_code];
+  }
+
+  if (matchedCodes.length === 0) {
+    const numeric = normalizeNumeric(text);
+    if (numeric !== null && /^-?\d+(\.\d+)?$/.test(numeric)) {
+      if (!/^\d+$/.test(numeric)) return { ok: false, reason: "INVALID_INDEX" };
+      const n = Number(numeric);
+      const idx = n - indexBase;
+      if (!Number.isInteger(n) || idx < 0 || idx >= options.length) {
+        return { ok: false, reason: "INVALID_INDEX" };
+      }
+      const target = options[idx]!;
+      if (!target.body) return { ok: false, reason: "EMPTY_OPTION" };
+      matchedCodes = [target.option_code];
     }
   }
 
-  // 1-based numeric index
-  if (matchedCodes.length === 0 && /^\d+$/.test(text)) {
-    const n = Number(text);
-    if (n === 0) return { ok: false, reason: "ZERO_BASED_SUSPECT" };
-    const idx = n - 1;
-    if (idx >= 0 && idx < options.length) {
-      matchedCodes = [options[idx]!.option_code];
-    }
-  }
-
-  // option_code exact (case-insensitive)
   if (matchedCodes.length === 0) {
     const byCode = options.find(
       (o) => o.option_code.toUpperCase() === text.toUpperCase(),
     );
-    if (byCode) matchedCodes = [byCode.option_code];
+    if (byCode) {
+      if (!byCode.body) return { ok: false, reason: "EMPTY_OPTION" };
+      matchedCodes = [byCode.option_code];
+    }
   }
 
-  // option_text exact match (LF-normalized)
   if (matchedCodes.length === 0) {
-    const byText = options.filter(
-      (o) => normalizeLf(o.option_text) === text,
-    );
+    const byText = options.filter((o) => normalizeLf(o.body) === text && o.body);
     matchedCodes = byText.map((o) => o.option_code);
   }
 
-  if (matchedCodes.length === 0) {
-    return { ok: false, reason: "NOT_FOUND" };
-  }
+  if (matchedCodes.length === 0) return { ok: false, reason: "NOT_FOUND" };
   if (matchedCodes.length > 1 && !allowMultiple) {
     return { ok: false, reason: "MULTIPLE_NOT_ALLOWED" };
   }
@@ -140,16 +116,23 @@ export function resolveCorrectAnswer(
     is_correct: correct.has(o.option_code),
     sort_order: i,
   }));
-
   const firstCorrect = enriched.findIndex((o) => o.is_correct);
   return {
     ok: true,
     option_code: matchedCodes[0]!,
     options: enriched,
-    legacy_correct_index_0_based: firstCorrect,
+    correct_index_0_based: firstCorrect,
   };
 }
 
 export function optionCodesFromCount(count: number): string[] {
   return Array.from({ length: count }, (_, i) => String.fromCharCode(65 + i));
+}
+
+export function contiguousOptionBodies(values: unknown[]): string[] {
+  const bodies = values.map((v) => normalizeText(v ?? ""));
+  const firstBlank = bodies.findIndex((b) => !b);
+  const compact = firstBlank < 0 ? bodies : bodies.slice(0, firstBlank);
+  if (bodies.slice(compact.length).some(Boolean)) return [];
+  return compact;
 }

@@ -1,247 +1,222 @@
 import {
+  contiguousOptionBodies,
   optionCodesFromCount,
   resolveCorrectAnswer,
-  normalizeLf,
 } from "../correct-answer.ts";
-import {
-  emptyNormalized,
-  type OfficialNormalizedV1,
-  type QuestionType,
-  type GradingMode,
-} from "../official-normalized-v1.ts";
+import { emptyNormalized, type OfficialNormalizedV1 } from "../official-normalized-v1.ts";
 import { issue, type QbImportIssue } from "../errors.ts";
 import { QB_IMPORT_CODES } from "../validation-codes.ts";
+import { inferMediaType, validateMediaUrl } from "../media-policy.ts";
+import { normalizeText } from "../unicode.ts";
 
 export const LEGACY_FLAT_15COL = "legacy_flat_15col" as const;
 
-/** Expected header tokens (subset) for shift detection. */
 export const LEGACY_FLAT_HEADERS = [
-  "question_code",
-  "question_text",
-  "option_1",
-  "option_2",
-  "option_3",
-  "option_4",
-  "correct_index",
+  "code",
   "lesson_code",
   "subject_code",
+  "question",
+  "answer_a",
+  "answer_b",
+  "answer_c",
+  "answer_d",
+  "correct_index",
+  "explanation",
+  "question_type",
+  "year",
+  "semester",
+  "sort_order",
+  "media_url",
 ] as const;
 
-export type LegacyFlat15Row = {
-  question_code?: unknown;
-  question_text?: unknown;
-  option_1?: unknown;
-  option_2?: unknown;
-  option_3?: unknown;
-  option_4?: unknown;
-  option_5?: unknown;
-  option_6?: unknown;
-  correct_index?: unknown;
-  lesson_code?: unknown;
-  subject_code?: unknown;
-  unit_code?: unknown;
-  grade_code?: unknown;
-  semester_code?: unknown;
-  explanation?: unknown;
-  question_type?: unknown;
-  max_score?: unknown;
-  source?: unknown;
-  tags?: unknown;
-  media_reference?: unknown;
-  requires_media?: unknown;
-};
+export type LegacyFlat15Row = Record<string, unknown> | unknown[];
 
-function mapType(raw: unknown): QuestionType {
-  const t = String(raw ?? "SINGLE_CHOICE").trim().toUpperCase();
-  if (t === "MCQ" || t === "SINGLE" || t === "SINGLE_CHOICE") return "SINGLE_CHOICE";
-  if (t === "MULTI" || t === "MULTI_CHOICE") return "MULTI_CHOICE";
-  if (t === "SHORT" || t === "SHORT_TEXT") return "SHORT_TEXT";
-  if (t === "LONG" || t === "LONG_TEXT" || t === "ESSAY") return "LONG_TEXT";
-  if (t === "NUMERIC") return "NUMERIC";
-  if (t === "MANUAL") return "MANUAL";
-  return "SINGLE_CHOICE";
-}
-
-function gradingFor(type: QuestionType): GradingMode {
-  if (type === "MANUAL" || type === "LONG_TEXT") return "MANUAL";
-  if (type === "SHORT_TEXT" || type === "NUMERIC") return "AUTO_TEXT";
-  return "AUTO_SINGLE";
+export function legacyArrayToRow(values: unknown[]): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  for (let i = 0; i < LEGACY_FLAT_HEADERS.length; i += 1) {
+    row[LEGACY_FLAT_HEADERS[i]!] = values[i] ?? "";
+  }
+  return row;
 }
 
 export function adaptLegacyFlat15Col(
-  row: LegacyFlat15Row,
+  input: LegacyFlat15Row,
   ctx: { file?: string; sheet?: string; rowNumber?: number },
 ): { row: OfficialNormalizedV1 | null; issues: QbImportIssue[] } {
   const issues: QbImportIssue[] = [];
   const file = ctx.file ?? null;
   const sheet = ctx.sheet ?? "Questions";
-  const rowNumber = ctx.rowNumber ?? null;
+  const source_row = ctx.rowNumber ?? null;
 
-  const question_code = normalizeLf(String(row.question_code ?? ""));
-  const question_text = normalizeLf(String(row.question_text ?? ""));
-  const subject_code = normalizeLf(String(row.subject_code ?? ""));
-
-  if (!question_code) {
+  if (Array.isArray(input) && input.length !== 15) {
     issues.push(
-      issue(QB_IMPORT_CODES.QB_IMPORT_REQUIRED_QUESTION_CODE, {
+      issue(QB_IMPORT_CODES.LEGACY_COLUMN_COUNT, {
         file,
         sheet,
-        row: rowNumber,
-        column: "question_code",
-        suggested_fix: "أضف رمز سؤال فريداً.",
+        row: source_row,
+        file_blocking: true,
+        row_blocking: false,
+      }),
+    );
+    return { row: null, issues };
+  }
+
+  const row = Array.isArray(input) ? legacyArrayToRow(input) : input;
+  const text = (key: string) => normalizeText(row[key]);
+  const question_code = text("code");
+  const question = text("question");
+  const subject = text("subject_code");
+  const lesson = text("lesson_code");
+
+  for (const [value, column] of [
+    [question_code, "code"],
+    [question, "question"],
+    [subject, "subject_code"],
+  ] as const) {
+    if (!value) {
+      issues.push(issue(QB_IMPORT_CODES.MISSING_VALUE, { file, sheet, row: source_row, column }));
+    }
+  }
+
+  const type = text("question_type");
+  if (type === "auto_text") {
+    issues.push(
+      issue(QB_IMPORT_CODES.LEGACY_INFORMATION_LOSS, {
+        file,
+        sheet,
+        row: source_row,
+        column: "question_type",
       }),
     );
   }
-  if (!question_text) {
+  if (!["mcq", "manual", "auto_text"].includes(type)) {
     issues.push(
-      issue(QB_IMPORT_CODES.QB_IMPORT_REQUIRED_QUESTION_TEXT, {
+      issue(QB_IMPORT_CODES.INVALID_INTERACTION_TYPE, {
         file,
         sheet,
-        row: rowNumber,
-        column: "question_text",
-        suggested_fix: "أضف نص السؤال.",
-      }),
-    );
-  }
-  if (!subject_code) {
-    issues.push(
-      issue(QB_IMPORT_CODES.QB_IMPORT_REQUIRED_SUBJECT_CODE, {
-        file,
-        sheet,
-        row: rowNumber,
-        column: "subject_code",
-        suggested_fix: "أضف رمز المادة.",
+        row: source_row,
+        column: "question_type",
       }),
     );
   }
 
-  const optionTexts = [
-    row.option_1,
-    row.option_2,
-    row.option_3,
-    row.option_4,
-    row.option_5,
-    row.option_6,
-  ]
-    .map((v) => normalizeLf(String(v ?? "")))
-    .filter((t) => t.length > 0);
-
-  const question_type = mapType(row.question_type);
-  const grading_mode = gradingFor(question_type);
-  const codes = optionCodesFromCount(optionTexts.length);
-  const baseOptions = optionTexts.map((t, i) => ({
-    option_code: codes[i]!,
-    option_text: t,
+  const optionBodies = contiguousOptionBodies([
+    row.answer_a,
+    row.answer_b,
+    row.answer_c,
+    row.answer_d,
+  ]);
+  const base = optionBodies.map((body, index) => ({
+    option_code: optionCodesFromCount(optionBodies.length)[index]!,
+    body,
   }));
 
-  let options = baseOptions.map((o, i) => ({
-    ...o,
-    is_correct: false,
-    sort_order: i,
-  }));
-  let legacy: number | null = null;
-
-  if (question_type === "SINGLE_CHOICE" || question_type === "MULTI_CHOICE") {
-    if (optionTexts.length < 2 || optionTexts.length > 6) {
+  let options: OfficialNormalizedV1["options"] = [];
+  if (type === "mcq") {
+    if (optionBodies.length < 2 || optionBodies.length > 4) {
       issues.push(
-        issue(QB_IMPORT_CODES.QB_IMPORT_OPTION_COUNT_INVALID, {
+        issue(QB_IMPORT_CODES.OPTION_COUNT, {
           file,
           sheet,
-          row: rowNumber,
-          column: "option_1",
-          suggested_fix: "استخدم بين خيارين وستة خيارات.",
+          row: source_row,
+          column: "answer_a",
         }),
       );
     }
-    const resolved = resolveCorrectAnswer(row.correct_index, baseOptions, {
-      allowMultiple: question_type === "MULTI_CHOICE",
-    });
-    if (!resolved.ok) {
+    const correct = resolveCorrectAnswer(row.correct_index, base, { indexBase: 0 });
+    if (!correct.ok) {
       const code =
-        resolved.reason === "ZERO_BASED_SUSPECT"
-          ? QB_IMPORT_CODES.QB_IMPORT_ZERO_BASED_INDEX_SUSPECT
-          : resolved.reason === "MULTIPLE_NOT_ALLOWED"
-            ? QB_IMPORT_CODES.QB_IMPORT_MULTIPLE_CORRECT_NOT_ALLOWED
-            : QB_IMPORT_CODES.QB_IMPORT_INVALID_CORRECT_OPTION;
+        correct.reason === "EMPTY"
+          ? QB_IMPORT_CODES.MISSING_CORRECT_INDEX
+          : correct.reason === "EMPTY_OPTION"
+            ? QB_IMPORT_CODES.CORRECT_INDEX_NO_OPTION
+            : QB_IMPORT_CODES.INVALID_CORRECT_INDEX;
       issues.push(
         issue(code, {
           file,
           sheet,
-          row: rowNumber,
+          row: source_row,
           column: "correct_index",
-          suggested_fix:
-            resolved.reason === "ZERO_BASED_SUSPECT"
-              ? "استخدم فهرساً أساس 1 (1=الخيار الأول) أو حرفاً مثل A."
-              : "حدد خياراً موجوداً بحرف أو فهرس 1-based أو نص الخيار.",
         }),
       );
     } else {
-      options = resolved.options;
-      legacy = resolved.legacy_correct_index_0_based;
+      options = correct.options;
     }
   }
 
-  if (grading_mode === "MANUAL") {
-    const model = normalizeLf(String(row.explanation ?? ""));
-    if (!model) {
-      issues.push(
-        issue(QB_IMPORT_CODES.QB_IMPORT_MANUAL_GRADING_REQUIRES_SOLUTION, {
-          file,
-          sheet,
-          row: rowNumber,
-          column: "explanation",
-          suggested_fix: "أضف نموذج إجابة أو معيار تصحيح للأسئلة اليدوية.",
-        }),
-      );
-    }
-  }
-
-  const requires_media =
-    String(row.requires_media ?? "").toLowerCase() === "true" ||
-    row.requires_media === true ||
-    row.requires_media === 1;
-  const media_reference = normalizeLf(String(row.media_reference ?? "")) || null;
-  if (requires_media && !media_reference) {
+  const mediaUrl = text("media_url");
+  const media = mediaUrl ? validateMediaUrl(mediaUrl) : null;
+  const mediaType = media?.ok ? inferMediaType(media.url) : null;
+  if (mediaUrl && !media?.ok) {
     issues.push(
-      issue(QB_IMPORT_CODES.QB_IMPORT_MEDIA_REFERENCE_MISSING, {
+      issue(QB_IMPORT_CODES.MEDIA_URL_INVALID, {
         file,
         sheet,
-        row: rowNumber,
-        column: "media_reference",
-        suggested_fix: "أضف مرجع ملف الوسائط أو عطّل requires_media.",
+        row: source_row,
+        column: "media_url",
+      }),
+    );
+  }
+  if (mediaUrl && !mediaType) {
+    issues.push(
+      issue(QB_IMPORT_CODES.MEDIA_TYPE_REQUIRED, {
+        file,
+        sheet,
+        row: source_row,
+        column: "media_url",
       }),
     );
   }
 
-  if (issues.some((i) => i.row_blocking)) {
+  if (issues.some((item) => item.row_blocking || item.file_blocking)) {
     return { row: null, issues };
   }
 
-  const tags = String(row.tags ?? "")
-    .split(/[|,]/)
-    .map((t) => t.trim())
-    .filter(Boolean);
+  const interaction = type === "mcq" ? "SINGLE_CHOICE" : "LONG_TEXT";
+  const grading = type === "mcq" ? "AUTO_SINGLE" : "MANUAL";
+  // LONG_TEXT keeps subject as primary even when a lesson target is present.
+  const targets: OfficialNormalizedV1["targets"] = lesson
+    ? interaction === "LONG_TEXT"
+      ? [
+          { target_type: "SUBJECT", target_code: subject, is_primary: true },
+          { target_type: "LESSON", target_code: lesson, is_primary: false },
+        ]
+      : [
+          { target_type: "SUBJECT", target_code: subject, is_primary: false },
+          { target_type: "LESSON", target_code: lesson, is_primary: true },
+        ]
+    : [{ target_type: "SUBJECT", target_code: subject, is_primary: true }];
 
   return {
     row: emptyNormalized({
       question_code,
-      subject_code,
-      question_text,
-      question_type,
-      grading_mode,
-      lesson_code: normalizeLf(String(row.lesson_code ?? "")) || null,
-      unit_code: normalizeLf(String(row.unit_code ?? "")) || null,
-      grade_code: normalizeLf(String(row.grade_code ?? "")) || null,
-      semester_code: normalizeLf(String(row.semester_code ?? "")) || null,
-      max_score: Number(row.max_score ?? 1) || 1,
+      revision: {
+        status: "DRAFT",
+        interaction_type: interaction,
+        grading_mode: grading,
+        question_text: question,
+        stimulus_text: null,
+        // Legacy has no score column; manual rows use oracle default 5, MCQ uses 1.
+        max_score: interaction === "LONG_TEXT" ? 5 : 1,
+        allow_partial: false,
+      },
       options,
-      model_answer: normalizeLf(String(row.explanation ?? "")) || null,
-      source: normalizeLf(String(row.source ?? "")) || null,
-      tags,
-      media_reference,
-      requires_media,
-      legacy_correct_index_0_based: legacy,
-      revision_code: null,
+      accepted_answers: [],
+      solutions: text("explanation") ? [{ body: text("explanation") }] : [],
+      media:
+        media?.ok && mediaType
+          ? [{ url: media.url, media_type: mediaType, alt_text: null }]
+          : [],
+      targets,
+      provenance: {
+        source_contract: LEGACY_FLAT_15COL,
+        source_row,
+        metadata: {
+          year: text("year"),
+          semester: text("semester"),
+          source_sort_order: text("sort_order"),
+        },
+      },
     }),
     issues,
   };

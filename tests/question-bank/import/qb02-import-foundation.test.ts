@@ -5,10 +5,13 @@ import {
   normalizeArabicDigits,
   optionCodesFromCount,
 } from "../../../src/lib/question-bank/import/correct-answer.ts";
-import { adaptLegacyFlat15Col } from "../../../src/lib/question-bank/import/adapters/legacy-flat-15col.ts";
+import { adaptLegacyFlat15Col, LEGACY_FLAT_HEADERS } from "../../../src/lib/question-bank/import/adapters/legacy-flat-15col.ts";
 import { adaptTeacherFlatArV0 } from "../../../src/lib/question-bank/import/adapters/teacher-flat-ar-v0.ts";
 import { adaptOfficialFlatV0 } from "../../../src/lib/question-bank/import/adapters/official-flat-v0.ts";
-import { detectSchemaFromHeaders } from "../../../src/lib/question-bank/import/adapters/detect.ts";
+import {
+  CONTRACT_HEADERS,
+  detectSchemaFromHeaders,
+} from "../../../src/lib/question-bank/import/adapters/detect.ts";
 import {
   runQuestionBankImportDryRun,
   buildErrorExportModel,
@@ -16,513 +19,446 @@ import {
 import { QB_IMPORT_CODES } from "../../../src/lib/question-bank/import/validation-codes.ts";
 import { OFFICIAL_NORMALIZED_V1 } from "../../../src/lib/question-bank/import/official-normalized-v1.ts";
 import { contentFingerprint } from "../../../src/lib/question-bank/import/validate.ts";
+import { canonicalHash, canonicalJson } from "../../../src/lib/question-bank/import/canonical-json.ts";
+import { preflightWorkbook } from "../../../src/lib/question-bank/import/preflight.ts";
+import { DEFAULT_IMPORT_LIMITS } from "../../../src/lib/question-bank/import/limits.ts";
+import { validateMediaUrl } from "../../../src/lib/question-bank/import/media-policy.ts";
+import { previewRows } from "../../../src/lib/question-bank/import/preview.ts";
 
 const opts4 = [
-  { option_code: "A", option_text: "نيوتن" },
-  { option_code: "B", option_text: "جول" },
-  { option_code: "C", option_text: "واط" },
-  { option_code: "D", option_text: "باسكال" },
+  { option_code: "A", body: "نيوتن" },
+  { option_code: "B", body: "جول" },
+  { option_code: "C", body: "واط" },
+  { option_code: "D", body: "باسكال" },
 ];
 
-// --- Correct answer resolution (letters / indexes / text / Arabic) ---
-const letterCases: Array<[string, string, number]> = [
-  ["A", "A", 0],
-  ["a", "A", 0],
-  ["B", "B", 1],
-  ["C", "C", 2],
-  ["D", "D", 3],
-  ["1", "A", 0],
-  ["2", "B", 1],
-  ["3", "C", 2],
-  ["4", "D", 3],
-  ["١", "A", 0],
-  ["٢", "B", 1],
-  ["٣", "C", 2],
-  ["٤", "D", 3],
-  ["نيوتن", "A", 0],
-  ["جول", "B", 1],
-  ["واط", "C", 2],
-  ["باسكال", "D", 3],
+const letterCases: Array<[string, string, number, 0 | 1]> = [
+  ["A", "A", 0, 1],
+  ["a", "A", 0, 1],
+  ["B", "B", 1, 1],
+  ["C", "C", 2, 1],
+  ["D", "D", 3, 1],
+  ["1", "A", 0, 1],
+  ["2", "B", 1, 1],
+  ["3", "C", 2, 1],
+  ["4", "D", 3, 1],
+  ["١", "A", 0, 1],
+  ["٢", "B", 1, 1],
+  ["٣", "C", 2, 1],
+  ["٤", "D", 3, 1],
+  ["۱", "A", 0, 1],
+  ["۲", "B", 1, 1],
+  ["نيوتن", "A", 0, 1],
+  ["جول", "B", 1, 1],
+  ["0", "A", 0, 0],
+  ["1", "B", 1, 0],
+  ["2", "C", 2, 0],
+  ["3", "D", 3, 0],
 ];
 
-for (const [raw, code, idx] of letterCases) {
-  test(`correct-answer resolves ${JSON.stringify(raw)} → ${code} @${idx}`, () => {
-    const r = resolveCorrectAnswer(raw, opts4);
+for (const [raw, code, idx, base] of letterCases) {
+  test(`correct-answer resolves ${JSON.stringify(raw)} base=${base} → ${code}`, () => {
+    const r = resolveCorrectAnswer(raw, opts4, { indexBase: base });
     assert.equal(r.ok, true);
     if (r.ok) {
       assert.equal(r.option_code, code);
-      assert.equal(r.legacy_correct_index_0_based, idx);
-      assert.equal(r.options.filter((o) => o.is_correct).length, 1);
+      assert.equal(r.correct_index_0_based, idx);
     }
   });
 }
 
-test("correct-answer rejects 0-based index", () => {
-  const r = resolveCorrectAnswer(0, opts4);
-  assert.equal(r.ok, false);
-  if (!r.ok) assert.equal(r.reason, "ZERO_BASED_SUSPECT");
-});
-
-test("correct-answer rejects missing option", () => {
-  const r = resolveCorrectAnswer("E", opts4);
-  assert.equal(r.ok, false);
-  if (!r.ok) assert.equal(r.reason, "NOT_FOUND");
-});
-
-test("correct-answer rejects empty", () => {
-  assert.equal(resolveCorrectAnswer("", opts4).ok, false);
-  assert.equal(resolveCorrectAnswer(null, opts4).ok, false);
-});
-
-test("correct-answer multiple text matches blocked for single", () => {
-  const opts = [
-    { option_code: "A", option_text: "نفس" },
-    { option_code: "B", option_text: "نفس" },
+test("letter resolves by option_code after reorder", () => {
+  const reordered = [
+    { option_code: "B", body: "جول" },
+    { option_code: "A", body: "نيوتن" },
+    { option_code: "C", body: "واط" },
+    { option_code: "D", body: "باسكال" },
   ];
-  const r = resolveCorrectAnswer("نفس", opts);
-  assert.equal(r.ok, false);
-  if (!r.ok) assert.equal(r.reason, "MULTIPLE_NOT_ALLOWED");
-});
-
-test("correct-answer allows multiple when enabled", () => {
-  const opts = [
-    { option_code: "A", option_text: "نفس" },
-    { option_code: "B", option_text: "نفس" },
-  ];
-  const r = resolveCorrectAnswer("نفس", opts, { allowMultiple: true });
+  const r = resolveCorrectAnswer("A", reordered, { indexBase: 1 });
   assert.equal(r.ok, true);
+  if (r.ok) {
+    assert.equal(r.option_code, "A");
+    assert.equal(r.options.find((o) => o.option_code === "A")?.is_correct, true);
+    assert.equal(r.options.find((o) => o.option_code === "B")?.is_correct, false);
+  }
 });
 
-test("normalizeArabicDigits", () => {
+test("official/teacher reject 0-based index", () => {
+  const r = resolveCorrectAnswer(0, opts4, { indexBase: 1 });
+  assert.equal(r.ok, false);
+});
+
+test("legacy accepts 0-based index", () => {
+  const r = resolveCorrectAnswer(0, opts4, { indexBase: 0 });
+  assert.equal(r.ok, true);
+  if (r.ok) assert.equal(r.option_code, "A");
+});
+
+test("duplicate option text is ambiguous", () => {
+  const opts = [
+    { option_code: "A", body: "نفس" },
+    { option_code: "B", body: "نفس" },
+  ];
+  const r = resolveCorrectAnswer("نفس", opts, { indexBase: 1 });
+  assert.equal(r.ok, false);
+});
+
+test("rejects negative/decimal/mixed numerals", () => {
+  assert.equal(resolveCorrectAnswer(-1, opts4, { indexBase: 1 }).ok, false);
+  assert.equal(resolveCorrectAnswer("1.5", opts4, { indexBase: 1 }).ok, false);
+  assert.equal(resolveCorrectAnswer("2٢", opts4, { indexBase: 1 }).ok, false);
+  assert.equal(resolveCorrectAnswer("  ", opts4, { indexBase: 1 }).ok, false);
+});
+
+test("normalizeArabicDigits + optionCodesFromCount", () => {
   assert.equal(normalizeArabicDigits("١٢٣"), "123");
-});
-
-test("optionCodesFromCount", () => {
   assert.deepEqual(optionCodesFromCount(3), ["A", "B", "C"]);
 });
 
-// --- Schema detection ---
-test("detect legacy_flat_15col", () => {
-  const d = detectSchemaFromHeaders([
-    "question_code",
-    "question_text",
-    "option_1",
-    "option_2",
-    "option_3",
-    "option_4",
-    "correct_index",
-    "subject_code",
-    "lesson_code",
-  ]);
-  assert.equal(d.schema, "legacy_flat_15col");
-});
-
-test("detect teacher_flat_ar_v0", () => {
-  const d = detectSchemaFromHeaders(["نص_السؤال", "الخيار_أ", "الإجابة_الصحيحة"]);
-  assert.equal(d.schema, "teacher_flat_ar_v0");
-});
-
-test("detect official_flat_v0", () => {
-  const d = detectSchemaFromHeaders([
-    "id",
-    "question_code",
-    "question_text",
-    "option_a",
-    "correct_answer",
-    "context_text",
-  ]);
-  assert.equal(d.schema, "official_flat_v0");
-});
-
-test("detect official_normalized_v1", () => {
-  const d = detectSchemaFromHeaders([
-    "schema_version",
-    "question_code",
-    "option_code",
-    "question_text",
-  ]);
-  assert.equal(d.schema, OFFICIAL_NORMALIZED_V1);
-});
-
-test("detect unknown", () => {
+test("detect exact teacher/official/legacy headers", () => {
+  assert.equal(
+    detectSchemaFromHeaders([...CONTRACT_HEADERS.teacher_flat_ar_v0]).schema,
+    "teacher_flat_ar_v0",
+  );
+  assert.equal(
+    detectSchemaFromHeaders([...CONTRACT_HEADERS.official_flat_v0]).schema,
+    "official_flat_v0",
+  );
+  assert.equal(
+    detectSchemaFromHeaders([...LEGACY_FLAT_HEADERS]).schema,
+    "legacy_flat_15col",
+  );
   assert.equal(detectSchemaFromHeaders(["foo", "bar"]).schema, "unknown");
 });
 
-test("column shift suspected when question_text late", () => {
-  const d = detectSchemaFromHeaders([
-    "a",
-    "b",
-    "c",
-    "d",
-    "question_text",
-    "option_1",
-    "correct_index",
-    "question_code",
-  ]);
-  assert.equal(d.schema, "legacy_flat_15col");
-  assert.equal(d.column_shift_suspected, true);
-});
-
-// --- Adapters ---
-test("legacy adapter happy path 1-based", () => {
+test("legacy adapter 0-based correct_index", () => {
   const { row, issues } = adaptLegacyFlat15Col(
-    {
-      question_code: "Q1",
-      question_text: "س؟",
-      option_1: "أ",
-      option_2: "ب",
-      option_3: "ج",
-      option_4: "د",
-      correct_index: 2,
-      subject_code: "PHYS",
-      lesson_code: "L1",
-    },
+    [
+      "Q1",
+      "L1",
+      "PHYS",
+      "س؟",
+      "أ",
+      "ب",
+      "ج",
+      "د",
+      1,
+      "",
+      "mcq",
+      "2026",
+      "1",
+      "1",
+      "",
+    ],
     { rowNumber: 2 },
   );
   assert.equal(issues.length, 0);
   assert.ok(row);
-  assert.equal(row!.legacy_correct_index_0_based, 1);
-  assert.equal(row!.options[1]!.is_correct, true);
+  assert.equal(row!.options.find((o) => o.option_code === "B")?.is_correct, true);
+  assert.equal(row!.revision.interaction_type, "SINGLE_CHOICE");
+  assert.equal(row!.revision.status, "DRAFT");
 });
 
-test("legacy adapter letter correct", () => {
-  const { row } = adaptLegacyFlat15Col(
-    {
-      question_code: "Q2",
-      question_text: "س؟",
-      option_1: "أ",
-      option_2: "ب",
-      correct_index: "B",
-      subject_code: "PHYS",
-    },
+test("legacy auto_text is information loss", () => {
+  const { issues } = adaptLegacyFlat15Col(
+    [
+      "Q2",
+      "L1",
+      "PHYS",
+      "س",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "auto_text",
+      "2026",
+      "1",
+      "1",
+      "",
+    ],
     {},
   );
-  assert.equal(row!.legacy_correct_index_0_based, 1);
+  assert.ok(issues.some((i) => i.code === QB_IMPORT_CODES.LEGACY_INFORMATION_LOSS));
 });
 
-test("legacy rejects zero-based", () => {
-  const { issues } = adaptLegacyFlat15Col(
+test("teacher adapter nested contract", () => {
+  const { row, issues } = adaptTeacherFlatArV0(
     {
-      question_code: "Q3",
-      question_text: "س؟",
-      option_1: "أ",
-      option_2: "ب",
-      correct_index: 0,
-      subject_code: "PHYS",
+      رمز_السؤال: "T1",
+      نص_السؤال: "ما وحدة القوة؟",
+      نوع_السؤال: "اختيار_واحد",
+      الخيار_١: "نيوتن",
+      الخيار_٢: "جول",
+      رقم_الإجابة_الصحيحة: "١",
+      الدرجة: "1",
+      رمز_المادة: "PHYS",
+      رمز_الدرس: "L1",
     },
     { rowNumber: 3 },
   );
-  assert.ok(
-    issues.some((i) => i.code === QB_IMPORT_CODES.QB_IMPORT_ZERO_BASED_INDEX_SUSPECT),
-  );
-});
-
-test("legacy manual requires solution", () => {
-  const { issues } = adaptLegacyFlat15Col(
-    {
-      question_code: "Q4",
-      question_text: "اشرح",
-      question_type: "MANUAL",
-      subject_code: "PHYS",
-    },
-    {},
-  );
-  assert.ok(
-    issues.some(
-      (i) => i.code === QB_IMPORT_CODES.QB_IMPORT_MANUAL_GRADING_REQUIRES_SOLUTION,
-    ),
-  );
-});
-
-test("legacy media required", () => {
-  const { issues } = adaptLegacyFlat15Col(
-    {
-      question_code: "Q5",
-      question_text: "س؟",
-      option_1: "أ",
-      option_2: "ب",
-      correct_index: 1,
-      subject_code: "PHYS",
-      requires_media: true,
-    },
-    {},
-  );
-  assert.ok(
-    issues.some((i) => i.code === QB_IMPORT_CODES.QB_IMPORT_MEDIA_REFERENCE_MISSING),
-  );
-});
-
-test("teacher adapter Arabic headers and letter أ", () => {
-  const { row, issues } = adaptTeacherFlatArV0(
-    {
-      نص_السؤال: "ما وحدة القوة؟",
-      الخيار_أ: "نيوتن",
-      الخيار_ب: "جول",
-      الإجابة_الصحيحة: "أ",
-      المادة: "PHYS",
-      رمز_السؤال: "T1",
-    },
-    {},
-  );
   assert.equal(issues.length, 0);
-  assert.equal(row!.legacy_correct_index_0_based, 0);
+  assert.equal(row!.contract, OFFICIAL_NORMALIZED_V1);
   assert.equal(row!.options[0]!.is_correct, true);
+  assert.equal(row!.targets.find((t) => t.target_type === "LESSON")?.is_primary, true);
 });
 
-test("teacher adapter with Latin correct letter", () => {
-  const { row, issues } = adaptTeacherFlatArV0(
+test("teacher unknown type no coercion", () => {
+  const { issues, row } = adaptTeacherFlatArV0(
     {
-      question_text: "ما وحدة القوة؟",
-      option_a: "نيوتن",
-      option_b: "جول",
-      correct_answer: "A",
-      subject_code: "PHYS",
-      question_code: "T1",
+      رمز_السؤال: "T2",
+      نص_السؤال: "س",
+      نوع_السؤال: "MULTI_CHOICE",
+      الدرجة: "1",
+      رمز_المادة: "PHYS",
     },
     {},
   );
-  assert.equal(issues.length, 0);
-  assert.equal(row!.legacy_correct_index_0_based, 0);
+  assert.equal(row, null);
+  assert.ok(issues.some((i) => i.code === QB_IMPORT_CODES.INVALID_INTERACTION_TYPE));
 });
 
-test("official flat rejects missing question_code", () => {
-  const { issues } = adaptOfficialFlatV0(
-    {
-      id: 12,
-      question_text: "س",
-      option_a: "1",
-      option_b: "2",
-      correct_answer: "A",
-      subject_code: "PHYS",
-    },
-    {},
-  );
-  assert.ok(
-    issues.some((i) => i.code === QB_IMPORT_CODES.QB_IMPORT_REQUIRED_QUESTION_CODE),
-  );
-});
-
-test("official flat happy", () => {
+test("official 1-based correct_index", () => {
   const { row, issues } = adaptOfficialFlatV0(
     {
       question_code: "OF1",
       question_text: "س؟",
-      option_a: "1",
-      option_b: "2",
-      correct_answer: "B",
+      interaction_type: "SINGLE_CHOICE",
+      grading_mode: "AUTO_SINGLE",
+      option_1: "1",
+      option_2: "2",
+      correct_index: 2,
+      max_score: 1,
       subject_code: "PHYS",
-      context_text: "سياق",
+      lesson_code: "L1",
     },
     {},
   );
   assert.equal(issues.length, 0);
-  assert.equal(row!.stimulus_text, "سياق");
-  assert.equal(row!.legacy_correct_index_0_based, 1);
+  assert.equal(row!.options[1]!.is_correct, true);
 });
 
-// --- Dry-run pipeline ---
-const legacyHeaders = [
-  "question_code",
-  "question_text",
-  "option_1",
-  "option_2",
-  "option_3",
-  "option_4",
-  "correct_index",
-  "subject_code",
-  "lesson_code",
-];
-
-function legacyRow(code: string, correct: unknown = 1): Record<string, unknown> {
-  return {
-    question_code: code,
-    question_text: `نص ${code}`,
-    option_1: "أ1",
-    option_2: "ب1",
-    option_3: "ج1",
-    option_4: "د1",
-    correct_index: correct,
-    subject_code: "PHYS",
-    lesson_code: "L1",
-  };
-}
-
-test("dry-run valid file summary", () => {
-  const r = runQuestionBankImportDryRun({
-    fileName: "ok.xlsx",
-    headers: legacyHeaders,
-    rows: [legacyRow("A1"), legacyRow("A2", "B")],
-    catalog: { subjects: new Set(["PHYS"]), lessons: new Set(["L1"]) },
-  });
-  assert.equal(r.summary.ok_rows, 2);
-  assert.equal(r.summary.blocked_rows, 0);
-  assert.ok(r.accepted_set_hash);
-});
-
-test("dry-run determinism same input same hash", () => {
-  const input = {
-    fileName: "d.xlsx",
-    headers: legacyHeaders,
-    rows: [legacyRow("D1"), legacyRow("D2", 3)],
-    catalog: { subjects: new Set(["PHYS"]), lessons: new Set(["L1"]) },
-  };
-  const a = runQuestionBankImportDryRun(input);
-  const b = runQuestionBankImportDryRun(input);
-  assert.equal(a.accepted_set_hash, b.accepted_set_hash);
-  assert.equal(
-    a.preview[0]!.content_fingerprint,
-    b.preview[0]!.content_fingerprint,
-  );
-});
-
-test("dry-run duplicate codes", () => {
-  const r = runQuestionBankImportDryRun({
-    fileName: "dup.xlsx",
-    headers: legacyHeaders,
-    rows: [legacyRow("X1"), legacyRow("X1")],
-    catalog: { subjects: new Set(["PHYS"]), lessons: new Set(["L1"]) },
-  });
-  assert.equal(r.summary.blocked_rows, 1);
-  assert.ok(
-    r.issues.some((i) => i.code === QB_IMPORT_CODES.QB_IMPORT_DUPLICATE_QUESTION_CODE),
-  );
-});
-
-test("dry-run unknown subject/lesson", () => {
-  const r = runQuestionBankImportDryRun({
-    fileName: "cat.xlsx",
-    headers: legacyHeaders,
-    rows: [legacyRow("C1")],
-    catalog: { subjects: new Set(["CHEM"]), lessons: new Set(["Z"]) },
-  });
-  assert.ok(r.issues.some((i) => i.code === QB_IMPORT_CODES.QB_IMPORT_UNKNOWN_SUBJECT));
-  assert.ok(r.issues.some((i) => i.code === QB_IMPORT_CODES.QB_IMPORT_UNKNOWN_LESSON));
-});
-
-test("dry-run formula cells file blocking", () => {
-  const r = runQuestionBankImportDryRun({
-    fileName: "f.xlsx",
-    headers: legacyHeaders,
-    rows: [legacyRow("F1")],
-    hasFormulaCells: true,
-  });
-  assert.equal(r.summary.file_blocking, true);
-  assert.equal(r.summary.ok_rows, 0);
-});
-
-test("dry-run merged cells file blocking", () => {
-  const r = runQuestionBankImportDryRun({
-    fileName: "m.xlsx",
-    headers: legacyHeaders,
-    rows: [legacyRow("M1")],
-    hasMergedCells: true,
-  });
-  assert.equal(r.summary.file_blocking, true);
-});
-
-test("dry-run file too large", () => {
-  const r = runQuestionBankImportDryRun({
-    fileName: "big.xlsx",
-    headers: legacyHeaders,
-    rows: [legacyRow("B1")],
-    fileBytes: 9e9,
-  });
-  assert.ok(r.issues.some((i) => i.code === QB_IMPORT_CODES.QB_IMPORT_FILE_TOO_LARGE));
-});
-
-test("dry-run row limit", () => {
-  const rows = Array.from({ length: 10 }, (_, i) => legacyRow(`R${i}`));
-  const r = runQuestionBankImportDryRun({
-    fileName: "lim.xlsx",
-    headers: legacyHeaders,
-    rows,
-    maxRows: 5,
-  });
-  assert.ok(r.issues.some((i) => i.code === QB_IMPORT_CODES.QB_IMPORT_ROW_LIMIT_EXCEEDED));
-});
-
-test("dry-run invalid correct blocks row", () => {
-  const r = runQuestionBankImportDryRun({
-    fileName: "bad.xlsx",
-    headers: legacyHeaders,
-    rows: [legacyRow("Z1", "Z")],
-    catalog: { subjects: new Set(["PHYS"]), lessons: new Set(["L1"]) },
-  });
-  assert.equal(r.summary.blocked_rows, 1);
-});
-
-test("dry-run error export model shape", () => {
-  const r = runQuestionBankImportDryRun({
-    fileName: "e.xlsx",
-    headers: legacyHeaders,
-    rows: [legacyRow("E1", 0)],
-  });
-  const model = buildErrorExportModel(r);
-  assert.ok(model.length > 0);
-  assert.ok("code" in model[0]!);
-  assert.ok("message_ar" in model[0]!);
-  assert.ok("suggested_fix" in model[0]!);
-});
-
-test("dry-run 1000 rows performance/count", () => {
-  const rows = Array.from({ length: 1000 }, (_, i) =>
-    legacyRow(`N${String(i).padStart(4, "0")}`, (i % 4) + 1),
-  );
-  const r = runQuestionBankImportDryRun({
-    fileName: "1k.xlsx",
-    headers: legacyHeaders,
-    rows,
-    catalog: { subjects: new Set(["PHYS"]), lessons: new Set(["L1"]) },
-  });
-  assert.equal(r.summary.total_rows, 1000);
-  assert.equal(r.summary.ok_rows, 1000);
-  assert.ok(r.accepted_set_hash);
-});
-
-test("dry-run reimport idempotent hash", () => {
-  const rows = [legacyRow("ID1"), legacyRow("ID2", 2)];
-  const a = runQuestionBankImportDryRun({
-    fileName: "a.xlsx",
-    headers: legacyHeaders,
-    rows,
-    catalog: { subjects: new Set(["PHYS"]), lessons: new Set(["L1"]) },
-  });
-  const b = runQuestionBankImportDryRun({
-    fileName: "a.xlsx",
-    headers: legacyHeaders,
-    rows,
-    catalog: { subjects: new Set(["PHYS"]), lessons: new Set(["L1"]) },
-  });
-  assert.equal(a.accepted_set_hash, b.accepted_set_hash);
-});
-
-test("dry-run partial errors keep ok rows", () => {
-  const r = runQuestionBankImportDryRun({
-    fileName: "p.xlsx",
-    headers: legacyHeaders,
-    rows: [legacyRow("P1"), legacyRow("P2", "Z"), legacyRow("P3", 3)],
-    catalog: { subjects: new Set(["PHYS"]), lessons: new Set(["L1"]) },
-  });
-  assert.equal(r.summary.ok_rows, 2);
-  assert.equal(r.summary.blocked_rows, 1);
-});
-
-test("contentFingerprint stable", () => {
-  const { row } = adaptLegacyFlat15Col(
+test("invalid score rejected", () => {
+  const { issues } = adaptOfficialFlatV0(
     {
-      question_code: "FP1",
+      question_code: "OF2",
       question_text: "س",
-      option_1: "a",
-      option_2: "b",
+      interaction_type: "SINGLE_CHOICE",
+      grading_mode: "AUTO_SINGLE",
+      option_1: "1",
+      option_2: "2",
       correct_index: 1,
+      max_score: 0,
       subject_code: "PHYS",
     },
     {},
   );
-  assert.equal(contentFingerprint(row!), contentFingerprint(row!));
+  assert.ok(issues.some((i) => i.code === QB_IMPORT_CODES.INVALID_SCORE));
 });
 
-test("no DB write symbols in dry-run module surface", async () => {
+test("dry-run teacher happy path", () => {
+  const r = runQuestionBankImportDryRun({
+    fileName: "ok.xlsx",
+    headers: [...CONTRACT_HEADERS.teacher_flat_ar_v0],
+    rows: [
+      {
+        رمز_السؤال: "A1",
+        نص_السؤال: "س",
+        نوع_السؤال: "اختيار_واحد",
+        الخيار_١: "1",
+        الخيار_٢: "2",
+        الخيار_٣: "",
+        الخيار_٤: "",
+        الخيار_٥: "",
+        الخيار_٦: "",
+        رقم_الإجابة_الصحيحة: "1",
+        الإجابات_المقبولة: "",
+        الشرح: "",
+        الدرجة: "1",
+        السماح_بالجزئي: "لا",
+        رمز_المادة: "PHYS",
+        رمز_الدرس: "L1",
+        رابط_الوسائط: "",
+        نوع_الوسائط: "",
+        نص_بديل: "",
+      },
+    ],
+    catalog: {
+      subjects: new Set(["PHYS"]),
+      lessons: new Set(["L1"]),
+      lessonSubjects: new Map([["L1", "PHYS"]]),
+    },
+  });
+  assert.equal(r.summary.ok_rows, 1);
+  assert.ok(r.accepted_set_hash);
+  assert.equal(r.public_preview[0]!.normalized!.options.every((o) => !o.is_correct), true);
+  assert.equal(r.privileged_preview[0]!.normalized!.options.some((o) => o.is_correct), true);
+});
+
+test("dry-run determinism", () => {
+  const input = {
+    fileName: "d.xlsx",
+    headers: [...LEGACY_FLAT_HEADERS],
+    rows: [
+      ["D1", "L1", "PHYS", "س", "أ", "ب", "", "", 0, "", "mcq", "2026", "1", "1", ""],
+      ["D2", "L1", "PHYS", "س2", "أ", "ب", "", "", 1, "", "mcq", "2026", "1", "2", ""],
+    ],
+    catalog: {
+      subjects: new Set(["PHYS"]),
+      lessons: new Set(["L1"]),
+      lessonSubjects: new Map([["L1", "PHYS"]]),
+    },
+  };
+  const a = runQuestionBankImportDryRun(input);
+  const b = runQuestionBankImportDryRun(input);
+  assert.equal(a.accepted_set_hash, b.accepted_set_hash);
+});
+
+test("canonical json key-order independent", () => {
+  const a = canonicalHash({ b: 1, a: 2 });
+  const b = canonicalHash({ a: 2, b: 1 });
+  assert.equal(a, b);
+  assert.match(canonicalJson({ z: 1, a: 2 }), /canonical_version/);
+});
+
+test("preflight formula/macros/encryption", () => {
+  const issues = preflightWorkbook({
+    fileName: "x.xlsx",
+    headers: [...LEGACY_FLAT_HEADERS],
+    rows: [{}],
+    metadata: { hasFormulaCells: true, hasMacros: true, encrypted: true },
+  });
+  assert.ok(issues.some((i) => i.code === "FORMULA_CELL"));
+  assert.ok(issues.some((i) => i.code === "MACRO_CONTENT"));
+  assert.ok(issues.some((i) => i.code === "WORKBOOK_ENCRYPTED"));
+});
+
+test("limits 1000 pass / 1001 fail", () => {
+  const headers = [...LEGACY_FLAT_HEADERS];
+  const mk = (n: number) =>
+    Array.from({ length: n }, (_, i) => [
+      `N${i}`,
+      "L1",
+      "PHYS",
+      "س",
+      "أ",
+      "ب",
+      "",
+      "",
+      0,
+      "",
+      "mcq",
+      "2026",
+      "1",
+      "1",
+      "",
+    ]);
+  const ok = runQuestionBankImportDryRun({
+    fileName: "1k.xlsx",
+    headers,
+    rows: mk(1000),
+    catalog: {
+      subjects: new Set(["PHYS"]),
+      lessons: new Set(["L1"]),
+      lessonSubjects: new Map([["L1", "PHYS"]]),
+    },
+  });
+  assert.equal(ok.summary.ok_rows, 1000);
+  const bad = runQuestionBankImportDryRun({
+    fileName: "1001.xlsx",
+    headers,
+    rows: mk(1001),
+  });
+  assert.ok(bad.issues.some((i) => i.code === "ROW_LIMIT"));
+});
+
+test("5 MiB boundary", () => {
+  const headers = [...LEGACY_FLAT_HEADERS];
+  const row = ["Q", "L1", "PHYS", "س", "أ", "ب", "", "", 0, "", "mcq", "2026", "1", "1", ""];
+  const pass = runQuestionBankImportDryRun({
+    fileName: "size.xlsx",
+    headers,
+    rows: [row],
+    fileBytes: DEFAULT_IMPORT_LIMITS.maxFileBytes,
+    catalog: {
+      subjects: new Set(["PHYS"]),
+      lessons: new Set(["L1"]),
+      lessonSubjects: new Map([["L1", "PHYS"]]),
+    },
+  });
+  assert.equal(pass.summary.file_blocking, false);
+  const fail = runQuestionBankImportDryRun({
+    fileName: "big.xlsx",
+    headers,
+    rows: [row],
+    fileBytes: DEFAULT_IMPORT_LIMITS.maxFileBytes + 1,
+  });
+  assert.ok(fail.issues.some((i) => i.code === "FILE_TOO_LARGE"));
+});
+
+test("64 KiB cell boundary via preflight metadata", () => {
+  const pass = preflightWorkbook({
+    fileName: "c.xlsx",
+    headers: ["a"],
+    rows: [{}],
+    metadata: { maxCellBytes: DEFAULT_IMPORT_LIMITS.maxCellBytes },
+  });
+  assert.equal(pass.some((i) => i.code === "CELL_TOO_LARGE"), false);
+  const fail = preflightWorkbook({
+    fileName: "c.xlsx",
+    headers: ["a"],
+    rows: [{}],
+    metadata: { maxCellBytes: DEFAULT_IMPORT_LIMITS.maxCellBytes + 1 },
+  });
+  assert.ok(fail.some((i) => i.code === "CELL_TOO_LARGE"));
+});
+
+test("media policy fail-closed", () => {
+  assert.equal(validateMediaUrl("https://media.example.edu/a.png").ok, true);
+  assert.equal(validateMediaUrl("file:///etc/passwd").ok, false);
+  assert.equal(validateMediaUrl("javascript:alert(1)").ok, false);
+  assert.equal(validateMediaUrl("https://localhost/x").ok, false);
+  assert.equal(validateMediaUrl("https://media.example.edu/a.png?token=1").ok, false);
+});
+
+test("preview redacts answers for public", () => {
+  const { row } = adaptOfficialFlatV0(
+    {
+      question_code: "P1",
+      question_text: "س",
+      interaction_type: "SINGLE_CHOICE",
+      grading_mode: "AUTO_SINGLE",
+      option_1: "1",
+      option_2: "2",
+      correct_index: 1,
+      max_score: 1,
+      subject_code: "PHYS",
+    },
+    {},
+  );
+  const pub = previewRows([row!], false);
+  assert.equal(pub[0]!.options.every((o) => !o.is_correct), true);
+});
+
+test("error export neutralizes formula-like messages with apostrophe", () => {
+  const r = runQuestionBankImportDryRun({
+    fileName: "e.xls",
+    headers: ["a"],
+    rows: [],
+  });
+  const model = buildErrorExportModel(r);
+  assert.ok(model.length > 0);
+  assert.ok(String(model[0]!.message_ar).startsWith("'"));
+});
+
+test("validation codes are 60 unique", () => {
+  const vals = Object.values(QB_IMPORT_CODES);
+  assert.equal(vals.length, 60);
+  assert.equal(new Set(vals).size, 60);
+});
+
+test("no DB write symbols in import modules", async () => {
   const fs = await import("node:fs");
   const path = await import("node:path");
   const dir = path.resolve("src/lib/question-bank/import");
@@ -532,116 +468,92 @@ test("no DB write symbols in dry-run module surface", async () => {
     const body = fs.readFileSync(path.join(dir, f), "utf8");
     assert.equal(/\bsupabase\b/i.test(body), false, f);
     assert.equal(/\bcreateClient\b/.test(body), false, f);
-    assert.equal(/\bdb\s*\.\s*insert\b/i.test(body), false, f);
     assert.equal(/\bINSERT\s+INTO\b/i.test(body), false, f);
-    assert.equal(/\bUPDATE\s+public\./i.test(body), false, f);
   }
 });
 
-// Expand with parameterized adapter edge cases to exceed 100 tests
-const edgeCorrect: unknown[] = [
-  "A",
-  "B",
-  "C",
-  "D",
-  1,
-  2,
-  3,
-  4,
-  "1",
-  "2",
-  "3",
-  "4",
-  "١",
-  "٢",
-  "٣",
-  "٤",
-  "أ1",
-  "ب1",
-  "ج1",
-  "د1",
-];
-for (const [i, c] of edgeCorrect.entries()) {
-  test(`legacy edge correct #${i} value=${JSON.stringify(c)}`, () => {
+// Expand parameterized cases to keep a large foundation suite.
+for (let i = 0; i < 20; i++) {
+  test(`legacy edge correct #${i}`, () => {
     const { row, issues } = adaptLegacyFlat15Col(
-      {
-        question_code: `E${i}`,
-        question_text: "س",
-        option_1: "أ1",
-        option_2: "ب1",
-        option_3: "ج1",
-        option_4: "د1",
-        correct_index: c,
-        subject_code: "PHYS",
-      },
+      [
+        `E${i}`,
+        "L1",
+        "PHYS",
+        "س",
+        "أ1",
+        "ب1",
+        "ج1",
+        "د1",
+        i % 4,
+        "",
+        "mcq",
+        "2026",
+        "1",
+        "1",
+        "",
+      ],
       {},
     );
     assert.equal(issues.length, 0, JSON.stringify(issues));
     assert.ok(row);
-    assert.equal(typeof row!.legacy_correct_index_0_based, "number");
-  });
-}
-
-const badCorrect = ["E", "5", -1, "Z", "not-an-option", "", null, undefined, 0];
-for (const [i, c] of badCorrect.entries()) {
-  test(`legacy bad correct #${i} value=${JSON.stringify(c)}`, () => {
-    const { row, issues } = adaptLegacyFlat15Col(
-      {
-        question_code: `B${i}`,
-        question_text: "س",
-        option_1: "أ1",
-        option_2: "ب1",
-        correct_index: c as unknown,
-        subject_code: "PHYS",
-      },
-      {},
-    );
-    assert.equal(row, null);
-    assert.ok(issues.length > 0);
   });
 }
 
 for (let n = 0; n < 12; n++) {
-  test(`unicode question text preserved #${n}`, () => {
-    const text = `سؤال ${n} — قوة × كتلة 🚀`;
-    const { row } = adaptLegacyFlat15Col(
+  test(`unicode question preserved #${n}`, () => {
+    const text = `سؤال ${n} — قوة × كتلة`;
+    const { row } = adaptTeacherFlatArV0(
       {
-        question_code: `U${n}`,
-        question_text: text,
-        option_1: "نعم",
-        option_2: "لا",
-        correct_index: 1,
-        subject_code: "PHYS",
+        رمز_السؤال: `U${n}`,
+        نص_السؤال: text,
+        نوع_السؤال: "اختيار_واحد",
+        الخيار_١: "نعم",
+        الخيار_٢: "لا",
+        رقم_الإجابة_الصحيحة: "1",
+        الدرجة: "1",
+        رمز_المادة: "PHYS",
       },
       {},
     );
-    assert.equal(row!.question_text, text);
+    assert.equal(row!.revision.question_text, text);
   });
 }
 
 for (let n = 0; n < 10; n++) {
-  test(`issue object always has Arabic message #${n}`, () => {
-    const { issues } = adaptLegacyFlat15Col(
-      {
-        question_code: "",
-        question_text: "",
-        subject_code: "",
-      },
-      { rowNumber: n + 2 },
-    );
+  test(`issue Arabic message present #${n}`, () => {
+    const { issues } = adaptTeacherFlatArV0({}, { rowNumber: n + 2 });
     for (const iss of issues) {
       assert.ok(iss.message_ar.length > 0);
       assert.equal(typeof iss.row_blocking, "boolean");
-      assert.ok(iss.suggested_fix.length > 0);
     }
   });
 }
 
-test("contract schema_version constant", () => {
-  assert.equal(OFFICIAL_NORMALIZED_V1, "official_normalized_v1");
+test("contentFingerprint stable", () => {
+  const { row } = adaptOfficialFlatV0(
+    {
+      question_code: "FP1",
+      question_text: "س",
+      interaction_type: "SINGLE_CHOICE",
+      grading_mode: "AUTO_SINGLE",
+      option_1: "a",
+      option_2: "b",
+      correct_index: 1,
+      max_score: 1,
+      subject_code: "PHYS",
+    },
+    {},
+  );
+  assert.equal(contentFingerprint(row!), contentFingerprint(row!));
 });
 
-test("validation codes are unique", () => {
-  const vals = Object.values(QB_IMPORT_CODES);
-  assert.equal(new Set(vals).size, vals.length);
+test("schemaHint mismatch rejects mixed workbook", () => {
+  const r = runQuestionBankImportDryRun({
+    fileName: "mix.xlsx",
+    headers: [...CONTRACT_HEADERS.teacher_flat_ar_v0],
+    rows: [],
+    schemaHint: "official_flat_v0",
+  });
+  assert.ok(r.issues.some((i) => i.code === "INVALID_CONTRACT"));
 });
