@@ -13,15 +13,17 @@
 > [!IMPORTANT]
 > **التصحيح القانوني لنطاق الحزمة الحالية مقابل التنفيذ المستقبلي:**
 >
-> **Current PR (الحزمة الحالية):**
-> - **Documentation only**: وثائق تخطيط وسجل مهمات فقط.
+> **Current PR artifact change:**
+> - **Docs only — no migration/runtime files**: وثائق تخطيط وسجل مهمات وتصميم فقط.
 > - **Migration changes = ZERO**: لا توجد أي ملفات migrations أو تعديلات داتابيز في هذا PR.
 > - **Runtime changes = ZERO**: لا يوجد أي كود تنفيذي أو شاشات تشغيلية في هذا PR.
 > - **SQL = NO**: لا توجد استعلامات أو أوامر SQL تنفيذية في هذا PR.
+> - **Database = ZERO**: لا توجد تعديلات على البنية التحتية لقواعد البيانات في هذا PR.
 >
-> **Future Implementation (التنفيذ المستقبلي عند الاعتماد):**
-> - قد يتطلب Migrations لبناء 15 كيان جديد والـ RLS والـ RPCs.
-> - قد يتطلب Runtime workers/UI لتشغيل المعالجات والمؤقتات والواجهات.
+> **Future task implementation requirement:**
+> - **Migration Required / Runtime Required حسب كل مهمة**: التصنيف المستقبلي الدلالي الموضح لكل مهمة في Backlog عند تنفيذ الميزات مستقبلاً (Migration Required = YES/NO | Runtime Required = YES/NO).
+> - قد يتطلب التنفيذ المستقبلي Migrations لبناء الكيانات والـ RLS والـ RPCs.
+> - قد يتطلب التنفيذ المستقبلي Runtime workers/UI لتشغيل المعالجات والمؤقتات والواجهات.
 > - يحتاج حزم تنفيذ مستقلة ومراجعة أمنية كاملة لكل مهمة قبل الدمج.
 
 ---
@@ -214,7 +216,7 @@
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-022`
   - **Security Prerequisite**: إطلاق المهام المنتهية ومنع التقديمات المتأخرة.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
-  - **Owner Decision Required**: `YES` (OD-MG-15) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-015) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-QCL-004` | **Deliverable Type**: `WORKER`, `RPC`
 
 - **TASK-MG-024: بناء دالة التحرير اليدوي الصريح `release_grading_assignment`** `[REQUIRED_EXTENSION]`
@@ -295,7 +297,7 @@
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-032`
   - **Security Prerequisite**: معايرة تقريب الكسور لـ 0.25 أو 0.50 حسب سياسة المقرر.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (OD-MG-13, ODR-004) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-013, ODR-004) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-SCR-002` | **Deliverable Type**: `RPC`
 
 - **TASK-MG-035: التحكم في إدخال ملاحظات الطالب والتعقيم الأمني (Sanitizations)** `[REQUIRED_EXTENSION]`
@@ -376,7 +378,7 @@
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-021`, `TASK-MG-041`
   - **Security Prerequisite**: تعيين صفين مستقلين بحالة عزل تام (Blind Isolation).
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-012, OD-MG-14) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-012, ODR-014) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-DMA-001` | **Deliverable Type**: `SCHEMA`, `RPC`
 
 - **TASK-MG-046: محرك حساب التباين والتحويل التلقائي للتحكيم** `[REQUIRED_EXTENSION]`
@@ -552,7 +554,7 @@
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`
   - **Security Prerequisite**: تمكين الكشف الفوري لتمارين Practice دون انتظار الدفعة.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-011, OD-MG-16) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-011, ODR-016) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-007` | **Deliverable Type**: `RPC`, `NOTIFICATION`
 
 - **TASK-MG-070: تقرير متابعة تسليم الإشعارات ونسبة الوصول للطلاب** `[FUTURE_P1]`
@@ -596,7 +598,9 @@
 
 - **TASK-MG-075: بوابة تحقق الأمان ومفتش سجل التدقيق (Security Verification Gate & Audit Inspector UI)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-005`, `TASK-MG-006`, `TASK-MG-008`, `TASK-MG-011`, `TASK-MG-012`, `TASK-MG-013`, `TASK-MG-014`, `TASK-MG-020`, `TASK-MG-021`, `TASK-MG-023`, `TASK-MG-025`, `TASK-MG-030`, `TASK-MG-031`, `TASK-MG-045`, `TASK-MG-051`, `TASK-MG-054`, `TASK-MG-057`, `TASK-MG-058`, `TASK-MG-064`, `TASK-MG-068`
-  - **Deliverable Type**: `TEST`, `SECURITY_VERIFICATION`, `AUDIT`
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SEC-019` | **Deliverable Type**: `TEST`, `SECURITY_VERIFICATION`, `AUDIT`, `UI`, `RPC`
   - **Security Prerequisite**: تفعيل بوابة التحقق الأمني المانعة لنموذج الصلاحيات والتكليفات وحظر التدرج الفردي والوصول بين الطلاب وتدقيق سجل المحاولات وقواعد RLS وتراخيص RPC وحماية الإجابات المكتومة وعزل التصحيح المزدوج والتظلمات والإنعاش والفتح الاستثنائي والإشعارات. (تعتبر واجهات المراقبة وعقود RPC أدوات مساعدة وليست سبب اجتياز البوابة).
   - **Blocking Acceptance Matrix (13 Mandatory Security Controls)**:
     1. Positive RLS matrix verification (السماح بالمصرح لهم فقط)
@@ -637,7 +641,9 @@
 
 - **TASK-MG-079: التعافي من المقاطعة وبوابة تحقق الاختبارات الشاملة (Mobile Recovery & E2E Verification Gate)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-021`, `TASK-MG-022`, `TASK-MG-023`, `TASK-MG-028`, `TASK-MG-030`, `TASK-MG-045`, `TASK-MG-046`, `TASK-MG-047`, `TASK-MG-051`, `TASK-MG-054`, `TASK-MG-057`, `TASK-MG-058`, `TASK-MG-059`, `TASK-MG-062`, `TASK-MG-063`, `TASK-MG-065`, `TASK-MG-066`, `TASK-MG-067`, `TASK-MG-068`, `TASK-MG-074`, `TASK-MG-075`, `TASK-MG-078`
-  - **Deliverable Type**: `TEST`, `E2E`, `UX_ACCESSIBILITY`
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-E2E-010` | **Deliverable Type**: `TEST`, `E2E`, `UX_ACCESSIBILITY`, `UI`
   - **Security Prerequisite**: التحقق الشامل من مسارات النظام الكاملة والتكامل بين الطابور والقفل والمطالبة والانقضاء والتصحيح والتحكيم والاعتماد والتظلمات وإعادة التصحيح والإشعارات والكشف والاختبار والتمارين وإمكانية الوصول واستعادة الاتصال للجوال.
   - **Acceptance Suites (10 Mandatory E2E Verification Suites)**:
     1. Exam happy path (المسار السعيد للامتحانات)
@@ -654,7 +660,9 @@
 
 - **TASK-MG-080: لوحة مراقبة صحة النظام وبوابة الجاهزية والإطلاق (Production Readiness & Launch Approval Gate)** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-017`, `TASK-MG-022`, `TASK-MG-023`, `TASK-MG-027`, `TASK-MG-034`, `TASK-MG-045`, `TASK-MG-046`, `TASK-MG-047`, `TASK-MG-048`, `TASK-MG-050`, `TASK-MG-051`, `TASK-MG-054`, `TASK-MG-056`, `TASK-MG-062`, `TASK-MG-069`, `TASK-MG-070`, `TASK-MG-075`, `TASK-MG-079`
-  - **Deliverable Type**: `VERIFICATION`, `LAUNCH_SPEC`, `GO_NO_GO_DECISION`
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-GATE-001`, `TC-GATE-002`, `TC-GATE-003` | **Deliverable Type**: `TEST`, `RELEASE_GATE`, `OBSERVABILITY`, `DOCS`, `UI`
   - **Security Prerequisite**: استيفاء جميع بوابات قرارات المالك المانعة، واجتياز فحوصات الأمان و E2E والـ Observability، وتوفر خطة التعافي، وحظر الإطلاق عند وجود أي ثغرة أو انحراف أمني أو تشغيلي مفتوح. (لوحة UI المرفقة هي أداة مراقبة فقط ولا تمنح قرار Pass بنفسها).
   - **Mandatory Blocking Criteria (9 Launch Conditions)**:
     1. جميع قرارات المالك الـ 16 المانعة معتمدة بنجاح (`NEEDS_OWNER_DECISION` resolved).

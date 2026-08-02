@@ -13,17 +13,18 @@
 > [!IMPORTANT]
 > **التصحيح القانوني لنطاق الحزمة الحالية مقابل التنفيذ المستقبلي:**
 >
-> **Current PR (الحزمة الحالية):**
-> - **Documentation only**: وثائق تصميم واجهات وتدفقات فقط.
+> **Current PR artifact change:**
+> - **Docs only — no migration/runtime files**: وثائق تخطيط وسجل مهمات وتصميم فقط.
 > - **Migration changes = ZERO**: لا توجد أي ملفات migrations أو تعديلات داتابيز في هذا PR.
 > - **Runtime changes = ZERO**: لا يوجد أي كود تنفيذي أو شاشات تشغيلية في هذا PR.
 > - **SQL = NO**: لا توجد استعلامات أو أوامر SQL تنفيذية في هذا PR.
+> - **Database = ZERO**: لا توجد تعديلات على البنية التحتية لقواعد البيانات في هذا PR.
 >
-> **Future Implementation (التنفيذ المستقبلي عند الاعتماد):**
-> - قد يتطلب Runtime UI Components لبناء الواجهات والدرج السفلي.
-> - قد يتطلب Client State Management للتعامل مع مؤقتات القفل والنبضات.
-> - قد يتطلب WebSockets / Polling للتحديثات الحية للطوابير.
-> - يحتاج حزم تنفيذ مستقلة واختبارات تجاوب وسهولة استخدام (Accessibility).
+> **Future task implementation requirement:**
+> - **Migration Required / Runtime Required حسب كل مهمة**: التصنيف المستقبلي الدلالي الموضح لكل مهمة في Backlog عند تنفيذ الميزات مستقبلاً (Migration Required = YES/NO | Runtime Required = YES/NO).
+> - قد يتطلب التنفيذ المستقبلي Migrations لبناء الكيانات والـ RLS والـ RPCs.
+> - قد يتطلب التنفيذ المستقبلي Runtime workers/UI لتشغيل المعالجات والمؤقتات والواجهات.
+> - يحتاج حزم تنفيذ مستقلة ومراجعة أمنية كاملة لكل مهمة قبل الدمج.
 
 ---
 

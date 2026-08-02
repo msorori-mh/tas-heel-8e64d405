@@ -13,20 +13,18 @@
 > [!IMPORTANT]
 > **التصحيح القانوني لنطاق الحزمة الحالية مقابل التنفيذ المستقبلي:**
 >
-> **Current PR (الحزمة الحالية):**
-> - **Documentation only**: وثائق تصميمية وتحليلية فقط.
+> **Current PR artifact change:**
+> - **Docs only — no migration/runtime files**: وثائق تخطيط وسجل مهمات وتصميم فقط.
 > - **Migration changes = ZERO**: لا توجد أي ملفات migrations أو تعديلات داتابيز في هذا PR.
 > - **Runtime changes = ZERO**: لا يوجد أي كود تنفيذي أو شاشات تشغيلية في هذا PR.
 > - **SQL = NO**: لا توجد استعلامات أو أوامر SQL تنفيذية في هذا PR.
+> - **Database = ZERO**: لا توجد تعديلات على البنية التحتية لقواعد البيانات في هذا PR.
 >
-> **Future Implementation (التنفيذ المستقبلي عند الاعتماد):**
-> - قد يتطلب Migrations جديدة لبناء الجداول والـ RLS والأنواع.
-> - قد يتطلب RLS Policies لحماية الوصول على مستوى الصفوف.
-> - قد يتطلب RPCs ذريّة لحماية العمليات وقواعد الأعمال.
-> - قد يتطلب Runtime workers/UI لتشغيل الطوابير والواجهات والمؤقتات.
-> - يحتاج حزم تنفيذ مستقلة ومراجعة أمنية شاملة قبل أي دمج.
->
-> *ملاحظة حظر:* يُمنع استخدام عبارة "Migration Required: NO" بمعيار ينفي حاجة الميزة المستقبلية لقواعد Migrations؛ بل تصف الحزمة الحالية فقط.
+> **Future task implementation requirement:**
+> - **Migration Required / Runtime Required حسب كل مهمة**: التصنيف المستقبلي الدلالي الموضح لكل مهمة في Backlog عند تنفيذ الميزات مستقبلاً (Migration Required = YES/NO | Runtime Required = YES/NO).
+> - قد يتطلب التنفيذ المستقبلي Migrations لبناء الكيانات والـ RLS والـ RPCs.
+> - قد يتطلب التنفيذ المستقبلي Runtime workers/UI لتشغيل المعالجات والمؤقتات والواجهات.
+> - يحتاج حزم تنفيذ مستقلة ومراجعة أمنية كاملة لكل مهمة قبل الدمج.
 
 ---
 
@@ -304,7 +302,7 @@
 2. **التصحيح المزدوج مع التطابق التام (Exact Agreement)**: إذا كانت $\text{Score}_1 = \text{Score}_2$ تتأكد الدرجة آلياً وتتحول لـ `FINALIZED`.
 3. **التصحيح المزدوج فوق عتبة الانحراف (Above Threshold > 15%)**: التحكيم الإجباري (Arbitration Mandatory) عبر `senior grader`.
 4. **التصحيح المزدوج ضمن عتبة الانحراف (Within Threshold $\le 15\%$)**:
-   - **تخضع لقرار المالك `OD-MG-13` (NEEDS_OWNER_DECISION)**.
+   - **تخضع لقرار المالك `ODR-013` (NEEDS_OWNER_DECISION)**.
    - الخيارات المتاحة: المتوسط الحسابي، الأعلى، الأقل، تقييم المصحح الأول، تقييم المصحح الثاني، مراجعة إضافية.
    - **يُمنع فرض قيمة نهائية نيابة عن المالك**.
 
@@ -355,10 +353,10 @@
 | **ODR-010** | سلطة نشر الدفعة | Manager / System | نشر النتائج | نشر غير مكتمل | Grading Manager | Batch table | RPC الإفراج | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
 | **ODR-011** | Batch Release للتمارين | نعم / لا | توقيت التمارين | تأخير التدريب | الإفراج الفوري | Flag في النشاط | مسار التدريب | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
 | **ODR-012** | نطاق التصحيح المزدوج | الكل / امتحانات فقط | استهلاك الموارد | مضاعفة التكلفة | الامتحانات فقط | Schema flags | شرط التوزيع | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
-| **OD-MG-13** | قاعدة الدرجة ضمن الانحراف | المتوسط/الأعلى/الأقل/الأول/الثاني | احتساب النهائي | اعتراضات الخلاف | المتوسط الحسابي | Formula Column | RPC Calculation | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
-| **OD-MG-14** | تعيين شقوق التصحيح المزدوج | التزامن / التتابع | طريقة التكليف | تأخير التقييم الثاني | التزامن المستقل | Slots Enum | Auto Dispatch | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
-| **OD-MG-15** | سلطة الانقضاء والسحب | آلي / يدوي / مختلط | إطلاق المهام | إرجاع مبكر جداً | مختلط (آلي+يدوي) | Job Config | Expiry Worker | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
-| **OD-MG-16** | إفراج دفعة الممارسة التدريبية | تجميعي / فوري | إظهار الحلول | تسريب التمارين | فوري بعد التسليم | Practice Flags | Immediate Outbox | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
+| **ODR-013** | قاعدة الدرجة ضمن الانحراف | المتوسط/الأعلى/الأقل/الأول/الثاني | احتساب النهائي | اعتراضات الخلاف | المتوسط الحسابي | Formula Column | RPC Calculation | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
+| **ODR-014** | تعيين شقوق التصحيح المزدوج | التزامن / التتابع | طريقة التكليف | تأخير التقييم الثاني | التزامن المستقل | Slots Enum | Auto Dispatch | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
+| **ODR-015** | سلطة الانقضاء والسحب | آلي / يدوي / مختلط | إطلاق المهام | إرجاع مبكر جداً | مختلط (آلي+يدوي) | Job Config | Expiry Worker | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
+| **ODR-016** | إفراج دفعة الممارسة التدريبية | تجميعي / فوري | إظهار الحلول | تسريب التمارين | فوري بعد التسليم | Practice Flags | Immediate Outbox | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
 
 
 #### مصفوفة التحقق من علاقات بوابات القرارات (Verifiable Owner Decisions Gate Matrix)
@@ -377,10 +375,10 @@
 | **ODR-010** | `TASK-MG-062` | `TASK-MG-063`, `TASK-MG-064` | Direct | `YES` |
 | **ODR-011** | `TASK-MG-069` | `TASK-MG-064` | Direct | `YES` |
 | **ODR-012** | `TASK-MG-045` | `TASK-MG-046`, `TASK-MG-047` | Direct | `YES` |
-| **OD-MG-13** | `TASK-MG-034` | `TASK-MG-046`, `TASK-MG-051` | Direct | `YES` |
-| **OD-MG-14** | `TASK-MG-045` | `TASK-MG-046` | Direct | `YES` |
-| **OD-MG-15** | `TASK-MG-023` | `TASK-MG-028` | Direct | `YES` |
-| **OD-MG-16** | `TASK-MG-069` | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | Direct | `YES` |
+| **ODR-013** | `TASK-MG-034` | `TASK-MG-046`, `TASK-MG-051` | Direct | `YES` |
+| **ODR-014** | `TASK-MG-045` | `TASK-MG-046` | Direct | `YES` |
+| **ODR-015** | `TASK-MG-023` | `TASK-MG-028` | Direct | `YES` |
+| **ODR-016** | `TASK-MG-069` | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | Direct | `YES` |
 
 > [!IMPORTANT]
 > **خلاصة القبول الشامل لبوابات قرارات المالك:**
@@ -411,10 +409,10 @@
 | **ODR-010** | `TASK-MG-062` (Batch Release Trigger) | `TASK-MG-063`, `TASK-MG-064` | `MVP` | `NEEDS_OWNER_DECISION` |
 | **ODR-011** | `TASK-MG-069` (Practice Immediate Release) | `TASK-MG-064` | `MVP` | `NEEDS_OWNER_DECISION` |
 | **ODR-012** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046`, `TASK-MG-047` | `P1` | `NEEDS_OWNER_DECISION` |
-| **OD-MG-13** | `TASK-MG-034` (Institution Rounding Rules) | `TASK-MG-046`, `TASK-MG-051` | `P1` | `NEEDS_OWNER_DECISION` |
-| **OD-MG-14** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046` | `P1` | `NEEDS_OWNER_DECISION` |
-| **OD-MG-15** | `TASK-MG-023` (Auto-Release Expired Job) | `TASK-MG-028` | `MVP` | `NEEDS_OWNER_DECISION` |
-| **OD-MG-16** | `TASK-MG-069` (Practice Immediate Release) | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | `MVP` | `NEEDS_OWNER_DECISION` |
+| **ODR-013** | `TASK-MG-034` (Institution Rounding Rules) | `TASK-MG-046`, `TASK-MG-051` | `P1` | `NEEDS_OWNER_DECISION` |
+| **ODR-014** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046` | `P1` | `NEEDS_OWNER_DECISION` |
+| **ODR-015** | `TASK-MG-023` (Auto-Release Expired Job) | `TASK-MG-028` | `MVP` | `NEEDS_OWNER_DECISION` |
+| **ODR-016** | `TASK-MG-069` (Practice Immediate Release) | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | `MVP` | `NEEDS_OWNER_DECISION` |
 
 
 #### مصفوفة التحقق من علاقات بوابات القرارات (Verifiable Owner Decisions Gate Matrix)
@@ -433,10 +431,10 @@
 | **ODR-010** | `TASK-MG-062` | `TASK-MG-063`, `TASK-MG-064` | Direct | `YES` |
 | **ODR-011** | `TASK-MG-069` | `TASK-MG-064` | Direct | `YES` |
 | **ODR-012** | `TASK-MG-045` | `TASK-MG-046`, `TASK-MG-047` | Direct | `YES` |
-| **OD-MG-13** | `TASK-MG-034` | `TASK-MG-046`, `TASK-MG-051` | Direct | `YES` |
-| **OD-MG-14** | `TASK-MG-045` | `TASK-MG-046` | Direct | `YES` |
-| **OD-MG-15** | `TASK-MG-023` | `TASK-MG-028` | Direct | `YES` |
-| **OD-MG-16** | `TASK-MG-069` | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | Direct | `YES` |
+| **ODR-013** | `TASK-MG-034` | `TASK-MG-046`, `TASK-MG-051` | Direct | `YES` |
+| **ODR-014** | `TASK-MG-045` | `TASK-MG-046` | Direct | `YES` |
+| **ODR-015** | `TASK-MG-023` | `TASK-MG-028` | Direct | `YES` |
+| **ODR-016** | `TASK-MG-069` | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | Direct | `YES` |
 
 > [!IMPORTANT]
 > **خلاصة القبول الشامل لبوابات قرارات المالك:**
