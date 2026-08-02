@@ -21,7 +21,7 @@
 | Field | Value |
 | --- | --- |
 | Starting HEAD | `6a726a499a8ac33025e29fdec597321b4163d7af` |
-| Final HEAD | *(set after push)* |
+| Final HEAD | `d971c7f5883f1d55d3814cfc476c277c8424f873` |
 | Branch | `feat/qb02-official-normalized-v1-import-foundation-49` |
 | State | Draft, not merged |
 | Scope | `src/lib/question-bank/import/**`, `tests/question-bank/**`, docs report, package deps |
