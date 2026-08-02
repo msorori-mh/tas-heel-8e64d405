@@ -5,7 +5,7 @@ Decision: **PASS_WITH_NOTES**
 Repository: `msorori-mh/tas-heel-8e64d405`  
 PR: `#56` (Draft)  
 Starting HEAD: `0081d0539efea2df1e00e555c7ac41d080736e6d`  
-Final HEAD: `24cb51dce23af9efb7b1fe52514f9bd4643a8c4f`  
+Final HEAD: PR tip on `feat/qb02-official-normalized-v1-import-foundation-49` (implementation `cd273cc`, docs follow-ups after)  
 Working tree: clean  
 
 ## Summary
