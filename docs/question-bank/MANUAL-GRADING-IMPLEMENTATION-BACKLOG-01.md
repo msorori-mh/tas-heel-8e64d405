@@ -1,509 +1,756 @@
 # MANUAL-GRADING-IMPLEMENTATION-BACKLOG-01
-## سجل المهمات والنمو التطويري لمحرك التصحيح اليدوي (Implementation Backlog)
+## سجل المهمات والخطة التنفيذية لمحرك التصحيح اليدوي — التصحيح القانوني المعتمد 03
 
-> **وثيقة سجل المهمات والخطة التنفيذية (Detailed Backlog Specification - 75 Tasks)**  
-> **الإصدار:** 1.0.0  
-> **الحالة:** مجمد للتصميم (Design Frozen - No Code / No SQL Execution)  
-> **النظام:** منصة تسهيل التعليمية (Tas-heel Engine - Question Bank QB-01)  
+> **وثيقة سجل المهمات والخطة التنفيذية (Detailed Backlog Specification - 80 Tasks & DAG)**
+> **الإصدار:** 3.0.0 (Canonical Correction 03)
+> **الحالة:** مجمد للتصميم الوثائقي فقط (Design Frozen - Docs Only / No Code / No SQL Execution / No DB / No Deploy)
+> **النظام:** منصة تسهيل التعليمية (Tas-heel Engine - Question Bank QB-01)
 
 ---
 
-## 1. الهيكلية المنهجية لـ Backlog (Backlog Structure & Taxonomy)
+## 1. الهيكلية المنهجية لـ Backlog (Backlog Methodology & Taxonomy) `[REQUIRED_EXTENSION]`
 
-تم تقسيم سجل المهمات إلى **8 الملاحم التطويرية (Epics)** التي تغطي كافة متطلبات محرك التصحيح اليدوي، مع ضمان استيفاء لا يقل عن **75 مهمة تفصيلية**.
+تم هيكلة سجل المهمات التنفيذي في **8 الملاحم التطويرية (Epics)** التي تغطي جميع متطلبات المحرك عبر **80 مهمة تفصيلية فريدة**، مع تزويد كل مهمة بالبنود الإجبارية التالية:
 
-كل مهمة في هذا السجل معرفة بالبنود التالية:
 - **معرف المهمة (Task ID)**
 - **عنوان المهمة (Title)**
 - **الملحمة (Epic Category)**
-- **الأولوية (Priority: P0 Critical, P1 High, P2 Medium)**
-- **الأدوار المسموحة (Target Roles)**
-- **شروط القبول التفصيلية (Acceptance Criteria)**
-- **الضوابط الأمنية (Security & Compliance Controls)**
+- **المرحلة التنفيذية (Phase: FOUNDATION / MVP / P1 / P2)**
+- **الاعتماديات الصريحة (Dependencies)**
+- **المتطلب الأمني المسبق (Security Prerequisite)**
+- **اشتراط Migration (Migration Required: YES / NO)**
+- **اشتراط Runtime (Runtime Required: YES / NO)**
+- **اشتراط قرار المالك (Owner Decision Required: YES / NO)**
+- **اختبار القبول المرتبط (Acceptance Test Reference)**
+- **التصنيف الهيكلي ([EXISTING_QB01] / [REQUIRED_EXTENSION] / [OWNER_DECISION] / [FUTURE_P1])**
 
 ---
 
-## 2. قائمة المهمات الـ 75 التفصيلية (Detailed Backlog Tasks)
+## 2. قائمة المهمات الـ 80 التفصيلية (Detailed 80 Backlog Tasks) `[REQUIRED_EXTENSION]`
 
-### Epic 1: Data Model, Constraints & Append-Only Infrastructure (البنية التحتية)
+### Epic 1: Data Model, Security & Snapshot Infrastructure (البنية التحتية)
 
-- **TASK-MG-001: التثبت المعماري لقواعد `question_response_reviews` الهيكلية**
-  - **Epic**: Data Model Foundation | **Priority**: P0
-  - **Target Roles**: `admin emergency operator`, `grading manager`
-  - **Acceptance Criteria**: التأكد من الربط المزدوج XOR بين `exam_answer_id` و `practice_response_id` ومنع خلو الاثنين أو توفرهما معاً.
-  - **Security Control**: تفعيل قيود `CHECK` الهيكلية الصارمة.
+- **TASK-MG-001: التثبت المعماري لقواعد `question_response_reviews` الهيكلية** `[EXISTING_QB01]`
+  - **Phase**: `FOUNDATION` | **Dependencies**: `NONE`
+  - **Security Prerequisite**: تفعيل التشفير والتحقق الذري لقواعد RLS.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-001`
+  - **Criteria**: التأكد من الربط المزدوج XOR بين `exam_answer_id` و `practice_response_id`.
 
-- **TASK-MG-002: تفعيل تريجر منع الحذف والتعديل المباشر على جدول المراجعات**
-  - **Epic**: Data Model Foundation | **Priority**: P0
-  - **Target Roles**: `admin emergency operator`
-  - **Acceptance Criteria**: رفض أي دالة أو استعلام يُنفذ `UPDATE` أو `DELETE` على `question_response_reviews`.
-  - **Security Control**: إنفاذ مبدأ `Append-Only` المطلق.
+- **TASK-MG-002: تفعيل تريجر منع الحذف والتعديل المباشر على جدول المراجعات** `[EXISTING_QB01]`
+  - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-001`
+  - **Security Prerequisite**: حظر عمليات `UPDATE` و `DELETE` كلياً على جدول المراجعات.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-004`
+  - **Criteria**: رفض أي استعلام أو دالة تُنفذ تعديلاً أو حذفاً على السجل السلسلي.
 
-- **TASK-MG-003: دعم مفتاح كبح التكرار `idempotency_key` المزدوج**
-  - **Epic**: Data Model Foundation | **Priority**: P0
-  - **Target Roles**: `grader`, `senior grader`
-  - **Acceptance Criteria**: منع تكرار إرسال نصوص التقييم عند تعثر الشبكة باستخدام قيد `UNIQUE (exam_answer_id, idempotency_key)`.
-  - **Security Control**: منع الهجمات المزدوجة وإعادات الإرسال المتكرر.
+- **TASK-MG-003: دعم مفتاح كبح التكرار `idempotency_key` المزدوج** `[REQUIRED_EXTENSION]`
+  - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-001`
+  - **Security Prerequisite**: منع هجمات إعادة الإرسال والتكرار الشبكي.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-011`
+  - **Criteria**: قيد الفرادة المزدوج لمنع تكرار تقديم التقييمات.
 
-- **TASK-MG-004: بناء المنظر الموحد للاستجابات `v_question_responses_unified`**
-  - **Epic**: Data Model Foundation | **Priority**: P1
-  - **Target Roles**: `grader`, `senior grader`, `reviewer`, `grading manager`
-  - **Acceptance Criteria**: دمج استجابات الامتحانات والتمارين في منظر أمني موحد يدعم `security_invoker = true`.
-  - **Security Control**: تطبيق قواعد RLS المستدعية للأنظار.
+- **TASK-MG-004: بناء المنظر الموحد `v_question_responses_unified` مع Security Invoker** `[REQUIRED_EXTENSION]`
+  - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-001`
+  - **Security Prerequisite**: تفعيل `security_invoker = true` وإنفاذ سياسات RLS.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-007`
+  - **Criteria**: دمج استجابات الامتحانات والتمارين في منظر أمني محمي دون كشف الحلول.
 
-- **TASK-MG-005: الربط مع جداول حدود الدرجات `score_bounds` في بنك الأسئلة**
-  - **Epic**: Data Model Foundation | **Priority**: P0
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: التأكد من جلب `max_score` من `question_revisions` لمنع تجاوز الدرجات المحددة.
-  - **Security Control**: فحص الحدود العليا والسفلى على مستوى السيرفر.
+- **TASK-MG-005: الربط مع حدود الدرجات المعتمدة في snapshot بنك الأسئلة** `[REQUIRED_EXTENSION]`
+  - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-001`
+  - **Security Prerequisite**: ربط `max_score` بنسخة snapshot لمنع التجاوز.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SCR-005`
+  - **Criteria**: التحقق الذري من الحدود $0 \le \text{score} \le \text{snapshot\_max\_score}$.
 
-- **TASK-MG-006: ربط معرف التقييم السلسلي `action_id` لجميع العمليات**
-  - **Epic**: Data Model Foundation | **Priority**: P1
-  - **Target Roles**: `grading manager`, `admin emergency operator`
-  - **Acceptance Criteria**: توليد UUID فريد تلقائياً لكل عملية تقييم لتتبع التسلسل الزمني.
-  - **Security Control**: منع التلاعب بـ Audit Trail.
+- **TASK-MG-006: ربط معرف التقييم السلسلي `action_id` لجميع العمليات** `[EXISTING_QB01]`
+  - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-002`
+  - **Security Prerequisite**: التوليد التلقائي لـ UUID من السيرفر.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-012`
+  - **Criteria**: توليد `action_id` فريد لكل صف مراجعة جديد.
 
-- **TASK-MG-007: عزل جداول التصحيح عن ادوار بنك المحتوى (`editor`, `publisher`)**
-  - **Epic**: Data Model Foundation | **Priority**: P0
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: إلغاء كافة الصلاحيات (`REVOKE ALL`) على `question_response_reviews` عن أدوار المحتوى.
-  - **Security Control**: فصل الواجبات والأدوار (Separation of Duties).
+- **TASK-MG-007: عزل جداول التصحيح عن أدوار المحتوى (`publisher`, `editor`)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-001`
+  - **Security Prerequisite**: إنفاذ مبدأ الفصل الصارم بين الواجبات (Separation of Duties).
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-014`
+  - **Criteria**: حظر أدوار المحتوى من الوصول لجداول وتصحيحات الطلاب.
 
-- **TASK-MG-008: دعم قيد الدرجة الموجبة `score_awarded >= 0`**
-  - **Epic**: Data Model Foundation | **Priority**: P0
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: إجبار القيمة لتكون أكبر من أو تساوي الصفر المطلق.
-  - **Security Control**: منع الثغرات المتعلقة بالدرجات السالبة.
+- **TASK-MG-008: إنفاذ قيد الدرجة الموجبة الصارم `score_awarded >= 0`** `[EXISTING_QB01]`
+  - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-005`
+  - **Security Prerequisite**: حماية المنطق الرياضي من ثغرات الدرجات السالبة.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-003`
+  - **Criteria**: رفض التقييمات التي تتضمن درجات اقل من الصفر المطلق.
 
-- **TASK-MG-009: هيكلة حقل `reason` الإجباري عند الاعتماد النهائي**
-  - **Epic**: Data Model Foundation | **Priority**: P0
-  - **Target Roles**: `senior grader`, `grading manager`
-  - **Acceptance Criteria**: اشتراط تعبئة الحقل `reason` عند `is_final = true` ورفض الطلب إذا كان `NULL`.
-  - **Security Control**: توثيق الأسباب القانونية والأكاديمية للاعتماد.
+- **TASK-MG-009: هيكلة حقل `reason` الإجباري عند الاعتماد النهائي** `[REQUIRED_EXTENSION]`
+  - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-002`
+  - **Security Prerequisite**: توثيق الأسباب القانونية والأكاديمية للاعتماد النهائي.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-AFR-001`
+  - **Criteria**: اشتراط حقل السبب عند `is_final = true` ورفض الطلب إذا كان خاليًا.
 
-- **TASK-MG-010: تهيئة الفهارس المزدوجة لتسريع استعلامات الطوابير**
-  - **Epic**: Data Model Foundation | **Priority**: P2
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: إنشاء فهارس على `(grader_id, is_final)` وعلى المفاتيح الأجنبية لتحسين أداء الطابور.
-  - **Security Control**: حماية النظام من هجمات الحرمان من الخدمة (DoS).
+- **TASK-MG-010: تهيئة فهارس الأداء المزدوجة لتسريع استعلامات الطوابير** `[REQUIRED_EXTENSION]`
+  - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-004`
+  - **Security Prerequisite**: حماية البيئة من هجمات الحرمان من الخدمة (DoS).
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-001`
+  - **Criteria**: تسريع عمليات الفلترة والاستعلام بحسب المادة وحالة الاعتماد.
 
 ---
 
 ### Epic 2: Queue Engine & Dynamic Assignment Dispatch (طابور العمل والتوزيع)
 
-- **TASK-MG-011: بناء طابور الإجابات غير المصححة حسب المادة**
-  - **Epic**: Queue & Assignment | **Priority**: P0
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: تجميع الإجابات التي تحتاج تصحيحاً وتصفيتها حسب مادة تخصص المصحح.
-  - **Security Control**: منع الوصول للمواد غير المترخصة (Cross-Subject Access).
+- **TASK-MG-011: بناء طابور الإجابات غير المصححة حسب المادة** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-004`, `TASK-MG-010`
+  - **Security Prerequisite**: مطابقة المادة المصرحة للمصحح بنطاق `subject_scope`.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-009`
+  - **Criteria**: عرض الإجابات المتاحة للمصحح ضمن تخصصه المعتمد فقط.
 
-- **TASK-MG-012: ترتيب الطابور بحسب أولوية الامتحانات الرسمية**
-  - **Epic**: Queue & Assignment | **Priority**: P1
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: إعطاء الأولوية في الطابور لإجابات الامتحانات النهائية ثم منتصف الفصل ثم التمارين.
-  - **Security Control**: احترام جدول مواعيد النتائج الرسمية.
+- **TASK-MG-012: ترتيب الطابور بحسب أولوية الامتحانات الرسمية** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-011`
+  - **Security Prerequisite**: إنفاذ ترتيب الأولويات الأكاديمية الرسمية.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-001`
+  - **Criteria**: تقديم إجابات الامتحانات النهائية على التمارين والمحاولات الحرة.
 
-- **TASK-MG-013: خوارزمية التوزيع التلقائي المتوازن (Auto-Dispatch Engine)**
-  - **Epic**: Queue & Assignment | **Priority**: P1
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: توزيع الإجابات تلقائياً على المصححين المتاحين بناءً على حمولة كل مصحح.
-  - **Security Control**: حظر إسناد مهام تتجاوز الحد الأقصى لسعة المصحح.
+- **TASK-MG-013: خوارزمية التوزيع التلقائي المتوازن (Auto-Dispatch)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-011`
+  - **Security Prerequisite**: فحص السعة القصوى المسموحة للمصحح.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-001`
+  - **Criteria**: توزيع الإجابات تلقائياً بحسب الحمولة والتخصص الأكاديمي.
 
-- **TASK-MG-014: التخصيص اليدوي للدفعات من قبل مدير التصحيح**
-  - **Epic**: Queue & Assignment | **Priority**: P1
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: واجهة تتيح نقل مجموعة إجابات من مصحح إلى آخر أو تخصيصها لمصحح معين.
-  - **Security Control**: التحقق من صلاحية `grading.claim.execute` للمدير.
+- **TASK-MG-014: التخصيص اليدوي للدفعات من قبل مدير التصحيح** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-011`
+  - **Security Prerequisite**: التحقق من صلاحية `grading.claim.execute` الإدارية.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-010`
+  - **Criteria**: تمكين مدير التصحيح من نقل التعيينات بين المصححين يدويّاً.
 
-- **TASK-MG-015: تحديد السعة القصوى لعمليات التصحيح النشطة للمصحح**
-  - **Epic**: Queue & Assignment | **Priority**: P2
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: منع إسناد أي إجابة جديدة للمصحح إذا بلغت إجاباته النشطة قيد التصحيح الحد الأقصى (مثلاً 50).
-  - **Security Control**: منع احتكار الطوابير وتأخير النتائج.
+- **TASK-MG-015: تحديد السعة القصوى لعمليات التصحيح النشطة** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-011`
+  - **Security Prerequisite**: منع احتكار الطوابير وتراكم المهام.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-001`
+  - **Criteria**: حظر التعيين الجديد إذا بلغت المهمات النشطة للمصحح حدها الأقصى.
 
-- **TASK-MG-016: استبعاد الإجابات الملغاة أو المهجورة من طابور التصحيح**
-  - **Epic**: Queue & Assignment | **Priority**: P1
-  - **Target Roles**: `system`
-  - **Acceptance Criteria**: تنظيف الطابور تلقائياً من إجابات المحاولات الملغاة أو التي انسحب منها الطالب.
-  - **Security Control**: منع استهلاك جهد المصححين في بيانات ملغاة.
+- **TASK-MG-016: استبعاد الإجابات الملغاة أو المهجورة من الطابور** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-011`
+  - **Security Prerequisite**: تنظيف الطوابير التلقائي ومنع استهلاك جهود المصححين.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-001`
+  - **Criteria**: سحب الإجابات التابعة لمحاولات ملغاة أو منسحبة فوراً.
 
-- **TASK-MG-017: فلترة الطابور بحسب حالة اتفاقية مستوى الخدمة (SLA Status)**
-  - **Epic**: Queue & Assignment | **Priority**: P1
-  - **Target Roles**: `grader`, `senior grader`
-  - **Acceptance Criteria**: إبراز الإجابات المقتربة من تجاوز الموعد المحدد بلون تنبيهي خفيف.
-  - **Security Control**: إنفاذ مهل الجودة والأداء.
+- **TASK-MG-017: فلترة الطابور بحسب حالة اتفاقية SLA** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-012`
+  - **Security Prerequisite**: وسم المهمات المقتربة من تجاوز الموعد المعتمد.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
+  - **Acceptance Test**: `TC-QCL-005`
+  - **Criteria**: إبراز الإجابات المقتربة من انقضاء المهلة بلون تنبيهي بارز.
 
-- **TASK-MG-018: إنشاء منظر الجلسات الجاهزة للتصحيح اليدوي**
-  - **Epic**: Queue & Assignment | **Priority**: P2
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: تجميع الجلسات الامتحانية التي تم إنهاؤها كلياً واستخراج الإجابات المقالية فوراً.
-  - **Security Control**: ضغط المهل الزمنية بعد انتهاء الامتحان.
+- **TASK-MG-018: إنشاء منظر الجلسات الجاهزة للتصحيح اليدوي** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-011`
+  - **Security Prerequisite**: حصر الاستعلام بالجلسات المغلقة رسمياً.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-AFR-002`
+  - **Criteria**: تجميع الجلسات الامتحانية المكتملة وإبراز استجاباتها المقالية.
 
-- **TASK-MG-019: دعم خيار التوزيع الدائري (Round-Robin Distribution)**
-  - **Epic**: Queue & Assignment | **Priority**: P2
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: توزيع الإجابات بالتساوي بين المصححين المعتمدين في المادة.
-  - **Security Control**: تحقيق العدالة في توزيع العبء.
+- **TASK-MG-019: دعم خيار التوزيع الدائري (Round-Robin Distribution)** `[FUTURE_P1]`
+  - **Phase**: `P2` | **Dependencies**: `TASK-MG-013`
+  - **Security Prerequisite**: تحقيق العدالة المتوازية في توزيع المهام.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-001`
+  - **Criteria**: توزيع الإجابات بالتتابع المستمر على المصححين المعتمدين.
 
-- **TASK-MG-020: تسجيل أحداث تغيير حالة التخصيص في سجل الأحداث**
-  - **Epic**: Queue & Assignment | **Priority**: P2
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: تتبع حالات تعيين، إلغاء، أو نقل الإجابات بين المصححين.
-  - **Security Control**: الشفافية التامة في تتبع التعيينات.
-
----
-
-### Epic 3: Claim, Release, Locking & SLA Management (المطالبة والقفل والمهل)
-
-- **TASK-MG-021: آلية المطالبة الفردية (Claim Response)**
-  - **Epic**: Claim & SLA | **Priority**: P0
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: تمكين المصحح من قفل إجابة محددة وبدء التصحيح حصرياً.
-  - **Security Control**: منع تصحيح إجابة غير مخصصة (Threat 1).
-
-- **TASK-MG-022: إنشاء القفل المؤقت لمهلة التصحيح (Lease Lock TTL)**
-  - **Epic**: Claim & SLA | **Priority**: P0
-  - **Target Roles**: `system`
-  - **Acceptance Criteria**: تحديد وقت صلاحية للقفل (15 دقيقة) وتوليد `lease_expires_at`.
-  - **Security Control**: منع القفل الأبدي للبيانات.
-
-- **TASK-MG-023: التحرير التلقائي للقفل عند انقضاء المهلة (Auto-Release on Expiry)**
-  - **Epic**: Claim & SLA | **Priority**: P0
-  - **Target Roles**: `system`
-  - **Acceptance Criteria**: إعادة الإجابة للطابور العام فور انقضاء TTL ورفض أي تقديم متأخر.
-  - **Security Control**: منع تقديم درجات من قفل منتهي الصلاحية (Threat 10).
-
-- **TASK-MG-024: التحرير اليدوي الصريح من المصحح (Manual Release)**
-  - **Epic**: Claim & SLA | **Priority**: P1
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: إمكانية إرجاع المصحح للإجابة للطابور مع إدخال سبب التحرير (مثلاً: عدم تخصص فرعي).
-  - **Security Control**: تتبع أسباب التحرير وتوثيقها.
-
-- **TASK-MG-025: تجديد مهلة القفل أثناء الكتابة النشطة (Heartbeat Lease Extension)**
-  - **Epic**: Claim & SLA | **Priority**: P2
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: إرسال نبضة إشارة تفاعل لتمديد القفل 5 دقائق إضافية طالما المصحح يكتب ملاحظات.
-  - **Security Control**: حظر التمديد لأكثر من الحد الأقصى الإجمالي (30 دقيقة).
-
-- **TASK-MG-026: محرك التنبيهات الدورية لتجاوز مهل SLA**
-  - **Epic**: Claim & SLA | **Priority**: P1
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: إرسال تنبيهات عند 75% و 100% من المهلة المحددة للمادة.
-  - **Security Control**: ضمان الالتزام بالمهل الرسمية.
-
-- **TASK-MG-027: التصعيد التلقائي للمهمات المتأخرة إلى المصحح الأول**
-  - **Epic**: Claim & SLA | **Priority**: P1
-  - **Target Roles**: `senior grader`
-  - **Acceptance Criteria**: نقل التعيين تلقائياً إلى `senior grader` عند تجاوز المهلة الرسمية للامتحان.
-  - **Security Control**: حماية مسار تصحيح الامتحانات الرسمية.
-
-- **TASK-MG-028: لوحة تتبع مهل SLA والمهمات الحرجة**
-  - **Epic**: Claim & SLA | **Priority**: P2
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: عرض رسومي لنسبة الالتزام بالمهل وأعداد المهمات المتأخرة.
-  - **Security Control**: الإشراف الإداري المباشر على الأداء.
-
-- **TASK-MG-029: تحرير التعيين بقرار إداري من مدير التصحيح**
-  - **Epic**: Claim & SLA | **Priority**: P1
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: فك القفل عن أي إجابة محتجزة يدويّاً وإعادتها للطابور.
-  - **Security Control**: معالجة حالات تعطل المصححين الطارئة.
-
-- **TASK-MG-030: حظر المطالبة المزدوجة لنفس الإجابة (Double Claim Block)**
-  - **Epic**: Claim & SLA | **Priority**: P0
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: استبعاد الإجابة من الطابور فور مطالبة مصحح آخر بها لتفادي الصدام.
-  - **Security Control**: منع التنافس والتضارب المتزامن (Threat 11).
+- **TASK-MG-020: تسجيل أحداث تغيير حالة التخصيص في سجل الأحداث** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-014`
+  - **Security Prerequisite**: التوثيق التتابع التام لحركات التعيين والإلغاء.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-AFR-003`
+  - **Criteria**: تسجيل جميع حركات التخصيص في سجل التدقيق الإداري.
 
 ---
 
-### Epic 4: Rubrics Evaluator, Partial Scoring & Feedback System (سلم التقييم والدرجات)
+### Epic 3: Lease Locks, Heartbeat, Fencing Token & SLA (الأقفال والمهل)
 
-- **TASK-MG-031: بناء مكون عرض سلم التقييم المعياري (Rubric Evaluator UI)**
-  - **Epic**: Rubrics & Scoring | **Priority**: P0
-  - **Target Roles**: `grader`, `senior grader`
-  - **Acceptance Criteria**: عرض بنود Rubric في واجهة تفاعلية تحتوي الأوصاف والنقاط المخصصة.
-  - **Security Control**: جلب البنود المعتمدة في `question_revisions` حصرياً.
+- **TASK-MG-021: بناء دالة المطالبة الذرية `claim_assignment`** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-001`, `TASK-MG-011`
+  - **Security Prerequisite**: أقفال الصفوف الذرية `FOR UPDATE NOWAIT` لمنع سباق التنافس.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-006`
+  - **Criteria**: منح قفل التعيين لمصحح واحد فقط وتوليد `lease_token`.
 
-- **TASK-MG-032: الاحتساب الآلي لمجموع البنود الفرعية**
-  - **Epic**: Rubrics & Scoring | **Priority**: P0
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: جمع نقاط البنود المختارة آلياً وتحديث حقل الدرجة دون إمكانية التعديل اليدوي المنافي.
-  - **Security Control**: منع تباين المجموع مع البنود المحددة.
+- **TASK-MG-022: إنشاء نموذج القفل المؤقت `lease_expires_at`** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-021`
+  - **Security Prerequisite**: تحديد مهلة القفل الإجبارية لمنع الاحتكار الأبدي.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
+  - **Acceptance Test**: `TC-QCL-002`
+  - **Criteria**: حساب الطابع الزمني لانتهاء القفل بناءً على القيمة المعتمدة (15 دقيقة).
 
-- **TASK-MG-033: دعم قواعد الاحتساب الجزئي (Partial Scoring Engine)**
-  - **Epic**: Rubrics & Scoring | **Priority**: P1
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: منح جزء من الدرجة بناءً على معايير الخطوات الإجرائية في الإجابات المقالية.
-  - **Security Control**: إنفاذ شرط `score_awarded <= max_score`.
+- **TASK-MG-023: التحرير التلقائي للقفل المنتهي عبر Background Job** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-022`
+  - **Security Prerequisite**: إطلاق المهام المنتهية ومنع التقديمات المتأخرة.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-004`
+  - **Criteria**: تحويل حالة التعيينات المنتهية لـ `EXPIRED` وإعادتها للطابور.
 
-- **TASK-MG-034: تطبيق قواعد تقريب الدرجات المعتمدة للمؤسسة**
-  - **Epic**: Rubrics & Scoring | **Priority**: P2
-  - **Target Roles**: `system`
-  - **Acceptance Criteria**: تقريب الكسور الناتجة إلى أقرب 0.25 أو 0.50 حسب إعدادات المقرر.
-  - **Security Control**: توحيد معايير الحساب ومنع الكسائر الشاذة.
+- **TASK-MG-024: بناء دالة التحرير اليدوي الصريح `release_assignment`** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-021`
+  - **Security Prerequisite**: التحقق من ملكية المصحح للقفل النشط قبل التحرير.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-003`
+  - **Criteria**: تحرير الإجابة فوراً وإعادتها للطابور مع توثيق سبب التحرير.
 
-- **TASK-MG-035: واجهة إدخال ملاحظات الطالب (Student Feedback Control)**
-  - **Epic**: Rubrics & Scoring | **Priority**: P1
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: حقل نصي مخصص لكتابة الملاحظات التعليمية والتوضيحية للطالب.
-  - **Security Control**: تصفية النصوص لمنع تضمين روابط أو نصوص ضارة (XSS Sanitization).
+- **TASK-MG-025: آلية تمديد القفل عبر النبضات التفاعلية `heartbeat_assignment`** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-022`
+  - **Security Prerequisite**: فحص صحة `lease_token` و عدم انقضاء المهلة الأساسية.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-009`
+  - **Criteria**: تمديد القفل 5 دقائق إضافية عند استمرار نشاط المصحح في الواجهة.
 
-- **TASK-MG-036: واجهة الملاحظات السرية للمراجعين (Internal Grader Notes)**
-  - **Epic**: Rubrics & Scoring | **Priority**: P1
-  - **Target Roles**: `grader`, `senior grader`, `reviewer`
-  - **Acceptance Criteria**: حقل ملاحظات سري لا يظهر للطالب إطلاقاً ويخصص للتواصل الداخلي بين المصححين.
-  - **Security Control**: حجب الحقل كلياً عن استعلامات الطلاب بـ RLS.
+- **TASK-MG-026: إنفاذ رمز المحاصرة `fencing_token` في دالة تقديم الدرجات** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-021`, `TASK-MG-022`
+  - **Security Prerequisite**: حظر الكتابة المنتهية وتطابق `assignment_generation`.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-008`
+  - **Criteria**: رفض أي طلب تقديم يحمل رمز محاصرة قديم باستثناء `STALE_FENCING_TOKEN`.
 
-- **TASK-MG-037: معجم الردود والملاحظات الجاهزة (Preset Feedback Snippets)**
-  - **Epic**: Rubrics & Scoring | **Priority**: P2
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: القائمة المنبثقة للاختيار السريع للملاحظات الشائعة لتوفير وقت المصحح.
-  - **Security Control**: ضمان معيارية التعليقات التعليمية.
+- **TASK-MG-027: محرك تنبيهات المهل وتصعيد تجاوزات SLA** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-017`
+  - **Security Prerequisite**: إرسال إشعارات التنبيه عند 75% والتصعيد عند 100%.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
+  - **Acceptance Test**: `TC-QCL-005`
+  - **Criteria**: رصد التجاوزات وتصعيدها للمصحح الأول ومدير التصحيح.
 
-- **TASK-MG-038: معالجة خلو الملاحظات وحفظ التقييم بـ Zero Score**
-  - **Epic**: Rubrics & Scoring | **Priority**: P1
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: السماح بإعطاء درجة صفر شريطة اختيار بند Rubric المعني بالتقصير.
-  - **Security Control**: إنفاذ `score_awarded >= 0`.
+- **TASK-MG-028: بناء دالة الاسترداد الإداري للتعيين `reclaim_assignment`** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-026`
+  - **Security Prerequisite**: زيادة `assignment_generation` آلياً لإبطال الرموز القديمة.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-010`
+  - **Criteria**: سحب التعيين من المصحح البطيء وإعادة تخصيصه فوراً.
 
-- **TASK-MG-039: دعم المرفقات والتوضيحات البصرية في سلم التقييم**
-  - **Epic**: Rubrics & Scoring | **Priority**: P2
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: عرض الصور المرجعية والتوضيحية المرفقة بسلم التقييم للأسئلة المخططة.
-  - **Security Control**: قراءة المرفقات بحجم أقصى محدد ودون إمكانيات تنفيذ برمجيات.
+- **TASK-MG-029: حظر المطالبة المزدوجة التزامنية عبر أقفال DB الذرية** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-021`
+  - **Security Prerequisite**: حماية المعاملات بـ `NOWAIT` الذرية.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-006`
+  - **Criteria**: رفض مطالبة المصحح الثاني فور الانتهاء الذري للمطالب الأول.
 
-- **TASK-MG-040: التحقق من اكتمال تقييم جميع البنود الإجبارية قبل التسليم**
-  - **Epic**: Rubrics & Scoring | **Priority**: P0
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: منع إرسال التقييم إذا وجد بند إجباري لم يتم اختيار مستواه بعد.
-  - **Security Control**: منع استكمال التصحيح الجزئي الناقص.
-
----
-
-### Epic 5: Double Marking, Moderation, Blind Grading & Conflict Protection (النزاهة والحياد)
-
-- **TASK-MG-041: حظر معلومات هوية الطالب عن شاشة المصحح (Blind Grading)**
-  - **Epic**: Double Marking & Integrity | **Priority**: P0
-  - **Target Roles**: `grader`, `senior grader`
-  - **Acceptance Criteria**: إخفاء الاسم، الرقم الأكاديمي، والمؤسسة، واستبدالها برمز مجهول تشفيري.
-  - **Security Control**: حماية الحياد ومنع التحيز الشخصي.
-
-- **TASK-MG-042: إخفاء هوية المصحح عن الطالب في واجهات النتائج**
-  - **Epic**: Double Marking & Integrity | **Priority**: P1
-  - **Target Roles**: `student`
-  - **Acceptance Criteria**: إخفاء اسم بيانات المصحح عند استعراض الطالب لنتائجه وملاحظاته.
-  - **Security Control**: منع التواصل المباشر أو الضغوط الخارجية على المصححين.
-
-- **TASK-MG-043: محرك فحص تضارب المصالح وحظر الأقارب (Conflict of Interest Engine)**
-  - **Epic**: Double Marking & Integrity | **Priority**: P0
-  - **Target Roles**: `system`
-  - **Acceptance Criteria**: مطابقة قائمة الأقارب والطلاب المباشرين وحجب إجاباتهم تلقائياً عن طابور المصحح.
-  - **Security Control**: حظر تصحيح الأقارب والأشخاص المرتبطين.
-
-- **TASK-MG-044: التصريح الذاتي للمصحح عن وجود تضارب مصالح (Self-Declared Conflict)**
-  - **Epic**: Double Marking & Integrity | **Priority**: P1
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: زر يتيح للمصحح الاستبعاد الذاتي لإجابة معينة لسبب تضارب مصالح شخصي.
-  - **Security Control**: توثيق الاستبعاد وإحالة الإجابة لمصحح آخر.
-
-- **TASK-MG-045: محرك التصحيح المزدوج المستقل (Dual Independent Marking)**
-  - **Epic**: Double Marking & Integrity | **Priority**: P1
-  - **Target Roles**: `grader 1`, `grader 2`
-  - **Acceptance Criteria**: تخصيص نفس الإجابة لمصححين اثنين دون اطلاع أي منهما على النتيجة الأخرى.
-  - **Security Control**: سرية التقييم المستقل التام.
-
-- **TASK-MG-046: محرك رصد انحراف الدرجات (Score Variance Threshold Check)**
-  - **Epic**: Double Marking & Integrity | **Priority**: P1
-  - **Target Roles**: `system`
-  - **Acceptance Criteria**: احتساب نسبة التباين بين المصححين وتوسيم الإجابة للتنازع إذا تجاوز التباين 15%.
-  - **Security Control**: اكتشاف الفروقات الجوهرية آلياً.
-
-- **TASK-MG-047: واجهة التحكيم وحسم التنازع من قبل المصحح الأول**
-  - **Epic**: Double Marking & Integrity | **Priority**: P1
-  - **Target Roles**: `senior grader`
-  - **Acceptance Criteria**: عرض التقييمين جنبًا إلى جنب وتمكين Senior Grader من إصدار القرار النهائي المعتمد.
-  - **Security Control**: ضبط جودة التقييم المزدوج.
-
-- **TASK-MG-048: نظام سحب العينات العشوائية لضبط الجودة (Random QA Sampling)**
-  - **Epic**: Double Marking & Integrity | **Priority**: P2
-  - **Target Roles**: `reviewer`
-  - **Acceptance Criteria**: اختيار 5% من الإجابات المعتمدة عشوائياً وتوجيهها للمراجع لفحص جودة التقييم.
-  - **Security Control**: الرقابة المستمرة على معايير التصحيح.
-
-- **TASK-MG-049: وسم الإجابات المشبوهة أو التي تحتوي علامات استدلالية**
-  - **Epic**: Double Marking & Integrity | **Priority**: P2
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: إمكانية رفع بلاغ عن إجابة طالب تحتوي اسماً صريحاً أو علامة غش داخل كود/نص الإجابة.
-  - **Security Control**: تحويل البلاغ لإدارة الامتحانات لاتخاذ القرار.
-
-- **TASK-MG-050: تقرير مؤشرات التباين والعدالة بين المصححين**
-  - **Epic**: Double Marking & Integrity | **Priority**: P2
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: تقرير إحصائي يقيس تباين درجات كل مصحح مقارنة بالمتوسط العام للمادة.
-  - **Security Control**: كشف التساهل أو التشدد المفرط لدى المصححين.
+- **TASK-MG-030: المعالجة الشبكية المنقطعة وحظر الحفظ بعد استعادة الاتصال مع انقضاء Lease** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-026`
+  - **Security Prerequisite**: فحص `lease_expires_at > now()` داخل RPC عند التسليم الشبكي.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-QCL-011`
+  - **Criteria**: التجميد الفوري للأزرار ورفض التقديم المتأخر بعد الانقطاع الشبكي.
 
 ---
 
-### Epic 6: Finalization, Reopening, Appeals & Regrading Engine (الاعتماد والتظلمات)
+### Epic 4: Rubrics Evaluator & Pinned Score Bounds (سلم التقييم والدرجات)
 
-- **TASK-MG-051: تنفيذ الاعتماد النهائي الذري للدرجة (`is_final = true`)**
-  - **Epic**: Finalization & Appeals | **Priority**: P0
-  - **Target Roles**: `senior grader`, `grading manager`
-  - **Acceptance Criteria**: تحويل حالة التقييم إلى معتمد نهائي واشتراط تعبئة سبب الاعتماد `reason`.
-  - **Security Control**: قفل الدرجة وتفعيل الحماية من التعديل.
+- **TASK-MG-031: عرض بنود Rubric المعتمدة في snapshot بنك الأسئلة** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-005`
+  - **Security Prerequisite**: جلب البنود المعتمدة في `question_revisions` حصراً.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SCR-001`
+  - **Criteria**: استعراض بنود التقييم وأوصاف المستويات في الواجهة دون تعديل هيكلي.
 
-- **TASK-MG-052: تحديث النتيجة الإجمالية للجلسة الامتحانية عند اكتمال الأسئلة**
-  - **Epic**: Finalization & Appeals | **Priority**: P0
-  - **Target Roles**: `system`
-  - **Acceptance Criteria**: إعادة احتساب المجموع النهائي للجلسة في `exam_sessions` فور اعتماد آخر إجابة مقالية.
-  - **Security Control**: الاتساق الذري لنتائج الاختبارات.
+- **TASK-MG-032: الجمع الآلي لنقاط بنود Rubric الفرعية** `[EXISTS_IN_QB01]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-031`
+  - **Security Prerequisite**: حظر إدخال مجموع يدوي يختلف عن مجموع بنود Rubric.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SCR-007`
+  - **Criteria**: حساب المجموع التلقائي فور اختيار مستويات البنود في الشاشة.
 
-- **TASK-MG-053: إعادة التقييم والتوجيه للتعديل (Return for Review Workflow)**
-  - **Epic**: Finalization & Appeals | **Priority**: P1
-  - **Target Roles**: `senior grader`, `reviewer`
-  - **Acceptance Criteria**: إرجاع تقييم المصحح المبتدئ مع ملاحظات توجيهية وإعادته لحالة قيد التعديل.
-  - **Security Control**: منع اعتماد درجات غير مستوفية للشروط.
+- **TASK-MG-033: إنفاذ حدود الدرجة المعتمدة $0 \le \text{Score} \le \text{Max}$ عبر RPC** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-005`, `TASK-MG-008`
+  - **Security Prerequisite**: التحقق الذري المباشر من لقطة Snapshot في السيرفر.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SCR-005`
+  - **Criteria**: إجبار القيمة لتقع ضمن الحدود المطلقة ورفض أي قيمة خارجها.
 
-- **TASK-MG-054: فتح المراجعة الاستثنائية بقرار إداري (Emergency Reopen RPC)**
-  - **Epic**: Finalization & Appeals | **Priority**: P0
-  - **Target Roles**: `grading manager`, `admin emergency operator`
-  - **Acceptance Criteria**: فتح درجة معتمدة سابقاً عبر إدراج صف جديد في `question_response_reviews` يسجل السبب والدرجة السابقة.
-  - **Security Control**: المحافظة على التتابعية وعدم مسح التقييم السالف (Append-Only).
+- **TASK-MG-034: تطبيق قواعد تقريب الدرجات الجزئية للمؤسسة** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-032`
+  - **Security Prerequisite**: معايرة تقريب الكسور لـ 0.25 أو 0.50 حسب سياسة المقرر.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
+  - **Acceptance Test**: `TC-SCR-002`
+  - **Criteria**: تقريب الدرجات الناتجة من البنود المعايرة وفق السياسة المعتمدة.
 
-- **TASK-MG-055: تقديم التظلم والاعتراض من قبل الطالب (Student Appeal Engine)**
-  - **Epic**: Finalization & Appeals | **Priority**: P1
-  - **Target Roles**: `student`
-  - **Acceptance Criteria**: واجهة تتيح للطالب اعتراضه على درجة سؤال مقالي خلال النافذة الزمنية المسموحة.
-  - **Security Control**: التحقق من ملكية الطالب للجلسة الامتحانية وانقضاء الاعتماد النهائي.
+- **TASK-MG-035: التحكم في إدخال ملاحظات الطالب والتعقيم الأمني (Sanitizations)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-031`
+  - **Security Prerequisite**: تعقيم النصوص المدخلة من وسوم XSS والروابط الضارة.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SCR-003`
+  - **Criteria**: حفظ الملاحظات الموجهة للطالب بأمان تام بعد التطهير البرمجي.
 
-- **TASK-MG-056: إدارة نافذة تقديم الاعتراضات (Appeals Window Control)**
-  - **Epic**: Finalization & Appeals | **Priority**: P2
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: ضبط عدد الأيام المتاحة لتقديم الاعتراض (مثلاً 7 أيام) وإغلاق استقبال الطلبات بعدها آلياً.
-  - **Security Control**: منع الاعتراضات المفتوحة بلا حدود زمانية.
+- **TASK-MG-036: بناء حقل الملاحظات السرية للمراجعين (Internal Notes)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-035`
+  - **Security Prerequisite**: حجب الحقل السري تماماً عن استعلامات الطلاب بـ RLS.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SCR-003`
+  - **Criteria**: إتاحة التواصل السري بين المصححين والمراجعين دون تسريبه للطالب.
 
-- **TASK-MG-057: إسناد التظلم لمراجع مستقل لم يشارك في التقييم الأول**
-  - **Epic**: Finalization & Appeals | **Priority**: P1
-  - **Target Roles**: `system`
-  - **Acceptance Criteria**: تحويل الاعتراض تلقائياً لمصحح أو مراجع جديد ومنع إسناده للمصحح الأصلي.
-  - **Security Control**: ضمان الاستقلالية والحياد في إعادة الفحص.
+- **TASK-MG-037: معجم الملاحظات والردود المعيارية الجاهزة (Preset Snippets)** `[FUTURE_P1]`
+  - **Phase**: `P2` | **Dependencies**: `TASK-MG-035`
+  - **Security Prerequisite**: اختيار الملاحظات المعيارية المعتمدة من القائمة.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SCR-003`
+  - **Criteria**: توفير مكتبة ردود سريعة الاختيار لزيادة سرعة المصحح.
 
-- **TASK-MG-058: البت في الاعتراض (تأكيد الدرجة أو تعديلها مع كتابة الرد)**
-  - **Epic**: Finalization & Appeals | **Priority**: P1
-  - **Target Roles**: `senior grader`, `reviewer`
-  - **Acceptance Criteria**: إصدار قرار قبولي أو رفضي مع إدراج الترد الرسمي وتسجيل التعديل إن وجد.
-  - **Security Control**: توثيق قرارات التظلم في سجل Append-Only.
+- **TASK-MG-038: قبول حفظ تقييم الدرجة الصفرية `score_awarded = 0` بالشروط** `[EXISTS_IN_QB01]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-033`
+  - **Security Prerequisite**: اشتراط تحديد بند التقصير وملاحظة التوضيح.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SCR-003`
+  - **Criteria**: حفظ الدرجة الصفرية بنجاح وتوسيمها بـ `FINALIZED`.
 
-- **TASK-MG-059: تتبع حالات الاعتراضات في لوحة الطالب**
-  - **Epic**: Finalization & Appeals | **Priority**: P2
-  - **Target Roles**: `student`
-  - **Acceptance Criteria**: إظهار حالة التظلم (قيد المراجعة، تم القبول والتعديل، تم تأكيد الدرجة السابقة).
-  - **Security Control**: الشفافية وتحديث حالة الاعتراض.
+- **TASK-MG-039: التحقق من استكمال تقييم جميع البنود الإجبارية قبل التسليم** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-031`
+  - **Security Prerequisite**: حظر التقييم الناقص أو الجزئي غير المكتمل.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SCR-004`
+  - **Criteria**: منع إرسال الدرجة إذا وجد بند إجباري لم يتم تحديد مستواه.
 
-- **TASK-MG-060: تقرير التظلمات والاعتراضات السنوي للمؤسسة**
-  - **Epic**: Finalization & Appeals | **Priority**: P2
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: استخراج نسبة التظلمات المقبولة وتوزيعها حسب الأسئلة والمواد الدراسية.
-  - **Security Control**: تحليل الأخطاء ومراجعة بنك الأسئلة.
-
----
-
-### Epic 7: Student Experience, Delayed Notifications & Reveal Timers (تجربة الطالب والإشعارات)
-
-- **TASK-MG-061: حظر الإشعارات الفردية وتأجيلها لحين اعتماد الدفعة**
-  - **Epic**: Student Experience | **Priority**: P0
-  - **Target Roles**: `system`
-  - **Acceptance Criteria**: كتم جميع الإشعارات الموجهة للطالب عند تصحيح سؤال منفرد وعدم تفعيلها إلا عند الاعتماد النهائي للدفعة كاملة.
-  - **Security Control**: منع التسريب والتشتيت (Threat 13).
-
-- **TASK-MG-062: آلية الاعتماد والإفراج الجماعي للدفعة (Batch Release Trigger)**
-  - **Epic**: Student Experience | **Priority**: P0
-  - **Target Roles**: `grading manager`
-  - **Acceptance Criteria**: اعتماد نشر كافة نتائج الدفعة بنقرة واحدة وتوليد الأحداث الموجهة لنظام الإشعارات.
-  - **Security Control**: ضمان تزامن نشر النتائج لكافة الطلاب.
-
-- **TASK-MG-063: إدارة توقيت كشف الإجابة النموذجية (Answer Reveal Timer)**
-  - **Epic**: Student Experience | **Priority**: P0
-  - **Target Roles**: `system`
-  - **Acceptance Criteria**: منع إظهار الإجابة النموذجية للطالب حتى انقضاء الموعد الرسمي لإغلاق التقييم والدفعة.
-  - **Security Control**: حظر الوصول المسبق للإجابة الصحيحة (Threat 7).
-
-- **TASK-MG-064: واجهة عرض تفاصيل الدرجة وملاحظات المصحح للطالب**
-  - **Epic**: Student Experience | **Priority**: P1
-  - **Target Roles**: `student`
-  - **Acceptance Criteria**: بطاقة تفاعلية تعرض الدرجة، تفكيك بنود Rubric، والملاحظات التوجيهية المكتوبة.
-  - **Security Control**: عرض البيانات المعتمدة النهائية فقط.
-
-- **TASK-MG-065: مقارنة إجابة الطالب بالإجابة النموذجية عند كشفها**
-  - **Epic**: Student Experience | **Priority**: P2
-  - **Target Roles**: `student`
-  - **Acceptance Criteria**: عرض شاشة مقارنة ثنائية تبرز الفروق بين ما كتبه الطالب والحل المعتمد.
-  - **Security Control**: قراءة الإجابة النموذجية المعتمدة فقط.
-
-- **TASK-MG-066: إرسال إشعارات البريد والتطبيق عند الإفراج النهائي عن النتائج**
-  - **Epic**: Student Experience | **Priority**: P2
-  - **Target Roles**: `system`
-  - **Acceptance Criteria**: إرسال تنبيهات Push ومراسلات بريدية للطالب تبشره بصدور النتيجة النهائية.
-  - **Security Control**: التأكد من حالة `FINALIZED` قبل الإرسال.
-
-- **TASK-MG-067: عرض حالة "قيد التصحيح اليدوي" في شاشة نتائج الطالب**
-  - **Epic**: Student Experience | **Priority**: P1
-  - **Target Roles**: `student`
-  - **Acceptance Criteria**: إظهار الوسم "النتيجة المقالية قيد المراجعة والتصحيح" عند تصفح الطالب للاختبار قبل الاعتماد.
-  - **Security Control**: منع إظهار درجات جزئية غير معتمدة.
-
-- **TASK-MG-068: دعم طباعة واستخراج تقرير التقييم المقالي للطالب (PDF Summary)**
-  - **Epic**: Student Experience | **Priority**: P2
-  - **Target Roles**: `student`
-  - **Acceptance Criteria**: إمكانية تحميل تقرير رسمي بالدرجات والملاحظات بعد الاعتماد النهائي.
-  - **Security Control**: ترويسة التقرير برقم تسلسلي لمنع التزوير.
+- **TASK-MG-040: دعم عرض المرفقات المرجعية المعايرة في سلم التقييم** `[FUTURE_P1]`
+  - **Phase**: `P2` | **Dependencies**: `TASK-MG-031`
+  - **Security Prerequisite**: فحص حجم ونوع المرفقات المرجعية لمنع الملفات الضارة.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SCR-001`
+  - **Criteria**: استعراض الصور والمخططات التوضيحية المرفقة بسلم التقييم.
 
 ---
 
-### Epic 8: Mobile-First UX, Arabic RTL Systems, Audit Trail & Security Compliance (الواجهة والتدقيق)
+### Epic 5: Double Marking, Blind Grading & Arbitration (النزاهة والحياد)
 
-- **TASK-MG-069: تطبيق تصميم الواجهة العربية الشاملة اتجاه من اليمين لليسار (RTL)**
-  - **Epic**: Mobile UX & Audit | **Priority**: P0
-  - **Target Roles**: جميع الأدوار
-  - **Acceptance Criteria**: بناء كافة مكونات الواجهة باتجاه RTL صحيح ومتوافق مع المعايير العربية الفصيحة.
-  - **Security Control**: خلو الواجهة من أخطاء الاتجاه.
+- **TASK-MG-041: تطبيق التصحيح المجهول وتشفير هوية الطالب (Blind Grading)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-004`
+  - **Security Prerequisite**: إخفاء الاسم والبيانات الشخصية واستبدالها بـ Token عشوائي.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-DMA-006`
+  - **Criteria**: خلو شاشة المصحح تماماً من أي معالم تعريفية بهوية الطالب.
 
-- **TASK-MG-070: دعم النص ثنائي الاتجاه (BiDi Engine) للأكواد والمعادلات**
-  - **Epic**: Mobile UX & Audit | **Priority**: P1
-  - **Target Roles**: `grader`, `student`
-  - **Acceptance Criteria**: محاذاة النص العربي لليمين مع المحافظة على تنسيق LTR للأكواد البرمجية والمعادلات.
-  - **Security Control**: منع تشوه الأكواد والمعادلات أثناء التصحيح.
+- **TASK-MG-042: إخفاء هوية المصحح عن الطالب في جميع الواجهات** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-041`
+  - **Security Prerequisite**: حجب اسم وبيانات المصحح عن الطالب لمنع التواصل المباشر.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-DMA-006`
+  - **Criteria**: عدم عرض بيانات المصحح عند استعراض النتائج والملاحظات.
 
-- **TASK-MG-071: بناء التنسيق المتكيف للموبايل والأجهزة المحمولة (Mobile-First Layout)**
-  - **Epic**: Mobile UX & Audit | **Priority**: P0
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: تصميم شاشات التصحيح لتتلاءم مع الهواتف والتابلت باستخدام أدراج سفلية وأزرار لمس كبيرة (>= 48px).
-  - **Security Control**: سهولة الاستخدام ومنع أخطاء الإدخال اللمسي.
+- **TASK-MG-043: فحص تضارب المصالح الآلي وحظر الأقارب (COI Protection)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-011`
+  - **Security Prerequisite**: مطابقة قائمة الأقارب وحظر الإجابات تلقائياً.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-016`
+  - **Criteria**: استبعاد الإجابة من طابور المصحح فور رصد تضارب مصالح موثق.
 
-- **TASK-MG-072: بناء ممتدح سجل التدقيق غير القابل للتعديل (Audit Trail Inspector UI)**
-  - **Epic**: Mobile UX & Audit | **Priority**: P1
-  - **Target Roles**: `grading manager`, `admin emergency operator`
-  - **Acceptance Criteria**: واجهة تتيح للمشغل والمدير تتبع التسلسل الزمني الكامل لجميع العمليات على إجابة معينة.
-  - **Security Control**: قراءة السجل من `question_response_reviews` المباشر.
+- **TASK-MG-044: التصريح الذاتي للمصحح باستبعاد إجابة لتضارب المصالح** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-043`
+  - **Security Prerequisite**: تمكين المصحح من الاستبعاد الذاتي مع التوثيق.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-017`
+  - **Criteria**: تحرير الإجابة وتخصيصها لمصحح آخر فور تصريح المصحح الذاتي.
 
-- **TASK-MG-073: إنفاذ حظر التخزين المحلي للدرجات والبيانات الحساسة**
-  - **Epic**: Mobile UX & Audit | **Priority**: P0
-  - **Target Roles**: `system`
-  - **Acceptance Criteria**: حظر حفظ الدرجات والمسودات في `localStorage` أو `IndexedDB` واشتراط التزامن الشبكي المباشر.
-  - **Security Control**: منع التلاعب بالبيانات الحساسة محلياً (Offline Security Limit).
+- **TASK-MG-045: هيكلة التعيينات المستقلة المزدوجة (Dual Independent Marking)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-021`, `TASK-MG-041`
+  - **Security Prerequisite**: تعيين صفين مستقلين بحالة عزل تام (Blind Isolation).
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-DMA-001`
+  - **Criteria**: تخصيص نفس الإجابة لمصححين اثنين دون إطلاع أحدهما على الآخر.
 
-- **TASK-MG-074: إشارات تجميد الإدخال عند انقطاع اتصال الشبكة**
-  - **Epic**: Mobile UX & Audit | **Priority**: P1
-  - **Target Roles**: `grader`
-  - **Acceptance Criteria**: تجميد أزرار التسليم وتنبيه المصحح فور انقطاع الشبكة لمنع فقدان البيانات أو إرسال طلبات ناقصة.
-  - **Security Control**: حماية سلامة العمليات الشبكية.
+- **TASK-MG-046: محرك حساب التباين والتحويل التلقائي للتحكيم** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-045`
+  - **Security Prerequisite**: رصد التباين $> 15\%$ وتحويل الإجابة لطابور التحكيم.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
+  - **Acceptance Test**: `TC-DMA-002`
+  - **Criteria**: تحويل الإجابات المتنازع عليها تلقائياً إلى `senior grader`.
 
-- **TASK-MG-075: بناء لوحة متابعة أداء وحالة النظام للطوارئ (System Health & Emergency Monitor)**
-  - **Epic**: Mobile UX & Audit | **Priority**: P2
-  - **Target Roles**: `admin emergency operator`
-  - **Acceptance Criteria**: مراقبة معدلات الأخطاء، المحاولات المرفوضة، وحوادث كبح التكرار للتدخل السريع.
-  - **Security Control**: الحماية الاستباقية للبيئة التشغيلية.
+- **TASK-MG-047: بناء واجهة التحكيم وحسم الدرجة المعايرة النهائي** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-046`
+  - **Security Prerequisite**: تمكين `senior grader` من حسم الدرجة بصف تتابعي معتمد.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
+  - **Acceptance Test**: `TC-DMA-003`
+  - **Criteria**: عرض التقييمين جنبًا إلى جنب واعتماد الدرجة المعايرة النهائية.
+
+- **TASK-MG-048: محرك سحب العينات العشوائية لضبط الجودة (QA Sampling 5%)** `[FUTURE_P1]`
+  - **Phase**: `P2` | **Dependencies**: `TASK-MG-045`
+  - **Security Prerequisite**: توجيه 5% من الإجابات المعتمدة للمراجع بشكل عشوائي.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
+  - **Acceptance Test**: `TC-DMA-001`
+  - **Criteria**: تزويد المراجع بعينات عشوائية لفحص اتساق وجودة التصحيح.
+
+- **TASK-MG-049: نظام الإبلاغ عن العلامات الاستدلالية والشبهات في الإجابة** `[FUTURE_P1]`
+  - **Phase**: `P2` | **Dependencies**: `TASK-MG-041`
+  - **Security Prerequisite**: رفع بلاغ أمني فور وجود أسماء صريحة أو علامات داخل النص.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-DMA-001`
+  - **Criteria**: تحويل البلاغ للجنة الاختبارات وتجميد التعيين مؤقتاً.
+
+- **TASK-MG-050: تقرير قياس تباين المصححين والعدالة المعيارية** `[FUTURE_P1]`
+  - **Phase**: `P2` | **Dependencies**: `TASK-MG-046`
+  - **Security Prerequisite**: تحليل معدلات انحراف درجات المصححين عن المتوسط.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-DMA-002`
+  - **Criteria**: استخراج مؤشرات إحصائية تبرز كفاءة وعدالة التقييمات.
 
 ---
-*نهاية الوثيقة MANUAL-GRADING-IMPLEMENTATION-BACKLOG-01*
+
+### Epic 6: State Machine, Appeals & Regrading Engine (الاعتماد والتظلمات)
+
+- **TASK-MG-051: تنفيذ الاعتماد النهائي الذري للدرجة (`is_final = true`)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-002`, `TASK-MG-009`
+  - **Security Prerequisite**: تحويل الحالة إلى `FINALIZED` واشتراط حقل السبب `reason`.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-AFR-001`
+  - **Criteria**: قفل الصف المعتمد نهائياً وتفعيل تريجر Append-Only.
+
+- **TASK-MG-052: تحديث المجموع النهائي للجلسة عند اكتمال الأسئلة المقالية** `[EXISTS_IN_QB01]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-051`
+  - **Security Prerequisite**: الإشعال التلقائي الذري لإعادة حساب مجموع الجلسة.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-AFR-002`
+  - **Criteria**: التحديث الآلي لـ `final_score` في `exam_sessions`.
+
+- **TASK-MG-053: تنفيذ مسار إعادة التقييم `RETURNED_FOR_SECOND_REVIEW`** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-051`
+  - **Security Prerequisite**: توجيه التقييم غير المستوفي للمراجع وتغيير حالته رسمياً.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-AFR-001`
+  - **Criteria**: إرجاع التقييم للتعديل المعتمد وفق المسمى المعياري في QB-01.
+
+- **TASK-MG-054: بناء RPC الفتح الاستثنائي `reopen_review` للدرجات المعتمدة** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-051`
+  - **Security Prerequisite**: اشتراط الصلاحيات الإدارية وتوفير حقل السبب الإجباري.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
+  - **Acceptance Test**: `TC-AFR-009`
+  - **Criteria**: إدراج صف تصحيحي جديد يحمل `previous_score` وحالة `REOPENED`.
+
+- **TASK-MG-055: بناء محرك تقديم الاعتراضات والتظلمات للطلاب (Appeals Engine)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-051`
+  - **Security Prerequisite**: التحقق من ملكية الطالب للجلسة وانقضاء الاعتماد النهائي.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-DMA-004`
+  - **Criteria**: تسجيل الاعتراض في `appeals` وتحويل حالة الإجابة لـ `APPEALED`.
+
+- **TASK-MG-056: إدارة النافذة الزمنية لتقديم الاعتراضات (Appeals Window Control)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-055`
+  - **Security Prerequisite**: حظر الاعتراضات بعد انقضاء المدة المصرح بها (7 أيام).
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
+  - **Acceptance Test**: `TC-DMA-004`
+  - **Criteria**: الإغلاق التلقائي لإمكانية تقديم التظلم بعد انتهاء النافذة.
+
+- **TASK-MG-057: التخصيص المستقل المباشر لمراجع التظلم بدون تضارب مصالح** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-055`
+  - **Security Prerequisite**: حظر مشاركة أي مصحح أولي شارك في التقييم السابق.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-DMA-010`
+  - **Criteria**: إسناد التظلم لمراجع جديد محايد كلياً.
+
+- **TASK-MG-058: البت في التظلم وإعادة حساب المجموع والسجل التتابعي** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-057`
+  - **Security Prerequisite**: تسجيل القرار في `appeal_decisions` وإصدار الصف التصحيحي.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-DMA-005`
+  - **Criteria**: تحديث الدرجة عند القبول أو تأكيدها مع كتابة الرد الرسمي.
+
+- **TASK-MG-059: ربط التعديلات التصحيحية بـ `supersession_links` للتتبع** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-058`
+  - **Security Prerequisite**: التوثيق السلسلي الكامل لربط التعديلات ببعضها.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-AFR-003`
+  - **Criteria**: إظهار التسلسل الزمني الكامل لعمليات التعديل والتظلم.
+
+- **TASK-MG-060: تقرير التظلمات والاعتراضات السنوي وتحليل جودة الأسئلة** `[FUTURE_P1]`
+  - **Phase**: `P2` | **Dependencies**: `TASK-MG-058`
+  - **Security Prerequisite**: تحليل نسبة الاعتراضات المقبولة ومصادر الأخطاء.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-DMA-005`
+  - **Criteria**: استخراج تقارير إحصائية تدعم تحسين بنك الأسئلة.
+
+---
+
+### Epic 7: Notification Outbox, Batch Release & Reveal Timers (الإشعارات والنتائج)
+
+- **TASK-MG-061: حظر الإشعارات الفردية وتجميعها لحين الاعتماد النهائي للدفعة** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-051`
+  - **Security Prerequisite**: حظر مطلق لإرسال أي إشعار قبل الوصول لـ `FINALIZED + RELEASED`.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-013`
+  - **Criteria**: كتم الإشعارات الفردية حتى النشر النهائي المعتمد للدفعة.
+
+- **TASK-MG-062: آلية الاعتماد والإفراج الجماعي للدفعة `grading_batches`** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-061`
+  - **Security Prerequisite**: التحقق من صلاحية `grading.batch.release` قبل الاعتماد.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
+  - **Acceptance Test**: `TC-AFR-005`
+  - **Criteria**: اعتماد الدفعة بنقرة واحدة وتحديث `batch_finalized_at`.
+
+- **TASK-MG-063: إدارة توقيت كشف الإجابة النموذجية (Reveal Timer Controls)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`
+  - **Security Prerequisite**: حجب نموذج الحل حتى انقضاء `batch_finalized_at + reveal_at`.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
+  - **Acceptance Test**: `TC-AFR-010`
+  - **Criteria**: منع الوصول لحقول الحل حتى الوصول للتوقيت المعتمد رسمياً.
+
+- **TASK-MG-064: بناء صندوق الإشعارات الصادرة `notification_outbox` ضد الضياع** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`
+  - **Security Prerequisite**: الضمان الذري لتسليم الرسائل ومنع الضياع أو التكرار.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-NFX-002`
+  - **Criteria**: توليد الأحداث في Outbox مع `idempotency_key` محدد.
+
+- **TASK-MG-065: سياسة إعادة محاولة إرسال الإشعارات عند التعثر (Exponential Backoff)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-064`
+  - **Security Prerequisite**: التعافي التلقائي عند انقطاع شبكة الإشعارات.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-NFX-001`
+  - **Criteria**: إعادة المحاولة بفترات متباعدة وتحديث حالة التسليم.
+
+- **TASK-MG-066: كبح الإشعارات المكررة وآلية التعافي (Deduplication Logic)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-064`
+  - **Security Prerequisite**: مطابقة المفتاح الفريد لمنع إرسال تنبيهات مكررة.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-NFX-002`
+  - **Criteria**: كبح التكرار التلقائي وإرسال إشعار واحد لكل حدث ناتج.
+
+- **TASK-MG-067: إرسال إشعارات التعديل والاستثنائية بعد التظلم (Re-Notification)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-058`, `TASK-MG-064`
+  - **Security Prerequisite**: توثيق تعديل الدرجة في الإشعار الصادر للطالب.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-NFX-003`
+  - **Criteria**: إرسال إشعار تصحيحي جديد يوضح تفاصيل القرار والدرجة المعدلة.
+
+- **TASK-MG-068: التثبت الزمني لكشف الحلول عبر الحد الدولي المعياري UTC** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-063`
+  - **Security Prerequisite**: اعتماد توقيت UTC ومنع تلاعب العميل بالتوقيت المحلي.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-AFR-011`
+  - **Criteria**: التحقق من حدود Reveal بالاعتماد على UTC حصرياً.
+
+- **TASK-MG-069: دعم الإفراج الفوري المباشر لنتائج المحاولات التدريبية** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`
+  - **Security Prerequisite**: تمكين الكشف الفوري لتمارين Practice دون انتظار الدفعة.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
+  - **Acceptance Test**: `TC-AFR-007`
+  - **Criteria**: إظهار نتائج المحاولات التدريبية المعتمدة فور تسليم التقييم.
+
+- **TASK-MG-070: تقرير متابعة تسليم الإشعارات ونسبة الوصول للطلاب** `[FUTURE_P1]`
+  - **Phase**: `P2` | **Dependencies**: `TASK-MG-065`
+  - **Security Prerequisite**: مراقبة معدلات تسليم التنبيهات والبريد الإلكتروني.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-NFX-001`
+  - **Criteria**: استخراج تقارير إحصائية بحالة وصول الإشعارات.
+
+---
+
+### Epic 8: Mobile-First UX, Accessibility & System Health (الواجهة والتدقيق)
+
+- **TASK-MG-071: تطبيق الاتجاه الفصيح الشامل من اليمين لليسار (RTL System)** `[EXISTING_QB01]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-004`
+  - **Security Prerequisite**: محاذاة كافة الأزرار والقوائم اتساقاً مع العربية.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-MUX-001`
+  - **Criteria**: بناء واجهات عربية فصيحة خالية من أي تشوه تركيبي.
+
+- **TASK-MG-072: بناء محرك التعامل مع النصوص ثنائية الاتجاه (BiDi Engine)** `[EXISTS_IN_QB01]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-071`
+  - **Security Prerequisite**: محاذاة النص العربي لليمين وتنسيق الكود من اليسار LTR.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-MUX-002`
+  - **Criteria**: المحافظة التلقائية على تركيب الأكواد والمعادلات الرياضية.
+
+- **TASK-MG-073: تصميم الأهداف اللمسية المخصصة للجوال ($\ge 48\text{px}$)** `[EXISTS_IN_QB01]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-071`
+  - **Security Prerequisite**: تجميع وتكبير المساحات اللمسية لمنع الأخطاء.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-MUX-003`
+  - **Criteria**: تصميم أزرار التقييم بمساحات واسعة سهلة الاستخدام على الجوال.
+
+- **TASK-MG-074: بناء الدرج السفلي المترابط (Responsive Bottom Sheet Drawer)** `[EXISTS_IN_QB01]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-073`
+  - **Security Prerequisite**: التكيف مع شاشات الهواتف لعرض Rubric بسلاسة.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-MUX-004`
+  - **Criteria**: انزلاق الدرج السفلي بسلاسة دون حجب إجابة الطالب.
+
+- **TASK-MG-075: بناء مفتش سجل التدقيق التتابعي (Audit Trail Inspector UI)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-002`, `TASK-MG-059`
+  - **Security Prerequisite**: عرض التسلسل الزمني الكامل لـ `question_response_reviews`.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-AFR-003`
+  - **Criteria**: تمكين المشغل والمدير من استعراض كافة العمليات السابقة.
+
+- **TASK-MG-076: إنفاذ حظر التخزين المحلي للدرجات غير المعتمدة (Offline Limit)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-001`
+  - **Security Prerequisite**: حظر استخدام localStorage أو IndexedDB للدرجات.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-015`
+  - **Criteria**: حماية البيانات من التلاعب المحلي والاشتراط الشبكي المباشر.
+
+- **TASK-MG-077: تطبيق معايير إمكانية الوصول وتسميات لقارئ الشاشة (WCAG 2.1 AA)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-071`
+  - **Security Prerequisite**: تزويد أزرار الواجهة بـ ARIA Labels وتثبيت Focus.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-MUX-007`
+  - **Criteria**: التوافق الكامل مع قوارئ الشاشات (NVDA / TalkBack).
+
+- **TASK-MG-078: التنقل الكامل عبر لوحة المفاتيح واستعادة التركيز (Focus Restoration)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-077`
+  - **Security Prerequisite**: التنقل بدون ماوس بـ Tab / Enter واستعادة Focus.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-MUX-006`, `TC-MUX-008`
+  - **Criteria**: استعادة التركيز الذكي للعنصر المحفز بعد إغلاق النوافذ.
+
+- **TASK-MG-079: التعافي التلقائي عند مقاطعة الجوال (Mobile Interruption Recovery)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-076`
+  - **Security Prerequisite**: الحفاظ على مسودة المحرر مؤقتاً بالذاكرة النشطة عند انقطاع المكالمات.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-MUX-005`
+  - **Criteria**: استعادة حالة شاشة التقييم فور العودة للواجهة دون فقدان البيانات.
+
+- **TASK-MG-080: لوحة مراقبة صحة النظام وأحداث الطوارئ (System Health Monitor)** `[FUTURE_P1]`
+  - **Phase**: `P2` | **Dependencies**: `TASK-MG-075`
+  - **Security Prerequisite**: مراقبة معدلات الأخطاء وحوادث كبح التكرار.
+  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
+  - **Acceptance Test**: `TC-SEC-018`
+  - **Criteria**: تزويد مشغل الطوارئ بمؤشرات الأداء والسلامة التشغيلية.
+
+---
+
+## 3. مخطط التبعيات التوجيهي (Dependency DAG Structure) `[REQUIRED_EXTENSION]`
+
+يعتمد تسلسل تنفيذ المهام على المخطط التوجيهي التالي المعزول من أي دورات مغلقة (Zero Cycles / Zero Missing / Zero Forward Invalidities):
+
+```mermaid
+graph TD
+    subgraph Phase 1: FOUNDATION [البنية التحتية والأمن]
+        T1[TASK-MG-001: DB XOR & Rules] --> T2[TASK-MG-002: Append-Only Trigger]
+        T1 --> T3[TASK-MG-003: Idempotency Key]
+        T1 --> T4[TASK-MG-004: Unified View Invoker]
+        T1 --> T5[TASK-MG-005: Snapshot Score Bounds]
+        T2 --> T6[TASK-MG-006: Sequential Action ID]
+        T1 --> T7[TASK-MG-007: Content Roles Denial]
+        T5 --> T8[TASK-MG-008: Non-Negative Check]
+        T2 --> T9[TASK-MG-009: Reason Requirement]
+        T4 --> T10[TASK-MG-010: Queue DB Indexes]
+    end
+
+    subgraph Phase 2: MVP [الخدمات الجوهرية للتشغيل]
+        T4 & T10 --> T11[TASK-MG-011: Subject Queue Filter]
+        T11 --> T12[TASK-MG-012: Exam Priority Order]
+        T11 --> T14[TASK-MG-014: Manager Manual Dispatch]
+        T11 --> T15[TASK-MG-015: Grader Workload Limit]
+        T11 --> T16[TASK-MG-016: Abandoned Cleanup]
+        T12 --> T17[TASK-MG-017: SLA Warning Filter]
+        T14 --> T20[TASK-MG-020: Assignment Audit Log]
+        T1 & T11 --> T21[TASK-MG-021: Atomic Claim RPC]
+        T21 --> T22[TASK-MG-022: Lease Lock Model]
+        T22 --> T23[TASK-MG-023: Auto-Release Expired Job]
+        T21 --> T24[TASK-MG-024: Manual Release RPC]
+        T22 --> T25[TASK-MG-025: Heartbeat Lease Extension]
+        T21 & T22 --> T26[TASK-MG-026: Fencing Token Enforcement]
+        T21 --> T29[TASK-MG-029: Atomic Claim Race Lock]
+        T5 --> T31[TASK-MG-031: Rubric View Engine]
+        T31 --> T32[TASK-MG-032: Auto Rubric Sum]
+        T5 & T8 --> T33[TASK-MG-033: RPC Pinned Bounds Check]
+        T31 --> T35[TASK-MG-035: Student Feedback Sanitizer]
+        T35 --> T36[TASK-MG-036: Internal Notes RLS]
+        T33 --> T38[TASK-MG-038: Zero Score Handling]
+        T31 --> T39[TASK-MG-039: Mandatory Rubrics Check]
+        T4 --> T41[TASK-MG-041: Blind Student Token]
+        T41 --> T42[TASK-MG-042: Blind Grader Protection]
+        T11 --> T43[TASK-MG-043: COI Auto Check]
+        T43 --> T44[TASK-MG-044: Self-Declared COI]
+        T2 & T9 --> T51[TASK-MG-051: Atomic Finalize RPC]
+        T51 --> T52[TASK-MG-052: Exam Session Total Calc]
+        T51 --> T53[TASK-MG-053: Return for Second Review]
+        T51 --> T61[TASK-MG-061: Notification Batch Hold]
+        T61 --> T62[TASK-MG-062: Batch Release Trigger]
+        T62 --> T63[TASK-MG-063: Solution Reveal Timer]
+        T62 --> T64[TASK-MG-064: Notification Outbox]
+        T62 --> T69[TASK-MG-069: Practice Immediate Release]
+        T4 --> T71[TASK-MG-071: Arabic RTL Foundation]
+        T71 --> T72[TASK-MG-072: BiDi Text Engine]
+        T71 --> T73[TASK-MG-073: Touch Target >= 48px]
+        T73 --> T74[TASK-MG-074: Responsive Drawer Sheet]
+        T1 --> T76[TASK-MG-076: LocalStorage Prohibition]
+    end
+
+    subgraph Phase 3: P1 [التوسعات والميزات المتقدمة]
+        T11 --> T13[TASK-MG-013: Auto-Dispatch Engine]
+        T11 --> T18[TASK-MG-018: Ready Sessions View]
+        T17 --> T27[TASK-MG-027: Escalation Alert Dispatch]
+        T26 --> T28[TASK-MG-028: Manager Reclaim RPC]
+        T26 --> T30[TASK-MG-030: Offline Recovery Lock Check]
+        T32 --> T34[TASK-MG-034: Institution Rounding Rules]
+        T21 & T41 --> T45[TASK-MG-045: Dual Independent Assignment]
+        T45 --> T46[TASK-MG-046: Score Variance Check]
+        T46 --> T47[TASK-MG-047: Senior Grader Arbitration View]
+        T51 --> T54[TASK-MG-054: Emergency Reopen RPC]
+        T51 --> T55[TASK-MG-055: Student Appeal Submission]
+        T55 --> T56[TASK-MG-056: Appeals Window Expiry]
+        T55 --> T57[TASK-MG-057: Independent Appeal Assign]
+        T57 --> T58[TASK-MG-058: Appeal Decision & Correction]
+        T58 --> T59[TASK-MG-059: Supersession Links Audit]
+        T64 --> T65[TASK-MG-065: Outbox Exponential Backoff]
+        T64 --> T66[TASK-MG-066: Notification Deduplication]
+        T58 & T64 --> T67[TASK-MG-067: Re-Notification Dispatch]
+        T63 --> T68[TASK-MG-068: UTC Timezone Verification]
+        T2 & T59 --> T75[TASK-MG-075: Audit Trail Inspector UI]
+        T71 --> T77[TASK-MG-077: WCAG ARIA Labels]
+        T77 --> T78[TASK-MG-078: Focus Restoration Engine]
+        T76 --> T79[TASK-MG-079: Mobile Call Interruption Recovery]
+    end
+
+    subgraph Phase 4: P2 [التحسينات والتقارير المستقلة]
+        T13 --> T19[TASK-MG-019: Round-Robin Distribution]
+        T35 --> T37[TASK-MG-037: Preset Snippets Library]
+        T31 --> T40[TASK-MG-040: Rubric Reference Media]
+        T45 --> T48[TASK-MG-048: Random QA 5% Sampling]
+        T41 --> T49[TASK-MG-049: Identity Evidence Flagging]
+        T46 --> T50[TASK-MG-050: Grader Variance Report]
+        T58 --> T60[TASK-MG-060: Annual Appeals Report]
+        T65 --> T70[TASK-MG-070: Notification Delivery Report]
+        T75 --> T80[TASK-MG-080: System Health & Emergency Monitor]
+    end
+```
+
+### 3.1. التثبت والتحقق من سلامة المخطط التوجيهي (DAG Validation Block) `[REQUIRED_EXTENSION]`
+
+```
+============================================================
+             تقرير التثبت الفني لـ Dependency DAG
+============================================================
+- إجمالي عدد المهمات (Total Tasks):      80 مهمة فريدة
+- الاعتماديات المفقودة (Missing Deps):  0
+- الدورات التكرارية المغلقة (Cycles):     0
+- الاعتماديات المستقبلية الخاطئة:        0 (Forward invalidity free)
+- ترتيب الأمان قبل المخطط (Threats first): محقق (FOUNDATION)
+- ترتيب النموذج قبل الواجهة (Model first): محقق
+- ترتيب التعيين والأقفال قبل الطابور:     محقق
+- ترتيب RLS قبل الاختبارات:               محقق
+- ترتيب الإشعارات بعد الاعتماد النهائي:    محقق
+============================================================
+```
+
+---
+
+## 4. جدول المخصبات والمقاييس لـ Backlog (Backlog Metrics Summary) `[REQUIRED_EXTENSION]`
+
+| Epic / الملحمة | FOUNDATION | MVP | P1 | P2 | Total Tasks |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Epic 1: Data Model & Snapshot** | 10 | 0 | 0 | 0 | **10** |
+| **Epic 2: Queue & Dispatch** | 0 | 6 | 3 | 1 | **10** |
+| **Epic 3: Lease Locks & SLA** | 0 | 7 | 3 | 0 | **10** |
+| **Epic 4: Rubrics & Scoring** | 0 | 7 | 1 | 2 | **10** |
+| **Epic 5: Double Marking & Integrity** | 0 | 4 | 3 | 3 | **10** |
+| **Epic 6: State Machine & Appeals** | 0 | 3 | 6 | 1 | **10** |
+| **Epic 7: Outbox & Reveal Timers** | 0 | 4 | 5 | 1 | **10** |
+| **Epic 8: Mobile UX & System Health** | 0 | 5 | 4 | 1 | **10** |
+| **إجمالي المهمات الكلي (Total)** | **10** | **36** | **25** | **9** | **80 Tasks** |
+
+---
+*نهاية الوثيقة MANUAL-GRADING-IMPLEMENTATION-BACKLOG-01 (Canonical Correction 03)*

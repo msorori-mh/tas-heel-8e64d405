@@ -1,174 +1,171 @@
 # MANUAL-GRADING-SECURITY-MODEL-01
-## النموذج الأمني ومصفوفة الصلاحيات وتحليل التهديدات لمحرك التصحيح اليدوي
+## النموذج الأمني ومصفوفة الصلاحيات وسياسات RLS لمحرك التصحيح اليدوي — التصحيح القانوني المعتمد 03
 
-> **وثيقة النموذج الأمني والسيطرة على التهديدات (Security Model & Threat Matrix Document)**  
-> **الإصدار:** 1.0.0  
-> **الحالة:** مجمد للتصميم (Design Frozen - No Code / No SQL Execution)  
-> **النظام:** منصة تسهيل التعليمية (Tas-heel Engine - Question Bank QB-01)  
-
----
-
-## 1. فلسفة الأمن وحماية نزاهة التقييم (Security Philosophy & Principles)
-
-تم بناء النموذج الأمني لمحرك التصحيح اليدوي وفق خمس قواعد جوهرية غير قابلة للمساس:
-
-1. **النزاهة وعدم التعديل (Append-Only Immutability)**:
-   يتم تسجيل جميع العمليات التقييمية وإشارات التصحيح في جدول `question_response_reviews` بشكل تتابعي غير قابل للتعديل (`UPDATE`) أو المحو (`DELETE`). أي تعديل في درجة معتمدة يتطلب فتح جلسة مراجعة جديدة تسجل كصف مستقل بحقل `previous_score` وسبب اختياري/إجباري `reason`.
-
-2. **الصلاحيات الأقل فاعلية (Least Privilege Enforcement)**:
-   كل دور من أدوار التصحيح لا يملك صلاحية سوى لما هو مخصص له مباشرة. لا يمنح أي دور إمكانية قراءة أو كتابة شاملة للجدول إلا ضمن النطاق المخصص والمؤكد بسياسات RLS ومصفوفة `capabilities`.
-
-3. **الفصل الصارم بين التشغيل والمحتوى (Separation of Authoring vs Grading)**:
-   الفصل المطلق بين الأدوار المسؤولة عن بنك الأسئلة والمحتوى (`editor`, `publisher`, `trainer`, `content_manager`) والأدوار المسؤولة عن تصحيح إجابات الطلاب (`grader`, `senior grader`, `reviewer`, `grading manager`, `admin emergency operator`). لا يجوز للمصحيح أن ينشر محتوى، ولا يجوز للناشر أن يضع درجات.
-
-4. **إعادة التثبت الذرية عبر RPC (Atomic Server-Side Verification)**:
-   لا تعتمد القرارات الأمنية أو حدود الدرجات على الواجهات البرمجية للعميل (Frontend). تتم كافة عمليات التحقق من الحدود، الصلاحيات، الحالة، والتأكد من التعيين النشط حصرياً داخل السيرفر والدوال المحمية.
-
-5. **السرية المزدوجة (Double-Blind Confidentiality)**:
-   إخفاء الهوية تماماً بين الطالب والمصحح لمنع التحيز، المحاباة، أو التأثير الشخصي في تقييم الإجابات المقالية.
+> **وثيقة النموذج الأمني والسيطرة على التهديدات (Security Model & Threat Matrix Document)**
+> **الإصدار:** 3.0.0 (Canonical Correction 03)
+> **الحالة:** مجمد للتصميم الوثائقي فقط (Design Frozen - Docs Only / No Code / No SQL Execution / No DB / No Deploy)
+> **النظام:** منصة تسهيل التعليمية (Tas-heel Engine - Question Bank QB-01)
 
 ---
 
-## 2. مصفوفة الصلاحيات والأدوار الكاملة (RBAC Capabilities Matrix)
+## 1. قواعد النموذج الأمني وتوحيد الأدوار (Security Principles & Role Unification) `[REQUIRED_EXTENSION]`
 
-توضح الجدول التالي مصفوفة الصلاحيات الدقيقة (`capabilities`) الموزعة على الأدوار الـ 5 لمحرك التصحيح، إضافة إلى الفصل التام لأدوار إدارة المحتوى الأربعة التي يُحظر عليها تنفيذ أي صلاحية تصحيح (`DENY` مطلق):
+### 1.1. المبادئ الجوهرية غير القابلة للمساس `[EXISTING_QB01]`
+1. **العدمية والتتابع (Append-Only Immutability)**: جدول `question_response_reviews` مصمم بحيث يمنع عمليات `UPDATE` و `DELETE` مطلقاً.
+2. **الصلاحيات الأقل (Least Privilege Enforcement)**: لا يمنح أي دور وصولاً مفتوحاً دون قيود RLS وعقود RPC التثبتية.
+3. **الفصل الصارم بين المحتوى والتصحيح (Separation of Authoring vs Grading)**: حظر أدوار المحتوى التعليمي من ممارسة أي عمليات تقييم.
 
-| Capability / الصلاحية | grader | senior grader | reviewer | grading manager | admin emergency operator | editor / publisher / trainer / content_manager |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| `grading.queue.read` (عرض طابور الإجابات) | ALLOW (مخصص) | ALLOW (شامل) | ALLOW (عينات) | ALLOW (شامل) | ALLOW (تدقيق) | **DENY** |
-| `grading.claim.execute` (المطالبة بقفل إجابة) | ALLOW | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
-| `grading.release.execute` (تحرير قفل إجابة) | ALLOW (خاص به) | ALLOW (أي قفل) | ALLOW | ALLOW (إداري) | ALLOW | **DENY** |
-| `grading.score.submit` (تقديم درجة أولية) | ALLOW | ALLOW | ALLOW | DENY | DENY | **DENY** |
-| `grading.score.finalize` (الاعتماد النهائي للدرجة) | DENY | ALLOW | ALLOW | ALLOW | ALLOW | **DENY** |
-| `grading.review.return` (إعادة الإجابة للتعديل) | DENY | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
-| `grading.reopen.execute` (فتح مراجعة استثنائية) | DENY | DENY | DENY | ALLOW (بسبب) | ALLOW (طوارئ) | **DENY** |
-| `grading.appeal.process` (معالجة الاعتراضات) | DENY | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
-| `grading.double_mark.arbitrate` (تحكيم التصحيح المزدوج) | DENY | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
-| `grading.rubric.view` (استعراض معايير التقييم) | ALLOW | ALLOW | ALLOW | ALLOW | ALLOW | ALLOW (معاينة) |
-| `grading.audit.read` (قراءة سجل التدقيق) | DENY | ALLOW (خاص به) | ALLOW | ALLOW (شامل) | ALLOW (شامل) | **DENY** |
-| `grading.batch.release` (نشر نتائج الدفعة) | DENY | DENY | DENY | ALLOW | ALLOW | **DENY** |
-| `grading.emergency.override` (التجاوز في الطوارئ) | DENY | DENY | DENY | DENY | ALLOW | **DENY** |
-| `qb.content.publish` (نشر بنك الأسئلة) | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | ALLOW (`publisher` فقط) |
+### 1.2. نص صريح لتوحيد الأدوار والحدود الأمنية (Role Unification Explicit Rules) `[REQUIRED_EXTENSION]`
 
----
-
-## 3. تحليل التهديدات وتدابير الحماية الـ 13 (Detailed Analysis of 13 Threat Vectors)
-
-### 3.1. التهديد 1: تصحيح إجابة غير مخصصة للمصحح (Grading Unassigned Response)
-- **وصف التهديد**: محاولة المصحح تقديم درجة لإجابة طالب لم يتم تخصيصها له أو لم يقم بطلب قفلها (Claim) رسمياً.
-- **مستوى التأثير**: عالي جداً (Critical).
-- **تدابير الحماية المعمارية**:
-  - اشتراط وجود التعيين النشط (`assigned_grader_id = auth.uid()`) أو وجود قفل مطالبة غير منتهي الصلاحية في `grader_assignments`.
-  - رفض عملية الإدراج في `question_response_reviews` آلياً عند عدم تطابق `grader_id` مع `assigned_grader_id` للتعيين النشط.
-- **استراتيجية التحقق**: اختبار نافٍ (Negative Test) برفض الطلب وإعادة استثناء `ASSIGNMENT_NOT_FOUND_OR_EXPIRED`.
-
-### 3.2. التهديد 2: إعطاء درجة تتجاوز الحد الأقصى (Score Above Max)
-- **وصف التهديد**: محاولة المصحح إدخال درجة تفوق الحد الأقصى المسموح به للسؤال المقالي (مثلاً إدخال 15 من 10).
-- **مستوى التأثير**: عالي (High).
-- **تدابير الحماية المعمارية**:
-  - فحص حدود الدرجة على مستوى السيرفر والدالة المنفذة بجلب `max_score` المحدد في `question_revisions` المرتبطة بالسؤال.
-  - إخضاع المدخل لشرط أمني صارم `CHECK (score_awarded <= max_score)`.
-- **استراتيجية التحقق**: محاولة تقديم درجة `10.5` لسؤال حده الأقصى `10.0` والتأكد من إرجاع خطأ `SCORE_EXCEEDS_MAX_BOUND`.
-
-### 3.3. التهديد 3: إعطاء درجة بالسالب (Negative Score)
-- **وصف التهديد**: تقديم درجة قيمة سالبة (مثلاً `-2.5`) نتيجة خطأ في الإدخال أو محاولة اختراق منطق الحساب.
-- **مستوى التأثير**: عالي (High).
-- **تدابير الحماية المعمارية**:
-  - تفعيل القيد الصارم على مستوى جدول `question_response_reviews`:  
-    `CHECK (score_awarded >= 0)`.
-  - التحقق الفوري في دوال المعالجة ورفض أي مدخل يقل عن صفر مطلقاً.
-- **استراتيجية التحقق**: إرسال قيمة `-0.01` والتأكد من إجهاد الطلب باستثناء `INVALID_NEGATIVE_SCORE`.
-
-### 3.4. التهديد 4: تغيير درجة معتمدة نهائياً دون فتح مراجعة رسمية (Changing Finalized Score)
-- **وصف التهديد**: محاولة تعديل الصف المعتمد نهائياً (`is_final = true`) أو تغيير الدرجة مباشرة دون التسجيل السلسلي الجديد.
-- **مستوى التأثير**: حرج (Critical).
-- **تدابير الحماية المعمارية**:
-  - حظر التعديل المباشر (`UPDATE`) مطلقاً عبر تريجر الحماية `trg_qb_reviews_append_only`.
-  - اشتراط تنفيذ RPC الفتح الاستثنائي (`reopen_review`) بحضور الصلاحية `grading.reopen.execute` وتوفر الحقل الإجباري `reason` غير الخالي (`reason IS NOT NULL`).
-- **استراتيجية التحقق**: تشغيل أمر `UPDATE` مباشر على جدول المراجعات والتأكد من فشله مع رسالة `question_response_reviews are append-only`.
-
-### 3.5. التهديد 5: حذف سجل مراجعة/تصحيح (Deleting Review)
-- **وصف التهديد**: محاولة حذف سجل تصحيح سابق محدد لطمس آثار خطأ أو تلاعب.
-- **مستوى التأثير**: حرج جداً (Critical).
-- **تدابير الحماية المعمارية**:
-  - حظر عمليات الحذف (`DELETE`) كلياً على جدول `question_response_reviews` لكافة المستخدمين بما في ذلك `service_role`.
-  - سحب الصلاحيات الحساسة وتطبيق تريجر يمنع أي محاولة حذف يدوية أو آلية.
-- **استراتيجية التحقق**: تشغيل `DELETE FROM question_response_reviews` والتأكد من صدور الخطأ الهيكلي الحازم.
-
-### 3.6. التهديد 6: ترقية المصحح إلى ناشر (Grader Becoming Publisher)
-- **وصف التهديد**: محاولة المصحح استخدام مفاتيحه للتعديل في بنك الأسئلة أو نشر مراجعات جديدة للأسئلة أو تغيير الإجابة النموذجية.
-- **مستوى التأثير**: حرج (Critical).
-- **تدابير الحماية المعمارية**:
-  - الفصل التام في جدول `capabilities`. لا يمنح أي دور تصحيح صلاحية `qb.content.publish` أو `qb.draft.mutate`.
-  - سياسات RLS على جداول `questions` و `question_revisions` تمنع التعديل إلا لمن يحمل صلاحيات الإخراج والنشر المباشر.
-- **استراتيجية التحقق**: محاولة مستخدم بحساب `grader` استدعاء دالة نشر سؤال والتأكد من الرفض بحظر الصلاحية `FORBIDDEN_CAPABILITY`.
-
-### 3.7. التهديد 7: رؤية الإجابة الصحيحة المخفية (Viewing Hidden Correct Answer)
-- **وصف التهديد**: وصول المصحح أو الطالب للإجابة النموذجية أو سلم التقييم المخفي قبل الوقت الرسمي المحدد.
-- **مستوى التأثير**: متوسط إلى عالي (Medium-High).
-- **تدابير الحماية المعمارية**:
-  - بالنسبة للطالب: حجب حقول `correct_answer` و `rubric_details` عن استعلامات الطالب حتى اعتماد الدفعة وانقضاء توقيت الإفراج المعتمد.
-  - بالنسبة للمصحح: عرض معايير Rubric المخصصة للتصحيح فقط دون تسريب حلول نماذج الامتحانات المغلقة إلا وفق قواعد الامتحان.
-- **استراتيجية التحقق**: محاولة الطالب استعلام دالة `v_question_responses_unified` قبل الاعتماد والتأكد من خلو الاستجابة من بيانات الحل.
-
-### 3.8. التهديد 8: الوصول لإجابات طلاب آخرين (Cross-Student Access)
-- **وصف التهديد**: محاولة مصحح أو طالب استعراض استجابة طالب آخر دون أن تكون مخصصة له رسمياً.
-- **مستوى التأثير**: عالي جداً (Critical).
-- **تدابير الحماية المعمارية**:
-  - سياسات RLS صارمة: يرى الطالب استجاباته الخاصة فقط (`user_id = auth.uid()`).
-  - يرى المصحح الإجابة المخصصة له فقط عبر معرف المطالبة والمطابقة الأمنية في `grader_assignments`.
-- **استراتيجية التحقق**: طلب مستخدم لقراءة إجابة طالب آخر بواسطة UUID مباشر والتأكد من إرجاع النتيجة فارغة (0 rows).
-
-### 3.9. التهديد 9: تصحيح مادة/مقرر خارج الاختصاص (Cross-Subject Access)
-- **وصف التهديد**: محاولة مصحح مخصص لمادة اللغة العربية المطالبة وتصحيح إجابة مادة الفيزياء.
-- **مستوى التأثير**: عالي (High).
-- **تدابير الحماية المعمارية**:
-  - ربط المصحح بنطاق تخصصات معتمدة في `grader_capabilities_subjects`.
-  - فحص مطابقة `subject_id` للسؤال مع تخصصات المصحح قبل منح قفل التعيين (Claim).
-- **استراتيجية التحقق**: محاولة المصحح طلب Claim لإجابة مادة خارج تخصصه المعتمد وتأكيد الرفض مع رسالة `SUBJECT_ACCESS_DENIED`.
-
-### 3.10. التهديد 10: العمل على تعيين منتهي الصلاحية (Stale Assignment Execution)
-- **وصف التهديد**: محاولة المصحح تقديم درجة لإجابة انقضت فترة القفل المؤقت لها (Lease Expiry) وتم تحريرها أو تخصيصها لمصحح آخر.
-- **مستوى التأثير**: متوسط (Medium).
-- **تدابير الحماية المعمارية**:
-  - فحص صلاحية القفل عند التقديم: `lease_expires_at > now()`.
-  - إلغاء العملية فوراً في حال تغير `assigned_grader_id` أو انتهاء المهلة.
-- **استراتيجية التحقق**: محاكاة تقديم درجة بعد انقضاء الوقت بـ 1 ثانية والتأكد من الرفض باستثناء `ASSIGNMENT_LEASE_EXPIRED`.
-
-### 3.11. التهديد 11: التصحيح التزامني المزدوج غير المنسق (Simultaneous Graders Conflict)
-- **وصف التهديد**: محاولة مصححين اثنين تصحيح نفس الإجابة وتسليم الدرجات في نفس الوقت دون تنسيق نظام التصحيح المزدوج.
-- **مستوى التأثير**: عالي (High).
-- **تدابير الحماية المعمارية**:
-  - مفاتيح كبح التكرار `UNIQUE (exam_answer_id, idempotency_key)` و `UNIQUE (practice_response_id, idempotency_key)`.
-  - الأقفال الذرية المؤقتة (Pessimistic DB Row Locking / Lease Locks) التي تمنع حصول مصححين على قفل إجابة واحدة مالم يفرض نظام التصحيح المزدوج الرسمي ذلك.
-- **استراتيجية التحقق**: إرسال طلبين متزامنين بنفس `idempotency_key` والتأكد من نجاح طلب واحد فقط ورفض الآخر.
-
-### 3.12. التهديد 12: التلاعب بسجل التدقيق (Audit Tampering)
-- **وصف التهديد**: محاولة تعديل الحقول الأمنية الحساسة مثل `action_id`, `idempotency_key`, أو الطابع الزمني `created_at` لإخفاء التسلسل الزمني الحقيقي.
-- **مستوى التأثير**: حرج (Critical).
-- **تدابير الحماية المعمارية**:
-  - التوليد الآلي التلقائي لـ `action_id` عبر `gen_random_uuid()` والطابع الزمني عبر `now()`.
-  - حظر ممر `UPDATE` و `DELETE` كاملاً يضمن عدم إمكانية تعديل الأختام الزمنية أو المفاتيح بعد إنشائها.
-- **استراتيجية التحقق**: فحص سلامة اتساق السجل والتأكد من استحالة إدخال طابع زمني مزيف في الماضي.
-
-### 3.13. التهديد 13: إرسال الإشعار قبل الاعتماد النهائي (Notification Before Finalization)
-- **وصف التهديد**: تسريب إشعار بالنتيجة أو الدرجة للطالب بينما الإجابة في حالة مسودة، تصحيح أولي، أو تحت المراجعة.
-- **مستوى التأثير**: عالي (High).
-- **تدابير الحماية المعمارية**:
-  - ربط مشغل الإشعارات بحالة `is_final = true` الصارمة إضافة إلى راية اعتماد الدفعة الامتحانية `batch_finalized_at IS NOT NULL`.
-  - عدم تفعيل إشارات Event Stream الموجهة للطلاب إلا بعد التأكد الكامل من الاعتماد النهائي.
-- **استراتيجية التحقق**: حفظ درجة مسودة أولية وإجراء فحص لطابور الإشعارات والتأكد من عدم توليد أي إشعار موجه للطالب.
+> [!IMPORTANT]
+> **قواعد الأدوار الأمنية في منصة تسهيل:**
+> - **أدوار التطبيق (`app_role`) تبقى كما هي في النظام دون أي تعديل:**
+>   - `admin`
+>   - `moderator`
+>   - `user`
+>   - `content_manager`
+> - **ممنوع منعاً باتاً إضافة الأدوار التشغيلية للتصحيح إلى `app_role`**.
+> - يتم تعريف الأدوار التالية كـ **Queue Personas + Capability Bundles + Scoped Assignments + Operational Policies**:
+>   - `grader`
+>   - `senior grader`
+>   - `reviewer`
+>   - `grading manager`
+>   - `admin emergency operator`
+> - **`content_manager` لا يصبح `grader` أو `publisher` تلقائياً**.
+> - **`admin` لا يملك bypass شاملاً تلقائياً** على جداول وسجلات التصحيح اليدوي دون المرور بـ RLS والتأكد من التكليف الرسمي والتوثيق الأكاديمي.
 
 ---
 
-## 4. قيود العمل بدون اتصال وحماية البيانات (Offline Limitations)
+## 2. خريطة الصلاحيات ومصفوفة Capabilities (Capability Mapping Matrix) `[REQUIRED_EXTENSION]`
 
-- **حظر التخزين المحلي للدرجات والمسودات**:
-  يُمنع منعاً باتاً استغلال ذاكرة المتصفح المحلية (`localStorage`, `sessionStorage`, أو `IndexedDB`) لتخزين مسودات الدرجات المقالية، إجابات الطلاب غير المعتمدة، أو بيانات Rubrics الحساسة.
-- **السبب الأمني**:
-  التخزين المحلي يفتح ثغرات تلاعب محلي (DOM Manipulation / Script Injection) ويسمح بتسريب البيانات أو تعديل الدرجات قبل إرسالها للشبكة.
-- **آلية العمل الحتمية**:
-  تعمل كافة شاشات التصحيح في وضع الاتصال المتزامن (Online Synchronous Mode). عند انقطاع الاتصال الشبكي، يتم تجميد أدوات الإدخال فوراً وتنبيه المصحح بعدم إمكانية حفظ أو تقديم أي درجة حتى عودة الاتصال الآمن واستعادة جلسة العمل النشطة.
+يعتمد النظام أمنياً على الصلاحية الفعالة المعتمدة في QB-01: **`GRADE_MANUAL_RESPONSE`**، ويربط بقية العمليات المقترحة بامتدادات جديدة صريحة:
+
+| Capability / الصلاحية المقترحة | الوصف التكليفي | الربط بنموذج QB-01 الفعلي | التصنيف | grader | senior grader | reviewer | grading manager | admin emergency operator | content_manager / publisher |
+| :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| `grading.queue.read` | عرض طابور الإجابات المقالية | مشتقة من `GRADE_MANUAL_RESPONSE` | `REQUIRED_EXTENSION` | ALLOW (مخصص) | ALLOW (شامل) | ALLOW (عينات) | ALLOW (شامل) | ALLOW (تدقيق) | **DENY** |
+| `grading.claim.execute` | المطالبة بقفل إجابة في الطابور | امتداد جديد لإدارة الأقفال | `REQUIRED_EXTENSION` | ALLOW | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
+| `grading.release.execute` | تحرير قفل إجابة وإعادتها | امتداد جديد | `REQUIRED_EXTENSION` | ALLOW (خاص به) | ALLOW (أي قفل) | ALLOW | ALLOW (إداري) | ALLOW | **DENY** |
+| `grading.score.submit` | تقديم درجة أولية وملاحظات | **مطابقة مباشرة لـ `GRADE_MANUAL_RESPONSE`** | `EXISTS_IN_QB01` | ALLOW | ALLOW | ALLOW | DENY | DENY | **DENY** |
+| `grading.score.finalize` | الاعتماد النهائي الصارم للدرجة | امتداد لإنفاذ `is_final = true` | `REQUIRED_EXTENSION` | DENY | ALLOW | ALLOW | ALLOW | ALLOW | **DENY** |
+| `grading.review.return` | إعادة الإجابة للمراجعة الثانية | امتداد لـ `RETURNED_FOR_SECOND_REVIEW` | `REQUIRED_EXTENSION` | DENY | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
+| `grading.reopen.execute` | فتح مراجعة استثنائية لدرجة | امتداد جديد بقيد السبب | `REQUIRED_EXTENSION` | DENY | DENY | DENY | ALLOW (بسبب) | ALLOW (طوارئ) | **DENY** |
+| `grading.appeal.process` | معالجة وتعديل الاعتراضات | امتداد مسار التظلمات | `REQUIRED_EXTENSION` | DENY | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
+| `grading.double_mark.arbitrate` | تحكيم التصحيح المزدوج | امتداد حسم التباين | `REQUIRED_EXTENSION` | DENY | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
+| `grading.audit.read` | قراءة سجل التدقيق التتابعي | امتداد قراءة `reviews` | `REQUIRED_EXTENSION` | DENY | ALLOW (خاص) | ALLOW | ALLOW (شامل) | ALLOW (شامل) | **DENY** |
+| `grading.batch.release` | الاعتماد ونشر نتائج الدفعة | خاضع لقرار المالك | `OWNER_DECISION` | DENY | DENY | DENY | ALLOW | ALLOW | **DENY** |
+| `grading.emergency.override` | التجاوز الاستثنائي للطوارئ | خاضع لقرار المالك | `OWNER_DECISION` | DENY | DENY | DENY | DENY | ALLOW | **DENY** |
+| `qb.content.publish` | نشر محتوى بنك الأسئلة | صلاحية نشر بنك المحتوى | `EXISTS_IN_QB01` | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | ALLOW (`publisher`) |
 
 ---
-*نهاية الوثيقة MANUAL-GRADING-SECURITY-MODEL-01*
+
+## 3. مصفوفة الوصول الكامل وسياسات RLS (Student Data & Full RLS Access Matrix) `[REQUIRED_EXTENSION]`
+
+تضمن سياسات Row-Level Security (RLS) العزل التام للبيانات ومنع أي استعلام غير مصرح به:
+
+| الكيان / المورد (Resource) | الطالب (Student) | المصحح (Grader A) | المصحح الثاني (Grader B) | المراجع (Reviewer) | مدير التصحيح (Grading Manager) | أدوار بنك المحتوى (Content Roles) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **استجابات الطالب الخاصة** | **ALLOW** (إجاباته فقط) | DENY (غير المعينة) | DENY (غير المعينة) | DENY (خارج النطاق) | DENY (البيانات الشخصية) | **DENY** |
+| **الاستجابة المعينة للتصحيح** | DENY | **ALLOW** (حسب Claim) | **ALLOW** (حسب Claim) | ALLOW (ضمن العينة) | ALLOW (metadata فقط) | **DENY** |
+| **درجة المصحح الآخر (Blind)** | DENY | **DENY** (قبل التسليم) | **DENY** (قبل التسليم) | ALLOW (عند التحكيم) | ALLOW (عند التباين) | **DENY** |
+| **بيانات التشغيل والأداء** | DENY | DENY | DENY | ALLOW (في النطاق) | **ALLOW** (شامل النطاق) | **DENY** |
+| **بيانات المواد الأخرى (Cross-Subject)** | DENY | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** |
+| **بيانات الطلاب الآخرين (Cross-Student)** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** |
+| **الإجابة النموذجية المخفية** | **DENY** (قبل Reveal) | ALLOW (للتصحيح) | ALLOW (للتصحيح) | ALLOW | ALLOW | ALLOW (للمعيانة) |
+| **قراءة مباشرة لـ `reviews` (Raw SELECT)** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** |
+
+### 3.1. الضوابط الجوهرية لـ RLS:
+- **حظر الاستعلام العام (No General SELECT)**: يُحظر منح صلاحية `SELECT` العامة على جداول `question_response_reviews` و `grading_assignments`؛ وتقتصر قراءة البيانات على مناظر أمنية موضحة بـ `security_invoker = true` أو عبر RPCs محمية.
+- **عزل الطلاب (Student Isolation)**: `auth.uid() = user_id` شرط حزمي في سياسات RLS الخاصة باستجابات الطلاب ونتائجهم.
+- **عزل المواد والتخصصات (Cross-Subject Denial)**: يتم التحقق من مطابقة `subject_id` للاستجابة مع `subject_scope` المصرحة للمصحح في جدول التكليفات قبل منح أي قفل أو قراءة.
+
+---
+
+## 4. حماية الأقفال ورمز المحاصرة (Lease Locks & Fencing Token Security) `[REQUIRED_EXTENSION]`
+
+1. **الوقاية من الكتابة المنتهية (Stale Writes Prevention)**:
+   كل دالة تقديم درجات (`submit_graded_score`) تطلب `fencing_token` متولداً من السيرفر ومربوطاً بـ `assignment_generation`.
+2. **فحص الصلاحية التزامني**:
+   ```sql
+   -- فحص السيرفر الذري داخل RPC
+   IF v_assignment.lease_expires_at < now() THEN
+       RAISE EXCEPTION 'ASSIGNMENT_LEASE_EXPIRED';
+   END IF;
+   IF v_assignment.fencing_token != p_fencing_token THEN
+       RAISE EXCEPTION 'STALE_FENCING_TOKEN';
+   END IF;
+   ```
+3. **منع السباق الصريح (Claim Race Prevention)**: يتم استخدام أقفال الصفوف الذرية `FOR UPDATE NOWAIT` أثناء عملية المطالبة لضمان عدم إمكانية حصول مصححين على قفل لنفس التعيين في ذات اللحظة.
+
+---
+
+## 5. تحليل التهديدات وتدابير الحماية الـ 15 (15 Threat Vectors Analysis) `[REQUIRED_EXTENSION]`
+
+### 5.1. التهديد 1: تصحيح إجابة غير مخصصة (Unassigned Response Grading) `[EXISTING_QB01]`
+- **الحماية**: فحص وجود قفل نشط ومطابق لـ `auth.uid()` و `fencing_token`.
+- **النتيجة**: استثناء `ASSIGNMENT_NOT_FOUND_OR_EXPIRED`.
+
+### 5.2. التهديد 2: تقديم درجة تتجاوز الحد الأقصى (Score Above Max) `[EXISTING_QB01]`
+- **الحماية**: جلب `snapshot-pinned max_score` وفحص `0 <= score <= max_score` داخل RPC.
+- **النتيجة**: استثناء `SCORE_EXCEEDS_MAX_BOUND`.
+
+### 5.3. التهديد 3: تقديم درجة بالسالب (Negative Score) `[EXISTING_QB01]`
+- **الحماية**: قيد السيرفر الصارم ومطابقة `score_awarded >= 0`.
+- **النتيجة**: استثناء `INVALID_NEGATIVE_SCORE`.
+
+### 5.4. التهديد 4: تعديل درجة معتمدة نهائياً بشكل مباشر (Changing Finalized Score) `[EXISTING_QB01]`
+- **الحماية**: حظر `UPDATE` كلياً بتريجر Append-Only، واشتراط RPC الفتح الاستثنائي مع حقل `reason`.
+- **النتيجة**: استثناء `UPDATE_BLOCKED_APPEND_ONLY`.
+
+### 5.5. التهديد 5: حذف سجل مراجعة سابق (Deleting Review Record) `[EXISTING_QB01]`
+- **الحماية**: حظر `DELETE` كلياً على `question_response_reviews`.
+- **النتيجة**: استثناء `DELETE_BLOCKED_APPEND_ONLY`.
+
+### 5.6. التهديد 6: ترقية المصحح إلى ناشر في بنك المحتوى (Grader Becoming Publisher) `[EXISTING_QB01]`
+- **الحماية**: الفصل المطلق في حزم الصلاحيات وسحب `qb.content.publish` عن جميع شخصيات التصحيح.
+- **النتيجة**: استثناء `FORBIDDEN_CAPABILITY`.
+
+### 5.7. التهديد 7: رؤية الإجابة النموذجية قبل توقيت Reveal (Viewing Hidden Solution) `[EXISTING_QB01]`
+- **الحماية**: عدم إرجاع حقول الإجابة النموذجية في RPCs إلا بعد استيفاء `batch_finalized_at + reveal_at`.
+- **النتيجة**: حجب البيانات وإرجاع قيم `NULL`.
+
+### 5.8. التهديد 8: الوصول لإجابات طلاب آخرين (Cross-Student Access) `[EXISTING_QB01]`
+- **الحماية**: إنفاذ سياسات RLS على مستوى `user_id = auth.uid()`.
+- **النتيجة**: إرجاع 0 صفوف.
+
+### 5.9. التهديد 9: تصحيح مادة خارج التخصص (Cross-Subject Access) `[EXISTING_QB01]`
+- **الحماية**: مطابقة `subject_id` مع `subject_scope` المعتمدة للمصحح قبل المطالبة.
+- **النتيجة**: استثناء `SUBJECT_ACCESS_DENIED`.
+
+### 5.10. التهديد 10: العمل على تعيين منتهي الصلاحية (Stale Lease Execution) `[EXISTING_QB01]`
+- **الحماية**: فحص `lease_expires_at > now()` داخل RPC الإرسال.
+- **النتيجة**: استثناء `ASSIGNMENT_LEASE_EXPIRED`.
+
+### 5.11. التهديد 11: التصحيح التزامني المتنافس (Simultaneous Graders Conflict) `[EXISTING_QB01]`
+- **الحماية**: أقفال الصفوف الذرية ومفاتيح كبح التكرار `idempotency_key`.
+- **النتيجة**: نجاح الطلب الأول ورفض الثاني بـ `DUPLICATE_IDEMPOTENCY_KEY`.
+
+### 5.12. التهديد 12: التلاعب بالطوابع الزمنية وسجل التدقيق (Audit Tampering) `[EXISTING_QB01]`
+- **الحماية**: التوليد الآلي التلقائي للأختام الزمنية و `action_id` من السيرفر دون قبول مدخلات العميل.
+- **النتيجة**: تجاهل قيم العميل واستخدام أختام السيرفر.
+
+### 5.13. التهديد 13: إرسال الإشعارات قبل الاعتماد النهائي (Early Notification Leak) `[EXISTING_QB01]`
+- **الحماية**: ربط Outbox بحالتي `FINALIZED + RELEASED`.
+- **النتيجة**: حظر توليد الرسائل في Outbox.
+
+### 5.14. التهديد 14: التقديم بواسطة Fencing Token قديم (Stale Fencing Token Attack) `[REQUIRED_EXTENSION]`
+- **الحماية**: مطابقة `fencing_token` مع `assignment_generation` التزامني.
+- **النتيجة**: رفض الطلب واستثناء `STALE_FENCING_TOKEN`.
+
+### 5.15. التهديد 15: اطلاع مصحح على درجة مصحح آخر أثناء التصحيح المزدوج (Double Mark Blind Breach) `[REQUIRED_EXTENSION]`
+- **الحماية**: حجب درجات وملاحظات المصحح المناظر في مناظر التصحيح حتى اكتمال التقييمين وتفعيل مرحلة التحكيم.
+- **النتيجة**: حجب بيانات المصحح المناظر كلياً.
+
+---
+
+## 6. قيود العمل بدون اتصال وحماية البيانات (Offline Limitations) `[EXISTING_QB01]`
+
+- **حظر التخزين المحلي للدرجات والمسودات**: يُمنع حفظ أي مسودات أو درجات غير معتمدة في `localStorage` أو `IndexedDB`.
+- **آلية العمل الحتمية**: تعمل الشاشات في وضع الاتصال المتزامن المباشر. عند انقطاع الاتصال الشبكي، يتم تجميد أزرار الإدخال وتنبيه المصحح فوراً بضرورة استعادة الاتصال لاستكمال التصحيح بحماية `fencing_token`.
+
+---
+*نهاية الوثيقة MANUAL-GRADING-SECURITY-MODEL-01 (Canonical Correction 03)*
