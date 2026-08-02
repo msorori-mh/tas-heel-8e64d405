@@ -62,7 +62,7 @@
                                       [اعتماد وإرسال التقييم الذري (Submit Score)]
                                                   │
                                                   ▼
-                         [تحول حالة Response إلى SUBMITTED / حالة Assignment إلى SUBMITTED]
+                         [تحول حالة Response إلى SUBMITTED_FOR_REVIEW / حالة Assignment إلى SUBMITTED]
 ```
 
 #### عناصر الواجهة المتقدمة للمصحح:

@@ -123,7 +123,7 @@
 ### Epic 2: Queue Engine & Dynamic Assignment Dispatch (طابور العمل والتوزيع)
 
 - **TASK-MG-011: بناء طابور الإجابات غير المصححة حسب المادة** `[REQUIRED_EXTENSION]`
-  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-004`, `TASK-MG-010`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-004`, `TASK-MG-007`, `TASK-MG-010`
   - **Security Prerequisite**: مطابقة المادة المصرحة للمصحح بنطاق `subject_scope`.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
@@ -218,7 +218,7 @@
   - **Acceptance Test**: `TC-QCL-004` | **Deliverable Type**: `WORKER`, `RPC`
 
 - **TASK-MG-024: بناء دالة التحرير اليدوي الصريح `release_grading_assignment`** `[REQUIRED_EXTENSION]`
-  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-021`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-021`, `TASK-MG-022`
   - **Security Prerequisite**: التحقق من ملكية المصحح للقفل النشط قبل التحرير.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
@@ -271,7 +271,7 @@
 ### Epic 4: Rubrics Evaluator & Pinned Score Bounds (سلم التقييم والدرجات)
 
 - **TASK-MG-031: عرض بنود Rubric المعتمدة في snapshot بنك الأسئلة** `[REQUIRED_EXTENSION]`
-  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-005`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-005`, `TASK-MG-007`
   - **Security Prerequisite**: جلب البنود المعتمدة في `question_revisions` حصراً.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `question_revisions`
@@ -301,8 +301,8 @@
 - **TASK-MG-035: التحكم في إدخال ملاحظات الطالب والتعقيم الأمني (Sanitizations)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-031`
   - **Security Prerequisite**: تعقيم النصوص المدخلة من وسوم XSS والروابط الضارة.
-  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `REQUIRED_EXTENSION`
   - **Acceptance Test**: `TC-SCR-003` | **Deliverable Type**: `UI`, `RPC`
 
 - **TASK-MG-036: بناء حقل الملاحظات السرية للمراجعين (Internal Notes)** `[REQUIRED_EXTENSION]`
@@ -419,7 +419,7 @@
 ### Epic 6: State Machine, Appeals & Regrading Engine (الاعتماد والتظلمات)
 
 - **TASK-MG-051: تنفيذ الاعتماد النهائي الذري للدرجة `finalize_manual_grade` (`is_final = true`)** `[REQUIRED_EXTENSION]`
-  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-002`, `TASK-MG-009`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-002`, `TASK-MG-007`, `TASK-MG-034`, `TASK-MG-009`
   - **Security Prerequisite**: تحويل الحالة إلى `FINALIZED` واشتراط حقل السبب `reason`.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `YES` (ODR-007) | **Existing QB-01 Dependency**: `question_response_reviews`
@@ -434,13 +434,13 @@
 
 - **TASK-MG-053: تنفيذ مسار إعادة التقييم `return_for_second_review` (`RETURNED_FOR_SECOND_REVIEW`)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-051`
-  - **Security Prerequisite**: توجيه التقييم غير المستوفي للمراجع وتغيير حالته رسمياً.
+  - **Security Prerequisite**: توجيه التقييم غير المستوفي وتغيير حالته لـ RETURNED_FOR_SECOND_REVIEW مع إنشاء Assignment جديد أو Reclaim منضبط، زيادة assignment_generation، إصدار lease_token جديد، عدم تعديل Review Row السابق، حفظ سبب الإعادة، ومنع المصحح غير المعين من الاستلام (UNASSIGNED_GRADER_CLAIM_BLOCKED).
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-001` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-054: بناء RPC الفتح الاستثنائي `reopen_manual_grade` للدرجات المعتمدة** `[REQUIRED_EXTENSION]`
-  - **Phase**: `P1` | **Dependencies**: `TASK-MG-051`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-007`, `TASK-MG-051`
   - **Security Prerequisite**: اشتراط الصلاحيات الإدارية وتوفير حقل السبب الإجباري.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `YES` (ODR-009) | **Existing QB-01 Dependency**: `NO`
@@ -500,7 +500,7 @@
   - **Acceptance Test**: `TC-SEC-013` | **Deliverable Type**: `RPC`, `CONSTRAINT`
 
 - **TASK-MG-062: آلية الاعتماد والإفراج الجماعي للدفعة `release_grading_batch`** `[REQUIRED_EXTENSION]`
-  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-061`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-007`, `TASK-MG-061`
   - **Security Prerequisite**: التحقق من صلاحية `grading.batch.release` قبل الاعتماد.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `YES` (ODR-010) | **Existing QB-01 Dependency**: `NO`
@@ -514,7 +514,7 @@
   - **Acceptance Test**: `TC-AFR-010` | **Deliverable Type**: `RPC`, `WORKER`
 
 - **TASK-MG-064: بناء صندوق الإشعارات الصادرة `notification_outbox` ضد الضياع** `[REQUIRED_EXTENSION]`
-  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`, `TASK-MG-069`
   - **Security Prerequisite**: الضمان الذري لتسليم الرسائل ومنع الضياع أو التكرار.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
@@ -594,8 +594,8 @@
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-MUX-004` | **Deliverable Type**: `UI`
 
-- **TASK-MG-075: بناء مفتش سجل التدقيق التتابعي (Audit Trail Inspector UI)** `[REQUIRED_EXTENSION]`
-  - **Phase**: `P1` | **Dependencies**: `TASK-MG-002`, `TASK-MG-059`
+- **TASK-MG-075: بوابة تحقق الأمان ومفتش سجل التدقيق (Security Verification Gate & Audit Inspector UI)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-002`, `TASK-MG-007`, `TASK-MG-059`
   - **Security Prerequisite**: عرض التسلسل الزمني الكامل لـ `question_response_reviews`.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `question_response_reviews`
@@ -622,15 +622,15 @@
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-MUX-006`, `TC-MUX-008` | **Deliverable Type**: `UI`
 
-- **TASK-MG-079: التعافي التلقائي عند مقاطعة الجوال (Mobile Interruption Recovery)** `[REQUIRED_EXTENSION]`
-  - **Phase**: `P1` | **Dependencies**: `TASK-MG-076`
+- **TASK-MG-079: التعافي من المقاطعة وبوابة تحقق الاختبارات الشاملة (Mobile Recovery & E2E Verification Gate)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-074`, `TASK-MG-076`
   - **Security Prerequisite**: الحفاظ على مسودة المحرر مؤقتاً بالذاكرة النشطة عند انقطاع المكالمات.
   - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-MUX-005` | **Deliverable Type**: `UI`
 
-- **TASK-MG-080: لوحة مراقبة صحة النظام وأحداث الطوارئ (System Health Monitor)** `[FUTURE_P1]`
-  - **Phase**: `P2` | **Dependencies**: `TASK-MG-075`
+- **TASK-MG-080: لوحة مراقبة صحة النظام وبوابة الجاهزية والإطلاق (Production Readiness & Launch Approval Gate)** `[FUTURE_P1]`
+  - **Phase**: `P2` | **Dependencies**: `TASK-MG-058`, `TASK-MG-062`, `TASK-MG-068`, `TASK-MG-075`, `TASK-MG-079`
   - **Security Prerequisite**: مراقبة معدلات الأخطاء وحوادث كبح التكرار.
   - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
@@ -675,21 +675,21 @@ graph TD
     end
 
     subgraph Phase 2: MVP [الخدمات الجوهرية للتشغيل]
-        T4 & T10 --> T11[TASK-MG-011: Subject Queue Filter]
+        T4 & T7 & T10 --> T11[TASK-MG-011: Subject Queue Filter]
         T11 --> T12[TASK-MG-012: Exam Priority Order]
         T11 --> T14[TASK-MG-014: Manager Manual Dispatch]
         T11 --> T15[TASK-MG-015: Grader Workload Limit]
         T11 --> T16[TASK-MG-016: Abandoned Cleanup]
         T12 --> T17[TASK-MG-017: SLA Warning Filter]
         T14 --> T20[TASK-MG-020: Assignment Audit Log]
-        T1 & T11 --> T22[TASK-MG-022: Lease Lock Model]
-        T22 --> T21[TASK-MG-021: Atomic Claim RPC]
+        T1 --> T22[TASK-MG-022: Lease Lock Model]
+        T1 & T7 & T22 --> T21[TASK-MG-021: Atomic Claim RPC]
         T22 --> T23[TASK-MG-023: Auto-Release Expired Job]
-        T21 --> T24[TASK-MG-024: Manual Release RPC]
+        T21 & T22 --> T24[TASK-MG-024: Manual Release RPC]
         T22 --> T25[TASK-MG-025: Heartbeat Lease Extension]
         T21 & T22 --> T26[TASK-MG-026: Fencing Token Enforcement]
         T21 --> T29[TASK-MG-029: Atomic Claim Race Lock]
-        T5 --> T31[TASK-MG-031: Rubric View Engine]
+        T5 & T7 --> T31[TASK-MG-031: Rubric View Engine]
         T31 --> T32[TASK-MG-032: Auto Rubric Sum]
         T5 & T8 --> T33[TASK-MG-033: RPC Pinned Bounds Check]
         T31 --> T35[TASK-MG-035: Student Feedback Sanitizer]
@@ -700,13 +700,13 @@ graph TD
         T41 --> T42[TASK-MG-042: Blind Grader Protection]
         T11 --> T43[TASK-MG-043: COI Auto Check]
         T43 --> T44[TASK-MG-044: Self-Declared COI]
-        T2 & T9 --> T51[TASK-MG-051: Atomic Finalize RPC]
+        T2 & T7 & T9 & T34 --> T51[TASK-MG-051: Atomic Finalize RPC]
         T51 --> T52[TASK-MG-052: Exam Session Total Calc]
         T51 --> T53[TASK-MG-053: Return for Second Review]
         T51 --> T61[TASK-MG-061: Notification Batch Hold]
-        T61 --> T62[TASK-MG-062: Batch Release Trigger]
+        T7 & T61 --> T62[TASK-MG-062: Batch Release Trigger]
         T62 --> T63[TASK-MG-063: Solution Reveal Timer]
-        T62 --> T64[TASK-MG-064: Notification Outbox]
+        T62 & T69 --> T64[TASK-MG-064: Notification Outbox]
         T62 --> T69[TASK-MG-069: Practice Immediate Release]
         T4 --> T71[TASK-MG-071: Arabic RTL Foundation]
         T71 --> T72[TASK-MG-072: BiDi Text Engine]
@@ -722,13 +722,13 @@ graph TD
         T26 --> T28[TASK-MG-028: Manager Reclaim RPC]
         T26 --> T30[TASK-MG-030: Offline Recovery Lock Check]
         T32 --> T34[TASK-MG-034: Institution Rounding Rules]
-        T21 & T41 --> T45[TASK-MG-045: Dual Independent Assignment]
+        T7 & T21 & T41 --> T45[TASK-MG-045: Dual Independent Assignment]
         T45 --> T46[TASK-MG-046: Score Variance Check]
         T46 --> T47[TASK-MG-047: Senior Grader Arbitration View]
-        T51 --> T54[TASK-MG-054: Emergency Reopen RPC]
-        T51 --> T55[TASK-MG-055: Student Appeal Submission]
+        T7 & T51 --> T54[TASK-MG-054: Emergency Reopen RPC]
+        T7 & T51 --> T55[TASK-MG-055: Student Appeal Submission]
         T55 --> T56[TASK-MG-056: Appeals Window Expiry]
-        T55 --> T57[TASK-MG-057: Independent Appeal Assign]
+        T55 & T56 --> T57[TASK-MG-057: Independent Appeal Assign]
         T57 --> T58[TASK-MG-058: Appeal Decision & Correction]
         T58 --> T59[TASK-MG-059: Supersession Links Audit]
         T64 --> T65[TASK-MG-065: Outbox Exponential Backoff]
@@ -750,7 +750,7 @@ graph TD
         T46 --> T50[TASK-MG-050: Grader Variance Report]
         T58 --> T60[TASK-MG-060: Annual Appeals Report]
         T65 --> T70[TASK-MG-070: Notification Delivery Report]
-        T75 --> T80[TASK-MG-080: System Health & Emergency Monitor]
+        T58 & T62 & T68 & T75 & T79 --> T80[TASK-MG-080: Production Readiness & Launch Approval Gate]
     end
 ```
 
@@ -782,12 +782,12 @@ graph TD
 | **Epic 1: Data Model & Snapshot** | 10 | 0 | 0 | 0 | **10** | 10 | 0 |
 | **Epic 2: Queue & Dispatch** | 0 | 7 | 2 | 1 | **10** | 10 | 8 |
 | **Epic 3: Lease Locks & SLA** | 0 | 8 | 2 | 0 | **10** | 10 | 9 |
-| **Epic 4: Rubrics & Scoring** | 0 | 7 | 1 | 2 | **10** | 7 | 9 |
+| **Epic 4: Rubrics & Scoring** | 0 | 7 | 1 | 2 | **10** | 8 | 9 |
 | **Epic 5: Double Marking & Integrity** | 0 | 4 | 3 | 3 | **10** | 10 | 10 |
 | **Epic 6: State Machine & Appeals** | 0 | 3 | 6 | 1 | **10** | 10 | 9 |
 | **Epic 7: Outbox & Reveal Timers** | 0 | 5 | 4 | 1 | **10** | 10 | 10 |
-| **Epic 8: Mobile UX & System Health** | 0 | 5 | 4 | 1 | **10** | 1 | 9 |
-| **إجمالي المهمات الكلي (Total)** | **10** | **39** | **22** | **9** | **80 Tasks** | **68** | **64** |
+| **Epic 8: Mobile UX & System Health** | 0 | 5 | 4 | 1 | **10** | 1 | 10 |
+| **إجمالي المهمات الكلي (Total)** | **10** | **39** | **22** | **9** | **80 Tasks** | **69** | **65** |
 
 ---
 *نهاية الوثيقة MANUAL-GRADING-IMPLEMENTATION-BACKLOG-01 (Canonical Correction 07)*
