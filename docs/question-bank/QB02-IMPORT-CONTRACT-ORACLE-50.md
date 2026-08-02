@@ -51,6 +51,10 @@ The normalized document MUST have this shape. Array order is semantic and zero-b
 
 Allowed `interaction_type`: `SINGLE_CHOICE`, `MULTIPLE_CHOICE`, `SHORT_TEXT`, `LONG_TEXT`. Allowed `grading_mode`: `AUTO_SINGLE`, `AUTO_TEXT`, `MANUAL`. `SINGLE_CHOICE/AUTO_SINGLE` requires 2–6 options and exactly one correct option. `SHORT_TEXT/AUTO_TEXT` requires at least one accepted answer and no options. `LONG_TEXT/MANUAL` has no correct option or accepted answer. Imported revisions remain `DRAFT`; import MUST NOT approve or publish.
 
+## Target primary semantics
+
+When both subject and lesson codes are supplied, the lesson target MUST be `is_primary: true` and the subject target MUST be `is_primary: false`. When only a subject code is supplied, the normalized document MUST contain exactly one `SUBJECT` target with `is_primary: true` and MUST NOT invent a phantom lesson target.
+
 ## Complete source mappings
 
 Blank means absent, not an empty semantic value. Headers are trimmed and compared as ASCII case-insensitive exact identifiers after BOM removal. Unknown columns produce `UNKNOWN_COLUMN`; security-sensitive unknown columns (`id`, UUID pointers, role/status/publish fields) block the file.
