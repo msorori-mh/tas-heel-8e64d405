@@ -206,6 +206,62 @@ test("HOLD-15: lifecycle and pointer column privileges revoked", () => {
     sql,
     /REVOKE UPDATE\s*\(\s*current_published_revision_id\s*\)\s*ON public\.questions FROM authenticated, anon, service_role/i,
   );
+});
+
+test("42: service_role questions UPDATE is column-allowlisted without pointer", () => {
+  const sql = loadSql();
+  assert.match(sql, /REVOKE ALL ON public\.questions FROM service_role/i);
+  assert.match(sql, /GRANT SELECT,\s*INSERT,\s*DELETE ON public\.questions TO service_role/i);
+  assert.equal(
+    /GRANT ALL ON public\.questions TO service_role/i.test(sql),
+    false,
+    "must not GRANT ALL on questions to service_role",
+  );
+  const allow = sql.match(
+    /GRANT UPDATE\s*\(([^)]+)\)\s*ON public\.questions TO service_role/i,
+  );
+  assert.ok(allow, "service_role questions UPDATE allowlist missing");
+  assert.equal(
+    /current_published_revision_id/i.test(allow![1]),
+    false,
+    "pointer must be excluded from service_role UPDATE allowlist",
+  );
+  assert.match(sql, /qb_assert_published_pointer_consistency/);
+  assert.match(sql, /CONSTRAINT TRIGGER trg_qb_questions_pointer_consistency/i);
+  assert.match(sql, /CONSTRAINT TRIGGER trg_qb_revisions_pointer_consistency/i);
+  assert.match(sql, /DEFERRABLE INITIALLY DEFERRED/i);
+  assert.match(sql, /array_agg\(qr\.id ORDER BY qr\.id\)/);
+});
+
+test("42: child parent FK immutable; OLD and NEW freeze checks", () => {
+  const sql = loadSql();
+  assert.match(sql, /cannot reparent child rows; question_revision_id is immutable after insert/i);
+  assert.match(sql, /cannot reparent solution steps; solution_id is immutable after insert/i);
+  const childGuard = sql.match(
+    /CREATE OR REPLACE FUNCTION public\.qb_guard_revision_children_immutable\(\)[\s\S]*?\$\$;/,
+  );
+  assert.ok(childGuard, "child guard missing");
+  assert.match(childGuard![0], /OLD\.question_revision_id/);
+  assert.match(childGuard![0], /NEW\.question_revision_id/);
+  const stepGuard = sql.match(
+    /CREATE OR REPLACE FUNCTION public\.qb_guard_solution_steps_immutable\(\)[\s\S]*?\$\$;/,
+  );
+  assert.ok(stepGuard, "step guard missing");
+  assert.match(stepGuard![0], /OLD\.solution_id/);
+  assert.match(stepGuard![0], /NEW\.solution_id/);
+  assert.match(sql, /GRANT SELECT,\s*INSERT,\s*DELETE ON public\.exam_session_questions TO service_role/i);
+  assert.equal(
+    /GRANT ALL ON public\.exam_session_questions TO service_role/i.test(sql),
+    false,
+  );
+  assert.equal(
+    /GRANT ALL ON public\.question_options TO service_role/i.test(sql),
+    false,
+  );
+});
+
+test("HOLD-15: lifecycle grant shape retained", () => {
+  const sql = loadSql();
   // No table-level UPDATE grant that re-opens status for authenticated
   const grantUpdateBlocks = [
     ...sql.matchAll(
@@ -311,6 +367,7 @@ test("expected schema objects are declared", () => {
     "_qb_validate_revision_for_publish",
     "qb_guard_revision_children_immutable",
     "qb_guard_attempt_snapshot_immutable",
+    "qb_assert_published_pointer_consistency",
   ];
   for (const name of required) {
     assert.ok(sql.includes(name), `missing object reference: ${name}`);

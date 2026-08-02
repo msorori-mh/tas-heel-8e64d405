@@ -8,6 +8,9 @@
 -- PUBLISH-INVARIANTS-39B: no caller introspection (no CURRENT_USER/owner/OID/name gate).
 -- Triggers enforce transition + payload invariants only. Public publish RPC is the
 -- sole client entry. APPROVED/PUBLISHED/SUPERSEDED payloads are immutable.
+-- POINTER-CHILD-42: service_role has no table-level UPDATE on questions (column allowlist
+-- excludes current_published_revision_id); deferred pointer↔constraint; child parent
+-- FKs immutable after INSERT (OLD+NEW freeze checks).
 --
 -- Package invariants:
 --   * CASEFOLD_AR normalization is NOT allowed in QB-01.
@@ -314,6 +317,84 @@ CREATE TRIGGER trg_qb_guard_current_published_revision_pointer
   FOR EACH ROW
   EXECUTE FUNCTION public.qb_guard_current_published_revision_pointer();
 
+-- End-of-transaction consistency: published revision ↔ pointer (no caller introspection).
+CREATE OR REPLACE FUNCTION public.qb_assert_published_pointer_consistency()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_qid uuid;
+  v_ptr uuid;
+  v_pub_id uuid;
+  v_pub_count int;
+BEGIN
+  IF TG_TABLE_NAME = 'questions' THEN
+    v_qid := COALESCE(NEW.id, OLD.id);
+  ELSE
+    v_qid := COALESCE(NEW.question_id, OLD.question_id);
+  END IF;
+
+  IF v_qid IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Question may have been deleted in this transaction.
+  SELECT q.current_published_revision_id INTO v_ptr
+  FROM public.questions q
+  WHERE q.id = v_qid;
+
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT count(*), (array_agg(qr.id ORDER BY qr.id))[1]
+  INTO v_pub_count, v_pub_id
+  FROM public.question_revisions qr
+  WHERE qr.question_id = v_qid
+    AND qr.status = 'PUBLISHED';
+
+  IF v_pub_count > 1 THEN
+    RAISE EXCEPTION 'question % has % PUBLISHED revisions; at most one is allowed',
+      v_qid, v_pub_count;
+  END IF;
+
+  IF v_pub_count = 0 THEN
+    IF v_ptr IS NOT NULL THEN
+      RAISE EXCEPTION
+        'questions.current_published_revision_id must be NULL when no PUBLISHED revision exists';
+    END IF;
+  ELSE
+    IF v_ptr IS DISTINCT FROM v_pub_id THEN
+      RAISE EXCEPTION
+        'questions.current_published_revision_id must equal the PUBLISHED revision (%)',
+        v_pub_id;
+    END IF;
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qb_assert_published_pointer_consistency() FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS trg_qb_questions_pointer_consistency ON public.questions;
+CREATE CONSTRAINT TRIGGER trg_qb_questions_pointer_consistency
+  AFTER INSERT OR UPDATE OF current_published_revision_id OR DELETE
+  ON public.questions
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW
+  EXECUTE FUNCTION public.qb_assert_published_pointer_consistency();
+
+DROP TRIGGER IF EXISTS trg_qb_revisions_pointer_consistency ON public.question_revisions;
+CREATE CONSTRAINT TRIGGER trg_qb_revisions_pointer_consistency
+  AFTER INSERT OR UPDATE OF status, question_id OR DELETE
+  ON public.question_revisions
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW
+  EXECUTE FUNCTION public.qb_assert_published_pointer_consistency();
+
 -- ============================================================================
 -- 7) RPC idempotency store (request-bound fingerprint)
 -- ============================================================================
@@ -418,23 +499,37 @@ SECURITY INVOKER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_rid uuid;
-  v_status text;
+  v_old_status text;
+  v_new_status text;
 BEGIN
-  IF TG_OP = 'DELETE' THEN
-    v_rid := OLD.question_revision_id;
-  ELSE
-    v_rid := NEW.question_revision_id;
+  -- Parent FK is immutable after INSERT (no reparenting, including Draft→Draft).
+  IF TG_OP = 'UPDATE'
+     AND NEW.question_revision_id IS DISTINCT FROM OLD.question_revision_id THEN
+    RAISE EXCEPTION 'cannot reparent child rows; question_revision_id is immutable after insert';
   END IF;
 
-  SELECT status INTO v_status
-  FROM public.question_revisions
-  WHERE id = v_rid;
+  IF TG_OP IN ('UPDATE', 'DELETE') THEN
+    SELECT status INTO v_old_status
+    FROM public.question_revisions
+    WHERE id = OLD.question_revision_id;
 
-  IF v_status IN ('APPROVED', 'PUBLISHED', 'SUPERSEDED') THEN
-    RAISE EXCEPTION
-      'cannot % child rows of % revision (payload frozen)',
-      TG_OP, v_status;
+    IF v_old_status IN ('APPROVED', 'PUBLISHED', 'SUPERSEDED') THEN
+      RAISE EXCEPTION
+        'cannot % child rows of % revision (payload frozen)',
+        TG_OP, v_old_status;
+    END IF;
+  END IF;
+
+  IF TG_OP IN ('INSERT', 'UPDATE') THEN
+    SELECT status INTO v_new_status
+    FROM public.question_revisions
+    WHERE id = NEW.question_revision_id;
+
+    IF v_new_status IN ('APPROVED', 'PUBLISHED', 'SUPERSEDED') THEN
+      RAISE EXCEPTION
+        'cannot % child rows of % revision (payload frozen)',
+        TG_OP, v_new_status;
+    END IF;
   END IF;
 
   IF TG_OP = 'DELETE' THEN
@@ -468,24 +563,37 @@ SECURITY INVOKER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_sid uuid;
-  v_status text;
+  v_old_status text;
+  v_new_status text;
 BEGIN
-  IF TG_OP = 'DELETE' THEN
-    v_sid := OLD.solution_id;
-  ELSE
-    v_sid := NEW.solution_id;
+  IF TG_OP = 'UPDATE' AND NEW.solution_id IS DISTINCT FROM OLD.solution_id THEN
+    RAISE EXCEPTION 'cannot reparent solution steps; solution_id is immutable after insert';
   END IF;
 
-  SELECT qr.status INTO v_status
-  FROM public.question_solutions qs
-  JOIN public.question_revisions qr ON qr.id = qs.question_revision_id
-  WHERE qs.id = v_sid;
+  IF TG_OP IN ('UPDATE', 'DELETE') THEN
+    SELECT qr.status INTO v_old_status
+    FROM public.question_solutions qs
+    JOIN public.question_revisions qr ON qr.id = qs.question_revision_id
+    WHERE qs.id = OLD.solution_id;
 
-  IF v_status IN ('APPROVED', 'PUBLISHED', 'SUPERSEDED') THEN
-    RAISE EXCEPTION
-      'cannot % solution steps of % revision (payload frozen)',
-      TG_OP, v_status;
+    IF v_old_status IN ('APPROVED', 'PUBLISHED', 'SUPERSEDED') THEN
+      RAISE EXCEPTION
+        'cannot % solution steps of % revision (payload frozen)',
+        TG_OP, v_old_status;
+    END IF;
+  END IF;
+
+  IF TG_OP IN ('INSERT', 'UPDATE') THEN
+    SELECT qr.status INTO v_new_status
+    FROM public.question_solutions qs
+    JOIN public.question_revisions qr ON qr.id = qs.question_revision_id
+    WHERE qs.id = NEW.solution_id;
+
+    IF v_new_status IN ('APPROVED', 'PUBLISHED', 'SUPERSEDED') THEN
+      RAISE EXCEPTION
+        'cannot % solution steps of % revision (payload frozen)',
+        TG_OP, v_new_status;
+    END IF;
   END IF;
 
   IF TG_OP = 'DELETE' THEN
@@ -2056,15 +2164,31 @@ GRANT UPDATE (
   rejected_by,
   rejection_reason
 ) ON public.question_revisions TO service_role;
-GRANT ALL ON public.question_options TO service_role;
-GRANT ALL ON public.question_accepted_answers TO service_role;
-GRANT ALL ON public.question_solutions TO service_role;
-GRANT ALL ON public.question_solution_steps TO service_role;
-GRANT ALL ON public.question_media TO service_role;
+-- Child payload tables: no table-level UPDATE (parent FK must stay immutable).
+GRANT SELECT, INSERT, DELETE ON public.question_options TO service_role;
+GRANT UPDATE (option_code, body, sort_order, is_correct)
+  ON public.question_options TO service_role;
+GRANT SELECT, INSERT, DELETE ON public.question_accepted_answers TO service_role;
+GRANT UPDATE (answer_text, normalized_answer, normalization_policy, is_primary, sort_order)
+  ON public.question_accepted_answers TO service_role;
+GRANT SELECT, INSERT, DELETE ON public.question_solutions TO service_role;
+GRANT UPDATE (
+  solution_code, solution_type, sort_order, model_answer, explanation, hint,
+  common_mistakes, simplified_rubric, reveal_policy, updated_at
+) ON public.question_solutions TO service_role;
+GRANT SELECT, INSERT, DELETE ON public.question_solution_steps TO service_role;
+GRANT UPDATE (sort_order, step_code, body)
+  ON public.question_solution_steps TO service_role;
+GRANT SELECT, INSERT, DELETE ON public.question_media TO service_role;
+GRANT UPDATE (
+  media_code, storage_path, mime_type, file_size, sha256, alt_text_ar, caption,
+  sort_order, requires_media
+) ON public.question_media TO service_role;
 GRANT ALL ON public.question_targets TO service_role;
-GRANT ALL ON public.exam_session_questions TO service_role;
+-- Snapshots: INSERT/SELECT/DELETE for create+cleanup; no UPDATE (payload frozen).
+GRANT SELECT, INSERT, DELETE ON public.exam_session_questions TO service_role;
 GRANT ALL ON public.practice_attempts TO service_role;
-GRANT ALL ON public.practice_attempt_questions TO service_role;
+GRANT SELECT, INSERT, DELETE ON public.practice_attempt_questions TO service_role;
 GRANT ALL ON public.practice_attempt_responses TO service_role;
 GRANT ALL ON public.question_response_reviews TO service_role;
 GRANT ALL ON public.question_bank_rpc_idempotency TO service_role;
@@ -2096,7 +2220,30 @@ GRANT SELECT (
 
 REVOKE SELECT (correct_index, explanation, archived_by) ON public.questions FROM anon, authenticated;
 
-GRANT ALL ON public.questions TO service_role;
+-- POINTER-CHILD-42: table-level UPDATE on questions would nullify column REVOKE.
+-- Runtime writes use authenticated content staff, not service_role direct UPDATE.
+-- Pointer/lifecycle changes are SECURITY DEFINER publish RPC only (owner bypass).
+REVOKE ALL ON public.questions FROM service_role;
+GRANT SELECT, INSERT, DELETE ON public.questions TO service_role;
+GRANT UPDATE (
+  lesson_id,
+  subject_id,
+  question_text,
+  options,
+  explanation,
+  correct_index,
+  question_type,
+  year,
+  sort_order,
+  unit,
+  semester,
+  code,
+  created_by,
+  archived_at,
+  archived_by
+) ON public.questions TO service_role;
+-- Explicitly excluded from service_role UPDATE allowlist:
+--   current_published_revision_id
 REVOKE UPDATE (current_published_revision_id) ON public.questions FROM authenticated, anon, service_role;
 
 -- END QB-01 QUESTION BANK SCHEMA FOUNDATION (SOURCE ONLY — NOT APPLIED BY PACKAGE)

@@ -18,6 +18,7 @@
 | SHA-256 (HOLD-15 closure / package 16) | `889801185955de851abc5df300ac69c5cc23c99ca92f90d018503781a0759008` |
 | SHA-256 (PUBLISH-EXECUTOR-39 / superseded) | `37fba8bf37c80a461409dfcff15aace06814b344e9b13ee4ed766c171a513496` |
 | SHA-256 (PUBLISH-INVARIANTS-39B) | `c1c26af41f6f4485a1f7dc05c1dc06e14372ef8ac550f8fad365d278a7f8cff3` |
+| SHA-256 (POINTER-CHILD-42) | `0a486fb327f88706ceb5eaca1bbe34a8c7e1996adb01b28da2b5ea75c32e4e21` |
 | Under `supabase/migrations` | YES |
 | Applied by this package | **NO** (local disposable Docker compilation only) |
 | Remote SQL / remote DB writes | **ZERO** |
@@ -182,6 +183,47 @@ Triggers enforce **transition and data invariants only**.
 
 Recorded in package 39B verification (fresh compilation ×2, positive/negative runtime suite).
 
+## POINTER-CHILD-42 — pointer ACL + child reparenting
+
+### Defects
+
+1. **Pointer ACL** — `GRANT ALL` / table-level `UPDATE` on `questions` to `service_role` made column `REVOKE UPDATE (current_published_revision_id)` ineffective. Clearing the pointer left `PUBLISHED` revisions without a pointer.
+2. **Child reparenting** — child guards inspected only `NEW.question_revision_id`, so moving a child from `APPROVED`/`PUBLISHED` to a `DRAFT` parent succeeded.
+
+### Root causes
+
+* Table-level `UPDATE` supersedes column-level revoke for `service_role`.
+* Child immutability trigger checked only the destination parent (`NEW`), not the source (`OLD`), and allowed parent FK mutation.
+
+### Corrections
+
+| Area | Fix |
+|---|---|
+| questions ACL | `REVOKE ALL` then `GRANT SELECT, INSERT, DELETE` + column `UPDATE` allowlist **excluding** `current_published_revision_id` (runtime has no direct `service_role` writes to pointer) |
+| Pointer consistency | Row-level pointer ownership/status guard + deferred constraint triggers on `questions` + `question_revisions` via `qb_assert_published_pointer_consistency` (`DEFERRABLE INITIALLY DEFERRED`, `array_agg` for published id) |
+| Child guards | Reject parent FK changes; check **OLD and NEW** freeze status |
+| Solution steps | Reject `solution_id` reparenting; OLD+NEW revision resolve |
+| Snapshot ACL | `service_role` INSERT/SELECT/DELETE only (no UPDATE) on snapshot tables |
+| Child ACL | `service_role` UPDATE allowlists exclude parent FKs |
+
+### Reparenting policy
+
+Parent foreign keys are immutable after INSERT. Draft edits use Delete+Insert under Draft parents only.
+
+### Dynamic verification (local disposable Docker only)
+
+| Gate | Result |
+|---|---|
+| Fresh compilation run 1 | PASS (QB migration once; no SQLSTATE) |
+| Fresh compilation run 2 | PASS |
+| Dynamic pointer/reparent suite | 20/20 PASS ×2 |
+| `npm run test:question-bank-source` | 30/30 PASS |
+| `npm run test:question-bank-hash` | 12/12 PASS |
+| Deterministic | YES |
+| Remote SQL / remote DB writes | ZERO |
+
+Local note: Windows Hyper-V excluded default ports `54321–54344`; verification used temporary local port remap `5502x` (not committed).
+
 ## Not executed / not included
 
 - Migration apply (`db push` / `migration up` / `db reset` / Dashboard SQL / psql)
@@ -208,11 +250,10 @@ Recorded in package 39B verification (fresh compilation ×2, positive/negative r
 | Check | Result |
 |---|---|
 | `git diff --check` | clean |
-| `npm run test:question-bank-hash` | PASS |
-| `npm run test:question-bank-source` | PASS |
-| SQL executed | NO |
-| Database connection (write) | NO |
-| Database writes | ZERO |
+| `npm run test:question-bank-hash` | PASS (12/12) |
+| `npm run test:question-bank-source` | PASS (30/30) |
+| Local disposable Docker SQL | YES (fresh ×2 + dynamic suite) |
+| Remote SQL / remote DB writes | ZERO |
 
 ## Security Review
 
@@ -230,4 +271,4 @@ Recorded in package 39B verification (fresh compilation ×2, positive/negative r
 
 ## Recommended next action
 
-`QB01_PR48_INDEPENDENT_FINAL_REVIEW_41`
+`QB01_PR48_INDEPENDENT_REREVIEW_44`
