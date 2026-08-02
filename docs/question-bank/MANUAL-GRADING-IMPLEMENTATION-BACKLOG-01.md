@@ -1,28 +1,46 @@
 # MANUAL-GRADING-IMPLEMENTATION-BACKLOG-01
-## سجل المهمات والخطة التنفيذية لمحرك التصحيح اليدوي — التصحيح القانوني المعتمد 03
+## سجل المهمات والخطة التنفيذية لمحرك التصحيح اليدوي — التصحيح القانوني المعتمد 05
 
-> **وثيقة سجل المهمات والخطة التنفيذية (Detailed Backlog Specification - 80 Tasks & DAG)**
-> **الإصدار:** 3.0.0 (Canonical Correction 03)
+> **وثيقة سجل المهمات والخطة التنفيذية (Detailed Backlog Specification - 80 Tasks & Semantic DAG)**
+> **الإصدار:** 5.0.0 (Canonical Correction 05)
 > **الحالة:** مجمد للتصميم الوثائقي فقط (Design Frozen - Docs Only / No Code / No SQL Execution / No DB / No Deploy)
 > **النظام:** منصة تسهيل التعليمية (Tas-heel Engine - Question Bank QB-01)
 
 ---
 
+## 0. تمييز النطاق والتنفيذ المستقبلي (Scope Distinction Block)
+
+> [!IMPORTANT]
+> **التصحيح القانوني لنطاق الحزمة الحالية مقابل التنفيذ المستقبلي:**
+>
+> **Current PR (الحزمة الحالية):**
+> - **Documentation only**: وثائق تخطيط وسجل مهمات فقط.
+> - **Migration changes = ZERO**: لا توجد أي ملفات migrations أو تعديلات داتابيز في هذا PR.
+> - **Runtime changes = ZERO**: لا يوجد أي كود تنفيذي أو شاشات تشغيلية في هذا PR.
+> - **SQL = NO**: لا توجد استعلامات أو أوامر SQL تنفيذية في هذا PR.
+>
+> **Future Implementation (التنفيذ المستقبلي عند الاعتماد):**
+> - قد يتطلب Migrations لبناء 15 كيان جديد والـ RLS والـ RPCs.
+> - قد يتطلب Runtime workers/UI لتشغيل المعالجات والمؤقتات والواجهات.
+> - يحتاج حزم تنفيذ مستقلة ومراجعة أمنية كاملة لكل مهمة قبل الدمج.
+
+---
+
 ## 1. الهيكلية المنهجية لـ Backlog (Backlog Methodology & Taxonomy) `[REQUIRED_EXTENSION]`
 
-تم هيكلة سجل المهمات التنفيذي في **8 الملاحم التطويرية (Epics)** التي تغطي جميع متطلبات المحرك عبر **80 مهمة تفصيلية فريدة**، مع تزويد كل مهمة بالبنود الإجبارية التالية:
+تم هيكلة سجل المهمات التنفيذي في **8 الملاحم التطويرية (Epics)** التي تغطي جميع متطلبات المحرك عبر **80 مهمة تفصيلية فريدة**، مع تزويد كل مهمة بـ 11 بنداً إجبارياً:
 
-- **معرف المهمة (Task ID)**
-- **عنوان المهمة (Title)**
-- **الملحمة (Epic Category)**
-- **المرحلة التنفيذية (Phase: FOUNDATION / MVP / P1 / P2)**
-- **الاعتماديات الصريحة (Dependencies)**
-- **المتطلب الأمني المسبق (Security Prerequisite)**
-- **اشتراط Migration (Migration Required: YES / NO)**
-- **اشتراط Runtime (Runtime Required: YES / NO)**
-- **اشتراط قرار المالك (Owner Decision Required: YES / NO)**
-- **اختبار القبول المرتبط (Acceptance Test Reference)**
-- **التصنيف الهيكلي ([EXISTING_QB01] / [REQUIRED_EXTENSION] / [OWNER_DECISION] / [FUTURE_P1])**
+1. **Phase**: `FOUNDATION` / `MVP` / `P1` / `P2`
+2. **Dependencies**: `TASK-MG-XXX` أو `NONE`
+3. **Security Prerequisite**: المتطلب الأمني المسبق
+4. **Migration Required**: `YES` / `NO` (في التنفيذ المستقبلي)
+5. **Runtime Required**: `YES` / `NO` (في التنفيذ المستقبلي)
+6. **UI Required**: `YES` / `NO`
+7. **Worker/Scheduler Required**: `YES` / `NO`
+8. **Owner Decision Required**: `YES` / `NO` (أو المعرف ODR-XXX)
+9. **Existing QB-01 Dependency**: `YES` / `NO` (أو الكيان المعني)
+10. **Acceptance Test**: `TC-XXX-YYY`
+11. **Deliverable Type**: واحد أو أكثر من [`DOCS`, `SCHEMA`, `CONSTRAINT`, `INDEX`, `RLS`, `GRANT`, `RPC`, `TRIGGER`, `AUDIT`, `WORKER`, `UI`, `NOTIFICATION`, `TEST`, `OBSERVABILITY`]
 
 ---
 
@@ -33,72 +51,72 @@
 - **TASK-MG-001: التثبت المعماري لقواعد `question_response_reviews` الهيكلية** `[EXISTING_QB01]`
   - **Phase**: `FOUNDATION` | **Dependencies**: `NONE`
   - **Security Prerequisite**: تفعيل التشفير والتحقق الذري لقواعد RLS.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-001`
-  - **Criteria**: التأكد من الربط المزدوج XOR بين `exam_answer_id` و `practice_response_id`.
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `question_response_reviews`
+  - **Acceptance Test**: `TC-SEC-001` | **Deliverable Type**: `DOCS`, `SCHEMA`, `CONSTRAINT`
 
 - **TASK-MG-002: تفعيل تريجر منع الحذف والتعديل المباشر على جدول المراجعات** `[EXISTING_QB01]`
   - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-001`
   - **Security Prerequisite**: حظر عمليات `UPDATE` و `DELETE` كلياً على جدول المراجعات.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-004`
-  - **Criteria**: رفض أي استعلام أو دالة تُنفذ تعديلاً أو حذفاً على السجل السلسلي.
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `question_response_reviews`
+  - **Acceptance Test**: `TC-SEC-004`, `TC-SEC-005` | **Deliverable Type**: `TRIGGER`, `CONSTRAINT`
 
 - **TASK-MG-003: دعم مفتاح كبح التكرار `idempotency_key` المزدوج** `[REQUIRED_EXTENSION]`
   - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-001`
   - **Security Prerequisite**: منع هجمات إعادة الإرسال والتكرار الشبكي.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-011`
-  - **Criteria**: قيد الفرادة المزدوج لمنع تكرار تقديم التقييمات.
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SEC-011` | **Deliverable Type**: `SCHEMA`, `CONSTRAINT`
 
 - **TASK-MG-004: بناء المنظر الموحد `v_question_responses_unified` مع Security Invoker** `[REQUIRED_EXTENSION]`
   - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-001`
   - **Security Prerequisite**: تفعيل `security_invoker = true` وإنفاذ سياسات RLS.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-007`
-  - **Criteria**: دمج استجابات الامتحانات والتمارين في منظر أمني محمي دون كشف الحلول.
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `exam_session_answers`, `practice_attempt_responses`
+  - **Acceptance Test**: `TC-SEC-007` | **Deliverable Type**: `SCHEMA`, `RLS`
 
 - **TASK-MG-005: الربط مع حدود الدرجات المعتمدة في snapshot بنك الأسئلة** `[REQUIRED_EXTENSION]`
   - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-001`
   - **Security Prerequisite**: ربط `max_score` بنسخة snapshot لمنع التجاوز.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SCR-005`
-  - **Criteria**: التحقق الذري من الحدود $0 \le \text{score} \le \text{snapshot\_max\_score}$.
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `question_revisions`
+  - **Acceptance Test**: `TC-SCR-005` | **Deliverable Type**: `CONSTRAINT`, `RPC`
 
 - **TASK-MG-006: ربط معرف التقييم السلسلي `action_id` لجميع العمليات** `[EXISTING_QB01]`
   - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-002`
   - **Security Prerequisite**: التوليد التلقائي لـ UUID من السيرفر.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-012`
-  - **Criteria**: توليد `action_id` فريد لكل صف مراجعة جديد.
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `question_response_reviews`
+  - **Acceptance Test**: `TC-SEC-012` | **Deliverable Type**: `SCHEMA`, `AUDIT`
 
 - **TASK-MG-007: عزل جداول التصحيح عن أدوار المحتوى (`publisher`, `editor`)** `[REQUIRED_EXTENSION]`
   - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-001`
   - **Security Prerequisite**: إنفاذ مبدأ الفصل الصارم بين الواجبات (Separation of Duties).
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-014`
-  - **Criteria**: حظر أدوار المحتوى من الوصول لجداول وتصحيحات الطلاب.
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SEC-014` | **Deliverable Type**: `RLS`, `GRANT`
 
 - **TASK-MG-008: إنفاذ قيد الدرجة الموجبة الصارم `score_awarded >= 0`** `[EXISTING_QB01]`
   - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-005`
   - **Security Prerequisite**: حماية المنطق الرياضي من ثغرات الدرجات السالبة.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-003`
-  - **Criteria**: رفض التقييمات التي تتضمن درجات اقل من الصفر المطلق.
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `question_response_reviews`
+  - **Acceptance Test**: `TC-SEC-003`, `TC-SCR-006` | **Deliverable Type**: `CONSTRAINT`
 
 - **TASK-MG-009: هيكلة حقل `reason` الإجباري عند الاعتماد النهائي** `[REQUIRED_EXTENSION]`
   - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-002`
   - **Security Prerequisite**: توثيق الأسباب القانونية والأكاديمية للاعتماد النهائي.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-AFR-001`
-  - **Criteria**: اشتراط حقل السبب عند `is_final = true` ورفض الطلب إذا كان خاليًا.
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-AFR-001` | **Deliverable Type**: `CONSTRAINT`, `SCHEMA`
 
 - **TASK-MG-010: تهيئة فهارس الأداء المزدوجة لتسريع استعلامات الطوابير** `[REQUIRED_EXTENSION]`
   - **Phase**: `FOUNDATION` | **Dependencies**: `TASK-MG-004`
   - **Security Prerequisite**: حماية البيئة من هجمات الحرمان من الخدمة (DoS).
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-001`
-  - **Criteria**: تسريع عمليات الفلترة والاستعلام بحسب المادة وحالة الاعتماد.
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-001` | **Deliverable Type**: `INDEX`
 
 ---
 
@@ -107,146 +125,146 @@
 - **TASK-MG-011: بناء طابور الإجابات غير المصححة حسب المادة** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-004`, `TASK-MG-010`
   - **Security Prerequisite**: مطابقة المادة المصرحة للمصحح بنطاق `subject_scope`.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-009`
-  - **Criteria**: عرض الإجابات المتاحة للمصحح ضمن تخصصه المعتمد فقط.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SEC-009` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-012: ترتيب الطابور بحسب أولوية الامتحانات الرسمية** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-011`
   - **Security Prerequisite**: إنفاذ ترتيب الأولويات الأكاديمية الرسمية.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-001`
-  - **Criteria**: تقديم إجابات الامتحانات النهائية على التمارين والمحاولات الحرة.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-001` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-013: خوارزمية التوزيع التلقائي المتوازن (Auto-Dispatch)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-011`
   - **Security Prerequisite**: فحص السعة القصوى المسموحة للمصحح.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-001`
-  - **Criteria**: توزيع الإجابات تلقائياً بحسب الحمولة والتخصص الأكاديمي.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-001` | **Deliverable Type**: `WORKER`, `RPC`
 
 - **TASK-MG-014: التخصيص اليدوي للدفعات من قبل مدير التصحيح** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-011`
   - **Security Prerequisite**: التحقق من صلاحية `grading.claim.execute` الإدارية.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-010`
-  - **Criteria**: تمكين مدير التصحيح من نقل التعيينات بين المصححين يدويّاً.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-010` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-015: تحديد السعة القصوى لعمليات التصحيح النشطة** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-011`
   - **Security Prerequisite**: منع احتكار الطوابير وتراكم المهام.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-001`
-  - **Criteria**: حظر التعيين الجديد إذا بلغت المهمات النشطة للمصحح حدها الأقصى.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-001` | **Deliverable Type**: `CONSTRAINT`, `RPC`
 
 - **TASK-MG-016: استبعاد الإجابات الملغاة أو المهجورة من الطابور** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-011`
   - **Security Prerequisite**: تنظيف الطوابير التلقائي ومنع استهلاك جهود المصححين.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-001`
-  - **Criteria**: سحب الإجابات التابعة لمحاولات ملغاة أو منسحبة فوراً.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-001` | **Deliverable Type**: `WORKER`, `RPC`
 
 - **TASK-MG-017: فلترة الطابور بحسب حالة اتفاقية SLA** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-012`
   - **Security Prerequisite**: وسم المهمات المقتربة من تجاوز الموعد المعتمد.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
-  - **Acceptance Test**: `TC-QCL-005`
-  - **Criteria**: إبراز الإجابات المقتربة من انقضاء المهلة بلون تنبيهي بارز.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-002) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-005` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-018: إنشاء منظر الجلسات الجاهزة للتصحيح اليدوي** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-011`
   - **Security Prerequisite**: حصر الاستعلام بالجلسات المغلقة رسمياً.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-AFR-002`
-  - **Criteria**: تجميع الجلسات الامتحانية المكتملة وإبراز استجاباتها المقالية.
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `exam_sessions`
+  - **Acceptance Test**: `TC-AFR-002` | **Deliverable Type**: `SCHEMA`
 
 - **TASK-MG-019: دعم خيار التوزيع الدائري (Round-Robin Distribution)** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-013`
   - **Security Prerequisite**: تحقيق العدالة المتوازية في توزيع المهام.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-001`
-  - **Criteria**: توزيع الإجابات بالتتابع المستمر على المصححين المعتمدين.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-001` | **Deliverable Type**: `WORKER`, `RPC`
 
 - **TASK-MG-020: تسجيل أحداث تغيير حالة التخصيص في سجل الأحداث** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-014`
   - **Security Prerequisite**: التوثيق التتابع التام لحركات التعيين والإلغاء.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-AFR-003`
-  - **Criteria**: تسجيل جميع حركات التخصيص في سجل التدقيق الإداري.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-AFR-003` | **Deliverable Type**: `AUDIT`, `TRIGGER`
 
 ---
 
 ### Epic 3: Lease Locks, Heartbeat, Fencing Token & SLA (الأقفال والمهل)
 
-- **TASK-MG-021: بناء دالة المطالبة الذرية `claim_assignment`** `[REQUIRED_EXTENSION]`
+- **TASK-MG-021: بناء دالة المطالبة الذرية `claim_grading_assignment`** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-001`, `TASK-MG-011`
   - **Security Prerequisite**: أقفال الصفوف الذرية `FOR UPDATE NOWAIT` لمنع سباق التنافس.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-006`
-  - **Criteria**: منح قفل التعيين لمصحح واحد فقط وتوليد `lease_token`.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-006` | **Deliverable Type**: `RPC`, `SCHEMA`
 
 - **TASK-MG-022: إنشاء نموذج القفل المؤقت `lease_expires_at`** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-021`
   - **Security Prerequisite**: تحديد مهلة القفل الإجبارية لمنع الاحتكار الأبدي.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
-  - **Acceptance Test**: `TC-QCL-002`
-  - **Criteria**: حساب الطابع الزمني لانتهاء القفل بناءً على القيمة المعتمدة (15 دقيقة).
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-001) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-002` | **Deliverable Type**: `SCHEMA`, `CONSTRAINT`
 
 - **TASK-MG-023: التحرير التلقائي للقفل المنتهي عبر Background Job** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-022`
   - **Security Prerequisite**: إطلاق المهام المنتهية ومنع التقديمات المتأخرة.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-004`
-  - **Criteria**: تحويل حالة التعيينات المنتهية لـ `EXPIRED` وإعادتها للطابور.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
+  - **Owner Decision Required**: `YES` (OD-MG-15) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-004` | **Deliverable Type**: `WORKER`, `RPC`
 
-- **TASK-MG-024: بناء دالة التحرير اليدوي الصريح `release_assignment`** `[REQUIRED_EXTENSION]`
+- **TASK-MG-024: بناء دالة التحرير اليدوي الصريح `release_grading_assignment`** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-021`
   - **Security Prerequisite**: التحقق من ملكية المصحح للقفل النشط قبل التحرير.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-003`
-  - **Criteria**: تحرير الإجابة فوراً وإعادتها للطابور مع توثيق سبب التحرير.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-003` | **Deliverable Type**: `RPC`, `UI`
 
-- **TASK-MG-025: آلية تمديد القفل عبر النبضات التفاعلية `heartbeat_assignment`** `[REQUIRED_EXTENSION]`
+- **TASK-MG-025: آلية تمديد القفل عبر النبضات التفاعلية `heartbeat_grading_assignment`** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-022`
   - **Security Prerequisite**: فحص صحة `lease_token` و عدم انقضاء المهلة الأساسية.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-009`
-  - **Criteria**: تمديد القفل 5 دقائق إضافية عند استمرار نشاط المصحح في الواجهة.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-009` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-026: إنفاذ رمز المحاصرة `fencing_token` في دالة تقديم الدرجات** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-021`, `TASK-MG-022`
   - **Security Prerequisite**: حظر الكتابة المنتهية وتطابق `assignment_generation`.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-008`
-  - **Criteria**: رفض أي طلب تقديم يحمل رمز محاصرة قديم باستثناء `STALE_FENCING_TOKEN`.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-008` | **Deliverable Type**: `RPC`, `CONSTRAINT`
 
 - **TASK-MG-027: محرك تنبيهات المهل وتصعيد تجاوزات SLA** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-017`
   - **Security Prerequisite**: إرسال إشعارات التنبيه عند 75% والتصعيد عند 100%.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
-  - **Acceptance Test**: `TC-QCL-005`
-  - **Criteria**: رصد التجاوزات وتصعيدها للمصحح الأول ومدير التصحيح.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
+  - **Owner Decision Required**: `YES` (ODR-003) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-005` | **Deliverable Type**: `WORKER`, `NOTIFICATION`
 
-- **TASK-MG-028: بناء دالة الاسترداد الإداري للتعيين `reclaim_assignment`** `[REQUIRED_EXTENSION]`
+- **TASK-MG-028: بناء دالة الاسترداد الإداري للتعيين `reclaim_grading_assignment`** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-026`
   - **Security Prerequisite**: زيادة `assignment_generation` آلياً لإبطال الرموز القديمة.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-010`
-  - **Criteria**: سحب التعيين من المصحح البطيء وإعادة تخصيصه فوراً.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-010` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-029: حظر المطالبة المزدوجة التزامنية عبر أقفال DB الذرية** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-021`
-  - **Security Prerequisite**: حماية المعاملات بـ `NOWAIT` الذرية.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-006`
-  - **Criteria**: رفض مطالبة المصحح الثاني فور الانتهاء الذري للمطالب الأول.
+  - **Security Prerequisite**: حماية المعاملات بـ `NOWAIT` الذرية وقيد الفرادة الجزئي.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-006` | **Deliverable Type**: `CONSTRAINT`, `RPC`
 
 - **TASK-MG-030: المعالجة الشبكية المنقطعة وحظر الحفظ بعد استعادة الاتصال مع انقضاء Lease** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-026`
   - **Security Prerequisite**: فحص `lease_expires_at > now()` داخل RPC عند التسليم الشبكي.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-QCL-011`
-  - **Criteria**: التجميد الفوري للأزرار ورفض التقديم المتأخر بعد الانقطاع الشبكي.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-QCL-011` | **Deliverable Type**: `RPC`, `UI`
 
 ---
 
@@ -255,72 +273,72 @@
 - **TASK-MG-031: عرض بنود Rubric المعتمدة في snapshot بنك الأسئلة** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-005`
   - **Security Prerequisite**: جلب البنود المعتمدة في `question_revisions` حصراً.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SCR-001`
-  - **Criteria**: استعراض بنود التقييم وأوصاف المستويات في الواجهة دون تعديل هيكلي.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `question_revisions`
+  - **Acceptance Test**: `TC-SCR-001` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-032: الجمع الآلي لنقاط بنود Rubric الفرعية** `[EXISTS_IN_QB01]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-031`
   - **Security Prerequisite**: حظر إدخال مجموع يدوي يختلف عن مجموع بنود Rubric.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SCR-007`
-  - **Criteria**: حساب المجموع التلقائي فور اختيار مستويات البنود في الشاشة.
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SCR-007` | **Deliverable Type**: `UI`
 
 - **TASK-MG-033: إنفاذ حدود الدرجة المعتمدة $0 \le \text{Score} \le \text{Max}$ عبر RPC** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-005`, `TASK-MG-008`
   - **Security Prerequisite**: التحقق الذري المباشر من لقطة Snapshot في السيرفر.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SCR-005`
-  - **Criteria**: إجبار القيمة لتقع ضمن الحدود المطلقة ورفض أي قيمة خارجها.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `question_response_reviews`
+  - **Acceptance Test**: `TC-SCR-005` | **Deliverable Type**: `RPC`, `CONSTRAINT`
 
 - **TASK-MG-034: تطبيق قواعد تقريب الدرجات الجزئية للمؤسسة** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-032`
   - **Security Prerequisite**: معايرة تقريب الكسور لـ 0.25 أو 0.50 حسب سياسة المقرر.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
-  - **Acceptance Test**: `TC-SCR-002`
-  - **Criteria**: تقريب الدرجات الناتجة من البنود المعايرة وفق السياسة المعتمدة.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-004) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SCR-002` | **Deliverable Type**: `RPC`
 
 - **TASK-MG-035: التحكم في إدخال ملاحظات الطالب والتعقيم الأمني (Sanitizations)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-031`
   - **Security Prerequisite**: تعقيم النصوص المدخلة من وسوم XSS والروابط الضارة.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SCR-003`
-  - **Criteria**: حفظ الملاحظات الموجهة للطالب بأمان تام بعد التطهير البرمجي.
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SCR-003` | **Deliverable Type**: `UI`, `RPC`
 
 - **TASK-MG-036: بناء حقل الملاحظات السرية للمراجعين (Internal Notes)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-035`
   - **Security Prerequisite**: حجب الحقل السري تماماً عن استعلامات الطلاب بـ RLS.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SCR-003`
-  - **Criteria**: إتاحة التواصل السري بين المصححين والمراجعين دون تسريبه للطالب.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SCR-003` | **Deliverable Type**: `SCHEMA`, `RLS`
 
 - **TASK-MG-037: معجم الملاحظات والردود المعيارية الجاهزة (Preset Snippets)** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-035`
   - **Security Prerequisite**: اختيار الملاحظات المعيارية المعتمدة من القائمة.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SCR-003`
-  - **Criteria**: توفير مكتبة ردود سريعة الاختيار لزيادة سرعة المصحح.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SCR-003` | **Deliverable Type**: `SCHEMA`, `UI`
 
 - **TASK-MG-038: قبول حفظ تقييم الدرجة الصفرية `score_awarded = 0` بالشروط** `[EXISTS_IN_QB01]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-033`
   - **Security Prerequisite**: اشتراط تحديد بند التقصير وملاحظة التوضيح.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SCR-003`
-  - **Criteria**: حفظ الدرجة الصفرية بنجاح وتوسيمها بـ `FINALIZED`.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `question_response_reviews`
+  - **Acceptance Test**: `TC-SCR-003` | **Deliverable Type**: `RPC`, `CONSTRAINT`
 
 - **TASK-MG-039: التحقق من استكمال تقييم جميع البنود الإجبارية قبل التسليم** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-031`
   - **Security Prerequisite**: حظر التقييم الناقص أو الجزئي غير المكتمل.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SCR-004`
-  - **Criteria**: منع إرسال الدرجة إذا وجد بند إجباري لم يتم تحديد مستواه.
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SCR-004` | **Deliverable Type**: `UI`
 
 - **TASK-MG-040: دعم عرض المرفقات المرجعية المعايرة في سلم التقييم** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-031`
   - **Security Prerequisite**: فحص حجم ونوع المرفقات المرجعية لمنع الملفات الضارة.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SCR-001`
-  - **Criteria**: استعراض الصور والمخططات التوضيحية المرفقة بسلم التقييم.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SCR-001` | **Deliverable Type**: `SCHEMA`, `UI`
 
 ---
 
@@ -329,146 +347,146 @@
 - **TASK-MG-041: تطبيق التصحيح المجهول وتشفير هوية الطالب (Blind Grading)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-004`
   - **Security Prerequisite**: إخفاء الاسم والبيانات الشخصية واستبدالها بـ Token عشوائي.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-DMA-006`
-  - **Criteria**: خلو شاشة المصحح تماماً من أي معالم تعريفية بهوية الطالب.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-006` | **Deliverable Type**: `RPC`, `RLS`
 
 - **TASK-MG-042: إخفاء هوية المصحح عن الطالب في جميع الواجهات** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-041`
   - **Security Prerequisite**: حجب اسم وبيانات المصحح عن الطالب لمنع التواصل المباشر.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-DMA-006`
-  - **Criteria**: عدم عرض بيانات المصحح عند استعراض النتائج والملاحظات.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-006` | **Deliverable Type**: `RLS`, `UI`
 
 - **TASK-MG-043: فحص تضارب المصالح الآلي وحظر الأقارب (COI Protection)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-011`
   - **Security Prerequisite**: مطابقة قائمة الأقارب وحظر الإجابات تلقائياً.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-016`
-  - **Criteria**: استبعاد الإجابة من طابور المصحح فور رصد تضارب مصالح موثق.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SEC-016` | **Deliverable Type**: `SCHEMA`, `RPC`
 
 - **TASK-MG-044: التصريح الذاتي للمصحح باستبعاد إجابة لتضارب المصالح** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-043`
   - **Security Prerequisite**: تمكين المصحح من الاستبعاد الذاتي مع التوثيق.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-017`
-  - **Criteria**: تحرير الإجابة وتخصيصها لمصحح آخر فور تصريح المصحح الذاتي.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SEC-017` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-045: هيكلة التعيينات المستقلة المزدوجة (Dual Independent Marking)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-021`, `TASK-MG-041`
   - **Security Prerequisite**: تعيين صفين مستقلين بحالة عزل تام (Blind Isolation).
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-DMA-001`
-  - **Criteria**: تخصيص نفس الإجابة لمصححين اثنين دون إطلاع أحدهما على الآخر.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `YES` (OD-MG-14) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-001` | **Deliverable Type**: `SCHEMA`, `RPC`
 
 - **TASK-MG-046: محرك حساب التباين والتحويل التلقائي للتحكيم** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-045`
   - **Security Prerequisite**: رصد التباين $> 15\%$ وتحويل الإجابة لطابور التحكيم.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
-  - **Acceptance Test**: `TC-DMA-002`
-  - **Criteria**: تحويل الإجابات المتنازع عليها تلقائياً إلى `senior grader`.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
+  - **Owner Decision Required**: `YES` (ODR-004) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-002` | **Deliverable Type**: `RPC`, `WORKER`
 
-- **TASK-MG-047: بناء واجهة التحكيم وحسم الدرجة المعايرة النهائي** `[REQUIRED_EXTENSION]`
+- **TASK-MG-047: بناء واجهة التحكيم وحسم الدرجة المعايرة النهائي `arbitrate_double_mark`** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-046`
   - **Security Prerequisite**: تمكين `senior grader` من حسم الدرجة بصف تتابعي معتمد.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
-  - **Acceptance Test**: `TC-DMA-003`
-  - **Criteria**: عرض التقييمين جنبًا إلى جنب واعتماد الدرجة المعايرة النهائية.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-008) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-003` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-048: محرك سحب العينات العشوائية لضبط الجودة (QA Sampling 5%)** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-045`
   - **Security Prerequisite**: توجيه 5% من الإجابات المعتمدة للمراجع بشكل عشوائي.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
-  - **Acceptance Test**: `TC-DMA-001`
-  - **Criteria**: تزويد المراجع بعينات عشوائية لفحص اتساق وجودة التصحيح.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
+  - **Owner Decision Required**: `YES` (ODR-005) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-001` | **Deliverable Type**: `WORKER`, `RPC`
 
 - **TASK-MG-049: نظام الإبلاغ عن العلامات الاستدلالية والشبهات في الإجابة** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-041`
   - **Security Prerequisite**: رفع بلاغ أمني فور وجود أسماء صريحة أو علامات داخل النص.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-DMA-001`
-  - **Criteria**: تحويل البلاغ للجنة الاختبارات وتجميد التعيين مؤقتاً.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-001` | **Deliverable Type**: `SCHEMA`, `UI`
 
 - **TASK-MG-050: تقرير قياس تباين المصححين والعدالة المعيارية** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-046`
   - **Security Prerequisite**: تحليل معدلات انحراف درجات المصححين عن المتوسط.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-DMA-002`
-  - **Criteria**: استخراج مؤشرات إحصائية تبرز كفاءة وعدالة التقييمات.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-002` | **Deliverable Type**: `RPC`, `OBSERVABILITY`
 
 ---
 
 ### Epic 6: State Machine, Appeals & Regrading Engine (الاعتماد والتظلمات)
 
-- **TASK-MG-051: تنفيذ الاعتماد النهائي الذري للدرجة (`is_final = true`)** `[REQUIRED_EXTENSION]`
+- **TASK-MG-051: تنفيذ الاعتماد النهائي الذري للدرجة `finalize_manual_grade` (`is_final = true`)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-002`, `TASK-MG-009`
   - **Security Prerequisite**: تحويل الحالة إلى `FINALIZED` واشتراط حقل السبب `reason`.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-AFR-001`
-  - **Criteria**: قفل الصف المعتمد نهائياً وتفعيل تريجر Append-Only.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-007) | **Existing QB-01 Dependency**: `question_response_reviews`
+  - **Acceptance Test**: `TC-AFR-001` | **Deliverable Type**: `RPC`, `TRIGGER`
 
 - **TASK-MG-052: تحديث المجموع النهائي للجلسة عند اكتمال الأسئلة المقالية** `[EXISTS_IN_QB01]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-051`
   - **Security Prerequisite**: الإشعال التلقائي الذري لإعادة حساب مجموع الجلسة.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-AFR-002`
-  - **Criteria**: التحديث الآلي لـ `final_score` في `exam_sessions`.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `exam_sessions`
+  - **Acceptance Test**: `TC-AFR-002` | **Deliverable Type**: `TRIGGER`, `RPC`
 
-- **TASK-MG-053: تنفيذ مسار إعادة التقييم `RETURNED_FOR_SECOND_REVIEW`** `[REQUIRED_EXTENSION]`
+- **TASK-MG-053: تنفيذ مسار إعادة التقييم `return_for_second_review` (`RETURNED_FOR_SECOND_REVIEW`)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-051`
   - **Security Prerequisite**: توجيه التقييم غير المستوفي للمراجع وتغيير حالته رسمياً.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-AFR-001`
-  - **Criteria**: إرجاع التقييم للتعديل المعتمد وفق المسمى المعياري في QB-01.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-AFR-001` | **Deliverable Type**: `RPC`, `UI`
 
-- **TASK-MG-054: بناء RPC الفتح الاستثنائي `reopen_review` للدرجات المعتمدة** `[REQUIRED_EXTENSION]`
+- **TASK-MG-054: بناء RPC الفتح الاستثنائي `reopen_manual_grade` للدرجات المعتمدة** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-051`
   - **Security Prerequisite**: اشتراط الصلاحيات الإدارية وتوفير حقل السبب الإجباري.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
-  - **Acceptance Test**: `TC-AFR-009`
-  - **Criteria**: إدراج صف تصحيحي جديد يحمل `previous_score` وحالة `REOPENED`.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-009) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-AFR-009` | **Deliverable Type**: `RPC`, `AUDIT`
 
-- **TASK-MG-055: بناء محرك تقديم الاعتراضات والتظلمات للطلاب (Appeals Engine)** `[REQUIRED_EXTENSION]`
+- **TASK-MG-055: بناء محرك تقديم الاعتراضات والتظلمات للطلاب `create_appeal`** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-051`
   - **Security Prerequisite**: التحقق من ملكية الطالب للجلسة وانقضاء الاعتماد النهائي.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-DMA-004`
-  - **Criteria**: تسجيل الاعتراض في `appeals` وتحويل حالة الإجابة لـ `APPEALED`.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-004` | **Deliverable Type**: `SCHEMA`, `RPC`
 
 - **TASK-MG-056: إدارة النافذة الزمنية لتقديم الاعتراضات (Appeals Window Control)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-055`
   - **Security Prerequisite**: حظر الاعتراضات بعد انقضاء المدة المصرح بها (7 أيام).
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
-  - **Acceptance Test**: `TC-DMA-004`
-  - **Criteria**: الإغلاق التلقائي لإمكانية تقديم التظلم بعد انتهاء النافذة.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `YES`
+  - **Owner Decision Required**: `YES` (ODR-006) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-004` | **Deliverable Type**: `WORKER`, `RPC`
 
-- **TASK-MG-057: التخصيص المستقل المباشر لمراجع التظلم بدون تضارب مصالح** `[REQUIRED_EXTENSION]`
+- **TASK-MG-057: التخصيص المستقل المباشر لمراجع التظلم بدون تضارب مصالح `assign_appeal_reviewer`** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-055`
   - **Security Prerequisite**: حظر مشاركة أي مصحح أولي شارك في التقييم السابق.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-DMA-010`
-  - **Criteria**: إسناد التظلم لمراجع جديد محايد كلياً.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-010` | **Deliverable Type**: `RPC`, `WORKER`
 
-- **TASK-MG-058: البت في التظلم وإعادة حساب المجموع والسجل التتابعي** `[REQUIRED_EXTENSION]`
+- **TASK-MG-058: البت في التظلم وإعادة حساب المجموع والسجل التتابعي `decide_appeal`** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-057`
   - **Security Prerequisite**: تسجيل القرار في `appeal_decisions` وإصدار الصف التصحيحي.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-DMA-005`
-  - **Criteria**: تحديث الدرجة عند القبول أو تأكيدها مع كتابة الرد الرسمي.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-005` | **Deliverable Type**: `SCHEMA`, `RPC`
 
-- **TASK-MG-059: ربط التعديلات التصحيحية بـ `supersession_links` للتتبع** `[REQUIRED_EXTENSION]`
+- **TASK-MG-059: ربط التعديلات التصحيحية بـ `grading_review_supersessions` للتتبع** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-058`
   - **Security Prerequisite**: التوثيق السلسلي الكامل لربط التعديلات ببعضها.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-AFR-003`
-  - **Criteria**: إظهار التسلسل الزمني الكامل لعمليات التعديل والتظلم.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-AFR-003` | **Deliverable Type**: `SCHEMA`, `AUDIT`
 
 - **TASK-MG-060: تقرير التظلمات والاعتراضات السنوي وتحليل جودة الأسئلة** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-058`
   - **Security Prerequisite**: تحليل نسبة الاعتراضات المقبولة ومصادر الأخطاء.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-DMA-005`
-  - **Criteria**: استخراج تقارير إحصائية تدعم تحسين بنك الأسئلة.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-005` | **Deliverable Type**: `RPC`, `OBSERVABILITY`
 
 ---
 
@@ -477,72 +495,72 @@
 - **TASK-MG-061: حظر الإشعارات الفردية وتجميعها لحين الاعتماد النهائي للدفعة** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-051`
   - **Security Prerequisite**: حظر مطلق لإرسال أي إشعار قبل الوصول لـ `FINALIZED + RELEASED`.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-013`
-  - **Criteria**: كتم الإشعارات الفردية حتى النشر النهائي المعتمد للدفعة.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SEC-013` | **Deliverable Type**: `RPC`, `CONSTRAINT`
 
-- **TASK-MG-062: آلية الاعتماد والإفراج الجماعي للدفعة `grading_batches`** `[REQUIRED_EXTENSION]`
+- **TASK-MG-062: آلية الاعتماد والإفراج الجماعي للدفعة `release_grading_batch`** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-061`
   - **Security Prerequisite**: التحقق من صلاحية `grading.batch.release` قبل الاعتماد.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
-  - **Acceptance Test**: `TC-AFR-005`
-  - **Criteria**: اعتماد الدفعة بنقرة واحدة وتحديث `batch_finalized_at`.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-010) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-AFR-005` | **Deliverable Type**: `RPC`, `SCHEMA`
 
 - **TASK-MG-063: إدارة توقيت كشف الإجابة النموذجية (Reveal Timer Controls)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`
   - **Security Prerequisite**: حجب نموذج الحل حتى انقضاء `batch_finalized_at + reveal_at`.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
-  - **Acceptance Test**: `TC-AFR-010`
-  - **Criteria**: منع الوصول لحقول الحل حتى الوصول للتوقيت المعتمد رسمياً.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `YES`
+  - **Owner Decision Required**: `YES` (ODR-010) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-AFR-010` | **Deliverable Type**: `RPC`, `WORKER`
 
 - **TASK-MG-064: بناء صندوق الإشعارات الصادرة `notification_outbox` ضد الضياع** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`
   - **Security Prerequisite**: الضمان الذري لتسليم الرسائل ومنع الضياع أو التكرار.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-NFX-002`
-  - **Criteria**: توليد الأحداث في Outbox مع `idempotency_key` محدد.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-NFX-002` | **Deliverable Type**: `SCHEMA`, `NOTIFICATION`
 
 - **TASK-MG-065: سياسة إعادة محاولة إرسال الإشعارات عند التعثر (Exponential Backoff)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-064`
   - **Security Prerequisite**: التعافي التلقائي عند انقطاع شبكة الإشعارات.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-NFX-001`
-  - **Criteria**: إعادة المحاولة بفترات متباعدة وتحديث حالة التسليم.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-NFX-001` | **Deliverable Type**: `WORKER`, `NOTIFICATION`
 
 - **TASK-MG-066: كبح الإشعارات المكررة وآلية التعافي (Deduplication Logic)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-064`
   - **Security Prerequisite**: مطابقة المفتاح الفريد لمنع إرسال تنبيهات مكررة.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-NFX-002`
-  - **Criteria**: كبح التكرار التلقائي وإرسال إشعار واحد لكل حدث ناتج.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-NFX-002` | **Deliverable Type**: `CONSTRAINT`, `RPC`
 
 - **TASK-MG-067: إرسال إشعارات التعديل والاستثنائية بعد التظلم (Re-Notification)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-058`, `TASK-MG-064`
   - **Security Prerequisite**: توثيق تعديل الدرجة في الإشعار الصادر للطالب.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-NFX-003`
-  - **Criteria**: إرسال إشعار تصحيحي جديد يوضح تفاصيل القرار والدرجة المعدلة.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-NFX-003` | **Deliverable Type**: `NOTIFICATION`, `RPC`
 
 - **TASK-MG-068: التثبت الزمني لكشف الحلول عبر الحد الدولي المعياري UTC** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-063`
   - **Security Prerequisite**: اعتماد توقيت UTC ومنع تلاعب العميل بالتوقيت المحلي.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-AFR-011`
-  - **Criteria**: التحقق من حدود Reveal بالاعتماد على UTC حصرياً.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-AFR-011` | **Deliverable Type**: `RPC`, `CONSTRAINT`
 
 - **TASK-MG-069: دعم الإفراج الفوري المباشر لنتائج المحاولات التدريبية** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`
   - **Security Prerequisite**: تمكين الكشف الفوري لتمارين Practice دون انتظار الدفعة.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `YES`
-  - **Acceptance Test**: `TC-AFR-007`
-  - **Criteria**: إظهار نتائج المحاولات التدريبية المعتمدة فور تسليم التقييم.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-011) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-AFR-007` | **Deliverable Type**: `RPC`, `NOTIFICATION`
 
 - **TASK-MG-070: تقرير متابعة تسليم الإشعارات ونسبة الوصول للطلاب** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-065`
   - **Security Prerequisite**: مراقبة معدلات تسليم التنبيهات والبريد الإلكتروني.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-NFX-001`
-  - **Criteria**: استخراج تقارير إحصائية بحالة وصول الإشعارات.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-NFX-001` | **Deliverable Type**: `OBSERVABILITY`, `RPC`
 
 ---
 
@@ -551,78 +569,96 @@
 - **TASK-MG-071: تطبيق الاتجاه الفصيح الشامل من اليمين لليسار (RTL System)** `[EXISTING_QB01]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-004`
   - **Security Prerequisite**: محاذاة كافة الأزرار والقوائم اتساقاً مع العربية.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-MUX-001`
-  - **Criteria**: بناء واجهات عربية فصيحة خالية من أي تشوه تركيبي.
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-MUX-001` | **Deliverable Type**: `UI`
 
 - **TASK-MG-072: بناء محرك التعامل مع النصوص ثنائية الاتجاه (BiDi Engine)** `[EXISTS_IN_QB01]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-071`
   - **Security Prerequisite**: محاذاة النص العربي لليمين وتنسيق الكود من اليسار LTR.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-MUX-002`
-  - **Criteria**: المحافظة التلقائية على تركيب الأكواد والمعادلات الرياضية.
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-MUX-002` | **Deliverable Type**: `UI`
 
 - **TASK-MG-073: تصميم الأهداف اللمسية المخصصة للجوال ($\ge 48\text{px}$)** `[EXISTS_IN_QB01]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-071`
   - **Security Prerequisite**: تجميع وتكبير المساحات اللمسية لمنع الأخطاء.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-MUX-003`
-  - **Criteria**: تصميم أزرار التقييم بمساحات واسعة سهلة الاستخدام على الجوال.
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-MUX-003` | **Deliverable Type**: `UI`
 
 - **TASK-MG-074: بناء الدرج السفلي المترابط (Responsive Bottom Sheet Drawer)** `[EXISTS_IN_QB01]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-073`
   - **Security Prerequisite**: التكيف مع شاشات الهواتف لعرض Rubric بسلاسة.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-MUX-004`
-  - **Criteria**: انزلاق الدرج السفلي بسلاسة دون حجب إجابة الطالب.
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-MUX-004` | **Deliverable Type**: `UI`
 
 - **TASK-MG-075: بناء مفتش سجل التدقيق التتابعي (Audit Trail Inspector UI)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-002`, `TASK-MG-059`
   - **Security Prerequisite**: عرض التسلسل الزمني الكامل لـ `question_response_reviews`.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-AFR-003`
-  - **Criteria**: تمكين المشغل والمدير من استعراض كافة العمليات السابقة.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `question_response_reviews`
+  - **Acceptance Test**: `TC-AFR-003` | **Deliverable Type**: `UI`, `RPC`
 
 - **TASK-MG-076: إنفاذ حظر التخزين المحلي للدرجات غير المعتمدة (Offline Limit)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-001`
   - **Security Prerequisite**: حظر استخدام localStorage أو IndexedDB للدرجات.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-015`
-  - **Criteria**: حماية البيانات من التلاعب المحلي والاشتراط الشبكي المباشر.
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SEC-015` | **Deliverable Type**: `UI`
 
 - **TASK-MG-077: تطبيق معايير إمكانية الوصول وتسميات لقارئ الشاشة (WCAG 2.1 AA)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-071`
   - **Security Prerequisite**: تزويد أزرار الواجهة بـ ARIA Labels وتثبيت Focus.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-MUX-007`
-  - **Criteria**: التوافق الكامل مع قوارئ الشاشات (NVDA / TalkBack).
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-MUX-007` | **Deliverable Type**: `UI`
 
 - **TASK-MG-078: التنقل الكامل عبر لوحة المفاتيح واستعادة التركيز (Focus Restoration)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-077`
   - **Security Prerequisite**: التنقل بدون ماوس بـ Tab / Enter واستعادة Focus.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-MUX-006`, `TC-MUX-008`
-  - **Criteria**: استعادة التركيز الذكي للعنصر المحفز بعد إغلاق النوافذ.
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-MUX-006`, `TC-MUX-008` | **Deliverable Type**: `UI`
 
 - **TASK-MG-079: التعافي التلقائي عند مقاطعة الجوال (Mobile Interruption Recovery)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-076`
   - **Security Prerequisite**: الحفاظ على مسودة المحرر مؤقتاً بالذاكرة النشطة عند انقطاع المكالمات.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-MUX-005`
-  - **Criteria**: استعادة حالة شاشة التقييم فور العودة للواجهة دون فقدان البيانات.
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-MUX-005` | **Deliverable Type**: `UI`
 
 - **TASK-MG-080: لوحة مراقبة صحة النظام وأحداث الطوارئ (System Health Monitor)** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-075`
   - **Security Prerequisite**: مراقبة معدلات الأخطاء وحوادث كبح التكرار.
-  - **Migration Required**: `NO` | **Runtime Required**: `NO` | **Owner Decision Required**: `NO`
-  - **Acceptance Test**: `TC-SEC-018`
-  - **Criteria**: تزويد مشغل الطوارئ بمؤشرات الأداء والسلامة التشغيلية.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SEC-018` | **Deliverable Type**: `OBSERVABILITY`, `UI`
 
 ---
 
-## 3. مخطط التبعيات التوجيهي (Dependency DAG Structure) `[REQUIRED_EXTENSION]`
+## 3. مخطط التبعيات التوجيهي الدلالي (Semantic Dependency DAG Structure) `[REQUIRED_EXTENSION]`
 
-يعتمد تسلسل تنفيذ المهام على المخطط التوجيهي التالي المعزول من أي دورات مغلقة (Zero Cycles / Zero Missing / Zero Forward Invalidities):
+يعتمد تسلسل تنفيذ المهام على الترتيب المعماري الدلالي التالي المعزول تماماً من أي دورات مغلقة (Zero Cycles / Zero Missing / Zero Forward Invalidities):
+
+1. **Owner decisions affecting schema** (ODR-001..016)
+2. **Canonical glossary & models** (TASK-MG-001)
+3. **Capability model & security boundaries** (TASK-MG-007)
+4. **Threat model & bounds** (TASK-MG-005, TASK-MG-008, TASK-MG-009)
+5. **Schema entities & views** (TASK-MG-004, TASK-MG-006)
+6. **Constraints & indexes** (TASK-MG-002, TASK-MG-003, TASK-MG-010)
+7. **RLS & grants** (TASK-MG-007, TASK-MG-036, TASK-MG-042)
+8. **RPC contracts** (TASK-MG-021, TASK-MG-024, TASK-MG-025, TASK-MG-033, TASK-MG-051, TASK-MG-054, TASK-MG-062)
+9. **Audit model & triggers** (TASK-MG-006, TASK-MG-020, TASK-MG-059, TASK-MG-075)
+10. **Assignment / lease engine** (TASK-MG-022, TASK-MG-023, TASK-MG-026, TASK-MG-028, TASK-MG-029)
+11. **Review / finalization engine** (TASK-MG-031..040, TASK-MG-051..053)
+12. **Appeals / regrade engine** (TASK-MG-055..058)
+13. **Notifications & outbox engine** (TASK-MG-061..070)
+14. **UI & accessibility** (TASK-MG-071..079)
+15. **E2E & security tests** (72 Test Specs)
+16. **Observability & system health** (TASK-MG-050, TASK-MG-080)
+17. **Launch gates** (Final Review & Decision)
 
 ```mermaid
 graph TD
@@ -728,6 +764,7 @@ graph TD
 - الاعتماديات المفقودة (Missing Deps):  0
 - الدورات التكرارية المغلقة (Cycles):     0
 - الاعتماديات المستقبلية الخاطئة:        0 (Forward invalidity free)
+- الترتيب الدلالي (Semantic Ordering):   محقق 100%
 - ترتيب الأمان قبل المخطط (Threats first): محقق (FOUNDATION)
 - ترتيب النموذج قبل الواجهة (Model first): محقق
 - ترتيب التعيين والأقفال قبل الطابور:     محقق
@@ -740,17 +777,17 @@ graph TD
 
 ## 4. جدول المخصبات والمقاييس لـ Backlog (Backlog Metrics Summary) `[REQUIRED_EXTENSION]`
 
-| Epic / الملحمة | FOUNDATION | MVP | P1 | P2 | Total Tasks |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Epic 1: Data Model & Snapshot** | 10 | 0 | 0 | 0 | **10** |
-| **Epic 2: Queue & Dispatch** | 0 | 6 | 3 | 1 | **10** |
-| **Epic 3: Lease Locks & SLA** | 0 | 7 | 3 | 0 | **10** |
-| **Epic 4: Rubrics & Scoring** | 0 | 7 | 1 | 2 | **10** |
-| **Epic 5: Double Marking & Integrity** | 0 | 4 | 3 | 3 | **10** |
-| **Epic 6: State Machine & Appeals** | 0 | 3 | 6 | 1 | **10** |
-| **Epic 7: Outbox & Reveal Timers** | 0 | 4 | 5 | 1 | **10** |
-| **Epic 8: Mobile UX & System Health** | 0 | 5 | 4 | 1 | **10** |
-| **إجمالي المهمات الكلي (Total)** | **10** | **36** | **25** | **9** | **80 Tasks** |
+| Epic / الملحمة | FOUNDATION | MVP | P1 | P2 | Total Tasks | Migration Req. (Future) | Runtime Req. (Future) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Epic 1: Data Model & Snapshot** | 10 | 0 | 0 | 0 | **10** | 10 | 0 |
+| **Epic 2: Queue & Dispatch** | 0 | 7 | 2 | 1 | **10** | 10 | 9 |
+| **Epic 3: Lease Locks & SLA** | 0 | 8 | 2 | 0 | **10** | 10 | 10 |
+| **Epic 4: Rubrics & Scoring** | 0 | 7 | 1 | 2 | **10** | 7 | 10 |
+| **Epic 5: Double Marking & Integrity** | 0 | 4 | 3 | 3 | **10** | 10 | 10 |
+| **Epic 6: State Machine & Appeals** | 0 | 3 | 6 | 1 | **10** | 10 | 10 |
+| **Epic 7: Outbox & Reveal Timers** | 0 | 5 | 4 | 1 | **10** | 10 | 10 |
+| **Epic 8: Mobile UX & System Health** | 0 | 5 | 4 | 1 | **10** | 2 | 10 |
+| **إجمالي المهمات الكلي (Total)** | **10** | **39** | **22** | **9** | **80 Tasks** | **69** | **69** |
 
 ---
-*نهاية الوثيقة MANUAL-GRADING-IMPLEMENTATION-BACKLOG-01 (Canonical Correction 03)*
+*نهاية الوثيقة MANUAL-GRADING-IMPLEMENTATION-BACKLOG-01 (Canonical Correction 05)*

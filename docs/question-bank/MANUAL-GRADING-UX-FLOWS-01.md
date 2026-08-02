@@ -1,23 +1,42 @@
 # MANUAL-GRADING-UX-FLOWS-01
-## تدفقات رحلة المستخدم والتصميم البصري لمحرك التصحيح اليدوي — التصحيح القانوني المعتمد 03
+## تدفقات رحلة المستخدم والتصميم البصري لمحرك التصحيح اليدوي — التصحيح القانوني المعتمد 05
 
 > **وثيقة تدفقات رحلة المستخدم والتصميم البصري (UX Flows & Visual Design Document)**
-> **الإصدار:** 3.0.0 (Canonical Correction 03)
+> **الإصدار:** 5.0.0 (Canonical Correction 05)
 > **الحالة:** مجمد للتصميم الوثائقي فقط (Design Frozen - Docs Only / No Code / No SQL Execution / No DB / No Deploy)
 > **النظام:** منصة تسهيل التعليمية (Tas-heel Engine - Question Bank QB-01)
 
 ---
 
-## 1. فلسفة التصميم البصري ودعم اللغة العربية (Visual Design & Arabic RTL System) `[EXISTING_QB01]`
+## 0. تمييز النطاق والتنفيذ المستقبلي (Scope Distinction Block)
 
-### 1.1. الهوية البصرية الجذابة (Rich Modern Aesthetics) `[EXISTING_QB01]`
+> [!IMPORTANT]
+> **التصحيح القانوني لنطاق الحزمة الحالية مقابل التنفيذ المستقبلي:**
+>
+> **Current PR (الحزمة الحالية):**
+> - **Documentation only**: وثائق تصميم واجهات وتدفقات فقط.
+> - **Migration changes = ZERO**: لا توجد أي ملفات migrations أو تعديلات داتابيز في هذا PR.
+> - **Runtime changes = ZERO**: لا يوجد أي كود تنفيذي أو شاشات تشغيلية في هذا PR.
+> - **SQL = NO**: لا توجد استعلامات أو أوامر SQL تنفيذية في هذا PR.
+>
+> **Future Implementation (التنفيذ المستقبلي عند الاعتماد):**
+> - قد يتطلب Runtime UI Components لبناء الواجهات والدرج السفلي.
+> - قد يتطلب Client State Management للتعامل مع مؤقتات القفل والنبضات.
+> - قد يتطلب WebSockets / Polling للتحديثات الحية للطوابير.
+> - يحتاج حزم تنفيذ مستقلة واختبارات تجاوب وسهولة استخدام (Accessibility).
+
+---
+
+## 1. فلسفة التصميم البصري ودعم اللغة العربية (Visual Design & Arabic RTL System) `[REQUIRED_EXTENSION]`
+
+### 1.1. الهوية البصرية الجذابة (Rich Modern Aesthetics) `[REQUIRED_EXTENSION]`
 - **أنظمة الألوان المتقدمة**:
   - الوضع الداكن الفاخر (Sleek Dark Mode): خلفيات بتركيبات `Slate-900` و `Zinc-950` مع لمسات زجاجية (Glassmorphism) وعناصر إضاءة محيطية خفيفة.
   - الوضع الفاتح الناصع (Clean Light Mode): خلفيات `Emerald-50/Off-White` بتباين مرتفع للقراءة.
 - **التفاعل الديناميكي والأنيميشن**:
   - انتقالات سلسة (200ms Easing) مع مؤشرات مرئية لمستويات سلم التقييم (Rubric Chips Accent).
 
-### 1.2. دعم اللغة العربية والربط ثنائي الاتجاه (Arabic RTL & BiDi Handling) `[EXISTING_QB01]`
+### 1.2. دعم اللغة العربية والربط ثنائي الاتجاه (Arabic RTL & BiDi Handling) `[REQUIRED_EXTENSION]`
 - **المحاذاة الشاملة من اليمين لليسار (RTL System)**:
   - ضبط الاتجاه العربي الفصيح لكافة الأزرار والقوائم وعناصر الواجهة باستخدام خطوط عربية حديثة (Cairo / Inter).
 - **معالجة النصوص ثنائية الاتجاه (BiDi Engine)**:
@@ -31,19 +50,19 @@
 
 ```
 [طابور الإجابات (Queue)] ───(claim)───> [قفل مؤقت Lease Lock (TTL 15m)]
-                                                  │
+                                                  │ (حالة Assignment: CLAIMED)
                                                   ▼
-                                     [شاشة التقييم المجهول (Blind Evaluation)]
-                                        ├── مؤشر القفل (Countdown Timer + Heartbeat)
-                                        ├── حالة Fencing Token (Valid / Active)
-                                        ├── لوحة الإجابة (مجهولة الهوية)
-                                        └── سلم التقييم (Rubric Evaluator Panel)
+                                      [شاشة التقييم المجهول (Blind Evaluation)]
+                                         ├── مؤشر القفل (Countdown Timer + Heartbeat)
+                                         ├── حالة Fencing Token (Valid / Active)
+                                         ├── لوحة الإجابة (مجهولة الهوية)
+                                         └── سلم التقييم (Rubric Evaluator Panel)
                                                   │
                                                   ▼ (إدخال الدرجة والبنود)
-                                     [اعتماد وإرسال التقييم الذري (Submit Score)]
+                                      [اعتماد وإرسال التقييم الذري (Submit Score)]
                                                   │
                                                   ▼
-                                     [تحول الحالة إلى SUBMITTED / العودة للطابور]
+                         [تحول حالة Response إلى SUBMITTED / حالة Assignment إلى SUBMITTED]
 ```
 
 #### عناصر الواجهة المتقدمة للمصحح:
@@ -68,8 +87,8 @@
    ├── درجة وملاحظات المصحح الثاني (Grader B Score)
    └── حساب التباين آلياً ومقارنة بنود Rubric
        │
-       ├── خيار أ: إقرار الدرجة المعايرة المعتمدة ───> [حالة FINALIZED]
-       └── خيار ب: إعادة الإجابة للمراجعة الثانية ───> [حالة RETURNED_FOR_SECOND_REVIEW]
+       ├── خيار أ: إقرار الدرجة المعايرة المعتمدة ───> [حالة Response: FINALIZED + Review: FINAL]
+       └── خيار ب: إعادة الإجابة للمراجعة الثانية ───> [حالة Response: RETURNED_FOR_SECOND_REVIEW]
 ```
 
 #### ميزات واجهة التحكيم والمعايرة:
@@ -84,7 +103,7 @@
 [لوحة العمليات والتحكم المباشر (Operations Dashboard)]
        │
        ├── مؤشرات الأداء الحية (SLA Breach Metrics, Workload Capacity)
-       ├── طابور التخصيص والتعيين اليدوي (Manual Dispatch)
+       ├── طابور التخصيص والتعيين اليدوي (Manual Dispatch / Reclaim)
        └── إدارة الاعتراضات والفتح الاستثنائي (Appeals & Reopen)
        │
        ▼
@@ -120,7 +139,7 @@
 
 ```
 [شاشة نتائج الطالب (Student Results Dashboard)]
-       │ (تظهر النتائج فقط بعد BATCH_FINALIZED + RELEASED)
+       │ (تظهر النتائج فقط بعد وصول حالة الدفعة إلى BATCH_FINALIZED + RELEASED)
        ▼
 [بطاقة تفاصيل الدرجة + بنود Rubric + ملاحظات المصحح المعتمدة]
        │
@@ -131,7 +150,7 @@
      [نافذة إدخال مبررات الاعتراض والنقاط الخلافية]
            │
            ▼
-     [تحول الحالة إلى APPEALED والتخصيص لمراجع مستقل لا تربطه COI]
+     [تحول حالة Response إلى APPEALED والتخصيص لمراجع مستقل لا تربطه COI]
 ```
 
 ---
@@ -146,4 +165,4 @@
 | **إشعارات حالة القفل** | شريط سفلي ثابت يوضح TTL | شريط علوي بارز | تنبيه جانبي مع مؤشر صوتي | إشعارات قابلة للقراءة عبر قارئ الشاشة |
 
 ---
-*نهاية الوثيقة MANUAL-GRADING-UX-FLOWS-01 (Canonical Correction 03)*
+*نهاية الوثيقة MANUAL-GRADING-UX-FLOWS-01 (Canonical Correction 05)*

@@ -1,14 +1,36 @@
 # MANUAL-GRADING-PRODUCT-REQUIREMENTS-01
-## متطلبات منتج محرك التصحيح اليدوي وتجربة المراجعة الموحدة — التصحيح القانوني المعتمد 03
+## متطلبات منتج محرك التصحيح اليدوي وتجربة المراجعة الموحدة — التصحيح القانوني المعتمد 05
 
 > **وثيقة تصميم المنتج والمعمارية الوظيفية (Product & Functional Requirements Document)**
-> **الإصدار:** 3.0.0 (Canonical Correction 03)
+> **الإصدار:** 5.0.0 (Canonical Correction 05)
 > **الحالة:** مجمد للتصميم الوثائقي فقط (Design Frozen - Docs Only / No Code / No SQL Execution / No DB / No Deploy)
 > **النظام:** منصة تسهيل التعليمية (Tas-heel Engine - Question Bank QB-01)
 
 ---
 
-## 1. نظرة عامة ورسالة النظام (Product Vision & Executive Summary) `[EXISTING_QB01]`
+## 0. تمييز النطاق والتنفيذ المستقبلي (Scope Distinction Block)
+
+> [!IMPORTANT]
+> **التصحيح القانوني لنطاق الحزمة الحالية مقابل التنفيذ المستقبلي:**
+>
+> **Current PR (الحزمة الحالية):**
+> - **Documentation only**: وثائق تصميمية وتحليلية فقط.
+> - **Migration changes = ZERO**: لا توجد أي ملفات migrations أو تعديلات داتابيز في هذا PR.
+> - **Runtime changes = ZERO**: لا يوجد أي كود تنفيذي أو شاشات تشغيلية في هذا PR.
+> - **SQL = NO**: لا توجد استعلامات أو أوامر SQL تنفيذية في هذا PR.
+>
+> **Future Implementation (التنفيذ المستقبلي عند الاعتماد):**
+> - قد يتطلب Migrations جديدة لبناء الجداول والـ RLS والأنواع.
+> - قد يتطلب RLS Policies لحماية الوصول على مستوى الصفوف.
+> - قد يتطلب RPCs ذريّة لحماية العمليات وقواعد الأعمال.
+> - قد يتطلب Runtime workers/UI لتشغيل الطوابير والواجهات والمؤقتات.
+> - يحتاج حزم تنفيذ مستقلة ومراجعة أمنية شاملة قبل أي دمج.
+>
+> *ملاحظة حظر:* يُمنع استخدام عبارة "Migration Required: NO" بمعيار ينفي حاجة الميزة المستقبلية لقواعد Migrations؛ بل تصف الحزمة الحالية فقط.
+
+---
+
+## 1. نظرة عامة ورسالة النظام (Product Vision & Executive Summary) `[REQUIRED_EXTENSION]`
 
 هدف **محرك التصحيح اليدوي (Manual Grading Engine)** في منصة تسهيل هو تقديم بنية تحتية متكاملة عالية الأمان والنزاهة لإدارة وتصحيح الأسئلة المقالية، القصيرة، والمهام الأكاديمية التي تتطلب تخصصاً بشرياً لمراجعتها، مع الالتزام التام بمعمارية بنك الأسئلة الموحد **QB-01**.
 
@@ -25,7 +47,7 @@
 > 3. أدوار التصحيح اليدوي تُعرّف مفاهيمياً وتشغيلياً وفق العناصر الأربعة التالية:
 >    - **شخصيات الطابور (Queue Personas)**: واجهات وسلوكيات مستخدم مخصصة حسب طبيعة العمل.
 >    - **حزم القدرات (Capability Bundles)**: مجموعات صلاحيات أمنية دقيقة مبنية على `capabilities`.
->    - **التعيينات المحدودة بالنطاق (Scoped Assignments)**: قيود وصول مرتبطة بالمادة (`subject_scope`) وبطابور التعيين النشط.
+>    - **التعينات المحدودة بالنطاق (Scoped Assignments)**: قيود وصول مرتبطة بالمادة (`subject_scope`) وبطابور التعيين النشط.
 >    - **السياسات التشغيلية (Operational Policies)**: قواعد وإجراءات إنفاذ المهل والجودة والتحكيم.
 > 4. دور `content_manager` لا يصبح `grader` أو `publisher` تلقائياً، بل يتطلب منح صلاحيات صريحة مستقلة.
 > 5. دور `admin` لا يملك تجاوزاً شاملاً تلقائياً (No Global Bypass)؛ بل تخضع كل عملية لقيود RLS والأختام الزمنية وشروط التوثيق الأكاديمي.
@@ -42,20 +64,20 @@
 ### 2.2. جدول المراجعات والتصحيح (Append-Only Review Repository) `[EXISTING_QB01]`
 - **`question_response_reviews`**: الجدول الرئيسي المقفل أمنياً بحظر الـ UPDATE/DELETE. يحتوي على: `id`, `exam_answer_id` / `practice_response_id` (XOR), `grader_id`, `score_awarded`, `feedback`, `previous_score`, `reason`, `is_final`, `action_id`, `idempotency_key`, `created_at`.
 
-### 2.3. خريطة ربط الصلاحيات المقترحة بنموذج QB-01 الفعلي (Capability Mapping Table) `[REQUIRED_EXTENSION]`
+### 2.3. خريطة ربط الصلاحيات بنموذج QB-01 الفعلي (Capability Mapping Table) `[REQUIRED_EXTENSION]`
 
-تعتمد البنية الأمنية على القدرة الفعلية الموجودة في QB-01: **`GRADE_MANUAL_RESPONSE`**، وتربط بقية العمليات المقترحة بامتدادات جديدة واضحة دون ادعاء وجودها المسبق:
+تعتمد البنية الأمنية على القدرة الفعلية الوحيدة الموجودة في QB-01: **`GRADE_MANUAL_RESPONSE`**، وتربط بقية العمليات المقترحة بامتدادات جديدة واضحة دون ادعاء وجودها المسبق:
 
 | Capability المقترحة | الوصف التشغيلي | الربط بنموذج QB-01 الفعلي | التصنيف الهيكلي |
 | :--- | :--- | :--- | :--- |
 | `grading.queue.read` | عرض وقراءة طابور الإجابات | مشتقة من `GRADE_MANUAL_RESPONSE` مع RLS | `REQUIRED_EXTENSION` |
 | `grading.claim.execute` | المطالبة بقفل إجابة في الطابور | امتداد جديد لآلية التعيين الذاتي | `REQUIRED_EXTENSION` |
 | `grading.release.execute` | تحرير قفل إجابة وإعادتها للطابور | امتداد جديد لإدارة أقفال التعيين | `REQUIRED_EXTENSION` |
-| `grading.score.submit` | تقديم درجة أولية وملاحظات | **تطابق مباشر مع `GRADE_MANUAL_RESPONSE`** | `EXISTS_IN_QB01` |
+| `grading.score.submit` | تقديم درجة أولية وملاحظات | **تطابق مباشر مع `GRADE_MANUAL_RESPONSE`** | `EXISTING_QB01` |
 | `grading.score.finalize` | الاعتماد النهائي للدرجة | امتداد لإنفاذ `is_final = true` | `REQUIRED_EXTENSION` |
 | `grading.review.return` | إعادة الإجابة للتعديل للمصحح الأول | امتداد جديد لمراجعة الجودة | `REQUIRED_EXTENSION` |
 | `grading.reopen.execute` | فتح مراجعة استثنائية لدرجة معتمدة | امتداد جديد مع قيد السبب الإجباري | `REQUIRED_EXTENSION` |
-| `grading.appeal.process` | معالجة وتعديل التظلمات | امتداد جديد لمسار التظلمات المستقل | `REQUIRED_EXTENSION` |
+| `grading.appeal.process` | معالجة وتعديل الاعتراضات | امتداد جديد لمسار التظلمات المستقل | `REQUIRED_EXTENSION` |
 | `grading.double_mark.arbitrate` | التحكيم في التصحيح المزدوج | امتداد جديد لحسم انحراف التقييم | `REQUIRED_EXTENSION` |
 | `grading.audit.read` | قراءة سجل التدقيق التتابعي | امتداد لقراءة `question_response_reviews` | `REQUIRED_EXTENSION` |
 | `grading.batch.release` | الاعتماد ونشر نتائج الدفعة | خاضع لقرار المالك والسياسة التشغيلية | `OWNER_DECISION` |
@@ -63,206 +85,202 @@
 
 ---
 
-## 3. نموذج التعيينات والقفل المؤقت (Assignments, Lease Locks & Fencing Token Model) `[REQUIRED_EXTENSION]`
+## 3. مصفوفة الكيانات المستقبلية (Future Implementation Entity Matrix) `[REQUIRED_EXTENSION]`
 
-### 3.1. كيان التعيين (`grading_assignments`) `[REQUIRED_EXTENSION]`
-يتم إدارة عمليات التخصيص والمطالبة عبر الكيان الموحد `grading_assignments` الذي يشتمل على الحقول التالية:
-- `id`: المعرف الفريد للتعيين (UUID).
-- `response_id`: معرف الإجابة (مربوط بـ `exam_answer_id` أو `practice_response_id`).
-- `grader_user_id`: معرف المصحح المخصص له المهمة.
-- `assignment_role`: شخصية التعيين (`PRIMARY_GRADER`, `COUNTERPART_GRADER`, `ARBITRATOR`, `APPEAL_REVIEWER`).
-- `assignment_generation`: رقم جيل التعيين (يتزايد عند كل إعادة تخصيص لمنع التضارب).
-- `lease_token`: رمز القفل المؤقت المشفر الفريد.
-- `lease_acquired_at`: الطابع الزمني لبدء القفل.
-- `lease_expires_at`: الطابع الزمني لانتهاء القفل (TTL الافتراضي 15 دقيقة خاضع لقرار المالك).
-- `heartbeat_at`: آخر طابع زمني لتأكيد النشاط.
-- `released_at`: طابع زمني للتحرير في حال الإلغاء اليدوي أو التلقائي.
-- `status`: حالة التعيين (`ASSIGNED`, `CLAIMED`, `EXPIRED`, `RELEASED`, `COMPLETED`).
-- `subject_scope`: نطاق المادة الدراسية للمطابقة.
-- `assigned_by`: معرف من قام بالتعيين (`SYSTEM_AUTO`, `GRADING_MANAGER_ID`).
-- `conflict_of_interest_status`: نتيجة فحص تضارب المصالح (`CLEARED`, `FLAGGED_COI`).
+تحدد هذه المصفوفة كافة الكيانات المستقبلية المطلوبة لتشغيل محرك التصحيح اليدوي مع تصنيف وجودها في QB-01 ومتطلبات البناء المستقبلية:
 
-### 3.2. عقود الدوال الذرية (Atomic RPC Contracts) `[REQUIRED_EXTENSION]`
-تتم جميع العمليات التشغيلية عبر عقود RPC ذرية محصنة بالسيرفر:
-
-1. **`claim_assignment(p_response_id, p_user_id)`**:
-   - تحقق من عدم وجود قفل نشط ومن مطابقة التخصص وعدم وجود تضارب مصالح.
-   - تنشئ/تحدث صف `grading_assignments` وتولد `lease_token` و `assignment_generation`.
-   - ترجع: `{ lease_token, fencing_token, lease_expires_at, assignment_generation }`.
-
-2. **`heartbeat_assignment(p_lease_token, p_fencing_token)`**:
-   - تحقق من صحة `lease_token` و `fencing_token` وأن القفل لم ينقضِ.
-   - تمدد `lease_expires_at` لمدة 5 دقائق إضافية (بما لا يتجاوز الحد الأقصى التراكمي).
-
-3. **`release_assignment(p_lease_token, p_reason)`**:
-   - تحرر القفل يدويّاً وتحول الحالة إلى `RELEASED` وتلغي صلاحية `lease_token`.
-
-4. **`submit_graded_score(p_lease_token, p_fencing_token, p_score, p_rubric_items, p_feedback, p_idempotency_key)`**:
-   - **التحقق الذري الصارم**: مطابقة `fencing_token` مع `assignment_generation` وتأكيد أن `lease_expires_at > now()`.
-   - إدراج التقييم في `question_response_reviews` بشكل تتابعي Append-Only.
-
-5. **`expire_assignments_job()`**:
-   - دالة خلفية دورية تحول التعيينات المنتهية (`lease_expires_at < now() AND status = 'CLAIMED'`) إلى `EXPIRED` وتطلق الإجابات للطابور.
-
-6. **`reclaim_assignment(p_response_id, p_manager_id, p_new_grader_id)`**:
-   - إلغاء التعيين السابق وتوليد `assignment_generation` جديد لمنع أي تقديم متأخر من المصحح السابق.
-
-### 3.3. آلية رمز المحاصرة (Fencing Token Mechanism) `[REQUIRED_EXTENSION]`
-لمنع مشكلة تقديم التقييم بعد انتهاء القفل (Stale Write Condition)، يُولد النظام `fencing_token` مركب من التركيب التتابعي لـ `assignment_generation + lease_token`. إذا انقضت المهلة أو قام النظام بإعادة تعيين الإجابة لمصحح آخر، يتغير `assignment_generation` آلياً، مما يجعل أي رمز محاصرة قديم غير صالح ويؤدي لرفض عملية الحفظ فوراً باستثناء `STALE_FENCING_TOKEN`.
+| Entity (الكيان) | Exists in QB-01 | New table | Migration | RLS | RPC | Audit | Runtime |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `grading_assignments` | **NO** | YES | YES | YES | YES | YES | YES |
+| `grading_assignment_events` | **NO** | YES | YES | YES | YES | YES | YES |
+| `grading_assignment_leases` | **NO** | YES | YES | YES | YES | YES | YES |
+| `grading_reviews` | **NO** (موجود باسم `question_response_reviews`) | NO | YES | YES | YES | YES | YES |
+| `grading_review_supersessions` | **NO** | YES | YES | YES | YES | YES | YES |
+| `grading_batches` | **NO** | YES | YES | YES | YES | YES | YES |
+| `grading_batch_responses` | **NO** | YES | YES | YES | YES | YES | YES |
+| `appeals` | **NO** | YES | YES | YES | YES | YES | YES |
+| `appeal_assignments` | **NO** | YES | YES | YES | YES | YES | YES |
+| `appeal_decisions` | **NO** | YES | YES | YES | YES | YES | YES |
+| `regrade_requests` | **NO** | YES | YES | YES | YES | YES | YES |
+| `score_corrections` | **NO** | YES | YES | YES | YES | YES | YES |
+| `notification_outbox` | **NO** | YES | YES | YES | YES | YES | YES |
+| `conflict_of_interest_declarations` | **NO** | YES | YES | YES | YES | YES | YES |
+| `emergency_access_grants` | **NO** | YES | YES | YES | YES | YES | YES |
 
 ---
 
-## 4. نموذج التصحيح المزدوج والتعمية (Double Marking Architecture & Blind Evaluation) `[REQUIRED_EXTENSION]`
+## 4. مصفوفة عقود RPC المستقبلية (Future RPC Contracts Matrix) `[REQUIRED_EXTENSION]`
 
-لا يعتمد النظام على حقل `assigned_grader_id` المفرد للتصحيح المزدوج، بل يبني المعمارية التالية:
+تُدار جميع العمليات التشغيلية للتصحيح اليدوي عبر 18 عقد RPC مستقبلي محصن بالسيرفر:
 
-```
-                  [استجابة مخصصة للتصحيح المزدوج]
-                                │
-        ┌───────────────────────┴───────────────────────┐
-        ▼                                               ▼
-[تعيين مستقل 1: Grader A]                      [تعيين مستقل 2: Grader B]
-(Gen: 1, Generation Lock)                      (Gen: 2, Generation Lock)
-        │                                               │
-        ▼ (Blind Grading - معزول تماماً)                 ▼ (Blind Grading - معزول تماماً)
-[تقييم Grader A -> reviews]                   [تقييم Grader B -> reviews]
-        │                                               │
-        └───────────────────────┬───────────────────────┘
-                                ▼
-                   [حساب التباين آلياً (Variance)]
-                                │
-        ┌───────────────────────┴───────────────────────┐
-        ▼ (|Diff| <= Threshold)                         ▼ (|Diff| > Threshold)
-[اعتماد الدرجة النهائية (FINALIZED)]            [تحويل لطابور التحكيم (Arbitration)]
-                                                        │
-                                                        ▼
-                                           [تعيين مستقل 3: Senior Grader]
-                                           [حسم الدرجة والاعتماد (FINALIZED)]
-```
-
-- **تعيينان مستقلان على الأقل**: تعيين صفين مستقلين في `grading_assignments` بقيمتي `PRIMARY_GRADER` و `COUNTERPART_GRADER`.
-- **عزل التقييم (Blind Grading Isolation)**: يُمنع المصحح الأول من رؤية درجة، ملاحظات، أو وجود المصحح الثاني حتى يستكمل تقييمه بالكامل ويُسجل في السجل التتابعي.
-- **حساب الانحراف (Variance Calculation)**:
-  $$\text{Variance} = \frac{|\text{Score}_1 - \text{Score}_2|}{\text{max\_score}} \times 100\%$$
-- **إحالة التحكيم (Arbitration Assignment)**: إذا تجاوز التباين الحد المسموح (الافتراضي Proposed 15% - خاضع لقرار المالك)، تُحول الإجابة تلقائياً إلى شخصية `senior grader` للتحكيم.
-- **حسم الدرجة النهائية والسجل التتابعي**: يصدر المحكم التقييم النهائي المستقل ويتم إدراجه كصف جديد بصفة `FINALIZED` دون مسح التقييمين السابقين.
+| RPC Name | Authority | Required Capability | Scope | Input Parameters | Preconditions | Locking | Idempotency Key | Fencing Token | Transaction Boundary | Audit Event | Result | Failure Codes | Migration Req. | Runtime Consumer |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :---: | :--- |
+| `claim_grading_assignment` | Grader / Senior | `grading.claim.execute` | Subject | `p_response_id, p_role` | No active lease, no COI | `FOR UPDATE NOWAIT` | Optional | Generated | Atomic | `ASSIGNMENT_CLAIMED` | `{ lease_token, fencing_token, expires_at }` | `ALREADY_CLAIMED, COI_FLAGGED, OUT_OF_SCOPE` | YES | Grader UI / Queue Engine |
+| `heartbeat_grading_assignment` | Current Grader | `grading.claim.execute` | Active Lease | `p_lease_token, p_fencing_token` | Active unexpired lease | Row Lock | N/A | Verified | Atomic | `LEASE_EXTENDED` | `{ new_expires_at }` | `LEASE_EXPIRED, INVALID_FENCING_TOKEN` | YES | Grader UI Timer |
+| `release_grading_assignment` | Current Grader / Manager | `grading.release.execute` | Active Lease | `p_lease_token, p_reason` | Claimed lease | Row Lock | N/A | Verified | Atomic | `ASSIGNMENT_RELEASED` | `{ status: 'RELEASED' }` | `LEASE_NOT_FOUND, UNAUTHORIZED_RELEASE` | YES | Grader UI / Dispatch |
+| `expire_grading_assignment` | Scheduler / System | `system.cron` | System | `p_batch_limit` | `lease_expires_at < NOW()` | Bulk Row Lock | Job Run ID | N/A | Batch Transaction | `ASSIGNMENTS_EXPIRED` | `{ expired_count }` | `EXPIRE_JOB_FAILED` | YES | Expiry Worker Job |
+| `reclaim_grading_assignment` | Manager | `grading.release.execute` | System | `p_assignment_id, p_new_grader_id` | Stale or unresponsive | Row Lock | Admin Ref | Increments Gen | Atomic | `ASSIGNMENT_RECLAIMED` | `{ new_generation, new_lease_token }` | `ASSIGNMENT_CLOSED, INVALID_MANAGER` | YES | Manager Dashboard |
+| `submit_manual_grade` | Current Grader | `GRADE_MANUAL_RESPONSE` | Assigned Slot | `p_lease_token, p_fencing_token, p_score, p_rubric, p_feedback, p_idempotency_key` | Unexpired lease, matching fencing token, valid score bounds | Strict Partial Unique Index | `p_idempotency_key` | Verified | Single Transaction | `SCORE_SUBMITTED` | `{ review_id, action_id, status }` | `STALE_FENCING_TOKEN, SCORE_OUT_OF_BOUNDS, DUPLICATE_IDEMPOTENCY` | YES | Grader UI Submission |
+| `return_for_second_review` | Senior / Reviewer | `grading.review.return` | Subject | `p_response_id, p_guidance_notes` | Status `SUBMITTED` | Row Lock | Action Key | Required | Atomic | `REVIEW_RETURNED` | `{ status: 'RETURNED_FOR_SECOND_REVIEW' }` | `INVALID_RESPONSE_STATE, MISSING_GUIDANCE` | YES | Senior Review UI |
+| `finalize_manual_grade` | Senior / Manager | `grading.score.finalize` | Subject | `p_response_id, p_final_score, p_reason` | Valid review, reason provided | Row Lock | Action Key | Required | Atomic + Outbox Insert | `GRADE_FINALIZED` | `{ response_state: 'FINALIZED' }` | `MISSING_REASON, ALREADY_FINALIZED` | YES | Senior / Manager UI |
+| `reopen_manual_grade` | Manager / Emergency | `grading.reopen.execute` | System | `p_response_id, p_reason` | Status `FINALIZED`, reason >= 20 chars | Row Lock CAS | Action Key | Required | Atomic | `GRADE_REOPENED` | `{ new_review_id, status: 'REOPENED' }` | `REASON_TOO_SHORT, NOT_FINALIZED` | YES | Manager / Emergency UI |
+| `create_appeal` | Student | `student.appeal.create` | Own Session | `p_response_id, p_reason, p_disputed_points` | Status `FINALIZED + RELEASED`, within appeal window | Unique Pending Appeal Constraint | Unique Student Key | N/A | Atomic | `APPEAL_CREATED` | `{ appeal_id, status: 'APPEALED' }` | `APPEAL_WINDOW_EXPIRED, DUPLICATE_APPEAL` | YES | Student Portal |
+| `assign_appeal_reviewer` | Manager / System | `grading.appeal.process` | Subject | `p_appeal_id, p_reviewer_id` | No COI with initial graders | Row Lock | N/A | N/A | Atomic | `APPEAL_ASSIGNED` | `{ assignment_id }` | `COI_VIOLATION, REVIEWER_BUSY` | YES | Appeals Manager UI |
+| `decide_appeal` | Appeal Reviewer | `grading.appeal.process` | Assigned Appeal | `p_appeal_id, p_decision ('UPHELD'/'REJECTED'), p_new_score, p_justification` | Claimed appeal assignment | Row Lock | Action Key | Required | Atomic + Session Rescore + Outbox | `APPEAL_DECIDED` | `{ decision_id, final_score }` | `INVALID_SCORE, MISSING_JUSTIFICATION` | YES | Appeals Reviewer UI |
+| `create_regrade_request` | Manager | `grading.reopen.execute` | System | `p_response_id, p_target_grader_id, p_reason` | Admin audit trigger | Row Lock | Admin Key | Required | Atomic | `REGRADE_REQUESTED` | `{ regrade_id }` | `UNAUTHORIZED_REGRADE` | YES | Manager Dashboard |
+| `arbitrate_double_mark` | Senior Grader | `grading.double_mark.arbitrate` | Variance Flagged | `p_response_id, p_arbitrated_score, p_justification` | Variance > 15%, both submissions completed | Row Lock | Action Key | Required | Atomic + Finalize | `DOUBLE_MARK_ARBITRATED` | `{ review_id, final_score }` | `NOT_READY_FOR_ARBITRATION` | YES | Senior Arbitrator UI |
+| `release_grading_batch` | Manager | `grading.batch.release` | Batch Scope | `p_batch_id` | All responses in batch `FINALIZED` | Batch Lock | Batch Key | N/A | Transaction + Outbox Enqueue | `BATCH_RELEASED` | `{ batch_status: 'RELEASED', released_count }` | `UNFINISHED_RESPONSES_IN_BATCH` | YES | Manager Release UI |
+| `enqueue_grading_notification` | Internal System | `system.outbox` | Outbox | `p_event_type, p_user_id, p_payload, p_dedup_key` | Status `FINALIZED + RELEASED` | Outbox Lock | `p_dedup_key` | N/A | Atomic inside caller tx | `NOTIFICATION_ENQUEUED` | `{ outbox_id }` | `DUPLICATE_NOTIFICATION_KEY` | YES | Internal Triggers / RPCs |
+| `grant_emergency_grading_access` | Admin Emergency | `grading.emergency.override` | System | `p_operator_id, p_scope, p_reason_doc` | Multi-Factor Emergency Session, reason >= 30 chars | Admin Lock | Emergency Token | Required | Single Transaction | `EMERGENCY_ACCESS_GRANTED` | `{ grant_token, expires_at }` | `INVALID_EMERGENCY_TOKEN` | YES | Emergency Audit Center |
+| `revoke_emergency_grading_access` | Admin / System | `grading.emergency.override` | System | `p_grant_token` | Active emergency grant | Admin Lock | N/A | Revoked | Atomic | `EMERGENCY_ACCESS_REVOKED` | `{ status: 'REVOKED' }` | `GRANT_NOT_FOUND` | YES | Emergency Monitor Worker |
 
 ---
 
-## 5. آلة الحالات الموحدة مع بنك الأسئلة QB-01 (Unified State Machine) `[REQUIRED_EXTENSION]`
+## 5. آلات الحالات المنفصلة وعقود الانتقال (Separate State Machines & Operational Transitions) `[REQUIRED_EXTENSION]`
 
-تم توحيد مسميات الحالات وانتقالاتها رسمياً مع معايير QB-01 وتجنب المصطلحات البديلة:
+تم فصل آلات الحالات إلى ثلاث كائنات مستقلة تماماً منعاً للتداخل المفاهيمي:
 
-```
- [UNASSIGNED] ─────(claim)─────> [CLAIMED] ─────(submit)─────> [SUBMITTED]
-      │                             │                              │
- (auto-assign)                      ▼ (lease expired)              ▼ (variance check / review)
-      │                        [UNASSIGNED]            ┌───────────┴───────────┐
-      ▼                                                ▼                       ▼
-  [ASSIGNED] ───────────────────────────> [RETURNED_FOR_SECOND_REVIEW]  [FINALIZED]
-                                                       │                       │
-                                                 (re-evaluate)             (reopen/appeal)
-                                                       │                       │
-                                                       ▼                       ▼
-                                                  [SUBMITTED]        [REOPENED] / [APPEALED]
-                                                                               │
-                                                                               ▼
-                                                                          [SUPERSEDED]
-```
+### 5.1. آلة حالات تصحيح الإجابة (Response Grading State Machine)
+- **`PENDING_MANUAL_GRADING`**: الإجابة متوفرة في الطابور تنتظر التعيين/المطالبة.
+- **`IN_GRADING`**: الإجابة محجوزة بقفل مؤقت نشط وتحت التقييم.
+- **`SUBMITTED_FOR_REVIEW`**: تم إرسال التقييم الأولي وتنتظر التحكيم أو فحص التباين.
+- **`RETURNED_FOR_SECOND_REVIEW`**: أعيدت الإجابة للمصحح التعديلي بطلب مراجعة ثانية.
+- **`FINALIZED`**: اعتمدت الدرجة نهائياً وأقفلت.
+- **`REOPENED`**: فتحت المراجعة استثنائياً بعد الاعتماد.
+- **`APPEALED`**: الإجابة تحت معالجة تظلم قائم من الطالب.
 
-### 5.1. مصفوفة mapping الحالات المعتمدة:
-- **`UNASSIGNED`**: الإجابة جاهزة في الطابور العام ولم تُخصص لمصحح بعد.
-- **`ASSIGNED`**: الإجابة مخصصة لمصحح محدد ولم يبدأ التحرير عليها بعد.
-- **`CLAIMED`**: الإجابة محجوزة بقفل مؤقت نشط `lease_token`.
-- **`SUBMITTED`**: تم تقديم التقييم الأولي وهو قيد فحص التباين أو المراجعة.
-- **`RETURNED_FOR_SECOND_REVIEW`**: إعادة الإجابة للمراجعة الثانية/التعديل (اعتماد المسمى المعياري في QB-01 واستبعاد `RETURNED_FOR_REVIEW`).
-- **`FINALIZED`**: الاعتماد النهائي الصارم للدرجة (استبعاد استخدام `GRADED` كبديل عن `FINALIZED`).
-- **`REOPENED`**: فتح مراجعة استثنائية بقرار إداري.
-- **`APPEALED`**: إجابة تحت معالجة اعتراض الطالب.
-- **`SUPERSEDED`**: صف تقييم سابق تم استبداله بصف تصحيحي تتابعي جديد.
+### 5.2. آلة حالات التعيين وقفل المهمة (Assignment / Lease State Machine)
+- **`ASSIGNED`**: الإجابة مخصصة لمصحح ولم يطالب بقفلها بعد.
+- **`CLAIMED`**: المصحح حصل على القفل المؤقت النشط `lease_token`.
+- **`RELEASED`**: حرر القفل يدوياً أو إدارياً وعادت الإجابة للطابور.
+- **`EXPIRED`**: انقضت مهلة القفل آلياً دون تقديم.
+- **`RECLAIMED`**: سحب التعيين إدارياً وأبطل الرمز القديم.
+- **`SUBMITTED`**: استكمل المصحح المهمة وسلم الدرجة بنجاح.
+- **`CANCELLED`**: ألغي التعيين بسبب إلغاء المحاولة الامتحانية أو COI.
 
----
-
-## 6. ضبط حدود الدرجات والتحقق الذري (Snapshot-Pinned Score Bounds) `[REQUIRED_EXTENSION]`
-
-1. **التحقق داخل RPC الذري**: يتم فحص وتأكيد حدود الدرجة الممنوحة حصرياً داخل السيرفر عبر RPC المعالج، بالاعتماد المباشر على النسخة المعتمدة من السؤال المرتبطة بالاستجابة (`snapshot-pinned max_score`).
-2. **قاعدة الحدود الصارمة**:
-   $$0 \le \text{score\_awarded} \le \text{snapshot\_pinned\_max\_score}$$
-3. **حظر الاعتماد على UI أو القيود غير المربوطة**: يُمنع منعاً باتاً الاعتماد على فحص واجهة العميل (Frontend) أو قيود `CHECK` العامة غير المرتبطة بلحظة أخذ اللقطة الامتحانية (Snapshot).
-4. **التعديل بعد الاعتماد النهائي**: أي تعديل للدرجة بعد الوصول لحالة `FINALIZED` يتم حتماً بإدراج صف تصحيحي جديد في `question_response_reviews` يسجل `previous_score` وسلسلة `supersession_links` ويُمنع ممر `UPDATE` نهائياً.
-
----
-
-## 7. نظام الاعتراضات وإعادة التقييم (Appeals & Regrading Engine) `[REQUIRED_EXTENSION]`
-
-### 7.1. الكيانات والحالات المستقلة `[REQUIRED_EXTENSION]`
-تم فصل مسار التظلمات كلياً بإنشاء الكيانات الهيكلية المستقلة التالية:
-- **`appeals`**: سجل طلب الاعتراض والمبررات المرفوقة من الطالب.
-- **`appeal_assignments`**: التعيين المستقل للمراجع المعتمد للتظلم.
-- **`appeal_decisions`**: القرار الأكاديمي الصادر (قبول التعديل / تأكيد الدرجة).
-- **`regrade_requests`**: الطلبات الاستثنائية لإعادة التصحيح الصادرة من الإدارة.
-- **`score_corrections`**: صفوف التصحيح المالي والأكاديمي للدرجة.
-- **`supersession_links`**: روابط التتبع السلسلي بين التقييم المعتمد السابق والتقييم المعدل الجديد.
-
-### 7.2. قواعد الاستقلالية والأثر `[REQUIRED_EXTENSION]`
-- **استقلالية مراجع التظلم**: حظر مطلق مشاركة أي مصحح قام بالتقييم الأول أو الثاني للإجابة في مراجعة التظلم الخاص بها (Conflict of Interest Policy).
-- **أثر القرار على المجاميع والنشر**: عند قبول الاعتراض وتحديث الدرجة بصف تتابعي جديد، يتم آلياً:
-  1. إعادة إشعال حساب مجموع الجلسة الامتحانية (`exam_session_answers` totals).
-  2. تحديث الدرجة المنشورة للطالب بعد اعتماد التعديل.
-  3. توليد حدث إشعار جديد مع حظر التكرار.
-  4. الاحتفاظ الكامل بجميع صفوف التقييم والاعتراض السابقة دون مسح.
-
----
-
-## 8. نشر النتائج الجماعي والإشعارات (Batch Release & Notification Outbox) `[REQUIRED_EXTENSION]`
-
-### 8.1. البنية التحتية للإفراج والإشعارات `[REQUIRED_EXTENSION]`
-- **`grading_batches`**: كيان إدارة الدفعات الامتحانية وتتبع مكتملات التصحيح.
-- **`release_state`**: حالة الدفعة (`GRADING_IN_PROGRESS`, `BATCH_FINALIZED`, `RELEASED`).
-- **`batch_finalized_at`**: الطابع الزمني المعتمد لإغلاق الدفعة.
-- **`notification_outbox`**: جدول صندوق الرسائل الصادرة المحصن ضد الضياع والتكرار.
-- **`idempotency_key`**: مفتاح كبح التكرار المشتق من `batch_id + user_id + event_type`.
-- **سياسة الإعادة والتعافي**: retry policy بأس الفترات المتباعدة (Exponential Backoff) مع التعافي التلقائي عند تعثر موجه الإشعارات.
+### 5.3. آلة حالات صف المراجعة السلسلي (Review Row State Machine)
+- **`DRAFT`**: مسودة تقييم غير مؤكدة (في الذاكرة النشطة حصراً).
+- **`SUBMITTED`**: صف تقييم مقدم ومسجل تتابعياً.
+- **`FINAL`**: صف تقييم اعتمد كدرجة نهائية (`is_final = true`).
+- **`SUPERSEDED`**: صف تقييم سابق تم إبطال درجاته بصف تصحيحي جديد.
+- **`VOIDED`**: صف تقييم ألغي بقرار طوارئ/تحكيم.
 
 > [!CAUTION]
-> **شرط إرسال الإشعارات الصارم:**
-> يُحظر حظراً مطلقاً توليد أو إرسال أي إشعار بنتيجة الطالب قبل الوصول التام لحالتي: **`FINALIZED + RELEASED`**.
+> **قاعدة فصل الحالات:** لا تُعد حالة `SUPERSEDED` حالة عامة للإجابة (`Response`)؛ بل هي حالة خاصة بصف المراجعة الفردي (`Review Row`) داخل السجل التتابعي.
 
-### 8.2. سلوك إعادة الإشعار (Re-Notification Policy) `[REQUIRED_EXTENSION]`
-عند إجراء `regrade` أو `appeal` أو `score_correction` بعد الإفراج الأول، يتم توليد إشعار تصحيحي جديد عبر Outbox بمفتاح كبح تكرار مستقل يوضح للطالب أن النتيجة تم تعديلها رسمياً بناءً على طلب المراجعة مع إرفاق الرد المعتمد.
+### 5.4. جدول الانتقالات التنفيذية الكاملة (Operational Transitions Matrix) `[REQUIRED_EXTENSION]`
+
+| From State | To State | Target Machine | Actor / Role | Required Capability | Preconditions | Concurrency / Concurrency Guard | Expected Version / Token | Lock Type | Idempotency Key | Audit Event | Failure Code | Retry Behavior |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `ASSIGNED` | `CLAIMED` | Assignment | Grader | `grading.claim.execute` | No active lease, no COI | Partial unique index on active lease | `assignment_gen` | `FOR UPDATE NOWAIT` | Optional | `ASSIGNMENT_CLAIMED` | `ALREADY_CLAIMED` | User Retry |
+| `CLAIMED` | `RELEASED` | Assignment | Grader / Manager | `grading.release.execute` | Active lease held by actor | Match `lease_token` | `lease_token` | Row Lock | N/A | `ASSIGNMENT_RELEASED` | `LEASE_NOT_FOUND` | No Retry |
+| `CLAIMED` | `EXPIRED` | Assignment | Worker System | `system.cron` | `lease_expires_at < NOW()` | Bulk status check | Status `CLAIMED` | Batch Row Lock | Job Run ID | `ASSIGNMENT_EXPIRED` | `EXPIRE_FAILED` | Auto Job Retry |
+| `EXPIRED` | `RECLAIMED` | Assignment | Manager | `grading.release.execute` | Unresponsive grader | Increment `assignment_gen` | Stale `generation` | Row Lock | Admin Ref | `ASSIGNMENT_RECLAIMED` | `ASSIGNMENT_CLOSED` | Admin Retry |
+| `CLAIMED` | `SUBMITTED` | Assignment & Response | Grader | `GRADE_MANUAL_RESPONSE` | Valid lease & score bounds | Match `fencing_token` & `gen` | `fencing_token` | Strict Partial Unique | `p_idempotency_key` | `SCORE_SUBMITTED` | `STALE_FENCING_TOKEN` | Re-fetch & Retry |
+| `SUBMITTED` | `RETURNED_FOR_SECOND_REVIEW` | Response | Senior / Reviewer | `grading.review.return` | Review submitted, non-final | Status `SUBMITTED` | `review_version` | Row Lock CAS | Action Key | `REVIEW_RETURNED` | `INVALID_RESPONSE_STATE` | User Retry |
+| `SUBMITTED` | `FINALIZED` | Response & Review | Senior / Manager | `grading.score.finalize` | Score verified, reason present | Match `expected_version` | `expected_version` | Row Lock | Action Key | `GRADE_FINALIZED` | `MISSING_REASON` | User Retry |
+| `FINALIZED` | `REOPENED` | Response | Manager / Emergency | `grading.reopen.execute` | Status `FINALIZED`, reason >= 20c | Compare-And-Swap CAS | Current `final_review_id` | Row Lock CAS | Action Key | `GRADE_REOPENED` | `REASON_TOO_SHORT` | Admin Retry |
+| `FINALIZED` | `APPEALED` | Response | Student / System | `student.appeal.create` | Batch `RELEASED`, in window | Single active appeal per response | `batch_finalized_at` | Unique Appeal Index | Student Key | `APPEAL_CREATED` | `APPEAL_WINDOW_EXPIRED` | No Retry |
+| `APPEALED` | `FINALIZED` | Response & Review | Appeal Reviewer | `grading.appeal.process` | Appeal claimed, no COI | Single decision CAS | `appeal_id` | Row Lock CAS | Action Key | `APPEAL_DECIDED` | `COI_VIOLATION` | User Retry |
+| `FINAL` | `SUPERSEDED` | Review Row | System / RPC | Internal RPC | New correction row inserted | Linear chain linking | `previous_review_id` | Append-Only Lock | Transaction Key | `REVIEW_SUPERSEDED` | `CHAIN_BROKEN` | Transaction Rollback |
+
+---
+
+## 6. إغلاق السباقات وحالات التنافس (Race Conditions Resolution) `[REQUIRED_EXTENSION]`
+
+تم إغلاق كافة السباقات التزامنية بضوابط ذرية صارمة على مستوى السيرفر:
+
+1. **`claim` مقابل `claim`**:
+   - قيد فرادة جزئي فريد (Unique Partial Constraint) على `grading_assignments (response_id, assignment_role) WHERE status = 'CLAIMED'`.
+   - استخدام قفل الصف الذري `FOR UPDATE NOWAIT` يضمن نجاح المطالب الأول ورفض الثاني فوراً بـ `ALREADY_CLAIMED`.
+2. **`heartbeat` مقابل `expire`**:
+   - يفحص الـ RPC حالة الصف والوقت تزامناً؛ إذا سبقت وظيفة الخلفية وشكلت `EXPIRED` يفشل الـ heartbeat باستثناء `LEASE_EXPIRED`.
+3. **`submit` مقابل `reclaim`**:
+   - عند إجراء `reclaim` يزيد السيرفر قيمة `assignment_generation` آلياً.
+   - عند التقديم يفحص الـ RPC مطابقة `fencing_token` مع `assignment_generation`؛ فإذا تم السحب يُرفض التقديم بـ `STALE_FENCING_TOKEN`.
+4. **`release` مقابل `submit`**:
+   - ينفذ `submit` معاملة ذرية تلغي الـ Lease؛ وإذا تم التحرير أولاً تصبح حالة التعيين `RELEASED` فيفشل التقديم لعدم وجود قفل نشط.
+5. **`finalize` مقابل `finalize`**:
+   - يعتمد الاعتماد النهائي على تقنية Compare-And-Swap (CAS) عبر فحص `expected_version`. الأول يغير `is_final = true` والصفة لـ `FINALIZED` والثاني يفشل بـ `ALREADY_FINALIZED`.
+6. **`finalize` مقابل `reopen`**:
+   - لا يمكن تشغيل `reopen` إلا على إجابة بحالة `FINALIZED` مؤكدة في المعاملة. إذا تزامنا، يُحظر الفتح حتى تكتمل معاملة الاعتماد أولاً.
+7. **`reopen` مقابل `reopen`**:
+   - يمنع قيد CAS التفرع المزدوج؛ حيث يشترط كل طلب ربط الصف الجديد بالصف النهائي الأخير (`previous_review_id`). الأول ينجح والآخر يفشل ويطلب إعادة الاستعلام.
+8. **`appeal` مقابل `regrade`**:
+   - يمنع قيد الفرادة المزدوج فتح مسارين متوازيين لنفس الإجابة؛ حيث تُربط حالة الإجابة بـ `APPEALED` وتُجمد أي طلبات `regrade` أخرى حتى البت في الاعتراض.
+9. **`correction` مقابل `correction`**:
+   - تتم كل إضافة لصف تصحيحي داخل معاملة تسلسلية ذرية تحدث مؤشر `supersession_links` خطياً دون توازٍ.
+10. **`outbox enqueue` مقابل `transaction rollback`**:
+    - يتم إدراج رسالة الإشعار في `notification_outbox` داخل معاملة الاعتماد النهائي نفسها (`FINALIZED + RELEASED`). إذا تراجعت المعاملة (Rollback)، تلتغي رسالة Outbox آلياً لمنع التسريب.
+11. **`batch release` مقابل `unfinished response`**:
+    - يفحص RPC نشر الدفعة `release_grading_batch` عدم وجود أي إجابة بحالة غير `FINALIZED`؛ وفي حال وجود إجابة واحدة غير معتمدة تفشل العملية كلياً بـ `UNFINISHED_RESPONSES_IN_BATCH`.
+12. **`emergency override` مقابل `normal claim`**:
+    - يُجمد التجاوز الطارئ القفل العادي ويزيد `assignment_generation` بـ 1000، مما يبطل قفل المصحح العادي فوراً مع التوثيق الكامل في Audit Trail.
 
 ---
 
-## 9. توقيت كشف الحلول وحماية الإجابة النموذجية (Reveal Timing & Solution Protection) `[REQUIRED_EXTENSION]`
+## 7. سياسة الدرجة النهائية والتصحيح المزدوج وحماية الخصوصية (Final Score Policy & Blind Privacy) `[REQUIRED_EXTENSION]`
 
-### 9.1. الفصل بين الامتحانات والممارسة `[REQUIRED_EXTENSION]`
-- **الامتحانات الرسمية (Exam Sessions)**: تُطبق سياسة الإفراج الجماعي المجدول (Batch Reveal Policy). لا تُكشف الإجابة النموذجية أو سلم التقييم إلا بعد انقضاء `batch_finalized_at + reveal_at`.
-- **المحاولات التدريبية (Practice Attempts)**: تدعم الكشف الفوري (Immediate Reveal) أو المؤجل (Delayed Reveal) بحسب إعدادات النشاط التدريبي المعتمدة في بنك الأسئلة.
+### 7.1. قواعد التقييم الأحادي والمزدوج والتحكيم
+1. **التصحيح الأحادي (Single Grading)**: تقديم درجة واحدة من المصحح المعتمد وتتحول لـ `FINALIZED` عند استيفاء الضوابط.
+2. **التصحيح المزدوج مع التطابق التام (Exact Agreement)**: إذا كانت $\text{Score}_1 = \text{Score}_2$ تتأكد الدرجة آلياً وتتحول لـ `FINALIZED`.
+3. **التصحيح المزدوج فوق عتبة الانحراف (Above Threshold > 15%)**: التحكيم الإجباري (Arbitration Mandatory) عبر `senior grader`.
+4. **التصحيح المزدوج ضمن عتبة الانحراف (Within Threshold $\le 15\%$)**:
+   - **تخضع لقرار المالك `OD-MG-13` (NEEDS_OWNER_DECISION)**.
+   - الخيارات المتاحة: المتوسط الحسابي، الأعلى، الأقل، تقييم المصحح الأول، تقييم المصحح الثاني، مراجعة إضافية.
+   - **يُمنع فرض قيمة نهائية نيابة عن المالك**.
 
-### 9.2. ضوابط حماية الحلول والمناظر (Solution Protection Controls) `[REQUIRED_EXTENSION]`
-- يتم تحديد وحفظ الحقول: `reveal_policy`, `reveal_at`, `release_dependency`, `role_authorization`, `timezone_handling` (اعتماد UTC للتحقق الزمني).
-- **تصحيح الادعاء السابق**: المنظر `v_question_responses_unified` بمفرده **لا يكفل** حماية الحلول؛ بل يتطلب التثبت الأمني الذري داخل RPCs مع فحص `security_invoker = true` ومطابقة صلاحية `grading.rubric.view` وحساب الوقت المسموح قبل إرجاع حقول `correct_answer` أو `rubric_details`.
+### 7.2. حماية خصوصية التصحيح المزدوج (Double Marking Blind Privacy) `[REQUIRED_EXTENSION]`
+- كل مصحح يحصل على `assignment` مستقل كلياً.
+- يُمنع المصحح من معرفة وجود أو هوية المصحح الثاني.
+- يُمنع المصحح من رؤية درجات أو ملاحظات المصحح الثاني قبل إرسال تقييمه المكتمل.
+- يُمنع المصحح من رؤية هوية الطالب (Blind Token).
+- يُمنع المصحح من استعلام صف التقييم الموازي (`counterpart review row`).
+- المحكم (`Senior Arbitrator`) يرى التقييمين المستقلين فقط بعد اكتمالهما معاً.
+- مدير التصحيح يرى البيانات التشغيلية فقط (Operational Metadata) قبل الوصول لـ `FINALIZED`.
+- **إنفاذ الخصوصية يتم عبر RLS وRPC Projection حصرياً، وليس عبر واجهة المستخدم UI فقط**.
+
+---
+
+## 8. دورة حياة صندوق الإشعارات (Notification Outbox Lifecycle) `[REQUIRED_EXTENSION]`
+
+### 8.1. حالات Outbox السلسلية:
+- **`PENDING`**: إشعار متولد داخل المعاملة ينتظر المعالجة.
+- **`CLAIMED`**: الرسالة محجوزة بواسطة موجه الإشعارات عبر `claim_token`.
+- **`SENT`**: تم تسليم الإشعار بنجاح للمزود الخارجي/الطالب.
+- **`RETRY_WAIT`**: تعثر تسليم مؤقت وتحت انتظار إعادة المحاولة (Exponential Backoff).
+- **`DEAD_LETTER`**: بلغت المحاولات حدها الأقصى وتتطلب تدخل يدوي.
+- **`CANCELLED`**: تم إلغاء الإشعار بسبب تعديل لاحق أو تراجع إداري.
+
+### 8.2. الضوابط التشغيلية لـ Outbox:
+- **المعلمات**: `claim_token`, `visibility_timeout` (5 دقائق), `attempt_count` (Max 5), `next_attempt_at`, `deduplication_key`, `idempotency_key`.
+- **التعافي**: دعم Replay اليدوي للإشعارات المعطلة في `DEAD_LETTER` مع توثيق السجل.
+- **شرط الإرسال الحتمي**: **يُحظر إرسال أو معالجة أي إشعار قبل الوصول التام لحالتي: `FINALIZED + RELEASED`**.
 
 ---
 
-## 10. سجل قرارات المالك (Owner Decision Register) `[OWNER_DECISION]`
+## 9. سجل قرارات المالك الشامل (Owner Decision Register - 16 Decisions) `[OWNER_DECISION]`
 
-تُدرج جميع القيم والسياسات التي تتطلب قراراً نهائياً من مالك المنتج في هذا السجل مع تحديد الخيارات والأثر والمخاطر والتوصية، وجميعها محددة بحالة `NEEDS_OWNER_DECISION`:
+يشتمل هذا السجل على كافة القرارات الـ 16 التي تتطلب قراراً رسمياً من مالك المنتج، وتُصنف جميعها بـ `NEEDS_OWNER_DECISION`:
 
-| ID القرار | موضوع القرار | الخيارات المتاحة | الأثر العملياتي | المخاطر المحتملة | التوصية الفنية | القيمة الافتراضية المقترحة | الحالة |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ODR-001** | مهلة القفل المؤقت (Lease TTL) | 10د / 15د / 30د | مدة احتجاز الإجابة عند المصحح | احتكار الإجابات عند الانقطاع | 15 دقيقة مع Heartbeat | **15 minutes** | `NEEDS_OWNER_DECISION` |
-| **ODR-002** | مهل اتفاقية SLA للامتحانات | 12س / 24س / 48س | سرعة إعلان نتائج الطلاب | ضغط العمل على المصححين | 24 ساعة للامتحانات الرسمية | **24 hours (Exam)** | `NEEDS_OWNER_DECISION` |
-| **ODR-003** | عتبة تنبيه SLA Alert | 50% / 75% / 90% | توقيت إرسال إشعارات التنبيه | كثرة التنبيهات المزعجة | 75% من المدى الزمني | **75%** | `NEEDS_OWNER_DECISION` |
-| **ODR-004** | حد انحراف التصحيح المزدوج | 10% / 15% / 20% | نسبة تحويل الإجابات للتحكيم | زيادة عبء Senior Grader | 15% من الدرجة الكلية | **15%** | `NEEDS_OWNER_DECISION` |
-| **ODR-005** | نسبة فحص الجودة (QA Sample) | 3% / 5% / 10% | حجم العينات الموجهة للمراجع | استهلاك وقت المراجعين | 5% من الإجابات المعتمدة | **5%** | `NEEDS_OWNER_DECISION` |
-| **ODR-006** | نافذة تقديم التظلم (Appeal Window) | 3 أيام / 7 أيام / 14 يوم | الفترة المتاحة للطالب للاعتراض | تراكم طلبات الاعتراض القديمة | 7 أيام من نشر النتيجة | **7 days** | `NEEDS_OWNER_DECISION` |
-| **ODR-007** | سلطة الاعتماد النهائى (FINALIZE) | Senior Grader / Manager | تحديد المسؤول عن `is_final` | اختناق العمليات الإدارية | منحها لـ `senior grader` | **senior grader & manager** | `NEEDS_OWNER_DECISION` |
-| **ODR-008** | سلطة حسم التحكيم (ARBITRATE) | Senior Grader / Panel | الجهة الفاصلة عند تباين الدرجات | تأخر البت في النزاعات | منحها لـ `senior grader` | **senior grader** | `NEEDS_OWNER_DECISION` |
-| **ODR-009** | سلطة الفتح الاستثنائي (REOPEN) | Manager / Emergency | من يملك إعادة فتح مراجعة معتمدة | التلاعب بونتائج معتمدة | حصرها بـ Manager و Emergency | **manager & emergency** | `NEEDS_OWNER_DECISION` |
-| **ODR-010** | سلطة نشر الدفعة (BATCH_RELEASE) | Manager Only / System | الجهة المخولة بنشر النتائج | نشر نتائج غير مكتملة | حصرها بـ `grading manager` | **grading manager** | `NEEDS_OWNER_DECISION` |
-| **ODR-011** | اشتراط Batch Release للتمارين | نعم (Required) / لا (Immediate) | توقيت ظهور نتائج التمارين | تأخير التغذية الراجعة للتدريب | الإفراج الفوري للتمارين | **No (Immediate for practice)** | `NEEDS_OWNER_DECISION` |
-| **ODR-012** | نطاق تطبيق التصحيح المزدوج | جميع الأسئلة / عينة / امتحانات فقط | استهلاك الموارد البشرية | تضاعف التكلفة والوقت | تطبيقه على الامتحانات فقط | **Exams Only** | `NEEDS_OWNER_DECISION` |
+| ID القرار | موضوع القرار | الخيارات المتاحة | الأثر العملياتي | المخاطر المحتملة | التوصية الفنية | الأثر الهيكلي (Schema) | الأثر التنفيذي (Runtime) | الإرجاء المسموح | المرحلة الحاكمة | الحالة |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **ODR-001** | مهلة القفل المؤقت (Lease TTL) | 10د / 15د / 30د | احتجاز الإجابة | احتكار عند الانقطاع | 15د مع Heartbeat | إضافة حقل TTL | ضبط مؤقتات UI | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
+| **ODR-002** | مهل SLA للامتحانات | 12س / 24س / 48س | سرعة النتائج | ضغط المصححين | 24 ساعة | جداول التنبيهات | مجدول التصعيد | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
+| **ODR-003** | عتبة تنبيه SLA Alert | 50% / 75% / 90% | توقيت التنبيه | كثرة الإزعاج | 75% | حقول العتبات | خدمة التنبيهات | حتى MVP | P1 | `NEEDS_OWNER_DECISION` |
+| **ODR-004** | حد انحراف التصحيح المزدوج | 10% / 15% / 20% | نسبة التحكيم | عبء المحكمين | 15% من الدرجة | حقل Variance | شرط RPC التحكيم | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
+| **ODR-005** | نسبة عينة الجودة (QA Sample) | 3% / 5% / 10% | حجم العينات | استهلاك الوقت | 5% عشوائي | جدول العينات | مجدول العينات | حتى P1 | P2 | `NEEDS_OWNER_DECISION` |
+| **ODR-006** | نافذة تقديم التظلم | 3د / 7د / 14د | فترة الاعتراض | تراكم الطلبات | 7 أيام من النشر | حقل Window | شرط RPC الاعتراض | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
+| **ODR-007** | سلطة الاعتماد النهائي | Senior / Manager | مسؤولية `is_final` | اختناق الإدارة | منحها لـ Senior | قيود RPC | فحص الصلاحية | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
+| **ODR-008** | سلطة حسم التحكيم | Senior / Panel | حسم النزاعات | تأخر البت | Senior Grader | RLS policy | RPC التحكيم | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
+| **ODR-009** | سلطة الفتح الاستثنائي | Manager / Emergency | إعادة الفتح | التلاعب بالنتائج | Manager & Emergency | Audit Table | RPC الفتح | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
+| **ODR-010** | سلطة نشر الدفعة | Manager / System | نشر النتائج | نشر غير مكتمل | Grading Manager | Batch table | RPC الإفراج | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
+| **ODR-011** | Batch Release للتمارين | نعم / لا | توقيت التمارين | تأخير التدريب | الإفراج الفوري | Flag في النشاط | مسار التدريب | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
+| **ODR-012** | نطاق التصحيح المزدوج | الكل / امتحانات فقط | استهلاك الموارد | مضاعفة التكلفة | الامتحانات فقط | Schema flags | شرط التوزيع | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
+| **OD-MG-13** | قاعدة الدرجة ضمن الانحراف | المتوسط/الأعلى/الأقل/الأول/الثاني | احتساب النهائي | اعتراضات الخلاف | المتوسط الحسابي | Formula Column | RPC Calculation | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
+| **OD-MG-14** | تعيين شقوق التصحيح المزدوج | التزامن / التتابع | طريقة التكليف | تأخير التقييم الثاني | التزامن المستقل | Slots Enum | Auto Dispatch | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
+| **OD-MG-15** | سلطة الانقضاء والسحب | آلي / يدوي / مختلط | إطلاق المهام | إرجاع مبكر جداً | مختلط (آلي+يدوي) | Job Config | Expiry Worker | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
+| **OD-MG-16** | إفراج دفعة الممارسة التدريبية | تجميعي / فوري | إظهار الحلول | تسريب التمارين | فوري بعد التسليم | Practice Flags | Immediate Outbox | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
 
 ---
-*نهاية الوثيقة MANUAL-GRADING-PRODUCT-REQUIREMENTS-01 (Canonical Correction 03)*
+*نهاية الوثيقة MANUAL-GRADING-PRODUCT-REQUIREMENTS-01 (Canonical Correction 05)*
