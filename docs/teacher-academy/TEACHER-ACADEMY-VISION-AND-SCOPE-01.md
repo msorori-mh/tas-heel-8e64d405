@@ -1,204 +1,163 @@
-# TEACHER-ACADEMY-VISION-AND-SCOPE-01 — رؤية ونطاق «أكاديمية معلم الثانوية»
+# رؤية ونطاق أكاديمية المعلمين (Teacher Academy Vision & Scope)
 
-تعريف الرؤية والنطاق والقرارات المعتمدة وسجل القرارات الموحد لمنظومة «أكاديمية معلم الثانوية» (Teacher Academy) — المرجع الأساسي للحزمة الاستراتيجية.
-
-| حقل | قيمة |
+| حقل الوثيقة | القيمة |
 |---|---|
-| اسم الوثيقة | Teacher Academy — Vision, Scope, Approved Decisions & Traceability Matrix |
 | معرّف الوثيقة | TEACHER-ACADEMY-VISION-AND-SCOPE-01 |
 | التاريخ | 2026-08-03 |
-| الحالة | **DRAFT — CANONICAL BLUEPRINT UPDATE 03** |
-| النطاق | تحليل وتصميم فقط — لا كود ولا SQL ولا Migrations |
+| الحالة | **DRAFT — CANONICAL BLUEPRINT UPDATE 05** |
+| النطاق | الرؤية والنطاق والحوكمة ونموذج القرارات الـ 21 وتتبع القرارات الـ 64 |
 
 ---
 
-## 1. الرؤية والأهداف الاستراتيجية
+## 1. الرؤية التنفيذية واستراتيجية النظام
 
-### 1.1 الرؤية
-تمكين معلمي المرحلة الثانوية في المملكة العربية السعودية من التميز المهني المستدام وتطوير مهاراتهم التدريسية والتخصصية عبر بوابة تعليمية مستقلة ومخصصة (Teacher Academy PWA)، مدمجة مفهوماً ومتكاملة قرائياً مع منظومة مناهج وبنك أسئلة «تسهيل»، ومصممة لدعم التأهيل التخصصي والترخيص المهني والتعلم الموجه بالتشخيص الذاتي والمؤسسي.
+أكاديمية المعلمين هي منصة للتطوير والتأهيل المهني للمعلمين، تعمل بنظام معماري مستقّل معتمدةً على نظام المصادقة الموحد (`auth.users`)، ودون التعديل أو المساس بجدول أدوار الطلاب (`app_role`) أو المحافظ المالية للطلاب.
 
-### 1.2 لماذا الآن — العلاقة بمنظومة طلاب الثانوية
-1. **الارتقاء بالبنية الموحدة:** المناهج والمواد والدروس وبنك الأسئلة القائمة هي الأساس المرجعي للمحتوى التدريبي ومواد الأمثلة، مما يمنع ازدواجية الإنتاج وتشتت المفاهيم.
-2. **عزل الصلاحيات:** استقلال صلاحيات أكاديمية المعلم تماماً عن صلاحيات إدارة وبنك أسئلة الطلاب، حيث لا تُمنح أي صلاحية طلابية تلقائياً لأي دور تدريبي.
-3. **فصل الواجهات:** تطبيق الطلاب واجهة مستقلة مخصصة للتعلم والتقييم الطلابي، بينما تعمل بوابة المعلمين عبر PWA مستقل بهوية وتجربة مهنية مخصصة.
-4. **النمو المؤسسي B2B/B2G:** فتح قناة شراكة مؤسسية موازية للمدارس ومكاتب التعليم والإدارات التعليمية عبر عقود ترخيص ومقاعد تدريبية محددة.
-
-### 1.3 الأهداف الاستراتيجية (قابلة للقياس)
-| # | الهدف | مؤشر قياس مقترح |
-|---|---|---|
-| G1 | رفع جاهزية المعلمين لتوظيف المنصة في التدريس | نسبة إتمام المسار التأسيسي، تحسّن درجات التقييم القبلي والبعدي |
-| G2 | بناء خط إنتاج تدريبي داخلي ومؤسسي | عدد المدربين والمقيّمين النشطين، زمن دورة مراجعة المهام |
-| G3 | إصدار شهادات مهنية موثوقة قابلة للتحقق | عدد الشهادات الصادرة، نسبة التحقق الخارجي الناجح عبر Verifier |
-| G4 | التوسع المؤسسي للمدارس والمناطق | عدد العقود المؤسسية وتغطية المقاعد للمعلمين في المدارس |
-| G5 | الحفاظ التام على استقرار منظومة الطلاب | صفر حوادث تداخل صلاحيات، صفر تسريب لبيانات الطلاب الشخصية |
-
-### 1.4 مبادئ التصميم الثابتة
-1. **عزل الصلاحيات القائم على Capabilities:** اعتماد جدول cademy_capability_grants مع نطاقات محددة (Scoped Assignments) دون توسيع enum pp_role الخاص بالطلاب.
-2. **التحقق العام من الشهادة بلا حساب:** إتاحة التحقق العام عبر رمز QR أو رابط مباشر دون الحاجة لتسجيل الدخول، وبلا كشف لبيانات الطالب أو البيانات الشخصية الحساسة.
-3. **التصميم التراكمي للـ PWA:** البدء بـ PWA مرن مع استراتيجية ترحيل واضحة للتطبيق الأصيل (Native) في مرحلة P2 عند تحقق المحفزات.
-4. **عربي أولاً ومجمل RTL:** تصميم الواجهات والمحتوى والتقارير والشهادات باللغة العربية أولاً وبدعم RTL كامل.
+### المبادئ الأساسية:
+1. **عزل الحسابات والصلاحيات (S2):** عدم إضافة أي دور للمعلمين داخل `app_role`، واعتماد منح الصلاحيات المؤطرة حصراً عبر `academy_capability_grants` مع Scopes محددة.
+2. **حظر Bypass الإداري الشامل (S3):** إلغاء أي صلاحيات تجاوز كلي للـ Platform Admin أو `ta_admin`، وتفعيل بروتوكول الوصول الإداري الطارئ المؤقت والمسبب والمؤرخ وسجل التدقيق `emergency_access_audit_logs`.
+3. **التكامل غير المتصل (Offline Strategy):** تقسيم العمل غير المتصل حسب المراحل:
+   - **MVP:** دعم App Shell والكتالوج والمحتوى النصي و Progress Outbox بمزامنة Last-write-wins.
+   - **P1:** دعم الأنشطة والتقييمات و Evidence Outbox وحل التعارضات والمزامنة ثنائية الاتجاه.
+   - **P2:** دعم تنزيل الفيديو المشفر Offline والتحزيم الأصيل Native Packaging.
 
 ---
 
-## 2. نطاق العمل
+## 2. التسلسل الهرمي التعليمي المعرف (S1 Domain Model)
 
-### 2.1 داخل النطاق (In Scope)
-| # | البند | الوصف والنطاق |
-|---|---|---|
-| S1 | بوابة معلمين مستقلة (PWA) | واجهة مستقلة تماماً بهوية وتجربة مخصصة للمعلمين والمدربين والإداريين |
-| S2 | الهيكل التعليمي المعتمد (S1) | إدارة البرامج التدريبية وإصداراتها والمقررات والوحدات والدروس والدفعات (cademy_programs -> cademy_cohorts) |
-| S3 | تتبع التقدم والتعلم | تسجيل التقدم التدريبي في كل درس ووحدة واختبار ومهمة |
-| S4 | التقييمات والتشخيص | تشخيص الكفايات، الاختبارات القصيرة، والتقييمات النهائية والمهام التطبيقية |
-| S5 | الشهادات وسجل الساعات (S5) | إصدار الشهادات المستقلة cademy_certificates وسجل الساعات المهنية professional_hours_ledger |
-| S6 | إدارة المؤسسات والعقود (S4) | إدارة المدارس والمكاتب organizations والمظلات المؤسسية والعقود الزمانية والمقاعد contract_seats |
-| S7 | محرك التجارة والاستحقاقات (S6) | إدارة المنتجات والأوامر والاستحقاقات entitlements والفواتير المستقلة عن اشتراكات الطلاب |
-| S8 | عزل الخصوصية والهوية (S7) | حساب Auth مشترك بحسابات معلمين مستقلة 	eacher_profiles دون SELECT عام على جداول الطلاب |
-| S9 | حوكمة الصلاحيات (S2 & S3) | منح الصلاحيات المؤطرة cademy_capability_grants وآلية الوصول الطارئ المؤقت المسببة والمؤرخة |
-| S10| العمل Offline الموحد | دعم النمط غير المتصل وفق مستويات MVP وP1 وP2 المحددة صراحة |
+تعتمد الأكاديمية التسلسل الهرمي القياسي المحدد في S1:
+```
+academy_programs -> academy_program_versions -> academy_courses -> academy_modules -> academy_lessons -> academy_cohorts
+```
 
-### 2.2 خارج النطاق (Out of Scope) — صراحة
-| # | البند | التبرير |
-|---|---|---|
-| O1 | أي تعديل على واجهة أو صلاحيات الطلاب | الواجهتان منفصلتان صراحة لضمان الاستقرار (G5) |
-| O2 | توسيع enum pp_role الخاص بالطلاب | عزل الصلاحيات يمنع pollute الأدوار الطلابية |
-| O3 | تطبيق Native في MVP | الاعتماد على PWA أولاً؛ التطبيق الأصيل مؤجَّل لـ P2 عند تحقق المحفزات |
-| O4 | تحكيم صلاحيات حساس بناءً على اسم الدور | الاعتماد حصراً على Capability Grants المؤطرة |
-| O5 | أي Admin bypass شامل أو دائم | منع platform_admin أو 	a_admin من التجاوز الشامل المباشر |
-| O6 | قراءة أو كتابة جداول الاشتراكات والدوائر المالية للطلاب | التجارة مستقبلاً عبر محرك استحقاقات مستقل للأكاديمية |
-| O7 | قراءة PII للطلاب من قبل بوابة المعلمين | حظر SELECT العام على جداول profiles للطلاب |
-| O8 | تنفيذ runtime code أو migrations أو SQL | الحزمة الحالية تصميم واستراتيجية فقط |
-| O9 | الاعتماد على أسماء التاكسونومي القديمة | حذف 	a_paths و 	a_modules و 	a_lessons نهائياً |
+> **ملاحظة إزالة:** تم الاستغناء الكلي عن التاكسونومي القديم (`ta_paths` و `ta_modules` و `ta_lessons`) واستبداله بالنموذج القياسي المعتمد أعلاه.
 
 ---
 
-## 3. القرارات المعتمدة (S1–S7 & AD1–AD4)
+## 3. حدود الكيانات المتداخلة (Entity Boundaries)
 
-القرارات الـ 11 التالية معتمدة نهائياً وحاكمة لجميع وثائق الأكاديمية:
+### 3.1 حدود العضويات المؤسسية:
+- **`organization_memberships`:** هي المصدر القانوني الموحد للعضوية العامة في المؤسسة، وتحتوي على: (`person_id`, `organization_id`, `membership_type`, `start_date`, `end_date`, `status`, `scope`).
+- **`teacher_organization_memberships`:** امتداد مهني خاص بالمعلم مرتبط بـ `organization_membership_id`، ويحمل فقط البيانات المهنية مثل (`teacher_role`, `verified_subject_assignment`, `academic_position`, `verification_metadata`) دون تكرار حقول العضوية الأساسية.
 
-| المعرّف | اسم القرار | تفاصيل القرار المعتمد |
-|---|---|---|
-| **S1** | النموذج التعليمي القياسي | اعتماد التسلسل الهرمي: cademy_programs -> cademy_program_versions -> cademy_courses -> cademy_modules -> cademy_lessons -> cademy_cohorts. |
-| **S2** | حوكمة الصلاحيات | منح الصلاحيات عبر جدول cademy_capability_grants بنطاقات محددة (Scoped Assignments)، مع حظر توسيع pp_role. |
-| **S3** | حدود الإدارة والوصول الطارئ | إلغاء Admin bypass الشامل؛ الوصول الإداري الطارئ مؤقت، مسبب صراحة، مؤرخ، ومسجل بالكامل في سجل Audit. |
-| **S4** | إدارة المؤسسات والعقود | هيكلة المؤسسات عبر organizations و organization_memberships و organization_relationships و organization_contracts و contract_seats. |
-| **S5** | استراتيجية الشهادات المستقلة | عزل شهادات الأكاديمية عبر cademy_certificates و cademy_certificate_events و professional_hours_ledger بعيداً عن جداول الطلاب. |
-| **S6** | محرك التجارة والاستحقاقات | إدارة المنتجات عبر products و orders و entitlements و invoices و contracts بمعزل تام عن اشتراكات ومحافظ الطلاب. |
-| **S7** | الهوية والخصوصية الصارمة | استخدام Auth Account مشترك مع فصل البيانات في 	eacher_profiles و 	eacher_subject_assignments و 	eacher_organization_memberships وحظر SELECT العام على profiles الطلاب. |
-| **AD1** | فصل الواجهات (Two Frontends) | واجهة الطلاب وواجهة المعلمين تطبيقان منفصلان تماماً. |
-| **AD2** | Backend مشترك | قاعدة بيانات مشتركة مع عزل منطقي وسياسات RLS صارمة. |
-| **AD3** | استقلال نطاق التدريب | لا وراثة أو تقاطع بين صلاحيات بنك أسئلة الطلاب وأكاديمية المعلمين. |
-| **AD4** | PWA أولاً | البدء بـ PWA وتأجيل التطبيق الأصيل لمرحلة P2. |
+### 3.2 حدود العقود التجارية:
+- **`contracts`:** السجل التجاري القانوني الأساسي للعقد بين الطرفين، ويشمل: (`contract_number`, `parties`, `product`, `dates`, `financial_terms`, `status`).
+- **`organization_contracts`:** ربط أو امتداد مؤسسي للعقد مرتبط بـ `contract_id` و `organization_id`، ويحمل: (`organizational_scope`, `seat_allocation_policy`, `beneficiary_hierarchy`, `organization_sla`).
 
 ---
 
-## 4. تحليل المستخدمين وحوكمة الصلاحيات (الأدوار العشرة)
+## 4. نموذج القرارات الـ 21 القانوني (Canonical 21 Decisions Model)
 
-تُدار كل التفاعلات عبر Capability Grants المؤطرة:
+تم إلغاء الصيغة السابقة غير المكتملة (`S1–S7 + AD1–AD4 + OD-1–OD-10`) واستبدالها بالقائمة القانونية المعتمدة التالية (21 قراراً):
 
-| # | الدور المفهومي | Capability Grants المقترنة | النطاق المسموح (Scoped Assignment) |
-|---|---|---|---|
-| 1 | المعلم المتدرب (Teacher Trainee) | program.enroll, lesson.read, assessment.submit, certificate.view | الدفعة (cohort_id) المسجل بها |
-| 2 | المعلم الممارس (Teacher) | program.browse, diagnostic.take, portfolio.manage | الحساب الفردي وتعيينات المواد |
-| 3 | المدرب (Trainer) | cohort.lead, content.author_draft, discussion.moderate | الدفعة (cohort_id) المكلّف بها |
-| 4 | المقيّم (Assessor / Reviewer) | submission.grade, rubric.evaluate, feedback.write | النطاق المحدد للمهام الموكلة |
-| 5 | المرشد (Mentor) | trainee.progress_read, feedback.provide | المجموعة أو الدفعة المستهدفة |
-| 6 | مدير البرنامج (Program Manager) | program_version.manage, cohort.create, trainer.assign | البرنامج أو إصداره (program_version_id) |
-| 7 | مسؤول تدريب المدرسة (School Admin) | org.members_read, org.seat_assign, org.reports_view | المؤسسة (organization_id) الخاصة بمدرسته |
-| 8 | مسؤول مكتب التعليم (District Admin) | district.reports_view, district.orgs_monitor | المؤسسة الأب والمؤسسات التابعة |
-| 9 | مسؤول النظام (System Admin) | emergency.access_request, audit.view, system.configure | مسبّب بالكامل ولفترة زمنية محدودة جداً |
-| 10| المتحقق من الشهادة (Verifier) | certificate.public_verify | عام (Public) عبر الرمز أو QR فقط |
+### 4.1 APPROVED_OWNER_DECISIONS (7 قرارات معتمدة)
+- **S1:** Canonical educational domain model (`academy_programs` -> `academy_cohorts`) — **APPROVED**
+- **S2:** Capability grants and scoped assignments (`academy_capability_grants`) — **APPROVED**
+- **S3:** No blanket admin bypass & emergency access (`emergency_access_audit_logs`) — **APPROVED**
+- **S4:** Organizations, memberships, contracts and seats (`organizations`, `organization_memberships`, `contracts`, `contract_seats`) — **APPROVED**
+- **S5:** Independent academy certificates (`academy_certificates`, `academy_certificate_events`, `professional_hours_ledger`) — **APPROVED**
+- **S6:** Products, orders, entitlements, invoices and contracts (`products`, `orders`, `entitlements`, `invoices`, `contracts`) — **APPROVED**
+- **S7:** Shared Auth with isolated teacher professional profile (`auth.users` + `teacher_profiles`) — **APPROVED**
 
----
+### 4.2 MUST_DECIDE_BEFORE_RUNTIME (7 قرارات تتطلب حسم المالك قبل التشغيل)
+- **R1:** Completion and passing policy — **NEEDS_OWNER_DECISION**
+- **R2:** Assessment and offline integrity — **NEEDS_OWNER_DECISION**
+- **R3:** Submission, review, SLA and appeals policy — **NEEDS_OWNER_DECISION**
+- **R4:** Certificate authority and issuance policy — **NEEDS_OWNER_DECISION**
+- **R5:** Institutional visibility and privacy policy — **NEEDS_OWNER_DECISION**
+- **R6:** Frontend deployment and session model — **NEEDS_OWNER_DECISION**
+- **R7:** Shared integrations: QB, notifications and analytics — **NEEDS_OWNER_DECISION**
 
-## 5. عوامل النجاح والمخاطر
+### 4.3 MAY_DEFER_TO_P1 (3 قرارات مؤجلة لمرحلة P1)
+- **P1-1:** Native packaging and adoption triggers — **DEFERRED_TO_P1**
+- **P1-2:** Internationalization and content expansion — **DEFERRED_TO_P1**
+- **P1-3:** Advanced credentials, AI and interoperability — **DEFERRED_TO_P1**
 
-### 5.1 عوامل النجاح الحرجة
-1. **الالتزام الكامل بقرارات S1–S7:** منع أي انحراف عن الهيكل أو الصلاحيات أو محرك الاستحقاقات.
-2. **العزل التام لبيانات الطلاب:** حماية الخصوصية ومنع أي استعلام عام عن profiles الطلاب من واجهة الأكاديمية.
-3. **جودة المحتوى التدريبي:** تقديم مسارات تخصصية وعامة ذات قيمة مضافة عالية للمعلمين.
-
-### 5.2 المخاطر ومعالجتها
-- **مخاطرة تداخل الصلاحيات:** تُعالج بحظر app_role وتفعيل academy_capability_grants.
-- **مخاطرة Over-privilege الإدارية:** تُعالج بإلغاء Admin bypass وتفعيل Emergency Access المؤقت المسبب.
-- **مخاطرة التعارض عند العمل Offline:** تُعالج بتحديد نطاق MVP بدقة (text, catalog, outbox) وتأجيل حل التعارض المتقدم لـ P1.
-
----
-
-## 6. سجل القرارات الموحد وسلسلة التتبع (64-Point Traceability Matrix)
-
-يربط هذا الجدول جميع نقاط القرار والافتراضات الـ 64 الأصلية في الوثائق بالقرارات الـ 21 المعتمدة (S1–S7, AD1–AD4, OD-1–OD-10):
-
-| الرقم الأصلي | النطاق / الوثيقة الأصلية | نقطة القرار / الافتراض الأصلي | القرار المعتمد الموحد | فئة القرار |
-|---|---|---|---|---|
-| DEC-01 | Vision & Scope | تسلسل الهرم التعليمي للمسارات | **S1** (academy_programs -> cohorts) | Consolidated |
-| DEC-02 | Vision & Scope | آلية منح صلاحيات التدريب | **S2** (academy_capability_grants) | Consolidated |
-| DEC-03 | Vision & Scope | صلاحيات المسؤولين وتجاوز Admin | **S3** (Emergency Access Only) | Consolidated |
-| DEC-04 | Vision & Scope | نمذجة المدارس ومكاتب التعليم | **S4** (organizations & contracts) | Consolidated |
-| DEC-05 | Vision & Scope | هيكلة الشهادات وساعات التدريب | **S5** (academy_certificates & hours) | Consolidated |
-| DEC-06 | Vision & Scope | نموذج التجارة والمنتجات | **S6** (products, orders & entitlements) | Consolidated |
-| DEC-07 | Vision & Scope | حساب المعلم وخصوصية بيانات الطلاب | **S7** (teacher_profiles & Auth shared) | Consolidated |
-| DEC-08 | Vision & Scope | تفكيك واجهة الطلاب عن المعلمين | **AD1** (Two Separate Frontends) | Consolidated |
-| DEC-09 | Vision & Scope | توحيد Backend والمناهج | **AD2** (Shared Backend) | Consolidated |
-| DEC-10 | Vision & Scope | استقلال صلاحيات بنك الأسئلة عن TA | **AD3** (Domain Independence) | Consolidated |
-| DEC-11 | Vision & Scope | تقنية الواجهة الأولى | **AD4** (PWA First) | Consolidated |
-| DEC-12 | Vision & Scope | النموذج التجاري النهائي | **OD-1** (B2B Free / Paid / Hybrid) | Business |
-| DEC-13 | Vision & Scope | الاعتماد المهني الخارجي | **OD-2** (Professional Licensing) | Deferred |
-| DEC-14 | Vision & Scope | مزود البريد المعاملاتي | **OD-3** (Email Provider & Budget) | Pre-runtime |
-| DEC-15 | Vision & Scope | مزود رسائل SMS وسياسة PII | **OD-4** (SMS Provider Policy) | Deferred |
-| DEC-16 | Product Requirements | نمذجة المسار التعليمي | **S1** (academy_programs -> cohorts) | Consolidated |
-| DEC-17 | Product Requirements | هيكل البرامج وإصداراتها | **S1** (academy_program_versions) | Consolidated |
-| DEC-18 | Product Requirements | تقسيم المقررات والوحدات | **S1** (academy_courses & modules) | Consolidated |
-| DEC-19 | Product Requirements | تعريف دروس الأكاديمية | **S1** (academy_lessons) | Consolidated |
-| DEC-20 | Product Requirements | إدارة الدفعات التدريبية | **S1** (academy_cohorts) | Consolidated |
-| DEC-21 | Product Requirements | حوكمة Capability Grants | **S2** (Scoped Capability Grants) | Consolidated |
-| DEC-22 | Product Requirements | منع توسيع enum app_role | **S2** (No app_role expansion) | Consolidated |
-| DEC-23 | Product Requirements | حظر Admin blanket bypass | **S3** (Zero Blanket Bypass) | Consolidated |
-| DEC-24 | Product Requirements | بروتوكول الوصول الإداري الطارئ | **S3** (Temporary Emergency Access) | Consolidated |
-| DEC-25 | Product Requirements | سجل Audit لإجراءات Admin | **S3** (Mandatory Audit Log) | Consolidated |
-| DEC-26 | Product Requirements | إدارة المؤسسات التدريبية | **S4** (organizations) | Consolidated |
-| DEC-27 | Product Requirements | العضويات الزمنية للمؤسسة | **S4** (organization_memberships) | Consolidated |
-| DEC-28 | Product Requirements | عقود ترخيص المؤسسات | **S4** (organization_contracts) | Consolidated |
-| DEC-29 | Product Requirements | توزيع وإعادة مقاعد التدريب | **S4** (contract_seats) | Consolidated |
-| DEC-30 | Product Requirements | عزل جداول شهادات المعلمين | **S5** (academy_certificates) | Consolidated |
-| DEC-31 | Product Requirements | تسجيل أحداث الشهادات | **S5** (academy_certificate_events) | Consolidated |
-| DEC-32 | Product Requirements | دفتر التطوير المهني للساعات | **S5** (professional_hours_ledger) | Consolidated |
-| DEC-33 | Product Requirements | تحديد منتجات الأكاديمية | **S6** (products & orders) | Consolidated |
-| DEC-34 | Product Requirements | محرك الاستحقاقات التجارية | **S6** (entitlements & invoices) | Consolidated |
-| DEC-35 | Product Requirements | عزل اشتراكات المعلمين عن الطلاب | **S6** (Decoupled Commerce Engine) | Consolidated |
-| DEC-36 | Product Requirements | الملف المهني للمعلم | **S7** (teacher_profiles) | Consolidated |
-| DEC-37 | Product Requirements | إسناد التخصصات والمواد للمعلم | **S7** (teacher_subject_assignments) | Consolidated |
-| DEC-38 | Product Requirements | حظر SELECT العام على profiles الطلاب | **S7** (Strict Student PII Isolation) | Consolidated |
-| DEC-39 | Training Catalog | هيكلة المسارات العامة والتربوية | **S1** (academy_programs & versions) | Consolidated |
-| DEC-40 | Training Catalog | هيكلة المسارات التخصصية لمواد الثانوية | **S1** (10 Subject Programs) | Consolidated |
-| DEC-41 | Training Catalog | ربط الكفايات بمجالات التشخيص الـ 8 | **S1** (Diagnostic Mapping Matrix) | Consolidated |
-| DEC-42 | Training Catalog | إزالة تاكسونومي ta_paths القديمة | **S1** (Deprecate ta_paths/modules) | Consolidated |
-| DEC-43 | Architecture & Roles | تصميم RLS وسياق Capability Grants | **S2** (RLS & Scoped Grants) | Pre-schema |
-| DEC-44 | Architecture & Roles | آلية الإدارة المؤقتة ومبررات الاستثناء | **S3** (Emergency Access Protocol) | Pre-schema |
-| DEC-45 | Architecture & Roles | النموذج المفهومي للبيانات (24 كيان) | **S1–S7** (Canonical Domain Model) | Consolidated |
-| DEC-46 | Architecture & Roles | مصفوفة الصلاحيات الموحدة | **S2** (Unified Capability Matrix) | Consolidated |
-| DEC-47 | Architecture & Roles | نموذج التهديدات والمخاطر الأمنية | **Stage 9** (Threat Model BEFORE Schema)| Pre-schema |
-| DEC-48 | Architecture & Roles | بروتوكول المزامنة والعمل Offline | **MVP/P1/P2** (Unified Sync Matrix) | Consolidated |
-| DEC-49 | UX Flows | رحلة الانضمام والملف المهني | **S7** (Teacher Onboarding & Privacy) | Consolidated |
-| DEC-50 | UX Flows | رحلة التشخيص وإسناد الدفعات | **S1** (Diagnostic & Cohort Flow) | Consolidated |
-| DEC-51 | UX Flows | رحلة التعلم عبر البرامج والدروس | **S1** (Learning Journey) | Consolidated |
-| DEC-52 | UX Flows | رحلة تسليم الأدلة والتقييم | **S2** (Assessor Rubric Evaluation) | Consolidated |
-| DEC-53 | UX Flows | رحلة اصدار الشهادات والتحقق العام | **S5** (Certificate Verification) | Consolidated |
-| DEC-54 | UX Flows | رحلات الإدارة والطلب الطارئ | **S3** (Emergency Access UX Flow) | Consolidated |
-| DEC-55 | Business Model | نماذج الإيرادات المؤسسية (B2B) | **S6** (B2B Organization Licensing) | Business |
-| DEC-56 | Business Model | تسعير المقاعد والاشتراكات | **S6** (Contract Seats & Pricing) | Business |
-| DEC-57 | Business Model | عدم المساس بمحافظ الطلاب | **S6** (Zero Student Wallet Impact) | Consolidated |
-| DEC-58 | Implementation Backlog| ترتيب مراحل التنفيذ (17 مرحلة) | **Backlog Re-ordered** (17 Stages) | Consolidated |
-| DEC-59 | Implementation Backlog| إزالة التبعية الدائرية TA-045 <-> TA-063 | **Cycle Resolved** (TA-045 -> TA-063) | Consolidated |
-| DEC-60 | Implementation Backlog| تقديم نموذج التهديدات على Schema | **Stage 9 BEFORE Stage 10** | Consolidated |
-| DEC-61 | Implementation Backlog| نطاق MVP لـ Offline | **MVP**: Shell, Catalog, Text, Outbox | Consolidated |
-| DEC-62 | Implementation Backlog| نطاق P1 لـ Offline | **P1**: Activities, Evidence, Conflict | Consolidated |
-| DEC-63 | Implementation Backlog| نطاق P2 لـ Offline | **P2**: Encrypted Video, Native App | Consolidated |
-| DEC-64 | Implementation Backlog| حظر العمل التنفيذي في PR #54 | **Design Only** (Zero Code / Migrations) | Consolidated |
+### 4.4 BUSINESS_DECISIONS (4 قرارات تجارية واستثمارية)
+- **B1:** Commercial packaging and pricing — **NEEDS_OWNER_DECISION**
+- **B2:** Institutional contract policy — **NEEDS_OWNER_DECISION**
+- **B3:** Finance, tax, invoices and retention — **NEEDS_OWNER_DECISION**
+- **B4:** Trainer compensation and accreditation economics — **NEEDS_OWNER_DECISION**
 
 ---
 
-## 7. الخطوات التالية المقترحة
+## 5. مصفوفة تتبع القرارات الـ 64 (Traceability Matrix DEC-01 .. DEC-64)
 
-1. اعتماد هذا التحديث المرجعي الشامل للحزمة التصميمية في PR #54.
-2. إجراء المراجعة المستقلة للوثائق السبع للتأكد من الاتساق التام خلو الكود من التناقضات.
-3. الإبقاء على PR #54 بحالة **Draft** وعدم دمجه أو بدء أي تنفيذ برمجي قبل الاعتماد النهائي.
+توضح المصفوفة التالية ربط كافة القرارات التاريخية الـ 64 بالقرارات الـ 21 المعتمدة:
+
+| Original ID | Original Subject | Canonical Decision ID | Canonical Category | Status | Resolution | Blocking Phase | Source Document |
+|---|---|---|---|---|---|---|---|
+| DEC-01 | النماذج التعليمية الخمسة السابقة | S1 | APPROVED_OWNER_DECISIONS | APPROVED | توحيد التسلسل الهرمي التعليمي المعرف S1 | Design | Vision & Scope |
+| DEC-02 | حوكمة الصلاحيات وإلغاء enum المعلمين | S2 | APPROVED_OWNER_DECISIONS | APPROVED | اعتماد Capability Grants ومنع توسيع app_role | Design | Vision & Scope |
+| DEC-03 | حظر Admin Bypass الشامل والوصول الطارئ | S3 | APPROVED_OWNER_DECISIONS | APPROVED | إلغاء التجاوز الإداري الشامل وتفعيل Emergency Access | Design | Vision & Scope |
+| DEC-04 | نمذجة المؤسسات والعقود والمقاعد | S4 | APPROVED_OWNER_DECISIONS | APPROVED | نمذجة المؤسسات والعضويات والعقود والمقاعد | Design | Vision & Scope |
+| DEC-05 | الشهادات المستقلة وسجل الساعات | S5 | APPROVED_OWNER_DECISIONS | APPROVED | عزل شهادات المعلمين وسجل الساعات المهنية | Design | Vision & Scope |
+| DEC-06 | نموذج التجارة والمنتجات والاستحقاقات | S6 | APPROVED_OWNER_DECISIONS | APPROVED | بناء محرك التجارة والاستحقاقات المستقل | Design | Vision & Scope |
+| DEC-07 | حساب المعلم وخصوصية بيانات الطلاب | S7 | APPROVED_OWNER_DECISIONS | APPROVED | اعتماد Auth المشترك وعزل ملف المعلم المهني | Design | Vision & Scope |
+| DEC-08 | تفكيك واجهة الطلاب عن المعلمين ونماذج الجلسات | R6 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | تفكيك تطبيق المعلمين كـ PWA مستقل مع نموذج جلسات خاص | Runtime | Vision & Scope |
+| DEC-09 | توحيد Backend والتكاملات المشتركة | R7 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | توحيد الخدمات الخلفية والتكامل مع الخدمات العامة | Runtime | Vision & Scope |
+| DEC-10 | استقلال صلاحيات بنك الأسئلة والتكامل | R7 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | عزل نطاق QB وتوفير واجهات تكامل مؤمنة | Runtime | Vision & Scope |
+| DEC-11 | تحزيم التطبيق الأصيل وترقيات الواجهة | P1-1 | MAY_DEFER_TO_P1 | DEFERRED_TO_P1 | تأجيل التحزيم الأصيل PWA-to-Native إلى P1 | P1 | Vision & Scope |
+| DEC-12 | سياسة النماذج التجارية والتسعير والحزم | B1 | BUSINESS_DECISIONS | NEEDS_OWNER_DECISION | تحديد سياسات التسعير والحزم التجارية B2B/B2C | Business | Vision & Scope |
+| DEC-13 | الاعتماد المهني الخارجي واقتصاديات الاعتماد | B4 | BUSINESS_DECISIONS | NEEDS_OWNER_DECISION | تحديد مكافآت المدربين واقتصاديات الاعتماد | Business | Vision & Scope |
+| DEC-14 | الفوترة والضرائب ومزودي الخدمات المالية | B3 | BUSINESS_DECISIONS | NEEDS_OWNER_DECISION | تحديد سياسات الضرائب والفوترة والاحتفاظ المالي | Business | Vision & Scope |
+| DEC-15 | سياسات الاتصال الخارجي وسجل الاستبقاء | B3 | BUSINESS_DECISIONS | NEEDS_OWNER_DECISION | واعتماد سياسة الاحتفاظ بالبيانات والاتصالات | Business | Vision & Scope |
+| DEC-16 | نمذجة المسار التعليمي (programs->cohorts) | S1 | APPROVED_OWNER_DECISIONS | APPROVED | اعتماد الهيكل التعليمي الموحد S1 | Design | Product Requirements |
+| DEC-17 | هيكل البرامج وإصداراتها (program_versions) | S1 | APPROVED_OWNER_DECISIONS | APPROVED | إضافة كيان إصدارات البرامج التدريبية | Design | Product Requirements |
+| DEC-18 | تقسيم المقررات والوحدات (courses & modules) | S1 | APPROVED_OWNER_DECISIONS | APPROVED | توزيع المحتوى على مقررات ووحدات تدريبية | Design | Product Requirements |
+| DEC-19 | تعريف دروس الأكاديمية (lessons) | S1 | APPROVED_OWNER_DECISIONS | APPROVED | نمذجة الدروس التفصيلية للتدريب | Design | Product Requirements |
+| DEC-20 | إدارة الدفعات التدريبية (cohorts) | S1 | APPROVED_OWNER_DECISIONS | APPROVED | حصر التسجيل والتقدم بالدفعات الزمنية | Design | Product Requirements |
+| DEC-21 | حوكمة Capability Grants والمحصر بالنطاق | S2 | APPROVED_OWNER_DECISIONS | APPROVED | تخصيص الصلاحيات بالـ Scopes المعتمدة | Design | Product Requirements |
+| DEC-22 | منع توسيع enum app_role الخاص بالطلاب | S2 | APPROVED_OWNER_DECISIONS | APPROVED | حظر تعديل app_role كلياً | Design | Product Requirements |
+| DEC-23 | حظر Admin blanket bypass الصريح | S3 | APPROVED_OWNER_DECISIONS | APPROVED | حظر صلاحيات التجاوز الإداري المباشر | Design | Product Requirements |
+| DEC-24 | بروتوكول الوصول الإداري الطارئ المسبب | S3 | APPROVED_OWNER_DECISIONS | APPROVED | اشتراط السبب والمدة المؤقتة للوصول الطارئ | Design | Product Requirements |
+| DEC-25 | سجل Audit لإجراءات Admin الطارئة | S3 | APPROVED_OWNER_DECISIONS | APPROVED | التعديل والتسجيل الصارم في emergency_access_audit_logs | Design | Product Requirements |
+| DEC-26 | إدارة المؤسسات التدريبية (organizations) | S4 | APPROVED_OWNER_DECISIONS | APPROVED | اعتماد كيان المؤسسات المدرسية والتعليمية | Design | Product Requirements |
+| DEC-27 | العضويات الزمنية للمؤسسة | S4 | APPROVED_OWNER_DECISIONS | APPROVED | اعتماد organization_memberships كمرجع للعضوية | Design | Product Requirements |
+| DEC-28 | عقود ترخيص المؤسسات | S4 | APPROVED_OWNER_DECISIONS | APPROVED | اعتماد organization_contracts لربط العقود | Design | Product Requirements |
+| DEC-29 | توزيع وإعادة مقاعد التدريب | S4 | APPROVED_OWNER_DECISIONS | APPROVED | إدارة المقاعد عبر contract_seats | Design | Product Requirements |
+| DEC-30 | عزل جداول شهادات المعلمين | S5 | APPROVED_OWNER_DECISIONS | APPROVED | اعتماد academy_certificates للشهادات المهنية | Design | Product Requirements |
+| DEC-31 | تسجيل أحداث الشهادات | S5 | APPROVED_OWNER_DECISIONS | APPROVED | تسجيل إصدار وتحديث الشهادات في academy_certificate_events | Design | Product Requirements |
+| DEC-32 | دفتر التطوير المهني للساعات | S5 | APPROVED_OWNER_DECISIONS | APPROVED | احتساب وتتبع الساعات في professional_hours_ledger | Design | Product Requirements |
+| DEC-33 | تحديد منتجات الأكاديمية | S6 | APPROVED_OWNER_DECISIONS | APPROVED | نمذجة المنتجات وأوامر الشراء في products و orders | Design | Product Requirements |
+| DEC-34 | محرك الاستحقاقات التجارية | S6 | APPROVED_OWNER_DECISIONS | APPROVED | إدارة الاستحقاقات والفواتير في entitlements و invoices | Design | Product Requirements |
+| DEC-35 | عزل اشتراكات المعلمين عن الطلاب | S6 | APPROVED_OWNER_DECISIONS | APPROVED | فصل كامل لبوابة المعلمين عن subscriptions الطلاب | Design | Product Requirements |
+| DEC-36 | الملف المهني للمعلم (teacher_profiles) | S7 | APPROVED_OWNER_DECISIONS | APPROVED | إنشاء teacher_profiles المرتبط بـ auth.users | Design | Product Requirements |
+| DEC-37 | إسناد التخصصات والمواد للمعلم | S7 | APPROVED_OWNER_DECISIONS | APPROVED | إدارة تخصصات المعلم في teacher_subject_assignments | Design | Product Requirements |
+| DEC-38 | حظر SELECT العام على profiles الطلاب | R5 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | فرض سياسات RLS صارمة لحماية PII الطلاب | Runtime | Product Requirements |
+| DEC-39 | هيكلة المسارات العامة والتربوية واللغات | P1-2 | MAY_DEFER_TO_P1 | DEFERRED_TO_P1 | توسيع الكتالوج واللغات في مرحلة P1 | P1 | Training Catalog |
+| DEC-40 | هيكلة المسارات التخصصية لمواد الثانوية | S1 | APPROVED_OWNER_DECISIONS | APPROVED | اعتماد 10 برامج تخصصية لمواد الثانوية | Design | Training Catalog |
+| DEC-41 | ربط الكفايات بمجالات التشخيص الـ 8 | R1 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | تحديد سياسات النجاح والربط بالتشخيص | Runtime | Training Catalog |
+| DEC-42 | إزالة تاكسونومي ta_paths القديمة واستبدالها | S1 | APPROVED_OWNER_DECISIONS | APPROVED | حذف ta_paths نهائياً والاعتماد على S1 | Design | Training Catalog |
+| DEC-43 | تصميم RLS وسياق Capability Grants | S2 | APPROVED_OWNER_DECISIONS | APPROVED | تطبيق سياسات RLS على مستوى جداول Scopes | Design | Architecture & Roles |
+| DEC-44 | آلية الإدارة المؤقتة ومبررات الاستثناء | S3 | APPROVED_OWNER_DECISIONS | APPROVED | تنفيذ بروتوكول الوصول الإداري المؤقت عبر RPC | Design | Architecture & Roles |
+| DEC-45 | النموذج المفهومي للبيانات (24 كيان) | S1 | APPROVED_OWNER_DECISIONS | APPROVED | اعتماد الـ 24 كياناً الموحدة في المعمارية | Design | Architecture & Roles |
+| DEC-46 | مصفوفة الصلاحيات الموحدة | S2 | APPROVED_OWNER_DECISIONS | APPROVED | اعتماد مصفوفة الصلاحيات المؤطرة | Design | Architecture & Roles |
+| DEC-47 | نموذج التهديدات والمخاطر الأمنية | R5 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | توثيق نموذج التهديدات في المرحلة 9 قبل Schema | Runtime | Architecture & Roles |
+| DEC-48 | بروتوكول المزامنة والعمل Offline | R2 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | حسم نزاهة التقييمات وآلية المزامنة Offline | Runtime | Architecture & Roles |
+| DEC-49 | رحلة الانضمام والملف المهني | S7 | APPROVED_OWNER_DECISIONS | APPROVED | تصميم تدفق التسجيل والملف المهني للمعلم | Design | UX Flows |
+| DEC-50 | رحلة التشخيص وإسناد الدفعات | R1 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | تصميم رحلة التشخيص واشتراطات الاجتياز | Runtime | UX Flows |
+| DEC-51 | رحلة التعلم عبر البرامج والدروس | S1 | APPROVED_OWNER_DECISIONS | APPROVED | تصميم واجهات تصفح المقررات والدروس | Design | UX Flows |
+| DEC-52 | رحلة تسليم الأدلة والتقييم وسياسة SLA | R3 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | تصميم رحلة تسليم المهام ومراجعة المدرب | Runtime | UX Flows |
+| DEC-53 | رحلة إصدار الشهادات وسلطة الاعتماد | R4 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | تصميم رحلة الإصدار والتحقق العام بالـ QR | Runtime | UX Flows |
+| DEC-54 | رحلات الإدارة والطلب الطارئ | S3 | APPROVED_OWNER_DECISIONS | APPROVED | تصميم واجهة طلب الوصول الإداري المؤقت | Design | UX Flows |
+| DEC-55 | نماذج الإيرادات المؤسسية وسياسة العقود | B2 | BUSINESS_DECISIONS | NEEDS_OWNER_DECISION | تحديد سياسات عقود المؤسسات B2B | Business | Business Model |
+| DEC-56 | تسعير المقاعد والاشتراكات التجارية | B1 | BUSINESS_DECISIONS | NEEDS_OWNER_DECISION | تحديد تسعير المقاعد والاشتراكات | Business | Business Model |
+| DEC-57 | عدم المساس بمحافظ الطلاب والعزل | S6 | APPROVED_OWNER_DECISIONS | APPROVED | عزل المحافظ والعمليات التجارية كلياً | Design | Business Model |
+| DEC-58 | ترتيب مراحل التنفيذ وهيكلة Backlog | S1 | APPROVED_OWNER_DECISIONS | APPROVED | تنظيم الـ 17 مرحلة وتوزيع المهام | Design | Implementation Backlog |
+| DEC-59 | إزالة التبعية الدائرية بين الكيانات | S1 | APPROVED_OWNER_DECISIONS | APPROVED | توثيق المسار الانتقالي المستقل بين TA-045 و TA-063 | Design | Implementation Backlog |
+| DEC-60 | تقديم نموذج التهديدات على تصميم Schema | R5 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | تنفيذ نموذج التهديدات بالمرحلة 9 قبل Stage 10 | Runtime | Implementation Backlog |
+| DEC-61 | نطاق MVP لـ Offline ونزاهة التخزين | R2 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | تحديد نطاق MVP للعمل غير المتصل | Runtime | Implementation Backlog |
+| DEC-62 | نطاق P1 لـ Offline وحل التعارضات | R2 | MUST_DECIDE_BEFORE_RUNTIME | NEEDS_OWNER_DECISION | تحديد نطاق P1 للأنشطة و Evidence Outbox | Runtime | Implementation Backlog |
+| DEC-63 | نطاق P2 لـ Offline والفيديو المحمي | P1-3 | MAY_DEFER_TO_P1 | DEFERRED_TO_P1 | تأجيل الفيديو المشفر والتحزيم المتقدم لـ P2 | P1 | Implementation Backlog |
+| DEC-64 | حظر العمل التنفيذي في PR #54 | S3 | APPROVED_OWNER_DECISIONS | APPROVED | قصر PR #54 على التوثيق الفني والتصميم المعماري | Design | Implementation Backlog |
+
+---
+
+## 6. ملخص توزيع مهام Implementation Backlog
+
+تم توزيع مهام التنفيذ الـ 110 وفق الهدف الدلالي المعتمد:
+- **MVP (الأساس التشغيلي والإطلاق الأول):** 85 مهمة
+- **P1 (الميزات الموسعة والأوفلاين المتقدم):** 15 مهمة
+- **P2 (الفيديو المشفر والاعتمادات المتقدمة):** 10 مهام
+- **الإجمالي:** 110 مهمة فريدة دون أي تعارض أو دائرية.

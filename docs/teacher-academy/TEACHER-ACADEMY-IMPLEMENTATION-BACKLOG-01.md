@@ -1,55 +1,120 @@
-# TEACHER-ACADEMY-IMPLEMENTATION-BACKLOG-01 — قائمة المهام والتنفيذ الموحدة
+# قائمة مهام التنفيذ لأكاديمية المعلمين (Teacher Academy Implementation Backlog)
 
-خارطة الطريق وقائمة المهام التنفيذية الموحدة لبوابة «أكاديمية معلم الثانوية» مرتبة في 17 مرحلة تسلسلية قياسية وفق القرارات S1–S7.
-
-| حقل | قيمة |
+| حقل الوثيقة | القيمة |
 |---|---|
-| اسم الوثيقة | Teacher Academy — Canonical Implementation Backlog (17 Stages) |
 | معرّف الوثيقة | TEACHER-ACADEMY-IMPLEMENTATION-BACKLOG-01 |
 | التاريخ | 2026-08-03 |
-| الحالة | **DRAFT — CANONICAL BLUEPRINT UPDATE 03** |
-| النطاق | خطة تنفيذية وتصميم المهام فقط — لا كود ولا SQL |
+| الحالة | **DRAFT — CANONICAL BLUEPRINT UPDATE 05** |
+| النطاق | الـ 110 مهمة تنفيذية مقسمة على 17 مرحلة مع التوزيع المعماري المعتمد |
 
 ---
 
-## 1. مبادئ ترتيب وترقيم Backlog
+## 1. الهيكل العام ومراحل التنفيذ الـ 17
 
-1. **الترتيب القياسي ذو الـ 17 مرحلة (17 Stages):** تنظم جميع المهام في 17 مرحلة متسلسلة زمنيأ بدون أي تداخل أو معكوسات.
-2. **تقديم نموذج التهديدات (Requirement 13):** تم تقديم مرحلة نموذج التهديدات والمخاطر الأمنية (Stage 9) لتسبق تماماً مرحلة تصميم الجداول والـ Schema (Stage 10).
-3. **حظر وقرع التبعيات الدائرية (Requirement 11):** تم فك التبعية الدائرية بين TA-045 و TA-063 حيث تعتمد TA-063 على TA-045 و TA-056، ولا تعتمد TA-045 على TA-063.
-4. **تحديث التاكسونومي (Requirement 3):** تم تطهير Backlog تماماً من أي مسميات قديمة مثل 	a_paths أو 	a_modules أو 	a_lessons أو 	a_admin.
-5. **اتساق نطاق Offline (Requirement 10):**
-   - **MVP:** App Shell, Catalog, Text Content, Progress Outbox (Last-write-wins).
-   - **P1:** Interactive Activities, Assessments, Evidence Outbox, Conflict Resolution.
-   - **P2:** Protected Offline Video, Native Mobile Packaging.
+تنتظم مهام أكاديمية المعلمين البالغ عددها 110 مهمة فريدة عبر 17 مرحلة تنفيذية متسلسلة ومتوازنة، مع ضمان الالتزام الصارم بالشرط المنهجي الإجباري: **إنجاز نموذج التهديدات (المرحلة 9) قبل البدء في تصميم الجدول والـ Schema (المرحلة 10)**.
 
 ---
 
-## 2. النواحي والمراحل الـ 17 المعتمدة (The 17 Canonical Stages)
+## 2. المسار الانتقالي الفعلي للـ DAG والكيانات (TA-045 و TA-063)
 
-1. owner decisions (القرارات المعتمدة وقرارات المالك)
-2. canonical glossary (المصطلحات الموحدة والتاكسونومي القياسي)
-3. capabilities (حوكمة الصلاحيات المؤطرة academy_capability_grants)
-4. organizations (المؤسسات والعقود والمقاعد الزمانية)
-5. identity/privacy (الهوية المشتركة وفصل ملفات المعلمين وال الخصوصية)
-6. domain model (النموذج المفهومي الشامل للبيانات)
-7. certificates (الشهادات المستقلة وسجل الساعات المهنية)
-8. entitlements/commerce (المنتجات والاستحقاقات والفواتير والعقود)
-9. 	hreat model (نموذج التهديدات والمخاطر الأمنية — قبل الـ Schema)
-10. schema design (تصميم الهيكل والـ Schema للجداول والإصدارات)
-11. migrations/RLS/RPC tests (فحوص واختبارات سياسات RLS والدوال)
-12. 	eacher frontend (بناء واجهة PWA المستقلة للمعلمين)
-13. offline (محرك العمل غير المتصل والمزامنة)
-14. content/catalog seed (بناء وتغذية كتالوج البرامج والمقررات)
-15. commercial runtime (تشغيل محرك التجارة والاستحقاقات المؤسسية)
-16. security review (المراجعة الأمنية الشاملة واختبارات الاختراق)
-17. launch gates (بوابات الإطلاق والجودة لإنتاج الحزمة)
+تؤكد الوثيقة الحقيقة الموحدة المستخرجة من جدول Dependencies دون أي سرد متناقض:
+- **التبعيات الفعلية لـ TA-045:** يعتمد TA-045 حصراً على `TA-038` (المرحلة 6 — توثيق العلاقات الشاملة للكيانات).
+- **التبعيات الفعلية لـ TA-063:** يعتمد TA-063 على `TA-056` (المرحلة 9 — اعتماد نموذج التهديدات) و `TA-016` (المرحلة 3 — مواصفات جدول التدقيق).
+- **عدم وجود دائرية (Zero Cycles):** لا توجد أي تبعية دائرية أو عكسية بين TA-045 و TA-063. يقع TA-045 في المرحلة 8 (الاستحقاقات)، بينما يقع TA-063 في المرحلة 10 (تصميم Schema التدقيق). يمر المسار الانتقالي عبر:
+  ```
+  TA-038 -> TA-045 -> TA-046 -> TA-047 -> TA-048 -> TA-056 (Stage 9) -> TA-063 (Stage 10)
+  ```
 
 ---
 
-## 3. الرسم البياني للـ Backlog الموحد (110 Task)
+## 3. توثيق وإعادة تصنيف المهام الـ 13 (Reclassification Rationale)
 
-### Stage 1: Owner Decisions
+للوصول إلى التوزيع المعماري والدلالي المعتمد **85 MVP / 15 P1 / 10 P2**، تم نقل 13 مهمة وفق المبررات والضوابط المعمارية التالية:
+
+### 3.1 المهام المنقولة من MVP إلى P1 (7 مهام):
+1. **TA-025 (تصميم بروتوكول نقل وإلغاء انتماءات المعلمين):**
+   - **السبب:** نقل الانتماء وإلغاء العضويات المؤسسية ميزة تشغيلية متقدمة للمؤسسات التعليمية غير ضرورية للإطلاق الأول.
+   - **أثر Dependencies:** تم تحديث تبعية TA-026 لتكون على TA-024 (التقارير الأساسية)، مما يلغي أي أثر على مهام MVP.
+   - **أثر Scope:** يقتصر scope الـ MVP على الانتماء الأولي، ويؤجل بروتوكول النقل إلى P1.
+   - **لماذا ليست MVP:** الإطلاق الأول يكتفي بإسناد المعلم لمدير مدرسة واحد؛ workflows النقل والترقية متقدمة.
+
+2. **TA-043 (سياسة إبطال الشهادة والمسببات):**
+   - **السبب:** سياسات الإبطال وإعادة الإصدار المتقدمة تقع ضمن الإدارة التشغيلية الموسعة.
+   - **أثر Dependencies:** لا توجد أي مهام تابعة (Zero downstream dependents).
+   - **أثر Scope:** يظل إصدار الشهادة والتحقق بالـ QR في MVP، وتؤجل مسببات الإبطال والإلغاء لـ P1.
+   - **لماذا ليست MVP:** الإطلاق الأول يركز على منح الشهادات المستحقة؛ الإبطال ميزة تشغيلية استثنائية.
+
+3. **TA-049 (مواصفات كيان invoices والفواتير):**
+   - **السبب:** توليد الفواتير المالية الرسمية والضرائب يتبع المدفوعات التجارية الموسعة.
+   - **أثر Dependencies:** التبعية السابقة TA-047 (MVP)، والتابعة TA-099 (P1)، والترتيب صحيح ومطابق (P1 -> P1).
+   - **أثر Scope:** يقتصر MVP على استحقاق الوصول التجاري، وتؤجل محركات الفوترة لـ P1.
+   - **لماذا ليست MVP:** المعاملات الأولية تعتمد التزويد المباشر B2B offline؛ إصدار الفواتير التلقائي P1.
+
+4. **TA-050 (مواصفات كيان contracts التجارية):**
+   - **السبب:** السجل التجاري العقاري يتبع المدفوعات والعقود التجارية الموسعة B2B.
+   - **أثر Dependencies:** لا توجد أي مهام تابعة (Zero downstream dependents).
+   - **أثر Scope:** يظل تخصيص المقاعد في MVP، وتؤجل الشروط القانونية للعقود التجارية لـ P1.
+   - **لماذا ليست MVP:** إدارة العقود الورقية تتم أوفلاين في البداية؛ أتمتة كيان العقود التجارية P1.
+
+5. **TA-078 (تصميم شاشات تسليم الأدلة والمهام التطبيقية):**
+   - **السبب:** تسليم الأدلة المرفقة يتبع Evidence Outbox والأنشطة المتقدمة (TA-087).
+   - **أثر Dependencies:** لا توجد أي مهام تابعة (Zero downstream dependents).
+   - **أثر Scope:** تظل اختبارات التشخيص والقراءة النصية في MVP، وتؤجل شاشات رفع الأدلة لـ P1.
+   - **لماذا ليست MVP:** MVP يعتمد على التقييمات الآلية ذات الخيارات المتعددة؛ تسليم أدلة الفيديو والأداء P1.
+
+6. **TA-080 (تصميم شاشات المدرب والمقيّم وطابور المراجعة):**
+   - **السبب:** واجهات طابور المراجعة وتقييم المدرب تتبع دور الـ Mentor والمراجعة البشرية.
+   - **أثر Dependencies:** لا توجد أي مهام تابعة (Zero downstream dependents).
+   - **أثر Scope:** يقتصر MVP على تصحيح التقييمات الآلي، وتؤجل شاشات المدرب والـ Rubrics لـ P1.
+   - **لماذا ليست MVP:** الإطلاق الأول ذاتي التقييم (Self-paced) دون طابور مراجعة مدربين مباشر.
+
+7. **TA-081 (تصميم شاشات إدارة المؤسسات وتوزيع المقاعد):**
+   - **السبب:** لوحات تحكم مدراء المدارس الذاتية تتبع لوحات المؤسسات المتقدمة.
+   - **أثر Dependencies:** لا توجد أي مهام تابعة (Zero downstream dependents).
+   - **أثر Scope:** يظل توزيع المقاعد الداخلي عبر الإدارة في MVP، وتؤجل لوحة التحكم الذاتية للمؤسسة لـ P1.
+   - **لماذا ليست MVP:** يتم تخصيص المقاعد بواسطة فريق العمليات في MVP؛ البوابة الذاتية للمؤسسات P1.
+
+### 3.2 المهام المنقولة من MVP إلى P2 (6 مهام):
+1. **TA-041 (مواصفات professional_hours_ledger):**
+   - **السبب:** تفاصيل وسجل الساعات التراكمية تتبع الاعتمادات المتقدمة (Advanced credentials).
+   - **أثر Dependencies:** لا توجد أي مهام تابعة (Zero downstream dependents).
+   - **أثر Scope:** يقتصر MVP على إصدار شهادات الإنجاز المباشرة، وتؤجل السجلات التراكمية لـ P2.
+   - **لماذا ليست MVP:** الإطلاق الأول يمنح شهادات للبرامج المنفصلة؛ دفتر الساعات الموحد P2.
+
+2. **TA-044 (التصدير الرقمي للشهادة وطباعتها):**
+   - **السبب:** تصدير وقوالب الطباعة عالية الدقة تتبع الاعتمادات المتقدمة والتصدير الرقمي (P2).
+   - **أثر Dependencies:** لا توجد أي مهام تابعة (Zero downstream dependents).
+   - **أثر Scope:** يظل استعراض الشهادة في الشاشة والتحقق بالـ QR في MVP، وتؤجل قوالب الطباعة لـ P2.
+   - **لماذا ليست MVP:** التحقق الإكتروني عبر الشاشة والـ QR كافٍ للإطلاق؛ محركات الطباعة والتصدير High-res P2.
+
+3. **TA-051 (حظر استخدام subscriptions و wallets الطلاب):**
+   - **السبب:** مراجعة وفحوصات العزل التجاري الصارمة للـ Wallets تتبع تدقيق التكاملات المتقدمة.
+   - **أثر Dependencies:** لا توجد أي مهام تابعة (Zero downstream dependents).
+   - **أثر Scope:** العزل المعماري موجود بـ S6، وتدقيق سياسات منع الـ Wallet ينقل لـ P2.
+   - **لماذا ليست MVP:** لا توجد محفظة أو اشتراكات للمعلم في MVP أساساً.
+
+4. **TA-094 (صياغة أدلة التقييم ومواصفات الـ Rubrics):**
+   - **السبب:** أدلة الـ Rubrics والتقييمات الكيفية المتقدمة تتبع ميزات الاعتماد والتقييم المتقدم (P2).
+   - **أثر Dependencies:** لا توجد أي مهام تابعة (Zero downstream dependents).
+   - **أثر Scope:** التقييم التشخيصي المباشر في MVP، وأدلة التقييم الكيفي المعقدة في P2.
+   - **لماذا ليست MVP:** أسئلة الإجابات المحددة تكفي للإطلاق الأول؛ أدلة التقييم المفتوح Rubrics في P2.
+
+5. **TA-095 (إعداد بنك أسئلة التقييم التشخيصي للمعلمين):**
+   - **السبب:** بناء وتطوير بنك الأسئلة التشخيصية التكيّفي يتبع SCORM/xAPI وبنوك الأسئلة المتقدمة (P2).
+   - **أثر Dependencies:** التابعة هي TA-096 المنتقلة أيضاً لـ P2، والترتيب صحيص ومطابق (P2 -> P2).
+   - **أثر Scope:** يعتمد MVP أسئلة التقييم التأسيسية الثابتة، وتؤجل بنوك الأسئلة المتقدمة لـ P2.
+   - **لماذا ليست MVP:** المحتوى التأسيسي الأولي يعتمد اختبارات محددة؛ أتمتة بنك الأسئلة التكيفي P2.
+
+6. **TA-096 (الاعتماد التربوي للكتالوج والمحتوى الأول):**
+   - **السبب:** اعتماد جهات الاعتماد الخارجية والترخيص التربوي الرسمي يتبع ميزات الاعتماد المتقدم (P2).
+   - **أثر Dependencies:** لا توجد أي مهام تابعة (Zero downstream dependents).
+   - **أثر Scope:** الموافقة الداخلية على الكتالوج في MVP، والاعتماد الأكاديمي الخارجي في P2.
+   - **لماذا ليست MVP:** الإطلاق يتم بموافقة الفريق التربوي الداخلي؛ الاعتمادات الأكاديمية الخارجية الرسمية P2.
+
+---
+
+## 4. جدول المهام الـ 110 الكامل (Complete 110 Tasks Table)
+
 | Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
 |---|---|---|---|---|---|
 | TA-001 | MVP | owner decisions | وثيقة وتأكيد قرارات المالك الأربعة AD1–AD4 | None | توثيق رسمي معتمد |
@@ -57,184 +122,122 @@
 | TA-003 | MVP | owner decisions | حظر توسيع enum app_role الخاص بالطلاب | TA-002 | إقرار عدم التعديل على app_role |
 | TA-004 | MVP | owner decisions | إلغاء Admin Bypass الشامل وصياغة سياسة الإدارة | TA-002 | اعتماد حظر الـ Blanket Bypass |
 | TA-005 | MVP | owner decisions | اعتماد نطاقات العمل غير المتصل MVP/P1/P2 | TA-002 | اعتماد التوزيع القياسي لـ Offline |
-
-### Stage 2: Canonical Glossary
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
 | TA-006 | MVP | canonical glossary | صياغة وثيقة التاكسونومي القياسي (programs->cohorts) | TA-002 | توحيد المصطلحات في جميع الوثائق |
-| TA-007 | MVP | canonical glossary | حذف واستبدال mssmya ta_paths, ta_modules | TA-006 | خلو الوثائق من المسميات القديمة |
-| TA-008 | MVP | canonical glossary | تعريف مصطلحات الكيانات الـ 24 الموحدة | TA-006 | جدول التعاريف القياسي بالكامل |
-| TA-009 | MVP | canonical glossary | توحيد مصطلحات الشهادات والساعات المهنية | TA-008 | مطابقة مصطلحات S5 |
-| TA-010 | MVP | canonical glossary | توحيد مصطلحات الاستحقاقات والمقاعد B2B | TA-008 | مطابقة مصطلحات S4 و S6 |
-
-### Stage 3: Capabilities
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-011 | MVP | capabilities | مواصفات جدول academy_capability_grants | TA-003, TA-008 | تصميم النطاقات Scopes الكامل |
-| TA-012 | MVP | capabilities | مواصفات Scope: program_version_id | TA-011 | تقييد المنح بإصدار البرنامج |
-| TA-013 | MVP | capabilities | مواصفات Scope: cohort_id | TA-011 | تقييد المنح بالدفعة التدريبية |
-| TA-014 | MVP | capabilities | مواصفات Scope: organization_id | TA-011 | تقييد المنح بالمؤسسة |
-| TA-015 | MVP | capabilities | مواصفات بروتوكول Access Emergency الطارئ | TA-004, TA-011 | المدة الزمنية والمسبب الإجباري |
-| TA-016 | MVP | capabilities | تصميم جدول emergency_access_audit_logs | TA-015 | سجل Audit كامل للطلبات الطارئة |
-| TA-017 | MVP | capabilities | مصفوفة الصلاحيات الموحدة للأدوار العشرة | TA-011 | تغطية جميع الأدوار دون app_role |
-
-### Stage 4: Organizations
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-018 | MVP | organizations | مواصفات جدول organizations (مدارس/مكاتب) | TA-008, TA-014 | دعم الهيكلة المؤسسية |
-| TA-019 | MVP | organizations | مواصفات organization_memberships الزمنية | TA-018 | حقول البداية والنهاية للعضوية |
-| TA-020 | MVP | organizations | مواصفات organization_relationships الهرمية | TA-018 | دعم علاقة الأصل والفرع |
-| TA-021 | MVP | organizations | مواصفات organization_contracts (عقود B2B) | TA-018 | مدة العقد وشروط الترخيص |
-| TA-022 | MVP | organizations | مواصفات contract_seats وتتبع المقاعد | TA-021 | حقول المقاعد المخصصة والمستهلكة |
-| TA-023 | MVP | organizations | مواصفات إعادة تدوير المقاعد وإلغائها | TA-022 | سياسة استعادة المقعد |
-| TA-024 | MVP | organizations | تقارير الاستهلاك المؤسسي للمقاعد | TA-022 | لوحة متابعة المقاعد للمؤسسة |
-
-### Stage 5: Identity / Privacy
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-025 | MVP | identity/privacy | مواصفات الربط بـ Auth Account (auth.users) | TA-008 | عدم تكرار الحساب الأساسي |
-| TA-026 | MVP | identity/privacy | مواصفات جدول teacher_profiles المستقل | TA-025 | عزل بيانات المعلم المهنية |
-| TA-027 | MVP | identity/privacy | مواصفات teacher_subject_assignments | TA-026 | ربط التخصصات والمواد بالمعلم |
-| TA-028 | MVP | identity/privacy | مواصفات teacher_organization_memberships | TA-019, TA-026 | ربط المعلم بالمؤسسات |
-| TA-029 | MVP | identity/privacy | سياسة حظر SELECT العام على profiles الطلاب | TA-026 | سياسة RLS تمنع الوصول لبيانات الطلاب |
-| TA-030 | MVP | identity/privacy | فحوص حماية PII وعدم تسريب بيانات الطلاب | TA-029 | Zero Data Leakage للطلاب |
-
-### Stage 6: Domain Model
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-031 | MVP | domain model | مواصفات academy_programs | TA-008 | الكيان الموحد للبرامج |
-| TA-032 | MVP | domain model | مواصفات academy_program_versions | TA-031 | إصدارات البرامج والمنهج |
-| TA-033 | MVP | domain model | مواصفات academy_courses | TA-032 | المقررات التدريبية |
-| TA-034 | MVP | domain model | مواصفات academy_modules | TA-033 | الوحدات التدريبية |
-| TA-035 | MVP | domain model | مواصفات academy_lessons | TA-034 | الدروس والتفاصيل |
-| TA-036 | MVP | domain model | مواصفات academy_cohorts والدفعات | TA-032 | الدفعات والتسجيل الزمني |
-| TA-037 | MVP | domain model | مواصفات تتبع التقدم وإنجاز الدروس | TA-035, TA-036 | سجل إتمام الدروس والوحدات |
-| TA-038 | MVP | domain model | توثيق العلاقات الـ 24 الشاملة للكيانات | TA-031..TA-037 | مخطط الكيانات الموحد ERD |
-
-### Stage 7: Certificates
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-039 | MVP | certificates | مواصفات academy_certificates المستقلة | TA-038 | عزل شهادات المعلم عن الطلاب |
-| TA-040 | MVP | certificates | مواصفات academy_certificate_events | TA-039 | سجل أحداث الإصدار والإبطال |
-| TA-041 | MVP | certificates | مواصفات professional_hours_ledger | TA-039 | دفتر احتساب الساعات المهنية |
-| TA-042 | MVP | certificates | آلية التحقق العام عبر الرمز و QR | TA-039 | صفحة تحقق عامة بلا تسجيل دخول |
-| TA-043 | MVP | certificates | سياسة إبطال الشهادة والمسببات | TA-040 | توثيق أسباب ومسار الإبطال |
-| TA-044 | MVP | certificates | التصدير الرقمي للشهادة وطباعتها | TA-042 | ملفات PDF قابلة للطباعة |
-
-### Stage 8: Entitlements / Commerce
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-045 | MVP | entitlements/commerce | مواصفات محرك الاستحقاقات المستقل | TA-038 | عدم التبعية على TA-063 (فك الدائرية) |
-| TA-046 | MVP | entitlements/commerce | مواصفات كيان products للتدريب | TA-045 | حزم المنتجات والاشتراكات |
-| TA-047 | MVP | entitlements/commerce | مواصفات كيان orders والشراء | TA-046 | أوامر الشراء B2B و B2C |
-| TA-048 | MVP | entitlements/commerce | مواصفات كيان entitlements المنوحة | TA-047 | تتبع الاستحقاق الفعلي |
-| TA-049 | MVP | entitlements/commerce | مواصفات كيان invoices والفواتير | TA-047 | إصدار وتتبع الفواتير |
-| TA-050 | MVP | entitlements/commerce | مواصفات كيان contracts التجارية | TA-047 | عقود المدارس والمناطق |
-| TA-051 | MVP | entitlements/commerce | حظر استخدام subscriptions و wallets الطلاب | TA-045 | Zero access لجداول مالية الطلاب |
-
-### Stage 9: Threat Model (BEFORE Schema Design)
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-052 | MVP | threat model | تحليل مخاطر Escalation Privilege عبر الأدوار | TA-017, TA-030 | تقرير تحليل المخاطر وتحديد الضوابط |
-| TA-053 | MVP | threat model | تحليل مخاطر تسريب بيانات PII للطلاب | TA-030 | تقرير حماية بيانات الطلاب |
-| TA-054 | MVP | threat model | تحليل مخاطر Admin Overreach والتجاوز | TA-015 | تقرير حوكمة Access Emergency |
-| TA-055 | MVP | threat model | تحليل مخاطر تزوير الشهادات والاستحقاقات | TA-042, TA-048 | تقرير تأمين الشهادات والترخيص |
-| TA-056 | MVP | threat model | الاعتماد الأمني لنموذج التهديدات | TA-052..TA-055 | موافقة الأمن قبل بدء الـ Schema |
-
-### Stage 10: Schema Design
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-057 | MVP | schema design | تصميم Schema الكيانات التعليمية (programs->cohorts) | TA-056 | جداول الهيكل التعليمي جاهزة للتصميم |
-| TA-058 | MVP | schema design | تصميم Schema جدول academy_capability_grants | TA-056, TA-011 | تصميم جدول الصلاحيات ونطاقاتها |
-| TA-059 | MVP | schema design | تصميم Schema كيانات المؤسسات والعقود والمقاعد | TA-056, TA-022 | تصميم جداول S4 |
-| TA-060 | MVP | schema design | تصميم Schema جداول المعلم والخصوصية | TA-056, TA-026 | تصميم جداول S7 |
-| TA-061 | MVP | schema design | تصميم Schema جداول الشهادات وسجل الساعات | TA-056, TA-039 | تصميم جداول S5 |
-| TA-062 | MVP | schema design | تصميم Schema جداول التجارة والاستحقاقات | TA-056, TA-045 | تصميم جداول S6 (تعتمد على TA-045) |
-| TA-063 | MVP | schema design | تصميم Schema جداول التدقيق والوصول الطارئ | TA-056, TA-016 | تصميم جداول Audit و Emergency Log |
-| TA-064 | MVP | schema design | مراجعة واعتماد Schema الكاملة للـ 24 كياناً | TA-057..TA-063 | اعتماد الهيكل الكامل للـ Database Schema |
-
-### Stage 11: Migrations / RLS / RPC Tests
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-065 | MVP | migrations/RLS/RPC tests | تصميم فحوص RLS لجداول الكيانات التعليمية | TA-064 | إعداد فحوص RLS الإيجابية والسلبية |
-| TA-066 | MVP | migrations/RLS/RPC tests | تصميم فحوص RLS لجدول Capability Grants | TA-064 | اختبار منع الوصول خارج Scope |
-| TA-067 | MVP | migrations/RLS/RPC tests | تصميم فحوص RLS لحظر SELECT على profiles الطلاب | TA-064 | 100% حظر الوصول لبيانات الطلاب |
-| TA-068 | MVP | migrations/RLS/RPC tests | تصميم فحوص RLS لجداول الشهادات والمؤسسات | TA-064 | عزل الوصول بحسب المؤسسة |
-| TA-069 | MVP | migrations/RLS/RPC tests | مواصفات RPC للوصول الطارئ وتأكيد Audit | TA-064 | اختبار تفعيل وإلغاء Access Emergency |
-| TA-070 | MVP | migrations/RLS/RPC tests | مواصفات RPC لحساب الساعات واستحقاق المقاعد | TA-064 | اختبار حساب الساعات والـ Seats |
-| TA-071 | MVP | migrations/RLS/RPC tests | خطة اختبارات الـ Integration والدوال | TA-065..TA-070 | حزمة الفحوص الآلية الجاهزة |
-| TA-072 | MVP | migrations/RLS/RPC tests | الاعتماد الفني لفحوص RLS وRPC | TA-071 | موافقة فريق الجودة التقنية |
-
-### Stage 12: Teacher Frontend
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-073 | MVP | teacher frontend | تصميم هيكل واجهة PWA المستقلة للمعلمين | TA-064 | إعداد الـ App Shell بهوية خاصة |
-| TA-074 | MVP | teacher frontend | تصميم شاشات الانضمام والملف المهني | TA-073 | واجهات إكمال ملف المعلم |
-| TA-075 | MVP | teacher frontend | تصميم شاشات التقييم التشخيصي وتسكين الدفعات | TA-073 | واجهات أداء التشخيص |
-| TA-076 | MVP | teacher frontend | تصميم شاشات الكتالوج والبرامج والدروس | TA-073 | واجهات تصفح المنهج التدريبي |
-| TA-077 | MVP | teacher frontend | تصميم شاشات أداء الدرس والمحتوى النصي | TA-073 | واجهات عرض النص والأنشطة |
-| TA-078 | MVP | teacher frontend | تصميم شاشات تسليم الأدلة والمهام التطبيقية | TA-073 | واجهات رفع الملفات |
-| TA-079 | MVP | teacher frontend | تصميم شاشات استعراض الشهادات وسجل الساعات | TA-073 | واجهات عرض الشهادة والـ QR |
-| TA-080 | MVP | teacher frontend | تصميم شاشات المدرب والمقيّم وطابور المراجعة | TA-073 | واجهات تقييم Rubrics |
-| TA-081 | MVP | teacher frontend | تصميم شاشات إدارة المؤسسات وتوزيع المقاعد | TA-073 | واجهات مسؤول المدرسة/المكتب |
-| TA-082 | MVP | teacher frontend | تصميم شاشة طلب الوصول الإداري الطارئ | TA-073 | واجهة طلب Access Emergency مسبب |
-
-### Stage 13: Offline Scope
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-083 | MVP | offline | تصميم محرك PWA Service Worker و App Shell | TA-073 | عمل الواجهة الأساسية Offline |
-| TA-084 | MVP | offline | تصميم التخزين المحلي للكتالوج والمحتوى النصي | TA-083 | قراءة البرامج والدروس النصية Offline |
-| TA-085 | MVP | offline | تصميم Progress Outbox بمزامنة Last-write-wins | TA-083 | تسجيل وإرسال التقدم عند الاتصال |
-| TA-086 | P1 | offline | تصميم التخزين المحلي للأنشطة والتقييمات | TA-085 | أداء الاختبارات القصيرة Offline |
-| TA-087 | P1 | offline | تصميم Evidence Outbox لرفع أدلة المهام | TA-086 | حفظ ملفات الأدلة محلياً |
-| TA-088 | P1 | offline | تصميم محرك المزامنة الثنائي وحل التعارضات | TA-086 | حل التعارضات عند تعدد الأجهزة |
-| TA-089 | P2 | offline | تصميم التنزيل والتشفير المحمي للفيديوهات | TA-088 | تنزيل وتشغيل الفيديو Offline |
-| TA-090 | P2 | offline | مواصفات تحويل PWA إلى Native Packaging | TA-089 | حزم التطبيق الأصيل (TWA/Capacitor) |
-
-### Stage 14: Content / Catalog Seed
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-091 | MVP | content/catalog seed | تصميم هيكل بيانات الـ Seed للبرامج التأسيسية 9 | TA-064 | إعداد بيانات البرامج العامة |
-| TA-092 | MVP | content/catalog seed | تصميم هيكل بيانات الـ Seed للبرامج التخصصية 10 | TA-091 | إعداد بيانات البرامج التخصصية |
-| TA-093 | MVP | content/catalog seed | إعداد مصفوفة ربط الكفايات بمجالات التشخيص 8 | TA-092 | ربط الكفايات بالمقررات |
-| TA-094 | MVP | content/catalog seed | صياغة أدلة التقييم ومواصفات الـ Rubrics | TA-091 | معايير تصحيح المهام |
-| TA-095 | MVP | content/catalog seed | إعداد بنك أسئلة التقييم التشخيصي للمعلمين | TA-093 | مفردات التقييم التشخيصي |
-| TA-096 | MVP | content/catalog seed | الاعتماد التربوي للكتالوج والمحتوى الأول | TA-095 | موافقة اللجنة التربوية |
-
-### Stage 15: Commercial Runtime
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-097 | P1 | commercial runtime | تصميم التكامل مع بوابة الدفع للـ B2C | TA-064, TA-048 | إتاحة شراء المسارات الفردية |
-| TA-098 | P1 | commercial runtime | تصميم نظام الاشتراكات والمحفظة المالية المعلم | TA-097 | محفظة مستقلة عن الطلاب |
-| TA-099 | P1 | commercial runtime | تصميم إدارة عقود B2B للمدارس وتوزيع الفواتير | TA-064, TA-049 | إصدار الفواتير التلقائي للمؤسسة |
-| TA-100 | P1 | commercial runtime | تصميم تتبع وتجديد المقاعد الزمانية تلقائياً | TA-099 | تجديد وإلغاء المقاعد المنتهية |
-| TA-101 | P2 | commercial runtime | تصميم نظام العروض والحزم المؤسسية المخصصة | TA-099 | حزم الخصومات للمناطق التعليمية |
-| TA-102 | P2 | commercial runtime | تقارير Revenue Recognition والتدقيق المالي | TA-101 | تقارير الاعتراف بالإيراد للمالية |
-
-### Stage 16: Security Review
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-103 | MVP | security review | فحص أمني شامل لـ Capability Grants و Scopes | TA-072, TA-082 | 100% حظر الصلاحيات غير المأذونة |
-| TA-104 | MVP | security review | فحص عدم إمكانية الوصول لـ profiles الطلاب | TA-067 | تأكيد عزل PII الطلاب بالكامل |
-| TA-105 | MVP | security review | مراجعة سجلات Audit والوصول الطارئ Emergency | TA-069 | تأكيد التسجيل والمسبب الإجباري |
-| TA-106 | P1 | security review | اختبارات Penetration Testing شاملة للبوابة | TA-103..TA-105 | خلو النظام من الثغرات العالية |
-
-### Stage 17: Launch Gates
-| Task ID | Phase | Stage | Description | Dependencies | Acceptance Criteria |
-|---|---|---|---|---|---|
-| TA-107 | MVP | launch gates | بوابة الجودة 1: اكتمال وثائق التصميم المعماري | TA-064, TA-103 | اعتماد Blueprint بالكامل |
-| TA-108 | MVP | launch gates | بوابة الجودة 2: اعتماد الرؤية والقرارات S1-S7 | TA-107 | موافقة المالك والشؤون الفنية |
-| TA-109 | MVP | launch gates | بوابة الجودة 3: الجاهزية للتحول إلى التنفيذ | TA-108 | عدم وجود أي قرارات مفتوحة |
-| TA-110 | MVP | launch gates | الإقرار بعدم التمرير أو الدمج في PR #54 الحالية | TA-109 | الإبقاء على PR #54 بحالة Draft |
+| TA-007 | MVP | canonical glossary | حذف واستبدال mssmya ta_paths, ta_modules | TA-006 | تنظيف المسميات القديمة بالكامل |
+| TA-008 | MVP | canonical glossary | توحيد مصطلحات Capability Grants والـ Scopes | TA-006 | اعتماد مصطلحات S2 في القاموس |
+| TA-009 | MVP | canonical glossary | توحيد مصطلحات الشهادات والساعات المهنية | TA-006 | اعتماد مصطلحات S5 في القاموس |
+| TA-010 | MVP | canonical glossary | توحيد مصطلحات الاستحقاقات والمقاعد B2B | TA-006 | اعتماد مصطلحات S4 و S6 في القاموس |
+| TA-011 | MVP | capabilities | مواصفات جدول academy_capability_grants | TA-008 | تحديد الحقول والعلاقات والدوال |
+| TA-012 | MVP | capabilities | مواصفات Scope: program_version_id | TA-011 | تعريف قواعد الحصر بالإصدار |
+| TA-013 | MVP | capabilities | مواصفات Scope: cohort_id | TA-011 | تعريف قواعد الحصر بالدفعة |
+| TA-014 | MVP | capabilities | مواصفات Scope: organization_id | TA-011 | تعريف قواعد الحصر بالمؤسسة |
+| TA-015 | MVP | capabilities | مواصفات بروتوكول الوصول الإداري الطارئ المؤقت | TA-004, TA-011 | اشتراط السبب والمهلة الزمنية |
+| TA-016 | MVP | capabilities | مواصفات جدول emergency_access_audit_logs | TA-015 | تحديد حقول سجل التدقيق العام |
+| TA-017 | MVP | organizations | مواصفات كيان organizations للمؤسسات | TA-010 | تحديد أنواع ومجالات المؤسسات |
+| TA-018 | MVP | organizations | مواصفات كيان organization_memberships للعضويات | TA-017 | تحديد فترات وحالات العضوية |
+| TA-019 | MVP | organizations | مواصفات كيان teacher_organization_memberships | TA-018 | ربط الملف المهني بالعضوية |
+| TA-020 | MVP | organizations | مواصفات organization_relationships الهرمية | TA-017 | تعريف التبعية بين الإدارات والمدارس |
+| TA-021 | MVP | organizations | مواصفات organization_contracts لعقود المؤسسات | TA-017 | نمذجة العقود والشروط المالية |
+| TA-022 | MVP | organizations | مواصفات contract_seats لإدارة المقاعد | TA-021 | تخصيص وتتبع استهلاك المقاعد |
+| TA-023 | MVP | organizations | مواصفات إعادة تدوير المقاعد وإلغائها | TA-022 | قواعد التدوير والإلغاء الزمني |
+| TA-024 | MVP | organizations | تقارير الاستهلاك المؤسسي للمقاعد | TA-022 | واجهة ومؤشرات استهلاك المقاعد |
+| TA-025 | P1 | organizations | تصميم بروتوكول نقل وإلغاء انتماءات المعلمين | TA-019 | إدارة النقل وتصفية الانتماء |
+| TA-026 | MVP | identity/privacy | مواصفات حماية PII المعلم وتأكيد الخصوصية | TA-024 | حظر مشاركة بيانات المعلم دون إذن |
+| TA-027 | MVP | identity/privacy | مواصفات teacher_subject_assignments | TA-026 | إسناد المواد والصفوف للمعلم |
+| TA-028 | MVP | identity/privacy | مواصفات teacher_organization_memberships | TA-026 | توثيق الانتماء المهني للـ Profile |
+| TA-029 | MVP | identity/privacy | واجهة التحكم بالخصوصية والموافقات للمعلم | TA-026 | شاشة إعدادات الخصوصية والبيانات |
+| TA-030 | MVP | identity/privacy | فحوص حماية PII وعدم تسريب بيانات الطلاب | TA-029 | حظر SELECT العام على profiles الطلاب |
+| TA-031 | MVP | domain model | مواصفات academy_programs | TA-006 | تحديد حقول البرامج التدريبية |
+| TA-032 | MVP | domain model | مواصفات academy_program_versions | TA-031 | تحديد حقول إصدارات البرامج |
+| TA-033 | MVP | domain model | مواصفات academy_courses | TA-032 | تحديد حقول المقررات الدراسية |
+| TA-034 | MVP | domain model | مواصفات academy_modules | TA-033 | تحديد حقول الوحدات التدريبية |
+| TA-035 | MVP | domain model | مواصفات academy_lessons | TA-034 | تحديد حقول الدروس والمحتوى |
+| TA-036 | MVP | domain model | مواصفات academy_cohorts والدفعات | TA-032 | تحديد حقول ومواعيد الدفعات |
+| TA-037 | MVP | domain model | مواصفات تتبع التقدم وإنجاز الدروس | TA-035, TA-036 | حساب نسبة التقدم والإنجاز |
+| TA-038 | MVP | domain model | توثيق العلاقات الـ 24 الشاملة للكيانات | TA-031..TA-037 | مخطط ERD وعلاقات الـ 24 كياناً |
+| TA-039 | MVP | certificates | مواصفات academy_certificates المستقلة | TA-038 | تحديد جداول وحقول الشهادات |
+| TA-040 | MVP | certificates | مواصفات academy_certificate_events | TA-039 | تسجيل أحداث الإصدار والتجديد |
+| TA-041 | P2 | certificates | مواصفات professional_hours_ledger | TA-039 | احتساب دفتر الساعات المهنية |
+| TA-042 | MVP | certificates | آلية التحقق العام عبر الرمز و QR | TA-039 | توليد الرمز ورابط التحقق العام |
+| TA-043 | P1 | certificates | سياسة إبطال الشهادة والمسببات | TA-040 | توثيق حالات وإجراءات الإبطال |
+| TA-044 | P2 | certificates | التصدير الرقمي للشهادة وطباعتها | TA-042 | تصميم قوالب الشهادات والتصدير |
+| TA-045 | MVP | entitlements/commerce | مواصفات محرك الاستحقاقات المستقل | TA-038 | فصل محرك التجارة والاستحقاقات |
+| TA-046 | MVP | entitlements/commerce | مواصفات كيان products للتدريب | TA-045 | تحديد منتجات وحزم التدريب |
+| TA-047 | MVP | entitlements/commerce | مواصفات كيان orders والشراء | TA-046 | تسجيل أوامر الشراء والعمليات |
+| TA-048 | MVP | entitlements/commerce | مواصفات كيان entitlements المنوحة | TA-047 | منح وحساب استحقاقات الوصول |
+| TA-049 | P1 | entitlements/commerce | مواصفات كيان invoices والفواتير | TA-047 | توليد وتتبع الفواتير المالية |
+| TA-050 | P1 | entitlements/commerce | مواصفات كيان contracts التجارية | TA-047 | السجل التجاري القانوني للعقود |
+| TA-051 | P2 | entitlements/commerce | حظر استخدام subscriptions و wallets الطلاب | TA-045 | فصل كلي عن محافظ وااشتراكات الطلاب |
+| TA-052 | MVP | threat model | تحليل مخاطر Escalation Privilege عبر الأدوار | TA-017, TA-030 | توثيق سيناريوهات التجاوز والحماية |
+| TA-053 | MVP | threat model | تحليل مخاطر تسريب بيانات PII للطلاب | TA-030 | توثيق مخاطر تسريب PII المعالجة |
+| TA-054 | MVP | threat model | تحليل مخاطر Admin Overreach والتجاوز | TA-015 | توثيق مخاطر التجاوز الإداري |
+| TA-055 | MVP | threat model | تحليل مخاطر تزوير الشهادات والاستحقاقات | TA-042, TA-048 | توثيق مخاطر التزوير والحماية |
+| TA-056 | MVP | threat model | الاعتماد الأمني لنموذج التهديدات | TA-052..TA-055 | اعتماد وثيقة نموذج التهديدات |
+| TA-057 | MVP | schema design | تصميم Schema الكيانات التعليمية (programs->cohorts) | TA-056 | تحديد الجداول والمفاتيح والعلاقات |
+| TA-058 | MVP | schema design | تصميم Schema جدول academy_capability_grants | TA-056, TA-011 | تحديد حقول الصلاحيات والـ Scopes |
+| TA-059 | MVP | schema design | تصميم Schema كيانات المؤسسات والعقود والمقاعد | TA-056, TA-022 | تحديد جداول المؤسسات والمقاعد |
+| TA-060 | MVP | schema design | تصميم Schema جداول المعلم والخصوصية | TA-056, TA-026 | تحديد جداول Profiles والـ Subjects |
+| TA-061 | MVP | schema design | تصميم Schema جداول الشهادات وسجل الساعات | TA-056, TA-039 | تحديد جداول الشهادات وسجل الساعات |
+| TA-062 | MVP | schema design | تصميم Schema جداول التجارة والاستحقاقات | TA-056, TA-045 | تحديد جداول المنتجات والاستحقاقات |
+| TA-063 | MVP | schema design | تصميم Schema جداول التدقيق والوصول الطارئ | TA-056, TA-016 | تحديد جدول emergency_access_audit_logs |
+| TA-064 | MVP | schema design | مراجعة واعتماد Schema الكاملة للـ 24 كياناً | TA-057..TA-063 | موافقة معماري النظام على Schema |
+| TA-065 | MVP | migrations/RLS/RPC tests | تصميم فحوص RLS لجداول الكيانات التعليمية | TA-064 | مواصفات اختبارات RLS التعليمية |
+| TA-066 | MVP | migrations/RLS/RPC tests | تصميم فحوص RLS لجدول Capability Grants | TA-064 | مواصفات اختبارات RLS للصلاحيات |
+| TA-067 | MVP | migrations/RLS/RPC tests | تصميم فحوص RLS لحظر SELECT على profiles الطلاب | TA-064 | مواصفات اختبارات حظر PII الطلاب |
+| TA-068 | MVP | migrations/RLS/RPC tests | تصميم فحوص RLS لجداول الشهادات والمؤسسات | TA-064 | مواصفات اختبارات RLS الشهادات والمؤسسات |
+| TA-069 | MVP | migrations/RLS/RPC tests | مواصفات RPC للوصول الطارئ وتأكيد Audit | TA-064 | مواصفات الـ RPC ودوال التدقيق |
+| TA-070 | MVP | migrations/RLS/RPC tests | مواصفات RPC لحساب الساعات واستحقاق المقاعد | TA-064 | مواصفات الـ RPC لحساب المقاعد والساعات |
+| TA-071 | MVP | migrations/RLS/RPC tests | خطة اختبارات الـ Integration والدوال | TA-065..TA-070 | وثيقة خطة الاختبارات الشاملة |
+| TA-072 | MVP | migrations/RLS/RPC tests | الاعتماد الفني لفحوص RLS وRPC | TA-071 | اعتماد مهندس الأمان والـ QA |
+| TA-073 | MVP | teacher frontend | تصميم هيكل واجهة PWA المستقلة للمعلمين | TA-064 | معمارية الواجهة الأمامية PWA |
+| TA-074 | MVP | teacher frontend | تصميم شاشات الانضمام والملف المهني | TA-073 | قوالب واجهات التسجيل والملف المهني |
+| TA-075 | MVP | teacher frontend | تصميم شاشات التقييم التشخيصي وتسكين الدفعات | TA-073 | قوالب واجهات التشخيص والدفعات |
+| TA-076 | MVP | teacher frontend | تصميم شاشات الكتالوج والبرامج والدروس | TA-073 | قوالب واجهات الكتالوج والدروس |
+| TA-077 | MVP | teacher frontend | تصميم شاشات أداء الدرس والمحتوى النصي | TA-073 | قوالب واجهات عرض الدرس والتقدم |
+| TA-078 | P1 | teacher frontend | تصميم شاشات تسليم الأدلة والمهام التطبيقية | TA-073 | قوالب واجهات تسليم المهام والتقييم |
+| TA-079 | MVP | teacher frontend | تصميم شاشات استعراض الشهادات وسجل الساعات | TA-073 | قوالب واجهات الشهادات والساعات |
+| TA-080 | P1 | teacher frontend | تصميم شاشات المدرب والمقيّم وطابور المراجعة | TA-073 | قوالب واجهات طابور مراجعة التقييمات |
+| TA-081 | P1 | teacher frontend | تصميم شاشات إدارة المؤسسات وتوزيع المقاعد | TA-073 | قوالب واجهات لوحة المؤسسة وتوزيع المقاعد |
+| TA-082 | MVP | teacher frontend | تصميم شاشة طلب الوصول الإداري الطارئ | TA-073 | واجهة تقديم طلب الوصول الطارئ |
+| TA-083 | MVP | offline | تصميم محرك PWA Service Worker و App Shell | TA-073 | مواصفات التخزين المؤقت للـ PWA |
+| TA-084 | MVP | offline | تصميم التخزين المحلي للكتالوج والمحتوى النصي | TA-083 | تخزين الكتالوج والدروس في IndexedDB |
+| TA-085 | MVP | offline | تصميم Progress Outbox بمزامنة Last-write-wins | TA-083 | مربك المزامنة للتقدم في MVP |
+| TA-086 | P1 | offline | تصميم التخزين المحلي للأنشطة والتقييمات | TA-085 | تخزين الأنشطة والتقييمات Offline |
+| TA-087 | P1 | offline | تصميم Evidence Outbox لرفع أدلة المهام | TA-086 | محرك رفع الأدلة والملفات غير المتصل |
+| TA-088 | P1 | offline | تصميم محرك المزامنة الثنائي وحل التعارضات | TA-086 | بروتوكول حل التعارضات ثنائي الاتجاه |
+| TA-089 | P2 | offline | تصميم التنزيل والتشفير المحمي للفيديوهات | TA-088 | حماية وتشفير الفيديو في P2 |
+| TA-090 | P2 | offline | مواصفات تحويل PWA إلى Native Packaging | TA-089 | مواصفات التغليف الأصيل للتطبيق |
+| TA-091 | MVP | content/catalog seed | تصميم هيكل بيانات الـ Seed للبرامج التأسيسية 9 | TA-064 | بيانات الـ Seed للبرامج التأسيسية |
+| TA-092 | MVP | content/catalog seed | تصميم هيكل بيانات الـ Seed للبرامج التخصصية 10 | TA-091 | بيانات الـ Seed للبرامج التخصصية |
+| TA-093 | MVP | content/catalog seed | إعداد مصفوفة ربط الكفايات بمجالات التشخيص 8 | TA-092 | جدول ربط الكفايات بالتشخيص |
+| TA-094 | P2 | content/catalog seed | صياغة أدلة التقييم ومواصفات الـ Rubrics | TA-091 | قواعد التقييم والـ Rubrics |
+| TA-095 | P2 | content/catalog seed | إعداد بنك أسئلة التقييم التشخيصي للمعلمين | TA-093 | بنك أسئلة التشخيص للكتالوج |
+| TA-096 | P2 | content/catalog seed | الاعتماد التربوي للكتالوج والمحتوى الأول | TA-095 | موافقة اللجنة التربوية |
+| TA-097 | P1 | commercial runtime | تصميم التكامل مع بوابة الدفع للـ B2C | TA-064, TA-048 | مواصفات التكامل مع بوابة الدفع |
+| TA-098 | P1 | commercial runtime | تصميم نظام الاشتراكات والمحفظة المالية المعلم | TA-097 | نظام الاشتراكات المستقل للمعلم |
+| TA-099 | P1 | commercial runtime | تصميم إدارة عقود B2B للمدارس وتوزيع الفواتير | TA-064, TA-049 | إدارة عقود وفواتير المدارس |
+| TA-100 | P1 | commercial runtime | تصميم تتبع وتجديد المقاعد الزمانية تلقائياً | TA-099 | تجديد وتتبع المقاعد التلقائي |
+| TA-101 | P2 | commercial runtime | تصميم نظام العروض والحزم المؤسسية المخصصة | TA-099 | نظام الحزم المخصصة للمؤسسات |
+| TA-102 | P2 | commercial runtime | تقارير Revenue Recognition والتدقيق المالي | TA-101 | التقارير المالية والاعتراف بالإيرادات |
+| TA-103 | MVP | security review | فحص أمني شامل لـ Capability Grants و Scopes | TA-072, TA-082 | تقرير الفحص الأمني للصلاحيات |
+| TA-104 | MVP | security review | فحص عدم إمكانية الوصول لـ profiles الطلاب | TA-067 | تقرير تأكيد حظر PII الطلاب |
+| TA-105 | MVP | security review | مراجعة سجلات Audit والوصول الطارئ Emergency | TA-069 | تقرير مراجعة سجلات التدقيق |
+| TA-106 | P1 | security review | اختبارات Penetration Testing شاملة للبوابة | TA-103..TA-105 | تقرير اختبار الاختراق الشامل |
+| TA-107 | MVP | launch gates | بوابة الجودة 1: اكتمال وثائق التصميم المعماري | TA-064, TA-103 | موافقة الجودة على التصميم |
+| TA-108 | MVP | launch gates | بوابة الجودة 2: اعتماد الرؤية والقرارات S1-S7 | TA-107 | اعتماد المالك للقرارات |
+| TA-109 | MVP | launch gates | بوابة الجودة 3: الجاهزية للتحول إلى التنفيذ | TA-108 | الموافقة على بدء مرحلة الكود |
+| TA-110 | MVP | launch gates | الإقرار بعدم التمرير أو الدمج في PR #54 الحالية | TA-109 | قصر PR #54 على التصميم والتوثيق |
 
 ---
 
-## 4. مقاييس التحقق الآلي وسجل الجودة
+## 5. ملخص وإحصائيات التحقق الآلي (Backlog Verification Summary)
 
-- **إجمالي المهام (Total Tasks):** 110 task.
-- **معرّفات فريدة (Unique Task IDs):** 100% فريدة (TA-001 إلى TA-110).
-- **التبعيات الدائرية (Dependency Cycles):** ZERO (0).
-- **التبعيات المفقودة (Missing Dependencies):** ZERO (0).
-- **المراحل التسلسلية (Stage Ordering):** 17 مرحلة مرتبة بنجاح دون أي معكوسات.
-- **مرحلة التهديدات (Threat Model Stage):** تقع في المرحلة 9 قبل الـ Schema في المرحلة 10.
-- **توافق Offline:** MVP (85 task) / P1 (15 task) / P2 (10 task).
+- **إجمالي المهام (Total Tasks):** 110
+- **معرفات فريدة (Unique Task IDs):** 110 (TA-001 إلى TA-110)
+- **مهام مفقودة (Missing Task IDs):** 0
+- **توزيع المهام (Distribution):**
+  - **MVP:** 85 مهمة
+  - **P1:** 15 مهمة
+  - **P2:** 10 مهمة
+- **التبعيّات الدائرية (Cycles):** 0
+- **الترتيب غير الصحيح للتبعيّات (Invalid Ordering):** 0
