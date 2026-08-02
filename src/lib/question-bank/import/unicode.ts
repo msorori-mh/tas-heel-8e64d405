@@ -3,8 +3,13 @@ const arabic = /[٠-٩]/;
 const eastern = /[۰-۹]/;
 const ascii = /[0-9]/;
 
+/** Only spreadsheet scalar text is accepted; objects must never stringify to "[object Object]". */
+export function isScalarText(value: unknown): value is string | number {
+  return typeof value === "string" || typeof value === "number";
+}
 export function normalizeText(value: unknown): string {
-  return String(value ?? "").replace(/\r\n?/g, "\n").normalize("NFC").trim();
+  if (!isScalarText(value)) return "";
+  return String(value).replace(/\r\n?/g, "\n").normalize("NFC").trim();
 }
 export function hasUnsafeUnicode(value: string): boolean {
   return prohibited.test(value) || /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(value);
@@ -19,5 +24,6 @@ export function normalizeNumeric(value: unknown): string | null {
     .replace(/[۰-۹]/g, (c) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(c))).replace("٫", ".");
 }
 export function isFormulaLike(value: unknown): boolean {
-  return /^[\s]*[=+\-@\t\r]/.test(String(value ?? ""));
+  if (!isScalarText(value)) return false;
+  return /^[\s]*[=+\-@\t\r]/.test(String(value));
 }

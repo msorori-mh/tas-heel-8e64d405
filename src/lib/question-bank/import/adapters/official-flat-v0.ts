@@ -7,7 +7,7 @@ import { emptyNormalized, type OfficialNormalizedV1 } from "../official-normaliz
 import { issue, type QbImportIssue } from "../errors.ts";
 import { QB_IMPORT_CODES } from "../validation-codes.ts";
 import { normalizeNumeric, normalizeText } from "../unicode.ts";
-import { inferMediaType, validateMediaUrl } from "../media-policy.ts";
+import { validateMediaUrl } from "../media-policy.ts";
 
 export const OFFICIAL_FLAT_V0 = "official_flat_v0" as const;
 export type OfficialFlatV0Row = Record<string, unknown>;
@@ -218,8 +218,8 @@ export function adaptOfficialFlatV0(
 
   const mediaUrl = text("media_url");
   const media = mediaUrl ? validateMediaUrl(mediaUrl) : null;
-  const mediaType =
-    text("media_type") || (media?.ok ? inferMediaType(media.url) ?? "" : "");
+  const suppliedMediaType = text("media_type");
+  const mediaType = suppliedMediaType;
   if (mediaUrl && !media?.ok) {
     issues.push(
       issue(QB_IMPORT_CODES.MEDIA_URL_INVALID, {
@@ -237,6 +237,13 @@ export function adaptOfficialFlatV0(
         sheet,
         row: rowNumber,
         column: "media_type",
+      }),
+    );
+  }
+  if (mediaUrl && mediaType && !["image", "audio", "video", "document"].includes(mediaType)) {
+    issues.push(
+      issue(QB_IMPORT_CODES.MEDIA_TYPE_REQUIRED, {
+        file, sheet, row: rowNumber, column: "media_type",
       }),
     );
   }

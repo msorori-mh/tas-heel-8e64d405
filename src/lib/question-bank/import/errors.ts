@@ -3,6 +3,7 @@ import {
   VALIDATION_CODE_DEFAULTS,
   type QbImportCode,
 } from "./validation-codes.ts";
+import { compareCodePoints } from "./canonical-json.ts";
 
 export type QbImportIssue = {
   code: QbImportCode;
@@ -38,7 +39,8 @@ export function issue(
 
 export function sortIssues(issues: QbImportIssue[]): QbImportIssue[] {
   return [...issues].sort((a, b) =>
-    String(a.file).localeCompare(String(b.file)) || String(a.sheet).localeCompare(String(b.sheet)) ||
-    (a.row ?? -1) - (b.row ?? -1) || String(a.column).localeCompare(String(b.column)) ||
-    a.code.localeCompare(b.code));
+    compareCodePoints(String(a.file), String(b.file)) || compareCodePoints(String(a.sheet), String(b.sheet)) ||
+    (a.row ?? -1) - (b.row ?? -1) ||
+    compareCodePoints(String(a.column), String(b.column)) ||
+    compareCodePoints(a.code, b.code));
 }

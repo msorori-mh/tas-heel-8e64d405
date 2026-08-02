@@ -18,10 +18,15 @@ import {
   type CatalogLookup,
 } from "./validate.ts";
 import { canonicalHash } from "./canonical-json.ts";
+import { compareCodePoints } from "./canonical-json.ts";
 import { issue, sortIssues } from "./errors.ts";
 import { QB_IMPORT_CODES } from "./validation-codes.ts";
 import { preflightWorkbook, type WorkbookParserMetadata } from "./preflight.ts";
 import { buildPrivilegedPreview, buildPublicPreview } from "./preview.ts";
+import {
+  parseQuestionBankWorkbook,
+  type TrustedWorkbookModel,
+} from "./workbook-parser.ts";
 
 export type DryRunInputRow = Record<string, unknown> | unknown[];
 
@@ -44,6 +49,9 @@ export type DryRunOptions = {
   parserMetadata?: WorkbookParserMetadata;
   authorized?: boolean;
   relaxExactHeaders?: boolean;
+  /** Unit adapters may bypass the trusted parser; operational calls must not. */
+  unitTestBypassParser?: boolean;
+  trustedWorkbook?: TrustedWorkbookModel;
 };
 
 function headersMatchContract(schema: ImportSchemaId, headers: string[]): boolean {
@@ -54,6 +62,9 @@ function headersMatchContract(schema: ImportSchemaId, headers: string[]): boolea
 }
 
 export function runQuestionBankImportDryRun(opts: DryRunOptions) {
+  if (opts.trustedWorkbook && (!opts.trustedWorkbook.trusted_parser_version || !opts.trustedWorkbook.parser_result_hash)) {
+    throw new Error("Trusted parser attestation is incomplete.");
+  }
   const objectRows = opts.rows.map((row) =>
     Array.isArray(row) ? legacyArrayToRow(row) : row,
   );
@@ -145,7 +156,7 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
 
   const accepted = preview
     .flatMap((p) => (p.normalized ? [p.normalized] : []))
-    .sort((a, b) => a.question_code.localeCompare(b.question_code));
+    .sort((a, b) => compareCodePoints(a.question_code, b.question_code));
   const sorted = sortIssues(issues);
   const hash = accepted.length
     ? canonicalHash({
@@ -154,6 +165,32 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
         rows: accepted,
       })
     : null;
+
+  const validationHash = canonicalHash({ accepted_set_hash: hash, issues: sorted });
+  const okRows = preview.filter((p) => p.status === "ok" && p.normalized);
+  const existing = opts.catalog?.existing;
+  const allReplaySafe =
+    !!existing?.size &&
+    okRows.length > 0 &&
+    okRows.every((row) => {
+      const prior = existing.get(row.normalized!.question_code);
+      return prior != null && prior === row.content_fingerprint;
+    });
+  const fingerprints = okRows.map((row) => row.content_fingerprint!).filter(Boolean);
+  const duplicateContent =
+    fingerprints.length > 0 && new Set(fingerprints).size !== fingerprints.length;
+
+  const replay_decision = sorted.some((item) => item.code === QB_IMPORT_CODES.DUPLICATE_CODE_IN_FILE)
+    ? "FILE_BLOCK"
+    : sorted.some((item) => item.code === QB_IMPORT_CODES.IMPORT_REPLAY_CONFLICT)
+      ? "IMPORT_REPLAY_CONFLICT"
+      : sorted.some((item) => item.file_blocking)
+        ? "FILE_BLOCK"
+        : allReplaySafe
+          ? "REPLAY_SAFE_NOOP"
+          : duplicateContent
+            ? "DUPLICATE_CONTENT"
+            : "ACCEPTABLE_DRAFT";
 
   return {
     summary: {
@@ -170,6 +207,17 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
     preview,
     issues: sorted,
     accepted_set_hash: hash,
+    validation_hash: validationHash,
+    parser_hash: opts.trustedWorkbook?.parser_result_hash ?? null,
+    replay_decision,
+    preview_metadata: {
+      contains_sensitive_answers: true,
+      required_capability: "question_bank.import.preview_sensitive",
+      cache_policy: "NO_STORE",
+      parser_version: opts.trustedWorkbook?.trusted_parser_version ?? null,
+      validation_hash: validationHash,
+      payload_hash: hash,
+    },
     public_preview: buildPublicPreview(preview),
     privileged_preview: buildPrivilegedPreview(preview),
     apply_token_contract: {
@@ -185,6 +233,44 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
       ],
     },
   };
+}
+
+/** Operational file-bytes path. This requires parser attestation and a curriculum snapshot. */
+export async function runOperationalQuestionBankImportDryRun(input: {
+  fileName: string;
+  bytes: Uint8Array;
+  catalog: CatalogLookup;
+  authorized?: boolean;
+}) {
+  if (!input.catalog?.subjects?.size) {
+    throw new Error("Operational dry-run requires a non-empty curriculum catalog snapshot.");
+  }
+  const trustedWorkbook = await parseQuestionBankWorkbook(input.fileName, input.bytes);
+  if (!trustedWorkbook.trusted_parser_version || !trustedWorkbook.parser_result_hash) {
+    throw new Error("Trusted parser attestation is required.");
+  }
+  if (trustedWorkbook.security_preflight_status !== "READY") {
+    return runQuestionBankImportDryRun({
+      fileName: input.fileName,
+      headers: trustedWorkbook.headers,
+      rows: trustedWorkbook.rows,
+      fileBytes: input.bytes.byteLength,
+      parserMetadata: trustedWorkbook.metadata,
+      trustedWorkbook,
+      catalog: input.catalog,
+      authorized: input.authorized,
+    });
+  }
+  return runQuestionBankImportDryRun({
+    fileName: input.fileName,
+    headers: trustedWorkbook.headers,
+    rows: trustedWorkbook.rows,
+    fileBytes: input.bytes.byteLength,
+    parserMetadata: trustedWorkbook.metadata,
+    trustedWorkbook,
+    catalog: input.catalog,
+    authorized: input.authorized,
+  });
 }
 
 export function buildErrorExportModel(

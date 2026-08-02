@@ -557,3 +557,111 @@ test("schemaHint mismatch rejects mixed workbook", () => {
   });
   assert.ok(r.issues.some((i) => i.code === "INVALID_CONTRACT"));
 });
+
+test("replay: safe noop / conflict / duplicate content", () => {
+  const baseRow = {
+    question_code: "R1",
+    question_text: "س",
+    interaction_type: "SINGLE_CHOICE",
+    grading_mode: "AUTO_SINGLE",
+    option_1: "a",
+    option_2: "b",
+    correct_index: 1,
+    max_score: 1,
+    subject_code: "PHYS",
+  };
+  const { row } = adaptOfficialFlatV0(baseRow, {});
+  const fingerprint = contentFingerprint(row!);
+  const safe = runQuestionBankImportDryRun({
+    fileName: "replay.xlsx",
+    headers: [...CONTRACT_HEADERS.official_flat_v0],
+    rows: [baseRow],
+    catalog: {
+      subjects: new Set(["PHYS"]),
+      lessons: new Set(),
+      existing: new Map([["R1", fingerprint]]),
+    },
+  });
+  assert.equal(safe.replay_decision, "REPLAY_SAFE_NOOP");
+
+  const conflict = runQuestionBankImportDryRun({
+    fileName: "replay.xlsx",
+    headers: [...CONTRACT_HEADERS.official_flat_v0],
+    rows: [{ ...baseRow, question_text: "نص مختلف" }],
+    catalog: {
+      subjects: new Set(["PHYS"]),
+      lessons: new Set(),
+      existing: new Map([["R1", fingerprint]]),
+    },
+  });
+  assert.equal(conflict.replay_decision, "IMPORT_REPLAY_CONFLICT");
+  assert.ok(conflict.issues.some((i) => i.code === "IMPORT_REPLAY_CONFLICT"));
+
+  const dup = runQuestionBankImportDryRun({
+    fileName: "replay.xlsx",
+    headers: [...CONTRACT_HEADERS.official_flat_v0],
+    rows: [baseRow, { ...baseRow, question_code: "R2" }],
+    catalog: { subjects: new Set(["PHYS"]), lessons: new Set() },
+  });
+  assert.equal(dup.replay_decision, "DUPLICATE_CONTENT");
+});
+
+test("csv parser integration rejects formula-like cells via trusted path", async () => {
+  const { parseQuestionBankWorkbook } = await import(
+    "../../../src/lib/question-bank/import/workbook-parser.ts"
+  );
+  const { runOperationalQuestionBankImportDryRun } = await import(
+    "../../../src/lib/question-bank/import/dry-run.ts"
+  );
+  const headers = [...CONTRACT_HEADERS.official_flat_v0];
+  const values = headers.map((header) => {
+    if (header === "question_code") return "P1";
+    if (header === "question_text") return "=1+1";
+    if (header === "interaction_type") return "SINGLE_CHOICE";
+    if (header === "grading_mode") return "AUTO_SINGLE";
+    if (header === "option_1") return "a";
+    if (header === "option_2") return "b";
+    if (header === "correct_index") return "1";
+    if (header === "max_score") return "1";
+    if (header === "subject_code") return "PHYS";
+    if (header === "allow_partial") return "FALSE";
+    return "";
+  });
+  const csv = `${headers.join(",")}\n${values.join(",")}\n`;
+  const trusted = await parseQuestionBankWorkbook(
+    "sample.csv",
+    new TextEncoder().encode(csv),
+  );
+  assert.equal(trusted.trusted_parser_version, "qb02-workbook-parser-v1");
+  assert.ok(trusted.parser_result_hash);
+  assert.equal(trusted.metadata.csvInjectionCells, true);
+  const result = await runOperationalQuestionBankImportDryRun({
+    fileName: "sample.csv",
+    bytes: new TextEncoder().encode(csv),
+    catalog: { subjects: new Set(["PHYS"]), lessons: new Set() },
+  });
+  assert.ok(
+    result.issues.some(
+      (i) => i.code === "FORMULA_INJECTION" || i.code === "FORMULA_CELL",
+    ),
+  );
+});
+
+test("non-scalar scalar fields are not stringified", () => {
+  const { row, issues } = adaptOfficialFlatV0(
+    {
+      question_code: { nested: true },
+      question_text: ["array"],
+      interaction_type: "SINGLE_CHOICE",
+      grading_mode: "AUTO_SINGLE",
+      option_1: "a",
+      option_2: "b",
+      correct_index: 1,
+      max_score: 1,
+      subject_code: "PHYS",
+    },
+    {},
+  );
+  assert.equal(row, null);
+  assert.ok(issues.some((i) => i.code === "MISSING_VALUE"));
+});

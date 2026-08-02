@@ -9,7 +9,16 @@ export function contentFingerprint(row: OfficialNormalizedV1): string {
     revision: row.revision,
     options: row.options,
     accepted_answers: row.accepted_answers,
+    solutions: row.solutions,
+    solution_steps: row.solution_steps,
+    media: row.media,
+    targets: row.targets,
   });
+}
+
+/** Provenance is intentionally separate from content, including source_row. */
+export function provenanceFingerprint(row: OfficialNormalizedV1): string {
+  return canonicalHash(row.provenance);
 }
 
 export type CatalogLookup = {
@@ -134,26 +143,22 @@ export function validateNormalizedRow(
     const prior = ctx.catalog.existing.get(row.question_code);
     const current = contentFingerprint(row);
     if (prior && prior !== current) {
+      // Same code, different canonical content → replay conflict (file-blocking).
       issues.push(
-        issue(QB_IMPORT_CODES.DUPLICATE_CODE_EXISTS, {
-          ...base,
-          file_blocking: true,
-          row_blocking: false,
-        }),
-      );
-    } else {
-      issues.push(
-        issue(QB_IMPORT_CODES.DUPLICATE_CODE_EXISTS, {
+        issue(QB_IMPORT_CODES.IMPORT_REPLAY_CONFLICT, {
           ...base,
           file_blocking: true,
           row_blocking: false,
         }),
       );
     }
+    // Same code + same fingerprint: dry-run classifies REPLAY_SAFE_NOOP (no issue).
   }
 
   if (ctx.seenFingerprints) {
-    ctx.seenFingerprints.add(contentFingerprint(row));
+    const fingerprint = contentFingerprint(row);
+    // Different codes / same content is a policy warning at dry-run layer only.
+    ctx.seenFingerprints.add(fingerprint);
   }
 
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(row.question_code)) {

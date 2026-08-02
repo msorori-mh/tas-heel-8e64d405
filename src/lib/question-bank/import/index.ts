@@ -9,6 +9,7 @@ export * from "./limits.ts";
 export * from "./media-policy.ts";
 export * from "./canonical-json.ts";
 export * from "./preflight.ts";
+export * from "./workbook-parser.ts";
 export * from "./preview.ts";
 export * from "./curriculum-lookup.ts";
 export * from "./oracle-scenarios.ts";

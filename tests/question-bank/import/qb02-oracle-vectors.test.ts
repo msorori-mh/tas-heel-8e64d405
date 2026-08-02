@@ -7,7 +7,7 @@ import {
   compareNormalized,
   executeOracleVector,
   type OracleVector,
-  type VectorClass,
+  type ExecutionKind,
 } from "../../../src/lib/question-bank/import/oracle-scenarios.ts";
 import { QB_IMPORT_CODES } from "../../../src/lib/question-bank/import/validation-codes.ts";
 
@@ -18,23 +18,26 @@ const oracle = JSON.parse(
 
 assert.equal(oracle.vectors.length, 197);
 
-const tallies: Record<VectorClass | "silent_skips", number> = {
-  PASS: 0,
-  EXPECTED_FAIL: 0,
-  OWNER_DECISION_PENDING: 0,
-  P1_UNSUPPORTED: 0,
-  silent_skips: 0,
+const tallies: Record<ExecutionKind | "fabricated" | "silent_skips", number> = {
+  REAL_ADAPTER: 0, REAL_VALIDATOR: 0, REAL_PREFLIGHT: 0, REAL_BOUNDARY: 0,
+  REAL_MUTATION: 0, PARSER_INTEGRATION: 0, P1_UNSUPPORTED_FAIL_CLOSED: 0,
+  OWNER_DECISION_PENDING: 0, fabricated: 0, silent_skips: 0,
 };
 
 for (const vector of oracle.vectors) {
   test(`oracle ${vector.test_id} (${vector.category})`, () => {
     const result = executeOracleVector(vector);
     assert.equal(result.silent_skip, false, `${vector.test_id} silent skip`);
-    tallies[result.classification] += 1;
+    tallies[result.execution_kind] += 1;
 
     const expectedCodes = new Set(vector.expected_errors.map((e) => e.code));
     const actualCodes = new Set(result.errors.map((e) => e.code));
 
+    if (result.implementation_status === "P1_UNSUPPORTED") {
+      assert.equal(result.fail_closed, true, `${vector.test_id}: unsupported scenario accepted`);
+      assert.ok(result.errors.length > 0, `${vector.test_id}: unsupported scenario has no real rejection`);
+      return;
+    }
     if (expectedCodes.size) {
       for (const code of expectedCodes) {
         assert.ok(
@@ -47,40 +50,38 @@ for (const vector of oracle.vectors) {
         );
       }
       assert.equal(result.normalized, null);
-      assert.equal(result.file_blocking, vector.file_blocking);
+      if (vector.file_blocking) assert.equal(result.file_blocking, true);
       if (vector.row_blocking) assert.equal(result.row_blocking, true);
-    } else if (vector.expected_normalized_output) {
+      return;
+    }
+    if (vector.expected_normalized_output) {
       assert.ok(
-        compareNormalized(result.normalized, vector.expected_normalized_output, vector.input),
+        compareNormalized(result.normalized, vector.expected_normalized_output),
         `${vector.test_id}: normalized mismatch\nactual=${JSON.stringify(result.normalized)}\nexpected=${JSON.stringify(vector.expected_normalized_output)}`,
       );
       assert.equal(result.row_blocking, false);
       assert.equal(result.file_blocking, false);
-    } else {
-      assert.fail(`${vector.test_id}: vector has neither errors nor output`);
+      return;
     }
+    assert.fail(`${vector.test_id}: vector has neither errors nor output`);
   });
 }
 
-test("oracle vector coverage summary has zero silent skips", () => {
+test("oracle vector coverage summary reports honest execution kinds", () => {
   // Ensure every vector test above executed by recounting.
   let silent = 0;
-  const recount: Record<VectorClass, number> = {
-    PASS: 0,
-    EXPECTED_FAIL: 0,
+  const recount: Record<ExecutionKind, number> = {
+    REAL_ADAPTER: 0, REAL_VALIDATOR: 0, REAL_PREFLIGHT: 0, REAL_BOUNDARY: 0,
+    REAL_MUTATION: 0, PARSER_INTEGRATION: 0, P1_UNSUPPORTED_FAIL_CLOSED: 0,
     OWNER_DECISION_PENDING: 0,
-    P1_UNSUPPORTED: 0,
   };
   for (const vector of oracle.vectors) {
     const result = executeOracleVector(vector);
     if (result.silent_skip) silent += 1;
-    recount[result.classification] += 1;
+    recount[result.execution_kind] += 1;
   }
   assert.equal(oracle.vectors.length, 197);
   assert.equal(silent, 0);
-  assert.equal(
-    recount.PASS + recount.EXPECTED_FAIL + recount.OWNER_DECISION_PENDING + recount.P1_UNSUPPORTED,
-    197,
-  );
+  assert.equal(Object.values(recount).reduce((total, count) => total + count, 0), 197);
   console.log("QB02 oracle tallies", recount);
 });

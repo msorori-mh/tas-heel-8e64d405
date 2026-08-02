@@ -211,11 +211,6 @@ export function adaptLegacyFlat15Col(
       provenance: {
         source_contract: LEGACY_FLAT_15COL,
         source_row,
-        metadata: {
-          year: text("year"),
-          semester: text("semester"),
-          source_sort_order: text("sort_order"),
-        },
       },
     }),
     issues,
