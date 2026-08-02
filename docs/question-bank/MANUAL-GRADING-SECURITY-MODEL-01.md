@@ -1,8 +1,8 @@
 # MANUAL-GRADING-SECURITY-MODEL-01
-## النموذج الأمني ومصفوفة الصلاحيات وسياسات RLS لمحرك التصحيح اليدوي — التصحيح القانوني المعتمد 05
+## النموذج الأمني ومصفوفة الصلاحيات وسياسات RLS لمحرك التصحيح اليدوي — التصحيح القانوني المعتمد 07
 
 > **وثيقة النموذج الأمني والسيطرة على التهديدات (Security Model & Threat Matrix Document)**
-> **الإصدار:** 5.0.0 (Canonical Correction 05)
+> **الإصدار:** 7.0.0 (Canonical Correction 07)
 > **الحالة:** مجمد للتصميم الوثائقي فقط (Design Frozen - Docs Only / No Code / No SQL Execution / No DB / No Deploy)
 > **النظام:** منصة تسهيل التعليمية (Tas-heel Engine - Question Bank QB-01)
 
@@ -121,29 +121,29 @@
 
 ## 5. تحليل التهديدات وتدابير الحماية الـ 15 (15 Threat Vectors Analysis) `[REQUIRED_EXTENSION]`
 
-### 5.1. التهديد 1: تصحيح إجابة غير مخصصة (Unassigned Response Grading) `[EXISTING_QB01]`
-- **الحماية**: فحص وجود قفل نشط ومطابق لـ `auth.uid()` و `fencing_token`.
-- **النتيجة**: استثناء `ASSIGNMENT_NOT_FOUND_OR_EXPIRED`.
+### 5.1. التهديد 1: تصحيح إجابة غير مخصصة (Unassigned Response Grading) `[EXISTING_QB01]` / `[REQUIRED_EXTENSION]`
+- **الجزء الموجود فعلياً في QB-01 (`[EXISTING_QB01]`)**: مصادقة المستخدم `auth.uid()` وجودة سجل `question_response_reviews` الأساسي وصلاحية `GRADE_MANUAL_RESPONSE`.
+- **الجزء المكتمل بالامتداد المطلوب (`[REQUIRED_EXTENSION]`)**: فحص وجود قفل نشط ومطابق لـ `auth.uid()` و `fencing_token` و `lease_expires_at > now()` عبر RPC، واستثناء `ASSIGNMENT_NOT_FOUND_OR_EXPIRED`.
 
-### 5.2. التهديد 2: تقديم درجة تتجاوز الحد الأقصى (Score Above Max) `[EXISTING_QB01]`
-- **الحماية**: جلب `snapshot-pinned max_score` وفحص `0 <= score <= max_score` داخل RPC.
-- **النتيجة**: استثناء `SCORE_EXCEEDS_MAX_BOUND`.
+### 5.2. التهديد 2: تقديم درجة تتجاوز الحد الأقصى (Score Above Max) `[EXISTING_QB01]` / `[REQUIRED_EXTENSION]`
+- **الجزء الموجود فعلياً في QB-01 (`[EXISTING_QB01]`)**: القيد الأساسي `score_awarded >= 0` في جدول `question_response_reviews`.
+- **الجزء المكتمل بالامتداد المطلوب (`[REQUIRED_EXTENSION]`)**: جلب `snapshot-pinned max_score` الذري من `question_revisions` وفحص `0 <= score <= max_score` داخل RPC التسليم المعتمد، واستثناء `SCORE_EXCEEDS_MAX_BOUND`.
 
 ### 5.3. التهديد 3: تقديم درجة بالسالب (Negative Score) `[EXISTING_QB01]`
 - **الحماية**: قيد السيرفر الصارم ومطابقة `score_awarded >= 0`.
 - **النتيجة**: استثناء `INVALID_NEGATIVE_SCORE`.
 
-### 5.4. التهديد 4: تعديل درجة معتمدة نهائياً بشكل مباشر (Changing Finalized Score) `[EXISTING_QB01]`
-- **الحماية**: حظر `UPDATE` كلياً بتريجر Append-Only، واشتراط RPC الفتح الاستثنائي مع حقل `reason`.
-- **النتيجة**: استثناء `UPDATE_BLOCKED_APPEND_ONLY`.
+### 5.4. التهديد 4: تعديل درجة معتمدة نهائياً بشكل مباشر (Changing Finalized Score) `[EXISTING_QB01]` / `[REQUIRED_EXTENSION]`
+- **الجزء الموجود فعلياً في QB-01 (`[EXISTING_QB01]`)**: حظر `UPDATE` و `DELETE` كلياً بتريجر Append-Only على جدول `question_response_reviews`.
+- **الجزء المكتمل بالامتداد المطلوب (`[REQUIRED_EXTENSION]`)**: إنفاذ حالة الاعتماد النهائي `FINALIZED` واشتراط RPC الفتح الاستثنائي `reopen_manual_grade` مع حقل سبب إجباري `reason` لا يقل عن 20 حرفاً وتتبع التعديلات بـ `grading_review_supersessions`.
 
 ### 5.5. التهديد 5: حذف سجل مراجعة سابق (Deleting Review Record) `[EXISTING_QB01]`
 - **الحماية**: حظر `DELETE` كلياً على `question_response_reviews`.
 - **النتيجة**: استثناء `DELETE_BLOCKED_APPEND_ONLY`.
 
-### 5.6. التهديد 6: ترقية المصحح إلى ناشر في بنك المحتوى (Grader Becoming Publisher) `[EXISTING_QB01]`
-- **الحماية**: الفصل المطلق في حزم الصلاحيات وسحب `qb.content.publish` عن جميع شخصيات التصحيح.
-- **النتيجة**: استثناء `FORBIDDEN_CAPABILITY`.
+### 5.6. التهديد 6: ترقية المصحح إلى ناشر في بنك المحتوى (Grader Becoming Publisher) `[EXISTING_QB01]` / `[REQUIRED_EXTENSION]`
+- **الجزء الموجود فعلياً في QB-01 (`[EXISTING_QB01]`)**: الفصل المفاهيمي في enum `app_role` بين `content_manager` و `user`.
+- **الجزء المكتمل بالامتداد المطلوب (`[REQUIRED_EXTENSION]`)**: مصفوفة القدرات الدقيقة (`Capability Bundles`) وسحب `qb.content.publish` عن جميع شخصيات التصحيح وإلزامية `security_invoker`.
 
 ### 5.7. التهديد 7: رؤية الإجابة النموذجية قبل توقيت Reveal (Viewing Hidden Solution) `[REQUIRED_EXTENSION]`
 - **الحماية**: عدم إرجاع حقول الإجابة النموذجية في RPCs إلا بعد استيفاء `batch_finalized_at + reveal_at`.
@@ -165,9 +165,9 @@
 - **الحماية**: أقفال الصفوف الذرية ومفاتيح كبح التكرار `idempotency_key`.
 - **النتيجة**: نجاح الطلب الأول ورفض الثاني بـ `DUPLICATE_IDEMPOTENCY_KEY`.
 
-### 5.12. التهديد 12: التلاعب بالطوابع الزمنية وسجل التدقيق (Audit Tampering) `[EXISTING_QB01]`
-- **الحماية**: التوليد الآلي التلقائي للأختام الزمنية و `action_id` من السيرفر دون قبول مدخلات العميل.
-- **النتيجة**: تجاهل قيم العميل واستخدام أختام السيرفر.
+### 5.12. التهديد 12: التلاعب بالطوابع الزمنية وسجل التدقيق (Audit Tampering) `[EXISTING_QB01]` / `[REQUIRED_EXTENSION]`
+- **الجزء الموجود فعلياً في QB-01 (`[EXISTING_QB01]`)**: التوليد التلقائي لـ `created_at = now()` من السيرفر.
+- **الجزء المكتمل بالامتداد المطلوب (`[REQUIRED_EXTENSION]`)**: التوليد السيرفري الذري لـ `action_id` والتسلسل الخطي المربوط بـ `assignment_generation` و `idempotency_key` وإهمال أي مدخلات زمنية من العميل.
 
 ### 5.13. التهديد 13: إرسال الإشعارات قبل الاعتماد النهائي (Early Notification Leak) `[REQUIRED_EXTENSION]`
 - **الحماية**: ربط Outbox بحالتي `FINALIZED + RELEASED`.

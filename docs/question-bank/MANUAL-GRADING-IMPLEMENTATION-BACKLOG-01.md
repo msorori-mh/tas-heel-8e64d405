@@ -1,8 +1,8 @@
 # MANUAL-GRADING-IMPLEMENTATION-BACKLOG-01
-## سجل المهمات والخطة التنفيذية لمحرك التصحيح اليدوي — التصحيح القانوني المعتمد 05
+## سجل المهمات والخطة التنفيذية لمحرك التصحيح اليدوي — التصحيح القانوني المعتمد 07
 
 > **وثيقة سجل المهمات والخطة التنفيذية (Detailed Backlog Specification - 80 Tasks & Semantic DAG)**
-> **الإصدار:** 5.0.0 (Canonical Correction 05)
+> **الإصدار:** 7.0.0 (Canonical Correction 07)
 > **الحالة:** مجمد للتصميم الوثائقي فقط (Design Frozen - Docs Only / No Code / No SQL Execution / No DB / No Deploy)
 > **النظام:** منصة تسهيل التعليمية (Tas-heel Engine - Question Bank QB-01)
 
@@ -188,7 +188,7 @@
 - **TASK-MG-020: تسجيل أحداث تغيير حالة التخصيص في سجل الأحداث** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-014`
   - **Security Prerequisite**: التوثيق التتابع التام لحركات التعيين والإلغاء.
-  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-003` | **Deliverable Type**: `AUDIT`, `TRIGGER`
 
@@ -197,16 +197,16 @@
 ### Epic 3: Lease Locks, Heartbeat, Fencing Token & SLA (الأقفال والمهل)
 
 - **TASK-MG-021: بناء دالة المطالبة الذرية `claim_grading_assignment`** `[REQUIRED_EXTENSION]`
-  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-001`, `TASK-MG-011`
-  - **Security Prerequisite**: أقفال الصفوف الذرية `FOR UPDATE NOWAIT` لمنع سباق التنافس.
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-001`, `TASK-MG-011`, `TASK-MG-022`
+  - **Security Prerequisite**: أقفال الصفوف الذرية `FOR UPDATE NOWAIT` لمنع سباق التنافس بعد وجود النموذج والقفل.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-QCL-006` | **Deliverable Type**: `RPC`, `SCHEMA`
 
 - **TASK-MG-022: إنشاء نموذج القفل المؤقت `lease_expires_at`** `[REQUIRED_EXTENSION]`
-  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-021`
-  - **Security Prerequisite**: تحديد مهلة القفل الإجبارية لمنع الاحتكار الأبدي.
-  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-001`, `TASK-MG-011`
+  - **Security Prerequisite**: تحديد مهلة القفل الإجبارية وبنية Lease Schema لمنع الاحتكار الأبدي.
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `YES` (ODR-001) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-QCL-002` | **Deliverable Type**: `SCHEMA`, `CONSTRAINT`
 
@@ -308,7 +308,7 @@
 - **TASK-MG-036: بناء حقل الملاحظات السرية للمراجعين (Internal Notes)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-035`
   - **Security Prerequisite**: حجب الحقل السري تماماً عن استعلامات الطلاب بـ RLS.
-  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-SCR-003` | **Deliverable Type**: `SCHEMA`, `RLS`
 
@@ -477,7 +477,7 @@
 - **TASK-MG-059: ربط التعديلات التصحيحية بـ `grading_review_supersessions` للتتبع** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-058`
   - **Security Prerequisite**: التوثيق السلسلي الكامل لربط التعديلات ببعضها.
-  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
+  - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-003` | **Deliverable Type**: `SCHEMA`, `AUDIT`
 
@@ -632,7 +632,7 @@
 - **TASK-MG-080: لوحة مراقبة صحة النظام وأحداث الطوارئ (System Health Monitor)** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-075`
   - **Security Prerequisite**: مراقبة معدلات الأخطاء وحوادث كبح التكرار.
-  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+  - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-SEC-018` | **Deliverable Type**: `OBSERVABILITY`, `UI`
 
@@ -682,8 +682,8 @@ graph TD
         T11 --> T16[TASK-MG-016: Abandoned Cleanup]
         T12 --> T17[TASK-MG-017: SLA Warning Filter]
         T14 --> T20[TASK-MG-020: Assignment Audit Log]
-        T1 & T11 --> T21[TASK-MG-021: Atomic Claim RPC]
-        T21 --> T22[TASK-MG-022: Lease Lock Model]
+        T1 & T11 --> T22[TASK-MG-022: Lease Lock Model]
+        T22 --> T21[TASK-MG-021: Atomic Claim RPC]
         T22 --> T23[TASK-MG-023: Auto-Release Expired Job]
         T21 --> T24[TASK-MG-024: Manual Release RPC]
         T22 --> T25[TASK-MG-025: Heartbeat Lease Extension]
@@ -780,14 +780,14 @@ graph TD
 | Epic / الملحمة | FOUNDATION | MVP | P1 | P2 | Total Tasks | Migration Req. (Future) | Runtime Req. (Future) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Epic 1: Data Model & Snapshot** | 10 | 0 | 0 | 0 | **10** | 10 | 0 |
-| **Epic 2: Queue & Dispatch** | 0 | 7 | 2 | 1 | **10** | 10 | 9 |
-| **Epic 3: Lease Locks & SLA** | 0 | 8 | 2 | 0 | **10** | 10 | 10 |
-| **Epic 4: Rubrics & Scoring** | 0 | 7 | 1 | 2 | **10** | 7 | 10 |
+| **Epic 2: Queue & Dispatch** | 0 | 7 | 2 | 1 | **10** | 10 | 8 |
+| **Epic 3: Lease Locks & SLA** | 0 | 8 | 2 | 0 | **10** | 10 | 9 |
+| **Epic 4: Rubrics & Scoring** | 0 | 7 | 1 | 2 | **10** | 7 | 9 |
 | **Epic 5: Double Marking & Integrity** | 0 | 4 | 3 | 3 | **10** | 10 | 10 |
-| **Epic 6: State Machine & Appeals** | 0 | 3 | 6 | 1 | **10** | 10 | 10 |
+| **Epic 6: State Machine & Appeals** | 0 | 3 | 6 | 1 | **10** | 10 | 9 |
 | **Epic 7: Outbox & Reveal Timers** | 0 | 5 | 4 | 1 | **10** | 10 | 10 |
-| **Epic 8: Mobile UX & System Health** | 0 | 5 | 4 | 1 | **10** | 2 | 10 |
-| **إجمالي المهمات الكلي (Total)** | **10** | **39** | **22** | **9** | **80 Tasks** | **69** | **69** |
+| **Epic 8: Mobile UX & System Health** | 0 | 5 | 4 | 1 | **10** | 1 | 9 |
+| **إجمالي المهمات الكلي (Total)** | **10** | **39** | **22** | **9** | **80 Tasks** | **68** | **64** |
 
 ---
-*نهاية الوثيقة MANUAL-GRADING-IMPLEMENTATION-BACKLOG-01 (Canonical Correction 05)*
+*نهاية الوثيقة MANUAL-GRADING-IMPLEMENTATION-BACKLOG-01 (Canonical Correction 07)*

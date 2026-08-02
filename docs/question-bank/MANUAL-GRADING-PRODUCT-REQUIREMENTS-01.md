@@ -1,8 +1,8 @@
 # MANUAL-GRADING-PRODUCT-REQUIREMENTS-01
-## متطلبات منتج محرك التصحيح اليدوي وتجربة المراجعة الموحدة — التصحيح القانوني المعتمد 05
+## متطلبات منتج محرك التصحيح اليدوي وتجربة المراجعة الموحدة — التصحيح القانوني المعتمد 07
 
 > **وثيقة تصميم المنتج والمعمارية الوظيفية (Product & Functional Requirements Document)**
-> **الإصدار:** 5.0.0 (Canonical Correction 05)
+> **الإصدار:** 7.0.0 (Canonical Correction 07)
 > **الحالة:** مجمد للتصميم الوثائقي فقط (Design Frozen - Docs Only / No Code / No SQL Execution / No DB / No Deploy)
 > **النظام:** منصة تسهيل التعليمية (Tas-heel Engine - Question Bank QB-01)
 
@@ -170,19 +170,29 @@
 
 ### 5.4. جدول الانتقالات التنفيذية الكاملة (Operational Transitions Matrix) `[REQUIRED_EXTENSION]`
 
-| From State | To State | Target Machine | Actor / Role | Required Capability | Preconditions | Concurrency / Concurrency Guard | Expected Version / Token | Lock Type | Idempotency Key | Audit Event | Failure Code | Retry Behavior |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `ASSIGNED` | `CLAIMED` | Assignment | Grader | `grading.claim.execute` | No active lease, no COI | Partial unique index on active lease | `assignment_gen` | `FOR UPDATE NOWAIT` | Optional | `ASSIGNMENT_CLAIMED` | `ALREADY_CLAIMED` | User Retry |
-| `CLAIMED` | `RELEASED` | Assignment | Grader / Manager | `grading.release.execute` | Active lease held by actor | Match `lease_token` | `lease_token` | Row Lock | N/A | `ASSIGNMENT_RELEASED` | `LEASE_NOT_FOUND` | No Retry |
-| `CLAIMED` | `EXPIRED` | Assignment | Worker System | `system.cron` | `lease_expires_at < NOW()` | Bulk status check | Status `CLAIMED` | Batch Row Lock | Job Run ID | `ASSIGNMENT_EXPIRED` | `EXPIRE_FAILED` | Auto Job Retry |
-| `EXPIRED` | `RECLAIMED` | Assignment | Manager | `grading.release.execute` | Unresponsive grader | Increment `assignment_gen` | Stale `generation` | Row Lock | Admin Ref | `ASSIGNMENT_RECLAIMED` | `ASSIGNMENT_CLOSED` | Admin Retry |
-| `CLAIMED` | `SUBMITTED` | Assignment & Response | Grader | `GRADE_MANUAL_RESPONSE` | Valid lease & score bounds | Match `fencing_token` & `gen` | `fencing_token` | Strict Partial Unique | `p_idempotency_key` | `SCORE_SUBMITTED` | `STALE_FENCING_TOKEN` | Re-fetch & Retry |
-| `SUBMITTED` | `RETURNED_FOR_SECOND_REVIEW` | Response | Senior / Reviewer | `grading.review.return` | Review submitted, non-final | Status `SUBMITTED` | `review_version` | Row Lock CAS | Action Key | `REVIEW_RETURNED` | `INVALID_RESPONSE_STATE` | User Retry |
-| `SUBMITTED` | `FINALIZED` | Response & Review | Senior / Manager | `grading.score.finalize` | Score verified, reason present | Match `expected_version` | `expected_version` | Row Lock | Action Key | `GRADE_FINALIZED` | `MISSING_REASON` | User Retry |
-| `FINALIZED` | `REOPENED` | Response | Manager / Emergency | `grading.reopen.execute` | Status `FINALIZED`, reason >= 20c | Compare-And-Swap CAS | Current `final_review_id` | Row Lock CAS | Action Key | `GRADE_REOPENED` | `REASON_TOO_SHORT` | Admin Retry |
-| `FINALIZED` | `APPEALED` | Response | Student / System | `student.appeal.create` | Batch `RELEASED`, in window | Single active appeal per response | `batch_finalized_at` | Unique Appeal Index | Student Key | `APPEAL_CREATED` | `APPEAL_WINDOW_EXPIRED` | No Retry |
-| `APPEALED` | `FINALIZED` | Response & Review | Appeal Reviewer | `grading.appeal.process` | Appeal claimed, no COI | Single decision CAS | `appeal_id` | Row Lock CAS | Action Key | `APPEAL_DECIDED` | `COI_VIOLATION` | User Retry |
-| `FINAL` | `SUPERSEDED` | Review Row | System / RPC | Internal RPC | New correction row inserted | Linear chain linking | `previous_review_id` | Append-Only Lock | Transaction Key | `REVIEW_SUPERSEDED` | `CHAIN_BROKEN` | Transaction Rollback |
+| From State | To State | Target Machine | Actor / Role | Required Capability | Preconditions | Concurrency / Concurrency Guard | Expected Version / Token | Lock Type | Idempotency Key | Transaction Boundary | Audit Event | Failure Code | Retry Behavior |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `ASSIGNED` | `CLAIMED` | Assignment | Grader | `grading.claim.execute` | No active lease, no COI | Partial unique index on active lease | `assignment_gen` | `FOR UPDATE NOWAIT` | Optional | `Single Atomic RPC Transaction` | `ASSIGNMENT_CLAIMED` | `ALREADY_CLAIMED` | User Retry |
+| `CLAIMED` | `RELEASED` | Assignment | Grader / Manager | `grading.release.execute` | Active lease held by actor | Match `lease_token` | `lease_token` | Row Lock | N/A | `Single Atomic RPC Transaction` | `ASSIGNMENT_RELEASED` | `LEASE_NOT_FOUND` | No Retry |
+| `CLAIMED` | `EXPIRED` | Assignment | Worker System | `system.cron` | `lease_expires_at < NOW()` | Bulk status check | Status `CLAIMED` | Batch Row Lock | Job Run ID | `Batch Worker Transaction` | `ASSIGNMENT_EXPIRED` | `EXPIRE_FAILED` | Auto Job Retry |
+| `EXPIRED` | `RECLAIMED` | Assignment | Manager | `grading.release.execute` | Unresponsive grader | Increment `assignment_gen` | Stale `generation` | Row Lock | Admin Ref | `Single Atomic RPC Transaction` | `ASSIGNMENT_RECLAIMED` | `ASSIGNMENT_CLOSED` | Admin Retry |
+| `RELEASED` | `CLAIMED` | Assignment | Grader | `grading.claim.execute` | Unclaimed response in queue | Partial unique index | `assignment_gen` | `FOR UPDATE NOWAIT` | Optional | `Single Atomic RPC Transaction` | `ASSIGNMENT_CLAIMED` | `ALREADY_CLAIMED` | User Retry |
+| `RECLAIMED` | `CLAIMED` | Assignment | New Grader | `grading.claim.execute` | Assignment reclaimed by admin | Increment `assignment_gen` | `new_generation` | Row Lock | Optional | `Single Atomic RPC Transaction` | `ASSIGNMENT_RECLAIMED_CLAIM` | `ALREADY_CLAIMED` | User Retry |
+| `CLAIMED` | `CANCELLED` | Assignment | System / Manager | `grading.release.execute` | Session cancelled or COI flagged | Atomic status CAS | `assignment_gen` | Row Lock | N/A | `Single Atomic RPC Transaction` | `ASSIGNMENT_CANCELLED` | `ASSIGNMENT_ALREADY_CLOSED` | No Retry |
+| `ASSIGNED` | `CANCELLED` | Assignment | System / Manager | `grading.release.execute` | Session cancelled or COI flagged | Atomic status CAS | `assignment_gen` | Row Lock | N/A | `Single Atomic RPC Transaction` | `ASSIGNMENT_CANCELLED` | `ASSIGNMENT_ALREADY_CLOSED` | No Retry |
+| `CLAIMED` | `SUBMITTED` | Assignment & Response | Grader | `GRADE_MANUAL_RESPONSE` | Valid lease & score bounds | Match `fencing_token` & `gen` | `fencing_token` | Strict Partial Unique | `p_idempotency_key` | `Single Atomic RPC Transaction` | `SCORE_SUBMITTED` | `STALE_FENCING_TOKEN` | Re-fetch & Retry |
+| `PENDING_MANUAL_GRADING` | `IN_GRADING` | Response | Grader | `grading.claim.execute` | Response available in queue | Active lease claim | `assignment_gen` | `FOR UPDATE NOWAIT` | Optional | `Single Atomic RPC Transaction` | `RESPONSE_GRADING_STARTED` | `ALREADY_CLAIMED` | User Retry |
+| `IN_GRADING` | `SUBMITTED_FOR_REVIEW` | Response | Grader | `GRADE_MANUAL_RESPONSE` | Valid lease & score bounds | Match `fencing_token` | `fencing_token` | Row Lock | `p_idempotency_key` | `Single Atomic RPC Transaction` | `SCORE_SUBMITTED` | `STALE_FENCING_TOKEN` | Re-fetch & Retry |
+| `SUBMITTED` | `RETURNED_FOR_SECOND_REVIEW` | Response | Senior / Reviewer | `grading.review.return` | Review submitted, non-final | Status `SUBMITTED` | `review_version` | Row Lock CAS | Action Key | `Single Atomic RPC Transaction` | `REVIEW_RETURNED` | `INVALID_RESPONSE_STATE` | User Retry |
+| `SUBMITTED` | `FINALIZED` | Response & Review | Senior / Manager | `grading.score.finalize` | Score verified, reason present | Match `expected_version` | `expected_version` | Row Lock | Action Key | `Atomic RPC + Outbox Insert` | `GRADE_FINALIZED` | `MISSING_REASON` | User Retry |
+| `FINALIZED` | `REOPENED` | Response | Manager / Emergency | `grading.reopen.execute` | Status `FINALIZED`, reason >= 20c | Compare-And-Swap CAS | Current `final_review_id` | Row Lock CAS | Action Key | `Single Atomic RPC Transaction` | `GRADE_REOPENED` | `REASON_TOO_SHORT` | Admin Retry |
+| `REOPENED` | `IN_GRADING` | Response | Senior / Grader | `grading.claim.execute` | Reopened response assigned | Active lease claim | `assignment_gen` | Row Lock | Optional | `Single Atomic RPC Transaction` | `REOPENED_GRADING_STARTED` | `ALREADY_CLAIMED` | User Retry |
+| `FINALIZED` | `APPEALED` | Response | Student / System | `student.appeal.create` | Batch `RELEASED`, in window | Single active appeal per response | `batch_finalized_at` | Unique Appeal Index | Student Key | `Single Atomic Student RPC Transaction` | `APPEAL_CREATED` | `APPEAL_WINDOW_EXPIRED` | No Retry |
+| `APPEALED` | `FINALIZED` | Response & Review | Appeal Reviewer | `grading.appeal.process` | Appeal claimed, no COI | Single decision CAS | `appeal_id` | Row Lock CAS | Action Key | `Atomic RPC + Session Rescore + Outbox` | `APPEAL_DECIDED` | `COI_VIOLATION` | User Retry |
+| `DRAFT` | `SUBMITTED` | Review Row | Grader / Reviewer | `GRADE_MANUAL_RESPONSE` | Valid score & feedback | Single row append | `idempotency_key` | Append-Only Lock | Transaction Key | `Single Atomic RPC Transaction` | `REVIEW_ROW_SUBMITTED` | `DUPLICATE_IDEMPOTENCY` | User Retry |
+| `SUBMITTED` | `FINAL` | Review Row | Senior / System | `grading.score.finalize` | Finalization approved | `is_final = true` CAS | `review_id` | Row Lock | Action Key | `Single Atomic RPC Transaction` | `REVIEW_ROW_FINALIZED` | `ALREADY_FINALIZED` | User Retry |
+| `FINAL` | `SUPERSEDED` | Review Row | System / RPC | Internal RPC | New correction row inserted | Linear chain linking | `previous_review_id` | Append-Only Lock | Transaction Key | `Atomic Review Append Transaction` | `REVIEW_SUPERSEDED` | `CHAIN_BROKEN` | Transaction Rollback |
+| `FINAL` | `VOIDED` | Review Row | Admin Emergency | `grading.emergency.override` | Emergency void order | Emergency override CAS | `grant_token` | Row Lock CAS | Emergency Key | `Single Atomic RPC Transaction` | `REVIEW_ROW_VOIDED` | `UNAUTHORIZED_EMERGENCY` | Admin Retry |
 
 ---
 
@@ -215,7 +225,7 @@
 11. **`batch release` مقابل `unfinished response`**:
     - يفحص RPC نشر الدفعة `release_grading_batch` عدم وجود أي إجابة بحالة غير `FINALIZED`؛ وفي حال وجود إجابة واحدة غير معتمدة تفشل العملية كلياً بـ `UNFINISHED_RESPONSES_IN_BATCH`.
 12. **`emergency override` مقابل `normal claim`**:
-    - يُجمد التجاوز الطارئ القفل العادي ويزيد `assignment_generation` بـ 1000، مما يبطل قفل المصحح العادي فوراً مع التوثيق الكامل في Audit Trail.
+    - يُجمد التجاوز الطارئ القفل العادي ويزيد `assignment_generation` تتابعياً (Monotonically Increasing Generation) بمقدار 1 مع فحص الجيل المتوقع (Expected Generation Check) وتنفيذ معاملة Compare-And-Swap (CAS) الذرية، مما يبطل قفل المصحح العادي فوراً عند محاولة التقديم برمز قديم مع التوثيق الكامل في Audit Trail.
 
 ---
 

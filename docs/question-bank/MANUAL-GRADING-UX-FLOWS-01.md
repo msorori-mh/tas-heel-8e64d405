@@ -1,8 +1,8 @@
 # MANUAL-GRADING-UX-FLOWS-01
-## تدفقات رحلة المستخدم والتصميم البصري لمحرك التصحيح اليدوي — التصحيح القانوني المعتمد 05
+## تدفقات رحلة المستخدم والتصميم البصري لمحرك التصحيح اليدوي — التصحيح القانوني المعتمد 07
 
 > **وثيقة تدفقات رحلة المستخدم والتصميم البصري (UX Flows & Visual Design Document)**
-> **الإصدار:** 5.0.0 (Canonical Correction 05)
+> **الإصدار:** 7.0.0 (Canonical Correction 07)
 > **الحالة:** مجمد للتصميم الوثائقي فقط (Design Frozen - Docs Only / No Code / No SQL Execution / No DB / No Deploy)
 > **النظام:** منصة تسهيل التعليمية (Tas-heel Engine - Question Bank QB-01)
 
