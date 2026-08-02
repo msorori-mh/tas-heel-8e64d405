@@ -180,17 +180,17 @@
 | `RECLAIMED` | `CLAIMED` | Assignment | New Grader | `grading.claim.execute` | Assignment reclaimed by admin | Increment `assignment_gen` | `new_generation` | Row Lock | Optional | `Single Atomic RPC Transaction` | `ASSIGNMENT_RECLAIMED_CLAIM` | `ALREADY_CLAIMED` | User Retry |
 | `CLAIMED` | `CANCELLED` | Assignment | System / Manager | `grading.release.execute` | Session cancelled or COI flagged | Atomic status CAS | `assignment_gen` | Row Lock | N/A | `Single Atomic RPC Transaction` | `ASSIGNMENT_CANCELLED` | `ASSIGNMENT_ALREADY_CLOSED` | No Retry |
 | `ASSIGNED` | `CANCELLED` | Assignment | System / Manager | `grading.release.execute` | Session cancelled or COI flagged | Atomic status CAS | `assignment_gen` | Row Lock | N/A | `Single Atomic RPC Transaction` | `ASSIGNMENT_CANCELLED` | `ASSIGNMENT_ALREADY_CLOSED` | No Retry |
-| `CLAIMED` | `SUBMITTED` | Assignment & Response | Grader | `GRADE_MANUAL_RESPONSE` | Valid lease & score bounds | Match `fencing_token` & `gen` | `fencing_token` | Strict Partial Unique | `p_idempotency_key` | `Single Atomic RPC Transaction` | `SCORE_SUBMITTED` | `STALE_FENCING_TOKEN` | Re-fetch & Retry |
+| `CLAIMED` | `SUBMITTED` | Assignment | Grader | `GRADE_MANUAL_RESPONSE` | Valid lease & score bounds | Match `fencing_token` & `gen` | `fencing_token` | Strict Partial Unique | `p_idempotency_key` | `Single Atomic RPC Transaction` | `ASSIGNMENT_SUBMITTED` | `STALE_FENCING_TOKEN` | Re-fetch & Retry |
 | `PENDING_MANUAL_GRADING` | `IN_GRADING` | Response | Grader | `grading.claim.execute` | Response available in queue | Active lease claim | `assignment_gen` | `FOR UPDATE NOWAIT` | Optional | `Single Atomic RPC Transaction` | `RESPONSE_GRADING_STARTED` | `ALREADY_CLAIMED` | User Retry |
 | `IN_GRADING` | `SUBMITTED_FOR_REVIEW` | Response | Grader | `GRADE_MANUAL_RESPONSE` | Valid lease & score bounds | Match `fencing_token` | `fencing_token` | Row Lock | `p_idempotency_key` | `Single Atomic RPC Transaction` | `SCORE_SUBMITTED` | `STALE_FENCING_TOKEN` | Re-fetch & Retry |
 | `SUBMITTED_FOR_REVIEW` | `RETURNED_FOR_SECOND_REVIEW` | Response | Senior / Reviewer | `grading.review.return` | Review submitted, non-final | Status `SUBMITTED_FOR_REVIEW` | `review_version` | Row Lock CAS | Action Key | `Single Atomic RPC Transaction` | `REVIEW_RETURNED` | `INVALID_RESPONSE_STATE` | User Retry |
-| `SUBMITTED_FOR_REVIEW` | `FINALIZED` | Response & Review | Senior / Manager | `grading.score.finalize` | Score verified, reason present | Match `expected_version` | `expected_version` | Row Lock | Action Key | `Atomic RPC + Outbox Insert` | `GRADE_FINALIZED` | `MISSING_REASON` | User Retry |
+| `SUBMITTED_FOR_REVIEW` | `FINALIZED` | Response | Senior / Manager | `grading.score.finalize` | Score verified, reason present | Match `expected_version` | `expected_version` | Row Lock | Action Key | `Atomic RPC + Outbox Insert` | `GRADE_FINALIZED` | `MISSING_REASON` | User Retry |
 | `FINALIZED` | `REOPENED` | Response | Manager / Emergency | `grading.reopen.execute` | Status `FINALIZED`, reason >= 20c | Compare-And-Swap CAS | Current `final_review_id` | Row Lock CAS | Action Key | `Single Atomic RPC Transaction` | `GRADE_REOPENED` | `REASON_TOO_SHORT` | Admin Retry |
 | `RETURNED_FOR_SECOND_REVIEW` | `IN_GRADING` | Response | Senior / New Grader | `grading.claim.execute` | Previous review preserved, return reason saved, new assignment created | Increment assignment_gen + New Lease Token | `lease_token` & `gen` + 1 | Row Lock `FOR UPDATE NOWAIT` | Action Key / Optional | `Single Atomic RPC Transaction` | `SECOND_REVIEW_CLAIMED` | `UNASSIGNED_GRADER_CLAIM_BLOCKED` | User Retry |
 | `REOPENED` | `IN_GRADING` | Response | Senior / Grader | `grading.claim.execute` | Reopened response assigned | Active lease claim | `assignment_gen` | Row Lock | Optional | `Single Atomic RPC Transaction` | `REOPENED_GRADING_STARTED` | `ALREADY_CLAIMED` | User Retry |
 | `APPEALED` | `REOPENED` | Response | Appeal Committee / Manager | `grading.appeal.process` | Appeal upheld, requires regrading | Single decision CAS | `appeal_id` | Row Lock CAS | Action Key | `Atomic RPC + Outbox` | `APPEAL_UPHELD_REOPENED` | `APPEAL_ALREADY_DECIDED` | User Retry |
 | `FINALIZED` | `APPEALED` | Response | Student / System | `student.appeal.create` | Batch `RELEASED`, in window | Single active appeal per response | `batch_finalized_at` | Unique Appeal Index | Student Key | `Single Atomic Student RPC Transaction` | `APPEAL_CREATED` | `APPEAL_WINDOW_EXPIRED` | No Retry |
-| `APPEALED` | `FINALIZED` | Response & Review | Appeal Reviewer | `grading.appeal.process` | Appeal claimed, no COI | Single decision CAS | `appeal_id` | Row Lock CAS | Action Key | `Atomic RPC + Session Rescore + Outbox` | `APPEAL_DECIDED` | `COI_VIOLATION` | User Retry |
+| `APPEALED` | `FINALIZED` | Response | Appeal Reviewer | `grading.appeal.process` | Appeal claimed, no COI | Single decision CAS | `appeal_id` | Row Lock CAS | Action Key | `Atomic RPC + Session Rescore + Outbox` | `APPEAL_DECIDED` | `COI_VIOLATION` | User Retry |
 | `DRAFT` | `SUBMITTED` | Review Row | Grader / Reviewer | `GRADE_MANUAL_RESPONSE` | Valid score & feedback | Single row append | `idempotency_key` | Append-Only Lock | Transaction Key | `Single Atomic RPC Transaction` | `REVIEW_ROW_SUBMITTED` | `DUPLICATE_IDEMPOTENCY` | User Retry |
 | `SUBMITTED` | `FINAL` | Review Row | Senior / System | `grading.score.finalize` | Finalization approved | `is_final = true` CAS | `review_id` | Row Lock | Action Key | `Single Atomic RPC Transaction` | `REVIEW_ROW_FINALIZED` | `ALREADY_FINALIZED` | User Retry |
 | `FINAL` | `SUPERSEDED` | Review Row | System / RPC | Internal RPC | New correction row inserted | Linear chain linking | `previous_review_id` | Append-Only Lock | Transaction Key | `Atomic Review Append Transaction` | `REVIEW_SUPERSEDED` | `CHAIN_BROKEN` | Transaction Rollback |
@@ -294,5 +294,28 @@
 | **OD-MG-15** | سلطة الانقضاء والسحب | آلي / يدوي / مختلط | إطلاق المهام | إرجاع مبكر جداً | مختلط (آلي+يدوي) | Job Config | Expiry Worker | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
 | **OD-MG-16** | إفراج دفعة الممارسة التدريبية | تجميعي / فوري | إظهار الحلول | تسريب التمارين | فوري بعد التسليم | Practice Flags | Immediate Outbox | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
 
+### 9.1. مصفوفة بوابات قرارات المالك واعتماديات المهام (Owner Decision Gates Matrix) `[REQUIRED_EXTENSION]`
+
+تربط هذه المصفوفة كل قرار من القرارات الـ 16 بعقد بوابة تنفيذي محدد (`Gate Task`) تعتمد عليه المهمات التطبيقية المتأثرة صراحةً، وتظل جميع القرارات بحالة `NEEDS_OWNER_DECISION` دون اعتبار أي Gate اعتماداً مسبقاً للقرار:
+
+| Decision ID | Gate Task | Dependent Tasks | Blocking Phase | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **ODR-001** | `TASK-MG-022` (Lease Lock Model) | `TASK-MG-021`, `TASK-MG-023`, `TASK-MG-024`, `TASK-MG-025`, `TASK-MG-026`, `TASK-MG-030` | `MVP` | `NEEDS_OWNER_DECISION` |
+| **ODR-002** | `TASK-MG-017` (SLA Warning Filter) | `TASK-MG-027` | `MVP` | `NEEDS_OWNER_DECISION` |
+| **ODR-003** | `TASK-MG-027` (Escalation Alert Dispatch) | `TASK-MG-070` | `P1` | `NEEDS_OWNER_DECISION` |
+| **ODR-004** | `TASK-MG-046` (Score Variance Check) | `TASK-MG-047`, `TASK-MG-050` | `P1` | `NEEDS_OWNER_DECISION` |
+| **ODR-005** | `TASK-MG-048` (Random QA Sampling) | `TASK-MG-050` | `P2` | `NEEDS_OWNER_DECISION` |
+| **ODR-006** | `TASK-MG-056` (Appeals Window Control) | `TASK-MG-055`, `TASK-MG-057` | `P1` | `NEEDS_OWNER_DECISION` |
+| **ODR-007** | `TASK-MG-051` (Atomic Finalize RPC) | `TASK-MG-052`, `TASK-MG-053`, `TASK-MG-061` | `MVP` | `NEEDS_OWNER_DECISION` |
+| **ODR-008** | `TASK-MG-047` (Senior Arbitration View) | `TASK-MG-051`, `TASK-MG-058` | `P1` | `NEEDS_OWNER_DECISION` |
+| **ODR-009** | `TASK-MG-054` (Emergency Reopen RPC) | `TASK-MG-075`, `TASK-MG-080` | `P1` | `NEEDS_OWNER_DECISION` |
+| **ODR-010** | `TASK-MG-062` (Batch Release Trigger) | `TASK-MG-063`, `TASK-MG-064` | `MVP` | `NEEDS_OWNER_DECISION` |
+| **ODR-011** | `TASK-MG-069` (Practice Immediate Release) | `TASK-MG-064` | `MVP` | `NEEDS_OWNER_DECISION` |
+| **ODR-012** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046`, `TASK-MG-047` | `P1` | `NEEDS_OWNER_DECISION` |
+| **OD-MG-13** | `TASK-MG-034` (Institution Rounding Rules) | `TASK-MG-046`, `TASK-MG-051` | `P1` | `NEEDS_OWNER_DECISION` |
+| **OD-MG-14** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046` | `P1` | `NEEDS_OWNER_DECISION` |
+| **OD-MG-15** | `TASK-MG-023` (Auto-Release Expired Job) | `TASK-MG-028` | `MVP` | `NEEDS_OWNER_DECISION` |
+| **OD-MG-16** | `TASK-MG-069` (Practice Immediate Release) | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | `MVP` | `NEEDS_OWNER_DECISION` |
+
 ---
-*نهاية الوثيقة MANUAL-GRADING-PRODUCT-REQUIREMENTS-01 (Canonical Correction 05)*
+*نهاية الوثيقة MANUAL-GRADING-PRODUCT-REQUIREMENTS-01 (Canonical Correction 07)*

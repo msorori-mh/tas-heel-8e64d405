@@ -295,7 +295,7 @@
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-032`
   - **Security Prerequisite**: معايرة تقريب الكسور لـ 0.25 أو 0.50 حسب سياسة المقرر.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-004) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Required**: `YES` (OD-MG-13, ODR-004) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-SCR-002` | **Deliverable Type**: `RPC`
 
 - **TASK-MG-035: التحكم في إدخال ملاحظات الطالب والتعقيم الأمني (Sanitizations)** `[REQUIRED_EXTENSION]`
@@ -376,7 +376,7 @@
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-021`, `TASK-MG-041`
   - **Security Prerequisite**: تعيين صفين مستقلين بحالة عزل تام (Blind Isolation).
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (OD-MG-14) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-012, OD-MG-14) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-DMA-001` | **Deliverable Type**: `SCHEMA`, `RPC`
 
 - **TASK-MG-046: محرك حساب التباين والتحويل التلقائي للتحكيم** `[REQUIRED_EXTENSION]`
@@ -552,7 +552,7 @@
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`
   - **Security Prerequisite**: تمكين الكشف الفوري لتمارين Practice دون انتظار الدفعة.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-011) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Required**: `YES` (ODR-011, OD-MG-16) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-007` | **Deliverable Type**: `RPC`, `NOTIFICATION`
 
 - **TASK-MG-070: تقرير متابعة تسليم الإشعارات ونسبة الوصول للطلاب** `[FUTURE_P1]`
@@ -595,11 +595,12 @@
   - **Acceptance Test**: `TC-MUX-004` | **Deliverable Type**: `UI`
 
 - **TASK-MG-075: بوابة تحقق الأمان ومفتش سجل التدقيق (Security Verification Gate & Audit Inspector UI)** `[REQUIRED_EXTENSION]`
-  - **Phase**: `P1` | **Dependencies**: `TASK-MG-002`, `TASK-MG-007`, `TASK-MG-059`
-  - **Security Prerequisite**: عرض التسلسل الزمني الكامل لـ `question_response_reviews`.
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-002`, `TASK-MG-007`, `TASK-MG-008`, `TASK-MG-009`, `TASK-MG-021`, `TASK-MG-026`, `TASK-MG-036`, `TASK-MG-041`, `TASK-MG-042`, `TASK-MG-043`, `TASK-MG-051`, `TASK-MG-054`, `TASK-MG-055`, `TASK-MG-059`, `TASK-MG-061`, `TASK-MG-063`
+  - **Security Prerequisite**: تفعيل الفحص الأمني الشامل لنموذج الصلاحيات والتكليفات و RLS والـ RPCs وحظر التجاوزات وسجل التدقيق غير القابل للتعديل.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `question_response_reviews`
-  - **Acceptance Test**: `TC-AFR-003` | **Deliverable Type**: `UI`, `RPC`
+  - **Owner Decision Required**: `YES` (ODR-009) | **Existing QB-01 Dependency**: `question_response_reviews`
+  - **Acceptance Test**: `TC-SEC-001`, `TC-SEC-004`, `TC-SEC-006`, `TC-SEC-007`, `TC-SEC-008`, `TC-SEC-009`, `TC-SEC-014`, `TC-SEC-015`, `TC-SEC-018`, `TC-SEC-019`, `TC-SEC-020`, `TC-SEC-021`
+  - **Deliverable Type**: `TEST`, `SECURITY_VERIFICATION`, `AUDIT`, `UI`, `RPC`
 
 - **TASK-MG-076: إنفاذ حظر التخزين المحلي للدرجات غير المعتمدة (Offline Limit)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-001`
@@ -623,18 +624,20 @@
   - **Acceptance Test**: `TC-MUX-006`, `TC-MUX-008` | **Deliverable Type**: `UI`
 
 - **TASK-MG-079: التعافي من المقاطعة وبوابة تحقق الاختبارات الشاملة (Mobile Recovery & E2E Verification Gate)** `[REQUIRED_EXTENSION]`
-  - **Phase**: `P1` | **Dependencies**: `TASK-MG-074`, `TASK-MG-076`
-  - **Security Prerequisite**: الحفاظ على مسودة المحرر مؤقتاً بالذاكرة النشطة عند انقطاع المكالمات.
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-011`, `TASK-MG-021`, `TASK-MG-023`, `TASK-MG-031`, `TASK-MG-045`, `TASK-MG-051`, `TASK-MG-055`, `TASK-MG-062`, `TASK-MG-064`, `TASK-MG-069`, `TASK-MG-074`, `TASK-MG-075`, `TASK-MG-076`, `TASK-MG-078`
+  - **Security Prerequisite**: التحقق الشامل من مسارات النظام الكاملة Happy & Negative Paths من المطالبة حتى الاعتماد والنشر والتظلمات والتعافي المحمول.
   - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
-  - **Acceptance Test**: `TC-MUX-005` | **Deliverable Type**: `UI`
+  - **Acceptance Test**: `TC-MUX-005`, `TC-MUX-006`, `TC-MUX-007`, `TC-MUX-008`, `TC-QCL-011`
+  - **Deliverable Type**: `TEST`, `E2E`, `UX_ACCESSIBILITY`, `UI`
 
 - **TASK-MG-080: لوحة مراقبة صحة النظام وبوابة الجاهزية والإطلاق (Production Readiness & Launch Approval Gate)** `[FUTURE_P1]`
-  - **Phase**: `P2` | **Dependencies**: `TASK-MG-058`, `TASK-MG-062`, `TASK-MG-068`, `TASK-MG-075`, `TASK-MG-079`
-  - **Security Prerequisite**: مراقبة معدلات الأخطاء وحوادث كبح التكرار.
+  - **Phase**: `P2` | **Dependencies**: `TASK-MG-022`, `TASK-MG-034`, `TASK-MG-045`, `TASK-MG-047`, `TASK-MG-050`, `TASK-MG-051`, `TASK-MG-054`, `TASK-MG-056`, `TASK-MG-062`, `TASK-MG-069`, `TASK-MG-070`, `TASK-MG-075`, `TASK-MG-079`
+  - **Security Prerequisite**: استيفاء جميع بوابات قرارات المالك، واجتياز فحوصات الأمان و E2E والـ Observability، وتوفر خطة التعافي، وحظر الإطلاق عند وجود أي مكتشفات حرجية أو قرارات غير معتمدة.
   - **Migration Required**: `NO` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
-  - **Acceptance Test**: `TC-SEC-018` | **Deliverable Type**: `OBSERVABILITY`, `UI`
+  - **Owner Decision Required**: `YES` (ODR-001..012, OD-MG-13..16) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-SEC-018`
+  - **Deliverable Type**: `TEST`, `RELEASE_GATE`, `OBSERVABILITY`, `AUDIT`, `DOCS`, `UI`
 
 ---
 
@@ -720,13 +723,13 @@ graph TD
         T11 --> T18[TASK-MG-018: Ready Sessions View]
         T17 --> T27[TASK-MG-027: Escalation Alert Dispatch]
         T26 --> T28[TASK-MG-028: Manager Reclaim RPC]
-        T26 --> T30[TASK-MG-030: Offline Recovery Lock Check]
+        T22 & T26 --> T30[TASK-MG-030: Offline Recovery Lock Check]
         T32 --> T34[TASK-MG-034: Institution Rounding Rules]
         T7 & T21 & T41 --> T45[TASK-MG-045: Dual Independent Assignment]
-        T45 --> T46[TASK-MG-046: Score Variance Check]
-        T46 --> T47[TASK-MG-047: Senior Grader Arbitration View]
+        T34 & T45 --> T46[TASK-MG-046: Score Variance Check]
+        T45 & T46 --> T47[TASK-MG-047: Senior Grader Arbitration View]
         T7 & T51 --> T54[TASK-MG-054: Emergency Reopen RPC]
-        T7 & T51 --> T55[TASK-MG-055: Student Appeal Submission]
+        T51 --> T55[TASK-MG-055: Student Appeal Submission]
         T55 --> T56[TASK-MG-056: Appeals Window Expiry]
         T55 & T56 --> T57[TASK-MG-057: Independent Appeal Assign]
         T57 --> T58[TASK-MG-058: Appeal Decision & Correction]
@@ -735,10 +738,10 @@ graph TD
         T64 --> T66[TASK-MG-066: Notification Deduplication]
         T58 & T64 --> T67[TASK-MG-067: Re-Notification Dispatch]
         T63 --> T68[TASK-MG-068: UTC Timezone Verification]
-        T2 & T59 --> T75[TASK-MG-075: Audit Trail Inspector UI]
+        T2 & T7 & T51 & T54 & T59 --> T75[TASK-MG-075: Security Verification Gate]
         T71 --> T77[TASK-MG-077: WCAG ARIA Labels]
         T77 --> T78[TASK-MG-078: Focus Restoration Engine]
-        T76 --> T79[TASK-MG-079: Mobile Call Interruption Recovery]
+        T74 & T75 & T76 & T78 --> T79[TASK-MG-079: E2E Verification Gate]
     end
 
     subgraph Phase 4: P2 [التحسينات والتقارير المستقلة]
@@ -747,10 +750,10 @@ graph TD
         T31 --> T40[TASK-MG-040: Rubric Reference Media]
         T45 --> T48[TASK-MG-048: Random QA 5% Sampling]
         T41 --> T49[TASK-MG-049: Identity Evidence Flagging]
-        T46 --> T50[TASK-MG-050: Grader Variance Report]
+        T46 & T48 --> T50[TASK-MG-050: Grader Variance Report]
         T58 --> T60[TASK-MG-060: Annual Appeals Report]
         T65 --> T70[TASK-MG-070: Notification Delivery Report]
-        T58 & T62 & T68 & T75 & T79 --> T80[TASK-MG-080: Production Readiness & Launch Approval Gate]
+        T50 & T70 & T75 & T79 --> T80[TASK-MG-080: Production Readiness & Launch Approval Gate]
     end
 ```
 
