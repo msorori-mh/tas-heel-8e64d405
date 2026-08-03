@@ -519,12 +519,12 @@
 | **ODR-008** | `TASK-MG-047` | `TASK-MG-051`, `TASK-MG-058` | Direct / Transitive | `YES` |
 | **ODR-009** | `TASK-MG-054` | `TASK-MG-075`, `TASK-MG-080` | Direct / Transitive | `YES` |
 | **ODR-010** | `TASK-MG-062` | `TASK-MG-063`, `TASK-MG-064` | Direct | `YES` |
-| **ODR-011** | `TASK-MG-069 — Practice Release Policy Dispatcher` | `TASK-MG-064` | Direct | `YES` |
+| **ODR-011** | `TASK-MG-069 — Practice Release Policy Dispatcher` | Consumed dependency: `TASK-MG-064` (`TASK-MG-069` depends on `TASK-MG-064`) | Direct | `YES` |
 | **ODR-012** | `TASK-MG-045` | `TASK-MG-046`, `TASK-MG-047` | Direct | `YES` |
 | **ODR-013** | `TASK-MG-046` | `TASK-MG-034`, `TASK-MG-051` | Direct | `YES` |
 | **ODR-014** | `TASK-MG-045` | `TASK-MG-046` | Direct | `YES` |
 | **ODR-015** | `TASK-MG-023` | `TASK-MG-028` | Direct | `YES` |
-| **ODR-016** | `TASK-MG-069 — Practice Release Policy Dispatcher` | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | Direct | `YES` |
+| **ODR-016** | `TASK-MG-069 — Practice Release Policy Dispatcher` | Consumed dependency: `TASK-MG-064` (`TASK-MG-069` depends on `TASK-MG-064`); Dependent tasks: `TASK-MG-063`, `TASK-MG-067` | Direct | `YES` |
 
 > [!IMPORTANT]
 > **خلاصة القبول الشامل لبوابات قرارات المالك:**
@@ -553,12 +553,12 @@
 | **ODR-008** | `TASK-MG-047` (Senior Arbitration View) | `TASK-MG-051`, `TASK-MG-058` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 | **ODR-009** | `TASK-MG-054` (Emergency Reopen RPC) | `TASK-MG-075`, `TASK-MG-080` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 | **ODR-010** | `TASK-MG-062` (Batch Release Trigger) | `TASK-MG-063`, `TASK-MG-064` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
-| **ODR-011** | `TASK-MG-069 — Practice Release Policy Dispatcher` | `TASK-MG-064` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-011** | `TASK-MG-069 — Practice Release Policy Dispatcher` | Consumed dependency: `TASK-MG-064` (`TASK-MG-069` depends on `TASK-MG-064`) | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 | **ODR-012** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046`, `TASK-MG-047` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 | **ODR-013** | `TASK-MG-046` (Score Variance & Arithmetic Mean) | `TASK-MG-034`, `TASK-MG-051` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 | **ODR-014** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 | **ODR-015** | `TASK-MG-023` (Auto-Release Expired Job) | `TASK-MG-028` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
-| **ODR-016** | `TASK-MG-069 — Practice Release Policy Dispatcher` | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-016** | `TASK-MG-069 — Practice Release Policy Dispatcher` | Consumed dependency: `TASK-MG-064` (`TASK-MG-069` depends on `TASK-MG-064`); Dependent tasks: `TASK-MG-063`, `TASK-MG-067` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 
 
 > [!IMPORTANT]
