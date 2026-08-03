@@ -13,19 +13,19 @@
 
 | اسم آلة الحالات (Machine) | الحالات غير النهائية (Non-Terminal States) | مسارات الخروج المؤكدة لكل حالة غیر نهائية | الحالات النهائية (Terminal States) | خلو Dead-End Non-Terminal |
 | :--- | :--- | :--- | :--- | :---: |
-| **`RESPONSE`** | `PENDING_MANUAL_GRADING`, `IN_GRADING`, `SUBMITTED_FOR_REVIEW`, `RETURNED_FOR_SECOND_REVIEW`, `FINALIZED`, `REOPENED`, `APPEALED` | `PENDING_MANUAL_GRADING` $	o$ `IN_GRADING`<br>`IN_GRADING` $	o$ `SUBMITTED_FOR_REVIEW`<br>`SUBMITTED_FOR_REVIEW` $	o$ `RETURNED_FOR_SECOND_REVIEW` / `FINALIZED`<br>`RETURNED_FOR_SECOND_REVIEW` $	o$ `IN_GRADING`<br>`FINALIZED` $	o$ `REOPENED` / `APPEALED`<br>`REOPENED` $	o$ `IN_GRADING`<br>`APPEALED` $	o$ `FINALIZED` | *لا يوجد حالات نهائية مطلقة* (قد يخضع أي سجل نهائي لتظلم أو فتح استثنائي) | **`0`** (PASS) |
-| **`ASSIGNMENT`** | `ASSIGNED`, `CLAIMED`, `RELEASED`, `EXPIRED`, `RECLAIMED` | `ASSIGNED` $	o$ `CLAIMED`<br>`CLAIMED` $	o$ `SUBMITTED` / `RELEASED` / `EXPIRED` / `CANCELLED`<br>`RELEASED` $	o$ `CLAIMED`<br>`EXPIRED` $	o$ `RECLAIMED`<br>`RECLAIMED` $	o$ `CLAIMED` | `SUBMITTED`, `CANCELLED` | **`0`** (PASS) |
-| **`REVIEW_ROW`** | `DRAFT`, `SUBMITTED` | `DRAFT` $	o$ `SUBMITTED`<br>`SUBMITTED` $	o$ `FINAL` / `SUPERSEDED` / `VOIDED` | `FINAL`, `SUPERSEDED`, `VOIDED` | **`0`** (PASS) |
-| **`APPEAL`** | `CREATED`, `ELIGIBILITY_CHECKED`, `ASSIGNED`, `UNDER_REVIEW` | `CREATED` $	o$ `ELIGIBILITY_CHECKED`<br>`ELIGIBILITY_CHECKED` $	o$ `ASSIGNED` / `CANCELLED`<br>`ASSIGNED` $	o$ `UNDER_REVIEW`<br>`UNDER_REVIEW` $	o$ `DECIDED_UPHELD` / `DECIDED_REJECTED` / `DECIDED_REGRADE` | `DECIDED_UPHELD`, `DECIDED_REJECTED`, `DECIDED_REGRADE`, `CANCELLED` | **`0`** (PASS) |
-| **`BATCH`** | `OPEN`, `GRADING_COMPLETE`, `FINALIZATION_PENDING`, `FINALIZED`, `RELEASE_PENDING`, `REOPENED` | `OPEN` $	o$ `GRADING_COMPLETE` / `CANCELLED`<br>`GRADING_COMPLETE` $	o$ `FINALIZATION_PENDING`<br>`FINALIZATION_PENDING` $	o$ `FINALIZED`<br>`FINALIZED` $	o$ `RELEASE_PENDING` / `REOPENED`<br>`RELEASE_PENDING` $	o$ `RELEASED`<br>`REOPENED` $	o$ `FINALIZATION_PENDING` | `RELEASED`, `CANCELLED` | **`0`** (PASS) |
-| **`OUTBOX`** | `PENDING`, `CLAIMED`, `RETRY_WAIT` | `PENDING` $	o$ `CLAIMED`<br>`CLAIMED` $	o$ `SENT` / `RETRY_WAIT` / `DEAD_LETTER`<br>`RETRY_WAIT` $	o$ `CLAIMED` / `DEAD_LETTER` / `CANCELLED` | `SENT`, `DEAD_LETTER`, `CANCELLED` | **`0`** (PASS) |
+| **`RESPONSE`** | `PENDING_MANUAL_GRADING`, `IN_GRADING`, `SUBMITTED_FOR_REVIEW`, `RETURNED_FOR_SECOND_REVIEW`, `FINALIZED`, `REOPENED`, `APPEALED` | `PENDING_MANUAL_GRADING` → `IN_GRADING`<br>`IN_GRADING` → `SUBMITTED_FOR_REVIEW`<br>`SUBMITTED_FOR_REVIEW` → `RETURNED_FOR_SECOND_REVIEW` / `FINALIZED`<br>`RETURNED_FOR_SECOND_REVIEW` → `IN_GRADING`<br>`FINALIZED` → `REOPENED` / `APPEALED`<br>`REOPENED` → `IN_GRADING`<br>`APPEALED` → `FINALIZED` | *لا يوجد حالات نهائية مطلقة* (قد يخضع أي سجل نهائي لتظلم أو فتح استثنائي) | **`0`** (PASS) |
+| **`ASSIGNMENT`** | `ASSIGNED`, `CLAIMED`, `RELEASED`, `EXPIRED`, `RECLAIMED` | `ASSIGNED` → `CLAIMED`<br>`CLAIMED` → `SUBMITTED` / `RELEASED` / `EXPIRED` / `CANCELLED`<br>`RELEASED` → `CLAIMED`<br>`EXPIRED` → `RECLAIMED`<br>`RECLAIMED` → `CLAIMED` | `SUBMITTED`, `CANCELLED` | **`0`** (PASS) |
+| **`REVIEW_ROW`** | `DRAFT`, `SUBMITTED` | `DRAFT` → `SUBMITTED`<br>`SUBMITTED` → `FINAL` / `SUPERSEDED` / `VOIDED` | `FINAL`, `SUPERSEDED`, `VOIDED` | **`0`** (PASS) |
+| **`APPEAL`** | `CREATED`, `ELIGIBILITY_CHECKED`, `ASSIGNED`, `UNDER_REVIEW` | `CREATED` → `ELIGIBILITY_CHECKED`<br>`ELIGIBILITY_CHECKED` → `ASSIGNED` / `CANCELLED`<br>`ASSIGNED` → `UNDER_REVIEW`<br>`UNDER_REVIEW` → `DECIDED_UPHELD` / `DECIDED_REJECTED` / `DECIDED_REGRADE` | `DECIDED_UPHELD`, `DECIDED_REJECTED`, `DECIDED_REGRADE`, `CANCELLED` | **`0`** (PASS) |
+| **`BATCH`** | `OPEN`, `GRADING_COMPLETE`, `FINALIZATION_PENDING`, `FINALIZED`, `RELEASE_PENDING`, `REOPENED` | `OPEN` → `GRADING_COMPLETE` / `CANCELLED`<br>`GRADING_COMPLETE` → `FINALIZATION_PENDING`<br>`FINALIZATION_PENDING` → `FINALIZED`<br>`FINALIZED` → `RELEASE_PENDING` / `REOPENED`<br>`RELEASE_PENDING` → `RELEASED`<br>`REOPENED` → `FINALIZATION_PENDING` | `RELEASED`, `CANCELLED` | **`0`** (PASS) |
+| **`OUTBOX`** | `PENDING`, `CLAIMED`, `RETRY_WAIT` | `PENDING` → `CLAIMED`<br>`CLAIMED` → `SENT` / `RETRY_WAIT` / `DEAD_LETTER`<br>`RETRY_WAIT` → `CLAIMED` / `DEAD_LETTER` / `CANCELLED` | `SENT`, `DEAD_LETTER`, `CANCELLED` | **`0`** (PASS) |
 
 > [!IMPORTANT]
 > **إثبات عدم وجود أطراف ميتة (Zero Dead-Ends Audit Result):**
 > - **إجمالي الآلات المراجعة:** 6
 > - **إجمالي الحالات المحددة:** 41 حالة
-> - **إجمالي الحالات غير النهائية (Non-Terminal):** 28 حالة (لديها جميعاً مسار خروج قانوني واحد على الأقل)
-> - **إجمالي الحالات النهائية (Terminal):** 13 حالة (موسومة صراحة ومحمية من التعديل/إعادة الفتح على نفس السجل)
+> - **إجمالي الحالات غير النهائية (Non-Terminal):** 27 حالة (لديها جميعاً مسار خروج قانوني واحد على الأقل)
+> - **إجمالي الحالات النهائية (Terminal):** 14 حالة (موسومة صراحة ومحمية من التعديل/إعادة الفتح على نفس السجل)
 > - **عدد الحالات غير النهائية الميتة (Dead-end non-terminal states):** **`0`** (`PASS`)
 
 
@@ -240,10 +240,10 @@
 | `PENDING_MANUAL_GRADING` | `IN_GRADING` | `RESPONSE` | Grader | `grading.claim.execute` | Response in queue, no final score | Response status check | `response_version` | Row Lock | Claim ID | `Single Atomic RPC Transaction` | `RESPONSE_CLAIMED_FOR_GRADING` | `RESPONSE_NOT_AVAILABLE` | User Retry |
 | `IN_GRADING` | `SUBMITTED_FOR_REVIEW` | `RESPONSE` | Grader | `grading.submit.execute` | Active lease, score within max_score | Check `lease_token` | `lease_token` | Row Lock | Submit UUID | `Single Atomic RPC Transaction` | `RESPONSE_GRADED` | `INVALID_SCORE_OR_LEASE` | User Retry |
 | `SUBMITTED_FOR_REVIEW` | `RETURNED_FOR_SECOND_REVIEW` | `RESPONSE` | Score Variance Engine | `system.cron` | Variance > threshold or QA sample | Variance evaluation | `review_id` | Row Lock | System Job ID | `Single Atomic RPC Transaction` | `RESPONSE_RETURNED_FOR_REVIEW` | `VARIANCE_CHECK_FAILED` | Auto Job Retry |
-| `RETURNED_FOR_SECOND_REVIEW` | `IN_GRADING` | `RESPONSE` | Second Grader | `grading.claim.execute` | Assigned second slot or guidance notes present | Check `lease_token` / CAS | `new_lease_token` | Row Lock | Claim UUID | `Single Atomic RPC Transaction` | `RESPONSE_SECOND_REVIEW_STARTED` | `INVALID_LEASE_OR_STATE` | User Retry |
+| `RETURNED_FOR_SECOND_REVIEW` | `IN_GRADING` | `RESPONSE` | Second Grader / Reassigned Grader | `grading.claim.execute` | Mandatory guidance notes present & new slot assigned; Ref: `NEW_GRADING_ASSIGNMENT_AFTER_RETURN_OR_REOPEN` | Atomic CAS on expected response version & new assignment generation (`generation = previous_generation + 1`) | `expected_response_version` & `new_lease_token` (old lease invalidated & rejected) | Row Lock (`FOR UPDATE NOWAIT`) | Claim UUID / Return Action Key | `Single Atomic RPC Transaction` | `RESPONSE_SECOND_REVIEW_STARTED` | `INVALID_LEASE_OR_STATE` / `MISSING_GUIDANCE_REASON` | User Retry / New assignment active; old assignment immutable (`SUBMITTED`), previous review row append-only |
 | `SUBMITTED_FOR_REVIEW` | `FINALIZED` | `RESPONSE` | Senior Grader / RPC | `grading.finalize.execute` | Agreed scores or Senior arbitrated | `is_final = false` | `response_version` | Row Lock | Finalize UUID | `Single Atomic RPC Transaction` | `RESPONSE_FINALIZED` | `FINALIZATION_DENIED` | Admin Retry |
 | `FINALIZED` | `REOPENED` | `RESPONSE` | Manager / Emergency | `grading.reopen.execute` | Authorized emergency reopen | Audit log required | `response_version` | Row Lock | Emergency Ref | `Single Atomic RPC Transaction` | `RESPONSE_REOPENED` | `REOPEN_UNAUTHORIZED` | Admin Retry |
-| `REOPENED` | `IN_GRADING` | `RESPONSE` | Manager / Emergency | `grading.reopen.execute` | Emergency reopen authorized with mandatory reason | CAS on `response_version` | `expected_response_version` | Row Lock | Reopen UUID | `Single Atomic RPC Transaction` | `RESPONSE_REOPENED_TO_IN_GRADING` | `REOPEN_UNAUTHORIZED` | Admin Retry |
+| `REOPENED` | `IN_GRADING` | `RESPONSE` | Manager / Assigned Grader | `grading.reopen.execute` | Emergency reopen authorized with mandatory reason & new assignment generated; Ref: `NEW_GRADING_ASSIGNMENT_AFTER_RETURN_OR_REOPEN` | Atomic CAS on `expected_response_version` & monotonic assignment generation increment (`generation = previous_generation + 1`) | `expected_response_version` & `new_lease_token` (no reopening of previous `SUBMITTED` assignment) | Row Lock (`FOR UPDATE NOWAIT`) | Reopen UUID | `Single Atomic RPC Transaction` | `RESPONSE_REOPENED_TO_IN_GRADING` | `REOPEN_UNAUTHORIZED` / `MISSING_REOPEN_REASON` | Admin Retry / New assignment created, previous final review preserved, supersession chain built upon submit |
 | `FINALIZED` | `APPEALED` | `RESPONSE` | Student / System | `student.appeal.create` | Batch `RELEASED`, in window | Unique appeal check | `response_version` | Row Lock | Appeal UUID | `Single Atomic RPC Transaction` | `RESPONSE_APPEALED` | `OUTSIDE_WINDOW` | User Retry |
 | `APPEALED` | `FINALIZED` | `RESPONSE` | Appeal Reviewer | `grading.appeal.process` | Appeal decided and applied | Appeal decision logged | `appeal_id` | Row Lock | Decision UUID | `Single Atomic RPC Transaction` | `RESPONSE_APPEAL_RESOLVED` | `APPEAL_DENIED` | Admin Retry |
 | `DRAFT` | `SUBMITTED` | `REVIEW_ROW` | Grader | `grading.submit.execute` | Valid rubric selection | Active lease held | N/A | Memory State | Draft ID | `Single Atomic RPC Transaction` | `REVIEW_ROW_SUBMITTED` | `DRAFT_INVALID` | User Retry |
@@ -285,6 +285,22 @@
 > - **توفر الفاعل والصلاحية (Actor & Capability):** محدد في 100% من الصفوف
 > - **توفر مفتاح التكافؤ (Idempotency Key):** محدد في 100% من الصفوف
 > - **توفر حدث التدقيق وكود الفشل (Audit Event & Failure Code):** محدد في 100% من الصفوف
+
+### 5.9. العقد المرجعي المشترك لإنشاء تعيين جديد بعد الإعادة أو إعادة الفتح (`NEW_GRADING_ASSIGNMENT_AFTER_RETURN_OR_REOPEN`) `[REQUIRED_EXTENSION]`
+
+> [!IMPORTANT]
+> **العقد التنفيذي الإجباري لإنشاء تعيين جديد بعد الإعادة أو إعادة الفتح (New Assignment Lifecycle Contract):**
+> عند انتقال الإجابة من `RETURNED_FOR_SECOND_REVIEW` → `IN_GRADING` أو من `REOPENED` → `IN_GRADING`، يُطبق العقد المرجعي المشترك التالي صراحة داخل النظام:
+>
+> 1. **إنشاء Assignment جديد بالكامل (`new assignment_id`)**: لا يُعاد فتح أو تعديل سجل `grading_assignment` السابق الذي وصل لحالة نهائية (`SUBMITTED` / `RECLAIMED` / `EXPIRED`). يتم إنشاء سجل تعيين فريد جديد بنطاق معزول.
+> 2. **التزايد الرتيب للجيل (`monotonic assignment_generation`)**: يزداد رقم الجيل آلياً بمقدار 1 (`assignment_generation = previous generation + 1`) لإبطال كافة الرموز والطلبات السابقة.
+> 3. **إصدار رمز حجز جديد وفريد (`new lease_token`)**: يُصنع رمز `lease_token` فريد وجديد للمصاحبة؛ بينما يُرفض ويبطل رمز الحجز القديم نهائياً (`old lease rejected / invalidated`).
+> 4. **ثبات السجلات السابقة (Immutable & Append-Only History)**: تبقى التكليفات وصفوف المراجعات النهائية السابقة ثنائية الثبات وغير قابلة للتعديل (`old assignment remains immutable`, `previous review rows are append-only`).
+> 5. **فحص النسخة المتوقعة ذرياً (`atomic CAS on expected response version`)**: يُنفذ الشرط الذري لمطابقة `expected_response_version` لحظر التضارب التزامني ومجرد المصحح المعين أو المعاد تعيينه فقط هو من يستطيع المطالبة (`Only newly assigned or re-assigned grader can claim`).
+> 6. **السبب الإجباري وحد المعاملة والتدقيق (`Mandatory Reason, Single Atomic RPC Transaction & Audit Provenance`)**: تشترط العملية وجود سبب إجباري للإعادة أو إعادة الفتح (`mandatory return guidance reason / reopen reason required`)، وتُنفذ ضمن `Single Atomic RPC Transaction` مع تسجيل حدث تدقيق موثق (`Audit event`).
+> 7. **سلسلة التجاوز والتتبع لاحقاً (`Supersession Chain & Provenance`)**: يُحفظ التقييم النهائي السابق بالكامل، ويتم إنشاء سلسلة تجاوز تتابعية (`supersession chain`) عند تقديم التقييم الجديد لاحقاً.
+
+---
 
 ## 6. إغلاق السباقات وحالات التنافس (Race Conditions Resolution) `[REQUIRED_EXTENSION]`
 
@@ -372,7 +388,7 @@
 
 > [!NOTE]
 > **قواعد التتبع والهوية القانونية:**
-> - **المعرفات القديمة (Original IDs)**: تبقى أسماء مستعارة (Documented Aliases) موثقة قانونياً لضمان التتبع التاريخي (`OD-MG-13` $	o$ `ODR-013`, `OD-MG-14` $	o$ `ODR-014`, `OD-MG-15` $	o$ `ODR-015`, `OD-MG-16` $	o$ `ODR-016`).
+> - **المعرفات القديمة (Original IDs)**: تبقى أسماء مستعارة (Documented Aliases) موثقة قانونياً لضمان التتبع التاريخي (`OD-MG-13` → `ODR-013`, `OD-MG-14` → `ODR-014`, `OD-MG-15` → `ODR-015`, `OD-MG-16` → `ODR-016`).
 > - **المعرفات القانونية الموحدة (Canonical IDs)**: هي `ODR-001` إلى `ODR-016`.
 > - **حالة القرارات (Decision Status)**: لا يعتبر أي قرار معتمداً نهائياً (`Approved = 0`).
 > - **القرارات المفتوحة (Open Decisions)**: 16 قراراً بحالة `NEEDS_OWNER_DECISION`.
