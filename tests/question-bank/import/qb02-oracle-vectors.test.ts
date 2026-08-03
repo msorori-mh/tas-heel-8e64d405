@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import {
   compareNormalized,
   executeOracleVector,
+  executeOracleVectorIsolated,
+  ROUTE_SPY,
   type OracleVector,
   type ExecutionKind,
 } from "../../../src/lib/question-bank/import/oracle-scenarios.ts";
@@ -26,7 +28,7 @@ const tallies: Record<ExecutionKind | "fabricated" | "silent_skips", number> = {
 
 for (const vector of oracle.vectors) {
   test(`oracle ${vector.test_id} (${vector.category})`, () => {
-    const result = executeOracleVector(vector);
+    const result = executeOracleVectorIsolated(vector);
     assert.equal(result.silent_skip, false, `${vector.test_id} silent skip`);
     tallies[result.execution_kind] += 1;
 
@@ -68,7 +70,6 @@ for (const vector of oracle.vectors) {
 }
 
 test("oracle vector coverage summary reports honest execution kinds", () => {
-  // Ensure every vector test above executed by recounting.
   let silent = 0;
   const recount: Record<ExecutionKind, number> = {
     REAL_ADAPTER: 0, REAL_VALIDATOR: 0, REAL_PREFLIGHT: 0, REAL_BOUNDARY: 0,
@@ -76,7 +77,7 @@ test("oracle vector coverage summary reports honest execution kinds", () => {
     OWNER_DECISION_PENDING: 0,
   };
   for (const vector of oracle.vectors) {
-    const result = executeOracleVector(vector);
+    const result = executeOracleVectorIsolated(vector);
     if (result.silent_skip) silent += 1;
     recount[result.execution_kind] += 1;
   }
@@ -87,9 +88,6 @@ test("oracle vector coverage summary reports honest execution kinds", () => {
 });
 
 test("Metamorphic Oracle isolation: 0 Oracle-tainted routing occurrences", async () => {
-  const { executeOracleVectorIsolated, ROUTE_SPY } = await import(
-    "../../../src/lib/question-bank/import/oracle-scenarios.ts"
-  );
   ROUTE_SPY.reset();
 
   for (const vector of oracle.vectors) {
@@ -106,4 +104,35 @@ test("Metamorphic Oracle isolation: 0 Oracle-tainted routing occurrences", async
     0,
     "Expected 0 Oracle-tainted routing occurrences",
   );
+});
+
+test("Metamorphic Oracle Pairs: identical inputs with mutated expected metadata produce identical routes", () => {
+  ROUTE_SPY.reset();
+
+  const sampleVector = oracle.vectors[0]!;
+  const pairA: OracleVector = {
+    ...sampleVector,
+    expected_errors: [{ code: "INVALID_SCORE" }],
+  };
+  const pairB: OracleVector = {
+    ...sampleVector,
+    expected_errors: [{ code: "WRONG_MUTATED_EXPECTATION" }],
+  };
+
+  const resA = executeOracleVectorIsolated(pairA);
+  const spyA = {
+    adapterSelected: ROUTE_SPY.adapterSelected,
+    actual_code: resA.actual_code,
+  };
+
+  const resB = executeOracleVectorIsolated(pairB);
+  const spyB = {
+    adapterSelected: ROUTE_SPY.adapterSelected,
+    actual_code: resB.actual_code,
+  };
+
+  // Route and actual execution code MUST be identical
+  assert.equal(spyA.adapterSelected, spyB.adapterSelected);
+  assert.equal(spyA.actual_code, spyB.actual_code);
+  assert.equal(ROUTE_SPY.oracleTaintedRoutingOccurrences, 0);
 });

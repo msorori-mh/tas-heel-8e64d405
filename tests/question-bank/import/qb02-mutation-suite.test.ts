@@ -8,11 +8,25 @@ import { adaptLegacyFlat15Col } from "../../../src/lib/question-bank/import/adap
 import { preflightWorkbook } from "../../../src/lib/question-bank/import/preflight.ts";
 import { validateNormalizedRow } from "../../../src/lib/question-bank/import/validate.ts";
 import { QB_IMPORT_CODES } from "../../../src/lib/question-bank/import/validation-codes.ts";
+import { MUTATION_HOOKS, resetMutationHooks } from "../../../src/lib/question-bank/import/mutation-hooks.ts";
+import { CONTRACT_HEADERS } from "../../../src/lib/question-bank/import/adapters/detect.ts";
+import { runQuestionBankImportDryRun, runOperationalQuestionBankImportDryRun } from "../../../src/lib/question-bank/import/dry-run.ts";
+import { preflightZipBytes } from "../../../src/lib/question-bank/import/zip-preflight.ts";
+import { buildMinimalValidXlsx, buildOoxmlExternalRelXlsx, buildZipWithPathTraversal, buildZipWithDuplicateEntry } from "../../fixtures/question-bank/import/binary-fixtures.ts";
 
 const reordered = [
   { option_code: "B", body: "two" },
   { option_code: "A", body: "one" },
 ];
+
+const VALID_AUTH = {
+  authenticated: true,
+  actorId: "actor-123",
+  authorized: true,
+  capability: "question_bank.import",
+  scope: "tenant:default",
+  context: { actorId: "actor-123" },
+};
 
 test("mutation 1: legacy remains 0-based (killer for 1-based drift)", () => {
   const { row, issues } = adaptLegacyFlat15Col(
@@ -37,7 +51,6 @@ test("mutation 1: legacy remains 0-based (killer for 1-based drift)", () => {
   );
   assert.equal(issues.length, 0);
   assert.equal(row!.options.find((o) => o.option_code === "A")?.is_correct, true);
-  // Mutant: treating 0 as invalid 1-based would kill this row.
   assert.equal(resolveCorrectAnswer(0, reordered, { indexBase: 0 }).ok, true);
 });
 
@@ -46,7 +59,6 @@ test("mutation 2: letters resolve by option_code not array position", () => {
   assert.equal(r.ok, true);
   if (r.ok) {
     assert.equal(r.option_code, "A");
-    // Mutant using array[0] for "A" would mark B correct here.
     assert.equal(r.options.find((o) => o.option_code === "A")?.is_correct, true);
     assert.equal(r.options.find((o) => o.option_code === "B")?.is_correct, false);
   }
@@ -72,7 +84,7 @@ test("mutation 3/4: row and cell limits cannot drift upward", () => {
   );
 });
 
-test("mutation 5: validation registry still contains INVALID_SCORE", () => {
+test("mutation 5: validation registry contains INVALID_SCORE", () => {
   assert.equal(QB_IMPORT_CODES.INVALID_SCORE, "INVALID_SCORE");
   assert.ok(
     adaptOfficialFlatV0(
@@ -163,83 +175,186 @@ test("mutation 10: cross-subject/lesson curriculum check stays fail-closed", () 
   );
 });
 
-test("mutation 11: 10 executable mutants in MUTATION_HOOKS killed by specific assertions", async () => {
-  const { CONTRACT_HEADERS } = await import(
-    "../../../src/lib/question-bank/import/adapters/detect.ts"
-  );
-  const { MUTATION_HOOKS, resetMutationHooks } = await import(
-    "../../../src/lib/question-bank/import/mutation-hooks.ts"
-  );
-  const { runQuestionBankImportDryRun } = await import(
-    "../../../src/lib/question-bank/import/dry-run.ts"
-  );
-  const { preflightZipBytes } = await import(
-    "../../../src/lib/question-bank/import/zip-preflight.ts"
-  );
-
+test("MUTATION_HOOKS: all 10 mutants killed by real behavioral execution differences", async () => {
   try {
     // Mutant 1: disableAuthorizationGuard
     resetMutationHooks();
-    MUTATION_HOOKS.disableAuthorizationGuard = true;
-    const r1 = runQuestionBankImportDryRun({
+    const defaultAuth = runQuestionBankImportDryRun({
       fileName: "test.xlsx",
       headers: [...CONTRACT_HEADERS.official_flat_v0],
       rows: [],
       authorized: false,
     });
-    assert.equal(r1.issues.some((i) => i.code === "UNAUTHORIZED_IMPORT"), false);
+    assert.ok(defaultAuth.issues.some((i) => i.code === "AUTH_MISSING" || i.code === "UNAUTHORIZED_IMPORT"));
+
+    MUTATION_HOOKS.disableAuthorizationGuard = true;
+    const mutantAuth = runQuestionBankImportDryRun({
+      fileName: "test.xlsx",
+      headers: [...CONTRACT_HEADERS.official_flat_v0],
+      rows: [],
+      authorized: false,
+    });
+    assert.equal(mutantAuth.issues.some((i) => i.code === "AUTH_MISSING" || i.code === "UNAUTHORIZED_IMPORT"), false);
 
     // Mutant 2: missingAuthorizationAllows
     resetMutationHooks();
-    MUTATION_HOOKS.missingAuthorizationAllows = true;
-    const r2 = runQuestionBankImportDryRun({
+    const defaultMissing = runQuestionBankImportDryRun({
       fileName: "test.xlsx",
       headers: [...CONTRACT_HEADERS.official_flat_v0],
       rows: [],
     });
-    assert.equal(r2.issues.some((i) => i.code === "UNAUTHORIZED_IMPORT"), false);
+    assert.ok(defaultMissing.issues.some((i) => i.code === "AUTH_MISSING"));
+
+    MUTATION_HOOKS.missingAuthorizationAllows = true;
+    const mutantMissing = runQuestionBankImportDryRun({
+      fileName: "test.xlsx",
+      headers: [...CONTRACT_HEADERS.official_flat_v0],
+      rows: [],
+    });
+    assert.equal(mutantMissing.issues.some((i) => i.code === "AUTH_MISSING"), false);
 
     // Mutant 3: disablePreparseZipLimits
     resetMutationHooks();
+    const bombBytes = new Uint8Array([0, 1, 2, 3]);
+    const defaultZip = preflightZipBytes(bombBytes);
+    assert.equal(defaultZip.ok, false);
+
     MUTATION_HOOKS.disablePreparseZipLimits = true;
-    const bombBytes = new Uint8Array(100);
-    const pf = preflightZipBytes(bombBytes);
-    assert.equal(pf.ok, true);
+    const mutantZip = preflightZipBytes(bombBytes);
+    assert.equal(mutantZip.ok, true);
 
     // Mutant 4: disableDuplicateEntryDetection
     resetMutationHooks();
+    const dupBytes = await buildZipWithDuplicateEntry();
+    const defaultDup = preflightZipBytes(dupBytes);
+    assert.ok(defaultDup.issues.some((i) => i.code === "ZIP_DUPLICATE_ENTRY"));
+
     MUTATION_HOOKS.disableDuplicateEntryDetection = true;
-    assert.equal(MUTATION_HOOKS.disableDuplicateEntryDetection, true);
+    const mutantDup = preflightZipBytes(dupBytes);
+    assert.equal(mutantDup.issues.some((i) => i.code === "ZIP_DUPLICATE_ENTRY"), false);
 
     // Mutant 5: disablePathTraversalDetection
     resetMutationHooks();
+    const travBytes = await buildZipWithPathTraversal("../secret.txt");
+    const defaultTrav = preflightZipBytes(travBytes);
+    assert.ok(defaultTrav.issues.some((i) => i.code === "PATH_TRAVERSAL"));
+
     MUTATION_HOOKS.disablePathTraversalDetection = true;
-    assert.equal(MUTATION_HOOKS.disablePathTraversalDetection, true);
+    const mutantTrav = preflightZipBytes(travBytes);
+    assert.equal(mutantTrav.issues.some((i) => i.code === "PATH_TRAVERSAL"), false);
 
     // Mutant 6: bypassFormulaInjectionGuard
     resetMutationHooks();
+    const formulaBytes = await buildMinimalValidXlsx(
+      ["question_code", "question_text", "interaction_type", "grading_mode", "option_1", "option_2", "correct_index", "max_score", "subject_code"],
+      [["Q1", "=SUM(1,2)", "SINGLE_CHOICE", "AUTO_SINGLE", "1", "2", "1", "1", "MATH-G10"]],
+    );
+    const defaultForm = await runOperationalQuestionBankImportDryRun({
+      fileName: "formula.xlsx",
+      bytes: formulaBytes,
+      catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+      authorized: VALID_AUTH,
+    });
+    assert.ok(defaultForm.issues.some((i) => i.code === "FORMULA_INJECTION" || i.code === "FORMULA_CELL"));
+
     MUTATION_HOOKS.bypassFormulaInjectionGuard = true;
-    assert.equal(MUTATION_HOOKS.bypassFormulaInjectionGuard, true);
+    const mutantForm = await runOperationalQuestionBankImportDryRun({
+      fileName: "formula.xlsx",
+      bytes: formulaBytes,
+      catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+      authorized: VALID_AUTH,
+    });
+    assert.equal(mutantForm.issues.some((i) => i.code === "FORMULA_CELL"), false);
 
     // Mutant 7: allowUnsupportedFormat
     resetMutationHooks();
+    const defaultUnsup = runQuestionBankImportDryRun({
+      fileName: "test.xlsx",
+      headers: ["unknown_col_1", "unknown_col_2"],
+      rows: [],
+      authorized: VALID_AUTH,
+    });
+    assert.ok(defaultUnsup.issues.some((i) => i.code === "INVALID_CONTRACT"));
+
     MUTATION_HOOKS.allowUnsupportedFormat = true;
-    assert.equal(MUTATION_HOOKS.allowUnsupportedFormat, true);
+    const mutantUnsup = runQuestionBankImportDryRun({
+      fileName: "test.xlsx",
+      headers: ["unknown_col_1", "unknown_col_2"],
+      rows: [],
+      authorized: VALID_AUTH,
+    });
+    assert.equal(mutantUnsup.issues.some((i) => i.code === "INVALID_CONTRACT"), false);
 
     // Mutant 8: disableExternalRelRejection
     resetMutationHooks();
+    const extBytes = await buildOoxmlExternalRelXlsx("http://attacker.com");
+    const defaultExt = await runOperationalQuestionBankImportDryRun({
+      fileName: "ext.xlsx",
+      bytes: extBytes,
+      catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+      authorized: VALID_AUTH,
+    });
+    assert.ok(defaultExt.issues.some((i) => i.code === "EXTERNAL_LINK"));
+
     MUTATION_HOOKS.disableExternalRelRejection = true;
-    assert.equal(MUTATION_HOOKS.disableExternalRelRejection, true);
+    const mutantExt = await runOperationalQuestionBankImportDryRun({
+      fileName: "ext.xlsx",
+      bytes: extBytes,
+      catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+      authorized: VALID_AUTH,
+    });
+    assert.equal(mutantExt.issues.some((i) => i.code === "EXTERNAL_LINK"), false);
 
     // Mutant 9: disableIdempotencyValidation
     resetMutationHooks();
+    const rowObj = {
+      question_code: "R1",
+      question_text: "q",
+      interaction_type: "SINGLE_CHOICE",
+      grading_mode: "AUTO_SINGLE",
+      option_1: "a",
+      option_2: "b",
+      correct_index: 1,
+      max_score: 1,
+      subject_code: "MATH-G10",
+    };
+    const defaultIdem = runQuestionBankImportDryRun({
+      fileName: "idem.xlsx",
+      headers: [...CONTRACT_HEADERS.official_flat_v0],
+      rows: [rowObj, { ...rowObj, question_code: "R2" }],
+      authorized: VALID_AUTH,
+      catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+    });
+    assert.equal(defaultIdem.replay_decision, "DUPLICATE_CONTENT");
+
     MUTATION_HOOKS.disableIdempotencyValidation = true;
-    assert.equal(MUTATION_HOOKS.disableIdempotencyValidation, true);
+    const mutantIdem = runQuestionBankImportDryRun({
+      fileName: "idem.xlsx",
+      headers: [...CONTRACT_HEADERS.official_flat_v0],
+      rows: [rowObj, { ...rowObj, question_code: "R2" }],
+      authorized: VALID_AUTH,
+      catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+    });
+    assert.equal(mutantIdem.replay_decision, "ACCEPTABLE_DRAFT");
 
     // Mutant 10: disableRequiredColumnValidation
     resetMutationHooks();
+    const defaultCol = runQuestionBankImportDryRun({
+      fileName: "col.xlsx",
+      headers: ["question_code"], // Truncated header list
+      rows: [],
+      authorized: VALID_AUTH,
+    });
+    assert.ok(defaultCol.issues.some((i) => i.code === "INVALID_CONTRACT" || i.code === "MISSING_HEADER"));
+
     MUTATION_HOOKS.disableRequiredColumnValidation = true;
-    assert.equal(MUTATION_HOOKS.disableRequiredColumnValidation, true);
+    const mutantCol = runQuestionBankImportDryRun({
+      fileName: "col.xlsx",
+      headers: ["question_code"],
+      rows: [],
+      authorized: VALID_AUTH,
+    });
+    assert.equal(mutantCol.issues.some((i) => i.code === "INVALID_CONTRACT" || i.code === "MISSING_HEADER"), false);
   } finally {
     resetMutationHooks();
   }

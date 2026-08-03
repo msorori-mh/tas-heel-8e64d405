@@ -456,10 +456,10 @@ test("error export neutralizes formula-like messages with apostrophe", () => {
   assert.ok(String(model[0]!.message_ar).startsWith("'"));
 });
 
-test("validation codes are 60 unique", () => {
+test("validation codes are 72 unique", () => {
   const vals = Object.values(QB_IMPORT_CODES);
-  assert.equal(vals.length, 60);
-  assert.equal(new Set(vals).size, 60);
+  assert.equal(vals.length, 72);
+  assert.equal(new Set(vals).size, 72);
 });
 
 test("no DB write symbols in import modules", async () => {
@@ -576,11 +576,20 @@ test("replay: safe noop / conflict / duplicate content", () => {
   };
   const { row } = adaptOfficialFlatV0(baseRow, {});
   const fingerprint = contentFingerprint(row!);
+  const VALID_AUTH = {
+    authenticated: true,
+    actorId: "test-actor-123",
+    authorized: true,
+    capability: "question_bank.import",
+    scope: "tenant:default",
+    context: { actorId: "test-actor-123", tenant: "tenant:default" },
+  };
+
   const safe = runQuestionBankImportDryRun({
     fileName: "replay.xlsx",
     headers: [...CONTRACT_HEADERS.official_flat_v0],
     rows: [baseRow],
-    authorized: true,
+    authorized: VALID_AUTH,
     catalog: {
       subjects: new Set(["PHYS"]),
       lessons: new Set(),
@@ -593,7 +602,7 @@ test("replay: safe noop / conflict / duplicate content", () => {
     fileName: "replay.xlsx",
     headers: [...CONTRACT_HEADERS.official_flat_v0],
     rows: [{ ...baseRow, question_text: "نص مختلف" }],
-    authorized: true,
+    authorized: VALID_AUTH,
     catalog: {
       subjects: new Set(["PHYS"]),
       lessons: new Set(),
@@ -607,13 +616,21 @@ test("replay: safe noop / conflict / duplicate content", () => {
     fileName: "replay.xlsx",
     headers: [...CONTRACT_HEADERS.official_flat_v0],
     rows: [baseRow, { ...baseRow, question_code: "R2" }],
-    authorized: true,
+    authorized: VALID_AUTH,
     catalog: { subjects: new Set(["PHYS"]), lessons: new Set() },
   });
   assert.equal(dup.replay_decision, "DUPLICATE_CONTENT");
 });
 
 test("csv parser integration rejects formula-like cells via trusted path", async () => {
+  const VALID_AUTH = {
+    authenticated: true,
+    actorId: "test-actor-123",
+    authorized: true,
+    capability: "question_bank.import",
+    scope: "tenant:default",
+    context: { actorId: "test-actor-123" },
+  };
   const { parseQuestionBankWorkbook } = await import(
     "../../../src/lib/question-bank/import/workbook-parser.ts"
   );
@@ -645,7 +662,7 @@ test("csv parser integration rejects formula-like cells via trusted path", async
   const result = await runOperationalQuestionBankImportDryRun({
     fileName: "sample.csv",
     bytes: new TextEncoder().encode(csv),
-    authorized: true,
+    authorized: VALID_AUTH,
     catalog: { subjects: new Set(["PHYS"]), lessons: new Set() },
   });
   assert.ok(
@@ -672,4 +689,239 @@ test("non-scalar scalar fields are not stringified", () => {
   );
   assert.equal(row, null);
   assert.ok(issues.some((i) => i.code === "MISSING_VALUE"));
+});
+
+test("authorization contract matrix: reject partial/invalid auth, allow complete valid state", async () => {
+  const { validateImportAuthorization } = await import(
+    "../../../src/lib/question-bank/import/authorization.ts"
+  );
+
+  const matrix: Array<{ auth: unknown; expectedCode: string }> = [
+    { auth: undefined, expectedCode: "AUTH_MISSING" },
+    { auth: null, expectedCode: "AUTH_MISSING" },
+    { auth: false, expectedCode: "AUTH_MISSING" },
+    { auth: {}, expectedCode: "AUTH_MALFORMED" },
+    { auth: { valid: true }, expectedCode: "AUTH_MALFORMED" },
+    { auth: { authorized: true }, expectedCode: "AUTH_MALFORMED" },
+    {
+      auth: { authorized: true, capability: "wrong.capability" },
+      expectedCode: "CAPABILITY_INVALID",
+    },
+    {
+      auth: {
+        authorized: true,
+        capability: "question_bank.import",
+        scope: "wrong:scope",
+      },
+      expectedCode: "SCOPE_MISMATCH",
+    },
+    {
+      auth: {
+        authorized: true,
+        capability: "question_bank.import",
+        scope: "tenant:default",
+        actorId: "",
+      },
+      expectedCode: "AUTH_MALFORMED",
+    },
+    {
+      auth: {
+        authorized: true,
+        capability: "question_bank.import",
+        scope: "tenant:default",
+        actorId: "actor-1",
+        authenticated: false,
+      },
+      expectedCode: "AUTHENTICATION_REQUIRED",
+    },
+    {
+      auth: {
+        authorized: true,
+        capability: "question_bank.import",
+        scope: "tenant:default",
+        actorId: "actor-1",
+        authenticated: true,
+        context: {},
+        expired: true,
+      },
+      expectedCode: "AUTH_EXPIRED",
+    },
+  ];
+
+  for (const { auth, expectedCode } of matrix) {
+    const res = validateImportAuthorization(auth, "tenant:default", "test.xlsx");
+    assert.equal(res.ok, false);
+    if (!res.ok) {
+      assert.equal(res.issue.code, expectedCode);
+    }
+  }
+
+  const validRes = validateImportAuthorization(
+    {
+      authenticated: true,
+      actorId: "actor-123",
+      authorized: true,
+      capability: "question_bank.import",
+      scope: "tenant:default",
+      context: { actorId: "actor-123" },
+    },
+    "tenant:default",
+    "test.xlsx",
+  );
+  assert.equal(validRes.ok, true);
+});
+
+test("pre-parse authorization guard rejects before parser/JSZip/ExcelJS with spy assertions", async () => {
+  const { runOperationalQuestionBankImportDryRun } = await import(
+    "../../../src/lib/question-bank/import/dry-run.ts"
+  );
+  const { PARSER_SPY } = await import(
+    "../../../src/lib/question-bank/import/workbook-parser.ts"
+  );
+  const { buildMinimalValidXlsx } = await import(
+    "../../fixtures/question-bank/import/binary-fixtures.ts"
+  );
+
+  PARSER_SPY.reset();
+
+  const bytes = await buildMinimalValidXlsx();
+  const res = await runOperationalQuestionBankImportDryRun({
+    fileName: "unauthorized.xlsx",
+    bytes,
+    catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+    authorized: { valid: true }, // Invalid auth object
+  });
+
+  assert.ok(res.issues.some((i) => i.code === "AUTH_MALFORMED" || i.code === "UNAUTHORIZED_IMPORT"));
+  assert.equal(PARSER_SPY.parserInvocations, 0);
+  assert.equal(PARSER_SPY.zipPreflightInvocations, 0);
+  assert.equal(PARSER_SPY.jsZipInvocations, 0);
+  assert.equal(PARSER_SPY.excelJsInvocations, 0);
+  assert.equal(PARSER_SPY.fullDecompressionInvocations, 0);
+  assert.equal(PARSER_SPY.worksheetParsingInvocations, 0);
+  assert.equal(PARSER_SPY.adapterInvocations, 0);
+  assert.ok(PARSER_SPY.authorizationFailures > 0);
+});
+
+test("binary fixtures: real raw XLSX/ZIP bytes execute through operational pipeline", async () => {
+  const { runOperationalQuestionBankImportDryRun } = await import(
+    "../../../src/lib/question-bank/import/dry-run.ts"
+  );
+  const {
+    buildMinimalValidXlsx,
+    buildOoxmlExternalRelXlsx,
+    buildZipWithPathTraversal,
+    buildZipWithExcessiveEntries,
+    buildZipWithDuplicateEntry,
+    buildMalformedCentralDirectoryZip,
+    buildTruncatedZipBytes,
+  } = await import("../../fixtures/question-bank/import/binary-fixtures.ts");
+
+  const VALID_AUTH = {
+    authenticated: true,
+    actorId: "actor-123",
+    authorized: true,
+    capability: "question_bank.import",
+    scope: "tenant:default",
+    context: { actorId: "actor-123" },
+  };
+
+  // Valid XLSX
+  const validBytes = await buildMinimalValidXlsx();
+  const validRes = await runOperationalQuestionBankImportDryRun({
+    fileName: "valid.xlsx",
+    bytes: validBytes,
+    catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+    authorized: VALID_AUTH,
+  });
+  assert.equal(validRes.summary.total_rows, 1);
+  assert.equal(validRes.summary.ok_rows, 1);
+
+  // OOXML External Rel
+  const extBytes = await buildOoxmlExternalRelXlsx("http://attacker.com");
+  const extRes = await runOperationalQuestionBankImportDryRun({
+    fileName: "external.xlsx",
+    bytes: extBytes,
+    catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+    authorized: VALID_AUTH,
+  });
+  assert.ok(extRes.issues.some((i) => i.code === "EXTERNAL_LINK"));
+
+  // Path Traversal Entry
+  const travBytes = await buildZipWithPathTraversal("../secret.txt");
+  const travRes = await runOperationalQuestionBankImportDryRun({
+    fileName: "traversal.xlsx",
+    bytes: travBytes,
+    catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+    authorized: VALID_AUTH,
+  });
+  assert.ok(travRes.issues.some((i) => i.code === "PATH_TRAVERSAL"));
+
+  // Excessive ZIP Entries
+  const limitBytes = await buildZipWithExcessiveEntries(201);
+  const limitRes = await runOperationalQuestionBankImportDryRun({
+    fileName: "excessive.xlsx",
+    bytes: limitBytes,
+    catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+    authorized: VALID_AUTH,
+  });
+  assert.ok(limitRes.issues.some((i) => i.code === "ZIP_ENTRY_LIMIT"));
+
+  // Duplicate ZIP Entry
+  const dupBytes = await buildZipWithDuplicateEntry();
+  const dupRes = await runOperationalQuestionBankImportDryRun({
+    fileName: "duplicate.xlsx",
+    bytes: dupBytes,
+    catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+    authorized: VALID_AUTH,
+  });
+  assert.ok(dupRes.issues.some((i) => i.code === "ZIP_DUPLICATE_ENTRY"));
+
+  // Malformed Central Directory
+  const malformedBytes = await buildMalformedCentralDirectoryZip();
+  const malformedRes = await runOperationalQuestionBankImportDryRun({
+    fileName: "malformed.xlsx",
+    bytes: malformedBytes,
+    catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+    authorized: VALID_AUTH,
+  });
+  assert.ok(malformedRes.issues.some((i) => i.code === "ZIP_MALFORMED_CENTRAL_DIRECTORY"));
+
+  // Truncated EOCD
+  const truncBytes = await buildTruncatedZipBytes();
+  const truncRes = await runOperationalQuestionBankImportDryRun({
+    fileName: "truncated.xlsx",
+    bytes: truncBytes,
+    catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+    authorized: VALID_AUTH,
+  });
+  assert.ok(truncRes.issues.some((i) => i.code === "ZIP_MISSING_EOCD"));
+});
+
+test("dry run boundary: preview package only, apply token mintable=false, zero write side-effects", async () => {
+  const { runQuestionBankImportDryRun } = await import(
+    "../../../src/lib/question-bank/import/dry-run.ts"
+  );
+  const { CONTRACT_HEADERS } = await import(
+    "../../../src/lib/question-bank/import/adapters/detect.ts"
+  );
+
+  const VALID_AUTH = {
+    authenticated: true,
+    actorId: "actor-123",
+    authorized: true,
+    capability: "question_bank.import",
+    scope: "tenant:default",
+    context: { actorId: "actor-123" },
+  };
+
+  const result = runQuestionBankImportDryRun({
+    fileName: "dryrun.xlsx",
+    headers: [...CONTRACT_HEADERS.official_flat_v0],
+    rows: [],
+    authorized: VALID_AUTH,
+  });
+
+  assert.equal(result.apply_token_contract.mintable, false);
+  assert.ok(result.apply_token_contract.reason.includes("not minted"));
 });

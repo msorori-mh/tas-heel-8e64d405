@@ -1,10 +1,16 @@
-/** Closed Oracle 50 vocabulary with Arabic messages and blocking defaults. */
+/** Closed Failure Vocabulary and Audit Registry with Arabic messages and blocking defaults. */
 
 const FILE_CODES = [
   "FILE_TYPE_UNSUPPORTED",
   "FILE_TOO_LARGE",
   "ZIP_BOMB_SUSPECTED",
   "ZIP_ENTRY_LIMIT",
+  "ZIP_TOTAL_SIZE_LIMIT",
+  "ZIP_DECLARED_SIZE_LIMIT",
+  "ZIP_DUPLICATE_ENTRY",
+  "ZIP_MALFORMED_CENTRAL_DIRECTORY",
+  "ZIP_MISSING_EOCD",
+  "ZIP_ABSOLUTE_PATH",
   "WORKBOOK_ENCRYPTED",
   "MACRO_CONTENT",
   "EXTERNAL_LINK",
@@ -28,6 +34,12 @@ const FILE_CODES = [
   "DUPLICATE_CODE_IN_FILE",
   "DUPLICATE_CODE_EXISTS",
   "UNAUTHORIZED_IMPORT",
+  "AUTH_MISSING",
+  "AUTH_MALFORMED",
+  "AUTHENTICATION_REQUIRED",
+  "CAPABILITY_INVALID",
+  "SCOPE_MISMATCH",
+  "AUTH_EXPIRED",
   "PRIVILEGE_ESCALATION",
   "PREVIEW_TOKEN_INVALID",
   "STALE_VALIDATION",
@@ -101,13 +113,19 @@ export const VALIDATION_CODE_DEFAULTS = Object.fromEntries(
 
 export const QB_IMPORT_AR_MESSAGES: Record<QbImportCode, string> = {
   FILE_TYPE_UNSUPPORTED: "نوع الملف غير مدعوم؛ المطلوب مصنف .xlsx فقط.",
-  FILE_TOO_LARGE: "حجم الملف المضغوط يتجاوز 5 ميبيبايت.",
-  ZIP_BOMB_SUSPECTED: "مؤشرات ضغط/تفجير أرشيف غير آمنة.",
+  FILE_TOO_LARGE: "حجم الملف يتجاوز الحد الأقصى المسموح (5 ميبيبايت).",
+  ZIP_BOMB_SUSPECTED: "نسبة ضغط الأرشيف تتجاوز الحد الآمن (10:1).",
   ZIP_ENTRY_LIMIT: "عدد مداخل الأرشيف يتجاوز الحد المسموح (200).",
-  WORKBOOK_ENCRYPTED: "المصنف المشفّر غير مدعوم.",
+  ZIP_TOTAL_SIZE_LIMIT: "الحجم الإجمالي غير المضغوط لمداخل الأرشيف يتجاوز 20 ميبيبايت.",
+  ZIP_DECLARED_SIZE_LIMIT: "الحجم المعلن لمداخل الأرشيف يتجاوز الحدود المسموحة.",
+  ZIP_DUPLICATE_ENTRY: "يحتوي أرشيف ZIP على مداخل مكررة بنفس الاسم.",
+  ZIP_MALFORMED_CENTRAL_DIRECTORY: "فهرس الدليل المركزي لأرشيف ZIP تالف أو غير متوافق.",
+  ZIP_MISSING_EOCD: "بنية أرشيف ZIP غير مكتملة أو يفتقر لسجل نهاية الدليل (EOCD).",
+  ZIP_ABSOLUTE_PATH: "مسار ملف داخل الأرشيف مطلق أو يشير لنظام الملفات المحلي.",
+  WORKBOOK_ENCRYPTED: "المصنف المشفّر بكلمة مرور غير مدعوم.",
   MACRO_CONTENT: "تم اكتشاف محتوى ماكرو أو محتوى نشط.",
   EXTERNAL_LINK: "تم اكتشاف روابط خارجية في المصنف.",
-  PATH_TRAVERSAL: "مسار أرشيف أو علاقة غير آمن.",
+  PATH_TRAVERSAL: "مسار ملف داخل الأرشيف يحتوي على محاولة تجاوز المجلد (Path Traversal).",
   FORMULA_CELL: "خلايا الصيغ غير مسموحة.",
   MERGED_DATA_CELL: "خلايا مدمجة تتقاطع مع منطقة البيانات.",
   HIDDEN_SHEET_DATA: "ورقة مخفية تحتوي بيانات.",
@@ -153,6 +171,12 @@ export const QB_IMPORT_AR_MESSAGES: Record<QbImportCode, string> = {
   SCIENTIFIC_NOTATION_LOSS: "تم إجبار المعرّف/الإجابة إلى تدوين علمي.",
   LEGACY_INFORMATION_LOSS: "صف legacy لا يستطيع التعبير عن الدلالة المطلوبة.",
   UNAUTHORIZED_IMPORT: "المستخدم لا يملك صلاحية الاستيراد.",
+  AUTH_MISSING: "التوثيق أو كائن التفويض مفقود.",
+  AUTH_MALFORMED: "كائن التفويض غير صالح أو مشوّه.",
+  AUTHENTICATION_REQUIRED: "يتطلب التوثيق أولاً قبل تنفيذ الاستيراد.",
+  CAPABILITY_INVALID: "القدرة (Capability) المحددة غير صالحة لاستيراد بنك الأسئلة.",
+  SCOPE_MISMATCH: "نطاق الاستيراد (Scope) غير مطابق لنطاق المستند.",
+  AUTH_EXPIRED: "صلاحية التوثيق/التفويض منتهية أو تم سحبها.",
   PRIVILEGE_ESCALATION: "المدخل يحاول التحكم بالدور أو الحالة أو النشر.",
   PREVIEW_TOKEN_INVALID: "رمز المعاينة غير صالح أو منتهٍ أو مستهلك.",
   STALE_VALIDATION: "تغيرت صلاحيات أو مراجع الكتالوج بعد المعاينة.",
@@ -161,3 +185,62 @@ export const QB_IMPORT_AR_MESSAGES: Record<QbImportCode, string> = {
   ATOMIC_APPLY_FAILED: "فشل التطبيق ويجب التراجع عن كل التغييرات.",
   NORMALIZATION_CHANGED: "التطبيع الآمن غيّر تمثيل المصدر.",
 };
+
+export type ImportStage =
+  | "AUTHORIZATION"
+  | "PREFLIGHT_RAW"
+  | "PREFLIGHT_ZIP"
+  | "PREFLIGHT_OOXML"
+  | "WORKBOOK_PARSE"
+  | "ADAPTER_DETECT"
+  | "ROW_VALIDATION"
+  | "IDEMPOTENCY";
+
+export type AuditRegistryEntry = {
+  canonical_code: QbImportCode;
+  stage: ImportStage;
+  trigger: string;
+  message_ar: string;
+  internal_audit_detail: string;
+  retryable: boolean;
+  severity: "error" | "warning";
+  blocking: boolean;
+  test_coverage_ids: string[];
+};
+
+export const QB_IMPORT_AUDIT_REGISTRY: Record<QbImportCode, AuditRegistryEntry> = Object.fromEntries(
+  Object.keys(QB_IMPORT_AR_MESSAGES).map((codeStr) => {
+    const code = codeStr as QbImportCode;
+    const defaults = VALIDATION_CODE_DEFAULTS[code];
+
+    let stage: ImportStage = "ROW_VALIDATION";
+    if (["AUTH_MISSING", "AUTH_MALFORMED", "AUTHENTICATION_REQUIRED", "CAPABILITY_INVALID", "SCOPE_MISMATCH", "AUTH_EXPIRED", "UNAUTHORIZED_IMPORT", "PRIVILEGE_ESCALATION"].includes(code)) {
+      stage = "AUTHORIZATION";
+    } else if (["FILE_TOO_LARGE", "FILE_TYPE_UNSUPPORTED"].includes(code)) {
+      stage = "PREFLIGHT_RAW";
+    } else if (["ZIP_BOMB_SUSPECTED", "ZIP_ENTRY_LIMIT", "ZIP_TOTAL_SIZE_LIMIT", "ZIP_DECLARED_SIZE_LIMIT", "ZIP_DUPLICATE_ENTRY", "ZIP_MALFORMED_CENTRAL_DIRECTORY", "ZIP_MISSING_EOCD", "ZIP_ABSOLUTE_PATH", "PATH_TRAVERSAL", "WORKBOOK_ENCRYPTED"].includes(code)) {
+      stage = "PREFLIGHT_ZIP";
+    } else if (["MACRO_CONTENT", "EXTERNAL_LINK", "FORMULA_CELL", "MERGED_DATA_CELL", "HIDDEN_SHEET_DATA", "HIDDEN_ROW_DATA", "HIDDEN_COLUMN_DATA", "SHEET_COUNT_INVALID", "ROW_LIMIT", "COLUMN_LIMIT", "CELL_TOO_LARGE", "MALFORMED_UNICODE"].includes(code)) {
+      stage = "PREFLIGHT_OOXML";
+    } else if (["MISSING_HEADER", "DUPLICATE_HEADER", "UNKNOWN_COLUMN", "FORBIDDEN_COLUMN", "LEGACY_COLUMN_COUNT", "LEGACY_COLUMN_ORDER", "INVALID_CONTRACT"].includes(code)) {
+      stage = "ADAPTER_DETECT";
+    } else if (["DUPLICATE_CODE_EXISTS", "PREVIEW_TOKEN_INVALID", "STALE_VALIDATION", "CONTENT_HASH_MISMATCH", "IMPORT_REPLAY_CONFLICT", "ATOMIC_APPLY_FAILED"].includes(code)) {
+      stage = "IDEMPOTENCY";
+    }
+
+    return [
+      code,
+      {
+        canonical_code: code,
+        stage,
+        trigger: `Trigger condition for ${code}`,
+        message_ar: QB_IMPORT_AR_MESSAGES[code],
+        internal_audit_detail: `Audit detail record for ${code}`,
+        retryable: false,
+        severity: defaults.severity,
+        blocking: defaults.file_blocking || defaults.row_blocking,
+        test_coverage_ids: [`TEST-${code}`],
+      } satisfies AuditRegistryEntry,
+    ];
+  }),
+) as Record<QbImportCode, AuditRegistryEntry>;

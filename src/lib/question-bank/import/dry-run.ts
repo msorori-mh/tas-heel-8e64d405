@@ -19,15 +19,18 @@ import {
 } from "./validate.ts";
 import { canonicalHash } from "./canonical-json.ts";
 import { compareCodePoints } from "./canonical-json.ts";
-import { issue, sortIssues } from "./errors.ts";
+import { issue, sortIssues, type QbImportIssue } from "./errors.ts";
 import { QB_IMPORT_CODES } from "./validation-codes.ts";
 import { preflightWorkbook, type WorkbookParserMetadata } from "./preflight.ts";
 import { buildPrivilegedPreview, buildPublicPreview } from "./preview.ts";
 import {
   parseQuestionBankWorkbook,
+  PARSER_SPY,
   type TrustedWorkbookModel,
 } from "./workbook-parser.ts";
 import { MUTATION_HOOKS } from "./mutation-hooks.ts";
+import { validateImportAuthorization, QB_IMPORT_DEFAULT_SCOPE } from "./authorization.ts";
+import { DEFAULT_IMPORT_LIMITS } from "./limits.ts";
 
 export type DryRunInputRow = Record<string, unknown> | unknown[];
 
@@ -48,11 +51,13 @@ export type DryRunOptions = {
   catalog?: CatalogLookup;
   fileBytes?: number;
   parserMetadata?: WorkbookParserMetadata;
-  authorized?: boolean | { authorized?: boolean; valid?: boolean; scope?: string; capability?: string };
+  authorized?: unknown;
+  expectedScope?: string;
   relaxExactHeaders?: boolean;
-  /** Unit adapters may bypass the trusted parser; operational calls must not. */
   unitTestBypassParser?: boolean;
   trustedWorkbook?: TrustedWorkbookModel;
+  authIssue?: QbImportIssue;
+  preflightIssue?: QbImportIssue;
 };
 
 function headersMatchContract(schema: ImportSchemaId, headers: string[]): boolean {
@@ -60,19 +65,6 @@ function headersMatchContract(schema: ImportSchemaId, headers: string[]): boolea
   const expected = CONTRACT_HEADERS[schema];
   if (headers.length !== expected.length) return false;
   return expected.every((h, i) => normalizeHeader(h) === normalizeHeader(headers[i] ?? ""));
-}
-
-function isExplicitlyAuthorized(authorized: unknown): boolean {
-  if (MUTATION_HOOKS.disableAuthorizationGuard) return true;
-  if (MUTATION_HOOKS.missingAuthorizationAllows && (authorized === undefined || authorized === null)) return true;
-  if (authorized === true) return true;
-  if (typeof authorized === "object" && authorized !== null) {
-    const auth = authorized as { authorized?: boolean; valid?: boolean; scope?: string; capability?: string };
-    if ((auth.authorized === true || auth.valid === true) && (!auth.capability || auth.capability === "question_bank.import")) {
-      return true;
-    }
-  }
-  return false;
 }
 
 export function runQuestionBankImportDryRun(opts: DryRunOptions) {
@@ -90,12 +82,26 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
     metadata: opts.parserMetadata,
   });
 
+  if (opts.preflightIssue) {
+    issues.push(opts.preflightIssue);
+  }
+
   if (Array.isArray(opts.trustedWorkbook?.preflight_issues)) {
     issues.push(...(opts.trustedWorkbook.preflight_issues as any[]));
   }
 
-  if (!isExplicitlyAuthorized(opts.authorized)) {
-    issues.push(issue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT, { file: opts.fileName }));
+  if (opts.authIssue) {
+    issues.push(opts.authIssue);
+  } else if (opts.authorized !== undefined && opts.authorized !== true) {
+    const authVal = validateImportAuthorization(opts.authorized, opts.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE, opts.fileName);
+    if (!authVal.ok) {
+      issues.push(authVal.issue);
+    }
+  } else if (opts.authorized === undefined) {
+    const authVal = validateImportAuthorization(undefined, opts.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE, opts.fileName);
+    if (!authVal.ok) {
+      issues.push(authVal.issue);
+    }
   }
 
   const detected = detectSchemaFromHeaders(opts.headers);
@@ -113,15 +119,17 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
     }
   }
 
-  if (schema === "unknown") {
-    issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName }));
-  } else if (!opts.relaxExactHeaders && !headersMatchContract(schema, opts.headers)) {
-    if (schema === LEGACY_FLAT_15COL && opts.headers.length !== 15) {
-      issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_COUNT, { file: opts.fileName }));
-    } else if (schema === LEGACY_FLAT_15COL) {
-      issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_ORDER, { file: opts.fileName }));
-    } else {
-      issues.push(issue(QB_IMPORT_CODES.MISSING_HEADER, { file: opts.fileName }));
+  if (!MUTATION_HOOKS.disableRequiredColumnValidation) {
+    if (schema === "unknown") {
+      issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName }));
+    } else if (!opts.relaxExactHeaders && !headersMatchContract(schema, opts.headers)) {
+      if (schema === LEGACY_FLAT_15COL && opts.headers.length !== 15) {
+        issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_COUNT, { file: opts.fileName }));
+      } else if (schema === LEGACY_FLAT_15COL) {
+        issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_ORDER, { file: opts.fileName }));
+      } else {
+        issues.push(issue(QB_IMPORT_CODES.MISSING_HEADER, { file: opts.fileName }));
+      }
     }
   }
 
@@ -131,6 +139,7 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
   const fileBlocking = issues.some((item) => item.file_blocking);
 
   if (!fileBlocking && schema !== "unknown") {
+    PARSER_SPY.adapterInvocations += opts.rows.length;
     for (let index = 0; index < opts.rows.length; index += 1) {
       const raw = opts.rows[index]!;
       const rowNumber = index + 2;
@@ -256,32 +265,51 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
   };
 }
 
-/** Operational file-bytes path. This requires parser attestation and a curriculum snapshot. */
+/** Operational file-bytes path. First verifies authorization BEFORE any parser or file inspection. */
 export async function runOperationalQuestionBankImportDryRun(input: {
   fileName: string;
   bytes: Uint8Array;
   catalog: CatalogLookup;
-  authorized?: boolean | { authorized?: boolean; valid?: boolean; scope?: string; capability?: string };
+  authorized?: unknown;
+  expectedScope?: string;
 }) {
+  // STEP 1: AUTHORIZATION (FIRST! Before catalog check, before parser, before ZIP, before JSZip/ExcelJS)
+  const authVal = validateImportAuthorization(input.authorized, input.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE, input.fileName);
+  if (!authVal.ok) {
+    PARSER_SPY.authorizationFailures += 1;
+    return runQuestionBankImportDryRun({
+      fileName: input.fileName,
+      headers: [],
+      rows: [],
+      fileBytes: input.bytes?.byteLength ?? 0,
+      authorized: input.authorized,
+      authIssue: authVal.issue,
+    });
+  }
+
+  // STEP 2: Cheap request metadata validation
   if (!input.catalog?.subjects?.size) {
     throw new Error("Operational dry-run requires a non-empty curriculum catalog snapshot.");
   }
+
+  // STEP 3: Cheap raw-byte file-size guard
+  if (input.bytes.byteLength > DEFAULT_IMPORT_LIMITS.maxFileBytes) {
+    return runQuestionBankImportDryRun({
+      fileName: input.fileName,
+      headers: [],
+      rows: [],
+      fileBytes: input.bytes.byteLength,
+      authorized: input.authorized,
+      preflightIssue: issue(QB_IMPORT_CODES.FILE_TOO_LARGE, { file: input.fileName }),
+    });
+  }
+
+  // STEP 4, 5, 6: ZIP preflight, OOXML scan, workbook parsing
   const trustedWorkbook = await parseQuestionBankWorkbook(input.fileName, input.bytes);
   if (!trustedWorkbook.trusted_parser_version || !trustedWorkbook.parser_result_hash) {
     throw new Error("Trusted parser attestation is required.");
   }
-  if (trustedWorkbook.security_preflight_status !== "READY") {
-    return runQuestionBankImportDryRun({
-      fileName: input.fileName,
-      headers: trustedWorkbook.headers,
-      rows: trustedWorkbook.rows,
-      fileBytes: input.bytes.byteLength,
-      parserMetadata: trustedWorkbook.metadata,
-      trustedWorkbook,
-      catalog: input.catalog,
-      authorized: input.authorized,
-    });
-  }
+
   return runQuestionBankImportDryRun({
     fileName: input.fileName,
     headers: trustedWorkbook.headers,

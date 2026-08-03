@@ -18,11 +18,23 @@ export type TrustedWorkbookModel = {
 };
 
 export const PARSER_SPY = {
+  parserInvocations: 0,
+  zipPreflightInvocations: 0,
   jsZipInvocations: 0,
   excelJsInvocations: 0,
+  adapterInvocations: 0,
+  fullDecompressionInvocations: 0,
+  worksheetParsingInvocations: 0,
+  authorizationFailures: 0,
   reset() {
+    this.parserInvocations = 0;
+    this.zipPreflightInvocations = 0;
     this.jsZipInvocations = 0;
     this.excelJsInvocations = 0;
+    this.adapterInvocations = 0;
+    this.fullDecompressionInvocations = 0;
+    this.worksheetParsingInvocations = 0;
+    this.authorizationFailures = 0;
   },
 };
 
@@ -70,7 +82,9 @@ function rowsToModel(rows: string[][], fileBytes: number): TrustedWorkbookModel 
     .slice(1)
     .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])));
   const metadata: WorkbookParserMetadata = {
-    csvInjectionCells: rows.flat().some((cell) => /^[\s]*[=+\-@\t\r]/.test(cell)),
+    csvInjectionCells: MUTATION_HOOKS.bypassFormulaInjectionGuard
+      ? false
+      : rows.flat().some((cell) => /^[\s]*[=+\-@\t\r]/.test(cell)),
     maxCellBytes: Math.max(0, ...rows.flat().map((cell) => Buffer.byteLength(cell, "utf8"))),
   };
   const security_preflight_status = fileBytes > DEFAULT_IMPORT_LIMITS.maxFileBytes ? "BLOCKED" : "READY";
@@ -102,7 +116,6 @@ export async function scanOoxmlRelationships(
 
     try {
       const content = await entry.async("text");
-      // Match TargetMode="External" or external Target URIs/paths
       const isExternalTargetMode = /TargetMode\s*=\s*"External"/i.test(content);
       const targetMatches = content.match(/Target\s*=\s*"([^"]+)"/gi) || [];
 
@@ -110,11 +123,11 @@ export async function scanOoxmlRelationships(
         const targetValue = match.replace(/^Target\s*=\s*"/i, "").replace(/"$/, "");
         const isExternalUri =
           /^(https?|ftp|file|javascript|data):/i.test(targetValue) ||
-          /^\\\\/i.test(targetValue) || // UNC path
-          /^\/\//.test(targetValue) || // protocol relative
-          /^[a-zA-Z]:/i.test(targetValue) || // drive letter
-          /%2e%2e/i.test(targetValue) || // encoded traversal
-          /\\\.{2}\/|\/\.{2}\\/i.test(targetValue); // mixed slash traversal
+          /^\\\\/i.test(targetValue) ||
+          /^\/\//.test(targetValue) ||
+          /^[a-zA-Z]:/i.test(targetValue) ||
+          /%2e%2e/i.test(targetValue) ||
+          /\\\.{2}\/|\/\.{2}\\/i.test(targetValue);
 
         if (isExternalTargetMode || isExternalUri) {
           externalTargets.push(targetValue);
@@ -125,7 +138,6 @@ export async function scanOoxmlRelationships(
         externalTargets.push("TargetMode=External");
       }
     } catch {
-      // Unreadable rel file -> treat as blocked
       externalTargets.push("UNREADABLE_RELS");
     }
   }
@@ -141,9 +153,15 @@ export async function parseQuestionBankWorkbook(
   fileName: string,
   bytes: Uint8Array,
 ): Promise<TrustedWorkbookModel> {
-  if (/\.csv$/i.test(fileName)) return rowsToModel(csvRows(Buffer.from(bytes).toString("utf8")), bytes.byteLength);
+  PARSER_SPY.parserInvocations += 1;
+
+  if (/\.csv$/i.test(fileName)) {
+    PARSER_SPY.worksheetParsingInvocations += 1;
+    return rowsToModel(csvRows(Buffer.from(bytes).toString("utf8")), bytes.byteLength);
+  }
 
   // STEP 1: Pre-parse ZIP Preflight BEFORE JSZip and ExcelJS
+  PARSER_SPY.zipPreflightInvocations += 1;
   const zipPreflight = preflightZipBytes(bytes, fileName);
   if (!zipPreflight.ok) {
     const metadata: WorkbookParserMetadata = {
@@ -175,6 +193,7 @@ export async function parseQuestionBankWorkbook(
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(bytes);
+    PARSER_SPY.fullDecompressionInvocations += 1;
   } catch {
     metadata.encrypted = true;
     return {
@@ -221,6 +240,7 @@ export async function parseQuestionBankWorkbook(
 
   // STEP 3: ExcelJS workbook loading
   PARSER_SPY.excelJsInvocations += 1;
+  PARSER_SPY.worksheetParsingInvocations += 1;
   const workbook = new ExcelJS.Workbook();
   try {
     await workbook.xlsx.load(Buffer.from(bytes) as never);
@@ -248,7 +268,9 @@ export async function parseQuestionBankWorkbook(
     const values: string[] = [];
     row.eachCell({ includeEmpty: true }, (cell, column) => {
       if (worksheet.getColumn(column).hidden) metadata.hiddenColumnData = true;
-      if (cell.type === ExcelJS.ValueType.Formula) metadata.hasFormulaCells = true;
+      if (!MUTATION_HOOKS.bypassFormulaInjectionGuard && cell.type === ExcelJS.ValueType.Formula) {
+        metadata.hasFormulaCells = true;
+      }
       const value = cell.text ?? "";
       metadata.maxCellBytes = Math.max(metadata.maxCellBytes ?? 0, Buffer.byteLength(value, "utf8"));
       values[column - 1] = value;
@@ -264,7 +286,7 @@ export async function parseQuestionBankWorkbook(
     model.metadata.hasMacros ||
     model.metadata.hasExternalLinks ||
     model.metadata.hasPathTraversal ||
-    model.metadata.hasFormulaCells
+    (!MUTATION_HOOKS.bypassFormulaInjectionGuard && model.metadata.hasFormulaCells)
       ? "BLOCKED"
       : "READY";
   return model;
