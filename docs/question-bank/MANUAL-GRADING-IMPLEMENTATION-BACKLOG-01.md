@@ -436,7 +436,7 @@
 
 - **TASK-MG-053: تنفيذ مسار إعادة التقييم `return_for_second_review` (`RETURNED_FOR_SECOND_REVIEW`)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-051`
-  - **Security Prerequisite**: توجيه التقييم غير المستوفي وتغيير حالته لـ RETURNED_FOR_SECOND_REVIEW والانتقال عبر المسار القانوني RETURNED_FOR_SECOND_REVIEW -> IN_GRADING -> SUBMITTED_FOR_REVIEW مع إنشاء Assignment جديد أو Reclaim منضبط، زيادة assignment_generation، إصدار lease_token جديد، عدم تعديل Review Row السابق، حفظ سبب الإعادة، ومنع المصحح غير المعين من الاستلام (UNASSIGNED_GRADER_CLAIM_BLOCKED).
+  - **Security Prerequisite**: توجيه التقييم غير المستوفي وتغيير حالته لـ RETURNED_FOR_SECOND_REVIEW والانتقال عبر المسار القانوني RETURNED_FOR_SECOND_REVIEW -> IN_GRADING -> SUBMITTED_FOR_REVIEW مع إنشاء Assignment جديد أو Reclaim منضبط، زيادة assignment_generation، إصدار lease_token جديد، عدم تعديل Review Row السابق، حفظ سبب الإعادة، ومنع المصحح غير المعين من الاستلام (ASSIGNEE_MISMATCH).
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-001` | **Deliverable Type**: `RPC`, `UI`
