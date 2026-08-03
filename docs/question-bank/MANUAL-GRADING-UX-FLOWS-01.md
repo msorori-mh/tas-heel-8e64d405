@@ -156,7 +156,19 @@
      [نافذة إدخال مبررات الاعتراض والنقاط الخلافية]
            │
            ▼
-     [تحول حالة Response إلى APPEALED والتخصيص لمراجع مستقل لا تربطه COI]
+      [تحول حالة Response إلى APPEALED والتخصيص لمراجع مستقل لا تربطه COI]
+            │
+            ▼
+      [مراجعة التظلم بواسطة Authorized Appeal Reviewer وإصدار القرار عبر grading.appeal.process]
+            │ (تطبيق proposed adjusted score + حفظ provenance/reason/audit event + CAS validation)
+            ▼
+      [تحول حالة Response إلى READY_FOR_FINALIZATION دون اعتماد تلقائي NO FINALIZED ودون إفراج/كشف]
+            │
+            ▼
+      [تنفيذ الاعتماد النهائي اليدوي في خطوة منفصلة بواسطة Reviewer / Authorized Senior Grader عبر finalize_manual_grade]
+            │
+            ▼
+      [تحول حالة Response إلى FINALIZED]
 ```
 
 ---
@@ -193,7 +205,7 @@
 #### 2.6.3. رحلة إفراج الدفعة التدريبية (Practice BATCH Result Flow)
 - **المُحفّز (Trigger)**: استدعاء دالة الإفراج الجماعي `release_grading_batch` بواسطة مدير التصحيح المخول بعد التحقق من التكليف والتكامل.
 - **الفاعل (Actor)**: Grading Manager (Release Authority) & Batch Release Engine (`TASK-MG-062` / `TASK-MG-069`).
-- **الشروط المسبقة (Preconditions)**: ضبط النشاط على نمط `BATCH`؛ اعتماد **كافة** الاستجابات داخل الدفعة يدوياً (`FINALIZED`) مسبقاً بواسطة جهة مخولة (`Reviewer` / `Authorized Senior Grader`)؛ اجتياز فحص اكتمال الدفعة (`Batch completeness validation`)؛ يُحظر حظراً مطلقاً إفراج الدفعة أو قيام Batch Worker أو Manager باعتتماد أي استجابة غير معتمدة.
+- **الشروط المسبقة (Preconditions)**: ضبط النشاط على نمط `BATCH`؛ اعتماد **كافة** الاستجابات داخل الدفعة يدوياً (`FINALIZED`) مسبقاً بواسطة جهة مخولة (`Reviewer` / `Authorized Senior Grader`)؛ اجتياز فحص اكتمال الدفعة (`Batch completeness validation`)؛ يُحظر حظراً مطلقاً إفراج الدفعة أو قيام Batch Worker أو Manager باعتتماد أي استجابة غير معتمدة (`Worker/Manager cannot finalize Responses`, `no response finalization`).
 - **توقيت الإفراج والكشف (Release/Reveal Timing)**: إفراج جماعي لكافة نتائج الدفعة دفعة واحدة فور صدور قرار المدير وتحديد توقيت الكشف المعتمد.
 - **الإشعارات (Notifications)**: توليد رسائل الإشعار لكافة طلاب الدفعة دفعة واحدة داخل `notification_outbox`.
 - **السلوك بدون اتصال (Offline Behavior)**: تزامن العميل غير المتصل وتلقي النتائج المعتمدة فور إجراء المزامنة بعد إفراج الدفعة.

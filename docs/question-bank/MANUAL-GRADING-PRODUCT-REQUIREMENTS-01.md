@@ -13,7 +13,7 @@
 
 | اسم آلة الحالات (Machine) | الحالات غير النهائية (Non-Terminal States) | مسارات الخروج المؤكدة لكل حالة غیر نهائية | الحالات النهائية (Terminal States) | خلو Dead-End Non-Terminal |
 | :--- | :--- | :--- | :--- | :---: |
-| **`RESPONSE`** | `PENDING_MANUAL_GRADING`, `IN_GRADING`, `SUBMITTED_FOR_REVIEW`, `RETURNED_FOR_SECOND_REVIEW`, `READY_FOR_FINALIZATION`, `FINALIZED`, `REOPENED`, `APPEALED` | `PENDING_MANUAL_GRADING` → `IN_GRADING`<br>`IN_GRADING` → `SUBMITTED_FOR_REVIEW`<br>`SUBMITTED_FOR_REVIEW` → `RETURNED_FOR_SECOND_REVIEW` / `READY_FOR_FINALIZATION`<br>`RETURNED_FOR_SECOND_REVIEW` → `IN_GRADING`<br>`READY_FOR_FINALIZATION` → `FINALIZED`<br>`FINALIZED` → `REOPENED` / `APPEALED`<br>`REOPENED` → `IN_GRADING`<br>`APPEALED` → `READY_FOR_FINALIZATION` / `FINALIZED` | *لا يوجد حالات نهائية مطلقة* (قد يخضع أي سجل نهائي لتظلم أو فتح استثنائي) | **`0`** (PASS) |
+| **`RESPONSE`** | `PENDING_MANUAL_GRADING`, `IN_GRADING`, `SUBMITTED_FOR_REVIEW`, `RETURNED_FOR_SECOND_REVIEW`, `READY_FOR_FINALIZATION`, `FINALIZED`, `REOPENED`, `APPEALED` | `PENDING_MANUAL_GRADING` → `IN_GRADING`<br>`IN_GRADING` → `SUBMITTED_FOR_REVIEW`<br>`SUBMITTED_FOR_REVIEW` → `RETURNED_FOR_SECOND_REVIEW` / `READY_FOR_FINALIZATION`<br>`RETURNED_FOR_SECOND_REVIEW` → `IN_GRADING`<br>`READY_FOR_FINALIZATION` → `FINALIZED`<br>`FINALIZED` → `REOPENED` / `APPEALED`<br>`REOPENED` → `IN_GRADING`<br>`APPEALED` → `READY_FOR_FINALIZATION` | *لا يوجد حالات نهائية مطلقة* (قد يخضع أي سجل نهائي لتظلم أو فتح استثنائي) | **`0`** (PASS) |
 | **`ASSIGNMENT`** | `ASSIGNED`, `CLAIMED`, `RELEASED`, `EXPIRED`, `RECLAIMED` | `ASSIGNED` → `CLAIMED`<br>`CLAIMED` → `SUBMITTED` / `RELEASED` / `EXPIRED` / `CANCELLED`<br>`RELEASED` → `CLAIMED`<br>`EXPIRED` → `RECLAIMED`<br>`RECLAIMED` → `CLAIMED` | `SUBMITTED`, `CANCELLED` | **`0`** (PASS) |
 | **`REVIEW_ROW`** | `DRAFT`, `SUBMITTED` | `DRAFT` → `SUBMITTED`<br>`SUBMITTED` → `FINAL` / `SUPERSEDED` / `VOIDED` | `FINAL`, `SUPERSEDED`, `VOIDED` | **`0`** (PASS) |
 | **`APPEAL`** | `CREATED`, `ELIGIBILITY_CHECKED`, `ASSIGNED`, `UNDER_REVIEW` | `CREATED` → `ELIGIBILITY_CHECKED`<br>`ELIGIBILITY_CHECKED` → `ASSIGNED` / `CANCELLED`<br>`ASSIGNED` → `UNDER_REVIEW`<br>`UNDER_REVIEW` → `DECIDED_UPHELD` / `DECIDED_REJECTED` / `DECIDED_REGRADE` | `DECIDED_UPHELD`, `DECIDED_REJECTED`, `DECIDED_REGRADE`, `CANCELLED` | **`0`** (PASS) |
@@ -141,11 +141,11 @@
 | `reclaim_grading_assignment` | Manager | `grading.release.execute` | System | `p_assignment_id, p_new_grader_id` | Stale or unresponsive | Row Lock | Admin Ref | Increments Gen | Atomic | `ASSIGNMENT_RECLAIMED` | `{ new_generation, new_lease_token }` | `ASSIGNMENT_CLOSED, INVALID_MANAGER` | YES | Manager Dashboard |
 | `submit_manual_grade` | Current Grader | `GRADE_MANUAL_RESPONSE` | Assigned Slot | `p_lease_token, p_fencing_token, p_score, p_rubric, p_feedback, p_idempotency_key` | Unexpired lease, matching fencing token, valid score bounds | Strict Partial Unique Index | `p_idempotency_key` | Verified | Single Transaction | `SCORE_SUBMITTED` | `{ review_id, action_id, status }` | `STALE_FENCING_TOKEN, SCORE_OUT_OF_BOUNDS, DUPLICATE_IDEMPOTENCY` | YES | Grader UI Submission |
 | `return_for_second_review` | Senior / Reviewer | `grading.review.return` | Subject | `p_response_id, p_guidance_notes` | Status `SUBMITTED_FOR_REVIEW` | Row Lock | Action Key | Required | Atomic | `REVIEW_RETURNED` | `{ status: 'RETURNED_FOR_SECOND_REVIEW' }` | `INVALID_RESPONSE_STATE, MISSING_GUIDANCE` | YES | Senior Review UI |
-| `finalize_manual_grade` | Reviewer / Authorized Senior Grader | `grading.score.finalize` | Subject | `p_response_id, p_final_score, p_reason` | Valid scoped assignment, explicit finalization capability, reason provided | Row Lock | Action Key | Required | Atomic + Outbox Insert | `GRADE_FINALIZED` | `{ response_state: 'FINALIZED' }` | `MISSING_REASON, ALREADY_FINALIZED, FORBIDDEN_FINALIZATION_AUTHORITY` | YES | Reviewer / Authorized Senior UI |
+| `finalize_manual_grade` | Allowed: Reviewer, Authorized Senior Grader. Denied: Ordinary Grader, Grading Manager, Admin Emergency Operator, System, Worker, Scheduler, Appeal Reviewer (as Appeal actor only), Arbitration function. | `grading.score.finalize` | Subject | `p_response_id, p_final_score, p_reason, p_idempotency_key, p_expected_version` | Required preconditions: authenticated actor, valid scoped assignment, explicit finalization capability, valid source state (`READY_FOR_FINALIZATION`), score provenance, CAS/version validation, reason provided, idempotency key, immutable audit event. (هذا هو المسار الوحيد لكل Response إلى FINALIZED) | Row Lock (`FOR UPDATE NOWAIT`) | Action Key / `p_idempotency_key` | Required / Verified | Atomic + Outbox Insert | `GRADE_FINALIZED` (immutable finalization audit event) | `{ response_state: 'FINALIZED', finalized_by: authenticated_actor_id, finalized_at: timestamp }` | `MISSING_REASON, ALREADY_FINALIZED, FORBIDDEN_FINALIZATION_AUTHORITY, INVALID_SOURCE_STATE, CAS_MISMATCH` | YES | Reviewer / Authorized Senior UI |
 | `reopen_manual_grade` | Manager / Emergency | `grading.reopen.execute` | System | `p_response_id, p_reason` | Status `FINALIZED`, reason >= 20 chars | Row Lock CAS | Action Key | Required | Atomic | `GRADE_REOPENED` | `{ new_review_id, status: 'REOPENED' }` | `REASON_TOO_SHORT, NOT_FINALIZED` | YES | Manager / Emergency UI |
 | `create_appeal` | Student | `student.appeal.create` | Own Session | `p_response_id, p_reason, p_disputed_points` | Status `FINALIZED + RELEASED`, within appeal window | Unique Pending Appeal Constraint | Unique Student Key | N/A | Atomic | `APPEAL_CREATED` | `{ appeal_id, status: 'APPEALED' }` | `APPEAL_WINDOW_EXPIRED, DUPLICATE_APPEAL` | YES | Student Portal |
 | `assign_appeal_reviewer` | Manager / System | `grading.appeal.process` | Subject | `p_appeal_id, p_reviewer_id` | No COI with initial graders | Row Lock | N/A | N/A | Atomic | `APPEAL_ASSIGNED` | `{ assignment_id }` | `COI_VIOLATION, REVIEWER_BUSY` | YES | Appeals Manager UI |
-| `decide_appeal` | Appeal Reviewer | `grading.appeal.process` | Assigned Appeal | `p_appeal_id, p_decision ('UPHELD'/'REJECTED'), p_new_score, p_justification` | Claimed appeal assignment | Row Lock | Action Key | Required | Atomic + Session Rescore + Outbox | `APPEAL_DECIDED` | `{ decision_id, final_score }` | `INVALID_SCORE, MISSING_JUSTIFICATION` | YES | Appeals Reviewer UI |
+| `decide_appeal` | Authorized Appeal Reviewer | `grading.appeal.process` | Assigned Appeal | `p_appeal_id, p_decision ('UPHELD'/'REJECTED'), p_new_score, p_justification` | Claimed appeal assignment, proposed adjusted score calculated, decision provenance & reason & audit event logged, CAS/version validated, transfers response to READY_FOR_FINALIZATION without direct finalization/release/reveal | Row Lock | Action Key | Required | Atomic + Session Rescore + Outbox | `APPEAL_DECIDED` | `{ decision_id, proposed_adjusted_score, response_state: 'READY_FOR_FINALIZATION' }` | `INVALID_SCORE, MISSING_JUSTIFICATION, CAS_MISMATCH` | YES | Appeals Reviewer UI |
 | `create_regrade_request` | Manager | `grading.reopen.execute` | System | `p_response_id, p_target_grader_id, p_reason` | Admin audit trigger | Row Lock | Admin Key | Required | Atomic | `REGRADE_REQUESTED` | `{ regrade_id }` | `UNAUTHORIZED_REGRADE` | YES | Manager Dashboard |
 | `arbitrate_double_mark` | Independent Senior Grader | `grading.double_mark.arbitrate` | Variance Flagged | `p_response_id, p_arbitrated_score, p_justification` | Variance > 15%, not primary/counterpart grader, no COI, valid assignment, explicit capability | Row Lock | Action Key | Required | Atomic + Proposed Score | `DOUBLE_MARK_ARBITRATED` | `{ review_id, proposed_arbitrated_score, response_state: 'READY_FOR_FINALIZATION' }` | `NOT_READY_FOR_ARBITRATION, COI_VIOLATION, FORBIDDEN_CAPABILITY` | YES | Independent Senior Arbitrator UI |
 | `release_grading_batch` | Manager | `grading.batch.release` | Batch Scope | `p_batch_id` | All responses in batch `FINALIZED` | Batch Lock | Batch Key | N/A | Transaction + Outbox Enqueue | `BATCH_RELEASED` | `{ batch_status: 'RELEASED', released_count }` | `UNFINISHED_RESPONSES_IN_BATCH` | YES | Manager Release UI |
@@ -242,11 +242,11 @@
 | `SUBMITTED_FOR_REVIEW` | `RETURNED_FOR_SECOND_REVIEW` | `RESPONSE` | Score Variance Engine | `system.cron` | Variance > threshold or QA sample | Variance evaluation | `review_id` | Row Lock | System Job ID | `Single Atomic RPC Transaction` | `RESPONSE_RETURNED_FOR_REVIEW` | `VARIANCE_CHECK_FAILED` | Auto Job Retry |
 | `RETURNED_FOR_SECOND_REVIEW` | `IN_GRADING` | `RESPONSE` | Second Grader / Reassigned Grader | `grading.claim.execute` | Mandatory return_reason / guidance_notes mandatory & new slot assigned; CREATE new grading_assignment row; previous assignment remains immutable; only the explicitly assigned grader_user_id may claim the new assignment (assigned-grader-only claim authority); Ref: `NEW_GRADING_ASSIGNMENT_AFTER_RETURN_OR_REOPEN` | Atomic CAS on expected_response_version & generation increment (`assignment_generation = previous_generation + 1`); compare-and-swap failure aborts the entire transaction | `new_assignment_id` generated server-side, `expected_response_version` required & `new unique lease_token` (old lease_token is invalid and rejected) | Row Lock (`FOR UPDATE NOWAIT`) | `idempotency_key` mandatory and replay-safe (Claim UUID / Return Action Key) | `assignment creation + generation increment + lease creation + response transition + audit event occur in one atomic transaction` | `RESPONSE_SECOND_REVIEW_STARTED` | `ASSIGNMENT_CREATION_FAILED`, `ASSIGNMENT_ID_COLLISION`, `RESPONSE_VERSION_MISMATCH`, `CAS_CONFLICT`, `ASSIGNMENT_GENERATION_MISMATCH`, `LEASE_TOKEN_COLLISION`, `STALE_LEASE_PRESENTED`, `ASSIGNEE_MISMATCH`, `UNAUTHORIZED_CLAIM`, `MISSING_MANDATORY_REASON`, `REOPEN_UNAUTHORIZED`, `DUPLICATE_IDEMPOTENCY_REQUEST`, `AUDIT_INSERTION_FAILED` | User Retry / New assignment active; old assignment immutable (`SUBMITTED`), previous review row remains append-only and immutable |
 | `SUBMITTED_FOR_REVIEW` | `READY_FOR_FINALIZATION` | `RESPONSE` | System validation / Reviewer workflow preparation | `system.cron` / `grading.variance.evaluate` | Single score submitted, double scores matched, double scores within threshold, or proposed arbitrated score submitted (no automatic finalization) | `is_final = false` | `response_version` | Row Lock | System Job ID | `Single Atomic RPC Transaction` | `RESPONSE_READY_FOR_FINALIZATION` | `VARIANCE_CHECK_FAILED` | Auto Job Retry |
-| `READY_FOR_FINALIZATION` | `FINALIZED` | `RESPONSE` | Reviewer / Authorized Senior Grader | `finalize_manual_grade` | Valid scoped assignment, explicit finalization capability, reason provided, score provenance, CAS validation | `is_final = false` | `response_version` | Row Lock | Finalize Action Key | `Single Atomic RPC Transaction` | `GRADE_FINALIZED` | `MISSING_REASON, ALREADY_FINALIZED, FORBIDDEN_FINALIZATION_AUTHORITY` | User Retry |
+| `READY_FOR_FINALIZATION` | `FINALIZED` | `RESPONSE` | Allowed: Reviewer, Authorized Senior Grader. Denied: Ordinary Grader, Grading Manager, Admin Emergency Operator, System, Worker, Scheduler, Appeal Reviewer (as Appeal actor only), Arbitration function. | `finalize_manual_grade` | Required preconditions: authenticated actor, valid scoped assignment, explicit finalization capability, valid source state (`READY_FOR_FINALIZATION`), score provenance, CAS/version validation, reason provided, idempotency key, immutable audit event. (المسار الوحيد لكل Response إلى FINALIZED) | `is_final = false` | `response_version` | Row Lock | Finalize Action Key | `Single Atomic RPC Transaction` | `GRADE_FINALIZED` | `MISSING_REASON, ALREADY_FINALIZED, FORBIDDEN_FINALIZATION_AUTHORITY, INVALID_SOURCE_STATE` | User Retry |
 | `FINALIZED` | `REOPENED` | `RESPONSE` | Manager / Emergency | `grading.reopen.execute` | Authorized emergency reopen | Audit log required | `response_version` | Row Lock | Emergency Ref | `Single Atomic RPC Transaction` | `RESPONSE_REOPENED` | `REOPEN_UNAUTHORIZED` | Admin Retry |
 | `REOPENED` | `IN_GRADING` | `RESPONSE` | Manager / Assigned Grader | `grading.reopen.execute` (authority/capability mandatory) | Reopen authorized with reopen_reason mandatory; CREATE new grading_assignment row; no reopening of previous SUBMITTED assignment; previous assignment remains immutable; only the explicitly assigned grader_user_id may claim the new assignment (assigned-grader-only claim authority); Ref: `NEW_GRADING_ASSIGNMENT_AFTER_RETURN_OR_REOPEN` | Atomic CAS on expected_response_version & monotonic generation increment (`assignment_generation = previous_generation + 1`); compare-and-swap failure aborts the entire transaction | `new_assignment_id` generated server-side, `expected_response_version` required & `new unique lease_token` (old lease_token is invalid and rejected) | Row Lock (`FOR UPDATE NOWAIT`) | `idempotency_key` mandatory and replay-safe (Reopen UUID / Action Key) | `assignment creation + generation increment + lease creation + response transition + audit event occur in one atomic transaction` | `RESPONSE_REOPENED_TO_IN_GRADING` | `ASSIGNMENT_CREATION_FAILED`, `ASSIGNMENT_ID_COLLISION`, `RESPONSE_VERSION_MISMATCH`, `CAS_CONFLICT`, `ASSIGNMENT_GENERATION_MISMATCH`, `LEASE_TOKEN_COLLISION`, `STALE_LEASE_PRESENTED`, `ASSIGNEE_MISMATCH`, `UNAUTHORIZED_CLAIM`, `MISSING_MANDATORY_REASON`, `REOPEN_UNAUTHORIZED`, `DUPLICATE_IDEMPOTENCY_REQUEST`, `AUDIT_INSERTION_FAILED` | Admin Retry / New assignment created, previous finalized review remains append-only and immutable, supersession chain created only upon submitting new correction |
 | `FINALIZED` | `APPEALED` | `RESPONSE` | Student / System | `student.appeal.create` | Batch `RELEASED`, in window | Unique appeal check | `response_version` | Row Lock | Appeal UUID | `Single Atomic RPC Transaction` | `RESPONSE_APPEALED` | `OUTSIDE_WINDOW` | User Retry |
-| `APPEALED` | `FINALIZED` | `RESPONSE` | Appeal Reviewer | `grading.appeal.process` | Appeal decided and applied | Appeal decision logged | `appeal_id` | Row Lock | Decision UUID | `Single Atomic RPC Transaction` | `RESPONSE_APPEAL_RESOLVED` | `APPEAL_DENIED` | Admin Retry |
+| `APPEALED` | `READY_FOR_FINALIZATION` | `RESPONSE` | Authorized Appeal Reviewer | `grading.appeal.process` | Appeal decision application: appeal decided, proposed adjusted score calculated, decision provenance & reason & audit event logged, CAS/version validated; transfers Response to READY_FOR_FINALIZATION (NO direct FINALIZED, NO release, NO reveal) | `status == 'APPEALED'` | `appeal_id` | Row Lock | Decision UUID | `Single Atomic RPC Transaction` | `RESPONSE_APPEAL_DECIDED` | `APPEAL_DENIED, CAS_MISMATCH` | Admin Retry |
 | `DRAFT` | `SUBMITTED` | `REVIEW_ROW` | Grader | `grading.submit.execute` | Valid rubric selection | Active lease held | N/A | Memory State | Draft ID | `Single Atomic RPC Transaction` | `REVIEW_ROW_SUBMITTED` | `DRAFT_INVALID` | User Retry |
 | `SUBMITTED` | `FINAL` | `REVIEW_ROW` | Reviewer / Authorized Senior Grader | `finalize_manual_grade` | Final grade selection upon manual authorized finalization | `is_final = false` | `review_row_id` | Row Lock | Finalize Action Key | `Single Atomic RPC Transaction` | `REVIEW_ROW_FINALIZED` | `FORBIDDEN_FINALIZATION_AUTHORITY, ALREADY_FINAL` | No Retry |
 | `SUBMITTED` | `SUPERSEDED` | `REVIEW_ROW` | Re-grade RPC | `grading.regrade.execute` | New review row inserted | Supersession link | `review_row_id` | Row Lock | Regrade ID | `Single Atomic RPC Transaction` | `REVIEW_ROW_SUPERSEDED` | `SUPERSEDE_FAILED` | No Retry |
@@ -386,6 +386,63 @@
 - المحكم (`Senior Arbitrator`) يرى التقييمين المستقلين فقط بعد اكتمالهما معاً.
 - مدير التصحيح يرى البيانات التشغيلية فقط (Operational Metadata) قبل الوصول لـ `FINALIZED`.
 - **إنفاذ الخصوصية يتم عبر RLS وRPC Projection حصرياً، وليس عبر واجهة المستخدم UI فقط**.
+
+### 7.3. عقد موزع سياسات الإفراج عن نتائج الممارسة التدريبية (Practice Release Policy Dispatcher Legal Contract — ODR-016) `[REQUIRED_EXTENSION]`
+
+تتم إدارة كافة عمليات الإفراج عن أنشطة الممارسة التدريبية حصرياً عبر `Practice Release Policy Dispatcher` المعتمد بقرار المالك `ODR-016` و `TASK-MG-069` وفق الأنماط الثلاثة المحصنة:
+
+#### 7.3.1. النمط الفوري (IMMEDIATE Release Mode)
+- **الشروط المسبقة (Preconditions)**:
+  - الاعتماد النهائي اليدوي المسبق للاستجابة (`Response manually FINALIZED`) بواسطة جهة مخولة (`Reviewer` / `Authorized Senior Grader`).
+  - إعداد النشاط المعين: `activity.release_mode = IMMEDIATE`.
+  - اجتياز جميع فحوصات التكوين والصلاحيات الهيكلية للنشاط.
+- **السلوك التنفيذي (Behavior)**:
+  - عدم وجود أي اعتمادية على اكتمال الدفعة (`no Batch dependency`) وعدم الانتظار لاكتمال الدفعة (`no wait for Batch completeness`).
+  - الإفراج الفوري المباشر عن النتيجة فور الاعتماد النهائي اليدوي.
+  - تطبيق سياسة الإظهار والكشف (`reveal`) وفق إعداد النشاط المعرف.
+  - إدراج رسالة الإشعار حتمياً داخل صندوق الإشعارات الصادرة `notification_outbox` عبر `TASK-MG-064`.
+  - ضمان الإفراج الحتمي دون تكرار (`idempotent release`).
+  - إعادة محاولة إرسال الإشعارات المتعثرة دون مضاعفة الإفراج (`retry notification without duplicate release`).
+  - تحديث الحالة المرئية للطالب فوراً (`student-visible state: RELEASED`).
+  - مزامنة العميل غير المتصل (`offline synchronization`) عند الاتصال التالي.
+
+#### 7.3.2. النمط المؤجل (DELAYED Release Mode)
+- **الشروط المسبقة (Preconditions)**:
+  - الاعتماد النهائي اليدوي المسبق للاستجابة (`Response manually FINALIZED`).
+  - إعداد النشاط المعين: `activity.release_mode = DELAYED`.
+  - حفظ الطابع الزمني المعتمد للإفراج والكشف `release_at` أو `reveal_at` بصيغة UTC حصرياً (`timestamp stored in UTC`).
+- **السلوك التنفيذي (Behavior)**:
+  - تشغيل واستدعاء المجدول/المعالج الزمني (`Scheduler/Worker trigger`).
+  - إنفاذ حارس عدم الإفراج المبكر قبل حلول الموعد (`not-before-time guard`).
+  - تحويل المنطقة الزمنية عند العرض والتقديم للمستخدم فقط (`timezone conversion on display only`).
+  - ضمان الحتمية ومنع التكرار (`idempotency`).
+  - إعادة المحاولة التلقائية عند التعثر (`retry`).
+  - معالجة المهام المجدولة المعطلة أو القديمة (`stale-job handling`).
+  - التعافي التلقائي عند الفشل (`failure recovery`).
+  - التحقق من الصلاحيات وتكوين النشاط قبل التنفيذ.
+  - إرسال الإشعارات عبر `notification_outbox`.
+  - تحديث الحالة المرئية للطالب (`student-visible state: RELEASED`).
+  - مزامنة العميل غير المتصل (`offline synchronization`).
+  - عدم وجود أي اعتمادية على الدفعة (`no Batch dependency`).
+
+#### 7.3.3. نمط الدفعة (BATCH Release Mode)
+- **الشروط المسبقة (Preconditions)**:
+  - إعداد النشاط المعين: `activity.release_mode = BATCH`.
+  - الاعتماد النهائي اليدوي المسبق لكافة الاستجابات المطلوبة داخل الدفعة (`all required Responses manually FINALIZED`).
+  - التحقق من اكتمال كافة استجابات الدفعة وتوثيق جاهزيتها (`Batch completeness validated`).
+- **السلوك التنفيذي (Behavior)**:
+  - انحصار سلطة الإفراج بمدير التصحيح المخول (`Grading Manager release authority`).
+  - معالجة الإفراج عبر محرك إفراج الدفعة (`Batch release engine`).
+  - ضمان الحتمية ومنع الإفراج المكرر (`idempotency`).
+  - معالجة حالات الفشل الجزئي التقنية (`partial failure handling`).
+  - توليد الإشعارات لكافة الطلاب في الدفعة عبر Outbox.
+  - إنفاذ توقيت الكشف المعتمد (`reveal timing`).
+  - تحديث الحالة المرئية للطالب (`student-visible state: RELEASED`).
+  - مزامنة العميل غير المتصل (`offline synchronization`).
+
+#### 7.3.4. المحظورات الصارمة (Forbidden Operations)
+- يُحظر حظراً مطلقاً قيام المعالج الآلي Worker أو مدير التصحيح Manager باعتتماد أو إنهاء أي استجابة (`Worker/Manager cannot finalize Responses`, `no response finalization`).
+- يُحظر حظراً مطلقاً إفراج النتائج قبل اكتمال الاعتماد النهائي اليدوي لكافة الاستجابات (`Release before manual finalization completeness is FORBIDDEN`).
 
 ---
 

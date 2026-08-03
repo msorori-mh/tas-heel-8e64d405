@@ -421,9 +421,8 @@
 ### Epic 6: State Machine, Appeals & Regrading Engine (الاعتماد والتظلمات)
 
 - **TASK-MG-051: تنفيذ الاعتماد النهائي الذري للدرجة `finalize_manual_grade` (`is_final = true`)** `[REQUIRED_EXTENSION]`
-- **Security Prerequisite**: حصر استدعاء `finalize_manual_grade` حصرياً على `Reviewer` و `Authorized Senior Grader`، مع فرض التحقق الإجباري من scoped assignment الصالحة وتوفر capability الاعتماد، ووجود سبب الإرجاع/الاعتماد reason و provenance و CAS validation وحظر استدعائها كلياً من `Ordinary Grader` و `Grading Manager` و `Admin Emergency Operator` و `Worker` و `System` و `Scheduler`.
+  - **Security Prerequisite**: حصر استدعاء `finalize_manual_grade` حصرياً على `Reviewer` و `Authorized Senior Grader` (Allowed Actors)، مع فرض التحقق الإجباري من preconditions (authenticated actor, valid scoped assignment, explicit finalization capability, valid source state `READY_FOR_FINALIZATION`, score provenance, CAS/version validation, reason, idempotency key, immutable audit event)، وحظر استدعائها كلياً (Denied Actors) من `Ordinary Grader` و `Grading Manager` و `Admin Emergency Operator` و `Worker` و `System` و `Scheduler` و `Appeal Reviewer` (بوصفه Appeal actor) و `Arbitration function`. النتيجة: `Response -> FINALIZED`, `finalized_by = authenticated actor ID`, `finalized_at`, immutable finalization audit event generated. (هذا هو المسار الوحيد لكل Response إلى FINALIZED).
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-002`, `TASK-MG-007`, `TASK-MG-034`, `TASK-MG-047`
-  - **Security Prerequisite**: اقتصار الاعتماد النهائي على Reviewer و Authorized Senior Grader فقط، مع فحص Scoped Assignment وحظر Grader وManager وEmergency وSystem والتحقق من حقل السبب `reason` وتوليد سجل تدقيق غير قابل للتزوير مع منع الاعتماد التلقائي.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Status**: APPROVED BY ODR-007 (Gate: `TASK-MG-051`) | **Existing QB-01 Dependency**: `question_response_reviews`
   - **Acceptance Test**: `TC-AFR-001`, `TC-AFR-006` | **Deliverable Type**: `RPC`, `TRIGGER`
@@ -517,7 +516,7 @@
   - **Acceptance Test**: `TC-AFR-010` | **Deliverable Type**: `RPC`, `WORKER`
 
 - **TASK-MG-064: بناء صندوق الإشعارات الصادرة `notification_outbox` ضد الضياع** `[REQUIRED_EXTENSION]`
-  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`, `TASK-MG-069`
+  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`
   - **Security Prerequisite**: الضمان الذري لتسليم الرسائل ومنع الضياع أو التكرار.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
@@ -552,8 +551,25 @@
   - **Acceptance Test**: `TC-AFR-011` | **Deliverable Type**: `RPC`, `CONSTRAINT`
 
 - **TASK-MG-069: تصميم وتنفيذ موزع سياسات الإفراج عن نتائج التمارين التدريبية (TASK-MG-069 — Practice Release Policy Dispatcher)** `[REQUIRED_EXTENSION]`
-  - **Phase**: `MVP` | **Dependencies**: Common (`TASK-MG-051`, `TASK-MG-058`, `TASK-MG-064`); Conditional: BATCH mode depends on `TASK-MG-062` (Batch Release engine), DELAYED mode depends on `TASK-MG-065` (Scheduler/Worker), IMMEDIATE mode has NO batch dependency.
-  - **Security Prerequisite**: معالجة المسارات الثلاثة المعتمدة للتمارين التدريبية (IMMEDIATE, DELAYED, BATCH) وفق إعداد النشاط، مع إنفاذ الاعتماد النهائي كشرط مسبق دون اشتراط إغلاق الدفعة في المسار الفوري IMMEDIATE، ومعالجة التوقيت UTC والموثوقية والتنبيهات وإلغاء القفل.
+  - **Phase**: `MVP` | **Dependencies**: Common (`TASK-MG-051`, `TASK-MG-058`, `TASK-MG-064`); Conditional: BATCH mode depends on `TASK-MG-062` (Batch Release engine), DELAYED mode depends on `TASK-MG-065` (Scheduler/Worker), IMMEDIATE mode has NO batch dependency and NO scheduler dependency.
+  - **Common Dependencies**: Manual Finalization status (`TASK-MG-051`), Activity release configuration (`activity.release_mode`), Authorization & Capability checks (`TASK-MG-058`), Notification/reveal foundation (`TASK-MG-064`).
+  - **Conditional Dependencies**:
+    - **IMMEDIATE Mode**: No Batch dependency, No Scheduler dependency.
+    - **DELAYED Mode**: Scheduler/Worker dependency (`TASK-MG-065`), UTC time guards (`TASK-MG-068`), not-before-time guard, stale job handling.
+    - **BATCH Mode**: Batch release engine dependency (`TASK-MG-062`), Batch completeness validation, partial failure handling.
+  - **Acceptance Criteria**:
+    - Dispatcher selects exactly one mode (`IMMEDIATE`, `DELAYED`, or `BATCH`) based on `activity.release_mode`.
+    - Unsupported or invalid release mode fails closed with explicit configuration error.
+    - Release operation is strictly idempotent across all modes.
+    - Duplicate release attempts are strictly prevented.
+    - Notifications are enqueued using `TASK-MG-064` Outbox pattern.
+    - Notification retries do NOT cause duplicate releases (`retry notification without duplicate release`).
+    - DELAYED mode enforces not-before-time guard and stale job handling.
+    - BATCH mode supports partial failure handling and Manager release authority.
+    - Student-visible state is updated correctly upon release (`RELEASED`).
+    - Offline synchronization behavior is defined for offline clients.
+    - Worker and Manager are strictly forbidden from finalizing Responses (`Worker/Manager cannot finalize Responses`).
+  - **Security Prerequisite**: معالجة المسارات الثلاثة المعتمدة للتمارين التدريبية (IMMEDIATE, DELAYED, BATCH) وفق إعداد النشاط، مع إنفاذ الاعتماد النهائي اليدوي كشرط مسبق دون اشتراط إغلاق الدفعة في المسار الفوري IMMEDIATE، ومعالجة التوقيت UTC والموثوقية والتنبيهات وإلغاء القفل وحظر اعتماد الـ Worker والـ Manager.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `YES`
   - **Owner Decision Status**: APPROVED BY ODR-011, ODR-016 (Gate: `TASK-MG-069`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-007`, `TC-AFR-012`, `TC-AFR-013` | **Deliverable Type**: `RPC`, `WORKER`, `NOTIFICATION`
@@ -747,7 +763,7 @@ graph TD
         T51 --> T61[TASK-MG-061: Notification Batch Hold]
         T7 & T61 --> T62[TASK-MG-062: Batch Release Trigger]
         T62 --> T63[TASK-MG-063: Solution Reveal Timer]
-        T62 & T69 --> T64[TASK-MG-064: Notification Outbox]
+        T62 --> T64[TASK-MG-064: Notification Outbox]
         T51 & T64 --> T69[TASK-MG-069 — Practice Release Policy Dispatcher (IMMEDIATE/DELAYED/BATCH)]
         T62 -. BATCH mode only .-> T69
         T4 --> T71[TASK-MG-071: Arabic RTL Foundation]

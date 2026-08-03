@@ -66,10 +66,10 @@
 | `grading.claim.execute` | المطالبة بقفل إجابة في الطابور | امتداد جديد لإدارة الأقفال | `REQUIRED_EXTENSION` | ALLOW | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
 | `grading.release.execute` | تحرير قفل إجابة وإعادتها | امتداد جديد | `REQUIRED_EXTENSION` | ALLOW (خاص به) | ALLOW (أي قفل) | ALLOW | ALLOW (إداري) | ALLOW | **DENY** |
 | `grading.score.submit` | تقديم درجة أولية وملاحظات | **مطابقة مباشرة لـ `GRADE_MANUAL_RESPONSE`** | `EXISTING_QB01` | ALLOW | ALLOW | ALLOW | DENY | DENY | **DENY** |
-| `grading.score.finalize` | الاعتماد النهائي الصارم للدرجة | امتداد لإنفاذ `is_final = true` | `REQUIRED_EXTENSION` | **DENY** | ALLOW (Authorized) | ALLOW | **DENY** | **DENY** | **DENY** |
+| `grading.score.finalize` | الاعتماد النهائي الصارم للدرجة | امتداد لإنفاذ `is_final = true` (Allowed: Reviewer, Authorized Senior Grader. Denied: Ordinary Grader, Manager, Emergency, System, Worker, Scheduler, Appeal Reviewer, Arbitration) | `REQUIRED_EXTENSION` | **DENY** | ALLOW (Authorized) | ALLOW | **DENY** | **DENY** | **DENY** |
 | `grading.review.return` | إعادة الإجابة للمراجعة الثانية | امتداد لـ `RETURNED_FOR_SECOND_REVIEW` | `REQUIRED_EXTENSION` | DENY | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
 | `grading.reopen.execute` | فتح مراجعة استثنائية لدرجة | امتداد جديد بقيد السبب | `REQUIRED_EXTENSION` | DENY | DENY | DENY | ALLOW (بسبب) | ALLOW (طوارئ) | **DENY** |
-| `grading.appeal.process` | معالجة وتعديل الاعتراضات | امتداد مسار التظلمات | `REQUIRED_EXTENSION` | DENY | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
+| `grading.appeal.process` | معالجة قرار التظلم وتطبيق proposed score ونقله إلى READY_FOR_FINALIZATION دون اعتماد نهائي مباشر | امتداد مسار التظلمات | `REQUIRED_EXTENSION` | DENY | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
 | `grading.double_mark.arbitrate` | تحكيم التصحيح المزدوج | امتداد حسم التباين | `REQUIRED_EXTENSION` | **DENY** | ALLOW (Independent) | **DENY** | **DENY** | **DENY** | **DENY** |
 | `grading.audit.read` | قراءة سجل التدقيق التتابعي | امتداد قراءة `reviews` | `REQUIRED_EXTENSION` | DENY | ALLOW (خاص) | ALLOW | ALLOW (شامل) | ALLOW (شامل) | **DENY** |
 | `grading.batch.release` | الاعتماد ونشر نتائج الدفعة | معتمد بقرار المالك (`APPROVED ODR-010`) | `OWNER_DECISION` | DENY | DENY | DENY | ALLOW | ALLOW | **DENY** |
