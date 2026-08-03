@@ -289,6 +289,7 @@ test("dry-run teacher happy path", () => {
       lessons: new Set(["L1"]),
       lessonSubjects: new Map([["L1", "PHYS"]]),
     },
+    authorized: true,
   });
   assert.equal(r.summary.ok_rows, 1);
   assert.ok(r.accepted_set_hash);
@@ -309,6 +310,7 @@ test("dry-run determinism", () => {
       lessons: new Set(["L1"]),
       lessonSubjects: new Map([["L1", "PHYS"]]),
     },
+    authorized: true,
   };
   const a = runQuestionBankImportDryRun(input);
   const b = runQuestionBankImportDryRun(input);
@@ -363,6 +365,7 @@ test("limits 1000 pass / 1001 fail", () => {
       lessons: new Set(["L1"]),
       lessonSubjects: new Map([["L1", "PHYS"]]),
     },
+    authorized: true,
   });
   assert.equal(ok.summary.ok_rows, 1000);
   const bad = runQuestionBankImportDryRun({
@@ -386,6 +389,7 @@ test("5 MiB boundary", () => {
       lessons: new Set(["L1"]),
       lessonSubjects: new Map([["L1", "PHYS"]]),
     },
+    authorized: true,
   });
   assert.equal(pass.summary.file_blocking, false);
   const fail = runQuestionBankImportDryRun({
@@ -576,6 +580,7 @@ test("replay: safe noop / conflict / duplicate content", () => {
     fileName: "replay.xlsx",
     headers: [...CONTRACT_HEADERS.official_flat_v0],
     rows: [baseRow],
+    authorized: true,
     catalog: {
       subjects: new Set(["PHYS"]),
       lessons: new Set(),
@@ -588,6 +593,7 @@ test("replay: safe noop / conflict / duplicate content", () => {
     fileName: "replay.xlsx",
     headers: [...CONTRACT_HEADERS.official_flat_v0],
     rows: [{ ...baseRow, question_text: "نص مختلف" }],
+    authorized: true,
     catalog: {
       subjects: new Set(["PHYS"]),
       lessons: new Set(),
@@ -601,6 +607,7 @@ test("replay: safe noop / conflict / duplicate content", () => {
     fileName: "replay.xlsx",
     headers: [...CONTRACT_HEADERS.official_flat_v0],
     rows: [baseRow, { ...baseRow, question_code: "R2" }],
+    authorized: true,
     catalog: { subjects: new Set(["PHYS"]), lessons: new Set() },
   });
   assert.equal(dup.replay_decision, "DUPLICATE_CONTENT");
@@ -638,6 +645,7 @@ test("csv parser integration rejects formula-like cells via trusted path", async
   const result = await runOperationalQuestionBankImportDryRun({
     fileName: "sample.csv",
     bytes: new TextEncoder().encode(csv),
+    authorized: true,
     catalog: { subjects: new Set(["PHYS"]), lessons: new Set() },
   });
   assert.ok(

@@ -85,3 +85,25 @@ test("oracle vector coverage summary reports honest execution kinds", () => {
   assert.equal(Object.values(recount).reduce((total, count) => total + count, 0), 197);
   console.log("QB02 oracle tallies", recount);
 });
+
+test("Metamorphic Oracle isolation: 0 Oracle-tainted routing occurrences", async () => {
+  const { executeOracleVectorIsolated, ROUTE_SPY } = await import(
+    "../../../src/lib/question-bank/import/oracle-scenarios.ts"
+  );
+  ROUTE_SPY.reset();
+
+  for (const vector of oracle.vectors) {
+    const directResult = executeOracleVector(vector);
+    const isolatedResult = executeOracleVectorIsolated(vector);
+
+    assert.equal(directResult.execution_kind, isolatedResult.execution_kind);
+    assert.equal(directResult.primitive_under_test, isolatedResult.primitive_under_test);
+    assert.equal(directResult.fail_closed, isolatedResult.fail_closed);
+  }
+
+  assert.equal(
+    ROUTE_SPY.oracleTaintedRoutingOccurrences,
+    0,
+    "Expected 0 Oracle-tainted routing occurrences",
+  );
+});

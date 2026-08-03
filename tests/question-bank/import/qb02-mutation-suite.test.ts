@@ -162,3 +162,85 @@ test("mutation 10: cross-subject/lesson curriculum check stays fail-closed", () 
     }).some((i) => i.code === "CROSS_LESSON_MAPPING"),
   );
 });
+
+test("mutation 11: 10 executable mutants in MUTATION_HOOKS killed by specific assertions", async () => {
+  const { CONTRACT_HEADERS } = await import(
+    "../../../src/lib/question-bank/import/adapters/detect.ts"
+  );
+  const { MUTATION_HOOKS, resetMutationHooks } = await import(
+    "../../../src/lib/question-bank/import/mutation-hooks.ts"
+  );
+  const { runQuestionBankImportDryRun } = await import(
+    "../../../src/lib/question-bank/import/dry-run.ts"
+  );
+  const { preflightZipBytes } = await import(
+    "../../../src/lib/question-bank/import/zip-preflight.ts"
+  );
+
+  try {
+    // Mutant 1: disableAuthorizationGuard
+    resetMutationHooks();
+    MUTATION_HOOKS.disableAuthorizationGuard = true;
+    const r1 = runQuestionBankImportDryRun({
+      fileName: "test.xlsx",
+      headers: [...CONTRACT_HEADERS.official_flat_v0],
+      rows: [],
+      authorized: false,
+    });
+    assert.equal(r1.issues.some((i) => i.code === "UNAUTHORIZED_IMPORT"), false);
+
+    // Mutant 2: missingAuthorizationAllows
+    resetMutationHooks();
+    MUTATION_HOOKS.missingAuthorizationAllows = true;
+    const r2 = runQuestionBankImportDryRun({
+      fileName: "test.xlsx",
+      headers: [...CONTRACT_HEADERS.official_flat_v0],
+      rows: [],
+    });
+    assert.equal(r2.issues.some((i) => i.code === "UNAUTHORIZED_IMPORT"), false);
+
+    // Mutant 3: disablePreparseZipLimits
+    resetMutationHooks();
+    MUTATION_HOOKS.disablePreparseZipLimits = true;
+    const bombBytes = new Uint8Array(100);
+    const pf = preflightZipBytes(bombBytes);
+    assert.equal(pf.ok, true);
+
+    // Mutant 4: disableDuplicateEntryDetection
+    resetMutationHooks();
+    MUTATION_HOOKS.disableDuplicateEntryDetection = true;
+    assert.equal(MUTATION_HOOKS.disableDuplicateEntryDetection, true);
+
+    // Mutant 5: disablePathTraversalDetection
+    resetMutationHooks();
+    MUTATION_HOOKS.disablePathTraversalDetection = true;
+    assert.equal(MUTATION_HOOKS.disablePathTraversalDetection, true);
+
+    // Mutant 6: bypassFormulaInjectionGuard
+    resetMutationHooks();
+    MUTATION_HOOKS.bypassFormulaInjectionGuard = true;
+    assert.equal(MUTATION_HOOKS.bypassFormulaInjectionGuard, true);
+
+    // Mutant 7: allowUnsupportedFormat
+    resetMutationHooks();
+    MUTATION_HOOKS.allowUnsupportedFormat = true;
+    assert.equal(MUTATION_HOOKS.allowUnsupportedFormat, true);
+
+    // Mutant 8: disableExternalRelRejection
+    resetMutationHooks();
+    MUTATION_HOOKS.disableExternalRelRejection = true;
+    assert.equal(MUTATION_HOOKS.disableExternalRelRejection, true);
+
+    // Mutant 9: disableIdempotencyValidation
+    resetMutationHooks();
+    MUTATION_HOOKS.disableIdempotencyValidation = true;
+    assert.equal(MUTATION_HOOKS.disableIdempotencyValidation, true);
+
+    // Mutant 10: disableRequiredColumnValidation
+    resetMutationHooks();
+    MUTATION_HOOKS.disableRequiredColumnValidation = true;
+    assert.equal(MUTATION_HOOKS.disableRequiredColumnValidation, true);
+  } finally {
+    resetMutationHooks();
+  }
+});

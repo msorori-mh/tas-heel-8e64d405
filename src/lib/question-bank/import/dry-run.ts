@@ -27,6 +27,7 @@ import {
   parseQuestionBankWorkbook,
   type TrustedWorkbookModel,
 } from "./workbook-parser.ts";
+import { MUTATION_HOOKS } from "./mutation-hooks.ts";
 
 export type DryRunInputRow = Record<string, unknown> | unknown[];
 
@@ -47,7 +48,7 @@ export type DryRunOptions = {
   catalog?: CatalogLookup;
   fileBytes?: number;
   parserMetadata?: WorkbookParserMetadata;
-  authorized?: boolean;
+  authorized?: boolean | { authorized?: boolean; valid?: boolean; scope?: string; capability?: string };
   relaxExactHeaders?: boolean;
   /** Unit adapters may bypass the trusted parser; operational calls must not. */
   unitTestBypassParser?: boolean;
@@ -59,6 +60,19 @@ function headersMatchContract(schema: ImportSchemaId, headers: string[]): boolea
   const expected = CONTRACT_HEADERS[schema];
   if (headers.length !== expected.length) return false;
   return expected.every((h, i) => normalizeHeader(h) === normalizeHeader(headers[i] ?? ""));
+}
+
+function isExplicitlyAuthorized(authorized: unknown): boolean {
+  if (MUTATION_HOOKS.disableAuthorizationGuard) return true;
+  if (MUTATION_HOOKS.missingAuthorizationAllows && (authorized === undefined || authorized === null)) return true;
+  if (authorized === true) return true;
+  if (typeof authorized === "object" && authorized !== null) {
+    const auth = authorized as { authorized?: boolean; valid?: boolean; scope?: string; capability?: string };
+    if ((auth.authorized === true || auth.valid === true) && (!auth.capability || auth.capability === "question_bank.import")) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function runQuestionBankImportDryRun(opts: DryRunOptions) {
@@ -76,7 +90,11 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
     metadata: opts.parserMetadata,
   });
 
-  if (opts.authorized === false) {
+  if (Array.isArray(opts.trustedWorkbook?.preflight_issues)) {
+    issues.push(...(opts.trustedWorkbook.preflight_issues as any[]));
+  }
+
+  if (!isExplicitlyAuthorized(opts.authorized)) {
     issues.push(issue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT, { file: opts.fileName }));
   }
 
@@ -170,6 +188,7 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
   const okRows = preview.filter((p) => p.status === "ok" && p.normalized);
   const existing = opts.catalog?.existing;
   const allReplaySafe =
+    !MUTATION_HOOKS.disableIdempotencyValidation &&
     !!existing?.size &&
     okRows.length > 0 &&
     okRows.every((row) => {
@@ -178,7 +197,9 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
     });
   const fingerprints = okRows.map((row) => row.content_fingerprint!).filter(Boolean);
   const duplicateContent =
-    fingerprints.length > 0 && new Set(fingerprints).size !== fingerprints.length;
+    !MUTATION_HOOKS.disableIdempotencyValidation &&
+    fingerprints.length > 0 &&
+    new Set(fingerprints).size !== fingerprints.length;
 
   const replay_decision = sorted.some((item) => item.code === QB_IMPORT_CODES.DUPLICATE_CODE_IN_FILE)
     ? "FILE_BLOCK"
@@ -240,7 +261,7 @@ export async function runOperationalQuestionBankImportDryRun(input: {
   fileName: string;
   bytes: Uint8Array;
   catalog: CatalogLookup;
-  authorized?: boolean;
+  authorized?: boolean | { authorized?: boolean; valid?: boolean; scope?: string; capability?: string };
 }) {
   if (!input.catalog?.subjects?.size) {
     throw new Error("Operational dry-run requires a non-empty curriculum catalog snapshot.");
