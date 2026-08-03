@@ -95,7 +95,7 @@
 
 ### 2.1. ضوابط سلطة الاعتماد النهائي والتحكيم المعتمدة (ODR-007 & ODR-008):
 - **سلطة الاعتماد النهائي (`ODR-007`)**: تقتصر صلاحية `grading.score.finalize` حصرياً على `Reviewer` و `Authorized Senior Grader`. يُحظر حظراً مطلقاً استخدام هذه الصلاحية من قبل `Ordinary Grader` أو `Grading Manager` أو `Admin Emergency Operator` أو `Automated System`. لا ينفذ النظام أي اعتماد تلقائي لـ `FINALIZED`.
-- **سلطة التحكيم (`ODR-008`)**: تقتصر صلاحية `grading.double_mark.arbitrate` حصرياً على `Independent Senior Grader` (بشرط عدم المشاركة في التصحيح الأول أو المناظر وعدم وجود تضارب مصالح COI وتكليف محدد صريح). يُحظر التحكيم على `Reviewer` و `Ordinary Grader` و `Grading Manager` و `Emergency Operator` والمصححين الأصليين.
+- **سلطة التحكيم (`ODR-008`)**: تقتصر صلاحية `grading.double_mark.arbitrate` حصرياً على `Independent Senior Grader` (بشرط عدم المشاركة في التصحيح الأول أو المناظر وعدم وجود تضارب مصالح COI وتكليف محدد صريح وتمكين capability التحكيم صراحة). يُحظر التحكيم على `Reviewer` و `Ordinary Grader` و `Grading Manager` و `Emergency Operator` والمصححين الأصليين. تنتج الدالة نتيجة تحكيم مقترحة `ARBITRATED_SCORE_READY_FOR_FINALIZATION` ولا تنفذ الاعتماد النهائي `FINALIZED` مباشرة، حيث يُترك الاعتماد النهائي اللاحق لـ `Reviewer` أو `Authorized Senior Grader` وفق ضوابط `ODR-007`.
 
 ### 3.1. الضوابط الجوهرية لـ RLS والعزل الأمني:
 - **حظر الاستعلام العام (No General SELECT)**: يُحظر منح صلاحية `SELECT` العامة على جداول `question_response_reviews` و `grading_assignments`؛ وتقتصر قراءة البيانات على مناظر أمنية موضحة بـ `security_invoker = true` أو عبر RPCs محمية.

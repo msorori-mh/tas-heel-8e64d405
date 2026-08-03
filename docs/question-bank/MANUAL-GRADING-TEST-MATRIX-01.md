@@ -30,17 +30,18 @@
 
 ## 1. استراتيجية مواصفات الاختبار وتصحيح التغطية (Testing Strategy & Canonical Scope) `[REQUIRED_EXTENSION]`
 
-تنقسم مصفوفة مواصفات حالات الاختبار إلى ست فئات هيكلية تحتوي على **86 مواصفة فريدة**:
+تنقسم مصفوفة مواصفات حالات الاختبار إلى سبع فئات هيكلية تحتوي على **95 مواصفة فريدة**:
 1. **فئة A: الأمن الصارم، الصلاحيات، و RLS (TC-SEC-001 إلى TC-SEC-021)**: 21 مواصفة.
 2. **فئة B: قواعد احتساب الدرجات والحدود المعتمدة (TC-SCR-001 إلى TC-SCR-007)**: 7 مواصفات.
 3. **فئة C: طابور العمل، الأقفال المؤقتة، المحاصرة، و SLA (TC-QCL-001 إلى TC-QCL-012)**: 12 مواصفة.
-4. **فئة D: التصحيح المزدوج، التحكيم، والتظلمات (TC-DMA-001 إلى TC-DMA-010)**: 10 مواصفات.
-5. **فئة E: الاعتماد النهائي، الإفراج الجماعي، وتوقيت Reveal (TC-AFR-001 إلى TC-AFR-011, TC-NFX-001 إلى TC-NFX-003)**: 17 مواصفة.
+4. **فئة D: التصحيح المزدوج، التحكيم، والتظلمات (TC-DMA-001 إلى TC-DMA-018)**: 18 مواصفة.
+5. **فئة E: الاعتماد النهائي، الإفراج الجماعي، وتوقيت Reveal (TC-AFR-001 إلى TC-AFR-014, TC-NFX-001 إلى TC-NFX-003)**: 17 مواصفة.
 6. **فئة F: التجاوب، إمكانية الوصول، والمرونة (TC-MUX-001 إلى TC-MUX-008)**: 8 مواصفات.
+7. **فئة G: بوابات التحقق وآلات الحالات (TC-GATE / TC-SM / TC-SEC-022 / TC-E2E-010 / TC-OBS-001)**: 12 مواصفة.
 
 ---
 
-## 2. جدول مواصفات حالات الاختبار التفصيلي الـ 86 (Detailed 86 Test Specifications Matrix) `[REQUIRED_EXTENSION]`
+## 2. جدول مواصفات حالات الاختبار التفصيلي الـ 95 (Detailed 95 Test Specifications Matrix) `[REQUIRED_EXTENSION]`
 
 ### 2.1. فئة A: الأمن الصارم، الصلاحيات، وسياسات RLS (Security & RLS) `[REQUIRED_EXTENSION]`
 
@@ -109,14 +110,22 @@
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: |
 | **TC-DMA-001** | التصحيح المزدوج المستقل المعزول | `grader 1` / `2` | إجابة مخصصة للتصحيح المزدوج | تصحيح المصحح 1 ثم تصحيح المصحح 2 | إخفاء تقييم وملاحظات كل مصحح عن الآخر | `REQUIRED_EXTENSION` | `RLS` | YES | YES | ODR-014 |
 | **TC-DMA-002** | رصد الانحراف وتحويل الإجابة للتحكيم | `system` | درجة الأول 9/10 والثاني 4/10 | تسجيل التقييمين في السجل | رصد تباين > 15% وتحويلها لـ `Arbitration` | `OWNER_DECISION` | `RPC` | YES | YES | ODR-004 |
-| **TC-DMA-003** | قرار التحكيم النهائي من Senior Grader | `senior grader` | إجابة في طابور التحكيم | استعراض التقييمين وإصدار القرار | اعتماد الدرجة المعايرة وتسجيلها كـ `FINALIZED` | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-008 |
+| **TC-DMA-003** | قرار التحكيم المستقل من Senior Grader | `independent senior grader` | إجابة في طابور التحكيم (تباين > 15%)، المحكّم مستقل لم يشارك بالتصحيحين ولا COI وله scoped assignment وcapability صريحة | استعراض التقييمين وإصدار القرار المحكّم عبر `arbitrate_double_mark` | إنتاج الدرجة المحكّمة المقترحة بحالة `ARBITRATED_SCORE_READY_FOR_FINALIZATION` وعدم تنفيذ الاعتماد النهائي `FINALIZED` مباشرة | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-008 |
 | **TC-DMA-004** | تقديم الطالب لتظلم خلال النافذة | `student` | نشر النتيجة وانقضاء أقل من 7 أيام | تقديم طلب تظلم مرفق بالمبررات | تسجيل التظلم بـ `APPEALED` وتعيينه لمراجع | `OWNER_DECISION` | `RPC` | YES | YES | ODR-006 |
 | **TC-DMA-005** | مراجعة التظلم وتحديث الدرجة | `reviewer` | طلب تظلم مخصص للمراجع | استعراض الإجابة والاعتراض وإصدار القرار | إدراج صف تصحيحي جديد وتحديث النتيجة | `REQUIRED_EXTENSION` | `RPC` | YES | YES | NO |
 | **TC-DMA-006** | حظر سرية التصحيح المزدوج (Blind) | `grader 1` | عدم تسليم تقييمه بعد | استعلام API لتقييم المصحح المناظر | إرجاع NULL ومنع رؤية تقييم المصحح الثاني | `REQUIRED_EXTENSION` | `RLS` | YES | YES | NO |
 | **TC-DMA-007** | التسليم التزامني للمصححين المزدوجين | `grader 1` / `2` | تسليم التقييمين في ذات اللحظة | تشغيل RPC `submit` بشكل متوازٍ | حفظ التقييمين بنجاح دون تضارب مفاتيح | `REQUIRED_EXTENSION` | `CONCURRENCY` | YES | YES | NO |
-| **TC-DMA-008** | التقييم المزدوج المتوافق (احتساب المتوسط دون اعتماد تلقائي) | `system` / `reviewer` | درجة الأول 8/10 والثاني 8.5/10 | تسليم التقييمين بحساب تباين 5% (ODR-004) | احتساب المتوسط 8.25 (ODR-013) وتحويل الحالة لـ `READY_FOR_FINALIZATION` ومنع الاعتماد التلقائي، ثم الاعتماد بواسطة Reviewer / Authorized Senior Grader | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-013 |
+| **TC-DMA-008** | التقييم المزدوج المتوافق (احتساب المتوسط دون اعتماد تلقائي) | `system` / `reviewer` | درجة الأول 8/10 والثاني 8.5/10 | تسليم التقييمين بحساب تباين 5% (ODR-004) | احتساب المتوسط 8.25 (ODR-013) وتحويل الحالة لـ `READY_FOR_FINALIZATION` ومنع الاعتماد التلقائي للنظام، ثم الاعتماد بواسطة Reviewer / Authorized Senior Grader | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-013 |
 | **TC-DMA-009** | رفض تحكيم الإجابة من مصحح أولي | `grader 1` | لا يملك صلاحية `arbitrate` | محاولة استدعاء RPC التحكيم | رفض الصلاحية واستثناء `FORBIDDEN_CAPABILITY` | `REQUIRED_EXTENSION` | `RLS` | YES | YES | NO |
 | **TC-DMA-010** | استقلالية مراجع الاعتراض (COI) | `grader 1` | قام بالتصحيح الأصلي للإجابة | محاولة تعيينه أو قبوله لمراجعة التظلم | منع التعيين آلياً بسبب تضارب المصالح | `REQUIRED_EXTENSION` | `RPC` | YES | YES | NO |
+| **TC-DMA-011** | محاولة المراجع تنفيذ التحكيم | `reviewer` | إجابة في طابور التحكيم | محاولة المراجع استدعاء RPC التحكيم `arbitrate_double_mark` | رفض الطلب واستثناء `FORBIDDEN_CAPABILITY` | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-008 |
+| **TC-DMA-012** | محاولة مدير التصحيح تنفيذ التحكيم | `grading manager` | إجابة في طابور التحكيم | محاولة المدير استدعاء RPC التحكيم `arbitrate_double_mark` | رفض الطلب واستثناء `FORBIDDEN_CAPABILITY` | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-008 |
+| **TC-DMA-013** | محاولة مشغل الطوارئ تنفيذ التحكيم | `admin emergency` | إجابة في طابور التحكيم | محاولة مشغل الطوارئ استدعاء RPC التحكيم `arbitrate_double_mark` | رفض الطلب واستثناء `FORBIDDEN_CAPABILITY` | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-008 |
+| **TC-DMA-014** | محاولة المصحح الأول الأصلي تنفيذ التحكيم | `primary grader` | قام بالتصحيح الأول للإجابة | محاولة المصحح الأول حسم التحكيم | رفض التعيين والتحكيم واستثناء `COI_ORIGINAL_GRADER` | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-008 |
+| **TC-DMA-015** | محاولة المصحح الثاني المناظر تنفيذ التحكيم | `counterpart grader` | قام بالتصحيح الثاني للإجابة | محاولة المصحح المناظر حسم التحكيم | رفض التعيين والتحكيم واستثناء `COI_ORIGINAL_GRADER` | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-008 |
+| **TC-DMA-016** | محاولة محكّم senior يملك تضارب مصالح | `senior grader` | وجود قرابة أو تضارب مصالح COI مع الطالب | محاولة المطالبة والتحكيم للإجابة | رفض التكليف والتحكيم واستثناء `FLAGGED_COI` | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-008 |
+| **TC-DMA-017** | محاولة محكّم senior دون تكليف محدد | `senior grader` | عدم وجود تكليف scoped assignment محدد للمادة | محاولة استدعاء RPC التحكيم | رفض الطلب واستثناء `OUT_OF_SCOPE` | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-008 |
+| **TC-DMA-018** | محاولة محكّم senior دون صلاحية تحكيم صريحة | `senior grader` | عدم تمكين capability التحكيم صراحة للمستخدم | محاولة حسم التباين عبر RPC التحكيم | رفض الطلب واستثناء `FORBIDDEN_CAPABILITY` | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-008 |
 
 ---
 
@@ -124,13 +133,13 @@
 
 | ID | عنوان حالة الاختبار | الدور المستهدف | الشروط المسبقة | خطوات التنفيذ | النتيجة المتوقعة | التصنيف | Future Test Layer | Requires Migration | Requires Runtime | Owner Decision Dep. |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: |
-| **TC-AFR-001** | الاعتماد النهائي الذري للدرجة | `senior grader` | إجابة مكتملة التصحيح | الضغط على "اعتماد نهائي" مع السبب | تحول is_final لـ true واشتراط reason | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-007 |
+| **TC-AFR-001** | الاعتماد النهائي الذري للدرجة | `reviewer` / `authorized senior grader` | إجابة مكتملة التصحيح | الضغط على "اعتماد نهائي" مع السبب | تحول is_final لـ true واشتراط reason | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-007 |
 | **TC-AFR-002** | إعادة حساب مجموع الجلسة | `system` | اعتماد آخر إجابة مقالية في الامتحان | فحص مجموع درجات الجلسة | التحديث الآلي لـ final_score للجلسة | `EXISTING_QB01` | `DB_CONTRACT` | YES | YES | NO |
 | **TC-AFR-003** | تتبع السجل التتابعي (Append-Only) | `grading manager` | إجراء عدة تصحيحات وتعديلات | استعلام جدول reviews المباشر | ظهور الصفوف بالتسلسل دون حذف أو تعديل | `EXISTING_QB01` | `DB_CONTRACT` | YES | NO | NO |
 | **TC-AFR-004** | حظر كشف الحل قبل الإفراج المعتمد | `student` | درجة معتمدة والدفعة لم تفرج بعد | محاولة فتح نموذج الإجابة والشرح | بقاء الحل مخفياً حتى وقت Reveal المحدد | `REQUIRED_EXTENSION` | `RLS` | YES | YES | ODR-010 |
 | **TC-AFR-005** | الإفراج الجماعي عن نتائج الدفعة | `grading manager` | اكتمال تصحيح الدفعة بالكامل | النقر على "اعتماد ونشر نتائج الدفعة" | تحول الدفعة لـ RELEASED وتوليد Outbox | `OWNER_DECISION` | `RPC` | YES | YES | ODR-010 |
-| **TC-AFR-006** | الاعتماد النهائي للامتحان الرسمي | `senior grader` | امتحان رسمي نهائي مغلق | تنفيذ الاعتماد مع اشتراط السبب | قفل الدرجات وتحويل الدفعة للجاهزية | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-007 |
-| **TC-AFR-007** | الإفراج الفوري المباشر لنتائج الممارسة التدريبية (Practice IMMEDIATE Release) | `grader` / `student` | محاولة تدريب حرة بموجه IMMEDIATE معتمدة نهائياً | تقديم التقييم والاعتماد النهائي | إتاحة النتيجة فوراً وتوليد Outbox دون انتظار الدفعة | `OWNER_DECISION` | `RPC` | YES | YES | ODR-016 |
+| **TC-AFR-006** | الاعتماد النهائي للامتحان الرسمي | `reviewer` / `authorized senior grader` | امتحان رسمي نهائي مغلق | تنفيذ الاعتماد مع اشتراط السبب | قفل الدرجات وتحويل الدفعة للجاهزية | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-007 |
+| **TC-AFR-007** | الإفراج الفوري المباشر لنتائج الممارسة التدريبية (Practice IMMEDIATE Release) | `grader` / `reviewer` / `student` | محاولة تدريب حرة بموجه IMMEDIATE | تقديم المصحح (Grader) للتقييم ثم اعتماد الدرجة نهائياً بواسطة (Reviewer / Authorized Senior Grader) | إتاحة النتيجة فوراً وتوليد Outbox دون انتظار الدفعة | `OWNER_DECISION` | `RPC` | YES | YES | ODR-016 |
 | **TC-AFR-008** | التعديل التزامني الاستثنائي | `manager A` / `B` | محاولة فتح مراجعة استثنائية معاً | استدعاء RPC `reopen_review` متوازياً | حفظ الصفين التتابعيين بسلسلة supersession | `REQUIRED_EXTENSION` | `CONCURRENCY` | YES | YES | ODR-009 |
 | **TC-AFR-009** | التعديل التتابعي بصف تصحيحي | `grading manager` | درجة معتمدة نهائياً مر عليها 3 أيام | إجراء تعديل استثنائي بسبب خطأ مادي | إضافة صف جديد بـ previous_score دون UPDATE | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-009 |
 | **TC-AFR-010** | حد التوقيت الزمني لكشف الحل | `student` | انقضاء تاريخ Reveal بـ 1 ثانية | طلب استعلام الإجابة النموذجية | كشف نموذج الحل بنجاح للطالب | `REQUIRED_EXTENSION` | `RPC` | YES | YES | ODR-010 |
@@ -160,18 +169,24 @@
 ---
 
 
-| `TC-GATE-001` | فحص إنفاذ بوابات قرارات المالك قبل الإطلاق | Owner Gates Enforcement | `TASK-MG-080` | `HIGH` | وجود قرار مالك مفتوح يمنع صدور قرار الجاهزية PASS | `FAIL` |
-| `TC-SEC-022` | فحص فشل البوابة الأمنية عند سقوط أي حالة اختبار إلزامية | Security Gate Failure on Mandatory Control | `TASK-MG-075` | `CRITICAL` | رسوب حالة واحدة من الـ 13 حالة يغير نتيجة TASK-MG-075 إلى FAIL | `FAIL` |
-| `TC-E2E-010` | فحص فشل بوابة E2E عند تعثر أي حزمة اختبار | E2E Gate Failure on Mandatory Suite | `TASK-MG-079` | `CRITICAL` | تعثر مسار واحد من الـ 10 حزم يغير نتيجة TASK-MG-079 إلى FAIL | `FAIL` |
-| `TC-OBS-001` | فحص حظر الإطلاق عند عدم تفعيل المراقبة والتنبيهات | Observability Inactive Blocks Launch | `TASK-MG-080` | `HIGH` | عدم تفعيل التنبيهات أو المؤشرات يمنع اعتماد الإطلاق | `FAIL` |
-| `TC-GATE-002` | فحص حظر الإطلاق عند وجود ملاحظات عالية أو حرجة مفتوحة | High / Critical Findings Block Launch | `TASK-MG-080` | `CRITICAL` | وجود ثغرة أو انحراف حرج مفتوح يمنع الاعتماد | `FAIL` |
-| `TC-GATE-003` | فحص حظر الإطلاق عند عدم إثبات مسار التراجع | Rollback Failure Blocks Launch | `TASK-MG-080` | `HIGH` | فشل التحقق من مسار التراجع يمنع الإطلاق | `FAIL` |
-| `TC-SM-001` | فحص دورة حياة آلة حالات التظلمات والاعتراضات | Appeal Lifecycle Transitions | `TASK-MG-055` | `HIGH` | التحقق من كافة الانتقالات ومسارات الخروج للحالات غير النهائية | `PASS` |
-| `TC-SM-002` | فحص دورة حياة آلة حالات الدفعة والإفراج | Batch Lifecycle Transitions | `TASK-MG-062` | `HIGH` | التحقق من انتقالات الدفعة والإعادة والإلغاء وفق الصلاحية | `PASS` |
-| `TC-SM-003` | فحص دورة حياة آلة حالات صندوق الإشعارات Outbox | Outbox Lifecycle Transitions | `TASK-MG-064` | `HIGH` | التحقق من المطالبة والتأكيد والإعادة والحجز الزمني | `PASS` |
-| `TC-SM-004` | فحص تحويل الإشعارات المتعثرة إلى DLQ وسلطة Replay | Outbox Dead-Letter & Replay Authority | `TASK-MG-065` | `HIGH` | التحقق من التحويل للـ DLQ بعد تجاوز المحاولات وحصر Replay بـ Admin | `PASS` |
-| `TC-SM-005` | فحص رفض الانتقالات التنفيذية بين الكائنات المختلفة | Mixed-Machine Transition Rejection | `TASK-MG-075` | `CRITICAL` | حظر خلط حالات Response مع Review Row أو Assignment أو Appeal | `REJECTED` |
-| `TC-SM-006` | فحص كشف وتجنيب الحالات غير النهائية الميتة | Non-Terminal State Dead-End Detection | `TASK-MG-080` | `HIGH` | إثبات وجود مسار خروج لكل حالة غير نهائية في آلات الحالات الـ 6 | `PASS` |
+### 2.7. فئة G: بوابات التحقق وآلات الحالات (Gates & State Machines) `[REQUIRED_EXTENSION]`
+
+| ID | عنوان حالة الاختبار | الاسم المعياري | المهمة المانعة | الأهمية | السلوك المتوقع / النتيجة | النتيجة |
+| :--- | :--- | :--- | :--- | :---: | :--- | :---: |
+| **TC-GATE-001** | فحص إنفاذ بوابات قرارات المالك قبل الإطلاق | Owner Gates Enforcement | `TASK-MG-080` | `HIGH` | وجود قرار مالك مفتوح يمنع صدور قرار الجاهزية PASS | `FAIL` |
+| **TC-SEC-022** | فحص فشل البوابة الأمنية عند سقوط أي حالة اختبار إلزامية | Security Gate Failure on Mandatory Control | `TASK-MG-075` | `CRITICAL` | رسوب حالة واحدة من الـ 13 حالة يغير نتيجة TASK-MG-075 إلى FAIL | `FAIL` |
+| **TC-E2E-010** | فحص فشل بوابة E2E عند تعثر أي حزمة اختبار | E2E Gate Failure on Mandatory Suite | `TASK-MG-079` | `CRITICAL` | تعثر مسار واحد من الـ 10 حزم يغير نتيجة TASK-MG-079 إلى FAIL | `FAIL` |
+| **TC-OBS-001** | فحص حظر الإطلاق عند عدم تفعيل المراقبة والتنبيهات | Observability Inactive Blocks Launch | `TASK-MG-080` | `HIGH` | عدم تفعيل التنبيهات أو المؤشرات يمنع اعتماد الإطلاق | `FAIL` |
+| **TC-GATE-002** | فحص حظر الإطلاق عند وجود ملاحظات عالية أو حرجة مفتوحة | High / Critical Findings Block Launch | `TASK-MG-080` | `CRITICAL` | وجود ثغرة أو انحراف حرج مفتوح يمنع الاعتماد | `FAIL` |
+| **TC-GATE-003** | فحص حظر الإطلاق عند عدم إثبات مسار التراجع | Rollback Failure Blocks Launch | `TASK-MG-080` | `HIGH` | فشل التحقق من مسار التراجع يمنع الإطلاق | `FAIL` |
+| **TC-SM-001** | فحص دورة حياة آلة حالات التظلمات والاعتراضات | Appeal Lifecycle Transitions | `TASK-MG-055` | `HIGH` | التحقق من كافة الانتقالات ومسارات الخروج للحالات غير النهائية | `PASS` |
+| **TC-SM-002** | فحص دورة حياة آلة حالات الدفعة والإفراج | Batch Lifecycle Transitions | `TASK-MG-062` | `HIGH` | التحقق من انتقالات الدفعة والإعادة والإلغاء وفق الصلاحية | `PASS` |
+| **TC-SM-003** | فحص دورة حياة آلة حالات صندوق الإشعارات Outbox | Outbox Lifecycle Transitions | `TASK-MG-064` | `HIGH` | التحقق من المطالبة والتأكيد والإعادة والحجز الزمني | `PASS` |
+| **TC-SM-004** | فحص تحويل الإشعارات المتعثرة إلى DLQ وسلطة Replay | Outbox Dead-Letter & Replay Authority | `TASK-MG-065` | `HIGH` | التحقق من التحويل للـ DLQ بعد تجاوز المحاولات وحصر Replay بـ Admin | `PASS` |
+| **TC-SM-005** | فحص رفض الانتقالات التنفيذية بين الكائنات المختلفة | Mixed-Machine Transition Rejection | `TASK-MG-075` | `CRITICAL` | حظر خلط حالات Response مع Review Row أو Assignment أو Appeal | `REJECTED` |
+| **TC-SM-006** | فحص كشف وتجنيب الحالات غير النهائية الميتة | Non-Terminal State Dead-End Detection | `TASK-MG-080` | `HIGH` | إثبات وجود مسار خروج لكل حالة غير نهائية في آلات الحالات الـ 6 | `PASS` |
+
+---
 
 ## 3. مراجعة وتأكيد إحصائيات مواصفات حالات الاختبار (Verification Summary Block) `[REQUIRED_EXTENSION]`
 
@@ -179,10 +194,10 @@
 ============================================================
            مصفوفة التثبت الإحصائي لمواصفات حالات الاختبار
 ============================================================
-- إجمالي مواصفات حالات الاختبار (Specifications):   86 مواصفة فريدة
+- إجمالي مواصفات حالات الاختبار (Specifications):   95 مواصفة فريدة
 - حالات الاختبار البرمجية التنفيذية (Executable):  0
 - حالة الأتمتة (Automation Status):               Planned in future implementation
-- المعرفات الفريدة (Unique IDs):                    86 / 86
+- المعرفات الفريدة (Unique IDs):                    95 / 95
 - حالات الاختبار المفقودة (Missing):                0
 - حالات الاختبار المكررة (Duplicate):               0
 - التغطية لكافة فئات الأمان والمنطق والـ UX:         100%
