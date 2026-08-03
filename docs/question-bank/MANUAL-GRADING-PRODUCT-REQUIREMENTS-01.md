@@ -372,10 +372,9 @@
 1. **التصحيح الأحادي (Single Grading)**: تقديم درجة واحدة من المصحح المعتمد وتتحول لـ `FINALIZED` عند استيفاء الضوابط.
 2. **التصحيح المزدوج مع التطابق التام (Exact Agreement)**: إذا كانت $\text{Score}_1 = \text{Score}_2$ تتأكد الدرجة آلياً وتتحول لـ `FINALIZED`.
 3. **التصحيح المزدوج فوق عتبة الانحراف (Above Threshold > 15%)**: التحكيم الإجباري (Arbitration Mandatory) عبر `senior grader`.
-4. **التصحيح المزدوج ضمن عتبة الانحراف (Within Threshold $\le 15\%$)**:
-   - **تخضع لقرار المالك `ODR-013` (NEEDS_OWNER_DECISION)**.
-   - الخيارات المتاحة: المتوسط الحسابي، الأعلى، الأقل، تقييم المصحح الأول، تقييم المصحح الثاني، مراجعة إضافية.
-   - **يُمنع فرض قيمة نهائية نيابة عن المالك**.
+4. **التصحيح المزدوج ضمن عتبة الانحراف (Within Threshold $\le 15\%$):**
+   - **معتمدة بقرار المالك `ODR-013` (APPROVED)**.
+   - السياسة المعتمدة: المتوسط الحسابي للتقييمين (Arithmetic Mean).
 
 ### 7.2. حماية خصوصية التصحيح المزدوج (Double Marking Blind Privacy) `[REQUIRED_EXTENSION]`
 - كل مصحح يحصل على `assignment` مستقل كلياً.
@@ -410,41 +409,42 @@
 
 ### 9.1. جدول تتبع هوية قرارات المالك والأسماء المستعارة (Owner Decisions Traceability & Alias Mapping Table) `[REQUIRED_EXTENSION]`
 
-| Original ID | Canonical ID | Subject | Status | Gate task |
-| ----------- | ------------ | ------------------------------------- | -------------------- | ----------- |
-| OD-MG-13 | ODR-013 | Within-threshold final score rule | NEEDS_OWNER_DECISION | TASK-MG-034 |
-| OD-MG-14 | ODR-014 | Double-marking assignment slot policy | NEEDS_OWNER_DECISION | TASK-MG-045 |
-| OD-MG-15 | ODR-015 | Expiry/reclaim authority policy | NEEDS_OWNER_DECISION | TASK-MG-023 |
-| OD-MG-16 | ODR-016 | Practice batch-release policy | NEEDS_OWNER_DECISION | TASK-MG-069 |
+| Original ID | Canonical ID | Subject | Status | Gate task | Approved by | Approved on | Approval basis |
+| ----------- | ------------ | ------------------------------------- | -------- | ----------- | ----------- | ----------- | ------------------------------------ |
+| OD-MG-13 | ODR-013 | Within-threshold final score rule | APPROVED | TASK-MG-034 | PROJECT_OWNER | 2026-08-03 | OWNER_APPROVAL_BY_REGISTERED_SUBJECT |
+| OD-MG-14 | ODR-014 | Double-marking assignment slot policy | APPROVED | TASK-MG-045 | PROJECT_OWNER | 2026-08-03 | OWNER_APPROVAL_BY_REGISTERED_SUBJECT |
+| OD-MG-15 | ODR-015 | Expiry/reclaim authority policy | APPROVED | TASK-MG-023 | PROJECT_OWNER | 2026-08-03 | OWNER_APPROVAL_BY_REGISTERED_SUBJECT |
+| OD-MG-16 | ODR-016 | Practice batch-release policy | APPROVED | TASK-MG-069 | PROJECT_OWNER | 2026-08-03 | OWNER_APPROVAL_BY_REGISTERED_SUBJECT |
 
 > [!NOTE]
 > **قواعد التتبع والهوية القانونية:**
 > - **المعرفات القديمة (Original IDs)**: تبقى أسماء مستعارة (Documented Aliases) موثقة قانونياً لضمان التتبع التاريخي (`OD-MG-13` → `ODR-013`, `OD-MG-14` → `ODR-014`, `OD-MG-15` → `ODR-015`, `OD-MG-16` → `ODR-016`).
 > - **المعرفات القانونية الموحدة (Canonical IDs)**: هي `ODR-001` إلى `ODR-016`.
-> - **حالة القرارات (Decision Status)**: لا يعتبر أي قرار معتمداً نهائياً (`Approved = 0`).
-> - **القرارات المفتوحة (Open Decisions)**: 16 قراراً بحالة `NEEDS_OWNER_DECISION`.
- (Owner Decision Register - 16 Decisions) `[OWNER_DECISION]`
+> - **حالة القرارات (Decision Status)**: تم اعتماد كافة القرارات الـ 16 رسمياً بقرار المالك (`Approved = 16`).
+> - **القرارات المفتوحة (Open Decisions)**: `0` قرار مفتوح (`NEEDS_OWNER_DECISION = 0`).
 
-يشتمل هذا السجل على كافة القرارات الـ 16 التي تتطلب قراراً رسمياً من مالك المنتج، وتُصنف جميعها بـ `NEEDS_OWNER_DECISION`:
+### 9.2. سجل قرارات المالك المعتمدة (Owner Decision Register - 16 Decisions) `[OWNER_DECISION]`
 
-| ID القرار | موضوع القرار | الخيارات المتاحة | الأثر العملياتي | المخاطر المحتملة | التوصية الفنية | الأثر الهيكلي (Schema) | الأثر التنفيذي (Runtime) | الإرجاء المسموح | المرحلة الحاكمة | الحالة |
+يشتمل هذا السجل على كافة القرارات الـ 16 المعتمدة رسمياً من مالك المنتج (PROJECT_OWNER) بتاريخ 2026-08-03 وفق أساس الاعتماد موضوعياً (OWNER_APPROVAL_BY_REGISTERED_SUBJECT)، وحالتها جميعاً `APPROVED`:
+
+| ID القرار | موضوع القرار | الخيارات المتاحة | الأثر العملياتي | المخاطر المحتملة | التوصية الفنية / القرار المعتمد | الأثر الهيكلي (Schema) | الأثر التنفيذي (Runtime) | الإرجاء المسموح | المرحلة الحاكمة | الحالة |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ODR-001** | مهلة القفل المؤقت (Lease TTL) | 10د / 15د / 30د | احتجاز الإجابة | احتكار عند الانقطاع | 15د مع Heartbeat | إضافة حقل TTL | ضبط مؤقتات UI | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
-| **ODR-002** | مهل SLA للامتحانات | 12س / 24س / 48س | سرعة النتائج | ضغط المصححين | 24 ساعة | جداول التنبيهات | مجدول التصعيد | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
-| **ODR-003** | عتبة تنبيه SLA Alert | 50% / 75% / 90% | توقيت التنبيه | كثرة الإزعاج | 75% | حقول العتبات | خدمة التنبيهات | حتى MVP | P1 | `NEEDS_OWNER_DECISION` |
-| **ODR-004** | حد انحراف التصحيح المزدوج | 10% / 15% / 20% | نسبة التحكيم | عبء المحكمين | 15% من الدرجة | حقل Variance | شرط RPC التحكيم | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
-| **ODR-005** | نسبة عينة الجودة (QA Sample) | 3% / 5% / 10% | حجم العينات | استهلاك الوقت | 5% عشوائي | جدول العينات | مجدول العينات | حتى P1 | P2 | `NEEDS_OWNER_DECISION` |
-| **ODR-006** | نافذة تقديم التظلم | 3د / 7د / 14د | فترة الاعتراض | تراكم الطلبات | 7 أيام من النشر | حقل Window | شرط RPC الاعتراض | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
-| **ODR-007** | سلطة الاعتماد النهائي | Senior / Manager | مسؤولية `is_final` | اختناق الإدارة | منحها لـ Senior | قيود RPC | فحص الصلاحية | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
-| **ODR-008** | سلطة حسم التحكيم | Senior / Panel | حسم النزاعات | تأخر البت | Senior Grader | RLS policy | RPC التحكيم | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
-| **ODR-009** | سلطة الفتح الاستثنائي | Manager / Emergency | إعادة الفتح | التلاعب بالنتائج | Manager & Emergency | Audit Table | RPC الفتح | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
-| **ODR-010** | سلطة نشر الدفعة | Manager / System | نشر النتائج | نشر غير مكتمل | Grading Manager | Batch table | RPC الإفراج | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
-| **ODR-011** | Batch Release للتمارين | نعم / لا | توقيت التمارين | تأخير التدريب | الإفراج الفوري | Flag في النشاط | مسار التدريب | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
-| **ODR-012** | نطاق التصحيح المزدوج | الكل / امتحانات فقط | استهلاك الموارد | مضاعفة التكلفة | الامتحانات فقط | Schema flags | شرط التوزيع | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
-| **ODR-013** | قاعدة الدرجة ضمن الانحراف | المتوسط/الأعلى/الأقل/الأول/الثاني | احتساب النهائي | اعتراضات الخلاف | المتوسط الحسابي | Formula Column | RPC Calculation | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
-| **ODR-014** | تعيين شقوق التصحيح المزدوج | التزامن / التتابع | طريقة التكليف | تأخير التقييم الثاني | التزامن المستقل | Slots Enum | Auto Dispatch | حتى P1 | P1 | `NEEDS_OWNER_DECISION` |
-| **ODR-015** | سلطة الانقضاء والسحب | آلي / يدوي / مختلط | إطلاق المهام | إرجاع مبكر جداً | مختلط (آلي+يدوي) | Job Config | Expiry Worker | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
-| **ODR-016** | إفراج دفعة الممارسة التدريبية | تجميعي / فوري | إظهار الحلول | تسريب التمارين | فوري بعد التسليم | Practice Flags | Immediate Outbox | حتى MVP | MVP | `NEEDS_OWNER_DECISION` |
+| **ODR-001** | مهلة القفل المؤقت (Lease TTL) | 10د / 15د / 30د | احتجاز الإجابة | احتكار عند الانقطاع | 15د مع Heartbeat وتجديد أثناء النشاط | إضافة حقل TTL | ضبط مؤقتات UI | حتى MVP | MVP | `APPROVED` |
+| **ODR-002** | مهل SLA للامتحانات | 12س / 24س / 48س | سرعة النتائج | ضغط المصححين | 24س عادي / 48س للحالات المصعّدة | جداول التنبيهات | مجدول التصعيد | حتى MVP | MVP | `APPROVED` |
+| **ODR-003** | عتبة تنبيه SLA Alert | 50% / 75% / 90% | توقيت التنبيه | كثرة الإزعاج | 75% من مهلة SLA | حقول العتبات | خدمة التنبيهات | حتى MVP | P1 | `APPROVED` |
+| **ODR-004** | حد انحراف التصحيح المزدوج | 10% / 15% / 20% | نسبة التحكيم | عبء المحكمين | 15% من snapshot-pinned max_score | حقل Variance | شرط RPC التحكيم | حتى P1 | P1 | `APPROVED` |
+| **ODR-005** | نسبة عينة الجودة (QA Sample) | 3% / 5% / 10% | حجم العينات | استهلاك الوقت | 5% عشوائي | جدول العينات | مجدول العينات | حتى P1 | P2 | `APPROVED` |
+| **ODR-006** | نافذة تقديم التظلم | 3د / 7د / 14د | فترة الاعتراض | تراكم الطلبات | 7 calendar days من نشر النتيجة | حقل Window | شرط RPC الاعتراض | حتى P1 | P1 | `APPROVED` |
+| **ODR-007** | سلطة الاعتماد النهائي | Senior / Manager | مسؤولية `is_final` | اختناق الإدارة | Reviewer أو Senior Grader مخول | قيود RPC | فحص الصلاحية | حتى MVP | MVP | `APPROVED` |
+| **ODR-008** | سلطة حسم التحكيم | Senior / Panel | حسم النزاعات | تأخر البت | Senior Grader مستقل لم يشارك بالتقييمين | RLS policy | RPC التحكيم | حتى P1 | P1 | `APPROVED` |
+| **ODR-009** | سلطة الفتح الاستثنائي | Manager / Emergency | إعادة الفتح | التلاعب بالنتائج | Grading Manager والطوارئ بتفويض مؤقت | Audit Table | RPC الفتح | حتى P1 | P1 | `APPROVED` |
+| **ODR-010** | سلطة نشر الدفعة | Manager / System | نشر النتائج | نشر غير مكتمل | Batch release mandatory للامتحانات عبر Manager | Batch table | RPC الإفراج | حتى MVP | MVP | `APPROVED` |
+| **ODR-011** | Batch Release للتمارين | نعم / لا | توقيت التمارين | تأخير التدريب | IMMEDIATE أو DELAYED أو BATCH حسب النشاط | Flag في النشاط | مسار التدريب | حتى MVP | MVP | `APPROVED` |
+| **ODR-012** | نطاق التصحيح المزدوج | الكل / امتحانات فقط | استهلاك الموارد | مضاعفة التكلفة | PRIMARY_GRADER + COUNTERPART_GRADER مستقلان | Schema flags | شرط التوزيع | حتى P1 | P1 | `APPROVED` |
+| **ODR-013** | قاعدة الدرجة ضمن الانحراف | المتوسط/الأعلى/الأقل/الأول/الثاني | احتساب النهائي | اعتراضات الخلاف | المتوسط الحسابي للتقييمين (Arithmetic Mean) | Formula Column | RPC Calculation | حتى P1 | P1 | `APPROVED` |
+| **ODR-014** | تعيين شقوق التصحيح المزدوج | التزامن / التتابع | طريقة التكليف | تأخير التقييم الثاني | التزامن المستقل (Independent dual slots) | Slots Enum | Auto Dispatch | حتى P1 | P1 | `APPROVED` |
+| **ODR-015** | سلطة الانقضاء والسحب | آلي / يدوي / مختلط | إطلاق المهام | إرجاع مبكر جداً | آلي عبر Worker وتدخل يدوي لمدير التصحيح | Job Config | Expiry Worker | حتى MVP | MVP | `APPROVED` |
+| **ODR-016** | إفراج دفعة الممارسة التدريبية | تجميعي / فوري | إظهار الحلول | تسريب التمارين | Reveal policy: الامتحان بعد Final release، الممارسة حسب الإعداد | Practice Flags | Immediate Outbox | حتى MVP | MVP | `APPROVED` |
 
 
 #### مصفوفة التحقق من علاقات بوابات القرارات (Verifiable Owner Decisions Gate Matrix)
@@ -476,64 +476,83 @@
 > - **الربط الصحيح القابل للتحقق (Valid mappings):** 16/16 (`Valid = YES`)
 > - **الربط الخاطئ (Invalid mappings):** 0
 > - **الربط المفقود (Missing mappings):** 0
-> - **القرارات المعتمدة حالياً (Approved decisions):** 0
-> - **القرارات المفتوحة المنتظرة (Open decisions):** 16 (`NEEDS_OWNER_DECISION`)
+> - **القرارات المعتمدة حالياً (Approved decisions):** 16 (`APPROVED`)
+> - **القرارات المفتوحة المنتظرة (Open decisions):** 0 (`NEEDS_OWNER_DECISION` resolved)
 
-### 9.1. مصفوفة بوابات قرارات المالك واعتماديات المهام (Owner Decision Gates Matrix) `[REQUIRED_EXTENSION]`
+### 9.3. مصفوفة بوابات قرارات المالك واعتماديات المهام (Owner Decision Gates Matrix) `[REQUIRED_EXTENSION]`
 
-تربط هذه المصفوفة كل قرار من القرارات الـ 16 بعقد بوابة تنفيذي محدد (`Gate Task`) تعتمد عليه المهمات التطبيقية المتأثرة صراحةً، وتظل جميع القرارات بحالة `NEEDS_OWNER_DECISION` دون اعتبار أي Gate اعتماداً مسبقاً للقرار:
+تربط هذه المصفوفة كل قرار من القرارات الـ 16 المعتمدة بحالة `APPROVED` بعقد بوابة تنفيذي محدد (`Gate Task`) تعتمد عليه المهمات التطبيقية المتأثرة صراحةً، مع بقاء كافة البوابات التطبيقية بحالة غير منفذة (`NOT_IMPLEMENTED`):
 
-| Decision ID | Gate Task | Dependent Tasks | Blocking Phase | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| **ODR-001** | `TASK-MG-022` (Lease Lock Model) | `TASK-MG-021`, `TASK-MG-023`, `TASK-MG-024`, `TASK-MG-025`, `TASK-MG-026`, `TASK-MG-030` | `MVP` | `NEEDS_OWNER_DECISION` |
-| **ODR-002** | `TASK-MG-017` (SLA Warning Filter) | `TASK-MG-027` | `MVP` | `NEEDS_OWNER_DECISION` |
-| **ODR-003** | `TASK-MG-027` (Escalation Alert Dispatch) | `TASK-MG-070` | `P1` | `NEEDS_OWNER_DECISION` |
-| **ODR-004** | `TASK-MG-046` (Score Variance Check) | `TASK-MG-047`, `TASK-MG-050` | `P1` | `NEEDS_OWNER_DECISION` |
-| **ODR-005** | `TASK-MG-048` (Random QA Sampling) | `TASK-MG-050` | `P2` | `NEEDS_OWNER_DECISION` |
-| **ODR-006** | `TASK-MG-056` (Appeals Window Control) | `TASK-MG-055`, `TASK-MG-057` | `P1` | `NEEDS_OWNER_DECISION` |
-| **ODR-007** | `TASK-MG-051` (Atomic Finalize RPC) | `TASK-MG-052`, `TASK-MG-053`, `TASK-MG-061` | `MVP` | `NEEDS_OWNER_DECISION` |
-| **ODR-008** | `TASK-MG-047` (Senior Arbitration View) | `TASK-MG-051`, `TASK-MG-058` | `P1` | `NEEDS_OWNER_DECISION` |
-| **ODR-009** | `TASK-MG-054` (Emergency Reopen RPC) | `TASK-MG-075`, `TASK-MG-080` | `P1` | `NEEDS_OWNER_DECISION` |
-| **ODR-010** | `TASK-MG-062` (Batch Release Trigger) | `TASK-MG-063`, `TASK-MG-064` | `MVP` | `NEEDS_OWNER_DECISION` |
-| **ODR-011** | `TASK-MG-069` (Practice Immediate Release) | `TASK-MG-064` | `MVP` | `NEEDS_OWNER_DECISION` |
-| **ODR-012** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046`, `TASK-MG-047` | `P1` | `NEEDS_OWNER_DECISION` |
-| **ODR-013** | `TASK-MG-034` (Institution Rounding Rules) | `TASK-MG-046`, `TASK-MG-051` | `P1` | `NEEDS_OWNER_DECISION` |
-| **ODR-014** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046` | `P1` | `NEEDS_OWNER_DECISION` |
-| **ODR-015** | `TASK-MG-023` (Auto-Release Expired Job) | `TASK-MG-028` | `MVP` | `NEEDS_OWNER_DECISION` |
-| **ODR-016** | `TASK-MG-069` (Practice Immediate Release) | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | `MVP` | `NEEDS_OWNER_DECISION` |
+| Decision ID | Gate Task | Dependent Tasks | Blocking Phase | Status | Owner Decision Gate |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **ODR-001** | `TASK-MG-022` (Lease Lock Model) | `TASK-MG-021`, `TASK-MG-023`, `TASK-MG-024`, `TASK-MG-025`, `TASK-MG-026`, `TASK-MG-030` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-002** | `TASK-MG-017` (SLA Warning Filter) | `TASK-MG-027` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-003** | `TASK-MG-027` (Escalation Alert Dispatch) | `TASK-MG-070` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-004** | `TASK-MG-046` (Score Variance Check) | `TASK-MG-047`, `TASK-MG-050` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-005** | `TASK-MG-048` (Random QA Sampling) | `TASK-MG-050` | `P2` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-006** | `TASK-MG-056` (Appeals Window Control) | `TASK-MG-055`, `TASK-MG-057` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-007** | `TASK-MG-051` (Atomic Finalize RPC) | `TASK-MG-052`, `TASK-MG-053`, `TASK-MG-061` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-008** | `TASK-MG-047` (Senior Arbitration View) | `TASK-MG-051`, `TASK-MG-058` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-009** | `TASK-MG-054` (Emergency Reopen RPC) | `TASK-MG-075`, `TASK-MG-080` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-010** | `TASK-MG-062` (Batch Release Trigger) | `TASK-MG-063`, `TASK-MG-064` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-011** | `TASK-MG-069` (Practice Immediate Release) | `TASK-MG-064` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-012** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046`, `TASK-MG-047` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-013** | `TASK-MG-034` (Institution Rounding Rules) | `TASK-MG-046`, `TASK-MG-051` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-014** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-015** | `TASK-MG-023` (Auto-Release Expired Job) | `TASK-MG-028` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-016** | `TASK-MG-069` (Practice Immediate Release) | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 
-
-#### مصفوفة التحقق من علاقات بوابات القرارات (Verifiable Owner Decisions Gate Matrix)
-
-| Decision | Gate task | Affected tasks | Direct/Transitive dependency | Valid |
-| :--- | :--- | :--- | :--- | :--- |
-| **ODR-001** | `TASK-MG-022` | `TASK-MG-021`, `TASK-MG-023`, `TASK-MG-024`, `TASK-MG-025`, `TASK-MG-026`, `TASK-MG-030` | Transitive via `TASK-MG-022` | `YES` |
-| **ODR-002** | `TASK-MG-017` | `TASK-MG-027` | Direct | `YES` |
-| **ODR-003** | `TASK-MG-027` | `TASK-MG-070` | Direct | `YES` |
-| **ODR-004** | `TASK-MG-046` | `TASK-MG-047`, `TASK-MG-050` | Direct | `YES` |
-| **ODR-005** | `TASK-MG-048` | `TASK-MG-050` | Direct | `YES` |
-| **ODR-006** | `TASK-MG-056` | `TASK-MG-055`, `TASK-MG-057` | Direct | `YES` |
-| **ODR-007** | `TASK-MG-051` | `TASK-MG-052`, `TASK-MG-053`, `TASK-MG-061` | Direct | `YES` |
-| **ODR-008** | `TASK-MG-047` | `TASK-MG-051`, `TASK-MG-058` | Direct / Transitive | `YES` |
-| **ODR-009** | `TASK-MG-054` | `TASK-MG-075`, `TASK-MG-080` | Direct / Transitive | `YES` |
-| **ODR-010** | `TASK-MG-062` | `TASK-MG-063`, `TASK-MG-064` | Direct | `YES` |
-| **ODR-011** | `TASK-MG-069` | `TASK-MG-064` | Direct | `YES` |
-| **ODR-012** | `TASK-MG-045` | `TASK-MG-046`, `TASK-MG-047` | Direct | `YES` |
-| **ODR-013** | `TASK-MG-034` | `TASK-MG-046`, `TASK-MG-051` | Direct | `YES` |
-| **ODR-014** | `TASK-MG-045` | `TASK-MG-046` | Direct | `YES` |
-| **ODR-015** | `TASK-MG-023` | `TASK-MG-028` | Direct | `YES` |
-| **ODR-016** | `TASK-MG-069` | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | Direct | `YES` |
 
 > [!IMPORTANT]
-> **خلاصة القبول الشامل لبوابات قرارات المالك:**
+> **خلاصة القبول الشامل لبوابات قرارات المالك والتنفيذ:**
 > - **إجمالي قرارات المالك:** 16
-> - **إجمالي ربط القرارات بالبوابات (Decision mappings):** 16
-> - **عدد بوابات القرارات الفريدة (Unique gate tasks):** 14
-> - **الربط الصحيح القابل للتحقق (Valid mappings):** 16/16 (`Valid = YES`)
-> - **الربط الخاطئ (Invalid mappings):** 0
-> - **الربط المفقود (Missing mappings):** 0
-> - **القرارات المعتمدة حالياً (Approved decisions):** 0
-> - **القرارات المفتوحة المنتظرة (Open decisions):** 16 (`NEEDS_OWNER_DECISION`)
+> - **القرارات المعتمدة حالياً (Approved decisions):** 16 (`APPROVED`)
+> - **القرارات المفتوحة المنتظرة (Open decisions):** 0
+> - **Owner decision gate:** `SATISFIED_BY_OWNER_APPROVAL`
+> - **Schema implementation:** `NOT_IMPLEMENTED`
+> - **Runtime implementation:** `NOT_IMPLEMENTED`
+> - **Security verification:** `NOT_EXECUTED`
+> - **E2E verification:** `NOT_EXECUTED`
+> - **Launch readiness:** `BLOCKED_UNTIL_IMPLEMENTATION_AND_VERIFICATION`
+
+---
+
+## 10. سجل اعتماد قرارات المالك الرسمي (MANUAL_GRADING_OWNER_DECISIONS_APPROVAL_25) `[REQUIRED_EXTENSION]`
+
+- **Approval Date:** 2026-08-03
+- **Authority:** PROJECT_OWNER
+- **Approval Basis:** OWNER_APPROVAL_BY_REGISTERED_SUBJECT
+- **Scope:** 16 Canonical Owner Decisions (`ODR-001` .. `ODR-016`)
+
+### 10.1. جدول الاعتمادات الرسمية الموثقة (Documented Owner Decision Approvals Table)
+
+| Canonical ID | Exact Registered Subject | Approved Value | Historical Alias | Gate Task | Decision Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **ODR-001** | مهلة القفل المؤقت (Lease TTL) | 15 minutes مع Heartbeat وتجديد أثناء النشاط | N/A | `TASK-MG-022` | `APPROVED` |
+| **ODR-002** | مهل SLA للامتحانات | 24 hours عادي، 48 hours للحالات المصعّدة | N/A | `TASK-MG-017` | `APPROVED` |
+| **ODR-003** | عتبة تنبيه SLA Alert | عند 75% | N/A | `TASK-MG-027` | `APPROVED` |
+| **ODR-004** | حد انحراف التصحيح المزدوج | 15% من snapshot-pinned max_score | N/A | `TASK-MG-046` | `APPROVED` |
+| **ODR-005** | نسبة عينة الجودة (QA Sample) | 5% | N/A | `TASK-MG-048` | `APPROVED` |
+| **ODR-006** | نافذة تقديم التظلم | 7 calendar days من نشر النتيجة | N/A | `TASK-MG-056` | `APPROVED` |
+| **ODR-007** | سلطة الاعتماد النهائي | Reviewer أو Senior Grader مخول (ولا يعتمد المصحح العادي منفرداً) | N/A | `TASK-MG-051` | `APPROVED` |
+| **ODR-008** | سلطة حسم التحكيم | Senior Grader مستقل لم يشارك في التقييمين الأصليين | N/A | `TASK-MG-047` | `APPROVED` |
+| **ODR-009** | سلطة الفتح الاستثنائي | Grading Manager فقط (والطوارئ بتفويض مؤقت ومسبب ومدقق) | N/A | `TASK-MG-054` | `APPROVED` |
+| **ODR-010** | سلطة نشر الدفعة | Batch release mandatory للامتحانات بواسطة Grading Manager بعد استيفاء المتطلبات | N/A | `TASK-MG-062` | `APPROVED` |
+| **ODR-011** | Batch Release للتمارين | IMMEDIATE أو DELAYED أو BATCH حسب إعداد النشاط؛ Batch غير إلزامي افتراضياً | N/A | `TASK-MG-069` | `APPROVED` |
+| **ODR-012** | نطاق التصحيح المزدوج | PRIMARY_GRADER + COUNTERPART_GRADER مستقلان (ولا يشغلهما المستخدم نفسه) مقتصر على الامتحانات / الإعدادات المستهدفة | N/A | `TASK-MG-045` | `APPROVED` |
+| **ODR-013** | قاعدة الدرجة ضمن الانحراف | المتوسط الحسابي للتقييمين (Arithmetic Mean) | `OD-MG-13` | `TASK-MG-034` | `APPROVED` |
+| **ODR-014** | تعيين شقوق التصحيح المزدوج | التزامن المستقل (PRIMARY_GRADER + COUNTERPART_GRADER) | `OD-MG-14` | `TASK-MG-045` | `APPROVED` |
+| **ODR-015** | سلطة الانقضاء والسحب | آلي عبر Worker وتدخل يدوي لمدير التصحيح بسبب وتدقيق | `OD-MG-15` | `TASK-MG-023` | `APPROVED` |
+| **ODR-016** | إفراج دفعة الممارسة التدريبية | Reveal policy: الامتحان بعد Final release؛ الممارسة حسب إعداد النشاط (فوري بعد التسليم أو حسب الإعداد) | `OD-MG-16` | `TASK-MG-069` | `APPROVED` |
+
+### 10.2. قيود وشروط الحوكمة الصارمة (Governance Restrictions & Disclaimers)
+
+> [!CAUTION]
+> **قيود واعتبارات عدم التنفيذ الصريحة (Explicit Non-Execution Governance Constraints):**
+> 1. **No implementation authorization**: اعتماد القرارات المكتوبة لا يُعتبر ترخيصاً بتنفيذ الكود التشغيلي أو الـ RPCs أو الشاشات في هذا PR.
+> 2. **No migration authorization**: اعتماد القرارات المكتوبة لا يُعتبر ترخيصاً بتطبيق أو إنشاء ملفات SQL/Migrations تنفيذية في داتابيز هذا PR.
+> 3. **No deploy authorization**: لا يجوز إجراء أي نشر (Deploy) أو دمج (Merge) بناءً على هذا الاعتماد المكتوبي.
+> 4. **Gate Status Isolation**: بوابات الاعتماد تحولت إلى `SATISFIED_BY_OWNER_APPROVAL` على مستوى الحوكمة فقط، بينما تظل بوابات البرمجة والـ Schema والـ Runtime والـ Security والـ E2E بحالة `NOT_IMPLEMENTED` / `NOT_EXECUTED` والإطلاق محظور `BLOCKED_UNTIL_IMPLEMENTATION_AND_VERIFICATION`.
 
 ---
 *نهاية الوثيقة MANUAL-GRADING-PRODUCT-REQUIREMENTS-01 (Canonical Correction 07)*

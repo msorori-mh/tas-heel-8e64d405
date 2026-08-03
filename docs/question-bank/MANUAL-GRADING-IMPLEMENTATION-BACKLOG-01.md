@@ -39,7 +39,7 @@
 5. **Runtime Required**: `YES` / `NO` (في التنفيذ المستقبلي)
 6. **UI Required**: `YES` / `NO`
 7. **Worker/Scheduler Required**: `YES` / `NO`
-8. **Owner Decision Required**: `YES` / `NO` (أو المعرف ODR-XXX)
+8. **Owner Decision Status**: APPROVED BY ODR-XXX / `NO`
 9. **Existing QB-01 Dependency**: `YES` / `NO` (أو الكيان المعني)
 10. **Acceptance Test**: `TC-XXX-YYY`
 11. **Deliverable Type**: واحد أو أكثر من [`DOCS`, `SCHEMA`, `CONSTRAINT`, `INDEX`, `RLS`, `GRANT`, `RPC`, `TRIGGER`, `AUDIT`, `WORKER`, `UI`, `NOTIFICATION`, `TEST`, `OBSERVABILITY`]
@@ -170,7 +170,7 @@
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-012`
   - **Security Prerequisite**: وسم المهمات المقتربة من تجاوز الموعد المعتمد.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-002) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-002 (Gate: `TASK-MG-017`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-QCL-005` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-018: إنشاء منظر الجلسات الجاهزة للتصحيح اليدوي** `[REQUIRED_EXTENSION]`
@@ -209,14 +209,14 @@
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-001`, `TASK-MG-011`
   - **Security Prerequisite**: تحديد مهلة القفل الإجبارية وبنية Lease Schema لمنع الاحتكار الأبدي.
   - **Migration Required**: `YES` | **Runtime Required**: `NO` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-001) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-001 (Gate: `TASK-MG-022`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-QCL-002` | **Deliverable Type**: `SCHEMA`, `CONSTRAINT`
 
 - **TASK-MG-023: التحرير التلقائي للقفل المنتهي عبر Background Job** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-022`
   - **Security Prerequisite**: إطلاق المهام المنتهية ومنع التقديمات المتأخرة.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
-  - **Owner Decision Required**: `YES` (ODR-015) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-015 (Gate: `TASK-MG-023`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-QCL-004` | **Deliverable Type**: `WORKER`, `RPC`
 
 - **TASK-MG-024: بناء دالة التحرير اليدوي الصريح `release_grading_assignment`** `[REQUIRED_EXTENSION]`
@@ -244,7 +244,7 @@
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-017`
   - **Security Prerequisite**: إرسال إشعارات التنبيه عند 75% والتصعيد عند 100%.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
-  - **Owner Decision Required**: `YES` (ODR-003) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-003 (Gate: `TASK-MG-027`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-QCL-005` | **Deliverable Type**: `WORKER`, `NOTIFICATION`
 
 - **TASK-MG-028: بناء دالة الاسترداد الإداري للتعيين `reclaim_grading_assignment`** `[REQUIRED_EXTENSION]`
@@ -297,7 +297,7 @@
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-032`
   - **Security Prerequisite**: معايرة تقريب الكسور لـ 0.25 أو 0.50 حسب سياسة المقرر.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-013, ODR-004) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-013, ODR-004 (Gate: `TASK-MG-034`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-SCR-002` | **Deliverable Type**: `RPC`
 
 - **TASK-MG-035: التحكم في إدخال ملاحظات الطالب والتعقيم الأمني (Sanitizations)** `[REQUIRED_EXTENSION]`
@@ -378,28 +378,28 @@
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-021`, `TASK-MG-041`
   - **Security Prerequisite**: تعيين صفين مستقلين بحالة عزل تام (Blind Isolation).
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-012, ODR-014) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-012, ODR-014 (Gate: `TASK-MG-045`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-DMA-001` | **Deliverable Type**: `SCHEMA`, `RPC`
 
 - **TASK-MG-046: محرك حساب التباين والتحويل التلقائي للتحكيم** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-034`, `TASK-MG-045`
   - **Security Prerequisite**: رصد التباين $> 15\%$ وتحويل الإجابة لطابور التحكيم.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
-  - **Owner Decision Required**: `YES` (ODR-004) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-004 (Gate: `TASK-MG-046`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-DMA-002` | **Deliverable Type**: `RPC`, `WORKER`
 
 - **TASK-MG-047: بناء واجهة التحكيم وحسم الدرجة المعايرة النهائي `arbitrate_double_mark`** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-046`
   - **Security Prerequisite**: تمكين `senior grader` من حسم الدرجة بصف تتابعي معتمد.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-008) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-008 (Gate: `TASK-MG-047`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-DMA-003` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-048: محرك سحب العينات العشوائية لضبط الجودة (QA Sampling 5%)** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-045`
   - **Security Prerequisite**: توجيه 5% من الإجابات المعتمدة للمراجع بشكل عشوائي.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
-  - **Owner Decision Required**: `YES` (ODR-005) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-005 (Gate: `TASK-MG-048`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-DMA-001` | **Deliverable Type**: `WORKER`, `RPC`
 
 - **TASK-MG-049: نظام الإبلاغ عن العلامات الاستدلالية والشبهات في الإجابة** `[FUTURE_P1]`
@@ -424,7 +424,7 @@
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-002`, `TASK-MG-007`, `TASK-MG-034`, `TASK-MG-047`
   - **Security Prerequisite**: تحويل الحالة إلى `FINALIZED` واشتراط حقل السبب `reason`.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-007) | **Existing QB-01 Dependency**: `question_response_reviews`
+  - **Owner Decision Status**: APPROVED BY ODR-007 (Gate: `TASK-MG-051`) | **Existing QB-01 Dependency**: `question_response_reviews`
   - **Acceptance Test**: `TC-AFR-001` | **Deliverable Type**: `RPC`, `TRIGGER`
 
 - **TASK-MG-052: تحديث المجموع النهائي للجلسة عند اكتمال الأسئلة المقالية** `[EXISTS_IN_QB01]`
@@ -445,7 +445,7 @@
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-007`, `TASK-MG-051`
   - **Security Prerequisite**: اشتراط الصلاحيات الإدارية وتوفير حقل السبب الإجباري.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-009) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-009 (Gate: `TASK-MG-054`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-009` | **Deliverable Type**: `RPC`, `AUDIT`
 
 - **TASK-MG-055: بناء محرك تقديم الاعتراضات والتظلمات للطلاب `create_appeal`** `[REQUIRED_EXTENSION]`
@@ -459,7 +459,7 @@
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-051`
   - **Security Prerequisite**: حظر الاعتراضات بعد انقضاء المدة المصرح بها (7 أيام).
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `YES`
-  - **Owner Decision Required**: `YES` (ODR-006) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-006 (Gate: `TASK-MG-056`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-DMA-004` | **Deliverable Type**: `WORKER`, `RPC`
 
 - **TASK-MG-057: التخصيص المستقل المباشر لمراجع التظلم بدون تضارب مصالح `assign_appeal_reviewer`** `[REQUIRED_EXTENSION]`
@@ -505,14 +505,14 @@
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-007`, `TASK-MG-061`
   - **Security Prerequisite**: التحقق من صلاحية `grading.batch.release` قبل الاعتماد.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-010) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-010 (Gate: `TASK-MG-062`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-005` | **Deliverable Type**: `RPC`, `SCHEMA`
 
 - **TASK-MG-063: إدارة توقيت كشف الإجابة النموذجية (Reveal Timer Controls)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`, `TASK-MG-069`
   - **Security Prerequisite**: حجب نموذج الحل حتى انقضاء `batch_finalized_at + reveal_at`.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `YES`
-  - **Owner Decision Required**: `YES` (ODR-010) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-010 (Gate: `TASK-MG-062`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-010` | **Deliverable Type**: `RPC`, `WORKER`
 
 - **TASK-MG-064: بناء صندوق الإشعارات الصادرة `notification_outbox` ضد الضياع** `[REQUIRED_EXTENSION]`
@@ -554,7 +554,7 @@
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`
   - **Security Prerequisite**: تمكين الكشف الفوري لتمارين Practice دون انتظار الدفعة.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Required**: `YES` (ODR-011, ODR-016) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY ODR-011, ODR-016 (Gate: `TASK-MG-069`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-007` | **Deliverable Type**: `RPC`, `NOTIFICATION`
 
 - **TASK-MG-070: تقرير متابعة تسليم الإشعارات ونسبة الوصول للطلاب** `[FUTURE_P1]`
@@ -665,7 +665,7 @@
   - **Acceptance Test**: `TC-GATE-001`, `TC-GATE-002`, `TC-GATE-003` | **Deliverable Type**: `TEST`, `RELEASE_GATE`, `OBSERVABILITY`, `DOCS`, `UI`
   - **Security Prerequisite**: استيفاء جميع بوابات قرارات المالك المانعة، واجتياز فحوصات الأمان و E2E والـ Observability، وتوفر خطة التعافي، وحظر الإطلاق عند وجود أي ثغرة أو انحراف أمني أو تشغيلي مفتوح. (لوحة UI المرفقة هي أداة مراقبة فقط ولا تمنح قرار Pass بنفسها).
   - **Mandatory Blocking Criteria (9 Launch Conditions)**:
-    1. جميع قرارات المالك الـ 16 المانعة معتمدة بنجاح (`NEEDS_OWNER_DECISION` resolved).
+    1. جميع قرارات المالك الـ 16 المانعة معتمدة بنجاح (`APPROVED BY ODR-001..ODR-016`).
     2. Security Gate PASS (`TASK-MG-075`).
     3. E2E Gate PASS (`TASK-MG-079`).
     4. Observability verified active (تفعيل التحقق من Dashboards, Alerts, Health checks, Metrics في TASK-MG-050 و TASK-MG-070).

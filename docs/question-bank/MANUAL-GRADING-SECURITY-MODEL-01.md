@@ -72,8 +72,8 @@
 | `grading.appeal.process` | معالجة وتعديل الاعتراضات | امتداد مسار التظلمات | `REQUIRED_EXTENSION` | DENY | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
 | `grading.double_mark.arbitrate` | تحكيم التصحيح المزدوج | امتداد حسم التباين | `REQUIRED_EXTENSION` | DENY | ALLOW | ALLOW | ALLOW | DENY | **DENY** |
 | `grading.audit.read` | قراءة سجل التدقيق التتابعي | امتداد قراءة `reviews` | `REQUIRED_EXTENSION` | DENY | ALLOW (خاص) | ALLOW | ALLOW (شامل) | ALLOW (شامل) | **DENY** |
-| `grading.batch.release` | الاعتماد ونشر نتائج الدفعة | خاضع لقرار المالك | `OWNER_DECISION` | DENY | DENY | DENY | ALLOW | ALLOW | **DENY** |
-| `grading.emergency.override` | التجاوز الاستثنائي للطوارئ | خاضع لقرار المالك | `OWNER_DECISION` | DENY | DENY | DENY | DENY | ALLOW | **DENY** |
+| `grading.batch.release` | الاعتماد ونشر نتائج الدفعة | معتمد بقرار المالك (`APPROVED ODR-010`) | `OWNER_DECISION` | DENY | DENY | DENY | ALLOW | ALLOW | **DENY** |
+| `grading.emergency.override` | التجاوز الاستثنائي للطوارئ | معتمد بقرار المالك (`APPROVED ODR-009`) | `OWNER_DECISION` | DENY | DENY | DENY | DENY | ALLOW | **DENY** |
 | `qb.content.publish` | نشر محتوى بنك الأسئلة | صلاحية نشر بنك المحتوى | `EXISTING_QB01` | **DENY** | **DENY** | **DENY** | **DENY** | **DENY** | ALLOW (`publisher`) |
 
 ---
