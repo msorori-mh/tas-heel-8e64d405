@@ -411,7 +411,7 @@
 
 | Original ID | Canonical ID | Subject | Status | Gate task | Approved by | Approved on | Approval basis |
 | ----------- | ------------ | ------------------------------------- | -------- | ----------- | ----------- | ----------- | ------------------------------------ |
-| OD-MG-13 | ODR-013 | Within-threshold final score rule | APPROVED | TASK-MG-034 | PROJECT_OWNER | 2026-08-03 | OWNER_APPROVAL_BY_REGISTERED_SUBJECT |
+| OD-MG-13 | ODR-013 | Within-threshold final score rule | APPROVED | TASK-MG-046 | PROJECT_OWNER | 2026-08-03 | OWNER_APPROVAL_BY_REGISTERED_SUBJECT |
 | OD-MG-14 | ODR-014 | Double-marking assignment slot policy | APPROVED | TASK-MG-045 | PROJECT_OWNER | 2026-08-03 | OWNER_APPROVAL_BY_REGISTERED_SUBJECT |
 | OD-MG-15 | ODR-015 | Expiry/reclaim authority policy | APPROVED | TASK-MG-023 | PROJECT_OWNER | 2026-08-03 | OWNER_APPROVAL_BY_REGISTERED_SUBJECT |
 | OD-MG-16 | ODR-016 | Practice batch-release policy | APPROVED | TASK-MG-069 | PROJECT_OWNER | 2026-08-03 | OWNER_APPROVAL_BY_REGISTERED_SUBJECT |
@@ -435,8 +435,8 @@
 | **ODR-004** | حد انحراف التصحيح المزدوج | 10% / 15% / 20% | نسبة التحكيم | عبء المحكمين | 15% من snapshot-pinned max_score | حقل Variance | شرط RPC التحكيم | حتى P1 | P1 | `APPROVED` |
 | **ODR-005** | نسبة عينة الجودة (QA Sample) | 3% / 5% / 10% | حجم العينات | استهلاك الوقت | 5% عشوائي | جدول العينات | مجدول العينات | حتى P1 | P2 | `APPROVED` |
 | **ODR-006** | نافذة تقديم التظلم | 3د / 7د / 14د | فترة الاعتراض | تراكم الطلبات | 7 calendar days من نشر النتيجة | حقل Window | شرط RPC الاعتراض | حتى P1 | P1 | `APPROVED` |
-| **ODR-007** | سلطة الاعتماد النهائي | Senior / Manager | مسؤولية `is_final` | اختناق الإدارة | Reviewer أو Senior Grader مخول | قيود RPC | فحص الصلاحية | حتى MVP | MVP | `APPROVED` |
-| **ODR-008** | سلطة حسم التحكيم | Senior / Panel | حسم النزاعات | تأخر البت | Senior Grader مستقل لم يشارك بالتقييمين | RLS policy | RPC التحكيم | حتى P1 | P1 | `APPROVED` |
+| **ODR-007** | سلطة الاعتماد النهائي | Senior / Manager | مسؤولية `is_final` | اختناق الإدارة | Reviewer أو Authorized Senior Grader فقط (ممنوع Ordinary Grader وManager وEmergency وSystem) | قيود RPC | فحص الصلاحية | حتى MVP | MVP | `APPROVED` |
+| **ODR-008** | سلطة حسم التحكيم | Senior / Panel | حسم النزاعات | تأخر البت | Independent Senior Grader فقط (لم يشارك بالتقييمين ولا COI) | RLS policy | RPC التحكيم | حتى P1 | P1 | `APPROVED` |
 | **ODR-009** | سلطة الفتح الاستثنائي | Manager / Emergency | إعادة الفتح | التلاعب بالنتائج | Grading Manager والطوارئ بتفويض مؤقت | Audit Table | RPC الفتح | حتى P1 | P1 | `APPROVED` |
 | **ODR-010** | سلطة نشر الدفعة | Manager / System | نشر النتائج | نشر غير مكتمل | Batch release mandatory للامتحانات عبر Manager | Batch table | RPC الإفراج | حتى MVP | MVP | `APPROVED` |
 | **ODR-011** | Batch Release للتمارين | نعم / لا | توقيت التمارين | تأخير التدريب | IMMEDIATE أو DELAYED أو BATCH حسب النشاط | Flag في النشاط | مسار التدريب | حتى MVP | MVP | `APPROVED` |
@@ -463,7 +463,7 @@
 | **ODR-010** | `TASK-MG-062` | `TASK-MG-063`, `TASK-MG-064` | Direct | `YES` |
 | **ODR-011** | `TASK-MG-069` | `TASK-MG-064` | Direct | `YES` |
 | **ODR-012** | `TASK-MG-045` | `TASK-MG-046`, `TASK-MG-047` | Direct | `YES` |
-| **ODR-013** | `TASK-MG-034` | `TASK-MG-046`, `TASK-MG-051` | Direct | `YES` |
+| **ODR-013** | `TASK-MG-046` | `TASK-MG-034`, `TASK-MG-051` | Direct | `YES` |
 | **ODR-014** | `TASK-MG-045` | `TASK-MG-046` | Direct | `YES` |
 | **ODR-015** | `TASK-MG-023` | `TASK-MG-028` | Direct | `YES` |
 | **ODR-016** | `TASK-MG-069` | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | Direct | `YES` |
@@ -497,7 +497,7 @@
 | **ODR-010** | `TASK-MG-062` (Batch Release Trigger) | `TASK-MG-063`, `TASK-MG-064` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 | **ODR-011** | `TASK-MG-069` (Practice Immediate Release) | `TASK-MG-064` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 | **ODR-012** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046`, `TASK-MG-047` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
-| **ODR-013** | `TASK-MG-034` (Institution Rounding Rules) | `TASK-MG-046`, `TASK-MG-051` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
+| **ODR-013** | `TASK-MG-046` (Score Variance & Arithmetic Mean) | `TASK-MG-034`, `TASK-MG-051` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 | **ODR-014** | `TASK-MG-045` (Dual Independent Assignment) | `TASK-MG-046` | `P1` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 | **ODR-015** | `TASK-MG-023` (Auto-Release Expired Job) | `TASK-MG-028` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
 | **ODR-016** | `TASK-MG-069` (Practice Immediate Release) | `TASK-MG-063`, `TASK-MG-064`, `TASK-MG-067` | `MVP` | `APPROVED` | `SATISFIED_BY_OWNER_APPROVAL` |
@@ -534,13 +534,13 @@
 | **ODR-004** | حد انحراف التصحيح المزدوج | 15% من snapshot-pinned max_score | N/A | `TASK-MG-046` | `APPROVED` |
 | **ODR-005** | نسبة عينة الجودة (QA Sample) | 5% | N/A | `TASK-MG-048` | `APPROVED` |
 | **ODR-006** | نافذة تقديم التظلم | 7 calendar days من نشر النتيجة | N/A | `TASK-MG-056` | `APPROVED` |
-| **ODR-007** | سلطة الاعتماد النهائي | Reviewer أو Senior Grader مخول (ولا يعتمد المصحح العادي منفرداً) | N/A | `TASK-MG-051` | `APPROVED` |
-| **ODR-008** | سلطة حسم التحكيم | Senior Grader مستقل لم يشارك في التقييمين الأصليين | N/A | `TASK-MG-047` | `APPROVED` |
+| **ODR-007** | سلطة الاعتماد النهائي | Reviewer أو Authorized Senior Grader فقط (ممنوع Grader وManager وEmergency وSystem) | N/A | `TASK-MG-051` | `APPROVED` |
+| **ODR-008** | سلطة حسم التحكيم | Independent Senior Grader فقط (لم يشارك في التقييمين ولا COI) | N/A | `TASK-MG-047` | `APPROVED` |
 | **ODR-009** | سلطة الفتح الاستثنائي | Grading Manager فقط (والطوارئ بتفويض مؤقت ومسبب ومدقق) | N/A | `TASK-MG-054` | `APPROVED` |
 | **ODR-010** | سلطة نشر الدفعة | Batch release mandatory للامتحانات بواسطة Grading Manager بعد استيفاء المتطلبات | N/A | `TASK-MG-062` | `APPROVED` |
-| **ODR-011** | Batch Release للتمارين | IMMEDIATE أو DELAYED أو BATCH حسب إعداد النشاط؛ Batch غير إلزامي افتراضياً | N/A | `TASK-MG-069` | `APPROVED` |
+| **ODR-011** | Practice Release Mode | IMMEDIATE أو DELAYED أو BATCH حسب إعداد النشاط (Batch غير إلزامي افتراضياً) | N/A | `TASK-MG-069` | `APPROVED` |
 | **ODR-012** | نطاق التصحيح المزدوج | PRIMARY_GRADER + COUNTERPART_GRADER مستقلان (ولا يشغلهما المستخدم نفسه) مقتصر على الامتحانات / الإعدادات المستهدفة | N/A | `TASK-MG-045` | `APPROVED` |
-| **ODR-013** | قاعدة الدرجة ضمن الانحراف | المتوسط الحسابي للتقييمين (Arithmetic Mean) | `OD-MG-13` | `TASK-MG-034` | `APPROVED` |
+| **ODR-013** | قاعدة الدرجة ضمن الانحراف | المتوسط الحسابي للتقييمين (Arithmetic Mean) | `OD-MG-13` | `TASK-MG-046` | `APPROVED` |
 | **ODR-014** | تعيين شقوق التصحيح المزدوج | التزامن المستقل (PRIMARY_GRADER + COUNTERPART_GRADER) | `OD-MG-14` | `TASK-MG-045` | `APPROVED` |
 | **ODR-015** | سلطة الانقضاء والسحب | آلي عبر Worker وتدخل يدوي لمدير التصحيح بسبب وتدقيق | `OD-MG-15` | `TASK-MG-023` | `APPROVED` |
 | **ODR-016** | إفراج دفعة الممارسة التدريبية | Reveal policy: الامتحان بعد Final release؛ الممارسة حسب إعداد النشاط (فوري بعد التسليم أو حسب الإعداد) | `OD-MG-16` | `TASK-MG-069` | `APPROVED` |

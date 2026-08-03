@@ -74,7 +74,7 @@
 
 ---
 
-### 2.2. الرحلة الثانية: رحلة المصحح الأول والمراجع (Senior Grader & Reviewer Journey) `[REQUIRED_EXTENSION]`
+### 2.2. الرحلة الثانية: رحلة المحكّم المستقل (Independent Senior Grader Journey) `[REQUIRED_EXTENSION]`
 
 ```
 [طابور المعايرة والتحكيم (Moderation & Arbitration Queue)]
@@ -83,14 +83,19 @@
        └── مسار ب: حوادث انحراف التصحيح المزدوج (Double Mark Variance > 15%)
        │
        ▼
-[شاشة التحكيم والمقارنة المزدوجة (Arbitration Interface)]
+[شاشة التحكيم والمقارنة المزدوجة — Independent Senior Grader Only (Arbitration Interface)]
    ├── درجة وملاحظات المصحح الأول (Grader A Score)
    ├── درجة وملاحظات المصحح الثاني (Grader B Score)
    └── حساب التباين آلياً ومقارنة بنود Rubric
        │
-       ├── خيار أ: إقرار الدرجة المعايرة المعتمدة ───> [حالة Response: FINALIZED + Review: FINAL]
+       ├── خيار أ: إقرار الدرجة المعايرة المعتمدة ───> [حالة Response: SUBMITTED_FOR_REVIEW / READY_FOR_FINALIZATION ثم Finalization بواسطة Reviewer/Authorized Senior Grader]
        └── خيار ب: إعادة الإجابة للمراجعة الثانية ───> [حالة Response: RETURNED_FOR_SECOND_REVIEW]
 ```
+
+#### ضوابط الواجهة والسلطات الحصرية (ODR-007 & ODR-008):
+- **تقييد واجهة التحكيم**: واجهة التحكيم معنونة ومقيدة حصرياً بـ **Independent Senior Grader** (الذي لم يشارك كـ Primary Grader أو Counterpart Grader ولا توجد لديه تضارب مصالح COI).
+- **دور المراجع والمدير**: يمكن للمراجع (Reviewer) أو مدير التصحيح (Grading Manager) متابعة الحالة التشغيلية ومؤشرات التباين دون إصدار قرار التحكيم.
+- **الاعتماد النهائي (Finalization)**: يتم تنفيذ زر "اعتماد نهائي" حصرياً بواسطة **Reviewer** أو **Authorized Senior Grader**.
 
 #### ميزات واجهة التحكيم والمعايرة:
 - **مقارنة التقييمات الشاقولية (Side-by-Side Comparison)**: عرض التقييمين المستقلين جنبًا إلى جنب مع إبراز نقاط التباين بلون تنبيهي.

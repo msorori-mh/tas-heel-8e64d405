@@ -295,9 +295,9 @@
 
 - **TASK-MG-034: تطبيق قواعد تقريب الدرجات الجزئية للمؤسسة** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-032`
-  - **Security Prerequisite**: معايرة تقريب الكسور لـ 0.25 أو 0.50 حسب سياسة المقرر.
+  - **Security Prerequisite**: معايرة تقريب الكسور لـ 0.25 أو 0.50 حسب سياسة المؤسسة على نتيجة المتوسط أو التقييم اليدوي.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `NO`
-  - **Owner Decision Status**: APPROVED BY ODR-013, ODR-004 (Gate: `TASK-MG-034`) | **Existing QB-01 Dependency**: `NO`
+  - **Owner Decision Status**: APPROVED BY INSTITUTION_ROUNDING_POLICY (Downstream Dependency) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-SCR-002` | **Deliverable Type**: `RPC`
 
 - **TASK-MG-035: التحكم في إدخال ملاحظات الطالب والتعقيم الأمني (Sanitizations)** `[REQUIRED_EXTENSION]`
@@ -381,19 +381,19 @@
   - **Owner Decision Status**: APPROVED BY ODR-012, ODR-014 (Gate: `TASK-MG-045`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-DMA-001` | **Deliverable Type**: `SCHEMA`, `RPC`
 
-- **TASK-MG-046: محرك حساب التباين والتحويل التلقائي للتحكيم** `[REQUIRED_EXTENSION]`
-  - **Phase**: `P1` | **Dependencies**: `TASK-MG-034`, `TASK-MG-045`
-  - **Security Prerequisite**: رصد التباين $> 15\%$ وتحويل الإجابة لطابور التحكيم.
+- **TASK-MG-046: محرك حساب التباين، احتساب المتوسط الحسابي، والتحويل التلقائي للتحكيم** `[REQUIRED_EXTENSION]`
+  - **Phase**: `P1` | **Dependencies**: `TASK-MG-045`, `TASK-MG-034`
+  - **Security Prerequisite**: رصد التباين $\le 15\%$ (ODR-004) واحتساب المتوسط الحسابي للدرجتين (ODR-013) وحفظه كـ proposed final score مع تجهيز حالة READY_FOR_FINALIZATION دون اعتماد تلقائي، أو تحويل الإجابة لطابور التحكيم عند التباين $> 15\%$.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `NO` | **Worker/Scheduler Required**: `YES`
-  - **Owner Decision Status**: APPROVED BY ODR-004 (Gate: `TASK-MG-046`) | **Existing QB-01 Dependency**: `NO`
-  - **Acceptance Test**: `TC-DMA-002` | **Deliverable Type**: `RPC`, `WORKER`
+  - **Owner Decision Status**: APPROVED BY ODR-004, ODR-013 (Gate: `TASK-MG-046`) | **Existing QB-01 Dependency**: `NO`
+  - **Acceptance Test**: `TC-DMA-002`, `TC-DMA-008` | **Deliverable Type**: `RPC`, `WORKER`
 
-- **TASK-MG-047: بناء واجهة التحكيم وحسم الدرجة المعايرة النهائي `arbitrate_double_mark`** `[REQUIRED_EXTENSION]`
+- **TASK-MG-047: بناء واجهة التحكيم وحسم الدرجة المعايرة النهائي `arbitrate_double_mark` (Independent Senior Grader Only)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-046`
-  - **Security Prerequisite**: تمكين `senior grader` من حسم الدرجة بصف تتابعي معتمد.
+  - **Security Prerequisite**: تمكين المحكّم المستقل (Independent Senior Grader حصرياً) من حسم الدرجة بصف تتابعي معتمد، وحظر التحكيم على Reviewer وOrdinary Grader وManager وEmergency Operator والمصححين الأصليين.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Status**: APPROVED BY ODR-008 (Gate: `TASK-MG-047`) | **Existing QB-01 Dependency**: `NO`
-  - **Acceptance Test**: `TC-DMA-003` | **Deliverable Type**: `RPC`, `UI`
+  - **Acceptance Test**: `TC-DMA-003`, `TC-DMA-009` | **Deliverable Type**: `RPC`, `UI`
 
 - **TASK-MG-048: محرك سحب العينات العشوائية لضبط الجودة (QA Sampling 5%)** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-045`
@@ -422,10 +422,10 @@
 
 - **TASK-MG-051: تنفيذ الاعتماد النهائي الذري للدرجة `finalize_manual_grade` (`is_final = true`)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-002`, `TASK-MG-007`, `TASK-MG-034`, `TASK-MG-047`
-  - **Security Prerequisite**: تحويل الحالة إلى `FINALIZED` واشتراط حقل السبب `reason`.
+  - **Security Prerequisite**: اقتصار الاعتماد النهائي على Reviewer و Authorized Senior Grader فقط، مع فحص Scoped Assignment وحظر Grader وManager وEmergency وSystem والتحقق من حقل السبب `reason` وتوليد سجل تدقيق غير قابل للتزوير مع منع الاعتماد التلقائي.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Status**: APPROVED BY ODR-007 (Gate: `TASK-MG-051`) | **Existing QB-01 Dependency**: `question_response_reviews`
-  - **Acceptance Test**: `TC-AFR-001` | **Deliverable Type**: `RPC`, `TRIGGER`
+  - **Acceptance Test**: `TC-AFR-001`, `TC-AFR-006` | **Deliverable Type**: `RPC`, `TRIGGER`
 
 - **TASK-MG-052: تحديث المجموع النهائي للجلسة عند اكتمال الأسئلة المقالية** `[EXISTS_IN_QB01]`
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-051`
@@ -550,12 +550,12 @@
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-011` | **Deliverable Type**: `RPC`, `CONSTRAINT`
 
-- **TASK-MG-069: دعم الإفراج الفوري المباشر لنتائج المحاولات التدريبية** `[REQUIRED_EXTENSION]`
-  - **Phase**: `MVP` | **Dependencies**: `TASK-MG-062`
-  - **Security Prerequisite**: تمكين الكشف الفوري لتمارين Practice دون انتظار الدفعة.
-  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
+- **TASK-MG-069: تصميم وتنفيذ موزع سياسات الإفراج عن نتائج التمارين التدريبية (Practice Release Policy Dispatcher)** `[REQUIRED_EXTENSION]`
+  - **Phase**: `MVP` | **Dependencies**: Common (`TASK-MG-051`, `TASK-MG-058`, `TASK-MG-064`); Conditional: BATCH mode depends on `TASK-MG-062` (Batch Release engine), DELAYED mode depends on `TASK-MG-065` (Scheduler/Worker), IMMEDIATE mode has NO batch dependency.
+  - **Security Prerequisite**: معالجة المسارات الثلاثة المعتمدة للتمارين التدريبية (IMMEDIATE, DELAYED, BATCH) وفق إعداد النشاط، مع إنفاذ الاعتماد النهائي كشرط مسبق دون اشتراط إغلاق الدفعة في المسار الفوري IMMEDIATE، ومعالجة التوقيت UTC والموثوقية والتنبيهات وإلغاء القفل.
+  - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `YES`
   - **Owner Decision Status**: APPROVED BY ODR-011, ODR-016 (Gate: `TASK-MG-069`) | **Existing QB-01 Dependency**: `NO`
-  - **Acceptance Test**: `TC-AFR-007` | **Deliverable Type**: `RPC`, `NOTIFICATION`
+  - **Acceptance Test**: `TC-AFR-007`, `TC-AFR-012`, `TC-AFR-013` | **Deliverable Type**: `RPC`, `WORKER`, `NOTIFICATION`
 
 - **TASK-MG-070: تقرير متابعة تسليم الإشعارات ونسبة الوصول للطلاب** `[FUTURE_P1]`
   - **Phase**: `P2` | **Dependencies**: `TASK-MG-027`, `TASK-MG-065`
@@ -747,7 +747,8 @@ graph TD
         T7 & T61 --> T62[TASK-MG-062: Batch Release Trigger]
         T62 --> T63[TASK-MG-063: Solution Reveal Timer]
         T62 & T69 --> T64[TASK-MG-064: Notification Outbox]
-        T62 --> T69[TASK-MG-069: Practice Immediate Release]
+        T51 & T64 --> T69[TASK-MG-069: Practice Release Dispatcher (IMMEDIATE/DELAYED/BATCH)]
+        T62 -. BATCH mode only .-> T69
         T4 --> T71[TASK-MG-071: Arabic RTL Foundation]
         T71 --> T72[TASK-MG-072: BiDi Text Engine]
         T71 --> T73[TASK-MG-073: Touch Target >= 48px]
@@ -763,8 +764,8 @@ graph TD
         T22 & T26 --> T30[TASK-MG-030: Offline Recovery Lock Check]
         T32 --> T34[TASK-MG-034: Institution Rounding Rules]
         T7 & T21 & T41 --> T45[TASK-MG-045: Dual Independent Assignment]
-        T34 & T45 --> T46[TASK-MG-046: Score Variance Check]
-        T45 & T46 --> T47[TASK-MG-047: Senior Grader Arbitration View]
+        T45 & T34 --> T46[TASK-MG-046: Score Variance & Arithmetic Mean Engine]
+        T45 & T46 --> T47[TASK-MG-047: Independent Senior Grader Arbitration View]
         T7 & T51 --> T54[TASK-MG-054: Emergency Reopen RPC]
         T51 --> T55[TASK-MG-055: Student Appeal Submission]
         T55 --> T56[TASK-MG-056: Appeals Window Expiry]
