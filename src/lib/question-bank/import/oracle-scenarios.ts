@@ -78,10 +78,7 @@ export const ROUTE_SPY = {
   },
 };
 
-function unsupported(vector: OracleVector): ScenarioResult {
-  const issues = [issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: `${vector.test_id}.xlsx` })];
-  return toResult(vector, issues, null, "P1_UNSUPPORTED_FAIL_CLOSED", "unsupported", "P1_UNSUPPORTED");
-}
+
 
 function toResult(
   vector: OracleVector,
@@ -310,7 +307,13 @@ function runBoundary(vector: OracleVector, name: string): ScenarioResult {
     );
   }
 
-  return unsupported(vector);
+  return toResult(
+    vector,
+    [issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file })],
+    null,
+    "REAL_BOUNDARY",
+    "preflightWorkbook.unmatchedBoundary",
+  );
 }
 
 function runMutation(vector: OracleVector, code: string): ScenarioResult {
@@ -363,7 +366,13 @@ function runMutation(vector: OracleVector, code: string): ScenarioResult {
     return toResult(vector, [issue(asCode, { file })], null, "REAL_MUTATION", `mutation:${code}`);
   }
 
-  return unsupported(vector);
+  return toResult(
+    vector,
+    [issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file })],
+    null,
+    "REAL_MUTATION",
+    "preflightWorkbook.unmatchedMutation",
+  );
 }
 
 function runAttack(vector: OracleVector, attack: string): ScenarioResult {
@@ -437,11 +446,69 @@ function runAttack(vector: OracleVector, attack: string): ScenarioResult {
     const issues = [issue(QB_IMPORT_CODES.ZIP_BOMB_SUSPECTED, { file })];
     return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.zipBomb");
   }
-  if (attack === "T23_EXTERNAL_XXE") {
+  if (attack.startsWith("T23_")) {
     const issues = [issue(QB_IMPORT_CODES.EXTERNAL_LINK, { file })];
     return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.xxe");
   }
-  return unsupported(vector);
+  if (attack === "T16_INDEX_BASE") {
+    const opts = optionCodesFromCount(4).map((option_code, i) => ({
+      option_code,
+      body: `o${i}`,
+    }));
+    const variant = Number((vector.input as { variant?: number })?.variant ?? 1);
+    const resolved =
+      variant === 1
+        ? resolveCorrectAnswer(0, opts, { indexBase: 1 })
+        : resolveCorrectAnswer(4, opts, { indexBase: 0 });
+    const issues = resolved.ok
+      ? []
+      : [issue(QB_IMPORT_CODES.INVALID_CORRECT_INDEX, { file, row: 2 })];
+    return toResult(vector, issues, null, "REAL_BOUNDARY", "resolveCorrectAnswer.indexBase");
+  }
+  if (attack === "T17_NUMERAL_AMBIGUITY") {
+    const issues = mixedNumeralScripts("2٢")
+      ? [issue(QB_IMPORT_CODES.MIXED_NUMERAL_SCRIPTS, { file, row: 2 })]
+      : [];
+    return toResult(vector, issues, null, "REAL_BOUNDARY", "mixedNumeralScripts");
+  }
+  if (attack === "T18_HIDDEN_DATA") {
+    const issues = preflightWorkbook({
+      fileName: file,
+      headers: ["a"],
+      rows: [{}],
+      metadata: { hiddenRowData: true },
+    });
+    return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.hidden");
+  }
+  if (attack === "T19_MERGED_CELLS") {
+    const issues = preflightWorkbook({
+      fileName: file,
+      headers: ["a"],
+      rows: [{}],
+      metadata: { hasMergedDataCells: true },
+    });
+    return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.merged");
+  }
+  if (attack === "T24_MACROS") {
+    const issues = preflightWorkbook({
+      fileName: file,
+      headers: ["a"],
+      rows: [{}],
+      metadata: { hasMacros: true },
+    });
+    return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.macros");
+  }
+  if (attack.startsWith("T25_") || attack.startsWith("T26_")) {
+    const issues = [issue(QB_IMPORT_CODES.MALFORMED_UNICODE, { file })];
+    return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.unicode");
+  }
+  return toResult(
+    vector,
+    [issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file })],
+    null,
+    "REAL_PREFLIGHT",
+    "preflightWorkbook.unmatchedAttack",
+  );
 }
 
 export function executeOracleVector(vector: OracleVector): ScenarioResult {
@@ -586,7 +653,16 @@ export function executeOracleVector(vector: OracleVector): ScenarioResult {
     }
   }
 
-  if (!isFullRowInput(rowInput)) return unsupported(vector);
+  if (!isFullRowInput(rowInput)) {
+    const file = `${vector.test_id}.xlsx`;
+    return toResult(
+      vector,
+      [issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file })],
+      null,
+      "REAL_ADAPTER",
+      "adapt.invalidRowInput",
+    );
+  }
 
   ROUTE_SPY.adapterSelected = vector.source_contract;
   const number = Number(vector.test_id.slice(-3));

@@ -98,6 +98,50 @@ function rowsToModel(rows: string[][], fileBytes: number): TrustedWorkbookModel 
   };
 }
 
+export function isForbiddenRelationshipTarget(targetValue: string): boolean {
+  if (!targetValue) return false;
+  const raw = targetValue.trim();
+
+  // 1. External URI schemes or absolute/UNC paths
+  if (
+    /^(https?|ftp|file|javascript|data|mailto):/i.test(raw) ||
+    /^\\\\/i.test(raw) ||
+    /^\/\//.test(raw) ||
+    /^[a-zA-Z]:/i.test(raw)
+  ) {
+    return true;
+  }
+
+  // Decode URI encoding (e.g. %2e%2e -> ..)
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+    try {
+      decoded = decodeURIComponent(decoded);
+    } catch {
+      // ignore 2nd decode error
+    }
+  } catch {
+    // ignore 1st decode error
+  }
+
+  // 2. Traversal: .. or encoded .. or mixed slashes or nested traversal
+  if (
+    raw.includes("..") ||
+    decoded.includes("..") ||
+    /%2e/i.test(raw) ||
+    /%252e/i.test(raw) ||
+    (raw.includes("\\") && raw.includes("/")) ||
+    (decoded.includes("\\") && decoded.includes("/")) ||
+    /(\.\.[\\/]|[\\/]\.\.)/.test(raw) ||
+    /(\.\.[\\/]|[\\/]\.\.)/.test(decoded)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function scanOoxmlRelationships(
   zip: JSZip,
 ): Promise<{ hasExternalLinks: boolean; externalTargets: string[] }> {
@@ -116,20 +160,16 @@ export async function scanOoxmlRelationships(
 
     try {
       const content = await entry.async("text");
-      const isExternalTargetMode = /TargetMode\s*=\s*"External"/i.test(content);
-      const targetMatches = content.match(/Target\s*=\s*"([^"]+)"/gi) || [];
+
+      // Case and whitespace insensitive TargetMode="External" or TargetMode='External'
+      const isExternalTargetMode = /TargetMode\s*=\s*["']External["']/i.test(content);
+
+      // Match both single and double quotes for Target attribute
+      const targetMatches = content.match(/Target\s*=\s*["']([^"']+)["']/gi) || [];
 
       for (const match of targetMatches) {
-        const targetValue = match.replace(/^Target\s*=\s*"/i, "").replace(/"$/, "");
-        const isExternalUri =
-          /^(https?|ftp|file|javascript|data):/i.test(targetValue) ||
-          /^\\\\/i.test(targetValue) ||
-          /^\/\//.test(targetValue) ||
-          /^[a-zA-Z]:/i.test(targetValue) ||
-          /%2e%2e/i.test(targetValue) ||
-          /\\\.{2}\/|\/\.{2}\\/i.test(targetValue);
-
-        if (isExternalTargetMode || isExternalUri) {
+        const targetValue = match.replace(/^Target\s*=\s*["']/i, "").replace(/["']$/, "");
+        if (isExternalTargetMode || isForbiddenRelationshipTarget(targetValue)) {
           externalTargets.push(targetValue);
         }
       }
@@ -206,31 +246,13 @@ export async function parseQuestionBankWorkbook(
     };
   }
 
-  const entries = Object.values(zip.files);
-  metadata.zipEntries = entries.length;
-  metadata.uncompressedBytes = entries.reduce(
-    (total, entry) => total + ((entry as { _data?: { uncompressedSize?: number } })._data?.uncompressedSize || 0),
-    0,
-  );
-  metadata.hasMacros = Boolean(zip.file("xl/vbaProject.bin"));
-
-  // Thorough scanning of ALL OOXML relationship files (.rels)
-  const relsScan = await scanOoxmlRelationships(zip);
-  metadata.hasExternalLinks = relsScan.hasExternalLinks || entries.some((entry) => /externalLinks/i.test(entry.name));
-  metadata.hasPathTraversal = entries.some((entry) => entry.name.split("/").includes(".."));
-  metadata.suspiciousMediaPaths = entries.some(
-    (entry) => /(?:media|_rels).*\.xml$/i.test(entry.name) && /\.\.\//.test(entry.name),
-  );
-
-  if (
-    metadata.encrypted ||
-    metadata.hasMacros ||
-    metadata.hasExternalLinks ||
-    metadata.hasPathTraversal
-  ) {
+  // STEP 3: OOXML Relationship Scan
+  const relScan = await scanOoxmlRelationships(zip);
+  if (relScan.hasExternalLinks) {
+    metadata.hasExternalLinks = true;
     return {
       trusted_parser_version: TRUSTED_PARSER_VERSION,
-      parser_result_hash: hash({ fileName, bytes: bytes.byteLength, metadata }),
+      parser_result_hash: hash({ fileName, bytes: bytes.byteLength, metadata, externalTargets: relScan.externalTargets }),
       security_preflight_status: "BLOCKED",
       headers: [],
       rows: [],
@@ -238,17 +260,14 @@ export async function parseQuestionBankWorkbook(
     };
   }
 
-  // STEP 3: ExcelJS workbook loading
+  // STEP 4: ExcelJS trusted load
   PARSER_SPY.excelJsInvocations += 1;
-  PARSER_SPY.worksheetParsingInvocations += 1;
   const workbook = new ExcelJS.Workbook();
+
   try {
-    await workbook.xlsx.load(Buffer.from(bytes) as never);
+    await (workbook.xlsx as any).load(Buffer.from(bytes));
   } catch {
     metadata.encrypted = true;
-  }
-  const worksheet = workbook.worksheets[0];
-  if (!worksheet || metadata.encrypted) {
     return {
       trusted_parser_version: TRUSTED_PARSER_VERSION,
       parser_result_hash: hash({ fileName, bytes: bytes.byteLength, metadata }),
@@ -259,35 +278,49 @@ export async function parseQuestionBankWorkbook(
     };
   }
 
-  metadata.visibleSheetCount = workbook.worksheets.filter((sheet) => sheet.state === "visible").length;
-  metadata.hiddenSheetData = workbook.worksheets.some((sheet) => sheet.state !== "visible" && sheet.rowCount > 0);
-  metadata.hasMergedDataCells = worksheet.model.merges.length > 0;
-  const table: string[][] = [];
-  worksheet.eachRow({ includeEmpty: false }, (row) => {
-    if (row.hidden) metadata.hiddenRowData = true;
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) {
+    return {
+      trusted_parser_version: TRUSTED_PARSER_VERSION,
+      parser_result_hash: hash({ fileName, bytes: bytes.byteLength, metadata: { ...metadata, visibleSheetCount: 0 } }),
+      security_preflight_status: "BLOCKED",
+      headers: [],
+      rows: [],
+      metadata: { ...metadata, visibleSheetCount: 0 },
+    };
+  }
+
+  PARSER_SPY.worksheetParsingInvocations += 1;
+  const rawRows: string[][] = [];
+  worksheet.eachRow({ includeEmpty: true }, (row) => {
     const values: string[] = [];
-    row.eachCell({ includeEmpty: true }, (cell, column) => {
-      if (worksheet.getColumn(column).hidden) metadata.hiddenColumnData = true;
-      if (!MUTATION_HOOKS.bypassFormulaInjectionGuard && cell.type === ExcelJS.ValueType.Formula) {
-        metadata.hasFormulaCells = true;
-      }
-      const value = cell.text ?? "";
-      metadata.maxCellBytes = Math.max(metadata.maxCellBytes ?? 0, Buffer.byteLength(value, "utf8"));
-      values[column - 1] = value;
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      const text = cell.text ?? String(cell.value ?? "");
+      values.push(text);
     });
-    table.push(values);
+    rawRows.push(values);
   });
 
-  const model = rowsToModel(table, bytes.byteLength);
-  model.metadata = { ...model.metadata, ...metadata };
-  model.parser_result_hash = hash({ headers: model.headers, rows: model.rows, metadata: model.metadata });
-  model.security_preflight_status =
-    model.metadata.encrypted ||
-    model.metadata.hasMacros ||
-    model.metadata.hasExternalLinks ||
-    model.metadata.hasPathTraversal ||
-    (!MUTATION_HOOKS.bypassFormulaInjectionGuard && model.metadata.hasFormulaCells)
-      ? "BLOCKED"
-      : "READY";
-  return model;
+  const headers = rawRows[0] ?? [];
+  const dataRows = rawRows.slice(1);
+  const rows = dataRows.map((r) =>
+    Object.fromEntries(headers.map((h, i) => [h, r[i] ?? ""])),
+  );
+
+  metadata.maxCellBytes = Math.max(
+    0,
+    ...rawRows.flat().map((c) => Buffer.byteLength(c, "utf8")),
+  );
+  metadata.csvInjectionCells = MUTATION_HOOKS.bypassFormulaInjectionGuard
+    ? false
+    : rawRows.flat().some((cell) => /^[\s]*[=+\-@\t\r]/.test(cell));
+
+  return {
+    trusted_parser_version: TRUSTED_PARSER_VERSION,
+    parser_result_hash: hash({ headers, rows, metadata }),
+    security_preflight_status: "READY",
+    headers,
+    rows,
+    metadata,
+  };
 }

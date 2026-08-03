@@ -109,11 +109,30 @@ export function preflightZipBytes(
   let offset = cdOffset;
   const decoder = new TextDecoder("utf-8");
 
-  for (let i = 0; i < totalEntries && offset + 46 <= bytes.byteLength; i++) {
+  for (let i = 0; i < totalEntries; i++) {
+    if (offset + 46 > bytes.byteLength) {
+      issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
+      return {
+        ok: false,
+        issues,
+        entryNames: [],
+        totalUncompressedBytes,
+        totalEntries,
+        isZip: true,
+      };
+    }
+
     const sig = view.getUint32(offset, true);
     if (sig !== 0x02014b50) {
       issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
-      break;
+      return {
+        ok: false,
+        issues,
+        entryNames: [],
+        totalUncompressedBytes,
+        totalEntries,
+        isZip: true,
+      };
     }
 
     const flag = view.getUint16(offset + 8, true);
@@ -122,6 +141,19 @@ export function preflightZipBytes(
     const nameLen = view.getUint16(offset + 28, true);
     const extraLen = view.getUint16(offset + 30, true);
     const commentLen = view.getUint16(offset + 32, true);
+
+    const recordSize = 46 + nameLen + extraLen + commentLen;
+    if (offset + recordSize > bytes.byteLength) {
+      issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
+      return {
+        ok: false,
+        issues,
+        entryNames: [],
+        totalUncompressedBytes,
+        totalEntries,
+        isZip: true,
+      };
+    }
 
     // Bit 0 set = encrypted entry
     if ((flag & 1) !== 0) {
@@ -139,45 +171,42 @@ export function preflightZipBytes(
       issues.push(issue(QB_IMPORT_CODES.ZIP_BOMB_SUSPECTED, { file: fileName }));
     }
 
-    if (offset + 46 + nameLen <= bytes.byteLength) {
-      const nameBytes = bytes.subarray(offset + 46, offset + 46 + nameLen);
-      const name = decoder.decode(nameBytes);
+    const nameBytes = bytes.subarray(offset + 46, offset + 46 + nameLen);
+    const name = decoder.decode(nameBytes);
 
-      // NUL or control chars -> path traversal / corrupted entry
-      if (/[\0\x01-\x1f\x7f]/.test(name)) {
-        issues.push(issue(QB_IMPORT_CODES.PATH_TRAVERSAL, { file: fileName }));
-      }
-
-      // Check absolute paths
-      if (
-        name.startsWith("/") ||
-        name.startsWith("\\") ||
-        /^[a-zA-Z]:/.test(name)
-      ) {
-        issues.push(issue(QB_IMPORT_CODES.ZIP_ABSOLUTE_PATH, { file: fileName }));
-      }
-
-      // Check path traversal
-      if (
-        !MUTATION_HOOKS.disablePathTraversalDetection &&
-        (name.includes("..") || name.includes("%2e%2e"))
-      ) {
-        issues.push(issue(QB_IMPORT_CODES.PATH_TRAVERSAL, { file: fileName }));
-      }
-
-      // Check duplicate ZIP entries
-      if (!MUTATION_HOOKS.disableDuplicateEntryDetection) {
-        if (seenEntries.has(name)) {
-          issues.push(issue(QB_IMPORT_CODES.ZIP_DUPLICATE_ENTRY, { file: fileName }));
-        } else {
-          seenEntries.add(name);
-        }
-      }
-
-      entryNames.push(name);
+    // NUL or control chars -> path traversal / corrupted entry
+    if (/[\0\x01-\x1f\x7f]/.test(name)) {
+      issues.push(issue(QB_IMPORT_CODES.PATH_TRAVERSAL, { file: fileName }));
     }
 
-    offset += 46 + nameLen + extraLen + commentLen;
+    // Check absolute paths
+    if (
+      name.startsWith("/") ||
+      name.startsWith("\\") ||
+      /^[a-zA-Z]:/.test(name)
+    ) {
+      issues.push(issue(QB_IMPORT_CODES.ZIP_ABSOLUTE_PATH, { file: fileName }));
+    }
+
+    // Check path traversal
+    if (
+      !MUTATION_HOOKS.disablePathTraversalDetection &&
+      (name.includes("..") || name.includes("%2e%2e"))
+    ) {
+      issues.push(issue(QB_IMPORT_CODES.PATH_TRAVERSAL, { file: fileName }));
+    }
+
+    // Check duplicate ZIP entries
+    if (!MUTATION_HOOKS.disableDuplicateEntryDetection) {
+      if (seenEntries.has(name)) {
+        issues.push(issue(QB_IMPORT_CODES.ZIP_DUPLICATE_ENTRY, { file: fileName }));
+      } else {
+        seenEntries.add(name);
+      }
+    }
+
+    entryNames.push(name);
+    offset += recordSize;
   }
 
   if (totalUncompressedBytes > DEFAULT_IMPORT_LIMITS.maxUncompressedBytes) {
