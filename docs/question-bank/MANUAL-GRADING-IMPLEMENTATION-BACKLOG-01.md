@@ -390,7 +390,7 @@
 
 - **TASK-MG-047: بناء واجهة التحكيم وحسم الدرجة المعايرة النهائي `arbitrate_double_mark` (Independent Senior Grader Only)** `[REQUIRED_EXTENSION]`
   - **Phase**: `P1` | **Dependencies**: `TASK-MG-046`
-  - **Security Prerequisite**: تمكين المحكّم المستقل (Independent Senior Grader حصرياً) من تقديم الدرجة المحكّمة المقترحة بحالة ARBITRATED_SCORE_READY_FOR_FINALIZATION دون تنفيذ الاعتماد النهائي FINALIZED مباشرة، وحظر التحكيم على Reviewer وOrdinary Grader وManager وEmergency Operator والمصححين الأصليين.
+  - **Security Prerequisite**: تمكين المحكّم المستقل (Independent Senior Grader حصرياً) من تقديم الدرجة المحكّمة المقترحة بحالة READY_FOR_FINALIZATION (أو ARBITRATED_SCORE_READY_FOR_FINALIZATION) دون تنفيذ الاعتماد النهائي FINALIZED مباشرة، وحظر التحكيم على Reviewer وOrdinary Grader وManager وEmergency Operator والمصححين الأصليين، وفصل عملية التحكيم (Arbitration) تماماً عن عملية الاعتماد النهائي اليدوية المنفصلة (Finalization).
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
   - **Owner Decision Status**: APPROVED BY ODR-008 (Gate: `TASK-MG-047`) | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-DMA-003`, `TC-DMA-009`, `TC-DMA-011`, `TC-DMA-012`, `TC-DMA-013`, `TC-DMA-014`, `TC-DMA-015`, `TC-DMA-016`, `TC-DMA-017`, `TC-DMA-018` | **Deliverable Type**: `RPC`, `UI`
@@ -421,6 +421,7 @@
 ### Epic 6: State Machine, Appeals & Regrading Engine (الاعتماد والتظلمات)
 
 - **TASK-MG-051: تنفيذ الاعتماد النهائي الذري للدرجة `finalize_manual_grade` (`is_final = true`)** `[REQUIRED_EXTENSION]`
+- **Security Prerequisite**: حصر استدعاء `finalize_manual_grade` حصرياً على `Reviewer` و `Authorized Senior Grader`، مع فرض التحقق الإجباري من scoped assignment الصالحة وتوفر capability الاعتماد، ووجود سبب الإرجاع/الاعتماد reason و provenance و CAS validation وحظر استدعائها كلياً من `Ordinary Grader` و `Grading Manager` و `Admin Emergency Operator` و `Worker` و `System` و `Scheduler`.
   - **Phase**: `MVP` | **Dependencies**: `TASK-MG-002`, `TASK-MG-007`, `TASK-MG-034`, `TASK-MG-047`
   - **Security Prerequisite**: اقتصار الاعتماد النهائي على Reviewer و Authorized Senior Grader فقط، مع فحص Scoped Assignment وحظر Grader وManager وEmergency وSystem والتحقق من حقل السبب `reason` وتوليد سجل تدقيق غير قابل للتزوير مع منع الاعتماد التلقائي.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `NO`
@@ -550,7 +551,7 @@
   - **Owner Decision Required**: `NO` | **Existing QB-01 Dependency**: `NO`
   - **Acceptance Test**: `TC-AFR-011` | **Deliverable Type**: `RPC`, `CONSTRAINT`
 
-- **TASK-MG-069: تصميم وتنفيذ موزع سياسات الإفراج عن نتائج التمارين التدريبية (Practice Release Policy Dispatcher)** `[REQUIRED_EXTENSION]`
+- **TASK-MG-069: تصميم وتنفيذ موزع سياسات الإفراج عن نتائج التمارين التدريبية (TASK-MG-069 — Practice Release Policy Dispatcher)** `[REQUIRED_EXTENSION]`
   - **Phase**: `MVP` | **Dependencies**: Common (`TASK-MG-051`, `TASK-MG-058`, `TASK-MG-064`); Conditional: BATCH mode depends on `TASK-MG-062` (Batch Release engine), DELAYED mode depends on `TASK-MG-065` (Scheduler/Worker), IMMEDIATE mode has NO batch dependency.
   - **Security Prerequisite**: معالجة المسارات الثلاثة المعتمدة للتمارين التدريبية (IMMEDIATE, DELAYED, BATCH) وفق إعداد النشاط، مع إنفاذ الاعتماد النهائي كشرط مسبق دون اشتراط إغلاق الدفعة في المسار الفوري IMMEDIATE، ومعالجة التوقيت UTC والموثوقية والتنبيهات وإلغاء القفل.
   - **Migration Required**: `YES` | **Runtime Required**: `YES` | **UI Required**: `YES` | **Worker/Scheduler Required**: `YES`
@@ -747,7 +748,7 @@ graph TD
         T7 & T61 --> T62[TASK-MG-062: Batch Release Trigger]
         T62 --> T63[TASK-MG-063: Solution Reveal Timer]
         T62 & T69 --> T64[TASK-MG-064: Notification Outbox]
-        T51 & T64 --> T69[TASK-MG-069: Practice Release Dispatcher (IMMEDIATE/DELAYED/BATCH)]
+        T51 & T64 --> T69[TASK-MG-069 — Practice Release Policy Dispatcher (IMMEDIATE/DELAYED/BATCH)]
         T62 -. BATCH mode only .-> T69
         T4 --> T71[TASK-MG-071: Arabic RTL Foundation]
         T71 --> T72[TASK-MG-072: BiDi Text Engine]

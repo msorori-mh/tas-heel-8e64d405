@@ -163,37 +163,42 @@
 
 ### 2.6. رحلات نتائج التمارين التدريبية الثلاث (Practice Result Flows - TASK-MG-069) `[REQUIRED_EXTENSION]`
 
-تتم معالجة نتائج وإفراج أنشطة الممارسة التدريبية عبر ثلاث رحلات مستقلة وفق إعدادات النشاط بواسطة `TASK-MG-069 (Practice Release Policy Dispatcher)`:
+تتم معالجة نتائج وإفراج أنشطة الممارسة التدريبية عبر ثلاث رحلات مستقلة وفق إعدادات النشاط بواسطة `TASK-MG-069 — Practice Release Policy Dispatcher`، مع تحديد اعتماداتها الفنية الموحدة والمشروطة صراحة:
+- **الاعتمادات المشتركة لكافة المسارات (Common Dependencies)**: حالة الاعتماد النهائي اليدوي (`FINALIZED` بواسطة `Reviewer` / `Authorized Senior Grader`)، إعدادات إفراج النشاط (`activity.release_mode`)، التحقق من الصلاحية والتفويض (`Authorization`)، وسياسة الإشعارات والكشف (`Notification/reveal policy`).
+- **الاعتمادات المشروطة حسب المسار (Conditional Dependencies)**:
+  - **مسار IMMEDIATE**: لا توجد أي اعتمادية على اكتمال الدفعة (`No Batch Dependency`).
+  - **مسار DELAYED**: اعتمادية المجدول والمعالج الزمني (`Scheduler/Worker Dependency`).
+  - **مسار BATCH**: اعتمادية محرك إفراج الدفعة واكتمال كافة استجاباتها يدوياً (`Batch Release Engine Dependency`).
 
 #### 2.6.1. رحلة الإفراج الفوري (Practice IMMEDIATE Result Flow)
-- **المُحفّز (Trigger)**: اعتماد الدرجة نهائياً بواسطة Reviewer أو Authorized Senior Grader (`finalize_manual_grade`).
-- **الفاعل (Actor)**: Student / Automated Outbox System.
-- **الشروط المسبقة (Preconditions)**: ضبط النشاط على نمط `IMMEDIATE`؛ وصول حالة الاستجابة إلى `FINALIZED`. لا يوجد أي اعتماد على اكتمال الدفعة (`No Batch Dependency`).
-- **توقيت الإفراج والكشف (Release/Reveal Timing)**: إفراج فوري بعد الاعتماد مباشرة.
-- **الإشعارات (Notifications)**: توليد رسالة إشعار مباشرة في Outbox فور الاعتماد.
-- **السلوك بدون اتصال (Offline Behavior)**: عند استعادة الاتصال، يتم جلب النتيجة المعتمدة فوراً وتحديث الواجهة.
-- **الأخطاء وإعادة المحاولة (Errors/Retry)**: معالجة فشل الإرسال عبر Outbox Retry Worker دون تأخير إتاحة النتيجة على الواجهة.
-- **الحالة المرئية للطالب (Student-Visible State)**: تظهر الدرجة وبنود Rubric والملاحظات فوراً للطالب (`RELEASED`).
+- **المُحفّز (Trigger)**: تنفيذ الاعتماد النهائي اليدوي بواسطة Reviewer أو Authorized Senior Grader عبر `finalize_manual_grade`.
+- **الفاعل (Actor)**: Reviewer / Authorized Senior Grader (Finalization Authority) & Outbox Engine.
+- **الشروط المسبقة (Preconditions)**: ضبط النشاط على نمط `IMMEDIATE`؛ اعتماد الاستجابة نهائياً يدوياً (`FINALIZED`) مسبقاً بواسطة جهة مخولة؛ حظر مطلق لاعتماد المصحح العادي؛ لا يوجد أي اعتماد على اكتمال الدفعة (`No Batch Dependency`) ولا انتظار لإفراج الدفعة.
+- **توقيت الإفراج والكشف (Release/Reveal Timing)**: إفراج حتمي فور الاعتماد النهائي المباشر وتطبيق إعدادات reveal الخاصة بالنشاط.
+- **الإشعارات (Notifications)**: توليد وإدراج رسالة الإشعار حتمياً داخل `notification_outbox` بنفس معاملة الاعتماد النهائي.
+- **السلوك بدون اتصال (Offline Behavior)**: يتلقى العميل غير المتصل (Offline client) الحالة المعتمدة والمرئية عند أول مزامنة تالية.
+- **الأخطاء وإعادة المحاولة (Errors/Retry)**: ضمان عدم تكرار الإفراج عند إعادة محاولة الإشعار (`Idempotent release`) وتوليد إعادة المحاولة التلقائية للإشعارات المتعثرة عبر Outbox Worker دون مضاعفة الإفراج.
+- **الحالة المرئية للطالب (Student-Visible State)**: تنتقل فوراً إلى مرئية للطالب (`RELEASED` / `STUDENT_VISIBLE`) وموثقة بـ timestamp الإفراج.
 
 #### 2.6.2. رحلة الإفراج المؤجل (Practice DELAYED Result Flow)
-- **المُحفّز (Trigger)**: حلول التاريخ والوقت المحدد للإفراج `release_at` أو الكشف `reveal_at` (مجدول السيرفر UTC).
-- **الفاعل (Actor)**: Scheduler / Worker.
-- **الشروط المسبقة (Preconditions)**: ضبط النشاط على نمط `DELAYED` وتحديد `release_at` / `reveal_at` بحسب UTC؛ وصول حالة الاستجابة إلى `FINALIZED`.
-- **توقيت الإفراج والكشف (Release/Reveal Timing)**: عند انقضاء الوقت المحدد `release_at` بالتوقيت العالمي UTC بغض النظر عن المنظور المحلي.
-- **الإشعارات (Notifications)**: يتم إدراج الإشعارات في Outbox وتفعيلها آلياً بواسطة المجدول عند حلول الموعد.
-- **السلوك بدون اتصال (Offline Behavior)**: تظهر الواجهة عداداً تنازلياً للموعد المحدد وتحدّث الحالة فور استعادة الاتصال بعد انقضاء الوقت.
-- **الأخطاء وإعادة المحاولة (Errors/Retry)**: إعادة محاولة التشغيل الذاتي مع ضمان عدم التكرار (Idempotency) وحفظ سجل التكليف.
-- **الحالة المرئية للطالب (Student-Visible State)**: تبقى النتيجة مخفية (`PENDING_RELEASE`) حتى انقضاء `release_at` لتتحول آلياً إلى مرئية (`RELEASED`).
+- **المُحفّز (Trigger)**: حلول الموعد المحدد للإفراج `release_at` أو الكشف `reveal_at` المحفوظ بصيغة UTC واستدعاء Worker/Scheduler.
+- **الفاعل (Actor)**: Scheduler / Worker system.
+- **الشروط المسبقة (Preconditions)**: ضبط النشاط على نمط `DELAYED`؛ اعتماد كافة الاستجابات يدوياً (`FINALIZED`) مسبقاً بواسطة جهة مخولة؛ حفظ `release_at` / `reveal_at` بـ UTC؛ إنفاذ حارس عدم الإفراج المبكر (`Not-before-time guard`)؛ عدم وجود حاجة لاكتمال الدفعة (`No Batch Dependency`).
+- **توقيت الإفراج والكشف (Release/Reveal Timing)**: الإفراج والكشف الحتمي فور حلول الوقت المحدد بـ UTC، مع تحويل التوقيت إلى المنطقة الزمنية المحلية للمستخدم عند العرض فقط (`Display-only Timezone Conversion`).
+- **الإشعارات (Notifications)**: توليد رسائل الإشعار في `notification_outbox` وإرسالها عند انقضاء الوقت المحدد.
+- **السلوك بدون اتصال (Offline Behavior)**: يتلقى العميل غير المتصل الحالة المرئية والدرجات فور إجراء المزامنة بعد حلول الموعد.
+- **الأخطاء وإعادة المحاولة (Errors/Retry)**: معالجة تعثر المهمة المجدولة (`Stale job handling`) وإعادة المحاولة الحتمية مع ضمان عدم تكرار الإفراج (`Idempotence guard`) واستعادة النظام من الأعطال (`Failure recovery`).
+- **الحالة المرئية للطالب (Student-Visible State)**: تظل النتيجة بحالة `PENDING_RELEASE` حتى انقضاء الوقت المحدد بـ UTC لتتحول إلى `RELEASED` معتمدة ومرئية للطالب.
 
 #### 2.6.3. رحلة إفراج الدفعة التدريبية (Practice BATCH Result Flow)
-- **المُحفّز (Trigger)**: إطلاق الإفراج الجماعي يدوياً بواسطة مدير التصحيح (`release_grading_batch`).
-- **الفاعل (Actor)**: Grading Manager / Batch Release Engine (`TASK-MG-062`).
-- **الشروط المسبقة (Preconditions)**: ضبط النشاط على نمط `BATCH`؛ اكتمال تصحيح الدفعة وحصول كافة الاستجابات على `FINALIZED`.
-- **توقيت الإفراج والكشف (Release/Reveal Timing)**: بعد اعتماد وتنفيذ الإفراج الجماعي للدفعة.
-- **الإشعارات (Notifications)**: إدراج الإشعارات لجميع طلاب الدفعة في Outbox بعد الإفراج الجماعي.
-- **السلوك بدون اتصال (Offline Behavior)**: حظر تنفيذ الإفراج بدون اتصال مباشر ومؤمّن بـ fencing token وإظهار حالة الانتظار للطالب.
-- **الأخطاء وإعادة المحاولة (Errors/Retry)**: كبح الإفراج الجزئي في حال وجود استجابة غير معتمدة، وإمكانية إعادة المحاولة بعد اكتمال الدفعة.
-- **الحالة المرئية للطالب (Student-Visible State)**: تنتقل من `BATCH_PENDING` إلى `RELEASED` فور اعتماد المدير للدفعة.
+- **المُحفّز (Trigger)**: استدعاء دالة الإفراج الجماعي `release_grading_batch` بواسطة مدير التصحيح المخول بعد التحقق من التكليف والتكامل.
+- **الفاعل (Actor)**: Grading Manager (Release Authority) & Batch Release Engine (`TASK-MG-062` / `TASK-MG-069`).
+- **الشروط المسبقة (Preconditions)**: ضبط النشاط على نمط `BATCH`؛ اعتماد **كافة** الاستجابات داخل الدفعة يدوياً (`FINALIZED`) مسبقاً بواسطة جهة مخولة (`Reviewer` / `Authorized Senior Grader`)؛ اجتياز فحص اكتمال الدفعة (`Batch completeness validation`)؛ يُحظر حظراً مطلقاً إفراج الدفعة أو قيام Batch Worker أو Manager باعتتماد أي استجابة غير معتمدة.
+- **توقيت الإفراج والكشف (Release/Reveal Timing)**: إفراج جماعي لكافة نتائج الدفعة دفعة واحدة فور صدور قرار المدير وتحديد توقيت الكشف المعتمد.
+- **الإشعارات (Notifications)**: توليد رسائل الإشعار لكافة طلاب الدفعة دفعة واحدة داخل `notification_outbox`.
+- **السلوك بدون اتصال (Offline Behavior)**: تزامن العميل غير المتصل وتلقي النتائج المعتمدة فور إجراء المزامنة بعد إفراج الدفعة.
+- **الأخطاء وإعادة المحاولة (Errors/Retry)**: كبح الإفراج الجزئي عند وجود أي صف غير معتمد بـ `UNFINISHED_RESPONSES_IN_BATCH`، ومعالجة الفشل الجزئي التقني (`Partial failure handling`) وإعادة محاولة الدفعة بحتمية (`Idempotent retry`).
+- **الحالة المرئية للطالب (Student-Visible State)**: تنتقل حالة الاستجابات والدفعة من `FINALIZATION_PENDING` / `RELEASE_PENDING` إلى `RELEASED` مرئية للطلاب.
 
 ---
 
