@@ -1,3 +1,4 @@
+import { XMLParser } from "fast-xml-parser";
 import { createHash } from "node:crypto";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
@@ -5,6 +6,14 @@ import { DEFAULT_IMPORT_LIMITS } from "./limits.ts";
 import type { WorkbookParserMetadata } from "./preflight.ts";
 import { preflightZipBytes } from "./zip-preflight.ts";
 import { MUTATION_HOOKS } from "./mutation-hooks.ts";
+
+const safeXmlParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: "@_",
+  allowBooleanAttributes: true,
+  processEntities: false,
+  htmlEntities: false,
+});
 
 export const TRUSTED_PARSER_VERSION = "qb02-workbook-parser-v1" as const;
 export type TrustedWorkbookModel = {
@@ -160,21 +169,36 @@ export async function scanOoxmlRelationships(
 
     try {
       const content = await entry.async("text");
+      if (!content || !content.trim()) continue;
 
-      // Case and whitespace insensitive TargetMode="External" or TargetMode='External'
-      const isExternalTargetMode = /TargetMode\s*=\s*["']External["']/i.test(content);
+      // Fail-closed XML parsing using safeXmlParser
+      let parsed: any;
+      try {
+        parsed = safeXmlParser.parse(content);
+      } catch {
+        externalTargets.push("MALFORMED_RELS_XML");
+        continue;
+      }
 
-      // Match both single and double quotes for Target attribute
-      const targetMatches = content.match(/Target\s*=\s*["']([^"']+)["']/gi) || [];
+      if (!parsed || typeof parsed !== "object") {
+        externalTargets.push("MALFORMED_RELS_XML");
+        continue;
+      }
 
-      for (const match of targetMatches) {
-        const targetValue = match.replace(/^Target\s*=\s*["']/i, "").replace(/["']$/, "");
-        if (isExternalTargetMode || isForbiddenRelationshipTarget(targetValue)) {
-          externalTargets.push(targetValue);
+      const relsNode = parsed.Relationships?.Relationship;
+      const relsList = Array.isArray(relsNode) ? relsNode : relsNode ? [relsNode] : [];
+
+      for (const rel of relsList) {
+        const targetMode = String(rel?.["@_TargetMode"] ?? "").trim();
+        const target = String(rel?.["@_Target"] ?? "").trim();
+
+        if (targetMode.toLowerCase() === "external" || isForbiddenRelationshipTarget(target)) {
+          externalTargets.push(target || "TargetMode=External");
         }
       }
 
-      if (isExternalTargetMode && targetMatches.length === 0) {
+      // Supplementary regex check for edge-case TargetMode whitespace/quotes
+      if (/TargetMode\s*=\s*["']\s*External\s*["']/i.test(content) && relsList.length === 0) {
         externalTargets.push("TargetMode=External");
       }
     } catch {

@@ -68,6 +68,61 @@ function headersMatchContract(schema: ImportSchemaId, headers: string[]): boolea
 }
 
 export function runQuestionBankImportDryRun(opts: DryRunOptions) {
+  const authVal = opts.authIssue
+    ? { ok: false as const, issue: opts.authIssue }
+    : validateImportAuthorization(
+        opts.authorized,
+        opts.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE,
+        opts.fileName ?? "workbook.xlsx",
+      );
+
+  if (!authVal.ok) {
+    PARSER_SPY.authorizationFailures += 1;
+    const sorted = sortIssues([authVal.issue]);
+    const validationHash = canonicalHash({ accepted_set_hash: null, issues: sorted });
+    return {
+      summary: {
+        schema: (opts.schemaHint ?? "unknown") as ImportSchemaId,
+        file: opts.fileName ?? "workbook.xlsx",
+        total_rows: opts.rows?.length ?? 0,
+        ok_rows: 0,
+        blocked_rows: 0,
+        warning_count: 0,
+        error_count: sorted.length,
+        file_blocking: true,
+        column_shift_suspected: false,
+      },
+      preview: [],
+      issues: sorted,
+      accepted_set_hash: null,
+      validation_hash: validationHash,
+      parser_hash: opts.trustedWorkbook?.parser_result_hash ?? null,
+      replay_decision: "FILE_BLOCK" as const,
+      preview_metadata: {
+        contains_sensitive_answers: true,
+        required_capability: "question_bank.import.preview_sensitive",
+        cache_policy: "NO_STORE",
+        parser_version: opts.trustedWorkbook?.trusted_parser_version ?? null,
+        validation_hash: validationHash,
+        payload_hash: null,
+      },
+      public_preview: [],
+      privileged_preview: [],
+      apply_token_contract: {
+        mintable: false,
+        reason: "Dry-run package; apply token is designed but not minted.",
+        binds: [
+          "actor",
+          "tenant_scope",
+          "contract",
+          "canonical_content_hash",
+          "authorization_snapshot",
+          "expiry",
+        ],
+      },
+    };
+  }
+
   if (opts.trustedWorkbook && (!opts.trustedWorkbook.trusted_parser_version || !opts.trustedWorkbook.parser_result_hash)) {
     throw new Error("Trusted parser attestation is incomplete.");
   }
@@ -88,20 +143,6 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
 
   if (Array.isArray(opts.trustedWorkbook?.preflight_issues)) {
     issues.push(...(opts.trustedWorkbook.preflight_issues as any[]));
-  }
-
-  if (opts.authIssue) {
-    issues.push(opts.authIssue);
-  } else if (opts.authorized !== undefined && opts.authorized !== true) {
-    const authVal = validateImportAuthorization(opts.authorized, opts.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE, opts.fileName);
-    if (!authVal.ok) {
-      issues.push(authVal.issue);
-    }
-  } else if (opts.authorized === undefined) {
-    const authVal = validateImportAuthorization(undefined, opts.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE, opts.fileName);
-    if (!authVal.ok) {
-      issues.push(authVal.issue);
-    }
   }
 
   const detected = detectSchemaFromHeaders(opts.headers);

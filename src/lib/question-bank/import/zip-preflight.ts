@@ -141,9 +141,36 @@ export function preflightZipBytes(
     const nameLen = view.getUint16(offset + 28, true);
     const extraLen = view.getUint16(offset + 30, true);
     const commentLen = view.getUint16(offset + 32, true);
+    const localHeaderOffset = view.getUint32(offset + 42, true);
 
     const recordSize = 46 + nameLen + extraLen + commentLen;
     if (offset + recordSize > bytes.byteLength) {
+      issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
+      return {
+        ok: false,
+        issues,
+        entryNames: [],
+        totalUncompressedBytes,
+        totalEntries,
+        isZip: true,
+      };
+    }
+
+    // Local Header validation
+    if (localHeaderOffset + 30 > bytes.byteLength) {
+      issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
+      return {
+        ok: false,
+        issues,
+        entryNames: [],
+        totalUncompressedBytes,
+        totalEntries,
+        isZip: true,
+      };
+    }
+
+    const localSig = view.getUint32(localHeaderOffset, true);
+    if (localSig !== 0x04034b50) {
       issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
       return {
         ok: false,
@@ -160,6 +187,11 @@ export function preflightZipBytes(
       issues.push(issue(QB_IMPORT_CODES.WORKBOOK_ENCRYPTED, { file: fileName }));
     }
 
+    // Check single entry declared size limit
+    if (uncompSize > DEFAULT_IMPORT_LIMITS.maxSingleEntryUncompressedBytes) {
+      issues.push(issue(QB_IMPORT_CODES.ZIP_DECLARED_SIZE_LIMIT, { file: fileName }));
+    }
+
     totalUncompressedBytes += uncompSize;
 
     // Check compression ratio bomb (canonical threshold 10:1 for uncompressed > 1MB)
@@ -172,40 +204,61 @@ export function preflightZipBytes(
     }
 
     const nameBytes = bytes.subarray(offset + 46, offset + 46 + nameLen);
-    const name = decoder.decode(nameBytes);
+    const rawName = decoder.decode(nameBytes);
 
-    // NUL or control chars -> path traversal / corrupted entry
-    if (/[\0\x01-\x1f\x7f]/.test(name)) {
-      issues.push(issue(QB_IMPORT_CODES.PATH_TRAVERSAL, { file: fileName }));
+    let decodedName = rawName;
+    try {
+      let prev = "";
+      let depth = 0;
+      while (decodedName !== prev && depth < 3) {
+        prev = decodedName;
+        decodedName = decodeURIComponent(decodedName);
+        depth++;
+      }
+    } catch {
+      // Keep best-effort decoded string if URI malformed
     }
 
-    // Check absolute paths
+    // NUL or control chars -> MALFORMED_UNICODE
+    if (/[\0\x01-\x1f\x7f]/.test(rawName) || /[\0\x01-\x1f\x7f]/.test(decodedName)) {
+      issues.push(issue(QB_IMPORT_CODES.MALFORMED_UNICODE, { file: fileName }));
+    }
+
+    // Absolute path check
     if (
-      name.startsWith("/") ||
-      name.startsWith("\\") ||
-      /^[a-zA-Z]:/.test(name)
+      rawName.startsWith("/") ||
+      rawName.startsWith("\\") ||
+      decodedName.startsWith("/") ||
+      decodedName.startsWith("\\") ||
+      /^[a-zA-Z]:/.test(rawName) ||
+      /^[a-zA-Z]:/.test(decodedName)
     ) {
       issues.push(issue(QB_IMPORT_CODES.ZIP_ABSOLUTE_PATH, { file: fileName }));
     }
 
-    // Check path traversal
+    // Path traversal check
     if (
       !MUTATION_HOOKS.disablePathTraversalDetection &&
-      (name.includes("..") || name.includes("%2e%2e"))
+      (rawName.includes("..") ||
+        decodedName.includes("..") ||
+        /%2e%2e/i.test(rawName) ||
+        /%252e%252e/i.test(rawName) ||
+        /(\.\.[\\/]|[\\/]\.\.)/.test(rawName) ||
+        /(\.\.[\\/]|[\\/]\.\.)/.test(decodedName))
     ) {
       issues.push(issue(QB_IMPORT_CODES.PATH_TRAVERSAL, { file: fileName }));
     }
 
     // Check duplicate ZIP entries
     if (!MUTATION_HOOKS.disableDuplicateEntryDetection) {
-      if (seenEntries.has(name)) {
+      if (seenEntries.has(rawName)) {
         issues.push(issue(QB_IMPORT_CODES.ZIP_DUPLICATE_ENTRY, { file: fileName }));
       } else {
-        seenEntries.add(name);
+        seenEntries.add(rawName);
       }
     }
 
-    entryNames.push(name);
+    entryNames.push(rawName);
     offset += recordSize;
   }
 

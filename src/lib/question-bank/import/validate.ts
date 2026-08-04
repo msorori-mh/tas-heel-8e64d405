@@ -88,15 +88,21 @@ export function validateNormalizedRow(
     issues.push(issue(QB_IMPORT_CODES.ANSWER_NOT_ALLOWED, base));
   }
 
-  for (const value of [
+  const stringValues = [
     row.question_code,
     row.revision.question_text,
+    row.revision.stimulus_text ?? "",
     ...row.options.map((o) => o.body),
-  ]) {
+    ...row.accepted_answers.map((a) => a.answer_text),
+    ...row.solutions.map((s) => s.body),
+    ...row.media.map((m) => m.url),
+  ];
+
+  for (const value of stringValues) {
     if (hasUnsafeUnicode(value)) {
       issues.push(issue(QB_IMPORT_CODES.MALFORMED_UNICODE, base));
     } else if (isFormulaLike(value)) {
-      issues.push(issue(QB_IMPORT_CODES.FORMULA_INJECTION, base));
+      issues.push(issue(QB_IMPORT_CODES.FORMULA_CELL, base));
     }
   }
 
@@ -142,8 +148,15 @@ export function validateNormalizedRow(
   if (ctx.catalog?.existing?.has(row.question_code)) {
     const prior = ctx.catalog.existing.get(row.question_code);
     const current = contentFingerprint(row);
-    if (prior && prior !== current) {
-      // Same code, different canonical content → replay conflict (file-blocking).
+    if (prior === "CATALOG_EXISTS") {
+      issues.push(
+        issue(QB_IMPORT_CODES.DUPLICATE_CODE_EXISTS, {
+          ...base,
+          file_blocking: true,
+          row_blocking: false,
+        }),
+      );
+    } else if (prior && prior !== current) {
       issues.push(
         issue(QB_IMPORT_CODES.IMPORT_REPLAY_CONFLICT, {
           ...base,
@@ -152,7 +165,6 @@ export function validateNormalizedRow(
         }),
       );
     }
-    // Same code + same fingerprint: dry-run classifies REPLAY_SAFE_NOOP (no issue).
   }
 
   if (ctx.seenFingerprints) {
@@ -161,7 +173,11 @@ export function validateNormalizedRow(
     ctx.seenFingerprints.add(fingerprint);
   }
 
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(row.question_code)) {
+  if (mixedNumeralScripts(row.question_code)) {
+    issues.push(issue(QB_IMPORT_CODES.MIXED_NUMERAL_SCRIPTS, base));
+  }
+
+  if (!/^[A-Za-z0-9\u0660-\u0669\u06f0-\u06f9][A-Za-z0-9\u0660-\u0669\u06f0-\u06f9._-]{0,63}$/.test(row.question_code)) {
     issues.push(
       issue(QB_IMPORT_CODES.QUESTION_CODE_INVALID, {
         ...base,

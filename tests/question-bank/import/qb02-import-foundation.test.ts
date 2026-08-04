@@ -25,6 +25,15 @@ import { DEFAULT_IMPORT_LIMITS } from "../../../src/lib/question-bank/import/lim
 import { validateMediaUrl } from "../../../src/lib/question-bank/import/media-policy.ts";
 import { previewRows } from "../../../src/lib/question-bank/import/preview.ts";
 
+const VALID_AUTH = {
+  authenticated: true,
+  actorId: "test-actor-123",
+  authorized: true,
+  capability: "question_bank.import",
+  scope: "tenant:default",
+  context: { actorId: "test-actor-123" },
+};
+
 const opts4 = [
   { option_code: "A", body: "نيوتن" },
   { option_code: "B", body: "جول" },
@@ -289,7 +298,7 @@ test("dry-run teacher happy path", () => {
       lessons: new Set(["L1"]),
       lessonSubjects: new Map([["L1", "PHYS"]]),
     },
-    authorized: true,
+    authorized: VALID_AUTH,
   });
   assert.equal(r.summary.ok_rows, 1);
   assert.ok(r.accepted_set_hash);
@@ -310,7 +319,7 @@ test("dry-run determinism", () => {
       lessons: new Set(["L1"]),
       lessonSubjects: new Map([["L1", "PHYS"]]),
     },
-    authorized: true,
+    authorized: VALID_AUTH,
   };
   const a = runQuestionBankImportDryRun(input);
   const b = runQuestionBankImportDryRun(input);
@@ -365,13 +374,14 @@ test("limits 1000 pass / 1001 fail", () => {
       lessons: new Set(["L1"]),
       lessonSubjects: new Map([["L1", "PHYS"]]),
     },
-    authorized: true,
+    authorized: VALID_AUTH,
   });
   assert.equal(ok.summary.ok_rows, 1000);
   const bad = runQuestionBankImportDryRun({
     fileName: "1001.xlsx",
     headers,
     rows: mk(1001),
+    authorized: VALID_AUTH,
   });
   assert.ok(bad.issues.some((i) => i.code === "ROW_LIMIT"));
 });
@@ -389,7 +399,7 @@ test("5 MiB boundary", () => {
       lessons: new Set(["L1"]),
       lessonSubjects: new Map([["L1", "PHYS"]]),
     },
-    authorized: true,
+    authorized: VALID_AUTH,
   });
   assert.equal(pass.summary.file_blocking, false);
   const fail = runQuestionBankImportDryRun({
@@ -397,6 +407,7 @@ test("5 MiB boundary", () => {
     headers,
     rows: [row],
     fileBytes: DEFAULT_IMPORT_LIMITS.maxFileBytes + 1,
+    authorized: VALID_AUTH,
   });
   assert.ok(fail.issues.some((i) => i.code === "FILE_TOO_LARGE"));
 });
@@ -558,6 +569,7 @@ test("schemaHint mismatch rejects mixed workbook", () => {
     headers: [...CONTRACT_HEADERS.teacher_flat_ar_v0],
     rows: [],
     schemaHint: "official_flat_v0",
+    authorized: VALID_AUTH,
   });
   assert.ok(r.issues.some((i) => i.code === "INVALID_CONTRACT"));
 });
@@ -704,19 +716,30 @@ test("authorization contract matrix: reject partial/invalid auth, allow complete
     { auth: { valid: true }, expectedCode: "AUTH_MALFORMED" },
     { auth: { authorized: true }, expectedCode: "AUTH_MALFORMED" },
     {
-      auth: { authorized: true, capability: "wrong.capability" },
+      auth: {
+        authenticated: true,
+        actorId: "actor-1",
+        authorized: true,
+        capability: "wrong.capability",
+        scope: "tenant:default",
+        context: {},
+      },
       expectedCode: "CAPABILITY_INVALID",
     },
     {
       auth: {
+        authenticated: true,
+        actorId: "actor-1",
         authorized: true,
         capability: "question_bank.import",
         scope: "wrong:scope",
+        context: {},
       },
       expectedCode: "SCOPE_MISMATCH",
     },
     {
       auth: {
+        authenticated: true,
         authorized: true,
         capability: "question_bank.import",
         scope: "tenant:default",

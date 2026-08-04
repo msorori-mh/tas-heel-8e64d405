@@ -53,9 +53,20 @@ export function validateImportAuthorization(
 
   const obj = auth as Record<string, unknown>;
 
-  // Reject malformed objects like {}, { valid: true }, { authorized: true } without capability/actorId
+  if (obj.authorized === false) {
+    return {
+      ok: false,
+      issue: issue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT, { file: fileName }),
+    };
+  }
+
   const keys = Object.keys(obj);
-  if (keys.length === 0 || (keys.length === 1 && (keys[0] === "valid" || keys[0] === "authorized"))) {
+
+  // Reject empty objects or simple flags without full schema ({}, { valid: true }, { authorized: true })
+  if (
+    keys.length === 0 ||
+    (keys.length === 1 && (keys[0] === "valid" || keys[0] === "authorized" || keys[0] === "role"))
+  ) {
     return {
       ok: false,
       issue: issue(QB_IMPORT_CODES.AUTH_MALFORMED, { file: fileName }),
@@ -69,6 +80,28 @@ export function validateImportAuthorization(
     };
   }
 
+  if (obj.expiresAt !== undefined && obj.expiresAt !== null) {
+    const expiresNum =
+      typeof obj.expiresAt === "number"
+        ? obj.expiresAt
+        : typeof obj.expiresAt === "string"
+          ? Date.parse(obj.expiresAt)
+          : NaN;
+    if (Number.isNaN(expiresNum) || Date.now() >= expiresNum) {
+      return {
+        ok: false,
+        issue: issue(QB_IMPORT_CODES.AUTH_EXPIRED, { file: fileName }),
+      };
+    }
+  }
+
+  if (obj.authorized === false) {
+    return {
+      ok: false,
+      issue: issue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT, { file: fileName }),
+    };
+  }
+
   if (obj.authenticated === false) {
     return {
       ok: false,
@@ -76,7 +109,7 @@ export function validateImportAuthorization(
     };
   }
 
-  if (obj.authorized !== true) {
+  if (obj.authenticated !== true) {
     return {
       ok: false,
       issue: issue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT, { file: fileName }),
@@ -91,14 +124,29 @@ export function validateImportAuthorization(
   }
 
   const actualScope = typeof obj.scope === "string" ? obj.scope : "";
-  if (!actualScope || (expectedScope && actualScope !== expectedScope && actualScope !== "*")) {
+  // Wildcard scope "*" is strictly forbidden
+  if (!actualScope || actualScope === "*" || (expectedScope && actualScope !== expectedScope)) {
     return {
       ok: false,
       issue: issue(QB_IMPORT_CODES.SCOPE_MISMATCH, { file: fileName }),
     };
   }
 
-  if (typeof obj.actorId !== "string" || !obj.actorId.trim() || !obj.context || typeof obj.context !== "object") {
+  if (obj.authorized !== true) {
+    return {
+      ok: false,
+      issue: issue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT, { file: fileName }),
+    };
+  }
+
+  if (typeof obj.actorId !== "string" || !obj.actorId.trim()) {
+    return {
+      ok: false,
+      issue: issue(QB_IMPORT_CODES.AUTH_MALFORMED, { file: fileName }),
+    };
+  }
+
+  if (!obj.context || typeof obj.context !== "object" || Array.isArray(obj.context)) {
     return {
       ok: false,
       issue: issue(QB_IMPORT_CODES.AUTH_MALFORMED, { file: fileName }),
@@ -107,7 +155,7 @@ export function validateImportAuthorization(
 
   return {
     ok: true,
-    actorId: obj.actorId,
+    actorId: obj.actorId.trim(),
     capability: obj.capability,
     scope: actualScope,
   };

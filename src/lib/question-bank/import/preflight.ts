@@ -20,6 +20,7 @@ export type WorkbookParserMetadata = {
   uncompressedBytes?: number;
   maxCellBytes?: number;
   csvInjectionCells?: boolean;
+  hasZipBomb?: boolean;
 };
 
 export function preflightWorkbook(input: {
@@ -41,8 +42,9 @@ export function preflightWorkbook(input: {
   if (input.headers.length > DEFAULT_IMPORT_LIMITS.maxColumns) add("COLUMN_LIMIT");
   if ((meta.zipEntries ?? 0) > DEFAULT_IMPORT_LIMITS.maxZipEntries) add("ZIP_ENTRY_LIMIT");
   if ((meta.uncompressedBytes ?? 0) > DEFAULT_IMPORT_LIMITS.maxUncompressedBytes) {
-    add("ZIP_BOMB_SUSPECTED");
+    add("ZIP_TOTAL_SIZE_LIMIT");
   }
+  if (meta.hasZipBomb) add("ZIP_BOMB_SUSPECTED");
   if (meta.hasFormulaCells) add("FORMULA_CELL");
   if (meta.hasMergedDataCells) add("MERGED_DATA_CELL");
   if (meta.encrypted) add("WORKBOOK_ENCRYPTED");

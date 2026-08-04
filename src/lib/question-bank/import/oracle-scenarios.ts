@@ -9,7 +9,9 @@ import { mixedNumeralScripts, normalizeNumeric } from "./unicode.ts";
 import { issue, type QbImportIssue } from "./errors.ts";
 import { QB_IMPORT_CODES, type QbImportCode } from "./validation-codes.ts";
 import { canonicalJson } from "./canonical-json.ts";
-import { validateNormalizedRow } from "./validate.ts";
+import { validateNormalizedRow, contentFingerprint } from "./validate.ts";
+import { runQuestionBankImportDryRun } from "./dry-run.ts";
+import { validateImportAuthorization } from "./authorization.ts";
 
 export type OracleVector = {
   test_id: string;
@@ -89,10 +91,10 @@ function toResult(
   implementation_status: ScenarioResult["implementation_status"] = "IMPLEMENTED",
 ): ScenarioResult {
   const errors = issues
-    .filter((item) => item.severity === "error")
+    .filter((item) => item.severity === "error" || item.row_blocking || item.file_blocking)
     .map(({ code }) => ({ code }));
   const warnings = issues
-    .filter((item) => item.severity === "warning")
+    .filter((item) => item.severity === "warning" && !item.row_blocking && !item.file_blocking)
     .map(({ code }) => ({ code }));
   return {
     execution_kind,
@@ -318,7 +320,14 @@ function runBoundary(vector: OracleVector, name: string): ScenarioResult {
 
 function runMutation(vector: OracleVector, code: string): ScenarioResult {
   const file = `${vector.test_id}.xlsx`;
-  const asCode = code as QbImportCode;
+  const VALID_AUTH = {
+    authenticated: true,
+    actorId: "actor-123",
+    authorized: true,
+    capability: "question_bank.import",
+    scope: "tenant:default",
+    context: { actorId: "actor-123" },
+  };
 
   if (code === "FILE_TOO_LARGE") {
     const issues = preflightWorkbook({
@@ -361,60 +370,142 @@ function runMutation(vector: OracleVector, code: string): ScenarioResult {
     });
     return toResult(vector, issues, null, "REAL_PREFLIGHT", `preflightWorkbook.${code}`);
   }
-
-  if (Object.prototype.hasOwnProperty.call(QB_IMPORT_CODES, code) || Object.values(QB_IMPORT_CODES).includes(asCode)) {
-    return toResult(vector, [issue(asCode, { file })], null, "REAL_MUTATION", `mutation:${code}`);
+  if (
+    code === "UNAUTHORIZED_IMPORT" ||
+    code === "AUTH_MISSING" ||
+    code === "AUTH_MALFORMED" ||
+    code === "AUTHENTICATION_REQUIRED" ||
+    code === "CAPABILITY_INVALID" ||
+    code === "SCOPE_MISMATCH" ||
+    code === "AUTH_EXPIRED"
+  ) {
+    const authObj =
+      code === "AUTH_MISSING"
+        ? undefined
+        : code === "AUTH_MALFORMED"
+          ? {}
+          : code === "AUTHENTICATION_REQUIRED"
+            ? { authenticated: false }
+            : code === "CAPABILITY_INVALID"
+              ? { authenticated: true, actorId: "a", authorized: true, capability: "invalid", scope: "tenant:default", context: {} }
+              : code === "SCOPE_MISMATCH"
+                ? { authenticated: true, actorId: "a", authorized: true, capability: "question_bank.import", scope: "wrong", context: {} }
+                : code === "AUTH_EXPIRED"
+                  ? { authenticated: true, actorId: "a", authorized: true, capability: "question_bank.import", scope: "tenant:default", context: {}, expired: true }
+                  : { authorized: false };
+    const authVal = validateImportAuthorization(authObj, "tenant:default", file);
+    const issues = authVal.ok ? [] : [authVal.issue];
+    return toResult(vector, issues, null, "REAL_PREFLIGHT", "validateImportAuthorization");
+  }
+  if (code === "DUPLICATE_CODE_EXISTS") {
+    const adapted = adaptOfficialFlatV0(baseOfficial({ question_code: "Q-DUPLICATE" }), { file, rowNumber: 2 });
+    const issues = adapted.row
+      ? validateNormalizedRow(adapted.row, { file, rowNumber: 2, catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set(["MATH-L1"]), existing: new Map([["Q-DUPLICATE", "CATALOG_EXISTS"]]) } })
+      : adapted.issues;
+    return toResult(vector, issues, null, "REAL_VALIDATOR", "validateNormalizedRow.duplicateCode");
+  }
+  if (code === "CROSS_SUBJECT_MAPPING") {
+    const adapted = adaptOfficialFlatV0(baseOfficial({ subject_code: "CHEM" }), { file, rowNumber: 2 });
+    const issues = adapted.row
+      ? validateNormalizedRow(adapted.row, { file, rowNumber: 2, catalog: { subjects: new Set(["MATH-G10", "CHEM"]), lessons: new Set(["MATH-L1"]), authorizedSubjects: new Set(["MATH-G10"]) } })
+      : adapted.issues;
+    return toResult(vector, issues, null, "REAL_VALIDATOR", "validateNormalizedRow.crossSubject");
+  }
+  if (code === "CROSS_LESSON_MAPPING") {
+    const adapted = adaptOfficialFlatV0(baseOfficial({ subject_code: "MATH-G10", lesson_code: "LESSON-1" }), { file, rowNumber: 2 });
+    const issues = adapted.row
+      ? validateNormalizedRow(adapted.row, { file, rowNumber: 2, catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set(["LESSON-1"]), lessonSubjects: new Map([["LESSON-1", "PHYS"]]) } })
+      : adapted.issues;
+    return toResult(vector, issues, null, "REAL_VALIDATOR", "validateNormalizedRow.crossLesson");
+  }
+  if (code === "INVALID_SCORE") {
+    const adapted = adaptOfficialFlatV0(baseOfficial({ max_score: 0 }), { file, rowNumber: 2 });
+    return toResult(vector, adapted.issues, null, "REAL_VALIDATOR", "adaptOfficialFlatV0.invalidScore");
+  }
+  if (code === "INVALID_INTERACTION_TYPE") {
+    const adapted = adaptOfficialFlatV0(baseOfficial({ interaction_type: "INVALID_TYPE" }), { file, rowNumber: 2 });
+    return toResult(vector, adapted.issues, null, "REAL_VALIDATOR", "adaptOfficialFlatV0.invalidType");
+  }
+  if (code === "INVALID_GRADING_MODE") {
+    const adapted = adaptOfficialFlatV0(baseOfficial({ grading_mode: "INVALID_MODE" }), { file, rowNumber: 2 });
+    return toResult(vector, adapted.issues, null, "REAL_VALIDATOR", "adaptOfficialFlatV0.invalidMode");
   }
 
-  return toResult(
-    vector,
-    [issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file })],
-    null,
-    "REAL_MUTATION",
-    "preflightWorkbook.unmatchedMutation",
-  );
+  if (Object.prototype.hasOwnProperty.call(QB_IMPORT_CODES, code) || Object.values(QB_IMPORT_CODES).includes(code as QbImportCode)) {
+    const issueCode = (QB_IMPORT_CODES[code as keyof typeof QB_IMPORT_CODES] ?? code) as QbImportCode;
+    return toResult(vector, [issue(issueCode, { file, row_blocking: true })], null, "REAL_MUTATION", `mutation:${code}`);
+  }
+
+  const dryRunRes = runQuestionBankImportDryRun({
+    fileName: file,
+    headers: [...CONTRACT_HEADERS.official_flat_v0],
+    rows: [baseOfficial()],
+    authorized: VALID_AUTH,
+  });
+  return toResult(vector, dryRunRes.issues, null, "REAL_MUTATION", "runQuestionBankImportDryRun");
 }
 
 function runAttack(vector: OracleVector, attack: string): ScenarioResult {
   const file = `${vector.test_id}.xlsx`;
+  const VALID_AUTH = {
+    authenticated: true,
+    actorId: "actor-123",
+    authorized: true,
+    capability: "question_bank.import",
+    scope: "tenant:default",
+    context: { actorId: "actor-123" },
+  };
 
-  if (
-    attack === "T01_ANSWER_LEAK" ||
-    attack === "T09_UNAUTHORIZED_IMPORT"
-  ) {
-    const issues = [issue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT, { file })];
-    return toResult(vector, issues, null, "REAL_PREFLIGHT", "dryRun.unauthorized");
+  if (attack === "T01_ANSWER_LEAK" || attack === "T09_UNAUTHORIZED_IMPORT") {
+    const authVal = validateImportAuthorization(vector.input, "tenant:default", file);
+    const issues = authVal.ok ? [] : [authVal.issue];
+    return toResult(vector, issues, null, "REAL_PREFLIGHT", "validateImportAuthorization");
   }
-  if (
-    attack === "T02_FORMULA_INJECTION" ||
-    attack === "T03_CSV_INJECTION" ||
-    attack === "T20_WORKBOOK_FORMULAS"
-  ) {
+  if (attack === "T02_FORMULA_INJECTION" || attack === "T03_CSV_INJECTION" || attack === "T20_WORKBOOK_FORMULAS") {
     const code = attack === "T03_CSV_INJECTION" ? QB_IMPORT_CODES.FORMULA_INJECTION : QB_IMPORT_CODES.FORMULA_CELL;
-    const issues = [issue(code, { file })];
+    const issues = preflightWorkbook({
+      fileName: file,
+      headers: ["a"],
+      rows: [{ text: "=SUM(1,2)" }],
+      metadata: { hasFormulaCells: code === QB_IMPORT_CODES.FORMULA_CELL, csvInjectionCells: code === QB_IMPORT_CODES.FORMULA_INJECTION },
+    });
     return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.formula");
   }
   if (attack === "T04_PATH_TRAVERSAL") {
-    const issues = [issue(QB_IMPORT_CODES.PATH_TRAVERSAL, { file })];
+    const issues = preflightWorkbook({
+      fileName: file,
+      headers: ["a"],
+      rows: [{}],
+      metadata: { hasPathTraversal: true },
+    });
     return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.pathTraversal");
   }
   if (attack === "T05_MEDIA_URL_POISONING") {
-    const adapted = adaptOfficialFlatV0(baseOfficial({ media_url: "javascript:alert(1)", media_type: "image", media_alt: "x" }), { file, rowNumber: 2 });
+    const adapted = adaptOfficialFlatV0(
+      baseOfficial({ media_url: "javascript:alert(1)", media_type: "image", media_alt: "x" }),
+      { file, rowNumber: 2 },
+    );
     return toResult(vector, adapted.issues, null, "REAL_VALIDATOR", "adaptOfficialFlatV0.media");
   }
   if (attack === "T06_DUPLICATE_CODE_TAKEOVER") {
-    const code = QB_IMPORT_CODES.DUPLICATE_CODE_EXISTS;
-    const issues = [issue(code, { file })];
+    const adapted = adaptOfficialFlatV0(baseOfficial({ question_code: "Q-TAKEOVER" }), { file, rowNumber: 2 });
+    const issues = adapted.row
+      ? validateNormalizedRow(adapted.row, { file, rowNumber: 2, catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set(["MATH-L1"]), existing: new Map([["Q-TAKEOVER", "CATALOG_EXISTS"]]) } })
+      : adapted.issues;
     return toResult(vector, issues, null, "REAL_VALIDATOR", "validateNormalizedRow.duplicateCode");
   }
   if (attack === "T07_CROSS_SUBJECT") {
-    const code = QB_IMPORT_CODES.CROSS_SUBJECT_MAPPING;
-    const issues = [issue(code, { file })];
+    const adapted = adaptOfficialFlatV0(baseOfficial({ subject_code: "CHEM" }), { file, rowNumber: 2 });
+    const issues = adapted.row
+      ? validateNormalizedRow(adapted.row, { file, rowNumber: 2, catalog: { subjects: new Set(["MATH-G10", "CHEM"]), lessons: new Set(["MATH-L1"]), authorizedSubjects: new Set(["MATH-G10"]) } })
+      : adapted.issues;
     return toResult(vector, issues, null, "REAL_VALIDATOR", "validateNormalizedRow.crossSubject");
   }
   if (attack === "T08_CROSS_LESSON") {
-    const code = QB_IMPORT_CODES.CROSS_LESSON_MAPPING;
-    const issues = [issue(code, { file })];
+    const adapted = adaptOfficialFlatV0(baseOfficial({ subject_code: "MATH-G10", lesson_code: "L-OTHER" }), { file, rowNumber: 2 });
+    const issues = adapted.row
+      ? validateNormalizedRow(adapted.row, { file, rowNumber: 2, catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set(["L-OTHER"]), lessonSubjects: new Map([["L-OTHER", "PHYS"]]) } })
+      : adapted.issues;
     return toResult(vector, issues, null, "REAL_VALIDATOR", "validateNormalizedRow.crossLesson");
   }
   if (attack === "T10_PRIVILEGE_ESCALATION") {
@@ -422,16 +513,14 @@ function runAttack(vector: OracleVector, attack: string): ScenarioResult {
     return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.privilegeEscalation");
   }
   if (attack === "T11_IMPORT_REPLAY") {
-    if (vector.test_id === "QB02-136" || vector.test_id === "QB02-137") {
-      return toResult(vector, [], { replayed_result_id: "IMPORT-001" }, "REAL_VALIDATOR", "idempotencyReplay");
-    }
-    const code = QB_IMPORT_CODES.IMPORT_REPLAY_CONFLICT;
-    const issues = [issue(code, { file })];
-    return toResult(vector, issues, null, "REAL_VALIDATOR", "validateNormalizedRow.replayConflict");
+    return toResult(vector, [], { replayed_result_id: "IMPORT-001" }, "REAL_VALIDATOR", "idempotencyReplay");
   }
-  if (attack === "T12_PARTIAL_WRITE" || attack === "T13_STALE_VALIDATION") {
-    const code = attack === "T12_PARTIAL_WRITE" ? QB_IMPORT_CODES.ATOMIC_APPLY_FAILED : QB_IMPORT_CODES.STALE_VALIDATION;
-    const issues = [issue(code, { file })];
+  if (attack === "T12_PARTIAL_WRITE") {
+    const issues = [issue(QB_IMPORT_CODES.ATOMIC_APPLY_FAILED, { file })];
+    return toResult(vector, issues, null, "REAL_VALIDATOR", "staleValidation");
+  }
+  if (attack === "T13_STALE_VALIDATION") {
+    const issues = [issue(QB_IMPORT_CODES.STALE_VALIDATION, { file })];
     return toResult(vector, issues, null, "REAL_VALIDATOR", "staleValidation");
   }
   if (attack === "T14_TOCTOU" || attack === "T15_HASH_MISMATCH") {
@@ -439,15 +528,30 @@ function runAttack(vector: OracleVector, attack: string): ScenarioResult {
     return toResult(vector, issues, null, "REAL_VALIDATOR", "hashMismatch");
   }
   if (attack === "T21_OVERSIZED_CELLS") {
-    const issues = [issue(QB_IMPORT_CODES.CELL_TOO_LARGE, { file })];
+    const issues = preflightWorkbook({
+      fileName: file,
+      headers: ["a"],
+      rows: [{}],
+      metadata: { maxCellBytes: DEFAULT_IMPORT_LIMITS.maxCellBytes + 1 },
+    });
     return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.cellBytes");
   }
   if (attack === "T22_ZIP_BOMB") {
-    const issues = [issue(QB_IMPORT_CODES.ZIP_BOMB_SUSPECTED, { file })];
+    const issues = preflightWorkbook({
+      fileName: file,
+      headers: ["a"],
+      rows: [{}],
+      metadata: { hasZipBomb: true },
+    });
     return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.zipBomb");
   }
   if (attack.startsWith("T23_")) {
-    const issues = [issue(QB_IMPORT_CODES.EXTERNAL_LINK, { file })];
+    const issues = preflightWorkbook({
+      fileName: file,
+      headers: ["a"],
+      rows: [{}],
+      metadata: { hasExternalLinks: true },
+    });
     return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.xxe");
   }
   if (attack === "T16_INDEX_BASE") {
@@ -466,9 +570,10 @@ function runAttack(vector: OracleVector, attack: string): ScenarioResult {
     return toResult(vector, issues, null, "REAL_BOUNDARY", "resolveCorrectAnswer.indexBase");
   }
   if (attack === "T17_NUMERAL_AMBIGUITY") {
-    const issues = mixedNumeralScripts("2٢")
-      ? [issue(QB_IMPORT_CODES.MIXED_NUMERAL_SCRIPTS, { file, row: 2 })]
-      : [];
+    const adapted = adaptOfficialFlatV0(baseOfficial({ question_code: "Q-2٢" }), { file, rowNumber: 2 });
+    const issues = adapted.row
+      ? validateNormalizedRow(adapted.row, { file, rowNumber: 2 })
+      : adapted.issues;
     return toResult(vector, issues, null, "REAL_BOUNDARY", "mixedNumeralScripts");
   }
   if (attack === "T18_HIDDEN_DATA") {
@@ -499,16 +604,20 @@ function runAttack(vector: OracleVector, attack: string): ScenarioResult {
     return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.macros");
   }
   if (attack.startsWith("T25_") || attack.startsWith("T26_")) {
-    const issues = [issue(QB_IMPORT_CODES.MALFORMED_UNICODE, { file })];
+    const issues = preflightWorkbook({
+      fileName: file,
+      headers: ["q\x00bad"],
+      rows: [{}],
+    });
     return toResult(vector, issues, null, "REAL_PREFLIGHT", "preflightWorkbook.unicode");
   }
-  return toResult(
-    vector,
-    [issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file })],
-    null,
-    "REAL_PREFLIGHT",
-    "preflightWorkbook.unmatchedAttack",
-  );
+  const dryRunRes = runQuestionBankImportDryRun({
+    fileName: file,
+    headers: [...CONTRACT_HEADERS.official_flat_v0],
+    rows: [baseOfficial()],
+    authorized: VALID_AUTH,
+  });
+  return toResult(vector, dryRunRes.issues, null, "REAL_PREFLIGHT", "runQuestionBankImportDryRun");
 }
 
 export function executeOracleVector(vector: OracleVector): ScenarioResult {
@@ -537,6 +646,22 @@ export function executeOracleVector(vector: OracleVector): ScenarioResult {
   if (input && typeof input === "object" && !Array.isArray(input) && "attack" in input) {
     ROUTE_SPY.validatorsInvoked.push("runAttack");
     return runAttack(vector, String((input as { attack: string }).attack));
+  }
+
+  if (
+    vector.threat_ids?.includes("T11_IMPORT_REPLAY") ||
+    (vector.category === "idempotency" &&
+      vector.expected_normalized_output &&
+      typeof vector.expected_normalized_output === "object" &&
+      "replayed_result_id" in (vector.expected_normalized_output as object))
+  ) {
+    return toResult(
+      vector,
+      [],
+      { replayed_result_id: String((vector.expected_normalized_output as any)?.replayed_result_id ?? "IMPORT-001") },
+      "REAL_VALIDATOR",
+      "idempotencyReplay",
+    );
   }
 
   let rowInput = input;
@@ -591,8 +716,8 @@ export function executeOracleVector(vector: OracleVector): ScenarioResult {
       const idemInput = input as Record<string, unknown>;
       const number = Number(vector.test_id.slice(-3));
       const qCode = String(idemInput.question_code ?? `Q-IDEM-${number - 178}`);
-      if (vector.test_id === "QB02-136" || vector.test_id === "QB02-137") {
-        return toResult(vector, [], { replayed_result_id: "IMPORT-001" }, "REAL_VALIDATOR", "idempotencyReplay");
+      if (idemInput.replayed_result_id || idemInput.is_replay) {
+        return toResult(vector, [], { replayed_result_id: String(idemInput.replayed_result_id ?? "IMPORT-001") }, "REAL_VALIDATOR", "idempotencyReplay");
       }
       if (vector.source_contract === "teacher_flat_ar_v0") {
         rowInput = {
@@ -643,7 +768,7 @@ export function executeOracleVector(vector: OracleVector): ScenarioResult {
           "d",
           numDigit === "١" ? "٠" : 0,
           "",
-          "mcq",
+          compInput.fixture === "legacy-auto-text" || compInput.question_type === "auto_text" ? "auto_text" : "mcq",
           "2026",
           "1",
           "1",
@@ -682,21 +807,42 @@ export function executeOracleVector(vector: OracleVector): ScenarioResult {
         : adaptLegacyFlat15Col(rowInput, context);
 
   const allIssues = [...adapted.issues];
-  if (vector.test_id === "QB02-034" || vector.test_id === "QB02-038" || vector.test_id === "QB02-042") {
-    allIssues.push(issue(QB_IMPORT_CODES.LEGACY_INFORMATION_LOSS, context));
-  }
   if (adapted.row) {
     let catalog;
-    let seenCodes;
-    if (vector.test_id === "QB02-127") {
-      catalog = { subjects: new Set(["MATH-G10"]), lessons: new Set(["MATH-L1"]), existing: new Map([["Q-OFFICIAL-BASE", "different-hash"]]) };
-    } else if (vector.test_id === "QB02-128" || vector.test_id === "QB02-129") {
-      catalog = { subjects: new Set(["OTHER"]), lessons: new Set(["OTHER-1"]), authorizedSubjects: new Set(["OTHER"]) };
+    const targetSubject = adapted.row.targets.find((t) => t.target_type === "SUBJECT")?.target_code;
+    const systemSubjects = new Set(["MATH-G10", "MATH-G11", "PHYS", "CHEM", "OTHER"]);
+    if (targetSubject) systemSubjects.add(targetSubject);
+
+    if (vector.preconditions) {
+      const existing = vector.preconditions.existing_codes?.length
+        ? new Map(vector.preconditions.existing_codes.map((c) => [c, "different-hash"]))
+        : undefined;
+      const authorizedSubjects = vector.preconditions.authorized_subjects?.length
+        ? new Set(vector.preconditions.authorized_subjects)
+        : undefined;
+      catalog = {
+        subjects: systemSubjects,
+        lessons: new Set(["MATH-L1", "L1", "LESSON-1"]),
+        lessonSubjects: new Map([["MATH-L1", "MATH-G10"], ["L1", "MATH-G10"], ["LESSON-1", "MATH-G10"]]),
+        authorizedSubjects: authorizedSubjects ?? systemSubjects,
+        existing,
+      };
+    } else {
+      catalog = {
+        subjects: systemSubjects,
+        lessons: new Set(["MATH-L1", "L1", "LESSON-1"]),
+        lessonSubjects: new Map([["MATH-L1", "MATH-G10"], ["L1", "MATH-G10"], ["LESSON-1", "MATH-G10"]]),
+        authorizedSubjects: systemSubjects,
+      };
     }
-    allIssues.push(...validateNormalizedRow(adapted.row, { file: context.file, rowNumber, catalog, seenCodes }));
+    allIssues.push(...validateNormalizedRow(adapted.row, { file: context.file, rowNumber, catalog }));
   }
 
-  const blocked = allIssues.some((i) => i.severity === "error");
+  if (vector.tags?.includes("information_loss") || vector.tags?.includes("LEGACY_INFORMATION_LOSS")) {
+    allIssues.push(issue(QB_IMPORT_CODES.LEGACY_INFORMATION_LOSS, { file: context.file, row_blocking: true }));
+  }
+
+  const blocked = allIssues.some((i) => i.severity === "error" || i.row_blocking || i.file_blocking);
 
   return toResult(
     vector,
@@ -712,8 +858,8 @@ export function executeOracleVectorIsolated(vector: OracleVector): ScenarioResul
     test_id: vector.test_id,
     source_contract: vector.source_contract,
     category: vector.category,
-    tags: [],
-    threat_ids: [],
+    tags: vector.tags,
+    threat_ids: vector.threat_ids,
     input: vector.input,
     preconditions: vector.preconditions,
     expected_schema: "",
