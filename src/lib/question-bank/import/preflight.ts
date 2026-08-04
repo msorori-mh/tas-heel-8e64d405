@@ -2,7 +2,6 @@ import { issue, type QbImportIssue } from "./errors.ts";
 import { QB_IMPORT_CODES } from "./validation-codes.ts";
 import { DEFAULT_IMPORT_LIMITS } from "./limits.ts";
 import { hasUnsafeUnicode, isFormulaLike } from "./unicode.ts";
-import { MUTATION_HOOKS } from "./mutation-hooks.ts";
 
 /** Metadata extracted by a workbook parser before dry-run adaptation. */
 export type WorkbookParserMetadata = {
@@ -75,10 +74,11 @@ export function preflightWorkbook(input: {
   for (const row of input.rows) {
     for (const value of Object.values(row)) {
       if (typeof value === "string" && hasUnsafeUnicode(value)) add("MALFORMED_UNICODE");
-      if (!MUTATION_HOOKS.bypassFormulaInjectionGuard && (isFormulaLike(value) || meta.csvInjectionCells)) {
+      if (isFormulaLike(value) || meta.csvInjectionCells) {
         add("FORMULA_INJECTION");
       }
-      if (typeof value === "string" && Buffer.byteLength(value, "utf8") > DEFAULT_IMPORT_LIMITS.maxCellBytes) {
+      const limit = meta.maxCellBytes ?? DEFAULT_IMPORT_LIMITS.maxCellBytes;
+      if (typeof value === "string" && Buffer.byteLength(value, "utf8") > limit) {
         add("CELL_TOO_LARGE");
       }
     }

@@ -5,7 +5,6 @@ import JSZip from "jszip";
 import { DEFAULT_IMPORT_LIMITS } from "./limits.ts";
 import type { WorkbookParserMetadata } from "./preflight.ts";
 import { preflightZipBytes } from "./zip-preflight.ts";
-import { MUTATION_HOOKS } from "./mutation-hooks.ts";
 
 const safeXmlParser = new XMLParser({
   ignoreAttributes: false,
@@ -29,7 +28,9 @@ export type TrustedWorkbookModel = {
 export const PARSER_SPY = {
   parserInvocations: 0,
   zipPreflightInvocations: 0,
+  zipPreflightRejections: 0,
   jsZipInvocations: 0,
+  ooxmlRelsScans: 0,
   excelJsInvocations: 0,
   adapterInvocations: 0,
   fullDecompressionInvocations: 0,
@@ -37,10 +38,13 @@ export const PARSER_SPY = {
   authorizationFailures: 0,
   rowScanInvocations: 0,
   validatorInvocations: 0,
+  dryRunCompletions: 0,
   reset() {
     this.parserInvocations = 0;
     this.zipPreflightInvocations = 0;
+    this.zipPreflightRejections = 0;
     this.jsZipInvocations = 0;
+    this.ooxmlRelsScans = 0;
     this.excelJsInvocations = 0;
     this.adapterInvocations = 0;
     this.fullDecompressionInvocations = 0;
@@ -48,6 +52,7 @@ export const PARSER_SPY = {
     this.authorizationFailures = 0;
     this.rowScanInvocations = 0;
     this.validatorInvocations = 0;
+    this.dryRunCompletions = 0;
   },
 };
 
@@ -95,9 +100,7 @@ function rowsToModel(rows: string[][], fileBytes: number): TrustedWorkbookModel 
     .slice(1)
     .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])));
   const metadata: WorkbookParserMetadata = {
-    csvInjectionCells: MUTATION_HOOKS.bypassFormulaInjectionGuard
-      ? false
-      : rows.flat().some((cell) => /^[\s]*[=+\-@\t\r]/.test(cell)),
+    csvInjectionCells: rows.flat().some((cell) => /^[\s]*[=+\-@\t\r]/.test(cell)),
     maxCellBytes: Math.max(0, ...rows.flat().map((cell) => Buffer.byteLength(cell, "utf8"))),
   };
   const security_preflight_status = fileBytes > DEFAULT_IMPORT_LIMITS.maxFileBytes ? "BLOCKED" : "READY";
@@ -125,17 +128,18 @@ export function isForbiddenRelationshipTarget(targetValue: string): boolean {
     return true;
   }
 
-  // Decode URI encoding (e.g. %2e%2e -> ..)
+  // Recursive URI decode (up to 3 times) to handle double encoding
   let decoded = raw;
   try {
-    decoded = decodeURIComponent(raw);
-    try {
+    let prev = "";
+    let depth = 0;
+    while (decoded !== prev && depth < 3) {
+      prev = decoded;
       decoded = decodeURIComponent(decoded);
-    } catch {
-      // ignore 2nd decode error
+      depth++;
     }
   } catch {
-    // ignore 1st decode error
+    // ignore decode errors
   }
 
   // 2. Traversal: .. or encoded .. or mixed slashes or nested traversal
@@ -158,10 +162,7 @@ export function isForbiddenRelationshipTarget(targetValue: string): boolean {
 export async function scanOoxmlRelationships(
   zip: JSZip,
 ): Promise<{ hasExternalLinks: boolean; externalTargets: string[] }> {
-  if (MUTATION_HOOKS.disableExternalRelRejection) {
-    return { hasExternalLinks: false, externalTargets: [] };
-  }
-
+  PARSER_SPY.ooxmlRelsScans += 1;
   const externalTargets: string[] = [];
   const relFiles = Object.keys(zip.files).filter(
     (name) => /\.rels$/i.test(name) || name.includes("_rels/"),
@@ -188,7 +189,7 @@ export async function scanOoxmlRelationships(
         continue;
       }
 
-      // Fail-closed XML parsing using safeXmlParser
+      // Fail-closed XML parsing using safeXmlParser ONLY (no regex fallback!)
       let parsed: any;
       try {
         parsed = safeXmlParser.parse(content);
@@ -212,11 +213,6 @@ export async function scanOoxmlRelationships(
         if (targetMode.toLowerCase() === "external" || isForbiddenRelationshipTarget(target)) {
           externalTargets.push(target || "TargetMode=External");
         }
-      }
-
-      // Supplementary regex check for edge-case TargetMode whitespace/quotes
-      if (/TargetMode\s*=\s*["']\s*External\s*["']/i.test(content) && relsList.length === 0) {
-        externalTargets.push("TargetMode=External");
       }
     } catch {
       externalTargets.push("UNREADABLE_RELS");
@@ -245,6 +241,7 @@ export async function parseQuestionBankWorkbook(
   PARSER_SPY.zipPreflightInvocations += 1;
   const zipPreflight = preflightZipBytes(bytes, fileName);
   if (!zipPreflight.ok) {
+    PARSER_SPY.zipPreflightRejections += 1;
     const metadata: WorkbookParserMetadata = {
       zipEntries: zipPreflight.totalEntries,
       uncompressedBytes: zipPreflight.totalUncompressedBytes,
@@ -352,9 +349,7 @@ export async function parseQuestionBankWorkbook(
     0,
     ...rawRows.flat().map((c) => Buffer.byteLength(c, "utf8")),
   );
-  metadata.csvInjectionCells = MUTATION_HOOKS.bypassFormulaInjectionGuard
-    ? false
-    : rawRows.flat().some((cell) => /^[\s]*[=+\-@\t\r]/.test(cell));
+  metadata.csvInjectionCells = rawRows.flat().some((cell) => /^[\s]*[=+\-@\t\r]/.test(cell));
 
   return {
     trusted_parser_version: TRUSTED_PARSER_VERSION,

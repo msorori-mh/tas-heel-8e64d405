@@ -172,7 +172,7 @@ export function adaptTeacherFlatArV0(
   }
 
   const acceptedRaw = text("الإجابات_المقبولة")
-    .split("\n")
+    .split(/\r?\n|\|/)
     .map((line) => normalizeText(line))
     .filter(Boolean);
   const deduped = [...new Map(acceptedRaw.map((a) => [a.toLowerCase(), a])).values()];

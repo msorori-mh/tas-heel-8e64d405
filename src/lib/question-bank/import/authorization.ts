@@ -1,6 +1,5 @@
 import { QB_IMPORT_CODES } from "./validation-codes.ts";
 import { issue, type QbImportIssue } from "./errors.ts";
-import { MUTATION_HOOKS } from "./mutation-hooks.ts";
 
 export const QB_IMPORT_CAPABILITY = "question_bank.import" as const;
 export const QB_IMPORT_DEFAULT_SCOPE = "tenant:default" as const;
@@ -30,14 +29,7 @@ export function validateImportAuthorization(
   expectedScope: string = QB_IMPORT_DEFAULT_SCOPE,
   fileName = "workbook.xlsx",
 ): AuthorizationResult {
-  if (MUTATION_HOOKS.disableAuthorizationGuard) {
-    return { ok: true, actorId: "actor-mutation-bypass", capability: QB_IMPORT_CAPABILITY, scope: expectedScope };
-  }
-
   if (auth === undefined || auth === null || auth === false) {
-    if (MUTATION_HOOKS.missingAuthorizationAllows) {
-      return { ok: true, actorId: "actor-missing-bypass", capability: QB_IMPORT_CAPABILITY, scope: expectedScope };
-    }
     return {
       ok: false,
       issue: issue(QB_IMPORT_CODES.AUTH_MISSING, { file: fileName }),

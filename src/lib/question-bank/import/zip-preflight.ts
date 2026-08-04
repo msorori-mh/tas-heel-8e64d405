@@ -1,7 +1,6 @@
 import { DEFAULT_IMPORT_LIMITS } from "./limits.ts";
 import { issue, type QbImportIssue } from "./errors.ts";
 import { QB_IMPORT_CODES } from "./validation-codes.ts";
-import { MUTATION_HOOKS } from "./mutation-hooks.ts";
 
 export type ZipPreflightResult = {
   ok: boolean;
@@ -18,23 +17,12 @@ export function preflightZipBytes(
 ): ZipPreflightResult {
   const issues: QbImportIssue[] = [];
 
-  if (MUTATION_HOOKS.disablePreparseZipLimits) {
-    return {
-      ok: true,
-      issues: [],
-      entryNames: [],
-      totalUncompressedBytes: 0,
-      totalEntries: 0,
-      isZip: true,
-    };
-  }
-
   // 1. Raw File Size Guard
   if (bytes.byteLength > DEFAULT_IMPORT_LIMITS.maxFileBytes) {
     issues.push(issue(QB_IMPORT_CODES.FILE_TOO_LARGE, { file: fileName }));
   }
 
-  // 2. ZIP Structural Signature Verification
+  // 2. ZIP Structural Signature Verification (0x50, 0x4b)
   if (
     bytes.byteLength < 22 ||
     bytes[0] !== 0x50 ||
@@ -87,7 +75,8 @@ export function preflightZipBytes(
   const cdSize = view.getUint32(eocdOffset + 12, true);
   const cdOffset = view.getUint32(eocdOffset + 16, true);
 
-  if (cdOffset + cdSize > bytes.byteLength) {
+  // EOCD offset & size boundary validation
+  if (cdOffset > eocdOffset || cdOffset + cdSize > bytes.byteLength) {
     issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
     return {
       ok: false,
@@ -99,17 +88,24 @@ export function preflightZipBytes(
     };
   }
 
+  // Central directory exact end check
+  if (cdOffset + cdSize !== eocdOffset) {
+    issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
+  }
+
   if (totalEntries > DEFAULT_IMPORT_LIMITS.maxZipEntries) {
     issues.push(issue(QB_IMPORT_CODES.ZIP_ENTRY_LIMIT, { file: fileName }));
   }
 
   const entryNames: string[] = [];
   const seenEntries = new Set<string>();
+  const occupiedRanges: Array<[number, number]> = [];
   let totalUncompressedBytes = 0;
+  let parsedEntriesCount = 0;
   let offset = cdOffset;
   const decoder = new TextDecoder("utf-8");
 
-  for (let i = 0; i < totalEntries; i++) {
+  while (offset < cdOffset + cdSize) {
     if (offset + 46 > bytes.byteLength) {
       issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
       return {
@@ -135,6 +131,7 @@ export function preflightZipBytes(
       };
     }
 
+    parsedEntriesCount++;
     const flag = view.getUint16(offset + 8, true);
     const compSize = view.getUint32(offset + 20, true);
     const uncompSize = view.getUint32(offset + 24, true);
@@ -144,7 +141,7 @@ export function preflightZipBytes(
     const localHeaderOffset = view.getUint32(offset + 42, true);
 
     const recordSize = 46 + nameLen + extraLen + commentLen;
-    if (offset + recordSize > bytes.byteLength) {
+    if (offset + recordSize > bytes.byteLength || offset + recordSize > cdOffset + cdSize) {
       issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
       return {
         ok: false,
@@ -186,8 +183,9 @@ export function preflightZipBytes(
     const localNameLen = view.getUint16(localHeaderOffset + 26, true);
     const localExtraLen = view.getUint16(localHeaderOffset + 28, true);
     const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
+    const dataEnd = dataStart + compSize;
 
-    if (dataStart > bytes.byteLength || dataStart + compSize > bytes.byteLength) {
+    if (dataStart > bytes.byteLength || dataEnd > bytes.byteLength) {
       issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
       return {
         ok: false,
@@ -198,6 +196,38 @@ export function preflightZipBytes(
         isZip: true,
       };
     }
+
+    // Local vs Central flag check
+    if ((localFlag & 1) !== (flag & 1)) {
+      issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
+    }
+
+    // Local vs Central filename length / bytes check
+    const centralNameBytes = bytes.subarray(offset + 46, offset + 46 + nameLen);
+    if (localHeaderOffset + 30 + localNameLen > bytes.byteLength) {
+      issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
+      return {
+        ok: false,
+        issues,
+        entryNames: [],
+        totalUncompressedBytes: 0,
+        totalEntries,
+        isZip: true,
+      };
+    }
+    const localNameBytes = bytes.subarray(localHeaderOffset + 30, localHeaderOffset + 30 + localNameLen);
+    if (nameLen !== localNameLen || !centralNameBytes.every((b, idx) => b === localNameBytes[idx])) {
+      issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
+    }
+
+    // Overlapping entries check
+    for (const [start, end] of occupiedRanges) {
+      if (Math.max(start, dataStart) < Math.min(end, dataEnd)) {
+        issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
+        break;
+      }
+    }
+    occupiedRanges.push([dataStart, dataEnd]);
 
     // Bit 0 set = encrypted entry (in central or local header)
     if ((flag & 1) !== 0 || (localFlag & 1) !== 0) {
@@ -211,7 +241,7 @@ export function preflightZipBytes(
 
     totalUncompressedBytes += uncompSize;
 
-    // Check compression ratio bomb (canonical threshold 10:1 for uncompressed > 1MB)
+    // Check compression ratio bomb
     if (
       compSize > 0 &&
       uncompSize > 1_000_000 &&
@@ -220,8 +250,7 @@ export function preflightZipBytes(
       issues.push(issue(QB_IMPORT_CODES.ZIP_BOMB_SUSPECTED, { file: fileName }));
     }
 
-    const nameBytes = bytes.subarray(offset + 46, offset + 46 + nameLen);
-    const rawName = decoder.decode(nameBytes);
+    const rawName = decoder.decode(centralNameBytes);
 
     let decodedName = rawName;
     try {
@@ -255,30 +284,34 @@ export function preflightZipBytes(
 
     // Path traversal check
     if (
-      !MUTATION_HOOKS.disablePathTraversalDetection &&
-      (rawName.includes("..") ||
-        decodedName.includes("..") ||
-        /%2e%2e/i.test(rawName) ||
-        /%252e%252e/i.test(rawName) ||
-        /(\.\.[\\/]|[\\/]\.\.)/.test(rawName) ||
-        /(\.\.[\\/]|[\\/]\.\.)/.test(decodedName))
+      rawName.includes("..") ||
+      decodedName.includes("..") ||
+      /%2e/i.test(rawName) ||
+      /%252e/i.test(rawName) ||
+      (rawName.includes("\\") && rawName.includes("/")) ||
+      (decodedName.includes("\\") && decodedName.includes("/")) ||
+      /(\.\.[\\/]|[\\/]\.\.)/.test(rawName) ||
+      /(\.\.[\\/]|[\\/]\.\.)/.test(decodedName)
     ) {
       issues.push(issue(QB_IMPORT_CODES.PATH_TRAVERSAL, { file: fileName }));
     }
 
     // Check duplicate ZIP entries (exact and normalized)
     const normalizedEntryName = rawName.replace(/\/+/g, "/").toLowerCase();
-    if (!MUTATION_HOOKS.disableDuplicateEntryDetection) {
-      if (seenEntries.has(rawName) || seenEntries.has(normalizedEntryName)) {
-        issues.push(issue(QB_IMPORT_CODES.ZIP_DUPLICATE_ENTRY, { file: fileName }));
-      } else {
-        seenEntries.add(rawName);
-        seenEntries.add(normalizedEntryName);
-      }
+    if (seenEntries.has(rawName) || seenEntries.has(normalizedEntryName)) {
+      issues.push(issue(QB_IMPORT_CODES.ZIP_DUPLICATE_ENTRY, { file: fileName }));
+    } else {
+      seenEntries.add(rawName);
+      seenEntries.add(normalizedEntryName);
     }
 
     entryNames.push(rawName);
     offset += recordSize;
+  }
+
+  // Declared vs actual count check
+  if (parsedEntriesCount !== totalEntries) {
+    issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
   }
 
   if (totalUncompressedBytes > DEFAULT_IMPORT_LIMITS.maxUncompressedBytes) {

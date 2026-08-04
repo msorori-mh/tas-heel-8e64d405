@@ -70,7 +70,7 @@ export async function buildMinimalValidXlsx(
   return zip.generateAsync({ type: "uint8array" });
 }
 
-export async function buildOoxmlExternalRelXlsx(targetUri: string): Promise<Uint8Array> {
+export async function buildOoxmlExternalRelXlsx(targetUri: string, targetMode = "External", quoteChar = '"'): Promise<Uint8Array> {
   const zip = new JSZip();
   zip.file(
     "[Content_Types].xml",
@@ -85,7 +85,7 @@ export async function buildOoxmlExternalRelXlsx(targetUri: string): Promise<Uint
     "_rels/.rels",
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="${targetUri}" TargetMode="External"/>
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target=${quoteChar}${targetUri}${quoteChar} TargetMode=${quoteChar}${targetMode}${quoteChar}/>
 </Relationships>`,
   );
 
@@ -241,6 +241,200 @@ export async function buildZipWithNormalizedDuplicates(): Promise<Uint8Array> {
   return zip.generateAsync({ type: "uint8array" });
 }
 
+export async function buildInvalidLocalHeaderOffsetZip(): Promise<Uint8Array> {
+  const baseBytes = await buildMinimalValidXlsx();
+  const copy = new Uint8Array(baseBytes.length);
+  copy.set(baseBytes);
+
+  let eocd = -1;
+  for (let i = copy.length - 22; i >= 0; i--) {
+    if (copy[i] === 0x50 && copy[i + 1] === 0x4b && copy[i + 2] === 0x05 && copy[i + 3] === 0x06) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd === -1) return copy;
+
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  const cdOffset = view.getUint32(eocd + 16, true);
+  view.setUint32(cdOffset + 42, copy.length + 1000, true); // invalid localHeaderOffset
+  return copy;
+}
+
+export async function buildInvalidLocalHeaderSignatureZip(): Promise<Uint8Array> {
+  const baseBytes = await buildMinimalValidXlsx();
+  const copy = new Uint8Array(baseBytes.length);
+  copy.set(baseBytes);
+  copy[0] = 0x50;
+  copy[1] = 0x4b;
+  copy[2] = 0x99; // Corrupt local signature at start
+  copy[3] = 0x99;
+  return copy;
+}
+
+export async function buildInvalidLocalFilenameLengthZip(): Promise<Uint8Array> {
+  const baseBytes = await buildMinimalValidXlsx();
+  const copy = new Uint8Array(baseBytes.length);
+  copy.set(baseBytes);
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  view.setUint16(26, 60000, true); // invalid local name length
+  return copy;
+}
+
+export async function buildInvalidLocalExtraLengthZip(): Promise<Uint8Array> {
+  const baseBytes = await buildMinimalValidXlsx();
+  const copy = new Uint8Array(baseBytes.length);
+  copy.set(baseBytes);
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  view.setUint16(28, 60000, true); // invalid local extra length
+  return copy;
+}
+
+export async function buildCompressedDataOutOfBoundsZip(): Promise<Uint8Array> {
+  const baseBytes = await buildMinimalValidXlsx();
+  const copy = new Uint8Array(baseBytes.length);
+  copy.set(baseBytes);
+
+  let eocd = -1;
+  for (let i = copy.length - 22; i >= 0; i--) {
+    if (copy[i] === 0x50 && copy[i + 1] === 0x4b && copy[i + 2] === 0x05 && copy[i + 3] === 0x06) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd === -1) return copy;
+
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  const cdOffset = view.getUint32(eocd + 16, true);
+  view.setUint32(cdOffset + 20, copy.length + 5000, true); // compSize out of bounds
+  return copy;
+}
+
+export async function buildLocalCentralNameMismatchZip(): Promise<Uint8Array> {
+  const baseBytes = await buildMinimalValidXlsx();
+  const copy = new Uint8Array(baseBytes.length);
+  copy.set(baseBytes);
+
+  let eocd = -1;
+  for (let i = copy.length - 22; i >= 0; i--) {
+    if (copy[i] === 0x50 && copy[i + 1] === 0x4b && copy[i + 2] === 0x05 && copy[i + 3] === 0x06) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd === -1) return copy;
+
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  const cdOffset = view.getUint32(eocd + 16, true);
+  const nameLen = view.getUint16(cdOffset + 28, true);
+  // Mutate central name byte
+  copy[cdOffset + 46] = copy[cdOffset + 46] === 0x58 ? 0x59 : 0x58;
+  return copy;
+}
+
+export async function buildLocalCentralFlagMismatchZip(): Promise<Uint8Array> {
+  const baseBytes = await buildMinimalValidXlsx();
+  const copy = new Uint8Array(baseBytes.length);
+  copy.set(baseBytes);
+
+  let eocd = -1;
+  for (let i = copy.length - 22; i >= 0; i--) {
+    if (copy[i] === 0x50 && copy[i + 1] === 0x4b && copy[i + 2] === 0x05 && copy[i + 3] === 0x06) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd === -1) return copy;
+
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  const cdOffset = view.getUint32(eocd + 16, true);
+  view.setUint16(cdOffset + 8, 1, true); // central flag encrypted
+  view.setUint16(6, 0, true); // local flag unencrypted
+  return copy;
+}
+
+export async function buildOverlappingEntriesZip(): Promise<Uint8Array> {
+  const zip = new JSZip();
+  zip.file("file1.txt", "AAA");
+  zip.file("file2.txt", "BBB");
+  const bytes = await zip.generateAsync({ type: "uint8array" });
+  const copy = new Uint8Array(bytes.length);
+  copy.set(bytes);
+
+  let eocd = -1;
+  for (let i = copy.length - 22; i >= 0; i--) {
+    if (copy[i] === 0x50 && copy[i + 1] === 0x4b && copy[i + 2] === 0x05 && copy[i + 3] === 0x06) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd === -1) return copy;
+
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  const cdOffset = view.getUint32(eocd + 16, true);
+  // Make entry 2 local offset point to entry 1
+  view.setUint32(cdOffset + 46 + 9 + 42, 0, true);
+  return copy;
+}
+
+export async function buildCdExactEndMismatchZip(): Promise<Uint8Array> {
+  const baseBytes = await buildMinimalValidXlsx();
+  const copy = new Uint8Array(baseBytes.length + 10);
+  copy.set(baseBytes);
+
+  let eocd = -1;
+  for (let i = copy.length - 32; i >= 0; i--) {
+    if (copy[i] === 0x50 && copy[i + 1] === 0x4b && copy[i + 2] === 0x05 && copy[i + 3] === 0x06) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd === -1) return baseBytes;
+
+  // Move EOCD down by 10 bytes without changing cdOffset/cdSize
+  const eocdBytes = copy.subarray(eocd, eocd + 22);
+  copy.set(eocdBytes, eocd + 10);
+  return copy;
+}
+
+export async function buildEocdCountMismatchZip(): Promise<Uint8Array> {
+  const baseBytes = await buildMinimalValidXlsx();
+  const copy = new Uint8Array(baseBytes.length);
+  copy.set(baseBytes);
+
+  let eocd = -1;
+  for (let i = copy.length - 22; i >= 0; i--) {
+    if (copy[i] === 0x50 && copy[i + 1] === 0x4b && copy[i + 2] === 0x05 && copy[i + 3] === 0x06) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd === -1) return copy;
+
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  view.setUint16(eocd + 10, 99, true); // declared 99 entries
+  return copy;
+}
+
+export async function buildEocdOffsetMismatchZip(): Promise<Uint8Array> {
+  const baseBytes = await buildMinimalValidXlsx();
+  const copy = new Uint8Array(baseBytes.length);
+  copy.set(baseBytes);
+
+  let eocd = -1;
+  for (let i = copy.length - 22; i >= 0; i--) {
+    if (copy[i] === 0x50 && copy[i + 1] === 0x4b && copy[i + 2] === 0x05 && copy[i + 3] === 0x06) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd === -1) return copy;
+
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  view.setUint32(eocd + 16, eocd + 100, true); // cdOffset beyond EOCD
+  return copy;
+}
+
 export async function buildOoxmlNestedRelsXlsx(
   relPath: string,
   targetUri: string,
@@ -324,4 +518,25 @@ export async function buildMissingPartsXlsx(): Promise<Uint8Array> {
 
 export function buildExtensionContentMismatchXlsx(): Uint8Array {
   return new TextEncoder().encode("NOT A ZIP FILE - Plain Text Content");
+}
+
+export async function buildCorruptedWorkbookZip(): Promise<Uint8Array> {
+  const zip = new JSZip();
+  zip.file("xl/workbook.xml", "corrupted text content");
+  return zip.generateAsync({ type: "uint8array" });
+}
+
+export async function buildFormulaInjectionWorkbook(): Promise<Uint8Array> {
+  return buildMinimalValidXlsx(
+    [...CONTRACT_HEADERS[OFFICIAL_FLAT_V0]],
+    [["Q1", "=SUM(1,2)", "SINGLE_CHOICE", "AUTO_SINGLE", "1", "2", "", "", "", "", "1", "", "", "", "1", "FALSE", "MATH-G10", "", "", "", ""]],
+  );
+}
+
+export async function buildMissingColumnsWorkbook(): Promise<Uint8Array> {
+  return buildMinimalValidXlsx(["question_code"], [["Q1"]]);
+}
+
+export async function buildInvalidSchemaWorkbook(): Promise<Uint8Array> {
+  return buildMinimalValidXlsx(["col_a", "col_b"], [["1", "2"]]);
 }

@@ -2,7 +2,6 @@ import type { OfficialNormalizedV1 } from "./official-normalized-v1.ts";
 import { issue, type QbImportIssue } from "./errors.ts";
 import { QB_IMPORT_CODES } from "./validation-codes.ts";
 import { hasUnsafeUnicode, isFormulaLike, mixedNumeralScripts } from "./unicode.ts";
-import { MUTATION_HOOKS } from "./mutation-hooks.ts";
 import { canonicalHash } from "./canonical-json.ts";
 import { PARSER_SPY } from "./workbook-parser.ts";
 
@@ -104,7 +103,7 @@ export function validateNormalizedRow(
   for (const value of stringValues) {
     if (hasUnsafeUnicode(value)) {
       issues.push(issue(QB_IMPORT_CODES.MALFORMED_UNICODE, base));
-    } else if (!MUTATION_HOOKS.bypassFormulaInjectionGuard && isFormulaLike(value)) {
+    } else if (isFormulaLike(value)) {
       issues.push(issue(QB_IMPORT_CODES.FORMULA_CELL, base));
     }
   }
@@ -176,8 +175,11 @@ export function validateNormalizedRow(
     ctx.seenFingerprints.add(fingerprint);
   }
 
-  if (mixedNumeralScripts(row.question_code)) {
+  if (mixedNumeralScripts(row.question_code) || mixedNumeralScripts(row.revision.question_text)) {
     issues.push(issue(QB_IMPORT_CODES.MIXED_NUMERAL_SCRIPTS, base));
+  }
+  if (/^\d+(\.\d+)?[eE][+-]?\d+$/.test(row.question_code)) {
+    issues.push(issue(QB_IMPORT_CODES.SCIENTIFIC_NOTATION_LOSS, base));
   }
 
   if (!/^[A-Za-z0-9\u0660-\u0669\u06f0-\u06f9][A-Za-z0-9\u0660-\u0669\u06f0-\u06f9._-]{0,63}$/.test(row.question_code)) {

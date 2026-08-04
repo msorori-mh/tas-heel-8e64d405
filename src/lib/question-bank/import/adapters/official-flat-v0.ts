@@ -182,7 +182,7 @@ export function adaptOfficialFlatV0(
   }
 
   const answers = text("accepted_answers")
-    .split("\n")
+    .split(/\r?\n|\|/)
     .map((line) => normalizeText(line))
     .filter(Boolean);
   const unique = [...new Map(answers.map((a) => [a.toLowerCase(), a])).values()];

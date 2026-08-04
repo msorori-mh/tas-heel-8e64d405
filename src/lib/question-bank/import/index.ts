@@ -8,7 +8,6 @@ export * from "./dry-run.ts";
 export * from "./unicode.ts";
 export * from "./limits.ts";
 export * from "./media-policy.ts";
-export * from "./mutation-hooks.ts";
 export * from "./canonical-json.ts";
 export * from "./preflight.ts";
 export * from "./workbook-parser.ts";
