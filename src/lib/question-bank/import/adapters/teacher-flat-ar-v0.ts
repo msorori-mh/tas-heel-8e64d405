@@ -109,16 +109,17 @@ export function adaptTeacherFlatArV0(
     );
   }
 
-  const optionBodies = contiguousOptionBodies([
+  const rawOptionSlots = [
     row["الخيار_١"],
     row["الخيار_٢"],
     row["الخيار_٣"],
     row["الخيار_٤"],
     row["الخيار_٥"],
     row["الخيار_٦"],
-  ]);
-  const base = optionBodies.map((body, i) => ({
-    option_code: optionCodesFromCount(optionBodies.length)[i]!,
+  ].map((v) => normalizeText(v));
+  const optionBodies = contiguousOptionBodies(rawOptionSlots);
+  const baseForCorrect = rawOptionSlots.map((body, i) => ({
+    option_code: optionCodesFromCount(6)[i]!,
     body,
   }));
 
@@ -134,7 +135,7 @@ export function adaptTeacherFlatArV0(
         }),
       );
     }
-    const resolved = resolveCorrectAnswer(row["رقم_الإجابة_الصحيحة"], base, {
+    const resolved = resolveCorrectAnswer(row["رقم_الإجابة_الصحيحة"], baseForCorrect, {
       indexBase: 1,
     });
     if (!resolved.ok) {
@@ -153,7 +154,7 @@ export function adaptTeacherFlatArV0(
         }),
       );
     } else {
-      options = resolved.options;
+      options = resolved.options.filter((o) => o.body);
     }
   } else if (
     optionBodies.length > 0 &&

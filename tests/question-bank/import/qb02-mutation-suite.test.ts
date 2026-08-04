@@ -246,8 +246,8 @@ test("MUTATION_HOOKS: all 10 mutants killed by real behavioral execution differe
     // Mutant 6: bypassFormulaInjectionGuard
     resetMutationHooks();
     const formulaBytes = await buildMinimalValidXlsx(
-      ["question_code", "question_text", "interaction_type", "grading_mode", "option_1", "option_2", "correct_index", "max_score", "subject_code"],
-      [["Q1", "=SUM(1,2)", "SINGLE_CHOICE", "AUTO_SINGLE", "1", "2", "1", "1", "MATH-G10"]],
+      [...CONTRACT_HEADERS.official_flat_v0],
+      [["Q1", "=SUM(1,2)", "SINGLE_CHOICE", "AUTO_SINGLE", "1", "2", "", "", "", "", "1", "", "", "", "1", "FALSE", "MATH-G10", "", "", "", ""]],
     );
     const defaultForm = await runOperationalQuestionBankImportDryRun({
       fileName: "formula.xlsx",
@@ -256,6 +256,7 @@ test("MUTATION_HOOKS: all 10 mutants killed by real behavioral execution differe
       authorized: VALID_AUTH,
     });
     assert.ok(defaultForm.issues.some((i) => i.code === "FORMULA_INJECTION" || i.code === "FORMULA_CELL"));
+    assert.equal(defaultForm.summary.ok_rows, 0);
 
     MUTATION_HOOKS.bypassFormulaInjectionGuard = true;
     const mutantForm = await runOperationalQuestionBankImportDryRun({
@@ -264,7 +265,8 @@ test("MUTATION_HOOKS: all 10 mutants killed by real behavioral execution differe
       catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
       authorized: VALID_AUTH,
     });
-    assert.equal(mutantForm.issues.some((i) => i.code === "FORMULA_CELL"), false);
+    assert.equal(mutantForm.issues.some((i) => i.code === "FORMULA_INJECTION" || i.code === "FORMULA_CELL"), false);
+    assert.equal(mutantForm.summary.ok_rows, 1);
 
     // Mutant 7: allowUnsupportedFormat
     resetMutationHooks();

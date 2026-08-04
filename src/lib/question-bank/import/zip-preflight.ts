@@ -163,7 +163,7 @@ export function preflightZipBytes(
         ok: false,
         issues,
         entryNames: [],
-        totalUncompressedBytes,
+        totalUncompressedBytes: 0,
         totalEntries,
         isZip: true,
       };
@@ -176,14 +176,31 @@ export function preflightZipBytes(
         ok: false,
         issues,
         entryNames: [],
-        totalUncompressedBytes,
+        totalUncompressedBytes: 0,
         totalEntries,
         isZip: true,
       };
     }
 
-    // Bit 0 set = encrypted entry
-    if ((flag & 1) !== 0) {
+    const localFlag = view.getUint16(localHeaderOffset + 6, true);
+    const localNameLen = view.getUint16(localHeaderOffset + 26, true);
+    const localExtraLen = view.getUint16(localHeaderOffset + 28, true);
+    const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
+
+    if (dataStart > bytes.byteLength || dataStart + compSize > bytes.byteLength) {
+      issues.push(issue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY, { file: fileName }));
+      return {
+        ok: false,
+        issues,
+        entryNames: [],
+        totalUncompressedBytes: 0,
+        totalEntries,
+        isZip: true,
+      };
+    }
+
+    // Bit 0 set = encrypted entry (in central or local header)
+    if ((flag & 1) !== 0 || (localFlag & 1) !== 0) {
       issues.push(issue(QB_IMPORT_CODES.WORKBOOK_ENCRYPTED, { file: fileName }));
     }
 
@@ -249,12 +266,14 @@ export function preflightZipBytes(
       issues.push(issue(QB_IMPORT_CODES.PATH_TRAVERSAL, { file: fileName }));
     }
 
-    // Check duplicate ZIP entries
+    // Check duplicate ZIP entries (exact and normalized)
+    const normalizedEntryName = rawName.replace(/\/+/g, "/").toLowerCase();
     if (!MUTATION_HOOKS.disableDuplicateEntryDetection) {
-      if (seenEntries.has(rawName)) {
+      if (seenEntries.has(rawName) || seenEntries.has(normalizedEntryName)) {
         issues.push(issue(QB_IMPORT_CODES.ZIP_DUPLICATE_ENTRY, { file: fileName }));
       } else {
         seenEntries.add(rawName);
+        seenEntries.add(normalizedEntryName);
       }
     }
 

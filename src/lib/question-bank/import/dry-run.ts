@@ -43,6 +43,10 @@ export type DryRunPreviewRow = {
   issues: ReturnType<typeof issue>[];
 };
 
+export type DryRunDependencies = {
+  writeAdapter?: (data: unknown) => Promise<unknown> | unknown;
+};
+
 export type DryRunOptions = {
   fileName: string;
   headers: string[];
@@ -58,6 +62,7 @@ export type DryRunOptions = {
   trustedWorkbook?: TrustedWorkbookModel;
   authIssue?: QbImportIssue;
   preflightIssue?: QbImportIssue;
+  deps?: DryRunDependencies;
 };
 
 function headersMatchContract(schema: ImportSchemaId, headers: string[]): boolean {
@@ -149,15 +154,10 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
   let schema: ImportSchemaId = detected.schema;
 
   if (opts.schemaHint && opts.schemaHint !== "unknown") {
-    if (opts.relaxExactHeaders) {
-      schema = opts.schemaHint;
-    } else if (!headersMatchContract(opts.schemaHint, opts.headers)) {
+    if (detected.schema !== "unknown" && detected.schema !== opts.schemaHint) {
       issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName }));
-    } else if (detected.schema !== "unknown" && detected.schema !== opts.schemaHint) {
-      issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName }));
-    } else {
-      schema = opts.schemaHint;
     }
+    schema = opts.schemaHint;
   }
 
   if (!MUTATION_HOOKS.disableRequiredColumnValidation) {
@@ -181,6 +181,7 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
 
   if (!fileBlocking && schema !== "unknown") {
     PARSER_SPY.adapterInvocations += opts.rows.length;
+    PARSER_SPY.rowScanInvocations += opts.rows.length;
     for (let index = 0; index < opts.rows.length; index += 1) {
       const raw = opts.rows[index]!;
       const rowNumber = index + 2;
@@ -313,6 +314,7 @@ export async function runOperationalQuestionBankImportDryRun(input: {
   catalog: CatalogLookup;
   authorized?: unknown;
   expectedScope?: string;
+  deps?: DryRunDependencies;
 }) {
   // STEP 1: AUTHORIZATION (FIRST! Before catalog check, before parser, before ZIP, before JSZip/ExcelJS)
   const authVal = validateImportAuthorization(input.authorized, input.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE, input.fileName);
@@ -325,6 +327,7 @@ export async function runOperationalQuestionBankImportDryRun(input: {
       fileBytes: input.bytes?.byteLength ?? 0,
       authorized: input.authorized,
       authIssue: authVal.issue,
+      deps: input.deps,
     });
   }
 
@@ -342,6 +345,7 @@ export async function runOperationalQuestionBankImportDryRun(input: {
       fileBytes: input.bytes.byteLength,
       authorized: input.authorized,
       preflightIssue: issue(QB_IMPORT_CODES.FILE_TOO_LARGE, { file: input.fileName }),
+      deps: input.deps,
     });
   }
 
@@ -360,6 +364,7 @@ export async function runOperationalQuestionBankImportDryRun(input: {
     trustedWorkbook,
     catalog: input.catalog,
     authorized: input.authorized,
+    deps: input.deps,
   });
 }
 

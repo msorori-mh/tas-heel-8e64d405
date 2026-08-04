@@ -125,16 +125,17 @@ export function adaptOfficialFlatV0(
     );
   }
 
-  const optionBodies = contiguousOptionBodies([
+  const rawOptionSlots = [
     row.option_1,
     row.option_2,
     row.option_3,
     row.option_4,
     row.option_5,
     row.option_6,
-  ]);
-  const base = optionBodies.map((body, index) => ({
-    option_code: optionCodesFromCount(optionBodies.length)[index]!,
+  ].map((v) => normalizeText(v));
+  const optionBodies = contiguousOptionBodies(rawOptionSlots);
+  const baseForCorrect = rawOptionSlots.map((body, index) => ({
+    option_code: optionCodesFromCount(6)[index]!,
     body,
   }));
 
@@ -150,7 +151,7 @@ export function adaptOfficialFlatV0(
         }),
       );
     }
-    const correct = resolveCorrectAnswer(row.correct_index, base, { indexBase: 1 });
+    const correct = resolveCorrectAnswer(row.correct_index, baseForCorrect, { indexBase: 1 });
     if (!correct.ok) {
       const code =
         correct.reason === "EMPTY"
@@ -167,7 +168,7 @@ export function adaptOfficialFlatV0(
         }),
       );
     } else {
-      options = correct.options;
+      options = correct.options.filter((o) => o.body);
     }
   } else if (optionBodies.length || text("correct_index")) {
     issues.push(

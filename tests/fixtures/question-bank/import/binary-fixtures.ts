@@ -200,3 +200,128 @@ export async function buildEncryptedZip(): Promise<Uint8Array> {
   view.setUint16(cdOffset + 8, 1, true);
   return copy;
 }
+
+export async function buildZipWithCompressionRatioOverflow(): Promise<Uint8Array> {
+  const baseBytes = await buildMinimalValidXlsx();
+  const copy = new Uint8Array(baseBytes.length);
+  copy.set(baseBytes);
+
+  let eocd = -1;
+  for (let i = copy.length - 22; i >= 0; i--) {
+    if (copy[i] === 0x50 && copy[i + 1] === 0x4b && copy[i + 2] === 0x05 && copy[i + 3] === 0x06) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd === -1) return copy;
+
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  const cdOffset = view.getUint32(eocd + 16, true);
+  view.setUint32(cdOffset + 20, 100, true); // compSize = 100
+  view.setUint32(cdOffset + 24, 2_500_000, true); // uncompSize = 2.5MB (ratio 25000:1)
+  return copy;
+}
+
+export async function buildZipWithAbsolutePath(pathString = "/etc/passwd"): Promise<Uint8Array> {
+  const zip = new JSZip();
+  zip.file(pathString, "absolute path content");
+  return zip.generateAsync({ type: "uint8array" });
+}
+
+export async function buildZipWithControlCharEntry(): Promise<Uint8Array> {
+  const zip = new JSZip();
+  zip.file("file\0null.txt", "control char content");
+  return zip.generateAsync({ type: "uint8array" });
+}
+
+export async function buildZipWithNormalizedDuplicates(): Promise<Uint8Array> {
+  const zip = new JSZip();
+  zip.file("folder/file.txt", "content A");
+  zip.file("folder//file.txt", "content B");
+  return zip.generateAsync({ type: "uint8array" });
+}
+
+export async function buildOoxmlNestedRelsXlsx(
+  relPath: string,
+  targetUri: string,
+  targetMode = "External",
+): Promise<Uint8Array> {
+  const zip = new JSZip();
+  zip.file(
+    "[Content_Types].xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+</Types>`,
+  );
+
+  zip.file(
+    relPath,
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheet" Target="${targetUri}" TargetMode="${targetMode}"/>
+</Relationships>`,
+  );
+
+  return zip.generateAsync({ type: "uint8array" });
+}
+
+export async function buildOoxmlDtdXxeXlsx(): Promise<Uint8Array> {
+  const zip = new JSZip();
+  zip.file(
+    "_rels/.rels",
+    `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="&xxe;"/>
+</Relationships>`,
+  );
+  return zip.generateAsync({ type: "uint8array" });
+}
+
+export async function buildOoxmlOversizedRelsXlsx(): Promise<Uint8Array> {
+  const zip = new JSZip();
+  const dummyComment = "<!-- " + "A".repeat(600_000) + " -->";
+  zip.file(
+    "_rels/.rels",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+${dummyComment}
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`,
+  );
+  return zip.generateAsync({ type: "uint8array" });
+}
+
+export async function buildOoxmlMalformedXmlXlsx(): Promise<Uint8Array> {
+  const zip = new JSZip();
+  zip.file(
+    "_rels/.rels",
+    `<?xml version="1.0" encoding="UTF-8"?><Relationships><Relationship Id="r1"`,
+  );
+  return zip.generateAsync({ type: "uint8array" });
+}
+
+export async function buildOoxmlMultipleRelsWithExternalXlsx(): Promise<Uint8Array> {
+  const zip = new JSZip();
+  zip.file(
+    "_rels/.rels",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="http://attacker.com" TargetMode="External"/>
+</Relationships>`,
+  );
+  return zip.generateAsync({ type: "uint8array" });
+}
+
+export async function buildMissingPartsXlsx(): Promise<Uint8Array> {
+  const zip = new JSZip();
+  zip.file("dummy.txt", "missing required ooxml files");
+  return zip.generateAsync({ type: "uint8array" });
+}
+
+export function buildExtensionContentMismatchXlsx(): Uint8Array {
+  return new TextEncoder().encode("NOT A ZIP FILE - Plain Text Content");
+}

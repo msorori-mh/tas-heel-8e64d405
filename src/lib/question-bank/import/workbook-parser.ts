@@ -35,6 +35,8 @@ export const PARSER_SPY = {
   fullDecompressionInvocations: 0,
   worksheetParsingInvocations: 0,
   authorizationFailures: 0,
+  rowScanInvocations: 0,
+  validatorInvocations: 0,
   reset() {
     this.parserInvocations = 0;
     this.zipPreflightInvocations = 0;
@@ -44,6 +46,8 @@ export const PARSER_SPY = {
     this.fullDecompressionInvocations = 0;
     this.worksheetParsingInvocations = 0;
     this.authorizationFailures = 0;
+    this.rowScanInvocations = 0;
+    this.validatorInvocations = 0;
   },
 };
 
@@ -168,8 +172,21 @@ export async function scanOoxmlRelationships(
     if (!entry) continue;
 
     try {
-      const content = await entry.async("text");
+      // Check entry size before reading full string (max 512 KB per .rels)
+      const rawBytes = await entry.async("uint8array");
+      if (rawBytes.byteLength > 524_288) {
+        externalTargets.push("OVERSIZED_RELS_ENTRY");
+        continue;
+      }
+
+      const content = new TextDecoder("utf-8").decode(rawBytes);
       if (!content || !content.trim()) continue;
+
+      // Reject DTD and XXE entities before XML parsing
+      if (/<!DOCTYPE/i.test(content) || /<!ENTITY/i.test(content)) {
+        externalTargets.push("DTD_XXE_ATTEMPT");
+        continue;
+      }
 
       // Fail-closed XML parsing using safeXmlParser
       let parsed: any;

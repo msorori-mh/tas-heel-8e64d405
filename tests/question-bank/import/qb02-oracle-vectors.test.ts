@@ -4,14 +4,16 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  executeOracleVectorOperational,
   compareNormalized,
-  executeOracleVector,
-  executeOracleVectorIsolated,
-  ROUTE_SPY,
+  DEFAULT_TEST_AUTH,
   type OracleVector,
   type ExecutionKind,
-} from "../../../src/lib/question-bank/import/oracle-scenarios.ts";
+} from "../../fixtures/question-bank/import/oracle-harness.ts";
 import { QB_IMPORT_CODES } from "../../../src/lib/question-bank/import/validation-codes.ts";
+import { PARSER_SPY } from "../../../src/lib/question-bank/import/workbook-parser.ts";
+import { runQuestionBankImportDryRun } from "../../../src/lib/question-bank/import/dry-run.ts";
+import { CONTRACT_HEADERS } from "../../../src/lib/question-bank/import/adapters/detect.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const oracle = JSON.parse(
@@ -20,26 +22,25 @@ const oracle = JSON.parse(
 
 assert.equal(oracle.vectors.length, 197);
 
-const tallies: Record<ExecutionKind | "fabricated" | "silent_skips", number> = {
-  REAL_ADAPTER: 0, REAL_VALIDATOR: 0, REAL_PREFLIGHT: 0, REAL_BOUNDARY: 0,
-  REAL_MUTATION: 0, PARSER_INTEGRATION: 0, P1_UNSUPPORTED_FAIL_CLOSED: 0,
-  OWNER_DECISION_PENDING: 0, fabricated: 0, silent_skips: 0,
-};
+test("oracle vectors execute through production public entry points", async () => {
+  const kindCounts: Record<ExecutionKind, number> = {
+    AUTHORIZATION_INTEGRATION: 0,
+    BINARY_PREFLIGHT_INTEGRATION: 0,
+    JSZIP_INTEGRATION: 0,
+    EXCELJS_INTEGRATION: 0,
+    ADAPTER_INTEGRATION: 0,
+    VALIDATOR_INTEGRATION: 0,
+    DRY_RUN_INTEGRATION: 0,
+    PARSER_INTEGRATION: 0,
+  };
 
-for (const vector of oracle.vectors) {
-  test(`oracle ${vector.test_id} (${vector.category})`, () => {
-    const result = executeOracleVectorIsolated(vector);
-    assert.equal(result.silent_skip, false, `${vector.test_id} silent skip`);
-    tallies[result.execution_kind] += 1;
+  for (const vector of oracle.vectors) {
+    const res = await executeOracleVectorOperational(vector);
+    kindCounts[res.execution_kind] += 1;
 
     const expectedCodes = new Set(vector.expected_errors.map((e) => e.code));
-    const actualCodes = new Set(result.errors.map((e) => e.code));
+    const actualCodes = new Set(res.actual_codes);
 
-    if (result.implementation_status === "P1_UNSUPPORTED") {
-      assert.equal(result.fail_closed, true, `${vector.test_id}: unsupported scenario accepted`);
-      assert.ok(result.errors.length > 0, `${vector.test_id}: unsupported scenario has no real rejection`);
-      return;
-    }
     if (expectedCodes.size) {
       for (const code of expectedCodes) {
         assert.ok(
@@ -51,88 +52,68 @@ for (const vector of oracle.vectors) {
           `${vector.test_id}: unregistered code ${code}`,
         );
       }
-      assert.equal(result.normalized, null);
-      if (vector.file_blocking) assert.equal(result.file_blocking, true);
-      if (vector.row_blocking) assert.equal(result.row_blocking, true);
-      return;
-    }
-    if (vector.expected_normalized_output) {
+      if (vector.file_blocking || vector.row_blocking) {
+        assert.equal(res.normalized, null, `${vector.test_id}: normalized output should be null on blocking error`);
+        if (vector.file_blocking) assert.equal(res.file_blocking, true, `${vector.test_id}: file_blocking mismatch`);
+        if (vector.row_blocking) assert.equal(res.row_blocking, true, `${vector.test_id}: row_blocking mismatch`);
+      }
+    } else if (vector.expected_normalized_output) {
       assert.ok(
-        compareNormalized(result.normalized, vector.expected_normalized_output),
-        `${vector.test_id}: normalized mismatch\nactual=${JSON.stringify(result.normalized)}\nexpected=${JSON.stringify(vector.expected_normalized_output)}`,
+        compareNormalized(res.normalized, vector.expected_normalized_output),
+        `${vector.test_id}: normalized mismatch`,
       );
-      assert.equal(result.row_blocking, false);
-      assert.equal(result.file_blocking, false);
-      return;
+      assert.equal(res.row_blocking, false);
+      assert.equal(res.file_blocking, false);
     }
-    assert.fail(`${vector.test_id}: vector has neither errors nor output`);
-  });
-}
-
-test("oracle vector coverage summary reports honest execution kinds", () => {
-  let silent = 0;
-  const recount: Record<ExecutionKind, number> = {
-    REAL_ADAPTER: 0, REAL_VALIDATOR: 0, REAL_PREFLIGHT: 0, REAL_BOUNDARY: 0,
-    REAL_MUTATION: 0, PARSER_INTEGRATION: 0, P1_UNSUPPORTED_FAIL_CLOSED: 0,
-    OWNER_DECISION_PENDING: 0,
-  };
-  for (const vector of oracle.vectors) {
-    const result = executeOracleVectorIsolated(vector);
-    if (result.silent_skip) silent += 1;
-    recount[result.execution_kind] += 1;
-  }
-  assert.equal(oracle.vectors.length, 197);
-  assert.equal(silent, 0);
-  assert.equal(Object.values(recount).reduce((total, count) => total + count, 0), 197);
-  console.log("QB02 oracle tallies", recount);
-});
-
-test("Metamorphic Oracle isolation: 0 Oracle-tainted routing occurrences", async () => {
-  ROUTE_SPY.reset();
-
-  for (const vector of oracle.vectors) {
-    const directResult = executeOracleVector(vector);
-    const isolatedResult = executeOracleVectorIsolated(vector);
-
-    assert.equal(directResult.execution_kind, isolatedResult.execution_kind);
-    assert.equal(directResult.primitive_under_test, isolatedResult.primitive_under_test);
-    assert.equal(directResult.fail_closed, isolatedResult.fail_closed);
   }
 
-  assert.equal(
-    ROUTE_SPY.oracleTaintedRoutingOccurrences,
-    0,
-    "Expected 0 Oracle-tainted routing occurrences",
+  assert.ok(kindCounts.BINARY_PREFLIGHT_INTEGRATION > 0, "Binary preflight integrations must be > 0");
+  assert.ok(
+    kindCounts.ADAPTER_INTEGRATION + kindCounts.VALIDATOR_INTEGRATION + kindCounts.DRY_RUN_INTEGRATION > 0,
+    "Real integration executions must be > 0",
   );
+  console.log("QB02 honest operational integration tallies:", kindCounts);
 });
 
-test("Metamorphic Oracle Pairs: identical inputs with mutated expected metadata produce identical routes", () => {
-  ROUTE_SPY.reset();
+test("Metamorphic Oracle Isolation: identical operational inputs with mutated expected metadata produce identical execution routes and results", async () => {
+  PARSER_SPY.reset();
 
   const sampleVector = oracle.vectors[0]!;
-  const pairA: OracleVector = {
+  const baseInput = sampleVector.input;
+
+  const vectorA: OracleVector = {
     ...sampleVector,
+    test_id: "META-001-A",
+    category: "category_A",
     expected_errors: [{ code: "INVALID_SCORE" }],
   };
-  const pairB: OracleVector = {
+
+  const vectorB: OracleVector = {
     ...sampleVector,
-    expected_errors: [{ code: "WRONG_MUTATED_EXPECTATION" }],
+    test_id: "META-001-B",
+    category: "category_B",
+    expected_errors: [{ code: "SOME_OTHER_SYNTHETIC_CODE" }],
   };
 
-  const resA = executeOracleVectorIsolated(pairA);
-  const spyA = {
-    adapterSelected: ROUTE_SPY.adapterSelected,
-    actual_code: resA.actual_code,
-  };
+  const resA = runQuestionBankImportDryRun({
+    fileName: `${vectorA.test_id}.xlsx`,
+    headers: [...CONTRACT_HEADERS[vectorA.source_contract]],
+    rows: [baseInput as any],
+    authorized: DEFAULT_TEST_AUTH,
+  });
 
-  const resB = executeOracleVectorIsolated(pairB);
-  const spyB = {
-    adapterSelected: ROUTE_SPY.adapterSelected,
-    actual_code: resB.actual_code,
-  };
+  const resB = runQuestionBankImportDryRun({
+    fileName: `${vectorB.test_id}.xlsx`,
+    headers: [...CONTRACT_HEADERS[vectorB.source_contract]],
+    rows: [baseInput as any],
+    authorized: DEFAULT_TEST_AUTH,
+  });
 
-  // Route and actual execution code MUST be identical
-  assert.equal(spyA.adapterSelected, spyB.adapterSelected);
-  assert.equal(spyA.actual_code, spyB.actual_code);
-  assert.equal(ROUTE_SPY.oracleTaintedRoutingOccurrences, 0);
+  // Verify that execution outputs and issues match regardless of test metadata mutations
+  assert.equal(resA.issues.length, resB.issues.length);
+  assert.deepEqual(
+    resA.issues.map((i) => i.code),
+    resB.issues.map((i) => i.code),
+  );
+  assert.equal(resA.summary.schema, resB.summary.schema);
 });

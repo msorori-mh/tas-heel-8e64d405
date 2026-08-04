@@ -86,6 +86,7 @@ export function adaptLegacyFlat15Col(
         sheet,
         row: source_row,
         column: "question_type",
+        row_blocking: true,
       }),
     );
   }
@@ -100,14 +101,15 @@ export function adaptLegacyFlat15Col(
     );
   }
 
-  const optionBodies = contiguousOptionBodies([
+  const rawOptionSlots = [
     row.answer_a,
     row.answer_b,
     row.answer_c,
     row.answer_d,
-  ]);
-  const base = optionBodies.map((body, index) => ({
-    option_code: optionCodesFromCount(optionBodies.length)[index]!,
+  ].map((v) => normalizeText(v));
+  const optionBodies = contiguousOptionBodies(rawOptionSlots);
+  const baseForCorrect = rawOptionSlots.map((body, index) => ({
+    option_code: optionCodesFromCount(4)[index]!,
     body,
   }));
 
@@ -123,7 +125,7 @@ export function adaptLegacyFlat15Col(
         }),
       );
     }
-    const correct = resolveCorrectAnswer(row.correct_index, base, { indexBase: 0 });
+    const correct = resolveCorrectAnswer(row.correct_index, baseForCorrect, { indexBase: 0 });
     if (!correct.ok) {
       const code =
         correct.reason === "EMPTY"
@@ -140,7 +142,7 @@ export function adaptLegacyFlat15Col(
         }),
       );
     } else {
-      options = correct.options;
+      options = correct.options.filter((o) => o.body);
     }
   }
 

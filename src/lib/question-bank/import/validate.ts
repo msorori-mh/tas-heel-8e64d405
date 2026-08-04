@@ -2,7 +2,9 @@ import type { OfficialNormalizedV1 } from "./official-normalized-v1.ts";
 import { issue, type QbImportIssue } from "./errors.ts";
 import { QB_IMPORT_CODES } from "./validation-codes.ts";
 import { hasUnsafeUnicode, isFormulaLike, mixedNumeralScripts } from "./unicode.ts";
+import { MUTATION_HOOKS } from "./mutation-hooks.ts";
 import { canonicalHash } from "./canonical-json.ts";
+import { PARSER_SPY } from "./workbook-parser.ts";
 
 export function contentFingerprint(row: OfficialNormalizedV1): string {
   return canonicalHash({
@@ -40,6 +42,7 @@ export function validateNormalizedRow(
     seenFingerprints?: Set<string>;
   },
 ): QbImportIssue[] {
+  PARSER_SPY.validatorInvocations += 1;
   const issues: QbImportIssue[] = [];
   const base = {
     file: ctx.file ?? null,
@@ -101,7 +104,7 @@ export function validateNormalizedRow(
   for (const value of stringValues) {
     if (hasUnsafeUnicode(value)) {
       issues.push(issue(QB_IMPORT_CODES.MALFORMED_UNICODE, base));
-    } else if (isFormulaLike(value)) {
+    } else if (!MUTATION_HOOKS.bypassFormulaInjectionGuard && isFormulaLike(value)) {
       issues.push(issue(QB_IMPORT_CODES.FORMULA_CELL, base));
     }
   }

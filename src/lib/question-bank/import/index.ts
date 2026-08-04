@@ -15,7 +15,6 @@ export * from "./workbook-parser.ts";
 export * from "./zip-preflight.ts";
 export * from "./preview.ts";
 export * from "./curriculum-lookup.ts";
-export * from "./oracle-scenarios.ts";
 export * from "./adapters/detect.ts";
 export * from "./adapters/legacy-flat-15col.ts";
 export * from "./adapters/teacher-flat-ar-v0.ts";
