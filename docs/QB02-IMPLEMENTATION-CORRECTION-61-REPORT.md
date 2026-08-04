@@ -23,14 +23,14 @@ The runtime implementation strictly executes production validation logic without
 
 ### 1. Dependency Reproducibility (`npm ci`)
 - **Status**: Clean installation completed.
-- **Packages Added/Audited**: 534 added, 535 audited.
+- **Packages Added/Audited**: 535 added, 536 audited.
 - **Verified Installed Dependencies**:
   - `exceljs`: `4.4.0`
   - `jszip`: `3.10.1`
   - `typescript`: `5.9.3`
   - `vite`: `7.3.5`
   - `fast-xml-parser`: `5.10.1`
-  - `lru-cache`: `5.1.1`
+  - `lru-cache`: `11.0.2`
 
 ### 2. Authorization Contract
 - **Public Entry Points**: 2 (`runQuestionBankImportDryRun`, `runOperationalQuestionBankImportDryRun`)
@@ -79,7 +79,7 @@ The runtime implementation strictly executes production validation logic without
 
 | Verification Step | Command | Total | Passed | Failed | Skipped | Status |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **npm ci** | `npm ci` | 535 packages | 535 | 0 | 0 | **PASS** |
+| **npm ci** | `npm ci` | 536 packages | 536 | 0 | 0 | **PASS** |
 | **Import Tests** | `npm run test:question-bank-import` | 314 | 314 | 0 | 0 | **PASS** |
 | **General Tests** | `npm test` | 32 | 32 | 0 | 0 | **PASS** |
 | **TypeScript Check** | `npx tsc --noEmit` | N/A | Clean | 0 | 0 | **PASS** |
