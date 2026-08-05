@@ -41,28 +41,28 @@ export function InteractiveHtmlImportPanel() {
       return;
     }
 
-    if (!excelFile || !zipFile) {
-      setActionMessage("يرجى اختيار ملف Excel وملف ZIP لبدء الاستيراد.");
+    if (!zipFile) {
+      setActionMessage("يرجى اختيار ملف ZIP يحتوي الحزمة التفاعلية لبدء الاستيراد.");
       return;
     }
 
     setLoading(true);
-    setActionMessage("جاري قراءة الحزم والتحقق من الشروط...");
+    setActionMessage("جاري قراءة الحزم والتحقق الخادمي...");
     setStage(4);
 
     try {
-      // 1. Ingest ZIP & Local Preflight
+      // 1. Ingest real ZIP & Preflight
       const zipArrayBuffer = await zipFile.arrayBuffer();
       const zipBytes = new Uint8Array(zipArrayBuffer);
 
       const zipScan = await parseMasterZipBuffer(zipBytes);
-      if (!zipScan.isValid) {
+      if (!zipScan.isValid || Object.keys(zipScan.packageMap).length === 0) {
         setReport({
           summary: {
             totalRows: 1,
             validRows: 0,
             rejectedRows: 1,
-            totalResourcesInZip: 1,
+            totalResourcesInZip: 0,
             validPackages: 0,
             rejectedPackages: 1,
             offlineEligibleCount: 0,
@@ -76,46 +76,70 @@ export function InteractiveHtmlImportPanel() {
         return;
       }
 
-      // 2. Create Batch
-      const batchRes = await createContentImportBatch(excelFile.name, zipFile.name, 1);
+      const packageEntries = Object.entries(zipScan.packageMap);
+      const [firstPkgCode, firstPkgFiles] = packageEntries[0];
+
+      // Calculate real package hash & file metadata
+      const { computePackageDeterministicHash } = await import("@/lib/content-import/html-package/index");
+      const packageHash = await computePackageDeterministicHash(firstPkgFiles);
+
+      const entryFileItem = firstPkgFiles.find((f) => f.path === "index.html" || f.path.endsWith("/index.html")) || firstPkgFiles[0];
+      const entryFileName = entryFileItem ? entryFileItem.path : "index.html";
+
+      const fileListPayload = firstPkgFiles.map((f) => ({
+        file_path: f.path,
+        file_size_bytes: f.size,
+        mimeType: f.mimeType || "application/octet-stream",
+        sha256_hash: f.contentSha256,
+        is_entry_point: f.path === entryFileName,
+      }));
+
+      const cleanCode = (firstPkgCode || zipFile.name.replace(/\.zip$/i, "")).replace(/[^a-zA-Z0-9_-]/g, "");
+
+      // 2. Create Import Batch
+      const batchRes = await createContentImportBatch(excelFile?.name || `${cleanCode}.xlsx`, zipFile.name, packageEntries.length);
       if (!batchRes.success || !batchRes.data?.batch_id) {
-        throw new Error(batchRes.error?.message || "فشل إنشاء دفعة الاستيراد");
+        throw new Error(batchRes.error?.message || "فشل إنشاء دفعة الاستيراد الخادمية");
       }
 
       const activeBatchId = batchRes.data.batch_id;
       setBatchId(activeBatchId);
 
       // 3. Issue Upload Session
-      const issueRes = await issueContentUpload(activeBatchId, "MM-G12-BIO-L001", zipFile.name);
-      if (!issueRes.success) {
-        throw new Error(issueRes.error?.message || "فشل إخراج مسار الرفع");
+      const issueRes = await issueContentUpload(activeBatchId, cleanCode, zipFile.name);
+      if (!issueRes.success || !issueRes.data?.staging_path) {
+        throw new Error(issueRes.error?.message || "فشل إخراج مسار الرفع للمسودة");
       }
 
       // 4. Finalize Draft Upload
       const finalizeRes = await finalizeContentUpload(
         activeBatchId,
-        "00000000-0000-0000-0000-000000000000",
-        "MM-G12-BIO-L001",
+        "00000000-0000-0000-0000-000000000001",
+        cleanCode,
         "mind_map_html",
-        "الخريطة الذهنية التفاعلية",
+        `حزمة ${cleanCode} التفاعلية`,
         issueRes.data.staging_path,
-        "client-sha-hash",
-        { entry: "index.html" },
-        [{ file_path: "index.html", file_size_bytes: 100, mime_type: "text/html", sha256_hash: "hash", is_entry_point: true }]
+        packageHash,
+        { entry: entryFileName },
+        fileListPayload
       );
 
-      if (!finalizeRes.success) {
-        throw new Error(finalizeRes.error?.message || "فشل تأكيد الرفع في القاعدة");
+      if (!finalizeRes.success || !finalizeRes.data?.resource_id) {
+        throw new Error(finalizeRes.error?.message || "فشل تأكيد المسودة بالخادم");
       }
 
       // 5. Attest Validation
-      await validateContentPackage(finalizeRes.data.resource_id, finalizeRes.data.version_id);
+      const valRes = await validateContentPackage(finalizeRes.data.resource_id, finalizeRes.data.version_id);
+      if (!valRes.success) {
+        throw new Error(valRes.error?.message || "فشل فحص الحزمة الخادمي");
+      }
 
       setActionMessage("تم إنشاء المسودة واستكمال فحص السيرفر بنجاح!");
       setLoading(false);
       setStage(7);
-    } catch (err: any) {
-      setActionMessage(`حدث خطأ أثناء التنفيذ: ${err.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "خطأ أثناء التنفيذ الخادمي";
+      setActionMessage(`حدث خطأ أثناء التنفيذ: ${msg}`);
       setLoading(false);
       setStage(8);
     }
@@ -137,15 +161,24 @@ export function InteractiveHtmlImportPanel() {
         } else {
           packageFilesMap = zipRes.packageMap;
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "خطأ في القراءة";
         zipErrorFindings = [
           {
-            code: "ZIP_INGESTION_FAILED" as any,
+            code: "ZIP_INGESTION_FAILED" as never,
             severity: "error",
-            message: `فشل قراءة حزمة ZIP: ${err.message}`,
+            message: `فشل قراءة حزمة ZIP: ${msg}`,
           },
         ];
       }
+    } else {
+      zipErrorFindings = [
+        {
+          code: "MISSING_REQUIRED_FIELD" as never,
+          severity: "error",
+          message: "يرجى رفع ملف ZIP يحتوي على الحزمة التفاعلية لإجراء الفحص واللمعاينة.",
+        },
+      ];
     }
 
     if (zipErrorFindings.length > 0) {
@@ -170,17 +203,22 @@ export function InteractiveHtmlImportPanel() {
       return;
     }
 
-    const demoRows: InteractiveLessonResourceImportRow[] = [
+    const pkgCode = Object.keys(packageFilesMap)[0] || "interactive-package";
+    const pkgFiles = packageFilesMap[pkgCode] || [];
+    const entryFile = pkgFiles.find((f) => f.path === "index.html" || f.path.endsWith("/index.html")) || pkgFiles[0];
+    const htmlText = entryFile?.buffer ? new TextDecoder().decode(entryFile.buffer) : "";
+
+    const simulatedRows: InteractiveLessonResourceImportRow[] = [
       {
-        resource_code: "MM-G12-BIO-L001",
+        resource_code: pkgCode,
         grade_code: "grade-12",
-        subject_code: "bio-g12-aden",
-        lesson_code: "LES-G12-BIO-001",
+        subject_code: "subject-g12",
+        lesson_code: "LES-G12-001",
         resource_type: "mind_map_html",
-        title_ar: "الخريطة الذهنية التفاعلية للخلية النباتية",
-        description_ar: "خريطة تفاعلية تدعم التكبير والتصغير",
-        package_path: "MM-G12-BIO-L001",
-        entry_file: "index.html",
+        title_ar: `حزمة ${pkgCode}`,
+        description_ar: "معاينة حزمة مسبقة",
+        package_path: pkgCode,
+        entry_file: entryFile?.path || "index.html",
         sort_order: 1,
         version: 1,
         status: "draft",
@@ -189,45 +227,20 @@ export function InteractiveHtmlImportPanel() {
         height_mode: "viewport",
         completion_mode: "view",
         minimum_interaction_seconds: 15,
+        alt_text_ar: `حزمة ${pkgCode}`,
       },
     ];
 
-    const demoHtmlBody = `
-      <!DOCTYPE html>
-      <html dir="rtl">
-      <head><meta charset="UTF-8"><title>معاينة خريطة ذهنية</title></head>
-      <body><div>الخلية النباتية</div></body>
-      </html>
-    `;
+    const resReport = await runInteractiveResourceImportDryRun(simulatedRows, packageFilesMap);
+    setReport(resReport);
+    setPreviewCode(pkgCode);
 
-    if (Object.keys(packageFilesMap).length === 0) {
-      packageFilesMap = {
-        "MM-G12-BIO-L001": [
-          {
-            path: "index.html",
-            size: demoHtmlBody.length,
-            isDir: false,
-            contentSha256: "demo-sha-1",
-            mimeType: "text/html",
-            buffer: new TextEncoder().encode(demoHtmlBody),
-          },
-        ],
-      };
+    if (htmlText) {
+      const csp = await buildPackageCsp([], pkgCode, 1, "nonce-demo-123");
+      const srcDoc = generatePreviewHtmlBundle(htmlText, [], csp, pkgCode, 1, "nonce-demo-123");
+      setPreviewSrcDoc(srcDoc);
     }
 
-    const resReport = await runInteractiveResourceImportDryRun(demoRows, packageFilesMap);
-    setReport(resReport);
-    setPreviewCode("MM-G12-BIO-L001");
-    const csp = await buildPackageCsp([], "MM-G12-BIO-L001", 1, "nonce-demo-123");
-    const srcDoc = generatePreviewHtmlBundle(
-      demoHtmlBody,
-      [],
-      csp,
-      "MM-G12-BIO-L001",
-      1,
-      "nonce-demo-123"
-    );
-    setPreviewSrcDoc(srcDoc);
     setLoading(false);
     setStage(7);
   };

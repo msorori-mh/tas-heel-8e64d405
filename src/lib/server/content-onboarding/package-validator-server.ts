@@ -182,3 +182,30 @@ export async function validateServerHtmlPackage(
     entryFile: entryFileName,
   };
 }
+
+import { defaultSupabaseStorageAdapter, StorageClientAdapter } from "./upload-service";
+
+export async function executeServerPackageValidationWorkflow(
+  stagingPath: string,
+  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter
+): Promise<ServerPackageValidationResult> {
+  const { data: zipBytes, error } = await storageAdapter.download("lesson-resource-drafts", stagingPath);
+  if (error || !zipBytes) {
+    return {
+      isValid: false,
+      packageHash: "",
+      scannerVersion: "v1-operational-server",
+      findings: [
+        {
+          code: ValidationCodes.ZIP_INGESTION_FAILED,
+          severity: "error",
+          message: `فشل تنزيل حزمة ZIP من مسار Staging: ${error?.message || "الملف غير موجود"}`,
+        },
+      ],
+      files: [],
+      entryFile: "index.html",
+    };
+  }
+
+  return validateServerHtmlPackage(zipBytes);
+}

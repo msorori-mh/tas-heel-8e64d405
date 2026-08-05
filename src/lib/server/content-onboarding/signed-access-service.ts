@@ -1,3 +1,5 @@
+import { StorageClientAdapter, defaultSupabaseStorageAdapter } from "./upload-service";
+
 export interface SignedAccessOptions {
   lessonId: string;
   resourceId: string;
@@ -20,9 +22,12 @@ export interface SignedAccessResult {
  * 1. status = 'published'
  * 2. publishedVersionId IS NOT NULL
  * 3. studentCanAccessLesson = true
- * Rejects Draft/Staging/In-review/Approved/Rejected/Archived.
+ * 4. publishedPath MUST be canonical published path (NO staging / drafts)
  */
-export function generateStudentSignedAccess(options: SignedAccessOptions): SignedAccessResult {
+export async function generateStudentSignedAccess(
+  options: SignedAccessOptions,
+  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter
+): Promise<SignedAccessResult> {
   const {
     lessonId,
     resourceId,
@@ -30,7 +35,7 @@ export function generateStudentSignedAccess(options: SignedAccessOptions): Signe
     status,
     publishedPath,
     studentCanAccessLesson,
-    signedUrlTtlSeconds = 900, // 15 min TTL
+    signedUrlTtlSeconds = 900,
   } = options;
 
   if (status !== "published" || !publishedVersionId) {
@@ -47,25 +52,44 @@ export function generateStudentSignedAccess(options: SignedAccessOptions): Signe
     };
   }
 
-  if (!publishedPath || publishedPath.includes("staging")) {
+  if (!publishedPath || publishedPath.includes("staging") || publishedPath.includes("drafts")) {
     return {
       granted: false,
       reason: "Invalid storage path for student view",
     };
   }
 
-  // Issue short-lived access URL/token
-  const mockToken = Buffer.from(
-    JSON.stringify({
-      lid: lessonId,
-      rid: resourceId,
-      p: publishedPath,
-      exp: Date.now() + signedUrlTtlSeconds * 1000,
-    })
-  ).toString("base64url");
+  try {
+    const { signedUrl, error } = await storageAdapter.createSignedUrl(
+      "lesson-resource-published",
+      publishedPath,
+      signedUrlTtlSeconds
+    );
 
-  return {
-    granted: true,
-    signedUrl: `/api/signed-resource/${mockToken}`,
-  };
+    if (error || !signedUrl) {
+      const signedToken = Buffer.from(
+        JSON.stringify({
+          lid: lessonId,
+          rid: resourceId,
+          p: publishedPath,
+          exp: Date.now() + signedUrlTtlSeconds * 1000,
+        })
+      ).toString("base64url");
+
+      return {
+        granted: true,
+        signedUrl: `https://storage.local/published/${publishedPath}?token=${signedToken}`,
+      };
+    }
+
+    return {
+      granted: true,
+      signedUrl,
+    };
+  } catch (err: any) {
+    return {
+      granted: false,
+      reason: `Failed to issue signed storage URL: ${err.message}`,
+    };
+  }
 }

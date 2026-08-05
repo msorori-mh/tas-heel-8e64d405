@@ -191,6 +191,7 @@ CREATE TABLE IF NOT EXISTS public.storage_operations (
   expected_hash TEXT,
   actual_hash TEXT,
   retry_number INT NOT NULL DEFAULT 0 CHECK (retry_number >= 0),
+  attempt_count INT NOT NULL DEFAULT 1 CHECK (attempt_count >= 1),
   idempotency_key TEXT NOT NULL,
   error_details JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -371,7 +372,10 @@ FOR EACH ROW EXECUTE FUNCTION public.enforce_storage_operation_rules();
 -- 6. STRICT RLS POLICIES (NO DIRECT BROWSER WRITES)
 --------------------------------------------------------------------------------
 
--- Clean up any open write policies
+-- Clean up any historical open policies on lesson_resources
+DROP POLICY IF EXISTS "Resources viewable per lesson access" ON public.lesson_resources;
+DROP POLICY IF EXISTS "Content staff manage resources" ON public.lesson_resources;
+DROP POLICY IF EXISTS "Content staff select lesson resources" ON public.lesson_resources;
 DROP POLICY IF EXISTS "Content staff manage versions" ON public.lesson_resource_versions;
 DROP POLICY IF EXISTS "Content staff manage files" ON public.lesson_resource_files;
 DROP POLICY IF EXISTS "Content staff manage import batches" ON public.content_import_batches;
@@ -379,6 +383,12 @@ DROP POLICY IF EXISTS "Content staff manage import rows" ON public.content_impor
 DROP POLICY IF EXISTS "Content staff manage storage operations" ON public.storage_operations;
 
 -- SELECT ONLY POLICIES FOR STAFF (NO DIRECT BROWSER MUTATIONS)
+ALTER TABLE public.lesson_resources ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Content staff select lesson resources"
+  ON public.lesson_resources FOR SELECT TO authenticated
+  USING (public.is_content_staff(auth.uid()));
+
 CREATE POLICY "Content staff select versions"
   ON public.lesson_resource_versions FOR SELECT TO authenticated
   USING (public.is_content_staff(auth.uid()));
@@ -768,6 +778,7 @@ DECLARE
   v_actor UUID := auth.uid();
   v_claimed JSONB;
   v_res RECORD;
+  v_ver RECORD;
   v_validation RECORD;
   v_result JSONB;
 BEGIN
@@ -791,19 +802,30 @@ BEGIN
     RAISE EXCEPTION 'Stale lock version' USING ERRCODE = '40900';
   END IF;
 
-  IF v_res.current_draft_version_id IS NULL THEN
-    RAISE EXCEPTION 'No draft version bound' USING ERRCODE = '42200';
+  SELECT * INTO v_ver FROM public.lesson_resource_versions WHERE id = v_res.current_draft_version_id;
+  IF v_ver.id IS NULL THEN
+    RAISE EXCEPTION 'Current draft version not found' USING ERRCODE = '40400';
   END IF;
 
-  -- Require valid server validation run
+  -- Require valid server validation run matching version content_sha256
   SELECT * INTO v_validation
   FROM public.content_package_validations
-  WHERE version_id = v_res.current_draft_version_id AND is_valid = true
+  WHERE version_id = v_res.current_draft_version_id
+    AND is_valid = true
+    AND validated_by_server = true
+    AND package_hash = v_ver.content_sha256
   ORDER BY validated_at DESC
   LIMIT 1;
 
   IF v_validation.id IS NULL THEN
-    RAISE EXCEPTION 'Server package validation must pass before submitting for review' USING ERRCODE = '42200';
+    RAISE EXCEPTION 'Server package validation matching version content SHA-256 must pass before submitting for review' USING ERRCODE = '42200';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v_validation.findings) elem
+    WHERE elem->>'severity' = 'error'
+  ) THEN
+    RAISE EXCEPTION 'Package validation contains blocking security findings' USING ERRCODE = '42200';
   END IF;
 
   UPDATE public.lesson_resources
@@ -871,10 +893,22 @@ BEGIN
 
   SELECT * INTO v_validation
   FROM public.content_package_validations
-  WHERE version_id = p_version_id AND is_valid = true;
+  WHERE version_id = p_version_id
+    AND is_valid = true
+    AND validated_by_server = true
+    AND package_hash = v_ver.content_sha256
+  ORDER BY validated_at DESC
+  LIMIT 1;
 
   IF v_validation.id IS NULL THEN
-    RAISE EXCEPTION 'Version lacks valid server validation run' USING ERRCODE = '42200';
+    RAISE EXCEPTION 'Version lacks valid server validation run matching version content SHA-256' USING ERRCODE = '42200';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v_validation.findings) elem
+    WHERE elem->>'severity' = 'error'
+  ) THEN
+    RAISE EXCEPTION 'Package validation contains blocking security findings' USING ERRCODE = '42200';
   END IF;
 
   -- Set version immutability
@@ -1299,6 +1333,178 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
+-- 8.13 record_server_package_validation
+CREATE OR REPLACE FUNCTION public.record_server_package_validation(
+  p_version_id UUID,
+  p_batch_id UUID,
+  p_package_hash TEXT,
+  p_scanner_version TEXT,
+  p_findings JSONB,
+  p_is_valid BOOLEAN,
+  p_idempotency_key TEXT DEFAULT NULL
+)
+RETURNS JSONB AS $$
+DECLARE
+  v_actor UUID := auth.uid();
+  v_claimed JSONB;
+  v_id UUID;
+  v_result JSONB;
+BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+
+  IF NOT public.is_content_staff(v_actor) THEN
+    RAISE EXCEPTION 'Unauthorized staff access' USING ERRCODE = '42501';
+  END IF;
+
+  v_claimed := public.claim_idempotency_slot(v_actor, 'record_server_package_validation', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
+  END IF;
+
+  INSERT INTO public.content_package_validations (
+    version_id,
+    batch_id,
+    package_hash,
+    scanner_version,
+    findings,
+    is_valid,
+    validated_at,
+    validated_by_server
+  ) VALUES (
+    p_version_id,
+    p_batch_id,
+    p_package_hash,
+    COALESCE(p_scanner_version, 'v1-operational-server'),
+    COALESCE(p_findings, '[]'::jsonb),
+    p_is_valid,
+    now(),
+    true
+  ) RETURNING id INTO v_id;
+
+  v_result := jsonb_build_object(
+    'validation_id', v_id,
+    'version_id', p_version_id,
+    'is_valid', p_is_valid,
+    'package_hash', p_package_hash,
+    'validated_by_server', true
+  );
+
+  PERFORM public.complete_idempotency_slot(v_actor, 'record_server_package_validation', p_idempotency_key, v_result);
+  RETURN v_result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+-- 8.14 retry_storage_operation
+CREATE OR REPLACE FUNCTION public.retry_storage_operation(
+  p_previous_op_id UUID,
+  p_idempotency_key TEXT DEFAULT NULL
+)
+RETURNS JSONB AS $$
+DECLARE
+  v_actor UUID := auth.uid();
+  v_claimed JSONB;
+  v_prev RECORD;
+  v_new_id UUID;
+  v_new_retry INT;
+  v_key TEXT;
+  v_result JSONB;
+BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+
+  IF NOT public.is_content_staff(v_actor) THEN
+    RAISE EXCEPTION 'Unauthorized staff access' USING ERRCODE = '42501';
+  END IF;
+
+  v_claimed := public.claim_idempotency_slot(v_actor, 'retry_storage_operation', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
+  END IF;
+
+  SELECT * INTO v_prev FROM public.storage_operations WHERE id = p_previous_op_id;
+  IF v_prev.id IS NULL THEN
+    RAISE EXCEPTION 'Previous storage operation not found' USING ERRCODE = '40400';
+  END IF;
+
+  IF v_prev.status <> 'failed' THEN
+    RAISE EXCEPTION 'Can only retry failed storage operations' USING ERRCODE = '42200';
+  END IF;
+
+  v_new_retry := v_prev.retry_number + 1;
+  v_key := COALESCE(p_idempotency_key, v_prev.idempotency_key || '_retry_' || v_new_retry::text);
+
+  INSERT INTO public.storage_operations (
+    parent_operation_id,
+    operation_type,
+    status,
+    source_path,
+    target_path,
+    expected_hash,
+    retry_number,
+    attempt_count,
+    idempotency_key
+  ) VALUES (
+    p_previous_op_id,
+    v_prev.operation_type,
+    'pending',
+    v_prev.source_path,
+    v_prev.target_path,
+    v_prev.expected_hash,
+    v_new_retry,
+    1,
+    v_key
+  ) RETURNING id INTO v_new_id;
+
+  v_result := jsonb_build_object(
+    'operation_id', v_new_id,
+    'parent_operation_id', p_previous_op_id,
+    'retry_number', v_new_retry,
+    'attempt_count', 1,
+    'status', 'pending'
+  );
+
+  PERFORM public.complete_idempotency_slot(v_actor, 'retry_storage_operation', p_idempotency_key, v_result);
+  RETURN v_result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+-- 8.15 fetch_content_review_queue
+CREATE OR REPLACE FUNCTION public.fetch_content_review_queue()
+RETURNS JSONB AS $$
+DECLARE
+  v_actor UUID := auth.uid();
+  v_result JSONB;
+BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+
+  IF NOT public.is_content_staff(v_actor) THEN
+    RAISE EXCEPTION 'Unauthorized staff access' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'id', lr.id,
+      'resource_code', COALESCE(lr.resource_code, lr.id::text),
+      'resource_type', lr.resource_type,
+      'title', lr.title,
+      'description', COALESCE(lr.description, ''),
+      'status', lr.status,
+      'lock_version', lr.lock_version,
+      'current_draft_version_id', lr.current_draft_version_id,
+      'approved_version_id', lr.approved_version_id,
+      'published_version_id', lr.published_version_id,
+      'lesson_title', COALESCE(l.title, 'درس عام'),
+      'updated_at', lr.updated_at
+    ) ORDER BY lr.updated_at DESC
+  ), '[]'::jsonb)
+  INTO v_result
+  FROM public.lesson_resources lr
+  LEFT JOIN public.lessons l ON l.id = lr.lesson_id
+  WHERE lr.status IN ('draft', 'in_review', 'approved', 'published', 'rejected');
+
+  RETURN v_result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
 --------------------------------------------------------------------------------
 -- 9. PERMISSIONS & EXPLICIT EXECUTE GRANTS BY NAME (NO WILDCARD REVOKE ALL ON SCHEMA)
 --------------------------------------------------------------------------------
@@ -1320,6 +1526,20 @@ REVOKE ALL ON FUNCTION public.unpublish_resource_version FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.archive_lesson_resource FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.rollback_published_resource_version FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.fetch_published_lesson_resources FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.record_server_package_validation FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.retry_storage_operation FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.fetch_content_review_queue FROM PUBLIC, anon;
+
+GRANT SELECT ON public.lesson_resources TO authenticated;
+GRANT SELECT ON public.lesson_resource_versions TO authenticated;
+GRANT SELECT ON public.lesson_resource_files TO authenticated;
+GRANT SELECT ON public.lesson_resource_reviews TO authenticated;
+GRANT SELECT ON public.lesson_resource_events TO authenticated;
+GRANT SELECT ON public.content_import_batches TO authenticated;
+GRANT SELECT ON public.content_import_rows TO authenticated;
+GRANT SELECT ON public.storage_operations TO authenticated;
+GRANT SELECT ON public.content_feature_flags TO authenticated;
+GRANT SELECT ON public.content_package_validations TO authenticated;
 
 GRANT EXECUTE ON FUNCTION public.create_content_import_batch TO authenticated;
 GRANT EXECUTE ON FUNCTION public.issue_content_upload TO authenticated;
@@ -1334,5 +1554,8 @@ GRANT EXECUTE ON FUNCTION public.unpublish_resource_version TO authenticated;
 GRANT EXECUTE ON FUNCTION public.archive_lesson_resource TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rollback_published_resource_version TO authenticated;
 GRANT EXECUTE ON FUNCTION public.fetch_published_lesson_resources TO authenticated;
+GRANT EXECUTE ON FUNCTION public.record_server_package_validation TO authenticated;
+GRANT EXECUTE ON FUNCTION public.retry_storage_operation TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fetch_content_review_queue TO authenticated;
 
 COMMIT;

@@ -1,13 +1,129 @@
 import { supabase } from "@/integrations/supabase/client";
 import { CONTENT_FEATURE_FLAGS } from "./feature-flags";
 
-export interface RPCResponse<T = any> {
+export interface RPCResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
   };
+}
+
+export interface CreateBatchResult {
+  batch_id: string;
+  status: string;
+  total_rows: number;
+  created_at: string;
+}
+
+export interface IssueUploadResult {
+  batch_id: string;
+  upload_session_id: string;
+  resource_code: string;
+  bucket: string;
+  staging_path: string;
+}
+
+export interface FinalizeUploadResult {
+  resource_id: string;
+  version_id: string;
+  version_number: number;
+  status: string;
+  lock_version: number;
+}
+
+export interface ValidatePackageResult {
+  resource_id: string;
+  version_id: string;
+  is_valid: boolean;
+  content_sha256: string;
+  findings: Array<{ code: string; severity: "error" | "warning" | "info"; message: string }>;
+  validated_at: string;
+}
+
+export interface SubmitReviewResult {
+  resource_id: string;
+  status: string;
+  lock_version: number;
+}
+
+export interface ApproveVersionResult {
+  resource_id: string;
+  status: string;
+  approved_version_id: string;
+  lock_version: number;
+}
+
+export interface RejectVersionResult {
+  resource_id: string;
+  status: string;
+  lock_version: number;
+}
+
+export interface PublishVersionResult {
+  resource_id: string;
+  status: string;
+  published_version_id: string;
+  published_path: string;
+  lock_version: number;
+}
+
+export interface UnpublishVersionResult {
+  resource_id: string;
+  status: string;
+  published_version_id: null;
+  lock_version: number;
+}
+
+export interface ArchiveResourceResult {
+  resource_id: string;
+  status: string;
+  lock_version: number;
+}
+
+export interface RollbackVersionResult {
+  resource_id: string;
+  status: string;
+  published_version_id: string;
+  previous_published_version_id: string;
+  lock_version: number;
+}
+
+export interface PublishedStudentResource {
+  id: string;
+  resource_code: string;
+  resource_type: string;
+  title: string;
+  description: string | null;
+  sort_order: number;
+  entry_file: string;
+  content_sha256: string;
+  published_version_id: string;
+  url: string;
+}
+
+export interface ReviewQueueItem {
+  id: string;
+  resource_code: string;
+  resource_type: string;
+  title: string;
+  description: string;
+  status: "draft" | "in_review" | "approved" | "published" | "rejected" | "archived";
+  lock_version: number;
+  current_draft_version_id?: string;
+  approved_version_id?: string;
+  published_version_id?: string;
+  lesson_title: string;
+  updated_at: string;
+}
+
+export interface RecordValidationResult {
+  validation_id: string;
+  version_id: string;
+  is_valid: boolean;
+  package_hash: string;
+  validated_by_server: boolean;
 }
 
 /**
@@ -18,7 +134,7 @@ export async function createContentImportBatch(
   zipFilename: string,
   totalRows: number,
   idempotencyKey?: string
-): Promise<RPCResponse> {
+): Promise<RPCResponse<CreateBatchResult>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_UPLOAD) {
     return {
       success: false,
@@ -39,7 +155,7 @@ export async function createContentImportBatch(
   if (error) {
     return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data };
+  return { success: true, data: (data as unknown) as CreateBatchResult };
 }
 
 /**
@@ -50,7 +166,7 @@ export async function issueContentUpload(
   resourceCode: string,
   filename: string,
   idempotencyKey?: string
-): Promise<RPCResponse> {
+): Promise<RPCResponse<IssueUploadResult>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_UPLOAD) {
     return {
       success: false,
@@ -68,7 +184,7 @@ export async function issueContentUpload(
   if (error) {
     return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data };
+  return { success: true, data: (data as unknown) as IssueUploadResult };
 }
 
 /**
@@ -82,10 +198,10 @@ export async function finalizeContentUpload(
   title: string,
   stagingPath: string,
   contentSha256: string,
-  manifest: Record<string, any>,
-  files: Array<Record<string, any>>,
+  manifest: Record<string, unknown>,
+  files: Array<Record<string, unknown>>,
   idempotencyKey?: string
-): Promise<RPCResponse> {
+): Promise<RPCResponse<FinalizeUploadResult>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_UPLOAD) {
     return {
       success: false,
@@ -101,15 +217,15 @@ export async function finalizeContentUpload(
     p_title: title,
     p_staging_path: stagingPath,
     p_content_sha256: contentSha256,
-    p_manifest: manifest,
-    p_files: files,
+    p_manifest: manifest as unknown as Record<string, never>,
+    p_files: files as unknown as Record<string, never>[],
     p_idempotency_key: idempotencyKey ?? undefined,
   });
 
   if (error) {
     return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data };
+  return { success: true, data: (data as unknown) as FinalizeUploadResult };
 }
 
 /**
@@ -119,7 +235,7 @@ export async function validateContentPackage(
   resourceId: string,
   versionId: string,
   idempotencyKey?: string
-): Promise<RPCResponse> {
+): Promise<RPCResponse<ValidatePackageResult>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_UPLOAD) {
     return {
       success: false,
@@ -136,7 +252,42 @@ export async function validateContentPackage(
   if (error) {
     return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data };
+  return { success: true, data: (data as unknown) as ValidatePackageResult };
+}
+
+/**
+ * Records server package validation result into database.
+ */
+export async function recordServerPackageValidation(
+  versionId: string,
+  batchId: string,
+  packageHash: string,
+  scannerVersion: string,
+  findings: Array<{ code: string; severity: "error" | "warning" | "info"; message: string }>,
+  isValid: boolean,
+  idempotencyKey?: string
+): Promise<RPCResponse<RecordValidationResult>> {
+  if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_UPLOAD) {
+    return {
+      success: false,
+      error: { code: "FEATURE_FLAG_DISABLED", message: "تسجيل الفحص معطّل حالياً." },
+    };
+  }
+
+  const { data, error } = await supabase.rpc("record_server_package_validation" as never, {
+    p_version_id: versionId,
+    p_batch_id: batchId,
+    p_package_hash: packageHash,
+    p_scanner_version: scannerVersion,
+    p_findings: findings,
+    p_is_valid: isValid,
+    p_idempotency_key: idempotencyKey ?? undefined,
+  } as never);
+
+  if (error) {
+    return { success: false, error: { code: (error as { code?: string }).code || "RPC_ERROR", message: (error as { message: string }).message } };
+  }
+  return { success: true, data: (data as unknown) as RecordValidationResult };
 }
 
 /**
@@ -146,7 +297,7 @@ export async function submitResourceForReview(
   resourceId: string,
   expectedLockVersion: number,
   idempotencyKey?: string
-): Promise<RPCResponse> {
+): Promise<RPCResponse<SubmitReviewResult>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_BACKEND) {
     return {
       success: false,
@@ -163,7 +314,7 @@ export async function submitResourceForReview(
   if (error) {
     return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data };
+  return { success: true, data: (data as unknown) as SubmitReviewResult };
 }
 
 /**
@@ -174,7 +325,7 @@ export async function approveResourceVersion(
   versionId: string,
   expectedLockVersion: number,
   idempotencyKey?: string
-): Promise<RPCResponse> {
+): Promise<RPCResponse<ApproveVersionResult>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_BACKEND) {
     return {
       success: false,
@@ -192,7 +343,7 @@ export async function approveResourceVersion(
   if (error) {
     return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data };
+  return { success: true, data: (data as unknown) as ApproveVersionResult };
 }
 
 /**
@@ -204,7 +355,7 @@ export async function rejectResourceVersion(
   reason: string,
   expectedLockVersion: number,
   idempotencyKey?: string
-): Promise<RPCResponse> {
+): Promise<RPCResponse<RejectVersionResult>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_BACKEND) {
     return {
       success: false,
@@ -223,7 +374,7 @@ export async function rejectResourceVersion(
   if (error) {
     return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data };
+  return { success: true, data: (data as unknown) as RejectVersionResult };
 }
 
 /**
@@ -234,7 +385,7 @@ export async function publishResourceVersion(
   versionId: string,
   expectedLockVersion: number,
   idempotencyKey?: string
-): Promise<RPCResponse> {
+): Promise<RPCResponse<PublishVersionResult>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_PUBLISH) {
     return {
       success: false,
@@ -252,7 +403,7 @@ export async function publishResourceVersion(
   if (error) {
     return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data };
+  return { success: true, data: (data as unknown) as PublishVersionResult };
 }
 
 /**
@@ -263,7 +414,7 @@ export async function unpublishResourceVersion(
   reason: string,
   expectedLockVersion: number,
   idempotencyKey?: string
-): Promise<RPCResponse> {
+): Promise<RPCResponse<UnpublishVersionResult>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_PUBLISH) {
     return {
       success: false,
@@ -281,7 +432,7 @@ export async function unpublishResourceVersion(
   if (error) {
     return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data };
+  return { success: true, data: (data as unknown) as UnpublishVersionResult };
 }
 
 /**
@@ -292,7 +443,7 @@ export async function archiveLessonResource(
   reason: string,
   expectedLockVersion: number,
   idempotencyKey?: string
-): Promise<RPCResponse> {
+): Promise<RPCResponse<ArchiveResourceResult>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_BACKEND) {
     return {
       success: false,
@@ -310,7 +461,7 @@ export async function archiveLessonResource(
   if (error) {
     return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data };
+  return { success: true, data: (data as unknown) as ArchiveResourceResult };
 }
 
 /**
@@ -322,7 +473,7 @@ export async function rollbackPublishedResourceVersion(
   expectedLockVersion: number,
   reason: string,
   idempotencyKey?: string
-): Promise<RPCResponse> {
+): Promise<RPCResponse<RollbackVersionResult>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_PUBLISH) {
     return {
       success: false,
@@ -341,13 +492,13 @@ export async function rollbackPublishedResourceVersion(
   if (error) {
     return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data };
+  return { success: true, data: (data as unknown) as RollbackVersionResult };
 }
 
 /**
  * Fetches published resources for a student. Fail-closed error when ENABLE_HTML_CONTENT_STUDENT_READ is false.
  */
-export async function fetchPublishedLessonResources(lessonId: string): Promise<RPCResponse<any[]>> {
+export async function fetchPublishedLessonResources(lessonId: string): Promise<RPCResponse<PublishedStudentResource[]>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_STUDENT_READ) {
     return {
       success: false,
@@ -365,5 +516,27 @@ export async function fetchPublishedLessonResources(lessonId: string): Promise<R
   if (error) {
     return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data: Array.isArray(data) ? data : [] };
+  return { success: true, data: ((data as unknown) as PublishedStudentResource[]) || [] };
+}
+
+/**
+ * Fetches admin review queue via server RPC.
+ */
+export async function fetchContentReviewQueue(): Promise<RPCResponse<ReviewQueueItem[]>> {
+  if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_BACKEND) {
+    return {
+      success: false,
+      error: {
+        code: "FEATURE_FLAG_DISABLED",
+        message: "طابور المراجعة معطّل حالياً عبر Feature Flag.",
+      },
+    };
+  }
+
+  const { data, error } = await supabase.rpc("fetch_content_review_queue" as never);
+
+  if (error) {
+    return { success: false, error: { code: (error as { code?: string }).code || "RPC_ERROR", message: (error as { message: string }).message } };
+  }
+  return { success: true, data: ((data as unknown) as ReviewQueueItem[]) || [] };
 }

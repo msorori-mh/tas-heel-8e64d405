@@ -9,6 +9,8 @@ import { CheckCircle2, XCircle, Eye, ShieldCheck, Play, Sparkles, Filter, Lock, 
 import { InteractiveResourceViewer, InteractiveResourceItem } from "@/components/lessons/InteractiveResourceViewer";
 import { CONTENT_FEATURE_FLAGS } from "@/lib/content-onboarding/feature-flags";
 import {
+  fetchContentReviewQueue,
+  ReviewQueueItem,
   approveResourceVersion,
   rejectResourceVersion,
   publishResourceVersion,
@@ -34,34 +36,6 @@ interface ReviewItem extends InteractiveResourceItem {
   security_findings_count: number;
 }
 
-const DEMO_REVIEW_ITEMS: ReviewItem[] = [
-  {
-    id: "rev-01",
-    resource_code: "MM-G12-BIO-L001",
-    resource_type: "mind_map_html",
-    title_ar: "الخريطة الذهنية التفاعلية للخلية النباتية",
-    description_ar: "خريطة تفاعلية تدعم التكبير والتصغير لتركيب الخلية",
-    version: 1,
-    lock_version: 1,
-    entry_file: "index.html",
-    html_content: `
-      <!DOCTYPE html>
-      <html dir="rtl">
-      <head><title>الخلية النباتية</title><style>body{font-family:sans-serif;background:#0f172a;color:#fff;text-align:center;padding:20px;}.box{border:2px solid #38bdf8;padding:15px;margin:10px auto;max-width:250px;border-radius:10px;background:#1e293b;}</style></head>
-      <body>
-        <div class="box">الخلية النباتية (معاينة تجريبية)</div>
-      </body>
-      </html>
-    `,
-    offline_enabled: true,
-    status: "in_review",
-    grade_name: "الصف الثاني عشر",
-    subject_name: "الأحياء",
-    lesson_title: "تركيب الخلية النباتية ووظائف المكونات",
-    security_findings_count: 0,
-  },
-];
-
 function AdminContentReviewPage() {
   const { loading: accessLoading, enabled: adminEnabled } = useRequireAdminSection("content");
   const [items, setItems] = useState<ReviewItem[]>([]);
@@ -77,41 +51,34 @@ function AdminContentReviewPage() {
     setErrorMsg(null);
 
     if (!isBackendActive) {
-      setItems(DEMO_REVIEW_ITEMS);
-      setSelectedId(DEMO_REVIEW_ITEMS[0].id);
+      setItems([]);
+      setSelectedId("");
+      setErrorMsg("طابور المراجعة الخادمي معطّل حالياً عبر Feature Flag.");
       setLoading(false);
       return;
     }
 
     try {
-      const { data, error } = await supabase
-        .from("lesson_resources")
-        .select(`
-          id, resource_code, resource_type, title, description, status, lock_version,
-          current_draft_version_id, approved_version_id, published_version_id,
-          lessons ( title )
-        `)
-        .in("status", ["in_review", "approved", "published", "rejected"]);
-
-      if (error) {
-        throw new Error(error.message);
+      const res = await fetchContentReviewQueue();
+      if (!res.success || !res.data) {
+        throw new Error(res.error?.message || "فشل جلب طابور المراجعة من السيرفر");
       }
 
-      const mapped: ReviewItem[] = (data || []).map((r: any) => ({
+      const mapped: ReviewItem[] = res.data.map((r: ReviewQueueItem) => ({
         id: r.id,
-        resource_code: r.resource_code || r.id,
-        resource_type: r.resource_type,
+        resource_code: r.resource_code,
+        resource_type: (r.resource_type === "mindmap" ? "mind_map_html" : r.resource_type === "experiment" ? "practical_experiment_html" : r.resource_type) as "mind_map_html" | "practical_experiment_html",
         title_ar: r.title,
-        description_ar: r.description || "",
+        description_ar: r.description,
         version: 1,
-        lock_version: r.lock_version || 1,
+        lock_version: r.lock_version,
         entry_file: "index.html",
         html_content: "<!-- Signed iframe content loaded on demand -->",
         offline_enabled: true,
         status: r.status,
         grade_name: "الصف العام",
         subject_name: "المادة العامة",
-        lesson_title: r.lessons?.title || "درس عام",
+        lesson_title: r.lesson_title,
         security_findings_count: 0,
         current_draft_version_id: r.current_draft_version_id,
         approved_version_id: r.approved_version_id,
@@ -122,8 +89,9 @@ function AdminContentReviewPage() {
       if (mapped.length > 0) {
         setSelectedId(mapped[0].id);
       }
-    } catch (err: any) {
-      setErrorMsg(`تعذر تحميل قائمة المراجعة الخادمية: ${err.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "خطأ غير معروف";
+      setErrorMsg(`تعذر تحميل قائمة المراجعة الخادمية: ${msg}`);
     } finally {
       setLoading(false);
     }
