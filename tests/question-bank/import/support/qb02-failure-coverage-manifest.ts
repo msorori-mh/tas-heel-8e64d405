@@ -549,7 +549,7 @@ export const FAILURE_COVERAGE_MANIFEST: Record<QbImportCode, FailureCoverageMapp
   PREVIEW_TOKEN_INVALID: {
     code: "PREVIEW_TOKEN_INVALID",
     expected_stage: "IDEMPOTENCY",
-    source_module: "preview",
+    source_module: "apply-verifier",
     test_file: "qb02-import-foundation.test.ts",
     test_name: "Apply Verifier Token",
     fixture_builder: "apply-verifier:Token",
@@ -557,7 +557,7 @@ export const FAILURE_COVERAGE_MANIFEST: Record<QbImportCode, FailureCoverageMapp
   STALE_VALIDATION: {
     code: "STALE_VALIDATION",
     expected_stage: "IDEMPOTENCY",
-    source_module: "dry-run",
+    source_module: "apply-verifier",
     test_file: "qb02-import-foundation.test.ts",
     test_name: "Apply Verifier Stale",
     fixture_builder: "apply-verifier:Stale",
@@ -565,7 +565,7 @@ export const FAILURE_COVERAGE_MANIFEST: Record<QbImportCode, FailureCoverageMapp
   CONTENT_HASH_MISMATCH: {
     code: "CONTENT_HASH_MISMATCH",
     expected_stage: "IDEMPOTENCY",
-    source_module: "dry-run",
+    source_module: "apply-verifier",
     test_file: "qb02-import-foundation.test.ts",
     test_name: "Apply Verifier ContentHash",
     fixture_builder: "apply-verifier:ContentHash",
@@ -581,7 +581,7 @@ export const FAILURE_COVERAGE_MANIFEST: Record<QbImportCode, FailureCoverageMapp
   ATOMIC_APPLY_FAILED: {
     code: "ATOMIC_APPLY_FAILED",
     expected_stage: "IDEMPOTENCY",
-    source_module: "dry-run",
+    source_module: "apply-verifier",
     test_file: "qb02-write-adapter.test.ts",
     test_name: "Apply Verifier Atomic",
     fixture_builder: "apply-verifier:Atomic",
@@ -592,6 +592,6 @@ export const FAILURE_COVERAGE_MANIFEST: Record<QbImportCode, FailureCoverageMapp
     source_module: "unicode",
     test_file: "qb02-import-foundation.test.ts",
     test_name: "Validation NORMALIZATION_CHANGED",
-    fixture_builder: "normalizeText",
+    fixture_builder: "validateNormalizedRow",
   },
 };

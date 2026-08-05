@@ -1,12 +1,16 @@
 import {
   QB_IMPORT_AR_MESSAGES,
+  QB_IMPORT_AUDIT_REGISTRY,
   VALIDATION_CODE_DEFAULTS,
   type QbImportCode,
+  type ImportStage,
 } from "./validation-codes.ts";
 import { compareCodePoints } from "./canonical-json.ts";
 
 export type QbImportIssue = {
   code: QbImportCode;
+  stage: ImportStage;
+  source_subsystem: string;
   message_ar: string;
   file: string | null;
   sheet: string | null;
@@ -23,8 +27,11 @@ export function issue(
   opts: Partial<Omit<QbImportIssue, "code" | "message_ar">> = {},
 ): QbImportIssue {
   const defaults = VALIDATION_CODE_DEFAULTS[code];
+  const reg = QB_IMPORT_AUDIT_REGISTRY[code];
   return {
     code,
+    stage: opts.stage ?? reg?.stage ?? "ROW_VALIDATION",
+    source_subsystem: opts.source_subsystem ?? reg?.source_module ?? "unknown",
     message_ar: QB_IMPORT_AR_MESSAGES[code],
     file: opts.file ?? null,
     sheet: opts.sheet ?? null,

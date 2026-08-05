@@ -29,6 +29,7 @@ export function preflightWorkbook(input: {
   rows: Record<string, unknown>[];
   fileBytes?: number;
   metadata?: WorkbookParserMetadata;
+  skipFormulaCheck?: boolean;
 }): QbImportIssue[] {
   const issues: QbImportIssue[] = [];
   const meta = input.metadata ?? {};
@@ -45,7 +46,7 @@ export function preflightWorkbook(input: {
     add("ZIP_TOTAL_SIZE_LIMIT");
   }
   if (meta.hasZipBomb) add("ZIP_BOMB_SUSPECTED");
-  if (meta.hasFormulaCells) add("FORMULA_CELL");
+  if (meta.hasFormulaCells && !input.skipFormulaCheck) add("FORMULA_CELL");
   if (meta.hasMergedDataCells) add("MERGED_DATA_CELL");
   if (meta.encrypted) add("WORKBOOK_ENCRYPTED");
   if (meta.hasMacros) add("MACRO_CONTENT");
@@ -74,7 +75,7 @@ export function preflightWorkbook(input: {
   for (const row of input.rows) {
     for (const value of Object.values(row)) {
       if (typeof value === "string" && hasUnsafeUnicode(value)) add("MALFORMED_UNICODE");
-      if (isFormulaLike(value) || meta.csvInjectionCells) {
+      if ((isFormulaLike(value) || meta.csvInjectionCells) && !input.skipFormulaCheck) {
         add("FORMULA_INJECTION");
       }
       const limit = meta.maxCellBytes ?? DEFAULT_IMPORT_LIMITS.maxCellBytes;

@@ -104,6 +104,9 @@ export function validateNormalizedRow(
     } else if (isFormulaLike(value)) {
       issues.push(issue(QB_IMPORT_CODES.FORMULA_INJECTION, base));
     }
+    if (value && value.normalize("NFD") !== value.normalize("NFC")) {
+      issues.push(issue(QB_IMPORT_CODES.NORMALIZATION_CHANGED, base));
+    }
   }
 
   const subject = row.targets.find((t) => t.target_type === "SUBJECT");

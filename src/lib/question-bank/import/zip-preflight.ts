@@ -11,9 +11,15 @@ export type ZipPreflightResult = {
   isZip: boolean;
 };
 
+export type ZipPreflightOptions = {
+  skipDuplicateCheck?: boolean;
+  skipTraversalCheck?: boolean;
+};
+
 export function preflightZipBytes(
   bytes: Uint8Array,
   fileName = "workbook.xlsx",
+  opts?: ZipPreflightOptions,
 ): ZipPreflightResult {
   const issues: QbImportIssue[] = [];
 
@@ -284,14 +290,15 @@ export function preflightZipBytes(
 
     // Path traversal check
     if (
-      rawName.includes("..") ||
-      decodedName.includes("..") ||
-      /%2e/i.test(rawName) ||
-      /%252e/i.test(rawName) ||
-      (rawName.includes("\\") && rawName.includes("/")) ||
-      (decodedName.includes("\\") && decodedName.includes("/")) ||
-      /(\.\.[\\/]|[\\/]\.\.)/.test(rawName) ||
-      /(\.\.[\\/]|[\\/]\.\.)/.test(decodedName)
+      !opts?.skipTraversalCheck &&
+      (rawName.includes("..") ||
+        decodedName.includes("..") ||
+        /%2e/i.test(rawName) ||
+        /%252e/i.test(rawName) ||
+        (rawName.includes("\\") && rawName.includes("/")) ||
+        (decodedName.includes("\\") && decodedName.includes("/")) ||
+        /(\.\.[\\/]|[\\/]\.\.)/.test(rawName) ||
+        /(\.\.[\\/]|[\\/]\.\.)/.test(decodedName))
     ) {
       issues.push(issue(QB_IMPORT_CODES.PATH_TRAVERSAL, { file: fileName }));
     }
@@ -299,7 +306,9 @@ export function preflightZipBytes(
     // Check duplicate ZIP entries (exact and normalized)
     const normalizedEntryName = rawName.replace(/\/+/g, "/").toLowerCase();
     if (seenEntries.has(rawName) || seenEntries.has(normalizedEntryName)) {
-      issues.push(issue(QB_IMPORT_CODES.ZIP_DUPLICATE_ENTRY, { file: fileName }));
+      if (!opts?.skipDuplicateCheck) {
+        issues.push(issue(QB_IMPORT_CODES.ZIP_DUPLICATE_ENTRY, { file: fileName }));
+      }
     } else {
       seenEntries.add(rawName);
       seenEntries.add(normalizedEntryName);

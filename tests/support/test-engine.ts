@@ -276,6 +276,7 @@ export async function runTestEngineOperationalDryRun(input: {
   catalog: CatalogLookup;
   authorized?: unknown;
   expectedScope?: string;
+  parserMetadata?: WorkbookParserMetadata;
   overrides?: TestEngineOverrides;
 }) {
   const authFn = input.overrides?.authGuard ?? validateImportAuthorization;
@@ -372,7 +373,7 @@ export async function runTestEngineOperationalDryRun(input: {
     headers: trusted.headers,
     rows: trusted.rows,
     fileBytes: input.bytes.byteLength,
-    parserMetadata: trusted.metadata,
+    parserMetadata: { ...trusted.metadata, ...input.parserMetadata },
     catalog: input.catalog,
     authorized: input.authorized,
     overrides: input.overrides,

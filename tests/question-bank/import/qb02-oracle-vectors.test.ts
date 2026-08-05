@@ -3,13 +3,15 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 import {
+  getOperationalFixture,
   buildOperationalInput,
   executeOperationalInput,
   classifyVector,
   compareNormalized,
   type OracleVector,
-  type OperationalFixtureSpec,
+  type OperationalFixture,
   type ExecutionKind,
 } from "../../fixtures/question-bank/import/oracle-harness.ts";
 import { QB_IMPORT_CODES } from "../../../src/lib/question-bank/import/validation-codes.ts";
@@ -42,19 +44,16 @@ for (const vector of oracle.vectors) {
       return;
     }
 
-    // Layer B: Construct independent OperationalFixtureSpec without expected result fields
-    const spec: OperationalFixtureSpec = {
-      test_id: vector.test_id,
-      source_contract: vector.source_contract,
-      input: vector.input,
-      scenario: String((vector.input as any)?.attack ?? (vector.input as any)?.scenario ?? ""),
-      tags: vector.tags,
-      preconditions: vector.preconditions,
-    };
+    // Layer A: Operational Fixture Resolution
+    const fixture: OperationalFixture = getOperationalFixture(vector);
 
-    const input = await buildOperationalInput(spec);
+    // Layer B: Operational Input Building (takes OperationalFixture ONLY)
+    const input = await buildOperationalInput(fixture);
+
+    // Layer C: Runtime Execution (takes OperationalInput ONLY)
     const res = await executeOperationalInput(input);
 
+    // Layer D: Expected Assertions (sees actual result and vector expected metadata)
     const expectedCodes = new Set(vector.expected_errors.map((e) => e.code));
     const actualCodes = new Set(res.actual_codes);
 
@@ -95,99 +94,99 @@ test("Oracle reconciliation summary: individual tests registered", () => {
 
 test("Metamorphic Oracle Isolation: 5 Scenarios with identical operational fixtures and mutated expected fields produce identical inputs and runtime outcomes", async () => {
   const scenarios: Array<{
-    name: string;
-    source_contract: "official_flat_v0" | "legacy_flat_15col" | "teacher_flat_ar_v0";
-    input: unknown;
-    operational_fixture: any;
+    category_name: string;
+    operational_fixture: OperationalFixture;
   }> = [
     {
-      name: "Authorization scenario",
-      source_contract: "official_flat_v0",
-      input: { attack: "T09_UNAUTHORIZED_IMPORT" },
+      category_name: "1. Authorization",
       operational_fixture: {
-        kind: "authorization",
-        authorization_scenario: "unauthorized-actor",
-        scenario: "unauthorized-actor",
+        fixture_kind: "authorization",
+        input_format: "official_flat_v0",
+        file_name: "auth_test.xlsx",
+        authorization_state: "unauthorized",
+        catalog_state: { authorized_subjects: ["MATH-G10"] },
       },
     },
     {
-      name: "Row validation scenario",
-      source_contract: "official_flat_v0",
-      input: { boundary: "invalid_correct_index" },
+      category_name: "2. Row validation",
       operational_fixture: {
-        kind: "validator",
-        scenario: "invalid_correct_index",
-        rows: [{ question_code: "Q1", correct_index: "99" }],
+        fixture_kind: "validator",
+        input_format: "official_flat_v0",
+        file_name: "row_val.xlsx",
+        authorization_state: "authenticated",
+        headers: ["question_code", "question_text", "interaction_type", "grading_mode", "option_1", "option_2", "correct_index", "max_score", "subject_code"],
+        rows: [{ question_code: "Q1", question_text: "Text", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: "999", max_score: "1", subject_code: "MATH-G10" }],
       },
     },
     {
-      name: "Binary ZIP scenario",
-      source_contract: "official_flat_v0",
-      input: { binary_fixture: "zip_path_traversal" },
+      category_name: "3. ZIP binary",
       operational_fixture: {
-        kind: "binary",
-        binary_scenario: "zip_path_traversal",
+        fixture_kind: "binary",
+        file_name: "zip_test.xlsx",
+        binary_fixture: "zip_path_traversal",
+        authorization_state: "authenticated",
       },
     },
     {
-      name: "OOXML scenario",
-      source_contract: "official_flat_v0",
-      input: { binary_fixture: "ooxml_external_rel" },
+      category_name: "4. OOXML relationships",
       operational_fixture: {
-        kind: "binary",
-        binary_scenario: "ooxml_external_rel",
+        fixture_kind: "binary",
+        file_name: "ooxml_test.xlsx",
+        binary_fixture: "ooxml_external_rel",
+        authorization_state: "authenticated",
       },
     },
     {
-      name: "Apply security scenario",
-      source_contract: "official_flat_v0",
-      input: { attack: "T15_HASH_MISMATCH" },
+      category_name: "5. Apply security",
       operational_fixture: {
-        kind: "apply-verification",
-        scenario: "content-hash-mismatch",
+        fixture_kind: "apply-verification",
+        file_name: "apply_test.xlsx",
+        authorization_state: "authenticated",
         apply_state: { scenario: "content-hash", expected_content_hash: "hashA", current_content_hash: "hashB" },
       },
     },
   ];
 
   for (const sc of scenarios) {
-    const specA: OperationalFixtureSpec = {
-      test_id: `SPEC-REAL-${sc.name}`,
-      source_contract: sc.source_contract,
-      input: sc.input,
-      operational_fixture: sc.operational_fixture,
-    };
+    const fixtureA: OperationalFixture = sc.operational_fixture;
+    const fixtureB: OperationalFixture = { ...sc.operational_fixture };
 
-    // Spec B has different test_id and intentionally WRONG expected fields
-    const specB: OperationalFixtureSpec = {
-      test_id: `SPEC-MUTATED-${sc.name}`,
-      source_contract: sc.source_contract,
-      input: sc.input,
-      operational_fixture: sc.operational_fixture,
-    };
+    // Construct 2 OperationalInputs using fixtureA and fixtureB (which are identical)
+    const inputA = await buildOperationalInput(fixtureA);
+    const inputB = await buildOperationalInput(fixtureB);
 
-    const inputA = await buildOperationalInput(specA);
-    const inputB = await buildOperationalInput(specB);
+    // Verify Builder produces identical operational properties
+    assert.equal(inputA.kind, inputB.kind, `${sc.category_name}: kind mismatch`);
+    assert.equal(inputA.fileName, inputB.fileName, `${sc.category_name}: fileName mismatch`);
+    assert.deepEqual(inputA.headers, inputB.headers, `${sc.category_name}: headers mismatch`);
+    assert.deepEqual(inputA.rows, inputB.rows, `${sc.category_name}: rows mismatch`);
+    assert.deepEqual(inputA.authorized, inputB.authorized, `${sc.category_name}: authorized mismatch`);
+    assert.deepEqual(inputA.catalog, inputB.catalog, `${sc.category_name}: catalog mismatch`);
+    assert.deepEqual(inputA.parserMetadata, inputB.parserMetadata, `${sc.category_name}: parserMetadata mismatch`);
+    assert.deepEqual(inputA.apply_state, inputB.apply_state, `${sc.category_name}: apply_state mismatch`);
 
-    // Verify Builder produces identical operational properties regardless of test_id/metadata
-    assert.equal(inputA.kind, inputB.kind, `${sc.name}: kind mismatch`);
+    // Verify raw bytes exact SHA-256 equality (not bytes.length!)
     if (inputA.bytes && inputB.bytes) {
-      assert.equal(inputA.bytes.length, inputB.bytes.length, `${sc.name}: bytes length mismatch`);
+      const hashA = createHash("sha256").update(inputA.bytes).digest("hex");
+      const hashB = createHash("sha256").update(inputB.bytes).digest("hex");
+      assert.equal(hashA, hashB, `${sc.category_name}: raw bytes SHA-256 mismatch!`);
+      assert.deepEqual(inputA.bytes, inputB.bytes, `${sc.category_name}: raw bytes deep equality mismatch!`);
     } else {
-      assert.deepEqual(inputA.bytes, inputB.bytes, `${sc.name}: bytes mismatch`);
+      assert.equal(inputA.bytes, undefined);
+      assert.equal(inputB.bytes, undefined);
     }
-    assert.deepEqual(inputA.rows, inputB.rows, `${sc.name}: rows mismatch`);
-    assert.deepEqual(inputA.headers, inputB.headers, `${sc.name}: headers mismatch`);
-    assert.deepEqual(inputA.authorized, inputB.authorized, `${sc.name}: authorized mismatch`);
-    assert.deepEqual(inputA.catalog, inputB.catalog, `${sc.name}: catalog mismatch`);
-    assert.deepEqual(inputA.apply_state, inputB.apply_state, `${sc.name}: apply_state mismatch`);
 
     const resA = await executeOperationalInput(inputA);
     const resB = await executeOperationalInput(inputB);
 
     // Verify Runtime produces identical outcomes
-    assert.deepEqual(resA.actual_codes, resB.actual_codes, `${sc.name}: codes mismatch`);
-    assert.equal(resA.file_blocking, resB.file_blocking, `${sc.name}: file_blocking mismatch`);
-    assert.equal(resA.row_blocking, resB.row_blocking, `${sc.name}: row_blocking mismatch`);
+    assert.deepEqual(resA.actual_codes, resB.actual_codes, `${sc.category_name}: actual_codes mismatch`);
+    assert.equal(resA.file_blocking, resB.file_blocking, `${sc.category_name}: file_blocking decision mismatch`);
+    assert.equal(resA.row_blocking, resB.row_blocking, `${sc.category_name}: row_blocking decision mismatch`);
+
+    // Verify runtime issue stages equality
+    const stagesA = resA.issues.map((i) => i.stage);
+    const stagesB = resB.issues.map((i) => i.stage);
+    assert.deepEqual(stagesA, stagesB, `${sc.category_name}: runtime stage equality mismatch`);
   }
 });
