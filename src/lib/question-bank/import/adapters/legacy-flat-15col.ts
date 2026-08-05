@@ -5,7 +5,7 @@ import {
 } from "../correct-answer.ts";
 import { emptyNormalized, type OfficialNormalizedV1 } from "../official-normalized-v1.ts";
 import { issue, type QbImportIssue } from "../errors.ts";
-import { QB_IMPORT_CODES } from "../validation-codes.ts";
+import { QB_IMPORT_CODES, type QbImportCode } from "../validation-codes.ts";
 import { inferMediaType, validateMediaUrl } from "../media-policy.ts";
 import { normalizeText } from "../unicode.ts";
 
@@ -48,12 +48,21 @@ export function adaptLegacyFlat15Col(
   const sheet = ctx.sheet ?? "Questions";
   const source_row = ctx.rowNumber ?? null;
 
+  const makeIssue = (code: QbImportCode, opts: Partial<QbImportIssue> = {}) => {
+    return issue(code, {
+      file,
+      sheet,
+      row: source_row,
+      stage: "ROW_VALIDATION",
+      source_subsystem: "legacy-flat-15col",
+      ...opts,
+    });
+  };
+
   if (Array.isArray(input) && input.length !== 15) {
     issues.push(
-      issue(QB_IMPORT_CODES.LEGACY_COLUMN_COUNT, {
-        file,
-        sheet,
-        row: source_row,
+      makeIssue(QB_IMPORT_CODES.LEGACY_COLUMN_COUNT, {
+        stage: "ADAPTER_DETECT",
         file_blocking: true,
         row_blocking: false,
       }),
@@ -74,17 +83,14 @@ export function adaptLegacyFlat15Col(
     [subject, "subject_code"],
   ] as const) {
     if (!value) {
-      issues.push(issue(QB_IMPORT_CODES.MISSING_VALUE, { file, sheet, row: source_row, column }));
+      issues.push(makeIssue(QB_IMPORT_CODES.MISSING_VALUE, { column }));
     }
   }
 
   const type = text("question_type");
   if (type === "auto_text") {
     issues.push(
-      issue(QB_IMPORT_CODES.LEGACY_INFORMATION_LOSS, {
-        file,
-        sheet,
-        row: source_row,
+      makeIssue(QB_IMPORT_CODES.LEGACY_INFORMATION_LOSS, {
         column: "question_type",
         row_blocking: true,
       }),
@@ -92,10 +98,7 @@ export function adaptLegacyFlat15Col(
   }
   if (!["mcq", "manual", "auto_text"].includes(type)) {
     issues.push(
-      issue(QB_IMPORT_CODES.INVALID_INTERACTION_TYPE, {
-        file,
-        sheet,
-        row: source_row,
+      makeIssue(QB_IMPORT_CODES.INVALID_INTERACTION_TYPE, {
         column: "question_type",
       }),
     );
@@ -117,10 +120,8 @@ export function adaptLegacyFlat15Col(
   if (type === "mcq") {
     if (optionBodies.length < 2 || optionBodies.length > 4) {
       issues.push(
-        issue(QB_IMPORT_CODES.OPTION_COUNT, {
-          file,
-          sheet,
-          row: source_row,
+        makeIssue(QB_IMPORT_CODES.OPTION_COUNT, {
+          source_subsystem: "correct-answer",
           column: "answer_a",
         }),
       );
@@ -134,10 +135,8 @@ export function adaptLegacyFlat15Col(
             ? QB_IMPORT_CODES.CORRECT_INDEX_NO_OPTION
             : QB_IMPORT_CODES.INVALID_CORRECT_INDEX;
       issues.push(
-        issue(code, {
-          file,
-          sheet,
-          row: source_row,
+        makeIssue(code, {
+          source_subsystem: "correct-answer",
           column: "correct_index",
         }),
       );
@@ -151,20 +150,16 @@ export function adaptLegacyFlat15Col(
   const mediaType = media?.ok ? inferMediaType(media.url) : null;
   if (mediaUrl && !media?.ok) {
     issues.push(
-      issue(QB_IMPORT_CODES.MEDIA_URL_INVALID, {
-        file,
-        sheet,
-        row: source_row,
+      makeIssue(QB_IMPORT_CODES.MEDIA_URL_INVALID, {
+        source_subsystem: "media-policy",
         column: "media_url",
       }),
     );
   }
   if (mediaUrl && !mediaType) {
     issues.push(
-      issue(QB_IMPORT_CODES.MEDIA_TYPE_REQUIRED, {
-        file,
-        sheet,
-        row: source_row,
+      makeIssue(QB_IMPORT_CODES.MEDIA_TYPE_REQUIRED, {
+        source_subsystem: "media-policy",
         column: "media_url",
       }),
     );
@@ -176,7 +171,6 @@ export function adaptLegacyFlat15Col(
 
   const interaction = type === "mcq" ? "SINGLE_CHOICE" : "LONG_TEXT";
   const grading = type === "mcq" ? "AUTO_SINGLE" : "MANUAL";
-  // LONG_TEXT keeps subject as primary even when a lesson target is present.
   const targets: OfficialNormalizedV1["targets"] = lesson
     ? interaction === "LONG_TEXT"
       ? [
@@ -198,15 +192,21 @@ export function adaptLegacyFlat15Col(
         grading_mode: grading,
         question_text: question,
         stimulus_text: null,
-        max_score: (row as any).max_score !== undefined ? Number((row as any).max_score) : (interaction === "LONG_TEXT" ? 5 : 1),
+        max_score: 1,
         allow_partial: false,
       },
       options,
       accepted_answers: [],
       solutions: text("explanation") ? [{ body: text("explanation") }] : [],
       media:
-        media?.ok && mediaType
-          ? [{ url: media.url, media_type: mediaType, alt_text: null }]
+        mediaUrl && media?.ok && mediaType
+          ? [
+              {
+                media_type: mediaType,
+                url: media.url,
+                alt_text: null,
+              },
+            ]
           : [],
       targets,
       provenance: {

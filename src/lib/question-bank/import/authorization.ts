@@ -29,17 +29,21 @@ export function validateImportAuthorization(
   expectedScope: string = QB_IMPORT_DEFAULT_SCOPE,
   fileName = "workbook.xlsx",
 ): AuthorizationResult {
+  const makeIssue = (code: keyof typeof QB_IMPORT_CODES) => {
+    return issue(code, { file: fileName, stage: "AUTHORIZATION", source_subsystem: "authorization" });
+  };
+
   if (auth === undefined || auth === null || auth === false) {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.AUTH_MISSING, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.AUTH_MISSING),
     };
   }
 
   if (typeof auth !== "object") {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.AUTH_MALFORMED, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.AUTH_MALFORMED),
     };
   }
 
@@ -48,7 +52,7 @@ export function validateImportAuthorization(
   if (obj.authorized === false) {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT),
     };
   }
 
@@ -61,14 +65,14 @@ export function validateImportAuthorization(
   ) {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.AUTH_MALFORMED, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.AUTH_MALFORMED),
     };
   }
 
   if (obj.expired === true || obj.revoked === true) {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.AUTH_EXPIRED, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.AUTH_EXPIRED),
     };
   }
 
@@ -82,7 +86,7 @@ export function validateImportAuthorization(
     if (Number.isNaN(expiresNum) || Date.now() >= expiresNum) {
       return {
         ok: false,
-        issue: issue(QB_IMPORT_CODES.AUTH_EXPIRED, { file: fileName }),
+        issue: makeIssue(QB_IMPORT_CODES.AUTH_EXPIRED),
       };
     }
   }
@@ -90,28 +94,28 @@ export function validateImportAuthorization(
   if (obj.authorized === false) {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT),
     };
   }
 
   if (obj.authenticated === false) {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.AUTHENTICATION_REQUIRED, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.AUTHENTICATION_REQUIRED),
     };
   }
 
   if (obj.authenticated !== true) {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT),
     };
   }
 
   if (typeof obj.capability !== "string" || obj.capability !== QB_IMPORT_CAPABILITY) {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.CAPABILITY_INVALID, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.CAPABILITY_INVALID),
     };
   }
 
@@ -120,28 +124,28 @@ export function validateImportAuthorization(
   if (!actualScope || actualScope === "*" || (expectedScope && actualScope !== expectedScope)) {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.SCOPE_MISMATCH, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.SCOPE_MISMATCH),
     };
   }
 
   if (obj.authorized !== true) {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.UNAUTHORIZED_IMPORT),
     };
   }
 
   if (typeof obj.actorId !== "string" || !obj.actorId.trim()) {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.AUTH_MALFORMED, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.AUTH_MALFORMED),
     };
   }
 
   if (!obj.context || typeof obj.context !== "object" || Array.isArray(obj.context)) {
     return {
       ok: false,
-      issue: issue(QB_IMPORT_CODES.AUTH_MALFORMED, { file: fileName }),
+      issue: makeIssue(QB_IMPORT_CODES.AUTH_MALFORMED),
     };
   }
 

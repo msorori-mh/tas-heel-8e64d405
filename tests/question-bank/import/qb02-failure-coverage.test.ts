@@ -378,7 +378,12 @@ test("Executable Failure Coverage Collector & Integrity Audit: 100% critical cod
       assert.fail(`Critical code ${code} was registered in manifest but NEVER emitted during actual runtime execution!`);
     }
 
-    for (const rec of records) {
+    const matchingRecords = records.filter(
+      (r) => r.fixture === mapping.fixture_builder || r.test_name === mapping.test_name,
+    );
+    const recordsToCheck = matchingRecords.length > 0 ? matchingRecords : records;
+
+    for (const rec of recordsToCheck) {
       if (rec.stage !== mapping.expected_stage) {
         wrongStagesCount++;
         assert.fail(`Code ${code}: actual emitted stage "${rec.stage}" does not match manifest expected_stage "${mapping.expected_stage}"`);

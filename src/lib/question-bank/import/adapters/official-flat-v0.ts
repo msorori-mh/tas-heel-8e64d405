@@ -5,19 +5,19 @@ import {
 } from "../correct-answer.ts";
 import { emptyNormalized, type OfficialNormalizedV1 } from "../official-normalized-v1.ts";
 import { issue, type QbImportIssue } from "../errors.ts";
-import { QB_IMPORT_CODES } from "../validation-codes.ts";
+import { QB_IMPORT_CODES, type QbImportCode } from "../validation-codes.ts";
 import { normalizeNumeric, normalizeText } from "../unicode.ts";
 import { validateMediaUrl } from "../media-policy.ts";
 
 export const OFFICIAL_FLAT_V0 = "official_flat_v0" as const;
+
 export type OfficialFlatV0Row = Record<string, unknown>;
 
 function parseStrictBoolean(raw: unknown): boolean | null {
-  if (typeof raw === "boolean") return raw;
   const text = normalizeText(raw).toUpperCase();
   if (!text) return false;
-  if (text === "TRUE" || text === "نعم") return true;
-  if (text === "FALSE" || text === "لا") return false;
+  if (text === "TRUE" || text === "1" || text === "YES") return true;
+  if (text === "FALSE" || text === "0" || text === "NO") return false;
   return null;
 }
 
@@ -38,6 +38,18 @@ export function adaptOfficialFlatV0(
   const file = ctx.file ?? null;
   const sheet = ctx.sheet ?? "Questions";
   const rowNumber = ctx.rowNumber ?? null;
+
+  const makeIssue = (code: QbImportCode, opts: Partial<QbImportIssue> = {}) => {
+    return issue(code, {
+      file,
+      sheet,
+      row: rowNumber,
+      stage: "ROW_VALIDATION",
+      source_subsystem: "official-flat-v0",
+      ...opts,
+    });
+  };
+
   const text = (key: string) => normalizeText(row[key]);
 
   const question_code = text("question_code");
@@ -51,7 +63,7 @@ export function adaptOfficialFlatV0(
     [subject, "subject_code"],
   ] as const) {
     if (!value) {
-      issues.push(issue(QB_IMPORT_CODES.MISSING_VALUE, { file, sheet, row: rowNumber, column }));
+      issues.push(makeIssue(QB_IMPORT_CODES.MISSING_VALUE, { column }));
     }
   }
 
@@ -59,20 +71,14 @@ export function adaptOfficialFlatV0(
   const grading = text("grading_mode");
   if (!["SINGLE_CHOICE", "SHORT_TEXT", "LONG_TEXT"].includes(interaction)) {
     issues.push(
-      issue(QB_IMPORT_CODES.INVALID_INTERACTION_TYPE, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.INVALID_INTERACTION_TYPE, {
         column: "interaction_type",
       }),
     );
   }
   if (!["AUTO_SINGLE", "AUTO_TEXT", "MANUAL"].includes(grading)) {
     issues.push(
-      issue(QB_IMPORT_CODES.INVALID_GRADING_MODE, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.INVALID_GRADING_MODE, {
         column: "grading_mode",
       }),
     );
@@ -83,10 +89,8 @@ export function adaptOfficialFlatV0(
     (interaction === "LONG_TEXT" && grading !== "MANUAL")
   ) {
     issues.push(
-      issue(QB_IMPORT_CODES.INCOMPATIBLE_TYPE_MODE, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.INCOMPATIBLE_TYPE_MODE, {
+        source_subsystem: "validate",
         column: "grading_mode",
       }),
     );
@@ -95,10 +99,8 @@ export function adaptOfficialFlatV0(
   const score = parseScore(row.max_score);
   if (score === null) {
     issues.push(
-      issue(QB_IMPORT_CODES.INVALID_SCORE, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.INVALID_SCORE, {
+        source_subsystem: "validate",
         column: "max_score",
       }),
     );
@@ -106,20 +108,16 @@ export function adaptOfficialFlatV0(
   const allowPartial = parseStrictBoolean(row.allow_partial);
   if (allowPartial === null) {
     issues.push(
-      issue(QB_IMPORT_CODES.PARTIAL_NOT_ALLOWED, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.PARTIAL_NOT_ALLOWED, {
+        source_subsystem: "validate",
         column: "allow_partial",
       }),
     );
   }
   if (allowPartial && interaction === "SINGLE_CHOICE") {
     issues.push(
-      issue(QB_IMPORT_CODES.PARTIAL_NOT_ALLOWED, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.PARTIAL_NOT_ALLOWED, {
+        source_subsystem: "validate",
         column: "allow_partial",
       }),
     );
@@ -143,10 +141,8 @@ export function adaptOfficialFlatV0(
   if (interaction === "SINGLE_CHOICE") {
     if (optionBodies.length < 2 || optionBodies.length > 6) {
       issues.push(
-        issue(QB_IMPORT_CODES.OPTION_COUNT, {
-          file,
-          sheet,
-          row: rowNumber,
+        makeIssue(QB_IMPORT_CODES.OPTION_COUNT, {
+          source_subsystem: "correct-answer",
           column: "option_1",
         }),
       );
@@ -160,10 +156,8 @@ export function adaptOfficialFlatV0(
             ? QB_IMPORT_CODES.CORRECT_INDEX_NO_OPTION
             : QB_IMPORT_CODES.INVALID_CORRECT_INDEX;
       issues.push(
-        issue(code, {
-          file,
-          sheet,
-          row: rowNumber,
+        makeIssue(code, {
+          source_subsystem: "correct-answer",
           column: "correct_index",
         }),
       );
@@ -172,10 +166,8 @@ export function adaptOfficialFlatV0(
     }
   } else if (optionBodies.length || text("correct_index")) {
     issues.push(
-      issue(QB_IMPORT_CODES.ANSWER_NOT_ALLOWED, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.ANSWER_NOT_ALLOWED, {
+        source_subsystem: "validate",
         column: "option_1",
       }),
     );
@@ -188,30 +180,24 @@ export function adaptOfficialFlatV0(
   const unique = [...new Map(answers.map((a) => [a.toLowerCase(), a])).values()];
   if (answers.length !== unique.length) {
     issues.push(
-      issue(QB_IMPORT_CODES.DUPLICATE_ACCEPTED_ANSWER, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.DUPLICATE_ACCEPTED_ANSWER, {
+        source_subsystem: "correct-answer",
         column: "accepted_answers",
       }),
     );
   }
   if (interaction === "SHORT_TEXT" && !unique.length) {
     issues.push(
-      issue(QB_IMPORT_CODES.ACCEPTED_ANSWER_REQUIRED, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.ACCEPTED_ANSWER_REQUIRED, {
+        source_subsystem: "correct-answer",
         column: "accepted_answers",
       }),
     );
   }
   if (interaction === "LONG_TEXT" && unique.length) {
     issues.push(
-      issue(QB_IMPORT_CODES.ANSWER_NOT_ALLOWED, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.ANSWER_NOT_ALLOWED, {
+        source_subsystem: "validate",
         column: "accepted_answers",
       }),
     );
@@ -223,28 +209,25 @@ export function adaptOfficialFlatV0(
   const mediaType = suppliedMediaType;
   if (mediaUrl && !media?.ok) {
     issues.push(
-      issue(QB_IMPORT_CODES.MEDIA_URL_INVALID, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.MEDIA_URL_INVALID, {
+        source_subsystem: "media-policy",
         column: "media_url",
       }),
     );
   }
   if (mediaUrl && !mediaType) {
     issues.push(
-      issue(QB_IMPORT_CODES.MEDIA_TYPE_REQUIRED, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.MEDIA_TYPE_REQUIRED, {
+        source_subsystem: "media-policy",
         column: "media_type",
       }),
     );
   }
-  if (mediaUrl && mediaType && !["image", "audio", "video", "document"].includes(mediaType)) {
+  if (mediaUrl && mediaType && mediaType !== "AUDIO" && !text("media_alt")) {
     issues.push(
-      issue(QB_IMPORT_CODES.MEDIA_TYPE_REQUIRED, {
-        file, sheet, row: rowNumber, column: "media_type",
+      makeIssue(QB_IMPORT_CODES.MEDIA_TYPE_REQUIRED, {
+        source_subsystem: "media-policy",
+        column: "media_alt",
       }),
     );
   }
@@ -272,22 +255,31 @@ export function adaptOfficialFlatV0(
         grading_mode: grading as OfficialNormalizedV1["revision"]["grading_mode"],
         question_text,
         stimulus_text: text("stimulus_text") || null,
-        max_score: score!,
-        allow_partial: allowPartial!,
+        max_score: score ?? 1,
+        allow_partial: allowPartial ?? false,
       },
       options,
-      accepted_answers: unique.map((answer_text, sort_order) => ({
+      accepted_answers: unique.map((answer_text, index) => ({
         answer_text,
-        normalized_answer: answer_text.toLowerCase(),
-        sort_order,
+        normalized_answer: answer_text,
+        sort_order: index + 1,
       })),
       solutions: text("explanation") ? [{ body: text("explanation") }] : [],
       media:
-        media?.ok && mediaType
-          ? [{ url: media.url, media_type: mediaType, alt_text: text("media_alt") || null }]
+        mediaUrl && media?.ok && mediaType
+          ? [
+              {
+                media_type: mediaType as OfficialNormalizedV1["media"][number]["media_type"],
+                url: media.url,
+                alt_text: text("media_alt") || null,
+              },
+            ]
           : [],
       targets,
-      provenance: { source_contract: OFFICIAL_FLAT_V0, source_row: rowNumber },
+      provenance: {
+        source_contract: OFFICIAL_FLAT_V0,
+        source_row: rowNumber,
+      },
     }),
     issues,
   };

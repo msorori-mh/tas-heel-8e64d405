@@ -586,7 +586,7 @@ test("replay: safe noop / conflict / duplicate content", () => {
     max_score: 1,
     subject_code: "PHYS",
   };
-  const { row } = adaptOfficialFlatV0(baseRow, {});
+  const { row } = adaptOfficialFlatV0(baseRow, { file: "replay.xlsx", rowNumber: 2 });
   const fingerprint = contentFingerprint(row!);
   const VALID_AUTH = {
     authenticated: true,

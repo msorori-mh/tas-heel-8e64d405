@@ -5,7 +5,7 @@ import {
 } from "../correct-answer.ts";
 import { emptyNormalized, type OfficialNormalizedV1 } from "../official-normalized-v1.ts";
 import { issue, type QbImportIssue } from "../errors.ts";
-import { QB_IMPORT_CODES } from "../validation-codes.ts";
+import { QB_IMPORT_CODES, type QbImportCode } from "../validation-codes.ts";
 import { normalizeNumeric, normalizeText } from "../unicode.ts";
 import { inferMediaType, validateMediaUrl } from "../media-policy.ts";
 
@@ -38,6 +38,18 @@ export function adaptTeacherFlatArV0(
   const file = ctx.file ?? null;
   const sheet = ctx.sheet ?? "Sheet1";
   const rowNumber = ctx.rowNumber ?? null;
+
+  const makeIssue = (code: QbImportCode, opts: Partial<QbImportIssue> = {}) => {
+    return issue(code, {
+      file,
+      sheet,
+      row: rowNumber,
+      stage: "ROW_VALIDATION",
+      source_subsystem: "teacher-flat-ar-v0",
+      ...opts,
+    });
+  };
+
   const text = (key: string) => normalizeText(row[key]);
 
   const question_text = text("نص_السؤال");
@@ -46,13 +58,13 @@ export function adaptTeacherFlatArV0(
   const lesson_code = text("رمز_الدرس");
 
   if (!question_text) {
-    issues.push(issue(QB_IMPORT_CODES.MISSING_VALUE, { file, sheet, row: rowNumber, column: "نص_السؤال" }));
+    issues.push(makeIssue(QB_IMPORT_CODES.MISSING_VALUE, { column: "نص_السؤال" }));
   }
   if (!question_code) {
-    issues.push(issue(QB_IMPORT_CODES.MISSING_VALUE, { file, sheet, row: rowNumber, column: "رمز_السؤال" }));
+    issues.push(makeIssue(QB_IMPORT_CODES.MISSING_VALUE, { column: "رمز_السؤال" }));
   }
   if (!subject_code) {
-    issues.push(issue(QB_IMPORT_CODES.MISSING_VALUE, { file, sheet, row: rowNumber, column: "رمز_المادة" }));
+    issues.push(makeIssue(QB_IMPORT_CODES.MISSING_VALUE, { column: "رمز_المادة" }));
   }
 
   const typeRaw = text("نوع_السؤال");
@@ -66,10 +78,7 @@ export function adaptTeacherFlatArV0(
           : null;
   if (!mapped) {
     issues.push(
-      issue(QB_IMPORT_CODES.INVALID_INTERACTION_TYPE, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.INVALID_INTERACTION_TYPE, {
         column: "نوع_السؤال",
       }),
     );
@@ -78,10 +87,7 @@ export function adaptTeacherFlatArV0(
   const score = parseScore(row["الدرجة"]);
   if (score === null) {
     issues.push(
-      issue(QB_IMPORT_CODES.INVALID_SCORE, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.INVALID_SCORE, {
         column: "الدرجة",
       }),
     );
@@ -90,20 +96,14 @@ export function adaptTeacherFlatArV0(
   const allowPartial = parseStrictBoolean(row["السماح_بالجزئي"]);
   if (allowPartial === null) {
     issues.push(
-      issue(QB_IMPORT_CODES.PARTIAL_NOT_ALLOWED, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.PARTIAL_NOT_ALLOWED, {
         column: "السماح_بالجزئي",
       }),
     );
   }
   if (allowPartial && mapped?.[0] === "SINGLE_CHOICE") {
     issues.push(
-      issue(QB_IMPORT_CODES.PARTIAL_NOT_ALLOWED, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.PARTIAL_NOT_ALLOWED, {
         column: "السماح_بالجزئي",
       }),
     );
@@ -128,10 +128,8 @@ export function adaptTeacherFlatArV0(
   if (mapped?.[0] === "SINGLE_CHOICE") {
     if (optionBodies.length < 2 || optionBodies.length > 6) {
       issues.push(
-        issue(QB_IMPORT_CODES.OPTION_COUNT, {
-          file,
-          sheet,
-          row: rowNumber,
+        makeIssue(QB_IMPORT_CODES.OPTION_COUNT, {
+          source_subsystem: "correct-answer",
           column: "الخيار_١",
         }),
       );
@@ -147,10 +145,8 @@ export function adaptTeacherFlatArV0(
             ? QB_IMPORT_CODES.CORRECT_INDEX_NO_OPTION
             : QB_IMPORT_CODES.INVALID_CORRECT_INDEX;
       issues.push(
-        issue(code, {
-          file,
-          sheet,
-          row: rowNumber,
+        makeIssue(code, {
+          source_subsystem: "correct-answer",
           column: "رقم_الإجابة_الصحيحة",
         }),
       );
@@ -163,10 +159,8 @@ export function adaptTeacherFlatArV0(
     (mapped[0] === "SHORT_TEXT" || mapped[0] === "LONG_TEXT")
   ) {
     issues.push(
-      issue(QB_IMPORT_CODES.ANSWER_NOT_ALLOWED, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.ANSWER_NOT_ALLOWED, {
+        source_subsystem: "validate",
         column: "الخيار_١",
       }),
     );
@@ -179,30 +173,24 @@ export function adaptTeacherFlatArV0(
   const deduped = [...new Map(acceptedRaw.map((a) => [a.toLowerCase(), a])).values()];
   if (acceptedRaw.length !== deduped.length) {
     issues.push(
-      issue(QB_IMPORT_CODES.DUPLICATE_ACCEPTED_ANSWER, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.DUPLICATE_ACCEPTED_ANSWER, {
+        source_subsystem: "correct-answer",
         column: "الإجابات_المقبولة",
       }),
     );
   }
   if (mapped?.[0] === "SHORT_TEXT" && !deduped.length) {
     issues.push(
-      issue(QB_IMPORT_CODES.ACCEPTED_ANSWER_REQUIRED, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.ACCEPTED_ANSWER_REQUIRED, {
+        source_subsystem: "correct-answer",
         column: "الإجابات_المقبولة",
       }),
     );
   }
   if (mapped?.[0] === "LONG_TEXT" && (deduped.length || text("رقم_الإجابة_الصحيحة"))) {
     issues.push(
-      issue(QB_IMPORT_CODES.ANSWER_NOT_ALLOWED, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.ANSWER_NOT_ALLOWED, {
+        source_subsystem: "validate",
         column: "الإجابات_المقبولة",
       }),
     );
@@ -212,10 +200,8 @@ export function adaptTeacherFlatArV0(
   const mediaValid = mediaUrl ? validateMediaUrl(mediaUrl) : null;
   if (mediaUrl && !mediaValid?.ok) {
     issues.push(
-      issue(QB_IMPORT_CODES.MEDIA_URL_INVALID, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.MEDIA_URL_INVALID, {
+        source_subsystem: "media-policy",
         column: "رابط_الوسائط",
       }),
     );
@@ -225,20 +211,15 @@ export function adaptTeacherFlatArV0(
     (mediaValid?.ok ? inferMediaType(mediaValid.url) ?? "" : "");
   if (mediaUrl && !mediaType) {
     issues.push(
-      issue(QB_IMPORT_CODES.MEDIA_TYPE_REQUIRED, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.MEDIA_TYPE_REQUIRED, {
+        source_subsystem: "media-policy",
         column: "نوع_الوسائط",
       }),
     );
   }
   if (mediaType === "image" && mediaUrl && !text("نص_بديل")) {
     issues.push(
-      issue(QB_IMPORT_CODES.MISSING_VALUE, {
-        file,
-        sheet,
-        row: rowNumber,
+      makeIssue(QB_IMPORT_CODES.MISSING_VALUE, {
         column: "نص_بديل",
       }),
     );
@@ -267,22 +248,22 @@ export function adaptTeacherFlatArV0(
         grading_mode: mapped![1],
         question_text,
         stimulus_text: null,
-        max_score: score!,
-        allow_partial: allowPartial!,
+        max_score: score ?? 1,
+        allow_partial: allowPartial ?? false,
       },
       options,
-      accepted_answers: deduped.map((answer_text, sort_order) => ({
+      accepted_answers: deduped.map((answer_text, index) => ({
         answer_text,
-        normalized_answer: answer_text.toLowerCase(),
-        sort_order,
+        normalized_answer: answer_text,
+        sort_order: index + 1,
       })),
       solutions: text("الشرح") ? [{ body: text("الشرح") }] : [],
       media:
-        mediaValid?.ok && mediaType
+        mediaUrl && mediaValid?.ok && mediaType
           ? [
               {
+                media_type: mediaType as OfficialNormalizedV1["media"][number]["media_type"],
                 url: mediaValid.url,
-                media_type: mediaType,
                 alt_text: text("نص_بديل") || null,
               },
             ]

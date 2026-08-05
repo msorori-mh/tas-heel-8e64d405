@@ -305,7 +305,7 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
     false_kill_reason: null,
   });
 
-  // Mutant 4: Duplicate ZIP Entry Detection Bypass (via zipPreflightGuard skip option)
+  // Mutant 4: Duplicate ZIP Entry Detection Bypass (via test-only zipPreflightGuard dependency mutation)
   const dupBytes = await buildZipWithDuplicateEntry();
   const hash4 = computeHash(dupBytes);
   const input4 = { fileName: "x.xlsx", bytes: dupBytes, catalog: DEFAULT_CATALOG, authorized: VALID_AUTH };
@@ -313,7 +313,11 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
   const mutant4 = await runTestEngineOperationalDryRun({
     ...input4,
     overrides: {
-      zipPreflightGuard: (b, f) => preflightZipBytes(b, f, { skipDuplicateCheck: true }),
+      zipPreflightGuard: (b, f) => {
+        const res = preflightZipBytes(b, f);
+        const filtered = res.issues.filter((i) => i.code !== "ZIP_DUPLICATE_ENTRY");
+        return { ...res, issues: filtered, ok: !filtered.some((i) => i.file_blocking || i.row_blocking) };
+      },
     },
   });
   auditRecords.push({
@@ -334,7 +338,7 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
     false_kill_reason: null,
   });
 
-  // Mutant 5: Traversal Detection Bypass (via zipPreflightGuard skip option)
+  // Mutant 5: Traversal Detection Bypass (via test-only zipPreflightGuard dependency mutation)
   const travBytes = await buildZipWithPathTraversal("../secret.txt");
   const hash5 = computeHash(travBytes);
   const input5 = { fileName: "x.xlsx", bytes: travBytes, catalog: DEFAULT_CATALOG, authorized: VALID_AUTH };
@@ -342,7 +346,11 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
   const mutant5 = await runTestEngineOperationalDryRun({
     ...input5,
     overrides: {
-      zipPreflightGuard: (b, f) => preflightZipBytes(b, f, { skipTraversalCheck: true }),
+      zipPreflightGuard: (b, f) => {
+        const res = preflightZipBytes(b, f);
+        const filtered = res.issues.filter((i) => i.code !== "PATH_TRAVERSAL");
+        return { ...res, issues: filtered, ok: !filtered.some((i) => i.file_blocking || i.row_blocking) };
+      },
     },
   });
   auditRecords.push({
@@ -363,7 +371,7 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
     false_kill_reason: null,
   });
 
-  // Mutant 6: Formula Guard Bypass (single dependency change on preflightGuard)
+  // Mutant 6: Formula Guard Bypass (via test-only preflightGuard dependency mutation)
   const input6 = {
     fileName: "formula.xlsx",
     headers: [...CONTRACT_HEADERS.official_flat_v0],
@@ -389,7 +397,7 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
   const mutant6 = runTestEngineDryRun({
     ...input6,
     overrides: {
-      preflightGuard: (i) => preflightWorkbook({ ...i, skipFormulaCheck: true }),
+      preflightGuard: (i) => preflightWorkbook(i).filter((iss) => iss.code !== "FORMULA_CELL" && iss.code !== "FORMULA_INJECTION"),
     },
   });
   auditRecords.push({

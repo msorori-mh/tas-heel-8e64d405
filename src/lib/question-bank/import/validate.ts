@@ -1,26 +1,9 @@
-import type { OfficialNormalizedV1 } from "./official-normalized-v1.ts";
+import { hasUnsafeUnicode, isFormulaLike, mixedNumeralScripts } from "./unicode.ts";
 import { issue, type QbImportIssue } from "./errors.ts";
 import { QB_IMPORT_CODES } from "./validation-codes.ts";
-import { hasUnsafeUnicode, isFormulaLike, mixedNumeralScripts } from "./unicode.ts";
-import { canonicalHash } from "./canonical-json.ts";
-
-export function contentFingerprint(row: OfficialNormalizedV1): string {
-  return canonicalHash({
-    revision: row.revision,
-    options: row.options,
-    accepted_answers: row.accepted_answers,
-    solutions: row.solutions,
-    solution_steps: row.solution_steps,
-    media: row.media,
-    targets: row.targets,
-  });
-}
-
-/** Provenance is intentionally separate from content, including source_row. */
-export function provenanceFingerprint(row: OfficialNormalizedV1): string {
-  return canonicalHash(row.provenance);
-}
-
+import type { OfficialNormalizedV1 } from "./official-normalized-v1.ts";
+import { canonicalHash, contentFingerprint } from "./canonical-json.ts";
+export { contentFingerprint, canonicalHash } from "./canonical-json.ts";
 export type CatalogLookup = {
   subjects: Set<string>;
   lessons: Set<string>;
@@ -45,6 +28,8 @@ export function validateNormalizedRow(
     file: ctx.file ?? null,
     sheet: ctx.sheet ?? null,
     row: ctx.rowNumber ?? null,
+    stage: "ROW_VALIDATION" as const,
+    source_subsystem: "validate",
   };
   const { interaction_type: type, grading_mode: grading } = row.revision;
 
@@ -73,16 +58,16 @@ export function validateNormalizedRow(
       row.options.length > 6 ||
       row.options.filter((o) => o.is_correct).length !== 1)
   ) {
-    issues.push(issue(QB_IMPORT_CODES.OPTION_COUNT, base));
+    issues.push(issue(QB_IMPORT_CODES.OPTION_COUNT, { ...base, source_subsystem: "correct-answer" }));
   }
   if (
     new Set(row.options.map((o) => o.option_code)).size !== row.options.length ||
     new Set(row.options.map((o) => o.body.normalize("NFC"))).size !== row.options.length
   ) {
-    issues.push(issue(QB_IMPORT_CODES.DUPLICATE_OPTION, base));
+    issues.push(issue(QB_IMPORT_CODES.DUPLICATE_OPTION, { ...base, source_subsystem: "correct-answer" }));
   }
   if (type === "SHORT_TEXT" && !row.accepted_answers.length) {
-    issues.push(issue(QB_IMPORT_CODES.ACCEPTED_ANSWER_REQUIRED, base));
+    issues.push(issue(QB_IMPORT_CODES.ACCEPTED_ANSWER_REQUIRED, { ...base, source_subsystem: "correct-answer" }));
   }
   if (type === "LONG_TEXT" && (row.options.length || row.accepted_answers.length)) {
     issues.push(issue(QB_IMPORT_CODES.ANSWER_NOT_ALLOWED, base));
@@ -100,12 +85,12 @@ export function validateNormalizedRow(
 
   for (const value of stringValues) {
     if (hasUnsafeUnicode(value)) {
-      issues.push(issue(QB_IMPORT_CODES.MALFORMED_UNICODE, base));
+      issues.push(issue(QB_IMPORT_CODES.MALFORMED_UNICODE, { ...base, source_subsystem: "unicode" }));
     } else if (isFormulaLike(value)) {
-      issues.push(issue(QB_IMPORT_CODES.FORMULA_INJECTION, base));
+      issues.push(issue(QB_IMPORT_CODES.FORMULA_INJECTION, { ...base, source_subsystem: "preflight" }));
     }
     if (value && value.normalize("NFD") !== value.normalize("NFC")) {
-      issues.push(issue(QB_IMPORT_CODES.NORMALIZATION_CHANGED, base));
+      issues.push(issue(QB_IMPORT_CODES.NORMALIZATION_CHANGED, { ...base, source_subsystem: "unicode" }));
     }
   }
 
@@ -155,6 +140,7 @@ export function validateNormalizedRow(
       issues.push(
         issue(QB_IMPORT_CODES.DUPLICATE_CODE_EXISTS, {
           ...base,
+          stage: "IDEMPOTENCY",
           file_blocking: true,
           row_blocking: false,
         }),
@@ -163,6 +149,8 @@ export function validateNormalizedRow(
       issues.push(
         issue(QB_IMPORT_CODES.IMPORT_REPLAY_CONFLICT, {
           ...base,
+          stage: "IDEMPOTENCY",
+          source_subsystem: "dry-run",
           file_blocking: true,
           row_blocking: false,
         }),
@@ -171,15 +159,15 @@ export function validateNormalizedRow(
   }
 
   if (ctx.seenFingerprints) {
-    const fingerprint = contentFingerprint(row);
+    const fingerprint = canonicalHash(row);
     ctx.seenFingerprints.add(fingerprint);
   }
 
   if (mixedNumeralScripts(row.question_code) || mixedNumeralScripts(row.revision.question_text)) {
-    issues.push(issue(QB_IMPORT_CODES.MIXED_NUMERAL_SCRIPTS, base));
+    issues.push(issue(QB_IMPORT_CODES.MIXED_NUMERAL_SCRIPTS, { ...base, source_subsystem: "unicode" }));
   }
   if (/^\d+(\.\d+)?[eE][+-]?\d+$/.test(row.question_code)) {
-    issues.push(issue(QB_IMPORT_CODES.SCIENTIFIC_NOTATION_LOSS, base));
+    issues.push(issue(QB_IMPORT_CODES.SCIENTIFIC_NOTATION_LOSS, { ...base, source_subsystem: "unicode" }));
   }
 
   if (!/^[A-Za-z0-9\u0660-\u0669\u06f0-\u06f9][A-Za-z0-9\u0660-\u0669\u06f0-\u06f9._-]{0,63}$/.test(row.question_code)) {

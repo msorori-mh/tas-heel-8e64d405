@@ -118,7 +118,7 @@ export function runTestEngineDryRun(opts: TestEngineRunOptions) {
     Array.isArray(row) ? legacyArrayToRow(row) : row,
   );
   const issues = [
-    ...(opts.parserMetadata?.hasExternalLinks ? [issue(QB_IMPORT_CODES.EXTERNAL_LINK, { file: opts.fileName })] : []),
+    ...(opts.parserMetadata?.hasExternalLinks ? [issue(QB_IMPORT_CODES.EXTERNAL_LINK, { file: opts.fileName, stage: "PREFLIGHT_OOXML", source_subsystem: "workbook-parser" })] : []),
     ...preflightFn({
       fileName: opts.fileName,
       headers: opts.headers,
@@ -133,20 +133,20 @@ export function runTestEngineDryRun(opts: TestEngineRunOptions) {
 
   if (opts.schemaHint && opts.schemaHint !== "unknown") {
     if (detected.schema !== "unknown" && detected.schema !== opts.schemaHint) {
-      issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName }));
+      issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "detect" }));
     }
     schema = opts.schemaHint;
   }
 
   if (schema === "unknown") {
-    issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName }));
+    issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "detect" }));
   } else if (!opts.relaxExactHeaders && !headersMatcherFn(schema, opts.headers)) {
     if (schema === LEGACY_FLAT_15COL && opts.headers.length !== 15) {
-      issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_COUNT, { file: opts.fileName }));
+      issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_COUNT, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "legacy-flat-15col" }));
     } else if (schema === LEGACY_FLAT_15COL) {
-      issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_ORDER, { file: opts.fileName }));
+      issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_ORDER, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "legacy-flat-15col" }));
     } else {
-      issues.push(issue(QB_IMPORT_CODES.MISSING_HEADER, { file: opts.fileName }));
+      issues.push(issue(QB_IMPORT_CODES.MISSING_HEADER, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "detect" }));
     }
   }
 

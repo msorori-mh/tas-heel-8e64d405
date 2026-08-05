@@ -301,12 +301,9 @@ export async function parseQuestionBankWorkbook(
     metadata.hasExternalLinks = true;
     const isStructureInvalid = relScan.invalidStructure || relScan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID");
     const preflight_issues = [
-      issue(
-        isStructureInvalid
-          ? QB_IMPORT_CODES.OOXML_RELATIONSHIP_STRUCTURE_INVALID
-          : QB_IMPORT_CODES.EXTERNAL_LINK,
-        { file: fileName },
-      ),
+      isStructureInvalid
+        ? issue(QB_IMPORT_CODES.OOXML_RELATIONSHIP_STRUCTURE_INVALID, { file: fileName, stage: "PREFLIGHT_OOXML", source_subsystem: "workbook-parser" })
+        : issue(QB_IMPORT_CODES.EXTERNAL_LINK, { file: fileName, stage: "PREFLIGHT_OOXML", source_subsystem: "workbook-parser" }),
     ];
     return {
       trusted_parser_version: TRUSTED_PARSER_VERSION,

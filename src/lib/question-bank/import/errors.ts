@@ -1,6 +1,5 @@
 import {
   QB_IMPORT_AR_MESSAGES,
-  QB_IMPORT_AUDIT_REGISTRY,
   VALIDATION_CODE_DEFAULTS,
   type QbImportCode,
   type ImportStage,
@@ -24,14 +23,19 @@ export type QbImportIssue = {
 
 export function issue(
   code: QbImportCode,
-  opts: Partial<Omit<QbImportIssue, "code" | "message_ar">> = {},
+  opts: Partial<Omit<QbImportIssue, "code" | "message_ar" | "stage" | "source_subsystem">> & {
+    stage: ImportStage;
+    source_subsystem: string;
+  },
 ): QbImportIssue {
+  if (!opts || !opts.stage || !opts.source_subsystem) {
+    throw new Error(`issue() call missing explicit stage or source_subsystem for code: ${code}`);
+  }
   const defaults = VALIDATION_CODE_DEFAULTS[code];
-  const reg = QB_IMPORT_AUDIT_REGISTRY[code];
   return {
     code,
-    stage: opts.stage ?? reg?.stage ?? "ROW_VALIDATION",
-    source_subsystem: opts.source_subsystem ?? reg?.source_module ?? "unknown",
+    stage: opts.stage,
+    source_subsystem: opts.source_subsystem,
     message_ar: QB_IMPORT_AR_MESSAGES[code],
     file: opts.file ?? null,
     sheet: opts.sheet ?? null,

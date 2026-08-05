@@ -30,9 +30,9 @@ test("canonical hash and issue order are locale-independent", () => {
     );
     hashes.push(canonicalHash(row));
     const sorted = sortIssues([
-      issue(QB_IMPORT_CODES.MISSING_VALUE, { file: "b.xlsx", row: 3, column: "a" }),
-      issue(QB_IMPORT_CODES.INVALID_SCORE, { file: "a.xlsx", row: 2, column: "z" }),
-      issue(QB_IMPORT_CODES.OPTION_COUNT, { file: "a.xlsx", row: 2, column: "a" }),
+      issue(QB_IMPORT_CODES.MISSING_VALUE, { file: "b.xlsx", row: 3, column: "a", stage: "ROW_VALIDATION", source_subsystem: "validate" }),
+      issue(QB_IMPORT_CODES.INVALID_SCORE, { file: "a.xlsx", row: 2, column: "z", stage: "ROW_VALIDATION", source_subsystem: "validate" }),
+      issue(QB_IMPORT_CODES.OPTION_COUNT, { file: "a.xlsx", row: 2, column: "a", stage: "ROW_VALIDATION", source_subsystem: "validate" }),
     ]);
     orders.push(sorted.map((item) => `${item.file}:${item.row}:${item.column}:${item.code}`).join("|"));
     if (previous === undefined) delete process.env.LC_ALL;

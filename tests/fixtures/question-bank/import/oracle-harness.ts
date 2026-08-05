@@ -13,7 +13,7 @@ import {
   validateTOCTOUSnapshot,
   validatePreviewToken,
   type PreviewTokenBindingContext,
-} from "../../../../src/lib/question-bank/import/apply-verifier.ts";
+} from "../../../../src/lib/server/question-bank/import/preview-token-server.ts";
 import {
   buildMinimalValidXlsx,
   buildOoxmlExternalRelXlsx,
@@ -33,40 +33,12 @@ import {
   buildOoxmlMalformedXmlXlsx,
   buildExtensionContentMismatchXlsx,
 } from "./binary-fixtures.ts";
+import {
+  OPERATIONAL_FIXTURES,
+  type ExplicitOperationalFixture,
+} from "./qb02-operational-fixtures.ts";
 
-export type OperationalFixture = {
-  fixture_kind?: "apply-verification" | "binary" | "authorization" | "adapter" | "validator" | "workbook";
-  input_format?: "official_flat_v0" | "legacy_flat_15col" | "teacher_flat_ar_v0";
-  file_name?: string;
-  file_bytes?: number;
-  content_type?: string;
-  headers?: string[];
-  rows?: DryRunInputRow[];
-  authorization_state?: "authenticated" | "unauthorized" | "viewer" | "unauthenticated";
-  catalog_state?: {
-    authorized_subjects?: string[];
-    existing_codes?: Record<string, string>;
-    subjects?: string[];
-    lessons?: string[];
-    lesson_subjects?: Record<string, string>;
-  };
-  binary_fixture?: string;
-  parser_state?: WorkbookParserMetadata;
-  apply_state?: {
-    scenario?: "preview-token" | "stale-validation" | "content-hash" | "toctou" | "atomic-plan";
-    preview_token?: unknown;
-    token_binding?: PreviewTokenBindingContext;
-    expected_snapshot?: unknown;
-    current_snapshot?: unknown;
-    expected_content_hash?: string | null;
-    current_content_hash?: string | null;
-    expected_validation_hash?: string | null;
-    current_validation_hash?: string | null;
-    atomic_plan?: unknown;
-    observed_state?: unknown;
-    rows?: unknown[];
-  };
-};
+export type OperationalFixture = ExplicitOperationalFixture;
 
 export type OracleVector = {
   test_id: string;
@@ -122,7 +94,7 @@ export type ActualResult = {
   file_blocking: boolean;
   summary: Record<string, unknown>;
   preview: unknown[];
-  issues: Array<{ code: string; severity: string; row_blocking: boolean; file_blocking: boolean }>;
+  issues: Array<{ code: string; severity: string; row_blocking: boolean; file_blocking: boolean; stage: string; source_subsystem: string }>;
 };
 
 export const DEFAULT_TEST_AUTH = {
@@ -235,345 +207,14 @@ function fillDefaultRowFields(inputFormat: string, inputObj: Record<string, unkn
   return { ...defaults, ...inputObj };
 }
 
-/** Layer A: Fixture Manifest Resolver. Maps OracleVector to explicit OperationalFixture. */
-export function getOperationalFixture(vector: OracleVector): OperationalFixture {
-  if (vector.operational_fixture) {
-    return vector.operational_fixture;
+/** Layer A: Fixture Manifest Resolver. Retrieves explicitly defined fixture for a vector. */
+export function getOperationalFixture(vectorOrId: OracleVector | string): OperationalFixture {
+  const testId = typeof vectorOrId === "string" ? vectorOrId : vectorOrId.test_id;
+  const fix = OPERATIONAL_FIXTURES[testId];
+  if (!fix) {
+    throw new Error(`Missing explicit operational fixture for vector ID: ${testId}`);
   }
-
-  const rawInput = vector.input;
-  const cleanInput = (rawInput && typeof rawInput === "object") ? { ...(rawInput as any) } : {};
-  if (cleanInput.input && typeof cleanInput.input === "object") Object.assign(cleanInput, cleanInput.input);
-  if (cleanInput.row && typeof cleanInput.row === "object") Object.assign(cleanInput, cleanInput.row);
-
-  const scen = String(cleanInput.scenario ?? cleanInput.attack ?? cleanInput.mutation ?? cleanInput.boundary ?? "");
-  const attack = String(cleanInput.attack ?? cleanInput.scenario ?? "");
-  const boundary = String(cleanInput.boundary ?? "");
-  const mutation = String(cleanInput.mutation ?? "");
-  const tags = vector.tags ?? [];
-
-  let inputFormat: OperationalFixture["input_format"] | undefined = vector.source_contract as OperationalFixture["input_format"];
-  if (scen === "LEGACY_COLUMN_COUNT" || scen === "LEGACY_COLUMN_ORDER" || scen === "LEGACY_INFORMATION_LOSS") {
-    inputFormat = "legacy_flat_15col";
-  } else if (scen === "INVALID_GRADING_MODE" || scen === "INCOMPATIBLE_TYPE_MODE" || scen === "ANSWER_NOT_ALLOWED") {
-    inputFormat = "official_flat_v0";
-  } else if (scen === "INVALID_CONTRACT") {
-    inputFormat = undefined;
-  }
-
-  let kind: OperationalFixture["fixture_kind"] = "validator";
-
-  if (
-    scen === "T12_PARTIAL_WRITE" ||
-    scen === "T13_STALE_VALIDATION" ||
-    scen === "T14_TOCTOU" ||
-    scen === "T15_HASH_MISMATCH" ||
-    scen === "preview-token-invalid" ||
-    scen === "stale-validation" ||
-    scen === "content-hash-mismatch" ||
-    scen === "atomic-apply-failed" ||
-    scen === "PREVIEW_TOKEN_INVALID" ||
-    scen === "STALE_VALIDATION" ||
-    scen === "CONTENT_HASH_MISMATCH" ||
-    scen === "ATOMIC_APPLY_FAILED"
-  ) {
-    kind = "apply-verification";
-  } else if (scen === "T22_ZIP_BOMB" || scen === "T23_XLSX_EXTERNAL_LINKS" || tags.includes("binary") || tags.includes("zip") || tags.includes("ooxml") || cleanInput.binary_fixture) {
-    kind = "binary";
-  } else if (tags.includes("auth") || vector.category === "authorization") {
-    kind = "authorization";
-  } else if (tags.includes("adapter") || tags.includes("compatibility")) {
-    kind = "adapter";
-  } else if (tags.includes("workbook") || scen === "T24_MACROS") {
-    kind = "workbook";
-  }
-
-  let authState: OperationalFixture["authorization_state"] = "authenticated";
-  if (
-    vector.preconditions?.actor_role === "viewer" ||
-    scen === "viewer-actor"
-  ) {
-    authState = "viewer";
-  } else if (
-    vector.preconditions?.actor_role === "unauthenticated"
-  ) {
-    authState = "unauthenticated";
-  } else if (
-    scen === "T01_ANSWER_LEAK" ||
-    scen === "T09_UNAUTHORIZED_IMPORT" ||
-    scen === "UNAUTHORIZED_IMPORT" ||
-    scen === "unauthorized-actor"
-  ) {
-    authState = "unauthorized";
-  }
-
-  let applyState: OperationalFixture["apply_state"] = undefined;
-  if (kind === "apply-verification") {
-    if (scen === "T12_PARTIAL_WRITE" || scen === "atomic-apply-failed" || scen === "ATOMIC_APPLY_FAILED") {
-      applyState = { scenario: "atomic-plan", atomic_plan: { simulateFailure: true } };
-    } else if (scen === "T13_STALE_VALIDATION" || scen === "stale-validation" || scen === "STALE_VALIDATION") {
-      applyState = { scenario: "stale-validation", expected_validation_hash: "hashA", current_validation_hash: "hashB" };
-    } else if (scen === "T14_TOCTOU") {
-      applyState = { scenario: "toctou", expected_snapshot: { version: 1 }, current_snapshot: { version: 2 } };
-    } else if (scen === "T15_HASH_MISMATCH" || scen === "content-hash-mismatch" || scen === "CONTENT_HASH_MISMATCH") {
-      applyState = { scenario: "content-hash", expected_content_hash: "hashA", current_content_hash: "hashB" };
-    } else {
-      applyState = { scenario: "preview-token", preview_token: "invalid" };
-    }
-  }
-
-  let binaryFixtureName: string | undefined = cleanInput.binary_fixture;
-  if (kind === "binary" && !binaryFixtureName) {
-    if (scen === "T04_PATH_TRAVERSAL") binaryFixtureName = "zip_path_traversal";
-    else if (scen === "T23_XLSX_EXTERNAL_LINKS") binaryFixtureName = "ooxml_external_rel";
-    else if (scen === "T22_ZIP_BOMB") binaryFixtureName = "zip_ratio_overflow";
-    else binaryFixtureName = "minimal_xlsx";
-  }
-
-  let headers = CONTRACT_HEADERS[inputFormat as keyof typeof CONTRACT_HEADERS]
-    ? [...CONTRACT_HEADERS[inputFormat as keyof typeof CONTRACT_HEADERS]]
-    : [...CONTRACT_HEADERS.official_flat_v0];
-
-  const parserState: WorkbookParserMetadata = {};
-  let fileName = "workbook.xlsx";
-  let fileBytes: number | undefined = undefined;
-
-  if (scen === "unsupported-file-type" || scen === "FILE_TYPE_UNSUPPORTED") fileName = "invalid.txt";
-  if (scen === "file-too-large" || scen === "FILE_TOO_LARGE" || scen === "bytes_5242881") fileBytes = 6 * 1024 * 1024;
-  if (scen === "encrypted-workbook" || scen === "WORKBOOK_ENCRYPTED") parserState.encrypted = true;
-  if (scen === "T04_PATH_TRAVERSAL") parserState.hasPathTraversal = true;
-  if (scen === "T18_HIDDEN_DATA" || scen === "hidden-data") parserState.hiddenRowData = true;
-  if (scen === "T19_MERGED_CELLS" || scen === "merged-cells") parserState.hasMergedDataCells = true;
-  if (scen === "T24_MACROS" || scen === "MACRO_CONTENT") parserState.hasMacros = true;
-  if (scen === "T02_FORMULA_INJECTION" || scen === "T20_WORKBOOK_FORMULAS" || scen === "formula-cell") {
-    parserState.hasFormulaCells = true;
-  }
-  if (scen === "cell_65537" || scen === "cell_bytes_65537" || scen === "T21_CELL_BOMB" || scen === "T21_OVERSIZED_CELLS" || scen === "CELL_TOO_LARGE") {
-    parserState.maxCellBytes = 65537;
-  }
-
-  if (scen === "missing-header" || scen === "MISSING_HEADER") headers = headers.slice(1);
-  if (scen === "duplicate-header" || scen === "DUPLICATE_HEADER") headers = [...headers, headers[0]!];
-  if (scen === "T10_PRIVILEGE_ESCALATION" || scen === "forbidden-column" || scen === "PRIVILEGE_ESCALATION" || scen === "FORBIDDEN_COLUMN") {
-    headers = [...headers, "role"];
-    cleanInput.role = "admin";
-  }
-  if (scen === "columns_257" || scen === "max_columns" || scen === "column-limit" || scen === "COLUMN_LIMIT") {
-    headers = Array.from({ length: 257 }, (_, i) => `col_${i}`);
-  }
-  if (scen === "INVALID_CONTRACT") {
-    headers = ["unsupported_col1", "unsupported_col2"];
-  }
-
-  if (scen === "MISSING_VALUE") {
-    cleanInput.question_text = "";
-    cleanInput.question_code = "";
-    cleanInput.رمز_السؤال = "";
-    cleanInput.نص_السؤال = "";
-  }
-  if (scen === "INVALID_INTERACTION_TYPE") {
-    cleanInput.interaction_type = "invalid";
-    cleanInput.نوع_السؤال = "invalid";
-  }
-  if (scen === "INVALID_GRADING_MODE") {
-    cleanInput.interaction_type = "SINGLE_CHOICE";
-    cleanInput.grading_mode = "invalid";
-  }
-  if (scen === "INCOMPATIBLE_TYPE_MODE") {
-    cleanInput.interaction_type = "SINGLE_CHOICE";
-    cleanInput.grading_mode = "AUTO_TEXT";
-  }
-  if (scen === "OPTION_COUNT" || scen === "zero_options") {
-    cleanInput.option_1 = "";
-    cleanInput.option_2 = "";
-    cleanInput.الخيار_١ = "";
-    cleanInput.الخيار_٢ = "";
-  }
-  if (scen === "one_option") {
-    cleanInput.option_1 = "Opt 1";
-    cleanInput.option_2 = "";
-    cleanInput.الخيار_١ = "Opt 1";
-    cleanInput.الخيار_٢ = "";
-  }
-  if (scen === "seven_options") {
-    cleanInput.option_1 = "1"; cleanInput.option_2 = "2"; cleanInput.option_3 = "3";
-    cleanInput.option_4 = "4"; cleanInput.option_5 = "5"; cleanInput.option_6 = "6"; cleanInput.option_7 = "7";
-    cleanInput.الخيار_١ = "1"; cleanInput.الخيار_٢ = "2"; cleanInput.الخيار_٣ = "3";
-    cleanInput.الخيار_٤ = "4"; cleanInput.الخيار_٥ = "5"; cleanInput.الخيار_٦ = "6"; cleanInput.الخيار_٧ = "7";
-  }
-  if (scen === "DUPLICATE_OPTION") {
-    cleanInput.option_1 = "Same";
-    cleanInput.option_2 = "Same";
-    cleanInput.answer_a = "Same";
-    cleanInput.answer_b = "Same";
-    cleanInput.الخيار_١ = "Same";
-    cleanInput.الخيار_٢ = "Same";
-  }
-  if (scen === "MISSING_CORRECT_INDEX") {
-    cleanInput.correct_index = "";
-    cleanInput.رقم_الإجابة_الصحيحة = "";
-  }
-  if (scen === "CORRECT_INDEX_NO_OPTION") {
-    cleanInput.option_1 = "Opt 1";
-    cleanInput.option_2 = "";
-    cleanInput.الخيار_١ = "Opt 1";
-    cleanInput.الخيار_٢ = "";
-    cleanInput.correct_index = "2";
-    cleanInput.رقم_الإجابة_الصحيحة = "٢";
-  }
-  if (scen === "ANSWER_NOT_ALLOWED") {
-    cleanInput.interaction_type = "LONG_TEXT";
-    cleanInput.grading_mode = "MANUAL";
-    cleanInput.option_1 = "Opt 1";
-    cleanInput.الخيار_١ = "Opt 1";
-  }
-  if (scen === "ACCEPTED_ANSWER_REQUIRED") {
-    cleanInput.interaction_type = "SHORT_TEXT";
-    cleanInput.grading_mode = "AUTO_TEXT";
-    cleanInput.accepted_answers = "";
-  }
-  if (scen === "INVALID_SCORE" || scen === "score_zero" || scen === "score_infinity") {
-    cleanInput.max_score = "invalid";
-    cleanInput.الدرجة = "invalid";
-  }
-  if (scen === "PARTIAL_NOT_ALLOWED") {
-    cleanInput.interaction_type = "SINGLE_CHOICE";
-    cleanInput.grading_mode = "AUTO_SINGLE";
-    cleanInput.allow_partial = "TRUE";
-    cleanInput.السماح_بالجزئي = "نعم";
-  }
-  if (scen === "QUESTION_CODE_INVALID") {
-    cleanInput.question_code = "Q1 2";
-    cleanInput.code = "Q1 2";
-    cleanInput.رمز_السؤال = "Q1 2";
-  }
-  if (scen === "UNKNOWN_SUBJECT") {
-    cleanInput.subject_code = "UNKNOWN_SUBJ";
-    cleanInput.رمز_المادة = "UNKNOWN_SUBJ";
-  }
-  if (scen === "UNKNOWN_LESSON") {
-    cleanInput.lesson_code = "UNKNOWN_LESSON";
-    cleanInput.رمز_الدرس = "UNKNOWN_LESSON";
-  }
-  if (scen === "T05_MEDIA_URL_POISONING" || scen === "media-url-poisoning" || scen === "MEDIA_URL_INVALID") {
-    cleanInput.media_url = "javascript:alert(1)";
-    cleanInput.رابط_الوسائط = "javascript:alert(1)";
-  }
-  if (scen === "MEDIA_TYPE_REQUIRED") {
-    cleanInput.media_url = "http://example.com/img.jpg";
-    cleanInput.media_type = "";
-    cleanInput.رابط_الوسائط = "http://example.com/img.jpg";
-    cleanInput.نوع_الوسائط = "";
-  }
-  if (scen === "T07_CROSS_SUBJECT" || scen === "CROSS_SUBJECT_MAPPING") {
-    cleanInput.subject_code = "PHYS-G10";
-    cleanInput.lesson_code = "";
-    cleanInput.رمز_المادة = "PHYS-G10";
-    cleanInput.رمز_الدرس = "";
-  }
-  if (scen === "T08_CROSS_LESSON" || scen === "cross-lesson" || scen === "CROSS_LESSON_MAPPING") {
-    cleanInput.subject_code = "MATH-G10";
-    cleanInput.lesson_code = "PHYS-L1";
-    cleanInput.رمز_المادة = "MATH-G10";
-    cleanInput.رمز_الدرس = "PHYS-L1";
-  }
-  if (
-    scen === "T16_INDEX_BASE" ||
-    scen === "invalid_correct_index" ||
-    scen === "out_of_range_index" ||
-    scen === "index_out_of_range" ||
-    scen === "index_four_legacy" ||
-    scen === "index_seven_official" ||
-    scen === "index_zero_official" ||
-    scen === "INVALID_CORRECT_INDEX"
-  ) {
-    cleanInput.correct_index = "invalid_index";
-    cleanInput.رقم_الإجابة_الصحيحة = "invalid_index";
-  }
-  if (
-    scen === "T17_NUMERAL_AMBIGUITY" ||
-    scen === "mixed-numeral" ||
-    scen === "mixed_2٢" ||
-    scen === "MIXED_NUMERAL_SCRIPTS"
-  ) {
-    cleanInput.question_text = "سؤال 1٢3";
-    cleanInput.question_code = "Q1٢";
-    cleanInput.code = "Q1٢";
-    cleanInput.رمز_السؤال = "Q1٢";
-  }
-  if (scen === "T25_MALFORMED_UNICODE") {
-    cleanInput.question_text = "bad unicode \u0000";
-    cleanInput.question = "bad unicode \u0000";
-    cleanInput.نص_السؤال = "bad unicode \u0000";
-  }
-  if (scen === "scientific_identifier" || scen === "SCIENTIFIC_NOTATION_LOSS") {
-    cleanInput.code = "1e10";
-    cleanInput.question_code = "1e10";
-    cleanInput.رمز_السؤال = "1e10";
-  }
-  if (scen === "T03_CSV_INJECTION" || scen === "FORMULA_INJECTION") {
-    cleanInput.question_text = "=SUM(1,2)";
-    cleanInput.نص_السؤال = "=SUM(1,2)";
-  }
-
-  let rowsArr: DryRunInputRow[] = [];
-  if (Array.isArray(rawInput)) {
-    const rowArr = [...rawInput];
-    if (vector.expected_errors?.some((e) => e.code === "LEGACY_INFORMATION_LOSS")) {
-      rowArr[10] = "auto_text";
-    }
-    rowsArr = [rowArr as unknown as Record<string, unknown>];
-  } else if (scen === "DUPLICATE_CODE_IN_FILE") {
-    const r1 = fillDefaultRowFields(inputFormat, { question_code: "Q1", code: "Q1", رمز_السؤال: "Q1" });
-    rowsArr = [r1, { ...r1 }];
-  } else if (scen === "LEGACY_COLUMN_COUNT") {
-    headers = [...CONTRACT_HEADERS.legacy_flat_15col];
-    rowsArr = [["Q1", "L1", "S1", "Q", "a", "b", "", "", 0, ""] as unknown as Record<string, unknown>];
-  } else if (scen === "LEGACY_COLUMN_ORDER") {
-    headers = ["question", "code", ...CONTRACT_HEADERS.legacy_flat_15col.slice(2)];
-  } else if (scen === "LEGACY_INFORMATION_LOSS") {
-    headers = [...CONTRACT_HEADERS.legacy_flat_15col];
-    rowsArr = [["Q1", "MATH-L1", "MATH-G10", "q", "a", "b", "", "", 0, "", "auto_text", "2026", "1", "1", ""] as unknown as Record<string, unknown>];
-  } else if (scen === "MISSING_VALUE" && inputFormat === "legacy_flat_15col") {
-    headers = [...CONTRACT_HEADERS.legacy_flat_15col];
-    rowsArr = [["", "L1", "S1", "", "", "", "", "", 0, "", "mcq", "2026", "1", "1", ""] as unknown as Record<string, unknown>];
-  } else if (scen === "row_1001" || scen === "rows_1001" || scen === "row-limit" || scen === "ROW_LIMIT") {
-    rowsArr = Array.from({ length: 1001 }, () => fillDefaultRowFields(inputFormat, {}));
-  } else {
-    rowsArr = [fillDefaultRowFields(inputFormat, cleanInput)];
-  }
-
-  const existingCodes: Record<string, string> = {};
-  if (vector.preconditions?.existing_codes) {
-    for (const code of vector.preconditions.existing_codes) {
-      existingCodes[code] = "CATALOG_EXISTS";
-    }
-  }
-  if (scen === "T06_DUPLICATE_CODE_TAKEOVER" || scen === "DUPLICATE_CODE_EXISTS") {
-    existingCodes["Q-DEFAULT"] = "CATALOG_EXISTS";
-  }
-  if (scen === "IMPORT_REPLAY_CONFLICT") {
-    existingCodes["Q-DEFAULT"] = "EXISTING_HASH";
-  }
-
-  const authSubjects = scen === "CROSS_SUBJECT_MAPPING" || scen === "T07_CROSS_SUBJECT" ? ["MATH-G10"] : vector.preconditions?.authorized_subjects;
-
-  return {
-    fixture_kind: kind,
-    input_format: inputFormat,
-    file_name: fileName,
-    file_bytes: fileBytes,
-    headers,
-    rows: rowsArr,
-    authorization_state: authState,
-    catalog_state: {
-      authorized_subjects: authSubjects,
-      existing_codes: existingCodes,
-    },
-    binary_fixture: binaryFixtureName,
-    parser_state: parserState,
-    apply_state: applyState,
-  };
+  return fix;
 }
 
 export function classifyVector(vector: OracleVector): ExecutionKind {
@@ -643,8 +284,8 @@ export async function buildOperationalInput(fixture: OperationalFixture): Promis
     };
   }
 
-  if (fixture.binary_fixture) {
-    const fix = fixture.binary_fixture;
+  if (fixture.binary_fixture_id) {
+    const fix = fixture.binary_fixture_id;
     let bytes: Uint8Array;
     if (fix === "zip_path_traversal") bytes = await buildZipWithPathTraversal("../secret.txt");
     else if (fix === "zip_duplicate_entry") bytes = await buildZipWithDuplicateEntry();
@@ -682,7 +323,7 @@ export async function buildOperationalInput(fixture: OperationalFixture): Promis
     kind: fixture.fixture_kind ?? "validator",
     fileName,
     headers,
-    rows,
+    rows: rows as DryRunInputRow[],
     catalog,
     authorized,
     schemaHint: fixture.input_format,
@@ -698,8 +339,16 @@ export async function executeOperationalInput(input: OperationalInput): Promise<
     const scen = state?.scenario;
     let val = { ok: false, issues: [] as any[] };
 
+    const validBindingContext: PreviewTokenBindingContext = {
+      snapshot_id: "snap-1",
+      snapshot_version: 1,
+      content_hash: "hash-1",
+      actor_id: "actor-123",
+      scope: "tenant:default",
+    };
+
     if (scen === "preview-token") {
-      val = validatePreviewToken(state?.preview_token, state?.token_binding);
+      val = validatePreviewToken(state?.preview_token, validBindingContext, { testSecret: "test-secret-12345678901234567890123456789012" });
     } else if (scen === "stale-validation") {
       val = validateStaleValidation(state?.expected_validation_hash ?? null, state?.current_validation_hash ?? null);
     } else if (scen === "content-hash") {

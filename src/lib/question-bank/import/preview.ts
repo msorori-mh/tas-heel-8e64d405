@@ -45,6 +45,8 @@ export function previewRows(
 export function rejectApplyContract(code: keyof typeof QB_IMPORT_CODES = "PREVIEW_TOKEN_INVALID"): QbImportIssue {
   return issue(code, {
     file: null,
+    stage: "AUTHORIZATION",
+    source_subsystem: "preview",
     suggested_fix: "لا تتوفر عملية التطبيق في حزمة التشغيل الجاف.",
   });
 }

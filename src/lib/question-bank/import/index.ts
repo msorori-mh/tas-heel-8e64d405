@@ -18,4 +18,3 @@ export * from "./adapters/detect.ts";
 export * from "./adapters/legacy-flat-15col.ts";
 export * from "./adapters/teacher-flat-ar-v0.ts";
 export * from "./adapters/official-flat-v0.ts";
-export * from "./apply-verifier.ts";
