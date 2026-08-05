@@ -23,13 +23,39 @@ export function generateSessionNonce(): string {
   throw new Error("FAIL_CLOSED: Secure crypto getRandomValues is unavailable.");
 }
 
-function isPlainObject(val: unknown): val is Record<string, unknown> {
+function validateStrictPlainObject(val: unknown): { isValid: boolean; reason?: string } {
   if (typeof val !== "object" || val === null || Array.isArray(val)) {
-    return false;
+    return { isValid: false, reason: "حمولات الأحداث يجب أن تكون كائناً مجرداً (Plain Object)." };
   }
   const proto = Object.getPrototypeOf(val);
-  return proto === Object.prototype || proto === null;
+  if (proto !== Object.prototype && proto !== null) {
+    return { isValid: false, reason: "كائنات الأحداث يجب أن تكون ذات Prototype مجرد." };
+  }
+  if (Object.getOwnPropertySymbols(val).length > 0) {
+    return { isValid: false, reason: "رموز Symbol غير مسموح بها في كائنات الأحداث." };
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(val);
+  for (const key of Object.keys(descriptors)) {
+    const desc = descriptors[key];
+    if (desc.get !== undefined || desc.set !== undefined) {
+      return { isValid: false, reason: "المُنشئات والخصائص التلقائية Getters/Setters غير مسموح بها." };
+    }
+    if (!desc.enumerable) {
+      return { isValid: false, reason: "الخصائص غير القابلة للتعداد غير مسموح بها." };
+    }
+  }
+  return { isValid: true };
 }
+
+const EXACT_TOP_LEVEL_KEYS = new Set([
+  "resource_code",
+  "resource_version",
+  "session_nonce",
+  "event_type",
+  "event_sequence",
+  "timestamp",
+  "payload",
+]);
 
 export class AppInteractiveResourceBridge {
   private expectedNonce: string;
@@ -52,40 +78,70 @@ export class AppInteractiveResourceBridge {
 
   /**
    * Validate incoming message event payload from sandboxed iframe.
+   * Fail-closed: expectedWindow and eventSource are strictly required and must match.
    */
   public validateEventPayload(
     rawPayload: unknown,
-    eventSource?: WindowProxy | null,
-    expectedWindow?: WindowProxy | null
+    eventSource: WindowProxy | null | undefined,
+    expectedWindow: WindowProxy | null | undefined
   ): {
     isValid: boolean;
     payload?: BridgeEventPayload;
     finding?: SecurityFinding;
   } {
-    // 0. Explicit Window source check
-    if (expectedWindow && eventSource !== expectedWindow) {
+    // 0. Explicit & Mandatory Window source check (Fail-closed)
+    if (!expectedWindow || !eventSource || eventSource !== expectedWindow) {
       return {
         isValid: false,
         finding: {
           code: ValidationCodes.INVALID_EVENT_SOURCE,
           severity: "error",
-          message: "مصدر الحدث (event.source) لا يطابق إطار المعاينة المحدد (iframeRef.contentWindow).",
+          message: "مصدر الحدث (event.source) غير صالح أو لا يطابق إطار المعاينة المحدد (iframeRef.contentWindow).",
         },
       };
     }
 
-    if (!isPlainObject(rawPayload)) {
+    // 1. Top-Level Strict Plain Object Check
+    const objCheck = validateStrictPlainObject(rawPayload);
+    if (!objCheck.isValid) {
       return {
         isValid: false,
         finding: {
           code: ValidationCodes.INVALID_EVENT_SCHEMA,
           severity: "error",
-          message: "حمولات الأحداث يجب أن تكون كائناً مجرداً.",
+          message: objCheck.reason || "حمولات الأحداث غير صالحة.",
         },
       };
     }
 
-    // Payload size check (10KB UTF-8 byte limit)
+    const data = rawPayload as Record<string, unknown>;
+
+    // 2. Strict Top-Level Schema Check (Exact Allowlist: exactly 7 allowed keys, no extra, no missing)
+    const topKeys = Object.keys(data);
+    if (topKeys.length !== EXACT_TOP_LEVEL_KEYS.size) {
+      return {
+        isValid: false,
+        finding: {
+          code: ValidationCodes.INVALID_EVENT_SCHEMA,
+          severity: "error",
+          message: "مخطط الحدث الأعلى يحتوي على حقول زائدة أو ناقصة.",
+        },
+      };
+    }
+    for (const key of topKeys) {
+      if (!EXACT_TOP_LEVEL_KEYS.has(key)) {
+        return {
+          isValid: false,
+          finding: {
+            code: ValidationCodes.INVALID_EVENT_SCHEMA,
+            severity: "error",
+            message: `حقل غير معرف في أعلى كائن الحدث: ${key}`,
+          },
+        };
+      }
+    }
+
+    // 3. Payload size check (10KB UTF-8 byte limit)
     try {
       const payloadString = JSON.stringify(rawPayload);
       const byteSize = new TextEncoder().encode(payloadString).byteLength;
@@ -110,14 +166,12 @@ export class AppInteractiveResourceBridge {
       };
     }
 
-    const data = rawPayload as Record<string, unknown>;
-
     const nonce = typeof data.session_nonce === "string" ? data.session_nonce : "";
     const resourceCode = typeof data.resource_code === "string" ? data.resource_code : "";
     const version = typeof data.resource_version === "number" ? data.resource_version : 0;
     const eventType = typeof data.event_type === "string" ? data.event_type : "";
 
-    // 1. Session Nonce check
+    // 4. Session Nonce check
     if (!nonce || nonce !== this.expectedNonce) {
       return {
         isValid: false,
@@ -129,7 +183,7 @@ export class AppInteractiveResourceBridge {
       };
     }
 
-    // 2. Resource Code & Version check
+    // 5. Resource Code & Version check
     if (resourceCode !== this.expectedResourceCode || version !== this.expectedVersion) {
       return {
         isValid: false,
@@ -141,7 +195,7 @@ export class AppInteractiveResourceBridge {
       };
     }
 
-    // 3. Allowed Event Type check
+    // 6. Allowed Event Type check
     if (!ALLOWED_BRIDGE_EVENT_TYPES.includes(eventType as BridgeEventType)) {
       return {
         isValid: false,
@@ -153,7 +207,7 @@ export class AppInteractiveResourceBridge {
       };
     }
 
-    // 4. Timestamp check (finite number, not before session start - 5s, not in future)
+    // 7. Timestamp check (finite number, not before session start - 5s, not in future > 60s)
     if (typeof data.timestamp !== "number" || !Number.isFinite(data.timestamp)) {
       return {
         isValid: false,
@@ -186,7 +240,7 @@ export class AppInteractiveResourceBridge {
       };
     }
 
-    // 5. Sequence monotonic check (positive integer & strict > lastSequence)
+    // 8. Sequence monotonic check (positive integer & strict > lastSequence)
     if (typeof data.event_sequence !== "number" || !Number.isInteger(data.event_sequence) || data.event_sequence <= 0) {
       return {
         isValid: false,
@@ -209,48 +263,223 @@ export class AppInteractiveResourceBridge {
       };
     }
 
-    // 6. Strict Payload Schema per event_type
+    // 9. Strict Inner Payload Schema per event_type
     const innerPayload = data.payload;
-    if (innerPayload !== undefined && !isPlainObject(innerPayload)) {
+    const innerCheck = validateStrictPlainObject(innerPayload);
+    if (!innerCheck.isValid) {
       return {
         isValid: false,
         finding: {
           code: ValidationCodes.INVALID_EVENT_SCHEMA,
           severity: "error",
-          message: "البيانات الإضافية (payload) يجب أن تكون كائناً مجرداً.",
+          message: innerCheck.reason || "البيانات الإضافية (payload) غير صالحة.",
         },
       };
     }
 
-    if (eventType === "step_completed" && innerPayload) {
-      const stepVal = (innerPayload as Record<string, unknown>).step;
-      if (typeof stepVal !== "number" || !Number.isInteger(stepVal) || stepVal < 0) {
+    const payloadObj = innerPayload as Record<string, unknown>;
+    const payloadKeys = Object.keys(payloadObj);
+
+    if (eventType === "resource_ready" || eventType === "resource_started") {
+      if (payloadKeys.length > 0) {
         return {
           isValid: false,
           finding: {
             code: ValidationCodes.INVALID_EVENT_SCHEMA,
             severity: "error",
-            message: "حدث step_completed يتطلب خاصية step كعدد صحيح غير سالب.",
+            message: `حدث ${eventType} لا يقبل حقولاً إضافية في payload.`,
           },
         };
       }
-    }
-
-    if (eventType === "resize_request" && innerPayload) {
-      const heightVal = (innerPayload as Record<string, unknown>).height;
+    } else if (eventType === "interaction") {
+      const allowedKeys = new Set(["interaction_type", "target", "action"]);
+      for (const k of payloadKeys) {
+        if (!allowedKeys.has(k)) {
+          return {
+            isValid: false,
+            finding: {
+              code: ValidationCodes.INVALID_EVENT_SCHEMA,
+              severity: "error",
+              message: `حقل غير معروف في payload حدث interaction: ${k}`,
+            },
+          };
+        }
+      }
+      if (typeof payloadObj.interaction_type !== "string" || payloadObj.interaction_type.trim().length === 0 || payloadObj.interaction_type.length > 100) {
+        return {
+          isValid: false,
+          finding: {
+            code: ValidationCodes.INVALID_EVENT_SCHEMA,
+            severity: "error",
+            message: "حدث interaction يتطلب interaction_type كسلسلة نصية غير فارغة ومحدودة الطول (حتى 100 حرف).",
+          },
+        };
+      }
+      if (payloadObj.target !== undefined && (typeof payloadObj.target !== "string" || payloadObj.target.length > 100)) {
+        return {
+          isValid: false,
+          finding: {
+            code: ValidationCodes.INVALID_EVENT_SCHEMA,
+            severity: "error",
+            message: "خاصية target في interaction يجب أن تكون نصية ومحدودة.",
+          },
+        };
+      }
+      if (payloadObj.action !== undefined && (typeof payloadObj.action !== "string" || payloadObj.action.length > 100)) {
+        return {
+          isValid: false,
+          finding: {
+            code: ValidationCodes.INVALID_EVENT_SCHEMA,
+            severity: "error",
+            message: "خاصية action في interaction يجب أن تكون نصية ومحدودة.",
+          },
+        };
+      }
+    } else if (eventType === "step_completed") {
+      const allowedKeys = new Set(["step"]);
+      for (const k of payloadKeys) {
+        if (!allowedKeys.has(k)) {
+          return {
+            isValid: false,
+            finding: {
+              code: ValidationCodes.INVALID_EVENT_SCHEMA,
+              severity: "error",
+              message: `حقل غير معروف في payload حدث step_completed: ${k}`,
+            },
+          };
+        }
+      }
+      const stepVal = payloadObj.step;
+      if (typeof stepVal !== "string" || stepVal.trim().length === 0 || stepVal.length > 100) {
+        return {
+          isValid: false,
+          finding: {
+            code: ValidationCodes.INVALID_EVENT_SCHEMA,
+            severity: "error",
+            message: "حدث step_completed يتطلب خاصية step كسلسلة نصية غير فارغة ومحدودة الطول.",
+          },
+        };
+      }
+    } else if (eventType === "experiment_completed") {
+      const allowedKeys = new Set(["summary", "completed_at", "duration_seconds"]);
+      for (const k of payloadKeys) {
+        if (!allowedKeys.has(k)) {
+          return {
+            isValid: false,
+            finding: {
+              code: ValidationCodes.INVALID_EVENT_SCHEMA,
+              severity: "error",
+              message: `حقل غير مقبول في payload حدث experiment_completed: ${k}`,
+            },
+          };
+        }
+      }
+      if (payloadObj.summary !== undefined && (typeof payloadObj.summary !== "string" || payloadObj.summary.length > 200)) {
+        return {
+          isValid: false,
+          finding: {
+            code: ValidationCodes.INVALID_EVENT_SCHEMA,
+            severity: "error",
+            message: "خاصية summary في experiment_completed يجب أن تكون نصية ومحدودة (حتى 200 حرف).",
+          },
+        };
+      }
+      if (payloadObj.completed_at !== undefined && (typeof payloadObj.completed_at !== "number" || !Number.isFinite(payloadObj.completed_at))) {
+        return {
+          isValid: false,
+          finding: {
+            code: ValidationCodes.INVALID_EVENT_SCHEMA,
+            severity: "error",
+            message: "خاصية completed_at في experiment_completed يجب أن تكون رقماً محدوداً.",
+          },
+        };
+      }
+      if (payloadObj.duration_seconds !== undefined && (typeof payloadObj.duration_seconds !== "number" || !Number.isFinite(payloadObj.duration_seconds) || payloadObj.duration_seconds < 0)) {
+        return {
+          isValid: false,
+          finding: {
+            code: ValidationCodes.INVALID_EVENT_SCHEMA,
+            severity: "error",
+            message: "خاصية duration_seconds في experiment_completed يجب أن تكون رقماً موجب المحتوى.",
+          },
+        };
+      }
+    } else if (eventType === "resource_error") {
+      const allowedKeys = new Set(["error_code", "message"]);
+      for (const k of payloadKeys) {
+        if (!allowedKeys.has(k)) {
+          return {
+            isValid: false,
+            finding: {
+              code: ValidationCodes.INVALID_EVENT_SCHEMA,
+              severity: "error",
+              message: `حقل غير معروف في payload حدث resource_error: ${k}`,
+            },
+          };
+        }
+      }
+      const errCode = payloadObj.error_code;
+      if (typeof errCode !== "string" || errCode.trim().length === 0 || errCode.length > 50) {
+        return {
+          isValid: false,
+          finding: {
+            code: ValidationCodes.INVALID_EVENT_SCHEMA,
+            severity: "error",
+            message: "حدث resource_error يتطلب error_code كسلسلة نصية غير فارغة ومحدودة الطول (حتى 50 حرف).",
+          },
+        };
+      }
+      const msg = payloadObj.message;
+      if (msg !== undefined) {
+        if (typeof msg !== "string" || msg.length > 200) {
+          return {
+            isValid: false,
+            finding: {
+              code: ValidationCodes.INVALID_EVENT_SCHEMA,
+              severity: "error",
+              message: "رسالة الخطأ message يجب أن تكون نصية وأقل من 200 حرف.",
+            },
+          };
+        }
+        if (/<[^>]*>/.test(msg) || /at\s+[\w$.]+\s+\(/.test(msg) || /\n\s*at\s+/.test(msg)) {
+          return {
+            isValid: false,
+            finding: {
+              code: ValidationCodes.INVALID_EVENT_SCHEMA,
+              severity: "error",
+              message: "رسالة الخطأ لا يمكن أن تحتوي على HTML أو تتبع كدسة Stack trace.",
+            },
+          };
+        }
+      }
+    } else if (eventType === "resize_request") {
+      const allowedKeys = new Set(["height"]);
+      for (const k of payloadKeys) {
+        if (!allowedKeys.has(k)) {
+          return {
+            isValid: false,
+            finding: {
+              code: ValidationCodes.INVALID_EVENT_SCHEMA,
+              severity: "error",
+              message: `حقل غير معروف في payload حدث resize_request: ${k}`,
+            },
+          };
+        }
+      }
+      const heightVal = payloadObj.height;
       if (typeof heightVal !== "number" || !Number.isFinite(heightVal) || heightVal <= 0 || heightVal > 5000) {
         return {
           isValid: false,
           finding: {
             code: ValidationCodes.INVALID_EVENT_SCHEMA,
             severity: "error",
-            message: "حدث resize_request يتطلب خاصية height كعدد موجَب ضمن الحدود المسموح بها.",
+            message: "حدث resize_request يتطلب خاصية height كعدد موجَب محدود (ضمن 1-5000 px).",
           },
         };
       }
     }
 
-    // 7. Rate limiting check (max 20 events per second)
+    // 10. Rate limiting check (max 20 events per second)
     const now = Date.now();
     this.eventTimestamps = this.eventTimestamps.filter((ts) => now - ts < 1000);
     if (this.eventTimestamps.length >= PACKAGE_LIMITS.MAX_EVENT_RATE_PER_SECOND) {
@@ -274,7 +503,7 @@ export class AppInteractiveResourceBridge {
       event_type: eventType as BridgeEventType,
       event_sequence: sequence,
       timestamp: timestamp,
-      payload: (innerPayload as Record<string, unknown>) || undefined,
+      payload: payloadObj,
     };
 
     return {
@@ -291,6 +520,6 @@ export class AppInteractiveResourceBridge {
     version: number,
     nonce: string
   ): string {
-    return `(function(){var nonce=${JSON.stringify(nonce)};var resourceCode=${JSON.stringify(resourceCode)};var version=${JSON.stringify(version)};var sequence=0;window.__TasheelBridge={sendEvent:function(eventType,payload){sequence++;var message={resource_code:resourceCode,resource_version:version,session_nonce:nonce,event_type:eventType,event_sequence:sequence,timestamp:Date.now(),payload:payload||{}};window.parent.postMessage(message,"*");},markReady:function(){this.sendEvent("resource_ready");},markStarted:function(){this.sendEvent("resource_started");},sendInteraction:function(data){this.sendEvent("interaction",data);},markStepCompleted:function(stepIndex){this.sendEvent("step_completed",{step:stepIndex});},markExperimentCompleted:function(summary){this.sendEvent("experiment_completed",summary);},requestResize:function(height){this.sendEvent("resize_request",{height:height});}};})();`;
+    return `(function(){var nonce=${JSON.stringify(nonce)};var resourceCode=${JSON.stringify(resourceCode)};var version=${JSON.stringify(version)};var sequence=0;window.__TasheelBridge={sendEvent:function(eventType,payload){sequence++;var message={resource_code:resourceCode,resource_version:version,session_nonce:nonce,event_type:eventType,event_sequence:sequence,timestamp:Date.now(),payload:payload||{}};window.parent.postMessage(message,"*");},markReady:function(){this.sendEvent("resource_ready",{});},markStarted:function(){this.sendEvent("resource_started",{});},sendInteraction:function(data){this.sendEvent("interaction",data);},markStepCompleted:function(stepIndex){this.sendEvent("step_completed",{step:String(stepIndex)});},markExperimentCompleted:function(summary){this.sendEvent("experiment_completed",summary||{});},requestResize:function(height){this.sendEvent("resize_request",{height:height});}};})();`;
   }
 }

@@ -201,6 +201,7 @@ test("25. Message Bridge: Invalid event source rejection", () => {
     event_type: "resource_ready",
     event_sequence: 1,
     timestamp: Date.now(),
+    payload: {},
   };
 
   const res = bridge.validateEventPayload(validPayload, fakeWin, targetWin);
@@ -210,6 +211,7 @@ test("25. Message Bridge: Invalid event source rejection", () => {
 
 test("26. Message Bridge: Payload byte-size limit (>10KB) rejected", () => {
   const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
   const largePayload = {
     resource_code: "RES-01",
     resource_version: 1,
@@ -217,10 +219,10 @@ test("26. Message Bridge: Payload byte-size limit (>10KB) rejected", () => {
     event_type: "interaction",
     event_sequence: 1,
     timestamp: Date.now(),
-    payload: { data: "x".repeat(15000) },
+    payload: { interaction_type: "click", target: "x".repeat(15000) },
   };
 
-  const res = bridge.validateEventPayload(largePayload);
+  const res = bridge.validateEventPayload(largePayload, win, win);
   assert.equal(res.isValid, false);
   assert.equal(res.finding?.code, ValidationCodes.PAYLOAD_SIZE_LIMIT_EXCEEDED);
 });
@@ -228,6 +230,7 @@ test("26. Message Bridge: Payload byte-size limit (>10KB) rejected", () => {
 test("27. Message Bridge: Rate limit (>20 events/sec) rejected", () => {
   const bridge = new AppInteractiveResourceBridge("RES-01", 1);
   const nonce = bridge.getSessionNonce();
+  const win = {} as WindowProxy;
 
   for (let seq = 1; seq <= 20; seq++) {
     const msg = {
@@ -237,8 +240,9 @@ test("27. Message Bridge: Rate limit (>20 events/sec) rejected", () => {
       event_type: "interaction",
       event_sequence: seq,
       timestamp: Date.now(),
+      payload: { interaction_type: "click" },
     };
-    assert.equal(bridge.validateEventPayload(msg).isValid, true);
+    assert.equal(bridge.validateEventPayload(msg, win, win).isValid, true);
   }
 
   // 21st message should fail rate limit
@@ -249,8 +253,9 @@ test("27. Message Bridge: Rate limit (>20 events/sec) rejected", () => {
     event_type: "interaction",
     event_sequence: 21,
     timestamp: Date.now(),
+    payload: { interaction_type: "click" },
   };
-  const res21 = bridge.validateEventPayload(msg21);
+  const res21 = bridge.validateEventPayload(msg21, win, win);
   assert.equal(res21.isValid, false);
   assert.equal(res21.finding?.code, ValidationCodes.EVENT_RATE_LIMIT_EXCEEDED);
 });
@@ -325,6 +330,7 @@ test("31. CSP Bridge exact bytes: srcDoc extracted script SHA-256 matches CSP li
 test("32. Message Bridge: Stale timestamp rejected (< session start)", () => {
   const bridge = new AppInteractiveResourceBridge("RES-01", 1);
   const nonce = bridge.getSessionNonce();
+  const win = {} as WindowProxy;
   const payload = {
     resource_code: "RES-01",
     resource_version: 1,
@@ -332,8 +338,9 @@ test("32. Message Bridge: Stale timestamp rejected (< session start)", () => {
     event_type: "interaction",
     event_sequence: 1,
     timestamp: Date.now() - 100000,
+    payload: { interaction_type: "click" },
   };
-  const res = bridge.validateEventPayload(payload);
+  const res = bridge.validateEventPayload(payload, win, win);
   assert.equal(res.isValid, false);
   assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
 });
@@ -341,6 +348,7 @@ test("32. Message Bridge: Stale timestamp rejected (< session start)", () => {
 test("33. Message Bridge: Future timestamp rejected (> 60s in future)", () => {
   const bridge = new AppInteractiveResourceBridge("RES-01", 1);
   const nonce = bridge.getSessionNonce();
+  const win = {} as WindowProxy;
   const payload = {
     resource_code: "RES-01",
     resource_version: 1,
@@ -348,8 +356,9 @@ test("33. Message Bridge: Future timestamp rejected (> 60s in future)", () => {
     event_type: "interaction",
     event_sequence: 1,
     timestamp: Date.now() + 120000,
+    payload: { interaction_type: "click" },
   };
-  const res = bridge.validateEventPayload(payload);
+  const res = bridge.validateEventPayload(payload, win, win);
   assert.equal(res.isValid, false);
   assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
 });
@@ -357,6 +366,7 @@ test("33. Message Bridge: Future timestamp rejected (> 60s in future)", () => {
 test("34. Message Bridge: UTF-8 multi-byte payload (> 10KB in bytes) rejected", () => {
   const bridge = new AppInteractiveResourceBridge("RES-01", 1);
   const nonce = bridge.getSessionNonce();
+  const win = {} as WindowProxy;
   const largeArabicData = "اختبار خريطة ذهنية 🧬 ".repeat(400);
   const payload = {
     resource_code: "RES-01",
@@ -365,23 +375,25 @@ test("34. Message Bridge: UTF-8 multi-byte payload (> 10KB in bytes) rejected", 
     event_type: "interaction",
     event_sequence: 1,
     timestamp: Date.now(),
-    payload: { data: largeArabicData },
+    payload: { interaction_type: "click", target: largeArabicData },
   };
 
-  const res = bridge.validateEventPayload(payload);
+  const res = bridge.validateEventPayload(payload, win, win);
   assert.equal(res.isValid, false);
   assert.equal(res.finding?.code, ValidationCodes.PAYLOAD_SIZE_LIMIT_EXCEEDED);
 });
 
 test("35. Message Bridge: Array payload rejected as invalid schema", () => {
   const bridge = new AppInteractiveResourceBridge("RES-01", 1);
-  const res = bridge.validateEventPayload([1, 2, 3]);
+  const win = {} as WindowProxy;
+  const res = bridge.validateEventPayload([1, 2, 3], win, win);
   assert.equal(res.isValid, false);
   assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
 });
 
 test("36. Message Bridge: Nonce mismatch rejected", () => {
   const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
   const payload = {
     resource_code: "RES-01",
     resource_version: 1,
@@ -389,8 +401,9 @@ test("36. Message Bridge: Nonce mismatch rejected", () => {
     event_type: "interaction",
     event_sequence: 1,
     timestamp: Date.now(),
+    payload: { interaction_type: "click" },
   };
-  const res = bridge.validateEventPayload(payload);
+  const res = bridge.validateEventPayload(payload, win, win);
   assert.equal(res.isValid, false);
   assert.equal(res.finding?.code, ValidationCodes.NONCE_MISMATCH);
 });
@@ -398,6 +411,7 @@ test("36. Message Bridge: Nonce mismatch rejected", () => {
 test("37. Message Bridge: Sequence replay and out-of-order rejected", () => {
   const bridge = new AppInteractiveResourceBridge("RES-01", 1);
   const nonce = bridge.getSessionNonce();
+  const win = {} as WindowProxy;
 
   const msg1 = {
     resource_code: "RES-01",
@@ -406,11 +420,12 @@ test("37. Message Bridge: Sequence replay and out-of-order rejected", () => {
     event_type: "interaction",
     event_sequence: 1,
     timestamp: Date.now(),
+    payload: { interaction_type: "click" },
   };
-  assert.equal(bridge.validateEventPayload(msg1).isValid, true);
+  assert.equal(bridge.validateEventPayload(msg1, win, win).isValid, true);
 
   // Duplicate sequence 1
-  const resDup = bridge.validateEventPayload(msg1);
+  const resDup = bridge.validateEventPayload(msg1, win, win);
   assert.equal(resDup.isValid, false);
   assert.equal(resDup.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
 
@@ -422,8 +437,9 @@ test("37. Message Bridge: Sequence replay and out-of-order rejected", () => {
     event_type: "interaction",
     event_sequence: 0,
     timestamp: Date.now(),
+    payload: { interaction_type: "click" },
   };
-  const res0 = bridge.validateEventPayload(msg0);
+  const res0 = bridge.validateEventPayload(msg0, win, win);
   assert.equal(res0.isValid, false);
   assert.equal(res0.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
 });
@@ -457,4 +473,274 @@ test("40. URL Normalization fail-closed: Ambiguous deep encoding or malformed pe
 
   const checkAmbiguous = isUrlSafe("path/file%252525252525252525.png");
   assert.equal(checkAmbiguous.safe, false);
+});
+
+test("41. Source binding: missing expectedWindow -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "resource_ready",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: {},
+  };
+  const res = bridge.validateEventPayload(msg, win, undefined);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SOURCE);
+});
+
+test("42. Source binding: null expectedWindow -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "resource_ready",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: {},
+  };
+  const res = bridge.validateEventPayload(msg, win, null);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SOURCE);
+});
+
+test("43. Source binding: wrong event.source -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const fakeWin = {} as WindowProxy;
+  const targetWin = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "resource_ready",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: {},
+  };
+  const res = bridge.validateEventPayload(msg, fakeWin, targetWin);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SOURCE);
+});
+
+test("44. Source binding: correct active iframe window -> PASS", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const activeWin = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "resource_ready",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: {},
+  };
+  const res = bridge.validateEventPayload(msg, activeWin, activeWin);
+  assert.equal(res.isValid, true);
+});
+
+test("45. Source binding: stale previous iframe window -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const staleWin = {} as WindowProxy;
+  const newActiveWin = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "resource_ready",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: {},
+  };
+  const res = bridge.validateEventPayload(msg, staleWin, newActiveWin);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SOURCE);
+});
+
+test("46. Top-level schema: extra field -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "resource_ready",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: {},
+    unauthorized_extra_field: true,
+  };
+  const res = bridge.validateEventPayload(msg, win, win);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+});
+
+test("47. Top-level schema: missing field -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "resource_ready",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    // payload missing
+  };
+  const res = bridge.validateEventPayload(msg, win, win);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+});
+
+test("48. Payload schema: step_completed without payload -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "step_completed",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: {},
+  };
+  const res = bridge.validateEventPayload(msg, win, win);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+});
+
+test("49. Payload schema: step_completed without step -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "step_completed",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: { wrong_key: "step_1" },
+  };
+  const res = bridge.validateEventPayload(msg, win, win);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+});
+
+test("50. Payload schema: extra payload field -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "step_completed",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: { step: "step_1", extra_hack: "malicious" },
+  };
+  const res = bridge.validateEventPayload(msg, win, win);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+});
+
+test("51. Payload schema: valid step_completed -> PASS", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "step_completed",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: { step: "step_1" },
+  };
+  const res = bridge.validateEventPayload(msg, win, win);
+  assert.equal(res.isValid, true);
+  assert.equal(res.payload?.payload?.step, "step_1");
+});
+
+test("52. Payload schema: experiment_completed with score -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "experiment_completed",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: { score: 100, trusted_result: true },
+  };
+  const res = bridge.validateEventPayload(msg, win, win);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+});
+
+test("53. Payload schema: resize_request with Infinity -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "resize_request",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: { height: Infinity },
+  };
+  const res = bridge.validateEventPayload(msg, win, win);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+});
+
+test("54. Payload schema: resource_error without error_code -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
+  const msg = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "resource_error",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: { message: "Error occurred without code" },
+  };
+  const res = bridge.validateEventPayload(msg, win, win);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+});
+
+test("55. Payload schema: resource_error with HTML or stack trace -> REJECT", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const win = {} as WindowProxy;
+  const msgHtml = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "resource_error",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: { error_code: "ERR_01", message: "<script>alert(1)</script>" },
+  };
+  const resHtml = bridge.validateEventPayload(msgHtml, win, win);
+  assert.equal(resHtml.isValid, false);
+  assert.equal(resHtml.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+
+  const msgStack = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "resource_error",
+    event_sequence: 2,
+    timestamp: Date.now(),
+    payload: { error_code: "ERR_01", message: "Error at main.js (line 5)" },
+  };
+  const resStack = bridge.validateEventPayload(msgStack, win, win);
+  assert.equal(resStack.isValid, false);
+  assert.equal(resStack.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
 });
