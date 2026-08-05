@@ -1,11 +1,9 @@
 {
   "system": "tas-heel-html-content-onboarding",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "roles": [
     "admin",
     "content_manager",
-    "reviewer",
-    "publisher",
     "student"
   ],
   "statuses": [
@@ -24,81 +22,52 @@
     "lesson_resource_events",
     "content_import_batches",
     "content_import_rows",
+    "idempotency_ledger",
     "lesson-resource-drafts",
     "lesson-resource-published"
   ],
   "matrix": {
     "admin": {
       "create_import_batch": true,
-      "upload_package": true,
+      "finalize_uploaded_package": true,
       "validate_package": true,
       "submit_for_review": true,
-      "approve": true,
-      "reject": true,
-      "publish": true,
-      "unpublish": true,
-      "archive": true,
-      "fetch_published": true,
+      "approve_resource_version": true,
+      "reject_resource_version": true,
+      "publish_resource_version": true,
+      "unpublish_resource_version": true,
+      "archive_resource": true,
+      "fetch_published_lesson_resources": true,
       "read_draft_storage": true,
       "write_draft_storage": true,
       "direct_write_published_storage": false
     },
     "content_manager": {
       "create_import_batch": true,
-      "upload_package": true,
+      "finalize_uploaded_package": true,
       "validate_package": true,
       "submit_for_review": true,
-      "approve": false,
-      "reject": false,
-      "publish": false,
-      "unpublish": false,
-      "archive": false,
-      "fetch_published": true,
+      "approve_resource_version": false,
+      "reject_resource_version": false,
+      "publish_resource_version": false,
+      "unpublish_resource_version": false,
+      "archive_resource": false,
+      "fetch_published_lesson_resources": true,
       "read_draft_storage": true,
       "write_draft_storage": true,
       "direct_write_published_storage": false
     },
-    "reviewer": {
-      "create_import_batch": false,
-      "upload_package": false,
-      "validate_package": true,
-      "submit_for_review": false,
-      "approve": true,
-      "reject": true,
-      "publish": false,
-      "unpublish": false,
-      "archive": false,
-      "fetch_published": true,
-      "read_draft_storage": true,
-      "write_draft_storage": false,
-      "direct_write_published_storage": false
-    },
-    "publisher": {
-      "create_import_batch": false,
-      "upload_package": false,
-      "validate_package": true,
-      "submit_for_review": false,
-      "approve": false,
-      "reject": false,
-      "publish": true,
-      "unpublish": true,
-      "archive": true,
-      "fetch_published": true,
-      "read_draft_storage": true,
-      "write_draft_storage": false,
-      "direct_write_published_storage": false
-    },
     "student": {
       "create_import_batch": false,
-      "upload_package": false,
+      "finalize_uploaded_package": false,
       "validate_package": false,
       "submit_for_review": false,
-      "approve": false,
-      "reject": false,
-      "publish": false,
-      "unpublish": false,
-      "archive": false,
-      "fetch_published": true,
+      "approve_resource_version": false,
+      "reject_resource_version": false,
+      "publish_resource_version": false,
+      "unpublish_resource_version": false,
+      "archive_resource": false,
+      "fetch_published_lesson_resources": true,
       "read_draft_storage": false,
       "write_draft_storage": false,
       "direct_write_published_storage": false
@@ -108,60 +77,64 @@
     "fail_closed_default": true,
     "table_rules": {
       "lesson_resources": {
-        "student_read": "status = 'published' AND can_access_lesson(lesson_id)",
-        "staff_write": "has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'content_manager')",
-        "reviewer_write": "has_role(auth.uid(), 'reviewer') VIA RPC only",
-        "publisher_write": "has_role(auth.uid(), 'publisher') VIA RPC only"
+        "student_read": "status = 'published' AND published_version_id IS NOT NULL AND public.can_access_lesson(lesson_id)",
+        "staff_write": "(public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')) VIA RPC",
+        "admin_approve_publish": "public.has_role(auth.uid(), 'admin') VIA RPC only"
       },
       "lesson_resource_versions": {
-        "student_read": "status = 'published' AND can_access_lesson(lesson_id)",
-        "staff_write": "has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'content_manager')"
+        "student_read": "id = (SELECT published_version_id FROM public.lesson_resources WHERE id = lesson_resource_versions.resource_id AND status = 'published') AND public.can_access_lesson(lesson_id)",
+        "staff_write": "(public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')) VIA RPC"
       },
       "lesson_resource_files": {
-        "student_read": "status = 'published' AND can_access_lesson(lesson_id)",
-        "staff_write": "has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'content_manager')"
+        "student_read": "version_id = (SELECT published_version_id FROM public.lesson_resources WHERE id = (SELECT resource_id FROM public.lesson_resource_versions WHERE id = lesson_resource_files.version_id) AND status = 'published') AND public.can_access_lesson(lesson_id)",
+        "staff_write": "(public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')) VIA RPC"
       },
       "lesson_resource_reviews": {
         "student_read": false,
-        "staff_read": "has_any_staff_role(auth.uid())",
-        "reviewer_insert": "has_role(auth.uid(), 'reviewer') OR has_role(auth.uid(), 'admin')"
+        "staff_read": "public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')",
+        "admin_insert": "public.has_role(auth.uid(), 'admin') VIA RPC"
       },
       "lesson_resource_events": {
-        "student_insert": "auth.uid() = user_id AND can_access_lesson(lesson_id)",
+        "student_insert": "auth.uid() = user_id AND public.can_access_lesson(lesson_id)",
         "student_read": "auth.uid() = user_id",
-        "staff_read": "has_any_staff_role(auth.uid())"
+        "staff_read": "public.has_role(auth.uid(), 'admin')"
       },
       "content_import_batches": {
         "student_access": false,
-        "staff_access": "has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'content_manager')"
+        "staff_access": "public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')"
       },
       "content_import_rows": {
         "student_access": false,
-        "staff_access": "has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'content_manager')"
+        "staff_access": "public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')"
+      },
+      "idempotency_ledger": {
+        "student_access": false,
+        "staff_access": "public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')"
       }
     },
     "storage_rules": {
       "lesson-resource-drafts": {
         "public_read": false,
         "student_read": false,
-        "staff_read": "has_any_staff_role(auth.uid()) WITH signed_url",
-        "staff_write": "has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'content_manager')",
+        "staff_read": "(public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')) WITH scoped_signed_url",
+        "staff_write": "(public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')) WITH staging_signed_upload_url",
         "direct_browser_write": false
       },
       "lesson-resource-published": {
         "public_read": false,
-        "student_read": "authenticated AND active_subscription_or_free_access() AND resource_status = 'published'",
+        "student_read": "authenticated AND active_subscription_and_lesson_access() WITH server_signed_short_lived_url",
         "direct_browser_write": false,
-        "publishing_mechanism": "service_role_edge_function_only"
+        "publishing_mechanism": "service_role_rpc_edge_function_only"
       }
     }
   },
   "concurrency_and_security": {
     "optimistic_concurrency": true,
-    "concurrency_key": "active_version",
-    "idempotency_key": "content_sha256",
+    "concurrency_key": "lock_version",
+    "idempotency_key": "actor_id_operation_idempotency_key_unique",
     "audit_trail_required": true,
     "answer_leakage_prohibited": true,
+    "no_client_hashed_answer_keys": true,
     "pii_in_html_prohibited": true,
     "write_boundary": "Server/RPC/Edge Function service_role strictly enforced"
   }

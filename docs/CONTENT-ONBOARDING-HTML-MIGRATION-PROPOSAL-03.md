@@ -1,51 +1,53 @@
-# Database & Operational Migration Proposal for HTML Content Backend (v0.3)
+# Database & Operational Migration Proposal for HTML Content Backend (v0.5)
 
-**Document ID:** `CONTENT-ONBOARDING-HTML-MIGRATION-PROPOSAL-03`  
-**Status:** PROPOSAL ONLY (ZERO Migrations Applied, ZERO DB Writes Executed)  
-**Target Schema:** `public`  
-**Base Branch:** `origin/main`  
+**Document ID:** `CONTENT-ONBOARDING-HTML-MIGRATION-PROPOSAL-03`
+**Status:** PROPOSAL ONLY (ZERO Migrations Applied, ZERO DB Writes Executed)
+**Target Schema:** `public`
+**Base Branch:** `origin/main`
 **Reference Branch:** `origin/feat/content-onboarding-html-interactive-mvp-01`
 
 ---
 
-## 1. Executive Summary
+## 1. Executive Summary & Migration Strategy
 
-This proposal outlines the exact migration steps, DDL scripts, RPC signatures, storage bucket configurations, fail-closed guards, and rollback strategies required to transition the Tas-heel platform from in-memory HTML package validation (MVP-01) to a full operational backend (`CONTENT-ONBOARDING-HTML-OPERATIONAL-BACKEND-DESIGN-03`).
+This proposal details the additive database migration phases, schema enhancements, 10 operational server RPC contracts, fail-closed guards, and rollback procedures required for interactive HTML content (`mind_map_html`, `practical_experiment_html`) within the Tas-heel platform.
 
-> **CRITICAL COMPLIANCE NOTICE:**
-> - **ZERO** database migrations have been executed during this design phase.
-> - **ZERO** SQL scripts have been committed to `supabase/migrations/`.
-> - **ZERO** database writes or storage modifications have taken place.
+> **CRITICAL COMPLIANCE RULES:**
+> - **Additive Migration Rule**: The `lesson_resources` table **already exists** in the database. Using `CREATE TABLE IF NOT EXISTS lesson_resources` as a migration conversion is strictly forbidden. Schema extension must be executed via phased additive `ALTER TABLE` statements.
+> - **No Deletion of Existing Table**: Dropping `lesson_resources` in rollback or migration scripts is strictly prohibited.
+> - **No Enum Value Drop**: PostgreSQL does not support removing enum values. Rollback must map or ignore new enum values rather than attempting invalid enum drop operations.
+> - **Audit Trail Preservation**: No `ON DELETE CASCADE` on versions, reviews, events, or import tables.
 
 ---
 
 ## 2. Existing Baseline vs. Migration Targets
 
-| Aspect | Current Baseline (`origin/main`) | Proposed Operational Target (v0.3) |
+| Aspect | Current Baseline (`origin/main`) | Operational Migration Target (v0.5) |
 | :--- | :--- | :--- |
-| **Resource Types** | Static (`pdf`, `image`, `video`, `link`) | Interactive (`mind_map_html`, `practical_experiment_html`) + Static |
-| **Versioning** | Single active version record | Full snapshot versioning (`lesson_resource_versions`) |
+| **Existing Table** | `lesson_resources` already exists | Preserved; altered via additive `ALTER TABLE` |
+| **Resource Types** | Static (`pdf`, `image`, `video`, `link`) | Interactive (`mind_map_html`, `practical_experiment_html`) + `external_link` |
+| **Versioning** | Single active column | Snapshot tables (`lesson_resource_versions`) + Explicit FKs |
 | **Package Assets** | Single URL | Multi-file manifest (`lesson_resource_files`) |
-| **Storage Buckets** | Generic static content buckets | `lesson-resource-drafts` (Private) & `lesson-resource-published` (Hash-pinned) |
-| **Review Workflow** | Manual flag / Direct publish | Multi-stage lifecycle (`draft` -> `in_review` -> `approved` -> `published`) |
-| **Audit Log** | Basic timestamps | Dedicated audit trails (`lesson_resource_reviews`, `lesson_resource_events`) |
-| **Import System** | In-memory dry-run (MVP-01) | Persistent batches (`content_import_batches`, `content_import_rows`) |
+| **Storage Buckets** | Generic static content | `lesson-resource-drafts` (Private) & `lesson-resource-published` (Private) |
+| **MVP Roles** | Legacy roles | `content_manager` (Draft/Upload), `admin` (Approve/Publish), `student` (Read) |
+| **Concurrency** | Basic timestamps | CAS `lock_version` + `idempotency_ledger` |
 
 ---
 
-## 3. Proposed DDL Migration (Draft SQL)
+## 3. Phased Additive Migration Plan
 
+### Phase 1: Audit Existing Schema
+Inspect existing `public.lesson_resources` table columns, indices, and constraints to ensure compatibility with additive columns.
+
+### Phase 2: Additive Type & Enum Extensions
 ```sql
--- Migration File Draft: 20260806000000_content_onboarding_html_operational.sql
-
-BEGIN;
-
--- 1. Extend Types
+-- Additive extension of lesson_resource_type enum
 ALTER TYPE public.lesson_resource_type ADD VALUE IF NOT EXISTS 'mind_map_html';
 ALTER TYPE public.lesson_resource_type ADD VALUE IF NOT EXISTS 'practical_experiment_html';
 ALTER TYPE public.lesson_resource_type ADD VALUE IF NOT EXISTS 'summary_html';
+ALTER TYPE public.lesson_resource_type ADD VALUE IF NOT EXISTS 'external_link';
 
--- 2. Create Enums
+-- Create new status and action enums
 DO $$ BEGIN
   CREATE TYPE public.lesson_resource_status AS ENUM ('draft', 'in_review', 'approved', 'published', 'rejected', 'archived');
 EXCEPTION WHEN duplicate_object THEN null; END $$;
@@ -57,35 +59,32 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN
   CREATE TYPE public.import_batch_status AS ENUM ('created', 'uploading', 'uploaded', 'validating', 'dry_run_passed', 'dry_run_failed', 'submitting', 'submitted', 'partially_failed', 'completed', 'failed', 'archived');
 EXCEPTION WHEN duplicate_object THEN null; END $$;
+```
 
--- 3. Enhance lesson_resources
-CREATE TABLE IF NOT EXISTS public.lesson_resources (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  resource_code VARCHAR(64) NOT NULL UNIQUE,
-  lesson_id UUID NOT NULL REFERENCES public.lessons(id) ON DELETE CASCADE,
-  resource_type public.lesson_resource_type NOT NULL,
-  title_ar TEXT NOT NULL,
-  description_ar TEXT,
-  alt_text_ar TEXT,
-  sort_order INTEGER NOT NULL DEFAULT 1,
-  status public.lesson_resource_status NOT NULL DEFAULT 'draft',
-  active_version INTEGER NOT NULL DEFAULT 1,
-  offline_enabled BOOLEAN NOT NULL DEFAULT true,
-  orientation VARCHAR(10) NOT NULL DEFAULT 'auto' CHECK (orientation IN ('auto', 'portrait', 'landscape')),
-  height_mode VARCHAR(10) NOT NULL DEFAULT 'viewport' CHECK (height_mode IN ('fixed', 'viewport', 'content')),
-  completion_mode VARCHAR(20) NOT NULL DEFAULT 'view' CHECK (completion_mode IN ('view', 'interaction_event', 'manual_review')),
-  completion_event VARCHAR(30) CHECK (completion_event IN ('experiment_started', 'step_completed', 'experiment_completed')),
-  minimum_interaction_seconds INTEGER DEFAULT 0,
-  created_by UUID REFERENCES auth.users(id),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+### Phase 3: Additive Column Enhancements on `lesson_resources`
+```sql
+-- Add new operational columns to pre-existing lesson_resources table
+ALTER TABLE public.lesson_resources
+  ADD COLUMN IF NOT EXISTS resource_code VARCHAR(64) UNIQUE,
+  ADD COLUMN IF NOT EXISTS current_draft_version_id UUID,
+  ADD COLUMN IF NOT EXISTS approved_version_id UUID,
+  ADD COLUMN IF NOT EXISTS published_version_id UUID,
+  ADD COLUMN IF NOT EXISTS lock_version INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS status public.lesson_resource_status NOT NULL DEFAULT 'draft',
+  ADD COLUMN IF NOT EXISTS orientation VARCHAR(10) NOT NULL DEFAULT 'auto' CHECK (orientation IN ('auto', 'portrait', 'landscape')),
+  ADD COLUMN IF NOT EXISTS height_mode VARCHAR(10) NOT NULL DEFAULT 'viewport' CHECK (height_mode IN ('fixed', 'viewport', 'content')),
+  ADD COLUMN IF NOT EXISTS completion_mode VARCHAR(20) NOT NULL DEFAULT 'view' CHECK (completion_mode IN ('view', 'interaction_event', 'manual_review')),
+  ADD COLUMN IF NOT EXISTS completion_event VARCHAR(30) CHECK (completion_event IN ('experiment_started', 'step_completed', 'experiment_completed')),
+  ADD COLUMN IF NOT EXISTS minimum_interaction_seconds INTEGER DEFAULT 0;
+```
 
--- 4. Create lesson_resource_versions
+### Phase 4: Create New Snapshot & Audit Tables
+```sql
+-- 1. lesson_resource_versions (NO CASCADE on parent resource)
 CREATE TABLE IF NOT EXISTS public.lesson_resource_versions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  resource_id UUID NOT NULL REFERENCES public.lesson_resources(id) ON DELETE CASCADE,
-  version INTEGER NOT NULL,
+  resource_id UUID NOT NULL REFERENCES public.lesson_resources(id) ON DELETE RESTRICT,
+  version_number INTEGER NOT NULL CHECK (version_number > 0),
   entry_file TEXT NOT NULL DEFAULT 'index.html',
   content_sha256 CHAR(64) NOT NULL,
   package_size_compressed BIGINT NOT NULL,
@@ -94,53 +93,62 @@ CREATE TABLE IF NOT EXISTS public.lesson_resource_versions (
   csp_header TEXT NOT NULL,
   storage_path TEXT NOT NULL,
   published_at TIMESTAMPTZ,
-  published_by UUID REFERENCES auth.users(id),
+  published_by UUID REFERENCES auth.users(id) ON DELETE RESTRICT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(resource_id, version)
+  CONSTRAINT uq_resource_version_number UNIQUE(resource_id, version_number),
+  CONSTRAINT uq_resource_content_sha256 UNIQUE(resource_id, content_sha256)
 );
 
--- 5. Create lesson_resource_files
+-- 2. Add version FKs back to lesson_resources safely
+ALTER TABLE public.lesson_resources
+  ADD CONSTRAINT fk_lesson_resources_draft_version FOREIGN KEY (current_draft_version_id) REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT,
+  ADD CONSTRAINT fk_lesson_resources_approved_version FOREIGN KEY (approved_version_id) REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT,
+  ADD CONSTRAINT fk_lesson_resources_published_version FOREIGN KEY (published_version_id) REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT;
+
+-- 3. lesson_resource_files
 CREATE TABLE IF NOT EXISTS public.lesson_resource_files (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  version_id UUID NOT NULL REFERENCES public.lesson_resource_versions(id) ON DELETE CASCADE,
+  version_id UUID NOT NULL REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT,
   file_path TEXT NOT NULL,
   file_size BIGINT NOT NULL,
   mime_type VARCHAR(100) NOT NULL,
   content_sha256 CHAR(64) NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(version_id, file_path)
+  CONSTRAINT uq_version_file_path UNIQUE(version_id, file_path)
 );
 
--- 6. Create lesson_resource_reviews
+-- 4. lesson_resource_reviews
 CREATE TABLE IF NOT EXISTS public.lesson_resource_reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  resource_id UUID NOT NULL REFERENCES public.lesson_resources(id) ON DELETE CASCADE,
-  version_id UUID NOT NULL REFERENCES public.lesson_resource_versions(id) ON DELETE CASCADE,
-  reviewer_id UUID NOT NULL REFERENCES auth.users(id),
+  resource_id UUID NOT NULL REFERENCES public.lesson_resources(id) ON DELETE RESTRICT,
+  version_id UUID NOT NULL REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT,
+  reviewer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
   action public.review_action NOT NULL,
   rejection_reason TEXT,
   security_scan_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 7. Create lesson_resource_events
+-- 5. lesson_resource_events
 CREATE TABLE IF NOT EXISTS public.lesson_resource_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  resource_id UUID NOT NULL REFERENCES public.lesson_resources(id) ON DELETE CASCADE,
-  version INTEGER NOT NULL,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+  resource_id UUID NOT NULL REFERENCES public.lesson_resources(id) ON DELETE RESTRICT,
+  resource_version_id UUID NOT NULL REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT,
+  version_number INTEGER NOT NULL,
   event_type VARCHAR(30) NOT NULL,
   session_nonce UUID NOT NULL,
   event_sequence INTEGER NOT NULL,
   payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_event_sequence UNIQUE(resource_version_id, session_nonce, event_sequence)
 );
 
--- 8. Create content_import_batches & rows
+-- 6. content_import_batches & content_import_rows
 CREATE TABLE IF NOT EXISTS public.content_import_batches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_code VARCHAR(64) NOT NULL UNIQUE,
-  uploaded_by UUID NOT NULL REFERENCES auth.users(id),
+  uploaded_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
   total_rows INTEGER NOT NULL DEFAULT 0,
   valid_rows INTEGER NOT NULL DEFAULT 0,
   status public.import_batch_status NOT NULL DEFAULT 'created',
@@ -150,86 +158,215 @@ CREATE TABLE IF NOT EXISTS public.content_import_batches (
 
 CREATE TABLE IF NOT EXISTS public.content_import_rows (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  batch_id UUID NOT NULL REFERENCES public.content_import_batches(id) ON DELETE CASCADE,
+  batch_id UUID NOT NULL REFERENCES public.content_import_batches(id) ON DELETE RESTRICT,
   row_number INTEGER NOT NULL,
   resource_code VARCHAR(64) NOT NULL,
   raw_payload JSONB NOT NULL,
   is_valid BOOLEAN NOT NULL DEFAULT true,
   findings JSONB NOT NULL DEFAULT '[]'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_batch_row_number UNIQUE(batch_id, row_number)
 );
 
--- Enable RLS on all tables
-ALTER TABLE public.lesson_resources ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lesson_resource_versions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lesson_resource_files ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lesson_resource_reviews ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lesson_resource_events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.content_import_batches ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.content_import_rows ENABLE ROW LEVEL SECURITY;
-
-COMMIT;
+-- 7. idempotency_ledger
+CREATE TABLE IF NOT EXISTS public.idempotency_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+  operation VARCHAR(64) NOT NULL,
+  idempotency_key TEXT NOT NULL,
+  response_payload JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_actor_operation_idempotency UNIQUE(actor_id, operation, idempotency_key)
+);
 ```
 
----
+### Phase 5: Backfill Data
+Backfill legacy `lesson_resources` rows with default `lock_version = 1`, generate `resource_code` where missing, and apply type compatibility mapping (`mindmap` → `mind_map_html`, `experiment` → `practical_experiment_html`, `link` → `external_link`).
 
-## 4. Operational Server Contracts (RPC / Edge Functions Inventory)
+### Phase 6: Validate & Enforce Constraints
+Apply `NOT NULL` constraints and index validation checks.
 
-| Function / Edge Contract | Signature & Return | Security Role Required | Function Description |
-| :--- | :--- | :--- | :--- |
-| `create_import_batch` | `(batch_code text, total_rows int) RETURNS uuid` | `admin`, `content_manager` | Initializes a new bulk import tracking session |
-| `upload_package` | `(batch_id uuid, resource_code text, zip_hash text) RETURNS uuid` | `admin`, `content_manager` | Registers uploaded draft zip in storage & DB |
-| `validate_package` | `(version_id uuid) RETURNS jsonb` | `admin`, `content_manager`, `reviewer` | Runs security & CSP preflight checks |
-| `submit_for_review` | `(resource_id uuid, version int) RETURNS uuid` | `admin`, `content_manager` | Transitions status from `draft` to `in_review` |
-| `approve_resource_version` | `(resource_id uuid, version int, notes text) RETURNS uuid` | `reviewer`, `admin` | Approves package version for publication |
-| `reject_resource_version` | `(resource_id uuid, version int, reason text) RETURNS uuid` | `reviewer`, `admin` | Rejects package version and returns to `draft` |
-| `publish_resource_version` | `(resource_id uuid, version int) RETURNS text` | `publisher`, `admin` | Promotes draft files to published bucket & sets `published` |
-| `unpublish_resource_version` | `(resource_id uuid, reason text) RETURNS boolean` | `publisher`, `admin` | Unpublishes resource version safely |
-| `archive_resource` | `(resource_id uuid, reason text) RETURNS boolean` | `publisher`, `admin` | Marks resource status as `archived` |
-| `fetch_published_lesson_resources` | `(p_lesson_id uuid) RETURNS jsonb` | `student`, `authenticated` | Student-facing RPC retrieving active published resources |
+### Phase 7: Feature-Flag Cutover
+Enable runtime feature flag `ENABLE_HTML_LESSON_RESOURCES=true`.
 
 ---
 
-## 5. Fail-Closed Security Rules
+## 4. Operational Server RPC Contracts (10 RPC Specifications)
 
-1. **Default Fail-Closed RLS**: If an unauthenticated user or student without active lesson permissions requests a resource, RLS filters return 0 rows (silent deny).
-2. **Hash Integrity Check Failure**: During `publish_resource_version`, if any extracted file hash does not match `lesson_resource_files.content_sha256`, the operation rolls back instantly.
-3. **Draft Access Protection**: Draft packages in `lesson-resource-drafts` cannot be read via standard REST endpoints without a valid reviewer HMAC-signed URL.
+All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, pg_temp`, `REVOKE ALL FROM PUBLIC`, explicit caller identity checks from `auth.uid()`, idempotency validation, CAS locking, error contracts, and audit logging.
 
 ---
 
-## 6. Comprehensive Rollback Strategy
+### Contract 1: `create_import_batch`
+- **Caller Identity**: `auth.uid()` (Must have role `admin` or `content_manager`).
+- **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.create_import_batch FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.create_import_batch TO authenticated;`
+- **Transaction Boundary**: Single atomic block.
+- **Inputs**: `p_batch_code TEXT`, `p_total_rows INT`, `p_idempotency_key TEXT`.
+- **Validations**: Check caller role; check `p_total_rows > 0`; check `p_idempotency_key`.
+- **Idempotency**: Check `idempotency_ledger` for `(auth.uid(), 'create_import_batch', p_idempotency_key)`. Return cached UUID if present.
+- **Locking/CAS**: N/A.
+- **Outputs**: `UUID` (batch_id).
+- **Error Contract**: `UNAUTHORIZED` (403), `DUPLICATE_BATCH_CODE` (409).
+- **Audit**: Logged in `content_import_batches`.
 
-In the event of a deployment failure or critical regression during backend onboarding:
+---
 
-1. **Feature Flag Fallback**: Immediately set environment flag `ENABLE_HTML_LESSON_RESOURCES=false`. Frontend components will hide HTML resource viewers and fallback to legacy static content components without throw errors.
-2. **Database Down Script**:
+### Contract 2: `finalize_uploaded_package`
+- **Caller Identity**: `auth.uid()` (Must have role `admin` or `content_manager`).
+- **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.finalize_uploaded_package FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.finalize_uploaded_package TO authenticated;`
+- **Transaction Boundary**: Single atomic block.
+- **Inputs**: `p_batch_id UUID`, `p_resource_code TEXT`, `p_content_sha256 CHAR(64)`, `p_package_size_compressed BIGINT`, `p_package_size_uncompressed BIGINT`, `p_file_count INT`, `p_files JSONB`, `p_idempotency_key TEXT`.
+- **Validations**: Verify staging file completion, SHA-256 hash match, zip payload size limits, MIME whitelists, and absence of answer keys.
+- **Idempotency**: Check `idempotency_ledger`.
+- **Locking/CAS**: N/A.
+- **Outputs**: `JSONB` (`{ version_id: UUID, resource_id: UUID, version_number: INT }`).
+- **Error Contract**: `HASH_MISMATCH` (400), `ANSWER_KEY_DETECTED` (422), `UNAUTHORIZED` (403).
+- **Audit**: Inserts version into `lesson_resource_versions` and file manifests into `lesson_resource_files`.
+
+---
+
+### Contract 3: `validate_package`
+- **Caller Identity**: `auth.uid()` (Must have role `admin` or `content_manager`).
+- **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.validate_package FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.validate_package TO authenticated;`
+- **Inputs**: `p_version_id UUID`.
+- **Validations**: Runs preflight security scanner (script tags, iframe external domains, CSP rules, answer key leakage).
+- **Outputs**: `JSONB` (`{ is_valid: BOOLEAN, findings: ARRAY }`).
+- **Error Contract**: `VERSION_NOT_FOUND` (404).
+
+---
+
+### Contract 4: `submit_for_review`
+- **Caller Identity**: `auth.uid()` (Must have role `admin` or `content_manager`).
+- **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.submit_for_review FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.submit_for_review TO authenticated;`
+- **Inputs**: `p_resource_id UUID`, `p_version_id UUID`, `p_expected_lock_version INT`, `p_idempotency_key TEXT`.
+- **Validations**: Check resource status is `draft` or `rejected`; check version passes preflight clean.
+- **Locking/CAS**: `SELECT ... FOR UPDATE` on `lesson_resources`. Verify `lock_version = p_expected_lock_version`. Increment `lock_version`.
+- **Outputs**: `JSONB` (`{ resource_id: UUID, status: 'in_review', lock_version: INT }`).
+- **Error Contract**: `STALE_LOCK_VERSION` (409), `INVALID_STATUS_TRANSITION` (400).
+- **Audit**: Inserts record into `lesson_resource_reviews` with action `submitted`.
+
+---
+
+### Contract 5: `approve_resource_version`
+- **Caller Identity**: `auth.uid()` (Must have role `admin`).
+- **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.approve_resource_version FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.approve_resource_version TO authenticated;`
+- **Inputs**: `p_resource_id UUID`, `p_version_id UUID`, `p_notes TEXT`, `p_expected_lock_version INT`, `p_idempotency_key TEXT`.
+- **Validations**: Check caller is `admin`; check status is `in_review`; check `p_version_id` belongs to `p_resource_id`.
+- **Locking/CAS**: `SELECT ... FOR UPDATE`. Verify `lock_version = p_expected_lock_version`. Binds `approved_version_id = p_version_id`.
+- **Outputs**: `JSONB` (`{ resource_id: UUID, status: 'approved', approved_version_id: UUID }`).
+- **Error Contract**: `UNAUTHORIZED` (403), `STALE_LOCK_VERSION` (409), `RESOURCE_ID_MISMATCH` (400).
+- **Audit**: Inserts review entry in `lesson_resource_reviews` with action `approved`.
+
+---
+
+### Contract 6: `reject_resource_version`
+- **Caller Identity**: `auth.uid()` (Must have role `admin`).
+- **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.reject_resource_version FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.reject_resource_version TO authenticated;`
+- **Inputs**: `p_resource_id UUID`, `p_version_id UUID`, `p_reason TEXT`, `p_expected_lock_version INT`, `p_idempotency_key TEXT`.
+- **Validations**: Check caller is `admin`; check mandatory `p_reason` length > 10 chars.
+- **Locking/CAS**: `SELECT ... FOR UPDATE`. Verify `lock_version`. Status reverts to `rejected`.
+- **Outputs**: `JSONB` (`{ resource_id: UUID, status: 'rejected' }`).
+- **Error Contract**: `REASON_REQUIRED` (400), `STALE_LOCK_VERSION` (409).
+- **Audit**: Inserts review entry in `lesson_resource_reviews` with action `rejected`.
+
+---
+
+### Contract 7: `publish_resource_version`
+- **Caller Identity**: `auth.uid()` (Must have role `admin`).
+- **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.publish_resource_version FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.publish_resource_version TO authenticated;`
+- **Inputs**: `p_resource_id UUID`, `p_version_id UUID`, `p_expected_lock_version INT`, `p_idempotency_key TEXT`.
+- **Validations**:
+  - Caller MUST be `admin`.
+  - `p_version_id` MUST match `approved_version_id` or be previously approved.
+  - `p_version_id` MUST belong to `p_resource_id`.
+  - Re-verify SHA-256 content hashes of files before copy.
+- **Locking/CAS**: `SELECT ... FOR UPDATE` on `lesson_resources`. Verify `lock_version`.
+- **Outputs**: `JSONB` (`{ resource_id: UUID, status: 'published', published_version_id: UUID, lock_version: INT }`).
+- **Error Contract**: `VERSION_NOT_APPROVED` (422), `RESOURCE_ID_MISMATCH` (400), `STALE_LOCK_VERSION` (409).
+- **Audit**: Edge Function promotes staging files to `lesson-resource-published` hash-pinned path, sets status to `published`, and logs audit entry.
+
+---
+
+### Contract 8: `unpublish_resource_version`
+- **Caller Identity**: `auth.uid()` (Must have role `admin`).
+- **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.unpublish_resource_version FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.unpublish_resource_version TO authenticated;`
+- **Inputs**: `p_resource_id UUID`, `p_reason TEXT`, `p_expected_lock_version INT`, `p_idempotency_key TEXT`.
+- **Validations**: Check caller is `admin`; check status is currently `published`.
+- **Locking/CAS**: `SELECT ... FOR UPDATE`. Reverts `published_version_id = NULL`; status reverts to `approved`.
+- **Outputs**: `JSONB` (`{ resource_id: UUID, status: 'approved', published_version_id: null }`).
+- **Error Contract**: `NOT_PUBLISHED` (400), `STALE_LOCK_VERSION` (409).
+- **Audit**: Inserts review entry in `lesson_resource_reviews` with action `unpublished`.
+
+---
+
+### Contract 9: `archive_resource`
+- **Caller Identity**: `auth.uid()` (Must have role `admin`).
+- **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.archive_resource FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.archive_resource TO authenticated;`
+- **Inputs**: `p_resource_id UUID`, `p_reason TEXT`, `p_expected_lock_version INT`, `p_idempotency_key TEXT`.
+- **Validations**: Check caller is `admin`; check mandatory audit reason.
+- **Locking/CAS**: `SELECT ... FOR UPDATE`. Sets status to `archived`.
+- **Outputs**: `JSONB` (`{ resource_id: UUID, status: 'archived' }`).
+- **Error Contract**: `UNAUTHORIZED` (403), `STALE_LOCK_VERSION` (409).
+- **Audit**: Inserts review entry in `lesson_resource_reviews` with action `archived`.
+
+---
+
+### Contract 10: `fetch_published_lesson_resources`
+- **Caller Identity**: `auth.uid()` (Student / Authenticated user).
+- **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.fetch_published_lesson_resources FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.fetch_published_lesson_resources TO authenticated;`
+- **Inputs**: `p_lesson_id UUID`.
+- **Validations**: Evaluates `public.can_access_lesson(p_lesson_id)`. If false, yields empty JSON array (silent fail-closed).
+- **Outputs**: `JSONB` array of published resources (`id`, `resource_code`, `resource_type`, `title_ar`, `description_ar`, `sort_order`, `entry_file`, `signed_access_url`, `csp_header`). Only resources with `status = 'published'` and valid `published_version_id` are returned.
+- **Error Contract**: Returns `[]` if unauthorized or no published resources exist.
+
+---
+
+## 5. Comprehensive & Safe Rollback Plan
+
+In the event of an operational regression or deployment cancellation:
+
+1. **Runtime Feature Flag Fallback**:
+   - Immediately switch environment flag `ENABLE_HTML_LESSON_RESOURCES=false`.
+   - Client applications immediately bypass HTML resource rendering and fall back to legacy static components without throwing errors.
+
+2. **Rollback to Previous Approved Version**:
+   - If a newly published version exhibits errors, execute an audited rollback transaction:
+     - The target rollback version MUST have status `approved` in `lesson_resource_reviews` and belong to the target resource.
+     - Update `published_version_id` to point to the previous approved version ID in a CAS-locked transaction.
+     - Never silently overwrite version history.
+
+3. **Database Down Script Strategy**:
+   - **DO NOT DROP `lesson_resources`**: The legacy `lesson_resources` table is preserved.
+   - **DO NOT attempt enum value deletion**: PostgreSQL does not support removing enum values. The down script leaves enum values intact.
+   - Down script safely removes new foreign key constraints and newly created snapshot/audit tables if a total database rollback is required:
 ```sql
 BEGIN;
+-- Remove version FKs from lesson_resources
+ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_draft_version;
+ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_approved_version;
+ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_published_version;
+
+-- Drop newly created snapshot & audit tables safely
+DROP TABLE IF EXISTS public.idempotency_ledger CASCADE;
 DROP TABLE IF EXISTS public.content_import_rows CASCADE;
 DROP TABLE IF EXISTS public.content_import_batches CASCADE;
 DROP TABLE IF EXISTS public.lesson_resource_events CASCADE;
 DROP TABLE IF EXISTS public.lesson_resource_reviews CASCADE;
 DROP TABLE IF EXISTS public.lesson_resource_files CASCADE;
 DROP TABLE IF EXISTS public.lesson_resource_versions CASCADE;
-DROP TABLE IF EXISTS public.lesson_resources CASCADE;
-DROP TYPE IF EXISTS public.import_batch_status CASCADE;
-DROP TYPE IF EXISTS public.review_action CASCADE;
-DROP TYPE IF EXISTS public.lesson_resource_status CASCADE;
 COMMIT;
 ```
-3. **Storage Cleanup**: Delete buckets `lesson-resource-drafts` and `lesson-resource-published` using the Supabase CLI administration command.
 
----
-
-## 7. Phased Post-Review Execution Plan
-
-1. **Phase 1: Architecture & Design Freeze Review (`CONTENT_ONBOARDING_HTML_BACKEND_DESIGN_REVIEW_04`)**
-   - Stakeholders review data model, storage contracts, authorization matrix, and migration proposal.
-2. **Phase 2: Database Migration & RLS Deployment**
-   - Apply DDL migration file to staging database and verify RLS test coverage.
-3. **Phase 3: Storage Buckets & Edge Functions Deployment**
-   - Provision `lesson-resource-drafts` and `lesson-resource-published` buckets and deploy server RPC/Edge functions.
-4. **Phase 4: Client Integration & End-to-End Verification**
-   - Connect `src/lib/content-import-html-package` validators to backend RPC endpoints and verify complete import lifecycle.
-
+4. **Storage Object & Audit Preservation**:
+   - Storage cleanup for orphan objects is executed strictly via `storage_cleanup_ledger`.
+   - Audit logs (`lesson_resource_reviews`, `idempotency_ledger`) are preserved and never truncated during rollback.

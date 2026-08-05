@@ -1,10 +1,10 @@
-# Operational Backend Architecture Design for HTML Content Onboarding (v0.3)
+# Operational Backend Architecture Design for HTML Content Onboarding (v0.5)
 
-**Document ID:** `CONTENT-ONBOARDING-HTML-OPERATIONAL-BACKEND-DESIGN-03`  
-**Repository:** `msorori-mh/tas-heel-8e64d405`  
-**Branch:** `docs/content-onboarding-html-operational-backend-design-03`  
-**Base:** `origin/main`  
-**Reference Branch:** `origin/feat/content-onboarding-html-interactive-mvp-01`  
+**Document ID:** `CONTENT-ONBOARDING-HTML-OPERATIONAL-BACKEND-DESIGN-03`
+**Repository:** `msorori-mh/tas-heel-8e64d405`
+**Branch:** `docs/content-onboarding-html-operational-backend-design-03`
+**Base:** `origin/main`
+**Reference Branch:** `origin/feat/content-onboarding-html-interactive-mvp-01`
 **Status:** DESIGN & CONTRACTS ONLY (ZERO DB Mutations, ZERO Storage Executions, ZERO `src/` Changes)
 
 ---
@@ -19,33 +19,56 @@ It builds upon the in-memory dry-run validation foundation established in `origi
 - **ZERO Code Modifications in `src/`**: All existing application source code remains untouched in this design task.
 - **ZERO SQL Executions or Database Writes**: No migration scripts have been placed in `supabase/migrations/` or executed against any database.
 - **ZERO Storage Operations**: Storage buckets and policies are defined purely as contract specifications.
-- **Strict Server/RPC Boundary**: Browser client code is denied direct database write access to resource tables and prohibited from direct writes to published storage buckets.
+- **Strict Server/RPC Boundary**: Browser client code is denied direct database write access to resource tables and prohibited from direct writes to storage buckets.
 
 ---
 
-## 2. Current State vs. Operational Backend Design
+## 2. Approved MVP Roles & Authorization
 
-| Domain | Current Baseline (`origin/main`) | MVP-01 Feature Branch (`origin/feat/content-onboarding-html-interactive-mvp-01`) | Operational Backend Target (v0.3 Design) |
-| :--- | :--- | :--- | :--- |
-| **Persistence** | Static URL references only | In-memory dry-run validation & mock state | Full relational DB schema + Supabase Storage |
-| **Versioning** | Single static column | In-memory manifest preflight | Immutable snapshot tables (`lesson_resource_versions`) |
-| **Review Workflow** | N/A | Local UI drag-and-drop preview | Multi-stage lifecycle (`draft` -> `in_review` -> `approved` -> `published`) |
-| **Storage Buckets** | None dedicated | Local blob URLs | `lesson-resource-drafts` (Private) & `lesson-resource-published` (Hash-pinned) |
-| **Security Boundary** | Standard static RLS | Browser-side client scanning | Fail-closed server RPCs + Storage object policies + Signed URLs |
+The authorization system for this MVP stage relies strictly on existing application roles:
+
+- **`content_manager`**:
+  - Create Draft (`create_import_batch`).
+  - Upload package to staging (`finalize_uploaded_package`).
+  - Modify Draft & validate (`validate_package`).
+  - Submit for review (`submit_for_review`).
+  - **CANNOT** Approve, Reject, Publish, Unpublish, or Archive.
+
+- **`admin`**:
+  - Review & Validate (`validate_package`).
+  - Approve / Reject (`approve_resource_version`, `reject_resource_version`).
+  - Publish / Unpublish / Archive (`publish_resource_version`, `unpublish_resource_version`, `archive_resource`).
+  - Manage audited emergency states and rollbacks.
+
+- **`student`**:
+  - Read published resources only (`fetch_published_lesson_resources`) for accessible lessons.
+
+*(Note: Roles `reviewer` and `publisher` are NOT added to `app_role` at this MVP phase).*
 
 ---
 
-## 3. Data Architecture Summary
+## 3. Data Architecture & Additive Migration Strategy
 
-The operational design introduces 7 database entities spanning resource metadata, version manifests, review audits, interactive telemetry, and import batches:
+The operational design extends the pre-existing `lesson_resources` table via additive `ALTER TABLE` operations and introduces 7 database entities spanning versions, file manifests, review audits, interactive telemetry, import batches, and idempotency tracking:
 
-1. **`lesson_resources`**: Master table tracking interactive resource metadata, orientation, height mode, completion triggers, and current state (`draft`, `in_review`, `approved`, `published`, `rejected`, `archived`).
-2. **`lesson_resource_versions`**: Immutable version snapshots linked to specific `content_sha256` digests, package byte sizes, CSP headers, and storage paths.
-3. **`lesson_resource_files`**: Detailed file manifest indexing every extracted asset within a version (file path, MIME type, SHA-256 hash).
-4. **`lesson_resource_reviews`**: Immutable review log tracking all submission, approval, rejection, and publishing events with reviewer identity and notes.
-5. **`lesson_resource_events`**: Student interactive telemetry audit log (experiment started, step completed) bound by session nonces.
-6. **`content_import_batches`**: Bulk import session registry tracking uploaded package counts and validation results.
-7. **`content_import_rows`**: Granular validation log detailing row-by-row preflight checks during bulk import.
+1. **`lesson_resources`**: Master table (pre-existing, extended via additive columns) tracking interactive resource metadata, state (`draft`, `in_review`, `approved`, `published`, `rejected`, `archived`), optimistic concurrency CAS counter (`lock_version`), and explicit version foreign keys:
+   - `current_draft_version_id` (FK to `lesson_resource_versions(id) ON DELETE RESTRICT`)
+   - `approved_version_id` (FK to `lesson_resource_versions(id) ON DELETE RESTRICT`)
+   - `published_version_id` (FK to `lesson_resource_versions(id) ON DELETE RESTRICT`)
+2. **`lesson_resource_versions`**: Immutable snapshot versions with explicit constraints:
+   - `UNIQUE(resource_id, version_number)`
+   - `UNIQUE(resource_id, content_sha256)`
+   - `CHECK version_number > 0`
+3. **`lesson_resource_files`**: Detailed file manifest indexing extracted assets within a version package.
+4. **`lesson_resource_reviews`**: Immutable review log tracking all submission, approval, rejection, and publishing events explicitly tied to `version_id`.
+5. **`lesson_resource_events`**: Student telemetry audit log bound by `UNIQUE(resource_version_id, session_nonce, event_sequence)`.
+6. **`content_import_batches`**: Bulk import session registry tracking uploaded package payloads.
+7. **`content_import_rows`**: Validation breakdown bound by `UNIQUE(batch_id, row_number)`.
+8. **`idempotency_ledger`**: Ledger guaranteeing idempotency bound by `UNIQUE(actor_id, operation, idempotency_key)`.
+
+### Foreign Key & Integrity Policy
+- **NO `ON DELETE CASCADE`** on versions, reviews, events, import batches, or idempotency logs (`ON DELETE RESTRICT` / `ON DELETE NO ACTION` enforced).
+- Deactivation of resources uses soft archiving (`status = 'archived'`).
 
 *Detailed schema definition available in [docs/CONTENT-ONBOARDING-HTML-DATA-MODEL-03.md](file:///C:/projects/tas-heel-content-backend-design-03/docs/CONTENT-ONBOARDING-HTML-DATA-MODEL-03.md).*
 
@@ -53,121 +76,92 @@ The operational design introduces 7 database entities spanning resource metadata
 
 ## 4. Lifecycle State Machine
 
-Resources transition through 6 formal lifecycle states governed by role permissions and security criteria:
+Resources transition through 6 formal lifecycle states governed by MVP role permissions and security guards:
 
 ```
                       +-------------------+
                       |       draft       |
                       +-------------------+
                                 |
-                        submit_for_review (admin / content_manager)
+                        submit_for_review (content_manager / admin)
                                 v
                       +-------------------+
                       |     in_review     |
                       +-------------------+
                         /               \
-            reject     /                 \  approve
-   (reviewer / admin) /                   \ (reviewer / admin)
+             reject    /                 \  approve
+            (admin)   /                   \ (admin)
                      v                     v
           +-------------------+   +-------------------+
           |     rejected      |   |     approved      |
           +-------------------+   +-------------------+
                     |                       |
-            resubmit_draft            publish (publisher / admin)
+            submit_for_review               |  publish (admin)
                     v                       v
           +-------------------+   +-------------------+
           |       draft       |   |     published     |
           +-------------------+   +-------------------+
                                             |
-                                      archive (publisher / admin)
+                                unpublish / archive (admin)
                                             v
                                   +-------------------+
-                                  |     archived      |
+                                  | approved/archived |
                                   +-------------------+
 ```
 
 ---
 
-## 5. Storage Contract Strategy
+## 5. Private Storage Bucket Saga
 
-The backend defines two distinct Supabase Storage buckets with strict role-based separation:
+Both storage buckets are **PRIVATE** (zero public access):
 
 1. **`lesson-resource-drafts`**
    - **Access:** Private (Public = false).
-   - **Uploaders:** `admin`, `content_manager`.
-   - **Review Access:** Short-lived HMAC-signed URLs generated for `reviewer` tokens (max 15 min TTL).
+   - **Staging Path:** `staging/{batch_id}/{resource_code}/v{version}/{filename}`.
+   - **Uploaders:** `admin`, `content_manager` via scoped signed upload URLs issued for batch staging prefix ONLY.
    - **Student Access:** Strictly denied.
 
 2. **`lesson-resource-published`**
-   - **Access:** Read-only for authenticated students possessing active lesson permissions via `can_access_lesson(lesson_id)`.
-   - **Pathing:** Hash-pinned (`published/{subject_code}/{resource_code}/{content_hash}/{filename}`).
-   - **Browser Write Restriction:** Direct client uploads are prohibited via Storage RLS. File transfer is executed exclusively by server Edge Functions using `service_role`.
+   - **Access:** Private (Public = false). Read access granted exclusively via short-lived Server-signed URLs (TTL max 15 min) after validating `status = 'published'` and `can_access_lesson(lesson_id)`.
+   - **Pathing:** Immutable Hash-pinned (`published/{subject_code}/{resource_code}/{content_hash}/{filename}`).
+   - **Browser Write Restriction:** Direct client uploads are prohibited via Storage RLS. File promotion is executed exclusively by server Edge Functions using `service_role`.
+   - **Cleanup & Reconciliation:** Storage cleanup for orphan/partial staging files is managed by a background job referencing `storage_cleanup_ledger`.
 
 *Detailed storage contract available in [docs/CONTENT-ONBOARDING-HTML-STORAGE-CONTRACT-03.md](file:///C:/projects/tas-heel-content-backend-design-03/docs/CONTENT-ONBOARDING-HTML-STORAGE-CONTRACT-03.md).*
 
 ---
 
-## 6. Server Contracts (10 RPC & Edge Function APIs)
+## 6. Server Contracts (10 RPC Specifications)
 
-1. `create_import_batch`: Initializes bulk import session.
-2. `upload_package`: Stores zip package in `lesson-resource-drafts` and indexes manifest.
+1. `create_import_batch`: Initializes bulk import session with idempotency tracking.
+2. `finalize_uploaded_package`: Registers uploaded draft zip in storage staging, validates hash/size, and creates version snapshot.
 3. `validate_package`: Executes security scanner, CSP validation, and manifest checks.
-4. `submit_for_review`: Moves status from `draft` to `in_review`.
-5. `approve`: Approves version for publication.
-6. `reject`: Rejects version with mandatory reason feedback.
-7. `publish`: Copies files to `lesson-resource-published`, sets state to `published`.
-8. `unpublish`: Reverts published state to `draft` or `archived`.
-9. `archive`: Permanently retires resource version.
-10. `fetch_published_lesson_resources`: Student RPC retrieving active published HTML resources for a lesson.
+4. `submit_for_review`: Transitions status from `draft` or `rejected` to `in_review` with CAS locking.
+5. `approve_resource_version`: Admin RPC approving a specific version for publication and setting `approved_version_id`.
+6. `reject_resource_version`: Admin RPC rejecting a version with mandatory feedback reason.
+7. `publish_resource_version`: Admin RPC executing `SELECT ... FOR UPDATE`, verifying version approval, copying files to published storage, and setting `published_version_id`.
+8. `unpublish_resource_version`: Admin RPC reverting published state to `approved`.
+9. `archive_resource`: Admin RPC permanently setting resource state to `archived`.
+10. `fetch_published_lesson_resources`: Student-facing RPC returning active published HTML resources with short-lived signed access URLs.
 
 ---
 
-## 7. Security & Authorization Matrix Overview
+## 7. Security, Idempotency & Correct-Answer Guarantees
 
-Permissions are enforced across 5 roles (`admin`, `content_manager`, `reviewer`, `publisher`, `student`):
-
-- **Upload & Preflight:** `admin`, `content_manager`.
-- **Review (Approve/Reject):** `reviewer`, `admin`.
-- **Publish & Archive:** `publisher`, `admin`.
-- **Student Consumption:** `student` can ONLY read resources with `status = 'published'` for accessible lessons.
-- **Fail-Closed Default:** Unauthenticated or unauthorized calls yield zero rows or permission errors.
-- **No Answer Leakage & No PII:** Interactive assets and event logs exclude correct answer keys and student personal identifiable information.
-
-*Machine-readable matrix available in [docs/CONTENT-ONBOARDING-HTML-AUTHORIZATION-MATRIX-03.json](file:///C:/projects/tas-heel-content-backend-design-03/docs/CONTENT-ONBOARDING-HTML-AUTHORIZATION-MATRIX-03.json).*
+- **CAS Optimistic Locking**: Updates to `lesson_resources` check `lock_version`. If a concurrent mutation altered `lock_version`, the transaction aborts with `STALE_LOCK_VERSION` (409 Conflict).
+- **Idempotency**: Mutating RPCs require `idempotency_key` checked against `UNIQUE(actor_id, operation, idempotency_key)`.
+- **No Correct-Answer Leakage**: Interactive HTML packages must resolve evaluations without embedded answer keys or client-side hashed check tokens in HTML or JSON. Preflight scanner validates absence of answers in packages.
+- **No Student PII**: Telemetry payloads (`lesson_resource_events.payload`) scrub personal identifiers, referencing only `auth.uid()`.
+- **Type Standardization**: Entity type standardizes on `external_link` with compatibility mapping (`mindmap` → `mind_map_html`, `experiment` → `practical_experiment_html`, `link` → `external_link`).
 
 ---
 
-## 8. Requirements Matrix & Operational Specifications
+## 8. Safe Rollback Strategy
 
-### 8.1 Existing Baseline
-- Basic static resource table (`lesson_resources` without HTML versioning or storage manifests).
-- In-memory HTML package validator built in feature branch `origin/feat/content-onboarding-html-interactive-mvp-01`.
-
-### 8.2 DB Migration Requirements
-- Extend `lesson_resource_type` enum with `mind_map_html`, `practical_experiment_html`, `summary_html`.
-- Create `lesson_resource_status`, `review_action`, `import_batch_status` enums.
-- Create 6 new tables and alter `lesson_resources` as defined in `docs/CONTENT-ONBOARDING-HTML-DATA-MODEL-03.md`.
-- Apply RLS policies to all 7 tables.
-
-### 8.3 Edge Function & RPC Requirements
-- 10 operational contracts implemented as Postgres functions or Supabase Edge Functions with `service_role` execution context for publishing operations.
-
-### 8.4 Storage Policies
-- Storage policies on `storage.objects` for `lesson-resource-drafts` and `lesson-resource-published`.
-
-### 8.5 Fail-Closed Conditions
-- RLS default deny for non-published states.
-- Hash mismatch abort during publish.
-- Missing reviewer signature aborts draft viewing.
-
-### 8.6 Rollback Strategy
-- Environment feature flag `ENABLE_HTML_LESSON_RESOURCES=false`.
-- Reversible SQL down-script for database schemas.
-- Storage bucket deletion script for draft/published buckets.
-
-### 8.7 Post-Review Execution Sequence
-1. Architectural review signoff (`CONTENT_ONBOARDING_HTML_BACKEND_DESIGN_REVIEW_04`).
-2. Migration script creation in `supabase/migrations/` and staging application.
-3. Storage bucket creation & Edge Function deployment.
-4. UI integration of operational contracts.
-
+1. **Environment Feature Flag**: `ENABLE_HTML_LESSON_RESOURCES=false` instantly reverts client components to legacy views.
+2. **Rollback to Previous Approved Version**: `published_version_id` can be updated to point to a previously approved version in an audited CAS transaction.
+3. **Database Down Script**:
+   - `lesson_resources` table is **NEVER** dropped.
+   - Enum values are **NEVER** dropped (PostgreSQL does not support removing enum values from existing types).
+   - Down script removes version FK constraints and drops new snapshot/audit tables (`lesson_resource_versions`, `lesson_resource_files`, `lesson_resource_reviews`, `lesson_resource_events`, `content_import_batches`, `content_import_rows`, `idempotency_ledger`).
+4. **Audit History**: Review and event logs are preserved during rollbacks.
