@@ -39,22 +39,71 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [capability] = useState(() => evaluateRuntimeCapability());
-  const [nonce] = useState(() => {
+
+  // Session state containing iframe generation, cryptographic nonce, and active bridge
+  const [session, setSession] = useState<{
+    generation: number;
+    nonce: string;
+    bridge: AppInteractiveResourceBridge | null;
+  }>(() => {
     try {
-      return generateSessionNonce();
+      const n = generateSessionNonce();
+      return {
+        generation: 1,
+        nonce: n,
+        bridge: new AppInteractiveResourceBridge(resource.resource_code, resource.version, n),
+      };
     } catch {
-      return "";
+      return { generation: 1, nonce: "", bridge: null };
     }
   });
-  const [bridge] = useState(() => (nonce ? new AppInteractiveResourceBridge(resource.resource_code, resource.version, nonce) : null));
+
+  // activeWindow is strictly bound ONLY after iframe onLoad event fires for the active generation
+  const [activeWindow, setActiveWindow] = useState<WindowProxy | null>(null);
+
   const [eventsLog, setEventsLog] = useState<BridgeEventPayload[]>([]);
   const [resourceReportedCompleted, setResourceReportedCompleted] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Generate safe srcDoc bundle with CSP meta and client bridge script
   const [srcDoc, setSrcDoc] = useState("");
 
+  const handleReload = () => {
+    try {
+      const newNonce = generateSessionNonce();
+      const newBridge = new AppInteractiveResourceBridge(
+        resource.resource_code,
+        resource.version,
+        newNonce
+      );
+      // Fail-closed: unbind expected window, clear completion and logs, reset loading
+      setActiveWindow(null);
+      setResourceReportedCompleted(false);
+      setEventsLog([]);
+      setLoading(true);
+      setErrorMsg(null);
+      setSrcDoc("");
+      setSession((prev) => ({
+        generation: prev.generation + 1,
+        nonce: newNonce,
+        bridge: newBridge,
+      }));
+    } catch (err: any) {
+      setErrorMsg("فشل تهيئة التشفير الآمن عند إعادة التحميل.");
+    }
+  };
+
+  // Re-initialize session if resource prop changes
+  const prevResourceKey = useRef(`${resource.resource_code}-${resource.version}`);
+  useEffect(() => {
+    const currentKey = `${resource.resource_code}-${resource.version}`;
+    if (prevResourceKey.current !== currentKey) {
+      prevResourceKey.current = currentKey;
+      handleReload();
+    }
+  }, [resource.resource_code, resource.version]);
+
+  // Generate safe srcDoc bundle with CSP meta and client bridge script
   useEffect(() => {
     if (!capability.allowed) {
       setErrorMsg(capability.userMessage || "المحتوى التفاعلي غير مدعوم في هذه البيئة.");
@@ -62,48 +111,59 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
       return;
     }
 
-    if (!nonce || !bridge) {
+    if (!session.nonce || !session.bridge) {
       setErrorMsg("فشل تهيئة التشفير الآمن (Cryptographic Nonce missing). البيئة غير آمنة.");
       setLoading(false);
       return;
     }
 
-    try {
-      setLoading(true);
-      setErrorMsg(null);
+    let isMounted = true;
+    setLoading(true);
+    setErrorMsg(null);
+    setActiveWindow(null);
 
-      // Asynchronously build CSP with exact SHA-256 Base64 bridge script hash
-      buildPackageCsp([], resource.resource_code, resource.version, nonce).then((csp) => {
+    buildPackageCsp([], resource.resource_code, resource.version, session.nonce)
+      .then((csp) => {
+        if (!isMounted) return;
         const bundle = generatePreviewHtmlBundle(
           resource.html_content,
           [],
           csp,
           resource.resource_code,
           resource.version,
-          nonce
+          session.nonce
         );
         setSrcDoc(bundle);
-        setLoading(false);
-      }).catch((err: any) => {
+      })
+      .catch((err: any) => {
+        if (!isMounted) return;
         setErrorMsg(err.message || "حدث خطأ أثناء بناء سياسة الأمان CSP.");
         setLoading(false);
       });
-    } catch (err: any) {
-      setErrorMsg(err.message || "حدث خطأ أثناء إعداد المورد التفاعلي.");
-      setLoading(false);
-    }
-  }, [resource, nonce, bridge, capability]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    resource.resource_code,
+    resource.version,
+    resource.html_content,
+    session.generation,
+    session.nonce,
+    session.bridge,
+    capability,
+  ]);
 
   // Listen for window postMessage events from sandboxed iframe
   useEffect(() => {
-    if (!bridge || !capability.allowed) return;
+    if (!session.bridge || !capability.allowed) return;
 
     const handleMessage = (event: MessageEvent) => {
-      // Validate session nonce, origin, and exact iframeRef window
-      const validation = bridge.validateEventPayload(
+      // Validate session nonce, origin, and exact activeWindow (null until onLoad)
+      const validation = session.bridge!.validateEventPayload(
         event.data,
         event.source as WindowProxy | null,
-        iframeRef.current?.contentWindow
+        activeWindow
       );
 
       if (validation.isValid && validation.payload) {
@@ -123,7 +183,14 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [bridge, capability, onEventTriggered]);
+  }, [session.bridge, capability, activeWindow, onEventTriggered]);
+
+  const handleIframeLoad = () => {
+    if (iframeRef.current?.contentWindow) {
+      setActiveWindow(iframeRef.current.contentWindow);
+    }
+    setLoading(false);
+  };
 
   const isMindMap = resource.resource_type === "mind_map_html";
 
@@ -165,10 +232,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
             <Button
               size="sm"
               variant="outline"
-              onClick={() => {
-                setLoading(true);
-                setTimeout(() => setLoading(false), 300);
-              }}
+              onClick={handleReload}
               title="إعادة تحميل المحتوى"
               disabled={!capability.allowed}
             >
@@ -213,7 +277,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
           <div className="p-6 text-center text-destructive space-y-3">
             <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
             <p className="font-semibold text-sm">{errorMsg}</p>
-            <Button size="sm" variant="outline" onClick={() => setErrorMsg(null)}>
+            <Button size="sm" variant="outline" onClick={handleReload}>
               <RotateCcw className="ml-2 h-4 w-4" />
               إعادة المحاولة
             </Button>
@@ -232,6 +296,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
             )}
 
             {/* STRICT SECURITY ATTRIBUTES:
+                - key ensures physical DOM element unmount/remount on reload
                 - sandbox="allow-scripts" ONLY
                 - NO allow-same-origin
                 - NO allow-top-navigation
@@ -239,10 +304,12 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
                 - NO allow-popups
             */}
             <iframe
+              key={`${resource.resource_code}-${resource.version}-${session.generation}`}
               ref={iframeRef}
               title={resource.title_ar}
               srcDoc={srcDoc}
               sandbox="allow-scripts"
+              onLoad={handleIframeLoad}
               className="w-full h-full border-0 bg-background"
             />
           </div>
