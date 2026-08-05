@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
+import { InteractiveResourceViewer, InteractiveResourceItem } from "@/components/lessons/InteractiveResourceViewer";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
   component: LessonPage,
