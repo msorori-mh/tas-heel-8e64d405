@@ -267,25 +267,42 @@ Ledger tracking all storage uploads, file promotions, hash verifications, orphan
 | Column | Type | Constraints | Description |
 | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `PRIMARY KEY DEFAULT gen_random_uuid()` | Ledger entry ID |
+| `parent_operation_id` | `UUID` | `NULL REFERENCES public.storage_operations(id) ON DELETE RESTRICT` | Parent operation reference for retries |
+| `retry_number` | `INTEGER` | `NOT NULL DEFAULT 0` | Monotonic retry attempt counter for parent operation |
 | `batch_id` | `UUID` | `NULL REFERENCES public.content_import_batches(id) ON DELETE RESTRICT` | Parent batch reference |
 | `resource_version_id` | `UUID` | `NULL REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT` | Associated version reference |
 | `operation_type` | `VARCHAR(50)` | `NOT NULL` | `stage_upload`, `promote_to_published`, `orphan_cleanup`, `rollback_cleanup`, `archival_cleanup` |
 | `source_path` | `TEXT` | `NULL` | Source object key path in storage |
 | `target_path` | `TEXT` | `NULL` | Target object key path in storage |
 | `expected_hash` | `CHAR(64)` | `NULL` | Expected SHA-256 hash digest |
-| `status` | `public.storage_operation_status` | `NOT NULL DEFAULT 'pending'` | `pending`, `uploaded`, `verified`, `promoted`, `cleanup_pending`, `cleaned`, `failed`, `compensated` |
-| `attempt_count` | `INTEGER` | `NOT NULL DEFAULT 0` | Execution retry attempt counter |
+| `status` | `public.storage_operation_status` | `NOT NULL DEFAULT 'pending'` | Legal states: `pending`, `uploaded`, `verified`, `promoted`, `cleanup_pending`, `cleaned`, `failed`, `compensated` |
+| `attempt_count` | `INTEGER` | `NOT NULL DEFAULT 0` | Execution attempt counter within current operation |
 | `last_error` | `TEXT` | `NULL` | Error details if operation failed |
 | `idempotency_key` | `TEXT` | `NOT NULL UNIQUE` | Unique client/saga idempotency key |
+| `failed_evidence` | `JSONB` | `NOT NULL DEFAULT '{}'::jsonb` | Diagnostics and stack evidence for failed operations |
+| `compensation_evidence` | `JSONB` | `NOT NULL DEFAULT '{}'::jsonb` | Compensation and rollback verification evidence |
+| `cleanup_verification` | `JSONB` | `NOT NULL DEFAULT '{}'::jsonb` | Verified cleanup metadata for orphaned artifacts |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | Ledger creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | Ledger update timestamp |
-| `completed_at` | `TIMESTAMPTZ` | `NULL` | Completion timestamp |
+| `completed_at` | `TIMESTAMPTZ` | `NULL` | Completion timestamp (filled ONLY upon reaching terminal states: `cleaned`, `failed`, `compensated`) |
+| `cleaned_at` | `TIMESTAMPTZ` | `NULL` | Timestamp when storage artifacts were cleaned |
 
-*Explicit Constraints & Ownership:*
-- `UNIQUE(idempotency_key)`
-- **Retry Policy**: Exponential backoff up to 3 retries. Failed steps transition to `failed` or `cleanup_pending`.
-- **Orphan Detection & Reconciliation Job**: Periodic server job identifies records in `pending` or `cleanup_pending` older than 24 hours and performs cleanup or compensation.
-- **Compensation Contract**: If storage promotion fails after Phase A commit, compensation marks `status = 'compensated'` and flags draft objects for garbage collection without polluting student visibility.
+*Explicit Storage State Transition Matrix:*
+- `pending` → `uploaded`, `failed`
+- `uploaded` → `verified`, `failed`
+- `verified` → `promoted`, `failed`
+- `promoted` → `cleanup_pending`, `failed` (Note: `promoted` is NOT a terminal state)
+- `cleanup_pending` → `cleaned`, `failed`
+- `failed` → `compensated` (Terminal state after compensation)
+- `cleaned` → None (Terminal state)
+- `compensated` → None (Terminal state)
+
+*Storage Operation History & Retry Model:*
+- When a retry is initiated after a `failed` operation, a **new `storage_operations` row** is inserted with `parent_operation_id` referencing the previous failed operation, `retry_number = parent.retry_number + 1`, and a new unique `idempotency_key`. The previous failed record is NEVER modified.
+- **Orphan Reconciliation**: Periodic background job scans `storage_operations` for `pending` or `cleanup_pending` records older than 24 hours, verifies cleanup via `cleanup_verification`, and marks status `cleaned` or `failed`.
+- **Failed Operation Evidence**: Failure details, error logs, and HTTP status codes are preserved in `failed_evidence` JSONB.
+- **Compensation Evidence**: Reversion steps, bucket object deletion logs, and transaction rollback metadata are recorded in `compensation_evidence` JSONB.
+- **Cleanup Verification**: Verification manifest confirming deleted storage paths is recorded in `cleanup_verification` JSONB.
 
 ---
 
@@ -425,17 +442,17 @@ To guarantee snapshot integrity, approved and published version records and thei
      REVOKE UPDATE, DELETE ON public.idempotency_ledger FROM authenticated, anon;
      REVOKE UPDATE, DELETE ON public.storage_operations FROM authenticated, anon;
      ```
-   - **Layer B (Immutable Triggers)**: `fn_ensure_immutable_audit_record()` triggers on `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` raise exceptions on any `UPDATE` or `DELETE`. `fn_ensure_immutable_storage_operation()` on `storage_operations` prohibits `DELETE` completely and blocks `UPDATE` when status is in `('completed', 'cleaned', 'compensated')`.
+   - **Layer B (Immutable Triggers)**: `fn_ensure_immutable_audit_record()` triggers on `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` raise exceptions on any `UPDATE` or `DELETE`. `fn_enforce_storage_operation_transition()` on `storage_operations` prohibits `DELETE` completely, enforces legal state transitions, and blocks `UPDATE` when status is in terminal states `('cleaned', 'failed', 'compensated')`. Note: `completed` state is strictly forbidden.
 
 2. **Legal Separation of Operational Transitions vs Audit Immutability**:
-   - **Operational State Transitions**: Legitimate status updates during Saga execution (e.g. `storage_operations.status` moving `pending` → `uploaded` → `verified` → `promoted`) occur strictly via server-side RPCs running with `SECURITY DEFINER`.
-   - **Immutable Audit Records**: Once a storage operation reaches a terminal state (`completed`, `cleaned`, `compensated`), all further modifications are rejected. Audit records in `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` are strictly read-only and immutable from creation.
+   - **Operational State Transitions**: Legitimate status updates during Saga execution (e.g. `storage_operations.status` moving `pending` → `uploaded` → `verified` → `promoted` → `cleanup_pending` → `cleaned`) occur strictly via server-side RPCs running with `SECURITY DEFINER` governed by `fn_enforce_storage_operation_transition()`.
+   - **Immutable Audit Records**: Once a storage operation reaches a terminal state (`cleaned`, `failed`, `compensated`), all further modifications are rejected. Audit records in `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` are strictly read-only and immutable from creation.
 
 3. **No `ON DELETE CASCADE` & Non-destructive Teardown**:
    - Audit tables (`lesson_resource_reviews`, `lesson_resource_events`, `idempotency_ledger`, `storage_operations`) use `ON DELETE RESTRICT`.
    - Down migrations and rollbacks in production MUST **NOT** execute `DROP TABLE CASCADE` or destroy audit data.
    - Feature flag rollback (`ENABLE_HTML_LESSON_RESOURCES=false`) disables new reads while preserving all tables and logs.
-   - Non-production development teardown removes composite foreign keys using exact canonical constraint names (`fk_lesson_resources_current_draft_same_resource`, `fk_lesson_resources_approved_same_resource`, `fk_lesson_resources_published_same_resource`) without dropping audit or version history tables.
+   - Non-production development teardown uses the 4 canonical constraint names (`uq_resource_version_id_resource`, `fk_lesson_resources_current_draft_same_resource`, `fk_lesson_resources_approved_same_resource`, `fk_lesson_resources_published_same_resource`), removing composite foreign keys without dropping audit tables or version history. `uq_resource_version_id_resource` is acknowledged as a core retained constraint for Same-Resource Integrity.
 
 ---
 

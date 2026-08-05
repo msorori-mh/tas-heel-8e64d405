@@ -59,6 +59,10 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN
   CREATE TYPE public.import_batch_status AS ENUM ('created', 'uploading', 'uploaded', 'validating', 'dry_run_passed', 'dry_run_failed', 'submitting', 'submitted', 'partially_failed', 'completed', 'failed', 'archived');
 EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.storage_operation_status AS ENUM ('pending', 'uploaded', 'verified', 'promoted', 'cleanup_pending', 'cleaned', 'failed', 'compensated');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 ```
 
 ### Phase 3: Additive Column Enhancements on `lesson_resources`
@@ -182,6 +186,8 @@ CREATE TABLE IF NOT EXISTS public.content_import_rows (
 -- 8. storage_operations (Storage Operation Ledger)
 CREATE TABLE IF NOT EXISTS public.storage_operations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  parent_operation_id UUID REFERENCES public.storage_operations(id) ON DELETE RESTRICT,
+  retry_number INTEGER NOT NULL DEFAULT 0,
   batch_id UUID REFERENCES public.content_import_batches(id) ON DELETE RESTRICT,
   resource_version_id UUID REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT,
   operation_type VARCHAR(50) NOT NULL,
@@ -192,9 +198,13 @@ CREATE TABLE IF NOT EXISTS public.storage_operations (
   attempt_count INTEGER NOT NULL DEFAULT 0,
   last_error TEXT,
   idempotency_key TEXT NOT NULL UNIQUE,
+  failed_evidence JSONB NOT NULL DEFAULT '{}'::jsonb,
+  compensation_evidence JSONB NOT NULL DEFAULT '{}'::jsonb,
+  cleanup_verification JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  completed_at TIMESTAMPTZ
+  completed_at TIMESTAMPTZ,
+  cleaned_at TIMESTAMPTZ
 );
 
 -- 9. idempotency_ledger
@@ -342,28 +352,85 @@ CREATE TRIGGER trg_ensure_idempotency_immutable
 BEFORE UPDATE OR DELETE ON public.idempotency_ledger
 FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_audit_record();
 
--- Storage Operations Immutable Trigger (Allows Saga updates during execution, blocks once terminal)
-CREATE OR REPLACE FUNCTION public.fn_ensure_immutable_storage_operation()
+-- Storage Operations Transition Enforcement & Immutability Trigger
+CREATE OR REPLACE FUNCTION public.fn_enforce_storage_operation_transition()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- 1. DELETE is always rejected
   IF TG_OP = 'DELETE' THEN
-    RAISE EXCEPTION 'STORAGE_OPERATION_IMMUTABLE: Storage operation audit records cannot be deleted.';
+    RAISE EXCEPTION 'STORAGE_OPERATION_DELETE_DENIED: Storage operation ledger records cannot be deleted.';
   END IF;
-  IF TG_OP = 'UPDATE' AND OLD.status IN ('completed', 'cleaned', 'compensated') THEN
-    RAISE EXCEPTION 'STORAGE_OPERATION_IMMUTABLE: Completed or compensated storage operation ledger records are immutable.';
+
+  -- 2. Reject UPDATE if OLD.status is terminal
+  IF OLD.status IN ('cleaned', 'failed', 'compensated') THEN
+    RAISE EXCEPTION 'STORAGE_OPERATION_TERMINAL_IMMUTABLE: Terminal storage operation records (cleaned, failed, compensated) are immutable.';
   END IF;
+
+  -- 3. Identity fields are strictly immutable
+  IF NEW.id <> OLD.id OR
+     NEW.batch_id IS DISTINCT FROM OLD.batch_id OR
+     NEW.resource_version_id IS DISTINCT FROM OLD.resource_version_id OR
+     NEW.operation_type <> OLD.operation_type OR
+     NEW.source_path IS DISTINCT FROM OLD.source_path OR
+     NEW.target_path IS DISTINCT FROM OLD.target_path OR
+     NEW.expected_hash IS DISTINCT FROM OLD.expected_hash OR
+     NEW.idempotency_key <> OLD.idempotency_key OR
+     NEW.created_at <> OLD.created_at THEN
+    RAISE EXCEPTION 'STORAGE_OPERATION_IDENTITY_IMMUTABLE: Identity and immutable metadata fields cannot be updated.';
+  END IF;
+
+  -- 4. attempt_count cannot decrease
+  IF NEW.attempt_count < OLD.attempt_count THEN
+    RAISE EXCEPTION 'STORAGE_OPERATION_ATTEMPT_COUNT_DECREASE_DENIED: attempt_count cannot decrease.';
+  END IF;
+
+  -- 5. Transition Matrix Enforcement
+  CASE OLD.status
+    WHEN 'pending' THEN
+      IF NEW.status NOT IN ('uploaded', 'failed') THEN
+        RAISE EXCEPTION 'INVALID_STORAGE_TRANSITION: Invalid status transition from pending to %', NEW.status;
+      END IF;
+    WHEN 'uploaded' THEN
+      IF NEW.status NOT IN ('verified', 'failed') THEN
+        RAISE EXCEPTION 'INVALID_STORAGE_TRANSITION: Invalid status transition from uploaded to %', NEW.status;
+      END IF;
+    WHEN 'verified' THEN
+      IF NEW.status NOT IN ('promoted', 'failed') THEN
+        RAISE EXCEPTION 'INVALID_STORAGE_TRANSITION: Invalid status transition from verified to %', NEW.status;
+      END IF;
+    WHEN 'promoted' THEN
+      IF NEW.status NOT IN ('cleanup_pending', 'failed') THEN
+        RAISE EXCEPTION 'INVALID_STORAGE_TRANSITION: Invalid status transition from promoted to %', NEW.status;
+      END IF;
+    WHEN 'cleanup_pending' THEN
+      IF NEW.status NOT IN ('cleaned', 'failed') THEN
+        RAISE EXCEPTION 'INVALID_STORAGE_TRANSITION: Invalid status transition from cleanup_pending to %', NEW.status;
+      END IF;
+    WHEN 'failed' THEN
+      IF NEW.status NOT IN ('compensated') THEN
+        RAISE EXCEPTION 'INVALID_STORAGE_TRANSITION: Invalid status transition from failed to %', NEW.status;
+      END IF;
+    ELSE
+      RAISE EXCEPTION 'INVALID_STORAGE_TRANSITION: Unknown source status %', OLD.status;
+  END CASE;
+
+  -- 6. Populate completed_at timestamp ONLY upon entering a terminal state
+  IF NEW.status IN ('cleaned', 'failed', 'compensated') AND NEW.completed_at IS NULL THEN
+    NEW.completed_at := now();
+  END IF;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_ensure_storage_operations_immutable
+CREATE TRIGGER trg_enforce_storage_operation_transition
 BEFORE UPDATE OR DELETE ON public.storage_operations
-FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_storage_operation();
+FOR EACH ROW EXECUTE FUNCTION public.fn_enforce_storage_operation_transition();
 ```
 
 #### Separation of Operational Transitions vs Audit Immutability
-- **Operational State Transitions**: Legitimate status updates during Saga execution (e.g. `storage_operations.status` moving `pending` → `uploaded` → `verified` → `promoted`) occur strictly via server-side RPCs running with `SECURITY DEFINER`.
-- **Immutable Audit Records**: Once a storage operation reaches a terminal state (`completed`, `cleaned`, `compensated`), all further modifications are rejected. Audit records in `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` are strictly read-only and immutable from creation.
+- **Operational State Transitions**: Legitimate status updates during Saga execution (e.g. `storage_operations.status` moving `pending` → `uploaded` → `verified` → `promoted` → `cleanup_pending` → `cleaned`) occur strictly via server-side RPCs running with `SECURITY DEFINER` governed by `fn_enforce_storage_operation_transition()`.
+- **Immutable Audit Records**: Once a storage operation reaches a terminal state (`cleaned`, `failed`, `compensated`), all further modifications are rejected. Audit records in `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` are strictly read-only and immutable from creation.
 
 ### Phase 5: Backfill Data
 Backfill legacy `lesson_resources` rows with default `lock_version = 1`, generate `resource_code` where missing, and apply type compatibility mapping (`mindmap` → `mind_map_html`, `experiment` → `practical_experiment_html`, `link` → `external_link`).
@@ -570,10 +637,15 @@ In the event of an operational regression or deployment cancellation:
 ```sql
 -- Non-production Development Teardown ONLY (DO NOT RUN IN PRODUCTION)
 BEGIN;
--- Remove version FKs from lesson_resources safely using exact canonical constraint names
+-- Remove composite same-resource foreign keys and unique constraints using canonical names:
+-- 1. fk_lesson_resources_current_draft_same_resource
+-- 2. fk_lesson_resources_approved_same_resource
+-- 3. fk_lesson_resources_published_same_resource
+-- 4. uq_resource_version_id_resource (Core retained constraint on versions in production; optional removal in dev reset)
 ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_current_draft_same_resource;
 ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_approved_same_resource;
 ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_published_same_resource;
+ALTER TABLE public.lesson_resource_versions DROP CONSTRAINT IF EXISTS uq_resource_version_id_resource;
 COMMIT;
 ```
 
