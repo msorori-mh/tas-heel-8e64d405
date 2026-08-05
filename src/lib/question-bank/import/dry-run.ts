@@ -154,6 +154,16 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
     }
   }
 
+  if (schema !== "unknown" && CONTRACT_HEADERS[schema]) {
+    const expectedHeaders = new Set(CONTRACT_HEADERS[schema].map((h) => normalizeHeader(h)));
+    for (const header of opts.headers) {
+      const norm = normalizeHeader(header);
+      if (norm && !expectedHeaders.has(norm) && !/^(id|uuid|role|status|publish|approved_by|publisher|owner_role)$/i.test(norm)) {
+        issues.push(issue(QB_IMPORT_CODES.UNKNOWN_COLUMN, { file: opts.fileName, column: header }));
+      }
+    }
+  }
+
   const preview: DryRunPreviewRow[] = [];
   const seenCodes = new Set<string>();
   const seenContent = new Set<string>();

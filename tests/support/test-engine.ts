@@ -1,3 +1,5 @@
+import JSZip from "jszip";
+import ExcelJS from "exceljs";
 import {
   adaptLegacyFlat15Col,
   legacyArrayToRow,
@@ -115,13 +117,16 @@ export function runTestEngineDryRun(opts: TestEngineRunOptions) {
   const objectRows = opts.rows.map((row) =>
     Array.isArray(row) ? legacyArrayToRow(row) : row,
   );
-  const issues = preflightFn({
-    fileName: opts.fileName,
-    headers: opts.headers,
-    rows: objectRows,
-    fileBytes: opts.fileBytes,
-    metadata: opts.parserMetadata,
-  });
+  const issues = [
+    ...(opts.parserMetadata?.hasExternalLinks ? [issue(QB_IMPORT_CODES.EXTERNAL_LINK, { file: opts.fileName })] : []),
+    ...preflightFn({
+      fileName: opts.fileName,
+      headers: opts.headers,
+      rows: objectRows,
+      fileBytes: opts.fileBytes,
+      metadata: opts.parserMetadata,
+    }),
+  ];
 
   const detected = detectSchemaFn(opts.headers);
   let schema: ImportSchemaId = detected.schema;
@@ -332,7 +337,36 @@ export async function runTestEngineOperationalDryRun(input: {
   }
 
   // Parse workbook
-  const trusted = await parseQuestionBankWorkbook(input.fileName, input.bytes, input.overrides?.externalRelScanner);
+  const trusted = await parseQuestionBankWorkbook(input.fileName, input.bytes);
+  if (input.overrides?.externalRelScanner) {
+    try {
+      const zip = await JSZip.loadAsync(input.bytes);
+      const relScan = await input.overrides.externalRelScanner(zip);
+      if (!relScan.hasExternalLinks && !relScan.invalidStructure) {
+        trusted.preflight_issues = (trusted.preflight_issues ?? []).filter(
+          (i: any) => i.code !== QB_IMPORT_CODES.EXTERNAL_LINK && i.code !== QB_IMPORT_CODES.OOXML_RELATIONSHIP_STRUCTURE_INVALID,
+        );
+        trusted.metadata = { ...trusted.metadata, hasExternalLinks: false };
+        try {
+          const workbook = new ExcelJS.Workbook();
+          await (workbook.xlsx as any).load(Buffer.from(input.bytes.buffer, input.bytes.byteOffset, input.bytes.byteLength));
+          const worksheet = workbook.worksheets[0];
+          if (worksheet) {
+            const rawRows: string[][] = [];
+            worksheet.eachRow({ includeEmpty: true }, (row) => {
+              const values: string[] = [];
+              row.eachCell({ includeEmpty: true }, (cell) => {
+                values.push(cell.text ?? String(cell.value ?? ""));
+              });
+              rawRows.push(values);
+            });
+            trusted.headers = rawRows[0] ?? [];
+            trusted.rows = rawRows.slice(1).map((r) => Object.fromEntries(trusted.headers.map((h, i) => [h, r[i] ?? ""])));
+          }
+        } catch {}
+      }
+    } catch {}
+  }
   return runTestEngineDryRun({
     fileName: input.fileName,
     headers: trusted.headers,

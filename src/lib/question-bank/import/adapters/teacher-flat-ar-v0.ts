@@ -116,6 +116,7 @@ export function adaptTeacherFlatArV0(
     row["الخيار_٤"],
     row["الخيار_٥"],
     row["الخيار_٦"],
+    row["الخيار_٧"],
   ].map((v) => normalizeText(v));
   const optionBodies = contiguousOptionBodies(rawOptionSlots);
   const baseForCorrect = rawOptionSlots.map((body, i) => ({

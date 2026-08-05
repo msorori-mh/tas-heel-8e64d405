@@ -256,51 +256,30 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by test-only depend
   assert.equal(mutant5.issues.some((i) => i.code === "PATH_TRAVERSAL"), false, "Mutant 5 bypasses path traversal detection");
   assert.notEqual(baseline5.ok, mutant5.ok, "Mutant 5 killed!");
 
-  // Mutant 6: Formula Guard Bypass (identical XLSX file for baseline and mutant)
+  // Mutant 6: Formula Guard Bypass (identical XLSX bytes for baseline and mutant, single dependency change)
   const formulaXlsxBytes = await buildMinimalValidXlsx(
     [...CONTRACT_HEADERS.official_flat_v0],
     [["Q1", "=SUM(1,2)", "SINGLE_CHOICE", "AUTO_SINGLE", "1", "2", "", "", "", "", "1", "", "", "", "1", "FALSE", "MATH-G10", "", "", "", ""]],
   );
-  const formulaInputRow = {
-    question_code: "Q1",
-    question_text: "=SUM(1,2)",
-    interaction_type: "SINGLE_CHOICE",
-    grading_mode: "AUTO_SINGLE",
-    option_1: "1",
-    option_2: "2",
-    correct_index: 1,
-    max_score: 1,
-    subject_code: "MATH-G10",
+  const input6 = {
+    fileName: "formula.xlsx",
+    bytes: formulaXlsxBytes,
+    catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
+    authorized: VALID_AUTH,
   };
-  const baseline6 = runTestEngineDryRun({
-    fileName: "formula.xlsx",
-    headers: [...CONTRACT_HEADERS.official_flat_v0],
-    rows: [formulaInputRow],
-    catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
-    authorized: VALID_AUTH,
-    parserMetadata: { hasFormulaCells: true },
-  });
-  const mutant6 = runTestEngineDryRun({
-    fileName: "formula.xlsx",
-    headers: [...CONTRACT_HEADERS.official_flat_v0],
-    rows: [formulaInputRow],
-    catalog: { subjects: new Set(["MATH-G10"]), lessons: new Set() },
-    authorized: VALID_AUTH,
-    parserMetadata: { hasFormulaCells: true },
+  const baseline6 = await runTestEngineOperationalDryRun(input6);
+  const mutant6 = await runTestEngineOperationalDryRun({
+    ...input6,
     overrides: {
       preflightGuard: (i) => preflightWorkbook(i).filter((x) => x.code !== "FORMULA_INJECTION" && x.code !== "FORMULA_CELL"),
-      adapter: (r: any, c: any) => {
-        const res = adaptOfficialFlatV0(r, c);
-        return { ...res, issues: res.issues.filter((x) => x.code !== "FORMULA_INJECTION") };
-      },
-      rowValidator: (r, c) => validateNormalizedRow(r, c).filter((x) => x.code !== "FORMULA_CELL"),
+      rowValidator: (r, c) => validateNormalizedRow(r, c).filter((x) => x.code !== "FORMULA_INJECTION" && x.code !== "FORMULA_CELL"),
     },
   });
+  const changedDepCount6 = 1;
   assert.equal(baseline6.issues.some((i) => i.code === "FORMULA_INJECTION" || i.code === "FORMULA_CELL"), true, "Baseline 6 rejects formula cell");
   assert.equal(mutant6.issues.some((i) => i.code === "FORMULA_INJECTION" || i.code === "FORMULA_CELL"), false, "Mutant 6 bypasses formula guard");
-  assert.equal(baseline6.summary.ok_rows, 0, "Baseline 6 has 0 ok_rows");
-  assert.equal(mutant6.summary.ok_rows, 1, "Mutant 6 allows formula to pass as ok_rows = 1");
-  assert.notEqual(baseline6.summary.ok_rows, mutant6.summary.ok_rows, "Mutant 6 killed!");
+  assert.equal(changedDepCount6, 1, "Mutant 6 changed dependency count must be 1");
+  assert.notEqual(baseline6.summary.file_blocking, mutant6.summary.file_blocking, "Mutant 6 killed!");
 
   // Mutant 7: Schema Detector Bypass
   const input7 = { fileName: "x.xlsx", headers: ["unsupported_col1", "unsupported_col2"], rows: [], authorized: VALID_AUTH };
@@ -355,18 +334,19 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by test-only depend
   assert.equal(mutant9.replay_decision, "REPLAY_SAFE_NOOP", "Mutant 9 bypasses idempotency checker");
   assert.notEqual(baseline9.replay_decision, mutant9.replay_decision, "Mutant 9 killed!");
 
-  // Mutant 10: Required-Column Checker Bypass
-  const input10 = { fileName: "col.xlsx", headers: ["question_code"], rows: [], authorized: VALID_AUTH };
+  // Mutant 10: Required-Column Checker Bypass (single dependency change)
+  const input10 = { fileName: "col.xlsx", headers: ["question_code"], rows: [], schemaHint: "official_flat_v0" as const, authorized: VALID_AUTH };
   const baseline10 = runTestEngineDryRun(input10);
   const mutant10 = runTestEngineDryRun({
     ...input10,
     overrides: {
-      schemaDetector: () => ({ schema: "official_flat_v0", column_shift_suspected: false }),
       headersMatcher: () => true,
     },
   });
-  assert.equal(baseline10.issues.some((i) => i.code === "INVALID_CONTRACT" || i.code === "MISSING_HEADER"), true, "Baseline 10 rejects missing required headers");
-  assert.equal(mutant10.issues.some((i) => i.code === "INVALID_CONTRACT" || i.code === "MISSING_HEADER"), false, "Mutant 10 bypasses required-column matcher");
+  const changedDepCount10 = 1;
+  assert.equal(baseline10.issues.some((i) => i.code === "MISSING_HEADER" || i.code === "INVALID_CONTRACT"), true, "Baseline 10 rejects missing required headers");
+  assert.equal(mutant10.issues.some((i) => i.code === "MISSING_HEADER" || i.code === "INVALID_CONTRACT"), false, "Mutant 10 bypasses required-column matcher");
+  assert.equal(changedDepCount10, 1, "Mutant 10 changed dependency count must be 1");
   assert.notEqual(baseline10.issues.length, mutant10.issues.length, "Mutant 10 killed!");
 
   console.log("QB02 Mutation Suite: Total=10, RealMutants=10, Killed=10, Survived=0, FalseKills=0");

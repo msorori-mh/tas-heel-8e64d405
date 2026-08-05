@@ -198,8 +198,7 @@ export function adaptLegacyFlat15Col(
         grading_mode: grading,
         question_text: question,
         stimulus_text: null,
-        // Legacy has no score column; manual rows use oracle default 5, MCQ uses 1.
-        max_score: interaction === "LONG_TEXT" ? 5 : 1,
+        max_score: (row as any).max_score !== undefined ? Number((row as any).max_score) : (interaction === "LONG_TEXT" ? 5 : 1),
         allow_partial: false,
       },
       options,

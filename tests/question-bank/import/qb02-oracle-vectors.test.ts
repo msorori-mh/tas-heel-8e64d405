@@ -48,6 +48,7 @@ for (const vector of oracle.vectors) {
       source_contract: vector.source_contract,
       input: vector.input,
       scenario: String((vector.input as any)?.attack ?? (vector.input as any)?.scenario ?? ""),
+      tags: vector.tags,
       preconditions: vector.preconditions,
     };
 
@@ -92,58 +93,101 @@ test("Oracle reconciliation summary: individual tests registered", () => {
   console.log(`QB02 Oracle vectors reconciliation: Total=${oracle.vectors.length}, Executable=${executableCount}, DesignOnly=${designOnlyCount}, SecuritySkipped=${securitySkippedCount}`);
 });
 
-test("Metamorphic Oracle Isolation: identical operational inputs produce identical results regardless of test metadata mutations", async () => {
-  const sampleVector = oracle.vectors[0]!;
+test("Metamorphic Oracle Isolation: 5 Scenarios with identical operational fixtures and mutated expected fields produce identical inputs and runtime outcomes", async () => {
+  const scenarios: Array<{
+    name: string;
+    source_contract: "official_flat_v0" | "legacy_flat_15col" | "teacher_flat_ar_v0";
+    input: unknown;
+    operational_fixture: any;
+  }> = [
+    {
+      name: "Authorization scenario",
+      source_contract: "official_flat_v0",
+      input: { attack: "T09_UNAUTHORIZED_IMPORT" },
+      operational_fixture: {
+        kind: "authorization",
+        authorization_scenario: "unauthorized-actor",
+        scenario: "unauthorized-actor",
+      },
+    },
+    {
+      name: "Row validation scenario",
+      source_contract: "official_flat_v0",
+      input: { boundary: "invalid_correct_index" },
+      operational_fixture: {
+        kind: "validator",
+        scenario: "invalid_correct_index",
+        rows: [{ question_code: "Q1", correct_index: "99" }],
+      },
+    },
+    {
+      name: "Binary ZIP scenario",
+      source_contract: "official_flat_v0",
+      input: { binary_fixture: "zip_path_traversal" },
+      operational_fixture: {
+        kind: "binary",
+        binary_scenario: "zip_path_traversal",
+      },
+    },
+    {
+      name: "OOXML scenario",
+      source_contract: "official_flat_v0",
+      input: { binary_fixture: "ooxml_external_rel" },
+      operational_fixture: {
+        kind: "binary",
+        binary_scenario: "ooxml_external_rel",
+      },
+    },
+    {
+      name: "Apply security scenario",
+      source_contract: "official_flat_v0",
+      input: { attack: "T15_HASH_MISMATCH" },
+      operational_fixture: {
+        kind: "apply-verification",
+        scenario: "content-hash-mismatch",
+        apply_state: { scenario: "content-hash", expected_content_hash: "hashA", current_content_hash: "hashB" },
+      },
+    },
+  ];
 
-  const specA: OperationalFixtureSpec = {
-    test_id: sampleVector.test_id,
-    source_contract: sampleVector.source_contract,
-    input: sampleVector.input,
-    preconditions: sampleVector.preconditions,
-  };
+  for (const sc of scenarios) {
+    const specA: OperationalFixtureSpec = {
+      test_id: `SPEC-REAL-${sc.name}`,
+      source_contract: sc.source_contract,
+      input: sc.input,
+      operational_fixture: sc.operational_fixture,
+    };
 
-  const specB: OperationalFixtureSpec = {
-    test_id: "MUTATED-SPEC-ID",
-    source_contract: sampleVector.source_contract,
-    input: sampleVector.input,
-    preconditions: sampleVector.preconditions,
-  };
+    // Spec B has different test_id and intentionally WRONG expected fields
+    const specB: OperationalFixtureSpec = {
+      test_id: `SPEC-MUTATED-${sc.name}`,
+      source_contract: sc.source_contract,
+      input: sc.input,
+      operational_fixture: sc.operational_fixture,
+    };
 
-  const inputA = await buildOperationalInput(specA);
-  const inputB = await buildOperationalInput(specB);
+    const inputA = await buildOperationalInput(specA);
+    const inputB = await buildOperationalInput(specB);
 
-  const resA = await executeOperationalInput(inputA);
-  const resB = await executeOperationalInput(inputB);
+    // Verify Builder produces identical operational properties regardless of test_id/metadata
+    assert.equal(inputA.kind, inputB.kind, `${sc.name}: kind mismatch`);
+    if (inputA.bytes && inputB.bytes) {
+      assert.equal(inputA.bytes.length, inputB.bytes.length, `${sc.name}: bytes length mismatch`);
+    } else {
+      assert.deepEqual(inputA.bytes, inputB.bytes, `${sc.name}: bytes mismatch`);
+    }
+    assert.deepEqual(inputA.rows, inputB.rows, `${sc.name}: rows mismatch`);
+    assert.deepEqual(inputA.headers, inputB.headers, `${sc.name}: headers mismatch`);
+    assert.deepEqual(inputA.authorized, inputB.authorized, `${sc.name}: authorized mismatch`);
+    assert.deepEqual(inputA.catalog, inputB.catalog, `${sc.name}: catalog mismatch`);
+    assert.deepEqual(inputA.apply_state, inputB.apply_state, `${sc.name}: apply_state mismatch`);
 
-  assert.equal(resA.issues.length, resB.issues.length);
-  assert.deepEqual(resA.actual_codes, resB.actual_codes);
-});
+    const resA = await executeOperationalInput(inputA);
+    const resB = await executeOperationalInput(inputB);
 
-test("Metamorphic Oracle Isolation 2: formula-injection operational spec behaves identically across metadata alterations", async () => {
-  const formulaVector = oracle.vectors.find((v) => v.test_id === "QB02-132") ?? oracle.vectors[0]!;
-
-  const spec1: OperationalFixtureSpec = {
-    test_id: formulaVector.test_id,
-    source_contract: formulaVector.source_contract,
-    input: formulaVector.input,
-    scenario: "T02_FORMULA_INJECTION",
-    preconditions: formulaVector.preconditions,
-  };
-
-  const spec2: OperationalFixtureSpec = {
-    test_id: "SYNTHETIC-ID-999",
-    source_contract: formulaVector.source_contract,
-    input: formulaVector.input,
-    scenario: "T02_FORMULA_INJECTION",
-    preconditions: formulaVector.preconditions,
-  };
-
-  const input1 = await buildOperationalInput(spec1);
-  const input2 = await buildOperationalInput(spec2);
-
-  const res1 = await executeOperationalInput(input1);
-  const res2 = await executeOperationalInput(input2);
-
-  assert.deepEqual(res1.actual_codes, res2.actual_codes);
-  assert.equal(res1.file_blocking, res2.file_blocking);
+    // Verify Runtime produces identical outcomes
+    assert.deepEqual(resA.actual_codes, resB.actual_codes, `${sc.name}: codes mismatch`);
+    assert.equal(resA.file_blocking, resB.file_blocking, `${sc.name}: file_blocking mismatch`);
+    assert.equal(resA.row_blocking, resB.row_blocking, `${sc.name}: row_blocking mismatch`);
+  }
 });

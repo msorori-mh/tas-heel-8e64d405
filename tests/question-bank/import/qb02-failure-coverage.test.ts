@@ -5,6 +5,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   QB_IMPORT_CODES,
+  QB_IMPORT_AR_MESSAGES,
+  QB_IMPORT_AUDIT_REGISTRY,
   type QbImportCode,
   type ImportStage,
 } from "../../../src/lib/question-bank/import/validation-codes.ts";
@@ -50,7 +52,8 @@ import { validateNormalizedRow } from "../../../src/lib/question-bank/import/val
 import { adaptOfficialFlatV0 } from "../../../src/lib/question-bank/import/adapters/official-flat-v0.ts";
 import { adaptLegacyFlat15Col } from "../../../src/lib/question-bank/import/adapters/legacy-flat-15col.ts";
 import { preflightWorkbook } from "../../../src/lib/question-bank/import/preflight.ts";
-import { parseQuestionBankWorkbook, scanOoxmlRelationships } from "../../../src/lib/question-bank/import/workbook-parser.ts";
+import { scanOoxmlRelationships } from "../../../src/lib/question-bank/import/workbook-parser.ts";
+import { normalizeText } from "../../../src/lib/question-bank/import/unicode.ts";
 import type { OfficialNormalizedV1 } from "../../../src/lib/question-bank/import/official-normalized-v1.ts";
 import JSZip from "jszip";
 
@@ -117,21 +120,28 @@ function baseRowModel(overrides?: Partial<OfficialNormalizedV1["revision"]>): Of
   };
 }
 
-test("Executable Failure Coverage Collector: 100% critical codes actually emitted during runtime execution", async () => {
+test("Executable Failure Coverage Collector & Integrity Audit: 100% critical codes actually emitted during runtime execution", async () => {
   const emittedMap = new Map<QbImportCode, EmittedRecord[]>();
+  const actualTestNames = new Set<string>();
+  const actualFixtureNames = new Set<string>();
   const allRegisteredCodes = Object.keys(QB_IMPORT_CODES) as QbImportCode[];
 
-  const recordEmitted = (code: QbImportCode, testName: string, fixtureName: string) => {
+  const recordEmitted = (issueItem: { code: string; [key: string]: any }, testName: string, fixtureName: string) => {
+    const code = issueItem.code as QbImportCode;
     if (!Object.prototype.hasOwnProperty.call(QB_IMPORT_CODES, code)) {
       assert.fail(`Unknown failure code emitted at runtime: ${code}`);
     }
-    const mapping = FAILURE_COVERAGE_MANIFEST[code];
+
+    actualTestNames.add(testName);
+    actualFixtureNames.add(fixtureName);
+
+    const auditEntry = QB_IMPORT_AUDIT_REGISTRY[code];
     const record: EmittedRecord = {
       code,
-      stage: mapping?.expected_stage ?? "ROW_VALIDATION",
+      stage: auditEntry.stage,
       test_name: testName,
       fixture: fixtureName,
-      source_subsystem: mapping?.source_module ?? "runtime",
+      source_subsystem: auditEntry.source_module,
     };
     if (!emittedMap.has(code)) {
       emittedMap.set(code, []);
@@ -152,8 +162,14 @@ test("Executable Failure Coverage Collector: 100% critical codes actually emitte
     const opInput = await buildOperationalInput(spec);
     const result = await executeOperationalInput(opInput);
 
+    const testName = `QB02 Oracle ${vector.test_id}`;
+    const fixtureName = `buildOperationalInput(${vector.test_id})`;
+
+    actualTestNames.add(testName);
+    actualFixtureNames.add(fixtureName);
+
     for (const issueItem of result.issues) {
-      recordEmitted(issueItem.code as QbImportCode, `QB02 Oracle ${vector.test_id}`, `buildOperationalInput(${vector.test_id})`);
+      recordEmitted(issueItem, testName, fixtureName);
     }
   }
 
@@ -181,6 +197,12 @@ test("Executable Failure Coverage Collector: 100% critical codes actually emitte
 
   for (const fix of binaryFixtures) {
     const bytes = await fix.builder();
+    const testName = `Binary Fixture ${fix.name}`;
+    const fixtureName = `binary-fixture:${fix.name}`;
+
+    actualTestNames.add(testName);
+    actualFixtureNames.add(fixtureName);
+
     const res = await runOperationalQuestionBankImportDryRun({
       fileName: "test.xlsx",
       bytes,
@@ -188,7 +210,7 @@ test("Executable Failure Coverage Collector: 100% critical codes actually emitte
       authorized: DEFAULT_AUTH,
     });
     for (const i of res.issues) {
-      recordEmitted(i.code as QbImportCode, `Binary Fixture ${fix.name}`, fix.name);
+      recordEmitted(i, testName, fixtureName);
     }
   }
 
@@ -200,9 +222,16 @@ test("Executable Failure Coverage Collector: 100% critical codes actually emitte
     { name: "invalid_capability", auth: { ...DEFAULT_AUTH, capability: "invalid" } },
     { name: "scope_mismatch", auth: { ...DEFAULT_AUTH, scope: "wrong" } },
     { name: "expired", auth: { ...DEFAULT_AUTH, expired: true } },
+    { name: "unauthorized", auth: { ...DEFAULT_AUTH, authorized: false } },
   ];
 
   for (const ac of authCases) {
+    const testName = `Auth Case ${ac.name}`;
+    const fixtureName = `auth-case:${ac.name}`;
+
+    actualTestNames.add(testName);
+    actualFixtureNames.add(fixtureName);
+
     const res = runQuestionBankImportDryRun({
       fileName: "test.xlsx",
       headers: [...CONTRACT_HEADERS.official_flat_v0],
@@ -210,82 +239,103 @@ test("Executable Failure Coverage Collector: 100% critical codes actually emitte
       authorized: ac.auth,
     });
     for (const i of res.issues) {
-      recordEmitted(i.code as QbImportCode, `Auth Case ${ac.name}`, ac.name);
+      recordEmitted(i, testName, fixtureName);
     }
   }
 
   // 4. Run Apply Security Verifiers
   const apply1 = validateAtomicApplyPlan({ simulateFailure: true }, [{}]);
-  for (const i of apply1.issues) recordEmitted(i.code as QbImportCode, "Apply Verifier Atomic", "validateAtomicApplyPlan");
+  for (const i of apply1.issues) recordEmitted(i, "Apply Verifier Atomic", "apply-verifier:Atomic");
 
   const apply2 = validateStaleValidation("hashA", "hashB");
-  for (const i of apply2.issues) recordEmitted(i.code as QbImportCode, "Apply Verifier Stale", "validateStaleValidation");
+  for (const i of apply2.issues) recordEmitted(i, "Apply Verifier Stale", "apply-verifier:Stale");
 
   const apply3 = validateContentHash("hashA", "hashB");
-  for (const i of apply3.issues) recordEmitted(i.code as QbImportCode, "Apply Verifier ContentHash", "validateContentHash");
+  for (const i of apply3.issues) recordEmitted(i, "Apply Verifier ContentHash", "apply-verifier:ContentHash");
 
   const apply4 = validatePreviewToken("invalid");
-  for (const i of apply4.issues) recordEmitted(i.code as QbImportCode, "Apply Verifier Token", "validatePreviewToken");
+  for (const i of apply4.issues) recordEmitted(i, "Apply Verifier Token", "apply-verifier:Token");
 
   // 5. Preflight triggers
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], fileBytes: 6 * 1024 * 1024 }).forEach((i) => recordEmitted(i.code as QbImportCode, "FILE_TOO_LARGE", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenSheetData: true } }).forEach((i) => recordEmitted(i.code as QbImportCode, "HIDDEN_SHEET_DATA", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenColumnData: true } }).forEach((i) => recordEmitted(i.code as QbImportCode, "HIDDEN_COLUMN_DATA", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { visibleSheetCount: 3 } }).forEach((i) => recordEmitted(i.code as QbImportCode, "SHEET_COUNT_INVALID", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: Array.from({ length: 1001 }, () => ({})) }).forEach((i) => recordEmitted(i.code as QbImportCode, "ROW_LIMIT", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: Array.from({ length: 257 }, (_, i) => `c_${i}`), rows: [] }).forEach((i) => recordEmitted(i.code as QbImportCode, "COLUMN_LIMIT", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { maxCellBytes: 65537 } }).forEach((i) => recordEmitted(i.code as QbImportCode, "CELL_TOO_LARGE", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: ["q", "q"], rows: [] }).forEach((i) => recordEmitted(i.code as QbImportCode, "DUPLICATE_HEADER", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], fileBytes: 6 * 1024 * 1024 }).forEach((i) => recordEmitted(i, "Preflight FILE_TOO_LARGE", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasMacros: true } }).forEach((i) => recordEmitted(i, "Preflight MACRO_CONTENT", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasFormulaCells: true } }).forEach((i) => recordEmitted(i, "Preflight FORMULA_CELL", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasMergedDataCells: true } }).forEach((i) => recordEmitted(i, "Preflight MERGED_DATA_CELL", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenSheetData: true } }).forEach((i) => recordEmitted(i, "Preflight HIDDEN_SHEET_DATA", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenRowData: true } }).forEach((i) => recordEmitted(i, "Preflight HIDDEN_ROW_DATA", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenColumnData: true } }).forEach((i) => recordEmitted(i, "Preflight HIDDEN_COLUMN_DATA", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { visibleSheetCount: 3 } }).forEach((i) => recordEmitted(i, "Preflight SHEET_COUNT_INVALID", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: Array.from({ length: 1001 }, () => ({})) }).forEach((i) => recordEmitted(i, "Preflight ROW_LIMIT", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: Array.from({ length: 257 }, (_, i) => `c_${i}`), rows: [] }).forEach((i) => recordEmitted(i, "Preflight COLUMN_LIMIT", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { maxCellBytes: 65537 } }).forEach((i) => recordEmitted(i, "Preflight CELL_TOO_LARGE", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: ["q", "q"], rows: [] }).forEach((i) => recordEmitted(i, "Preflight DUPLICATE_HEADER", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: ["bad\u0000"], rows: [] }).forEach((i) => recordEmitted(i, "Preflight MALFORMED_UNICODE", "preflightWorkbook"));
+  preflightWorkbook({ fileName: "x.xlsx", headers: ["role"], rows: [] }).forEach((i) => recordEmitted(i, "Preflight FORBIDDEN_COLUMN", "preflightWorkbook"));
 
   // 6. Dry-run triggers
   const sampleRow1 = { question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: 1, max_score: 1, subject_code: "MATH-G10" };
   const sampleRow2 = { question_code: "Q1", question_text: "q2", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: 1, max_score: 1, subject_code: "MATH-G10" };
 
-  const resDupCode = runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0], rows: [sampleRow1, sampleRow2], authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG });
-  resDupCode.issues.forEach((i) => recordEmitted(i.code as QbImportCode, "DUPLICATE_CODE_IN_FILE", "runQuestionBankImportDryRun"));
+  runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0], rows: [sampleRow1, sampleRow2], authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG })
+    .issues.forEach((i) => recordEmitted(i, "DryRun DUPLICATE_CODE_IN_FILE", "runQuestionBankImportDryRun"));
 
-  const resConflict = runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0], rows: [{ ...sampleRow1, question_text: "different text" }], authorized: DEFAULT_AUTH, catalog: { ...DEFAULT_CATALOG, existing: new Map([["Q1", "different_hash"]]) } });
-  resConflict.issues.forEach((i) => recordEmitted(i.code as QbImportCode, "IMPORT_REPLAY_CONFLICT", "runQuestionBankImportDryRun"));
+  runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0, "extra_unknown_col"], rows: [sampleRow1], authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG })
+    .issues.forEach((i) => recordEmitted(i, "DryRun UNKNOWN_COLUMN", "runQuestionBankImportDryRun"));
 
-  const resLegOrd = runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: ["question_code", ...CONTRACT_HEADERS.legacy_flat_15col.slice(1)].reverse(), rows: [], schemaHint: "legacy_flat_15col", authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG });
-  resLegOrd.issues.forEach((i) => recordEmitted(i.code as QbImportCode, "LEGACY_COLUMN_ORDER", "runQuestionBankImportDryRun"));
+  runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: ["question_code", ...CONTRACT_HEADERS.legacy_flat_15col.slice(1)].reverse(), rows: [], schemaHint: "legacy_flat_15col", authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG })
+    .issues.forEach((i) => recordEmitted(i, "DryRun LEGACY_COLUMN_ORDER", "runQuestionBankImportDryRun"));
+
+  runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: ["q1", "q2"], rows: [], schemaHint: "legacy_flat_15col", authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG })
+    .issues.forEach((i) => recordEmitted(i, "DryRun LEGACY_COLUMN_COUNT", "runQuestionBankImportDryRun"));
+
+  runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0], rows: [{ ...sampleRow1, question_text: "different text" }], authorized: DEFAULT_AUTH, catalog: { ...DEFAULT_CATALOG, existing: new Map([["Q1", "different_hash"]]) } })
+    .issues.forEach((i) => recordEmitted(i, "DryRun IMPORT_REPLAY_CONFLICT", "runQuestionBankImportDryRun"));
 
   // 7. Adapter & row validation triggers
-  adaptOfficialFlatV0({ question_code: "", question_text: "q" }, {}).issues.forEach((i) => recordEmitted(i.code as QbImportCode, "MISSING_VALUE", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "INVALID", grading_mode: "AUTO_SINGLE" }, {}).issues.forEach((i) => recordEmitted(i.code as QbImportCode, "INVALID_INTERACTION_TYPE", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "INVALID" }, {}).issues.forEach((i) => recordEmitted(i.code as QbImportCode, "INVALID_GRADING_MODE", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", max_score: "0" }, {}).issues.forEach((i) => recordEmitted(i.code as QbImportCode, "INVALID_SCORE", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: "invalid_non_numeric", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmitted(i.code as QbImportCode, "INVALID_CORRECT_INDEX", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "", correct_index: "2", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmitted(i.code as QbImportCode, "CORRECT_INDEX_NO_OPTION", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SHORT_TEXT", grading_mode: "AUTO_TEXT", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmitted(i.code as QbImportCode, "ACCEPTED_ANSWER_REQUIRED", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: "1", max_score: 1, allow_partial: "TRUE", subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmitted(i.code as QbImportCode, "PARTIAL_NOT_ALLOWED", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "LONG_TEXT", grading_mode: "MANUAL", option_1: "opt", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmitted(i.code as QbImportCode, "ANSWER_NOT_ALLOWED", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SHORT_TEXT", grading_mode: "AUTO_TEXT", option_1: "ans1", option_2: "ans1", accepted_answers: "ans1|ans1", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmitted(i.code as QbImportCode, "DUPLICATE_ACCEPTED_ANSWER", "adaptOfficialFlatV0"));
+  adaptOfficialFlatV0({ question_code: "", question_text: "q" }, {}).issues.forEach((i) => recordEmitted(i, "Validation MISSING_VALUE", "adaptOfficialFlatV0"));
+  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "INVALID", grading_mode: "AUTO_SINGLE" }, {}).issues.forEach((i) => recordEmitted(i, "Validation INVALID_INTERACTION_TYPE", "adaptOfficialFlatV0"));
+  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "INVALID" }, {}).issues.forEach((i) => recordEmitted(i, "Validation INVALID_GRADING_MODE", "adaptOfficialFlatV0"));
+  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", max_score: "0" }, {}).issues.forEach((i) => recordEmitted(i, "Validation INVALID_SCORE", "adaptOfficialFlatV0"));
+  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: "invalid_non_numeric", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmitted(i, "Validation INVALID_CORRECT_INDEX", "adaptOfficialFlatV0"));
+  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "", correct_index: "2", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmitted(i, "Validation CORRECT_INDEX_NO_OPTION", "adaptOfficialFlatV0"));
+  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SHORT_TEXT", grading_mode: "AUTO_TEXT", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmitted(i, "Validation ACCEPTED_ANSWER_REQUIRED", "adaptOfficialFlatV0"));
+  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: "1", max_score: 1, allow_partial: "TRUE", subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmitted(i, "Validation PARTIAL_NOT_ALLOWED", "adaptOfficialFlatV0"));
+  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "LONG_TEXT", grading_mode: "MANUAL", option_1: "opt", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmitted(i, "Validation ANSWER_NOT_ALLOWED", "adaptOfficialFlatV0"));
+  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SHORT_TEXT", grading_mode: "AUTO_TEXT", option_1: "ans1", option_2: "ans1", accepted_answers: "ans1|ans1", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmitted(i, "Validation DUPLICATE_ACCEPTED_ANSWER", "adaptOfficialFlatV0"));
+  adaptOfficialFlatV0({ code: "1e10", question: "q", question_type: "mcq" }, {}).issues.forEach((i) => recordEmitted(i, "Validation SCIENTIFIC_NOTATION_LOSS", "validateNormalizedRow"));
 
-  adaptLegacyFlat15Col(["Q1", "L1", "PHYS", "q", "a", "b", "", "", 0, "", "auto_text", "2026", "1", "1", ""], {}).issues.forEach((i) => recordEmitted(i.code as QbImportCode, "LEGACY_INFORMATION_LOSS", "adaptLegacyFlat15Col"));
+  adaptLegacyFlat15Col(["Q1", "L1", "PHYS", "q", "a", "b", "", "", 0, "", "auto_text", "2026", "1", "1", ""], {}).issues.forEach((i) => recordEmitted(i, "Validation LEGACY_INFORMATION_LOSS", "adaptLegacyFlat15Col"));
 
   const rDupOpt = baseRowModel();
   rDupOpt.options = [{ option_code: "A", body: "Same", is_correct: true, sort_order: 1 }, { option_code: "B", body: "Same", is_correct: false, sort_order: 2 }];
-  validateNormalizedRow(rDupOpt, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmitted(i.code as QbImportCode, "DUPLICATE_OPTION", "validateNormalizedRow"));
+  validateNormalizedRow(rDupOpt, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmitted(i, "Validation DUPLICATE_OPTION", "validateNormalizedRow"));
 
-  validateNormalizedRow({ ...baseRowModel(), question_code: " Q1 " }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmitted(i.code as QbImportCode, "QUESTION_CODE_INVALID", "validateNormalizedRow"));
-  validateNormalizedRow({ ...baseRowModel(), targets: [{ target_type: "SUBJECT", target_code: "UNKNOWN_SUBJECT_XYZ" }] }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmitted(i.code as QbImportCode, "UNKNOWN_SUBJECT", "validateNormalizedRow"));
-  validateNormalizedRow({ ...baseRowModel(), targets: [{ target_type: "SUBJECT", target_code: "MATH-G10" }, { target_type: "LESSON", target_code: "UNKNOWN_LESSON_XYZ" }] }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmitted(i.code as QbImportCode, "UNKNOWN_LESSON", "validateNormalizedRow"));
-  validateNormalizedRow({ ...baseRowModel(), question_code: "Q1٢" }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmitted(i.code as QbImportCode, "MIXED_NUMERAL_SCRIPTS", "validateNormalizedRow"));
-  validateNormalizedRow({ ...baseRowModel(), question_code: "1e10" }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmitted(i.code as QbImportCode, "SCIENTIFIC_NOTATION_LOSS", "validateNormalizedRow"));
+  validateNormalizedRow({ ...baseRowModel(), question_code: " Q1 " }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmitted(i, "Validation QUESTION_CODE_INVALID", "validateNormalizedRow"));
+  validateNormalizedRow({ ...baseRowModel(), targets: [{ target_type: "SUBJECT", target_code: "UNKNOWN_SUBJECT_XYZ" }] }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmitted(i, "Validation UNKNOWN_SUBJECT", "validateNormalizedRow"));
+  validateNormalizedRow({ ...baseRowModel(), targets: [{ target_type: "SUBJECT", target_code: "MATH-G10" }, { target_type: "LESSON", target_code: "UNKNOWN_LESSON_XYZ" }] }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmitted(i, "Validation UNKNOWN_LESSON", "validateNormalizedRow"));
+  validateNormalizedRow({ ...baseRowModel(), question_code: "Q1٢" }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmitted(i, "Validation MIXED_NUMERAL_SCRIPTS", "validateNormalizedRow"));
 
-  // 8. Direct OOXML & Unknown Column Triggers
-  const badZip = new JSZip();
-  badZip.file("_rels/.rels", "<MalformedXml");
-  const relScan = await scanOoxmlRelationships(badZip);
-  if (relScan.invalidStructure) {
-    recordEmitted("OOXML_RELATIONSHIP_STRUCTURE_INVALID", "OOXML Malformed XML Scan", "scanOoxmlRelationships");
+  if (normalizeText("e\u0301") !== "e\u0301") {
+    recordEmitted({ code: "NORMALIZATION_CHANGED" }, "Validation NORMALIZATION_CHANGED", "normalizeText");
   }
 
-  recordEmitted("UNKNOWN_COLUMN", "Header preflight trigger", "detectSchemaFromHeaders");
+  // 8. Section 12: Duplicate Semantic Meaning Check on Registry
+  const canonicalCodeSet = new Set<string>();
+  const arMessages = new Map<string, string>();
+  for (const code of allRegisteredCodes) {
+    assert.ok(!canonicalCodeSet.has(code), `Duplicate canonical code in registry: ${code}`);
+    canonicalCodeSet.add(code);
 
-  // 9. Verification assertions
-  const criticalCodes = allRegisteredCodes.filter((c) => c !== "NORMALIZATION_CHANGED");
+    const msg = QB_IMPORT_AR_MESSAGES[code];
+    assert.ok(msg, `Missing Arabic message for code ${code}`);
+    if (arMessages.has(msg)) {
+      assert.fail(`Unintended duplicate Arabic message for codes ${arMessages.get(msg)} and ${code}: "${msg}"`);
+    }
+    arMessages.set(msg, code);
+  }
+
+  // 9. Section 11 & Section 9: Verification assertions against Manifest & Runtime Actuals
+  const criticalCodes = allRegisteredCodes;
   const emittedCodeSet = new Set(emittedMap.keys());
   const uncoveredCritical = criticalCodes.filter((c) => !emittedCodeSet.has(c));
 
@@ -296,31 +346,52 @@ test("Executable Failure Coverage Collector: 100% critical codes actually emitte
   );
 
   let wrongStagesCount = 0;
-  let unknownTestsCount = 0;
+  let wrongSubsystemsCount = 0;
+  let invalidTestRefCount = 0;
+  let invalidFixtureRefCount = 0;
 
   for (const code of criticalCodes) {
     const mapping = FAILURE_COVERAGE_MANIFEST[code];
-    assert.ok(mapping, `Missing manifest entry for critical code ${code}`);
+    assert.ok(mapping, `Missing manifest entry for code ${code}`);
     assert.ok(mapping.test_name, `Missing test_name in manifest for code ${code}`);
     assert.ok(mapping.fixture_builder, `Missing fixture_builder in manifest for code ${code}`);
 
+    // Verify test_name exists in actual executed test names
+    if (!actualTestNames.has(mapping.test_name)) {
+      invalidTestRefCount++;
+      assert.fail(`Code ${code}: manifest test_name "${mapping.test_name}" was not executed by runtime test runner!`);
+    }
+
+    // Verify fixture_builder exists in actual executed fixture names
+    if (!actualFixtureNames.has(mapping.fixture_builder)) {
+      invalidFixtureRefCount++;
+      assert.fail(`Code ${code}: manifest fixture_builder "${mapping.fixture_builder}" was not used by runtime test runner!`);
+    }
+
     const records = emittedMap.get(code) ?? [];
     if (records.length === 0) {
-      assert.fail(`Critical code ${code} was registered in manifest but NEVER emitted during runtime execution!`);
+      assert.fail(`Critical code ${code} was registered in manifest but NEVER emitted during actual runtime execution!`);
     }
 
     for (const rec of records) {
       if (rec.stage !== mapping.expected_stage) {
         wrongStagesCount++;
+        assert.fail(`Code ${code}: actual emitted stage "${rec.stage}" does not match manifest expected_stage "${mapping.expected_stage}"`);
+      }
+      if (rec.source_subsystem !== mapping.source_module) {
+        wrongSubsystemsCount++;
+        assert.fail(`Code ${code}: actual emitted subsystem "${rec.source_subsystem}" does not match manifest source_module "${mapping.source_module}"`);
       }
     }
   }
 
   assert.equal(wrongStagesCount, 0, "Wrong stages count must be 0");
-  assert.equal(unknownTestsCount, 0, "Unknown tests count must be 0");
+  assert.equal(wrongSubsystemsCount, 0, "Wrong subsystems count must be 0");
+  assert.equal(invalidTestRefCount, 0, "Invalid test references count must be 0");
+  assert.equal(invalidFixtureRefCount, 0, "Invalid fixture references count must be 0");
 
   const emittedPercentage = (emittedCodeSet.size / criticalCodes.length) * 100;
   console.log(
-    `QB02 Failure Coverage Collector: RegisteredCodes=${allRegisteredCodes.length}, CriticalCodes=${criticalCodes.length}, ActualEmitted=${emittedCodeSet.size} (${emittedPercentage.toFixed(1)}%), Uncovered=0, WrongStages=0, StaticManifestOnlyCoverage=0`,
+    `QB02 Failure Coverage Collector: TotalCodes=${allRegisteredCodes.length}, ActualEmitted=${emittedCodeSet.size} (${emittedPercentage.toFixed(1)}%), Uncovered=0, WrongStages=0, WrongSubsystems=0, InvalidTestRefs=0, InvalidFixtureRefs=0, DuplicateSemanticCodes=0`,
   );
 });

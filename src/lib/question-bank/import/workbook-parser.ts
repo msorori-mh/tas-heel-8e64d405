@@ -247,7 +247,6 @@ export async function scanOoxmlRelationships(
 export async function parseQuestionBankWorkbook(
   fileName: string,
   bytes: Uint8Array,
-  externalScanner: typeof scanOoxmlRelationships = scanOoxmlRelationships,
 ): Promise<TrustedWorkbookModel> {
   if (/\.csv$/i.test(fileName)) {
     return rowsToModel(csvRows(Buffer.from(bytes).toString("utf8")), bytes.byteLength);
@@ -297,10 +296,10 @@ export async function parseQuestionBankWorkbook(
   }
 
   // STEP 3: OOXML Relationship Scan
-  const relScan = await externalScanner(zip);
+  const relScan = await scanOoxmlRelationships(zip);
   if (relScan.hasExternalLinks || relScan.invalidStructure) {
     metadata.hasExternalLinks = true;
-    const isStructureInvalid = relScan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID");
+    const isStructureInvalid = relScan.invalidStructure || relScan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID");
     const preflight_issues = [
       issue(
         isStructureInvalid
@@ -353,6 +352,9 @@ export async function parseQuestionBankWorkbook(
   worksheet.eachRow({ includeEmpty: true }, (row) => {
     const values: string[] = [];
     row.eachCell({ includeEmpty: true }, (cell) => {
+      if (cell.type === 4 || (typeof cell.value === "object" && cell.value !== null && ("formula" in (cell.value as any) || "sharedFormula" in (cell.value as any)))) {
+        metadata.hasFormulaCells = true;
+      }
       const text = cell.text ?? String(cell.value ?? "");
       values.push(text);
     });

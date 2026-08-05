@@ -26,6 +26,7 @@ const FILE_CODES = [
   "COLUMN_LIMIT",
   "CELL_TOO_LARGE",
   "MALFORMED_UNICODE",
+  "FORMULA_INJECTION",
   "MISSING_HEADER",
   "DUPLICATE_HEADER",
   "FORBIDDEN_COLUMN",
@@ -72,7 +73,6 @@ const ROW_CODES = [
   "CROSS_LESSON_MAPPING",
   "MEDIA_URL_INVALID",
   "MEDIA_TYPE_REQUIRED",
-  "FORMULA_INJECTION",
   "MIXED_NUMERAL_SCRIPTS",
   "SCIENTIFIC_NOTATION_LOSS",
   "LEGACY_INFORMATION_LOSS",
@@ -423,7 +423,7 @@ const AUDIT_DETAILS: Record<
   PRIVILEGE_ESCALATION: {
     trigger: "Row input attempts to set protected metadata fields like owner_role or publication_status",
     internal_audit_detail: "Row validator blocked unauthorized attribute escalation attempt",
-    source_module: "validate",
+    source_module: "preflight",
   },
   PREVIEW_TOKEN_INVALID: {
     trigger: "Dry run preview token is expired, tampered, or invalid",
@@ -433,17 +433,17 @@ const AUDIT_DETAILS: Record<
   STALE_VALIDATION: {
     trigger: "Catalog snapshot timestamp or state changed between dry run preview and apply",
     internal_audit_detail: "Apply token validation caught stale catalog state snapshot",
-    source_module: "validate",
+    source_module: "dry-run",
   },
   CONTENT_HASH_MISMATCH: {
     trigger: "Apply request payload canonical hash does not match preview validation hash",
     internal_audit_detail: "Apply token validator detected payload content mutation after preview",
-    source_module: "canonical-json",
+    source_module: "dry-run",
   },
   IMPORT_REPLAY_CONFLICT: {
     trigger: "Same question_code re-imported with modified content without explicit revision",
     internal_audit_detail: "Idempotency checker caught content conflict on duplicate question code",
-    source_module: "validate",
+    source_module: "dry-run",
   },
   ATOMIC_APPLY_FAILED: {
     trigger: "Transactional write operation failed during batch commit phase",
@@ -453,7 +453,7 @@ const AUDIT_DETAILS: Record<
   MISSING_VALUE: {
     trigger: "Required field cell is empty or missing from question row",
     internal_audit_detail: "Row validator detected missing mandatory column value",
-    source_module: "validate",
+    source_module: "official-flat-v0",
   },
   INVALID_INTERACTION_TYPE: {
     trigger: "interaction_type string is not a recognized canonical question type",
@@ -595,9 +595,9 @@ export const QB_IMPORT_AUDIT_REGISTRY: Record<QbImportCode, AuditRegistryEntry> 
       stage = "PREFLIGHT_RAW";
     } else if (["ZIP_BOMB_SUSPECTED", "ZIP_ENTRY_LIMIT", "ZIP_TOTAL_SIZE_LIMIT", "ZIP_DECLARED_SIZE_LIMIT", "ZIP_DUPLICATE_ENTRY", "ZIP_MALFORMED_CENTRAL_DIRECTORY", "ZIP_MISSING_EOCD", "ZIP_ABSOLUTE_PATH", "PATH_TRAVERSAL", "WORKBOOK_ENCRYPTED"].includes(code)) {
       stage = "PREFLIGHT_ZIP";
-    } else if (["MACRO_CONTENT", "EXTERNAL_LINK", "FORMULA_CELL", "MERGED_DATA_CELL", "HIDDEN_SHEET_DATA", "HIDDEN_ROW_DATA", "HIDDEN_COLUMN_DATA", "SHEET_COUNT_INVALID", "ROW_LIMIT", "COLUMN_LIMIT", "CELL_TOO_LARGE", "MALFORMED_UNICODE"].includes(code)) {
+    } else if (["MACRO_CONTENT", "EXTERNAL_LINK", "OOXML_RELATIONSHIP_STRUCTURE_INVALID", "FORMULA_CELL", "FORMULA_INJECTION", "MERGED_DATA_CELL", "HIDDEN_SHEET_DATA", "HIDDEN_ROW_DATA", "HIDDEN_COLUMN_DATA", "SHEET_COUNT_INVALID", "ROW_LIMIT", "COLUMN_LIMIT", "CELL_TOO_LARGE", "MALFORMED_UNICODE", "DUPLICATE_HEADER"].includes(code)) {
       stage = "PREFLIGHT_OOXML";
-    } else if (["MISSING_HEADER", "DUPLICATE_HEADER", "UNKNOWN_COLUMN", "FORBIDDEN_COLUMN", "LEGACY_COLUMN_COUNT", "LEGACY_COLUMN_ORDER", "INVALID_CONTRACT"].includes(code)) {
+    } else if (["MISSING_HEADER", "UNKNOWN_COLUMN", "FORBIDDEN_COLUMN", "LEGACY_COLUMN_COUNT", "LEGACY_COLUMN_ORDER", "INVALID_CONTRACT"].includes(code)) {
       stage = "ADAPTER_DETECT";
     } else if (["DUPLICATE_CODE_EXISTS", "PREVIEW_TOKEN_INVALID", "STALE_VALIDATION", "CONTENT_HASH_MISMATCH", "IMPORT_REPLAY_CONFLICT", "ATOMIC_APPLY_FAILED"].includes(code)) {
       stage = "IDEMPOTENCY";

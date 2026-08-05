@@ -102,7 +102,7 @@ export function validateNormalizedRow(
     if (hasUnsafeUnicode(value)) {
       issues.push(issue(QB_IMPORT_CODES.MALFORMED_UNICODE, base));
     } else if (isFormulaLike(value)) {
-      issues.push(issue(QB_IMPORT_CODES.FORMULA_CELL, base));
+      issues.push(issue(QB_IMPORT_CODES.FORMULA_INJECTION, base));
     }
   }
 
