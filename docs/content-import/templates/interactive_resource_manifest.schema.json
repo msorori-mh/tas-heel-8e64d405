@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InteractiveResourceManifest",
+  "type": "object",
+  "required": [
+    "resource_code",
+    "entry_file",
+    "version",
+    "resource_type",
+    "offline_enabled"
+  ],
+  "properties": {
+    "resource_code": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_-]{3,64}$",
+      "description": "Unique resource code matching Excel and folder name (e.g. MM-G12-BIO-L001)."
+    },
+    "entry_file": {
+      "type": "string",
+      "default": "index.html",
+      "description": "Relative entry HTML file path within the resource package."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Incremental version integer for package revisions."
+    },
+    "resource_type": {
+      "type": "string",
+      "enum": [
+        "mind_map_html",
+        "practical_experiment_html",
+        "summary_html",
+        "image",
+        "pdf",
+        "video",
+        "external_link"
+      ],
+      "description": "Resource classification type."
+    },
+    "offline_enabled": {
+      "type": "boolean",
+      "description": "Whether package is approved for offline local caching."
+    },
+    "required_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of explicit required relative file paths inside package."
+    },
+    "content_sha256": {
+      "type": "string",
+      "description": "Deterministic SHA-256 hash of package file tree."
+    }
+  },
+  "additionalProperties": false
+}

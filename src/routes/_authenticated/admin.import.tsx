@@ -33,6 +33,7 @@ import {
 import { ImportDryRunGovernorates } from "@/components/admin/ImportDryRunGovernorates";
 import { ImportJobsHistory } from "@/components/admin/ImportJobsHistory";
 import { ContentImportDryRunPanel } from "@/components/admin/ContentImportDryRunPanel";
+import { InteractiveHtmlImportPanel } from "@/components/admin/InteractiveHtmlImportPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/import")({
   component: AdminImportPage,
@@ -109,6 +110,8 @@ function AdminImportPage() {
           </div>
 
           <ContentImportDryRunPanel />
+
+          <InteractiveHtmlImportPanel />
 
           <div
             role="alert"
