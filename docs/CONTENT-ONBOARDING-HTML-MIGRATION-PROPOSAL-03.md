@@ -101,15 +101,20 @@ CREATE TABLE IF NOT EXISTS public.lesson_resource_versions (
 );
 
 -- 2. Add composite same-resource FKs back to lesson_resources safely
+-- Canonical Constraint Names:
+--   - uq_resource_version_id_resource
+--   - fk_lesson_resources_current_draft_same_resource
+--   - fk_lesson_resources_approved_same_resource
+--   - fk_lesson_resources_published_same_resource
 -- Composite FKs guarantee that current_draft_version_id, approved_version_id, and published_version_id
 -- point ONLY to a version belonging to the SAME parent lesson_resources row (id).
 -- NULL handling: MATCH SIMPLE allows NULL values when pointers are unassigned.
 -- Order & cycles: lesson_resources master created -> lesson_resource_versions created with UNIQUE(id, resource_id) -> composite FKs added with DEFERRABLE.
--- Backfill: ADD CONSTRAINT NOT VALID during migration, backfilled, followed by VALIDATE CONSTRAINT.
+-- Backfill & Validation: ADD CONSTRAINT NOT VALID during migration, backfilled, followed by VALIDATE CONSTRAINT.
 ALTER TABLE public.lesson_resources
-  ADD CONSTRAINT fk_lesson_resources_draft_same_resource FOREIGN KEY (current_draft_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
-  ADD CONSTRAINT fk_lesson_resources_approved_same_resource FOREIGN KEY (approved_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
-  ADD CONSTRAINT fk_lesson_resources_published_same_resource FOREIGN KEY (published_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
+  ADD CONSTRAINT fk_lesson_resources_current_draft_same_resource FOREIGN KEY (current_draft_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED NOT VALID,
+  ADD CONSTRAINT fk_lesson_resources_approved_same_resource FOREIGN KEY (approved_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED NOT VALID,
+  ADD CONSTRAINT fk_lesson_resources_published_same_resource FOREIGN KEY (published_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED NOT VALID;
 
 -- 3. lesson_resource_files
 CREATE TABLE IF NOT EXISTS public.lesson_resource_files (
@@ -202,9 +207,15 @@ CREATE TABLE IF NOT EXISTS public.idempotency_ledger (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT uq_actor_operation_idempotency UNIQUE(actor_id, operation, idempotency_key)
 );
-```
 
-### Phase 4.1: Trigger-based Published Immutability
+### Phase 4.1: Trigger-based Version & File Immutability (Semantics Correctness)
+
+Version and File triggers enforce immutability for `approved` and `published` states.
+- When protected (`approved` or `published`): RAISE EXCEPTION on UPDATE or DELETE.
+- When unprotected (`draft`, `in_review`, `rejected`, `archived`):
+  - `UPDATE` returns `NEW`.
+  - `DELETE` returns `OLD`. (Crucial: returning `NEW` during `DELETE` cancels deletion in PostgreSQL triggers).
+
 ```sql
 -- 1. Immutability trigger for lesson_resource_versions
 -- Evaluates parent resource status and version pointers using OLD.resource_id (valid column on versions table).
@@ -226,6 +237,11 @@ BEGIN
   IF v_is_locked THEN
     RAISE EXCEPTION 'PUBLISHED_VERSION_IMMUTABLE: Cannot modify or delete an approved or published version (version_id: %, resource_id: %). Create a new version instead.', OLD.id, OLD.resource_id;
   END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -257,6 +273,11 @@ BEGIN
   IF v_is_locked THEN
     RAISE EXCEPTION 'PUBLISHED_FILE_IMMUTABLE: Cannot modify or delete files belonging to an approved or published version (version_id: %). Create a new version instead.', OLD.version_id;
   END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -266,11 +287,98 @@ BEFORE UPDATE OR DELETE ON public.lesson_resource_files
 FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_resource_file();
 ```
 
+#### Contract Examples for Trigger Semantics
+```sql
+-- Contract Example A: Deleting an unused Draft version (PERMITTED)
+-- Resource is in 'draft' state, version is not approved/published
+DELETE FROM public.lesson_resource_versions WHERE id = 'draft-version-id';
+-- Result: Trigger allows deletion, returns OLD.
+
+-- Contract Example B: Deleting an Approved version (REJECTED)
+DELETE FROM public.lesson_resource_versions WHERE id = 'approved-version-id';
+-- Result: Exception RAISE EXCEPTION 'PUBLISHED_VERSION_IMMUTABLE'
+
+-- Contract Example C: Deleting a Published version (REJECTED)
+DELETE FROM public.lesson_resource_versions WHERE id = 'published-version-id';
+-- Result: Exception RAISE EXCEPTION 'PUBLISHED_VERSION_IMMUTABLE'
+
+-- Contract Example D: Updating editable fields of a Draft version (PERMITTED)
+UPDATE public.lesson_resource_versions SET entry_file = 'main.html' WHERE id = 'draft-version-id';
+-- Result: Trigger allows update, returns NEW.
+
+-- Contract Example E: Updating a Published version (REJECTED)
+UPDATE public.lesson_resource_versions SET entry_file = 'main.html' WHERE id = 'published-version-id';
+-- Result: Exception RAISE EXCEPTION 'PUBLISHED_VERSION_IMMUTABLE'
+```
+
+### Phase 4.2: Audit Immutability Enforcement & Privileges
+
+Audit tables (`lesson_resource_reviews`, `lesson_resource_events`, `idempotency_ledger`, `storage_operations`) are protected via two explicit security layers:
+
+```sql
+-- Layer A: Revoke Privileges
+REVOKE UPDATE, DELETE ON public.lesson_resource_reviews FROM authenticated, anon;
+REVOKE UPDATE, DELETE ON public.lesson_resource_events FROM authenticated, anon;
+REVOKE UPDATE, DELETE ON public.idempotency_ledger FROM authenticated, anon;
+REVOKE UPDATE, DELETE ON public.storage_operations FROM authenticated, anon;
+
+-- Layer B: Immutable Triggers
+CREATE OR REPLACE FUNCTION public.fn_ensure_immutable_audit_record()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'AUDIT_RECORD_IMMUTABLE: Audit log records cannot be updated or deleted.';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_ensure_reviews_immutable
+BEFORE UPDATE OR DELETE ON public.lesson_resource_reviews
+FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_audit_record();
+
+CREATE TRIGGER trg_ensure_events_immutable
+BEFORE UPDATE OR DELETE ON public.lesson_resource_events
+FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_audit_record();
+
+CREATE TRIGGER trg_ensure_idempotency_immutable
+BEFORE UPDATE OR DELETE ON public.idempotency_ledger
+FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_audit_record();
+
+-- Storage Operations Immutable Trigger (Allows Saga updates during execution, blocks once terminal)
+CREATE OR REPLACE FUNCTION public.fn_ensure_immutable_storage_operation()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'STORAGE_OPERATION_IMMUTABLE: Storage operation audit records cannot be deleted.';
+  END IF;
+  IF TG_OP = 'UPDATE' AND OLD.status IN ('completed', 'cleaned', 'compensated') THEN
+    RAISE EXCEPTION 'STORAGE_OPERATION_IMMUTABLE: Completed or compensated storage operation ledger records are immutable.';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_ensure_storage_operations_immutable
+BEFORE UPDATE OR DELETE ON public.storage_operations
+FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_storage_operation();
+```
+
+#### Separation of Operational Transitions vs Audit Immutability
+- **Operational State Transitions**: Legitimate status updates during Saga execution (e.g. `storage_operations.status` moving `pending` → `uploaded` → `verified` → `promoted`) occur strictly via server-side RPCs running with `SECURITY DEFINER`.
+- **Immutable Audit Records**: Once a storage operation reaches a terminal state (`completed`, `cleaned`, `compensated`), all further modifications are rejected. Audit records in `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` are strictly read-only and immutable from creation.
+
 ### Phase 5: Backfill Data
 Backfill legacy `lesson_resources` rows with default `lock_version = 1`, generate `resource_code` where missing, and apply type compatibility mapping (`mindmap` → `mind_map_html`, `experiment` → `practical_experiment_html`, `link` → `external_link`).
 
 ### Phase 6: Validate & Enforce Constraints
-Apply `NOT NULL` constraints and index validation checks.
+
+```sql
+-- Step 1: Validate foreign key constraints created with NOT VALID
+ALTER TABLE public.lesson_resources VALIDATE CONSTRAINT fk_lesson_resources_current_draft_same_resource;
+ALTER TABLE public.lesson_resources VALIDATE CONSTRAINT fk_lesson_resources_approved_same_resource;
+ALTER TABLE public.lesson_resources VALIDATE CONSTRAINT fk_lesson_resources_published_same_resource;
+```
+
+> **Validation Stop Condition:**
+> If any `VALIDATE CONSTRAINT` statement fails due to invalid version pointer assignment or cross-resource version association, the migration script MUST immediately **ABORT** execution (ROLLBACK transaction). Transitioning to subsequent phases or enabling runtime feature flags is strictly blocked until manual data reconciliation resolves all violations.
 
 ### Phase 7: Feature-Flag Cutover
 Enable runtime feature flag `ENABLE_HTML_LESSON_RESOURCES=true`.
@@ -460,11 +568,12 @@ In the event of an operational regression or deployment cancellation:
    - **NO `DROP TABLE CASCADE` on Audit Tables**: Audit tables (`lesson_resource_reviews`, `lesson_resource_events`, `idempotency_ledger`, `storage_operations`) are permanently kept in production.
    - Down script safely removes only newly added foreign key constraints without dropping audit or version history tables:
 ```sql
+-- Non-production Development Teardown ONLY (DO NOT RUN IN PRODUCTION)
 BEGIN;
--- Remove version FKs from lesson_resources safely
-ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_draft_version;
-ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_approved_version;
-ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_published_version;
+-- Remove version FKs from lesson_resources safely using exact canonical constraint names
+ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_current_draft_same_resource;
+ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_approved_same_resource;
+ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_published_same_resource;
 COMMIT;
 ```
 

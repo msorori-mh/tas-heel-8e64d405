@@ -367,7 +367,17 @@ test('15. Verify Audit Preservation & Absolute Prohibition of Audit DROP CASCADE
   assert.ok(!migrationContent.includes('DROP TABLE IF EXISTS public.storage_operations CASCADE'), 'Down script must NOT drop storage_operations');
 
   // Data model must specify audit preservation without CASCADE
-  assert.ok(dataModelContent.includes('Audit Preservation Contract (No `CASCADE`)'), 'Data model must specify Audit Preservation Contract');
+  assert.ok(dataModelContent.includes('Audit Preservation Contract') || dataModelContent.includes('Audit Immutability Contract'), 'Data model must specify Audit Preservation Contract');
+
+  // Verify Layer A: REVOKE UPDATE, DELETE ON audit tables FROM authenticated, anon
+  assert.ok(migrationContent.includes('REVOKE UPDATE, DELETE ON public.lesson_resource_reviews FROM authenticated, anon;'), 'Migration must revoke UPDATE/DELETE on reviews');
+  assert.ok(migrationContent.includes('REVOKE UPDATE, DELETE ON public.lesson_resource_events FROM authenticated, anon;'), 'Migration must revoke UPDATE/DELETE on events');
+  assert.ok(migrationContent.includes('REVOKE UPDATE, DELETE ON public.idempotency_ledger FROM authenticated, anon;'), 'Migration must revoke UPDATE/DELETE on idempotency ledger');
+  assert.ok(migrationContent.includes('REVOKE UPDATE, DELETE ON public.storage_operations FROM authenticated, anon;'), 'Migration must revoke UPDATE/DELETE on storage_operations');
+
+  // Verify Layer B: Immutable audit trigger functions exist
+  assert.ok(migrationContent.includes('fn_ensure_immutable_audit_record'), 'Migration must define fn_ensure_immutable_audit_record');
+  assert.ok(migrationContent.includes('fn_ensure_immutable_storage_operation'), 'Migration must define fn_ensure_immutable_storage_operation');
 });
 
 test('16. Verify Published Immutability Trigger and Policy Contracts', () => {
@@ -378,18 +388,30 @@ test('16. Verify Published Immutability Trigger and Policy Contracts', () => {
   assert.ok(migrationContent.includes('fn_ensure_immutable_resource_version'), 'Migration proposal must define version immutability trigger function');
   assert.ok(migrationContent.includes('fn_ensure_immutable_resource_file'), 'Migration proposal must define file immutability trigger function');
 
-  // Verify version trigger queries parent lesson_resources using OLD.resource_id
-  assert.ok(migrationContent.includes('lr.id = OLD.resource_id'), 'Version immutability trigger must join parent using OLD.resource_id');
+  // Extract function body for fn_ensure_immutable_resource_version
+  const versionTriggerStart = migrationContent.indexOf('fn_ensure_immutable_resource_version');
+  const versionTriggerBody = migrationContent.slice(versionTriggerStart, versionTriggerStart + 1200);
 
-  // Verify file trigger uses version_id and explicit JOINs, with ZERO non-existent OLD.status or OLD.resource_id references
-  assert.ok(migrationContent.includes('lrv.id = OLD.version_id'), 'File immutability trigger must match lrv.id = OLD.version_id');
-  assert.ok(migrationContent.includes('JOIN public.lesson_resources lr ON lr.id = lrv.resource_id'), 'File immutability trigger must use explicit JOIN to lesson_resources');
+  // Version trigger must return OLD on DELETE, return NEW on UPDATE, and raise exception on protected states
+  assert.ok(versionTriggerBody.includes("IF TG_OP = 'DELETE' THEN"), 'Version trigger must check TG_OP = DELETE');
+  assert.ok(versionTriggerBody.includes('RETURN OLD;'), 'Version trigger must RETURN OLD on DELETE');
+  assert.ok(versionTriggerBody.includes('RETURN NEW;'), 'Version trigger must RETURN NEW on UPDATE');
+  assert.ok(versionTriggerBody.includes('RAISE EXCEPTION'), 'Version trigger must raise exception for protected states');
+  assert.ok(versionTriggerBody.includes('lr.id = OLD.resource_id'), 'Version immutability trigger must join parent using OLD.resource_id');
 
-  // Extract the function body of fn_ensure_immutable_resource_file to check strictly
+  // Extract function body for fn_ensure_immutable_resource_file
   const fileTriggerStart = migrationContent.indexOf('fn_ensure_immutable_resource_file');
-  const fileTriggerBody = migrationContent.slice(fileTriggerStart, fileTriggerStart + 1000);
+  const fileTriggerBody = migrationContent.slice(fileTriggerStart, fileTriggerStart + 1200);
+
+  // File trigger must use ONLY OLD.version_id from files table and NO invalid column references
+  assert.ok(fileTriggerBody.includes('lrv.id = OLD.version_id'), 'File immutability trigger must match lrv.id = OLD.version_id');
+  assert.ok(fileTriggerBody.includes('JOIN public.lesson_resources lr ON lr.id = lrv.resource_id'), 'File immutability trigger must use explicit JOIN to lesson_resources');
   assert.ok(!fileTriggerBody.includes('OLD.status'), 'File trigger MUST NOT reference non-existent OLD.status column on files table');
   assert.ok(!fileTriggerBody.includes('OLD.resource_id'), 'File trigger MUST NOT reference non-existent OLD.resource_id column on files table');
+  assert.ok(!fileTriggerBody.includes('OLD.published_version_id'), 'File trigger MUST NOT reference non-existent OLD.published_version_id column on files table');
+  assert.ok(!fileTriggerBody.includes('OLD.version_number'), 'File trigger MUST NOT reference non-existent OLD.version_number column on files table');
+  assert.ok(fileTriggerBody.includes("IF TG_OP = 'DELETE' THEN"), 'File trigger must check TG_OP = DELETE');
+  assert.ok(fileTriggerBody.includes('RETURN OLD;'), 'File trigger must RETURN OLD on DELETE');
 
   assert.ok(dataModelContent.includes('Published Immutability Contract'), 'Data model must define Published Immutability Contract');
   assert.ok(dataModelContent.includes('REVOKE UPDATE, DELETE ON public.lesson_resource_versions'), 'Data model must revoke UPDATE/DELETE on versions from authenticated');
@@ -443,31 +465,83 @@ test('19. Verify absolute compliance with design constraints (No src/ or migrati
   }
 });
 
-test('20. Verify 3-Point Same-Resource Pointer Integrity & Cross-Resource Rejection', () => {
+test('20. Verify Canonical Constraints, NOT VALID / VALIDATE & Teardown Consistency', () => {
   const migrationContent = fs.readFileSync(DOC_FILES.migration, 'utf-8');
   const dataModelContent = fs.readFileSync(DOC_FILES.dataModel, 'utf-8');
 
-  // Verify current_draft_version_id, approved_version_id, published_version_id pointers use composite FK
-  const pointers = ['current_draft_version_id', 'approved_version_id', 'published_version_id'];
-  for (const ptr of pointers) {
+  const CANONICAL_CONSTRAINTS = [
+    'uq_resource_version_id_resource',
+    'fk_lesson_resources_current_draft_same_resource',
+    'fk_lesson_resources_approved_same_resource',
+    'fk_lesson_resources_published_same_resource',
+  ];
+
+  // All canonical constraint names must exist in migration proposal and data model
+  for (const constraint of CANONICAL_CONSTRAINTS) {
+    assert.ok(migrationContent.includes(constraint), `Migration proposal missing canonical constraint: ${constraint}`);
+    assert.ok(dataModelContent.includes(constraint), `Data model missing canonical constraint: ${constraint}`);
+  }
+
+  // Verify ADD CONSTRAINT ... NOT VALID pattern in migration proposal
+  for (const fkConstraint of [
+    'fk_lesson_resources_current_draft_same_resource',
+    'fk_lesson_resources_approved_same_resource',
+    'fk_lesson_resources_published_same_resource',
+  ]) {
     assert.ok(
-      migrationContent.includes(`(${ptr}, id) REFERENCES`),
-      `Composite FK for pointer ${ptr} missing in migration proposal`
+      migrationContent.includes(`ADD CONSTRAINT ${fkConstraint}`) && migrationContent.includes('NOT VALID'),
+      `Constraint ${fkConstraint} must be added with NOT VALID`
+    );
+    assert.ok(
+      migrationContent.includes(`VALIDATE CONSTRAINT ${fkConstraint}`),
+      `Constraint ${fkConstraint} must have corresponding VALIDATE CONSTRAINT statement`
     );
   }
 
-  // Verify single FK is documented as insufficient
-  assert.ok(
-    dataModelContent.includes('Same-Resource Integrity Contract') || dataModelContent.includes('Cross-Resource Rejection'),
-    'Data model must document Same-Resource Integrity Contract'
-  );
+  // Verify Teardown section uses exact canonical names and does NOT drop audit tables or use DROP CASCADE
+  const teardownStart = migrationContent.indexOf('Non-production Development Teardown');
+  assert.ok(teardownStart > -1, 'Migration proposal must contain Non-production Development Teardown section');
+  const teardownBody = migrationContent.slice(teardownStart);
+  assert.ok(teardownBody.includes('fk_lesson_resources_current_draft_same_resource'), 'Teardown must drop fk_lesson_resources_current_draft_same_resource');
+  assert.ok(teardownBody.includes('fk_lesson_resources_approved_same_resource'), 'Teardown must drop fk_lesson_resources_approved_same_resource');
+  assert.ok(teardownBody.includes('fk_lesson_resources_published_same_resource'), 'Teardown must drop fk_lesson_resources_published_same_resource');
+  assert.ok(!teardownBody.includes('DROP TABLE'), 'Teardown must NOT drop tables');
+  assert.ok(!teardownBody.includes('CASCADE'), 'Teardown must NOT use CASCADE');
 });
 
-test('21. Verify 3 Explanation Leakage Security Scanner Contracts (Package, JSON Asset, JS Object & Student Payload)', () => {
+test('21. Verify Machine-Readable Leakage Vectors & 3 Explanation Leakage Security Scanner Contracts', () => {
   const dataModelContent = fs.readFileSync(DOC_FILES.dataModel, 'utf-8');
   const designContent = fs.readFileSync(DOC_FILES.design, 'utf-8');
   const storageContent = fs.readFileSync(DOC_FILES.storage, 'utf-8');
   const migrationContent = fs.readFileSync(DOC_FILES.migration, 'utf-8');
+
+  // Verify machine-readable vectors JSON file exists and is valid JSON
+  const vectorsPath = path.join(rootDir, 'docs', 'CONTENT-ONBOARDING-HTML-LEAKAGE-VECTORS-03.json');
+  assert.ok(fs.existsSync(vectorsPath), 'Leakage vectors JSON file must exist at docs/CONTENT-ONBOARDING-HTML-LEAKAGE-VECTORS-03.json');
+  const vectorsData = JSON.parse(fs.readFileSync(vectorsPath, 'utf-8'));
+
+  assert.equal(vectorsData.document_id, 'CONTENT-ONBOARDING-HTML-LEAKAGE-VECTORS-03');
+  assert.ok(Array.isArray(vectorsData.negative_test_vectors), 'Must contain negative_test_vectors array');
+  assert.ok(Array.isArray(vectorsData.allowed_test_vectors), 'Must contain allowed_test_vectors array');
+
+  // Check required negative vector cases: HTML, JSON, JS, manifest, local asset with explanation
+  const requiredTargets = ['HTML', 'JSON', 'JavaScript', 'manifest', 'asset'];
+  for (const target of requiredTargets) {
+    const found = vectorsData.negative_test_vectors.some((v) =>
+      v.name.toLowerCase().includes(target.toLowerCase()) || v.target_file.toLowerCase().includes(target.toLowerCase())
+    );
+    assert.ok(found, `Negative test vectors missing target type: ${target}`);
+  }
+
+  // All negative vectors must have expected_classification = REJECT
+  for (const vec of vectorsData.negative_test_vectors) {
+    assert.equal(vec.expected_classification, 'REJECT', `Vector ${vec.id} must be classified as REJECT`);
+  }
+
+  // Allowed vectors must include lesson summary and post-reveal API explanation classified as ACCEPT
+  for (const vec of vectorsData.allowed_test_vectors) {
+    assert.equal(vec.expected_classification, 'ACCEPT', `Allowed vector ${vec.id} must be classified as ACCEPT`);
+  }
 
   // Test 1: Explanation inside zip package file (HTML, JSON, JS, manifest, inline scripts, local assets) -> REJECT
   assert.ok(

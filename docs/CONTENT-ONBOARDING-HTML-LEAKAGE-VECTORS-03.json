@@ -1,0 +1,83 @@
+{
+  "system": "tas-heel-html-content-onboarding",
+  "version": "0.3",
+  "document_id": "CONTENT-ONBOARDING-HTML-LEAKAGE-VECTORS-03",
+  "description": "Machine-readable leakage security scanner test vectors for HTML interactive content onboarding",
+  "forbidden_fields": [
+    "correct_index",
+    "correct_answer",
+    "answer_key",
+    "hashed_answer",
+    "explanation",
+    "answer_explanation",
+    "correct_explanation",
+    "solution_key"
+  ],
+  "negative_test_vectors": [
+    {
+      "id": "VEC-NEG-001",
+      "name": "HTML file with explanation attribute",
+      "target_file": "index.html",
+      "media_type": "text/html",
+      "sample_content": "<div data-explanation=\"The nucleus is the control center of the cell.\">Question 1</div>",
+      "expected_classification": "REJECT",
+      "reason": "HTML attribute contains explanation property prior to reveal gate"
+    },
+    {
+      "id": "VEC-NEG-002",
+      "name": "JSON asset with explanation field",
+      "target_file": "data/questions.json",
+      "media_type": "application/json",
+      "sample_content": "{\"q1\": {\"text\": \"What is 2+2?\", \"explanation\": \"Basic addition gives 4\"}}",
+      "expected_classification": "REJECT",
+      "reason": "JSON asset file contains embedded explanation field"
+    },
+    {
+      "id": "VEC-NEG-003",
+      "name": "JavaScript object with explanation property",
+      "target_file": "js/app.js",
+      "media_type": "application/javascript",
+      "sample_content": "const config = { questionId: 101, explanation: 'Photosynthesis converts light to sugar' };",
+      "expected_classification": "REJECT",
+      "reason": "JavaScript source file contains inline explanation property"
+    },
+    {
+      "id": "VEC-NEG-004",
+      "name": "Manifest file with answer_explanation property",
+      "target_file": "manifest.json",
+      "media_type": "application/json",
+      "sample_content": "{\"resource\": \"RES-01\", \"answer_explanation\": \"Option B is correct because gravity pulls downward\"}",
+      "expected_classification": "REJECT",
+      "reason": "Package manifest contains answer_explanation field"
+    },
+    {
+      "id": "VEC-NEG-005",
+      "name": "Local asset with correct_explanation property",
+      "target_file": "assets/metadata.json",
+      "media_type": "application/json",
+      "sample_content": "{\"items\": [{\"id\": 1, \"correct_explanation\": \"Light travels faster than sound\"}]}",
+      "expected_classification": "REJECT",
+      "reason": "Local asset payload contains correct_explanation property"
+    }
+  ],
+  "allowed_test_vectors": [
+    {
+      "id": "VEC-POS-001",
+      "name": "Generic educational lesson summary without answer mapping",
+      "target_file": "summary.html",
+      "media_type": "text/html",
+      "sample_content": "<h1>Cell Biology Overview</h1><p>Cells are the fundamental structural and functional units of life.</p>",
+      "expected_classification": "ACCEPT",
+      "reason": "General lesson summary contains zero forbidden answer fields or answer-key mappings"
+    },
+    {
+      "id": "VEC-POS-002",
+      "name": "Post-reveal explanation retrieved via external application API endpoint",
+      "target_file": "api/v1/lessons/explanations/show",
+      "media_type": "application/json",
+      "sample_content": "{\"status\": \"revealed\", \"explanation_html\": \"<p>After submission, oxygen is released as a byproduct.</p>\"}",
+      "expected_classification": "ACCEPT",
+      "reason": "Explanation served strictly via post-reveal Server/Application API outside the HTML content package"
+    }
+  ]
+}

@@ -163,10 +163,13 @@ Immutable version snapshots linked to specific `content_sha256` digests and pack
 | `published_by` | `UUID` | `REFERENCES auth.users(id) ON DELETE RESTRICT` | Auth user who published version |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | Version creation timestamp |
 
-*Explicit Constraints:*
-- `UNIQUE(id, resource_id)` (Composite key for Same-Resource Integrity)
-- `UNIQUE(resource_id, version_number)`
-- `UNIQUE(resource_id, content_sha256)`
+*Explicit Constraints & Canonical Constraint Names:*
+- `uq_resource_version_id_resource`: `CONSTRAINT uq_resource_version_id_resource UNIQUE(id, resource_id)` (Composite key for Same-Resource Integrity)
+- `fk_lesson_resources_current_draft_same_resource`: `FOREIGN KEY (current_draft_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id)`
+- `fk_lesson_resources_approved_same_resource`: `FOREIGN KEY (approved_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id)`
+- `fk_lesson_resources_published_same_resource`: `FOREIGN KEY (published_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id)`
+- `uq_resource_version_number`: `UNIQUE(resource_id, version_number)`
+- `uq_resource_content_sha256`: `UNIQUE(resource_id, content_sha256)`
 - `CHECK (version_number > 0)`
 
 ---
@@ -375,30 +378,64 @@ WITH CHECK (
 
 ## 5. Published Immutability & Audit Preservation Contracts
 
-### 5.1 Published Immutability Contract
-To guarantee snapshot integrity, published version records and their file manifests are permanently **immutable**:
+## 5. Published Immutability & Audit Preservation Contracts
+
+### 5.1 Published Immutability Contract & Trigger Semantics
+To guarantee snapshot integrity, approved and published version records and their file manifests are permanently **immutable**:
 
 1. **Protected Fields**:
    - `resource_id`, `version_number`, `content_sha256`, `storage_path`, `entry_file`, `csp_header`, `package_size_compressed`, `package_size_uncompressed`, `file_count`, `created_by`, `created_at`, `published_at`, `published_by`.
 
-2. **Trigger / Enforcement**:
+2. **Trigger / Enforcement Rules**:
    - Immutability is enforced via two independent per-table triggers:
      - `fn_ensure_immutable_resource_version()` on `lesson_resource_versions`: Evaluates parent resource status using `OLD.resource_id` (queries `lesson_resources lr WHERE lr.id = OLD.resource_id`).
      - `fn_ensure_immutable_resource_file()` on `lesson_resource_files`: Uses `OLD.version_id` with explicit `JOIN`s to `lesson_resource_versions lrv ON lrv.id = OLD.version_id` and `lesson_resources lr ON lr.id = lrv.resource_id`. Does NOT reference non-existent columns (`OLD.status`, `OLD.resource_id`, `OLD.published_version_id`, or `OLD.version_number`).
    - If the version is referenced as `approved_version_id` or `published_version_id`, or if resource status is `approved` or `published`, any `UPDATE` or `DELETE` attempt raises exception `PUBLISHED_VERSION_IMMUTABLE` (409 Conflict).
-   - Any modification requires creating a **new version** with an incremented `version_number`.
+   - **Correct Semantics for UPDATE and DELETE**:
+     - When protected (`approved` / `published`): RAISE EXCEPTION on UPDATE or DELETE.
+     - When unprotected (`draft`, `in_review`, `rejected`, `archived`):
+       - `UPDATE` returns `NEW`.
+       - `DELETE` returns `OLD`.
+     - Explicit trigger structure:
+       ```sql
+       IF TG_OP = 'DELETE' THEN
+         RETURN OLD;
+       END IF;
+       RETURN NEW;
+       ```
 
-3. **Grants & Revokes**:
-   - `REVOKE UPDATE, DELETE ON public.lesson_resource_versions FROM authenticated;`
-   - `REVOKE UPDATE, DELETE ON public.lesson_resource_files FROM authenticated;`
-   - `service_role` cannot bypass this immutability trigger except via an audited, closed-by-default emergency procedure.
+3. **Trigger Semantics Contract Examples**:
+   - **Draft Version Deletion (PERMITTED)**: `DELETE FROM lesson_resource_versions WHERE id = 'draft-id';` -> Permitted under Cleanup policy (returns OLD).
+   - **Approved Version Deletion (REJECTED)**: `DELETE FROM lesson_resource_versions WHERE id = 'approved-id';` -> Exception `PUBLISHED_VERSION_IMMUTABLE`.
+   - **Published Version Deletion (REJECTED)**: `DELETE FROM lesson_resource_versions WHERE id = 'published-id';` -> Exception `PUBLISHED_VERSION_IMMUTABLE`.
+   - **Draft Version Update (PERMITTED)**: `UPDATE lesson_resource_versions SET entry_file = 'index.html' WHERE id = 'draft-id';` -> Permitted for editable fields (returns NEW).
+   - **Published Version Update (REJECTED)**: `UPDATE lesson_resource_versions SET entry_file = 'index.html' WHERE id = 'published-id';` -> Exception `PUBLISHED_VERSION_IMMUTABLE`.
 
-### 5.2 Audit Preservation Contract (No `CASCADE`)
-- **No `ON DELETE CASCADE`**: Audit tables (`lesson_resource_reviews`, `lesson_resource_events`, `idempotency_ledger`, `storage_operations`) use `ON DELETE RESTRICT`.
-- **Down Migration / Rollback Policy**:
-  - Down migrations in production MUST **NOT** execute `DROP TABLE CASCADE` or destroy audit data.
-  - Feature flag rollback (`ENABLE_HTML_LESSON_RESOURCES=false`) disables new reads while preserving all tables and logs.
-  - Optional archival/export of audit data occurs strictly after separate authorization.
+4. **Grants & Revokes**:
+   - `REVOKE UPDATE, DELETE ON public.lesson_resource_versions FROM authenticated, anon;`
+   - `REVOKE UPDATE, DELETE ON public.lesson_resource_files FROM authenticated, anon;`
+
+### 5.2 Audit Immutability Contract (Privileges, Triggers & No `CASCADE`)
+
+1. **Two-Layer Audit Protection**:
+   - **Layer A (Privileges)**:
+     ```sql
+     REVOKE UPDATE, DELETE ON public.lesson_resource_reviews FROM authenticated, anon;
+     REVOKE UPDATE, DELETE ON public.lesson_resource_events FROM authenticated, anon;
+     REVOKE UPDATE, DELETE ON public.idempotency_ledger FROM authenticated, anon;
+     REVOKE UPDATE, DELETE ON public.storage_operations FROM authenticated, anon;
+     ```
+   - **Layer B (Immutable Triggers)**: `fn_ensure_immutable_audit_record()` triggers on `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` raise exceptions on any `UPDATE` or `DELETE`. `fn_ensure_immutable_storage_operation()` on `storage_operations` prohibits `DELETE` completely and blocks `UPDATE` when status is in `('completed', 'cleaned', 'compensated')`.
+
+2. **Legal Separation of Operational Transitions vs Audit Immutability**:
+   - **Operational State Transitions**: Legitimate status updates during Saga execution (e.g. `storage_operations.status` moving `pending` → `uploaded` → `verified` → `promoted`) occur strictly via server-side RPCs running with `SECURITY DEFINER`.
+   - **Immutable Audit Records**: Once a storage operation reaches a terminal state (`completed`, `cleaned`, `compensated`), all further modifications are rejected. Audit records in `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` are strictly read-only and immutable from creation.
+
+3. **No `ON DELETE CASCADE` & Non-destructive Teardown**:
+   - Audit tables (`lesson_resource_reviews`, `lesson_resource_events`, `idempotency_ledger`, `storage_operations`) use `ON DELETE RESTRICT`.
+   - Down migrations and rollbacks in production MUST **NOT** execute `DROP TABLE CASCADE` or destroy audit data.
+   - Feature flag rollback (`ENABLE_HTML_LESSON_RESOURCES=false`) disables new reads while preserving all tables and logs.
+   - Non-production development teardown removes composite foreign keys using exact canonical constraint names (`fk_lesson_resources_current_draft_same_resource`, `fk_lesson_resources_approved_same_resource`, `fk_lesson_resources_published_same_resource`) without dropping audit or version history tables.
 
 ---
 
