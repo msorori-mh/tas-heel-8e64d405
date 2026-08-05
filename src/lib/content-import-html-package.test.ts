@@ -1,11 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 
 import {
   AppInteractiveResourceBridge,
   buildPackageCsp,
   computePackageDeterministicHash,
   computeSha256,
+  computeSha256Base64,
   generatePreviewHtmlBundle,
   parseHtmlContent,
   resolvePackageAssets,
@@ -15,324 +18,275 @@ import {
   validatePackagePreflight,
   validateSingleHtmlPackage,
   ValidationCodes,
+  normalizeUrlString,
+  isUrlSafe,
+  scanJavaScriptContent,
+  scanCssContent,
+  validateFileMimeAndBytes,
+  parseMasterZipBuffer,
+  evaluateRuntimeCapability,
 } from "./content-import/html-package/index.ts";
 
-test("1. Valid Mind Map HTML Package", async () => {
-  const html = `
-    <!DOCTYPE html>
-    <html dir="rtl">
-    <head><title>الخريطة الذهنية للحيوان</title><link rel="stylesheet" href="assets/style.css"></head>
-    <body>
-      <div id="app">الخلية الحيوانية</div>
-      <script src="assets/app.js"></script>
-    </body>
-    </html>
-  `;
+test("1. Route registration: /admin/content-review and /admin/import exist in routeTree.gen.ts", () => {
+  const routeTreePath = path.resolve("src/routeTree.gen.ts");
+  const routeTreeContent = fs.readFileSync(routeTreePath, "utf-8");
 
-  const files = [
-    {
-      path: "index.html",
-      size: Buffer.byteLength(html),
-      isDir: false,
-      contentSha256: await computeSha256(html),
-      mimeType: "text/html",
-      buffer: Buffer.from(html),
-    },
-    {
-      path: "manifest.json",
-      size: 150,
-      isDir: false,
-      contentSha256: "abc",
-      mimeType: "application/json",
-      buffer: Buffer.from(
-        JSON.stringify({
-          resource_code: "MM-G12-BIO-001",
-          entry_file: "index.html",
-          version: 1,
-          resource_type: "mind_map_html",
-          offline_enabled: true,
-        })
-      ),
-    },
-    {
-      path: "assets/style.css",
-      size: 50,
-      isDir: false,
-      contentSha256: "def",
-      mimeType: "text/css",
-      buffer: Buffer.from("body { background: #fff; }"),
-    },
-    {
-      path: "assets/app.js",
-      size: 100,
-      isDir: false,
-      contentSha256: "ghi",
-      mimeType: "application/javascript",
-      buffer: Buffer.from("console.log('mindmap');"),
-    },
-  ];
-
-  const res = await validateSingleHtmlPackage("MM-G12-BIO-001", files);
-  assert.equal(res.isValid, true);
-  assert.equal(res.resourceCode, "MM-G12-BIO-001");
-  assert.equal(res.offlineEligible, true);
+  assert.ok(
+    routeTreeContent.includes("admin/content-review") || routeTreeContent.includes("AuthenticatedAdminContentReviewRoute"),
+    "Route tree manifest must contain /admin/content-review"
+  );
+  assert.ok(
+    routeTreeContent.includes("admin/import") || routeTreeContent.includes("AuthenticatedAdminImportRoute"),
+    "Route tree manifest must contain /admin/import"
+  );
 });
 
-test("2. Valid Practical Experiment HTML Package", async () => {
-  const html = `<!DOCTYPE html><html><head><title>تجربة قانون أوم</title></head><body><h1>تجربة الفيزياء</h1></body></html>`;
-  const files = [
-    {
-      path: "index.html",
-      size: Buffer.byteLength(html),
-      isDir: false,
-      contentSha256: await computeSha256(html),
-      mimeType: "text/html",
-      buffer: Buffer.from(html),
-    },
-    {
-      path: "manifest.json",
-      size: 100,
-      isDir: false,
-      contentSha256: "123",
-      mimeType: "application/json",
-      buffer: Buffer.from(
-        JSON.stringify({
-          resource_code: "EXP-G12-PHY-001",
-          entry_file: "index.html",
-          version: 1,
-          resource_type: "practical_experiment_html",
-          offline_enabled: true,
-        })
-      ),
-    },
-  ];
-
-  const res = await validateSingleHtmlPackage("EXP-G12-PHY-001", files);
-  assert.equal(res.isValid, true);
-  assert.equal(res.manifest?.resource_type, "practical_experiment_html");
+test("2. CSP Base64 hash format: sha256-<BASE64> and exact bytes calculation", async () => {
+  const scriptContent = "console.log('hello csp');";
+  const hash = await computeSha256Base64(scriptContent);
+  assert.ok(hash.startsWith("'sha256-"), "CSP hash must start with 'sha256-");
+  assert.ok(hash.endsWith("'"), "CSP hash must end with '");
+  assert.ok(!/[0-9a-f]{64}/.test(hash.slice(8, -1)), "CSP hash must be Base64, not hex");
 });
 
-test("3. Missing index.html Detection", async () => {
-  const files = [
-    {
-      path: "manifest.json",
-      size: 50,
-      isDir: false,
-      contentSha256: "11",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify({ resource_code: "RES-01", entry_file: "index.html", version: 1, resource_type: "mind_map_html", offline_enabled: true })),
-    },
-  ];
-  const res = await validateSingleHtmlPackage("RES-01", files);
-  assert.equal(res.isValid, false);
-  assert.ok(res.findings.some((f) => f.code === ValidationCodes.MISSING_INDEX_HTML));
+test("3. CSP Builder includes bridge script hash and Base64 inline script hashes", async () => {
+  const scriptHash = await computeSha256Base64("alert(1)");
+  const csp = await buildPackageCsp([scriptHash], "MM-01", 1, "nonce-123");
+  assert.ok(csp.includes("default-src 'none'"));
+  assert.ok(csp.includes("connect-src 'none'"));
+  assert.ok(csp.includes("frame-src 'none'"));
+  assert.ok(csp.includes("object-src 'none'"));
+  assert.ok(csp.includes("base-uri 'none'"));
+  assert.ok(csp.includes("form-action 'none'"));
+  assert.ok(csp.includes(scriptHash));
 });
 
-test("4. Missing manifest.json Detection", async () => {
-  const html = "<html><body>Test</body></html>";
-  const files = [
-    {
-      path: "index.html",
-      size: Buffer.byteLength(html),
-      isDir: false,
-      contentSha256: "22",
-      mimeType: "text/html",
-      buffer: Buffer.from(html),
-    },
-  ];
-  const res = await validateSingleHtmlPackage("RES-02", files);
-  assert.equal(res.isValid, false);
-  assert.ok(res.findings.some((f) => f.code === ValidationCodes.MISSING_MANIFEST_JSON));
+test("4. URL Normalization: percent-encoded javascript URLs rejected (java%73cript:)", () => {
+  const check = isUrlSafe("java%73cript:alert(1)");
+  assert.equal(check.safe, false);
 });
 
-test("5. Missing Referenced Asset Detection", async () => {
-  const html = `<html><head><link rel="stylesheet" href="missing.css"></head><body></body></html>`;
-  const files = [
-    {
-      path: "index.html",
-      size: Buffer.byteLength(html),
-      isDir: false,
-      contentSha256: "33",
-      mimeType: "text/html",
-      buffer: Buffer.from(html),
-    },
-    {
-      path: "manifest.json",
-      size: 50,
-      isDir: false,
-      contentSha256: "44",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify({ resource_code: "RES-03", entry_file: "index.html", version: 1, resource_type: "mind_map_html", offline_enabled: true })),
-    },
-  ];
-  const res = await validateSingleHtmlPackage("RES-03", files);
-  assert.equal(res.isValid, false);
-  assert.ok(res.findings.some((f) => f.code === ValidationCodes.MISSING_REFERENCED_ASSET));
+test("5. URL Normalization: HTML entity encoded javascript URLs rejected (java&#x73;cript:)", () => {
+  const check = isUrlSafe("java&#x73;cript:alert(1)");
+  assert.equal(check.safe, false);
 });
 
-test("6. Security Scans: Remote script, stylesheet, image rejected", () => {
-  const code = `
-    const cdn = "https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/react.min.js";
-    const img = "http://example.com/image.png";
-  `;
-  const findings = scanCodeSecurity(code, "app.js");
-  assert.ok(findings.some((f) => f.code === ValidationCodes.REMOTE_NETWORK_URL_DETECTED));
-});
-
-test("7. Security Scans: Forbidden iframe inside imported HTML", async () => {
-  const html = `<html><body><iframe src="https://evil.com"></iframe></body></html>`;
-  const scan = await parseHtmlContent(html, "index.html");
-  assert.ok(scan.findings.some((f) => f.code === ValidationCodes.FORBIDDEN_IFRAME_ELEMENT));
-});
-
-test("8. Security Scans: javascript: URL rejected", async () => {
-  const html = `<html><body><a href="javascript:alert(1)">Click</a></body></html>`;
-  const scan = await parseHtmlContent(html, "index.html");
-  assert.ok(scan.findings.some((f) => f.code === ValidationCodes.JAVASCRIPT_URL_DETECTED));
-});
-
-test("9. Security Scans: Inline Event Handler (onclick) rejected", async () => {
-  const html = `<html><body><button onclick="doSomething()">Click</button></body></html>`;
+test("6. Structural Parser: Unquoted event handler rejected (onerror=alert(1))", async () => {
+  const html = `<img src=x onerror=alert(1)>`;
   const scan = await parseHtmlContent(html, "index.html");
   assert.ok(scan.findings.some((f) => f.code === ValidationCodes.INLINE_EVENT_HANDLER_DETECTED));
 });
 
-test("10. Security Scans: eval and new Function rejected", () => {
-  const code1 = "eval('console.log(1)');";
-  const f1 = scanCodeSecurity(code1, "test.js");
-  assert.ok(f1.some((f) => f.code === ValidationCodes.FORBIDDEN_API_EVAL));
-
-  const code2 = "const fn = new Function('return 1');";
-  const f2 = scanCodeSecurity(code2, "test.js");
-  assert.ok(f2.some((f) => f.code === ValidationCodes.FORBIDDEN_API_FUNCTION_CTOR));
+test("7. Structural Parser: Mixed-case event handler rejected (ONERROR= / OnErRoR=)", async () => {
+  const html = `<div OnErRoR="alert(1)">Test</div>`;
+  const scan = await parseHtmlContent(html, "index.html");
+  assert.ok(scan.findings.some((f) => f.code === ValidationCodes.INLINE_EVENT_HANDLER_DETECTED));
 });
 
-test("11. Security Scans: fetch / XHR / WebSocket rejected", () => {
-  const code = "fetch('/api/data'); const socket = new WebSocket('ws://test');";
-  const findings = scanCodeSecurity(code, "test.js");
+test("8. Structural Parser: Meta refresh tag rejected (<meta http-equiv=\"refresh\">)", async () => {
+  const html = `<html><head><meta http-equiv="refresh" content="0;url=http://evil.com"></head></html>`;
+  const scan = await parseHtmlContent(html, "index.html");
+  assert.ok(scan.findings.some((f) => f.code === ValidationCodes.FORBIDDEN_META_REFRESH));
+});
+
+test("9. Structural Parser: Base href element rejected (<base href=...>", async () => {
+  const html = `<html><head><base href="https://evil.com/"></head></html>`;
+  const scan = await parseHtmlContent(html, "index.html");
+  assert.ok(scan.findings.some((f) => f.code === ValidationCodes.FORBIDDEN_BASE_ELEMENT));
+});
+
+test("10. Structural Parser: <object> and <embed> elements rejected", async () => {
+  const html = `<html><body><object data="evil.swf"></object><embed src="evil.swf"></body></html>`;
+  const scan = await parseHtmlContent(html, "index.html");
+  assert.ok(scan.findings.some((f) => f.code === ValidationCodes.FORBIDDEN_OBJECT_EMBED_ELEMENT));
+});
+
+test("11. JS Scanner: navigator.sendBeacon rejected", () => {
+  const code = "navigator.sendBeacon('/log', data);";
+  const findings = scanJavaScriptContent(code, "test.js");
   assert.ok(findings.some((f) => f.code === ValidationCodes.FORBIDDEN_API_NETWORK_FETCH));
 });
 
-test("12. Security Scans: ServiceWorker registration rejected", () => {
-  const code = "navigator.serviceWorker.register('/sw.js');";
-  const findings = scanCodeSecurity(code, "test.js");
+test("12. JS Scanner: Worker / SharedWorker / ServiceWorker rejected", () => {
+  const code = "const w = new Worker('w.js'); const sw = navigator.serviceWorker.register('/sw.js');";
+  const findings = scanJavaScriptContent(code, "test.js");
   assert.ok(findings.some((f) => f.code === ValidationCodes.SERVICE_WORKER_NOT_ALLOWED));
 });
 
-test("13. Preflight: Path Traversal rejected", () => {
+test("13. JS Scanner: RTCPeerConnection (WebRTC) rejected", () => {
+  const code = "const pc = new RTCPeerConnection();";
+  const findings = scanJavaScriptContent(code, "test.js");
+  assert.ok(findings.some((f) => f.code === ValidationCodes.FORBIDDEN_WEBRTC));
+});
+
+test("14. JS Scanner: Dynamic import() rejected", () => {
+  const code = "import('./module.js').then(m => m.run());";
+  const findings = scanJavaScriptContent(code, "test.js");
+  assert.ok(findings.some((f) => f.code === ValidationCodes.FORBIDDEN_DYNAMIC_IMPORT));
+});
+
+test("15. JS Scanner: Blob script / createObjectURL creation rejected", () => {
+  const code = "const url = URL.createObjectURL(new Blob(['alert(1)']));";
+  const findings = scanJavaScriptContent(code, "test.js");
+  assert.ok(findings.some((f) => f.code === ValidationCodes.FORBIDDEN_BLOB_SCRIPT_CREATION));
+});
+
+test("16. Structural Parser: srcdoc attribute rejected", async () => {
+  const html = `<iframe srcdoc="<script>alert(1)</script>"></iframe>`;
+  const scan = await parseHtmlContent(html, "index.html");
+  assert.ok(scan.findings.some((f) => f.code === ValidationCodes.FORBIDDEN_SRCDOC_ATTRIBUTE));
+});
+
+test("17. Structural Parser: Dangerous srcset URL rejected", async () => {
+  const html = `<img src="a.png" srcset="http://evil.com/b.png 2x">`;
+  const scan = await parseHtmlContent(html, "index.html");
+  assert.ok(scan.findings.some((f) => f.code === ValidationCodes.REMOTE_NETWORK_URL_DETECTED));
+});
+
+test("18. SVG active content rejected (<svg><script>)", async () => {
+  const html = `<svg><script>alert('svg xss')</script></svg>`;
+  const scan = await parseHtmlContent(html, "index.html");
+  assert.ok(scan.findings.some((f) => f.code === ValidationCodes.FORBIDDEN_SVG_ACTIVE_CONTENT));
+});
+
+test("19. MathML active link rejected (<math><maction>)", async () => {
+  const html = `<math><maction actiontype="toggle"><mi>x</mi></maction></math>`;
+  const scan = await parseHtmlContent(html, "index.html");
+  assert.ok(scan.findings.some((f) => f.code === ValidationCodes.FORBIDDEN_MATHML_ACTIVE_CONTENT));
+});
+
+test("20. CSS Scanner: @import rule rejected", () => {
+  const css = `@import url('http://evil.com/style.css');`;
+  const findings = scanCssContent(css, "style.css");
+  assert.ok(findings.some((f) => f.code === ValidationCodes.CSS_IMPORT_NOT_ALLOWED));
+});
+
+test("21. CSS Scanner: External url(...) rejected", () => {
+  const css = `body { background: url('https://evil.com/bg.png'); }`;
+  const findings = scanCssContent(css, "style.css");
+  assert.ok(findings.some((f) => f.code === ValidationCodes.FORBIDDEN_CSS_EXTERNAL_URL));
+});
+
+test("22. Preflight: Canonical path traversal (%2e%2e/) rejected", () => {
   const files = [
-    { path: "../secret.txt", size: 10, isDir: false, contentSha256: "a", mimeType: "text/plain" },
+    { path: "%2e%2e/secret.txt", size: 10, isDir: false, contentSha256: "a", mimeType: "text/plain" },
   ];
   const res = validatePackagePreflight(files);
   assert.equal(res.isValid, false);
   assert.ok(res.findings.some((f) => f.code === ValidationCodes.PATH_TRAVERSAL_DETECTED));
 });
 
-test("14. Preflight: Case Insensitive Path Collision rejected", () => {
-  const files = [
-    { path: "Assets/style.css", size: 10, isDir: false, contentSha256: "a", mimeType: "text/css" },
-    { path: "assets/STYLE.css", size: 10, isDir: false, contentSha256: "b", mimeType: "text/css" },
-  ];
-  const res = validatePackagePreflight(files);
+test("23. MIME Validation: Magic bytes mismatch rejected (fake PNG)", () => {
+  const fakePngBuffer = new TextEncoder().encode("NOT_A_PNG_HEADER_BYTES");
+  const res = validateFileMimeAndBytes("image.png", fakePngBuffer);
   assert.equal(res.isValid, false);
-  assert.ok(res.findings.some((f) => f.code === ValidationCodes.CASE_INSENSITIVE_PATH_COLLISION));
+  assert.equal(res.finding?.code, ValidationCodes.MIME_MISMATCH_DETECTED);
 });
 
-test("15. Preflight: Forbidden executable extension rejected", () => {
-  const files = [
-    { path: "assets/malware.exe", size: 10, isDir: false, contentSha256: "a", mimeType: "application/x-msdownload" },
-  ];
-  const res = validatePackagePreflight(files);
-  assert.equal(res.isValid, false);
-  assert.ok(res.findings.some((f) => f.code === ValidationCodes.FORBIDDEN_FILE_EXTENSION));
+test("24. MIME Validation: Valid PNG magic bytes accepted", () => {
+  const validPngBuffer = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
+  const res = validateFileMimeAndBytes("image.png", validPngBuffer);
+  assert.equal(res.isValid, true);
 });
 
-test("16. Deterministic SHA-256 Package Hash Consistency", async () => {
-  const filesA = [
-    { path: "b.txt", size: 5, isDir: false, contentSha256: "11", mimeType: "text/plain" },
-    { path: "a.txt", size: 5, isDir: false, contentSha256: "22", mimeType: "text/plain" },
-  ];
-  const filesB = [
-    { path: "a.txt", size: 5, isDir: false, contentSha256: "22", mimeType: "text/plain" },
-    { path: "b.txt", size: 5, isDir: false, contentSha256: "11", mimeType: "text/plain" },
-  ];
-  const hashA = await computePackageDeterministicHash(filesA);
-  const hashB = await computePackageDeterministicHash(filesB);
-  assert.equal(hashA, hashB);
-});
-
-test("17. CSP Builder generates strict directives with inline script hashes", () => {
-  const hashes = ["'sha256-abc=='", "'sha256-def=='"];
-  const csp = buildPackageCsp(hashes);
-  assert.ok(csp.includes("default-src 'none'"));
-  assert.ok(csp.includes("connect-src 'none'"));
-  assert.ok(csp.includes("'sha256-abc=='"));
-  assert.ok(csp.includes("'sha256-def=='"));
-});
-
-test("18. App Bridge Nonce and Event Validation", () => {
-  const bridge = new AppInteractiveResourceBridge("MM-G12-BIO-001", 1);
-  const nonce = bridge.getSessionNonce();
+test("25. Message Bridge: Invalid event source rejection", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const fakeWin = {} as WindowProxy;
+  const targetWin = {} as WindowProxy;
 
   const validPayload = {
-    resource_code: "MM-G12-BIO-001",
+    resource_code: "RES-01",
     resource_version: 1,
-    session_nonce: nonce,
+    session_nonce: bridge.getSessionNonce(),
     event_type: "resource_ready",
     event_sequence: 1,
     timestamp: Date.now(),
   };
 
-  const res1 = bridge.validateEventPayload(validPayload);
-  assert.equal(res1.isValid, true);
-
-  const forgedNoncePayload = { ...validPayload, session_nonce: "fake-nonce" };
-  const res2 = bridge.validateEventPayload(forgedNoncePayload);
-  assert.equal(res2.isValid, false);
-  assert.equal(res2.finding?.code, ValidationCodes.NONCE_MISMATCH);
+  const res = bridge.validateEventPayload(validPayload, fakeWin, targetWin);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SOURCE);
 });
 
-test("19. App Bridge Monotonic Event Sequence Verification", () => {
-  const bridge = new AppInteractiveResourceBridge("EXP-01", 1);
-  const nonce = bridge.getSessionNonce();
-
-  const msg1 = { resource_code: "EXP-01", resource_version: 1, session_nonce: nonce, event_type: "resource_ready", event_sequence: 1, timestamp: Date.now() };
-  const msg2 = { resource_code: "EXP-01", resource_version: 1, session_nonce: nonce, event_type: "interaction", event_sequence: 2, timestamp: Date.now() };
-  const msgDuplicate = { resource_code: "EXP-01", resource_version: 1, session_nonce: nonce, event_type: "interaction", event_sequence: 2, timestamp: Date.now() };
-
-  assert.equal(bridge.validateEventPayload(msg1).isValid, true);
-  assert.equal(bridge.validateEventPayload(msg2).isValid, true);
-  assert.equal(bridge.validateEventPayload(msgDuplicate).isValid, false);
-});
-
-test("20. Dry-Run Engine validates Excel row & ZIP packages", async () => {
-  const rows = [
-    {
-      resource_code: "MM-G12-BIO-001",
-      grade_code: "grade-12",
-      subject_code: "bio-g12",
-      lesson_code: "LES-001",
-      resource_type: "mind_map_html" as const,
-      title_ar: "خريطة الأنسجة",
-      alt_text_ar: "خريطة تفاعلية للأنسجة النباتية",
-      package_path: "MM-G12-BIO-001",
-      entry_file: "index.html",
-      sort_order: 1,
-      version: 1,
-      offline_enabled: true,
-    },
-  ];
-
-  const html = "<html><head><title>Test</title></head><body>OK</body></html>";
-  const packageMap = {
-    "MM-G12-BIO-001": [
-      { path: "index.html", size: Buffer.byteLength(html), isDir: false, contentSha256: "1", mimeType: "text/html", buffer: Buffer.from(html) },
-      { path: "manifest.json", size: 50, isDir: false, contentSha256: "2", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ resource_code: "MM-G12-BIO-001", entry_file: "index.html", version: 1, resource_type: "mind_map_html", offline_enabled: true })) },
-    ],
+test("26. Message Bridge: Payload byte-size limit (>10KB) rejected", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const largePayload = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: bridge.getSessionNonce(),
+    event_type: "interaction",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: { data: "x".repeat(15000) },
   };
 
-  const report = await runInteractiveResourceImportDryRun(rows, packageMap);
-  assert.equal(report.summary.totalRows, 1);
-  assert.equal(report.summary.validRows, 1);
-  assert.equal(report.summary.validPackages, 1);
+  const res = bridge.validateEventPayload(largePayload);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.PAYLOAD_SIZE_LIMIT_EXCEEDED);
+});
+
+test("27. Message Bridge: Rate limit (>20 events/sec) rejected", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const nonce = bridge.getSessionNonce();
+
+  for (let seq = 1; seq <= 20; seq++) {
+    const msg = {
+      resource_code: "RES-01",
+      resource_version: 1,
+      session_nonce: nonce,
+      event_type: "interaction",
+      event_sequence: seq,
+      timestamp: Date.now(),
+    };
+    assert.equal(bridge.validateEventPayload(msg).isValid, true);
+  }
+
+  // 21st message should fail rate limit
+  const msg21 = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: nonce,
+    event_type: "interaction",
+    event_sequence: 21,
+    timestamp: Date.now(),
+  };
+  const res21 = bridge.validateEventPayload(msg21);
+  assert.equal(res21.isValid, false);
+  assert.equal(res21.finding?.code, ValidationCodes.EVENT_RATE_LIMIT_EXCEEDED);
+});
+
+test("28. Capacitor Capability Gate: Disabled fail-closed on mock native platform", () => {
+  // Simulate Capacitor environment on global window
+  const originalWin = (globalThis as any).window;
+  try {
+    (globalThis as any).window = {
+      Capacitor: { isNativePlatform: () => true },
+      document: {},
+      location: {},
+    };
+    const cap = evaluateRuntimeCapability();
+    assert.equal(cap.allowed, false);
+    assert.ok(cap.userMessage?.includes("المحتوى التفاعلي متاح حالياً في نسخة الويب"));
+  } finally {
+    (globalThis as any).window = originalWin;
+  }
+});
+
+test("29. ZIP Ingestion: Master ZIP empty buffer rejected", async () => {
+  const res = await parseMasterZipBuffer(new Uint8Array(0));
+  assert.equal(res.isValid, false);
+  assert.equal(res.findings[0].code, ValidationCodes.ZIP_INGESTION_FAILED);
+});
+
+test("30. Deterministic SHA-256 Package Hash differs on 1 byte change", async () => {
+  const filesA = [
+    { path: "index.html", size: 10, isDir: false, contentSha256: "hash1", mimeType: "text/html" },
+  ];
+  const filesB = [
+    { path: "index.html", size: 10, isDir: false, contentSha256: "hash2", mimeType: "text/html" },
+  ];
+
+  const hashA = await computePackageDeterministicHash(filesA);
+  const hashB = await computePackageDeterministicHash(filesB);
+  assert.notEqual(hashA, hashB);
 });

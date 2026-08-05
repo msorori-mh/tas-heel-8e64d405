@@ -4,22 +4,23 @@ import { ValidationCodes } from "./validation-codes.ts";
 
 /**
  * Generate a cryptographically secure random session nonce for communication isolation.
+ * Throws error (fail-closed) if secure crypto API is missing.
  */
 export function generateSessionNonce(): string {
   if (typeof globalThis.crypto?.randomUUID === "function") {
     return globalThis.crypto.randomUUID();
   }
-  const array = new Uint8Array(16);
+
   if (typeof globalThis.crypto?.getRandomValues === "function") {
+    const array = new Uint8Array(16);
     globalThis.crypto.getRandomValues(array);
-  } else {
-    for (let i = 0; i < 16; i++) {
-      array[i] = Math.floor(Math.random() * 256);
-    }
+    return Array.from(array)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
   }
-  return Array.from(array)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+
+  // Fail-closed: Never use Math.random fallback for security nonces
+  throw new Error("FAIL_CLOSED: Secure crypto getRandomValues is unavailable.");
 }
 
 export class AppInteractiveResourceBridge {
@@ -43,12 +44,26 @@ export class AppInteractiveResourceBridge {
    * Validate incoming message event payload from sandboxed iframe.
    */
   public validateEventPayload(
-    rawPayload: unknown
+    rawPayload: unknown,
+    eventSource?: WindowProxy | null,
+    expectedWindow?: WindowProxy | null
   ): {
     isValid: boolean;
     payload?: BridgeEventPayload;
     finding?: SecurityFinding;
   } {
+    // 0. Explicit Window source check
+    if (expectedWindow && eventSource !== expectedWindow) {
+      return {
+        isValid: false,
+        finding: {
+          code: ValidationCodes.INVALID_EVENT_SOURCE,
+          severity: "error",
+          message: "مصدر الحدث (event.source) لا يطابق إطار المعاينة المحدد (iframeRef.contentWindow).",
+        },
+      };
+    }
+
     if (!rawPayload || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
       return {
         isValid: false,
@@ -56,6 +71,30 @@ export class AppInteractiveResourceBridge {
           code: ValidationCodes.INVALID_EVENT_SCHEMA,
           severity: "error",
           message: "حمولات الأحداث يجب أن تكون كائناً مجرداً.",
+        },
+      };
+    }
+
+    // Payload size check (10KB limit)
+    try {
+      const payloadString = JSON.stringify(rawPayload);
+      if (payloadString.length > PACKAGE_LIMITS.MAX_EVENT_PAYLOAD_BYTES) {
+        return {
+          isValid: false,
+          finding: {
+            code: ValidationCodes.PAYLOAD_SIZE_LIMIT_EXCEEDED,
+            severity: "error",
+            message: `حجم حمولة الحدث (${payloadString.length} bytes) يتجاوز الحد الأقصى المسموح به (${PACKAGE_LIMITS.MAX_EVENT_PAYLOAD_BYTES} bytes).`,
+          },
+        };
+      }
+    } catch {
+      return {
+        isValid: false,
+        finding: {
+          code: ValidationCodes.INVALID_EVENT_SCHEMA,
+          severity: "error",
+          message: "حمولات الأحداث غير قابلة للترميز.",
         },
       };
     }
@@ -70,13 +109,13 @@ export class AppInteractiveResourceBridge {
     const timestamp = typeof data.timestamp === "number" ? data.timestamp : 0;
 
     // 1. Session Nonce check
-    if (nonce !== this.expectedNonce) {
+    if (!nonce || nonce !== this.expectedNonce) {
       return {
         isValid: false,
         finding: {
           code: ValidationCodes.NONCE_MISMATCH,
           severity: "error",
-          message: "رمز الجلسة Session Nonce غير مطابق.",
+          message: "رمز الجلسة Session Nonce غير مطابق أو منتهي الصلاحية.",
         },
       };
     }
@@ -105,14 +144,14 @@ export class AppInteractiveResourceBridge {
       };
     }
 
-    // 4. Sequence monotonic check
-    if (sequence <= this.lastSequence && this.lastSequence !== 0) {
+    // 4. Sequence monotonic check (strict > lastSequence)
+    if (sequence <= this.lastSequence) {
       return {
         isValid: false,
         finding: {
           code: ValidationCodes.INVALID_EVENT_SCHEMA,
           severity: "error",
-          message: `تسلسل الأحداث غير تصاعدي: ${sequence} (السابق ${this.lastSequence}).`,
+          message: `تسلسل الأحداث غير تصاعدي أو مكرر: ${sequence} (السابق ${this.lastSequence}).`,
         },
       };
     }

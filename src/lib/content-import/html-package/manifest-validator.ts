@@ -7,7 +7,7 @@ import { LESSON_RESOURCE_TYPES } from "./types.ts";
 import { ValidationCodes } from "./validation-codes.ts";
 
 /**
- * Validate manifest.json object against schema and optional Excel row cross-check.
+ * Validate manifest.json object against schema and Excel row cross-check.
  */
 export function validateManifest(
   rawManifest: unknown,
@@ -85,6 +85,15 @@ export function validateManifest(
         severity: "error",
         file: "manifest.json",
         message: `resource_type في manifest.json (${resourceType}) لا يطابق صف Excel (${excelRow.resource_type}).`,
+      });
+    }
+
+    if (excelRow.version !== undefined && excelRow.version !== version) {
+      findings.push({
+        code: ValidationCodes.RESOURCE_CODE_MISMATCH,
+        severity: "error",
+        file: "manifest.json",
+        message: `الإصدار version في manifest.json (${version}) لا يطابق إصدار Excel (${excelRow.version}).`,
       });
     }
   }

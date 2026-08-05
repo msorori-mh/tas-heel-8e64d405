@@ -2,7 +2,8 @@ import { resolvePackageAssets } from "./asset-resolver.ts";
 import { computePackageDeterministicHash, computeSha256 } from "./content-hash.ts";
 import { buildPackageCsp } from "./csp-builder.ts";
 import { parseHtmlContent } from "./html-parser.ts";
-import { scanCodeSecurity } from "./html-security-scanner.ts";
+import { scanJavaScriptContent } from "./js-scanner.ts";
+import { scanCssContent } from "./css-scanner.ts";
 import { validateManifest } from "./manifest-validator.ts";
 import { validatePackagePreflight } from "./package-preflight.ts";
 import type {
@@ -158,7 +159,7 @@ export async function validateSingleHtmlPackage(
   let scriptHashes: string[] = [];
   let referencedAssets: string[] = [];
 
-  // 3. Scan HTML and JavaScript contents
+  // 3. Scan HTML, JavaScript, and CSS contents
   for (const file of files) {
     if (file.isDir || !file.buffer) continue;
 
@@ -172,11 +173,12 @@ export async function validateSingleHtmlPackage(
         scriptHashes = htmlScan.scriptHashes;
         referencedAssets = htmlScan.referencedAssets;
       }
-      const codeScan = scanCodeSecurity(text, file.path);
-      allFindings.push(...codeScan);
     } else if (pathLower.endsWith(".js") || pathLower.endsWith(".mjs")) {
-      const jsScan = scanCodeSecurity(text, file.path);
+      const jsScan = scanJavaScriptContent(text, file.path);
       allFindings.push(...jsScan);
+    } else if (pathLower.endsWith(".css")) {
+      const cssScan = scanCssContent(text, file.path);
+      allFindings.push(...cssScan);
     }
   }
 
@@ -187,7 +189,7 @@ export async function validateSingleHtmlPackage(
   }
 
   // 5. Build CSP and compute deterministic SHA-256 content hash
-  const cspHeader = buildPackageCsp(scriptHashes);
+  const cspHeader = await buildPackageCsp(scriptHashes, resourceCode, excelRow?.version || 1, "nonce-preflight");
   const contentHash = await computePackageDeterministicHash(files);
 
   const errorCount = allFindings.filter((f) => f.severity === "error").length;

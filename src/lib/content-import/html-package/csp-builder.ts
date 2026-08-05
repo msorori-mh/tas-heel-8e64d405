@@ -1,12 +1,35 @@
+import { computeSha256Base64 } from "./content-hash.ts";
+import { AppInteractiveResourceBridge } from "./bridge.ts";
+
 /**
  * Build Content Security Policy header or meta string for interactive HTML packages.
  */
-export function buildPackageCsp(scriptHashes: string[] = []): string {
-  const scriptSrcParts = ["'self'"];
+export async function buildPackageCsp(
+  scriptHashes: string[] = [],
+  resourceCode?: string,
+  version?: number,
+  nonce?: string
+): Promise<string> {
+  const scriptSrcParts: string[] = ["'self'"];
+
+  // Include bridge script hash if resource code / version / nonce are provided
+  if (resourceCode && version !== undefined && nonce) {
+    const bridgeScriptText = AppInteractiveResourceBridge.getClientRuntimeBridgeScript(
+      resourceCode,
+      version,
+      nonce
+    );
+    const bridgeHash = await computeSha256Base64(bridgeScriptText);
+    scriptSrcParts.push(bridgeHash);
+  }
 
   for (const hash of scriptHashes) {
     if (hash && !scriptSrcParts.includes(hash)) {
-      scriptSrcParts.push(hash);
+      // Enforce sha256-Base64 format
+      if (hash.startsWith("'sha256-") || hash.startsWith("sha256-")) {
+        const formatted = hash.startsWith("'") ? hash : `'${hash}'`;
+        scriptSrcParts.push(formatted);
+      }
     }
   }
 
@@ -17,9 +40,8 @@ export function buildPackageCsp(scriptHashes: string[] = []): string {
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",
-    "navigate-to 'none'",
-    "img-src 'self' data: blob:",
-    "media-src 'self' data: blob:",
+    "img-src 'self' data:",
+    "media-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
     `script-src ${scriptSrcParts.join(" ")}`,
     "font-src 'self' data:",

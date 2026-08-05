@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Maximize2, Minimize2, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Play, CheckCircle2, AlertTriangle, DownloadCloud } from "lucide-react";
+import { Maximize2, Minimize2, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Play, CheckCircle2, AlertTriangle, DownloadCloud, Lock } from "lucide-react";
 import {
   AppInteractiveResourceBridge,
   buildPackageCsp,
   generatePreviewHtmlBundle,
   generateSessionNonce,
   BridgeEventPayload,
+  evaluateRuntimeCapability,
 } from "@/lib/content-import/html-package/index";
 
 export interface InteractiveResourceItem {
@@ -37,41 +38,74 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [nonce] = useState(() => generateSessionNonce());
-  const [bridge] = useState(() => new AppInteractiveResourceBridge(resource.resource_code, resource.version, nonce));
+  const [capability] = useState(() => evaluateRuntimeCapability());
+  const [nonce] = useState(() => {
+    try {
+      return generateSessionNonce();
+    } catch {
+      return "";
+    }
+  });
+  const [bridge] = useState(() => (nonce ? new AppInteractiveResourceBridge(resource.resource_code, resource.version, nonce) : null));
   const [eventsLog, setEventsLog] = useState<BridgeEventPayload[]>([]);
-  const [isCompleted, setIsCompleted] = useState(false);
+  const [resourceReportedCompleted, setResourceReportedCompleted] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Generate safe srcDoc bundle with CSP meta and client bridge script
   const [srcDoc, setSrcDoc] = useState("");
 
   useEffect(() => {
+    if (!capability.allowed) {
+      setErrorMsg(capability.userMessage || "المحتوى التفاعلي غير مدعوم في هذه البيئة.");
+      setLoading(false);
+      return;
+    }
+
+    if (!nonce || !bridge) {
+      setErrorMsg("فشل تهيئة التشفير الآمن (Cryptographic Nonce missing). البيئة غير آمنة.");
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setErrorMsg(null);
-      const csp = buildPackageCsp();
-      const bundle = generatePreviewHtmlBundle(
-        resource.html_content,
-        [],
-        csp,
-        resource.resource_code,
-        resource.version,
-        nonce
-      );
-      setSrcDoc(bundle);
-      setLoading(false);
+
+      // Asynchronously build CSP with exact SHA-256 Base64 bridge script hash
+      buildPackageCsp([], resource.resource_code, resource.version, nonce).then((csp) => {
+        const bundle = generatePreviewHtmlBundle(
+          resource.html_content,
+          [],
+          csp,
+          resource.resource_code,
+          resource.version,
+          nonce
+        );
+        setSrcDoc(bundle);
+        setLoading(false);
+      }).catch((err: any) => {
+        setErrorMsg(err.message || "حدث خطأ أثناء بناء سياسة الأمان CSP.");
+        setLoading(false);
+      });
     } catch (err: any) {
       setErrorMsg(err.message || "حدث خطأ أثناء إعداد المورد التفاعلي.");
       setLoading(false);
     }
-  }, [resource, nonce]);
+  }, [resource, nonce, bridge, capability]);
 
   // Listen for window postMessage events from sandboxed iframe
   useEffect(() => {
+    if (!bridge || !capability.allowed) return;
+
     const handleMessage = (event: MessageEvent) => {
-      // Validate session nonce and schema
-      const validation = bridge.validateEventPayload(event.data);
+      // Validate session nonce, origin, and exact iframeRef window
+      const validation = bridge.validateEventPayload(
+        event.data,
+        event.source as WindowProxy | null,
+        iframeRef.current?.contentWindow
+      );
+
       if (validation.isValid && validation.payload) {
         const payload = validation.payload;
         setEventsLog((prev) => [...prev, payload]);
@@ -79,15 +113,17 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
           onEventTriggered(payload);
         }
 
+        // NOTE: experiment_completed ONLY records interactive resource completion,
+        // it DOES NOT directly auto-mark the entire lesson as completed.
         if (payload.event_type === "experiment_completed") {
-          setIsCompleted(true);
+          setResourceReportedCompleted(true);
         }
       }
     };
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [bridge, onEventTriggered]);
+  }, [bridge, capability, onEventTriggered]);
 
   const isMindMap = resource.resource_type === "mind_map_html";
 
@@ -134,6 +170,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
                 setTimeout(() => setLoading(false), 300);
               }}
               title="إعادة تحميل المحتوى"
+              disabled={!capability.allowed}
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
@@ -143,6 +180,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
               variant="outline"
               onClick={() => setIsFullscreen(!isFullscreen)}
               title={isFullscreen ? "إنهاء العرض الكامل" : "عرض ملء الشاشة"}
+              disabled={!capability.allowed}
             >
               {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </Button>
@@ -151,8 +189,19 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
       </CardHeader>
 
       <CardContent className="p-0 relative">
+        {/* Native Disabled Notice */}
+        {!capability.allowed && (
+          <div className="p-8 text-center bg-muted/20 space-y-3">
+            <Lock className="mx-auto h-10 w-10 text-amber-500" />
+            <p className="font-semibold text-sm text-foreground">{capability.userMessage}</p>
+            <p className="text-xs text-muted-foreground">
+              تم إيقاف تشغيل المحتوى التفاعلي احترازياً في البيئات غير المتوافقة لحماية الجلسة والبيانات.
+            </p>
+          </div>
+        )}
+
         {/* Loading Overlay */}
-        {loading && (
+        {capability.allowed && loading && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80 backdrop-blur-xs text-muted-foreground p-4">
             <RefreshCw className="h-8 w-8 animate-spin text-primary mb-2" />
             <p className="text-sm">جاري تهيئة بيئة العزل التفاعلية...</p>
@@ -160,7 +209,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
         )}
 
         {/* Error Overlay */}
-        {errorMsg && (
+        {capability.allowed && errorMsg && (
           <div className="p-6 text-center text-destructive space-y-3">
             <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
             <p className="font-semibold text-sm">{errorMsg}</p>
@@ -172,7 +221,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
         )}
 
         {/* Sandboxed Iframe Container */}
-        {!errorMsg && srcDoc && (
+        {capability.allowed && !errorMsg && srcDoc && (
           <div className={`w-full transition-all ${isFullscreen ? "fixed inset-0 z-50 bg-background" : "h-[450px]"}`}>
             {isFullscreen && (
               <div className="absolute top-3 left-3 z-50">
@@ -190,6 +239,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
                 - NO allow-popups
             */}
             <iframe
+              ref={iframeRef}
               title={resource.title_ar}
               srcDoc={srcDoc}
               sandbox="allow-scripts"
@@ -199,19 +249,21 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
         )}
 
         {/* Security Isolation Indicator */}
-        <div className="flex items-center justify-between border-t border-border/40 px-4 py-2 bg-muted/20 text-[11px] text-muted-foreground">
-          <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            <span>محيط معزول آمن (Sandboxed Origin)</span>
-          </div>
-
-          {isCompleted && (
-            <div className="flex items-center gap-1 text-emerald-500 font-medium">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>تم إكمال التجربة</span>
+        {capability.allowed && (
+          <div className="flex items-center justify-between border-t border-border/40 px-4 py-2 bg-muted/20 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>محيط معزول آمن (Sandboxed Origin)</span>
             </div>
-          )}
-        </div>
+
+            {resourceReportedCompleted && (
+              <div className="flex items-center gap-1 text-emerald-500 font-medium">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>سجل المورد التفاعلي إكمال النشاط</span>
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

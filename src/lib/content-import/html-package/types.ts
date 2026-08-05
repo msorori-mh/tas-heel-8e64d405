@@ -65,18 +65,17 @@ export interface InteractiveResourceManifest {
  * Operational limits enforced during validation.
  */
 export const PACKAGE_LIMITS = {
-  MAX_ZIP_SIZE_BYTES: 25 * 1024 * 1024, // 25 MB
-  MAX_UNCOMPRESSED_SIZE_BYTES: 100 * 1024 * 1024, // 100 MB
-  MAX_MASTER_ZIP_SIZE_BYTES: 500 * 1024 * 1024, // 500 MB
-  MAX_FILES_PER_RESOURCE: 500,
-  MAX_RESOURCES_PER_IMPORT: 1000,
+  MAX_MASTER_ZIP_SIZE_BYTES: 50 * 1024 * 1024, // 50 MB
+  MAX_RESOURCE_COMPRESSED_BYTES: 20 * 1024 * 1024, // 20 MB
+  MAX_RESOURCE_UNCOMPRESSED_BYTES: 50 * 1024 * 1024, // 50 MB
+  MAX_FILES_PER_RESOURCE: 100,
+  MAX_FOLDER_DEPTH: 5,
+  MAX_SINGLE_FILE_BYTES: 10 * 1024 * 1024, // 10 MB
   MAX_SINGLE_HTML_FILE_BYTES: 10 * 1024 * 1024, // 10 MB
   MAX_SINGLE_JS_FILE_BYTES: 10 * 1024 * 1024, // 10 MB
   MAX_SINGLE_IMAGE_FILE_BYTES: 10 * 1024 * 1024, // 10 MB
-  MAX_FOLDER_DEPTH: 8,
-  MAX_UNCOMPRESSED_RATIO: 20, // max compression ratio 20x
-  LOAD_TIMEOUT_MS: 10000,
-  RUNTIME_INIT_TIMEOUT_MS: 5000,
+  MAX_UNCOMPRESSED_RATIO: 10, // max compression ratio 10x
+  MAX_EVENT_PAYLOAD_BYTES: 10240, // 10 KB limit per event payload
   MAX_EVENT_RATE_PER_SECOND: 20,
 } as const;
 
@@ -106,11 +105,11 @@ export interface HtmlScanResult {
 }
 
 export interface PackageFileItem {
-  path: string; // relative path within package, e.g. "index.html", "assets/style.css"
+  path: string;
   size: number;
   isDir: boolean;
   contentSha256: string;
-  mimeType: string;
+  mimeType?: string;
   buffer?: Buffer | Uint8Array;
 }
 

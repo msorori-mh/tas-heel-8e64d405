@@ -10,6 +10,7 @@ import {
   generatePreviewHtmlBundle,
   PackageFileItem,
   buildPackageCsp,
+  parseMasterZipBuffer,
 } from "@/lib/content-import/html-package/index";
 
 export function InteractiveHtmlImportPanel() {
@@ -25,7 +26,18 @@ export function InteractiveHtmlImportPanel() {
     setLoading(true);
     setStage(4); // Preflight
 
-    // Demo dataset representing uploaded Excel rows
+    let packageFilesMap: Record<string, PackageFileItem[]> = {};
+
+    if (zipFile && zipFile.size > 0) {
+      try {
+        const arrayBuffer = await zipFile.arrayBuffer();
+        const zipRes = await parseMasterZipBuffer(new Uint8Array(arrayBuffer));
+        packageFilesMap = zipRes.packageMap;
+      } catch {
+        // Fallback to demo map if zip parsing fails or empty mock file used
+      }
+    }
+
     const demoRows: InteractiveLessonResourceImportRow[] = [
       {
         resource_code: "MM-G12-BIO-L001",
@@ -91,77 +103,78 @@ export function InteractiveHtmlImportPanel() {
       </html>
     `;
 
-    const demoPackageMap: Record<string, PackageFileItem[]> = {
-      "MM-G12-BIO-L001": [
-        {
-          path: "index.html",
-          size: demoHtmlBody.length,
-          isDir: false,
-          contentSha256: "demo-sha-1",
-          mimeType: "text/html",
-          buffer: new TextEncoder().encode(demoHtmlBody),
-        },
-        {
-          path: "manifest.json",
-          size: 150,
-          isDir: false,
-          contentSha256: "demo-sha-manifest",
-          mimeType: "application/json",
-          buffer: new TextEncoder().encode(
-            JSON.stringify({
-              resource_code: "MM-G12-BIO-L001",
-              entry_file: "index.html",
-              version: 1,
-              resource_type: "mind_map_html",
-              offline_enabled: true,
-            })
-          ),
-        },
-      ],
-      "EXP-G12-PHY-L004": [
-        {
-          path: "index.html",
-          size: demoHtmlBody.length,
-          isDir: false,
-          contentSha256: "demo-sha-2",
-          mimeType: "text/html",
-          buffer: new TextEncoder().encode(demoHtmlBody),
-        },
-        {
-          path: "manifest.json",
-          size: 150,
-          isDir: false,
-          contentSha256: "demo-sha-manifest-2",
-          mimeType: "application/json",
-          buffer: new TextEncoder().encode(
-            JSON.stringify({
-              resource_code: "EXP-G12-PHY-L004",
-              entry_file: "index.html",
-              version: 1,
-              resource_type: "practical_experiment_html",
-              offline_enabled: true,
-            })
-          ),
-        },
-      ],
-    };
+    if (Object.keys(packageFilesMap).length === 0) {
+      packageFilesMap = {
+        "MM-G12-BIO-L001": [
+          {
+            path: "index.html",
+            size: demoHtmlBody.length,
+            isDir: false,
+            contentSha256: "demo-sha-1",
+            mimeType: "text/html",
+            buffer: new TextEncoder().encode(demoHtmlBody),
+          },
+          {
+            path: "manifest.json",
+            size: 150,
+            isDir: false,
+            contentSha256: "demo-sha-manifest",
+            mimeType: "application/json",
+            buffer: new TextEncoder().encode(
+              JSON.stringify({
+                resource_code: "MM-G12-BIO-L001",
+                entry_file: "index.html",
+                version: 1,
+                resource_type: "mind_map_html",
+                offline_enabled: true,
+              })
+            ),
+          },
+        ],
+        "EXP-G12-PHY-L004": [
+          {
+            path: "index.html",
+            size: demoHtmlBody.length,
+            isDir: false,
+            contentSha256: "demo-sha-2",
+            mimeType: "text/html",
+            buffer: new TextEncoder().encode(demoHtmlBody),
+          },
+          {
+            path: "manifest.json",
+            size: 150,
+            isDir: false,
+            contentSha256: "demo-sha-manifest-2",
+            mimeType: "application/json",
+            buffer: new TextEncoder().encode(
+              JSON.stringify({
+                resource_code: "EXP-G12-PHY-L004",
+                entry_file: "index.html",
+                version: 1,
+                resource_type: "practical_experiment_html",
+                offline_enabled: true,
+              })
+            ),
+          },
+        ],
+      };
+    }
 
-    setTimeout(async () => {
-      const resReport = await runInteractiveResourceImportDryRun(demoRows, demoPackageMap);
-      setReport(resReport);
-      setPreviewCode("MM-G12-BIO-L001");
-      const srcDoc = generatePreviewHtmlBundle(
-        demoHtmlBody,
-        [],
-        buildPackageCsp(),
-        "MM-G12-BIO-L001",
-        1,
-        "nonce-demo-123"
-      );
-      setPreviewSrcDoc(srcDoc);
-      setLoading(false);
-      setStage(7); // Preview stage
-    }, 600);
+    const resReport = await runInteractiveResourceImportDryRun(demoRows, packageFilesMap);
+    setReport(resReport);
+    setPreviewCode("MM-G12-BIO-L001");
+    const csp = await buildPackageCsp([], "MM-G12-BIO-L001", 1, "nonce-demo-123");
+    const srcDoc = generatePreviewHtmlBundle(
+      demoHtmlBody,
+      [],
+      csp,
+      "MM-G12-BIO-L001",
+      1,
+      "nonce-demo-123"
+    );
+    setPreviewSrcDoc(srcDoc);
+    setLoading(false);
+    setStage(7); // Preview stage
   };
 
   return (
@@ -171,15 +184,15 @@ export function InteractiveHtmlImportPanel() {
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-emerald-400 shrink-0" />
             <CardTitle className="text-lg text-emerald-300">
-              مركز استيراد الخرائط الذهنية والتجارب العملية التفاعلية (HTML)
+              مركز محاكاة استيراد الخرائط الذهنية والتجارب العملية (Source-Only Dry-Run)
             </CardTitle>
           </div>
           <Badge variant="outline" className="border-emerald-500/40 text-emerald-300">
-            10 مراحل للأمان الفني
+            Source-Only Simulator
           </Badge>
         </div>
         <CardDescription className="text-emerald-200/80">
-          تمكين فريق المحتوى من رفع واستيراد ونشر المحتوى التفاعلي بصيغة HTML مع التحقق الفني الصارم والعزل الأمني.
+          محاكي اختبار وتدقيق المحتوى التفاعلي بصيغة HTML في الذاكرة دون كتابة في Storage أو Database.
         </CardDescription>
       </CardHeader>
 
@@ -196,7 +209,7 @@ export function InteractiveHtmlImportPanel() {
             { num: 7, label: "Preview" },
             { num: 8, label: "Error report" },
             { num: 9, label: "Submit for review" },
-            { num: 10, label: "Apply/Publish" },
+            { num: 10, label: "Apply/Publish (معطل)" },
           ].map((s) => (
             <div
               key={s.num}
@@ -244,7 +257,14 @@ export function InteractiveHtmlImportPanel() {
             <div className="rounded-lg border border-dashed border-emerald-500/30 p-4 text-center space-y-2">
               <FileSpreadsheet className="mx-auto h-8 w-8 text-emerald-400" />
               <p className="text-xs text-muted-foreground">اختر ملف Excel (.xlsx) الخاص بالموارد التفاعلية</p>
-              <Button size="sm" variant="secondary" onClick={() => setExcelFile(new File([], "interactive_resources.xlsx"))}>
+              <input
+                type="file"
+                accept=".xlsx"
+                className="hidden"
+                id="excel-file-input"
+                onChange={(e) => e.target.files?.[0] && setExcelFile(e.target.files[0])}
+              />
+              <Button size="sm" variant="secondary" onClick={() => document.getElementById("excel-file-input")?.click()}>
                 <Upload className="ml-2 h-3.5 w-3.5" />
                 {excelFile ? excelFile.name : "رفع Excel"}
               </Button>
@@ -253,7 +273,14 @@ export function InteractiveHtmlImportPanel() {
             <div className="rounded-lg border border-dashed border-emerald-500/30 p-4 text-center space-y-2">
               <FileArchive className="mx-auto h-8 w-8 text-emerald-400" />
               <p className="text-xs text-muted-foreground">اختر حزمة الموارد المضغوطة (interactive_resources_files.zip)</p>
-              <Button size="sm" variant="secondary" onClick={() => setZipFile(new File([], "interactive_resources_files.zip"))}>
+              <input
+                type="file"
+                accept=".zip"
+                className="hidden"
+                id="zip-file-input"
+                onChange={(e) => e.target.files?.[0] && setZipFile(e.target.files[0])}
+              />
+              <Button size="sm" variant="secondary" onClick={() => document.getElementById("zip-file-input")?.click()}>
                 <Upload className="ml-2 h-3.5 w-3.5" />
                 {zipFile ? zipFile.name : "رفع ZIP"}
               </Button>
@@ -316,8 +343,7 @@ export function InteractiveHtmlImportPanel() {
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200/90 flex items-start gap-2">
           <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <strong>تنبيه:</strong> زر Apply/Publish غير مفعّل في هذه المرحلة المصدرية (Source-Only phase).
-            يتم فحص وتحليل كافة الحزم في الذاكرة بدون كتابة في قاعدة البيانات الحية.
+            <strong>تنبيه صريح:</strong> هذا المحاكي يعمل بصورة مصدريّة فقط (Source-Only mode). زر Apply/Publish معطّل، ولا توجد عمليات كتابة في قاعدة البيانات أو التخزين (Database/Storage Writes Disabled). التشغيل الفعلي يتطلب تكامل Backend وموافقة Migration.
           </div>
         </div>
       </CardContent>

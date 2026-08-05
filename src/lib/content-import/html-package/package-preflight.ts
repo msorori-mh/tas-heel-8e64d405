@@ -1,20 +1,12 @@
 import { PACKAGE_LIMITS } from "./types.ts";
 import type { PackageFileItem, SecurityFinding } from "./types.ts";
 import { ValidationCodes } from "./validation-codes.ts";
+import { normalizeUrlString } from "./url-normalizer.ts";
 
 const FORBIDDEN_EXTENSIONS = new Set([
   "exe", "dll", "bat", "cmd", "ps1", "sh", "bash", "vbs", "msi", "com",
   "scr", "pif", "application", "gadget", "wsf", "wsh", "jar", "py", "php",
   "pl", "rb", "asp", "aspx", "jsp", "zip", "tar", "gz", "7z", "rar",
-]);
-
-const FORBIDDEN_MIME_TYPES = new Set([
-  "application/x-msdownload",
-  "application/x-executable",
-  "application/x-sh",
-  "application/x-php",
-  "application/zip",
-  "application/x-7z-compressed",
 ]);
 
 /**
@@ -43,14 +35,18 @@ export function validatePackagePreflight(
 
   for (const file of files) {
     const rawPath = file.path;
+    const norm = normalizeUrlString(rawPath);
+
+    const checkPath = norm.normalized || rawPath;
 
     // Check path traversal and leading slash
     if (
-      rawPath.includes("..") ||
-      rawPath.startsWith("/") ||
-      rawPath.startsWith("\\") ||
-      rawPath.includes(":\\") ||
-      rawPath.includes(":/")
+      !norm.isValid ||
+      checkPath.includes("..") ||
+      checkPath.startsWith("/") ||
+      checkPath.startsWith("\\") ||
+      checkPath.includes(":\\") ||
+      checkPath.includes(":/")
     ) {
       findings.push({
         code: ValidationCodes.PATH_TRAVERSAL_DETECTED,
@@ -61,7 +57,7 @@ export function validatePackagePreflight(
     }
 
     // Check folder depth
-    const depth = rawPath.split(/[/\\]/).filter(Boolean).length;
+    const depth = checkPath.split(/[/\\]/).filter(Boolean).length;
     if (depth > PACKAGE_LIMITS.MAX_FOLDER_DEPTH) {
       findings.push({
         code: ValidationCodes.EXCEEDS_MAX_DEPTH,
@@ -72,7 +68,7 @@ export function validatePackagePreflight(
     }
 
     // Case-insensitive path collision check
-    const normalizedPath = rawPath.replace(/\\/g, "/").toLowerCase();
+    const normalizedPath = checkPath.replace(/\\/g, "/").toLowerCase();
     if (seenPathsLower.has(normalizedPath)) {
       const existing = seenPathsLower.get(normalizedPath)!;
       if (existing !== rawPath) {
@@ -99,7 +95,7 @@ export function validatePackagePreflight(
     totalUncompressedSize += file.size;
 
     // File extension checks
-    const extMatch = rawPath.match(/\.([a-z0-9]+)$/i);
+    const extMatch = checkPath.match(/\.([a-z0-9]+)$/i);
     const ext = extMatch ? extMatch[1].toLowerCase() : "";
 
     if (FORBIDDEN_EXTENSIONS.has(ext)) {
@@ -159,11 +155,11 @@ export function validatePackagePreflight(
   }
 
   // Uncompressed total limit check
-  if (totalUncompressedSize > PACKAGE_LIMITS.MAX_UNCOMPRESSED_SIZE_BYTES) {
+  if (totalUncompressedSize > PACKAGE_LIMITS.MAX_RESOURCE_UNCOMPRESSED_BYTES) {
     findings.push({
       code: ValidationCodes.UNCOMPRESSED_EXCEEDS_MAX_SIZE,
       severity: "error",
-      message: `حجم المحتوى المفكوك (${Math.round(totalUncompressedSize / 1024 / 1024)}MB) يتجاوز الحد الأقصى المسموح به (${PACKAGE_LIMITS.MAX_UNCOMPRESSED_SIZE_BYTES / 1024 / 1024}MB).`,
+      message: `حجم المحتوى المفكوك (${Math.round(totalUncompressedSize / 1024 / 1024)}MB) يتجاوز الحد الأقصى المسموح به (${PACKAGE_LIMITS.MAX_RESOURCE_UNCOMPRESSED_BYTES / 1024 / 1024}MB).`,
     });
   }
 
