@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import crypto from "node:crypto";
 import { issue, type QbImportIssue } from "../../../question-bank/import/errors.ts";
 import { QB_IMPORT_CODES } from "../../../question-bank/import/validation-codes.ts";
@@ -30,91 +28,26 @@ export type PreviewTokenBindingContext = {
   now?: number;
 };
 
+/**
+ * Interface for Replay Store verification.
+ *
+ * Production Note:
+ * Distributed production deployments MUST use a shared atomic store implementation
+ * (e.g., Redis SET NX or Database uniqueness constraint / RPC).
+ * Such binding is outside the scope of PR #56.
+ * Until a production distributed store dependency is provided, production token apply
+ * remains fail-closed and will reject tokens if no store is supplied.
+ */
 export interface PreviewTokenReplayStore {
-  consumeOnce(jti: string, expiresAt: number): Promise<boolean> | boolean;
+  consumeOnce(jti: string, expiresAt: number): Promise<boolean>;
 }
 
-export class InMemoryPreviewTokenReplayStore implements PreviewTokenReplayStore {
-  private usedJtis = new Map<string, number>();
-
-  consumeOnce(jti: string, expiresAt: number): boolean {
-    const now = Date.now();
-    for (const [k, exp] of this.usedJtis.entries()) {
-      if (exp < now) this.usedJtis.delete(k);
-    }
-    if (this.usedJtis.has(jti)) {
-      return false;
-    }
-    this.usedJtis.set(jti, expiresAt);
-    return true;
-  }
-}
-
-/** Persistent, atomic replay store contract using atomic file locking for production persistence. */
-export class PersistentAtomicReplayStore implements PreviewTokenReplayStore {
-  private storeFilePath: string;
-  private inMemoryFallback: InMemoryPreviewTokenReplayStore;
-
-  constructor(storageDir?: string) {
-    const dir = storageDir || process.env.QB_REPLAY_STORE_DIR || path.join(process.cwd(), ".data");
-    this.storeFilePath = path.join(dir, "preview_token_replay_store.json");
-    this.inMemoryFallback = new InMemoryPreviewTokenReplayStore();
-  }
-
-  async consumeOnce(jti: string, expiresAt: number): Promise<boolean> {
-    const now = Date.now();
-    try {
-      const dir = path.dirname(this.storeFilePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-
-      let storeData: Record<string, number> = {};
-      if (fs.existsSync(this.storeFilePath)) {
-        try {
-          const raw = fs.readFileSync(this.storeFilePath, "utf8");
-          storeData = JSON.parse(raw) || {};
-        } catch {
-          storeData = {};
-        }
-      }
-
-      // Evict expired tokens
-      const cleaned: Record<string, number> = {};
-      for (const [k, exp] of Object.entries(storeData)) {
-        if (typeof exp === "number" && exp > now) {
-          cleaned[k] = exp;
-        }
-      }
-
-      if (cleaned[jti] != null) {
-        return false;
-      }
-
-      cleaned[jti] = expiresAt;
-
-      // Write atomically via temporary file and atomic rename
-      const tmpPath = `${this.storeFilePath}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
-      fs.writeFileSync(tmpPath, JSON.stringify(cleaned, null, 2), "utf8");
-      fs.renameSync(tmpPath, this.storeFilePath);
-
-      return true;
-    } catch {
-      // Fallback to process-level store if disk write fails
-      return this.inMemoryFallback.consumeOnce(jti, expiresAt);
-    }
-  }
-}
-
-export const defaultPreviewTokenReplayStore = new InMemoryPreviewTokenReplayStore();
-
-function getSecret(testSecret?: string): string {
-  if (testSecret) return testSecret;
-  const envSecret = process.env.QB_PREVIEW_TOKEN_SECRET;
-  if (!envSecret || !envSecret.trim()) {
+function getSecret(secretOverride?: string): string {
+  const secret = secretOverride || process.env.QB_PREVIEW_TOKEN_SECRET;
+  if (!secret || !secret.trim()) {
     throw new Error("Configuration Error: QB_PREVIEW_TOKEN_SECRET environment variable is missing or empty.");
   }
-  return envSecret;
+  return secret;
 }
 
 function canonicalizePayload(env: PreviewTokenEnvelope): string {
@@ -136,15 +69,15 @@ function signPayload(payloadB64Url: string, secret: string): string {
   return crypto.createHmac("sha256", secret).update(payloadB64Url).digest("base64url");
 }
 
-export function mintPreviewToken(envelope: PreviewTokenEnvelope, opts?: { testSecret?: string }): string {
-  const secret = getSecret(opts?.testSecret);
+export function mintPreviewToken(envelope: PreviewTokenEnvelope, opts?: { secret?: string }): string {
+  const secret = getSecret(opts?.secret);
   const payloadJson = canonicalizePayload(envelope);
   const payloadB64Url = Buffer.from(payloadJson, "utf8").toString("base64url");
   const signature = signPayload(payloadB64Url, secret);
   return `tok_v1_${payloadB64Url}.${signature}`;
 }
 
-export function parseAndVerifyPreviewToken(tokenStr: unknown, opts?: { testSecret?: string }): PreviewTokenEnvelope | null {
+export function parseAndVerifyPreviewToken(tokenStr: unknown, opts?: { secret?: string }): PreviewTokenEnvelope | null {
   if (typeof tokenStr !== "string" || !tokenStr.startsWith("tok_v1_")) {
     return null;
   }
@@ -159,7 +92,7 @@ export function parseAndVerifyPreviewToken(tokenStr: unknown, opts?: { testSecre
 
   let secret: string;
   try {
-    secret = getSecret(opts?.testSecret);
+    secret = getSecret(opts?.secret);
   } catch {
     return null;
   }
@@ -198,14 +131,14 @@ export function parseAndVerifyPreviewToken(tokenStr: unknown, opts?: { testSecre
 export async function validatePreviewToken(
   token: unknown,
   context?: PreviewTokenBindingContext,
-  opts?: { testSecret?: string; replayStore?: PreviewTokenReplayStore },
+  opts?: { secret?: string; replayStore?: PreviewTokenReplayStore },
 ): Promise<ApplyValidationResult> {
   const invalidIssue = {
     ok: false,
     issues: [issue(QB_IMPORT_CODES.PREVIEW_TOKEN_INVALID, { file: "apply-token", stage: "IDEMPOTENCY", source_subsystem: "apply-verifier" })],
   };
 
-  const env = parseAndVerifyPreviewToken(token, { testSecret: opts?.testSecret });
+  const env = parseAndVerifyPreviewToken(token, { secret: opts?.secret });
   if (!env) {
     return invalidIssue;
   }
@@ -237,10 +170,20 @@ export async function validatePreviewToken(
   if (env.actor_id !== context.actor_id) return invalidIssue;
   if (env.scope !== context.scope) return invalidIssue;
 
-  // Replay protection check with ACTUAL AWAIT (prevents Promise truthiness fail-open bug)
-  const store = opts?.replayStore ?? defaultPreviewTokenReplayStore;
-  const consumed = await store.consumeOnce(env.jti, env.expires_at);
-  if (!consumed) {
+  // Replay store MUST be explicitly provided from trusted server composition. Missing store fails closed.
+  if (!opts?.replayStore) {
+    return invalidIssue;
+  }
+
+  let consumed = false;
+  try {
+    const consumeRes = opts.replayStore.consumeOnce(env.jti, env.expires_at);
+    consumed = await consumeRes;
+  } catch {
+    return invalidIssue;
+  }
+
+  if (consumed !== true) {
     return invalidIssue;
   }
 

@@ -14,6 +14,7 @@ import {
   validatePreviewToken,
   type PreviewTokenBindingContext,
 } from "../../../../src/lib/server/question-bank/import/preview-token-server.ts";
+import { InMemoryPreviewTokenReplayStore } from "../../../support/in-memory-replay-store.ts";
 import {
   buildMinimalValidXlsx,
   buildOoxmlExternalRelXlsx,
@@ -348,7 +349,10 @@ export async function executeOperationalInput(input: OperationalInput): Promise<
     };
 
     if (scen === "preview-token") {
-      val = await validatePreviewToken(state?.preview_token, validBindingContext, { testSecret: "test-secret-12345678901234567890123456789012" });
+      val = await validatePreviewToken(state?.preview_token, validBindingContext, {
+        secret: "test-secret-12345678901234567890123456789012",
+        replayStore: new InMemoryPreviewTokenReplayStore(),
+      });
     } else if (scen === "stale-validation") {
       val = validateStaleValidation(state?.expected_validation_hash ?? null, state?.current_validation_hash ?? null);
     } else if (scen === "content-hash") {
