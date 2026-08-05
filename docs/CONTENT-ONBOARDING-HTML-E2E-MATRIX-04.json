@@ -68,10 +68,34 @@
       "evidence_required": "Ingestion audit log entry, calculated bundle SHA-256 digest, staging directory file inventory receipt",
       "cleanup_required": true,
       "cleanup_steps": [
-        "delete test import batch by batch_code",
-        "remove staging prefix owned by batch",
-        "verify zero orphan objects",
-        "preserve audit evidence"
+        {
+          "action": "delete_test_import_batch",
+          "target": "content_import_batches",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "matching import batch record and dependent staged metadata deleted",
+          "evidence_required": "batch_code, deleted_row_count=1"
+        },
+        {
+          "action": "purge_staging_prefix",
+          "target": "staging_bucket_prefix",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "all temporary object keys under staging batch prefix are deleted",
+          "evidence_required": "staging_prefix, object_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        },
+        {
+          "action": "verify_audit_record_retained",
+          "target": "lesson_resource_events",
+          "selector": "event_id from scenario evidence",
+          "expected_postcondition": "exactly one matching event remains and its payload hash is unchanged",
+          "evidence_required": "event_id, row_count=1, payload_sha256"
+        }
       ],
       "blocking": true
     },
@@ -95,9 +119,27 @@
       "evidence_required": "postMessage contract verification log, isolated canvas render snapshot",
       "cleanup_required": true,
       "cleanup_steps": [
-        "delete test import batch by batch_code",
-        "remove staging prefix owned by batch",
-        "verify zero orphan objects"
+        {
+          "action": "delete_test_import_batch",
+          "target": "content_import_batches",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "matching import batch record and dependent staged metadata deleted",
+          "evidence_required": "batch_code, deleted_row_count=1"
+        },
+        {
+          "action": "purge_staging_prefix",
+          "target": "staging_bucket_prefix",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "all temporary object keys under staging batch prefix are deleted",
+          "evidence_required": "staging_prefix, object_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -121,8 +163,20 @@
       "evidence_required": "Security scanner alert log, extraction rejection stack trace, zero-file write confirmation log",
       "cleanup_required": true,
       "cleanup_steps": [
-        "revoke generated signed URLs",
-        "verify zero orphan objects"
+        {
+          "action": "revoke_signed_urls",
+          "target": "signed_url_token_cache",
+          "selector": "resource_code from scenario input",
+          "expected_postcondition": "all signed access tokens issued during test scenario are invalidated",
+          "evidence_required": "resource_code, active_token_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "resource_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test resource",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -146,8 +200,20 @@
       "evidence_required": "Zip header inspection audit log with symlink entry metadata details",
       "cleanup_required": true,
       "cleanup_steps": [
-        "remove staging prefix owned by batch",
-        "verify zero orphan objects"
+        {
+          "action": "purge_staging_prefix",
+          "target": "staging_bucket_prefix",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "all temporary object keys under staging batch prefix are deleted",
+          "evidence_required": "staging_prefix, object_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -171,8 +237,20 @@
       "evidence_required": "Static AST analyzer violation report listing forbidden URI line number",
       "cleanup_required": true,
       "cleanup_steps": [
-        "remove staging prefix owned by batch",
-        "verify zero orphan objects"
+        {
+          "action": "purge_staging_prefix",
+          "target": "staging_bucket_prefix",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "all temporary object keys under staging batch prefix are deleted",
+          "evidence_required": "staging_prefix, object_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -196,8 +274,20 @@
       "evidence_required": "CSP hash audit report showing computed vs expected SHA-256 hashes",
       "cleanup_required": true,
       "cleanup_steps": [
-        "remove staging prefix owned by batch",
-        "verify zero orphan objects"
+        {
+          "action": "purge_staging_prefix",
+          "target": "staging_bucket_prefix",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "all temporary object keys under staging batch prefix are deleted",
+          "evidence_required": "staging_prefix, object_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -221,8 +311,20 @@
       "evidence_required": "Content inspection report detailing detected solution key payload line",
       "cleanup_required": true,
       "cleanup_steps": [
-        "remove staging prefix owned by batch",
-        "verify zero orphan objects"
+        {
+          "action": "purge_staging_prefix",
+          "target": "staging_bucket_prefix",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "all temporary object keys under staging batch prefix are deleted",
+          "evidence_required": "staging_prefix, object_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -246,8 +348,20 @@
       "evidence_required": "AST scanner report confirming zero occurrences of correct_index in client bundle",
       "cleanup_required": true,
       "cleanup_steps": [
-        "remove staging prefix owned by batch",
-        "verify zero orphan objects"
+        {
+          "action": "purge_staging_prefix",
+          "target": "staging_bucket_prefix",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "all temporary object keys under staging batch prefix are deleted",
+          "evidence_required": "staging_prefix, object_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -271,8 +385,20 @@
       "evidence_required": "Initial DOM payload snapshot proving explanation text is absent before reveal",
       "cleanup_required": true,
       "cleanup_steps": [
-        "remove staging prefix owned by batch",
-        "verify zero orphan objects"
+        {
+          "action": "purge_staging_prefix",
+          "target": "staging_bucket_prefix",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "all temporary object keys under staging batch prefix are deleted",
+          "evidence_required": "staging_prefix, object_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -296,8 +422,20 @@
       "evidence_required": "PII detector report verifying zero personal identifiers in bundle",
       "cleanup_required": true,
       "cleanup_steps": [
-        "remove staging prefix owned by batch",
-        "verify zero orphan objects"
+        {
+          "action": "purge_staging_prefix",
+          "target": "staging_bucket_prefix",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "all temporary object keys under staging batch prefix are deleted",
+          "evidence_required": "staging_prefix, object_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -452,8 +590,20 @@
       "evidence_required": "HTTP 403 authorization log showing content_manager publish/approve rejection",
       "cleanup_required": true,
       "cleanup_steps": [
-        "delete test import batch by batch_code",
-        "verify zero orphan objects"
+        {
+          "action": "delete_test_import_batch",
+          "target": "content_import_batches",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "matching import batch record and dependent staged metadata deleted",
+          "evidence_required": "batch_code, deleted_row_count=1"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -540,8 +690,20 @@
       "evidence_required": "State transition log showing draft -> in_review",
       "cleanup_required": true,
       "cleanup_steps": [
-        "delete test import batch by batch_code",
-        "verify zero orphan objects"
+        {
+          "action": "delete_test_import_batch",
+          "target": "content_import_batches",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "matching import batch record and dependent staged metadata deleted",
+          "evidence_required": "batch_code, deleted_row_count=1"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -565,8 +727,20 @@
       "evidence_required": "State transition database audit record showing in_review -> approved",
       "cleanup_required": true,
       "cleanup_steps": [
-        "delete test import batch by batch_code",
-        "verify zero orphan objects"
+        {
+          "action": "delete_test_import_batch",
+          "target": "content_import_batches",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "matching import batch record and dependent staged metadata deleted",
+          "evidence_required": "batch_code, deleted_row_count=1"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -590,8 +764,20 @@
       "evidence_required": "Audit log entry recording rejection event and notes",
       "cleanup_required": true,
       "cleanup_steps": [
-        "delete test import batch by batch_code",
-        "verify zero orphan objects"
+        {
+          "action": "delete_test_import_batch",
+          "target": "content_import_batches",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "matching import batch record and dependent staged metadata deleted",
+          "evidence_required": "batch_code, deleted_row_count=1"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -615,8 +801,20 @@
       "evidence_required": "Audit trail log recording rejected -> draft transition",
       "cleanup_required": true,
       "cleanup_steps": [
-        "delete test import batch by batch_code",
-        "verify zero orphan objects"
+        {
+          "action": "delete_test_import_batch",
+          "target": "content_import_batches",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "matching import batch record and dependent staged metadata deleted",
+          "evidence_required": "batch_code, deleted_row_count=1"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -640,9 +838,27 @@
       "evidence_required": "Publication audit record and status change event",
       "cleanup_required": true,
       "cleanup_steps": [
-        "restore previous published_version_id",
-        "revoke generated signed URLs",
-        "verify zero orphan objects"
+        {
+          "action": "restore_published_version_pointer",
+          "target": "content_published_versions",
+          "selector": "version_id from scenario evidence",
+          "expected_postcondition": "active published version pointer restored to pre-test baseline version_id",
+          "evidence_required": "version_id, active_pointer_match=true"
+        },
+        {
+          "action": "revoke_signed_urls",
+          "target": "signed_url_token_cache",
+          "selector": "resource_code from scenario input",
+          "expected_postcondition": "all signed access tokens issued during test scenario are invalidated",
+          "evidence_required": "resource_code, active_token_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "resource_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test resource",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -666,9 +882,27 @@
       "evidence_required": "Unpublish audit record and student API 404 payload proof",
       "cleanup_required": true,
       "cleanup_steps": [
-        "restore previous published_version_id",
-        "revoke generated signed URLs",
-        "verify zero orphan objects"
+        {
+          "action": "restore_published_version_pointer",
+          "target": "content_published_versions",
+          "selector": "version_id from scenario evidence",
+          "expected_postcondition": "active published version pointer restored to pre-test baseline version_id",
+          "evidence_required": "version_id, active_pointer_match=true"
+        },
+        {
+          "action": "revoke_signed_urls",
+          "target": "signed_url_token_cache",
+          "selector": "resource_code from scenario input",
+          "expected_postcondition": "all signed access tokens issued during test scenario are invalidated",
+          "evidence_required": "resource_code, active_token_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "resource_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test resource",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -692,8 +926,20 @@
       "evidence_required": "State machine refusal log showing invalid transition attempt",
       "cleanup_required": true,
       "cleanup_steps": [
-        "delete test import batch by batch_code",
-        "verify zero orphan objects"
+        {
+          "action": "delete_test_import_batch",
+          "target": "content_import_batches",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "matching import batch record and dependent staged metadata deleted",
+          "evidence_required": "batch_code, deleted_row_count=1"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -717,9 +963,27 @@
       "evidence_required": "Pointer update log and SHA-256 digest match receipt",
       "cleanup_required": true,
       "cleanup_steps": [
-        "restore previous published_version_id",
-        "verify zero orphan objects",
-        "preserve audit evidence"
+        {
+          "action": "restore_published_version_pointer",
+          "target": "content_published_versions",
+          "selector": "version_id from scenario evidence",
+          "expected_postcondition": "active published version pointer restored to pre-test baseline version_id",
+          "evidence_required": "version_id, active_pointer_match=true"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "version_id from scenario evidence",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test version",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        },
+        {
+          "action": "verify_audit_record_retained",
+          "target": "lesson_resource_events",
+          "selector": "event_id from scenario evidence",
+          "expected_postcondition": "exactly one matching event remains and its payload hash is unchanged",
+          "evidence_required": "event_id, row_count=1, payload_sha256"
+        }
       ],
       "blocking": true
     },
@@ -742,8 +1006,20 @@
       "evidence_required": "HTTP 409 Conflict response log for losing transaction",
       "cleanup_required": true,
       "cleanup_steps": [
-        "restore previous published_version_id",
-        "verify zero orphan objects"
+        {
+          "action": "restore_published_version_pointer",
+          "target": "content_published_versions",
+          "selector": "version_id from scenario evidence",
+          "expected_postcondition": "active published version pointer restored to pre-test baseline version_id",
+          "evidence_required": "version_id, active_pointer_match=true"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "version_id from scenario evidence",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test version",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -788,8 +1064,20 @@
       "evidence_required": "Idempotency key hit audit log",
       "cleanup_required": true,
       "cleanup_steps": [
-        "delete test import batch by batch_code",
-        "verify zero orphan objects"
+        {
+          "action": "delete_test_import_batch",
+          "target": "content_import_batches",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "matching import batch record and dependent staged metadata deleted",
+          "evidence_required": "batch_code, deleted_row_count=1"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -813,8 +1101,20 @@
       "evidence_required": "Storage audit log verifying 0 orphan objects after aborted upload",
       "cleanup_required": true,
       "cleanup_steps": [
-        "remove staging prefix owned by batch",
-        "verify zero orphan objects"
+        {
+          "action": "purge_staging_prefix",
+          "target": "staging_bucket_prefix",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "all temporary object keys under staging batch prefix are deleted",
+          "evidence_required": "staging_prefix, object_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -838,8 +1138,20 @@
       "evidence_required": "Cryptographic hash mismatch error log",
       "cleanup_required": true,
       "cleanup_steps": [
-        "remove staging prefix owned by batch",
-        "verify zero orphan objects"
+        {
+          "action": "purge_staging_prefix",
+          "target": "staging_bucket_prefix",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "all temporary object keys under staging batch prefix are deleted",
+          "evidence_required": "staging_prefix, object_count=0"
+        },
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "batch_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test batch",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        }
       ],
       "blocking": true
     },
@@ -927,8 +1239,20 @@
       "evidence_required": "Reconciliation sweeper audit summary log",
       "cleanup_required": true,
       "cleanup_steps": [
-        "verify zero orphan objects",
-        "preserve audit evidence"
+        {
+          "action": "verify_orphan_object_count",
+          "target": "content_storage_bucket",
+          "selector": "resource_code from scenario input",
+          "expected_postcondition": "zero unreferenced orphan storage objects remain for test resource",
+          "evidence_required": "bucket_prefix, orphan_count=0"
+        },
+        {
+          "action": "verify_audit_record_retained",
+          "target": "lesson_resource_events",
+          "selector": "event_id from scenario evidence",
+          "expected_postcondition": "exactly one matching event remains and its payload hash is unchanged",
+          "evidence_required": "event_id, row_count=1, payload_sha256"
+        }
       ],
       "blocking": true
     },
@@ -952,8 +1276,20 @@
       "evidence_required": "API response payload containing published status item and signed iframe token",
       "cleanup_required": true,
       "cleanup_steps": [
-        "restore previous published_version_id",
-        "revoke generated signed URLs"
+        {
+          "action": "restore_published_version_pointer",
+          "target": "content_published_versions",
+          "selector": "version_id from scenario evidence",
+          "expected_postcondition": "active published version pointer restored to pre-test baseline version_id",
+          "evidence_required": "version_id, active_pointer_match=true"
+        },
+        {
+          "action": "revoke_signed_urls",
+          "target": "signed_url_token_cache",
+          "selector": "resource_code from scenario input",
+          "expected_postcondition": "all signed access tokens issued during test scenario are invalidated",
+          "evidence_required": "resource_code, active_token_count=0"
+        }
       ],
       "blocking": true
     }

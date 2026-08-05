@@ -73,7 +73,7 @@
 
 تم استبدال النصوص العامة غير القابلة للقياس بمخطط صريح:
 - `cleanup_required`: قيمة بولية (`true` / `false`).
-- `cleanup_steps`: مصفوفة من الخطوات المحددة القابلة للقياس.
+- `cleanup_steps`: مصفوفة من الكائنات المنظمة القابلة للقياس (Structured Objects).
 
 عند عدم الحاجة لتنظيف:
 ```json
@@ -81,13 +81,16 @@
 "cleanup_steps": []
 ```
 
-عند الحاجة للتنظيف، تتكون الخطوات من عمليات محددة مثل:
-- `delete test import batch by batch_code`
-- `remove staging prefix owned by batch`
-- `restore previous published_version_id`
-- `revoke generated signed URLs`
-- `verify zero orphan objects`
-- `preserve audit evidence`
+عند الحاجة للتنظيف، تتكون الخطوات من كائنات محددة كالتالي:
+```json
+{
+  "action": "delete_test_import_batch",
+  "target": "content_import_batches",
+  "selector": "batch_code from scenario input",
+  "expected_postcondition": "matching import batch record and dependent staged metadata deleted",
+  "evidence_required": "batch_code, deleted_row_count=1"
+}
+```
 
 ---
 
@@ -175,7 +178,7 @@ git diff --check
 
 ```bash
 git add docs/CONTENT-ONBOARDING-HTML-E2E-MATRIX-04.json docs/CONTENT-ONBOARDING-HTML-E2E-RUNBOOK-AR-04.md tests/question-bank/content-onboarding-html-e2e-contract.test.mjs
-git commit -m "test(content): align html e2e contract with operational security model"
+git commit -m "test(content): enforce measurable html e2e cleanup contracts"
 git push origin test/content-onboarding-html-e2e-contract-04
 ```
 

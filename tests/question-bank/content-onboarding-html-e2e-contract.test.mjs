@@ -12,7 +12,8 @@ describe('CONTENT_ONBOARDING_HTML_E2E_CONTRACT_04 Contract Tests', () => {
     const matrix = JSON.parse(raw);
     assert.equal(matrix.contract_name, 'CONTENT_ONBOARDING_HTML_E2E_CONTRACT_04');
     assert.ok(Array.isArray(matrix.cases), 'cases must be an array');
-    assert.ok(matrix.cases.length >= 26, `expected at least 26 cases, got ${matrix.cases.length}`);
+    assert.ok(matrix.cases.length >= 38, `expected at least 38 cases, got ${matrix.cases.length}`);
+    assert.equal(matrix.cases.length, 38, `expected exactly 38 cases, got ${matrix.cases.length}`);
   });
 
   it('should verify schema completeness for all required fields in every case', async () => {
@@ -50,13 +51,20 @@ describe('CONTENT_ONBOARDING_HTML_E2E_CONTRACT_04 Contract Tests', () => {
     }
   });
 
-  it('should verify unique IDs across all test cases', async () => {
+  it('should verify unique IDs across all test cases and match total cases', async () => {
     const raw = await fs.readFile(matrixPath, 'utf8');
     const matrix = JSON.parse(raw);
     const seen = new Set();
+    const expectedIDs = Array.from({ length: 38 }, (_, i) => `HTML_E2E_${String(i + 1).padStart(3, '0')}`);
+
     for (const c of matrix.cases) {
       assert.ok(!seen.has(c.id), `Duplicate case ID detected: ${c.id}`);
       seen.add(c.id);
+    }
+    assert.equal(seen.size, matrix.cases.length, 'Total unique IDs must equal total cases count');
+    assert.equal(seen.size, 38, 'Total unique IDs must equal 38');
+    for (const id of expectedIDs) {
+      assert.ok(seen.has(id), `Required case ID missing: ${id}`);
     }
   });
 
@@ -165,11 +173,21 @@ describe('CONTENT_ONBOARDING_HTML_E2E_CONTRACT_04 Contract Tests', () => {
     }
   });
 
-  it('should enforce executable cleanup schema and reject N/A or vague cleanup text', async () => {
+  it('should enforce structured measurable cleanup schema and reject string/vague cleanup text', async () => {
     const raw = await fs.readFile(matrixPath, 'utf8');
     const matrix = JSON.parse(raw);
 
-    for (const c of matrix.cases) {
+    const genericPhrases = [
+      'preserve evidence',
+      'cleanup test data',
+      'revert state',
+      'restore state',
+      'verify cleanup'
+    ];
+
+    const requiredSelectorTokens = ['batch_code', 'resource_code', 'version_id', 'event_id', 'token_id'];
+
+    const validateCaseCleanup = (c) => {
       if (c.cleanup_required === false) {
         assert.equal(
           c.cleanup_steps.length,
@@ -178,19 +196,172 @@ describe('CONTENT_ONBOARDING_HTML_E2E_CONTRACT_04 Contract Tests', () => {
         );
       } else {
         assert.ok(
-          c.cleanup_steps.length > 0,
+          c.cleanup_steps.length >= 1,
           `Case ${c.id} with cleanup_required=true must define at least one cleanup step`
         );
         for (const step of c.cleanup_steps) {
-          assert.ok(
-            typeof step === 'string' && step.trim().length > 0,
-            `Case ${c.id} has invalid cleanup step`
+          assert.equal(
+            typeof step,
+            'object',
+            `Case ${c.id} cleanup step must be a structured Object, not ${typeof step}`
           );
-          assert.notEqual(step.trim().toUpperCase(), 'N/A', `Case ${c.id} contains N/A cleanup step`);
-          assert.notEqual(step.trim(), 'Revert state transition', `Case ${c.id} contains non-measurable cleanup step`);
-          assert.notEqual(step.trim(), 'Re-align version state', `Case ${c.id} contains non-measurable cleanup step`);
+          assert.ok(step !== null && !Array.isArray(step), `Case ${c.id} cleanup step must be a valid object`);
+
+          const requiredStepFields = ['action', 'target', 'selector', 'expected_postcondition', 'evidence_required'];
+          for (const field of requiredStepFields) {
+            assert.ok(
+              typeof step[field] === 'string' && step[field].trim().length > 0,
+              `Case ${c.id} cleanup step field '${field}' must be a non-empty string`
+            );
+          }
+
+          // Target check
+          assert.ok(step.target.trim().length > 0, `Case ${c.id} cleanup step target must not be empty`);
+
+          // Selector check
+          const selectorUpper = step.selector.trim().toUpperCase();
+          assert.notEqual(selectorUpper, 'N/A', `Case ${c.id} cleanup step selector cannot be N/A`);
+          assert.notEqual(selectorUpper, 'GENERIC', `Case ${c.id} cleanup step selector cannot be generic`);
+
+          const hasValidToken = requiredSelectorTokens.some(t => step.selector.includes(t));
+          assert.ok(
+            hasValidToken,
+            `Case ${c.id} cleanup step selector "${step.selector}" must contain one of: ${requiredSelectorTokens.join(', ')}`
+          );
+
+          // Expected postcondition check
+          assert.ok(
+            step.expected_postcondition.trim().length > 0,
+            `Case ${c.id} cleanup step expected_postcondition must be non-empty`
+          );
+
+          // Evidence required check
+          assert.ok(
+            step.evidence_required.trim().length > 0,
+            `Case ${c.id} cleanup step evidence_required must be non-empty`
+          );
+
+          // Generic phrases check
+          for (const phrase of genericPhrases) {
+            assert.notEqual(
+              step.action.toLowerCase().trim(),
+              phrase.toLowerCase(),
+              `Case ${c.id} cleanup step action cannot be generic phrase "${phrase}"`
+            );
+          }
+
+          // Audit evidence protection check
+          if (step.target.includes('audit') || step.target.includes('event')) {
+            assert.notEqual(
+              step.action.toLowerCase(),
+              'delete',
+              `Case ${c.id} cleanup step must not delete audit evidence`
+            );
+            assert.notEqual(
+              step.action.toLowerCase(),
+              'purge',
+              `Case ${c.id} cleanup step must not purge audit evidence`
+            );
+          }
         }
       }
+    };
+
+    for (const c of matrix.cases) {
+      validateCaseCleanup(c);
+    }
+  });
+
+  it('should reject invalid cleanup steps in contract validator (negative contract tests)', () => {
+    const validateStep = (c) => {
+      if (c.cleanup_required === false) {
+        assert.equal(c.cleanup_steps.length, 0, 'cleanup_steps must be empty');
+      } else {
+        assert.ok(c.cleanup_steps.length >= 1, 'must have steps');
+        for (const step of c.cleanup_steps) {
+          assert.equal(typeof step, 'object', 'must be object');
+          assert.ok(step !== null && !Array.isArray(step), 'must be object');
+          for (const field of ['action', 'target', 'selector', 'expected_postcondition', 'evidence_required']) {
+            assert.ok(typeof step[field] === 'string' && step[field].trim().length > 0, `field '${field}' missing/empty`);
+          }
+          const sel = step.selector.trim().toUpperCase();
+          assert.notEqual(sel, 'N/A', 'selector N/A');
+          assert.notEqual(sel, 'GENERIC', 'selector GENERIC');
+          const tokens = ['batch_code', 'resource_code', 'version_id', 'event_id', 'token_id'];
+          assert.ok(tokens.some(t => step.selector.includes(t)), 'missing identifier token');
+          for (const phrase of ['preserve evidence', 'cleanup test data', 'revert state', 'restore state', 'verify cleanup']) {
+            assert.notEqual(step.action.toLowerCase().trim(), phrase, 'generic action');
+          }
+          if (step.target.includes('audit') || step.target.includes('event')) {
+            assert.notEqual(step.action.toLowerCase(), 'delete', 'audit delete forbidden');
+          }
+        }
+      }
+    };
+
+    // 1. String cleanup step instead of Object
+    assert.throws(
+      () => validateStep({ cleanup_required: true, cleanup_steps: ['delete test import batch by batch_code'] }),
+      /must be object/
+    );
+
+    // 2. Empty target
+    assert.throws(
+      () => validateStep({ cleanup_required: true, cleanup_steps: [{ action: 'delete', target: '', selector: 'batch_code=1', expected_postcondition: 'post', evidence_required: 'ev' }] }),
+      /field 'target' missing\/empty/
+    );
+
+    // 3. Generic / N/A selector
+    assert.throws(
+      () => validateStep({ cleanup_required: true, cleanup_steps: [{ action: 'delete', target: 'tbl', selector: 'N/A', expected_postcondition: 'post', evidence_required: 'ev' }] }),
+      /selector N\/A/
+    );
+
+    // 4. Missing identifier token in selector
+    assert.throws(
+      () => validateStep({ cleanup_required: true, cleanup_steps: [{ action: 'delete', target: 'tbl', selector: 'some random text', expected_postcondition: 'post', evidence_required: 'ev' }] }),
+      /missing identifier token/
+    );
+
+    // 5. Non-verifiable / empty expected_postcondition
+    assert.throws(
+      () => validateStep({ cleanup_required: true, cleanup_steps: [{ action: 'delete', target: 'tbl', selector: 'batch_code=1', expected_postcondition: '', evidence_required: 'ev' }] }),
+      /field 'expected_postcondition' missing\/empty/
+    );
+
+    // 6. Empty evidence_required
+    assert.throws(
+      () => validateStep({ cleanup_required: true, cleanup_steps: [{ action: 'delete', target: 'tbl', selector: 'batch_code=1', expected_postcondition: 'post', evidence_required: '' }] }),
+      /field 'evidence_required' missing\/empty/
+    );
+
+    // 7. Generic phrase action
+    assert.throws(
+      () => validateStep({ cleanup_required: true, cleanup_steps: [{ action: 'preserve evidence', target: 'tbl', selector: 'batch_code=1', expected_postcondition: 'post', evidence_required: 'ev' }] }),
+      /generic action/
+    );
+
+    // 8. Audit evidence deletion
+    assert.throws(
+      () => validateStep({ cleanup_required: true, cleanup_steps: [{ action: 'delete', target: 'audit_log_table', selector: 'event_id=1', expected_postcondition: 'post', evidence_required: 'ev' }] }),
+      /audit delete forbidden/
+    );
+  });
+
+  it('should verify structured audit evidence retention in HTML_E2E_001, HTML_E2E_028, and HTML_E2E_037', async () => {
+    const raw = await fs.readFile(matrixPath, 'utf8');
+    const matrix = JSON.parse(raw);
+
+    const auditCases = ['HTML_E2E_001', 'HTML_E2E_028', 'HTML_E2E_037'];
+    for (const caseId of auditCases) {
+      const c = matrix.cases.find(x => x.id === caseId);
+      assert.ok(c, `Case ${caseId} must exist`);
+      const auditStep = c.cleanup_steps.find(s => s.action === 'verify_audit_record_retained');
+      assert.ok(auditStep, `Case ${caseId} must have verify_audit_record_retained cleanup step`);
+      assert.equal(auditStep.target, 'lesson_resource_events');
+      assert.ok(auditStep.selector.includes('event_id'));
+      assert.ok(auditStep.expected_postcondition.includes('payload hash is unchanged'));
+      assert.ok(auditStep.evidence_required.includes('payload_sha256'));
     }
   });
 
