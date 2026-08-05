@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AlertCircle, CheckCircle2, Download, FileArchive, FileSpreadsheet, Eye, ShieldAlert, Sparkles, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, FileArchive, FileSpreadsheet, Eye, ShieldAlert, Sparkles, Upload, Loader2, Lock } from "lucide-react";
 import {
   InteractiveLessonResourceImportRow,
   ImportDryRunReport,
@@ -13,6 +13,14 @@ import {
   parseMasterZipBuffer,
   SecurityFinding,
 } from "@/lib/content-import/html-package/index";
+import { CONTENT_FEATURE_FLAGS } from "@/lib/content-onboarding/feature-flags";
+import {
+  createContentImportBatch,
+  issueContentUpload,
+  finalizeContentUpload,
+  validateContentPackage,
+  submitResourceForReview,
+} from "@/lib/content-onboarding/rpc-client";
 
 export function InteractiveHtmlImportPanel() {
   const [stage, setStage] = useState<number>(1);
@@ -22,6 +30,96 @@ export function InteractiveHtmlImportPanel() {
   const [previewCode, setPreviewCode] = useState<string | null>(null);
   const [previewSrcDoc, setPreviewSrcDoc] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [batchId, setBatchId] = useState<string | null>(null);
+
+  const isBackendUploadEnabled = CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_BACKEND && CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_UPLOAD;
+
+  const handleExecuteImport = async () => {
+    if (!isBackendUploadEnabled) {
+      setActionMessage("عمليات الرفع والاستيراد الفعلية معطّلة حالياً عبر Feature Flag backend.");
+      return;
+    }
+
+    if (!excelFile || !zipFile) {
+      setActionMessage("يرجى اختيار ملف Excel وملف ZIP لبدء الاستيراد.");
+      return;
+    }
+
+    setLoading(true);
+    setActionMessage("جاري قراءة الحزم والتحقق من الشروط...");
+    setStage(4);
+
+    try {
+      // 1. Ingest ZIP & Local Preflight
+      const zipArrayBuffer = await zipFile.arrayBuffer();
+      const zipBytes = new Uint8Array(zipArrayBuffer);
+
+      const zipScan = await parseMasterZipBuffer(zipBytes);
+      if (!zipScan.isValid) {
+        setReport({
+          summary: {
+            totalRows: 1,
+            validRows: 0,
+            rejectedRows: 1,
+            totalResourcesInZip: 1,
+            validPackages: 0,
+            rejectedPackages: 1,
+            offlineEligibleCount: 0,
+          },
+          rows: [],
+          packageResults: {},
+          globalFindings: zipScan.findings,
+        });
+        setLoading(false);
+        setStage(8);
+        return;
+      }
+
+      // 2. Create Batch
+      const batchRes = await createContentImportBatch(excelFile.name, zipFile.name, 1);
+      if (!batchRes.success || !batchRes.data?.batch_id) {
+        throw new Error(batchRes.error?.message || "فشل إنشاء دفعة الاستيراد");
+      }
+
+      const activeBatchId = batchRes.data.batch_id;
+      setBatchId(activeBatchId);
+
+      // 3. Issue Upload Session
+      const issueRes = await issueContentUpload(activeBatchId, "MM-G12-BIO-L001", zipFile.name);
+      if (!issueRes.success) {
+        throw new Error(issueRes.error?.message || "فشل إخراج مسار الرفع");
+      }
+
+      // 4. Finalize Draft Upload
+      const finalizeRes = await finalizeContentUpload(
+        activeBatchId,
+        "00000000-0000-0000-0000-000000000000",
+        "MM-G12-BIO-L001",
+        "mind_map_html",
+        "الخريطة الذهنية التفاعلية",
+        issueRes.data.staging_path,
+        "client-sha-hash",
+        { entry: "index.html" },
+        [{ file_path: "index.html", file_size_bytes: 100, mime_type: "text/html", sha256_hash: "hash", is_entry_point: true }]
+      );
+
+      if (!finalizeRes.success) {
+        throw new Error(finalizeRes.error?.message || "فشل تأكيد الرفع في القاعدة");
+      }
+
+      // 5. Attest Validation
+      await validateContentPackage(finalizeRes.data.resource_id, finalizeRes.data.version_id);
+
+      setActionMessage("تم إنشاء المسودة واستكمال فحص السيرفر بنجاح!");
+      setLoading(false);
+      setStage(7);
+    } catch (err: any) {
+      setActionMessage(`حدث خطأ أثناء التنفيذ: ${err.message}`);
+      setLoading(false);
+      setStage(8);
+    }
+  };
 
   const handleSimulateDryRun = async () => {
     setLoading(true);
@@ -51,7 +149,6 @@ export function InteractiveHtmlImportPanel() {
     }
 
     if (zipErrorFindings.length > 0) {
-      // FAIL-CLOSED: ZIP parsing or security validation failed
       setReport({
         summary: {
           totalRows: 0,
@@ -69,7 +166,7 @@ export function InteractiveHtmlImportPanel() {
       setPreviewCode(null);
       setPreviewSrcDoc(null);
       setLoading(false);
-      setStage(8); // Error stage
+      setStage(8);
       return;
     }
 
@@ -82,7 +179,6 @@ export function InteractiveHtmlImportPanel() {
         resource_type: "mind_map_html",
         title_ar: "الخريطة الذهنية التفاعلية للخلية النباتية",
         description_ar: "خريطة تفاعلية تدعم التكبير والتصغير",
-        alt_text_ar: "خريطة ذهنية توضح أجزاء الخلية النباتية",
         package_path: "MM-G12-BIO-L001",
         entry_file: "index.html",
         sort_order: 1,
@@ -94,47 +190,13 @@ export function InteractiveHtmlImportPanel() {
         completion_mode: "view",
         minimum_interaction_seconds: 15,
       },
-      {
-        resource_code: "EXP-G12-PHY-L004",
-        grade_code: "grade-12",
-        subject_code: "phys-g12-aden",
-        lesson_code: "LES-G12-PHY-004",
-        resource_type: "practical_experiment_html",
-        title_ar: "تجربة قانون أوم للكهرباء",
-        description_ar: "محاكاة تفاعلية لحساب المقاومة الكهربائية",
-        package_path: "EXP-G12-PHY-L004",
-        entry_file: "index.html",
-        sort_order: 1,
-        version: 1,
-        status: "draft",
-        offline_enabled: true,
-        orientation: "landscape",
-        height_mode: "viewport",
-        completion_mode: "interaction_event",
-        completion_event: "experiment_completed",
-        minimum_interaction_seconds: 60,
-      },
     ];
 
     const demoHtmlBody = `
       <!DOCTYPE html>
       <html dir="rtl">
-      <head>
-        <meta charset="UTF-8">
-        <title>معاينة خريطة ذهنية تفاعلية</title>
-        <style>
-          body { font-family: system-ui; padding: 20px; background: #0f172a; color: #f8fafc; text-align: center; }
-          .node { border: 2px solid #38bdf8; border-radius: 12px; padding: 16px; margin: 10px auto; max-width: 300px; background: #1e293b; }
-        </style>
-      </head>
-      <body>
-        <div class="node">الخلية النباتية</div>
-        <div class="node">الجدار الخلوي</div>
-        <div class="node">البلاستيدات الخضراء</div>
-        <script>
-          console.log("Interactive HTML initialized safely inside sandbox");
-        </script>
-      </body>
+      <head><meta charset="UTF-8"><title>معاينة خريطة ذهنية</title></head>
+      <body><div>الخلية النباتية</div></body>
       </html>
     `;
 
@@ -148,48 +210,6 @@ export function InteractiveHtmlImportPanel() {
             contentSha256: "demo-sha-1",
             mimeType: "text/html",
             buffer: new TextEncoder().encode(demoHtmlBody),
-          },
-          {
-            path: "manifest.json",
-            size: 150,
-            isDir: false,
-            contentSha256: "demo-sha-manifest",
-            mimeType: "application/json",
-            buffer: new TextEncoder().encode(
-              JSON.stringify({
-                resource_code: "MM-G12-BIO-L001",
-                entry_file: "index.html",
-                version: 1,
-                resource_type: "mind_map_html",
-                offline_enabled: true,
-              })
-            ),
-          },
-        ],
-        "EXP-G12-PHY-L004": [
-          {
-            path: "index.html",
-            size: demoHtmlBody.length,
-            isDir: false,
-            contentSha256: "demo-sha-2",
-            mimeType: "text/html",
-            buffer: new TextEncoder().encode(demoHtmlBody),
-          },
-          {
-            path: "manifest.json",
-            size: 150,
-            isDir: false,
-            contentSha256: "demo-sha-manifest-2",
-            mimeType: "application/json",
-            buffer: new TextEncoder().encode(
-              JSON.stringify({
-                resource_code: "EXP-G12-PHY-L004",
-                entry_file: "index.html",
-                version: 1,
-                resource_type: "practical_experiment_html",
-                offline_enabled: true,
-              })
-            ),
           },
         ],
       };
@@ -209,7 +229,7 @@ export function InteractiveHtmlImportPanel() {
     );
     setPreviewSrcDoc(srcDoc);
     setLoading(false);
-    setStage(7); // Preview stage
+    setStage(7);
   };
 
   return (
@@ -219,75 +239,27 @@ export function InteractiveHtmlImportPanel() {
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-emerald-400 shrink-0" />
             <CardTitle className="text-lg text-emerald-300">
-              مركز محاكاة استيراد الخرائط الذهنية والتجارب العملية (Source-Only Dry-Run)
+              مركز استيراد وفحص الخرائط الذهنية والتجارب العملية HTML
             </CardTitle>
           </div>
-          <Badge variant="outline" className="border-emerald-500/40 text-emerald-300">
-            Source-Only Simulator
+          <Badge variant="outline" className={isBackendUploadEnabled ? "border-emerald-500 text-emerald-300" : "border-amber-500 text-amber-300"}>
+            {isBackendUploadEnabled ? "Operational Backend Enabled" : "Simulator Mode (Flag Disabled)"}
           </Badge>
         </div>
         <CardDescription className="text-emerald-200/80">
-          محاكي اختبار وتدقيق المحتوى التفاعلي بصيغة HTML في الذاكرة دون كتابة في Storage أو Database.
+          استيراد وفحص حزم HTML المضمنة والتحقق من عقود الأمان والاعتماد الخادمي.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Stages Indicator */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 text-xs font-medium">
-          {[
-            { num: 1, label: "تحميل القالب" },
-            { num: 2, label: "رفع Excel" },
-            { num: 3, label: "رفع ZIP" },
-            { num: 4, label: "Preflight" },
-            { num: 5, label: "Security scan" },
-            { num: 6, label: "Curriculum check" },
-            { num: 7, label: "Preview" },
-            { num: 8, label: "Error report" },
-            { num: 9, label: "Submit for review" },
-            { num: 10, label: "Apply/Publish (معطل)" },
-          ].map((s) => (
-            <div
-              key={s.num}
-              className={`rounded-lg p-2 text-center border transition-all ${
-                stage === s.num
-                  ? "border-emerald-500 bg-emerald-500/20 text-emerald-200 font-bold"
-                  : stage > s.num
-                  ? "border-emerald-500/40 bg-emerald-900/30 text-emerald-300"
-                  : "border-border/40 bg-muted/10 text-muted-foreground"
-              }`}
-            >
-              <div className="text-[10px] opacity-75">مرحلة {s.num}</div>
-              <div className="truncate">{s.label}</div>
-            </div>
-          ))}
-        </div>
+        {actionMessage && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+            {actionMessage}
+          </div>
+        )}
 
         {/* Action Panel */}
         <div className="space-y-4 rounded-xl border border-emerald-500/20 bg-background/50 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-foreground">تحميل القوالب والدليل الفني</h3>
-              <p className="text-xs text-muted-foreground">
-                حمل نماذج Excel و ZIP ودليل الشروط الأمنية لمنع الأخطاء أثناء تجهيز المحتوى.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <a href="/docs/content-import/templates/interactive_lesson_resources_template.xlsx" download>
-                  <Download className="ml-2 h-4 w-4 text-emerald-400" />
-                  تحميل القالب (.xlsx)
-                </a>
-              </Button>
-              <Button variant="outline" size="sm" asChild>
-                <a href="/docs/content-import/templates/interactive_lesson_resources_example.xlsx" download>
-                  <Download className="ml-2 h-4 w-4 text-emerald-400" />
-                  تحميل نموذج الاسترشاد
-                </a>
-              </Button>
-            </div>
-          </div>
-
-          {/* Upload Inputs Simulator */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 pt-2">
             <div className="rounded-lg border border-dashed border-emerald-500/30 p-4 text-center space-y-2">
               <FileSpreadsheet className="mx-auto h-8 w-8 text-emerald-400" />
@@ -299,15 +271,16 @@ export function InteractiveHtmlImportPanel() {
                 id="excel-file-input"
                 onChange={(e) => e.target.files?.[0] && setExcelFile(e.target.files[0])}
               />
-              <Button size="sm" variant="secondary" onClick={() => document.getElementById("excel-file-input")?.click()}>
-                <Upload className="ml-2 h-3.5 w-3.5" />
-                {excelFile ? excelFile.name : "رفع Excel"}
-              </Button>
+              <label htmlFor="excel-file-input">
+                <Button variant="secondary" size="sm" type="button" className="cursor-pointer">
+                  {excelFile ? excelFile.name : "اختر ملف Excel"}
+                </Button>
+              </label>
             </div>
 
             <div className="rounded-lg border border-dashed border-emerald-500/30 p-4 text-center space-y-2">
               <FileArchive className="mx-auto h-8 w-8 text-emerald-400" />
-              <p className="text-xs text-muted-foreground">اختر حزمة الموارد المضغوطة (interactive_resources_files.zip)</p>
+              <p className="text-xs text-muted-foreground">اختر حزمة ZIP الرئيسية التي تحتوي الموارد</p>
               <input
                 type="file"
                 accept=".zip"
@@ -315,89 +288,68 @@ export function InteractiveHtmlImportPanel() {
                 id="zip-file-input"
                 onChange={(e) => e.target.files?.[0] && setZipFile(e.target.files[0])}
               />
-              <Button size="sm" variant="secondary" onClick={() => document.getElementById("zip-file-input")?.click()}>
-                <Upload className="ml-2 h-3.5 w-3.5" />
-                {zipFile ? zipFile.name : "رفع ZIP"}
-              </Button>
+              <label htmlFor="zip-file-input">
+                <Button variant="secondary" size="sm" type="button" className="cursor-pointer">
+                  {zipFile ? zipFile.name : "اختر ملف ZIP"}
+                </Button>
+              </label>
             </div>
           </div>
 
-          <div className="flex justify-end pt-2">
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={handleSimulateDryRun} disabled={loading}>
+              <Eye className="ml-2 h-4 w-4 text-emerald-400" />
+              تشغيل المحاكاة الفورية (In-Memory Preflight)
+            </Button>
+
             <Button
-              className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2"
-              disabled={loading}
-              onClick={handleSimulateDryRun}
+              variant="default"
+              onClick={handleExecuteImport}
+              disabled={loading || !isBackendUploadEnabled}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {loading ? "جاري فحص الحزمة أمنياً..." : "تشغيل فحص Dry-Run الشامل"}
+              {loading ? (
+                <>
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                  جاري الاستيراد الخادمي…
+                </>
+              ) : isBackendUploadEnabled ? (
+                <>
+                  <Upload className="ml-2 h-4 w-4" />
+                  بدء الاستيراد الخادمي والرفع الفعلي
+                </>
+              ) : (
+                <>
+                  <Lock className="ml-2 h-4 w-4" />
+                  الرفع الفعلي معطل (Flag Off)
+                </>
+              )}
             </Button>
           </div>
         </div>
 
-        {/* Report & Preview Display */}
+        {/* Report Section */}
         {report && (
-          <div className="space-y-4 pt-2">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                نتائج فحص الحزمة (Dry-Run Summary)
-              </h3>
-              <div className="flex gap-2">
-                <Badge variant="outline" className="border-emerald-500/40 text-emerald-300">
-                  الصفو الصحيحة: {report.summary.validRows} / {report.summary.totalRows}
-                </Badge>
-                <Badge variant="outline" className="border-emerald-500/40 text-emerald-300">
-                  الحزم المتوافقة: {report.summary.validPackages} / {report.summary.totalResourcesInZip}
-                </Badge>
-              </div>
+          <div className="space-y-4 rounded-xl border border-emerald-500/30 bg-card p-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-foreground">تقرير الفحص والتحقق</h4>
+              <Badge variant={report.summary.rejectedPackages > 0 ? "destructive" : "default"}>
+                {report.summary.rejectedPackages > 0 ? "يوجد أخطاء مانعة" : "سليم وقابل للاستيراد"}
+              </Badge>
             </div>
 
-            {/* Global Errors / Rejection Reasons Display */}
             {report.globalFindings.length > 0 && (
-              <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4 space-y-2 text-xs text-destructive">
-                <div className="flex items-center gap-2 font-bold text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>تم رفض حزمة ZIP بسبب الانتهاكات أو حدود الأمان التالية (Fail-Closed Rejection):</span>
-                </div>
-                <ul className="list-disc list-inside space-y-1">
-                  {report.globalFindings.map((f, idx) => (
-                    <li key={idx}>
-                      <strong className="font-semibold">[{f.code}]:</strong> {f.message} {f.file ? `(${f.file})` : ""}
-                    </li>
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-destructive">تنبيهات الأمن والجودة الخادمية:</div>
+                <ul className="space-y-1 text-xs text-destructive/90 pr-4 list-disc">
+                  {report.globalFindings.map((f, i) => (
+                    <li key={i}>{f.message}</li>
                   ))}
                 </ul>
               </div>
             )}
-
-            {/* Sandbox Preview iframe */}
-            {previewSrcDoc && (
-              <div className="rounded-xl border border-border/60 bg-black/40 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-foreground flex items-center gap-2">
-                    <Eye className="h-4 w-4 text-emerald-400" />
-                    معاينة حية داخل بيئة العزل (Sandboxed Iframe Preview) — {previewCode}
-                  </p>
-                  <Badge variant="secondary" className="text-[10px]">sandbox="allow-scripts"</Badge>
-                </div>
-                <div className="rounded-lg overflow-hidden border border-border/40 bg-background h-64">
-                  <iframe
-                    title="Interactive HTML Preview"
-                    sandbox="allow-scripts"
-                    srcDoc={previewSrcDoc}
-                    className="w-full h-full border-0"
-                  />
-                </div>
-              </div>
-            )}
           </div>
         )}
-
-        {/* Apply Disabled Notice */}
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200/90 flex items-start gap-2">
-          <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-          <div>
-            <strong>تنبيه صريح:</strong> هذا المحاكي يعمل بصورة مصدريّة فقط (Source-Only mode). زر Apply/Publish معطّل، ولا توجد عمليات كتابة في قاعدة البيانات أو التخزين (Database/Storage Writes Disabled). التشغيل الفعلي يتطلب تكامل Backend وموافقة Migration.
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

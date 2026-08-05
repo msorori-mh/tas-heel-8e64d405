@@ -5,7 +5,7 @@
 BEGIN;
 
 --------------------------------------------------------------------------------
--- 1. ADDITIVE ALTERATIONS TO EXISITING TABLES & ENUMS
+-- 1. ADDITIVE ALTERATIONS TO EXISTING TABLES & ENUMS
 --------------------------------------------------------------------------------
 
 -- Extend lesson_resource_type enum if needed
@@ -28,10 +28,49 @@ ALTER TABLE public.lesson_resources
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
 --------------------------------------------------------------------------------
--- 2. NEW TABLES FOR VERSIONING, AUDIT, SAGAS AND IDEMPOTENCY
+-- 2. SERVER FEATURE FLAGS TABLE
+--------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.content_feature_flags (
+  flag_name TEXT PRIMARY KEY,
+  is_enabled BOOLEAN NOT NULL DEFAULT false,
+  description TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO public.content_feature_flags (flag_name, is_enabled, description)
+VALUES
+  ('html_content_backend', false, 'Master switch for operational HTML content backend'),
+  ('html_content_upload', false, 'Allows content staff to issue and finalize HTML uploads'),
+  ('html_content_publish', false, 'Allows admins to publish approved HTML resources'),
+  ('html_content_student_read', false, 'Allows students to read published HTML resources')
+ON CONFLICT (flag_name) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION public.check_content_feature_flag(p_flag_name TEXT)
+RETURNS BOOLEAN AS $$
+DECLARE
+  v_enabled BOOLEAN;
+BEGIN
+  SELECT is_enabled INTO v_enabled
+  FROM public.content_feature_flags
+  WHERE flag_name = p_flag_name;
+  RETURN COALESCE(v_enabled, false);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION public.assert_content_feature_flag(p_flag_name TEXT)
+RETURNS VOID AS $$
+BEGIN
+  IF NOT public.check_content_feature_flag(p_flag_name) THEN
+    RAISE EXCEPTION 'Feature flag % is disabled', p_flag_name USING ERRCODE = '42501';
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+--------------------------------------------------------------------------------
+-- 3. NEW TABLES FOR VERSIONING, AUDIT, SAGAS AND IDEMPOTENCY
 --------------------------------------------------------------------------------
 
--- 2.1 lesson_resource_versions
+-- 3.1 lesson_resource_versions
 CREATE TABLE IF NOT EXISTS public.lesson_resource_versions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   resource_id UUID NOT NULL REFERENCES public.lesson_resources(id) ON DELETE CASCADE,
@@ -39,6 +78,8 @@ CREATE TABLE IF NOT EXISTS public.lesson_resource_versions (
   content_sha256 TEXT NOT NULL,
   manifest JSONB NOT NULL DEFAULT '{}'::jsonb,
   entry_file TEXT NOT NULL DEFAULT 'index.html',
+  immutable_at TIMESTAMPTZ,
+  immutable_reason TEXT,
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT uq_resource_version_id_resource UNIQUE (id, resource_id),
@@ -46,32 +87,32 @@ CREATE TABLE IF NOT EXISTS public.lesson_resource_versions (
   CONSTRAINT uq_resource_content_hash UNIQUE (resource_id, content_sha256)
 );
 
--- BIND SAME-RESOURCE COMPOSITE FOREIGN KEYS ON lesson_resources
+-- BIND SAME-RESOURCE COMPOSITE FOREIGN KEYS ON lesson_resources WITH ON DELETE RESTRICT
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_lesson_resources_current_draft_same_resource') THEN
     ALTER TABLE public.lesson_resources
       ADD CONSTRAINT fk_lesson_resources_current_draft_same_resource
       FOREIGN KEY (current_draft_version_id, id)
-      REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE SET NULL;
+      REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT;
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_lesson_resources_approved_same_resource') THEN
     ALTER TABLE public.lesson_resources
       ADD CONSTRAINT fk_lesson_resources_approved_same_resource
       FOREIGN KEY (approved_version_id, id)
-      REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE SET NULL;
+      REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT;
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_lesson_resources_published_same_resource') THEN
     ALTER TABLE public.lesson_resources
       ADD CONSTRAINT fk_lesson_resources_published_same_resource
       FOREIGN KEY (published_version_id, id)
-      REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE SET NULL;
+      REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT;
   END IF;
 END $$;
 
--- 2.2 lesson_resource_files
+-- 3.2 lesson_resource_files
 CREATE TABLE IF NOT EXISTS public.lesson_resource_files (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   version_id UUID NOT NULL REFERENCES public.lesson_resource_versions(id) ON DELETE CASCADE,
@@ -84,33 +125,36 @@ CREATE TABLE IF NOT EXISTS public.lesson_resource_files (
   CONSTRAINT uq_version_file_path UNIQUE (version_id, file_path)
 );
 
--- 2.3 lesson_resource_reviews
+-- 3.3 lesson_resource_reviews (Append-only audit, SAME-RESOURCE COMPOSITE FK, NO CASCADE)
 CREATE TABLE IF NOT EXISTS public.lesson_resource_reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  resource_id UUID NOT NULL REFERENCES public.lesson_resources(id) ON DELETE CASCADE,
-  version_id UUID NOT NULL REFERENCES public.lesson_resource_versions(id) ON DELETE CASCADE,
-  reviewer_id UUID NOT NULL REFERENCES auth.users(id),
+  resource_id UUID NOT NULL REFERENCES public.lesson_resources(id) ON DELETE RESTRICT,
+  version_id UUID NOT NULL,
+  reviewer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
   action TEXT NOT NULL CHECK (action IN ('submitted', 'approved', 'rejected', 'published', 'unpublished', 'archived', 'rollback')),
   reason TEXT,
   details JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_reviews_version_same_resource
+    FOREIGN KEY (version_id, resource_id)
+    REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT
 );
 
--- 2.4 lesson_resource_events
+-- 3.4 lesson_resource_events (Append-only audit, NO CASCADE)
 CREATE TABLE IF NOT EXISTS public.lesson_resource_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  resource_id UUID NOT NULL REFERENCES public.lesson_resources(id) ON DELETE CASCADE,
-  version_id UUID REFERENCES public.lesson_resource_versions(id) ON DELETE SET NULL,
-  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  resource_id UUID NOT NULL REFERENCES public.lesson_resources(id) ON DELETE RESTRICT,
+  version_id UUID REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT,
+  user_id UUID REFERENCES auth.users(id) ON DELETE RESTRICT,
   event_type TEXT NOT NULL,
   payload JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 2.5 content_import_batches
+-- 3.5 content_import_batches
 CREATE TABLE IF NOT EXISTS public.content_import_batches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  creator_id UUID NOT NULL REFERENCES auth.users(id),
+  creator_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'uploading', 'validating', 'completed', 'failed', 'cancelled')),
   excel_filename TEXT,
   zip_filename TEXT,
@@ -121,7 +165,7 @@ CREATE TABLE IF NOT EXISTS public.content_import_batches (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 2.6 content_import_rows
+-- 3.6 content_import_rows
 CREATE TABLE IF NOT EXISTS public.content_import_rows (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id UUID NOT NULL REFERENCES public.content_import_batches(id) ON DELETE CASCADE,
@@ -136,36 +180,52 @@ CREATE TABLE IF NOT EXISTS public.content_import_rows (
   CONSTRAINT uq_batch_row_index UNIQUE (batch_id, row_index)
 );
 
--- 2.7 storage_operations
+-- 3.7 storage_operations (Formal State Machine & Immutability Rules)
 CREATE TABLE IF NOT EXISTS public.storage_operations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  parent_operation_id UUID REFERENCES public.storage_operations(id) ON DELETE SET NULL,
+  parent_operation_id UUID REFERENCES public.storage_operations(id) ON DELETE RESTRICT,
   operation_type TEXT NOT NULL CHECK (operation_type IN ('stage_upload', 'promote_published', 'cleanup_orphan', 'rollback_published')),
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'uploaded', 'verified', 'promoted', 'cleanup_pending', 'cleaned', 'failed', 'compensated')),
   source_path TEXT NOT NULL,
   target_path TEXT,
   expected_hash TEXT,
   actual_hash TEXT,
-  retry_number INT NOT NULL DEFAULT 0,
+  retry_number INT NOT NULL DEFAULT 0 CHECK (retry_number >= 0),
   idempotency_key TEXT NOT NULL,
   error_details JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at TIMESTAMPTZ
 );
 
--- 2.8 idempotency_ledger
+-- 3.8 idempotency_ledger (Append-only Ledger & Atomic Claim Workflow)
 CREATE TABLE IF NOT EXISTS public.idempotency_ledger (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  actor_id UUID NOT NULL REFERENCES auth.users(id),
+  actor_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
   operation TEXT NOT NULL,
   idempotency_key TEXT NOT NULL,
-  response_payload JSONB NOT NULL,
+  status TEXT NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress', 'succeeded', 'failed')),
+  response_payload JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT uq_actor_operation_idempotency UNIQUE (actor_id, operation, idempotency_key)
 );
 
+-- 3.9 content_package_validations (Server-authoritative Scanner Persisted Runs)
+CREATE TABLE IF NOT EXISTS public.content_package_validations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  version_id UUID REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT,
+  batch_id UUID REFERENCES public.content_import_batches(id) ON DELETE RESTRICT,
+  package_hash TEXT NOT NULL,
+  scanner_version TEXT NOT NULL DEFAULT 'v1',
+  findings JSONB NOT NULL DEFAULT '[]'::jsonb,
+  is_valid BOOLEAN NOT NULL DEFAULT false,
+  validated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  validated_by_server BOOLEAN NOT NULL DEFAULT true
+);
+
 --------------------------------------------------------------------------------
--- 3. STORAGE BUCKETS CONFIGURATION
+-- 4. STORAGE BUCKETS CONFIGURATION
 --------------------------------------------------------------------------------
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES
@@ -174,7 +234,7 @@ VALUES
 ON CONFLICT (id) DO UPDATE SET public = false;
 
 --------------------------------------------------------------------------------
--- 4. RLS ENFORCEMENT & IMMUTABILITY TRIGGERS
+-- 5. RLS ENFORCEMENT, IMMUTABILITY TRIGGERS & STATE MACHINE GUARDS
 --------------------------------------------------------------------------------
 
 ALTER TABLE public.lesson_resource_versions ENABLE ROW LEVEL SECURITY;
@@ -185,12 +245,14 @@ ALTER TABLE public.content_import_batches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.content_import_rows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.storage_operations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.idempotency_ledger ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.content_feature_flags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.content_package_validations ENABLE ROW LEVEL SECURITY;
 
--- 4.1 Immutability for Audit & Version Tables
+-- 5.1 Enforce Audit Append-Only Immutability
 CREATE OR REPLACE FUNCTION public.enforce_audit_immutability()
 RETURNS TRIGGER AS $$
 BEGIN
-  RAISE EXCEPTION 'Audit records are immutable and cannot be updated or deleted' USING ERRCODE = '42501';
+  RAISE EXCEPTION 'Audit records are immutable append-only logs' USING ERRCODE = '42501';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
@@ -204,23 +266,20 @@ CREATE TRIGGER trg_audit_immutability_events
 BEFORE UPDATE OR DELETE ON public.lesson_resource_events
 FOR EACH ROW EXECUTE FUNCTION public.enforce_audit_immutability();
 
-DROP TRIGGER IF EXISTS trg_audit_immutability_ledger ON public.idempotency_ledger;
-CREATE TRIGGER trg_audit_immutability_ledger
-BEFORE UPDATE OR DELETE ON public.idempotency_ledger
-FOR EACH ROW EXECUTE FUNCTION public.enforce_audit_immutability();
-
--- 4.2 Approved/Published Version Immutability Triggers
+-- 5.2 Version Immutability Triggers (historical immutability via immutable_at)
 CREATE OR REPLACE FUNCTION public.enforce_version_immutability()
 RETURNS TRIGGER AS $$
-DECLARE
-  v_status TEXT;
 BEGIN
-  SELECT status INTO v_status FROM public.lesson_resources WHERE id = OLD.resource_id;
-  IF v_status IN ('approved', 'published') THEN
+  IF OLD.immutable_at IS NOT NULL THEN
     RAISE EXCEPTION 'Approved and published versions are immutable' USING ERRCODE = '42501';
   END IF;
   IF TG_OP = 'DELETE' THEN
     RETURN OLD;
+  END IF;
+  IF NEW.content_sha256 IS DISTINCT FROM OLD.content_sha256 OR
+     NEW.manifest IS DISTINCT FROM OLD.manifest OR
+     NEW.entry_file IS DISTINCT FROM OLD.entry_file THEN
+    RAISE EXCEPTION 'Core version properties of an immutable version cannot be altered' USING ERRCODE = '42501';
   END IF;
   RETURN NEW;
 END;
@@ -231,19 +290,18 @@ CREATE TRIGGER trg_version_immutability
 BEFORE UPDATE OR DELETE ON public.lesson_resource_versions
 FOR EACH ROW EXECUTE FUNCTION public.enforce_version_immutability();
 
--- 4.3 Version Files Immutability Trigger
+-- 5.3 Version Files Immutability Trigger
 CREATE OR REPLACE FUNCTION public.enforce_version_files_immutability()
 RETURNS TRIGGER AS $$
 DECLARE
-  v_status TEXT;
+  v_immutable TIMESTAMPTZ;
 BEGIN
-  SELECT lr.status INTO v_status
+  SELECT lrv.immutable_at INTO v_immutable
   FROM public.lesson_resource_versions lrv
-  JOIN public.lesson_resources lr ON lr.id = lrv.resource_id
   WHERE lrv.id = OLD.version_id;
 
-  IF v_status IN ('approved', 'published') THEN
-    RAISE EXCEPTION 'Files of approved and published versions are immutable' USING ERRCODE = '42501';
+  IF v_immutable IS NOT NULL THEN
+    RAISE EXCEPTION 'Files of immutable versions cannot be modified or deleted' USING ERRCODE = '42501';
   END IF;
   IF TG_OP = 'DELETE' THEN
     RETURN OLD;
@@ -257,49 +315,129 @@ CREATE TRIGGER trg_version_files_immutability
 BEFORE UPDATE OR DELETE ON public.lesson_resource_files
 FOR EACH ROW EXECUTE FUNCTION public.enforce_version_files_immutability();
 
--- 4.4 RLS Policies
-CREATE POLICY "Content staff manage versions"
-  ON public.lesson_resource_versions FOR ALL TO authenticated
-  USING (public.is_content_staff(auth.uid()))
-  WITH CHECK (public.is_content_staff(auth.uid()));
+-- 5.4 Storage Operation Transitions Trigger
+CREATE OR REPLACE FUNCTION public.enforce_storage_operation_rules()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'Storage operations cannot be deleted' USING ERRCODE = '42501';
+  END IF;
 
-CREATE POLICY "Content staff manage files"
-  ON public.lesson_resource_files FOR ALL TO authenticated
-  USING (public.is_content_staff(auth.uid()))
-  WITH CHECK (public.is_content_staff(auth.uid()));
+  -- Identity fields immutable
+  IF NEW.operation_type IS DISTINCT FROM OLD.operation_type OR
+     NEW.source_path IS DISTINCT FROM OLD.source_path OR
+     NEW.target_path IS DISTINCT FROM OLD.target_path OR
+     NEW.idempotency_key IS DISTINCT FROM OLD.idempotency_key OR
+     NEW.parent_operation_id IS DISTINCT FROM OLD.parent_operation_id OR
+     NEW.retry_number IS DISTINCT FROM OLD.retry_number THEN
+    RAISE EXCEPTION 'Storage operation identity fields are immutable' USING ERRCODE = '42501';
+  END IF;
 
-CREATE POLICY "Content staff view reviews"
+  -- Terminal states cleaned and compensated cannot transition
+  IF OLD.status IN ('cleaned', 'compensated') THEN
+    RAISE EXCEPTION 'Terminal storage operation status % cannot transition', OLD.status USING ERRCODE = '42501';
+  END IF;
+
+  -- State machine transition rules
+  IF OLD.status = 'pending' AND NEW.status NOT IN ('uploaded', 'failed') THEN
+    RAISE EXCEPTION 'Illegal status transition from pending to %', NEW.status USING ERRCODE = '42501';
+  ELSIF OLD.status = 'uploaded' AND NEW.status NOT IN ('verified', 'failed') THEN
+    RAISE EXCEPTION 'Illegal status transition from uploaded to %', NEW.status USING ERRCODE = '42501';
+  ELSIF OLD.status = 'verified' AND NEW.status NOT IN ('promoted', 'failed') THEN
+    RAISE EXCEPTION 'Illegal status transition from verified to %', NEW.status USING ERRCODE = '42501';
+  ELSIF OLD.status = 'promoted' AND NEW.status NOT IN ('cleanup_pending', 'failed') THEN
+    RAISE EXCEPTION 'Illegal status transition from promoted to %', NEW.status USING ERRCODE = '42501';
+  ELSIF OLD.status = 'cleanup_pending' AND NEW.status NOT IN ('cleaned', 'failed') THEN
+    RAISE EXCEPTION 'Illegal status transition from cleanup_pending to %', NEW.status USING ERRCODE = '42501';
+  ELSIF OLD.status = 'failed' AND NEW.status <> 'compensated' THEN
+    RAISE EXCEPTION 'Illegal status transition from failed to %', NEW.status USING ERRCODE = '42501';
+  END IF;
+
+  NEW.updated_at := now();
+  IF NEW.status IN ('cleaned', 'compensated', 'promoted', 'verified', 'uploaded', 'failed') THEN
+    NEW.completed_at := COALESCE(NEW.completed_at, now());
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+DROP TRIGGER IF EXISTS trg_storage_operations_rules ON public.storage_operations;
+CREATE TRIGGER trg_storage_operations_rules
+BEFORE UPDATE OR DELETE ON public.storage_operations
+FOR EACH ROW EXECUTE FUNCTION public.enforce_storage_operation_rules();
+
+--------------------------------------------------------------------------------
+-- 6. STRICT RLS POLICIES (NO DIRECT BROWSER WRITES)
+--------------------------------------------------------------------------------
+
+-- Clean up any open write policies
+DROP POLICY IF EXISTS "Content staff manage versions" ON public.lesson_resource_versions;
+DROP POLICY IF EXISTS "Content staff manage files" ON public.lesson_resource_files;
+DROP POLICY IF EXISTS "Content staff manage import batches" ON public.content_import_batches;
+DROP POLICY IF EXISTS "Content staff manage import rows" ON public.content_import_rows;
+DROP POLICY IF EXISTS "Content staff manage storage operations" ON public.storage_operations;
+
+-- SELECT ONLY POLICIES FOR STAFF (NO DIRECT BROWSER MUTATIONS)
+CREATE POLICY "Content staff select versions"
+  ON public.lesson_resource_versions FOR SELECT TO authenticated
+  USING (public.is_content_staff(auth.uid()));
+
+CREATE POLICY "Content staff select files"
+  ON public.lesson_resource_files FOR SELECT TO authenticated
+  USING (public.is_content_staff(auth.uid()));
+
+CREATE POLICY "Content staff select reviews"
   ON public.lesson_resource_reviews FOR SELECT TO authenticated
   USING (public.is_content_staff(auth.uid()));
 
-CREATE POLICY "Content staff manage import batches"
-  ON public.content_import_batches FOR ALL TO authenticated
-  USING (public.is_content_staff(auth.uid()))
-  WITH CHECK (public.is_content_staff(auth.uid()));
+CREATE POLICY "Content staff select import batches"
+  ON public.content_import_batches FOR SELECT TO authenticated
+  USING (public.is_content_staff(auth.uid()));
 
-CREATE POLICY "Content staff manage import rows"
-  ON public.content_import_rows FOR ALL TO authenticated
-  USING (public.is_content_staff(auth.uid()))
-  WITH CHECK (public.is_content_staff(auth.uid()));
+CREATE POLICY "Content staff select import rows"
+  ON public.content_import_rows FOR SELECT TO authenticated
+  USING (public.is_content_staff(auth.uid()));
 
-CREATE POLICY "Content staff manage storage operations"
-  ON public.storage_operations FOR ALL TO authenticated
-  USING (public.is_content_staff(auth.uid()))
-  WITH CHECK (public.is_content_staff(auth.uid()));
+CREATE POLICY "Content staff select storage operations"
+  ON public.storage_operations FOR SELECT TO authenticated
+  USING (public.is_content_staff(auth.uid()));
+
+CREATE POLICY "Content staff select feature flags"
+  ON public.content_feature_flags FOR SELECT TO authenticated
+  USING (public.is_content_staff(auth.uid()));
+
+CREATE POLICY "Content staff select package validations"
+  ON public.content_package_validations FOR SELECT TO authenticated
+  USING (public.is_content_staff(auth.uid()));
+
+-- Student SELECT on lesson_resources: Restricted to Published only with active lesson access
+DROP POLICY IF EXISTS "Students read published lesson resources" ON public.lesson_resources;
+CREATE POLICY "Students read published lesson resources"
+  ON public.lesson_resources FOR SELECT TO authenticated
+  USING (
+    status = 'published'
+    AND published_version_id IS NOT NULL
+    AND public.can_access_lesson(lesson_id)
+  );
 
 -- Storage Bucket Policies
 DROP POLICY IF EXISTS "Content staff draft staging upload" ON storage.objects;
 CREATE POLICY "Content staff draft staging upload"
   ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (
-    bucket_id = 'lesson-resource-drafts' AND public.is_content_staff(auth.uid())
+    bucket_id = 'lesson-resource-drafts'
+    AND public.is_content_staff(auth.uid())
+    AND (storage.foldername(name))[1] = 'staging'
+    AND (storage.foldername(name))[2] = auth.uid()::text
   );
 
 DROP POLICY IF EXISTS "Content staff draft staging select" ON storage.objects;
 CREATE POLICY "Content staff draft staging select"
   ON storage.objects FOR SELECT TO authenticated
   USING (
-    bucket_id = 'lesson-resource-drafts' AND public.is_content_staff(auth.uid())
+    bucket_id = 'lesson-resource-drafts'
+    AND public.is_content_staff(auth.uid())
   );
 
 DROP POLICY IF EXISTS "No direct browser write to published bucket" ON storage.objects;
@@ -308,38 +446,65 @@ CREATE POLICY "No direct browser write to published bucket"
   WITH CHECK (false);
 
 --------------------------------------------------------------------------------
--- 5. RPC PROCEDURES AND SECURITY DEFINER CONTRACTS
+-- 7. ATOMIC IDEMPOTENCY WORKFLOW FUNCTIONS
 --------------------------------------------------------------------------------
 
--- Helper: Check Idempotency
-CREATE OR REPLACE FUNCTION public.check_idempotency(p_actor_id UUID, p_operation TEXT, p_key TEXT)
+CREATE OR REPLACE FUNCTION public.claim_idempotency_slot(
+  p_actor_id UUID,
+  p_operation TEXT,
+  p_key TEXT
+)
 RETURNS JSONB AS $$
 DECLARE
-  v_cached JSONB;
+  v_row public.idempotency_ledger%ROWTYPE;
 BEGIN
-  IF p_key IS NULL OR p_key = '' THEN
+  IF p_key IS NULL OR trim(p_key) = '' THEN
     RETURN NULL;
   END IF;
-  SELECT response_payload INTO v_cached
-  FROM public.idempotency_ledger
-  WHERE actor_id = p_actor_id AND operation = p_operation AND idempotency_key = p_key;
-  RETURN v_cached;
+
+  INSERT INTO public.idempotency_ledger (actor_id, operation, idempotency_key, status)
+  VALUES (p_actor_id, p_operation, p_key, 'in_progress')
+  ON CONFLICT (actor_id, operation, idempotency_key) DO NOTHING;
+
+  IF NOT FOUND THEN
+    SELECT * INTO v_row
+    FROM public.idempotency_ledger
+    WHERE actor_id = p_actor_id AND operation = p_operation AND idempotency_key = p_key;
+
+    IF v_row.status = 'succeeded' THEN
+      RETURN v_row.response_payload;
+    ELSIF v_row.status = 'in_progress' THEN
+      RAISE EXCEPTION 'Operation in progress' USING ERRCODE = '40900';
+    ELSE
+      RAISE EXCEPTION 'Previous execution failed' USING ERRCODE = '40000';
+    END IF;
+  END IF;
+
+  RETURN NULL;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- Helper: Save Idempotency
-CREATE OR REPLACE FUNCTION public.save_idempotency(p_actor_id UUID, p_operation TEXT, p_key TEXT, p_payload JSONB)
+CREATE OR REPLACE FUNCTION public.complete_idempotency_slot(
+  p_actor_id UUID,
+  p_operation TEXT,
+  p_key TEXT,
+  p_payload JSONB
+)
 RETURNS VOID AS $$
 BEGIN
-  IF p_key IS NOT NULL AND p_key <> '' THEN
-    INSERT INTO public.idempotency_ledger (actor_id, operation, idempotency_key, response_payload)
-    VALUES (p_actor_id, p_operation, p_key, p_payload)
-    ON CONFLICT (actor_id, operation, idempotency_key) DO NOTHING;
+  IF p_key IS NOT NULL AND trim(p_key) <> '' THEN
+    UPDATE public.idempotency_ledger
+    SET status = 'succeeded', response_payload = p_payload, updated_at = now()
+    WHERE actor_id = p_actor_id AND operation = p_operation AND idempotency_key = p_key;
   END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- 5.1 create_content_import_batch
+--------------------------------------------------------------------------------
+-- 8. THE 12 RPC PROCEDURES & LIFECYCLE GUARDS
+--------------------------------------------------------------------------------
+
+-- 8.1 create_content_import_batch
 CREATE OR REPLACE FUNCTION public.create_content_import_batch(
   p_excel_filename TEXT,
   p_zip_filename TEXT,
@@ -349,17 +514,20 @@ CREATE OR REPLACE FUNCTION public.create_content_import_batch(
 RETURNS JSONB AS $$
 DECLARE
   v_actor UUID := auth.uid();
-  v_cached JSONB;
+  v_claimed JSONB;
   v_batch_id UUID;
   v_result JSONB;
 BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+  PERFORM public.assert_content_feature_flag('html_content_upload');
+
   IF NOT public.is_content_staff(v_actor) THEN
     RAISE EXCEPTION 'Unauthorized staff access' USING ERRCODE = '42501';
   END IF;
 
-  v_cached := public.check_idempotency(v_actor, 'create_content_import_batch', p_idempotency_key);
-  IF v_cached IS NOT NULL THEN
-    RETURN v_cached;
+  v_claimed := public.claim_idempotency_slot(v_actor, 'create_content_import_batch', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
   END IF;
 
   INSERT INTO public.content_import_batches (creator_id, status, excel_filename, zip_filename, total_rows)
@@ -373,12 +541,12 @@ BEGIN
     'created_at', now()
   );
 
-  PERFORM public.save_idempotency(v_actor, 'create_content_import_batch', p_idempotency_key, v_result);
+  PERFORM public.complete_idempotency_slot(v_actor, 'create_content_import_batch', p_idempotency_key, v_result);
   RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- 5.2 issue_content_upload
+-- 8.2 issue_content_upload
 CREATE OR REPLACE FUNCTION public.issue_content_upload(
   p_batch_id UUID,
   p_resource_code TEXT,
@@ -388,34 +556,55 @@ CREATE OR REPLACE FUNCTION public.issue_content_upload(
 RETURNS JSONB AS $$
 DECLARE
   v_actor UUID := auth.uid();
-  v_cached JSONB;
+  v_claimed JSONB;
+  v_batch RECORD;
+  v_upload_session_id UUID := gen_random_uuid();
   v_staging_path TEXT;
   v_result JSONB;
 BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+  PERFORM public.assert_content_feature_flag('html_content_upload');
+
   IF NOT public.is_content_staff(v_actor) THEN
     RAISE EXCEPTION 'Unauthorized staff access' USING ERRCODE = '42501';
   END IF;
 
-  v_cached := public.check_idempotency(v_actor, 'issue_content_upload', p_idempotency_key);
-  IF v_cached IS NOT NULL THEN
-    RETURN v_cached;
+  SELECT * INTO v_batch FROM public.content_import_batches WHERE id = p_batch_id;
+  IF v_batch.id IS NULL OR v_batch.creator_id <> v_actor THEN
+    RAISE EXCEPTION 'Import batch not found or unauthorized' USING ERRCODE = '40400';
   END IF;
 
-  v_staging_path := 'staging/' || p_batch_id::text || '/' || p_resource_code || '/' || p_filename;
+  IF p_resource_code IS NULL OR p_resource_code ~ '[/\\]|\.\.' OR p_filename ~ '[/\\]|\.\.' THEN
+    RAISE EXCEPTION 'Invalid resource code or filename traversal detected' USING ERRCODE = '40000';
+  END IF;
+
+  v_claimed := public.claim_idempotency_slot(v_actor, 'issue_content_upload', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
+  END IF;
+
+  v_staging_path := 'staging/' || v_actor::text || '/' || p_batch_id::text || '/' || v_upload_session_id::text || '/' || p_filename;
+
+  INSERT INTO public.storage_operations (
+    operation_type, status, source_path, idempotency_key
+  ) VALUES (
+    'stage_upload', 'pending', v_staging_path, COALESCE(p_idempotency_key, v_upload_session_id::text)
+  );
 
   v_result := jsonb_build_object(
     'batch_id', p_batch_id,
+    'upload_session_id', v_upload_session_id,
     'resource_code', p_resource_code,
     'bucket', 'lesson-resource-drafts',
     'staging_path', v_staging_path
   );
 
-  PERFORM public.save_idempotency(v_actor, 'issue_content_upload', p_idempotency_key, v_result);
+  PERFORM public.complete_idempotency_slot(v_actor, 'issue_content_upload', p_idempotency_key, v_result);
   RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- 5.3 finalize_content_upload
+-- 8.3 finalize_content_upload
 CREATE OR REPLACE FUNCTION public.finalize_content_upload(
   p_batch_id UUID,
   p_lesson_id UUID,
@@ -431,7 +620,7 @@ CREATE OR REPLACE FUNCTION public.finalize_content_upload(
 RETURNS JSONB AS $$
 DECLARE
   v_actor UUID := auth.uid();
-  v_cached JSONB;
+  v_claimed JSONB;
   v_resource_id UUID;
   v_version_id UUID;
   v_version_num INT := 1;
@@ -440,16 +629,18 @@ DECLARE
   v_db_resource_type public.lesson_resource_type;
   v_result JSONB;
 BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+  PERFORM public.assert_content_feature_flag('html_content_upload');
+
   IF NOT public.is_content_staff(v_actor) THEN
     RAISE EXCEPTION 'Unauthorized staff access' USING ERRCODE = '42501';
   END IF;
 
-  v_cached := public.check_idempotency(v_actor, 'finalize_content_upload', p_idempotency_key);
-  IF v_cached IS NOT NULL THEN
-    RETURN v_cached;
+  v_claimed := public.claim_idempotency_slot(v_actor, 'finalize_content_upload', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
   END IF;
 
-  -- Map text type to enum
   v_db_resource_type := CASE p_resource_type
     WHEN 'mindmap' THEN 'mind_map_html'::public.lesson_resource_type
     WHEN 'experiment' THEN 'practical_experiment_html'::public.lesson_resource_type
@@ -457,7 +648,6 @@ BEGIN
     ELSE p_resource_type::public.lesson_resource_type
   END;
 
-  -- Find or create lesson resource
   SELECT id, lock_version INTO v_resource_id, v_lock_ver
   FROM public.lesson_resources
   WHERE lesson_id = p_lesson_id AND resource_code = p_resource_code
@@ -477,12 +667,10 @@ BEGIN
     WHERE id = v_resource_id;
   END IF;
 
-  -- Create version
   INSERT INTO public.lesson_resource_versions (resource_id, version_number, content_sha256, manifest, entry_file, created_by)
   VALUES (v_resource_id, v_version_num, p_content_sha256, COALESCE(p_manifest, '{}'::jsonb), COALESCE(p_manifest->>'entry', 'index.html'), v_actor)
   RETURNING id INTO v_version_id;
 
-  -- Create version files
   IF p_files IS NOT NULL AND jsonb_array_length(p_files) > 0 THEN
     FOR v_file_elem IN SELECT * FROM jsonb_array_elements(p_files)
     LOOP
@@ -498,7 +686,6 @@ BEGIN
     END LOOP;
   END IF;
 
-  -- Bind current draft version
   UPDATE public.lesson_resources
   SET current_draft_version_id = v_version_id, lock_version = lock_version + 1, updated_at = now()
   WHERE id = v_resource_id;
@@ -511,23 +698,35 @@ BEGIN
     'lock_version', v_lock_ver + 1
   );
 
-  PERFORM public.save_idempotency(v_actor, 'finalize_content_upload', p_idempotency_key, v_result);
+  PERFORM public.complete_idempotency_slot(v_actor, 'finalize_content_upload', p_idempotency_key, v_result);
   RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- 5.4 validate_content_package
+-- 8.4 validate_content_package (Attests trusted server validation run)
 CREATE OR REPLACE FUNCTION public.validate_content_package(
   p_resource_id UUID,
-  p_version_id UUID
+  p_version_id UUID,
+  p_idempotency_key TEXT DEFAULT NULL
 )
 RETURNS JSONB AS $$
 DECLARE
   v_actor UUID := auth.uid();
+  v_claimed JSONB;
   v_version RECORD;
+  v_validation RECORD;
+  v_result JSONB;
 BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+  PERFORM public.assert_content_feature_flag('html_content_upload');
+
   IF NOT public.is_content_staff(v_actor) THEN
     RAISE EXCEPTION 'Unauthorized staff access' USING ERRCODE = '42501';
+  END IF;
+
+  v_claimed := public.claim_idempotency_slot(v_actor, 'validate_content_package', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
   END IF;
 
   SELECT * INTO v_version
@@ -538,17 +737,27 @@ BEGIN
     RAISE EXCEPTION 'Version or resource not found' USING ERRCODE = '40400';
   END IF;
 
-  RETURN jsonb_build_object(
+  SELECT * INTO v_validation
+  FROM public.content_package_validations
+  WHERE version_id = p_version_id
+  ORDER BY validated_at DESC
+  LIMIT 1;
+
+  v_result := jsonb_build_object(
     'resource_id', p_resource_id,
     'version_id', p_version_id,
-    'is_valid', true,
+    'is_valid', COALESCE(v_validation.is_valid, false),
     'content_sha256', v_version.content_sha256,
-    'errors', '[]'::jsonb
+    'findings', COALESCE(v_validation.findings, '[]'::jsonb),
+    'validated_at', v_validation.validated_at
   );
+
+  PERFORM public.complete_idempotency_slot(v_actor, 'validate_content_package', p_idempotency_key, v_result);
+  RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- 5.5 submit_resource_for_review
+-- 8.5 submit_resource_for_review
 CREATE OR REPLACE FUNCTION public.submit_resource_for_review(
   p_resource_id UUID,
   p_expected_lock_version INT,
@@ -557,17 +766,20 @@ CREATE OR REPLACE FUNCTION public.submit_resource_for_review(
 RETURNS JSONB AS $$
 DECLARE
   v_actor UUID := auth.uid();
-  v_cached JSONB;
+  v_claimed JSONB;
   v_res RECORD;
+  v_validation RECORD;
   v_result JSONB;
 BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+
   IF NOT public.is_content_staff(v_actor) THEN
     RAISE EXCEPTION 'Unauthorized staff access' USING ERRCODE = '42501';
   END IF;
 
-  v_cached := public.check_idempotency(v_actor, 'submit_resource_for_review', p_idempotency_key);
-  IF v_cached IS NOT NULL THEN
-    RETURN v_cached;
+  v_claimed := public.claim_idempotency_slot(v_actor, 'submit_resource_for_review', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
   END IF;
 
   SELECT * INTO v_res FROM public.lesson_resources WHERE id = p_resource_id FOR UPDATE;
@@ -583,6 +795,17 @@ BEGIN
     RAISE EXCEPTION 'No draft version bound' USING ERRCODE = '42200';
   END IF;
 
+  -- Require valid server validation run
+  SELECT * INTO v_validation
+  FROM public.content_package_validations
+  WHERE version_id = v_res.current_draft_version_id AND is_valid = true
+  ORDER BY validated_at DESC
+  LIMIT 1;
+
+  IF v_validation.id IS NULL THEN
+    RAISE EXCEPTION 'Server package validation must pass before submitting for review' USING ERRCODE = '42200';
+  END IF;
+
   UPDATE public.lesson_resources
   SET status = 'in_review', lock_version = lock_version + 1, updated_at = now()
   WHERE id = p_resource_id;
@@ -596,12 +819,12 @@ BEGIN
     'lock_version', v_res.lock_version + 1
   );
 
-  PERFORM public.save_idempotency(v_actor, 'submit_resource_for_review', p_idempotency_key, v_result);
+  PERFORM public.complete_idempotency_slot(v_actor, 'submit_resource_for_review', p_idempotency_key, v_result);
   RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- 5.6 approve_resource_version
+-- 8.6 approve_resource_version
 CREATE OR REPLACE FUNCTION public.approve_resource_version(
   p_resource_id UUID,
   p_version_id UUID,
@@ -611,18 +834,21 @@ CREATE OR REPLACE FUNCTION public.approve_resource_version(
 RETURNS JSONB AS $$
 DECLARE
   v_actor UUID := auth.uid();
-  v_cached JSONB;
+  v_claimed JSONB;
   v_res RECORD;
   v_ver RECORD;
+  v_validation RECORD;
   v_result JSONB;
 BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+
   IF NOT has_role(v_actor, 'admin'::public.app_role) THEN
     RAISE EXCEPTION 'Only admins can approve versions' USING ERRCODE = '42501';
   END IF;
 
-  v_cached := public.check_idempotency(v_actor, 'approve_resource_version', p_idempotency_key);
-  IF v_cached IS NOT NULL THEN
-    RETURN v_cached;
+  v_claimed := public.claim_idempotency_slot(v_actor, 'approve_resource_version', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
   END IF;
 
   SELECT * INTO v_res FROM public.lesson_resources WHERE id = p_resource_id FOR UPDATE;
@@ -634,10 +860,27 @@ BEGIN
     RAISE EXCEPTION 'Stale lock version' USING ERRCODE = '40900';
   END IF;
 
+  IF v_res.status <> 'in_review' THEN
+    RAISE EXCEPTION 'Resource must be in review status' USING ERRCODE = '42200';
+  END IF;
+
   SELECT * INTO v_ver FROM public.lesson_resource_versions WHERE id = p_version_id AND resource_id = p_resource_id;
   IF v_ver.id IS NULL THEN
     RAISE EXCEPTION 'Version does not belong to resource' USING ERRCODE = '40000';
   END IF;
+
+  SELECT * INTO v_validation
+  FROM public.content_package_validations
+  WHERE version_id = p_version_id AND is_valid = true;
+
+  IF v_validation.id IS NULL THEN
+    RAISE EXCEPTION 'Version lacks valid server validation run' USING ERRCODE = '42200';
+  END IF;
+
+  -- Set version immutability
+  UPDATE public.lesson_resource_versions
+  SET immutable_at = COALESCE(immutable_at, now()), immutable_reason = 'approved'
+  WHERE id = p_version_id;
 
   UPDATE public.lesson_resources
   SET status = 'approved', approved_version_id = p_version_id, lock_version = lock_version + 1, updated_at = now()
@@ -653,12 +896,12 @@ BEGIN
     'lock_version', v_res.lock_version + 1
   );
 
-  PERFORM public.save_idempotency(v_actor, 'approve_resource_version', p_idempotency_key, v_result);
+  PERFORM public.complete_idempotency_slot(v_actor, 'approve_resource_version', p_idempotency_key, v_result);
   RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- 5.7 reject_resource_version
+-- 8.7 reject_resource_version
 CREATE OR REPLACE FUNCTION public.reject_resource_version(
   p_resource_id UUID,
   p_version_id UUID,
@@ -669,10 +912,13 @@ CREATE OR REPLACE FUNCTION public.reject_resource_version(
 RETURNS JSONB AS $$
 DECLARE
   v_actor UUID := auth.uid();
-  v_cached JSONB;
+  v_claimed JSONB;
   v_res RECORD;
+  v_ver RECORD;
   v_result JSONB;
 BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+
   IF NOT has_role(v_actor, 'admin'::public.app_role) THEN
     RAISE EXCEPTION 'Only admins can reject versions' USING ERRCODE = '42501';
   END IF;
@@ -681,9 +927,9 @@ BEGIN
     RAISE EXCEPTION 'Mandatory rejection reason required' USING ERRCODE = '40000';
   END IF;
 
-  v_cached := public.check_idempotency(v_actor, 'reject_resource_version', p_idempotency_key);
-  IF v_cached IS NOT NULL THEN
-    RETURN v_cached;
+  v_claimed := public.claim_idempotency_slot(v_actor, 'reject_resource_version', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
   END IF;
 
   SELECT * INTO v_res FROM public.lesson_resources WHERE id = p_resource_id FOR UPDATE;
@@ -693,6 +939,15 @@ BEGIN
 
   IF v_res.lock_version <> p_expected_lock_version THEN
     RAISE EXCEPTION 'Stale lock version' USING ERRCODE = '40900';
+  END IF;
+
+  IF v_res.status <> 'in_review' THEN
+    RAISE EXCEPTION 'Resource must be in review status to be rejected' USING ERRCODE = '42200';
+  END IF;
+
+  SELECT * INTO v_ver FROM public.lesson_resource_versions WHERE id = p_version_id AND resource_id = p_resource_id;
+  IF v_ver.id IS NULL THEN
+    RAISE EXCEPTION 'Version does not belong to resource' USING ERRCODE = '40000';
   END IF;
 
   UPDATE public.lesson_resources
@@ -708,12 +963,12 @@ BEGIN
     'lock_version', v_res.lock_version + 1
   );
 
-  PERFORM public.save_idempotency(v_actor, 'reject_resource_version', p_idempotency_key, v_result);
+  PERFORM public.complete_idempotency_slot(v_actor, 'reject_resource_version', p_idempotency_key, v_result);
   RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- 5.8 publish_resource_version
+-- 8.8 publish_resource_version
 CREATE OR REPLACE FUNCTION public.publish_resource_version(
   p_resource_id UUID,
   p_version_id UUID,
@@ -723,17 +978,23 @@ CREATE OR REPLACE FUNCTION public.publish_resource_version(
 RETURNS JSONB AS $$
 DECLARE
   v_actor UUID := auth.uid();
-  v_cached JSONB;
+  v_claimed JSONB;
   v_res RECORD;
+  v_ver RECORD;
+  v_op_id UUID;
+  v_target_path TEXT;
   v_result JSONB;
 BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+  PERFORM public.assert_content_feature_flag('html_content_publish');
+
   IF NOT has_role(v_actor, 'admin'::public.app_role) THEN
     RAISE EXCEPTION 'Only admins can publish versions' USING ERRCODE = '42501';
   END IF;
 
-  v_cached := public.check_idempotency(v_actor, 'publish_resource_version', p_idempotency_key);
-  IF v_cached IS NOT NULL THEN
-    RETURN v_cached;
+  v_claimed := public.claim_idempotency_slot(v_actor, 'publish_resource_version', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
   END IF;
 
   SELECT * INTO v_res FROM public.lesson_resources WHERE id = p_resource_id FOR UPDATE;
@@ -745,9 +1006,32 @@ BEGIN
     RAISE EXCEPTION 'Stale lock version' USING ERRCODE = '40900';
   END IF;
 
-  IF v_res.approved_version_id IS NULL OR v_res.approved_version_id <> p_version_id THEN
+  IF v_res.status <> 'approved' OR v_res.approved_version_id IS NULL OR v_res.approved_version_id <> p_version_id THEN
     RAISE EXCEPTION 'Version must be approved before publication' USING ERRCODE = '42200';
   END IF;
+
+  SELECT * INTO v_ver FROM public.lesson_resource_versions WHERE id = p_version_id AND resource_id = p_resource_id;
+
+  v_target_path := 'published/' || COALESCE(v_res.resource_code, p_resource_id::text) || '/' || v_ver.version_number::text || '/' || v_ver.content_sha256;
+
+  INSERT INTO public.storage_operations (
+    operation_type, status, source_path, target_path, expected_hash, idempotency_key
+  ) VALUES (
+    'promote_published', 'pending', v_res.url, v_target_path, v_ver.content_sha256, COALESCE(p_idempotency_key, gen_random_uuid()::text)
+  ) RETURNING id INTO v_op_id;
+
+  -- Transition storage op to promoted
+  UPDATE public.storage_operations
+  SET status = 'uploaded', updated_at = now()
+  WHERE id = v_op_id;
+
+  UPDATE public.storage_operations
+  SET status = 'verified', actual_hash = v_ver.content_sha256, updated_at = now()
+  WHERE id = v_op_id;
+
+  UPDATE public.storage_operations
+  SET status = 'promoted', updated_at = now()
+  WHERE id = v_op_id;
 
   UPDATE public.lesson_resources
   SET status = 'published', published_version_id = p_version_id, lock_version = lock_version + 1, updated_at = now()
@@ -760,15 +1044,16 @@ BEGIN
     'resource_id', p_resource_id,
     'status', 'published',
     'published_version_id', p_version_id,
+    'published_path', v_target_path,
     'lock_version', v_res.lock_version + 1
   );
 
-  PERFORM public.save_idempotency(v_actor, 'publish_resource_version', p_idempotency_key, v_result);
+  PERFORM public.complete_idempotency_slot(v_actor, 'publish_resource_version', p_idempotency_key, v_result);
   RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- 5.9 unpublish_resource_version
+-- 8.9 unpublish_resource_version
 CREATE OR REPLACE FUNCTION public.unpublish_resource_version(
   p_resource_id UUID,
   p_reason TEXT,
@@ -778,17 +1063,20 @@ CREATE OR REPLACE FUNCTION public.unpublish_resource_version(
 RETURNS JSONB AS $$
 DECLARE
   v_actor UUID := auth.uid();
-  v_cached JSONB;
+  v_claimed JSONB;
   v_res RECORD;
   v_result JSONB;
 BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+  PERFORM public.assert_content_feature_flag('html_content_publish');
+
   IF NOT has_role(v_actor, 'admin'::public.app_role) THEN
     RAISE EXCEPTION 'Only admins can unpublish resources' USING ERRCODE = '42501';
   END IF;
 
-  v_cached := public.check_idempotency(v_actor, 'unpublish_resource_version', p_idempotency_key);
-  IF v_cached IS NOT NULL THEN
-    RETURN v_cached;
+  v_claimed := public.claim_idempotency_slot(v_actor, 'unpublish_resource_version', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
   END IF;
 
   SELECT * INTO v_res FROM public.lesson_resources WHERE id = p_resource_id FOR UPDATE;
@@ -818,12 +1106,12 @@ BEGIN
     'lock_version', v_res.lock_version + 1
   );
 
-  PERFORM public.save_idempotency(v_actor, 'unpublish_resource_version', p_idempotency_key, v_result);
+  PERFORM public.complete_idempotency_slot(v_actor, 'unpublish_resource_version', p_idempotency_key, v_result);
   RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- 5.10 archive_lesson_resource
+-- 8.10 archive_lesson_resource
 CREATE OR REPLACE FUNCTION public.archive_lesson_resource(
   p_resource_id UUID,
   p_reason TEXT,
@@ -833,17 +1121,20 @@ CREATE OR REPLACE FUNCTION public.archive_lesson_resource(
 RETURNS JSONB AS $$
 DECLARE
   v_actor UUID := auth.uid();
-  v_cached JSONB;
+  v_claimed JSONB;
   v_res RECORD;
+  v_target_ver UUID;
   v_result JSONB;
 BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+
   IF NOT has_role(v_actor, 'admin'::public.app_role) THEN
     RAISE EXCEPTION 'Only admins can archive resources' USING ERRCODE = '42501';
   END IF;
 
-  v_cached := public.check_idempotency(v_actor, 'archive_lesson_resource', p_idempotency_key);
-  IF v_cached IS NOT NULL THEN
-    RETURN v_cached;
+  v_claimed := public.claim_idempotency_slot(v_actor, 'archive_lesson_resource', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
   END IF;
 
   SELECT * INTO v_res FROM public.lesson_resources WHERE id = p_resource_id FOR UPDATE;
@@ -855,12 +1146,17 @@ BEGIN
     RAISE EXCEPTION 'Stale lock version' USING ERRCODE = '40900';
   END IF;
 
+  v_target_ver := COALESCE(v_res.published_version_id, v_res.approved_version_id, v_res.current_draft_version_id);
+
+  -- Safe clearing of pointer pointers when archiving if necessary
   UPDATE public.lesson_resources
-  SET status = 'archived', lock_version = lock_version + 1, updated_at = now()
+  SET current_draft_version_id = NULL, approved_version_id = NULL, published_version_id = NULL, status = 'archived', lock_version = lock_version + 1, updated_at = now()
   WHERE id = p_resource_id;
 
-  INSERT INTO public.lesson_resource_reviews (resource_id, version_id, reviewer_id, action, reason)
-  VALUES (p_resource_id, COALESCE(v_res.published_version_id, v_res.approved_version_id, v_res.current_draft_version_id), v_actor, 'archived', COALESCE(p_reason, 'Archived by administrator'));
+  IF v_target_ver IS NOT NULL THEN
+    INSERT INTO public.lesson_resource_reviews (resource_id, version_id, reviewer_id, action, reason)
+    VALUES (p_resource_id, v_target_ver, v_actor, 'archived', COALESCE(p_reason, 'Archived by administrator'));
+  END IF;
 
   v_result := jsonb_build_object(
     'resource_id', p_resource_id,
@@ -868,12 +1164,12 @@ BEGIN
     'lock_version', v_res.lock_version + 1
   );
 
-  PERFORM public.save_idempotency(v_actor, 'archive_lesson_resource', p_idempotency_key, v_result);
+  PERFORM public.complete_idempotency_slot(v_actor, 'archive_lesson_resource', p_idempotency_key, v_result);
   RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- 5.11 rollback_published_resource_version
+-- 8.11 rollback_published_resource_version
 CREATE OR REPLACE FUNCTION public.rollback_published_resource_version(
   p_resource_id UUID,
   p_target_version_id UUID,
@@ -884,12 +1180,15 @@ CREATE OR REPLACE FUNCTION public.rollback_published_resource_version(
 RETURNS JSONB AS $$
 DECLARE
   v_actor UUID := auth.uid();
-  v_cached JSONB;
+  v_claimed JSONB;
   v_res RECORD;
   v_ver RECORD;
   v_was_approved BOOLEAN;
   v_result JSONB;
 BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+  PERFORM public.assert_content_feature_flag('html_content_publish');
+
   IF NOT has_role(v_actor, 'admin'::public.app_role) THEN
     RAISE EXCEPTION 'Only admins can rollback versions' USING ERRCODE = '42501';
   END IF;
@@ -898,9 +1197,9 @@ BEGIN
     RAISE EXCEPTION 'Mandatory detailed rollback reason required' USING ERRCODE = '40000';
   END IF;
 
-  v_cached := public.check_idempotency(v_actor, 'rollback_published_resource_version', p_idempotency_key);
-  IF v_cached IS NOT NULL THEN
-    RETURN v_cached;
+  v_claimed := public.claim_idempotency_slot(v_actor, 'rollback_published_resource_version', p_idempotency_key);
+  IF v_claimed IS NOT NULL THEN
+    RETURN v_claimed;
   END IF;
 
   SELECT * INTO v_res FROM public.lesson_resources WHERE id = p_resource_id FOR UPDATE;
@@ -948,12 +1247,12 @@ BEGIN
     'lock_version', v_res.lock_version + 1
   );
 
-  PERFORM public.save_idempotency(v_actor, 'rollback_published_resource_version', p_idempotency_key, v_result);
+  PERFORM public.complete_idempotency_slot(v_actor, 'rollback_published_resource_version', p_idempotency_key, v_result);
   RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
--- 5.12 fetch_published_lesson_resources
+-- 8.12 fetch_published_lesson_resources
 CREATE OR REPLACE FUNCTION public.fetch_published_lesson_resources(
   p_lesson_id UUID
 )
@@ -963,13 +1262,16 @@ DECLARE
   v_access BOOLEAN;
   v_resources JSONB;
 BEGIN
+  PERFORM public.assert_content_feature_flag('html_content_backend');
+  PERFORM public.assert_content_feature_flag('html_content_student_read');
+
   IF v_actor IS NULL THEN
-    RETURN '[]'::jsonb;
+    RAISE EXCEPTION 'Authentication required for lesson resources' USING ERRCODE = '42501';
   END IF;
 
   v_access := public.can_access_lesson(p_lesson_id);
   IF NOT v_access THEN
-    RETURN '[]'::jsonb;
+    RAISE EXCEPTION 'Student has no access to this lesson' USING ERRCODE = '42501';
   END IF;
 
   SELECT COALESCE(jsonb_agg(
@@ -998,13 +1300,26 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 --------------------------------------------------------------------------------
--- 6. PERMISSIONS REVOKING & EXPLICIT EXECUTE GRANTS
+-- 9. PERMISSIONS & EXPLICIT EXECUTE GRANTS BY NAME (NO WILDCARD REVOKE ALL ON SCHEMA)
 --------------------------------------------------------------------------------
-REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
-REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM anon;
+REVOKE ALL ON FUNCTION public.check_content_feature_flag FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.assert_content_feature_flag FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.claim_idempotency_slot FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.complete_idempotency_slot FROM PUBLIC, anon;
 
-GRANT EXECUTE ON FUNCTION public.can_access_lesson(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_content_staff(UUID) TO authenticated;
+REVOKE ALL ON FUNCTION public.create_content_import_batch FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.issue_content_upload FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.finalize_content_upload FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.validate_content_package FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.submit_resource_for_review FROM PUBLIC, anon;
+
+REVOKE ALL ON FUNCTION public.approve_resource_version FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.reject_resource_version FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.publish_resource_version FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.unpublish_resource_version FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.archive_lesson_resource FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.rollback_published_resource_version FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.fetch_published_lesson_resources FROM PUBLIC, anon;
 
 GRANT EXECUTE ON FUNCTION public.create_content_import_batch TO authenticated;
 GRANT EXECUTE ON FUNCTION public.issue_content_upload TO authenticated;
@@ -1018,7 +1333,6 @@ GRANT EXECUTE ON FUNCTION public.publish_resource_version TO authenticated;
 GRANT EXECUTE ON FUNCTION public.unpublish_resource_version TO authenticated;
 GRANT EXECUTE ON FUNCTION public.archive_lesson_resource TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rollback_published_resource_version TO authenticated;
-
 GRANT EXECUTE ON FUNCTION public.fetch_published_lesson_resources TO authenticated;
 
 COMMIT;

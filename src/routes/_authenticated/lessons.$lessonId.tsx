@@ -32,6 +32,8 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 import { InteractiveResourceViewer, InteractiveResourceItem } from "@/components/lessons/InteractiveResourceViewer";
+import { CONTENT_FEATURE_FLAGS } from "@/lib/content-onboarding/feature-flags";
+import { fetchPublishedLessonResources } from "@/lib/content-onboarding/rpc-client";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
   component: LessonPage,
@@ -258,6 +260,20 @@ function LessonPage() {
     enabled: !!lesson && accessible === true && canAccessEnhancements,
     queryKey: ["lesson-resources", lessonId],
     queryFn: async () => {
+      if (CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_BACKEND && CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_STUDENT_READ) {
+        const rpcRes = await fetchPublishedLessonResources(lessonId);
+        if (rpcRes.success && Array.isArray(rpcRes.data) && rpcRes.data.length > 0) {
+          return rpcRes.data.map((r: any) => ({
+            id: r.id,
+            resource_type: r.resource_type === "mind_map_html" ? "mindmap" : r.resource_type === "practical_experiment_html" ? "experiment" : r.resource_type,
+            title: r.title,
+            url: r.url || `/api/signed-resource/${r.published_version_id}`,
+            description: r.description,
+            sort_order: r.sort_order ?? 1,
+          })) as ResourceRow[];
+        }
+      }
+
       const { data, error } = await supabase
         .from("lesson_resources")
         .select("id,resource_type,title,url,description,sort_order")

@@ -29,11 +29,11 @@ export async function createContentImportBatch(
     };
   }
 
-  const { data, error } = await (supabase.rpc as any)("create_content_import_batch", {
+  const { data, error } = await supabase.rpc("create_content_import_batch", {
     p_excel_filename: excelFilename,
     p_zip_filename: zipFilename,
     p_total_rows: totalRows,
-    p_idempotency_key: idempotencyKey ?? null,
+    p_idempotency_key: idempotencyKey ?? undefined,
   });
 
   if (error) {
@@ -58,11 +58,11 @@ export async function issueContentUpload(
     };
   }
 
-  const { data, error } = await (supabase.rpc as any)("issue_content_upload", {
+  const { data, error } = await supabase.rpc("issue_content_upload", {
     p_batch_id: batchId,
     p_resource_code: resourceCode,
     p_filename: filename,
-    p_idempotency_key: idempotencyKey ?? null,
+    p_idempotency_key: idempotencyKey ?? undefined,
   });
 
   if (error) {
@@ -93,7 +93,7 @@ export async function finalizeContentUpload(
     };
   }
 
-  const { data, error } = await (supabase.rpc as any)("finalize_content_upload", {
+  const { data, error } = await supabase.rpc("finalize_content_upload", {
     p_batch_id: batchId,
     p_lesson_id: lessonId,
     p_resource_code: resourceCode,
@@ -103,7 +103,34 @@ export async function finalizeContentUpload(
     p_content_sha256: contentSha256,
     p_manifest: manifest,
     p_files: files,
-    p_idempotency_key: idempotencyKey ?? null,
+    p_idempotency_key: idempotencyKey ?? undefined,
+  });
+
+  if (error) {
+    return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
+  }
+  return { success: true, data };
+}
+
+/**
+ * Attests validation of an uploaded package via server scanner results.
+ */
+export async function validateContentPackage(
+  resourceId: string,
+  versionId: string,
+  idempotencyKey?: string
+): Promise<RPCResponse> {
+  if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_UPLOAD) {
+    return {
+      success: false,
+      error: { code: "FEATURE_FLAG_DISABLED", message: "فحص الحزم معطّل حالياً." },
+    };
+  }
+
+  const { data, error } = await supabase.rpc("validate_content_package", {
+    p_resource_id: resourceId,
+    p_version_id: versionId,
+    p_idempotency_key: idempotencyKey ?? undefined,
   });
 
   if (error) {
@@ -127,10 +154,10 @@ export async function submitResourceForReview(
     };
   }
 
-  const { data, error } = await (supabase.rpc as any)("submit_resource_for_review", {
+  const { data, error } = await supabase.rpc("submit_resource_for_review", {
     p_resource_id: resourceId,
     p_expected_lock_version: expectedLockVersion,
-    p_idempotency_key: idempotencyKey ?? null,
+    p_idempotency_key: idempotencyKey ?? undefined,
   });
 
   if (error) {
@@ -155,11 +182,11 @@ export async function approveResourceVersion(
     };
   }
 
-  const { data, error } = await (supabase.rpc as any)("approve_resource_version", {
+  const { data, error } = await supabase.rpc("approve_resource_version", {
     p_resource_id: resourceId,
     p_version_id: versionId,
     p_expected_lock_version: expectedLockVersion,
-    p_idempotency_key: idempotencyKey ?? null,
+    p_idempotency_key: idempotencyKey ?? undefined,
   });
 
   if (error) {
@@ -185,12 +212,12 @@ export async function rejectResourceVersion(
     };
   }
 
-  const { data, error } = await (supabase.rpc as any)("reject_resource_version", {
+  const { data, error } = await supabase.rpc("reject_resource_version", {
     p_resource_id: resourceId,
     p_version_id: versionId,
     p_reason: reason,
     p_expected_lock_version: expectedLockVersion,
-    p_idempotency_key: idempotencyKey ?? null,
+    p_idempotency_key: idempotencyKey ?? undefined,
   });
 
   if (error) {
@@ -215,11 +242,11 @@ export async function publishResourceVersion(
     };
   }
 
-  const { data, error } = await (supabase.rpc as any)("publish_resource_version", {
+  const { data, error } = await supabase.rpc("publish_resource_version", {
     p_resource_id: resourceId,
     p_version_id: versionId,
     p_expected_lock_version: expectedLockVersion,
-    p_idempotency_key: idempotencyKey ?? null,
+    p_idempotency_key: idempotencyKey ?? undefined,
   });
 
   if (error) {
@@ -244,11 +271,11 @@ export async function unpublishResourceVersion(
     };
   }
 
-  const { data, error } = await (supabase.rpc as any)("unpublish_resource_version", {
+  const { data, error } = await supabase.rpc("unpublish_resource_version", {
     p_resource_id: resourceId,
     p_reason: reason,
     p_expected_lock_version: expectedLockVersion,
-    p_idempotency_key: idempotencyKey ?? null,
+    p_idempotency_key: idempotencyKey ?? undefined,
   });
 
   if (error) {
@@ -273,11 +300,11 @@ export async function archiveLessonResource(
     };
   }
 
-  const { data, error } = await (supabase.rpc as any)("archive_lesson_resource", {
+  const { data, error } = await supabase.rpc("archive_lesson_resource", {
     p_resource_id: resourceId,
     p_reason: reason,
     p_expected_lock_version: expectedLockVersion,
-    p_idempotency_key: idempotencyKey ?? null,
+    p_idempotency_key: idempotencyKey ?? undefined,
   });
 
   if (error) {
@@ -303,12 +330,12 @@ export async function rollbackPublishedResourceVersion(
     };
   }
 
-  const { data, error } = await (supabase.rpc as any)("rollback_published_resource_version", {
+  const { data, error } = await supabase.rpc("rollback_published_resource_version", {
     p_resource_id: resourceId,
     p_target_version_id: targetVersionId,
     p_expected_lock_version: expectedLockVersion,
     p_reason: reason,
-    p_idempotency_key: idempotencyKey ?? null,
+    p_idempotency_key: idempotencyKey ?? undefined,
   });
 
   if (error) {
@@ -318,22 +345,25 @@ export async function rollbackPublishedResourceVersion(
 }
 
 /**
- * Fetches published resources for a student. Fail-closed when ENABLE_HTML_CONTENT_STUDENT_READ is false.
+ * Fetches published resources for a student. Fail-closed error when ENABLE_HTML_CONTENT_STUDENT_READ is false.
  */
 export async function fetchPublishedLessonResources(lessonId: string): Promise<RPCResponse<any[]>> {
   if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_STUDENT_READ) {
     return {
-      success: true,
-      data: [],
+      success: false,
+      error: {
+        code: "FEATURE_FLAG_DISABLED",
+        message: "قراءة المحتوى المعزز للطالب معطّلة حالياً عبر Feature Flag.",
+      },
     };
   }
 
-  const { data, error } = await (supabase.rpc as any)("fetch_published_lesson_resources", {
+  const { data, error } = await supabase.rpc("fetch_published_lesson_resources", {
     p_lesson_id: lessonId,
   });
 
   if (error) {
-    return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message }, data: [] };
+    return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
   return { success: true, data: Array.isArray(data) ? data : [] };
 }

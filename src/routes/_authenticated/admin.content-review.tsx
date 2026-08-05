@@ -1,12 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CheckCircle2, XCircle, Eye, ShieldCheck, Play, Sparkles, Filter, Lock } from "lucide-react";
+import { CheckCircle2, XCircle, Eye, ShieldCheck, Play, Sparkles, Filter, Lock, Loader2, RefreshCw } from "lucide-react";
 import { InteractiveResourceViewer, InteractiveResourceItem } from "@/components/lessons/InteractiveResourceViewer";
+import { CONTENT_FEATURE_FLAGS } from "@/lib/content-onboarding/feature-flags";
+import {
+  approveResourceVersion,
+  rejectResourceVersion,
+  publishResourceVersion,
+  unpublishResourceVersion,
+  rollbackPublishedResourceVersion,
+} from "@/lib/content-onboarding/rpc-client";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/admin/content-review")({
   component: AdminContentReviewPage,
@@ -17,6 +26,10 @@ interface ReviewItem extends InteractiveResourceItem {
   grade_name: string;
   subject_name: string;
   lesson_title: string;
+  lock_version: number;
+  current_draft_version_id?: string;
+  approved_version_id?: string;
+  published_version_id?: string;
   rejection_reason?: string;
   security_findings_count: number;
 }
@@ -28,17 +41,15 @@ const DEMO_REVIEW_ITEMS: ReviewItem[] = [
     resource_type: "mind_map_html",
     title_ar: "الخريطة الذهنية التفاعلية للخلية النباتية",
     description_ar: "خريطة تفاعلية تدعم التكبير والتصغير لتركيب الخلية",
-    alt_text_ar: "خريطة توضح أجزاء الخلية النباتية للجدار والبلاستيدات",
     version: 1,
+    lock_version: 1,
     entry_file: "index.html",
     html_content: `
       <!DOCTYPE html>
       <html dir="rtl">
       <head><title>الخلية النباتية</title><style>body{font-family:sans-serif;background:#0f172a;color:#fff;text-align:center;padding:20px;}.box{border:2px solid #38bdf8;padding:15px;margin:10px auto;max-width:250px;border-radius:10px;background:#1e293b;}</style></head>
       <body>
-        <div class="box">الخلية النباتية</div>
-        <div class="box">الجدار الخلوي</div>
-        <div class="box">البلاستيدات الخضراء</div>
+        <div class="box">الخلية النباتية (معاينة تجريبية)</div>
       </body>
       </html>
     `,
@@ -49,40 +60,82 @@ const DEMO_REVIEW_ITEMS: ReviewItem[] = [
     lesson_title: "تركيب الخلية النباتية ووظائف المكونات",
     security_findings_count: 0,
   },
-  {
-    id: "rev-02",
-    resource_code: "EXP-G12-PHY-L004",
-    resource_type: "practical_experiment_html",
-    title_ar: "تجربة قانون أوم للكهرباء",
-    description_ar: "محاكاة تفاعلية لحساب المقاومة وفرق الجهد",
-    version: 1,
-    entry_file: "index.html",
-    html_content: `
-      <!DOCTYPE html>
-      <html dir="rtl">
-      <head><title>قانون أوم</title><style>body{font-family:sans-serif;background:#022c22;color:#fff;text-align:center;padding:20px;}.exp{border:2px solid #34d399;padding:15px;margin:10px auto;max-width:300px;border-radius:10px;background:#064e3b;}</style></head>
-      <body>
-        <div class="exp">تجربة قانون أوم — Ohm's Law</div>
-        <p>V = I × R</p>
-      </body>
-      </html>
-    `,
-    offline_enabled: true,
-    status: "in_review",
-    grade_name: "الصف الثاني عشر",
-    subject_name: "الفيزياء",
-    lesson_title: "الدوائر الكهربائية وقانون أوم",
-    security_findings_count: 0,
-  },
 ];
 
 function AdminContentReviewPage() {
-  const { loading, enabled } = useRequireAdminSection("content");
-  const [items, setItems] = useState<ReviewItem[]>(DEMO_REVIEW_ITEMS);
-  const [selectedId, setSelectedId] = useState<string>("rev-01");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const { loading: accessLoading, enabled: adminEnabled } = useRequireAdminSection("content");
+  const [items, setItems] = useState<ReviewItem[]>([]);
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  if (loading) {
+  const isBackendActive = CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_BACKEND;
+
+  const fetchPendingReviews = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+
+    if (!isBackendActive) {
+      setItems(DEMO_REVIEW_ITEMS);
+      setSelectedId(DEMO_REVIEW_ITEMS[0].id);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("lesson_resources")
+        .select(`
+          id, resource_code, resource_type, title, description, status, lock_version,
+          current_draft_version_id, approved_version_id, published_version_id,
+          lessons ( title )
+        `)
+        .in("status", ["in_review", "approved", "published", "rejected"]);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const mapped: ReviewItem[] = (data || []).map((r: any) => ({
+        id: r.id,
+        resource_code: r.resource_code || r.id,
+        resource_type: r.resource_type,
+        title_ar: r.title,
+        description_ar: r.description || "",
+        version: 1,
+        lock_version: r.lock_version || 1,
+        entry_file: "index.html",
+        html_content: "<!-- Signed iframe content loaded on demand -->",
+        offline_enabled: true,
+        status: r.status,
+        grade_name: "الصف العام",
+        subject_name: "المادة العامة",
+        lesson_title: r.lessons?.title || "درس عام",
+        security_findings_count: 0,
+        current_draft_version_id: r.current_draft_version_id,
+        approved_version_id: r.approved_version_id,
+        published_version_id: r.published_version_id,
+      }));
+
+      setItems(mapped);
+      if (mapped.length > 0) {
+        setSelectedId(mapped[0].id);
+      }
+    } catch (err: any) {
+      setErrorMsg(`تعذر تحميل قائمة المراجعة الخادمية: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (adminEnabled) {
+      fetchPendingReviews();
+    }
+  }, [adminEnabled, isBackendActive]);
+
+  if (accessLoading) {
     return (
       <AdminLayout>
         <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground">
@@ -92,186 +145,204 @@ function AdminContentReviewPage() {
     );
   }
 
-  if (!enabled) {
+  if (!adminEnabled) {
     return null;
   }
 
   const selectedItem = items.find((i) => i.id === selectedId) || items[0];
 
-  const handleUpdateStatus = (id: string, newStatus: ReviewItem["status"]) => {
-    setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
-    );
+  const handleApprove = async () => {
+    if (!selectedItem) return;
+    if (!isBackendActive) {
+      setErrorMsg("الاعتماد الفعلي معطل عبر Feature Flag backend.");
+      return;
+    }
+
+    setActionLoading(true);
+    setErrorMsg(null);
+
+    const versionId = selectedItem.current_draft_version_id || selectedItem.approved_version_id;
+    if (!versionId) {
+      setErrorMsg("لا توجد نسخة مرتبطة بهذا المورد للاعتماد.");
+      setActionLoading(false);
+      return;
+    }
+
+    const res = await approveResourceVersion(selectedItem.id, versionId, selectedItem.lock_version);
+    if (!res.success) {
+      setErrorMsg(`فشل اعتماد المورد: ${res.error?.message} (تحقق من CAS lock_version)`);
+    } else {
+      await fetchPendingReviews();
+    }
+    setActionLoading(false);
   };
 
-  const filteredItems = items.filter(
-    (i) => statusFilter === "all" || i.status === statusFilter
-  );
+  const handleReject = async () => {
+    if (!selectedItem) return;
+    if (!isBackendActive) {
+      setErrorMsg("الرفض الفعلي معطل عبر Feature Flag backend.");
+      return;
+    }
+
+    setActionLoading(true);
+    setErrorMsg(null);
+
+    const versionId = selectedItem.current_draft_version_id || selectedItem.approved_version_id;
+    if (!versionId) {
+      setErrorMsg("لا توجد نسخة مرتبطة بهذا المورد للرفض.");
+      setActionLoading(false);
+      return;
+    }
+
+    const res = await rejectResourceVersion(selectedItem.id, versionId, "رفض بواسطة مسؤول المحتوى الخادمي", selectedItem.lock_version);
+    if (!res.success) {
+      setErrorMsg(`فشل رفض المورد: ${res.error?.message}`);
+    } else {
+      await fetchPendingReviews();
+    }
+    setActionLoading(false);
+  };
+
+  const handlePublish = async () => {
+    if (!selectedItem) return;
+    if (!CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_PUBLISH) {
+      setErrorMsg("النشر الفعلي معطل عبر Feature Flag backend.");
+      return;
+    }
+
+    setActionLoading(true);
+    setErrorMsg(null);
+
+    const versionId = selectedItem.approved_version_id;
+    if (!versionId) {
+      setErrorMsg("يجب اعتماد النسخة أولاً قبل النشر.");
+      setActionLoading(false);
+      return;
+    }
+
+    const res = await publishResourceVersion(selectedItem.id, versionId, selectedItem.lock_version);
+    if (!res.success) {
+      setErrorMsg(`فشل نشر المورد: ${res.error?.message}`);
+    } else {
+      await fetchPendingReviews();
+    }
+    setActionLoading(false);
+  };
 
   return (
     <AdminLayout>
-      <div className="mx-auto max-w-6xl space-y-6" dir="rtl">
-        {/* Persistent Simulation Warning Banner */}
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs font-semibold text-amber-200 flex items-center gap-2">
-          <Lock className="h-5 w-5 text-amber-400 shrink-0" />
-          <span>هذه الواجهة محاكاة فقط. التشغيل الفعلي يحتاج Backend وStorage وMigration معتمدة.</span>
+      <div className="space-y-6" dir="rtl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-foreground">طابور مراجعة واعتماد محتوى HTML التفاعلي</h1>
+            <p className="text-xs text-muted-foreground">
+              مراجعة الخرائط الذهنية والتجارب التفاعلية قبل النشر الفعلي في قائمة الدروس.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={isBackendActive ? "default" : "secondary"}>
+              {isBackendActive ? "Backend Operational Mode" : "Simulator UI Mode"}
+            </Badge>
+            <Button variant="outline" size="sm" onClick={fetchPendingReviews} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         </div>
 
-        <header className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-emerald-400 shrink-0" />
-            <h1 className="text-2xl font-bold text-foreground">مركز محاكاة مراجعة المحتوى (Source-Only Preview)</h1>
-            <Badge variant="outline" className="border-amber-500/40 text-amber-300">
-              Source-Only Simulator
-            </Badge>
+        {errorMsg && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
+            {errorMsg}
           </div>
-          <p className="text-sm text-muted-foreground">
-            معاينة واختبار الخرائط الذهنية والتجارب العملية داخل بيئة العزل (Source-Only preview) — لا حفظ في Database، لا نشر فعلي للطلاب، والحالات محلية تجريبية.
-          </p>
-        </header>
+        )}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Items Sidebar */}
-          <div className="space-y-4 lg:col-span-1">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                <Filter className="h-3.5 w-3.5" />
-                تصفية حسب الحالة المحاكية
-              </span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="rounded-md border border-input bg-background px-2 py-1 text-xs"
-              >
-                <option value="all">جميع الحالات</option>
-                <option value="in_review">قيد المراجعة</option>
-                <option value="approved">معتمد (محاكاة)</option>
-                <option value="published">منشور (محاكاة)</option>
-                <option value="rejected">مرفوض (محاكاة)</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              {filteredItems.map((item) => (
-                <Card
-                  key={item.id}
-                  className={`cursor-pointer transition-all border ${
-                    selectedId === item.id
-                      ? "border-emerald-500 bg-emerald-950/20"
-                      : "border-border/40 hover:border-emerald-500/40"
-                  }`}
-                  onClick={() => setSelectedId(item.id)}
-                >
-                  <CardContent className="p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
+        {loading ? (
+          <div className="flex min-h-[30vh] items-center justify-center text-muted-foreground gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            جاري تحميل طابور المراجعة…
+          </div>
+        ) : items.length === 0 ? (
+          <Card className="p-8 text-center text-muted-foreground text-sm">
+            لا توجد عناصر تنتظر المراجعة حالياً.
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {/* List */}
+            <Card className="lg:col-span-1">
+              <CardHeader className="p-4">
+                <CardTitle className="text-sm">العناصر قيد المراجعة ({items.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="p-2 space-y-2">
+                {items.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setSelectedId(item.id)}
+                    className={`w-full text-right p-3 rounded-lg border text-xs transition-all ${
+                      selectedItem?.id === item.id ? "border-primary bg-primary/10" : "border-border/50 hover:bg-muted/30"
+                    }`}
+                  >
+                    <div className="font-semibold text-foreground truncate">{item.title_ar}</div>
+                    <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>{item.resource_code}</span>
                       <Badge variant="outline" className="text-[10px]">
-                        {item.resource_type === "mind_map_html" ? "خريطة ذهنية" : "تجربة عملية"}
-                      </Badge>
-                      <Badge
-                        variant={
-                          item.status === "published"
-                            ? "default"
-                            : item.status === "in_review"
-                            ? "secondary"
-                            : item.status === "rejected"
-                            ? "destructive"
-                            : "outline"
-                        }
-                        className="text-[10px]"
-                      >
-                        {item.status === "published"
-                          ? "منشور للطالب (محاكاة)"
-                          : item.status === "in_review"
-                          ? "قيد المراجعة (محاكاة)"
-                          : item.status === "rejected"
-                          ? "مرفوض (محاكاة)"
-                          : item.status}
+                        {item.status} (v{item.lock_version})
                       </Badge>
                     </div>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
 
-                    <h3 className="font-semibold text-xs leading-snug text-foreground">{item.title_ar}</h3>
-                    <p className="text-[11px] text-muted-foreground">
-                      {item.subject_name} — {item.lesson_title}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-
-          {/* Main Review Area */}
-          <div className="space-y-4 lg:col-span-2">
+            {/* Item Detail & Actions */}
             {selectedItem && (
-              <Card className="border-border/60">
-                <CardHeader className="pb-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-base font-bold">{selectedItem.title_ar}</CardTitle>
-                      <CardDescription className="text-xs">
-                        الكود: {selectedItem.resource_code} | الإصدار: v{selectedItem.version}
-                      </CardDescription>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedItem.status !== "published" && (
-                        <Button
-                          size="sm"
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white gap-1"
-                          onClick={() => handleUpdateStatus(selectedItem.id, "published")}
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                          محاكاة الاعتماد والنشر
-                        </Button>
-                      )}
-
-                      {selectedItem.status === "published" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-amber-500 border-amber-500/40 gap-1"
-                          onClick={() => handleUpdateStatus(selectedItem.id, "in_review")}
-                        >
-                          محاكاة إلغاء النشر
-                        </Button>
-                      )}
-
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="gap-1"
-                        onClick={() => handleUpdateStatus(selectedItem.id, "rejected")}
-                      >
-                        <XCircle className="h-4 w-4" />
-                        محاكاة الرفض والأرشفة
-                      </Button>
-                    </div>
+              <Card className="lg:col-span-2 space-y-4 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">{selectedItem.title_ar}</h3>
+                    <p className="text-xs text-muted-foreground">{selectedItem.resource_code} — Lock v{selectedItem.lock_version}</p>
                   </div>
-                </CardHeader>
+                  <Badge variant={selectedItem.status === "published" ? "default" : "secondary"}>
+                    {selectedItem.status}
+                  </Badge>
+                </div>
 
-                <CardContent className="space-y-4">
-                  {/* Security Status Box */}
-                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-emerald-300">
-                      <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                      <span>تقرير الفحص الأمني التلقائي: لم يتم كشف أية انتهاكات أمنية (0 findings).</span>
-                    </div>
-                    <Badge variant="outline" className="border-emerald-500/40 text-emerald-300 text-[10px]">
-                      CSP Approved
-                    </Badge>
-                  </div>
+                {/* Actions */}
+                <div className="flex flex-wrap items-center gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReject}
+                    disabled={actionLoading || selectedItem.status !== "in_review" || !isBackendActive}
+                    className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                  >
+                    <XCircle className="ml-1.5 h-4 w-4" />
+                    رفض النسخة
+                  </Button>
 
-                  {/* Sandboxed Viewer Component */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                      <Eye className="h-3.5 w-3.5 text-primary" />
-                      المعاينة الحية داخل بيئة العزل (Source-Only Preview Simulator)
-                    </h4>
-                    <InteractiveResourceViewer resource={selectedItem} />
-                  </div>
-                </CardContent>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleApprove}
+                    disabled={actionLoading || selectedItem.status !== "in_review" || !isBackendActive}
+                  >
+                    <CheckCircle2 className="ml-1.5 h-4 w-4 text-emerald-400" />
+                    اعتماد النسخة (Approve)
+                  </Button>
+
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handlePublish}
+                    disabled={actionLoading || selectedItem.status !== "approved" || !CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_PUBLISH}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <ShieldCheck className="ml-1.5 h-4 w-4" />
+                    نشر النسخة (Publish)
+                  </Button>
+                </div>
               </Card>
             )}
           </div>
-        </div>
+        )}
       </div>
     </AdminLayout>
   );
