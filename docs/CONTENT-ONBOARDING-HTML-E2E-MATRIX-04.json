@@ -1,0 +1,477 @@
+{
+  "contract_name": "CONTENT_ONBOARDING_HTML_E2E_CONTRACT_04",
+  "version": "1.0.0",
+  "description": "Operational E2E Contract Matrix for Interactive HTML Content Onboarding (Mindmap & Practical Experiments)",
+  "repository": "msorori-mh/tas-heel-8e64d405",
+  "branch": "test/content-onboarding-html-e2e-contract-04",
+  "required_schema_fields": [
+    "id",
+    "category",
+    "actor",
+    "preconditions",
+    "input",
+    "steps",
+    "expected_result",
+    "security_invariant",
+    "evidence_required",
+    "cleanup",
+    "blocking"
+  ],
+  "categories": [
+    "packaging",
+    "security",
+    "content_type",
+    "visibility",
+    "rbac",
+    "workflow",
+    "versioning",
+    "tamper_protection",
+    "runtime_isolation",
+    "resilience",
+    "audit_cleanup"
+  ],
+  "roles": [
+    "content_manager",
+    "reviewer",
+    "publisher",
+    "student",
+    "system",
+    "unauthenticated"
+  ],
+  "cases": [
+    {
+      "id": "HTML_E2E_001",
+      "category": "packaging",
+      "actor": "content_manager",
+      "preconditions": "Content Manager session active, target subject and lesson exist in DRAFT container",
+      "input": "Valid Excel metadata sheet (lesson_id, title, content_type=HTML_INTERACTIVE) + valid ZIP archive containing index.html, styles.css, script.js, asset images, manifest.json",
+      "steps": [
+        "Upload Excel metadata sheet to ingestion endpoint",
+        "Upload ZIP archive matching package code",
+        "Validate archive structure and manifest SHA-256 digest",
+        "Stage assets in temporary staging bucket"
+      ],
+      "expected_result": "Package accepted with HTTP 201 Created, status set to DRAFT_VERIFIED, SHA-256 registered, staged without errors",
+      "security_invariant": "SEC-PKG-01: Package must pass zip-slip, symlink, and checksum validation before staging",
+      "evidence_required": "Ingestion audit log entry, calculated bundle SHA-256 digest, staging directory file inventory receipt",
+      "cleanup": "Purge temporary staging directory and remove uploaded test package artifact",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_002",
+      "category": "security",
+      "actor": "content_manager",
+      "preconditions": "Package ingestion endpoint running, pre-extraction security filter enabled",
+      "input": "ZIP archive containing path traversal entry header '../../etc/passwd' or compression ratio exceeding 100:1 (Zip Bomb)",
+      "steps": [
+        "Submit malformed ZIP archive to upload stream",
+        "Trigger archive header pre-unzip inspection",
+        "Verify extraction termination before disk write"
+      ],
+      "expected_result": "Package rejected with HTTP 400 Bad Request and error code UNSAFE_ZIP_ARCHIVE_REJECTED, 0 bytes extracted",
+      "security_invariant": "SEC-ZIP-01: Absolute path traversal, relative parent escapes, and compression bomb ratios must be blocked before decompression",
+      "evidence_required": "Security scanner alert log, extraction rejection stack trace, zero-file write confirmation log",
+      "cleanup": "Purge quarantined stream buffer and close file handle",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_003",
+      "category": "security",
+      "actor": "content_manager",
+      "preconditions": "Static HTML/JS AST security validator active in upload preflight",
+      "input": "ZIP package with index.html containing '<script src=\"https://cdn.external-domain.com/malicious.js\"></script>' or remote fetch calls",
+      "steps": [
+        "Parse index.html DOM and script references",
+        "Inspect script tag src attributes and inline dynamic fetch/XHR URIs",
+        "Evaluate against strict origin CSP whitelist policy"
+      ],
+      "expected_result": "Validation failure with error code EXTERNAL_JS_NOT_ALLOWED, package upload rejected",
+      "security_invariant": "SEC-JS-01: Remote JavaScript scripts, external CDN links, and external dynamic imports are strictly forbidden; all assets must be bundled internally",
+      "evidence_required": "Static AST analyzer violation report listing forbidden URI line number",
+      "cleanup": "Remove staging workspace directory",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_004",
+      "category": "security",
+      "actor": "content_manager",
+      "preconditions": "ZIP stream directory header inspector enabled",
+      "input": "ZIP archive containing symlink file header pointing to '/etc/shadow' or 'C:\\Windows\\System32\\config\\SAM' or relative symlinks",
+      "steps": [
+        "Scan ZIP central directory headers",
+        "Check file system entry attribute flags for symbolic/hard link mode bits",
+        "Abort extraction upon link flag detection"
+      ],
+      "expected_result": "HTTP 400 rejection with error code SYMLINK_TRAVERSAL_REJECTED, extraction aborted immediately",
+      "security_invariant": "SEC-FS-01: Symbolic links, hard links, and directory traversal tokens ('../') in entry paths are prohibited",
+      "evidence_required": "Zip header inspection audit log with symlink entry metadata details",
+      "cleanup": "Close archive handle and delete temp upload file",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_005",
+      "category": "content_type",
+      "actor": "content_manager",
+      "preconditions": "Mindmap schema definition v1 active",
+      "input": "Valid HTML5 interactive mindmap bundle (content_type=HTML_MINDMAP) with offline node expand/collapse JS, clean DOM, and structured node JSON",
+      "steps": [
+        "Upload mindmap HTML bundle with metadata content_type='HTML_MINDMAP'",
+        "Execute headless DOM rendering verification",
+        "Verify node expand/collapse interaction handlers function in sandboxed iframe"
+      ],
+      "expected_result": "Package ingested, schema validated as valid HTML_MINDMAP, status set to IN_REVIEW",
+      "security_invariant": "SEC-CT-01: Mindmap assets must run entirely offline inside sandboxed iframe without top navigation permission",
+      "evidence_required": "Headless DOM snapshot, sandbox console log showing 0 policy errors",
+      "cleanup": "Delete temporary sandbox execution context",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_006",
+      "category": "content_type",
+      "actor": "content_manager",
+      "preconditions": "Practical experiment schema definition v1 active",
+      "input": "Valid HTML5 practical experiment simulation bundle (content_type=HTML_EXPERIMENT) using Canvas 2D / WebGL with reset handler and state listener",
+      "steps": [
+        "Upload experiment simulation bundle",
+        "Validate offline asset manifest completeness",
+        "Verify postMessage event protocol compliance for experiment completion"
+      ],
+      "expected_result": "Package validated and registered as HTML_EXPERIMENT, checksum locked for review",
+      "security_invariant": "SEC-CT-02: Experiments must expose standardized postMessage interface for state saving without direct localStorage access to parent domain",
+      "evidence_required": "postMessage contract verification log, isolated canvas render screenshot",
+      "cleanup": "Purge test canvas instance",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_007",
+      "category": "visibility",
+      "actor": "student",
+      "preconditions": "HTML content item created by content_manager in DRAFT status",
+      "input": "Student API request GET /api/v1/lessons/{id}/contents or UI lesson page navigation",
+      "steps": [
+        "Authenticate as student user",
+        "Issue query to retrieve lesson contents",
+        "Inspect returned content items list"
+      ],
+      "expected_result": "Draft HTML content item is NOT returned in response payload (omitted or HTTP 404)",
+      "security_invariant": "SEC-VIS-01: DRAFT state content is strictly hidden from student role endpoints",
+      "evidence_required": "API HTTP response payload demonstrating zero draft item exposure",
+      "cleanup": "N/A (read-only query)",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_008",
+      "category": "visibility",
+      "actor": "student",
+      "preconditions": "HTML content item submitted for review in IN_REVIEW status",
+      "input": "Student API request GET /api/v1/assets/{asset_id} or direct CDN URL access",
+      "steps": [
+        "Authenticate as student user",
+        "Attempt direct asset download query for IN_REVIEW item"
+      ],
+      "expected_result": "Access denied with HTTP 403 Forbidden or HTTP 404 Not Found",
+      "security_invariant": "SEC-VIS-02: IN_REVIEW state content is inaccessible to students",
+      "evidence_required": "HTTP 403 Forbidden response payload and security log entry",
+      "cleanup": "N/A",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_009",
+      "category": "visibility",
+      "actor": "student",
+      "preconditions": "HTML content item reviewed and marked APPROVED by reviewer, but not yet published",
+      "input": "Student attempts to fetch lesson curriculum structure",
+      "steps": [
+        "Authenticate as student user",
+        "Send GET /api/v1/lessons/{id}/contents request"
+      ],
+      "expected_result": "APPROVED item remains hidden from student API response prior to explicit publication by publisher",
+      "security_invariant": "SEC-VIS-03: APPROVED items require explicit publication step by publisher before student distribution",
+      "evidence_required": "API payload log verifying item exclusion",
+      "cleanup": "N/A",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_010",
+      "category": "visibility",
+      "actor": "student",
+      "preconditions": "HTML content item transitioned to PUBLISHED status by publisher",
+      "input": "Student opens published lesson page in web app",
+      "steps": [
+        "Authenticate as student user",
+        "Request lesson content items list",
+        "Verify sandboxed iframe target URL generation with signed scoped token"
+      ],
+      "expected_result": "Published item IS returned in response, iframe URL generates correctly with isolated sandbox origin",
+      "security_invariant": "SEC-VIS-04: Published assets served only via origin-isolated sandboxed paths with read-only tokens",
+      "evidence_required": "API response payload containing PUBLISHED status and lesson ID match",
+      "cleanup": "Reset publication status in test mock",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_011",
+      "category": "rbac",
+      "actor": "student",
+      "preconditions": "Active student token session",
+      "input": "Requests to administrative endpoints POST /api/v1/admin/content/upload, POST /api/v1/admin/content/publish",
+      "steps": [
+        "Issue admin API HTTP POST request using student bearer token",
+        "Observe gateway authorization evaluation"
+      ],
+      "expected_result": "HTTP 403 Forbidden on all administrative content endpoints",
+      "security_invariant": "SEC-RBAC-01: Admin endpoints enforce strict role checks allowing only content_manager, reviewer, publisher, or admin",
+      "evidence_required": "HTTP 403 authorization refusal response log",
+      "cleanup": "Revoke test student token",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_012",
+      "category": "rbac",
+      "actor": "content_manager",
+      "preconditions": "User has role content_manager without publisher role",
+      "input": "POST /api/v1/content/{id}/publish request",
+      "steps": [
+        "Upload HTML content package successfully as content_manager (status=DRAFT)",
+        "Attempt to invoke direct publish endpoint POST /api/v1/content/{id}/publish"
+      ],
+      "expected_result": "Upload succeeds with HTTP 201; publish attempt fails with HTTP 403 INSUFFICIENT_PUBLISH_PERMISSIONS",
+      "security_invariant": "SEC-RBAC-02: Content managers cannot publish content without holding publisher role (separation of duties)",
+      "evidence_required": "Successful upload receipt and rejected publish HTTP 403 audit log",
+      "cleanup": "Delete test draft content",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_013",
+      "category": "workflow",
+      "actor": "reviewer",
+      "preconditions": "HTML content item status is IN_REVIEW",
+      "input": "Review decision POST /api/v1/content/{id}/review with decision='APPROVE' and review_notes",
+      "steps": [
+        "Authenticate as reviewer",
+        "Fetch staging preview package and inspect HTML asset",
+        "Submit approval payload to review endpoint"
+      ],
+      "expected_result": "Status transitions from IN_REVIEW to APPROVED, audit log records reviewer ID and approval timestamp",
+      "security_invariant": "SEC-WF-01: Status transition IN_REVIEW -> APPROVED requires authorized reviewer role and recorded review audit",
+      "evidence_required": "State transition database record and reviewer audit log entry",
+      "cleanup": "Revert state transition in test context",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_014",
+      "category": "workflow",
+      "actor": "publisher",
+      "preconditions": "HTML content item status is APPROVED",
+      "input": "Publication request POST /api/v1/content/{id}/publish",
+      "steps": [
+        "Authenticate as publisher",
+        "Verify content status is APPROVED",
+        "Execute publication request"
+      ],
+      "expected_result": "Status transitions from APPROVED to PUBLISHED, distribution cache warmed, student API updated",
+      "security_invariant": "SEC-WF-02: Only APPROVED items can be transitioned to PUBLISHED by publisher role",
+      "evidence_required": "Publication audit record, status change event, cache invalidation receipt",
+      "cleanup": "Unpublish test item",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_015",
+      "category": "versioning",
+      "actor": "content_manager",
+      "preconditions": "Version v1.0 of HTML content is currently PUBLISHED",
+      "input": "Upload new ZIP package for existing content ID",
+      "steps": [
+        "Upload new ZIP package for existing content code",
+        "Verify system version assignment and status"
+      ],
+      "expected_result": "System creates new draft version v1.1; published v1.0 remains intact and active for students without silent overwrite",
+      "security_invariant": "SEC-VER-01: Published versions are immutable; updates create distinct version records until explicitly published",
+      "evidence_required": "Database multi-version list showing v1.0 PUBLISHED and v1.1 DRAFT",
+      "cleanup": "Remove draft version v1.1",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_016",
+      "category": "workflow",
+      "actor": "publisher",
+      "preconditions": "HTML content v1.0 is currently PUBLISHED and visible to students",
+      "input": "Unpublish request POST /api/v1/content/{id}/unpublish with reason='Content Update Required'",
+      "steps": [
+        "Authenticate as publisher",
+        "Execute unpublish action",
+        "Query student lesson API"
+      ],
+      "expected_result": "Status changes to UNPUBLISHED, item immediately revoked from student lesson payload, CDN asset URL invalidated",
+      "security_invariant": "SEC-WF-03: Unpublish immediately purges distribution cache and blocks student access",
+      "evidence_required": "CDN purge confirmation response and student API 404 payload",
+      "cleanup": "Restore test item state",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_017",
+      "category": "versioning",
+      "actor": "publisher",
+      "preconditions": "HTML content v2.0 is PUBLISHED, v1.0 is ARCHIVED",
+      "input": "Rollback request POST /api/v1/content/{id}/rollback with target_version='v1.0'",
+      "steps": [
+        "Authenticate as publisher",
+        "Execute rollback to v1.0",
+        "Verify production pointer and SHA-256 digest match original v1.0"
+      ],
+      "expected_result": "Active published pointer restored to v1.0 digest, v2.0 marked SUPERSEDED_ROLLED_BACK, audit event logged",
+      "security_invariant": "SEC-VER-02: Rollback must atomically restore verified historical digest and produce explicit audit trail",
+      "evidence_required": "Pointer update log, SHA-256 digest match confirmation for v1.0",
+      "cleanup": "Re-align version state",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_018",
+      "category": "tamper_protection",
+      "actor": "system",
+      "preconditions": "Package manifest specifies expected SHA-256 hash digest",
+      "input": "ZIP archive uploaded with altered contents (computed SHA-256 does not match manifest hash)",
+      "steps": [
+        "Receive package upload stream",
+        "Compute SHA-256 digest of received stream",
+        "Compare computed hash with manifest expected_hash parameter"
+      ],
+      "expected_result": "Upload rejected with error code HASH_MISMATCH_DETECTED, temporary upload discarded",
+      "security_invariant": "SEC-TMP-01: Package digest integrity must match manifest before unzipping or registering",
+      "evidence_required": "Cryptographic hash mismatch error log with expected vs actual digest values",
+      "cleanup": "Purge temporary corrupted upload file",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_019",
+      "category": "tamper_protection",
+      "actor": "student",
+      "preconditions": "Student conducting interactive HTML experiment",
+      "input": "Forged window.postMessage or un-signed API request POST /api/v1/progress/complete with score=100 without valid HMAC token",
+      "steps": [
+        "Receive completion progress telemetry request",
+        "Validate HMAC token signature and step completion timestamps"
+      ],
+      "expected_result": "Progress completion rejected with error INVALID_TELEMETRY_SIGNATURE, event logged in security audit",
+      "security_invariant": "SEC-TMP-02: Interactive completion events must carry valid HMAC signature issued by session server",
+      "evidence_required": "HMAC validation rejection log and security audit alert",
+      "cleanup": "Clear invalid progress attempt",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_020",
+      "category": "tamper_protection",
+      "actor": "content_manager",
+      "preconditions": "Client-side JS scanner enabled in asset ingestion scanner",
+      "input": "HTML package containing plaintext answer key array (e.g., 'var correct_answers = [\"A\", \"C\", \"B\"]') in client JS",
+      "steps": [
+        "Scan JavaScript and HTML source files inside package",
+        "Identify plaintext solution data patterns"
+      ],
+      "expected_result": "Package rejected with error CORRECT_ANSWER_LEAKAGE_DETECTED; require server-side evaluation or hashed validation",
+      "security_invariant": "SEC-TMP-03: Client-side interactive bundles must not expose raw unhashed correct answers in source code",
+      "evidence_required": "Static code analysis report highlighting detected solution key leakage line",
+      "cleanup": "Remove invalid package from staging",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_021",
+      "category": "resilience",
+      "actor": "system",
+      "preconditions": "HTML content package cached for offline PWA execution",
+      "input": "Client app launches cached HTML asset in offline mode",
+      "steps": [
+        "Service Worker reads cached index.html and scripts",
+        "Computes local SHA-256 hash of cached file assets",
+        "Verifies computed hash against signed manifest.sha256 in local storage"
+      ],
+      "expected_result": "Validation succeeds and asset renders in sandbox; if tampered, displays OFFLINE_INTEGRITY_COMPROMISED fallback",
+      "security_invariant": "SEC-RES-01: Offline cached assets must be validated against signed manifest before execution",
+      "evidence_required": "Service worker client integrity check log",
+      "cleanup": "Reset local test storage",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_022",
+      "category": "runtime_isolation",
+      "actor": "system",
+      "preconditions": "Mobile runtime (PWA wrapper / mobile app WebView) requests HTML asset launch",
+      "input": "Mobile execution request evaluated against isolation capability checks",
+      "steps": [
+        "Intercept mobile WebView launch request",
+        "Verify WebView sandbox configuration (allow-same-origin removed, javascript bridge access restricted)",
+        "Check feature flag mobile_html_runtime_enabled"
+      ],
+      "expected_result": "Mobile HTML execution remains DISABLED (MOBILE_RUNTIME_DISABLED_UNISOLATED) until sandbox isolation proof is verified",
+      "security_invariant": "SEC-ISO-01: Mobile runtime must restrict native bridges and enforce full WebView sandbox isolation before enabling",
+      "evidence_required": "WebView security capability verification report and feature flag block proof",
+      "cleanup": "N/A",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_023",
+      "category": "resilience",
+      "actor": "content_manager",
+      "preconditions": "Multi-file upload stream active",
+      "input": "Network connection drops mid-transfer after sending 50% of ZIP package stream",
+      "steps": [
+        "Simulate network disconnect during upload POST",
+        "Ingestion daemon timeout triggers clean-up transaction handler"
+      ],
+      "expected_result": "Upload transaction aborted, partial temp files deleted atomically, content state remains unchanged with 0 orphan files",
+      "security_invariant": "SEC-RES-02: Package uploads must be atomic; failed streams leave zero persistent footprint",
+      "evidence_required": "Cleanup handler execution log and storage audit proving 0 orphan files",
+      "cleanup": "Run automated orphan file sweeper verification",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_024",
+      "category": "resilience",
+      "actor": "content_manager",
+      "preconditions": "Upload attempt previously aborted or timed out with request ID REQ_884920",
+      "input": "Client retries upload using identical Idempotency-Key header 'REQ_884920' and payload hash",
+      "steps": [
+        "Send POST upload request with header Idempotency-Key: REQ_884920",
+        "Server checks idempotency lock registry",
+        "Process upload safely without duplicate records"
+      ],
+      "expected_result": "Upload completes idempotently without creating duplicate database rows or storage allocations",
+      "security_invariant": "SEC-RES-03: Retries matching idempotency key return deterministic result without state duplication",
+      "evidence_required": "Idempotency handler log showing key hit and single entity creation",
+      "cleanup": "Clear idempotency lock entry",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_025",
+      "category": "audit_cleanup",
+      "actor": "system",
+      "preconditions": "Content operational lifecycle actions executed (upload, review, publish, unpublish)",
+      "input": "Lifecycle operation execution events",
+      "steps": [
+        "Execute sequence of lifecycle actions",
+        "Query content_audit_trail log table"
+      ],
+      "expected_result": "Every operation produces immutable audit log entry containing actor_id, action_type, resource_id, timestamp, IP, and payload digest",
+      "security_invariant": "SEC-AUD-01: Operational actions must create append-only, tamper-evident audit records",
+      "evidence_required": "Structured JSON audit log entries verifying mandatory audit fields",
+      "cleanup": "Retain audit log records in archive",
+      "blocking": true
+    },
+    {
+      "id": "HTML_E2E_026",
+      "category": "audit_cleanup",
+      "actor": "system",
+      "preconditions": "Stale temp files or decommissioned test bundles exist in staging storage",
+      "input": "Automated garbage collection routine execution trigger",
+      "steps": [
+        "Identify temp upload files older than retention threshold (>24 hours)",
+        "Execute garbage collector sweeper job",
+        "Verify storage bucket inventory"
+      ],
+      "expected_result": "Stale files removed from storage, database references cleaned up, audit log of cleanup recorded",
+      "security_invariant": "SEC-CLN-01: Temp scratch files and orphaned assets must not persist past retention limits",
+      "evidence_required": "Garbage collection summary log showing deleted asset count and reclaimed storage bytes",
+      "cleanup": "Self-verifying cleanup routine",
+      "blocking": true
+    }
+  ]
+}
