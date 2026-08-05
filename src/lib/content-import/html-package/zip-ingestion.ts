@@ -14,6 +14,7 @@ export interface ZipIngestionResult {
 
 /**
  * Parses real master ZIP archive buffer, extracting resources and applying full runtime security limits.
+ * Employs fail-closed pre-materialization validation on Central Directory metadata before decompressing contents.
  */
 export async function parseMasterZipBuffer(
   zipBuffer: Uint8Array | Buffer
@@ -35,10 +36,10 @@ export async function parseMasterZipBuffer(
     };
   }
 
-  // Master ZIP size check
+  // 1. Reject Master ZIP bytes when exceeding limit before JSZip
   if (zipBuffer.length > PACKAGE_LIMITS.MAX_MASTER_ZIP_SIZE_BYTES) {
     findings.push({
-      code: ValidationCodes.UNCOMPRESSED_EXCEEDS_MAX_SIZE,
+      code: ValidationCodes.PACKAGE_EXCEEDS_MAX_SIZE,
       severity: "error",
       message: `حجم ملف ZIP الكلي (${Math.round(zipBuffer.length / 1024 / 1024)}MB) يتجاوز الحد الأقصى المسموح به (${PACKAGE_LIMITS.MAX_MASTER_ZIP_SIZE_BYTES / 1024 / 1024}MB).`,
     });
@@ -62,11 +63,27 @@ export async function parseMasterZipBuffer(
     };
   }
 
-  const seenPathsLower = new Map<string, string>();
+  const entries = Object.entries(zip.files);
 
-  // Process each entry in zip
-  for (const [entryPath, zipObj] of Object.entries(zip.files)) {
-    // 1. Check for null bytes in path
+  // Check total entries count
+  if (entries.length > 500) {
+    findings.push({
+      code: ValidationCodes.EXCEEDS_MAX_FILES,
+      severity: "error",
+      message: `عدد عناصر ملف ZIP (${entries.length}) يتجاوز الحد الأقصى الكلي (500 ملف).`,
+    });
+    return { isValid: false, findings, packageMap: {} };
+  }
+
+  const seenPathsLower = new Map<string, string>();
+  const resourceUncompressedSizes = new Map<string, number>();
+
+  // =========================================================================
+  // PRE-MATERIALIZATION CHECKS (Central Directory Metadata inspection)
+  // MUST pass all checks BEFORE any zipObj.async("uint8array") call!
+  // =========================================================================
+  for (const [entryPath, zipObj] of entries) {
+    // 1. Null bytes check
     if (entryPath.includes("\0")) {
       findings.push({
         code: ValidationCodes.PATH_TRAVERSAL_DETECTED,
@@ -77,7 +94,7 @@ export async function parseMasterZipBuffer(
       continue;
     }
 
-    // 2. Check percent-encoded traversal
+    // 2. URL Normalization check
     const normUrl = normalizeUrlString(entryPath);
     if (!normUrl.isValid) {
       findings.push({
@@ -89,7 +106,7 @@ export async function parseMasterZipBuffer(
       continue;
     }
 
-    // 3. Path Traversal, absolute path, UNC, drive letter checks
+    // 3. Path Traversal & Absolute Path checks
     if (
       entryPath.includes("..") ||
       entryPath.startsWith("/") ||
@@ -106,8 +123,18 @@ export async function parseMasterZipBuffer(
       continue;
     }
 
-    // 4. Symlink detection via Unix permissions / external attributes
-    // Unix symlink mode is 0120000 (0o120000 = 40960 decimal shift 16 = 0xA000)
+    // 4. Directory Depth check
+    const depth = entryPath.split(/[/\\]/).filter(Boolean).length;
+    if (depth > PACKAGE_LIMITS.MAX_FOLDER_DEPTH) {
+      findings.push({
+        code: ValidationCodes.EXCEEDS_MAX_DEPTH,
+        severity: "error",
+        file: entryPath,
+        message: `عمق المسار (${depth}) يتجاوز الحد الأقصى المسموح به (${PACKAGE_LIMITS.MAX_FOLDER_DEPTH}).`,
+      });
+    }
+
+    // 5. Symlink check
     const unixPermissions = zipObj.unixPermissions;
     if (typeof unixPermissions === "number" && (unixPermissions & 0o170000) === 0o120000) {
       findings.push({
@@ -116,10 +143,9 @@ export async function parseMasterZipBuffer(
         file: entryPath,
         message: `تم كشف رابط رمزي (Symlink) محظور داخل ملفات ZIP: ${entryPath}`,
       });
-      continue;
     }
 
-    // 5. Case-insensitive path collision & duplicate check
+    // 6. Case-insensitive collision & duplicates
     const normalizedPath = entryPath.replace(/\\/g, "/").toLowerCase();
     if (seenPathsLower.has(normalizedPath)) {
       const existing = seenPathsLower.get(normalizedPath)!;
@@ -144,7 +170,7 @@ export async function parseMasterZipBuffer(
 
     if (zipObj.dir) continue;
 
-    // Check nested archive extensions
+    // 7. Nested archives check
     const extMatch = entryPath.match(/\.([a-z0-9]+)$/i);
     const ext = extMatch ? extMatch[1].toLowerCase() : "";
     if (["zip", "tar", "gz", "7z", "rar"].includes(ext)) {
@@ -156,17 +182,93 @@ export async function parseMasterZipBuffer(
       });
     }
 
-    // Extract file bytes
-    const buffer = await zipObj.async("uint8array");
+    // 8. Metadata inspection (uncompressed & compressed size)
+    const rawData = (zipObj as any)._data;
+    const uncompressedSize = rawData?.uncompressedSize;
+    const compressedSize = rawData?.compressedSize;
 
-    // Single file limit check
+    if (typeof uncompressedSize !== "number" || !Number.isFinite(uncompressedSize) || uncompressedSize < 0) {
+      findings.push({
+        code: ValidationCodes.ZIP_INGESTION_FAILED,
+        severity: "error",
+        file: entryPath,
+        message: `عنصر ZIP يفتقر إلى بيانات الحجم الموثوقة (Unreliable metadata): ${entryPath}`,
+      });
+      continue;
+    }
+
+    if (uncompressedSize > PACKAGE_LIMITS.MAX_SINGLE_FILE_BYTES) {
+      findings.push({
+        code: ValidationCodes.EXCEEDS_SINGLE_FILE_LIMIT,
+        severity: "error",
+        file: entryPath,
+        message: `حجم الملف التقديري (${Math.round(uncompressedSize / 1024 / 1024)}MB) يتجاوز الحد الأقصى (10MB).`,
+      });
+    }
+
+    if (typeof compressedSize === "number" && compressedSize > 0) {
+      const expansionRatio = uncompressedSize / Math.max(1, compressedSize);
+      if (expansionRatio > PACKAGE_LIMITS.MAX_UNCOMPRESSED_RATIO) {
+        findings.push({
+          code: ValidationCodes.ZIP_BOMB_RATIO_EXCEEDED,
+          severity: "error",
+          file: entryPath,
+          message: `تم كشف نسبة فك ضغط مشبوهة (${Math.round(expansionRatio)}x) تشير إلى Zip Bomb.`,
+        });
+      }
+    }
+
+    // Accumulate size per resource code
+    const pathParts = entryPath.split(/[/\\]/).filter(Boolean);
+    if (pathParts.length >= 2) {
+      const resCode = pathParts[0];
+      const prevSize = resourceUncompressedSizes.get(resCode) || 0;
+      const newTotal = prevSize + uncompressedSize;
+      resourceUncompressedSizes.set(resCode, newTotal);
+
+      if (newTotal > PACKAGE_LIMITS.MAX_RESOURCE_UNCOMPRESSED_BYTES) {
+        findings.push({
+          code: ValidationCodes.UNCOMPRESSED_EXCEEDS_MAX_SIZE,
+          severity: "error",
+          message: `حجم المحتوى التقديري للمورد ${resCode} يتجاوز الحد الأقصى (${PACKAGE_LIMITS.MAX_RESOURCE_UNCOMPRESSED_BYTES / 1024 / 1024}MB).`,
+        });
+      }
+    }
+  }
+
+  // If any errors detected during pre-materialization, REJECT IMMEDIATELY fail-closed!
+  if (findings.some((f) => f.severity === "error")) {
+    return { isValid: false, findings, packageMap: {} };
+  }
+
+  // =========================================================================
+  // MATERIALIZATION PHASE (Extract files one by one & verify actual sizes)
+  // =========================================================================
+  for (const [entryPath, zipObj] of entries) {
+    if (zipObj.dir) continue;
+
+    let buffer: Uint8Array;
+    try {
+      buffer = await zipObj.async("uint8array");
+    } catch (err: any) {
+      findings.push({
+        code: ValidationCodes.ZIP_INGESTION_FAILED,
+        severity: "error",
+        file: entryPath,
+        message: `فشل فك ضغط الملف ${entryPath}: ${err.message}`,
+      });
+      return { isValid: false, findings, packageMap: {} };
+    }
+
+    // Verify actual extracted length
     if (buffer.length > PACKAGE_LIMITS.MAX_SINGLE_FILE_BYTES) {
       findings.push({
         code: ValidationCodes.EXCEEDS_SINGLE_FILE_LIMIT,
         severity: "error",
         file: entryPath,
-        message: `حجم الملف (${Math.round(buffer.length / 1024 / 1024)}MB) يتجاوز الحد الأقصى (10MB).`,
+        message: `حجم الملف الفعلي بعد الفك (${Math.round(buffer.length / 1024 / 1024)}MB) يتجاوز الحد الأقصى (10MB).`,
       });
+      return { isValid: false, findings, packageMap: {} };
     }
 
     // MIME and magic bytes validation
@@ -177,7 +279,6 @@ export async function parseMasterZipBuffer(
 
     const sha256 = await computeSha256(buffer);
 
-    // Group files by top-level folder (resource_code)
     const pathParts = entryPath.split(/[/\\]/).filter(Boolean);
     if (pathParts.length >= 2) {
       const resourceCode = pathParts[0];
@@ -197,7 +298,7 @@ export async function parseMasterZipBuffer(
     }
   }
 
-  // Validate limits per resource package
+  // Validate per-resource post-extraction limits
   for (const [resourceCode, files] of Object.entries(packageMap)) {
     if (files.length > PACKAGE_LIMITS.MAX_FILES_PER_RESOURCE) {
       findings.push({

@@ -111,13 +111,22 @@ function AdminContentReviewPage() {
   return (
     <AdminLayout>
       <div className="mx-auto max-w-6xl space-y-6" dir="rtl">
+        {/* Persistent Simulation Warning Banner */}
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs font-semibold text-amber-200 flex items-center gap-2">
+          <Lock className="h-5 w-5 text-amber-400 shrink-0" />
+          <span>هذه الواجهة محاكاة فقط. التشغيل الفعلي يحتاج Backend وStorage وMigration معتمدة.</span>
+        </div>
+
         <header className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <ShieldCheck className="h-6 w-6 text-emerald-400 shrink-0" />
-            <h1 className="text-2xl font-bold text-foreground">مركز مراجعة ونشر المحتوى التفاعلي</h1>
+            <h1 className="text-2xl font-bold text-foreground">مركز محاكاة مراجعة المحتوى (Source-Only Preview)</h1>
+            <Badge variant="outline" className="border-amber-500/40 text-amber-300">
+              Source-Only Simulator
+            </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            معاينة واختبار الخرائط الذهنية والتجارب العملية داخل بيئة العزل (Sandbox) وتدقيق الشروط الأمنية قبل النشر للطالب.
+            معاينة واختبار الخرائط الذهنية والتجارب العملية داخل بيئة العزل (Source-Only preview) — لا حفظ في Database، لا نشر فعلي للطلاب، والحالات محلية تجريبية.
           </p>
         </header>
 
@@ -127,7 +136,7 @@ function AdminContentReviewPage() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                 <Filter className="h-3.5 w-3.5" />
-                تصفية حسب الحالة
+                تصفية حسب الحالة المحاكية
               </span>
               <select
                 value={statusFilter}
@@ -136,9 +145,9 @@ function AdminContentReviewPage() {
               >
                 <option value="all">جميع الحالات</option>
                 <option value="in_review">قيد المراجعة</option>
-                <option value="approved">معتمد</option>
-                <option value="published">منشور</option>
-                <option value="rejected">مرفوض</option>
+                <option value="approved">معتمد (محاكاة)</option>
+                <option value="published">منشور (محاكاة)</option>
+                <option value="rejected">مرفوض (محاكاة)</option>
               </select>
             </div>
 
@@ -171,11 +180,11 @@ function AdminContentReviewPage() {
                         className="text-[10px]"
                       >
                         {item.status === "published"
-                          ? "منشور للطالب"
+                          ? "منشور للطالب (محاكاة)"
                           : item.status === "in_review"
-                          ? "قيد المراجعة"
+                          ? "قيد المراجعة (محاكاة)"
                           : item.status === "rejected"
-                          ? "مرفوض"
+                          ? "مرفوض (محاكاة)"
                           : item.status}
                       </Badge>
                     </div>
@@ -210,7 +219,7 @@ function AdminContentReviewPage() {
                           onClick={() => handleUpdateStatus(selectedItem.id, "published")}
                         >
                           <CheckCircle2 className="h-4 w-4" />
-                          اعتماد ونشر للطالب
+                          محاكاة الاعتماد والنشر
                         </Button>
                       )}
 
@@ -221,7 +230,7 @@ function AdminContentReviewPage() {
                           className="text-amber-500 border-amber-500/40 gap-1"
                           onClick={() => handleUpdateStatus(selectedItem.id, "in_review")}
                         >
-                          إلغاء النشر
+                          محاكاة إلغاء النشر
                         </Button>
                       )}
 
@@ -232,7 +241,7 @@ function AdminContentReviewPage() {
                         onClick={() => handleUpdateStatus(selectedItem.id, "rejected")}
                       >
                         <XCircle className="h-4 w-4" />
-                        رفض مع ذكر السبب
+                        محاكاة الرفض والأرشفة
                       </Button>
                     </div>
                   </div>
@@ -254,7 +263,7 @@ function AdminContentReviewPage() {
                   <div className="space-y-2">
                     <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                       <Eye className="h-3.5 w-3.5 text-primary" />
-                      المعاينة الحية داخل بيئة العزل (Student View Simulator)
+                      المعاينة الحية داخل بيئة العزل (Source-Only Preview Simulator)
                     </h4>
                     <InteractiveResourceViewer resource={selectedItem} />
                   </div>

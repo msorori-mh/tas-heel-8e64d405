@@ -45,12 +45,13 @@ export function stripControlCharacters(str: string): string {
   return str.replace(/[\u0000-\u001F\u007F-\u009F\u200B\u00AD\uFEFF]/g, "");
 }
 
-// Safely decode percent-encoding up to 3 passes, fail-closed if malformed
+// Safely decode percent-encoding up to 8 passes, fail-closed if malformed
 export function safePercentDecode(str: string): { decoded: string; isValid: boolean } {
   let current = str;
   let passes = 0;
+  const MAX_DECODE_DEPTH = 8;
 
-  while (passes < 3 && current.includes("%")) {
+  while (passes < MAX_DECODE_DEPTH && current.includes("%")) {
     // Check if percent encoding pattern is valid
     if (/%(?![0-9a-fA-F]{2})/i.test(current)) {
       return { decoded: current, isValid: false }; // Malformed percent encoding
@@ -65,12 +66,16 @@ export function safePercentDecode(str: string): { decoded: string; isValid: bool
     }
   }
 
+  if (passes >= MAX_DECODE_DEPTH && current.includes("%")) {
+    return { decoded: current, isValid: false }; // Ambiguous deep percent encoding
+  }
+
   return { decoded: current, isValid: true };
 }
 
 /**
- * Full URL normalization pipeline.
- * Returns normalized string and detected scheme if any.
+ * Full URL normalization pipeline with iterative decoding until stable (max depth 8).
+ * Checks scheme after each pass and rejects ambiguous/malformed encodings.
  */
 export function normalizeUrlString(rawUrl: string): {
   normalized: string;
@@ -81,36 +86,82 @@ export function normalizeUrlString(rawUrl: string): {
     return { normalized: "", scheme: null, isValid: false };
   }
 
-  // 1. Decode HTML entities
-  let step = decodeHtmlEntities(rawUrl.trim());
+  let step = rawUrl.trim();
+  let depth = 0;
+  const MAX_DECODE_DEPTH = 8;
+  let detectedScheme: string | null = null;
 
-  // 2. Strip control characters
-  step = stripControlCharacters(step);
+  const forbiddenSchemes = [
+    "javascript",
+    "vbscript",
+    "file",
+    "http",
+    "https",
+    "ftp",
+    "blob",
+    "about",
+    "chrome",
+    "android-app",
+    "capacitor",
+    "ms-appx",
+    "view-source",
+  ];
 
-  // 3. Normalize Unicode (NFKC)
-  try {
-    step = step.normalize("NFKC");
-  } catch {
-    // ignore if environment lacks NFKC
+  while (depth < MAX_DECODE_DEPTH) {
+    const prev = step;
+
+    // 1. Decode HTML entities
+    step = decodeHtmlEntities(step);
+
+    // 2. Strip control characters
+    step = stripControlCharacters(step);
+
+    // 3. Normalize Unicode (NFKC)
+    try {
+      step = step.normalize("NFKC");
+    } catch {
+      // ignore
+    }
+
+    // Check for malformed percent encoding pattern
+    if (/%(?![0-9a-fA-F]{2})/i.test(step)) {
+      return { normalized: step, scheme: detectedScheme, isValid: false };
+    }
+
+    // 4. Safe percent-decode pass
+    if (step.includes("%")) {
+      try {
+        step = decodeURIComponent(step);
+      } catch {
+        return { normalized: step, scheme: detectedScheme, isValid: false };
+      }
+    }
+
+    // 5. Scheme check after each stage
+    const schemeMatch = step.match(/^([a-z0-9+.-]+[\s\t\n\r]*):/i);
+    if (schemeMatch) {
+      const cleanScheme = schemeMatch[1].replace(/[\s\t\n\r]+/g, "").toLowerCase();
+      detectedScheme = cleanScheme;
+      const rest = step.slice(schemeMatch[0].length);
+      step = `${cleanScheme}:${rest}`;
+    }
+
+    // Exit immediately if forbidden scheme detected
+    if (detectedScheme && forbiddenSchemes.includes(detectedScheme)) {
+      return { normalized: step, scheme: detectedScheme, isValid: true };
+    }
+
+    // Exit if stable
+    if (step === prev) {
+      break;
+    }
+
+    depth++;
   }
 
-  // 4. Safe percent-decode
-  const percentResult = safePercentDecode(step);
-  if (!percentResult.isValid) {
-    return { normalized: step, scheme: null, isValid: false };
-  }
-  step = percentResult.decoded;
-
-  // 5. Remove whitespace / obfuscation around potential scheme
-  // e.g. "java\nscript:" -> "javascript:"
-  const schemeMatch = step.match(/^([a-z0-9+.-]+[\s]*):/i);
-  let scheme: string | null = null;
-
-  if (schemeMatch) {
-    scheme = schemeMatch[1].replace(/\s+/g, "").toLowerCase();
-    // Reconstruct cleaned string with lowercased scheme
-    const rest = step.slice(schemeMatch[0].length);
-    step = `${scheme}:${rest}`;
+  // Reject ambiguous multi-pass percent encoding if still changing after max depth
+  if (depth >= MAX_DECODE_DEPTH && (step.includes("%") || /%[0-9a-fA-F]{2}/i.test(step))) {
+    return { normalized: step, scheme: detectedScheme, isValid: false };
   }
 
   // Check protocol-relative URL "//..."
@@ -118,7 +169,7 @@ export function normalizeUrlString(rawUrl: string): {
     return { normalized: step, scheme: "protocol-relative", isValid: false };
   }
 
-  return { normalized: step, scheme, isValid: true };
+  return { normalized: step, scheme: detectedScheme, isValid: true };
 }
 
 /**

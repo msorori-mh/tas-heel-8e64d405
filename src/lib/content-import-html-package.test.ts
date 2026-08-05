@@ -290,3 +290,171 @@ test("30. Deterministic SHA-256 Package Hash differs on 1 byte change", async ()
   const hashB = await computePackageDeterministicHash(filesB);
   assert.notEqual(hashA, hashB);
 });
+
+test("31. CSP Bridge exact bytes: srcDoc extracted script SHA-256 matches CSP literally and differs on 1 byte change", async () => {
+  const nonce = "test-nonce-123";
+  const csp = await buildPackageCsp([], "RES-TEST", 1, nonce);
+  const srcDoc = generatePreviewHtmlBundle(
+    "<html><head></head><body></body></html>",
+    [],
+    csp,
+    "RES-TEST",
+    1,
+    nonce
+  );
+
+  const match = srcDoc.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(match, "srcDoc must contain an inline <script> element for bridge");
+  const extractedScript = match[1];
+
+  const computedHash = await computeSha256Base64(extractedScript);
+  assert.ok(
+    csp.includes(computedHash),
+    `CSP header (${csp}) must literally include extracted bridge script hash (${computedHash})`
+  );
+
+  const alteredScript = extractedScript + " ";
+  const alteredHash = await computeSha256Base64(alteredScript);
+  assert.equal(
+    csp.includes(alteredHash),
+    false,
+    "Changing 1 byte in bridge script must alter SHA-256 hash so it no longer matches CSP"
+  );
+});
+
+test("32. Message Bridge: Stale timestamp rejected (< session start)", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const nonce = bridge.getSessionNonce();
+  const payload = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: nonce,
+    event_type: "interaction",
+    event_sequence: 1,
+    timestamp: Date.now() - 100000,
+  };
+  const res = bridge.validateEventPayload(payload);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+});
+
+test("33. Message Bridge: Future timestamp rejected (> 60s in future)", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const nonce = bridge.getSessionNonce();
+  const payload = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: nonce,
+    event_type: "interaction",
+    event_sequence: 1,
+    timestamp: Date.now() + 120000,
+  };
+  const res = bridge.validateEventPayload(payload);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+});
+
+test("34. Message Bridge: UTF-8 multi-byte payload (> 10KB in bytes) rejected", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const nonce = bridge.getSessionNonce();
+  const largeArabicData = "اختبار خريطة ذهنية 🧬 ".repeat(400);
+  const payload = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: nonce,
+    event_type: "interaction",
+    event_sequence: 1,
+    timestamp: Date.now(),
+    payload: { data: largeArabicData },
+  };
+
+  const res = bridge.validateEventPayload(payload);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.PAYLOAD_SIZE_LIMIT_EXCEEDED);
+});
+
+test("35. Message Bridge: Array payload rejected as invalid schema", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const res = bridge.validateEventPayload([1, 2, 3]);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+});
+
+test("36. Message Bridge: Nonce mismatch rejected", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const payload = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: "wrong-nonce-val",
+    event_type: "interaction",
+    event_sequence: 1,
+    timestamp: Date.now(),
+  };
+  const res = bridge.validateEventPayload(payload);
+  assert.equal(res.isValid, false);
+  assert.equal(res.finding?.code, ValidationCodes.NONCE_MISMATCH);
+});
+
+test("37. Message Bridge: Sequence replay and out-of-order rejected", () => {
+  const bridge = new AppInteractiveResourceBridge("RES-01", 1);
+  const nonce = bridge.getSessionNonce();
+
+  const msg1 = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: nonce,
+    event_type: "interaction",
+    event_sequence: 1,
+    timestamp: Date.now(),
+  };
+  assert.equal(bridge.validateEventPayload(msg1).isValid, true);
+
+  // Duplicate sequence 1
+  const resDup = bridge.validateEventPayload(msg1);
+  assert.equal(resDup.isValid, false);
+  assert.equal(resDup.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+
+  // Non-positive sequence 0
+  const msg0 = {
+    resource_code: "RES-01",
+    resource_version: 1,
+    session_nonce: nonce,
+    event_type: "interaction",
+    event_sequence: 0,
+    timestamp: Date.now(),
+  };
+  const res0 = bridge.validateEventPayload(msg0);
+  assert.equal(res0.isValid, false);
+  assert.equal(res0.finding?.code, ValidationCodes.INVALID_EVENT_SCHEMA);
+});
+
+test("38. URL Normalization fail-closed: java%73cript:, java%2573cript:, java%252573cript:, java%25252573cript:, java%2525252573cript: all rejected", () => {
+  const attackVectors = [
+    "java%73cript:alert(1)",
+    "java%2573cript:alert(1)",
+    "java%252573cript:alert(1)",
+    "java%25252573cript:alert(1)",
+    "java%2525252573cript:alert(1)",
+  ];
+
+  for (const url of attackVectors) {
+    const check = isUrlSafe(url);
+    assert.equal(check.safe, false, `URL vector must be rejected as unsafe: ${url}`);
+  }
+});
+
+test("39. URL Normalization fail-closed: HTML entities + percent encoding and control whitespace rejected", () => {
+  const check1 = isUrlSafe("java%26%23x73%3Bcript:alert(1)");
+  assert.equal(check1.safe, false);
+
+  const check2 = isUrlSafe("java%0a%0d%09script:alert(1)");
+  assert.equal(check2.safe, false);
+});
+
+test("40. URL Normalization fail-closed: Ambiguous deep encoding or malformed percent sequence rejected", () => {
+  const checkMalformed = isUrlSafe("java%7script:alert(1)");
+  assert.equal(checkMalformed.safe, false);
+
+  const checkAmbiguous = isUrlSafe("path/file%252525252525252525.png");
+  assert.equal(checkAmbiguous.safe, false);
+});

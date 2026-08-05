@@ -23,10 +23,19 @@ export function generateSessionNonce(): string {
   throw new Error("FAIL_CLOSED: Secure crypto getRandomValues is unavailable.");
 }
 
+function isPlainObject(val: unknown): val is Record<string, unknown> {
+  if (typeof val !== "object" || val === null || Array.isArray(val)) {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(val);
+  return proto === Object.prototype || proto === null;
+}
+
 export class AppInteractiveResourceBridge {
   private expectedNonce: string;
   private expectedResourceCode: string;
   private expectedVersion: number;
+  private sessionStartTime: number;
   private lastSequence = 0;
   private eventTimestamps: number[] = [];
 
@@ -34,6 +43,7 @@ export class AppInteractiveResourceBridge {
     this.expectedResourceCode = resourceCode;
     this.expectedVersion = version;
     this.expectedNonce = sessionNonce || generateSessionNonce();
+    this.sessionStartTime = Date.now();
   }
 
   public getSessionNonce(): string {
@@ -64,7 +74,7 @@ export class AppInteractiveResourceBridge {
       };
     }
 
-    if (!rawPayload || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
+    if (!isPlainObject(rawPayload)) {
       return {
         isValid: false,
         finding: {
@@ -75,16 +85,17 @@ export class AppInteractiveResourceBridge {
       };
     }
 
-    // Payload size check (10KB limit)
+    // Payload size check (10KB UTF-8 byte limit)
     try {
       const payloadString = JSON.stringify(rawPayload);
-      if (payloadString.length > PACKAGE_LIMITS.MAX_EVENT_PAYLOAD_BYTES) {
+      const byteSize = new TextEncoder().encode(payloadString).byteLength;
+      if (byteSize > PACKAGE_LIMITS.MAX_EVENT_PAYLOAD_BYTES) {
         return {
           isValid: false,
           finding: {
             code: ValidationCodes.PAYLOAD_SIZE_LIMIT_EXCEEDED,
             severity: "error",
-            message: `حجم حمولة الحدث (${payloadString.length} bytes) يتجاوز الحد الأقصى المسموح به (${PACKAGE_LIMITS.MAX_EVENT_PAYLOAD_BYTES} bytes).`,
+            message: `حجم حمولة الحدث (${byteSize} bytes) يتجاوز الحد الأقصى المسموح به (${PACKAGE_LIMITS.MAX_EVENT_PAYLOAD_BYTES} bytes).`,
           },
         };
       }
@@ -105,8 +116,6 @@ export class AppInteractiveResourceBridge {
     const resourceCode = typeof data.resource_code === "string" ? data.resource_code : "";
     const version = typeof data.resource_version === "number" ? data.resource_version : 0;
     const eventType = typeof data.event_type === "string" ? data.event_type : "";
-    const sequence = typeof data.event_sequence === "number" ? data.event_sequence : 0;
-    const timestamp = typeof data.timestamp === "number" ? data.timestamp : 0;
 
     // 1. Session Nonce check
     if (!nonce || nonce !== this.expectedNonce) {
@@ -144,7 +153,51 @@ export class AppInteractiveResourceBridge {
       };
     }
 
-    // 4. Sequence monotonic check (strict > lastSequence)
+    // 4. Timestamp check (finite number, not before session start - 5s, not in future)
+    if (typeof data.timestamp !== "number" || !Number.isFinite(data.timestamp)) {
+      return {
+        isValid: false,
+        finding: {
+          code: ValidationCodes.INVALID_EVENT_SCHEMA,
+          severity: "error",
+          message: "طابع الوقت (timestamp) غير صالح أو غير معرف كعدد محدود.",
+        },
+      };
+    }
+    const timestamp = data.timestamp;
+    if (timestamp < this.sessionStartTime - 5000) {
+      return {
+        isValid: false,
+        finding: {
+          code: ValidationCodes.INVALID_EVENT_SCHEMA,
+          severity: "error",
+          message: "طابع الوقت أقدم من بداية الجلسة الحالية (Stale event timestamp).",
+        },
+      };
+    }
+    if (timestamp > Date.now() + 60000) {
+      return {
+        isValid: false,
+        finding: {
+          code: ValidationCodes.INVALID_EVENT_SCHEMA,
+          severity: "error",
+          message: "طابع الوقت بعيد في المستقبل (Future timestamp rejected).",
+        },
+      };
+    }
+
+    // 5. Sequence monotonic check (positive integer & strict > lastSequence)
+    if (typeof data.event_sequence !== "number" || !Number.isInteger(data.event_sequence) || data.event_sequence <= 0) {
+      return {
+        isValid: false,
+        finding: {
+          code: ValidationCodes.INVALID_EVENT_SCHEMA,
+          severity: "error",
+          message: "رقم تسلسل الحدث يجب أن يكون عدداً صحيحاً موجباً.",
+        },
+      };
+    }
+    const sequence = data.event_sequence;
     if (sequence <= this.lastSequence) {
       return {
         isValid: false,
@@ -156,7 +209,48 @@ export class AppInteractiveResourceBridge {
       };
     }
 
-    // 5. Rate limiting check (max 20 events per second)
+    // 6. Strict Payload Schema per event_type
+    const innerPayload = data.payload;
+    if (innerPayload !== undefined && !isPlainObject(innerPayload)) {
+      return {
+        isValid: false,
+        finding: {
+          code: ValidationCodes.INVALID_EVENT_SCHEMA,
+          severity: "error",
+          message: "البيانات الإضافية (payload) يجب أن تكون كائناً مجرداً.",
+        },
+      };
+    }
+
+    if (eventType === "step_completed" && innerPayload) {
+      const stepVal = (innerPayload as Record<string, unknown>).step;
+      if (typeof stepVal !== "number" || !Number.isInteger(stepVal) || stepVal < 0) {
+        return {
+          isValid: false,
+          finding: {
+            code: ValidationCodes.INVALID_EVENT_SCHEMA,
+            severity: "error",
+            message: "حدث step_completed يتطلب خاصية step كعدد صحيح غير سالب.",
+          },
+        };
+      }
+    }
+
+    if (eventType === "resize_request" && innerPayload) {
+      const heightVal = (innerPayload as Record<string, unknown>).height;
+      if (typeof heightVal !== "number" || !Number.isFinite(heightVal) || heightVal <= 0 || heightVal > 5000) {
+        return {
+          isValid: false,
+          finding: {
+            code: ValidationCodes.INVALID_EVENT_SCHEMA,
+            severity: "error",
+            message: "حدث resize_request يتطلب خاصية height كعدد موجَب ضمن الحدود المسموح بها.",
+          },
+        };
+      }
+    }
+
+    // 7. Rate limiting check (max 20 events per second)
     const now = Date.now();
     this.eventTimestamps = this.eventTimestamps.filter((ts) => now - ts < 1000);
     if (this.eventTimestamps.length >= PACKAGE_LIMITS.MAX_EVENT_RATE_PER_SECOND) {
@@ -179,8 +273,8 @@ export class AppInteractiveResourceBridge {
       session_nonce: nonce,
       event_type: eventType as BridgeEventType,
       event_sequence: sequence,
-      timestamp: timestamp || now,
-      payload: (data.payload as Record<string, unknown>) || undefined,
+      timestamp: timestamp,
+      payload: (innerPayload as Record<string, unknown>) || undefined,
     };
 
     return {
@@ -197,35 +291,6 @@ export class AppInteractiveResourceBridge {
     version: number,
     nonce: string
   ): string {
-    return `
-      (function() {
-        var nonce = ${JSON.stringify(nonce)};
-        var resourceCode = ${JSON.stringify(resourceCode)};
-        var version = ${JSON.stringify(version)};
-        var sequence = 0;
-
-        window.__TasheelBridge = {
-          sendEvent: function(eventType, payload) {
-            sequence++;
-            var message = {
-              resource_code: resourceCode,
-              resource_version: version,
-              session_nonce: nonce,
-              event_type: eventType,
-              event_sequence: sequence,
-              timestamp: Date.now(),
-              payload: payload || {}
-            };
-            window.parent.postMessage(message, "*");
-          },
-          markReady: function() { this.sendEvent("resource_ready"); },
-          markStarted: function() { this.sendEvent("resource_started"); },
-          sendInteraction: function(data) { this.sendEvent("interaction", data); },
-          markStepCompleted: function(stepIndex) { this.sendEvent("step_completed", { step: stepIndex }); },
-          markExperimentCompleted: function(summary) { this.sendEvent("experiment_completed", summary); },
-          requestResize: function(height) { this.sendEvent("resize_request", { height: height }); }
-        };
-      })();
-    `;
+    return `(function(){var nonce=${JSON.stringify(nonce)};var resourceCode=${JSON.stringify(resourceCode)};var version=${JSON.stringify(version)};var sequence=0;window.__TasheelBridge={sendEvent:function(eventType,payload){sequence++;var message={resource_code:resourceCode,resource_version:version,session_nonce:nonce,event_type:eventType,event_sequence:sequence,timestamp:Date.now(),payload:payload||{}};window.parent.postMessage(message,"*");},markReady:function(){this.sendEvent("resource_ready");},markStarted:function(){this.sendEvent("resource_started");},sendInteraction:function(data){this.sendEvent("interaction",data);},markStepCompleted:function(stepIndex){this.sendEvent("step_completed",{step:stepIndex});},markExperimentCompleted:function(summary){this.sendEvent("experiment_completed",summary);},requestResize:function(height){this.sendEvent("resize_request",{height:height});}};})();`;
   }
 }

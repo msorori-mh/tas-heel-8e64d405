@@ -33,10 +33,10 @@ export function generatePreviewHtmlBundle(
     version,
     sessionNonce
   );
-  const bridgeScriptTag = `<script>\n${bridgeScriptContent}\n</script>`;
+  const bridgeScriptTag = `<script>${bridgeScriptContent}</script>`;
 
   if (html.includes("</head>")) {
-    html = html.replace("</head>", `  ${bridgeScriptTag}\n</head>`);
+    html = html.replace("</head>", `${bridgeScriptTag}\n</head>`);
   } else {
     html = `${bridgeScriptTag}\n${html}`;
   }

@@ -11,6 +11,7 @@ import {
   PackageFileItem,
   buildPackageCsp,
   parseMasterZipBuffer,
+  SecurityFinding,
 } from "@/lib/content-import/html-package/index";
 
 export function InteractiveHtmlImportPanel() {
@@ -27,15 +28,49 @@ export function InteractiveHtmlImportPanel() {
     setStage(4); // Preflight
 
     let packageFilesMap: Record<string, PackageFileItem[]> = {};
+    let zipErrorFindings: SecurityFinding[] = [];
 
     if (zipFile && zipFile.size > 0) {
       try {
         const arrayBuffer = await zipFile.arrayBuffer();
         const zipRes = await parseMasterZipBuffer(new Uint8Array(arrayBuffer));
-        packageFilesMap = zipRes.packageMap;
-      } catch {
-        // Fallback to demo map if zip parsing fails or empty mock file used
+        if (!zipRes.isValid) {
+          zipErrorFindings = zipRes.findings;
+        } else {
+          packageFilesMap = zipRes.packageMap;
+        }
+      } catch (err: any) {
+        zipErrorFindings = [
+          {
+            code: "ZIP_INGESTION_FAILED" as any,
+            severity: "error",
+            message: `فشل قراءة حزمة ZIP: ${err.message}`,
+          },
+        ];
       }
+    }
+
+    if (zipErrorFindings.length > 0) {
+      // FAIL-CLOSED: ZIP parsing or security validation failed
+      setReport({
+        summary: {
+          totalRows: 0,
+          validRows: 0,
+          rejectedRows: 1,
+          totalResourcesInZip: 0,
+          validPackages: 0,
+          rejectedPackages: 1,
+          offlineEligibleCount: 0,
+        },
+        rows: [],
+        packageResults: {},
+        globalFindings: zipErrorFindings,
+      });
+      setPreviewCode(null);
+      setPreviewSrcDoc(null);
+      setLoading(false);
+      setStage(8); // Error stage
+      return;
     }
 
     const demoRows: InteractiveLessonResourceImportRow[] = [
@@ -315,6 +350,23 @@ export function InteractiveHtmlImportPanel() {
                 </Badge>
               </div>
             </div>
+
+            {/* Global Errors / Rejection Reasons Display */}
+            {report.globalFindings.length > 0 && (
+              <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4 space-y-2 text-xs text-destructive">
+                <div className="flex items-center gap-2 font-bold text-sm">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>تم رفض حزمة ZIP بسبب الانتهاكات أو حدود الأمان التالية (Fail-Closed Rejection):</span>
+                </div>
+                <ul className="list-disc list-inside space-y-1">
+                  {report.globalFindings.map((f, idx) => (
+                    <li key={idx}>
+                      <strong className="font-semibold">[{f.code}]:</strong> {f.message} {f.file ? `(${f.file})` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Sandbox Preview iframe */}
             {previewSrcDoc && (
