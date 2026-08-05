@@ -5,6 +5,8 @@ import JSZip from "jszip";
 import { DEFAULT_IMPORT_LIMITS } from "./limits.ts";
 import type { WorkbookParserMetadata } from "./preflight.ts";
 import { preflightZipBytes } from "./zip-preflight.ts";
+import { issue } from "./errors.ts";
+import { QB_IMPORT_CODES } from "./validation-codes.ts";
 
 const safeXmlParser = new XMLParser({
   ignoreAttributes: false,
@@ -23,37 +25,6 @@ export type TrustedWorkbookModel = {
   rows: Record<string, unknown>[];
   metadata: WorkbookParserMetadata;
   preflight_issues?: unknown[];
-};
-
-export const PARSER_SPY = {
-  parserInvocations: 0,
-  zipPreflightInvocations: 0,
-  zipPreflightRejections: 0,
-  jsZipInvocations: 0,
-  ooxmlRelsScans: 0,
-  excelJsInvocations: 0,
-  adapterInvocations: 0,
-  fullDecompressionInvocations: 0,
-  worksheetParsingInvocations: 0,
-  authorizationFailures: 0,
-  rowScanInvocations: 0,
-  validatorInvocations: 0,
-  dryRunCompletions: 0,
-  reset() {
-    this.parserInvocations = 0;
-    this.zipPreflightInvocations = 0;
-    this.zipPreflightRejections = 0;
-    this.jsZipInvocations = 0;
-    this.ooxmlRelsScans = 0;
-    this.excelJsInvocations = 0;
-    this.adapterInvocations = 0;
-    this.fullDecompressionInvocations = 0;
-    this.worksheetParsingInvocations = 0;
-    this.authorizationFailures = 0;
-    this.rowScanInvocations = 0;
-    this.validatorInvocations = 0;
-    this.dryRunCompletions = 0;
-  },
 };
 
 function hash(value: unknown): string {
@@ -161,9 +132,9 @@ export function isForbiddenRelationshipTarget(targetValue: string): boolean {
 
 export async function scanOoxmlRelationships(
   zip: JSZip,
-): Promise<{ hasExternalLinks: boolean; externalTargets: string[] }> {
-  PARSER_SPY.ooxmlRelsScans += 1;
+): Promise<{ hasExternalLinks: boolean; externalTargets: string[]; invalidStructure: boolean }> {
   const externalTargets: string[] = [];
+  let invalidStructure = false;
   const relFiles = Object.keys(zip.files).filter(
     (name) => /\.rels$/i.test(name) || name.includes("_rels/"),
   );
@@ -195,33 +166,80 @@ export async function scanOoxmlRelationships(
         parsed = safeXmlParser.parse(content);
       } catch {
         externalTargets.push("MALFORMED_RELS_XML");
+        invalidStructure = true;
         continue;
       }
 
       if (!parsed || typeof parsed !== "object") {
         externalTargets.push("MALFORMED_RELS_XML");
+        invalidStructure = true;
         continue;
       }
 
-      const relsNode = parsed.Relationships?.Relationship;
-      const relsList = Array.isArray(relsNode) ? relsNode : relsNode ? [relsNode] : [];
+      // Root element verification: Must be Relationships
+      const rootKeys = Object.keys(parsed).filter((k) => k !== "?xml");
+      if (rootKeys.length !== 1 || rootKeys[0] !== "Relationships") {
+        externalTargets.push("OOXML_RELATIONSHIP_STRUCTURE_INVALID");
+        invalidStructure = true;
+        continue;
+      }
+
+      const relsObj = parsed.Relationships;
+      if (relsObj === null || relsObj === undefined || typeof relsObj !== "object") {
+        externalTargets.push("OOXML_RELATIONSHIP_STRUCTURE_INVALID");
+        invalidStructure = true;
+        continue;
+      }
+
+      // Check child keys inside Relationships: valid empty container has no non-attribute keys
+      const childKeys = Object.keys(relsObj).filter((k) => !k.startsWith("@_"));
+      if (childKeys.length === 0) {
+        // Valid empty Relationships container
+        continue;
+      }
+
+      if (childKeys.some((k) => k !== "Relationship")) {
+        externalTargets.push("OOXML_RELATIONSHIP_STRUCTURE_INVALID");
+        invalidStructure = true;
+        continue;
+      }
+
+      const relsNode = relsObj.Relationship;
+      const relsList = Array.isArray(relsNode) ? relsNode : [relsNode];
 
       for (const rel of relsList) {
-        const targetMode = String(rel?.["@_TargetMode"] ?? "").trim();
-        const target = String(rel?.["@_Target"] ?? "").trim();
+        if (!rel || typeof rel !== "object") {
+          externalTargets.push("OOXML_RELATIONSHIP_STRUCTURE_INVALID");
+          invalidStructure = true;
+          continue;
+        }
 
-        if (targetMode.toLowerCase() === "external" || isForbiddenRelationshipTarget(target)) {
-          externalTargets.push(target || "TargetMode=External");
+        const target = rel?.["@_Target"];
+        const id = rel?.["@_Id"];
+
+        if (target === undefined || target === null || id === undefined || id === null) {
+          externalTargets.push("OOXML_RELATIONSHIP_STRUCTURE_INVALID");
+          invalidStructure = true;
+          continue;
+        }
+
+        const targetStr = String(target).trim();
+        const targetMode = String(rel?.["@_TargetMode"] ?? "").trim();
+
+        if (targetMode.toLowerCase() === "external" || isForbiddenRelationshipTarget(targetStr)) {
+          externalTargets.push(targetStr || "TargetMode=External");
         }
       }
     } catch {
       externalTargets.push("UNREADABLE_RELS");
+      invalidStructure = true;
     }
   }
 
   return {
     hasExternalLinks: externalTargets.length > 0,
     externalTargets,
+    invalidStructure,
   };
 }
 
@@ -229,19 +247,15 @@ export async function scanOoxmlRelationships(
 export async function parseQuestionBankWorkbook(
   fileName: string,
   bytes: Uint8Array,
+  externalScanner: typeof scanOoxmlRelationships = scanOoxmlRelationships,
 ): Promise<TrustedWorkbookModel> {
-  PARSER_SPY.parserInvocations += 1;
-
   if (/\.csv$/i.test(fileName)) {
-    PARSER_SPY.worksheetParsingInvocations += 1;
     return rowsToModel(csvRows(Buffer.from(bytes).toString("utf8")), bytes.byteLength);
   }
 
   // STEP 1: Pre-parse ZIP Preflight BEFORE JSZip and ExcelJS
-  PARSER_SPY.zipPreflightInvocations += 1;
   const zipPreflight = preflightZipBytes(bytes, fileName);
   if (!zipPreflight.ok) {
-    PARSER_SPY.zipPreflightRejections += 1;
     const metadata: WorkbookParserMetadata = {
       zipEntries: zipPreflight.totalEntries,
       uncompressedBytes: zipPreflight.totalUncompressedBytes,
@@ -261,7 +275,6 @@ export async function parseQuestionBankWorkbook(
   }
 
   // STEP 2: JSZip inspection
-  PARSER_SPY.jsZipInvocations += 1;
   const metadata: WorkbookParserMetadata = {
     zipEntries: zipPreflight.totalEntries,
     uncompressedBytes: zipPreflight.totalUncompressedBytes,
@@ -271,7 +284,6 @@ export async function parseQuestionBankWorkbook(
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(bytes);
-    PARSER_SPY.fullDecompressionInvocations += 1;
   } catch {
     metadata.encrypted = true;
     return {
@@ -285,9 +297,18 @@ export async function parseQuestionBankWorkbook(
   }
 
   // STEP 3: OOXML Relationship Scan
-  const relScan = await scanOoxmlRelationships(zip);
-  if (relScan.hasExternalLinks) {
+  const relScan = await externalScanner(zip);
+  if (relScan.hasExternalLinks || relScan.invalidStructure) {
     metadata.hasExternalLinks = true;
+    const isStructureInvalid = relScan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID");
+    const preflight_issues = [
+      issue(
+        isStructureInvalid
+          ? QB_IMPORT_CODES.OOXML_RELATIONSHIP_STRUCTURE_INVALID
+          : QB_IMPORT_CODES.EXTERNAL_LINK,
+        { file: fileName },
+      ),
+    ];
     return {
       trusted_parser_version: TRUSTED_PARSER_VERSION,
       parser_result_hash: hash({ fileName, bytes: bytes.byteLength, metadata, externalTargets: relScan.externalTargets }),
@@ -295,11 +316,11 @@ export async function parseQuestionBankWorkbook(
       headers: [],
       rows: [],
       metadata,
+      preflight_issues,
     };
   }
 
   // STEP 4: ExcelJS trusted load
-  PARSER_SPY.excelJsInvocations += 1;
   const workbook = new ExcelJS.Workbook();
 
   try {
@@ -328,7 +349,6 @@ export async function parseQuestionBankWorkbook(
     };
   }
 
-  PARSER_SPY.worksheetParsingInvocations += 1;
   const rawRows: string[][] = [];
   worksheet.eachRow({ includeEmpty: true }, (row) => {
     const values: string[] = [];

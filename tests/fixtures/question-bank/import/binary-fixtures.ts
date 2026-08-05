@@ -222,6 +222,26 @@ export async function buildZipWithCompressionRatioOverflow(): Promise<Uint8Array
   return copy;
 }
 
+export async function buildZipWithTotalSizeOverflow(): Promise<Uint8Array> {
+  const baseBytes = await buildMinimalValidXlsx();
+  const copy = new Uint8Array(baseBytes.length);
+  copy.set(baseBytes);
+
+  let eocd = -1;
+  for (let i = copy.length - 22; i >= 0; i--) {
+    if (copy[i] === 0x50 && copy[i + 1] === 0x4b && copy[i + 2] === 0x05 && copy[i + 3] === 0x06) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd === -1) return copy;
+
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  const cdOffset = view.getUint32(eocd + 16, true);
+  view.setUint32(cdOffset + 24, 25 * 1024 * 1024, true); // 25 MiB > 20 MiB limit
+  return copy;
+}
+
 export async function buildZipWithAbsolutePath(pathString = "/etc/passwd"): Promise<Uint8Array> {
   const zip = new JSZip();
   zip.file(pathString, "absolute path content");

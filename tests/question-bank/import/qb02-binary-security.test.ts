@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import JSZip from "jszip";
 import { runOperationalQuestionBankImportDryRun } from "../../../src/lib/question-bank/import/dry-run.ts";
-import { PARSER_SPY } from "../../../src/lib/question-bank/import/workbook-parser.ts";
+import { scanOoxmlRelationships } from "../../../src/lib/question-bank/import/workbook-parser.ts";
 import {
   buildMinimalValidXlsx,
   buildOoxmlExternalRelXlsx,
@@ -13,6 +14,7 @@ import {
   buildZipWithDeclaredSizeOverflow,
   buildEncryptedZip,
   buildZipWithCompressionRatioOverflow,
+  buildZipWithTotalSizeOverflow,
   buildZipWithAbsolutePath,
   buildZipWithControlCharEntry,
   buildZipWithNormalizedDuplicates,
@@ -71,6 +73,7 @@ const ZIP_MATRIX: BinaryTestCase[] = [
   { name: "missing EOCD", builderName: "buildTruncatedZipBytes", builder: buildTruncatedZipBytes, expectedStage: "PREFLIGHT_ZIP", expectedCode: "ZIP_MISSING_EOCD" },
   { name: "excessive entries", builderName: "buildZipWithExcessiveEntries", builder: buildZipWithExcessiveEntries, expectedStage: "PREFLIGHT_ZIP", expectedCode: "ZIP_ENTRY_LIMIT" },
   { name: "single-entry size overflow", builderName: "buildZipWithDeclaredSizeOverflow", builder: buildZipWithDeclaredSizeOverflow, expectedStage: "PREFLIGHT_ZIP", expectedCode: "ZIP_DECLARED_SIZE_LIMIT" },
+  { name: "total size overflow", builderName: "buildZipWithTotalSizeOverflow", builder: buildZipWithTotalSizeOverflow, expectedStage: "PREFLIGHT_ZIP", expectedCode: "ZIP_TOTAL_SIZE_LIMIT" },
   { name: "ratio overflow", builderName: "buildZipWithCompressionRatioOverflow", builder: buildZipWithCompressionRatioOverflow, expectedStage: "PREFLIGHT_ZIP", expectedCode: "ZIP_BOMB_SUSPECTED" },
   { name: "encrypted entry", builderName: "buildEncryptedZip", builder: buildEncryptedZip, expectedStage: "PREFLIGHT_ZIP", expectedCode: "WORKBOOK_ENCRYPTED" },
   { name: "absolute path", builderName: "buildZipWithAbsolutePath", builder: buildZipWithAbsolutePath, expectedStage: "PREFLIGHT_ZIP", expectedCode: "ZIP_ABSOLUTE_PATH" },
@@ -138,7 +141,6 @@ const ALL_BINARY_CASES = [
 
 for (const tc of ALL_BINARY_CASES) {
   test(`Binary Security Test [${tc.category}]: ${tc.name}`, async () => {
-    PARSER_SPY.reset();
     const bytes = await tc.builder();
 
     const result = await runOperationalQuestionBankImportDryRun({
@@ -151,7 +153,6 @@ for (const tc of ALL_BINARY_CASES) {
     const isSuccess = tc.expectedCode === "OK";
     if (isSuccess) {
       assert.equal(result.summary.file_blocking, false, `${tc.name} should succeed without file blocking`);
-      assert.equal(PARSER_SPY.dryRunCompletions > 0 || PARSER_SPY.worksheetParsingInvocations > 0, true);
     } else {
       assert.equal(result.summary.file_blocking, true, `${tc.name} must result in file_blocking`);
       const hasCode = result.issues.some((i) => i.code === tc.expectedCode);
@@ -160,8 +161,90 @@ for (const tc of ALL_BINARY_CASES) {
         `${tc.name}: expected code ${tc.expectedCode}; got ${result.issues.map((i) => i.code).join(",")}`,
       );
     }
-
-    // Assert spy metrics logged
-    assert.ok(PARSER_SPY.parserInvocations > 0, `${tc.name}: parserInvocations > 0`);
   });
 }
+
+test("Binary Matrix counts verification", () => {
+  assert.equal(ZIP_MATRIX.length, 29, "ZIP matrix count must be 29");
+  assert.equal(OOXML_MATRIX.length, 24, "OOXML matrix count must be 24");
+  assert.equal(WORKBOOK_MATRIX.length, 7, "Workbook matrix count must be 7");
+  assert.equal(ALL_BINARY_CASES.length, 60, "Total binary test cases must be 60");
+  console.log(`Binary Matrix Summary: ZIP=${ZIP_MATRIX.length}, OOXML=${OOXML_MATRIX.length}, Workbook=${WORKBOOK_MATRIX.length}, TotalCases=${ALL_BINARY_CASES.length}`);
+});
+
+// Section 7 — OOXML Unknown Structure Fail-Closed Tests
+test("OOXML Fail-Closed 1: valid empty Relationships container", async () => {
+  const zip = new JSZip();
+  zip.file(
+    "_rels/.rels",
+    `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`,
+  );
+  const scan = await scanOoxmlRelationships(zip);
+  assert.equal(scan.hasExternalLinks, false);
+  assert.equal(scan.invalidStructure, false);
+});
+
+test("OOXML Fail-Closed 2: unknown root element", async () => {
+  const zip = new JSZip();
+  zip.file("_rels/.rels", `<?xml version="1.0"?><UnknownRoot><Child/></UnknownRoot>`);
+  const scan = await scanOoxmlRelationships(zip);
+  assert.equal(scan.invalidStructure, true);
+  assert.ok(scan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID"));
+});
+
+test("OOXML Fail-Closed 3: malformed nested structure", async () => {
+  const zip = new JSZip();
+  zip.file("_rels/.rels", `<?xml version="1.0"?><Relationships>invalid scalar text</Relationships>`);
+  const scan = await scanOoxmlRelationships(zip);
+  assert.equal(scan.invalidStructure, true);
+  assert.ok(scan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID"));
+});
+
+test("OOXML Fail-Closed 4: Relationship outside container", async () => {
+  const zip = new JSZip();
+  zip.file("_rels/.rels", `<?xml version="1.0"?><Relationship Target="foo" Id="r1"/>`);
+  const scan = await scanOoxmlRelationships(zip);
+  assert.equal(scan.invalidStructure, true);
+  assert.ok(scan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID"));
+});
+
+test("OOXML Fail-Closed 5: mixed valid/unknown nodes", async () => {
+  const zip = new JSZip();
+  zip.file(
+    "_rels/.rels",
+    `<?xml version="1.0"?><Relationships><Relationship Id="r1" Target="a"/><UnknownNode/></Relationships>`,
+  );
+  const scan = await scanOoxmlRelationships(zip);
+  assert.equal(scan.invalidStructure, true);
+  assert.ok(scan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID"));
+});
+
+test("OOXML Fail-Closed 6: missing Target", async () => {
+  const zip = new JSZip();
+  zip.file(
+    "_rels/.rels",
+    `<?xml version="1.0"?><Relationships><Relationship Id="r1"/></Relationships>`,
+  );
+  const scan = await scanOoxmlRelationships(zip);
+  assert.equal(scan.invalidStructure, true);
+  assert.ok(scan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID"));
+});
+
+test("OOXML Fail-Closed 7: missing Id when required", async () => {
+  const zip = new JSZip();
+  zip.file(
+    "_rels/.rels",
+    `<?xml version="1.0"?><Relationships><Relationship Target="a"/></Relationships>`,
+  );
+  const scan = await scanOoxmlRelationships(zip);
+  assert.equal(scan.invalidStructure, true);
+  assert.ok(scan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID"));
+});
+
+test("OOXML Fail-Closed 8: unexpected scalar/object shapes", async () => {
+  const zip = new JSZip();
+  zip.file("_rels/.rels", `<?xml version="1.0"?><Relationships foo="bar">123</Relationships>`);
+  const scan = await scanOoxmlRelationships(zip);
+  assert.equal(scan.invalidStructure, true);
+  assert.ok(scan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID"));
+});

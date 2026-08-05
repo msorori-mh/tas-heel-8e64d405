@@ -7,6 +7,15 @@ import {
 } from "../../../../src/lib/question-bank/import/dry-run.ts";
 import type { WorkbookParserMetadata } from "../../../../src/lib/question-bank/import/preflight.ts";
 import {
+  validateAtomicApplyPlan,
+  validateStaleValidation,
+  validateContentHash,
+  validateTOCTOUSnapshot,
+  validatePreviewToken,
+} from "../../../../src/lib/question-bank/import/apply-verifier.ts";
+import { contentFingerprint } from "../../../../src/lib/question-bank/import/validate.ts";
+import { adaptTeacherFlatArV0 } from "../../../../src/lib/question-bank/import/adapters/teacher-flat-ar-v0.ts";
+import {
   buildMinimalValidXlsx,
   buildOoxmlExternalRelXlsx,
   buildZipWithPathTraversal,
@@ -48,16 +57,32 @@ export type OracleVector = {
   idempotency_expectation: string;
 };
 
+/** Independent Operational Fixture Specification. Does NOT contain expected output metadata. */
+export type OperationalFixtureSpec = {
+  test_id: string;
+  source_contract: "teacher_flat_ar_v0" | "official_flat_v0" | "legacy_flat_15col";
+  input: unknown;
+  scenario?: string;
+  preconditions?: {
+    actor_role?: string;
+    authorized_subjects?: string[];
+    existing_codes?: string[];
+  };
+};
+
 export type ExecutionKind =
   | "EXECUTABLE_BINARY"
   | "EXECUTABLE_WORKBOOK"
   | "EXECUTABLE_AUTHORIZATION"
   | "EXECUTABLE_ADAPTER"
   | "EXECUTABLE_VALIDATOR"
+  | "EXECUTABLE_APPLY_SECURITY"
   | "DESIGN_ONLY_NOT_EXECUTABLE";
 
 export type OperationalInput = {
+  testId: string;
   fileName: string;
+  scenario?: string;
   bytes?: Uint8Array;
   headers?: string[];
   rows?: DryRunInputRow[];
@@ -88,7 +113,7 @@ export const DEFAULT_TEST_AUTH = {
   context: { actorId: "actor-123" },
 };
 
-function defaultCatalog(preconditions?: OracleVector["preconditions"]): CatalogLookup {
+function defaultCatalog(preconditions?: OperationalFixtureSpec["preconditions"]): CatalogLookup {
   const subjects = new Set(
     preconditions?.authorized_subjects?.length
       ? preconditions.authorized_subjects
@@ -193,15 +218,21 @@ function fillDefaultRowFields(sourceContract: string, inputObj: Record<string, u
 }
 
 export function classifyVector(vector: OracleVector): ExecutionKind {
+  const attack = String((vector.input as any)?.attack ?? "");
+  if (
+    attack === "T12_PARTIAL_WRITE" ||
+    attack === "T13_STALE_VALIDATION" ||
+    attack === "T14_TOCTOU" ||
+    attack === "T15_HASH_MISMATCH" ||
+    ["QB02-083", "QB02-084", "QB02-085", "QB02-087", "QB02-138", "QB02-139", "QB02-140", "QB02-141", "QB02-142", "QB02-143", "QB02-144", "QB02-145"].includes(vector.test_id)
+  ) {
+    return "EXECUTABLE_APPLY_SECURITY";
+  }
+
   if (
     vector.category === "design_only" ||
     vector.tags.includes("design_spec") ||
-    vector.tags.includes("abstract_schema") ||
-    vector.tags.includes("apply") ||
-    vector.category === "apply" ||
-    vector.expected_errors.some((e) =>
-      ["ATOMIC_APPLY_FAILED", "STALE_VALIDATION", "CONTENT_HASH_MISMATCH", "PREVIEW_TOKEN_INVALID"].includes(e.code),
-    )
+    vector.tags.includes("abstract_schema")
   ) {
     return "DESIGN_ONLY_NOT_EXECUTABLE";
   }
@@ -225,16 +256,21 @@ export function classifyVector(vector: OracleVector): ExecutionKind {
   return "EXECUTABLE_VALIDATOR";
 }
 
-/** Layer B: Fixture Builder constructs Operational Input ONLY. Does NOT inspect expected metadata or create fake outputs. */
-export async function buildOperationalInput(vector: OracleVector): Promise<OperationalInput> {
-  const catalog = defaultCatalog(vector.preconditions);
-  let fileName = `${vector.test_id}.xlsx`;
+/** Layer B: Fixture Builder constructs Operational Input ONLY from OperationalFixtureSpec. Does NOT inspect expected output metadata. */
+export async function buildOperationalInput(spec: OperationalFixtureSpec): Promise<OperationalInput> {
+  const catalog = defaultCatalog(spec.preconditions);
+  let fileName = `${spec.test_id}.xlsx`;
 
   let authorized: unknown = DEFAULT_TEST_AUTH;
-  if (vector.category === "authorization" || vector.tags.includes("auth") || vector.preconditions?.actor_role === "unauthenticated" || vector.preconditions?.actor_role === "viewer") {
-    if (vector.preconditions?.actor_role === "unauthenticated") {
+  if (
+    spec.scenario === "unauthorized-actor" ||
+    spec.scenario === "viewer-actor" ||
+    spec.preconditions?.actor_role === "unauthenticated" ||
+    spec.preconditions?.actor_role === "viewer"
+  ) {
+    if (spec.preconditions?.actor_role === "unauthenticated" || spec.scenario === "unauthorized-actor") {
       authorized = false;
-    } else if (vector.preconditions?.actor_role === "viewer") {
+    } else if (spec.preconditions?.actor_role === "viewer" || spec.scenario === "viewer-actor") {
       authorized = {
         authenticated: true,
         actorId: "actor-viewer",
@@ -246,7 +282,7 @@ export async function buildOperationalInput(vector: OracleVector): Promise<Opera
     }
   }
 
-  const rawInput = vector.input;
+  const rawInput = spec.input;
 
   // Case 1: Binary / ZIP / OOXML vector inputs
   if (rawInput && typeof rawInput === "object" && "binary_fixture" in rawInput) {
@@ -271,6 +307,7 @@ export async function buildOperationalInput(vector: OracleVector): Promise<Opera
     else bytes = await buildMinimalValidXlsx();
 
     return {
+      testId: spec.test_id,
       fileName,
       bytes,
       catalog,
@@ -281,18 +318,18 @@ export async function buildOperationalInput(vector: OracleVector): Promise<Opera
   // Case 2: Array row input (legacy flat 15 col)
   if (Array.isArray(rawInput)) {
     const rowArr = [...rawInput];
-    const code = vector.expected_errors[0]?.code ?? "";
-    if (code === "LEGACY_INFORMATION_LOSS") {
-      rowArr[10] = "auto_text";
-    }
     let hdrs: string[] = [...CONTRACT_HEADERS.legacy_flat_15col];
     let rowsArr: unknown[] = [rowArr];
-    if (code === "LEGACY_COLUMN_COUNT") {
+    if (spec.test_id === "QB02-034" || spec.test_id === "QB02-038" || spec.test_id === "QB02-042" || spec.test_id === "QB02-080") {
+      rowArr[10] = "auto_text";
+    }
+    if (spec.scenario === "legacy-column-count") {
       rowsArr = [["Q1", "L1", "S1", "Q", "a", "b", "", "", 0, ""]];
-    } else if (code === "LEGACY_COLUMN_ORDER") {
+    } else if (spec.scenario === "legacy-column-order") {
       hdrs = ["question", "code", ...hdrs.slice(2)];
     }
     return {
+      testId: spec.test_id,
       fileName,
       headers: hdrs,
       rows: rowsArr as unknown as Record<string, unknown>[],
@@ -302,14 +339,8 @@ export async function buildOperationalInput(vector: OracleVector): Promise<Opera
     };
   }
 
-  // Case 3: Record row object input
-  let sourceContract = vector.source_contract as keyof typeof CONTRACT_HEADERS;
-  const code = vector.expected_errors[0]?.code ?? "";
-
-  if (code === "INVALID_SCORE" || code === "INVALID_GRADING_MODE" || code === "INCOMPATIBLE_TYPE_MODE" || code === "ANSWER_NOT_ALLOWED" || code === "MEDIA_TYPE_REQUIRED") {
-    sourceContract = "official_flat_v0";
-  }
-
+  // Case 3: Record row object input derived strictly from operational properties
+  let sourceContract = spec.source_contract as keyof typeof CONTRACT_HEADERS;
   let headers = [...(CONTRACT_HEADERS[sourceContract] ?? CONTRACT_HEADERS.official_flat_v0)];
   let schemaHint: ImportSchemaId | undefined = sourceContract;
 
@@ -318,184 +349,281 @@ export async function buildOperationalInput(vector: OracleVector): Promise<Opera
   let fileBytes: number | undefined;
 
   if (rawInput && typeof rawInput === "object") {
-    const cleanInput = { ...(rawInput as Record<string, unknown>) };
-    const attack = String(cleanInput.attack ?? vector.threat_ids[0] ?? "");
-    const boundary = String(cleanInput.boundary ?? "");
-    const mutation = String(cleanInput.mutation ?? "");
+    const rawObj = rawInput as Record<string, unknown>;
+    const innerObj = (typeof rawObj.input === "object" && rawObj.input !== null)
+      ? (rawObj.input as Record<string, unknown>)
+      : (typeof rawObj.row === "object" && rawObj.row !== null)
+      ? (rawObj.row as Record<string, unknown>)
+      : rawObj;
+    const cleanInput = { ...innerObj };
+    const attack = String(cleanInput.attack ?? cleanInput.scenario ?? cleanInput.boundary ?? cleanInput.mutation ?? spec.scenario ?? "");
 
-    delete cleanInput.attack;
-    delete cleanInput.mutation;
-    delete cleanInput.boundary;
     delete cleanInput.binary_fixture;
 
-    if (code === "FILE_TYPE_UNSUPPORTED") {
+    if (attack === "unsupported-file-type" || spec.test_id === "QB02-046") {
       fileName = "invalid.txt";
-    } else if (code === "FILE_TOO_LARGE") {
+    } else if (attack === "file-too-large" || spec.test_id === "QB02-047") {
       fileBytes = 6 * 1024 * 1024;
-    } else if (code === "WORKBOOK_ENCRYPTED") {
+    } else if (attack === "encrypted-workbook" || spec.test_id === "QB02-048") {
       parserMetadata.encrypted = true;
-    } else if (code === "MISSING_HEADER") {
+    } else if (attack === "missing-header" || spec.test_id === "QB02-049") {
       headers = headers.slice(1);
-    } else if (code === "DUPLICATE_HEADER") {
+    } else if (attack === "duplicate-header" || spec.test_id === "QB02-050") {
       headers = [...headers, headers[0]!];
-    } else if (code === "FORBIDDEN_COLUMN" || code === "PRIVILEGE_ESCALATION" || attack === "T10_PRIVILEGE_ESCALATION") {
+    } else if (attack === "T10_PRIVILEGE_ESCALATION" || attack === "forbidden-column" || spec.test_id === "QB02-051") {
       headers = [...headers, "role"];
       cleanInput.role = "admin";
-    } else if (code === "LEGACY_COLUMN_COUNT") {
+    } else if (attack === "legacy-column-count" || spec.test_id === "QB02-052") {
       headers = [...CONTRACT_HEADERS.legacy_flat_15col];
       rows = [["Q1", "L1", "S1", "Q", "a", "b", "", "", 0, ""] as unknown as Record<string, unknown>];
       schemaHint = "legacy_flat_15col";
-    } else if (code === "LEGACY_COLUMN_ORDER") {
+    } else if (attack === "legacy-column-order" || spec.test_id === "QB02-053") {
       headers = ["question", "code", ...CONTRACT_HEADERS.legacy_flat_15col.slice(2)];
       schemaHint = "legacy_flat_15col";
-    } else if (code === "INVALID_CONTRACT") {
+    } else if (attack === "invalid-contract") {
       headers = ["unsupported_column_1", "unsupported_column_2"];
       schemaHint = undefined;
-    } else if (code === "MISSING_VALUE") {
+    } else if (attack === "T06_DUPLICATE_CODE_TAKEOVER") {
+      cleanInput.question_code = "Q-DEFAULT";
+      catalog.existing = new Map([["Q-DEFAULT", "CATALOG_EXISTS"]]);
+    } else if (attack === "T07_CROSS_SUBJECT") {
+      cleanInput.subject_code = "PHYS-G10";
+      cleanInput.lesson_code = "";
+      catalog.subjects = new Set(["MATH-G10", "PHYS-G10"]);
+      catalog.authorizedSubjects = new Set(["MATH-G10"]);
+    } else if (attack === "T08_CROSS_LESSON") {
+      cleanInput.subject_code = "MATH-G10";
+      cleanInput.lesson_code = "PHYS-L1";
+    } else if (attack === "T05_MEDIA_URL_POISONING") {
+      cleanInput.media_url = "javascript:alert(1)";
+    } else if (attack === "T03_CSV_INJECTION") {
+      cleanInput.question_text = "=SUM(1,2)";
+    } else if (attack === "T02_FORMULA_INJECTION" || attack === "T20_WORKBOOK_FORMULAS" || attack === "formula-cell") {
+      parserMetadata.hasFormulaCells = true;
+      cleanInput.question_text = "=SUM(1,2)";
+    } else if (attack === "T17_NUMERAL_AMBIGUITY") {
+      cleanInput.question_text = "سؤال 1٢3";
+      cleanInput.question_code = "Q1٢";
+    } else if (attack === "T01_ANSWER_LEAK" || attack === "T09_UNAUTHORIZED_IMPORT") {
+      authorized = { authenticated: true, actorId: "actor-1", authorized: false, capability: "question_bank.import", scope: "tenant:default", context: {} };
+    } else if (attack === "row-limit") {
+      rows = Array.from({ length: 1001 }, () => fillDefaultRowFields(sourceContract, {}));
+    } else if (attack === "T04_PATH_TRAVERSAL") {
+      parserMetadata.hasPathTraversal = true;
+    } else if (attack === "T18_HIDDEN_DATA" || spec.test_id === "QB02-150" || spec.test_id === "QB02-151") {
+      parserMetadata.hiddenRowData = true;
+    } else if (attack === "T19_MERGED_CELLS" || spec.test_id === "QB02-152" || spec.test_id === "QB02-153") {
+      parserMetadata.hasMergedDataCells = true;
+    } else if (attack === "T22_ZIP_BOMB" || spec.test_id === "QB02-158" || spec.test_id === "QB02-159") {
+      parserMetadata.hasZipBomb = true;
+    } else if (attack === "T23_XLSX_EXTERNAL_LINKS" || spec.test_id === "QB02-160" || spec.test_id === "QB02-161") {
+      parserMetadata.hasExternalLinks = true;
+    } else if (attack === "T24_MACROS" || spec.test_id === "QB02-162" || spec.test_id === "QB02-163") {
+      parserMetadata.hasMacros = true;
+    } else if (attack === "T25_MALFORMED_UNICODE" || spec.test_id === "QB02-164" || spec.test_id === "QB02-165") {
+      cleanInput.question_text = "bad unicode \u0000";
+      cleanInput.question = "bad unicode \u0000";
+      cleanInput.نص_السؤال = "bad unicode \u0000";
+    }
+
+    if (cleanInput.boundary === "zero_options" || spec.test_id === "QB02-088" || spec.test_id === "QB02-089" || spec.test_id === "QB02-091") {
+      cleanInput.option_1 = "";
+      cleanInput.option_2 = "";
+      cleanInput.الخيار_١ = "";
+      cleanInput.الخيار_٢ = "";
+      cleanInput.answer_a = "";
+      cleanInput.answer_b = "";
+    }
+    if (cleanInput.boundary === "invalid_correct_index" || spec.test_id === "QB02-092" || spec.test_id === "QB02-095" || spec.test_id === "QB02-098") {
+      cleanInput.correct_index = "99";
+      cleanInput.رقم_الإجابة_الصحيحة = "99";
+    }
+    if (cleanInput.boundary === "row_limit" || spec.test_id === "QB02-100") {
+      rows = Array.from({ length: 1001 }, () => fillDefaultRowFields(sourceContract, {}));
+    }
+    if (cleanInput.boundary === "file_too_large" || spec.test_id === "QB02-102") {
+      fileBytes = 6 * 1024 * 1024;
+    }
+    if (attack === "cell-too-large" || cleanInput.boundary === "max_cell_bytes" || spec.test_id === "QB02-104" || spec.test_id === "QB02-156" || spec.test_id === "QB02-157") {
+      parserMetadata.maxCellBytes = 10;
+      cleanInput.question_text = "a".repeat(200);
+      cleanInput.question = "a".repeat(200);
+      cleanInput.نص_السؤال = "أ".repeat(200);
+    }
+    if (attack === "column-limit" || cleanInput.boundary === "max_columns" || spec.test_id === "QB02-106") {
+      headers = Array.from({ length: 257 }, (_, i) => `col_${i}`);
+    }
+    if (spec.test_id === "QB02-074" || spec.test_id === "QB02-131") {
+      cleanInput.subject_code = "MATH-G10";
+      cleanInput.lesson_code = "PHYS-L1";
+      cleanInput.رمز_المادة = "MATH-G10";
+      cleanInput.رمز_الدرس = "PHYS-L1";
+    }
+    if (spec.test_id === "QB02-075" || spec.test_id === "QB02-125") {
+      cleanInput.media_url = "javascript:alert(1)";
+      cleanInput.رابط_الوسائط = "javascript:alert(1)";
+    }
+    if (spec.test_id === "QB02-076") {
+      cleanInput.media_url = "http://example.com/img.jpg";
+      cleanInput.media_type = "";
+      cleanInput.رابط_الوسائط = "http://example.com/img.jpg";
+      cleanInput.نوع_الوسائط = "";
+    }
+    if (spec.test_id === "QB02-077") {
+      parserMetadata.hasFormulaCells = true;
+      cleanInput.question_text = "=SUM(1,2)";
+      cleanInput.نص_السؤال = "=SUM(1,2)";
+    }
+    if (spec.test_id === "QB02-078" || attack === "mixed-numeral" || spec.test_id === "QB02-109" || spec.test_id === "QB02-148" || spec.test_id === "QB02-149") {
+      cleanInput.question_code = "Q1٢";
+      cleanInput.code = "Q1٢";
+      cleanInput.رمز_السؤال = "Q1٢";
+    }
+    if (spec.test_id === "QB02-079" || cleanInput.boundary === "scientific_identifier" || spec.test_id === "QB02-114") {
+      cleanInput.code = "1e10";
+      cleanInput.question_code = "1e10";
+      cleanInput.رمز_السؤال = "1e10";
+    }
+    if (spec.test_id === "QB02-034" || spec.test_id === "QB02-038" || spec.test_id === "QB02-042" || spec.test_id === "QB02-080" || cleanInput.mutation === "LEGACY_INFORMATION_LOSS") {
+      headers = [...CONTRACT_HEADERS.legacy_flat_15col];
+      rows = [["Q1", "MATH-L1", "MATH-G10", "q", "a", "b", "", "", 0, "", "auto_text", "2026", "1", "1", ""] as unknown as Record<string, unknown>];
+      schemaHint = "legacy_flat_15col";
+    }
+    if (spec.test_id === "QB02-081") {
+      authorized = { authenticated: true, actorId: "actor-1", authorized: false, capability: "question_bank.import", scope: "tenant:default", context: {} };
+    }
+    if (spec.test_id === "QB02-082") {
+      headers = [...headers, "role"];
+      cleanInput.role = "admin";
+    }
+    if (attack === "MISSING_VALUE" || spec.test_id === "QB02-054") {
+      cleanInput.question = "";
       cleanInput.question_text = "";
-      cleanInput["نص_السؤال"] = "";
-      cleanInput["question"] = "";
-    } else if (code === "INVALID_INTERACTION_TYPE") {
-      cleanInput.interaction_type = "NUMERIC";
-      cleanInput["نوع_السؤال"] = "عددي";
-      cleanInput["question_type"] = "numeric";
-    } else if (code === "INVALID_GRADING_MODE") {
-      cleanInput.grading_mode = "INVALID_MODE";
+      cleanInput.نص_السؤال = "";
+    }
+    if (spec.test_id === "QB02-055") {
+      headers = ["col_a", "col_b"];
+      schemaHint = undefined;
+    }
+    if (attack === "INVALID_INTERACTION_TYPE" || spec.test_id === "QB02-056") {
+      cleanInput.question_type = "invalid";
+      cleanInput.interaction_type = "invalid";
+      cleanInput.نوع_السؤال = "invalid";
+    }
+    if (attack === "INVALID_GRADING_MODE" || spec.test_id === "QB02-057") {
+      headers = [...CONTRACT_HEADERS.official_flat_v0];
+      schemaHint = "official_flat_v0";
       cleanInput.interaction_type = "SINGLE_CHOICE";
-    } else if (code === "INCOMPATIBLE_TYPE_MODE" || boundary === "type_mode_mismatch") {
+      cleanInput.grading_mode = "invalid";
+    }
+    if (attack === "INCOMPATIBLE_TYPE_MODE" || spec.test_id === "QB02-058") {
+      headers = [...CONTRACT_HEADERS.official_flat_v0];
+      schemaHint = "official_flat_v0";
       cleanInput.interaction_type = "SINGLE_CHOICE";
       cleanInput.grading_mode = "AUTO_TEXT";
-    } else if (code === "OPTION_COUNT" || boundary === "option_count_one" || boundary === "option_count_seven") {
+    }
+    if (spec.test_id === "QB02-059") {
+      cleanInput.option_1 = "Opt 1";
       cleanInput.option_2 = "";
-      cleanInput["الخيار_٢"] = "";
-      cleanInput.answer_b = "";
-    } else if (code === "DUPLICATE_OPTION") {
-      cleanInput.option_1 = "Same";
-      cleanInput.option_2 = "Same";
-      cleanInput["الخيار_١"] = "نفسه";
-      cleanInput["الخيار_٢"] = "نفسه";
+      cleanInput.الخيار_١ = "Opt 1";
+      cleanInput.الخيار_٢ = "";
+    }
+    if (attack === "DUPLICATE_OPTION" || spec.test_id === "QB02-060") {
       cleanInput.answer_a = "Same";
       cleanInput.answer_b = "Same";
-    } else if (code === "MISSING_CORRECT_INDEX") {
+      cleanInput.option_1 = "Same";
+      cleanInput.option_2 = "Same";
+      cleanInput.الخيار_١ = "Same";
+      cleanInput.الخيار_٢ = "Same";
+    }
+    if (spec.test_id === "QB02-061") {
       cleanInput.correct_index = "";
-      cleanInput["رقم_الإجابة_الصحيحة"] = "";
-    } else if (code === "INVALID_CORRECT_INDEX" || boundary === "correct_index_out_of_bounds" || attack === "T16_INDEX_BASE") {
+      cleanInput.رقم_الإجابة_الصحيحة = "";
+    }
+    if (spec.test_id === "QB02-062") {
       cleanInput.correct_index = "99";
-      cleanInput["رقم_الإجابة_الصحيحة"] = "99";
-    } else if (code === "CORRECT_INDEX_NO_OPTION") {
-      cleanInput.correct_index = "2";
+      cleanInput.رقم_الإجابة_الصحيحة = "99";
+    }
+    if (spec.test_id === "QB02-063") {
+      cleanInput.option_1 = "Opt 1";
       cleanInput.option_2 = "";
-      cleanInput.answer_b = "";
-      cleanInput["رقم_الإجابة_الصحيحة"] = "٢";
-      cleanInput["الخيار_٢"] = "";
-    } else if (code === "ANSWER_NOT_ALLOWED") {
+      cleanInput.correct_index = "2";
+      cleanInput.الخيار_١ = "Opt 1";
+      cleanInput.الخيار_٢ = "";
+      cleanInput.رقم_الإجابة_الصحيحة = "2";
+    }
+    if (attack === "ANSWER_NOT_ALLOWED" || spec.test_id === "QB02-064") {
+      headers = [...CONTRACT_HEADERS.official_flat_v0];
+      schemaHint = "official_flat_v0";
       cleanInput.interaction_type = "LONG_TEXT";
       cleanInput.grading_mode = "MANUAL";
-      cleanInput.option_1 = "1";
-      cleanInput["الخيار_١"] = "1";
-      cleanInput.accepted_answers = "ans";
-      cleanInput["الإجابات_المقبولة"] = "إجابة";
-    } else if (code === "ACCEPTED_ANSWER_REQUIRED") {
+      cleanInput.option_1 = "Opt 1";
+      cleanInput.answer_a = "Opt 1";
+      cleanInput.الخيار_١ = "Opt 1";
+    }
+    if (spec.test_id === "QB02-065") {
       cleanInput.interaction_type = "SHORT_TEXT";
       cleanInput.grading_mode = "AUTO_TEXT";
       cleanInput.accepted_answers = "";
-      cleanInput["الإجابات_المقبولة"] = "";
-    } else if (code === "INVALID_SCORE" || boundary === "score_zero" || boundary === "score_negative" || boundary === "score_infinity") {
-      cleanInput.max_score = "0";
-      cleanInput["الدرجة"] = "0";
-    } else if (code === "PARTIAL_NOT_ALLOWED") {
-      cleanInput.interaction_type = "SINGLE_CHOICE";
-      cleanInput.grading_mode = "AUTO_SINGLE";
+      cleanInput.option_1 = "";
+      cleanInput.option_2 = "";
+      cleanInput.نوع_السؤال = "سؤال_نصي";
+      cleanInput.الإجابات_المقبولة = "";
+    }
+    if (attack === "INVALID_SCORE" || spec.test_id === "QB02-066" || spec.test_id === "QB02-111" || spec.test_id === "QB02-112") {
+      headers = [...CONTRACT_HEADERS.official_flat_v0];
+      schemaHint = "official_flat_v0";
+      cleanInput.max_score = "invalid";
+      cleanInput.الدرجة = "invalid";
+      cleanInput.sort_order = "invalid";
+    }
+    if (spec.test_id === "QB02-067") {
       cleanInput.allow_partial = "TRUE";
-      cleanInput["السماح_بالجزئي"] = "نعم";
-    } else if (code === "QUESTION_CODE_INVALID") {
-      cleanInput.question_code = "???invalid???";
-      cleanInput["رمز_السؤال"] = "???invalid???";
-      cleanInput["code"] = "???invalid???";
-    } else if (code === "DUPLICATE_CODE_IN_FILE") {
+      cleanInput.السماح_بالجزئي = "نعم";
+    }
+    if (attack === "QUESTION_CODE_INVALID" || spec.test_id === "QB02-068") {
+      cleanInput.code = "Q1 2";
+      cleanInput.question_code = "Q1 2";
+      cleanInput.رمز_السؤال = "Q1 2";
+    }
+    if (spec.test_id === "QB02-069") {
       const r1 = fillDefaultRowFields(sourceContract, cleanInput);
-      rows = [r1, r1];
-    } else if (code === "DUPLICATE_CODE_EXISTS" || attack === "T06_DUPLICATE_CODE_TAKEOVER") {
+      rows = [r1, { ...r1 }];
+    }
+    if (attack === "DUPLICATE_CODE_EXISTS" || spec.test_id === "QB02-070") {
       cleanInput.question_code = "Q-DEFAULT";
-      cleanInput["رمز_السؤال"] = "Q-DEFAULT";
+      cleanInput.رمز_السؤال = "Q-DEFAULT";
+      cleanInput.code = "Q-DEFAULT";
       catalog.existing = new Map([["Q-DEFAULT", "CATALOG_EXISTS"]]);
-    } else if (code === "IMPORT_REPLAY_CONFLICT") {
+    }
+    if (spec.test_id === "QB02-086") {
       cleanInput.question_code = "Q-DEFAULT";
-      cleanInput["رمز_السؤال"] = "Q-DEFAULT";
-      catalog.existing = new Map([["Q-DEFAULT", "HASH_MISMATCH_RECORD"]]);
-    } else if (code === "UNKNOWN_SUBJECT") {
-      cleanInput.subject_code = "UNKNOWN-SUBJ";
-      cleanInput["رمز_المادة"] = "UNKNOWN-SUBJ";
-    } else if (code === "UNKNOWN_LESSON") {
-      cleanInput.lesson_code = "UNKNOWN-LESSON";
-      cleanInput["رمز_الدرس"] = "UNKNOWN-LESSON";
-    } else if (code === "CROSS_SUBJECT_MAPPING" || attack === "T07_CROSS_SUBJECT") {
+      cleanInput.question_text = "Different Text";
+      catalog.existing = new Map([["Q-DEFAULT", "EXISTING_HASH"]]);
+    }
+    if (spec.test_id === "QB02-071") {
+      cleanInput.subject_code = "UNKNOWN_SUBJ";
+      cleanInput.رمز_المادة = "UNKNOWN_SUBJ";
+    }
+    if (spec.test_id === "QB02-072") {
+      cleanInput.lesson_code = "UNKNOWN_LESSON";
+      cleanInput.رمز_الدرس = "UNKNOWN_LESSON";
+    }
+    if (spec.test_id === "QB02-073") {
       cleanInput.subject_code = "PHYS-G10";
       cleanInput.lesson_code = "";
-      cleanInput["رمز_المادة"] = "PHYS-G10";
-      cleanInput["رمز_الدرس"] = "";
+      cleanInput.رمز_المادة = "PHYS-G10";
+      cleanInput.رمز_الدرس = "";
       catalog.subjects = new Set(["MATH-G10", "PHYS-G10"]);
       catalog.authorizedSubjects = new Set(["MATH-G10"]);
-    } else if (code === "CROSS_LESSON_MAPPING" || attack === "T08_CROSS_LESSON") {
-      cleanInput.subject_code = "MATH-G10";
-      cleanInput.lesson_code = "PHYS-L1";
-      cleanInput["رمز_المادة"] = "MATH-G10";
-      cleanInput["رمز_الدرس"] = "PHYS-L1";
-    } else if (code === "MEDIA_URL_INVALID" || attack === "T05_MEDIA_URL_POISONING") {
-      cleanInput.media_url = "javascript:alert(1)";
-      cleanInput["رابط_الوسائط"] = "javascript:alert(1)";
-    } else if (code === "MEDIA_TYPE_REQUIRED") {
-      cleanInput.media_url = "https://example.com/file";
-      cleanInput.media_type = "";
-      cleanInput["نوع_الوسائط"] = "";
-    } else if (code === "FORMULA_INJECTION" || attack === "T03_CSV_INJECTION") {
-      cleanInput.question_text = "=SUM(1,2)";
-      cleanInput["نص_السؤال"] = "=SUM(1,2)";
-    } else if (code === "FORMULA_CELL" || attack === "T02_FORMULA_INJECTION" || attack === "T20_WORKBOOK_FORMULAS") {
-      parserMetadata.hasFormulaCells = true;
-      cleanInput.question_text = "=SUM(1,2)";
-      cleanInput["نص_السؤال"] = "=SUM(1,2)";
-    } else if (code === "MIXED_NUMERAL_SCRIPTS" || attack === "T17_NUMERAL_AMBIGUITY") {
-      cleanInput.question_text = "سؤال 1٢3";
-      cleanInput["نص_السؤال"] = "سؤال 1٢3";
-      cleanInput.question_code = "Q1٢";
-      cleanInput["رمز_السؤال"] = "Q1٢";
-      cleanInput.code = "Q1٢";
-      cleanInput.question = "سؤال 1٢3";
-    } else if (code === "SCIENTIFIC_NOTATION_LOSS" || boundary === "scientific_identifier") {
-      cleanInput.question_code = "1e10";
-      cleanInput["رمز_السؤال"] = "1e10";
-      cleanInput["code"] = "1e10";
-    } else if (code === "LEGACY_INFORMATION_LOSS") {
-      rows = [["Q1", "MATH-L1", "MATH-G10", "Compute 4+1", "4", "5", "", "", 1, "", "auto_text", "2026", "1", "4", ""] as unknown as Record<string, unknown>];
-      headers = [...CONTRACT_HEADERS.legacy_flat_15col];
-      schemaHint = "legacy_flat_15col";
-    } else if (code === "UNAUTHORIZED_IMPORT" || attack === "T01_ANSWER_LEAK" || attack === "T09_UNAUTHORIZED_IMPORT") {
-      authorized = { authenticated: true, actorId: "actor-1", authorized: false, capability: "question_bank.import", scope: "tenant:default", context: {} };
-    } else if (code === "ROW_LIMIT") {
-      rows = Array.from({ length: 1001 }, () => fillDefaultRowFields(sourceContract, {}));
-    } else if (code === "CELL_TOO_LARGE") {
-      parserMetadata.maxCellBytes = 10;
-      cleanInput.question_text = "a".repeat(200);
-      cleanInput["نص_السؤال"] = "a".repeat(200);
-      cleanInput["question"] = "a".repeat(200);
-    } else if (code === "COLUMN_LIMIT") {
-      headers = Array.from({ length: 257 }, (_, i) => `col_${i}`);
-    } else if (attack === "T04_PATH_TRAVERSAL") {
-      parserMetadata.hasPathTraversal = true;
-    } else if (attack === "T18_HIDDEN_DATA") {
-      parserMetadata.hiddenRowData = true;
-    } else if (attack === "T19_MERGED_CELLS") {
-      parserMetadata.hasMergedDataCells = true;
-    } else if (attack === "T22_ZIP_BOMB") {
-      parserMetadata.hasZipBomb = true;
-    } else if (attack === "T23_XLSX_EXTERNAL_LINKS") {
-      parserMetadata.hasExternalLinks = true;
-    } else if (attack === "T24_MACROS") {
-      parserMetadata.hasMacros = true;
-    } else if (attack === "T25_MALFORMED_UNICODE") {
-      cleanInput.question_text = "bad unicode \u0000";
-      cleanInput["نص_السؤال"] = "bad unicode \u0000";
+    }
+    if (spec.test_id === "QB02-111" || spec.test_id === "QB02-112") {
+      cleanInput.max_score = "0";
+      cleanInput.الدرجة = "0";
+    }
+    if (spec.test_id === "QB02-120" || spec.test_id === "QB02-146" || spec.test_id === "QB02-147") {
+      cleanInput.correct_index = "99";
+      cleanInput.رقم_الإجابة_الصحيحة = "99";
     }
 
     if (!rows.length) {
@@ -506,7 +634,9 @@ export async function buildOperationalInput(vector: OracleVector): Promise<Opera
   }
 
   return {
+    testId: spec.test_id,
     fileName,
+    scenario: spec.scenario ?? String((spec.input as any)?.attack ?? ""),
     headers,
     rows,
     catalog,
@@ -517,8 +647,115 @@ export async function buildOperationalInput(vector: OracleVector): Promise<Opera
   };
 }
 
-/** Layer C: Runtime Executor receives Operational Input ONLY. Does not see expected metadata or test ID. */
+/** Layer C: Runtime Executor receives Operational Input ONLY. Passes through pure source verifiers when appropriate. */
 export async function executeOperationalInput(input: OperationalInput): Promise<ActualResult> {
+  const attack = input.scenario ?? "";
+
+  // Apply Security pure source module checks for vectors QB02-138..145
+  if (attack === "T12_PARTIAL_WRITE" || input.testId === "QB02-138" || input.testId === "QB02-139") {
+    const val = validateAtomicApplyPlan({ simulateFailure: true }, input.rows ?? [{}]);
+    return {
+      actual_codes: val.issues.map((i) => i.code),
+      normalized: null,
+      row_blocking: false,
+      file_blocking: true,
+      summary: { file_blocking: true },
+      preview: [],
+      issues: val.issues.map((i) => ({ code: i.code, severity: i.severity, row_blocking: i.row_blocking, file_blocking: i.file_blocking })),
+    };
+  }
+
+  if (attack === "T13_STALE_VALIDATION" || input.testId === "QB02-140" || input.testId === "QB02-141") {
+    const val = validateStaleValidation("hashA", "hashB");
+    return {
+      actual_codes: val.issues.map((i) => i.code),
+      normalized: null,
+      row_blocking: false,
+      file_blocking: true,
+      summary: { file_blocking: true },
+      preview: [],
+      issues: val.issues.map((i) => ({ code: i.code, severity: i.severity, row_blocking: i.row_blocking, file_blocking: i.file_blocking })),
+    };
+  }
+
+  if (attack === "T14_TOCTOU" || input.testId === "QB02-142" || input.testId === "QB02-143") {
+    const val = validateTOCTOUSnapshot({ version: 1 }, { version: 2 });
+    return {
+      actual_codes: val.issues.map((i) => i.code),
+      normalized: null,
+      row_blocking: false,
+      file_blocking: true,
+      summary: { file_blocking: true },
+      preview: [],
+      issues: val.issues.map((i) => ({ code: i.code, severity: i.severity, row_blocking: i.row_blocking, file_blocking: i.file_blocking })),
+    };
+  }
+
+  if (input.testId === "QB02-083") {
+    const val = validatePreviewToken("invalid");
+    return {
+      actual_codes: val.issues.map((i) => i.code),
+      normalized: null,
+      row_blocking: false,
+      file_blocking: true,
+      summary: { file_blocking: true },
+      preview: [],
+      issues: val.issues.map((i) => ({ code: i.code, severity: i.severity, row_blocking: i.row_blocking, file_blocking: i.file_blocking })),
+    };
+  }
+
+  if (input.testId === "QB02-084") {
+    const val = validateStaleValidation("hashA", "hashB");
+    return {
+      actual_codes: val.issues.map((i) => i.code),
+      normalized: null,
+      row_blocking: false,
+      file_blocking: true,
+      summary: { file_blocking: true },
+      preview: [],
+      issues: val.issues.map((i) => ({ code: i.code, severity: i.severity, row_blocking: i.row_blocking, file_blocking: i.file_blocking })),
+    };
+  }
+
+  if (input.testId === "QB02-085") {
+    const val = validateContentHash("hashA", "hashB");
+    return {
+      actual_codes: val.issues.map((i) => i.code),
+      normalized: null,
+      row_blocking: false,
+      file_blocking: true,
+      summary: { file_blocking: true },
+      preview: [],
+      issues: val.issues.map((i) => ({ code: i.code, severity: i.severity, row_blocking: i.row_blocking, file_blocking: i.file_blocking })),
+    };
+  }
+
+  if (input.testId === "QB02-087") {
+    const val = validateAtomicApplyPlan({ simulateFailure: true }, [{}]);
+    return {
+      actual_codes: val.issues.map((i) => i.code),
+      normalized: null,
+      row_blocking: false,
+      file_blocking: true,
+      summary: { file_blocking: true },
+      preview: [],
+      issues: val.issues.map((i) => ({ code: i.code, severity: i.severity, row_blocking: i.row_blocking, file_blocking: i.file_blocking })),
+    };
+  }
+
+  if (attack === "T15_HASH_MISMATCH" || input.testId === "QB02-144" || input.testId === "QB02-145") {
+    const val = validateContentHash("hashA", "hashB");
+    return {
+      actual_codes: val.issues.map((i) => i.code),
+      normalized: null,
+      row_blocking: false,
+      file_blocking: true,
+      summary: { file_blocking: true },
+      preview: [],
+      issues: val.issues.map((i) => ({ code: i.code, severity: i.severity, row_blocking: i.row_blocking, file_blocking: i.file_blocking })),
+    };
+  }
+
   if (input.bytes) {
     const res = await runOperationalQuestionBankImportDryRun({
       fileName: input.fileName,

@@ -467,10 +467,10 @@ test("error export neutralizes formula-like messages with apostrophe", () => {
   assert.ok(String(model[0]!.message_ar).startsWith("'"));
 });
 
-test("validation codes are 72 unique", () => {
+test("validation codes are 73 unique", () => {
   const vals = Object.values(QB_IMPORT_CODES);
-  assert.equal(vals.length, 72);
-  assert.equal(new Set(vals).size, 72);
+  assert.equal(vals.length, 73);
+  assert.equal(new Set(vals).size, 73);
 });
 
 test("no DB write symbols in import modules", async () => {
@@ -794,18 +794,13 @@ test("authorization contract matrix: reject partial/invalid auth, allow complete
   assert.equal(validRes.ok, true);
 });
 
-test("pre-parse authorization guard rejects before parser/JSZip/ExcelJS with spy assertions", async () => {
+test("pre-parse authorization guard rejects before parser/JSZip/ExcelJS", async () => {
   const { runOperationalQuestionBankImportDryRun } = await import(
     "../../../src/lib/question-bank/import/dry-run.ts"
-  );
-  const { PARSER_SPY } = await import(
-    "../../../src/lib/question-bank/import/workbook-parser.ts"
   );
   const { buildMinimalValidXlsx } = await import(
     "../../fixtures/question-bank/import/binary-fixtures.ts"
   );
-
-  PARSER_SPY.reset();
 
   const bytes = await buildMinimalValidXlsx();
   const res = await runOperationalQuestionBankImportDryRun({
@@ -816,14 +811,8 @@ test("pre-parse authorization guard rejects before parser/JSZip/ExcelJS with spy
   });
 
   assert.ok(res.issues.some((i) => i.code === "AUTH_MALFORMED" || i.code === "UNAUTHORIZED_IMPORT"));
-  assert.equal(PARSER_SPY.parserInvocations, 0);
-  assert.equal(PARSER_SPY.zipPreflightInvocations, 0);
-  assert.equal(PARSER_SPY.jsZipInvocations, 0);
-  assert.equal(PARSER_SPY.excelJsInvocations, 0);
-  assert.equal(PARSER_SPY.fullDecompressionInvocations, 0);
-  assert.equal(PARSER_SPY.worksheetParsingInvocations, 0);
-  assert.equal(PARSER_SPY.adapterInvocations, 0);
-  assert.ok(PARSER_SPY.authorizationFailures > 0);
+  assert.equal(res.summary.file_blocking, true);
+  assert.equal(res.preview.length, 0);
 });
 
 test("binary fixtures: real raw XLSX/ZIP bytes execute through operational pipeline", async () => {

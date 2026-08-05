@@ -14,6 +14,7 @@ const FILE_CODES = [
   "WORKBOOK_ENCRYPTED",
   "MACRO_CONTENT",
   "EXTERNAL_LINK",
+  "OOXML_RELATIONSHIP_STRUCTURE_INVALID",
   "PATH_TRAVERSAL",
   "FORMULA_CELL",
   "MERGED_DATA_CELL",
@@ -126,6 +127,7 @@ export const QB_IMPORT_AR_MESSAGES: Record<QbImportCode, string> = {
   WORKBOOK_ENCRYPTED: "المصنف المشفّر بكلمة مرور غير مدعوم.",
   MACRO_CONTENT: "تم اكتشاف محتوى ماكرو أو محتوى نشط.",
   EXTERNAL_LINK: "تم اكتشاف روابط خارجية في المصنف.",
+  OOXML_RELATIONSHIP_STRUCTURE_INVALID: "بنية علاقات OOXML (.rels) مشوهة أو تحتوي عناصر غير معروفة.",
   PATH_TRAVERSAL: "مسار ملف داخل الأرشيف يحتوي على محاولة تجاوز المجلد (Path Traversal).",
   FORMULA_CELL: "خلايا الصيغ غير مسموحة.",
   MERGED_DATA_CELL: "خلايا مدمجة تتقاطع مع منطقة البيانات.",
@@ -276,6 +278,11 @@ const AUDIT_DETAILS: Record<
   EXTERNAL_LINK: {
     trigger: "OOXML relationship contains TargetMode=External or forbidden URI scheme/traversal",
     internal_audit_detail: "OOXML rel scanner identified external link or remote entity target",
+    source_module: "workbook-parser",
+  },
+  OOXML_RELATIONSHIP_STRUCTURE_INVALID: {
+    trigger: "OOXML relationship file structure is malformed or contains unexpected nodes/attributes",
+    internal_audit_detail: "OOXML rel scanner rejected non-standard or malformed relationship XML structure",
     source_module: "workbook-parser",
   },
   PATH_TRAVERSAL: {

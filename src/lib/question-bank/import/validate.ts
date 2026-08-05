@@ -3,7 +3,6 @@ import { issue, type QbImportIssue } from "./errors.ts";
 import { QB_IMPORT_CODES } from "./validation-codes.ts";
 import { hasUnsafeUnicode, isFormulaLike, mixedNumeralScripts } from "./unicode.ts";
 import { canonicalHash } from "./canonical-json.ts";
-import { PARSER_SPY } from "./workbook-parser.ts";
 
 export function contentFingerprint(row: OfficialNormalizedV1): string {
   return canonicalHash({
@@ -41,7 +40,6 @@ export function validateNormalizedRow(
     seenFingerprints?: Set<string>;
   },
 ): QbImportIssue[] {
-  PARSER_SPY.validatorInvocations += 1;
   const issues: QbImportIssue[] = [];
   const base = {
     file: ctx.file ?? null,
@@ -171,7 +169,6 @@ export function validateNormalizedRow(
 
   if (ctx.seenFingerprints) {
     const fingerprint = contentFingerprint(row);
-    // Different codes / same content is a policy warning at dry-run layer only.
     ctx.seenFingerprints.add(fingerprint);
   }
 

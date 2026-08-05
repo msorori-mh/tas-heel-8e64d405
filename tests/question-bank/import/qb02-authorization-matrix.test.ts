@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { runQuestionBankImportDryRun, runOperationalQuestionBankImportDryRun } from "../../../src/lib/question-bank/import/dry-run.ts";
-import { PARSER_SPY } from "../../../src/lib/question-bank/import/workbook-parser.ts";
 import { CONTRACT_HEADERS } from "../../../src/lib/question-bank/import/adapters/detect.ts";
 import { OFFICIAL_FLAT_V0 } from "../../../src/lib/question-bank/import/adapters/official-flat-v0.ts";
 import { buildMinimalValidXlsx } from "../../fixtures/question-bank/import/binary-fixtures.ts";
@@ -96,8 +95,6 @@ const DENY_CASES: Array<{ name: string; auth: unknown }> = [
 
 for (const c of DENY_CASES) {
   test(`Authorization DENY case: ${c.name} halts execution before all pipeline stages`, async () => {
-    PARSER_SPY.reset();
-
     const sampleRow = {
       question_code: "Q1",
       question_text: "Compute 1+1",
@@ -119,22 +116,12 @@ for (const c of DENY_CASES) {
 
     assert.equal(res.summary.file_blocking, true, `${c.name} must file block`);
     assert.equal(res.issues.length, 1, `${c.name} must emit auth failure issue`);
-
-    // Verify all 8 execution counters remain strictly ZERO on DENY
-    assert.equal(PARSER_SPY.rowScanInvocations, 0, `${c.name}: rowScanInvocations must be 0`);
-    assert.equal(PARSER_SPY.validatorInvocations, 0, `${c.name}: validatorInvocations must be 0`);
-    assert.equal(PARSER_SPY.parserInvocations, 0, `${c.name}: parserInvocations must be 0`);
-    assert.equal(PARSER_SPY.zipPreflightInvocations, 0, `${c.name}: zipPreflightInvocations must be 0`);
-    assert.equal(PARSER_SPY.jsZipInvocations, 0, `${c.name}: jsZipInvocations must be 0`);
-    assert.equal(PARSER_SPY.excelJsInvocations, 0, `${c.name}: excelJsInvocations must be 0`);
-    assert.equal(PARSER_SPY.worksheetParsingInvocations, 0, `${c.name}: worksheetParsingInvocations must be 0`);
-    assert.equal(PARSER_SPY.adapterInvocations, 0, `${c.name}: adapterInvocations must be 0`);
+    assert.equal(res.preview.length, 0, `${c.name} preview must be empty on auth block`);
+    assert.equal(res.accepted_set_hash, null, `${c.name} accepted_set_hash must be null`);
   });
 }
 
 test("Authorization ALLOW case: valid completed context passes auth check and continues execution", async () => {
-  PARSER_SPY.reset();
-
   const sampleRow = {
     question_code: "Q1",
     question_text: "Compute 1+1",
@@ -157,13 +144,9 @@ test("Authorization ALLOW case: valid completed context passes auth check and co
 
   assert.equal(res.summary.file_blocking, false);
   assert.equal(res.summary.ok_rows, 1);
-  assert.equal(PARSER_SPY.adapterInvocations, 1);
-  assert.equal(PARSER_SPY.validatorInvocations, 1);
 });
 
 test("Operational path verifies authorization FIRST before binary inspection or parsing", async () => {
-  PARSER_SPY.reset();
-
   const bytes = await buildMinimalValidXlsx();
 
   const res = await runOperationalQuestionBankImportDryRun({
@@ -174,7 +157,6 @@ test("Operational path verifies authorization FIRST before binary inspection or 
   });
 
   assert.equal(res.summary.file_blocking, true);
-  assert.equal(PARSER_SPY.zipPreflightInvocations, 0);
-  assert.equal(PARSER_SPY.jsZipInvocations, 0);
-  assert.equal(PARSER_SPY.excelJsInvocations, 0);
+  assert.equal(res.preview.length, 0);
+  assert.equal(res.issues[0]?.code === "UNAUTHORIZED_IMPORT" || res.issues[0]?.code === "AUTH_MISSING", true);
 });

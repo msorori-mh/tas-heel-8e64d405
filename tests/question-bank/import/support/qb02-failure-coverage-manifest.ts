@@ -114,6 +114,14 @@ export const FAILURE_COVERAGE_MANIFEST: Record<QbImportCode, FailureCoverageMapp
     test_name: "OOXML relationship security: external hyperlink target",
     fixture_builder: "buildOoxmlExternalRelXlsx",
   },
+  OOXML_RELATIONSHIP_STRUCTURE_INVALID: {
+    code: "OOXML_RELATIONSHIP_STRUCTURE_INVALID",
+    expected_stage: "PREFLIGHT_OOXML",
+    source_module: "workbook-parser",
+    test_file: "qb02-binary-security.test.ts",
+    test_name: "OOXML relationship structure: malformed XML in rels",
+    fixture_builder: "buildOoxmlMalformedXmlXlsx",
+  },
   PATH_TRAVERSAL: {
     code: "PATH_TRAVERSAL",
     expected_stage: "PREFLIGHT_ZIP",

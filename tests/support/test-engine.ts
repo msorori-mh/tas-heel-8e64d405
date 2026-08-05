@@ -2,36 +2,37 @@ import {
   adaptLegacyFlat15Col,
   legacyArrayToRow,
   LEGACY_FLAT_15COL,
-} from "./adapters/legacy-flat-15col.ts";
-import { adaptTeacherFlatArV0, TEACHER_FLAT_AR_V0 } from "./adapters/teacher-flat-ar-v0.ts";
-import { adaptOfficialFlatV0, OFFICIAL_FLAT_V0 } from "./adapters/official-flat-v0.ts";
+} from "../../src/lib/question-bank/import/adapters/legacy-flat-15col.ts";
+import { adaptTeacherFlatArV0, TEACHER_FLAT_AR_V0 } from "../../src/lib/question-bank/import/adapters/teacher-flat-ar-v0.ts";
+import { adaptOfficialFlatV0, OFFICIAL_FLAT_V0 } from "../../src/lib/question-bank/import/adapters/official-flat-v0.ts";
 import {
   CONTRACT_HEADERS,
   detectSchemaFromHeaders,
   normalizeHeader,
   type ImportSchemaId,
-} from "./adapters/detect.ts";
-import type { OfficialNormalizedV1 } from "./official-normalized-v1.ts";
+} from "../../src/lib/question-bank/import/adapters/detect.ts";
+import type { OfficialNormalizedV1 } from "../../src/lib/question-bank/import/official-normalized-v1.ts";
 import {
   validateNormalizedRow,
   contentFingerprint,
   type CatalogLookup,
-} from "./validate.ts";
-import { canonicalHash, compareCodePoints } from "./canonical-json.ts";
-import { issue, sortIssues, type QbImportIssue } from "./errors.ts";
-import { QB_IMPORT_CODES } from "./validation-codes.ts";
-import { preflightWorkbook, type WorkbookParserMetadata } from "./preflight.ts";
-import { buildPrivilegedPreview, buildPublicPreview } from "./preview.ts";
+} from "../../src/lib/question-bank/import/validate.ts";
+import { canonicalHash, compareCodePoints } from "../../src/lib/question-bank/import/canonical-json.ts";
+import { issue, sortIssues, type QbImportIssue } from "../../src/lib/question-bank/import/errors.ts";
+import { QB_IMPORT_CODES } from "../../src/lib/question-bank/import/validation-codes.ts";
+import { preflightWorkbook, type WorkbookParserMetadata } from "../../src/lib/question-bank/import/preflight.ts";
+import { buildPrivilegedPreview, buildPublicPreview } from "../../src/lib/question-bank/import/preview.ts";
 import {
   parseQuestionBankWorkbook,
-  type TrustedWorkbookModel,
-} from "./workbook-parser.ts";
-import { validateImportAuthorization, QB_IMPORT_DEFAULT_SCOPE } from "./authorization.ts";
-import { DEFAULT_IMPORT_LIMITS } from "./limits.ts";
+  scanOoxmlRelationships,
+} from "../../src/lib/question-bank/import/workbook-parser.ts";
+import { validateImportAuthorization, QB_IMPORT_DEFAULT_SCOPE } from "../../src/lib/question-bank/import/authorization.ts";
+import { preflightZipBytes } from "../../src/lib/question-bank/import/zip-preflight.ts";
+import { DEFAULT_IMPORT_LIMITS } from "../../src/lib/question-bank/import/limits.ts";
 
-export type DryRunInputRow = Record<string, unknown> | unknown[];
+export type TestEngineInputRow = Record<string, unknown> | unknown[];
 
-export type DryRunPreviewRow = {
+export type TestEnginePreviewRow = {
   row_number: number;
   question_code: string | null;
   status: "ok" | "blocked";
@@ -40,10 +41,22 @@ export type DryRunPreviewRow = {
   issues: ReturnType<typeof issue>[];
 };
 
-export type DryRunOptions = {
+export type TestEngineOverrides = {
+  authGuard?: typeof validateImportAuthorization;
+  preflightGuard?: typeof preflightWorkbook;
+  schemaDetector?: typeof detectSchemaFromHeaders;
+  headersMatcher?: (schema: ImportSchemaId, headers: string[]) => boolean;
+  adapter?: (row: any, context?: any, catalog?: any) => { row: OfficialNormalizedV1 | null; issues: QbImportIssue[] };
+  rowValidator?: typeof validateNormalizedRow;
+  idempotencyChecker?: (existing: Map<string, string>, rows: TestEnginePreviewRow[]) => boolean;
+  zipPreflightGuard?: typeof preflightZipBytes;
+  externalRelScanner?: typeof scanOoxmlRelationships;
+};
+
+export type TestEngineRunOptions = {
   fileName: string;
   headers: string[];
-  rows: DryRunInputRow[];
+  rows: TestEngineInputRow[];
   schemaHint?: ImportSchemaId;
   catalog?: CatalogLookup;
   fileBytes?: number;
@@ -51,18 +64,24 @@ export type DryRunOptions = {
   authorized?: unknown;
   expectedScope?: string;
   relaxExactHeaders?: boolean;
-  trustedWorkbook?: TrustedWorkbookModel;
+  overrides?: TestEngineOverrides;
 };
 
-function headersMatchContract(schema: ImportSchemaId, headers: string[]): boolean {
+function defaultHeadersMatchContract(schema: ImportSchemaId, headers: string[]): boolean {
   if (schema === "unknown") return false;
   const expected = CONTRACT_HEADERS[schema];
   if (headers.length !== expected.length) return false;
   return expected.every((h, i) => normalizeHeader(h) === normalizeHeader(headers[i] ?? ""));
 }
 
-export function runQuestionBankImportDryRun(opts: DryRunOptions) {
-  const authVal = validateImportAuthorization(
+export function runTestEngineDryRun(opts: TestEngineRunOptions) {
+  const authFn = opts.overrides?.authGuard ?? validateImportAuthorization;
+  const preflightFn = opts.overrides?.preflightGuard ?? preflightWorkbook;
+  const detectSchemaFn = opts.overrides?.schemaDetector ?? detectSchemaFromHeaders;
+  const headersMatcherFn = opts.overrides?.headersMatcher ?? defaultHeadersMatchContract;
+  const validateRowFn = opts.overrides?.rowValidator ?? validateNormalizedRow;
+
+  const authVal = authFn(
     opts.authorized,
     opts.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE,
     opts.fileName ?? "workbook.xlsx",
@@ -87,40 +106,16 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
       issues: sorted,
       accepted_set_hash: null,
       validation_hash: validationHash,
-      parser_hash: opts.trustedWorkbook?.parser_result_hash ?? null,
       replay_decision: "FILE_BLOCK" as const,
-      preview_metadata: {
-        contains_sensitive_answers: true,
-        required_capability: "question_bank.import.preview_sensitive",
-        cache_policy: "NO_STORE",
-        parser_version: opts.trustedWorkbook?.trusted_parser_version ?? null,
-        validation_hash: validationHash,
-        payload_hash: null,
-      },
       public_preview: [],
       privileged_preview: [],
-      apply_token_contract: {
-        mintable: false,
-        reason: "Dry-run package; apply token is designed but not minted.",
-        binds: [
-          "actor",
-          "tenant_scope",
-          "contract",
-          "canonical_content_hash",
-          "authorization_snapshot",
-          "expiry",
-        ],
-      },
     };
   }
 
-  if (opts.trustedWorkbook && (!opts.trustedWorkbook.trusted_parser_version || !opts.trustedWorkbook.parser_result_hash)) {
-    throw new Error("Trusted parser attestation is incomplete.");
-  }
   const objectRows = opts.rows.map((row) =>
     Array.isArray(row) ? legacyArrayToRow(row) : row,
   );
-  const issues = preflightWorkbook({
+  const issues = preflightFn({
     fileName: opts.fileName,
     headers: opts.headers,
     rows: objectRows,
@@ -128,11 +123,7 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
     metadata: opts.parserMetadata,
   });
 
-  if (Array.isArray(opts.trustedWorkbook?.preflight_issues)) {
-    issues.push(...(opts.trustedWorkbook.preflight_issues as any[]));
-  }
-
-  const detected = detectSchemaFromHeaders(opts.headers);
+  const detected = detectSchemaFn(opts.headers);
   let schema: ImportSchemaId = detected.schema;
 
   if (opts.schemaHint && opts.schemaHint !== "unknown") {
@@ -144,7 +135,7 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
 
   if (schema === "unknown") {
     issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName }));
-  } else if (!opts.relaxExactHeaders && !headersMatchContract(schema, opts.headers)) {
+  } else if (!opts.relaxExactHeaders && !headersMatcherFn(schema, opts.headers)) {
     if (schema === LEGACY_FLAT_15COL && opts.headers.length !== 15) {
       issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_COUNT, { file: opts.fileName }));
     } else if (schema === LEGACY_FLAT_15COL) {
@@ -154,7 +145,7 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
     }
   }
 
-  const preview: DryRunPreviewRow[] = [];
+  const preview: TestEnginePreviewRow[] = [];
   const seenCodes = new Set<string>();
   const seenContent = new Set<string>();
   const fileBlocking = issues.some((item) => item.file_blocking);
@@ -169,16 +160,18 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
           ? legacyArrayToRow(raw)
           : {}
         : raw;
-      const adapted =
-        schema === TEACHER_FLAT_AR_V0
-          ? adaptTeacherFlatArV0(objectRow, context)
+      const adapterFn =
+        opts.overrides?.adapter ??
+        (schema === TEACHER_FLAT_AR_V0
+          ? adaptTeacherFlatArV0
           : schema === OFFICIAL_FLAT_V0
-            ? adaptOfficialFlatV0(objectRow, context)
-            : adaptLegacyFlat15Col(raw, context);
+            ? adaptOfficialFlatV0
+            : adaptLegacyFlat15Col);
+      const adapted = adapterFn(objectRow as any, context as any);
       const rowIssues = [
         ...adapted.issues,
         ...(adapted.row
-          ? validateNormalizedRow(adapted.row, {
+          ? validateRowFn(adapted.row, {
               file: opts.fileName,
               rowNumber,
               catalog: opts.catalog,
@@ -217,17 +210,26 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
   const okRows = preview.filter((p) => p.status === "ok" && p.normalized);
   const existing = opts.catalog?.existing;
 
-  const allReplaySafe =
-    !!existing?.size &&
-    okRows.length > 0 &&
-    okRows.every((row) => {
-      const prior = existing.get(row.normalized!.question_code);
-      return prior != null && prior === row.content_fingerprint;
-    });
-  const fingerprints = okRows.map((row) => row.content_fingerprint!).filter(Boolean);
-  const duplicateContent =
-    fingerprints.length > 0 &&
-    new Set(fingerprints).size !== fingerprints.length;
+  let allReplaySafe = false;
+  let duplicateContent = false;
+
+  if (opts.overrides?.idempotencyChecker) {
+    const passed = opts.overrides.idempotencyChecker(existing ?? new Map(), preview);
+    allReplaySafe = passed;
+    duplicateContent = !passed;
+  } else {
+    allReplaySafe =
+      !!existing?.size &&
+      okRows.length > 0 &&
+      okRows.every((row) => {
+        const prior = existing.get(row.normalized!.question_code);
+        return prior != null && prior === row.content_fingerprint;
+      });
+    const fingerprints = okRows.map((row) => row.content_fingerprint!).filter(Boolean);
+    duplicateContent =
+      fingerprints.length > 0 &&
+      new Set(fingerprints).size !== fingerprints.length;
+  }
 
   const replay_decision = sorted.some((item) => item.code === QB_IMPORT_CODES.DUPLICATE_CODE_IN_FILE)
     ? "FILE_BLOCK"
@@ -257,100 +259,88 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
     issues: sorted,
     accepted_set_hash: hash,
     validation_hash: validationHash,
-    parser_hash: opts.trustedWorkbook?.parser_result_hash ?? null,
     replay_decision,
-    preview_metadata: {
-      contains_sensitive_answers: true,
-      required_capability: "question_bank.import.preview_sensitive",
-      cache_policy: "NO_STORE",
-      parser_version: opts.trustedWorkbook?.trusted_parser_version ?? null,
-      validation_hash: validationHash,
-      payload_hash: hash,
-    },
-    public_preview: buildPublicPreview(preview),
-    privileged_preview: buildPrivilegedPreview(preview),
-    apply_token_contract: {
-      mintable: false,
-      reason: "Dry-run package; apply token is designed but not minted.",
-      binds: [
-        "actor",
-        "tenant_scope",
-        "contract",
-        "canonical_content_hash",
-        "authorization_snapshot",
-        "expiry",
-      ],
-    },
+    public_preview: buildPublicPreview(preview as any),
+    privileged_preview: buildPrivilegedPreview(preview as any),
   };
 }
 
-/** Operational file-bytes path. First verifies authorization BEFORE any parser or file inspection. */
-export async function runOperationalQuestionBankImportDryRun(input: {
+export async function runTestEngineOperationalDryRun(input: {
   fileName: string;
   bytes: Uint8Array;
   catalog: CatalogLookup;
   authorized?: unknown;
   expectedScope?: string;
+  overrides?: TestEngineOverrides;
 }) {
-  // STEP 1: AUTHORIZATION (FIRST! Before catalog check, before parser, before ZIP, before JSZip/ExcelJS)
-  const authVal = validateImportAuthorization(input.authorized, input.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE, input.fileName);
+  const authFn = input.overrides?.authGuard ?? validateImportAuthorization;
+  const zipGuard = input.overrides?.zipPreflightGuard ?? preflightZipBytes;
+
+  // STEP 1: Auth check
+  const authVal = authFn(input.authorized, input.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE, input.fileName);
   if (!authVal.ok) {
-    return runQuestionBankImportDryRun({
+    return runTestEngineDryRun({
       fileName: input.fileName,
       headers: [],
       rows: [],
       fileBytes: input.bytes?.byteLength ?? 0,
       authorized: input.authorized,
+      overrides: input.overrides,
     });
   }
 
-  // STEP 2: Cheap request metadata validation
+  // STEP 2: Catalog check
   if (!input.catalog?.subjects?.size) {
-    throw new Error("Operational dry-run requires a non-empty curriculum catalog snapshot.");
+    throw new Error("Operational dry-run requires catalog.");
   }
 
-  // STEP 3: Cheap raw-byte file-size guard
+  // STEP 3: Raw byte size check
   if (input.bytes.byteLength > DEFAULT_IMPORT_LIMITS.maxFileBytes) {
-    return runQuestionBankImportDryRun({
+    return runTestEngineDryRun({
       fileName: input.fileName,
       headers: [],
       rows: [],
       fileBytes: input.bytes.byteLength,
       authorized: input.authorized,
+      overrides: input.overrides,
     });
   }
 
-  // STEP 4, 5, 6: ZIP preflight, OOXML scan, workbook parsing
-  const trustedWorkbook = await parseQuestionBankWorkbook(input.fileName, input.bytes);
-  if (!trustedWorkbook.trusted_parser_version || !trustedWorkbook.parser_result_hash) {
-    throw new Error("Trusted parser attestation is required.");
+  // STEP 4: ZIP preflight with optional test override
+  const zipResult = zipGuard(input.bytes, input.fileName);
+  if (!zipResult.ok) {
+    return {
+      summary: {
+        schema: "unknown" as ImportSchemaId,
+        file: input.fileName,
+        total_rows: 0,
+        ok_rows: 0,
+        blocked_rows: 0,
+        warning_count: 0,
+        error_count: zipResult.issues.length,
+        file_blocking: true,
+        column_shift_suspected: false,
+      },
+      preview: [],
+      issues: sortIssues(zipResult.issues),
+      accepted_set_hash: null,
+      validation_hash: canonicalHash({ accepted_set_hash: null, issues: sortIssues(zipResult.issues) }),
+      replay_decision: "FILE_BLOCK" as const,
+      public_preview: [],
+      privileged_preview: [],
+    };
   }
 
-  return runQuestionBankImportDryRun({
+  // Parse workbook
+  const trusted = await parseQuestionBankWorkbook(input.fileName, input.bytes, input.overrides?.externalRelScanner);
+  return runTestEngineDryRun({
     fileName: input.fileName,
-    headers: trustedWorkbook.headers,
-    rows: trustedWorkbook.rows,
+    headers: trusted.headers,
+    rows: trusted.rows,
     fileBytes: input.bytes.byteLength,
-    parserMetadata: trustedWorkbook.metadata,
-    trustedWorkbook,
+    parserMetadata: trusted.metadata,
     catalog: input.catalog,
     authorized: input.authorized,
+    overrides: input.overrides,
   });
-}
-
-export function buildErrorExportModel(
-  result: ReturnType<typeof runQuestionBankImportDryRun>,
-): Array<Record<string, string | number | boolean | null>> {
-  return result.issues.map((i) => ({
-    code: i.code,
-    message_ar: `'${i.message_ar}`,
-    file: i.file,
-    sheet: i.sheet,
-    row: i.row,
-    column: i.column,
-    severity: i.severity,
-    row_blocking: i.row_blocking,
-    file_blocking: i.file_blocking,
-    suggested_fix: i.suggested_fix,
-  }));
 }
