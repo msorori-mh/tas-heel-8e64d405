@@ -168,3 +168,162 @@ test("Replay Store: validatePreviewToken actually uses await", async () => {
   assert.equal(res.ok, true);
   assert.equal(awaitExecuted, true);
 });
+
+test("Preview token: expired signed token is rejected before replay consumption", async () => {
+  const fixedNow = 1700000000000;
+  let replayStoreInvocations = 0;
+  const spyStore: PreviewTokenReplayStore = {
+    async consumeOnce() {
+      replayStoreInvocations++;
+      return true;
+    },
+  };
+
+  const envelope: PreviewTokenEnvelope = {
+    token_id: "jti-expired-explicit",
+    snapshot_id: "snap-1",
+    snapshot_version: 1,
+    content_hash: "hash-1",
+    actor_id: "actor-123",
+    scope: "tenant:default",
+    issued_at: fixedNow - 120000,
+    expires_at: fixedNow - 60000,
+    jti: "jti-expired-explicit",
+  };
+
+  const token = mintPreviewToken(envelope, { secret: TEST_SECRET });
+  const context: PreviewTokenBindingContext = {
+    snapshot_id: "snap-1",
+    snapshot_version: 1,
+    content_hash: "hash-1",
+    actor_id: "actor-123",
+    scope: "tenant:default",
+    now: fixedNow,
+  };
+
+  const res = await validatePreviewToken(token, context, { secret: TEST_SECRET, replayStore: spyStore });
+
+  assert.equal(res.ok, false);
+  assert.equal(res.issues[0]?.code, "PREVIEW_TOKEN_INVALID");
+  assert.equal(replayStoreInvocations, 0);
+});
+
+test("Preview token boundary: expires_at in near future passes validation", async () => {
+  const fixedNow = 1700000000000;
+  let replayStoreInvocations = 0;
+  const spyStore: PreviewTokenReplayStore = {
+    async consumeOnce() {
+      replayStoreInvocations++;
+      return true;
+    },
+  };
+
+  const envelope: PreviewTokenEnvelope = {
+    token_id: "jti-near-future",
+    snapshot_id: "snap-1",
+    snapshot_version: 1,
+    content_hash: "hash-1",
+    actor_id: "actor-123",
+    scope: "tenant:default",
+    issued_at: fixedNow - 1000,
+    expires_at: fixedNow + 60000,
+    jti: "jti-near-future",
+  };
+
+  const token = mintPreviewToken(envelope, { secret: TEST_SECRET });
+  const context: PreviewTokenBindingContext = {
+    snapshot_id: "snap-1",
+    snapshot_version: 1,
+    content_hash: "hash-1",
+    actor_id: "actor-123",
+    scope: "tenant:default",
+    now: fixedNow,
+  };
+
+  const res = await validatePreviewToken(token, context, { secret: TEST_SECRET, replayStore: spyStore });
+
+  assert.equal(res.ok, true);
+  assert.equal(replayStoreInvocations, 1);
+});
+
+test("Preview token boundary: expires_at equal to or less than now is rejected before replay consumption", async () => {
+  const fixedNow = 1700000000000;
+
+  // Case 1: expires_at === fixedNow
+  {
+    let replayStoreInvocations = 0;
+    const spyStore: PreviewTokenReplayStore = {
+      async consumeOnce() {
+        replayStoreInvocations++;
+        return true;
+      },
+    };
+
+    const envelope: PreviewTokenEnvelope = {
+      token_id: "jti-boundary-equal",
+      snapshot_id: "snap-1",
+      snapshot_version: 1,
+      content_hash: "hash-1",
+      actor_id: "actor-123",
+      scope: "tenant:default",
+      issued_at: fixedNow - 1000,
+      expires_at: fixedNow,
+      jti: "jti-boundary-equal",
+    };
+
+    const token = mintPreviewToken(envelope, { secret: TEST_SECRET });
+    const context: PreviewTokenBindingContext = {
+      snapshot_id: "snap-1",
+      snapshot_version: 1,
+      content_hash: "hash-1",
+      actor_id: "actor-123",
+      scope: "tenant:default",
+      now: fixedNow,
+    };
+
+    const res = await validatePreviewToken(token, context, { secret: TEST_SECRET, replayStore: spyStore });
+
+    assert.equal(res.ok, false);
+    assert.equal(res.issues[0]?.code, "PREVIEW_TOKEN_INVALID");
+    assert.equal(replayStoreInvocations, 0);
+  }
+
+  // Case 2: expires_at < fixedNow
+  {
+    let replayStoreInvocations = 0;
+    const spyStore: PreviewTokenReplayStore = {
+      async consumeOnce() {
+        replayStoreInvocations++;
+        return true;
+      },
+    };
+
+    const envelope: PreviewTokenEnvelope = {
+      token_id: "jti-boundary-less",
+      snapshot_id: "snap-1",
+      snapshot_version: 1,
+      content_hash: "hash-1",
+      actor_id: "actor-123",
+      scope: "tenant:default",
+      issued_at: fixedNow - 1000,
+      expires_at: fixedNow - 1,
+      jti: "jti-boundary-less",
+    };
+
+    const token = mintPreviewToken(envelope, { secret: TEST_SECRET });
+    const context: PreviewTokenBindingContext = {
+      snapshot_id: "snap-1",
+      snapshot_version: 1,
+      content_hash: "hash-1",
+      actor_id: "actor-123",
+      scope: "tenant:default",
+      now: fixedNow,
+    };
+
+    const res = await validatePreviewToken(token, context, { secret: TEST_SECRET, replayStore: spyStore });
+
+    assert.equal(res.ok, false);
+    assert.equal(res.issues[0]?.code, "PREVIEW_TOKEN_INVALID");
+    assert.equal(replayStoreInvocations, 0);
+  }
+});

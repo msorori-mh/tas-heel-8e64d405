@@ -183,7 +183,7 @@ export async function validatePreviewToken(
     return invalidIssue;
   }
 
-  if (env.expires_at <= env.issued_at || env.expires_at < now) {
+  if (env.expires_at <= env.issued_at || env.expires_at <= now) {
     return invalidIssue;
   }
 

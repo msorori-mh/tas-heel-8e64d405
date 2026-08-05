@@ -59,6 +59,23 @@ This correction implements a genuine fail-closed timeout wrapper around `Preview
   - `validatePreviewToken` wraps `consumeReplayOnceWithTimeout` in a `try/catch` block.
   - If `store.consumeOnce` times out, throws an error, or returns a non-boolean result, `validatePreviewToken` returns `PREVIEW_TOKEN_INVALID` (`{ ok: false, issues: [...] }`).
 
+### 2. Expired Token Regression & Boundary Verification (Correction 81 Update)
+
+- **Previous state**:
+  Expired-token rejection was claimed but lacked a matching executable regression test.
+- **Current state**:
+  An explicitly signed expired token is rejected by `validatePreviewToken`.
+- **Test Details**:
+  - **Test name**: `Preview token: expired signed token is rejected before replay consumption`
+  - **Token timestamps**: `issued_at = now - 120000`, `expires_at = now - 60000` (with `now = 1700000000000`)
+  - **Actual code**: `PREVIEW_TOKEN_INVALID` (`{ ok: false, issues: [{ code: "PREVIEW_TOKEN_INVALID" }] }`)
+  - **Replay store invocation count**: `replayStoreInvocations = 0` (proved via spy store that replay store is not consumed when token is expired)
+  - **PASS/FAIL**: **PASS** (Rejection confirmed fail-closed)
+- **Time Boundary Cases**:
+  - `expires_at` in near future (`now + 60000`): **PASS** (`ok: true`, `replayStoreInvocations = 1`)
+  - `expires_at` equal to `now` (`expires_at = now`): **REJECT** (`ok: false`, `PREVIEW_TOKEN_INVALID`, `replayStoreInvocations = 0`)
+  - `expires_at` less than `now` (`expires_at = now - 1`): **REJECT** (`ok: false`, `PREVIEW_TOKEN_INVALID`, `replayStoreInvocations = 0`)
+
 ---
 
 ## Replay Regression Test Results
@@ -73,7 +90,9 @@ This correction implements a genuine fail-closed timeout wrapper around `Preview
 | Never-Resolving Store (Hang) | **REJECT** | Store returning `new Promise(() => {})` times out (elapsed ~58ms) and rejects token fail-closed. |
 | Malformed Store Result | **REJECT** | Non-boolean return value caught, token rejected fail-closed. |
 | Missing Store | **REJECT** | Omission of `replayStore` option fails closed (`PREVIEW_TOKEN_INVALID`). |
-| Expired Token | **REJECT** | Expired `expires_at` fails closed. |
+| Expired Token | **REJECT** | Expired `expires_at` fails closed with code `PREVIEW_TOKEN_INVALID` and `replayStoreInvocations = 0`. |
+| Future Expiry Boundary | **PASS** | `expires_at = now + 60000` passes validation (`ok: true`, `replayStoreInvocations = 1`). |
+| Equal/Past Expiry Boundary | **REJECT** | `expires_at <= now` rejected fail-closed (`ok: false`, `replayStoreInvocations = 0`). |
 
 ---
 
@@ -82,8 +101,8 @@ This correction implements a genuine fail-closed timeout wrapper around `Preview
 | Gate | Status | Details |
 | :--- | :---: | :--- |
 | `npm ci` | **PASS** | 535 added / 536 audited packages |
-| `npm run test:question-bank-import` | **PASS** | 435 tests PASS (including hanging store timeout test) |
-| `npm test` | **PASS** | 32/32 tests PASS |
+| `npm run test:question-bank-import` | **PASS** | 438 tests PASS (including explicit expired token & boundary tests) |
+| `npm test` | **PASS** | 35/35 tests PASS |
 | `npx tsc --noEmit` | **PASS** | 0 TypeScript compilation errors |
 | `npm run build` | **PASS** | Production build completed successfully |
 | `routeTree PR diff` | **PASS** | 0 diff against `origin/main` |
