@@ -66,7 +66,7 @@ The operational design extends the pre-existing `lesson_resources` table via add
 5. **`lesson_resource_events`**: Student telemetry audit log bound by `UNIQUE(resource_version_id, session_nonce, event_sequence)`. Joined via `resource_id` (no `lesson_id` on table).
 6. **`content_import_batches`**: Bulk import session registry tracking uploaded package payloads.
 7. **`content_import_rows`**: Validation breakdown bound by `UNIQUE(batch_id, row_number)`.
-8. **`storage_operations`**: Storage operation ledger tracking staging, file promotion, orphan cleanup, and saga compensation (`pending`, `uploaded`, `verified`, `promoted`, `cleanup_pending`, `cleaned`, `failed`, `compensated`).
+8. **`storage_operations`**: Storage operation ledger tracking staging, file promotion, orphan cleanup, and saga compensation (`pending`, `uploaded`, `verified`, `promoted`, `cleanup_pending`, `cleaned`, `failed`, `compensated`). Real terminal states are `cleaned` and `compensated`; `failed` is a restricted non-terminal state (`failure-awaiting-compensation`) whose only legal transition is `failed` → `compensated`. Monotonic retries create new rows preserving `parent_operation_id` and incrementing `retry_number`.
 9. **`idempotency_ledger`**: Ledger guaranteeing idempotency bound by `UNIQUE(actor_id, operation, idempotency_key)`.
 
 ### Foreign Key & Integrity Policy

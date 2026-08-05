@@ -267,8 +267,8 @@ Ledger tracking all storage uploads, file promotions, hash verifications, orphan
 | Column | Type | Constraints | Description |
 | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `PRIMARY KEY DEFAULT gen_random_uuid()` | Ledger entry ID |
-| `parent_operation_id` | `UUID` | `NULL REFERENCES public.storage_operations(id) ON DELETE RESTRICT` | Parent operation reference for retries |
-| `retry_number` | `INTEGER` | `NOT NULL DEFAULT 0` | Monotonic retry attempt counter for parent operation |
+| `parent_operation_id` | `UUID` | `NULL REFERENCES public.storage_operations(id) ON DELETE RESTRICT` | Immutable parent operation reference for retries |
+| `retry_number` | `INTEGER` | `NOT NULL DEFAULT 0 CHECK (retry_number >= 0)` | Monotonic retry attempt counter (`parent_operation_id IS NULL AND retry_number = 0` for root; `parent_operation_id IS NOT NULL AND retry_number > 0` for retry) |
 | `batch_id` | `UUID` | `NULL REFERENCES public.content_import_batches(id) ON DELETE RESTRICT` | Parent batch reference |
 | `resource_version_id` | `UUID` | `NULL REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT` | Associated version reference |
 | `operation_type` | `VARCHAR(50)` | `NOT NULL` | `stage_upload`, `promote_to_published`, `orphan_cleanup`, `rollback_cleanup`, `archival_cleanup` |
@@ -284,7 +284,7 @@ Ledger tracking all storage uploads, file promotions, hash verifications, orphan
 | `cleanup_verification` | `JSONB` | `NOT NULL DEFAULT '{}'::jsonb` | Verified cleanup metadata for orphaned artifacts |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | Ledger creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | Ledger update timestamp |
-| `completed_at` | `TIMESTAMPTZ` | `NULL` | Completion timestamp (filled ONLY upon reaching terminal states: `cleaned`, `failed`, `compensated`) |
+| `completed_at` | `TIMESTAMPTZ` | `NULL` | Completion timestamp (filled ONLY upon reaching terminal states: `cleaned`, `compensated`) |
 | `cleaned_at` | `TIMESTAMPTZ` | `NULL` | Timestamp when storage artifacts were cleaned |
 
 *Explicit Storage State Transition Matrix:*
@@ -293,12 +293,16 @@ Ledger tracking all storage uploads, file promotions, hash verifications, orphan
 - `verified` → `promoted`, `failed`
 - `promoted` → `cleanup_pending`, `failed` (Note: `promoted` is NOT a terminal state)
 - `cleanup_pending` → `cleaned`, `failed`
-- `failed` → `compensated` (Terminal state after compensation)
-- `cleaned` → None (Terminal state)
-- `compensated` → None (Terminal state)
+- `failed` → `compensated` (Restricted non-terminal state `failure-awaiting-compensation`; permits strictly `failed` → `compensated`)
+- `cleaned` → None (Real terminal state)
+- `compensated` → None (Real terminal state)
 
-*Storage Operation History & Retry Model:*
-- When a retry is initiated after a `failed` operation, a **new `storage_operations` row** is inserted with `parent_operation_id` referencing the previous failed operation, `retry_number = parent.retry_number + 1`, and a new unique `idempotency_key`. The previous failed record is NEVER modified.
+*Storage Operation History & Immutable Retry Model:*
+- Immutable identity fields (`id`, `parent_operation_id`, `retry_number`, `batch_id`, `resource_version_id`, `operation_type`, `source_path`, `target_path`, `expected_hash`, `idempotency_key`, `created_at`) cannot be modified after insertion.
+- `parent_operation_id` cannot be altered. `retry_number` cannot be decreased or modified.
+- Root operation contract: `parent_operation_id IS NULL AND retry_number = 0`.
+- Retry operation contract: `parent_operation_id IS NOT NULL AND retry_number > 0`.
+- When a retry is initiated after a `failed` operation, a **new `storage_operations` row** is inserted with `parent_operation_id` referencing the previous failed operation, `retry_number = previous.retry_number + 1`, and a new unique `idempotency_key`. The previous failed operation row is NOT modified (except its status transition from `failed` to `compensated` when compensation executes).
 - **Orphan Reconciliation**: Periodic background job scans `storage_operations` for `pending` or `cleanup_pending` records older than 24 hours, verifies cleanup via `cleanup_verification`, and marks status `cleaned` or `failed`.
 - **Failed Operation Evidence**: Failure details, error logs, and HTTP status codes are preserved in `failed_evidence` JSONB.
 - **Compensation Evidence**: Reversion steps, bucket object deletion logs, and transaction rollback metadata are recorded in `compensation_evidence` JSONB.
@@ -442,11 +446,11 @@ To guarantee snapshot integrity, approved and published version records and thei
      REVOKE UPDATE, DELETE ON public.idempotency_ledger FROM authenticated, anon;
      REVOKE UPDATE, DELETE ON public.storage_operations FROM authenticated, anon;
      ```
-   - **Layer B (Immutable Triggers)**: `fn_ensure_immutable_audit_record()` triggers on `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` raise exceptions on any `UPDATE` or `DELETE`. `fn_enforce_storage_operation_transition()` on `storage_operations` prohibits `DELETE` completely, enforces legal state transitions, and blocks `UPDATE` when status is in terminal states `('cleaned', 'failed', 'compensated')`. Note: `completed` state is strictly forbidden.
+   - **Layer B (Immutable Triggers)**: `fn_ensure_immutable_audit_record()` triggers on `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` raise exceptions on any `UPDATE` or `DELETE`. `fn_enforce_storage_operation_transition()` on `storage_operations` prohibits `DELETE` completely, enforces legal state transitions, and blocks `UPDATE` when status is in terminal states `('cleaned', 'compensated')`. A `failed` state is non-terminal (`failure-awaiting-compensation`) allowing strictly transition to `compensated`. Note: `completed` state is strictly forbidden.
 
 2. **Legal Separation of Operational Transitions vs Audit Immutability**:
    - **Operational State Transitions**: Legitimate status updates during Saga execution (e.g. `storage_operations.status` moving `pending` → `uploaded` → `verified` → `promoted` → `cleanup_pending` → `cleaned`) occur strictly via server-side RPCs running with `SECURITY DEFINER` governed by `fn_enforce_storage_operation_transition()`.
-   - **Immutable Audit Records**: Once a storage operation reaches a terminal state (`cleaned`, `failed`, `compensated`), all further modifications are rejected. Audit records in `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` are strictly read-only and immutable from creation.
+   - **Immutable Audit Records**: Once a storage operation reaches a terminal state (`cleaned`, `compensated`), all further modifications are rejected. Audit records in `lesson_resource_reviews`, `lesson_resource_events`, and `idempotency_ledger` are strictly read-only and immutable from creation.
 
 3. **No `ON DELETE CASCADE` & Non-destructive Teardown**:
    - Audit tables (`lesson_resource_reviews`, `lesson_resource_events`, `idempotency_ledger`, `storage_operations`) use `ON DELETE RESTRICT`.

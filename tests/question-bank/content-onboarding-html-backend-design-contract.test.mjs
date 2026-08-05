@@ -630,30 +630,71 @@ function extractTeardownBlock(sqlContent) {
   return sqlContent.slice(start);
 }
 
-test('22. Analytical Verification of storage_operation_status Enum & fn_enforce_storage_operation_transition Trigger', () => {
+function parseTriggerTransitionMap(functionBody) {
+  const caseMatch = functionBody.match(/CASE\s+OLD\.status([\s\S]*?)END\s+CASE;/i);
+  if (!caseMatch) throw new Error('Could not find CASE OLD.status block in function body');
+
+  const caseBody = caseMatch[1];
+  const whenRegex = /WHEN\s+'(\w+)'\s+THEN([\s\S]*?)(?=WHEN|ELSE|END\s+CASE)/gi;
+
+  const transitionMap = {};
+  let match;
+
+  while ((match = whenRegex.exec(caseBody)) !== null) {
+    const fromStatus = match[1];
+    const armBody = match[2].trim();
+
+    if (armBody.includes('RAISE EXCEPTION')) {
+      const notInMatch = armBody.match(/IF\s+NEW\.status\s+NOT\s+IN\s*\(([^)]+)\)/i);
+      const notEqualMatch = armBody.match(/IF\s+NEW\.status\s+<>\s*'(\w+)'/i);
+
+      if (notInMatch) {
+        const allowed = notInMatch[1].split(',').map(s => s.trim().replace(/^['"]|['"]$/g, ''));
+        transitionMap[fromStatus] = allowed;
+      } else if (notEqualMatch) {
+        transitionMap[fromStatus] = [notEqualMatch[1]];
+      } else {
+        transitionMap[fromStatus] = [];
+      }
+    } else {
+      transitionMap[fromStatus] = [];
+    }
+  }
+
+  return transitionMap;
+}
+
+test('22. Analytical Verification of storage_operation_status Enum, Machine-Readable Matrix & fn_enforce_storage_operation_transition Trigger', () => {
   const migrationContent = fs.readFileSync(DOC_FILES.migration, 'utf-8');
 
-  // 1. Extract and verify enum values
+  // 1. Read machine-readable transitions JSON
+  const transitionsJsonPath = path.join(rootDir, 'docs', 'CONTENT-ONBOARDING-HTML-STORAGE-TRANSITIONS-03.json');
+  assert.ok(fs.existsSync(transitionsJsonPath), 'STORAGE-TRANSITIONS-03.json must exist');
+  const transitionsData = JSON.parse(fs.readFileSync(transitionsJsonPath, 'utf-8'));
+  const jsonTransitions = transitionsData.transitions;
+  const jsonTerminalStates = transitionsData.terminal_states;
+
+  // 2. Extract and verify enum values
   const enumValues = extractTypeEnumBlock(migrationContent, 'storage_operation_status');
   const EXPECTED_STORAGE_STATES = ['pending', 'uploaded', 'verified', 'promoted', 'cleanup_pending', 'cleaned', 'failed', 'compensated'];
-
   assert.deepEqual(enumValues, EXPECTED_STORAGE_STATES, 'storage_operation_status enum values must strictly match the 8 legal states');
   assert.ok(!enumValues.includes('completed'), 'status "completed" MUST NOT exist in storage_operation_status enum');
 
-  // 2. Extract function body for fn_enforce_storage_operation_transition
+  // 3. Extract function body for fn_enforce_storage_operation_transition
   const functionBody = extractFunctionBody(migrationContent, 'fn_enforce_storage_operation_transition');
   assert.ok(functionBody.length > 0, 'Migration proposal must define fn_enforce_storage_operation_transition() function body');
   assert.ok(!functionBody.includes("'completed'"), 'fn_enforce_storage_operation_transition MUST NOT reference status "completed"');
 
-  // 3. Verify DELETE is denied
-  assert.ok(functionBody.includes("IF TG_OP = 'DELETE' THEN"), 'Trigger must check TG_OP = DELETE');
-  assert.ok(functionBody.includes('STORAGE_OPERATION_DELETE_DENIED') || functionBody.includes('cannot be deleted'), 'Trigger must raise exception on DELETE');
+  // 4. Verify DELETE is denied first
+  const deleteCheckIdx = functionBody.indexOf("IF TG_OP = 'DELETE'");
+  assert.ok(deleteCheckIdx > -1, 'Trigger must check TG_OP = DELETE');
 
-  // 4. Verify terminal UPDATE is denied
-  assert.ok(functionBody.includes("OLD.status IN ('cleaned', 'failed', 'compensated')"), 'Trigger must reject UPDATE when OLD.status is in terminal states (cleaned, failed, compensated)');
+  // 5. Verify immutable identity fields check (including parent_operation_id and retry_number)
+  const identityCheckIdx = functionBody.indexOf('STORAGE_OPERATION_IDENTITY_IMMUTABLE');
+  assert.ok(identityCheckIdx > -1, 'Trigger must enforce STORAGE_OPERATION_IDENTITY_IMMUTABLE');
+  assert.ok(deleteCheckIdx < identityCheckIdx, 'DELETE check must come before identity fields check');
 
-  // 5. Verify immutable identity fields check
-  const identityFields = ['id', 'batch_id', 'resource_version_id', 'operation_type', 'source_path', 'target_path', 'expected_hash', 'idempotency_key', 'created_at'];
+  const identityFields = ['id', 'parent_operation_id', 'retry_number', 'batch_id', 'resource_version_id', 'operation_type', 'source_path', 'target_path', 'expected_hash', 'idempotency_key', 'created_at'];
   for (const field of identityFields) {
     assert.ok(functionBody.includes(field), `Trigger function body must enforce immutability for identity field: ${field}`);
   }
@@ -661,26 +702,50 @@ test('22. Analytical Verification of storage_operation_status Enum & fn_enforce_
   // 6. Verify attempt_count non-decreasing check
   assert.ok(functionBody.includes('NEW.attempt_count < OLD.attempt_count'), 'Trigger must prohibit decreasing attempt_count');
 
-  // 7. Verify explicit transition matrix semantics
-  assert.ok(functionBody.includes("WHEN 'pending' THEN"), "Trigger must handle transition from 'pending'");
-  assert.ok(functionBody.includes("'uploaded'") && functionBody.includes("'failed'"), "pending transition allows uploaded or failed");
+  // 7. Verify NO pre-guard blocking UPDATE on failed before CASE OLD.status
+  const caseIdx = functionBody.indexOf('CASE OLD.status');
+  assert.ok(caseIdx > identityCheckIdx, 'CASE OLD.status must come after identity check');
 
-  assert.ok(functionBody.includes("WHEN 'uploaded' THEN"), "Trigger must handle transition from 'uploaded'");
-  assert.ok(functionBody.includes("'verified'"), "uploaded transition allows verified or failed");
+  const preGuardBeforeCase = functionBody.slice(0, caseIdx);
+  assert.ok(
+    !preGuardBeforeCase.includes("OLD.status IN ('cleaned', 'failed', 'compensated')") &&
+    !preGuardBeforeCase.includes("OLD.status = 'failed'"),
+    'Trigger MUST NOT contain a pre-guard blocking UPDATE on failed before CASE OLD.status evaluation'
+  );
 
-  assert.ok(functionBody.includes("WHEN 'verified' THEN"), "Trigger must handle transition from 'verified'");
-  assert.ok(functionBody.includes("'promoted'"), "verified transition allows promoted or failed");
+  // 8. Build actual transition map from trigger function body using SQL AST / arm parser
+  const actualTransitionMap = parseTriggerTransitionMap(functionBody);
 
-  assert.ok(functionBody.includes("WHEN 'promoted' THEN"), "Trigger must handle transition from 'promoted'");
-  assert.ok(functionBody.includes("'cleanup_pending'"), "promoted transition allows cleanup_pending or failed ONLY");
+  // 9. Compare actual transition map literally with STORAGE-TRANSITIONS-03.json
+  assert.deepEqual(
+    actualTransitionMap,
+    jsonTransitions,
+    'Trigger function transition map must match STORAGE-TRANSITIONS-03.json literally'
+  );
 
-  assert.ok(functionBody.includes("WHEN 'cleanup_pending' THEN"), "Trigger must handle transition from 'cleanup_pending'");
-  assert.ok(functionBody.includes("'cleaned'"), "cleanup_pending transition allows cleaned or failed");
+  // 10. Verify all statuses in trigger exist in enum
+  for (const status of Object.keys(actualTransitionMap)) {
+    assert.ok(enumValues.includes(status), `Status '${status}' in trigger transition map must exist in storage_operation_status enum`);
+  }
 
-  assert.ok(functionBody.includes("WHEN 'failed' THEN"), "Trigger must handle transition from 'failed'");
-  assert.ok(functionBody.includes("'compensated'"), "failed transition allows compensated ONLY");
+  // 11. Verify terminal_states have ZERO outbound transitions
+  for (const termState of jsonTerminalStates) {
+    assert.deepEqual(actualTransitionMap[termState], [], `Terminal state '${termState}' must have zero outbound transitions`);
+  }
 
-  // 8. Verify trigger binding to storage_operations table
+  // 12. Verify failed -> compensated is reachable and legal
+  assert.deepEqual(actualTransitionMap['failed'], ['compensated'], 'failed state MUST permit transition strictly to compensated');
+
+  // 13. Verify illegal transitions from failed are rejected
+  assert.ok(!actualTransitionMap['failed'].includes('cleaned'), 'failed -> cleaned MUST be disallowed');
+  assert.ok(!actualTransitionMap['failed'].includes('uploaded'), 'failed -> uploaded MUST be disallowed');
+  assert.ok(!actualTransitionMap['failed'].includes('failed'), 'failed -> failed MUST be disallowed');
+
+  // 14. Verify Retry row contract & constraints in migration proposal
+  assert.ok(migrationContent.includes('CHECK (retry_number >= 0)'), 'Table DDL must enforce CHECK (retry_number >= 0)');
+  assert.ok(migrationContent.includes('check_storage_operation_retry_identity') || migrationContent.includes('parent_operation_id IS NULL AND retry_number = 0'), 'Table DDL must enforce root vs retry identity check');
+
+  // 15. Verify trigger binding to storage_operations table
   const triggers = extractTriggerBindings(migrationContent);
   const storageTrigger = triggers.find(t => t.table === 'storage_operations' && t.functionName === 'fn_enforce_storage_operation_transition');
   assert.ok(storageTrigger, 'Trigger trg_enforce_storage_operation_transition must be bound to storage_operations table');
@@ -697,34 +762,54 @@ test('23. Analytical Verification of 4 Canonical Constraint Names in DDL Creatio
     'fk_lesson_resources_published_same_resource',
   ];
 
-  // 1. Extract constraint creation statements
-  const constraintBlocks = extractConstraintBlocks(migrationContent);
-  for (const name of CANONICAL_CONSTRAINTS) {
-    const found = constraintBlocks.some(c => c.name === name) || migrationContent.includes(name);
-    assert.ok(found, `Canonical constraint ${name} must exist in DDL creation statements`);
-  }
-
-  // 2. Extract NOT VALID and VALIDATE blocks
-  const validateBlocks = extractValidateBlocks(migrationContent);
+  // 1. Extract FK constraint creation blocks individually and check NOT VALID inside each block
   const FK_CONSTRAINTS = [
     'fk_lesson_resources_current_draft_same_resource',
     'fk_lesson_resources_approved_same_resource',
     'fk_lesson_resources_published_same_resource',
   ];
+
   for (const fkName of FK_CONSTRAINTS) {
-    const validated = validateBlocks.some(v => v.constraintName === fkName);
-    assert.ok(validated, `FK constraint ${fkName} must be individually validated via VALIDATE CONSTRAINT`);
+    const startIdx = migrationContent.indexOf(`ADD CONSTRAINT ${fkName}`);
+    assert.ok(startIdx > -1, `Must find ADD CONSTRAINT statement for ${fkName}`);
+
+    const endSemicolon = migrationContent.indexOf(';', startIdx);
+    const nextAdd = migrationContent.indexOf('ADD CONSTRAINT', startIdx + 1);
+    const blockEnd = (nextAdd > -1 && nextAdd < endSemicolon) ? nextAdd : (endSemicolon > -1 ? endSemicolon : startIdx + 300);
+    const blockText = migrationContent.slice(startIdx, blockEnd);
+
+    assert.ok(
+      blockText.includes('NOT VALID'),
+      `Constraint block for ${fkName} must explicitly contain NOT VALID within its own block`
+    );
+
+    const validateRegex = new RegExp(`ALTER\\s+TABLE\\s+public\\.lesson_resources\\s+VALIDATE\\s+CONSTRAINT\\s+${fkName};`, 'i');
+    assert.ok(
+      validateRegex.test(migrationContent),
+      `Must contain explicit VALIDATE CONSTRAINT statement for ${fkName}`
+    );
   }
 
-  // 3. Extract Teardown block
+  // 2. Verify uq_resource_version_id_resource constraint in DDL
+  assert.ok(migrationContent.includes('uq_resource_version_id_resource'), 'uq_resource_version_id_resource must exist in DDL');
+
+  // 3. Extract Development Teardown block specifically
   const teardownBlock = extractTeardownBlock(migrationContent);
-  assert.ok(teardownBlock.length > 0, 'Teardown block must exist');
+  assert.ok(teardownBlock.length > 0, 'Development teardown block must exist');
+
   for (const name of CANONICAL_CONSTRAINTS) {
-    assert.ok(teardownBlock.includes(name), `Development teardown block must explicitly reference canonical constraint: ${name}`);
+    assert.ok(
+      teardownBlock.includes(name),
+      `Development teardown block must explicitly reference canonical constraint: ${name}`
+    );
   }
+
+  // 4. Verify Production rollback section does NOT drop any tables or use CASCADE
+  assert.ok(!migrationContent.includes('DROP TABLE IF EXISTS public.lesson_resources'), 'Production rollback must not drop lesson_resources');
+  assert.ok(!migrationContent.includes('DROP TABLE IF EXISTS public.storage_operations'), 'Production rollback must not drop storage_operations');
 });
 
-test('24. Analytical Verification of Machine-Readable Leakage Vectors', () => {
+test('24. Analytical Verification of Machine-Readable Leakage Vectors & Allowed Semantics', () => {
   const vectorsPath = path.join(rootDir, 'docs', 'CONTENT-ONBOARDING-HTML-LEAKAGE-VECTORS-03.json');
   assert.ok(fs.existsSync(vectorsPath), 'Leakage vectors JSON file must exist');
   const vectorsData = JSON.parse(fs.readFileSync(vectorsPath, 'utf-8'));
@@ -753,15 +838,31 @@ test('24. Analytical Verification of Machine-Readable Leakage Vectors', () => {
     assert.ok(payload.includes(vec.forbidden_field), `Vector ${vec.id || vec.vector_id} payload must actually contain forbidden field '${vec.forbidden_field}'`);
   }
 
-  // Allowed Vectors semantic analysis
+  // Allowed Vectors semantic analysis with explicit metadata checks
   const allowedCases = vectorsData.allowed_test_vectors;
   assert.equal(allowedCases.length, 2, 'Must contain exactly 2 allowed test vectors');
 
-  const summaryVec = allowedCases.find(v => (v.file_type === 'lesson_summary' || v.target_file === 'summary.html'));
+  // 1. lesson_summary ACCEPT vector metadata checks
+  const summaryVec = allowedCases.find(v => v.file_type === 'lesson_summary');
   assert.ok(summaryVec, 'Allowed vectors must include lesson_summary');
-  assert.equal(summaryVec.classification || summaryVec.expected_classification, 'ACCEPT');
+  assert.equal(summaryVec.classification, 'ACCEPT');
+  assert.equal(summaryVec.expected_classification, 'ACCEPT');
+  assert.equal(summaryVec.location, 'package_allowed_content');
+  assert.equal(summaryVec.no_answer_mapping, true);
 
-  const apiVec = allowedCases.find(v => (v.file_type === 'post_reveal_server_response' || v.target_file.includes('api')));
+  const forbiddenFields = vectorsData.forbidden_fields || [];
+  for (const forbidden of forbiddenFields) {
+    assert.ok(
+      !summaryVec.payload.includes(forbidden),
+      `lesson_summary payload must NOT contain forbidden field: ${forbidden}`
+    );
+  }
+
+  // 2. post_reveal_server_response ACCEPT vector metadata checks
+  const apiVec = allowedCases.find(v => v.file_type === 'post_reveal_server_response');
   assert.ok(apiVec, 'Allowed vectors must include post_reveal_server_response');
-  assert.equal(apiVec.classification || apiVec.expected_classification, 'ACCEPT');
+  assert.equal(apiVec.classification, 'ACCEPT');
+  assert.equal(apiVec.expected_classification, 'ACCEPT');
+  assert.equal(apiVec.location, 'outside_package');
+  assert.equal(apiVec.reveal_required, true);
 });

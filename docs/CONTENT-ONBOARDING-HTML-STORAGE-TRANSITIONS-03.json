@@ -1,0 +1,40 @@
+{
+  "system": "tas-heel-html-content-onboarding",
+  "version": "0.3",
+  "document_id": "CONTENT-ONBOARDING-HTML-STORAGE-TRANSITIONS-03",
+  "description": "Machine-readable Storage Saga State Transition Matrix for HTML interactive content onboarding",
+  "transitions": {
+    "pending": [
+      "uploaded",
+      "failed"
+    ],
+    "uploaded": [
+      "verified",
+      "failed"
+    ],
+    "verified": [
+      "promoted",
+      "failed"
+    ],
+    "promoted": [
+      "cleanup_pending",
+      "failed"
+    ],
+    "cleanup_pending": [
+      "cleaned",
+      "failed"
+    ],
+    "failed": [
+      "compensated"
+    ],
+    "cleaned": [],
+    "compensated": []
+  },
+  "terminal_states": [
+    "cleaned",
+    "compensated"
+  ],
+  "failure_awaiting_compensation_states": [
+    "failed"
+  ]
+}
