@@ -83,15 +83,47 @@ test("Replay Store: store throw = token rejected", async () => {
   assert.equal(res.ok, false);
 });
 
-test("Replay Store: store timeout/failure = rejected", async () => {
+test("Replay Store: store rejection/error = rejected", async () => {
   const failingStore: PreviewTokenReplayStore = {
     async consumeOnce() {
-      return Promise.reject(new Error("Timeout/Failure"));
+      return Promise.reject(new Error("Storage Failure"));
     },
   };
   const { token, context } = createValidTokenAndContext("jti-fail");
   const res = await validatePreviewToken(token, context, { secret: TEST_SECRET, replayStore: failingStore });
   assert.equal(res.ok, false);
+});
+
+test("Replay Store: never-resolving store times out and rejects token", async () => {
+  const hangingStore: PreviewTokenReplayStore = {
+    consumeOnce() {
+      return new Promise<boolean>(() => {}); // Never resolves or rejects
+    },
+  };
+  const { token, context } = createValidTokenAndContext("jti-hanging");
+  const startTime = Date.now();
+  const res = await validatePreviewToken(token, context, {
+    secret: TEST_SECRET,
+    replayStore: hangingStore,
+    timeoutMs: 50,
+  });
+  const elapsed = Date.now() - startTime;
+
+  assert.equal(res.ok, false);
+  assert.equal(res.issues[0]?.code, "PREVIEW_TOKEN_INVALID");
+  assert.ok(elapsed >= 40 && elapsed < 500, `Elapsed time ${elapsed}ms should be bounded by test timeout`);
+});
+
+test("Replay Store: store returning malformed non-boolean = rejected", async () => {
+  const malformedStore: PreviewTokenReplayStore = {
+    async consumeOnce() {
+      return "true" as unknown as boolean;
+    },
+  };
+  const { token, context } = createValidTokenAndContext("jti-malformed");
+  const res = await validatePreviewToken(token, context, { secret: TEST_SECRET, replayStore: malformedStore });
+  assert.equal(res.ok, false);
+  assert.equal(res.issues[0]?.code, "PREVIEW_TOKEN_INVALID");
 });
 
 test("Replay Store: no store = configuration failure (rejected)", async () => {

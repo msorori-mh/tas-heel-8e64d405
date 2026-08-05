@@ -128,10 +128,44 @@ export function parseAndVerifyPreviewToken(tokenStr: unknown, opts?: { secret?: 
   return null;
 }
 
+export const DEFAULT_PREVIEW_TOKEN_REPLAY_TIMEOUT_MS = 2000;
+
+async function consumeReplayOnceWithTimeout(
+  store: PreviewTokenReplayStore,
+  jti: string,
+  expiresAt: number,
+  timeoutMs: number = DEFAULT_PREVIEW_TOKEN_REPLAY_TIMEOUT_MS,
+): Promise<boolean> {
+  let timerId: ReturnType<typeof setTimeout> | undefined;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timerId = setTimeout(() => {
+      reject(new Error("Replay store operation timed out"));
+    }, timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([
+      store.consumeOnce(jti, expiresAt),
+      timeoutPromise,
+    ]);
+
+    if (typeof result !== "boolean") {
+      throw new Error("Malformed store result: expected boolean");
+    }
+
+    return result;
+  } finally {
+    if (timerId !== undefined) {
+      clearTimeout(timerId);
+    }
+  }
+}
+
 export async function validatePreviewToken(
   token: unknown,
   context?: PreviewTokenBindingContext,
-  opts?: { secret?: string; replayStore?: PreviewTokenReplayStore },
+  opts?: { secret?: string; replayStore?: PreviewTokenReplayStore; timeoutMs?: number },
 ): Promise<ApplyValidationResult> {
   const invalidIssue = {
     ok: false,
@@ -177,8 +211,12 @@ export async function validatePreviewToken(
 
   let consumed = false;
   try {
-    const consumeRes = opts.replayStore.consumeOnce(env.jti, env.expires_at);
-    consumed = await consumeRes;
+    consumed = await consumeReplayOnceWithTimeout(
+      opts.replayStore,
+      env.jti,
+      env.expires_at,
+      opts.timeoutMs ?? DEFAULT_PREVIEW_TOKEN_REPLAY_TIMEOUT_MS,
+    );
   } catch {
     return invalidIssue;
   }

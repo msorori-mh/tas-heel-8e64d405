@@ -54,11 +54,15 @@ All blocking issues identified in `QB02_INDEPENDENT_FINAL_REREVIEW_76` have been
 
 ## Superseded Claims
 
-The following claims in earlier versions of this report have been superseded and corrected in Correction 77:
+The following claims in earlier versions of this report have been superseded and corrected in Correction 77 and Correction 79:
 1. **Atomic File Locking / Production Persistent Store**: Superseded. `PersistentAtomicReplayStore` relied on non-atomic file operations and fallback logic. It has been removed from production source.
 2. **Distributed Replay Safety**: Superseded. Production token verification now fails closed until a shared atomic store is provided by trusted server composition.
 3. **Truncated Hashes**: Superseded. All mutation audit entries now use full 64-character SHA-256 hashes.
 4. **routeTree PR Diff**: Superseded. `src/routeTree.gen.ts` commit diff against `origin/main` is 0.
+5. **Store Timeout Claim (Corrected under Correction 79)**:
+   - **Previous claim**: Store timeout handled
+   - **Correction**: Previous test covered rejection only, not a never-resolving Promise.
+   - **Current verified behavior**: Never-resolving `consumeOnce` is rejected after the server timeout.
 
 ---
 

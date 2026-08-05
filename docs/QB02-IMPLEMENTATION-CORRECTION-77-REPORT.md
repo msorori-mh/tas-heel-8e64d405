@@ -31,6 +31,10 @@ All 6 blockers identified in `QB02_INDEPENDENT_FINAL_REREVIEW_76` have been full
 - **Distributed Claim**: Documented that distributed environment requires shared atomic store (e.g. Redis SET NX / DB RPC); until provided, token apply remains fail-closed.
 - **Test-Only Store**: Located in `tests/support/in-memory-replay-store.ts`. Not exported from `src`.
 - **Server Seams Check (`rg -n "testSecret|testReplayStore|testOnly|fallback|InMemory" src/lib/server`)**: 0 matches.
+- **Store Timeout Correction (Correction 79)**:
+  - **Previous claim**: Store timeout handled
+  - **Correction**: Previous test covered rejection only, not a never-resolving Promise.
+  - **Current verified behavior**: Never-resolving `consumeOnce` is rejected after the server timeout.
 
 ### 2. Curriculum Alias Resolution Matrix (10 Cases)
 1. `self-alias`: Handled (`SELF_ALIAS`).
