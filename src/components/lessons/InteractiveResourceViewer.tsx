@@ -305,6 +305,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
             */}
             <iframe
               key={`${resource.resource_code}-${resource.version}-${session.generation}`}
+              data-iframe-generation={session.generation}
               ref={iframeRef}
               title={resource.title_ar}
               srcDoc={srcDoc}
