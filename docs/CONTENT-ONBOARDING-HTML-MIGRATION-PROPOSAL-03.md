@@ -96,14 +96,20 @@ CREATE TABLE IF NOT EXISTS public.lesson_resource_versions (
   published_by UUID REFERENCES auth.users(id) ON DELETE RESTRICT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT uq_resource_version_number UNIQUE(resource_id, version_number),
-  CONSTRAINT uq_resource_content_sha256 UNIQUE(resource_id, content_sha256)
+  CONSTRAINT uq_resource_content_sha256 UNIQUE(resource_id, content_sha256),
+  CONSTRAINT uq_resource_version_id_resource UNIQUE(id, resource_id)
 );
 
--- 2. Add version FKs back to lesson_resources safely
+-- 2. Add composite same-resource FKs back to lesson_resources safely
+-- Composite FKs guarantee that current_draft_version_id, approved_version_id, and published_version_id
+-- point ONLY to a version belonging to the SAME parent lesson_resources row (id).
+-- NULL handling: MATCH SIMPLE allows NULL values when pointers are unassigned.
+-- Order & cycles: lesson_resources master created -> lesson_resource_versions created with UNIQUE(id, resource_id) -> composite FKs added with DEFERRABLE.
+-- Backfill: ADD CONSTRAINT NOT VALID during migration, backfilled, followed by VALIDATE CONSTRAINT.
 ALTER TABLE public.lesson_resources
-  ADD CONSTRAINT fk_lesson_resources_draft_version FOREIGN KEY (current_draft_version_id) REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT,
-  ADD CONSTRAINT fk_lesson_resources_approved_version FOREIGN KEY (approved_version_id) REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT,
-  ADD CONSTRAINT fk_lesson_resources_published_version FOREIGN KEY (published_version_id) REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT;
+  ADD CONSTRAINT fk_lesson_resources_draft_same_resource FOREIGN KEY (current_draft_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+  ADD CONSTRAINT fk_lesson_resources_approved_same_resource FOREIGN KEY (approved_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+  ADD CONSTRAINT fk_lesson_resources_published_same_resource FOREIGN KEY (published_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
 
 -- 3. lesson_resource_files
 CREATE TABLE IF NOT EXISTS public.lesson_resource_files (
@@ -200,11 +206,25 @@ CREATE TABLE IF NOT EXISTS public.idempotency_ledger (
 
 ### Phase 4.1: Trigger-based Published Immutability
 ```sql
-CREATE OR REPLACE FUNCTION public.fn_ensure_immutable_published_version()
+-- 1. Immutability trigger for lesson_resource_versions
+-- Evaluates parent resource status and version pointers using OLD.resource_id (valid column on versions table).
+CREATE OR REPLACE FUNCTION public.fn_ensure_immutable_resource_version()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_is_locked BOOLEAN;
 BEGIN
-  IF (OLD.status = 'published' OR OLD.published_version_id IS NOT NULL) THEN
-    RAISE EXCEPTION 'PUBLISHED_VERSION_IMMUTABLE: Cannot modify or delete a published version (resource: %, version: %). Create a new version instead.', OLD.resource_id, OLD.version_number;
+  SELECT EXISTS (
+    SELECT 1 FROM public.lesson_resources lr
+    WHERE lr.id = OLD.resource_id
+      AND (
+        lr.approved_version_id = OLD.id
+        OR lr.published_version_id = OLD.id
+        OR (lr.current_draft_version_id = OLD.id AND lr.status IN ('approved', 'published'))
+      )
+  ) INTO v_is_locked;
+
+  IF v_is_locked THEN
+    RAISE EXCEPTION 'PUBLISHED_VERSION_IMMUTABLE: Cannot modify or delete an approved or published version (version_id: %, resource_id: %). Create a new version instead.', OLD.id, OLD.resource_id;
   END IF;
   RETURN NEW;
 END;
@@ -212,11 +232,38 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_ensure_version_published_immutable
 BEFORE UPDATE OR DELETE ON public.lesson_resource_versions
-FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_published_version();
+FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_resource_version();
+
+-- 2. Immutability trigger for lesson_resource_files
+-- Uses OLD.version_id with explicit JOINs to lesson_resource_versions and lesson_resources.
+-- Does NOT reference non-existent OLD.status, OLD.published_version_id, or OLD.resource_id on lesson_resource_files.
+CREATE OR REPLACE FUNCTION public.fn_ensure_immutable_resource_file()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_is_locked BOOLEAN;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.lesson_resource_versions lrv
+    JOIN public.lesson_resources lr ON lr.id = lrv.resource_id
+    WHERE lrv.id = OLD.version_id
+      AND (
+        lr.approved_version_id = lrv.id
+        OR lr.published_version_id = lrv.id
+        OR (lr.current_draft_version_id = lrv.id AND lr.status IN ('approved', 'published'))
+      )
+  ) INTO v_is_locked;
+
+  IF v_is_locked THEN
+    RAISE EXCEPTION 'PUBLISHED_FILE_IMMUTABLE: Cannot modify or delete files belonging to an approved or published version (version_id: %). Create a new version instead.', OLD.version_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_ensure_file_published_immutable
 BEFORE UPDATE OR DELETE ON public.lesson_resource_files
-FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_published_version();
+FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_resource_file();
 ```
 
 ### Phase 5: Backfill Data
@@ -272,7 +319,7 @@ All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, p
 - **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.validate_package FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.validate_package TO authenticated;`
 - **Transaction Boundary**: Read-only validation query.
 - **Inputs**: `p_version_id UUID`.
-- **Validations**: Runs preflight security scanner (script tags, iframe external domains, CSP rules, answer key leakage).
+- **Validations**: Runs preflight security scanner. Prohibits answer key and explanation leakage inside HTML, JSON, JavaScript, manifest, inline scripts, and local assets. Scans and REJECTS forbidden fields and patterns: `correct_index`, `correct_answer`, `answer_key`, `hashed_answer`, `explanation`, `answer_explanation`, `correct_explanation`, `solution_key`. Ensures student iframe payloads contain zero explanations or hidden answer keys, and mandates that post-reveal educational explanations are retrieved strictly via server/application paths outside the content package.
 - **Outputs**: `JSONB` (`{ is_valid: BOOLEAN, findings: ARRAY }`).
 - **Error Contract**: `VERSION_NOT_FOUND` (404).
 

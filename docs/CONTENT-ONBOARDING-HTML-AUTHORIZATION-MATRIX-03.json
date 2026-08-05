@@ -147,7 +147,20 @@
     "idempotency_key": "actor_id_operation_idempotency_key_unique",
     "audit_trail_required": true,
     "answer_leakage_prohibited": true,
+    "explanation_leakage_prohibited": true,
+    "forbidden_answer_and_explanation_fields": [
+      "correct_index",
+      "correct_answer",
+      "answer_key",
+      "hashed_answer",
+      "explanation",
+      "answer_explanation",
+      "correct_explanation",
+      "solution_key"
+    ],
     "no_client_hashed_answer_keys": true,
+    "student_iframe_payload_explanation_free": true,
+    "post_reveal_explanation_server_path_only": true,
     "pii_in_html_prohibited": true,
     "write_boundary": "Server/RPC/Edge Function service_role strictly enforced"
   }

@@ -121,9 +121,9 @@ Master registry for interactive and static lesson resources. Extended via additi
 | `alt_text_ar` | `TEXT` | `NULL` | Accessibility description |
 | `sort_order` | `INTEGER` | `NOT NULL DEFAULT 1` | Presentation order within lesson |
 | `status` | `public.lesson_resource_status` | `NOT NULL DEFAULT 'draft'` | Current state in lifecycle pipeline |
-| `current_draft_version_id` | `UUID` | `REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT` | Active draft version reference |
-| `approved_version_id` | `UUID` | `REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT` | Most recently approved version |
-| `published_version_id` | `UUID` | `REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT` | Currently published version |
+| `current_draft_version_id` | `UUID` | `FOREIGN KEY (current_draft_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED` | Active draft version reference |
+| `approved_version_id` | `UUID` | `FOREIGN KEY (approved_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED` | Most recently approved version |
+| `published_version_id` | `UUID` | `FOREIGN KEY (published_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED` | Currently published version |
 | `lock_version` | `INTEGER` | `NOT NULL DEFAULT 1` | Optimistic CAS lock counter |
 | `offline_enabled` | `BOOLEAN` | `NOT NULL DEFAULT true` | PWA / offline caching flag |
 | `orientation` | `VARCHAR(10)` | `NOT NULL DEFAULT 'auto' CHECK (orientation IN ('auto', 'portrait', 'landscape'))` | Preferred layout orientation |
@@ -135,6 +135,13 @@ Master registry for interactive and static lesson resources. Extended via additi
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | Record creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | Record last modification timestamp |
 
+*Same-Resource Integrity Contract:*
+- **Composite Uniqueness**: Table `lesson_resource_versions` defines `UNIQUE(id, resource_id)`.
+- **Cross-Resource Rejection**: Composite FKs `(current_draft_version_id, id)`, `(approved_version_id, id)`, and `(published_version_id, id)` reference `(id, resource_id)` on `lesson_resource_versions`. A version belonging to Resource B can NEVER be assigned to Resource A.
+- **Null Handling**: Under PostgreSQL default `MATCH SIMPLE`, if a version pointer is NULL, the FK check passes. When non-NULL, PostgreSQL mandates that the exact pair `(version_id, resource_id)` exists.
+- **Order of Creation & Cycle Prevention**: `lesson_resources` master table created first -> `lesson_resource_versions` created with `PRIMARY KEY (id)` and `UNIQUE(id, resource_id)` -> Composite FKs attached to `lesson_resources` using `DEFERRABLE INITIALLY DEFERRED`.
+- **Backfill Validation**: Constraints created as `NOT VALID` during migration, existing records reconciled, followed by `ALTER TABLE public.lesson_resources VALIDATE CONSTRAINT ...`.
+
 ---
 
 ### 3.2 `lesson_resource_versions`
@@ -143,10 +150,10 @@ Immutable version snapshots linked to specific `content_sha256` digests and pack
 | Column | Type | Constraints | Description |
 | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `PRIMARY KEY DEFAULT gen_random_uuid()` | Unique version record ID |
-| `resource_id` | `UUID` | `NOT NULL REFERENCES public.lesson_resources(id) ON DELETE RESTRICT` | Associated resource ID |
-| `version_number` | `INTEGER` | `NOT NULL CHECK (version_number > 0)` | Monotonic version number (1, 2, 3...) |
-| `entry_file` | `TEXT` | `NOT NULL DEFAULT 'index.html'` | Main entry point HTML file |
-| `content_sha256` | `CHAR(64)` | `NOT NULL` | SHA-256 digest of entire package |
+| `resource_id` | `UUID` | `NOT NULL REFERENCES public.lesson_resources(id) ON DELETE RESTRICT` | Parent resource ID |
+| `version_number` | `INTEGER` | `NOT NULL CHECK (version_number > 0)` | Monotonically increasing version number |
+| `entry_file` | `TEXT` | `NOT NULL DEFAULT 'index.html'` | Main entry point relative file path |
+| `content_sha256` | `CHAR(64)` | `NOT NULL` | SHA-256 hash of entire package zip |
 | `package_size_compressed` | `BIGINT` | `NOT NULL` | Zip payload size in bytes |
 | `package_size_uncompressed` | `BIGINT` | `NOT NULL` | Extracted content total bytes |
 | `file_count` | `INTEGER` | `NOT NULL` | Total number of extracted files |
@@ -157,6 +164,7 @@ Immutable version snapshots linked to specific `content_sha256` digests and pack
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | Version creation timestamp |
 
 *Explicit Constraints:*
+- `UNIQUE(id, resource_id)` (Composite key for Same-Resource Integrity)
 - `UNIQUE(resource_id, version_number)`
 - `UNIQUE(resource_id, content_sha256)`
 - `CHECK (version_number > 0)`
@@ -374,7 +382,10 @@ To guarantee snapshot integrity, published version records and their file manife
    - `resource_id`, `version_number`, `content_sha256`, `storage_path`, `entry_file`, `csp_header`, `package_size_compressed`, `package_size_uncompressed`, `file_count`, `created_by`, `created_at`, `published_at`, `published_by`.
 
 2. **Trigger / Enforcement**:
-   - A `BEFORE UPDATE OR DELETE` trigger on `lesson_resource_versions` and `lesson_resource_files` checks if the version is approved, published, or referenced by `published_version_id`. If true, any `UPDATE` or `DELETE` attempt raises exception `PUBLISHED_VERSION_IMMUTABLE` (409 Conflict).
+   - Immutability is enforced via two independent per-table triggers:
+     - `fn_ensure_immutable_resource_version()` on `lesson_resource_versions`: Evaluates parent resource status using `OLD.resource_id` (queries `lesson_resources lr WHERE lr.id = OLD.resource_id`).
+     - `fn_ensure_immutable_resource_file()` on `lesson_resource_files`: Uses `OLD.version_id` with explicit `JOIN`s to `lesson_resource_versions lrv ON lrv.id = OLD.version_id` and `lesson_resources lr ON lr.id = lrv.resource_id`. Does NOT reference non-existent columns (`OLD.status`, `OLD.resource_id`, `OLD.published_version_id`, or `OLD.version_number`).
+   - If the version is referenced as `approved_version_id` or `published_version_id`, or if resource status is `approved` or `published`, any `UPDATE` or `DELETE` attempt raises exception `PUBLISHED_VERSION_IMMUTABLE` (409 Conflict).
    - Any modification requires creating a **new version** with an incremented `version_number`.
 
 3. **Grants & Revokes**:
@@ -500,9 +511,20 @@ Dedicated RPC contract for safe, audited rollback of published resource versions
 
 ## 10. Correct-Answer Leakage & Student Privacy Guarantees
 
-1. **No Client-Side Hashed Answer Keys**:
-   - Interactive packages (`mind_map_html`, `practical_experiment_html`) must NOT contain client-side hashed answer keys inside HTML, JSON attributes, or JavaScript files.
-   - Preflight package scanner checks HTML packages for answer key fields (`correct_index`, `answer_key`, `hashed_answer`, etc.) and aborts validation if found.
+1. **No Client-Side Answer Keys or Explanation Leakage**:
+   - Interactive packages (`mind_map_html`, `practical_experiment_html`) must NOT contain client-side answer keys or explanations inside HTML, JSON attributes, JavaScript objects, manifest files, inline scripts, or local assets.
+   - Preflight package security scanner checks packages and REJECTS any package containing forbidden fields and patterns:
+     - `correct_index`
+     - `correct_answer`
+     - `answer_key`
+     - `hashed_answer`
+     - `explanation`
+     - `answer_explanation`
+     - `correct_explanation`
+     - `solution_key`
+   - **Pre-Reveal Gate & Student Iframe Payload**: Explanations MUST NOT be passed to HTML or iframe payloads prior to the Reveal gate. Student iframe payloads strictly exclude all `explanation` properties.
+   - **Post-Reveal Explanation Path**: Educational explanations shown after submission/reveal must be served exclusively via secure Server/Application API endpoints outside the HTML content package.
+   - **General Educational Content Independence**: Standalone educational explanation material must be completely independent from hidden question answer mappings to prevent reverse-engineering correct answers.
    - All question evaluations requiring correct answer checks occur strictly Server-Side.
 
 2. **No Student PII**:

@@ -196,10 +196,33 @@ test('7. Verify Additive Migration & Foreign Key Integrity Constraints', () => {
     'Migration proposal must NOT use CREATE TABLE for existing lesson_resources'
   );
 
-  // Verify Version Foreign Keys on lesson_resources
+  // Verify Composite Same-Resource Foreign Keys on lesson_resources
   assert.ok(dataModelContent.includes('current_draft_version_id'), 'Data model missing current_draft_version_id');
   assert.ok(dataModelContent.includes('approved_version_id'), 'Data model missing approved_version_id');
   assert.ok(dataModelContent.includes('published_version_id'), 'Data model missing published_version_id');
+
+  // Must use composite FKs (pointer, id) -> (id, resource_id) to prevent cross-resource version linking
+  assert.ok(
+    migrationContent.includes('FOREIGN KEY (current_draft_version_id, id) REFERENCES public.lesson_resource_versions(id, resource_id)') ||
+    migrationContent.includes('FOREIGN KEY (current_draft_version_id, id) REFERENCES'),
+    'Migration proposal must use composite FK (current_draft_version_id, id) to enforce same-resource integrity'
+  );
+  assert.ok(
+    migrationContent.includes('FOREIGN KEY (approved_version_id, id) REFERENCES') ||
+    migrationContent.includes('approved_version_id, id'),
+    'Migration proposal must use composite FK (approved_version_id, id)'
+  );
+  assert.ok(
+    migrationContent.includes('FOREIGN KEY (published_version_id, id) REFERENCES') ||
+    migrationContent.includes('published_version_id, id'),
+    'Migration proposal must use composite FK (published_version_id, id)'
+  );
+
+  // Verify uq_resource_version_id_resource UNIQUE(id, resource_id) on lesson_resource_versions
+  assert.ok(
+    migrationContent.includes('uq_resource_version_id_resource') || dataModelContent.includes('UNIQUE(id, resource_id)'),
+    'Must define composite UNIQUE(id, resource_id) on lesson_resource_versions'
+  );
 
   // Verify NO ON DELETE CASCADE on versions, reviews, events, import tables
   assert.ok(
@@ -230,9 +253,32 @@ test('9. Verify Correct-Answer Leakage & Type Standardization Requirements', () 
   const rawAuth = fs.readFileSync(DOC_FILES.authMatrix, 'utf-8');
   const authMatrix = JSON.parse(rawAuth);
 
-  // Verify answer leakage prohibition
+  // Verify answer leakage and explanation leakage prohibition
   assert.equal(authMatrix.concurrency_and_security.answer_leakage_prohibited, true);
-  assert.ok(dataModelContent.includes('No Client-Side Hashed Answer Keys') || designContent.includes('No Correct-Answer Leakage'), 'Docs must prohibit client-side hashed answer keys');
+  assert.equal(authMatrix.concurrency_and_security.explanation_leakage_prohibited, true);
+
+  // Verify forbidden answer and explanation fields list
+  const FORBIDDEN_FIELDS = [
+    'correct_index',
+    'correct_answer',
+    'answer_key',
+    'hashed_answer',
+    'explanation',
+    'answer_explanation',
+    'correct_explanation',
+    'solution_key'
+  ];
+
+  for (const field of FORBIDDEN_FIELDS) {
+    assert.ok(
+      authMatrix.concurrency_and_security.forbidden_answer_and_explanation_fields.includes(field),
+      `Auth matrix missing forbidden field: ${field}`
+    );
+    assert.ok(
+      dataModelContent.includes(field) || designContent.includes(field),
+      `Docs missing security scanner forbidden field: ${field}`
+    );
+  }
 
   // Verify entity type standardization & compatibility mapping
   assert.ok(dataModelContent.includes('external_link'), 'Data model must standardize on external_link');
@@ -328,10 +374,26 @@ test('16. Verify Published Immutability Trigger and Policy Contracts', () => {
   const dataModelContent = fs.readFileSync(DOC_FILES.dataModel, 'utf-8');
   const migrationContent = fs.readFileSync(DOC_FILES.migration, 'utf-8');
 
-  // Verify published immutability trigger definition
-  assert.ok(migrationContent.includes('fn_ensure_immutable_published_version'), 'Migration proposal must define published immutability trigger function');
+  // Verify independent trigger functions for versions and files
+  assert.ok(migrationContent.includes('fn_ensure_immutable_resource_version'), 'Migration proposal must define version immutability trigger function');
+  assert.ok(migrationContent.includes('fn_ensure_immutable_resource_file'), 'Migration proposal must define file immutability trigger function');
+
+  // Verify version trigger queries parent lesson_resources using OLD.resource_id
+  assert.ok(migrationContent.includes('lr.id = OLD.resource_id'), 'Version immutability trigger must join parent using OLD.resource_id');
+
+  // Verify file trigger uses version_id and explicit JOINs, with ZERO non-existent OLD.status or OLD.resource_id references
+  assert.ok(migrationContent.includes('lrv.id = OLD.version_id'), 'File immutability trigger must match lrv.id = OLD.version_id');
+  assert.ok(migrationContent.includes('JOIN public.lesson_resources lr ON lr.id = lrv.resource_id'), 'File immutability trigger must use explicit JOIN to lesson_resources');
+
+  // Extract the function body of fn_ensure_immutable_resource_file to check strictly
+  const fileTriggerStart = migrationContent.indexOf('fn_ensure_immutable_resource_file');
+  const fileTriggerBody = migrationContent.slice(fileTriggerStart, fileTriggerStart + 1000);
+  assert.ok(!fileTriggerBody.includes('OLD.status'), 'File trigger MUST NOT reference non-existent OLD.status column on files table');
+  assert.ok(!fileTriggerBody.includes('OLD.resource_id'), 'File trigger MUST NOT reference non-existent OLD.resource_id column on files table');
+
   assert.ok(dataModelContent.includes('Published Immutability Contract'), 'Data model must define Published Immutability Contract');
   assert.ok(dataModelContent.includes('REVOKE UPDATE, DELETE ON public.lesson_resource_versions'), 'Data model must revoke UPDATE/DELETE on versions from authenticated');
+  assert.ok(dataModelContent.includes('REVOKE UPDATE, DELETE ON public.lesson_resource_files'), 'Data model must revoke UPDATE/DELETE on files from authenticated');
 });
 
 test('17. Verify Storage Operation Ledger & 8 Saga States', () => {
@@ -379,4 +441,53 @@ test('19. Verify absolute compliance with design constraints (No src/ or migrati
       assert.ok(!f.includes('content_onboarding_html_03'), 'No migrations should be added in this design task');
     }
   }
+});
+
+test('20. Verify 3-Point Same-Resource Pointer Integrity & Cross-Resource Rejection', () => {
+  const migrationContent = fs.readFileSync(DOC_FILES.migration, 'utf-8');
+  const dataModelContent = fs.readFileSync(DOC_FILES.dataModel, 'utf-8');
+
+  // Verify current_draft_version_id, approved_version_id, published_version_id pointers use composite FK
+  const pointers = ['current_draft_version_id', 'approved_version_id', 'published_version_id'];
+  for (const ptr of pointers) {
+    assert.ok(
+      migrationContent.includes(`(${ptr}, id) REFERENCES`),
+      `Composite FK for pointer ${ptr} missing in migration proposal`
+    );
+  }
+
+  // Verify single FK is documented as insufficient
+  assert.ok(
+    dataModelContent.includes('Same-Resource Integrity Contract') || dataModelContent.includes('Cross-Resource Rejection'),
+    'Data model must document Same-Resource Integrity Contract'
+  );
+});
+
+test('21. Verify 3 Explanation Leakage Security Scanner Contracts (Package, JSON Asset, JS Object & Student Payload)', () => {
+  const dataModelContent = fs.readFileSync(DOC_FILES.dataModel, 'utf-8');
+  const designContent = fs.readFileSync(DOC_FILES.design, 'utf-8');
+  const storageContent = fs.readFileSync(DOC_FILES.storage, 'utf-8');
+  const migrationContent = fs.readFileSync(DOC_FILES.migration, 'utf-8');
+
+  // Test 1: Explanation inside zip package file (HTML, JSON, JS, manifest, inline scripts, local assets) -> REJECT
+  assert.ok(
+    designContent.includes('explanation') && (designContent.includes('REJECT') || designContent.includes('forbidden')),
+    'Security scanner contract must reject explanation in packages'
+  );
+
+  // Test 2: Explanation inside JSON asset -> REJECT
+  assert.ok(
+    dataModelContent.includes('JSON attributes') || storageContent.includes('JSON'),
+    'Security scanner contract must reject explanation in JSON assets'
+  );
+
+  // Test 3: Student iframe payload excludes explanation & post-reveal explanation served via Server/Application path outside package
+  assert.ok(
+    dataModelContent.includes('Student Iframe Payload') || dataModelContent.includes('Post-Reveal Explanation Path') || designContent.includes('Student iframe payload'),
+    'Data model or design doc must specify student iframe payload explanation exclusion and post-reveal server path'
+  );
+  assert.ok(
+    migrationContent.includes('post-reveal educational explanations are retrieved strictly via server/application paths') || dataModelContent.includes('served exclusively via secure Server/Application API endpoints'),
+    'Migration proposal or data model must mandate post-reveal explanations served outside package'
+  );
 });
