@@ -265,12 +265,110 @@ test('10. Verify Safe Rollback Strategy', () => {
 
   // Verify rollback to previous approved version
   assert.ok(
-    migrationContent.includes('previous approved version') || designContent.includes('previous approved version'),
+    migrationContent.toLowerCase().includes('previous approved version') || designContent.toLowerCase().includes('previous approved version'),
     'Rollback strategy must support reverting to previous approved version'
   );
 });
 
-test('11. Verify absolute compliance with design constraints (No src/ or migration edits)', () => {
+test('12. Verify Baseline Columns Reconciliation (title/description canonical, no title_ar/description_ar migration)', () => {
+  const migrationContent = fs.readFileSync(DOC_FILES.migration, 'utf-8');
+  const dataModelContent = fs.readFileSync(DOC_FILES.dataModel, 'utf-8');
+
+  // Verify ADD COLUMN in migration proposal does NOT introduce title_ar or description_ar
+  assert.ok(!migrationContent.includes('ADD COLUMN IF NOT EXISTS title_ar'), 'Migration proposal must NOT add title_ar column');
+  assert.ok(!migrationContent.includes('ADD COLUMN IF NOT EXISTS description_ar'), 'Migration proposal must NOT add description_ar column');
+
+  // Verify Data Model uses canonical title and description columns
+  assert.ok(dataModelContent.includes('`title`'), 'Data model must specify canonical `title` column');
+  assert.ok(dataModelContent.includes('`description`'), 'Data model must specify canonical `description` column');
+  assert.ok(dataModelContent.includes('`url`'), 'Data model must preserve legacy `url` column');
+});
+
+test('13. Verify Student Identity Representation (Not an app_role value)', () => {
+  const dataModelContent = fs.readFileSync(DOC_FILES.dataModel, 'utf-8');
+  const designContent = fs.readFileSync(DOC_FILES.design, 'utf-8');
+
+  // Verify student is documented as authenticated non-staff user, NOT app_role value
+  assert.ok(dataModelContent.includes('`student` is **NOT** a new value in `app_role`'), 'Data model must clarify student is not an app_role value');
+  assert.ok(designContent.includes('`student` is NOT an `app_role` enum value'), 'Design doc must clarify student is not an app_role value');
+});
+
+test('14. Verify RLS Policies Use Legal Explicit Joins without fake lesson_id columns', () => {
+  const dataModelContent = fs.readFileSync(DOC_FILES.dataModel, 'utf-8');
+  const rawAuth = fs.readFileSync(DOC_FILES.authMatrix, 'utf-8');
+  const authMatrix = JSON.parse(rawAuth);
+
+  // Verify child tables use explicit JOIN syntax or EXISTS subquery referencing parent lesson_resources
+  assert.ok(dataModelContent.includes('JOIN public.lesson_resources') || dataModelContent.includes('FROM public.lesson_resources lr'), 'Data model RLS policies must use explicit JOIN or subquery to lesson_resources');
+
+  const versionRule = authMatrix.rls_policies.table_rules.lesson_resource_versions.student_read;
+  const fileRule = authMatrix.rls_policies.table_rules.lesson_resource_files.student_read;
+  const eventRule = authMatrix.rls_policies.table_rules.lesson_resource_events.student_insert;
+
+  assert.ok(!versionRule.startsWith('lesson_id ='), 'lesson_resource_versions RLS must NOT reference non-existent lesson_id column directly');
+  assert.ok(!fileRule.startsWith('lesson_id ='), 'lesson_resource_files RLS must NOT reference non-existent lesson_id column directly');
+  assert.ok(eventRule.includes('EXISTS (SELECT 1 FROM public.lesson_resources'), 'lesson_resource_events RLS must join through lesson_resources');
+});
+
+test('15. Verify Audit Preservation & Absolute Prohibition of Audit DROP CASCADE', () => {
+  const migrationContent = fs.readFileSync(DOC_FILES.migration, 'utf-8');
+  const dataModelContent = fs.readFileSync(DOC_FILES.dataModel, 'utf-8');
+
+  // Down script in migration proposal must NOT contain DROP TABLE ... CASCADE for audit tables
+  assert.ok(!migrationContent.includes('DROP TABLE IF EXISTS public.lesson_resource_reviews CASCADE'), 'Down script must NOT drop lesson_resource_reviews');
+  assert.ok(!migrationContent.includes('DROP TABLE IF EXISTS public.lesson_resource_events CASCADE'), 'Down script must NOT drop lesson_resource_events');
+  assert.ok(!migrationContent.includes('DROP TABLE IF EXISTS public.idempotency_ledger CASCADE'), 'Down script must NOT drop idempotency_ledger');
+  assert.ok(!migrationContent.includes('DROP TABLE IF EXISTS public.storage_operations CASCADE'), 'Down script must NOT drop storage_operations');
+
+  // Data model must specify audit preservation without CASCADE
+  assert.ok(dataModelContent.includes('Audit Preservation Contract (No `CASCADE`)'), 'Data model must specify Audit Preservation Contract');
+});
+
+test('16. Verify Published Immutability Trigger and Policy Contracts', () => {
+  const dataModelContent = fs.readFileSync(DOC_FILES.dataModel, 'utf-8');
+  const migrationContent = fs.readFileSync(DOC_FILES.migration, 'utf-8');
+
+  // Verify published immutability trigger definition
+  assert.ok(migrationContent.includes('fn_ensure_immutable_published_version'), 'Migration proposal must define published immutability trigger function');
+  assert.ok(dataModelContent.includes('Published Immutability Contract'), 'Data model must define Published Immutability Contract');
+  assert.ok(dataModelContent.includes('REVOKE UPDATE, DELETE ON public.lesson_resource_versions'), 'Data model must revoke UPDATE/DELETE on versions from authenticated');
+});
+
+test('17. Verify Storage Operation Ledger & 8 Saga States', () => {
+  const dataModelContent = fs.readFileSync(DOC_FILES.dataModel, 'utf-8');
+  const migrationContent = fs.readFileSync(DOC_FILES.migration, 'utf-8');
+  const rawAuth = fs.readFileSync(DOC_FILES.authMatrix, 'utf-8');
+  const authMatrix = JSON.parse(rawAuth);
+
+  // Verify storage_operations entity definition
+  assert.ok(dataModelContent.includes('`storage_operations`'), 'Data model must define storage_operations table');
+  assert.ok(migrationContent.includes('public.storage_operations'), 'Migration proposal must include storage_operations DDL');
+  assert.ok(authMatrix.resources.includes('storage_operations'), 'Auth matrix resources must include storage_operations');
+
+  // Verify all 8 storage operation states
+  const REQUIRED_STORAGE_STATES = ['pending', 'uploaded', 'verified', 'promoted', 'cleanup_pending', 'cleaned', 'failed', 'compensated'];
+  for (const state of REQUIRED_STORAGE_STATES) {
+    assert.ok(dataModelContent.includes(`'${state}'`), `Data model missing storage operation state: ${state}`);
+  }
+});
+
+test('18. Verify 3-Phase Saga Transactions & Rollback RPC Specification', () => {
+  const dataModelContent = fs.readFileSync(DOC_FILES.dataModel, 'utf-8');
+  const migrationContent = fs.readFileSync(DOC_FILES.migration, 'utf-8');
+  const designContent = fs.readFileSync(DOC_FILES.design, 'utf-8');
+
+  // Verify Publish Saga Phases A, B, C
+  assert.ok(dataModelContent.includes('Phase A: DB Transaction 1') || designContent.includes('Phase A: DB lock'), 'Docs must define Publish Phase A');
+  assert.ok(dataModelContent.includes('Phase B: Storage Copy') || designContent.includes('Phase B: storage copy'), 'Docs must define Publish Phase B');
+  assert.ok(dataModelContent.includes('Phase C: DB Transaction 2') || designContent.includes('Phase C: DB publish commit'), 'Docs must define Publish Phase C');
+
+  // Verify rollback_published_resource_version RPC
+  assert.ok(migrationContent.includes('rollback_published_resource_version'), 'Migration proposal must define rollback_published_resource_version RPC');
+  assert.ok(dataModelContent.includes('rollback_published_resource_version'), 'Data model must define rollback_published_resource_version RPC');
+  assert.ok(designContent.includes('rollback_published_resource_version'), 'Design doc must list rollback_published_resource_version RPC');
+});
+
+test('19. Verify absolute compliance with design constraints (No src/ or migration edits)', () => {
   const testFile = path.join(rootDir, 'tests', 'question-bank', 'content-onboarding-html-backend-design-contract.test.mjs');
   assert.ok(fs.existsSync(testFile), 'Contract test file must exist at specified path');
 

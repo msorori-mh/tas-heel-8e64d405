@@ -78,8 +78,10 @@ Both storage buckets in the Tas-heel platform are **PRIVATE** with zero public a
 [Student]---> 8. fetch_published_lesson_resources() -> Server verifies authorization & issues short-lived signed URL
 ```
 
-### Storage Reconciliation & Cleanup Ledger
-- **Orphan Detection**: A background reconciliation job checks `storage_cleanup_ledger` for uncommitted staging prefixes older than 24 hours (e.g. aborted batch uploads).
+### Storage Operation Ledger & Reconciliation Saga
+- **Operation Ledger (`storage_operations`)**: Tracks every file movement, verification, and promotion across 8 explicit states: `pending`, `uploaded`, `verified`, `promoted`, `cleanup_pending`, `cleaned`, `failed`, `compensated`.
+- **Orphan Detection**: A background reconciliation job checks `storage_operations` for uncommitted staging prefixes or incomplete promotions older than 24 hours (e.g. aborted batch uploads or network disconnects).
+- **Retry Policy & Compensation Contract**: Retries failed operations up to 3 times with exponential backoff. If promotion fails after DB Phase A commit, compensation marks `status = 'compensated'` and schedules staging artifacts for garbage collection.
 - **Cleanup Ownership**: Cleanup is executed exclusively by a dedicated backend job using `service_role`.
 - **No Partial Student Access**: Students are never granted access to staging or partial upload paths. Signed URLs are issued ONLY for fully verified files inside `published/{subject_code}/{resource_code}/{content_hash}/` corresponding to an active `published_version_id`.
 

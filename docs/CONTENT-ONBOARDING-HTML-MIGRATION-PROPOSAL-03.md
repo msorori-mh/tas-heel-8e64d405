@@ -168,7 +168,25 @@ CREATE TABLE IF NOT EXISTS public.content_import_rows (
   CONSTRAINT uq_batch_row_number UNIQUE(batch_id, row_number)
 );
 
--- 7. idempotency_ledger
+-- 8. storage_operations (Storage Operation Ledger)
+CREATE TABLE IF NOT EXISTS public.storage_operations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  batch_id UUID REFERENCES public.content_import_batches(id) ON DELETE RESTRICT,
+  resource_version_id UUID REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT,
+  operation_type VARCHAR(50) NOT NULL,
+  source_path TEXT,
+  target_path TEXT,
+  expected_hash CHAR(64),
+  status public.storage_operation_status NOT NULL DEFAULT 'pending',
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at TIMESTAMPTZ
+);
+
+-- 9. idempotency_ledger
 CREATE TABLE IF NOT EXISTS public.idempotency_ledger (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
@@ -178,6 +196,27 @@ CREATE TABLE IF NOT EXISTS public.idempotency_ledger (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT uq_actor_operation_idempotency UNIQUE(actor_id, operation, idempotency_key)
 );
+```
+
+### Phase 4.1: Trigger-based Published Immutability
+```sql
+CREATE OR REPLACE FUNCTION public.fn_ensure_immutable_published_version()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (OLD.status = 'published' OR OLD.published_version_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'PUBLISHED_VERSION_IMMUTABLE: Cannot modify or delete a published version (resource: %, version: %). Create a new version instead.', OLD.resource_id, OLD.version_number;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_ensure_version_published_immutable
+BEFORE UPDATE OR DELETE ON public.lesson_resource_versions
+FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_published_version();
+
+CREATE TRIGGER trg_ensure_file_published_immutable
+BEFORE UPDATE OR DELETE ON public.lesson_resource_files
+FOR EACH ROW EXECUTE FUNCTION public.fn_ensure_immutable_published_version();
 ```
 
 ### Phase 5: Backfill Data
@@ -191,9 +230,9 @@ Enable runtime feature flag `ENABLE_HTML_LESSON_RESOURCES=true`.
 
 ---
 
-## 4. Operational Server RPC Contracts (10 RPC Specifications)
+## 4. Operational Server RPC Contracts (11 RPC Specifications)
 
-All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, pg_temp`, `REVOKE ALL FROM PUBLIC`, explicit caller identity checks from `auth.uid()`, idempotency validation, CAS locking, error contracts, and audit logging.
+All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, pg_temp`, `REVOKE ALL FROM PUBLIC`, explicit caller identity checks from `auth.uid()`, idempotency validation, CAS locking, explicit transaction boundaries, error contracts, and audit logging.
 
 ---
 
@@ -201,7 +240,7 @@ All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, p
 - **Caller Identity**: `auth.uid()` (Must have role `admin` or `content_manager`).
 - **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.create_import_batch FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.create_import_batch TO authenticated;`
-- **Transaction Boundary**: Single atomic block.
+- **Transaction Boundary**: Single atomic DB block.
 - **Inputs**: `p_batch_code TEXT`, `p_total_rows INT`, `p_idempotency_key TEXT`.
 - **Validations**: Check caller role; check `p_total_rows > 0`; check `p_idempotency_key`.
 - **Idempotency**: Check `idempotency_ledger` for `(auth.uid(), 'create_import_batch', p_idempotency_key)`. Return cached UUID if present.
@@ -216,7 +255,7 @@ All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, p
 - **Caller Identity**: `auth.uid()` (Must have role `admin` or `content_manager`).
 - **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.finalize_uploaded_package FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.finalize_uploaded_package TO authenticated;`
-- **Transaction Boundary**: Single atomic block.
+- **Transaction Boundary**: Single atomic DB block.
 - **Inputs**: `p_batch_id UUID`, `p_resource_code TEXT`, `p_content_sha256 CHAR(64)`, `p_package_size_compressed BIGINT`, `p_package_size_uncompressed BIGINT`, `p_file_count INT`, `p_files JSONB`, `p_idempotency_key TEXT`.
 - **Validations**: Verify staging file completion, SHA-256 hash match, zip payload size limits, MIME whitelists, and absence of answer keys.
 - **Idempotency**: Check `idempotency_ledger`.
@@ -231,6 +270,7 @@ All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, p
 - **Caller Identity**: `auth.uid()` (Must have role `admin` or `content_manager`).
 - **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.validate_package FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.validate_package TO authenticated;`
+- **Transaction Boundary**: Read-only validation query.
 - **Inputs**: `p_version_id UUID`.
 - **Validations**: Runs preflight security scanner (script tags, iframe external domains, CSP rules, answer key leakage).
 - **Outputs**: `JSONB` (`{ is_valid: BOOLEAN, findings: ARRAY }`).
@@ -242,6 +282,7 @@ All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, p
 - **Caller Identity**: `auth.uid()` (Must have role `admin` or `content_manager`).
 - **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.submit_for_review FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.submit_for_review TO authenticated;`
+- **Transaction Boundary**: Single atomic DB block with CAS lock.
 - **Inputs**: `p_resource_id UUID`, `p_version_id UUID`, `p_expected_lock_version INT`, `p_idempotency_key TEXT`.
 - **Validations**: Check resource status is `draft` or `rejected`; check version passes preflight clean.
 - **Locking/CAS**: `SELECT ... FOR UPDATE` on `lesson_resources`. Verify `lock_version = p_expected_lock_version`. Increment `lock_version`.
@@ -255,6 +296,7 @@ All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, p
 - **Caller Identity**: `auth.uid()` (Must have role `admin`).
 - **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.approve_resource_version FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.approve_resource_version TO authenticated;`
+- **Transaction Boundary**: Single atomic DB block with CAS lock.
 - **Inputs**: `p_resource_id UUID`, `p_version_id UUID`, `p_notes TEXT`, `p_expected_lock_version INT`, `p_idempotency_key TEXT`.
 - **Validations**: Check caller is `admin`; check status is `in_review`; check `p_version_id` belongs to `p_resource_id`.
 - **Locking/CAS**: `SELECT ... FOR UPDATE`. Verify `lock_version = p_expected_lock_version`. Binds `approved_version_id = p_version_id`.
@@ -268,6 +310,7 @@ All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, p
 - **Caller Identity**: `auth.uid()` (Must have role `admin`).
 - **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.reject_resource_version FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.reject_resource_version TO authenticated;`
+- **Transaction Boundary**: Single atomic DB block with CAS lock.
 - **Inputs**: `p_resource_id UUID`, `p_version_id UUID`, `p_reason TEXT`, `p_expected_lock_version INT`, `p_idempotency_key TEXT`.
 - **Validations**: Check caller is `admin`; check mandatory `p_reason` length > 10 chars.
 - **Locking/CAS**: `SELECT ... FOR UPDATE`. Verify `lock_version`. Status reverts to `rejected`.
@@ -277,20 +320,19 @@ All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, p
 
 ---
 
-### Contract 7: `publish_resource_version`
+### Contract 7: `publish_resource_version` (3-Phase Saga Transaction Boundary)
 - **Caller Identity**: `auth.uid()` (Must have role `admin`).
 - **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.publish_resource_version FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.publish_resource_version TO authenticated;`
+- **Transaction Boundaries (3 Phases)**:
+  - **Phase A (DB Transaction 1)**: Row lock `lesson_resources` (`SELECT ... FOR UPDATE`), CAS validation (`lock_version = p_expected_lock_version`), approval check (`approved_version_id = p_version_id`), insert pending record into `storage_operations`, commit.
+  - **Phase B (Async Storage Copy & Verification)**: Read files from staging bucket, perform SHA-256 hash match verification, copy files to immutable hash-pinned path in published bucket, update `storage_operations` status to `promoted`.
+  - **Phase C (DB Transaction 2)**: Re-open DB transaction, re-lock `lesson_resources`, re-verify CAS and approval status, set `published_version_id = p_version_id`, set `status = 'published'`, increment `lock_version`, insert immutable audit entry in `lesson_resource_reviews`, commit.
 - **Inputs**: `p_resource_id UUID`, `p_version_id UUID`, `p_expected_lock_version INT`, `p_idempotency_key TEXT`.
-- **Validations**:
-  - Caller MUST be `admin`.
-  - `p_version_id` MUST match `approved_version_id` or be previously approved.
-  - `p_version_id` MUST belong to `p_resource_id`.
-  - Re-verify SHA-256 content hashes of files before copy.
-- **Locking/CAS**: `SELECT ... FOR UPDATE` on `lesson_resources`. Verify `lock_version`.
+- **Validations**: Caller MUST be `admin`; `p_version_id` MUST match `approved_version_id`; re-verify file SHA-256 hashes.
 - **Outputs**: `JSONB` (`{ resource_id: UUID, status: 'published', published_version_id: UUID, lock_version: INT }`).
 - **Error Contract**: `VERSION_NOT_APPROVED` (422), `RESOURCE_ID_MISMATCH` (400), `STALE_LOCK_VERSION` (409).
-- **Audit**: Edge Function promotes staging files to `lesson-resource-published` hash-pinned path, sets status to `published`, and logs audit entry.
+- **Failure Guarantees**: NO student visibility before Phase C final commit. Orphan storage objects registered in `storage_operations` for background reconciliation.
 
 ---
 
@@ -298,6 +340,7 @@ All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, p
 - **Caller Identity**: `auth.uid()` (Must have role `admin`).
 - **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.unpublish_resource_version FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.unpublish_resource_version TO authenticated;`
+- **Transaction Boundary**: Single atomic DB block with CAS lock.
 - **Inputs**: `p_resource_id UUID`, `p_reason TEXT`, `p_expected_lock_version INT`, `p_idempotency_key TEXT`.
 - **Validations**: Check caller is `admin`; check status is currently `published`.
 - **Locking/CAS**: `SELECT ... FOR UPDATE`. Reverts `published_version_id = NULL`; status reverts to `approved`.
@@ -311,6 +354,7 @@ All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, p
 - **Caller Identity**: `auth.uid()` (Must have role `admin`).
 - **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.archive_resource FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.archive_resource TO authenticated;`
+- **Transaction Boundary**: Single atomic DB block with CAS lock.
 - **Inputs**: `p_resource_id UUID`, `p_reason TEXT`, `p_expected_lock_version INT`, `p_idempotency_key TEXT`.
 - **Validations**: Check caller is `admin`; check mandatory audit reason.
 - **Locking/CAS**: `SELECT ... FOR UPDATE`. Sets status to `archived`.
@@ -324,10 +368,30 @@ All RPCs are defined with `SECURITY DEFINER`, fixed `SET search_path = public, p
 - **Caller Identity**: `auth.uid()` (Student / Authenticated user).
 - **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
 - **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.fetch_published_lesson_resources FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.fetch_published_lesson_resources TO authenticated;`
+- **Transaction Boundary**: Read-only query block.
 - **Inputs**: `p_lesson_id UUID`.
 - **Validations**: Evaluates `public.can_access_lesson(p_lesson_id)`. If false, yields empty JSON array (silent fail-closed).
-- **Outputs**: `JSONB` array of published resources (`id`, `resource_code`, `resource_type`, `title_ar`, `description_ar`, `sort_order`, `entry_file`, `signed_access_url`, `csp_header`). Only resources with `status = 'published'` and valid `published_version_id` are returned.
+- **Outputs**: `JSONB` array of published resources (`id`, `resource_code`, `resource_type`, `title`, `description`, `sort_order`, `entry_file`, `signed_access_url`, `csp_header`). Only resources with `status = 'published'` and valid `published_version_id` are returned.
 - **Error Contract**: Returns `[]` if unauthorized or no published resources exist.
+
+---
+
+### Contract 11: `rollback_published_resource_version`
+- **Caller Identity**: `auth.uid()` (Must have role `admin`).
+- **Security & Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- **Grants/Revokes**: `REVOKE ALL ON FUNCTION public.rollback_published_resource_version FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.rollback_published_resource_version TO authenticated;`
+- **Transaction Boundary**: Single atomic DB block with CAS lock.
+- **Inputs**: `p_resource_id UUID`, `p_target_version_id UUID`, `p_expected_lock_version INT`, `p_reason TEXT`, `p_idempotency_key TEXT`.
+- **Validations**:
+  - Caller MUST be `admin`.
+  - `p_target_version_id` MUST belong to `p_resource_id`.
+  - `p_target_version_id` MUST have action `'approved'` in `lesson_resource_reviews`.
+  - Mandatory `p_reason` length > 10 chars.
+  - Storage file hash verification for target version.
+- **Locking/CAS**: `SELECT ... FOR UPDATE` on `lesson_resources`. Verify `lock_version`.
+- **Outputs**: `JSONB` (`{ resource_id: UUID, status: 'published', published_version_id: UUID, previous_published_version_id: UUID, lock_version: INT }`).
+- **Error Contract**: `TARGET_VERSION_NOT_APPROVED` (422), `STALE_LOCK_VERSION` (409), `REASON_REQUIRED` (400).
+- **Audit**: Records immutable audit event in `lesson_resource_reviews` with previous/new version IDs, and logs storage reconciliation evidence in `storage_operations`.
 
 ---
 
@@ -340,33 +404,23 @@ In the event of an operational regression or deployment cancellation:
    - Client applications immediately bypass HTML resource rendering and fall back to legacy static components without throwing errors.
 
 2. **Rollback to Previous Approved Version**:
-   - If a newly published version exhibits errors, execute an audited rollback transaction:
-     - The target rollback version MUST have status `approved` in `lesson_resource_reviews` and belong to the target resource.
-     - Update `published_version_id` to point to the previous approved version ID in a CAS-locked transaction.
-     - Never silently overwrite version history.
+   - Execute `rollback_published_resource_version` RPC to revert `published_version_id` to a target approved version in an audited, CAS-locked transaction.
+   - Version history is preserved permanently; overwriting audit logs is prohibited.
 
-3. **Database Down Script Strategy**:
+3. **Database Down Script Strategy (Audit Preservation Guarantee)**:
    - **DO NOT DROP `lesson_resources`**: The legacy `lesson_resources` table is preserved.
    - **DO NOT attempt enum value deletion**: PostgreSQL does not support removing enum values. The down script leaves enum values intact.
-   - Down script safely removes new foreign key constraints and newly created snapshot/audit tables if a total database rollback is required:
+   - **NO `DROP TABLE CASCADE` on Audit Tables**: Audit tables (`lesson_resource_reviews`, `lesson_resource_events`, `idempotency_ledger`, `storage_operations`) are permanently kept in production.
+   - Down script safely removes only newly added foreign key constraints without dropping audit or version history tables:
 ```sql
 BEGIN;
--- Remove version FKs from lesson_resources
+-- Remove version FKs from lesson_resources safely
 ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_draft_version;
 ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_approved_version;
 ALTER TABLE public.lesson_resources DROP CONSTRAINT IF EXISTS fk_lesson_resources_published_version;
-
--- Drop newly created snapshot & audit tables safely
-DROP TABLE IF EXISTS public.idempotency_ledger CASCADE;
-DROP TABLE IF EXISTS public.content_import_rows CASCADE;
-DROP TABLE IF EXISTS public.content_import_batches CASCADE;
-DROP TABLE IF EXISTS public.lesson_resource_events CASCADE;
-DROP TABLE IF EXISTS public.lesson_resource_reviews CASCADE;
-DROP TABLE IF EXISTS public.lesson_resource_files CASCADE;
-DROP TABLE IF EXISTS public.lesson_resource_versions CASCADE;
 COMMIT;
 ```
 
 4. **Storage Object & Audit Preservation**:
-   - Storage cleanup for orphan objects is executed strictly via `storage_cleanup_ledger`.
-   - Audit logs (`lesson_resource_reviews`, `idempotency_ledger`) are preserved and never truncated during rollback.
+   - Storage cleanup for orphan objects is executed strictly via `storage_operations`.
+   - Audit logs (`lesson_resource_reviews`, `lesson_resource_events`, `idempotency_ledger`, `storage_operations`) are preserved and never truncated during rollback.

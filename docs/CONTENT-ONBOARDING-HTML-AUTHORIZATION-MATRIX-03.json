@@ -6,6 +6,11 @@
     "content_manager",
     "student"
   ],
+  "role_definitions": {
+    "admin": "User with app_role = 'admin'",
+    "content_manager": "User with app_role = 'content_manager'",
+    "student": "Authenticated user lacking admin or content_manager role (NOT a value in app_role enum)"
+  },
   "statuses": [
     "draft",
     "in_review",
@@ -22,6 +27,7 @@
     "lesson_resource_events",
     "content_import_batches",
     "content_import_rows",
+    "storage_operations",
     "idempotency_ledger",
     "lesson-resource-drafts",
     "lesson-resource-published"
@@ -37,6 +43,7 @@
       "publish_resource_version": true,
       "unpublish_resource_version": true,
       "archive_resource": true,
+      "rollback_published_resource_version": true,
       "fetch_published_lesson_resources": true,
       "read_draft_storage": true,
       "write_draft_storage": true,
@@ -52,6 +59,7 @@
       "publish_resource_version": false,
       "unpublish_resource_version": false,
       "archive_resource": false,
+      "rollback_published_resource_version": false,
       "fetch_published_lesson_resources": true,
       "read_draft_storage": true,
       "write_draft_storage": true,
@@ -67,6 +75,7 @@
       "publish_resource_version": false,
       "unpublish_resource_version": false,
       "archive_resource": false,
+      "rollback_published_resource_version": false,
       "fetch_published_lesson_resources": true,
       "read_draft_storage": false,
       "write_draft_storage": false,
@@ -82,11 +91,11 @@
         "admin_approve_publish": "public.has_role(auth.uid(), 'admin') VIA RPC only"
       },
       "lesson_resource_versions": {
-        "student_read": "id = (SELECT published_version_id FROM public.lesson_resources WHERE id = lesson_resource_versions.resource_id AND status = 'published') AND public.can_access_lesson(lesson_id)",
+        "student_read": "EXISTS (SELECT 1 FROM public.lesson_resources lr WHERE lr.id = lesson_resource_versions.resource_id AND lr.published_version_id = lesson_resource_versions.id AND lr.status = 'published' AND public.can_access_lesson(lr.lesson_id))",
         "staff_write": "(public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')) VIA RPC"
       },
       "lesson_resource_files": {
-        "student_read": "version_id = (SELECT published_version_id FROM public.lesson_resources WHERE id = (SELECT resource_id FROM public.lesson_resource_versions WHERE id = lesson_resource_files.version_id) AND status = 'published') AND public.can_access_lesson(lesson_id)",
+        "student_read": "EXISTS (SELECT 1 FROM public.lesson_resource_versions lrv JOIN public.lesson_resources lr ON lr.id = lrv.resource_id WHERE lrv.id = lesson_resource_files.version_id AND lr.published_version_id = lrv.id AND lr.status = 'published' AND public.can_access_lesson(lr.lesson_id))",
         "staff_write": "(public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')) VIA RPC"
       },
       "lesson_resource_reviews": {
@@ -95,7 +104,7 @@
         "admin_insert": "public.has_role(auth.uid(), 'admin') VIA RPC"
       },
       "lesson_resource_events": {
-        "student_insert": "auth.uid() = user_id AND public.can_access_lesson(lesson_id)",
+        "student_insert": "auth.uid() = user_id AND EXISTS (SELECT 1 FROM public.lesson_resources lr WHERE lr.id = lesson_resource_events.resource_id AND public.can_access_lesson(lr.lesson_id))",
         "student_read": "auth.uid() = user_id",
         "staff_read": "public.has_role(auth.uid(), 'admin')"
       },
@@ -104,6 +113,10 @@
         "staff_access": "public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')"
       },
       "content_import_rows": {
+        "student_access": false,
+        "staff_access": "public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')"
+      },
+      "storage_operations": {
         "student_access": false,
         "staff_access": "public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'content_manager')"
       },

@@ -25,7 +25,7 @@ It builds upon the in-memory dry-run validation foundation established in `origi
 
 ## 2. Approved MVP Roles & Authorization
 
-The authorization system for this MVP stage relies strictly on existing application roles:
+The authorization system for this MVP stage relies strictly on system roles:
 
 - **`content_manager`**:
   - Create Draft (`create_import_batch`).
@@ -38,20 +38,22 @@ The authorization system for this MVP stage relies strictly on existing applicat
   - Review & Validate (`validate_package`).
   - Approve / Reject (`approve_resource_version`, `reject_resource_version`).
   - Publish / Unpublish / Archive (`publish_resource_version`, `unpublish_resource_version`, `archive_resource`).
-  - Manage audited emergency states and rollbacks.
+  - Perform audited version rollbacks (`rollback_published_resource_version`).
+  - Manage audited emergency states.
 
 - **`student`**:
+  - Defined dynamically as any authenticated user (`auth.uid() IS NOT NULL`) who does **NOT** hold `admin` or `content_manager` roles.
   - Read published resources only (`fetch_published_lesson_resources`) for accessible lessons.
 
-*(Note: Roles `reviewer` and `publisher` are NOT added to `app_role` at this MVP phase).*
+*(Note: `student` is NOT an `app_role` enum value. Roles `reviewer` and `publisher` are NOT added to `app_role` at this MVP phase).*
 
 ---
 
 ## 3. Data Architecture & Additive Migration Strategy
 
-The operational design extends the pre-existing `lesson_resources` table via additive `ALTER TABLE` operations and introduces 7 database entities spanning versions, file manifests, review audits, interactive telemetry, import batches, and idempotency tracking:
+The operational design extends the pre-existing `lesson_resources` table via additive `ALTER TABLE` operations and introduces 8 database entities spanning versions, file manifests, review audits, interactive telemetry, import batches, storage ledgers, and idempotency tracking:
 
-1. **`lesson_resources`**: Master table (pre-existing, extended via additive columns) tracking interactive resource metadata, state (`draft`, `in_review`, `approved`, `published`, `rejected`, `archived`), optimistic concurrency CAS counter (`lock_version`), and explicit version foreign keys:
+1. **`lesson_resources`**: Master table (pre-existing, extended via additive columns) tracking interactive resource metadata with canonical `title` and `description` (Arabic-first), legacy `url` compatibility, state (`draft`, `in_review`, `approved`, `published`, `rejected`, `archived`), optimistic concurrency CAS counter (`lock_version`), and explicit version foreign keys:
    - `current_draft_version_id` (FK to `lesson_resource_versions(id) ON DELETE RESTRICT`)
    - `approved_version_id` (FK to `lesson_resource_versions(id) ON DELETE RESTRICT`)
    - `published_version_id` (FK to `lesson_resource_versions(id) ON DELETE RESTRICT`)
@@ -61,13 +63,14 @@ The operational design extends the pre-existing `lesson_resources` table via add
    - `CHECK version_number > 0`
 3. **`lesson_resource_files`**: Detailed file manifest indexing extracted assets within a version package.
 4. **`lesson_resource_reviews`**: Immutable review log tracking all submission, approval, rejection, and publishing events explicitly tied to `version_id`.
-5. **`lesson_resource_events`**: Student telemetry audit log bound by `UNIQUE(resource_version_id, session_nonce, event_sequence)`.
+5. **`lesson_resource_events`**: Student telemetry audit log bound by `UNIQUE(resource_version_id, session_nonce, event_sequence)`. Joined via `resource_id` (no `lesson_id` on table).
 6. **`content_import_batches`**: Bulk import session registry tracking uploaded package payloads.
 7. **`content_import_rows`**: Validation breakdown bound by `UNIQUE(batch_id, row_number)`.
-8. **`idempotency_ledger`**: Ledger guaranteeing idempotency bound by `UNIQUE(actor_id, operation, idempotency_key)`.
+8. **`storage_operations`**: Storage operation ledger tracking staging, file promotion, orphan cleanup, and saga compensation (`pending`, `uploaded`, `verified`, `promoted`, `cleanup_pending`, `cleaned`, `failed`, `compensated`).
+9. **`idempotency_ledger`**: Ledger guaranteeing idempotency bound by `UNIQUE(actor_id, operation, idempotency_key)`.
 
 ### Foreign Key & Integrity Policy
-- **NO `ON DELETE CASCADE`** on versions, reviews, events, import batches, or idempotency logs (`ON DELETE RESTRICT` / `ON DELETE NO ACTION` enforced).
+- **NO `ON DELETE CASCADE`** on versions, reviews, events, import batches, storage operations, or idempotency logs (`ON DELETE RESTRICT` / `ON DELETE NO ACTION` enforced).
 - Deactivation of resources uses soft archiving (`status = 'archived'`).
 
 *Detailed schema definition available in [docs/CONTENT-ONBOARDING-HTML-DATA-MODEL-03.md](file:///C:/projects/tas-heel-content-backend-design-03/docs/CONTENT-ONBOARDING-HTML-DATA-MODEL-03.md).*
@@ -102,7 +105,7 @@ Resources transition through 6 formal lifecycle states governed by MVP role perm
           |       draft       |   |     published     |
           +-------------------+   +-------------------+
                                             |
-                                unpublish / archive (admin)
+                                unpublish / archive / rollback (admin)
                                             v
                                   +-------------------+
                                   | approved/archived |
@@ -125,13 +128,13 @@ Both storage buckets are **PRIVATE** (zero public access):
    - **Access:** Private (Public = false). Read access granted exclusively via short-lived Server-signed URLs (TTL max 15 min) after validating `status = 'published'` and `can_access_lesson(lesson_id)`.
    - **Pathing:** Immutable Hash-pinned (`published/{subject_code}/{resource_code}/{content_hash}/{filename}`).
    - **Browser Write Restriction:** Direct client uploads are prohibited via Storage RLS. File promotion is executed exclusively by server Edge Functions using `service_role`.
-   - **Cleanup & Reconciliation:** Storage cleanup for orphan/partial staging files is managed by a background job referencing `storage_cleanup_ledger`.
+   - **Storage Operations Ledger & Saga Phases**: Storage promotion follows a 3-Phase Saga (Phase A: DB pending entry; Phase B: Async copy & re-hash; Phase C: DB bind & commit). Orphan detection and cleanup are managed by `storage_operations`.
 
 *Detailed storage contract available in [docs/CONTENT-ONBOARDING-HTML-STORAGE-CONTRACT-03.md](file:///C:/projects/tas-heel-content-backend-design-03/docs/CONTENT-ONBOARDING-HTML-STORAGE-CONTRACT-03.md).*
 
 ---
 
-## 6. Server Contracts (10 RPC Specifications)
+## 6. Server Contracts (11 RPC Specifications)
 
 1. `create_import_batch`: Initializes bulk import session with idempotency tracking.
 2. `finalize_uploaded_package`: Registers uploaded draft zip in storage staging, validates hash/size, and creates version snapshot.
@@ -139,10 +142,11 @@ Both storage buckets are **PRIVATE** (zero public access):
 4. `submit_for_review`: Transitions status from `draft` or `rejected` to `in_review` with CAS locking.
 5. `approve_resource_version`: Admin RPC approving a specific version for publication and setting `approved_version_id`.
 6. `reject_resource_version`: Admin RPC rejecting a version with mandatory feedback reason.
-7. `publish_resource_version`: Admin RPC executing `SELECT ... FOR UPDATE`, verifying version approval, copying files to published storage, and setting `published_version_id`.
+7. `publish_resource_version`: Admin RPC executing 3-Phase Saga (Phase A: DB lock & operation pending; Phase B: storage copy; Phase C: DB publish commit).
 8. `unpublish_resource_version`: Admin RPC reverting published state to `approved`.
 9. `archive_resource`: Admin RPC permanently setting resource state to `archived`.
 10. `fetch_published_lesson_resources`: Student-facing RPC returning active published HTML resources with short-lived signed access URLs.
+11. `rollback_published_resource_version`: Admin RPC safely reverting `published_version_id` to a target approved version.
 
 ---
 
@@ -152,16 +156,16 @@ Both storage buckets are **PRIVATE** (zero public access):
 - **Idempotency**: Mutating RPCs require `idempotency_key` checked against `UNIQUE(actor_id, operation, idempotency_key)`.
 - **No Correct-Answer Leakage**: Interactive HTML packages must resolve evaluations without embedded answer keys or client-side hashed check tokens in HTML or JSON. Preflight scanner validates absence of answers in packages.
 - **No Student PII**: Telemetry payloads (`lesson_resource_events.payload`) scrub personal identifiers, referencing only `auth.uid()`.
-- **Type Standardization**: Entity type standardizes on `external_link` with compatibility mapping (`mindmap` → `mind_map_html`, `experiment` → `practical_experiment_html`, `link` → `external_link`).
+- **Type Standardization & Baseline Reconciliation**: Entity type standardizes on `external_link` with compatibility mapping (`mindmap` → `mind_map_html`, `experiment` → `practical_experiment_html`, `link` → `external_link`). Baseline canonical columns `title` and `description` are preserved.
 
 ---
 
 ## 8. Safe Rollback Strategy
 
 1. **Environment Feature Flag**: `ENABLE_HTML_LESSON_RESOURCES=false` instantly reverts client components to legacy views.
-2. **Rollback to Previous Approved Version**: `published_version_id` can be updated to point to a previously approved version in an audited CAS transaction.
-3. **Database Down Script**:
+2. **Rollback to Previous Approved Version**: `published_version_id` can be updated to point to a previously approved version in an audited CAS transaction via `rollback_published_resource_version`.
+3. **Database Down Script Strategy**:
    - `lesson_resources` table is **NEVER** dropped.
    - Enum values are **NEVER** dropped (PostgreSQL does not support removing enum values from existing types).
-   - Down script removes version FK constraints and drops new snapshot/audit tables (`lesson_resource_versions`, `lesson_resource_files`, `lesson_resource_reviews`, `lesson_resource_events`, `content_import_batches`, `content_import_rows`, `idempotency_ledger`).
-4. **Audit History**: Review and event logs are preserved during rollbacks.
+   - Audit tables (`lesson_resource_reviews`, `lesson_resource_events`, `idempotency_ledger`, `storage_operations`) are **NEVER** dropped in production down scripts (`CASCADE` prohibited). Down script removes FK constraints safely while preserving audit history.
+4. **Audit History**: Review, event, and storage operation logs are preserved permanently during rollbacks.

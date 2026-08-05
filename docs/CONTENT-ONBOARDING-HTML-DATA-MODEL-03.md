@@ -12,16 +12,17 @@
 
 This document defines the operational schema, entity relationships, enums, state machine transitions, version integrity rules, concurrency controls, and data integrity constraints for importing, reviewing, publishing, and auditing interactive HTML content (`mind_map_html`, `practical_experiment_html`) within the Tas-heel platform.
 
-### MVP Role Boundary
-For this MVP stage, system roles are strictly limited to:
-- **`content_manager`**: Can create drafts, upload package staging files, modify drafts, and submit for review. CANNOT approve or publish.
-- **`admin`**: Can review, approve/reject, publish/unpublish/archive, and manage audited emergency states.
-- **`student`**: Can read published resources only for accessible lessons.
+### MVP Role & Student Identity Representation
+For this MVP stage, system authorization relies on system roles:
+- **`admin`**: User with `app_role = 'admin'`. Can review, approve/reject, publish/unpublish/archive, perform audited rollbacks, and manage emergency states.
+- **`content_manager`**: User with `app_role = 'content_manager'`. Can create drafts, upload package staging files, modify drafts, and submit for review. CANNOT approve, reject, publish, unpublish, or archive.
+- **`student`**: Defined dynamically as any authenticated user (`auth.uid() IS NOT NULL`) who does **NOT** hold `admin` or `content_manager` roles. Can read published resources only for accessible lessons.
+- **Legacy roles (`moderator`, `user`)**: Do NOT grant any content management permissions.
+- **Unauthenticated Users**: Strictly prohibited from reading private lesson resources or staging files.
 
-*(Note: Roles `reviewer` and `publisher` are NOT used in `app_role` for this MVP).*
-
-> **CRITICAL BOUNDARY GUARANTEE:**
-> - All client/browser mutations are strictly prohibited from directly altering `lesson_resources`, `lesson_resource_versions`, `lesson_resource_files`, or audit tables.
+> **CRITICAL ARCHITECTURAL BOUNDARY GUARANTEE:**
+> - `student` is **NOT** a new value in `app_role` enum. Do NOT assume `app_role = 'student'`.
+> - All client/browser mutations are strictly prohibited from directly altering `lesson_resources`, `lesson_resource_versions`, `lesson_resource_files`, `storage_operations`, or audit tables.
 > - All database modifications occur exclusively via validated RPC functions running with `SECURITY DEFINER` and strict CAS lock constraints.
 > - Student clients query published lesson resources strictly through RLS fail-closed read policies or server RPCs.
 
@@ -71,18 +72,36 @@ CREATE TYPE public.import_batch_status AS ENUM (
   'failed',
   'archived'
 );
+
+-- Storage Operation Status Enum
+CREATE TYPE public.storage_operation_status AS ENUM (
+  'pending',
+  'uploaded',
+  'verified',
+  'promoted',
+  'cleanup_pending',
+  'cleaned',
+  'failed',
+  'compensated'
+);
 ```
 
-### Type Standardization & Legacy Compatibility Mapping
-The canonical entity type for external links is `external_link` (not `link`).
-To preserve backward compatibility with legacy datasets, the operational system enforces the following mapping:
-- `mindmap` → `mind_map_html`
-- `experiment` → `practical_experiment_html`
-- `link` → `external_link`
+### Type Standardization & Baseline Reconciliation
+1. **Baseline Columns Reconciliation (`title`, `description`, `url`)**:
+   - The pre-existing baseline `lesson_resources` table uses canonical columns `title` and `description`.
+   - These columns are maintained as the single canonical source of truth and documented as **Arabic-first** for the current stage.
+   - Separate columns `title_ar` and `description_ar` are **NOT** added in this migration and are reserved for a separate future multi-language migration.
+   - The legacy `url` column is preserved strictly for backward compatibility with legacy single-file resources and is **NOT** used for new interactive HTML version packages.
+
+2. **Type Compatibility Mapping**:
+   - The canonical entity type for external links is `external_link` (not `link`).
+   - `mindmap` → `mind_map_html`
+   - `experiment` → `practical_experiment_html`
+   - `link` → `external_link`
 
 ---
 
-## 3. Entity Schemas & Tables (Additive Strategy)
+## 3. Entity Schemas & Tables (8 Core Entities)
 
 > **Additive Migration Rule:**
 > The `lesson_resources` table **already exists** in the database baseline. It is converted to the operational model via **additive `ALTER TABLE` operations**. Using `CREATE TABLE IF NOT EXISTS lesson_resources` as a migration conversion is strictly forbidden.
@@ -96,8 +115,9 @@ Master registry for interactive and static lesson resources. Extended via additi
 | `resource_code` | `VARCHAR(64)` | `NOT NULL UNIQUE` | Human-readable unique code (e.g. `RES-BIO-10-MM01`) |
 | `lesson_id` | `UUID` | `NOT NULL REFERENCES public.lessons(id) ON DELETE RESTRICT` | Parent lesson reference |
 | `resource_type` | `public.lesson_resource_type` | `NOT NULL` | HTML mind map, experiment, external_link, etc. |
-| `title_ar` | `TEXT` | `NOT NULL` | Arabic title for presentation |
-| `description_ar` | `TEXT` | `NULL` | Arabic descriptive overview |
+| `title` | `TEXT` | `NOT NULL` | Canonical Arabic-first title |
+| `description` | `TEXT` | `NULL` | Canonical Arabic-first descriptive overview |
+| `url` | `TEXT` | `NULL` | Legacy single-file compatibility URL (unused for HTML packages) |
 | `alt_text_ar` | `TEXT` | `NULL` | Accessibility description |
 | `sort_order` | `INTEGER` | `NOT NULL DEFAULT 1` | Presentation order within lesson |
 | `status` | `public.lesson_resource_status` | `NOT NULL DEFAULT 'draft'` | Current state in lifecycle pipeline |
@@ -177,7 +197,7 @@ Immutable audit log tracking all approval, rejection, and review decisions expli
 ---
 
 ### 3.5 `lesson_resource_events`
-Audit log recording runtime interactive events emitted by students during playback.
+Audit log recording runtime interactive events emitted by students during playback. (Note: does not store `lesson_id` directly; joins via `resource_id`).
 
 | Column | Type | Constraints | Description |
 | :--- | :--- | :--- | :--- |
@@ -230,7 +250,35 @@ Per-row package validation breakdown within an import batch.
 
 ---
 
-### 3.8 `idempotency_ledger`
+### 3.8 `storage_operations` (Storage Operation Ledger)
+Ledger tracking all storage uploads, file promotions, hash verifications, orphan cleanups, and saga compensation steps.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `UUID` | `PRIMARY KEY DEFAULT gen_random_uuid()` | Ledger entry ID |
+| `batch_id` | `UUID` | `NULL REFERENCES public.content_import_batches(id) ON DELETE RESTRICT` | Parent batch reference |
+| `resource_version_id` | `UUID` | `NULL REFERENCES public.lesson_resource_versions(id) ON DELETE RESTRICT` | Associated version reference |
+| `operation_type` | `VARCHAR(50)` | `NOT NULL` | `stage_upload`, `promote_to_published`, `orphan_cleanup`, `rollback_cleanup`, `archival_cleanup` |
+| `source_path` | `TEXT` | `NULL` | Source object key path in storage |
+| `target_path` | `TEXT` | `NULL` | Target object key path in storage |
+| `expected_hash` | `CHAR(64)` | `NULL` | Expected SHA-256 hash digest |
+| `status` | `public.storage_operation_status` | `NOT NULL DEFAULT 'pending'` | `pending`, `uploaded`, `verified`, `promoted`, `cleanup_pending`, `cleaned`, `failed`, `compensated` |
+| `attempt_count` | `INTEGER` | `NOT NULL DEFAULT 0` | Execution retry attempt counter |
+| `last_error` | `TEXT` | `NULL` | Error details if operation failed |
+| `idempotency_key` | `TEXT` | `NOT NULL UNIQUE` | Unique client/saga idempotency key |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | Ledger creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | Ledger update timestamp |
+| `completed_at` | `TIMESTAMPTZ` | `NULL` | Completion timestamp |
+
+*Explicit Constraints & Ownership:*
+- `UNIQUE(idempotency_key)`
+- **Retry Policy**: Exponential backoff up to 3 retries. Failed steps transition to `failed` or `cleanup_pending`.
+- **Orphan Detection & Reconciliation Job**: Periodic server job identifies records in `pending` or `cleanup_pending` older than 24 hours and performs cleanup or compensation.
+- **Compensation Contract**: If storage promotion fails after Phase A commit, compensation marks `status = 'compensated'` and flags draft objects for garbage collection without polluting student visibility.
+
+---
+
+### 3.9 `idempotency_ledger`
 Ledger tracking unique mutating RPC operations to prevent duplicate executions.
 
 | Column | Type | Constraints | Description |
@@ -246,25 +294,104 @@ Ledger tracking unique mutating RPC operations to prevent duplicate executions.
 
 ---
 
-## 4. Version Integrity Rules & Foreign Key Policies
+## 4. RLS Policy Specifications with Legal Explicit Joins
 
-To guarantee snapshot integrity and auditability, foreign keys on versions, reviews, events, and import tables strictly enforce:
+> **CRITICAL JOIN COMPLIANCE:**
+> Tables `lesson_resource_versions`, `lesson_resource_files`, and `lesson_resource_events` do **NOT** contain a direct `lesson_id` column. RLS policies MUST use explicit, legal database JOINs. Referencing `lesson_id` directly on child tables is strictly forbidden.
 
-1. **NO `ON DELETE CASCADE` on Audit Tables**:
-   - `lesson_resource_versions`, `lesson_resource_reviews`, `lesson_resource_events`, `content_import_batches`, `content_import_rows`, and `idempotency_ledger` use `ON DELETE RESTRICT` or `ON DELETE NO ACTION`. Deleting records from these tables directly is forbidden.
-   - Deactivation of resources must use soft archiving (`status = 'archived'`).
+### 4.1 `lesson_resources` Read Policy (Student Access)
+```sql
+CREATE POLICY "Students Read Published Lesson Resources"
+ON public.lesson_resources
+FOR SELECT
+TO authenticated
+USING (
+  status = 'published'
+  AND published_version_id IS NOT NULL
+  AND public.can_access_lesson(lesson_id)
+);
+```
 
-2. **Published Version Guards**:
-   - `published_version_id` can ONLY be set to a version whose status in `lesson_resource_reviews` is `approved` and whose `resource_id` matches the parent `lesson_resources.id`.
-   - Database trigger or RPC check prevents binding an unapproved version to `published_version_id`.
-   - Attempting to delete a version currently referenced by `published_version_id` aborts with `RESTRICT` error.
+### 4.2 `lesson_resource_versions` Read Policy (Student Access via Explicit Join)
+```sql
+CREATE POLICY "Students Read Published Lesson Resource Versions"
+ON public.lesson_resource_versions
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.lesson_resources lr
+    WHERE lr.id = lesson_resource_versions.resource_id
+      AND lr.published_version_id = lesson_resource_versions.id
+      AND lr.status = 'published'
+      AND public.can_access_lesson(lr.lesson_id)
+  )
+);
+```
 
-3. **Immutability of Snapshot Bytes/Hash**:
-   - `BEFORE UPDATE` trigger on `lesson_resource_versions` prevents modifying `content_sha256`, `package_size_compressed`, `package_size_uncompressed`, `file_count`, or `storage_path` once created.
+### 4.3 `lesson_resource_files` Read Policy (Student Access via 2-Hop Explicit Join)
+```sql
+CREATE POLICY "Students Read Published Lesson Resource Files"
+ON public.lesson_resource_files
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.lesson_resource_versions lrv
+    JOIN public.lesson_resources lr ON lr.id = lrv.resource_id
+    WHERE lrv.id = lesson_resource_files.version_id
+      AND lr.published_version_id = lrv.id
+      AND lr.status = 'published'
+      AND public.can_access_lesson(lr.lesson_id)
+  )
+);
+```
+
+### 4.4 `lesson_resource_events` Insert & Read Policy (Student Access via Explicit Join)
+```sql
+CREATE POLICY "Students Insert Event Telemetry"
+ON public.lesson_resource_events
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  auth.uid() = user_id
+  AND EXISTS (
+    SELECT 1 FROM public.lesson_resources lr
+    WHERE lr.id = lesson_resource_events.resource_id
+      AND public.can_access_lesson(lr.lesson_id)
+  )
+);
+```
 
 ---
 
-## 5. Idempotency & Optimistic Concurrency Controls
+## 5. Published Immutability & Audit Preservation Contracts
+
+### 5.1 Published Immutability Contract
+To guarantee snapshot integrity, published version records and their file manifests are permanently **immutable**:
+
+1. **Protected Fields**:
+   - `resource_id`, `version_number`, `content_sha256`, `storage_path`, `entry_file`, `csp_header`, `package_size_compressed`, `package_size_uncompressed`, `file_count`, `created_by`, `created_at`, `published_at`, `published_by`.
+
+2. **Trigger / Enforcement**:
+   - A `BEFORE UPDATE OR DELETE` trigger on `lesson_resource_versions` and `lesson_resource_files` checks if the version is approved, published, or referenced by `published_version_id`. If true, any `UPDATE` or `DELETE` attempt raises exception `PUBLISHED_VERSION_IMMUTABLE` (409 Conflict).
+   - Any modification requires creating a **new version** with an incremented `version_number`.
+
+3. **Grants & Revokes**:
+   - `REVOKE UPDATE, DELETE ON public.lesson_resource_versions FROM authenticated;`
+   - `REVOKE UPDATE, DELETE ON public.lesson_resource_files FROM authenticated;`
+   - `service_role` cannot bypass this immutability trigger except via an audited, closed-by-default emergency procedure.
+
+### 5.2 Audit Preservation Contract (No `CASCADE`)
+- **No `ON DELETE CASCADE`**: Audit tables (`lesson_resource_reviews`, `lesson_resource_events`, `idempotency_ledger`, `storage_operations`) use `ON DELETE RESTRICT`.
+- **Down Migration / Rollback Policy**:
+  - Down migrations in production MUST **NOT** execute `DROP TABLE CASCADE` or destroy audit data.
+  - Feature flag rollback (`ENABLE_HTML_LESSON_RESOURCES=false`) disables new reads while preserving all tables and logs.
+  - Optional archival/export of audit data occurs strictly after separate authorization.
+
+---
+
+## 6. Idempotency & Optimistic Concurrency Controls
 
 1. **Idempotency Key Enforcement**:
    - Every mutating RPC requires an `idempotency_key` parameter.
@@ -273,12 +400,12 @@ To guarantee snapshot integrity and auditability, foreign keys on versions, revi
 2. **CAS `lock_version` Locking**:
    - `lesson_resources` contains `lock_version INTEGER`.
    - All status transitions require passing `expected_lock_version`.
-   - Queries perform `SELECT ... FOR UPDATE` on `lesson_resources` during `publish_resource_version`.
+   - Queries perform `SELECT ... FOR UPDATE` on `lesson_resources` during status-changing RPCs.
    - If `lock_version != expected_lock_version`, transaction aborts with error code `STALE_LOCK_VERSION` (409 Conflict).
 
 ---
 
-## 6. State Machine Matrix for `lesson_resources.status`
+## 7. State Machine Matrix for `lesson_resources.status`
 
 ```
   +---------+   submit_for_review   +-----------+
@@ -303,14 +430,75 @@ To guarantee snapshot integrity and auditability, foreign keys on versions, revi
 | `in_review` | `approved` | `approve_resource_version` | `admin` | Explicit review log entry created; binds `approved_version_id` |
 | `in_review` | `rejected` | `reject_resource_version` | `admin` | Rejection reason required; resets status to `draft` |
 | `rejected` | `draft` | `submit_for_review` | `content_manager`, `admin` | Fixes applied, new `version_number` created |
-| `approved` | `published` | `publish_resource_version` | `admin` | Files copied to `lesson-resource-published`; CAS check; binds `published_version_id` |
+| `approved` | `published` | `publish_resource_version` | `admin` | Storage Saga Phases A/B/C executed; CAS check; binds `published_version_id` |
 | `published` | `approved` | `unpublish_resource_version` | `admin` | Reverts `published_version_id` to NULL; status reverts to `approved` |
+| `published` | `approved` | `rollback_published_resource_version` | `admin` | Reverts `published_version_id` to specified target approved version |
 | `published` | `archived` | `archive_resource` | `admin` | Resource retired, student access revoked |
 | `archived` | Terminal | None | N/A | Default terminal state |
 
 ---
 
-## 7. Correct-Answer Leakage & Student Privacy Guarantees
+## 8. Saga Phases & RPC Transaction Boundaries
+
+Every mutating RPC has explicitly defined transaction boundaries. Distributed transaction simulation is prohibited.
+
+### 8.1 Publish Version Storage Saga (Phases A / B / C)
+
+```
+[Phase A: DB Transaction 1]
+  1. SELECT ... FOR UPDATE on lesson_resources
+  2. CAS check (lock_version == expected_lock_version)
+  3. Validate version status is 'approved'
+  4. Create pending storage operation in storage_operations (status = 'pending')
+  5. COMMIT DB Transaction 1
+
+[Phase B: Storage Copy & Verification (Async/Edge Function)]
+  1. Verify source files in lesson-resource-drafts
+  2. Perform re-hash verification (SHA-256 match)
+  3. Copy objects to lesson-resource-published/published/{subject_code}/{resource_code}/{content_hash}/
+  4. Update storage_operations status to 'promoted'
+
+[Phase C: DB Transaction 2]
+  1. BEGIN DB Transaction 2
+  2. SELECT ... FOR UPDATE on lesson_resources
+  3. Re-verify CAS & approval status
+  4. Set status = 'published', published_version_id = p_version_id, increment lock_version
+  5. Insert immutable audit entry in lesson_resource_reviews
+  6. COMMIT DB Transaction 2
+```
+
+**Failure & Isolation Guarantees**:
+- **No Student Visibility Before Phase C**: Students query strictly where `status = 'published' AND published_version_id IS NOT NULL`. Files in published storage remain invisible to students until Phase C commits.
+- **Orphan Cleanup**: If Phase B fails or times out, the object is registered in `storage_operations` with `status = 'cleanup_pending'` for background garbage collection.
+- **Idempotency & Retry**: Re-running `publish_resource_version` with the same `idempotency_key` picks up existing promoted storage state or safely completes Phase C.
+
+---
+
+## 9. Rollback RPC Specification (`rollback_published_resource_version`)
+
+Dedicated RPC contract for safe, audited rollback of published resource versions:
+
+- **FunctionName**: `rollback_published_resource_version`
+- **Caller Identity**: `auth.uid()` (Must have `admin` role).
+- **Security & Search Path**: `SECURITY DEFINER SET search_path = public, pg_temp`.
+- **Inputs**:
+  - `p_resource_id UUID`
+  - `p_target_version_id UUID`
+  - `p_expected_lock_version INTEGER`
+  - `p_reason TEXT` (Mandatory, min length > 10 chars)
+  - `p_idempotency_key TEXT`
+- **Pre-Conditions & Validation**:
+  - `p_target_version_id` must exist, belong to `p_resource_id`, and have been previously approved (`lesson_resource_reviews` contains action `'approved'`).
+  - Hash digest of target version files must be verified in storage.
+- **Execution & Audit**:
+  - CAS `SELECT ... FOR UPDATE` lock on `lesson_resources`.
+  - Sets `published_version_id = p_target_version_id`, `status = 'published'`, increments `lock_version`.
+  - Records immutable review audit entry in `lesson_resource_reviews` with action `'published'` and details including `previous_published_version_id` and `new_published_version_id`.
+  - Logs storage reconciliation evidence in `storage_operations`.
+
+---
+
+## 10. Correct-Answer Leakage & Student Privacy Guarantees
 
 1. **No Client-Side Hashed Answer Keys**:
    - Interactive packages (`mind_map_html`, `practical_experiment_html`) must NOT contain client-side hashed answer keys inside HTML, JSON attributes, or JavaScript files.
