@@ -26,7 +26,7 @@ import {
   validateStaleValidation,
   validateContentHash,
   validatePreviewToken,
-} from "../../../src/lib/question-bank/import/apply-verifier.ts";
+} from "../../../src/lib/server/question-bank/import/preview-token-server.ts";
 import {
   buildOoxmlExternalRelXlsx,
   buildZipWithPathTraversal,
@@ -48,24 +48,18 @@ import {
   buildExtensionContentMismatchXlsx,
 } from "../../fixtures/question-bank/import/binary-fixtures.ts";
 import { CONTRACT_HEADERS } from "../../../src/lib/question-bank/import/adapters/detect.ts";
-import { validateNormalizedRow } from "../../../src/lib/question-bank/import/validate.ts";
 import { adaptOfficialFlatV0 } from "../../../src/lib/question-bank/import/adapters/official-flat-v0.ts";
 import { adaptLegacyFlat15Col } from "../../../src/lib/question-bank/import/adapters/legacy-flat-15col.ts";
 import { preflightWorkbook } from "../../../src/lib/question-bank/import/preflight.ts";
+import { validateNormalizedRow } from "../../../src/lib/question-bank/import/validate.ts";
 import type { OfficialNormalizedV1 } from "../../../src/lib/question-bank/import/official-normalized-v1.ts";
 import type { QbImportIssue } from "../../../src/lib/question-bank/import/errors.ts";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const oracleData = JSON.parse(
-  readFileSync(join(root, "docs/question-bank/QB02-IMPORT-TEST-VECTORS-50.json"), "utf8"),
-) as { vectors: OracleVector[] };
-
-type EmittedRecord = {
-  code: QbImportCode;
-  stage: ImportStage;
-  test_name: string;
-  fixture: string;
-  source_subsystem: string;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const oraclePath = join(__dirname, "../../../docs/question-bank/QB02-IMPORT-TEST-VECTORS-50.json");
+const oracleData = JSON.parse(readFileSync(oraclePath, "utf-8")) as {
+  vectors: OracleVector[];
 };
 
 const DEFAULT_AUTH = {
@@ -80,72 +74,93 @@ const DEFAULT_AUTH = {
 const DEFAULT_CATALOG = {
   subjects: new Set(["MATH-G10", "PHYS-G10"]),
   lessons: new Set(["MATH-L1"]),
-  lessonSubjects: new Map([["MATH-L1", "MATH-G10"]]),
-  authorizedSubjects: new Set(["MATH-G10", "PHYS-G10"]),
 };
 
-function baseRowModel(overrides?: Partial<OfficialNormalizedV1["revision"]>): OfficialNormalizedV1 {
+function baseRowModel(): OfficialNormalizedV1 {
   return {
     contract: "official_normalized_v1",
-    question_code: "Q100",
+    question_code: "Q1",
+    targets: [{ target_type: "SUBJECT", target_code: "MATH-G10" }],
     revision: {
-      question_text: "Text",
-      stimulus_text: null,
+      question_text: "Clean question body",
       interaction_type: "SINGLE_CHOICE",
       grading_mode: "AUTO_SINGLE",
       max_score: 1,
-      allow_partial: false,
-      ...overrides,
+      allow_partial_scoring: false,
     },
     options: [
-      { option_code: "A", body: "Opt 1", is_correct: true, sort_order: 1 },
-      { option_code: "B", body: "Opt 2", is_correct: false, sort_order: 2 },
+      { option_code: "A", body: "Option A", is_correct: true, sort_order: 1 },
+      { option_code: "B", body: "Option B", is_correct: false, sort_order: 2 },
     ],
     accepted_answers: [],
     solutions: [],
-    solution_steps: [],
     media: [],
-    targets: [
-      { target_type: "SUBJECT", target_code: "MATH-G10" },
-      { target_type: "LESSON", target_code: "MATH-L1" },
-    ],
-    provenance: {
-      source_contract: "official_flat_v0",
-      source_file: "x.xlsx",
-      source_row: 2,
-      adapter_version: "v1",
-    },
   };
 }
 
+export type EmittedRecord = {
+  code: QbImportCode;
+  stage: ImportStage;
+  test_name: string;
+  fixture: string;
+  source_subsystem: string;
+};
+
+class FailureCoverageCollector {
+  private emittedMap = new Map<QbImportCode, EmittedRecord[]>();
+  private actualTestNames = new Set<string>();
+  private actualFixtureNames = new Set<string>();
+
+  collect(
+    input: { issues?: QbImportIssue[] } | QbImportIssue[] | QbImportIssue,
+    testName: string,
+    fixtureName: string,
+  ) {
+    this.actualTestNames.add(testName);
+    this.actualFixtureNames.add(fixtureName);
+
+    const issues: QbImportIssue[] = Array.isArray(input)
+      ? input
+      : "issues" in input && Array.isArray(input.issues)
+        ? (input.issues as QbImportIssue[])
+        : [input as QbImportIssue];
+
+    for (const issueItem of issues) {
+      const code = issueItem.code as QbImportCode;
+      if (!Object.prototype.hasOwnProperty.call(QB_IMPORT_CODES, code)) {
+        assert.fail(`Unknown failure code emitted at runtime: ${code}`);
+      }
+
+      const record: EmittedRecord = {
+        code,
+        stage: issueItem.stage,
+        test_name: testName,
+        fixture: fixtureName,
+        source_subsystem: issueItem.source_subsystem,
+      };
+      if (!this.emittedMap.has(code)) {
+        this.emittedMap.set(code, []);
+      }
+      this.emittedMap.get(code)!.push(record);
+    }
+  }
+
+  get emitted() {
+    return this.emittedMap;
+  }
+
+  get testNames() {
+    return this.actualTestNames;
+  }
+
+  get fixtureNames() {
+    return this.actualFixtureNames;
+  }
+}
+
 test("Executable Failure Coverage Collector & Integrity Audit: 100% critical codes actually emitted during runtime execution", async () => {
-  const emittedMap = new Map<QbImportCode, EmittedRecord[]>();
-  const actualTestNames = new Set<string>();
-  const actualFixtureNames = new Set<string>();
+  const collector = new FailureCoverageCollector();
   const allRegisteredCodes = Object.keys(QB_IMPORT_CODES) as QbImportCode[];
-
-  const recordEmittedIssue = (issueItem: QbImportIssue, testName: string, fixtureName: string) => {
-    const code = issueItem.code as QbImportCode;
-    if (!Object.prototype.hasOwnProperty.call(QB_IMPORT_CODES, code)) {
-      assert.fail(`Unknown failure code emitted at runtime: ${code}`);
-    }
-
-    actualTestNames.add(testName);
-    actualFixtureNames.add(fixtureName);
-
-    // Read ACTUAL stage and source_subsystem directly from the runtime issue object
-    const record: EmittedRecord = {
-      code,
-      stage: issueItem.stage,
-      test_name: testName,
-      fixture: fixtureName,
-      source_subsystem: issueItem.source_subsystem,
-    };
-    if (!emittedMap.has(code)) {
-      emittedMap.set(code, []);
-    }
-    emittedMap.get(code)!.push(record);
-  };
 
   // 1. Run all 197 Oracle vectors through secured runtime engine
   for (const vector of oracleData.vectors) {
@@ -156,12 +171,7 @@ test("Executable Failure Coverage Collector & Integrity Audit: 100% critical cod
     const testName = `QB02 Oracle ${vector.test_id}`;
     const fixtureName = `buildOperationalInput(${vector.test_id})`;
 
-    actualTestNames.add(testName);
-    actualFixtureNames.add(fixtureName);
-
-    for (const issueItem of result.issues) {
-      recordEmittedIssue(issueItem as QbImportIssue, testName, fixtureName);
-    }
+    collector.collect(result, testName, fixtureName);
   }
 
   // 2. Run Binary Security Fixtures
@@ -191,18 +201,13 @@ test("Executable Failure Coverage Collector & Integrity Audit: 100% critical cod
     const testName = `Binary Fixture ${fix.name}`;
     const fixtureName = `binary-fixture:${fix.name}`;
 
-    actualTestNames.add(testName);
-    actualFixtureNames.add(fixtureName);
-
     const res = await runOperationalQuestionBankImportDryRun({
       fileName: "test.xlsx",
       bytes,
       catalog: DEFAULT_CATALOG,
       authorized: DEFAULT_AUTH,
     });
-    for (const i of res.issues) {
-      recordEmittedIssue(i as QbImportIssue, testName, fixtureName);
-    }
+    collector.collect(res, testName, fixtureName);
   }
 
   // 3. Run Authorization Matrix cases
@@ -220,92 +225,82 @@ test("Executable Failure Coverage Collector & Integrity Audit: 100% critical cod
     const testName = `Auth Case ${ac.name}`;
     const fixtureName = `auth-case:${ac.name}`;
 
-    actualTestNames.add(testName);
-    actualFixtureNames.add(fixtureName);
-
     const res = runQuestionBankImportDryRun({
       fileName: "test.xlsx",
       headers: [...CONTRACT_HEADERS.official_flat_v0],
       rows: [],
       authorized: ac.auth,
     });
-    for (const i of res.issues) {
-      recordEmittedIssue(i as QbImportIssue, testName, fixtureName);
-    }
+    collector.collect(res, testName, fixtureName);
   }
 
   // 4. Run Apply Security Verifiers
   const apply1 = validateAtomicApplyPlan({ simulateFailure: true }, [{}]);
-  for (const i of apply1.issues) recordEmittedIssue(i as QbImportIssue, "Apply Verifier Atomic", "apply-verifier:Atomic");
+  collector.collect(apply1, "Apply Verifier Atomic", "apply-verifier:Atomic");
 
   const apply2 = validateStaleValidation("hashA", "hashB");
-  for (const i of apply2.issues) recordEmittedIssue(i as QbImportIssue, "Apply Verifier Stale", "apply-verifier:Stale");
+  collector.collect(apply2, "Apply Verifier Stale", "apply-verifier:Stale");
 
   const apply3 = validateContentHash("hashA", "hashB");
-  for (const i of apply3.issues) recordEmittedIssue(i as QbImportIssue, "Apply Verifier ContentHash", "apply-verifier:ContentHash");
+  collector.collect(apply3, "Apply Verifier ContentHash", "apply-verifier:ContentHash");
 
-  const apply4 = validatePreviewToken("invalid");
-  for (const i of apply4.issues) recordEmittedIssue(i as QbImportIssue, "Apply Verifier Token", "apply-verifier:Token");
+  const apply4 = await validatePreviewToken("invalid");
+  collector.collect(apply4, "Apply Verifier Token", "apply-verifier:Token");
 
   // 5. Preflight triggers
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], fileBytes: 6 * 1024 * 1024 }).forEach((i) => recordEmittedIssue(i, "Preflight FILE_TOO_LARGE", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasMacros: true } }).forEach((i) => recordEmittedIssue(i, "Preflight MACRO_CONTENT", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasFormulaCells: true } }).forEach((i) => recordEmittedIssue(i, "Preflight FORMULA_CELL", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasMergedDataCells: true } }).forEach((i) => recordEmittedIssue(i, "Preflight MERGED_DATA_CELL", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenSheetData: true } }).forEach((i) => recordEmittedIssue(i, "Preflight HIDDEN_SHEET_DATA", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenRowData: true } }).forEach((i) => recordEmittedIssue(i, "Preflight HIDDEN_ROW_DATA", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenColumnData: true } }).forEach((i) => recordEmittedIssue(i, "Preflight HIDDEN_COLUMN_DATA", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { visibleSheetCount: 3 } }).forEach((i) => recordEmittedIssue(i, "Preflight SHEET_COUNT_INVALID", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: Array.from({ length: 1001 }, () => ({})) }).forEach((i) => recordEmittedIssue(i, "Preflight ROW_LIMIT", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: Array.from({ length: 257 }, (_, i) => `c_${i}`), rows: [] }).forEach((i) => recordEmittedIssue(i, "Preflight COLUMN_LIMIT", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { maxCellBytes: 65537 } }).forEach((i) => recordEmittedIssue(i, "Preflight CELL_TOO_LARGE", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: ["q", "q"], rows: [] }).forEach((i) => recordEmittedIssue(i, "Preflight DUPLICATE_HEADER", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: ["bad\u0000"], rows: [] }).forEach((i) => recordEmittedIssue(i, "Preflight MALFORMED_UNICODE", "preflightWorkbook"));
-  preflightWorkbook({ fileName: "x.xlsx", headers: ["role"], rows: [] }).forEach((i) => recordEmittedIssue(i, "Preflight FORBIDDEN_COLUMN", "preflightWorkbook"));
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], fileBytes: 6 * 1024 * 1024 }), "Preflight FILE_TOO_LARGE", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasMacros: true } }), "Preflight MACRO_CONTENT", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasFormulaCells: true } }), "Preflight FORMULA_CELL", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasMergedDataCells: true } }), "Preflight MERGED_DATA_CELL", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenSheetData: true } }), "Preflight HIDDEN_SHEET_DATA", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenRowData: true } }), "Preflight HIDDEN_ROW_DATA", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenColumnData: true } }), "Preflight HIDDEN_COLUMN_DATA", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { visibleSheetCount: 3 } }), "Preflight SHEET_COUNT_INVALID", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: Array.from({ length: 1001 }, () => ({})) }), "Preflight ROW_LIMIT", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: Array.from({ length: 257 }, (_, i) => `c_${i}`), rows: [] }), "Preflight COLUMN_LIMIT", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { maxCellBytes: 65537 } }), "Preflight CELL_TOO_LARGE", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: ["q", "q"], rows: [] }), "Preflight DUPLICATE_HEADER", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: ["bad\u0000"], rows: [] }), "Preflight MALFORMED_UNICODE", "preflightWorkbook");
+  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: ["role"], rows: [] }), "Preflight FORBIDDEN_COLUMN", "preflightWorkbook");
 
   // 6. Dry-run triggers
   const sampleRow1 = { question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: 1, max_score: 1, subject_code: "MATH-G10" };
   const sampleRow2 = { question_code: "Q1", question_text: "q2", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: 1, max_score: 1, subject_code: "MATH-G10" };
 
-  runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0], rows: [sampleRow1, sampleRow2], authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG })
-    .issues.forEach((i) => recordEmittedIssue(i as QbImportIssue, "DryRun DUPLICATE_CODE_IN_FILE", "runQuestionBankImportDryRun"));
-
-  runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0, "extra_unknown_col"], rows: [sampleRow1], authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG })
-    .issues.forEach((i) => recordEmittedIssue(i as QbImportIssue, "DryRun UNKNOWN_COLUMN", "runQuestionBankImportDryRun"));
-
-  runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: ["question_code", ...CONTRACT_HEADERS.legacy_flat_15col.slice(1)].reverse(), rows: [], schemaHint: "legacy_flat_15col", authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG })
-    .issues.forEach((i) => recordEmittedIssue(i as QbImportIssue, "DryRun LEGACY_COLUMN_ORDER", "runQuestionBankImportDryRun"));
-
-  runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: ["q1", "q2"], rows: [], schemaHint: "legacy_flat_15col", authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG })
-    .issues.forEach((i) => recordEmittedIssue(i as QbImportIssue, "DryRun LEGACY_COLUMN_COUNT", "runQuestionBankImportDryRun"));
-
-  runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0], rows: [{ ...sampleRow1, question_text: "different text" }], authorized: DEFAULT_AUTH, catalog: { ...DEFAULT_CATALOG, existing: new Map([["Q1", "different_hash"]]) } })
-    .issues.forEach((i) => recordEmittedIssue(i as QbImportIssue, "DryRun IMPORT_REPLAY_CONFLICT", "runQuestionBankImportDryRun"));
+  collector.collect(runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0], rows: [sampleRow1, sampleRow2], authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG }), "DryRun DUPLICATE_CODE_IN_FILE", "runQuestionBankImportDryRun");
+  collector.collect(runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0, "extra_unknown_col"], rows: [sampleRow1], authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG }), "DryRun UNKNOWN_COLUMN", "runQuestionBankImportDryRun");
+  collector.collect(runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: ["question_code", ...CONTRACT_HEADERS.legacy_flat_15col.slice(1)].reverse(), rows: [], schemaHint: "legacy_flat_15col", authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG }), "DryRun LEGACY_COLUMN_ORDER", "runQuestionBankImportDryRun");
+  collector.collect(runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: ["q1", "q2"], rows: [], schemaHint: "legacy_flat_15col", authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG }), "DryRun LEGACY_COLUMN_COUNT", "runQuestionBankImportDryRun");
+  collector.collect(runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0], rows: [{ ...sampleRow1, question_text: "different text" }], authorized: DEFAULT_AUTH, catalog: { ...DEFAULT_CATALOG, existing: new Map([["Q1", "different_hash"]]) } }), "DryRun IMPORT_REPLAY_CONFLICT", "runQuestionBankImportDryRun");
 
   // 7. Adapter & row validation triggers
-  adaptOfficialFlatV0({ question_code: "", question_text: "q" }, {}).issues.forEach((i) => recordEmittedIssue(i, "Validation MISSING_VALUE", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "INVALID", grading_mode: "AUTO_SINGLE" }, {}).issues.forEach((i) => recordEmittedIssue(i, "Validation INVALID_INTERACTION_TYPE", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "INVALID" }, {}).issues.forEach((i) => recordEmittedIssue(i, "Validation INVALID_GRADING_MODE", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", max_score: "0" }, {}).issues.forEach((i) => recordEmittedIssue(i, "Validation INVALID_SCORE", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: "invalid_non_numeric", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmittedIssue(i, "Validation INVALID_CORRECT_INDEX", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "", correct_index: "2", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmittedIssue(i, "Validation CORRECT_INDEX_NO_OPTION", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SHORT_TEXT", grading_mode: "AUTO_TEXT", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmittedIssue(i, "Validation ACCEPTED_ANSWER_REQUIRED", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: "1", max_score: 1, allow_partial: "TRUE", subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmittedIssue(i, "Validation PARTIAL_NOT_ALLOWED", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "LONG_TEXT", grading_mode: "MANUAL", option_1: "opt", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmittedIssue(i, "Validation ANSWER_NOT_ALLOWED", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SHORT_TEXT", grading_mode: "AUTO_TEXT", option_1: "ans1", option_2: "ans1", accepted_answers: "ans1|ans1", max_score: 1, subject_code: "MATH-G10" }, {}).issues.forEach((i) => recordEmittedIssue(i, "Validation DUPLICATE_ACCEPTED_ANSWER", "adaptOfficialFlatV0"));
-  adaptOfficialFlatV0({ code: "1e10", question: "q", question_type: "mcq" }, {}).issues.forEach((i) => recordEmittedIssue(i, "Validation SCIENTIFIC_NOTATION_LOSS", "validateNormalizedRow"));
+  collector.collect(adaptOfficialFlatV0({ question_code: "", question_text: "q" }, {}), "Validation MISSING_VALUE", "adaptOfficialFlatV0");
+  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "INVALID", grading_mode: "AUTO_SINGLE" }, {}), "Validation INVALID_INTERACTION_TYPE", "adaptOfficialFlatV0");
+  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "INVALID" }, {}), "Validation INVALID_GRADING_MODE", "adaptOfficialFlatV0");
+  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", max_score: "0" }, {}), "Validation INVALID_SCORE", "adaptOfficialFlatV0");
+  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: "invalid_non_numeric", max_score: 1, subject_code: "MATH-G10" }, {}), "Validation INVALID_CORRECT_INDEX", "adaptOfficialFlatV0");
+  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "", correct_index: "2", max_score: 1, subject_code: "MATH-G10" }, {}), "Validation CORRECT_INDEX_NO_OPTION", "adaptOfficialFlatV0");
+  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SHORT_TEXT", grading_mode: "AUTO_TEXT", max_score: 1, subject_code: "MATH-G10" }, {}), "Validation ACCEPTED_ANSWER_REQUIRED", "adaptOfficialFlatV0");
+  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: "1", max_score: 1, allow_partial: "TRUE", subject_code: "MATH-G10" }, {}), "Validation PARTIAL_NOT_ALLOWED", "adaptOfficialFlatV0");
+  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "LONG_TEXT", grading_mode: "MANUAL", option_1: "opt", max_score: 1, subject_code: "MATH-G10" }, {}), "Validation ANSWER_NOT_ALLOWED", "adaptOfficialFlatV0");
+  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SHORT_TEXT", grading_mode: "AUTO_TEXT", option_1: "ans1", option_2: "ans1", accepted_answers: "ans1|ans1", max_score: 1, subject_code: "MATH-G10" }, {}), "Validation DUPLICATE_ACCEPTED_ANSWER", "adaptOfficialFlatV0");
+  collector.collect(adaptOfficialFlatV0({ code: "1e10", question: "q", question_type: "mcq" }, {}), "Validation SCIENTIFIC_NOTATION_LOSS", "validateNormalizedRow");
 
-  adaptLegacyFlat15Col(["Q1", "L1", "PHYS", "q", "a", "b", "", "", 0, "", "auto_text", "2026", "1", "1", ""], {}).issues.forEach((i) => recordEmittedIssue(i, "Validation LEGACY_INFORMATION_LOSS", "adaptLegacyFlat15Col"));
+  collector.collect(adaptLegacyFlat15Col(["Q1", "L1", "PHYS", "q", "a", "b", "", "", 0, "", "auto_text", "2026", "1", "1", ""], {}), "Validation LEGACY_INFORMATION_LOSS", "adaptLegacyFlat15Col");
 
   const rDupOpt = baseRowModel();
   rDupOpt.options = [{ option_code: "A", body: "Same", is_correct: true, sort_order: 1 }, { option_code: "B", body: "Same", is_correct: false, sort_order: 2 }];
-  validateNormalizedRow(rDupOpt, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmittedIssue(i, "Validation DUPLICATE_OPTION", "validateNormalizedRow"));
+  collector.collect(validateNormalizedRow(rDupOpt, { catalog: DEFAULT_CATALOG }), "Validation DUPLICATE_OPTION", "validateNormalizedRow");
 
-  validateNormalizedRow({ ...baseRowModel(), question_code: " Q1 " }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmittedIssue(i, "Validation QUESTION_CODE_INVALID", "validateNormalizedRow"));
-  validateNormalizedRow({ ...baseRowModel(), targets: [{ target_type: "SUBJECT", target_code: "UNKNOWN_SUBJECT_XYZ" }] }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmittedIssue(i, "Validation UNKNOWN_SUBJECT", "validateNormalizedRow"));
-  validateNormalizedRow({ ...baseRowModel(), targets: [{ target_type: "SUBJECT", target_code: "MATH-G10" }, { target_type: "LESSON", target_code: "UNKNOWN_LESSON_XYZ" }] }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmittedIssue(i, "Validation UNKNOWN_LESSON", "validateNormalizedRow"));
-  validateNormalizedRow({ ...baseRowModel(), question_code: "Q1٢" }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmittedIssue(i, "Validation MIXED_NUMERAL_SCRIPTS", "validateNormalizedRow"));
-  validateNormalizedRow({ ...baseRowModel(), revision: { ...baseRowModel().revision, question_text: "e\u0301" } }, { catalog: DEFAULT_CATALOG }).forEach((i) => recordEmittedIssue(i, "Validation NORMALIZATION_CHANGED", "validateNormalizedRow"));
+  collector.collect(validateNormalizedRow({ ...baseRowModel(), question_code: " Q1 " }, { catalog: DEFAULT_CATALOG }), "Validation QUESTION_CODE_INVALID", "validateNormalizedRow");
+  collector.collect(validateNormalizedRow({ ...baseRowModel(), targets: [{ target_type: "SUBJECT", target_code: "UNKNOWN_SUBJECT_XYZ" }] }, { catalog: DEFAULT_CATALOG }), "Validation UNKNOWN_SUBJECT", "validateNormalizedRow");
+  collector.collect(validateNormalizedRow({ ...baseRowModel(), targets: [{ target_type: "SUBJECT", target_code: "MATH-G10" }, { target_type: "LESSON", target_code: "UNKNOWN_LESSON_XYZ" }] }, { catalog: DEFAULT_CATALOG }), "Validation UNKNOWN_LESSON", "validateNormalizedRow");
+  collector.collect(validateNormalizedRow({ ...baseRowModel(), question_code: "Q1٢" }, { catalog: DEFAULT_CATALOG }), "Validation MIXED_NUMERAL_SCRIPTS", "validateNormalizedRow");
+  collector.collect(validateNormalizedRow({ ...baseRowModel(), revision: { ...baseRowModel().revision, question_text: "e\u0301" } }, { catalog: DEFAULT_CATALOG }), "Validation NORMALIZATION_CHANGED", "validateNormalizedRow");
+
+  const emittedMap = collector.emitted;
+  const actualTestNames = collector.testNames;
+  const actualFixtureNames = collector.fixtureNames;
 
   // 8. Section 12: Semantic Registry Validation
   let duplicateSemanticCodes = 0;

@@ -70,6 +70,74 @@ export async function buildMinimalValidXlsx(
   return zip.generateAsync({ type: "uint8array" });
 }
 
+export async function buildFormulaXlsx(): Promise<Uint8Array> {
+  const zip = new JSZip();
+  zip.file(
+    "[Content_Types].xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>`,
+  );
+
+  zip.file(
+    "_rels/.rels",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`,
+  );
+
+  zip.file(
+    "xl/workbook.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Sheet1" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>`,
+  );
+
+  zip.file(
+    "xl/_rels/workbook.xml.rels",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>`,
+  );
+
+  const headers = [...CONTRACT_HEADERS[OFFICIAL_FLAT_V0]];
+  const row1Cols = headers.map((h, i) => `<c r="${String.fromCharCode(65 + i)}1" t="inlineStr"><is><t>${h}</t></is></c>`).join("");
+
+  const row2Cols = [
+    `<c r="A2" t="inlineStr"><is><t>Q1</t></is></c>`,
+    `<c r="B2"><f>SUM(1,2)</f><v>3</v></c>`,
+    `<c r="C2" t="inlineStr"><is><t>SINGLE_CHOICE</t></is></c>`,
+    `<c r="D2" t="inlineStr"><is><t>AUTO_SINGLE</t></is></c>`,
+    `<c r="E2" t="inlineStr"><is><t>1</t></is></c>`,
+    `<c r="F2" t="inlineStr"><is><t>2</t></is></c>`,
+    `<c r="K2" t="inlineStr"><is><t>1</t></is></c>`,
+    `<c r="O2" t="inlineStr"><is><t>1</t></is></c>`,
+    `<c r="Q2" t="inlineStr"><is><t>MATH-G10</t></is></c>`,
+  ].join("");
+
+  zip.file(
+    "xl/worksheets/sheet1.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>
+    <row r="1">${row1Cols}</row>
+    <row r="2">${row2Cols}</row>
+  </sheetData>
+</worksheet>`,
+  );
+
+  return zip.generateAsync({ type: "uint8array" });
+}
+
 export async function buildOoxmlExternalRelXlsx(targetUri: string, targetMode = "External", quoteChar = '"'): Promise<Uint8Array> {
   const zip = new JSZip();
   zip.file(

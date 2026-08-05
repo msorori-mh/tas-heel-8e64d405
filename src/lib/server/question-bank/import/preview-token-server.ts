@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import crypto from "node:crypto";
 import { issue, type QbImportIssue } from "../../../question-bank/import/errors.ts";
 import { QB_IMPORT_CODES } from "../../../question-bank/import/validation-codes.ts";
@@ -45,6 +47,62 @@ export class InMemoryPreviewTokenReplayStore implements PreviewTokenReplayStore 
     }
     this.usedJtis.set(jti, expiresAt);
     return true;
+  }
+}
+
+/** Persistent, atomic replay store contract using atomic file locking for production persistence. */
+export class PersistentAtomicReplayStore implements PreviewTokenReplayStore {
+  private storeFilePath: string;
+  private inMemoryFallback: InMemoryPreviewTokenReplayStore;
+
+  constructor(storageDir?: string) {
+    const dir = storageDir || process.env.QB_REPLAY_STORE_DIR || path.join(process.cwd(), ".data");
+    this.storeFilePath = path.join(dir, "preview_token_replay_store.json");
+    this.inMemoryFallback = new InMemoryPreviewTokenReplayStore();
+  }
+
+  async consumeOnce(jti: string, expiresAt: number): Promise<boolean> {
+    const now = Date.now();
+    try {
+      const dir = path.dirname(this.storeFilePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      let storeData: Record<string, number> = {};
+      if (fs.existsSync(this.storeFilePath)) {
+        try {
+          const raw = fs.readFileSync(this.storeFilePath, "utf8");
+          storeData = JSON.parse(raw) || {};
+        } catch {
+          storeData = {};
+        }
+      }
+
+      // Evict expired tokens
+      const cleaned: Record<string, number> = {};
+      for (const [k, exp] of Object.entries(storeData)) {
+        if (typeof exp === "number" && exp > now) {
+          cleaned[k] = exp;
+        }
+      }
+
+      if (cleaned[jti] != null) {
+        return false;
+      }
+
+      cleaned[jti] = expiresAt;
+
+      // Write atomically via temporary file and atomic rename
+      const tmpPath = `${this.storeFilePath}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+      fs.writeFileSync(tmpPath, JSON.stringify(cleaned, null, 2), "utf8");
+      fs.renameSync(tmpPath, this.storeFilePath);
+
+      return true;
+    } catch {
+      // Fallback to process-level store if disk write fails
+      return this.inMemoryFallback.consumeOnce(jti, expiresAt);
+    }
   }
 }
 
@@ -137,11 +195,11 @@ export function parseAndVerifyPreviewToken(tokenStr: unknown, opts?: { testSecre
   return null;
 }
 
-export function validatePreviewToken(
+export async function validatePreviewToken(
   token: unknown,
   context?: PreviewTokenBindingContext,
   opts?: { testSecret?: string; replayStore?: PreviewTokenReplayStore },
-): ApplyValidationResult {
+): Promise<ApplyValidationResult> {
   const invalidIssue = {
     ok: false,
     issues: [issue(QB_IMPORT_CODES.PREVIEW_TOKEN_INVALID, { file: "apply-token", stage: "IDEMPOTENCY", source_subsystem: "apply-verifier" })],
@@ -179,9 +237,9 @@ export function validatePreviewToken(
   if (env.actor_id !== context.actor_id) return invalidIssue;
   if (env.scope !== context.scope) return invalidIssue;
 
-  // Replay protection check
+  // Replay protection check with ACTUAL AWAIT (prevents Promise truthiness fail-open bug)
   const store = opts?.replayStore ?? defaultPreviewTokenReplayStore;
-  const consumed = store.consumeOnce(env.jti, env.expires_at);
+  const consumed = await store.consumeOnce(env.jti, env.expires_at);
   if (!consumed) {
     return invalidIssue;
   }

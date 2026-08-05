@@ -348,7 +348,7 @@ export async function executeOperationalInput(input: OperationalInput): Promise<
     };
 
     if (scen === "preview-token") {
-      val = validatePreviewToken(state?.preview_token, validBindingContext, { testSecret: "test-secret-12345678901234567890123456789012" });
+      val = await validatePreviewToken(state?.preview_token, validBindingContext, { testSecret: "test-secret-12345678901234567890123456789012" });
     } else if (scen === "stale-validation") {
       val = validateStaleValidation(state?.expected_validation_hash ?? null, state?.current_validation_hash ?? null);
     } else if (scen === "content-hash") {

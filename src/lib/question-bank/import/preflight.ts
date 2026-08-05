@@ -24,13 +24,20 @@ export type WorkbookParserMetadata = {
   malformedUnicode?: boolean;
 };
 
-export function preflightWorkbook(input: {
-  fileName: string;
-  headers: string[];
-  rows: Record<string, unknown>[];
-  fileBytes?: number;
-  metadata?: WorkbookParserMetadata;
-}): QbImportIssue[] {
+export type PreflightWorkbookOptions = {
+  skipFormulaCheck?: boolean;
+};
+
+export function preflightWorkbook(
+  input: {
+    fileName: string;
+    headers: string[];
+    rows: Record<string, unknown>[];
+    fileBytes?: number;
+    metadata?: WorkbookParserMetadata;
+  },
+  options?: PreflightWorkbookOptions,
+): QbImportIssue[] {
   const issues: QbImportIssue[] = [];
   const meta = input.metadata ?? {};
   const add = (code: keyof typeof QB_IMPORT_CODES, extra: Partial<QbImportIssue> = {}) => {
@@ -54,7 +61,7 @@ export function preflightWorkbook(input: {
   if (meta.hasZipBomb) {
     issues.push(issue(QB_IMPORT_CODES.ZIP_BOMB_SUSPECTED, { file: input.fileName, stage: "PREFLIGHT_ZIP", source_subsystem: "zip-preflight" }));
   }
-  if (meta.hasFormulaCells) {
+  if (meta.hasFormulaCells && !options?.skipFormulaCheck) {
     issues.push(issue(QB_IMPORT_CODES.FORMULA_CELL, { file: input.fileName, stage: "PREFLIGHT_OOXML", source_subsystem: "workbook-parser" }));
   }
   if (meta.hasMergedDataCells) add("MERGED_DATA_CELL");
