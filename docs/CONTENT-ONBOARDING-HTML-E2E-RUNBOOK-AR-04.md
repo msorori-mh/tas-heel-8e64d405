@@ -1,8 +1,16 @@
 # دليل التشغيل والتنفيذ التشغيلي - عقد E2E المستقل لمسار المحتوى التفاعلي HTML
-**المعرف:** `CONTENT_ONBOARDING_HTML_E2E_CONTRACT_04`  
-**المستودع:** `msorori-mh/tas-heel-8e64d405`  
-**الفرع:** `test/content-onboarding-html-e2e-contract-04`  
-**التاريخ:** 2026-08-05  
+**المعرف:** `CONTENT_ONBOARDING_HTML_E2E_CONTRACT_04`
+**المستودع:** `msorori-mh/tas-heel-8e64d405`
+**الفرع:** `test/content-onboarding-html-e2e-contract-04`
+**التاريخ:** 2026-08-05
+
+---
+
+> **ملاحظة إثبات القبول المستقبلي (Future Contract Truth):**
+> هذه المصفوفة عقد قبول مستقبلي، وليست إثباتاً أن Backend مطبقة.
+> يحمل كل عنصر في عقد الاختبار القيم التالية بشكل صريح:
+> `implementation_status: "future_contract"`
+> `requires_operational_backend: true`
 
 ---
 
@@ -20,84 +28,113 @@
 
 - **ممنوع تعديل `src/`**: عدم المساس بأي من ملفات الكود المصدري للتطبيق.
 - **ممنوع تعديل `migrations`**: عدم إضافة أو تعديل أي ملفات تهجير.
-- **ممنوع التعامل المباشر مع قاعدة البيانات (Database / SQL)**: لا يتم تنفيذ استعلامات SQL أو الاتصال بقواعد البيانات الحية.
+- **ممنوع التعامل المباشر مع قاعدة البيانات (Database / SQL)**: لا يتم تنفيذ استعلامات SQL أو الاتصال بقواعد البيانات الحية (ZERO database mutations).
 - **ممنوع النشر (Deploy)**: لا يوجد أي إجراء نشر في البيئات الانتاجية.
 - **ممنوع الدمج (Merge)**: تبقى جميع التعديلات محصورة داخل الفرع الحالي `test/content-onboarding-html-e2e-contract-04`.
-- **ممنوع تنفيذ اختبارات وهمية (No Fake Backend Execution)**: يركز عقد الاختبار على التحقق الهيكلي والدستوري المستقل من مصفوفة E2E ودقة المحددات والضوابط بدون ادعاء تشغيل خوادم خلفية غير موجودة.
+- **ممنوع فتح PR جديد (No New PR)**: يمنع إنشاء طلب سحب Pull Request جديد.
 
 ---
 
-## 3. الهيكلية ودورة حياة المحتوى التفاعلي HTML
+## 3. الأنواع والحالات والأدوار المعيارية (Canonical Enums & Roles)
 
-تمر الحزمة التفاعلية بصيغ الخرائط الذهنية (`HTML_MINDMAP`) والتجارب العملية (`HTML_EXPERIMENT`) بالمراحل التالية:
+### 3.1 أنواع الموارد المعتمدة (Canonical Resource Types):
+- `mind_map_html` (خريطة ذهنية تفاعلية)
+- `practical_experiment_html` (تجربة عملية تفاعلية)
+- `summary_html` (ملخص تفاعلي)
+- `image` (صورة ثابتة/تفاعلية)
+- `pdf` (ملف مستند PDF)
+- `video` (مورد فيديو)
+- `external_link` (رابط خارجي معزول)
 
+*(تم حذف أو تحويل: HTML_INTERACTIVE, HTML_MINDMAP, HTML_EXPERIMENT)*
+
+### 3.2 حالات دورة الحياة المعتمدة (Canonical Lifecycle States):
+- `draft` (مسودة)
+- `in_review` (تحت المراجعة)
+- `approved` (معتمد)
+- `published` (منشور)
+- `rejected` (مرفوض)
+- `archived` (مؤرشف)
+
+*(تم حذف أو تحويل: DRAFT_VERIFIED, UNPUBLISHED, SUPERSEDED_ROLLED_BACK)*
+
+### 3.3 الأدوار التشغيلية لـ MVP (Canonical Operational Roles):
+- `admin`: يعتمد ويرفض وينشر ويلغي النشر ويلغي التفعيل ويلغي الاعتماد.
+- `content_manager`: يرفع الملفات ويقدم للمراجعة، ولا يعتمد ولا ينشر.
+- `student`: يقرأ فقط المحتوى المنشور `published` المخصص لدروسه المصرح بها (`can_access_lesson = true`).
+- `system`: مسؤول عن الفحص الآلي، التوقيع الرقمي، والتنظيف (Cleanup).
+- `unauthenticated`: محظور من جميع واجهات الإدارة والموارد الخاصة غير المنشورة.
+
+*(تم حذف الأدوار المستقلة reviewer و publisher وإسناد مهام الاعتماد والنشر لدور admin)*
+
+---
+
+## 4. مخطط التنظيف المباشر القابل للتنفيذ (Executable Cleanup Schema)
+
+تم استبدال النصوص العامة غير القابلة للقياس بمخطط صريح:
+- `cleanup_required`: قيمة بولية (`true` / `false`).
+- `cleanup_steps`: مصفوفة من الخطوات المحددة القابلة للقياس.
+
+عند عدم الحاجة لتنظيف:
+```json
+"cleanup_required": false,
+"cleanup_steps": []
 ```
-[رفع Excel + ZIP] ──> [التحقق الأمني والربط] ──> [مسودة DRAFT] ──> [مراجعة IN_REVIEW]
-                                                                        │
-[رفض وإلغاء Access] <── [مسودة معدلة] <── [رفض / طلب تعديل] <──────────┤
-                                                                        │
-                                                                 [اعتماد APPROVED]
-                                                                        │
-                                                                 [نشر PUBLISHED]
-                                                                        │
-                                                         [عرض sandboxed للطالب]
-```
+
+عند الحاجة للتنظيف، تتكون الخطوات من عمليات محددة مثل:
+- `delete test import batch by batch_code`
+- `remove staging prefix owned by batch`
+- `restore previous published_version_id`
+- `revoke generated signed URLs`
+- `verify zero orphan objects`
+- `preserve audit evidence`
 
 ---
 
-## 4. مصفوفة حالات الاختبار E2E (Test Cases Matrix Summary)
+## 5. مصفوفة حالات الاختبار E2E (Test Cases Matrix Summary)
 
-تضم المصفوفة المعرفة في `docs/CONTENT-ONBOARDING-HTML-E2E-MATRIX-04.json` **26 حالة اختبار تشغيلية شمولية** مغطاة كالآتي:
+تضم المصفوفة المعرفة في `docs/CONTENT-ONBOARDING-HTML-E2E-MATRIX-04.json` **38 حالة اختبار تشغيلية شمولية** مغطاة كالآتي:
 
-| المعرف ID | الفئة Category | الفاعل Actor | النتيجة المتوقعة Expected Result | الضابط الأمني Security Invariant |
-|---|---|---|---|---|
-| `HTML_E2E_001` | `packaging` | `content_manager` | رفع مقبول 201 وحفظ المسودة | `SEC-PKG-01`: فحص zip-slip و symlink و checksum قبل التخزين |
-| `HTML_E2E_002` | `security` | `content_manager` | رفض ZIP غير آمنة 400 | `SEC-ZIP-01`: منع path traversal و zip bomb |
-| `HTML_E2E_003` | `security` | `content_manager` | رفض JavaScript خارجية 400 | `SEC-JS-01`: منع النص البرمجي الخارجي والـ CDN |
-| `HTML_E2E_004` | `security` | `content_manager` | رفض symlink و traversal 400 | `SEC-FS-01`: حظر الوصلات الرمزية والتنقل الشجري |
-| `HTML_E2E_005` | `content_type` | `content_manager` | قبول خريطة ذهنية HTML سليمة | `SEC-CT-01`: التشغيل المكتفي ذاتياً بدون اتصالات خارجية |
-| `HTML_E2E_006` | `content_type` | `content_manager` | قبول تجربة عملية HTML سليمة | `SEC-CT-02`: التفاعل عبر postMessage المعزول |
-| `HTML_E2E_007` | `visibility` | `student` | حجب المسودة DRAFT عن الطالب | `SEC-VIS-01`: عدم ظهور حالات المسودة للطالب |
-| `HTML_E2E_008` | `visibility` | `student` | حجب المحتوى تحت المراجعة IN_REVIEW | `SEC-VIS-02`: حصر المراجعة في الأدوار المصرّحة |
-| `HTML_E2E_009` | `visibility` | `student` | حجب المحتوى المعتمد APPROVED قبل النشر | `SEC-VIS-03`: اشتراط إجراء النشر الصريح |
-| `HTML_E2E_010` | `visibility` | `student` | ظهور المحتوى المنشور PUBLISHED للطالب | `SEC-VIS-04`: التقديم عبر رابط iframe معزول النطاق |
-| `HTML_E2E_011` | `rbac` | `student` | منع الطالب من واجهات وأوامر الإدارة 403 | `SEC-RBAC-01`: حماية المسارات الإدارية |
-| `HTML_E2E_012` | `rbac` | `content_manager` | رفع المحتوى ومنع النشر بدون صلاحية 403 | `SEC-RBAC-02`: الفصل بين مهام الرفع والنشر |
-| `HTML_E2E_013` | `workflow` | `reviewer` | مراجعة المحتوى واكتساب حالة APPROVED | `SEC-WF-01`: اعتماد الانتقال بملاحظات مراجعة |
-| `HTML_E2E_014` | `workflow` | `publisher` | نشر المحتوى واكتساب حالة PUBLISHED | `SEC-WF-02`: حصر النشر في المعتمدين فقط |
-| `HTML_E2E_015` | `versioning` | `content_manager` | إنشاء إصدار جديد دون استبدال المنشور | `SEC-VER-01`: عدم المساس بالإصدار المنشور بصمت |
-| `HTML_E2E_016` | `workflow` | `publisher` | إلغاء النشر Unpublish وحجب الوصول فوراً | `SEC-WF-03`: الإلغاء الفوري وإخلاء التخزين المؤقت |
-| `HTML_E2E_017` | `versioning` | `publisher` | التراجع Rollback للإصدار السابق | `SEC-VER-02`: التراجع الذري المحقق بالبصمة الرقمية |
-| `HTML_E2E_018` | `tamper_protection` | `system` | رفض الحزمة عند عدم تطابق الـ Hash | `SEC-TMP-01`: التحقق الرقمي من سلامة الحزم |
-| `HTML_E2E_019` | `tamper_protection` | `student` | رفض أحداث التكتيل والمكملات المزورة | `SEC-TMP-02`: اشتراط التوقيع الرقمي للأحداث |
-| `HTML_E2E_020` | `tamper_protection` | `content_manager` | كشف وحظر تسريب الإجابات الصحيحة | `SEC-TMP-03`: منع تضمين الإجابات الصريحة في JS |
-| `HTML_E2E_021` | `resilience` | `system` | فحص الـ Hash في الوضع أوفلاين Offline | `SEC-RES-01`: مطابقة البصمة قبل التشغيل المحلي |
-| `HTML_E2E_022` | `runtime_isolation` | `system` | تعطيل تشغيل الموبايل حتى إثبات العزل | `SEC-ISO-01`: فرض قيود WebView وشبكة الأمان |
-| `HTML_E2E_023` | `resilience` | `content_manager` | التراجع الذري عند فشل الرفع الجزئي | `SEC-RES-02`: الذرية التامة وعدم ترك ملفات يتيملة |
-| `HTML_E2E_024` | `resilience` | `content_manager` | إعادة المحاولة بالتكافؤ Idempotent retry | `SEC-RES-03`: منع التكرار باستخدام Idempotency Key |
-| `HTML_E2E_025` | `audit_cleanup` | `system` | تسجيل أدلة التدقيق لجميع العمليات | `SEC-AUD-01`: سجلات تدقيق غير قابلة للتعديل |
-| `HTML_E2E_026` | `audit_cleanup` | `system` | التجميع التلقائي والتنظيف للبيانات المؤقتة | `SEC-CLN-01`: إزالة سريعة للتخزين المؤقت بعد الانتهاء |
-
----
-
-## 5. الأدوار والمحددات (Roles & Scopes)
-
-1. **`content_manager` (مدير المحتوى)**:
-   - يملك صلاحية رفع وتجهيز الملفات والتعديل على المسودات DRAFT.
-   - لا يملك صلاحية الاعتماد أو النشر المباشر.
-
-2. **`reviewer` (المراجع)**:
-   - يملك صلاحية معاينة المحتوى في بيئة الاستعداد ومعاينته وتغيير الحالة إلى `APPROVED` أو طلب تعديل.
-
-3. **`publisher` (الناشر)**:
-   - يملك صلاحية نشر المحتوى المعتمد `APPROVED` إلى `PUBLISHED` أو إلغاء النشر `UNPUBLISHED` أو التراجع `ROLLBACK`.
-
-4. **`student` (الطالب)**:
-   - يملك فقط صلاحية قراءة المحتوى المنشور `PUBLISHED` في دروسه المحددة.
-   - ممنوع من جميع واجهات الإدارة والمحتويات غير المنشورة.
-
-5. **`system` (النظام)**:
-   - مسؤول عن فحص سلامة الملفات والتوقيع الرقمي والـ Garbage Collection والتنظيف.
+| ID | Category | Actor | Resource Type | Lifecycle State | Expected Result Summary | Security Invariant |
+|---|---|---|---|---|---|---|
+| `HTML_E2E_001` | packaging | content_manager | mind_map_html | draft | Upload valid package accepted (201) | `SEC-PKG-01` |
+| `HTML_E2E_002` | packaging | content_manager | practical_experiment_html | draft | Experiment simulation ingested (201) | `SEC-PKG-02` |
+| `HTML_E2E_003` | security | content_manager | mind_map_html | draft | Unsafe ZIP (path traversal / Zip bomb) rejected (400) | `SEC-ZIP-01` |
+| `HTML_E2E_004` | security | content_manager | mind_map_html | draft | Symlinks and directory traversal header rejected (400) | `SEC-FS-01` |
+| `HTML_E2E_005` | security | content_manager | mind_map_html | draft | External JS / CDN links rejected (400) | `SEC-JS-01` |
+| `HTML_E2E_006` | security | content_manager | mind_map_html | draft | Invalid CSP inline script hash rejected (400) | `SEC-CSP-01` |
+| `HTML_E2E_007` | security | content_manager | practical_experiment_html | draft | Answer key bundle content rejected (400) | `SEC-ANS-01` |
+| `HTML_E2E_008` | security | content_manager | mind_map_html | draft | questions.correct_index leakage rejected | `SEC-KEY-01` |
+| `HTML_E2E_009` | security | content_manager | practical_experiment_html | draft | Explanation hidden prior to explicit reveal | `SEC-EXP-01` |
+| `HTML_E2E_010` | security | content_manager | mind_map_html | draft | Student PII in package rejected | `SEC-PII-01` |
+| `HTML_E2E_011` | authorization | unauthenticated | mind_map_html | draft | Unauthenticated admin request denied (401/403) | `SEC-AUTH-01` |
+| `HTML_E2E_012` | authorization | unauthenticated | mind_map_html | draft | Unauthenticated draft resource request denied | `SEC-AUTH-02` |
+| `HTML_E2E_013` | authorization | student | mind_map_html | draft | Student admin route request denied (403) | `SEC-RBAC-01` |
+| `HTML_E2E_014` | authorization | student | mind_map_html | draft | Non-published states hidden from student | `SEC-VIS-01` |
+| `HTML_E2E_015` | authorization | student | mind_map_html | published | Student requesting resource for wrong lesson denied | `SEC-LESSON-01` |
+| `HTML_E2E_016` | authorization | student | mind_map_html | published | Student with can_access_lesson=false denied | `SEC-LESSON-02` |
+| `HTML_E2E_017` | authorization | content_manager | mind_map_html | draft | content_manager publish attempt denied (403) | `SEC-RBAC-02` |
+| `HTML_E2E_018` | authorization | student | mind_map_html | draft | Direct SQL table write denied by RLS | `SEC-DB-01` |
+| `HTML_E2E_019` | authorization | content_manager | mind_map_html | published | Direct published bucket write denied | `SEC-STRG-01` |
+| `HTML_E2E_020` | authorization | unauthenticated | mind_map_html | draft | Unpublished signed URL request denied | `SEC-SURL-01` |
+| `HTML_E2E_021` | workflow | content_manager | mind_map_html | draft | Transition draft -> in_review | `SEC-WF-01` |
+| `HTML_E2E_022` | workflow | admin | mind_map_html | in_review | Transition in_review -> approved | `SEC-WF-02` |
+| `HTML_E2E_023` | workflow | admin | mind_map_html | in_review | Transition in_review -> rejected | `SEC-WF-03` |
+| `HTML_E2E_024` | workflow | content_manager | mind_map_html | rejected | Transition rejected -> draft | `SEC-WF-04` |
+| `HTML_E2E_025` | workflow | admin | mind_map_html | approved | Transition approved -> published | `SEC-WF-05` |
+| `HTML_E2E_026` | workflow | admin | mind_map_html | published | Transition published -> approved via unpublish | `SEC-WF-06` |
+| `HTML_E2E_027` | workflow | admin | mind_map_html | draft | Publish unapproved version denied | `SEC-WF-07` |
+| `HTML_E2E_028` | versioning | admin | mind_map_html | published | Rollback to previous approved version | `SEC-VER-01` |
+| `HTML_E2E_029` | workflow | admin | mind_map_html | approved | Concurrent publish conflict detected (409) | `SEC-LOCK-01` |
+| `HTML_E2E_030` | workflow | admin | mind_map_html | approved | Stale lock_version publish request denied (409) | `SEC-LOCK-02` |
+| `HTML_E2E_031` | resilience | content_manager | mind_map_html | draft | Duplicate idempotency key header returns cached result | `SEC-IDEMP-01` |
+| `HTML_E2E_032` | resilience | content_manager | practical_experiment_html | draft | Partial upload stream drop cleaned up atomically | `SEC-RES-01` |
+| `HTML_E2E_033` | tamper_protection | system | mind_map_html | draft | Hash mismatch blocks package publication | `SEC-TMP-01` |
+| `HTML_E2E_034` | tamper_protection | student | practical_experiment_html | published | Forged experiment completion postMessage denied | `SEC-TMP-02` |
+| `HTML_E2E_035` | tamper_protection | student | practical_experiment_html | published | Stale iframe postMessage event denied | `SEC-TMP-03` |
+| `HTML_E2E_036` | runtime_isolation | system | mind_map_html | published | Native mobile runtime launch disabled | `SEC-ISO-01` |
+| `HTML_E2E_037` | audit_cleanup | system | mind_map_html | archived | Orphan object reconciliation sweeper | `SEC-CLN-01` |
+| `HTML_E2E_038` | visibility | student | mind_map_html | published | Published item accessible to authorized student | `SEC-VIS-02` |
 
 ---
 
@@ -105,22 +142,27 @@
 
 يتم التحقق من سلامة العقد والتأكد من مطابقة جميع الشروط بواسطة الأوامر التالية:
 
-### 1. تشغيل اختبار العقد المستقل:
+### 1. تثبيت الاعتمادات:
+```bash
+npm ci
+```
+
+### 2. تشغيل اختبار العقد المستقل:
 ```bash
 node --test tests/question-bank/content-onboarding-html-e2e-contract.test.mjs
 ```
 
-### 2. تشغيل حزمة اختبارات المشروع الكاملة:
+### 3. تشغيل حزمة اختبارات المشروع الكاملة:
 ```bash
 npm test
 ```
 
-### 3. التحقق من سلامة الأنواع (TypeScript):
+### 4. التحقق من سلامة الأنواع (TypeScript):
 ```bash
 npx --no-install tsc --noEmit
 ```
 
-### 4. التحقق من عدم وجود مشاكل في الفروقات أو المسافات الزائدة:
+### 5. التحقق من عدم وجود مشاكل في الفروقات أو المسافات الزائدة:
 ```bash
 git diff --check
 ```
@@ -133,58 +175,8 @@ git diff --check
 
 ```bash
 git add docs/CONTENT-ONBOARDING-HTML-E2E-MATRIX-04.json docs/CONTENT-ONBOARDING-HTML-E2E-RUNBOOK-AR-04.md tests/question-bank/content-onboarding-html-e2e-contract.test.mjs
-git commit -m "test(content): define interactive html operational e2e contract"
+git commit -m "test(content): align html e2e contract with operational security model"
 git push origin test/content-onboarding-html-e2e-contract-04
 ```
 
-> **ملاحظة مهمة:** يمنع إنشاء طلب سحب Pull Request (PR) حالياً بحسب الشروط المحددة في المهمة.
-
----
-
-## 8. التقرير النهائي (Final Report Format)
-
-```text
-CONTENT_ONBOARDING_HTML_E2E_CONTRACT_04
-
-Decision:
-PASS
-
-Total cases:
-26
-
-Categories:
-11 (packaging, security, content_type, visibility, rbac, workflow, versioning, tamper_protection, runtime_isolation, resilience, audit_cleanup)
-
-Roles:
-6 (content_manager, reviewer, publisher, student, system, unauthenticated)
-
-Positive cases:
-12
-
-Negative cases:
-14
-
-Security cases:
-26 (Every case specifies a strict security invariant)
-
-Contract tests:
-PASS
-
-Working tree:
-CLEAN
-
-Source modified:
-NO
-
-SQL:
-NO
-
-Database:
-ZERO
-
-Deploy:
-NO
-
-PR created:
-NO
-```
+> **تنبيه:** يمنع دمج الفرع أو إنشاء PR جديد وفق الشروط المحددة.
