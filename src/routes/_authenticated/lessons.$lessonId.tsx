@@ -411,7 +411,6 @@ function LessonPage() {
         <JourneyCard
           stepNumber={1}
           icon={<ScrollText className="h-5 w-5" />}
-          emoji="📖"
           title="اقرأ الدرس"
           description="ابدأ بقراءة محتوى الدرس من الكتاب المدرسي."
           ctaLabel={hasBook ? "ابدأ القراءة" : "غير متوفر"}
@@ -429,7 +428,6 @@ function LessonPage() {
         <JourneyCard
           stepNumber={2}
           icon={<FileText className="h-5 w-5" />}
-          emoji="📝"
           title="راجع الملخص"
           description="أهم النقاط والأفكار الرئيسية للدرس."
           ctaLabel={hasSummary ? "عرض الملخص" : "غير متوفر"}
@@ -446,7 +444,7 @@ function LessonPage() {
                 </ul>
               )}
               {summary!.study_tip && (
-                <p className="mt-3 rounded-md bg-accent/10 p-2 text-xs">💡 {summary!.study_tip}</p>
+                <p className="mt-3 flex items-start gap-2 rounded-md bg-accent/10 p-2 text-xs"><Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />{summary!.study_tip}</p>
               )}
             </>
           ) : (
@@ -457,7 +455,6 @@ function LessonPage() {
         <JourneyCard
           stepNumber={3}
           icon={<Target className="h-5 w-5" />}
-          emoji="🎯"
           title="اختبر فهمك"
           description={
             hasQuestions
@@ -483,7 +480,6 @@ function LessonPage() {
         <JourneyCard
           stepNumber={4}
           icon={<Trophy className="h-5 w-5" />}
-          emoji="🏆"
           title="اختبار الدرس"
           description={
             hasTraining
@@ -505,7 +501,6 @@ function LessonPage() {
         <JourneyCard
           stepNumber={5}
           icon={<Library className="h-5 w-5" />}
-          emoji="📚"
           title="موارد إضافية"
           description={
             hasResources
@@ -670,7 +665,6 @@ function LessonPage() {
 function JourneyCard({
   stepNumber,
   icon,
-  emoji,
   title,
   description,
   ctaLabel,
@@ -679,7 +673,6 @@ function JourneyCard({
 }: {
   stepNumber: number;
   icon: React.ReactNode;
-  emoji: string;
   title: string;
   description: string;
   ctaLabel: string;
@@ -696,8 +689,8 @@ function JourneyCard({
         aria-expanded={open}
         className="flex w-full items-center gap-3 p-4 text-right transition-colors hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-2xl">
-          <span aria-hidden>{emoji}</span>
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+          {icon}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
