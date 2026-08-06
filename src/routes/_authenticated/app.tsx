@@ -42,14 +42,18 @@ function StudentHome() {
   }
 
   return (
-    <div className="space-y-5 pb-4" dir="rtl">
-      {/* 1. Welcome */}
-      <WelcomeCard stats={stats} />
+    <div className="space-y-5 pb-4 lg:space-y-6" dir="rtl">
+      {/* 1. Welcome + 2. Today's mission */}
+      <div className="grid gap-5 lg:grid-cols-12 lg:items-stretch lg:gap-6">
+        <div className="lg:col-span-8 lg:flex lg:flex-col">
+          <WelcomeCard stats={stats} />
+        </div>
+        <div className="lg:col-span-4 lg:flex lg:flex-col">
+          <TodayMissionCard items={continueItems} loading={continueLoading} />
+        </div>
+      </div>
 
       <HomeSubscriptionBanner />
-
-      {/* 2. Today's mission */}
-      <TodayMissionCard items={continueItems} loading={continueLoading} />
 
       {/* 3. Four compact KPI cards */}
       <ProgressSummary stats={stats} loading={statsLoading} />
@@ -60,13 +64,16 @@ function StudentHome() {
       {/* 5. Semesters */}
       <SemesterPicker />
 
-      {/* 6. Short achievements */}
-      <AchievementsSection badges={badges.slice(0, 3)} loading={badgesLoading} />
-
-      {/* 7. AI assistant */}
-      <div id="ai-assistant" className="scroll-mt-20">
-        <AiAssistantCard />
+      {/* 6. Achievements + 7. AI assistant */}
+      <div className="grid gap-5 lg:grid-cols-12 lg:items-stretch lg:gap-6">
+        <div className="lg:col-span-8 lg:flex lg:flex-col">
+          <AchievementsSection badges={badges.slice(0, 3)} loading={badgesLoading} />
+        </div>
+        <div id="ai-assistant" className="scroll-mt-20 lg:col-span-4 lg:flex lg:flex-col">
+          <AiAssistantCard />
+        </div>
       </div>
     </div>
   );
 }
+
