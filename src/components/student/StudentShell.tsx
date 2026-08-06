@@ -64,15 +64,15 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
       <aside className="fixed inset-y-0 right-0 z-40 hidden w-60 flex-col border-l border-border/60 bg-card/80 backdrop-blur-md lg:flex">
         <Link
           to="/app"
-          className="flex items-center gap-2 px-4 py-5 font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex items-center gap-2.5 px-4 py-6 font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-hero-gradient">
-            <GraduationCap className="h-5 w-5 text-primary-foreground" />
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-hero-gradient">
+            <GraduationCap className="h-6 w-6 text-primary-foreground" />
           </span>
-          <span className="text-base">تمكين</span>
+          <span className="text-lg">تمكين</span>
         </Link>
 
-        <nav aria-label="التنقل الرئيسي" className="flex-1 space-y-1 px-3">
+        <nav aria-label="التنقل الرئيسي" className="flex-1 space-y-1.5 px-3">
           {PRIMARY_NAV.map((item) => (
             <SidebarLink key={item.to} item={item} active={item.match(pathname)} />
           ))}
@@ -88,7 +88,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           />
         </nav>
 
-        <div className="space-y-1 border-t border-border/60 p-3">
+        <div className="space-y-1.5 border-t border-border/60 p-3">
           {isContentStaff && (
             <SidebarLink
               item={{
@@ -112,7 +112,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={handleSignOut}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <LogOut className="h-4 w-4 shrink-0" aria-hidden />
             تسجيل الخروج
@@ -207,13 +207,13 @@ function SidebarLink({
       to={item.to as any}
       hash={hash}
       aria-current={active ? "page" : undefined}
-      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active
           ? "bg-primary/10 font-semibold text-primary"
           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
       }`}
     >
-      <Icon className="h-4 w-4 shrink-0" aria-hidden />
+      <Icon className="h-5 w-5 shrink-0" aria-hidden />
       {item.label}
     </Link>
   );
