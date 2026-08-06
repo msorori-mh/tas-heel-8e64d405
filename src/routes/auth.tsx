@@ -401,7 +401,7 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
             type="password"
             dir="ltr"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); setErr(null); setMsg(null); }}
             autoComplete="current-password"
             required
           />
