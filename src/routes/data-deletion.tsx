@@ -3,17 +3,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 export const Route = createFileRoute("/data-deletion")({
   head: () => ({
     meta: [
-      { title: "حذف البيانات — تنوير" },
+      { title: "حذف البيانات — تمكين" },
       {
         name: "description",
         content:
-          "كيف تحذف حسابك وبياناتك ذاتيًا من منصة تنوير، وما يُحذف وما قد يُحتفظ به.",
+          "كيف تحذف حسابك وبياناتك ذاتيًا من منصة تمكين، وما يُحذف وما قد يُحتفظ به.",
       },
-      { property: "og:title", content: "حذف البيانات — تنوير" },
+      { property: "og:title", content: "حذف البيانات — تمكين" },
       {
         property: "og:description",
         content:
-          "كيف تحذف حسابك وبياناتك ذاتيًا من منصة تنوير، وما يُحذف وما قد يُحتفظ به.",
+          "كيف تحذف حسابك وبياناتك ذاتيًا من منصة تمكين، وما يُحذف وما قد يُحتفظ به.",
       },
       {
         property: "og:url",

@@ -3,17 +3,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
-      { title: "سياسة الخصوصية — تنوير" },
+      { title: "سياسة الخصوصية — تمكين" },
       {
         name: "description",
         content:
-          "كيف تجمع منصة تنوير بيانات طلاب الثانوية في اليمن وتحميها، ومزودو الخدمات، وحقوق الوصول والحذف.",
+          "كيف تجمع منصة تمكين بيانات طلاب الثانوية في اليمن وتحميها، ومزودو الخدمات، وحقوق الوصول والحذف.",
       },
-      { property: "og:title", content: "سياسة الخصوصية — تنوير" },
+      { property: "og:title", content: "سياسة الخصوصية — تمكين" },
       {
         property: "og:description",
         content:
-          "كيف تجمع منصة تنوير بيانات طلاب الثانوية في اليمن وتحميها، ومزودو الخدمات، وحقوق الوصول والحذف.",
+          "كيف تجمع منصة تمكين بيانات طلاب الثانوية في اليمن وتحميها، ومزودو الخدمات، وحقوق الوصول والحذف.",
       },
       { property: "og:url", content: "https://tas-heel.lovable.app/privacy" },
     ],
@@ -35,7 +35,7 @@ function PrivacyPage() {
         </header>
 
         <p className="text-muted-foreground">
-          نحن في "تنوير" نحترم خصوصية مستخدمينا، ونلتزم بجمع الحد الأدنى من
+          نحن في "تمكين" نحترم خصوصية مستخدمينا، ونلتزم بجمع الحد الأدنى من
           البيانات اللازم لتقديم الخدمة. هذه السياسة توضّح ما نجمعه ولماذا،
           ومن يصل إليه، وكيف تتحكم به.
         </p>
@@ -117,7 +117,7 @@ function PrivacyPage() {
         <section>
           <h2 className="text-xl font-semibold">4. المستخدمون القُصّر</h2>
           <p className="mt-2 text-muted-foreground">
-            تنوير منصة موجّهة لطلاب المرحلة الثانوية، وقد يكون بعضهم دون سن
+            تمكين منصة موجّهة لطلاب المرحلة الثانوية، وقد يكون بعضهم دون سن
             الثامنة عشرة. نلتزم بما يلي:
           </p>
           <ul className="mt-2 list-disc space-y-1 pr-6 text-muted-foreground">

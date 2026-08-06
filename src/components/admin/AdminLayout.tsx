@@ -199,7 +199,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <h2 className="text-sm font-semibold text-foreground">إدارة منصة تنوير</h2>
+          <h2 className="text-sm font-semibold text-foreground">إدارة منصة تمكين</h2>
           <Button
             variant="ghost"
             size="sm"

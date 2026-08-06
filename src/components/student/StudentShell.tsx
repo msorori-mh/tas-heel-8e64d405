@@ -69,7 +69,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-hero-gradient">
             <GraduationCap className="h-5 w-5 text-primary-foreground" />
           </span>
-          <span className="text-base">تنوير</span>
+          <span className="text-base">تمكين</span>
         </Link>
 
         <nav aria-label="التنقل الرئيسي" className="flex-1 space-y-1 px-3">
@@ -130,7 +130,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-hero-gradient">
               <GraduationCap className="h-4 w-4 text-primary-foreground" />
             </span>
-            <span className="truncate text-sm">تنوير</span>
+            <span className="truncate text-sm">تمكين</span>
           </Link>
           <div className="flex shrink-0 items-center gap-1">
             {isContentStaff && (

@@ -99,7 +99,7 @@ function AdminIndexPage() {
               لوحة الإدارة
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              مرحبًا بك في لوحة إدارة تنوير.
+              مرحبًا بك في لوحة إدارة تمكين.
             </p>
           </div>
         </div>
