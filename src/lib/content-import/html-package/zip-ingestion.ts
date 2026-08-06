@@ -280,22 +280,20 @@ export async function parseMasterZipBuffer(
     const sha256 = await computeSha256(buffer);
 
     const pathParts = entryPath.split(/[/\\]/).filter(Boolean);
-    if (pathParts.length >= 2) {
-      const resourceCode = pathParts[0];
-      const relativePath = pathParts.slice(1).join("/");
+    const resourceCode = pathParts.length >= 2 ? pathParts[0] : "package";
+    const relativePath = pathParts.length >= 2 ? pathParts.slice(1).join("/") : entryPath;
 
-      if (!packageMap[resourceCode]) {
-        packageMap[resourceCode] = [];
-      }
-
-      packageMap[resourceCode].push({
-        path: relativePath,
-        size: buffer.length,
-        isDir: false,
-        contentSha256: sha256,
-        buffer,
-      });
+    if (!packageMap[resourceCode]) {
+      packageMap[resourceCode] = [];
     }
+
+    packageMap[resourceCode].push({
+      path: relativePath,
+      size: buffer.length,
+      isDir: false,
+      contentSha256: sha256,
+      buffer,
+    });
   }
 
   // Validate per-resource post-extraction limits

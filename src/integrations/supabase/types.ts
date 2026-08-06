@@ -961,35 +961,365 @@ export type Database = {
           },
         ]
       }
-      lesson_resources: {
+      content_feature_flags: {
+        Row: {
+          description: string | null
+          flag_name: string
+          is_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          description?: string | null
+          flag_name: string
+          is_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          description?: string | null
+          flag_name?: string
+          is_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      content_import_batches: {
         Row: {
           created_at: string
-          description: string | null
+          creator_id: string
+          error_log: Json
+          excel_filename: string | null
           id: string
-          lesson_id: string
-          resource_type: Database["public"]["Enums"]["lesson_resource_type"]
-          sort_order: number
-          title: string
-          url: string
+          processed_rows: number
+          status: string
+          total_rows: number
+          updated_at: string
+          zip_filename: string | null
         }
         Insert: {
           created_at?: string
-          description?: string | null
+          creator_id: string
+          error_log?: Json
+          excel_filename?: string | null
           id?: string
-          lesson_id: string
-          resource_type: Database["public"]["Enums"]["lesson_resource_type"]
-          sort_order?: number
-          title: string
-          url: string
+          processed_rows?: number
+          status?: string
+          total_rows?: number
+          updated_at?: string
+          zip_filename?: string | null
         }
         Update: {
           created_at?: string
+          creator_id?: string
+          error_log?: Json
+          excel_filename?: string | null
+          id?: string
+          processed_rows?: number
+          status?: string
+          total_rows?: number
+          updated_at?: string
+          zip_filename?: string | null
+        }
+        Relationships: []
+      }
+      content_import_rows: {
+        Row: {
+          batch_id: string
+          created_at: string
+          errors: Json
+          id: string
+          lesson_id: string | null
+          resource_code: string
+          resource_id: string | null
+          resource_type: string
+          row_index: number
+          status: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          errors?: Json
+          id?: string
+          lesson_id?: string | null
+          resource_code: string
+          resource_id?: string | null
+          resource_type: string
+          row_index: number
+          status?: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          errors?: Json
+          id?: string
+          lesson_id?: string | null
+          resource_code?: string
+          resource_id?: string | null
+          resource_type?: string
+          row_index?: number
+          status?: string
+        }
+        Relationships: []
+      }
+      content_package_validations: {
+        Row: {
+          batch_id: string | null
+          findings: Json
+          id: string
+          is_valid: boolean
+          package_hash: string
+          scanner_version: string
+          validated_at: string
+          validated_by_server: boolean
+          version_id: string | null
+        }
+        Insert: {
+          batch_id?: string | null
+          findings?: Json
+          id?: string
+          is_valid?: boolean
+          package_hash: string
+          scanner_version?: string
+          validated_at?: string
+          validated_by_server?: boolean
+          version_id?: string | null
+        }
+        Update: {
+          batch_id?: string | null
+          findings?: Json
+          id?: string
+          is_valid?: boolean
+          package_hash?: string
+          scanner_version?: string
+          validated_at?: string
+          validated_by_server?: boolean
+          version_id?: string | null
+        }
+        Relationships: []
+      }
+      idempotency_ledger: {
+        Row: {
+          actor_id: string
+          created_at: string
+          id: string
+          idempotency_key: string
+          operation: string
+          response_payload: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          operation: string
+          response_payload?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          operation?: string
+          response_payload?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lesson_resource_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+          resource_id: string
+          user_id: string | null
+          version_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json
+          resource_id: string
+          user_id?: string | null
+          version_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          resource_id?: string
+          user_id?: string | null
+          version_id?: string | null
+        }
+        Relationships: []
+      }
+      lesson_resource_files: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size_bytes: number
+          id: string
+          is_entry_point: boolean
+          mime_type: string
+          sha256_hash: string
+          version_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size_bytes: number
+          id?: string
+          is_entry_point?: boolean
+          mime_type: string
+          sha256_hash: string
+          version_id: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size_bytes?: number
+          id?: string
+          is_entry_point?: boolean
+          mime_type?: string
+          sha256_hash?: string
+          version_id?: string
+        }
+        Relationships: []
+      }
+      lesson_resource_reviews: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json
+          id: string
+          reason: string | null
+          resource_id: string
+          reviewer_id: string
+          version_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json
+          id?: string
+          reason?: string | null
+          resource_id: string
+          reviewer_id: string
+          version_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json
+          id?: string
+          reason?: string | null
+          resource_id?: string
+          reviewer_id?: string
+          version_id?: string
+        }
+        Relationships: []
+      }
+      lesson_resource_versions: {
+        Row: {
+          content_sha256: string
+          created_at: string
+          created_by: string | null
+          entry_file: string
+          id: string
+          immutable_at: string | null
+          immutable_reason: string | null
+          manifest: Json
+          resource_id: string
+          version_number: number
+        }
+        Insert: {
+          content_sha256: string
+          created_at?: string
+          created_by?: string | null
+          entry_file?: string
+          id?: string
+          immutable_at?: string | null
+          immutable_reason?: string | null
+          manifest?: Json
+          resource_id: string
+          version_number: number
+        }
+        Update: {
+          content_sha256?: string
+          created_at?: string
+          created_by?: string | null
+          entry_file?: string
+          id?: string
+          immutable_at?: string | null
+          immutable_reason?: string | null
+          manifest?: Json
+          resource_id?: string
+          version_number?: number
+        }
+        Relationships: []
+      }
+      lesson_resources: {
+        Row: {
+          approved_version_id: string | null
+          created_at: string
+          created_by: string | null
+          current_draft_version_id: string | null
+          description: string | null
+          id: string
+          lesson_id: string
+          lock_version: number
+          published_version_id: string | null
+          resource_code: string | null
+          resource_type: Database["public"]["Enums"]["lesson_resource_type"]
+          sort_order: number
+          status: string
+          subject_id: string | null
+          title: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          approved_version_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_draft_version_id?: string | null
+          description?: string | null
+          id?: string
+          lesson_id: string
+          lock_version?: number
+          published_version_id?: string | null
+          resource_code?: string | null
+          resource_type: Database["public"]["Enums"]["lesson_resource_type"]
+          sort_order?: number
+          status?: string
+          subject_id?: string | null
+          title: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          approved_version_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_draft_version_id?: string | null
           description?: string | null
           id?: string
           lesson_id?: string
+          lock_version?: number
+          published_version_id?: string | null
+          resource_code?: string | null
           resource_type?: Database["public"]["Enums"]["lesson_resource_type"]
           sort_order?: number
+          status?: string
+          subject_id?: string | null
           title?: string
+          updated_at?: string
           url?: string
         }
         Relationships: [
@@ -1001,6 +1331,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      storage_operations: {
+        Row: {
+          actual_hash: string | null
+          completed_at: string | null
+          created_at: string
+          error_details: Json | null
+          expected_hash: string | null
+          id: string
+          idempotency_key: string
+          operation_type: string
+          parent_operation_id: string | null
+          retry_number: number
+          source_path: string
+          status: string
+          target_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_hash?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_details?: Json | null
+          expected_hash?: string | null
+          id?: string
+          idempotency_key: string
+          operation_type: string
+          parent_operation_id?: string | null
+          retry_number?: number
+          source_path: string
+          status?: string
+          target_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_hash?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_details?: Json | null
+          expected_hash?: string | null
+          id?: string
+          idempotency_key?: string
+          operation_type?: string
+          parent_operation_id?: string | null
+          retry_number?: number
+          source_path?: string
+          status?: string
+          target_path?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       lesson_simulations: {
         Row: {
@@ -2158,6 +2539,123 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_resource_version: {
+        Args: {
+          p_expected_lock_version: number
+          p_idempotency_key?: string
+          p_resource_id: string
+          p_version_id: string
+        }
+        Returns: Json
+      }
+      archive_lesson_resource: {
+        Args: {
+          p_expected_lock_version: number
+          p_idempotency_key?: string
+          p_reason: string
+          p_resource_id: string
+        }
+        Returns: Json
+      }
+      check_content_feature_flag: {
+        Args: {
+          p_flag_name: string
+        }
+        Returns: boolean
+      }
+      create_content_import_batch: {
+        Args: {
+          p_excel_filename?: string
+          p_idempotency_key?: string
+          p_total_rows?: number
+          p_zip_filename?: string
+        }
+        Returns: Json
+      }
+      fetch_published_lesson_resources: {
+        Args: {
+          p_lesson_id: string
+        }
+        Returns: Json
+      }
+      finalize_content_upload: {
+        Args: {
+          p_batch_id: string
+          p_content_sha256: string
+          p_files: Json
+          p_idempotency_key?: string
+          p_lesson_id: string
+          p_manifest: Json
+          p_resource_code: string
+          p_resource_type: string
+          p_staging_path: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      issue_content_upload: {
+        Args: {
+          p_batch_id: string
+          p_filename: string
+          p_idempotency_key?: string
+          p_resource_code: string
+        }
+        Returns: Json
+      }
+      publish_resource_version: {
+        Args: {
+          p_expected_lock_version: number
+          p_idempotency_key?: string
+          p_resource_id: string
+          p_version_id: string
+        }
+        Returns: Json
+      }
+      reject_resource_version: {
+        Args: {
+          p_expected_lock_version: number
+          p_idempotency_key?: string
+          p_reason: string
+          p_resource_id: string
+          p_version_id: string
+        }
+        Returns: Json
+      }
+      rollback_published_resource_version: {
+        Args: {
+          p_expected_lock_version: number
+          p_idempotency_key?: string
+          p_reason: string
+          p_resource_id: string
+          p_target_version_id: string
+        }
+        Returns: Json
+      }
+      submit_resource_for_review: {
+        Args: {
+          p_expected_lock_version: number
+          p_idempotency_key?: string
+          p_resource_id: string
+        }
+        Returns: Json
+      }
+      unpublish_resource_version: {
+        Args: {
+          p_expected_lock_version: number
+          p_idempotency_key?: string
+          p_reason: string
+          p_resource_id: string
+        }
+        Returns: Json
+      }
+      validate_content_package: {
+        Args: {
+          p_idempotency_key?: string
+          p_resource_id: string
+          p_version_id: string
+        }
+        Returns: Json
+      }
       admin_adjust_wallet: {
         Args: {
           _amount: number

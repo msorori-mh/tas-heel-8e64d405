@@ -32,6 +32,8 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 import { InteractiveResourceViewer, InteractiveResourceItem } from "@/components/lessons/InteractiveResourceViewer";
+import { CONTENT_FEATURE_FLAGS } from "@/lib/content-onboarding/feature-flags";
+import { fetchPublishedLessonResources } from "@/lib/content-onboarding/rpc-client";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
   component: LessonPage,
@@ -185,12 +187,13 @@ function LessonPage() {
         _lesson_id: lessonId,
       });
       if (error) throw error;
-      return ((data ?? []) as any[]).map((r) => ({
+      const rows = (data ?? []) as Array<{ id: string; question_text: string; options: unknown; sort_order?: number }>;
+      return rows.map((r) => ({
         id: r.id,
         question_text: r.question_text,
         options: r.options,
         sort_order: r.sort_order ?? 0,
-      })) as QuestionRow[];
+      }));
     },
   });
 
@@ -233,12 +236,14 @@ function LessonPage() {
     enabled: !!lesson && accessible === true && canAccessEnhancements,
     queryKey: ["lesson-extra", lessonId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc(
-        "get_lesson_safe_extras" as never,
-        { _lesson_id: lessonId } as never,
-      );
+      const client = supabase as unknown as {
+        rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+      };
+      const { data, error } = await client.rpc("get_lesson_safe_extras", { _lesson_id: lessonId });
       if (error) throw error;
-      const row = Array.isArray(data) ? (data[0] as any) : (data as any);
+      const rowArray = data as Array<{ id: string; title?: string; has_video?: boolean; has_content_pdf?: boolean; external_video_url?: string }>;
+      const rowObj = data as { id: string; title?: string; has_video?: boolean; has_content_pdf?: boolean; external_video_url?: string };
+      const row = Array.isArray(data) ? rowArray[0] : rowObj;
       if (!row) return null;
       return {
         id: row.id,
@@ -258,6 +263,22 @@ function LessonPage() {
     enabled: !!lesson && accessible === true && canAccessEnhancements,
     queryKey: ["lesson-resources", lessonId],
     queryFn: async () => {
+      if (CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_BACKEND && CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_STUDENT_READ) {
+        const rpcRes = await fetchPublishedLessonResources(lessonId);
+        if (!rpcRes.success) {
+          throw new Error(`فشل جلب موارد الدرس المعززة: ${rpcRes.error?.message || "خطأ RPC"}`);
+        }
+        const publishedList = rpcRes.data || [];
+        return publishedList.map((r) => ({
+          id: r.id,
+          resource_type: (r.resource_type === "mind_map_html" ? "mindmap" : r.resource_type === "practical_experiment_html" ? "experiment" : r.resource_type) as ResourceRow["resource_type"],
+          title: r.title,
+          url: r.url || "",
+          description: r.description,
+          sort_order: r.sort_order ?? 1,
+        }));
+      }
+
       const { data, error } = await supabase
         .from("lesson_resources")
         .select("id,resource_type,title,url,description,sort_order")
@@ -293,9 +314,8 @@ function LessonPage() {
         .eq("is_active", true)
         .eq("lesson_id", lessonId);
       if (error) throw error;
-      const rows = ((data ?? []) as any[]).filter(
-        (r) => (r.questions?.[0]?.count ?? 0) > 0,
-      );
+      const rowsData = (data ?? []) as Array<{ questions?: Array<{ count: number }> }>;
+      const rows = rowsData.filter((r) => (r.questions?.[0]?.count ?? 0) > 0);
       return rows.length;
     },
   });

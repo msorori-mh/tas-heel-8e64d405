@@ -8,7 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
-    "test": "node --import tsx --test src/lib/*.test.ts",
+    "test": "node --import tsx --test src/lib/*.test.ts tests/question-bank/content-onboarding-html-*.mjs",
     "test:question-bank-hash": "node scripts/question-bank/verify-question-bank-hash-vectors.mjs",
     "test:question-bank-source": "node --experimental-strip-types --test tests/question-bank/qb01-migration-source.test.ts",
     "test:question-bank-runtime-45": "node tests/question-bank/runtime/run-qb01-security-ci-delete-45.mjs",
