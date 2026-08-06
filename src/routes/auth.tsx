@@ -215,7 +215,7 @@ function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
         <div className="h-px flex-1 bg-border" /> أو عبر البريد <div className="h-px flex-1 bg-border" />
       </div>
 
-      <form onSubmit={handleEmailSignup} className="space-y-3">
+      <form onSubmit={handlePasswordSignup} className="space-y-3">
         <div>
           <Label htmlFor="signup-email">البريد الإلكتروني</Label>
           <Input
@@ -225,6 +225,22 @@ function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="name@example.com"
+            autoComplete="email"
+            required
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="signup-password">كلمة المرور</Label>
+          <Input
+            id="signup-password"
+            type="password"
+            dir="ltr"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="6 أحرف على الأقل"
+            autoComplete="new-password"
+            minLength={6}
             required
           />
         </div>
@@ -239,9 +255,10 @@ function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
           disabled={busy}
         >
           <Mail className="ml-2 h-4 w-4" />
-          {busy ? "..." : "أنشئ حسابي عبر البريد"}
+          {busy ? "..." : "أنشئ حسابي بالبريد وكلمة المرور"}
         </Button>
       </form>
+
 
       <ul className="space-y-1.5 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
         <li className="flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-accent" /> مجاني للبدء — بدون بطاقة</li>
