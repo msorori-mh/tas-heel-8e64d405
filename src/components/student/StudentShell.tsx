@@ -155,8 +155,9 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 pb-24 pt-4 sm:px-6 lg:mr-60 lg:max-w-none lg:px-8 lg:pb-10 lg:pt-6">
-        <div className="mx-auto w-full max-w-4xl">{children}</div>
+      <main className="min-w-0 w-full flex-1 pb-24 pt-4 lg:mr-60 lg:pb-12 lg:pt-8">
+        <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8">{children}</div>
+
       </main>
 
       {/* Mobile bottom navigation */}
