@@ -71,6 +71,9 @@ async function main() {
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
           CREATE ROLE anon NOLOGIN;
         END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+          CREATE ROLE service_role NOLOGIN;
+        END IF;
       END $$;
 
       CREATE SCHEMA IF NOT EXISTS auth;
@@ -272,8 +275,22 @@ async function main() {
           END IF;
         END;
 
-        -- Record trusted server validation
+        -- TEST AUTHORIZATION NEGATIVE: Staff cannot directly record server package validation
+        BEGIN
+          PERFORM public.record_server_package_validation(v_version_id, v_batch_id, 'sha-hash-123', 'v1-operational-server', '[]'::jsonb, true, 'k-val-forged');
+          RAISE EXCEPTION 'Direct client validation recording should have failed with permission denied';
+        EXCEPTION WHEN OTHERS THEN
+          IF SQLSTATE <> '42501' THEN
+            RAISE EXCEPTION 'Expected 42501 for direct client validation recording, got % (%)', SQLSTATE, SQLERRM;
+          END IF;
+        END;
+
+        -- Record trusted server validation via trusted service_role context
+        RESET ROLE;
+        SET LOCAL ROLE service_role;
         PERFORM public.record_server_package_validation(v_version_id, v_batch_id, 'sha-hash-123', 'v1-operational-server', '[]'::jsonb, true, 'k-val-1');
+        SET LOCAL ROLE authenticated;
+        PERFORM set_config('request.jwt.claim.sub', v_staff::text, true);
 
         -- Submit for review with valid server validation
         PERFORM public.submit_resource_for_review(v_resource_id, 2, 'k-4-valid');

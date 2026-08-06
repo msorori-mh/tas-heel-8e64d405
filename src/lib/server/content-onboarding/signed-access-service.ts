@@ -67,18 +67,9 @@ export async function generateStudentSignedAccess(
     );
 
     if (error || !signedUrl) {
-      const signedToken = Buffer.from(
-        JSON.stringify({
-          lid: lessonId,
-          rid: resourceId,
-          p: publishedPath,
-          exp: Date.now() + signedUrlTtlSeconds * 1000,
-        })
-      ).toString("base64url");
-
       return {
-        granted: true,
-        signedUrl: `https://storage.local/published/${publishedPath}?token=${signedToken}`,
+        granted: false,
+        reason: `Failed to issue signed storage URL: ${error?.message || "Signed URL unavailable"}`,
       };
     }
 
@@ -86,10 +77,11 @@ export async function generateStudentSignedAccess(
       granted: true,
       signedUrl,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
     return {
       granted: false,
-      reason: `Failed to issue signed storage URL: ${err.message}`,
+      reason: `Failed to issue signed storage URL: ${msg}`,
     };
   }
 }

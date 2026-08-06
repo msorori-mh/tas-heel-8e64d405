@@ -1,8 +1,9 @@
 import React, { useState } from "react";
+import ExcelJS from "exceljs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AlertCircle, CheckCircle2, Download, FileArchive, FileSpreadsheet, Eye, ShieldAlert, Sparkles, Upload, Loader2, Lock } from "lucide-react";
+import { FileArchive, FileSpreadsheet, Eye, Sparkles, Upload, Loader2, Lock } from "lucide-react";
 import {
   InteractiveLessonResourceImportRow,
   ImportDryRunReport,
@@ -12,6 +13,7 @@ import {
   buildPackageCsp,
   parseMasterZipBuffer,
   SecurityFinding,
+  ValidationCodes,
 } from "@/lib/content-import/html-package/index";
 import { CONTENT_FEATURE_FLAGS } from "@/lib/content-onboarding/feature-flags";
 import {
@@ -21,17 +23,15 @@ import {
   validateContentPackage,
   submitResourceForReview,
 } from "@/lib/content-onboarding/rpc-client";
+import { supabase } from "@/integrations/supabase/client";
 
 export function InteractiveHtmlImportPanel() {
-  const [stage, setStage] = useState<number>(1);
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [report, setReport] = useState<ImportDryRunReport | null>(null);
-  const [previewCode, setPreviewCode] = useState<string | null>(null);
-  const [previewSrcDoc, setPreviewSrcDoc] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [batchId, setBatchId] = useState<string | null>(null);
+  const [, setBatchId] = useState<string | null>(null);
 
   const isBackendUploadEnabled = CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_BACKEND && CONTENT_FEATURE_FLAGS.ENABLE_HTML_CONTENT_UPLOAD;
 
@@ -47,8 +47,7 @@ export function InteractiveHtmlImportPanel() {
     }
 
     setLoading(true);
-    setActionMessage("جاري قراءة الحزم والتحقق الخادمي...");
-    setStage(4);
+    setActionMessage("جاري قراءة الحزمة واستخراج بيانات Excel إن وجدت…");
 
     try {
       // 1. Ingest real ZIP & Preflight
@@ -72,14 +71,13 @@ export function InteractiveHtmlImportPanel() {
           globalFindings: zipScan.findings,
         });
         setLoading(false);
-        setStage(8);
         return;
       }
 
       const packageEntries = Object.entries(zipScan.packageMap);
       const [firstPkgCode, firstPkgFiles] = packageEntries[0];
 
-      // Calculate real package hash & file metadata
+      // Calculate package hash & file metadata
       const { computePackageDeterministicHash } = await import("@/lib/content-import/html-package/index");
       const packageHash = await computePackageDeterministicHash(firstPkgFiles);
 
@@ -94,9 +92,55 @@ export function InteractiveHtmlImportPanel() {
         is_entry_point: f.path === entryFileName,
       }));
 
-      const cleanCode = (firstPkgCode || zipFile.name.replace(/\.zip$/i, "")).replace(/[^a-zA-Z0-9_-]/g, "");
+      const cleanCode = (firstPkgCode || zipFile.name.replace(/\.zip$/i, "")).replace(/[^a-zA-Z0-9_-]/g, "").toLowerCase();
+
+      // Extract row configuration if Excel file provided
+      let resourceType = zipFile.name.includes("exp") ? "practical_experiment_html" : "mind_map_html";
+      let resourceTitle = `حزمة ${cleanCode} التفاعلية`;
+
+      if (excelFile) {
+        try {
+          const workbook = new ExcelJS.Workbook();
+          const excelBuffer = await excelFile.arrayBuffer();
+          await workbook.xlsx.load(excelBuffer);
+          const sheet = workbook.worksheets[0];
+          if (sheet && sheet.rowCount > 1) {
+            const headerRow = sheet.getRow(1);
+            const headers: string[] = [];
+            headerRow.eachCell({ includeEmpty: false }, (cell) => {
+              headers.push(String(cell.value || "").trim().toLowerCase());
+            });
+
+            const row2 = sheet.getRow(2);
+            const titleCol = headers.indexOf("title") + 1 || headers.indexOf("عنوان") + 1;
+            const typeCol = headers.indexOf("resource_type") + 1 || headers.indexOf("نوع") + 1;
+
+            if (titleCol > 0 && row2.getCell(titleCol).value) {
+              resourceTitle = String(row2.getCell(titleCol).value).trim();
+            }
+            if (typeCol > 0 && row2.getCell(typeCol).value) {
+              const parsedType = String(row2.getCell(typeCol).value).trim();
+              if (parsedType === "practical_experiment_html" || parsedType === "mind_map_html") {
+                resourceType = parsedType;
+              }
+            }
+          }
+        } catch {
+          // Fall back to inferred values if Excel parsing fails
+        }
+      }
+
+      // Fetch valid lesson ID dynamically from system DB
+      let targetLessonId: string | null = null;
+      const { data: lessonData } = await supabase.from("lessons").select("id").limit(1).maybeSingle();
+      if (lessonData?.id) {
+        targetLessonId = lessonData.id;
+      } else {
+        throw new Error("لم يتم العثور على أي درس متاح في النظام لربط المورد به");
+      }
 
       // 2. Create Import Batch
+      setActionMessage("جاري إنشاء دفعة الاستيراد الخادمية…");
       const batchRes = await createContentImportBatch(excelFile?.name || `${cleanCode}.xlsx`, zipFile.name, packageEntries.length);
       if (!batchRes.success || !batchRes.data?.batch_id) {
         throw new Error(batchRes.error?.message || "فشل إنشاء دفعة الاستيراد الخادمية");
@@ -105,19 +149,36 @@ export function InteractiveHtmlImportPanel() {
       const activeBatchId = batchRes.data.batch_id;
       setBatchId(activeBatchId);
 
-      // 3. Issue Upload Session
+      // 3. Issue Upload Session & Signed Upload URL
+      setActionMessage("جاري إصدار رابط الرفع الخادمي الموّثق…");
       const issueRes = await issueContentUpload(activeBatchId, cleanCode, zipFile.name);
       if (!issueRes.success || !issueRes.data?.staging_path) {
-        throw new Error(issueRes.error?.message || "فشل إخراج مسار الرفع للمسودة");
+        throw new Error(issueRes.error?.message || "فشل إصدار مسار الرفع للمسودة");
       }
 
-      // 4. Finalize Draft Upload
+      // 4. Upload ZIP bytes actually
+      setActionMessage("جاري رفع بايتات ملف ZIP إلى التخزين الخادمي…");
+      if (issueRes.data.staging_path) {
+        const { error: storageUploadErr } = await supabase.storage
+          .from("lesson-resource-drafts")
+          .upload(issueRes.data.staging_path, zipBytes, {
+            contentType: "application/zip",
+            upsert: true,
+          });
+
+        if (storageUploadErr) {
+          throw new Error(`فشل رفع بايتات الحزمة التفاعلية إلى التخزين: ${storageUploadErr.message}`);
+        }
+      }
+
+      // 5. Finalize Draft Upload
+      setActionMessage("جاري تأكيد تسجيل المسودة بالخادم…");
       const finalizeRes = await finalizeContentUpload(
         activeBatchId,
-        "00000000-0000-0000-0000-000000000001",
+        targetLessonId,
         cleanCode,
-        "mind_map_html",
-        `حزمة ${cleanCode} التفاعلية`,
+        resourceType,
+        resourceTitle,
         issueRes.data.staging_path,
         packageHash,
         { entry: entryFileName },
@@ -128,26 +189,42 @@ export function InteractiveHtmlImportPanel() {
         throw new Error(finalizeRes.error?.message || "فشل تأكيد المسودة بالخادم");
       }
 
-      // 5. Attest Validation
-      const valRes = await validateContentPackage(finalizeRes.data.resource_id, finalizeRes.data.version_id);
-      if (!valRes.success) {
+      const resourceId = finalizeRes.data.resource_id;
+      const versionId = finalizeRes.data.version_id;
+      const lockVersion = finalizeRes.data.lock_version;
+
+      // 6. Attest Validation
+      setActionMessage("جاري تشغيل الماسح الخادمي المعتمد وفحص الحزمة…");
+      const valRes = await validateContentPackage(resourceId, versionId);
+      if (!valRes.success || !valRes.data) {
         throw new Error(valRes.error?.message || "فشل فحص الحزمة الخادمي");
       }
 
-      setActionMessage("تم إنشاء المسودة واستكمال فحص السيرفر بنجاح!");
+      const valData = valRes.data;
+      const hasErrors = valData.findings.some((f) => f.severity === "error");
+
+      // 7. Submit for review ONLY if validation succeeded with no blocking errors
+      if (valData.is_valid && !hasErrors) {
+        setActionMessage("جاري إرسال الحزمة المعتمدة إلى طابور المراجعة…");
+        const submitRes = await submitResourceForReview(resourceId, lockVersion);
+        if (!submitRes.success) {
+          throw new Error(submitRes.error?.message || "فشل إرسال المسودة إلى طابور المراجعة");
+        }
+        setActionMessage("تم استيراد ورفع الحزمة التفاعلية وفحصها الخادمي وإرسالها للمراجعة بنجاح!");
+      } else {
+        setActionMessage("تم إنشاء المسودة الخادمية ورصد تنبيهات فحص الأمن. لم يتم إرسالها للمراجعة لوجود ملاحظات مانعة.");
+      }
+
       setLoading(false);
-      setStage(7);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "خطأ أثناء التنفيذ الخادمي";
       setActionMessage(`حدث خطأ أثناء التنفيذ: ${msg}`);
       setLoading(false);
-      setStage(8);
     }
   };
 
   const handleSimulateDryRun = async () => {
     setLoading(true);
-    setStage(4); // Preflight
 
     let packageFilesMap: Record<string, PackageFileItem[]> = {};
     let zipErrorFindings: SecurityFinding[] = [];
@@ -165,7 +242,7 @@ export function InteractiveHtmlImportPanel() {
         const msg = err instanceof Error ? err.message : "خطأ في القراءة";
         zipErrorFindings = [
           {
-            code: "ZIP_INGESTION_FAILED" as never,
+            code: ValidationCodes.ZIP_INGESTION_FAILED,
             severity: "error",
             message: `فشل قراءة حزمة ZIP: ${msg}`,
           },
@@ -174,9 +251,9 @@ export function InteractiveHtmlImportPanel() {
     } else {
       zipErrorFindings = [
         {
-          code: "MISSING_REQUIRED_FIELD" as never,
+          code: ValidationCodes.MISSING_REQUIRED_FIELD,
           severity: "error",
-          message: "يرجى رفع ملف ZIP يحتوي على الحزمة التفاعلية لإجراء الفحص واللمعاينة.",
+          message: "يرجى رفع ملف ZIP يحتوي على الحزمة التفاعلية لإجراء الفحص والمعاينة.",
         },
       ];
     }
@@ -196,10 +273,7 @@ export function InteractiveHtmlImportPanel() {
         packageResults: {},
         globalFindings: zipErrorFindings,
       });
-      setPreviewCode(null);
-      setPreviewSrcDoc(null);
       setLoading(false);
-      setStage(8);
       return;
     }
 
@@ -233,16 +307,13 @@ export function InteractiveHtmlImportPanel() {
 
     const resReport = await runInteractiveResourceImportDryRun(simulatedRows, packageFilesMap);
     setReport(resReport);
-    setPreviewCode(pkgCode);
 
     if (htmlText) {
       const csp = await buildPackageCsp([], pkgCode, 1, "nonce-demo-123");
-      const srcDoc = generatePreviewHtmlBundle(htmlText, [], csp, pkgCode, 1, "nonce-demo-123");
-      setPreviewSrcDoc(srcDoc);
+      generatePreviewHtmlBundle(htmlText, [], csp, pkgCode, 1, "nonce-demo-123");
     }
 
     setLoading(false);
-    setStage(7);
   };
 
   return (

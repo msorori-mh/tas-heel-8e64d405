@@ -89,14 +89,15 @@ export async function promoteStagingToPublished(
       promoted: true,
       status: "promoted",
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
     return {
       publishedPath,
       bucket,
       contentSha256,
       promoted: false,
       status: "failed",
-      errorDetails: err.message,
+      errorDetails: msg,
     };
   }
 }

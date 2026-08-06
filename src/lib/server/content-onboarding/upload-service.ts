@@ -102,25 +102,14 @@ export async function issueServerUploadSession(
   const bucket = "lesson-resource-drafts";
   const stagingPath = `staging/${actorId}/${batchId}/${uploadSessionId}/${cleanFilename}`;
 
-  let signedUploadUrl: string | undefined;
-  let token: string | undefined;
-
-  try {
-    const res = await storageAdapter.createSignedUploadUrl(bucket, stagingPath);
-    signedUploadUrl = res.signedUrl;
-    token = res.token;
-  } catch (err: any) {
-    // Graceful fallback for non-connected offline test environment
-    signedUploadUrl = `https://supabase.local/storage/v1/object/upload/sign/${bucket}/${stagingPath}`;
-    token = "test-token";
-  }
+  const res = await storageAdapter.createSignedUploadUrl(bucket, stagingPath);
 
   return {
     uploadSessionId,
     stagingPath,
     bucket,
     expiresInSeconds: 3600,
-    signedUploadUrl,
-    token,
+    signedUploadUrl: res.signedUrl,
+    token: res.token,
   };
 }

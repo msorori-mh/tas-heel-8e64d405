@@ -1526,7 +1526,7 @@ REVOKE ALL ON FUNCTION public.unpublish_resource_version FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.archive_lesson_resource FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.rollback_published_resource_version FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.fetch_published_lesson_resources FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.record_server_package_validation FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.record_server_package_validation FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.retry_storage_operation FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.fetch_content_review_queue FROM PUBLIC, anon;
 
@@ -1554,7 +1554,7 @@ GRANT EXECUTE ON FUNCTION public.unpublish_resource_version TO authenticated;
 GRANT EXECUTE ON FUNCTION public.archive_lesson_resource TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rollback_published_resource_version TO authenticated;
 GRANT EXECUTE ON FUNCTION public.fetch_published_lesson_resources TO authenticated;
-GRANT EXECUTE ON FUNCTION public.record_server_package_validation TO authenticated;
+GRANT EXECUTE ON FUNCTION public.record_server_package_validation TO service_role;
 GRANT EXECUTE ON FUNCTION public.retry_storage_operation TO authenticated;
 GRANT EXECUTE ON FUNCTION public.fetch_content_review_queue TO authenticated;
 

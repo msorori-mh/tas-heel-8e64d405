@@ -14,7 +14,7 @@ export const CONTENT_FEATURE_FLAGS = {
  */
 export async function isServerFeatureFlagEnabled(flagName: string): Promise<boolean> {
   try {
-    const { data, error } = await (supabase.rpc as any)("check_content_feature_flag", {
+    const { data, error } = await supabase.rpc("check_content_feature_flag", {
       p_flag_name: flagName,
     });
     if (error || typeof data !== "boolean") {

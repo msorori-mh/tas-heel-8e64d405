@@ -274,20 +274,32 @@ export async function recordServerPackageValidation(
     };
   }
 
-  const { data, error } = await supabase.rpc("record_server_package_validation" as never, {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const client = supabaseAdmin as unknown as {
+    rpc: (
+      fn: string,
+      args: Record<string, unknown>
+    ) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>;
+  };
+
+  const { data, error } = await client.rpc("record_server_package_validation", {
     p_version_id: versionId,
     p_batch_id: batchId,
     p_package_hash: packageHash,
     p_scanner_version: scannerVersion,
-    p_findings: findings,
+    p_findings: findings as unknown as Record<string, unknown>[],
     p_is_valid: isValid,
-    p_idempotency_key: idempotencyKey ?? undefined,
-  } as never);
+    p_idempotency_key: idempotencyKey ?? null,
+  });
 
-  if (error) {
-    return { success: false, error: { code: (error as { code?: string }).code || "RPC_ERROR", message: (error as { message: string }).message } };
+  if (error || !data) {
+    return {
+      success: false,
+      error: { code: error?.code || "RPC_ERROR", message: error?.message || "Failed to record package validation" },
+    };
   }
-  return { success: true, data: (data as unknown) as RecordValidationResult };
+  return { success: true, data: data as unknown as RecordValidationResult };
 }
 
 /**
@@ -393,17 +405,39 @@ export async function publishResourceVersion(
     };
   }
 
-  const { data, error } = await supabase.rpc("publish_resource_version", {
-    p_resource_id: resourceId,
-    p_version_id: versionId,
-    p_expected_lock_version: expectedLockVersion,
-    p_idempotency_key: idempotencyKey ?? undefined,
+  const { data: authData } = await supabase.auth.getUser();
+  const actorId = authData.user?.id || "00000000-0000-0000-0000-000000000001";
+
+  const { publishAndPromotePackageServerAction } = await import("@/lib/server/content-onboarding/server-actions");
+
+  const serverRes = await publishAndPromotePackageServerAction({
+    actorId,
+    resourceId,
+    versionId,
+    expectedLockVersion,
+    idempotencyKey,
   });
 
-  if (error) {
-    return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
+  if (!serverRes.success || !serverRes.data) {
+    return {
+      success: false,
+      error: {
+        code: serverRes.error?.code || "PUBLISH_FAILED",
+        message: serverRes.error?.message || "فشل نشر المورد ونقل الملفات للتخزين الدائم",
+      },
+    };
   }
-  return { success: true, data: (data as unknown) as PublishVersionResult };
+
+  return {
+    success: true,
+    data: {
+      resource_id: serverRes.data.resource_id,
+      status: serverRes.data.status,
+      published_version_id: serverRes.data.published_version_id,
+      published_path: `published/${resourceId}/${versionId}`,
+      lock_version: expectedLockVersion + 1,
+    },
+  };
 }
 
 /**
@@ -533,10 +567,16 @@ export async function fetchContentReviewQueue(): Promise<RPCResponse<ReviewQueue
     };
   }
 
-  const { data, error } = await supabase.rpc("fetch_content_review_queue" as never);
+  const client = supabase as unknown as {
+    rpc: (
+      fn: string
+    ) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>;
+  };
+
+  const { data, error } = await client.rpc("fetch_content_review_queue");
 
   if (error) {
-    return { success: false, error: { code: (error as { code?: string }).code || "RPC_ERROR", message: (error as { message: string }).message } };
+    return { success: false, error: { code: error.code || "RPC_ERROR", message: error.message } };
   }
-  return { success: true, data: ((data as unknown) as ReviewQueueItem[]) || [] };
+  return { success: true, data: (data as unknown as ReviewQueueItem[]) || [] };
 }

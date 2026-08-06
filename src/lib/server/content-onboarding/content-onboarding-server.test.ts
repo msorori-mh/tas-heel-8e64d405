@@ -8,11 +8,17 @@ import { ValidationCodes } from "../../content-import/html-package";
 import JSZip from "jszip";
 
 // Mock storage adapter for DI tests
-function createMockStorageAdapter(initialFiles: Record<string, Uint8Array> = {}): StorageClientAdapter & { files: Record<string, Uint8Array> } {
+function createMockStorageAdapter(
+  initialFiles: Record<string, Uint8Array> = {},
+  options?: { failSignedUrl?: boolean; failUploadUrl?: boolean }
+): StorageClientAdapter & { files: Record<string, Uint8Array> } {
   const files: Record<string, Uint8Array> = { ...initialFiles };
   return {
     files,
     async createSignedUploadUrl(bucket: string, path: string) {
+      if (options?.failUploadUrl) {
+        throw new Error("Storage service unavailable for signed upload URL");
+      }
       return {
         signedUrl: `https://storage.test/${bucket}/${path}?sign=token`,
         token: "test-token-123",
@@ -46,6 +52,9 @@ function createMockStorageAdapter(initialFiles: Record<string, Uint8Array> = {})
       return { error: null };
     },
     async createSignedUrl(bucket: string, path: string, expiresIn: number) {
+      if (options?.failSignedUrl) {
+        return { signedUrl: null, error: new Error("Storage signed URL creation failed") };
+      }
       const key = `${bucket}/${path}`;
       if (!files[key]) {
         return { signedUrl: null, error: new Error("File not found") };
@@ -95,6 +104,28 @@ describe("Server-side Content Onboarding Operational Adapters & Workflow", () =>
     assert.ok(session.stagingPath.startsWith("staging/actor-123/batch-456/"), "Staging path must use actor/batch ownership prefix");
     assert.equal(session.bucket, "lesson-resource-drafts");
     assert.ok(session.signedUploadUrl?.includes("lesson-resource-drafts"), "Signed upload URL must be issued");
+  });
+
+  it("should throw explicit error on storage upload URL issuance failure without fake URL", async () => {
+    const failingAdapter = createMockStorageAdapter({}, { failUploadUrl: true });
+    await assert.rejects(
+      async () => {
+        await issueServerUploadSession(
+          {
+            actorId: "actor-1",
+            batchId: "batch-1",
+            resourceCode: "MM-001",
+            filename: "package.zip",
+          },
+          failingAdapter
+        );
+      },
+      (err: Error) => {
+        assert.ok(err.message.includes("Storage service unavailable"), "Must throw clear error on storage failure");
+        assert.ok(!err.message.includes("supabase.local"), "Must not produce fake supabase.local URL");
+        return true;
+      }
+    );
   });
 
   it("should build deterministic published path and execute staging-to-published promotion via adapter", async () => {
@@ -155,7 +186,7 @@ describe("Server-side Content Onboarding Operational Adapters & Workflow", () =>
     assert.ok(res.packageHash.length > 0, "Must calculate deterministic package hash");
   });
 
-  it("should enforce student signed access rules and issue short-lived URL via adapter", async () => {
+  it("should enforce student signed access rules and return granted=false on signing failure without fake URL", async () => {
     const publishedBytes = new Uint8Array([10, 20, 30]);
     const mockAdapter = createMockStorageAdapter({
       "lesson-resource-published/published/mm-g12-bio-001/1/hash123": publishedBytes,
@@ -188,5 +219,26 @@ describe("Server-side Content Onboarding Operational Adapters & Workflow", () =>
 
     assert.equal(pubAccess.granted, true, "Published access with valid lesson access must be granted");
     assert.ok(pubAccess.signedUrl?.includes("published/mm-g12-bio-001/1/hash123"), "Signed URL must contain published path");
+
+    // Failure case: storage signed URL creation fails -> granted = false, NO fake storage.local URL
+    const failingAdapter = createMockStorageAdapter(
+      { "lesson-resource-published/published/mm-g12-bio-001/1/hash123": publishedBytes },
+      { failSignedUrl: true }
+    );
+
+    const failAccess = await generateStudentSignedAccess(
+      {
+        lessonId: "less-1",
+        resourceId: "res-1",
+        publishedVersionId: "ver-1",
+        status: "published",
+        publishedPath: "published/mm-g12-bio-001/1/hash123",
+        studentCanAccessLesson: true,
+      },
+      failingAdapter
+    );
+
+    assert.equal(failAccess.granted, false, "Signing failure must yield granted=false");
+    assert.equal(failAccess.signedUrl, undefined, "Must not return synthetic storage.local URL on failure");
   });
 });
