@@ -278,9 +278,31 @@ function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
 
 function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
   const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setMsg(null);
+    const v = identifier.trim();
+    if (!/\S+@\S+\.\S+/.test(v)) {
+      setErr("أدخل بريدًا إلكترونيًا صالحًا.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: v, password });
+      if (error) throw error;
+    } catch (e2) {
+      setErr(translateAuthError(e2));
+    } finally {
+      setBusy(false);
+    }
+  };
+
 
   const isEmail = (v: string) => /\S+@\S+\.\S+/.test(v.trim());
   const isPhoneLike = (v: string) => /^\+?\d[\d\s-]{6,}$/.test(v.trim());
