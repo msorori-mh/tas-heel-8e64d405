@@ -110,9 +110,43 @@ function AuthPage() {
 
 function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+
+  const handlePasswordSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setMsg(null);
+    const v = email.trim();
+    if (!/\S+@\S+\.\S+/.test(v)) {
+      setErr("أدخل بريدًا إلكترونيًا صالحًا.");
+      return;
+    }
+    if (password.length < 6) {
+      setErr("كلمة المرور يجب أن تكون 6 أحرف على الأقل.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: v,
+        password,
+        options: { emailRedirectTo: getAuthRedirectUrl("/auth/callback") },
+      });
+      if (error) throw error;
+      if (data.session) {
+        setMsg("تم إنشاء الحساب وتسجيل الدخول.");
+      } else {
+        setMsg("أرسلنا رسالة تأكيد إلى بريدك. افتحها لتفعيل الحساب ثم سجّل الدخول.");
+      }
+    } catch (e2) {
+      setErr(translateAuthError(e2));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const isEmail = (v: string) => /\S+@\S+\.\S+/.test(v.trim());
 
