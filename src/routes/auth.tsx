@@ -17,8 +17,8 @@ export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "الدخول إلى تنوير" },
-      { name: "description", content: "سجّل دخولك أو أنشئ حسابًا جديدًا في تنوير." },
+      { title: "الدخول إلى تمكين" },
+      { name: "description", content: "سجّل دخولك أو أنشئ حسابًا جديدًا في تمكين." },
     ],
   }),
   component: AuthPage,
@@ -140,7 +140,7 @@ function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
           <Sparkles className="h-3.5 w-3.5" />
           حساب جديد
         </div>
-        <h1 className="mt-3 text-2xl font-extrabold">أنشئ حسابك في تنوير</h1>
+        <h1 className="mt-3 text-2xl font-extrabold">أنشئ حسابك في تمكين</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           انضم إلى آلاف طلاب الثانوية وابدأ رحلتك للتفوّق.
         </p>
@@ -318,7 +318,7 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
       </form>
 
       <p className="text-center text-xs text-muted-foreground">
-        جديد على تنوير؟{" "}
+        جديد على تمكين؟{" "}
         <button type="button" onClick={onSwitch} className="font-bold text-accent hover:underline">
           أنشئ حسابًا الآن
         </button>

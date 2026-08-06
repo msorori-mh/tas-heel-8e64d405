@@ -235,7 +235,7 @@ function SettingsPage() {
       <header>
         <h1 className="text-2xl font-bold text-foreground">الإعدادات</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          إدارة حسابك ومعلوماتك في منصة تنوير.
+          إدارة حسابك ومعلوماتك في منصة تمكين.
         </p>
       </header>
 
@@ -525,7 +525,7 @@ function SettingsPage() {
         {/* معلومات التطبيق */}
         <SectionItem value="about" icon={<Info className="h-4 w-4" />} title="معلومات التطبيق">
           <div className="space-y-1 text-sm">
-            <p className="font-semibold text-foreground">تنوير</p>
+            <p className="font-semibold text-foreground">تمكين</p>
             <p className="text-xs text-muted-foreground">
               منصة تعليمية لطلاب المرحلة الثانوية.
             </p>

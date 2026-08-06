@@ -281,7 +281,7 @@ const templates: Template[] = [
     columns: [
       { key: "type", label: "type", required: true, example: "bank", note: "bank|exchange|ewallet|..." },
       { key: "name", label: "name", required: true, example: "بنك الكريمي" },
-      { key: "account_name", label: "account_name", required: false, example: "تنوير" },
+      { key: "account_name", label: "account_name", required: false, example: "تمكين" },
       { key: "account_number", label: "account_number", required: false, example: "1234567890", note: "اجعله Text لتفادي notation" },
       { key: "details", label: "details", required: false, example: "" },
       { key: "logo_url", label: "logo_url", required: false, example: "" },
@@ -289,7 +289,7 @@ const templates: Template[] = [
       { key: "is_active", label: "is_active", required: false, example: "TRUE" },
       { key: "sort_order", label: "sort_order", required: false, example: 1 },
     ],
-    examples: [["ewallet", "محفظة جوّالي", "تنوير", "777123456", "", "", "", "TRUE", 2]],
+    examples: [["ewallet", "محفظة جوّالي", "تمكين", "777123456", "", "", "", "TRUE", 2]],
     notes: ["لا تعدّل المدفوعات الفعلية للطلاب"],
   },
 ];
@@ -359,7 +359,7 @@ const TEMPLATE_CREATED = new Date("2026-01-01T00:00:00.000Z");
 
 async function generate(t: Template) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Tanweer Import System";
+  wb.creator = "Tamkeen Import System";
   wb.created = TEMPLATE_CREATED;
 
   // main sheet

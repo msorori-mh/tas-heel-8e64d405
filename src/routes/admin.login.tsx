@@ -10,10 +10,10 @@ import { useAuth } from "@/hooks/use-auth";
 export const Route = createFileRoute("/admin/login")({
   head: () => ({
     meta: [
-      { title: "دخول لوحة الإدارة — تنوير" },
+      { title: "دخول لوحة الإدارة — تمكين" },
       {
         name: "description",
-        content: "تسجيل دخول حسابات الإدارة إلى لوحة تنوير.",
+        content: "تسجيل دخول حسابات الإدارة إلى لوحة تمكين.",
       },
     ],
   }),
