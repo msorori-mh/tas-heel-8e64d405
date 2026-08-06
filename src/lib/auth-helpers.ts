@@ -9,6 +9,11 @@ export function translateAuthError(error: unknown): string {
     return "هذا البريد مسجّل مسبقاً، حاول تسجيل الدخول";
   if (m.includes("password should be at least") || m.includes("weak password"))
     return "كلمة المرور ضعيفة، استخدم 6 أحرف على الأقل";
+  const wait = m.match(/after (\d+) seconds?/);
+  if (m.includes("for security purposes") || wait)
+    return wait
+      ? `لأسباب أمنية، يمكنك المحاولة مرة أخرى بعد ${wait[1]} ثانية`
+      : "لأسباب أمنية، حاول مرة أخرى بعد قليل";
   if (m.includes("rate limit") || m.includes("too many"))
     return "محاولات كثيرة، حاول بعد قليل";
   if (m.includes("network") || m.includes("fetch"))
