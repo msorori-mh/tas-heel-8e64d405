@@ -27,13 +27,34 @@ export const Route = createFileRoute("/auth")({
 const PHONE_OTP_ENABLED = false;
 
 async function signInWithGoogle() {
-  const { error } = await supabase.auth.signInWithOAuth({
+  // Google blocks its sign-in page inside iframes (403). Get the URL first and
+  // open it in the top-level window / a new tab instead of the embedded frame.
+  const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
       redirectTo: getAuthRedirectUrl("/auth/callback"),
+      skipBrowserRedirect: true,
     },
   });
   if (error) throw error;
+  const url = data?.url;
+  if (!url) throw new Error("تعذّر بدء تسجيل الدخول عبر Google.");
+
+  const isEmbedded = typeof window !== "undefined" && window.top !== window.self;
+  if (isEmbedded) {
+    try {
+      // Same-origin parent (rare) — navigate the top frame.
+      if (window.top?.location.origin === window.location.origin) {
+        window.top.location.href = url;
+        return;
+      }
+    } catch {
+      /* cross-origin parent: fall through to opening a new tab */
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  window.location.href = url;
 }
 
 function AuthPage() {
@@ -89,9 +110,43 @@ function AuthPage() {
 
 function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+
+  const handlePasswordSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setMsg(null);
+    const v = email.trim();
+    if (!/\S+@\S+\.\S+/.test(v)) {
+      setErr("أدخل بريدًا إلكترونيًا صالحًا.");
+      return;
+    }
+    if (password.length < 6) {
+      setErr("كلمة المرور يجب أن تكون 6 أحرف على الأقل.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: v,
+        password,
+        options: { emailRedirectTo: getAuthRedirectUrl("/auth/callback") },
+      });
+      if (error) throw error;
+      if (data.session) {
+        setMsg("تم إنشاء الحساب وتسجيل الدخول.");
+      } else {
+        setMsg("أرسلنا رسالة تأكيد إلى بريدك. افتحها لتفعيل الحساب ثم سجّل الدخول.");
+      }
+    } catch (e2) {
+      setErr(translateAuthError(e2));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const isEmail = (v: string) => /\S+@\S+\.\S+/.test(v.trim());
 
@@ -160,7 +215,7 @@ function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
         <div className="h-px flex-1 bg-border" /> أو عبر البريد <div className="h-px flex-1 bg-border" />
       </div>
 
-      <form onSubmit={handleEmailSignup} className="space-y-3">
+      <form onSubmit={handlePasswordSignup} className="space-y-3">
         <div>
           <Label htmlFor="signup-email">البريد الإلكتروني</Label>
           <Input
@@ -170,6 +225,22 @@ function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="name@example.com"
+            autoComplete="email"
+            required
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="signup-password">كلمة المرور</Label>
+          <Input
+            id="signup-password"
+            type="password"
+            dir="ltr"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="6 أحرف على الأقل"
+            autoComplete="new-password"
+            minLength={6}
             required
           />
         </div>
@@ -184,9 +255,10 @@ function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
           disabled={busy}
         >
           <Mail className="ml-2 h-4 w-4" />
-          {busy ? "..." : "أنشئ حسابي عبر البريد"}
+          {busy ? "..." : "أنشئ حسابي بالبريد وكلمة المرور"}
         </Button>
       </form>
+
 
       <ul className="space-y-1.5 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
         <li className="flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-accent" /> مجاني للبدء — بدون بطاقة</li>
@@ -206,9 +278,31 @@ function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
 
 function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
   const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setMsg(null);
+    const v = identifier.trim();
+    if (!/\S+@\S+\.\S+/.test(v)) {
+      setErr("أدخل بريدًا إلكترونيًا صالحًا.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: v, password });
+      if (error) throw error;
+    } catch (e2) {
+      setErr(translateAuthError(e2));
+    } finally {
+      setBusy(false);
+    }
+  };
+
 
   const isEmail = (v: string) => /\S+@\S+\.\S+/.test(v.trim());
   const isPhoneLike = (v: string) => /^\+?\d[\d\s-]{6,}$/.test(v.trim());
@@ -282,25 +376,35 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
       </Button>
 
       <div className="my-2 flex items-center gap-3 text-xs text-muted-foreground">
-        <div className="h-px flex-1 bg-border" /> أو عبر كود <div className="h-px flex-1 bg-border" />
+        <div className="h-px flex-1 bg-border" /> أو بالبريد وكلمة المرور <div className="h-px flex-1 bg-border" />
       </div>
 
-      <form onSubmit={handleSendCode} className="space-y-3">
+      <form onSubmit={handlePasswordLogin} className="space-y-3">
         <div>
-          <Label htmlFor="id">البريد الإلكتروني أو رقم الهاتف</Label>
+          <Label htmlFor="id">البريد الإلكتروني</Label>
           <Input
             id="id"
+            type="email"
             dir="ltr"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             placeholder="name@example.com"
+            autoComplete="email"
             required
           />
-          {!PHONE_OTP_ENABLED && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              تسجيل الدخول برقم الهاتف سيتوفر قريبًا.
-            </p>
-          )}
+        </div>
+
+        <div>
+          <Label htmlFor="login-password">كلمة المرور</Label>
+          <Input
+            id="login-password"
+            type="password"
+            dir="ltr"
+            value={password}
+            onChange={(e) => { setPassword(e.target.value); setErr(null); setMsg(null); }}
+            autoComplete="current-password"
+            required
+          />
         </div>
 
         {err && <p className="text-sm text-destructive">{err}</p>}
@@ -308,14 +412,34 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
 
         <Button
           type="submit"
+          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
+          disabled={busy}
+        >
+          <LogIn className="ml-2 h-4 w-4" />
+          {busy ? "..." : "تسجيل الدخول"}
+        </Button>
+
+        <Button
+          type="button"
           variant="outline"
           className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
           disabled={busy}
+          onClick={(e) => handleSendCode(e as unknown as React.FormEvent)}
         >
           <Mail className="ml-2 h-4 w-4" />
-          {busy ? "..." : "أرسل لي كود الدخول"}
+          أرسل لي رابط الدخول بدل كلمة المرور
         </Button>
+
+        <p className="text-center text-xs text-muted-foreground">
+          <Link to="/forgot-password" className="hover:underline">نسيت كلمة المرور؟</Link>
+        </p>
+        {!PHONE_OTP_ENABLED && (
+          <p className="text-center text-xs text-muted-foreground">
+            تسجيل الدخول برقم الهاتف سيتوفر قريبًا.
+          </p>
+        )}
       </form>
+
 
       <p className="text-center text-xs text-muted-foreground">
         جديد على تمكين؟{" "}
