@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, redirect, useNavigate, useRouterState } from "
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { StudentNav } from "@/components/student/StudentNav";
+import { StudentShell } from "@/components/student/StudentShell";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -28,7 +28,7 @@ function AuthenticatedLayout() {
     }
   }, [loading, profile, profileComplete, isAdmin, isContentStaff, navigate]);
 
-  // Admin pages render their own AdminLayout — no StudentNav and no max-width wrapper.
+  // Admin pages render their own AdminLayout — no student shell.
   if (isAdminArea) {
     return (
       <div className="admin-app-bg min-h-screen text-foreground" dir="rtl">
@@ -38,11 +38,9 @@ function AuthenticatedLayout() {
   }
 
   return (
-    <div className="student-app-bg min-h-screen text-foreground" dir="rtl">
-      <StudentNav />
-      <main className="mx-auto max-w-5xl px-4 py-6">
-        <Outlet />
-      </main>
-    </div>
+    <StudentShell>
+      <Outlet />
+    </StudentShell>
   );
 }
+

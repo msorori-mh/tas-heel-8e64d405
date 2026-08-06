@@ -6,10 +6,28 @@ import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
+import { Breadcrumbs } from "@/components/student/Breadcrumbs";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
-import { ClipboardList, ChevronLeft, BookOpen, Layers, FileText, Home } from "lucide-react";
+import {
+  ClipboardList,
+  ChevronLeft,
+  BookOpen,
+  CheckCircle2,
+  Layers,
+  FileText,
+  Home,
+  PlayCircle,
+} from "lucide-react";
 import { semesterLabel, type Semester } from "@/lib/subject-semester";
+import { getSubjectIcon } from "@/lib/subjects/subject-icon";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 
 const searchSchema = z.object({
@@ -26,6 +44,7 @@ type Subject = {
   name: string;
   grade_id: string;
   curriculum_track_id: string | null;
+  icon: string | null;
 };
 
 type Unit = {
@@ -49,14 +68,14 @@ type Lesson = {
 function SubjectIndexPage() {
   const { subjectId } = Route.useParams();
   const { semester } = Route.useSearch();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
 
   const { data: subject, isLoading: loadingSubject } = useQuery({
     queryKey: ["subject-meta", subjectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subjects")
-        .select("id,name,grade_id,curriculum_track_id")
+        .select("id,name,grade_id,curriculum_track_id,icon")
         .eq("id", subjectId)
         .maybeSingle();
       if (error) throw error;
@@ -112,6 +131,24 @@ function SubjectIndexPage() {
     },
   });
 
+  const lessonIds = useMemo(() => (data?.lessons ?? []).map((l) => l.id), [data]);
+
+  const { data: completedIds } = useQuery({
+    enabled: !!user?.id && lessonIds.length > 0,
+    queryKey: ["subject-progress", subjectId, user?.id, lessonIds.length],
+    queryFn: async () => {
+      const { data: rows, error: err } = await supabase
+        .from("user_progress")
+        .select("lesson_id,completed")
+        .eq("user_id", user!.id)
+        .in("lesson_id", lessonIds);
+      if (err) throw err;
+      return new Set(
+        (rows ?? []).filter((r) => r.completed).map((r) => r.lesson_id as string),
+      );
+    },
+  });
+
   const { data: hasActiveSub } = useQuery({
     enabled: !!profile?.user_id && !STUDENT_FREE_ACCESS,
     queryKey: ["has-active-subscription", profile?.user_id],
@@ -137,18 +174,33 @@ function SubjectIndexPage() {
     },
   });
 
-  const canAccessExams =
-    STUDENT_FREE_ACCESS || Boolean(isAdmin) || Boolean(hasActiveSub);
+  const canAccessExams = STUDENT_FREE_ACCESS || Boolean(isAdmin) || Boolean(hasActiveSub);
+
+  const backCrumbs = [
+    { label: "الرئيسية", to: "/app" },
+    { label: "موادي", to: "/semesters" },
+    ...(semester
+      ? [
+          {
+            label: semesterLabel(semester as Semester),
+            to: "/semesters/$semester",
+            params: { semester: String(semester) },
+          },
+        ]
+      : []),
+  ];
 
   if (loadingSubject) return <StateMessage variant="loading">جارٍ التحميل…</StateMessage>;
   if (!subject || accessible === false) {
     return (
-      <div>
-        <Breadcrumbs subjectName={null} />
+      <div className="space-y-4" dir="rtl">
+        <Breadcrumbs items={[...backCrumbs, { label: "المادة" }]} />
         <StateMessage>هذه المادة غير متاحة.</StateMessage>
-        <div className="mt-4 text-center">
+        <div className="text-center">
           <Button asChild variant="outline">
-            <Link to="/app" search={{ semester }}><Home className="ml-1 h-4 w-4" /> العودة إلى موادي</Link>
+            <Link to="/semesters">
+              <Home className="ml-1 h-4 w-4" /> العودة إلى موادي
+            </Link>
           </Button>
         </div>
       </div>
@@ -169,52 +221,75 @@ function SubjectIndexPage() {
   const orphans = lessonsByUnit.get(null) ?? [];
   const hasAny = units.length > 0 || lessons.length > 0;
 
+  const done = completedIds ?? new Set<string>();
+  const completedCount = lessons.filter((l) => done.has(l.id)).length;
+  const percent = lessons.length > 0 ? Math.round((completedCount / lessons.length) * 100) : 0;
+  const nextLesson = lessons.find((l) => !done.has(l.id));
+
+  const SubjectIcon = getSubjectIcon(subject.name, subject.icon);
+
+  // Open the unit that contains the next unfinished lesson.
+  const defaultOpen =
+    units.find((u) => (lessonsByUnit.get(u.id) ?? []).some((l) => !done.has(l.id)))?.id ??
+    units[0]?.id;
+
   return (
-    <div className="space-y-5">
-      <Breadcrumbs subjectName={subject.name} semester={semester} />
+    <div className="space-y-5" dir="rtl">
+      <Breadcrumbs items={[...backCrumbs, { label: subject.name }]} />
 
       <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
-        <div className="flex items-start justify-between gap-2">
-          <h1 className="text-xl font-bold text-foreground">{subject.name}</h1>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
+          <span
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+            aria-hidden
+          >
+            <SubjectIcon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold text-foreground">{subject.name}</h1>
+            <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <Layers className="h-3.5 w-3.5" /> {units.length} وحدة
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <FileText className="h-3.5 w-3.5" /> {lessons.length} درس
+              </span>
+            </div>
+          </div>
           {semester && (
             <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
               {semester === 1 ? "الفصل الأول" : "الفصل الثاني"}
             </span>
           )}
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {semester
-            ? `فهرس المادة — ${semesterLabel(semester as Semester)}`
-            : "فهرس المادة"}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1">
-            <Layers className="h-3.5 w-3.5" /> {units.length} وحدة
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <FileText className="h-3.5 w-3.5" /> {lessons.length} درس
-          </span>
-        </div>
+
+        {lessons.length > 0 && (
+          <div className="mt-4">
+            <div className="mb-1.5 flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">تقدمك في المادة</span>
+              <span className="font-semibold text-foreground">
+                {completedCount}/{lessons.length} · {percent}%
+              </span>
+            </div>
+            <Progress value={percent} className="h-2" />
+          </div>
+        )}
+
+        {nextLesson && (
+          <Button asChild variant="hero" className="mt-4 w-full gap-2 sm:w-auto">
+            <Link to="/lessons/$lessonId" params={{ lessonId: nextLesson.id }}>
+              <PlayCircle className="h-4 w-4" aria-hidden />
+              {completedCount > 0 ? "أكمل من حيث توقفت" : "ابدأ أول درس"}
+            </Link>
+          </Button>
+        )}
       </header>
 
       {!hasAny && <StateMessage>لم تُضاف دروس لهذه المادة بعد.</StateMessage>}
 
       {hasAny && (
-        <p className="rounded-lg border border-dashed border-border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
-          {STUDENT_FREE_ACCESS
-            ? semester
-              ? `يعرض هذا الفهرس وحدات ودروس ${semesterLabel(semester as Semester)}. المحتوى متاح حالياً مجاناً للطلاب المسجّلين.`
-              : "المحتوى متاح حالياً مجاناً للطلاب المسجّلين."
-            : semester
-              ? `يعرض هذا الفهرس وحدات ودروس ${semesterLabel(semester as Semester)}. المحتوى الأساسي لكل درس متاح، وبعض الإضافات قد تتطلب اشتراكًا.`
-              : "المحتوى الأساسي لكل درس متاح، وبعض الإضافات قد تتطلب اشتراكًا."}
-        </p>
-      )}
-
-      <div className="space-y-5">
-        {units.map((u, idx) => {
-          const items = lessonsByUnit.get(u.id) ?? [];
-          return (
+        <Accordion type="single" collapsible defaultValue={defaultOpen} className="space-y-2.5">
+          {units.map((u, idx) => (
             <UnitBlock
               key={u.id}
               unitId={u.id}
@@ -222,15 +297,23 @@ function SubjectIndexPage() {
               title={u.title}
               description={u.description}
               isFree={u.is_free}
-              lessons={items}
+              lessons={lessonsByUnit.get(u.id) ?? []}
+              completed={done}
             />
-          );
-        })}
+          ))}
 
-        {orphans.length > 0 && (
-          <UnitBlock title="دروس أخرى" description={null} isFree={null} lessons={orphans} />
-        )}
-      </div>
+          {orphans.length > 0 && (
+            <UnitBlock
+              value="__orphans"
+              title="دروس أخرى"
+              description={null}
+              isFree={null}
+              lessons={orphans}
+              completed={done}
+            />
+          )}
+        </Accordion>
+      )}
 
       <ExamTemplatesSection
         scope={{ kind: "subject", subjectId: subject.id }}
@@ -242,126 +325,142 @@ function SubjectIndexPage() {
 
       <div className="pt-2">
         <Button asChild variant="outline" className="gap-1">
-          <Link to="/app" search={{ semester }}><Home className="h-4 w-4" /> العودة إلى موادي</Link>
+          <Link to="/semesters">
+            <Home className="h-4 w-4" /> العودة إلى موادي
+          </Link>
         </Button>
       </div>
     </div>
   );
 }
 
-function Breadcrumbs({
-  subjectName,
-  semester,
-}: {
-  subjectName: string | null;
-  semester?: 1 | 2;
-}) {
-  return (
-    <nav className="text-xs text-muted-foreground" aria-label="مسار التنقل">
-      <Link to="/app" search={{ semester }} className="hover:text-primary">موادي</Link>
-      <span className="mx-1">/</span>
-      <span className="text-foreground">{subjectName ?? "المادة"}</span>
-    </nav>
-  );
-}
-
 function UnitBlock({
   unitId,
+  value,
   index,
   title,
   description,
   isFree,
   lessons,
+  completed,
 }: {
   unitId?: string;
+  value?: string;
   index?: number;
   title: string;
   description: string | null;
   isFree: boolean | null;
   lessons: Lesson[];
+  completed: Set<string>;
 }) {
+  const doneCount = lessons.filter((l) => completed.has(l.id)).length;
+
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-base font-bold text-foreground">
-            {index ? <span className="text-muted-foreground">الوحدة {index}: </span> : null}
-            {title}
-          </h2>
-          {description && (
-            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{description}</p>
+    <AccordionItem
+      value={unitId ?? value ?? title}
+      className="rounded-2xl border border-border bg-card px-4 shadow-card"
+    >
+      <AccordionTrigger className="gap-3 text-right hover:no-underline">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="truncate text-sm font-bold text-foreground">
+              {index ? <span className="text-muted-foreground">الوحدة {index}: </span> : null}
+              {title}
+            </h2>
+            {isFree !== null && !STUDENT_FREE_ACCESS && (
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  isFree
+                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                    : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                }`}
+              >
+                {isFree ? "مجانية" : "ضمن الاشتراك"}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {lessons.length} درس · مكتمل {doneCount}
+          </p>
+        </div>
+      </AccordionTrigger>
+
+      <AccordionContent className="pb-4">
+        {description && (
+          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{description}</p>
+        )}
+
+        {lessons.length === 0 ? (
+          <p className="text-xs text-muted-foreground">لا توجد دروس في هذه الوحدة بعد.</p>
+        ) : (
+          <ul className="space-y-2">
+            {lessons.map((l) => {
+              const isDone = completed.has(l.id);
+              return (
+                <li key={l.id}>
+                  <Link
+                    to="/lessons/$lessonId"
+                    params={{ lessonId: l.id }}
+                    className="flex items-center justify-between rounded-lg border border-border bg-background p-3 transition-colors hover:bg-secondary/40"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
+                          isDone ? "bg-emerald-500/15 text-emerald-600" : "bg-primary/10 text-primary"
+                        }`}
+                      >
+                        {isDone ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <BookOpen className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-foreground">
+                          {l.title}
+                        </div>
+                        {l.duration && (
+                          <div className="text-xs text-muted-foreground">{l.duration}</div>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <div className="mt-3">
+          {unitId ? (
+            <Link
+              to="/units/$unitId/practice"
+              params={{ unitId }}
+              className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary/40"
+              aria-label="اختبار الوحدة"
+            >
+              <ClipboardList className="h-4 w-4 shrink-0" />
+              <div className="min-w-0 text-right">
+                <div className="font-medium">اختبار الوحدة</div>
+                <div className="text-xs">اختبر فهمك بعد إكمال دروس الوحدة.</div>
+              </div>
+            </Link>
+          ) : (
+            <button
+              disabled
+              className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground opacity-60 transition-colors"
+              aria-label="اختبار الوحدة — سيتوفر قريبًا"
+            >
+              <ClipboardList className="h-4 w-4 shrink-0" />
+              <div className="min-w-0 text-right">
+                <div className="font-medium">اختبار الوحدة</div>
+                <div className="text-xs">اختبر فهمك بعد إكمال دروس الوحدة.</div>
+              </div>
+            </button>
           )}
         </div>
-        {isFree !== null && !STUDENT_FREE_ACCESS && (
-          <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-              isFree
-                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
-            }`}
-          >
-            {isFree ? "مجانية" : "ضمن الاشتراك"}
-          </span>
-        )}
-      </div>
-
-      {lessons.length === 0 ? (
-        <p className="mt-2 text-xs text-muted-foreground">لا توجد دروس في هذه الوحدة بعد.</p>
-      ) : (
-        <ul className="mt-3 space-y-2">
-          {lessons.map((l) => (
-            <li key={l.id}>
-              <Link
-                to="/lessons/$lessonId"
-                params={{ lessonId: l.id }}
-                className="flex items-center justify-between rounded-lg border border-border bg-background p-3 transition-colors hover:bg-secondary/40"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
-                    <BookOpen className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-foreground">{l.title}</div>
-                    {l.duration && (
-                      <div className="text-xs text-muted-foreground">{l.duration}</div>
-                    )}
-                  </div>
-                </div>
-                <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="mt-3">
-        {unitId ? (
-          <Link
-            to="/units/$unitId/practice"
-            params={{ unitId }}
-            className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary/40"
-            aria-label="اختبار الوحدة"
-          >
-            <ClipboardList className="h-4 w-4 shrink-0" />
-            <div className="min-w-0 text-right">
-              <div className="font-medium">اختبار الوحدة</div>
-              <div className="text-xs">اختبر فهمك بعد إكمال دروس الوحدة.</div>
-            </div>
-          </Link>
-        ) : (
-          <button
-            disabled
-            className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground opacity-60 transition-colors"
-            aria-label="اختبار الوحدة — سيتوفر قريبًا"
-          >
-            <ClipboardList className="h-4 w-4 shrink-0" />
-            <div className="min-w-0 text-right">
-              <div className="font-medium">اختبار الوحدة</div>
-              <div className="text-xs">اختبر فهمك بعد إكمال دروس الوحدة.</div>
-            </div>
-          </button>
-        )}
-      </div>
-    </section>
+      </AccordionContent>
+    </AccordionItem>
   );
 }

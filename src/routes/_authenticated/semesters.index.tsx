@@ -1,16 +1,28 @@
-import { Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { CalendarDays, ChevronLeft } from "lucide-react";
+import { Breadcrumbs } from "@/components/student/Breadcrumbs";
 
-/** Step 5 of the home page: entry point into each semester's subjects. */
-export function SemesterPicker() {
+export const Route = createFileRoute("/_authenticated/semesters/")({
+  component: SemestersPage,
+});
+
+function SemestersPage() {
   return (
-    <section id="start-studying" className="scroll-mt-20">
-      <h2 className="mb-3 text-sm font-bold text-foreground">الفصول الدراسية</h2>
+    <div className="space-y-4" dir="rtl">
+      <Breadcrumbs items={[{ label: "الرئيسية", to: "/app" }, { label: "موادي" }]} />
+
+      <header>
+        <h1 className="text-headline text-foreground">موادي</h1>
+        <p className="mt-1 text-xs text-muted-foreground">
+          اختر الفصل الدراسي لعرض المواد الخاصة بمنهجك وصفك.
+        </p>
+      </header>
+
       <div className="grid gap-2.5 sm:grid-cols-2">
         <SemesterCard semester={1} label="الفصل الدراسي الأول" subtitle="مواد الفصل الأول" />
         <SemesterCard semester={2} label="الفصل الدراسي الثاني" subtitle="مواد الفصل الثاني" />
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -27,7 +39,7 @@ function SemesterCard({
     <Link
       to="/semesters/$semester"
       params={{ semester: String(semester) }}
-      className="group flex w-full items-center justify-between rounded-xl border border-border/60 bg-card p-4 text-right shadow-sm transition-shadow hover:shadow-md"
+      className="group flex items-center justify-between rounded-xl border border-border/60 bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="flex min-w-0 items-center gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
