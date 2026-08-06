@@ -28,7 +28,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-
+  Lightbulb,
   Trophy,
   Target,
   ScrollText,
