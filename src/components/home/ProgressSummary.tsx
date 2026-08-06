@@ -1,70 +1,70 @@
-import { Flame, Star, ClipboardCheck, TrendingUp } from "lucide-react";
+import { Flame, Star, ClipboardCheck, BookOpenCheck } from "lucide-react";
 import type { HomeStats } from "@/hooks/use-home-dashboard";
 
-type ProgressSummaryProps = {
-  stats: HomeStats | undefined;
-  loading: boolean;
-};
-
-const cards = [
-  {
-    key: "streak",
-    icon: Flame,
-    label: "أيام متتالية",
-    cardClass: "card-edu-achievement",
-    iconClass: "edu-achievement",
-  },
-  {
-    key: "points",
-    icon: Star,
-    label: "النقاط",
-    cardClass: "card-edu-achievement",
-    iconClass: "edu-achievement",
-  },
-  {
-    key: "exams",
-    icon: ClipboardCheck,
-    label: "اختبارات مكتملة",
-    cardClass: "card-edu-exam",
-    iconClass: "edu-exam",
-  },
-  {
-    key: "progress",
-    icon: TrendingUp,
-    label: "التقدم العام",
-    cardClass: "card-edu-progress",
-    iconClass: "edu-progress",
-  },
-] as const;
-
-export function ProgressSummary({ stats, loading }: ProgressSummaryProps) {
-  const values: Record<string, string> = {
-    streak: stats ? `${stats.streakDays}` : "0",
-    points: stats ? stats.totalPoints.toLocaleString("ar-EG") : "0",
-    exams: stats ? `${stats.examsCompleted}` : "0",
-    progress: stats ? `${stats.progressPercent}%` : "0%",
-  };
+/** Four compact KPI cards (2x2 on mobile, single row on desktop). */
+export function ProgressSummary({
+  stats,
+  loading,
+}: {
+  stats?: HomeStats;
+  loading?: boolean;
+}) {
+  const items = [
+    {
+      label: "الدروس المكتملة",
+      value: stats ? `${stats.completedLessons}` : "—",
+      hint: stats ? `من ${stats.totalLessons}` : "",
+      icon: BookOpenCheck,
+      tone: "text-primary bg-primary/10",
+    },
+    {
+      label: "الاختبارات",
+      value: stats ? `${stats.examsCompleted}` : "—",
+      hint: "اختبار مكتمل",
+      icon: ClipboardCheck,
+      tone: "text-sky-600 bg-sky-500/10 dark:text-sky-400",
+    },
+    {
+      label: "النقاط",
+      value: stats ? `${stats.totalPoints}` : "—",
+      hint: "نقطة",
+      icon: Star,
+      tone: "text-amber-600 bg-amber-500/10 dark:text-amber-400",
+    },
+    {
+      label: "أيام المواظبة",
+      value: stats ? `${stats.streakDays}` : "—",
+      hint: "يوم متتالٍ",
+      icon: Flame,
+      tone: "text-orange-600 bg-orange-500/10 dark:text-orange-400",
+    },
+  ];
 
   return (
-    <section aria-label="ملخص التقدم">
-      <h2 className="text-headline mb-3 text-foreground">ملخص التقدم</h2>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        {cards.map(({ key, icon: Icon, label, cardClass, iconClass }) => (
-          <div key={key} className={`${cardClass} p-3`}>
-            <div
-              className={`mb-2 flex h-8 w-8 items-center justify-center rounded-lg ${iconClass}`}
+    <section aria-label="إحصائياتي">
+      <ul className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <li
+              key={item.label}
+              className="rounded-xl border border-border/60 bg-card p-3 shadow-sm"
             >
-              <Icon className="h-4 w-4" />
-            </div>
-            {loading ? (
-              <span className="inline-block h-6 w-8 animate-pulse rounded bg-muted" aria-hidden />
-            ) : (
-              <p className="text-lg font-bold text-foreground">{values[key]}</p>
-            )}
-            <p className="mt-0.5 text-[11px] text-muted-foreground">{label}</p>
-          </div>
-        ))}
-      </div>
+              <span
+                className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.tone}`}
+                aria-hidden
+              >
+                <Icon className="h-4 w-4" />
+              </span>
+              <p className="mt-2 text-lg font-black text-foreground">
+                {loading ? <span className="animate-pulse text-muted-foreground">—</span> : item.value}
+              </p>
+              <p className="text-[11px] font-medium text-foreground/80">{item.label}</p>
+              {item.hint && <p className="text-[10px] text-muted-foreground">{item.hint}</p>}
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { ContinueItem } from "@/hooks/use-home-dashboard";
 import { resolveSemesterSearch, type Semester } from "@/lib/subject-semester";
+import { getSubjectIcon } from "@/lib/subjects/subject-icon";
 
 type ContinueSectionProps = {
   items: ContinueItem[];
   loading: boolean;
-  onStartStudy: () => void;
   selectedSemester?: Semester;
 };
 
@@ -18,24 +18,15 @@ function lessonProgress(item: ContinueItem): number {
   return 35;
 }
 
-export function ContinueSection({
-  items,
-  loading,
-  onStartStudy,
-  selectedSemester,
-}: ContinueSectionProps) {
+export function ContinueSection({ items, loading, selectedSemester }: ContinueSectionProps) {
   return (
     <section aria-label="أكمل من حيث توقفت" aria-busy={loading}>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-headline text-foreground">أكمل من حيث توقفت</h2>
         {items.length > 0 && (
-          <button
-            type="button"
-            onClick={onStartStudy}
-            className="text-xs font-semibold text-primary hover:underline"
-          >
+          <Link to="/semesters" className="text-xs font-semibold text-primary hover:underline">
             كل المواد
-          </button>
+          </Link>
         )}
       </div>
 
@@ -55,9 +46,11 @@ export function ContinueSection({
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             لم تبدأ أي درس بعد. اختر فصلك وافتح أول درس — كل خطوة تقربك من الاختبار.
           </p>
-          <Button variant="accent" size="lg" className="mt-4 gap-2" onClick={onStartStudy}>
-            <BookOpen className="h-4 w-4" />
-            ابدأ أول درس الآن
+          <Button asChild variant="accent" size="lg" className="mt-4 gap-2">
+            <Link to="/semesters">
+              <BookOpen className="h-4 w-4" />
+              ابدأ أول درس الآن
+            </Link>
           </Button>
         </div>
       )}
@@ -67,6 +60,7 @@ export function ContinueSection({
           {items.map((item) => {
             const pct = lessonProgress(item);
             const semesterSearch = resolveSemesterSearch(item.semester, selectedSemester);
+            const Icon = getSubjectIcon(item.subjectName);
             return (
               <li key={item.lessonId}>
                 <Link
@@ -76,11 +70,15 @@ export function ContinueSection({
                   className="subject-card-accent card-edu-lesson group flex items-center gap-3 p-3 transition-shadow hover:shadow-card-hover"
                 >
                   <span
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white shadow-sm"
-                    style={{ backgroundColor: item.subjectColor ?? undefined }}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm"
+                    style={
+                      item.subjectColor
+                        ? { backgroundColor: `${item.subjectColor}1a`, color: item.subjectColor }
+                        : undefined
+                    }
                     aria-hidden
                   >
-                    {item.subjectName[0] ?? "م"}
+                    <Icon className="h-5 w-5" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-foreground">

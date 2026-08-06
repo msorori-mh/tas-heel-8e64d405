@@ -5,6 +5,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
+import { Breadcrumbs as SharedBreadcrumbs } from "@/components/student/Breadcrumbs";
+
 import { Button } from "@/components/ui/button";
 import { getLessonFileUrl } from "@/lib/api/lesson-file.functions";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
@@ -24,6 +26,9 @@ import {
   FileText,
   Loader2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+
   Trophy,
   Target,
   ScrollText,
@@ -299,6 +304,30 @@ function LessonPage() {
       return rows.length;
     },
   });
+
+  // Sibling lessons for previous/next navigation inside the same subject.
+  const { data: siblings } = useQuery({
+    enabled: !!lesson?.subject_id && accessible === true,
+    queryKey: ["lesson-siblings", lesson?.subject_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lessons")
+        .select("id,title,sort_order")
+        .eq("subject_id", lesson!.subject_id)
+        .order("sort_order")
+        .order("title");
+      if (error) throw error;
+      return (data ?? []) as { id: string; title: string; sort_order: number }[];
+    },
+  });
+
+  const siblingIndex = siblings?.findIndex((s) => s.id === lessonId) ?? -1;
+  const prevLesson = siblingIndex > 0 ? siblings![siblingIndex - 1] : null;
+  const nextLesson =
+    siblings && siblingIndex >= 0 && siblingIndex < siblings.length - 1
+      ? siblings[siblingIndex + 1]
+      : null;
+
 
   const mindmaps = (resources ?? []).filter((r) => r.resource_type === "mindmap");
   const videos = (resources ?? []).filter((r) => r.resource_type === "video");
@@ -596,6 +625,32 @@ function LessonPage() {
         </JourneyCard>
       </div>
 
+      <nav
+        aria-label="التنقل بين الدروس"
+        className="grid grid-cols-2 gap-2.5 border-t border-border/60 pt-4"
+      >
+        {prevLesson ? (
+          <Button asChild variant="outline" className="justify-start gap-1.5">
+            <Link to="/lessons/$lessonId" params={{ lessonId: prevLesson.id }}>
+              <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="truncate">{prevLesson.title}</span>
+            </Link>
+          </Button>
+        ) : (
+          <span />
+        )}
+        {nextLesson ? (
+          <Button asChild variant="hero" className="justify-end gap-1.5">
+            <Link to="/lessons/$lessonId" params={{ lessonId: nextLesson.id }}>
+              <span className="truncate">{nextLesson.title}</span>
+              <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+            </Link>
+          </Button>
+        ) : (
+          <span />
+        )}
+      </nav>
+
       <div className="pt-1">
         {subject ? (
           <Button asChild variant="outline" className="gap-1">
@@ -607,6 +662,7 @@ function LessonPage() {
           <BackToApp />
         )}
       </div>
+
     </article>
   );
 }
@@ -828,27 +884,19 @@ function Breadcrumbs({
   lessonName: string | null;
 }) {
   return (
-    <nav className="text-xs text-muted-foreground" aria-label="مسار التنقل">
-      <Link to="/app" className="hover:text-primary">
-        موادي
-      </Link>
-      <span className="mx-1">/</span>
-      {subjectId && subjectName ? (
-        <Link
-          to="/subjects/$subjectId"
-          params={{ subjectId }}
-          className="hover:text-primary"
-        >
-          {subjectName}
-        </Link>
-      ) : (
-        <span>المادة</span>
-      )}
-      <span className="mx-1">/</span>
-      <span className="text-foreground">{lessonName ?? "الدرس"}</span>
-    </nav>
+    <SharedBreadcrumbs
+      items={[
+        { label: "الرئيسية", to: "/app" },
+        { label: "موادي", to: "/semesters" },
+        subjectId && subjectName
+          ? { label: subjectName, to: "/subjects/$subjectId", params: { subjectId } }
+          : { label: "المادة" },
+        { label: lessonName ?? "الدرس" },
+      ]}
+    />
   );
 }
+
 
 function BackToApp() {
   return (
