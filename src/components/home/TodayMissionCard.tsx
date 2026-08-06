@@ -30,7 +30,7 @@ export function TodayMissionCard({
           <Link
             to="/lessons/$lessonId"
             params={{ lessonId: next.lessonId }}
-            className="mt-auto inline-flex w-fit items-center gap-1 rounded-lg bg-primary px-4 py-2.5 pt-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            className="mt-auto inline-flex w-fit items-center gap-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
             ابدأ الآن
             <ChevronLeft className="h-4 w-4" aria-hidden />
@@ -44,7 +44,7 @@ export function TodayMissionCard({
           </p>
           <Link
             to="/semesters"
-            className="mt-auto inline-flex w-fit items-center gap-1 rounded-lg bg-primary px-4 py-2.5 pt-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            className="mt-auto inline-flex w-fit items-center gap-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
             اختر مادة
             <ChevronLeft className="h-4 w-4" aria-hidden />
