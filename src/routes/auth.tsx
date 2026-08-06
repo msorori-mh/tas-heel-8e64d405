@@ -376,25 +376,35 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
       </Button>
 
       <div className="my-2 flex items-center gap-3 text-xs text-muted-foreground">
-        <div className="h-px flex-1 bg-border" /> أو عبر كود <div className="h-px flex-1 bg-border" />
+        <div className="h-px flex-1 bg-border" /> أو بالبريد وكلمة المرور <div className="h-px flex-1 bg-border" />
       </div>
 
-      <form onSubmit={handleSendCode} className="space-y-3">
+      <form onSubmit={handlePasswordLogin} className="space-y-3">
         <div>
-          <Label htmlFor="id">البريد الإلكتروني أو رقم الهاتف</Label>
+          <Label htmlFor="id">البريد الإلكتروني</Label>
           <Input
             id="id"
+            type="email"
             dir="ltr"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             placeholder="name@example.com"
+            autoComplete="email"
             required
           />
-          {!PHONE_OTP_ENABLED && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              تسجيل الدخول برقم الهاتف سيتوفر قريبًا.
-            </p>
-          )}
+        </div>
+
+        <div>
+          <Label htmlFor="login-password">كلمة المرور</Label>
+          <Input
+            id="login-password"
+            type="password"
+            dir="ltr"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
         </div>
 
         {err && <p className="text-sm text-destructive">{err}</p>}
@@ -402,14 +412,34 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
 
         <Button
           type="submit"
+          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
+          disabled={busy}
+        >
+          <LogIn className="ml-2 h-4 w-4" />
+          {busy ? "..." : "تسجيل الدخول"}
+        </Button>
+
+        <Button
+          type="button"
           variant="outline"
           className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
           disabled={busy}
+          onClick={handleSendCode}
         >
           <Mail className="ml-2 h-4 w-4" />
-          {busy ? "..." : "أرسل لي كود الدخول"}
+          أرسل لي رابط الدخول بدل كلمة المرور
         </Button>
+
+        <p className="text-center text-xs text-muted-foreground">
+          <Link to="/forgot-password" className="hover:underline">نسيت كلمة المرور؟</Link>
+        </p>
+        {!PHONE_OTP_ENABLED && (
+          <p className="text-center text-xs text-muted-foreground">
+            تسجيل الدخول برقم الهاتف سيتوفر قريبًا.
+          </p>
+        )}
       </form>
+
 
       <p className="text-center text-xs text-muted-foreground">
         جديد على تمكين؟{" "}
