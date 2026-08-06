@@ -1,8 +1,8 @@
 # CONTENT HTML DB RLS FOUNDATION APPLY RUNBOOK 01
 
-**Date:** 2026-08-06  
-**Target Migration:** `supabase/migrations/20260806050000_content_html_db_rls_foundation.sql`  
-**Migration SHA256:** `E9E2333319C3C70A7FE870AC7C743AB933B606A5E6E10E0A755E0E4F6727F6C8`  
+- **Date:** 2026-08-06
+- **Target Migration:** `supabase/migrations/20260806050000_content_html_db_rls_foundation.sql`
+- **Migration SHA256:** `E9E2333319C3C70A7FE870AC7C743AB933B606A5E6E10E0A755E0E4F6727F6C8`
 
 ---
 

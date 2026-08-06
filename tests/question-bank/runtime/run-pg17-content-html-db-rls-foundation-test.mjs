@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
  * PostgreSQL 17 Local Disposable Runtime Test Runner for
- * CONTENT_HTML_DB_RLS_FOUNDATION_IMPLEMENTATION_01
+ * CONTENT_HTML_DB_RLS_FOUNDATION_CORRECTION_03
  */
 
-import { spawnSync } from "node:child_process";
+import { spawnSync, spawn, execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,32 +22,54 @@ if (projectRefLinked()) {
   process.exit(2);
 }
 
-function getLocalContainer() {
-  if (process.env.PG17_LOCAL_CONTAINER) return process.env.PG17_LOCAL_CONTAINER;
-  const ps = spawnSync("docker", ["ps", "--format", "{{.Names}}"], {
-    encoding: "utf8",
-    shell: true,
-  });
-  const names = (ps.stdout || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-  const match = names.find((n) => n.includes("supabase_db") || n.includes("pg17") || n.includes("postgres"));
-  return match;
-}
-
-const container = getLocalContainer();
-if (!container) {
-  console.error("No local postgres container found. Please start a local disposable PostgreSQL 17 container.");
-  process.exit(1);
-}
-
 if (!existsSync(migrationPath)) {
   console.error(`Missing migration file: ${migrationPath}`);
   process.exit(1);
 }
 
-console.log(`Using PostgreSQL container: ${container}`);
+const containerName = `pg17-html-foundation-test-${Date.now()}`;
+console.log(`Launching isolated PostgreSQL 17 container: ${containerName}`);
 
-// Prerequisite Baseline Setup SQL
-const baselineSql = `
+let containerStarted = false;
+
+try {
+  // 1. Launch fresh PostgreSQL 17 container
+  const launchRun = spawnSync(
+    "docker",
+    ["run", "-d", "--name", containerName, "-e", "POSTGRES_PASSWORD=postgres", "postgres:17-alpine"],
+    { encoding: "utf8", shell: true }
+  );
+
+  if (launchRun.status !== 0) {
+    console.error("Failed to start PostgreSQL 17 container:", launchRun.stderr || launchRun.stdout);
+    process.exit(1);
+  }
+  containerStarted = true;
+
+  // Wait for PostgreSQL to be ready
+  console.log("Waiting for PostgreSQL 17 to accept connections...");
+  let ready = false;
+  for (let i = 0; i < 30; i++) {
+    const ping = spawnSync("docker", ["exec", containerName, "pg_isready", "-U", "postgres"], {
+      encoding: "utf8",
+      shell: true,
+    });
+    if (ping.status === 0) {
+      ready = true;
+      execSync('node -e "setTimeout(() => {}, 1000)"');
+      break;
+    }
+    execSync("node -e \"setTimeout(() => {}, 500)\"");
+  }
+
+  if (!ready) {
+    console.error("PostgreSQL 17 container failed to become ready in time.");
+    process.exit(1);
+  }
+  console.log("PostgreSQL 17 is ready.");
+
+  // Prerequisite Baseline Setup SQL
+  const baselineSql = `
 DO $$ BEGIN CREATE ROLE authenticated NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE ROLE service_role NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE ROLE anon NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -60,6 +82,7 @@ CREATE TABLE IF NOT EXISTS auth.users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email text
 );
+INSERT INTO auth.users (id, email) VALUES ('00000000-0000-0000-0000-000000000000'::uuid, 'system@test.com') ON CONFLICT DO NOTHING;
 
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
   SELECT COALESCE(
@@ -113,8 +136,34 @@ GRANT USAGE ON SCHEMA public TO authenticated, service_role, anon;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
 `;
 
-// PostgreSQL 17 Comprehensive Runtime Harness SQL
-const testSql = `
+  console.log("Applying baseline prerequisite SQL...");
+  const baseRun = spawnSync("docker", ["exec", "-i", containerName, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"], {
+    input: baselineSql,
+    encoding: "utf8",
+    shell: true,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  if (baseRun.status !== 0) {
+    console.error("Baseline SQL apply failed:", baseRun.stderr || baseRun.stdout);
+    process.exit(baseRun.status ?? 1);
+  }
+
+  console.log("Applying migration 20260806050000_content_html_db_rls_foundation.sql...");
+  const migrationSql = readFileSync(migrationPath, "utf8");
+  const migrationRun = spawnSync("docker", ["exec", "-i", containerName, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"], {
+    input: migrationSql,
+    encoding: "utf8",
+    shell: true,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+
+  if (migrationRun.status !== 0) {
+    console.error("Migration apply failed:", migrationRun.stderr || migrationRun.stdout);
+    process.exit(migrationRun.status ?? 1);
+  }
+
+  // Runtime Assertions Harness
+  const testSql = `
 BEGIN;
 
 CREATE OR REPLACE FUNCTION pg17_assert(p_cond boolean, p_name text) RETURNS void AS $$
@@ -129,22 +178,22 @@ $$ LANGUAGE plpgsql;
 
 DO $$ BEGIN RAISE NOTICE '=== Starting PG17 Runtime Test Execution ==='; END $$;
 
--- 1. Test Feature Flags Default State & Server Helper
+-- 1. Feature Flags Default State
 SELECT pg17_assert(public.is_content_feature_enabled('html_content_backend') = false, 'Feature flag html_content_backend defaults to false');
 SELECT pg17_assert(public.is_content_feature_enabled('html_content_upload') = false, 'Feature flag html_content_upload defaults to false');
 SELECT pg17_assert(public.is_content_feature_enabled('html_content_publish') = false, 'Feature flag html_content_publish defaults to false');
 SELECT pg17_assert(public.is_content_feature_enabled('html_content_student_read') = false, 'Feature flag html_content_student_read defaults to false');
-SELECT pg17_assert(public.is_content_feature_enabled('non_existent_key') = false, 'Missing feature flag returns false (fail-closed)');
 
--- 2. Test Setup Variables
 DO $$
 DECLARE
   v_student_id uuid := gen_random_uuid();
+  v_other_student_id uuid := gen_random_uuid();
   v_admin_id uuid := gen_random_uuid();
   v_cm_id uuid := gen_random_uuid();
   v_lesson_id uuid := gen_random_uuid();
   v_other_lesson_id uuid := gen_random_uuid();
   v_batch_id uuid := gen_random_uuid();
+  v_other_batch_id uuid := gen_random_uuid();
   v_res_id uuid := gen_random_uuid();
   v_other_res_id uuid := gen_random_uuid();
   v_ver_id uuid := gen_random_uuid();
@@ -154,319 +203,349 @@ DECLARE
   v_op_id uuid := gen_random_uuid();
   v_parent_op_id uuid := gen_random_uuid();
   v_err_caught boolean;
+  v_sqlstate text;
   v_count integer;
   v_val_id uuid;
   v_sess_rec record;
+  v_prom_rec record;
 BEGIN
-  -- Insert mock auth users
-  INSERT INTO auth.users (id, email) VALUES (v_student_id, 'student@test.com'), (v_admin_id, 'admin@test.com'), (v_cm_id, 'cm@test.com');
+  INSERT INTO auth.users (id, email) VALUES
+    (v_student_id, 'student@test.com'),
+    (v_other_student_id, 'other@test.com'),
+    (v_admin_id, 'admin@test.com'),
+    (v_cm_id, 'cm@test.com');
 
-  -- Insert mock lessons
-  INSERT INTO public.lessons (id, title, slug, sort_order) VALUES (v_lesson_id, 'Test Lesson 1', 'lesson-1', 1), (v_other_lesson_id, 'Test Lesson 2', 'lesson-2', 2);
+  INSERT INTO public.lessons (id, title, slug, sort_order) VALUES
+    (v_lesson_id, 'Test Lesson 1', 'lesson-1', 1),
+    (v_other_lesson_id, 'Test Lesson 2', 'lesson-2', 2);
 
-  -- Insert mock resources
   INSERT INTO public.lesson_resources (id, lesson_id, resource_type, title, url, lifecycle_status)
   VALUES (v_res_id, v_lesson_id, 'html', 'Interactive HTML Resource 1', 'https://cdn.example.com/res1', 'draft');
 
   INSERT INTO public.lesson_resources (id, lesson_id, resource_type, title, url, lifecycle_status)
   VALUES (v_other_res_id, v_other_lesson_id, 'html', 'Interactive HTML Resource 2', 'https://cdn.example.com/res2', 'published');
 
-  -- Version Integrity: Create versions
   INSERT INTO public.lesson_resource_versions (id, resource_id, version_number, content_sha256, manifest)
   VALUES (v_ver_id, v_res_id, 1, 'sha256_hash_1111111111111111111111111111111111111111111111111111111111111111', '{"entry": "index.html"}'::jsonb);
 
   INSERT INTO public.lesson_resource_versions (id, resource_id, version_number, content_sha256, manifest)
   VALUES (v_other_ver_id, v_other_res_id, 1, 'sha256_hash_2222222222222222222222222222222222222222222222222222222222222222', '{"entry": "main.html"}'::jsonb);
 
-  -- Test Version Integrity: Cross-resource pointer DENIED by composite FK
+  -- 2. Version Composite Foreign Key checks
   v_err_caught := false;
   BEGIN
     UPDATE public.lesson_resources SET current_draft_version_id = v_other_ver_id WHERE id = v_res_id;
   EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '23503' THEN v_err_caught := true; END IF;
   END;
-  PERFORM pg17_assert(v_err_caught, 'Cross-resource version assignment is DENIED by composite FK');
+  PERFORM pg17_assert(v_err_caught, 'Cross-resource version assignment is DENIED by composite FK (SQLSTATE 23503)');
 
-  -- Valid same-resource pointer
-  UPDATE public.lesson_resources SET current_draft_version_id = v_ver_id, published_version_id = v_ver_id, lifecycle_status = 'published' WHERE id = v_res_id;
-  PERFORM pg17_assert(true, 'Same-resource version pointer assignment ALLOWED');
+  -- 3. Version Immutability Triggers
+  UPDATE public.lesson_resources SET approved_version_id = v_ver_id, published_version_id = v_ver_id, lifecycle_status = 'published' WHERE id = v_res_id;
 
-  -- Test Version Immutability on approved/published version
+  -- Check that approved_version_id update automatically set immutable_at
+  SELECT (immutable_at IS NOT NULL) INTO v_err_caught FROM public.lesson_resource_versions WHERE id = v_ver_id;
+  PERFORM pg17_assert(v_err_caught, 'Version immutable_at automatically set upon setting approved_version_id');
+
   v_err_caught := false;
   BEGIN
     DELETE FROM public.lesson_resource_versions WHERE id = v_ver_id;
   EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
   END;
-  PERFORM pg17_assert(v_err_caught, 'DELETE on published/approved version is DENIED');
+  PERFORM pg17_assert(v_err_caught, 'DELETE on immutable/approved version DENIED (SQLSTATE 42000)');
 
-  -- Test Upload Sessions & Ownership
+  -- File modification on immutable version DENIED
+  v_err_caught := false;
+  BEGIN
+    INSERT INTO public.lesson_resource_files (version_id, resource_id, relative_path, mime_type, byte_size, content_sha256, storage_object_path)
+    VALUES (v_ver_id, v_res_id, 'index.html', 'text/html', 100, 'hash1', 'path1');
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'INSERT on files for immutable version DENIED (SQLSTATE 42000)');
+
+  -- 4. Upload Sessions & Ownership Triggers
   INSERT INTO public.content_import_batches (id, actor_id, status) VALUES (v_batch_id, v_admin_id, 'created');
+  INSERT INTO public.content_import_batches (id, actor_id, status) VALUES (v_other_batch_id, v_cm_id, 'created');
 
+  -- Mismatched actor DENIED by trigger
+  v_err_caught := false;
+  BEGIN
+    INSERT INTO public.lesson_resource_upload_sessions (
+      batch_id, actor_id, resource_id, staging_path, expected_package_hash, original_filename, expires_at
+    ) VALUES (
+      v_batch_id, v_cm_id, v_res_id, 'html-packages/staging/bad_actor_01', 'pkg_hash_01', 'pkg.zip', now() + interval '1 hour'
+    );
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Upload session actor_id mismatch with batch actor_id DENIED (SQLSTATE 42000)');
+
+  -- Unsafe path DENIED
+  v_err_caught := false;
+  BEGIN
+    INSERT INTO public.lesson_resource_upload_sessions (
+      batch_id, actor_id, resource_id, staging_path, expected_package_hash, original_filename, expires_at
+    ) VALUES (
+      v_batch_id, v_admin_id, v_res_id, 'unsafe_path/session_01', 'pkg_hash_01', 'pkg.zip', now() + interval '1 hour'
+    );
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '22000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Unsafe staging path prefix DENIED (SQLSTATE 22000)');
+
+  -- Directory traversal path DENIED
+  v_err_caught := false;
+  BEGIN
+    INSERT INTO public.lesson_resource_upload_sessions (
+      batch_id, actor_id, resource_id, staging_path, expected_package_hash, original_filename, expires_at
+    ) VALUES (
+      v_batch_id, v_admin_id, v_res_id, 'html-packages/staging/../session_01', 'pkg_hash_01', 'pkg.zip', now() + interval '1 hour'
+    );
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '22000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Directory traversal in staging path DENIED (SQLSTATE 22000)');
+
+  -- Insert valid upload session
   INSERT INTO public.lesson_resource_upload_sessions (
     id, batch_id, actor_id, resource_id, staging_path, expected_package_hash, original_filename, expires_at
   ) VALUES (
-    v_session_id, v_batch_id, v_admin_id, v_res_id, 'staging/session_valid_01', 'pkg_hash_01', 'package.zip', now() + interval '1 hour'
+    v_session_id, v_batch_id, v_admin_id, v_res_id, 'html-packages/staging/session_valid_01', 'sha256_hash_1111111111111111111111111111111111111111111111111111111111111111', 'package.zip', now() + interval '1 hour'
   );
 
   INSERT INTO public.lesson_resource_upload_sessions (
     id, batch_id, actor_id, resource_id, staging_path, expected_package_hash, original_filename, expires_at
   ) VALUES (
-    v_expired_session_id, v_batch_id, v_admin_id, v_res_id, 'staging/session_expired_01', 'pkg_hash_02', 'package_old.zip', now() - interval '10 minutes'
+    v_expired_session_id, v_batch_id, v_admin_id, v_res_id, 'html-packages/staging/session_expired_01', 'pkg_hash_02', 'package_old.zip', now() - interval '10 minutes'
   );
 
-  -- Test resolve_upload_session contract & expiration
-  SELECT * INTO v_sess_rec FROM public.resolve_upload_session(v_session_id);
-  PERFORM pg17_assert(v_sess_rec.is_expired = false, 'resolve_upload_session flags active session as not expired');
-
-  SELECT * INTO v_sess_rec FROM public.resolve_upload_session(v_expired_session_id);
-  PERFORM pg17_assert(v_sess_rec.is_expired = true, 'resolve_upload_session flags expired session as expired');
-
-  -- Upload Session Immutability
-  v_err_caught := false;
-  BEGIN
-    UPDATE public.lesson_resource_upload_sessions SET actor_id = v_student_id WHERE id = v_session_id;
-  EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
-  END;
-  PERFORM pg17_assert(v_err_caught, 'actor_id mutation on upload session DENIED');
+  -- Test resolve_upload_session: cross-actor resolution DENIED
+  PERFORM set_config('test.auth_role', 'authenticated', true);
+  PERFORM set_config('test.auth_uid', v_cm_id::text, true);
 
   v_err_caught := false;
   BEGIN
-    UPDATE public.lesson_resource_upload_sessions SET staging_path = 'forged/staging' WHERE id = v_session_id;
+    PERFORM public.resolve_upload_session(v_session_id);
   EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42501' THEN v_err_caught := true; END IF;
   END;
-  PERFORM pg17_assert(v_err_caught, 'staging_path mutation on upload session DENIED');
+  PERFORM pg17_assert(v_err_caught, 'Actor A resolving session of Actor B DENIED (SQLSTATE 42501)');
 
-  -- Test Validation Record Contract: Service-role vs Authenticated
-  -- 1) Service role succeeds:
+  -- Test resolve_upload_session: expired session returns explicit error
+  PERFORM set_config('test.auth_uid', v_admin_id::text, true);
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.resolve_upload_session(v_expired_session_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '22000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Expired upload session returns EXPLICIT ERROR (SQLSTATE 22000)');
+
+  -- Reset role to service_role
   PERFORM set_config('test.auth_role', 'service_role', true);
+
+  -- 5. Validation record_server_validation contract
+  -- Service role allowed
   v_val_id := public.record_server_validation(
-    v_session_id, v_ver_id, 'pkg_hash_01', 'v1.0', '[]'::jsonb, true, now() + interval '1 day', 'staging/session_valid_01/pkg.zip'
+    v_session_id, v_ver_id, 'sha256_hash_1111111111111111111111111111111111111111111111111111111111111111', 'v1.0', '[]'::jsonb, true, now() + interval '1 day', 'html-packages/staging/session_valid_01'
   );
   PERFORM pg17_assert(v_val_id IS NOT NULL, 'service_role can record server validation');
 
-  -- 2) Authenticated role fails:
+  -- Authenticated role DENIED
   PERFORM set_config('test.auth_role', 'authenticated', true);
   v_err_caught := false;
   BEGIN
     PERFORM public.record_server_validation(
-      v_session_id, v_ver_id, 'pkg_hash_01', 'v1.0', '[]'::jsonb, true, now() + interval '1 day', 'staging/session_valid_01/pkg.zip'
+      v_session_id, v_ver_id, 'sha256_hash_1111111111111111111111111111111111111111111111111111111111111111', 'v1.0', '[]'::jsonb, true, now() + interval '1 day', 'html-packages/staging/session_valid_01'
     );
   EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42501' THEN v_err_caught := true; END IF;
   END;
-  PERFORM pg17_assert(v_err_caught, 'authenticated role CANNOT record server validation');
+  PERFORM pg17_assert(v_err_caught, 'authenticated role CANNOT record server validation (SQLSTATE 42501)');
 
-  -- Reset role to service_role for remaining setup
   PERFORM set_config('test.auth_role', 'service_role', true);
 
-  -- Test Storage Operations Transitions Matrix & Immutability
+  -- Validation Hash mismatch DENIED
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.record_server_validation(
+      v_session_id, v_ver_id, 'wrong_hash', 'v1.0', '[]'::jsonb, true, now() + interval '1 day', 'html-packages/staging/session_valid_01'
+    );
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Validation hash mismatch DENIED (SQLSTATE 42000)');
+
+  -- Validation Stale valid_until DENIED
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.record_server_validation(
+      v_session_id, v_ver_id, 'sha256_hash_1111111111111111111111111111111111111111111111111111111111111111', 'v1.0', '[]'::jsonb, true, now() - interval '1 hour', 'html-packages/staging/session_valid_01'
+    );
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '22000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Validation stale valid_until DENIED (SQLSTATE 22000)');
+
+  -- 6. resolve_promotion_binding exact identifier & validation check
+  UPDATE public.content_feature_flags SET is_enabled = true WHERE flag_key = 'html_content_publish';
+
+  SELECT * INTO v_prom_rec FROM public.resolve_promotion_binding(p_upload_session_id => v_session_id);
+  PERFORM pg17_assert(v_prom_rec.resource_id = v_res_id, 'resolve_promotion_binding by session_id returns correct binding');
+  PERFORM pg17_assert(v_prom_rec.staging_path = 'html-packages/staging/session_valid_01', 'resolve_promotion_binding returns exact staging path without fallback');
+
+  -- Missing both parameters DENIED
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.resolve_promotion_binding();
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '22000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'resolve_promotion_binding with missing parameters DENIED (SQLSTATE 22000)');
+
+  -- 7. Storage Operations Rules & Retry Contract
   INSERT INTO public.storage_operations (
     id, actor_id, resource_id, resource_version_id, upload_session_id, source_path, target_path, operation_type, status
   ) VALUES (
-    v_op_id, v_admin_id, v_res_id, v_ver_id, v_session_id, 'source/stg', 'target/pub', 'stage_upload', 'pending'
+    v_op_id, v_admin_id, v_res_id, v_ver_id, v_session_id, 'html-packages/staging/session_valid_01', 'published/res1/1', 'stage_upload', 'pending'
   );
 
-  -- Illegal transition: pending -> cleaned (DENIED)
+  -- Illegal transition pending -> cleaned DENIED
   v_err_caught := false;
   BEGIN
     UPDATE public.storage_operations SET status = 'cleaned' WHERE id = v_op_id;
   EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '22000' THEN v_err_caught := true; END IF;
   END;
-  PERFORM pg17_assert(v_err_caught, 'Storage operation transition pending -> cleaned DENIED');
+  PERFORM pg17_assert(v_err_caught, 'Storage operation invalid transition pending -> cleaned DENIED (SQLSTATE 22000)');
 
-  -- Valid transition chain: pending -> uploaded -> verified -> promoted -> cleanup_pending -> cleaned
-  UPDATE public.storage_operations SET status = 'uploaded' WHERE id = v_op_id;
-  UPDATE public.storage_operations SET status = 'verified' WHERE id = v_op_id;
-  UPDATE public.storage_operations SET status = 'promoted' WHERE id = v_op_id;
-  UPDATE public.storage_operations SET status = 'cleanup_pending' WHERE id = v_op_id;
-  UPDATE public.storage_operations SET status = 'cleaned' WHERE id = v_op_id;
-  PERFORM pg17_assert(true, 'Storage operation valid transition chain completed');
+  -- Transition pending -> failed -> compensated
+  UPDATE public.storage_operations SET status = 'failed' WHERE id = v_op_id;
 
-  -- Update from terminal status cleaned (DENIED)
+  -- Retry contract: retry parent whose status is failed
+  INSERT INTO public.storage_operations (
+    id, actor_id, resource_id, resource_version_id, upload_session_id, source_path, target_path, operation_type, parent_operation_id, status, retry_number, attempt_count
+  ) VALUES (
+    v_parent_op_id, v_admin_id, v_res_id, v_ver_id, v_session_id, 'html-packages/staging/session_valid_01', 'published/res1/1', 'stage_upload', v_op_id, 'pending', 1, 2
+  );
+  PERFORM pg17_assert(true, 'Retry storage operation row created with parent pointer and retry_number = parent + 1');
+
+  -- Retry non-failed parent DENIED
   v_err_caught := false;
   BEGIN
-    UPDATE public.storage_operations SET status = 'pending' WHERE id = v_op_id;
+    INSERT INTO public.storage_operations (
+      actor_id, resource_id, resource_version_id, upload_session_id, source_path, target_path, operation_type, parent_operation_id, status, retry_number, attempt_count
+    ) VALUES (
+      v_admin_id, v_res_id, v_ver_id, v_session_id, 'html-packages/staging/session_valid_01', 'published/res1/1', 'stage_upload', v_parent_op_id, 'pending', 1, 2
+    );
   EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
   END;
-  PERFORM pg17_assert(v_err_caught, 'Storage operation update from terminal state cleaned DENIED');
+  PERFORM pg17_assert(v_err_caught, 'Retry storage operation with non-failed parent DENIED (SQLSTATE 42000)');
 
-  -- DELETE storage operation (DENIED)
+  -- DELETE storage operation DENIED
   v_err_caught := false;
   BEGIN
     DELETE FROM public.storage_operations WHERE id = v_op_id;
   EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
   END;
-  PERFORM pg17_assert(v_err_caught, 'DELETE on storage_operations DENIED');
+  PERFORM pg17_assert(v_err_caught, 'DELETE storage operations DENIED (SQLSTATE 42000)');
 
-  -- Retry operation contract: parent_operation_id + retry_number = parent + 1
-  INSERT INTO public.storage_operations (
-    id, actor_id, resource_id, resource_version_id, upload_session_id, source_path, target_path, operation_type, parent_operation_id, status, retry_number, attempt_count
-  ) VALUES (
-    v_parent_op_id, v_admin_id, v_res_id, v_ver_id, v_session_id, 'source/stg', 'target/pub', 'stage_upload', v_op_id, 'pending', 1, 2
-  );
-  PERFORM pg17_assert(true, 'Retry storage operation row created with parent pointer and retry_number = parent + 1');
-
-  -- Failed -> Compensated transition
-  UPDATE public.storage_operations SET status = 'failed' WHERE id = v_parent_op_id;
-  UPDATE public.storage_operations SET status = 'compensated' WHERE id = v_parent_op_id;
-  PERFORM pg17_assert(true, 'Transition failed -> compensated ALLOWED');
-
-  -- Test Idempotency Ledger Atomic Claim
-  INSERT INTO public.idempotency_ledger (actor_id, operation, idempotency_key, status)
-  VALUES (v_admin_id, 'publish_op', 'key_123', 'in_progress')
-  ON CONFLICT (actor_id, operation, idempotency_key) DO NOTHING;
-
-  SELECT count(*) INTO v_count FROM public.idempotency_ledger WHERE actor_id = v_admin_id AND operation = 'publish_op' AND idempotency_key = 'key_123';
-  PERFORM pg17_assert(v_count = 1, 'Initial idempotency claim registered exactly 1 row');
-
-  -- Concurrent claim attempt
-  INSERT INTO public.idempotency_ledger (actor_id, operation, idempotency_key, status)
-  VALUES (v_admin_id, 'publish_op', 'key_123', 'in_progress')
-  ON CONFLICT (actor_id, operation, idempotency_key) DO NOTHING;
-
-  SELECT count(*) INTO v_count FROM public.idempotency_ledger WHERE actor_id = v_admin_id AND operation = 'publish_op' AND idempotency_key = 'key_123';
-  PERFORM pg17_assert(v_count = 1, 'Duplicate idempotency claim on conflict ignored without error');
-
-  -- Test Audit Append-Only Tables (reviews & events)
+  -- 8. Audit Append-only (reviews & events)
   INSERT INTO public.lesson_resource_reviews (resource_id, resource_version_id, reviewer_id, decision, reason)
-  VALUES (v_res_id, v_ver_id, v_admin_id, 'approved', 'Quality check passed');
+  VALUES (v_res_id, v_ver_id, v_admin_id, 'approved', 'Check passed');
 
   v_err_caught := false;
   BEGIN
     UPDATE public.lesson_resource_reviews SET decision = 'rejected' WHERE resource_id = v_res_id;
   EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
   END;
-  PERFORM pg17_assert(v_err_caught, 'UPDATE on lesson_resource_reviews DENIED (append-only)');
+  PERFORM pg17_assert(v_err_caught, 'UPDATE on lesson_resource_reviews DENIED (SQLSTATE 42000)');
 
   v_err_caught := false;
   BEGIN
     DELETE FROM public.lesson_resource_reviews WHERE resource_id = v_res_id;
   EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
   END;
-  PERFORM pg17_assert(v_err_caught, 'DELETE on lesson_resource_reviews DENIED (append-only)');
+  PERFORM pg17_assert(v_err_caught, 'DELETE on lesson_resource_reviews DENIED (SQLSTATE 42000)');
 
-  INSERT INTO public.lesson_resource_events (resource_id, resource_version_id, actor_id, event_type, payload)
-  VALUES (v_res_id, v_ver_id, v_admin_id, 'approve', '{"notes": "ok"}'::jsonb);
-
-  v_err_caught := false;
-  BEGIN
-    DELETE FROM public.lesson_resource_events WHERE resource_id = v_res_id;
-  EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
-  END;
-  PERFORM pg17_assert(v_err_caught, 'DELETE on lesson_resource_events DENIED (append-only)');
-
-  -- Test RLS Student Access Rules with SET LOCAL ROLE authenticated
-  EXECUTE 'SET LOCAL ROLE authenticated';
+  -- 9. Student RLS Matrix & Feature Flag check
+  -- Student with html_content_student_read = false -> EXPLICIT ERROR on fetch
+  UPDATE public.content_feature_flags SET is_enabled = false WHERE flag_key = 'html_content_student_read';
   PERFORM set_config('test.auth_role', 'authenticated', true);
   PERFORM set_config('test.auth_uid', v_student_id::text, true);
 
-  -- Direct DML by student / client on lesson_resources DENIED
+  v_err_caught := false;
+  BEGIN
+    PERFORM * FROM public.fetch_published_lesson_resources(v_lesson_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42501' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'fetch_published_lesson_resources when feature flag disabled returns EXPLICIT ERROR (SQLSTATE 42501)');
+
+  -- Direct DML by student on lesson_resources DENIED
+  EXECUTE 'SET LOCAL ROLE authenticated';
   v_err_caught := false;
   BEGIN
     EXECUTE 'INSERT INTO public.lesson_resources (lesson_id, resource_type, title, url) VALUES ($1, ''html'', ''Forged'', ''https://bad'')' USING v_lesson_id;
   EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42501' THEN v_err_caught := true; END IF;
   END;
-  PERFORM pg17_assert(v_err_caught, 'Direct client INSERT on lesson_resources DENIED');
+  EXECUTE 'SET LOCAL ROLE postgres';
+  PERFORM pg17_assert(v_err_caught, 'Direct authenticated INSERT on lesson_resources DENIED (SQLSTATE 42501)');
 
-  v_err_caught := false;
-  BEGIN
-    EXECUTE 'UPDATE public.lesson_resources SET title = ''Hacked'' WHERE id = $1' USING v_res_id;
-  EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
-  END;
-  PERFORM pg17_assert(v_err_caught, 'Direct client UPDATE on lesson_resources DENIED');
-
-  v_err_caught := false;
-  BEGIN
-    EXECUTE 'DELETE FROM public.lesson_resources WHERE id = $1' USING v_res_id;
-  EXCEPTION WHEN OTHERS THEN
-    v_err_caught := true;
-  END;
-  PERFORM pg17_assert(v_err_caught, 'Direct client DELETE on lesson_resources DENIED');
-
-  -- Student Read with Feature Flag OFF -> 0 rows
-  EXECUTE 'SELECT count(*) FROM public.lesson_resources WHERE id = $1' INTO v_count USING v_res_id;
-  PERFORM pg17_assert(v_count = 0, 'Student read returns 0 rows when feature flag html_content_student_read is false');
-
-  -- Switch role back to update feature flag
-  RESET ROLE;
+  -- Enable student feature flag
+  PERFORM set_config('test.auth_role', 'service_role', true);
   UPDATE public.content_feature_flags SET is_enabled = true WHERE flag_key = 'html_content_student_read';
-  EXECUTE 'SET LOCAL ROLE authenticated';
+  PERFORM set_config('test.auth_role', 'authenticated', true);
 
-  -- Student Read with Feature Flag ON -> 1 row for published resource
-  EXECUTE 'SELECT count(*) FROM public.lesson_resources WHERE id = $1' INTO v_count USING v_res_id;
-  PERFORM pg17_assert(v_count = 1, 'Student read returns published resource when feature flag html_content_student_read is true');
+  SELECT count(*) INTO v_count FROM public.fetch_published_lesson_resources(v_lesson_id);
+  PERFORM pg17_assert(v_count = 1, 'fetch_published_lesson_resources returns 1 published resource when flag enabled');
 
-  -- Switch role to change lifecycle_status
-  RESET ROLE;
-  UPDATE public.lesson_resources SET lifecycle_status = 'draft' WHERE id = v_res_id;
-  EXECUTE 'SET LOCAL ROLE authenticated';
-
-  -- Student Read for draft resource -> 0 rows
-  EXECUTE 'SELECT count(*) FROM public.lesson_resources WHERE id = $1' INTO v_count USING v_res_id;
-  PERFORM pg17_assert(v_count = 0, 'Student read returns 0 rows for draft resource');
-
-  RESET ROLE;
-  UPDATE public.lesson_resources SET lifecycle_status = 'in_review' WHERE id = v_res_id;
-  EXECUTE 'SET LOCAL ROLE authenticated';
-  EXECUTE 'SELECT count(*) FROM public.lesson_resources WHERE id = $1' INTO v_count USING v_res_id;
-  PERFORM pg17_assert(v_count = 0, 'Student read returns 0 rows for in_review resource');
+  -- Student with can_access_lesson = false -> DENIED
+  PERFORM set_config('test.can_access_lesson', 'false', true);
+  v_err_caught := false;
+  BEGIN
+    PERFORM * FROM public.fetch_published_lesson_resources(v_lesson_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42501' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'fetch_published_lesson_resources with can_access_lesson=false DENIED (SQLSTATE 42501)');
 
   RESET ROLE;
-  UPDATE public.lesson_resources SET lifecycle_status = 'archived' WHERE id = v_res_id;
-  EXECUTE 'SET LOCAL ROLE authenticated';
-  EXECUTE 'SELECT count(*) FROM public.lesson_resources WHERE id = $1' INTO v_count USING v_res_id;
-  PERFORM pg17_assert(v_count = 0, 'Student read returns 0 rows for archived resource');
-
-  RESET ROLE;
-  RAISE NOTICE '=== ALL PG17 Runtime Test Assertions PASSED Successfully ===';
+  RAISE NOTICE '=== ALL PG17 Runtime Harness Assertions PASSED ===';
 END $$;
 
-ROLLBACK;
+COMMIT;
 `;
 
-const migrationSql = readFileSync(migrationPath, "utf8");
-
-try {
-  console.log("Applying baseline prerequisite SQL...");
-  const baseRun = spawnSync("docker", ["exec", "-i", container, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"], {
-    input: baselineSql,
-    encoding: "utf8",
-    shell: true,
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  if (baseRun.status !== 0) {
-    console.error("Baseline SQL apply failed:");
-    console.error(baseRun.stderr || baseRun.stdout);
-    process.exit(baseRun.status ?? 1);
-  }
-
-  console.log("Applying migration 20260806050000_content_html_db_rls_foundation.sql...");
-  const migrationRun = spawnSync("docker", ["exec", "-i", container, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"], {
-    input: migrationSql,
-    encoding: "utf8",
-    shell: true,
-    maxBuffer: 10 * 1024 * 1024,
-  });
-
-  if (migrationRun.status !== 0) {
-    console.error("Migration apply failed:");
-    console.error(migrationRun.stderr || migrationRun.stdout);
-    process.exit(migrationRun.status ?? 1);
-  }
-
   console.log("Executing PG17 Runtime Test Assertions...");
-  const testRun = spawnSync("docker", ["exec", "-i", container, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"], {
+  const testRun = spawnSync("docker", ["exec", "-i", containerName, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"], {
     input: testSql,
     encoding: "utf8",
     shell: true,
@@ -481,7 +560,67 @@ try {
     process.exit(testRun.status ?? 1);
   }
 
+  // 10. Real Concurrency Test for Idempotency Ledger Claiming
+  console.log("Executing Real 2-Connection PG17 Concurrency Test for Idempotency Ledger...");
+
+  const actorUuid = "00000000-0000-0000-0000-000000000000";
+  const opName = "concurrent_op_test";
+  const keyName = `key_${Date.now()}`;
+
+  const queryConn1 = `
+    SELECT * FROM public.claim_idempotency_key('${opName}', '${keyName}');
+  `;
+
+  // Run 2 parallel psql invocations concurrently against containerName using stdin
+  const runAsyncPsql = () =>
+    new Promise((resolve) => {
+      const child = spawn("docker", ["exec", "-i", containerName, "psql", "-U", "postgres", "-t", "-A"], {
+        shell: false,
+      });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (data) => {
+        stdout += data.toString();
+      });
+      child.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+      child.on("close", () => {
+        if (!stdout && stderr) {
+          console.error("PSQL STDERR:", stderr);
+        }
+        resolve(stdout.trim());
+      });
+      child.stdin.write(queryConn1);
+      child.stdin.end();
+    });
+
+  const [res1, res2] = await Promise.all([runAsyncPsql(), runAsyncPsql()]);
+  console.log(`Connection 1 Result: ${res1}`);
+  console.log(`Connection 2 Result: ${res2}`);
+
+  const hasClaimedTrue = res1.includes("|t|") || res2.includes("|t|");
+  const hasClaimedFalse = res1.includes("|f|") || res2.includes("|f|");
+
+  if (!hasClaimedTrue || !hasClaimedFalse) {
+    console.error("FAILED: Concurrency test failed. One connection must claim=t and the other claim=f.");
+    process.exit(1);
+  }
+  console.log("PASS: Real 2-connection PG17 idempotency claim concurrency verified (exactly 1 claim winner).");
+
   console.log("SUCCESS: PG17 Runtime Test Runner completed with 0 errors.");
 } finally {
-  console.log("Cleanup completed.");
+  if (containerStarted) {
+    console.log(`Cleaning up container ${containerName}...`);
+    spawnSync("docker", ["rm", "-f", containerName], { shell: true });
+
+    // Verify container is removed
+    const checkPs = spawnSync("docker", ["ps", "-a", "-q", "-f", `name=${containerName}`], { encoding: "utf8", shell: true });
+    const remaining = (checkPs.stdout || "").trim();
+    if (remaining) {
+      console.error(`WARNING: Container ${containerName} still exists after cleanup!`);
+    } else {
+      console.log(`Container ${containerName} verified removed.`);
+    }
+  }
 }

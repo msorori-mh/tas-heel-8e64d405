@@ -1,8 +1,8 @@
 # CONTENT HTML DB RLS FOUNDATION AUDIT 01
 
-**Date:** 2026-08-06  
-**Repository:** `msorori-mh/tas-heel-8e64d405`  
-**Branch:** `feat/content-html-db-rls-foundation-01`  
+- **Date:** 2026-08-06
+- **Repository:** `msorori-mh/tas-heel-8e64d405`
+- **Branch:** `feat/content-html-db-rls-foundation-01`
 
 ---
 
