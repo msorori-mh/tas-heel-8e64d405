@@ -265,7 +265,7 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
           <LogIn className="h-3.5 w-3.5" />
           عودة إلى حسابك
         </div>
-        <h1 className="mt-3 text-2xl font-extrabold">مرحبًا بعودتك 👋</h1>
+        <h1 className="mt-3 text-2xl font-extrabold">مرحبًا بعودتك</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           سجّل الدخول لمتابعة دروسك من حيث توقفت.
         </p>

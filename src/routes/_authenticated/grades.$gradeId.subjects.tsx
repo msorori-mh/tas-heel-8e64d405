@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
-import { ChevronLeft } from "lucide-react";
+import { BookOpen, ChevronLeft } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/grades/$gradeId/subjects")({
   component: SubjectsPage,
@@ -83,7 +83,7 @@ function SubjectsPage() {
                     style={{ backgroundColor: s.color ?? "hsl(var(--primary))" }}
                     aria-hidden
                   >
-                    📚
+                    <BookOpen className="h-5 w-5" />
                   </span>
                   <div className="font-bold text-card-foreground">{s.name}</div>
                 </div>

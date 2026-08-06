@@ -164,7 +164,7 @@ export function StudentProfileCard() {
         )}
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-base font-bold text-foreground">
-            مرحبًا {profile?.full_name ?? "بك"} 👋
+            مرحبًا {profile?.full_name ?? "بك"}
           </h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
             جاهز تكمّل مذاكرتك اليوم؟

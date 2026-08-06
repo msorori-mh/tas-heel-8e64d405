@@ -15,7 +15,7 @@ export function WelcomeCard({ stats }: { stats?: HomeStats }) {
     <section className="student-hero-boost p-4 sm:p-5">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-primary">مرحبًا {name} 👋</p>
+          <p className="text-xs font-semibold text-primary">مرحبًا {name}</p>
           <h1 className="text-headline mt-1 text-foreground">اليوم خطوة، غدًا إنجاز.</h1>
           <p className="mt-1 text-xs text-muted-foreground">
             أكملت {stats?.completedLessons ?? 0} من {stats?.totalLessons ?? 0} درسًا في منهجك.

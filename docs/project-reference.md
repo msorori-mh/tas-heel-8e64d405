@@ -1,3 +1,5 @@
+> **ملاحظة:** الاسم الحالي للتطبيق: **تمكين**، وأي إشارة إلى «تنوير» في هذه الوثيقة تاريخية فقط.
+
 # Content from https://chatgpt.com/share/6a23697c-0c64-83ed-962c-124b9e70b872
 
 [Skip to content](https://chatgpt.com/share/6a23697c-0c64-83ed-962c-124b9e70b872#main)
