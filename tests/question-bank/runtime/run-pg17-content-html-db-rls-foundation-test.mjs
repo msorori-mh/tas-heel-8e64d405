@@ -197,6 +197,7 @@ DECLARE
   v_res_id uuid := gen_random_uuid();
   v_other_res_id uuid := gen_random_uuid();
   v_ver_id uuid := gen_random_uuid();
+  v_ver2_id uuid := gen_random_uuid();
   v_other_ver_id uuid := gen_random_uuid();
   v_session_id uuid := gen_random_uuid();
   v_expired_session_id uuid := gen_random_uuid();
@@ -227,6 +228,9 @@ BEGIN
 
   INSERT INTO public.lesson_resource_versions (id, resource_id, version_number, content_sha256, manifest)
   VALUES (v_ver_id, v_res_id, 1, 'sha256_hash_1111111111111111111111111111111111111111111111111111111111111111', '{"entry": "index.html"}'::jsonb);
+
+  INSERT INTO public.lesson_resource_versions (id, resource_id, version_number, content_sha256, manifest)
+  VALUES (v_ver2_id, v_res_id, 2, 'sha256_hash_1111111111111111111111111111111111111111111111111111111111112222', '{"entry": "v2.html"}'::jsonb);
 
   INSERT INTO public.lesson_resource_versions (id, resource_id, version_number, content_sha256, manifest)
   VALUES (v_other_ver_id, v_other_res_id, 1, 'sha256_hash_2222222222222222222222222222222222222222222222222222222222222222', '{"entry": "main.html"}'::jsonb);
@@ -403,9 +407,47 @@ BEGIN
   -- 6. resolve_promotion_binding exact identifier & validation check
   UPDATE public.content_feature_flags SET is_enabled = true WHERE flag_key = 'html_content_publish';
 
+  -- Case 1: approved resource & version = approved_version_id -> PASS
+  UPDATE public.lesson_resources SET lifecycle_status = 'approved', approved_version_id = v_ver_id WHERE id = v_res_id;
   SELECT * INTO v_prom_rec FROM public.resolve_promotion_binding(p_upload_session_id => v_session_id);
-  PERFORM pg17_assert(v_prom_rec.resource_id = v_res_id, 'resolve_promotion_binding by session_id returns correct binding');
+  PERFORM pg17_assert(v_prom_rec.resource_id = v_res_id AND v_prom_rec.version_id = v_ver_id, 'resolve_promotion_binding: approved resource with matching approved_version_id PASS');
   PERFORM pg17_assert(v_prom_rec.staging_path = 'html-packages/staging/session_valid_01', 'resolve_promotion_binding returns exact staging path without fallback');
+
+  -- Case 2: approved resource & version != approved_version_id -> DENY
+  UPDATE public.lesson_resources SET lifecycle_status = 'approved', approved_version_id = v_ver2_id WHERE id = v_res_id;
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.resolve_promotion_binding(p_upload_session_id => v_session_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'resolve_promotion_binding: approved resource with mismatched approved_version_id DENIED (SQLSTATE 42000)');
+
+  -- Case 3: in_review resource even with valid validation -> DENY
+  UPDATE public.lesson_resources SET lifecycle_status = 'in_review', approved_version_id = v_ver_id WHERE id = v_res_id;
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.resolve_promotion_binding(p_upload_session_id => v_session_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'resolve_promotion_binding: in_review resource DENIED (SQLSTATE 42000)');
+
+  -- Case 4: published resource & version != approved_version_id -> DENY
+  UPDATE public.lesson_resources SET lifecycle_status = 'published', approved_version_id = v_ver2_id WHERE id = v_res_id;
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.resolve_promotion_binding(p_upload_session_id => v_session_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'resolve_promotion_binding: published resource with mismatched approved_version_id DENIED (SQLSTATE 42000)');
+
+  -- Restore approved_version_id and lifecycle_status for published resource
+  UPDATE public.lesson_resources SET lifecycle_status = 'published', approved_version_id = v_ver_id WHERE id = v_res_id;
 
   -- Missing both parameters DENIED
   v_err_caught := false;
@@ -437,13 +479,31 @@ BEGIN
   -- Transition pending -> failed -> compensated
   UPDATE public.storage_operations SET status = 'failed' WHERE id = v_op_id;
 
-  -- Retry contract: retry parent whose status is failed
+  -- Retry contract: retry parent whose status is failed with SAME actor_id -> PASS
   INSERT INTO public.storage_operations (
     id, actor_id, resource_id, resource_version_id, upload_session_id, source_path, target_path, operation_type, parent_operation_id, status, retry_number, attempt_count
   ) VALUES (
     v_parent_op_id, v_admin_id, v_res_id, v_ver_id, v_session_id, 'html-packages/staging/session_valid_01', 'published/res1/1', 'stage_upload', v_op_id, 'pending', 1, 2
   );
   PERFORM pg17_assert(true, 'Retry storage operation row created with parent pointer and retry_number = parent + 1');
+
+  -- Retry contract: retry parent with DIFFERENT actor_id -> DENY
+  v_err_caught := false;
+  BEGIN
+    INSERT INTO public.storage_operations (
+      actor_id, resource_id, resource_version_id, upload_session_id, source_path, target_path, operation_type, parent_operation_id, status, retry_number, attempt_count
+    ) VALUES (
+      v_cm_id, v_res_id, v_ver_id, v_session_id, 'html-packages/staging/session_valid_01', 'published/res1/1', 'stage_upload', v_op_id, 'pending', 1, 2
+    );
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Retry storage operation with different actor_id DENIED (SQLSTATE 42000)');
+
+  -- Check parent row unchanged
+  SELECT status INTO v_sess_rec FROM public.storage_operations WHERE id = v_op_id;
+  PERFORM pg17_assert(v_sess_rec.status = 'failed', 'Parent storage operation row status remains failed and unchanged');
 
   -- Retry non-failed parent DENIED
   v_err_caught := false;

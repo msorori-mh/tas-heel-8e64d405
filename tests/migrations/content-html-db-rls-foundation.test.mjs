@@ -116,6 +116,16 @@ test("no latest or COALESCE empty fallback in resolve_promotion_binding", () => 
     /Must provide exactly one of p_upload_session_id or p_resource_version_id/i,
     "resolve_promotion_binding must require exact explicit identifier",
   );
+  assert.match(
+    fnBody,
+    /approved_version_id\s*<>\s*v_version\.id/i,
+    "resolve_promotion_binding must explicitly verify approved_version_id = version.id",
+  );
+  assert.doesNotMatch(
+    fnBody,
+    /'in_review'/i,
+    "resolve_promotion_binding must not accept in_review lifecycle_status",
+  );
 });
 
 test("student fetch explicitly checks html_content_student_read feature flag", () => {
@@ -135,6 +145,14 @@ test("storage operations transition rules and retry parent failed contract", () 
   assert.match(migrationSql, /trg_storage_operations_retry/i);
   assert.match(migrationSql, /DELETE on storage_operations is strictly prohibited/i);
   assert.match(migrationSql, /parent must be failed/i);
+
+  const retryFnMatch = migrationSql.match(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.enforce_storage_operation_retry_contract[\s\S]*?\$\$;/i);
+  assert.ok(retryFnMatch, "enforce_storage_operation_retry_contract function definition must exist");
+  assert.match(
+    retryFnMatch[0],
+    /NEW\.actor_id\s+IS\s+DISTINCT\s+FROM\s+v_parent\.actor_id/i,
+    "retry contract must explicitly compare NEW.actor_id with parent actor_id",
+  );
 });
 
 test("idempotency ledger uses atomic INSERT with RETURNING", () => {

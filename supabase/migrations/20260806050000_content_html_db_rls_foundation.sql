@@ -428,7 +428,8 @@ BEGIN
       RAISE EXCEPTION 'Invalid attempt_count %, must be parent attempt_count + 1 (%)', NEW.attempt_count, v_parent.attempt_count + 1 USING ERRCODE = '22000';
     END IF;
 
-    IF NEW.resource_id IS DISTINCT FROM v_parent.resource_id OR
+    IF NEW.actor_id IS DISTINCT FROM v_parent.actor_id OR
+       NEW.resource_id IS DISTINCT FROM v_parent.resource_id OR
        NEW.resource_version_id IS DISTINCT FROM v_parent.resource_version_id OR
        NEW.upload_session_id IS DISTINCT FROM v_parent.upload_session_id OR
        NEW.source_path IS DISTINCT FROM v_parent.source_path OR
@@ -945,8 +946,16 @@ BEGIN
     RAISE EXCEPTION 'Resource % not found', v_version.resource_id USING ERRCODE = 'P0002';
   END IF;
 
-  IF v_resource.lifecycle_status NOT IN ('approved', 'in_review', 'published') THEN
+  IF v_resource.lifecycle_status NOT IN ('approved', 'published') THEN
     RAISE EXCEPTION 'Resource status % is not eligible for promotion', v_resource.lifecycle_status USING ERRCODE = '42000';
+  END IF;
+
+  IF v_resource.approved_version_id IS NULL OR v_resource.approved_version_id <> v_version.id THEN
+    RAISE EXCEPTION 'Resource approved_version_id does not match target version' USING ERRCODE = '42000';
+  END IF;
+
+  IF v_version.immutable_at IS NULL THEN
+    RAISE EXCEPTION 'Resource version % is not immutable', v_version.id USING ERRCODE = '42000';
   END IF;
 
   IF v_session.expected_package_hash <> v_version.content_sha256 THEN
