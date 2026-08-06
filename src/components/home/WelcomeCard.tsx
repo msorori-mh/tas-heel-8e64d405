@@ -12,24 +12,24 @@ export function WelcomeCard({ stats }: { stats?: HomeStats }) {
   const percent = stats?.progressPercent ?? 0;
 
   return (
-    <section className="student-hero-boost p-4 sm:p-5">
+    <section className="student-hero-boost h-full p-5 sm:p-6 lg:p-7">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-primary">مرحبًا {name}</p>
-          <h1 className="text-headline mt-1 text-foreground">اليوم خطوة، غدًا إنجاز.</h1>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="text-sm font-semibold text-primary">مرحبًا {name}</p>
+          <h1 className="mt-1 text-2xl font-black leading-tight text-foreground lg:text-[30px]">اليوم خطوة، غدًا إنجاز.</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             أكملت {stats?.completedLessons ?? 0} من {stats?.totalLessons ?? 0} درسًا في منهجك.
           </p>
         </div>
         <div
-          className="grid h-16 w-16 shrink-0 place-items-center rounded-full border-4 border-primary/20 bg-card text-primary sm:h-20 sm:w-20"
+          className="grid h-20 w-20 shrink-0 place-items-center rounded-full border-4 border-primary/20 bg-card text-primary lg:h-24 lg:w-24"
           aria-hidden
         >
-          <span className="text-lg font-black sm:text-xl">{percent}%</span>
+          <span className="text-xl font-black lg:text-2xl">{percent}%</span>
         </div>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-4">
         <Progress value={percent} className="h-2" />
       </div>
 

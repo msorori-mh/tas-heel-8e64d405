@@ -32,8 +32,8 @@ type AchievementsSectionProps = {
 
 export function AchievementsSection({ badges, loading }: AchievementsSectionProps) {
   return (
-    <section aria-label="الإنجازات">
-      <h2 className="mb-3 text-sm font-bold text-foreground">إنجازاتك</h2>
+    <section aria-label="الإنجازات" className="flex h-full flex-col">
+      <h2 className="mb-3 text-xl font-bold text-foreground lg:text-[22px]">إنجازاتك</h2>
 
       {loading && (
         <div className="flex items-center justify-center rounded-xl border border-border bg-card py-6">
@@ -43,39 +43,39 @@ export function AchievementsSection({ badges, loading }: AchievementsSectionProp
 
       {!loading && badges.length === 0 && (
         <div className="card-edu-achievement p-4 text-center">
-          <p className="text-sm font-semibold text-foreground">شارات الإنجاز بانتظارك</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          <p className="text-base font-semibold text-foreground">شارات الإنجاز بانتظارك</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
             أكمل دروسك واختباراتك لتحصل على شارات تقدّمك.
           </p>
         </div>
       )}
 
       {!loading && badges.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3">
           {badges.map((badge) => {
             const earned = Boolean(badge.earnedAt);
             const Icon = ICON_MAP[badge.icon] ?? Award;
             return (
               <div
                 key={badge.id}
-                className={`rounded-xl border p-3 text-right transition-opacity ${
+                className={`h-full rounded-2xl border p-4 text-right shadow-sm transition-colors ${
                   earned
-                    ? "border-border/60 bg-card shadow-sm"
-                    : "border-dashed border-border bg-muted/20 opacity-60"
+                    ? "border-border bg-card"
+                    : "border-dashed border-border bg-muted/40 opacity-90"
                 }`}
               >
                 <div
-                  className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg"
+                  className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-xl"
                   style={{ backgroundColor: `${badge.color}20`, color: badge.color }}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-5 w-5" />
                 </div>
-                <p className="text-xs font-bold text-foreground">{badge.name}</p>
-                <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+                <p className="text-base font-bold text-foreground">{badge.name}</p>
+                <p className="mt-1 line-clamp-2 text-sm leading-snug text-foreground/70">
                   {badge.description}
                 </p>
                 {!earned && (
-                  <span className="mt-1 inline-block text-[10px] text-muted-foreground">قريبًا</span>
+                  <span className="mt-2 inline-block rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground/70">قريبًا</span>
                 )}
               </div>
             );
