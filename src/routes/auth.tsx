@@ -424,7 +424,7 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
           variant="outline"
           className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
           disabled={busy}
-          onClick={handleSendCode}
+          onClick={(e) => handleSendCode(e as unknown as React.FormEvent)}
         >
           <Mail className="ml-2 h-4 w-4" />
           أرسل لي رابط الدخول بدل كلمة المرور
