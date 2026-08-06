@@ -1,73 +1,52 @@
+import { createHash } from "node:crypto";
 import {
   defaultSupabaseStorageAdapter,
   type StorageClientAdapter,
 } from "./storage-adapter";
+import type { DatabaseClientAdapter } from "./db-adapter";
 import { downloadAndValidateStoredZipWorkflow } from "./package-validator";
 import type {
-  HtmlUploadSessionRequest,
-  HtmlUploadSessionResponse,
+  HtmlSignedUploadUrlResponse,
   ServerPackageValidationResult,
-  PromotePackageOptions,
+  PromotePackageRequest,
   PublishedStorageResult,
-  StudentSignedAccessOptions,
+  StudentSignedAccessRequest,
   StudentSignedAccessResult,
-  CompensationOptions,
+  CompensationRequest,
   CompensationResult,
 } from "./types";
-import {
-  parseMasterZipBuffer,
-  computePackageDeterministicHash,
-} from "@/lib/content-import/html-package";
 
 const DRAFTS_BUCKET = "lesson-resource-drafts";
 const PUBLISHED_BUCKET = "lesson-resource-published";
 
-function sanitizeResourceCode(code: string): string {
-  if (!code || code.includes("..") || code.includes("/") || code.includes("\\")) {
-    throw new Error("رمز المورد غير صالح أو يحتوي على محاولة تجاوز مسار (Path Traversal)");
-  }
-  const clean = code.replace(/[^a-zA-Z0-9_-]/g, "").toLowerCase();
-  if (clean.length < 3) {
-    throw new Error("رمز المورد يجب أن يتكون من 3 أحرف على الأقل");
-  }
-  return clean;
-}
-
-function sanitizeFilename(filename: string): string {
-  if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
-    throw new Error("اسم الملف غير صالح أو يحتوي على محاولة تجاوز مسار (Path Traversal)");
-  }
-  const clean = filename.replace(/[/\\]|\.\./g, "");
-  if (!clean) {
-    throw new Error("اسم الملف غير صالح");
-  }
-  return clean;
+function computeBytesSha256(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
 }
 
 /**
- * 1. Create Upload Session
+ * 1. Create Signed Upload URL based on DB upload session
  */
-export async function createUploadSession(
-  actorId: string,
-  request: HtmlUploadSessionRequest,
-  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter,
-): Promise<HtmlUploadSessionResponse> {
-  if (!actorId) {
-    throw new Error("غير مصرح: يجب توفر جلسة خادم موثوقة (actorId)");
-  }
-  if (!request.batchId) {
-    throw new Error("معرف الدفعة (batchId) مطلوب");
+export async function createSignedUploadUrl(
+  uploadSessionId: string,
+  dbAdapter: DatabaseClientAdapter,
+  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter
+): Promise<HtmlSignedUploadUrlResponse> {
+  if (!uploadSessionId) {
+    throw new Error("معرف جلسة الرفع (uploadSessionId) مطلوب");
   }
 
-  const cleanCode = sanitizeResourceCode(request.resourceCode);
-  const cleanFilename = sanitizeFilename(request.filename);
-  const uploadSessionId = crypto.randomUUID();
+  // 1a. Resolve upload session authoritatively from DB
+  const session = await dbAdapter.resolveUploadSession(uploadSessionId);
+  const stagingPath = session.staging_path;
 
-  const stagingPath = `staging/${actorId}/${request.batchId}/${uploadSessionId}/${cleanFilename}`;
+  if (!stagingPath) {
+    throw new Error("مسار Staging غير صالح في جلسة الرفع");
+  }
 
+  // 1b. Create real signed upload URL for the DB-authoritative staging path
   const { signedUrl, token } = await storageAdapter.createSignedUploadUrl(
     DRAFTS_BUCKET,
-    stagingPath,
+    stagingPath
   );
 
   if (!signedUrl) {
@@ -75,7 +54,7 @@ export async function createUploadSession(
   }
 
   return {
-    uploadSessionId,
+    uploadSessionId: session.session_id,
     stagingPath,
     bucket: DRAFTS_BUCKET,
     expiresInSeconds: 3600,
@@ -85,206 +64,243 @@ export async function createUploadSession(
 }
 
 /**
- * 2. Create Signed Upload URL for existing staging path
- */
-export async function createSignedUploadUrl(
-  actorId: string,
-  stagingPath: string,
-  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter,
-): Promise<{ signedUploadUrl: string; token: string }> {
-  if (!actorId) {
-    throw new Error("غير مصرح: جلسة الخادم مفقودة");
-  }
-  if (!stagingPath || !stagingPath.startsWith(`staging/${actorId}/`)) {
-    throw new Error("مسار Staging غير مصرح به أو لا يتبع جلسة المستخدم الحالية");
-  }
-
-  const { signedUrl, token } = await storageAdapter.createSignedUploadUrl(
-    DRAFTS_BUCKET,
-    stagingPath,
-  );
-
-  if (!signedUrl) {
-    throw new Error("فشل إنشاء رابط التوقيع للرفع");
-  }
-
-  return { signedUploadUrl: signedUrl, token };
-}
-
-/**
- * 3. Finalize Uploaded Object (Verify Byte Presence)
- */
-export async function finalizeUploadedObject(
-  actorId: string,
-  stagingPath: string,
-  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter,
-): Promise<{ finalized: boolean; stagingPath: string; fileSizeBytes: number }> {
-  if (!actorId) {
-    throw new Error("غير مصرح: جلسة الخادم مفقودة");
-  }
-  if (!stagingPath || !stagingPath.startsWith(`staging/${actorId}/`)) {
-    throw new Error("مسار Staging غير صالح للتحقق");
-  }
-
-  const { data: bytes, error } = await storageAdapter.download(
-    DRAFTS_BUCKET,
-    stagingPath,
-  );
-
-  if (error || !bytes || bytes.byteLength === 0) {
-    throw new Error(
-      `لم يتم العثور على الملف المرفوع في التخزين المؤقت: ${error?.message || "الملف فارغ"}`,
-    );
-  }
-
-  return {
-    finalized: true,
-    stagingPath,
-    fileSizeBytes: bytes.byteLength,
-  };
-}
-
-/**
- * 4. Download & Validate Stored ZIP
+ * 2. Download & Validate Stored ZIP based on DB session
  */
 export async function downloadAndValidateStoredZip(
-  stagingPath: string,
-  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter,
+  uploadSessionId: string,
+  resourceVersionId: string | undefined,
+  dbAdapter: DatabaseClientAdapter,
+  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter
 ): Promise<ServerPackageValidationResult> {
-  if (!stagingPath || !stagingPath.startsWith("staging/")) {
-    throw new Error("مسار Staging غير صالح للفحص الخادمي");
+  if (!uploadSessionId) {
+    throw new Error("معرف جلسة الرفع (uploadSessionId) مطلوب للفحص الخادمي");
   }
 
-  return downloadAndValidateStoredZipWorkflow(stagingPath, storageAdapter);
+  // 2a. Resolve session authoritatively from DB
+  const session = await dbAdapter.resolveUploadSession(uploadSessionId);
+  const stagingPath = session.staging_path;
+
+  // 2b. Download and run all security scanners on stored ZIP bytes
+  const valResult = await downloadAndValidateStoredZipWorkflow(
+    stagingPath,
+    storageAdapter,
+    session.resource_code || undefined
+  );
+
+  // 2c. Record server validation in DB if resourceVersionId is provided
+  if (resourceVersionId) {
+    const validUntil = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    const valId = await dbAdapter.recordServerValidation({
+      uploadSessionId: session.session_id,
+      resourceVersionId,
+      packageHash: valResult.packageHash || session.expected_package_hash || "unknown_hash",
+      scannerVersion: valResult.scannerVersion,
+      findings: valResult.findings,
+      isValid: valResult.isValid,
+      validUntil,
+      storageObjectPath: stagingPath,
+    });
+    valResult.validationId = valId;
+  }
+
+  return valResult;
 }
 
 /**
- * 5. Promote Approved Package to Published Storage
+ * 3. Promote Approved Package based on DB promotion binding
  */
 export async function promoteApprovedPackage(
-  options: PromotePackageOptions,
-  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter,
+  options: PromotePackageRequest,
+  dbAdapter: DatabaseClientAdapter,
+  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter
 ): Promise<PublishedStorageResult> {
-  const cleanCode = sanitizeResourceCode(options.resourceCode);
-  if (options.versionNumber < 1) {
-    throw new Error("رقم الإصدار غير صالح");
-  }
-  if (!options.expectedContentSha256) {
-    throw new Error("توقيع المحتوى (contentSha256) مطلوب للنقل المحمي");
-  }
-  if (!options.stagingPath || !options.stagingPath.startsWith("staging/")) {
-    return {
-      publishedPath: "",
-      bucket: PUBLISHED_BUCKET,
-      contentSha256: options.expectedContentSha256,
-      promoted: false,
-      status: "failed",
-      errorDetails: "مسار Staging غير صالح",
-    };
-  }
+  // 3a. Resolve promotion binding authoritatively from DB
+  const binding = await dbAdapter.resolvePromotionBinding({
+    uploadSessionId: options.uploadSessionId,
+    resourceVersionId: options.resourceVersionId,
+  });
 
-  const publishedPath = `published/${cleanCode}/${options.versionNumber}/${options.expectedContentSha256}`;
+  const publishedPath = binding.published_target_path;
+
+  // 3b. Record storage operation in DB
+  const operationId = await dbAdapter.recordStorageOperation({
+    operationType: "promote_published",
+    uploadSessionId: binding.upload_session_id,
+    resourceVersionId: binding.version_id,
+    stagingPath: binding.staging_path,
+    publishedPath,
+    status: "in_progress",
+  });
 
   try {
-    // 5a. Download staging bytes
+    // 3c. Download staging bytes
     const { data: stagingBytes, error: downErr } = await storageAdapter.download(
       DRAFTS_BUCKET,
-      options.stagingPath,
+      binding.staging_path
     );
 
     if (downErr || !stagingBytes || stagingBytes.byteLength === 0) {
+      await dbAdapter.updateStorageOperation(
+        operationId,
+        "failed",
+        `فشل تنزيل ملف Staging: ${downErr?.message || "الملف مفقود"}`
+      );
       return {
         publishedPath,
         bucket: PUBLISHED_BUCKET,
-        contentSha256: options.expectedContentSha256,
+        contentSha256: binding.expected_hash,
         promoted: false,
         status: "failed",
         errorDetails: `فشل تنزيل ملف Staging: ${downErr?.message || "الملف مفقود"}`,
       };
     }
 
-    // 5b. Verify hash from stored bytes
-    const zipScan = await parseMasterZipBuffer(stagingBytes);
-    if (!zipScan.isValid) {
+    // 3d. Verify SHA-256 hash of staging bytes against binding expected hash
+    const stagingHash = computeBytesSha256(stagingBytes);
+    if (stagingHash !== binding.expected_hash) {
+      await dbAdapter.updateStorageOperation(
+        operationId,
+        "failed",
+        `توقيع Staging (${stagingHash}) لا يطابق التوقيع المتوقع (${binding.expected_hash})`
+      );
       return {
         publishedPath,
         bucket: PUBLISHED_BUCKET,
-        contentSha256: options.expectedContentSha256,
+        contentSha256: binding.expected_hash,
         promoted: false,
         status: "failed",
-        errorDetails: "فشل قراءة ملف ZIP المخزن قبل النقل",
+        errorDetails: `توقيع Staging (${stagingHash}) لا يطابق التوقيع المتوقع (${binding.expected_hash})`,
       };
     }
 
-    const pkgFiles = Object.values(zipScan.packageMap)[0] || [];
-    const computedHash = await computePackageDeterministicHash(pkgFiles);
-
-    if (computedHash !== options.expectedContentSha256) {
+    // 3e. Overwrite protection: check target existence
+    const { data: existingTarget } = await storageAdapter.download(
+      PUBLISHED_BUCKET,
+      publishedPath
+    );
+    if (existingTarget && existingTarget.byteLength > 0) {
+      await dbAdapter.updateStorageOperation(
+        operationId,
+        "failed",
+        "الملف موجود مسبقاً في مسار النشر (ممنوع إعادة الكتابة)"
+      );
       return {
         publishedPath,
         bucket: PUBLISHED_BUCKET,
-        contentSha256: options.expectedContentSha256,
+        contentSha256: binding.expected_hash,
         promoted: false,
         status: "failed",
-        errorDetails: `توقيع الملف المخزن (${computedHash}) لا يطابق التوقيع المتوقع (${options.expectedContentSha256})`,
+        errorDetails: "الملف موجود مسبقاً في مسار النشر (ممنوع إعادة الكتابة)",
       };
     }
 
-    // 5c. Upload to Published storage with upsert: false (Overwrite Protection)
+    // 3f. Upload to Published storage with upsert = false
     const { error: upErr } = await storageAdapter.upload(
       PUBLISHED_BUCKET,
       publishedPath,
       stagingBytes,
       "application/octet-stream",
-      false, // upsert = false
+      false
     );
 
     if (upErr) {
+      await dbAdapter.updateStorageOperation(
+        operationId,
+        "failed",
+        `فشل رفع الملف للمستهدف: ${upErr.message}`
+      );
       return {
         publishedPath,
         bucket: PUBLISHED_BUCKET,
-        contentSha256: options.expectedContentSha256,
+        contentSha256: binding.expected_hash,
         promoted: false,
         status: "failed",
-        errorDetails: `فشل رفع الملف لـ Published (ربما الملف موجود مسبقاً): ${upErr.message}`,
+        errorDetails: `فشل رفع الملف للمستهدف: ${upErr.message}`,
       };
     }
 
-    // 5d. Verify target after transfer
+    // 3g. Target SHA-256 hash verification
     const { data: targetBytes, error: targetErr } = await storageAdapter.download(
       PUBLISHED_BUCKET,
-      publishedPath,
+      publishedPath
     );
 
-    if (targetErr || !targetBytes || targetBytes.byteLength !== stagingBytes.byteLength) {
-      // Compensation: remove target if corrupt/partial
+    if (targetErr || !targetBytes || targetBytes.byteLength === 0) {
       await storageAdapter.remove(PUBLISHED_BUCKET, [publishedPath]);
+      await dbAdapter.updateStorageOperation(
+        operationId,
+        "failed",
+        "فشل تنزيل المستهدف للتحقق من التوقيع بعد النقل"
+      );
       return {
         publishedPath,
         bucket: PUBLISHED_BUCKET,
-        contentSha256: options.expectedContentSha256,
+        contentSha256: binding.expected_hash,
         promoted: false,
-        status: "cleanup_pending",
-        errorDetails: "فشل التحقق من صحة المستهدف بعد النقل",
+        status: "failed",
+        errorDetails: "فشل تنزيل المستهدف للتحقق من التوقيع بعد النقل",
       };
     }
 
-    // 5e. Cleanup staging after success
-    await storageAdapter.remove(DRAFTS_BUCKET, [options.stagingPath]);
+    const targetHash = computeBytesSha256(targetBytes);
+    if (targetHash !== binding.expected_hash) {
+      // Remove partial target
+      await storageAdapter.remove(PUBLISHED_BUCKET, [publishedPath]);
+      await dbAdapter.updateStorageOperation(
+        operationId,
+        "failed",
+        `توقيع المستهدف (${targetHash}) لا يطابق التوقيع المتوقع (${binding.expected_hash})`
+      );
+      return {
+        publishedPath,
+        bucket: PUBLISHED_BUCKET,
+        contentSha256: binding.expected_hash,
+        promoted: false,
+        status: "failed",
+        errorDetails: `توقيع المستهدف (${targetHash}) لا يطابق التوقيع المتوقع (${binding.expected_hash})`,
+      };
+    }
+
+    // 3h. DB publication state transition
+    await dbAdapter.recordPublicationState(binding.resource_id, binding.version_id);
+
+    // 3i. Cleanup staging
+    const { error: removeErr } = await storageAdapter.remove(DRAFTS_BUCKET, [
+      binding.staging_path,
+    ]);
+
+    if (removeErr) {
+      await dbAdapter.updateStorageOperation(
+        operationId,
+        "cleanup_pending",
+        `تعذر حذف ملف Staging: ${removeErr.message}`
+      );
+      return {
+        publishedPath,
+        bucket: PUBLISHED_BUCKET,
+        contentSha256: binding.expected_hash,
+        promoted: true,
+        status: "cleanup_pending",
+        errorDetails: `تعذر حذف ملف Staging: ${removeErr.message}`,
+      };
+    }
+
+    await dbAdapter.updateStorageOperation(operationId, "cleaned", "تم النشر والتنظيف بنجاح");
 
     return {
       publishedPath,
       bucket: PUBLISHED_BUCKET,
-      contentSha256: options.expectedContentSha256,
+      contentSha256: binding.expected_hash,
       promoted: true,
       status: "promoted",
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
+    await dbAdapter.updateStorageOperation(operationId, "failed", msg);
     return {
       publishedPath,
       bucket: PUBLISHED_BUCKET,
-      contentSha256: options.expectedContentSha256,
+      contentSha256: binding.expected_hash,
       promoted: false,
       status: "failed",
       errorDetails: msg,
@@ -293,45 +309,31 @@ export async function promoteApprovedPackage(
 }
 
 /**
- * 6. Create Student Signed Access URL
+ * 4. Create Student Signed Access URL based on DB student binding
  */
 export async function createSignedStudentAccessUrl(
-  options: StudentSignedAccessOptions,
-  studentCanAccessLesson: boolean,
-  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter,
+  request: StudentSignedAccessRequest,
+  dbAdapter: DatabaseClientAdapter,
+  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter
 ): Promise<StudentSignedAccessResult> {
-  const { status, publishedVersionId, publishedPath, signedUrlTtlSeconds = 900 } = options;
-
-  if (status !== "published" || !publishedVersionId) {
+  if (!request.resourceId) {
     return {
       granted: false,
-      reason: "المورد غير منشور (ليس في حالة published)",
+      reason: "معرف المورد (resourceId) مطلوب",
     };
   }
 
-  if (!studentCanAccessLesson) {
-    return {
-      granted: false,
-      reason: "الطالب ليس لديه صلاحية الوصول لهذا الدرس",
-    };
-  }
+  // 4a. Resolve student access binding authoritatively from DB
+  const binding = await dbAdapter.resolveStudentResourceBinding(request.resourceId);
 
-  if (
-    !publishedPath ||
-    publishedPath.includes("staging") ||
-    publishedPath.includes("drafts") ||
-    !publishedPath.startsWith("published/")
-  ) {
-    return {
-      granted: false,
-      reason: "مسار التخزين غير صالح للوصول الطلابي (مرفوض الوصول للمسودات أو staging)",
-    };
-  }
+  const publishedPath = `published/${binding.resource_id}/${binding.published_version_number}`;
+  const signedUrlTtlSeconds = 900; // Hardcoded server-controlled TTL (15 minutes)
 
+  // 4b. Create real signed URL
   const { signedUrl, error } = await storageAdapter.createSignedUrl(
     PUBLISHED_BUCKET,
     publishedPath,
-    signedUrlTtlSeconds,
+    signedUrlTtlSeconds
   );
 
   if (error || !signedUrl) {
@@ -349,20 +351,41 @@ export async function createSignedStudentAccessUrl(
 }
 
 /**
- * 7. Cleanup or Compensate Partial Operations
+ * 5. Cleanup or Compensate Partial Operations
  */
 export async function cleanupOrCompensate(
-  options: CompensationOptions,
-  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter,
+  request: CompensationRequest,
+  dbAdapter: DatabaseClientAdapter,
+  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter
 ): Promise<CompensationResult> {
+  let publishedPath: string | undefined;
+  let stagingPath: string | undefined;
+
+  if (request.storageOperationId) {
+    const op = await dbAdapter.resolveStorageOperation(request.storageOperationId);
+    if (op) {
+      publishedPath = op.published_path;
+      stagingPath = op.staging_path;
+    }
+  } else if (request.uploadSessionId) {
+    const session = await dbAdapter.resolveUploadSession(request.uploadSessionId);
+    stagingPath = session.staging_path;
+  }
+
   try {
-    if (options.operationType === "promote_published" && options.publishedPath) {
-      // Remove published path if corrupted
+    if (publishedPath) {
       const { error: removePubErr } = await storageAdapter.remove(
         PUBLISHED_BUCKET,
-        [options.publishedPath],
+        [publishedPath]
       );
       if (removePubErr) {
+        if (request.storageOperationId) {
+          await dbAdapter.updateStorageOperation(
+            request.storageOperationId,
+            "failed",
+            `فشل إزالة الملف المنشور الجزئي: ${removePubErr.message}`
+          );
+        }
         return {
           compensated: false,
           status: "failed",
@@ -371,17 +394,45 @@ export async function cleanupOrCompensate(
       }
     }
 
-    if (options.stagingPath) {
-      await storageAdapter.remove(DRAFTS_BUCKET, [options.stagingPath]);
+    if (stagingPath) {
+      const { error: removeStagingErr } = await storageAdapter.remove(
+        DRAFTS_BUCKET,
+        [stagingPath]
+      );
+      if (removeStagingErr) {
+        if (request.storageOperationId) {
+          await dbAdapter.updateStorageOperation(
+            request.storageOperationId,
+            "failed",
+            `فشل إزالة ملف Staging الجزئي: ${removeStagingErr.message}`
+          );
+        }
+        return {
+          compensated: false,
+          status: "failed",
+          details: `فشل إزالة ملف Staging الجزئي: ${removeStagingErr.message}`,
+        };
+      }
+    }
+
+    if (request.storageOperationId) {
+      await dbAdapter.updateStorageOperation(
+        request.storageOperationId,
+        "compensated",
+        "تم تنفيذ التعويض بنجاح"
+      );
     }
 
     return {
       compensated: true,
       status: "compensated",
-      details: `تم تنفيذ التعويض بنجاح للسبب: ${options.reason}`,
+      details: "تم تنفيذ التعويض بنجاح",
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
+    if (request.storageOperationId) {
+      await dbAdapter.updateStorageOperation(request.storageOperationId, "failed", msg);
+    }
     return {
       compensated: false,
       status: "failed",

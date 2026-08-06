@@ -1,30 +1,93 @@
 import type { SecurityFinding } from "@/lib/content-import/html-package";
 
-export interface HtmlUploadSessionRequest {
-  batchId: string;
-  resourceCode: string;
-  filename: string;
+export interface ResolvedUploadSession {
+  session_id: string;
+  batch_id: string;
+  actor_id: string;
+  resource_id: string;
+  resource_code: string | null;
+  staging_path: string;
+  expected_package_hash: string | null;
+  status: string;
+  expires_at: string;
+  is_expired: boolean;
 }
 
-export interface HtmlUploadSessionResponse {
+export interface RecordServerValidationParams {
+  uploadSessionId: string;
+  resourceVersionId: string;
+  packageHash: string;
+  scannerVersion: string;
+  findings: SecurityFinding[];
+  isValid: boolean;
+  validUntil: string;
+  storageObjectPath: string;
+  storageObjectVersion?: string;
+}
+
+export interface ResolvedServerValidation {
+  validation_id: string;
+  upload_session_id: string;
+  resource_version_id: string;
+  package_hash: string;
+  is_valid: boolean;
+  valid_until: string;
+  storage_object_path: string;
+}
+
+export interface ResolvedPromotionBinding {
+  resource_id: string;
+  version_id: string;
+  upload_session_id: string;
+  staging_path: string;
+  expected_hash: string;
+  resource_code: string;
+  version_number: number;
+  published_target_path: string;
+  valid_validation_id: string;
+}
+
+export interface ResolvedStudentResourceBinding {
+  resource_id: string;
+  lesson_id: string;
+  version_id: string;
+  resource_type: string;
+  title: string;
+  published_version_number: number;
+}
+
+export interface StorageOperationRecord {
+  operationType: "promote_published" | "upload_staging";
+  uploadSessionId?: string;
+  resourceVersionId?: string;
+  stagingPath?: string;
+  publishedPath?: string;
+  status: "in_progress" | "cleaned" | "cleanup_pending" | "failed" | "compensated";
+  details?: string;
+}
+
+export interface ResolvedStorageOperation {
+  id: string;
+  operation_type: string;
+  upload_session_id?: string;
+  resource_version_id?: string;
+  staging_path?: string;
+  published_path?: string;
+  status: string;
+  details?: string;
+}
+
+export interface HtmlSignedUploadUrlRequest {
+  uploadSessionId: string;
+}
+
+export interface HtmlSignedUploadUrlResponse {
   uploadSessionId: string;
   stagingPath: string;
   bucket: string;
   expiresInSeconds: number;
   signedUploadUrl: string;
   token: string;
-}
-
-export interface CreateSignedUploadUrlOptions {
-  stagingPath: string;
-}
-
-export interface FinalizeUploadedObjectOptions {
-  stagingPath: string;
-}
-
-export interface ValidateStoredZipOptions {
-  stagingPath: string;
 }
 
 export interface ProcessedFileInfo {
@@ -42,14 +105,12 @@ export interface ServerPackageValidationResult {
   findings: SecurityFinding[];
   files: ProcessedFileInfo[];
   entryFile: string;
+  validationId?: string;
 }
 
-export interface PromotePackageOptions {
-  stagingPath: string;
-  resourceCode: string;
-  versionNumber: number;
-  expectedContentSha256: string;
-  idempotencyKey?: string;
+export interface PromotePackageRequest {
+  uploadSessionId?: string;
+  resourceVersionId?: string;
 }
 
 export interface PublishedStorageResult {
@@ -61,13 +122,8 @@ export interface PublishedStorageResult {
   errorDetails?: string;
 }
 
-export interface StudentSignedAccessOptions {
-  lessonId: string;
+export interface StudentSignedAccessRequest {
   resourceId: string;
-  publishedVersionId: string;
-  status: string;
-  publishedPath: string;
-  signedUrlTtlSeconds?: number;
 }
 
 export interface StudentSignedAccessResult {
@@ -77,12 +133,9 @@ export interface StudentSignedAccessResult {
   expiresInSeconds?: number;
 }
 
-export interface CompensationOptions {
-  operationType: "promote_published" | "upload_staging";
-  stagingPath?: string;
-  publishedPath?: string;
-  idempotencyKey?: string;
-  reason: string;
+export interface CompensationRequest {
+  uploadSessionId?: string;
+  storageOperationId?: string;
 }
 
 export interface CompensationResult {

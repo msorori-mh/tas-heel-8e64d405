@@ -1,8 +1,12 @@
 import {
   parseMasterZipBuffer,
-  computePackageDeterministicHash,
+  validatePackagePreflight,
   validateFileMimeAndBytes,
   scanCodeSecurity,
+  scanJavaScriptContent,
+  scanCssContent,
+  validateManifest,
+  computePackageDeterministicHash,
   ValidationCodes,
   type SecurityFinding,
   type ValidationCode,
@@ -33,6 +37,7 @@ const MAX_PACKAGE_BYTES = 52428800; // 50MB
 export async function validateServerHtmlPackage(
   zipBuffer: Uint8Array,
   packagePath = "package",
+  expectedResourceCode?: string
 ): Promise<ServerPackageValidationResult> {
   const findings: SecurityFinding[] = [];
   const scannerVersion = "v1-trusted-server-pipeline";
@@ -69,6 +74,12 @@ export async function validateServerHtmlPackage(
       files: [],
       entryFile: "index.html",
     };
+  }
+
+  // Preflight validation (limits, extensions, path traversal, zip bombs, depth, collisions)
+  const preflightRes = validatePackagePreflight(packageFiles, zipBuffer.byteLength);
+  if (!preflightRes.isValid) {
+    findings.push(...preflightRes.findings);
   }
 
   let totalSizeBytes = 0;
@@ -108,20 +119,51 @@ export async function validateServerHtmlPackage(
       entryFileName = file.path;
     }
 
-    if (
-      file.path.endsWith(".html") ||
-      file.path.endsWith(".htm") ||
-      file.path.endsWith(".js")
-    ) {
+    // Manifest validation
+    if (file.path === "manifest.json" || file.path.endsWith("/manifest.json")) {
+      try {
+        const textContent = new TextDecoder().decode(fileBytes);
+        const rawJson = JSON.parse(textContent) as unknown;
+        const manifestRes = validateManifest(rawJson, expectedResourceCode);
+        if (!manifestRes.isValid) {
+          findings.push(...manifestRes.findings);
+        }
+      } catch (err: unknown) {
+        findings.push({
+          code: ValidationCodes.INVALID_MANIFEST_JSON,
+          severity: "error",
+          file: file.path,
+          message: "فشل قراءة ملف manifest.json كـ JSON صالح",
+        });
+      }
+    }
+
+    // Code Security Scanners
+    const extMatch = file.path.match(/\.([a-z0-9]+)$/i);
+    const ext = extMatch ? extMatch[1].toLowerCase() : "";
+
+    if (["html", "htm", "js", "mjs", "cjs", "css"].includes(ext)) {
       const textContent = new TextDecoder().decode(fileBytes);
 
-      if (file.path.endsWith(".html") || file.path.endsWith(".htm")) {
+      if (ext === "html" || ext === "htm") {
+        // HTML Security Scanner
         const htmlFindings = scanCodeSecurity(textContent, file.path);
-        for (const f of htmlFindings) {
-          findings.push(f);
-        }
+        findings.push(...htmlFindings);
+
+        // CSS Scanner for style tags / embedded CSS
+        const cssFindings = scanCssContent(textContent, file.path);
+        findings.push(...cssFindings);
+      } else if (ext === "js" || ext === "mjs" || ext === "cjs") {
+        // Dedicated JS Scanner
+        const jsFindings = scanJavaScriptContent(textContent, file.path);
+        findings.push(...jsFindings);
+      } else if (ext === "css") {
+        // Dedicated CSS Scanner
+        const cssFindings = scanCssContent(textContent, file.path);
+        findings.push(...cssFindings);
       }
 
+      // PII pattern check
       for (const pattern of PII_PATTERNS) {
         if (pattern.test(textContent)) {
           findings.push({
@@ -132,6 +174,7 @@ export async function validateServerHtmlPackage(
         }
       }
 
+      // Answer leakage pattern check
       for (const pattern of LEAKAGE_PATTERNS) {
         if (pattern.test(textContent)) {
           findings.push({
@@ -176,10 +219,11 @@ export async function validateServerHtmlPackage(
 export async function downloadAndValidateStoredZipWorkflow(
   stagingPath: string,
   storageAdapter: StorageClientAdapter,
+  expectedResourceCode?: string
 ): Promise<ServerPackageValidationResult> {
   const { data: zipBytes, error } = await storageAdapter.download(
     "lesson-resource-drafts",
-    stagingPath,
+    stagingPath
   );
   if (error || !zipBytes || zipBytes.byteLength === 0) {
     return {
@@ -198,5 +242,5 @@ export async function downloadAndValidateStoredZipWorkflow(
     };
   }
 
-  return validateServerHtmlPackage(zipBytes);
+  return validateServerHtmlPackage(zipBytes, "package", expectedResourceCode);
 }
