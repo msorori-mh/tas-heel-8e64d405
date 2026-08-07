@@ -331,6 +331,29 @@ test("5 — Signing failure: no second fetch, error state shown, no stale conten
   globalThis.fetch = origFetch;
 });
 
+// ─── Controllable signer helper ─────────────────────────────────────────────
+
+function createControllableSigner() {
+  let resolveFn: ((url: string | null) => void) | null = null;
+  let rejectFn: ((err: Error) => void) | null = null;
+  let callCount = 0;
+
+  const fn = () => {
+    callCount++;
+    return new Promise<string | null>((resolve, reject) => {
+      resolveFn = resolve;
+      rejectFn = reject;
+    });
+  };
+
+  return {
+    fn,
+    get callCount() { return callCount; },
+    resolve(url: string | null) { resolveFn?.(url); },
+    reject(err: Error) { rejectFn?.(err); },
+  };
+}
+
 test("6 — Old-resource race: stale fetch for A ignored after switch to B", async () => {
   const dom = setupJSDOM();
   const container = dom.window.document.getElementById("root")!;
@@ -420,5 +443,330 @@ test("6 — Old-resource race: stale fetch for A ignored after switch to B", asy
   await act(async () => {
     root.unmount();
   });
+  globalThis.fetch = origFetch;
+});
+
+test("7 — Rerender success race: stale signer resolve for A does not affect B", async () => {
+  const dom = setupJSDOM();
+  const container = dom.window.document.getElementById("root")!;
+  const fm = createFetchMock();
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = fm.mockFn as unknown as typeof globalThis.fetch;
+
+  const URL_A = "https://storage.local/signed/res-a?token=1";
+  const URL_A2 = "https://storage.local/signed/res-a?token=2";
+  const URL_B = "https://storage.local/signed/res-b?token=1";
+
+  const resourceA = makeResource({ resourceId: "res-a", signedUrl: URL_A });
+  const resourceB = makeResource({
+    resourceId: "res-b",
+    signedUrl: URL_B,
+    title: "Resource B",
+  });
+
+  // Initial fetch for A fails → error state → Retry button
+  fm.setResponse(0, failedResponse(500));
+
+  const signer = createControllableSigner();
+
+  let root: Root;
+  await act(async () => {
+    root = createRoot(container);
+    root.render(
+      React.createElement(PublishedHtmlResourceViewer, {
+        resource: resourceA,
+        onReloadSignedUrl: signer.fn,
+      }),
+    );
+  });
+
+  // Wait for error state (Retry button visible)
+  await waitFor(() => container.querySelector("button") !== null);
+  assert.ok(
+    container.textContent?.includes("فشل تحميل المورد"),
+    "Error state must be shown for resource A",
+  );
+
+  // Click Retry → signer for A is pending
+  const retryBtn = container.querySelector("button")!;
+  await act(async () => {
+    retryBtn.click();
+  });
+  await act(async () => {
+    await tick(30);
+  });
+  assert.equal(signer.callCount, 1, "Signer must be called once for A's retry");
+
+  // Rerender with resource B while A's signer is still pending
+  const zipBufB = await buildZipBuffer("<h1>Content B</h1>");
+  fm.setResponse(1, okResponse(zipBufB));
+
+  await act(async () => {
+    root.render(
+      React.createElement(PublishedHtmlResourceViewer, {
+        resource: resourceB,
+        onReloadSignedUrl: signer.fn,
+      }),
+    );
+  });
+
+  // Wait for B's iframe to appear
+  await waitFor(() => container.querySelector("iframe") !== null);
+  assert.ok(fm.calls.length >= 2, "Fetch for B must have started");
+  assert.equal(fm.calls[fm.calls.length - 1], URL_B, "Last fetch must be for B");
+
+  const fetchCountBeforeStaleResolve = fm.calls.length;
+
+  // Now resolve A's stale signer with URL_A2
+  await act(async () => {
+    signer.resolve(URL_A2);
+  });
+  await act(async () => {
+    await tick(150);
+  });
+
+  // URL_A2 must NOT have been fetched
+  const urlA2Fetched = fm.calls.filter((u) => u === URL_A2).length;
+  assert.equal(urlA2Fetched, 0, "Stale URL_A2 must NOT be fetched");
+
+  // No additional fetches beyond B's
+  assert.equal(
+    fm.calls.length,
+    fetchCountBeforeStaleResolve,
+    "No additional fetches after stale signer resolve",
+  );
+
+  // B must still be displayed (iframe present)
+  const iframe = container.querySelector("iframe");
+  assert.ok(iframe, "iframe for B must still exist");
+  const iframeSrcdoc = iframe.getAttribute("srcdoc") ?? "";
+  assert.ok(
+    iframeSrcdoc.includes("Content B"),
+    "B's content must still be displayed",
+  );
+
+  // No error from A should be visible
+  assert.ok(
+    !container.textContent?.includes("تعذّر تجديد رابط الوصول الآمن"),
+    "No signing error from stale A should appear",
+  );
+
+  await act(async () => {
+    root.unmount();
+  });
+  globalThis.fetch = origFetch;
+});
+
+test("8 — Rerender rejection race: stale signer reject for A does not affect B", async () => {
+  const dom = setupJSDOM();
+  const container = dom.window.document.getElementById("root")!;
+  const fm = createFetchMock();
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = fm.mockFn as unknown as typeof globalThis.fetch;
+
+  const URL_A = "https://storage.local/signed/res-a?token=1";
+  const URL_B = "https://storage.local/signed/res-b?token=1";
+
+  const resourceA = makeResource({ resourceId: "res-a", signedUrl: URL_A });
+  const resourceB = makeResource({
+    resourceId: "res-b",
+    signedUrl: URL_B,
+    title: "Resource B",
+  });
+
+  // Initial fetch for A fails
+  fm.setResponse(0, failedResponse(500));
+
+  const signer = createControllableSigner();
+
+  let root: Root;
+  await act(async () => {
+    root = createRoot(container);
+    root.render(
+      React.createElement(PublishedHtmlResourceViewer, {
+        resource: resourceA,
+        onReloadSignedUrl: signer.fn,
+      }),
+    );
+  });
+
+  // Wait for error state
+  await waitFor(() => container.querySelector("button") !== null);
+
+  // Click Retry → signer pending
+  await act(async () => {
+    container.querySelector("button")!.click();
+  });
+  await act(async () => {
+    await tick(30);
+  });
+  assert.equal(signer.callCount, 1, "Signer called once for A's retry");
+
+  // Rerender with resource B
+  const zipBufB = await buildZipBuffer("<h1>Content B</h1>");
+  fm.setResponse(1, okResponse(zipBufB));
+
+  await act(async () => {
+    root.render(
+      React.createElement(PublishedHtmlResourceViewer, {
+        resource: resourceB,
+        onReloadSignedUrl: signer.fn,
+      }),
+    );
+  });
+
+  // Wait for B to be ready
+  await waitFor(() => container.querySelector("iframe") !== null);
+  const fetchCountBeforeReject = fm.calls.length;
+
+  // Reject A's stale signer
+  await act(async () => {
+    signer.reject(new Error("Network error for A"));
+  });
+  await act(async () => {
+    await tick(150);
+  });
+
+  // B must still be ready (iframe present)
+  const iframe = container.querySelector("iframe");
+  assert.ok(iframe, "iframe for B must still exist after stale signer rejection");
+  const iframeSrcdoc = iframe.getAttribute("srcdoc") ?? "";
+  assert.ok(
+    iframeSrcdoc.includes("Content B"),
+    "B's content must still be displayed",
+  );
+
+  // A's error must NOT appear
+  assert.ok(
+    !container.textContent?.includes("Network error for A"),
+    "Error from stale A signer must NOT appear",
+  );
+  assert.ok(
+    !container.textContent?.includes("تعذّر تجديد رابط الوصول الآمن"),
+    "No signing error from stale A should appear",
+  );
+
+  // No extra fetches
+  assert.equal(
+    fm.calls.length,
+    fetchCountBeforeReject,
+    "No additional fetches after stale signer rejection",
+  );
+
+  await act(async () => {
+    root.unmount();
+  });
+  globalThis.fetch = origFetch;
+});
+
+test("9 — Unmount during pending signer: no state updates, no fetches, no unhandled rejection", async () => {
+  const dom = setupJSDOM();
+  const container = dom.window.document.getElementById("root")!;
+  const fm = createFetchMock();
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = fm.mockFn as unknown as typeof globalThis.fetch;
+
+  const URL_A = "https://storage.local/signed/res-a?token=1";
+  const URL_A2 = "https://storage.local/signed/res-a?token=2";
+
+  const resourceA = makeResource({ resourceId: "res-a", signedUrl: URL_A });
+
+  // Initial fetch fails → error → Retry
+  fm.setResponse(0, failedResponse(500));
+
+  const signer = createControllableSigner();
+
+  let root: Root;
+  await act(async () => {
+    root = createRoot(container);
+    root.render(
+      React.createElement(PublishedHtmlResourceViewer, {
+        resource: resourceA,
+        onReloadSignedUrl: signer.fn,
+      }),
+    );
+  });
+
+  await waitFor(() => container.querySelector("button") !== null);
+
+  // Click Retry → signer pending
+  await act(async () => {
+    container.querySelector("button")!.click();
+  });
+  await act(async () => {
+    await tick(30);
+  });
+  assert.equal(signer.callCount, 1, "Signer called once");
+
+  const fetchCountBeforeUnmount = fm.calls.length;
+
+  // Unmount while signer is pending
+  await act(async () => {
+    root.unmount();
+  });
+  await act(async () => {
+    await tick(50);
+  });
+
+  // Resolve the stale signer — must not cause state update or fetch
+  await signer.resolve(URL_A2);
+  await act(async () => {
+    await tick(100);
+  });
+
+  // No new fetches
+  assert.equal(
+    fm.calls.length,
+    fetchCountBeforeUnmount,
+    "No fetches after unmount + stale signer resolve",
+  );
+
+  // Also test rejection path: create a fresh component, retry, unmount, reject
+  const fm2 = createFetchMock();
+  globalThis.fetch = fm2.mockFn as unknown as typeof globalThis.fetch;
+
+  fm2.setResponse(0, failedResponse(500));
+  const signer2 = createControllableSigner();
+
+  await act(async () => {
+    root = createRoot(container);
+    root.render(
+      React.createElement(PublishedHtmlResourceViewer, {
+        resource: resourceA,
+        onReloadSignedUrl: signer2.fn,
+      }),
+    );
+  });
+
+  await waitFor(() => container.querySelector("button") !== null);
+
+  await act(async () => {
+    container.querySelector("button")!.click();
+  });
+  await act(async () => {
+    await tick(30);
+  });
+
+  const fetchCountBeforeUnmount2 = fm2.calls.length;
+
+  await act(async () => {
+    root.unmount();
+  });
+  await act(async () => {
+    await tick(50);
+  });
+
+  // Reject the stale signer — must not cause unhandled rejection
+  signer2.reject(new Error("stale network error"));
+  await act(async () => {
+    await tick(100);
+  });
+
+  assert.equal(
+    fm2.calls.length,
+    fetchCountBeforeUnmount2,
+    "No fetches after unmount + stale signer reject",
+  );
+
   globalThis.fetch = origFetch;
 });

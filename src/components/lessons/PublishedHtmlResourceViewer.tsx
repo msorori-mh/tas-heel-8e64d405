@@ -38,6 +38,8 @@ export function PublishedHtmlResourceViewer({
 
   const generationRef = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(false);
+  const resourceIdRef = useRef(resource.resourceId);
 
   const cancelInflight = useCallback(() => {
     generationRef.current += 1;
@@ -133,21 +135,32 @@ export function PublishedHtmlResourceViewer({
     );
   }, [resource.resourceId, resource.signedUrl]);
 
-  // Invalidate on unmount
+  // Track mount lifecycle and resource identity for async guards
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       cancelInflight();
+      mountedRef.current = false;
     };
   }, [cancelInflight]);
+
+  useEffect(() => {
+    resourceIdRef.current = resource.resourceId;
+  }, [resource.resourceId]);
 
   const handleReload = async () => {
     if (state === "loading") return;
     cancelInflight();
+    const signerGeneration = generationRef.current;
+    const signerResourceId = resourceIdRef.current;
     setState("loading");
     setError(null);
     setHtmlContent(null);
     try {
       const newUrl = await onReloadSignedUrl();
+      if (!mountedRef.current) return;
+      if (generationRef.current !== signerGeneration) return;
+      if (resourceIdRef.current !== signerResourceId) return;
       if (newUrl) {
         setCurrentSignedUrl(newUrl);
       } else {
@@ -155,6 +168,9 @@ export function PublishedHtmlResourceViewer({
         setState("error");
       }
     } catch (err: unknown) {
+      if (!mountedRef.current) return;
+      if (generationRef.current !== signerGeneration) return;
+      if (resourceIdRef.current !== signerResourceId) return;
       const msg = err instanceof Error ? err.message : "تعذّر تجديد رابط الوصول الآمن";
       setError(msg);
       setState("error");
