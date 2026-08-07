@@ -208,6 +208,7 @@ DECLARE
   v_other_res_id uuid := gen_random_uuid();
   v_ver1_id uuid := gen_random_uuid();
   v_ver2_id uuid := gen_random_uuid();
+  v_ver4_id uuid := gen_random_uuid();
   v_other_ver_id uuid := gen_random_uuid();
   v_bad_ver_id uuid := gen_random_uuid();
   v_batch_id uuid := gen_random_uuid();
@@ -217,6 +218,11 @@ DECLARE
   v_val_id uuid;
   v_stale_val_id uuid;
   v_prom_op_id uuid;
+  v_bad_pub_op_id uuid;
+  v_wrong_res_pub_op_id uuid;
+  v_wrong_ver_pub_op_id uuid;
+  v_hash_mismatch_pub_op_id uuid;
+  v_bad_path_pub_op_id uuid;
   v_err_caught boolean;
   v_sqlstate text;
   v_count integer;
@@ -258,6 +264,9 @@ BEGIN
 
   INSERT INTO public.lesson_resource_versions (id, resource_id, version_number, content_sha256, manifest)
   VALUES (v_bad_ver_id, v_res_id, 3, 'sha256_hash_4444444444444444444444444444444444444444444444444444444444444444', '{"entry": "bad.html"}'::jsonb);
+
+  INSERT INTO public.lesson_resource_versions (id, resource_id, version_number, content_sha256, manifest)
+  VALUES (v_ver4_id, v_res_id, 4, 'sha256_hash_5555555555555555555555555555555555555555555555555555555555555555', '{"entry": "v4.html"}'::jsonb);
 
   -- Set current draft version
   UPDATE public.lesson_resources SET current_draft_version_id = v_ver1_id WHERE id = v_res_id;
@@ -507,8 +516,13 @@ BEGIN
   -- Reset resource to approved with ver1
   UPDATE public.lesson_resources SET lifecycle_status = 'approved', current_draft_version_id = v_ver1_id, approved_version_id = v_ver1_id, published_version_id = NULL, lock_version = 1 WHERE id = v_res_id;
   UPDATE public.lesson_resource_versions SET immutable_at = now(), immutable_reason = 'approved' WHERE id = v_ver1_id;
+  UPDATE public.lesson_resource_versions SET immutable_at = now(), immutable_reason = 'approved' WHERE id = v_ver4_id;
 
-  -- Simulate promotion record for ver1 (trusted pipeline would create this)
+  -- Historically approve ver4 (for no-storage-operation rollback test)
+  INSERT INTO public.lesson_resource_reviews (resource_id, resource_version_id, reviewer_id, decision, reason)
+  VALUES (v_res_id, v_ver4_id, v_admin_id, 'approved', NULL);
+
+  -- Trusted promotion record for ver1 (status promoted, as the pipeline sets before publication RPC)
   INSERT INTO public.storage_operations (
     id, actor_id, resource_id, resource_version_id, upload_session_id,
     source_path, target_path, expected_hash, operation_type, status
@@ -517,13 +531,159 @@ BEGIN
     'html-packages/staging/session_valid_01',
     'published/' || v_res_id::text || '/1',
     'sha256_hash_1111111111111111111111111111111111111111111111111111111111111111',
-    'promote_published', 'cleaned'
+    'promote_published', 'promoted'
   ) RETURNING id INTO v_prom_op_id;
 
-  -- Set published state manually (normally done by promoteApprovedPackage)
-  UPDATE public.lesson_resources SET lifecycle_status = 'published', published_version_id = v_ver1_id WHERE id = v_res_id;
+  -- Prepare additional operations for publication denial tests
+  INSERT INTO public.storage_operations (
+    id, actor_id, resource_id, resource_version_id, upload_session_id,
+    source_path, target_path, expected_hash, operation_type, status
+  ) VALUES (
+    gen_random_uuid(), v_admin_id, v_other_res_id, v_other_ver_id, NULL,
+    'html-packages/staging/other',
+    'published/' || v_other_res_id::text || '/1',
+    'sha256_hash_3333333333333333333333333333333333333333333333333333333333333333',
+    'promote_published', 'promoted'
+  ) RETURNING id INTO v_wrong_res_pub_op_id;
 
-  -- 14. Unpublish non-published -> DENY
+  INSERT INTO public.storage_operations (
+    id, actor_id, resource_id, resource_version_id, upload_session_id,
+    source_path, target_path, expected_hash, operation_type, status
+  ) VALUES (
+    gen_random_uuid(), v_admin_id, v_res_id, v_bad_ver_id, NULL,
+    'html-packages/staging/bad',
+    'published/' || v_res_id::text || '/3',
+    'sha256_hash_4444444444444444444444444444444444444444444444444444444444444444',
+    'promote_published', 'promoted'
+  ) RETURNING id INTO v_wrong_ver_pub_op_id;
+
+  INSERT INTO public.storage_operations (
+    id, actor_id, resource_id, resource_version_id, upload_session_id,
+    source_path, target_path, expected_hash, operation_type, status
+  ) VALUES (
+    gen_random_uuid(), v_admin_id, v_res_id, v_ver1_id, v_session_id,
+    'html-packages/staging/session_valid_01',
+    'published/' || v_res_id::text || '/1',
+    'sha256_hash_0000000000000000000000000000000000000000000000000000000000000000',
+    'promote_published', 'promoted'
+  ) RETURNING id INTO v_hash_mismatch_pub_op_id;
+
+  INSERT INTO public.storage_operations (
+    id, actor_id, resource_id, resource_version_id, upload_session_id,
+    source_path, target_path, expected_hash, operation_type, status
+  ) VALUES (
+    gen_random_uuid(), v_admin_id, v_res_id, v_ver1_id, v_session_id,
+    'html-packages/staging/session_valid_01',
+    'published/evil/path',
+    'sha256_hash_1111111111111111111111111111111111111111111111111111111111111111',
+    'promote_published', 'promoted'
+  ) RETURNING id INTO v_bad_path_pub_op_id;
+
+  INSERT INTO public.storage_operations (
+    id, actor_id, resource_id, resource_version_id, upload_session_id,
+    source_path, target_path, expected_hash, operation_type, status
+  ) VALUES (
+    gen_random_uuid(), v_admin_id, v_res_id, v_ver1_id, v_session_id,
+    'html-packages/staging/session_valid_01',
+    'published/' || v_res_id::text || '/1',
+    'sha256_hash_1111111111111111111111111111111111111111111111111111111111111111',
+    'promote_published', 'pending'
+  ) RETURNING id INTO v_bad_pub_op_id;
+
+  -- Publication must run as service_role
+  PERFORM set_config('test.auth_role', 'service_role', true);
+  PERFORM set_config('test.auth_uid', v_admin_id::text, true);
+
+  -- 14. Publication by admin role (not service_role) -> DENY
+  PERFORM set_config('test.auth_role', 'authenticated', true);
+  PERFORM set_config('test.auth_uid', v_admin_id::text, true);
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_prom_op_id, v_session_id, 1);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42501' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Publication by non-service_role DENIED (SQLSTATE 42501)');
+
+  PERFORM set_config('test.auth_role', 'service_role', true);
+
+  -- 15. Publication with stale lock -> DENY
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_prom_op_id, v_session_id, 99);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '40001' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Publication with stale lock DENIED (SQLSTATE 40001)');
+
+  -- 16. Publication with wrong-resource operation -> DENY
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_wrong_res_pub_op_id, v_session_id, 1);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Publication with wrong-resource operation DENIED (SQLSTATE 42000)');
+
+  -- 17. Publication with wrong-version operation -> DENY
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_wrong_ver_pub_op_id, NULL, 1);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Publication with wrong-version operation DENIED (SQLSTATE 42000)');
+
+  -- 18. Publication with wrong expected hash -> DENY
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_hash_mismatch_pub_op_id, v_session_id, 1);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Publication with wrong expected_hash DENIED (SQLSTATE 42000)');
+
+  -- 19. Publication with invalid target path -> DENY
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_bad_path_pub_op_id, v_session_id, 1);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Publication with invalid target_path DENIED (SQLSTATE 42000)');
+
+  -- 20. Publication with operation not in promoted status -> DENY
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_bad_pub_op_id, v_session_id, 1);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Publication with non-promoted operation DENIED (SQLSTATE 42000)');
+
+  -- 21. Valid atomic publication -> PASS
+  PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_prom_op_id, v_session_id, 1);
+  SELECT lifecycle_status, published_version_id, lock_version INTO v_binding FROM public.lesson_resources WHERE id = v_res_id;
+  PERFORM pg17_assert(v_binding.lifecycle_status = 'published', 'Valid publication transitions resource to published');
+  PERFORM pg17_assert(v_binding.published_version_id = v_ver1_id, 'Valid publication sets published_version_id');
+  PERFORM pg17_assert(v_binding.lock_version = 2, 'Valid publication increments lock_version');
+  SELECT count(*) INTO v_count FROM public.lesson_resource_events WHERE resource_id = v_res_id AND event_type = 'publish';
+  PERFORM pg17_assert(v_count = 1, 'Publication emits exactly one audit event');
+
+  -- The promoted storage operation remains valid proof for rollback tests.
+
+  -- Switch back to admin caller for unpublish/rollback
+  PERFORM set_config('test.auth_role', 'authenticated', true);
+  PERFORM set_config('test.auth_uid', v_admin_id::text, true);
+
+  -- 22. Unpublish non-published -> DENY
   v_err_caught := false;
   BEGIN
     PERFORM public.unpublish_resource(v_other_res_id);
@@ -533,7 +693,7 @@ BEGIN
   END;
   PERFORM pg17_assert(v_err_caught, 'Unpublish non-published resource DENIED (SQLSTATE 42000)');
 
-  -- 15. Unpublish published -> PASS
+  -- 23. Unpublish published -> PASS
   PERFORM public.unpublish_resource(v_res_id);
   SELECT lifecycle_status, published_version_id INTO v_binding FROM public.lesson_resources WHERE id = v_res_id;
   PERFORM pg17_assert(v_binding.lifecycle_status = 'approved', 'Unpublish transitions to approved');
@@ -545,10 +705,10 @@ BEGIN
   SELECT immutable_at INTO v_binding FROM public.lesson_resource_versions WHERE id = v_ver1_id;
   PERFORM pg17_assert(v_binding.immutable_at IS NOT NULL, 'Historical version remains immutable after unpublish');
 
-  -- Re-publish resource for rollback tests
+  -- Re-publish resource for rollback tests (manually set published; rollback has its own proof)
   UPDATE public.lesson_resources SET lifecycle_status = 'published', published_version_id = v_ver1_id WHERE id = v_res_id;
 
-  -- 16. Rollback wrong-resource target -> DENY
+  -- 24. Rollback wrong-resource target -> DENY
   v_err_caught := false;
   BEGIN
     PERFORM public.rollback_resource(v_res_id, v_other_ver_id);
@@ -558,17 +718,7 @@ BEGIN
   END;
   PERFORM pg17_assert(v_err_caught, 'Rollback to wrong-resource target DENIED (SQLSTATE 42000)');
 
-  -- 17. Rollback to mutable/unapproved target -> DENY (ver2 is mutable and rejected)
-  v_err_caught := false;
-  BEGIN
-    PERFORM public.rollback_resource(v_res_id, v_ver2_id);
-  EXCEPTION WHEN OTHERS THEN
-    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
-    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
-  END;
-  PERFORM pg17_assert(v_err_caught, 'Rollback to mutable/unapproved target DENIED (SQLSTATE 42000)');
-
-  -- 18. Rollback to version missing published storage binding -> DENY (ver3 never promoted)
+  -- 25. Rollback to unapproved target -> DENY (ver3 has no approved review)
   v_err_caught := false;
   BEGIN
     PERFORM public.rollback_resource(v_res_id, v_bad_ver_id);
@@ -576,17 +726,122 @@ BEGIN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
   END;
-  PERFORM pg17_assert(v_err_caught, 'Rollback to target without published storage binding DENIED (SQLSTATE 42000)');
+  PERFORM pg17_assert(v_err_caught, 'Rollback to unapproved target DENIED (SQLSTATE 42000)');
 
-  -- 19. Rollback valid historical published target -> PASS
+  -- 26. Rollback to target with no storage operation -> DENY (ver4 is approved but never promoted)
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.rollback_resource(v_res_id, v_ver4_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Rollback to target without storage operation DENIED (SQLSTATE 42000)');
+
+  -- 27. Rollback with wrong storage operation version -> DENY
+  -- Mark the valid v_ver1 operation as failed (storage_operations are append-only)
+  -- and create one for v_bad_ver_id only; rollback to v_ver1 must find no
+  -- promoted/cleaned proof and deny.
+  UPDATE public.storage_operations SET status = 'failed' WHERE id = v_prom_op_id;
+  INSERT INTO public.storage_operations (
+    id, actor_id, resource_id, resource_version_id, upload_session_id,
+    source_path, target_path, expected_hash, operation_type, status
+  ) VALUES (
+    gen_random_uuid(), v_admin_id, v_res_id, v_bad_ver_id, NULL,
+    'html-packages/staging/bad',
+    'published/' || v_res_id::text || '/3',
+    'sha256_hash_4444444444444444444444444444444444444444444444444444444444444444',
+    'promote_published', 'promoted'
+  );
+
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.rollback_resource(v_res_id, v_ver1_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Rollback with only wrong-version operation DENIED (SQLSTATE 42000)');
+
+  -- 28. Rollback with expected_hash mismatch -> DENY
+  -- Mark the wrong-version operation as failed and create a v_ver1 operation with mismatched hash.
+  UPDATE public.storage_operations SET status = 'failed' WHERE resource_id = v_res_id AND resource_version_id = v_bad_ver_id;
+  INSERT INTO public.storage_operations (
+    id, actor_id, resource_id, resource_version_id, upload_session_id,
+    source_path, target_path, expected_hash, operation_type, status
+  ) VALUES (
+    gen_random_uuid(), v_admin_id, v_res_id, v_ver1_id, v_session_id,
+    'html-packages/staging/session_valid_01',
+    'published/' || v_res_id::text || '/1',
+    'sha256_hash_0000000000000000000000000000000000000000000000000000000000000000',
+    'promote_published', 'promoted'
+  );
+
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.rollback_resource(v_res_id, v_ver1_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Rollback with expected_hash mismatch DENIED (SQLSTATE 42000)');
+
+  -- 29. Rollback with invalid target path -> DENY
+  -- Mark the hash-mismatch operation as failed and create a v_ver1 operation with an invalid path.
+  UPDATE public.storage_operations SET status = 'failed' WHERE resource_id = v_res_id AND resource_version_id = v_ver1_id AND target_path = 'published/' || v_res_id::text || '/1' AND expected_hash = 'sha256_hash_0000000000000000000000000000000000000000000000000000000000000000';
+  INSERT INTO public.storage_operations (
+    id, actor_id, resource_id, resource_version_id, upload_session_id,
+    source_path, target_path, expected_hash, operation_type, status
+  ) VALUES (
+    gen_random_uuid(), v_admin_id, v_res_id, v_ver1_id, v_session_id,
+    'html-packages/staging/session_valid_01',
+    'published/evil/path',
+    'sha256_hash_1111111111111111111111111111111111111111111111111111111111111111',
+    'promote_published', 'promoted'
+  );
+
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.rollback_resource(v_res_id, v_ver1_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Rollback with invalid target_path DENIED (SQLSTATE 42000)');
+
+  -- Restore valid v_ver1 operation for the remaining tests.
+  -- Mark the bad-path operation as failed and insert a new valid cleaned operation.
+  UPDATE public.storage_operations SET status = 'failed' WHERE resource_id = v_res_id AND resource_version_id = v_ver1_id AND target_path = 'published/evil/path';
+  INSERT INTO public.storage_operations (
+    id, actor_id, resource_id, resource_version_id, upload_session_id,
+    source_path, target_path, expected_hash, operation_type, status
+  ) VALUES (
+    gen_random_uuid(), v_admin_id, v_res_id, v_ver1_id, v_session_id,
+    'html-packages/staging/session_valid_01',
+    'published/' || v_res_id::text || '/1',
+    'sha256_hash_1111111111111111111111111111111111111111111111111111111111111111',
+    'promote_published', 'cleaned'
+  ) RETURNING id INTO v_prom_op_id;
+
+  -- 30. Rollback with stale lock -> DENY
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.rollback_resource(v_res_id, v_ver1_id, 1);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '40001' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Rollback with stale lock DENIED (SQLSTATE 40001)');
+
+  -- 31. Rollback valid historical published target -> PASS
   PERFORM public.rollback_resource(v_res_id, v_ver1_id);
-  SELECT lifecycle_status, published_version_id INTO v_binding FROM public.lesson_resources WHERE id = v_res_id;
+  SELECT lifecycle_status, published_version_id, lock_version INTO v_binding FROM public.lesson_resources WHERE id = v_res_id;
   PERFORM pg17_assert(v_binding.lifecycle_status = 'published', 'Rollback keeps resource published');
   PERFORM pg17_assert(v_binding.published_version_id = v_ver1_id, 'Rollback sets published_version_id to target');
   SELECT count(*) INTO v_count FROM public.lesson_resource_events WHERE resource_id = v_res_id AND event_type = 'rollback';
   PERFORM pg17_assert(v_count = 1, 'Rollback emits audit event');
 
-  -- 20. Student binding resolves to rolled-back target version
+  -- 32. Student binding resolves to rolled-back target version
   PERFORM set_config('test.auth_role', 'authenticated', true);
   PERFORM set_config('test.auth_uid', v_student_id::text, true);
   UPDATE public.content_feature_flags SET is_enabled = true WHERE flag_key = 'html_content_student_read';

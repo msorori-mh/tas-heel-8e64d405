@@ -8,6 +8,7 @@ import type {
   ResolvedStudentResourceBinding,
   StorageOperationRecord,
   ResolvedStorageOperation,
+  RecordSuccessfulResourcePublicationParams,
   SubmitForReviewParams,
   ApproveResourceParams,
   RejectResourceParams,
@@ -27,7 +28,9 @@ export interface DatabaseClientAdapter {
     resourceVersionId?: string;
   }): Promise<ResolvedPromotionBinding>;
   resolveStudentResourceBinding(resourceId: string): Promise<ResolvedStudentResourceBinding>;
-  recordPublicationState(resourceId: string, versionId: string): Promise<void>;
+  recordSuccessfulResourcePublication(
+    params: RecordSuccessfulResourcePublicationParams,
+  ): Promise<void>;
   recordStorageOperation(op: StorageOperationRecord): Promise<string>;
   updateStorageOperation(operationId: string, status: string, details?: string): Promise<void>;
   resolveStorageOperation(operationId: string): Promise<ResolvedStorageOperation | null>;
@@ -181,18 +184,19 @@ export function createSupabaseDbAdapter({
       return binding;
     },
 
-    async recordPublicationState(resourceId: string, versionId: string): Promise<void> {
-      const { error } = await untypedAdmin
-        .from("lesson_resources")
-        .update({
-          lifecycle_status: "published",
-          published_version_id: versionId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", resourceId);
+    async recordSuccessfulResourcePublication(
+      params: RecordSuccessfulResourcePublicationParams,
+    ): Promise<void> {
+      const { error } = await untypedAdmin.rpc("record_successful_resource_publication", {
+        p_resource_id: params.resourceId,
+        p_version_id: params.versionId,
+        p_storage_operation_id: params.storageOperationId,
+        p_upload_session_id: params.uploadSessionId ?? null,
+        p_expected_lock_version: params.expectedLockVersion ?? null,
+      });
 
       if (error) {
-        throw new Error(`فشل تحديث حالة النشر في قاعدة البيانات: ${error.message}`);
+        throw new Error(`فشل تسجيل النشر الذري في قاعدة البيانات: ${error.message}`);
       }
     },
 

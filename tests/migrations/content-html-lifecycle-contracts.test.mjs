@@ -30,6 +30,7 @@ test("lifecycle functions are SECURITY DEFINER", () => {
     "approve_resource",
     "reject_resource",
     "unpublish_resource",
+    "record_successful_resource_publication",
     "rollback_resource",
   ];
 
@@ -48,6 +49,7 @@ test("lifecycle functions have explicit REVOKE FROM PUBLIC/anon/authenticated", 
     "approve_resource",
     "reject_resource",
     "unpublish_resource",
+    "record_successful_resource_publication",
     "rollback_resource",
   ];
 
@@ -66,6 +68,7 @@ test("lifecycle functions GRANT EXECUTE only to service_role", () => {
     "approve_resource",
     "reject_resource",
     "unpublish_resource",
+    "record_successful_resource_publication",
     "rollback_resource",
   ];
 
@@ -178,6 +181,63 @@ test("rollback checks admin, published state, same-resource target, immutable, a
   assert.match(fnBody, /INSERT\s+INTO\s+public\.lesson_resource_events[\s\S]{0,300}'rollback'/i, "rollback must emit audit event");
 });
 
+test("record_successful_resource_publication is atomic, service-role, CAS, and storage-bound", () => {
+  const fnMatch = migrationSql.match(
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.record_successful_resource_publication[\s\S]*?\$\$;/i,
+  );
+  assert.ok(fnMatch, "record_successful_resource_publication function definition must exist");
+  const fnBody = fnMatch[0];
+
+  assert.match(fnBody, /SECURITY\s+DEFINER/i, "publication must be SECURITY DEFINER");
+  assert.match(fnBody, /service_role/i, "publication must enforce service_role caller");
+  assert.match(fnBody, /lifecycle_status\s*<>\s*'approved'/i, "publication must reject non-approved resources");
+  assert.match(fnBody, /approved_version_id\s*<>\s*p_version_id/i, "publication must match approved_version_id");
+  assert.match(fnBody, /p_expected_lock_version/i, "publication must accept expected_lock_version for CAS");
+  assert.match(fnBody, /SELECT\s+\*\s+INTO\s+v_op\s+FROM\s+public\.storage_operations/i, "publication must resolve storage operation");
+  assert.match(fnBody, /v_op\.resource_id\s*<>\s*p_resource_id/i, "publication must reject cross-resource operation");
+  assert.match(fnBody, /v_op\.resource_version_id\s*<>\s*p_version_id/i, "publication must reject cross-version operation");
+  assert.match(fnBody, /operation_type\s*<>\s*'promote_published'/i, "publication must require promote_published operation");
+  assert.match(fnBody, /v_op\.status\s*<>\s*'promoted'/i, "publication must require promoted status");
+  assert.match(fnBody, /target_path\s*<>\s*v_expected_path/i, "publication must enforce canonical target path");
+  assert.match(fnBody, /expected_hash\s*<>\s*v_ver\.content_sha256/i, "publication must enforce expected_hash = version.content_sha256");
+  assert.match(fnBody, /lifecycle_status\s*=\s*'published'/i, "publication must transition to published");
+  assert.match(fnBody, /published_version_id\s*=\s*p_version_id/i, "publication must set published_version_id");
+  assert.match(fnBody, /lock_version\s*=\s*lock_version\s*\+\s*1/i, "publication must increment lock_version");
+  assert.match(fnBody, /INSERT\s+INTO\s+public\.lesson_resource_events[\s\S]{0,300}'publish'/i, "publication must emit audit event");
+  assert.match(fnBody, /UPDATE\s+public\.lesson_resources[\s\S]*?lifecycle_status\s*=\s*'published'/i, "publication must update lesson_resources atomically inside the RPC");
+});
+
+test("rollback requires trusted storage promotion proof with matching hash and path", () => {
+  const fnMatch = migrationSql.match(
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.rollback_resource[\s\S]*?\$\$;/i,
+  );
+  assert.ok(fnMatch, "rollback_resource function definition must exist");
+  const fnBody = fnMatch[0];
+
+  assert.match(fnBody, /_assert_html_admin_caller/i, "rollback must assert admin caller");
+  assert.match(fnBody, /immutable_at\s+IS\s+NULL/i, "rollback must require immutable target");
+  assert.match(fnBody, /decision\s*=\s*'approved'/i, "rollback must require historically approved target");
+  assert.match(fnBody, /SELECT\s+\*\s+INTO\s+v_op\s+FROM\s+public\.storage_operations/i, "rollback must query a trusted storage operation");
+  assert.match(fnBody, /operation_type\s*=\s*'promote_published'/i, "rollback must require promote_published operation");
+  assert.match(fnBody, /status\s+IN\s*\(\s*'promoted'\s*,\s*'cleaned'\s*\)/i, "rollback must require promoted/cleaned status");
+  assert.match(fnBody, /target_path\s*=\s*v_expected_path/i, "rollback must enforce canonical target path");
+  assert.match(fnBody, /expected_hash\s*=\s*v_target\.content_sha256/i, "rollback must enforce expected_hash = target version.content_sha256");
+  assert.doesNotMatch(fnBody, /p_published_path|p_target_hash|p_target_status/i, "rollback must not accept client path/hash/status");
+  assert.match(fnBody, /published_version_id\s*=\s*v_target\.id/i, "rollback must set published_version_id to target");
+  assert.match(fnBody, /INSERT\s+INTO\s+public\.lesson_resource_events[\s\S]{0,300}'rollback'/i, "rollback must emit audit event");
+});
+
+test("resolve_promotion_binding returns lock_version for CAS publication", () => {
+  const fnMatch = migrationSql.match(
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.resolve_promotion_binding[\s\S]*?\$\$;/i,
+  );
+  assert.ok(fnMatch, "resolve_promotion_binding function definition must exist");
+  const fnBody = fnMatch[0];
+
+  assert.match(fnBody, /lock_version\s+integer/i, "resolve_promotion_binding must return lock_version");
+  assert.match(fnBody, /v_resource\.lock_version\s+AS\s+lock_version/i, "resolve_promotion_binding must select resource lock_version");
+});
+
 test("no wide revoke on all functions in schema public", () => {
   assert.doesNotMatch(
     migrationSql,
@@ -192,6 +252,7 @@ test("lifecycle functions use SET search_path = public, pg_temp", () => {
     "approve_resource",
     "reject_resource",
     "unpublish_resource",
+    "record_successful_resource_publication",
     "rollback_resource",
     "_assert_html_admin_caller",
     "_assert_html_content_staff_caller",
@@ -212,6 +273,7 @@ test("lock_version CAS guard present in lifecycle transitions", () => {
     "approve_resource",
     "reject_resource",
     "unpublish_resource",
+    "record_successful_resource_publication",
     "rollback_resource",
   ];
 
