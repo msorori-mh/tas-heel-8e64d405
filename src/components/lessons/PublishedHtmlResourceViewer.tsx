@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import JSZip from "jszip";
 import { AlertTriangle, Lock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,14 +36,31 @@ export function PublishedHtmlResourceViewer({
   const [capability] = useState(() => evaluateRuntimeCapability());
   const [currentSignedUrl, setCurrentSignedUrl] = useState(resource.signedUrl);
 
+  const generationRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const cancelInflight = useCallback(() => {
+    generationRef.current += 1;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+  }, []);
+
   const fetchAndExtract = useCallback(
     async (signedUrl: string) => {
+      cancelInflight();
+      const generation = generationRef.current;
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       setState("loading");
       setError(null);
       setHtmlContent(null);
 
       try {
-        const response = await fetch(signedUrl);
+        const response = await fetch(signedUrl, {
+          signal: controller.signal,
+        });
+        if (generation !== generationRef.current) return;
         if (!response.ok) {
           throw new Error(
             `فشل تحميل المورد (HTTP ${response.status})`,
@@ -51,7 +68,9 @@ export function PublishedHtmlResourceViewer({
         }
 
         const buffer = await response.arrayBuffer();
+        if (generation !== generationRef.current) return;
         const zip = await JSZip.loadAsync(buffer);
+        if (generation !== generationRef.current) return;
 
         let entryFileName = "index.html";
         const manifestFile =
@@ -67,14 +86,15 @@ export function PublishedHtmlResourceViewer({
             // Fall back to default entry file
           }
         }
+        if (generation !== generationRef.current) return;
 
         const entryFile =
           zip.file(`package/${entryFileName}`) || zip.file(entryFileName);
         if (!entryFile) {
-          // Try to find any HTML file in the package directory
           const htmlFiles = zip.file(/package\/.*\.html$/);
           if (htmlFiles.length > 0) {
             const html = await htmlFiles[0].async("text");
+            if (generation !== generationRef.current) return;
             setHtmlContent(html);
             setState("ready");
             return;
@@ -83,15 +103,18 @@ export function PublishedHtmlResourceViewer({
         }
 
         const html = await entryFile.async("text");
+        if (generation !== generationRef.current) return;
         setHtmlContent(html);
         setState("ready");
       } catch (err: unknown) {
+        if (generation !== generationRef.current) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
         const msg = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
         setError(msg);
         setState("error");
       }
     },
-    [],
+    [cancelInflight],
   );
 
   useEffect(() => {
@@ -103,17 +126,26 @@ export function PublishedHtmlResourceViewer({
   }, [currentSignedUrl, capability.allowed, fetchAndExtract]);
 
   // Sync signed URL when the resource identity changes (new resource prop).
-  // Prevents displaying a signed URL belonging to a previous resource.
+  // The fetch effect handles cancellation via fetchAndExtract's cancelInflight call.
   useEffect(() => {
     setCurrentSignedUrl((prev) =>
       prev !== resource.signedUrl ? resource.signedUrl : prev,
     );
   }, [resource.resourceId, resource.signedUrl]);
 
+  // Invalidate on unmount
+  useEffect(() => {
+    return () => {
+      cancelInflight();
+    };
+  }, [cancelInflight]);
+
   const handleReload = async () => {
     if (state === "loading") return;
+    cancelInflight();
     setState("loading");
     setError(null);
+    setHtmlContent(null);
     try {
       const newUrl = await onReloadSignedUrl();
       if (newUrl) {
