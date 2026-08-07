@@ -546,8 +546,9 @@ interface StubSupabaseClient {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function createStubSupabaseClient(label: string): any {
+function createStubSupabaseClient(
+  label: string,
+): SupabaseClient<Database> & { calls: string[] } {
   const calls: string[] = [];
   return {
     calls,
@@ -637,7 +638,7 @@ function createStubSupabaseClient(label: string): any {
         },
       }),
     }),
-  } as unknown as SupabaseClient<Database>;
+  } as unknown as SupabaseClient<Database> & { calls: string[] };
 }
 
 describe("Trusted HTML Server Pipeline — DB & Storage Foundation Contracts", () => {
