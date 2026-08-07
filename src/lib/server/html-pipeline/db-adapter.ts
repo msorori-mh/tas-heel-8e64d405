@@ -8,6 +8,11 @@ import type {
   ResolvedStudentResourceBinding,
   StorageOperationRecord,
   ResolvedStorageOperation,
+  SubmitForReviewParams,
+  ApproveResourceParams,
+  RejectResourceParams,
+  UnpublishResourceParams,
+  RollbackResourceParams,
 } from "./types";
 
 export interface DatabaseClientAdapter {
@@ -26,6 +31,11 @@ export interface DatabaseClientAdapter {
   recordStorageOperation(op: StorageOperationRecord): Promise<string>;
   updateStorageOperation(operationId: string, status: string, details?: string): Promise<void>;
   resolveStorageOperation(operationId: string): Promise<ResolvedStorageOperation | null>;
+  submitResourceForReview(params: SubmitForReviewParams): Promise<void>;
+  approveResource(params: ApproveResourceParams): Promise<void>;
+  rejectResource(params: RejectResourceParams): Promise<void>;
+  unpublishResource(params: UnpublishResourceParams): Promise<void>;
+  rollbackResource(params: RollbackResourceParams): Promise<void>;
 }
 
 type UntypedSupabaseClient = {
@@ -271,6 +281,65 @@ export function createSupabaseDbAdapter({
         completedAt: row.completed_at as string | undefined,
         createdAt: row.created_at as string | undefined,
       };
+    },
+
+    async submitResourceForReview(params: SubmitForReviewParams): Promise<void> {
+      const { error } = await untypedAdmin.rpc("submit_resource_for_review", {
+        p_resource_id: params.resourceId,
+        p_expected_lock_version: params.expectedLockVersion ?? null,
+      });
+
+      if (error) {
+        throw new Error(`فشل إرسال المورد للمراجعة: ${error.message}`);
+      }
+    },
+
+    async approveResource(params: ApproveResourceParams): Promise<void> {
+      const { error } = await untypedAdmin.rpc("approve_resource", {
+        p_resource_id: params.resourceId,
+        p_version_id: params.versionId,
+        p_expected_lock_version: params.expectedLockVersion ?? null,
+      });
+
+      if (error) {
+        throw new Error(`فشل اعتماد المورد: ${error.message}`);
+      }
+    },
+
+    async rejectResource(params: RejectResourceParams): Promise<void> {
+      const { error } = await untypedAdmin.rpc("reject_resource", {
+        p_resource_id: params.resourceId,
+        p_version_id: params.versionId,
+        p_reason: params.reason,
+        p_expected_lock_version: params.expectedLockVersion ?? null,
+      });
+
+      if (error) {
+        throw new Error(`فشل رفض المورد: ${error.message}`);
+      }
+    },
+
+    async unpublishResource(params: UnpublishResourceParams): Promise<void> {
+      const { error } = await untypedAdmin.rpc("unpublish_resource", {
+        p_resource_id: params.resourceId,
+        p_expected_lock_version: params.expectedLockVersion ?? null,
+      });
+
+      if (error) {
+        throw new Error(`فشل إلغاء نشر المورد: ${error.message}`);
+      }
+    },
+
+    async rollbackResource(params: RollbackResourceParams): Promise<void> {
+      const { error } = await untypedAdmin.rpc("rollback_resource", {
+        p_resource_id: params.resourceId,
+        p_target_version_id: params.targetVersionId,
+        p_expected_lock_version: params.expectedLockVersion ?? null,
+      });
+
+      if (error) {
+        throw new Error(`فشل التراجع عن المورد: ${error.message}`);
+      }
     },
   };
 }

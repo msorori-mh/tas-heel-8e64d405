@@ -14,6 +14,11 @@ import type {
   ResolvedStudentResourceBinding,
   StorageOperationRecord,
   ResolvedStorageOperation,
+  SubmitForReviewParams,
+  ApproveResourceParams,
+  RejectResourceParams,
+  UnpublishResourceParams,
+  RollbackResourceParams,
 } from "./server/html-pipeline/types";
 import {
   createSignedUploadUrl,
@@ -424,6 +429,70 @@ function createMockDbAdapter(): {
 
     async resolveStorageOperation(operationId: string): Promise<ResolvedStorageOperation | null> {
       return operations.get(operationId) || null;
+    },
+
+    async submitResourceForReview(params: SubmitForReviewParams): Promise<void> {
+      const res = resources.get(params.resourceId);
+      if (!res) {
+        throw new Error(`Resource ${params.resourceId} not found`);
+      }
+      if (res.lifecycle_status !== "draft") {
+        throw new Error("Resource is not in draft status");
+      }
+      res.lifecycle_status = "in_review";
+    },
+
+    async approveResource(params: ApproveResourceParams): Promise<void> {
+      const res = resources.get(params.resourceId);
+      if (!res) {
+        throw new Error(`Resource ${params.resourceId} not found`);
+      }
+      if (res.lifecycle_status !== "in_review") {
+        throw new Error("Resource is not in review");
+      }
+      res.lifecycle_status = "approved";
+      res.approved_version_id = params.versionId;
+    },
+
+    async rejectResource(params: RejectResourceParams): Promise<void> {
+      const res = resources.get(params.resourceId);
+      if (!res) {
+        throw new Error(`Resource ${params.resourceId} not found`);
+      }
+      if (res.lifecycle_status !== "in_review") {
+        throw new Error("Resource is not in review");
+      }
+      res.lifecycle_status = "rejected";
+    },
+
+    async unpublishResource(params: UnpublishResourceParams): Promise<void> {
+      const res = resources.get(params.resourceId);
+      if (!res) {
+        throw new Error(`Resource ${params.resourceId} not found`);
+      }
+      if (res.lifecycle_status !== "published") {
+        throw new Error("Resource is not published");
+      }
+      res.lifecycle_status = "approved";
+      res.published_version_id = null;
+    },
+
+    async rollbackResource(params: RollbackResourceParams): Promise<void> {
+      const res = resources.get(params.resourceId);
+      if (!res) {
+        throw new Error(`Resource ${params.resourceId} not found`);
+      }
+      if (res.lifecycle_status !== "published") {
+        throw new Error("Resource is not published");
+      }
+      const ver = versions.get(params.targetVersionId);
+      if (!ver || ver.resource_id !== params.resourceId) {
+        throw new Error("Target version does not belong to resource");
+      }
+      if (!ver.immutable_at) {
+        throw new Error("Target version is not immutable");
+      }
+      res.published_version_id = params.targetVersionId;
     },
   };
 

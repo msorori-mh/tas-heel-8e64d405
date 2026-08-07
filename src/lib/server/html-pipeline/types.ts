@@ -162,3 +162,32 @@ export interface CompensationResult {
   status: "cleaned" | "compensated" | "failed";
   details?: string;
 }
+
+export interface SubmitForReviewParams {
+  resourceId: string;
+  expectedLockVersion?: number;
+}
+
+export interface ApproveResourceParams {
+  resourceId: string;
+  versionId: string;
+  expectedLockVersion?: number;
+}
+
+export interface RejectResourceParams {
+  resourceId: string;
+  versionId: string;
+  reason: string;
+  expectedLockVersion?: number;
+}
+
+export interface UnpublishResourceParams {
+  resourceId: string;
+  expectedLockVersion?: number;
+}
+
+export interface RollbackResourceParams {
+  resourceId: string;
+  targetVersionId: string;
+  expectedLockVersion?: number;
+}

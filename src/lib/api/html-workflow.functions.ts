@@ -398,6 +398,7 @@ export const submitHtmlForReviewFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       resourceIds: z.array(z.string().uuid()).min(1),
+      lockVersions: z.record(z.string().uuid(), z.number().int().min(1)).optional(),
     }),
   )
   .handler(async ({ data }): Promise<{ submitted: string[]; errors: string[] }> => {
@@ -407,7 +408,10 @@ export const submitHtmlForReviewFn = createServerFn({ method: "POST" })
 
     for (const resourceId of data.resourceIds) {
       try {
-        await workflow.submitResourceForReview(resourceId);
+        await workflow.submitResourceForReview(
+          resourceId,
+          data.lockVersions?.[resourceId],
+        );
         submitted.push(resourceId);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -459,6 +463,7 @@ export const approveHtmlResourceFn = createServerFn({ method: "POST" })
     z.object({
       resourceId: z.string().uuid(),
       versionId: z.string().uuid(),
+      lockVersion: z.number().int().min(1).optional(),
     }),
   )
   .handler(async ({ data, context }): Promise<ReviewActionResult> => {
@@ -474,7 +479,7 @@ export const approveHtmlResourceFn = createServerFn({ method: "POST" })
     const workflow = buildWorkflowAdapter();
 
     try {
-      await workflow.approveResource(data.resourceId, data.versionId);
+      await workflow.approveResource(data.resourceId, data.versionId, data.lockVersion);
       return {
         resource_id: data.resourceId,
         new_status: "approved",
@@ -502,7 +507,8 @@ export const rejectHtmlResourceFn = createServerFn({ method: "POST" })
     z.object({
       resourceId: z.string().uuid(),
       versionId: z.string().uuid(),
-      reason: z.string().nullable(),
+      reason: z.string().min(1),
+      lockVersion: z.number().int().min(1).optional(),
     }),
   )
   .handler(async ({ data, context }): Promise<ReviewActionResult> => {
@@ -523,6 +529,7 @@ export const rejectHtmlResourceFn = createServerFn({ method: "POST" })
         data.versionId,
         context.userId,
         data.reason,
+        data.lockVersion,
       );
       return {
         resource_id: data.resourceId,
@@ -608,6 +615,7 @@ export const unpublishHtmlResourceFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       resourceId: z.string().uuid(),
+      lockVersion: z.number().int().min(1).optional(),
     }),
   )
   .handler(async ({ data, context }): Promise<ReviewActionResult> => {
@@ -623,7 +631,7 @@ export const unpublishHtmlResourceFn = createServerFn({ method: "POST" })
     const workflow = buildWorkflowAdapter();
 
     try {
-      await workflow.unpublishResource(data.resourceId);
+      await workflow.unpublishResource(data.resourceId, data.lockVersion);
       return {
         resource_id: data.resourceId,
         new_status: "approved",
@@ -650,6 +658,7 @@ export const rollbackHtmlResourceFn = createServerFn({ method: "POST" })
     z.object({
       resourceId: z.string().uuid(),
       targetVersionId: z.string().uuid(),
+      lockVersion: z.number().int().min(1).optional(),
     }),
   )
   .handler(async ({ data, context }): Promise<ReviewActionResult> => {
@@ -665,7 +674,7 @@ export const rollbackHtmlResourceFn = createServerFn({ method: "POST" })
     const workflow = buildWorkflowAdapter();
 
     try {
-      await workflow.rollbackResource(data.resourceId, data.targetVersionId);
+      await workflow.rollbackResource(data.resourceId, data.targetVersionId, data.lockVersion);
       return {
         resource_id: data.resourceId,
         new_status: "published",

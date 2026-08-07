@@ -126,11 +126,13 @@ function AdminContentReviewPage() {
         }
         case "reject": {
           if (!versionId) throw new Error("versionId مطلوب للرفض");
+          const trimmedReason = rejectReason.trim();
+          if (!trimmedReason) throw new Error("سبب الرفض مطلوب");
           const res = await runReject({
             data: {
               resourceId,
               versionId,
-              reason: rejectReason || null,
+              reason: trimmedReason,
             },
           });
           result = { success: res.success, message: res.message, new_status: res.new_status };

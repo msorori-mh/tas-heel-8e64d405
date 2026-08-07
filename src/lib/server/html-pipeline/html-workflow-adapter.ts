@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { SecurityFinding } from "@/lib/content-import/html-package";
+import { createSupabaseDbAdapter, type DatabaseClientAdapter } from "./db-adapter";
 
 type UntypedSupabase = {
   rpc(
@@ -108,11 +109,11 @@ export interface HtmlWorkflowAdapter {
   }): Promise<string>;
   updateUploadSessionStatus(sessionId: string, status: string): Promise<void>;
   setResourceDraftVersion(resourceId: string, versionId: string): Promise<void>;
-  submitResourceForReview(resourceId: string): Promise<void>;
-  approveResource(resourceId: string, versionId: string): Promise<void>;
-  rejectResource(resourceId: string, versionId: string, reviewerId: string, reason: string | null): Promise<void>;
-  unpublishResource(resourceId: string): Promise<void>;
-  rollbackResource(resourceId: string, targetVersionId: string): Promise<void>;
+  submitResourceForReview(resourceId: string, lockVersion?: number): Promise<void>;
+  approveResource(resourceId: string, versionId: string, lockVersion?: number): Promise<void>;
+  rejectResource(resourceId: string, versionId: string, reviewerId: string, reason: string | null, lockVersion?: number): Promise<void>;
+  unpublishResource(resourceId: string, lockVersion?: number): Promise<void>;
+  rollbackResource(resourceId: string, targetVersionId: string, lockVersion?: number): Promise<void>;
   getReviewQueue(): Promise<ReviewQueueRow[]>;
   getResourceEvents(resourceId: string): Promise<Array<{ event_type: string; created_at: string; payload: unknown }>>;
   checkFeatureFlag(flagKey: string): Promise<boolean>;
@@ -122,6 +123,10 @@ export function createHtmlWorkflowAdapter(
   adminClient: SupabaseClient<Database>,
 ): HtmlWorkflowAdapter {
   const db = adminClient as unknown as UntypedSupabase;
+  const lifecycleDb: DatabaseClientAdapter = createSupabaseDbAdapter({
+    userClient: adminClient,
+    adminClient,
+  });
 
   return {
     async lookupLessonsByCode(codes: string[]): Promise<Map<string, LessonLookup>> {
@@ -295,130 +300,79 @@ export function createHtmlWorkflowAdapter(
     },
 
     async setResourceDraftVersion(resourceId: string, versionId: string): Promise<void> {
-      const { error } = await db
+      const { data: existing, error: fetchErr } = await db
         .from("lesson_resources")
-        .update({
-          current_draft_version_id: versionId,
-          lifecycle_status: "draft",
-        })
-        .eq("id", resourceId);
+        .select("lifecycle_status")
+        .eq("id", resourceId)
+        .single();
+
+      if (fetchErr) {
+        throw new Error(`فشل التحقق من حالة المورد: ${fetchErr.message}`);
+      }
+
+      const row = existing as { lifecycle_status: string } | null;
+      if (row && row.lifecycle_status !== "draft") {
+        throw new Error(
+          `Cannot set draft version on resource with status ${row.lifecycle_status}; only draft resources can receive a new draft version through import.`,
+        );
+      }
+
+      const updateQuery = db.from("lesson_resources").update({
+        current_draft_version_id: versionId,
+        lifecycle_status: "draft",
+      });
+
+      const updateEqChain = updateQuery as unknown as {
+        eq(column: string, value: unknown): {
+          eq(column: string, value: unknown): Promise<{
+            error: { message: string } | null;
+            data: unknown;
+          }>;
+        };
+      };
+
+      const { error } = await updateEqChain.eq("id", resourceId).eq("lifecycle_status", "draft");
 
       if (error) {
         throw new Error(`فشل تعيين نسخة المسودة: ${error.message}`);
       }
     },
 
-    async submitResourceForReview(resourceId: string): Promise<void> {
-      const { error } = await db
-        .from("lesson_resources")
-        .update({ lifecycle_status: "in_review" })
-        .eq("id", resourceId);
-
-      if (error) {
-        throw new Error(`فشل إرسال المورد للمراجعة: ${error.message}`);
-      }
-
-      await db.from("lesson_resource_events").insert({
-        id: crypto.randomUUID(),
-        resource_id: resourceId,
-        event_type: "submit",
-        payload: {},
-      });
+    async submitResourceForReview(resourceId: string, lockVersion?: number): Promise<void> {
+      await lifecycleDb.submitResourceForReview({ resourceId, expectedLockVersion: lockVersion });
     },
 
-    async approveResource(resourceId: string, versionId: string): Promise<void> {
-      const { error } = await db
-        .from("lesson_resources")
-        .update({
-          lifecycle_status: "approved",
-          approved_version_id: versionId,
-        })
-        .eq("id", resourceId);
-
-      if (error) {
-        throw new Error(`فشل اعتماد المورد: ${error.message}`);
-      }
-
-      await db.from("lesson_resource_events").insert({
-        id: crypto.randomUUID(),
-        resource_id: resourceId,
-        resource_version_id: versionId,
-        event_type: "approve",
-        payload: {},
-      });
+    async approveResource(resourceId: string, versionId: string, lockVersion?: number): Promise<void> {
+      await lifecycleDb.approveResource({ resourceId, versionId, expectedLockVersion: lockVersion });
     },
 
     async rejectResource(
       resourceId: string,
       versionId: string,
-      reviewerId: string,
+      _reviewerId: string,
       reason: string | null,
+      lockVersion?: number,
     ): Promise<void> {
-      const { error: resErr } = await db
-        .from("lesson_resources")
-        .update({ lifecycle_status: "rejected" })
-        .eq("id", resourceId);
-
-      if (resErr) {
-        throw new Error(`فشل رفض المورد: ${resErr.message}`);
+      if (!reason || reason.trim().length === 0) {
+        throw new Error("سبب الرفض مطلوب");
       }
-
-      await db.from("lesson_resource_reviews").insert({
-        id: crypto.randomUUID(),
-        resource_id: resourceId,
-        resource_version_id: versionId,
-        reviewer_id: reviewerId,
-        decision: "rejected",
+      await lifecycleDb.rejectResource({
+        resourceId,
+        versionId,
         reason,
-      });
-
-      await db.from("lesson_resource_events").insert({
-        id: crypto.randomUUID(),
-        resource_id: resourceId,
-        resource_version_id: versionId,
-        actor_id: reviewerId,
-        event_type: "reject",
-        payload: { reason },
+        expectedLockVersion: lockVersion,
       });
     },
 
-    async unpublishResource(resourceId: string): Promise<void> {
-      const { error } = await db
-        .from("lesson_resources")
-        .update({ lifecycle_status: "approved" })
-        .eq("id", resourceId);
-
-      if (error) {
-        throw new Error(`فشل إلغاء نشر المورد: ${error.message}`);
-      }
-
-      await db.from("lesson_resource_events").insert({
-        id: crypto.randomUUID(),
-        resource_id: resourceId,
-        event_type: "unpublish",
-        payload: {},
-      });
+    async unpublishResource(resourceId: string, lockVersion?: number): Promise<void> {
+      await lifecycleDb.unpublishResource({ resourceId, expectedLockVersion: lockVersion });
     },
 
-    async rollbackResource(resourceId: string, targetVersionId: string): Promise<void> {
-      const { error } = await db
-        .from("lesson_resources")
-        .update({
-          published_version_id: targetVersionId,
-          lifecycle_status: "published",
-        })
-        .eq("id", resourceId);
-
-      if (error) {
-        throw new Error(`فشل التراجع عن المورد: ${error.message}`);
-      }
-
-      await db.from("lesson_resource_events").insert({
-        id: crypto.randomUUID(),
-        resource_id: resourceId,
-        resource_version_id: targetVersionId,
-        event_type: "rollback",
-        payload: { target_version_id: targetVersionId },
+    async rollbackResource(resourceId: string, targetVersionId: string, lockVersion?: number): Promise<void> {
+      await lifecycleDb.rollbackResource({
+        resourceId,
+        targetVersionId,
+        expectedLockVersion: lockVersion,
       });
     },
 
