@@ -34,7 +34,7 @@ export function PublishedHtmlResourceViewer({
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [capability] = useState(() => evaluateRuntimeCapability());
-  const [reloadKey, setReloadKey] = useState(0);
+  const [currentSignedUrl, setCurrentSignedUrl] = useState(resource.signedUrl);
 
   const fetchAndExtract = useCallback(
     async (signedUrl: string) => {
@@ -99,21 +99,29 @@ export function PublishedHtmlResourceViewer({
       setState("unavailable");
       return;
     }
-    fetchAndExtract(resource.signedUrl);
-  }, [resource.signedUrl, capability.allowed, fetchAndExtract, reloadKey]);
+    fetchAndExtract(currentSignedUrl);
+  }, [currentSignedUrl, capability.allowed, fetchAndExtract]);
 
   const handleReload = async () => {
+    if (state === "loading") return;
     if (onReloadSignedUrl) {
       setState("loading");
-      const newUrl = await onReloadSignedUrl();
-      if (newUrl) {
-        setReloadKey((k) => k + 1);
-      } else {
-        setError("تعذّر تجديد رابط الوصول الآمن");
+      setError(null);
+      try {
+        const newUrl = await onReloadSignedUrl();
+        if (newUrl) {
+          setCurrentSignedUrl(newUrl);
+        } else {
+          setError("تعذّر تجديد رابط الوصول الآمن");
+          setState("error");
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "تعذّر تجديد رابط الوصول الآمن";
+        setError(msg);
         setState("error");
       }
     } else {
-      setReloadKey((k) => k + 1);
+      setCurrentSignedUrl(resource.signedUrl);
     }
   };
 

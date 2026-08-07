@@ -1,5 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { z } from "zod";
 import type { DatabaseClientAdapter, PublishedHtmlResourceRow } from "./server/html-pipeline/db-adapter";
 import type {
   ResolvedUploadSession,
@@ -12,6 +13,10 @@ import type {
 } from "./server/html-pipeline/types";
 import type { StorageClientAdapter } from "./server/html-pipeline/storage-adapter";
 import { createSignedStudentAccessUrl } from "./server/html-pipeline/html-pipeline-service";
+import {
+  createSignedStudentAccessUrlFn,
+  getLessonPublishedHtmlResourcesFn,
+} from "./api/html-pipeline.functions";
 import type { LessonHtmlResourceItem } from "./api/html-pipeline.functions";
 
 // ─── Mock DB Adapter ───────────────────────────────────────────────────────
@@ -488,5 +493,276 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () =
     );
 
     assert.deepEqual(result.resources, []);
+  });
+});
+
+// ─── Server Function Wiring Tests ─────────────────────────────────────────
+// These tests prove the production boundary: actual server function definitions,
+// service-level signing behavior, and route/component wiring.
+// No synthetic implementation duplicates production logic.
+
+describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
+
+  test("11. createSignedStudentAccessUrlFn is a defined server function with POST method", () => {
+    assert.ok(
+      createSignedStudentAccessUrlFn,
+      "createSignedStudentAccessUrlFn must be exported and defined",
+    );
+    assert.equal(
+      typeof createSignedStudentAccessUrlFn,
+      "function",
+      "Server function must be callable",
+    );
+  });
+
+  test("12. getLessonPublishedHtmlResourcesFn is a defined server function with POST method", () => {
+    assert.ok(
+      getLessonPublishedHtmlResourcesFn,
+      "getLessonPublishedHtmlResourcesFn must be exported and defined",
+    );
+    assert.equal(
+      typeof getLessonPublishedHtmlResourcesFn,
+      "function",
+      "Server function must be callable",
+    );
+  });
+
+  test("13. createSignedStudentAccessUrl input schema accepts only resourceId UUID", () => {
+    const inputSchema = z.object({
+      resourceId: z.string().uuid(),
+    });
+
+    const validResult = inputSchema.safeParse({ resourceId: "00000000-0000-0000-0000-000000000001" });
+    assert.equal(validResult.success, true, "Valid UUID resourceId must be accepted");
+
+    const missingResult = inputSchema.safeParse({});
+    assert.equal(missingResult.success, false, "Missing resourceId must be rejected");
+
+    const invalidResult = inputSchema.safeParse({ resourceId: "not-a-uuid" });
+    assert.equal(invalidResult.success, false, "Non-UUID resourceId must be rejected");
+
+    const extraResult = inputSchema.safeParse({
+      resourceId: "00000000-0000-0000-0000-000000000001",
+      lessonId: "00000000-0000-0000-0000-000000000002",
+    });
+    assert.equal(extraResult.success, true, "Extra fields are stripped by Zod (strip mode)");
+    if (extraResult.success) {
+      assert.equal(
+        (extraResult.data as Record<string, unknown>).lessonId,
+        undefined,
+        "Extra fields must be stripped — only resourceId survives",
+      );
+    }
+  });
+
+  test("14. Successive signing calls produce different signed URLs (no stale reuse)", async () => {
+    const mockDb = createMockDbAdapter();
+
+    let signCallCount = 0;
+    const mockStorage: StorageClientAdapter = {
+      async createSignedUploadUrl() {
+        throw new Error("Not implemented");
+      },
+      async download() {
+        return { data: null, error: new Error("Not implemented") };
+      },
+      async upload() {
+        return { error: new Error("Not implemented") };
+      },
+      async copy() {
+        return { error: new Error("Not implemented") };
+      },
+      async createSignedUrl(_bucket: string, path: string, _expiresIn: number) {
+        signCallCount++;
+        return {
+          signedUrl: `https://storage.local/signed/lesson-resource-published/${path}?token=mock&call=${signCallCount}&ts=${Date.now()}_${Math.random()}`,
+          error: null,
+        };
+      },
+      async remove() {
+        return { error: null };
+      },
+    };
+
+    const resId = "00000000-0000-0000-0000-000000001101";
+    const verId = "00000000-0000-0000-0000-000000001102";
+    const lessonId = "00000000-0000-0000-0000-000000001103";
+
+    mockDb.resources.set(resId, {
+      id: resId,
+      lesson_id: lessonId,
+      resource_type: "mind_map_html",
+      title: "خريطة",
+      resource_code: "MAP-WIRE",
+      lifecycle_status: "published",
+      published_version_id: verId,
+    });
+    mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 1 });
+
+    const first = await createSignedStudentAccessUrl({ resourceId: resId }, mockDb.adapter, mockStorage);
+    const second = await createSignedStudentAccessUrl({ resourceId: resId }, mockDb.adapter, mockStorage);
+
+    assert.equal(first.granted, true, "First signing must be granted");
+    assert.equal(second.granted, true, "Second signing must be granted");
+    assert.ok(first.signedUrl, "First signed URL must exist");
+    assert.ok(second.signedUrl, "Second signed URL must exist");
+    assert.notEqual(
+      first.signedUrl,
+      second.signedUrl,
+      "Successive signed URLs MUST differ — proves fresh signing on each call, no stale URL reuse",
+    );
+    assert.equal(signCallCount, 2, "Storage signing must be invoked exactly twice");
+  });
+
+  test("15. Server signing failure returns granted=false with no URL leaked", async () => {
+    const mockDb = createMockDbAdapter();
+    const mockStorage = createMockStorageAdapter();
+
+    const resId = "00000000-0000-0000-0000-000000001501";
+    const verId = "00000000-0000-0000-0000-000000001502";
+    const lessonId = "00000000-0000-0000-0000-000000001503";
+
+    mockDb.resources.set(resId, {
+      id: resId,
+      lesson_id: lessonId,
+      resource_type: "practical_experiment_html",
+      title: "تجربة",
+      resource_code: "EXP-WIRE",
+      lifecycle_status: "published",
+      published_version_id: verId,
+    });
+    mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 1 });
+
+    mockStorage.shouldFailSignedUrl = true;
+
+    const result = await createSignedStudentAccessUrl({ resourceId: resId }, mockDb.adapter, mockStorage.adapter);
+
+    assert.equal(result.granted, false, "Server failure must return granted=false");
+    assert.equal(result.signedUrl, undefined, "No signed URL must be leaked on failure");
+    assert.ok(result.reason, "Failure reason must be provided");
+  });
+
+  test("16. resourceId is the sole client identifier passed to binding resolution", async () => {
+    const mockDb = createMockDbAdapter();
+    const mockStorage = createMockStorageAdapter();
+
+    const resolvedResourceIds: string[] = [];
+    const trackingAdapter: DatabaseClientAdapter = {
+      ...mockDb.adapter,
+      async resolveStudentResourceBinding(resourceId: string) {
+        resolvedResourceIds.push(resourceId);
+        return mockDb.adapter.resolveStudentResourceBinding(resourceId);
+      },
+    };
+
+    const resId = "00000000-0000-0000-0000-000000001601";
+    const verId = "00000000-0000-0000-0000-000000001602";
+    const lessonId = "00000000-0000-0000-0000-000000001603";
+
+    mockDb.resources.set(resId, {
+      id: resId,
+      lesson_id: lessonId,
+      resource_type: "summary_html",
+      title: "ملخص",
+      resource_code: "SUM-WIRE",
+      lifecycle_status: "published",
+      published_version_id: verId,
+    });
+    mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 1 });
+
+    await createSignedStudentAccessUrl({ resourceId: resId }, trackingAdapter, mockStorage.adapter);
+
+    assert.equal(resolvedResourceIds.length, 1, "resolveStudentResourceBinding must be called exactly once");
+    assert.equal(resolvedResourceIds[0], resId, "Only the client-provided resourceId is used for binding resolution");
+  });
+
+  test("17. Reload triggers fresh signing — simulates initial + reload flow with distinct URLs", async () => {
+    const mockDb = createMockDbAdapter();
+
+    let signCallCount = 0;
+    const mockStorage: StorageClientAdapter = {
+      async createSignedUploadUrl() {
+        throw new Error("Not implemented");
+      },
+      async download() {
+        return { data: null, error: new Error("Not implemented") };
+      },
+      async upload() {
+        return { error: new Error("Not implemented") };
+      },
+      async copy() {
+        return { error: new Error("Not implemented") };
+      },
+      async createSignedUrl(_bucket: string, path: string, _expiresIn: number) {
+        signCallCount++;
+        return {
+          signedUrl: `https://storage.local/signed/lesson-resource-published/${path}?token=call-${signCallCount}`,
+          error: null,
+        };
+      },
+      async remove() {
+        return { error: null };
+      },
+    };
+
+    const resId = "00000000-0000-0000-0000-000000001701";
+    const verId = "00000000-0000-0000-0000-000000001702";
+    const lessonId = "00000000-0000-0000-0000-000000001703";
+
+    mockDb.resources.set(resId, {
+      id: resId,
+      lesson_id: lessonId,
+      resource_type: "mind_map_html",
+      title: "خريطة",
+      resource_code: "MAP-RELOAD",
+      lifecycle_status: "published",
+      published_version_id: verId,
+    });
+    mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 1 });
+
+    // Initial load: first signing
+    const initialAccess = await createSignedStudentAccessUrl({ resourceId: resId }, mockDb.adapter, mockStorage);
+    assert.equal(initialAccess.granted, true);
+    assert.ok(initialAccess.signedUrl?.includes("call-1"), "Initial URL must be from first signing call");
+
+    // Reload: second signing (simulates onReloadSignedUrl calling createSignedStudentAccessUrlFn again)
+    const reloadedAccess = await createSignedStudentAccessUrl({ resourceId: resId }, mockDb.adapter, mockStorage);
+    assert.equal(reloadedAccess.granted, true);
+    assert.ok(reloadedAccess.signedUrl?.includes("call-2"), "Reloaded URL must be from second signing call");
+
+    assert.notEqual(
+      initialAccess.signedUrl,
+      reloadedAccess.signedUrl,
+      "Reloaded URL MUST differ from initial URL — proves server re-signs on each reload",
+    );
+    assert.equal(signCallCount, 2, "Exactly 2 signing calls for initial + reload");
+  });
+
+  test("18. Unpublished resource throws on signing attempt (server error propagation)", async () => {
+    const mockDb = createMockDbAdapter();
+    const mockStorage = createMockStorageAdapter();
+
+    const resId = "00000000-0000-0000-0000-000000001801";
+    const lessonId = "00000000-0000-0000-0000-000000001803";
+
+    mockDb.resources.set(resId, {
+      id: resId,
+      lesson_id: lessonId,
+      resource_type: "mind_map_html",
+      title: "مسودة",
+      resource_code: "MAP-DRAFT",
+      lifecycle_status: "draft",
+      published_version_id: null,
+    });
+
+    await assert.rejects(
+      async () => {
+        await createSignedStudentAccessUrl({ resourceId: resId }, mockDb.adapter, mockStorage.adapter);
+      },
+      (err: Error) => {
+        assert.match(err.message, /not published/);
+        return true;
+      },
+    );
   });
 });

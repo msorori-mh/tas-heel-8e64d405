@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -9,7 +9,10 @@ import { Breadcrumbs as SharedBreadcrumbs } from "@/components/student/Breadcrum
 
 import { Button } from "@/components/ui/button";
 import { getLessonFileUrl } from "@/lib/api/lesson-file.functions";
-import { getLessonPublishedHtmlResourcesFn } from "@/lib/api/html-pipeline.functions";
+import {
+  getLessonPublishedHtmlResourcesFn,
+  createSignedStudentAccessUrlFn,
+} from "@/lib/api/html-pipeline.functions";
 import { PublishedHtmlResourceViewer } from "@/components/lessons/PublishedHtmlResourceViewer";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import {
@@ -290,6 +293,15 @@ function LessonPage() {
 
   // Published HTML interactive resources (mind_map_html, practical_experiment_html, summary_html)
   const getLessonHtmlResources = useServerFn(getLessonPublishedHtmlResourcesFn);
+  const refreshSignedUrl = useServerFn(createSignedStudentAccessUrlFn);
+  const handleReloadSignedUrl = useCallback(
+    (resourceId: string) =>
+      async (): Promise<string | null> => {
+        const result = await refreshSignedUrl({ data: { resourceId } });
+        return result?.signedUrl ?? null;
+      },
+    [refreshSignedUrl],
+  );
   const { data: htmlResources, isLoading: htmlResourcesLoading, error: htmlResourcesError } = useQuery({
     enabled: !!lesson && accessible === true && canAccessEnhancements,
     queryKey: ["lesson-published-html-resources", lessonId],
@@ -461,6 +473,7 @@ function LessonPage() {
                 <PublishedHtmlResourceViewer
                   key={r.resourceId}
                   resource={r}
+                  onReloadSignedUrl={handleReloadSignedUrl(r.resourceId)}
                 />
               ))}
             </div>
@@ -487,6 +500,7 @@ function LessonPage() {
                 <PublishedHtmlResourceViewer
                   key={r.resourceId}
                   resource={r}
+                  onReloadSignedUrl={handleReloadSignedUrl(r.resourceId)}
                 />
               ))}
             </div>
@@ -510,6 +524,7 @@ function LessonPage() {
                   <PublishedHtmlResourceViewer
                     key={r.resourceId}
                     resource={r}
+                    onReloadSignedUrl={handleReloadSignedUrl(r.resourceId)}
                   />
                 ))}
               </div>
