@@ -1492,6 +1492,7 @@ describe("Trusted HTML Server Pipeline — DB & Storage Foundation Contracts", (
           resourceId: "res-1",
           versionId: "ver-1",
           storageOperationId: "op-1",
+          expectedLockVersion: 1,
         }),
       /publication RPC denied/,
     );

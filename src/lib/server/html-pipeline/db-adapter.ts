@@ -192,7 +192,7 @@ export function createSupabaseDbAdapter({
         p_version_id: params.versionId,
         p_storage_operation_id: params.storageOperationId,
         p_upload_session_id: params.uploadSessionId ?? null,
-        p_expected_lock_version: params.expectedLockVersion ?? null,
+        p_expected_lock_version: params.expectedLockVersion,
       });
 
       if (error) {
@@ -338,7 +338,7 @@ export function createSupabaseDbAdapter({
       const { error } = await untypedAdmin.rpc("rollback_resource", {
         p_resource_id: params.resourceId,
         p_target_version_id: params.targetVersionId,
-        p_expected_lock_version: params.expectedLockVersion ?? null,
+        p_expected_lock_version: params.expectedLockVersion,
       });
 
       if (error) {

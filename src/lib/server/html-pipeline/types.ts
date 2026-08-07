@@ -169,7 +169,7 @@ export interface RecordSuccessfulResourcePublicationParams {
   versionId: string;
   storageOperationId: string;
   uploadSessionId?: string;
-  expectedLockVersion?: number;
+  expectedLockVersion: number;
 }
 
 export interface SubmitForReviewParams {
@@ -198,5 +198,5 @@ export interface UnpublishResourceParams {
 export interface RollbackResourceParams {
   resourceId: string;
   targetVersionId: string;
-  expectedLockVersion?: number;
+  expectedLockVersion: number;
 }

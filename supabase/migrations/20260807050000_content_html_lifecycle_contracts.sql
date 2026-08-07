@@ -466,8 +466,8 @@ CREATE OR REPLACE FUNCTION public.record_successful_resource_publication(
   p_resource_id uuid,
   p_version_id uuid,
   p_storage_operation_id uuid,
-  p_upload_session_id uuid DEFAULT NULL,
-  p_expected_lock_version integer DEFAULT NULL
+  p_expected_lock_version integer,
+  p_upload_session_id uuid DEFAULT NULL
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
   v_res record;
@@ -493,7 +493,11 @@ BEGIN
     RAISE EXCEPTION 'Resource approved_version_id does not match requested version' USING ERRCODE = '42000';
   END IF;
 
-  IF p_expected_lock_version IS NOT NULL AND v_res.lock_version <> p_expected_lock_version THEN
+  IF p_expected_lock_version IS NULL THEN
+    RAISE EXCEPTION 'expected_lock_version is required for publication CAS' USING ERRCODE = '22000';
+  END IF;
+
+  IF v_res.lock_version <> p_expected_lock_version THEN
     RAISE EXCEPTION 'Resource % lock version mismatch: expected %, actual %', p_resource_id, p_expected_lock_version, v_res.lock_version USING ERRCODE = '40001';
   END IF;
 
@@ -575,7 +579,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.rollback_resource(
   p_resource_id uuid,
   p_target_version_id uuid,
-  p_expected_lock_version integer DEFAULT NULL
+  p_expected_lock_version integer
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
   v_res record;
@@ -594,7 +598,11 @@ BEGIN
     RAISE EXCEPTION 'Resource % is not published; rollback only applies to published resources', p_resource_id USING ERRCODE = '42000';
   END IF;
 
-  IF p_expected_lock_version IS NOT NULL AND v_res.lock_version <> p_expected_lock_version THEN
+  IF p_expected_lock_version IS NULL THEN
+    RAISE EXCEPTION 'expected_lock_version is required for rollback CAS' USING ERRCODE = '22000';
+  END IF;
+
+  IF v_res.lock_version <> p_expected_lock_version THEN
     RAISE EXCEPTION 'Resource % lock version mismatch: expected %, actual %', p_resource_id, p_expected_lock_version, v_res.lock_version USING ERRCODE = '40001';
   END IF;
 
@@ -668,7 +676,7 @@ REVOKE ALL ON FUNCTION public.submit_resource_for_review(uuid, integer) FROM PUB
 REVOKE ALL ON FUNCTION public.approve_resource(uuid, uuid, integer) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.reject_resource(uuid, uuid, text, integer) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.unpublish_resource(uuid, integer) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.record_successful_resource_publication(uuid, uuid, uuid, uuid, integer) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.record_successful_resource_publication(uuid, uuid, uuid, integer, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.rollback_resource(uuid, uuid, integer) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.resolve_promotion_binding(uuid, uuid) FROM PUBLIC, anon, authenticated;
 
@@ -678,6 +686,6 @@ GRANT EXECUTE ON FUNCTION public.submit_resource_for_review(uuid, integer) TO se
 GRANT EXECUTE ON FUNCTION public.approve_resource(uuid, uuid, integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.reject_resource(uuid, uuid, text, integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.unpublish_resource(uuid, integer) TO service_role;
-GRANT EXECUTE ON FUNCTION public.record_successful_resource_publication(uuid, uuid, uuid, uuid, integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.record_successful_resource_publication(uuid, uuid, uuid, integer, uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.rollback_resource(uuid, uuid, integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.resolve_promotion_binding(uuid, uuid) TO service_role;

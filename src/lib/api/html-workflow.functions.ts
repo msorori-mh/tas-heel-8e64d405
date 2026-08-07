@@ -658,7 +658,7 @@ export const rollbackHtmlResourceFn = createServerFn({ method: "POST" })
     z.object({
       resourceId: z.string().uuid(),
       targetVersionId: z.string().uuid(),
-      lockVersion: z.number().int().min(1).optional(),
+      lockVersion: z.number().int().min(1),
     }),
   )
   .handler(async ({ data, context }): Promise<ReviewActionResult> => {

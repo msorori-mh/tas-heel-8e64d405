@@ -285,3 +285,79 @@ test("lock_version CAS guard present in lifecycle transitions", () => {
     assert.match(migrationSql, pattern, `Function ${fn} must accept expected_lock_version parameter`);
   }
 });
+
+test("publication CAS is mandatory — no DEFAULT NULL, explicit NULL rejection, no bypass", () => {
+  const fnMatch = migrationSql.match(
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.record_successful_resource_publication[\s\S]*?\$\$;/i,
+  );
+  assert.ok(fnMatch, "record_successful_resource_publication function definition must exist");
+  const fnBody = fnMatch[0];
+
+  const paramMatch = fnBody.match(
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.record_successful_resource_publication\s*\(([\s\S]*?)\)\s*RETURNS/i,
+  );
+  assert.ok(paramMatch, "Must have parameter list");
+  const paramList = paramMatch[1];
+
+  const casParamMatch = paramList.match(/p_expected_lock_version\s+integer([^\n,)]*)/i);
+  assert.ok(casParamMatch, "Must have p_expected_lock_version parameter");
+  assert.doesNotMatch(
+    casParamMatch[1],
+    /DEFAULT\s+NULL/i,
+    "p_expected_lock_version must not have DEFAULT NULL",
+  );
+
+  assert.match(
+    fnBody,
+    /p_expected_lock_version\s+IS\s+NULL\s+THEN/i,
+    "Publication must have explicit NULL guard for CAS",
+  );
+  assert.match(
+    fnBody,
+    /RAISE\s+EXCEPTION[\s\S]*?expected_lock_version\s+is\s+required/i,
+    "Publication must raise when CAS is NULL",
+  );
+  assert.doesNotMatch(
+    fnBody,
+    /p_expected_lock_version\s+IS\s+NOT\s+NULL\s+AND[\s\S]*?lock_version\s*<>/i,
+    "Publication must not have conditional CAS bypass (IS NOT NULL AND ...)",
+  );
+});
+
+test("rollback CAS is mandatory — no DEFAULT NULL, explicit NULL rejection, no bypass", () => {
+  const fnMatch = migrationSql.match(
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.rollback_resource[\s\S]*?\$\$;/i,
+  );
+  assert.ok(fnMatch, "rollback_resource function definition must exist");
+  const fnBody = fnMatch[0];
+
+  const paramMatch = fnBody.match(
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.rollback_resource\s*\(([\s\S]*?)\)\s*RETURNS/i,
+  );
+  assert.ok(paramMatch, "Must have parameter list");
+  const paramList = paramMatch[1];
+
+  const casParamMatch = paramList.match(/p_expected_lock_version\s+integer([^\n,)]*)/i);
+  assert.ok(casParamMatch, "Must have p_expected_lock_version parameter");
+  assert.doesNotMatch(
+    casParamMatch[1],
+    /DEFAULT\s+NULL/i,
+    "p_expected_lock_version must not have DEFAULT NULL",
+  );
+
+  assert.match(
+    fnBody,
+    /p_expected_lock_version\s+IS\s+NULL\s+THEN/i,
+    "Rollback must have explicit NULL guard for CAS",
+  );
+  assert.match(
+    fnBody,
+    /RAISE\s+EXCEPTION[\s\S]*?expected_lock_version\s+is\s+required/i,
+    "Rollback must raise when CAS is NULL",
+  );
+  assert.doesNotMatch(
+    fnBody,
+    /p_expected_lock_version\s+IS\s+NOT\s+NULL\s+AND[\s\S]*?lock_version\s*<>/i,
+    "Rollback must not have conditional CAS bypass (IS NOT NULL AND ...)",
+  );
+});

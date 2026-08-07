@@ -599,7 +599,7 @@ BEGIN
   PERFORM set_config('test.auth_uid', v_admin_id::text, true);
   v_err_caught := false;
   BEGIN
-    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_prom_op_id, v_session_id, 1);
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_prom_op_id, 1, v_session_id);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42501' THEN v_err_caught := true; END IF;
@@ -608,10 +608,30 @@ BEGIN
 
   PERFORM set_config('test.auth_role', 'service_role', true);
 
+  -- 14b. Publication with explicit NULL lock version -> DENY
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_prom_op_id, NULL, v_session_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '22000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Publication with explicit NULL lock version DENIED (SQLSTATE 22000)');
+
+  -- 14c. Publication without CAS argument -> DENY (function signature mismatch)
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_prom_op_id, v_session_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42883' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Publication without CAS argument DENIED (SQLSTATE 42883)');
+
   -- 15. Publication with stale lock -> DENY
   v_err_caught := false;
   BEGIN
-    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_prom_op_id, v_session_id, 99);
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_prom_op_id, 99, v_session_id);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '40001' THEN v_err_caught := true; END IF;
@@ -621,7 +641,7 @@ BEGIN
   -- 16. Publication with wrong-resource operation -> DENY
   v_err_caught := false;
   BEGIN
-    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_wrong_res_pub_op_id, v_session_id, 1);
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_wrong_res_pub_op_id, 1, v_session_id);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
@@ -631,7 +651,7 @@ BEGIN
   -- 17. Publication with wrong-version operation -> DENY
   v_err_caught := false;
   BEGIN
-    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_wrong_ver_pub_op_id, NULL, 1);
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_wrong_ver_pub_op_id, 1, NULL);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
@@ -641,7 +661,7 @@ BEGIN
   -- 18. Publication with wrong expected hash -> DENY
   v_err_caught := false;
   BEGIN
-    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_hash_mismatch_pub_op_id, v_session_id, 1);
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_hash_mismatch_pub_op_id, 1, v_session_id);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
@@ -651,7 +671,7 @@ BEGIN
   -- 19. Publication with invalid target path -> DENY
   v_err_caught := false;
   BEGIN
-    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_bad_path_pub_op_id, v_session_id, 1);
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_bad_path_pub_op_id, 1, v_session_id);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
@@ -661,7 +681,7 @@ BEGIN
   -- 20. Publication with operation not in promoted status -> DENY
   v_err_caught := false;
   BEGIN
-    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_bad_pub_op_id, v_session_id, 1);
+    PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_bad_pub_op_id, 1, v_session_id);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
@@ -669,7 +689,7 @@ BEGIN
   PERFORM pg17_assert(v_err_caught, 'Publication with non-promoted operation DENIED (SQLSTATE 42000)');
 
   -- 21. Valid atomic publication -> PASS
-  PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_prom_op_id, v_session_id, 1);
+  PERFORM public.record_successful_resource_publication(v_res_id, v_ver1_id, v_prom_op_id, 1, v_session_id);
   SELECT lifecycle_status, published_version_id, lock_version INTO v_binding FROM public.lesson_resources WHERE id = v_res_id;
   PERFORM pg17_assert(v_binding.lifecycle_status = 'published', 'Valid publication transitions resource to published');
   PERFORM pg17_assert(v_binding.published_version_id = v_ver1_id, 'Valid publication sets published_version_id');
@@ -706,12 +726,12 @@ BEGIN
   PERFORM pg17_assert(v_binding.immutable_at IS NOT NULL, 'Historical version remains immutable after unpublish');
 
   -- Re-publish resource for rollback tests (manually set published; rollback has its own proof)
-  UPDATE public.lesson_resources SET lifecycle_status = 'published', published_version_id = v_ver1_id WHERE id = v_res_id;
+  UPDATE public.lesson_resources SET lifecycle_status = 'published', published_version_id = v_ver1_id, lock_version = 1 WHERE id = v_res_id;
 
   -- 24. Rollback wrong-resource target -> DENY
   v_err_caught := false;
   BEGIN
-    PERFORM public.rollback_resource(v_res_id, v_other_ver_id);
+    PERFORM public.rollback_resource(v_res_id, v_other_ver_id, 1);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
@@ -721,7 +741,7 @@ BEGIN
   -- 25. Rollback to unapproved target -> DENY (ver3 has no approved review)
   v_err_caught := false;
   BEGIN
-    PERFORM public.rollback_resource(v_res_id, v_bad_ver_id);
+    PERFORM public.rollback_resource(v_res_id, v_bad_ver_id, 1);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
@@ -731,7 +751,7 @@ BEGIN
   -- 26. Rollback to target with no storage operation -> DENY (ver4 is approved but never promoted)
   v_err_caught := false;
   BEGIN
-    PERFORM public.rollback_resource(v_res_id, v_ver4_id);
+    PERFORM public.rollback_resource(v_res_id, v_ver4_id, 1);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
@@ -756,7 +776,7 @@ BEGIN
 
   v_err_caught := false;
   BEGIN
-    PERFORM public.rollback_resource(v_res_id, v_ver1_id);
+    PERFORM public.rollback_resource(v_res_id, v_ver1_id, 1);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
@@ -779,7 +799,7 @@ BEGIN
 
   v_err_caught := false;
   BEGIN
-    PERFORM public.rollback_resource(v_res_id, v_ver1_id);
+    PERFORM public.rollback_resource(v_res_id, v_ver1_id, 1);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
@@ -802,7 +822,7 @@ BEGIN
 
   v_err_caught := false;
   BEGIN
-    PERFORM public.rollback_resource(v_res_id, v_ver1_id);
+    PERFORM public.rollback_resource(v_res_id, v_ver1_id, 1);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '42000' THEN v_err_caught := true; END IF;
@@ -826,18 +846,39 @@ BEGIN
   -- 30. Rollback with stale lock -> DENY
   v_err_caught := false;
   BEGIN
-    PERFORM public.rollback_resource(v_res_id, v_ver1_id, 1);
+    PERFORM public.rollback_resource(v_res_id, v_ver1_id, 99);
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '40001' THEN v_err_caught := true; END IF;
   END;
   PERFORM pg17_assert(v_err_caught, 'Rollback with stale lock DENIED (SQLSTATE 40001)');
 
+  -- 30b. Rollback with explicit NULL lock version -> DENY
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.rollback_resource(v_res_id, v_ver1_id, NULL);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '22000' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Rollback with explicit NULL lock version DENIED (SQLSTATE 22000)');
+
+  -- 30c. Rollback without CAS argument -> DENY (function signature mismatch)
+  v_err_caught := false;
+  BEGIN
+    PERFORM public.rollback_resource(v_res_id, v_ver1_id);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
+    IF v_sqlstate = '42883' THEN v_err_caught := true; END IF;
+  END;
+  PERFORM pg17_assert(v_err_caught, 'Rollback without CAS argument DENIED (SQLSTATE 42883)');
+
   -- 31. Rollback valid historical published target -> PASS
-  PERFORM public.rollback_resource(v_res_id, v_ver1_id);
+  PERFORM public.rollback_resource(v_res_id, v_ver1_id, 1);
   SELECT lifecycle_status, published_version_id, lock_version INTO v_binding FROM public.lesson_resources WHERE id = v_res_id;
   PERFORM pg17_assert(v_binding.lifecycle_status = 'published', 'Rollback keeps resource published');
   PERFORM pg17_assert(v_binding.published_version_id = v_ver1_id, 'Rollback sets published_version_id to target');
+  PERFORM pg17_assert(v_binding.lock_version = 2, 'Rollback increments lock_version exactly once');
   SELECT count(*) INTO v_count FROM public.lesson_resource_events WHERE resource_id = v_res_id AND event_type = 'rollback';
   PERFORM pg17_assert(v_count = 1, 'Rollback emits audit event');
 

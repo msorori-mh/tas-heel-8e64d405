@@ -113,7 +113,7 @@ export interface HtmlWorkflowAdapter {
   approveResource(resourceId: string, versionId: string, lockVersion?: number): Promise<void>;
   rejectResource(resourceId: string, versionId: string, reviewerId: string, reason: string | null, lockVersion?: number): Promise<void>;
   unpublishResource(resourceId: string, lockVersion?: number): Promise<void>;
-  rollbackResource(resourceId: string, targetVersionId: string, lockVersion?: number): Promise<void>;
+  rollbackResource(resourceId: string, targetVersionId: string, lockVersion: number): Promise<void>;
   getReviewQueue(): Promise<ReviewQueueRow[]>;
   getResourceEvents(resourceId: string): Promise<Array<{ event_type: string; created_at: string; payload: unknown }>>;
   checkFeatureFlag(flagKey: string): Promise<boolean>;
@@ -368,7 +368,7 @@ export function createHtmlWorkflowAdapter(
       await lifecycleDb.unpublishResource({ resourceId, expectedLockVersion: lockVersion });
     },
 
-    async rollbackResource(resourceId: string, targetVersionId: string, lockVersion?: number): Promise<void> {
+    async rollbackResource(resourceId: string, targetVersionId: string, lockVersion: number): Promise<void> {
       await lifecycleDb.rollbackResource({
         resourceId,
         targetVersionId,
