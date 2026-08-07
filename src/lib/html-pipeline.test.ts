@@ -377,6 +377,10 @@ function createMockDbAdapter(): {
       };
     },
 
+    async listLessonPublishedHtmlResources(_lessonId: string) {
+      return [];
+    },
+
     async recordPublicationState(resourceId: string, versionId: string): Promise<void> {
       const res = resources.get(resourceId);
       if (res) {

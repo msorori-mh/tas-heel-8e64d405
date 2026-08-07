@@ -9,6 +9,8 @@ import { Breadcrumbs as SharedBreadcrumbs } from "@/components/student/Breadcrum
 
 import { Button } from "@/components/ui/button";
 import { getLessonFileUrl } from "@/lib/api/lesson-file.functions";
+import { getLessonPublishedHtmlResourcesFn } from "@/lib/api/html-pipeline.functions";
+import { PublishedHtmlResourceViewer } from "@/components/lessons/PublishedHtmlResourceViewer";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import {
   Home,
@@ -36,7 +38,6 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
-import { InteractiveResourceViewer, InteractiveResourceItem } from "@/components/lessons/InteractiveResourceViewer";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
   component: LessonPage,
@@ -287,6 +288,21 @@ function LessonPage() {
     },
   });
 
+  // Published HTML interactive resources (mind_map_html, practical_experiment_html, summary_html)
+  const getLessonHtmlResources = useServerFn(getLessonPublishedHtmlResourcesFn);
+  const { data: htmlResources, isLoading: htmlResourcesLoading, error: htmlResourcesError } = useQuery({
+    enabled: !!lesson && accessible === true && canAccessEnhancements,
+    queryKey: ["lesson-published-html-resources", lessonId],
+    queryFn: async () => {
+      const result = await getLessonHtmlResources({ data: { lessonId } });
+      return result.resources;
+    },
+  });
+
+  const htmlMindMaps = (htmlResources ?? []).filter((r) => r.resourceType === "mind_map_html");
+  const htmlExperiments = (htmlResources ?? []).filter((r) => r.resourceType === "practical_experiment_html");
+  const htmlSummaries = (htmlResources ?? []).filter((r) => r.resourceType === "summary_html");
+
   // Detect availability of a training template (for the journey CTA hint).
   const { data: trainingTemplates } = useQuery({
     enabled: !!lesson && accessible === true,
@@ -359,13 +375,15 @@ function LessonPage() {
   const bookContent = (book?.content ?? lesson.content_text ?? "").trim();
 
   const hasBook = bookContent.length > 0;
-  const hasSummary = !!(summary?.summary && summary.summary.trim().length > 0);
+  const hasSummary = !!(summary?.summary && summary.summary.trim().length > 0) || htmlSummaries.length > 0;
+  const hasHtmlMindMap = htmlMindMaps.length > 0;
+  const hasHtmlExperiment = htmlExperiments.length > 0;
   const questionsCount = questions?.length ?? 0;
   const hasQuestions = questionsCount > 0;
   const trainingCount = trainingTemplates ?? 0;
   const hasTraining = trainingCount > 0;
   const resourcesCount = resources?.length ?? 0;
-  const hasResources = resourcesCount > 0;
+  const hasResources = resourcesCount > 0 || (htmlResources?.length ?? 0) > 0;
 
   const completedWeights =
     (hasBook ? 20 : 0) +
@@ -427,33 +445,98 @@ function LessonPage() {
 
         <JourneyCard
           stepNumber={2}
+          icon={<MapIcon className="h-5 w-5" />}
+          title="الخريطة الذهنية"
+          description={
+            hasHtmlMindMap
+              ? "خريطة ذهنية تفاعلية لتنظيم أفكار الدرس."
+              : "خريطة ذهنية تفاعلية لتنظيم أفكار الدرس."
+          }
+          ctaLabel={hasHtmlMindMap ? "عرض الخريطة" : "غير متوفرة"}
+          ctaDisabled={!hasHtmlMindMap}
+        >
+          {htmlMindMaps.length > 0 ? (
+            <div className="space-y-4">
+              {htmlMindMaps.map((r) => (
+                <PublishedHtmlResourceViewer
+                  key={r.resourceId}
+                  resource={r}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyText>لم تُضَف خريطة ذهنية تفاعلية لهذا الدرس بعد.</EmptyText>
+          )}
+        </JourneyCard>
+
+        <JourneyCard
+          stepNumber={3}
+          icon={<FlaskConical className="h-5 w-5" />}
+          title="التجربة العملية"
+          description={
+            hasHtmlExperiment
+              ? "تجربة عملية تفاعلية لتطبيق مفاهيم الدرس."
+              : "تجربة عملية تفاعلية لتطبيق مفاهيم الدرس."
+          }
+          ctaLabel={hasHtmlExperiment ? "ابدأ التجربة" : "غير متوفرة"}
+          ctaDisabled={!hasHtmlExperiment}
+        >
+          {htmlExperiments.length > 0 ? (
+            <div className="space-y-4">
+              {htmlExperiments.map((r) => (
+                <PublishedHtmlResourceViewer
+                  key={r.resourceId}
+                  resource={r}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyText>لم تُضَف تجربة عملية تفاعلية لهذا الدرس بعد.</EmptyText>
+          )}
+        </JourneyCard>
+
+        <JourneyCard
+          stepNumber={4}
           icon={<FileText className="h-5 w-5" />}
           title="راجع الملخص"
           description="أهم النقاط والأفكار الرئيسية للدرس."
           ctaLabel={hasSummary ? "عرض الملخص" : "غير متوفر"}
           ctaDisabled={!hasSummary}
         >
-          {hasSummary ? (
-            <>
-              <p className="text-sm leading-relaxed text-card-foreground">{summary!.summary}</p>
-              {Array.isArray(summary!.key_points) && (summary!.key_points as unknown[]).length > 0 && (
-                <ul className="mt-3 list-disc space-y-1 pr-5 text-sm text-card-foreground">
-                  {(summary!.key_points as unknown[]).map((p, i) => (
-                    <li key={i}>{String(p)}</li>
-                  ))}
-                </ul>
-              )}
-              {summary!.study_tip && (
-                <p className="mt-3 flex items-start gap-2 rounded-md bg-accent/10 p-2 text-xs"><Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />{summary!.study_tip}</p>
-              )}
-            </>
-          ) : (
-            <EmptyText>لم يُضف ملخص لهذا الدرس بعد.</EmptyText>
-          )}
+          <>
+            {htmlSummaries.length > 0 && (
+              <div className="space-y-4 mb-4">
+                {htmlSummaries.map((r) => (
+                  <PublishedHtmlResourceViewer
+                    key={r.resourceId}
+                    resource={r}
+                  />
+                ))}
+              </div>
+            )}
+            {summary?.summary && summary.summary.trim().length > 0 && (
+              <>
+                <p className="text-sm leading-relaxed text-card-foreground">{summary.summary}</p>
+                {Array.isArray(summary.key_points) && (summary.key_points as unknown[]).length > 0 && (
+                  <ul className="mt-3 list-disc space-y-1 pr-5 text-sm text-card-foreground">
+                    {(summary.key_points as unknown[]).map((p, i) => (
+                      <li key={i}>{String(p)}</li>
+                    ))}
+                  </ul>
+                )}
+                {summary.study_tip && (
+                  <p className="mt-3 flex items-start gap-2 rounded-md bg-accent/10 p-2 text-xs"><Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />{summary.study_tip}</p>
+                )}
+              </>
+            )}
+            {!hasSummary && (
+              <EmptyText>لم يُضف ملخص لهذا الدرس بعد.</EmptyText>
+            )}
+          </>
         </JourneyCard>
 
         <JourneyCard
-          stepNumber={3}
+          stepNumber={5}
           icon={<Target className="h-5 w-5" />}
           title="اختبر فهمك"
           description={
@@ -478,7 +561,7 @@ function LessonPage() {
         </JourneyCard>
 
         <JourneyCard
-          stepNumber={4}
+          stepNumber={6}
           icon={<Trophy className="h-5 w-5" />}
           title="اختبار الدرس"
           description={
@@ -499,7 +582,7 @@ function LessonPage() {
         </JourneyCard>
 
         <JourneyCard
-          stepNumber={5}
+          stepNumber={7}
           icon={<Library className="h-5 w-5" />}
           title="موارد إضافية"
           description={

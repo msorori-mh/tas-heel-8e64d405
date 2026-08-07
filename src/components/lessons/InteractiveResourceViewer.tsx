@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Maximize2, Minimize2, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Play, CheckCircle2, AlertTriangle, DownloadCloud, Lock } from "lucide-react";
+import { Maximize2, Minimize2, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Play, CheckCircle2, AlertTriangle, DownloadCloud, Lock, FileText } from "lucide-react";
 import {
   AppInteractiveResourceBridge,
   buildPackageCsp,
@@ -15,7 +15,7 @@ import {
 export interface InteractiveResourceItem {
   id: string;
   resource_code: string;
-  resource_type: "mind_map_html" | "practical_experiment_html";
+  resource_type: "mind_map_html" | "practical_experiment_html" | "summary_html";
   title_ar: string;
   description_ar?: string | null;
   alt_text_ar?: string | null;
@@ -193,6 +193,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
   };
 
   const isMindMap = resource.resource_type === "mind_map_html";
+  const isSummary = resource.resource_type === "summary_html";
 
   return (
     <Card className="border-primary/20 shadow-md overflow-hidden bg-card" dir="rtl" ref={containerRef}>
@@ -202,6 +203,8 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
             <div className="flex items-center gap-2">
               {isMindMap ? (
                 <Sparkles className="h-5 w-5 text-sky-500 shrink-0" />
+              ) : isSummary ? (
+                <FileText className="h-5 w-5 text-violet-500 shrink-0" />
               ) : (
                 <Play className="h-5 w-5 text-emerald-500 shrink-0" />
               )}
@@ -209,7 +212,11 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
                 {resource.title_ar}
               </CardTitle>
               <Badge variant="outline" className="text-[11px]">
-                {isMindMap ? "خريطة ذهنية تفاعلية" : "تجربة عملية تفاعلية"}
+                {isMindMap
+                  ? "خريطة ذهنية تفاعلية"
+                  : isSummary
+                    ? "ملخص تفاعلي"
+                    : "تجربة عملية تفاعلية"}
               </Badge>
               {resource.offline_enabled && (
                 <Badge variant="secondary" className="gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">

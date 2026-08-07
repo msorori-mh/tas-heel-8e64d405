@@ -10,6 +10,13 @@ import type {
   ResolvedStorageOperation,
 } from "./types";
 
+export interface PublishedHtmlResourceRow {
+  id: string;
+  resource_type: string;
+  title: string;
+  resource_code: string | null;
+}
+
 export interface DatabaseClientAdapter {
   resolveUploadSession(uploadSessionId: string): Promise<ResolvedUploadSession>;
   recordServerValidation(params: RecordServerValidationParams): Promise<string>;
@@ -22,6 +29,7 @@ export interface DatabaseClientAdapter {
     resourceVersionId?: string;
   }): Promise<ResolvedPromotionBinding>;
   resolveStudentResourceBinding(resourceId: string): Promise<ResolvedStudentResourceBinding>;
+  listLessonPublishedHtmlResources(lessonId: string): Promise<PublishedHtmlResourceRow[]>;
   recordPublicationState(resourceId: string, versionId: string): Promise<void>;
   recordStorageOperation(op: StorageOperationRecord): Promise<string>;
   updateStorageOperation(operationId: string, status: string, details?: string): Promise<void>;
@@ -169,6 +177,47 @@ export function createSupabaseDbAdapter({
       }
 
       return binding;
+    },
+
+    async listLessonPublishedHtmlResources(
+      lessonId: string,
+    ): Promise<PublishedHtmlResourceRow[]> {
+      const admin = untypedAdmin as unknown as {
+        from(table: string): {
+          select(columns: string): {
+            eq(
+              column: string,
+              value: unknown,
+            ): {
+              in(column: string, values: unknown[]): {
+                order(
+                  column: string,
+                  opts?: { ascending?: boolean },
+                ): Promise<{ data: unknown; error: { message: string } | null }>;
+              };
+            };
+          };
+        };
+      };
+
+      const { data, error } = await admin
+        .from("lesson_resources")
+        .select("id,resource_type,title,resource_code")
+        .eq("lesson_id", lessonId)
+        .in("resource_type", [
+          "mind_map_html",
+          "practical_experiment_html",
+          "summary_html",
+        ])
+        .order("sort_order", { ascending: true });
+
+      if (error) {
+        throw new Error(
+          `فشل جلب موارد HTML المنشورة للدرس: ${error.message}`,
+        );
+      }
+
+      return (data ?? []) as unknown as PublishedHtmlResourceRow[];
     },
 
     async recordPublicationState(resourceId: string, versionId: string): Promise<void> {

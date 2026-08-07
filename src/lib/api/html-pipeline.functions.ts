@@ -6,7 +6,10 @@ import {
   requireSupabaseAuth,
 } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { createSupabaseDbAdapter } from "@/lib/server/html-pipeline/db-adapter";
+import {
+  createSupabaseDbAdapter,
+  type PublishedHtmlResourceRow,
+} from "@/lib/server/html-pipeline/db-adapter";
 import {
   createSignedUploadUrl,
   downloadAndValidateStoredZip,
@@ -109,4 +112,61 @@ export const compensateHtmlPipelineFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const dbAdapter = buildDbAdapter(context);
     return cleanupOrCompensate(data, dbAdapter);
+  });
+
+/**
+ * 6. Get Published HTML Resources for a Lesson (Student)
+ * Returns published HTML resources with short-lived signed access URLs.
+ * Each resource is individually authorized via resolveStudentResourceBinding.
+ */
+export interface LessonHtmlResourceItem {
+  resourceId: string;
+  resourceType: "mind_map_html" | "practical_experiment_html" | "summary_html";
+  title: string;
+  resourceCode: string;
+  version: number;
+  signedUrl: string;
+  expiresInSeconds: number;
+}
+
+export const getLessonPublishedHtmlResourcesFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      lessonId: z.string().uuid(),
+    }),
+  )
+  .handler(async ({ data, context }): Promise<{ resources: LessonHtmlResourceItem[] }> => {
+    const dbAdapter = buildDbAdapter(context);
+
+    const rows: PublishedHtmlResourceRow[] =
+      await dbAdapter.listLessonPublishedHtmlResources(data.lessonId);
+
+    const resources: LessonHtmlResourceItem[] = [];
+
+    for (const row of rows) {
+      try {
+        const binding = await dbAdapter.resolveStudentResourceBinding(row.id);
+        const access = await createSignedStudentAccessUrl(
+          { resourceId: row.id },
+          dbAdapter,
+        );
+
+        if (access.granted && access.signedUrl) {
+          resources.push({
+            resourceId: row.id,
+            resourceType: binding.resource_type as LessonHtmlResourceItem["resourceType"],
+            title: binding.title,
+            resourceCode: row.resource_code || row.id,
+            version: binding.published_version_number,
+            signedUrl: access.signedUrl,
+            expiresInSeconds: access.expiresInSeconds ?? 900,
+          });
+        }
+      } catch {
+        // Resource not published or student not authorized — skip silently
+      }
+    }
+
+    return { resources };
   });
