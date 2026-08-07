@@ -1,6 +1,5 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { z } from "zod";
 import type { DatabaseClientAdapter, PublishedHtmlResourceRow } from "./server/html-pipeline/db-adapter";
 import type {
   ResolvedUploadSession,
@@ -16,6 +15,8 @@ import { createSignedStudentAccessUrl } from "./server/html-pipeline/html-pipeli
 import {
   createSignedStudentAccessUrlFn,
   getLessonPublishedHtmlResourcesFn,
+  signedStudentAccessInputSchema,
+  requestFreshStudentHtmlSignedUrl,
 } from "./api/html-pipeline.functions";
 import type { LessonHtmlResourceItem } from "./api/html-pipeline.functions";
 
@@ -527,21 +528,17 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
     );
   });
 
-  test("13. createSignedStudentAccessUrl input schema accepts only resourceId UUID", () => {
-    const inputSchema = z.object({
-      resourceId: z.string().uuid(),
-    });
-
-    const validResult = inputSchema.safeParse({ resourceId: "00000000-0000-0000-0000-000000000001" });
+  test("13. Production input schema accepts only resourceId UUID", () => {
+    const validResult = signedStudentAccessInputSchema.safeParse({ resourceId: "00000000-0000-0000-0000-000000000001" });
     assert.equal(validResult.success, true, "Valid UUID resourceId must be accepted");
 
-    const missingResult = inputSchema.safeParse({});
+    const missingResult = signedStudentAccessInputSchema.safeParse({});
     assert.equal(missingResult.success, false, "Missing resourceId must be rejected");
 
-    const invalidResult = inputSchema.safeParse({ resourceId: "not-a-uuid" });
+    const invalidResult = signedStudentAccessInputSchema.safeParse({ resourceId: "not-a-uuid" });
     assert.equal(invalidResult.success, false, "Non-UUID resourceId must be rejected");
 
-    const extraResult = inputSchema.safeParse({
+    const extraResult = signedStudentAccessInputSchema.safeParse({
       resourceId: "00000000-0000-0000-0000-000000000001",
       lessonId: "00000000-0000-0000-0000-000000000002",
     });
@@ -676,7 +673,7 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
     assert.equal(resolvedResourceIds[0], resId, "Only the client-provided resourceId is used for binding resolution");
   });
 
-  test("17. Reload triggers fresh signing — simulates initial + reload flow with distinct URLs", async () => {
+  test("17. Reload via production helper triggers fresh signing with distinct URLs", async () => {
     const mockDb = createMockDbAdapter();
 
     let signCallCount = 0;
@@ -720,21 +717,27 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
     });
     mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 1 });
 
-    // Initial load: first signing
-    const initialAccess = await createSignedStudentAccessUrl({ resourceId: resId }, mockDb.adapter, mockStorage);
-    assert.equal(initialAccess.granted, true);
-    assert.ok(initialAccess.signedUrl?.includes("call-1"), "Initial URL must be from first signing call");
+    // Mock server function caller that delegates to the real service function
+    const mockServerFn = async ({ data }: { data: { resourceId: string } }) => {
+      const access = await createSignedStudentAccessUrl(
+        { resourceId: data.resourceId },
+        mockDb.adapter,
+        mockStorage,
+      );
+      return access.granted ? { signedUrl: access.signedUrl } : null;
+    };
 
-    // Reload: second signing (simulates onReloadSignedUrl calling createSignedStudentAccessUrlFn again)
-    const reloadedAccess = await createSignedStudentAccessUrl({ resourceId: resId }, mockDb.adapter, mockStorage);
-    assert.equal(reloadedAccess.granted, true);
-    assert.ok(reloadedAccess.signedUrl?.includes("call-2"), "Reloaded URL must be from second signing call");
+    // Initial load via production helper
+    const url1 = await requestFreshStudentHtmlSignedUrl(mockServerFn, resId);
+    assert.ok(url1, "Initial signed URL must be returned");
+    assert.ok(url1!.includes("call-1"), "Initial URL must be from first signing call");
 
-    assert.notEqual(
-      initialAccess.signedUrl,
-      reloadedAccess.signedUrl,
-      "Reloaded URL MUST differ from initial URL — proves server re-signs on each reload",
-    );
+    // Reload via same production helper — must trigger fresh signing
+    const url2 = await requestFreshStudentHtmlSignedUrl(mockServerFn, resId);
+    assert.ok(url2, "Reloaded signed URL must be returned");
+    assert.ok(url2!.includes("call-2"), "Reloaded URL must be from second signing call");
+
+    assert.notEqual(url1, url2, "Reloaded URL MUST differ from initial URL");
     assert.equal(signCallCount, 2, "Exactly 2 signing calls for initial + reload");
   });
 
@@ -764,5 +767,104 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
         return true;
       },
     );
+  });
+
+  test("19. Reload integration: URL1 fetch → reload → URL2 fetch, no stale URL reuse", async () => {
+    const mockDb = createMockDbAdapter();
+    const fetchedUrls: string[] = [];
+
+    let signCallCount = 0;
+    const mockStorage: StorageClientAdapter = {
+      async createSignedUploadUrl() { throw new Error("Not implemented"); },
+      async download() { return { data: null, error: new Error("Not implemented") }; },
+      async upload() { return { error: new Error("Not implemented") }; },
+      async copy() { return { error: new Error("Not implemented") }; },
+      async createSignedUrl(_bucket: string, path: string, _expiresIn: number) {
+        signCallCount++;
+        return {
+          signedUrl: `https://storage.local/signed/lesson-resource-published/${path}?token=call-${signCallCount}`,
+          error: null,
+        };
+      },
+      async remove() { return { error: null }; },
+    };
+
+    const resId = "00000000-0000-0000-0000-000000001901";
+    const verId = "00000000-0000-0000-0000-000000001902";
+    const lessonId = "00000000-0000-0000-0000-000000001903";
+
+    mockDb.resources.set(resId, {
+      id: resId, lesson_id: lessonId, resource_type: "mind_map_html",
+      title: "خريطة", resource_code: "MAP-INT", lifecycle_status: "published",
+      published_version_id: verId,
+    });
+    mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 1 });
+
+    const mockServerFn = async ({ data }: { data: { resourceId: string } }) => {
+      const access = await createSignedStudentAccessUrl(
+        { resourceId: data.resourceId }, mockDb.adapter, mockStorage,
+      );
+      return access.granted ? { signedUrl: access.signedUrl } : null;
+    };
+
+    // Step 1: Initial URL
+    const url1 = await requestFreshStudentHtmlSignedUrl(mockServerFn, resId);
+    assert.ok(url1, "Initial URL must exist");
+    fetchedUrls.push(url1!);
+
+    // Step 2: Simulate fetch with URL1
+    assert.ok(url1!.includes("call-1"), "First fetch uses URL from first signing");
+
+    // Step 3: Reload
+    const url2 = await requestFreshStudentHtmlSignedUrl(mockServerFn, resId);
+    assert.ok(url2, "Reloaded URL must exist");
+    assert.notEqual(url1, url2, "URL2 must differ from URL1");
+    fetchedUrls.push(url2!);
+
+    // Step 4: Simulate fetch with URL2
+    assert.ok(url2!.includes("call-2"), "Second fetch uses URL from second signing");
+
+    // Step 5: Prove URL1 was never reused after reload
+    assert.equal(fetchedUrls[0], url1, "First fetched URL is URL1");
+    assert.equal(fetchedUrls[1], url2, "Second fetched URL is URL2");
+    assert.notEqual(fetchedUrls[0], fetchedUrls[1], "No stale URL reuse across fetches");
+    assert.equal(signCallCount, 2, "Exactly 2 signing calls");
+  });
+
+  test("20. Reload with signing failure returns null — no fallback to old URL", async () => {
+    const mockDb = createMockDbAdapter();
+    const mockStorage = createMockStorageAdapter();
+
+    const resId = "00000000-0000-0000-0000-000000002001";
+    const verId = "00000000-0000-0000-0000-000000002002";
+    const lessonId = "00000000-0000-0000-0000-000000002003";
+
+    mockDb.resources.set(resId, {
+      id: resId, lesson_id: lessonId, resource_type: "summary_html",
+      title: "ملخص", resource_code: "SUM-FAIL", lifecycle_status: "published",
+      published_version_id: verId,
+    });
+    mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 1 });
+
+    const mockServerFn = async ({ data }: { data: { resourceId: string } }) => {
+      const access = await createSignedStudentAccessUrl(
+        { resourceId: data.resourceId }, mockDb.adapter, mockStorage.adapter,
+      );
+      return access.granted ? { signedUrl: access.signedUrl } : null;
+    };
+
+    // First call succeeds
+    const url1 = await requestFreshStudentHtmlSignedUrl(mockServerFn, resId);
+    assert.ok(url1, "Initial signed URL must be returned");
+
+    // Force signing failure
+    mockStorage.shouldFailSignedUrl = true;
+
+    // Reload attempt must return null (fail-closed)
+    const reloadResult = await requestFreshStudentHtmlSignedUrl(mockServerFn, resId);
+    assert.equal(reloadResult, null, "Reload must return null on signing failure");
+
+    // The old URL must NOT be returned by the helper
+    assert.notEqual(reloadResult, url1, "Old URL must never be returned on reload failure");
   });
 });

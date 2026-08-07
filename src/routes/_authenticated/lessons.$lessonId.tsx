@@ -12,6 +12,7 @@ import { getLessonFileUrl } from "@/lib/api/lesson-file.functions";
 import {
   getLessonPublishedHtmlResourcesFn,
   createSignedStudentAccessUrlFn,
+  requestFreshStudentHtmlSignedUrl,
 } from "@/lib/api/html-pipeline.functions";
 import { PublishedHtmlResourceViewer } from "@/components/lessons/PublishedHtmlResourceViewer";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
@@ -296,10 +297,7 @@ function LessonPage() {
   const refreshSignedUrl = useServerFn(createSignedStudentAccessUrlFn);
   const handleReloadSignedUrl = useCallback(
     (resourceId: string) =>
-      async (): Promise<string | null> => {
-        const result = await refreshSignedUrl({ data: { resourceId } });
-        return result?.signedUrl ?? null;
-      },
+      () => requestFreshStudentHtmlSignedUrl(refreshSignedUrl, resourceId),
     [refreshSignedUrl],
   );
   const { data: htmlResources, isLoading: htmlResourcesLoading, error: htmlResourcesError } = useQuery({

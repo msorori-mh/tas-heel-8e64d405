@@ -85,14 +85,15 @@ export const promoteHtmlPackageFn = createServerFn({ method: "POST" })
 /**
  * 4. Create Student Signed Access URL Server Function
  * Bound to authoritative published resource binding from DB.
+ * Input schema: resourceId is the sole identifier.
  */
+export const signedStudentAccessInputSchema = z.object({
+  resourceId: z.string().uuid(),
+});
+
 export const createSignedStudentAccessUrlFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(
-    z.object({
-      resourceId: z.string().uuid(),
-    }),
-  )
+  .inputValidator(signedStudentAccessInputSchema)
   .handler(async ({ data, context }) => {
     const dbAdapter = buildDbAdapter(context);
     return createSignedStudentAccessUrl({ resourceId: data.resourceId }, dbAdapter);
@@ -170,3 +171,16 @@ export const getLessonPublishedHtmlResourcesFn = createServerFn({ method: "POST"
 
     return { resources };
   });
+
+/**
+ * Production helper: request a fresh signed URL for a published HTML resource.
+ * Used by the lesson route for reload and by tests to verify the real wiring.
+ * The caller is the server function handle returned by useServerFn.
+ */
+export async function requestFreshStudentHtmlSignedUrl(
+  callServerFn: (args: { data: { resourceId: string } }) => Promise<{ signedUrl?: string } | null | undefined>,
+  resourceId: string,
+): Promise<string | null> {
+  const result = await callServerFn({ data: { resourceId } });
+  return result?.signedUrl ?? null;
+}

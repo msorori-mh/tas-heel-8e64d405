@@ -13,7 +13,7 @@ import type { LessonHtmlResourceItem } from "@/lib/api/html-pipeline.functions";
 interface Props {
   resource: LessonHtmlResourceItem;
   onEventTriggered?: (payload: BridgeEventPayload) => void;
-  onReloadSignedUrl?: () => Promise<string | null>;
+  onReloadSignedUrl: () => Promise<string | null>;
 }
 
 type ViewerState = "loading" | "ready" | "error" | "unavailable";
@@ -102,26 +102,30 @@ export function PublishedHtmlResourceViewer({
     fetchAndExtract(currentSignedUrl);
   }, [currentSignedUrl, capability.allowed, fetchAndExtract]);
 
+  // Sync signed URL when the resource identity changes (new resource prop).
+  // Prevents displaying a signed URL belonging to a previous resource.
+  useEffect(() => {
+    setCurrentSignedUrl((prev) =>
+      prev !== resource.signedUrl ? resource.signedUrl : prev,
+    );
+  }, [resource.resourceId, resource.signedUrl]);
+
   const handleReload = async () => {
     if (state === "loading") return;
-    if (onReloadSignedUrl) {
-      setState("loading");
-      setError(null);
-      try {
-        const newUrl = await onReloadSignedUrl();
-        if (newUrl) {
-          setCurrentSignedUrl(newUrl);
-        } else {
-          setError("تعذّر تجديد رابط الوصول الآمن");
-          setState("error");
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "تعذّر تجديد رابط الوصول الآمن";
-        setError(msg);
+    setState("loading");
+    setError(null);
+    try {
+      const newUrl = await onReloadSignedUrl();
+      if (newUrl) {
+        setCurrentSignedUrl(newUrl);
+      } else {
+        setError("تعذّر تجديد رابط الوصول الآمن");
         setState("error");
       }
-    } else {
-      setCurrentSignedUrl(resource.signedUrl);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "تعذّر تجديد رابط الوصول الآمن";
+      setError(msg);
+      setState("error");
     }
   };
 
