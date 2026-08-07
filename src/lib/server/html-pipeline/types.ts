@@ -57,24 +57,44 @@ export interface ResolvedStudentResourceBinding {
 }
 
 export interface StorageOperationRecord {
-  operationType: "promote_published" | "upload_staging";
+  actorId: string;
+  resourceId: string;
+  resourceVersionId: string;
   uploadSessionId?: string;
-  resourceVersionId?: string;
-  stagingPath?: string;
-  publishedPath?: string;
-  status: "in_progress" | "cleaned" | "cleanup_pending" | "failed" | "compensated";
-  details?: string;
+  sourcePath: string;
+  targetPath: string;
+  expectedHash: string;
+  operationType:
+    | "promote_published"
+    | "stage_upload"
+    | "cleanup_staging"
+    | "cleanup_archived"
+    | "rollback_promotion";
+  parentOperationId?: string;
+  retryNumber?: number;
+  attemptCount?: number;
+  idempotencyKey?: string;
+  failureCode?: string;
 }
 
 export interface ResolvedStorageOperation {
   id: string;
-  operation_type: string;
-  upload_session_id?: string;
-  resource_version_id?: string;
-  staging_path?: string;
-  published_path?: string;
+  actorId: string;
+  resourceId: string;
+  resourceVersionId: string;
+  uploadSessionId?: string;
+  sourcePath: string;
+  targetPath: string;
+  expectedHash: string;
+  operationType: string;
+  parentOperationId?: string;
   status: string;
-  details?: string;
+  retryNumber: number;
+  attemptCount: number;
+  idempotencyKey?: string;
+  failureCode?: string;
+  completedAt?: string;
+  createdAt?: string;
 }
 
 export interface HtmlSignedUploadUrlRequest {
@@ -134,8 +154,7 @@ export interface StudentSignedAccessResult {
 }
 
 export interface CompensationRequest {
-  uploadSessionId?: string;
-  storageOperationId?: string;
+  storageOperationId: string;
 }
 
 export interface CompensationResult {

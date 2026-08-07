@@ -15,58 +15,63 @@ export interface DatabaseClientAdapter {
   recordServerValidation(params: RecordServerValidationParams): Promise<string>;
   getValidServerValidation(
     resourceVersionId: string,
-    uploadSessionId: string
+    uploadSessionId: string,
   ): Promise<ResolvedServerValidation | null>;
   resolvePromotionBinding(options: {
     uploadSessionId?: string;
     resourceVersionId?: string;
   }): Promise<ResolvedPromotionBinding>;
-  resolveStudentResourceBinding(
-    resourceId: string
-  ): Promise<ResolvedStudentResourceBinding>;
+  resolveStudentResourceBinding(resourceId: string): Promise<ResolvedStudentResourceBinding>;
   recordPublicationState(resourceId: string, versionId: string): Promise<void>;
   recordStorageOperation(op: StorageOperationRecord): Promise<string>;
-  updateStorageOperation(
-    operationId: string,
-    status: string,
-    details?: string
-  ): Promise<void>;
-  resolveStorageOperation(
-    operationId: string
-  ): Promise<ResolvedStorageOperation | null>;
+  updateStorageOperation(operationId: string, status: string, details?: string): Promise<void>;
+  resolveStorageOperation(operationId: string): Promise<ResolvedStorageOperation | null>;
 }
 
 type UntypedSupabaseClient = {
   rpc(
     fn: string,
-    args?: Record<string, unknown>
+    args?: Record<string, unknown>,
   ): Promise<{ data: unknown; error: { message: string } | null }>;
   from(table: string): {
     select(columns?: string): {
       eq(
         column: string,
-        value: unknown
+        value: unknown,
       ): {
         single(): Promise<{ data: unknown; error: { message: string } | null }>;
       };
     };
-    insert(values: unknown): Promise<{ error: { message: string } | null }>;
+    insert(values: unknown): {
+      select(columns?: string): {
+        single(): Promise<{
+          data: unknown;
+          error: { message: string } | null;
+        }>;
+      };
+    };
     update(values: unknown): {
-      eq(
-        column: string,
-        value: unknown
-      ): Promise<{ error: { message: string } | null }>;
+      eq(column: string, value: unknown): Promise<{ error: { message: string } | null }>;
     };
   };
 };
 
-export function createSupabaseDbAdapter(
-  supabase: SupabaseClient<Database>,
-  adminSupabase?: SupabaseClient<Database>
-): DatabaseClientAdapter {
-  const admin = adminSupabase ?? supabase;
-  const untypedSupabase = supabase as unknown as UntypedSupabaseClient;
-  const untypedAdmin = admin as unknown as UntypedSupabaseClient;
+export interface CreateSupabaseDbAdapterOptions {
+  userClient: SupabaseClient<Database>;
+  adminClient: SupabaseClient<Database>;
+}
+
+export function createSupabaseDbAdapter({
+  userClient,
+  adminClient,
+}: CreateSupabaseDbAdapterOptions): DatabaseClientAdapter {
+  if (!adminClient) {
+    throw new Error(
+      "Missing admin/service-role Supabase client. Server-only operations are not available.",
+    );
+  }
+  const untypedSupabase = userClient as unknown as UntypedSupabaseClient;
+  const untypedAdmin = adminClient as unknown as UntypedSupabaseClient;
 
   return {
     async resolveUploadSession(uploadSessionId: string): Promise<ResolvedUploadSession> {
@@ -109,9 +114,9 @@ export function createSupabaseDbAdapter(
 
     async getValidServerValidation(
       resourceVersionId: string,
-      uploadSessionId: string
+      uploadSessionId: string,
     ): Promise<ResolvedServerValidation | null> {
-      const { data, error } = await untypedSupabase.rpc("get_valid_server_validation", {
+      const { data, error } = await untypedAdmin.rpc("get_valid_server_validation", {
         p_resource_version_id: resourceVersionId,
         p_upload_session_id: uploadSessionId,
       });
@@ -128,7 +133,7 @@ export function createSupabaseDbAdapter(
       uploadSessionId?: string;
       resourceVersionId?: string;
     }): Promise<ResolvedPromotionBinding> {
-      const { data, error } = await untypedSupabase.rpc("resolve_promotion_binding", {
+      const { data, error } = await untypedAdmin.rpc("resolve_promotion_binding", {
         p_upload_session_id: options.uploadSessionId ?? null,
         p_resource_version_id: options.resourceVersionId ?? null,
       });
@@ -147,7 +152,7 @@ export function createSupabaseDbAdapter(
     },
 
     async resolveStudentResourceBinding(
-      resourceId: string
+      resourceId: string,
     ): Promise<ResolvedStudentResourceBinding> {
       const { data, error } = await untypedSupabase.rpc("resolve_student_resource_binding", {
         p_resource_id: resourceId,
@@ -182,45 +187,61 @@ export function createSupabaseDbAdapter(
     },
 
     async recordStorageOperation(op: StorageOperationRecord): Promise<string> {
-      const id = crypto.randomUUID();
-      const { error } = await untypedAdmin.from("idempotency_ledger").insert({
-        id,
-        scope: `storage_op_${op.operationType}`,
-        idempotency_key: `${op.operationType}:${op.uploadSessionId || op.resourceVersionId || id}`,
-        status: op.status,
-        result: {
-          stagingPath: op.stagingPath,
-          publishedPath: op.publishedPath,
-          details: op.details,
-        },
-      });
+      const { data, error } = await untypedAdmin
+        .from("storage_operations")
+        .insert({
+          actor_id: op.actorId,
+          resource_id: op.resourceId,
+          resource_version_id: op.resourceVersionId,
+          upload_session_id: op.uploadSessionId ?? null,
+          source_path: op.sourcePath,
+          target_path: op.targetPath,
+          expected_hash: op.expectedHash,
+          operation_type: op.operationType,
+          parent_operation_id: op.parentOperationId ?? null,
+          retry_number: op.retryNumber ?? 0,
+          attempt_count: op.attemptCount ?? 1,
+          idempotency_key: op.idempotencyKey ?? null,
+          status: "pending",
+          failure_code: op.failureCode ?? null,
+        })
+        .select("id")
+        .single();
 
       if (error) {
-        return id;
+        throw new Error(`فشل إنشاء سجل عملية التخزين: ${error.message}`);
       }
-      return id;
+
+      return (data as { id: string }).id;
     },
 
     async updateStorageOperation(
       operationId: string,
       status: string,
-      details?: string
+      failureCode?: string,
     ): Promise<void> {
-      await untypedAdmin
-        .from("idempotency_ledger")
-        .update({
-          status,
-          updated_at: new Date().toISOString(),
-          ...(details ? { result: { details } } : {}),
-        })
+      const update: Record<string, unknown> = {
+        status,
+        failure_code: failureCode ?? null,
+      };
+
+      if (status === "cleaned" || status === "compensated") {
+        update.completed_at = new Date().toISOString();
+      }
+
+      const { error } = await untypedAdmin
+        .from("storage_operations")
+        .update(update)
         .eq("id", operationId);
+
+      if (error) {
+        throw new Error(`فشل تحديث حالة عملية التخزين: ${error.message}`);
+      }
     },
 
-    async resolveStorageOperation(
-      operationId: string
-    ): Promise<ResolvedStorageOperation | null> {
+    async resolveStorageOperation(operationId: string): Promise<ResolvedStorageOperation | null> {
       const { data, error } = await untypedAdmin
-        .from("idempotency_ledger")
+        .from("storage_operations")
         .select("*")
         .eq("id", operationId)
         .single();
@@ -229,20 +250,26 @@ export function createSupabaseDbAdapter(
         return null;
       }
 
-      const row = data as unknown as {
-        id: string;
-        scope: string;
-        status: string;
-        result?: { stagingPath?: string; publishedPath?: string; details?: string };
-      };
+      const row = data as Record<string, unknown>;
 
       return {
-        id: row.id,
-        operation_type: row.scope,
-        staging_path: row.result?.stagingPath,
-        published_path: row.result?.publishedPath,
-        status: row.status,
-        details: row.result?.details,
+        id: row.id as string,
+        actorId: row.actor_id as string,
+        resourceId: row.resource_id as string,
+        resourceVersionId: row.resource_version_id as string,
+        uploadSessionId: row.upload_session_id as string | undefined,
+        sourcePath: row.source_path as string,
+        targetPath: row.target_path as string,
+        expectedHash: row.expected_hash as string,
+        operationType: row.operation_type as string,
+        parentOperationId: row.parent_operation_id as string | undefined,
+        status: row.status as string,
+        retryNumber: row.retry_number as number,
+        attemptCount: row.attempt_count as number,
+        idempotencyKey: row.idempotency_key as string | undefined,
+        failureCode: row.failure_code as string | undefined,
+        completedAt: row.completed_at as string | undefined,
+        createdAt: row.created_at as string | undefined,
       };
     },
   };

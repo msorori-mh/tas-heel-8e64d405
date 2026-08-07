@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
 import {
-  defaultSupabaseStorageAdapter,
-  type StorageClientAdapter,
-} from "./storage-adapter";
+  parseMasterZipBuffer,
+  computePackageDeterministicHash,
+} from "@/lib/content-import/html-package";
+import { defaultSupabaseStorageAdapter, type StorageClientAdapter } from "./storage-adapter";
 import type { DatabaseClientAdapter } from "./db-adapter";
 import { downloadAndValidateStoredZipWorkflow } from "./package-validator";
 import type {
@@ -19,8 +19,24 @@ import type {
 const DRAFTS_BUCKET = "lesson-resource-drafts";
 const PUBLISHED_BUCKET = "lesson-resource-published";
 
-function computeBytesSha256(bytes: Uint8Array): string {
-  return createHash("sha256").update(bytes).digest("hex");
+/**
+ * Compute the canonical deterministic package hash used by both validation
+ * and promotion. This is the single source of truth for content integrity.
+ */
+async function computeCanonicalPackageHash(zipBytes: Uint8Array): Promise<string> {
+  const parseRes = await parseMasterZipBuffer(zipBytes);
+  if (!parseRes.isValid) {
+    throw new Error("فشل parse ملف ZIP أثناء حساب التوقيع القانوني");
+  }
+
+  const packageFiles =
+    parseRes.packageMap["package"] || Object.values(parseRes.packageMap)[0] || [];
+
+  if (packageFiles.length === 0) {
+    throw new Error("الحزمة فارغة");
+  }
+
+  return computePackageDeterministicHash(packageFiles);
 }
 
 /**
@@ -29,7 +45,7 @@ function computeBytesSha256(bytes: Uint8Array): string {
 export async function createSignedUploadUrl(
   uploadSessionId: string,
   dbAdapter: DatabaseClientAdapter,
-  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter
+  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter,
 ): Promise<HtmlSignedUploadUrlResponse> {
   if (!uploadSessionId) {
     throw new Error("معرف جلسة الرفع (uploadSessionId) مطلوب");
@@ -46,7 +62,7 @@ export async function createSignedUploadUrl(
   // 1b. Create real signed upload URL for the DB-authoritative staging path
   const { signedUrl, token } = await storageAdapter.createSignedUploadUrl(
     DRAFTS_BUCKET,
-    stagingPath
+    stagingPath,
   );
 
   if (!signedUrl) {
@@ -70,7 +86,7 @@ export async function downloadAndValidateStoredZip(
   uploadSessionId: string,
   resourceVersionId: string | undefined,
   dbAdapter: DatabaseClientAdapter,
-  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter
+  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter,
 ): Promise<ServerPackageValidationResult> {
   if (!uploadSessionId) {
     throw new Error("معرف جلسة الرفع (uploadSessionId) مطلوب للفحص الخادمي");
@@ -84,16 +100,22 @@ export async function downloadAndValidateStoredZip(
   const valResult = await downloadAndValidateStoredZipWorkflow(
     stagingPath,
     storageAdapter,
-    session.resource_code || undefined
+    session.resource_code || undefined,
   );
 
-  // 2c. Record server validation in DB if resourceVersionId is provided
+  // 2c. Record server validation in DB if resourceVersionId is provided.
+  // The canonical deterministic hash is required; never fall back to the
+  // session expected hash because that would let tampered bytes pass.
   if (resourceVersionId) {
+    if (!valResult.packageHash) {
+      throw new Error("فشل حساب التوقيع القانوني للحزمة؛ لا يمكن تسجيل نتيجة الفحص الخادمي");
+    }
+
     const validUntil = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
     const valId = await dbAdapter.recordServerValidation({
       uploadSessionId: session.session_id,
       resourceVersionId,
-      packageHash: valResult.packageHash || session.expected_package_hash || "unknown_hash",
+      packageHash: valResult.packageHash,
       scannerVersion: valResult.scannerVersion,
       findings: valResult.findings,
       isValid: valResult.isValid,
@@ -108,13 +130,36 @@ export async function downloadAndValidateStoredZip(
 
 /**
  * 3. Promote Approved Package based on DB promotion binding
+ *
+ * Mandatory ordering:
+ * 1. Admin auth (middleware)
+ * 2. resolve_promotion_binding
+ * 3. Create storage_operation pending
+ * 4. Download staging
+ * 5. Canonical source hash verify
+ * 6. Target existence check
+ * 7. Upload target with upsert=false
+ * 8. storage_operation -> uploaded
+ * 9. Download target
+ * 10. Canonical target hash verify
+ * 11. storage_operation -> verified
+ * 12. storage_operation -> promoted
+ * 13. DB publication state mutation
+ * 14. storage_operation -> cleanup_pending
+ * 15. Remove staging
+ * 16. storage_operation -> cleaned
  */
 export async function promoteApprovedPackage(
   options: PromotePackageRequest,
+  actorId: string,
   dbAdapter: DatabaseClientAdapter,
-  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter
+  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter,
 ): Promise<PublishedStorageResult> {
-  // 3a. Resolve promotion binding authoritatively from DB
+  if (!actorId) {
+    throw new Error("معرف ناظر الترقية (actorId) مطلوب");
+  }
+
+  // 3a. Resolve promotion binding authoritatively from DB (service-role only)
   const binding = await dbAdapter.resolvePromotionBinding({
     uploadSessionId: options.uploadSessionId,
     resourceVersionId: options.resourceVersionId,
@@ -123,75 +168,70 @@ export async function promoteApprovedPackage(
   const publishedPath = binding.published_target_path;
 
   // 3b. Record storage operation in DB
-  const operationId = await dbAdapter.recordStorageOperation({
-    operationType: "promote_published",
-    uploadSessionId: binding.upload_session_id,
-    resourceVersionId: binding.version_id,
-    stagingPath: binding.staging_path,
-    publishedPath,
-    status: "in_progress",
-  });
+  let operationId: string;
+  try {
+    operationId = await dbAdapter.recordStorageOperation({
+      actorId,
+      resourceId: binding.resource_id,
+      resourceVersionId: binding.version_id,
+      uploadSessionId: binding.upload_session_id,
+      sourcePath: binding.staging_path,
+      targetPath: publishedPath,
+      expectedHash: binding.expected_hash,
+      operationType: "promote_published",
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`فشل إنشاء سجل عملية التخزين: ${msg}`);
+  }
+
+  const fail = async (failureCode: string): Promise<PublishedStorageResult> => {
+    try {
+      await dbAdapter.updateStorageOperation(operationId, "failed", failureCode);
+    } catch (dbErr: unknown) {
+      const dbMsg = dbErr instanceof Error ? dbErr.message : String(dbErr);
+      throw new Error(`فشلت العملية ولم يمكن تسجيل حالة الفشل في قاعدة البيانات: ${dbMsg}`);
+    }
+    return {
+      publishedPath,
+      bucket: PUBLISHED_BUCKET,
+      contentSha256: binding.expected_hash,
+      promoted: false,
+      status: "failed",
+      errorDetails: failureCode,
+    };
+  };
 
   try {
     // 3c. Download staging bytes
     const { data: stagingBytes, error: downErr } = await storageAdapter.download(
       DRAFTS_BUCKET,
-      binding.staging_path
+      binding.staging_path,
     );
 
     if (downErr || !stagingBytes || stagingBytes.byteLength === 0) {
-      await dbAdapter.updateStorageOperation(
-        operationId,
-        "failed",
-        `فشل تنزيل ملف Staging: ${downErr?.message || "الملف مفقود"}`
-      );
-      return {
-        publishedPath,
-        bucket: PUBLISHED_BUCKET,
-        contentSha256: binding.expected_hash,
-        promoted: false,
-        status: "failed",
-        errorDetails: `فشل تنزيل ملف Staging: ${downErr?.message || "الملف مفقود"}`,
-      };
+      return await fail(`فشل تنزيل ملف Staging: ${downErr?.message || "الملف مفقود"}`);
     }
 
-    // 3d. Verify SHA-256 hash of staging bytes against binding expected hash
-    const stagingHash = computeBytesSha256(stagingBytes);
+    // 3d. Canonical source hash verification
+    let stagingHash: string;
+    try {
+      stagingHash = await computeCanonicalPackageHash(stagingBytes);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return await fail(`فشل التحقق من توقيع المصدر: ${msg}`);
+    }
+
     if (stagingHash !== binding.expected_hash) {
-      await dbAdapter.updateStorageOperation(
-        operationId,
-        "failed",
-        `توقيع Staging (${stagingHash}) لا يطابق التوقيع المتوقع (${binding.expected_hash})`
+      return await fail(
+        `توقيع Staging (${stagingHash}) لا يطابق التوقيع المتوقع (${binding.expected_hash})`,
       );
-      return {
-        publishedPath,
-        bucket: PUBLISHED_BUCKET,
-        contentSha256: binding.expected_hash,
-        promoted: false,
-        status: "failed",
-        errorDetails: `توقيع Staging (${stagingHash}) لا يطابق التوقيع المتوقع (${binding.expected_hash})`,
-      };
     }
 
     // 3e. Overwrite protection: check target existence
-    const { data: existingTarget } = await storageAdapter.download(
-      PUBLISHED_BUCKET,
-      publishedPath
-    );
+    const { data: existingTarget } = await storageAdapter.download(PUBLISHED_BUCKET, publishedPath);
     if (existingTarget && existingTarget.byteLength > 0) {
-      await dbAdapter.updateStorageOperation(
-        operationId,
-        "failed",
-        "الملف موجود مسبقاً في مسار النشر (ممنوع إعادة الكتابة)"
-      );
-      return {
-        publishedPath,
-        bucket: PUBLISHED_BUCKET,
-        contentSha256: binding.expected_hash,
-        promoted: false,
-        status: "failed",
-        errorDetails: "الملف موجود مسبقاً في مسار النشر (ممنوع إعادة الكتابة)",
-      };
+      return await fail("الملف موجود مسبقاً في مسار النشر (ممنوع إعادة الكتابة)");
     }
 
     // 3f. Upload to Published storage with upsert = false
@@ -200,56 +240,59 @@ export async function promoteApprovedPackage(
       publishedPath,
       stagingBytes,
       "application/octet-stream",
-      false
+      false,
     );
 
     if (upErr) {
-      await dbAdapter.updateStorageOperation(
-        operationId,
-        "failed",
-        `فشل رفع الملف للمستهدف: ${upErr.message}`
-      );
-      return {
-        publishedPath,
-        bucket: PUBLISHED_BUCKET,
-        contentSha256: binding.expected_hash,
-        promoted: false,
-        status: "failed",
-        errorDetails: `فشل رفع الملف للمستهدف: ${upErr.message}`,
-      };
+      return await fail(`فشل رفع الملف للمستهدف: ${upErr.message}`);
     }
 
-    // 3g. Target SHA-256 hash verification
+    // 3g. storage_operation -> uploaded
+    await dbAdapter.updateStorageOperation(operationId, "uploaded");
+
+    // 3h. Download target for verification
     const { data: targetBytes, error: targetErr } = await storageAdapter.download(
       PUBLISHED_BUCKET,
-      publishedPath
+      publishedPath,
     );
 
     if (targetErr || !targetBytes || targetBytes.byteLength === 0) {
       await storageAdapter.remove(PUBLISHED_BUCKET, [publishedPath]);
-      await dbAdapter.updateStorageOperation(
-        operationId,
-        "failed",
-        "فشل تنزيل المستهدف للتحقق من التوقيع بعد النقل"
-      );
-      return {
-        publishedPath,
-        bucket: PUBLISHED_BUCKET,
-        contentSha256: binding.expected_hash,
-        promoted: false,
-        status: "failed",
-        errorDetails: "فشل تنزيل المستهدف للتحقق من التوقيع بعد النقل",
-      };
+      return await fail("فشل تنزيل المستهدف للتحقق من التوقيع بعد النقل");
     }
 
-    const targetHash = computeBytesSha256(targetBytes);
-    if (targetHash !== binding.expected_hash) {
-      // Remove partial target
+    // 3i. Canonical target hash verification
+    let targetHash: string;
+    try {
+      targetHash = await computeCanonicalPackageHash(targetBytes);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
       await storageAdapter.remove(PUBLISHED_BUCKET, [publishedPath]);
+      return await fail(`فشل التحقق من توقيع المستهدف: ${msg}`);
+    }
+
+    if (targetHash !== binding.expected_hash) {
+      await storageAdapter.remove(PUBLISHED_BUCKET, [publishedPath]);
+      return await fail(
+        `توقيع المستهدف (${targetHash}) لا يطابق التوقيع المتوقع (${binding.expected_hash})`,
+      );
+    }
+
+    // 3j. storage_operation -> verified
+    await dbAdapter.updateStorageOperation(operationId, "verified");
+
+    // 3k. storage_operation -> promoted
+    await dbAdapter.updateStorageOperation(operationId, "promoted");
+
+    // 3l. DB publication state mutation
+    try {
+      await dbAdapter.recordPublicationState(binding.resource_id, binding.version_id);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
       await dbAdapter.updateStorageOperation(
         operationId,
         "failed",
-        `توقيع المستهدف (${targetHash}) لا يطابق التوقيع المتوقع (${binding.expected_hash})`
+        `فشل تحديث حالة النشر في قاعدة البيانات: ${msg}`,
       );
       return {
         publishedPath,
@@ -257,23 +300,21 @@ export async function promoteApprovedPackage(
         contentSha256: binding.expected_hash,
         promoted: false,
         status: "failed",
-        errorDetails: `توقيع المستهدف (${targetHash}) لا يطابق التوقيع المتوقع (${binding.expected_hash})`,
+        errorDetails: `فشل تحديث حالة النشر في قاعدة البيانات: ${msg}`,
       };
     }
 
-    // 3h. DB publication state transition
-    await dbAdapter.recordPublicationState(binding.resource_id, binding.version_id);
+    // 3m. storage_operation -> cleanup_pending
+    await dbAdapter.updateStorageOperation(operationId, "cleanup_pending");
 
-    // 3i. Cleanup staging
-    const { error: removeErr } = await storageAdapter.remove(DRAFTS_BUCKET, [
-      binding.staging_path,
-    ]);
+    // 3n. Cleanup staging
+    const { error: removeErr } = await storageAdapter.remove(DRAFTS_BUCKET, [binding.staging_path]);
 
     if (removeErr) {
       await dbAdapter.updateStorageOperation(
         operationId,
         "cleanup_pending",
-        `تعذر حذف ملف Staging: ${removeErr.message}`
+        `تعذر حذف ملف Staging: ${removeErr.message}`,
       );
       return {
         publishedPath,
@@ -285,7 +326,8 @@ export async function promoteApprovedPackage(
       };
     }
 
-    await dbAdapter.updateStorageOperation(operationId, "cleaned", "تم النشر والتنظيف بنجاح");
+    // 3o. storage_operation -> cleaned
+    await dbAdapter.updateStorageOperation(operationId, "cleaned");
 
     return {
       publishedPath,
@@ -296,15 +338,7 @@ export async function promoteApprovedPackage(
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    await dbAdapter.updateStorageOperation(operationId, "failed", msg);
-    return {
-      publishedPath,
-      bucket: PUBLISHED_BUCKET,
-      contentSha256: binding.expected_hash,
-      promoted: false,
-      status: "failed",
-      errorDetails: msg,
-    };
+    return await fail(msg);
   }
 }
 
@@ -314,7 +348,7 @@ export async function promoteApprovedPackage(
 export async function createSignedStudentAccessUrl(
   request: StudentSignedAccessRequest,
   dbAdapter: DatabaseClientAdapter,
-  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter
+  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter,
 ): Promise<StudentSignedAccessResult> {
   if (!request.resourceId) {
     return {
@@ -333,7 +367,7 @@ export async function createSignedStudentAccessUrl(
   const { signedUrl, error } = await storageAdapter.createSignedUrl(
     PUBLISHED_BUCKET,
     publishedPath,
-    signedUrlTtlSeconds
+    signedUrlTtlSeconds,
   );
 
   if (error || !signedUrl) {
@@ -351,77 +385,55 @@ export async function createSignedStudentAccessUrl(
 }
 
 /**
- * 5. Cleanup or Compensate Partial Operations
+ * 5. Compensate Partial Operations
+ *
+ * Accepts only the authoritative storage_operation_id from the client.
+ * The server resolves the operation from DB, verifies it is in a state that
+ * allows compensation, removes the partial published target, and only then
+ * transitions failed -> compensated.
  */
 export async function cleanupOrCompensate(
   request: CompensationRequest,
   dbAdapter: DatabaseClientAdapter,
-  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter
+  storageAdapter: StorageClientAdapter = defaultSupabaseStorageAdapter,
 ): Promise<CompensationResult> {
-  let publishedPath: string | undefined;
-  let stagingPath: string | undefined;
-
-  if (request.storageOperationId) {
-    const op = await dbAdapter.resolveStorageOperation(request.storageOperationId);
-    if (op) {
-      publishedPath = op.published_path;
-      stagingPath = op.staging_path;
-    }
-  } else if (request.uploadSessionId) {
-    const session = await dbAdapter.resolveUploadSession(request.uploadSessionId);
-    stagingPath = session.staging_path;
+  if (!request.storageOperationId) {
+    throw new Error("معرف عملية التخزين (storageOperationId) مطلوب للتعويض");
   }
 
+  const op = await dbAdapter.resolveStorageOperation(request.storageOperationId);
+  if (!op) {
+    throw new Error(`عملية التخزين ${request.storageOperationId} غير موجودة`);
+  }
+
+  // Only failed operations may be compensated.
+  if (op.status !== "failed") {
+    throw new Error(`لا يمكن تنفيذ التعويض على عملية التخزين بحالة ${op.status}`);
+  }
+
+  const targetPath = op.targetPath;
+
   try {
-    if (publishedPath) {
-      const { error: removePubErr } = await storageAdapter.remove(
-        PUBLISHED_BUCKET,
-        [publishedPath]
-      );
-      if (removePubErr) {
-        if (request.storageOperationId) {
-          await dbAdapter.updateStorageOperation(
-            request.storageOperationId,
-            "failed",
-            `فشل إزالة الملف المنشور الجزئي: ${removePubErr.message}`
-          );
-        }
-        return {
-          compensated: false,
-          status: "failed",
-          details: `فشل إزالة الملف المنشور الجزئي: ${removePubErr.message}`,
-        };
-      }
-    }
+    const { error: removeErr } = await storageAdapter.remove(PUBLISHED_BUCKET, [targetPath]);
 
-    if (stagingPath) {
-      const { error: removeStagingErr } = await storageAdapter.remove(
-        DRAFTS_BUCKET,
-        [stagingPath]
-      );
-      if (removeStagingErr) {
-        if (request.storageOperationId) {
-          await dbAdapter.updateStorageOperation(
-            request.storageOperationId,
-            "failed",
-            `فشل إزالة ملف Staging الجزئي: ${removeStagingErr.message}`
-          );
-        }
-        return {
-          compensated: false,
-          status: "failed",
-          details: `فشل إزالة ملف Staging الجزئي: ${removeStagingErr.message}`,
-        };
-      }
-    }
-
-    if (request.storageOperationId) {
+    if (removeErr) {
       await dbAdapter.updateStorageOperation(
         request.storageOperationId,
-        "compensated",
-        "تم تنفيذ التعويض بنجاح"
+        "failed",
+        `فشل إزالة الملف المنشور الجزئي: ${removeErr.message}`,
       );
+      return {
+        compensated: false,
+        status: "failed",
+        details: `فشل إزالة الملف المنشور الجزئي: ${removeErr.message}`,
+      };
     }
+
+    await dbAdapter.updateStorageOperation(
+      request.storageOperationId,
+      "compensated",
+      "تم تنفيذ التعويض بنجاح",
+    );
 
     return {
       compensated: true,
@@ -430,9 +442,7 @@ export async function cleanupOrCompensate(
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (request.storageOperationId) {
-      await dbAdapter.updateStorageOperation(request.storageOperationId, "failed", msg);
-    }
+    await dbAdapter.updateStorageOperation(request.storageOperationId, "failed", msg);
     return {
       compensated: false,
       status: "failed",

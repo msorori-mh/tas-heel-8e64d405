@@ -5,6 +5,7 @@ import {
   requireContentStaffAuth,
   requireSupabaseAuth,
 } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { createSupabaseDbAdapter } from "@/lib/server/html-pipeline/db-adapter";
 import {
   createSignedUploadUrl,
@@ -15,6 +16,17 @@ import {
 } from "@/lib/server/html-pipeline/html-pipeline-service";
 
 /**
+ * Build a DB adapter with explicit user-scoped and service-role clients.
+ * The service-role client never reaches the browser bundle.
+ */
+function buildDbAdapter(context: { supabase: typeof supabaseAdmin }) {
+  return createSupabaseDbAdapter({
+    userClient: context.supabase,
+    adminClient: supabaseAdmin,
+  });
+}
+
+/**
  * 1. Create Signed Upload URL Server Function
  * Bound to authoritative upload session from DB.
  */
@@ -23,10 +35,10 @@ export const createHtmlSignedUploadUrlFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       uploadSessionId: z.string().uuid(),
-    })
+    }),
   )
   .handler(async ({ data, context }) => {
-    const dbAdapter = createSupabaseDbAdapter(context.supabase);
+    const dbAdapter = buildDbAdapter(context);
     return createSignedUploadUrl(data.uploadSessionId, dbAdapter);
   });
 
@@ -40,10 +52,10 @@ export const validateStoredHtmlZipFn = createServerFn({ method: "POST" })
     z.object({
       uploadSessionId: z.string().uuid(),
       resourceVersionId: z.string().uuid().optional(),
-    })
+    }),
   )
   .handler(async ({ data, context }) => {
-    const dbAdapter = createSupabaseDbAdapter(context.supabase);
+    const dbAdapter = buildDbAdapter(context);
     return downloadAndValidateStoredZip(data.uploadSessionId, data.resourceVersionId, dbAdapter);
   });
 
@@ -57,14 +69,14 @@ export const promoteHtmlPackageFn = createServerFn({ method: "POST" })
     z.object({
       uploadSessionId: z.string().uuid().optional(),
       resourceVersionId: z.string().uuid().optional(),
-    })
+    }),
   )
   .handler(async ({ data, context }) => {
     if (!context.isFullAdmin) {
       throw new Error("غير مصرح — صلاحيات الإدارة الكاملة مطلوبة لتنفيذ الترقية للنشر");
     }
-    const dbAdapter = createSupabaseDbAdapter(context.supabase);
-    return promoteApprovedPackage(data, dbAdapter);
+    const dbAdapter = buildDbAdapter(context);
+    return promoteApprovedPackage(data, context.userId, dbAdapter);
   });
 
 /**
@@ -76,26 +88,25 @@ export const createSignedStudentAccessUrlFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       resourceId: z.string().uuid(),
-    })
+    }),
   )
   .handler(async ({ data, context }) => {
-    const dbAdapter = createSupabaseDbAdapter(context.supabase);
+    const dbAdapter = buildDbAdapter(context);
     return createSignedStudentAccessUrl({ resourceId: data.resourceId }, dbAdapter);
   });
 
 /**
  * 5. Compensate Partial Operations Server Function (Admin-Only)
- * Resolves paths authoritatively from DB and compensates partial failures.
+ * Accepts only the authoritative storage_operation_id from the client.
  */
 export const compensateHtmlPipelineFn = createServerFn({ method: "POST" })
   .middleware([requireAdminAuth])
   .inputValidator(
     z.object({
-      uploadSessionId: z.string().uuid().optional(),
-      storageOperationId: z.string().uuid().optional(),
-    })
+      storageOperationId: z.string().uuid(),
+    }),
   )
   .handler(async ({ data, context }) => {
-    const dbAdapter = createSupabaseDbAdapter(context.supabase);
+    const dbAdapter = buildDbAdapter(context);
     return cleanupOrCompensate(data, dbAdapter);
   });
