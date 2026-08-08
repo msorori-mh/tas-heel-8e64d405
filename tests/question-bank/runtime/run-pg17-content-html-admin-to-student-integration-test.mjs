@@ -18,6 +18,7 @@ const root = join(__dirname, "..", "..", "..");
 const foundationPath = join(root, "supabase", "migrations", "20260806050000_content_html_db_rls_foundation.sql");
 const lifecyclePath = join(root, "supabase", "migrations", "20260807050000_content_html_lifecycle_contracts.sql");
 const alignmentPath = join(root, "supabase", "migrations", "20260808060000_content_html_resource_contract_alignment.sql");
+const hardeningPath = join(root, "supabase", "migrations", "20260809010000_content_html_resource_code_boundary_hardening.sql");
 
 function projectRefLinked() {
   return existsSync(join(root, "supabase", ".temp", "project-ref"));
@@ -28,7 +29,7 @@ if (projectRefLinked()) {
   process.exit(2);
 }
 
-for (const p of [foundationPath, lifecyclePath, alignmentPath]) {
+for (const p of [foundationPath, lifecyclePath, alignmentPath, hardeningPath]) {
   if (!existsSync(p)) {
     console.error(`Missing migration file: ${p}`);
     process.exit(1);
@@ -180,6 +181,9 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
   console.log("Applying resource contract alignment migration...");
   psql(readFileSync(alignmentPath, "utf8"));
 
+  console.log("Applying resource code boundary hardening migration...");
+  psql(readFileSync(hardeningPath, "utf8"));
+
   const testSql = `
 BEGIN;
 
@@ -266,19 +270,19 @@ BEGIN
   INSERT INTO public.lesson_resources (
     id, lesson_id, resource_type, html_resource_type, resource_code, title, url, lifecycle_status
   ) VALUES
-    (v_mm_res_id, v_lesson_id, 'html', 'mind_map_html', 'TEST_MM_001', 'Mind Map 1', '', 'draft'),
-    (v_exp_res_id, v_lesson_id, 'html', 'practical_experiment_html', 'TEST_EXP_001', 'Experiment 1', '', 'draft'),
-    (v_sum_res_id, v_lesson_id, 'html', 'summary_html', 'TEST_SUM_001', 'Summary 1', '', 'draft');
+    (v_mm_res_id, v_lesson_id, 'html', 'mind_map_html', 'test_mm_001', 'Mind Map 1', '', 'draft'),
+    (v_exp_res_id, v_lesson_id, 'html', 'practical_experiment_html', 'test_exp_001', 'Experiment 1', '', 'draft'),
+    (v_sum_res_id, v_lesson_id, 'html', 'summary_html', 'test_sum_001', 'Summary 1', '', 'draft');
 
   -- Negative-case resources
   INSERT INTO public.lesson_resources (
     id, lesson_id, resource_type, html_resource_type, resource_code, title, url, lifecycle_status
   ) VALUES
-    (v_draft_res_id, v_lesson_id, 'html', 'mind_map_html', 'NEG_DRAFT', 'Draft Only', '', 'draft'),
-    (v_review_res_id, v_lesson_id, 'html', 'practical_experiment_html', 'NEG_REVIEW', 'In Review', '', 'draft'),
-    (v_approved_res_id, v_lesson_id, 'html', 'summary_html', 'NEG_APPROVED', 'Approved Unpublished', '', 'draft'),
-    (v_other_lesson_res_id, v_other_lesson_id, 'html', 'mind_map_html', 'OTHER_MM', 'Other Lesson', '', 'draft'),
-    (v_legacy_res_id, v_lesson_id, 'video', NULL, 'LEGACY_VID', 'Legacy Video', 'https://example.com', 'published');
+    (v_draft_res_id, v_lesson_id, 'html', 'mind_map_html', 'neg_draft', 'Draft Only', '', 'draft'),
+    (v_review_res_id, v_lesson_id, 'html', 'practical_experiment_html', 'neg_review', 'In Review', '', 'draft'),
+    (v_approved_res_id, v_lesson_id, 'html', 'summary_html', 'neg_approved', 'Approved Unpublished', '', 'draft'),
+    (v_other_lesson_res_id, v_other_lesson_id, 'html', 'mind_map_html', 'other_mm', 'Other Lesson', '', 'draft'),
+    (v_legacy_res_id, v_lesson_id, 'video', NULL, 'legacy_vid', 'Legacy Video', 'https://example.com', 'published');
 
   -- ============================================================
   -- DB constraint checks
@@ -306,7 +310,7 @@ BEGIN
   v_err_caught := false;
   BEGIN
     INSERT INTO public.lesson_resources (id, lesson_id, resource_type, html_resource_type, resource_code, title, url)
-    VALUES (gen_random_uuid(), v_lesson_id, 'html', 'mind_map_html', 'TEST_MM_001', 'Duplicate Code', '');
+    VALUES (gen_random_uuid(), v_lesson_id, 'html', 'mind_map_html', 'test_mm_001', 'Duplicate Code', '');
   EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE;
     IF v_sqlstate = '23505' THEN v_err_caught := true; END IF;
@@ -444,12 +448,12 @@ BEGIN
     SELECT * FROM public.list_published_html_resources_for_lesson(v_lesson_id)
   LOOP
     CASE v_row.resource_code
-      WHEN 'TEST_MM_001' THEN
-        PERFORM pg17_assert(v_row.resource_type = 'mind_map_html', 'TEST_MM_001 subtype is mind_map_html');
-      WHEN 'TEST_EXP_001' THEN
-        PERFORM pg17_assert(v_row.resource_type = 'practical_experiment_html', 'TEST_EXP_001 subtype is practical_experiment_html');
-      WHEN 'TEST_SUM_001' THEN
-        PERFORM pg17_assert(v_row.resource_type = 'summary_html', 'TEST_SUM_001 subtype is summary_html');
+      WHEN 'test_mm_001' THEN
+        PERFORM pg17_assert(v_row.resource_type = 'mind_map_html', 'test_mm_001 subtype is mind_map_html');
+      WHEN 'test_exp_001' THEN
+        PERFORM pg17_assert(v_row.resource_type = 'practical_experiment_html', 'test_exp_001 subtype is practical_experiment_html');
+      WHEN 'test_sum_001' THEN
+        PERFORM pg17_assert(v_row.resource_type = 'summary_html', 'test_sum_001 subtype is summary_html');
       ELSE
         RAISE EXCEPTION 'Unexpected resource_code in enumeration: %', v_row.resource_code;
     END CASE;
@@ -457,7 +461,7 @@ BEGIN
 
   -- Negative cases: must NOT be returned
   SELECT count(*) INTO v_count FROM public.list_published_html_resources_for_lesson(v_lesson_id)
-  WHERE resource_code IN ('NEG_DRAFT', 'NEG_REVIEW', 'NEG_APPROVED', 'OTHER_MM', 'LEGACY_VID');
+  WHERE resource_code IN ('neg_draft', 'neg_review', 'neg_approved', 'other_mm', 'legacy_vid');
   PERFORM pg17_assert(v_count = 0, 'Negative-case resources are excluded from HTML enumeration');
 
   -- resolve_student_resource_binding returns canonical subtype and version
@@ -482,16 +486,87 @@ BEGIN
   PERFORM pg17_assert(v_binding.immutable_at IS NOT NULL, 'Historical version remains immutable after unpublish');
 
   -- ============================================================
-  -- Rollback: republish mind map to v2 then roll back to v1
+  -- Rollback: publish v2 via production contract then roll back to v1
   -- ============================================================
-  -- Republish v2 first
-  UPDATE public.lesson_resources SET lifecycle_status = 'published', published_version_id = v_mm_v2_id WHERE id = v_mm_res_id;
+  -- Setup: transition resource from approved back to draft with v2 as draft.
+  -- This is test-setup state mutation, not publication.
+  UPDATE public.lesson_resources
+  SET lifecycle_status = 'draft', current_draft_version_id = v_mm_v2_id
+  WHERE id = v_mm_res_id;
 
+  -- Submit and approve v2 through production lifecycle contract
+  PERFORM set_config('test.auth_uid', v_cm_id::text, true);
+  PERFORM public.submit_resource_for_review(v_mm_res_id);
+
+  PERFORM set_config('test.auth_uid', v_admin_id::text, true);
+  PERFORM public.approve_resource(v_mm_res_id, v_mm_v2_id);
+
+  -- Insert trusted storage promotion proof for v2
+  INSERT INTO public.storage_operations (
+    id, actor_id, resource_id, resource_version_id, upload_session_id,
+    source_path, target_path, expected_hash, operation_type, status
+  ) VALUES (
+    gen_random_uuid(), v_admin_id, v_mm_res_id, v_mm_v2_id, v_mm_v2_session_id,
+    'html-packages/staging/mm_v2', 'published/' || v_mm_res_id::text || '/2',
+    'sha256_mm_2222222222222222222222222222222222222222222222222222222222222222',
+    'promote_published', 'promoted'
+  ) RETURNING id INTO v_mm_v2_op_id;
+
+  -- Publish v2 via production atomic publication contract
+  PERFORM set_config('test.auth_role', 'service_role', true);
+  PERFORM set_config('test.auth_uid', v_admin_id::text, true);
+  PERFORM public.record_successful_resource_publication(
+    v_mm_res_id, v_mm_v2_id, v_mm_v2_op_id,
+    (SELECT lock_version FROM public.lesson_resources WHERE id = v_mm_res_id),
+    v_mm_v2_session_id
+  );
+
+  -- Assert v2 publication state
+  SELECT lifecycle_status, published_version_id, approved_version_id, lock_version INTO v_binding
+  FROM public.lesson_resources WHERE id = v_mm_res_id;
+  PERFORM pg17_assert(v_binding.lifecycle_status = 'published', 'v2 publication transitions resource to published');
+  PERFORM pg17_assert(v_binding.published_version_id = v_mm_v2_id, 'v2 publication sets published_version_id to v2');
+  PERFORM pg17_assert(v_binding.approved_version_id = v_mm_v2_id, 'v2 publication keeps approved_version_id = v2');
+
+  SELECT * INTO v_binding FROM public.storage_operations WHERE id = v_mm_v2_op_id;
+  PERFORM pg17_assert(v_binding.resource_id = v_mm_res_id, 'v2 storage operation bound to resource');
+  PERFORM pg17_assert(v_binding.resource_version_id = v_mm_v2_id, 'v2 storage operation bound to version');
+  PERFORM pg17_assert(v_binding.status = 'promoted', 'v2 storage operation status is promoted');
+  PERFORM pg17_assert(v_binding.expected_hash = 'sha256_mm_2222222222222222222222222222222222222222222222222222222222222222', 'v2 storage operation expected_hash matches');
+  PERFORM pg17_assert(v_binding.target_path = 'published/' || v_mm_res_id::text || '/2', 'v2 storage operation target_path canonical');
+
+  SELECT content_sha256, immutable_at INTO v_binding FROM public.lesson_resource_versions WHERE id = v_mm_v2_id;
+  PERFORM pg17_assert(v_binding.content_sha256 = 'sha256_mm_2222222222222222222222222222222222222222222222222222222222222222', 'v2 version hash immutable');
+  PERFORM pg17_assert(v_binding.immutable_at IS NOT NULL, 'v2 version is immutable');
+
+  SELECT count(*) INTO v_count FROM public.lesson_resource_events
+  WHERE resource_id = v_mm_res_id AND resource_version_id = v_mm_v2_id AND event_type = 'publish';
+  PERFORM pg17_assert(v_count = 1, 'v2 publication emits exactly one audit event');
+
+  -- Rollback to v1 via production rollback contract
+  PERFORM set_config('test.auth_role', 'authenticated', true);
+  PERFORM set_config('test.auth_uid', v_admin_id::text, true);
   PERFORM public.rollback_resource(v_mm_res_id, v_mm_v1_id, (SELECT lock_version FROM public.lesson_resources WHERE id = v_mm_res_id));
 
-  SELECT lifecycle_status, published_version_id INTO v_binding FROM public.lesson_resources WHERE id = v_mm_res_id;
+  -- Assert rollback state
+  SELECT lifecycle_status, published_version_id, approved_version_id, lock_version INTO v_binding
+  FROM public.lesson_resources WHERE id = v_mm_res_id;
   PERFORM pg17_assert(v_binding.lifecycle_status = 'published', 'Rollback keeps resource published');
   PERFORM pg17_assert(v_binding.published_version_id = v_mm_v1_id, 'Rollback points published_version_id to target v1');
+  PERFORM pg17_assert(v_binding.approved_version_id = v_mm_v2_id, 'Rollback preserves approved_version_id = v2');
+
+  -- Assert v1 trusted storage proof is still valid for rollback
+  SELECT * INTO v_binding FROM public.storage_operations
+  WHERE resource_id = v_mm_res_id AND resource_version_id = v_mm_v1_id
+    AND operation_type = 'promote_published' AND status = 'promoted'
+    AND target_path = 'published/' || v_mm_res_id::text || '/1'
+    AND expected_hash = 'sha256_mm_1111111111111111111111111111111111111111111111111111111111111111';
+  PERFORM pg17_assert(v_binding.id IS NOT NULL, 'v1 historical promoted storage operation exists');
+
+  -- Assert rollback audit event
+  SELECT count(*) INTO v_count FROM public.lesson_resource_events
+  WHERE resource_id = v_mm_res_id AND event_type = 'rollback';
+  PERFORM pg17_assert(v_count = 1, 'Rollback emits exactly one audit event');
 
   SELECT * INTO v_binding FROM public.resolve_student_resource_binding(v_mm_res_id);
   PERFORM pg17_assert(v_binding.resource_type = 'mind_map_html', 'Student binding after rollback still returns mind_map_html');
