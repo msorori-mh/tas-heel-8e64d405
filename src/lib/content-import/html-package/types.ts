@@ -15,6 +15,17 @@ export const LESSON_RESOURCE_TYPES = [
 
 export type LessonResourceType = (typeof LESSON_RESOURCE_TYPES)[number];
 
+/**
+ * Canonical HTML resource subtypes persisted independently of broad resource_type.
+ */
+export const HTML_RESOURCE_TYPES = [
+  "mind_map_html",
+  "practical_experiment_html",
+  "summary_html",
+] as const;
+
+export type HtmlResourceType = (typeof HTML_RESOURCE_TYPES)[number];
+
 export type OrientationMode = "auto" | "portrait" | "landscape";
 export type HeightMode = "fixed" | "viewport" | "content";
 export type CompletionMode = "view" | "interaction_event" | "manual_review";
@@ -31,7 +42,7 @@ export interface InteractiveLessonResourceImportRow {
   subject_code: string;
   unit_code?: string | null;
   lesson_code: string;
-  resource_type: LessonResourceType;
+  resource_type: HtmlResourceType;
   title_ar: string;
   description_ar?: string | null;
   alt_text_ar?: string | null;
@@ -55,7 +66,7 @@ export interface InteractiveResourceManifest {
   resource_code: string;
   entry_file: string;
   version: number;
-  resource_type: LessonResourceType;
+  resource_type: HtmlResourceType;
   offline_enabled: boolean;
   required_files?: string[];
   content_sha256?: string;

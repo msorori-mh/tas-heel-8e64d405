@@ -156,7 +156,7 @@ export const getLessonPublishedHtmlResourcesFn = createServerFn({ method: "POST"
         if (access.granted && access.signedUrl) {
           resources.push({
             resourceId: row.id,
-            resourceType: binding.resource_type as LessonHtmlResourceItem["resourceType"],
+            resourceType: binding.resource_type,
             title: binding.title,
             resourceCode: row.resource_code || row.id,
             version: binding.published_version_number,

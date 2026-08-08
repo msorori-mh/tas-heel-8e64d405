@@ -965,8 +965,10 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          html_resource_type: string | null
           id: string
           lesson_id: string
+          resource_code: string | null
           resource_type: Database["public"]["Enums"]["lesson_resource_type"]
           sort_order: number
           title: string
@@ -975,8 +977,10 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          html_resource_type?: string | null
           id?: string
           lesson_id: string
+          resource_code?: string | null
           resource_type: Database["public"]["Enums"]["lesson_resource_type"]
           sort_order?: number
           title: string
@@ -985,8 +989,10 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          html_resource_type?: string | null
           id?: string
           lesson_id?: string
+          resource_code?: string | null
           resource_type?: Database["public"]["Enums"]["lesson_resource_type"]
           sort_order?: number
           title?: string

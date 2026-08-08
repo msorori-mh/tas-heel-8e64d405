@@ -25,6 +25,7 @@ import {
   requestFreshStudentHtmlSignedUrl,
 } from "./api/html-pipeline.functions";
 import type { LessonHtmlResourceItem } from "./api/html-pipeline.functions";
+import type { HtmlResourceType } from "./content-import/html-package/types";
 
 // ─── Mock DB Adapter ───────────────────────────────────────────────────────
 
@@ -93,7 +94,7 @@ function createMockDbAdapter(): {
         resource_id: res.id,
         lesson_id: res.lesson_id,
         version_id: ver.id,
-        resource_type: res.resource_type,
+        resource_type: res.resource_type as HtmlResourceType,
         title: res.title,
         published_version_number: ver.version_number,
       };

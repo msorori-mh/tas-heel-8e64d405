@@ -3,7 +3,7 @@ import type {
   InteractiveLessonResourceImportRow,
   SecurityFinding,
 } from "./types.ts";
-import { LESSON_RESOURCE_TYPES } from "./types.ts";
+import { HTML_RESOURCE_TYPES } from "./types.ts";
 import { ValidationCodes } from "./validation-codes.ts";
 
 /**
@@ -60,7 +60,7 @@ export function validateManifest(
     });
   }
 
-  if (!LESSON_RESOURCE_TYPES.includes(resourceType as any)) {
+  if (!HTML_RESOURCE_TYPES.includes(resourceType as typeof HTML_RESOURCE_TYPES[number])) {
     findings.push({
       code: ValidationCodes.INVALID_RESOURCE_TYPE,
       severity: "error",
@@ -102,7 +102,7 @@ export function validateManifest(
     resource_code: resourceCode,
     entry_file: entryFile,
     version,
-    resource_type: resourceType as any,
+    resource_type: resourceType as InteractiveResourceManifest["resource_type"],
     offline_enabled: offlineEnabled,
     required_files: requiredFiles,
     content_sha256: contentSha256,

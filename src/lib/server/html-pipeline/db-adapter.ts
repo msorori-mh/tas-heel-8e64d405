@@ -195,33 +195,34 @@ export function createSupabaseDbAdapter({
     async listLessonPublishedHtmlResources(
       lessonId: string,
     ): Promise<PublishedHtmlResourceRow[]> {
+      type LooseQueryBuilder = {
+        eq(column: string, value: unknown): LooseQueryBuilder;
+        in(column: string, values: unknown[]): LooseQueryBuilder;
+        not(column: string, operator: string, value: unknown): LooseQueryBuilder;
+        order(
+          column: string,
+          opts?: { ascending?: boolean },
+        ): Promise<{ data: unknown; error: { message: string } | null }>;
+      };
+
       const admin = untypedAdmin as unknown as {
         from(table: string): {
-          select(columns: string): {
-            eq(
-              column: string,
-              value: unknown,
-            ): {
-              in(column: string, values: unknown[]): {
-                order(
-                  column: string,
-                  opts?: { ascending?: boolean },
-                ): Promise<{ data: unknown; error: { message: string } | null }>;
-              };
-            };
-          };
+          select(columns: string): LooseQueryBuilder;
         };
       };
 
       const { data, error } = await admin
         .from("lesson_resources")
-        .select("id,resource_type,title,resource_code")
+        .select("id,html_resource_type,title,resource_code,published_version_id")
         .eq("lesson_id", lessonId)
-        .in("resource_type", [
+        .eq("resource_type", "html")
+        .in("html_resource_type", [
           "mind_map_html",
           "practical_experiment_html",
           "summary_html",
         ])
+        .eq("lifecycle_status", "published")
+        .not("published_version_id", "is", null)
         .order("sort_order", { ascending: true });
 
       if (error) {
@@ -230,7 +231,20 @@ export function createSupabaseDbAdapter({
         );
       }
 
-      return (data ?? []) as unknown as PublishedHtmlResourceRow[];
+      const rows = (data ?? []) as Array<{
+        id: string;
+        html_resource_type: string | null;
+        title: string;
+        resource_code: string | null;
+        published_version_id: string | null;
+      }>;
+
+      return rows.map((row) => ({
+        id: row.id,
+        resource_type: row.html_resource_type ?? "html",
+        title: row.title,
+        resource_code: row.resource_code,
+      }));
     },
 
     async recordSuccessfulResourcePublication(

@@ -1,4 +1,5 @@
 import type { SecurityFinding } from "@/lib/content-import/html-package";
+import type { HtmlResourceType } from "@/lib/content-import/html-package/types";
 
 export interface InteractiveImportRow {
   resource_code: string;
@@ -6,7 +7,7 @@ export interface InteractiveImportRow {
   subject_code: string;
   unit_code: string | null;
   lesson_code: string;
-  resource_type: string;
+  resource_type: HtmlResourceType;
   title_ar: string;
   description_ar: string | null;
   alt_text_ar: string | null;
@@ -40,7 +41,7 @@ export interface ImportResourceSession {
   title_ar: string;
   lesson_code: string;
   lesson_id: string;
-  resource_type: string;
+  resource_type: HtmlResourceType;
 }
 
 export interface InitializeImportResult {
