@@ -14,6 +14,12 @@ import type {
   ResolvedStudentResourceBinding,
   StorageOperationRecord,
   ResolvedStorageOperation,
+  RecordSuccessfulResourcePublicationParams,
+  SubmitForReviewParams,
+  ApproveResourceParams,
+  RejectResourceParams,
+  UnpublishResourceParams,
+  RollbackResourceParams,
 } from "./server/html-pipeline/types";
 import {
   createSignedUploadUrl,
@@ -161,6 +167,7 @@ function createMockDbAdapter(): {
       lifecycle_status: string;
       approved_version_id: string | null;
       published_version_id: string | null;
+      lock_version: number;
     }
   >;
   versions: Map<
@@ -188,6 +195,7 @@ function createMockDbAdapter(): {
       lifecycle_status: string;
       approved_version_id: string | null;
       published_version_id: string | null;
+      lock_version: number;
     }
   >();
   const versions = new Map<
@@ -350,6 +358,7 @@ function createMockDbAdapter(): {
         version_number: ver.version_number,
         published_target_path: `published/${res.id}/${ver.version_number}`,
         valid_validation_id: val.validation_id,
+        lock_version: res.lock_version,
       };
     },
 
@@ -381,12 +390,58 @@ function createMockDbAdapter(): {
       return [];
     },
 
-    async recordPublicationState(resourceId: string, versionId: string): Promise<void> {
-      const res = resources.get(resourceId);
-      if (res) {
-        res.lifecycle_status = "published";
-        res.published_version_id = versionId;
+    async recordSuccessfulResourcePublication(
+      params: RecordSuccessfulResourcePublicationParams,
+    ): Promise<void> {
+      const res = resources.get(params.resourceId);
+      if (!res) {
+        throw new Error(`Resource ${params.resourceId} not found`);
       }
+      if (res.lifecycle_status !== "approved") {
+        throw new Error(`Resource ${params.resourceId} is not approved`);
+      }
+      if (res.approved_version_id !== params.versionId) {
+        throw new Error(`Resource approved_version_id does not match requested version`);
+      }
+      if (
+        params.expectedLockVersion !== undefined &&
+        res.lock_version !== params.expectedLockVersion
+      ) {
+        throw new Error(`Resource lock version mismatch`);
+      }
+      const ver = versions.get(params.versionId);
+      if (!ver || ver.resource_id !== params.resourceId) {
+        throw new Error(`Version ${params.versionId} does not belong to resource ${params.resourceId}`);
+      }
+      if (!ver.immutable_at) {
+        throw new Error(`Version ${params.versionId} is not immutable`);
+      }
+      const op = operations.get(params.storageOperationId);
+      if (!op) {
+        throw new Error(`Storage operation ${params.storageOperationId} not found`);
+      }
+      if (op.resourceId !== params.resourceId) {
+        throw new Error(`Storage operation belongs to a different resource`);
+      }
+      if (op.resourceVersionId !== params.versionId) {
+        throw new Error(`Storage operation belongs to a different version`);
+      }
+      if (op.operationType !== "promote_published") {
+        throw new Error(`Storage operation is not a promote_published operation`);
+      }
+      if (op.status !== "promoted") {
+        throw new Error(`Storage operation status ${op.status} is not promoted`);
+      }
+      const expectedPath = `published/${params.resourceId}/${ver.version_number}`;
+      if (!op.targetPath || op.targetPath !== expectedPath) {
+        throw new Error(`Storage operation target_path does not match expected published path`);
+      }
+      if (!op.expectedHash || op.expectedHash !== ver.content_sha256) {
+        throw new Error(`Storage operation expected_hash does not match version content_sha256`);
+      }
+      res.lifecycle_status = "published";
+      res.published_version_id = params.versionId;
+      res.lock_version = res.lock_version + 1;
     },
 
     async recordStorageOperation(op: StorageOperationRecord): Promise<string> {
@@ -428,6 +483,70 @@ function createMockDbAdapter(): {
 
     async resolveStorageOperation(operationId: string): Promise<ResolvedStorageOperation | null> {
       return operations.get(operationId) || null;
+    },
+
+    async submitResourceForReview(params: SubmitForReviewParams): Promise<void> {
+      const res = resources.get(params.resourceId);
+      if (!res) {
+        throw new Error(`Resource ${params.resourceId} not found`);
+      }
+      if (res.lifecycle_status !== "draft") {
+        throw new Error("Resource is not in draft status");
+      }
+      res.lifecycle_status = "in_review";
+    },
+
+    async approveResource(params: ApproveResourceParams): Promise<void> {
+      const res = resources.get(params.resourceId);
+      if (!res) {
+        throw new Error(`Resource ${params.resourceId} not found`);
+      }
+      if (res.lifecycle_status !== "in_review") {
+        throw new Error("Resource is not in review");
+      }
+      res.lifecycle_status = "approved";
+      res.approved_version_id = params.versionId;
+    },
+
+    async rejectResource(params: RejectResourceParams): Promise<void> {
+      const res = resources.get(params.resourceId);
+      if (!res) {
+        throw new Error(`Resource ${params.resourceId} not found`);
+      }
+      if (res.lifecycle_status !== "in_review") {
+        throw new Error("Resource is not in review");
+      }
+      res.lifecycle_status = "rejected";
+    },
+
+    async unpublishResource(params: UnpublishResourceParams): Promise<void> {
+      const res = resources.get(params.resourceId);
+      if (!res) {
+        throw new Error(`Resource ${params.resourceId} not found`);
+      }
+      if (res.lifecycle_status !== "published") {
+        throw new Error("Resource is not published");
+      }
+      res.lifecycle_status = "approved";
+      res.published_version_id = null;
+    },
+
+    async rollbackResource(params: RollbackResourceParams): Promise<void> {
+      const res = resources.get(params.resourceId);
+      if (!res) {
+        throw new Error(`Resource ${params.resourceId} not found`);
+      }
+      if (res.lifecycle_status !== "published") {
+        throw new Error("Resource is not published");
+      }
+      const ver = versions.get(params.targetVersionId);
+      if (!ver || ver.resource_id !== params.resourceId) {
+        throw new Error("Target version does not belong to resource");
+      }
+      if (!ver.immutable_at) {
+        throw new Error("Target version is not immutable");
+      }
+      res.published_version_id = params.targetVersionId;
     },
   };
 
@@ -580,6 +699,9 @@ function createStubSupabaseClient(
       if (fn === "record_server_validation") {
         return Promise.resolve({ data: "validation-id", error: null });
       }
+      if (fn === "record_successful_resource_publication") {
+        return Promise.resolve({ data: null, error: null });
+      }
       if (fn === "get_valid_server_validation") {
         return Promise.resolve({ data: [], error: null });
       }
@@ -596,6 +718,7 @@ function createStubSupabaseClient(
               version_number: 1,
               published_target_path: "published/res/1",
               valid_validation_id: "validation-id",
+              lock_version: 1,
             },
           ],
           error: null,
@@ -825,6 +948,7 @@ describe("Trusted HTML Server Pipeline — DB & Storage Foundation Contracts", (
       lifecycle_status: "approved",
       approved_version_id: versionId,
       published_version_id: null,
+      lock_version: 1,
     });
 
     mockDb.versions.set(versionId, {
@@ -920,6 +1044,7 @@ describe("Trusted HTML Server Pipeline — DB & Storage Foundation Contracts", (
       lifecycle_status: "approved",
       approved_version_id: versionId,
       published_version_id: null,
+      lock_version: 1,
     });
 
     mockDb.versions.set(versionId, {
@@ -1042,6 +1167,7 @@ describe("Trusted HTML Server Pipeline — DB & Storage Foundation Contracts", (
       lifecycle_status: "published",
       approved_version_id: versionId,
       published_version_id: versionId,
+      lock_version: 1,
     });
 
     mockDb.versions.set(versionId, {
@@ -1133,6 +1259,7 @@ describe("Trusted HTML Server Pipeline — DB & Storage Foundation Contracts", (
       lifecycle_status: "approved",
       approved_version_id: versionId,
       published_version_id: null,
+      lock_version: 1,
     });
 
     mockDb.versions.set(versionId, {
@@ -1223,6 +1350,7 @@ describe("Trusted HTML Server Pipeline — DB & Storage Foundation Contracts", (
       lifecycle_status: "approved",
       approved_version_id: versionId,
       published_version_id: null,
+      lock_version: 1,
     });
 
     mockDb.versions.set(versionId, {
@@ -1310,5 +1438,67 @@ describe("Trusted HTML Server Pipeline — DB & Storage Foundation Contracts", (
       operationType: "promote_published",
     });
     assert.ok(adminStub.calls.some((c) => c.includes("storage_operations:insert")));
+  });
+
+  test("11. publication calls atomic record_successful_resource_publication RPC via admin client", async () => {
+    const adminStub = createStubSupabaseClient("admin") as { calls: string[] };
+    const adminClient = adminStub as unknown as SupabaseClient<Database>;
+    const adapter = createSupabaseDbAdapter({
+      userClient: adminClient,
+      adminClient,
+    });
+
+    await adapter.recordSuccessfulResourcePublication({
+      resourceId: "00000000-0000-0000-0000-000000000002",
+      versionId: "00000000-0000-0000-0000-000000000003",
+      storageOperationId: "00000000-0000-0000-0000-000000000010",
+      uploadSessionId: "00000000-0000-0000-0000-000000000001",
+      expectedLockVersion: 5,
+    });
+
+    const call = adminStub.calls.find((c) => c.includes("record_successful_resource_publication"));
+    assert.ok(call, "record_successful_resource_publication RPC must be called");
+    assert.ok(
+      !adminStub.calls.some((c) => c.includes("lesson_resources:update")),
+      "publication must not use direct lesson_resources update",
+    );
+  });
+
+  test("12. record_successful_resource_publication propagates DB RPC errors", async () => {
+    const failingClient = {
+      rpc: (_fn: string, _args: unknown) =>
+        Promise.resolve({ data: null, error: { message: "publication RPC denied" } }),
+      from: (_table: string) => ({
+        select: (_columns?: string) => ({
+          eq: (_column: string, _value: unknown) => ({
+            single: () => Promise.resolve({ data: null, error: null }),
+          }),
+        }),
+        insert: (_values: unknown) => ({
+          select: (_columns?: string) => ({
+            single: () => Promise.resolve({ data: { id: "op-id" }, error: null }),
+          }),
+        }),
+        update: (_values: unknown) => ({
+          eq: (_column: string, _value: unknown) => Promise.resolve({ error: null }),
+        }),
+      }),
+    } as unknown as SupabaseClient<Database>;
+
+    const adapter = createSupabaseDbAdapter({
+      userClient: failingClient,
+      adminClient: failingClient,
+    });
+
+    await assert.rejects(
+      async () =>
+        adapter.recordSuccessfulResourcePublication({
+          resourceId: "res-1",
+          versionId: "ver-1",
+          storageOperationId: "op-1",
+          expectedLockVersion: 1,
+        }),
+      /publication RPC denied/,
+    );
   });
 });

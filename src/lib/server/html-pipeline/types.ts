@@ -45,6 +45,7 @@ export interface ResolvedPromotionBinding {
   version_number: number;
   published_target_path: string;
   valid_validation_id: string;
+  lock_version: number;
 }
 
 export interface ResolvedStudentResourceBinding {
@@ -161,4 +162,41 @@ export interface CompensationResult {
   compensated: boolean;
   status: "cleaned" | "compensated" | "failed";
   details?: string;
+}
+
+export interface RecordSuccessfulResourcePublicationParams {
+  resourceId: string;
+  versionId: string;
+  storageOperationId: string;
+  uploadSessionId?: string;
+  expectedLockVersion: number;
+}
+
+export interface SubmitForReviewParams {
+  resourceId: string;
+  expectedLockVersion?: number;
+}
+
+export interface ApproveResourceParams {
+  resourceId: string;
+  versionId: string;
+  expectedLockVersion?: number;
+}
+
+export interface RejectResourceParams {
+  resourceId: string;
+  versionId: string;
+  reason: string;
+  expectedLockVersion?: number;
+}
+
+export interface UnpublishResourceParams {
+  resourceId: string;
+  expectedLockVersion?: number;
+}
+
+export interface RollbackResourceParams {
+  resourceId: string;
+  targetVersionId: string;
+  expectedLockVersion: number;
 }

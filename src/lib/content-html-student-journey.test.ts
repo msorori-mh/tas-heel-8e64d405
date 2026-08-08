@@ -9,6 +9,12 @@ import type {
   ResolvedStudentResourceBinding,
   StorageOperationRecord,
   ResolvedStorageOperation,
+  RecordSuccessfulResourcePublicationParams,
+  SubmitForReviewParams,
+  ApproveResourceParams,
+  RejectResourceParams,
+  UnpublishResourceParams,
+  RollbackResourceParams,
 } from "./server/html-pipeline/types";
 import type { StorageClientAdapter } from "./server/html-pipeline/storage-adapter";
 import { createSignedStudentAccessUrl } from "./server/html-pipeline/html-pipeline-service";
@@ -112,10 +118,12 @@ function createMockDbAdapter(): {
       return rows;
     },
 
-    async recordPublicationState(): Promise<void> {
+    async recordSuccessfulResourcePublication(
+      _params: RecordSuccessfulResourcePublicationParams,
+    ): Promise<void> {
       throw new Error("Not implemented for student journey tests");
     },
-    async recordStorageOperation(): Promise<string> {
+    async recordStorageOperation(_op: StorageOperationRecord): Promise<string> {
       throw new Error("Not implemented for student journey tests");
     },
     async updateStorageOperation(): Promise<void> {
@@ -123,6 +131,21 @@ function createMockDbAdapter(): {
     },
     async resolveStorageOperation(): Promise<ResolvedStorageOperation | null> {
       return null;
+    },
+    async submitResourceForReview(_params: SubmitForReviewParams): Promise<void> {
+      throw new Error("Not implemented for student journey tests");
+    },
+    async approveResource(_params: ApproveResourceParams): Promise<void> {
+      throw new Error("Not implemented for student journey tests");
+    },
+    async rejectResource(_params: RejectResourceParams): Promise<void> {
+      throw new Error("Not implemented for student journey tests");
+    },
+    async unpublishResource(_params: UnpublishResourceParams): Promise<void> {
+      throw new Error("Not implemented for student journey tests");
+    },
+    async rollbackResource(_params: RollbackResourceParams): Promise<void> {
+      throw new Error("Not implemented for student journey tests");
     },
   };
 
