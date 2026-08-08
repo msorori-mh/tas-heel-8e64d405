@@ -284,15 +284,21 @@ export async function promoteApprovedPackage(
     // 3k. storage_operation -> promoted
     await dbAdapter.updateStorageOperation(operationId, "promoted");
 
-    // 3l. DB publication state mutation
+    // 3l. Atomic DB publication state mutation (storage-bound, service-role RPC)
     try {
-      await dbAdapter.recordPublicationState(binding.resource_id, binding.version_id);
+      await dbAdapter.recordSuccessfulResourcePublication({
+        resourceId: binding.resource_id,
+        versionId: binding.version_id,
+        storageOperationId: operationId,
+        uploadSessionId: binding.upload_session_id,
+        expectedLockVersion: binding.lock_version,
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       await dbAdapter.updateStorageOperation(
         operationId,
         "failed",
-        `فشل تحديث حالة النشر في قاعدة البيانات: ${msg}`,
+        `فشل تسجيل النشر الذري في قاعدة البيانات: ${msg}`,
       );
       return {
         publishedPath,
@@ -300,7 +306,7 @@ export async function promoteApprovedPackage(
         contentSha256: binding.expected_hash,
         promoted: false,
         status: "failed",
-        errorDetails: `فشل تحديث حالة النشر في قاعدة البيانات: ${msg}`,
+        errorDetails: `فشل تسجيل النشر الذري في قاعدة البيانات: ${msg}`,
       };
     }
 
