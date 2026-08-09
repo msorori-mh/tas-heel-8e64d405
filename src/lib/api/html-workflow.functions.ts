@@ -5,7 +5,10 @@ import {
   requireContentStaffAuth,
 } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { createHtmlWorkflowAdapter } from "@/lib/server/html-pipeline/html-workflow-adapter";
+import {
+  createHtmlWorkflowAdapter,
+  type LessonLookup,
+} from "@/lib/server/html-pipeline/html-workflow-adapter";
 import {
   createSignedUploadUrl,
   downloadAndValidateStoredZip,
@@ -235,22 +238,47 @@ export const initializeHtmlImportFn = createServerFn({ method: "POST" })
       validParsed.push({ rowNumber: row.rowNumber, parsed: validation.parsed });
     }
 
-    const lessonCodes = [...new Set(validParsed.map((v) => v.parsed.lesson_code))];
-    const lessonsMap = await workflow.lookupLessonsByCode(lessonCodes);
+    const lessonLookupRequests = validParsed.map((v) => ({
+      grade_code: v.parsed.grade_code,
+      subject_code: v.parsed.subject_code,
+      lesson_code: v.parsed.lesson_code,
+    }));
 
-    for (const v of validParsed) {
-      if (!lessonsMap.has(v.parsed.lesson_code)) {
+    let lessonsMap: Map<string, LessonLookup>;
+    try {
+      lessonsMap = await workflow.lookupLessonsByCode(lessonLookupRequests);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      for (const v of validParsed) {
         errors.push({
           row_number: v.rowNumber,
           resource_code: v.parsed.resource_code,
-          message: `lesson غير موجود: ${v.parsed.lesson_code}`,
+          message: msg,
+        });
+      }
+      return {
+        batch_id: "",
+        resources: [],
+        errors,
+        warnings,
+      };
+    }
+
+    for (const v of validParsed) {
+      const lookupKey = `${v.parsed.grade_code}|${v.parsed.subject_code}|${v.parsed.lesson_code}`;
+      if (!lessonsMap.has(lookupKey)) {
+        errors.push({
+          row_number: v.rowNumber,
+          resource_code: v.parsed.resource_code,
+          message: `lesson غير موجود: ${v.parsed.lesson_code} ضمن ${v.parsed.subject_code}/${v.parsed.grade_code}`,
         });
       }
     }
 
-    const validWithLessons = validParsed.filter((v) =>
-      lessonsMap.has(v.parsed.lesson_code),
-    );
+    const validWithLessons = validParsed.filter((v) => {
+      const lookupKey = `${v.parsed.grade_code}|${v.parsed.subject_code}|${v.parsed.lesson_code}`;
+      return lessonsMap.has(lookupKey);
+    });
 
     if (validWithLessons.length === 0) {
       return {
@@ -269,7 +297,8 @@ export const initializeHtmlImportFn = createServerFn({ method: "POST" })
 
     for (const v of validWithLessons) {
       const { parsed } = v;
-      const lesson = lessonsMap.get(parsed.lesson_code)!;
+      const lookupKey = `${parsed.grade_code}|${parsed.subject_code}|${parsed.lesson_code}`;
+      const lesson = lessonsMap.get(lookupKey)!;
 
       try {
         const resourceId = await workflow.findOrCreateResource({

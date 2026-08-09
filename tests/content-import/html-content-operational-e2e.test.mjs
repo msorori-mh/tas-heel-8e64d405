@@ -352,6 +352,33 @@ describe("HTML Content Operational E2E", () => {
     }
   });
 
+  it("1b. Real XLSX scope resolves to the correct lesson via production lookup", async () => {
+    const xlsxBytes = loadFixtureBytes("valid-resources.xlsx");
+    const parsed = await parseContentImportBuffer(
+      Buffer.from(xlsxBytes),
+      "valid-resources.xlsx",
+      "resources",
+    );
+
+    const requests = parsed.rows.map((r) => ({
+      grade_code: r.data.grade_code,
+      subject_code: r.data.subject_code,
+      lesson_code: r.data.lesson_code,
+    }));
+
+    const map = await ctx.workflow.lookupLessonsByCode(requests);
+
+    for (const r of parsed.rows) {
+      const key = `${r.data.grade_code}|${r.data.subject_code}|${r.data.lesson_code}`;
+      assert.ok(map.has(key), `XLSX row ${r.data.resource_code} must resolve to a lesson`);
+      assert.equal(
+        map.get(key).id,
+        DETERMINISTIC.lessonId,
+        `XLSX row ${r.data.resource_code} must resolve to the seeded lesson`,
+      );
+    }
+  });
+
   it("2. Invalid fixtures fail parser validation", async () => {
     const malformedZip = loadFixtureBytes("invalid", "malformed-zip.zip");
     const malformedParse = await parseMasterZipBuffer(malformedZip);

@@ -239,8 +239,8 @@ const XLSX_HEADERS = [
 function baseRow(resource) {
   return {
     resource_code: resource.code,
-    grade_code: "TEST_GRADE_E2E_001",
-    subject_code: "TEST_SUBJECT_E2E_001",
+    grade_code: "test-grade-html-e2e-001",
+    subject_code: "test-subject-html-e2e-001",
     lesson_code: "test-lesson-html-e2e-001",
     resource_type: resource.type,
     title_ar: resource.title,

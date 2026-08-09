@@ -1,6 +1,6 @@
 # HTML Content Operational E2E — Production Migration Runbook
 
-**Work item:** `TAMKEEN_CONTENT_OPERATIONAL_E2E_FULL_CLOSURE_22`  
+**Work item:** `TAMKEEN_CONTENT_OPERATIONAL_E2E_FULL_CLOSURE_24`
 **Repository:** `msorori-mh/tas-heel-8e64d405`  
 **Branch:** `feat/content-operational-e2e-full-closure-01`  
 **Base ancestor:** `87cd351b40ecf79c12d79f6378c2ae2e4076a3fc`
@@ -235,7 +235,7 @@ The following tests passed locally against the migration set and must continue t
 | Suite | Command | Result |
 |-------|---------|--------|
 | Unit / contract tests | `npm test` | 172 passed |
-| HTML backend operational E2E | `npm run test:html-content-e2e` | 10 passed |
+| HTML backend operational E2E | `npm run test:html-content-e2e` | 11 passed |
 | Browser operational E2E | `npx playwright test tests/content-import/browser-html-content-e2e.spec.ts --project=chromium --workers=1` | 3 passed |
 | Type check | `npx tsc --noEmit` | clean |
 | Build | `npm run build` | clean |
