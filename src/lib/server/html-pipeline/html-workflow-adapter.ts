@@ -144,10 +144,11 @@ export function createHtmlWorkflowAdapter(
         };
       };
 
+      // Production schema maps the external lesson_code concept to the lessons.slug column.
       const { data, error } = await supabaseLoose
         .from("lessons")
-        .select("id, title, subject_id, grade_id, code")
-        .in("code", codes);
+        .select("id, title, subject_id, grade_id, slug")
+        .in("slug", codes);
 
       if (error) {
         throw new Error(`فشل البحث عن الدروس: ${error.message}`);
@@ -155,7 +156,7 @@ export function createHtmlWorkflowAdapter(
 
       const rows = (data as Array<Record<string, unknown>>) || [];
       for (const row of rows) {
-        const code = row.code as string;
+        const code = row.slug as string;
         if (code) {
           result.set(code, {
             id: row.id as string,

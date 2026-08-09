@@ -1,1 +1,10 @@
 project_id = "zbdhxyuulyovihjgeqbn"
+
+[db]
+port = 54422
+
+[api]
+port = 54421
+
+[studio]
+port = 54423
