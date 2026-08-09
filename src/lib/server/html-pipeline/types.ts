@@ -1,4 +1,4 @@
-import type { SecurityFinding } from "@/lib/content-import/html-package";
+import type { SecurityFinding, HtmlResourceType } from "@/lib/content-import/html-package";
 
 export interface ResolvedUploadSession {
   session_id: string;
@@ -52,7 +52,7 @@ export interface ResolvedStudentResourceBinding {
   resource_id: string;
   lesson_id: string;
   version_id: string;
-  resource_type: string;
+  resource_type: HtmlResourceType;
   title: string;
   published_version_number: number;
 }

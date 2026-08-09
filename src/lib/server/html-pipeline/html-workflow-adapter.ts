@@ -206,6 +206,8 @@ export function createHtmlWorkflowAdapter(
           id: crypto.randomUUID(),
           lesson_id: params.lesson_id,
           resource_type: "html",
+          html_resource_type: params.resource_type,
+          resource_code: params.resource_code,
           title: params.title,
           description: params.description,
           sort_order: params.sort_order,
@@ -395,7 +397,7 @@ export function createHtmlWorkflowAdapter(
       const { data, error } = await supabaseLoose
         .from("lesson_resources")
         .select(
-          "id, title, description, resource_type, lesson_id, lifecycle_status, lock_version, current_draft_version_id",
+          "id, title, description, resource_type, html_resource_type, resource_code, lesson_id, lifecycle_status, lock_version, current_draft_version_id",
         )
         .in("lifecycle_status", ["in_review", "approved", "draft"]);
 
@@ -461,8 +463,8 @@ export function createHtmlWorkflowAdapter(
 
         result.push({
           resource_id: resourceId,
-          resource_code: resourceId,
-          resource_type: row.resource_type as string,
+          resource_code: (row.resource_code as string | null) || resourceId,
+          resource_type: (row.html_resource_type as string | null) || (row.resource_type as string),
           title: row.title as string,
           description: row.description as string | null,
           lesson_id: lessonId,

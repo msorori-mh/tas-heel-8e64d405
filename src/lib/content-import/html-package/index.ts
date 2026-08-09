@@ -1,6 +1,11 @@
 export * from "./validation-codes.ts";
 export type * from "./types.ts";
-export { LESSON_RESOURCE_TYPES, PACKAGE_LIMITS, ALLOWED_BRIDGE_EVENT_TYPES } from "./types.ts";
+export {
+  LESSON_RESOURCE_TYPES,
+  HTML_RESOURCE_TYPES,
+  PACKAGE_LIMITS,
+  ALLOWED_BRIDGE_EVENT_TYPES,
+} from "./types.ts";
 export * from "./manifest-validator.ts";
 export * from "./package-preflight.ts";
 export * from "./html-parser.ts";

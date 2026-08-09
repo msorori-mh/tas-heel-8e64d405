@@ -380,10 +380,14 @@ function createMockDbAdapter(): {
         resource_id: res.id,
         lesson_id: res.lesson_id,
         version_id: ver.id,
-        resource_type: "html_interactive",
+        resource_type: "mind_map_html",
         title: "Test Lesson Resource",
         published_version_number: ver.version_number,
       };
+    },
+
+    async listLessonPublishedHtmlResources(_lessonId: string) {
+      return [];
     },
 
     async recordSuccessfulResourcePublication(

@@ -13,6 +13,7 @@ import type {
   PackageValidationResult,
   SecurityFinding,
 } from "./types.ts";
+import { HTML_RESOURCE_TYPES } from "./types.ts";
 import { ValidationCodes } from "./validation-codes.ts";
 
 /**
@@ -76,11 +77,11 @@ export function validateInteractiveResourceRow(
     });
   }
 
-  if (!["mind_map_html", "practical_experiment_html"].includes(row.resource_type)) {
+  if (!HTML_RESOURCE_TYPES.includes(row.resource_type as typeof HTML_RESOURCE_TYPES[number])) {
     findings.push({
       code: ValidationCodes.INVALID_RESOURCE_TYPE,
       severity: "error",
-      message: `الصف ${rowNumber}: resource_type يجب أن يكون mind_map_html أو practical_experiment_html لموارد HTML.`,
+      message: `الصف ${rowNumber}: resource_type يجب أن يكون mind_map_html أو practical_experiment_html أو summary_html لموارد HTML.`,
     });
   }
 

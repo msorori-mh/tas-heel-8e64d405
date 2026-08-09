@@ -21,22 +21,14 @@ import type {
   ReviewQueueItem,
   ReviewActionResult,
 } from "@/lib/server/html-pipeline/html-workflow.types";
+import {
+  HTML_RESOURCE_TYPES,
+  type HtmlResourceType,
+} from "@/lib/content-import/html-package/types";
 
-const INTERACTIVE_RESOURCE_TYPES = new Set([
-  "mind_map_html",
-  "practical_experiment_html",
-  "summary_html",
-]);
+const INTERACTIVE_RESOURCE_TYPES = new Set(HTML_RESOURCE_TYPES);
 
-const VALID_RESOURCE_TYPES = new Set([
-  "mind_map_html",
-  "practical_experiment_html",
-  "summary_html",
-  "image",
-  "pdf",
-  "video",
-  "external_link",
-]);
+type InteractiveResourceType = HtmlResourceType;
 
 function buildWorkflowAdapter() {
   return createHtmlWorkflowAdapter(supabaseAdmin);
@@ -70,7 +62,7 @@ async function parseInteractiveExcel(
   return { rows: parsed.rows };
 }
 
-function validateInteractiveRow(
+export function validateInteractiveRow(
   rowNumber: number,
   data: Record<string, string>,
 ): {
@@ -82,7 +74,7 @@ function validateInteractiveRow(
     subject_code: string;
     unit_code: string | null;
     lesson_code: string;
-    resource_type: string;
+    resource_type: InteractiveResourceType;
     title_ar: string;
     description_ar: string | null;
     alt_text_ar: string | null;
@@ -111,8 +103,10 @@ function validateInteractiveRow(
   if (!titleAr) errors.push("title_ar مطلوب");
   if (!resourceType) {
     errors.push("resource_type مطلوب");
-  } else if (!VALID_RESOURCE_TYPES.has(resourceType)) {
-    errors.push(`resource_type غير قانوني: ${resourceType}`);
+  } else if (!INTERACTIVE_RESOURCE_TYPES.has(resourceType as InteractiveResourceType)) {
+    errors.push(
+      `resource_type غير قانوني: ${resourceType} (يجب أن يكون mind_map_html أو practical_experiment_html أو summary_html)`,
+    );
   }
 
   const sortOrder = parseInt(data.sort_order || "1", 10);
@@ -142,7 +136,7 @@ function validateInteractiveRow(
       subject_code: (data.subject_code || "").trim(),
       unit_code: (data.unit_code || "").trim() || null,
       lesson_code: lessonCode,
-      resource_type: resourceType,
+      resource_type: resourceType as InteractiveResourceType,
       title_ar: titleAr,
       description_ar: (data.description_ar || "").trim() || null,
       alt_text_ar: (data.alt_text_ar || "").trim() || null,
