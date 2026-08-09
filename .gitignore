@@ -19,9 +19,17 @@ dist-ssr
 .env.*
 !.env.example
 
+# Local Supabase runtime state
+supabase/.branches/
+supabase/.temp/
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
+
+# Playwright / test transient outputs
+test-results/
+tests/content-import/html-e2e/
 
 # Editor directories and files
 .vscode/*

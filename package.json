@@ -17,7 +17,8 @@
     "format": "prettier --write .",
     "generate:import-templates": "bun run scripts/generate-import-templates.ts",
     "generate:content-templates": "node scripts/generate-content-templates.mjs",
-    "content:preflight": "node scripts/content-import/validate-content-package.mjs"
+    "content:preflight": "node scripts/content-import/validate-content-package.mjs",
+    "test:html-content-e2e": "node tests/content-import/fixtures/generate-html-e2e-fixtures.mjs && node --import tsx --test tests/content-import/html-content-operational-e2e.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -67,6 +68,7 @@
     "jszip": "^3.10.1",
     "lru-cache": "^11.5.2",
     "lucide-react": "^0.575.0",
+    "pg": "^8.23.0",
     "react": "^19.2.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.0",
@@ -84,6 +86,7 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "2.8.5",
+    "@playwright/test": "^1.62.1",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",

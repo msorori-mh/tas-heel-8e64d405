@@ -34,6 +34,12 @@ type UntypedSupabase = {
   };
 };
 
+export interface LessonLookupRequest {
+  grade_code: string;
+  subject_code: string;
+  lesson_code: string;
+}
+
 export interface LessonLookup {
   id: string;
   title: string;
@@ -77,7 +83,9 @@ export interface ReviewQueueRow {
 }
 
 export interface HtmlWorkflowAdapter {
-  lookupLessonsByCode(codes: string[]): Promise<Map<string, LessonLookup>>;
+  lookupLessonsByCode(
+    requests: LessonLookupRequest[],
+  ): Promise<Map<string, LessonLookup>>;
   findOrCreateResource(params: {
     lesson_id: string;
     resource_type: string;
@@ -129,42 +137,137 @@ export function createHtmlWorkflowAdapter(
   });
 
   return {
-    async lookupLessonsByCode(codes: string[]): Promise<Map<string, LessonLookup>> {
+    async lookupLessonsByCode(
+      requests: LessonLookupRequest[],
+    ): Promise<Map<string, LessonLookup>> {
       const result = new Map<string, LessonLookup>();
-      if (codes.length === 0) return result;
+      if (requests.length === 0) return result;
 
-      const supabaseLoose = adminClient as unknown as {
-        from(table: string): {
-          select(columns: string): {
-            in(column: string, values: unknown[]): Promise<{
-              data: unknown;
-              error: { message: string } | null;
-            }>;
-          };
-        };
-      };
+      const errors: string[] = [];
 
-      const { data, error } = await supabaseLoose
+      // 1. Resolve grades by slug.
+      const gradeSlugs = [
+        ...new Set(requests.map((r) => r.grade_code).filter(Boolean)),
+      ];
+      const { data: gradeData, error: gradeError } = await adminClient
+        .from("grades")
+        .select("id, slug")
+        .in("slug", gradeSlugs);
+      if (gradeError) {
+        throw new Error(`فشل البحث عن الصفوف: ${gradeError.message}`);
+      }
+      const gradeBySlug = new Map(
+        (gradeData ?? []).map((g) => [g.slug, g.id]),
+      );
+
+      // 2. Resolve subjects by (grade_id, slug).
+      const subjectQueries = requests
+        .map((r) => {
+          const gradeId = gradeBySlug.get(r.grade_code);
+          if (!gradeId) {
+            errors.push(
+              `grade غير موجود: ${r.grade_code} (صف ${r.lesson_code})`,
+            );
+            return null;
+          }
+          return { gradeId, subjectCode: r.subject_code };
+        })
+        .filter((q): q is { gradeId: string; subjectCode: string } => q !== null);
+
+      const uniqueSubjectKeys = [
+        ...new Map(
+          subjectQueries.map((q) => [`${q.gradeId}|${q.subjectCode}`, q]),
+        ).values(),
+      ];
+      const subjectSlugs = [...new Set(uniqueSubjectKeys.map((q) => q.subjectCode))];
+      const gradeIds = [...new Set(uniqueSubjectKeys.map((q) => q.gradeId))];
+
+      const { data: subjectData, error: subjectError } = await adminClient
+        .from("subjects")
+        .select("id, slug, grade_id")
+        .in("slug", subjectSlugs)
+        .in("grade_id", gradeIds);
+      if (subjectError) {
+        throw new Error(`فشل البحث عن المواد: ${subjectError.message}`);
+      }
+      const subjectByGradeAndSlug = new Map(
+        (subjectData ?? []).map((s) => [`${s.grade_id}|${s.slug}`, s]),
+      );
+
+      // 3. Resolve lessons by (subject_id, slug). Fail-closed for missing/ambiguous scope.
+      const lessonQueries = requests
+        .map((r) => {
+          const gradeId = gradeBySlug.get(r.grade_code);
+          if (!gradeId) return null;
+          const subject = subjectByGradeAndSlug.get(`${gradeId}|${r.subject_code}`);
+          if (!subject) {
+            errors.push(
+              `مادة غير موجودة: ${r.subject_code} ضمن ${r.grade_code} (درس ${r.lesson_code})`,
+            );
+            return null;
+          }
+          return { request: r, subject };
+        })
+        .filter((q) => q !== null);
+
+      const uniqueLessonKeys = [
+        ...new Map(
+          lessonQueries.map((q) => [
+            `${q.subject.id}|${q.request.lesson_code}`,
+            q,
+          ]),
+        ).values(),
+      ];
+      const lessonSlugs = [...new Set(uniqueLessonKeys.map((q) => q.request.lesson_code))];
+      const subjectIds = [...new Set(uniqueLessonKeys.map((q) => q.subject.id))];
+
+      const { data: lessonData, error: lessonError } = await adminClient
         .from("lessons")
-        .select("id, title, subject_id, grade_id, code")
-        .in("code", codes);
-
-      if (error) {
-        throw new Error(`فشل البحث عن الدروس: ${error.message}`);
+        .select("id, title, subject_id, slug")
+        .in("slug", lessonSlugs)
+        .in("subject_id", subjectIds);
+      if (lessonError) {
+        throw new Error(`فشل البحث عن الدروس: ${lessonError.message}`);
       }
 
-      const rows = (data as Array<Record<string, unknown>>) || [];
-      for (const row of rows) {
-        const code = row.code as string;
-        if (code) {
-          result.set(code, {
-            id: row.id as string,
-            title: row.title as string,
-            subject_id: row.subject_id as string,
-            grade_id: row.grade_id as string,
-          });
+      const lessonsBySubjectAndSlug = new Map<string, typeof lessonData>();
+      for (const lesson of lessonData ?? []) {
+        const key = `${lesson.subject_id}|${lesson.slug}`;
+        if (!lessonsBySubjectAndSlug.has(key)) {
+          lessonsBySubjectAndSlug.set(key, []);
         }
+        lessonsBySubjectAndSlug.get(key)!.push(lesson);
       }
+
+      for (const { request, subject } of lessonQueries) {
+        const key = `${subject.id}|${request.lesson_code}`;
+        const matches = lessonsBySubjectAndSlug.get(key) ?? [];
+        if (matches.length === 0) {
+          errors.push(
+            `lesson غير موجود: ${request.lesson_code} ضمن ${request.subject_code}/${request.grade_code}`,
+          );
+          continue;
+        }
+        if (matches.length > 1) {
+          errors.push(
+            `lesson غير واضح (مكرر): ${request.lesson_code} ضمن ${request.subject_code}/${request.grade_code}`,
+          );
+          continue;
+        }
+        const lesson = matches[0];
+        const lookupKey = `${request.grade_code}|${request.subject_code}|${request.lesson_code}`;
+        result.set(lookupKey, {
+          id: lesson.id,
+          title: lesson.title,
+          subject_id: lesson.subject_id,
+          grade_id: subject.grade_id,
+        });
+      }
+
+      if (errors.length > 0) {
+        throw new Error(errors.join("; "));
+      }
+
       return result;
     },
 
@@ -451,14 +554,23 @@ export function createHtmlWorkflowAdapter(
         let gradeName = "";
 
         const lessonId = row.lesson_id as string;
-        const { data: lessonData } = await db
+        const { data: lessonData } = await adminClient
           .from("lessons")
-          .select("title, subject_id, grade_id")
-          .eq("id", lessonId);
+          .select(
+            "title, subject_id, subjects!inner(name, grade_id, grades!inner(name))",
+          )
+          .eq("id", lessonId)
+          .single();
 
-        const lessonRows = (lessonData as Array<Record<string, unknown>>) || [];
-        if (lessonRows.length > 0) {
-          lessonTitle = lessonRows[0].title as string;
+        if (lessonData) {
+          lessonTitle = lessonData.title;
+          const subject = lessonData.subjects as {
+            name: string;
+            grade_id: string;
+            grades: { name: string } | null;
+          } | null;
+          subjectName = subject?.name ?? "";
+          gradeName = subject?.grades?.name ?? "";
         }
 
         result.push({
