@@ -12,6 +12,16 @@ import { assertGenericUpsertAllowed } from "./import-execution-state";
 
 const MAX_BASE64_LENGTH = Math.ceil(CONTENT_IMPORT_MAX_FILE_BYTES * 1.37) + 64;
 
+const CreateJobInput = z.object({
+  templateKey: z.string().min(1).max(64),
+  fileName: z.string().min(1).max(255),
+  fileSize: z.number().int().positive().max(CONTENT_IMPORT_MAX_FILE_BYTES),
+  fileHash: z.string().regex(/^[0-9a-f]{64}$/),
+  totalRows: z.number().int().min(0).max(100000),
+  validRows: z.number().int().min(0).max(100000),
+  warningRows: z.number().int().min(0).max(100000),
+});
+
 const PrepareInput = z.object({
   jobId: z.string().uuid(),
   templateKey: z.string().min(1).max(64),
@@ -24,6 +34,33 @@ const ExecuteInput = z.object({
   jobId: z.string().uuid(),
   templateKeys: z.array(z.string().min(1).max(64)).min(1).max(9),
 });
+
+/**
+ * Creates the import_jobs row the prepare/execute steps operate on.
+ * Zero domain writes; the operator's own JWT is used under RLS.
+ */
+export const createContentImportJob = createServerFn({ method: "POST" })
+  .middleware([requireContentStaffAuth])
+  .inputValidator((input) => CreateJobInput.parse(input))
+  .handler(async ({ data, context }): Promise<{ jobId: string }> => {
+    const { supabase, userId, isFullAdmin } = context as ContentStaffAuthContext;
+    assertImportJobAllowed(IMPORT_TYPE_STRUCTURE, isFullAdmin);
+
+    const templateKey = assertAllowedContentImportTemplateKey(data.templateKey);
+    assertGenericUpsertAllowed(templateKey);
+
+    const { createContentImportExecutionJob } = await import("./import-job-create.server");
+    return createContentImportExecutionJob(supabase, userId, {
+      templateKey,
+      fileName: data.fileName,
+      fileSize: data.fileSize,
+      fileHash: data.fileHash,
+      totalRows: data.totalRows,
+      validRows: data.validRows,
+      warningRows: data.warningRows,
+    });
+  });
+
 
 export interface PrepareStagingResult {
   jobId: string;
