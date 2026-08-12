@@ -75,15 +75,23 @@ subjects ─────────────────> questions ──�
 الاستيراد يكتب دائماً بحالة `draft` + `pending`. النشر عملية منفصلة بصلاحية أعلى.
 حالياً **لا يوجد أي من العمودين في جداول المحتوى** — عمود `review_status` في القوالب 01/02/03/05/07 لا وجهة له اليوم.
 
-## 6. الفجوات المانعة للتنفيذ (تحتاج Migration معتمَد)
+## 6. الفجوات السبع — الحالة: **7/7 مغلقة تصميمياً** (مرحلة 02)
 
-1. **`lesson_assessments.code` غير موجود** → القالبان 07 و08 غير قابلين للتنفيذ. المطلوب: `code text` + `UNIQUE (code) WHERE code IS NOT NULL`.
-2. **لا فهرس فريد على `lesson_explanations` و`lesson_resources`** → إعادة الرفع تُنتج تكراراً. المطلوب: مفتاح فريد `(lesson_id, sort_order)` أو تخزين `row_hash`.
-3. **لا أعمدة مراجعة/نشر** في `subjects`, `units`, `lessons`, `lesson_explanations`, `lesson_assessments`, `questions`.
-4. **`lesson_resources.url` هو NOT NULL** بينما `resource_url` اختياري في القالب 06 → يجب جعله مطلوباً في القالب.
-5. **7 أعمدة في القالب 06** (`resource_format`, `local_asset_path`, `thumbnail_url`, `is_interactive`, `attribution`, `license_note`, `notes`) بلا وجهة → تُحذف من القالب أو يُضاف عمود `metadata jsonb`.
-6. **`lesson_code` وحده غير كافٍ** في القوالب 04–07 لأن التفرد داخل المادة → يجب إضافة `subject_code` للصف أو جعل مهمة الاستيراد مقيدة بمادة واحدة.
-7. **`subjects.slug` مطلوب NOT NULL** وغير موجود في القالب 01 → يُشتق من `subject_code` أو يُضاف عمود.
+المرجع الآلي: `IMPORT_GAP_RESOLUTIONS` في `src/lib/import/import-contract.ts`.
+مسودة SQL للمراجعة فقط (**غير مطبَّقة**): `docs/migration-drafts/IMPORT-EXECUTION-READINESS-02.NOT_APPLIED.sql`.
+
+| # | الفجوة | نوع الإغلاق | القرار المُثبَّت |
+|---|---|---|---|
+| GAP-01 | `lesson_assessments.code` غير موجود | Schema (مسودة) | إضافة `code text` + `UNIQUE (code) WHERE code IS NOT NULL`. النطاق **عام** وليس داخل الدرس، لأن القالب 08 يشير للتقييم بـ `assessment_code` وحده — مطابقاً لنطاق `subjects_code_uniq` و`questions_code_uniq`. |
+| GAP-02 | لا مفتاح فريد لـ `lesson_explanations` / `lesson_resources` | Schema (مسودة) | `explanation_code` / `resource_code` (عمود `code`) + `UNIQUE (lesson_id, code)`. **`sort_order` لا يدخل في الهوية إطلاقاً** — إعادة الترتيب ليست تعديل كيان. |
+| GAP-03 | لا أعمدة مراجعة/نشر | Schema (مسودة) | جدول جانبي واحد `content_review_state (entity_type, entity_id)` **مرتبط بـ `content_hash`**: أي تغيّر في البصمة يعيد الصف إلى `pending + draft` عبر Trigger، فلا تنجو موافقة قديمة على محتوى جديد. |
+| GAP-04 | `resource_url` اختياري بينما العمود NOT NULL | Template فقط | `resource_url` يصبح مطلوباً في القالب 06؛ الغياب يُرفض بكود `MISSING_RESOURCE_URL`. لا DDL. |
+| GAP-05 | 7 أعمدة بلا وجهة في القالب 06 | Schema (مسودة) | `lesson_resources.metadata jsonb NOT NULL DEFAULT '{}'` مع **قائمة سماح مغلقة** (`RESOURCE_METADATA_ALLOWLIST`)؛ أي مفتاح خارجها يُرفض. ليس مخزناً حراً. |
+| GAP-06 | `lesson_code` وحده غامض | Template فقط | `subject_code` يصبح عموداً مطلوباً في القوالب 04–07؛ `(subject_code, lesson_code)` يحل درساً واحداً عبر `lessons_subject_id_slug_key`، والتطابق المتعدد يُرفض بـ `AMBIGUOUS_LESSON_CODE`. |
+| GAP-07 | `subjects.slug` مطلوب وغير موجود في القالب 01 | اشتقاق برمجي | `deriveSubjectSlug(subject_code)`: الأكواد الآمنة تُطابق نفسها، وأي كود آخر → `normalized--<fnv1a64(raw)>`. الاشتقاق **حقني (injective)**، فلا يمكن لكودين مختلفين إنتاج نفس الـ slug، والفاصل `--` محجوز لفصل الفرعين. |
+
+ملاحظة حاسمة: «مغلقة تصميمياً» ≠ «مطبَّقة». لا يوجد أي DDL مطبَّق في هذه المرحلة، ولا يزال شرط الانتقال إلى Migration قائماً.
+
 
 ## 7. أكواد الأخطاء الموحدة
 
