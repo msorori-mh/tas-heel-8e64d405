@@ -88,7 +88,7 @@ subjects ─────────────────> questions ──�
 | GAP-04 | `resource_url` اختياري بينما العمود NOT NULL | Template فقط | `resource_url` يصبح مطلوباً في القالب 06؛ الغياب يُرفض بكود `MISSING_RESOURCE_URL`. لا DDL. |
 | GAP-05 | 7 أعمدة بلا وجهة في القالب 06 | Schema (مسودة) | `lesson_resources.metadata jsonb NOT NULL DEFAULT '{}'` مع **قائمة سماح مغلقة** (`RESOURCE_METADATA_ALLOWLIST`)؛ أي مفتاح خارجها يُرفض. ليس مخزناً حراً. |
 | GAP-06 | `lesson_code` وحده غامض | Template فقط | `subject_code` يصبح عموداً مطلوباً في القوالب 04–07؛ `(subject_code, lesson_code)` يحل درساً واحداً عبر `lessons_subject_id_slug_key`، والتطابق المتعدد يُرفض بـ `AMBIGUOUS_LESSON_CODE`. |
-| GAP-07 | `subjects.slug` مطلوب وغير موجود في القالب 01 | اشتقاق برمجي | `deriveSubjectSlug(subject_code)`: الأكواد الآمنة تُطابق نفسها، وأي كود آخر → `normalized--<fnv1a64(raw)>`. الاشتقاق **حقني (injective)**، فلا يمكن لكودين مختلفين إنتاج نفس الـ slug، والفاصل `--` محجوز لفصل الفرعين. |
+| GAP-07 | `subjects.slug` مطلوب وغير موجود في القالب 01 | اشتقاق برمجي | `deriveSubjectSlug(subject_code)`: الأكواد الآمنة تُطابق نفسها، وأي كود آخر → `normalized--<sha256_128(canonical(raw))>` (32 خانة hex = 128 بت). **لا يُدّعى استحالة التصادم**؛ العقد هو: اشتقاق حتمي + `UNIQUE(subjects.slug)` (`subjects_slug_key`) + كشف تصادم صريح عبر `planSubjectSlugs()` + **fail closed** بكود `SLUG_COLLISION` بلا أي كتابة. الفاصل `--` محجوز ويجبر أي كود يحتويه على المسار المُبَصَّم، فالفرعان منفصلان. تطبيع مدخل واحد (`canonicalSubjectCodeInput`) يضمن تطابق مسار المتصفح (Web Crypto) ومسار الخادم. |
 
 ملاحظة حاسمة: «مغلقة تصميمياً» ≠ «مطبَّقة». لا يوجد أي DDL مطبَّق في هذه المرحلة، ولا يزال شرط الانتقال إلى Migration قائماً.
 
