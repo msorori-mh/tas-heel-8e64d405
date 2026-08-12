@@ -104,3 +104,30 @@ subjects ─────────────────> questions ──�
 - الاستيراد متاح لـ `admin` و`content_manager` فقط عبر `requireContentStaffAuth`؛ نوع `config` للإدارة الكاملة فقط.
 - أعمدة الإجابات (`correct_index`, `accepted_answers`) لا تُعاد أبداً في تقارير الـ dry-run الموجهة لغير المحررين.
 - حدود الملف: 5MB، 1000 صف، والتحقق من مطابقة حجم الـ base64 للحجم المعلن قبل الفكّ.
+
+## 9. تصميم Staging / Execute (مرحلة 02 — تصميم فقط)
+
+المصدر الآلي: `src/lib/import/import-staging-design.ts` — `EXECUTION_DESIGN_STATUS = "design_closed_not_applied"`.
+
+### 9.1 جداول Staging
+- `import_staging_rows`: صف لكل صف Excel ضمن مهمة، يحمل `natural_key` و`row_hash` و`payload` المعياري و`resolved_refs` و`planned_action` و`target_id`. مفتاح فريد `(job_id, template_key, natural_key)` يمنع تكرار نفس الكيان داخل المهمة. القراءة لطاقم المحتوى فقط.
+- `content_review_state`: محورا المراجعة والنشر لكل كيان، مربوطان بـ `content_hash` (GAP-03). النشر بصلاحية `is_full_admin` فقط.
+
+### 9.2 آلة حالة التنفيذ
+
+```text
+uploaded → validating → validated → applying → applied
+              ↓             ↓          ↓
+            failed      cancelled    failed
+```
+
+`applied` و`failed` و`cancelled` حالات نهائية؛ لا استئناف، فقط مهمة جديدة.
+
+### 9.3 قواعد التنفيذ (`EXECUTION_RULES`)
+- **الذرّية**: قالب واحد = معاملة واحدة؛ فشل صف واحد يُرجع القالب بالكامل، والقوالب اللاحقة لا تُنفّذ.
+- **الترتيب**: ترتيب التبعية المعتمد في العقد.
+- **Idempotency**: `(job_id, template_key, natural_key, row_hash)`؛ إعادة التشغيل لا تُنتج أي تغيير.
+- **إعادة التحقق إلزامية داخل المعاملة** — نتائج dry-run ليست مصدر ثقة عند التنفيذ.
+- **الصلاحية**: `is_content_staff` للتنفيذ، `is_full_admin` للنشر، داخل RPC بـ SECURITY DEFINER يعيد فحص الدور خادمياً.
+- **`BLOCKED_PUBLISHED` يُبلَّغ عنه ولا يُنفَّذ أبداً** — لا مسار للكتابة فوق صف منشور.
+- أسئلة القالب 09 تمر حصراً عبر مسار بنك الأسئلة، لا عبر upsert عام.
