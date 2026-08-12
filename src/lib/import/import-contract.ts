@@ -522,7 +522,7 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
     blocker: "subjects.slug is NOT NULL but absent from template 01",
     kind: "derivation",
     decision:
-      "slug = deriveSubjectSlug(subject_code): an injective, collision-safe derivation. Slug-safe codes map to themselves; every other code maps to normalized + '--' + a deterministic 64-bit FNV-1a digest of the raw code, so two different subject_codes can never derive the same slug.",
+      "slug = deriveSubjectSlug(subject_code): deterministic derivation over one canonical input normalization. Slug-safe codes map to themselves; every other code maps to normalized + '--' + the first 128 bits (32 hex chars) of SHA-256 over the canonical raw code. The reserved '--' separator keeps the two branches disjoint. No collision-impossibility is claimed: planSubjectSlugs() performs explicit collision detection (in-batch and against existing rows) and fails closed with SLUG_COLLISION, and UNIQUE (subjects.slug) / subjects_slug_key is the final database guard.",
     entities: ["subjects"],
     status: "closed_design",
   },
