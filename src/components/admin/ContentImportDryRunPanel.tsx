@@ -84,35 +84,56 @@ function statusLabel(status: ContentImportDryRunReport["status"]): string {
 
 export function ContentImportDryRunPanel() {
   const runDryRun = useServerFn(dryRunContentImport);
+  const createJob = useServerFn(createContentImportJob);
+  const prepareStaging = useServerFn(prepareContentImportStaging);
+  const runExecute = useServerFn(runContentImportExecute);
   const inputRef = useRef<HTMLInputElement>(null);
   const [templateKey, setTemplateKey] = useState<ContentImportTemplateKey>("subjects");
   const [fileName, setFileName] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [executing, setExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<ContentImportDryRunReport | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [preparedHash, setPreparedHash] = useState<string | null>(null);
+  const [stagedRows, setStagedRows] = useState<number | null>(null);
+  const [executeResult, setExecuteResult] = useState<ExecuteImportResult | null>(null);
 
-  const handleCheck = useCallback(async () => {
+  const resetPipeline = useCallback(() => {
+    setReport(null);
+    setError(null);
+    setJobId(null);
+    setPreparedHash(null);
+    setStagedRows(null);
+    setExecuteResult(null);
+  }, []);
+
+  const pickFile = useCallback((): File | null => {
     const file = inputRef.current?.files?.[0];
     if (!file) {
       setError("اختر ملف Excel أولاً.");
-      return;
+      return null;
     }
-
     if (!file.name.toLowerCase().endsWith(".xlsx")) {
       setError("يُقبل ملف Excel بصيغة .xlsx فقط.");
-      return;
+      return null;
     }
-
     if (file.size > CONTENT_IMPORT_MAX_FILE_BYTES) {
       setError(
         `حجم الملف يتجاوز الحد المسموح (${CONTENT_IMPORT_MAX_FILE_BYTES / (1024 * 1024)} MB).`,
       );
-      return;
+      return null;
     }
+    return file;
+  }, []);
+
+  const handleCheck = useCallback(async () => {
+    const file = pickFile();
+    if (!file) return;
 
     setChecking(true);
-    setError(null);
-    setReport(null);
+    resetPipeline();
 
     try {
       const fileBase64 = await fileToBase64(file);
@@ -128,12 +149,118 @@ export function ContentImportDryRunPanel() {
       setFileName(file.name);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "تعذّر فحص الملف. جرّب ملفاً آخر.",
+        err instanceof Error
+          ? toArabicImportExecuteMessage(err.message)
+          : "تعذّر فحص الملف. جرّب ملفاً آخر.",
       );
     } finally {
       setChecking(false);
     }
-  }, [runDryRun, templateKey]);
+  }, [pickFile, resetPipeline, runDryRun, templateKey]);
+
+  const handlePrepare = useCallback(async () => {
+    const file = pickFile();
+    if (!file || !report) return;
+
+    setPreparing(true);
+    setError(null);
+    setExecuteResult(null);
+    setJobId(null);
+    setPreparedHash(null);
+    setStagedRows(null);
+
+    try {
+      const [fileBase64, fileHash] = await Promise.all([
+        fileToBase64(file),
+        sha256Hex(file),
+      ]);
+
+      const { jobId: newJobId } = await createJob({
+        data: {
+          templateKey,
+          fileName: file.name,
+          fileSize: file.size,
+          fileHash,
+          totalRows: report.totalRows,
+          validRows: report.validRows,
+          warningRows: report.warningCount,
+        },
+      });
+
+      const staged = await prepareStaging({
+        data: {
+          jobId: newJobId,
+          templateKey,
+          fileName: file.name,
+          fileBase64,
+          fileSize: file.size,
+        },
+      });
+
+      if (!staged.ok) {
+        setError(
+          staged.errors[0]
+            ? `فشل التجهيز — صف ${staged.errors[0].rowNumber ?? "?"}: ${staged.errors[0].message}`
+            : "فشل التجهيز.",
+        );
+        return;
+      }
+
+      setJobId(newJobId);
+      setPreparedHash(fileHash);
+      setStagedRows(staged.stagedRows);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? toArabicImportExecuteMessage(err.message)
+          : "تعذّر تجهيز الملف.",
+      );
+    } finally {
+      setPreparing(false);
+    }
+  }, [createJob, pickFile, prepareStaging, report, templateKey]);
+
+  const handleExecute = useCallback(async () => {
+    const file = pickFile();
+    if (!file || !jobId || !preparedHash) return;
+
+    setExecuting(true);
+    setError(null);
+    setExecuteResult(null);
+
+    try {
+      const currentHash = await sha256Hex(file);
+      if (currentHash !== preparedHash) {
+        setError("الملف الحالي يختلف عن الملف المُجهَّز — أعد الفحص والتجهيز.");
+        setJobId(null);
+        setPreparedHash(null);
+        setStagedRows(null);
+        return;
+      }
+
+      const result = await runExecute({
+        data: { jobId, templateKeys: [templateKey] },
+      });
+      setExecuteResult(result);
+      if (!result.ok && result.error) {
+        setError(toArabicImportExecuteMessage(result.error));
+      }
+      setJobId(null);
+      setPreparedHash(null);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? toArabicImportExecuteMessage(err.message)
+          : "تعذّر تنفيذ الاستيراد.",
+      );
+    } finally {
+      setExecuting(false);
+    }
+  }, [jobId, pickFile, preparedHash, runExecute, templateKey]);
+
+  const dryRunPassed = report != null && report.status !== "fail" && report.errorCount === 0;
+  const isQuestionsTemplate = templateKey === "questions";
+
 
   const previewColumns =
     report?.previewRows.length
