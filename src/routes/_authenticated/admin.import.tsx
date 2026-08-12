@@ -115,14 +115,15 @@ function AdminImportPage() {
           <InteractiveHtmlImportPanel />
 
           <div
-            role="alert"
+            role="note"
             className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm"
           >
-            <p className="font-medium text-foreground">التنفيذ الفعلي غير مفعّل</p>
+            <p className="font-medium text-foreground">حماية النشر</p>
             <p className="mt-1 text-muted-foreground text-xs">
-              Dry-run يتحقق من الملف فقط — لا يُكتب أي محتوى في قاعدة البيانات.
+              الصفوف المنشورة لا يُكتب فوقها من الاستيراد، وتظهر ضمن «محجوب (منشور)» في نتيجة التنفيذ.
             </p>
           </div>
+
 
           <div className="border-2 border-dashed border-primary/30 rounded-xl p-4 bg-primary/5">
             <div className="flex flex-wrap items-start justify-between gap-3">
