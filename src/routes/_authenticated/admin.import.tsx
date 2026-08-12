@@ -80,12 +80,13 @@ function AdminImportPage() {
             <div className="min-w-0 space-y-2">
               <p className="font-medium text-foreground">تنبيه — المرحلة الحالية</p>
               <ul className="space-y-1 text-muted-foreground list-none ps-0">
-                <li>• القوالب متاحة للتحميل حالياً.</li>
-                <li>• فحص Dry-run لقوالب محتوى الدروس 01–09 متاح (بدون كتابة في قاعدة البيانات).</li>
-                <li>• تجربة المعاينة الجافة متاحة لقالب المحافظات أيضاً.</li>
-                <li>• التنفيذ في قاعدة البيانات غير مفعّل في هذه المرحلة.</li>
-                <li>• لا يتم تعديل أي بيانات من هذه الصفحة.</li>
+                <li>• القوالب متاحة للتحميل.</li>
+                <li>• مسار المحتوى يعمل بثلاث خطوات: فحص ← تجهيز ← تنفيذ.</li>
+                <li>• التنفيذ يتم داخل معاملة واحدة لكل قالب — ينجح كاملاً أو يتراجع كاملاً.</li>
+                <li>• المحتوى الجديد يبقى مسودة قيد المراجعة ولا يظهر للطالب قبل الاعتماد.</li>
+                <li>• قالب الأسئلة (09) يمر حصراً عبر مسار بنك الأسئلة.</li>
               </ul>
+
             </div>
           </div>
         </div>
@@ -114,14 +115,15 @@ function AdminImportPage() {
           <InteractiveHtmlImportPanel />
 
           <div
-            role="alert"
+            role="note"
             className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm"
           >
-            <p className="font-medium text-foreground">التنفيذ الفعلي غير مفعّل</p>
+            <p className="font-medium text-foreground">حماية النشر</p>
             <p className="mt-1 text-muted-foreground text-xs">
-              Dry-run يتحقق من الملف فقط — لا يُكتب أي محتوى في قاعدة البيانات.
+              الصفوف المنشورة لا يُكتب فوقها من الاستيراد، وتظهر ضمن «محجوب (منشور)» في نتيجة التنفيذ.
             </p>
           </div>
+
 
           <div className="border-2 border-dashed border-primary/30 rounded-xl p-4 bg-primary/5">
             <div className="flex flex-wrap items-start justify-between gap-3">

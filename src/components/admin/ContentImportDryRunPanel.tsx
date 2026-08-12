@@ -20,6 +20,13 @@ import {
 } from "@/components/ui/table";
 import { dryRunContentImport } from "@/lib/content-import/content-import-dry-run.functions";
 import {
+  createContentImportJob,
+  prepareContentImportStaging,
+  runContentImportExecute,
+  type ExecuteImportResult,
+} from "@/lib/import/import-staging.functions";
+import { toArabicImportExecuteMessage } from "@/lib/import/import-execute-messages";
+import {
   CONTENT_IMPORT_TEMPLATES,
   type ContentImportTemplateKey,
 } from "@/lib/content-import/content-import-templates";
@@ -31,8 +38,19 @@ import {
   FileSearch,
   FileUp,
   Loader2,
+  PlayCircle,
   ShieldCheck,
+  Layers,
 } from "lucide-react";
+
+async function sha256Hex(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -66,35 +84,56 @@ function statusLabel(status: ContentImportDryRunReport["status"]): string {
 
 export function ContentImportDryRunPanel() {
   const runDryRun = useServerFn(dryRunContentImport);
+  const createJob = useServerFn(createContentImportJob);
+  const prepareStaging = useServerFn(prepareContentImportStaging);
+  const runExecute = useServerFn(runContentImportExecute);
   const inputRef = useRef<HTMLInputElement>(null);
   const [templateKey, setTemplateKey] = useState<ContentImportTemplateKey>("subjects");
   const [fileName, setFileName] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [executing, setExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<ContentImportDryRunReport | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [preparedHash, setPreparedHash] = useState<string | null>(null);
+  const [stagedRows, setStagedRows] = useState<number | null>(null);
+  const [executeResult, setExecuteResult] = useState<ExecuteImportResult | null>(null);
 
-  const handleCheck = useCallback(async () => {
+  const resetPipeline = useCallback(() => {
+    setReport(null);
+    setError(null);
+    setJobId(null);
+    setPreparedHash(null);
+    setStagedRows(null);
+    setExecuteResult(null);
+  }, []);
+
+  const pickFile = useCallback((): File | null => {
     const file = inputRef.current?.files?.[0];
     if (!file) {
       setError("اختر ملف Excel أولاً.");
-      return;
+      return null;
     }
-
     if (!file.name.toLowerCase().endsWith(".xlsx")) {
       setError("يُقبل ملف Excel بصيغة .xlsx فقط.");
-      return;
+      return null;
     }
-
     if (file.size > CONTENT_IMPORT_MAX_FILE_BYTES) {
       setError(
         `حجم الملف يتجاوز الحد المسموح (${CONTENT_IMPORT_MAX_FILE_BYTES / (1024 * 1024)} MB).`,
       );
-      return;
+      return null;
     }
+    return file;
+  }, []);
+
+  const handleCheck = useCallback(async () => {
+    const file = pickFile();
+    if (!file) return;
 
     setChecking(true);
-    setError(null);
-    setReport(null);
+    resetPipeline();
 
     try {
       const fileBase64 = await fileToBase64(file);
@@ -110,12 +149,118 @@ export function ContentImportDryRunPanel() {
       setFileName(file.name);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "تعذّر فحص الملف. جرّب ملفاً آخر.",
+        err instanceof Error
+          ? toArabicImportExecuteMessage(err.message)
+          : "تعذّر فحص الملف. جرّب ملفاً آخر.",
       );
     } finally {
       setChecking(false);
     }
-  }, [runDryRun, templateKey]);
+  }, [pickFile, resetPipeline, runDryRun, templateKey]);
+
+  const handlePrepare = useCallback(async () => {
+    const file = pickFile();
+    if (!file || !report) return;
+
+    setPreparing(true);
+    setError(null);
+    setExecuteResult(null);
+    setJobId(null);
+    setPreparedHash(null);
+    setStagedRows(null);
+
+    try {
+      const [fileBase64, fileHash] = await Promise.all([
+        fileToBase64(file),
+        sha256Hex(file),
+      ]);
+
+      const { jobId: newJobId } = await createJob({
+        data: {
+          templateKey,
+          fileName: file.name,
+          fileSize: file.size,
+          fileHash,
+          totalRows: report.totalRows,
+          validRows: report.validRows,
+          warningRows: report.warningCount,
+        },
+      });
+
+      const staged = await prepareStaging({
+        data: {
+          jobId: newJobId,
+          templateKey,
+          fileName: file.name,
+          fileBase64,
+          fileSize: file.size,
+        },
+      });
+
+      if (!staged.ok) {
+        setError(
+          staged.errors[0]
+            ? `فشل التجهيز — صف ${staged.errors[0].rowNumber ?? "?"}: ${staged.errors[0].message}`
+            : "فشل التجهيز.",
+        );
+        return;
+      }
+
+      setJobId(newJobId);
+      setPreparedHash(fileHash);
+      setStagedRows(staged.stagedRows);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? toArabicImportExecuteMessage(err.message)
+          : "تعذّر تجهيز الملف.",
+      );
+    } finally {
+      setPreparing(false);
+    }
+  }, [createJob, pickFile, prepareStaging, report, templateKey]);
+
+  const handleExecute = useCallback(async () => {
+    const file = pickFile();
+    if (!file || !jobId || !preparedHash) return;
+
+    setExecuting(true);
+    setError(null);
+    setExecuteResult(null);
+
+    try {
+      const currentHash = await sha256Hex(file);
+      if (currentHash !== preparedHash) {
+        setError("الملف الحالي يختلف عن الملف المُجهَّز — أعد الفحص والتجهيز.");
+        setJobId(null);
+        setPreparedHash(null);
+        setStagedRows(null);
+        return;
+      }
+
+      const result = await runExecute({
+        data: { jobId, templateKeys: [templateKey] },
+      });
+      setExecuteResult(result);
+      if (!result.ok && result.error) {
+        setError(toArabicImportExecuteMessage(result.error));
+      }
+      setJobId(null);
+      setPreparedHash(null);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? toArabicImportExecuteMessage(err.message)
+          : "تعذّر تنفيذ الاستيراد.",
+      );
+    } finally {
+      setExecuting(false);
+    }
+  }, [jobId, pickFile, preparedHash, runExecute, templateKey]);
+
+  const dryRunPassed = report != null && report.status !== "fail" && report.errorCount === 0;
+  const isQuestionsTemplate = templateKey === "questions";
+
 
   const previewColumns =
     report?.previewRows.length
@@ -131,12 +276,12 @@ export function ContentImportDryRunPanel() {
         </CardTitle>
         <CardDescription className="space-y-1 text-sm">
           <p>
-            ارفع ملف Excel مملوءاً من أحد قوالب 01–09. يتم التحقق على السيرفر
-            بدون أي كتابة في قاعدة البيانات.
+            ارفع ملف Excel مملوءاً من أحد قوالب 01–09، ثم اتبع الخطوات:
+            فحص ← تجهيز ← تنفيذ.
           </p>
           <p className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
             <ShieldCheck className="h-4 w-4 shrink-0" />
-            Dry-run فقط — لا استيراد فعلي في هذه المرحلة.
+            الفحص لا يكتب شيئاً، والتجهيز يكتب صفوفاً مؤقتة فقط، والتنفيذ يتم داخل معاملة واحدة لكل قالب.
           </p>
         </CardDescription>
       </CardHeader>
@@ -149,8 +294,7 @@ export function ContentImportDryRunPanel() {
               value={templateKey}
               onChange={(e) => {
                 setTemplateKey(e.target.value as ContentImportTemplateKey);
-                setReport(null);
-                setError(null);
+                resetPipeline();
               }}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
@@ -171,8 +315,7 @@ export function ContentImportDryRunPanel() {
               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:me-3 file:border-0 file:bg-transparent file:text-sm"
               onChange={() => {
-                setReport(null);
-                setError(null);
+                resetPipeline();
                 setFileName(null);
               }}
             />
@@ -184,7 +327,7 @@ export function ContentImportDryRunPanel() {
             type="button"
             className="min-h-[44px] gap-2"
             onClick={handleCheck}
-            disabled={checking}
+            disabled={checking || preparing || executing}
           >
             {checking ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -195,18 +338,89 @@ export function ContentImportDryRunPanel() {
           </Button>
           <Button
             type="button"
-            variant="outline"
-            disabled
-            className="min-h-[44px] opacity-70"
-            aria-disabled
+            variant="secondary"
+            className="min-h-[44px] gap-2"
+            onClick={handlePrepare}
+            disabled={!dryRunPassed || isQuestionsTemplate || checking || preparing || executing}
           >
-            تنفيذ الاستيراد الفعلي
-            <Badge variant="secondary" className="text-[10px] ms-2">قريباً</Badge>
+            {preparing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Layers className="h-4 w-4" />
+            )}
+            تجهيز الاستيراد
+          </Button>
+          <Button
+            type="button"
+            className="min-h-[44px] gap-2"
+            onClick={handleExecute}
+            disabled={
+              !jobId || !preparedHash || isQuestionsTemplate || checking || preparing || executing
+            }
+          >
+            {executing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <PlayCircle className="h-4 w-4" />
+            )}
+            تنفيذ الاستيراد
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          سيتم تفعيله في المرحلة التالية بعد مراجعة نتائج Dry-run.
-        </p>
+        {isQuestionsTemplate ? (
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            قالب الأسئلة (09) لا يمر عبر هذا المسار — يُستورد حصراً عبر مسار بنك الأسئلة المعتمد.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            التنفيذ يُفعَّل فقط بعد نجاح الفحص وتجهيز الملف نفسه (تُقارَن بصمة الملف قبل التنفيذ).
+          </p>
+        )}
+
+        {stagedRows != null && jobId && (
+          <div className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm">
+            <p className="font-medium text-foreground">
+              تم التجهيز — {stagedRows} صف جاهز للتنفيذ
+            </p>
+            <p className="font-mono text-[11px] text-muted-foreground break-all">
+              job: {jobId}
+            </p>
+          </div>
+        )}
+
+        {executeResult && (
+          <div
+            className={`rounded-xl border px-4 py-3 text-sm space-y-2 ${
+              executeResult.ok
+                ? "border-emerald-500/30 bg-emerald-500/10"
+                : "border-destructive/30 bg-destructive/5"
+            }`}
+          >
+            <p className="font-medium text-foreground">
+              {executeResult.ok ? "تم التنفيذ بنجاح" : "فشل التنفيذ — تم التراجع عن القالب كاملاً"}
+            </p>
+            {executeResult.results.map((r) => (
+              <div key={r.templateKey} className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="rounded-lg border bg-background/60 px-3 py-2">
+                  <div className="text-muted-foreground">مُدرج</div>
+                  <div className="font-semibold">{r.inserted}</div>
+                </div>
+                <div className="rounded-lg border bg-background/60 px-3 py-2">
+                  <div className="text-muted-foreground">محدَّث</div>
+                  <div className="font-semibold">{r.updated}</div>
+                </div>
+                <div className="rounded-lg border bg-background/60 px-3 py-2">
+                  <div className="text-muted-foreground">متطابق (تخطٍّ)</div>
+                  <div className="font-semibold">{r.skipped}</div>
+                </div>
+                <div className="rounded-lg border bg-background/60 px-3 py-2">
+                  <div className="text-muted-foreground">محجوب (منشور)</div>
+                  <div className="font-semibold">{r.blockedPublished}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
 
         {error && (
           <p className="text-sm text-destructive flex items-start gap-2">
