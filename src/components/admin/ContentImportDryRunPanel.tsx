@@ -276,12 +276,12 @@ export function ContentImportDryRunPanel() {
         </CardTitle>
         <CardDescription className="space-y-1 text-sm">
           <p>
-            ارفع ملف Excel مملوءاً من أحد قوالب 01–09. يتم التحقق على السيرفر
-            بدون أي كتابة في قاعدة البيانات.
+            ارفع ملف Excel مملوءاً من أحد قوالب 01–09، ثم اتبع الخطوات:
+            فحص ← تجهيز ← تنفيذ.
           </p>
           <p className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
             <ShieldCheck className="h-4 w-4 shrink-0" />
-            Dry-run فقط — لا استيراد فعلي في هذه المرحلة.
+            الفحص لا يكتب شيئاً، والتجهيز يكتب صفوفاً مؤقتة فقط، والتنفيذ يتم داخل معاملة واحدة لكل قالب.
           </p>
         </CardDescription>
       </CardHeader>
@@ -294,8 +294,7 @@ export function ContentImportDryRunPanel() {
               value={templateKey}
               onChange={(e) => {
                 setTemplateKey(e.target.value as ContentImportTemplateKey);
-                setReport(null);
-                setError(null);
+                resetPipeline();
               }}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
@@ -316,8 +315,7 @@ export function ContentImportDryRunPanel() {
               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:me-3 file:border-0 file:bg-transparent file:text-sm"
               onChange={() => {
-                setReport(null);
-                setError(null);
+                resetPipeline();
                 setFileName(null);
               }}
             />
@@ -329,7 +327,7 @@ export function ContentImportDryRunPanel() {
             type="button"
             className="min-h-[44px] gap-2"
             onClick={handleCheck}
-            disabled={checking}
+            disabled={checking || preparing || executing}
           >
             {checking ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -340,18 +338,89 @@ export function ContentImportDryRunPanel() {
           </Button>
           <Button
             type="button"
-            variant="outline"
-            disabled
-            className="min-h-[44px] opacity-70"
-            aria-disabled
+            variant="secondary"
+            className="min-h-[44px] gap-2"
+            onClick={handlePrepare}
+            disabled={!dryRunPassed || isQuestionsTemplate || checking || preparing || executing}
           >
-            تنفيذ الاستيراد الفعلي
-            <Badge variant="secondary" className="text-[10px] ms-2">قريباً</Badge>
+            {preparing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Layers className="h-4 w-4" />
+            )}
+            تجهيز الاستيراد
+          </Button>
+          <Button
+            type="button"
+            className="min-h-[44px] gap-2"
+            onClick={handleExecute}
+            disabled={
+              !jobId || !preparedHash || isQuestionsTemplate || checking || preparing || executing
+            }
+          >
+            {executing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <PlayCircle className="h-4 w-4" />
+            )}
+            تنفيذ الاستيراد
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          سيتم تفعيله في المرحلة التالية بعد مراجعة نتائج Dry-run.
-        </p>
+        {isQuestionsTemplate ? (
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            قالب الأسئلة (09) لا يمر عبر هذا المسار — يُستورد حصراً عبر مسار بنك الأسئلة المعتمد.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            التنفيذ يُفعَّل فقط بعد نجاح الفحص وتجهيز الملف نفسه (تُقارَن بصمة الملف قبل التنفيذ).
+          </p>
+        )}
+
+        {stagedRows != null && jobId && (
+          <div className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm">
+            <p className="font-medium text-foreground">
+              تم التجهيز — {stagedRows} صف جاهز للتنفيذ
+            </p>
+            <p className="font-mono text-[11px] text-muted-foreground break-all">
+              job: {jobId}
+            </p>
+          </div>
+        )}
+
+        {executeResult && (
+          <div
+            className={`rounded-xl border px-4 py-3 text-sm space-y-2 ${
+              executeResult.ok
+                ? "border-emerald-500/30 bg-emerald-500/10"
+                : "border-destructive/30 bg-destructive/5"
+            }`}
+          >
+            <p className="font-medium text-foreground">
+              {executeResult.ok ? "تم التنفيذ بنجاح" : "فشل التنفيذ — تم التراجع عن القالب كاملاً"}
+            </p>
+            {executeResult.results.map((r) => (
+              <div key={r.templateKey} className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="rounded-lg border bg-background/60 px-3 py-2">
+                  <div className="text-muted-foreground">مُدرج</div>
+                  <div className="font-semibold">{r.inserted}</div>
+                </div>
+                <div className="rounded-lg border bg-background/60 px-3 py-2">
+                  <div className="text-muted-foreground">محدَّث</div>
+                  <div className="font-semibold">{r.updated}</div>
+                </div>
+                <div className="rounded-lg border bg-background/60 px-3 py-2">
+                  <div className="text-muted-foreground">متطابق (تخطٍّ)</div>
+                  <div className="font-semibold">{r.skipped}</div>
+                </div>
+                <div className="rounded-lg border bg-background/60 px-3 py-2">
+                  <div className="text-muted-foreground">محجوب (منشور)</div>
+                  <div className="font-semibold">{r.blockedPublished}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
 
         {error && (
           <p className="text-sm text-destructive flex items-start gap-2">
