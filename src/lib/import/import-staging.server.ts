@@ -21,7 +21,7 @@ import {
   computeRowHash,
 } from "./import-row-hash";
 import { IMPORT_RPC, assertGenericUpsertAllowed } from "./import-execution-state";
-import { planSubjectSlugs } from "./subject-slug";
+import { canonicalSubjectCodeInput, planSubjectSlugs } from "./subject-slug";
 
 export interface StagingRowInput {
   sheet_name: string | null;
