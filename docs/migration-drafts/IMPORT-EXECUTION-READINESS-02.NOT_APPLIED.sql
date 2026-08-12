@@ -164,8 +164,35 @@ GRANT ALL ON public.import_staging_rows TO service_role;
 
 ALTER TABLE public.import_staging_rows ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "content staff read own staging rows"
+-- 02B REVIEW (MEDIUM, resolved here): staging must be owner-scoped by default.
+-- Content staff see only the staging rows of import jobs they created; broader
+-- visibility is reserved for full admins.
+CREATE POLICY "staff read own job staging rows"
   ON public.import_staging_rows FOR SELECT TO authenticated
-  USING (public.is_content_staff(auth.uid()));
+  USING (
+    public.is_content_staff(auth.uid())
+    AND EXISTS (
+      SELECT 1 FROM public.import_jobs j
+      WHERE j.id = import_staging_rows.job_id
+        AND j.created_by = auth.uid()
+    )
+  );
+
+CREATE POLICY "full admins read all staging rows"
+  ON public.import_staging_rows FOR SELECT TO authenticated
+  USING (public.is_full_admin(auth.uid()));
+
+-- 02B REVIEW notes (see docs/import/IMPORT-EXECUTION-READINESS-02B-SECURITY-REVIEW.md):
+--  * Every trigger above is intentionally commented out. That is acceptable ONLY
+--    because this file is NOT_APPLIED. The real phase-03 migration MUST NOT be
+--    accepted while any security-relevant trigger stays commented — a commented
+--    metadata allowlist means the allowlist is not enforced at all.
+--  * content_review_state.(entity_type, entity_id) is a polymorphic reference with
+--    no FK. Phase 03 must add a fail-closed existence check (allowlisted trigger or
+--    a SECURITY DEFINER RPC that is the only write path) so orphaned review states
+--    cannot exist, and must delete review state when the entity is deleted.
+--  * No GRANT to anon anywhere in this file. Writes to both new tables are
+--    service_role / full-admin only; authenticated users get SELECT under RLS.
 
 -- END OF DRAFT — NOT APPLIED.
+

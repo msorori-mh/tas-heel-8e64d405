@@ -522,7 +522,7 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
     blocker: "subjects.slug is NOT NULL but absent from template 01",
     kind: "derivation",
     decision:
-      "slug = deriveSubjectSlug(subject_code): an injective, collision-safe derivation. Slug-safe codes map to themselves; every other code maps to normalized + '--' + a deterministic 64-bit FNV-1a digest of the raw code, so two different subject_codes can never derive the same slug.",
+      "slug = deriveSubjectSlug(subject_code): deterministic derivation over one canonical input normalization. Slug-safe codes map to themselves; every other code maps to normalized + '--' + the first 128 bits (32 hex chars) of SHA-256 over the canonical raw code. The reserved '--' separator keeps the two branches disjoint. No collision-impossibility is claimed: planSubjectSlugs() performs explicit collision detection (in-batch and against existing rows) and fails closed with SLUG_COLLISION, and UNIQUE (subjects.slug) / subjects_slug_key is the final database guard.",
     entities: ["subjects"],
     status: "closed_design",
   },
@@ -556,51 +556,25 @@ export function isAllowedResourceMetadataKey(key: string): key is ResourceMetada
 }
 
 /* ------------------------------------------------------------------ */
-/* GAP-07 — collision-safe subject slug derivation                     */
+/* GAP-07 — subject slug derivation (see ./subject-slug.ts)            */
 /* ------------------------------------------------------------------ */
 
-/** Deterministic 64-bit FNV-1a digest, hex. Pure, locale-independent, no crypto import. */
-export function fnv1a64Hex(input: string): string {
-  const PRIME = 0x100000001b3n;
-  const MASK = 0xffffffffffffffffn;
-  let hash = 0xcbf29ce484222325n;
-  // Hash the UTF-8 code units deterministically (no locale, no normalization surprises).
-  for (let i = 0; i < input.length; i += 1) {
-    const code = input.charCodeAt(i);
-    hash = ((hash ^ BigInt(code & 0xff)) * PRIME) & MASK;
-    hash = ((hash ^ BigInt((code >> 8) & 0xff)) * PRIME) & MASK;
-  }
-  return hash.toString(16).padStart(16, "0");
-}
+export {
+  SUBJECT_SLUG_CONTRACT_VERSION,
+  SUBJECT_SLUG_DIGEST_HEX_LENGTH,
+  SUBJECT_SLUG_SEPARATOR,
+  SUBJECT_SLUG_UNIQUE_CONSTRAINT,
+  SlugCollisionError,
+  canonicalSubjectCodeInput,
+  deriveSubjectSlug,
+  isSlugSafeSubjectCode,
+  planSubjectSlugs,
+  sha256HexBytes,
+  subjectCodeDigest,
+  subjectCodeDigestAsync,
+  subjectCodeDigestBytes,
+} from "./subject-slug.ts";
 
-/** A subject_code that is already a valid, unambiguous slug maps to itself. */
-export function isSlugSafeSubjectCode(code: string): boolean {
-  return /^[a-z0-9][a-z0-9-]*$/.test(code) && !code.includes("--");
-}
-
-/**
- * GAP-07: derive subjects.slug from subject_code deterministically AND injectively.
- *
- * Rules:
- *  - slug-safe codes (lowercase a-z0-9 and single dashes) map to themselves;
- *  - every other code maps to `<normalized>--<fnv1a64>` where the digest is taken over
- *    the RAW code, so two distinct codes can never collide;
- *  - the "--" separator is reserved: a code containing it is treated as non-safe,
- *    which keeps the two branches disjoint.
- */
-export function deriveSubjectSlug(subjectCode: string): string {
-  const raw = subjectCode.trim();
-  if (raw.length === 0) throw new Error("subject_code is required to derive subjects.slug");
-  if (isSlugSafeSubjectCode(raw)) return raw;
-
-  const normalized = raw
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-  const stem = normalized.length > 0 ? normalized : "subject";
-  return `${stem}--${fnv1a64Hex(raw)}`;
-}
 
 /* ------------------------------------------------------------------ */
 /* Canonical row hash inputs (idempotency + review binding)            */

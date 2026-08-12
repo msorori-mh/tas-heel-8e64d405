@@ -95,7 +95,7 @@ test("GAP-05: every metadata column maps into the closed allowlist", () => {
   assert.equal(isAllowedResourceMetadataKey("correct_index"), false);
 });
 
-test("GAP-07: subject slug derivation is deterministic and collision-free", () => {
+test("GAP-07: subject slug derivation is deterministic and collision-detected", () => {
   assert.equal(deriveSubjectSlug("math-10"), "math-10");
   assert.equal(deriveSubjectSlug("math-10"), deriveSubjectSlug(" math-10 "));
 
@@ -116,7 +116,7 @@ test("GAP-07: subject slug derivation is deterministic and collision-free", () =
     "a", "A", "a-", "-a", "a--b", "a_b", "a.b", "a b", "١٠", "علوم", "علوم-2", "Sci/10", "Sci-10",
   ];
   const slugs = samples.map(deriveSubjectSlug);
-  assert.equal(new Set(slugs).size, samples.length, "slug derivation must be injective");
+  assert.equal(new Set(slugs).size, samples.length, "distinct subject codes must not derive the same slug");
 
   assert.throws(() => deriveSubjectSlug("   "));
 });
