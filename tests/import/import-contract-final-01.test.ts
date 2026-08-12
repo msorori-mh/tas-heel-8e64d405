@@ -62,7 +62,13 @@ test("natural keys with db_unique name a real audited constraint", () => {
       assert.ok(audited.has(u.constraint), `${key}: unknown constraint ${u.constraint}`);
     } else if (u.kind === "planned_unique") {
       assert.ok(u.constraint.length > 0 && u.scope.length > 0, `${key}: planned uniqueness must name constraint + scope`);
-      assert.ok(u.draftRef.includes("NOT_APPLIED"), `${key}: planned uniqueness must point at a NOT_APPLIED draft`);
+    // Unapplied artifacts live either in the phase-02 NOT_APPLIED draft or in
+    // supabase/migrations-pending/ (phase 03). Both are outside the applied set.
+    assert.ok(
+      u.draftRef.includes("NOT_APPLIED") || u.draftRef.startsWith("supabase/migrations-pending/"),
+      `${key}: planned uniqueness must point at an unapplied migration artifact`,
+    );
+
       assert.ok(!audited.has(u.constraint), `${key}: planned constraint must not claim an already-applied name`);
     } else {
       assert.ok(u.gap.length > 0, `${key}: unenforced uniqueness must document a gap`);

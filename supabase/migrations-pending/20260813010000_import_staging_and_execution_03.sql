@@ -25,6 +25,70 @@
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
+-- 0.A GUARD (04A / H-1) — resource identity must stay single-columned.
+--     The one physical identity for a lesson resource is
+--     lesson_resources.resource_code. A `code` column on that table would mean
+--     two competing identities, so this migration FAILS CLOSED and reports the
+--     drift instead of renaming, merging or silently picking one.
+-- ----------------------------------------------------------------------------
+DO $guard$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'lesson_resources'
+       AND column_name = 'code'
+  ) THEN
+    RAISE EXCEPTION
+      'SCHEMA_DRIFT: public.lesson_resources.code exists. resource identity is lesson_resources.resource_code only; refusing to apply (no automatic rename/merge).'
+      USING ERRCODE = '55000';
+  END IF;
+END
+$guard$;
+
+-- ----------------------------------------------------------------------------
+-- 0.B Order-independent prerequisite (04A / H-1).
+--     lesson_resources.resource_code is defined by the content_html chain
+--     (20260808060000 + 20260809010000). Those migrations are idempotent and
+--     may be applied before OR after this one, so the same objects are declared
+--     here with identical semantics. Applying either order converges.
+-- ----------------------------------------------------------------------------
+ALTER TABLE public.lesson_resources
+  ADD COLUMN IF NOT EXISTS resource_code text,
+  ADD COLUMN IF NOT EXISTS html_resource_type text;
+
+CREATE OR REPLACE FUNCTION public.normalize_resource_code(p_code text)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
+  SELECT NULLIF(lower(regexp_replace(p_code, '^\s+|\s+$', '', 'g')), '');
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.normalize_resource_code(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.normalize_resource_code(text) TO authenticated, service_role;
+
+
+CREATE OR REPLACE FUNCTION public.normalize_lesson_resource_code()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+BEGIN
+  IF NEW.resource_code IS NOT NULL THEN
+    IF public.normalize_resource_code(NEW.resource_code) IS NULL THEN
+      RAISE EXCEPTION 'resource_code cannot be empty or whitespace only' USING ERRCODE = '23514';
+    END IF;
+    NEW.resource_code := public.normalize_resource_code(NEW.resource_code);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_normalize_lesson_resource_code ON public.lesson_resources;
+CREATE TRIGGER trg_normalize_lesson_resource_code
+  BEFORE INSERT OR UPDATE ON public.lesson_resources
+  FOR EACH ROW EXECUTE FUNCTION public.normalize_lesson_resource_code();
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_lesson_resources_code_per_lesson
+  ON public.lesson_resources (lesson_id, resource_code)
+  WHERE resource_code IS NOT NULL;
+
+-- ----------------------------------------------------------------------------
 -- 0. Canonical code normalization shared by the new identity columns
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.normalize_content_code(p_code text)
@@ -34,6 +98,8 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION public.normalize_content_code(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.normalize_content_code(text) TO authenticated, service_role;
+
+
 
 -- ----------------------------------------------------------------------------
 -- 1. GAP-01 — lesson_assessments.assessment_code (GLOBAL uniqueness)
