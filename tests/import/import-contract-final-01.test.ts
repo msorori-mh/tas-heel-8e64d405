@@ -60,6 +60,10 @@ test("natural keys with db_unique name a real audited constraint", () => {
     const u = IMPORT_ENTITY_CONTRACTS[key].uniqueness;
     if (u.kind === "db_unique") {
       assert.ok(audited.has(u.constraint), `${key}: unknown constraint ${u.constraint}`);
+    } else if (u.kind === "planned_unique") {
+      assert.ok(u.constraint.length > 0 && u.scope.length > 0, `${key}: planned uniqueness must name constraint + scope`);
+      assert.ok(u.draftRef.includes("NOT_APPLIED"), `${key}: planned uniqueness must point at a NOT_APPLIED draft`);
+      assert.ok(!audited.has(u.constraint), `${key}: planned constraint must not claim an already-applied name`);
     } else {
       assert.ok(u.gap.length > 0, `${key}: unenforced uniqueness must document a gap`);
     }
@@ -69,11 +73,12 @@ test("natural keys with db_unique name a real audited constraint", () => {
 test("entities without DB-enforced uniqueness are declared as blocking gaps", () => {
   const gapKeys = new Set(listBlockingContractGaps().map((g) => g.templateKey));
   for (const key of CONTENT_IMPORT_TEMPLATE_KEYS) {
-    if (IMPORT_ENTITY_CONTRACTS[key].uniqueness.kind === "not_enforced") {
-      assert.ok(gapKeys.has(key), `${key} lacks uniqueness but declares no gap`);
+    if (IMPORT_ENTITY_CONTRACTS[key].uniqueness.kind !== "db_unique") {
+      assert.ok(gapKeys.has(key), `${key} lacks enforced uniqueness but declares no gap`);
     }
   }
 });
+
 
 test("questions are routed through the question-bank workflow", () => {
   assert.equal(IMPORT_ENTITY_CONTRACTS.questions.questionBankWorkflow, true);

@@ -20,10 +20,24 @@ import { CONTENT_IMPORT_TEMPLATE_KEYS, type ContentImportTemplateKey } from "../
 
 export const IMPORT_CONTRACT_VERSION = "IMPORT-CONTRACT-FINAL-01";
 
+/** Stable identifiers for the 7 execution-readiness blockers (phase 02). */
+export type ImportGapId =
+  | "GAP-01-ASSESSMENT-CODE"
+  | "GAP-02-STABLE-CHILD-IDENTITY"
+  | "GAP-03-REVIEW-STATE"
+  | "GAP-04-RESOURCE-URL-REQUIRED"
+  | "GAP-05-RESOURCE-METADATA"
+  | "GAP-06-SUBJECT-SCOPE"
+  | "GAP-07-SUBJECT-SLUG";
+
 /** How the natural key uniqueness is guaranteed today. */
+
 export type UniquenessEnforcement =
   | { kind: "db_unique"; constraint: string }
+  /** Design-closed: exact constraint decided and drafted, not yet applied to the DB. */
+  | { kind: "planned_unique"; constraint: string; scope: string; draftRef: string }
   | { kind: "not_enforced"; gap: string };
+
 
 export interface ImportFieldMapping {
   /** Column header in the Excel template. */
@@ -56,7 +70,10 @@ export interface ImportEntityContract {
   questionBankWorkflow?: boolean;
   /** Known blockers that require an approved migration before execute. */
   gaps?: readonly string[];
+  /** Gap IDs (see IMPORT_GAP_RESOLUTIONS) whose design decision covers this entity. */
+  gapIds?: readonly ImportGapId[];
 }
+
 
 const f = (
   field: string,
@@ -86,9 +103,13 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("color", "subjects", "color", false),
       f("sort_order", "subjects", "sort_order", false),
       f("editor_notes", "subjects", null, false, "not persisted — operator note only"),
-      f("review_status", "subjects", null, false, "no review column on subjects (see gaps)"),
+      f("review_status", "subjects", null, false, "GAP-03: routed to content_review_state, not a subjects column"),
     ],
-    gaps: ["subjects has no review/publication status column; slug is required and NOT NULL but absent from template 01."],
+    gaps: [
+      "subjects has no review/publication status column → GAP-03 (content_review_state).",
+      "subjects.slug is NOT NULL and absent from template 01 → GAP-07 (deriveSubjectSlug).",
+    ],
+    gapIds: ["GAP-03-REVIEW-STATE", "GAP-07-SUBJECT-SLUG"],
   },
   units: {
     templateKey: "units",
@@ -107,10 +128,12 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("semester", "units", "semester", false),
       f("is_free", "units", "is_free", false),
       f("sort_order", "units", "sort_order", false),
-      f("review_status", "units", null, false, "no review column on units (see gaps)"),
+      f("review_status", "units", null, false, "GAP-03: routed to content_review_state"),
     ],
-    gaps: ["units has no review/publication status column."],
+    gaps: ["units has no review/publication status column → GAP-03 (content_review_state)."],
+    gapIds: ["GAP-03-REVIEW-STATE"],
   },
+
   lessons: {
     templateKey: "lessons",
     table: "lessons",
@@ -129,74 +152,108 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("semester", "lessons", "semester", false),
       f("is_free", "lessons", "is_free", false),
       f("sort_order", "lessons", "sort_order", false),
-      f("review_status", "lessons", null, false, "no review column on lessons (see gaps)"),
+      f("review_status", "lessons", null, false, "GAP-03: routed to content_review_state"),
     ],
-    gaps: ["lessons has no review/publication status column; unit-less lessons are supported by schema (unit_id nullable) and MUST be covered by E2E."],
+    gaps: [
+      "lessons has no review/publication status column → GAP-03 (content_review_state).",
+      "unit-less lessons are supported by schema (unit_id nullable) and MUST be covered by E2E.",
+    ],
+    gapIds: ["GAP-03-REVIEW-STATE"],
   },
   book_contents: {
     templateKey: "book_contents",
     table: "lesson_book_contents",
-    naturalKey: ["lesson_code"],
+    naturalKey: ["subject_code", "lesson_code"],
     naturalKeyColumns: ["lesson_id"],
-    uniquenessScope: "one row per lesson",
+    uniquenessScope: "one row per lesson (lesson resolved within subject_code)",
     uniqueness: { kind: "db_unique", constraint: "lesson_book_contents_lesson_id_key" },
     dependsOn: ["lessons"],
     foreignKeys: ["lesson_book_contents.lesson_id → lessons.id"],
     fields: [
+      f("subject_code", "subjects", null, true, "GAP-06: scopes lesson_code resolution to one subject"),
       f("lesson_code", "lessons", null, true, "lookup (subject_id, slug) → lesson_book_contents.lesson_id"),
       f("content", "lesson_book_contents", "content", true),
       f("pdf_url", "lesson_book_contents", "pdf_url", false),
       f("editor_notes", "lesson_book_contents", null, false, "not persisted"),
     ],
-    gaps: ["lesson_code alone is ambiguous across subjects — the row must also carry subject_code or the job must be subject-scoped."],
+    gaps: ["lesson_code alone is ambiguous across subjects → GAP-06 (subject_code now required in the row)."],
+    gapIds: ["GAP-06-SUBJECT-SCOPE"],
   },
   explanations: {
     templateKey: "explanations",
     table: "lesson_explanations",
-    naturalKey: ["lesson_code", "title", "sort_order"],
-    naturalKeyColumns: ["lesson_id", "title", "sort_order"],
-    uniquenessScope: "per lesson",
-    uniqueness: { kind: "not_enforced", gap: "no unique index on lesson_explanations — re-import would duplicate rows" },
+    naturalKey: ["subject_code", "lesson_code", "explanation_code"],
+    naturalKeyColumns: ["lesson_id", "code"],
+    uniquenessScope: "per lesson (code IS NOT NULL)",
+    uniqueness: {
+      kind: "planned_unique",
+      constraint: "lesson_explanations_code_lesson_uniq",
+      scope: "UNIQUE (lesson_id, code) WHERE code IS NOT NULL",
+      draftRef: "docs/migration-drafts/IMPORT-EXECUTION-READINESS-02.NOT_APPLIED.sql",
+    },
     dependsOn: ["lessons"],
     foreignKeys: ["lesson_explanations.lesson_id → lessons.id"],
     fields: [
+      f("subject_code", "subjects", null, true, "GAP-06: scopes lesson_code resolution"),
       f("lesson_code", "lessons", null, true, "FK lookup"),
+      f("explanation_code", "lesson_explanations", "code", true, "GAP-02: stable import identity — never sort_order"),
       f("title", "lesson_explanations", "title", true),
       f("content", "lesson_explanations", "content", true),
-      f("sort_order", "lesson_explanations", "sort_order", false),
-      f("review_status", "lesson_explanations", null, false, "no review column"),
+      f("sort_order", "lesson_explanations", "sort_order", false, "mutable presentation attribute — NOT part of the identity"),
+      f("review_status", "lesson_explanations", null, false, "GAP-03: routed to content_review_state"),
     ],
-    gaps: ["Idempotency requires a unique key (lesson_id, sort_order) or a stored row_hash — migration required before execute."],
+    gaps: [
+      "No unique index today → GAP-02 (add code + UNIQUE (lesson_id, code)).",
+      "No review/publication column → GAP-03 (content_review_state).",
+      "lesson_code ambiguous across subjects → GAP-06.",
+    ],
+    gapIds: ["GAP-02-STABLE-CHILD-IDENTITY", "GAP-03-REVIEW-STATE", "GAP-06-SUBJECT-SCOPE"],
   },
   resources: {
     templateKey: "resources",
     table: "lesson_resources",
-    naturalKey: ["lesson_code", "resource_type", "title"],
-    naturalKeyColumns: ["lesson_id", "resource_type", "title"],
-    uniquenessScope: "per lesson",
-    uniqueness: { kind: "not_enforced", gap: "no unique index on lesson_resources" },
+    naturalKey: ["subject_code", "lesson_code", "resource_code"],
+    naturalKeyColumns: ["lesson_id", "code"],
+    uniquenessScope: "per lesson (code IS NOT NULL)",
+    uniqueness: {
+      kind: "planned_unique",
+      constraint: "lesson_resources_code_lesson_uniq",
+      scope: "UNIQUE (lesson_id, code) WHERE code IS NOT NULL",
+      draftRef: "docs/migration-drafts/IMPORT-EXECUTION-READINESS-02.NOT_APPLIED.sql",
+    },
     dependsOn: ["lessons"],
     foreignKeys: ["lesson_resources.lesson_id → lessons.id"],
     fields: [
+      f("subject_code", "subjects", null, true, "GAP-06: scopes lesson_code resolution"),
       f("lesson_code", "lessons", null, true, "FK lookup"),
+      f("resource_code", "lesson_resources", "code", true, "GAP-02: stable import identity — never sort_order"),
       f("resource_type", "lesson_resources", "resource_type", true, "enum lesson_resource_type: video|mindmap|experiment|pdf|link"),
       f("title", "lesson_resources", "title", true),
       f("description", "lesson_resources", "description", false),
-      f("resource_url", "lesson_resources", "url", true, "lesson_resources.url is NOT NULL"),
-      f("sort_order", "lesson_resources", "sort_order", false),
-      f("resource_format", "lesson_resources", null, false, "not persisted"),
-      f("local_asset_path", "lesson_resources", null, false, "not persisted — storage path resolved separately"),
-      f("thumbnail_url", "lesson_resources", null, false, "no column (lesson_simulations only)"),
-      f("is_interactive", "lesson_resources", null, false, "not persisted"),
-      f("attribution", "lesson_resources", null, false, "not persisted"),
-      f("license_note", "lesson_resources", null, false, "not persisted"),
-      f("notes", "lesson_resources", null, false, "not persisted"),
+      f("resource_url", "lesson_resources", "url", true, "GAP-04: required — lesson_resources.url is NOT NULL"),
+      f("sort_order", "lesson_resources", "sort_order", false, "mutable presentation attribute — NOT part of the identity"),
+      f("resource_format", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
+      f("local_asset_path", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
+      f("thumbnail_url", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
+      f("is_interactive", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
+      f("attribution", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
+      f("license_note", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
+      f("notes", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
     ],
     gaps: [
-      "resource_url is optional in the template but lesson_resources.url is NOT NULL — must become required.",
-      "7 template columns have no destination column; either drop them from the template or add a metadata jsonb column (migration).",
+      "No unique index today → GAP-02 (add code + UNIQUE (lesson_id, code)).",
+      "resource_url must be required because lesson_resources.url is NOT NULL → GAP-04 (closed: template change only).",
+      "7 columns have no destination → GAP-05 (metadata jsonb with a closed allowlist).",
+      "lesson_code ambiguous across subjects → GAP-06.",
+    ],
+    gapIds: [
+      "GAP-02-STABLE-CHILD-IDENTITY",
+      "GAP-04-RESOURCE-URL-REQUIRED",
+      "GAP-05-RESOURCE-METADATA",
+      "GAP-06-SUBJECT-SCOPE",
     ],
   },
+
   questions: {
     templateKey: "questions",
     table: "questions",
@@ -226,28 +283,46 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("sort_order", "questions", "sort_order", false),
     ],
     gaps: [
-      "questions has no revision/publication columns — published answers cannot be safely overwritten today.",
+      "questions has no revision/publication columns → GAP-03 (content_review_state, hash-bound).",
       "Writes MUST route through the question-bank workflow (answer protection, review, publish gate), never a generic upsert.",
     ],
+    gapIds: ["GAP-03-REVIEW-STATE"],
   },
   assessments: {
     templateKey: "assessments",
     table: "lesson_assessments",
     naturalKey: ["assessment_code"],
-    naturalKeyColumns: [],
-    uniquenessScope: "global",
-    uniqueness: { kind: "not_enforced", gap: "lesson_assessments has no code column at all" },
+    naturalKeyColumns: ["code"],
+    /**
+     * Scope decided from the audited template contract, not from a new assumption:
+     * template 08 references an assessment by `assessment_code` ALONE (no lesson_code
+     * column), so the code must resolve globally. This mirrors subjects_code_uniq and
+     * questions_code_uniq — the only two audited code columns with global scope.
+     */
+    uniquenessScope: "global (code IS NOT NULL) — required by template 08's lesson-less reference",
+    uniqueness: {
+      kind: "planned_unique",
+      constraint: "lesson_assessments_code_uniq",
+      scope: "UNIQUE (code) WHERE code IS NOT NULL",
+      draftRef: "docs/migration-drafts/IMPORT-EXECUTION-READINESS-02.NOT_APPLIED.sql",
+    },
     dependsOn: ["lessons"],
     foreignKeys: ["lesson_assessments.lesson_id → lessons.id"],
     fields: [
-      f("assessment_code", "lesson_assessments", null, true, "NO destination column — migration required"),
+      f("assessment_code", "lesson_assessments", "code", true, "GAP-01: new column, global partial unique"),
+      f("subject_code", "subjects", null, true, "GAP-06: scopes lesson_code resolution"),
       f("lesson_code", "lessons", null, true, "FK lookup"),
       f("title", "lesson_assessments", "title", true),
       f("instructions", "lesson_assessments", "instructions", false),
       f("sort_order", "lesson_assessments", "sort_order", false),
-      f("review_status", "lesson_assessments", null, false, "no review column"),
+      f("review_status", "lesson_assessments", null, false, "GAP-03: routed to content_review_state"),
     ],
-    gaps: ["Blocking: add lesson_assessments.code + UNIQUE(code) WHERE code IS NOT NULL, mirroring subjects/questions."],
+    gaps: [
+      "lesson_assessments has no code column → GAP-01 (add code + UNIQUE (code) WHERE code IS NOT NULL).",
+      "No review/publication column → GAP-03.",
+      "lesson_code ambiguous across subjects → GAP-06.",
+    ],
+    gapIds: ["GAP-01-ASSESSMENT-CODE", "GAP-03-REVIEW-STATE", "GAP-06-SUBJECT-SCOPE"],
   },
   assessment_questions: {
     templateKey: "assessment_questions",
@@ -262,14 +337,16 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       "assessment_questions.question_id → questions.id",
     ],
     fields: [
-      f("assessment_code", "lesson_assessments", null, true, "blocked until lesson_assessments.code exists"),
+      f("assessment_code", "lesson_assessments", null, true, "resolves via the GAP-01 lesson_assessments.code column"),
       f("question_code", "questions", null, true, "lookup questions.code → question_id"),
       f("sort_order", "assessment_questions", "sort_order", false),
       f("points", "assessment_questions", "points", false),
       f("editor_notes", "assessment_questions", null, false, "not persisted"),
     ],
-    gaps: ["Depends on the lesson_assessments.code migration."],
+    gaps: ["Resolution depends on the GAP-01 lesson_assessments.code column."],
+    gapIds: ["GAP-01-ASSESSMENT-CODE"],
   },
+
 };
 
 /** Dependency-correct execution order derived from IMPORT_ENTITY_CONTRACTS. */
@@ -350,3 +427,230 @@ export function listBlockingContractGaps(): Array<{ templateKey: ContentImportTe
     (templateKey) => ({ templateKey, gaps: IMPORT_ENTITY_CONTRACTS[templateKey].gaps ?? [] }),
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Phase 02 — execution-readiness gap resolutions (design only)        */
+/* ------------------------------------------------------------------ */
+
+export type GapResolutionKind =
+  /** Template/column contract change only — no DDL. */
+  | "template_change"
+  /** Requires DDL, drafted but NOT applied. */
+  | "schema_change"
+  /** Pure deterministic derivation in application code. */
+  | "derivation";
+
+export interface ImportGapResolution {
+  gapId: ImportGapId;
+  /** Short English title of the original blocker. */
+  blocker: string;
+  kind: GapResolutionKind;
+  /** The binding decision. */
+  decision: string;
+  /** Entities the decision covers. */
+  entities: readonly ContentImportTemplateKey[];
+  /** Always "closed_design" in phase 02 — no DDL is applied here. */
+  status: "closed_design";
+  /** Review-only SQL draft, never inside supabase/migrations. */
+  migrationDraftRef?: string;
+}
+
+export const MIGRATION_DRAFT_REF =
+  "docs/migration-drafts/IMPORT-EXECUTION-READINESS-02.NOT_APPLIED.sql" as const;
+
+export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = {
+  "GAP-01-ASSESSMENT-CODE": {
+    gapId: "GAP-01-ASSESSMENT-CODE",
+    blocker: "lesson_assessments has no code column",
+    kind: "schema_change",
+    decision:
+      "Add lesson_assessments.code text with UNIQUE (code) WHERE code IS NOT NULL. Scope is GLOBAL, not (lesson_id, code), because template 08 references an assessment by assessment_code alone — matching the audited global scope of subjects_code_uniq and questions_code_uniq.",
+    entities: ["assessments", "assessment_questions"],
+    status: "closed_design",
+    migrationDraftRef: MIGRATION_DRAFT_REF,
+  },
+  "GAP-02-STABLE-CHILD-IDENTITY": {
+    gapId: "GAP-02-STABLE-CHILD-IDENTITY",
+    blocker: "no unique key on lesson_explanations / lesson_resources",
+    kind: "schema_change",
+    decision:
+      "Add explanation_code / resource_code (DB column `code`) with UNIQUE (lesson_id, code) WHERE code IS NOT NULL. sort_order is a mutable presentation attribute and MUST NEVER take part in identity: reordering rows must not be read as edits to different entities.",
+    entities: ["explanations", "resources"],
+    status: "closed_design",
+    migrationDraftRef: MIGRATION_DRAFT_REF,
+  },
+  "GAP-03-REVIEW-STATE": {
+    gapId: "GAP-03-REVIEW-STATE",
+    blocker: "no review/publication columns on content tables",
+    kind: "schema_change",
+    decision:
+      "Single side table content_review_state keyed by (entity_type, entity_id) and BOUND TO content_hash. Any change of content_hash resets the row to review_status='pending' + publication_status='draft'; approval never survives a payload change.",
+    entities: ["subjects", "units", "lessons", "explanations", "assessments", "questions"],
+    status: "closed_design",
+    migrationDraftRef: MIGRATION_DRAFT_REF,
+  },
+  "GAP-04-RESOURCE-URL-REQUIRED": {
+    gapId: "GAP-04-RESOURCE-URL-REQUIRED",
+    blocker: "resource_url optional in template 06 while lesson_resources.url is NOT NULL",
+    kind: "template_change",
+    decision:
+      "resource_url becomes a required template column; a missing value is rejected at validation time with MISSING_RESOURCE_URL. No DDL.",
+    entities: ["resources"],
+    status: "closed_design",
+  },
+  "GAP-05-RESOURCE-METADATA": {
+    gapId: "GAP-05-RESOURCE-METADATA",
+    blocker: "7 template-06 columns have no destination",
+    kind: "schema_change",
+    decision:
+      "Add lesson_resources.metadata jsonb NOT NULL DEFAULT '{}'. Only the closed allowlist RESOURCE_METADATA_ALLOWLIST may be written; any other key is rejected. metadata is never a free-form store.",
+    entities: ["resources"],
+    status: "closed_design",
+    migrationDraftRef: MIGRATION_DRAFT_REF,
+  },
+  "GAP-06-SUBJECT-SCOPE": {
+    gapId: "GAP-06-SUBJECT-SCOPE",
+    blocker: "lesson_code alone is ambiguous across subjects in templates 04–07",
+    kind: "template_change",
+    decision:
+      "subject_code becomes a required column in templates 04, 05, 06 and 07; (subject_code, lesson_code) resolves exactly one lesson via lessons_subject_id_slug_key. A lesson_code that matches in more than one subject is rejected with AMBIGUOUS_LESSON_CODE.",
+    entities: ["book_contents", "explanations", "resources", "assessments"],
+    status: "closed_design",
+  },
+  "GAP-07-SUBJECT-SLUG": {
+    gapId: "GAP-07-SUBJECT-SLUG",
+    blocker: "subjects.slug is NOT NULL but absent from template 01",
+    kind: "derivation",
+    decision:
+      "slug = deriveSubjectSlug(subject_code): an injective, collision-safe derivation. Slug-safe codes map to themselves; every other code maps to normalized + '--' + a deterministic 64-bit FNV-1a digest of the raw code, so two different subject_codes can never derive the same slug.",
+    entities: ["subjects"],
+    status: "closed_design",
+  },
+};
+
+export const IMPORT_GAP_IDS = Object.keys(IMPORT_GAP_RESOLUTIONS) as ImportGapId[];
+
+/** Gaps still lacking a design decision. Phase 02 exit gate requires this to be empty. */
+export function listOpenGaps(): ImportGapId[] {
+  return IMPORT_GAP_IDS.filter((id) => IMPORT_GAP_RESOLUTIONS[id].status !== "closed_design");
+}
+
+/* ------------------------------------------------------------------ */
+/* GAP-05 — closed metadata allowlist for template 06                  */
+/* ------------------------------------------------------------------ */
+
+export const RESOURCE_METADATA_ALLOWLIST = [
+  "resource_format",
+  "local_asset_path",
+  "thumbnail_url",
+  "is_interactive",
+  "attribution",
+  "license_note",
+  "notes",
+] as const;
+
+export type ResourceMetadataKey = (typeof RESOURCE_METADATA_ALLOWLIST)[number];
+
+export function isAllowedResourceMetadataKey(key: string): key is ResourceMetadataKey {
+  return (RESOURCE_METADATA_ALLOWLIST as readonly string[]).includes(key);
+}
+
+/* ------------------------------------------------------------------ */
+/* GAP-07 — collision-safe subject slug derivation                     */
+/* ------------------------------------------------------------------ */
+
+/** Deterministic 64-bit FNV-1a digest, hex. Pure, locale-independent, no crypto import. */
+export function fnv1a64Hex(input: string): string {
+  const PRIME = 0x100000001b3n;
+  const MASK = 0xffffffffffffffffn;
+  let hash = 0xcbf29ce484222325n;
+  // Hash the UTF-8 code units deterministically (no locale, no normalization surprises).
+  for (let i = 0; i < input.length; i += 1) {
+    const code = input.charCodeAt(i);
+    hash = ((hash ^ BigInt(code & 0xff)) * PRIME) & MASK;
+    hash = ((hash ^ BigInt((code >> 8) & 0xff)) * PRIME) & MASK;
+  }
+  return hash.toString(16).padStart(16, "0");
+}
+
+/** A subject_code that is already a valid, unambiguous slug maps to itself. */
+export function isSlugSafeSubjectCode(code: string): boolean {
+  return /^[a-z0-9][a-z0-9-]*$/.test(code) && !code.includes("--");
+}
+
+/**
+ * GAP-07: derive subjects.slug from subject_code deterministically AND injectively.
+ *
+ * Rules:
+ *  - slug-safe codes (lowercase a-z0-9 and single dashes) map to themselves;
+ *  - every other code maps to `<normalized>--<fnv1a64>` where the digest is taken over
+ *    the RAW code, so two distinct codes can never collide;
+ *  - the "--" separator is reserved: a code containing it is treated as non-safe,
+ *    which keeps the two branches disjoint.
+ */
+export function deriveSubjectSlug(subjectCode: string): string {
+  const raw = subjectCode.trim();
+  if (raw.length === 0) throw new Error("subject_code is required to derive subjects.slug");
+  if (isSlugSafeSubjectCode(raw)) return raw;
+
+  const normalized = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  const stem = normalized.length > 0 ? normalized : "subject";
+  return `${stem}--${fnv1a64Hex(raw)}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Canonical row hash inputs (idempotency + review binding)            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Template columns that take part in the canonical row hash, per entity.
+ * Operator-only columns (editor_notes) and workflow columns (review_status) are
+ * excluded on purpose: they must not make a row look changed.
+ * The hash is computed over these fields in this exact order after normalization
+ * (trim, whitespace collapse, Arabic-Indic digit folding) — never over raw JSON.
+ */
+export const ROW_HASH_FIELDS: Record<ContentImportTemplateKey, readonly string[]> = {
+  subjects: ["subject_code", "name", "grade_slug", "track_code", "semester", "icon", "color", "sort_order"],
+  units: ["subject_code", "unit_code", "title", "description", "semester", "is_free", "sort_order"],
+  lessons: ["subject_code", "lesson_code", "unit_code", "title", "duration", "semester", "is_free", "sort_order"],
+  book_contents: ["subject_code", "lesson_code", "content", "pdf_url"],
+  explanations: ["subject_code", "lesson_code", "explanation_code", "title", "content", "sort_order"],
+  resources: [
+    "subject_code",
+    "lesson_code",
+    "resource_code",
+    "resource_type",
+    "title",
+    "description",
+    "resource_url",
+    "sort_order",
+    ...RESOURCE_METADATA_ALLOWLIST,
+  ],
+  assessments: ["assessment_code", "subject_code", "lesson_code", "title", "instructions", "sort_order"],
+  assessment_questions: ["assessment_code", "question_code", "sort_order", "points"],
+  questions: [
+    "question_code",
+    "subject_code",
+    "lesson_code",
+    "question_text",
+    "option_1",
+    "option_2",
+    "option_3",
+    "option_4",
+    "option_5",
+    "option_6",
+    "correct_index",
+    "explanation",
+    "question_type",
+    "year",
+    "semester",
+    "sort_order",
+  ],
+};
+
+/** Columns that must never influence the row hash. */
+export const ROW_HASH_EXCLUDED_FIELDS = ["editor_notes", "review_status"] as const;
