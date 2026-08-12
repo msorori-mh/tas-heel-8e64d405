@@ -80,13 +80,16 @@ export function buildStagingPayload(
 
 /** In-batch duplicate detection — a job may never carry the same entity twice. */
 export class DuplicateNaturalKeyError extends Error {
-  constructor(
-    readonly templateKey: string,
-    readonly naturalKey: string,
-    readonly rowNumber: number,
-  ) {
+  templateKey: string;
+  naturalKey: string;
+  rowNumber: number;
+
+  constructor(templateKey: string, naturalKey: string, rowNumber: number) {
     super(`DUPLICATE_NATURAL_KEY: ${templateKey} row ${rowNumber}`);
     this.name = "DuplicateNaturalKeyError";
+    this.templateKey = templateKey;
+    this.naturalKey = naturalKey;
+    this.rowNumber = rowNumber;
   }
 }
 
