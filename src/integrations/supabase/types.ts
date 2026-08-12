@@ -217,6 +217,45 @@ export type Database = {
         }
         Relationships: []
       }
+      content_review_state: {
+        Row: {
+          content_hash: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          publication_status: string
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          content_hash: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          publication_status?: string
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content_hash?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          publication_status?: string
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       curriculum_tracks: {
         Row: {
           created_at: string
@@ -729,10 +768,12 @@ export type Database = {
       }
       import_jobs: {
         Row: {
+          applied_at: string | null
           completed_at: string | null
           created_at: string
           created_by: string
           error_message: string | null
+          execution_state: string
           file_size_bytes: number | null
           id: string
           import_type: string
@@ -743,6 +784,7 @@ export type Database = {
           mode: string
           original_filename: string | null
           skipped_count: number
+          staged_at: string | null
           started_at: string | null
           status: string
           summary: Json
@@ -754,10 +796,12 @@ export type Database = {
           warning_rows: number
         }
         Insert: {
+          applied_at?: string | null
           completed_at?: string | null
           created_at?: string
           created_by: string
           error_message?: string | null
+          execution_state?: string
           file_size_bytes?: number | null
           id?: string
           import_type: string
@@ -768,6 +812,7 @@ export type Database = {
           mode?: string
           original_filename?: string | null
           skipped_count?: number
+          staged_at?: string | null
           started_at?: string | null
           status?: string
           summary?: Json
@@ -779,10 +824,12 @@ export type Database = {
           warning_rows?: number
         }
         Update: {
+          applied_at?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string
           error_message?: string | null
+          execution_state?: string
           file_size_bytes?: number | null
           id?: string
           import_type?: string
@@ -793,6 +840,7 @@ export type Database = {
           mode?: string
           original_filename?: string | null
           skipped_count?: number
+          staged_at?: string | null
           started_at?: string | null
           status?: string
           summary?: Json
@@ -805,8 +853,71 @@ export type Database = {
         }
         Relationships: []
       }
+      import_staging_rows: {
+        Row: {
+          applied_action: string | null
+          applied_at: string | null
+          created_at: string
+          id: string
+          is_valid: boolean
+          job_id: string
+          natural_key: string
+          payload: Json
+          planned_action: string
+          resolved_refs: Json
+          row_hash: string
+          row_number: number
+          sheet_name: string | null
+          target_id: string | null
+          template_key: string
+        }
+        Insert: {
+          applied_action?: string | null
+          applied_at?: string | null
+          created_at?: string
+          id?: string
+          is_valid?: boolean
+          job_id: string
+          natural_key: string
+          payload?: Json
+          planned_action: string
+          resolved_refs?: Json
+          row_hash: string
+          row_number: number
+          sheet_name?: string | null
+          target_id?: string | null
+          template_key: string
+        }
+        Update: {
+          applied_action?: string | null
+          applied_at?: string | null
+          created_at?: string
+          id?: string
+          is_valid?: boolean
+          job_id?: string
+          natural_key?: string
+          payload?: Json
+          planned_action?: string
+          resolved_refs?: Json
+          row_hash?: string
+          row_number?: number
+          sheet_name?: string | null
+          target_id?: string | null
+          template_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_staging_rows_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_assessments: {
         Row: {
+          assessment_code: string | null
           created_at: string
           id: string
           instructions: string | null
@@ -815,6 +926,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          assessment_code?: string | null
           created_at?: string
           id?: string
           instructions?: string | null
@@ -823,6 +935,7 @@ export type Database = {
           title: string
         }
         Update: {
+          assessment_code?: string | null
           created_at?: string
           id?: string
           instructions?: string | null
@@ -927,6 +1040,7 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          explanation_code: string | null
           id: string
           lesson_id: string
           sort_order: number
@@ -936,6 +1050,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
+          explanation_code?: string | null
           id?: string
           lesson_id: string
           sort_order?: number
@@ -945,6 +1060,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          explanation_code?: string | null
           id?: string
           lesson_id?: string
           sort_order?: number
@@ -965,8 +1081,11 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          html_resource_type: string | null
           id: string
           lesson_id: string
+          metadata: Json
+          resource_code: string | null
           resource_type: Database["public"]["Enums"]["lesson_resource_type"]
           sort_order: number
           title: string
@@ -975,8 +1094,11 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          html_resource_type?: string | null
           id?: string
           lesson_id: string
+          metadata?: Json
+          resource_code?: string | null
           resource_type: Database["public"]["Enums"]["lesson_resource_type"]
           sort_order?: number
           title: string
@@ -985,8 +1107,11 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          html_resource_type?: string | null
           id?: string
           lesson_id?: string
+          metadata?: Json
+          resource_code?: string | null
           resource_type?: Database["public"]["Enums"]["lesson_resource_type"]
           sort_order?: number
           title?: string
@@ -2201,10 +2326,56 @@ export type Database = {
         Args: { p_admin_notes?: string; p_request_id: string }
         Returns: Json
       }
+      assert_import_job_operator: {
+        Args: { _job_id: string }
+        Returns: {
+          applied_at: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          error_message: string | null
+          execution_state: string
+          file_size_bytes: number | null
+          id: string
+          import_type: string
+          inserted_count: number
+          invalid_rows: number
+          metadata: Json
+          mime_type: string | null
+          mode: string
+          original_filename: string | null
+          skipped_count: number
+          staged_at: string | null
+          started_at: string | null
+          status: string
+          summary: Json
+          template_key: string | null
+          total_rows: number
+          updated_at: string
+          updated_count: number
+          valid_rows: number
+          warning_rows: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "import_jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       can_access_lesson: { Args: { _lesson_id: string }; Returns: boolean }
       can_access_subject: { Args: { _subject_id: string }; Returns: boolean }
       check_lesson_question: {
         Args: { _question_id: string; _selected_index: number }
+        Returns: Json
+      }
+      content_review_set_state: {
+        Args: {
+          _entity_id: string
+          _entity_type: string
+          _publication_status: string
+          _review_status: string
+        }
         Returns: Json
       }
       create_wallet_topup_request: {
@@ -2342,6 +2513,34 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_execute_template: {
+        Args: { _job_id: string; _template_key: string }
+        Returns: Json
+      }
+      import_finalize_job: {
+        Args: { _error_message?: string; _job_id: string; _succeeded: boolean }
+        Returns: Json
+      }
+      import_plan_row_action: {
+        Args: {
+          _entity_id: string
+          _entity_type: string
+          _incoming_hash: string
+        }
+        Returns: string
+      }
+      import_stage_rows: {
+        Args: { _job_id: string; _rows: Json; _template_key: string }
+        Returns: Json
+      }
+      import_touch_review_state: {
+        Args: {
+          _content_hash: string
+          _entity_id: string
+          _entity_type: string
+        }
+        Returns: undefined
+      }
       is_content_staff: { Args: { _user_id: string }; Returns: boolean }
       is_first_lesson_in_subject: {
         Args: { _lesson_id: string }
@@ -2357,6 +2556,8 @@ export type Database = {
         }
         Returns: number
       }
+      normalize_content_code: { Args: { p_code: string }; Returns: string }
+      normalize_resource_code: { Args: { p_code: string }; Returns: string }
       pay_subscription_from_wallet: {
         Args: {
           _grade_id?: string
