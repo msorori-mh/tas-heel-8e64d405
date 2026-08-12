@@ -205,7 +205,8 @@ test("dry-run stays a zero-write path", () => {
 test("prepare writes staging only — no domain table writes", () => {
   const staging = readFileSync("src/lib/import/import-staging.server.ts", "utf8");
   assert.ok(!/\.from\(["'](subjects|units|lessons|questions)["']\)/.test(staging));
-  assert.ok(staging.includes(IMPORT_RPC.stage));
+  assert.ok(staging.includes("IMPORT_RPC.stage"));
+  assert.equal(IMPORT_RPC.stage, "import_stage_rows");
 });
 
 /* ------------------------------------------------------------------ */
