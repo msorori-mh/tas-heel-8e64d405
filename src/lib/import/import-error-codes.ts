@@ -146,6 +146,54 @@ export const CONTENT_IMPORT_CODES = {
     fileBlocking: false,
     ar: "تهجئتان مختلفتان لنفس المادة الأم تقسمان المجموعة في واجهة الطالب.",
   },
+  MISSING_SUBJECT_SCOPE: {
+    severity: "error",
+    rowBlocking: true,
+    fileBlocking: false,
+    ar: "عمود subject_code مطلوب لتحديد الدرس بدقة داخل مادته.",
+  },
+  AMBIGUOUS_LESSON_CODE: {
+    severity: "error",
+    rowBlocking: true,
+    fileBlocking: false,
+    ar: "كود الدرس يطابق أكثر من درس في مواد مختلفة — حدد subject_code الصحيح.",
+  },
+  MISSING_ENTITY_CODE: {
+    severity: "error",
+    rowBlocking: true,
+    fileBlocking: false,
+    ar: "الكود الثابت للعنصر (شرح/مورد/تقييم) مطلوب ولا يجوز الاعتماد على ترتيب العرض.",
+  },
+  MISSING_RESOURCE_URL: {
+    severity: "error",
+    rowBlocking: true,
+    fileBlocking: false,
+    ar: "رابط المورد مطلوب — لا يمكن حفظ مورد بدون رابط.",
+  },
+  UNSUPPORTED_METADATA_KEY: {
+    severity: "error",
+    rowBlocking: true,
+    fileBlocking: false,
+    ar: "حقل إضافي غير مسموح ضمن بيانات المورد الوصفية.",
+  },
+  SLUG_COLLISION: {
+    severity: "error",
+    rowBlocking: true,
+    fileBlocking: false,
+    ar: "المعرف المشتق من كود المادة يتعارض مع مادة أخرى.",
+  },
+  REVIEW_STATE_RESET: {
+    severity: "warning",
+    rowBlocking: false,
+    fileBlocking: false,
+    ar: "تغيّر محتوى الصف؛ أُعيدت حالة المراجعة إلى «قيد المراجعة» وحالة النشر إلى «مسودة».",
+  },
+  EXECUTION_FAILED: {
+    severity: "error",
+    rowBlocking: false,
+    fileBlocking: true,
+    ar: "فشل التنفيذ وتم التراجع عن الدفعة بالكامل — لم تُحفظ أي تغييرات.",
+  },
   INFO: {
     severity: "info",
     rowBlocking: false,
@@ -153,6 +201,7 @@ export const CONTENT_IMPORT_CODES = {
     ar: "ملاحظة إرشادية لا تمنع الاستيراد.",
   },
 } as const satisfies Record<string, ImportCodeDefinition>;
+
 
 export type ContentImportCode = keyof typeof CONTENT_IMPORT_CODES;
 export type QuestionBankImportCode = keyof typeof QB_IMPORT_CODES;
