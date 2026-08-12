@@ -168,8 +168,10 @@ export type SubjectSlugDigestFn = (subjectCode: string) => string;
  */
 export function deriveSubjectSlug(
   subjectCode: string,
-  digest: SubjectSlugDigestFn = subjectCodeDigest,
+  digestFn?: SubjectSlugDigestFn,
 ): string {
+  // Defensive: deriveSubjectSlug is often passed to Array.map, which supplies an index.
+  const digest: SubjectSlugDigestFn = typeof digestFn === "function" ? digestFn : subjectCodeDigest;
   const raw = canonicalSubjectCodeInput(subjectCode);
   if (raw.length === 0) throw new Error("subject_code is required to derive subjects.slug");
   if (isSlugSafeSubjectCode(raw)) return raw;

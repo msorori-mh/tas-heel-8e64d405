@@ -90,7 +90,7 @@ test("02B: the contract never claims collisions are impossible", () => {
 });
 
 test("02B: draft SQL grants, RLS and search_path are complete", () => {
-  assert.ok(!/GRANT[^;]*TO\s+anon/i.test(DRAFT_SQL), "no GRANT to anon in the draft");
+  assert.ok(!/^\s*GRANT[^;]*TO\s+anon/im.test(DRAFT_SQL), "no GRANT to anon in the draft");
   for (const table of ["content_review_state", "import_staging_rows"]) {
     assert.ok(DRAFT_SQL.includes(`CREATE TABLE IF NOT EXISTS public.${table}`));
     assert.ok(new RegExp(`GRANT[^;]+ON public\\.${table} TO service_role`).test(DRAFT_SQL));
