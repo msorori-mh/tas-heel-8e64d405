@@ -129,10 +129,14 @@ CREATE TABLE IF NOT EXISTS public.lessons (
   is_free boolean DEFAULT false,
   sort_order integer NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT lessons_subject_id_slug_key UNIQUE (subject_id, slug)
 );
--- NOTE (finding H-2): production has NO unique index on (subject_id, slug).
--- The rehearsal reproduces production exactly, including this gap.
+-- 04A correction (finding H-2 = NOT_A_DEFECT): production DOES have
+-- lessons_subject_id_slug_key UNIQUE (subject_id, slug); the earlier rehearsal
+-- fixture drifted from the real schema and produced a false blocker.
+
+
 
 CREATE TABLE IF NOT EXISTS public.lesson_book_contents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

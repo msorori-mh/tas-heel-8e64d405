@@ -183,50 +183,52 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
     templateKey: "explanations",
     table: "lesson_explanations",
     naturalKey: ["subject_code", "lesson_code", "explanation_code"],
-    naturalKeyColumns: ["lesson_id", "code"],
-    uniquenessScope: "per lesson (code IS NOT NULL)",
+    naturalKeyColumns: ["lesson_id", "explanation_code"],
+    uniquenessScope: "per lesson (explanation_code IS NOT NULL)",
     uniqueness: {
       kind: "planned_unique",
       constraint: "lesson_explanations_code_lesson_uniq",
-      scope: "UNIQUE (lesson_id, code) WHERE code IS NOT NULL",
-      draftRef: "docs/migration-drafts/IMPORT-EXECUTION-READINESS-02.NOT_APPLIED.sql",
+      scope: "UNIQUE (lesson_id, explanation_code) WHERE explanation_code IS NOT NULL",
+      draftRef: "supabase/migrations-pending/20260813010000_import_staging_and_execution_03.sql",
     },
     dependsOn: ["lessons"],
     foreignKeys: ["lesson_explanations.lesson_id → lessons.id"],
     fields: [
       f("subject_code", "subjects", null, true, "GAP-06: scopes lesson_code resolution"),
       f("lesson_code", "lessons", null, true, "FK lookup"),
-      f("explanation_code", "lesson_explanations", "code", true, "GAP-02: stable import identity — never sort_order"),
+      f("explanation_code", "lesson_explanations", "explanation_code", true, "GAP-02: stable import identity — never sort_order"),
       f("title", "lesson_explanations", "title", true),
       f("content", "lesson_explanations", "content", true),
       f("sort_order", "lesson_explanations", "sort_order", false, "mutable presentation attribute — NOT part of the identity"),
       f("review_status", "lesson_explanations", null, false, "GAP-03: routed to content_review_state"),
     ],
     gaps: [
-      "No unique index today → GAP-02 (add code + UNIQUE (lesson_id, code)).",
+      "No unique index today → GAP-02 (add explanation_code + UNIQUE (lesson_id, explanation_code)).",
       "No review/publication column → GAP-03 (content_review_state).",
       "lesson_code ambiguous across subjects → GAP-06.",
     ],
+
     gapIds: ["GAP-02-STABLE-CHILD-IDENTITY", "GAP-03-REVIEW-STATE", "GAP-06-SUBJECT-SCOPE"],
   },
   resources: {
     templateKey: "resources",
     table: "lesson_resources",
     naturalKey: ["subject_code", "lesson_code", "resource_code"],
-    naturalKeyColumns: ["lesson_id", "code"],
-    uniquenessScope: "per lesson (code IS NOT NULL)",
+    naturalKeyColumns: ["lesson_id", "resource_code"],
+    uniquenessScope: "per lesson (resource_code IS NOT NULL)",
     uniqueness: {
       kind: "planned_unique",
-      constraint: "lesson_resources_code_lesson_uniq",
-      scope: "UNIQUE (lesson_id, code) WHERE code IS NOT NULL",
-      draftRef: "docs/migration-drafts/IMPORT-EXECUTION-READINESS-02.NOT_APPLIED.sql",
+      constraint: "idx_lesson_resources_code_per_lesson",
+      scope: "UNIQUE (lesson_id, resource_code) WHERE resource_code IS NOT NULL",
+      draftRef: "supabase/migrations-pending/20260813010000_import_staging_and_execution_03.sql",
     },
+
     dependsOn: ["lessons"],
     foreignKeys: ["lesson_resources.lesson_id → lessons.id"],
     fields: [
       f("subject_code", "subjects", null, true, "GAP-06: scopes lesson_code resolution"),
       f("lesson_code", "lessons", null, true, "FK lookup"),
-      f("resource_code", "lesson_resources", "code", true, "GAP-02: stable import identity — never sort_order"),
+      f("resource_code", "lesson_resources", "resource_code", true, "GAP-02: stable import identity — never sort_order"),
       f("resource_type", "lesson_resources", "resource_type", true, "enum lesson_resource_type: video|mindmap|experiment|pdf|link"),
       f("title", "lesson_resources", "title", true),
       f("description", "lesson_resources", "description", false),
@@ -241,7 +243,7 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("notes", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
     ],
     gaps: [
-      "No unique index today → GAP-02 (add code + UNIQUE (lesson_id, code)).",
+      "No unique index today → GAP-02 (add resource_code + UNIQUE (lesson_id, resource_code)).",
       "resource_url must be required because lesson_resources.url is NOT NULL → GAP-04 (closed: template change only).",
       "7 columns have no destination → GAP-05 (metadata jsonb with a closed allowlist).",
       "lesson_code ambiguous across subjects → GAP-06.",
@@ -292,24 +294,25 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
     templateKey: "assessments",
     table: "lesson_assessments",
     naturalKey: ["assessment_code"],
-    naturalKeyColumns: ["code"],
+    naturalKeyColumns: ["assessment_code"],
     /**
      * Scope decided from the audited template contract, not from a new assumption:
      * template 08 references an assessment by `assessment_code` ALONE (no lesson_code
      * column), so the code must resolve globally. This mirrors subjects_code_uniq and
      * questions_code_uniq — the only two audited code columns with global scope.
      */
-    uniquenessScope: "global (code IS NOT NULL) — required by template 08's lesson-less reference",
+    uniquenessScope: "global (assessment_code IS NOT NULL) — required by template 08's lesson-less reference",
     uniqueness: {
       kind: "planned_unique",
       constraint: "lesson_assessments_code_uniq",
-      scope: "UNIQUE (code) WHERE code IS NOT NULL",
-      draftRef: "docs/migration-drafts/IMPORT-EXECUTION-READINESS-02.NOT_APPLIED.sql",
+      scope: "UNIQUE (assessment_code) WHERE assessment_code IS NOT NULL",
+      draftRef: "supabase/migrations-pending/20260813010000_import_staging_and_execution_03.sql",
     },
     dependsOn: ["lessons"],
     foreignKeys: ["lesson_assessments.lesson_id → lessons.id"],
     fields: [
-      f("assessment_code", "lesson_assessments", "code", true, "GAP-01: new column, global partial unique"),
+      f("assessment_code", "lesson_assessments", "assessment_code", true, "GAP-01: new column, global partial unique"),
+
       f("subject_code", "subjects", null, true, "GAP-06: scopes lesson_code resolution"),
       f("lesson_code", "lessons", null, true, "FK lookup"),
       f("title", "lesson_assessments", "title", true),
@@ -318,7 +321,7 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("review_status", "lesson_assessments", null, false, "GAP-03: routed to content_review_state"),
     ],
     gaps: [
-      "lesson_assessments has no code column → GAP-01 (add code + UNIQUE (code) WHERE code IS NOT NULL).",
+      "lesson_assessments has no assessment_code column → GAP-01 (add assessment_code + UNIQUE (assessment_code) WHERE assessment_code IS NOT NULL).",
       "No review/publication column → GAP-03.",
       "lesson_code ambiguous across subjects → GAP-06.",
     ],
@@ -337,13 +340,13 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       "assessment_questions.question_id → questions.id",
     ],
     fields: [
-      f("assessment_code", "lesson_assessments", null, true, "resolves via the GAP-01 lesson_assessments.code column"),
+      f("assessment_code", "lesson_assessments", null, true, "resolves via the GAP-01 lesson_assessments.assessment_code column"),
       f("question_code", "questions", null, true, "lookup questions.code → question_id"),
       f("sort_order", "assessment_questions", "sort_order", false),
       f("points", "assessment_questions", "points", false),
       f("editor_notes", "assessment_questions", null, false, "not persisted"),
     ],
-    gaps: ["Resolution depends on the GAP-01 lesson_assessments.code column."],
+    gaps: ["Resolution depends on the GAP-01 lesson_assessments.assessment_code column."],
     gapIds: ["GAP-01-ASSESSMENT-CODE"],
   },
 
@@ -461,10 +464,11 @@ export const MIGRATION_DRAFT_REF =
 export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = {
   "GAP-01-ASSESSMENT-CODE": {
     gapId: "GAP-01-ASSESSMENT-CODE",
-    blocker: "lesson_assessments has no code column",
+    blocker: "lesson_assessments has no assessment_code column",
     kind: "schema_change",
     decision:
-      "Add lesson_assessments.code text with UNIQUE (code) WHERE code IS NOT NULL. Scope is GLOBAL, not (lesson_id, code), because template 08 references an assessment by assessment_code alone — matching the audited global scope of subjects_code_uniq and questions_code_uniq.",
+      "Add lesson_assessments.assessment_code text with UNIQUE (assessment_code) WHERE assessment_code IS NOT NULL. Scope is GLOBAL, not (lesson_id, assessment_code), because template 08 references an assessment by assessment_code alone — matching the audited global scope of subjects_code_uniq and questions_code_uniq.",
+
     entities: ["assessments", "assessment_questions"],
     status: "closed_design",
     migrationDraftRef: MIGRATION_DRAFT_REF,
@@ -474,7 +478,8 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
     blocker: "no unique key on lesson_explanations / lesson_resources",
     kind: "schema_change",
     decision:
-      "Add explanation_code / resource_code (DB column `code`) with UNIQUE (lesson_id, code) WHERE code IS NOT NULL. sort_order is a mutable presentation attribute and MUST NEVER take part in identity: reordering rows must not be read as edits to different entities.",
+      "Add lesson_explanations.explanation_code with UNIQUE (lesson_id, explanation_code) WHERE explanation_code IS NOT NULL, and reuse the existing lesson_resources.resource_code identity with UNIQUE (lesson_id, resource_code) WHERE resource_code IS NOT NULL. There is no `code` column on either table and none may be created. sort_order is a mutable presentation attribute and MUST NEVER take part in identity: reordering rows must not be read as edits to different entities.",
+
     entities: ["explanations", "resources"],
     status: "closed_design",
     migrationDraftRef: MIGRATION_DRAFT_REF,

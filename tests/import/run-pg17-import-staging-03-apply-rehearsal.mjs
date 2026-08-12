@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * IMPORT_NON_PROD_MIGRATION_INDEPENDENT_REVIEW_04
+ * IMPORT_MIGRATION_BLOCKER_CORRECTION_04A (expands REVIEW_04)
  *
  * Apply / rebuild rehearsal for
  *   supabase/migrations-pending/20260813010000_import_staging_and_execution_03.sql
@@ -9,13 +9,17 @@
  * remote database and refuses to run when a Supabase project link is present.
  *
  * Scenarios:
- *   A. baseline (exact current managed-DB shape) + pending migration
- *      → DDL applies, but the resources path fails at runtime because
- *        lesson_resources.resource_code does not exist yet (finding H-1).
- *   B. baseline + content-html prerequisite delta + pending migration
+ *   A. baseline (exact current managed-DB shape) + pending migration alone
+ *      → self-sufficient: resource_code prerequisite is declared by the
+ *        migration itself, so the resources path works (H-1 closed).
+ *   B. baseline + content_html chain + pending migration
  *      → apply PASS, second apply PASS (idempotent), runtime smoke PASS.
  *   C. rebuild rehearsal: drop everything, rebuild from zero, apply again → PASS.
+ *   D. order independence: 03 → content_html chain, and content_html chain → 03,
+ *      both PASS with an identical normalize_resource_code definition.
+ *   E. fail-closed guard: a stray lesson_resources.code aborts the migration.
  */
+
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
@@ -83,6 +87,15 @@ function expectFail(label, res, needle) {
   console.log(`[PASS] ${label} — failed as expected on "${needle}"`);
   return true;
 }
+function expectTrue(label, db, sql) {
+  const res = psql(db, ["-tA", "-c", sql]);
+  const ok = res.status === 0 && res.stdout.trim() === "t";
+  results.push([label, ok ? "PASS" : "FAIL"]);
+  console.log(`[${ok ? "PASS" : "FAIL"}] ${label}`);
+  if (!ok) console.error(res.stdout || res.stderr);
+  return ok;
+}
+
 
 try {
   let r = run("initdb", ["-D", dataDir, "-U", "postgres", "--auth=trust", "-E", "UTF8"]);
@@ -109,11 +122,26 @@ try {
     ]),
     "NOT_AUTHORIZED",
   );
-  expectFail(
-    "A4 authorized resources execute breaks on missing lesson_resources.resource_code (finding H-1)",
+  expectOk(
+    "A4 resources execute works on the current shape — migration is self-sufficient (H-1 closed)",
     psql("rehearsal_a", ["-f", SMOKE]),
-    "resource_code",
   );
+  expectTrue(
+    "A5 resource identity is single-columned: resource_code present, no lesson_resources.code",
+    "rehearsal_a",
+    `SELECT (SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='lesson_resources' AND column_name='resource_code') = 1
+        AND (SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='lesson_resources' AND column_name='code') = 0
+        AND (SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND indexname='idx_lesson_resources_code_per_lesson') = 1`,
+  );
+  expectTrue(
+    "A6 lessons(subject_id, slug) unique constraint present (H-2 = NOT_A_DEFECT)",
+    "rehearsal_a",
+    `SELECT count(*) = 1 FROM pg_indexes
+      WHERE schemaname='public' AND tablename='lessons'
+        AND indexdef ILIKE 'CREATE UNIQUE INDEX%(subject_id, slug)'`,
+  );
+
+
 
 
   // ---------------------------------------------------------------- Scenario B
@@ -160,7 +188,51 @@ try {
   expectOk("C5 rebuild after teardown: baseline", psql("rehearsal_c", ["-f", BASELINE]));
   expectOk("C6 rebuild after teardown: prerequisite", psql("rehearsal_c", ["-f", PREREQ]));
   expectOk("C7 rebuild after teardown: pending migration", psql("rehearsal_c", ["-f", PENDING]));
+
+  // ---------------------------------------------------------------- Scenario D
+  // Order independence between the pending migration and the content_html chain.
+  const NORMALIZER =
+    `SELECT md5(pg_get_functiondef(p.oid)) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.proname='normalize_resource_code'`;
+
+  run("createdb", ["-h", sock, "-U", "postgres", "rehearsal_d1"]);
+  expectOk("D1 order A: baseline", psql("rehearsal_d1", ["-f", BASELINE]));
+  expectOk("D2 order A: pending migration first", psql("rehearsal_d1", ["-f", PENDING]));
+  expectOk("D3 order A: content_html chain after", psql("rehearsal_d1", ["-f", PREREQ]));
+
+  run("createdb", ["-h", sock, "-U", "postgres", "rehearsal_d2"]);
+  expectOk("D4 order B: baseline", psql("rehearsal_d2", ["-f", BASELINE]));
+  expectOk("D5 order B: content_html chain first", psql("rehearsal_d2", ["-f", PREREQ]));
+  expectOk("D6 order B: pending migration after", psql("rehearsal_d2", ["-f", PENDING]));
+
+  const d1 = psql("rehearsal_d1", ["-tA", "-c", NORMALIZER]).stdout.trim();
+  const d2 = psql("rehearsal_d2", ["-tA", "-c", NORMALIZER]).stdout.trim();
+  const converged = d1.length > 0 && d1 === d2;
+  results.push(["D7 both orders converge on one normalize_resource_code", converged ? "PASS" : "FAIL"]);
+  console.log(`[${converged ? "PASS" : "FAIL"}] D7 both orders converge on one normalize_resource_code`);
+  expectOk("D8 order A runtime smoke", psql("rehearsal_d1", ["-f", SMOKE]));
+  expectOk("D9 order B runtime smoke", psql("rehearsal_d2", ["-f", SMOKE]));
+
+  // ---------------------------------------------------------------- Scenario E
+  // Fail-closed guard: a competing `code` identity must abort the migration.
+  run("createdb", ["-h", sock, "-U", "postgres", "rehearsal_e"]);
+  expectOk("E1 baseline", psql("rehearsal_e", ["-f", BASELINE]));
+  expectOk(
+    "E2 inject drift: lesson_resources.code",
+    psql("rehearsal_e", ["-c", "ALTER TABLE public.lesson_resources ADD COLUMN code text;"]),
+  );
+  expectFail(
+    "E3 pending migration refuses to apply against a stray `code` column",
+    psql("rehearsal_e", ["-f", PENDING]),
+    "SCHEMA_DRIFT",
+  );
+  expectTrue(
+    "E4 refusal left no partial objects (fail-closed)",
+    "rehearsal_e",
+    `SELECT count(*) = 0 FROM pg_tables WHERE schemaname='public' AND tablename IN ('import_staging_rows','content_review_state')`,
+  );
 } finally {
+
   if (started) run("pg_ctl", ["-D", dataDir, "-m", "immediate", "-w", "stop"]);
   rmSync(dataDir, { recursive: true, force: true });
   rmSync(sock, { recursive: true, force: true });
