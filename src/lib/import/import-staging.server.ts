@@ -67,14 +67,19 @@ export function buildStagingRows(
     };
   });
 
-  assertNoDuplicateNaturalKeys(rows, templateKey);
+  assertNoDuplicateNaturalKeys(
+    rows.map((r) => ({ naturalKey: r.natural_key, rowNumber: r.row_number })),
+    templateKey,
+  );
 
   if (templateKey === "subjects") {
     const codes = rows.map((r) => String(r.payload["subject_code"] ?? ""));
     const slugs = planSubjectSlugs(codes);
     rows.forEach((r, i) => {
-      const planned = slugs[i];
-      r.payload["slug"] = typeof planned === "string" ? planned : planned?.slug;
+      const code = canonicalSubjectCodeInput(codes[i] ?? "");
+      const slug = slugs.get(code);
+      if (!slug) throw new Error(`SUBJECT_SLUG_UNRESOLVED: row ${r.row_number}`);
+      r.payload["slug"] = slug;
     });
   }
 
