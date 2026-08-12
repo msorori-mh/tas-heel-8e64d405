@@ -20,6 +20,13 @@ import {
 } from "@/components/ui/table";
 import { dryRunContentImport } from "@/lib/content-import/content-import-dry-run.functions";
 import {
+  createContentImportJob,
+  prepareContentImportStaging,
+  runContentImportExecute,
+  type ExecuteImportResult,
+} from "@/lib/import/import-staging.functions";
+import { toArabicImportExecuteMessage } from "@/lib/import/import-execute-messages";
+import {
   CONTENT_IMPORT_TEMPLATES,
   type ContentImportTemplateKey,
 } from "@/lib/content-import/content-import-templates";
@@ -31,8 +38,19 @@ import {
   FileSearch,
   FileUp,
   Loader2,
+  PlayCircle,
   ShieldCheck,
+  Layers,
 } from "lucide-react";
+
+async function sha256Hex(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
