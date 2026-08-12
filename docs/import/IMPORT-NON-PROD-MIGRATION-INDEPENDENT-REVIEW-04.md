@@ -53,7 +53,8 @@ atomicity + rollback             ✔ (تحقق تشغيلي فعلي)
 idempotency + BLOCKED_PUBLISHED  ✔
 RBAC (owner / full admin)        ✔
 question bank boundary           ✔
-blocking findings                H-1, H-2 (تبعيات ترتيب، لا عيب في الترحيل نفسه)
+blocking findings                H-1 (أُغلق في 04A), H-2 (سُحب — NOT_A_DEFECT)
 CRITICAL / HIGH in-file          0 / 0
-= APPROVED_CONDITIONALLY — التطبيق مسموح فقط بعد إغلاق H-1 وH-2
+= APPROVED_CONDITIONALLY — الشرطان أُغلقا في 04A؛ التطبيق يبقى غير منفَّذ
 ```
+
