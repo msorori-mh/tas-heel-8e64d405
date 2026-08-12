@@ -102,13 +102,19 @@ try {
   expectOk("A1 baseline (current managed-DB shape) applies", psql("rehearsal_a", ["-f", BASELINE]));
   expectOk("A2 pending migration applies on baseline (DDL only)", psql("rehearsal_a", ["-f", PENDING]));
   expectFail(
-    "A3 resources template fails at runtime without the content-html prerequisite",
+    "A3 anonymous/unowned execute is refused before any resolution (fail-closed)",
     psql("rehearsal_a", [
       "-c",
       `DO $$ BEGIN PERFORM public.import_execute_template(gen_random_uuid(),'resources'); END $$;`,
     ]),
+    "NOT_AUTHORIZED",
+  );
+  expectFail(
+    "A4 authorized resources execute breaks on missing lesson_resources.resource_code (finding H-1)",
+    psql("rehearsal_a", ["-f", SMOKE]),
     "resource_code",
   );
+
 
   // ---------------------------------------------------------------- Scenario B
   run("createdb", ["-h", sock, "-U", "postgres", "rehearsal_b"]);
