@@ -2373,6 +2373,7 @@ export type Database = {
           is_primary: boolean
           lesson_id: string | null
           question_id: string
+          revision_id: string
           subject_id: string | null
           target_type: string
           unit_id: string | null
@@ -2384,6 +2385,7 @@ export type Database = {
           is_primary?: boolean
           lesson_id?: string | null
           question_id: string
+          revision_id: string
           subject_id?: string | null
           target_type: string
           unit_id?: string | null
@@ -2395,6 +2397,7 @@ export type Database = {
           is_primary?: boolean
           lesson_id?: string | null
           question_id?: string
+          revision_id?: string
           subject_id?: string | null
           target_type?: string
           unit_id?: string | null
@@ -2413,6 +2416,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "questions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_targets_revision_question_fk"
+            columns: ["revision_id", "question_id"]
+            isOneToOne: false
+            referencedRelation: "question_revisions"
+            referencedColumns: ["id", "question_id"]
           },
           {
             foreignKeyName: "question_targets_subject_id_fkey"
@@ -3214,6 +3224,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      _qb_assert_revision_targets_publishable: {
+        Args: { p_revision_id: string }
+        Returns: undefined
+      }
       _qb_build_revision_canonical_jcs: {
         Args: { p_revision_id: string }
         Returns: string
@@ -3610,7 +3624,12 @@ export type Database = {
         Returns: Json
       }
       retarget_question: {
-        Args: { p_question_id: string; p_reason: string; p_targets: Json }
+        Args: {
+          p_question_id: string
+          p_reason: string
+          p_revision_id: string
+          p_targets: Json
+        }
         Returns: Json
       }
       revoke_question_bank_capability: {
