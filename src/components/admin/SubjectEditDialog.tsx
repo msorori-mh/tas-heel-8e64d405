@@ -56,6 +56,9 @@ export function SubjectEditDialog({
   const isCreate = mode === "create";
 
   const [name, setName] = useState("");
+  const [subjectCode, setSubjectCode] = useState("");
+  const [groupCode, setGroupCode] = useState("");
+  const [groupName, setGroupName] = useState("");
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [icon, setIcon] = useState("");
   const [color, setColor] = useState("#0d7377");
