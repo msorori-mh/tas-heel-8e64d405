@@ -2113,6 +2113,69 @@ export type Database = {
           },
         ]
       }
+      question_response_reviews: {
+        Row: {
+          action_id: string
+          assigned_grader_id: string | null
+          created_at: string
+          exam_answer_id: string | null
+          feedback: string | null
+          grader_id: string
+          id: string
+          idempotency_key: string
+          is_final: boolean
+          practice_response_id: string | null
+          previous_score: number | null
+          reason: string | null
+          score_awarded: number
+        }
+        Insert: {
+          action_id?: string
+          assigned_grader_id?: string | null
+          created_at?: string
+          exam_answer_id?: string | null
+          feedback?: string | null
+          grader_id: string
+          id?: string
+          idempotency_key: string
+          is_final?: boolean
+          practice_response_id?: string | null
+          previous_score?: number | null
+          reason?: string | null
+          score_awarded: number
+        }
+        Update: {
+          action_id?: string
+          assigned_grader_id?: string | null
+          created_at?: string
+          exam_answer_id?: string | null
+          feedback?: string | null
+          grader_id?: string
+          id?: string
+          idempotency_key?: string
+          is_final?: boolean
+          practice_response_id?: string | null
+          previous_score?: number | null
+          reason?: string | null
+          score_awarded?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_response_reviews_exam_answer_id_fkey"
+            columns: ["exam_answer_id"]
+            isOneToOne: false
+            referencedRelation: "exam_session_answers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_response_reviews_practice_response_id_fkey"
+            columns: ["practice_response_id"]
+            isOneToOne: false
+            referencedRelation: "practice_attempt_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       question_revisions: {
         Row: {
           allow_partial: boolean
@@ -3124,7 +3187,23 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_question_responses_unified: {
+        Row: {
+          attempt_id: string | null
+          created_at: string | null
+          final_score: number | null
+          grading_status: string | null
+          logical_question_id: string | null
+          max_score: number | null
+          question_revision_id: string | null
+          response_id: string | null
+          response_text: string | null
+          selected_option_code: string | null
+          surface_type: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _qb_assert_revision_payload_hash: {
@@ -3269,6 +3348,14 @@ export type Database = {
         }
         Returns: Json
       }
+      create_exam_session_with_snapshot: {
+        Args: { p_template_id: string }
+        Returns: Json
+      }
+      create_practice_attempt_with_snapshot: {
+        Args: { p_params: Json }
+        Returns: Json
+      }
       create_wallet_topup_request: {
         Args: {
           p_amount: number
@@ -3294,6 +3381,14 @@ export type Database = {
           _reference_type?: string
           _type: string
           _user_id: string
+        }
+        Returns: Json
+      }
+      delete_draft_question: {
+        Args: {
+          p_idempotency_key: string
+          p_question_id: string
+          p_reason: string
         }
         Returns: Json
       }
@@ -3482,6 +3577,10 @@ export type Database = {
         Returns: boolean
       }
       qb_i_have_capability: { Args: { p_capability: string }; Returns: boolean }
+      qb_sync_question_legacy: {
+        Args: { _question_id: string }
+        Returns: undefined
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -3505,6 +3604,10 @@ export type Database = {
       }
       revoke_question_bank_capability: {
         Args: { p_grant_id: string; p_reason: string }
+        Returns: Json
+      }
+      set_question_bank_attempt_pin_mode: {
+        Args: { p_attempt_pin_mode: string; p_reason: string }
         Returns: Json
       }
       start_exam_session: { Args: { _template_id: string }; Returns: string }
