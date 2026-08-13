@@ -11,12 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  IMPORT_NOT_ENABLED_YET,
-  getImportOrderGroupsForStaff,
-  getImportTemplatesForStaff,
-  importTemplateDownloadUrl,
-} from "@/lib/import-template-catalog";
+import { IMPORT_NOT_ENABLED_YET } from "@/lib/import-template-catalog";
 import {
   CONTENT_IMPORT_TEMPLATES_DISPLAY_ORDER,
   CONTENT_IMPORT_WORKFLOW_ORDER,
@@ -41,8 +36,6 @@ export const Route = createFileRoute("/_authenticated/admin/import")({
 
 function AdminImportPage() {
   const { loading, enabled, isAdmin } = useRequireAdminSection("content");
-  const templates = getImportTemplatesForStaff(isAdmin);
-  const orderGroups = getImportOrderGroupsForStaff(isAdmin);
 
   if (loading) {
     return (
