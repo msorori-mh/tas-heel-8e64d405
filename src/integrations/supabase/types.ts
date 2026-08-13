@@ -2624,6 +2624,8 @@ export type Database = {
           created_at: string
           curriculum_track_id: string | null
           grade_id: string
+          group_code: string | null
+          group_name: string | null
           icon: string | null
           id: string
           lessons_count: number | null
@@ -2638,6 +2640,8 @@ export type Database = {
           created_at?: string
           curriculum_track_id?: string | null
           grade_id: string
+          group_code?: string | null
+          group_name?: string | null
           icon?: string | null
           id?: string
           lessons_count?: number | null
@@ -2652,6 +2656,8 @@ export type Database = {
           created_at?: string
           curriculum_track_id?: string | null
           grade_id?: string
+          group_code?: string | null
+          group_name?: string | null
           icon?: string | null
           id?: string
           lessons_count?: number | null
