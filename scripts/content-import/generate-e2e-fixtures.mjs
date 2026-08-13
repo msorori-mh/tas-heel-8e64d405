@@ -173,6 +173,14 @@ export const FIXTURE_SHEETS = {
       [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي أ — نص معدّل؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
     ],
   ),
+  /** Third content variant, imported while a revision is already published. */
+  "09d_questions_after_publish.xlsx": sheet(
+    "questions",
+    QUESTION_COLUMNS,
+    [
+      [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي أ — تعديل بعد النشر؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
+    ],
+  ),
   /** Valid row followed by an unresolvable lesson → whole template rolls back. */
   "92_invalid_questions.xlsx": sheet(
     "questions",

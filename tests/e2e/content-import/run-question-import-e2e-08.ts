@@ -334,7 +334,7 @@ async function main() {
   );
 
   if (published) {
-    const again = await runCycle(staff, "questions", "09_questions.xlsx");
+    const again = await runCycle(staff, "questions", "09d_questions_after_publish.xlsx");
     const revs3 = await revisionsOf(qa.id);
     const qaAfter = await questionByCode("e2e-qi-01");
     const publishedStill = revs3.find((r) => r.id === publishTarget.id);

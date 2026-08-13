@@ -10,6 +10,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
 export async function purgeE2eQuestions(admin: SupabaseClient<Database>): Promise<void> {
+  // Published revisions are immutable by design, so the guarded service-role
+  // purge is the only way to remove them again in a test run.
+  const purged = await admin.rpc("qb_e2e_purge_questions" as never, { p_prefix: "e2e-" } as never);
+  if (!purged.error) return;
+
   const { data: questions } = await admin.from("questions").select("id").like("code", "e2e-%");
   const ids = (questions ?? []).map((q) => q.id);
   if (!ids.length) return;
