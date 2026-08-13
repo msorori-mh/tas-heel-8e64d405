@@ -438,10 +438,15 @@ export interface ImportGapResolution {
   decision: string;
   /** Entities the decision covers. */
   entities: readonly ContentImportTemplateKey[];
-  /** Always "closed_design" in phase 02 — no DDL is applied here. */
-  status: "closed_design";
-  /** Review-only SQL draft, never inside supabase/migrations. */
+  /**
+   * "closed_design" = decided but not applied to the database.
+   * "applied"       = the decision is live on the shared database (verified).
+   */
+  status: "closed_design" | "applied";
+  /** Review-only SQL draft, never inside supabase/migrations. Absent once applied. */
   migrationDraftRef?: string;
+  /** DB objects that prove an applied resolution (constraints, columns, tables). */
+  appliedObjects?: readonly string[];
 }
 
 export const MIGRATION_DRAFT_REF =
@@ -456,8 +461,8 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
       "Add lesson_assessments.assessment_code text with UNIQUE (assessment_code) WHERE assessment_code IS NOT NULL. Scope is GLOBAL, not (lesson_id, assessment_code), because template 08 references an assessment by assessment_code alone — matching the audited global scope of subjects_code_uniq and questions_code_uniq.",
 
     entities: ["assessments", "assessment_questions"],
-    status: "closed_design",
-    migrationDraftRef: MIGRATION_DRAFT_REF,
+    status: "applied",
+    appliedObjects: ["lesson_assessments.assessment_code", "lesson_assessments_code_uniq"],
   },
   "GAP-02-STABLE-CHILD-IDENTITY": {
     gapId: "GAP-02-STABLE-CHILD-IDENTITY",
@@ -467,8 +472,8 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
       "Add lesson_explanations.explanation_code with UNIQUE (lesson_id, explanation_code) WHERE explanation_code IS NOT NULL, and reuse the existing lesson_resources.resource_code identity with UNIQUE (lesson_id, resource_code) WHERE resource_code IS NOT NULL. There is no `code` column on either table and none may be created. sort_order is a mutable presentation attribute and MUST NEVER take part in identity: reordering rows must not be read as edits to different entities.",
 
     entities: ["explanations", "resources"],
-    status: "closed_design",
-    migrationDraftRef: MIGRATION_DRAFT_REF,
+    status: "applied",
+    appliedObjects: ["lesson_explanations.explanation_code", "lesson_explanations_code_lesson_uniq", "lesson_resources.resource_code", "idx_lesson_resources_code_per_lesson"],
   },
   "GAP-03-REVIEW-STATE": {
     gapId: "GAP-03-REVIEW-STATE",
@@ -477,8 +482,8 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
     decision:
       "Single side table content_review_state keyed by (entity_type, entity_id) and BOUND TO content_hash. Any change of content_hash resets the row to review_status='pending' + publication_status='draft'; approval never survives a payload change.",
     entities: ["subjects", "units", "lessons", "explanations", "assessments", "questions"],
-    status: "closed_design",
-    migrationDraftRef: MIGRATION_DRAFT_REF,
+    status: "applied",
+    appliedObjects: ["public.content_review_state"],
   },
   "GAP-04-RESOURCE-URL-REQUIRED": {
     gapId: "GAP-04-RESOURCE-URL-REQUIRED",
@@ -496,8 +501,8 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
     decision:
       "Add lesson_resources.metadata jsonb NOT NULL DEFAULT '{}'. Only the closed allowlist RESOURCE_METADATA_ALLOWLIST may be written; any other key is rejected. metadata is never a free-form store.",
     entities: ["resources"],
-    status: "closed_design",
-    migrationDraftRef: MIGRATION_DRAFT_REF,
+    status: "applied",
+    appliedObjects: ["lesson_resources.metadata"],
   },
   "GAP-06-SUBJECT-SCOPE": {
     gapId: "GAP-06-SUBJECT-SCOPE",
@@ -523,7 +528,41 @@ export const IMPORT_GAP_IDS = Object.keys(IMPORT_GAP_RESOLUTIONS) as ImportGapId
 
 /** Gaps still lacking a design decision. Phase 02 exit gate requires this to be empty. */
 export function listOpenGaps(): ImportGapId[] {
-  return IMPORT_GAP_IDS.filter((id) => IMPORT_GAP_RESOLUTIONS[id].status !== "closed_design");
+  return IMPORT_GAP_IDS.filter(
+    (id) =>
+      IMPORT_GAP_RESOLUTIONS[id].status !== "closed_design" &&
+      IMPORT_GAP_RESOLUTIONS[id].status !== "applied",
+  );
+}
+
+/** Gap decisions that are live on the shared database. */
+export function listAppliedGaps(): ImportGapId[] {
+  return IMPORT_GAP_IDS.filter((id) => IMPORT_GAP_RESOLUTIONS[id].status === "applied");
+}
+
+/* ------------------------------------------------------------------ */
+/* Single source of truth for Excel template columns                   */
+/* ------------------------------------------------------------------ */
+
+/** True when the field is an operator-facing Excel column (default). */
+export function isTemplateField(field: ImportFieldMapping): boolean {
+  return field.templateField !== false;
+}
+
+/** All Excel columns of a template, in contract order. */
+export function templateColumnsForEntity(
+  key: ContentImportTemplateKey,
+): readonly string[] {
+  return IMPORT_ENTITY_CONTRACTS[key].fields.filter(isTemplateField).map((f) => f.field);
+}
+
+/** Excel columns that must be present and non-empty for every row. */
+export function requiredTemplateColumnsForEntity(
+  key: ContentImportTemplateKey,
+): readonly string[] {
+  return IMPORT_ENTITY_CONTRACTS[key].fields
+    .filter((f) => isTemplateField(f) && f.required)
+    .map((f) => f.field);
 }
 
 /* ------------------------------------------------------------------ */
