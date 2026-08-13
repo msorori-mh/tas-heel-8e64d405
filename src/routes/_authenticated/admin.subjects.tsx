@@ -372,12 +372,14 @@ function AdminSubjectsPage() {
         tracks={tracksQ.data ?? []}
       />
 
-      <SubjectDeleteDialog
+      <CurriculumDeleteDialog
         open={deleting !== null}
         onOpenChange={(o) => {
           if (!o) setDeleting(null);
         }}
-        subject={deleting}
+        target={
+          deleting ? { type: "subject", id: deleting.id, label: deleting.name } : null
+        }
       />
     </AdminLayout>
   );
