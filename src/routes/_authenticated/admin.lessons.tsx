@@ -7,7 +7,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { BookOpen, Loader2, Search, ArrowRight, Check, Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import { LessonBasicEditDialog } from "@/components/admin/LessonBasicEditDialog";
 import { LessonCreateDialog } from "@/components/admin/LessonCreateDialog";
-import { LessonDeleteDialog } from "@/components/admin/LessonDeleteDialog";
+import { CurriculumDeleteDialog } from "@/components/admin/CurriculumDeleteDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/lessons")({
   component: AdminLessonsPage,
@@ -546,12 +546,16 @@ function AdminLessonsPage() {
 
         <LessonCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
 
-        <LessonDeleteDialog
+        <CurriculumDeleteDialog
           open={!!deletingLesson}
           onOpenChange={(o) => {
             if (!o) setDeletingLesson(null);
           }}
-          lesson={deletingLesson}
+          target={
+            deletingLesson
+              ? { type: "lesson", id: deletingLesson.id, label: deletingLesson.title }
+              : null
+          }
         />
       </div>
     </AdminLayout>

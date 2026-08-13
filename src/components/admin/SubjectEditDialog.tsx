@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { deriveSubjectSlug } from "@/lib/import/subject-slug";
 
 export type SubjectEditValue = {
   id: string;
@@ -23,6 +24,9 @@ export type SubjectEditValue = {
   color: string | null;
   curriculum_track_id: string | null;
   grade_id: string;
+  code?: string | null;
+  group_code?: string | null;
+  group_name?: string | null;
 };
 
 type GradeOption = { id: string; name: string | null };
@@ -38,6 +42,8 @@ interface Props {
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+/** Natural codes: lowercase latin letters/digits with - or _ separators (see NAMING-CONVENTION). */
+const CODE_RE = /^[a-z0-9]+([-_][a-z0-9]+)*$/;
 
 export function SubjectEditDialog({
   open,
@@ -51,6 +57,9 @@ export function SubjectEditDialog({
   const isCreate = mode === "create";
 
   const [name, setName] = useState("");
+  const [subjectCode, setSubjectCode] = useState("");
+  const [groupCode, setGroupCode] = useState("");
+  const [groupName, setGroupName] = useState("");
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [icon, setIcon] = useState("");
   const [color, setColor] = useState("#0d7377");
@@ -63,6 +72,9 @@ export function SubjectEditDialog({
     if (!open) return;
     if (isCreate) {
       setName("");
+      setSubjectCode("");
+      setGroupCode("");
+      setGroupName("");
       setSortOrder(0);
       setIcon("");
       setColor("#0d7377");
@@ -72,6 +84,9 @@ export function SubjectEditDialog({
       setSaving(false);
     } else if (subject) {
       setName(subject.name ?? "");
+      setSubjectCode(subject.code ?? "");
+      setGroupCode(subject.group_code ?? "");
+      setGroupName(subject.group_name ?? "");
       setSortOrder(subject.sort_order ?? 0);
       setIcon(subject.icon ?? "");
       setColor(subject.color ?? "#0d7377");
@@ -108,21 +123,39 @@ export function SubjectEditDialog({
       return;
     }
 
+    const trimmedCode = subjectCode.trim().toLowerCase();
+    const trimmedGroupCode = groupCode.trim().toLowerCase();
+    const trimmedGroupName = groupName.trim();
+    if (trimmedGroupCode && !CODE_RE.test(trimmedGroupCode)) {
+      setError("كود المجموعة يجب أن يكون بحروف لاتينية صغيرة وأرقام وشرطات فقط.");
+      return;
+    }
+    if (trimmedGroupCode && !trimmedGroupName) {
+      setError("عند تحديد كود المجموعة يجب إدخال اسم المجموعة.");
+      return;
+    }
+    if (!trimmedGroupCode && trimmedGroupName) {
+      setError("اسم المجموعة يتطلب كود مجموعة.");
+      return;
+    }
+
     if (isCreate) {
       if (!gradeId || !grades.some((g) => g.id === gradeId)) {
         setError("الصف مطلوب ويجب اختياره من القائمة.");
         return;
       }
+      if (!trimmedCode || !CODE_RE.test(trimmedCode)) {
+        setError("كود المادة مطلوب بحروف لاتينية صغيرة وأرقام وشرطات فقط (مثل: arabic-g10-nahw).");
+        return;
+      }
 
-      const slugBase = trimmedName
-        .toLowerCase()
-        .replace(/[^a-z0-9\u0600-\u06FF]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .slice(0, 40) || "subject";
-      const slug = `${slugBase}-${Math.random().toString(36).slice(2, 8)}`;
+      const slug = deriveSubjectSlug(trimmedCode);
 
       const payload = {
         name: trimmedName,
+        code: trimmedCode,
+        group_code: trimmedGroupCode || null,
+        group_name: trimmedGroupCode ? trimmedGroupName : null,
         grade_id: gradeId,
         sort_order: sortOrder,
         icon: trimmedIcon || null,
@@ -151,12 +184,20 @@ export function SubjectEditDialog({
 
     if (!subject) return;
 
+    const lockedGroupCode = (subject.group_code ?? "").trim().toLowerCase();
+    if (lockedGroupCode && trimmedGroupCode !== lockedGroupCode) {
+      setError("كود المجموعة غير قابل للتغيير بعد تعيينه.");
+      return;
+    }
+
     const payload = {
       name: trimmedName,
       sort_order: sortOrder,
       icon: trimmedIcon || null,
       color: trimmedColor || null,
       curriculum_track_id: trackId || null,
+      group_code: trimmedGroupCode || null,
+      group_name: trimmedGroupCode ? trimmedGroupName : null,
     };
 
     setSaving(true);
@@ -208,6 +249,53 @@ export function SubjectEditDialog({
               dir="rtl"
             />
           </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="subject-code">كود المادة (subject_code)</Label>
+            <Input
+              id="subject-code"
+              value={subjectCode}
+              onChange={(e) => setSubjectCode(e.target.value)}
+              disabled={saving || !isCreate}
+              readOnly={!isCreate}
+              dir="ltr"
+              placeholder="arabic-g10-nahw"
+            />
+            <p className="text-xs text-muted-foreground">
+              {isCreate
+                ? "حروف لاتينية صغيرة وأرقام وشرطات فقط. يُحدَّد مرة واحدة ولا يمكن تغييره لاحقاً."
+                : "كود المادة ثابت ولا يمكن تعديله."}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="subject-group-code">كود المجموعة</Label>
+              <Input
+                id="subject-group-code"
+                value={groupCode}
+                onChange={(e) => setGroupCode(e.target.value)}
+                disabled={saving || (!isCreate && !!subject?.group_code)}
+                readOnly={!isCreate && !!subject?.group_code}
+                dir="ltr"
+                placeholder="arabic-g10-aden"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="subject-group-name">اسم المجموعة</Label>
+              <Input
+                id="subject-group-name"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                disabled={saving || !groupCode.trim()}
+                dir="rtl"
+                placeholder="اللغة العربية"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            اتركهما فارغين للمواد غير المتفرعة. المجموعة للعرض فقط ولا تؤثر على الصلاحيات أو استهداف الأسئلة.
+          </p>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

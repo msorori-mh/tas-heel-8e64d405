@@ -9,7 +9,7 @@ import {
   SubjectEditDialog,
   type SubjectEditValue,
 } from "@/components/admin/SubjectEditDialog";
-import { SubjectDeleteDialog } from "@/components/admin/SubjectDeleteDialog";
+import { CurriculumDeleteDialog } from "@/components/admin/CurriculumDeleteDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/subjects")({
   component: AdminSubjectsPage,
@@ -20,6 +20,9 @@ const PAGE_SIZE = 20;
 type SubjectRow = {
   id: string;
   name: string;
+  code: string | null;
+  group_code: string | null;
+  group_name: string | null;
   sort_order: number;
   lessons_count: number | null;
   grade_id: string;
@@ -88,7 +91,7 @@ function AdminSubjectsPage() {
       let q = supabase
         .from("subjects")
         .select(
-          "id, name, sort_order, lessons_count, grade_id, curriculum_track_id, icon, color, grade:grades!subjects_grade_id_fkey(id, name), track:curriculum_tracks!subjects_curriculum_track_id_fkey(id, track_name)",
+          "id, name, code, group_code, group_name, sort_order, lessons_count, grade_id, curriculum_track_id, icon, color, grade:grades!subjects_grade_id_fkey(id, name), track:curriculum_tracks!subjects_curriculum_track_id_fkey(id, track_name)",
           { count: "exact" }
         )
         .order("sort_order", { ascending: true })
@@ -250,6 +253,9 @@ function AdminSubjectsPage() {
                               setEditing({
                                 id: r.id,
                                 name: r.name,
+                                code: r.code ?? null,
+                                group_code: r.group_code ?? null,
+                                group_name: r.group_name ?? null,
                                 sort_order: r.sort_order,
                                 icon: r.icon,
                                 color: r.color,
@@ -299,6 +305,9 @@ function AdminSubjectsPage() {
                         setEditing({
                           id: r.id,
                           name: r.name,
+                          code: r.code ?? null,
+                          group_code: r.group_code ?? null,
+                          group_name: r.group_name ?? null,
                           sort_order: r.sort_order,
                           icon: r.icon,
                           color: r.color,
@@ -372,12 +381,14 @@ function AdminSubjectsPage() {
         tracks={tracksQ.data ?? []}
       />
 
-      <SubjectDeleteDialog
+      <CurriculumDeleteDialog
         open={deleting !== null}
         onOpenChange={(o) => {
           if (!o) setDeleting(null);
         }}
-        subject={deleting}
+        target={
+          deleting ? { type: "subject", id: deleting.id, label: deleting.name } : null
+        }
       />
     </AdminLayout>
   );
