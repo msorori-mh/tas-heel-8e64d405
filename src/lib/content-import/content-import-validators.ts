@@ -335,7 +335,9 @@ export function validateContentImportSheet(
 
   if (templateKey === "subjects") {
     validateSubjectGroupingNames(parsed.rows, warnings);
+    validateSubjectGroupCodeConsistency(parsed.rows, errors, rowNumbersWithErrors);
   }
+
 
   const hasFileLevelError = errors.some((e) => e.rowNumber == null);
   const invalidRows = hasFileLevelError
