@@ -186,7 +186,7 @@ async function questionByCode(code: string) {
 async function revisionsOf(questionId: string) {
   const { data } = await admin
     .from("question_revisions")
-    .select("id, revision_number, status, stem_text, source_payload_hash")
+    .select("id, revision_number, status, question_text, source_payload_hash")
     .eq("question_id", questionId)
     .order("revision_number", { ascending: true });
   return data ?? [];
