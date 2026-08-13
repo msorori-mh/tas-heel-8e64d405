@@ -122,21 +122,39 @@ export function SubjectEditDialog({
       return;
     }
 
+    const trimmedCode = subjectCode.trim().toLowerCase();
+    const trimmedGroupCode = groupCode.trim().toLowerCase();
+    const trimmedGroupName = groupName.trim();
+    if (trimmedGroupCode && !CODE_RE.test(trimmedGroupCode)) {
+      setError("كود المجموعة يجب أن يكون بحروف لاتينية صغيرة وأرقام وشرطات فقط.");
+      return;
+    }
+    if (trimmedGroupCode && !trimmedGroupName) {
+      setError("عند تحديد كود المجموعة يجب إدخال اسم المجموعة.");
+      return;
+    }
+    if (!trimmedGroupCode && trimmedGroupName) {
+      setError("اسم المجموعة يتطلب كود مجموعة.");
+      return;
+    }
+
     if (isCreate) {
       if (!gradeId || !grades.some((g) => g.id === gradeId)) {
         setError("الصف مطلوب ويجب اختياره من القائمة.");
         return;
       }
+      if (!trimmedCode || !CODE_RE.test(trimmedCode)) {
+        setError("كود المادة مطلوب بحروف لاتينية صغيرة وأرقام وشرطات فقط (مثل: arabic-g10-nahw).");
+        return;
+      }
 
-      const slugBase = trimmedName
-        .toLowerCase()
-        .replace(/[^a-z0-9\u0600-\u06FF]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .slice(0, 40) || "subject";
-      const slug = `${slugBase}-${Math.random().toString(36).slice(2, 8)}`;
+      const slug = deriveSubjectSlug(trimmedCode);
 
       const payload = {
         name: trimmedName,
+        code: trimmedCode,
+        group_code: trimmedGroupCode || null,
+        group_name: trimmedGroupCode ? trimmedGroupName : null,
         grade_id: gradeId,
         sort_order: sortOrder,
         icon: trimmedIcon || null,
