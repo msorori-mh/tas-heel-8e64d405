@@ -71,6 +71,9 @@ export function SubjectEditDialog({
     if (!open) return;
     if (isCreate) {
       setName("");
+      setSubjectCode("");
+      setGroupCode("");
+      setGroupName("");
       setSortOrder(0);
       setIcon("");
       setColor("#0d7377");
