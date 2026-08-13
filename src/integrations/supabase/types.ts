@@ -1542,6 +1542,47 @@ export type Database = {
           },
         ]
       }
+      question_accepted_answers: {
+        Row: {
+          answer_text: string
+          created_at: string
+          id: string
+          is_primary: boolean
+          normalization_policy: string
+          normalized_answer: string
+          question_revision_id: string
+          sort_order: number
+        }
+        Insert: {
+          answer_text: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          normalization_policy?: string
+          normalized_answer: string
+          question_revision_id: string
+          sort_order?: number
+        }
+        Update: {
+          answer_text?: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          normalization_policy?: string
+          normalized_answer?: string
+          question_revision_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_accepted_answers_question_revision_id_fkey"
+            columns: ["question_revision_id"]
+            isOneToOne: false
+            referencedRelation: "question_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       question_bank_capability_grants: {
         Row: {
           capability: string
@@ -1581,6 +1622,36 @@ export type Database = {
         }
         Relationships: []
       }
+      question_bank_rpc_idempotency: {
+        Row: {
+          actor_id: string
+          created_at: string
+          id: string
+          idempotency_key: string
+          request_fingerprint: string
+          result: Json
+          rpc_name: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          request_fingerprint: string
+          result: Json
+          rpc_name: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          request_fingerprint?: string
+          result?: Json
+          rpc_name?: string
+        }
+        Relationships: []
+      }
       question_bank_runtime_config: {
         Row: {
           attempt_pin_mode: string
@@ -1607,6 +1678,100 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      question_media: {
+        Row: {
+          alt_text_ar: string
+          caption: string | null
+          created_at: string
+          created_by: string | null
+          file_size: number | null
+          id: string
+          media_code: string
+          mime_type: string
+          question_revision_id: string
+          requires_media: boolean
+          sha256: string | null
+          sort_order: number
+          storage_path: string
+        }
+        Insert: {
+          alt_text_ar: string
+          caption?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_size?: number | null
+          id?: string
+          media_code: string
+          mime_type: string
+          question_revision_id: string
+          requires_media?: boolean
+          sha256?: string | null
+          sort_order?: number
+          storage_path: string
+        }
+        Update: {
+          alt_text_ar?: string
+          caption?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_size?: number | null
+          id?: string
+          media_code?: string
+          mime_type?: string
+          question_revision_id?: string
+          requires_media?: boolean
+          sha256?: string | null
+          sort_order?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_media_question_revision_id_fkey"
+            columns: ["question_revision_id"]
+            isOneToOne: false
+            referencedRelation: "question_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_options: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          is_correct: boolean
+          option_code: string
+          question_revision_id: string
+          sort_order: number
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          option_code: string
+          question_revision_id: string
+          sort_order?: number
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          option_code?: string
+          question_revision_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_options_question_revision_id_fkey"
+            columns: ["question_revision_id"]
+            isOneToOne: false
+            referencedRelation: "question_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       question_revisions: {
         Row: {
@@ -1702,6 +1867,97 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_solution_steps: {
+        Row: {
+          body: string
+          id: string
+          solution_id: string
+          sort_order: number
+          step_code: string
+        }
+        Insert: {
+          body: string
+          id?: string
+          solution_id: string
+          sort_order: number
+          step_code: string
+        }
+        Update: {
+          body?: string
+          id?: string
+          solution_id?: string
+          sort_order?: number
+          step_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_solution_steps_solution_id_fkey"
+            columns: ["solution_id"]
+            isOneToOne: false
+            referencedRelation: "question_solutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_solutions: {
+        Row: {
+          common_mistakes: string | null
+          created_at: string
+          created_by: string | null
+          explanation: string | null
+          hint: string | null
+          id: string
+          model_answer: string | null
+          question_revision_id: string
+          reveal_policy: string
+          simplified_rubric: string | null
+          solution_code: string
+          solution_type: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          common_mistakes?: string | null
+          created_at?: string
+          created_by?: string | null
+          explanation?: string | null
+          hint?: string | null
+          id?: string
+          model_answer?: string | null
+          question_revision_id: string
+          reveal_policy?: string
+          simplified_rubric?: string | null
+          solution_code: string
+          solution_type?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          common_mistakes?: string | null
+          created_at?: string
+          created_by?: string | null
+          explanation?: string | null
+          hint?: string | null
+          id?: string
+          model_answer?: string | null
+          question_revision_id?: string
+          reveal_policy?: string
+          simplified_rubric?: string | null
+          solution_code?: string
+          solution_type?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_solutions_question_revision_id_fkey"
+            columns: ["question_revision_id"]
+            isOneToOne: false
+            referencedRelation: "question_revisions"
             referencedColumns: ["id"]
           },
         ]
@@ -2466,6 +2722,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _qb_assert_revision_payload_hash: {
+        Args: {
+          p_payload_hash: string
+          p_payload_hash_version: string
+          p_revision_id: string
+        }
+        Returns: undefined
+      }
+      _qb_build_revision_canonical_jcs: {
+        Args: { p_revision_id: string }
+        Returns: string
+      }
+      _qb_compute_revision_payload_hash: {
+        Args: { p_revision_id: string }
+        Returns: string
+      }
+      _qb_json_num: { Args: { p: number }; Returns: string }
+      _qb_json_str: { Args: { p: string }; Returns: string }
       admin_adjust_wallet: {
         Args: {
           _amount: number
@@ -2550,6 +2824,10 @@ export type Database = {
       can_access_subject: { Args: { _subject_id: string }; Returns: boolean }
       check_lesson_question: {
         Args: { _question_id: string; _selected_index: number }
+        Returns: Json
+      }
+      compute_and_set_revision_payload_hash: {
+        Args: { p_revision_id: string }
         Returns: Json
       }
       content_review_set_state: {
