@@ -200,31 +200,9 @@ function AdminImportPage() {
 
 
 
-        <section className="rounded-2xl border border-border/55 bg-card p-5 shadow-card space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">ما الذي لم يتم تفعيله بعد؟</h2>
-          <p className="text-sm text-muted-foreground">
-            الميزات التالية قيد التطوير وستُفعَّل في مراحل لاحقة — لا يمكن استخدامها الآن.
-          </p>
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {IMPORT_NOT_ENABLED_YET.map((item) => (
-              <li key={item}>
-                <Button
-                  variant="outline"
-                  disabled
-                  className="w-full min-h-[44px] justify-between gap-2 opacity-70"
-                  aria-disabled
-                >
-                  <span>{item}</span>
-                  <Badge variant="secondary" className="text-[10px] shrink-0">قريباً</Badge>
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </section>
-
         <p className="text-xs leading-relaxed text-muted-foreground/90 border-t border-border/40 pt-4">
-          سجل عمليات الاستيراد أعلاه للقراءة فقط في هذه المرحلة. بلوحة تحكم الإدارة الشاملة ضمن
-          ADMIN-CONTROL-CENTER-01 ستُربط لاحقاً بعد اكتمال نظام الاستيراد.
+          الترتيب الرسمي لتنفيذ القوالب: 01 → 02 → 03 → 04 → 05 → 06 → 07 → 09 → 08. لا تنفّذ قالباً
+          قبل نجاح ما يسبقه، وكل تنفيذ يمرّ إلزامياً بمعاينة (Dry-Run) قبل الاعتماد.
         </p>
       </div>
     </AdminLayout>
