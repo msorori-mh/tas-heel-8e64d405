@@ -20,6 +20,9 @@ const PAGE_SIZE = 20;
 type SubjectRow = {
   id: string;
   name: string;
+  code: string | null;
+  group_code: string | null;
+  group_name: string | null;
   sort_order: number;
   lessons_count: number | null;
   grade_id: string;
