@@ -30,7 +30,8 @@ import {
   executeContentImport,
   stageContentImportRows,
 } from "@/lib/import/import-staging.server";
-import { assertGenericUpsertAllowed } from "@/lib/import/import-execution-state";
+import { assertTemplateExecutable } from "@/lib/import/import-execution-state";
+import { purgeE2eQuestions } from "./qb-e2e-teardown";
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 
@@ -135,7 +136,7 @@ async function runCycle(
   if (!base.validateOk) return base;
 
   try {
-    assertGenericUpsertAllowed(templateKey);
+    assertTemplateExecutable(templateKey);
   } catch (err) {
     return { ...base, error: (err as Error).message };
   }
@@ -213,7 +214,7 @@ async function seedQuestionBank() {
     .maybeSingle();
   if (!subject || !lesson) throw new Error("seedQuestionBank: e2e subject/lesson missing");
 
-  await admin.from("questions").delete().like("code", "e2e-%");
+  await purgeE2eQuestions(admin);
   const { error } = await admin.from("questions").insert(
     ["e2e-q-01", "e2e-q-02"].map((code, i) => ({
       code,
@@ -229,7 +230,7 @@ async function seedQuestionBank() {
 }
 
 async function teardown() {
-  await admin.from("questions").delete().like("code", "e2e-%");
+  await purgeE2eQuestions(admin);
 
   const { data: subject } = await admin
     .from("subjects")
