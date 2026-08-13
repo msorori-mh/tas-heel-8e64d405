@@ -136,11 +136,19 @@ export async function executeContentImport(
     });
 
     if (error) {
-      await asRpcClient(supabase)
-        .rpc(IMPORT_RPC.finalize, { _job_id: jobId, _succeeded: false, _error_message: error.message })
-        .catch(() => undefined);
+      // Best-effort finalize; the RPC bridge returns a thenable without .catch().
+      try {
+        await asRpcClient(supabase).rpc(IMPORT_RPC.finalize, {
+          _job_id: jobId,
+          _succeeded: false,
+          _error_message: error.message,
+        });
+      } catch {
+        // ignore — the execute error is the reportable failure
+      }
       return { results, failedTemplate: templateKey, error: error.message };
     }
+
 
     const r = (data ?? {}) as {
       inserted?: number;
