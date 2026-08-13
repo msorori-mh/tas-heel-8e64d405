@@ -435,8 +435,8 @@ DECLARE
   v_job uuid; v_row uuid; v_payload jsonb; v_res jsonb;
   v_qid uuid; v_rev uuid;
 BEGIN
-  INSERT INTO public.import_jobs (created_by, execution_state)
-  VALUES (auth.uid(), 'applying') RETURNING id INTO v_job;
+  INSERT INTO public.import_jobs (created_by, import_type, execution_state)
+  VALUES (auth.uid(), 'questions', 'applying') RETURNING id INTO v_job;
 
   v_payload := jsonb_build_object(
     'question_code', 'SMOKE-T09-1',
