@@ -2624,6 +2624,8 @@ export type Database = {
           created_at: string
           curriculum_track_id: string | null
           grade_id: string
+          group_code: string | null
+          group_name: string | null
           icon: string | null
           id: string
           lessons_count: number | null
@@ -2638,6 +2640,8 @@ export type Database = {
           created_at?: string
           curriculum_track_id?: string | null
           grade_id: string
+          group_code?: string | null
+          group_name?: string | null
           icon?: string | null
           id?: string
           lessons_count?: number | null
@@ -2652,6 +2656,8 @@ export type Database = {
           created_at?: string
           curriculum_track_id?: string | null
           grade_id?: string
+          group_code?: string | null
+          group_name?: string | null
           icon?: string | null
           id?: string
           lessons_count?: number | null
@@ -3252,6 +3258,14 @@ export type Database = {
           _reason: string
           _user_id: string
         }
+        Returns: Json
+      }
+      admin_curriculum_delete: {
+        Args: { _entity_id: string; _entity_type: string; _reason?: string }
+        Returns: Json
+      }
+      admin_curriculum_delete_preview: {
+        Args: { _entity_id: string; _entity_type: string }
         Returns: Json
       }
       admin_get_lesson_media_urls: {

@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 /** Admin paths allowed for content_manager (full admin sees everything). */
 export const CONTENT_MANAGER_ADMIN_PATHS = [
   "/admin/academic",
+  "/admin/curriculum",
   "/admin/subjects",
   "/admin/units",
   "/admin/lessons",
@@ -51,6 +52,7 @@ type SidebarLink = {
     | "/admin/students"
     | "/admin/users"
     | "/admin/academic"
+    | "/admin/curriculum"
     | "/admin/subjects"
     | "/admin/units"
     | "/admin/lessons"
