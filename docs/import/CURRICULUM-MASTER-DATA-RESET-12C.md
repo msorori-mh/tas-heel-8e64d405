@@ -99,12 +99,63 @@ exam_templates, exam_template_questions, grades, curriculum_tracks, governorates
 
 أُخذت قبل أي كتابة، وتسمح بإعادة بناء أي صف محذوف حرفياً.
 
-## الخطوات التالية (بالترتيب المعتمد)
+## 12C.5 — Controlled cleanup (DONE, 2026-08-13T23:0xZ)
+
+نُفِّذ حصراً عبر `admin_curriculum_delete` من جلسة Full Admin حقيقية
+(`msorori201201@gmail.com`)، مع `admin_curriculum_delete_preview` قبل كل كيان.
+لم يُستخدم أي SQL حذف مباشر.
+
+إصلاحان في الدوال قبل التنفيذ (كانا يُفشلان كل معاينة):
+- `exam_session_questions` / `practice_attempt_questions` → العمود الصحيح `logical_question_id`
+  (وأُضيف فحص `exam_session_answers`).
+- أبناء النسخة (`question_options/media/solutions/accepted_answers`) مرتبطون بـ
+  `question_revision_id` وليس `question_id` — صُحِّح في المعاينة والحذف معاً.
 
 ```text
-12C.4 group_code/group_name migration   ← مُفوَّض بعد 12C.1 + 12C.2
-12C.3 Secured RPC CRUD + /admin/curriculum
-12C.5 Cleanup عبر الواجهة الجديدة
-12C.6 Verify clean baseline
-12C.7 Regenerate templates + tests
+exam_template            4/4   (+ exam_template_questions 6 كأثر تابع)
+question                14/14
+lesson                  10/10
+unit                      6/6
+subject                 30/30
+blocked / archived        0
 ```
+
+## 12C.6 — Clean baseline verify = PASS
+
+```text
+subjects 0   units 0   lessons 0   lesson_book_contents 0   lesson_summaries 0
+lesson_explanations 0   lesson_resources 0   lesson_assessments 0
+assessment_questions 0   questions 0   question_revisions 0   question_targets 0
+question_options 0   exam_templates 0   exam_template_questions 0
+
+profiles 18   grades 3   curriculum_tracks 3   governorates 22   (unchanged)
+import_jobs 6 retained   audit_logs 72 (منها 64 curriculum_hard_delete)
+student activity affected 0   stuck applying jobs 0
+```
+
+اختبار واجهة الطالب على الحالات الفارغة (`/app`, `/semesters`, `/grades`,
+`/exams/history`, `/progress`, `/admin/curriculum`): لا 500، لا مسار مكسور،
+لا تحميل لانهائي، console errors = 0.
+
+## 12C.7 — Official templates = PASS
+
+```text
+public/content-import-templates = official (9 قوالب أُعيد توليدها)
+public/import-templates         = not operational / not shown
+                                  (بقي كـ labels للسجل فقط، وأُزيل رابط التنزيل)
+admin UI                        = official package only
+template-contract-sync-12a      23/23 PASS
+import-contract-final-01        11/11 PASS
+typecheck                       PASS
+```
+
+## النتيجة
+
+```text
+CURRICULUM_MASTER_DATA_RESET_AND_ADMIN_CRUD_12C = PASS
+DATABASE CURRICULUM BASELINE = CLEAN
+ADMIN CURRICULUM CRUD = READY
+OFFICIAL IMPORT TEMPLATES = READY
+FIRST_REAL_CONTENT_BATCH_12 = GO
+```
+
