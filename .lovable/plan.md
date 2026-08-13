@@ -1,0 +1,60 @@
+# G1_SHARED_DB_MIGRATION_APPLY_11A
+
+تطبيق ترحيل المرحلة 11 على قاعدة البيانات المشتركة (كتابة مخطط إنتاجية فعلية)، ثم تحقق ما بعد التطبيق.
+
+## حالة القاعدة قبل التطبيق (تم فحصها الآن)
+
+| المؤشر | القيمة |
+| --- | --- |
+| `question_targets` | 0 صف |
+| `question_revisions` | 0 صف |
+| `assessment_questions` | 0 صف |
+| `questions` (قديمة) | 14 صفاً |
+| `question_targets.revision_id` موجود؟ | لا |
+| صفوف غامضة للـ Backfill | 0 |
+
+النتيجة: الـ Backfill سيكون بلا عمل فعلي (لا وجهات قائمة)، والمخاطرة محصورة في تغيير المخطط والدوال فقط. لا توجد روابط تقييم-سؤال قائمة يمكن أن تنكسر.
+
+## الخطوات
+
+1. **نقل الملف من pending إلى مطبّق**: تُرسل محتويات
+   `supabase/migrations-pending/20260814010000_g1_published_revision_target_binding_11.sql`
+   حرفياً كما هي عبر أداة الترحيل (بدون أي إعادة صياغة)، لتصبح ترحيلاً معتمداً في `supabase/migrations/`.
+2. **تحقق ما بعد التطبيق (قراءة فقط)**:
+   - وجود العمود `question_targets.revision_id` بخاصية NOT NULL.
+   - وجود المفتاح المركب `question_targets_revision_question_fk`.
+   - وجود الفهارس: `question_targets_revision_dedupe_uidx`،
+     `question_targets_one_primary_per_revision_uidx`، واختفاء الفهارس القديمة
+     `question_targets_dedupe_uidx` / `question_targets_one_primary_uidx`.
+   - وجود قيد الشكل `question_targets_shape_chk` واختفاء قيد QB-01 المجهول.
+   - وجود التريغر `qb_guard_targets_revision_immutable` والدالة
+     `_qb_assert_revision_targets_publishable`.
+   - توقيع `retarget_question` أصبح رباعي المعاملات، واختفاء النسخة الثلاثية.
+   - سلامة الجداول: عدد صفوف `questions` ما زال 14، ولا صفوف مفقودة في أي جدول.
+3. **E2E قصير غير مدمِّر** على القاعدة المشتركة ببادئة معزولة `e2e-g1a-`:
+   استيراد قالب 09 → إنشاء DRAFT + Target أساسي → محاولة ربط تقييم قبل النشر (يجب أن تُرفض
+   بـ `QUESTION_PUBLISH_REQUIRED`) → نشر → ربط ناجح → محاولة تعديل وجهة منشورة (تُرفض) →
+   تنظيف كامل عبر مسار الـ teardown القائم مع إبقاء `import_jobs` كما هي.
+4. **فحص انحدار (Regression)**: تشغيل مسار الطالب القائم (درس + تقييم موجود) للتأكد أن
+   `validate_assessment_question_link` الجديدة لم تكسر أي محتوى حالي — وهو محقق مسبقاً لأن
+   `assessment_questions` فارغ.
+5. **توثيق**: تقرير `docs/import/G1-SHARED-DB-MIGRATION-APPLY-11A.md` يتضمن حالة ما قبل
+   التطبيق، مخرجات التحقق، نتيجة الـ E2E، وخطة التراجع.
+
+## خطة التراجع
+
+الترحيل يعمل داخل معاملة واحدة وفاشل-مغلق: إما يكتمل أو لا يغيّر شيئاً. وفي حال ظهور مشكلة
+بعد التطبيق، التراجع آمن حالياً لأن `question_targets` و`question_revisions` فارغتان: ترحيل
+عكسي يسقط العمود والقيود والفهارس والتريغر ويعيد الدالتين القديمتين
+(`validate_assessment_question_link` و`retarget_question` الثلاثية) دون أي فقد بيانات.
+
+## خارج النطاق
+
+- لا رفع محتوى حقيقي في هذه المرحلة (هذا هو `FIRST_REAL_CONTENT_BATCH_12`).
+- لا نشر تلقائي لأي سؤال.
+- لا تغييرات واجهة.
+
+## بوابة الخروج
+
+`G1_SHARED_DB_MIGRATION_APPLY_11A = PASS` عند: تطبيق الترحيل + كل بنود التحقق أعلاه ناجحة +
+E2E القصير PASS + صفر انحدار.
