@@ -9,7 +9,7 @@ import {
   SubjectEditDialog,
   type SubjectEditValue,
 } from "@/components/admin/SubjectEditDialog";
-import { SubjectDeleteDialog } from "@/components/admin/SubjectDeleteDialog";
+import { CurriculumDeleteDialog } from "@/components/admin/CurriculumDeleteDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/subjects")({
   component: AdminSubjectsPage,
