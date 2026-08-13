@@ -132,6 +132,8 @@ export function getImportOrderGroupsForStaff(
   return IMPORT_ORDER_GROUPS.filter((group) => group.range !== "11–12");
 }
 
-export function importTemplateDownloadUrl(file: string): string {
-  return `/import-templates/${file}`;
-}
+// NOTE (12C.7): the legacy `/import-templates` package is NOT operational.
+// The official package is `/content-import-templates` (see
+// `src/lib/content-import/content-import-templates.ts`). This catalog is kept
+// for labelling historical import jobs only — no download URL is exposed.
+
