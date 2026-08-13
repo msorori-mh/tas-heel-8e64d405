@@ -50,12 +50,11 @@ INSERT INTO public.question_options (question_revision_id, option_code, body, so
 SELECT public.compute_and_set_revision_payload_hash('33333333-2222-0000-0000-000000000001');
 UPDATE public.question_revisions SET status = 'APPROVED'
   WHERE id = '33333333-2222-0000-0000-000000000001';
-UPDATE public.question_revisions
-   SET status = 'PUBLISHED', published_at = now(), published_by = '11111111-1111-1111-1111-111111111111'
- WHERE id = '33333333-2222-0000-0000-000000000001';
-UPDATE public.questions
-   SET current_published_revision_id = '33333333-2222-0000-0000-000000000001'
- WHERE id = '33333333-1111-0000-0000-000000000001';
+SELECT public.publish_question_revision(
+  '33333333-1111-0000-0000-000000000001',
+  '33333333-2222-0000-0000-000000000001',
+  NULL,
+  'bf-seed-publish-1');
 
 INSERT INTO public.question_targets (question_id, target_type, subject_id, unit_id, lesson_id, is_primary)
 VALUES ('33333333-1111-0000-0000-000000000001', 'LESSON', '33333333-0000-0000-0000-000000000003',
