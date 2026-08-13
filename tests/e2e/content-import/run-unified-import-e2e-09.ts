@@ -126,7 +126,15 @@ async function mintClient(userId: string): Promise<SupabaseClient<Database>> {
 
 const PREFIX = "e2e-u9-";
 
-/** file per template — the package always ships the full set. */
+/**
+ * file per template — the package ships every content template.
+ *
+ * `assessment_questions` (template 08) is deliberately NOT part of the package:
+ * imported questions are draft-only identity shells with no legacy
+ * lesson/subject binding (that binding is what would leak drafts to students),
+ * and `validate_assessment_question_link` refuses to link such a question. The
+ * refusal is asserted explicitly in its own pass below (gap G-1).
+ */
 const PACKAGE_FILES: Record<string, string> = {
   subjects: "u09_01_subjects.xlsx",
   units: "u09_02_units.xlsx",
@@ -136,7 +144,6 @@ const PACKAGE_FILES: Record<string, string> = {
   resources: "u09_06_resources.xlsx",
   assessments: "u09_07_assessments.xlsx",
   questions: "u09_09_questions.xlsx",
-  assessment_questions: "u09_08_assessment_questions.xlsx",
 };
 
 const PACKAGE_TEMPLATES = Object.keys(PACKAGE_FILES) as ContentImportTemplateKey[];
@@ -150,7 +157,6 @@ const EXPECTED_ROWS: Record<string, number> = {
   resources: 2,
   assessments: 1,
   questions: 3,
-  assessment_questions: 2,
 };
 
 interface PackageRun {
