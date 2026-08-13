@@ -23,6 +23,9 @@ export type SubjectEditValue = {
   color: string | null;
   curriculum_track_id: string | null;
   grade_id: string;
+  code?: string | null;
+  group_code?: string | null;
+  group_name?: string | null;
 };
 
 type GradeOption = { id: string; name: string | null };
