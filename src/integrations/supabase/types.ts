@@ -3578,6 +3578,7 @@ export type Database = {
         }
         Returns: Json
       }
+      qb_e2e_purge_questions: { Args: { p_prefix: string }; Returns: number }
       qb_has_capability: {
         Args: { p_capability: string; p_user_id: string }
         Returns: boolean
