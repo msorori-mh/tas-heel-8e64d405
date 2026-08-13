@@ -3056,6 +3056,16 @@ export type Database = {
         Args: { _answers: Json; _unit_id: string }
         Returns: Json
       }
+      grant_question_bank_capability: {
+        Args: {
+          p_capability: string
+          p_reason: string
+          p_scope_id: string
+          p_scope_type: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       has_active_subscription: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -3147,6 +3157,14 @@ export type Database = {
       }
       reject_wallet_topup_request: {
         Args: { p_rejection_reason: string; p_request_id: string }
+        Returns: Json
+      }
+      retarget_question: {
+        Args: { p_question_id: string; p_reason: string; p_targets: Json }
+        Returns: Json
+      }
+      revoke_question_bank_capability: {
+        Args: { p_grant_id: string; p_reason: string }
         Returns: Json
       }
       start_exam_session: { Args: { _template_id: string }; Returns: string }
