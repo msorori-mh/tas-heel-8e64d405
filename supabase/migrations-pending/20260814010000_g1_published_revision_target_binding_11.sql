@@ -106,7 +106,24 @@ DO $$ BEGIN
     ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Drop the QB-01 anonymous shape CHECK: it forced every LESSON target to carry a
+-- unit_id, which is wrong for curricula where a lesson hangs directly off the
+-- subject (lessons.unit_id IS NULL). Replaced by question_targets_shape_chk below.
+DO $$
+DECLARE v_name text;
+BEGIN
+  SELECT conname INTO v_name
+  FROM pg_constraint
+  WHERE conrelid = 'public.question_targets'::regclass
+    AND contype = 'c'
+    AND pg_get_constraintdef(oid) LIKE '%unit_id IS NOT NULL%AND lesson_id IS NOT NULL%';
+  IF v_name IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE public.question_targets DROP CONSTRAINT %I', v_name);
+  END IF;
+END $$;
+
 -- Shape check: target_type must match the populated hierarchy columns.
+-- LESSON targets accept a NULL unit_id (lesson attached directly to a subject).
 DO $$ BEGIN
   ALTER TABLE public.question_targets
     ADD CONSTRAINT question_targets_shape_chk CHECK (
