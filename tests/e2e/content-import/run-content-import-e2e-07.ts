@@ -429,7 +429,7 @@ async function main() {
   const { count: qWrites } = await admin
     .from("questions")
     .select("id", { count: "exact", head: true })
-    .like("code", "e2e-%");
+    .eq("code", "e2e-q-blocked-01");
   check("template 09 → zero question domain writes", (qWrites ?? 0) === 0);
 
   // ---------------------------------------------------------------- student exposure

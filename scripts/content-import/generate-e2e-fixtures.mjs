@@ -134,7 +134,7 @@ export const FIXTURE_SHEETS = {
   "09_questions.xlsx": sheet(
     "questions",
     ["question_code", "subject_code", "lesson_code", "question_text", "option_1", "option_2", "correct_index"],
-    [["e2e-q-01", E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال تجريبي؟", "خيار أ", "خيار ب", 1]],
+    [["e2e-q-blocked-01", E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال تجريبي؟", "خيار أ", "خيار ب", 1]],
   ),
 };
 
