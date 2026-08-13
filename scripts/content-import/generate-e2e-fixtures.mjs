@@ -318,12 +318,18 @@ function unifiedPackageSheets() {
       QUESTION_COLUMNS,
       [[U9.questionA, S, "", "سؤال الحزمة أ — نص معدّل؟", "خيار أ", "خيار ب", 1, "شرح أ"]],
     ),
-    /** Broken lesson reference — the lessons template must fail atomically. */
+    /**
+     * Broken subject reference. An unknown unit_code only resolves to NULL
+     * (units are optional), so the failure must come from the required
+     * subject binding: valid row first, then the unresolvable one, which
+     * proves the whole template rolls back rather than half-applying.
+     */
     "u09_03_lessons_broken.xlsx": sheet(
       "lessons",
       ["lesson_code", "subject_code", "unit_code", "title", "duration", "semester", "is_free", "sort_order"],
       [
-        [U9.lessonBroken, S, "e2e-u9-unit-missing", "درس بمرجع وحدة مفقودة", "5 دقائق", 1, "false", 9],
+        [U9.lessonA, S, U9.unit, "درس الحزمة الأول", "12 دقيقة", 1, "false", 1],
+        [U9.lessonBroken, "e2e-u9-sub-missing", U9.unit, "درس بمرجع مادة مفقودة", "5 دقائق", 1, "false", 9],
       ],
     ),
   };
