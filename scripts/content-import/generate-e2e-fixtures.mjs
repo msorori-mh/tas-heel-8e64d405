@@ -29,10 +29,28 @@ export const E2E_GRADE_SLUG = "grade-12";
 export const E2E_TRACK_CODE = "aden";
 
 /**
- * Bank questions the harness seeds directly against the e2e lesson.
- * Template 09 is not importable, so the bank side is prepared out-of-band.
+ * Bank questions the harness seeds directly against the e2e lesson (template 08
+ * links only; it never creates question content).
  */
 export const E2E_QUESTION_CODES = ["e2e-q-01", "e2e-q-02"];
+
+/** Template 09 (phase 08) — imported through the question-bank binding. */
+export const E2E_IMPORT_QUESTION_A = "e2e-qi-01";
+export const E2E_IMPORT_QUESTION_B = "e2e-qi-02";
+export const E2E_IMPORT_QUESTION_C = "e2e-qi-03";
+export const E2E_IMPORT_QUESTION_D = "e2e-qi-04";
+
+const QUESTION_COLUMNS = [
+  "question_code",
+  "subject_code",
+  "lesson_code",
+  "question_text",
+  "option_1",
+  "option_2",
+  "correct_index",
+  "explanation",
+];
+
 
 function sheet(name, columns, rows) {
   return { name, columns, rows };
