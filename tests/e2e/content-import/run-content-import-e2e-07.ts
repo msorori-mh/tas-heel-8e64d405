@@ -197,9 +197,8 @@ async function domainCounts() {
 }
 
 /**
- * The question bank is deliberately outside the import pipeline (template 09 is
- * refused), so template 08's link targets are seeded here against the imported
- * e2e lesson. Removed again during teardown.
+ * Template 08 only links existing questions, so its link targets are seeded here
+ * against the imported e2e lesson. Removed again during teardown.
  */
 async function seedQuestionBank() {
   const { data: subject } = await admin
