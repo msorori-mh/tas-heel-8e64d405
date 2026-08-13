@@ -40,6 +40,26 @@ export const E2E_IMPORT_QUESTION_B = "e2e-qi-02";
 export const E2E_IMPORT_QUESTION_C = "e2e-qi-03";
 export const E2E_IMPORT_QUESTION_D = "e2e-qi-04";
 
+/**
+ * UNIFIED_OPERATIONAL_E2E_09 — codes for the single coherent package that runs
+ * every template together. Prefixed with `e2e-u9-` so it never collides with
+ * the phase 07/08 fixtures while staying inside the `e2e-` teardown scope.
+ */
+export const U9 = {
+  subject: "e2e-u9-sub",
+  unit: "e2e-u9-unit",
+  lessonA: "e2e-u9-les-01",
+  lessonB: "e2e-u9-les-02",
+  lessonBroken: "e2e-u9-les-broken",
+  explanation: "e2e-u9-exp-01",
+  resourceA: "e2e-u9-res-01",
+  resourceB: "e2e-u9-res-02",
+  assessment: "e2e-u9-asm-01",
+  questionA: "e2e-u9-q-01",
+  questionB: "e2e-u9-q-02",
+  questionC: "e2e-u9-q-03",
+};
+
 const QUESTION_COLUMNS = [
   "question_code",
   "subject_code",
