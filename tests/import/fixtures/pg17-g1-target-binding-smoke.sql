@@ -425,3 +425,70 @@ BEGIN
   DELETE FROM public.questions WHERE id = v_q;
   RAISE NOTICE 'PASS S8 cascade delete of a draft revision removes its targets';
 END $$;
+
+-- ===========================================================================
+-- S9 — real workflow: Template 09 ingest -> DRAFT -> approve -> publish
+--      -> Template 08 assessment binding.
+-- ===========================================================================
+DO $$
+DECLARE
+  v_job uuid; v_row uuid; v_payload jsonb; v_res jsonb;
+  v_qid uuid; v_rev uuid;
+BEGIN
+  INSERT INTO public.import_jobs (created_by, execution_state)
+  VALUES (auth.uid(), 'applying') RETURNING id INTO v_job;
+
+  v_payload := jsonb_build_object(
+    'question_code', 'SMOKE-T09-1',
+    'question_text', 'imported question',
+    'subject_code', 'G11-SUB-PHY',
+    'lesson_code', 'l1',
+    'option_1', 'a', 'option_2', 'b',
+    'correct_index', '1'
+  );
+
+  INSERT INTO public.import_staging_rows (job_id, template_key, row_number, payload, row_hash, is_valid)
+  VALUES (v_job, 'questions', 1, v_payload, public._qb_import_row_hash(v_payload), true)
+  RETURNING id INTO v_row;
+
+  v_res := public.qb_import_ingest_revision(v_row);
+  v_qid := (v_res->>'question_id')::uuid;
+  v_rev := (v_res->>'revision_id')::uuid;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.question_revisions WHERE id = v_rev AND status = 'DRAFT'
+  ) THEN
+    RAISE EXCEPTION 'S9 FAIL: ingest did not produce a DRAFT revision';
+  END IF;
+  RAISE NOTICE 'PASS S9a template 09 ingest creates a DRAFT revision';
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.question_targets
+    WHERE revision_id = v_rev AND question_id = v_qid
+      AND target_type = 'LESSON' AND is_primary
+  ) THEN
+    RAISE EXCEPTION 'S9 FAIL: ingest target not bound to the draft revision as primary';
+  END IF;
+  RAISE NOTICE 'PASS S9b ingest binds the target to that exact draft revision (primary)';
+
+  -- Template 08 must still refuse the question while it is only a draft.
+  BEGIN
+    INSERT INTO public.assessment_questions (assessment_id, question_id)
+    VALUES ('22222222-0000-0000-0000-000000000007', v_qid);
+    RAISE EXCEPTION 'S9 FAIL: imported draft question was bindable';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM LIKE '%QUESTION_PUBLISH_REQUIRED%' THEN
+      RAISE NOTICE 'PASS S9c imported draft is not bindable by template 08';
+    ELSE RAISE; END IF;
+  END;
+
+  -- Review -> approve -> publish, then template 08 succeeds.
+  UPDATE public.question_revisions SET status = 'READY_FOR_REVIEW' WHERE id = v_rev;
+  PERFORM pg_temp.approve_and_publish(v_qid, v_rev);
+
+  INSERT INTO public.assessment_questions (assessment_id, question_id)
+  VALUES ('22222222-0000-0000-0000-000000000007', v_qid);
+  RAISE NOTICE 'PASS S9d after publish, template 08 binding succeeds on the targeted lesson';
+
+  UPDATE public.import_jobs SET execution_state = 'succeeded' WHERE id = v_job;
+END $$;
