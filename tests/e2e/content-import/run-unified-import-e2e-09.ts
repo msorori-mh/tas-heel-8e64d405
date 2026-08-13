@@ -438,6 +438,10 @@ async function main() {
     `roots=${questionsAfterFirst.length}`,
   );
 
+  // G-1 — template 08 against imported (draft-only) questions.
+  // The question root has no legacy lesson/subject binding on purpose, so the
+  // link guard must refuse and write nothing.
+  const linkRun = await runPackage(staff, { assessment_questions: "u09_08_assessment_questions.xlsx" });
   const { count: linkedCount } = await admin
     .from("assessment_questions")
     .select("id", { count: "exact", head: true })
@@ -445,7 +449,11 @@ async function main() {
       "question_id",
       questionsAfterFirst.map((q) => q.id),
     );
-  check("07 assessment links resolved against the imported question roots", linkedCount === 2, `links=${linkedCount}`);
+  check(
+    "07 G-1 — linking a draft-only question is refused, zero links written",
+    linkRun.error !== null && linkRun.failedTemplate === "assessment_questions" && linkedCount === 0,
+    `err=${linkRun.error ?? "none"} links=${linkedCount}`,
+  );
 
   // ---------------------------------------------------------------- review state
   const { data: subjectReview } = await admin
