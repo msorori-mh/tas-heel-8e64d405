@@ -45,6 +45,21 @@ const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 /** Natural codes: lowercase latin letters/digits with - or _ separators (see NAMING-CONVENTION). */
 const CODE_RE = /^[a-z0-9]+([-_][a-z0-9]+)*$/;
 
+/** Surface the SUBJECT_AS_BRANCH database guards as readable Arabic messages. */
+function mapSubjectWriteError(message: string, fallback: string): string {
+  if (message.includes("GROUP_NAME_CONFLICT")) {
+    return "اسم المجموعة مختلف عن الاسم المستخدم لنفس كود المجموعة في هذا الصف والمسار.";
+  }
+  if (message.includes("GROUP_CODE_IMMUTABLE")) {
+    return "كود المجموعة غير قابل للتغيير بعد تعيينه.";
+  }
+  if (message.includes("NATURAL_CODE_IMMUTABLE")) {
+    return "كود المادة ثابت ولا يمكن تعديله.";
+  }
+  return fallback;
+}
+
+
 export function SubjectEditDialog({
   open,
   onOpenChange,
