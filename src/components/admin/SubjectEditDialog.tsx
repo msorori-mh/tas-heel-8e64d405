@@ -184,12 +184,20 @@ export function SubjectEditDialog({
 
     if (!subject) return;
 
+    const lockedGroupCode = (subject.group_code ?? "").trim().toLowerCase();
+    if (lockedGroupCode && trimmedGroupCode !== lockedGroupCode) {
+      setError("كود المجموعة غير قابل للتغيير بعد تعيينه.");
+      return;
+    }
+
     const payload = {
       name: trimmedName,
       sort_order: sortOrder,
       icon: trimmedIcon || null,
       color: trimmedColor || null,
       curriculum_track_id: trackId || null,
+      group_code: trimmedGroupCode || null,
+      group_name: trimmedGroupCode ? trimmedGroupName : null,
     };
 
     setSaving(true);
