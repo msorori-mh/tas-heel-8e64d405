@@ -448,8 +448,8 @@ BEGIN
   );
 
   INSERT INTO public.import_staging_rows (
-    job_id, template_key, row_number, natural_key, payload, row_hash, is_valid)
-  VALUES (v_job, 'questions', 1, 'SMOKE-T09-1', v_payload,
+    job_id, template_key, row_number, natural_key, planned_action, payload, row_hash, is_valid)
+  VALUES (v_job, 'questions', 1, 'SMOKE-T09-1', 'INSERT', v_payload,
           public._qb_import_row_hash(v_payload), true)
   RETURNING id INTO v_row;
 
