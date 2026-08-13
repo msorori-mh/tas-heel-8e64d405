@@ -29,7 +29,8 @@ const TEMPLATE_DIR = join(process.cwd(), "public", "content-import-templates");
 async function headersOf(filename: string): Promise<string[]> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(await readFile(join(TEMPLATE_DIR, filename)));
-  const ws = wb.worksheets[0]!;
+  // Sheet 1 is the Arabic instructions sheet; the data sheet is the last one.
+  const ws = wb.worksheets[wb.worksheets.length - 1]!;
   const row = ws.getRow(1);
   const headers: string[] = [];
   row.eachCell((cell) => {
