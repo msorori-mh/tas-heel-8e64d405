@@ -492,5 +492,4 @@ BEGIN
   VALUES ('22222222-0000-0000-0000-000000000007', v_qid);
   RAISE NOTICE 'PASS S9d after publish, template 08 binding succeeds on the targeted lesson';
 
-  UPDATE public.import_jobs SET execution_state = 'succeeded' WHERE id = v_job;
 END $$;
