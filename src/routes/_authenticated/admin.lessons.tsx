@@ -546,12 +546,16 @@ function AdminLessonsPage() {
 
         <LessonCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
 
-        <LessonDeleteDialog
+        <CurriculumDeleteDialog
           open={!!deletingLesson}
           onOpenChange={(o) => {
             if (!o) setDeletingLesson(null);
           }}
-          lesson={deletingLesson}
+          target={
+            deletingLesson
+              ? { type: "lesson", id: deletingLesson.id, label: deletingLesson.title }
+              : null
+          }
         />
       </div>
     </AdminLayout>
