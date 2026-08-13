@@ -188,6 +188,12 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
               </div>
             )}
 
+            {!isAdmin && (
+              <p className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                معاينة فقط — تنفيذ الحذف متاح لمدير كامل الصلاحيات فقط (يُفرض داخل الخادم).
+              </p>
+            )}
+
             <p className="text-xs text-muted-foreground">
               الحذف يتم دفعة واحدة داخل القاعدة ويُسجَّل في سجل التدقيق باسم المنفّذ.
             </p>
