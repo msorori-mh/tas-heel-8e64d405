@@ -20,6 +20,7 @@ import {
   UserCog,
   Wallet,
   Landmark,
+  Network,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { filterAdminSidebarLinks } from "@/lib/admin-route-access";
@@ -31,6 +32,7 @@ type LinkItem = {
     | "/admin/students"
     | "/admin/users"
     | "/admin/academic"
+    | "/admin/curriculum"
     | "/admin/subjects"
     | "/admin/units"
     | "/admin/lessons"
@@ -55,6 +57,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/students", label: "الطلاب", icon: Users },
   { href: "/admin/users", label: "المستخدمون والصلاحيات", icon: UserCog },
   { href: "/admin/academic", label: "المحتوى الدراسي", icon: BookOpen },
+  { href: "/admin/curriculum", label: "إدارة المناهج", icon: Network },
   { href: "/admin/subjects", label: "المواد", icon: BookOpen },
   { href: "/admin/units", label: "الوحدات", icon: Layers },
   { href: "/admin/lessons", label: "الدروس", icon: BookOpen },
