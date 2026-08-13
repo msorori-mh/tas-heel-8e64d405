@@ -40,6 +40,26 @@ export const E2E_IMPORT_QUESTION_B = "e2e-qi-02";
 export const E2E_IMPORT_QUESTION_C = "e2e-qi-03";
 export const E2E_IMPORT_QUESTION_D = "e2e-qi-04";
 
+/**
+ * UNIFIED_OPERATIONAL_E2E_09 — codes for the single coherent package that runs
+ * every template together. Prefixed with `e2e-u9-` so it never collides with
+ * the phase 07/08 fixtures while staying inside the `e2e-` teardown scope.
+ */
+export const U9 = {
+  subject: "e2e-u9-sub",
+  unit: "e2e-u9-unit",
+  lessonA: "e2e-u9-les-01",
+  lessonB: "e2e-u9-les-02",
+  lessonBroken: "e2e-u9-les-broken",
+  explanation: "e2e-u9-exp-01",
+  resourceA: "e2e-u9-res-01",
+  resourceB: "e2e-u9-res-02",
+  assessment: "e2e-u9-asm-01",
+  questionA: "e2e-u9-q-01",
+  questionB: "e2e-u9-q-02",
+  questionC: "e2e-u9-q-03",
+};
+
 const QUESTION_COLUMNS = [
   "question_code",
   "subject_code",
@@ -190,7 +210,130 @@ export const FIXTURE_SHEETS = {
       [E2E_IMPORT_QUESTION_D, E2E_SUBJECT_CODE, "e2e-lesson-missing", "سؤال بمرجع درس مفقود؟", "خيار أ", "خيار ب", 2, ""],
     ],
   ),
+
+  // --- unified package (phase 09) ------------------------------------------
+  ...unifiedPackageSheets(),
 };
+
+/**
+ * CONTENT_AND_QUESTION_UNIFIED_OPERATIONAL_E2E_09 — one coherent package that
+ * exercises every template against a single subject/unit/lesson tree.
+ * All codes stay under the `e2e-` prefix so the shared teardown still applies.
+ */
+function unifiedPackageSheets() {
+  const S = U9.subject;
+  const L1 = U9.lessonA;
+  const L2 = U9.lessonB;
+  return {
+    "u09_01_subjects.xlsx": sheet(
+      "subjects",
+      ["subject_code", "name", "grade_slug", "track_code", "semester", "icon", "color", "sort_order"],
+      [[S, "مادة الحزمة الموحّدة", E2E_GRADE_SLUG, E2E_TRACK_CODE, 1, "book", "#0EA5E9", 950]],
+    ),
+    "u09_02_units.xlsx": sheet(
+      "units",
+      ["unit_code", "subject_code", "title", "description", "semester", "is_free", "sort_order"],
+      [[U9.unit, S, "وحدة الحزمة الموحّدة", "وصف الوحدة", 1, "false", 1]],
+    ),
+    "u09_03_lessons.xlsx": sheet(
+      "lessons",
+      ["lesson_code", "subject_code", "unit_code", "title", "duration", "semester", "is_free", "sort_order"],
+      [
+        [L1, S, U9.unit, "درس الحزمة الأول", "12 دقيقة", 1, "false", 1],
+        [L2, S, U9.unit, "درس الحزمة الثاني", "9 دقائق", 1, "false", 2],
+      ],
+    ),
+    "u09_04_book_contents.xlsx": sheet(
+      "book_contents",
+      ["subject_code", "lesson_code", "content", "pdf_url"],
+      [[S, L1, "## محتوى كتاب الحزمة\n\nفقرة تجريبية موحّدة.", ""]],
+    ),
+    "u09_05_explanations.xlsx": sheet(
+      "explanations",
+      ["subject_code", "lesson_code", "explanation_code", "title", "content", "sort_order"],
+      [[S, L1, U9.explanation, "شرح الحزمة", "نص شرح الحزمة الموحّدة.", 1]],
+    ),
+    "u09_06_resources.xlsx": sheet(
+      "resources",
+      [
+        "subject_code",
+        "lesson_code",
+        "resource_code",
+        "resource_type",
+        "title",
+        "description",
+        "resource_url",
+        "sort_order",
+      ],
+      [
+        [S, L1, U9.resourceA, "link", "مورد الحزمة الأول", "رابط خارجي", "https://example.org/u09-a", 1],
+        [S, L2, U9.resourceB, "link", "مورد الحزمة الثاني", "رابط خارجي", "https://example.org/u09-b", 2],
+      ],
+    ),
+    "u09_07_assessments.xlsx": sheet(
+      "assessments",
+      ["assessment_code", "subject_code", "lesson_code", "title", "instructions", "sort_order"],
+      [[U9.assessment, S, L1, "تقييم الحزمة", "أجب عن الأسئلة.", 1]],
+    ),
+    "u09_08_assessment_questions.xlsx": sheet(
+      "assessment_questions",
+      ["assessment_code", "question_code", "sort_order", "points"],
+      [
+        [U9.assessment, U9.questionA, 1, 1],
+        [U9.assessment, U9.questionB, 2, 1],
+      ],
+    ),
+    "u09_09_questions.xlsx": sheet(
+      "questions",
+      QUESTION_COLUMNS,
+      [
+        [U9.questionA, S, L1, "سؤال الحزمة أ؟", "خيار أ", "خيار ب", 1, "شرح أ"],
+        [U9.questionB, S, L1, "سؤال الحزمة ب؟", "خيار أ", "خيار ب", 2, ""],
+        [U9.questionC, S, L2, "سؤال الحزمة ج؟", "خيار أ", "خيار ب", 1, ""],
+      ],
+    ),
+
+    /** Partial update — only the second lesson changed. */
+    "u09_03_lessons_changed.xlsx": sheet(
+      "lessons",
+      ["lesson_code", "subject_code", "unit_code", "title", "duration", "semester", "is_free", "sort_order"],
+      [
+        [L1, S, U9.unit, "درس الحزمة الأول", "12 دقيقة", 1, "false", 1],
+        [L2, S, U9.unit, "درس الحزمة الثاني — عنوان معدّل", "9 دقائق", 1, "false", 2],
+      ],
+    ),
+    /** Partial update — only question A content changed. */
+    "u09_09_questions_changed.xlsx": sheet(
+      "questions",
+      QUESTION_COLUMNS,
+      [
+        [U9.questionA, S, L1, "سؤال الحزمة أ — نص معدّل؟", "خيار أ", "خيار ب", 1, "شرح أ"],
+        [U9.questionB, S, L1, "سؤال الحزمة ب؟", "خيار أ", "خيار ب", 2, ""],
+        [U9.questionC, S, L2, "سؤال الحزمة ج؟", "خيار أ", "خيار ب", 1, ""],
+      ],
+    ),
+    /** Same (already updated) content for question A, new subject-level target. */
+    "u09_09_questions_retarget.xlsx": sheet(
+      "questions",
+      QUESTION_COLUMNS,
+      [[U9.questionA, S, "", "سؤال الحزمة أ — نص معدّل؟", "خيار أ", "خيار ب", 1, "شرح أ"]],
+    ),
+    /**
+     * Broken subject reference. An unknown unit_code only resolves to NULL
+     * (units are optional), so the failure must come from the required
+     * subject binding: valid row first, then the unresolvable one, which
+     * proves the whole template rolls back rather than half-applying.
+     */
+    "u09_03_lessons_broken.xlsx": sheet(
+      "lessons",
+      ["lesson_code", "subject_code", "unit_code", "title", "duration", "semester", "is_free", "sort_order"],
+      [
+        [U9.lessonA, S, U9.unit, "درس الحزمة الأول", "12 دقيقة", 1, "false", 1],
+        [U9.lessonBroken, "e2e-u9-sub-missing", U9.unit, "درس بمرجع مادة مفقودة", "5 دقائق", 1, "false", 9],
+      ],
+    ),
+  };
+}
 
 
 async function writeWorkbook(filename, spec) {
