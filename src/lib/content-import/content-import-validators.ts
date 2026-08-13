@@ -211,7 +211,55 @@ function validateSubjectGroupingNames(
   }
 }
 
+/**
+ * SUBJECT_AS_BRANCH guard (mirrors the DB trigger assert_subject_group_name_consistent):
+ * inside the same grade + track + group_code, group_name must be identical.
+ * Fail-closed at dry-run so the operator fixes the sheet before execution.
+ */
+function validateSubjectGroupCodeConsistency(
+  rows: ContentImportParsedSheet["rows"],
+  errors: ContentImportDryRunIssue[],
+  rowNumbersWithErrors: Set<number>,
+): void {
+  const firstSeen = new Map<string, { rowNumber: number; groupName: string }>();
+  for (const row of rows) {
+    const groupCode = row.data["group_code"]?.trim().toLowerCase() ?? "";
+    if (!groupCode) continue;
+    const groupName = row.data["group_name"]?.trim() ?? "";
+    if (!groupName) {
+      pushError(errors, {
+        rowNumber: row.rowNumber,
+        column: "group_name",
+        code: "GROUP_NAME_REQUIRED",
+        message: "عند تعبئة group_code يجب تعبئة group_name أيضاً.",
+      });
+      rowNumbersWithErrors.add(row.rowNumber);
+      continue;
+    }
+    const scope = [
+      row.data["grade_slug"]?.trim().toLowerCase() ?? "",
+      row.data["track_code"]?.trim().toLowerCase() ?? "",
+      groupCode,
+    ].join("::");
+    const first = firstSeen.get(scope);
+    if (!first) {
+      firstSeen.set(scope, { rowNumber: row.rowNumber, groupName });
+      continue;
+    }
+    if (first.groupName !== groupName) {
+      pushError(errors, {
+        rowNumber: row.rowNumber,
+        column: "group_name",
+        code: "GROUP_NAME_CONFLICT",
+        message: `اسم المجموعة «${groupName}» يخالف «${first.groupName}» المستخدم لنفس كود المجموعة «${groupCode}» (أول ظهور: صف ${first.rowNumber}).`,
+      });
+      rowNumbersWithErrors.add(row.rowNumber);
+    }
+  }
+}
+
 function duplicateKeyForRow(
+
   templateKey: ContentImportTemplateKey,
   data: Record<string, string>,
 ): string | null {
@@ -335,7 +383,9 @@ export function validateContentImportSheet(
 
   if (templateKey === "subjects") {
     validateSubjectGroupingNames(parsed.rows, warnings);
+    validateSubjectGroupCodeConsistency(parsed.rows, errors, rowNumbersWithErrors);
   }
+
 
   const hasFileLevelError = errors.some((e) => e.rowNumber == null);
   const invalidRows = hasFileLevelError

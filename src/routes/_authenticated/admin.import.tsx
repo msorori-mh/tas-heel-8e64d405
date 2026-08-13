@@ -14,8 +14,10 @@ import {
 import {
   CONTENT_IMPORT_TEMPLATES_DISPLAY_ORDER,
   CONTENT_IMPORT_WORKFLOW_ORDER,
+  CONTENT_IMPORT_WORKFLOW_STEPS,
   contentImportTemplateDownloadUrl,
 } from "@/lib/content-import/content-import-templates";
+
 import {
   BookOpen,
   Download,
@@ -52,15 +54,34 @@ function AdminImportPage() {
   return (
     <AdminLayout>
       <div className="mx-auto max-w-6xl space-y-6" dir="rtl">
-        <header className="space-y-2">
+        <header className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <FileSpreadsheet className="h-6 w-6 text-primary shrink-0" />
             <h1 className="text-2xl font-bold text-foreground">مركز الاستيراد</h1>
           </div>
           <p className="text-sm leading-relaxed text-muted-foreground max-w-3xl">
-            إدارة قوالب الاستيراد وتجهيز البيانات قبل التفعيل المرحلي للمعاينة والتنفيذ.
+            المسار الرسمي لإدخال المنهج: حمّل القالب، جهّز الملف، افحصه، ثم نفّذه بالترتيب أدناه.
           </p>
+          <nav
+            aria-label="ترتيب خطوات الاستيراد"
+            className="flex flex-wrap items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/5 p-3"
+          >
+            {CONTENT_IMPORT_WORKFLOW_STEPS.map((step, index) => (
+              <span key={`${step.label}-${index}`} className="flex items-center gap-1.5">
+                <Badge
+                  variant={step.gate ? "outline" : "secondary"}
+                  className="text-[11px] font-medium"
+                >
+                  {step.label}
+                </Badge>
+                {index < CONTENT_IMPORT_WORKFLOW_STEPS.length - 1 && (
+                  <span className="text-muted-foreground text-xs">←</span>
+                )}
+              </span>
+            ))}
+          </nav>
         </header>
+
 
         <div
           role="alert"
@@ -83,6 +104,31 @@ function AdminImportPage() {
         </div>
 
         <section
+          aria-labelledby="operator-pack-heading"
+          className="rounded-2xl border border-primary/25 bg-card p-5 shadow-card"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 space-y-1">
+              <h2 id="operator-pack-heading" className="text-lg font-semibold text-foreground">
+                حزمة المشغّل الرسمية
+              </h2>
+              <p className="text-sm leading-relaxed text-muted-foreground max-w-2xl">
+                ملف واحد يجمع القوالب التسعة (01–09) والأدلة الثلاثة: قواعد التسمية، قاموس
+                البيانات، ودليل خطوات الاستيراد.
+              </p>
+            </div>
+            <Button asChild variant="default" className="shrink-0">
+              <a href="/operator-pack/tamkeen-content-operator-pack.zip" download>
+                <Download className="h-4 w-4 ms-1" />
+                تحميل الحزمة (ZIP)
+              </a>
+            </Button>
+          </div>
+        </section>
+
+
+
+        <section
           id="lesson-content-import"
           className="rounded-2xl border border-primary/25 bg-card p-5 shadow-card space-y-5"
           aria-labelledby="lesson-content-import-heading"
@@ -96,9 +142,10 @@ function AdminImportPage() {
               <Badge variant="secondary" className="text-[11px]">قوالب 01–09</Badge>
             </div>
             <p className="text-sm leading-relaxed text-muted-foreground max-w-3xl">
-              هذه القوالب مخصصة لإعداد محتوى الدروس دفعة واحدة. ابدأ بدرس واحد كتجربة،
-              ثم استخدم «فحص ملف قبل الاستيراد» للتحقق قبل التنفيذ الفعلي لاحقاً.
+              هذه القوالب هي المسار الرسمي لإدخال محتوى الدروس. لكل قالب: فحص الملف ← تجهيز ←
+              تنفيذ داخل معاملة واحدة.
             </p>
+
           </div>
 
           <ContentImportDryRunPanel />

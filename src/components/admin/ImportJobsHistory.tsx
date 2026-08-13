@@ -18,15 +18,14 @@ import {
 } from "@/components/ui/table";
 import { listRecentImportJobs } from "@/lib/import/import-jobs-history.functions";
 import type { ImportJobHistoryItem } from "@/lib/import/import-jobs-history.types";
-import { IMPORT_TEMPLATE_CATALOG } from "@/lib/import-template-catalog";
+import { CONTENT_IMPORT_TEMPLATES } from "@/lib/content-import/content-import-templates";
 import { AlertCircle, Clock, History, Loader2 } from "lucide-react";
 
 function templateLabel(templateKey: string | null): string {
   if (!templateKey) return "—";
-  const match = IMPORT_TEMPLATE_CATALOG.find((t) =>
-    t.file.startsWith(templateKey),
-  );
-  return match?.nameAr ?? templateKey;
+  const match = CONTENT_IMPORT_TEMPLATES.find((t) => t.key === templateKey);
+  if (!match) return templateKey;
+  return `${String(match.order).padStart(2, "0")} — ${match.titleAr}`;
 }
 
 function formatDate(value: string | null): string {
@@ -35,12 +34,6 @@ function formatDate(value: string | null): string {
     dateStyle: "short",
     timeStyle: "short",
   });
-}
-
-function modeLabel(mode: string): string {
-  if (mode === "dry_run") return "معاينة جافة";
-  if (mode === "execute") return "تنفيذ";
-  return mode;
 }
 
 function statusLabel(status: string): string {
@@ -66,40 +59,36 @@ function statusVariant(
 }
 
 function JobHistoryCard({ job }: { job: ImportJobHistoryItem }) {
+  const rows: Array<[string, string]> = [
+    ["القالب", templateLabel(job.templateKey)],
+    ["الملف", job.originalFilename ?? "—"],
+    ["الصفوف", String(job.totalRows)],
+    ["مُدرج", String(job.insertedCount)],
+    ["مُحدّث", String(job.updatedCount)],
+    ["متجاوَز", String(job.skippedCount)],
+    ["محجوب (منشور)", String(job.blockedCount)],
+    ["أخطاء", String(job.errorsCount)],
+    ["المشغّل", job.operatorName ?? "—"],
+    ["التاريخ", formatDate(job.createdAt)],
+  ];
+
   return (
     <div className="rounded-xl border border-border/55 bg-muted/20 p-4 space-y-3 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium text-foreground">{formatDate(job.createdAt)}</span>
-        <div className="flex flex-wrap gap-1">
-          <Badge variant="outline" className="text-[11px]">{modeLabel(job.mode)}</Badge>
-          <Badge variant={statusVariant(job.status)} className="text-[11px]">
-            {statusLabel(job.status)}
-          </Badge>
-        </div>
+        <Badge variant={statusVariant(job.status)} className="text-[11px]">
+          {statusLabel(job.status)}
+        </Badge>
       </div>
       <dl className="grid gap-2 text-xs">
-        <div className="flex justify-between gap-2">
-          <dt className="text-muted-foreground">القالب</dt>
-          <dd className="text-foreground font-medium">{templateLabel(job.templateKey)}</dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-muted-foreground">الملف</dt>
-          <dd className="text-foreground truncate max-w-[60%]" title={job.originalFilename ?? undefined}>
-            {job.originalFilename ?? "—"}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-muted-foreground">الصفوف</dt>
-          <dd className="text-foreground font-mono text-[11px]">
-            {job.totalRows} / {job.validRows} / {job.invalidRows} / {job.warningRows}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-muted-foreground">تنفيذ فعلي؟</dt>
-          <dd className="text-foreground">
-            {job.noExecute === true ? "لا" : job.noExecute === false ? "نعم" : "—"}
-          </dd>
-        </div>
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex justify-between gap-2">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="text-foreground truncate max-w-[60%]" title={value}>
+              {value}
+            </dd>
+          </div>
+        ))}
       </dl>
     </div>
   );
@@ -142,7 +131,7 @@ export function ImportJobsHistory() {
           سجل عمليات الاستيراد
         </CardTitle>
         <CardDescription className="text-sm leading-relaxed">
-          يعرض آخر عمليات المعاينة أو الاستيراد، والمرحلة الحالية قراءة فقط.
+          آخر عشر عمليات معاينة أو تنفيذ، بالأرقام الفعلية المسجلة لكل عملية.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -176,33 +165,24 @@ export function ImportJobsHistory() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">التاريخ</TableHead>
                     <TableHead className="text-right">القالب</TableHead>
-                    <TableHead className="text-right">الوضع</TableHead>
-                    <TableHead className="text-right">الحالة</TableHead>
                     <TableHead className="text-right">الملف</TableHead>
                     <TableHead className="text-right">الصفوف</TableHead>
-                    <TableHead className="text-right">تنفيذ فعلي؟</TableHead>
+                    <TableHead className="text-right">مُدرج</TableHead>
+                    <TableHead className="text-right">مُحدّث</TableHead>
+                    <TableHead className="text-right">متجاوَز</TableHead>
+                    <TableHead className="text-right">محجوب</TableHead>
+                    <TableHead className="text-right">أخطاء</TableHead>
+                    <TableHead className="text-right">الحالة</TableHead>
+                    <TableHead className="text-right">المشغّل</TableHead>
+                    <TableHead className="text-right">التاريخ</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {jobs.map((job) => (
                     <TableRow key={job.id}>
-                      <TableCell className="text-xs whitespace-nowrap">
-                        {formatDate(job.createdAt)}
-                      </TableCell>
-                      <TableCell className="text-sm">
+                      <TableCell className="text-sm whitespace-nowrap">
                         {templateLabel(job.templateKey)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[11px]">
-                          {modeLabel(job.mode)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariant(job.status)} className="text-[11px]">
-                          {statusLabel(job.status)}
-                        </Badge>
                       </TableCell>
                       <TableCell
                         className="max-w-[180px] truncate text-xs"
@@ -210,16 +190,22 @@ export function ImportJobsHistory() {
                       >
                         {job.originalFilename ?? "—"}
                       </TableCell>
-                      <TableCell className="font-mono text-[11px] whitespace-nowrap">
-                        {job.totalRows} / {job.validRows} / {job.invalidRows} /{" "}
-                        {job.warningRows}
+                      <TableCell className="font-mono text-[11px]">{job.totalRows}</TableCell>
+                      <TableCell className="font-mono text-[11px]">{job.insertedCount}</TableCell>
+                      <TableCell className="font-mono text-[11px]">{job.updatedCount}</TableCell>
+                      <TableCell className="font-mono text-[11px]">{job.skippedCount}</TableCell>
+                      <TableCell className="font-mono text-[11px]">{job.blockedCount}</TableCell>
+                      <TableCell className="font-mono text-[11px]">{job.errorsCount}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariant(job.status)} className="text-[11px]">
+                          {statusLabel(job.status)}
+                        </Badge>
                       </TableCell>
-                      <TableCell className="text-sm">
-                        {job.noExecute === true
-                          ? "لا"
-                          : job.noExecute === false
-                            ? "نعم"
-                            : "—"}
+                      <TableCell className="text-xs whitespace-nowrap">
+                        {job.operatorName ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        {formatDate(job.createdAt)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -234,10 +220,6 @@ export function ImportJobsHistory() {
             </div>
           </>
         )}
-
-        <p className="text-xs text-muted-foreground/90 leading-relaxed">
-          تفاصيل الأخطاء ستُضاف في مرحلة لاحقة بعد اعتماد سياسة عرض آمنة.
-        </p>
       </CardContent>
     </Card>
   );
