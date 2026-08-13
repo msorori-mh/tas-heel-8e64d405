@@ -97,3 +97,15 @@ DROP TRIGGER IF EXISTS trg_validate_assessment_question_link ON public.assessmen
 CREATE TRIGGER trg_validate_assessment_question_link
   BEFORE INSERT OR UPDATE OF assessment_id, question_id ON public.assessment_questions
   FOR EACH ROW EXECUTE FUNCTION public.validate_assessment_question_link();
+
+-- ---------------------------------------------------------------------------
+-- Legacy questions columns present in the managed DB but not in the import
+-- baseline fixture (QB-01 grants reference them by name).
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS question_type text NOT NULL DEFAULT 'lesson';
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS year integer;
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS unit text;
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS semester integer;
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES auth.users(id);
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS archived_by uuid REFERENCES auth.users(id);
