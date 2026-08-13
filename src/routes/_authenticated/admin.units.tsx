@@ -448,12 +448,16 @@ function AdminUnitsPage() {
           subjects={subjectsQ.data ?? []}
         />
 
-        <UnitDeleteDialog
+        <CurriculumDeleteDialog
           open={deletingUnit !== null}
           onOpenChange={(o) => {
             if (!o) setDeletingUnit(null);
           }}
-          unit={deletingUnit}
+          target={
+            deletingUnit
+              ? { type: "unit", id: deletingUnit.id, label: deletingUnit.title }
+              : null
+          }
         />
       </div>
     </AdminLayout>
