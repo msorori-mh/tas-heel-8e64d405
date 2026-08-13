@@ -262,6 +262,10 @@ async function main() {
 
   // ---------------------------------------------------------------- 01–08 initial
   for (const [templateKey, file, expectedRows] of TEMPLATE_FILES) {
+    // Template 08 links to the question bank, which import never writes.
+    // Seed the two bank questions against the imported lesson first.
+    if (templateKey === "assessment_questions") await seedQuestionBank();
+
     const r = await runCycle(staff, templateKey, file);
     check(
       `initial ${templateKey}`,
@@ -274,6 +278,7 @@ async function main() {
       `staged=${r.stagedRows} ins=${r.inserted} upd=${r.updated} skip=${r.skipped} blocked=${r.blocked}${r.error ? ` err=${r.error}` : ""}`,
     );
   }
+
 
   // ---------------------------------------------------------------- review state
   const { data: subjectRow } = await admin
