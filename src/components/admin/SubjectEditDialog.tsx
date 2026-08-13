@@ -171,10 +171,12 @@ export function SubjectEditDialog({
       setSaving(false);
 
       if (insertError) {
-        setError("تعذر إنشاء المادة.");
-        toast.error("تعذر إنشاء المادة.");
+        const message = mapSubjectWriteError(insertError.message, "تعذر إنشاء المادة.");
+        setError(message);
+        toast.error(message);
         return;
       }
+
 
       toast.success("تم إنشاء المادة بنجاح.");
       await queryClient.invalidateQueries({ queryKey: ["admin-subjects"] });
