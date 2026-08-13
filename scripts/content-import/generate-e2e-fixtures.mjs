@@ -130,13 +130,42 @@ export const FIXTURE_SHEETS = {
       ],
     ],
   ),
-  /** Template 09 — must be refused as SAFE_BLOCKED. */
+  /** Template 09 — routed to the question bank as DRAFT revisions (phase 08). */
   "09_questions.xlsx": sheet(
     "questions",
-    ["question_code", "subject_code", "lesson_code", "question_text", "option_1", "option_2", "correct_index"],
-    [["e2e-q-blocked-01", E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال تجريبي؟", "خيار أ", "خيار ب", 1]],
+    QUESTION_COLUMNS,
+    [
+      [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي أ؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
+      [E2E_IMPORT_QUESTION_B, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي ب؟", "خيار 1", "خيار 2", 2, ""],
+    ],
+  ),
+  /** Same question content, different target → TARGET_ADDED, zero new revisions. */
+  "09b_questions_retarget.xlsx": sheet(
+    "questions",
+    QUESTION_COLUMNS,
+    [
+      [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, "", "سؤال مستورد تجريبي أ؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
+    ],
+  ),
+  /** Changed content for the same question_code → new DRAFT revision. */
+  "09c_questions_changed.xlsx": sheet(
+    "questions",
+    QUESTION_COLUMNS,
+    [
+      [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي أ — نص معدّل؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
+    ],
+  ),
+  /** Valid row followed by an unresolvable lesson → whole template rolls back. */
+  "92_invalid_questions.xlsx": sheet(
+    "questions",
+    QUESTION_COLUMNS,
+    [
+      [E2E_IMPORT_QUESTION_C, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال يجب ألا يُكتب؟", "خيار أ", "خيار ب", 1, ""],
+      [E2E_IMPORT_QUESTION_D, E2E_SUBJECT_CODE, "e2e-lesson-missing", "سؤال بمرجع درس مفقود؟", "خيار أ", "خيار ب", 2, ""],
+    ],
   ),
 };
+
 
 async function writeWorkbook(filename, spec) {
   const wb = new ExcelJS.Workbook();
