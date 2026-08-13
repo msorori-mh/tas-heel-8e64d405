@@ -265,7 +265,7 @@ async function main() {
 
   const { data: opts } = await admin
     .from("question_options")
-    .select("option_text, is_correct, sort_order")
+    .select("body, is_correct, sort_order")
     .eq("question_revision_id", revs1[0]!.id)
     .order("sort_order");
   check(
@@ -315,6 +315,7 @@ async function main() {
 
   // 5 — published revision preservation ----------------------------------
   const publishTarget = revs2[1]!;
+  await admin.rpc("compute_and_set_revision_payload_hash", { p_revision_id: publishTarget.id });
   const { error: approveErr } = await admin
     .from("question_revisions")
     .update({ status: "APPROVED" })
@@ -378,7 +379,7 @@ async function main() {
   const tamperedWrite = await questionByCode("e2e-qi-01");
   check(
     "T09 tampered staging payload → HASH_MISMATCH and zero writes",
-    tamperError === "HASH_MISMATCH" && tamperedWrite === null,
+    (tamperError ?? "").startsWith("HASH_MISMATCH") && tamperedWrite === null,
     `err=${tamperError ?? "none"} wrote=${tamperedWrite ? "yes" : "no"}`,
   );
 
@@ -433,8 +434,7 @@ async function main() {
 
   // 10 — internal RPC is not client-callable ------------------------------
   const direct = await staff.rpc("qb_import_ingest_revision" as never, {
-    p_job_id: jobA.jobId,
-    p_staging_row_id: randomUUID(),
+    _staging_row_id: randomUUID(),
   } as never);
   check(
     "T09 internal ingest RPC → not callable by a staff client",
