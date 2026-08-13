@@ -203,7 +203,7 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
         <DialogFooter className="gap-2 sm:justify-start">
           <Button
             variant="destructive"
-            disabled={!preview?.deletable || deleting}
+            disabled={!isAdmin || !preview?.deletable || deleting}
             onClick={handleDelete}
           >
             {deleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
