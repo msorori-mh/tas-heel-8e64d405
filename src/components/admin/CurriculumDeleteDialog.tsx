@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import { AlertTriangle, Loader2, ShieldAlert } from "lucide-react";
 
 export type CurriculumEntityType = "subject" | "unit" | "lesson" | "question" | "exam_template";
@@ -81,6 +82,7 @@ function describeBlocker(raw: string): string {
 
 export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }: Props) {
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
   const [deleting, setDeleting] = useState(false);
   const enabled = open && !!target;
 
