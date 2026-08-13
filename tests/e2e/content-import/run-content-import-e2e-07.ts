@@ -213,7 +213,8 @@ async function seedQuestionBank() {
     .maybeSingle();
   if (!subject || !lesson) throw new Error("seedQuestionBank: e2e subject/lesson missing");
 
-  const { error } = await admin.from("questions").upsert(
+  await admin.from("questions").delete().like("code", "e2e-%");
+  const { error } = await admin.from("questions").insert(
     ["e2e-q-01", "e2e-q-02"].map((code, i) => ({
       code,
       subject_id: subject.id,
@@ -223,7 +224,6 @@ async function seedQuestionBank() {
       correct_index: 0,
       sort_order: i + 1,
     })),
-    { onConflict: "code" },
   );
   if (error) throw new Error(`seedQuestionBank failed: ${error.message}`);
 }
