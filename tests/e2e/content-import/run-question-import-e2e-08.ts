@@ -315,7 +315,7 @@ async function main() {
 
   // 5 — published revision preservation ----------------------------------
   const publishTarget = revs2[1]!;
-  await admin.rpc("compute_and_set_revision_payload_hash", { p_revision_id: publishTarget.id });
+  await staff.rpc("compute_and_set_revision_payload_hash", { p_revision_id: publishTarget.id });
   const { error: approveErr } = await admin
     .from("question_revisions")
     .update({ status: "APPROVED" })
