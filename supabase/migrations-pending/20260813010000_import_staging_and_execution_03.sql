@@ -717,6 +717,22 @@ BEGIN
         IF lesson IS NULL AND _template_key <> 'assessment_questions' THEN
           RAISE EXCEPTION 'LESSON_NOT_FOUND: %', p->>'lesson_code' USING ERRCODE = '23503';
         END IF;
+        -- Child targets resolve BEFORE the action decision so a replay is a no-op.
+        IF _template_key = 'book_contents' THEN
+          SELECT b.id INTO target FROM public.lesson_book_contents b
+          WHERE b.lesson_id = lesson;
+        ELSIF _template_key = 'resources' THEN
+          SELECT r.id INTO target FROM public.lesson_resources r
+          WHERE r.lesson_id = lesson
+            AND r.resource_code = public.normalize_content_code(p->>'resource_code');
+        ELSE
+          SELECT aq.id INTO target
+          FROM public.assessment_questions aq
+          JOIN public.lesson_assessments a ON a.id = aq.assessment_id
+          JOIN public.questions q ON q.id = aq.question_id
+          WHERE a.assessment_code = public.normalize_content_code(p->>'assessment_code')
+            AND q.code = p->>'question_code';
+        END IF;
       ELSE
         RAISE EXCEPTION 'UNSUPPORTED_TEMPLATE: %', _template_key USING ERRCODE = '0A000';
     END CASE;
@@ -726,8 +742,19 @@ BEGIN
       action := public.import_plan_row_action(entity_type, target, row_rec.row_hash);
     ELSIF target IS NULL THEN
       action := 'INSERT';
+    ELSIF EXISTS (
+      SELECT 1 FROM public.import_staging_rows s
+      WHERE s.template_key = _template_key
+        AND s.natural_key = row_rec.natural_key
+        AND s.row_hash = row_rec.row_hash
+        AND s.id <> row_rec.id
+        AND s.applied_action IN ('INSERT','UPDATE_DRAFT','SKIP')
+    ) THEN
+      -- identical child payload already applied → idempotent replay
+      action := 'SKIP';
     ELSE
       action := 'UPDATE_DRAFT';
+
     END IF;
 
     IF action = 'BLOCKED_PUBLISHED' THEN
