@@ -123,6 +123,37 @@ export const CONTENT_IMPORT_WORKFLOW_ORDER: string = IMPORT_EXECUTION_ORDER.map(
   (key) => String(TEMPLATE_ORDER_BY_KEY[key]).padStart(2, "0"),
 ).join(" → ");
 
+export interface ContentImportWorkflowStep {
+  /** Template key when the step is a template, null for review/publish gates. */
+  key: TemplateKey | null;
+  label: string;
+  gate: boolean;
+}
+
+/**
+ * Full operator pipeline shown at the top of the import center.
+ * Template steps come from IMPORT_EXECUTION_ORDER (single source); the review
+ * and publish gates are inserted before the assessment-binding template, which
+ * cannot run until questions are reviewed and published.
+ */
+export const CONTENT_IMPORT_WORKFLOW_STEPS: ContentImportWorkflowStep[] =
+  IMPORT_EXECUTION_ORDER.flatMap((key) => {
+    const meta = getContentImportTemplateByKey(key);
+    const step: ContentImportWorkflowStep = {
+      key,
+      label: `${String(meta.order).padStart(2, "0")} ${meta.titleAr}`,
+      gate: false,
+    };
+    return key === "assessment_questions"
+      ? [
+          { key: null, label: "مراجعة", gate: true },
+          { key: null, label: "نشر", gate: true },
+          step,
+        ]
+      : [step];
+  });
+
+
 const INFO_WARNINGS: Record<TemplateKey, readonly string[]> = {
   subjects: [
     "subjects.slug يُشتق تلقائياً من subject_code — لا تضِف عمود slug.",
