@@ -104,6 +104,31 @@ function AdminImportPage() {
         </div>
 
         <section
+          aria-labelledby="operator-pack-heading"
+          className="rounded-2xl border border-primary/25 bg-card p-5 shadow-card"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 space-y-1">
+              <h2 id="operator-pack-heading" className="text-lg font-semibold text-foreground">
+                حزمة المشغّل الرسمية
+              </h2>
+              <p className="text-sm leading-relaxed text-muted-foreground max-w-2xl">
+                ملف واحد يجمع القوالب التسعة (01–09) والأدلة الثلاثة: قواعد التسمية، قاموس
+                البيانات، ودليل خطوات الاستيراد.
+              </p>
+            </div>
+            <Button asChild variant="default" className="shrink-0">
+              <a href="/operator-pack/tamkeen-content-operator-pack.zip" download>
+                <Download className="h-4 w-4 ms-1" />
+                تحميل الحزمة (ZIP)
+              </a>
+            </Button>
+          </div>
+        </section>
+
+
+
+        <section
           id="lesson-content-import"
           className="rounded-2xl border border-primary/25 bg-card p-5 shadow-card space-y-5"
           aria-labelledby="lesson-content-import-heading"
