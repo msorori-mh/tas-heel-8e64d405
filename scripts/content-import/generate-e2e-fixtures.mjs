@@ -28,8 +28,11 @@ export const E2E_ASSESSMENT_CODE = "e2e-asm-01";
 export const E2E_GRADE_SLUG = "grade-12";
 export const E2E_TRACK_CODE = "aden";
 
-/** Question codes must already exist in the bank — template 09 is not importable here. */
-export const E2E_QUESTION_CODES = ["Q-000001", "Q-000002"];
+/**
+ * Bank questions the harness seeds directly against the e2e lesson.
+ * Template 09 is not importable, so the bank side is prepared out-of-band.
+ */
+export const E2E_QUESTION_CODES = ["e2e-q-01", "e2e-q-02"];
 
 function sheet(name, columns, rows) {
   return { name, columns, rows };
