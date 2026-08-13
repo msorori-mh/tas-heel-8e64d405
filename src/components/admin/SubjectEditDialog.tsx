@@ -41,6 +41,8 @@ interface Props {
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+/** Natural codes: lowercase latin letters/digits with - or _ separators (see NAMING-CONVENTION). */
+const CODE_RE = /^[a-z0-9]+([-_][a-z0-9]+)*$/;
 
 export function SubjectEditDialog({
   open,
