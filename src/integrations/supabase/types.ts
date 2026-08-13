@@ -1542,11 +1542,179 @@ export type Database = {
           },
         ]
       }
+      question_bank_capability_grants: {
+        Row: {
+          capability: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          reason: string
+          revoked_at: string | null
+          revoked_by: string | null
+          scope_id: string | null
+          scope_type: string
+          user_id: string
+        }
+        Insert: {
+          capability: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          reason: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scope_id?: string | null
+          scope_type?: string
+          user_id: string
+        }
+        Update: {
+          capability?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          reason?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scope_id?: string | null
+          scope_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      question_bank_runtime_config: {
+        Row: {
+          attempt_pin_mode: string
+          enabled_at: string | null
+          enabled_by: string | null
+          id: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          attempt_pin_mode?: string
+          enabled_at?: string | null
+          enabled_by?: string | null
+          id: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          attempt_pin_mode?: string
+          enabled_at?: string | null
+          enabled_by?: string | null
+          id?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      question_revisions: {
+        Row: {
+          allow_partial: boolean
+          backfill_version: string | null
+          created_at: string
+          created_by: string | null
+          educational_label: string | null
+          grading_mode: string | null
+          id: string
+          interaction_type: string
+          manual_grading_required: boolean
+          max_score: number
+          payload_hash: string | null
+          payload_hash_version: string
+          published_at: string | null
+          published_by: string | null
+          question_id: string
+          question_text: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          requires_media: boolean
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revision_number: number
+          source_payload_hash: string | null
+          status: string
+          stimulus_text: string | null
+          superseded_at: string | null
+        }
+        Insert: {
+          allow_partial?: boolean
+          backfill_version?: string | null
+          created_at?: string
+          created_by?: string | null
+          educational_label?: string | null
+          grading_mode?: string | null
+          id?: string
+          interaction_type: string
+          manual_grading_required?: boolean
+          max_score?: number
+          payload_hash?: string | null
+          payload_hash_version?: string
+          published_at?: string | null
+          published_by?: string | null
+          question_id: string
+          question_text: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          requires_media?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision_number: number
+          source_payload_hash?: string | null
+          status: string
+          stimulus_text?: string | null
+          superseded_at?: string | null
+        }
+        Update: {
+          allow_partial?: boolean
+          backfill_version?: string | null
+          created_at?: string
+          created_by?: string | null
+          educational_label?: string | null
+          grading_mode?: string | null
+          id?: string
+          interaction_type?: string
+          manual_grading_required?: boolean
+          max_score?: number
+          payload_hash?: string | null
+          payload_hash_version?: string
+          published_at?: string | null
+          published_by?: string | null
+          question_id?: string
+          question_text?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          requires_media?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision_number?: number
+          source_payload_hash?: string | null
+          status?: string
+          stimulus_text?: string | null
+          superseded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_revisions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       questions: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           code: string | null
           correct_index: number
           created_at: string
+          created_by: string | null
+          current_published_revision_id: string | null
           explanation: string | null
           id: string
           lesson_id: string | null
@@ -1560,9 +1728,13 @@ export type Database = {
           year: number | null
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           code?: string | null
           correct_index: number
           created_at?: string
+          created_by?: string | null
+          current_published_revision_id?: string | null
           explanation?: string | null
           id?: string
           lesson_id?: string | null
@@ -1576,9 +1748,13 @@ export type Database = {
           year?: number | null
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           code?: string | null
           correct_index?: number
           created_at?: string
+          created_by?: string | null
+          current_published_revision_id?: string | null
           explanation?: string | null
           id?: string
           lesson_id?: string | null
@@ -1592,6 +1768,13 @@ export type Database = {
           year?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "questions_current_published_revision_fk"
+            columns: ["id", "current_published_revision_id"]
+            isOneToOne: false
+            referencedRelation: "question_revisions"
+            referencedColumns: ["question_id", "id"]
+          },
           {
             foreignKeyName: "questions_lesson_id_fkey"
             columns: ["lesson_id"]
