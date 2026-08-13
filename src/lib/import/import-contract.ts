@@ -105,6 +105,8 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
     fields: [
       f("subject_code", "subjects", "code", true),
       f("name", "subjects", "name", true),
+      f("group_code", "subjects", "group_code", false, "SUBJECT_AS_BRANCH: كود المجموعة (عرض فقط) — immutable بعد التعيين"),
+      f("group_name", "subjects", "group_name", false, "اسم المجموعة المعروض — يجب أن يتطابق داخل نفس group_code/grade/track"),
       f("grade_slug", "grades", null, true, "lookup grades.slug → subjects.grade_id"),
       f("track_code", "curriculum_tracks", null, false, "lookup curriculum_tracks.track_code → subjects.curriculum_track_id"),
       f("semester", "subjects", "semester", false),
