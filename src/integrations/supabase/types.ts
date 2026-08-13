@@ -3260,6 +3260,14 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_curriculum_delete: {
+        Args: { _entity_id: string; _entity_type: string; _reason?: string }
+        Returns: Json
+      }
+      admin_curriculum_delete_preview: {
+        Args: { _entity_id: string; _entity_type: string }
+        Returns: Json
+      }
       admin_get_lesson_media_urls: {
         Args: { _lesson_id: string }
         Returns: {
