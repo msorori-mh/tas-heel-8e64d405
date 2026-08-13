@@ -55,6 +55,10 @@ test("natural keys with db_unique name a real audited constraint", () => {
     "questions_code_uniq",
     "lesson_book_contents_lesson_id_key",
     "assessment_questions_unique",
+    // Applied in phase 03 / 12A (verified on the shared database).
+    "lesson_explanations_code_lesson_uniq",
+    "idx_lesson_resources_code_per_lesson",
+    "lesson_assessments_code_uniq",
   ]);
   for (const key of CONTENT_IMPORT_TEMPLATE_KEYS) {
     const u = IMPORT_ENTITY_CONTRACTS[key].uniqueness;
