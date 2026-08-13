@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import { AlertTriangle, Loader2, ShieldAlert } from "lucide-react";
 
 export type CurriculumEntityType = "subject" | "unit" | "lesson" | "question" | "exam_template";
@@ -81,6 +82,7 @@ function describeBlocker(raw: string): string {
 
 export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }: Props) {
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
   const [deleting, setDeleting] = useState(false);
   const enabled = open && !!target;
 
@@ -186,6 +188,12 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
               </div>
             )}
 
+            {!isAdmin && (
+              <p className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                معاينة فقط — تنفيذ الحذف متاح لمدير كامل الصلاحيات فقط (يُفرض داخل الخادم).
+              </p>
+            )}
+
             <p className="text-xs text-muted-foreground">
               الحذف يتم دفعة واحدة داخل القاعدة ويُسجَّل في سجل التدقيق باسم المنفّذ.
             </p>
@@ -195,7 +203,7 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
         <DialogFooter className="gap-2 sm:justify-start">
           <Button
             variant="destructive"
-            disabled={!preview?.deletable || deleting}
+            disabled={!isAdmin || !preview?.deletable || deleting}
             onClick={handleDelete}
           >
             {deleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
