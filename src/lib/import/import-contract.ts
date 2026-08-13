@@ -16,7 +16,10 @@
  * Pure data — no DB access, no writes. Client and server safe.
  */
 
-import { CONTENT_IMPORT_TEMPLATE_KEYS, type ContentImportTemplateKey } from "../content-import/content-import-templates.ts";
+import {
+  CONTENT_IMPORT_TEMPLATE_KEYS,
+  type ContentImportTemplateKey,
+} from "../content-import/content-import-template-keys.ts";
 
 export const IMPORT_CONTRACT_VERSION = "IMPORT-CONTRACT-FINAL-01";
 
@@ -42,6 +45,12 @@ export type UniquenessEnforcement =
 export interface ImportFieldMapping {
   /** Column header in the Excel template. */
   field: string;
+  /**
+   * Whether this field is an actual Excel column of the official template.
+   * Defaults to true. Set to false for internal/derived values that must never
+   * appear in the operator-facing workbook.
+   */
+  templateField?: boolean;
   /** Target table (public schema). */
   table: string;
   /** Target column, or null when the field only resolves a foreign key. */
@@ -176,7 +185,7 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("pdf_url", "lesson_book_contents", "pdf_url", false),
       f("editor_notes", "lesson_book_contents", null, false, "not persisted"),
     ],
-    gaps: ["lesson_code alone is ambiguous across subjects → GAP-06 (subject_code now required in the row)."],
+    gaps: [],
     gapIds: ["GAP-06-SUBJECT-SCOPE"],
   },
   explanations: {
@@ -185,12 +194,7 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
     naturalKey: ["subject_code", "lesson_code", "explanation_code"],
     naturalKeyColumns: ["lesson_id", "explanation_code"],
     uniquenessScope: "per lesson (explanation_code IS NOT NULL)",
-    uniqueness: {
-      kind: "planned_unique",
-      constraint: "lesson_explanations_code_lesson_uniq",
-      scope: "UNIQUE (lesson_id, explanation_code) WHERE explanation_code IS NOT NULL",
-      draftRef: "supabase/migrations-pending/20260813010000_import_staging_and_execution_03.sql",
-    },
+    uniqueness: { kind: "db_unique", constraint: "lesson_explanations_code_lesson_uniq" },
     dependsOn: ["lessons"],
     foreignKeys: ["lesson_explanations.lesson_id → lessons.id"],
     fields: [
@@ -203,9 +207,7 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("review_status", "lesson_explanations", null, false, "GAP-03: routed to content_review_state"),
     ],
     gaps: [
-      "No unique index today → GAP-02 (add explanation_code + UNIQUE (lesson_id, explanation_code)).",
       "No review/publication column → GAP-03 (content_review_state).",
-      "lesson_code ambiguous across subjects → GAP-06.",
     ],
 
     gapIds: ["GAP-02-STABLE-CHILD-IDENTITY", "GAP-03-REVIEW-STATE", "GAP-06-SUBJECT-SCOPE"],
@@ -216,12 +218,7 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
     naturalKey: ["subject_code", "lesson_code", "resource_code"],
     naturalKeyColumns: ["lesson_id", "resource_code"],
     uniquenessScope: "per lesson (resource_code IS NOT NULL)",
-    uniqueness: {
-      kind: "planned_unique",
-      constraint: "idx_lesson_resources_code_per_lesson",
-      scope: "UNIQUE (lesson_id, resource_code) WHERE resource_code IS NOT NULL",
-      draftRef: "supabase/migrations-pending/20260813010000_import_staging_and_execution_03.sql",
-    },
+    uniqueness: { kind: "db_unique", constraint: "idx_lesson_resources_code_per_lesson" },
 
     dependsOn: ["lessons"],
     foreignKeys: ["lesson_resources.lesson_id → lessons.id"],
@@ -242,12 +239,7 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("license_note", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
       f("notes", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
     ],
-    gaps: [
-      "No unique index today → GAP-02 (add resource_code + UNIQUE (lesson_id, resource_code)).",
-      "resource_url must be required because lesson_resources.url is NOT NULL → GAP-04 (closed: template change only).",
-      "7 columns have no destination → GAP-05 (metadata jsonb with a closed allowlist).",
-      "lesson_code ambiguous across subjects → GAP-06.",
-    ],
+    gaps: [],
     gapIds: [
       "GAP-02-STABLE-CHILD-IDENTITY",
       "GAP-04-RESOURCE-URL-REQUIRED",
@@ -283,6 +275,7 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("year", "questions", "year", false),
       f("semester", "questions", "semester", false),
       f("sort_order", "questions", "sort_order", false),
+      f("review_status", "questions", null, false, "GAP-03: routed to content_review_state"),
     ],
     gaps: [
       "questions has no revision/publication columns → GAP-03 (content_review_state, hash-bound).",
@@ -302,12 +295,7 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
      * questions_code_uniq — the only two audited code columns with global scope.
      */
     uniquenessScope: "global (assessment_code IS NOT NULL) — required by template 08's lesson-less reference",
-    uniqueness: {
-      kind: "planned_unique",
-      constraint: "lesson_assessments_code_uniq",
-      scope: "UNIQUE (assessment_code) WHERE assessment_code IS NOT NULL",
-      draftRef: "supabase/migrations-pending/20260813010000_import_staging_and_execution_03.sql",
-    },
+    uniqueness: { kind: "db_unique", constraint: "lesson_assessments_code_uniq" },
     dependsOn: ["lessons"],
     foreignKeys: ["lesson_assessments.lesson_id → lessons.id"],
     fields: [
@@ -321,9 +309,7 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("review_status", "lesson_assessments", null, false, "GAP-03: routed to content_review_state"),
     ],
     gaps: [
-      "lesson_assessments has no assessment_code column → GAP-01 (add assessment_code + UNIQUE (assessment_code) WHERE assessment_code IS NOT NULL).",
-      "No review/publication column → GAP-03.",
-      "lesson_code ambiguous across subjects → GAP-06.",
+      "No review/publication column → GAP-03 (content_review_state).",
     ],
     gapIds: ["GAP-01-ASSESSMENT-CODE", "GAP-03-REVIEW-STATE", "GAP-06-SUBJECT-SCOPE"],
   },
@@ -346,7 +332,7 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("points", "assessment_questions", "points", false),
       f("editor_notes", "assessment_questions", null, false, "not persisted"),
     ],
-    gaps: ["Resolution depends on the GAP-01 lesson_assessments.assessment_code column."],
+    gaps: [],
     gapIds: ["GAP-01-ASSESSMENT-CODE"],
   },
 
@@ -452,10 +438,15 @@ export interface ImportGapResolution {
   decision: string;
   /** Entities the decision covers. */
   entities: readonly ContentImportTemplateKey[];
-  /** Always "closed_design" in phase 02 — no DDL is applied here. */
-  status: "closed_design";
-  /** Review-only SQL draft, never inside supabase/migrations. */
+  /**
+   * "closed_design" = decided but not applied to the database.
+   * "applied"       = the decision is live on the shared database (verified).
+   */
+  status: "closed_design" | "applied";
+  /** Review-only SQL draft, never inside supabase/migrations. Absent once applied. */
   migrationDraftRef?: string;
+  /** DB objects that prove an applied resolution (constraints, columns, tables). */
+  appliedObjects?: readonly string[];
 }
 
 export const MIGRATION_DRAFT_REF =
@@ -470,8 +461,8 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
       "Add lesson_assessments.assessment_code text with UNIQUE (assessment_code) WHERE assessment_code IS NOT NULL. Scope is GLOBAL, not (lesson_id, assessment_code), because template 08 references an assessment by assessment_code alone — matching the audited global scope of subjects_code_uniq and questions_code_uniq.",
 
     entities: ["assessments", "assessment_questions"],
-    status: "closed_design",
-    migrationDraftRef: MIGRATION_DRAFT_REF,
+    status: "applied",
+    appliedObjects: ["lesson_assessments.assessment_code", "lesson_assessments_code_uniq"],
   },
   "GAP-02-STABLE-CHILD-IDENTITY": {
     gapId: "GAP-02-STABLE-CHILD-IDENTITY",
@@ -481,8 +472,8 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
       "Add lesson_explanations.explanation_code with UNIQUE (lesson_id, explanation_code) WHERE explanation_code IS NOT NULL, and reuse the existing lesson_resources.resource_code identity with UNIQUE (lesson_id, resource_code) WHERE resource_code IS NOT NULL. There is no `code` column on either table and none may be created. sort_order is a mutable presentation attribute and MUST NEVER take part in identity: reordering rows must not be read as edits to different entities.",
 
     entities: ["explanations", "resources"],
-    status: "closed_design",
-    migrationDraftRef: MIGRATION_DRAFT_REF,
+    status: "applied",
+    appliedObjects: ["lesson_explanations.explanation_code", "lesson_explanations_code_lesson_uniq", "lesson_resources.resource_code", "idx_lesson_resources_code_per_lesson"],
   },
   "GAP-03-REVIEW-STATE": {
     gapId: "GAP-03-REVIEW-STATE",
@@ -491,8 +482,8 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
     decision:
       "Single side table content_review_state keyed by (entity_type, entity_id) and BOUND TO content_hash. Any change of content_hash resets the row to review_status='pending' + publication_status='draft'; approval never survives a payload change.",
     entities: ["subjects", "units", "lessons", "explanations", "assessments", "questions"],
-    status: "closed_design",
-    migrationDraftRef: MIGRATION_DRAFT_REF,
+    status: "applied",
+    appliedObjects: ["public.content_review_state"],
   },
   "GAP-04-RESOURCE-URL-REQUIRED": {
     gapId: "GAP-04-RESOURCE-URL-REQUIRED",
@@ -510,8 +501,8 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
     decision:
       "Add lesson_resources.metadata jsonb NOT NULL DEFAULT '{}'. Only the closed allowlist RESOURCE_METADATA_ALLOWLIST may be written; any other key is rejected. metadata is never a free-form store.",
     entities: ["resources"],
-    status: "closed_design",
-    migrationDraftRef: MIGRATION_DRAFT_REF,
+    status: "applied",
+    appliedObjects: ["lesson_resources.metadata"],
   },
   "GAP-06-SUBJECT-SCOPE": {
     gapId: "GAP-06-SUBJECT-SCOPE",
@@ -537,7 +528,41 @@ export const IMPORT_GAP_IDS = Object.keys(IMPORT_GAP_RESOLUTIONS) as ImportGapId
 
 /** Gaps still lacking a design decision. Phase 02 exit gate requires this to be empty. */
 export function listOpenGaps(): ImportGapId[] {
-  return IMPORT_GAP_IDS.filter((id) => IMPORT_GAP_RESOLUTIONS[id].status !== "closed_design");
+  return IMPORT_GAP_IDS.filter(
+    (id) =>
+      IMPORT_GAP_RESOLUTIONS[id].status !== "closed_design" &&
+      IMPORT_GAP_RESOLUTIONS[id].status !== "applied",
+  );
+}
+
+/** Gap decisions that are live on the shared database. */
+export function listAppliedGaps(): ImportGapId[] {
+  return IMPORT_GAP_IDS.filter((id) => IMPORT_GAP_RESOLUTIONS[id].status === "applied");
+}
+
+/* ------------------------------------------------------------------ */
+/* Single source of truth for Excel template columns                   */
+/* ------------------------------------------------------------------ */
+
+/** True when the field is an operator-facing Excel column (default). */
+export function isTemplateField(field: ImportFieldMapping): boolean {
+  return field.templateField !== false;
+}
+
+/** All Excel columns of a template, in contract order. */
+export function templateColumnsForEntity(
+  key: ContentImportTemplateKey,
+): readonly string[] {
+  return IMPORT_ENTITY_CONTRACTS[key].fields.filter(isTemplateField).map((f) => f.field);
+}
+
+/** Excel columns that must be present and non-empty for every row. */
+export function requiredTemplateColumnsForEntity(
+  key: ContentImportTemplateKey,
+): readonly string[] {
+  return IMPORT_ENTITY_CONTRACTS[key].fields
+    .filter((f) => isTemplateField(f) && f.required)
+    .map((f) => f.field);
 }
 
 /* ------------------------------------------------------------------ */

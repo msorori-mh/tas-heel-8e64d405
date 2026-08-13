@@ -35,12 +35,15 @@ test("all 7 execution blockers are design-closed", () => {
   }
 });
 
-test("every schema-change resolution points at a NOT_APPLIED draft", () => {
+test("schema-change resolutions are either an unapplied draft or a verified applied change", () => {
   for (const id of IMPORT_GAP_IDS) {
     const r = IMPORT_GAP_RESOLUTIONS[id];
-    if (r.kind === "schema_change") {
+    if (r.kind === "schema_change" && r.status === "closed_design") {
       assert.ok(r.migrationDraftRef?.includes("NOT_APPLIED"), `${id}: schema change needs a NOT_APPLIED draft`);
       assert.ok(r.migrationDraftRef?.startsWith("docs/"), `${id}: drafts must stay outside supabase/migrations`);
+    } else if (r.status === "applied") {
+      assert.equal(r.migrationDraftRef, undefined, `${id}: an applied gap must not point at a draft`);
+      assert.ok((r.appliedObjects?.length ?? 0) > 0, `${id}: an applied gap must name the DB objects it created`);
     } else {
       assert.equal(r.migrationDraftRef, undefined, `${id}: non-schema change must not reference a migration`);
     }
