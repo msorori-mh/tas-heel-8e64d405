@@ -11,7 +11,10 @@ import {
   requiredTemplateColumnsForEntity,
   templateColumnsForEntity,
 } from "../import/import-contract.ts";
-import type { ContentImportTemplateKey as TemplateKey } from "./content-import-template-keys.ts";
+import type {
+  ContentImportTemplateKey,
+  ContentImportTemplateKey as TemplateKey,
+} from "./content-import-template-keys.ts";
 
 export interface ContentImportTemplateMeta {
   order: number;
@@ -19,8 +22,8 @@ export interface ContentImportTemplateMeta {
   titleAr: string;
   filename: string;
   descriptionAr: string;
-  /** Required columns for UI + dry-run validation. */
-  requiredBaseColumns: readonly string[];
+  /** Required columns for UI + dry-run validation — derived from the import contract. */
+  readonly requiredBaseColumns: readonly string[];
   editorOnly?: boolean;
 }
 
@@ -39,19 +42,13 @@ export interface ContentImportDryRunConfig {
 
 export const CONTENT_IMPORT_TEMPLATE_BASE_PATH = "/content-import-templates";
 
-/** Canonical operator order — derived from IMPORT_EXECUTION_ORDER, never hand-written. */
-export const CONTENT_IMPORT_WORKFLOW_ORDER: string = IMPORT_EXECUTION_ORDER.map(
-  (key) => String(CONTENT_IMPORT_TEMPLATE_ORDER_BY_KEY[key]).padStart(2, "0"),
-).join(" → ");
-
-export const CONTENT_IMPORT_TEMPLATES: ContentImportTemplateMeta[] = [
+const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = [
   {
     order: 1,
     key: "subjects",
     titleAr: "المواد الدراسية",
     filename: "01_subjects_template.xlsx",
     descriptionAr: "تعريف المواد (كود، صف، منهج، أيقونة، لون).",
-    requiredBaseColumns: ["subject_code", "name", "grade_slug"],
   },
   {
     order: 2,
@@ -59,7 +56,6 @@ export const CONTENT_IMPORT_TEMPLATES: ContentImportTemplateMeta[] = [
     titleAr: "الوحدات",
     filename: "02_units_template.xlsx",
     descriptionAr: "وحدات كل مادة مع الربط بـ subject_code.",
-    requiredBaseColumns: ["unit_code", "subject_code", "title"],
   },
   {
     order: 3,
@@ -67,7 +63,6 @@ export const CONTENT_IMPORT_TEMPLATES: ContentImportTemplateMeta[] = [
     titleAr: "الدروس",
     filename: "03_lessons_template.xlsx",
     descriptionAr: "قائمة الدروس — lesson_code يُستخدم في القوالب التالية.",
-    requiredBaseColumns: ["lesson_code", "subject_code", "title"],
   },
   {
     order: 4,
@@ -75,7 +70,6 @@ export const CONTENT_IMPORT_TEMPLATES: ContentImportTemplateMeta[] = [
     titleAr: "محتوى الكتاب",
     filename: "04_lesson_book_contents_template.xlsx",
     descriptionAr: "نص الدرس الرئيسي (Markdown) وربط PDF اختياري.",
-    requiredBaseColumns: ["lesson_code", "content"],
   },
   {
     order: 5,
@@ -83,7 +77,6 @@ export const CONTENT_IMPORT_TEMPLATES: ContentImportTemplateMeta[] = [
     titleAr: "الشروحات",
     filename: "05_lesson_explanations_template.xlsx",
     descriptionAr: "شروحات إضافية متعددة لكل درس.",
-    requiredBaseColumns: ["lesson_code", "title", "content"],
   },
   {
     order: 6,
@@ -91,7 +84,6 @@ export const CONTENT_IMPORT_TEMPLATES: ContentImportTemplateMeta[] = [
     titleAr: "الموارد والروابط",
     filename: "06_lesson_resources_template.xlsx",
     descriptionAr: "فيديو، خريطة ذهنية، تجربة، PDF، وروابط خارجية.",
-    requiredBaseColumns: ["lesson_code", "resource_type", "title"],
   },
   {
     order: 7,
@@ -99,7 +91,6 @@ export const CONTENT_IMPORT_TEMPLATES: ContentImportTemplateMeta[] = [
     titleAr: "تقييمات الدروس",
     filename: "07_lesson_assessments_template.xlsx",
     descriptionAr: "اختبارات قصيرة مرتبطة بدرس (قبل ربط الأسئلة في 08).",
-    requiredBaseColumns: ["assessment_code", "lesson_code", "title"],
   },
   {
     order: 8,
@@ -107,7 +98,6 @@ export const CONTENT_IMPORT_TEMPLATES: ContentImportTemplateMeta[] = [
     titleAr: "أسئلة التقييمات",
     filename: "08_assessment_questions_template.xlsx",
     descriptionAr: "ربط أسئلة (من 09) باختبار (من 07).",
-    requiredBaseColumns: ["assessment_code", "question_code"],
     editorOnly: true,
   },
   {
@@ -116,16 +106,22 @@ export const CONTENT_IMPORT_TEMPLATES: ContentImportTemplateMeta[] = [
     titleAr: "بنك الأسئلة",
     filename: "09_questions_template.xlsx",
     descriptionAr: "أسئلة MCQ — أعمدة الإجابة للمحررين فقط.",
-    requiredBaseColumns: [
-      "question_code",
-      "question_text",
-      "option_1",
-      "option_2",
-      "correct_index",
-    ],
     editorOnly: true,
   },
 ];
+
+export const CONTENT_IMPORT_TEMPLATES: ContentImportTemplateMeta[] = TEMPLATE_META.map(
+  (meta) => ({ ...meta, requiredBaseColumns: requiredTemplateColumnsForEntity(meta.key) }),
+);
+
+const TEMPLATE_ORDER_BY_KEY = Object.fromEntries(
+  CONTENT_IMPORT_TEMPLATES.map((t) => [t.key, t.order]),
+) as Record<TemplateKey, number>;
+
+/** Canonical operator order — derived from IMPORT_EXECUTION_ORDER, never hand-written. */
+export const CONTENT_IMPORT_WORKFLOW_ORDER: string = IMPORT_EXECUTION_ORDER.map(
+  (key) => String(TEMPLATE_ORDER_BY_KEY[key]).padStart(2, "0"),
+).join(" → ");
 
 const INFO_WARNINGS: Record<TemplateKey, readonly string[]> = {
   subjects: [
