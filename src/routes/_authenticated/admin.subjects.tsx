@@ -305,6 +305,9 @@ function AdminSubjectsPage() {
                         setEditing({
                           id: r.id,
                           name: r.name,
+                          code: r.code ?? null,
+                          group_code: r.group_code ?? null,
+                          group_name: r.group_name ?? null,
                           sort_order: r.sort_order,
                           icon: r.icon,
                           color: r.color,
