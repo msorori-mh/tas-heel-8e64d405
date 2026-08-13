@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.qb_e2e_purge_questions(text);
