@@ -3222,6 +3222,8 @@ export type Database = {
         Args: { p_revision_id: string }
         Returns: string
       }
+      _qb_import_content_fingerprint: { Args: { p: Json }; Returns: string }
+      _qb_import_row_hash: { Args: { p: Json }; Returns: string }
       _qb_json_num: { Args: { p: number }; Returns: string }
       _qb_json_str: { Args: { p: string }; Returns: string }
       _qb_validate_revision_for_publish: {
@@ -3509,6 +3511,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_execute_questions_template: {
+        Args: { _job_id: string }
+        Returns: Json
+      }
       import_execute_template: {
         Args: { _job_id: string; _template_key: string }
         Returns: Json
@@ -3572,11 +3578,16 @@ export type Database = {
         }
         Returns: Json
       }
+      qb_e2e_purge_questions: { Args: { p_prefix: string }; Returns: number }
       qb_has_capability: {
         Args: { p_capability: string; p_user_id: string }
         Returns: boolean
       }
       qb_i_have_capability: { Args: { p_capability: string }; Returns: boolean }
+      qb_import_ingest_revision: {
+        Args: { _staging_row_id: string }
+        Returns: Json
+      }
       qb_sync_question_legacy: {
         Args: { _question_id: string }
         Returns: undefined

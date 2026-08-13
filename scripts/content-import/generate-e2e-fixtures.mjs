@@ -29,10 +29,28 @@ export const E2E_GRADE_SLUG = "grade-12";
 export const E2E_TRACK_CODE = "aden";
 
 /**
- * Bank questions the harness seeds directly against the e2e lesson.
- * Template 09 is not importable, so the bank side is prepared out-of-band.
+ * Bank questions the harness seeds directly against the e2e lesson (template 08
+ * links only; it never creates question content).
  */
 export const E2E_QUESTION_CODES = ["e2e-q-01", "e2e-q-02"];
+
+/** Template 09 (phase 08) — imported through the question-bank binding. */
+export const E2E_IMPORT_QUESTION_A = "e2e-qi-01";
+export const E2E_IMPORT_QUESTION_B = "e2e-qi-02";
+export const E2E_IMPORT_QUESTION_C = "e2e-qi-03";
+export const E2E_IMPORT_QUESTION_D = "e2e-qi-04";
+
+const QUESTION_COLUMNS = [
+  "question_code",
+  "subject_code",
+  "lesson_code",
+  "question_text",
+  "option_1",
+  "option_2",
+  "correct_index",
+  "explanation",
+];
+
 
 function sheet(name, columns, rows) {
   return { name, columns, rows };
@@ -130,13 +148,50 @@ export const FIXTURE_SHEETS = {
       ],
     ],
   ),
-  /** Template 09 — must be refused as SAFE_BLOCKED. */
+  /** Template 09 — routed to the question bank as DRAFT revisions (phase 08). */
   "09_questions.xlsx": sheet(
     "questions",
-    ["question_code", "subject_code", "lesson_code", "question_text", "option_1", "option_2", "correct_index"],
-    [["e2e-q-blocked-01", E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال تجريبي؟", "خيار أ", "خيار ب", 1]],
+    QUESTION_COLUMNS,
+    [
+      [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي أ؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
+      [E2E_IMPORT_QUESTION_B, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي ب؟", "خيار 1", "خيار 2", 2, ""],
+    ],
+  ),
+  /** Same question content, different target → TARGET_ADDED, zero new revisions. */
+  "09b_questions_retarget.xlsx": sheet(
+    "questions",
+    QUESTION_COLUMNS,
+    [
+      [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, "", "سؤال مستورد تجريبي أ؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
+    ],
+  ),
+  /** Changed content for the same question_code → new DRAFT revision. */
+  "09c_questions_changed.xlsx": sheet(
+    "questions",
+    QUESTION_COLUMNS,
+    [
+      [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي أ — نص معدّل؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
+    ],
+  ),
+  /** Third content variant, imported while a revision is already published. */
+  "09d_questions_after_publish.xlsx": sheet(
+    "questions",
+    QUESTION_COLUMNS,
+    [
+      [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي أ — تعديل بعد النشر؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
+    ],
+  ),
+  /** Valid row followed by an unresolvable lesson → whole template rolls back. */
+  "92_invalid_questions.xlsx": sheet(
+    "questions",
+    QUESTION_COLUMNS,
+    [
+      [E2E_IMPORT_QUESTION_C, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال يجب ألا يُكتب؟", "خيار أ", "خيار ب", 1, ""],
+      [E2E_IMPORT_QUESTION_D, E2E_SUBJECT_CODE, "e2e-lesson-missing", "سؤال بمرجع درس مفقود؟", "خيار أ", "خيار ب", 2, ""],
+    ],
   ),
 };
+
 
 async function writeWorkbook(filename, spec) {
   const wb = new ExcelJS.Workbook();

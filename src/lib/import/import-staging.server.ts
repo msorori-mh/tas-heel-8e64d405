@@ -20,7 +20,7 @@ import {
   buildStagingPayload,
   computeRowHash,
 } from "./import-row-hash";
-import { IMPORT_RPC, assertGenericUpsertAllowed } from "./import-execution-state";
+import { IMPORT_RPC, assertTemplateExecutable } from "./import-execution-state";
 import { canonicalSubjectCodeInput, planSubjectSlugs } from "./subject-slug";
 
 export interface StagingRowInput {
@@ -127,8 +127,9 @@ export async function executeContentImport(
   const results: ExecuteTemplateResult[] = [];
 
   for (const templateKey of ordered) {
-    // Template 09 has its own workflow and its own transaction boundary.
-    assertGenericUpsertAllowed(templateKey);
+    // Template 09 is routed inside the database to the question-bank workflow
+    // (draft revisions only); every other template uses the generic upsert path.
+    assertTemplateExecutable(templateKey);
 
     const { data, error } = await asRpcClient(supabase).rpc(IMPORT_RPC.execute, {
       _job_id: jobId,

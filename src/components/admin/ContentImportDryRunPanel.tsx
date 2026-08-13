@@ -341,7 +341,7 @@ export function ContentImportDryRunPanel() {
             variant="secondary"
             className="min-h-[44px] gap-2"
             onClick={handlePrepare}
-            disabled={!dryRunPassed || isQuestionsTemplate || checking || preparing || executing}
+            disabled={!dryRunPassed || checking || preparing || executing}
           >
             {preparing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -355,7 +355,7 @@ export function ContentImportDryRunPanel() {
             className="min-h-[44px] gap-2"
             onClick={handleExecute}
             disabled={
-              !jobId || !preparedHash || isQuestionsTemplate || checking || preparing || executing
+              !jobId || !preparedHash || checking || preparing || executing
             }
           >
             {executing ? (
@@ -368,7 +368,8 @@ export function ContentImportDryRunPanel() {
         </div>
         {isQuestionsTemplate ? (
           <p className="text-xs text-amber-700 dark:text-amber-400">
-            قالب الأسئلة (09) لا يمر عبر هذا المسار — يُستورد حصراً عبر مسار بنك الأسئلة المعتمد.
+            قالب الأسئلة (09) يُستورد عبر مسار بنك الأسئلة: تُنشأ نسخ «مسودة» فقط، ولا يُنشر أي سؤال
+            تلقائياً، ولا تُكتب الإجابات في الجداول القديمة.
           </p>
         ) : (
           <p className="text-xs text-muted-foreground">

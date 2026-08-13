@@ -8,7 +8,7 @@ import { assertImportJobAllowed } from "./import-auth.server";
 import { IMPORT_TYPE_STRUCTURE } from "./import-job.types";
 import { CONTENT_IMPORT_MAX_FILE_BYTES } from "../content-import/content-import-types";
 import { assertAllowedContentImportTemplateKey } from "../content-import/content-import-validators";
-import { assertGenericUpsertAllowed } from "./import-execution-state";
+import { assertTemplateExecutable } from "./import-execution-state";
 
 const MAX_BASE64_LENGTH = Math.ceil(CONTENT_IMPORT_MAX_FILE_BYTES * 1.37) + 64;
 
@@ -47,7 +47,7 @@ export const createContentImportJob = createServerFn({ method: "POST" })
     assertImportJobAllowed(IMPORT_TYPE_STRUCTURE, isFullAdmin);
 
     const templateKey = assertAllowedContentImportTemplateKey(data.templateKey);
-    assertGenericUpsertAllowed(templateKey);
+    assertTemplateExecutable(templateKey);
 
     const { createContentImportExecutionJob } = await import("./import-job-create.server");
     return createContentImportExecutionJob(supabase, userId, {
@@ -82,7 +82,7 @@ export const prepareContentImportStaging = createServerFn({ method: "POST" })
     assertImportJobAllowed(IMPORT_TYPE_STRUCTURE, isFullAdmin);
 
     const templateKey = assertAllowedContentImportTemplateKey(data.templateKey);
-    assertGenericUpsertAllowed(templateKey);
+    assertTemplateExecutable(templateKey);
 
     if (!data.fileName.toLowerCase().endsWith(".xlsx")) {
       throw new Error("يُقبل ملف Excel بصيغة .xlsx فقط.");
@@ -146,7 +146,7 @@ export const runContentImportExecute = createServerFn({ method: "POST" })
     assertImportJobAllowed(IMPORT_TYPE_STRUCTURE, isFullAdmin);
 
     const templateKeys = data.templateKeys.map((k) => assertAllowedContentImportTemplateKey(k));
-    for (const key of templateKeys) assertGenericUpsertAllowed(key);
+    for (const key of templateKeys) assertTemplateExecutable(key);
 
     const { executeContentImport } = await import("./import-staging.server");
     const outcome = await executeContentImport(supabase, data.jobId, templateKeys);

@@ -1,0 +1,2 @@
+ALTER FUNCTION public._qb_import_row_hash(jsonb) SET search_path = public, extensions, pg_temp;
+ALTER FUNCTION public._qb_import_content_fingerprint(jsonb) SET search_path = public, extensions, pg_temp;

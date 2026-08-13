@@ -30,7 +30,8 @@ import {
   executeContentImport,
   stageContentImportRows,
 } from "@/lib/import/import-staging.server";
-import { assertGenericUpsertAllowed } from "@/lib/import/import-execution-state";
+import { assertTemplateExecutable } from "@/lib/import/import-execution-state";
+import { purgeE2eQuestions } from "./qb-e2e-teardown";
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 
@@ -135,7 +136,7 @@ async function runCycle(
   if (!base.validateOk) return base;
 
   try {
-    assertGenericUpsertAllowed(templateKey);
+    assertTemplateExecutable(templateKey);
   } catch (err) {
     return { ...base, error: (err as Error).message };
   }
@@ -196,9 +197,8 @@ async function domainCounts() {
 }
 
 /**
- * The question bank is deliberately outside the import pipeline (template 09 is
- * refused), so template 08's link targets are seeded here against the imported
- * e2e lesson. Removed again during teardown.
+ * Template 08 only links existing questions, so its link targets are seeded here
+ * against the imported e2e lesson. Removed again during teardown.
  */
 async function seedQuestionBank() {
   const { data: subject } = await admin
@@ -213,7 +213,7 @@ async function seedQuestionBank() {
     .maybeSingle();
   if (!subject || !lesson) throw new Error("seedQuestionBank: e2e subject/lesson missing");
 
-  await admin.from("questions").delete().like("code", "e2e-%");
+  await purgeE2eQuestions(admin);
   const { error } = await admin.from("questions").insert(
     ["e2e-q-01", "e2e-q-02"].map((code, i) => ({
       code,
@@ -229,7 +229,7 @@ async function seedQuestionBank() {
 }
 
 async function teardown() {
-  await admin.from("questions").delete().like("code", "e2e-%");
+  await purgeE2eQuestions(admin);
 
   const { data: subject } = await admin
     .from("subjects")
@@ -420,17 +420,29 @@ async function main() {
   );
 
   // ---------------------------------------------------------------- template 09
+  // Phase 08: template 09 is executable, but only through the question-bank
+  // binding — draft revisions, never a publish, never a generic upsert.
   const q = await runCycle(staff, "questions", "09_questions.xlsx");
   check(
-    "template 09 → SAFE_BLOCKED / QUESTION_BANK_WORKFLOW_REQUIRED",
-    q.error === "QUESTION_BANK_WORKFLOW_REQUIRED",
-    q.error ?? "no error raised",
+    "template 09 → routed to the question bank (draft revisions)",
+    q.error === null && q.inserted === 2,
+    `ins=${q.inserted} upd=${q.updated} skip=${q.skipped}${q.error ? ` err=${q.error}` : ""}`,
   );
-  const { count: qWrites } = await admin
+  const { data: importedQuestions } = await admin
     .from("questions")
-    .select("id", { count: "exact", head: true })
-    .eq("code", "e2e-q-blocked-01");
-  check("template 09 → zero question domain writes", (qWrites ?? 0) === 0);
+    .select("id, correct_index, lesson_id, current_published_revision_id")
+    .like("code", "e2e-qi-%");
+  check(
+    "template 09 → no legacy answer/lesson write and no publish",
+    (importedQuestions ?? []).length === 2 &&
+      (importedQuestions ?? []).every(
+        (row) =>
+          row.correct_index === -1 &&
+          row.lesson_id === null &&
+          row.current_published_revision_id === null,
+      ),
+  );
+
 
   // ---------------------------------------------------------------- student exposure
   const anon = createClient<Database>(SUPABASE_URL, PUBLISHABLE, {

@@ -77,31 +77,69 @@ export const RPC_ONLY_TABLES = ["import_staging_rows", "content_review_state"] a
 /* ------------------------------------------------------------------ */
 
 /**
- * Template 09 does NOT share a transaction with the generic templates.
- * import_execute_template() raises QUESTION_BANK_WORKFLOW_REQUIRED for it, and
- * questions are written exclusively through the approved question-bank import
- * workflow (revision, validation, answer protection).
+ * QUESTION_IMPORT_QB_BINDING_08.
  *
- * No shared atomicity is claimed across that boundary: a question-bank import
- * and a content import are two separate units of work.
+ * Template 09 is executable, but NEVER through the generic upsert path:
+ * import_execute_template() delegates it to import_execute_questions_template(),
+ * which calls the internal qb_import_ingest_revision() once per staged row
+ * inside one transaction. That function is not callable by anon/authenticated.
+ *
+ * The import path stops at DRAFT revisions — it never approves and never
+ * publishes, and it never writes the legacy answer columns of public.questions.
  */
 export const QUESTION_BANK_BOUNDARY = {
   templateKey: "questions",
   rejectedBy: IMPORT_RPC.execute,
   errorCode: "QUESTION_BANK_WORKFLOW_REQUIRED",
   sharedTransactionWithContentTemplates: false,
-  writePath: "question bank import/runtime workflow (QB-01/QB-02)",
+  writePath: "question bank import workflow (qb_import_ingest_revision → DRAFT revision)",
 } as const;
+
+export const QUESTION_BANK_IMPORT_BINDING = {
+  templateKey: "questions",
+  executeRpc: "import_execute_questions_template",
+  internalFunction: "qb_import_ingest_revision",
+  clientCallable: false,
+  publishesFromImport: false,
+  contentIdentity: "question_revisions.source_payload_hash (targets excluded)",
+  targetIdentity: "question_targets (question_id, target_type, target ref)",
+  concurrencyLock: "pg_advisory_xact_lock(hashtextextended('qb_question_code:'||code, 0))",
+} as const;
+
+/** Row actions the question-bank import path may record on a staged row. */
+export const QB_IMPORT_ROW_ACTIONS = [
+  "INSERT",
+  "NEW_REVISION",
+  "PUBLISHED_PRESERVED_NEW_REVISION",
+  "TARGET_ADDED",
+  "SKIP",
+] as const;
+
+export type QbImportRowAction = (typeof QB_IMPORT_ROW_ACTIONS)[number];
 
 export function isQuestionBankRoutedTemplate(templateKey: string): boolean {
   return templateKey === QUESTION_BANK_BOUNDARY.templateKey;
 }
 
+/**
+ * Guard for the GENERIC upsert path only. Questions must never reach it.
+ * Execution eligibility is a different question — see assertTemplateExecutable().
+ */
 export function assertGenericUpsertAllowed(templateKey: string): void {
   if (isQuestionBankRoutedTemplate(templateKey)) {
     throw new Error(QUESTION_BANK_BOUNDARY.errorCode);
   }
 }
+
+/**
+ * Execution gate used by the prepare/execute wiring: every contract template is
+ * executable, questions through the question-bank binding, everything else
+ * through the generic upsert path.
+ */
+export function assertTemplateExecutable(_templateKey: string): void {
+  // All contract templates are executable; routing happens inside the database.
+}
+
 
 /* ------------------------------------------------------------------ */
 /* Phase separation                                                    */
