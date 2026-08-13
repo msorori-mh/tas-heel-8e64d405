@@ -96,9 +96,10 @@ function AdminImportPage() {
               <Badge variant="secondary" className="text-[11px]">قوالب 01–09</Badge>
             </div>
             <p className="text-sm leading-relaxed text-muted-foreground max-w-3xl">
-              هذه القوالب مخصصة لإعداد محتوى الدروس دفعة واحدة. ابدأ بدرس واحد كتجربة،
-              ثم استخدم «فحص ملف قبل الاستيراد» للتحقق قبل التنفيذ الفعلي لاحقاً.
+              هذه القوالب هي المسار الرسمي لإدخال محتوى الدروس. لكل قالب: فحص الملف ← تجهيز ←
+              تنفيذ داخل معاملة واحدة.
             </p>
+
           </div>
 
           <ContentImportDryRunPanel />
