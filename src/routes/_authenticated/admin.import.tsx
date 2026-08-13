@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/admin/import")({
 });
 
 function AdminImportPage() {
-  const { loading, enabled, isAdmin } = useRequireAdminSection("content");
+  const { loading, enabled } = useRequireAdminSection("content");
 
   if (loading) {
     return (
