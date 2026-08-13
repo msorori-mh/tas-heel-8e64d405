@@ -52,15 +52,34 @@ function AdminImportPage() {
   return (
     <AdminLayout>
       <div className="mx-auto max-w-6xl space-y-6" dir="rtl">
-        <header className="space-y-2">
+        <header className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <FileSpreadsheet className="h-6 w-6 text-primary shrink-0" />
             <h1 className="text-2xl font-bold text-foreground">مركز الاستيراد</h1>
           </div>
           <p className="text-sm leading-relaxed text-muted-foreground max-w-3xl">
-            إدارة قوالب الاستيراد وتجهيز البيانات قبل التفعيل المرحلي للمعاينة والتنفيذ.
+            المسار الرسمي لإدخال المنهج: حمّل القالب، جهّز الملف، افحصه، ثم نفّذه بالترتيب أدناه.
           </p>
+          <nav
+            aria-label="ترتيب خطوات الاستيراد"
+            className="flex flex-wrap items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/5 p-3"
+          >
+            {CONTENT_IMPORT_WORKFLOW_STEPS.map((step, index) => (
+              <span key={`${step.label}-${index}`} className="flex items-center gap-1.5">
+                <Badge
+                  variant={step.gate ? "outline" : "secondary"}
+                  className="text-[11px] font-medium"
+                >
+                  {step.label}
+                </Badge>
+                {index < CONTENT_IMPORT_WORKFLOW_STEPS.length - 1 && (
+                  <span className="text-muted-foreground text-xs">←</span>
+                )}
+              </span>
+            ))}
+          </nav>
         </header>
+
 
         <div
           role="alert"
