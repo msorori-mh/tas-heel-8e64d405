@@ -420,17 +420,29 @@ async function main() {
   );
 
   // ---------------------------------------------------------------- template 09
+  // Phase 08: template 09 is executable, but only through the question-bank
+  // binding — draft revisions, never a publish, never a generic upsert.
   const q = await runCycle(staff, "questions", "09_questions.xlsx");
   check(
-    "template 09 → SAFE_BLOCKED / QUESTION_BANK_WORKFLOW_REQUIRED",
-    q.error === "QUESTION_BANK_WORKFLOW_REQUIRED",
-    q.error ?? "no error raised",
+    "template 09 → routed to the question bank (draft revisions)",
+    q.error === null && q.inserted === 2,
+    `ins=${q.inserted} upd=${q.updated} skip=${q.skipped}${q.error ? ` err=${q.error}` : ""}`,
   );
-  const { count: qWrites } = await admin
+  const { data: importedQuestions } = await admin
     .from("questions")
-    .select("id", { count: "exact", head: true })
-    .eq("code", "e2e-q-blocked-01");
-  check("template 09 → zero question domain writes", (qWrites ?? 0) === 0);
+    .select("id, correct_index, lesson_id, current_published_revision_id")
+    .like("code", "e2e-qi-%");
+  check(
+    "template 09 → no legacy answer/lesson write and no publish",
+    (importedQuestions ?? []).length === 2 &&
+      (importedQuestions ?? []).every(
+        (row) =>
+          row.correct_index === -1 &&
+          row.lesson_id === null &&
+          row.current_published_revision_id === null,
+      ),
+  );
+
 
   // ---------------------------------------------------------------- student exposure
   const anon = createClient<Database>(SUPABASE_URL, PUBLISHABLE, {
