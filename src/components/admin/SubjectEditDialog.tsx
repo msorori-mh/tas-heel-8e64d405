@@ -225,10 +225,12 @@ export function SubjectEditDialog({
     setSaving(false);
 
     if (updateError) {
-      setError("تعذر تحديث المادة.");
-      toast.error("تعذر تحديث المادة.");
+      const message = mapSubjectWriteError(updateError.message, "تعذر تحديث المادة.");
+      setError(message);
+      toast.error(message);
       return;
     }
+
 
     toast.success("تم تحديث المادة بنجاح.");
     await queryClient.invalidateQueries({ queryKey: ["admin-subjects"] });
