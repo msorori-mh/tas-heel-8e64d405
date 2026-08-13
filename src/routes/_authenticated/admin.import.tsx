@@ -11,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { IMPORT_NOT_ENABLED_YET } from "@/lib/import-template-catalog";
 import {
   CONTENT_IMPORT_TEMPLATES_DISPLAY_ORDER,
   CONTENT_IMPORT_WORKFLOW_ORDER,
@@ -25,7 +24,6 @@ import {
   ListOrdered,
   Lock,
 } from "lucide-react";
-import { ImportDryRunGovernorates } from "@/components/admin/ImportDryRunGovernorates";
 import { ImportJobsHistory } from "@/components/admin/ImportJobsHistory";
 import { ContentImportDryRunPanel } from "@/components/admin/ContentImportDryRunPanel";
 import { InteractiveHtmlImportPanel } from "@/components/admin/InteractiveHtmlImportPanel";
