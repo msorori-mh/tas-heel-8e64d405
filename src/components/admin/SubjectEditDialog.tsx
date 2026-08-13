@@ -83,6 +83,9 @@ export function SubjectEditDialog({
       setSaving(false);
     } else if (subject) {
       setName(subject.name ?? "");
+      setSubjectCode(subject.code ?? "");
+      setGroupCode(subject.group_code ?? "");
+      setGroupName(subject.group_name ?? "");
       setSortOrder(subject.sort_order ?? 0);
       setIcon(subject.icon ?? "");
       setColor(subject.color ?? "#0d7377");
