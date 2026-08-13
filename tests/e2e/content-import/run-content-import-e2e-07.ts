@@ -195,7 +195,42 @@ async function domainCounts() {
     .join("/");
 }
 
+/**
+ * The question bank is deliberately outside the import pipeline (template 09 is
+ * refused), so template 08's link targets are seeded here against the imported
+ * e2e lesson. Removed again during teardown.
+ */
+async function seedQuestionBank() {
+  const { data: subject } = await admin
+    .from("subjects")
+    .select("id")
+    .eq("code", "e2e-sub-01")
+    .maybeSingle();
+  const { data: lesson } = await admin
+    .from("lessons")
+    .select("id")
+    .eq("slug", "e2e-lesson-01")
+    .maybeSingle();
+  if (!subject || !lesson) throw new Error("seedQuestionBank: e2e subject/lesson missing");
+
+  const { error } = await admin.from("questions").upsert(
+    ["e2e-q-01", "e2e-q-02"].map((code, i) => ({
+      code,
+      subject_id: subject.id,
+      lesson_id: lesson.id,
+      question_text: `سؤال بنك تجريبي ${i + 1}؟`,
+      options: ["خيار أ", "خيار ب"],
+      correct_index: 0,
+      sort_order: i + 1,
+    })),
+    { onConflict: "code" },
+  );
+  if (error) throw new Error(`seedQuestionBank failed: ${error.message}`);
+}
+
 async function teardown() {
+  await admin.from("questions").delete().like("code", "e2e-%");
+
   const { data: subject } = await admin
     .from("subjects")
     .select("id")
@@ -210,6 +245,7 @@ async function teardown() {
     const lessonIds = (lessons ?? []).map((l) => l.id);
 
     if (lessonIds.length) {
+
       const { data: assessments } = await admin
         .from("lesson_assessments")
         .select("id")
