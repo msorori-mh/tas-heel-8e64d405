@@ -116,7 +116,10 @@ BEGIN
   FROM pg_constraint
   WHERE conrelid = 'public.question_targets'::regclass
     AND contype = 'c'
-    AND pg_get_constraintdef(oid) LIKE '%unit_id IS NOT NULL%AND lesson_id IS NOT NULL%';
+    AND conname <> 'question_targets_shape_chk'
+    AND pg_get_constraintdef(oid) LIKE '%target_type%'
+    AND pg_get_constraintdef(oid) LIKE '%unit_id IS NOT NULL%'
+    AND pg_get_constraintdef(oid) LIKE '%lesson_id IS NOT NULL%';
   IF v_name IS NOT NULL THEN
     EXECUTE format('ALTER TABLE public.question_targets DROP CONSTRAINT %I', v_name);
   END IF;
