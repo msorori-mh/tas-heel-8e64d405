@@ -391,10 +391,15 @@ async function main() {
     JSON.stringify(runnerOrder) === JSON.stringify(contractOrder),
     runnerOrder.join(" → "),
   );
+  const fullOrder = orderTemplatesByDependency([...PACKAGE_TEMPLATES, "assessment_questions"]);
   check(
-    "02 questions execute before assessment_questions (link needs the root)",
-    runnerOrder.indexOf("questions") < runnerOrder.indexOf("assessment_questions"),
-    `questions@${runnerOrder.indexOf("questions")} < link@${runnerOrder.indexOf("assessment_questions")}`,
+    "02 dependency graph — parents precede children, questions precede the assessment link",
+    fullOrder.indexOf("subjects") < fullOrder.indexOf("units") &&
+      fullOrder.indexOf("units") < fullOrder.indexOf("lessons") &&
+      fullOrder.indexOf("lessons") < fullOrder.indexOf("assessments") &&
+      fullOrder.indexOf("assessments") < fullOrder.indexOf("assessment_questions") &&
+      fullOrder.indexOf("questions") < fullOrder.indexOf("assessment_questions"),
+    fullOrder.join(" → "),
   );
 
   // ---------------------------------------------------------------- pass 1
