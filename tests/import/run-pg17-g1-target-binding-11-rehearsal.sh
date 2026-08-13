@@ -2,9 +2,13 @@
 # =============================================================================
 # G1_PUBLISHED_REVISION_TARGET_BINDING_11 — local PostgreSQL 17 rehearsal
 #
-# Applies the EXACT migration chain on a disposable cluster, then the pending
-# stage-11 migration, then re-applies it (idempotency), then runs the runtime
-# smoke matrix. Nothing here ever touches the shared production datastore.
+# Never touches the shared production datastore. It builds a disposable cluster,
+# applies the EXACT migration chain, then exercises the pending stage-11
+# migration in three independent databases cloned from the same pre-11 base:
+#
+#   smoke     : apply 11 twice (idempotency) + runtime binding matrix
+#   bf_ok     : deterministic legacy targets  -> backfill must bind them exactly
+#   bf_ambig  : ambiguous legacy targets      -> migration must abort fail-closed
 #
 #   bash tests/import/run-pg17-g1-target-binding-11-rehearsal.sh
 # =============================================================================
@@ -14,6 +18,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RUN="${TMPDIR:-/tmp}/pg17-g1-11"
 DATA="$RUN/data"; SOCK="$RUN/sock"
 MIG_11="supabase/migrations-pending/20260814010000_g1_published_revision_target_binding_11.sql"
+FAILURES=0
 
 CHAIN=(
   tests/import/fixtures/pg17-baseline-schema.sql
@@ -33,27 +38,87 @@ rm -rf "$DATA" "$SOCK"; mkdir -p "$SOCK"
 initdb -D "$DATA" -U postgres --auth=trust -E UTF8 >/dev/null
 pg_ctl -D "$DATA" -o "-k $SOCK -h ''" -w -l "$DATA/pg.log" start >/dev/null
 trap 'pg_ctl -D "$DATA" -m immediate stop >/dev/null 2>&1 || true' EXIT
-createdb -h "$SOCK" -U postgres chain
 
 cd "$ROOT"
-P=(psql -h "$SOCK" -U postgres -d chain -v ON_ERROR_STOP=1 -q)
+psql_db() { psql -h "$SOCK" -U postgres -d "$1" -v ON_ERROR_STOP=1 -q -f "$2"; }
 
-echo "== chain =="
+createdb -h "$SOCK" -U postgres base
+echo "== chain (pre stage-11 base) =="
 for f in "${CHAIN[@]}"; do
   echo "--- $f"
-  "${P[@]}" -f "$f" >/dev/null
+  psql_db base "$f" >/dev/null
 done
 
-echo "== stage 11 (first apply) =="
-"${P[@]}" -f "$MIG_11" >/dev/null
+clone() { createdb -h "$SOCK" -U postgres -T base "$1"; }
+clone smoke; clone bf_ok; clone bf_ambig
 
-echo "== stage 11 (re-apply / idempotency) =="
-"${P[@]}" -f "$MIG_11" >/dev/null
+echo
+echo "== A. smoke db: apply stage 11 =="
+psql_db smoke "$MIG_11" >/dev/null && echo "PASS A1 stage-11 migration applied"
+echo "== A2. re-apply (idempotency) =="
+if psql_db smoke "$MIG_11" >/dev/null 2>&1; then
+  echo "PASS A2 stage-11 migration is re-appliable"
+else
+  echo "FAIL A2 re-apply failed"; FAILURES=$((FAILURES+1))
+fi
 
-echo "== runtime smoke =="
-"${P[@]}" -f tests/import/fixtures/pg17-g1-target-binding-smoke.sql 2>&1 \
-  | grep -E 'PASS|FAIL|ERROR' || true
+echo
+echo "== B. runtime binding matrix =="
+set +e
+OUT="$(psql -h "$SOCK" -U postgres -d smoke -v ON_ERROR_STOP=1 -q \
+        -f tests/import/fixtures/pg17-g1-target-binding-smoke.sql 2>&1)"
+RC=$?
+set -e
+echo "$OUT" | grep -E 'PASS|FAIL|ERROR' || true
+[ $RC -ne 0 ] && { echo "FAIL B smoke aborted"; FAILURES=$((FAILURES+1)); }
 
-echo "== backfill scenarios =="
-"${P[@]}" -f tests/import/fixtures/pg17-g1-target-binding-backfill.sql 2>&1 \
-  | grep -E 'PASS|FAIL|ERROR' || true
+echo
+echo "== C. deterministic backfill =="
+psql_db bf_ok tests/import/fixtures/pg17-g1-target-binding-backfill-seed-ok.sql >/dev/null
+set +e
+psql_db bf_ok "$MIG_11" >/tmp/bf_ok.log 2>&1
+RC=$?
+set -e
+if [ $RC -ne 0 ]; then
+  echo "FAIL C stage-11 aborted on deterministic data"; tail -5 /tmp/bf_ok.log; FAILURES=$((FAILURES+1))
+else
+  set +e
+  OUT="$(psql -h "$SOCK" -U postgres -d bf_ok -v ON_ERROR_STOP=1 -q \
+          -f tests/import/fixtures/pg17-g1-target-binding-backfill-verify.sql 2>&1)"
+  RC=$?
+  set -e
+  echo "$OUT" | grep -E 'PASS|FAIL|ERROR' || true
+  [ $RC -ne 0 ] && { echo "FAIL C backfill verification failed"; FAILURES=$((FAILURES+1)); }
+fi
+
+echo
+echo "== D. fail-closed backfill on ambiguous data =="
+psql_db bf_ambig tests/import/fixtures/pg17-g1-target-binding-backfill-seed-ambiguous.sql >/dev/null
+set +e
+psql_db bf_ambig "$MIG_11" >/tmp/bf_ambig.log 2>&1
+RC=$?
+set -e
+if [ $RC -eq 0 ]; then
+  echo "FAIL D migration applied on ambiguous data"; FAILURES=$((FAILURES+1))
+elif grep -q 'G1_BACKFILL_AMBIGUOUS_TARGETS' /tmp/bf_ambig.log; then
+  echo "PASS D1 migration aborted with G1_BACKFILL_AMBIGUOUS_TARGETS"
+  LEFT="$(psql -h "$SOCK" -U postgres -d bf_ambig -tAc \
+    "SELECT count(*) FROM information_schema.columns WHERE table_schema='public'
+       AND table_name='question_targets' AND column_name='revision_id'")"
+  ROWS="$(psql -h "$SOCK" -U postgres -d bf_ambig -tAc "SELECT count(*) FROM public.question_targets")"
+  if [ "$LEFT" = "0" ] && [ "$ROWS" = "1" ]; then
+    echo "PASS D2 aborted transaction left no partial schema and deleted no data"
+  else
+    echo "FAIL D2 partial state after abort (col=$LEFT rows=$ROWS)"; FAILURES=$((FAILURES+1))
+  fi
+else
+  echo "FAIL D migration failed for an unexpected reason"; tail -5 /tmp/bf_ambig.log; FAILURES=$((FAILURES+1))
+fi
+
+echo
+FAILURES=$((FAILURES + $(echo "${OUT:-}" | grep -c 'FAIL' || true)))
+if [ "$FAILURES" -eq 0 ]; then
+  echo "REHEARSAL RESULT: PASS"
+else
+  echo "REHEARSAL RESULT: FAIL ($FAILURES)"; exit 1
+fi
