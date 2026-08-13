@@ -1962,6 +1962,71 @@ export type Database = {
           },
         ]
       }
+      question_targets: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_primary: boolean
+          lesson_id: string | null
+          question_id: string
+          subject_id: string | null
+          target_type: string
+          unit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_primary?: boolean
+          lesson_id?: string | null
+          question_id: string
+          subject_id?: string | null
+          target_type: string
+          unit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_primary?: boolean
+          lesson_id?: string | null
+          question_id?: string
+          subject_id?: string | null
+          target_type?: string
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_targets_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_targets_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_targets_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_targets_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       questions: {
         Row: {
           archived_at: string | null
@@ -2740,6 +2805,10 @@ export type Database = {
       }
       _qb_json_num: { Args: { p: number }; Returns: string }
       _qb_json_str: { Args: { p: string }; Returns: string }
+      _qb_validate_revision_for_publish: {
+        Args: { p_revision_id: string }
+        Returns: undefined
+      }
       admin_adjust_wallet: {
         Args: {
           _amount: number
@@ -2822,6 +2891,27 @@ export type Database = {
       }
       can_access_lesson: { Args: { _lesson_id: string }; Returns: boolean }
       can_access_subject: { Args: { _subject_id: string }; Returns: boolean }
+      can_delete_draft_question: {
+        Args: { p_user_id?: string }
+        Returns: boolean
+      }
+      can_edit_question_bank: { Args: { p_user_id?: string }; Returns: boolean }
+      can_grade_manual_response: {
+        Args: { p_user_id?: string }
+        Returns: boolean
+      }
+      can_publish_question_revision: {
+        Args: { p_user_id?: string }
+        Returns: boolean
+      }
+      can_read_hidden_solutions: {
+        Args: { p_user_id?: string }
+        Returns: boolean
+      }
+      can_review_question_content: {
+        Args: { p_user_id?: string }
+        Returns: boolean
+      }
       check_lesson_question: {
         Args: { _question_id: string; _selected_index: number }
         Returns: Json
@@ -3028,6 +3118,20 @@ export type Database = {
         }
         Returns: Json
       }
+      publish_question_revision: {
+        Args: {
+          p_expected_current_revision_id: string
+          p_idempotency_key: string
+          p_question_id: string
+          p_revision_id: string
+        }
+        Returns: Json
+      }
+      qb_has_capability: {
+        Args: { p_capability: string; p_user_id: string }
+        Returns: boolean
+      }
+      qb_i_have_capability: { Args: { p_capability: string }; Returns: boolean }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
