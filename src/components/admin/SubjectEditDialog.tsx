@@ -250,6 +250,53 @@ export function SubjectEditDialog({
             />
           </div>
 
+          <div className="space-y-1.5">
+            <Label htmlFor="subject-code">كود المادة (subject_code)</Label>
+            <Input
+              id="subject-code"
+              value={subjectCode}
+              onChange={(e) => setSubjectCode(e.target.value)}
+              disabled={saving || !isCreate}
+              readOnly={!isCreate}
+              dir="ltr"
+              placeholder="arabic-g10-nahw"
+            />
+            <p className="text-xs text-muted-foreground">
+              {isCreate
+                ? "حروف لاتينية صغيرة وأرقام وشرطات فقط. يُحدَّد مرة واحدة ولا يمكن تغييره لاحقاً."
+                : "كود المادة ثابت ولا يمكن تعديله."}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="subject-group-code">كود المجموعة</Label>
+              <Input
+                id="subject-group-code"
+                value={groupCode}
+                onChange={(e) => setGroupCode(e.target.value)}
+                disabled={saving || (!isCreate && !!subject?.group_code)}
+                readOnly={!isCreate && !!subject?.group_code}
+                dir="ltr"
+                placeholder="arabic-g10-aden"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="subject-group-name">اسم المجموعة</Label>
+              <Input
+                id="subject-group-name"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                disabled={saving || !groupCode.trim()}
+                dir="rtl"
+                placeholder="اللغة العربية"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            اتركهما فارغين للمواد غير المتفرعة. المجموعة للعرض فقط ولا تؤثر على الصلاحيات أو استهداف الأسئلة.
+          </p>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="subject-order">الترتيب</Label>
