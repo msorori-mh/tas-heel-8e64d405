@@ -193,7 +193,7 @@ function AdminImportPage() {
           </div>
         </section>
 
-        <ImportDryRunGovernorates />
+        
 
         <ImportJobsHistory />
 
