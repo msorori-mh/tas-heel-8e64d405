@@ -30,3 +30,62 @@ CURRICULUM DATA WRITES = 0 · PRODUCTION CONTENT INSERT = 0 · NEW MIGRATION APP
 ## ملاحظة على الترحيل المعلق
 
 `supabase/migrations-pending/20260814020000_content_entry_readiness_13.sql` (دعم حقول التجميع في `import_execute_template`) **لم يُطبَّق** — بقي معلقاً وفق قاعدة NEW MIGRATION = NOT EXPECTED. يُطبَّق بإشارة صريحة قبل أول دفعة محتوى حقيقية تستخدم `group_code` عبر القالب 01.
+
+---
+
+## CONTENT_ENTRY_GROUP_IMPORT_BINDING_13A — PASS
+
+**Migration:** `supabase/migrations/20260814020000_content_entry_readiness_13.sql`
+(moved out of `migrations-pending`; applied to the shared database).
+
+### Pre-apply review (no CRITICAL / HIGH)
+- Redefines `import_execute_template` only; no other object is dropped or rewritten.
+- No curriculum data is written, deleted, or migrated.
+- No RLS policy touched; no new grant to `anon` or `authenticated`
+  (the tail only REVOKEs from PUBLIC/anon/authenticated and grants `service_role`).
+- `SECURITY DEFINER` preserved; `SET search_path = public, pg_temp` preserved.
+- `group_code` / `group_name` optional (`NULLIF(...,'')`); ungrouped subjects unaffected.
+- Template 01 idempotency preserved (COALESCE-based, immutable `group_code`).
+- Branches for templates 02–09 unchanged.
+
+### PG17 isolated rehearsal — 18/18 PASS
+`tests/import/run-pg17-group-import-binding-13a-rehearsal.sh`
+
+| Check | Result |
+|---|---|
+| SECURITY DEFINER preserved | PASS |
+| search_path fixed | PASS |
+| anon EXECUTE not granted | PASS |
+| group binding present in body | PASS |
+| subject without group | PASS |
+| grouped subject | PASS |
+| same group + same group_name | PASS |
+| same group + different group_name (fail-closed) | PASS |
+| group_code immutable on replay | PASS |
+| ungrouped subject untouched | PASS |
+| templates 02–09 branch regression (8 branches) | PASS |
+
+### Post-apply structural verification (shared DB, read-only)
+- signature `import_execute_template(uuid, text)` — correct
+- `prosecdef = true` — preserved
+- `proconfig = {search_path=public, pg_temp}` — fixed
+- `anon` EXECUTE = false — zero exposure
+- `authenticated` EXECUTE = true (pre-existing, operator path gated by `assert_import_job_operator`)
+- `service_role` EXECUTE = true
+- curriculum row counts before/after: subjects 0/0, units 0/0, lessons 0/0, questions 0/0 — unchanged
+
+### Gate
+```
+GROUP IMPORT EXECUTION                PASS
+GROUP CONSISTENCY FAIL-CLOSED         PASS
+UNGROUPED SUBJECT IMPORT              PASS
+TEMPLATE 01 IDEMPOTENCY               PASS
+02–09 REGRESSION                      PASS
+RLS / GRANTS                          PASS
+ANON EXPOSURE                         ZERO
+CURRICULUM DATA WRITES                ZERO
+TESTS (60 node / 26 vitest) / TYPECHECK  PASS
+
+CONTENT_ENTRY_GROUP_IMPORT_BINDING_13A = PASS
+CONTENT_ENTRY_OPERATOR_READY           = YES
+```
