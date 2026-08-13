@@ -37,8 +37,10 @@ const templates = [
     title: "01 — نموذج المواد الدراسية",
     purpose: "تجهيز قائمة المواد قبل الوحدات والدروس.",
     columns: [
-      { key: "subject_code", header: "subject_code", required: true, example: "phys-g10-aden", note: "كود فريد للمادة" },
-      { key: "name", header: "name", required: true, example: "التربية الإسلامية - السيرة النبوية", note: "مادة عادية: «الفيزياء» — مادة مقسّمة: «المادة الكبرى - القسم»" },
+      { key: "subject_code", header: "subject_code", required: true, example: "phys-g10-aden", note: "كود فريد للمادة — يُحدَّد مرة واحدة ولا يتغير" },
+      { key: "name", header: "name", required: true, example: "اللغة العربية - النحو", note: "اسم المادة كما يظهر للطالب" },
+      { key: "group_code", header: "group_code", example: "arabic-g10-aden", note: "اختياري — لتجميع أقسام مادة واحدة (SUBJECT_AS_BRANCH)" },
+      { key: "group_name", header: "group_name", example: "اللغة العربية", note: "اسم المجموعة المعروض — موحّد لكل الأقسام" },
       { key: "grade_slug", header: "grade_slug", required: true, example: "grade-10" },
       { key: "track_code", header: "track_code", example: "aden", note: "sanaa | aden" },
       { key: "semester", header: "semester", example: 1, note: "1 أو 2" },
