@@ -373,35 +373,83 @@ export type Database = {
       exam_session_answers: {
         Row: {
           answered_at: string | null
+          assigned_grader_id: string | null
+          auto_score: number | null
           created_at: string
+          exam_session_question_id: string | null
+          final_score: number | null
+          finalized_at: string | null
+          graded_at: string | null
+          grading_status: string | null
           id: string
           is_correct: boolean | null
+          manual_score: number | null
+          max_score: number | null
+          pin_mode: string | null
           points_awarded: number
           question_id: string
+          question_revision_id: string | null
+          requires_manual_review: boolean
+          response_payload: Json | null
+          response_text: string | null
           selected_index: number | null
+          selected_option_code: string | null
           session_id: string
+          submitted_at: string | null
           updated_at: string
         }
         Insert: {
           answered_at?: string | null
+          assigned_grader_id?: string | null
+          auto_score?: number | null
           created_at?: string
+          exam_session_question_id?: string | null
+          final_score?: number | null
+          finalized_at?: string | null
+          graded_at?: string | null
+          grading_status?: string | null
           id?: string
           is_correct?: boolean | null
+          manual_score?: number | null
+          max_score?: number | null
+          pin_mode?: string | null
           points_awarded?: number
           question_id: string
+          question_revision_id?: string | null
+          requires_manual_review?: boolean
+          response_payload?: Json | null
+          response_text?: string | null
           selected_index?: number | null
+          selected_option_code?: string | null
           session_id: string
+          submitted_at?: string | null
           updated_at?: string
         }
         Update: {
           answered_at?: string | null
+          assigned_grader_id?: string | null
+          auto_score?: number | null
           created_at?: string
+          exam_session_question_id?: string | null
+          final_score?: number | null
+          finalized_at?: string | null
+          graded_at?: string | null
+          grading_status?: string | null
           id?: string
           is_correct?: boolean | null
+          manual_score?: number | null
+          max_score?: number | null
+          pin_mode?: string | null
           points_awarded?: number
           question_id?: string
+          question_revision_id?: string | null
+          requires_manual_review?: boolean
+          response_payload?: Json | null
+          response_text?: string | null
           selected_index?: number | null
+          selected_option_code?: string | null
           session_id?: string
+          submitted_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -413,10 +461,97 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "exam_session_answers_question_revision_id_fkey"
+            columns: ["question_revision_id"]
+            isOneToOne: false
+            referencedRelation: "question_revisions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "exam_session_answers_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_session_answers_session_question_fk"
+            columns: ["session_id", "exam_session_question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_session_questions"
+            referencedColumns: ["exam_session_id", "id"]
+          },
+        ]
+      }
+      exam_session_questions: {
+        Row: {
+          created_at: string
+          exam_session_id: string
+          id: string
+          logical_question_id: string
+          max_score: number
+          option_order_mapping: Json
+          payload_hash: string
+          payload_hash_version: string
+          pin_mode: string
+          question_order: number
+          question_revision_id: string
+          rendered_options: Json
+          rendered_question_text: string
+          rendered_stimulus_text: string | null
+        }
+        Insert: {
+          created_at?: string
+          exam_session_id: string
+          id?: string
+          logical_question_id: string
+          max_score?: number
+          option_order_mapping?: Json
+          payload_hash: string
+          payload_hash_version?: string
+          pin_mode: string
+          question_order: number
+          question_revision_id: string
+          rendered_options?: Json
+          rendered_question_text: string
+          rendered_stimulus_text?: string | null
+        }
+        Update: {
+          created_at?: string
+          exam_session_id?: string
+          id?: string
+          logical_question_id?: string
+          max_score?: number
+          option_order_mapping?: Json
+          payload_hash?: string
+          payload_hash_version?: string
+          pin_mode?: string
+          question_order?: number
+          question_revision_id?: string
+          rendered_options?: Json
+          rendered_question_text?: string
+          rendered_stimulus_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_session_questions_exam_session_id_fkey"
+            columns: ["exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_session_questions_logical_question_id_fkey"
+            columns: ["logical_question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_session_questions_question_revision_id_fkey"
+            columns: ["question_revision_id"]
+            isOneToOne: false
+            referencedRelation: "question_revisions"
             referencedColumns: ["id"]
           },
         ]
@@ -424,9 +559,11 @@ export type Database = {
       exam_sessions: {
         Row: {
           answered_questions: number
+          attempt_pin_mode: string
           correct_answers: number
           created_at: string
           expires_at: string | null
+          grading_status: string
           id: string
           mode: Database["public"]["Enums"]["exam_mode"]
           result_json: Json | null
@@ -442,9 +579,11 @@ export type Database = {
         }
         Insert: {
           answered_questions?: number
+          attempt_pin_mode?: string
           correct_answers?: number
           created_at?: string
           expires_at?: string | null
+          grading_status?: string
           id?: string
           mode: Database["public"]["Enums"]["exam_mode"]
           result_json?: Json | null
@@ -460,9 +599,11 @@ export type Database = {
         }
         Update: {
           answered_questions?: number
+          attempt_pin_mode?: string
           correct_answers?: number
           created_at?: string
           expires_at?: string | null
+          grading_status?: string
           id?: string
           mode?: Database["public"]["Enums"]["exam_mode"]
           result_json?: Json | null
@@ -1456,6 +1597,205 @@ export type Database = {
             columns: ["subscription_id"]
             isOneToOne: false
             referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_attempt_questions: {
+        Row: {
+          created_at: string
+          id: string
+          logical_question_id: string
+          max_score: number
+          option_order_mapping: Json
+          payload_hash: string
+          payload_hash_version: string
+          practice_attempt_id: string
+          question_order: number
+          question_revision_id: string
+          rendered_options: Json
+          rendered_question_text: string
+          rendered_stimulus_text: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logical_question_id: string
+          max_score?: number
+          option_order_mapping?: Json
+          payload_hash: string
+          payload_hash_version?: string
+          practice_attempt_id: string
+          question_order: number
+          question_revision_id: string
+          rendered_options?: Json
+          rendered_question_text: string
+          rendered_stimulus_text?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logical_question_id?: string
+          max_score?: number
+          option_order_mapping?: Json
+          payload_hash?: string
+          payload_hash_version?: string
+          practice_attempt_id?: string
+          question_order?: number
+          question_revision_id?: string
+          rendered_options?: Json
+          rendered_question_text?: string
+          rendered_stimulus_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_attempt_questions_logical_question_id_fkey"
+            columns: ["logical_question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_attempt_questions_practice_attempt_id_fkey"
+            columns: ["practice_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "practice_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_attempt_questions_question_revision_id_fkey"
+            columns: ["question_revision_id"]
+            isOneToOne: false
+            referencedRelation: "question_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_attempt_responses: {
+        Row: {
+          auto_score: number | null
+          created_at: string
+          final_score: number | null
+          finalized_at: string | null
+          graded_at: string | null
+          grading_status: string | null
+          id: string
+          manual_score: number | null
+          max_score: number | null
+          practice_attempt_id: string
+          practice_attempt_question_id: string
+          requires_manual_review: boolean
+          response_payload: Json | null
+          response_text: string | null
+          selected_option_code: string | null
+          submitted_at: string | null
+        }
+        Insert: {
+          auto_score?: number | null
+          created_at?: string
+          final_score?: number | null
+          finalized_at?: string | null
+          graded_at?: string | null
+          grading_status?: string | null
+          id?: string
+          manual_score?: number | null
+          max_score?: number | null
+          practice_attempt_id: string
+          practice_attempt_question_id: string
+          requires_manual_review?: boolean
+          response_payload?: Json | null
+          response_text?: string | null
+          selected_option_code?: string | null
+          submitted_at?: string | null
+        }
+        Update: {
+          auto_score?: number | null
+          created_at?: string
+          final_score?: number | null
+          finalized_at?: string | null
+          graded_at?: string | null
+          grading_status?: string | null
+          id?: string
+          manual_score?: number | null
+          max_score?: number | null
+          practice_attempt_id?: string
+          practice_attempt_question_id?: string
+          requires_manual_review?: boolean
+          response_payload?: Json | null
+          response_text?: string | null
+          selected_option_code?: string | null
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_attempt_responses_attempt_question_fk"
+            columns: ["practice_attempt_id", "practice_attempt_question_id"]
+            isOneToOne: false
+            referencedRelation: "practice_attempt_questions"
+            referencedColumns: ["practice_attempt_id", "id"]
+          },
+          {
+            foreignKeyName: "practice_attempt_responses_practice_attempt_id_fkey"
+            columns: ["practice_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "practice_attempts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_attempts: {
+        Row: {
+          attempt_pin_mode: string
+          attempt_type: string
+          grading_status: string
+          id: string
+          lesson_assessment_id: string | null
+          max_score: number | null
+          started_at: string
+          submitted_at: string | null
+          total_score: number | null
+          unit_id: string | null
+          user_id: string
+        }
+        Insert: {
+          attempt_pin_mode?: string
+          attempt_type: string
+          grading_status?: string
+          id?: string
+          lesson_assessment_id?: string | null
+          max_score?: number | null
+          started_at?: string
+          submitted_at?: string | null
+          total_score?: number | null
+          unit_id?: string | null
+          user_id: string
+        }
+        Update: {
+          attempt_pin_mode?: string
+          attempt_type?: string
+          grading_status?: string
+          id?: string
+          lesson_assessment_id?: string | null
+          max_score?: number | null
+          started_at?: string
+          submitted_at?: string | null
+          total_score?: number | null
+          unit_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_attempts_lesson_assessment_id_fkey"
+            columns: ["lesson_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_attempts_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
             referencedColumns: ["id"]
           },
         ]
