@@ -6,8 +6,31 @@ Job slug     : prod-b12-20260813-01
 Questions    : NO
 Auto publish : NO
 Expected     : INSERT-only (UPDATE = 0, SKIP = 0, BLOCKED = 0)
-Status       : awaiting content files → Validate → Prepare → PREVIEW GATE
+Status       : GO_TO_PREVIEW — awaiting content files → Validate → Prepare → PREVIEW GATE
+Prereqs      : CONTENT_IMPORT_TEMPLATE_CONTRACT_SYNC_12A = PASS (83/83)
+Subject rule : مادة بسيطة غير متفرعة فقط (فيزياء/رياضيات/أحياء). العربية والتربية
+               الإسلامية محظورتان حتى اكتمال حقول التجميع في 12B.
+Templates    : 01 → 02 → 03 → 04 → 05 → 06 → 07 فقط (لا 09، لا 08)
 ```
+
+## Preview Gate — الشرط الحاسم قبل Execute
+
+```text
+INSERT  > 0
+UPDATE  = 0
+SKIP    = 0
+BLOCKED = 0
+```
+
+أي قيمة أخرى توقف الدفعة فوراً وتفتح مراجعة تصادم أكواد.
+
+## علاقة الدفعة بـ 12B
+
+القرار المعماري `SUBJECT_AS_BRANCH` مثبَّت في
+`docs/import/MULTI-BRANCH-SUBJECT-ARCHITECTURE-REVIEW-12B.md`.
+هذه الدفعة **لا تحتاج** `group_code` / `group_name`، وترحيل حقول التجميع مؤجل حتى
+`FIRST_REAL_CONTENT_BATCH_12 = PASS`.
+
 
 ## Step 1 — Batch identity: FIXED (above)
 
