@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
-const OUT_DIR = join(ROOT, "docs", "content-templates");
+const OUT_DIR = join(ROOT, "public", "content-import-templates");
 mkdirSync(OUT_DIR, { recursive: true });
 
 const EDITOR_ONLY_WARNING =
