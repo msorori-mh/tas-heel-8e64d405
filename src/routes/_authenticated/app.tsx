@@ -13,6 +13,7 @@ import { ContinueSection } from "@/components/home/ContinueSection";
 import { AchievementsSection } from "@/components/home/AchievementsSection";
 import { AiAssistantCard } from "@/components/home/AiAssistantCard";
 import { SemesterPicker } from "@/components/home/SemesterPicker";
+import { MinisterialExamsEntry } from "@/components/home/MinisterialExamsEntry";
 
 const searchSchema = z.object({
   semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
@@ -63,6 +64,9 @@ function StudentHome() {
 
       {/* 5. Semesters */}
       <SemesterPicker />
+
+      {/* 5b. Ministerial exam models (third secondary only) */}
+      <MinisterialExamsEntry />
 
       {/* 6. Achievements + 7. AI assistant */}
       <div className="grid gap-5 lg:grid-cols-12 lg:items-stretch lg:gap-6">
