@@ -15,6 +15,10 @@ import {
   requestFreshStudentHtmlSignedUrl,
 } from "@/lib/api/html-pipeline.functions";
 import { PublishedHtmlResourceViewer } from "@/components/lessons/PublishedHtmlResourceViewer";
+import {
+  ExternalLessonDelivery,
+  type PrimaryLessonResource,
+} from "@/components/lessons/ExternalLessonDelivery";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import {
   Home,
