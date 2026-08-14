@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS public.exam_sessions (
   updated_at timestamptz NOT NULL DEFAULT now(),
   attempt_pin_mode text,
   grading_status text,
-  ministerial_model_id uuid REFERENCES public.ministerial_exam_models(id) ON DELETE RESTRICT
+  ministerial_model_id uuid
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS exam_sessions_id_uidx ON public.exam_sessions (id);
