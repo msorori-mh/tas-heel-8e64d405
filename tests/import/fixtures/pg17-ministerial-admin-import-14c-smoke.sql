@@ -29,12 +29,15 @@ DECLARE
   v_count int;
 BEGIN
   -- ---------------------------------------------------------------- fixtures --
+  INSERT INTO curriculum_tracks (track_code, track_name, is_active)
+  VALUES ('sanaa', 'منهج صنعاء', true), ('aden', 'منهج عدن', true)
+  ON CONFLICT (track_code) DO NOTHING;
+
   SELECT id INTO v_sanaa FROM curriculum_tracks WHERE track_code = 'sanaa';
   SELECT id INTO v_aden  FROM curriculum_tracks WHERE track_code = 'aden';
 
-  INSERT INTO grades (slug, name, category, sort_order)
-  VALUES ('grade-12', 'الثاني عشر', 'secondary', 1)
-  ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+  INSERT INTO grades (slug, name, category, sort_order, curriculum_track_id)
+  VALUES ('grade-12-14c', 'الثاني عشر', 'secondary', 1, v_sanaa)
   RETURNING id INTO v_grade;
 
   INSERT INTO subjects (grade_id, slug, name, code)
