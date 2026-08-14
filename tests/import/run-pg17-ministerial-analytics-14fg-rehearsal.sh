@@ -27,7 +27,7 @@ CHAIN=(
   supabase/migrations/20260813005024_fc77a965-3b6a-4be5-9b91-05bb53145606.sql
   supabase/migrations/20260813005146_a5f7a00c-fa9b-4bce-a92a-bbf5d6b4bde4.sql
   supabase/migrations/20260813005253_999224a3-eb72-4d72-9202-aed5ab23ca38.sql
-  supabase/migrations-pending/20260814010000_g1_published_revision_target_binding_11.sql
+  supabase/migrations/20260813201920_99aedcc6-49ad-4dac-aed7-7f3bda1621cb.sql
   supabase/migrations/20260813221804_ff8b3137-d6db-4d26-a679-1d4fa2766d92.sql
   supabase/migrations/20260814011809_33bebe6e-ad5c-4d20-8288-e79d98ce9735.sql
   supabase/migrations/20260814012432_88ef196b-8b25-4bb5-8333-e1ed6085b546.sql
