@@ -287,33 +287,40 @@ function SubjectIndexPage() {
 
       {!hasAny && <StateMessage>لم تُضاف دروس لهذه المادة بعد.</StateMessage>}
 
-      {hasAny && (
-        <Accordion type="single" collapsible defaultValue={defaultOpen} className="space-y-2.5">
-          {units.map((u, idx) => (
-            <UnitBlock
-              key={u.id}
-              unitId={u.id}
-              index={idx + 1}
-              title={u.title}
-              description={u.description}
-              isFree={u.is_free}
-              lessons={lessonsByUnit.get(u.id) ?? []}
-              completed={done}
-            />
-          ))}
+      {hasAny &&
+        (hasUnits ? (
+          <Accordion type="single" collapsible defaultValue={defaultOpen} className="space-y-2.5">
+            {units.map((u, idx) => (
+              <UnitBlock
+                key={u.id}
+                unitId={u.id}
+                index={idx + 1}
+                title={u.title}
+                description={u.description}
+                isFree={u.is_free}
+                lessons={lessonsByUnit.get(u.id) ?? []}
+                completed={done}
+              />
+            ))}
 
-          {orphans.length > 0 && (
-            <UnitBlock
-              value="__orphans"
-              title="دروس أخرى"
-              description={null}
-              isFree={null}
-              lessons={orphans}
-              completed={done}
-            />
-          )}
-        </Accordion>
-      )}
+            {orphans.length > 0 && (
+              <UnitBlock
+                value="__orphans"
+                title="دروس أخرى"
+                description={null}
+                isFree={null}
+                lessons={orphans}
+                completed={done}
+              />
+            )}
+          </Accordion>
+        ) : (
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
+            <h2 className="mb-3 text-sm font-bold text-foreground">الدروس</h2>
+            <LessonList lessons={lessons} completed={done} />
+          </section>
+        ))}
+
 
       <ExamTemplatesSection
         scope={{ kind: "subject", subjectId: subject.id }}
