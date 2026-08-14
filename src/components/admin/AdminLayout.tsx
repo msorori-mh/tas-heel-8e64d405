@@ -38,6 +38,7 @@ type LinkItem = {
     | "/admin/lessons"
     | "/admin/questions"
     | "/admin/exam-templates"
+    | "/admin/ministerial-exams"
     | "/admin/import"
     | "/admin/payment-methods"
     | "/admin/payment-requests"
@@ -63,6 +64,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/lessons", label: "الدروس", icon: BookOpen },
   { href: "/admin/questions", label: "الأسئلة", icon: HelpCircle },
   { href: "/admin/exam-templates", label: "قوالب الاختبارات", icon: ClipboardList },
+  { href: "/admin/ministerial-exams", label: "النماذج الوزارية", icon: ClipboardList },
   { href: "/admin/import", label: "الاستيراد", icon: FileSpreadsheet },
   { href: "/admin/payment-methods", label: "طرق الدفع", icon: Landmark },
   { href: "/admin/payment-requests", label: "طلبات الدفع", icon: CreditCard },
