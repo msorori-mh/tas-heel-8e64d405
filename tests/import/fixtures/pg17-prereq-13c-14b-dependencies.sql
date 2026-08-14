@@ -20,6 +20,10 @@ DO $$ BEGIN
   CREATE TYPE public.exam_mode AS ENUM ('training', 'strict', 'ministry');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+DO $$ BEGIN
+  CREATE TYPE public.exam_session_status AS ENUM ('in_progress', 'submitted', 'expired');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
 CREATE TABLE IF NOT EXISTS public.exam_templates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL DEFAULT '',
@@ -34,6 +38,11 @@ CREATE TABLE IF NOT EXISTS public.exam_templates (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- mirrors 20260615005248 (global template code)
+ALTER TABLE public.exam_templates ADD COLUMN IF NOT EXISTS code text;
+CREATE UNIQUE INDEX IF NOT EXISTS exam_templates_code_uniq
+  ON public.exam_templates (code) WHERE code IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS public.exam_template_questions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
