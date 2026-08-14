@@ -85,8 +85,8 @@ export type MinisterialSessionState = {
 };
 
 export type MinisterialRevealResult = {
-  manual_review_required: boolean;
-  is_correct: boolean | null;
+  /** Server verdict for a revealed training answer. */
+  verdict: "correct" | "wrong" | "manual_review";
   correct_option_code: string | null;
   explanation: string | null;
   model_answer?: string | null;

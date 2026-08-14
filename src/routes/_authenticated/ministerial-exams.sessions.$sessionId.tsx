@@ -272,7 +272,7 @@ function MinisterialSessionPage() {
             const selected = currentAnswer?.code === opt.option_code;
             const isCorrectOption =
               currentReveal && currentReveal.correct_option_code === opt.option_code;
-            const isWrongPick = currentReveal && selected && currentReveal.is_correct === false;
+            const isWrongPick = currentReveal && selected && currentReveal.verdict === "wrong";
             return (
               <li key={`${current.session_question_id}-${opt.option_code}`}>
                 <button
@@ -308,12 +308,12 @@ function MinisterialSessionPage() {
           <div className="mt-4">
             {currentReveal ? (
               <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3 text-sm">
-                {currentReveal.manual_review_required ? (
+                {currentReveal.verdict === "manual_review" ? (
                   <p className="flex items-center gap-2 font-semibold text-amber-600">
                     <AlertTriangle className="h-4 w-4" aria-hidden />
                     هذا السؤال يحتاج تصحيحاً يدوياً.
                   </p>
-                ) : currentReveal.is_correct ? (
+                ) : currentReveal.verdict === "correct" ? (
                   <p className="flex items-center gap-2 font-semibold text-emerald-600">
                     <CheckCircle2 className="h-4 w-4" aria-hidden />
                     إجابة صحيحة
