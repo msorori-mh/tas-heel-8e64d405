@@ -33,6 +33,7 @@ import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/ap
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedSemestersIndexRouteImport } from './routes/_authenticated/semesters.index'
 import { Route as AuthenticatedPaymentsIndexRouteImport } from './routes/_authenticated/payments.index'
+import { Route as AuthenticatedMinisterialExamsIndexRouteImport } from './routes/_authenticated/ministerial-exams.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedSemestersSemesterRouteImport } from './routes/_authenticated/semesters.$semester'
@@ -182,6 +183,12 @@ const AuthenticatedPaymentsIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedPaymentsRoute,
+  } as any)
+const AuthenticatedMinisterialExamsIndexRoute =
+  AuthenticatedMinisterialExamsIndexRouteImport.update({
+    id: '/ministerial-exams/',
+    path: '/ministerial-exams/',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
@@ -386,6 +393,7 @@ export interface FileRoutesByFullPath {
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/ministerial-exams/': typeof AuthenticatedMinisterialExamsIndexRoute
   '/payments/': typeof AuthenticatedPaymentsIndexRoute
   '/semesters/': typeof AuthenticatedSemestersIndexRoute
   '/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
@@ -436,6 +444,7 @@ export interface FileRoutesByTo {
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/ministerial-exams': typeof AuthenticatedMinisterialExamsIndexRoute
   '/payments': typeof AuthenticatedPaymentsIndexRoute
   '/semesters': typeof AuthenticatedSemestersIndexRoute
   '/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
@@ -490,6 +499,7 @@ export interface FileRoutesById {
   '/_authenticated/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/ministerial-exams/': typeof AuthenticatedMinisterialExamsIndexRoute
   '/_authenticated/payments/': typeof AuthenticatedPaymentsIndexRoute
   '/_authenticated/semesters/': typeof AuthenticatedSemestersIndexRoute
   '/_authenticated/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
@@ -544,6 +554,7 @@ export interface FileRouteTypes {
     | '/semesters/$semester'
     | '/subjects/$subjectId'
     | '/admin/'
+    | '/ministerial-exams/'
     | '/payments/'
     | '/semesters/'
     | '/admin/lessons/$lessonId'
@@ -594,6 +605,7 @@ export interface FileRouteTypes {
     | '/semesters/$semester'
     | '/subjects/$subjectId'
     | '/admin'
+    | '/ministerial-exams'
     | '/payments'
     | '/semesters'
     | '/admin/lessons/$lessonId'
@@ -647,6 +659,7 @@ export interface FileRouteTypes {
     | '/_authenticated/semesters/$semester'
     | '/_authenticated/subjects/$subjectId'
     | '/_authenticated/admin/'
+    | '/_authenticated/ministerial-exams/'
     | '/_authenticated/payments/'
     | '/_authenticated/semesters/'
     | '/_authenticated/admin/lessons/$lessonId'
@@ -842,6 +855,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/payments/'
       preLoaderRoute: typeof AuthenticatedPaymentsIndexRouteImport
       parentRoute: typeof AuthenticatedPaymentsRoute
+    }
+    '/_authenticated/ministerial-exams/': {
+      id: '/_authenticated/ministerial-exams/'
+      path: '/ministerial-exams'
+      fullPath: '/ministerial-exams/'
+      preLoaderRoute: typeof AuthenticatedMinisterialExamsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
@@ -1148,6 +1168,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLessonsLessonIdRoute: typeof AuthenticatedLessonsLessonIdRoute
   AuthenticatedSemestersSemesterRoute: typeof AuthenticatedSemestersSemesterRoute
   AuthenticatedSubjectsSubjectIdRoute: typeof AuthenticatedSubjectsSubjectIdRoute
+  AuthenticatedMinisterialExamsIndexRoute: typeof AuthenticatedMinisterialExamsIndexRoute
   AuthenticatedSemestersIndexRoute: typeof AuthenticatedSemestersIndexRoute
   AuthenticatedExamsStrictTemplateIdRoute: typeof AuthenticatedExamsStrictTemplateIdRoute
   AuthenticatedExamsTrainingTemplateIdRoute: typeof AuthenticatedExamsTrainingTemplateIdRoute
@@ -1167,6 +1188,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLessonsLessonIdRoute: AuthenticatedLessonsLessonIdRoute,
   AuthenticatedSemestersSemesterRoute: AuthenticatedSemestersSemesterRoute,
   AuthenticatedSubjectsSubjectIdRoute: AuthenticatedSubjectsSubjectIdRoute,
+  AuthenticatedMinisterialExamsIndexRoute:
+    AuthenticatedMinisterialExamsIndexRoute,
   AuthenticatedSemestersIndexRoute: AuthenticatedSemestersIndexRoute,
   AuthenticatedExamsStrictTemplateIdRoute:
     AuthenticatedExamsStrictTemplateIdRoute,
