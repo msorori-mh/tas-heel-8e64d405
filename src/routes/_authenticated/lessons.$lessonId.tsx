@@ -463,6 +463,9 @@ function LessonPage() {
         </div>
       </header>
 
+      {/* External delivery (PDF / Drive) */}
+      {externalDelivery && <ExternalLessonDelivery resource={externalDelivery} />}
+
       {/* Learning Journey */}
       <div className="space-y-3">
         <JourneyCard
@@ -470,13 +473,15 @@ function LessonPage() {
           icon={<ScrollText className="h-5 w-5" />}
           title="اقرأ الدرس"
           description="ابدأ بقراءة محتوى الدرس من الكتاب المدرسي."
-          ctaLabel={hasBook ? "ابدأ القراءة" : "غير متوفر"}
+          ctaLabel={hasBook ? "ابدأ القراءة" : externalDelivery ? "ملف خارجي" : "غير متوفر"}
           ctaDisabled={!hasBook}
         >
           {hasBook ? (
             <div className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
               {bookContent}
             </div>
+          ) : externalDelivery ? (
+            <EmptyText>محتوى هذا الدرس متوفر كملف خارجي — افتحه من البطاقة في أعلى الصفحة.</EmptyText>
           ) : (
             <EmptyText>لم يُضف محتوى الكتاب لهذا الدرس بعد.</EmptyText>
           )}
