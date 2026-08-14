@@ -63,6 +63,7 @@ echo "== applying 14F/14G again (idempotency)"
 "${PSQL[@]}" -d t14fg -f "$MIG_14FG" >/dev/null
 
 echo "== runtime smoke"
+if [ -n "${DBG14FG:-}" ]; then psql -h "$SOCK" -U postgres -d t14fg -f "$DBG14FG"; fi
 OUT="$(psql -h "$SOCK" -U postgres -d t14fg -qtA -f tests/import/fixtures/pg17-ministerial-analytics-14fg-smoke.sql 2>&1 || true)"
 echo "$OUT" | grep -E 'PASS|FAIL|ERROR' || true
 FAIL_COUNT=$(echo "$OUT" | grep -cE 'FAIL|ERROR' || true)
