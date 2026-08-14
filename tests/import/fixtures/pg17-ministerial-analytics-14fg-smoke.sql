@@ -70,15 +70,18 @@ INSERT INTO public.question_targets (question_id, revision_id, target_type, subj
 
 -- ------------------------------------------------------------------- models --
 -- Aden: 2021 R3, 2024 R1 (question A repeats in both) — Sanaa: 2022 R1 (question A once)
+-- one exam_template per model (ministerial_exam_models.template_id is UNIQUE)
 INSERT INTO public.exam_templates (id, title, mode, subject_id, is_active) VALUES
-  ('bbbbbbbb-0000-0000-0000-000000000001', 'Ministry Template', 'ministry', '33333333-0000-0000-0000-000000000004', true)
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'Ministry Template 2021 R3', 'ministry', '33333333-0000-0000-0000-000000000004', true),
+  ('bbbbbbbb-0000-0000-0000-000000000002', 'Ministry Template 2024 R1', 'ministry', '33333333-0000-0000-0000-000000000004', true),
+  ('bbbbbbbb-0000-0000-0000-000000000003', 'Ministry Template Sanaa 2022 R1', 'ministry', '33333333-0000-0000-0000-000000000004', true)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO public.ministerial_exam_models (id, template_id, subject_id, curriculum_track_id, academic_year, round_code,
   variant_code, model_code, status, published_at, published_by, created_by) VALUES
   ('88888888-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001', '33333333-0000-0000-0000-000000000004', '33333333-0000-0000-0000-000000000001', 2021, 'r3', 'main', 'MIN-ADEN-2021-R3', 'published', now() - interval '3 years', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111'),
-  ('88888888-0000-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000001', '33333333-0000-0000-0000-000000000004', '33333333-0000-0000-0000-000000000001', 2024, 'r1', 'main', 'MIN-ADEN-2024-R1', 'published', now() - interval '1 year', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111'),
-  ('88888888-0000-0000-0000-000000000003', 'bbbbbbbb-0000-0000-0000-000000000001', '33333333-0000-0000-0000-000000000004', '33333333-0000-0000-0000-000000000002', 2022, 'r1', 'main', 'MIN-SANAA-2022-R1', 'published', now() - interval '2 years', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111')
+  ('88888888-0000-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000002', '33333333-0000-0000-0000-000000000004', '33333333-0000-0000-0000-000000000001', 2024, 'r1', 'main', 'MIN-ADEN-2024-R1', 'published', now() - interval '1 year', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111'),
+  ('88888888-0000-0000-0000-000000000003', 'bbbbbbbb-0000-0000-0000-000000000003', '33333333-0000-0000-0000-000000000004', '33333333-0000-0000-0000-000000000002', 2022, 'r1', 'main', 'MIN-SANAA-2022-R1', 'published', now() - interval '2 years', '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111')
 ON CONFLICT DO NOTHING;
 
 
