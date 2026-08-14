@@ -15,6 +15,11 @@ import {
   requestFreshStudentHtmlSignedUrl,
 } from "@/lib/api/html-pipeline.functions";
 import { PublishedHtmlResourceViewer } from "@/components/lessons/PublishedHtmlResourceViewer";
+import {
+  ExternalLessonDelivery,
+  type PrimaryLessonResource,
+} from "@/components/lessons/ExternalLessonDelivery";
+import { isExternalDelivery } from "@/lib/lessons/lesson-delivery";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import {
   Home,
@@ -278,6 +283,23 @@ function LessonPage() {
     },
   });
 
+  // LESSON_EXTERNAL_PDF_DELIVERY_13F — primary external resource (Drive PDF…).
+  // Fails soft: if the column is not present yet, the lesson renders normally.
+  const { data: primaryResource } = useQuery({
+    enabled: !!lesson && accessible === true && canAccessEnhancements,
+    queryKey: ["lesson-primary-resource", lessonId],
+    retry: false,
+    queryFn: async (): Promise<PrimaryLessonResource | null> => {
+      const { data, error } = await (supabase.from("lesson_resources") as any)
+        .select("id,resource_type,title,url,description")
+        .eq("lesson_id", lessonId)
+        .eq("is_primary", true)
+        .maybeSingle();
+      if (error) return null;
+      return (data as PrimaryLessonResource | null) ?? null;
+    },
+  });
+
   const { data: simulations } = useQuery({
     enabled: !!lesson && accessible === true && canAccessEnhancements,
     queryKey: ["lesson-simulations", lessonId],
@@ -395,6 +417,13 @@ function LessonPage() {
   const resourcesCount = resources?.length ?? 0;
   const hasResources = resourcesCount > 0 || (htmlResources?.length ?? 0) > 0;
 
+  // LESSON_EXTERNAL_PDF_DELIVERY_13F
+  const externalDelivery =
+    primaryResource &&
+    (isExternalDelivery((lesson as { delivery_mode?: string }).delivery_mode) || !hasBook)
+      ? primaryResource
+      : null;
+
   const completedWeights =
     (hasBook ? 20 : 0) +
     (hasSummary ? 20 : 0) +
@@ -434,6 +463,9 @@ function LessonPage() {
         </div>
       </header>
 
+      {/* External delivery (PDF / Drive) */}
+      {externalDelivery && <ExternalLessonDelivery resource={externalDelivery} />}
+
       {/* Learning Journey */}
       <div className="space-y-3">
         <JourneyCard
@@ -441,13 +473,15 @@ function LessonPage() {
           icon={<ScrollText className="h-5 w-5" />}
           title="اقرأ الدرس"
           description="ابدأ بقراءة محتوى الدرس من الكتاب المدرسي."
-          ctaLabel={hasBook ? "ابدأ القراءة" : "غير متوفر"}
+          ctaLabel={hasBook ? "ابدأ القراءة" : externalDelivery ? "ملف خارجي" : "غير متوفر"}
           ctaDisabled={!hasBook}
         >
           {hasBook ? (
             <div className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
               {bookContent}
             </div>
+          ) : externalDelivery ? (
+            <EmptyText>محتوى هذا الدرس متوفر كملف خارجي — افتحه من البطاقة في أعلى الصفحة.</EmptyText>
           ) : (
             <EmptyText>لم يُضف محتوى الكتاب لهذا الدرس بعد.</EmptyText>
           )}

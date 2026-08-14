@@ -55,7 +55,7 @@ import {
   publishMinisterialModel,
   setMinisterialModelStatus,
   type MinisterialPrepareResult,
-} from "@/lib/ministerial/ministerial-admin.client";
+} from "@/lib/ministerial/ministerial-admin-api";
 import { Loader2, ScrollText, ShieldCheck, Download, PlayCircle, FileSearch } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/ministerial-exams")({

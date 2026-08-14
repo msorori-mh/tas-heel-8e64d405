@@ -150,14 +150,19 @@ function AdminLessonDetailPage() {
     queryKey: ["admin-lesson-detail", "resources", lessonId],
     queryFn: async () => {
       // Select full fields for the admin editor dialog; admin-only route.
-      const { data, error, count } = await supabase
-        .from("lesson_resources")
-        .select(
-          "id, lesson_id, resource_type, title, url, description, sort_order",
-          { count: "exact" }
-        )
-        .eq("lesson_id", lessonId)
-        .order("sort_order", { ascending: true });
+      // is_primary (13F) is optional until its migration is applied.
+      const run = (cols: string) =>
+        supabase
+          .from("lesson_resources")
+          .select(cols, { count: "exact" })
+          .eq("lesson_id", lessonId)
+          .order("sort_order", { ascending: true });
+
+      const base = "id, lesson_id, resource_type, title, url, description, sort_order";
+      let { data, error, count } = (await run(`${base}, is_primary`)) as any;
+      if (error) {
+        ({ data, error, count } = (await run(base)) as any);
+      }
       if (error) throw error;
       const types: Record<string, number> = {};
       for (const r of data ?? []) {
