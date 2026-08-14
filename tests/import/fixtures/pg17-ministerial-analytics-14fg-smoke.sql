@@ -102,11 +102,11 @@ INSERT INTO public.exam_sessions (id, user_id, ministerial_model_id, ministerial
 
 INSERT INTO public.exam_session_questions (id, exam_session_id, question_revision_id, logical_question_id,
   question_order, rendered_question_text, rendered_options, max_score, pin_mode, payload_hash, payload_hash_version) VALUES
-  ('aaaaaaaa-0000-0000-0000-000000000001', '99999999-0000-0000-0000-000000000001', '77777777-0000-0000-0000-0000000000a1', '66666666-0000-0000-0000-00000000000a', 1, 'Question A text', '[]'::jsonb, 1, 'PUBLISHED', repeat('e1', 32), 'canonical_payload_v1'),
-  ('aaaaaaaa-0000-0000-0000-000000000002', '99999999-0000-0000-0000-000000000001', '77777777-0000-0000-0000-0000000000b1', '66666666-0000-0000-0000-00000000000b', 2, 'Question B text', '[]'::jsonb, 1, 'PUBLISHED', repeat('e1', 32), 'canonical_payload_v1'),
-  ('aaaaaaaa-0000-0000-0000-000000000003', '99999999-0000-0000-0000-000000000002', '77777777-0000-0000-0000-0000000000a2', '66666666-0000-0000-0000-00000000000a', 1, 'Question A text v2', '[]'::jsonb, 1, 'PUBLISHED', repeat('e1', 32), 'canonical_payload_v1'),
-  ('aaaaaaaa-0000-0000-0000-000000000004', '99999999-0000-0000-0000-000000000003', '77777777-0000-0000-0000-0000000000c1', '66666666-0000-0000-0000-00000000000c', 1, 'Question C text', '[]'::jsonb, 1, 'PUBLISHED', repeat('e1', 32), 'canonical_payload_v1'),
-  ('aaaaaaaa-0000-0000-0000-000000000005', '99999999-0000-0000-0000-000000000004', '77777777-0000-0000-0000-0000000000a1', '66666666-0000-0000-0000-00000000000a', 1, 'Question A text', '[]'::jsonb, 1, 'PUBLISHED', repeat('e1', 32), 'canonical_payload_v1');
+  ('aaaaaaaa-0000-0000-0000-000000000001', '99999999-0000-0000-0000-000000000001', '77777777-0000-0000-0000-0000000000a1', '66666666-0000-0000-0000-00000000000a', 1, 'Question A text', '[]'::jsonb, 1, 'REVISION_PINNED', repeat('e1', 32), 'canonical_payload_v1'),
+  ('aaaaaaaa-0000-0000-0000-000000000002', '99999999-0000-0000-0000-000000000001', '77777777-0000-0000-0000-0000000000b1', '66666666-0000-0000-0000-00000000000b', 2, 'Question B text', '[]'::jsonb, 1, 'REVISION_PINNED', repeat('e1', 32), 'canonical_payload_v1'),
+  ('aaaaaaaa-0000-0000-0000-000000000003', '99999999-0000-0000-0000-000000000002', '77777777-0000-0000-0000-0000000000a2', '66666666-0000-0000-0000-00000000000a', 1, 'Question A text v2', '[]'::jsonb, 1, 'REVISION_PINNED', repeat('e1', 32), 'canonical_payload_v1'),
+  ('aaaaaaaa-0000-0000-0000-000000000004', '99999999-0000-0000-0000-000000000003', '77777777-0000-0000-0000-0000000000c1', '66666666-0000-0000-0000-00000000000c', 1, 'Question C text', '[]'::jsonb, 1, 'REVISION_PINNED', repeat('e1', 32), 'canonical_payload_v1'),
+  ('aaaaaaaa-0000-0000-0000-000000000005', '99999999-0000-0000-0000-000000000004', '77777777-0000-0000-0000-0000000000a1', '66666666-0000-0000-0000-00000000000a', 1, 'Question A text', '[]'::jsonb, 1, 'REVISION_PINNED', repeat('e1', 32), 'canonical_payload_v1');
 
 INSERT INTO public.exam_session_answers (session_id, exam_session_question_id, question_id, question_revision_id,
   selected_option_code, answered_at, is_correct, requires_manual_review, grading_status, max_score, final_score) VALUES
