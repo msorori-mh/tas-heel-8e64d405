@@ -77,7 +77,20 @@ export function ContextualTemplateGenerator() {
   const [subjectCode, setSubjectCode] = useState<string>("");
   const [unitCode, setUnitCode] = useState<string>("");
   const [rowCount, setRowCount] = useState<number>(20);
+  const [subjectMode, setSubjectMode] = useState<"single" | "group">("single");
+  const [groupName, setGroupName] = useState<string>("");
+  const [branchText, setBranchText] = useState<string>("");
   const [busy, setBusy] = useState(false);
+
+  const branchNames = useMemo(
+    () =>
+      branchText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean),
+    [branchText],
+  );
+
 
   const registryQuery = useQuery({
     queryKey: ["content-code-registry"],
