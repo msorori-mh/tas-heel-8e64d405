@@ -12,7 +12,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RUN="${TMPDIR:-/tmp}/pg17-14fg"
 DATA="$RUN/data"; SOCK="$RUN/sock"
 PREREQ_14FG="tests/import/fixtures/pg17-prereq-14fg-analytics.sql"
-MIG_14FG="supabase/migrations-pending/20260815020000_ministerial_analytics_14f_14g.sql"
+MIG_14FG="supabase/migrations/20260815020000_ministerial_analytics_14f_14g.sql"
 FAILURES=0
 
 CHAIN=(

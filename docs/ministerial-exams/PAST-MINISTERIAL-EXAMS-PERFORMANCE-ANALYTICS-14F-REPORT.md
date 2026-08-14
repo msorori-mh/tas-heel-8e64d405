@@ -15,7 +15,7 @@
 
 | الملف | الدور |
 | --- | --- |
-| `supabase/migrations-pending/20260815020000_ministerial_analytics_14f_14g.sql` | `current_student_track_id()` + `get_ministerial_performance_overview()` |
+| `supabase/migrations/20260815020000_ministerial_analytics_14f_14g.sql` | `current_student_track_id()` + `get_ministerial_performance_overview()` |
 | `src/lib/ministerial/ministerial-analytics-api.ts` | استدعاء الـRPC + تدهور لطيف عند `PGRST202` |
 | `src/routes/_authenticated/ministerial-exams.performance.tsx` | لوحة الأداء (Mobile-first / RTL) |
 | `src/routes/_authenticated/progress.tsx` | رابط الدخول من صفحة التقدم |

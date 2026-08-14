@@ -6,7 +6,7 @@ const files = {
   performance: "src/routes/_authenticated/ministerial-exams.performance.tsx",
   repeatedIndex: "src/routes/_authenticated/ministerial-exams.repeated.index.tsx",
   repeatedSubject: "src/routes/_authenticated/ministerial-exams.repeated.$subjectId.tsx",
-  sql: "supabase/migrations-pending/20260815020000_ministerial_analytics_14f_14g.sql",
+  sql: "supabase/migrations/20260815020000_ministerial_analytics_14f_14g.sql",
 };
 
 const read = (k) => readFileSync(files[k], "utf8");

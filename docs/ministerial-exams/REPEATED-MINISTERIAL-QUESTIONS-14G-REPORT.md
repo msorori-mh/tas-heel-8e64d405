@@ -15,7 +15,7 @@ Identity (V1)            = canonical question_id
 
 | الملف | الدور |
 | --- | --- |
-| `supabase/migrations-pending/20260815020000_ministerial_analytics_14f_14g.sql` | `list_repeated_ministerial_subjects()` + `list_repeated_ministerial_questions()` |
+| `supabase/migrations/20260815020000_ministerial_analytics_14f_14g.sql` | `list_repeated_ministerial_subjects()` + `list_repeated_ministerial_questions()` |
 | `src/lib/ministerial/ministerial-analytics-api.ts` | استدعاء الـRPCs |
 | `src/routes/_authenticated/ministerial-exams.repeated.index.tsx` | قائمة المواد التي فيها تكرار |
 | `src/routes/_authenticated/ministerial-exams.repeated.$subjectId.tsx` | «السؤال X تكرر 5 مرات» + [افتح أحدث نموذج] [راجع الدرس] |
