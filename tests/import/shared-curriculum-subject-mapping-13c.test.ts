@@ -61,13 +61,16 @@ describe("TCS-2 scheme", () => {
   });
 
   it("parses back to grade + numbers", () => {
-    expect(parseTcs2Code("unit-g10-002-05")).toEqual({
+    const parsed = parseTcs2Code("unit-g10-002-05");
+    expect(parsed).toMatchObject({
       kind: "unit",
       gradeShort: "g10",
       gradeSlug: "grade-10",
       numbers: [2, 5],
     });
+    expect(parsed?.trackCode).toBeUndefined();
   });
+
 
   it("allocates the next free number and never reuses one", () => {
     const existing = ["sub-g10-001", "sub-g10-003"];

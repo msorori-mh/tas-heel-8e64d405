@@ -74,6 +74,8 @@ export const CONTEXT_TEMPLATE_KEYS = [
 
 export type ContextTemplateKey = (typeof CONTEXT_TEMPLATE_KEYS)[number];
 
+export type SubjectTemplateModeKey = "single" | "group";
+
 export interface ContextTemplateRequest {
   templateKey: ContextTemplateKey;
   gradeSlug: string;
@@ -82,7 +84,12 @@ export interface ContextTemplateRequest {
   subjectCode?: string;
   unitCode?: string;
   rowCount: number;
+  /** Template 01 only — independent subject vs. group of branches (13D). */
+  subjectMode?: SubjectTemplateModeKey;
+  groupName?: string;
+  branchNames?: string[];
 }
+
 
 export interface ContextTemplateResponse {
   filename: string;

@@ -13,6 +13,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+
 import {
   Select,
   SelectContent,
@@ -77,7 +80,20 @@ export function ContextualTemplateGenerator() {
   const [subjectCode, setSubjectCode] = useState<string>("");
   const [unitCode, setUnitCode] = useState<string>("");
   const [rowCount, setRowCount] = useState<number>(20);
+  const [subjectMode, setSubjectMode] = useState<"single" | "group">("single");
+  const [groupName, setGroupName] = useState<string>("");
+  const [branchText, setBranchText] = useState<string>("");
   const [busy, setBusy] = useState(false);
+
+  const branchNames = useMemo(
+    () =>
+      branchText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean),
+    [branchText],
+  );
+
 
   const registryQuery = useQuery({
     queryKey: ["content-code-registry"],
@@ -111,10 +127,14 @@ export function ContextualTemplateGenerator() {
 
   const needsSubject = SUBJECT_REQUIRED.has(templateKey);
   const tracksRequired = templateKey === "subjects";
+  const isSubjectsTemplate = templateKey === "subjects";
+  const isGroupMode = isSubjectsTemplate && subjectMode === "group";
+  const effectiveRowCount = isGroupMode ? branchNames.length : rowCount;
   const canDownload =
     Boolean(gradeSlug) &&
     (!tracksRequired || trackCodes.length > 0) &&
     (!needsSubject || Boolean(subjectCode)) &&
+    (!isGroupMode || (groupName.trim().length > 0 && branchNames.length > 0)) &&
     !busy;
 
   const handleDownload = async () => {
@@ -127,9 +147,18 @@ export function ContextualTemplateGenerator() {
           trackCodes,
           ...(subjectCode ? { subjectCode } : {}),
           ...(unitCode ? { unitCode } : {}),
-          rowCount,
+          rowCount: Math.max(1, effectiveRowCount),
+          ...(isSubjectsTemplate
+            ? {
+                subjectMode,
+                ...(isGroupMode
+                  ? { groupName: groupName.trim(), branchNames }
+                  : {}),
+              }
+            : {}),
         },
       });
+
       triggerDownload(result.fileBase64, result.filename);
       toast.success(
         result.allocatedCodes.length
@@ -294,20 +323,91 @@ export function ContextualTemplateGenerator() {
 
             <div className="space-y-1.5">
               <Label className="text-xs">عدد الصفوف الجاهزة</Label>
-              <Select value={String(rowCount)} onValueChange={(v) => setRowCount(Number(v))}>
-                <SelectTrigger className="min-h-[44px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROW_COUNTS.map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n} صفاً
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isGroupMode ? (
+                <div className="flex min-h-[44px] items-center rounded-md border border-input bg-muted/40 px-3 text-sm">
+                  {branchNames.length} صفاً (محسوب من عدد الفروع)
+                </div>
+              ) : (
+                <Select value={String(rowCount)} onValueChange={(v) => setRowCount(Number(v))}>
+                  <SelectTrigger className="min-h-[44px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROW_COUNTS.map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n} صفاً
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
+
+          {isSubjectsTemplate && (
+            <div className="space-y-3 rounded-lg border border-border bg-background/60 p-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">نوع الإدخال</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={subjectMode === "single" ? "default" : "outline"}
+                    className="min-h-[36px]"
+                    onClick={() => setSubjectMode("single")}
+                  >
+                    مادة مستقلة
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={subjectMode === "group" ? "default" : "outline"}
+                    className="min-h-[36px]"
+                    onClick={() => setSubjectMode("group")}
+                  >
+                    مجموعة مواد / فروع
+                  </Button>
+                </div>
+              </div>
+
+              {isGroupMode && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" htmlFor="group-name">
+                      اسم المجموعة <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="group-name"
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      placeholder="مثال: التربية الإسلامية"
+                      className="min-h-[44px]"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      يولّد النظام كود مجموعة واحداً (group_code) لكل الفروع.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" htmlFor="group-branches">
+                      أسماء الفروع (سطر لكل فرع) <span className="text-destructive">*</span>
+                    </Label>
+                    <Textarea
+                      id="group-branches"
+                      value={branchText}
+                      onChange={(e) => setBranchText(e.target.value)}
+                      rows={5}
+                      placeholder={"الإيمان\nالفقه\nالحديث\nالسيرة النبوية"}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      كل فرع مادة مستقلة بكود subject_code خاص — عدد الصفوف ={" "}
+                      {branchNames.length} فرعاً.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
 
           {allocation && (
             <p className="text-[11px] text-muted-foreground font-mono">

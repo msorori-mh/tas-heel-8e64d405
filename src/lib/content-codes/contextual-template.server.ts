@@ -21,6 +21,8 @@ import {
   allocateTcs2Codes,
   parseTcs2Code,
 } from "./tcs2";
+import { planSubjectTemplateRows } from "./subject-template-plan";
+
 import type {
   ContentCodeRegistry,
   ContextTemplateKey,
@@ -67,27 +69,26 @@ function planRows(input: BuildInput): RowPlan {
 
   switch (templateKey) {
     case "subjects": {
-      const codes = allocateTcs2Codes({
-        existingCodes: subjectCodes,
-        kind: "subject",
-        scope,
-        count: rowCount,
+      const plan = planSubjectTemplateRows({
+        mode: input.subjectMode ?? "single",
+        gradeSlug,
+        trackCodes,
+        rowCount,
+        ...(input.groupName ? { groupName: input.groupName } : {}),
+        ...(input.branchNames ? { branchNames: input.branchNames } : {}),
+        existingSubjectCodes: subjectCodes,
+        existingGroupCodes: registry.subjects
+          .map((s) => s.groupCode ?? "")
+          .filter(Boolean),
       });
       return {
-        rows: codes.map((code) => ({
-          subject_code: code,
-          grade_slug: gradeSlug,
-          track_codes: trackCodes.join("|"),
-        })),
-        allocatedCodes: codes,
-        prefilledColumns: ["subject_code", "grade_slug", "track_codes"],
-        notes: [
-          "املأ فقط: name (وإن كانت المادة متفرعة: group_code / group_name).",
-          "لا تعدّل subject_code — النظام هو المالك.",
-          "المادة المشتركة تُدخل مرة واحدة: اكتب كل المسارات في track_codes مفصولة بـ | (مثال: sanaa|aden).",
-        ],
+        rows: plan.rows,
+        allocatedCodes: plan.allocatedCodes,
+        prefilledColumns: plan.prefilledColumns,
+        notes: plan.notes,
       };
     }
+
 
     case "units": {
       if (!subjectCode) throw new Tcs2Error("TCS2_SUBJECT_REQUIRED", "اختر المادة أولاً لتوليد أكواد الوحدات.");
@@ -267,8 +268,30 @@ function addCodeReferenceSheet(
     b: (request.trackCodes ?? []).join(" | ") || "—",
     c: "التوفر فقط — لا يدخل في الكود",
   });
+  if (request.templateKey === "subjects") {
+    const isGroup = request.subjectMode === "group";
+    sheet.addRow({
+      a: "نوع الإدخال",
+      b: isGroup ? "مجموعة مواد / فروع" : "مادة مستقلة",
+      c: isGroup
+        ? "Group → Subjects مستقلة: group_code واحد + subject_code مستقل لكل فرع"
+        : "مادة واحدة لكل صف — بدون group_code",
+    });
+    if (isGroup) {
+      sheet.addRow({ a: "اسم المجموعة", b: request.groupName ?? "—", c: "يُكتب في group_name لكل الفروع" });
+      sheet.addRow({
+        a: "عدد الفروع",
+        b: String((request.branchNames ?? []).length),
+        c: "عدد الصفوف = عدد الفروع تلقائياً",
+      });
+      for (const [i, branch] of (request.branchNames ?? []).entries()) {
+        sheet.addRow({ a: `فرع ${i + 1}`, b: branch, c: "مادة مستقلة داخل المجموعة" });
+      }
+    }
+  }
   if (request.subjectCode) sheet.addRow({ a: "المادة المختارة", b: request.subjectCode, c: "" });
   if (request.unitCode) sheet.addRow({ a: "الوحدة المختارة", b: request.unitCode, c: "" });
+
   sheet.addRow({});
 
   sheet.addRow({ a: "صيغ الأكواد", b: "", c: "" }).font = { bold: true };
