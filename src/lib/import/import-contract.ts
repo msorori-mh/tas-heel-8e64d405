@@ -248,6 +248,7 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("thumbnail_url", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
       f("is_interactive", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
       f("attribution", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
+      f("is_primary", "lesson_resources", "metadata", false, "13F: metadata jsonb allowlist — projected into lesson_resources.is_primary"),
       f("license_note", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
       f("notes", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
     ],
@@ -589,6 +590,9 @@ export const RESOURCE_METADATA_ALLOWLIST = [
   "attribution",
   "license_note",
   "notes",
+  // LESSON_EXTERNAL_PDF_DELIVERY_13F — marks the single resource that delivers
+  // the lesson when its content is an external file (e.g. a Google Drive PDF).
+  "is_primary",
 ] as const;
 
 export type ResourceMetadataKey = (typeof RESOURCE_METADATA_ALLOWLIST)[number];
