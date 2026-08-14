@@ -282,6 +282,23 @@ function LessonPage() {
     },
   });
 
+  // LESSON_EXTERNAL_PDF_DELIVERY_13F — primary external resource (Drive PDF…).
+  // Fails soft: if the column is not present yet, the lesson renders normally.
+  const { data: primaryResource } = useQuery({
+    enabled: !!lesson && accessible === true && canAccessEnhancements,
+    queryKey: ["lesson-primary-resource", lessonId],
+    retry: false,
+    queryFn: async (): Promise<PrimaryLessonResource | null> => {
+      const { data, error } = await (supabase.from("lesson_resources") as any)
+        .select("id,resource_type,title,url,description")
+        .eq("lesson_id", lessonId)
+        .eq("is_primary", true)
+        .maybeSingle();
+      if (error) return null;
+      return (data as PrimaryLessonResource | null) ?? null;
+    },
+  });
+
   const { data: simulations } = useQuery({
     enabled: !!lesson && accessible === true && canAccessEnhancements,
     queryKey: ["lesson-simulations", lessonId],
