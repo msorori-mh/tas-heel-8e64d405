@@ -418,11 +418,13 @@ function LessonPage() {
   const hasResources = resourcesCount > 0 || (htmlResources?.length ?? 0) > 0;
 
   // LESSON_EXTERNAL_PDF_DELIVERY_13F
+  const isExternalLesson = isExternalDelivery(
+    (lesson as { delivery_mode?: string }).delivery_mode,
+  );
   const externalDelivery =
-    primaryResource &&
-    (isExternalDelivery((lesson as { delivery_mode?: string }).delivery_mode) || !hasBook)
-      ? primaryResource
-      : null;
+    primaryResource && (isExternalLesson || !hasBook) ? primaryResource : null;
+  const externalMissing = isExternalLesson && !primaryResource;
+
 
   const completedWeights =
     (hasBook ? 20 : 0) +
