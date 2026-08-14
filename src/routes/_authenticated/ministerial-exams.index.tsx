@@ -52,6 +52,23 @@ function MinisterialExamsIndex() {
         </div>
       </header>
 
+      <nav className="grid gap-2 sm:grid-cols-2">
+        <Link
+          to="/ministerial-exams/performance"
+          className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card p-3 text-sm font-semibold text-foreground transition hover:border-primary/40"
+        >
+          أدائي في الاختبارات الوزارية
+          <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        </Link>
+        <Link
+          to="/ministerial-exams/repeated"
+          className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card p-3 text-sm font-semibold text-foreground transition hover:border-primary/40"
+        >
+          الأسئلة الأكثر تكراراً
+          <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        </Link>
+      </nav>
+
       {isLoading && <StateMessage variant="loading">جارٍ تحميل المواد…</StateMessage>}
       {error && <StateMessage variant="error">تعذّر تحميل النماذج الوزارية.</StateMessage>}
 
