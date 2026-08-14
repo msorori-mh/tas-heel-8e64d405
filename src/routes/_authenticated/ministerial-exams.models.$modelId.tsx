@@ -5,8 +5,10 @@ import { StateMessage } from "@/components/student/StudentNav";
 import { Breadcrumbs } from "@/components/student/Breadcrumbs";
 import { Button } from "@/components/ui/button";
 import {
+  fetchMinisterialAttempts,
   fetchMinisterialModelOverview,
   formatDuration,
+  formatElapsed,
   mapMinisterialError,
   roundLabel,
   startMinisterialSession,
@@ -43,6 +45,11 @@ function MinisterialModelDetails() {
     queryFn: () => fetchMinisterialModelOverview(modelId),
   });
 
+  const { data: attempts = [] } = useQuery({
+    queryKey: ["ministerial-attempts", modelId],
+    queryFn: () => fetchMinisterialAttempts(modelId),
+  });
+
   async function start(mode: "training" | "strict") {
     if (!guard.current.enter()) return;
     setStarting(mode);
@@ -50,7 +57,7 @@ function MinisterialModelDetails() {
     try {
       const existing =
         data?.last_session_status === "in_progress" ? (data.last_session_id ?? null) : null;
-      const sessionId = existing ?? (await startMinisterialSession(modelId));
+      const sessionId = existing ?? (await startMinisterialSession(modelId, mode));
       await navigate({
         to: "/ministerial-exams/sessions/$sessionId",
         params: { sessionId },
@@ -149,6 +156,64 @@ function MinisterialModelDetails() {
           </Button>
         </div>
       </section>
+
+      {attempts.length > 0 && (
+        <section className="rounded-2xl border border-border bg-card p-4">
+          <h2 className="text-base font-bold text-foreground">محاولاتك السابقة</h2>
+          <ul className="mt-3 space-y-2">
+            {attempts.map((a) => (
+              <li
+                key={a.session_id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background p-3 text-sm"
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground">
+                    {a.attempt_mode === "strict" ? "محاكاة" : "تدريب"}
+                    {" • "}
+                    {a.status === "in_progress"
+                      ? "قيد الحل"
+                      : a.grading_status === "PARTIALLY_GRADED"
+                        ? "قيد التصحيح اليدوي"
+                        : a.percentage !== null
+                          ? `${a.percentage}%`
+                          : "منتهية"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {a.completed_at
+                      ? new Date(a.completed_at).toLocaleDateString("ar", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : "لم تُسلَّم بعد"}
+                    {a.elapsed_seconds !== null ? ` • ${formatElapsed(a.elapsed_seconds)}` : ""}
+                  </p>
+                </div>
+                {a.status === "in_progress" ? (
+                  <Button asChild size="sm" variant="outline">
+                    <Link
+                      to="/ministerial-exams/sessions/$sessionId"
+                      params={{ sessionId: a.session_id }}
+                      search={{ mode: a.attempt_mode ?? "training" }}
+                    >
+                      متابعة
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button asChild size="sm" variant="ghost">
+                    <Link
+                      to="/ministerial-exams/sessions/$sessionId/result"
+                      params={{ sessionId: a.session_id }}
+                    >
+                      عرض النتيجة
+                    </Link>
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <Link
         to="/ministerial-exams/$subjectId"
