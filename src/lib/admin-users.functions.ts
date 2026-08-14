@@ -179,3 +179,75 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       role,
     };
   });
+
+const UpdateUserRolesInput = z
+  .object({
+    user_id: z.string().uuid(),
+    roles: z.array(AssignableRoleSchema.exclude(["user"])).max(2),
+    confirmGrantAdmin: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.roles.includes("admin") && data.confirmGrantAdmin !== true) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "يجب تأكيد منح صلاحيات المدير الكامل",
+        path: ["confirmGrantAdmin"],
+      });
+    }
+  });
+
+/** Replaces staff roles for a user — full admin only, server-side. */
+export const adminUpdateUserRoles = createServerFn({ method: "POST" })
+  .middleware([requireAdminAuth])
+  .inputValidator((input) => UpdateUserRolesInput.parse(input))
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    const { userId: actorId } = context as { userId: string };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const nextRoles = Array.from(new Set(data.roles));
+
+    if (data.user_id === actorId && !nextRoles.includes("admin")) {
+      throw new Error("لا يمكنك سحب صلاحيات المدير الكامل من حسابك.");
+    }
+
+    const { data: existing, error: readError } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user_id);
+    if (readError) throw new Error(`تعذر قراءة الأدوار: ${readError.message}`);
+
+    const currentStaff = (existing ?? [])
+      .map((r) => r.role)
+      .filter((r): r is AssignableAdminRole => r === "admin" || r === "content_manager");
+
+    const toRemove = currentStaff.filter((r) => !nextRoles.includes(r));
+    const toAdd = nextRoles.filter((r) => !currentStaff.includes(r));
+
+    if (toRemove.length > 0) {
+      const { error } = await supabaseAdmin
+        .from("user_roles")
+        .delete()
+        .eq("user_id", data.user_id)
+        .in("role", toRemove);
+      if (error) throw new Error(`تعذر إزالة الأدوار: ${error.message}`);
+    }
+
+    if (toAdd.length > 0) {
+      const { error } = await supabaseAdmin
+        .from("user_roles")
+        .insert(toAdd.map((role) => ({ user_id: data.user_id, role })));
+      if (error) throw new Error(`تعذر إضافة الأدوار: ${error.message}`);
+    }
+
+    if (toAdd.length > 0 || toRemove.length > 0) {
+      await supabaseAdmin.from("audit_logs").insert({
+        actor_id: actorId,
+        action: "admin.user.roles_updated",
+        target_type: "public.user_roles",
+        target_id: data.user_id,
+        metadata: { added: toAdd, removed: toRemove, roles: nextRoles },
+      });
+    }
+
+    return { ok: true };
+  });
