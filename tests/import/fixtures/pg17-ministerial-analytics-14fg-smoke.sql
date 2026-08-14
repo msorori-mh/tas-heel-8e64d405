@@ -53,12 +53,14 @@ ON CONFLICT DO NOTHING;
 
 -- revisions: rA1 (historical, targets L1), rA2 (current, targets L2)
 INSERT INTO public.question_revisions (id, question_id, revision_number, status, interaction_type, grading_mode,
-  question_text, max_score, allow_partial, requires_media, manual_grading_required, created_by) VALUES
-  ('77777777-0000-0000-0000-0000000000a1', '66666666-0000-0000-0000-00000000000a', 1, 'PUBLISHED', 'SINGLE_CHOICE', 'AUTO_SINGLE', 'Question A text', 1, false, false, false, '11111111-1111-1111-1111-111111111111'),
-  ('77777777-0000-0000-0000-0000000000a2', '66666666-0000-0000-0000-00000000000a', 2, 'PUBLISHED', 'SINGLE_CHOICE', 'AUTO_SINGLE', 'Question A text v2', 1, false, false, false, '11111111-1111-1111-1111-111111111111'),
-  ('77777777-0000-0000-0000-0000000000b1', '66666666-0000-0000-0000-00000000000b', 1, 'PUBLISHED', 'SINGLE_CHOICE', 'AUTO_SINGLE', 'Question B text', 1, false, false, false, '11111111-1111-1111-1111-111111111111'),
-  ('77777777-0000-0000-0000-0000000000c1', '66666666-0000-0000-0000-00000000000c', 1, 'PUBLISHED', 'MANUAL_TEXT', 'MANUAL', 'Question C text', 1, false, false, true, '11111111-1111-1111-1111-111111111111')
+  question_text, max_score, allow_partial, requires_media, manual_grading_required, created_by,
+  published_at, published_by, payload_hash, payload_hash_version) VALUES
+  ('77777777-0000-0000-0000-0000000000a1', '66666666-0000-0000-0000-00000000000a', 1, 'PUBLISHED', 'SINGLE_CHOICE', 'AUTO_SINGLE', 'Question A text', 1, false, false, false, '11111111-1111-1111-1111-111111111111', now(), '11111111-1111-1111-1111-111111111111', repeat('a1', 32), 'canonical_payload_v1'),
+  ('77777777-0000-0000-0000-0000000000a2', '66666666-0000-0000-0000-00000000000a', 2, 'PUBLISHED', 'SINGLE_CHOICE', 'AUTO_SINGLE', 'Question A text v2', 1, false, false, false, '11111111-1111-1111-1111-111111111111', now(), '11111111-1111-1111-1111-111111111111', repeat('a2', 32), 'canonical_payload_v1'),
+  ('77777777-0000-0000-0000-0000000000b1', '66666666-0000-0000-0000-00000000000b', 1, 'PUBLISHED', 'SINGLE_CHOICE', 'AUTO_SINGLE', 'Question B text', 1, false, false, false, '11111111-1111-1111-1111-111111111111', now(), '11111111-1111-1111-1111-111111111111', repeat('b1', 32), 'canonical_payload_v1'),
+  ('77777777-0000-0000-0000-0000000000c1', '66666666-0000-0000-0000-00000000000c', 1, 'PUBLISHED', 'MANUAL_TEXT', 'MANUAL', 'Question C text', 1, false, false, true, '11111111-1111-1111-1111-111111111111', now(), '11111111-1111-1111-1111-111111111111', repeat('c1', 32), 'canonical_payload_v1')
 ON CONFLICT DO NOTHING;
+
 
 INSERT INTO public.question_targets (question_id, revision_id, target_type, subject_id, lesson_id, is_primary, created_by) VALUES
   ('66666666-0000-0000-0000-00000000000a', '77777777-0000-0000-0000-0000000000a1', 'LESSON', '33333333-0000-0000-0000-000000000004', '55555555-0000-0000-0000-000000000001', true, '11111111-1111-1111-1111-111111111111'),
