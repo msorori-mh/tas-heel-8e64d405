@@ -28,7 +28,7 @@ export async function loadContentCodeRegistry(
 ): Promise<ContentCodeRegistry> {
   const [gradesRes, tracksRes, subjectsRes, unitsRes, lessonsRes] = await Promise.all([
     supabase.from("grades").select("id, slug, name").order("sort_order", { ascending: true }),
-    supabase.from("curriculum_tracks").select("id, track_code, name"),
+    supabase.from("curriculum_tracks").select("id, track_code, track_name"),
     supabase
       .from("subjects")
       .select("id, code, name, group_code, group_name, grade_id, curriculum_track_id")
@@ -126,7 +126,7 @@ export async function loadContentCodeRegistry(
     })),
     tracks: TCS1_TRACKS.map((t) => ({
       trackCode: t.trackCode,
-      nameAr: (tracksRes.data ?? []).find((row) => row.track_code === t.trackCode)?.name ?? t.nameAr,
+      nameAr: (tracksRes.data ?? []).find((row) => row.track_code === t.trackCode)?.track_name ?? t.nameAr,
     })),
     subjects,
     units,
