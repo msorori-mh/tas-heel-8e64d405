@@ -770,4 +770,87 @@ $function$;
 REVOKE ALL ON FUNCTION public.list_ministerial_attempts(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.list_ministerial_attempts(uuid) TO authenticated;
 
+-- ---------------------------------------------------------------------------
+-- 9) Session state: expose snapshot question ids, attempt mode, reveal + server clock
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.get_ministerial_session_state(_session_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_session public.exam_sessions;
+  v_questions jsonb;
+  v_answers jsonb;
+  v_model jsonb;
+BEGIN
+  v_session := public._ministerial_session_guard(_session_id);
+
+  SELECT jsonb_build_object(
+    'model_id', m.id,
+    'model_code', m.model_code,
+    'model_label', m.model_label,
+    'academic_year', m.academic_year,
+    'round_code', m.round_code::text,
+    'subject_id', s.id,
+    'subject_name', s.name
+  )
+  INTO v_model
+  FROM public.ministerial_exam_models m
+  JOIN public.subjects s ON s.id = m.subject_id
+  WHERE m.id = v_session.ministerial_model_id;
+
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+    'session_question_id', esq.id,
+    'question_id', esq.logical_question_id,
+    'question_order', esq.question_order,
+    'question_text', esq.rendered_question_text,
+    'stimulus_text', esq.rendered_stimulus_text,
+    'options', esq.rendered_options,
+    'max_score', esq.max_score
+  ) ORDER BY esq.question_order), '[]'::jsonb)
+  INTO v_questions
+  FROM public.exam_session_questions esq
+  WHERE esq.exam_session_id = _session_id;
+
+  -- No correctness, score or solution data is exposed while the attempt is open.
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+    'question_id', a.question_id,
+    'session_question_id', a.exam_session_question_id,
+    'selected_index', a.selected_index,
+    'answered_at', a.answered_at,
+    'revealed_at', a.revealed_at
+  )), '[]'::jsonb)
+  INTO v_answers
+  FROM public.exam_session_answers a
+  WHERE a.session_id = _session_id;
+
+  RETURN jsonb_build_object(
+    'session', jsonb_build_object(
+      'id', v_session.id,
+      'status', v_session.status::text,
+      'mode', v_session.mode::text,
+      'attempt_mode', COALESCE(v_session.ministerial_attempt_mode, 'training'),
+      'grading_status', v_session.grading_status,
+      'is_final', v_session.is_final,
+      'started_at', v_session.started_at,
+      'expires_at', v_session.expires_at,
+      'server_now', now(),
+      'total_questions', v_session.total_questions
+    ),
+    'model', v_model,
+    'questions', v_questions,
+    'answers', v_answers,
+    'reveal', false
+  );
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.get_ministerial_session_state(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_ministerial_session_state(uuid) TO authenticated;
+
 COMMIT;
+
