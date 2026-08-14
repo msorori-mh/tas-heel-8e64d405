@@ -38,6 +38,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedSemestersSemesterRouteImport } from './routes/_authenticated/semesters.$semester'
 import { Route as AuthenticatedPaymentsNewRouteImport } from './routes/_authenticated/payments.new'
+import { Route as AuthenticatedMinisterialExamsPerformanceRouteImport } from './routes/_authenticated/ministerial-exams.performance'
 import { Route as AuthenticatedMinisterialExamsSubjectIdRouteImport } from './routes/_authenticated/ministerial-exams.$subjectId'
 import { Route as AuthenticatedLessonsLessonIdRouteImport } from './routes/_authenticated/lessons.$lessonId'
 import { Route as AuthenticatedExamsHistoryRouteImport } from './routes/_authenticated/exams.history'
@@ -56,6 +57,7 @@ import { Route as AuthenticatedAdminExamTemplatesRouteImport } from './routes/_a
 import { Route as AuthenticatedAdminCurriculumRouteImport } from './routes/_authenticated/admin.curriculum'
 import { Route as AuthenticatedAdminContentReviewRouteImport } from './routes/_authenticated/admin.content-review'
 import { Route as AuthenticatedAdminAcademicRouteImport } from './routes/_authenticated/admin.academic'
+import { Route as AuthenticatedMinisterialExamsRepeatedIndexRouteImport } from './routes/_authenticated/ministerial-exams.repeated.index'
 import { Route as AuthenticatedUnitsUnitIdPracticeRouteImport } from './routes/_authenticated/units.$unitId.practice'
 import { Route as AuthenticatedMinisterialExamsSessionsSessionIdRouteImport } from './routes/_authenticated/ministerial-exams.sessions.$sessionId'
 import { Route as AuthenticatedMinisterialExamsModelsModelIdRouteImport } from './routes/_authenticated/ministerial-exams.models.$modelId'
@@ -217,6 +219,12 @@ const AuthenticatedPaymentsNewRoute =
     path: '/new',
     getParentRoute: () => AuthenticatedPaymentsRoute,
   } as any)
+const AuthenticatedMinisterialExamsPerformanceRoute =
+  AuthenticatedMinisterialExamsPerformanceRouteImport.update({
+    id: '/ministerial-exams/performance',
+    path: '/ministerial-exams/performance',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMinisterialExamsSubjectIdRoute =
   AuthenticatedMinisterialExamsSubjectIdRouteImport.update({
     id: '/ministerial-exams/$subjectId',
@@ -323,6 +331,12 @@ const AuthenticatedAdminAcademicRoute =
     path: '/academic',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedMinisterialExamsRepeatedIndexRoute =
+  AuthenticatedMinisterialExamsRepeatedIndexRouteImport.update({
+    id: '/ministerial-exams/repeated/',
+    path: '/ministerial-exams/repeated/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedUnitsUnitIdPracticeRoute =
   AuthenticatedUnitsUnitIdPracticeRouteImport.update({
     id: '/units/$unitId/practice',
@@ -418,6 +432,7 @@ export interface FileRoutesByFullPath {
   '/exams/history': typeof AuthenticatedExamsHistoryRouteWithChildren
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/ministerial-exams/$subjectId': typeof AuthenticatedMinisterialExamsSubjectIdRoute
+  '/ministerial-exams/performance': typeof AuthenticatedMinisterialExamsPerformanceRoute
   '/payments/new': typeof AuthenticatedPaymentsNewRoute
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
@@ -433,6 +448,7 @@ export interface FileRoutesByFullPath {
   '/ministerial-exams/models/$modelId': typeof AuthenticatedMinisterialExamsModelsModelIdRoute
   '/ministerial-exams/sessions/$sessionId': typeof AuthenticatedMinisterialExamsSessionsSessionIdRouteWithChildren
   '/units/$unitId/practice': typeof AuthenticatedUnitsUnitIdPracticeRoute
+  '/ministerial-exams/repeated/': typeof AuthenticatedMinisterialExamsRepeatedIndexRoute
   '/ministerial-exams/sessions/$sessionId/result': typeof AuthenticatedMinisterialExamsSessionsSessionIdResultRoute
 }
 export interface FileRoutesByTo {
@@ -473,6 +489,7 @@ export interface FileRoutesByTo {
   '/exams/history': typeof AuthenticatedExamsHistoryRouteWithChildren
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/ministerial-exams/$subjectId': typeof AuthenticatedMinisterialExamsSubjectIdRoute
+  '/ministerial-exams/performance': typeof AuthenticatedMinisterialExamsPerformanceRoute
   '/payments/new': typeof AuthenticatedPaymentsNewRoute
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
@@ -488,6 +505,7 @@ export interface FileRoutesByTo {
   '/ministerial-exams/models/$modelId': typeof AuthenticatedMinisterialExamsModelsModelIdRoute
   '/ministerial-exams/sessions/$sessionId': typeof AuthenticatedMinisterialExamsSessionsSessionIdRouteWithChildren
   '/units/$unitId/practice': typeof AuthenticatedUnitsUnitIdPracticeRoute
+  '/ministerial-exams/repeated': typeof AuthenticatedMinisterialExamsRepeatedIndexRoute
   '/ministerial-exams/sessions/$sessionId/result': typeof AuthenticatedMinisterialExamsSessionsSessionIdResultRoute
 }
 export interface FileRoutesById {
@@ -532,6 +550,7 @@ export interface FileRoutesById {
   '/_authenticated/exams/history': typeof AuthenticatedExamsHistoryRouteWithChildren
   '/_authenticated/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
   '/_authenticated/ministerial-exams/$subjectId': typeof AuthenticatedMinisterialExamsSubjectIdRoute
+  '/_authenticated/ministerial-exams/performance': typeof AuthenticatedMinisterialExamsPerformanceRoute
   '/_authenticated/payments/new': typeof AuthenticatedPaymentsNewRoute
   '/_authenticated/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
@@ -547,6 +566,7 @@ export interface FileRoutesById {
   '/_authenticated/ministerial-exams/models/$modelId': typeof AuthenticatedMinisterialExamsModelsModelIdRoute
   '/_authenticated/ministerial-exams/sessions/$sessionId': typeof AuthenticatedMinisterialExamsSessionsSessionIdRouteWithChildren
   '/_authenticated/units/$unitId/practice': typeof AuthenticatedUnitsUnitIdPracticeRoute
+  '/_authenticated/ministerial-exams/repeated/': typeof AuthenticatedMinisterialExamsRepeatedIndexRoute
   '/_authenticated/ministerial-exams/sessions/$sessionId/result': typeof AuthenticatedMinisterialExamsSessionsSessionIdResultRoute
 }
 export interface FileRouteTypes {
@@ -591,6 +611,7 @@ export interface FileRouteTypes {
     | '/exams/history'
     | '/lessons/$lessonId'
     | '/ministerial-exams/$subjectId'
+    | '/ministerial-exams/performance'
     | '/payments/new'
     | '/semesters/$semester'
     | '/subjects/$subjectId'
@@ -606,6 +627,7 @@ export interface FileRouteTypes {
     | '/ministerial-exams/models/$modelId'
     | '/ministerial-exams/sessions/$sessionId'
     | '/units/$unitId/practice'
+    | '/ministerial-exams/repeated/'
     | '/ministerial-exams/sessions/$sessionId/result'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -646,6 +668,7 @@ export interface FileRouteTypes {
     | '/exams/history'
     | '/lessons/$lessonId'
     | '/ministerial-exams/$subjectId'
+    | '/ministerial-exams/performance'
     | '/payments/new'
     | '/semesters/$semester'
     | '/subjects/$subjectId'
@@ -661,6 +684,7 @@ export interface FileRouteTypes {
     | '/ministerial-exams/models/$modelId'
     | '/ministerial-exams/sessions/$sessionId'
     | '/units/$unitId/practice'
+    | '/ministerial-exams/repeated'
     | '/ministerial-exams/sessions/$sessionId/result'
   id:
     | '__root__'
@@ -704,6 +728,7 @@ export interface FileRouteTypes {
     | '/_authenticated/exams/history'
     | '/_authenticated/lessons/$lessonId'
     | '/_authenticated/ministerial-exams/$subjectId'
+    | '/_authenticated/ministerial-exams/performance'
     | '/_authenticated/payments/new'
     | '/_authenticated/semesters/$semester'
     | '/_authenticated/subjects/$subjectId'
@@ -719,6 +744,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ministerial-exams/models/$modelId'
     | '/_authenticated/ministerial-exams/sessions/$sessionId'
     | '/_authenticated/units/$unitId/practice'
+    | '/_authenticated/ministerial-exams/repeated/'
     | '/_authenticated/ministerial-exams/sessions/$sessionId/result'
   fileRoutesById: FileRoutesById
 }
@@ -943,6 +969,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPaymentsNewRouteImport
       parentRoute: typeof AuthenticatedPaymentsRoute
     }
+    '/_authenticated/ministerial-exams/performance': {
+      id: '/_authenticated/ministerial-exams/performance'
+      path: '/ministerial-exams/performance'
+      fullPath: '/ministerial-exams/performance'
+      preLoaderRoute: typeof AuthenticatedMinisterialExamsPerformanceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/ministerial-exams/$subjectId': {
       id: '/_authenticated/ministerial-exams/$subjectId'
       path: '/ministerial-exams/$subjectId'
@@ -1068,6 +1101,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/academic'
       preLoaderRoute: typeof AuthenticatedAdminAcademicRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/ministerial-exams/repeated/': {
+      id: '/_authenticated/ministerial-exams/repeated/'
+      path: '/ministerial-exams/repeated'
+      fullPath: '/ministerial-exams/repeated/'
+      preLoaderRoute: typeof AuthenticatedMinisterialExamsRepeatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/units/$unitId/practice': {
       id: '/_authenticated/units/$unitId/practice'
@@ -1262,6 +1302,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedExamsHistoryRoute: typeof AuthenticatedExamsHistoryRouteWithChildren
   AuthenticatedLessonsLessonIdRoute: typeof AuthenticatedLessonsLessonIdRoute
   AuthenticatedMinisterialExamsSubjectIdRoute: typeof AuthenticatedMinisterialExamsSubjectIdRoute
+  AuthenticatedMinisterialExamsPerformanceRoute: typeof AuthenticatedMinisterialExamsPerformanceRoute
   AuthenticatedSemestersSemesterRoute: typeof AuthenticatedSemestersSemesterRoute
   AuthenticatedSubjectsSubjectIdRoute: typeof AuthenticatedSubjectsSubjectIdRoute
   AuthenticatedMinisterialExamsIndexRoute: typeof AuthenticatedMinisterialExamsIndexRoute
@@ -1271,6 +1312,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMinisterialExamsModelsModelIdRoute: typeof AuthenticatedMinisterialExamsModelsModelIdRoute
   AuthenticatedMinisterialExamsSessionsSessionIdRoute: typeof AuthenticatedMinisterialExamsSessionsSessionIdRouteWithChildren
   AuthenticatedUnitsUnitIdPracticeRoute: typeof AuthenticatedUnitsUnitIdPracticeRoute
+  AuthenticatedMinisterialExamsRepeatedIndexRoute: typeof AuthenticatedMinisterialExamsRepeatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -1286,6 +1328,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLessonsLessonIdRoute: AuthenticatedLessonsLessonIdRoute,
   AuthenticatedMinisterialExamsSubjectIdRoute:
     AuthenticatedMinisterialExamsSubjectIdRoute,
+  AuthenticatedMinisterialExamsPerformanceRoute:
+    AuthenticatedMinisterialExamsPerformanceRoute,
   AuthenticatedSemestersSemesterRoute: AuthenticatedSemestersSemesterRoute,
   AuthenticatedSubjectsSubjectIdRoute: AuthenticatedSubjectsSubjectIdRoute,
   AuthenticatedMinisterialExamsIndexRoute:
@@ -1300,6 +1344,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMinisterialExamsSessionsSessionIdRoute:
     AuthenticatedMinisterialExamsSessionsSessionIdRouteWithChildren,
   AuthenticatedUnitsUnitIdPracticeRoute: AuthenticatedUnitsUnitIdPracticeRoute,
+  AuthenticatedMinisterialExamsRepeatedIndexRoute:
+    AuthenticatedMinisterialExamsRepeatedIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
