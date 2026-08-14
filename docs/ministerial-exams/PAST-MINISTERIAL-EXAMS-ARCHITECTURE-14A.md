@@ -1,8 +1,19 @@
 # PAST_MINISTERIAL_EXAMS_ARCHITECTURE_14A
 
 المرحلة: **Design / Audit فقط** — لا Migration، لا DB writes، لا UI.
-التاريخ: 2026-08-14.
+التاريخ: 2026-08-14 — **مُعاد الاعتماد بعد `SHARED_CURRICULUM_SUBJECT_MAPPING_13C` (TCS-2 ALIGNED)**.
 المرجع الأساسي: بنية تمكين الحالية + أفكار (لا كود) من مستودع Mufadhala.
+
+> **المبدأ الحاكم بعد 13C:**
+> ```text
+> Shared Subject ≠ Shared Ministerial Exam
+> Subject identity           = TCS-2 (track-independent)
+> Subject availability       = subject_curriculum_tracks
+> Ministerial exam identity  = track-specific
+> Question curriculum target = subject / unit / lesson (بلا مسار)
+> Ministerial provenance     = model membership
+> ```
+> عزل صنعاء/عدن لم يعد على مستوى المادة، بل على مستوى **النموذج الوزاري**.
 
 ---
 
@@ -13,7 +24,9 @@
 - `curriculum_tracks(id, track_code, track_name, is_active)` — القيم الفعلية: `sanaa` / `aden` / `other`
 - `subjects(id, grade_id, slug, name, semester, curriculum_track_id, code, group_code, group_name)`
   - بعد 12B/13: **Subject-as-Branch** — كل فرع مادة مستقل بكود صريح، و`group_code` للعرض فقط.
-  - ملاحظة حاكمة: **المسار موجود بالفعل على مستوى `subjects` (و`grades`)**، لذلك عزل صنعاء/عدن قائم أصلاً في شجرة المحتوى.
+  - بعد 13B/13C: `subjects.code` بمخطط **TCS-2** لا يحمل المسار إطلاقاً.
+- `subject_curriculum_tracks(subject_id, curriculum_track_id, is_active, ...)` — **مصدر التوفّر الوحيد**.
+  - ملاحظة حاكمة (مصحّحة): المادة **قد تكون مشتركة** بين صنعاء وعدن، لذلك `subjects.curriculum_track_id` **لا يصلح** كأساس لعزل النماذج الوزارية. العزل يُبنى على `ministerial_exam_models.curriculum_track_id` مقابل ارتباطات المادة النشطة.
 - `units`, `lessons` تحت `subjects`.
 
 ### 1.2 بنك الأسئلة (QB-01/02، مغلق ومعتمد)
@@ -88,12 +101,12 @@
 ```
 id                    uuid pk
 exam_template_id      uuid not null unique  -> exam_templates(id)
-grade_id              uuid not null         -> grades(id)
 curriculum_track_id   uuid not null         -> curriculum_tracks(id)
 subject_id            uuid not null         -> subjects(id)
 academic_year         int  not null         -- 2025
 exam_round            text not null         -- 'main' | 'second' | 'makeup' (enum مقترح ministerial_exam_round)
-model_label           text                  -- "النموذج الأول"
+model_variant_code    text not null default 'main'  -- main | a | b | supplementary-01  (ثابت، جزء من الهوية)
+model_label           text                  -- "النموذج الأول" (عرض فقط، قابل للتعديل)
 total_marks           numeric
 official_duration_min int
 source_reference      text                  -- اسم/رقم الوثيقة الرسمية
@@ -102,11 +115,19 @@ is_published          boolean not null default false
 created_at / created_by / updated_at
 ```
 قيود:
-- `UNIQUE (grade_id, curriculum_track_id, subject_id, academic_year, exam_round, model_label)` ← **هوية النموذج المطلوبة (البند 4/5)**.
-- CHECK اتساق: `subject_id` يجب أن ينتمي لنفس `grade_id` ونفس `curriculum_track_id` (trigger تحقق، على نمط `assert_subject_group_name_consistent`).
+- `UNIQUE (subject_id, curriculum_track_id, academic_year, exam_round, model_variant_code)` ← **هوية النموذج**.
+  - `model_variant_code` ثابت و`NOT NULL` (لا مشاكل NULL داخل UNIQUE)، بينما `model_label` نص عرض قابل للتغيير ولا يدخل في الهوية.
+- **لا عمود `grade_id`**: الصف يُستنتج من `subjects.grade_id` — لا تكرار ولا خطر تعارض (`subject = G12` بينما `model.grade = G11`).
+- **MODEL_VALIDITY_GATE** (trigger، بديل شرط `subject.track == model.track` القديم):
+  ```text
+  ministerial_exam_models.curriculum_track_id
+  MUST EXIST IN subject_curriculum_tracks(subject_id, curriculum_track_id)
+  AND that assignment MUST be active
+  ```
+  ⇒ مادة بلا ارتباطات مسار، أو ارتباط غير نشط = DENY.
 - `academic_year BETWEEN 2000 AND extract(year from now())+1`.
 
-بذلك: `g12+sanaa+physics+2025` و`g12+aden+physics+2025` صفّان مختلفان حتماً — بل ومادتان مختلفتان أصلاً (`subjects.curriculum_track_id`).
+بذلك: الفيزياء مادة واحدة مشتركة (`sub-g12-001` بمسارَي صنعاء وعدن)، ومع ذلك «وزاري صنعاء 2025» و«وزاري عدن 2025» **صفّان مستقلان تماماً**.
 
 ### 5.2 `ministerial_exam_questions` (ربط + ميتاداتا المصدر)
 ```
@@ -125,7 +146,8 @@ created_at / created_by
 قيود:
 - `UNIQUE (model_id, sort_order)` و`UNIQUE (model_id, original_question_number)`
 - **Composite FK** `(question_id, question_revision_id) -> question_revisions(question_id, id)` (نفس نمط G1-11).
-- Trigger `assert_ministerial_question_publishable`: النسخة `published`، و`question_targets` الخاصة بها تشير إلى `subject_id` المطابق للنموذج (⇒ لا اختلاط sanaa/aden).
+- Trigger `assert_ministerial_question_publishable`: النسخة `published`، و`question_targets` الخاصة بها تشير إلى **نفس `subject_id`** للنموذج.
+  - **لا يُشترط تطابق مسار على السؤال**: `question_targets` لا تحمل `curriculum_track_id` وهذا مقصود. سؤال المادة المشتركة صالح أكاديمياً للمسارين، وواقعة «ورد في وزاري صنعاء 2025» تُخزَّن هنا (ministerial membership/occurrence) لا في بنك الأسئلة. أي محاولة لجعل بنك الأسئلة Track-specific = مرفوضة.
 - Append-only بعد `is_published=true` (guard على نمط `qb_guard_revision_children_immutable`).
 - **ممنوع** أي عمود `correct_answer` / `explanation` هنا.
 
@@ -153,11 +175,27 @@ model_id        uuid not null -> ministerial_exam_models(id)
 
 ## 7) TRACK_ISOLATION
 
-ثلاث طبقات متتالية:
-1. `subjects.curriculum_track_id` — المادة نفسها مفصولة بالمسار.
-2. `ministerial_exam_models.curriculum_track_id` + trigger الاتساق مع المادة والصف.
-3. RLS للطالب: النموذج يظهر فقط إذا `curriculum_track_id = profile.curriculum_track_id` **و** `grade_id = profile.grade_id`.
+العزل بعد 13C يقوم على **بوابتين خادميتين** (لا فلترة UI):
+
+```text
+MODEL_VALIDITY_GATE
+model.curriculum_track_id ∈ active subject_curriculum_tracks(model.subject_id)
+
+STUDENT_VISIBILITY_GATE
+profile.curriculum_track_id = model.curriculum_track_id
+```
+
+1. المادة قد تكون مشتركة — لا عزل على مستواها.
+2. النموذج الوزاري track-specific دائماً (البوابة الأولى، trigger).
+3. RLS للطالب: البوابة الثانية + `subjects.grade_id = profile.grade_id` + `can_access_subject`. **المنع خادمي بالكامل.**
 4. كل التحليلات (repeated questions) مقيّدة بـ `curriculum_track_id` داخل الاستعلام نفسه.
+
+مثال حاكم — فيزياء مشتركة (صنعاء + عدن)، طالب صنعاء:
+```text
+محتوى الفيزياء        ✅
+وزاري صنعاء 2025      ✅
+وزاري عدن 2025        ❌ DENY
+```
 
 ---
 
@@ -195,7 +233,9 @@ v_ministerial_repeated_questions:
 GROUP BY question_id, curriculum_track_id, grade_id, subject_group_code
 ```
 قواعد:
-- التجميع **إلزامياً** ضمن نفس `curriculum_track_id` ⇒ سؤال ظهر في صنعاء 2023 وعدن 2024 = صفّان منفصلان، لا "تكرار".
+- **الإحصاء المعروض للطالب دائماً بحدود (subject + curriculum_track)**: «فيزياء — صنعاء: تكرر 4 مرات (2021، 2023، 2024، 2025)». ظهور نفس السؤال في عدن **لا يُحتسب** ضمن رقم صنعاء، حتى لو كانت المادة مشتركة.
+- Cross-track analytics متاحة **للإدارة فقط** لاحقاً، وليست المعنى المعروض للطالب.
+- `grade_id` في الـ view يُشتق من `subjects.grade_id` (لا يُخزَّن على النموذج).
 - «تشابه» الأسئلة عبر السنوات يُلتقط بـ `questions.id` نفسه (المستورد يعيد استخدام نفس السؤال المنطقي) أو لاحقاً بـ `payload_hash` كإشارة ترشيح للمراجع البشري — **لا مطابقة آلية تلقائية**.
 - بطاقة الإحصاء للطالب تقرأ عبر RPC `get_ministerial_repeated_stats(subject_id)` بدون كشف نص الإجابة.
 
@@ -225,9 +265,11 @@ Answer-leak review:
 
 - لا CRUD من العميل. الإنشاء عبر مسار الاستيراد المعتمد (12A/13/13A) + RPC خادمية.
 - قالبان جديدان يُضافان لكتالوج القوالب:
-  1. `10-ministerial-exam-models` — أعمدة: `model_code`, `grade_short`, `track_code`, `subject_code`, `academic_year`, `exam_round`, `model_label`, `total_marks`, `official_duration_min`, `source_reference`.
+  1. `10-ministerial-exam-models` — أعمدة: `model_code`, `subject_code`, `track_code` (**مسار واحد فقط للنموذج**), `academic_year`, `exam_round`, `model_variant_code`, `model_label`, `total_marks`, `official_duration_min`, `source_reference`.
   2. `11-ministerial-exam-questions` — أعمدة: `model_code`, `question_code`, `original_question_number`, `section_code`, `sort_order`, `marks`, `source_page`.
-- أكواد النماذج تتبع **TCS-1** (System-owned): مقترح `mex-g12-sanaa-phy-2025-r1`، يولّده مولّد القوالب السياقي لا المشغّل.
+- انتبه للفرق: قالب المواد يستخدم `track_codes` (قائمة توفّر)، بينما قالب النماذج الوزارية يستخدم `track_code` **مفرداً وإلزامياً**.
+- أكواد النماذج **System-owned** ضمن امتداد TCS-2: مقترح `mex-g12-001-2025-main` (مبني على `subject_code` + السنة + الدور + المتغيّر، والمسار عمود مستقل لا جزء من الكود)، يولّده مولّد القوالب السياقي لا المشغّل. أكواد TCS-1 مرفوضة.
+- **لا يُسلَّم قالب النماذج الوزارية للمشغّل قبل إغلاق 14B/14D.**
 - ترتيب التنفيذ: المحتوى (01→07) ← الأسئلة (09→08) ← **النماذج (10) ← ربط الأسئلة (11)**.
 - Idempotency عبر `import_jobs` + hash الصف كما هو قائم.
 - شرط بوابة: كل `question_code` يجب أن يكون له revision منشورة قبل مرحلة 11، وإلا يفشل الصف بخطأ واضح.
@@ -252,6 +294,7 @@ Answer-leak review:
 | B-4 | تعريف «السؤال المتكرر» يفترض إعادة استخدام نفس `question_id` عبر السنوات — يحتاج انضباط المشغّل | متوسط | توثيق في دليل المشغّل + أداة ترشيح بالـ hash |
 | B-5 | `source_document_url` قد يسرّب نموذج الإجابة | عالٍ | bucket خاص، لا رابط عام، لا كشف للطالب |
 | B-6 | جداول المحتوى فارغة حالياً (بعد 12C) — لا بيانات لاختبار حقيقي | منخفض | يبدأ بعد أول دفعة محتوى حقيقية |
+| B-7 | مادة مشتركة بدون ارتباط مسار نشط تمنع إنشاء نموذجها الوزاري | منخفض | رسالة صريحة `MODEL_TRACK_NOT_ASSIGNED_TO_SUBJECT` + توجيه لإصلاح `track_codes` |
 
 **لا Blocker يمنع الانتقال إلى مرحلة التنفيذ.**
 
@@ -261,17 +304,51 @@ Answer-leak review:
 
 | المرحلة | المحتوى | المخرج |
 |---|---|---|
-| **14B** | Migration schema: enum + الجدولان + العمود + القيود + Triggers + RLS + GRANTs، وبروفة PG17 معزولة | migration معلّق + تقرير PASS |
+| **14B** | Migration schema: enum + الجدولان + العمود + القيود + Triggers (MODEL_VALIDITY_GATE) + RLS + GRANTs، وبروفة PG17 معزولة | migration معلّق + تقرير PASS |
 | **14C** | توسعة RPCs: `create_exam_session_with_snapshot` (ministerial)، `get_ministerial_models`, `get_ministerial_repeated_stats` | RPC + اختبارات منع التسريب |
-| **14D** | مسار الاستيراد: قالبا 10 و11 + مولّد الأكواد TCS-1 + تحقق النشر | قوالب + E2E |
+| **14D** | مسار الاستيراد: قالبا 10 و11 + مولّد أكواد النماذج (امتداد TCS-2) + تحقق النشر | قوالب + E2E |
 | **14E** | واجهة الإدارة (قراءة/نشر عبر RPC فقط) | AdminMinisterialExams |
 | **14F** | واجهة الطالب: قائمة النماذج، Training، Strict/Ministry، بطاقة الإحصاءات | UI + smoke tests |
 | **14G** | تدقيق أمني نهائي: answer-leak، RLS replay، بوابات الاشتراك | تقرير إغلاق |
 
 ---
 
+## 16) EXIT_TESTS (تضاف إلزامياً إلى 14B/14G)
+
+```text
+مادة مشتركة + نموذج صنعاء                         ALLOW
+مادة مشتركة + نموذج عدن                           ALLOW
+نموذج بمسار غير مرتبط بالمادة                     DENY (MODEL_VALIDITY_GATE)
+نموذج بمسار ارتباطه غير نشط                       DENY
+مادة بلا أي ارتباط مسار + إنشاء نموذج             DENY
+
+طالب صنعاء يرى نماذج صنعاء                        ALLOW
+طالب صنعاء يطلب نموذج عدن (id مباشر)              DENY (خادمياً)
+طالب عدن يرى محتوى المادة المشتركة                ALLOW
+
+سؤال مشترك في وزاري صنعاء ووزاري عدن              مسموح (سجلا عضوية منفصلان)
+إحصاء التكرار لطالب صنعاء                          يحسب صنعاء فقط
+question_targets بلا مسار                          PASS (مقصود)
+
+هوية النموذج (subject, track, year, round, variant) UNIQUE
+تكرار نفس الخماسية                                 DENY
+تغيير model_label لا يخلق نموذجاً جديداً            PASS
+استيراد كود نموذج TCS-1                            REJECT
+```
+
+---
+
 ## الحكم النهائي
 
-**PAST_MINISTERIAL_EXAMS_ARCHITECTURE_14A = PASS**
+**PAST_MINISTERIAL_EXAMS_ARCHITECTURE_14A = PASS (TCS-2 ALIGNED)**
 
-البنية الحالية تسمح بإعادة استخدام كامل لمنظومة الجلسات والتصحيح وبنك الأسئلة، ويكفي جدولان جديدان + عمود ربط واحد لتحقيق هوية النموذج الوزاري والعزل التام بين مسارات المناهج، دون أي تخزين ثانٍ للإجابات ودون نقل أي بنية من Mufadhala.
+```text
+SHARED_SUBJECT_SUPPORT      = YES
+TRACK_ISOLATION             = SERVER-SIDE ONLY
+QUESTION_BANK_DUPLICATION   = ZERO
+SUBJECT_DUPLICATION         = ZERO
+MODEL_IDENTITY              = (subject, track, year, round, variant_code)
+READY_FOR                   = 14B
+```
+
+البنية تسمح بإعادة استخدام كامل لمنظومة الجلسات والتصحيح وبنك الأسئلة: مادة واحدة مشتركة بين المسارات، ونماذج وزارية مفصولة تماماً بالمسار عبر بوابة خادمية مربوطة بـ`subject_curriculum_tracks` — دون تكرار المواد أو الأسئلة، ودون أي تخزين ثانٍ للإجابات.
