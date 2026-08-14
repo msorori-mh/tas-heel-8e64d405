@@ -3756,6 +3756,7 @@ export type Database = {
         }
         Returns: Json
       }
+      current_student_track_id: { Args: never; Returns: string }
       delete_draft_question: {
         Args: {
           p_idempotency_key: string
@@ -3831,6 +3832,7 @@ export type Database = {
         Args: { _model_id: string }
         Returns: Json
       }
+      get_ministerial_performance_overview: { Args: never; Returns: Json }
       get_ministerial_session_result: {
         Args: { _session_id: string }
         Returns: Json
@@ -3990,6 +3992,24 @@ export type Database = {
         Returns: {
           latest_year: number
           models_count: number
+          subject_code: string
+          subject_id: string
+          subject_name: string
+        }[]
+      }
+      list_repeated_ministerial_questions: {
+        Args: {
+          _min_occurrences?: number
+          _subject_id: string
+          _year_from?: number
+        }
+        Returns: Json
+      }
+      list_repeated_ministerial_subjects: {
+        Args: never
+        Returns: {
+          max_occurrences: number
+          repeated_questions_count: number
           subject_code: string
           subject_id: string
           subject_name: string
