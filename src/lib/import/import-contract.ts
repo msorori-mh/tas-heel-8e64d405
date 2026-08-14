@@ -101,14 +101,24 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
     uniquenessScope: "global (code IS NOT NULL)",
     uniqueness: { kind: "db_unique", constraint: "subjects_code_uniq" },
     dependsOn: [],
-    foreignKeys: ["subjects.grade_id → grades.id", "subjects.curriculum_track_id → curriculum_tracks.id"],
+    foreignKeys: [
+      "subjects.grade_id → grades.id",
+      "subject_curriculum_tracks.subject_id → subjects.id",
+      "subject_curriculum_tracks.curriculum_track_id → curriculum_tracks.id",
+    ],
     fields: [
       f("subject_code", "subjects", "code", true),
       f("name", "subjects", "name", true),
       f("group_code", "subjects", "group_code", false, "SUBJECT_AS_BRANCH: كود المجموعة (عرض فقط) — immutable بعد التعيين"),
       f("group_name", "subjects", "group_name", false, "اسم المجموعة المعروض — يجب أن يتطابق داخل نفس group_code/grade/track"),
       f("grade_slug", "grades", null, true, "lookup grades.slug → subjects.grade_id"),
-      f("track_code", "curriculum_tracks", null, false, "lookup curriculum_tracks.track_code → subjects.curriculum_track_id"),
+      f(
+        "track_codes",
+        "subject_curriculum_tracks",
+        null,
+        false,
+        "SHARED_SUBJECT (13C): قائمة مسارات مفصولة بـ | (مثال sanaa|aden) → صفوف subject_curriculum_tracks. المادة المشتركة تُدخل مرة واحدة.",
+      ),
       f("semester", "subjects", "semester", false),
       f("icon", "subjects", "icon", false),
       f("color", "subjects", "color", false),
@@ -620,7 +630,7 @@ export {
  * (trim, whitespace collapse, Arabic-Indic digit folding) — never over raw JSON.
  */
 export const ROW_HASH_FIELDS: Record<ContentImportTemplateKey, readonly string[]> = {
-  subjects: ["subject_code", "name", "grade_slug", "track_code", "semester", "icon", "color", "sort_order"],
+  subjects: ["subject_code", "name", "grade_slug", "track_codes", "semester", "icon", "color", "sort_order"],
   units: ["subject_code", "unit_code", "title", "description", "semester", "is_free", "sort_order"],
   lessons: ["subject_code", "lesson_code", "unit_code", "title", "duration", "semester", "is_free", "sort_order"],
   book_contents: ["subject_code", "lesson_code", "content", "pdf_url"],

@@ -13,6 +13,94 @@ import {
   type ContentImportTemplateKey,
 } from "./content-import-templates.ts";
 import { getSubjectMainCategory } from "../subjects/subject-grouping.ts";
+import { TCS1_TRACKS } from "../content-codes/tcs1-master-data.ts";
+import { isLegacyTcs1Code, LEGACY_CODE_REJECTION_AR } from "../content-codes/tcs2.ts";
+
+const ALLOWED_TRACK_CODES = new Set(TCS1_TRACKS.map((t) => t.trackCode));
+
+/** Columns that carry a system-owned content code (TCS-2). */
+const CONTENT_CODE_COLUMNS = [
+  "subject_code",
+  "unit_code",
+  "lesson_code",
+  "explanation_code",
+  "resource_code",
+  "assessment_code",
+  "question_code",
+] as const;
+
+/** 13C rule 6 — TCS-1 codes (with the track inside) are frozen and rejected. */
+function validateNoLegacyCodes(
+  rowNumber: number,
+  data: Record<string, string>,
+  errors: ContentImportDryRunIssue[],
+): void {
+  for (const column of CONTENT_CODE_COLUMNS) {
+    const value = data[column]?.trim();
+    if (!value || !isLegacyTcs1Code(value)) continue;
+    pushError(errors, {
+      rowNumber,
+      column,
+      code: "LEGACY_CODE_SCHEME_NOT_ALLOWED",
+      message: `${LEGACY_CODE_REJECTION_AR} (الكود: ${value})`,
+    });
+  }
+}
+
+/** SHARED_SUBJECT — track_codes is an availability list, not part of identity. */
+function validateSubjectTrackCodes(
+  rowNumber: number,
+  data: Record<string, string>,
+  errors: ContentImportDryRunIssue[],
+): void {
+  if ("track_code" in data && (data["track_code"] ?? "").trim()) {
+    pushError(errors, {
+      rowNumber,
+      column: "track_code",
+      code: "TRACK_CODE_COLUMN_REMOVED",
+      message:
+        "العمود track_code لم يعد مستخدماً. استخدم track_codes واكتب المسارات مفصولة بـ | (مثال: sanaa|aden).",
+    });
+  }
+
+  const raw = (data["track_codes"] ?? "").trim();
+  if (!raw) {
+    pushError(errors, {
+      rowNumber,
+      column: "track_codes",
+      code: "TRACK_CODES_REQUIRED",
+      message: "يجب تحديد مسار واحد على الأقل في track_codes (مثال: sanaa|aden).",
+    });
+    return;
+  }
+
+  const parts = raw
+    .split(/[|,،]/)
+    .map((p) => p.trim().toLowerCase())
+    .filter(Boolean);
+
+  const seen = new Set<string>();
+  for (const part of parts) {
+    if (!ALLOWED_TRACK_CODES.has(part)) {
+      pushError(errors, {
+        rowNumber,
+        column: "track_codes",
+        code: "UNKNOWN_TRACK_CODE",
+        message: `المسار «${part}» غير معروف. المسارات المعتمدة: ${[...ALLOWED_TRACK_CODES].join(" | ")}.`,
+      });
+      continue;
+    }
+    if (seen.has(part)) {
+      pushError(errors, {
+        rowNumber,
+        column: "track_codes",
+        code: "DUPLICATE_TRACK_CODE",
+        message: `المسار «${part}» مكرر في نفس الصف.`,
+      });
+    }
+    seen.add(part);
+  }
+}
 
 const INSTRUCTION_SHEET_NAMES = new Set(["تعليمات", "instructions", "readme"]);
 
@@ -238,7 +326,6 @@ function validateSubjectGroupCodeConsistency(
     }
     const scope = [
       row.data["grade_slug"]?.trim().toLowerCase() ?? "",
-      row.data["track_code"]?.trim().toLowerCase() ?? "",
       groupCode,
     ].join("::");
     const first = firstSeen.get(scope);
@@ -366,6 +453,12 @@ export function validateContentImportSheet(
       }
     }
 
+    validateNoLegacyCodes(row.rowNumber, row.data, errors);
+
+    if (templateKey === "subjects") {
+      validateSubjectTrackCodes(row.rowNumber, row.data, errors);
+    }
+
     if (templateKey === "resources") {
       validateResourceRow(row.rowNumber, row.data, errors);
       if (errors.some((e) => e.rowNumber === row.rowNumber)) {
@@ -375,9 +468,10 @@ export function validateContentImportSheet(
 
     if (templateKey === "questions") {
       validateQuestionsRow(row.rowNumber, row.data, errors);
-      if (errors.some((e) => e.rowNumber === row.rowNumber)) {
-        rowNumbersWithErrors.add(row.rowNumber);
-      }
+    }
+
+    if (errors.some((e) => e.rowNumber === row.rowNumber)) {
+      rowNumbersWithErrors.add(row.rowNumber);
     }
   }
 
