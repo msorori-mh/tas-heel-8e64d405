@@ -81,25 +81,6 @@ CREATE TABLE IF NOT EXISTS public.exam_sessions (
 
 CREATE UNIQUE INDEX IF NOT EXISTS exam_sessions_id_uidx ON public.exam_sessions (id);
 
-CREATE TABLE IF NOT EXISTS public.exam_session_questions (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  exam_session_id uuid NOT NULL REFERENCES public.exam_sessions(id) ON DELETE CASCADE,
-  question_revision_id uuid NOT NULL REFERENCES public.question_revisions(id) ON DELETE RESTRICT,
-  logical_question_id uuid NOT NULL REFERENCES public.questions(id) ON DELETE RESTRICT,
-  question_order int NOT NULL,
-  rendered_question_text text NOT NULL,
-  rendered_stimulus_text text,
-  rendered_options jsonb NOT NULL DEFAULT '[]'::jsonb,
-  option_order_mapping jsonb NOT NULL DEFAULT '[]'::jsonb,
-  max_score numeric NOT NULL DEFAULT 1 CHECK (max_score > 0),
-  payload_hash text NOT NULL CHECK (payload_hash ~ '^[0-9a-f]{64}$'),
-  payload_hash_version text NOT NULL DEFAULT 'canonical_payload_v1',
-  pin_mode text NOT NULL CHECK (pin_mode IN ('LEGACY', 'REVISION_PINNED')),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (exam_session_id, question_order),
-  UNIQUE (exam_session_id, question_revision_id)
-);
-
 CREATE TABLE IF NOT EXISTS public.exam_session_answers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id uuid NOT NULL REFERENCES public.exam_sessions(id) ON DELETE CASCADE,
@@ -107,13 +88,15 @@ CREATE TABLE IF NOT EXISTS public.exam_session_answers (
   selected_index integer,
   is_correct boolean,
   created_at timestamptz NOT NULL DEFAULT now(),
-  exam_session_question_id uuid REFERENCES public.exam_session_questions(id) ON DELETE RESTRICT,
-  question_revision_id uuid REFERENCES public.question_revisions(id) ON DELETE RESTRICT,
+  exam_session_question_id uuid,
+  question_revision_id uuid,
   selected_option_code text,
   response_text text,
   response_payload jsonb,
   requires_manual_review boolean NOT NULL DEFAULT false
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS exam_session_answers_id_uidx ON public.exam_session_answers (id);
 
 -- ---------------------------------------------------------------------------
 -- LEGACY assessment link validation (the exact behaviour stage 11 replaces).
