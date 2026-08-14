@@ -57,6 +57,7 @@ $$;
 CREATE TABLE IF NOT EXISTS public.exam_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  template_id uuid REFERENCES public.exam_templates(id) ON DELETE SET NULL,
   subject_id uuid REFERENCES public.subjects(id) ON DELETE SET NULL,
   status text NOT NULL DEFAULT 'in_progress',
   created_at timestamptz NOT NULL DEFAULT now()
