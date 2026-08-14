@@ -1,15 +1,19 @@
 -- PAST_MINISTERIAL_EXAMS_ATTEMPTS_RESULTS_14E
 -- Attempts, server-side grading, safe reveal and results for ministerial models.
--- SHARED_DB_APPLIED = NO (pending migration; apply only after PG17 + security review).
 --
 -- Guards enforced here:
 --  G1 training reveal locks the answer (no post-reveal answer change)
---  G2 exam_sessions.correct_answers stays NULL for ministerial sessions; result_json holds no answer key
---  G3 grading maps selected_index -> snapshot option_code (never positional against live options)
+--  G2 exam_sessions.correct_answers stays NULL for ministerial sessions; no answer key in open-session payloads
+--  G3 answers are stored/compared as pinned option_code, never as a display position
 --  G4 grading inputs (revision id + marks) come from the session snapshot only
---  G5 non auto-gradable interactions => MANUAL_REVIEW_PENDING, is_final = false, percentage NULL
+--  G5 non auto-gradable revisions => manual review pending, is_final = false, percentage NULL
 --  G6 create RPC keeps a 1-argument invocation path plus explicit modes
 --  G7 answer/submit/expiry races are deterministic and submit is idempotent
+--
+-- Existing vocabularies are respected:
+--  exam_sessions.grading_status IN (IN_PROGRESS, SUBMITTED_PENDING_GRADING, PARTIALLY_GRADED, COMPLETED)
+--  exam_session_answers.grading_status IN (NOT_REQUIRED, PENDING_MANUAL_REVIEW, IN_REVIEW, GRADED, ...)
+--  REVISION_PINNED answers keep selected_index NULL and use selected_option_code.
 
 BEGIN;
 
@@ -30,16 +34,6 @@ BEGIN
     ALTER TABLE public.exam_sessions
       ADD CONSTRAINT exam_sessions_ministerial_attempt_mode_check
       CHECK (ministerial_attempt_mode IS NULL OR ministerial_attempt_mode IN ('training', 'strict'));
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'exam_sessions_grading_status_check'
-  ) THEN
-    ALTER TABLE public.exam_sessions
-      ADD CONSTRAINT exam_sessions_grading_status_check
-      CHECK (grading_status IS NULL OR grading_status IN (
-        'IN_PROGRESS', 'GRADING', 'GRADED', 'MANUAL_REVIEW_PENDING'
-      ));
   END IF;
 END $$;
 
@@ -79,7 +73,7 @@ DECLARE
   v_mode text := lower(coalesce(_mode, 'training'));
 BEGIN
   IF v_user IS NULL THEN
-    RAISE EXCEPTION 'authentication required' USING ERRCODE = '42501';
+    RAISE EXCEPTION 'unauthorized' USING ERRCODE = '42501';
   END IF;
 
   IF v_mode NOT IN ('training', 'strict') THEN
@@ -137,7 +131,7 @@ BEGIN
   RETURNING id INTO v_session_id;
 
   FOR v_membership IN
-    SELECT meq.*, qr.question_text, qr.stimulus_text, qr.payload_hash, qr.interaction_type,
+    SELECT meq.*, qr.question_text, qr.stimulus_text, qr.payload_hash,
            q.id AS logical_question_id
     FROM public.ministerial_exam_questions meq
     JOIN public.question_revisions qr ON qr.id = meq.published_revision_id
@@ -156,11 +150,11 @@ BEGIN
       WHERE question_revision_id = v_membership.published_revision_id
       ORDER BY sort_order
     LOOP
+      -- No is_correct flag ever enters the snapshot the student can read.
       v_rendered_options := v_rendered_options || jsonb_build_object(
         'option_code', v_option.option_code,
         'body', v_option.body
       );
-      -- Server-only stable identity map (display position -> pinned option code).
       v_option_mapping := v_option_mapping || jsonb_build_object(
         'display_index', v_display_index,
         'original_index', v_option.sort_order,
@@ -188,7 +182,7 @@ BEGIN
     )
     VALUES (
       v_session_id, v_membership.logical_question_id, v_esq_id,
-      v_membership.published_revision_id, v_membership.marks, 'REVISION_PINNED', 'PENDING'
+      v_membership.published_revision_id, v_membership.marks, 'REVISION_PINNED', 'NOT_REQUIRED'
     );
   END LOOP;
 
@@ -196,135 +190,14 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.create_ministerial_exam_session(uuid, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.create_ministerial_exam_session(uuid, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.create_ministerial_exam_session(uuid, text) FROM anon;
 GRANT EXECUTE ON FUNCTION public.create_ministerial_exam_session(uuid, text) TO authenticated;
 
 -- ---------------------------------------------------------------------------
--- 3) Answer lock after reveal + deterministic expiry (G1, G7)
+-- 3) Internal helpers: owner/track gate + pinned correctness
 -- ---------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION public.answer_exam_question(
-  _session_id uuid, _question_id uuid, _selected_index integer
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_user uuid := auth.uid();
-  v_session public.exam_sessions;
-  v_answer public.exam_session_answers;
-BEGIN
-  IF v_user IS NULL THEN RAISE EXCEPTION 'unauthorized' USING ERRCODE = '42501'; END IF;
-  IF _selected_index IS NOT NULL AND _selected_index < 0 THEN
-    RAISE EXCEPTION 'invalid_selected_index' USING ERRCODE = '22023';
-  END IF;
-
-  SELECT * INTO v_session FROM public.exam_sessions WHERE id = _session_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'session_not_found' USING ERRCODE = 'P0002'; END IF;
-  IF v_session.user_id <> v_user THEN RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501'; END IF;
-  IF v_session.status <> 'in_progress' THEN RAISE EXCEPTION 'session_not_in_progress' USING ERRCODE = '22023'; END IF;
-
-  IF v_session.expires_at IS NOT NULL AND v_session.expires_at < now() THEN
-    UPDATE public.exam_sessions SET status = 'expired', updated_at = now() WHERE id = _session_id;
-    RAISE EXCEPTION 'session_expired' USING ERRCODE = '22023';
-  END IF;
-
-  SELECT * INTO v_answer
-  FROM public.exam_session_answers
-  WHERE session_id = _session_id AND question_id = _question_id
-  FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'question_not_in_session' USING ERRCODE = '22023';
-  END IF;
-
-  -- G1: once the training answer is revealed, the response is frozen.
-  IF v_answer.revealed_at IS NOT NULL THEN
-    RAISE EXCEPTION 'ANSWER_ALREADY_REVEALED_LOCKED' USING ERRCODE = '42501';
-  END IF;
-
-  UPDATE public.exam_session_answers
-  SET selected_index = _selected_index,
-      selected_option_code = CASE
-        WHEN _selected_index IS NULL THEN NULL
-        ELSE (
-          SELECT esq.rendered_options -> _selected_index ->> 'option_code'
-          FROM public.exam_session_questions esq
-          WHERE esq.id = v_answer.exam_session_question_id
-        )
-      END,
-      answered_at = now(),
-      submitted_at = now(),
-      updated_at = now()
-  WHERE id = v_answer.id;
-
-  RETURN jsonb_build_object('ok', true);
-END;
-$function$;
-
-REVOKE ALL ON FUNCTION public.answer_exam_question(uuid, uuid, integer) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.answer_exam_question(uuid, uuid, integer) TO authenticated;
-
--- ---------------------------------------------------------------------------
--- 4) Internal helpers: pinned correctness + access assertion
--- ---------------------------------------------------------------------------
-
--- Returns TRUE/FALSE for auto-gradable interactions, NULL when manual review is required.
-CREATE OR REPLACE FUNCTION public._ministerial_is_correct(
-  _exam_session_question_id uuid,
-  _selected_index integer
-)
-RETURNS boolean
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path TO 'public', 'pg_temp'
-AS $function$
-DECLARE
-  v_esq public.exam_session_questions;
-  v_grading_mode text;
-  v_manual_required boolean;
-  v_correct_codes text[];
-  v_selected_code text;
-BEGIN
-  SELECT * INTO v_esq FROM public.exam_session_questions WHERE id = _exam_session_question_id;
-  IF NOT FOUND THEN RETURN NULL; END IF;
-
-  SELECT qr.grading_mode, qr.manual_grading_required
-  INTO v_grading_mode, v_manual_required
-  FROM public.question_revisions qr
-  WHERE qr.id = v_esq.question_revision_id;
-
-  -- Auto-grade only deterministic single-answer choice revisions (G5).
-  IF coalesce(v_grading_mode, 'MANUAL') <> 'AUTO_SINGLE' OR v_manual_required IS TRUE THEN
-    RETURN NULL;
-  END IF;
-
-  SELECT array_agg(option_code ORDER BY sort_order) INTO v_correct_codes
-  FROM public.question_options
-  WHERE question_revision_id = v_esq.question_revision_id
-    AND is_correct IS TRUE;
-
-  IF v_correct_codes IS NULL OR array_length(v_correct_codes, 1) <> 1 THEN
-    RETURN NULL;
-  END IF;
-
-
-  IF _selected_index IS NULL THEN RETURN false; END IF;
-
-  -- G3: never compare positions; resolve the pinned option code from the snapshot.
-  v_selected_code := v_esq.rendered_options -> _selected_index ->> 'option_code';
-  IF v_selected_code IS NULL THEN RETURN false; END IF;
-
-  RETURN v_selected_code = v_correct_codes[1];
-END;
-$function$;
-
-REVOKE ALL ON FUNCTION public._ministerial_is_correct(uuid, integer) FROM PUBLIC, anon, authenticated;
-
--- Owner + track isolation gate shared by every ministerial read (G10 of 14D carried forward).
 CREATE OR REPLACE FUNCTION public._ministerial_session_guard(_session_id uuid)
 RETURNS public.exam_sessions
 LANGUAGE plpgsql
@@ -359,7 +232,139 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public._ministerial_session_guard(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public._ministerial_session_guard(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._ministerial_session_guard(uuid) FROM anon;
+REVOKE ALL ON FUNCTION public._ministerial_session_guard(uuid) FROM authenticated;
+
+-- TRUE/FALSE for auto-gradable revisions, NULL when manual review is required (G3, G5).
+CREATE OR REPLACE FUNCTION public._ministerial_is_correct(
+  _exam_session_question_id uuid,
+  _selected_option_code text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_revision_id uuid;
+  v_grading_mode text;
+  v_manual_required boolean;
+  v_correct_codes text[];
+BEGIN
+  SELECT question_revision_id INTO v_revision_id
+  FROM public.exam_session_questions WHERE id = _exam_session_question_id;
+  IF v_revision_id IS NULL THEN RETURN NULL; END IF;
+
+  SELECT qr.grading_mode, qr.manual_grading_required
+  INTO v_grading_mode, v_manual_required
+  FROM public.question_revisions qr
+  WHERE qr.id = v_revision_id;
+
+  IF coalesce(v_grading_mode, 'MANUAL') <> 'AUTO_SINGLE' OR v_manual_required IS TRUE THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT array_agg(option_code ORDER BY sort_order) INTO v_correct_codes
+  FROM public.question_options
+  WHERE question_revision_id = v_revision_id AND is_correct IS TRUE;
+
+  IF v_correct_codes IS NULL OR array_length(v_correct_codes, 1) <> 1 THEN
+    RETURN NULL;
+  END IF;
+
+  IF _selected_option_code IS NULL THEN RETURN false; END IF;
+
+  RETURN _selected_option_code = v_correct_codes[1];
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public._ministerial_is_correct(uuid, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._ministerial_is_correct(uuid, text) FROM anon;
+REVOKE ALL ON FUNCTION public._ministerial_is_correct(uuid, text) FROM authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 4) Answering a pinned ministerial question (G1, G3, G7)
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.answer_ministerial_exam_question(
+  _session_id uuid,
+  _session_question_id uuid,
+  _option_code text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_session public.exam_sessions;
+  v_esq public.exam_session_questions;
+  v_answer public.exam_session_answers;
+BEGIN
+  v_session := public._ministerial_session_guard(_session_id);
+
+  SELECT * INTO v_esq
+  FROM public.exam_session_questions
+  WHERE id = _session_question_id AND exam_session_id = _session_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'question_not_in_session' USING ERRCODE = '22023';
+  END IF;
+
+  -- The submitted code must exist in the pinned snapshot for this question.
+  IF _option_code IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v_esq.rendered_options) o
+    WHERE o ->> 'option_code' = _option_code
+  ) THEN
+    RAISE EXCEPTION 'INVALID_OPTION_CODE' USING ERRCODE = '22023';
+  END IF;
+
+  -- Re-read the session under lock so expiry and submission race deterministically.
+  SELECT * INTO v_session FROM public.exam_sessions WHERE id = _session_id FOR UPDATE;
+  IF v_session.status <> 'in_progress' THEN
+    RAISE EXCEPTION 'session_not_in_progress' USING ERRCODE = '22023';
+  END IF;
+  IF v_session.expires_at IS NOT NULL AND v_session.expires_at < now() THEN
+    RAISE EXCEPTION 'SESSION_EXPIRED' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_answer
+  FROM public.exam_session_answers
+  WHERE session_id = _session_id AND exam_session_question_id = _session_question_id
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'question_not_in_session' USING ERRCODE = '22023';
+  END IF;
+
+  -- G1: once a training answer is revealed, the response is frozen.
+  IF v_answer.revealed_at IS NOT NULL THEN
+    RAISE EXCEPTION 'ANSWER_ALREADY_REVEALED_LOCKED' USING ERRCODE = '42501';
+  END IF;
+
+  UPDATE public.exam_session_answers
+  SET selected_option_code = _option_code,
+      selected_index = NULL,
+      answered_at = CASE WHEN _option_code IS NULL THEN NULL ELSE now() END,
+      submitted_at = CASE WHEN _option_code IS NULL THEN NULL ELSE now() END,
+      updated_at = now()
+  WHERE id = v_answer.id;
+
+  UPDATE public.exam_sessions es
+  SET answered_questions = (
+        SELECT count(*) FROM public.exam_session_answers a
+        WHERE a.session_id = _session_id AND a.answered_at IS NOT NULL
+      ),
+      updated_at = now()
+  WHERE es.id = _session_id;
+
+  RETURN jsonb_build_object('ok', true, 'selected_option_code', _option_code);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.answer_ministerial_exam_question(uuid, uuid, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.answer_ministerial_exam_question(uuid, uuid, text) FROM anon;
+GRANT EXECUTE ON FUNCTION public.answer_ministerial_exam_question(uuid, uuid, text) TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 5) Safe training reveal (G1)
@@ -380,8 +385,10 @@ DECLARE
   v_answer public.exam_session_answers;
   v_is_correct boolean;
   v_correct_code text;
-  v_solution record;
-  v_lesson record;
+  v_explanation text;
+  v_model_answer text;
+  v_lesson_id uuid;
+  v_lesson_title text;
 BEGIN
   v_session := public._ministerial_session_guard(_session_id);
 
@@ -404,13 +411,13 @@ BEGIN
     RAISE EXCEPTION 'ANSWER_REQUIRED_BEFORE_REVEAL' USING ERRCODE = '42501';
   END IF;
 
-  v_is_correct := public._ministerial_is_correct(v_esq.id, v_answer.selected_index);
+  v_is_correct := public._ministerial_is_correct(v_esq.id, v_answer.selected_option_code);
 
   IF v_is_correct IS NULL THEN
     UPDATE public.exam_session_answers
     SET revealed_at = coalesce(revealed_at, now()),
         requires_manual_review = true,
-        grading_status = 'MANUAL_REVIEW_PENDING',
+        grading_status = 'PENDING_MANUAL_REVIEW',
         updated_at = now()
     WHERE id = v_answer.id;
 
@@ -428,17 +435,17 @@ BEGIN
   ORDER BY sort_order
   LIMIT 1;
 
-  -- Solution comes from the exact pinned revision, never the current one.
-  SELECT qs.explanation, qs.model_answer, qs.hint, qs.reveal_policy
-  INTO v_solution
+  -- Solution comes from the exact pinned revision, never the current published one.
+  SELECT qs.explanation, qs.model_answer
+  INTO v_explanation, v_model_answer
   FROM public.question_solutions qs
   WHERE qs.question_revision_id = v_esq.question_revision_id
     AND coalesce(qs.reveal_policy, 'after_attempt') NOT IN ('hidden', 'staff_only')
   ORDER BY qs.sort_order NULLS LAST
   LIMIT 1;
 
-  SELECT l.id AS lesson_id, l.title AS lesson_title
-  INTO v_lesson
+  SELECT l.id, l.title
+  INTO v_lesson_id, v_lesson_title
   FROM public.question_targets qt
   JOIN public.lessons l ON l.id = qt.lesson_id
   WHERE qt.revision_id = v_esq.question_revision_id
@@ -450,7 +457,7 @@ BEGIN
   SET revealed_at = coalesce(revealed_at, now()),
       is_correct = v_is_correct,
       auto_score = CASE WHEN v_is_correct THEN coalesce(v_answer.max_score, 0) ELSE 0 END,
-      grading_status = 'AUTO_GRADED',
+      grading_status = 'GRADED',
       updated_at = now()
   WHERE id = v_answer.id;
 
@@ -458,15 +465,16 @@ BEGIN
     'manual_review_required', false,
     'is_correct', v_is_correct,
     'correct_option_code', v_correct_code,
-    'explanation', v_solution.explanation,
-    'model_answer', v_solution.model_answer,
-    'lesson_id', v_lesson.lesson_id,
-    'lesson_title', v_lesson.lesson_title
+    'explanation', v_explanation,
+    'model_answer', v_model_answer,
+    'lesson_id', v_lesson_id,
+    'lesson_title', v_lesson_title
   );
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.reveal_ministerial_training_answer(uuid, uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.reveal_ministerial_training_answer(uuid, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.reveal_ministerial_training_answer(uuid, uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.reveal_ministerial_training_answer(uuid, uuid) TO authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -480,7 +488,6 @@ SECURITY DEFINER
 SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
-  v_user uuid := auth.uid();
   v_session public.exam_sessions;
   v_row record;
   v_is_correct boolean;
@@ -496,23 +503,20 @@ DECLARE
   v_expired boolean;
   v_result jsonb;
 BEGIN
-  IF v_user IS NULL THEN RAISE EXCEPTION 'unauthorized' USING ERRCODE = '42501'; END IF;
-
   PERFORM public._ministerial_session_guard(_session_id);
 
-  -- Serialize concurrent submits (double submit / two tabs).
+  -- Serialize concurrent submits (double submit, two tabs, timer + button).
   SELECT * INTO v_session FROM public.exam_sessions WHERE id = _session_id FOR UPDATE;
 
   -- G7: idempotent — an already graded session returns the stored result untouched.
-  IF v_session.grading_status IN ('GRADED', 'MANUAL_REVIEW_PENDING')
-     AND v_session.result_json IS NOT NULL THEN
+  IF v_session.status <> 'in_progress' AND v_session.result_json IS NOT NULL THEN
     RETURN v_session.result_json;
   END IF;
 
   v_expired := v_session.expires_at IS NOT NULL AND v_session.expires_at < now();
 
   FOR v_row IN
-    SELECT esa.id, esa.selected_index, esa.answered_at,
+    SELECT esa.id, esa.selected_option_code, esa.answered_at,
            esq.id AS esq_id, esq.max_score
     FROM public.exam_session_answers esa
     JOIN public.exam_session_questions esq ON esq.id = esa.exam_session_question_id
@@ -522,22 +526,22 @@ BEGIN
     -- G4: marks come from the snapshot, not from current membership rows.
     v_total := v_total + coalesce(v_row.max_score, 0);
 
-    IF v_row.answered_at IS NULL OR v_row.selected_index IS NULL THEN
+    IF v_row.answered_at IS NULL OR v_row.selected_option_code IS NULL THEN
       v_blank := v_blank + 1;
       UPDATE public.exam_session_answers
       SET is_correct = false, auto_score = 0, final_score = 0,
-          grading_status = 'AUTO_GRADED', graded_at = now(), updated_at = now()
+          grading_status = 'GRADED', graded_at = now(), updated_at = now()
       WHERE id = v_row.id;
       CONTINUE;
     END IF;
 
     v_answered := v_answered + 1;
-    v_is_correct := public._ministerial_is_correct(v_row.esq_id, v_row.selected_index);
+    v_is_correct := public._ministerial_is_correct(v_row.esq_id, v_row.selected_option_code);
 
     IF v_is_correct IS NULL THEN
       v_manual := v_manual + 1;
       UPDATE public.exam_session_answers
-      SET requires_manual_review = true, grading_status = 'MANUAL_REVIEW_PENDING', updated_at = now()
+      SET requires_manual_review = true, grading_status = 'PENDING_MANUAL_REVIEW', updated_at = now()
       WHERE id = v_row.id;
       CONTINUE;
     END IF;
@@ -553,7 +557,7 @@ BEGIN
     SET is_correct = v_is_correct,
         auto_score = CASE WHEN v_is_correct THEN coalesce(v_row.max_score, 0) ELSE 0 END,
         final_score = CASE WHEN v_is_correct THEN coalesce(v_row.max_score, 0) ELSE 0 END,
-        grading_status = 'AUTO_GRADED',
+        grading_status = 'GRADED',
         graded_at = now(),
         updated_at = now()
     WHERE id = v_row.id;
@@ -580,8 +584,10 @@ BEGIN
     'correct_count', CASE WHEN v_manual > 0 THEN NULL ELSE v_correct END,
     'wrong_count', CASE WHEN v_manual > 0 THEN NULL ELSE v_wrong END,
     'blank_count', v_blank,
+    'manual_count', v_manual,
     'score', CASE WHEN v_manual > 0 THEN NULL ELSE v_score END,
     'total_points', v_total,
+    'total_questions', v_session.total_questions,
     'percentage', v_pct,
     'elapsed_seconds', v_elapsed,
     'manual_review_required', v_manual > 0,
@@ -594,11 +600,11 @@ BEGIN
       submitted_at = coalesce(submitted_at, now()),
       completed_at = now(),
       answered_questions = v_answered,
-      -- G2: the ministerial correct key never lands on the session row.
+      -- G2: the ministerial answer key never lands on the session row.
       correct_answers = NULL,
       score = CASE WHEN v_manual > 0 THEN NULL ELSE v_score END,
       total_points = v_total,
-      grading_status = CASE WHEN v_manual > 0 THEN 'MANUAL_REVIEW_PENDING' ELSE 'GRADED' END,
+      grading_status = CASE WHEN v_manual > 0 THEN 'PARTIALLY_GRADED' ELSE 'COMPLETED' END,
       is_final = (v_manual = 0),
       result_json = v_result,
       updated_at = now()
@@ -608,11 +614,12 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.submit_ministerial_exam_session(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.submit_ministerial_exam_session(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.submit_ministerial_exam_session(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.submit_ministerial_exam_session(uuid) TO authenticated;
 
 -- ---------------------------------------------------------------------------
--- 7) Result + review (reveal only after completion)
+-- 7) Result + review (answer key only after completion)
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.get_ministerial_session_result(_session_id uuid)
@@ -638,18 +645,16 @@ BEGIN
     'model_code', m.model_code,
     'model_label', m.model_label,
     'academic_year', m.academic_year,
-    'round_code', m.round_code,
+    'round_code', m.round_code::text,
     'subject_id', m.subject_id,
-    'subject_name', s.name,
-    'track_name', ct.name
+    'subject_name', s.name
   )
   INTO v_model
   FROM public.ministerial_exam_models m
   JOIN public.subjects s ON s.id = m.subject_id
-  JOIN public.curriculum_tracks ct ON ct.id = m.curriculum_track_id
   WHERE m.id = v_session.ministerial_model_id;
 
-  SELECT coalesce(jsonb_agg(q ORDER BY (q->>'question_order')::int), '[]'::jsonb)
+  SELECT coalesce(jsonb_agg(q ORDER BY (q ->> 'question_order')::int), '[]'::jsonb)
   INTO v_questions
   FROM (
     SELECT jsonb_build_object(
@@ -659,11 +664,10 @@ BEGIN
       'stimulus_text', esq.rendered_stimulus_text,
       'options', esq.rendered_options,
       'max_score', esq.max_score,
-      'selected_index', esa.selected_index,
       'selected_option_code', esa.selected_option_code,
       'status', CASE
         WHEN esa.requires_manual_review IS TRUE THEN 'manual_review'
-        WHEN esa.selected_index IS NULL THEN 'blank'
+        WHEN esa.selected_option_code IS NULL THEN 'blank'
         WHEN esa.is_correct IS TRUE THEN 'correct'
         ELSE 'wrong'
       END,
@@ -695,7 +699,7 @@ BEGIN
   RETURN jsonb_build_object(
     'session', jsonb_build_object(
       'id', v_session.id,
-      'status', v_session.status,
+      'status', v_session.status::text,
       'attempt_mode', v_session.ministerial_attempt_mode,
       'grading_status', v_session.grading_status,
       'is_final', v_session.is_final,
@@ -709,11 +713,12 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.get_ministerial_session_result(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.get_ministerial_session_result(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_ministerial_session_result(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.get_ministerial_session_result(uuid) TO authenticated;
 
 -- ---------------------------------------------------------------------------
--- 8) Attempt history (exam_sessions stays the single source of truth)
+-- 8) Attempt history
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.list_ministerial_attempts(_model_id uuid DEFAULT NULL)
@@ -721,6 +726,7 @@ RETURNS TABLE (
   session_id uuid,
   model_id uuid,
   model_code text,
+  model_label text,
   academic_year integer,
   round_code text,
   subject_id uuid,
@@ -745,6 +751,7 @@ AS $function$
     es.id,
     m.id,
     m.model_code,
+    m.model_label,
     m.academic_year,
     m.round_code::text,
     m.subject_id,
@@ -771,11 +778,12 @@ AS $function$
   LIMIT 100;
 $function$;
 
-REVOKE ALL ON FUNCTION public.list_ministerial_attempts(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.list_ministerial_attempts(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.list_ministerial_attempts(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.list_ministerial_attempts(uuid) TO authenticated;
 
 -- ---------------------------------------------------------------------------
--- 9) Session state: expose snapshot question ids, attempt mode, reveal + server clock
+-- 9) Session state: snapshot ids, attempt mode, reveal flags + server clock
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.get_ministerial_session_state(_session_id uuid)
@@ -824,7 +832,7 @@ BEGIN
   SELECT COALESCE(jsonb_agg(jsonb_build_object(
     'question_id', a.question_id,
     'session_question_id', a.exam_session_question_id,
-    'selected_index', a.selected_index,
+    'selected_option_code', a.selected_option_code,
     'answered_at', a.answered_at,
     'revealed_at', a.revealed_at
   )), '[]'::jsonb)
@@ -853,8 +861,8 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.get_ministerial_session_state(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.get_ministerial_session_state(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_ministerial_session_state(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.get_ministerial_session_state(uuid) TO authenticated;
 
 COMMIT;
-
