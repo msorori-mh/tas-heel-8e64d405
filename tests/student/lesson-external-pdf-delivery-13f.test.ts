@@ -72,7 +72,7 @@ describe("import + UI wiring", () => {
 
   it("the pending migration derives delivery_mode instead of duplicating urls", () => {
     const sql = readFileSync(
-      "supabase/migrations-pending/20260815010000_lesson_external_pdf_delivery_13f.sql",
+      "supabase/migrations/20260815010000_lesson_external_pdf_delivery_13f.sql",
       "utf8",
     );
     expect(sql).toContain("lessons_delivery_mode_chk");

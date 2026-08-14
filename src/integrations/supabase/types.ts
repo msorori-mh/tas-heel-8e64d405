@@ -3767,6 +3767,14 @@ export type Database = {
           title: string
         }[]
       }
+      get_ministerial_model_overview: {
+        Args: { _model_id: string }
+        Returns: Json
+      }
+      get_ministerial_session_state: {
+        Args: { _session_id: string }
+        Returns: Json
+      }
       get_report_governorate_data: {
         Args: { _grade_id?: string; _months_back?: number }
         Returns: {
@@ -3875,6 +3883,31 @@ export type Database = {
         Returns: boolean
       }
       is_full_admin: { Args: { _user_id: string }; Returns: boolean }
+      list_ministerial_models: {
+        Args: { _subject_id: string }
+        Returns: {
+          academic_year: number
+          duration_seconds: number
+          last_session_id: string
+          last_session_status: string
+          model_code: string
+          model_id: string
+          model_label: string
+          question_count: number
+          round_code: string
+          variant_code: string
+        }[]
+      }
+      list_ministerial_subjects: {
+        Args: never
+        Returns: {
+          latest_year: number
+          models_count: number
+          subject_code: string
+          subject_id: string
+          subject_name: string
+        }[]
+      }
       ministerial_build_model_code: {
         Args: {
           _academic_year: number
