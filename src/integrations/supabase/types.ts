@@ -1234,6 +1234,7 @@ export type Database = {
           description: string | null
           html_resource_type: string | null
           id: string
+          is_primary: boolean
           lesson_id: string
           metadata: Json
           resource_code: string | null
@@ -1247,6 +1248,7 @@ export type Database = {
           description?: string | null
           html_resource_type?: string | null
           id?: string
+          is_primary?: boolean
           lesson_id: string
           metadata?: Json
           resource_code?: string | null
@@ -1260,6 +1262,7 @@ export type Database = {
           description?: string | null
           html_resource_type?: string | null
           id?: string
+          is_primary?: boolean
           lesson_id?: string
           metadata?: Json
           resource_code?: string | null
@@ -1362,6 +1365,7 @@ export type Database = {
           content_pdf_url: string | null
           content_text: string | null
           created_at: string
+          delivery_mode: string
           duration: string | null
           has_content_pdf: boolean | null
           has_video: boolean | null
@@ -1380,6 +1384,7 @@ export type Database = {
           content_pdf_url?: string | null
           content_text?: string | null
           created_at?: string
+          delivery_mode?: string
           duration?: string | null
           has_content_pdf?: boolean | null
           has_video?: boolean | null
@@ -1398,6 +1403,7 @@ export type Database = {
           content_pdf_url?: string | null
           content_text?: string | null
           created_at?: string
+          delivery_mode?: string
           duration?: string | null
           has_content_pdf?: boolean | null
           has_video?: boolean | null
@@ -3525,6 +3531,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_set_primary_lesson_resource: {
+        Args: { _lesson_id: string; _resource_id: string }
+        Returns: Json
+      }
       admin_subject_track_detach: {
         Args: {
           _curriculum_track_id: string
@@ -3725,6 +3735,18 @@ export type Database = {
       }
       get_exam_session_state: { Args: { _session_id: string }; Returns: Json }
       get_lesson_full_content: { Args: { _lesson_id: string }; Returns: Json }
+      get_lesson_primary_resource: {
+        Args: { _lesson_id: string }
+        Returns: {
+          delivery_mode: string
+          description: string
+          lesson_id: string
+          resource_id: string
+          resource_type: string
+          title: string
+          url: string
+        }[]
+      }
       get_lesson_quiz_questions: {
         Args: { _lesson_id: string }
         Returns: {
