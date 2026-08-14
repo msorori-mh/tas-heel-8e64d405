@@ -19,6 +19,7 @@ import {
   ExternalLessonDelivery,
   type PrimaryLessonResource,
 } from "@/components/lessons/ExternalLessonDelivery";
+import { isExternalDelivery } from "@/lib/lessons/lesson-delivery";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import {
   Home,
