@@ -218,7 +218,8 @@ export const adminUpdateUserRoles = createServerFn({ method: "POST" })
 
     const currentStaff = (existing ?? [])
       .map((r) => r.role)
-      .filter((r): r is AssignableAdminRole => r === "admin" || r === "content_manager");
+      .filter((r): r is Exclude<AssignableAdminRole, "user"> =>
+        r === "admin" || r === "content_manager");
 
     const toRemove = currentStaff.filter((r) => !nextRoles.includes(r));
     const toAdd = nextRoles.filter((r) => !currentStaff.includes(r));
