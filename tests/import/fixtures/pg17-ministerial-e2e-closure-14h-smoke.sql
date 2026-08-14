@@ -123,8 +123,8 @@ INSERT INTO public.question_options (question_revision_id, option_code, body, so
   (c_q3r1, 'B', 'خيار ب', 2, true)
 ON CONFLICT DO NOTHING;
 
-INSERT INTO public.question_solutions (question_revision_id, explanation, model_answer, reveal_policy, sort_order)
-VALUES (c_q1r1, 'شرح النسخة R1', 'أ', 'after_attempt', 1)
+INSERT INTO public.question_solutions (question_revision_id, solution_code, solution_type, explanation, model_answer, reveal_policy, sort_order)
+VALUES (c_q1r1, 'SOL-1', 'MODEL', 'شرح النسخة R1', 'أ', 'AFTER_SUBMIT', 1)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO public.question_targets (question_id, revision_id, target_type, subject_id, lesson_id, is_primary, created_by) VALUES
@@ -454,8 +454,8 @@ ON CONFLICT DO NOTHING;
 INSERT INTO public.question_targets (question_id, revision_id, target_type, subject_id, lesson_id, is_primary, created_by)
 VALUES (c_q1, c_q1r2, 'LESSON', c_subject, c_lesson2, true, c_staff)
 ON CONFLICT DO NOTHING;
-INSERT INTO public.question_solutions (question_revision_id, explanation, model_answer, reveal_policy, sort_order)
-VALUES (c_q1r2, 'شرح النسخة R2', 'ب', 'after_attempt', 1)
+INSERT INTO public.question_solutions (question_revision_id, solution_code, solution_type, explanation, model_answer, reveal_policy, sort_order)
+VALUES (c_q1r2, 'SOL-1', 'MODEL', 'شرح النسخة R2', 'ب', 'AFTER_SUBMIT', 1)
 ON CONFLICT DO NOTHING;
 UPDATE public.questions SET current_published_revision_id = c_q1r2 WHERE id = c_q1;
 SET session_replication_role = origin;
