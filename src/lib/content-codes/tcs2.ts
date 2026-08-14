@@ -16,17 +16,19 @@
  *   resource     res-{gradeShort}-{subjectNo:003}-{lessonNo:003}-{seq:02}
  *   assessment   asm-{gradeShort}-{subjectNo:003}-{lessonNo:003}-{seq:02}
  *   question     q-{gradeShort}-{subjectNo:003}-{questionNo:05}
+ *   ministerial  mex-{gradeShort}-{subjectNo:003}-{trackCode}-{year:4}-{roundCode}-{variantCode}
  *
  * Invariants (unchanged from TCS-1):
  *  - Codes are independent of the Arabic display name.
  *  - A lesson code does NOT embed its unit.
  *  - A question code does NOT embed a lesson.
  *  - A code that was ever allocated is never reused.
+ *  - Ministerial model codes are track-specific (the model itself is track-bound).
  *
  * Pure data + pure functions — no DB access. Client, server and script safe.
  */
 
-import { TCS1_GRADES, type Tcs1GradeRef } from "./tcs1-master-data.ts";
+import { TCS1_GRADES, TCS1_TRACKS, type Tcs1GradeRef } from "./tcs1-master-data.ts";
 
 export const CONTENT_CODE_SCHEME_VERSION = "TCS-2" as const;
 export const LEGACY_CODE_SCHEME_VERSION = "TCS-1" as const;
@@ -39,7 +41,8 @@ export type Tcs2EntityKind =
   | "explanation"
   | "resource"
   | "assessment"
-  | "question";
+  | "question"
+  | "mex";
 
 export const TCS2_PREFIX: Record<Tcs2EntityKind, string> = {
   subject: "sub",
@@ -50,6 +53,7 @@ export const TCS2_PREFIX: Record<Tcs2EntityKind, string> = {
   resource: "res",
   assessment: "asm",
   question: "q",
+  mex: "mex",
 };
 
 export const TCS2_WIDTH = {
@@ -59,7 +63,12 @@ export const TCS2_WIDTH = {
   lessonNo: 3,
   seq: 2,
   questionNo: 5,
+  mexYear: 4,
+  mexRoundCode: 2,
+  mexVariantCode: 20,
 } as const;
+
+export const TCS2_MEX_ROUND_CODES: readonly string[] = ["r1", "r2", "r3", "makeup"];
 
 export class Tcs2Error extends Error {
   constructor(
@@ -113,8 +122,27 @@ export interface Tcs2Scope {
   gradeSlug: string;
 }
 
+export interface Tcs2MexScope extends Tcs2Scope {
+  trackCode: string;
+}
+
 function scopePart(scope: Tcs2Scope): string {
   return gradeShortFromSlug(scope.gradeSlug);
+}
+
+function trackCodeFromScope(scope: Tcs2MexScope): string {
+  const code = scope.trackCode.trim().toLowerCase();
+  if (!TCS1_TRACKS.some((t) => t.trackCode === code)) {
+    throw new Tcs2Error(
+      "TCS2_UNKNOWN_TRACK",
+      `المسار «${code}» غير معروف. المسارات المعتمدة: ${TCS1_TRACKS.map((t) => t.trackCode).join(" | ")}.`,
+    );
+  }
+  return code;
+}
+
+function mexScopePart(scope: Tcs2MexScope): string {
+  return `${scopePart(scope)}-${trackCodeFromScope(scope)}`;
 }
 
 export function buildSubjectCode(scope: Tcs2Scope, subjectNo: number): string {
@@ -174,6 +202,31 @@ export function buildQuestionCode(scope: Tcs2Scope, subjectNo: number, questionN
   return `q-${scopePart(scope)}-${pad(subjectNo, TCS2_WIDTH.subjectNo)}-${pad(questionNo, TCS2_WIDTH.questionNo)}`;
 }
 
+export function buildMinisterialModelCode(
+  scope: Tcs2MexScope,
+  subjectNo: number,
+  year: number,
+  roundCode: string,
+  variantCode: string,
+): string {
+  const round = roundCode.trim().toLowerCase();
+  if (!TCS2_MEX_ROUND_CODES.includes(round)) {
+    throw new Tcs2Error(
+      "TCS2_INVALID_MEX_ROUND",
+      `رمز الدور الوزاري غير صالح: «${roundCode}». الأرقام المعتمدة: ${TCS2_MEX_ROUND_CODES.join(" | ")}.`,
+    );
+  }
+  const variant = variantCode.trim().toLowerCase();
+  if (!/^[a-z0-9-]{1,20}$/.test(variant)) {
+    throw new Tcs2Error(
+      "TCS2_INVALID_MEX_VARIANT",
+      `رمز المتغير غير صالب: «${variantCode}». يجب أن يكون 1–20 حرفاً من أحرف/أرقام/واصلة صغيرة.`,
+    );
+  }
+  return `mex-${mexScopePart(scope)}-${pad(subjectNo, TCS2_WIDTH.subjectNo)}-${pad(year, TCS2_WIDTH.mexYear)}-${round}-${variant}`;
+}
+
+
 /* ------------------------------------------------------------------ *
  * Parsing / validation
  * ------------------------------------------------------------------ */
@@ -190,13 +243,16 @@ export const TCS2_PATTERN: Record<Tcs2EntityKind, RegExp> = {
   resource: new RegExp(`^res-${SCOPE_RE}-(\\d{3})-(\\d{3})-(\\d{2})$`),
   assessment: new RegExp(`^asm-${SCOPE_RE}-(\\d{3})-(\\d{3})-(\\d{2})$`),
   question: new RegExp(`^q-${SCOPE_RE}-(\\d{3})-(\\d{5})$`),
+  mex: new RegExp(`^mex-${SCOPE_RE}-(sanaa|aden|other)-(\\d{3})-(\\d{4})-(${TCS2_MEX_ROUND_CODES.join("|")})-([a-z0-9-]{1,20})$`),
 };
 
 export interface ParsedTcs2Code {
   kind: Tcs2EntityKind;
   gradeShort: string;
   gradeSlug: string;
+  trackCode?: string;
   numbers: number[];
+  strings: string[];
 }
 
 export function parseTcs2Code(code: string): ParsedTcs2Code | null {
@@ -204,14 +260,30 @@ export function parseTcs2Code(code: string): ParsedTcs2Code | null {
   for (const kind of Object.keys(TCS2_PATTERN) as Tcs2EntityKind[]) {
     const match = TCS2_PATTERN[kind].exec(value);
     if (!match) continue;
-    const [, gradeShort, ...rest] = match;
+    const groups = match.slice(1);
+    const gradeShort = groups[0];
     const grade = TCS1_GRADES.find((g) => g.gradeShort === gradeShort);
     if (!grade) return null;
+    const rest = groups.slice(1);
+    const numbers: number[] = [];
+    const strings: string[] = [];
+    let trackCode: string | undefined;
+    for (const g of rest) {
+      if (kind === "mex" && (g === "sanaa" || g === "aden" || g === "other") && !trackCode) {
+        trackCode = g;
+      } else if (/^\d+$/.test(g)) {
+        numbers.push(Number(g));
+      } else {
+        strings.push(g);
+      }
+    }
     return {
       kind,
       gradeShort: gradeShort!,
       gradeSlug: grade.gradeSlug,
-      numbers: rest.map((n) => Number(n)),
+      trackCode,
+      numbers,
+      strings,
     };
   }
   return null;
@@ -222,6 +294,7 @@ export function isTcs2Code(code: string, kind?: Tcs2EntityKind): boolean {
   if (!parsed) return false;
   return kind ? parsed.kind === kind : true;
 }
+
 
 /* ------------------------------------------------------------------ *
  * Allocation — read-only, never reuses a number.
@@ -316,8 +389,14 @@ export function buildForKind(
       return buildAssessmentCode(scope, n(0), n(1), n(2));
     case "question":
       return buildQuestionCode(scope, n(0), n(1));
+    case "mex":
+      throw new Tcs2Error(
+        "TCS2_MEX_USE_DEDICATED_BUILDER",
+        "استخدم buildMinisterialModelCode() لتوليد أكواد النماذج الوزارية."
+      );
   }
 }
+
 
 /* ------------------------------------------------------------------ *
  * Legacy TCS-1 rejection (13C rule 6)
@@ -361,6 +440,7 @@ export const TCS2_RULES_AR: readonly string[] = [
   "كود السؤال لا يحتوي على الدرس، لأنه هوية ثابتة عبر المراجعات والاستهداف.",
   "أي كود سبق تخصيصه لا يُعاد استخدامه لكيان آخر حتى بعد الحذف.",
   `المخطط القديم ${LEGACY_CODE_SCHEME_VERSION} مجمّد: لا يُستخدم لإنشاء محتوى جديد ويُرفض عند الاستيراد.`,
+  "كود النموذج الوزاري (mex) يتضمن المسار فقط عند مستوى النموذج، لأن النموذج نفسه يُنشر لمسار محدد.",
 ];
 
 export const TCS2_FORMAT_TABLE: ReadonlyArray<{
@@ -377,4 +457,6 @@ export const TCS2_FORMAT_TABLE: ReadonlyArray<{
   { kind: "resource", labelAr: "مورد", format: "res-{gradeShort}-{subjectNo:003}-{lessonNo:003}-{seq:02}", example: "res-g12-001-001-01" },
   { kind: "assessment", labelAr: "تقييم", format: "asm-{gradeShort}-{subjectNo:003}-{lessonNo:003}-{seq:02}", example: "asm-g12-001-001-01" },
   { kind: "question", labelAr: "سؤال", format: "q-{gradeShort}-{subjectNo:003}-{questionNo:05}", example: "q-g12-001-00007" },
+  { kind: "mex", labelAr: "نموذج وزاري", format: "mex-{gradeShort}-{trackCode}-{subjectNo:003}-{year:4}-{roundCode}-{variantCode}", example: "mex-g12-aden-001-2024-r1-a" },
 ];
+

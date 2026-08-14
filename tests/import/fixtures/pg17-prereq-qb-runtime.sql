@@ -54,12 +54,29 @@ $$;
 -- ---------------------------------------------------------------------------
 -- exam / practice roots (pre-QB-01 shape)
 -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- exam / practice roots (pre-QB-01 shape, expanded to match production columns)
+-- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.exam_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  subject_id uuid REFERENCES public.subjects(id) ON DELETE SET NULL,
+  template_id uuid REFERENCES public.exam_templates(id) ON DELETE SET NULL,
+  mode text NOT NULL DEFAULT 'training',
   status text NOT NULL DEFAULT 'in_progress',
-  created_at timestamptz NOT NULL DEFAULT now()
+  started_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz,
+  submitted_at timestamptz,
+  total_questions integer NOT NULL DEFAULT 0,
+  answered_questions integer NOT NULL DEFAULT 0,
+  correct_answers integer NOT NULL DEFAULT 0,
+  score numeric NOT NULL DEFAULT 0,
+  total_points numeric NOT NULL DEFAULT 0,
+  result_json jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  attempt_pin_mode text,
+  grading_status text,
+  ministerial_model_id uuid
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS exam_sessions_id_uidx ON public.exam_sessions (id);
@@ -70,8 +87,16 @@ CREATE TABLE IF NOT EXISTS public.exam_session_answers (
   question_id uuid REFERENCES public.questions(id) ON DELETE CASCADE,
   selected_index integer,
   is_correct boolean,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  exam_session_question_id uuid,
+  question_revision_id uuid,
+  selected_option_code text,
+  response_text text,
+  response_payload jsonb,
+  requires_manual_review boolean NOT NULL DEFAULT false
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS exam_session_answers_id_uidx ON public.exam_session_answers (id);
 
 -- ---------------------------------------------------------------------------
 -- LEGACY assessment link validation (the exact behaviour stage 11 replaces).
