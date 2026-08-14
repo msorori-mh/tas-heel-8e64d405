@@ -101,12 +101,12 @@
 ```
 id                    uuid pk
 exam_template_id      uuid not null unique  -> exam_templates(id)
-grade_id              uuid not null         -> grades(id)
 curriculum_track_id   uuid not null         -> curriculum_tracks(id)
 subject_id            uuid not null         -> subjects(id)
 academic_year         int  not null         -- 2025
 exam_round            text not null         -- 'main' | 'second' | 'makeup' (enum مقترح ministerial_exam_round)
-model_label           text                  -- "النموذج الأول"
+model_variant_code    text not null default 'main'  -- main | a | b | supplementary-01  (ثابت، جزء من الهوية)
+model_label           text                  -- "النموذج الأول" (عرض فقط، قابل للتعديل)
 total_marks           numeric
 official_duration_min int
 source_reference      text                  -- اسم/رقم الوثيقة الرسمية
@@ -115,11 +115,19 @@ is_published          boolean not null default false
 created_at / created_by / updated_at
 ```
 قيود:
-- `UNIQUE (grade_id, curriculum_track_id, subject_id, academic_year, exam_round, model_label)` ← **هوية النموذج المطلوبة (البند 4/5)**.
-- CHECK اتساق: `subject_id` يجب أن ينتمي لنفس `grade_id` ونفس `curriculum_track_id` (trigger تحقق، على نمط `assert_subject_group_name_consistent`).
+- `UNIQUE (subject_id, curriculum_track_id, academic_year, exam_round, model_variant_code)` ← **هوية النموذج**.
+  - `model_variant_code` ثابت و`NOT NULL` (لا مشاكل NULL داخل UNIQUE)، بينما `model_label` نص عرض قابل للتغيير ولا يدخل في الهوية.
+- **لا عمود `grade_id`**: الصف يُستنتج من `subjects.grade_id` — لا تكرار ولا خطر تعارض (`subject = G12` بينما `model.grade = G11`).
+- **MODEL_VALIDITY_GATE** (trigger، بديل شرط `subject.track == model.track` القديم):
+  ```text
+  ministerial_exam_models.curriculum_track_id
+  MUST EXIST IN subject_curriculum_tracks(subject_id, curriculum_track_id)
+  AND that assignment MUST be active
+  ```
+  ⇒ مادة بلا ارتباطات مسار، أو ارتباط غير نشط = DENY.
 - `academic_year BETWEEN 2000 AND extract(year from now())+1`.
 
-بذلك: `g12+sanaa+physics+2025` و`g12+aden+physics+2025` صفّان مختلفان حتماً — بل ومادتان مختلفتان أصلاً (`subjects.curriculum_track_id`).
+بذلك: الفيزياء مادة واحدة مشتركة (`sub-g12-001` بمسارَي صنعاء وعدن)، ومع ذلك «وزاري صنعاء 2025» و«وزاري عدن 2025» **صفّان مستقلان تماماً**.
 
 ### 5.2 `ministerial_exam_questions` (ربط + ميتاداتا المصدر)
 ```
