@@ -149,7 +149,7 @@ export async function answerMinisterialQuestion(input: {
   const { error } = await supabase.rpc("answer_exam_question", {
     _session_id: input.sessionId,
     _question_id: input.questionId,
-    _selected_index: input.selectedIndex,
+    _selected_index: input.selectedIndex as number,
   });
   if (error) throw error;
 }
