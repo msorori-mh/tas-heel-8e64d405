@@ -146,7 +146,8 @@ created_at / created_by
 قيود:
 - `UNIQUE (model_id, sort_order)` و`UNIQUE (model_id, original_question_number)`
 - **Composite FK** `(question_id, question_revision_id) -> question_revisions(question_id, id)` (نفس نمط G1-11).
-- Trigger `assert_ministerial_question_publishable`: النسخة `published`، و`question_targets` الخاصة بها تشير إلى `subject_id` المطابق للنموذج (⇒ لا اختلاط sanaa/aden).
+- Trigger `assert_ministerial_question_publishable`: النسخة `published`، و`question_targets` الخاصة بها تشير إلى **نفس `subject_id`** للنموذج.
+  - **لا يُشترط تطابق مسار على السؤال**: `question_targets` لا تحمل `curriculum_track_id` وهذا مقصود. سؤال المادة المشتركة صالح أكاديمياً للمسارين، وواقعة «ورد في وزاري صنعاء 2025» تُخزَّن هنا (ministerial membership/occurrence) لا في بنك الأسئلة. أي محاولة لجعل بنك الأسئلة Track-specific = مرفوضة.
 - Append-only بعد `is_published=true` (guard على نمط `qb_guard_revision_children_immutable`).
 - **ممنوع** أي عمود `correct_answer` / `explanation` هنا.
 
