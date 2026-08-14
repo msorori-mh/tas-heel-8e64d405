@@ -340,6 +340,7 @@ DO $$
 DECLARE
   v_count int;
 BEGIN
+  SET LOCAL ROLE authenticated;
   SET request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 
   SELECT COUNT(*) INTO v_count FROM public.ministerial_exam_questions;
