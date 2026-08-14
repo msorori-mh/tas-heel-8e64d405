@@ -254,7 +254,7 @@ export async function answerMinisterialQuestion(input: {
   const { error } = await supabase.rpc("answer_ministerial_exam_question", {
     _session_id: input.sessionId,
     _session_question_id: input.sessionQuestionId,
-    _option_code: input.optionCode,
+    _option_code: input.optionCode as string,
   });
   if (error) throw error;
 }
