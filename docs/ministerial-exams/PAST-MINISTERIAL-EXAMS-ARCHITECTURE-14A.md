@@ -265,9 +265,11 @@ Answer-leak review:
 
 - لا CRUD من العميل. الإنشاء عبر مسار الاستيراد المعتمد (12A/13/13A) + RPC خادمية.
 - قالبان جديدان يُضافان لكتالوج القوالب:
-  1. `10-ministerial-exam-models` — أعمدة: `model_code`, `grade_short`, `track_code`, `subject_code`, `academic_year`, `exam_round`, `model_label`, `total_marks`, `official_duration_min`, `source_reference`.
+  1. `10-ministerial-exam-models` — أعمدة: `model_code`, `subject_code`, `track_code` (**مسار واحد فقط للنموذج**), `academic_year`, `exam_round`, `model_variant_code`, `model_label`, `total_marks`, `official_duration_min`, `source_reference`.
   2. `11-ministerial-exam-questions` — أعمدة: `model_code`, `question_code`, `original_question_number`, `section_code`, `sort_order`, `marks`, `source_page`.
-- أكواد النماذج تتبع **TCS-1** (System-owned): مقترح `mex-g12-sanaa-phy-2025-r1`، يولّده مولّد القوالب السياقي لا المشغّل.
+- انتبه للفرق: قالب المواد يستخدم `track_codes` (قائمة توفّر)، بينما قالب النماذج الوزارية يستخدم `track_code` **مفرداً وإلزامياً**.
+- أكواد النماذج **System-owned** ضمن امتداد TCS-2: مقترح `mex-g12-001-2025-main` (مبني على `subject_code` + السنة + الدور + المتغيّر، والمسار عمود مستقل لا جزء من الكود)، يولّده مولّد القوالب السياقي لا المشغّل. أكواد TCS-1 مرفوضة.
+- **لا يُسلَّم قالب النماذج الوزارية للمشغّل قبل إغلاق 14B/14D.**
 - ترتيب التنفيذ: المحتوى (01→07) ← الأسئلة (09→08) ← **النماذج (10) ← ربط الأسئلة (11)**.
 - Idempotency عبر `import_jobs` + hash الصف كما هو قائم.
 - شرط بوابة: كل `question_code` يجب أن يكون له revision منشورة قبل مرحلة 11، وإلا يفشل الصف بخطأ واضح.
