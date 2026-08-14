@@ -248,13 +248,16 @@ function SubjectIndexPage() {
           <div className="min-w-0">
             <h1 className="truncate text-xl font-bold text-foreground">{subject.name}</h1>
             <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <Layers className="h-3.5 w-3.5" /> {units.length} وحدة
-              </span>
+              {hasUnits && (
+                <span className="inline-flex items-center gap-1">
+                  <Layers className="h-3.5 w-3.5" /> {units.length} وحدة
+                </span>
+              )}
               <span className="inline-flex items-center gap-1">
                 <FileText className="h-3.5 w-3.5" /> {lessons.length} درس
               </span>
             </div>
+
           </div>
           {semester && (
             <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
