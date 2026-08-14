@@ -219,7 +219,11 @@ function SubjectIndexPage() {
     lessonsByUnit.get(k)!.push(ls);
   }
   const orphans = lessonsByUnit.get(null) ?? [];
-  const hasAny = units.length > 0 || lessons.length > 0;
+  // Two officially supported shapes: Subject → Unit → Lesson, and Subject → Lesson
+  // directly (all lessons have unit_id NULL). Never synthesize fake units.
+  const hasUnits = units.length > 0;
+  const hasAny = hasUnits || lessons.length > 0;
+
 
   const done = completedIds ?? new Set<string>();
   const completedCount = lessons.filter((l) => done.has(l.id)).length;
