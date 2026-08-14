@@ -467,6 +467,13 @@ function LessonPage() {
 
       {/* External delivery (PDF / Drive) */}
       {externalDelivery && <ExternalLessonDelivery resource={externalDelivery} />}
+      {externalMissing && (
+        <section className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-card">
+          هذا الدرس يُقدَّم كملف خارجي، لكن لم يُرفق ملف الدرس بعد. يرجى إبلاغ إدارة المحتوى أو
+          المحاولة لاحقاً.
+        </section>
+      )}
+
 
       {/* Learning Journey */}
       <div className="space-y-3">
