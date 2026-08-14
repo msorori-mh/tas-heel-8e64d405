@@ -957,6 +957,7 @@ REVOKE ALL ON public.ministerial_import_prepares FROM anon;
 DROP POLICY IF EXISTS "Content staff manage ministerial models" ON public.ministerial_exam_models;
 DROP POLICY IF EXISTS "Authenticated read published ministerial models" ON public.ministerial_exam_models;
 
+DROP POLICY IF EXISTS "Content staff read ministerial models" ON public.ministerial_exam_models;
 CREATE POLICY "Content staff read ministerial models" ON public.ministerial_exam_models
   FOR SELECT TO authenticated
   USING (public.is_content_staff(auth.uid()));
@@ -968,6 +969,7 @@ CREATE POLICY "Authenticated read published ministerial models" ON public.minist
 -- Membership: staff read only; students never read it directly (answers stay in QB).
 DROP POLICY IF EXISTS "Content staff manage ministerial question membership" ON public.ministerial_exam_questions;
 
+DROP POLICY IF EXISTS "Content staff read ministerial question membership" ON public.ministerial_exam_questions;
 CREATE POLICY "Content staff read ministerial question membership" ON public.ministerial_exam_questions
   FOR SELECT TO authenticated
   USING (public.is_content_staff(auth.uid()));
