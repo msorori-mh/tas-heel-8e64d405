@@ -54,16 +54,51 @@ $$;
 -- ---------------------------------------------------------------------------
 -- exam / practice roots (pre-QB-01 shape)
 -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- exam / practice roots (pre-QB-01 shape, expanded to match production columns)
+-- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.exam_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   template_id uuid REFERENCES public.exam_templates(id) ON DELETE SET NULL,
-  subject_id uuid REFERENCES public.subjects(id) ON DELETE SET NULL,
+  mode text NOT NULL DEFAULT 'training',
   status text NOT NULL DEFAULT 'in_progress',
-  created_at timestamptz NOT NULL DEFAULT now()
+  started_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz,
+  submitted_at timestamptz,
+  total_questions integer NOT NULL DEFAULT 0,
+  answered_questions integer NOT NULL DEFAULT 0,
+  correct_answers integer NOT NULL DEFAULT 0,
+  score numeric NOT NULL DEFAULT 0,
+  total_points numeric NOT NULL DEFAULT 0,
+  result_json jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  attempt_pin_mode text,
+  grading_status text,
+  ministerial_model_id uuid REFERENCES public.ministerial_exam_models(id) ON DELETE RESTRICT
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS exam_sessions_id_uidx ON public.exam_sessions (id);
+
+CREATE TABLE IF NOT EXISTS public.exam_session_questions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  exam_session_id uuid NOT NULL REFERENCES public.exam_sessions(id) ON DELETE CASCADE,
+  question_revision_id uuid NOT NULL REFERENCES public.question_revisions(id) ON DELETE RESTRICT,
+  logical_question_id uuid NOT NULL REFERENCES public.questions(id) ON DELETE RESTRICT,
+  question_order int NOT NULL,
+  rendered_question_text text NOT NULL,
+  rendered_stimulus_text text,
+  rendered_options jsonb NOT NULL DEFAULT '[]'::jsonb,
+  option_order_mapping jsonb NOT NULL DEFAULT '[]'::jsonb,
+  max_score numeric NOT NULL DEFAULT 1 CHECK (max_score > 0),
+  payload_hash text NOT NULL CHECK (payload_hash ~ '^[0-9a-f]{64}$'),
+  payload_hash_version text NOT NULL DEFAULT 'canonical_payload_v1',
+  pin_mode text NOT NULL CHECK (pin_mode IN ('LEGACY', 'REVISION_PINNED')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (exam_session_id, question_order),
+  UNIQUE (exam_session_id, question_revision_id)
+);
 
 CREATE TABLE IF NOT EXISTS public.exam_session_answers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -71,7 +106,13 @@ CREATE TABLE IF NOT EXISTS public.exam_session_answers (
   question_id uuid REFERENCES public.questions(id) ON DELETE CASCADE,
   selected_index integer,
   is_correct boolean,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  exam_session_question_id uuid REFERENCES public.exam_session_questions(id) ON DELETE RESTRICT,
+  question_revision_id uuid REFERENCES public.question_revisions(id) ON DELETE RESTRICT,
+  selected_option_code text,
+  response_text text,
+  response_payload jsonb,
+  requires_manual_review boolean NOT NULL DEFAULT false
 );
 
 -- ---------------------------------------------------------------------------
