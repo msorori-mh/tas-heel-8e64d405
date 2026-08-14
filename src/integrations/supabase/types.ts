@@ -565,6 +565,7 @@ export type Database = {
           expires_at: string | null
           grading_status: string
           id: string
+          ministerial_model_id: string | null
           mode: Database["public"]["Enums"]["exam_mode"]
           result_json: Json | null
           score: number
@@ -585,6 +586,7 @@ export type Database = {
           expires_at?: string | null
           grading_status?: string
           id?: string
+          ministerial_model_id?: string | null
           mode: Database["public"]["Enums"]["exam_mode"]
           result_json?: Json | null
           score?: number
@@ -605,6 +607,7 @@ export type Database = {
           expires_at?: string | null
           grading_status?: string
           id?: string
+          ministerial_model_id?: string | null
           mode?: Database["public"]["Enums"]["exam_mode"]
           result_json?: Json | null
           score?: number
@@ -618,6 +621,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "exam_sessions_ministerial_model_id_fkey"
+            columns: ["ministerial_model_id"]
+            isOneToOne: false
+            referencedRelation: "ministerial_exam_models"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "exam_sessions_template_id_fkey"
             columns: ["template_id"]
@@ -1415,6 +1425,134 @@ export type Database = {
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ministerial_exam_models: {
+        Row: {
+          academic_year: number
+          created_at: string
+          created_by: string | null
+          curriculum_track_id: string
+          id: string
+          model_code: string
+          published_at: string | null
+          published_by: string | null
+          round_code: Database["public"]["Enums"]["ministerial_exam_round_code"]
+          status: string
+          subject_id: string
+          template_id: string
+          updated_at: string
+          variant_code: string
+        }
+        Insert: {
+          academic_year: number
+          created_at?: string
+          created_by?: string | null
+          curriculum_track_id: string
+          id?: string
+          model_code: string
+          published_at?: string | null
+          published_by?: string | null
+          round_code: Database["public"]["Enums"]["ministerial_exam_round_code"]
+          status?: string
+          subject_id: string
+          template_id: string
+          updated_at?: string
+          variant_code: string
+        }
+        Update: {
+          academic_year?: number
+          created_at?: string
+          created_by?: string | null
+          curriculum_track_id?: string
+          id?: string
+          model_code?: string
+          published_at?: string | null
+          published_by?: string | null
+          round_code?: Database["public"]["Enums"]["ministerial_exam_round_code"]
+          status?: string
+          subject_id?: string
+          template_id?: string
+          updated_at?: string
+          variant_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ministerial_exam_models_curriculum_track_id_fkey"
+            columns: ["curriculum_track_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_tracks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ministerial_exam_models_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ministerial_exam_models_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: true
+            referencedRelation: "exam_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ministerial_exam_questions: {
+        Row: {
+          created_at: string
+          id: string
+          marks: number
+          model_id: string
+          published_revision_id: string
+          question_id: string
+          sort_order: number
+          source_question_code: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          marks?: number
+          model_id: string
+          published_revision_id: string
+          question_id: string
+          sort_order?: number
+          source_question_code?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          marks?: number
+          model_id?: string
+          published_revision_id?: string
+          question_id?: string
+          sort_order?: number
+          source_question_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ministerial_exam_questions_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "ministerial_exam_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ministerial_exam_questions_published_revision_id_fkey"
+            columns: ["published_revision_id"]
+            isOneToOne: false
+            referencedRelation: "question_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ministerial_exam_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
             referencedColumns: ["id"]
           },
         ]
@@ -3355,6 +3493,10 @@ export type Database = {
         Args: { p_admin_notes?: string; p_request_id: string }
         Returns: Json
       }
+      assert_exam_template_not_ministry_bypassed: {
+        Args: { _template_id: string }
+        Returns: undefined
+      }
       assert_import_job_operator: {
         Args: { _job_id: string }
         Returns: {
@@ -3392,6 +3534,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      assert_ministerial_question_publishable: {
+        Args: { _model_id: string; _question_id: string; _revision_id: string }
+        Returns: undefined
+      }
       can_access_lesson: { Args: { _lesson_id: string }; Returns: boolean }
       can_access_subject: { Args: { _subject_id: string }; Returns: boolean }
       can_delete_draft_question: {
@@ -3401,6 +3547,10 @@ export type Database = {
       can_edit_question_bank: { Args: { p_user_id?: string }; Returns: boolean }
       can_grade_manual_response: {
         Args: { p_user_id?: string }
+        Returns: boolean
+      }
+      can_publish_ministerial_model: {
+        Args: { _model_id: string }
         Returns: boolean
       }
       can_publish_question_revision: {
@@ -3435,6 +3585,10 @@ export type Database = {
       create_exam_session_with_snapshot: {
         Args: { p_template_id: string }
         Returns: Json
+      }
+      create_ministerial_exam_session: {
+        Args: { _model_id: string }
+        Returns: string
       }
       create_practice_attempt_with_snapshot: {
         Args: { p_params: Json }
@@ -3655,6 +3809,10 @@ export type Database = {
         }
         Returns: Json
       }
+      publish_ministerial_model: {
+        Args: { _model_id: string }
+        Returns: undefined
+      }
       publish_question_revision: {
         Args: {
           p_expected_current_revision_id: string
@@ -3744,6 +3902,7 @@ export type Database = {
       exam_mode: "training" | "strict" | "ministry"
       exam_session_status: "in_progress" | "submitted" | "expired"
       lesson_resource_type: "video" | "mindmap" | "experiment" | "pdf" | "link"
+      ministerial_exam_round_code: "r1" | "r2" | "r3" | "makeup"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3875,6 +4034,7 @@ export const Constants = {
       exam_mode: ["training", "strict", "ministry"],
       exam_session_status: ["in_progress", "submitted", "expired"],
       lesson_resource_type: ["video", "mindmap", "experiment", "pdf", "link"],
+      ministerial_exam_round_code: ["r1", "r2", "r3", "makeup"],
     },
   },
 } as const
