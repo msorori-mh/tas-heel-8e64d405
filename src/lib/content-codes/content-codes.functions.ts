@@ -20,6 +20,10 @@ const ContextTemplateInput = z.object({
   subjectCode: z.string().max(64).optional(),
   unitCode: z.string().max(64).optional(),
   rowCount: z.number().int().min(1).max(200).default(20),
+  subjectMode: z.enum(["single", "group"]).default("single"),
+  groupName: z.string().trim().max(120).optional(),
+  branchNames: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
+
 });
 
 /** Master data + already-allocated codes, for the admin code-registry UI. */
