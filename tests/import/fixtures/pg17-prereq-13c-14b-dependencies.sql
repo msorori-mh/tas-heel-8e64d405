@@ -35,6 +35,11 @@ CREATE TABLE IF NOT EXISTS public.exam_templates (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- mirrors 20260615005248 (global template code)
+ALTER TABLE public.exam_templates ADD COLUMN IF NOT EXISTS code text;
+CREATE UNIQUE INDEX IF NOT EXISTS exam_templates_code_uniq
+  ON public.exam_templates (code) WHERE code IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS public.exam_template_questions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   template_id uuid NOT NULL REFERENCES public.exam_templates(id) ON DELETE CASCADE,
