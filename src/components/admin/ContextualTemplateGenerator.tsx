@@ -320,20 +320,91 @@ export function ContextualTemplateGenerator() {
 
             <div className="space-y-1.5">
               <Label className="text-xs">عدد الصفوف الجاهزة</Label>
-              <Select value={String(rowCount)} onValueChange={(v) => setRowCount(Number(v))}>
-                <SelectTrigger className="min-h-[44px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROW_COUNTS.map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n} صفاً
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isGroupMode ? (
+                <div className="flex min-h-[44px] items-center rounded-md border border-input bg-muted/40 px-3 text-sm">
+                  {branchNames.length} صفاً (محسوب من عدد الفروع)
+                </div>
+              ) : (
+                <Select value={String(rowCount)} onValueChange={(v) => setRowCount(Number(v))}>
+                  <SelectTrigger className="min-h-[44px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROW_COUNTS.map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n} صفاً
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
+
+          {isSubjectsTemplate && (
+            <div className="space-y-3 rounded-lg border border-border bg-background/60 p-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">نوع الإدخال</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={subjectMode === "single" ? "default" : "outline"}
+                    className="min-h-[36px]"
+                    onClick={() => setSubjectMode("single")}
+                  >
+                    مادة مستقلة
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={subjectMode === "group" ? "default" : "outline"}
+                    className="min-h-[36px]"
+                    onClick={() => setSubjectMode("group")}
+                  >
+                    مجموعة مواد / فروع
+                  </Button>
+                </div>
+              </div>
+
+              {isGroupMode && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" htmlFor="group-name">
+                      اسم المجموعة <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="group-name"
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      placeholder="مثال: التربية الإسلامية"
+                      className="min-h-[44px]"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      يولّد النظام كود مجموعة واحداً (group_code) لكل الفروع.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" htmlFor="group-branches">
+                      أسماء الفروع (سطر لكل فرع) <span className="text-destructive">*</span>
+                    </Label>
+                    <Textarea
+                      id="group-branches"
+                      value={branchText}
+                      onChange={(e) => setBranchText(e.target.value)}
+                      rows={5}
+                      placeholder={"الإيمان\nالفقه\nالحديث\nالسيرة النبوية"}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      كل فرع مادة مستقلة بكود subject_code خاص — عدد الصفوف ={" "}
+                      {branchNames.length} فرعاً.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
 
           {allocation && (
             <p className="text-[11px] text-muted-foreground font-mono">
