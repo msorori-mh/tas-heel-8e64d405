@@ -284,29 +284,33 @@ SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
   v_esq public.exam_session_questions;
-  v_interaction text;
+  v_grading_mode text;
+  v_manual_required boolean;
   v_correct_codes text[];
   v_selected_code text;
 BEGIN
   SELECT * INTO v_esq FROM public.exam_session_questions WHERE id = _exam_session_question_id;
   IF NOT FOUND THEN RETURN NULL; END IF;
 
-  SELECT qr.interaction_type INTO v_interaction
+  SELECT qr.grading_mode, qr.manual_grading_required
+  INTO v_grading_mode, v_manual_required
   FROM public.question_revisions qr
   WHERE qr.id = v_esq.question_revision_id;
+
+  -- Auto-grade only deterministic single-answer choice revisions (G5).
+  IF coalesce(v_grading_mode, 'MANUAL') <> 'AUTO_SINGLE' OR v_manual_required IS TRUE THEN
+    RETURN NULL;
+  END IF;
 
   SELECT array_agg(option_code ORDER BY sort_order) INTO v_correct_codes
   FROM public.question_options
   WHERE question_revision_id = v_esq.question_revision_id
     AND is_correct IS TRUE;
 
-  -- Auto-grade only deterministic single-answer choice interactions (G5).
   IF v_correct_codes IS NULL OR array_length(v_correct_codes, 1) <> 1 THEN
     RETURN NULL;
   END IF;
-  IF coalesce(v_interaction, '') NOT IN ('single_choice', 'true_false', 'mcq_single', 'multiple_choice') THEN
-    RETURN NULL;
-  END IF;
+
 
   IF _selected_index IS NULL THEN RETURN false; END IF;
 
