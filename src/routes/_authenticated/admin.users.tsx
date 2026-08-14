@@ -3,7 +3,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { adminCreateUser, adminListUsers } from "@/lib/admin-users.functions";
+import {
+  adminCreateUser,
+  adminListUsers,
+  adminUpdateUserRoles,
+} from "@/lib/admin-users.functions";
 import {
   ASSIGNABLE_ROLE_LABELS,
   formatAdminUserRoles,
@@ -31,7 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Shield, UserPlus } from "lucide-react";
+import { Loader2, Shield, UserCog, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
@@ -66,6 +70,51 @@ function AdminUsersPage() {
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [role, setRole] = useState<AssignableAdminRole>("user");
   const [confirmGrantAdmin, setConfirmGrantAdmin] = useState(false);
+
+  const updateRoles = useServerFn(adminUpdateUserRoles);
+  const [rolesTarget, setRolesTarget] = useState<AdminUserListItem | null>(null);
+  const [rolesAdmin, setRolesAdmin] = useState(false);
+  const [rolesContentManager, setRolesContentManager] = useState(false);
+  const [rolesConfirm, setRolesConfirm] = useState(false);
+  const [rolesSaving, setRolesSaving] = useState(false);
+
+  const openRolesDialog = (u: AdminUserListItem) => {
+    setRolesTarget(u);
+    setRolesAdmin(u.roles.includes("admin"));
+    setRolesContentManager(u.roles.includes("content_manager"));
+    setRolesConfirm(u.roles.includes("admin"));
+  };
+
+  const handleSaveRoles = async () => {
+    if (!rolesTarget) return;
+    if (rolesAdmin && !rolesConfirm) {
+      toast.error("يجب تأكيد منح صلاحيات المدير الكامل.");
+      return;
+    }
+    const nextRoles: Exclude<AssignableAdminRole, "user">[] = [];
+    if (rolesAdmin) nextRoles.push("admin");
+    if (rolesContentManager) nextRoles.push("content_manager");
+
+    setRolesSaving(true);
+    try {
+      await updateRoles({
+        data: {
+          user_id: rolesTarget.user_id,
+          roles: nextRoles,
+          confirmGrantAdmin: rolesAdmin ? true : undefined,
+        },
+      });
+      toast.success("تم تحديث الصلاحيات.");
+      setRolesTarget(null);
+      await loadUsers();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "تعذر تحديث الصلاحيات.";
+      toast.error(message);
+    } finally {
+      setRolesSaving(false);
+    }
+  };
 
   const loadUsers = useCallback(async () => {
     setListLoading(true);
@@ -195,6 +244,7 @@ function AdminUsersPage() {
                     <th className="px-4 py-3 text-right font-medium">تاريخ الإنشاء</th>
                     <th className="px-4 py-3 text-right font-medium">آخر دخول</th>
                     <th className="px-4 py-3 text-right font-medium">الحالة</th>
+                    <th className="px-4 py-3 text-right font-medium">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -219,6 +269,17 @@ function AdminUsersPage() {
                         >
                           {statusLabel(u.status)}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-2"
+                          onClick={() => openRolesDialog(u)}
+                        >
+                          <UserCog className="h-4 w-4" />
+                          تعديل الصلاحيات
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -249,6 +310,15 @@ function AdminUsersPage() {
                   >
                     {statusLabel(u.status)}
                   </Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full gap-2 min-h-[44px]"
+                    onClick={() => openRolesDialog(u)}
+                  >
+                    <UserCog className="h-4 w-4" />
+                    تعديل الصلاحيات
+                  </Button>
                 </div>
               ))}
             </div>
@@ -372,6 +442,101 @@ function AdminUsersPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={rolesTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRolesTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تعديل الصلاحيات</DialogTitle>
+            <DialogDescription className="break-all">
+              {rolesTarget?.email}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <Checkbox
+                checked={rolesAdmin}
+                onCheckedChange={(checked) => {
+                  const next = checked === true;
+                  setRolesAdmin(next);
+                  if (!next) setRolesConfirm(false);
+                }}
+              />
+              <span className="text-sm leading-relaxed">
+                مدير كامل — صلاحيات كاملة على النظام.
+              </span>
+            </label>
+
+            <label className="flex items-start gap-2 cursor-pointer">
+              <Checkbox
+                checked={rolesContentManager}
+                onCheckedChange={(checked) =>
+                  setRolesContentManager(checked === true)
+                }
+              />
+              <span className="text-sm leading-relaxed">
+                مدير محتوى — إدارة المناهج والدروس والأسئلة.
+              </span>
+            </label>
+
+            {!rolesAdmin && !rolesContentManager && (
+              <Alert>
+                <AlertDescription>
+                  بدون أي دور، يعود الحساب مستخدماً عادياً (طالب).
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {rolesAdmin && (
+              <Alert variant="destructive">
+                <AlertDescription className="space-y-3">
+                  <p>هذا الدور يمنح صلاحيات كاملة للنظام.</p>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={rolesConfirm}
+                      onCheckedChange={(checked) =>
+                        setRolesConfirm(checked === true)
+                      }
+                    />
+                    <span className="text-sm leading-relaxed">
+                      أؤكد منح صلاحيات المدير الكامل لهذا الحساب.
+                    </span>
+                  </label>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRolesTarget(null)}
+              disabled={rolesSaving}
+            >
+              إلغاء
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveRoles}
+              disabled={rolesSaving || (rolesAdmin && !rolesConfirm)}
+            >
+              {rolesSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  جارٍ الحفظ…
+                </>
+              ) : (
+                "حفظ"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AdminLayout>
