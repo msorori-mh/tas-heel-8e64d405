@@ -15,7 +15,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RUN="${TMPDIR:-/tmp}/pg17-14h"
 DATA="$RUN/data"; SOCK="$RUN/sock"
 FAILURES=0
-MIN_PASS=60
+MIN_PASS=101
 
 CHAIN=(
   tests/import/fixtures/pg17-baseline-schema.sql
