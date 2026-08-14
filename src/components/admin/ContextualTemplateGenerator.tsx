@@ -124,10 +124,14 @@ export function ContextualTemplateGenerator() {
 
   const needsSubject = SUBJECT_REQUIRED.has(templateKey);
   const tracksRequired = templateKey === "subjects";
+  const isSubjectsTemplate = templateKey === "subjects";
+  const isGroupMode = isSubjectsTemplate && subjectMode === "group";
+  const effectiveRowCount = isGroupMode ? branchNames.length : rowCount;
   const canDownload =
     Boolean(gradeSlug) &&
     (!tracksRequired || trackCodes.length > 0) &&
     (!needsSubject || Boolean(subjectCode)) &&
+    (!isGroupMode || (groupName.trim().length > 0 && branchNames.length > 0)) &&
     !busy;
 
   const handleDownload = async () => {
@@ -140,9 +144,18 @@ export function ContextualTemplateGenerator() {
           trackCodes,
           ...(subjectCode ? { subjectCode } : {}),
           ...(unitCode ? { unitCode } : {}),
-          rowCount,
+          rowCount: Math.max(1, effectiveRowCount),
+          ...(isSubjectsTemplate
+            ? {
+                subjectMode,
+                ...(isGroupMode
+                  ? { groupName: groupName.trim(), branchNames }
+                  : {}),
+              }
+            : {}),
         },
       });
+
       triggerDownload(result.fileBase64, result.filename);
       toast.success(
         result.allocatedCodes.length
