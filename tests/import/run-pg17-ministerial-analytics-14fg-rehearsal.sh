@@ -11,6 +11,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RUN="${TMPDIR:-/tmp}/pg17-14fg"
 DATA="$RUN/data"; SOCK="$RUN/sock"
+PREREQ_14FG="tests/import/fixtures/pg17-prereq-14fg-analytics.sql"
 MIG_14FG="supabase/migrations-pending/20260815020000_ministerial_analytics_14f_14g.sql"
 FAILURES=0
 
@@ -55,6 +56,7 @@ for f in "${CHAIN[@]}"; do
   "${PSQL[@]}" -d t14fg -f "$f" >/dev/null
 done
 
+"${PSQL[@]}" -d t14fg -f "$PREREQ_14FG" >/dev/null
 echo "== applying 14F/14G"
 "${PSQL[@]}" -d t14fg -f "$MIG_14FG" >/dev/null
 echo "== applying 14F/14G again (idempotency)"
