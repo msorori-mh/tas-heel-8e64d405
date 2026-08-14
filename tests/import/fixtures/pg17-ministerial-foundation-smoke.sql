@@ -19,6 +19,13 @@ INSERT INTO public.user_roles (user_id, role) VALUES
   ('11111111-1111-1111-1111-111111111111', 'content_manager')
 ON CONFLICT DO NOTHING;
 
+-- Capability grants required by the question-bank publish guard.
+INSERT INTO public.question_bank_capability_grants (user_id, capability, scope_type, scope_id, granted_by, reason)
+VALUES
+  ('11111111-1111-1111-1111-111111111111', 'PUBLISH_QUESTION_REVISION', 'GLOBAL', NULL, '11111111-1111-1111-1111-111111111111', 'smoke test grant'),
+  ('11111111-1111-1111-1111-111111111111', 'EDIT_QUESTION_BANK', 'GLOBAL', NULL, '11111111-1111-1111-1111-111111111111', 'smoke test grant')
+ON CONFLICT DO NOTHING;
+
 INSERT INTO public.curriculum_tracks (id, track_name, track_code) VALUES
   ('33333333-0000-0000-0000-000000000001', 'Aden', 'aden'),
   ('33333333-0000-0000-0000-000000000002', 'Sanaa', 'sanaa')
