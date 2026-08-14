@@ -29,6 +29,7 @@ export type LessonResourceItem = {
   url: string;
   description: string | null;
   sort_order: number;
+  is_primary?: boolean;
   __local?: boolean;
 };
 
@@ -104,9 +105,17 @@ export function LessonResourcesDialog({
         url: "",
         description: null,
         sort_order: nextSort,
+        is_primary: false,
         __local: true,
       },
     ]);
+  };
+
+  // LESSON_EXTERNAL_PDF_DELIVERY_13F — a lesson has at most one primary resource.
+  const setPrimary = (id: string, value: boolean) => {
+    setRows((rs) =>
+      rs.map((r) => ({ ...r, is_primary: value ? r.id === id : r.id === id ? false : r.is_primary })),
+    );
   };
 
   const removeLocal = (id: string) => {
@@ -147,6 +156,9 @@ export function LessonResourcesDialog({
 
     setSaving(true);
     try {
+      let primaryResourceId: string | null = null;
+      let hasPrimarySelection = false;
+
       for (const r of rows) {
         const title = r.title.trim();
         const url = r.url.trim();
@@ -155,7 +167,7 @@ export function LessonResourcesDialog({
         const sortOrder = Number(r.sort_order);
 
         if (isLocal(r)) {
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from("lesson_resources")
             .insert({
               lesson_id: lessonId,
@@ -164,8 +176,14 @@ export function LessonResourcesDialog({
               url,
               description,
               sort_order: sortOrder,
-            });
+            })
+            .select("id")
+            .single();
           if (error) throw error;
+          if (r.is_primary) {
+            hasPrimarySelection = true;
+            primaryResourceId = data?.id ?? null;
+          }
         } else {
           const { error } = await supabase
             .from("lesson_resources")
@@ -178,7 +196,20 @@ export function LessonResourcesDialog({
             })
             .eq("id", r.id);
           if (error) throw error;
+          if (r.is_primary) {
+            hasPrimarySelection = true;
+            primaryResourceId = r.id;
+          }
         }
+      }
+
+      // Delivery mode is derived server-side from the primary resource.
+      const { error: primaryError } = await (supabase.rpc as any)(
+        "admin_set_primary_lesson_resource",
+        { _lesson_id: lessonId, _resource_id: hasPrimarySelection ? primaryResourceId : null },
+      );
+      if (primaryError) {
+        toast.warning("تم حفظ الموارد، لكن تعذر تحديث مورد الدرس الأساسي.");
       }
 
       toast.success("تم حفظ موارد الدرس بنجاح.");
@@ -311,6 +342,17 @@ export function LessonResourcesDialog({
                       </Select>
                     </div>
                   </div>
+
+                  <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary"
+                      checked={r.is_primary === true}
+                      onChange={(e) => setPrimary(r.id, e.target.checked)}
+                      disabled={saving}
+                    />
+                    محتوى الدرس الأساسي (ملف خارجي — يفتحه الطالب مباشرة)
+                  </label>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="sm:col-span-2">
