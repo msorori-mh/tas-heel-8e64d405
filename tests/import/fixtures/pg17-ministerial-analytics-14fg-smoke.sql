@@ -70,12 +70,17 @@ INSERT INTO public.question_targets (question_id, revision_id, target_type, subj
 
 -- ------------------------------------------------------------------- models --
 -- Aden: 2021 R3, 2024 R1 (question A repeats in both) — Sanaa: 2022 R1 (question A once)
-INSERT INTO public.ministerial_exam_models (id, subject_id, curriculum_track_id, academic_year, round_code,
-  model_code, status, published_at, created_by) VALUES
-  ('88888888-0000-0000-0000-000000000001', '33333333-0000-0000-0000-000000000004', '33333333-0000-0000-0000-000000000001', 2021, 'r3', 'MIN-ADEN-2021-R3', 'published', now() - interval '3 years', '11111111-1111-1111-1111-111111111111'),
-  ('88888888-0000-0000-0000-000000000002', '33333333-0000-0000-0000-000000000004', '33333333-0000-0000-0000-000000000001', 2024, 'r1', 'MIN-ADEN-2024-R1', 'published', now() - interval '1 year', '11111111-1111-1111-1111-111111111111'),
-  ('88888888-0000-0000-0000-000000000003', '33333333-0000-0000-0000-000000000004', '33333333-0000-0000-0000-000000000002', 2022, 'r1', 'MIN-SANAA-2022-R1', 'published', now() - interval '2 years', '11111111-1111-1111-1111-111111111111')
+INSERT INTO public.exam_templates (id, title, mode, subject_id, is_active) VALUES
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'Ministry Template', 'ministry', '33333333-0000-0000-0000-000000000004', true)
 ON CONFLICT DO NOTHING;
+
+INSERT INTO public.ministerial_exam_models (id, template_id, subject_id, curriculum_track_id, academic_year, round_code,
+  variant_code, model_code, status, published_at, created_by) VALUES
+  ('88888888-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001', '33333333-0000-0000-0000-000000000004', '33333333-0000-0000-0000-000000000001', 2021, 'r3', 'main', 'MIN-ADEN-2021-R3', 'published', now() - interval '3 years', '11111111-1111-1111-1111-111111111111'),
+  ('88888888-0000-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000001', '33333333-0000-0000-0000-000000000004', '33333333-0000-0000-0000-000000000001', 2024, 'r1', 'main', 'MIN-ADEN-2024-R1', 'published', now() - interval '1 year', '11111111-1111-1111-1111-111111111111'),
+  ('88888888-0000-0000-0000-000000000003', 'bbbbbbbb-0000-0000-0000-000000000001', '33333333-0000-0000-0000-000000000004', '33333333-0000-0000-0000-000000000002', 2022, 'r1', 'main', 'MIN-SANAA-2022-R1', 'published', now() - interval '2 years', '11111111-1111-1111-1111-111111111111')
+ON CONFLICT DO NOTHING;
+
 
 INSERT INTO public.ministerial_exam_questions (model_id, question_id, published_revision_id, sort_order, marks) VALUES
   ('88888888-0000-0000-0000-000000000001', '66666666-0000-0000-0000-00000000000a', '77777777-0000-0000-0000-0000000000a1', 1, 1),
