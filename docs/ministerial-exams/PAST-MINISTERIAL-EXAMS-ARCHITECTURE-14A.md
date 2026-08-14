@@ -175,11 +175,27 @@ model_id        uuid not null -> ministerial_exam_models(id)
 
 ## 7) TRACK_ISOLATION
 
-ثلاث طبقات متتالية:
-1. `subjects.curriculum_track_id` — المادة نفسها مفصولة بالمسار.
-2. `ministerial_exam_models.curriculum_track_id` + trigger الاتساق مع المادة والصف.
-3. RLS للطالب: النموذج يظهر فقط إذا `curriculum_track_id = profile.curriculum_track_id` **و** `grade_id = profile.grade_id`.
+العزل بعد 13C يقوم على **بوابتين خادميتين** (لا فلترة UI):
+
+```text
+MODEL_VALIDITY_GATE
+model.curriculum_track_id ∈ active subject_curriculum_tracks(model.subject_id)
+
+STUDENT_VISIBILITY_GATE
+profile.curriculum_track_id = model.curriculum_track_id
+```
+
+1. المادة قد تكون مشتركة — لا عزل على مستواها.
+2. النموذج الوزاري track-specific دائماً (البوابة الأولى، trigger).
+3. RLS للطالب: البوابة الثانية + `subjects.grade_id = profile.grade_id` + `can_access_subject`. **المنع خادمي بالكامل.**
 4. كل التحليلات (repeated questions) مقيّدة بـ `curriculum_track_id` داخل الاستعلام نفسه.
+
+مثال حاكم — فيزياء مشتركة (صنعاء + عدن)، طالب صنعاء:
+```text
+محتوى الفيزياء        ✅
+وزاري صنعاء 2025      ✅
+وزاري عدن 2025        ❌ DENY
+```
 
 ---
 
