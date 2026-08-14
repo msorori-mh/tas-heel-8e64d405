@@ -1,8 +1,9 @@
 /**
  * OFFICIAL_CONTENT_CODE_SYSTEM_13B — context-aware template generator.
  *
- * The operator picks Grade → Track → (Subject → Unit) and downloads a template
- * whose content codes are already allocated by the system (TCS-1).
+ * The operator picks Grade → (Tracks) → (Subject → Unit) and downloads a template
+ * whose content codes are already allocated by the system (TCS-2).
+ * Tracks are availability only — they are never part of a content code.
  */
 
 import { useMemo, useState } from "react";
@@ -28,7 +29,7 @@ import {
   CONTEXT_TEMPLATE_KEYS,
   type ContextTemplateKey,
 } from "@/lib/content-codes/content-codes.types";
-import { CONTENT_CODE_SCHEME_VERSION } from "@/lib/content-codes/tcs1";
+import { CONTENT_CODE_SCHEME_VERSION } from "@/lib/content-codes/tcs2";
 
 const TEMPLATE_LABEL: Record<ContextTemplateKey, string> = {
   subjects: "01 — المواد",
@@ -72,7 +73,7 @@ export function ContextualTemplateGenerator() {
 
   const [templateKey, setTemplateKey] = useState<ContextTemplateKey>("subjects");
   const [gradeSlug, setGradeSlug] = useState<string>("");
-  const [trackCode, setTrackCode] = useState<string>("");
+  const [trackCodes, setTrackCodes] = useState<string[]>([]);
   const [subjectCode, setSubjectCode] = useState<string>("");
   const [unitCode, setUnitCode] = useState<string>("");
   const [rowCount, setRowCount] = useState<number>(20);
@@ -91,10 +92,10 @@ export function ContextualTemplateGenerator() {
       (registry?.subjects ?? []).filter(
         (s) =>
           (!gradeSlug || s.gradeSlug === gradeSlug) &&
-          (!trackCode || s.trackCode === trackCode) &&
-          s.isTcs1,
+          (trackCodes.length === 0 || trackCodes.some((t) => s.trackCodes.includes(t))) &&
+          s.isOfficialCode,
       ),
-    [registry, gradeSlug, trackCode],
+    [registry, gradeSlug, trackCodes],
   );
 
   const units = useMemo(
@@ -104,15 +105,17 @@ export function ContextualTemplateGenerator() {
 
   const allocation = useMemo(
     () =>
-      (registry?.allocations ?? []).find(
-        (a) => a.gradeSlug === gradeSlug && a.trackCode === trackCode,
-      ),
-    [registry, gradeSlug, trackCode],
+      (registry?.allocations ?? []).find((a) => a.gradeSlug === gradeSlug),
+    [registry, gradeSlug],
   );
 
   const needsSubject = SUBJECT_REQUIRED.has(templateKey);
+  const tracksRequired = templateKey === "subjects";
   const canDownload =
-    Boolean(gradeSlug && trackCode) && (!needsSubject || Boolean(subjectCode)) && !busy;
+    Boolean(gradeSlug) &&
+    (!tracksRequired || trackCodes.length > 0) &&
+    (!needsSubject || Boolean(subjectCode)) &&
+    !busy;
 
   const handleDownload = async () => {
     setBusy(true);
@@ -121,7 +124,7 @@ export function ContextualTemplateGenerator() {
         data: {
           templateKey,
           gradeSlug,
-          trackCode,
+          trackCodes,
           ...(subjectCode ? { subjectCode } : {}),
           ...(unitCode ? { unitCode } : {}),
           rowCount,
@@ -157,8 +160,9 @@ export function ContextualTemplateGenerator() {
           </Badge>
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          اختر الصف والمسار (والمادة عند الحاجة)، وسيولّد النظام الأكواد الرسمية ويعبّئها في الملف.
-          موظف المحتوى لا يكتب أي كود يدوياً.
+          اختر الصف (والمسارات للمواد، والمادة عند الحاجة) وسيولّد النظام الأكواد الرسمية
+          ويعبّئها في الملف. الكود لا يحتوي على المسار: المادة المشتركة تُدخل مرة واحدة وتُربط
+          بأكثر من مسار.
         </p>
       </div>
 
@@ -205,19 +209,40 @@ export function ContextualTemplateGenerator() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">المسار</Label>
-              <Select value={trackCode} onValueChange={setTrackCode}>
-                <SelectTrigger className="min-h-[44px]">
-                  <SelectValue placeholder="اختر المسار" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(registry?.tracks ?? []).map((t) => (
-                    <SelectItem key={t.trackCode} value={t.trackCode}>
-                      {t.nameAr} ({t.trackCode})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">
+                المسارات{" "}
+                {tracksRequired ? (
+                  <span className="text-destructive">*</span>
+                ) : (
+                  <span className="text-muted-foreground">(تصفية فقط)</span>
+                )}
+              </Label>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {(registry?.tracks ?? []).map((t) => {
+                  const active = trackCodes.includes(t.trackCode);
+                  return (
+                    <Button
+                      key={t.trackCode}
+                      type="button"
+                      size="sm"
+                      variant={active ? "default" : "outline"}
+                      className="min-h-[36px]"
+                      onClick={() =>
+                        setTrackCodes((prev) =>
+                          prev.includes(t.trackCode)
+                            ? prev.filter((c) => c !== t.trackCode)
+                            : [...prev, t.trackCode],
+                        )
+                      }
+                    >
+                      {t.nameAr}
+                    </Button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                اختر كل المسارات التي تتوفر فيها المادة (مشتركة = صنعاء + عدن).
+              </p>
             </div>
 
             <div className="space-y-1.5">
