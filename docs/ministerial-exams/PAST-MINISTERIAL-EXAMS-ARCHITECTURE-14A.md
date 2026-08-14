@@ -1,8 +1,19 @@
 # PAST_MINISTERIAL_EXAMS_ARCHITECTURE_14A
 
 المرحلة: **Design / Audit فقط** — لا Migration، لا DB writes، لا UI.
-التاريخ: 2026-08-14.
+التاريخ: 2026-08-14 — **مُعاد الاعتماد بعد `SHARED_CURRICULUM_SUBJECT_MAPPING_13C` (TCS-2 ALIGNED)**.
 المرجع الأساسي: بنية تمكين الحالية + أفكار (لا كود) من مستودع Mufadhala.
+
+> **المبدأ الحاكم بعد 13C:**
+> ```text
+> Shared Subject ≠ Shared Ministerial Exam
+> Subject identity           = TCS-2 (track-independent)
+> Subject availability       = subject_curriculum_tracks
+> Ministerial exam identity  = track-specific
+> Question curriculum target = subject / unit / lesson (بلا مسار)
+> Ministerial provenance     = model membership
+> ```
+> عزل صنعاء/عدن لم يعد على مستوى المادة، بل على مستوى **النموذج الوزاري**.
 
 ---
 
