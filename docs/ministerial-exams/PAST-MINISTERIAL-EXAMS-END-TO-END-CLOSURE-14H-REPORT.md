@@ -17,27 +17,88 @@
 
 القاعدة المشتركة لم تستقبل أي بيانات وزارية وهمية في هذه المرحلة (تحقق للقراءة فقط في القسم 6).
 
-## 2. الأعطال المكتشفة (defects، أقل نطاق ممكن)
+## 2. الأعطال المكتشفة والتغييرات الإنتاجية المطبَّقة (Production Changes ≠ Verification)
 
-كلا العطلين كان يمنع المسار الوزاري من العمل في الإنتاج، وقد أُصلحا بأصغر تعديل ممكن دون أي تغيير معماري.
+هذا القسم وحده يوثّق ما **تغيّر فعلياً على القاعدة المشتركة** في 14H. كل ما عداه في هذا التقرير
+تحقق للقراءة فقط. لكل إصلاح: اسم التغيير + بصمة الملف + النص المطبق + السبب + التحقق بعد التطبيق.
 
-### DEFECT-14H-01 — تعذر إنشاء/تسليم أي جلسة وزارية
-`supabase/migrations/20260816010000_ministerial_session_nullable_score_14h_defect01.sql`
+### CHANGE-14H-01 — `ministerial_session_nullable_score_14h_defect01`
 
-14E يكتب عمداً `exam_sessions.correct_answers = NULL` (حتى لا يتسرب أي مؤشر تجميعي عن الإجابات)
+| البند | القيمة |
+| --- | --- |
+| اسم التغيير | `CHANGE-14H-01 / DEFECT-14H-01` |
+| الملف | `supabase/migrations/20260816010000_ministerial_session_nullable_score_14h_defect01.sql` |
+| SHA-256 | `3ec278600371f2598121a69e687fec29cb716094fad2a2c62c70d3b9e671812e` |
+| النوع | DDL على أعمدة قائمة (لا جدول جديد، لا بيانات) |
+| حالة التطبيق | مُطبَّق على القاعدة المشتركة بنص الملف حرفياً |
+
+**النص المطبق (الجُمَل التنفيذية):**
+
+```sql
+ALTER TABLE public.exam_sessions ALTER COLUMN correct_answers DROP NOT NULL;
+ALTER TABLE public.exam_sessions ALTER COLUMN score DROP NOT NULL;
+
+COMMENT ON COLUMN public.exam_sessions.correct_answers IS '...';
+COMMENT ON COLUMN public.exam_sessions.score IS '...';
+```
+
+**سبب الإصلاح:** 14E يكتب عمداً `correct_answers = NULL` (منع أي مؤشر تجميعي عن مفتاح الإجابة)
 و`score = NULL` أثناء انتظار التصحيح اليدوي، بينما كان العمودان `NOT NULL DEFAULT 0` منذ محرك
-الامتحانات الأصلي، فكان كل استدعاء لـ `create_ministerial_exam_session` و`submit_ministerial_exam_session`
-يفشل بخطأ 23502. الإصلاح: إسقاط قيد `NOT NULL` عن هذين العمودين فقط (القيم الافتراضية وقيود `>= 0` كما هي).
+الامتحانات الأصلي (`20260607234143`)، فكان كل استدعاء لـ `create_ministerial_exam_session`
+و`submit_ministerial_exam_session` يفشل بخطأ 23502 — أي أن المسار الوزاري كله معطّل في الإنتاج.
+النطاق الأدنى: إسقاط `NOT NULL` عن هذين العمودين فقط؛ القيم الافتراضية وقيود `>= 0` ومسار
+الامتحانات العادي بلا تغيير.
 
-### DEFECT-14H-02 — تحليلات 14F كانت فارغة دائماً
-`supabase/migrations/20260816010500_ministerial_analytics_grading_status_14h_defect02.sql`
+**Post-Apply Verification (استعلام قراءة على القاعدة المشتركة):**
 
-كانت 14F تفلتر المحاولات المكتملة بـ `exam_sessions.grading_status = 'GRADED'`، بينما مفردات
-حالة الجلسة المعتمدة في QB-01 هي `IN_PROGRESS | SUBMITTED_PENDING_GRADING | PARTIALLY_GRADED | COMPLETED`
-و14E يكتب `COMPLETED`. النتيجة: `graded_attempts_count = 0` وكل المتوسطات `NULL` لكل طالب.
-الإصلاح: تصحيح الشرطين فقط إلى `COMPLETED` مع الحفاظ على نفس العقد ونفس مفاتيح الحمولة وعزل المسار.
+```
+information_schema.columns → correct_answers.is_nullable = YES
+                             score.is_nullable          = YES
+CHECK (>= 0)                = باقية كما هي
+بيانات مضافة                = 0 صفوف
+```
 
-طُبّق الإصلاحان على القاعدة المشتركة (DDL/دالة فقط، بدون أي بيانات).
+### CHANGE-14H-02 — `ministerial_analytics_grading_status_14h_defect02`
+
+| البند | القيمة |
+| --- | --- |
+| اسم التغيير | `CHANGE-14H-02 / DEFECT-14H-02` |
+| الملف | `supabase/migrations/20260816010500_ministerial_analytics_grading_status_14h_defect02.sql` |
+| SHA-256 | `4894e5c3846c4e451c98b7915be29ed889ba5fbe155114e5fdd448750c479e69` |
+| النوع | `CREATE OR REPLACE FUNCTION` لدالة تحليلات واحدة (لا تغيير في التوقيع ولا في مفاتيح الحمولة) |
+| حالة التطبيق | مُطبَّق على القاعدة المشتركة بنص الملف حرفياً |
+
+**النص المطبق (جوهر التغيير داخل `public.get_ministerial_performance_overview()`):**
+
+```sql
+-- قبل:  and es.grading_status = 'GRADED'      -- على مستوى الجلسة
+-- بعد:  and es.grading_status = 'COMPLETED'   -- (شرطان اثنان فقط)
+```
+
+بقي فلتر `'GRADED'` على مستوى **الإجابة** (`exam_session_answers.grading_status`) كما هو، لأنه المفردة
+الصحيحة هناك.
+
+**سبب الإصلاح:** مفردات حالة الجلسة المعتمدة في QB-01 هي
+`IN_PROGRESS | SUBMITTED_PENDING_GRADING | PARTIALLY_GRADED | COMPLETED`، و14E يكتب `COMPLETED`،
+فكان شرط الجلسة `'GRADED'` لا يطابق أي صف: `graded_attempts_count = 0` وكل المتوسطات `NULL`
+لكل الطلاب — أي أن صفحة تحليلات الأداء 14F فارغة دائماً في الإنتاج.
+
+**Post-Apply Verification (استعلام قراءة على القاعدة المشتركة):**
+
+```
+pg_proc → get_ministerial_performance_overview()  موجودة، تعريف واحد
+md5(pg_get_functiondef)                          = 90a81efbba9894248f2297bc458e109b
+تحتوي 'COMPLETED' (مستوى الجلسة)                  = true
+تحتوي 'GRADED'    (مستوى الإجابة فقط)             = true
+has_function_privilege('anon', …, 'execute')     = false
+بيانات مضافة                                     = 0 صفوف
+```
+
+### ما لم يتغيّر إنتاجياً في 14H
+
+لا جداول جديدة، ولا أعمدة جديدة، ولا سياسات RLS معدّلة، ولا GRANTs جديدة، ولا صفّ بيانات واحد
+على القاعدة المشتركة. كل ملفات `tests/` و`docs/` في هذا التقرير أدوات تحقق فقط ولا أثر لها على الإنتاج.
+
 
 ## 3. تصحيحات بيئة الاختبار المعزولة (لا تمس الإنتاج)
 
