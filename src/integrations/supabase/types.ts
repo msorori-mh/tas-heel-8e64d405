@@ -3593,6 +3593,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_apply_subject_track_codes: {
+        Args: { _subject: string; _track_codes: string }
+        Returns: number
+      }
       import_execute_questions_template: {
         Args: { _job_id: string }
         Returns: Json
