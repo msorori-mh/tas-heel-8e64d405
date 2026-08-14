@@ -97,7 +97,7 @@ INSERT INTO public.exam_sessions (id, user_id, ministerial_model_id, ministerial
   grading_status, is_final, score, total_points, started_at, submitted_at, completed_at, total_questions) VALUES
   ('99999999-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', '88888888-0000-0000-0000-000000000001', 'training', 'training', 'submitted', 'GRADED', true, 1, 2, now() - interval '2 hours', now() - interval '110 minutes', now() - interval '110 minutes', 2),
   ('99999999-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', '88888888-0000-0000-0000-000000000002', 'strict', 'strict', 'expired', 'GRADED', true, 1, 1, now() - interval '1 hour', now() - interval '30 minutes', now() - interval '30 minutes', 1),
-  ('99999999-0000-0000-0000-000000000003', '22222222-2222-2222-2222-222222222222', '88888888-0000-0000-0000-000000000002', 'training', 'training', 'submitted', 'PENDING_MANUAL_REVIEW', false, NULL, 1, now() - interval '20 minutes', now() - interval '10 minutes', now() - interval '10 minutes', 1),
+  ('99999999-0000-0000-0000-000000000003', '22222222-2222-2222-2222-222222222222', '88888888-0000-0000-0000-000000000002', 'training', 'training', 'submitted', 'PENDING_MANUAL_REVIEW', false, 0, 1, now() - interval '20 minutes', now() - interval '10 minutes', now() - interval '10 minutes', 1),
   ('99999999-0000-0000-0000-000000000004', '44444444-4444-4444-4444-444444444444', '88888888-0000-0000-0000-000000000003', 'strict', 'strict', 'submitted', 'GRADED', true, 1, 1, now() - interval '5 hours', now() - interval '4 hours', now() - interval '4 hours', 1);
 
 INSERT INTO public.exam_session_questions (id, exam_session_id, question_revision_id, logical_question_id,
