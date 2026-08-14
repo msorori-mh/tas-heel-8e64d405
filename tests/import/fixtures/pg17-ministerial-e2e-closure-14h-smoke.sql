@@ -110,7 +110,7 @@ INSERT INTO public.question_revisions (id, question_id, revision_number, status,
   created_by, published_at, published_by, payload_hash, payload_hash_version) VALUES
   (c_q1r1, c_q1, 1, 'PUBLISHED', 'SINGLE_CHOICE', 'AUTO_SINGLE', 'س1 نسخة R1', 1, false, false, false,
    c_staff, now(), c_pub, repeat('11', 32), 'canonical_payload_v1'),
-  (c_q2r1, c_q2, 1, 'PUBLISHED', 'MANUAL_TEXT', 'MANUAL', 'س2 مقالي', 1, false, false, true,
+  (c_q2r1, c_q2, 1, 'PUBLISHED', 'SINGLE_CHOICE', 'MANUAL', 'س2 يُصحَّح يدوياً', 1, false, false, true,
    c_staff, now(), c_pub, repeat('21', 32), 'canonical_payload_v1'),
   (c_q3r1, c_q3, 1, 'PUBLISHED', 'SINGLE_CHOICE', 'AUTO_SINGLE', 'س3 نسخة R1', 1, false, false, false,
    c_staff, now(), c_pub, repeat('31', 32), 'canonical_payload_v1')
@@ -119,6 +119,8 @@ ON CONFLICT DO NOTHING;
 INSERT INTO public.question_options (question_revision_id, option_code, body, sort_order, is_correct) VALUES
   (c_q1r1, 'A', 'خيار أ', 1, true),
   (c_q1r1, 'B', 'خيار ب', 2, false),
+  (c_q2r1, 'A', 'خيار أ', 1, false),
+  (c_q2r1, 'B', 'خيار ب', 2, false),
   (c_q3r1, 'A', 'خيار أ', 1, false),
   (c_q3r1, 'B', 'خيار ب', 2, true)
 ON CONFLICT DO NOTHING;
@@ -317,8 +319,7 @@ END;
 
 PERFORM public.answer_ministerial_exam_question(v_sess, v_esq1, 'A');
 v_reveal := public.reveal_ministerial_training_answer(v_sess, v_esq1);
-RAISE NOTICE 'DEBUG reveal payload: %', v_reveal;
-PERFORM pg_temp.chk('reveal after answering allowed', 'true', v_reveal->>'is_correct');
+PERFORM pg_temp.chk('reveal after answering allowed', 'correct', v_reveal->>'verdict');
 PERFORM pg_temp.chk('reveal returns pinned correct code', 'A', v_reveal->>'correct_option_code');
 PERFORM pg_temp.chk('reveal returns allowed explanation', 'شرح النسخة R1', v_reveal->>'explanation');
 PERFORM pg_temp.chk('reveal links the pinned lesson', c_lesson1::text, v_reveal->>'lesson_id');
@@ -427,6 +428,7 @@ v_sess_manual := public.create_ministerial_exam_session(v_m2024, 'training');
 SELECT id INTO v_esq1 FROM public.exam_session_questions WHERE exam_session_id = v_sess_manual AND question_order = 1;
 SELECT id INTO v_esq2 FROM public.exam_session_questions WHERE exam_session_id = v_sess_manual AND question_order = 2;
 PERFORM public.answer_ministerial_exam_question(v_sess_manual, v_esq1, 'A');
+PERFORM public.answer_ministerial_exam_question(v_sess_manual, v_esq2, 'B');
 v_result := public.submit_ministerial_exam_session(v_sess_manual);
 PERFORM pg_temp.chk('manual mix => no final percentage', NULL, v_result->>'percentage');
 PERFORM pg_temp.chk('manual mix => manual review flagged', 'true', v_result->>'manual_review_required');
@@ -497,7 +499,7 @@ PERFORM pg_temp.chk('14F reports by subject', 'true', ((v_res->'by_subject') IS 
 PERFORM pg_temp.chk('14F reports by lesson', 'true', ((v_res->'by_lesson') IS NOT NULL)::text);
 PERFORM pg_temp.chk('14F reports weak lessons', 'true', ((v_res->'weak_lessons') IS NOT NULL)::text);
 PERFORM pg_temp.chk('14F lesson attribution uses the pinned revision target', 'true',
-  (v_res->'by_lesson')::text LIKE ('%' || c_lesson1::text || '%'));
+  ((v_res->'by_lesson')::text LIKE ('%' || c_lesson1::text || '%'))::text);
 PERFORM pg_temp.chk('14F payload carries no answer key', 'false',
   (v_res::text ILIKE '%correct_option%' OR v_res::text ILIKE '%option_code%')::text);
 
