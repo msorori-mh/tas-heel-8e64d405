@@ -392,6 +392,7 @@ export type Database = {
           requires_manual_review: boolean
           response_payload: Json | null
           response_text: string | null
+          revealed_at: string | null
           selected_index: number | null
           selected_option_code: string | null
           session_id: string
@@ -419,6 +420,7 @@ export type Database = {
           requires_manual_review?: boolean
           response_payload?: Json | null
           response_text?: string | null
+          revealed_at?: string | null
           selected_index?: number | null
           selected_option_code?: string | null
           session_id: string
@@ -446,6 +448,7 @@ export type Database = {
           requires_manual_review?: boolean
           response_payload?: Json | null
           response_text?: string | null
+          revealed_at?: string | null
           selected_index?: number | null
           selected_option_code?: string | null
           session_id?: string
@@ -560,11 +563,14 @@ export type Database = {
         Row: {
           answered_questions: number
           attempt_pin_mode: string
+          completed_at: string | null
           correct_answers: number
           created_at: string
           expires_at: string | null
           grading_status: string
           id: string
+          is_final: boolean
+          ministerial_attempt_mode: string | null
           ministerial_model_id: string | null
           mode: Database["public"]["Enums"]["exam_mode"]
           result_json: Json | null
@@ -581,11 +587,14 @@ export type Database = {
         Insert: {
           answered_questions?: number
           attempt_pin_mode?: string
+          completed_at?: string | null
           correct_answers?: number
           created_at?: string
           expires_at?: string | null
           grading_status?: string
           id?: string
+          is_final?: boolean
+          ministerial_attempt_mode?: string | null
           ministerial_model_id?: string | null
           mode: Database["public"]["Enums"]["exam_mode"]
           result_json?: Json | null
@@ -602,11 +611,14 @@ export type Database = {
         Update: {
           answered_questions?: number
           attempt_pin_mode?: string
+          completed_at?: string | null
           correct_answers?: number
           created_at?: string
           expires_at?: string | null
           grading_status?: string
           id?: string
+          is_final?: boolean
+          ministerial_attempt_mode?: string | null
           ministerial_model_id?: string | null
           mode?: Database["public"]["Enums"]["exam_mode"]
           result_json?: Json | null
@@ -3468,6 +3480,46 @@ export type Database = {
       }
     }
     Functions: {
+      _ministerial_is_correct: {
+        Args: {
+          _exam_session_question_id: string
+          _selected_option_code: string
+        }
+        Returns: boolean
+      }
+      _ministerial_session_guard: {
+        Args: { _session_id: string }
+        Returns: {
+          answered_questions: number
+          attempt_pin_mode: string
+          completed_at: string | null
+          correct_answers: number
+          created_at: string
+          expires_at: string | null
+          grading_status: string
+          id: string
+          is_final: boolean
+          ministerial_attempt_mode: string | null
+          ministerial_model_id: string | null
+          mode: Database["public"]["Enums"]["exam_mode"]
+          result_json: Json | null
+          score: number
+          started_at: string
+          status: Database["public"]["Enums"]["exam_session_status"]
+          submitted_at: string | null
+          template_id: string
+          total_points: number
+          total_questions: number
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "exam_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       _qb_assert_revision_payload_hash: {
         Args: {
           p_payload_hash: string
@@ -3552,6 +3604,14 @@ export type Database = {
           _question_id: string
           _selected_index: number
           _session_id: string
+        }
+        Returns: Json
+      }
+      answer_ministerial_exam_question: {
+        Args: {
+          _option_code: string
+          _session_id: string
+          _session_question_id: string
         }
         Returns: Json
       }
@@ -3661,7 +3721,7 @@ export type Database = {
         Returns: Json
       }
       create_ministerial_exam_session: {
-        Args: { _model_id: string }
+        Args: { _mode?: string; _model_id: string }
         Returns: string
       }
       create_practice_attempt_with_snapshot: {
@@ -3769,6 +3829,10 @@ export type Database = {
       }
       get_ministerial_model_overview: {
         Args: { _model_id: string }
+        Returns: Json
+      }
+      get_ministerial_session_result: {
+        Args: { _session_id: string }
         Returns: Json
       }
       get_ministerial_session_state: {
@@ -3883,6 +3947,29 @@ export type Database = {
         Returns: boolean
       }
       is_full_admin: { Args: { _user_id: string }; Returns: boolean }
+      list_ministerial_attempts: {
+        Args: { _model_id?: string }
+        Returns: {
+          academic_year: number
+          attempt_mode: string
+          completed_at: string
+          elapsed_seconds: number
+          grading_status: string
+          is_final: boolean
+          model_code: string
+          model_id: string
+          model_label: string
+          percentage: number
+          round_code: string
+          score: number
+          session_id: string
+          started_at: string
+          status: string
+          subject_id: string
+          subject_name: string
+          total_points: number
+        }[]
+      }
       list_ministerial_models: {
         Args: { _subject_id: string }
         Returns: {
@@ -4007,6 +4094,10 @@ export type Database = {
         }
         Returns: Json
       }
+      reveal_ministerial_training_answer: {
+        Args: { _session_id: string; _session_question_id: string }
+        Returns: Json
+      }
       revoke_question_bank_capability: {
         Args: { p_grant_id: string; p_reason: string }
         Returns: Json
@@ -4025,6 +4116,10 @@ export type Database = {
         Returns: Json
       }
       submit_exam_session: { Args: { _session_id: string }; Returns: Json }
+      submit_ministerial_exam_session: {
+        Args: { _session_id: string }
+        Returns: Json
+      }
       submit_unit_practice_attempt: {
         Args: { _answers: Json; _unit_id: string }
         Returns: Json
