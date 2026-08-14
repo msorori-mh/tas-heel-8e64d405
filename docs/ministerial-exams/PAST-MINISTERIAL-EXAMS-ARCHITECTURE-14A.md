@@ -24,7 +24,9 @@
 - `curriculum_tracks(id, track_code, track_name, is_active)` — القيم الفعلية: `sanaa` / `aden` / `other`
 - `subjects(id, grade_id, slug, name, semester, curriculum_track_id, code, group_code, group_name)`
   - بعد 12B/13: **Subject-as-Branch** — كل فرع مادة مستقل بكود صريح، و`group_code` للعرض فقط.
-  - ملاحظة حاكمة: **المسار موجود بالفعل على مستوى `subjects` (و`grades`)**، لذلك عزل صنعاء/عدن قائم أصلاً في شجرة المحتوى.
+  - بعد 13B/13C: `subjects.code` بمخطط **TCS-2** لا يحمل المسار إطلاقاً.
+- `subject_curriculum_tracks(subject_id, curriculum_track_id, is_active, ...)` — **مصدر التوفّر الوحيد**.
+  - ملاحظة حاكمة (مصحّحة): المادة **قد تكون مشتركة** بين صنعاء وعدن، لذلك `subjects.curriculum_track_id` **لا يصلح** كأساس لعزل النماذج الوزارية. العزل يُبنى على `ministerial_exam_models.curriculum_track_id` مقابل ارتباطات المادة النشطة.
 - `units`, `lessons` تحت `subjects`.
 
 ### 1.2 بنك الأسئلة (QB-01/02، مغلق ومعتمد)
