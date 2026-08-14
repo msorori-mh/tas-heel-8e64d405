@@ -564,7 +564,7 @@ export type Database = {
           answered_questions: number
           attempt_pin_mode: string
           completed_at: string | null
-          correct_answers: number
+          correct_answers: number | null
           created_at: string
           expires_at: string | null
           grading_status: string
@@ -574,7 +574,7 @@ export type Database = {
           ministerial_model_id: string | null
           mode: Database["public"]["Enums"]["exam_mode"]
           result_json: Json | null
-          score: number
+          score: number | null
           started_at: string
           status: Database["public"]["Enums"]["exam_session_status"]
           submitted_at: string | null
@@ -588,7 +588,7 @@ export type Database = {
           answered_questions?: number
           attempt_pin_mode?: string
           completed_at?: string | null
-          correct_answers?: number
+          correct_answers?: number | null
           created_at?: string
           expires_at?: string | null
           grading_status?: string
@@ -598,7 +598,7 @@ export type Database = {
           ministerial_model_id?: string | null
           mode: Database["public"]["Enums"]["exam_mode"]
           result_json?: Json | null
-          score?: number
+          score?: number | null
           started_at?: string
           status?: Database["public"]["Enums"]["exam_session_status"]
           submitted_at?: string | null
@@ -612,7 +612,7 @@ export type Database = {
           answered_questions?: number
           attempt_pin_mode?: string
           completed_at?: string | null
-          correct_answers?: number
+          correct_answers?: number | null
           created_at?: string
           expires_at?: string | null
           grading_status?: string
@@ -622,7 +622,7 @@ export type Database = {
           ministerial_model_id?: string | null
           mode?: Database["public"]["Enums"]["exam_mode"]
           result_json?: Json | null
-          score?: number
+          score?: number | null
           started_at?: string
           status?: Database["public"]["Enums"]["exam_session_status"]
           submitted_at?: string | null
@@ -3493,7 +3493,7 @@ export type Database = {
           answered_questions: number
           attempt_pin_mode: string
           completed_at: string | null
-          correct_answers: number
+          correct_answers: number | null
           created_at: string
           expires_at: string | null
           grading_status: string
@@ -3503,7 +3503,7 @@ export type Database = {
           ministerial_model_id: string | null
           mode: Database["public"]["Enums"]["exam_mode"]
           result_json: Json | null
-          score: number
+          score: number | null
           started_at: string
           status: Database["public"]["Enums"]["exam_session_status"]
           submitted_at: string | null
