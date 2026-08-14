@@ -38,6 +38,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedSemestersSemesterRouteImport } from './routes/_authenticated/semesters.$semester'
 import { Route as AuthenticatedPaymentsNewRouteImport } from './routes/_authenticated/payments.new'
+import { Route as AuthenticatedMinisterialExamsSubjectIdRouteImport } from './routes/_authenticated/ministerial-exams.$subjectId'
 import { Route as AuthenticatedLessonsLessonIdRouteImport } from './routes/_authenticated/lessons.$lessonId'
 import { Route as AuthenticatedExamsHistoryRouteImport } from './routes/_authenticated/exams.history'
 import { Route as AuthenticatedAdminWalletTopupsRouteImport } from './routes/_authenticated/admin.wallet-topups'
@@ -212,6 +213,12 @@ const AuthenticatedPaymentsNewRoute =
     id: '/new',
     path: '/new',
     getParentRoute: () => AuthenticatedPaymentsRoute,
+  } as any)
+const AuthenticatedMinisterialExamsSubjectIdRoute =
+  AuthenticatedMinisterialExamsSubjectIdRouteImport.update({
+    id: '/ministerial-exams/$subjectId',
+    path: '/ministerial-exams/$subjectId',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedLessonsLessonIdRoute =
   AuthenticatedLessonsLessonIdRouteImport.update({
@@ -389,6 +396,7 @@ export interface FileRoutesByFullPath {
   '/admin/wallet-topups': typeof AuthenticatedAdminWalletTopupsRoute
   '/exams/history': typeof AuthenticatedExamsHistoryRouteWithChildren
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
+  '/ministerial-exams/$subjectId': typeof AuthenticatedMinisterialExamsSubjectIdRoute
   '/payments/new': typeof AuthenticatedPaymentsNewRoute
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
@@ -440,6 +448,7 @@ export interface FileRoutesByTo {
   '/admin/wallet-topups': typeof AuthenticatedAdminWalletTopupsRoute
   '/exams/history': typeof AuthenticatedExamsHistoryRouteWithChildren
   '/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
+  '/ministerial-exams/$subjectId': typeof AuthenticatedMinisterialExamsSubjectIdRoute
   '/payments/new': typeof AuthenticatedPaymentsNewRoute
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
@@ -495,6 +504,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/wallet-topups': typeof AuthenticatedAdminWalletTopupsRoute
   '/_authenticated/exams/history': typeof AuthenticatedExamsHistoryRouteWithChildren
   '/_authenticated/lessons/$lessonId': typeof AuthenticatedLessonsLessonIdRoute
+  '/_authenticated/ministerial-exams/$subjectId': typeof AuthenticatedMinisterialExamsSubjectIdRoute
   '/_authenticated/payments/new': typeof AuthenticatedPaymentsNewRoute
   '/_authenticated/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
@@ -550,6 +560,7 @@ export interface FileRouteTypes {
     | '/admin/wallet-topups'
     | '/exams/history'
     | '/lessons/$lessonId'
+    | '/ministerial-exams/$subjectId'
     | '/payments/new'
     | '/semesters/$semester'
     | '/subjects/$subjectId'
@@ -601,6 +612,7 @@ export interface FileRouteTypes {
     | '/admin/wallet-topups'
     | '/exams/history'
     | '/lessons/$lessonId'
+    | '/ministerial-exams/$subjectId'
     | '/payments/new'
     | '/semesters/$semester'
     | '/subjects/$subjectId'
@@ -655,6 +667,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/wallet-topups'
     | '/_authenticated/exams/history'
     | '/_authenticated/lessons/$lessonId'
+    | '/_authenticated/ministerial-exams/$subjectId'
     | '/_authenticated/payments/new'
     | '/_authenticated/semesters/$semester'
     | '/_authenticated/subjects/$subjectId'
@@ -890,6 +903,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/payments/new'
       preLoaderRoute: typeof AuthenticatedPaymentsNewRouteImport
       parentRoute: typeof AuthenticatedPaymentsRoute
+    }
+    '/_authenticated/ministerial-exams/$subjectId': {
+      id: '/_authenticated/ministerial-exams/$subjectId'
+      path: '/ministerial-exams/$subjectId'
+      fullPath: '/ministerial-exams/$subjectId'
+      preLoaderRoute: typeof AuthenticatedMinisterialExamsSubjectIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/lessons/$lessonId': {
       id: '/_authenticated/lessons/$lessonId'
@@ -1166,6 +1186,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
   AuthenticatedExamsHistoryRoute: typeof AuthenticatedExamsHistoryRouteWithChildren
   AuthenticatedLessonsLessonIdRoute: typeof AuthenticatedLessonsLessonIdRoute
+  AuthenticatedMinisterialExamsSubjectIdRoute: typeof AuthenticatedMinisterialExamsSubjectIdRoute
   AuthenticatedSemestersSemesterRoute: typeof AuthenticatedSemestersSemesterRoute
   AuthenticatedSubjectsSubjectIdRoute: typeof AuthenticatedSubjectsSubjectIdRoute
   AuthenticatedMinisterialExamsIndexRoute: typeof AuthenticatedMinisterialExamsIndexRoute
@@ -1186,6 +1207,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedWalletRoute: AuthenticatedWalletRoute,
   AuthenticatedExamsHistoryRoute: AuthenticatedExamsHistoryRouteWithChildren,
   AuthenticatedLessonsLessonIdRoute: AuthenticatedLessonsLessonIdRoute,
+  AuthenticatedMinisterialExamsSubjectIdRoute:
+    AuthenticatedMinisterialExamsSubjectIdRoute,
   AuthenticatedSemestersSemesterRoute: AuthenticatedSemestersSemesterRoute,
   AuthenticatedSubjectsSubjectIdRoute: AuthenticatedSubjectsSubjectIdRoute,
   AuthenticatedMinisterialExamsIndexRoute:
