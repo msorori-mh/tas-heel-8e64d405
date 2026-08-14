@@ -21,6 +21,8 @@ import {
   allocateTcs2Codes,
   parseTcs2Code,
 } from "./tcs2";
+import { planSubjectTemplateRows } from "./subject-template-plan";
+
 import type {
   ContentCodeRegistry,
   ContextTemplateKey,
