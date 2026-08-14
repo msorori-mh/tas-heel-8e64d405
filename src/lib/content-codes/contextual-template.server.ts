@@ -67,27 +67,26 @@ function planRows(input: BuildInput): RowPlan {
 
   switch (templateKey) {
     case "subjects": {
-      const codes = allocateTcs2Codes({
-        existingCodes: subjectCodes,
-        kind: "subject",
-        scope,
-        count: rowCount,
+      const plan = planSubjectTemplateRows({
+        mode: input.subjectMode ?? "single",
+        gradeSlug,
+        trackCodes,
+        rowCount,
+        ...(input.groupName ? { groupName: input.groupName } : {}),
+        ...(input.branchNames ? { branchNames: input.branchNames } : {}),
+        existingSubjectCodes: subjectCodes,
+        existingGroupCodes: registry.subjects
+          .map((s) => s.groupCode ?? "")
+          .filter(Boolean),
       });
       return {
-        rows: codes.map((code) => ({
-          subject_code: code,
-          grade_slug: gradeSlug,
-          track_codes: trackCodes.join("|"),
-        })),
-        allocatedCodes: codes,
-        prefilledColumns: ["subject_code", "grade_slug", "track_codes"],
-        notes: [
-          "املأ فقط: name (وإن كانت المادة متفرعة: group_code / group_name).",
-          "لا تعدّل subject_code — النظام هو المالك.",
-          "المادة المشتركة تُدخل مرة واحدة: اكتب كل المسارات في track_codes مفصولة بـ | (مثال: sanaa|aden).",
-        ],
+        rows: plan.rows,
+        allocatedCodes: plan.allocatedCodes,
+        prefilledColumns: plan.prefilledColumns,
+        notes: plan.notes,
       };
     }
+
 
     case "units": {
       if (!subjectCode) throw new Tcs2Error("TCS2_SUBJECT_REQUIRED", "اختر المادة أولاً لتوليد أكواد الوحدات.");
