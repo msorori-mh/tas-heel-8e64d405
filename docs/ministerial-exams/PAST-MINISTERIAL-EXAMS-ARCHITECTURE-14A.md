@@ -294,6 +294,7 @@ Answer-leak review:
 | B-4 | تعريف «السؤال المتكرر» يفترض إعادة استخدام نفس `question_id` عبر السنوات — يحتاج انضباط المشغّل | متوسط | توثيق في دليل المشغّل + أداة ترشيح بالـ hash |
 | B-5 | `source_document_url` قد يسرّب نموذج الإجابة | عالٍ | bucket خاص، لا رابط عام، لا كشف للطالب |
 | B-6 | جداول المحتوى فارغة حالياً (بعد 12C) — لا بيانات لاختبار حقيقي | منخفض | يبدأ بعد أول دفعة محتوى حقيقية |
+| B-7 | مادة مشتركة بدون ارتباط مسار نشط تمنع إنشاء نموذجها الوزاري | منخفض | رسالة صريحة `MODEL_TRACK_NOT_ASSIGNED_TO_SUBJECT` + توجيه لإصلاح `track_codes` |
 
 **لا Blocker يمنع الانتقال إلى مرحلة التنفيذ.**
 
@@ -303,17 +304,51 @@ Answer-leak review:
 
 | المرحلة | المحتوى | المخرج |
 |---|---|---|
-| **14B** | Migration schema: enum + الجدولان + العمود + القيود + Triggers + RLS + GRANTs، وبروفة PG17 معزولة | migration معلّق + تقرير PASS |
+| **14B** | Migration schema: enum + الجدولان + العمود + القيود + Triggers (MODEL_VALIDITY_GATE) + RLS + GRANTs، وبروفة PG17 معزولة | migration معلّق + تقرير PASS |
 | **14C** | توسعة RPCs: `create_exam_session_with_snapshot` (ministerial)، `get_ministerial_models`, `get_ministerial_repeated_stats` | RPC + اختبارات منع التسريب |
-| **14D** | مسار الاستيراد: قالبا 10 و11 + مولّد الأكواد TCS-1 + تحقق النشر | قوالب + E2E |
+| **14D** | مسار الاستيراد: قالبا 10 و11 + مولّد أكواد النماذج (امتداد TCS-2) + تحقق النشر | قوالب + E2E |
 | **14E** | واجهة الإدارة (قراءة/نشر عبر RPC فقط) | AdminMinisterialExams |
 | **14F** | واجهة الطالب: قائمة النماذج، Training، Strict/Ministry، بطاقة الإحصاءات | UI + smoke tests |
 | **14G** | تدقيق أمني نهائي: answer-leak، RLS replay، بوابات الاشتراك | تقرير إغلاق |
 
 ---
 
+## 16) EXIT_TESTS (تضاف إلزامياً إلى 14B/14G)
+
+```text
+مادة مشتركة + نموذج صنعاء                         ALLOW
+مادة مشتركة + نموذج عدن                           ALLOW
+نموذج بمسار غير مرتبط بالمادة                     DENY (MODEL_VALIDITY_GATE)
+نموذج بمسار ارتباطه غير نشط                       DENY
+مادة بلا أي ارتباط مسار + إنشاء نموذج             DENY
+
+طالب صنعاء يرى نماذج صنعاء                        ALLOW
+طالب صنعاء يطلب نموذج عدن (id مباشر)              DENY (خادمياً)
+طالب عدن يرى محتوى المادة المشتركة                ALLOW
+
+سؤال مشترك في وزاري صنعاء ووزاري عدن              مسموح (سجلا عضوية منفصلان)
+إحصاء التكرار لطالب صنعاء                          يحسب صنعاء فقط
+question_targets بلا مسار                          PASS (مقصود)
+
+هوية النموذج (subject, track, year, round, variant) UNIQUE
+تكرار نفس الخماسية                                 DENY
+تغيير model_label لا يخلق نموذجاً جديداً            PASS
+استيراد كود نموذج TCS-1                            REJECT
+```
+
+---
+
 ## الحكم النهائي
 
-**PAST_MINISTERIAL_EXAMS_ARCHITECTURE_14A = PASS**
+**PAST_MINISTERIAL_EXAMS_ARCHITECTURE_14A = PASS (TCS-2 ALIGNED)**
 
-البنية الحالية تسمح بإعادة استخدام كامل لمنظومة الجلسات والتصحيح وبنك الأسئلة، ويكفي جدولان جديدان + عمود ربط واحد لتحقيق هوية النموذج الوزاري والعزل التام بين مسارات المناهج، دون أي تخزين ثانٍ للإجابات ودون نقل أي بنية من Mufadhala.
+```text
+SHARED_SUBJECT_SUPPORT      = YES
+TRACK_ISOLATION             = SERVER-SIDE ONLY
+QUESTION_BANK_DUPLICATION   = ZERO
+SUBJECT_DUPLICATION         = ZERO
+MODEL_IDENTITY              = (subject, track, year, round, variant_code)
+READY_FOR                   = 14B
+```
+
+البنية تسمح بإعادة استخدام كامل لمنظومة الجلسات والتصحيح وبنك الأسئلة: مادة واحدة مشتركة بين المسارات، ونماذج وزارية مفصولة تماماً بالمسار عبر بوابة خادمية مربوطة بـ`subject_curriculum_tracks` — دون تكرار المواد أو الأسئلة، ودون أي تخزين ثانٍ للإجابات.
