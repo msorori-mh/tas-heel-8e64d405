@@ -534,6 +534,16 @@ BEGIN
     RAISE EXCEPTION 'curriculum_or_grade_mismatch' USING ERRCODE = '42501';
   END IF;
 
+  -- With TCS-2 a subject can be shared across tracks; the model itself pins a single track.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = v_user
+      AND p.curriculum_track_id = v_model.curriculum_track_id
+  ) THEN
+    RAISE EXCEPTION 'curriculum_or_grade_mismatch' USING ERRCODE = '42501';
+  END IF;
+
   SELECT COUNT(*), COALESCE(SUM(marks), 0)
   INTO v_total_q, v_total_pts
   FROM public.ministerial_exam_questions
