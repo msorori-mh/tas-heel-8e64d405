@@ -3,6 +3,12 @@
  * Run: node scripts/generate-content-templates.mjs
  */
 import ExcelJS from "exceljs";
+import {
+  CONTENT_CODE_SCHEME_VERSION,
+  TCS1_FORMAT_TABLE,
+  TCS1_RULES_AR,
+} from "../src/lib/content-codes/tcs1.ts";
+import { TCS1_GRADES, TCS1_TRACKS } from "../src/lib/content-codes/tcs1-master-data.ts";
 import { mkdirSync, readdirSync, unlinkSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,7 +23,8 @@ const EDITOR_ONLY_WARNING =
 
 const COMMON_NOTES = [
   "هذه النماذج لتجهيز المحتوى قبل الاستيراد — لا تستورد بيانات فعلية من هنا تلقائياً.",
-  "استخدم أكواداً نصية ثابتة (snake_case أو kebab-case) — لا تستخدم UUID.",
+  `الأكواد يملكها النظام (${CONTENT_CODE_SCHEME_VERSION}): نزّل القالب الجاهز من «مركز الاستيراد» ولا تكتب كوداً يدوياً.`,
+  "راجع ورقة «مرجع الأكواد» داخل الملف قبل التعبئة — لا تستخدم UUID ولا حروفاً عربية في الأكواد.",
   "لا تضع مفاتيح API أو روابط signed أو أسرار في الملفات.",
   "القيم المنطقية: نعم / لا أو TRUE / FALSE.",
   "حالة المراجعة (إن وُجدت): مسودة | معتمد | يحتاج تعديل",
@@ -37,9 +44,9 @@ const templates = [
     title: "01 — نموذج المواد الدراسية",
     purpose: "تجهيز قائمة المواد قبل الوحدات والدروس.",
     columns: [
-      { key: "subject_code", header: "subject_code", required: true, example: "phys-g10-aden", note: "كود فريد للمادة — يُحدَّد مرة واحدة ولا يتغير" },
+      { key: "subject_code", header: "subject_code", required: true, example: "sub-g10-aden-001", note: "كود فريد للمادة — يُحدَّد مرة واحدة ولا يتغير" },
       { key: "name", header: "name", required: true, example: "اللغة العربية - النحو", note: "اسم المادة كما يظهر للطالب" },
-      { key: "group_code", header: "group_code", example: "arabic-g10-aden", note: "اختياري — لتجميع أقسام مادة واحدة (SUBJECT_AS_BRANCH)" },
+      { key: "group_code", header: "group_code", example: "grp-g10-aden-01", note: "اختياري — لتجميع أقسام مادة واحدة (SUBJECT_AS_BRANCH)" },
       { key: "group_name", header: "group_name", example: "اللغة العربية", note: "اسم المجموعة المعروض — موحّد لكل الأقسام" },
       { key: "grade_slug", header: "grade_slug", required: true, example: "grade-10" },
       { key: "track_code", header: "track_code", example: "aden", note: "sanaa | aden" },
@@ -51,9 +58,9 @@ const templates = [
       { key: "review_status", header: "review_status", example: "مسودة" },
     ],
     exampleRows: [
-      ["phys-g10-aden", "الفيزياء", "", "", "grade-10", "aden", 1, "⚛️", "#dc2626", 9, "", "مسودة"],
-      ["arabic-g10-nahw", "اللغة العربية - النحو", "arabic-g10-aden", "اللغة العربية", "grade-10", "aden", 1, "BookOpen", "#27ae60", 2, "", "مسودة"],
-      ["arabic-g10-balagha", "اللغة العربية - البلاغة", "arabic-g10-aden", "اللغة العربية", "grade-10", "aden", 1, "BookOpen", "#27ae60", 3, "", "مسودة"],
+      ["sub-g10-aden-001", "الفيزياء", "", "", "grade-10", "aden", 1, "⚛️", "#dc2626", 9, "", "مسودة"],
+      ["sub-g10-aden-002", "اللغة العربية - النحو", "grp-g10-aden-01", "اللغة العربية", "grade-10", "aden", 1, "BookOpen", "#27ae60", 2, "", "مسودة"],
+      ["sub-g10-aden-003", "اللغة العربية - البلاغة", "grp-g10-aden-01", "اللغة العربية", "grade-10", "aden", 1, "BookOpen", "#27ae60", 3, "", "مسودة"],
     ],
     notes: [
       ...COMMON_NOTES,
@@ -71,8 +78,8 @@ const templates = [
     title: "02 — نموذج الوحدات",
     purpose: "تجهيز وحدات كل مادة.",
     columns: [
-      { key: "unit_code", header: "unit_code", required: true, example: "phys-g10-aden-u01" },
-      { key: "subject_code", header: "subject_code", required: true, example: "phys-g10-aden" },
+      { key: "unit_code", header: "unit_code", required: true, example: "unit-g10-aden-001-01" },
+      { key: "subject_code", header: "subject_code", required: true, example: "sub-g10-aden-001" },
       { key: "title", header: "title", required: true, example: "الوحدة الأولى: القياس والأخطاء" },
       { key: "description", header: "description", example: "مقدمة في القياس الفيزيائي" },
       { key: "semester", header: "semester", example: 1 },
@@ -80,7 +87,7 @@ const templates = [
       { key: "sort_order", header: "sort_order", example: 1 },
       { key: "review_status", header: "review_status", example: "مسودة" },
     ],
-    exampleRows: [["phys-g10-aden-u01", "phys-g10-aden", "الوحدة الأولى: القياس والأخطاء", "مقدمة في القياس", 1, "لا", 1, "مسودة"]],
+    exampleRows: [["unit-g10-aden-001-01", "sub-g10-aden-001", "الوحدة الأولى: القياس والأخطاء", "مقدمة في القياس", 1, "لا", 1, "مسودة"]],
     notes: [...COMMON_NOTES, "unit_code يجب أن يرتبط بـ subject_code من نموذج 01."],
   },
   {
@@ -89,9 +96,9 @@ const templates = [
     title: "03 — نموذج الدروس",
     purpose: "تجهيز قائمة الدروس لكل وحدة.",
     columns: [
-      { key: "lesson_code", header: "lesson_code", required: true, example: "phys-g10-u1-l1", note: "كود الدرس — فريد" },
-      { key: "subject_code", header: "subject_code", required: true, example: "phys-g10-aden" },
-      { key: "unit_code", header: "unit_code", example: "phys-g10-aden-u01" },
+      { key: "lesson_code", header: "lesson_code", required: true, example: "lesson-g10-aden-001-001", note: "كود الدرس — فريد" },
+      { key: "subject_code", header: "subject_code", required: true, example: "sub-g10-aden-001" },
+      { key: "unit_code", header: "unit_code", example: "unit-g10-aden-001-01" },
       { key: "title", header: "title", required: true, example: "الدرس 1: وحدات القياس" },
       { key: "duration", header: "duration", example: "25 دقيقة" },
       { key: "semester", header: "semester", example: 1 },
@@ -99,7 +106,7 @@ const templates = [
       { key: "sort_order", header: "sort_order", example: 1 },
       { key: "review_status", header: "review_status", example: "مسودة" },
     ],
-    exampleRows: [["phys-g10-u1-l1", "phys-g10-aden", "phys-g10-aden-u01", "الدرس 1: وحدات القياس", "25 دقيقة", 1, "لا", 1, "مسودة"]],
+    exampleRows: [["lesson-g10-aden-001-001", "sub-g10-aden-001", "unit-g10-aden-001-01", "الدرس 1: وحدات القياس", "25 دقيقة", 1, "لا", 1, "مسودة"]],
     notes: [...COMMON_NOTES, "lesson_code يُستخدم في كل النماذج التالية (04–09)."],
   },
   {
@@ -108,13 +115,13 @@ const templates = [
     title: "04 — نموذج محتوى الكتاب",
     purpose: "نص الدرس الرئيسي (Markdown) وربط PDF اختياري.",
     columns: [
-      { key: "subject_code", header: "subject_code", required: true, example: "phys-g10-aden", note: "إلزامي — يحدد المادة التي ينتمي إليها lesson_code" },
-      { key: "lesson_code", header: "lesson_code", required: true, example: "phys-g10-u1-l1" },
+      { key: "subject_code", header: "subject_code", required: true, example: "sub-g10-aden-001", note: "إلزامي — يحدد المادة التي ينتمي إليها lesson_code" },
+      { key: "lesson_code", header: "lesson_code", required: true, example: "lesson-g10-aden-001-001" },
       { key: "content", header: "content", required: true, example: "## مقدمة\nوحدات القياس...", note: "Markdown مدعوم" },
       { key: "pdf_url", header: "pdf_url", example: "", note: "رابط PDF عام إن وُجد — اتركه فارغاً إن لم يتوفر" },
       { key: "editor_notes", header: "editor_notes", example: "راجع المصطلحات" },
     ],
-    exampleRows: [["phys-g10-aden", "phys-g10-u1-l1", "## مقدمة\nوحدات القياس هي أساس الفيزياء...", "", ""]],
+    exampleRows: [["sub-g10-aden-001", "lesson-g10-aden-001-001", "## مقدمة\nوحدات القياس هي أساس الفيزياء...", "", ""]],
     notes: [...COMMON_NOTES, "صف واحد لكل درس في محتوى الكتاب."],
   },
   {
@@ -123,15 +130,15 @@ const templates = [
     title: "05 — نموذج شروحات الدرس",
     purpose: "شروحات إضافية متعددة لكل درس.",
     columns: [
-      { key: "subject_code", header: "subject_code", required: true, example: "phys-g10-aden", note: "إلزامي — يحدد المادة التي ينتمي إليها lesson_code" },
-      { key: "lesson_code", header: "lesson_code", required: true, example: "phys-g10-u1-l1" },
-      { key: "explanation_code", header: "explanation_code", required: true, example: "EXP-PHYS-G10-U1-L1-01", note: "هوية ثابتة للشرح — لا تغيّرها بين الدفعات" },
+      { key: "subject_code", header: "subject_code", required: true, example: "sub-g10-aden-001", note: "إلزامي — يحدد المادة التي ينتمي إليها lesson_code" },
+      { key: "lesson_code", header: "lesson_code", required: true, example: "lesson-g10-aden-001-001" },
+      { key: "explanation_code", header: "explanation_code", required: true, example: "exp-g10-aden-001-001-01", note: "هوية ثابتة للشرح — لا تغيّرها بين الدفعات" },
       { key: "title", header: "title", required: true, example: "شرح النظام الدولي للوحدات" },
       { key: "content", header: "content", required: true, example: "النظام الدولي SI يعتمد على..." },
       { key: "sort_order", header: "sort_order", example: 1 },
       { key: "review_status", header: "review_status", example: "مسودة" },
     ],
-    exampleRows: [["phys-g10-aden", "phys-g10-u1-l1", "EXP-PHYS-G10-U1-L1-01", "شرح النظام الدولي للوحدات", "النظام الدولي SI...", 1, "مسودة"]],
+    exampleRows: [["sub-g10-aden-001", "lesson-g10-aden-001-001", "exp-g10-aden-001-001-01", "شرح النظام الدولي للوحدات", "النظام الدولي SI...", 1, "مسودة"]],
     notes: [...COMMON_NOTES, "يمكن إضافة أكثر من شرح لنفس lesson_code."],
   },
   {
@@ -140,15 +147,15 @@ const templates = [
     title: "06 — نموذج موارد الدرس",
     purpose: "فيديو، خريطة ذهنية، تجربة HTML، PDF، وروابط خارجية.",
     columns: [
-      { key: "subject_code", header: "subject_code", required: true, example: "phys-g10-aden", note: "إلزامي — يحدد المادة التي ينتمي إليها lesson_code" },
-      { key: "lesson_code", header: "lesson_code", required: true, example: "phys-g10-u1-l1" },
-      { key: "resource_code", header: "resource_code", required: true, example: "RES-PHYS-G10-U1-L1-01", note: "هوية ثابتة للمورد — لا تغيّرها بين الدفعات" },
+      { key: "subject_code", header: "subject_code", required: true, example: "sub-g10-aden-001", note: "إلزامي — يحدد المادة التي ينتمي إليها lesson_code" },
+      { key: "lesson_code", header: "lesson_code", required: true, example: "lesson-g10-aden-001-001" },
+      { key: "resource_code", header: "resource_code", required: true, example: "res-g10-aden-001-001-01", note: "هوية ثابتة للمورد — لا تغيّرها بين الدفعات" },
       { key: "resource_type", header: "resource_type", required: true, example: "video", note: RESOURCE_TYPES_NOTE },
       { key: "title", header: "title", required: true, example: "شرح وحدات القياس" },
       { key: "description", header: "description", example: "فيديو YouTube تعليمي" },
       { key: "resource_url", header: "resource_url", required: true, example: "https://www.youtube.com/watch?v=example", note: "إلزامي — رابط خارجي أو embed رسمي" },
       { key: "resource_format", header: "resource_format", example: "url", note: "url | html | pdf" },
-      { key: "local_asset_path", header: "local_asset_path", example: "assets/phys-g10-u1-l1-mindmap.html", note: "مسار نسبي للملف المحلي" },
+      { key: "local_asset_path", header: "local_asset_path", example: "assets/lesson-g10-aden-001-001-mindmap.html", note: "مسار نسبي للملف المحلي" },
       { key: "thumbnail_url", header: "thumbnail_url", example: "", note: "اختياري" },
       { key: "is_interactive", header: "is_interactive", example: "نعم", note: "نعم / لا" },
       { key: "sort_order", header: "sort_order", example: 1 },
@@ -157,11 +164,11 @@ const templates = [
       { key: "notes", header: "notes", example: "رابط خارجي فقط" },
     ],
     exampleRows: [
-      ["phys-g10-aden", "phys-g10-u1-l1", "RES-PHYS-G10-U1-L1-01", "video", "شرح وحدات القياس", "فيديو YouTube تعليمي", "https://www.youtube.com/watch?v=example", "url", "", "", "لا", 1, "قناة تعليمية — مثال", "YouTube Standard License", "رابط خارجي — تحقق من حقوق النشر"],
-      ["phys-g10-aden", "phys-g10-u1-l1", "RES-PHYS-G10-U1-L1-02", "mindmap", "خريطة وحدات القياس", "خريطة HTML self-contained", "", "html", "assets/phys-g10-u1-l1-mindmap.html", "", "نعم", 2, "أداة Gemini — مثال", "CC BY-SA — احتفظ بالنسب", "ملف HTML محلي — RTL وجوال"],
-      ["phys-g10-aden", "phys-g10-u1-l1", "RES-PHYS-G10-U1-L1-03", "experiment", "محاكاة الكثافة", "تجربة PhET مع wrapper HTML", "https://phet.colorado.edu/sims/html/density/latest/density_all.html", "html", "assets/phys-g10-u1-l1-density.html", "", "نعم", 3, "PhET Interactive Simulations", "PhET CC BY — لا تنسخ المحاكاة", "embed الرابط الرسمي فقط"],
-      ["phys-g10-aden", "phys-g10-u1-l1", "RES-PHYS-G10-U1-L1-04", "pdf", "ملخص الدرس — PDF", "ملف PDF للطباعة", "", "pdf", "assets/phys-g10-u1-l1-summary.pdf", "", "لا", 4, "إنتاج داخلي", "حقوق داخلية", "يُرفع الملف لاحقاً عبر لوحة الإدارة"],
-      ["phys-g10-aden", "phys-g10-u1-l1", "RES-PHYS-G10-U1-L1-05", "link", "مرجع وزارة التربية", "رابط مرجع رسمي", "https://example.gov.ye/curriculum", "url", "", "", "لا", 5, "وزارة التربية والتعليم", "رابط عام — تحقق من الترخيص", "لا تزِل attribution للموارد المرخّصة"],
+      ["sub-g10-aden-001", "lesson-g10-aden-001-001", "res-g10-aden-001-001-01", "video", "شرح وحدات القياس", "فيديو YouTube تعليمي", "https://www.youtube.com/watch?v=example", "url", "", "", "لا", 1, "قناة تعليمية — مثال", "YouTube Standard License", "رابط خارجي — تحقق من حقوق النشر"],
+      ["sub-g10-aden-001", "lesson-g10-aden-001-001", "RES-PHYS-G10-U1-L1-02", "mindmap", "خريطة وحدات القياس", "خريطة HTML self-contained", "", "html", "assets/lesson-g10-aden-001-001-mindmap.html", "", "نعم", 2, "أداة Gemini — مثال", "CC BY-SA — احتفظ بالنسب", "ملف HTML محلي — RTL وجوال"],
+      ["sub-g10-aden-001", "lesson-g10-aden-001-001", "RES-PHYS-G10-U1-L1-03", "experiment", "محاكاة الكثافة", "تجربة PhET مع wrapper HTML", "https://phet.colorado.edu/sims/html/density/latest/density_all.html", "html", "assets/lesson-g10-aden-001-001-density.html", "", "نعم", 3, "PhET Interactive Simulations", "PhET CC BY — لا تنسخ المحاكاة", "embed الرابط الرسمي فقط"],
+      ["sub-g10-aden-001", "lesson-g10-aden-001-001", "RES-PHYS-G10-U1-L1-04", "pdf", "ملخص الدرس — PDF", "ملف PDF للطباعة", "", "pdf", "assets/lesson-g10-aden-001-001-summary.pdf", "", "لا", 4, "إنتاج داخلي", "حقوق داخلية", "يُرفع الملف لاحقاً عبر لوحة الإدارة"],
+      ["sub-g10-aden-001", "lesson-g10-aden-001-001", "RES-PHYS-G10-U1-L1-05", "link", "مرجع وزارة التربية", "رابط مرجع رسمي", "https://example.gov.ye/curriculum", "url", "", "", "لا", 5, "وزارة التربية والتعليم", "رابط عام — تحقق من الترخيص", "لا تزِل attribution للموارد المرخّصة"],
     ],
     notes: [
       ...COMMON_NOTES,
@@ -179,15 +186,15 @@ const templates = [
     title: "07 — نموذج اختبارات/تقييمات الدرس",
     purpose: "اختبارات قصيرة مرتبطة بدرس واحد (قبل ربط الأسئلة في 08).",
     columns: [
-      { key: "assessment_code", header: "assessment_code", required: true, example: "ASMT-PHYS-G10-U1-L1" },
-      { key: "subject_code", header: "subject_code", required: true, example: "phys-g10-aden", note: "إلزامي — يحدد المادة التي ينتمي إليها lesson_code" },
-      { key: "lesson_code", header: "lesson_code", required: true, example: "phys-g10-u1-l1" },
+      { key: "assessment_code", header: "assessment_code", required: true, example: "asm-g10-aden-001-001-01" },
+      { key: "subject_code", header: "subject_code", required: true, example: "sub-g10-aden-001", note: "إلزامي — يحدد المادة التي ينتمي إليها lesson_code" },
+      { key: "lesson_code", header: "lesson_code", required: true, example: "lesson-g10-aden-001-001" },
       { key: "title", header: "title", required: true, example: "اختبار قصير — وحدات القياس" },
       { key: "instructions", header: "instructions", example: "أجب عن جميع الأسئلة خلال 10 دقائق" },
       { key: "sort_order", header: "sort_order", example: 1 },
       { key: "review_status", header: "review_status", example: "مسودة" },
     ],
-    exampleRows: [["ASMT-PHYS-G10-U1-L1", "phys-g10-aden", "phys-g10-u1-l1", "اختبار قصير — وحدات القياس", "أجب خلال 10 دقائق", 1, "مسودة"]],
+    exampleRows: [["asm-g10-aden-001-001-01", "sub-g10-aden-001", "lesson-g10-aden-001-001", "اختبار قصير — وحدات القياس", "أجب خلال 10 دقائق", 1, "مسودة"]],
     notes: [...COMMON_NOTES, "اربط الأسئلة في نموذج 08_assessment_questions_template."],
   },
   {
@@ -197,13 +204,13 @@ const templates = [
     purpose: "ربط أسئلة (من نموذج 09) باختبار درس (من نموذج 07).",
     editorOnlyWarning: EDITOR_ONLY_WARNING,
     columns: [
-      { key: "assessment_code", header: "assessment_code", required: true, example: "ASMT-PHYS-G10-U1-L1" },
-      { key: "question_code", header: "question_code", required: true, example: "Q-PHYS-G10-U1-L1-001" },
+      { key: "assessment_code", header: "assessment_code", required: true, example: "asm-g10-aden-001-001-01" },
+      { key: "question_code", header: "question_code", required: true, example: "q-g10-aden-001-00001" },
       { key: "sort_order", header: "sort_order", example: 1 },
       { key: "points", header: "points", example: 1 },
       { key: "editor_notes", header: "editor_notes", example: "" },
     ],
-    exampleRows: [["ASMT-PHYS-G10-U1-L1", "Q-PHYS-G10-U1-L1-001", 1, 1, ""]],
+    exampleRows: [["asm-g10-aden-001-001-01", "q-g10-aden-001-00001", 1, 1, ""]],
     notes: [...COMMON_NOTES, "question_code يجب أن يطابق نموذج 09.", EDITOR_ONLY_WARNING],
   },
   {
@@ -213,9 +220,9 @@ const templates = [
     purpose: "أسئلة MCQ على مستوى الدرس أو المادة.",
     editorOnlyWarning: EDITOR_ONLY_WARNING,
     columns: [
-      { key: "question_code", header: "question_code", required: true, example: "Q-PHYS-G10-U1-L1-001" },
-      { key: "lesson_code", header: "lesson_code", example: "phys-g10-u1-l1", note: "اختياري — للأسئلة العامة اتركه فارغاً" },
-      { key: "subject_code", header: "subject_code", example: "phys-g10-aden" },
+      { key: "question_code", header: "question_code", required: true, example: "q-g10-aden-001-00001" },
+      { key: "lesson_code", header: "lesson_code", example: "lesson-g10-aden-001-001", note: "اختياري — للأسئلة العامة اتركه فارغاً" },
+      { key: "subject_code", header: "subject_code", example: "sub-g10-aden-001" },
       { key: "question_text", header: "question_text", required: true, example: "ما وحدة قياس القوة في SI؟" },
       { key: "option_1", header: "option_1", required: true, example: "نيوتن" },
       { key: "option_2", header: "option_2", required: true, example: "جول" },
@@ -232,7 +239,7 @@ const templates = [
       { key: "review_status", header: "review_status", example: "مسودة" },
     ],
     exampleRows: [
-      ["Q-PHYS-G10-U1-L1-001", "phys-g10-u1-l1", "phys-g10-aden", "ما وحدة قياس القوة في SI؟", "نيوتن", "جول", "واط", "باسكال", "", "", 1, "القوة تُقاس بالنيوتن", "mcq", "", 1, 1, "مسودة"],
+      ["q-g10-aden-001-00001", "lesson-g10-aden-001-001", "sub-g10-aden-001", "ما وحدة قياس القوة في SI؟", "نيوتن", "جول", "واط", "باسكال", "", "", 1, "القوة تُقاس بالنيوتن", "mcq", "", 1, 1, "مسودة"],
     ],
     notes: [...COMMON_NOTES, EDITOR_ONLY_WARNING, "اجعل أعمدة الخيارات بصيغة Text في Excel."],
   },
@@ -281,11 +288,33 @@ function fillInstructionsSheet(ws, t) {
   for (const n of t.notes) ws.addRow(["•", n]);
 }
 
+/** OFFICIAL_CONTENT_CODE_SYSTEM_13B — shared code reference sheet. */
+function fillCodeReferenceSheet(ws) {
+  ws.views = [{ rightToLeft: true }];
+  ws.getColumn(1).width = 24;
+  ws.getColumn(2).width = 52;
+  ws.getColumn(3).width = 60;
+  ws.addRow([`مرجع الأكواد الرسمي — ${CONTENT_CODE_SCHEME_VERSION}`]).font = { bold: true, size: 14 };
+  ws.addRow([]);
+  ws.addRow(["— صيغ الأكواد —"]).font = { bold: true };
+  for (const row of TCS1_FORMAT_TABLE) ws.addRow([row.labelAr, row.format, `مثال: ${row.example}`]);
+  ws.addRow([]);
+  ws.addRow(["— القواعد —"]).font = { bold: true };
+  for (const rule of TCS1_RULES_AR) ws.addRow(["•", rule]);
+  ws.addRow([]);
+  ws.addRow(["— الصفوف المعتمدة —"]).font = { bold: true };
+  for (const g of TCS1_GRADES) ws.addRow([g.gradeShort, g.gradeSlug, g.nameAr]);
+  ws.addRow([]);
+  ws.addRow(["— المسارات المعتمدة —"]).font = { bold: true };
+  for (const t of TCS1_TRACKS) ws.addRow([t.trackCode, t.trackCode, t.nameAr]);
+}
+
 async function generate(t) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Content Upload Templates — Tanoir";
   wb.created = new Date("2026-07-03T00:00:00.000Z");
   fillInstructionsSheet(wb.addWorksheet("تعليمات"), t);
+  fillCodeReferenceSheet(wb.addWorksheet("مرجع الأكواد"));
   fillDataSheet(wb.addWorksheet(t.sheet), t.columns, t.exampleRows);
   await wb.xlsx.writeFile(join(OUT_DIR, t.file));
   console.log("✓", t.file);
