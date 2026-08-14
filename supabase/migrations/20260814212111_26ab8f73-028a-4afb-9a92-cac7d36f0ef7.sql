@@ -218,7 +218,7 @@ AS $$
   LEFT JOIN public.lesson_resources r
          ON r.lesson_id = l.id AND r.is_primary
   WHERE l.id = _lesson_id
-    AND public.can_access_lesson(auth.uid(), l.id)
+    AND public.can_access_lesson(l.id)
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.get_lesson_primary_resource(uuid) FROM PUBLIC, anon;
