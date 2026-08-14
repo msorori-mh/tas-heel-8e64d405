@@ -508,15 +508,15 @@ PERFORM pg_temp.chk('14F payload carries no answer key', 'false',
 -- ===========================================================================
 v_res := public.list_repeated_ministerial_questions(c_subject, 2, NULL);
 PERFORM pg_temp.chk('14G counts distinct models in the student track', '3',
-  v_res->'questions'->0->>'occurrence_count');
+  v_res->0->>'occurrence_count');
 PERFORM pg_temp.chk('14G ignores the cross-track appearance', 'false',
-  ((v_res->'questions'->0->>'occurrence_count')::int = 4)::text);
+  ((v_res->0->>'occurrence_count')::int = 4)::text);
 PERFORM pg_temp.chk('14G lists the historical years', 'true',
-  ((v_res->'questions'->0)::text LIKE '%2022%'
-   AND (v_res->'questions'->0)::text LIKE '%2024%'
-   AND (v_res->'questions'->0)::text LIKE '%2025%')::text);
+  ((v_res->0)::text LIKE '%2022%'
+   AND (v_res->0)::text LIKE '%2024%'
+   AND (v_res->0)::text LIKE '%2025%')::text);
 PERFORM pg_temp.chk('14G occurrences keep their pinned revision', 'true',
-  ((v_res->'questions'->0)::text LIKE ('%' || c_q1r1::text || '%'))::text);
+  ((v_res->0)::text LIKE ('%' || c_q1r1::text || '%'))::text);
 PERFORM pg_temp.chk('14G payload carries no answer key', 'false',
   (v_res::text ILIKE '%correct_option%' OR v_res::text ILIKE '%is_correct%')::text);
 

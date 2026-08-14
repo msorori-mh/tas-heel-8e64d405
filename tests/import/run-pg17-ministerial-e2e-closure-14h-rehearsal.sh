@@ -44,6 +44,7 @@ CHAIN=(
   supabase/migrations/20260814222944_a75fe867-2d64-4872-bfcf-597caa7f38df.sql
   supabase/migrations/20260815020000_ministerial_analytics_14f_14g.sql
   supabase/migrations-pending/20260816010000_ministerial_session_nullable_score_14h_defect01.sql
+  supabase/migrations-pending/20260816010500_ministerial_analytics_grading_status_14h_defect02.sql
 )
 
 cd "$ROOT"
