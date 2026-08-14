@@ -45,13 +45,15 @@ GRANT ALL ON public.ministerial_exam_models TO service_role;
 ALTER TABLE public.ministerial_exam_models ENABLE ROW LEVEL SECURITY;
 
 -- Staff manage; authenticated read only (students need read to choose models).
-CREATE POLICY IF NOT EXISTS "Content staff manage ministerial models" ON public.ministerial_exam_models
+DROP POLICY IF EXISTS "Content staff manage ministerial models" ON public.ministerial_exam_models;
+CREATE POLICY "Content staff manage ministerial models" ON public.ministerial_exam_models
   FOR ALL
   TO authenticated
   USING (public.is_content_staff(auth.uid()))
   WITH CHECK (public.is_content_staff(auth.uid()));
 
-CREATE POLICY IF NOT EXISTS "Authenticated read published ministerial models" ON public.ministerial_exam_models
+DROP POLICY IF EXISTS "Authenticated read published ministerial models" ON public.ministerial_exam_models;
+CREATE POLICY "Authenticated read published ministerial models" ON public.ministerial_exam_models
   FOR SELECT
   TO authenticated
   USING (status = 'published');
@@ -75,7 +77,8 @@ GRANT ALL ON public.ministerial_exam_questions TO service_role;
 ALTER TABLE public.ministerial_exam_questions ENABLE ROW LEVEL SECURITY;
 
 -- Staff only for membership DML; students never SELECT directly from this table.
-CREATE POLICY IF NOT EXISTS "Content staff manage ministerial question membership" ON public.ministerial_exam_questions
+DROP POLICY IF EXISTS "Content staff manage ministerial question membership" ON public.ministerial_exam_questions;
+CREATE POLICY "Content staff manage ministerial question membership" ON public.ministerial_exam_questions
   FOR ALL
   TO authenticated
   USING (public.is_content_staff(auth.uid()))
