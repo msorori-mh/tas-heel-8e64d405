@@ -61,7 +61,8 @@ describe("14F/14G — SQL guards", () => {
   });
 
   it("requires an authenticated caller and never accepts a user_id argument", () => {
-    expect((sql.match(/auth\.uid\(\) IS NULL/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect((sql.match(/v_uid uuid := auth\.uid\(\)/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect((sql.match(/IF v_uid IS NULL THEN\s*\n\s*RAISE EXCEPTION 'unauthorized';/g) ?? []).length).toBeGreaterThanOrEqual(3);
     expect(sql).not.toMatch(/_user_id\s+uuid/);
   });
 
@@ -86,7 +87,7 @@ describe("14F/14G — SQL guards", () => {
   });
 
   it("repeated identity is the canonical question_id counted by distinct model", () => {
-    expect(sql).toContain("GROUP BY meq.question_id");
+    expect(sql).toMatch(/GROUP BY (m\.subject_id, )?meq\.question_id/);
     expect(sql).toContain("count(DISTINCT model_id)");
     expect(sql).toContain("display_revision_id");
     expect(sql).toContain("published_revision_id");
