@@ -416,6 +416,13 @@ function LessonPage() {
   const resourcesCount = resources?.length ?? 0;
   const hasResources = resourcesCount > 0 || (htmlResources?.length ?? 0) > 0;
 
+  // LESSON_EXTERNAL_PDF_DELIVERY_13F
+  const externalDelivery =
+    primaryResource &&
+    (isExternalDelivery((lesson as { delivery_mode?: string }).delivery_mode) || !hasBook)
+      ? primaryResource
+      : null;
+
   const completedWeights =
     (hasBook ? 20 : 0) +
     (hasSummary ? 20 : 0) +
