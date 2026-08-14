@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Builds the official operator pack: the nine content templates (01–09) plus
- * the three Arabic guides, zipped into one downloadable folder so the operator
+ * the four Arabic guides, zipped into one downloadable folder so the operator
  * needs no developer help.
  *
  * Usage: node scripts/build-operator-pack.mjs
@@ -16,7 +16,12 @@ const DOCS_DIR = path.join(ROOT, "docs/import");
 const OUT_DIR = path.join(ROOT, "public/operator-pack");
 const STAGE = path.join(ROOT, ".tmp-operator-pack/tamkeen-content-operator-pack");
 
-const GUIDES = ["NAMING-CONVENTION.md", "DATA-DICTIONARY-AR.md", "OPERATOR-RUNBOOK-AR.md"];
+const GUIDES = [
+  "NAMING-CONVENTION.md",
+  "OFFICIAL-CONTENT-CODE-REGISTRY.md",
+  "DATA-DICTIONARY-AR.md",
+  "OPERATOR-RUNBOOK-AR.md",
+];
 
 rmSync(path.dirname(STAGE), { recursive: true, force: true });
 mkdirSync(path.join(STAGE, "templates"), { recursive: true });

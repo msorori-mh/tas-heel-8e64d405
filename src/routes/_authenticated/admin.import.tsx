@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { ImportJobsHistory } from "@/components/admin/ImportJobsHistory";
 import { ContentImportDryRunPanel } from "@/components/admin/ContentImportDryRunPanel";
+import { ContextualTemplateGenerator } from "@/components/admin/ContextualTemplateGenerator";
 import { InteractiveHtmlImportPanel } from "@/components/admin/InteractiveHtmlImportPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/import")({
@@ -147,6 +148,8 @@ function AdminImportPage() {
             </p>
 
           </div>
+
+          <ContextualTemplateGenerator />
 
           <ContentImportDryRunPanel />
 
