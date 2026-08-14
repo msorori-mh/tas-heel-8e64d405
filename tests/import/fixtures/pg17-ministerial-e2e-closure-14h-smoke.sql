@@ -317,6 +317,7 @@ END;
 
 PERFORM public.answer_ministerial_exam_question(v_sess, v_esq1, 'A');
 v_reveal := public.reveal_ministerial_training_answer(v_sess, v_esq1);
+RAISE NOTICE 'DEBUG reveal payload: %', v_reveal;
 PERFORM pg_temp.chk('reveal after answering allowed', 'true', v_reveal->>'is_correct');
 PERFORM pg_temp.chk('reveal returns pinned correct code', 'A', v_reveal->>'correct_option_code');
 PERFORM pg_temp.chk('reveal returns allowed explanation', 'شرح النسخة R1', v_reveal->>'explanation');

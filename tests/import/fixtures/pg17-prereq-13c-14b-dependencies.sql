@@ -20,6 +20,10 @@ DO $$ BEGIN
   CREATE TYPE public.exam_mode AS ENUM ('training', 'strict', 'ministry');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+DO $$ BEGIN
+  CREATE TYPE public.exam_session_status AS ENUM ('in_progress', 'submitted', 'expired');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
 CREATE TABLE IF NOT EXISTS public.exam_templates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL DEFAULT '',
