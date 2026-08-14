@@ -1432,11 +1432,14 @@ export type Database = {
       ministerial_exam_models: {
         Row: {
           academic_year: number
+          archived_at: string | null
+          archived_by: string | null
           created_at: string
           created_by: string | null
           curriculum_track_id: string
           id: string
           model_code: string
+          model_label: string | null
           published_at: string | null
           published_by: string | null
           round_code: Database["public"]["Enums"]["ministerial_exam_round_code"]
@@ -1448,11 +1451,14 @@ export type Database = {
         }
         Insert: {
           academic_year: number
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
           created_by?: string | null
           curriculum_track_id: string
           id?: string
           model_code: string
+          model_label?: string | null
           published_at?: string | null
           published_by?: string | null
           round_code: Database["public"]["Enums"]["ministerial_exam_round_code"]
@@ -1464,11 +1470,14 @@ export type Database = {
         }
         Update: {
           academic_year?: number
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
           created_by?: string | null
           curriculum_track_id?: string
           id?: string
           model_code?: string
+          model_label?: string | null
           published_at?: string | null
           published_by?: string | null
           round_code?: Database["public"]["Enums"]["ministerial_exam_round_code"]
@@ -1508,30 +1517,42 @@ export type Database = {
           id: string
           marks: number
           model_id: string
+          original_question_number: number | null
           published_revision_id: string
           question_id: string
+          section_code: string | null
           sort_order: number
+          source_page: number | null
           source_question_code: string | null
+          source_reference: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           marks?: number
           model_id: string
+          original_question_number?: number | null
           published_revision_id: string
           question_id: string
+          section_code?: string | null
           sort_order?: number
+          source_page?: number | null
           source_question_code?: string | null
+          source_reference?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           marks?: number
           model_id?: string
+          original_question_number?: number | null
           published_revision_id?: string
           question_id?: string
+          section_code?: string | null
           sort_order?: number
+          source_page?: number | null
           source_question_code?: string | null
+          source_reference?: string | null
         }
         Relationships: [
           {
@@ -1556,6 +1577,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ministerial_import_prepares: {
+        Row: {
+          actor_id: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          fingerprint: string
+          id: string
+          kind: string
+          staged_rows: Json
+          status: string
+          summary: Json
+        }
+        Insert: {
+          actor_id: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          fingerprint: string
+          id?: string
+          kind: string
+          staged_rows: Json
+          status?: string
+          summary?: Json
+        }
+        Update: {
+          actor_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          fingerprint?: string
+          id?: string
+          kind?: string
+          staged_rows?: Json
+          status?: string
+          summary?: Json
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -3549,6 +3609,10 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: boolean
       }
+      can_publish_ministerial_exams: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_publish_ministerial_model: {
         Args: { _model_id: string }
         Returns: boolean
@@ -3789,6 +3853,33 @@ export type Database = {
         Returns: boolean
       }
       is_full_admin: { Args: { _user_id: string }; Returns: boolean }
+      ministerial_build_model_code: {
+        Args: {
+          _academic_year: number
+          _round_code: string
+          _subject_code: string
+          _track_code: string
+          _variant_code: string
+        }
+        Returns: string
+      }
+      ministerial_m01_execute: { Args: { _prepare_id: string }; Returns: Json }
+      ministerial_m01_prepare: { Args: { _rows: Json }; Returns: Json }
+      ministerial_m02_execute: { Args: { _prepare_id: string }; Returns: Json }
+      ministerial_m02_prepare: { Args: { _rows: Json }; Returns: Json }
+      ministerial_membership_remove_execute: {
+        Args: { _model_id: string; _question_codes: string[]; _reason: string }
+        Returns: Json
+      }
+      ministerial_membership_remove_preview: {
+        Args: { _model_id: string; _question_codes: string[] }
+        Returns: Json
+      }
+      ministerial_model_set_status: {
+        Args: { _model_id: string; _reason: string; _target_status: string }
+        Returns: undefined
+      }
+      ministerial_models_admin_list: { Args: never; Returns: Json }
       move_to_dlq: {
         Args: {
           dlq_name: string
