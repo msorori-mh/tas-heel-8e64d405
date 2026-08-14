@@ -2617,6 +2617,48 @@ export type Database = {
         }
         Relationships: []
       }
+      subject_curriculum_tracks: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          curriculum_track_id: string
+          is_active: boolean
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          curriculum_track_id: string
+          is_active?: boolean
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          curriculum_track_id?: string
+          is_active?: boolean
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subject_curriculum_tracks_curriculum_track_id_fkey"
+            columns: ["curriculum_track_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_tracks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subject_curriculum_tracks_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subjects: {
         Row: {
           code: string | null
@@ -3285,6 +3327,18 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_subject_track_detach: {
+        Args: {
+          _curriculum_track_id: string
+          _reason?: string
+          _subject_id: string
+        }
+        Returns: Json
+      }
+      admin_subject_track_detach_preview: {
+        Args: { _curriculum_track_id: string; _subject_id: string }
+        Returns: Json
+      }
       answer_exam_question: {
         Args: {
           _question_id: string
@@ -3657,6 +3711,10 @@ export type Database = {
       subject_matches_track: {
         Args: { _subject_id: string; _track_id: string }
         Returns: boolean
+      }
+      subject_track_detach_impact: {
+        Args: { _curriculum_track_id: string; _subject_id: string }
+        Returns: Json
       }
       submit_exam_session: { Args: { _session_id: string }; Returns: Json }
       submit_unit_practice_attempt: {
