@@ -268,8 +268,30 @@ function addCodeReferenceSheet(
     b: (request.trackCodes ?? []).join(" | ") || "—",
     c: "التوفر فقط — لا يدخل في الكود",
   });
+  if (request.templateKey === "subjects") {
+    const isGroup = request.subjectMode === "group";
+    sheet.addRow({
+      a: "نوع الإدخال",
+      b: isGroup ? "مجموعة مواد / فروع" : "مادة مستقلة",
+      c: isGroup
+        ? "Group → Subjects مستقلة: group_code واحد + subject_code مستقل لكل فرع"
+        : "مادة واحدة لكل صف — بدون group_code",
+    });
+    if (isGroup) {
+      sheet.addRow({ a: "اسم المجموعة", b: request.groupName ?? "—", c: "يُكتب في group_name لكل الفروع" });
+      sheet.addRow({
+        a: "عدد الفروع",
+        b: String((request.branchNames ?? []).length),
+        c: "عدد الصفوف = عدد الفروع تلقائياً",
+      });
+      for (const [i, branch] of (request.branchNames ?? []).entries()) {
+        sheet.addRow({ a: `فرع ${i + 1}`, b: branch, c: "مادة مستقلة داخل المجموعة" });
+      }
+    }
+  }
   if (request.subjectCode) sheet.addRow({ a: "المادة المختارة", b: request.subjectCode, c: "" });
   if (request.unitCode) sheet.addRow({ a: "الوحدة المختارة", b: request.unitCode, c: "" });
+
   sheet.addRow({});
 
   sheet.addRow({ a: "صيغ الأكواد", b: "", c: "" }).font = { bold: true };
