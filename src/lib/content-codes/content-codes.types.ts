@@ -1,4 +1,4 @@
-/** Shared, client-safe types for the TCS-1 content code registry. */
+/** Shared, client-safe types for the TCS-2 content code registry. */
 
 import type { ContentImportTemplateKey } from "../content-import/content-import-template-keys.ts";
 
@@ -17,12 +17,13 @@ export interface CodeRegistrySubject {
   subjectCode: string;
   name: string;
   gradeSlug: string;
-  trackCode: string;
+  /** Curriculum tracks this subject is available in (may be more than one). */
+  trackCodes: string[];
   groupCode: string | null;
   groupName: string | null;
   subjectNo: number | null;
-  /** true when the code follows TCS-1 and can drive child allocation. */
-  isTcs1: boolean;
+  /** true when the code follows TCS-2 and can drive child allocation. */
+  isOfficialCode: boolean;
 }
 
 export interface CodeRegistryUnit {
@@ -40,8 +41,7 @@ export interface CodeRegistryLesson {
 
 export interface CodeRegistryScopeAllocation {
   gradeSlug: string;
-  trackCode: string;
-  /** Next free subject number in this grade+track. */
+  /** Next free subject number in this grade (tracks are not part of the code). */
   nextSubjectNo: number;
   nextGroupNo: number;
   subjectCount: number;
@@ -55,7 +55,7 @@ export interface ContentCodeRegistry {
   units: CodeRegistryUnit[];
   lessons: CodeRegistryLesson[];
   allocations: CodeRegistryScopeAllocation[];
-  /** Codes that exist but do not follow TCS-1 (legacy / manual). */
+  /** Codes that exist but do not follow TCS-2 (legacy TCS-1 / manual). */
   nonConformingCodes: string[];
   generatedAt: string;
 }
@@ -77,7 +77,8 @@ export type ContextTemplateKey = (typeof CONTEXT_TEMPLATE_KEYS)[number];
 export interface ContextTemplateRequest {
   templateKey: ContextTemplateKey;
   gradeSlug: string;
-  trackCode: string;
+  /** Availability prefill for the subjects template; ignored elsewhere. */
+  trackCodes?: string[];
   subjectCode?: string;
   unitCode?: string;
   rowCount: number;

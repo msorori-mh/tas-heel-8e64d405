@@ -16,7 +16,7 @@ import {
 const ContextTemplateInput = z.object({
   templateKey: z.enum(CONTEXT_TEMPLATE_KEYS),
   gradeSlug: z.string().min(1).max(32),
-  trackCode: z.string().min(1).max(32),
+  trackCodes: z.array(z.string().min(1).max(32)).max(8).default([]),
   subjectCode: z.string().max(64).optional(),
   unitCode: z.string().max(64).optional(),
   rowCount: z.number().int().min(1).max(200).default(20),

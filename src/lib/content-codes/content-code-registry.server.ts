@@ -1,9 +1,9 @@
 /**
- * OFFICIAL_CONTENT_CODE_SYSTEM_13B — read-only code registry.
+ * SHARED_CURRICULUM_SUBJECT_MAPPING_13C — read-only code registry (TCS-2).
  *
- * Server-only. Reads master data (grades, curriculum_tracks) and the codes that
- * already exist in the curriculum tables so the TCS-1 allocator can pick the
- * next free number. Zero writes.
+ * Server-only. Reads master data (grades, curriculum_tracks), the subject↔track
+ * mapping and the codes that already exist in the curriculum tables so the
+ * TCS-2 allocator can pick the next free number. Zero writes.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -11,8 +11,8 @@ import type { Database } from "@/integrations/supabase/types";
 import {
   CONTENT_CODE_SCHEME_VERSION,
   nextAllocatedNumber,
-  parseTcs1Code,
-} from "./tcs1";
+  parseTcs2Code,
+} from "./tcs2";
 import { TCS1_GRADES, TCS1_TRACKS } from "./tcs1-master-data";
 import type {
   CodeRegistryLesson,
@@ -26,19 +26,27 @@ type AnyClient = SupabaseClient<Database>;
 export async function loadContentCodeRegistry(
   supabase: AnyClient,
 ): Promise<ContentCodeRegistry> {
-  const [gradesRes, tracksRes, subjectsRes, unitsRes, lessonsRes] = await Promise.all([
+  const [gradesRes, tracksRes, subjectsRes, unitsRes, lessonsRes, mappingRes] = await Promise.all([
     supabase.from("grades").select("id, slug, name").order("sort_order", { ascending: true }),
     supabase.from("curriculum_tracks").select("id, track_code, track_name"),
     supabase
       .from("subjects")
-      .select("id, code, name, group_code, group_name, grade_id, curriculum_track_id")
+      .select("id, code, name, group_code, group_name, grade_id")
       .order("code", { ascending: true }),
     supabase.from("units").select("id, code, title, subject_id").order("code", { ascending: true }),
     supabase.from("lessons").select("id, slug, title, subject_id, unit_id").order("slug", { ascending: true }),
+    supabase
+      .from("subject_curriculum_tracks")
+      .select("subject_id, curriculum_track_id, is_active"),
   ]);
 
   const firstError =
-    gradesRes.error ?? tracksRes.error ?? subjectsRes.error ?? unitsRes.error ?? lessonsRes.error;
+    gradesRes.error ??
+    tracksRes.error ??
+    subjectsRes.error ??
+    unitsRes.error ??
+    lessonsRes.error ??
+    mappingRes.error;
   if (firstError) {
     throw new Error(`تعذر قراءة سجل الأكواد: ${firstError.message}`);
   }
@@ -49,26 +57,34 @@ export async function loadContentCodeRegistry(
   const trackCodeById = new Map<string, string>();
   for (const t of tracksRes.data ?? []) trackCodeById.set(t.id, t.track_code);
 
+  // Availability: one subject may live in several curriculum tracks.
+  const trackCodesBySubject = new Map<string, string[]>();
+  for (const m of mappingRes.data ?? []) {
+    if (m.is_active === false) continue;
+    const trackCode = trackCodeById.get(m.curriculum_track_id);
+    if (!trackCode) continue;
+    const list = trackCodesBySubject.get(m.subject_id) ?? [];
+    if (!list.includes(trackCode)) list.push(trackCode);
+    trackCodesBySubject.set(m.subject_id, list);
+  }
+
   const nonConformingCodes: string[] = [];
 
   const subjectById = new Map<string, CodeRegistrySubject>();
   const subjects: CodeRegistrySubject[] = [];
   for (const s of subjectsRes.data ?? []) {
     const code = (s.code ?? "").trim();
-    const parsed = code ? parseTcs1Code(code) : null;
+    const parsed = code ? parseTcs2Code(code) : null;
     if (code && (!parsed || parsed.kind !== "subject")) nonConformingCodes.push(code);
     const row: CodeRegistrySubject = {
       subjectCode: code,
       name: s.name ?? "",
       gradeSlug: (s.grade_id ? gradeSlugById.get(s.grade_id) : null) ?? parsed?.gradeSlug ?? "",
-      trackCode:
-        (s.curriculum_track_id ? trackCodeById.get(s.curriculum_track_id) : null) ??
-        parsed?.trackCode ??
-        "",
+      trackCodes: (trackCodesBySubject.get(s.id) ?? []).sort(),
       groupCode: s.group_code ?? null,
       groupName: s.group_name ?? null,
       subjectNo: parsed?.kind === "subject" ? (parsed.numbers[0] ?? null) : null,
-      isTcs1: parsed?.kind === "subject",
+      isOfficialCode: parsed?.kind === "subject",
     };
     subjects.push(row);
     subjectById.set(s.id, row);
@@ -78,7 +94,7 @@ export async function loadContentCodeRegistry(
   const unitCodeById = new Map<string, string>();
   for (const u of unitsRes.data ?? []) {
     const code = (u.code ?? "").trim();
-    if (code && parseTcs1Code(code)?.kind !== "unit") nonConformingCodes.push(code);
+    if (code && parseTcs2Code(code)?.kind !== "unit") nonConformingCodes.push(code);
     unitCodeById.set(u.id, code);
     units.push({
       unitCode: code,
@@ -90,7 +106,7 @@ export async function loadContentCodeRegistry(
   const lessons: CodeRegistryLesson[] = [];
   for (const l of lessonsRes.data ?? []) {
     const code = (l.slug ?? "").trim();
-    if (code && parseTcs1Code(code)?.kind !== "lesson") nonConformingCodes.push(code);
+    if (code && parseTcs2Code(code)?.kind !== "lesson") nonConformingCodes.push(code);
     lessons.push({
       lessonCode: code,
       subjectCode: (l.subject_id ? subjectById.get(l.subject_id)?.subjectCode : "") ?? "",
@@ -102,20 +118,15 @@ export async function loadContentCodeRegistry(
   const subjectCodes = subjects.map((s) => s.subjectCode).filter(Boolean);
   const groupCodes = subjects.map((s) => s.groupCode ?? "").filter(Boolean);
 
-  const allocations = TCS1_GRADES.flatMap((grade) =>
-    TCS1_TRACKS.map((track) => {
-      const scope = { gradeSlug: grade.gradeSlug, trackCode: track.trackCode };
-      return {
-        gradeSlug: grade.gradeSlug,
-        trackCode: track.trackCode,
-        nextSubjectNo: nextAllocatedNumber(subjectCodes, "subject", scope),
-        nextGroupNo: nextAllocatedNumber(groupCodes, "group", scope),
-        subjectCount: subjects.filter(
-          (s) => s.gradeSlug === grade.gradeSlug && s.trackCode === track.trackCode,
-        ).length,
-      };
-    }),
-  );
+  const allocations = TCS1_GRADES.map((grade) => {
+    const scope = { gradeSlug: grade.gradeSlug };
+    return {
+      gradeSlug: grade.gradeSlug,
+      nextSubjectNo: nextAllocatedNumber(subjectCodes, "subject", scope),
+      nextGroupNo: nextAllocatedNumber(groupCodes, "group", scope),
+      subjectCount: subjects.filter((s) => s.gradeSlug === grade.gradeSlug).length,
+    };
+  });
 
   return {
     schemeVersion: CONTENT_CODE_SCHEME_VERSION,
