@@ -33,3 +33,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Capacitor / Android release
+android/keystore.properties
+android/*.jks
+android/app/build/
+android/.gradle/

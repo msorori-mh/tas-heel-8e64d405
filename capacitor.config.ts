@@ -1,0 +1,35 @@
+import type { CapacitorConfig } from "@capacitor/cli";
+
+/**
+ * 17B — Android release preparation for تمكين.
+ *
+ * Tamkeen's web app is a TanStack Start SSR application, so the Android shell
+ * loads the deployed production origin instead of a static bundle. `webDir`
+ * only carries an offline fallback page that is shown when the origin cannot
+ * be reached. No business logic, RLS or RPC behaviour changes.
+ */
+const config: CapacitorConfig = {
+  appId: "app.studentamkeen.tamkeen",
+  appName: "تمكين",
+  webDir: "mobile/www",
+  android: {
+    allowMixedContent: false,
+  },
+  server: {
+    // HTTPS only. Change to the preview origin for internal test tracks.
+    url: "https://studentamkeen.com",
+    androidScheme: "https",
+    cleartext: false,
+    hostname: "studentamkeen.com",
+  },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 1200,
+      backgroundColor: "#5B4BFF",
+      androidScaleType: "CENTER_CROP",
+      showSpinner: false,
+    },
+  },
+};
+
+export default config;

@@ -15,6 +15,8 @@ import { registerServiceWorker } from "@/lib/pwa/register-sw";
 import { PwaUpdateNotice } from "@/components/pwa/PwaUpdateNotice";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
+import { AndroidBackHandler } from "@/components/mobile/AndroidBackHandler";
+
 
 function NotFoundComponent() {
   return (
@@ -185,9 +187,11 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Outlet />
+        <AndroidBackHandler />
         <PwaUpdateNotice />
         <Toaster position="top-center" richColors />
       </AuthProvider>
     </QueryClientProvider>
   );
+
 }
