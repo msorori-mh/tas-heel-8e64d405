@@ -64,6 +64,7 @@ type SidebarLink = {
     | "/admin/ministerial-exams"
     | "/admin/import"
     | "/admin/learning-insights/mistakes"
+    | "/admin/learning-insights/performance"
     | "/admin/payment-methods"
     | "/admin/payment-requests"
     | "/admin/wallet-topups";
@@ -84,7 +85,8 @@ export function filterAdminSidebarLinks<T extends SidebarLink>(
       link.href !== "/admin/payment-methods" &&
       link.href !== "/admin/payment-requests" &&
       link.href !== "/admin/wallet-topups" &&
-      link.href !== "/admin/learning-insights/mistakes",
+      link.href !== "/admin/learning-insights/mistakes" &&
+      link.href !== "/admin/learning-insights/performance",
   );
 }
 

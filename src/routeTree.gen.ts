@@ -28,6 +28,7 @@ import { Route as AuthenticatedSubscriptionRouteImport } from './routes/_authent
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedQuickReviewRouteImport } from './routes/_authenticated/quick-review'
 import { Route as AuthenticatedProgressRouteImport } from './routes/_authenticated/progress'
+import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenticated/performance'
 import { Route as AuthenticatedPaymentsRouteImport } from './routes/_authenticated/payments'
 import { Route as AuthenticatedMyMistakesRouteImport } from './routes/_authenticated/my-mistakes'
 import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
@@ -69,6 +70,7 @@ import { Route as AuthenticatedExamsTrainingTemplateIdRouteImport } from './rout
 import { Route as AuthenticatedExamsStrictTemplateIdRouteImport } from './routes/_authenticated/exams.strict.$templateId'
 import { Route as AuthenticatedExamsHistorySessionIdRouteImport } from './routes/_authenticated/exams.history.$sessionId'
 import { Route as AuthenticatedAdminLessonsLessonIdRouteImport } from './routes/_authenticated/admin.lessons.$lessonId'
+import { Route as AuthenticatedAdminLearningInsightsPerformanceRouteImport } from './routes/_authenticated/admin.learning-insights.performance'
 import { Route as AuthenticatedAdminLearningInsightsMistakesRouteImport } from './routes/_authenticated/admin.learning-insights.mistakes'
 import { Route as AuthenticatedMinisterialExamsSessionsSessionIdResultRouteImport } from './routes/_authenticated/ministerial-exams.sessions.$sessionId.result'
 
@@ -168,6 +170,12 @@ const AuthenticatedProgressRoute = AuthenticatedProgressRouteImport.update({
   path: '/progress',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPerformanceRoute =
+  AuthenticatedPerformanceRouteImport.update({
+    id: '/performance',
+    path: '/performance',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPaymentsRoute = AuthenticatedPaymentsRouteImport.update({
   id: '/payments',
   path: '/payments',
@@ -406,6 +414,12 @@ const AuthenticatedAdminLessonsLessonIdRoute =
     path: '/$lessonId',
     getParentRoute: () => AuthenticatedAdminLessonsRoute,
   } as any)
+const AuthenticatedAdminLearningInsightsPerformanceRoute =
+  AuthenticatedAdminLearningInsightsPerformanceRouteImport.update({
+    id: '/learning-insights/performance',
+    path: '/learning-insights/performance',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminLearningInsightsMistakesRoute =
   AuthenticatedAdminLearningInsightsMistakesRouteImport.update({
     id: '/learning-insights/mistakes',
@@ -436,6 +450,7 @@ export interface FileRoutesByFullPath {
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/my-mistakes': typeof AuthenticatedMyMistakesRoute
   '/payments': typeof AuthenticatedPaymentsRouteWithChildren
+  '/performance': typeof AuthenticatedPerformanceRoute
   '/progress': typeof AuthenticatedProgressRoute
   '/quick-review': typeof AuthenticatedQuickReviewRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -470,6 +485,7 @@ export interface FileRoutesByFullPath {
   '/payments/': typeof AuthenticatedPaymentsIndexRoute
   '/semesters/': typeof AuthenticatedSemestersIndexRoute
   '/admin/learning-insights/mistakes': typeof AuthenticatedAdminLearningInsightsMistakesRoute
+  '/admin/learning-insights/performance': typeof AuthenticatedAdminLearningInsightsPerformanceRoute
   '/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
   '/exams/history/$sessionId': typeof AuthenticatedExamsHistorySessionIdRoute
   '/exams/strict/$templateId': typeof AuthenticatedExamsStrictTemplateIdRoute
@@ -497,6 +513,7 @@ export interface FileRoutesByTo {
   '/app': typeof AuthenticatedAppRoute
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/my-mistakes': typeof AuthenticatedMyMistakesRoute
+  '/performance': typeof AuthenticatedPerformanceRoute
   '/progress': typeof AuthenticatedProgressRoute
   '/quick-review': typeof AuthenticatedQuickReviewRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -531,6 +548,7 @@ export interface FileRoutesByTo {
   '/payments': typeof AuthenticatedPaymentsIndexRoute
   '/semesters': typeof AuthenticatedSemestersIndexRoute
   '/admin/learning-insights/mistakes': typeof AuthenticatedAdminLearningInsightsMistakesRoute
+  '/admin/learning-insights/performance': typeof AuthenticatedAdminLearningInsightsPerformanceRoute
   '/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
   '/exams/history/$sessionId': typeof AuthenticatedExamsHistorySessionIdRoute
   '/exams/strict/$templateId': typeof AuthenticatedExamsStrictTemplateIdRoute
@@ -562,6 +580,7 @@ export interface FileRoutesById {
   '/_authenticated/grades': typeof AuthenticatedGradesRouteWithChildren
   '/_authenticated/my-mistakes': typeof AuthenticatedMyMistakesRoute
   '/_authenticated/payments': typeof AuthenticatedPaymentsRouteWithChildren
+  '/_authenticated/performance': typeof AuthenticatedPerformanceRoute
   '/_authenticated/progress': typeof AuthenticatedProgressRoute
   '/_authenticated/quick-review': typeof AuthenticatedQuickReviewRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -596,6 +615,7 @@ export interface FileRoutesById {
   '/_authenticated/payments/': typeof AuthenticatedPaymentsIndexRoute
   '/_authenticated/semesters/': typeof AuthenticatedSemestersIndexRoute
   '/_authenticated/admin/learning-insights/mistakes': typeof AuthenticatedAdminLearningInsightsMistakesRoute
+  '/_authenticated/admin/learning-insights/performance': typeof AuthenticatedAdminLearningInsightsPerformanceRoute
   '/_authenticated/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
   '/_authenticated/exams/history/$sessionId': typeof AuthenticatedExamsHistorySessionIdRoute
   '/_authenticated/exams/strict/$templateId': typeof AuthenticatedExamsStrictTemplateIdRoute
@@ -627,6 +647,7 @@ export interface FileRouteTypes {
     | '/grades'
     | '/my-mistakes'
     | '/payments'
+    | '/performance'
     | '/progress'
     | '/quick-review'
     | '/settings'
@@ -661,6 +682,7 @@ export interface FileRouteTypes {
     | '/payments/'
     | '/semesters/'
     | '/admin/learning-insights/mistakes'
+    | '/admin/learning-insights/performance'
     | '/admin/lessons/$lessonId'
     | '/exams/history/$sessionId'
     | '/exams/strict/$templateId'
@@ -688,6 +710,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/grades'
     | '/my-mistakes'
+    | '/performance'
     | '/progress'
     | '/quick-review'
     | '/settings'
@@ -722,6 +745,7 @@ export interface FileRouteTypes {
     | '/payments'
     | '/semesters'
     | '/admin/learning-insights/mistakes'
+    | '/admin/learning-insights/performance'
     | '/admin/lessons/$lessonId'
     | '/exams/history/$sessionId'
     | '/exams/strict/$templateId'
@@ -752,6 +776,7 @@ export interface FileRouteTypes {
     | '/_authenticated/grades'
     | '/_authenticated/my-mistakes'
     | '/_authenticated/payments'
+    | '/_authenticated/performance'
     | '/_authenticated/progress'
     | '/_authenticated/quick-review'
     | '/_authenticated/settings'
@@ -786,6 +811,7 @@ export interface FileRouteTypes {
     | '/_authenticated/payments/'
     | '/_authenticated/semesters/'
     | '/_authenticated/admin/learning-insights/mistakes'
+    | '/_authenticated/admin/learning-insights/performance'
     | '/_authenticated/admin/lessons/$lessonId'
     | '/_authenticated/exams/history/$sessionId'
     | '/_authenticated/exams/strict/$templateId'
@@ -948,6 +974,13 @@ declare module '@tanstack/react-router' {
       path: '/progress'
       fullPath: '/progress'
       preLoaderRoute: typeof AuthenticatedProgressRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/performance': {
+      id: '/_authenticated/performance'
+      path: '/performance'
+      fullPath: '/performance'
+      preLoaderRoute: typeof AuthenticatedPerformanceRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/payments': {
@@ -1237,6 +1270,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLessonsLessonIdRouteImport
       parentRoute: typeof AuthenticatedAdminLessonsRoute
     }
+    '/_authenticated/admin/learning-insights/performance': {
+      id: '/_authenticated/admin/learning-insights/performance'
+      path: '/learning-insights/performance'
+      fullPath: '/admin/learning-insights/performance'
+      preLoaderRoute: typeof AuthenticatedAdminLearningInsightsPerformanceRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/learning-insights/mistakes': {
       id: '/_authenticated/admin/learning-insights/mistakes'
       path: '/learning-insights/mistakes'
@@ -1287,6 +1327,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminWalletTopupsRoute: typeof AuthenticatedAdminWalletTopupsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminLearningInsightsMistakesRoute: typeof AuthenticatedAdminLearningInsightsMistakesRoute
+  AuthenticatedAdminLearningInsightsPerformanceRoute: typeof AuthenticatedAdminLearningInsightsPerformanceRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
@@ -1310,6 +1351,8 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedAdminLearningInsightsMistakesRoute:
     AuthenticatedAdminLearningInsightsMistakesRoute,
+  AuthenticatedAdminLearningInsightsPerformanceRoute:
+    AuthenticatedAdminLearningInsightsPerformanceRoute,
 }
 
 const AuthenticatedAdminRouteWithChildren =
@@ -1378,6 +1421,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGradesRoute: typeof AuthenticatedGradesRouteWithChildren
   AuthenticatedMyMistakesRoute: typeof AuthenticatedMyMistakesRoute
   AuthenticatedPaymentsRoute: typeof AuthenticatedPaymentsRouteWithChildren
+  AuthenticatedPerformanceRoute: typeof AuthenticatedPerformanceRoute
   AuthenticatedProgressRoute: typeof AuthenticatedProgressRoute
   AuthenticatedQuickReviewRoute: typeof AuthenticatedQuickReviewRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -1406,6 +1450,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGradesRoute: AuthenticatedGradesRouteWithChildren,
   AuthenticatedMyMistakesRoute: AuthenticatedMyMistakesRoute,
   AuthenticatedPaymentsRoute: AuthenticatedPaymentsRouteWithChildren,
+  AuthenticatedPerformanceRoute: AuthenticatedPerformanceRoute,
   AuthenticatedProgressRoute: AuthenticatedProgressRoute,
   AuthenticatedQuickReviewRoute: AuthenticatedQuickReviewRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
