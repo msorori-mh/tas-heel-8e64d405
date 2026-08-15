@@ -15,10 +15,10 @@ import {
   normalizeKeyPoints,
   type ReviewItem,
 } from "./review-types";
+import { REVIEW_PAGE_SIZE, fetchAllPaged } from "./review-paging";
 
-export const REVIEW_PAGE_SIZE = 500;
-/** Hard safety stop: 40 pages × 500 = 20k rows per collection. */
-export const REVIEW_MAX_PAGES = 40;
+export { REVIEW_PAGE_SIZE, REVIEW_MAX_PAGES, fetchAllPaged } from "./review-paging";
+
 const ID_CHUNK = 100;
 
 export type ReviewSubject = {
@@ -34,30 +34,6 @@ function chunk<T>(rows: T[], size: number): T[][] {
   return out;
 }
 
-/**
- * Runs a ranged query repeatedly until a short page is returned.
- * Exported for tests: proves no read relies on the implicit 1000-row cap.
- */
-export async function fetchAllPaged<T>(
-  page: (
-    from: number,
-    to: number,
-  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-  pageSize: number = REVIEW_PAGE_SIZE,
-  maxPages: number = REVIEW_MAX_PAGES,
-): Promise<T[]> {
-
-  const all: T[] = [];
-  for (let p = 0; p < maxPages; p += 1) {
-    const from = p * pageSize;
-    const { data, error } = await page(from, from + pageSize - 1);
-    if (error) throw new Error(error.message);
-    const rows = data ?? [];
-    all.push(...rows);
-    if (rows.length < pageSize) break;
-  }
-  return all;
-}
 
 type LessonRow = {
   id: string;
