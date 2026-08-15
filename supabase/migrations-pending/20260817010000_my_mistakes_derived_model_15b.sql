@@ -87,26 +87,8 @@ BEGIN
 
   v_track := public.current_student_track_id();
 
-  CREATE TEMP TABLE IF NOT EXISTS _mm_rows (
-    question_id uuid,
-    display_revision_id uuid,
-    question_text text,
-    subject_id uuid,
-    lesson_id uuid,
-    wrong_count int,
-    blank_count int,
-    occurrence_count int,
-    first_mistake_at timestamptz,
-    last_mistake_at timestamptz,
-    latest_state text,
-    latest_attempt_type text,
-    latest_attempt_scope text,
-    latest_session_id uuid,
-    has_repeated_mistake boolean
-  ) ON COMMIT DROP;
-  DELETE FROM _mm_rows;
-
-  INSERT INTO _mm_rows
+  -- Whole derived set for this student (read-only; no temp tables so the RPC
+  -- stays callable inside PostgREST's read-only transactions).
   WITH sess AS (
     SELECT es.id,
            coalesce(es.completed_at, es.submitted_at, es.created_at) AS attempt_at,
@@ -182,86 +164,90 @@ BEGIN
     FROM occ_t
     WHERE state IN ('WRONG', 'BLANK')
     ORDER BY question_id, attempt_at DESC, session_id
-  )
-  SELECT a.question_id,
-         l.question_revision_id,
-         l.rendered_question_text,
-         l.eff_subject_id,
-         l.lesson_id,
-         a.wrong_count,
-         a.blank_count,
-         a.occurrence_count,
-         a.first_mistake_at,
-         a.last_mistake_at,
-         CASE WHEN a.last_correct_at IS NOT NULL AND a.last_correct_at > a.last_mistake_at
-              THEN 'MASTERED_LATER' ELSE l.state END,
-         l.attempt_type,
-         l.scope,
-         l.session_id,
-         a.occurrence_count > 1
-  FROM agg a
-  JOIN latest l ON l.question_id = a.question_id;
-
-  -- subject facets are computed BEFORE the subject/lesson/status narrowing
-  SELECT coalesce(jsonb_agg(x ORDER BY x->>'subject_name'), '[]'::jsonb) INTO v_subjects
-  FROM (
-    SELECT jsonb_build_object(
-             'subject_id', r.subject_id,
-             'subject_name', s.name,
-             'count', count(*)::int
-           ) AS x
-    FROM _mm_rows r
-    LEFT JOIN public.subjects s ON s.id = r.subject_id
-    WHERE r.subject_id IS NOT NULL
-    GROUP BY r.subject_id, s.name
-  ) f;
-
-  SELECT count(*)::int INTO v_total
-  FROM _mm_rows r
-  WHERE (_subject_id IS NULL OR r.subject_id = _subject_id)
-    AND (_lesson_id IS NULL OR r.lesson_id = _lesson_id)
-    AND (v_status = 'ALL'
-         OR (v_status = 'REPEATED' AND r.has_repeated_mistake)
-         OR (v_status <> 'REPEATED' AND r.latest_state = v_status));
-
-  SELECT coalesce(jsonb_agg(item ORDER BY ord), '[]'::jsonb) INTO v_items
-  FROM (
-    SELECT row_number() OVER () AS ord,
-           jsonb_build_object(
-             'question_id', r.question_id,
-             'display_revision_id', r.display_revision_id,
-             'question_text', r.question_text,
-             'subject_id', r.subject_id,
-             'subject_name', s.name,
-             'lesson_id', r.lesson_id,
-             'lesson_title', l.title,
-             'wrong_count', r.wrong_count,
-             'blank_count', r.blank_count,
-             'occurrence_count', r.occurrence_count,
-             'first_mistake_at', r.first_mistake_at,
-             'last_mistake_at', r.last_mistake_at,
-             'latest_state', r.latest_state,
-             'latest_attempt_type', r.latest_attempt_type,
-             'latest_attempt_scope', r.latest_attempt_scope,
-             'latest_session_id', r.latest_session_id,
-             'has_repeated_mistake', r.has_repeated_mistake,
-             'can_review_lesson', r.lesson_id IS NOT NULL,
-             'can_open_attempt', r.latest_session_id IS NOT NULL
-           ) AS item
-    FROM _mm_rows r
-    LEFT JOIN public.subjects s ON s.id = r.subject_id
-    LEFT JOIN public.lessons l ON l.id = r.lesson_id
+  ),
+  rows_all AS (
+    SELECT a.question_id,
+           l.question_revision_id AS display_revision_id,
+           l.rendered_question_text AS question_text,
+           l.eff_subject_id AS subject_id,
+           sj.name AS subject_name,
+           l.lesson_id,
+           ls.title AS lesson_title,
+           a.wrong_count,
+           a.blank_count,
+           a.occurrence_count,
+           a.first_mistake_at,
+           a.last_mistake_at,
+           CASE WHEN a.last_correct_at IS NOT NULL AND a.last_correct_at > a.last_mistake_at
+                THEN 'MASTERED_LATER' ELSE l.state END AS latest_state,
+           l.attempt_type AS latest_attempt_type,
+           l.scope AS latest_attempt_scope,
+           l.session_id AS latest_session_id,
+           a.occurrence_count > 1 AS has_repeated_mistake
+    FROM agg a
+    JOIN latest l ON l.question_id = a.question_id
+    LEFT JOIN public.subjects sj ON sj.id = l.eff_subject_id
+    LEFT JOIN public.lessons ls ON ls.id = l.lesson_id
+  ),
+  filtered AS (
+    SELECT * FROM rows_all r
     WHERE (_subject_id IS NULL OR r.subject_id = _subject_id)
       AND (_lesson_id IS NULL OR r.lesson_id = _lesson_id)
       AND (v_status = 'ALL'
            OR (v_status = 'REPEATED' AND r.has_repeated_mistake)
            OR (v_status <> 'REPEATED' AND r.latest_state = v_status))
+  ),
+  page AS (
+    SELECT * FROM filtered
     ORDER BY
-      CASE WHEN v_sort = 'most_repeated' THEN r.occurrence_count END DESC NULLS LAST,
-      r.last_mistake_at DESC NULLS LAST,
-      r.question_id
+      CASE WHEN v_sort = 'most_repeated' THEN occurrence_count END DESC NULLS LAST,
+      last_mistake_at DESC NULLS LAST,
+      question_id
     LIMIT v_limit OFFSET v_offset
-  ) q;
+  ),
+  facets AS (
+    SELECT coalesce(jsonb_agg(x ORDER BY nm), '[]'::jsonb) AS subjects
+    FROM (
+      SELECT coalesce(subject_name, '') AS nm,
+             jsonb_build_object(
+               'subject_id', subject_id,
+               'subject_name', subject_name,
+               'count', count(*)::int
+             ) AS x
+      FROM rows_all
+      WHERE subject_id IS NOT NULL
+      GROUP BY subject_id, subject_name
+    ) s
+  )
+  SELECT
+    coalesce((SELECT jsonb_agg(jsonb_build_object(
+        'question_id', p.question_id,
+        'display_revision_id', p.display_revision_id,
+        'question_text', p.question_text,
+        'subject_id', p.subject_id,
+        'subject_name', p.subject_name,
+        'lesson_id', p.lesson_id,
+        'lesson_title', p.lesson_title,
+        'wrong_count', p.wrong_count,
+        'blank_count', p.blank_count,
+        'occurrence_count', p.occurrence_count,
+        'first_mistake_at', p.first_mistake_at,
+        'last_mistake_at', p.last_mistake_at,
+        'latest_state', p.latest_state,
+        'latest_attempt_type', p.latest_attempt_type,
+        'latest_attempt_scope', p.latest_attempt_scope,
+        'latest_session_id', p.latest_session_id,
+        'has_repeated_mistake', p.has_repeated_mistake,
+        'can_review_lesson', p.lesson_id IS NOT NULL,
+        'can_open_attempt', p.latest_session_id IS NOT NULL
+      ) ORDER BY
+        CASE WHEN v_sort = 'most_repeated' THEN p.occurrence_count END DESC NULLS LAST,
+        p.last_mistake_at DESC NULLS LAST,
+        p.question_id)
+      FROM page p), '[]'::jsonb),
+    (SELECT count(*)::int FROM filtered),
+    (SELECT subjects FROM facets)
+  INTO v_items, v_total, v_subjects;
 
   RETURN jsonb_build_object(
     'items', v_items,
