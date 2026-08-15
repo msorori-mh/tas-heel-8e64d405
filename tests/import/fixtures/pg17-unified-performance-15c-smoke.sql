@@ -62,7 +62,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO public.questions (id, code, question_text, options, correct_index, question_type, subject_id, created_by)
 SELECT ('66666666-0000-0000-0000-00000000000' || c)::uuid, 'Q-' || upper(c), 'Q' || upper(c),
        '[]'::jsonb, -1, 'lesson', '33333333-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111'
-FROM unnest(ARRAY['a','b','c','d','e','g']) AS c
+FROM unnest(ARRAY['a','b','c','d','e','f']) AS c
 ON CONFLICT DO NOTHING;
 
 INSERT INTO public.question_revisions (id, question_id, revision_number, status, interaction_type, grading_mode,
@@ -75,7 +75,7 @@ INSERT INTO public.question_revisions (id, question_id, revision_number, status,
   -- E: historical R3 (superseded, targeted at Lesson One) then R4 (Lesson Two)
   ('77777777-0000-0000-0000-0000000000e3', '66666666-0000-0000-0000-00000000000e', 3, 'SUPERSEDED', 'SINGLE_CHOICE', 'AUTO_SINGLE', 'Question E text R3', 1, false, false, false, '11111111-1111-1111-1111-111111111111', now(), '11111111-1111-1111-1111-111111111111', repeat('e3', 32), 'canonical_payload_v1'),
   ('77777777-0000-0000-0000-0000000000e4', '66666666-0000-0000-0000-00000000000e', 4, 'PUBLISHED', 'SINGLE_CHOICE', 'AUTO_SINGLE', 'Question E text R4', 1, false, false, false, '11111111-1111-1111-1111-111111111111', now(), '11111111-1111-1111-1111-111111111111', repeat('e4', 32), 'canonical_payload_v1'),
-  ('77777777-0000-0000-0000-0000000000g1', '66666666-0000-0000-0000-00000000000g', 1, 'PUBLISHED', 'SINGLE_CHOICE', 'AUTO_SINGLE', 'Question G text', 1, false, false, false, '11111111-1111-1111-1111-111111111111', now(), '11111111-1111-1111-1111-111111111111', repeat('91', 32), 'canonical_payload_v1')
+  ('77777777-0000-0000-0000-0000000000f1', '66666666-0000-0000-0000-00000000000f', 1, 'PUBLISHED', 'SINGLE_CHOICE', 'AUTO_SINGLE', 'Question F text', 1, false, false, false, '11111111-1111-1111-1111-111111111111', now(), '11111111-1111-1111-1111-111111111111', repeat('91', 32), 'canonical_payload_v1')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO public.question_targets (question_id, revision_id, target_type, subject_id, lesson_id, is_primary, created_by) VALUES
@@ -85,7 +85,7 @@ INSERT INTO public.question_targets (question_id, revision_id, target_type, subj
   ('66666666-0000-0000-0000-00000000000d', '77777777-0000-0000-0000-0000000000d1', 'LESSON', '33333333-0000-0000-0000-000000000004', '55555555-0000-0000-0000-000000000002', true, '11111111-1111-1111-1111-111111111111'),
   ('66666666-0000-0000-0000-00000000000e', '77777777-0000-0000-0000-0000000000e3', 'LESSON', '33333333-0000-0000-0000-000000000004', '55555555-0000-0000-0000-000000000001', true, '11111111-1111-1111-1111-111111111111'),
   ('66666666-0000-0000-0000-00000000000e', '77777777-0000-0000-0000-0000000000e4', 'LESSON', '33333333-0000-0000-0000-000000000004', '55555555-0000-0000-0000-000000000002', true, '11111111-1111-1111-1111-111111111111'),
-  ('66666666-0000-0000-0000-00000000000g', '77777777-0000-0000-0000-0000000000g1', 'LESSON', '33333333-0000-0000-0000-000000000014', '55555555-0000-0000-0000-000000000003', true, '11111111-1111-1111-1111-111111111111');
+  ('66666666-0000-0000-0000-00000000000f', '77777777-0000-0000-0000-0000000000f1', 'LESSON', '33333333-0000-0000-0000-000000000014', '55555555-0000-0000-0000-000000000003', true, '11111111-1111-1111-1111-111111111111');
 
 -- ---------------------------------------------------------------- templates --
 INSERT INTO public.exam_templates (id, title, mode, subject_id, is_active) VALUES
@@ -149,9 +149,9 @@ INSERT INTO public.exam_session_questions (id, exam_session_id, question_revisio
   -- Sanaa student on the Aden model
   ('aaaaaaaa-0000-0000-0000-000000000009', '99999999-0000-0000-0000-000000000007', '77777777-0000-0000-0000-0000000000e3', '66666666-0000-0000-0000-00000000000e', 1, 'Question E text R3', '[]'::jsonb, 1, 'REVISION_PINNED', repeat('19', 32), 'canonical_payload_v1'),
   -- grade 11 cohort
-  ('aaaaaaaa-0000-0000-0000-00000000000b', '99999999-0000-0000-0000-000000000011', '77777777-0000-0000-0000-0000000000g1', '66666666-0000-0000-0000-00000000000g', 1, 'Question G text', '[]'::jsonb, 1, 'REVISION_PINNED', repeat('1b', 32), 'canonical_payload_v1'),
-  ('aaaaaaaa-0000-0000-0000-00000000000c', '99999999-0000-0000-0000-000000000012', '77777777-0000-0000-0000-0000000000g1', '66666666-0000-0000-0000-00000000000g', 1, 'Question G text', '[]'::jsonb, 1, 'REVISION_PINNED', repeat('1c', 32), 'canonical_payload_v1'),
-  ('aaaaaaaa-0000-0000-0000-00000000000d', '99999999-0000-0000-0000-000000000013', '77777777-0000-0000-0000-0000000000g1', '66666666-0000-0000-0000-00000000000g', 1, 'Question G text', '[]'::jsonb, 1, 'REVISION_PINNED', repeat('1d', 32), 'canonical_payload_v1');
+  ('aaaaaaaa-0000-0000-0000-00000000000b', '99999999-0000-0000-0000-000000000011', '77777777-0000-0000-0000-0000000000f1', '66666666-0000-0000-0000-00000000000f', 1, 'Question F text', '[]'::jsonb, 1, 'REVISION_PINNED', repeat('1b', 32), 'canonical_payload_v1'),
+  ('aaaaaaaa-0000-0000-0000-00000000000c', '99999999-0000-0000-0000-000000000012', '77777777-0000-0000-0000-0000000000f1', '66666666-0000-0000-0000-00000000000f', 1, 'Question F text', '[]'::jsonb, 1, 'REVISION_PINNED', repeat('1c', 32), 'canonical_payload_v1'),
+  ('aaaaaaaa-0000-0000-0000-00000000000d', '99999999-0000-0000-0000-000000000013', '77777777-0000-0000-0000-0000000000f1', '66666666-0000-0000-0000-00000000000f', 1, 'Question F text', '[]'::jsonb, 1, 'REVISION_PINNED', repeat('1d', 32), 'canonical_payload_v1');
 
 INSERT INTO public.exam_session_answers (session_id, exam_session_question_id, question_id, question_revision_id,
   selected_option_code, answered_at, is_correct, requires_manual_review, grading_status, max_score, final_score) VALUES
@@ -163,9 +163,9 @@ INSERT INTO public.exam_session_answers (session_id, exam_session_question_id, q
   ('99999999-0000-0000-0000-000000000005', 'aaaaaaaa-0000-0000-0000-000000000007', '66666666-0000-0000-0000-00000000000e', '77777777-0000-0000-0000-0000000000e3', 'B', now() - interval '3 days', false, false, 'GRADED', 1, 0),
   ('99999999-0000-0000-0000-000000000006', 'aaaaaaaa-0000-0000-0000-000000000008', '66666666-0000-0000-0000-00000000000e', '77777777-0000-0000-0000-0000000000e3', 'A', now() - interval '2 days', true, false, 'GRADED', 1, 1),
   ('99999999-0000-0000-0000-000000000007', 'aaaaaaaa-0000-0000-0000-000000000009', '66666666-0000-0000-0000-00000000000e', '77777777-0000-0000-0000-0000000000e3', 'B', now() - interval '2 days', false, false, 'GRADED', 1, 0),
-  ('99999999-0000-0000-0000-000000000011', 'aaaaaaaa-0000-0000-0000-00000000000b', '66666666-0000-0000-0000-00000000000g', '77777777-0000-0000-0000-0000000000g1', 'B', now() - interval '6 days', false, false, 'GRADED', 1, 0),
-  ('99999999-0000-0000-0000-000000000012', 'aaaaaaaa-0000-0000-0000-00000000000c', '66666666-0000-0000-0000-00000000000g', '77777777-0000-0000-0000-0000000000g1', 'B', now() - interval '6 days', false, false, 'GRADED', 1, 0),
-  ('99999999-0000-0000-0000-000000000013', 'aaaaaaaa-0000-0000-0000-00000000000d', '66666666-0000-0000-0000-00000000000g', '77777777-0000-0000-0000-0000000000g1', 'A', now() - interval '6 days', true, false, 'GRADED', 1, 1);
+  ('99999999-0000-0000-0000-000000000011', 'aaaaaaaa-0000-0000-0000-00000000000b', '66666666-0000-0000-0000-00000000000f', '77777777-0000-0000-0000-0000000000f1', 'B', now() - interval '6 days', false, false, 'GRADED', 1, 0),
+  ('99999999-0000-0000-0000-000000000012', 'aaaaaaaa-0000-0000-0000-00000000000c', '66666666-0000-0000-0000-00000000000f', '77777777-0000-0000-0000-0000000000f1', 'B', now() - interval '6 days', false, false, 'GRADED', 1, 0),
+  ('99999999-0000-0000-0000-000000000013', 'aaaaaaaa-0000-0000-0000-00000000000d', '66666666-0000-0000-0000-00000000000f', '77777777-0000-0000-0000-0000000000f1', 'A', now() - interval '6 days', true, false, 'GRADED', 1, 1);
 
 SET session_replication_role = origin;
 
