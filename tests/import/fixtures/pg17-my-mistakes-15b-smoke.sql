@@ -456,3 +456,11 @@ BEGIN
   PERFORM pg_temp.chk('15B-A admin RPC not executable by anon',
     NOT has_function_privilege('anon', 'public.get_admin_mistake_insights(uuid,uuid,uuid,uuid,text,timestamptz,timestamptz,int)', 'EXECUTE'));
 END $$;
+
+DO $$
+DECLARE v jsonb;
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+  v := public.get_admin_mistake_insights(NULL, NULL, NULL, NULL, 'ALL', NULL, NULL, 100);
+  RAISE NOTICE 'DEBUG D=%', pg_temp.topq(v, '66666666-0000-0000-0000-00000000000d');
+END $$;
