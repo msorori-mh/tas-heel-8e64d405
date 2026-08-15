@@ -77,6 +77,9 @@ function StudentPerformancePage() {
   const query = useQuery({
     queryKey: ["student-unified-performance", attemptType],
     queryFn: () => fetchStudentUnifiedPerformance(attemptType),
+    // DEFECT-16-01: an unavailable RPC must surface its Arabic message immediately
+    // instead of spinning through the default retry/backoff chain (weak internet).
+    retry: (count, error) => !(error instanceof PerformanceUnavailableError) && count < 1,
   });
 
   const data = query.data;
