@@ -3520,6 +3520,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      _my_mistakes_safe_options: { Args: { _rendered: Json }; Returns: Json }
       _qb_assert_revision_payload_hash: {
         Args: {
           p_payload_hash: string
@@ -3777,6 +3778,19 @@ export type Database = {
         Args: { _currency?: string; _user_id: string }
         Returns: string
       }
+      get_admin_mistake_insights: {
+        Args: {
+          _attempt_scope?: string
+          _from?: string
+          _grade_id?: string
+          _lesson_id?: string
+          _limit?: number
+          _subject_id?: string
+          _to?: string
+          _track_id?: string
+        }
+        Returns: Json
+      }
       get_dashboard_stats: {
         Args: never
         Returns: {
@@ -3841,6 +3855,7 @@ export type Database = {
         Args: { _session_id: string }
         Returns: Json
       }
+      get_my_mistake_detail: { Args: { _question_id: string }; Returns: Json }
       get_report_governorate_data: {
         Args: { _grade_id?: string; _months_back?: number }
         Returns: {
@@ -3996,6 +4011,18 @@ export type Database = {
           subject_id: string
           subject_name: string
         }[]
+      }
+      list_my_mistakes: {
+        Args: {
+          _attempt_scope?: string
+          _lesson_id?: string
+          _limit?: number
+          _offset?: number
+          _sort?: string
+          _status?: string
+          _subject_id?: string
+        }
+        Returns: Json
       }
       list_repeated_ministerial_questions: {
         Args: {

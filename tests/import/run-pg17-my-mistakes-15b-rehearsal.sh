@@ -12,7 +12,7 @@ RUN="${TMPDIR:-/tmp}/pg17-15b"
 DATA="$RUN/data"; SOCK="$RUN/sock"
 PREREQ="tests/import/fixtures/pg17-prereq-14fg-analytics.sql"
 MIG_14FG="supabase/migrations/20260815020000_ministerial_analytics_14f_14g.sql"
-MIG_15B="supabase/migrations-pending/20260817010000_my_mistakes_derived_model_15b.sql"
+MIG_15B="supabase/migrations/20260817010000_my_mistakes_derived_model_15b.sql"
 FAILURES=0
 
 CHAIN=(
