@@ -5,7 +5,7 @@ const files = {
   api: "src/lib/mistakes/admin-mistake-insights-api.ts",
   page: "src/routes/_authenticated/admin.learning-insights.mistakes.tsx",
   access: "src/lib/admin-route-access.ts",
-  sql: "supabase/migrations-pending/20260817010000_my_mistakes_derived_model_15b.sql",
+  sql: "supabase/migrations/20260817010000_my_mistakes_derived_model_15b.sql",
 };
 const read = (k) => readFileSync(files[k], "utf8");
 const clientSurfaces = ["api", "page"];

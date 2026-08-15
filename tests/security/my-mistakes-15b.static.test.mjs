@@ -5,7 +5,7 @@ const files = {
   api: "src/lib/mistakes/my-mistakes-api.ts",
   card: "src/components/mistakes/MistakeCard.tsx",
   page: "src/routes/_authenticated/my-mistakes.tsx",
-  sql: "supabase/migrations-pending/20260817010000_my_mistakes_derived_model_15b.sql",
+  sql: "supabase/migrations/20260817010000_my_mistakes_derived_model_15b.sql",
 };
 
 const read = (k) => readFileSync(files[k], "utf8");
