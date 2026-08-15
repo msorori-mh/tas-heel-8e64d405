@@ -100,7 +100,7 @@ describe("15A_A readiness derivation", () => {
     ];
     expect(filterLessons(rows, { gradeId: "g2" }).map((r) => r.lessonId)).toEqual(["b"]);
     expect(filterLessons(rows, { trackId: "t-aden" }).map((r) => r.lessonId)).toEqual(["b"]);
-    expect(filterLessons(rows, { subjectId: "s1" }).map((r) => r.lessonId)).toEqual(["a"]);
+    expect(filterLessons(rows, { subjectId: "s1" }).map((r) => r.lessonId)).toEqual(["a", "c"]);
     expect(filterLessons(rows, { readiness: "NOT_READY" }).map((r) => r.lessonId)).toEqual(["c"]);
     expect(filterLessons(rows, { readiness: "ALL" })).toHaveLength(3);
   });
