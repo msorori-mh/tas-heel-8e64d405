@@ -43,8 +43,10 @@ export async function fetchAllPaged<T>(
     from: number,
     to: number,
   ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-
+  pageSize: number = REVIEW_PAGE_SIZE,
+  maxPages: number = REVIEW_MAX_PAGES,
 ): Promise<T[]> {
+
   const all: T[] = [];
   for (let p = 0; p < maxPages; p += 1) {
     const from = p * pageSize;
