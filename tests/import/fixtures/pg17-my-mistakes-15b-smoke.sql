@@ -389,7 +389,10 @@ BEGIN
     AND (v->'summary'->>'repeated_mistakes')::int >= 1);
 
   a := pg_temp.topq(v, '66666666-0000-0000-0000-00000000000a');
-  d := pg_temp.topq(v, '66666666-0000-0000-0000-00000000000d');
+  -- D lives in Lesson Two; scope the query so it is inside the top list
+  d := pg_temp.topq(public.get_admin_mistake_insights(NULL, NULL, NULL,
+         '55555555-0000-0000-0000-000000000002', 'ALL', NULL, NULL, 100),
+         '66666666-0000-0000-0000-00000000000d');
   PERFORM pg_temp.chk('15B-A top_questions exposes safe preview + counters',
     a IS NOT NULL AND (a->>'wrong_count')::int = 3 AND (a->>'attempt_count')::int = 3
     AND (a->>'wrong_percentage')::numeric = 100.00 AND a ? 'question_preview');
@@ -455,12 +458,4 @@ DO $$
 BEGIN
   PERFORM pg_temp.chk('15B-A admin RPC not executable by anon',
     NOT has_function_privilege('anon', 'public.get_admin_mistake_insights(uuid,uuid,uuid,uuid,text,timestamptz,timestamptz,int)', 'EXECUTE'));
-END $$;
-
-DO $$
-DECLARE v jsonb;
-BEGIN
-  PERFORM set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
-  v := public.get_admin_mistake_insights(NULL, NULL, NULL, NULL, 'ALL', NULL, NULL, 100);
-  RAISE NOTICE 'DEBUG D=%', pg_temp.topq(v, '66666666-0000-0000-0000-00000000000d');
 END $$;
