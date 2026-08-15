@@ -6,7 +6,7 @@ import { isRpcMissing, MistakesUnavailableError } from "@/lib/mistakes/my-mistak
  *
  * Read-only admin client over the SAME derived source of truth as the student
  * notebook. Aggregate output only: no student identities, no per-student
- * notebook, and never an answer key / is_correct flag / hidden solution.
+ * notebook, and never any answer key or correctness marker.
  */
 
 const rpc = (name: string, args?: Record<string, unknown>) =>
