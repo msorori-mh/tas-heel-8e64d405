@@ -15,7 +15,7 @@ import {
   normalizeKeyPoints,
   type ReviewItem,
 } from "./review-types";
-import { REVIEW_PAGE_SIZE, fetchAllPaged } from "./review-paging";
+import { fetchAllPaged } from "./review-paging";
 
 export { REVIEW_PAGE_SIZE, REVIEW_MAX_PAGES, fetchAllPaged } from "./review-paging";
 

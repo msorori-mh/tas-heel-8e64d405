@@ -16,7 +16,7 @@ import {
   normalizeKeyPoints,
   type ReviewItem,
 } from "../../src/lib/review/review-types.ts";
-import { fetchAllPaged } from "../../src/lib/review/review-data.ts";
+import { fetchAllPaged } from "../../src/lib/review/review-paging.ts";
 
 function item(over: Partial<ReviewItem>): ReviewItem {
   return {

@@ -11,6 +11,7 @@ const focus = read("src/components/review/FocusReader.tsx");
 const page = read("src/routes/_authenticated/quick-review.tsx");
 const card = read("src/components/review/ReviewCard.tsx");
 const data = read("src/lib/review/review-data.ts");
+const paging = read("src/lib/review/review-paging.ts");
 
 test("Focus Mode is data-agnostic and reusable (no supabase import)", () => {
   assert.doesNotMatch(focus, /integrations\/supabase/);
@@ -73,8 +74,8 @@ test("no answer/question payload is read by the review feature", () => {
 test("every list read is paginated with an explicit range (B5 closed)", () => {
   const rangeCount = (data.match(/\.range\(from, to\)/g) ?? []).length;
   assert.ok(rangeCount >= 5, `expected paginated reads, found ${rangeCount}`);
-  assert.match(data, /REVIEW_PAGE_SIZE = 500/);
-  assert.match(data, /REVIEW_MAX_PAGES/);
+  assert.match(paging, /REVIEW_PAGE_SIZE = 500/);
+  assert.match(paging, /REVIEW_MAX_PAGES/);
 });
 
 test("PDF lessons link to the existing lesson route (no PDF parsing here)", () => {
