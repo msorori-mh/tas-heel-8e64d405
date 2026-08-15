@@ -3549,6 +3549,60 @@ export type Database = {
         Args: { p_revision_id: string }
         Returns: undefined
       }
+      _up_occurrences: {
+        Args: {
+          _attempt_type?: string
+          _from?: string
+          _grade_id?: string
+          _to?: string
+          _track_id?: string
+          _user_id?: string
+        }
+        Returns: {
+          attempt_at: string
+          attempt_type: string
+          eff_subject_id: string
+          lesson_id: string
+          question_id: string
+          scope: string
+          session_id: string
+          state: string
+          student_id: string
+        }[]
+      }
+      _up_progress: {
+        Args: { _user_id: string }
+        Returns: {
+          completed_lessons: number
+          subject_id: string
+          subject_name: string
+          total_lessons: number
+        }[]
+      }
+      _up_sessions: {
+        Args: {
+          _attempt_type?: string
+          _from?: string
+          _grade_id?: string
+          _to?: string
+          _track_id?: string
+          _user_id?: string
+        }
+        Returns: {
+          attempt_at: string
+          attempt_type: string
+          elapsed_seconds: number
+          grade_id: string
+          is_final_graded: boolean
+          is_pending_manual: boolean
+          percentage: number
+          scope: string
+          session_id: string
+          student_id: string
+          subject_id: string
+          track_id: string
+        }[]
+      }
       admin_adjust_wallet: {
         Args: {
           _amount: number
@@ -3791,6 +3845,19 @@ export type Database = {
         }
         Returns: Json
       }
+      get_admin_unified_performance: {
+        Args: {
+          _attempt_type?: string
+          _from?: string
+          _grade_id?: string
+          _lesson_id?: string
+          _limit?: number
+          _subject_id?: string
+          _to?: string
+          _track_id?: string
+        }
+        Returns: Json
+      }
       get_dashboard_stats: {
         Args: never
         Returns: {
@@ -3893,6 +3960,10 @@ export type Database = {
           status: string
           sub_count: number
         }[]
+      }
+      get_student_unified_performance: {
+        Args: { _attempt_type?: string; _limit?: number }
+        Returns: Json
       }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       get_user_total_points: { Args: { _user_id: string }; Returns: number }
