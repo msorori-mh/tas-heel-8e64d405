@@ -70,7 +70,7 @@ echo "$OUT" | grep -E 'PASS|FAIL|ERROR' || true
 FAIL_COUNT=$(echo "$OUT" | grep -cE 'FAIL|ERROR' || true)
 PASS_COUNT=$(echo "$OUT" | grep -c 'PASS' || true)
 FAILURES=$((FAILURES + FAIL_COUNT))
-if [ "$PASS_COUNT" -lt 28 ]; then
+if [ "$PASS_COUNT" -lt 45 ]; then
   echo "FAIL  smoke produced only $PASS_COUNT PASS lines"
   FAILURES=$((FAILURES + 1))
 fi

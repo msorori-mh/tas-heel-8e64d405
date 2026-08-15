@@ -22,6 +22,7 @@ export const FULL_ADMIN_ONLY_ADMIN_PATHS = [
   "/admin/payment-methods",
   "/admin/payment-requests",
   "/admin/wallet-topups",
+  "/admin/learning-insights",
 ] as const;
 
 export type AdminSection = "full" | "content";
@@ -44,6 +45,7 @@ export function canAccessAdminPath(
   if (path.startsWith("/admin/payment-methods")) return false;
   if (path.startsWith("/admin/payment-requests")) return false;
   if (path.startsWith("/admin/wallet-topups")) return false;
+  if (path.startsWith("/admin/learning-insights")) return false;
   return isContentManagerAdminPath(path);
 }
 
@@ -61,6 +63,7 @@ type SidebarLink = {
     | "/admin/exam-templates"
     | "/admin/ministerial-exams"
     | "/admin/import"
+    | "/admin/learning-insights/mistakes"
     | "/admin/payment-methods"
     | "/admin/payment-requests"
     | "/admin/wallet-topups";
@@ -80,7 +83,8 @@ export function filterAdminSidebarLinks<T extends SidebarLink>(
       link.href !== "/admin/users" &&
       link.href !== "/admin/payment-methods" &&
       link.href !== "/admin/payment-requests" &&
-      link.href !== "/admin/wallet-topups",
+      link.href !== "/admin/wallet-topups" &&
+      link.href !== "/admin/learning-insights/mistakes",
   );
 }
 

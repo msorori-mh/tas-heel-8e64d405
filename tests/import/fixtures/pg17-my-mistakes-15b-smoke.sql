@@ -351,3 +351,111 @@ BEGIN
       WHERE table_schema = 'public' AND table_name ILIKE '%mistake%'
     ));
 END $$;
+
+-- =============================================================================
+-- 15B-A admin insights
+-- =============================================================================
+INSERT INTO public.user_roles (user_id, role) VALUES
+  ('11111111-1111-1111-1111-111111111111', 'admin')
+ON CONFLICT DO NOTHING;
+
+CREATE OR REPLACE FUNCTION pg_temp.topq(p jsonb, q text)
+RETURNS jsonb LANGUAGE sql AS $$
+  SELECT e FROM jsonb_array_elements(p->'top_questions') e WHERE e->>'question_id' = q LIMIT 1
+$$;
+
+DO $$
+DECLARE v jsonb; a jsonb; d jsonb; sv jsonb; ok boolean := false; stu jsonb; sa jsonb;
+BEGIN
+  -- anon DENY
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  BEGIN PERFORM public.get_admin_mistake_insights(); EXCEPTION WHEN others THEN ok := true; END;
+  PERFORM pg_temp.chk('15B-A ANON_ADMIN_RPC DENY', ok);
+
+  -- student DENY
+  ok := false;
+  PERFORM set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+  BEGIN PERFORM public.get_admin_mistake_insights(); EXCEPTION WHEN others THEN ok := true; END;
+  PERFORM pg_temp.chk('15B-A STUDENT_ADMIN_RPC DENY', ok);
+
+  -- admin ALLOW
+  PERFORM set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+  v := public.get_admin_mistake_insights(NULL, NULL, NULL, NULL, 'ALL', NULL, NULL, 100);
+  PERFORM pg_temp.chk('15B-A ADMIN_ALLOW', v IS NOT NULL AND v ? 'summary');
+
+  PERFORM pg_temp.chk('15B-A AGGREGATION summary is populated',
+    (v->'summary'->>'total_mistake_occurrences')::int > 0
+    AND (v->'summary'->>'unique_questions_with_mistakes')::int > 0
+    AND (v->'summary'->>'repeated_mistakes')::int >= 1);
+
+  a := pg_temp.topq(v, '66666666-0000-0000-0000-00000000000a');
+  -- D lives in Lesson Two; scope the query so it is inside the top list
+  d := pg_temp.topq(public.get_admin_mistake_insights(NULL, NULL, NULL,
+         '55555555-0000-0000-0000-000000000002', 'ALL', NULL, NULL, 100),
+         '66666666-0000-0000-0000-00000000000d');
+  PERFORM pg_temp.chk('15B-A top_questions exposes safe preview + counters',
+    a IS NOT NULL AND (a->>'wrong_count')::int = 3 AND (a->>'attempt_count')::int = 3
+    AND (a->>'wrong_percentage')::numeric = 100.00 AND a ? 'question_preview');
+  PERFORM pg_temp.chk('15B-A mastered later is reported per question',
+    d IS NOT NULL AND (d->>'mastered_later_count')::int = 1
+    AND (d->>'mastered_later_percentage')::numeric = 100.00);
+
+  -- STUDENT_ADMIN_METRIC_PARITY (question A, single student dataset)
+  PERFORM set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+  stu := public.list_my_mistakes(NULL, NULL, 'ALL', 'ALL', 'recent', 100, 0);
+  sa := pg_temp.item(stu, '66666666-0000-0000-0000-00000000000a');
+  PERFORM set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+  PERFORM pg_temp.chk('15B-A STUDENT_ADMIN_METRIC_PARITY',
+    (sa->>'wrong_count')::int = (a->>'wrong_count')::int
+    AND (sa->>'occurrence_count')::int = (a->>'mistake_occurrences')::int
+    AND (sa->>'blank_count')::int = (a->>'blank_count')::int);
+
+  -- facet breakdowns
+  PERFORM pg_temp.chk('15B-A by_subject / by_lesson / by_grade / by_track present',
+    jsonb_array_length(v->'by_subject') >= 1 AND jsonb_array_length(v->'by_lesson') >= 1
+    AND jsonb_array_length(v->'by_grade') >= 1 AND jsonb_array_length(v->'by_track') >= 1);
+
+  -- filters
+  sv := public.get_admin_mistake_insights(NULL, NULL, '33333333-0000-0000-0000-000000000004', NULL, 'ALL', NULL, NULL, 100);
+  PERFORM pg_temp.chk('15B-A SUBJECT_FILTER',
+    (sv->'summary'->>'total_mistake_occurrences')::int > 0
+    AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(sv->'by_subject') e
+                    WHERE e->>'subject_id' <> '33333333-0000-0000-0000-000000000004'));
+
+  sv := public.get_admin_mistake_insights(NULL, NULL, NULL, '55555555-0000-0000-0000-000000000002', 'ALL', NULL, NULL, 100);
+  PERFORM pg_temp.chk('15B-A LESSON_FILTER',
+    NOT EXISTS (SELECT 1 FROM jsonb_array_elements(sv->'by_lesson') e
+                WHERE e->>'lesson_id' <> '55555555-0000-0000-0000-000000000002'));
+
+  sv := public.get_admin_mistake_insights('33333333-0000-0000-0000-000000000003', NULL, NULL, NULL, 'ALL', NULL, NULL, 100);
+  PERFORM pg_temp.chk('15B-A GRADE_FILTER',
+    (sv->'summary'->>'total_mistake_occurrences')::int > 0
+    AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(sv->'by_grade') e
+                    WHERE e->>'grade_id' <> '33333333-0000-0000-0000-000000000003'));
+
+  sv := public.get_admin_mistake_insights(NULL, '33333333-0000-0000-0000-000000000002', NULL, NULL, 'ALL', NULL, NULL, 100);
+  PERFORM pg_temp.chk('15B-A TRACK_FILTER isolates the Sanaa track',
+    (sv->'summary'->>'total_mistake_occurrences')::int = 0);
+
+  sv := public.get_admin_mistake_insights(NULL, NULL, NULL, NULL, 'MINISTERIAL', NULL, NULL, 100);
+  PERFORM pg_temp.chk('15B-A attempt scope filter works',
+    (sv->'summary'->>'unique_questions_with_mistakes')::int >= 1);
+
+  sv := public.get_admin_mistake_insights(NULL, NULL, NULL, NULL, 'ALL', now() - interval '1 hour', NULL, 100);
+  PERFORM pg_temp.chk('15B-A date range filter works',
+    (sv->'summary'->>'total_mistake_occurrences')::int = 0);
+
+  -- privacy + secrecy
+  PERFORM pg_temp.chk('15B-A STUDENT_PRIVACY: no identities in payload',
+    v::text NOT ILIKE '%user_id%' AND v::text NOT ILIKE '%full_name%'
+    AND v::text NOT ILIKE '%Student A%' AND v::text NOT ILIKE '%@example.test%');
+  PERFORM pg_temp.chk('15B-A ANSWER_LEAK ZERO',
+    v::text NOT ILIKE '%is_correct%' AND v::text NOT ILIKE '%correct_option%'
+    AND v::text NOT ILIKE '%answer_key%' AND v::text NOT ILIKE '%solution%');
+END $$;
+
+DO $$
+BEGIN
+  PERFORM pg_temp.chk('15B-A admin RPC not executable by anon',
+    NOT has_function_privilege('anon', 'public.get_admin_mistake_insights(uuid,uuid,uuid,uuid,text,timestamptz,timestamptz,int)', 'EXECUTE'));
+END $$;
