@@ -157,11 +157,21 @@ test("required identity columns and indexes exist", () => {
 });
 
 test("resource metadata allowlist in SQL matches the contract allowlist", () => {
-  const fn = SQL.slice(SQL.indexOf("validate_lesson_resource_metadata()"));
+  // 13F (external PDF delivery) redefines validate_lesson_resource_metadata and
+  // extends the allowlist with `is_primary`. The contract allowlist must match the
+  // LATEST applied definition, not the phase-03 original.
+  const latest = readFileSync(
+    "supabase/migrations/20260815010000_lesson_external_pdf_delivery_13f.sql",
+    "utf8",
+  );
+  const fn = latest.slice(latest.indexOf("validate_lesson_resource_metadata()"));
   for (const key of RESOURCE_METADATA_ALLOWLIST) {
     assert.ok(fn.includes(`'${key}'`), `metadata allowlist missing ${key}`);
   }
   assert.ok(fn.includes("unsupported lesson_resources.metadata key"));
+  // The phase-03 origin still declares the closed allowlist + rejection message.
+  const original = SQL.slice(SQL.indexOf("validate_lesson_resource_metadata()"));
+  assert.ok(original.includes("unsupported lesson_resources.metadata key"));
 });
 
 test("concurrency is guarded by a row lock and state checks", () => {

@@ -100,6 +100,8 @@ function AdminUnifiedPerformancePage() {
         to: to ? new Date(`${to}T23:59:59`).toISOString() : null,
         limit: 20,
       }),
+    // DEFECT-16-01: unavailable RPC → immediate Arabic notice, no retry spinner.
+    retry: (count, error) => !(error instanceof PerformanceUnavailableError) && count < 1,
   });
 
   const data = perf.data;
