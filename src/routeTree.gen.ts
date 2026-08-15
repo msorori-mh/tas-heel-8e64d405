@@ -26,6 +26,7 @@ import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
 import { Route as AuthenticatedSubscriptionRouteImport } from './routes/_authenticated/subscription'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedQuickReviewRouteImport } from './routes/_authenticated/quick-review'
 import { Route as AuthenticatedProgressRouteImport } from './routes/_authenticated/progress'
 import { Route as AuthenticatedPaymentsRouteImport } from './routes/_authenticated/payments'
 import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
@@ -154,6 +155,12 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedQuickReviewRoute =
+  AuthenticatedQuickReviewRouteImport.update({
+    id: '/quick-review',
+    path: '/quick-review',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProgressRoute = AuthenticatedProgressRouteImport.update({
   id: '/progress',
   path: '/progress',
@@ -416,6 +423,7 @@ export interface FileRoutesByFullPath {
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/payments': typeof AuthenticatedPaymentsRouteWithChildren
   '/progress': typeof AuthenticatedProgressRoute
+  '/quick-review': typeof AuthenticatedQuickReviewRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
   '/wallet': typeof AuthenticatedWalletRoute
@@ -474,6 +482,7 @@ export interface FileRoutesByTo {
   '/app': typeof AuthenticatedAppRoute
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/progress': typeof AuthenticatedProgressRoute
+  '/quick-review': typeof AuthenticatedQuickReviewRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
   '/wallet': typeof AuthenticatedWalletRoute
@@ -536,6 +545,7 @@ export interface FileRoutesById {
   '/_authenticated/grades': typeof AuthenticatedGradesRouteWithChildren
   '/_authenticated/payments': typeof AuthenticatedPaymentsRouteWithChildren
   '/_authenticated/progress': typeof AuthenticatedProgressRoute
+  '/_authenticated/quick-review': typeof AuthenticatedQuickReviewRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/subscription': typeof AuthenticatedSubscriptionRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
@@ -598,6 +608,7 @@ export interface FileRouteTypes {
     | '/grades'
     | '/payments'
     | '/progress'
+    | '/quick-review'
     | '/settings'
     | '/subscription'
     | '/wallet'
@@ -656,6 +667,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/grades'
     | '/progress'
+    | '/quick-review'
     | '/settings'
     | '/subscription'
     | '/wallet'
@@ -717,6 +729,7 @@ export interface FileRouteTypes {
     | '/_authenticated/grades'
     | '/_authenticated/payments'
     | '/_authenticated/progress'
+    | '/_authenticated/quick-review'
     | '/_authenticated/settings'
     | '/_authenticated/subscription'
     | '/_authenticated/wallet'
@@ -896,6 +909,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/quick-review': {
+      id: '/_authenticated/quick-review'
+      path: '/quick-review'
+      fullPath: '/quick-review'
+      preLoaderRoute: typeof AuthenticatedQuickReviewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/progress': {
@@ -1316,6 +1336,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGradesRoute: typeof AuthenticatedGradesRouteWithChildren
   AuthenticatedPaymentsRoute: typeof AuthenticatedPaymentsRouteWithChildren
   AuthenticatedProgressRoute: typeof AuthenticatedProgressRoute
+  AuthenticatedQuickReviewRoute: typeof AuthenticatedQuickReviewRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSubscriptionRoute: typeof AuthenticatedSubscriptionRoute
   AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
@@ -1342,6 +1363,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGradesRoute: AuthenticatedGradesRouteWithChildren,
   AuthenticatedPaymentsRoute: AuthenticatedPaymentsRouteWithChildren,
   AuthenticatedProgressRoute: AuthenticatedProgressRoute,
+  AuthenticatedQuickReviewRoute: AuthenticatedQuickReviewRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSubscriptionRoute: AuthenticatedSubscriptionRoute,
   AuthenticatedWalletRoute: AuthenticatedWalletRoute,
