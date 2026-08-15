@@ -425,3 +425,270 @@ GRANT EXECUTE ON FUNCTION public.get_my_mistake_detail(uuid) TO authenticated;
 COMMENT ON FUNCTION public.get_my_mistake_detail(uuid) IS
   '15B mistake detail. Historical occurrences from pinned revisions only. '
   'Never returns the correct answer, is_correct flags or hidden solutions.';
+
+-- =====================================================================
+-- TAMKEEN_MY_MISTAKES_ADMIN_INSIGHTS_15B_A
+--
+-- Admin aggregate insights over the SAME derived source of truth used by
+-- the student notebook (exam_sessions / exam_session_questions /
+-- exam_session_answers + pinned revisions + historical targets).
+--   * NO new table, no materialized copy.
+--   * full admin ONLY (is_full_admin); student/anon DENY.
+--   * AGGREGATE ONLY: never returns user_id, student names or per-student
+--     rows; never returns correct_option / answer keys / is_correct flags /
+--     hidden solutions.
+-- =====================================================================
+CREATE OR REPLACE FUNCTION public.get_admin_mistake_insights(
+  _grade_id uuid DEFAULT NULL,
+  _track_id uuid DEFAULT NULL,
+  _subject_id uuid DEFAULT NULL,
+  _lesson_id uuid DEFAULT NULL,
+  _attempt_scope text DEFAULT 'ALL',
+  _from timestamptz DEFAULT NULL,
+  _to timestamptz DEFAULT NULL,
+  _limit int DEFAULT 20
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_uid   uuid := auth.uid();
+  v_scope text := upper(coalesce(_attempt_scope, 'ALL'));
+  v_limit int  := least(greatest(coalesce(_limit, 20), 1), 100);
+  v_out   jsonb;
+BEGIN
+  IF v_uid IS NULL OR NOT public.is_full_admin(v_uid) THEN
+    RAISE EXCEPTION 'unauthorized';
+  END IF;
+  IF v_scope NOT IN ('ALL', 'ORDINARY', 'MINISTERIAL') THEN
+    RAISE EXCEPTION 'invalid attempt_scope';
+  END IF;
+
+  WITH sess AS (
+    SELECT es.id,
+           es.user_id,
+           coalesce(es.completed_at, es.submitted_at, es.created_at) AS attempt_at,
+           CASE WHEN es.ministerial_model_id IS NOT NULL THEN 'MINISTERIAL' ELSE 'ORDINARY' END AS scope,
+           t.subject_id AS template_subject_id,
+           p.grade_uuid AS grade_id,
+           p.curriculum_track_id AS track_id
+    FROM public.exam_sessions es
+    LEFT JOIN public.exam_templates t ON t.id = es.template_id
+    LEFT JOIN public.ministerial_exam_models m ON m.id = es.ministerial_model_id
+    LEFT JOIN public.profiles p ON p.user_id = es.user_id
+    WHERE es.status IN ('submitted', 'expired')
+      AND es.grading_status = 'GRADED'
+      -- same track-consistency rule the student notebook applies
+      AND (es.ministerial_model_id IS NULL
+           OR (p.curriculum_track_id IS NOT NULL AND m.curriculum_track_id = p.curriculum_track_id))
+      AND (_from IS NULL OR coalesce(es.completed_at, es.submitted_at, es.created_at) >= _from)
+      AND (_to IS NULL OR coalesce(es.completed_at, es.submitted_at, es.created_at) <= _to)
+      AND (_grade_id IS NULL OR p.grade_uuid = _grade_id)
+      AND (_track_id IS NULL OR p.curriculum_track_id = _track_id)
+  ),
+  occ AS (
+    SELECT s.id AS session_id, s.user_id, s.attempt_at, s.scope, s.grade_id, s.track_id,
+           s.template_subject_id,
+           esq.logical_question_id AS question_id,
+           esq.question_revision_id,
+           esq.rendered_question_text,
+           CASE
+             WHEN a.requires_manual_review IS TRUE
+               OR (a.id IS NOT NULL AND coalesce(a.grading_status, '') <> 'GRADED') THEN 'PENDING'
+             WHEN a.id IS NULL
+               OR (a.selected_option_code IS NULL AND coalesce(a.response_text, '') = '') THEN 'BLANK'
+             WHEN a.is_correct IS TRUE THEN 'CORRECT'
+             WHEN a.is_correct IS FALSE THEN 'WRONG'
+             ELSE 'PENDING'
+           END AS state
+    FROM sess s
+    JOIN public.exam_session_questions esq ON esq.exam_session_id = s.id
+    LEFT JOIN public.exam_session_answers a ON a.exam_session_question_id = esq.id
+    WHERE esq.logical_question_id IS NOT NULL
+      AND (v_scope = 'ALL' OR s.scope = v_scope)
+  ),
+  occ_t AS (
+    SELECT o.*,
+           coalesce(qt.subject_id, o.template_subject_id) AS eff_subject_id,
+           qt.lesson_id
+    FROM occ o
+    LEFT JOIN LATERAL (
+      SELECT t.subject_id, t.lesson_id
+      FROM public.question_targets t
+      WHERE t.revision_id = o.question_revision_id
+      ORDER BY t.is_primary DESC, t.created_at ASC
+      LIMIT 1
+    ) qt ON true
+  ),
+  scoped AS (
+    SELECT * FROM occ_t
+    WHERE (_subject_id IS NULL OR eff_subject_id = _subject_id)
+      AND (_lesson_id IS NULL OR lesson_id = _lesson_id)
+      AND state <> 'PENDING'
+  ),
+  -- per (student, question): the student-notebook unit of truth
+  pairs AS (
+    SELECT user_id, question_id,
+           count(*) FILTER (WHERE state = 'WRONG')::int AS wrong_count,
+           count(*) FILTER (WHERE state = 'BLANK')::int AS blank_count,
+           count(*) FILTER (WHERE state IN ('WRONG','BLANK'))::int AS mistake_count,
+           max(attempt_at) FILTER (WHERE state IN ('WRONG','BLANK')) AS last_mistake_at,
+           max(attempt_at) FILTER (WHERE state = 'CORRECT') AS last_correct_at
+    FROM scoped
+    GROUP BY user_id, question_id
+    HAVING count(*) FILTER (WHERE state IN ('WRONG','BLANK')) > 0
+  ),
+  summary AS (
+    SELECT
+      (SELECT coalesce(sum(mistake_count), 0)::int FROM pairs) AS total_mistake_occurrences,
+      (SELECT count(DISTINCT question_id)::int FROM pairs) AS unique_questions_with_mistakes,
+      (SELECT count(*)::int FROM pairs WHERE mistake_count > 1) AS repeated_mistakes,
+      (SELECT count(*)::int FROM scoped) AS total_evaluated_occurrences,
+      (SELECT count(*)::int FROM scoped WHERE state = 'BLANK') AS total_blank_occurrences,
+      (SELECT count(*)::int FROM pairs) AS total_student_question_pairs,
+      (SELECT count(*)::int FROM pairs
+        WHERE last_correct_at IS NOT NULL AND last_correct_at > last_mistake_at) AS mastered_later_pairs
+  ),
+  q_stats AS (
+    SELECT s.question_id,
+           count(*)::int AS attempt_count,
+           count(*) FILTER (WHERE s.state = 'WRONG')::int AS wrong_count,
+           count(*) FILTER (WHERE s.state = 'BLANK')::int AS blank_count,
+           max(s.eff_subject_id) AS subject_id,
+           max(s.lesson_id) AS lesson_id,
+           (SELECT x.rendered_question_text FROM scoped x
+             WHERE x.question_id = s.question_id AND x.rendered_question_text IS NOT NULL
+             ORDER BY x.attempt_at DESC LIMIT 1) AS question_preview
+    FROM scoped s
+    GROUP BY s.question_id
+  ),
+  q_mastered AS (
+    SELECT question_id,
+           count(*) FILTER (WHERE last_correct_at IS NOT NULL AND last_correct_at > last_mistake_at)::int AS mastered_later_count,
+           count(*)::int AS mistaken_pairs,
+           sum(mistake_count)::int AS mistake_occurrences
+    FROM pairs GROUP BY question_id
+  )
+  SELECT jsonb_build_object(
+    'summary', (
+      SELECT jsonb_build_object(
+        'total_mistake_occurrences', total_mistake_occurrences,
+        'unique_questions_with_mistakes', unique_questions_with_mistakes,
+        'repeated_mistakes', repeated_mistakes,
+        'total_evaluated_occurrences', total_evaluated_occurrences,
+        'blank_rate', CASE WHEN total_evaluated_occurrences > 0
+                           THEN round(total_blank_occurrences::numeric * 100 / total_evaluated_occurrences, 2)
+                           ELSE 0 END,
+        'mastered_later_rate', CASE WHEN total_student_question_pairs > 0
+                           THEN round(mastered_later_pairs::numeric * 100 / total_student_question_pairs, 2)
+                           ELSE 0 END
+      ) FROM summary
+    ),
+    'by_subject', coalesce((
+      SELECT jsonb_agg(x ORDER BY (x->>'mistake_occurrences')::int DESC) FROM (
+        SELECT jsonb_build_object(
+                 'subject_id', s.eff_subject_id,
+                 'subject_name', sj.name,
+                 'mistake_occurrences', count(*) FILTER (WHERE s.state IN ('WRONG','BLANK'))::int,
+                 'blank_occurrences', count(*) FILTER (WHERE s.state = 'BLANK')::int,
+                 'evaluated_occurrences', count(*)::int,
+                 'unique_questions', count(DISTINCT s.question_id) FILTER (WHERE s.state IN ('WRONG','BLANK'))::int
+               ) AS x
+        FROM scoped s LEFT JOIN public.subjects sj ON sj.id = s.eff_subject_id
+        WHERE s.eff_subject_id IS NOT NULL
+        GROUP BY s.eff_subject_id, sj.name
+        HAVING count(*) FILTER (WHERE s.state IN ('WRONG','BLANK')) > 0
+      ) t), '[]'::jsonb),
+    'by_lesson', coalesce((
+      SELECT jsonb_agg(x ORDER BY (x->>'mistake_occurrences')::int DESC) FROM (
+        SELECT jsonb_build_object(
+                 'lesson_id', s.lesson_id,
+                 'lesson_title', ls.title,
+                 'subject_id', s.eff_subject_id,
+                 'subject_name', sj.name,
+                 'mistake_occurrences', count(*) FILTER (WHERE s.state IN ('WRONG','BLANK'))::int,
+                 'blank_occurrences', count(*) FILTER (WHERE s.state = 'BLANK')::int,
+                 'evaluated_occurrences', count(*)::int
+               ) AS x
+        FROM scoped s
+        LEFT JOIN public.lessons ls ON ls.id = s.lesson_id
+        LEFT JOIN public.subjects sj ON sj.id = s.eff_subject_id
+        WHERE s.lesson_id IS NOT NULL
+        GROUP BY s.lesson_id, ls.title, s.eff_subject_id, sj.name
+        HAVING count(*) FILTER (WHERE s.state IN ('WRONG','BLANK')) > 0
+      ) t), '[]'::jsonb),
+    'by_grade', coalesce((
+      SELECT jsonb_agg(x ORDER BY (x->>'mistake_occurrences')::int DESC) FROM (
+        SELECT jsonb_build_object(
+                 'grade_id', s.grade_id,
+                 'grade_name', g.name,
+                 'mistake_occurrences', count(*) FILTER (WHERE s.state IN ('WRONG','BLANK'))::int,
+                 'evaluated_occurrences', count(*)::int
+               ) AS x
+        FROM scoped s LEFT JOIN public.grades g ON g.id = s.grade_id
+        WHERE s.grade_id IS NOT NULL
+        GROUP BY s.grade_id, g.name
+        HAVING count(*) FILTER (WHERE s.state IN ('WRONG','BLANK')) > 0
+      ) t), '[]'::jsonb),
+    'by_track', coalesce((
+      SELECT jsonb_agg(x ORDER BY (x->>'mistake_occurrences')::int DESC) FROM (
+        SELECT jsonb_build_object(
+                 'track_id', s.track_id,
+                 'track_name', ct.track_name,
+                 'mistake_occurrences', count(*) FILTER (WHERE s.state IN ('WRONG','BLANK'))::int,
+                 'evaluated_occurrences', count(*)::int
+               ) AS x
+        FROM scoped s LEFT JOIN public.curriculum_tracks ct ON ct.id = s.track_id
+        WHERE s.track_id IS NOT NULL
+        GROUP BY s.track_id, ct.track_name
+        HAVING count(*) FILTER (WHERE s.state IN ('WRONG','BLANK')) > 0
+      ) t), '[]'::jsonb),
+    'top_questions', coalesce((
+      SELECT jsonb_agg(x ORDER BY (x->>'mistake_occurrences')::int DESC, (x->>'question_id')) FROM (
+        SELECT jsonb_build_object(
+                 'question_id', qs.question_id,
+                 'question_code', q.code,
+                 'question_preview', left(coalesce(qs.question_preview, ''), 240),
+                 'subject_id', qs.subject_id,
+                 'subject_name', sj.name,
+                 'lesson_id', qs.lesson_id,
+                 'lesson_title', ls.title,
+                 'attempt_count', qs.attempt_count,
+                 'wrong_count', qs.wrong_count,
+                 'wrong_percentage', CASE WHEN qs.attempt_count > 0
+                    THEN round(qs.wrong_count::numeric * 100 / qs.attempt_count, 2) ELSE 0 END,
+                 'blank_count', qs.blank_count,
+                 'blank_percentage', CASE WHEN qs.attempt_count > 0
+                    THEN round(qs.blank_count::numeric * 100 / qs.attempt_count, 2) ELSE 0 END,
+                 'mistake_occurrences', coalesce(qm.mistake_occurrences, 0),
+                 'mastered_later_count', coalesce(qm.mastered_later_count, 0),
+                 'mastered_later_percentage', CASE WHEN coalesce(qm.mistaken_pairs, 0) > 0
+                    THEN round(qm.mastered_later_count::numeric * 100 / qm.mistaken_pairs, 2) ELSE 0 END
+               ) AS x
+        FROM q_stats qs
+        JOIN q_mastered qm ON qm.question_id = qs.question_id
+        LEFT JOIN public.questions q ON q.id = qs.question_id
+        LEFT JOIN public.subjects sj ON sj.id = qs.subject_id
+        LEFT JOIN public.lessons ls ON ls.id = qs.lesson_id
+        ORDER BY qm.mistake_occurrences DESC, qs.question_id
+        LIMIT v_limit
+      ) t), '[]'::jsonb),
+    'filters', jsonb_build_object(
+      'grade_id', _grade_id, 'track_id', _track_id, 'subject_id', _subject_id,
+      'lesson_id', _lesson_id, 'attempt_scope', v_scope, 'from', _from, 'to', _to, 'limit', v_limit
+    )
+  ) INTO v_out;
+
+  RETURN v_out;
+END $$;
+
+REVOKE ALL ON FUNCTION public.get_admin_mistake_insights(uuid, uuid, uuid, uuid, text, timestamptz, timestamptz, int) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_admin_mistake_insights(uuid, uuid, uuid, uuid, text, timestamptz, timestamptz, int) FROM anon;
+GRANT EXECUTE ON FUNCTION public.get_admin_mistake_insights(uuid, uuid, uuid, uuid, text, timestamptz, timestamptz, int) TO authenticated;
+
+COMMENT ON FUNCTION public.get_admin_mistake_insights(uuid, uuid, uuid, uuid, text, timestamptz, timestamptz, int) IS
+  '15B-A admin mistake insights. Full admin only. Aggregate output only: no user_id, no student '
+  'identities, no per-student notebook, and zero answer-key / is_correct / solution exposure.';
