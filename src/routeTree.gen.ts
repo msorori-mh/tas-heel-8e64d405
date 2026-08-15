@@ -70,6 +70,7 @@ import { Route as AuthenticatedExamsTrainingTemplateIdRouteImport } from './rout
 import { Route as AuthenticatedExamsStrictTemplateIdRouteImport } from './routes/_authenticated/exams.strict.$templateId'
 import { Route as AuthenticatedExamsHistorySessionIdRouteImport } from './routes/_authenticated/exams.history.$sessionId'
 import { Route as AuthenticatedAdminLessonsLessonIdRouteImport } from './routes/_authenticated/admin.lessons.$lessonId'
+import { Route as AuthenticatedAdminLearningInsightsQuickReviewRouteImport } from './routes/_authenticated/admin.learning-insights.quick-review'
 import { Route as AuthenticatedAdminLearningInsightsPerformanceRouteImport } from './routes/_authenticated/admin.learning-insights.performance'
 import { Route as AuthenticatedAdminLearningInsightsMistakesRouteImport } from './routes/_authenticated/admin.learning-insights.mistakes'
 import { Route as AuthenticatedMinisterialExamsSessionsSessionIdResultRouteImport } from './routes/_authenticated/ministerial-exams.sessions.$sessionId.result'
@@ -414,6 +415,12 @@ const AuthenticatedAdminLessonsLessonIdRoute =
     path: '/$lessonId',
     getParentRoute: () => AuthenticatedAdminLessonsRoute,
   } as any)
+const AuthenticatedAdminLearningInsightsQuickReviewRoute =
+  AuthenticatedAdminLearningInsightsQuickReviewRouteImport.update({
+    id: '/learning-insights/quick-review',
+    path: '/learning-insights/quick-review',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminLearningInsightsPerformanceRoute =
   AuthenticatedAdminLearningInsightsPerformanceRouteImport.update({
     id: '/learning-insights/performance',
@@ -486,6 +493,7 @@ export interface FileRoutesByFullPath {
   '/semesters/': typeof AuthenticatedSemestersIndexRoute
   '/admin/learning-insights/mistakes': typeof AuthenticatedAdminLearningInsightsMistakesRoute
   '/admin/learning-insights/performance': typeof AuthenticatedAdminLearningInsightsPerformanceRoute
+  '/admin/learning-insights/quick-review': typeof AuthenticatedAdminLearningInsightsQuickReviewRoute
   '/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
   '/exams/history/$sessionId': typeof AuthenticatedExamsHistorySessionIdRoute
   '/exams/strict/$templateId': typeof AuthenticatedExamsStrictTemplateIdRoute
@@ -549,6 +557,7 @@ export interface FileRoutesByTo {
   '/semesters': typeof AuthenticatedSemestersIndexRoute
   '/admin/learning-insights/mistakes': typeof AuthenticatedAdminLearningInsightsMistakesRoute
   '/admin/learning-insights/performance': typeof AuthenticatedAdminLearningInsightsPerformanceRoute
+  '/admin/learning-insights/quick-review': typeof AuthenticatedAdminLearningInsightsQuickReviewRoute
   '/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
   '/exams/history/$sessionId': typeof AuthenticatedExamsHistorySessionIdRoute
   '/exams/strict/$templateId': typeof AuthenticatedExamsStrictTemplateIdRoute
@@ -616,6 +625,7 @@ export interface FileRoutesById {
   '/_authenticated/semesters/': typeof AuthenticatedSemestersIndexRoute
   '/_authenticated/admin/learning-insights/mistakes': typeof AuthenticatedAdminLearningInsightsMistakesRoute
   '/_authenticated/admin/learning-insights/performance': typeof AuthenticatedAdminLearningInsightsPerformanceRoute
+  '/_authenticated/admin/learning-insights/quick-review': typeof AuthenticatedAdminLearningInsightsQuickReviewRoute
   '/_authenticated/admin/lessons/$lessonId': typeof AuthenticatedAdminLessonsLessonIdRoute
   '/_authenticated/exams/history/$sessionId': typeof AuthenticatedExamsHistorySessionIdRoute
   '/_authenticated/exams/strict/$templateId': typeof AuthenticatedExamsStrictTemplateIdRoute
@@ -683,6 +693,7 @@ export interface FileRouteTypes {
     | '/semesters/'
     | '/admin/learning-insights/mistakes'
     | '/admin/learning-insights/performance'
+    | '/admin/learning-insights/quick-review'
     | '/admin/lessons/$lessonId'
     | '/exams/history/$sessionId'
     | '/exams/strict/$templateId'
@@ -746,6 +757,7 @@ export interface FileRouteTypes {
     | '/semesters'
     | '/admin/learning-insights/mistakes'
     | '/admin/learning-insights/performance'
+    | '/admin/learning-insights/quick-review'
     | '/admin/lessons/$lessonId'
     | '/exams/history/$sessionId'
     | '/exams/strict/$templateId'
@@ -812,6 +824,7 @@ export interface FileRouteTypes {
     | '/_authenticated/semesters/'
     | '/_authenticated/admin/learning-insights/mistakes'
     | '/_authenticated/admin/learning-insights/performance'
+    | '/_authenticated/admin/learning-insights/quick-review'
     | '/_authenticated/admin/lessons/$lessonId'
     | '/_authenticated/exams/history/$sessionId'
     | '/_authenticated/exams/strict/$templateId'
@@ -1270,6 +1283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLessonsLessonIdRouteImport
       parentRoute: typeof AuthenticatedAdminLessonsRoute
     }
+    '/_authenticated/admin/learning-insights/quick-review': {
+      id: '/_authenticated/admin/learning-insights/quick-review'
+      path: '/learning-insights/quick-review'
+      fullPath: '/admin/learning-insights/quick-review'
+      preLoaderRoute: typeof AuthenticatedAdminLearningInsightsQuickReviewRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/learning-insights/performance': {
       id: '/_authenticated/admin/learning-insights/performance'
       path: '/learning-insights/performance'
@@ -1328,6 +1348,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminLearningInsightsMistakesRoute: typeof AuthenticatedAdminLearningInsightsMistakesRoute
   AuthenticatedAdminLearningInsightsPerformanceRoute: typeof AuthenticatedAdminLearningInsightsPerformanceRoute
+  AuthenticatedAdminLearningInsightsQuickReviewRoute: typeof AuthenticatedAdminLearningInsightsQuickReviewRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
@@ -1353,6 +1374,8 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
     AuthenticatedAdminLearningInsightsMistakesRoute,
   AuthenticatedAdminLearningInsightsPerformanceRoute:
     AuthenticatedAdminLearningInsightsPerformanceRoute,
+  AuthenticatedAdminLearningInsightsQuickReviewRoute:
+    AuthenticatedAdminLearningInsightsQuickReviewRoute,
 }
 
 const AuthenticatedAdminRouteWithChildren =

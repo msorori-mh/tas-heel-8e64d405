@@ -43,6 +43,7 @@ type LinkItem = {
     | "/admin/import"
     | "/admin/learning-insights/mistakes"
     | "/admin/learning-insights/performance"
+    | "/admin/learning-insights/quick-review"
     | "/admin/payment-methods"
     | "/admin/payment-requests"
     | "/admin/wallet-topups";
@@ -71,6 +72,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/import", label: "الاستيراد", icon: FileSpreadsheet },
   { href: "/admin/learning-insights/mistakes", label: "تحليلات الأخطاء", icon: TrendingDown },
   { href: "/admin/learning-insights/performance", label: "تحليل الأداء الموحد", icon: BarChart3 },
+  { href: "/admin/learning-insights/quick-review", label: "جاهزية المراجعة السريعة", icon: BookOpen },
   { href: "/admin/payment-methods", label: "طرق الدفع", icon: Landmark },
   { href: "/admin/payment-requests", label: "طلبات الدفع", icon: CreditCard },
   { href: "/admin/wallet-topups", label: "طلبات شحن المحفظة", icon: Wallet },

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -359,8 +359,8 @@ function AdminQuickReviewReadinessPage() {
                       </TableHeader>
                       <TableBody>
                         {pageRows.map((lesson) => (
-                          <>
-                            <TableRow key={lesson.lessonId}>
+                          <Fragment key={lesson.lessonId}>
+                            <TableRow>
                               <TableCell className="font-medium">{lesson.lessonTitle}</TableCell>
                               <TableCell>{lesson.subjectName}</TableCell>
                               <TableCell className="text-muted-foreground">
@@ -402,13 +402,13 @@ function AdminQuickReviewReadinessPage() {
                               </TableCell>
                             </TableRow>
                             {openLesson === lesson.lessonId && (
-                              <TableRow key={`${lesson.lessonId}-preview`}>
+                              <TableRow>
                                 <TableCell colSpan={6}>
                                   <LessonPreview lesson={lesson} />
                                 </TableCell>
                               </TableRow>
                             )}
-                          </>
+                          </Fragment>
                         ))}
                       </TableBody>
                     </Table>
