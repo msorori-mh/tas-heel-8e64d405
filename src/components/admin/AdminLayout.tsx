@@ -22,6 +22,7 @@ import {
   Landmark,
   Network,
 } from "lucide-react";
+import { TrendingDown } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { filterAdminSidebarLinks } from "@/lib/admin-route-access";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ type LinkItem = {
     | "/admin/exam-templates"
     | "/admin/ministerial-exams"
     | "/admin/import"
+    | "/admin/learning-insights/mistakes"
     | "/admin/payment-methods"
     | "/admin/payment-requests"
     | "/admin/wallet-topups";
@@ -66,6 +68,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/exam-templates", label: "قوالب الاختبارات", icon: ClipboardList },
   { href: "/admin/ministerial-exams", label: "النماذج الوزارية", icon: ClipboardList },
   { href: "/admin/import", label: "الاستيراد", icon: FileSpreadsheet },
+  { href: "/admin/learning-insights/mistakes", label: "تحليلات الأخطاء", icon: TrendingDown },
   { href: "/admin/payment-methods", label: "طرق الدفع", icon: Landmark },
   { href: "/admin/payment-requests", label: "طلبات الدفع", icon: CreditCard },
   { href: "/admin/wallet-topups", label: "طلبات شحن المحفظة", icon: Wallet },

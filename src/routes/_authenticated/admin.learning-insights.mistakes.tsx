@@ -286,7 +286,7 @@ function AdminMistakeInsightsPage() {
                             <TableCell className="text-sm">{formatPercent(q.mastered_later_percentage)}</TableCell>
                             <TableCell className="space-x-1 space-x-reverse whitespace-nowrap">
                               <Button asChild size="sm" variant="outline">
-                                <Link to="/admin/questions" search={{ q: q.question_code ?? "" }}>
+                                <Link to="/admin/questions">
                                   بنك الأسئلة
                                 </Link>
                               </Button>
