@@ -48,7 +48,7 @@
 | مكوّنات 15A (`ReviewCard`, `ListSkeleton`, `EmptyState`, `StateMessage`, `Breadcrumbs`) | **REUSE_AS_IS** | نفس نظام التصميم والـTokens. |
 | `ProgressSummary` + `AchievementsSection` + `useHomeDashboard` / `get_dashboard_stats` | **ADAPT** | تصبح قسم "التقدّم في المحتوى" داخل `/performance` بدل حساب ثانٍ. |
 | أشرطة/بطاقات الأداء في `ministerial-exams.performance.tsx` (`StatCard`, `Bar`, `LessonRow`) | **ADAPT** | تُستخرج كمكونات مشتركة، وتبقى الصفحة الوزارية تستهلكها. |
-| أنماط Performance UI من مفاضلة | **ADAPT** (البصري فقط) |ن تُنقل الـLayout patterns مع Design Tokens الخاصة بتمكين. |
+| أنماط Performance UI من مفاضلة | **ADAPT** (البصري فقط) | تُنقل الـLayout patterns مع Design Tokens الخاصة بتمكين. |
 | أي نمط مفاضلة يحمّل نتائج طلاب آخرين للعميل (percentile/leaderboard) | **REJECT** | خرق خصوصية وحِمل شبكة. |
 | `lessonProgressStats.ts` (مفاضلة) | **REJECT** | `user_progress` + `get_dashboard_stats` يغطيان نفس الشيء؛ نسخه = طبقة حساب ثالثة. |
 | حساب أي مؤشر داخل العميل | **REJECT** | التعريف يعيش في SQL فقط. |
