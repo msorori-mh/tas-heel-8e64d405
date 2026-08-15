@@ -61,6 +61,7 @@ done
 "${PSQL[@]}" -d t15c -f "$MIG_14FG" >/dev/null
 
 "${PSQL[@]}" -d t15c -f "$MIG_15B" >/dev/null
+"${PSQL[@]}" -d t15c -f tests/import/fixtures/pg17-prereq-15c-progress.sql >/dev/null
 echo "== applying 15C"
 "${PSQL[@]}" -d t15c -f "$MIG_15C" >/dev/null
 echo "== applying 15C again (idempotency)"
