@@ -7,7 +7,7 @@ const files = {
   subject: "src/routes/_authenticated/ministerial-exams.$subjectId.tsx",
   model: "src/routes/_authenticated/ministerial-exams.models.$modelId.tsx",
   session: "src/routes/_authenticated/ministerial-exams.sessions.$sessionId.tsx",
-  entry: "src/components/home/MinisterialExamsEntry.tsx",
+  entry: "src/components/home/LearningToolsSection.tsx",
 };
 
 const read = (k) => readFileSync(files[k], "utf8");
@@ -60,6 +60,6 @@ describe("PAST_MINISTERIAL_EXAMS_STUDENT_EXPERIENCE_14D — client safety", () =
   it("gates the home entry point to third secondary", () => {
     const entry = read("entry");
     expect(entry).toContain("grade-12");
-    expect(entry).toContain("return null");
+    expect(entry).toContain("isThirdSecondary ? (");
   });
 });

@@ -13,10 +13,8 @@ import { ContinueSection } from "@/components/home/ContinueSection";
 import { AchievementsSection } from "@/components/home/AchievementsSection";
 import { AiAssistantCard } from "@/components/home/AiAssistantCard";
 import { SemesterPicker } from "@/components/home/SemesterPicker";
-import { MinisterialExamsEntry } from "@/components/home/MinisterialExamsEntry";
-import { QuickReviewEntry } from "@/components/home/QuickReviewEntry";
-import { PerformanceEntry } from "@/components/home/PerformanceEntry";
-import { MyMistakesEntry } from "@/components/home/MyMistakesEntry";
+import { LearningToolsSection } from "@/components/home/LearningToolsSection";
+
 
 const searchSchema = z.object({
   semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
@@ -46,9 +44,9 @@ function StudentHome() {
   }
 
   return (
-    <div className="space-y-5 pb-4 lg:space-y-6" dir="rtl">
+    <div className="space-y-4 pb-4 lg:space-y-5" dir="rtl">
       {/* 1. Welcome + 2. Today's mission */}
-      <div className="grid gap-5 lg:grid-cols-12 lg:items-stretch lg:gap-6">
+      <div className="grid gap-4 lg:grid-cols-12 lg:items-stretch lg:gap-5">
         <div className="lg:col-span-8 lg:flex lg:flex-col">
           <WelcomeCard stats={stats} />
         </div>
@@ -65,17 +63,15 @@ function StudentHome() {
       {/* 4. Continue where you left off */}
       <ContinueSection items={continueItems} loading={continueLoading} />
 
-      {/* 5. Semesters */}
+      {/* 5. Learning tools (quick review / mistakes / performance / ministerial) */}
+      <LearningToolsSection />
+
+      {/* 6. Semesters */}
       <SemesterPicker />
 
-      {/* 5b. Ministerial exam models (third secondary only) */}
-      <QuickReviewEntry />
-      <PerformanceEntry />
-      <MyMistakesEntry />
-      <MinisterialExamsEntry />
 
       {/* 6. Achievements + 7. AI assistant */}
-      <div className="grid gap-5 lg:grid-cols-12 lg:items-stretch lg:gap-6">
+      <div className="grid gap-4 lg:grid-cols-12 lg:items-stretch lg:gap-5">
         <div className="lg:col-span-8 lg:flex lg:flex-col">
           <AchievementsSection badges={badges.slice(0, 3)} loading={badgesLoading} />
         </div>
@@ -86,4 +82,5 @@ function StudentHome() {
     </div>
   );
 }
+
 

@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StatCard } from "@/components/common/StatCard";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -62,14 +63,10 @@ const ATTEMPT_TYPES: AttemptType[] = [
 ];
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-extrabold text-foreground">{value}</p>
-      {hint ? <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p> : null}
-    </div>
-  );
+  // 17A: single STAT CARD pattern shared with the home KPIs.
+  return <StatCard label={label} value={value} hint={hint} />;
 }
+
 
 function StudentPerformancePage() {
   const [attemptType, setAttemptType] = useState<AttemptType>("ALL");
@@ -86,22 +83,22 @@ function StudentPerformancePage() {
   const unavailable = query.error instanceof PerformanceUnavailableError;
 
   return (
-    <div dir="rtl" className="mx-auto w-full max-w-3xl px-4 pb-24 pt-4">
-      <header className="mb-4 flex items-center gap-3">
+    <div dir="rtl" className="mx-auto w-full max-w-3xl px-4 pb-24 pt-3">
+      <header className="mb-3 flex items-center gap-2">
         <Button asChild variant="ghost" size="icon" aria-label="رجوع">
           <Link to="/app">
             <ArrowRight className="h-5 w-5" aria-hidden />
           </Link>
         </Button>
         <div className="min-w-0">
-          <h1 className="text-lg font-extrabold text-foreground">تحليل أدائي</h1>
+          <h1 className="truncate text-lg font-black leading-tight text-foreground">تحليل أدائي</h1>
           <p className="truncate text-xs text-muted-foreground">
             كل مؤشراتك في مكان واحد — مشتقة من محاولاتك الفعلية.
           </p>
         </div>
       </header>
 
-      <div className="mb-4">
+      <div className="mb-3">
         <Select value={attemptType} onValueChange={(v) => setAttemptType(v as AttemptType)}>
           <SelectTrigger aria-label="نوع المحاولات">
             <SelectValue />
@@ -115,6 +112,7 @@ function StudentPerformancePage() {
           </SelectContent>
         </Select>
       </div>
+
 
       {query.isLoading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">

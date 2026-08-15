@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">تمكين</string>
+    <string name="title_activity_main">تمكين</string>
+    <string name="package_name">app.studentamkeen.tamkeen</string>
+    <string name="custom_url_scheme">app.studentamkeen.tamkeen</string>
+</resources>
