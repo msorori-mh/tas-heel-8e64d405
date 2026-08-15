@@ -557,8 +557,12 @@ BEGIN
            count(*)::int AS attempt_count,
            count(*) FILTER (WHERE s.state = 'WRONG')::int AS wrong_count,
            count(*) FILTER (WHERE s.state = 'BLANK')::int AS blank_count,
-           max(s.eff_subject_id) AS subject_id,
-           max(s.lesson_id) AS lesson_id,
+           (SELECT x.eff_subject_id FROM scoped x
+             WHERE x.question_id = s.question_id AND x.eff_subject_id IS NOT NULL
+             ORDER BY x.attempt_at DESC LIMIT 1) AS subject_id,
+           (SELECT x.lesson_id FROM scoped x
+             WHERE x.question_id = s.question_id AND x.lesson_id IS NOT NULL
+             ORDER BY x.attempt_at DESC LIMIT 1) AS lesson_id,
            (SELECT x.rendered_question_text FROM scoped x
              WHERE x.question_id = s.question_id AND x.rendered_question_text IS NOT NULL
              ORDER BY x.attempt_at DESC LIMIT 1) AS question_preview
