@@ -38,6 +38,13 @@ function subjectRow(code: string, name: string, sort_order = "1"): Record<string
 const warningCodes = (report: ReturnType<typeof validateContentImportSheet>) =>
   report.warnings.map((w) => w.code);
 
+// INFO diagnostics (e.g. "slug is derived from subject_code") are guidance, not
+// findings: they never block an import, so name-format tests ignore them.
+const blockingCodes = (report: ReturnType<typeof validateContentImportSheet>) =>
+  warningCodes(report).filter((code) => code !== "INFO");
+const isCleanRun = (report: ReturnType<typeof validateContentImportSheet>) =>
+  report.errorCount === 0 && blockingCodes(report).length === 0;
+
 test("dry-run accepts the approved grouped name format", () => {
   const report = validateContentImportSheet(
     "subjects",
