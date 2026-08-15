@@ -28,6 +28,7 @@ import { Route as AuthenticatedSubscriptionRouteImport } from './routes/_authent
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedQuickReviewRouteImport } from './routes/_authenticated/quick-review'
 import { Route as AuthenticatedProgressRouteImport } from './routes/_authenticated/progress'
+import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenticated/performance'
 import { Route as AuthenticatedPaymentsRouteImport } from './routes/_authenticated/payments'
 import { Route as AuthenticatedMyMistakesRouteImport } from './routes/_authenticated/my-mistakes'
 import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
@@ -168,6 +169,12 @@ const AuthenticatedProgressRoute = AuthenticatedProgressRouteImport.update({
   path: '/progress',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPerformanceRoute =
+  AuthenticatedPerformanceRouteImport.update({
+    id: '/performance',
+    path: '/performance',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPaymentsRoute = AuthenticatedPaymentsRouteImport.update({
   id: '/payments',
   path: '/payments',
@@ -436,6 +443,7 @@ export interface FileRoutesByFullPath {
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/my-mistakes': typeof AuthenticatedMyMistakesRoute
   '/payments': typeof AuthenticatedPaymentsRouteWithChildren
+  '/performance': typeof AuthenticatedPerformanceRoute
   '/progress': typeof AuthenticatedProgressRoute
   '/quick-review': typeof AuthenticatedQuickReviewRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -497,6 +505,7 @@ export interface FileRoutesByTo {
   '/app': typeof AuthenticatedAppRoute
   '/grades': typeof AuthenticatedGradesRouteWithChildren
   '/my-mistakes': typeof AuthenticatedMyMistakesRoute
+  '/performance': typeof AuthenticatedPerformanceRoute
   '/progress': typeof AuthenticatedProgressRoute
   '/quick-review': typeof AuthenticatedQuickReviewRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -562,6 +571,7 @@ export interface FileRoutesById {
   '/_authenticated/grades': typeof AuthenticatedGradesRouteWithChildren
   '/_authenticated/my-mistakes': typeof AuthenticatedMyMistakesRoute
   '/_authenticated/payments': typeof AuthenticatedPaymentsRouteWithChildren
+  '/_authenticated/performance': typeof AuthenticatedPerformanceRoute
   '/_authenticated/progress': typeof AuthenticatedProgressRoute
   '/_authenticated/quick-review': typeof AuthenticatedQuickReviewRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -627,6 +637,7 @@ export interface FileRouteTypes {
     | '/grades'
     | '/my-mistakes'
     | '/payments'
+    | '/performance'
     | '/progress'
     | '/quick-review'
     | '/settings'
@@ -688,6 +699,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/grades'
     | '/my-mistakes'
+    | '/performance'
     | '/progress'
     | '/quick-review'
     | '/settings'
@@ -752,6 +764,7 @@ export interface FileRouteTypes {
     | '/_authenticated/grades'
     | '/_authenticated/my-mistakes'
     | '/_authenticated/payments'
+    | '/_authenticated/performance'
     | '/_authenticated/progress'
     | '/_authenticated/quick-review'
     | '/_authenticated/settings'
@@ -948,6 +961,13 @@ declare module '@tanstack/react-router' {
       path: '/progress'
       fullPath: '/progress'
       preLoaderRoute: typeof AuthenticatedProgressRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/performance': {
+      id: '/_authenticated/performance'
+      path: '/performance'
+      fullPath: '/performance'
+      preLoaderRoute: typeof AuthenticatedPerformanceRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/payments': {
@@ -1378,6 +1398,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGradesRoute: typeof AuthenticatedGradesRouteWithChildren
   AuthenticatedMyMistakesRoute: typeof AuthenticatedMyMistakesRoute
   AuthenticatedPaymentsRoute: typeof AuthenticatedPaymentsRouteWithChildren
+  AuthenticatedPerformanceRoute: typeof AuthenticatedPerformanceRoute
   AuthenticatedProgressRoute: typeof AuthenticatedProgressRoute
   AuthenticatedQuickReviewRoute: typeof AuthenticatedQuickReviewRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -1406,6 +1427,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGradesRoute: AuthenticatedGradesRouteWithChildren,
   AuthenticatedMyMistakesRoute: AuthenticatedMyMistakesRoute,
   AuthenticatedPaymentsRoute: AuthenticatedPaymentsRouteWithChildren,
+  AuthenticatedPerformanceRoute: AuthenticatedPerformanceRoute,
   AuthenticatedProgressRoute: AuthenticatedProgressRoute,
   AuthenticatedQuickReviewRoute: AuthenticatedQuickReviewRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
