@@ -40,6 +40,7 @@ type ResourceRow = {
   resource_type: string | null;
   title: string | null;
   created_at: string | null;
+  metadata: unknown;
 };
 
 async function authorize(request: Request, resourceId: string) {
@@ -67,7 +68,7 @@ async function authorize(request: Request, resourceId: string) {
 
   const { data: row, error: rowError } = await supabaseAdmin
     .from("lesson_resources")
-    .select("id, lesson_id, url, resource_type, title, created_at")
+    .select("id, lesson_id, url, resource_type, title, created_at, metadata")
     .eq("id", resourceId)
     .maybeSingle();
   if (rowError) {
@@ -160,10 +161,16 @@ async function handle(request: Request, resourceId: string, method: "GET" | "HEA
     return deny(status, status === 404 ? "file_not_found" : "upstream_failed");
   }
 
-  const version = buildVersionToken(
-    auth.resource.created_at,
-    upstreamResponse.headers.get("etag"),
-  );
+  // 18D — a direct upload / replacement bumps metadata.version so the 18C
+  // offline cache treats the previous copy as STALE.
+  const meta =
+    auth.resource.metadata && typeof auth.resource.metadata === "object"
+      ? (auth.resource.metadata as Record<string, unknown>)
+      : {};
+  const managedVersion = typeof meta["version"] === "string" ? (meta["version"] as string) : null;
+  const version =
+    managedVersion ??
+    buildVersionToken(auth.resource.created_at, upstreamResponse.headers.get("etag"));
   const contentType = guessContentType(
     auth.resource,
     upstreamResponse.headers.get("content-type"),
