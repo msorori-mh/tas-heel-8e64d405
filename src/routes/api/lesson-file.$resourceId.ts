@@ -70,7 +70,10 @@ async function authorize(request: Request, resourceId: string) {
     .select("id, lesson_id, url, resource_type, title, updated_at")
     .eq("id", resourceId)
     .maybeSingle();
-  if (rowError) return { error: deny(500, "lookup_failed") };
+  if (rowError) {
+    console.error(`[lesson-file] resource lookup failed: ${rowError.message}`);
+    return { error: deny(500, "lookup_failed") };
+  }
   if (!row) return { error: deny(404, "not_found") };
 
   const resource = row as unknown as ResourceRow;
