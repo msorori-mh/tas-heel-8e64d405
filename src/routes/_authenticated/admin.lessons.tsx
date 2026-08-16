@@ -27,6 +27,16 @@ type LessonRow = {
   subject?: { id: string; name: string | null; grade_id: string | null } | null;
 };
 
+/** Capability chips shown per lesson row, in student-journey order. */
+const ROW_CAPABILITIES: { type: LessonCapabilityType; label: string }[] = [
+  { type: "PRIMARY_CONTENT", label: "محتوى" },
+  { type: "SUMMARY", label: "ملخص" },
+  { type: "ASSESSMENT", label: "أسئلة" },
+  { type: "EXTRA_RESOURCES", label: "موارد" },
+  { type: "VIDEO", label: "فيديو" },
+  { type: "PRACTICAL", label: "عملي" },
+];
+
 function Indicator({ on }: { on: boolean }) {
   return on ? (
     <Check className="inline h-4 w-4 text-emerald-600" />
@@ -34,6 +44,39 @@ function Indicator({ on }: { on: boolean }) {
     <Minus className="inline h-4 w-4 text-muted-foreground/50" />
   );
 }
+
+/** STUDENT_READY signal — the operator's single answer to "هل يراه الطالب؟". */
+function ReadinessBadge({ readiness }: { readiness: LessonReadiness | undefined }) {
+  if (!readiness) {
+    return <span className="text-[11px] text-muted-foreground">…</span>;
+  }
+  const hasWarnings = readiness.warnings.length > 0;
+  if (readiness.studentReady) {
+    return (
+      <span
+        title={hasWarnings ? LESSON_READINESS_REASON_AR[readiness.warnings[0]] : "جاهز للطالب"}
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+          hasWarnings
+            ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+            : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+        }`}
+      >
+        {hasWarnings ? <AlertTriangle className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+        {hasWarnings ? "جاهز مع تنبيه" : "جاهز للطالب"}
+      </span>
+    );
+  }
+  return (
+    <span
+      title={LESSON_READINESS_REASON_AR[readiness.reason]}
+      className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive"
+    >
+      <AlertTriangle className="h-3 w-3" />
+      {LESSON_READINESS_REASON_AR[readiness.reason]}
+    </span>
+  );
+}
+
 
 function AdminLessonsPage() {
   const { loading, enabled } = useRequireAdminSection("content");
