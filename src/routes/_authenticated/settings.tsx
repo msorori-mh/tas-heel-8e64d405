@@ -363,6 +363,15 @@ function SettingsPage() {
           </div>
         </SectionItem>
 
+        {/* 18C — المحتوى دون إنترنت */}
+        <SectionItem
+          value="offline"
+          icon={<CloudDownload className="h-4 w-4" />}
+          title="المحتوى دون إنترنت"
+        >
+          <OfflineContentSettings />
+        </SectionItem>
+
         {/* المدفوعات والمحفظة — مخفية من مسار الطالب أثناء الإتاحة المجانية */}
         {!STUDENT_FREE_ACCESS && (
           <SectionItem value="pay" icon={<WalletIcon className="h-4 w-4" />} title="المدفوعات والمحفظة">
