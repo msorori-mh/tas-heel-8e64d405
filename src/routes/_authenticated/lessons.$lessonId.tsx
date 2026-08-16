@@ -1118,6 +1118,19 @@ function ResourceCard({ resource, lessonId }: { resource: ResourceRow; lessonId:
   const isStorageRef = resource.url.trim().startsWith("supabase-storage://");
   const safeHttp = !isStorageRef && isSafeHttpUrl(resource.url);
 
+  // 18C closure — PDF resources open inside تمكين (with an offline copy),
+  // whether or not they are flagged as the lesson's primary resource.
+  if (resource.resource_type === "pdf" && (isStorageRef || safeHttp)) {
+    return (
+      <InAppPdfDelivery
+        resourceId={resource.id}
+        lessonId={lessonId}
+        title={resource.title}
+        fallbackUrl={safeHttp ? resource.url : null}
+      />
+    );
+  }
+
   const [resolved, setResolved] = useState<string | null>(safeHttp ? resource.url : null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
