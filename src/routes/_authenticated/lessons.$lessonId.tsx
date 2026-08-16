@@ -974,28 +974,6 @@ function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
   );
 }
 
-function Section({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
-      <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-foreground">
-        {icon} {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
-function EmptyText({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-muted-foreground">{children}</p>;
-}
 
 function Breadcrumbs({
   subjectName,
