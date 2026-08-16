@@ -32,7 +32,7 @@ type PdfDocument = {
 type PdfPage = {
   getViewport: (opts: { scale: number }) => { width: number; height: number };
   render: (opts: {
-    canvas: HTMLCanvasElement;
+    canvas?: HTMLCanvasElement;
     canvasContext: CanvasRenderingContext2D;
     viewport: unknown;
     transform?: number[] | null;
@@ -118,7 +118,6 @@ export function PdfViewer({
         const pdfjs = await loadPdfJs();
         const buffer = await resolved.blob.arrayBuffer();
         if (cancelled) return;
-        console.log("[pdf-load] worker", pdfjs.GlobalWorkerOptions.workerSrc, "bytes", buffer.byteLength);
         const doc = (await pdfjs.getDocument({ data: new Uint8Array(buffer) })
           .promise) as unknown as PdfDocument;
         if (cancelled) {
@@ -148,7 +147,6 @@ export function PdfViewer({
   const renderPage = useCallback(async () => {
     const doc = docRef.current;
     const canvas = canvasRef.current;
-    console.log("[pdf-render] enter", { hasDoc: !!doc, hasCanvas: !!canvas, status });
     if (!doc || !canvas || status !== "ready") return;
 
     renderTaskRef.current?.cancel();
@@ -177,18 +175,14 @@ export function PdfViewer({
     renderTaskRef.current = task;
     try {
       await task.promise;
-      const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      let ink = 0;
-      for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 0 && d[i] < 200) ink++;
-      console.log("[pdf-render] page", page, "canvas", canvas.width, canvas.height, "ink", ink);
-    } catch (err) {
-      console.error("[pdf-render]", err);
+    } catch {
+      /* superseded render */
     }
 
   }, [page, scale, status]);
 
   useEffect(() => {
-    renderPage().catch((err) => console.error("[pdf-render] failed", err));
+    void renderPage();
   }, [renderPage]);
 
   useEffect(() => {
