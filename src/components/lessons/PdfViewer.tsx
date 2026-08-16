@@ -31,11 +31,17 @@ type PdfDocument = {
 };
 type PdfPage = {
   getViewport: (opts: { scale: number }) => { width: number; height: number };
-  render: (opts: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => {
+  render: (opts: {
+    canvas: HTMLCanvasElement;
+    canvasContext: CanvasRenderingContext2D;
+    viewport: unknown;
+    transform?: number[] | null;
+  }) => {
     promise: Promise<void>;
     cancel: () => void;
   };
 };
+
 
 let pdfjsPromise: Promise<typeof import("pdfjs-dist")> | null = null;
 
@@ -112,6 +118,7 @@ export function PdfViewer({
         const pdfjs = await loadPdfJs();
         const buffer = await resolved.blob.arrayBuffer();
         if (cancelled) return;
+        console.log("[pdf-load] worker", pdfjs.GlobalWorkerOptions.workerSrc, "bytes", buffer.byteLength);
         const doc = (await pdfjs.getDocument({ data: new Uint8Array(buffer) })
           .promise) as unknown as PdfDocument;
         if (cancelled) {
@@ -158,14 +165,21 @@ export function PdfViewer({
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const task = pdfPage.render({ canvasContext: ctx, viewport });
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const task = pdfPage.render({
+      canvas,
+      canvasContext: ctx,
+      viewport,
+      transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0],
+    });
     renderTaskRef.current = task;
     try {
       await task.promise;
-    } catch {
-      /* superseded render */
+    } catch (err) {
+      console.error("[pdf-render]", err);
     }
+
   }, [page, scale, status]);
 
   useEffect(() => {
