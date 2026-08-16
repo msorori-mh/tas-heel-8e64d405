@@ -17,6 +17,8 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   bindLessonPrimaryPdf,
   createLessonPdfUploadTarget,
+  findUploadedLessonPdfObject,
+  getLessonPrimaryPdfState,
   planSubjectPdfBulkUpload,
 } from "@/lib/api/lesson-pdf.functions";
 import type { BulkMatchRow, BulkMatchStatus } from "@/lib/lessons/bulk-pdf-match";
