@@ -1,17 +1,27 @@
 /**
- * 18C-2 — client-only wrapper around the in-app PDF viewer.
+ * 18C2 — renderer-agnostic entry point for in-app PDF delivery.
  *
- * pdf.js touches canvas/worker APIs, so the viewer is loaded lazily after
- * hydration; SSR renders a lightweight placeholder.
+ * The PdfRendererAdapter picks the engine; the surrounding 18C architecture
+ * (secure route, cache, versioning, packs, prefetch) is untouched.
+ *   - Android native → android.graphics.pdf.PdfRenderer (Arabic-correct)
+ *   - Browser with its own PDF engine → BROWSER_NATIVE
+ *   - Everything else → pdf.js (legacy fallback only)
  */
 
 import { Suspense, lazy, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
+import { selectPdfRenderer, type PdfRendererKind } from "@/lib/pdf/pdf-renderer-adapter";
 import type { PdfViewerProps } from "./PdfViewer";
 
 const PdfViewer = lazy(() =>
   import("./PdfViewer").then((m) => ({ default: m.PdfViewer })),
+);
+const NativePdfDelivery = lazy(() =>
+  import("./NativePdfDelivery").then((m) => ({ default: m.NativePdfDelivery })),
+);
+const BrowserNativePdfDelivery = lazy(() =>
+  import("./BrowserNativePdfDelivery").then((m) => ({ default: m.BrowserNativePdfDelivery })),
 );
 
 function Placeholder() {
@@ -29,13 +39,20 @@ function Placeholder() {
 }
 
 export function InAppPdfDelivery(props: PdfViewerProps) {
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
+  const [renderer, setRenderer] = useState<PdfRendererKind | null>(null);
+  useEffect(() => setRenderer(selectPdfRenderer()), []);
 
-  if (!hydrated) return <Placeholder />;
+  if (!renderer) return <Placeholder />;
+
   return (
     <Suspense fallback={<Placeholder />}>
-      <PdfViewer {...props} />
+      {renderer === "ANDROID_NATIVE" ? (
+        <NativePdfDelivery {...props} />
+      ) : renderer === "BROWSER_NATIVE" ? (
+        <BrowserNativePdfDelivery {...props} />
+      ) : (
+        <PdfViewer {...props} />
+      )}
     </Suspense>
   );
 }
