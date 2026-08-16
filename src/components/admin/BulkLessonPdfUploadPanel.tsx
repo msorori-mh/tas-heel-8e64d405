@@ -300,8 +300,19 @@ export function BulkLessonPdfUploadPanel() {
               تنفيذ الرفع والربط
             </Button>
             {progress && (
-              <span className="text-xs text-muted-foreground">
-                {progress.done} / {progress.total}
+              <span className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-muted-foreground">
+                  معالَج {progress.processed} / {progress.total}
+                </span>
+                <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
+                  مؤكَّد الربط {progress.succeeded}
+                </Badge>
+                <Badge variant="outline" className="border-destructive/40 text-destructive">
+                  فشل الربط {progress.failed}
+                </Badge>
+                <Badge variant="outline" className="border-border text-muted-foreground">
+                  بانتظار الربط {progress.total - progress.succeeded - progress.failed}
+                </Badge>
               </span>
             )}
             {plan.subjectComplete && (
