@@ -448,7 +448,9 @@ export const LESSON_READINESS_REASON_AR: Record<LessonReadinessReason, string> =
   PRIMARY_CONTENT_MISSING: "لا يوجد محتوى أساسي للدرس",
   PRIMARY_RESOURCE_INVALID: "المورد الأساسي غير صالح",
   DELIVERY_MODE_MISMATCH: "عدم تطابق نمط التسليم مع المحتوى",
+  BOOK_CONTENT_PLACEHOLDER: "محتوى الكتاب مجرد عنوان/بيانات وصفية (خلل بيانات 04)",
   CONTENT_NOT_STUDENT_VISIBLE: "المحتوى الأساسي غير ظاهر للطالب",
+
 };
 
 export const LESSON_CAPABILITY_LABEL_AR: Record<LessonCapabilityType, string> = {
