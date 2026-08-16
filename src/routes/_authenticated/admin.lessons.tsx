@@ -4,7 +4,26 @@ import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { BookOpen, Loader2, Search, ArrowRight, Check, Minus, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  BookOpen,
+  Loader2,
+  Search,
+  ArrowRight,
+  Check,
+  Minus,
+  Pencil,
+  Plus,
+  Trash2,
+  AlertTriangle,
+} from "lucide-react";
+import {
+  computeLessonCapabilities,
+  computeLessonReadiness,
+  LESSON_READINESS_REASON_AR,
+  type LessonCapabilityType,
+  type LessonReadiness,
+} from "@/lib/lessons/lesson-capabilities";
+
 import { LessonBasicEditDialog } from "@/components/admin/LessonBasicEditDialog";
 import { LessonCreateDialog } from "@/components/admin/LessonCreateDialog";
 import { CurriculumDeleteDialog } from "@/components/admin/CurriculumDeleteDialog";
