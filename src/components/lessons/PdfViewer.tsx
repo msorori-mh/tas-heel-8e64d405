@@ -148,6 +148,7 @@ export function PdfViewer({
   const renderPage = useCallback(async () => {
     const doc = docRef.current;
     const canvas = canvasRef.current;
+    console.log("[pdf-render] enter", { hasDoc: !!doc, hasCanvas: !!canvas, status });
     if (!doc || !canvas || status !== "ready") return;
 
     renderTaskRef.current?.cancel();
@@ -187,7 +188,7 @@ export function PdfViewer({
   }, [page, scale, status]);
 
   useEffect(() => {
-    void renderPage();
+    renderPage().catch((err) => console.error("[pdf-render] failed", err));
   }, [renderPage]);
 
   useEffect(() => {
