@@ -30,6 +30,7 @@ import { ImportJobsHistory } from "@/components/admin/ImportJobsHistory";
 import { ContentImportDryRunPanel } from "@/components/admin/ContentImportDryRunPanel";
 import { ContextualTemplateGenerator } from "@/components/admin/ContextualTemplateGenerator";
 import { InteractiveHtmlImportPanel } from "@/components/admin/InteractiveHtmlImportPanel";
+import { BulkLessonPdfUploadPanel } from "@/components/admin/BulkLessonPdfUploadPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/import")({
   component: AdminImportPage,
@@ -154,6 +155,8 @@ function AdminImportPage() {
           <ContentImportDryRunPanel />
 
           <InteractiveHtmlImportPanel />
+
+          <BulkLessonPdfUploadPanel />
 
           <div
             role="note"
