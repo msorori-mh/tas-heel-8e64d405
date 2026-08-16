@@ -427,6 +427,13 @@ function LessonPage() {
       ? siblings[siblingIndex + 1]
       : null;
 
+  // 18C — silent Wi-Fi-only prefetch of the current lesson + the next two.
+  useEffect(() => {
+    if (accessible !== true || !siblings || siblingIndex < 0) return;
+    const scope = siblings.slice(siblingIndex, siblingIndex + 3).map((s) => s.id);
+    void prefetchNextLessons({ lessonIds: scope, subjectId: lesson?.subject_id ?? null });
+  }, [accessible, siblings, siblingIndex, lesson?.subject_id]);
+
   const mindmaps = (resources ?? []).filter((r) => r.resource_type === "mindmap");
   const videos = (resources ?? []).filter((r) => r.resource_type === "video");
   const experiments = (resources ?? []).filter((r) => r.resource_type === "experiment");
