@@ -404,163 +404,58 @@ function LessonPage() {
     );
   }
 
+  const titleParts = parseLessonTitle(lesson.title);
+
+  const capabilities = computeLessonCapabilities({
+    deliveryMode: (lesson as { delivery_mode?: string }).delivery_mode ?? null,
+    bookContent: book?.content ?? null,
+    inlineContent: lesson.content_text,
+    primaryResource: primaryResource ?? null,
+    resources: (resources ?? []).map((r) => ({
+      id: r.id,
+      resource_type: r.resource_type,
+      title: r.title,
+      url: r.url,
+      description: r.description,
+    })),
+    simulationsCount: simulations?.length ?? 0,
+    htmlMindMapsCount: htmlMindMaps.length,
+    htmlExperimentsCount: htmlExperiments.length,
+    htmlSummariesCount: htmlSummaries.length,
+    summaryText: summary?.summary ?? null,
+    explanationsCount: explanations?.length ?? 0,
+    questionsCount: questions?.length ?? 0,
+    lessonExamCount: trainingTemplates ?? 0,
+    hasLessonVideoFlag: lessonExtra?.has_video === true,
+    enhancementsAccessible: canAccessEnhancements,
+    progress: progressRow
+      ? { completed: progressRow.completed === true, quizScore: progressRow.quiz_score }
+      : null,
+  });
+
+  const actions = visibleLessonCapabilities(capabilities);
+  const lessonProgress = computeLessonProgress(capabilities);
+  const primaryCapability = capabilities.find((c) => c.type === "PRIMARY_CONTENT");
+  const primaryUnavailable = !primaryCapability?.available || !primaryCapability?.studentVisible;
+
   const bookContent = (book?.content ?? lesson.content_text ?? "").trim();
 
-  const hasBook = bookContent.length > 0;
-  const hasSummary = !!(summary?.summary && summary.summary.trim().length > 0) || htmlSummaries.length > 0;
-  const hasHtmlMindMap = htmlMindMaps.length > 0;
-  const hasHtmlExperiment = htmlExperiments.length > 0;
-  const questionsCount = questions?.length ?? 0;
-  const hasQuestions = questionsCount > 0;
-  const trainingCount = trainingTemplates ?? 0;
-  const hasTraining = trainingCount > 0;
-  const resourcesCount = resources?.length ?? 0;
-  const hasResources = resourcesCount > 0 || (htmlResources?.length ?? 0) > 0;
-
-  // LESSON_EXTERNAL_PDF_DELIVERY_13F
-  const isExternalLesson = isExternalDelivery(
-    (lesson as { delivery_mode?: string }).delivery_mode,
-  );
-  const externalDelivery =
-    primaryResource && (isExternalLesson || !hasBook) ? primaryResource : null;
-  const externalMissing = isExternalLesson && !primaryResource;
-
-
-  const completedWeights =
-    (hasBook ? 20 : 0) +
-    (hasSummary ? 20 : 0) +
-    (hasQuestions ? 20 : 0) +
-    (hasTraining ? 20 : 0) +
-    (hasResources ? 20 : 0);
-
-  return (
-    <article className="space-y-4" dir="rtl">
-      <Breadcrumbs
-        subjectName={subject?.name ?? null}
-        subjectId={subject?.id ?? null}
-        lessonName={lesson.title}
-      />
-
-      {/* Progress card */}
-      <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
-        <h1 className="text-lg font-bold text-foreground">{lesson.title}</h1>
-        <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
-          {subject && (
-            <span className="inline-flex items-center gap-1">
-              <BookOpen className="h-3.5 w-3.5" /> {subject.name}
-            </span>
-          )}
-          {unit && (
-            <span className="inline-flex items-center gap-1">
-              <Layers className="h-3.5 w-3.5" /> {unit.title}
-            </span>
-          )}
-        </div>
-        <div className="mt-4">
-          <div className="mb-1.5 flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">التقدم في الدرس</span>
-            <span className="font-semibold text-foreground">{completedWeights}%</span>
+  const renderCapabilityBody = (capability: LessonCapability) => {
+    switch (capability.type) {
+      case "PRIMARY_CONTENT":
+        return capability.source === "primary_resource" && primaryResource ? (
+          <ExternalLessonDelivery resource={primaryResource} />
+        ) : (
+          <div className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
+            {bookContent}
           </div>
-          <Progress value={completedWeights} className="h-2" />
-        </div>
-      </header>
+        );
 
-      {/* External delivery (PDF / Drive) */}
-      {externalDelivery && <ExternalLessonDelivery resource={externalDelivery} />}
-      {externalMissing && (
-        <section className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-card">
-          هذا الدرس يُقدَّم كملف خارجي، لكن لم يُرفق ملف الدرس بعد. يرجى إبلاغ إدارة المحتوى أو
-          المحاولة لاحقاً.
-        </section>
-      )}
-
-
-      {/* Learning Journey */}
-      <div className="space-y-3">
-        <JourneyCard
-          stepNumber={1}
-          icon={<ScrollText className="h-5 w-5" />}
-          title="اقرأ الدرس"
-          description="ابدأ بقراءة محتوى الدرس من الكتاب المدرسي."
-          ctaLabel={hasBook ? "ابدأ القراءة" : externalDelivery ? "ملف خارجي" : "غير متوفر"}
-          ctaDisabled={!hasBook}
-        >
-          {hasBook ? (
-            <div className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
-              {bookContent}
-            </div>
-          ) : externalDelivery ? (
-            <EmptyText>محتوى هذا الدرس متوفر كملف خارجي — افتحه من البطاقة في أعلى الصفحة.</EmptyText>
-          ) : (
-            <EmptyText>لم يُضف محتوى الكتاب لهذا الدرس بعد.</EmptyText>
-          )}
-        </JourneyCard>
-
-        <JourneyCard
-          stepNumber={2}
-          icon={<MapIcon className="h-5 w-5" />}
-          title="الخريطة الذهنية"
-          description={
-            hasHtmlMindMap
-              ? "خريطة ذهنية تفاعلية لتنظيم أفكار الدرس."
-              : "خريطة ذهنية تفاعلية لتنظيم أفكار الدرس."
-          }
-          ctaLabel={hasHtmlMindMap ? "عرض الخريطة" : "غير متوفرة"}
-          ctaDisabled={!hasHtmlMindMap}
-        >
-          {htmlMindMaps.length > 0 ? (
-            <div className="space-y-4">
-              {htmlMindMaps.map((r) => (
-                <PublishedHtmlResourceViewer
-                  key={r.resourceId}
-                  resource={r}
-                  onReloadSignedUrl={handleReloadSignedUrl(r.resourceId)}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyText>لم تُضَف خريطة ذهنية تفاعلية لهذا الدرس بعد.</EmptyText>
-          )}
-        </JourneyCard>
-
-        <JourneyCard
-          stepNumber={3}
-          icon={<FlaskConical className="h-5 w-5" />}
-          title="التجربة العملية"
-          description={
-            hasHtmlExperiment
-              ? "تجربة عملية تفاعلية لتطبيق مفاهيم الدرس."
-              : "تجربة عملية تفاعلية لتطبيق مفاهيم الدرس."
-          }
-          ctaLabel={hasHtmlExperiment ? "ابدأ التجربة" : "غير متوفرة"}
-          ctaDisabled={!hasHtmlExperiment}
-        >
-          {htmlExperiments.length > 0 ? (
-            <div className="space-y-4">
-              {htmlExperiments.map((r) => (
-                <PublishedHtmlResourceViewer
-                  key={r.resourceId}
-                  resource={r}
-                  onReloadSignedUrl={handleReloadSignedUrl(r.resourceId)}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyText>لم تُضَف تجربة عملية تفاعلية لهذا الدرس بعد.</EmptyText>
-          )}
-        </JourneyCard>
-
-        <JourneyCard
-          stepNumber={4}
-          icon={<FileText className="h-5 w-5" />}
-          title="راجع الملخص"
-          description="أهم النقاط والأفكار الرئيسية للدرس."
-          ctaLabel={hasSummary ? "عرض الملخص" : "غير متوفر"}
-          ctaDisabled={!hasSummary}
-        >
+      case "SUMMARY":
+        return (
           <>
             {htmlSummaries.length > 0 && (
-              <div className="space-y-4 mb-4">
+              <div className="mb-4 space-y-4">
                 {htmlSummaries.map((r) => (
                   <PublishedHtmlResourceViewer
                     key={r.resourceId}
@@ -581,53 +476,121 @@ function LessonPage() {
                   </ul>
                 )}
                 {summary.study_tip && (
-                  <p className="mt-3 flex items-start gap-2 rounded-md bg-accent/10 p-2 text-xs"><Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />{summary.study_tip}</p>
+                  <p className="mt-3 flex items-start gap-2 rounded-md bg-accent/10 p-2 text-xs">
+                    <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
+                    {summary.study_tip}
+                  </p>
                 )}
               </>
             )}
-            {!hasSummary && (
-              <EmptyText>لم يُضف ملخص لهذا الدرس بعد.</EmptyText>
-            )}
           </>
-        </JourneyCard>
+        );
 
-        <JourneyCard
-          stepNumber={5}
-          icon={<Target className="h-5 w-5" />}
-          title="اختبر فهمك"
-          description={
-            hasQuestions
-              ? `${questionsCount} أسئلة تفاعلية للتأكد من فهمك.`
-              : "أسئلة تفاعلية للتأكد من فهمك."
-          }
-          ctaLabel={hasQuestions ? "حل الأسئلة" : "غير متوفر"}
-          ctaDisabled={!hasQuestions}
-        >
-          {hasQuestions ? (
-            <ol className="space-y-4">
-              {questions!.map((q, idx) => (
-                <li key={q.id}>
-                  <QuestionCard index={idx + 1} q={q} />
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <EmptyText>لم تُضف أسئلة لهذا الدرس بعد.</EmptyText>
-          )}
-        </JourneyCard>
+      case "EXPLANATION":
+        return (
+          <div className="space-y-3">
+            {(explanations ?? []).map((e) => (
+              <article key={e.id} className="rounded-xl border border-border bg-background p-3">
+                {e.title && (
+                  <h3 className="mb-1 text-sm font-semibold text-foreground">{e.title}</h3>
+                )}
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
+                  {e.content}
+                </p>
+              </article>
+            ))}
+          </div>
+        );
 
-        <JourneyCard
-          stepNumber={6}
-          icon={<Trophy className="h-5 w-5" />}
-          title="اختبار الدرس"
-          description={
-            hasTraining
-              ? "اختبر نفسك في اختبار شامل للدرس."
-              : "سيتوفر قريبًا — لا يوجد اختبار لهذا الدرس بعد."
-          }
-          ctaLabel={hasTraining ? "ابدأ الاختبار" : "سيتوفر قريبًا"}
-          ctaDisabled={!hasTraining}
-        >
+      case "MINDMAP":
+        return (
+          <div className="space-y-4">
+            {htmlMindMaps.map((r) => (
+              <PublishedHtmlResourceViewer
+                key={r.resourceId}
+                resource={r}
+                onReloadSignedUrl={handleReloadSignedUrl(r.resourceId)}
+              />
+            ))}
+            {mindmaps.map((r) => (
+              <ResourceCard key={r.id} resource={r} lessonId={lessonId} />
+            ))}
+          </div>
+        );
+
+      case "PRACTICAL":
+        return (
+          <div className="space-y-4">
+            {htmlExperiments.map((r) => (
+              <PublishedHtmlResourceViewer
+                key={r.resourceId}
+                resource={r}
+                onReloadSignedUrl={handleReloadSignedUrl(r.resourceId)}
+              />
+            ))}
+            {experiments.map((r) => (
+              <ResourceCard key={r.id} resource={r} lessonId={lessonId} />
+            ))}
+            {(simulations ?? []).length > 0 && (
+              <ul className="space-y-2">
+                {(simulations ?? []).map((s) => (
+                  <li key={s.id}>
+                    <EnhancementItemRow
+                      item={{
+                        id: s.id,
+                        title: s.title,
+                        description: s.description,
+                        url: s.phet_url,
+                      }}
+                      lessonId={lessonId}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+
+      case "VIDEO":
+        return (
+          <ul className="space-y-2">
+            {videos.map((r) => (
+              <li key={r.id}>
+                <EnhancementItemRow
+                  item={{ id: r.id, title: r.title, description: r.description, url: r.url }}
+                  lessonId={lessonId}
+                />
+              </li>
+            ))}
+            {lessonExtra?.has_video && (
+              <li>
+                <EnhancementItemRow
+                  item={{
+                    id: `lesson-video-${lessonExtra.id}`,
+                    title: "فيديو الدرس",
+                    description: null,
+                    url: lessonExtra.external_video_url ?? "lesson-internal://video",
+                  }}
+                  lessonId={lessonId}
+                />
+              </li>
+            )}
+          </ul>
+        );
+
+      case "ASSESSMENT":
+        return (
+          <ol className="space-y-4">
+            {(questions ?? []).map((q, idx) => (
+              <li key={q.id}>
+                <QuestionCard index={idx + 1} q={q} />
+              </li>
+            ))}
+          </ol>
+        );
+
+      case "LESSON_EXAM":
+        return (
           <ExamTemplatesSection
             scope={{ kind: "lesson", lessonId }}
             canAccess={canAccessEnhancements}
@@ -635,129 +598,89 @@ function LessonPage() {
             emptyMessage="لا توجد اختبارات لهذا الدرس بعد."
             lockedMessage="اختبارات الدرس غير متاحة حالياً."
           />
-        </JourneyCard>
+        );
 
-        <JourneyCard
-          stepNumber={7}
-          icon={<Library className="h-5 w-5" />}
-          title="موارد إضافية"
-          description={
-            hasResources
-              ? `${resourcesCount} موارد لتعميق فهمك (فيديو، خرائط ذهنية، تجارب…).`
-              : "موارد لتعميق فهمك (فيديو، خرائط ذهنية، تجارب…)."
-          }
-          ctaLabel="استعراض الموارد"
-          ctaDisabled={false}
-        >
-          {!canAccessEnhancements ? (
-            <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-              <Lock className="h-4 w-4" />
-              <span>موارد الدرس غير متاحة حالياً.</span>
-            </div>
-          ) : resourcesLoading ? (
-            <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              جارٍ تحميل الموارد…
-            </div>
-          ) : resourcesError ? (
-            <p className="text-sm text-destructive">تعذر تحميل موارد الدرس.</p>
-          ) : (
-            <div className="space-y-4">
-              {resources && resources.length > 0 ? (
-                <div className="space-y-3">
-                  {resources.map((r) => (
-                    <ResourceCard key={r.id} resource={r} lessonId={lessonId} />
-                  ))}
-                </div>
-              ) : (
-                <EmptyText>لا توجد موارد لهذا الدرس حاليًا.</EmptyText>
-              )}
+      case "EXTRA_RESOURCES":
+        return (
+          <div className="space-y-3">
+            {extras.map((r) => (
+              <ResourceCard key={r.id} resource={r} lessonId={lessonId} />
+            ))}
+          </div>
+        );
 
-              <EnhancementGroup
-                title="الخريطة الذهنية"
-                icon={<MapIcon className="h-4 w-4 text-primary" />}
-                locked={!canAccessEnhancements}
-                lockedMessage="الخريطة الذهنية غير متاحة حالياً."
-                emptyMessage="لم تُضَف خريطة ذهنية لهذا الدرس بعد."
-                items={mindmaps.map((r) => ({
-                  id: r.id,
-                  title: r.title,
-                  description: r.description,
-                  url: r.url,
-                }))}
-                lessonId={lessonId}
-              />
+      default:
+        return null;
+    }
+  };
 
-              <EnhancementGroup
-                title="شرح الفيديو"
-                icon={<Video className="h-4 w-4 text-primary" />}
-                locked={!canAccessEnhancements}
-                lockedMessage="شرح الفيديو غير متاح حالياً."
-                emptyMessage="لم يُضَف شرح فيديو لهذا الدرس بعد."
-                items={[
-                  ...videos.map((r) => ({
-                    id: r.id,
-                    title: r.title,
-                    description: r.description,
-                    url: r.url,
-                  })),
-                  ...(lessonExtra?.has_video
-                    ? [
-                        {
-                          id: `lesson-video-${lessonExtra.id}`,
-                          title: "فيديو الدرس",
-                          description: null,
-                          url:
-                            lessonExtra.external_video_url ??
-                            "lesson-internal://video",
-                        },
-                      ]
-                    : []),
-                ]}
-                lessonId={lessonId}
-              />
+  return (
+    <article className="space-y-4" dir="rtl">
+      <Breadcrumbs
+        subjectName={subject?.name ?? null}
+        subjectId={subject?.id ?? null}
+        lessonName={titleParts.main}
+      />
 
-              <EnhancementGroup
-                title="التطبيق العملي / التجربة"
-                icon={<FlaskConical className="h-4 w-4 text-primary" />}
-                locked={!canAccessEnhancements}
-                lockedMessage="التجربة العملية غير متاحة حالياً."
-                emptyMessage="لا توجد تجربة عملية لهذا الدرس."
-                items={[
-                  ...experiments.map((r) => ({
-                    id: r.id,
-                    title: r.title,
-                    description: r.description,
-                    url: r.url,
-                  })),
-                  ...(simulations ?? []).map((s) => ({
-                    id: s.id,
-                    title: s.title,
-                    description: s.description,
-                    url: s.phet_url,
-                  })),
-                ]}
-                lessonId={lessonId}
-              />
-
-              <EnhancementGroup
-                title="موارد إضافية"
-                icon={<Link2 className="h-4 w-4 text-primary" />}
-                locked={!canAccessEnhancements}
-                lockedMessage="الموارد الإضافية غير متاحة حالياً."
-                emptyMessage="لا توجد موارد إضافية لهذا الدرس."
-                items={extras.map((r) => ({
-                  id: r.id,
-                  title: r.title,
-                  description: r.description,
-                  url: r.url,
-                }))}
-                lessonId={lessonId}
-              />
-            </div>
+      {/* Lesson header */}
+      <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
+        {titleParts.context && (
+          <p className="mb-1 text-[11px] text-muted-foreground">{titleParts.context}</p>
+        )}
+        <h1 className="text-lg font-bold text-foreground">{titleParts.main}</h1>
+        <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
+          {subject && (
+            <span className="inline-flex items-center gap-1">
+              <BookOpen className="h-3.5 w-3.5" /> {subject.name}
+            </span>
           )}
-        </JourneyCard>
-      </div>
+          {unit && (
+            <span className="inline-flex items-center gap-1">
+              <Layers className="h-3.5 w-3.5" /> {unit.title}
+            </span>
+          )}
+        </div>
+        {lessonProgress.measurable && (
+          <div className="mt-4">
+            <div className="mb-1.5 flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">التقدم في الدرس</span>
+              <span className="font-semibold text-foreground">
+                {lessonProgress.numerator}/{lessonProgress.denominator} · {lessonProgress.percent}%
+              </span>
+            </div>
+            <Progress value={lessonProgress.percent} className="h-2" />
+          </div>
+        )}
+      </header>
+
+      {primaryUnavailable && (
+        <section
+          role="status"
+          className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-card"
+        >
+          محتوى الدرس لم يُضف بعد.
+        </section>
+      )}
+
+      {/* Content-driven learning actions — only what actually exists */}
+      {actions.length > 0 && (
+        <div className="space-y-3">
+          {actions.map((capability, index) => (
+            <JourneyCard
+              key={capability.type}
+              stepNumber={index + 1}
+              icon={<CapabilityIcon type={capability.type} />}
+              title={capability.label}
+              description={capability.description}
+              ctaLabel={capability.action}
+              defaultOpen={index === 0 && capability.type === "PRIMARY_CONTENT"}
+            >
+              {renderCapabilityBody(capability)}
+            </JourneyCard>
+          ))}
+        </div>
+      )}
+
 
       <nav
         aria-label="التنقل بين الدروس"
