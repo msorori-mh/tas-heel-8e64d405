@@ -1038,47 +1038,6 @@ type EnhancementItem = {
   url: string;
 };
 
-function EnhancementGroup({
-  title,
-  icon,
-  locked,
-  lockedMessage,
-  emptyMessage,
-  items,
-  lessonId,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  locked: boolean;
-  lockedMessage: string;
-  emptyMessage: string;
-  items: EnhancementItem[];
-  lessonId: string;
-}) {
-  return (
-    <div className="mt-3 rounded-xl border border-border bg-background p-3">
-      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-        {icon} {title}
-      </div>
-      {locked ? (
-        <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-          <Lock className="h-4 w-4" />
-          <span>{lockedMessage}</span>
-        </div>
-      ) : items.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{emptyMessage}</p>
-      ) : (
-        <ul className="space-y-2">
-          {items.map((it) => (
-            <li key={it.id}>
-              <EnhancementItemRow item={it} lessonId={lessonId} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
 
 function isSafeHttpUrl(value: string): boolean {
   const v = (value ?? "").trim();
