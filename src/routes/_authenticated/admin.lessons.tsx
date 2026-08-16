@@ -568,7 +568,8 @@ function AdminLessonsPage() {
             {/* Mobile */}
             <div className="md:hidden space-y-3">
               {rows.map((r) => {
-                const flags = ind[r.id] ?? {};
+                const readiness = ind[r.id];
+                const available = new Set(readiness?.availableCapabilities ?? []);
                 return (
                   <div key={r.id} className="rounded-xl border border-border bg-card p-4">
                     <div className="flex items-center justify-between gap-2">
@@ -581,6 +582,9 @@ function AdminLessonsPage() {
                       </Link>
                       <span className="text-[11px] text-muted-foreground">#{r.sort_order}</span>
                     </div>
+                    <div className="mt-2">
+                      <ReadinessBadge readiness={readiness} />
+                    </div>
                     <div className="mt-2 grid grid-cols-2 gap-y-1 text-xs text-muted-foreground">
                       <span>الوحدة: {r.unit?.title || "—"}</span>
                       <span>المادة: {r.subject?.name || "—"}</span>
@@ -591,13 +595,13 @@ function AdminLessonsPage() {
                       <span>المدة: {r.duration || "—"}</span>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                      <span>كتاب <Indicator on={!!flags.book} /></span>
-                      <span>ملخص <Indicator on={!!flags.summary} /></span>
-                      <span>أسئلة <Indicator on={!!flags.questions} /></span>
-                      <span>موارد <Indicator on={!!flags.resources} /></span>
-                      <span>فيديو <Indicator on={!!flags.video} /></span>
-                      <span>محاكاة <Indicator on={!!flags.simulations} /></span>
+                      {ROW_CAPABILITIES.map((c) => (
+                        <span key={c.type}>
+                          {c.label} <Indicator on={available.has(c.type)} />
+                        </span>
+                      ))}
                     </div>
+
                     <div className="mt-3 flex gap-2">
                       <button
                         onClick={() =>
