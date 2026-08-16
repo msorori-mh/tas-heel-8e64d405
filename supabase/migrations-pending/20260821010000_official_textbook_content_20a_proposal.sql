@@ -1,0 +1,39 @@
+-- TAMKEEN_OFFICIAL_TEXTBOOK_STRUCTURED_CONTENT_STANDARD_20A
+-- PROPOSAL ONLY — NOT APPLIED. Optional hardening for the official layer.
+--
+-- The 20A standard runs today with zero schema change: the official structured
+-- HTML and its provenance live inside the existing text column
+-- `public.lesson_book_contents.content` under a single <section data-layer="A_OFFICIAL_TEXTBOOK">
+-- root. The columns below only promote provenance/review to first-class fields
+-- so admin review and fidelity gating can be enforced in SQL.
+
+-- ALTER TABLE public.lesson_book_contents
+--   ADD COLUMN content_format text NOT NULL DEFAULT 'plain_text'
+--     CHECK (content_format IN ('plain_text', 'official_structured_html_20a')),
+--   ADD COLUMN official_status text NOT NULL DEFAULT 'draft'
+--     CHECK (official_status IN ('draft', 'in_review', 'approved', 'rejected')),
+--   ADD COLUMN official_content_hash text,
+--   ADD COLUMN source_book text,
+--   ADD COLUMN source_edition text,
+--   ADD COLUMN source_page_from integer,
+--   ADD COLUMN source_page_to integer,
+--   ADD COLUMN source_file_hash text,
+--   ADD COLUMN fidelity_status text
+--     CHECK (fidelity_status IN ('PASS', 'REVIEW_REQUIRED', 'FAIL')),
+--   ADD COLUMN fidelity_coverage numeric(5,4),
+--   ADD COLUMN reviewed_by uuid REFERENCES auth.users(id),
+--   ADD COLUMN reviewed_at timestamptz;
+
+-- Invariant: structured official content may only be served to students after a
+-- human review with a passing fidelity report.
+-- ALTER TABLE public.lesson_book_contents
+--   ADD CONSTRAINT lesson_book_contents_official_approval_ck CHECK (
+--     official_status <> 'approved'
+--     OR (content_format = 'official_structured_html_20a'
+--         AND fidelity_status = 'PASS'
+--         AND reviewed_by IS NOT NULL
+--         AND reviewed_at IS NOT NULL)
+--   );
+
+-- No GRANT/RLS changes are required: this table's existing grants and policies
+-- already cover the new columns.
