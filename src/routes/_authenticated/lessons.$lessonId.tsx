@@ -18,6 +18,8 @@ import {
 } from "@/lib/api/html-pipeline.functions";
 import { PublishedHtmlResourceViewer } from "@/components/lessons/PublishedHtmlResourceViewer";
 import { OfficialTextbookContent } from "@/components/lessons/OfficialTextbookContent";
+import { StructuredTextbookReader } from "@/components/lessons/StructuredTextbookReader";
+import { resolveStructuredDocument } from "@/lib/content/official-textbook/structured-blocks";
 import {
   ExternalLessonDelivery,
   type PrimaryLessonResource,
