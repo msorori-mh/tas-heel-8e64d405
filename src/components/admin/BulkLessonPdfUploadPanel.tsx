@@ -63,7 +63,12 @@ export function BulkLessonPdfUploadPanel() {
   } | null>(null);
   const [planning, setPlanning] = useState(false);
   const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [progress, setProgress] = useState<{
+    processed: number;
+    succeeded: number;
+    failed: number;
+    total: number;
+  } | null>(null);
   const [failures, setFailures] = useState<string[]>([]);
 
   const subjectsQ = useQuery({
