@@ -44,7 +44,9 @@ export type LessonReadinessIssue =
   | "PRIMARY_CONTENT_MISSING"
   | "PRIMARY_RESOURCE_INVALID"
   | "DELIVERY_MODE_MISMATCH"
+  | "BOOK_CONTENT_PLACEHOLDER"
   | "CONTENT_NOT_STUDENT_VISIBLE";
+
 
 export interface LessonCapability {
   type: LessonCapabilityType;
@@ -249,7 +251,12 @@ function primaryContentCapability(input: LessonCapabilityInput): LessonCapabilit
     action: "غير متوفر",
     description: "محتوى الدرس لم يُضف بعد.",
     source: "none",
-    readinessIssue: primary ? "PRIMARY_RESOURCE_INVALID" : "PRIMARY_CONTENT_MISSING",
+    readinessIssue: primary
+      ? "PRIMARY_RESOURCE_INVALID"
+      : placeholderBook
+        ? "BOOK_CONTENT_PLACEHOLDER"
+        : "PRIMARY_CONTENT_MISSING",
+
   };
 }
 
@@ -293,9 +300,13 @@ export function computeLessonCapabilities(input: LessonCapabilityInput): LessonC
   const videoCount =
     validResources(input.resources, "video").length + (input.hasLessonVideoFlag ? 1 : 0);
   const summaryCount = (hasText(input.summaryText) ? 1 : 0) + input.htmlSummariesCount;
+  // 18C1 invariant: the primary resource NEVER appears under extra resources.
+  const primaryId = resolvePrimaryResource(input)?.id ?? null;
+  const isExtra = (r: CapabilityResourceInput) => r.is_primary !== true && r.id !== primaryId;
   const extrasCount =
-    validResources(input.resources, "pdf").filter((r) => r.id !== input.primaryResource?.id)
-      .length + validResources(input.resources, "link").length;
+    validResources(input.resources, "pdf").filter(isExtra).length +
+    validResources(input.resources, "link").filter(isExtra).length;
+
 
   return [
     primaryContentCapability(input),
