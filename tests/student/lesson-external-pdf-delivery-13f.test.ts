@@ -86,6 +86,10 @@ describe("import + UI wiring", () => {
     const page = readFileSync("src/routes/_authenticated/lessons.$lessonId.tsx", "utf8");
     expect(page).toContain("ExternalLessonDelivery");
     expect(page).toContain("lesson-primary-resource");
-    expect(page).toContain("isExternalDelivery");
+    // 18B: delivery mode is no longer read inline — the capability model owns
+    // the decision and exposes it as the `primary_resource` source.
+    expect(page).toContain("computeLessonCapabilities");
+    expect(page).toContain("primary_resource");
   });
+
 });
