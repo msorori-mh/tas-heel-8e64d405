@@ -38,6 +38,7 @@ import { Route as AuthenticatedSemestersIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedPaymentsIndexRouteImport } from './routes/_authenticated/payments.index'
 import { Route as AuthenticatedMinisterialExamsIndexRouteImport } from './routes/_authenticated/ministerial-exams.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as ApiLessonFileResourceIdRouteImport } from './routes/api/lesson-file.$resourceId'
 import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedSemestersSemesterRouteImport } from './routes/_authenticated/semesters.$semester'
 import { Route as AuthenticatedPaymentsNewRouteImport } from './routes/_authenticated/payments.new'
@@ -224,6 +225,11 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const ApiLessonFileResourceIdRoute = ApiLessonFileResourceIdRouteImport.update({
+  id: '/api/lesson-file/$resourceId',
+  path: '/api/lesson-file/$resourceId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedSubjectsSubjectIdRoute =
   AuthenticatedSubjectsSubjectIdRouteImport.update({
@@ -487,6 +493,7 @@ export interface FileRoutesByFullPath {
   '/payments/new': typeof AuthenticatedPaymentsNewRoute
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
+  '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/ministerial-exams/': typeof AuthenticatedMinisterialExamsIndexRoute
   '/payments/': typeof AuthenticatedPaymentsIndexRoute
@@ -551,6 +558,7 @@ export interface FileRoutesByTo {
   '/payments/new': typeof AuthenticatedPaymentsNewRoute
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
+  '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/ministerial-exams': typeof AuthenticatedMinisterialExamsIndexRoute
   '/payments': typeof AuthenticatedPaymentsIndexRoute
@@ -619,6 +627,7 @@ export interface FileRoutesById {
   '/_authenticated/payments/new': typeof AuthenticatedPaymentsNewRoute
   '/_authenticated/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
+  '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/ministerial-exams/': typeof AuthenticatedMinisterialExamsIndexRoute
   '/_authenticated/payments/': typeof AuthenticatedPaymentsIndexRoute
@@ -687,6 +696,7 @@ export interface FileRouteTypes {
     | '/payments/new'
     | '/semesters/$semester'
     | '/subjects/$subjectId'
+    | '/api/lesson-file/$resourceId'
     | '/admin/'
     | '/ministerial-exams/'
     | '/payments/'
@@ -751,6 +761,7 @@ export interface FileRouteTypes {
     | '/payments/new'
     | '/semesters/$semester'
     | '/subjects/$subjectId'
+    | '/api/lesson-file/$resourceId'
     | '/admin'
     | '/ministerial-exams'
     | '/payments'
@@ -818,6 +829,7 @@ export interface FileRouteTypes {
     | '/_authenticated/payments/new'
     | '/_authenticated/semesters/$semester'
     | '/_authenticated/subjects/$subjectId'
+    | '/api/lesson-file/$resourceId'
     | '/_authenticated/admin/'
     | '/_authenticated/ministerial-exams/'
     | '/_authenticated/payments/'
@@ -852,6 +864,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   AdminLoginRoute: typeof AdminLoginRoute
+  ApiLessonFileResourceIdRoute: typeof ApiLessonFileResourceIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1058,6 +1071,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/api/lesson-file/$resourceId': {
+      id: '/api/lesson-file/$resourceId'
+      path: '/api/lesson-file/$resourceId'
+      fullPath: '/api/lesson-file/$resourceId'
+      preLoaderRoute: typeof ApiLessonFileResourceIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/subjects/$subjectId': {
       id: '/_authenticated/subjects/$subjectId'
@@ -1532,6 +1552,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   AdminLoginRoute: AdminLoginRoute,
+  ApiLessonFileResourceIdRoute: ApiLessonFileResourceIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

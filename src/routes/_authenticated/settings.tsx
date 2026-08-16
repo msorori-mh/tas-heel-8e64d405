@@ -44,6 +44,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { deleteMyAccount } from "@/lib/account.functions";
 import { ChangeCurriculumTrackButton } from "@/components/student/ChangeCurriculumTrackButton";
 import { EditProfileDialog } from "@/components/student/EditProfileDialog";
+import { OfflineContentSettings } from "@/components/offline/OfflineContentSettings";
+import { CloudDownload } from "lucide-react";
 import {
   FREE_ACCESS_BADGE,
   FREE_ACCESS_SHORT,
@@ -361,6 +363,15 @@ function SettingsPage() {
             <StatCard label="الوحدات" value={studyQ.data?.units ?? 0} />
             <StatCard label="الدروس" value={studyQ.data?.lessons ?? 0} />
           </div>
+        </SectionItem>
+
+        {/* 18C — المحتوى دون إنترنت */}
+        <SectionItem
+          value="offline"
+          icon={<CloudDownload className="h-4 w-4" />}
+          title="المحتوى دون إنترنت"
+        >
+          <OfflineContentSettings />
         </SectionItem>
 
         {/* المدفوعات والمحفظة — مخفية من مسار الطالب أثناء الإتاحة المجانية */}

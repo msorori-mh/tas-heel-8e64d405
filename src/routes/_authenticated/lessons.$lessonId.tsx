@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { prefetchNextLessons } from "@/lib/offline/offline-pack";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -308,7 +309,7 @@ function LessonPage() {
     retry: false,
     queryFn: async (): Promise<PrimaryLessonResource | null> => {
       const { data, error } = await (supabase.from("lesson_resources") as any)
-        .select("id,resource_type,title,url,description")
+        .select("id,resource_type,title,url,description,lesson_id")
         .eq("lesson_id", lessonId)
         .eq("is_primary", true)
         .maybeSingle();
@@ -426,6 +427,13 @@ function LessonPage() {
     siblings && siblingIndex >= 0 && siblingIndex < siblings.length - 1
       ? siblings[siblingIndex + 1]
       : null;
+
+  // 18C — silent Wi-Fi-only prefetch of the current lesson + the next two.
+  useEffect(() => {
+    if (accessible !== true || !siblings || siblingIndex < 0) return;
+    const scope = siblings.slice(siblingIndex, siblingIndex + 3).map((s) => s.id);
+    void prefetchNextLessons({ lessonIds: scope, subjectId: lesson?.subject_id ?? null });
+  }, [accessible, siblings, siblingIndex, lesson?.subject_id]);
 
   const mindmaps = (resources ?? []).filter((r) => r.resource_type === "mindmap");
   const videos = (resources ?? []).filter((r) => r.resource_type === "video");

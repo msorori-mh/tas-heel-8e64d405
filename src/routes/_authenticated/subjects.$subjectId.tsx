@@ -29,6 +29,7 @@ import {
 import { semesterLabel, type Semester } from "@/lib/subject-semester";
 import { getSubjectIcon } from "@/lib/subjects/subject-icon";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
+import { OfflinePackCard } from "@/components/offline/OfflinePackCard";
 
 const searchSchema = z.object({
   semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
@@ -293,6 +294,15 @@ function SubjectIndexPage() {
       </header>
 
       {!hasAny && <StateMessage>لم تُضاف دروس لهذه المادة بعد.</StateMessage>}
+
+      {/* 18C — تحميل ملفات المادة للاستخدام دون إنترنت */}
+      {lessons.length > 0 && (
+        <OfflinePackCard
+          title={`تحميل «${subject.name}» للاستخدام دون إنترنت`}
+          lessonIds={lessons.map((l) => l.id)}
+          subjectId={subjectId}
+        />
+      )}
 
       {hasAny &&
         (hasUnits ? (
