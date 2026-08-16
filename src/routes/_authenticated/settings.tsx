@@ -44,6 +44,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { deleteMyAccount } from "@/lib/account.functions";
 import { ChangeCurriculumTrackButton } from "@/components/student/ChangeCurriculumTrackButton";
 import { EditProfileDialog } from "@/components/student/EditProfileDialog";
+import { OfflineContentSettings } from "@/components/offline/OfflineContentSettings";
+import { CloudDownload } from "lucide-react";
 import {
   FREE_ACCESS_BADGE,
   FREE_ACCESS_SHORT,
