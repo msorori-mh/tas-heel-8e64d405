@@ -24,7 +24,9 @@ import {
 import {
   computeLessonCapabilities,
   computeLessonProgress,
+  isPlaceholderBookContent,
   parseLessonTitle,
+
   visibleLessonCapabilities,
   type LessonCapability,
   type LessonCapabilityType,
