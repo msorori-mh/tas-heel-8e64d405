@@ -134,9 +134,7 @@ function validResources(
   resources: readonly CapabilityResourceInput[] | undefined,
   type: string,
 ): CapabilityResourceInput[] {
-  return (resources ?? []).filter(
-    (r) => r.resource_type === type && isValidResourceUrl(r.url),
-  );
+  return (resources ?? []).filter((r) => r.resource_type === type && isValidResourceUrl(r.url));
 }
 
 /* ------------------------------------------------------------------ */
@@ -247,9 +245,7 @@ function enhancement(
  * returned too (the admin surface needs them); the student UI renders only
  * `available && studentVisible` entries via `visibleLessonCapabilities`.
  */
-export function computeLessonCapabilities(
-  input: LessonCapabilityInput,
-): LessonCapability[] {
+export function computeLessonCapabilities(input: LessonCapabilityInput): LessonCapability[] {
   const mindmapCount = input.htmlMindMapsCount + validResources(input.resources, "mindmap").length;
   const practicalCount =
     input.htmlExperimentsCount +
@@ -259,8 +255,8 @@ export function computeLessonCapabilities(
     validResources(input.resources, "video").length + (input.hasLessonVideoFlag ? 1 : 0);
   const summaryCount = (hasText(input.summaryText) ? 1 : 0) + input.htmlSummariesCount;
   const extrasCount =
-    validResources(input.resources, "pdf").filter((r) => r.id !== input.primaryResource?.id).length +
-    validResources(input.resources, "link").length;
+    validResources(input.resources, "pdf").filter((r) => r.id !== input.primaryResource?.id)
+      .length + validResources(input.resources, "link").length;
 
   return [
     primaryContentCapability(input),
@@ -421,13 +417,9 @@ export const LESSON_CAPABILITY_LABEL_AR: Record<LessonCapabilityType, string> = 
  * STUDENT_READY = a valid, student-accessible primary content exists.
  * Summary / video / mindmap / assessment are enhancements, never a condition.
  */
-export function computeLessonReadiness(
-  capabilities: readonly LessonCapability[],
-): LessonReadiness {
+export function computeLessonReadiness(capabilities: readonly LessonCapability[]): LessonReadiness {
   const primary = capabilities.find((c) => c.type === "PRIMARY_CONTENT");
-  const availableCapabilities = capabilities
-    .filter((c) => c.available)
-    .map((c) => c.type);
+  const availableCapabilities = capabilities.filter((c) => c.available).map((c) => c.type);
 
   const warnings = capabilities
     .map((c) => c.readinessIssue)
@@ -435,7 +427,10 @@ export function computeLessonReadiness(
 
   const ready = !!primary && primary.available && primary.studentVisible;
   const blocking = warnings.find(
-    (w) => w === "PRIMARY_CONTENT_MISSING" || w === "PRIMARY_RESOURCE_INVALID" || w === "CONTENT_NOT_STUDENT_VISIBLE",
+    (w) =>
+      w === "PRIMARY_CONTENT_MISSING" ||
+      w === "PRIMARY_RESOURCE_INVALID" ||
+      w === "CONTENT_NOT_STUDENT_VISIBLE",
   );
 
   return {

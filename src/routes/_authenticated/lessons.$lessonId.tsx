@@ -116,12 +116,15 @@ type ExplanationRow = {
   sort_order: number;
 };
 
-
 function LessonPage() {
   const { lessonId } = Route.useParams();
   const { profile } = useAuth();
 
-  const { data: lesson, isLoading: loadingLesson, error: lessonErr } = useQuery({
+  const {
+    data: lesson,
+    isLoading: loadingLesson,
+    error: lessonErr,
+  } = useQuery({
     queryKey: ["lesson-meta", lessonId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -164,8 +167,7 @@ function LessonPage() {
 
   const accessible = useMemo(() => {
     if (!subject || !profile) return null;
-    const profileGrade =
-      profile.grade_uuid ?? (profile.grade_id ? String(profile.grade_id) : null);
+    const profileGrade = profile.grade_uuid ?? (profile.grade_id ? String(profile.grade_id) : null);
     if (profileGrade && subject.grade_id !== profileGrade) return false;
     if (
       subject.curriculum_track_id &&
@@ -201,9 +203,11 @@ function LessonPage() {
         .eq("lesson_id", lessonId)
         .maybeSingle();
       if (error) throw error;
-      return data as
-        | { summary: string | null; key_points: unknown; study_tip: string | null }
-        | null;
+      return data as {
+        summary: string | null;
+        key_points: unknown;
+        study_tip: string | null;
+      } | null;
     },
   });
 
@@ -254,10 +258,7 @@ function LessonPage() {
 
   const unitIsFree = unit?.is_free === true;
   const canAccessEnhancements =
-    STUDENT_FREE_ACCESS ||
-    Boolean(isAdmin) ||
-    unitIsFree ||
-    Boolean(hasActiveSub);
+    STUDENT_FREE_ACCESS || Boolean(isAdmin) || unitIsFree || Boolean(hasActiveSub);
 
   // Lesson extras (existence flags + safe external URL) — fetched only when allowed
   const { data: lessonExtra } = useQuery({
@@ -334,11 +335,14 @@ function LessonPage() {
   const getLessonHtmlResources = useServerFn(getLessonPublishedHtmlResourcesFn);
   const refreshSignedUrl = useServerFn(createSignedStudentAccessUrlFn);
   const handleReloadSignedUrl = useCallback(
-    (resourceId: string) =>
-      () => requestFreshStudentHtmlSignedUrl(refreshSignedUrl, resourceId),
+    (resourceId: string) => () => requestFreshStudentHtmlSignedUrl(refreshSignedUrl, resourceId),
     [refreshSignedUrl],
   );
-  const { data: htmlResources, isLoading: htmlResourcesLoading, error: htmlResourcesError } = useQuery({
+  const {
+    data: htmlResources,
+    isLoading: htmlResourcesLoading,
+    error: htmlResourcesError,
+  } = useQuery({
     enabled: !!lesson && accessible === true && canAccessEnhancements,
     queryKey: ["lesson-published-html-resources", lessonId],
     queryFn: async () => {
@@ -348,7 +352,9 @@ function LessonPage() {
   });
 
   const htmlMindMaps = (htmlResources ?? []).filter((r) => r.resourceType === "mind_map_html");
-  const htmlExperiments = (htmlResources ?? []).filter((r) => r.resourceType === "practical_experiment_html");
+  const htmlExperiments = (htmlResources ?? []).filter(
+    (r) => r.resourceType === "practical_experiment_html",
+  );
   const htmlSummaries = (htmlResources ?? []).filter((r) => r.resourceType === "summary_html");
 
   // Additional written explanations — a capability only when real text exists.
@@ -362,9 +368,7 @@ function LessonPage() {
         .eq("lesson_id", lessonId)
         .order("sort_order");
       if (error) throw error;
-      return ((data ?? []) as ExplanationRow[]).filter(
-        (e) => (e.content ?? "").trim().length > 0,
-      );
+      return ((data ?? []) as ExplanationRow[]).filter((e) => (e.content ?? "").trim().length > 0);
     },
   });
 
@@ -384,8 +388,6 @@ function LessonPage() {
     },
   });
 
-
-
   // Detect availability of a training template (for the journey CTA hint).
   const { data: trainingTemplates } = useQuery({
     enabled: !!lesson && accessible === true,
@@ -397,9 +399,7 @@ function LessonPage() {
         .eq("is_active", true)
         .eq("lesson_id", lessonId);
       if (error) throw error;
-      const rows = ((data ?? []) as any[]).filter(
-        (r) => (r.questions?.[0]?.count ?? 0) > 0,
-      );
+      const rows = ((data ?? []) as any[]).filter((r) => (r.questions?.[0]?.count ?? 0) > 0);
       return rows.length;
     },
   });
@@ -426,7 +426,6 @@ function LessonPage() {
     siblings && siblingIndex >= 0 && siblingIndex < siblings.length - 1
       ? siblings[siblingIndex + 1]
       : null;
-
 
   const mindmaps = (resources ?? []).filter((r) => r.resource_type === "mindmap");
   const videos = (resources ?? []).filter((r) => r.resource_type === "video");
@@ -519,13 +518,14 @@ function LessonPage() {
             {summary?.summary && summary.summary.trim().length > 0 && (
               <>
                 <p className="text-sm leading-relaxed text-card-foreground">{summary.summary}</p>
-                {Array.isArray(summary.key_points) && (summary.key_points as unknown[]).length > 0 && (
-                  <ul className="mt-3 list-disc space-y-1 pr-5 text-sm text-card-foreground">
-                    {(summary.key_points as unknown[]).map((p, i) => (
-                      <li key={i}>{String(p)}</li>
-                    ))}
-                  </ul>
-                )}
+                {Array.isArray(summary.key_points) &&
+                  (summary.key_points as unknown[]).length > 0 && (
+                    <ul className="mt-3 list-disc space-y-1 pr-5 text-sm text-card-foreground">
+                      {(summary.key_points as unknown[]).map((p, i) => (
+                        <li key={i}>{String(p)}</li>
+                      ))}
+                    </ul>
+                  )}
                 {summary.study_tip && (
                   <p className="mt-3 flex items-start gap-2 rounded-md bg-accent/10 p-2 text-xs">
                     <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
@@ -732,7 +732,6 @@ function LessonPage() {
         </div>
       )}
 
-
       <nav
         aria-label="التنقل بين الدروس"
         className="grid grid-cols-2 gap-2.5 border-t border-border/60 pt-4"
@@ -770,7 +769,6 @@ function LessonPage() {
           <BackToApp />
         )}
       </div>
-
     </article>
   );
 }
@@ -852,8 +850,6 @@ function CapabilityIcon({ type }: { type: LessonCapabilityType }) {
       return <Library className={className} />;
   }
 }
-
-
 
 function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
   const options = Array.isArray(q.options) ? (q.options as unknown[]) : [];
@@ -974,7 +970,6 @@ function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
   );
 }
 
-
 function Breadcrumbs({
   subjectName,
   subjectId,
@@ -998,7 +993,6 @@ function Breadcrumbs({
   );
 }
 
-
 function BackToApp() {
   return (
     <Button asChild variant="outline" className="gap-1">
@@ -1016,7 +1010,6 @@ type EnhancementItem = {
   url: string;
 };
 
-
 function isSafeHttpUrl(value: string): boolean {
   const v = (value ?? "").trim();
   if (!v) return false;
@@ -1033,24 +1026,14 @@ function isExternalUrl(u: string) {
   return /^https?:\/\//i.test(u.trim());
 }
 
-function EnhancementItemRow({
-  item,
-  lessonId,
-}: {
-  item: EnhancementItem;
-  lessonId: string;
-}) {
+function EnhancementItemRow({ item, lessonId }: { item: EnhancementItem; lessonId: string }) {
   const getUrl = useServerFn(getLessonFileUrl);
   const externalRaw = isExternalUrl(item.url);
   const externalSafe = isSafeHttpUrl(item.url);
   const externalUnsafe = externalRaw && !externalSafe;
-  const [resolved, setResolved] = useState<string | null>(
-    externalSafe ? item.url : null,
-  );
+  const [resolved, setResolved] = useState<string | null>(externalSafe ? item.url : null);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(
-    externalUnsafe ? "رابط المورد غير صالح." : null,
-  );
+  const [err, setErr] = useState<string | null>(externalUnsafe ? "رابط المورد غير صالح." : null);
 
   useEffect(() => {
     if (externalSafe) {
@@ -1086,9 +1069,7 @@ function EnhancementItemRow({
   return (
     <div className="rounded-lg border border-border bg-card p-2">
       <div className="text-sm font-semibold text-foreground">{item.title}</div>
-      {item.description && (
-        <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
-      )}
+      {item.description && <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>}
       <div className="mt-2">
         {loading && <span className="text-xs text-muted-foreground">جارٍ التحضير…</span>}
         {err && <span className="text-xs text-destructive">{err}</span>}
@@ -1109,10 +1090,7 @@ function EnhancementItemRow({
 }
 
 function ResourceTypeBadge({ type }: { type: string }) {
-  const config: Record<
-    string,
-    { label: string; icon: React.ReactNode }
-  > = {
+  const config: Record<string, { label: string; icon: React.ReactNode }> = {
     pdf: { label: "ملف PDF", icon: <FileText className="h-3.5 w-3.5" /> },
     video: { label: "فيديو", icon: <Video className="h-3.5 w-3.5" /> },
     link: { label: "رابط", icon: <Link2 className="h-3.5 w-3.5" /> },
@@ -1127,20 +1105,12 @@ function ResourceTypeBadge({ type }: { type: string }) {
   );
 }
 
-function ResourceCard({
-  resource,
-  lessonId,
-}: {
-  resource: ResourceRow;
-  lessonId: string;
-}) {
+function ResourceCard({ resource, lessonId }: { resource: ResourceRow; lessonId: string }) {
   const getUrl = useServerFn(getLessonFileUrl);
   const isStorageRef = resource.url.trim().startsWith("supabase-storage://");
   const safeHttp = !isStorageRef && isSafeHttpUrl(resource.url);
 
-  const [resolved, setResolved] = useState<string | null>(
-    safeHttp ? resource.url : null,
-  );
+  const [resolved, setResolved] = useState<string | null>(safeHttp ? resource.url : null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -1181,14 +1151,10 @@ function ResourceCard({
           </div>
         </div>
         <div className="shrink-0">
-          {loading && (
-            <span className="text-xs text-muted-foreground">جارٍ التحضير…</span>
-          )}
+          {loading && <span className="text-xs text-muted-foreground">جارٍ التحضير…</span>}
           {err && <span className="text-xs text-destructive">{err}</span>}
           {showInvalid && (
-            <span className="text-xs text-muted-foreground">
-              رابط المورد غير صالح.
-            </span>
+            <span className="text-xs text-muted-foreground">رابط المورد غير صالح.</span>
           )}
           {showOpen && (
             <a
@@ -1205,5 +1171,3 @@ function ResourceCard({
     </div>
   );
 }
-
-
