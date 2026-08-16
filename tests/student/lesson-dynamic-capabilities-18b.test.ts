@@ -128,7 +128,8 @@ describe("computeLessonCapabilities", () => {
 describe("computeLessonProgress", () => {
   it("is zero, not NaN, when nothing trackable is available", () => {
     const progress = computeLessonProgress(computeLessonCapabilities(EMPTY));
-    expect(progress.total).toBe(0);
+    expect(progress.denominator).toBe(0);
+    expect(progress.measurable).toBe(false);
     expect(progress.percent).toBe(0);
   });
 
@@ -141,8 +142,8 @@ describe("computeLessonProgress", () => {
       progress: { completed: true, quizScore: null },
     });
     const progress = computeLessonProgress(capabilities);
-    expect(progress.total).toBeGreaterThan(0);
-    expect(progress.total).toBeLessThanOrEqual(capabilities.filter((c) => c.available).length);
+    expect(progress.denominator).toBeGreaterThan(0);
+    expect(progress.denominator).toBeLessThanOrEqual(capabilities.filter((c) => c.available).length);
     expect(progress.percent).toBeGreaterThan(0);
     expect(progress.percent).toBeLessThanOrEqual(100);
   });
@@ -162,7 +163,7 @@ describe("parseLessonTitle", () => {
   });
 
   it("never throws on empty input", () => {
-    expect(parseLessonTitle(null).main).toBe("");
-    expect(parseLessonTitle("   ").main.trim()).toBe("");
+    expect(parseLessonTitle(null).main).toBe("الدرس");
+    expect(parseLessonTitle("   ").context).toBeNull();
   });
 });
