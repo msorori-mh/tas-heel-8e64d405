@@ -49,6 +49,8 @@ export function BulkLessonPdfUploadPanel() {
   const planFn = useServerFn(planSubjectPdfBulkUpload);
   const createTarget = useServerFn(createLessonPdfUploadTarget);
   const bind = useServerFn(bindLessonPrimaryPdf);
+  const findObject = useServerFn(findUploadedLessonPdfObject);
+  const getPrimary = useServerFn(getLessonPrimaryPdfState);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const [subjectId, setSubjectId] = useState<string>("");
