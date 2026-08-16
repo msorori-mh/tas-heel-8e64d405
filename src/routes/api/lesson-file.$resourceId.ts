@@ -72,7 +72,7 @@ async function authorize(request: Request, resourceId: string) {
     .maybeSingle();
   if (rowError) {
     console.error(`[lesson-file] resource lookup failed: ${rowError.message}`);
-    return { error: deny(500, "lookup_failed") };
+    return { error: deny(500, `lookup_failed: ${rowError.message}`) };
   }
   if (!row) return { error: deny(404, "not_found") };
 
