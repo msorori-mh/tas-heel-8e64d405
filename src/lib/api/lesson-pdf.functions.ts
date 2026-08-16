@@ -12,6 +12,17 @@ export const getLessonPrimaryPdfState = createServerFn({ method: "POST" })
     return { primary: await m.loadPrimaryPdf(supabaseAdmin as never, data.lessonId) };
   });
 
+/** 18E1 — allows RETRY_BIND_EXISTING_OBJECT without re-uploading bytes. */
+export const findUploadedLessonPdfObject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ lessonId: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    const m = await import("@/lib/lessons/lesson-pdf-upload.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await m.assertContentStaff(context.supabase as never, context.userId);
+    return m.findUploadedLessonPdf(supabaseAdmin as never, data.lessonId);
+  });
+
 export const createLessonPdfUploadTarget = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
