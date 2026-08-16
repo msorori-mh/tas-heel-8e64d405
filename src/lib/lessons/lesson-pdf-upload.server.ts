@@ -121,6 +121,24 @@ export async function createUploadTarget(
 }
 
 /**
+ * 18E1 — find an already-uploaded (possibly unbound) object for a lesson so a
+ * failed bind can be retried without re-uploading the bytes.
+ */
+export async function findUploadedLessonPdf(admin: Caller, lessonId: string) {
+  const { data, error } = await admin.storage
+    .from(LESSON_PDF_BUCKET)
+    .list(lessonId, { limit: 100, sortBy: { column: "created_at", order: "desc" } } as never);
+  if (error) throw new Error("object_lookup_failed");
+  const objects = (data ?? []).filter((o) => /\.pdf$/i.test(o.name));
+  if (objects.length === 0) return { objects: [], latest: null as null | { path: string; size: number } };
+  const mapped = objects.map((o) => ({
+    path: `${lessonId}/${o.name}`,
+    size: Number((o as { metadata?: { size?: number } }).metadata?.size ?? 0),
+  }));
+  return { objects: mapped, latest: mapped[0] ?? null };
+}
+
+/**
  * Bind an already-uploaded object to the lesson as PRIMARY_CONTENT.
  * A lesson never ends up with two primary resources: the previous managed
  * primary row is reused (identity preserved) and its bytes are replaced.
