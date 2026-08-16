@@ -108,7 +108,7 @@ try {
     const res = ins(meta);
     const got = res.status === 0 ? "PASS" : "DENY";
     const ok = got === expect;
-    if (!ok) failures++;
+    if (!ok) { failures++; if (res.status !== 0) console.log("   err: " + (res.stderr||"").trim().split("\n")[0]); }
     results.push(`${ok ? "OK  " : "FAIL"}  ${name.padEnd(30)} expected=${expect} got=${got}`);
     if (res.status === 0) psql("delete from lesson_resources");
   }
