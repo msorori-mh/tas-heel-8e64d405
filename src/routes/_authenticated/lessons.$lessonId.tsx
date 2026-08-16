@@ -17,6 +17,7 @@ import {
   requestFreshStudentHtmlSignedUrl,
 } from "@/lib/api/html-pipeline.functions";
 import { PublishedHtmlResourceViewer } from "@/components/lessons/PublishedHtmlResourceViewer";
+import { OfficialTextbookContent } from "@/components/lessons/OfficialTextbookContent";
 import {
   ExternalLessonDelivery,
   type PrimaryLessonResource,
