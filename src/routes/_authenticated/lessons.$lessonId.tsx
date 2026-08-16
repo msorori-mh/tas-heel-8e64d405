@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { prefetchNextLessons } from "@/lib/offline/offline-pack";
+import { InAppPdfDelivery } from "@/components/lessons/InAppPdfDelivery";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -1117,6 +1118,19 @@ function ResourceCard({ resource, lessonId }: { resource: ResourceRow; lessonId:
   const getUrl = useServerFn(getLessonFileUrl);
   const isStorageRef = resource.url.trim().startsWith("supabase-storage://");
   const safeHttp = !isStorageRef && isSafeHttpUrl(resource.url);
+
+  // 18C closure — PDF resources open inside تمكين (with an offline copy),
+  // whether or not they are flagged as the lesson's primary resource.
+  if (resource.resource_type === "pdf" && (isStorageRef || safeHttp)) {
+    return (
+      <InAppPdfDelivery
+        resourceId={resource.id}
+        lessonId={lessonId}
+        title={resource.title}
+        fallbackUrl={safeHttp ? resource.url : null}
+      />
+    );
+  }
 
   const [resolved, setResolved] = useState<string | null>(safeHttp ? resource.url : null);
   const [loading, setLoading] = useState(false);

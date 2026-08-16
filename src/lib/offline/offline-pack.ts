@@ -25,7 +25,12 @@ export type PackStatus = {
 
 const PDF_LIKE = new Set(["pdf", "link"]);
 
-/** Primary lesson files for the given lessons (PDF-like resources only). */
+/**
+ * Downloadable lesson files for the given lessons (PDF-like resources only).
+ *
+ * `is_primary` is only a preference: when a lesson flags a primary file we take
+ * it, otherwise every PDF-like resource of that lesson is part of the pack.
+ */
 export async function listPackResources(lessonIds: string[]): Promise<PackResource[]> {
   if (lessonIds.length === 0) return [];
   const out: PackResource[] = [];
@@ -33,26 +38,45 @@ export async function listPackResources(lessonIds: string[]): Promise<PackResour
   for (let i = 0; i < lessonIds.length; i += chunkSize) {
     const chunk = lessonIds.slice(i, i + chunkSize);
     const { data, error } = await (supabase.from("lesson_resources") as any)
-      .select("id,lesson_id,title,resource_type,url")
-      .in("lesson_id", chunk)
-      .eq("is_primary", true);
+      .select("id,lesson_id,title,resource_type,url,is_primary")
+      .in("lesson_id", chunk);
     if (error) throw error;
+
+    const byLesson = new Map<string, PackResource[]>();
+    const primaryByLesson = new Map<string, PackResource[]>();
+
     for (const row of (data ?? []) as Array<{
       id: string;
       lesson_id: string;
       title: string | null;
       resource_type: string | null;
       url: string;
+      is_primary?: boolean | null;
     }>) {
       const looksPdf =
         PDF_LIKE.has(row.resource_type ?? "") ||
         /\.pdf(?:$|[?#])/i.test(row.url) ||
         /drive\.google\.com|docs\.google\.com/i.test(row.url);
-      if (looksPdf) out.push({ resourceId: row.id, lessonId: row.lesson_id, title: row.title });
+      if (!looksPdf) continue;
+      const item: PackResource = {
+        resourceId: row.id,
+        lessonId: row.lesson_id,
+        title: row.title,
+      };
+      const bucket = row.is_primary ? primaryByLesson : byLesson;
+      const list = bucket.get(row.lesson_id) ?? [];
+      list.push(item);
+      bucket.set(row.lesson_id, list);
+    }
+
+    for (const lessonId of chunk) {
+      const preferred = primaryByLesson.get(lessonId) ?? byLesson.get(lessonId) ?? [];
+      out.push(...preferred);
     }
   }
   return out;
 }
+
 
 export async function getPackStatus(lessonIds: string[]): Promise<PackStatus> {
   const resources = await listPackResources(lessonIds);
