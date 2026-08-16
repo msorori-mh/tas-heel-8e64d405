@@ -19,7 +19,15 @@ import {
   ExternalLessonDelivery,
   type PrimaryLessonResource,
 } from "@/components/lessons/ExternalLessonDelivery";
-import { isExternalDelivery } from "@/lib/lessons/lesson-delivery";
+import {
+  computeLessonCapabilities,
+  computeLessonProgress,
+  parseLessonTitle,
+  visibleLessonCapabilities,
+  type LessonCapability,
+  type LessonCapabilityType,
+} from "@/lib/lessons/lesson-capabilities";
+
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import {
   Home,
