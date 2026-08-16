@@ -535,6 +535,11 @@ function LessonPage() {
             <ExternalLessonDelivery resource={effectivePrimary} />
           );
         }
+        {
+          // 20A1B — approved structured official textbook content, when bound.
+          const structuredDoc = resolveStructuredDocument(bookContent);
+          if (structuredDoc) return <StructuredTextbookReader document={structuredDoc} />;
+        }
         return <OfficialTextbookContent content={bookContent} />;
 
 
