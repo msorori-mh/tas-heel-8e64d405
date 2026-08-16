@@ -343,6 +343,41 @@ function LessonPage() {
   const htmlExperiments = (htmlResources ?? []).filter((r) => r.resourceType === "practical_experiment_html");
   const htmlSummaries = (htmlResources ?? []).filter((r) => r.resourceType === "summary_html");
 
+  // Additional written explanations — a capability only when real text exists.
+  const { data: explanations } = useQuery({
+    enabled: !!lesson && accessible === true,
+    queryKey: ["lesson-explanations", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lesson_explanations")
+        .select("id,title,content,sort_order")
+        .eq("lesson_id", lessonId)
+        .order("sort_order");
+      if (error) throw error;
+      return ((data ?? []) as ExplanationRow[]).filter(
+        (e) => (e.content ?? "").trim().length > 0,
+      );
+    },
+  });
+
+  // Own progress row — the only reliable completion signal we currently own.
+  const { data: progressRow } = useQuery({
+    enabled: !!lesson && accessible === true && !!profile?.user_id,
+    queryKey: ["lesson-progress", lessonId, profile?.user_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_progress")
+        .select("completed,quiz_score")
+        .eq("lesson_id", lessonId)
+        .eq("user_id", profile!.user_id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as { completed: boolean | null; quiz_score: number | null } | null) ?? null;
+    },
+  });
+
+
+
   // Detect availability of a training template (for the journey CTA hint).
   const { data: trainingTemplates } = useQuery({
     enabled: !!lesson && accessible === true,
