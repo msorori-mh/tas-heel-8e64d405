@@ -96,7 +96,6 @@ function ReadinessBadge({ readiness }: { readiness: LessonReadiness | undefined 
   );
 }
 
-
 function AdminLessonsPage() {
   const { loading, enabled } = useRequireAdminSection("content");
   const [page, setPage] = useState(0);
@@ -191,7 +190,7 @@ function AdminLessonsPage() {
         .from("lessons")
         .select(
           "id, title, sort_order, duration, is_free, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)",
-          { count: "exact" }
+          { count: "exact" },
         )
         .order("sort_order", { ascending: true })
         .range(from, to);
@@ -240,7 +239,10 @@ function AdminLessonsPage() {
             .from("lessons")
             .select("id, delivery_mode, content_text, has_video")
             .in("id", lessonIds),
-          supabase.from("lesson_book_contents").select("lesson_id, content").in("lesson_id", lessonIds),
+          supabase
+            .from("lesson_book_contents")
+            .select("lesson_id, content")
+            .in("lesson_id", lessonIds),
           supabase.from("lesson_summaries").select("lesson_id, summary").in("lesson_id", lessonIds),
           supabase.from("questions").select("lesson_id").in("lesson_id", lessonIds),
           supabase
@@ -248,7 +250,10 @@ function AdminLessonsPage() {
             .select("id, lesson_id, resource_type, html_resource_type, title, url, is_primary")
             .in("lesson_id", lessonIds),
           supabase.from("lesson_simulations").select("lesson_id").in("lesson_id", lessonIds),
-          supabase.from("lesson_explanations").select("lesson_id, content").in("lesson_id", lessonIds),
+          supabase
+            .from("lesson_explanations")
+            .select("lesson_id, content")
+            .in("lesson_id", lessonIds),
         ]);
 
       const firstError =
@@ -284,8 +289,7 @@ function AdminLessonsPage() {
       for (const id of lessonIds) {
         const meta = lessonMeta[id] ?? {};
         const rows = resources[id] ?? [];
-        const html = (t: string) =>
-          rows.filter((r: any) => r.html_resource_type === t).length;
+        const html = (t: string) => rows.filter((r: any) => r.html_resource_type === t).length;
         const plain = rows
           .filter((r: any) => !r.html_resource_type)
           .map((r: any) => ({
@@ -329,7 +333,6 @@ function AdminLessonsPage() {
     },
   });
 
-
   const gradeNameMap: Record<string, string> = {};
   for (const g of gradesQ.data ?? []) {
     if (g.id && g.name) gradeNameMap[g.id] = g.name;
@@ -338,8 +341,8 @@ function AdminLessonsPage() {
   // Filter unit options based on subject filter
   const unitOptions =
     subjectFilter !== "all"
-      ? unitsQ.data?.filter((u) => u.subject_id === subjectFilter) ?? []
-      : unitsQ.data ?? [];
+      ? (unitsQ.data?.filter((u) => u.subject_id === subjectFilter) ?? [])
+      : (unitsQ.data ?? []);
 
   if (loading) {
     return (
@@ -375,9 +378,7 @@ function AdminLessonsPage() {
               <BookOpen className="h-6 w-6 text-primary" />
               الدروس
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              قائمة الدروس — قراءة فقط.
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">قائمة الدروس — قراءة فقط.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -505,7 +506,9 @@ function AdminLessonsPage() {
                           </Link>
                         </td>
                         <td className="px-3 py-3 text-muted-foreground">{r.unit?.title || "—"}</td>
-                        <td className="px-3 py-3 text-muted-foreground">{r.subject?.name || "—"}</td>
+                        <td className="px-3 py-3 text-muted-foreground">
+                          {r.subject?.name || "—"}
+                        </td>
                         <td className="px-3 py-3 text-muted-foreground">
                           {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
                         </td>
@@ -589,8 +592,7 @@ function AdminLessonsPage() {
                       <span>الوحدة: {r.unit?.title || "—"}</span>
                       <span>المادة: {r.subject?.name || "—"}</span>
                       <span>
-                        الصف:{" "}
-                        {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
+                        الصف: {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
                       </span>
                       <span>المدة: {r.duration || "—"}</span>
                     </div>
@@ -610,12 +612,12 @@ function AdminLessonsPage() {
                             title: r.title,
                             sort_order: r.sort_order,
                             duration: r.duration,
-                                subject_id: r.subject_id,
-                                subject_name: r.subject?.name || null,
-                                unit_id: r.unit_id,
-                                unit_name: r.unit?.title || null,
-                                is_free: r.is_free,
-                              })
+                            subject_id: r.subject_id,
+                            subject_name: r.subject?.name || null,
+                            unit_id: r.unit_id,
+                            unit_name: r.unit?.title || null,
+                            is_free: r.is_free,
+                          })
                         }
                         className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
                       >
