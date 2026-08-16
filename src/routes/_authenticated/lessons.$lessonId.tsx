@@ -534,11 +534,7 @@ function LessonPage() {
             <ExternalLessonDelivery resource={effectivePrimary} />
           );
         }
-        return (
-          <div className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
-            {bookContent}
-          </div>
-        );
+        return <OfficialTextbookContent content={bookContent} />;
 
 
       case "SUMMARY":
