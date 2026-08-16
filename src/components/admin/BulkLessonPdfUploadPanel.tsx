@@ -108,6 +108,10 @@ export function BulkLessonPdfUploadPanel() {
     if (arr.length > 0) void runPlan(arr);
   };
 
+  /**
+   * 18E1 — a file only counts as SUCCESS after PRIMARY_VERIFIED.
+   * Reaching the end of the loop is "processed", never "succeeded".
+   */
   const execute = async () => {
     if (!plan) return;
     const targets = plan.rows.filter(
@@ -115,27 +119,53 @@ export function BulkLessonPdfUploadPanel() {
     );
     setRunning(true);
     setFailures([]);
-    setProgress({ done: 0, total: targets.length });
+    setProgress({ processed: 0, succeeded: 0, failed: 0, total: targets.length });
     const errs: string[] = [];
-    let done = 0;
+    let processed = 0;
+    let succeeded = 0;
+    let failed = 0;
     for (const row of targets) {
-      const file = fileMap.get(row.fileName as string);
-      if (!file) {
-        errs.push(`${row.fileName}: الملف غير موجود في الاختيار`);
-        continue;
-      }
+      const lessonId = row.lessonId as string;
+      const fileName = row.fileName as string;
+      const file = fileMap.get(fileName);
+      let stage = "MATCHED";
       try {
-        await uploadLessonPrimaryPdf({ createTarget, bind }, row.lessonId as string, file);
+        if (!file) throw new Error("الملف غير موجود في الاختيار");
+
+        // RETRY_BIND_EXISTING_OBJECT: never re-upload bytes that already landed.
+        const existing = await findObject({ data: { lessonId } });
+        if (existing.latest && existing.latest.size === file.size) {
+          stage = "STORAGE_VERIFIED";
+          await bind({
+            data: {
+              lessonId,
+              path: existing.latest.path,
+              fileName,
+              fileSize: file.size,
+              title: null,
+            },
+          });
+        } else {
+          stage = "SIGNED_URL_CREATED";
+          await uploadLessonPrimaryPdf({ createTarget, bind }, lessonId, file);
+        }
+        stage = "RESOURCE_BOUND";
+
+        const state = await getPrimary({ data: { lessonId } });
+        if (!state.primary || !state.primary.managed) throw new Error("لم يتم تثبيت الملف كأساسي");
+        stage = "PRIMARY_VERIFIED";
+        succeeded += 1;
       } catch (e) {
-        errs.push(`${row.fileName}: ${e instanceof Error ? e.message : "فشل"}`);
+        failed += 1;
+        errs.push(`${fileName} [${stage}]: ${e instanceof Error ? e.message : "فشل"}`);
       }
-      done += 1;
-      setProgress({ done, total: targets.length });
+      processed += 1;
+      setProgress({ processed, succeeded, failed, total: targets.length });
     }
     setFailures(errs);
     setRunning(false);
-    if (errs.length === 0) toast.success(`تم رفع ${done} ملفاً وربطها بالدروس.`);
-    else toast.warning(`اكتمل التنفيذ مع ${errs.length} فشل.`);
+    if (failed === 0) toast.success(`تم التحقق من ربط ${succeeded} ملفاً كمحتوى أساسي.`);
+    else toast.error(`تمت معالجة ${processed} — نجح ${succeeded} وفشل ${failed} (لم يكتمل الربط).`);
     await runPlan(files);
   };
 
