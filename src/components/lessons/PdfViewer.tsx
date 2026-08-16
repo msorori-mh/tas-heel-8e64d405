@@ -176,6 +176,10 @@ export function PdfViewer({
     renderTaskRef.current = task;
     try {
       await task.promise;
+      const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let ink = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 0 && d[i] < 200) ink++;
+      console.log("[pdf-render] page", page, "canvas", canvas.width, canvas.height, "ink", ink);
     } catch (err) {
       console.error("[pdf-render]", err);
     }
