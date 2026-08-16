@@ -294,6 +294,15 @@ function SubjectIndexPage() {
 
       {!hasAny && <StateMessage>لم تُضاف دروس لهذه المادة بعد.</StateMessage>}
 
+      {/* 18C — تحميل ملفات المادة للاستخدام دون إنترنت */}
+      {lessons.length > 0 && (
+        <OfflinePackCard
+          title={`تحميل «${subject.name}» للاستخدام دون إنترنت`}
+          lessonIds={lessons.map((l) => l.id)}
+          subjectId={subjectId}
+        />
+      )}
+
       {hasAny &&
         (hasUnits ? (
           <Accordion type="single" collapsible defaultValue={defaultOpen} className="space-y-2.5">
