@@ -109,6 +109,14 @@ type QuestionRow = {
   sort_order: number;
 };
 
+type ExplanationRow = {
+  id: string;
+  title: string | null;
+  content: string;
+  sort_order: number;
+};
+
+
 function LessonPage() {
   const { lessonId } = Route.useParams();
   const { profile } = useAuth();
