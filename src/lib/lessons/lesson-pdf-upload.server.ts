@@ -212,7 +212,7 @@ export async function deletePrimaryPdf(admin: Caller, caller: Caller, lessonId: 
 
   const { error: clearError } = await caller.rpc("admin_set_primary_lesson_resource", {
     _lesson_id: lessonId,
-    _resource_id: null,
+    _resource_id: null as unknown as string,
   });
   if (clearError) throw new Error("primary_clear_failed");
 
