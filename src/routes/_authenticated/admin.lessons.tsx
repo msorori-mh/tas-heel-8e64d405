@@ -475,18 +475,23 @@ function AdminLessonsPage() {
                     <th className="px-3 py-3 text-right font-medium">المادة</th>
                     <th className="px-3 py-3 text-right font-medium">الصف</th>
                     <th className="px-3 py-3 text-right font-medium">المدة</th>
-                    <th className="px-3 py-3 text-center font-medium" title="كتاب">كتاب</th>
-                    <th className="px-3 py-3 text-center font-medium" title="ملخص">ملخص</th>
-                    <th className="px-3 py-3 text-center font-medium" title="أسئلة">أسئلة</th>
-                    <th className="px-3 py-3 text-center font-medium" title="موارد">موارد</th>
-                    <th className="px-3 py-3 text-center font-medium" title="فيديو">فيديو</th>
-                    <th className="px-3 py-3 text-center font-medium" title="محاكاة">محاكاة</th>
+                    <th className="px-3 py-3 text-right font-medium">الجاهزية</th>
+                    {ROW_CAPABILITIES.map((c) => (
+                      <th
+                        key={c.type}
+                        className="px-3 py-3 text-center font-medium"
+                        title={c.label}
+                      >
+                        {c.label}
+                      </th>
+                    ))}
                     <th className="px-3 py-3 text-center font-medium">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => {
-                    const flags = ind[r.id] ?? {};
+                    const readiness = ind[r.id];
+                    const available = new Set(readiness?.availableCapabilities ?? []);
                     return (
                       <tr key={r.id} className="border-t border-border">
                         <td className="px-3 py-3 text-muted-foreground">{r.sort_order}</td>
@@ -505,12 +510,15 @@ function AdminLessonsPage() {
                           {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
                         </td>
                         <td className="px-3 py-3 text-muted-foreground">{r.duration || "—"}</td>
-                        <td className="px-3 py-3 text-center"><Indicator on={!!flags.book} /></td>
-                        <td className="px-3 py-3 text-center"><Indicator on={!!flags.summary} /></td>
-                        <td className="px-3 py-3 text-center"><Indicator on={!!flags.questions} /></td>
-                        <td className="px-3 py-3 text-center"><Indicator on={!!flags.resources} /></td>
-                        <td className="px-3 py-3 text-center"><Indicator on={!!flags.video} /></td>
-                        <td className="px-3 py-3 text-center"><Indicator on={!!flags.simulations} /></td>
+                        <td className="px-3 py-3">
+                          <ReadinessBadge readiness={readiness} />
+                        </td>
+                        {ROW_CAPABILITIES.map((c) => (
+                          <td key={c.type} className="px-3 py-3 text-center">
+                            <Indicator on={available.has(c.type)} />
+                          </td>
+                        ))}
+
                         <td className="px-3 py-3 text-center">
                           <div className="inline-flex items-center gap-1">
                             <button
