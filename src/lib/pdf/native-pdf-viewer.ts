@@ -2,7 +2,7 @@
  * 18C2 — JS side of the TamkeenPdfViewer Capacitor plugin.
  *
  * The bridge is intentionally narrow: only an app-private RELATIVE path plus
- * presentation metadata cross it. No Drive URL, no Supabase URL, no JWT.
+ * presentation metadata cross it — never a remote URL, storage key or token.
  */
 
 import { registerPlugin } from "@capacitor/core";
