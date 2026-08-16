@@ -95,7 +95,9 @@ type ResourceRow = {
   url: string;
   description: string | null;
   sort_order: number;
+  is_primary?: boolean | null;
 };
+
 
 type SimulationRow = {
   id: string;
@@ -294,7 +296,7 @@ function LessonPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_resources")
-        .select("id,resource_type,title,url,description,sort_order")
+        .select("id,resource_type,title,url,description,sort_order,is_primary")
         .eq("lesson_id", lessonId)
         .order("sort_order");
       if (error) throw error;
