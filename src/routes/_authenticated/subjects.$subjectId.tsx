@@ -29,6 +29,7 @@ import {
 import { semesterLabel, type Semester } from "@/lib/subject-semester";
 import { getSubjectIcon } from "@/lib/subjects/subject-icon";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
+import { OfflinePackCard } from "@/components/offline/OfflinePackCard";
 
 const searchSchema = z.object({
   semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
