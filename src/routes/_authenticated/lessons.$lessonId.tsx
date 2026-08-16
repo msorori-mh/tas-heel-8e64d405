@@ -789,18 +789,17 @@ function JourneyCard({
   title: string;
   description: string;
   ctaLabel: string;
-  ctaDisabled: boolean;
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen === true);
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
       <button
         type="button"
-        onClick={() => !ctaDisabled && setOpen((v) => !v)}
-        disabled={ctaDisabled}
+        onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 p-4 text-right transition-colors hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex w-full items-center gap-3 p-4 text-right transition-colors hover:bg-muted/30"
       >
         <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
           {icon}
@@ -815,27 +814,45 @@ function JourneyCard({
           <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{description}</p>
         </div>
         <div className="shrink-0 text-muted-foreground">
-          {ctaDisabled ? (
-            <span className="text-[11px]">{ctaLabel}</span>
-          ) : (
-            <div className="flex items-center gap-1 text-xs font-medium text-primary">
-              <span>{open ? "إغلاق" : ctaLabel}</span>
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
-                aria-hidden
-              />
-            </div>
-          )}
+          <div className="flex items-center gap-1 text-xs font-medium text-primary">
+            <span>{open ? "إغلاق" : ctaLabel}</span>
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
+              aria-hidden
+            />
+          </div>
         </div>
-        {/* unused icon prop kept for future visual variant */}
-        <span className="sr-only">{icon}</span>
       </button>
-      {open && !ctaDisabled && (
-        <div className="border-t border-border bg-background/40 p-4">{children}</div>
-      )}
+      {open && <div className="border-t border-border bg-background/40 p-4">{children}</div>}
     </section>
   );
 }
+
+/** Icon per capability — presentation only, derived from the capability type. */
+function CapabilityIcon({ type }: { type: LessonCapabilityType }) {
+  const className = "h-5 w-5";
+  switch (type) {
+    case "PRIMARY_CONTENT":
+      return <ScrollText className={className} />;
+    case "SUMMARY":
+      return <FileText className={className} />;
+    case "EXPLANATION":
+      return <Sparkles className={className} />;
+    case "MINDMAP":
+      return <MapIcon className={className} />;
+    case "PRACTICAL":
+      return <FlaskConical className={className} />;
+    case "VIDEO":
+      return <Video className={className} />;
+    case "ASSESSMENT":
+      return <Target className={className} />;
+    case "LESSON_EXAM":
+      return <Trophy className={className} />;
+    default:
+      return <Library className={className} />;
+  }
+}
+
 
 
 function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
