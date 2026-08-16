@@ -17,6 +17,7 @@ import {
   requestFreshStudentHtmlSignedUrl,
 } from "@/lib/api/html-pipeline.functions";
 import { PublishedHtmlResourceViewer } from "@/components/lessons/PublishedHtmlResourceViewer";
+import { OfficialTextbookContent } from "@/components/lessons/OfficialTextbookContent";
 import {
   ExternalLessonDelivery,
   type PrimaryLessonResource,
@@ -534,11 +535,7 @@ function LessonPage() {
             <ExternalLessonDelivery resource={effectivePrimary} />
           );
         }
-        return (
-          <div className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
-            {bookContent}
-          </div>
-        );
+        return <OfficialTextbookContent content={bookContent} />;
 
 
       case "SUMMARY":
