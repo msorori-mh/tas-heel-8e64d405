@@ -39,7 +39,7 @@ type ResourceRow = {
   url: string;
   resource_type: string | null;
   title: string | null;
-  updated_at: string | null;
+  created_at: string | null;
 };
 
 async function authorize(request: Request, resourceId: string) {
@@ -67,7 +67,7 @@ async function authorize(request: Request, resourceId: string) {
 
   const { data: row, error: rowError } = await supabaseAdmin
     .from("lesson_resources")
-    .select("id, lesson_id, url, resource_type, title, updated_at")
+    .select("id, lesson_id, url, resource_type, title, created_at")
     .eq("id", resourceId)
     .maybeSingle();
   if (rowError) {
@@ -161,7 +161,7 @@ async function handle(request: Request, resourceId: string, method: "GET" | "HEA
   }
 
   const version = buildVersionToken(
-    auth.resource.updated_at,
+    auth.resource.created_at,
     upstreamResponse.headers.get("etag"),
   );
   const contentType = guessContentType(
