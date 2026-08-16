@@ -162,54 +162,111 @@ function AdminLessonsPage() {
 
   const lessonIds = lessonsQ.data?.rows.map((r) => r.id) ?? [];
 
+  /**
+   * LESSON_DYNAMIC_CAPABILITY_AND_STUDENT_UX_FIX_18B
+   * Admin readiness uses the SAME capability engine as the student page, so an
+   * operator sees exactly what the student would get (admins bypass the
+   * enhancement gate, hence `enhancementsAccessible: true`).
+   */
   const indicatorsQ = useQuery({
     enabled: enabled && lessonIds.length > 0,
-    queryKey: ["admin-lessons", "indicators", lessonIds],
+    queryKey: ["admin-lessons", "readiness", lessonIds],
     queryFn: async () => {
-      const tables = [
-        "lesson_book_contents",
-        "lesson_summaries",
-        "questions",
-        "lesson_resources",
-        "lesson_simulations",
-      ] as const;
-      const tableResults = await Promise.all(
-        tables.map((t) =>
-          supabase.from(t).select("lesson_id").in("lesson_id", lessonIds)
-        )
-      );
-      // Existence flag for video (do not read the URL value).
-      const videoRes = await supabase
-        .from("lessons")
-        .select("id")
-        .in("id", lessonIds)
-        .eq("has_video", true);
+      const [lessonsRes, bookRes, summaryRes, questionsRes, resourcesRes, simsRes, explRes] =
+        await Promise.all([
+          supabase
+            .from("lessons")
+            .select("id, delivery_mode, content_text, has_video")
+            .in("id", lessonIds),
+          supabase.from("lesson_book_contents").select("lesson_id, content").in("lesson_id", lessonIds),
+          supabase.from("lesson_summaries").select("lesson_id, summary").in("lesson_id", lessonIds),
+          supabase.from("questions").select("lesson_id").in("lesson_id", lessonIds),
+          supabase
+            .from("lesson_resources")
+            .select("id, lesson_id, resource_type, html_resource_type, title, url, is_primary")
+            .in("lesson_id", lessonIds),
+          supabase.from("lesson_simulations").select("lesson_id").in("lesson_id", lessonIds),
+          supabase.from("lesson_explanations").select("lesson_id, content").in("lesson_id", lessonIds),
+        ]);
 
-      const map: Record<string, Record<string, boolean>> = {};
-      for (const id of lessonIds) {
-        map[id] = {
-          book: false,
-          summary: false,
-          questions: false,
-          resources: false,
-          simulations: false,
-          video: false,
-        };
-      }
-      const keys = ["book", "summary", "questions", "resources", "simulations"];
-      tableResults.forEach((res, i) => {
-        for (const row of res.data ?? []) {
-          const lid = (row as any).lesson_id;
-          if (lid && map[lid]) map[lid][keys[i]] = true;
+      const firstError =
+        lessonsRes.error ??
+        bookRes.error ??
+        summaryRes.error ??
+        questionsRes.error ??
+        resourcesRes.error ??
+        simsRes.error ??
+        explRes.error;
+      if (firstError) throw firstError;
+
+      const byLesson = <T extends { lesson_id?: string | null }>(rows: T[] | null) => {
+        const map: Record<string, T[]> = {};
+        for (const row of rows ?? []) {
+          const lid = row.lesson_id;
+          if (!lid) continue;
+          (map[lid] ??= []).push(row);
         }
-      });
-      for (const row of videoRes.data ?? []) {
-        const lid = (row as any).id;
-        if (lid && map[lid]) map[lid].video = true;
+        return map;
+      };
+
+      const books = byLesson(bookRes.data as any[]);
+      const summaries = byLesson(summaryRes.data as any[]);
+      const questions = byLesson(questionsRes.data as any[]);
+      const resources = byLesson(resourcesRes.data as any[]);
+      const sims = byLesson(simsRes.data as any[]);
+      const explanations = byLesson(explRes.data as any[]);
+      const lessonMeta: Record<string, any> = {};
+      for (const row of (lessonsRes.data ?? []) as any[]) lessonMeta[row.id] = row;
+
+      const map: Record<string, LessonReadiness> = {};
+      for (const id of lessonIds) {
+        const meta = lessonMeta[id] ?? {};
+        const rows = resources[id] ?? [];
+        const html = (t: string) =>
+          rows.filter((r: any) => r.html_resource_type === t).length;
+        const plain = rows
+          .filter((r: any) => !r.html_resource_type)
+          .map((r: any) => ({
+            id: r.id as string,
+            resource_type: (r.resource_type as string | null) ?? null,
+            title: (r.title as string | null) ?? null,
+            url: (r.url as string) ?? "",
+          }));
+        const primary = rows.find((r: any) => r.is_primary === true);
+
+        const capabilities = computeLessonCapabilities({
+          deliveryMode: meta.delivery_mode ?? null,
+          bookContent: (books[id] ?? [])[0]?.content ?? null,
+          inlineContent: meta.content_text ?? null,
+          primaryResource: primary
+            ? {
+                id: primary.id as string,
+                resource_type: (primary.resource_type as string | null) ?? null,
+                title: (primary.title as string | null) ?? null,
+                url: (primary.url as string) ?? "",
+              }
+            : null,
+          resources: plain,
+          simulationsCount: (sims[id] ?? []).length,
+          htmlMindMapsCount: html("mind_map_html"),
+          htmlExperimentsCount: html("practical_experiment_html"),
+          htmlSummariesCount: html("summary_html"),
+          summaryText: (summaries[id] ?? [])[0]?.summary ?? null,
+          explanationsCount: (explanations[id] ?? []).filter(
+            (e: any) => ((e.content as string | null) ?? "").trim().length > 0,
+          ).length,
+          questionsCount: (questions[id] ?? []).length,
+          lessonExamCount: 0,
+          hasLessonVideoFlag: meta.has_video === true,
+          enhancementsAccessible: true,
+        });
+
+        map[id] = computeLessonReadiness(capabilities);
       }
       return map;
     },
   });
+
 
   const gradeNameMap: Record<string, string> = {};
   for (const g of gradesQ.data ?? []) {
