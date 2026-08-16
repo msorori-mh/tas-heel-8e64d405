@@ -24,6 +24,14 @@
 
         </activity>
 
+        <!-- 18C2 — native PDF viewer (app-private files only, never exported) -->
+        <activity
+            android:name=".PdfViewerActivity"
+            android:exported="false"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:theme="@style/AppTheme.NoActionBar" />
+
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
