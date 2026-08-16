@@ -24,7 +24,9 @@ import {
 import {
   computeLessonCapabilities,
   computeLessonProgress,
+  isPlaceholderBookContent,
   parseLessonTitle,
+
   visibleLessonCapabilities,
   type LessonCapability,
   type LessonCapabilityType,
@@ -95,7 +97,9 @@ type ResourceRow = {
   url: string;
   description: string | null;
   sort_order: number;
+  is_primary?: boolean | null;
 };
+
 
 type SimulationRow = {
   id: string;
@@ -294,7 +298,7 @@ function LessonPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_resources")
-        .select("id,resource_type,title,url,description,sort_order")
+        .select("id,resource_type,title,url,description,sort_order,is_primary")
         .eq("lesson_id", lessonId)
         .order("sort_order");
       if (error) throw error;
@@ -439,9 +443,14 @@ function LessonPage() {
   const mindmaps = (resources ?? []).filter((r) => r.resource_type === "mindmap");
   const videos = (resources ?? []).filter((r) => r.resource_type === "video");
   const experiments = (resources ?? []).filter((r) => r.resource_type === "experiment");
+  // 18C1 invariant: a primary resource never appears under "موارد إضافية".
   const extras = (resources ?? []).filter(
-    (r) => r.resource_type === "pdf" || r.resource_type === "link",
+    (r) =>
+      (r.resource_type === "pdf" || r.resource_type === "link") &&
+      r.is_primary !== true &&
+      r.id !== primaryResource?.id,
   );
+
 
   if (loadingLesson) return <StateMessage variant="loading">جارٍ تحميل الدرس…</StateMessage>;
   if (lessonErr || !lesson) {
@@ -467,6 +476,7 @@ function LessonPage() {
 
   const capabilities = computeLessonCapabilities({
     deliveryMode: (lesson as { delivery_mode?: string }).delivery_mode ?? null,
+    lessonTitle: lesson.title,
     bookContent: book?.content ?? null,
     inlineContent: lesson.content_text,
     primaryResource: primaryResource ?? null,
@@ -476,6 +486,7 @@ function LessonPage() {
       title: r.title,
       url: r.url,
       description: r.description,
+      is_primary: r.is_primary ?? false,
     })),
     simulationsCount: simulations?.length ?? 0,
     htmlMindMapsCount: htmlMindMaps.length,
@@ -497,18 +508,38 @@ function LessonPage() {
   const primaryCapability = capabilities.find((c) => c.type === "PRIMARY_CONTENT");
   const primaryUnavailable = !primaryCapability?.available || !primaryCapability?.studentVisible;
 
-  const bookContent = (book?.content ?? lesson.content_text ?? "").trim();
+  const rawBook = (book?.content ?? lesson.content_text ?? "").trim();
+  const bookContent = isPlaceholderBookContent(rawBook, lesson.title) ? "" : rawBook;
+
+  // 18C1 — the effective primary row, whether it came from the dedicated query
+  // or from the `is_primary` flag on the resources list.
+  const effectivePrimary: (PrimaryLessonResource & { resource_type?: string | null }) | null =
+    primaryResource ??
+    ((resources ?? []).find((r) => r.is_primary === true) as unknown as PrimaryLessonResource) ??
+    null;
 
   const renderCapabilityBody = (capability: LessonCapability) => {
     switch (capability.type) {
       case "PRIMARY_CONTENT":
-        return capability.source === "primary_resource" && primaryResource ? (
-          <ExternalLessonDelivery resource={primaryResource} />
-        ) : (
+        if (capability.source === "primary_resource" && effectivePrimary) {
+          // PDF primaries open inside تمكين (offline-capable), never as a link out.
+          return (effectivePrimary as { resource_type?: string | null }).resource_type === "pdf" ? (
+            <InAppPdfDelivery
+              resourceId={effectivePrimary.id}
+              lessonId={lessonId}
+              title={effectivePrimary.title}
+              fallbackUrl={isSafeHttpUrl(effectivePrimary.url) ? effectivePrimary.url : null}
+            />
+          ) : (
+            <ExternalLessonDelivery resource={effectivePrimary} />
+          );
+        }
+        return (
           <div className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
             {bookContent}
           </div>
         );
+
 
       case "SUMMARY":
         return (

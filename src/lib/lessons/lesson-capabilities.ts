@@ -44,7 +44,9 @@ export type LessonReadinessIssue =
   | "PRIMARY_CONTENT_MISSING"
   | "PRIMARY_RESOURCE_INVALID"
   | "DELIVERY_MODE_MISMATCH"
+  | "BOOK_CONTENT_PLACEHOLDER"
   | "CONTENT_NOT_STUDENT_VISIBLE";
+
 
 export interface LessonCapability {
   type: LessonCapabilityType;
@@ -77,14 +79,19 @@ export interface CapabilityResourceInput {
   title: string | null;
   url: string;
   description?: string | null;
+  /** DB flag: this row is the lesson's primary content. */
+  is_primary?: boolean | null;
 }
 
 export interface LessonCapabilityInput {
   deliveryMode: string | null | undefined;
+  /** Lesson title — used to detect title-only placeholder book content. */
+  lessonTitle?: string | null | undefined;
   bookContent: string | null | undefined;
   /** Legacy inline lesson text (`lessons.content_text`). */
   inlineContent?: string | null | undefined;
   primaryResource: CapabilityResourceInput | null | undefined;
+
   /** Non-primary resources already fetched for this lesson. */
   resources: readonly CapabilityResourceInput[];
   simulationsCount: number;
@@ -130,11 +137,40 @@ function hasText(value: string | null | undefined): boolean {
   return (value ?? "").trim().length > 0;
 }
 
+function normalizeText(value: string | null | undefined): string {
+  return (value ?? "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * 18C1 — a `lesson_book_contents` row whose body is empty or is nothing more
+ * than the lesson title is NOT book content: it is import metadata that was
+ * written into the content column. It must never win over a primary PDF.
+ * Deterministic rule, no heuristics: empty, or equal to the lesson title.
+ */
+export function isPlaceholderBookContent(
+  content: string | null | undefined,
+  lessonTitle: string | null | undefined,
+): boolean {
+  const body = normalizeText(content);
+  if (!body) return true;
+  const title = normalizeText(lessonTitle);
+  return title.length > 0 && body === title;
+}
+
 function validResources(
   resources: readonly CapabilityResourceInput[] | undefined,
   type: string,
 ): CapabilityResourceInput[] {
   return (resources ?? []).filter((r) => r.resource_type === type && isValidResourceUrl(r.url));
+}
+
+/** The single primary resource: explicit input first, else the flagged row. */
+export function resolvePrimaryResource(
+  input: LessonCapabilityInput,
+): CapabilityResourceInput | null {
+  const explicit = input.primaryResource ?? null;
+  if (explicit) return explicit;
+  return (input.resources ?? []).find((r) => r.is_primary === true) ?? null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -143,10 +179,15 @@ function validResources(
 
 function primaryContentCapability(input: LessonCapabilityInput): LessonCapability {
   const isExternalMode = input.deliveryMode === "external_resource";
-  const bookText = hasText(input.bookContent) ? input.bookContent : input.inlineContent;
+  const bookRaw = hasText(input.bookContent) ? input.bookContent : input.inlineContent;
+  const placeholderBook =
+    hasText(bookRaw) && isPlaceholderBookContent(bookRaw, input.lessonTitle);
+  const bookText = placeholderBook ? null : bookRaw;
   const hasBook = hasText(bookText);
-  const primary = input.primaryResource ?? null;
+  const primary = resolvePrimaryResource(input);
   const primaryValid = !!primary && isValidResourceUrl(primary.url);
+
+
 
   const base = {
     type: "PRIMARY_CONTENT" as const,
@@ -210,7 +251,12 @@ function primaryContentCapability(input: LessonCapabilityInput): LessonCapabilit
     action: "غير متوفر",
     description: "محتوى الدرس لم يُضف بعد.",
     source: "none",
-    readinessIssue: primary ? "PRIMARY_RESOURCE_INVALID" : "PRIMARY_CONTENT_MISSING",
+    readinessIssue: primary
+      ? "PRIMARY_RESOURCE_INVALID"
+      : placeholderBook
+        ? "BOOK_CONTENT_PLACEHOLDER"
+        : "PRIMARY_CONTENT_MISSING",
+
   };
 }
 
@@ -254,9 +300,13 @@ export function computeLessonCapabilities(input: LessonCapabilityInput): LessonC
   const videoCount =
     validResources(input.resources, "video").length + (input.hasLessonVideoFlag ? 1 : 0);
   const summaryCount = (hasText(input.summaryText) ? 1 : 0) + input.htmlSummariesCount;
+  // 18C1 invariant: the primary resource NEVER appears under extra resources.
+  const primaryId = resolvePrimaryResource(input)?.id ?? null;
+  const isExtra = (r: CapabilityResourceInput) => r.is_primary !== true && r.id !== primaryId;
   const extrasCount =
-    validResources(input.resources, "pdf").filter((r) => r.id !== input.primaryResource?.id)
-      .length + validResources(input.resources, "link").length;
+    validResources(input.resources, "pdf").filter(isExtra).length +
+    validResources(input.resources, "link").filter(isExtra).length;
+
 
   return [
     primaryContentCapability(input),
@@ -398,7 +448,9 @@ export const LESSON_READINESS_REASON_AR: Record<LessonReadinessReason, string> =
   PRIMARY_CONTENT_MISSING: "لا يوجد محتوى أساسي للدرس",
   PRIMARY_RESOURCE_INVALID: "المورد الأساسي غير صالح",
   DELIVERY_MODE_MISMATCH: "عدم تطابق نمط التسليم مع المحتوى",
+  BOOK_CONTENT_PLACEHOLDER: "محتوى الكتاب مجرد عنوان/بيانات وصفية (خلل بيانات 04)",
   CONTENT_NOT_STUDENT_VISIBLE: "المحتوى الأساسي غير ظاهر للطالب",
+
 };
 
 export const LESSON_CAPABILITY_LABEL_AR: Record<LessonCapabilityType, string> = {
