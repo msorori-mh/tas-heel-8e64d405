@@ -103,18 +103,24 @@ describe("computeLessonCapabilities", () => {
     expect(readiness.reason).toBe("PRIMARY_RESOURCE_INVALID");
   });
 
-  it("hides gated enhancements from a student without access", () => {
+  it("hides gated enhancements but keeps free extras for a student without access", () => {
     const input: LessonCapabilityInput = {
       ...EMPTY,
       bookContent: "نص",
       summaryText: "ملخص",
       questionsCount: 5,
+      htmlMindMapsCount: 1,
+      hasLessonVideoFlag: true,
       enhancementsAccessible: false,
     };
     const types = visibleLessonCapabilities(computeLessonCapabilities(input)).map((c) => c.type);
+    // Free by design (same rule as the safe-extras RPC).
     expect(types).toContain("PRIMARY_CONTENT");
-    expect(types).not.toContain("SUMMARY");
-    expect(types).not.toContain("ASSESSMENT");
+    expect(types).toContain("SUMMARY");
+    expect(types).toContain("ASSESSMENT");
+    // Subscription-gated.
+    expect(types).not.toContain("MINDMAP");
+    expect(types).not.toContain("VIDEO");
   });
 
   it("shows a Quran-style lesson as read-only content plus summary", () => {
