@@ -308,7 +308,7 @@ function LessonPage() {
     retry: false,
     queryFn: async (): Promise<PrimaryLessonResource | null> => {
       const { data, error } = await (supabase.from("lesson_resources") as any)
-        .select("id,resource_type,title,url,description")
+        .select("id,resource_type,title,url,description,lesson_id")
         .eq("lesson_id", lessonId)
         .eq("is_primary", true)
         .maybeSingle();

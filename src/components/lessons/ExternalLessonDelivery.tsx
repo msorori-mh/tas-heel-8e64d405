@@ -12,6 +12,7 @@ import {
   toDrivePreviewUrl,
   toExternalOpenUrl,
 } from "@/lib/lessons/lesson-delivery";
+import { InAppPdfDelivery } from "./InAppPdfDelivery";
 
 export type PrimaryLessonResource = {
   id: string;
@@ -19,6 +20,8 @@ export type PrimaryLessonResource = {
   title: string | null;
   url: string;
   description?: string | null;
+  lesson_id?: string | null;
+  subject_id?: string | null;
 };
 
 export function ExternalLessonDelivery({ resource }: { resource: PrimaryLessonResource }) {
@@ -35,6 +38,20 @@ export function ExternalLessonDelivery({ resource }: { resource: PrimaryLessonRe
       </section>
     );
   }
+
+  // 18C — PDFs are delivered inside تمكين with a local offline copy.
+  if (kind === "drive_pdf" || kind === "pdf") {
+    return (
+      <InAppPdfDelivery
+        resourceId={resource.id}
+        lessonId={resource.lesson_id ?? null}
+        subjectId={resource.subject_id ?? null}
+        title={resource.title}
+        fallbackUrl={openUrl}
+      />
+    );
+  }
+
 
   return (
     <section className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-card" dir="rtl">
