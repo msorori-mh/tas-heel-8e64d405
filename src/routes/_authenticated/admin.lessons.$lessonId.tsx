@@ -8,6 +8,7 @@ import { LessonBookContentDialog } from "@/components/admin/LessonBookContentDia
 import { LessonSummaryDialog } from "@/components/admin/LessonSummaryDialog";
 import { LessonExplanationsDialog } from "@/components/admin/LessonExplanationsDialog";
 import { LessonResourcesDialog } from "@/components/admin/LessonResourcesDialog";
+import { LessonPrimaryPdfCard } from "@/components/admin/LessonPrimaryPdfCard";
 import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil } from "lucide-react";
 
 
@@ -512,6 +513,10 @@ function AdminLessonDetailPage() {
               <p className="mt-2 text-[11px] text-muted-foreground">لا تُعرض روابط المحاكاة.</p>
             </>
           )}
+        </Section>
+
+        <Section title="ملف الدرس الأساسي (PDF)">
+          <LessonPrimaryPdfCard lessonId={lessonId} enabled={enabled} />
         </Section>
 
         <LessonBookContentDialog

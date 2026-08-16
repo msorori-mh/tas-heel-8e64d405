@@ -19,12 +19,17 @@ export type StorageRef = { bucket: string; path: string };
 /** Parse a stored URL or path into { bucket, path } when it points to Supabase storage. */
 export function parseStorageRef(input: string): StorageRef | null {
   if (!input) return null;
-  const trimmed = input.trim();
+  let trimmed = input.trim();
+  // 18D — internal scheme written by the direct upload flow.
+  if (/^supabase-storage:\/\//i.test(trimmed)) {
+    trimmed = trimmed.replace(/^supabase-storage:\/\//i, "");
+  }
   if (!/^https?:\/\//i.test(trimmed)) {
     const [bucket, ...rest] = trimmed.replace(/^\/+/, "").split("/");
     if (!bucket || rest.length === 0) return null;
     return { bucket, path: rest.join("/") };
   }
+
   try {
     const u = new URL(trimmed);
     const m = u.pathname.match(
