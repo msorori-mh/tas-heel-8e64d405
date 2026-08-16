@@ -781,7 +781,7 @@ function JourneyCard({
   title,
   description,
   ctaLabel,
-  ctaDisabled,
+  defaultOpen,
   children,
 }: {
   stepNumber: number;
