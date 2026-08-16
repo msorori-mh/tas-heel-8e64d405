@@ -4,7 +4,26 @@ import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { BookOpen, Loader2, Search, ArrowRight, Check, Minus, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  BookOpen,
+  Loader2,
+  Search,
+  ArrowRight,
+  Check,
+  Minus,
+  Pencil,
+  Plus,
+  Trash2,
+  AlertTriangle,
+} from "lucide-react";
+import {
+  computeLessonCapabilities,
+  computeLessonReadiness,
+  LESSON_READINESS_REASON_AR,
+  type LessonCapabilityType,
+  type LessonReadiness,
+} from "@/lib/lessons/lesson-capabilities";
+
 import { LessonBasicEditDialog } from "@/components/admin/LessonBasicEditDialog";
 import { LessonCreateDialog } from "@/components/admin/LessonCreateDialog";
 import { CurriculumDeleteDialog } from "@/components/admin/CurriculumDeleteDialog";
@@ -27,11 +46,53 @@ type LessonRow = {
   subject?: { id: string; name: string | null; grade_id: string | null } | null;
 };
 
+/** Capability chips shown per lesson row, in student-journey order. */
+const ROW_CAPABILITIES: { type: LessonCapabilityType; label: string }[] = [
+  { type: "PRIMARY_CONTENT", label: "محتوى" },
+  { type: "SUMMARY", label: "ملخص" },
+  { type: "ASSESSMENT", label: "أسئلة" },
+  { type: "EXTRA_RESOURCES", label: "موارد" },
+  { type: "VIDEO", label: "فيديو" },
+  { type: "PRACTICAL", label: "عملي" },
+];
+
 function Indicator({ on }: { on: boolean }) {
   return on ? (
     <Check className="inline h-4 w-4 text-emerald-600" />
   ) : (
     <Minus className="inline h-4 w-4 text-muted-foreground/50" />
+  );
+}
+
+/** STUDENT_READY signal — the operator's single answer to "هل يراه الطالب؟". */
+function ReadinessBadge({ readiness }: { readiness: LessonReadiness | undefined }) {
+  if (!readiness) {
+    return <span className="text-[11px] text-muted-foreground">…</span>;
+  }
+  const hasWarnings = readiness.warnings.length > 0;
+  if (readiness.studentReady) {
+    return (
+      <span
+        title={hasWarnings ? LESSON_READINESS_REASON_AR[readiness.warnings[0]] : "جاهز للطالب"}
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+          hasWarnings
+            ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+            : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+        }`}
+      >
+        {hasWarnings ? <AlertTriangle className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+        {hasWarnings ? "جاهز مع تنبيه" : "جاهز للطالب"}
+      </span>
+    );
+  }
+  return (
+    <span
+      title={LESSON_READINESS_REASON_AR[readiness.reason]}
+      className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive"
+    >
+      <AlertTriangle className="h-3 w-3" />
+      {LESSON_READINESS_REASON_AR[readiness.reason]}
+    </span>
   );
 }
 
@@ -129,7 +190,7 @@ function AdminLessonsPage() {
         .from("lessons")
         .select(
           "id, title, sort_order, duration, is_free, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)",
-          { count: "exact" }
+          { count: "exact" },
         )
         .order("sort_order", { ascending: true })
         .range(from, to);
@@ -162,50 +223,111 @@ function AdminLessonsPage() {
 
   const lessonIds = lessonsQ.data?.rows.map((r) => r.id) ?? [];
 
+  /**
+   * LESSON_DYNAMIC_CAPABILITY_AND_STUDENT_UX_FIX_18B
+   * Admin readiness uses the SAME capability engine as the student page, so an
+   * operator sees exactly what the student would get (admins bypass the
+   * enhancement gate, hence `enhancementsAccessible: true`).
+   */
   const indicatorsQ = useQuery({
     enabled: enabled && lessonIds.length > 0,
-    queryKey: ["admin-lessons", "indicators", lessonIds],
+    queryKey: ["admin-lessons", "readiness", lessonIds],
     queryFn: async () => {
-      const tables = [
-        "lesson_book_contents",
-        "lesson_summaries",
-        "questions",
-        "lesson_resources",
-        "lesson_simulations",
-      ] as const;
-      const tableResults = await Promise.all(
-        tables.map((t) =>
-          supabase.from(t).select("lesson_id").in("lesson_id", lessonIds)
-        )
-      );
-      // Existence flag for video (do not read the URL value).
-      const videoRes = await supabase
-        .from("lessons")
-        .select("id")
-        .in("id", lessonIds)
-        .eq("has_video", true);
+      const [lessonsRes, bookRes, summaryRes, questionsRes, resourcesRes, simsRes, explRes] =
+        await Promise.all([
+          supabase
+            .from("lessons")
+            .select("id, delivery_mode, content_text, has_video")
+            .in("id", lessonIds),
+          supabase
+            .from("lesson_book_contents")
+            .select("lesson_id, content")
+            .in("lesson_id", lessonIds),
+          supabase.from("lesson_summaries").select("lesson_id, summary").in("lesson_id", lessonIds),
+          supabase.from("questions").select("lesson_id").in("lesson_id", lessonIds),
+          supabase
+            .from("lesson_resources")
+            .select("id, lesson_id, resource_type, html_resource_type, title, url, is_primary")
+            .in("lesson_id", lessonIds),
+          supabase.from("lesson_simulations").select("lesson_id").in("lesson_id", lessonIds),
+          supabase
+            .from("lesson_explanations")
+            .select("lesson_id, content")
+            .in("lesson_id", lessonIds),
+        ]);
 
-      const map: Record<string, Record<string, boolean>> = {};
-      for (const id of lessonIds) {
-        map[id] = {
-          book: false,
-          summary: false,
-          questions: false,
-          resources: false,
-          simulations: false,
-          video: false,
-        };
-      }
-      const keys = ["book", "summary", "questions", "resources", "simulations"];
-      tableResults.forEach((res, i) => {
-        for (const row of res.data ?? []) {
-          const lid = (row as any).lesson_id;
-          if (lid && map[lid]) map[lid][keys[i]] = true;
+      const firstError =
+        lessonsRes.error ??
+        bookRes.error ??
+        summaryRes.error ??
+        questionsRes.error ??
+        resourcesRes.error ??
+        simsRes.error ??
+        explRes.error;
+      if (firstError) throw firstError;
+
+      const byLesson = <T extends { lesson_id?: string | null }>(rows: T[] | null) => {
+        const map: Record<string, T[]> = {};
+        for (const row of rows ?? []) {
+          const lid = row.lesson_id;
+          if (!lid) continue;
+          (map[lid] ??= []).push(row);
         }
-      });
-      for (const row of videoRes.data ?? []) {
-        const lid = (row as any).id;
-        if (lid && map[lid]) map[lid].video = true;
+        return map;
+      };
+
+      const books = byLesson(bookRes.data as any[]);
+      const summaries = byLesson(summaryRes.data as any[]);
+      const questions = byLesson(questionsRes.data as any[]);
+      const resources = byLesson(resourcesRes.data as any[]);
+      const sims = byLesson(simsRes.data as any[]);
+      const explanations = byLesson(explRes.data as any[]);
+      const lessonMeta: Record<string, any> = {};
+      for (const row of (lessonsRes.data ?? []) as any[]) lessonMeta[row.id] = row;
+
+      const map: Record<string, LessonReadiness> = {};
+      for (const id of lessonIds) {
+        const meta = lessonMeta[id] ?? {};
+        const rows = resources[id] ?? [];
+        const html = (t: string) => rows.filter((r: any) => r.html_resource_type === t).length;
+        const plain = rows
+          .filter((r: any) => !r.html_resource_type)
+          .map((r: any) => ({
+            id: r.id as string,
+            resource_type: (r.resource_type as string | null) ?? null,
+            title: (r.title as string | null) ?? null,
+            url: (r.url as string) ?? "",
+          }));
+        const primary = rows.find((r: any) => r.is_primary === true);
+
+        const capabilities = computeLessonCapabilities({
+          deliveryMode: meta.delivery_mode ?? null,
+          bookContent: (books[id] ?? [])[0]?.content ?? null,
+          inlineContent: meta.content_text ?? null,
+          primaryResource: primary
+            ? {
+                id: primary.id as string,
+                resource_type: (primary.resource_type as string | null) ?? null,
+                title: (primary.title as string | null) ?? null,
+                url: (primary.url as string) ?? "",
+              }
+            : null,
+          resources: plain,
+          simulationsCount: (sims[id] ?? []).length,
+          htmlMindMapsCount: html("mind_map_html"),
+          htmlExperimentsCount: html("practical_experiment_html"),
+          htmlSummariesCount: html("summary_html"),
+          summaryText: (summaries[id] ?? [])[0]?.summary ?? null,
+          explanationsCount: (explanations[id] ?? []).filter(
+            (e: any) => ((e.content as string | null) ?? "").trim().length > 0,
+          ).length,
+          questionsCount: (questions[id] ?? []).length,
+          lessonExamCount: 0,
+          hasLessonVideoFlag: meta.has_video === true,
+          enhancementsAccessible: true,
+        });
+
+        map[id] = computeLessonReadiness(capabilities);
       }
       return map;
     },
@@ -219,8 +341,8 @@ function AdminLessonsPage() {
   // Filter unit options based on subject filter
   const unitOptions =
     subjectFilter !== "all"
-      ? unitsQ.data?.filter((u) => u.subject_id === subjectFilter) ?? []
-      : unitsQ.data ?? [];
+      ? (unitsQ.data?.filter((u) => u.subject_id === subjectFilter) ?? [])
+      : (unitsQ.data ?? []);
 
   if (loading) {
     return (
@@ -256,9 +378,7 @@ function AdminLessonsPage() {
               <BookOpen className="h-6 w-6 text-primary" />
               الدروس
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              قائمة الدروس — قراءة فقط.
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">قائمة الدروس — قراءة فقط.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -356,18 +476,23 @@ function AdminLessonsPage() {
                     <th className="px-3 py-3 text-right font-medium">المادة</th>
                     <th className="px-3 py-3 text-right font-medium">الصف</th>
                     <th className="px-3 py-3 text-right font-medium">المدة</th>
-                    <th className="px-3 py-3 text-center font-medium" title="كتاب">كتاب</th>
-                    <th className="px-3 py-3 text-center font-medium" title="ملخص">ملخص</th>
-                    <th className="px-3 py-3 text-center font-medium" title="أسئلة">أسئلة</th>
-                    <th className="px-3 py-3 text-center font-medium" title="موارد">موارد</th>
-                    <th className="px-3 py-3 text-center font-medium" title="فيديو">فيديو</th>
-                    <th className="px-3 py-3 text-center font-medium" title="محاكاة">محاكاة</th>
+                    <th className="px-3 py-3 text-right font-medium">الجاهزية</th>
+                    {ROW_CAPABILITIES.map((c) => (
+                      <th
+                        key={c.type}
+                        className="px-3 py-3 text-center font-medium"
+                        title={c.label}
+                      >
+                        {c.label}
+                      </th>
+                    ))}
                     <th className="px-3 py-3 text-center font-medium">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => {
-                    const flags = ind[r.id] ?? {};
+                    const readiness = ind[r.id];
+                    const available = new Set(readiness?.availableCapabilities ?? []);
                     return (
                       <tr key={r.id} className="border-t border-border">
                         <td className="px-3 py-3 text-muted-foreground">{r.sort_order}</td>
@@ -381,17 +506,22 @@ function AdminLessonsPage() {
                           </Link>
                         </td>
                         <td className="px-3 py-3 text-muted-foreground">{r.unit?.title || "—"}</td>
-                        <td className="px-3 py-3 text-muted-foreground">{r.subject?.name || "—"}</td>
+                        <td className="px-3 py-3 text-muted-foreground">
+                          {r.subject?.name || "—"}
+                        </td>
                         <td className="px-3 py-3 text-muted-foreground">
                           {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
                         </td>
                         <td className="px-3 py-3 text-muted-foreground">{r.duration || "—"}</td>
-                        <td className="px-3 py-3 text-center"><Indicator on={!!flags.book} /></td>
-                        <td className="px-3 py-3 text-center"><Indicator on={!!flags.summary} /></td>
-                        <td className="px-3 py-3 text-center"><Indicator on={!!flags.questions} /></td>
-                        <td className="px-3 py-3 text-center"><Indicator on={!!flags.resources} /></td>
-                        <td className="px-3 py-3 text-center"><Indicator on={!!flags.video} /></td>
-                        <td className="px-3 py-3 text-center"><Indicator on={!!flags.simulations} /></td>
+                        <td className="px-3 py-3">
+                          <ReadinessBadge readiness={readiness} />
+                        </td>
+                        {ROW_CAPABILITIES.map((c) => (
+                          <td key={c.type} className="px-3 py-3 text-center">
+                            <Indicator on={available.has(c.type)} />
+                          </td>
+                        ))}
+
                         <td className="px-3 py-3 text-center">
                           <div className="inline-flex items-center gap-1">
                             <button
@@ -441,7 +571,8 @@ function AdminLessonsPage() {
             {/* Mobile */}
             <div className="md:hidden space-y-3">
               {rows.map((r) => {
-                const flags = ind[r.id] ?? {};
+                const readiness = ind[r.id];
+                const available = new Set(readiness?.availableCapabilities ?? []);
                 return (
                   <div key={r.id} className="rounded-xl border border-border bg-card p-4">
                     <div className="flex items-center justify-between gap-2">
@@ -454,23 +585,25 @@ function AdminLessonsPage() {
                       </Link>
                       <span className="text-[11px] text-muted-foreground">#{r.sort_order}</span>
                     </div>
+                    <div className="mt-2">
+                      <ReadinessBadge readiness={readiness} />
+                    </div>
                     <div className="mt-2 grid grid-cols-2 gap-y-1 text-xs text-muted-foreground">
                       <span>الوحدة: {r.unit?.title || "—"}</span>
                       <span>المادة: {r.subject?.name || "—"}</span>
                       <span>
-                        الصف:{" "}
-                        {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
+                        الصف: {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
                       </span>
                       <span>المدة: {r.duration || "—"}</span>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                      <span>كتاب <Indicator on={!!flags.book} /></span>
-                      <span>ملخص <Indicator on={!!flags.summary} /></span>
-                      <span>أسئلة <Indicator on={!!flags.questions} /></span>
-                      <span>موارد <Indicator on={!!flags.resources} /></span>
-                      <span>فيديو <Indicator on={!!flags.video} /></span>
-                      <span>محاكاة <Indicator on={!!flags.simulations} /></span>
+                      {ROW_CAPABILITIES.map((c) => (
+                        <span key={c.type}>
+                          {c.label} <Indicator on={available.has(c.type)} />
+                        </span>
+                      ))}
                     </div>
+
                     <div className="mt-3 flex gap-2">
                       <button
                         onClick={() =>
@@ -479,12 +612,12 @@ function AdminLessonsPage() {
                             title: r.title,
                             sort_order: r.sort_order,
                             duration: r.duration,
-                                subject_id: r.subject_id,
-                                subject_name: r.subject?.name || null,
-                                unit_id: r.unit_id,
-                                unit_name: r.unit?.title || null,
-                                is_free: r.is_free,
-                              })
+                            subject_id: r.subject_id,
+                            subject_name: r.subject?.name || null,
+                            unit_id: r.unit_id,
+                            unit_name: r.unit?.title || null,
+                            is_free: r.is_free,
+                          })
                         }
                         className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
                       >

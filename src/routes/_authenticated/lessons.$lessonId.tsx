@@ -19,7 +19,15 @@ import {
   ExternalLessonDelivery,
   type PrimaryLessonResource,
 } from "@/components/lessons/ExternalLessonDelivery";
-import { isExternalDelivery } from "@/lib/lessons/lesson-delivery";
+import {
+  computeLessonCapabilities,
+  computeLessonProgress,
+  parseLessonTitle,
+  visibleLessonCapabilities,
+  type LessonCapability,
+  type LessonCapabilityType,
+} from "@/lib/lessons/lesson-capabilities";
+
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import {
   Home,
@@ -101,11 +109,22 @@ type QuestionRow = {
   sort_order: number;
 };
 
+type ExplanationRow = {
+  id: string;
+  title: string | null;
+  content: string;
+  sort_order: number;
+};
+
 function LessonPage() {
   const { lessonId } = Route.useParams();
   const { profile } = useAuth();
 
-  const { data: lesson, isLoading: loadingLesson, error: lessonErr } = useQuery({
+  const {
+    data: lesson,
+    isLoading: loadingLesson,
+    error: lessonErr,
+  } = useQuery({
     queryKey: ["lesson-meta", lessonId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -148,8 +167,7 @@ function LessonPage() {
 
   const accessible = useMemo(() => {
     if (!subject || !profile) return null;
-    const profileGrade =
-      profile.grade_uuid ?? (profile.grade_id ? String(profile.grade_id) : null);
+    const profileGrade = profile.grade_uuid ?? (profile.grade_id ? String(profile.grade_id) : null);
     if (profileGrade && subject.grade_id !== profileGrade) return false;
     if (
       subject.curriculum_track_id &&
@@ -185,9 +203,11 @@ function LessonPage() {
         .eq("lesson_id", lessonId)
         .maybeSingle();
       if (error) throw error;
-      return data as
-        | { summary: string | null; key_points: unknown; study_tip: string | null }
-        | null;
+      return data as {
+        summary: string | null;
+        key_points: unknown;
+        study_tip: string | null;
+      } | null;
     },
   });
 
@@ -238,10 +258,7 @@ function LessonPage() {
 
   const unitIsFree = unit?.is_free === true;
   const canAccessEnhancements =
-    STUDENT_FREE_ACCESS ||
-    Boolean(isAdmin) ||
-    unitIsFree ||
-    Boolean(hasActiveSub);
+    STUDENT_FREE_ACCESS || Boolean(isAdmin) || unitIsFree || Boolean(hasActiveSub);
 
   // Lesson extras (existence flags + safe external URL) — fetched only when allowed
   const { data: lessonExtra } = useQuery({
@@ -318,11 +335,14 @@ function LessonPage() {
   const getLessonHtmlResources = useServerFn(getLessonPublishedHtmlResourcesFn);
   const refreshSignedUrl = useServerFn(createSignedStudentAccessUrlFn);
   const handleReloadSignedUrl = useCallback(
-    (resourceId: string) =>
-      () => requestFreshStudentHtmlSignedUrl(refreshSignedUrl, resourceId),
+    (resourceId: string) => () => requestFreshStudentHtmlSignedUrl(refreshSignedUrl, resourceId),
     [refreshSignedUrl],
   );
-  const { data: htmlResources, isLoading: htmlResourcesLoading, error: htmlResourcesError } = useQuery({
+  const {
+    data: htmlResources,
+    isLoading: htmlResourcesLoading,
+    error: htmlResourcesError,
+  } = useQuery({
     enabled: !!lesson && accessible === true && canAccessEnhancements,
     queryKey: ["lesson-published-html-resources", lessonId],
     queryFn: async () => {
@@ -332,8 +352,41 @@ function LessonPage() {
   });
 
   const htmlMindMaps = (htmlResources ?? []).filter((r) => r.resourceType === "mind_map_html");
-  const htmlExperiments = (htmlResources ?? []).filter((r) => r.resourceType === "practical_experiment_html");
+  const htmlExperiments = (htmlResources ?? []).filter(
+    (r) => r.resourceType === "practical_experiment_html",
+  );
   const htmlSummaries = (htmlResources ?? []).filter((r) => r.resourceType === "summary_html");
+
+  // Additional written explanations — a capability only when real text exists.
+  const { data: explanations } = useQuery({
+    enabled: !!lesson && accessible === true,
+    queryKey: ["lesson-explanations", lessonId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lesson_explanations")
+        .select("id,title,content,sort_order")
+        .eq("lesson_id", lessonId)
+        .order("sort_order");
+      if (error) throw error;
+      return ((data ?? []) as ExplanationRow[]).filter((e) => (e.content ?? "").trim().length > 0);
+    },
+  });
+
+  // Own progress row — the only reliable completion signal we currently own.
+  const { data: progressRow } = useQuery({
+    enabled: !!lesson && accessible === true && !!profile?.user_id,
+    queryKey: ["lesson-progress", lessonId, profile?.user_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_progress")
+        .select("completed,quiz_score")
+        .eq("lesson_id", lessonId)
+        .eq("user_id", profile!.user_id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as { completed: boolean | null; quiz_score: number | null } | null) ?? null;
+    },
+  });
 
   // Detect availability of a training template (for the journey CTA hint).
   const { data: trainingTemplates } = useQuery({
@@ -346,9 +399,7 @@ function LessonPage() {
         .eq("is_active", true)
         .eq("lesson_id", lessonId);
       if (error) throw error;
-      const rows = ((data ?? []) as any[]).filter(
-        (r) => (r.questions?.[0]?.count ?? 0) > 0,
-      );
+      const rows = ((data ?? []) as any[]).filter((r) => (r.questions?.[0]?.count ?? 0) > 0);
       return rows.length;
     },
   });
@@ -375,7 +426,6 @@ function LessonPage() {
     siblings && siblingIndex >= 0 && siblingIndex < siblings.length - 1
       ? siblings[siblingIndex + 1]
       : null;
-
 
   const mindmaps = (resources ?? []).filter((r) => r.resource_type === "mindmap");
   const videos = (resources ?? []).filter((r) => r.resource_type === "video");
@@ -404,163 +454,58 @@ function LessonPage() {
     );
   }
 
+  const titleParts = parseLessonTitle(lesson.title);
+
+  const capabilities = computeLessonCapabilities({
+    deliveryMode: (lesson as { delivery_mode?: string }).delivery_mode ?? null,
+    bookContent: book?.content ?? null,
+    inlineContent: lesson.content_text,
+    primaryResource: primaryResource ?? null,
+    resources: (resources ?? []).map((r) => ({
+      id: r.id,
+      resource_type: r.resource_type,
+      title: r.title,
+      url: r.url,
+      description: r.description,
+    })),
+    simulationsCount: simulations?.length ?? 0,
+    htmlMindMapsCount: htmlMindMaps.length,
+    htmlExperimentsCount: htmlExperiments.length,
+    htmlSummariesCount: htmlSummaries.length,
+    summaryText: summary?.summary ?? null,
+    explanationsCount: explanations?.length ?? 0,
+    questionsCount: questions?.length ?? 0,
+    lessonExamCount: trainingTemplates ?? 0,
+    hasLessonVideoFlag: lessonExtra?.has_video === true,
+    enhancementsAccessible: canAccessEnhancements,
+    progress: progressRow
+      ? { completed: progressRow.completed === true, quizScore: progressRow.quiz_score }
+      : null,
+  });
+
+  const actions = visibleLessonCapabilities(capabilities);
+  const lessonProgress = computeLessonProgress(capabilities);
+  const primaryCapability = capabilities.find((c) => c.type === "PRIMARY_CONTENT");
+  const primaryUnavailable = !primaryCapability?.available || !primaryCapability?.studentVisible;
+
   const bookContent = (book?.content ?? lesson.content_text ?? "").trim();
 
-  const hasBook = bookContent.length > 0;
-  const hasSummary = !!(summary?.summary && summary.summary.trim().length > 0) || htmlSummaries.length > 0;
-  const hasHtmlMindMap = htmlMindMaps.length > 0;
-  const hasHtmlExperiment = htmlExperiments.length > 0;
-  const questionsCount = questions?.length ?? 0;
-  const hasQuestions = questionsCount > 0;
-  const trainingCount = trainingTemplates ?? 0;
-  const hasTraining = trainingCount > 0;
-  const resourcesCount = resources?.length ?? 0;
-  const hasResources = resourcesCount > 0 || (htmlResources?.length ?? 0) > 0;
-
-  // LESSON_EXTERNAL_PDF_DELIVERY_13F
-  const isExternalLesson = isExternalDelivery(
-    (lesson as { delivery_mode?: string }).delivery_mode,
-  );
-  const externalDelivery =
-    primaryResource && (isExternalLesson || !hasBook) ? primaryResource : null;
-  const externalMissing = isExternalLesson && !primaryResource;
-
-
-  const completedWeights =
-    (hasBook ? 20 : 0) +
-    (hasSummary ? 20 : 0) +
-    (hasQuestions ? 20 : 0) +
-    (hasTraining ? 20 : 0) +
-    (hasResources ? 20 : 0);
-
-  return (
-    <article className="space-y-4" dir="rtl">
-      <Breadcrumbs
-        subjectName={subject?.name ?? null}
-        subjectId={subject?.id ?? null}
-        lessonName={lesson.title}
-      />
-
-      {/* Progress card */}
-      <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
-        <h1 className="text-lg font-bold text-foreground">{lesson.title}</h1>
-        <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
-          {subject && (
-            <span className="inline-flex items-center gap-1">
-              <BookOpen className="h-3.5 w-3.5" /> {subject.name}
-            </span>
-          )}
-          {unit && (
-            <span className="inline-flex items-center gap-1">
-              <Layers className="h-3.5 w-3.5" /> {unit.title}
-            </span>
-          )}
-        </div>
-        <div className="mt-4">
-          <div className="mb-1.5 flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">التقدم في الدرس</span>
-            <span className="font-semibold text-foreground">{completedWeights}%</span>
+  const renderCapabilityBody = (capability: LessonCapability) => {
+    switch (capability.type) {
+      case "PRIMARY_CONTENT":
+        return capability.source === "primary_resource" && primaryResource ? (
+          <ExternalLessonDelivery resource={primaryResource} />
+        ) : (
+          <div className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
+            {bookContent}
           </div>
-          <Progress value={completedWeights} className="h-2" />
-        </div>
-      </header>
+        );
 
-      {/* External delivery (PDF / Drive) */}
-      {externalDelivery && <ExternalLessonDelivery resource={externalDelivery} />}
-      {externalMissing && (
-        <section className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-card">
-          هذا الدرس يُقدَّم كملف خارجي، لكن لم يُرفق ملف الدرس بعد. يرجى إبلاغ إدارة المحتوى أو
-          المحاولة لاحقاً.
-        </section>
-      )}
-
-
-      {/* Learning Journey */}
-      <div className="space-y-3">
-        <JourneyCard
-          stepNumber={1}
-          icon={<ScrollText className="h-5 w-5" />}
-          title="اقرأ الدرس"
-          description="ابدأ بقراءة محتوى الدرس من الكتاب المدرسي."
-          ctaLabel={hasBook ? "ابدأ القراءة" : externalDelivery ? "ملف خارجي" : "غير متوفر"}
-          ctaDisabled={!hasBook}
-        >
-          {hasBook ? (
-            <div className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
-              {bookContent}
-            </div>
-          ) : externalDelivery ? (
-            <EmptyText>محتوى هذا الدرس متوفر كملف خارجي — افتحه من البطاقة في أعلى الصفحة.</EmptyText>
-          ) : (
-            <EmptyText>لم يُضف محتوى الكتاب لهذا الدرس بعد.</EmptyText>
-          )}
-        </JourneyCard>
-
-        <JourneyCard
-          stepNumber={2}
-          icon={<MapIcon className="h-5 w-5" />}
-          title="الخريطة الذهنية"
-          description={
-            hasHtmlMindMap
-              ? "خريطة ذهنية تفاعلية لتنظيم أفكار الدرس."
-              : "خريطة ذهنية تفاعلية لتنظيم أفكار الدرس."
-          }
-          ctaLabel={hasHtmlMindMap ? "عرض الخريطة" : "غير متوفرة"}
-          ctaDisabled={!hasHtmlMindMap}
-        >
-          {htmlMindMaps.length > 0 ? (
-            <div className="space-y-4">
-              {htmlMindMaps.map((r) => (
-                <PublishedHtmlResourceViewer
-                  key={r.resourceId}
-                  resource={r}
-                  onReloadSignedUrl={handleReloadSignedUrl(r.resourceId)}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyText>لم تُضَف خريطة ذهنية تفاعلية لهذا الدرس بعد.</EmptyText>
-          )}
-        </JourneyCard>
-
-        <JourneyCard
-          stepNumber={3}
-          icon={<FlaskConical className="h-5 w-5" />}
-          title="التجربة العملية"
-          description={
-            hasHtmlExperiment
-              ? "تجربة عملية تفاعلية لتطبيق مفاهيم الدرس."
-              : "تجربة عملية تفاعلية لتطبيق مفاهيم الدرس."
-          }
-          ctaLabel={hasHtmlExperiment ? "ابدأ التجربة" : "غير متوفرة"}
-          ctaDisabled={!hasHtmlExperiment}
-        >
-          {htmlExperiments.length > 0 ? (
-            <div className="space-y-4">
-              {htmlExperiments.map((r) => (
-                <PublishedHtmlResourceViewer
-                  key={r.resourceId}
-                  resource={r}
-                  onReloadSignedUrl={handleReloadSignedUrl(r.resourceId)}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyText>لم تُضَف تجربة عملية تفاعلية لهذا الدرس بعد.</EmptyText>
-          )}
-        </JourneyCard>
-
-        <JourneyCard
-          stepNumber={4}
-          icon={<FileText className="h-5 w-5" />}
-          title="راجع الملخص"
-          description="أهم النقاط والأفكار الرئيسية للدرس."
-          ctaLabel={hasSummary ? "عرض الملخص" : "غير متوفر"}
-          ctaDisabled={!hasSummary}
-        >
+      case "SUMMARY":
+        return (
           <>
             {htmlSummaries.length > 0 && (
-              <div className="space-y-4 mb-4">
+              <div className="mb-4 space-y-4">
                 {htmlSummaries.map((r) => (
                   <PublishedHtmlResourceViewer
                     key={r.resourceId}
@@ -573,61 +518,130 @@ function LessonPage() {
             {summary?.summary && summary.summary.trim().length > 0 && (
               <>
                 <p className="text-sm leading-relaxed text-card-foreground">{summary.summary}</p>
-                {Array.isArray(summary.key_points) && (summary.key_points as unknown[]).length > 0 && (
-                  <ul className="mt-3 list-disc space-y-1 pr-5 text-sm text-card-foreground">
-                    {(summary.key_points as unknown[]).map((p, i) => (
-                      <li key={i}>{String(p)}</li>
-                    ))}
-                  </ul>
-                )}
+                {Array.isArray(summary.key_points) &&
+                  (summary.key_points as unknown[]).length > 0 && (
+                    <ul className="mt-3 list-disc space-y-1 pr-5 text-sm text-card-foreground">
+                      {(summary.key_points as unknown[]).map((p, i) => (
+                        <li key={i}>{String(p)}</li>
+                      ))}
+                    </ul>
+                  )}
                 {summary.study_tip && (
-                  <p className="mt-3 flex items-start gap-2 rounded-md bg-accent/10 p-2 text-xs"><Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />{summary.study_tip}</p>
+                  <p className="mt-3 flex items-start gap-2 rounded-md bg-accent/10 p-2 text-xs">
+                    <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
+                    {summary.study_tip}
+                  </p>
                 )}
               </>
             )}
-            {!hasSummary && (
-              <EmptyText>لم يُضف ملخص لهذا الدرس بعد.</EmptyText>
-            )}
           </>
-        </JourneyCard>
+        );
 
-        <JourneyCard
-          stepNumber={5}
-          icon={<Target className="h-5 w-5" />}
-          title="اختبر فهمك"
-          description={
-            hasQuestions
-              ? `${questionsCount} أسئلة تفاعلية للتأكد من فهمك.`
-              : "أسئلة تفاعلية للتأكد من فهمك."
-          }
-          ctaLabel={hasQuestions ? "حل الأسئلة" : "غير متوفر"}
-          ctaDisabled={!hasQuestions}
-        >
-          {hasQuestions ? (
-            <ol className="space-y-4">
-              {questions!.map((q, idx) => (
-                <li key={q.id}>
-                  <QuestionCard index={idx + 1} q={q} />
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <EmptyText>لم تُضف أسئلة لهذا الدرس بعد.</EmptyText>
-          )}
-        </JourneyCard>
+      case "EXPLANATION":
+        return (
+          <div className="space-y-3">
+            {(explanations ?? []).map((e) => (
+              <article key={e.id} className="rounded-xl border border-border bg-background p-3">
+                {e.title && (
+                  <h3 className="mb-1 text-sm font-semibold text-foreground">{e.title}</h3>
+                )}
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
+                  {e.content}
+                </p>
+              </article>
+            ))}
+          </div>
+        );
 
-        <JourneyCard
-          stepNumber={6}
-          icon={<Trophy className="h-5 w-5" />}
-          title="اختبار الدرس"
-          description={
-            hasTraining
-              ? "اختبر نفسك في اختبار شامل للدرس."
-              : "سيتوفر قريبًا — لا يوجد اختبار لهذا الدرس بعد."
-          }
-          ctaLabel={hasTraining ? "ابدأ الاختبار" : "سيتوفر قريبًا"}
-          ctaDisabled={!hasTraining}
-        >
+      case "MINDMAP":
+        return (
+          <div className="space-y-4">
+            {htmlMindMaps.map((r) => (
+              <PublishedHtmlResourceViewer
+                key={r.resourceId}
+                resource={r}
+                onReloadSignedUrl={handleReloadSignedUrl(r.resourceId)}
+              />
+            ))}
+            {mindmaps.map((r) => (
+              <ResourceCard key={r.id} resource={r} lessonId={lessonId} />
+            ))}
+          </div>
+        );
+
+      case "PRACTICAL":
+        return (
+          <div className="space-y-4">
+            {htmlExperiments.map((r) => (
+              <PublishedHtmlResourceViewer
+                key={r.resourceId}
+                resource={r}
+                onReloadSignedUrl={handleReloadSignedUrl(r.resourceId)}
+              />
+            ))}
+            {experiments.map((r) => (
+              <ResourceCard key={r.id} resource={r} lessonId={lessonId} />
+            ))}
+            {(simulations ?? []).length > 0 && (
+              <ul className="space-y-2">
+                {(simulations ?? []).map((s) => (
+                  <li key={s.id}>
+                    <EnhancementItemRow
+                      item={{
+                        id: s.id,
+                        title: s.title,
+                        description: s.description,
+                        url: s.phet_url,
+                      }}
+                      lessonId={lessonId}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+
+      case "VIDEO":
+        return (
+          <ul className="space-y-2">
+            {videos.map((r) => (
+              <li key={r.id}>
+                <EnhancementItemRow
+                  item={{ id: r.id, title: r.title, description: r.description, url: r.url }}
+                  lessonId={lessonId}
+                />
+              </li>
+            ))}
+            {lessonExtra?.has_video && (
+              <li>
+                <EnhancementItemRow
+                  item={{
+                    id: `lesson-video-${lessonExtra.id}`,
+                    title: "فيديو الدرس",
+                    description: null,
+                    url: lessonExtra.external_video_url ?? "lesson-internal://video",
+                  }}
+                  lessonId={lessonId}
+                />
+              </li>
+            )}
+          </ul>
+        );
+
+      case "ASSESSMENT":
+        return (
+          <ol className="space-y-4">
+            {(questions ?? []).map((q, idx) => (
+              <li key={q.id}>
+                <QuestionCard index={idx + 1} q={q} />
+              </li>
+            ))}
+          </ol>
+        );
+
+      case "LESSON_EXAM":
+        return (
           <ExamTemplatesSection
             scope={{ kind: "lesson", lessonId }}
             canAccess={canAccessEnhancements}
@@ -635,129 +649,88 @@ function LessonPage() {
             emptyMessage="لا توجد اختبارات لهذا الدرس بعد."
             lockedMessage="اختبارات الدرس غير متاحة حالياً."
           />
-        </JourneyCard>
+        );
 
-        <JourneyCard
-          stepNumber={7}
-          icon={<Library className="h-5 w-5" />}
-          title="موارد إضافية"
-          description={
-            hasResources
-              ? `${resourcesCount} موارد لتعميق فهمك (فيديو، خرائط ذهنية، تجارب…).`
-              : "موارد لتعميق فهمك (فيديو، خرائط ذهنية، تجارب…)."
-          }
-          ctaLabel="استعراض الموارد"
-          ctaDisabled={false}
-        >
-          {!canAccessEnhancements ? (
-            <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-              <Lock className="h-4 w-4" />
-              <span>موارد الدرس غير متاحة حالياً.</span>
-            </div>
-          ) : resourcesLoading ? (
-            <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              جارٍ تحميل الموارد…
-            </div>
-          ) : resourcesError ? (
-            <p className="text-sm text-destructive">تعذر تحميل موارد الدرس.</p>
-          ) : (
-            <div className="space-y-4">
-              {resources && resources.length > 0 ? (
-                <div className="space-y-3">
-                  {resources.map((r) => (
-                    <ResourceCard key={r.id} resource={r} lessonId={lessonId} />
-                  ))}
-                </div>
-              ) : (
-                <EmptyText>لا توجد موارد لهذا الدرس حاليًا.</EmptyText>
-              )}
+      case "EXTRA_RESOURCES":
+        return (
+          <div className="space-y-3">
+            {extras.map((r) => (
+              <ResourceCard key={r.id} resource={r} lessonId={lessonId} />
+            ))}
+          </div>
+        );
 
-              <EnhancementGroup
-                title="الخريطة الذهنية"
-                icon={<MapIcon className="h-4 w-4 text-primary" />}
-                locked={!canAccessEnhancements}
-                lockedMessage="الخريطة الذهنية غير متاحة حالياً."
-                emptyMessage="لم تُضَف خريطة ذهنية لهذا الدرس بعد."
-                items={mindmaps.map((r) => ({
-                  id: r.id,
-                  title: r.title,
-                  description: r.description,
-                  url: r.url,
-                }))}
-                lessonId={lessonId}
-              />
+      default:
+        return null;
+    }
+  };
 
-              <EnhancementGroup
-                title="شرح الفيديو"
-                icon={<Video className="h-4 w-4 text-primary" />}
-                locked={!canAccessEnhancements}
-                lockedMessage="شرح الفيديو غير متاح حالياً."
-                emptyMessage="لم يُضَف شرح فيديو لهذا الدرس بعد."
-                items={[
-                  ...videos.map((r) => ({
-                    id: r.id,
-                    title: r.title,
-                    description: r.description,
-                    url: r.url,
-                  })),
-                  ...(lessonExtra?.has_video
-                    ? [
-                        {
-                          id: `lesson-video-${lessonExtra.id}`,
-                          title: "فيديو الدرس",
-                          description: null,
-                          url:
-                            lessonExtra.external_video_url ??
-                            "lesson-internal://video",
-                        },
-                      ]
-                    : []),
-                ]}
-                lessonId={lessonId}
-              />
+  return (
+    <article className="space-y-4" dir="rtl">
+      <Breadcrumbs
+        subjectName={subject?.name ?? null}
+        subjectId={subject?.id ?? null}
+        lessonName={titleParts.main}
+      />
 
-              <EnhancementGroup
-                title="التطبيق العملي / التجربة"
-                icon={<FlaskConical className="h-4 w-4 text-primary" />}
-                locked={!canAccessEnhancements}
-                lockedMessage="التجربة العملية غير متاحة حالياً."
-                emptyMessage="لا توجد تجربة عملية لهذا الدرس."
-                items={[
-                  ...experiments.map((r) => ({
-                    id: r.id,
-                    title: r.title,
-                    description: r.description,
-                    url: r.url,
-                  })),
-                  ...(simulations ?? []).map((s) => ({
-                    id: s.id,
-                    title: s.title,
-                    description: s.description,
-                    url: s.phet_url,
-                  })),
-                ]}
-                lessonId={lessonId}
-              />
-
-              <EnhancementGroup
-                title="موارد إضافية"
-                icon={<Link2 className="h-4 w-4 text-primary" />}
-                locked={!canAccessEnhancements}
-                lockedMessage="الموارد الإضافية غير متاحة حالياً."
-                emptyMessage="لا توجد موارد إضافية لهذا الدرس."
-                items={extras.map((r) => ({
-                  id: r.id,
-                  title: r.title,
-                  description: r.description,
-                  url: r.url,
-                }))}
-                lessonId={lessonId}
-              />
-            </div>
+      {/* Lesson header */}
+      <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
+        {titleParts.context && (
+          <p className="mb-1 text-[11px] text-muted-foreground">{titleParts.context}</p>
+        )}
+        <h1 className="text-lg font-bold text-foreground">{titleParts.main}</h1>
+        <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
+          {subject && (
+            <span className="inline-flex items-center gap-1">
+              <BookOpen className="h-3.5 w-3.5" /> {subject.name}
+            </span>
           )}
-        </JourneyCard>
-      </div>
+          {unit && (
+            <span className="inline-flex items-center gap-1">
+              <Layers className="h-3.5 w-3.5" /> {unit.title}
+            </span>
+          )}
+        </div>
+        {lessonProgress.measurable && (
+          <div className="mt-4">
+            <div className="mb-1.5 flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">التقدم في الدرس</span>
+              <span className="font-semibold text-foreground">
+                {lessonProgress.numerator}/{lessonProgress.denominator} · {lessonProgress.percent}%
+              </span>
+            </div>
+            <Progress value={lessonProgress.percent} className="h-2" />
+          </div>
+        )}
+      </header>
+
+      {primaryUnavailable && (
+        <section
+          role="status"
+          className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-card"
+        >
+          محتوى الدرس لم يُضف بعد.
+        </section>
+      )}
+
+      {/* Content-driven learning actions — only what actually exists */}
+      {actions.length > 0 && (
+        <div className="space-y-3">
+          {actions.map((capability, index) => (
+            <JourneyCard
+              key={capability.type}
+              stepNumber={index + 1}
+              icon={<CapabilityIcon type={capability.type} />}
+              title={capability.label}
+              description={capability.description}
+              ctaLabel={capability.action}
+              defaultOpen={index === 0 && capability.type === "PRIMARY_CONTENT"}
+            >
+              {renderCapabilityBody(capability)}
+            </JourneyCard>
+          ))}
+        </div>
+      )}
 
       <nav
         aria-label="التنقل بين الدروس"
@@ -796,7 +769,6 @@ function LessonPage() {
           <BackToApp />
         )}
       </div>
-
     </article>
   );
 }
@@ -807,7 +779,7 @@ function JourneyCard({
   title,
   description,
   ctaLabel,
-  ctaDisabled,
+  defaultOpen,
   children,
 }: {
   stepNumber: number;
@@ -815,18 +787,17 @@ function JourneyCard({
   title: string;
   description: string;
   ctaLabel: string;
-  ctaDisabled: boolean;
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen === true);
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
       <button
         type="button"
-        onClick={() => !ctaDisabled && setOpen((v) => !v)}
-        disabled={ctaDisabled}
+        onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 p-4 text-right transition-colors hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex w-full items-center gap-3 p-4 text-right transition-colors hover:bg-muted/30"
       >
         <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
           {icon}
@@ -841,28 +812,44 @@ function JourneyCard({
           <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{description}</p>
         </div>
         <div className="shrink-0 text-muted-foreground">
-          {ctaDisabled ? (
-            <span className="text-[11px]">{ctaLabel}</span>
-          ) : (
-            <div className="flex items-center gap-1 text-xs font-medium text-primary">
-              <span>{open ? "إغلاق" : ctaLabel}</span>
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
-                aria-hidden
-              />
-            </div>
-          )}
+          <div className="flex items-center gap-1 text-xs font-medium text-primary">
+            <span>{open ? "إغلاق" : ctaLabel}</span>
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
+              aria-hidden
+            />
+          </div>
         </div>
-        {/* unused icon prop kept for future visual variant */}
-        <span className="sr-only">{icon}</span>
       </button>
-      {open && !ctaDisabled && (
-        <div className="border-t border-border bg-background/40 p-4">{children}</div>
-      )}
+      {open && <div className="border-t border-border bg-background/40 p-4">{children}</div>}
     </section>
   );
 }
 
+/** Icon per capability — presentation only, derived from the capability type. */
+function CapabilityIcon({ type }: { type: LessonCapabilityType }) {
+  const className = "h-5 w-5";
+  switch (type) {
+    case "PRIMARY_CONTENT":
+      return <ScrollText className={className} />;
+    case "SUMMARY":
+      return <FileText className={className} />;
+    case "EXPLANATION":
+      return <Sparkles className={className} />;
+    case "MINDMAP":
+      return <MapIcon className={className} />;
+    case "PRACTICAL":
+      return <FlaskConical className={className} />;
+    case "VIDEO":
+      return <Video className={className} />;
+    case "ASSESSMENT":
+      return <Target className={className} />;
+    case "LESSON_EXAM":
+      return <Trophy className={className} />;
+    default:
+      return <Library className={className} />;
+  }
+}
 
 function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
   const options = Array.isArray(q.options) ? (q.options as unknown[]) : [];
@@ -983,29 +970,6 @@ function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
   );
 }
 
-function Section({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
-      <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-foreground">
-        {icon} {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
-function EmptyText({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-muted-foreground">{children}</p>;
-}
-
 function Breadcrumbs({
   subjectName,
   subjectId,
@@ -1029,7 +993,6 @@ function Breadcrumbs({
   );
 }
 
-
 function BackToApp() {
   return (
     <Button asChild variant="outline" className="gap-1">
@@ -1047,48 +1010,6 @@ type EnhancementItem = {
   url: string;
 };
 
-function EnhancementGroup({
-  title,
-  icon,
-  locked,
-  lockedMessage,
-  emptyMessage,
-  items,
-  lessonId,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  locked: boolean;
-  lockedMessage: string;
-  emptyMessage: string;
-  items: EnhancementItem[];
-  lessonId: string;
-}) {
-  return (
-    <div className="mt-3 rounded-xl border border-border bg-background p-3">
-      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-        {icon} {title}
-      </div>
-      {locked ? (
-        <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-          <Lock className="h-4 w-4" />
-          <span>{lockedMessage}</span>
-        </div>
-      ) : items.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{emptyMessage}</p>
-      ) : (
-        <ul className="space-y-2">
-          {items.map((it) => (
-            <li key={it.id}>
-              <EnhancementItemRow item={it} lessonId={lessonId} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 function isSafeHttpUrl(value: string): boolean {
   const v = (value ?? "").trim();
   if (!v) return false;
@@ -1105,24 +1026,14 @@ function isExternalUrl(u: string) {
   return /^https?:\/\//i.test(u.trim());
 }
 
-function EnhancementItemRow({
-  item,
-  lessonId,
-}: {
-  item: EnhancementItem;
-  lessonId: string;
-}) {
+function EnhancementItemRow({ item, lessonId }: { item: EnhancementItem; lessonId: string }) {
   const getUrl = useServerFn(getLessonFileUrl);
   const externalRaw = isExternalUrl(item.url);
   const externalSafe = isSafeHttpUrl(item.url);
   const externalUnsafe = externalRaw && !externalSafe;
-  const [resolved, setResolved] = useState<string | null>(
-    externalSafe ? item.url : null,
-  );
+  const [resolved, setResolved] = useState<string | null>(externalSafe ? item.url : null);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(
-    externalUnsafe ? "رابط المورد غير صالح." : null,
-  );
+  const [err, setErr] = useState<string | null>(externalUnsafe ? "رابط المورد غير صالح." : null);
 
   useEffect(() => {
     if (externalSafe) {
@@ -1158,9 +1069,7 @@ function EnhancementItemRow({
   return (
     <div className="rounded-lg border border-border bg-card p-2">
       <div className="text-sm font-semibold text-foreground">{item.title}</div>
-      {item.description && (
-        <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
-      )}
+      {item.description && <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>}
       <div className="mt-2">
         {loading && <span className="text-xs text-muted-foreground">جارٍ التحضير…</span>}
         {err && <span className="text-xs text-destructive">{err}</span>}
@@ -1181,10 +1090,7 @@ function EnhancementItemRow({
 }
 
 function ResourceTypeBadge({ type }: { type: string }) {
-  const config: Record<
-    string,
-    { label: string; icon: React.ReactNode }
-  > = {
+  const config: Record<string, { label: string; icon: React.ReactNode }> = {
     pdf: { label: "ملف PDF", icon: <FileText className="h-3.5 w-3.5" /> },
     video: { label: "فيديو", icon: <Video className="h-3.5 w-3.5" /> },
     link: { label: "رابط", icon: <Link2 className="h-3.5 w-3.5" /> },
@@ -1199,20 +1105,12 @@ function ResourceTypeBadge({ type }: { type: string }) {
   );
 }
 
-function ResourceCard({
-  resource,
-  lessonId,
-}: {
-  resource: ResourceRow;
-  lessonId: string;
-}) {
+function ResourceCard({ resource, lessonId }: { resource: ResourceRow; lessonId: string }) {
   const getUrl = useServerFn(getLessonFileUrl);
   const isStorageRef = resource.url.trim().startsWith("supabase-storage://");
   const safeHttp = !isStorageRef && isSafeHttpUrl(resource.url);
 
-  const [resolved, setResolved] = useState<string | null>(
-    safeHttp ? resource.url : null,
-  );
+  const [resolved, setResolved] = useState<string | null>(safeHttp ? resource.url : null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -1253,14 +1151,10 @@ function ResourceCard({
           </div>
         </div>
         <div className="shrink-0">
-          {loading && (
-            <span className="text-xs text-muted-foreground">جارٍ التحضير…</span>
-          )}
+          {loading && <span className="text-xs text-muted-foreground">جارٍ التحضير…</span>}
           {err && <span className="text-xs text-destructive">{err}</span>}
           {showInvalid && (
-            <span className="text-xs text-muted-foreground">
-              رابط المورد غير صالح.
-            </span>
+            <span className="text-xs text-muted-foreground">رابط المورد غير صالح.</span>
           )}
           {showOpen && (
             <a
@@ -1277,5 +1171,3 @@ function ResourceCard({
     </div>
   );
 }
-
-
