@@ -18,7 +18,7 @@ export async function planSubjectBulk(
 ) {
   const { data: lessons, error } = await admin
     .from("lessons")
-    .select("id, title, lesson_code, sort_order")
+    .select("id, title, slug, sort_order")
     .eq("subject_id", subjectId)
     .order("sort_order", { ascending: true });
   if (error) throw new Error("lessons_lookup_failed");
@@ -37,7 +37,7 @@ export async function planSubjectBulk(
 
   const lessonInputs: BulkLessonInput[] = (lessons ?? []).map((l) => ({
     lessonId: l.id,
-    lessonCode: (l as { lesson_code?: string | null }).lesson_code ?? null,
+    lessonCode: (l as { slug?: string | null }).slug ?? null,
     lessonTitle: l.title,
     hasPrimaryPdf: primaryByLesson.has(l.id),
   }));
