@@ -70,8 +70,7 @@ try {
     for each row execute function public.validate_lesson_resource_metadata();`);
   if (r.status !== 0) throw new Error(r.stderr);
 
-  const lesson = psql("insert into lessons default values returning id").stdout.trim();
-  console.log("LESSON=" + JSON.stringify(lesson));
+  const lesson = psql("insert into lessons default values returning id").stdout.trim().split("\n")[0].trim();
   const obj = "11111111-1111-4111-8111-111111111111";
   const base = {
     source: "direct_upload",
