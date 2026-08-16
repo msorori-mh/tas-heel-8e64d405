@@ -1,0 +1,663 @@
+{
+  "document_title": "التربية الإسلامية - مكانة القرآن الكريم وكمال قدرة الله",
+  "detected_subject": "التربية الإسلامية",
+  "detected_grade": null,
+  "detected_semester": "الفصل الدراسي الأول",
+  "detected_section": "أولاً- الحفظ والتفسير",
+  "detected_lesson_title": "مكانة القرآن الكريم وكمال قدرة الله",
+  "source_pdf_sha256": "e4474b4c5f044bf256b8bf443f26d310f794f746b9b80782fbe0580ab2f7cd0d",
+  "body_page_start": 2,
+  "body_page_end": 8,
+  "blocks": [
+    {
+      "block_id": "pilot-b001",
+      "type": "heading",
+      "source_pdf_page": 1,
+      "source_book_page_label": "7",
+      "heading_exact": "الفصل الدراسي الأول",
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b002",
+      "type": "heading",
+      "source_pdf_page": 1,
+      "source_book_page_label": "7",
+      "heading_exact": "أولاً- الحفظ والتفسير",
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b003",
+      "type": "list",
+      "source_pdf_page": 1,
+      "source_book_page_label": "7",
+      "heading_exact": null,
+      "paragraphs_exact": [],
+      "items_exact": [
+        "الدرس الأول: مكانة القرآن الكريم وكمال قدرة الله",
+        "الدرس الثاني: إنكار البعث",
+        "الدرس الثالث: صفات المؤمنين وجزاء الله تعالى",
+        "الدرس الرابع: العبرة من الأمم السابقة",
+        "الدرس الخامس: الدين عند الله الإسلام",
+        "الدرس السادس: أساليب الحفاظ على العلاقة الأسرية",
+        "الدرس السابع: موقف المؤمن من المستهزئين بآيات الله تعالى"
+      ],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b004",
+      "type": "lesson_header",
+      "source_pdf_page": 2,
+      "source_book_page_label": "8",
+      "heading_exact": "سورة السجدة - الدرس الأول: مكانة القرآن الكريم وكمال قدرة الله",
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b005",
+      "type": "objectives",
+      "source_pdf_page": 2,
+      "source_book_page_label": "8",
+      "heading_exact": "الأهداف",
+      "paragraphs_exact": [
+        "يتوقع من الطالب في نهاية الدرس أن :"
+      ],
+      "items_exact": [
+        "يذكر أبرز القضايا التي عنيت بها السورة .",
+        "يبرهن على أن القرآن وحي من عند الله .",
+        "يدلل على صدق رسول الله في تبليغ الوحي .",
+        "يستنتج عظمة خالق الكون وقدرته .",
+        "يشرح المراحل التي مر بها خلق الإنسان .",
+        "يقدر فضل الله على الإنسان ورحمته به ."
+      ],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b006",
+      "type": "heading",
+      "source_pdf_page": 2,
+      "source_book_page_label": "8",
+      "heading_exact": "بين يدي السورة",
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b007",
+      "type": "paragraph",
+      "source_pdf_page": 2,
+      "source_book_page_label": "8",
+      "heading_exact": null,
+      "paragraphs_exact": [
+        "سورة السجدة : من السور المكية . وسميت بهذا الاسم لذكر السجدة فيها وذلك في قوله تعالى :"
+      ],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b008",
+      "type": "quran_verses",
+      "source_pdf_page": 2,
+      "source_book_page_label": "8",
+      "heading_exact": null,
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [
+        {
+          "number": 15,
+          "text_exact": "إِنَّمَا يُؤْمِنُ بِآيَاتِنَا الَّذِينَ إِذَا ذُكِّرُوا بِهَا خَرُّوا سُجَّدًا وَسَبَّحُوا بِحَمْدِ رَبِّهِمْ وَهُمْ لَا يَسْتَكْبِرُونَ ۩",
+          "review_required": true
+        }
+      ],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": "[السجدة: 15] | HUMAN_QURAN_REVIEW_APPROVED_20A1"
+    },
+    {
+      "block_id": "pilot-b009",
+      "type": "paragraph",
+      "source_pdf_page": 2,
+      "source_book_page_label": "8",
+      "heading_exact": null,
+      "paragraphs_exact": [
+        "وهذه من المواضع التي يشرع السجود عند تلاوتها أو سماعها .",
+        "وتتناول السورة أمور العقيدة وخصوصا موضوع البعث، بأسلوب فريد وطريقة مميزة . فبدأت بالتأكيد أولاً على أن القرآن منزل من عند الله، وأن رسول الله صلى الله عليه وآله وسلم منزه عن افترائه من تلقاء نفسه .",
+        "ثم أبرزت صوراً من دلائل عظمة الله وقدرته في خلق الكون والإنسان، وأنه المتصرف في الكون المدبر له على أتم نظام، وأشارت إلى أثر ذلك في النفوس المؤمنة والنفوس الجاحدة .",
+        "ثم تناولت مزاعم المشركين حول البعث والجزاء وعرضت صوراً للجزاء الذي يناله المصدقون والمكذبون، وكأنها واقع مشهود حاضر للعيان ، يشهده كل قارئ للقرآن ."
+      ],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b010",
+      "type": "paragraph",
+      "source_pdf_page": 3,
+      "source_book_page_label": "9",
+      "heading_exact": null,
+      "paragraphs_exact": [
+        "ثم اختتمت السورة بتقديم مشاهد مثيرة للتأمل والتدبر في تاريخ الأمم السابقة ومشاهد الخلق البديع في سعي لإيقاظ القلب البشري وتحريكه نحو الخوف والخشية مرة ، ونحو التطلع والرجاء مرة أخرى . وقد تناولنا هذه السورة المباركة في أربعة دروس كما يأتي :"
+      ],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b011",
+      "type": "heading",
+      "source_pdf_page": 3,
+      "source_book_page_label": "9",
+      "heading_exact": "الآيات [١ - ٩] : سورة السجدة",
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b012",
+      "type": "quran_verses",
+      "source_pdf_page": 3,
+      "source_book_page_label": "9",
+      "heading_exact": null,
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [
+        {
+          "number": null,
+          "text_exact": "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ \n الم ﴿١﴾ تَنْزِيلُ الْكِتَابِ لَا رَيْبَ فِيهِ مِنْ رَبِّ الْعَالَمِينَ ﴿٢﴾ أَمْ يَقُولُونَ افْتَرَاهُ ۚ بَلْ هُوَ الْحَقُّ مِنْ رَبِّكَ لِتُنْذِرَ قَوْمًا مَا أَتَاهُمْ مِنْ نَذِيرٍ مِنْ قَبْلِكَ لَعَلَّهُمْ يَهْتَدُونَ ﴿٣﴾ اللَّهُ الَّذِي خَلَقَ السَّمَاوَاتِ وَالْأَرْضَ وَمَا بَيْنَهُمَا فِي سِتَّةِ أَيَّامٍ ثُمَّ اسْتَوَىٰ عَلَى الْعَرْشِ ۖ مَا لَكُمْ مِنْ دُونِهِ مِنْ وَلِيٍّ وَلَا شَفِيعٍ ۚ أَفَلَا تَتَذَكَّرُونَ ﴿٤﴾ يُدَبِّرُ الْأَمْرَ مِنَ السَّمَاءِ إِلَى الْأَرْضِ ثُمَّ يَعْرُجُ إِلَيْهِ فِي يَوْمٍ كَانَ مِقْدَارُهُ أَلْفَ سَنَةٍ مِمَّا تَعُدُّونَ ﴿٥﴾ ذَٰلِكَ عَالِمُ الْغَيْبِ وَالشَّهَادَةِ الْعَزِيزُ الرَّحِيمُ ﴿٦﴾ الَّذِي أَحْسَنَ كُلَّ شَيْءٍ خَلَقَهُ ۖ وَبَدَأَ خَلْقَ الْإِنْسَانِ مِنْ طِينٍ ﴿٧﴾ ثُمَّ جَعَلَ نَسْلَهُ مِنْ سُلَالَةٍ مِنْ مَاءٍ مَهِينٍ ﴿٨﴾ ثُمَّ سَوَّاهُ وَنَفَخَ فِيهِ مِنْ رُوحِهِ ۖ وَجَعَلَ لَكُمُ السَّمْعَ وَالْأَبْصَارَ وَالْأَفْئِدَةَ ۚ قَلِيلًا مَا تَشْكُرُونَ ﴿٩﴾",
+          "review_required": true
+        }
+      ],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": "HUMAN_QURAN_REVIEW_APPROVED_20A1"
+    },
+    {
+      "block_id": "pilot-b013",
+      "type": "heading",
+      "source_pdf_page": 4,
+      "source_book_page_label": "10",
+      "heading_exact": "معاني الآيات",
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b014",
+      "type": "verse_meaning",
+      "source_pdf_page": 4,
+      "source_book_page_label": "10",
+      "heading_exact": null,
+      "paragraphs_exact": [],
+      "items_exact": [
+        "الم : من الحروف المقطعة التي تدل على أن القرآن المعجز للبشرية، مركب من هذه الأحرف التي ينطق بها العرب .",
+        "تَنزِيلُ الْكِتَابِ لَا رَيْبَ فِيهِ : لاشك في أن القرآن الكريم وحي منزل من عند الله عز وجل .",
+        "أَمْ يَقُولُونَ افْتَرَاهُ ۚ بَلْ هُوَ الْحَقُّ : هل يقول المشركون إن النبي ﷺ اختلق القرآن من تلقاء نفسه، كلا بل هو حق أنزله الله وليس من قول البشر .",
+        "لِتُنذِرَ قَوْمًا مَّا أَتَاهُم مِّن نَّذِيرٍ مِّن قَبْلِكَ : لتحذر المشركين من قريش الذين لم يأتهم أنبياء قبلك وتبين لهم طرق الهداية والصلاح .",
+        "ثُمَّ اسْتَوَىٰ عَلَى الْعَرْشِ : استواء بالمعنى الذي يليق بجلال الله تعالى ويتوافق مع التنزيه عن التشبيه والتكييف .",
+        "مَا لَكُم مِّن دُونِهِ مِن وَلِيٍّ وَلَا شَفِيعٍ : ليس لكم قريب مناصر أو صاحب يشفع لكم عند الله من عقوبة تستحقونها .",
+        "يُدَبِّرُ الْأَمْرَ مِنَ السَّمَاءِ إِلَى الْأَرْضِ : يُصَرِّفُ أمور هذا الكون وكل ما فيه بقدرة مطلقة ودقة متناهية .",
+        "ثُمَّ يَعْرُجُ إِلَيْهِ فِي يَوْمٍ كَانَ مِقْدَارُهُ أَلْفَ سَنَةٍ : ثم يصعد ذلك الأمر إلى الله يوم القيامة ليجازي كل نفس بما عملت .",
+        "ذَٰلِكَ عَالِمُ الْغَيْبِ وَالشَّهَادَةِ : فاعل هذه الأشياء هو الله سبحانه يعلم ما غاب عن الخلق وما ظهر لهم، فلا يخفى عليه شيء ."
+      ],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": "HUMAN_QURAN_REVIEW_APPROVED_20A1"
+    },
+    {
+      "block_id": "pilot-b015",
+      "type": "verse_meaning",
+      "source_pdf_page": 5,
+      "source_book_page_label": "11",
+      "heading_exact": null,
+      "paragraphs_exact": [],
+      "items_exact": [
+        "ثُمَّ جَعَلَ نَسْلَهُ مِن سُلَالَةٍ مِّن مَّاءٍ مَّهِينٍ : خلق ذرية آدم من خلاصة مستخرجة من مني ضعيف ممتهن لا أهمية له عند الناس .",
+        "ثُمَّ سَوَّاهُ وَنَفَخَ فِيهِ مِن رُّوحِهِ : كوَّن أعضاء الإنسان وجملها وبعث فيه الحياة بعد أن لم تكن ."
+      ],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": "HUMAN_QURAN_REVIEW_APPROVED_20A1"
+    },
+    {
+      "block_id": "pilot-b016",
+      "type": "heading",
+      "source_pdf_page": 5,
+      "source_book_page_label": "11",
+      "heading_exact": "من هدي الآيات",
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b017",
+      "type": "paragraph",
+      "source_pdf_page": 5,
+      "source_book_page_label": "11",
+      "heading_exact": null,
+      "paragraphs_exact": [
+        "تتناول هذه الآيات: قضية الوحي، وصدق الرسول في التبليغ عن رب العالمين، ثم تذكر عظمة الله تعالى وتعرض صورا للقدرة الإلهية في صفحة الوجود من خلال خلق الكون وتسيير أمره وخلق الإنسان وتدبير شؤونه ."
+      ],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b018",
+      "type": "heading",
+      "source_pdf_page": 5,
+      "source_book_page_label": "11",
+      "heading_exact": "القرآن الكريم نذير حق لا ريب فيه",
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b019",
+      "type": "paragraph",
+      "source_pdf_page": 5,
+      "source_book_page_label": "11",
+      "heading_exact": null,
+      "paragraphs_exact": [
+        "القرآن الكريم تلك المعجزة الخالدة، التي حيرت عتاة المعاندين قديماً وحديثاً، فلا هم تمكنوا من إنكار قوته الخفية في التأثير على العقول والقلوب، ولا هم استطاعوا الإتيان بشيء من مثله حتى يبرروا تكذيبهم وعنادهم، ومع ذلك ظلوا يثيرون حوله أنواع الشبهات والشكوك كلما سنحت لهم الفرصة وأمكنهم ذلك، وفي هذه المرة أرادوا الفصل بين القرآن ومصدره، فشككوا في كونه من عند الله واتهموا رسول الله - بافترائه .",
+        "ولا شك أن القرآن كلام الله تعالى أنزله على محمد وليس من كلام البشر، ومما يدل على ذلك ويشهد له عدة أمور منها :"
+      ],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b020",
+      "type": "paragraph",
+      "source_pdf_page": 5,
+      "source_book_page_label": "11",
+      "heading_exact": null,
+      "paragraphs_exact": [
+        "أولاً: إن هذا القرآن مركب من حروف يعرفها العرب ويستعملونها في كلامهم مثل ( ألف ، لام ، ميم ) ، ومع ذلك عجزوا عن الإتيان بمثله، في نظم ألفاظه وجمله ودقة معانيه، وهذا يدل على أنه من عند الله دون سواه وأنه ليس من كلام البشر ."
+      ],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b021",
+      "type": "paragraph",
+      "source_pdf_page": 6,
+      "source_book_page_label": "12",
+      "heading_exact": null,
+      "paragraphs_exact": [
+        "ثانياً : إن له تأثيراً فريداً في مشاعر البشر وقلوبهم، وقدرة خاصة على دفع النفوس نحو الهداية والرشاد، مما يجعل كل منصف يدرك أنه ليس من صنع البشر، وأن مُنَزِّلَه هو خالق النفوس والعالم بأسرارها، إذ لو كان كذباً مفترى لما تمكن من تحقيق ذلك .",
+        "ثالثاً : إنه يدعو الناس إلى عقائد وقيم تنفعهم، وليس للنبي ﷺ منها منفعة ذاتية حتى يفتريه، وقد جرت العادة أن الإنسان لا يفترِي شيئاً إذا لم يكن له غرض ذاتي فيه .",
+        "وهذه حجج بالغة لا يستطيع أحد إنكارها أو تجاهلها ما دامت فطرته سليمة لم تغيرها الأهواء ."
+      ],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b022",
+      "type": "heading",
+      "source_pdf_page": 6,
+      "source_book_page_label": "12",
+      "heading_exact": "عظمة خالق الكون ومدبر شؤونه :",
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b023",
+      "type": "paragraph",
+      "source_pdf_page": 6,
+      "source_book_page_label": "12",
+      "heading_exact": null,
+      "paragraphs_exact": [
+        "بعد أن بينت الآيات السابقة علاقة القرآن بالخالق عز وجل وأثبتت أنه وحي منزل من عنده، جاءت الآيات التالية لتعرض صوراً من عظيم قدرته وبديع حكمته في خلق الكون وتسيير شؤونه، فذكرت أنه سبحانه :"
+      ],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b024",
+      "type": "paragraph",
+      "source_pdf_page": 6,
+      "source_book_page_label": "12",
+      "heading_exact": null,
+      "paragraphs_exact": [
+        "خالق السموات والأرض في ستة أيام ، وهو قادر على خلقها في أقل من ذلك، ولكنه جعل لكل شيء أجلاً، وليتعلم الناس التأني في الأمور، وهو سبحانه مدبر أمور الكون، المتفرد بالحكم على ما يجري فيه، وإليه يرجع جميع الخلق ، وهو سبحانه عالم الغيب والشهادة، اطلع بعلمه على كل ما يجري في هذا الكون، سواء أكان غائباً لا تراه العيون، أم حاضراً يشاهده الناس ويرونه، فلا يخفى عليه شيء في الأرض ولا في السماء، ولا يظن إنسان أن بإمكانه أن يبدي ويخفي ما يشاء، لأن الله مطلع على كل شيء وسوف يحاسب الإنسان ويجازيه على عمله ."
+      ],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b025",
+      "type": "figure",
+      "source_pdf_page": 6,
+      "source_book_page_label": "12",
+      "heading_exact": null,
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": "رسم توضيحي للكون والفضاء مع آية قرآنية تصف خلق السماوات والأرض وما بينهما في ستة أيام",
+      "figure_asset_paths": [
+        "assets/pilot-b025-01.png"
+      ],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b026",
+      "type": "paragraph",
+      "source_pdf_page": 7,
+      "source_book_page_label": "13",
+      "heading_exact": null,
+      "paragraphs_exact": [
+        "وهو سبحانه خالق الإنسان ، عبر مراحل وأطوار ، فكانت بداية خلق الإنسان الأول - أبي البشر آدم عليه السلام - من الطين . ثم من بعده خلق الإنسان من سلالة من ماء مهين، وفي ذلك تذكير للإنسان بأصله، فلا يتكَبَّر ويتعالى ويجعل من نفسه خصيماً مبيناً، وفي ذلك أيضاً إيقاظ للعقول لتفكر كيف أصبح الإنسان على هذا الحُسن في الخلق والإبداع وفي التركيب وهو مخلوق أصله من طين وماء مهين؟!",
+        "وبعد خلق الإنسان وتسويته في صورته التامة الحسنة، كَرَّمَه الله تعالى بأن نفخ فيه من روحه ليصبح بذلك بشراً، وإضافة الروح إلى الله تعالى للتشريف والتكريم وليدرك الإنسان أن قيمته بروحه وعقله وليست بنسبه وجسده، وعليه أن يسعى لتنمية القيم الروحية والإنسانية في ذاته ويرتفع بها إلى أعلى مراتب الفضيلة ."
+      ],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b027",
+      "type": "figure",
+      "source_pdf_page": 7,
+      "source_book_page_label": "13",
+      "heading_exact": null,
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": "صور تعليمية توضح مراحل خلق الإنسان وتطوره مع حواس السمع والبصر والقلب مع الآية الكريمة المرافقة",
+      "figure_asset_paths": [
+        "assets/pilot-b027-01.png",
+        "assets/pilot-b027-02.png"
+      ],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b028",
+      "type": "paragraph",
+      "source_pdf_page": 7,
+      "source_book_page_label": "13",
+      "heading_exact": null,
+      "paragraphs_exact": [
+        "ثم كَرَّمَه بتركيب الحواس - السمع والبصر والفؤاد - ليتمكن من التمييز بين الأشياء ويتفاعل مع أمر الله ونهيه رجاء أن يشكر نعمة الله تعالى، ومع ذلك نجد أنَّ الإنسان قليل الشكر لربه والإمتثال لأمره ."
+      ],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b029",
+      "type": "official_activity",
+      "source_pdf_page": 7,
+      "source_book_page_label": "13",
+      "heading_exact": "نشاط",
+      "paragraphs_exact": [
+        "القرآن الكريم كتاب منزل من عند الله تعالى ، اجمع ما أمكنك من الأدلة التي أوردها العلماء لتأكيد هذه الحقيقة، وناقشها مع معلمك ."
+      ],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b030",
+      "type": "heading",
+      "source_pdf_page": 8,
+      "source_book_page_label": "14",
+      "heading_exact": "التقويم",
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": null
+    },
+    {
+      "block_id": "pilot-b031",
+      "type": "official_textbook_assessment",
+      "source_pdf_page": 8,
+      "source_book_page_label": "14",
+      "heading_exact": null,
+      "paragraphs_exact": [],
+      "items_exact": [],
+      "ayahs": [],
+      "table_rows": [],
+      "questions": [
+        {
+          "number_label": "١",
+          "text_exact": "برهن على أن القرآن وحي من عند الله .",
+          "sub_items_exact": []
+        },
+        {
+          "number_label": "٢",
+          "text_exact": "علل لما يأتي :",
+          "sub_items_exact": [
+            "أ - تذكير الله تعالى للإنسان بأن أصله من الطين والماء المهين .",
+            "ب - مجيء الحروف المقطعة في أوائل السور مثل ( ألف، لام، ميم )",
+            "جـ - إضافة الروح إلى الله تعالى، في قوله ( ونفخت فيه من روحي )"
+          ]
+        },
+        {
+          "number_label": "٣",
+          "text_exact": "( اهتم الإسلام بروح الإنسان وجسده ) وضح ذلك .",
+          "sub_items_exact": []
+        },
+        {
+          "number_label": "٤",
+          "text_exact": "ماذا تفهم من الآيات الآتية :",
+          "sub_items_exact": [
+            "أ - قال تعالى : ﴿مَا لَكُم مِّن دُونِهِ مِن وَلِيٍّ وَلَا شَفِيعٍ ۚ أَفَلَا تَتَذَكَّرُونَ﴾",
+            "ب - قال تعالى : ﴿يُدَبِّرُ الْأَمْرَ مِنَ السَّمَاءِ إِلَى الْأَرْضِ﴾",
+            "جـ - قال تعالى : ﴿وَجَعَلَ لَكُمُ السَّمْعَ وَالْأَبْصَارَ وَالْأَفْئِدَةَ ۚ قَلِيلًا مَّا تَشْكُرُونَ﴾"
+          ]
+        },
+        {
+          "number_label": "٥",
+          "text_exact": "ما المراحل التي مر بها خلق الإنسان، حتى صار في أحسن تقويم .",
+          "sub_items_exact": []
+        },
+        {
+          "number_label": "٦",
+          "text_exact": "بين معاني ما يأتي :",
+          "sub_items_exact": [
+            "أ - مَاءٍ مَّهِينٍ",
+            "ب - يَقُولُونَ افْتَرَاهُ",
+            "جـ - لَا رَيْبَ فِيهِ",
+            "د - جَعَلَ نَسْلَهُ مِن سُلَالَةٍ"
+          ]
+        }
+      ],
+      "figure_description_only": null,
+      "figure_asset_paths": [],
+      "confidence": "high",
+      "review_required": false,
+      "notes": "HUMAN_QURAN_REVIEW_APPROVED_20A1"
+    }
+  ],
+  "extraction_warnings": []
+}
