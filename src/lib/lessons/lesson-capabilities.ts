@@ -77,14 +77,19 @@ export interface CapabilityResourceInput {
   title: string | null;
   url: string;
   description?: string | null;
+  /** DB flag: this row is the lesson's primary content. */
+  is_primary?: boolean | null;
 }
 
 export interface LessonCapabilityInput {
   deliveryMode: string | null | undefined;
+  /** Lesson title — used to detect title-only placeholder book content. */
+  lessonTitle?: string | null | undefined;
   bookContent: string | null | undefined;
   /** Legacy inline lesson text (`lessons.content_text`). */
   inlineContent?: string | null | undefined;
   primaryResource: CapabilityResourceInput | null | undefined;
+
   /** Non-primary resources already fetched for this lesson. */
   resources: readonly CapabilityResourceInput[];
   simulationsCount: number;
@@ -130,11 +135,40 @@ function hasText(value: string | null | undefined): boolean {
   return (value ?? "").trim().length > 0;
 }
 
+function normalizeText(value: string | null | undefined): string {
+  return (value ?? "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * 18C1 — a `lesson_book_contents` row whose body is empty or is nothing more
+ * than the lesson title is NOT book content: it is import metadata that was
+ * written into the content column. It must never win over a primary PDF.
+ * Deterministic rule, no heuristics: empty, or equal to the lesson title.
+ */
+export function isPlaceholderBookContent(
+  content: string | null | undefined,
+  lessonTitle: string | null | undefined,
+): boolean {
+  const body = normalizeText(content);
+  if (!body) return true;
+  const title = normalizeText(lessonTitle);
+  return title.length > 0 && body === title;
+}
+
 function validResources(
   resources: readonly CapabilityResourceInput[] | undefined,
   type: string,
 ): CapabilityResourceInput[] {
   return (resources ?? []).filter((r) => r.resource_type === type && isValidResourceUrl(r.url));
+}
+
+/** The single primary resource: explicit input first, else the flagged row. */
+export function resolvePrimaryResource(
+  input: LessonCapabilityInput,
+): CapabilityResourceInput | null {
+  const explicit = input.primaryResource ?? null;
+  if (explicit) return explicit;
+  return (input.resources ?? []).find((r) => r.is_primary === true) ?? null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -143,10 +177,15 @@ function validResources(
 
 function primaryContentCapability(input: LessonCapabilityInput): LessonCapability {
   const isExternalMode = input.deliveryMode === "external_resource";
-  const bookText = hasText(input.bookContent) ? input.bookContent : input.inlineContent;
+  const bookRaw = hasText(input.bookContent) ? input.bookContent : input.inlineContent;
+  const placeholderBook =
+    hasText(bookRaw) && isPlaceholderBookContent(bookRaw, input.lessonTitle);
+  const bookText = placeholderBook ? null : bookRaw;
   const hasBook = hasText(bookText);
-  const primary = input.primaryResource ?? null;
+  const primary = resolvePrimaryResource(input);
   const primaryValid = !!primary && isValidResourceUrl(primary.url);
+
+
 
   const base = {
     type: "PRIMARY_CONTENT" as const,
