@@ -35,6 +35,10 @@ import {
   type LessonCapabilityType,
 } from "@/lib/lessons/lesson-capabilities";
 import { orderStudentCapabilities } from "@/lib/lessons/lesson-content-contract";
+import {
+  fetchStudentLifecycleGate,
+  filterStudentCapabilitiesByLifecycle,
+} from "@/lib/lessons/lesson-lifecycle";
 
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import {
