@@ -66,6 +66,9 @@ export function SubjectTextbooksManager() {
   const [search, setSearch] = useState("");
   const [trackId, setTrackId] = useState<string>("");
   const [title, setTitle] = useState("");
+  const [bookType, setBookType] = useState<"MAIN_TEXTBOOK" | "EXERCISE_BOOK" | "OTHER">(
+    "MAIN_TEXTBOOK",
+  );
   const [coverageType, setCoverageType] = useState<"FULL_ACADEMIC_YEAR" | "SEMESTER_SPECIFIC">(
     "FULL_ACADEMIC_YEAR",
   );
@@ -74,6 +77,7 @@ export function SubjectTextbooksManager() {
   const [busy, setBusy] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
 
   const subjectsQuery = useQuery({
     queryKey: ["admin-textbooks-subjects"],
