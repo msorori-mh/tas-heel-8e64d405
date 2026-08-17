@@ -221,23 +221,19 @@ export function LessonExplanationsDialog({
                         </span>
                       )}
                     </span>
-                    {local ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeLocal(r.id)}
-                        disabled={saving}
-                        className="h-7 px-2 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 ml-1" />
-                        حذف من الواجهة
-                      </Button>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground">
-                        حذف الشرح المحفوظ سيتم دعمه لاحقًا.
-                      </span>
-                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        local ? removeLocal(r.id) : removeSaved(r.id)
+                      }
+                      disabled={saving}
+                      className="h-7 px-2 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 ml-1" />
+                      {local ? "حذف من الواجهة" : "حذف الشرح"}
+                    </Button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
