@@ -192,7 +192,6 @@ export async function bindSubjectTextbook(
     .insert({
       subject_id: input.subjectId,
       curriculum_track_id: input.curriculumTrackId,
-      semester: input.semester,
       title,
       storage_bucket: TEXTBOOK_BUCKET,
       storage_path: input.path,
