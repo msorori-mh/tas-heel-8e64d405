@@ -11,6 +11,10 @@ import {
   Zap,
 } from "lucide-react";
 import { Bar, BottomNav, SectionTitle } from "@/components/prototype/fm-v2/primitives";
+import continueImage from "@/assets/prototype/fm-v2-continue.png";
+import firstStepImage from "@/assets/prototype/fm-v2-first-step.png";
+import ministerialImage from "@/assets/prototype/fm-v2-ministerial.png";
+
 
 /**
  * TAMKEEN_FOCUSED_MOMENTUM_V2_PROTOTYPE_19A — Student Home as a personal
