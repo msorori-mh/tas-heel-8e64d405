@@ -547,6 +547,13 @@ function LessonPage() {
   const primaryCapability = capabilities.find((c) => c.type === "PRIMARY_CONTENT");
   const primaryUnavailable = !primaryCapability?.available || !primaryCapability?.studentVisible;
 
+  // 20D §8 — show the original textbook PDF as a standalone reference only when
+  // the lesson itself is served in-app and the PDF passed the editorial gate.
+  const originalPdfGateOpen =
+    previewMode ||
+    lifecycleGate?.managed !== true ||
+    (lifecycleGate?.readyKeys ?? new Set<string>()).has("originalBookPdf");
+
   const rawBook = (book?.content ?? lesson.content_text ?? "").trim();
   const bookContent = isPlaceholderBookContent(rawBook, lesson.title) ? "" : rawBook;
 
