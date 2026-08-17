@@ -31,6 +31,7 @@ import {
   setSubjectTextbookActive,
 } from "@/lib/api/subject-textbook.functions";
 import { InAppPdfDelivery } from "@/components/lessons/InAppPdfDelivery";
+import { BOOK_TYPE_LABEL } from "@/lib/textbooks/subject-textbook-client";
 
 const MAX_BYTES = 200 * 1024 * 1024;
 
@@ -343,6 +344,7 @@ export function SubjectTextbooksManager() {
                       setReplaceId(book.id);
                       setTitle(book.title);
                       setTrackId(book.curriculumTrackId ?? "");
+                      setBookType(book.bookType);
                       setCoverageType(book.coverageType);
                       if (book.semester === 1 || book.semester === 2) setSemester(book.semester);
                     }}
