@@ -249,69 +249,36 @@ function CurriculumSection() {
 
 function CTAFooter() {
   return (
-    <>
-      <section className="px-4 py-8 md:py-10">
-        <div className="container mx-auto max-w-4xl">
-          <div className="relative overflow-hidden rounded-2xl bg-hero-gradient p-5 md:p-7 shadow-card-hover flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-right">
-            <div className="flex-1">
-              <h2 className="text-lg md:text-xl font-bold text-primary-foreground">
-                ابدأ رحلتك الدراسية اليوم
-              </h2>
-              <p className="mt-1 text-sm text-primary-foreground/90">
-                ذاكر بثقة، اختبر بذكاء، وتابع تقدمك يومًا بعد يوم.
-              </p>
+    <footer className="border-t border-border bg-card px-4 py-6">
+      <div className="container mx-auto max-w-5xl">
+        <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-hero-gradient">
+              <BookOpen className="h-4 w-4 text-primary-foreground" />
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <Link to="/auth" search={{ mode: "signup" }} className="w-full sm:w-auto">
-                <Button size="lg" variant="hero" className="w-full sm:w-auto px-6 py-5">
-                  ابدأ الآن
-                </Button>
-              </Link>
-              <Link to="/auth" search={{ mode: "login" }} className="w-full sm:w-auto">
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="w-full sm:w-auto px-6 py-5 text-base bg-secondary text-secondary-foreground hover:bg-secondary/90"
-                >
-                  تسجيل الدخول
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <footer className="border-t border-border bg-card px-4 py-6">
-        <div className="container mx-auto max-w-5xl">
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-hero-gradient">
-                <BookOpen className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <span className="text-sm font-bold text-foreground">
-                تمكين الطالب
-              </span>
-            </div>
-
-            <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <a href="#features" className="hover:text-primary">
-                المزايا
-              </a>
-              <Link to="/contact" className="hover:text-primary">
-                تواصل معنا
-              </Link>
-              <Link to="/about" className="hover:text-primary">
-                عن المنصة
-              </Link>
-            </nav>
+            <span className="text-sm font-bold text-foreground">
+              تمكين الطالب
+            </span>
           </div>
 
-          <p className="mt-4 pt-4 border-t border-border text-center text-[11px] text-muted-foreground">
-            © {new Date().getFullYear()} تمكين الطالب — جميع الحقوق محفوظة
-          </p>
+          <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <a href="#features" className="hover:text-primary">
+              المزايا
+            </a>
+            <Link to="/contact" className="hover:text-primary">
+              تواصل معنا
+            </Link>
+            <Link to="/about" className="hover:text-primary">
+              عن المنصة
+            </Link>
+          </nav>
         </div>
-      </footer>
-    </>
+
+        <p className="mt-4 pt-4 border-t border-border text-center text-[11px] text-muted-foreground">
+          © {new Date().getFullYear()} تمكين الطالب — جميع الحقوق محفوظة
+        </p>
+      </div>
+    </footer>
   );
 }
 
