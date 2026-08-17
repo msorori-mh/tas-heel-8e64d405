@@ -315,7 +315,7 @@ function CTAFooter() {
 
 function LandingPage() {
   return (
-    <div className="landing-page-bg min-h-screen text-foreground" dir="rtl">
+    <div className="ds-v2 min-h-screen text-foreground" dir="rtl">
       <HeroSection />
       <div className="container mx-auto max-w-5xl px-4">
         <PwaInstallHint />
