@@ -69,11 +69,13 @@ GRANT ALL    ON public.lesson_capability_lifecycle TO service_role;
 ALTER TABLE public.lesson_capability_lifecycle ENABLE ROW LEVEL SECURITY;
 
 -- Students may only ever observe READY rows. DRAFT/REVIEW are staff-only.
+DROP POLICY IF EXISTS "students read ready lifecycle rows" ON public.lesson_capability_lifecycle;
 CREATE POLICY "students read ready lifecycle rows"
   ON public.lesson_capability_lifecycle
   FOR SELECT TO authenticated
   USING (status = 'READY');
 
+DROP POLICY IF EXISTS "content staff read all lifecycle rows" ON public.lesson_capability_lifecycle;
 CREATE POLICY "content staff read all lifecycle rows"
   ON public.lesson_capability_lifecycle
   FOR SELECT TO authenticated
@@ -248,19 +250,14 @@ SELECT DISTINCT e.lesson_id, 'tamkeenExplanation', 'READY', now()
   FROM public.lesson_explanations e
 ON CONFLICT (lesson_id, capability) DO NOTHING;
 
--- 6.3 mind map (HTML pipeline) — only rows already published stay READY,
---     draft/in_review HTML stays DRAFT (they are already hidden today)
+-- 6.3 mind map (HTML pipeline) — lesson_resources has NO lifecycle_status
+--     column; an existing mind map resource is already student-visible today,
+--     so it is grandfathered to READY (matches the production apply exactly).
 INSERT INTO public.lesson_capability_lifecycle
   (lesson_id, capability, status, ready_at)
-SELECT r.lesson_id,
-       'mindMap',
-       CASE WHEN bool_or(COALESCE(r.lifecycle_status, 'published') = 'published')
-            THEN 'READY' ELSE 'DRAFT' END,
-       CASE WHEN bool_or(COALESCE(r.lifecycle_status, 'published') = 'published')
-            THEN now() ELSE NULL END
+SELECT DISTINCT r.lesson_id, 'mindMap', 'READY', now()
   FROM public.lesson_resources r
  WHERE r.resource_type = 'mindmap' OR r.html_resource_type = 'mindmap'
- GROUP BY r.lesson_id
 ON CONFLICT (lesson_id, capability) DO NOTHING;
 
 -- 6.4 simulation
