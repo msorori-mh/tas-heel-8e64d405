@@ -84,7 +84,7 @@ function DesignSystemShowcase() {
                       style={{ borderRadius: `var(${r.cssVar})` }}
                       aria-hidden
                     />
-                    <span className="min-w-0 truncate text-[12px] text-muted-foreground">
+                    <span className="min-w-0 text-[12px] leading-snug text-muted-foreground">
                       {r.name} — {r.usage}
                     </span>
                   </li>
