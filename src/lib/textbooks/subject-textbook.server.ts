@@ -296,24 +296,28 @@ export async function cloneTextbookForTrack(
   if (error) throw new Error("textbook_lookup_failed");
   if (!source) throw new Error("textbook_not_found");
 
+  const cloned: Record<string, unknown> = {
+    subject_id: source.subject_id,
+    curriculum_track_id: input.curriculumTrackId,
+    coverage_type: source.coverage_type ?? "FULL_ACADEMIC_YEAR",
+    semester: source.semester ?? null,
+    title: source.title,
+    storage_bucket: source.storage_bucket,
+    storage_path: source.storage_path,
+    file_name: source.file_name,
+    file_size: source.file_size,
+    sha256: source.sha256,
+    version: makeVersion(),
+    created_by: userId,
+  };
+  if (source.book_type !== undefined) cloned["book_type"] = normalizeBookType(source.book_type);
+
   const { data, error: insertError } = await db
     .from("subject_textbooks")
-    .insert({
-      subject_id: source.subject_id,
-      curriculum_track_id: input.curriculumTrackId,
-      coverage_type: source.coverage_type ?? "FULL_ACADEMIC_YEAR",
-      semester: source.semester ?? null,
-      title: source.title,
-      storage_bucket: source.storage_bucket,
-      storage_path: source.storage_path,
-      file_name: source.file_name,
-      file_size: source.file_size,
-      sha256: source.sha256,
-      version: makeVersion(),
-      created_by: userId,
-    })
+    .insert(cloned)
     .select("id")
     .single();
+
   if (insertError) throw new Error(insertError.message || "textbook_insert_failed");
   return { textbookId: String(data.id) };
 }
