@@ -87,9 +87,12 @@ export function SubjectTextbooksManager() {
   const tracksQuery = useQuery({
     queryKey: ["admin-textbooks-tracks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("curriculum_tracks").select("id,name").order("name");
+      const { data, error } = await supabase
+        .from("curriculum_tracks")
+        .select("id,track_name")
+        .order("track_name");
       if (error) throw error;
-      return (data ?? []) as { id: string; name: string }[];
+      return (data ?? []).map((t) => ({ id: t.id as string, name: (t.track_name as string) ?? "مسار" }));
     },
   });
 
