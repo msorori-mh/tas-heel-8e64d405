@@ -896,6 +896,28 @@ function CapabilityIcon({ type }: { type: LessonCapabilityType }) {
   }
 }
 
+function EssayQuestionCard({ index, q }: { index: number; q: QuestionRow }) {
+  const [answer, setAnswer] = useState("");
+  return (
+    <div className="rounded-xl border border-border bg-background p-3">
+      <div className="mb-2 whitespace-pre-line text-sm font-semibold text-foreground">
+        <span className="text-muted-foreground">س{index}: </span>
+        {q.question_text}
+      </div>
+      <textarea
+        value={answer}
+        onChange={(e) => setAnswer(e.target.value)}
+        rows={4}
+        placeholder="اكتب إجابتك هنا…"
+        className="w-full rounded-lg border border-border bg-card p-2 text-right text-sm text-card-foreground outline-none focus:border-primary"
+      />
+      <p className="mt-2 text-xs text-muted-foreground">
+        سؤال مقالي من تقويم الكتاب الوزاري — اكتب إجابتك ثم راجعها مع معلمك.
+      </p>
+    </div>
+  );
+}
+
 function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
   const options = Array.isArray(q.options) ? (q.options as unknown[]) : [];
   const [selected, setSelected] = useState<number | null>(null);
@@ -907,6 +929,11 @@ function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
   } | null>(null);
   const checked = result !== null;
   const isCorrect = checked && result!.is_correct;
+
+  if (options.length === 0) {
+    return <EssayQuestionCard index={index} q={q} />;
+  }
+
 
   const handleCheck = async () => {
     if (selected === null) return;
