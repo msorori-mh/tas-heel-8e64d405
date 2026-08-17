@@ -65,6 +65,11 @@ import { Progress } from "@/components/ui/progress";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
+  // 20C-B — `?preview=1` is an operator preview; it only has an effect for
+  // content staff (see `previewMode` below), students never bypass the gate.
+  validateSearch: (search: Record<string, unknown>): { preview?: number } => ({
+    preview: search.preview === 1 || search.preview === "1" ? 1 : undefined,
+  }),
   component: LessonPage,
 });
 
