@@ -1,7 +1,8 @@
 /**
  * 20C-B — editorial lifecycle rules (DRAFT → REVIEW → READY).
  */
-import { describe, it, expect } from "vitest";
+import { test, describe } from "node:test";
+import assert from "node:assert/strict";
 import {
   allowedTransitions,
   filterStudentCapabilitiesByLifecycle,
@@ -22,31 +23,31 @@ const row = (over: Partial<LessonLifecycleRow>): LessonLifecycleRow => ({
 });
 
 describe("lifecycle transitions", () => {
-  it("follows DRAFT → REVIEW → READY and re-opens from READY", () => {
-    expect(allowedTransitions(null)).toEqual(["DRAFT"]);
-    expect(allowedTransitions("DRAFT")).toEqual(["REVIEW"]);
-    expect(allowedTransitions("REVIEW")).toEqual(["READY", "DRAFT"]);
-    expect(allowedTransitions("READY")).toEqual(["DRAFT"]);
+  test("follows DRAFT → REVIEW → READY and re-opens from READY", () => {
+    assert.deepEqual(allowedTransitions(null), ["DRAFT"]);
+    assert.deepEqual(allowedTransitions("DRAFT"), ["REVIEW"]);
+    assert.deepEqual(allowedTransitions("REVIEW"), ["READY", "DRAFT"]);
+    assert.deepEqual(allowedTransitions("READY"), ["DRAFT"]);
   });
 });
 
 describe("student visibility", () => {
-  it("hides never-approved drafts and keeps frozen READY snapshots live", () => {
-    expect(lifecycleVisibleForStudent(undefined)).toBe(true); // legacy
-    expect(lifecycleVisibleForStudent("READY")).toBe(true);
-    expect(lifecycleVisibleForStudent({ status: "DRAFT" })).toBe(false);
-    expect(lifecycleVisibleForStudent({ status: "REVIEW" })).toBe(false);
-    expect(lifecycleVisibleForStudent({ status: "DRAFT", hasReady: true })).toBe(true);
+  test("hides never-approved drafts and keeps frozen READY snapshots live", () => {
+    assert.equal(lifecycleVisibleForStudent(undefined), true); // legacy
+    assert.equal(lifecycleVisibleForStudent("READY"), true);
+    assert.equal(lifecycleVisibleForStudent({ status: "DRAFT" }), false);
+    assert.equal(lifecycleVisibleForStudent({ status: "REVIEW" }), false);
+    assert.equal(lifecycleVisibleForStudent({ status: "DRAFT", hasReady: true }), true);
   });
 
-  it("maps rows with hasReady from ready_at or snapshot", () => {
+  test("maps rows with hasReady from ready_at or snapshot", () => {
     const map = rowsToLifecycleMap([
       row({ status: "DRAFT", ready_at: "2026-01-01T00:00:00Z" }),
       row({ capability: "mindMap", status: "DRAFT" }),
       row({ capability: "not_a_capability", status: "READY" }),
     ]);
-    expect(map.tamkeenExplanation).toEqual({ status: "DRAFT", hasReady: true });
-    expect(map.mindMap).toEqual({ status: "DRAFT", hasReady: false });
+    assert.deepEqual(map.tamkeenExplanation, { status: "DRAFT", hasReady: true });
+    assert.deepEqual(map.mindMap, { status: "DRAFT", hasReady: false });
     expect(Object.keys(map)).toHaveLength(2);
   });
 });
@@ -54,18 +55,18 @@ describe("student visibility", () => {
 describe("student capability gate", () => {
   const caps = [{ type: "PRIMARY_CONTENT" }, { type: "EXPLANATION" }, { type: "MINDMAP" }];
 
-  it("is a no-op for unmanaged (legacy) lessons", () => {
-    expect(
+  test("is a no-op for unmanaged (legacy) lessons", () => {
+    assert.equal(
       filterStudentCapabilitiesByLifecycle(caps, { managed: false, readyKeys: new Set() }),
     ).toHaveLength(3);
   });
 
-  it("keeps only READY capabilities once the lesson is managed", () => {
+  test("keeps only READY capabilities once the lesson is managed", () => {
     const out = filterStudentCapabilitiesByLifecycle(caps, {
       managed: true,
       readyKeys: new Set(["officialBookContent"]),
     });
-    expect(out.map((c) => c.type)).toEqual(["PRIMARY_CONTENT"]);
+    assert.deepEqual(out.map((c) => c.type), ["PRIMARY_CONTENT"]);
   });
 });
 
@@ -85,17 +86,17 @@ describe("admin overlay", () => {
     },
   } as any;
 
-  it("marks a new draft revision but keeps the approved version live", () => {
+  test("marks a new draft revision but keeps the approved version live", () => {
     const out = applyLifecycleOverlay(base, {
       tamkeenExplanation: { status: "DRAFT", hasReady: true },
     });
-    expect(out.tamkeenExplanation.status).toBe("DRAFT");
-    expect(out.tamkeenExplanation.studentVisible).toBe(true);
+    assert.equal(out.tamkeenExplanation.status, "DRAFT");
+    assert.equal(out.tamkeenExplanation.studentVisible, true);
   });
 
-  it("hides a never-approved draft", () => {
+  test("hides a never-approved draft", () => {
     const out = applyLifecycleOverlay(base, { tamkeenExplanation: { status: "DRAFT" } });
-    expect(out.tamkeenExplanation.studentVisible).toBe(false);
-    expect(out.tamkeenExplanation.readinessReason).toBe("DRAFT_NOT_PUBLISHED");
+    assert.equal(out.tamkeenExplanation.studentVisible, false);
+    assert.equal(out.tamkeenExplanation.readinessReason, "DRAFT_NOT_PUBLISHED");
   });
 });
