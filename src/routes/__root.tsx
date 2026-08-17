@@ -84,7 +84,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       {
-        title: "تمكين طلاب الثانوية | الاستعداد للثانوية والاختبارات الوزارية",
+        title: "تمكين",
       },
       {
         name: "description",

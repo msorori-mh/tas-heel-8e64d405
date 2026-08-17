@@ -16,7 +16,7 @@ import { PwaInstallHint } from "@/components/pwa/PwaInstallHint";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "تمكين طلاب الثانوية — منصتك للاستعداد والتفوّق" },
+      { title: "تمكين" },
       {
         name: "description",
         content:
