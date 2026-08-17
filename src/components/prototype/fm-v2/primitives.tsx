@@ -21,7 +21,8 @@ export function Bar({
       ? "bg-[var(--fm-goal)]"
       : tone === "success"
         ? "bg-success"
-        : "bg-[var(--fm-signature)]";
+        : "fm-grad";
+
   return (
     <div className={cn("h-2 w-full overflow-hidden rounded-full bg-muted", className)}>
       <div
