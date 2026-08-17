@@ -33,6 +33,7 @@ import {
   downloadTextbook,
   listStudentTextbooks,
   readTextbookLocalState,
+  BOOK_TYPE_LABEL,
   type StudentTextbook,
   type TextbookLocalState,
 } from "@/lib/textbooks/subject-textbook-client";
@@ -169,6 +170,9 @@ function TextbookRow({ book, onOpen }: { book: StudentTextbook; onOpen: () => vo
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-sm font-bold text-foreground">{book.title}</h3>
+          <span className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+            {BOOK_TYPE_LABEL[book.bookType]}
+          </span>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {book.coverageType === "SEMESTER_SPECIFIC"
               ? `كتاب الفصل ${book.semester === 2 ? "الثاني" : "الأول"}`

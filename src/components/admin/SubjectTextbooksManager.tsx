@@ -31,6 +31,7 @@ import {
   setSubjectTextbookActive,
 } from "@/lib/api/subject-textbook.functions";
 import { InAppPdfDelivery } from "@/components/lessons/InAppPdfDelivery";
+import { BOOK_TYPE_LABEL } from "@/lib/textbooks/subject-textbook-client";
 
 const MAX_BYTES = 200 * 1024 * 1024;
 
@@ -66,6 +67,9 @@ export function SubjectTextbooksManager() {
   const [search, setSearch] = useState("");
   const [trackId, setTrackId] = useState<string>("");
   const [title, setTitle] = useState("");
+  const [bookType, setBookType] = useState<"MAIN_TEXTBOOK" | "EXERCISE_BOOK" | "OTHER">(
+    "MAIN_TEXTBOOK",
+  );
   const [coverageType, setCoverageType] = useState<"FULL_ACADEMIC_YEAR" | "SEMESTER_SPECIFIC">(
     "FULL_ACADEMIC_YEAR",
   );
@@ -74,6 +78,7 @@ export function SubjectTextbooksManager() {
   const [busy, setBusy] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
 
   const subjectsQuery = useQuery({
     queryKey: ["admin-textbooks-subjects"],
@@ -137,7 +142,10 @@ export function SubjectTextbooksManager() {
         data: {
           subjectId,
           curriculumTrackId: trackId || null,
+          bookType,
           coverageType,
+
+
           semester: coverageType === "SEMESTER_SPECIFIC" ? semester : null,
           title: title.trim() || file.name.replace(/\.pdf$/i, ""),
           path: target.path,
@@ -212,7 +220,21 @@ export function SubjectTextbooksManager() {
               </select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">نوع التغطية</Label>
+              <Label className="text-xs">نوع الكتاب</Label>
+              <select
+                value={bookType}
+                onChange={(e) =>
+                  setBookType(e.target.value as "MAIN_TEXTBOOK" | "EXERCISE_BOOK" | "OTHER")
+                }
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
+              >
+                <option value="MAIN_TEXTBOOK">الكتاب الأساسي</option>
+                <option value="EXERCISE_BOOK">كتاب التمارين</option>
+                <option value="OTHER">ملحق / آخر</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">نطاق الكتاب</Label>
               <select
                 value={coverageType}
                 onChange={(e) =>
@@ -220,11 +242,12 @@ export function SubjectTextbooksManager() {
                 }
                 className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
               >
-                <option value="FULL_ACADEMIC_YEAR">يغطي العام الدراسي كاملاً</option>
-                <option value="SEMESTER_SPECIFIC">خاص بفصل دراسي</option>
+                <option value="FULL_ACADEMIC_YEAR">العام الدراسي كاملاً</option>
+                <option value="SEMESTER_SPECIFIC">فصل محدد</option>
               </select>
             </div>
           </div>
+
 
           {coverageType === "SEMESTER_SPECIFIC" && (
             <div className="max-w-xs space-y-1">
@@ -289,7 +312,12 @@ export function SubjectTextbooksManager() {
                 className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 p-3 text-xs"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">{book.title}</p>
+                  <p className="flex flex-wrap items-center gap-2 truncate text-sm font-semibold text-foreground">
+                    {book.title}
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                      {BOOK_TYPE_LABEL[book.bookType]}
+                    </span>
+                  </p>
                   <p className="text-muted-foreground">
                     {trackName(book.curriculumTrackId)} ·{" "}
                     {book.coverageType === "SEMESTER_SPECIFIC"
@@ -299,6 +327,7 @@ export function SubjectTextbooksManager() {
                     {formatBytes(book.fileSize)} · إصدار {book.version.slice(0, 6)} ·{" "}
                     {book.isActive ? "مفعّل" : "معطّل"}
                   </p>
+
                   <p className="text-muted-foreground">
                     آخر تحديث:{" "}
                     {book.updatedAt ? new Date(book.updatedAt).toLocaleDateString("ar") : "—"}
@@ -315,6 +344,7 @@ export function SubjectTextbooksManager() {
                       setReplaceId(book.id);
                       setTitle(book.title);
                       setTrackId(book.curriculumTrackId ?? "");
+                      setBookType(book.bookType);
                       setCoverageType(book.coverageType);
                       if (book.semester === 1 || book.semester === 2) setSemester(book.semester);
                     }}
