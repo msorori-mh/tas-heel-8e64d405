@@ -44,33 +44,28 @@ function StudentHome() {
   }
 
   return (
-    <div className="space-y-4 pb-4 lg:space-y-5" dir="rtl">
-      {/* 1. Welcome + 2. Today's mission */}
-      <div className="grid gap-4 lg:grid-cols-12 lg:items-stretch lg:gap-5">
-        <div className="lg:col-span-8 lg:flex lg:flex-col">
-          <WelcomeCard stats={stats} />
-        </div>
-        <div className="lg:col-span-4 lg:flex lg:flex-col">
-          <TodayMissionCard items={continueItems} loading={continueLoading} />
-        </div>
-      </div>
+    // 19D — route-level Design System V2 opt-in (presentation only).
+    <div className="ds-v2 space-y-3.5 pb-4 lg:space-y-4" dir="rtl">
+      {/* 1. Compact greeting */}
+      <WelcomeCard stats={stats} />
 
       <HomeSubscriptionBanner />
 
-      {/* 3. Four compact KPI cards */}
-      <ProgressSummary stats={stats} loading={statsLoading} />
-
-      {/* 4. Continue where you left off */}
+      {/* 2. Continue learning */}
       <ContinueSection items={continueItems} loading={continueLoading} />
 
-      {/* 5. Learning tools (quick review / mistakes / performance / ministerial) */}
+      {/* 3. Daily goal */}
+      <TodayMissionCard items={continueItems} loading={continueLoading} />
+
+      {/* 4. Quick actions (quick review / mistakes / performance / ministerial) */}
       <LearningToolsSection />
 
-      {/* 6. Semesters */}
+      {/* 5. Needs attention — real progress signals only */}
+      <ProgressSummary stats={stats} loading={statsLoading} />
+
+      {/* 6. Subjects compact progress */}
       <SemesterPicker />
 
-
-      {/* 6. Achievements + 7. AI assistant */}
       <div className="grid gap-4 lg:grid-cols-12 lg:items-stretch lg:gap-5">
         <div className="lg:col-span-8 lg:flex lg:flex-col">
           <AchievementsSection badges={badges.slice(0, 3)} loading={badgesLoading} />
@@ -82,5 +77,6 @@ function StudentHome() {
     </div>
   );
 }
+
 
 
