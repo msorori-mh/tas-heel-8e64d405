@@ -1,0 +1,59 @@
+{
+  "pilot": "TAMKEEN_OFFICIAL_QURAN_STRUCTURED_CONTENT_PILOT_20A1",
+  "source_pdf_sha256": "e4474b4c5f044bf256b8bf443f26d310f794f746b9b80782fbe0580ab2f7cd0d",
+  "input_candidate_sha256": "94368a524ce688545a047af523dcb8c40ef19d238bf141bc259d1439faaea32f",
+  "approved_json_sha256": "926b022791f58bf885c2671f09a76e5a6ad71ec61d0ae7ce494506759754b54a",
+  "approved_html_sha256": "0c9cbf3e5c3a4d6093d0b535409fbd607a483a63bd0742788d6a14a20ee76981",
+  "known_patches": [
+    {
+      "block_id": "pilot-b005",
+      "field": "items_exact",
+      "from": "يدلل على صدق رسول الله في تبلیغ الوحي .",
+      "to": "يدلل على صدق رسول الله في تبليغ الوحي .",
+      "reason": "Proven Unicode transcription mismatch (Farsi Yeh) in the extracted draft.",
+      "status": "APPLIED"
+    },
+    {
+      "block_id": "pilot-b009",
+      "field": "paragraphs_exact",
+      "from": "وهذه من المواضع التي يشرع السجودعند تلاوتها أو سماعها .",
+      "to": "وهذه من المواضع التي يشرع السجود عند تلاوتها أو سماعها .",
+      "reason": "Proven spacing mismatch from page-level fidelity review.",
+      "status": "APPLIED"
+    }
+  ],
+  "quran_review_blocks": [
+    "pilot-b008",
+    "pilot-b012",
+    "pilot-b014",
+    "pilot-b015",
+    "pilot-b031"
+  ],
+  "quran_human_review": "APPROVED",
+  "figure_bindings": {
+    "pilot-b025": [
+      {
+        "source_candidate": "page_006_xref_96.png",
+        "approved_asset": "assets/pilot-b025-01.png",
+        "sha256": "eea1934d4a7a8bd877ae8362191d2deed4f38dd891bacfb8b6003b20171a1b7a"
+      }
+    ],
+    "pilot-b027": [
+      {
+        "source_candidate": "page_007_xref_120.png",
+        "approved_asset": "assets/pilot-b027-01.png",
+        "sha256": "16d9e8df504081995a9cccc23d5e4f0c4a70a8bb1734ece54825d593d5b49e45"
+      },
+      {
+        "source_candidate": "page_007_xref_122.png",
+        "approved_asset": "assets/pilot-b027-02.png",
+        "sha256": "2c49a835da7fd74837377a2f87c7e8add55843ad13c0ec9a50487e9f58b499eb"
+      }
+    ]
+  },
+  "body_page_start": 2,
+  "body_page_end": 8,
+  "auto_publish": false,
+  "approved_at_utc": "2026-08-16T23:43:23.590952+00:00",
+  "status": "READY_FOR_TAMKEEN_DRAFT_IMPORT"
+}

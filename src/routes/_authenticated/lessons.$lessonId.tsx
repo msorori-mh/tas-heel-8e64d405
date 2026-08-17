@@ -18,6 +18,8 @@ import {
 } from "@/lib/api/html-pipeline.functions";
 import { PublishedHtmlResourceViewer } from "@/components/lessons/PublishedHtmlResourceViewer";
 import { OfficialTextbookContent } from "@/components/lessons/OfficialTextbookContent";
+import { StructuredTextbookReader } from "@/components/lessons/StructuredTextbookReader";
+import { resolveStructuredDocument } from "@/lib/content/official-textbook/structured-blocks";
 import {
   ExternalLessonDelivery,
   type PrimaryLessonResource,
@@ -534,6 +536,11 @@ function LessonPage() {
           ) : (
             <ExternalLessonDelivery resource={effectivePrimary} />
           );
+        }
+        {
+          // 20A1B — approved structured official textbook content, when bound.
+          const structuredDoc = resolveStructuredDocument(bookContent);
+          if (structuredDoc) return <StructuredTextbookReader document={structuredDoc} />;
         }
         return <OfficialTextbookContent content={bookContent} />;
 
