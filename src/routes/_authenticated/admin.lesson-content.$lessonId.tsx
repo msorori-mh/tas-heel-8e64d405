@@ -55,8 +55,7 @@ function AdminLessonDetailPage() {
       const { data, error } = await supabase
         .from("lessons")
         .select(
-          // Existence flags only; raw URLs are admin-only via RPC.
-          "id, title, slug, delivery_mode, content_text, sort_order, duration, has_video, has_content_pdf, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)"
+          "id, title, sort_order, duration, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)"
         )
         .eq("id", lessonId)
         .maybeSingle();
