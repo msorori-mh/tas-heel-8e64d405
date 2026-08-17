@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ChevronLeft, ArrowRight, Layers } from "lucide-react";
+import { ChevronLeft, ArrowRight, BookOpen, Layers } from "lucide-react";
+import { SubjectTextbooksSheet } from "@/components/textbooks/SubjectTextbooksSheet";
 import {
   getSubjectSubCategory,
   groupSubjectsByMainCategory,
@@ -154,7 +155,9 @@ function SubjectTile({
 }) {
   const Icon = getSubjectIcon(name, iconKey);
   const value = pct(meta);
+  const [booksOpen, setBooksOpen] = useState(false);
   return (
+    <div className="relative">
     <Link
       to="/subjects/$subjectId"
       params={{ subjectId: to }}
@@ -179,6 +182,25 @@ function SubjectTile({
       </div>
       <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
     </Link>
+
+      {/* 21B — compact, secondary entry point to the curriculum textbooks. */}
+      <button
+        type="button"
+        onClick={() => setBooksOpen(true)}
+        className="mt-1.5 inline-flex items-center gap-1 rounded-lg border border-border/60 bg-muted/40 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <BookOpen className="h-3.5 w-3.5" />
+        كتب المنهج
+      </button>
+
+      <SubjectTextbooksSheet
+        open={booksOpen}
+        onOpenChange={setBooksOpen}
+        subjectId={to}
+        subjectName={title}
+        semester={semester}
+      />
+    </div>
   );
 }
 
