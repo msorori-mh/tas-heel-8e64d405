@@ -21,6 +21,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as Prototype19aRouteImport } from './routes/prototype.19a'
 import { Route as PreviewStructuredTextbook20a1bRouteImport } from './routes/preview.structured-textbook-20a1b'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
@@ -134,6 +135,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Prototype19aRoute = Prototype19aRouteImport.update({
+  id: '/prototype/19a',
+  path: '/prototype/19a',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PreviewStructuredTextbook20a1bRoute =
@@ -479,6 +485,7 @@ export interface FileRoutesByFullPath {
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
+  '/prototype/19a': typeof Prototype19aRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/admin/content-review': typeof AuthenticatedAdminContentReviewRoute
   '/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
@@ -545,6 +552,7 @@ export interface FileRoutesByTo {
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
+  '/prototype/19a': typeof Prototype19aRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/admin/content-review': typeof AuthenticatedAdminContentReviewRoute
   '/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
@@ -615,6 +623,7 @@ export interface FileRoutesById {
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
+  '/prototype/19a': typeof Prototype19aRoute
   '/_authenticated/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/_authenticated/admin/content-review': typeof AuthenticatedAdminContentReviewRoute
   '/_authenticated/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
@@ -685,6 +694,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/auth/callback'
     | '/preview/structured-textbook-20a1b'
+    | '/prototype/19a'
     | '/admin/academic'
     | '/admin/content-review'
     | '/admin/curriculum'
@@ -751,6 +761,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/auth/callback'
     | '/preview/structured-textbook-20a1b'
+    | '/prototype/19a'
     | '/admin/academic'
     | '/admin/content-review'
     | '/admin/curriculum'
@@ -820,6 +831,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/auth/callback'
     | '/preview/structured-textbook-20a1b'
+    | '/prototype/19a'
     | '/_authenticated/admin/academic'
     | '/_authenticated/admin/content-review'
     | '/_authenticated/admin/curriculum'
@@ -878,6 +890,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   AdminLoginRoute: typeof AdminLoginRoute
   PreviewStructuredTextbook20a1bRoute: typeof PreviewStructuredTextbook20a1bRoute
+  Prototype19aRoute: typeof Prototype19aRoute
   ApiLessonFileResourceIdRoute: typeof ApiLessonFileResourceIdRoute
 }
 
@@ -965,6 +978,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prototype/19a': {
+      id: '/prototype/19a'
+      path: '/prototype/19a'
+      fullPath: '/prototype/19a'
+      preLoaderRoute: typeof Prototype19aRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/preview/structured-textbook-20a1b': {
@@ -1574,6 +1594,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   AdminLoginRoute: AdminLoginRoute,
   PreviewStructuredTextbook20a1bRoute: PreviewStructuredTextbook20a1bRoute,
+  Prototype19aRoute: Prototype19aRoute,
   ApiLessonFileResourceIdRoute: ApiLessonFileResourceIdRoute,
 }
 export const routeTree = rootRouteImport
