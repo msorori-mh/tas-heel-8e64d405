@@ -42,26 +42,20 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   subjectId: string;
   subjectName: string;
-  semester: 1 | 2;
+  /** Kept for call-site compatibility: the same book serves both semesters. */
+  semester?: 1 | 2;
 };
-
-function semesterLabel(semester: number | null): string {
-  if (semester === 1) return "الفصل الأول";
-  if (semester === 2) return "الفصل الثاني";
-  return "كل الفصول";
-}
 
 export function SubjectTextbooksSheet({
   open,
   onOpenChange,
   subjectId,
   subjectName,
-  semester,
 }: Props) {
   const { data, isLoading, error } = useQuery({
     enabled: open,
-    queryKey: ["subject-textbooks", subjectId, semester],
-    queryFn: () => listStudentTextbooks({ subjectId, semester }),
+    queryKey: ["subject-textbooks", subjectId],
+    queryFn: () => listStudentTextbooks({ subjectId }),
   });
 
   const [reading, setReading] = useState<StudentTextbook | null>(null);
@@ -92,7 +86,7 @@ export function SubjectTextbooksSheet({
 
           {data && data.length === 0 && (
             <p className="rounded-xl bg-muted/60 px-3 py-3 text-xs text-muted-foreground">
-              لا توجد كتب منهج متاحة لهذه المادة في {semesterLabel(semester)} حتى الآن.
+              لا توجد كتب منهج متاحة لهذه المادة حتى الآن.
             </p>
           )}
 
@@ -175,7 +169,7 @@ function TextbookRow({ book, onOpen }: { book: StudentTextbook; onOpen: () => vo
         <div className="min-w-0">
           <h3 className="truncate text-sm font-bold text-foreground">{book.title}</h3>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {semesterLabel(book.semester)} · {formatBytes(book.fileSize)} · إصدار{" "}
+            كتاب الفصلين · {formatBytes(book.fileSize)} · إصدار{" "}
             {book.version.slice(0, 6)}
           </p>
         </div>
