@@ -124,6 +124,12 @@ export function LessonResourcesDialog({
     setRows((rs) => rs.filter((r) => r.id !== id));
   };
 
+  // Saved resources are queued for deletion and removed on save.
+  const removeSaved = (id: string) => {
+    setRows((rs) => rs.filter((r) => r.id !== id));
+    setDeletedIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  };
+
   const handleSave = async () => {
     setErrMsg(null);
 
