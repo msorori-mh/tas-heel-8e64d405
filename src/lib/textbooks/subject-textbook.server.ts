@@ -21,10 +21,14 @@ type Loose = {
   storage: Caller["storage"];
 };
 
+export type TextbookCoverage = "FULL_ACADEMIC_YEAR" | "SEMESTER_SPECIFIC";
+
 export type SubjectTextbook = {
   id: string;
   subjectId: string;
   curriculumTrackId: string | null;
+  coverageType: TextbookCoverage;
+  semester: 1 | 2 | null;
   title: string;
   fileName: string | null;
   fileSize: number | null;
@@ -36,13 +40,16 @@ export type SubjectTextbook = {
 };
 
 const SELECT_COLUMNS =
-  "id, subject_id, curriculum_track_id, title, file_name, file_size, version, sha256, sort_order, is_active, updated_at";
+  "id, subject_id, curriculum_track_id, coverage_type, semester, title, file_name, file_size, version, sha256, sort_order, is_active, updated_at";
 
 export function mapTextbook(row: Record<string, unknown>): SubjectTextbook {
   return {
     id: String(row["id"]),
     subjectId: String(row["subject_id"]),
     curriculumTrackId: (row["curriculum_track_id"] as string | null) ?? null,
+    coverageType:
+      row["coverage_type"] === "SEMESTER_SPECIFIC" ? "SEMESTER_SPECIFIC" : "FULL_ACADEMIC_YEAR",
+    semester: (row["semester"] as 1 | 2 | null) ?? null,
     title: String(row["title"] ?? ""),
     fileName: (row["file_name"] as string | null) ?? null,
     fileSize: (row["file_size"] as number | null) ?? null,
@@ -52,6 +59,18 @@ export function mapTextbook(row: Record<string, unknown>): SubjectTextbook {
     isActive: Boolean(row["is_active"]),
     updatedAt: (row["updated_at"] as string | null) ?? null,
   };
+}
+
+/** Coverage contract (21B-A2): full-year books never carry a semester. */
+export function normalizeCoverage(input: {
+  coverageType?: TextbookCoverage | null;
+  semester?: number | null;
+}): { coverageType: TextbookCoverage; semester: 1 | 2 | null } {
+  const coverageType: TextbookCoverage =
+    input.coverageType === "SEMESTER_SPECIFIC" ? "SEMESTER_SPECIFIC" : "FULL_ACADEMIC_YEAR";
+  if (coverageType === "FULL_ACADEMIC_YEAR") return { coverageType, semester: null };
+  if (input.semester !== 1 && input.semester !== 2) throw new Error("semester_required");
+  return { coverageType, semester: input.semester };
 }
 
 function makeVersion(): string {
@@ -122,7 +141,9 @@ export async function bindSubjectTextbook(
   input: {
     subjectId: string;
     curriculumTrackId: string | null;
-      title: string;
+    coverageType?: TextbookCoverage | null;
+    semester?: number | null;
+    title: string;
     path: string;
     fileName: string;
     fileSize: number;
@@ -144,6 +165,7 @@ export async function bindSubjectTextbook(
   if (!objects.data || objects.data.length === 0) throw new Error("object_missing");
 
   const version = makeVersion();
+  const coverage = normalizeCoverage(input);
   const title = input.title.trim() || "كتاب المنهج";
   const db = admin as unknown as Loose;
 
@@ -162,6 +184,8 @@ export async function bindSubjectTextbook(
       .update({
         title,
         curriculum_track_id: input.curriculumTrackId,
+        coverage_type: coverage.coverageType,
+        semester: coverage.semester,
         storage_path: input.path,
         file_name: input.fileName,
         file_size: input.fileSize,
@@ -192,6 +216,8 @@ export async function bindSubjectTextbook(
     .insert({
       subject_id: input.subjectId,
       curriculum_track_id: input.curriculumTrackId,
+      coverage_type: coverage.coverageType,
+      semester: coverage.semester,
       title,
       storage_bucket: TEXTBOOK_BUCKET,
       storage_path: input.path,
@@ -228,6 +254,8 @@ export async function cloneTextbookForTrack(
     .insert({
       subject_id: source.subject_id,
       curriculum_track_id: input.curriculumTrackId,
+      coverage_type: source.coverage_type ?? "FULL_ACADEMIC_YEAR",
+      semester: source.semester ?? null,
       title: source.title,
       storage_bucket: source.storage_bucket,
       storage_path: source.storage_path,
