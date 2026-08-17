@@ -69,11 +69,13 @@ GRANT ALL    ON public.lesson_capability_lifecycle TO service_role;
 ALTER TABLE public.lesson_capability_lifecycle ENABLE ROW LEVEL SECURITY;
 
 -- Students may only ever observe READY rows. DRAFT/REVIEW are staff-only.
+DROP POLICY IF EXISTS "students read ready lifecycle rows" ON public.lesson_capability_lifecycle;
 CREATE POLICY "students read ready lifecycle rows"
   ON public.lesson_capability_lifecycle
   FOR SELECT TO authenticated
   USING (status = 'READY');
 
+DROP POLICY IF EXISTS "content staff read all lifecycle rows" ON public.lesson_capability_lifecycle;
 CREATE POLICY "content staff read all lifecycle rows"
   ON public.lesson_capability_lifecycle
   FOR SELECT TO authenticated
