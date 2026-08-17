@@ -48,7 +48,9 @@ ALTER TABLE public.subject_textbooks
   CHECK (
     (coverage_type = 'FULL_ACADEMIC_YEAR' AND semester IS NULL)
     OR
-    (coverage_type = 'SEMESTER_SPECIFIC'  AND semester IN (1, 2))
+    (coverage_type = 'SEMESTER_SPECIFIC'
+      AND semester IS NOT NULL
+      AND semester IN (1, 2))
   );
 
 -- 3) minimal uniqueness: block byte-identical duplicate scope rows only
