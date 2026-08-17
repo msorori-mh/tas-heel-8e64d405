@@ -30,8 +30,12 @@ export type ResolvedFile = {
   lastOpenedPage: number;
 };
 
-function endpoint(resourceId: string): string {
-  return `/api/lesson-file/${encodeURIComponent(resourceId)}`;
+/** 21B — the same 18C pipeline serves lesson files and subject textbooks. */
+export type SecureFileKind = "lesson" | "textbook";
+
+function endpoint(resourceId: string, kind: SecureFileKind = "lesson"): string {
+  const base = kind === "textbook" ? "/api/subject-textbook" : "/api/lesson-file";
+  return `${base}/${encodeURIComponent(resourceId)}`;
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -42,8 +46,11 @@ async function authHeaders(): Promise<Record<string, string>> {
 }
 
 /** HEAD — used to show estimated size and to detect a newer server version. */
-export async function fetchFileMeta(resourceId: string): Promise<FileMeta> {
-  const res = await fetch(endpoint(resourceId), {
+export async function fetchFileMeta(
+  resourceId: string,
+  kind: SecureFileKind = "lesson",
+): Promise<FileMeta> {
+  const res = await fetch(endpoint(resourceId, kind), {
     method: "HEAD",
     headers: await authHeaders(),
   });
@@ -61,10 +68,11 @@ export async function downloadAndCache(params: {
   lessonId?: string | null;
   subjectId?: string | null;
   pinnedOffline?: boolean;
+  kind?: SecureFileKind;
   signal?: AbortSignal;
   onProgress?: (loaded: number, total: number | null) => void;
 }): Promise<{ blob: Blob; version: string }> {
-  const res = await fetch(endpoint(params.resourceId), {
+  const res = await fetch(endpoint(params.resourceId, params.kind ?? "lesson"), {
     method: "GET",
     headers: await authHeaders(),
     signal: params.signal,
@@ -117,6 +125,7 @@ export async function resolveLessonFile(params: {
   resourceId: string;
   lessonId?: string | null;
   subjectId?: string | null;
+  kind?: SecureFileKind;
   onProgress?: (loaded: number, total: number | null) => void;
 }): Promise<ResolvedFile> {
   const cached = await getEntry(params.resourceId);
@@ -130,7 +139,7 @@ export async function resolveLessonFile(params: {
       // Version check is best-effort: no network → keep reading offline.
       let stale = false;
       try {
-        const meta = await fetchFileMeta(params.resourceId);
+        const meta = await fetchFileMeta(params.resourceId, params.kind ?? "lesson");
         stale = meta.version !== cached.downloadedVersion;
       } catch {
         stale = false;

@@ -21,6 +21,7 @@ export function NativePdfDelivery({
   lessonId,
   subjectId,
   title,
+  kind,
 }: PdfViewerProps) {
   const [status, setStatus] = useState<"idle" | "preparing" | "ready" | "error">("idle");
   const [progress, setProgress] = useState<{ loaded: number; total: number | null } | null>(null);
@@ -36,6 +37,7 @@ export function NativePdfDelivery({
         resourceId,
         lessonId,
         subjectId,
+        kind,
         onProgress: (loaded, total) => setProgress({ loaded, total }),
       });
       const entry = await getEntry(resourceId);
@@ -47,7 +49,7 @@ export function NativePdfDelivery({
     } catch {
       setStatus("error");
     }
-  }, [resourceId, lessonId, subjectId]);
+  }, [resourceId, lessonId, subjectId, kind]);
 
   useEffect(() => {
     void prepare();

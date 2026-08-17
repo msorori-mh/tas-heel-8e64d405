@@ -45,6 +45,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as Prototype19aLessonRouteImport } from './routes/prototype.19a.lesson'
 import { Route as Prototype19aLandingRouteImport } from './routes/prototype.19a.landing'
 import { Route as Prototype19aHomeRouteImport } from './routes/prototype.19a.home'
+import { Route as ApiSubjectTextbookTextbookIdRouteImport } from './routes/api/subject-textbook.$textbookId'
 import { Route as ApiLessonFileResourceIdRouteImport } from './routes/api/lesson-file.$resourceId'
 import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedSemestersSemesterRouteImport } from './routes/_authenticated/semesters.$semester'
@@ -270,6 +271,12 @@ const Prototype19aHomeRoute = Prototype19aHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => Prototype19aRoute,
 } as any)
+const ApiSubjectTextbookTextbookIdRoute =
+  ApiSubjectTextbookTextbookIdRouteImport.update({
+    id: '/api/subject-textbook/$textbookId',
+    path: '/api/subject-textbook/$textbookId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiLessonFileResourceIdRoute = ApiLessonFileResourceIdRouteImport.update({
   id: '/api/lesson-file/$resourceId',
   path: '/api/lesson-file/$resourceId',
@@ -547,6 +554,7 @@ export interface FileRoutesByFullPath {
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/api/subject-textbook/$textbookId': typeof ApiSubjectTextbookTextbookIdRoute
   '/prototype/19a/home': typeof Prototype19aHomeRoute
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
   '/prototype/19a/lesson': typeof Prototype19aLessonRoute
@@ -618,6 +626,7 @@ export interface FileRoutesByTo {
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/api/subject-textbook/$textbookId': typeof ApiSubjectTextbookTextbookIdRoute
   '/prototype/19a/home': typeof Prototype19aHomeRoute
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
   '/prototype/19a/lesson': typeof Prototype19aLessonRoute
@@ -695,6 +704,7 @@ export interface FileRoutesById {
   '/_authenticated/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/api/subject-textbook/$textbookId': typeof ApiSubjectTextbookTextbookIdRoute
   '/prototype/19a/home': typeof Prototype19aHomeRoute
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
   '/prototype/19a/lesson': typeof Prototype19aLessonRoute
@@ -772,6 +782,7 @@ export interface FileRouteTypes {
     | '/semesters/$semester'
     | '/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/api/subject-textbook/$textbookId'
     | '/prototype/19a/home'
     | '/prototype/19a/landing'
     | '/prototype/19a/lesson'
@@ -843,6 +854,7 @@ export interface FileRouteTypes {
     | '/semesters/$semester'
     | '/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/api/subject-textbook/$textbookId'
     | '/prototype/19a/home'
     | '/prototype/19a/landing'
     | '/prototype/19a/lesson'
@@ -919,6 +931,7 @@ export interface FileRouteTypes {
     | '/_authenticated/semesters/$semester'
     | '/_authenticated/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/api/subject-textbook/$textbookId'
     | '/prototype/19a/home'
     | '/prototype/19a/landing'
     | '/prototype/19a/lesson'
@@ -962,6 +975,7 @@ export interface RootRouteChildren {
   Prototype19aRoute: typeof Prototype19aRouteWithChildren
   Prototype19cRoute: typeof Prototype19cRoute
   ApiLessonFileResourceIdRoute: typeof ApiLessonFileResourceIdRoute
+  ApiSubjectTextbookTextbookIdRoute: typeof ApiSubjectTextbookTextbookIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1217,6 +1231,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/prototype/19a/home'
       preLoaderRoute: typeof Prototype19aHomeRouteImport
       parentRoute: typeof Prototype19aRoute
+    }
+    '/api/subject-textbook/$textbookId': {
+      id: '/api/subject-textbook/$textbookId'
+      path: '/api/subject-textbook/$textbookId'
+      fullPath: '/api/subject-textbook/$textbookId'
+      preLoaderRoute: typeof ApiSubjectTextbookTextbookIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/lesson-file/$resourceId': {
       id: '/api/lesson-file/$resourceId'
@@ -1729,6 +1750,7 @@ const rootRouteChildren: RootRouteChildren = {
   Prototype19aRoute: Prototype19aRouteWithChildren,
   Prototype19cRoute: Prototype19cRoute,
   ApiLessonFileResourceIdRoute: ApiLessonFileResourceIdRoute,
+  ApiSubjectTextbookTextbookIdRoute: ApiSubjectTextbookTextbookIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

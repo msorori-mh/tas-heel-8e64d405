@@ -65,6 +65,8 @@ export type PdfViewerProps = {
   lessonId?: string | null;
   subjectId?: string | null;
   title?: string | null;
+  /** 21B — "textbook" routes through /api/subject-textbook, same pipeline. */
+  kind?: "lesson" | "textbook";
   /** Fallback link shown only when in-app delivery fails entirely. */
   fallbackUrl?: string | null;
   className?: string;
@@ -75,6 +77,7 @@ export function PdfViewer({
   lessonId,
   subjectId,
   title,
+  kind,
   fallbackUrl,
   className,
 }: PdfViewerProps) {
@@ -107,6 +110,7 @@ export function PdfViewer({
           resourceId,
           lessonId,
           subjectId,
+          kind,
           onProgress: (loaded, total) => {
             if (!cancelled) setProgress({ loaded, total });
           },
@@ -141,7 +145,7 @@ export function PdfViewer({
       docRef.current = null;
       if (doc) void doc.destroy();
     };
-  }, [resourceId, lessonId, subjectId, reloadKey]);
+  }, [resourceId, lessonId, subjectId, kind, reloadKey]);
 
   /* Render the current page only */
   const renderPage = useCallback(async () => {
