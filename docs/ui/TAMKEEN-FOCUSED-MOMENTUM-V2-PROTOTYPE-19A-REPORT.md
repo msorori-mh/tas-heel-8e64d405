@@ -144,3 +144,47 @@
 
 `19a/landing-390.png`, `19a/landing-1440.png`, `19a/home-390.png`,
 `19a/home-1440.png`, `19a/lesson-390.png`, `19a/lesson-1440.png`.
+
+---
+
+## 10. تلميع 19B (19B Polish)
+
+بعد الاعتماد النهائي لـ 19A، نُفذت تلميعات محضة لا تُغيّر الهيكل أو المكونات:
+
+### التغييرات
+
+| الملف | التعديل | الدليل |
+| --- | --- | --- |
+| `src/routes/prototype.19a.landing.tsx` | تصغير صورة «لماذا تمكين؟» (`w-[46%]` → `w-[40%]`، `max-w-[170px]` → `max-w-[150px]`) وتقليص هوامش الأقسام (`mt-6` → `mt-5`، `mt-5` → `mt-4`) و padding البطاقة | توازن أفضل بين Hero والركائز |
+| `src/routes/prototype.19a.home.tsx` | تقليص صور continue (`h-12` → `h-10`)، ministerial (`h-10` → `h-8`)، first-step (`h-11` → `h-9`)؛ تخفيف هوامش الأقسام (`mb-4` → `mb-3.5`) وتقليص padding الداخلي | كثافة مرنة دون ازدحام |
+| `src/routes/prototype.19a.lesson.tsx` | تصغير شارة الكتاب الرسمي (`h-9` → `h-8`) وتقليص هوامش header و activities (`mt-5` → `mt-4`) | توازن الهيدر مع القارئ |
+
+### القيود المحترمة
+
+- لا تغيير في الترتيب أو المكونات.
+- لا Migration / DB / RLS / RPC.
+- لا تعميم للتصميم خارج `/prototype/19a/*`.
+- لا Publish.
+
+### جدول قبول 19B
+
+| المعيار | النتيجة |
+| --- | --- |
+| LAYOUT_UNCHANGED | YES — تقليص المساحات والصور فقط |
+| SECONDARY_IMAGES_REDUCED | YES — continue / ministerial / first-step / feature / official-book |
+| SPACING_BALANCE_IMPROVED | YES — هوامش الأقسام والبطاقات مُخففة |
+| NO_DB_CHANGE | YES |
+| NO_DESIGN_GENERALIZATION | YES |
+| NO_PUBLISH | YES |
+| NO_HORIZONTAL_OVERFLOW | PASS — 6/6 (390px و1440px) |
+
+### اللقطات المعاد التقاطها (19B)
+
+`19b/landing-390.png`, `19b/landing-1440.png`, `19b/home-390.png`,
+`19b/home-1440.png`, `19b/lesson-390.png`, `19b/lesson-1440.png`.
+
+### الحكم النهائي
+
+**TAMKEEN_FOCUSED_MOMENTUM_V2_PROTOTYPE_19A + 19B_POLISH = PASS_VISUAL_REVIEW**
+
+جاهز للانتقال إلى المرحلة التالية (19C أو تعميم التصميم حسب قرار المنتج).
