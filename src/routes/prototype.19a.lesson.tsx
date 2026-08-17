@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { StructuredTextbookReader } from "@/components/lessons/StructuredTextbookReader";
 import { PILOT_20A1B_DOCUMENT } from "@/lib/content/official-textbook/structured-blocks";
+import officialBookImage from "@/assets/prototype/fm-v2-official-book.png";
+
 
 /**
  * TAMKEEN_FOCUSED_MOMENTUM_V2_PROTOTYPE_19A — Lesson screen.
