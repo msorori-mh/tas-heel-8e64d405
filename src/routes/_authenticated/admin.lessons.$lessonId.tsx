@@ -69,11 +69,12 @@ function AdminLessonDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_book_contents")
-        .select("id, content, pdf_url")
+        .select("id, content, pdf_url, updated_at")
         .eq("lesson_id", lessonId);
       if (error) throw error;
       const rows = data ?? [];
       return {
+        raw: rows,
         items: rows.map((r) => ({
           id: r.id,
           content: r.content,
