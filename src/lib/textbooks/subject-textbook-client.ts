@@ -9,9 +9,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { downloadAndCache, fetchFileMeta } from "@/lib/offline/lesson-file-client";
 import { getEntry, removeFile } from "@/lib/offline/pdf-cache";
 
+export type StudentBookType = "MAIN_TEXTBOOK" | "EXERCISE_BOOK" | "OTHER";
+
 export type StudentTextbook = {
   id: string;
   subjectId: string;
+  bookType: StudentBookType;
   coverageType: "FULL_ACADEMIC_YEAR" | "SEMESTER_SPECIFIC";
   semester: 1 | 2 | null;
   title: string;
@@ -28,35 +31,63 @@ export type TextbookLocalState = {
   bytes: number | null;
 };
 
+const BOOK_TYPE_RANK: Record<StudentBookType, number> = {
+  MAIN_TEXTBOOK: 0,
+  EXERCISE_BOOK: 1,
+  OTHER: 2,
+};
+
+export const BOOK_TYPE_LABEL: Record<StudentBookType, string> = {
+  MAIN_TEXTBOOK: "الكتاب الأساسي",
+  EXERCISE_BOOK: "كتاب التمارين",
+  OTHER: "ملحق",
+};
+
+const BASE_COLUMNS =
+  "id, subject_id, coverage_type, semester, title, file_name, file_size, version, sort_order";
+
+function isMissingBookTypeColumn(error: unknown): boolean {
+  const message = String((error as { message?: string } | null)?.message ?? "");
+  return /book_type/.test(message) && /(does not exist|42703|column)/i.test(message);
+}
+
 /**
- * 21B-A2 discovery rule for a given semester:
+ * 21B-A2/A3 discovery rule for a given semester:
  *   FULL_ACADEMIC_YEAR books always show, SEMESTER_SPECIFIC books only in
- *   their own semester. Without a semester, everything active is returned.
+ *   their own semester. Results are ordered main → exercise → other.
  */
 export async function listStudentTextbooks(params: {
   subjectId: string;
   semester?: 1 | 2 | null;
 }): Promise<StudentTextbook[]> {
-  let query = (supabase as never as { from: (t: string) => any })
-    .from("subject_textbooks")
-    .select("id, subject_id, coverage_type, semester, title, file_name, file_size, version, sort_order")
-    .eq("subject_id", params.subjectId)
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+  const run = async (columns: string) => {
+    let query = (supabase as never as { from: (t: string) => any })
+      .from("subject_textbooks")
+      .select(columns)
+      .eq("subject_id", params.subjectId)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
 
-  if (params.semester === 1 || params.semester === 2) {
-    query = query.or(
-      `coverage_type.eq.FULL_ACADEMIC_YEAR,and(coverage_type.eq.SEMESTER_SPECIFIC,semester.eq.${params.semester})`,
-    );
-  }
+    if (params.semester === 1 || params.semester === 2) {
+      query = query.or(
+        `coverage_type.eq.FULL_ACADEMIC_YEAR,and(coverage_type.eq.SEMESTER_SPECIFIC,semester.eq.${params.semester})`,
+      );
+    }
+    return query;
+  };
 
-  const { data, error } = await query;
+  let { data, error } = await run(`${BASE_COLUMNS}, book_type`);
+  if (error && isMissingBookTypeColumn(error)) ({ data, error } = await run(BASE_COLUMNS));
   if (error) throw error;
 
   const rows = (data ?? []) as Array<Record<string, unknown>>;
-  return rows.map((r) => ({
+  return rows
+    .map((r) => ({
       id: String(r["id"]),
       subjectId: String(r["subject_id"]),
+      bookType: (r["book_type"] === "EXERCISE_BOOK" || r["book_type"] === "OTHER"
+        ? r["book_type"]
+        : "MAIN_TEXTBOOK") as StudentBookType,
       coverageType:
         r["coverage_type"] === "SEMESTER_SPECIFIC" ? "SEMESTER_SPECIFIC" : "FULL_ACADEMIC_YEAR",
       semester: (r["semester"] as 1 | 2 | null) ?? null,
@@ -65,8 +96,13 @@ export async function listStudentTextbooks(params: {
       fileSize: (r["file_size"] as number | null) ?? null,
       version: String(r["version"] ?? "0"),
       sortOrder: Number(r["sort_order"] ?? 0),
-    }));
+    }) as StudentTextbook)
+    .sort(
+      (a, b) =>
+        BOOK_TYPE_RANK[a.bookType] - BOOK_TYPE_RANK[b.bookType] || a.sortOrder - b.sortOrder,
+    );
 }
+
 
 /** Local (device) state for one textbook — offline-safe, never throws. */
 export async function readTextbookLocalState(
