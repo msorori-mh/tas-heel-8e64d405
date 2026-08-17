@@ -1151,6 +1151,65 @@ export type Database = {
           },
         ]
       }
+      lesson_capability_lifecycle: {
+        Row: {
+          capability: string
+          created_at: string
+          draft_hash: string | null
+          draft_updated_at: string | null
+          id: string
+          lesson_id: string
+          ready_at: string | null
+          ready_by: string | null
+          ready_hash: string | null
+          ready_snapshot: Json | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          capability: string
+          created_at?: string
+          draft_hash?: string | null
+          draft_updated_at?: string | null
+          id?: string
+          lesson_id: string
+          ready_at?: string | null
+          ready_by?: string | null
+          ready_hash?: string | null
+          ready_snapshot?: Json | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          capability?: string
+          created_at?: string
+          draft_hash?: string | null
+          draft_updated_at?: string | null
+          id?: string
+          lesson_id?: string
+          ready_at?: string | null
+          ready_by?: string | null
+          ready_hash?: string | null
+          ready_snapshot?: Json | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_capability_lifecycle_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_comments: {
         Row: {
           content: string
@@ -4035,6 +4094,16 @@ export type Database = {
         Returns: boolean
       }
       is_full_admin: { Args: { _user_id: string }; Returns: boolean }
+      lesson_capability_transition: {
+        Args: {
+          _capability: string
+          _hash?: string
+          _lesson_id: string
+          _snapshot?: Json
+          _to_status: string
+        }
+        Returns: Json
+      }
       list_ministerial_attempts: {
         Args: { _model_id?: string }
         Returns: {
