@@ -8,7 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
-    "test": "node --import tsx --test src/lib/*.test.ts",
+    "test": "node --import tsx --test src/lib/*.test.ts src/lib/lessons/*.test.ts",
     "test:import-contract": "node --experimental-strip-types --test tests/import/import-contract-final-01.test.ts tests/import/import-execution-readiness-02.test.ts tests/import/import-slug-security-02b.test.ts tests/import/import-staging-execution-03.test.ts",
     "test:import-staging-03": "node --experimental-strip-types --test tests/import/import-staging-execution-03.test.ts",
     "test:question-bank-hash": "node scripts/question-bank/verify-question-bank-hash-vectors.mjs",

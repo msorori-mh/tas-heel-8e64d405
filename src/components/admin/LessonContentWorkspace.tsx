@@ -5,14 +5,22 @@
  * every present/status decision comes from `buildLessonCapabilityContract`.
  */
 import { Link } from "@tanstack/react-router";
-import { Eye, Pencil } from "lucide-react";
+import { Eye, Loader2, Pencil } from "lucide-react";
 import {
   STUDENT_CAPABILITY_ORDER,
   computeLessonReadinessLevels,
+  LIFECYCLE_CAPABILITIES,
   type LessonCapabilityContract,
   type LessonContentCapabilityKey,
   type LessonCapabilityState,
 } from "@/lib/lessons/lesson-content-contract";
+import {
+  allowedTransitions,
+  STATUS_LABEL_AR,
+  TRANSITION_LABEL_AR,
+  type LessonCapabilityLifecycleStatus,
+} from "@/lib/lessons/lesson-lifecycle";
+
 
 const STATUS_AR: Record<LessonCapabilityState["status"], string> = {
   READY: "جاهز",
@@ -54,12 +62,22 @@ export function LessonContentWorkspace({
   contract,
   onEdit,
   lessonId,
+  lifecycle = {},
+  onTransition,
+  pendingCapability = null,
 }: {
   header: LessonWorkspaceHeader;
   contract: LessonCapabilityContract;
   /** Opens the existing editor dialog for a capability, when one exists. */
   onEdit: Partial<Record<LessonContentCapabilityKey, () => void>>;
   lessonId: string;
+  /** 20C-B — current lifecycle status per capability (staff view). */
+  lifecycle?: Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>>;
+  onTransition?: (
+    capability: LessonContentCapabilityKey,
+    to: LessonCapabilityLifecycleStatus,
+  ) => void;
+  pendingCapability?: LessonContentCapabilityKey | null;
 }) {
   const readiness = computeLessonReadinessLevels(contract);
 
@@ -81,13 +99,15 @@ export function LessonContentWorkspace({
         <Link
           to="/lessons/$lessonId"
           params={{ lessonId }}
+          search={{ preview: 1 }}
           target="_blank"
           className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
         >
           <Eye className="h-3.5 w-3.5" />
-          معاينة كطالب
+          معاينة كطالب (تشمل المسودات)
         </Link>
       </header>
+
 
       <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]">
         {[
@@ -111,6 +131,10 @@ export function LessonContentWorkspace({
         {STUDENT_CAPABILITY_ORDER.map((key, index) => {
           const cap = contract[key];
           const edit = onEdit[key];
+          const hasLifecycle = LIFECYCLE_CAPABILITIES.includes(key) && cap.present;
+          const stage = lifecycle[key] ?? null;
+          const nextStates = hasLifecycle ? allowedTransitions(stage) : [];
+          const busy = pendingCapability === key;
           return (
             <li
               key={key}
@@ -126,6 +150,11 @@ export function LessonContentWorkspace({
                   >
                     {STATUS_AR[cap.status]}
                   </span>
+                  {hasLifecycle && (
+                    <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                      المسار التحريري: {stage ? STATUS_LABEL_AR[stage] : "غير مُدار"}
+                    </span>
+                  )}
                   {cap.count > 0 && (
                     <span className="text-[10px] text-muted-foreground">({cap.count})</span>
                   )}
@@ -147,21 +176,41 @@ export function LessonContentWorkspace({
                 )}
               </div>
 
-              {edit ? (
-                <button
-                  onClick={edit}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-muted"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  تحرير
-                </button>
-              ) : (
-                <span className="text-[11px] text-muted-foreground">عبر الاستيراد</span>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {edit ? (
+                  <button
+                    onClick={edit}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-muted"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    تحرير
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">عبر الاستيراد</span>
+                )}
+                {hasLifecycle && onTransition
+                  ? nextStates.map((to) => (
+                      <button
+                        key={to}
+                        disabled={busy}
+                        onClick={() => onTransition(key, to)}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs disabled:opacity-50 ${
+                          to === "READY"
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/15"
+                            : "border-border bg-card text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                        {TRANSITION_LABEL_AR[to]}
+                      </button>
+                    ))
+                  : null}
+              </div>
             </li>
           );
         })}
       </ul>
+
     </section>
   );
 }

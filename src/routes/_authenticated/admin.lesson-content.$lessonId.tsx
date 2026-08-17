@@ -11,7 +11,18 @@ import { LessonResourcesDialog } from "@/components/admin/LessonResourcesDialog"
 import { LessonPrimaryPdfCard } from "@/components/admin/LessonPrimaryPdfCard";
 import { LessonContentWorkspace } from "@/components/admin/LessonContentWorkspace";
 import { Button } from "@/components/ui/button";
-import { buildLessonCapabilityContract } from "@/lib/lessons/lesson-content-contract";
+import { toast } from "sonner";
+import {
+  buildLessonCapabilityContract,
+  applyLifecycleOverlay,
+  type LessonContentCapabilityKey,
+} from "@/lib/lessons/lesson-content-contract";
+import {
+  fetchLessonLifecycleRows,
+  rowsToLifecycleMap,
+  transitionCapability,
+  type LessonCapabilityLifecycleStatus,
+} from "@/lib/lessons/lesson-lifecycle";
 import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil, FileText, FolderOpen } from "lucide-react";
 
 
@@ -48,6 +59,38 @@ function AdminLessonDetailPage() {
   const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
   const [openExplanationsDialog, setOpenExplanationsDialog] = useState(false);
   const [openResourcesDialog, setOpenResourcesDialog] = useState(false);
+  const [pendingCapability, setPendingCapability] =
+    useState<LessonContentCapabilityKey | null>(null);
+
+  // 20C-B — editorial lifecycle rows (staff read every status).
+  const lifecycleQ = useQuery({
+    enabled,
+    queryKey: ["admin-lesson-lifecycle", lessonId],
+    queryFn: () => fetchLessonLifecycleRows(lessonId),
+  });
+
+  const runTransition = async (
+    capability: LessonContentCapabilityKey,
+    to: LessonCapabilityLifecycleStatus,
+  ) => {
+    setPendingCapability(capability);
+    try {
+      await transitionCapability({ lessonId, capability, to });
+      await lifecycleQ.refetch();
+      toast.success(
+        to === "READY"
+          ? "تم اعتماد القدرة ونشرها للطالب."
+          : to === "REVIEW"
+            ? "تم إرسال القدرة للمراجعة."
+            : "تم فتح نسخة تعديل جديدة (مسودة).",
+      );
+    } catch (err) {
+      toast.error((err as Error).message || "تعذّر تنفيذ الانتقال.");
+    } finally {
+      setPendingCapability(null);
+    }
+  };
+
 
   const lessonQ = useQuery({
     enabled,
@@ -166,7 +209,7 @@ function AdminLessonDetailPage() {
       const base =
         "id, lesson_id, resource_type, title, url, description, sort_order, created_at";
       let { data, error, count } = (await run(
-        `${base}, is_primary, html_resource_type, lifecycle_status, resource_code`,
+        `${base}, is_primary, html_resource_type, resource_code`,
       )) as any;
       if (error) {
         ({ data, error, count } = (await run(`${base}, is_primary`)) as any);
@@ -300,21 +343,33 @@ function AdminLessonDetailPage() {
   const unitTitle = (lesson as any).unit?.title ?? "—";
 
   // 20B — one contract, derived from the same rows the student reads.
-  const capabilityContract = buildLessonCapabilityContract({
-    lessonTitle: (lesson as any)?.title ?? null,
-    deliveryMode: (lesson as any)?.delivery_mode ?? null,
-    bookContents: (bookQ.data?.raw ?? []) as any,
-    inlineContent: (lesson as any)?.content_text ?? null,
-    explanations: (explanationsQ.data?.items ?? []) as any,
-    resources: (resourcesQ.data?.items ?? []) as any,
-    simulations: (simulationsQ.data?.items ?? []) as any,
-    summaries: (summaryQ.data?.raw ?? []) as any,
-    questionsCount: questionsQ.data?.count ?? 0,
-    assessmentsCount: assessmentsQ.data?.assessmentsCount ?? 0,
-    lessonExamCount: assessmentsQ.data?.lessonExamCount ?? 0,
-    performanceTrackable: true,
-    enhancementsAccessible: true,
-  });
+  const lifecycleMap = rowsToLifecycleMap(lifecycleQ.data ?? []);
+  const lifecycleStatuses = Object.fromEntries(
+    Object.entries(lifecycleMap).map(([k, v]) => [
+      k,
+      typeof v === "string" ? v : v!.status,
+    ]),
+  ) as Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>>;
+
+  const capabilityContract = applyLifecycleOverlay(
+    buildLessonCapabilityContract({
+      lessonTitle: (lesson as any)?.title ?? null,
+      deliveryMode: (lesson as any)?.delivery_mode ?? null,
+      bookContents: (bookQ.data?.raw ?? []) as any,
+      inlineContent: (lesson as any)?.content_text ?? null,
+      explanations: (explanationsQ.data?.items ?? []) as any,
+      resources: (resourcesQ.data?.items ?? []) as any,
+      simulations: (simulationsQ.data?.items ?? []) as any,
+      summaries: (summaryQ.data?.raw ?? []) as any,
+      questionsCount: questionsQ.data?.count ?? 0,
+      assessmentsCount: assessmentsQ.data?.assessmentsCount ?? 0,
+      lessonExamCount: assessmentsQ.data?.lessonExamCount ?? 0,
+      performanceTrackable: true,
+      enhancementsAccessible: true,
+    }),
+    lifecycleMap,
+  );
+
 
   return (
     <AdminLayout>
@@ -362,6 +417,9 @@ function AdminLessonDetailPage() {
         <LessonContentWorkspace
           lessonId={lessonId}
           contract={capabilityContract}
+          lifecycle={lifecycleStatuses}
+          onTransition={(cap, to) => void runTransition(cap, to)}
+          pendingCapability={pendingCapability}
           header={{
             subjectName,
             gradeName: gradeQ.data ?? "—",

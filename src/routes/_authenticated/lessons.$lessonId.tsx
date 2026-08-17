@@ -35,6 +35,10 @@ import {
   type LessonCapabilityType,
 } from "@/lib/lessons/lesson-capabilities";
 import { orderStudentCapabilities } from "@/lib/lessons/lesson-content-contract";
+import {
+  fetchStudentLifecycleGate,
+  filterStudentCapabilitiesByLifecycle,
+} from "@/lib/lessons/lesson-lifecycle";
 
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import {
@@ -65,6 +69,19 @@ import { Progress } from "@/components/ui/progress";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
+  // 20C-B — `?preview=1` is an operator preview; it only has an effect for
+  // content staff (see `previewMode` below), students never bypass the gate.
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { preview?: number; semester?: 1 | 2 } => ({
+    preview: search.preview === 1 || search.preview === "1" ? 1 : undefined,
+    semester:
+      search.semester === 1 || search.semester === "1"
+        ? 1
+        : search.semester === 2 || search.semester === "2"
+          ? 2
+          : undefined,
+  }),
   component: LessonPage,
 });
 
@@ -128,7 +145,17 @@ type ExplanationRow = {
 
 function LessonPage() {
   const { lessonId } = Route.useParams();
-  const { profile } = useAuth();
+  const { preview } = Route.useSearch();
+  const { profile, isContentStaff } = useAuth();
+  // 20C-B §4 — real "preview as student" for content staff only.
+  const previewMode = preview === 1 && isContentStaff === true;
+
+  // 20C-B §5 — editorial gate. RLS returns READY rows only for students.
+  const { data: lifecycleGate } = useQuery({
+    queryKey: ["lesson-lifecycle-gate", lessonId],
+    queryFn: () => fetchStudentLifecycleGate(lessonId),
+  });
+
 
   const {
     data: lesson,
@@ -508,7 +535,14 @@ function LessonPage() {
   });
 
   // 20B §4/§5 — visibility from 18B, canonical order from the 20B contract.
-  const actions = orderStudentCapabilities(visibleLessonCapabilities(capabilities));
+  // 20C-B §5 — plus the editorial gate (skipped in staff preview mode).
+  const gatedCapabilities = previewMode
+    ? visibleLessonCapabilities(capabilities)
+    : filterStudentCapabilitiesByLifecycle(visibleLessonCapabilities(capabilities), {
+        managed: lifecycleGate?.managed === true,
+        readyKeys: lifecycleGate?.readyKeys ?? new Set<string>(),
+      });
+  const actions = orderStudentCapabilities(gatedCapabilities);
   const lessonProgress = computeLessonProgress(capabilities);
   const primaryCapability = capabilities.find((c) => c.type === "PRIMARY_CONTENT");
   const primaryUnavailable = !primaryCapability?.available || !primaryCapability?.studentVisible;
@@ -714,11 +748,18 @@ function LessonPage() {
   return (
     // 19D — route-level Design System V2 opt-in (presentation only).
     <article className="ds-v2 space-y-3.5" dir="rtl">
+      {previewMode && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700">
+          وضع المعاينة — تشاهد الدرس كما سيراه الطالب، بما في ذلك المحتوى غير المعتمد (المسودات).
+          هذا العرض مرئي لفريق المحتوى فقط.
+        </div>
+      )}
       <Breadcrumbs
         subjectName={subject?.name ?? null}
         subjectId={subject?.id ?? null}
         lessonName={titleParts.main}
       />
+
 
       {/* Lesson header */}
       <header className="rounded-2xl border border-border bg-card p-4 shadow-card">

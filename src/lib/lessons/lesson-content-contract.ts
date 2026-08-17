@@ -159,13 +159,54 @@ export interface LessonContentContractInput {
   /**
    * 20C — editorial lifecycle rows (lesson_capability_lifecycle).
    * A missing entry means "legacy content", handled by 20B presence rules.
-   * Any present entry is authoritative and FAIL-CLOSED: only READY may render.
+   * Any present entry is authoritative and FAIL-CLOSED: only READY may render,
+   * unless a previously approved (frozen) READY snapshot exists.
    */
-  lifecycle?: Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>>;
+  lifecycle?: LessonLifecycleMap;
 }
 
 /** 20C editorial lifecycle. Students may only ever see READY. */
 export type LessonCapabilityLifecycleStatus = "DRAFT" | "REVIEW" | "READY";
+
+/**
+ * 20C-B — a lifecycle row as the workspace sees it.
+ * `hasReady` means an approved snapshot was frozen at some point, so a newer
+ * DRAFT revision must NOT remove the approved version from the student.
+ */
+export interface LessonCapabilityLifecycleEntry {
+  status: LessonCapabilityLifecycleStatus;
+  hasReady?: boolean;
+}
+
+export type LessonLifecycleMap = Partial<
+  Record<
+    LessonContentCapabilityKey,
+    LessonCapabilityLifecycleStatus | LessonCapabilityLifecycleEntry
+  >
+>;
+
+export function normalizeLifecycleEntry(
+  value: LessonCapabilityLifecycleStatus | LessonCapabilityLifecycleEntry | undefined,
+): LessonCapabilityLifecycleEntry | null {
+  if (!value) return null;
+  return typeof value === "string" ? { status: value } : value;
+}
+
+/**
+ * 20C-B — may the student render this capability, lifecycle-wise?
+ *  - no row              → yes (legacy grandfathering)
+ *  - READY               → yes
+ *  - DRAFT/REVIEW + frozen approved snapshot → yes (previous READY stays live)
+ *  - DRAFT/REVIEW        → no
+ */
+export function isLifecycleStudentVisible(
+  value: LessonCapabilityLifecycleStatus | LessonCapabilityLifecycleEntry | undefined,
+): boolean {
+  const entry = normalizeLifecycleEntry(value);
+  if (!entry) return true;
+  if (entry.status === "READY") return true;
+  return entry.hasReady === true;
+}
 
 /** Capabilities that carry an editorial lifecycle (performance is derived). */
 export const LIFECYCLE_CAPABILITIES: readonly LessonContentCapabilityKey[] =
@@ -176,28 +217,34 @@ export const LIFECYCLE_CAPABILITIES: readonly LessonContentCapabilityKey[] =
  * Rules:
  *  - no lifecycle row  → unchanged (legacy grandfathering, no silent hiding)
  *  - READY             → unchanged (presence rules still apply)
- *  - DRAFT / REVIEW    → never student visible, status forced to DRAFT
+ *  - DRAFT / REVIEW    → status DRAFT; student sees it only when an approved
+ *                        snapshot was frozen earlier (READY stays live).
  */
 export function applyLifecycleOverlay(
   contract: LessonCapabilityContract,
-  lifecycle: Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>> = {},
+  lifecycle: LessonLifecycleMap = {},
 ): LessonCapabilityContract {
   const next = { ...contract };
   for (const key of LIFECYCLE_CAPABILITIES) {
-    const st = lifecycle[key];
-    if (!st || st === "READY") continue;
+    const entry = normalizeLifecycleEntry(lifecycle[key]);
+    if (!entry || entry.status === "READY") continue;
+    const frozenVisible = entry.hasReady === true && next[key].studentVisible;
     next[key] = {
       ...next[key],
       status: "DRAFT",
-      studentVisible: false,
-      readinessReason: "DRAFT_NOT_PUBLISHED",
-      note:
-        st === "REVIEW"
+      studentVisible: frozenVisible,
+      readinessReason: frozenVisible ? null : "DRAFT_NOT_PUBLISHED",
+      note: frozenVisible
+        ? entry.status === "REVIEW"
+          ? "نسخة جديدة قيد المراجعة — الطالب يرى النسخة المعتمدة السابقة"
+          : "نسخة تعديل جديدة (مسودة) — الطالب يرى النسخة المعتمدة السابقة"
+        : entry.status === "REVIEW"
           ? "قيد المراجعة — غير مرئي للطالب حتى الاعتماد"
           : "مسودة — غير مرئية للطالب حتى الاعتماد",
     };
   }
   return next;
+
 }
 
 
