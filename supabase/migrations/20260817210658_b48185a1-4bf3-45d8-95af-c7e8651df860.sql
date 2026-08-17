@@ -140,12 +140,3 @@ DROP TRIGGER IF EXISTS trg_subject_textbooks_binding ON public.subject_textbooks
 CREATE TRIGGER trg_subject_textbooks_binding
 BEFORE INSERT OR UPDATE OF subject_id, curriculum_track_id ON public.subject_textbooks
 FOR EACH ROW EXECUTE FUNCTION public.assert_subject_textbook_binding();
-
--- =====================================================================
--- ROLLBACK (manual, not executed):
---   DROP TRIGGER IF EXISTS trg_subject_textbooks_binding ON public.subject_textbooks;
---   DROP TRIGGER IF EXISTS trg_subject_textbooks_updated_at ON public.subject_textbooks;
---   DROP FUNCTION IF EXISTS public.assert_subject_textbook_binding();
---   DROP TABLE IF EXISTS public.subject_textbooks;
--- No other object is modified by this migration.
--- =====================================================================
