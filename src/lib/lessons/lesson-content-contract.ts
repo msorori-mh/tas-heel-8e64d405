@@ -99,6 +99,11 @@ export interface LessonCapabilityState {
   htmlRef?: string | null;
   /** Operator-only note; never shown to the student. */
   note?: string;
+  /**
+   * 20B §1 — machine-readable reason the capability is not student-ready.
+   * `null` when the capability is READY. Operator-facing only.
+   */
+  readinessReason: CapabilityReadinessReason | null;
 }
 
 export type LessonCapabilityContract = Record<
