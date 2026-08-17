@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
+  BookText,
   Brain,
   ChevronRight,
   CircleCheckBig,
@@ -39,11 +40,11 @@ export const Route = createFileRoute("/prototype/19a/lesson")({
 
 /** Only capabilities that actually exist for this lesson are rendered. */
 const CAPABILITIES = [
-  { label: "شرح تمكين", emoji: "👨‍🏫", icon: Presentation, tone: "text-primary" },
-  { label: "محاكاة", emoji: "🧪", icon: FlaskConical, tone: "text-secondary" },
-  { label: "مراجعة", emoji: "🧠", icon: Brain, tone: "text-accent" },
-  { label: "اختبر فهمك", emoji: "✅", icon: CircleCheckBig, tone: "text-success" },
-  { label: "اختبار الدرس", emoji: "🏆", icon: GraduationCap, tone: "text-[var(--fm-goal)]" },
+  { label: "شرح تمكين", icon: Presentation, tone: "text-primary" },
+  { label: "محاكاة", icon: FlaskConical, tone: "text-secondary" },
+  { label: "مراجعة", icon: Brain, tone: "text-accent" },
+  { label: "اختبر فهمك", icon: CircleCheckBig, tone: "text-success" },
+  { label: "اختبار الدرس", icon: GraduationCap, tone: "text-[var(--fm-goal)]" },
 ];
 
 function LessonPrototype() {
@@ -96,9 +97,7 @@ function LessonPrototype() {
               type="button"
               className="fm-press flex w-full items-center gap-2 rounded-2xl border border-dashed border-border bg-muted/40 px-3 py-3 text-right"
             >
-              <span aria-hidden className="text-[15px]">
-                📚
-              </span>
+              <BookText className="h-[18px] w-[18px] shrink-0 text-muted-foreground" aria-hidden />
               <span className="min-w-0 truncate text-[14px] font-semibold text-muted-foreground">
                 نسخة الكتاب الأصلية
               </span>

@@ -29,10 +29,10 @@ export const Route = createFileRoute("/prototype/19a/landing")({
 });
 
 const PILLARS = [
-  { icon: BookOpen, label: "تعلم", emoji: "📚" },
-  { icon: Zap, label: "تدرب", emoji: "⚡" },
-  { icon: Target, label: "تحسن", emoji: "🎯" },
-  { icon: Trophy, label: "استعد للوزاري", emoji: "🏆" },
+  { icon: BookOpen, label: "تعلم", tone: "text-primary" },
+  { icon: Zap, label: "تدرب", tone: "text-secondary" },
+  { icon: Target, label: "تحسن", tone: "text-accent" },
+  { icon: Trophy, label: "استعد للوزاري", tone: "text-[var(--fm-goal)]" },
 ];
 
 function LandingPrototype() {
@@ -87,19 +87,17 @@ function LandingPrototype() {
       </section>
 
       <ul className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        {PILLARS.map((p) => (
-          <li
-            key={p.label}
-            className="fm-card flex items-center gap-2 px-3 py-2.5 text-right"
-          >
-            <span aria-hidden className="text-[16px]">
-              {p.emoji}
-            </span>
-            <span className="min-w-0 truncate text-[14px] font-bold text-foreground">
-              {p.label}
-            </span>
-          </li>
-        ))}
+        {PILLARS.map((p) => {
+          const Icon = p.icon;
+          return (
+            <li key={p.label} className="fm-card flex items-center gap-2 px-3 py-2.5 text-right">
+              <Icon className={`h-[18px] w-[18px] shrink-0 ${p.tone}`} aria-hidden />
+              <span className="min-w-0 truncate text-[14px] font-bold text-foreground">
+                {p.label}
+              </span>
+            </li>
+          );
+        })}
       </ul>
 
       <section className="fm-card mt-5 px-4 py-4 text-right">

@@ -61,7 +61,7 @@ function HomePrototype() {
     <div className="mx-auto w-full max-w-[880px] px-[14px] pt-4 sm:px-5">
       <header className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[17px] font-extrabold text-foreground">مرحبًا محمد 👋</p>
+          <p className="truncate text-[17px] font-extrabold text-foreground">مرحبًا محمد</p>
           <p className="truncate text-[13px] text-muted-foreground">الثالث الثانوي — علمي</p>
         </div>
         <span className="fm-press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--fm-goal-soft)] px-3 py-1.5 text-[13px] font-bold text-[#92400E]">
@@ -100,7 +100,7 @@ function HomePrototype() {
           <span className="shrink-0 text-[13px] font-bold text-[var(--fm-goal)]">2 / 3 دروس</span>
         </div>
         <Bar className="mt-2" value={66} tone="goal" />
-        <p className="mt-1.5 text-[13px] text-muted-foreground">درس واحد فقط ويكتمل يومك 🎯</p>
+        <p className="mt-1.5 text-[13px] text-muted-foreground">درس واحد فقط ويكتمل يومك</p>
       </section>
 
       {/* Quick actions */}
