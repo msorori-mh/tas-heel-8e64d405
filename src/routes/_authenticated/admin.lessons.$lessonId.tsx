@@ -54,7 +54,7 @@ function AdminLessonDetailPage() {
         .from("lessons")
         .select(
           // Existence flags only; raw URLs are admin-only via RPC.
-          "id, title, sort_order, duration, has_video, has_content_pdf, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)"
+          "id, title, slug, delivery_mode, content_text, sort_order, duration, has_video, has_content_pdf, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)"
         )
         .eq("id", lessonId)
         .maybeSingle();
@@ -69,11 +69,12 @@ function AdminLessonDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_book_contents")
-        .select("id, content, pdf_url")
+        .select("id, content, pdf_url, updated_at")
         .eq("lesson_id", lessonId);
       if (error) throw error;
       const rows = data ?? [];
       return {
+        raw: rows,
         items: rows.map((r) => ({
           id: r.id,
           content: r.content,
@@ -93,7 +94,7 @@ function AdminLessonDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_summaries")
-        .select("id, summary, key_points, study_tip")
+        .select("id, summary, key_points, study_tip, updated_at")
         .eq("lesson_id", lessonId);
       if (error) throw error;
       const rows = data ?? [];
@@ -106,6 +107,7 @@ function AdminLessonDetailPage() {
           key_points: r.key_points,
           study_tip: r.study_tip,
         })),
+        raw: rows,
         count: rows.length,
         keyPointsCount: kp.length,
         preview: first?.summary ? first.summary.slice(0, 200) : "",
@@ -119,7 +121,7 @@ function AdminLessonDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_explanations")
-        .select("id, lesson_id, title, content, sort_order")
+        .select("id, lesson_id, title, content, sort_order, updated_at")
         .eq("lesson_id", lessonId)
         .order("sort_order", { ascending: true });
       if (error) throw error;
