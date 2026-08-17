@@ -53,7 +53,7 @@ function LessonPrototype() {
   const doc = PILOT_20A1B_DOCUMENT;
   return (
     <main className="mx-auto w-full max-w-[900px] px-[14px] pb-10 pt-3 sm:px-4">
-      <header className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
+      <header className="mb-3 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
         <Link
           to="/prototype/19a/home"
           aria-label="رجوع"
@@ -69,19 +69,16 @@ function LessonPrototype() {
             {doc.detected_subject} — {doc.detected_section}
           </p>
         </div>
-      </header>
-
-      <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 py-1.5 pe-3 ps-2">
         <img
           src={officialBookImage}
-          alt="محتوى الكتاب الوزاري الرسمي"
+          alt="محتوى الكتاب الوزاري الرسمي المعتمد"
           loading="lazy"
           width={816}
           height={816}
-          className="h-5 w-5 shrink-0"
+          className="h-9 w-9 shrink-0"
         />
-        <span className="text-[12.5px] font-bold text-primary">محتوى الكتاب الرسمي</span>
-      </div>
+      </header>
+
 
       <section className="fm-card fm-read py-4">
         <StructuredTextbookReader document={doc} />
