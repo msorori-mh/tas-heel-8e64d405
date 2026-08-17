@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BookOpen, Target, Trophy, Zap } from "lucide-react";
 import heroImage from "@/assets/prototype/fm-v2-hero.png";
+import featureImage from "@/assets/prototype/fm-v2-feature.png";
+
 
 /**
  * TAMKEEN_FOCUSED_MOMENTUM_V2_PROTOTYPE_19A — Landing screen (visual only).
