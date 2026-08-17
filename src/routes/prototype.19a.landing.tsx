@@ -82,7 +82,9 @@ function LandingPrototype() {
         <div className="order-1 lg:order-2">
           <img
             src={heroImage}
-            alt="طالب يستعد للامتحان الوزاري عبر تطبيق تمكين"
+            alt="طالب ثانوية يمني يراجع دروسه من هاتفه وكتابه المدرسي"
+            width={1024}
+            height={1024}
             className="mx-auto h-auto w-[62%] max-w-[240px] rounded-2xl sm:w-[48%] lg:w-full lg:max-w-[420px]"
           />
         </div>
@@ -102,13 +104,24 @@ function LandingPrototype() {
         })}
       </ul>
 
-      <section className="fm-card mt-5 px-4 py-4 text-right">
-        <h2 className="text-[16px] font-bold text-foreground">لماذا تمكين؟</h2>
-        <p className="mt-1.5 text-[14.5px] leading-[1.95] text-muted-foreground">
-          محتوى الكتاب الوزاري الرسمي داخل التطبيق، نماذج امتحانات سابقة حقيقية، وتحليل يوضح
-          مستواك في كل مادة — يعمل حتى مع إنترنت ضعيف.
-        </p>
+      <section className="fm-card mt-5 grid items-center gap-4 px-4 py-4 text-right sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="min-w-0">
+          <h2 className="text-[16px] font-bold text-foreground">لماذا تمكين؟</h2>
+          <p className="mt-1.5 text-[14.5px] leading-[1.95] text-muted-foreground">
+            محتوى الكتاب الوزاري الرسمي داخل التطبيق، نماذج امتحانات سابقة حقيقية، وتحليل يوضح
+            مستواك في كل مادة — يعمل حتى مع إنترنت ضعيف.
+          </p>
+        </div>
+        <img
+          src={featureImage}
+          alt="طالبة ثانوية يمنية تنظم خطة مراجعتها اليومية"
+          loading="lazy"
+          width={1024}
+          height={1024}
+          className="mx-auto h-auto w-[46%] max-w-[170px] sm:w-[150px]"
+        />
       </section>
     </main>
   );
 }
+
