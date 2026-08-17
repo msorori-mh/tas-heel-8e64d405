@@ -105,3 +105,42 @@
 **TAMKEEN_FOCUSED_MOMENTUM_V2_PROTOTYPE_19A = PASS_VISUAL_REVIEW**
 
 لن يبدأ 19B ولن يُعمَّم التصميم قبل اعتماد المستخدم للصور الست.
+
+---
+
+## 9. تحديث الصور (IMAGE_SET_REPLACEMENT)
+
+القرار الوارد من المستخدم: `PROTOTYPE_LAYOUT_APPROVED / IMAGE_SET_REJECTED`
+(السبب: الشخصية السابقة بمظهر خليجي — عقال).
+
+### الصور الست الجديدة
+
+| # | الملف | الموضع | المحتوى |
+| --- | --- | --- | --- |
+| 1 | `src/assets/prototype/fm-v2-hero.png` | Landing — Hero | طالب ثانوية يمني معاصر بسويتر كحلي، يراجع من هاتفه وكتابه |
+| 2 | `src/assets/prototype/fm-v2-feature.png` | Landing — «لماذا تمكين؟» | طالبة بحجاب بسيط تنظّم خطة مراجعتها |
+| 3 | `src/assets/prototype/fm-v2-continue.png` | Home — «واصل من حيث توقفت» | كتاب + حلقة تقدم + زر تشغيل |
+| 4 | `src/assets/prototype/fm-v2-first-step.png` | Home — قبل «موادك» | بطاقات مواد وخطوة أولى مضيئة |
+| 5 | `src/assets/prototype/fm-v2-official-book.png` | Lesson — ترويسة الدرس | كتاب رسمي بختم اعتماد |
+| 6 | `src/assets/prototype/fm-v2-ministerial.png` | Home — «تحدي وزاري» | تقدم + كأس + ورقة اختبار |
+
+كلها PNG بخلفية شفافة، مستوردة كـ ES6 imports، بنص بديل عربي و`loading="lazy"`
+عدا الـ Hero.
+
+### جدول القبول
+
+| المعيار | النتيجة |
+| --- | --- |
+| LAYOUT_UNCHANGED | YES — لم يتغير ترتيب أي قسم؛ إضافة عناصر `<img>` فقط |
+| IMAGE_SET_REPLACED | YES — 6/6 |
+| YEMENI_STUDENT_FIT | YES — طالب/طالبة ثانوية عربية معاصرة بمظهر بسيط |
+| NO_GULF_SPECIFIC_ATTIRE | YES — لا عقال ولا غترة ولا شماغ ولا أي زي دولة أخرى |
+| NO_DB_CHANGE | YES — لا Migration ولا RLS ولا RPC |
+| NO_DESIGN_GENERALIZATION | YES — التغيير داخل `/prototype/19a/*` فقط |
+| NO_PUBLISH | YES |
+| NO_HORIZONTAL_OVERFLOW | PASS — 6/6 (390px و1440px) |
+
+### اللقطات المعاد التقاطها
+
+`19a/landing-390.png`, `19a/landing-1440.png`, `19a/home-390.png`,
+`19a/home-1440.png`, `19a/lesson-390.png`, `19a/lesson-1440.png`.
