@@ -305,7 +305,7 @@ function CTAFooter() {
           </div>
 
           <p className="mt-4 pt-4 border-t border-border text-center text-[11px] text-muted-foreground">
-            © {new Date().getFullYear()} تمكين طلاب الثانوية — جميع الحقوق محفوظة
+            © {new Date().getFullYear()} تمكين الطالب — جميع الحقوق محفوظة
           </p>
         </div>
       </footer>
