@@ -53,7 +53,7 @@ function LessonPrototype() {
   const doc = PILOT_20A1B_DOCUMENT;
   return (
     <main className="mx-auto w-full max-w-[900px] px-[14px] pb-10 pt-3 sm:px-4">
-      <header className="mb-3 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
+      <header className="mb-2.5 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
         <Link
           to="/prototype/19a/home"
           aria-label="رجوع"
@@ -75,7 +75,7 @@ function LessonPrototype() {
           loading="lazy"
           width={816}
           height={816}
-          className="h-9 w-9 shrink-0"
+          className="h-8 w-8 shrink-0"
         />
       </header>
 
@@ -85,19 +85,19 @@ function LessonPrototype() {
       </section>
 
 
-      <section className="mt-5">
+      <section className="mt-4">
         <h2 className="mb-2 text-[15px] font-bold text-foreground">أنشطة هذا الدرس</h2>
-        <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {CAPABILITIES.map((c) => {
             const Icon = c.icon;
             return (
               <li key={c.label}>
                 <button
                   type="button"
-                  className="fm-card fm-press flex w-full items-center gap-2 px-3 py-3 text-right"
+                  className="fm-card fm-press flex w-full items-center gap-2 px-3 py-2.5 text-right"
                 >
-                  <Icon className={`h-[18px] w-[18px] shrink-0 ${c.tone}`} aria-hidden />
-                  <span className="min-w-0 truncate text-[14px] font-bold text-foreground">
+                  <Icon className={`h-[17px] w-[17px] shrink-0 ${c.tone}`} aria-hidden />
+                  <span className="min-w-0 truncate text-[13.5px] font-bold text-foreground">
                     {c.label}
                   </span>
                 </button>
@@ -107,10 +107,10 @@ function LessonPrototype() {
           <li>
             <button
               type="button"
-              className="fm-press flex w-full items-center gap-2 rounded-2xl border border-dashed border-border bg-muted/40 px-3 py-3 text-right"
+              className="fm-press flex w-full items-center gap-2 rounded-2xl border border-dashed border-border bg-muted/40 px-3 py-2.5 text-right"
             >
-              <BookText className="h-[18px] w-[18px] shrink-0 text-muted-foreground" aria-hidden />
-              <span className="min-w-0 truncate text-[14px] font-semibold text-muted-foreground">
+              <BookText className="h-[17px] w-[17px] shrink-0 text-muted-foreground" aria-hidden />
+              <span className="min-w-0 truncate text-[13.5px] font-semibold text-muted-foreground">
                 نسخة الكتاب الأصلية
               </span>
             </button>
