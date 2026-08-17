@@ -66,6 +66,10 @@ export function SubjectTextbooksManager() {
   const [search, setSearch] = useState("");
   const [trackId, setTrackId] = useState<string>("");
   const [title, setTitle] = useState("");
+  const [coverageType, setCoverageType] = useState<"FULL_ACADEMIC_YEAR" | "SEMESTER_SPECIFIC">(
+    "FULL_ACADEMIC_YEAR",
+  );
+  const [semester, setSemester] = useState<1 | 2>(1);
   const [replaceId, setReplaceId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -133,6 +137,8 @@ export function SubjectTextbooksManager() {
         data: {
           subjectId,
           curriculumTrackId: trackId || null,
+          coverageType,
+          semester: coverageType === "SEMESTER_SPECIFIC" ? semester : null,
           title: title.trim() || file.name.replace(/\.pdf$/i, ""),
           path: target.path,
           fileName: file.name,
@@ -206,12 +212,33 @@ export function SubjectTextbooksManager() {
               </select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">التغطية</Label>
-              <div className="flex h-10 items-center rounded-lg border border-border bg-muted/40 px-3 text-xs text-muted-foreground">
-                كتاب واحد يغطي الفصلين
-              </div>
+              <Label className="text-xs">نوع التغطية</Label>
+              <select
+                value={coverageType}
+                onChange={(e) =>
+                  setCoverageType(e.target.value as "FULL_ACADEMIC_YEAR" | "SEMESTER_SPECIFIC")
+                }
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
+              >
+                <option value="FULL_ACADEMIC_YEAR">يغطي العام الدراسي كاملاً</option>
+                <option value="SEMESTER_SPECIFIC">خاص بفصل دراسي</option>
+              </select>
             </div>
           </div>
+
+          {coverageType === "SEMESTER_SPECIFIC" && (
+            <div className="max-w-xs space-y-1">
+              <Label className="text-xs">الفصل الدراسي</Label>
+              <select
+                value={semester}
+                onChange={(e) => setSemester(Number(e.target.value) === 2 ? 2 : 1)}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
+              >
+                <option value={1}>الفصل الأول</option>
+                <option value={2}>الفصل الثاني</option>
+              </select>
+            </div>
+          )}
 
 
           <input
@@ -265,7 +292,10 @@ export function SubjectTextbooksManager() {
                   <p className="truncate text-sm font-semibold text-foreground">{book.title}</p>
                   <p className="text-muted-foreground">
                     {trackName(book.curriculumTrackId)} ·{" "}
-                    الفصلان معاً ·{" "}
+                    {book.coverageType === "SEMESTER_SPECIFIC"
+                      ? `الفصل ${book.semester === 2 ? "الثاني" : "الأول"}`
+                      : "الفصلان معاً"}{" "}
+                    ·{" "}
                     {formatBytes(book.fileSize)} · إصدار {book.version.slice(0, 6)} ·{" "}
                     {book.isActive ? "مفعّل" : "معطّل"}
                   </p>
@@ -285,6 +315,8 @@ export function SubjectTextbooksManager() {
                       setReplaceId(book.id);
                       setTitle(book.title);
                       setTrackId(book.curriculumTrackId ?? "");
+                      setCoverageType(book.coverageType);
+                      if (book.semester === 1 || book.semester === 2) setSemester(book.semester);
                     }}
                   >
                     <Upload className="ms-1.5 h-3.5 w-3.5" /> استبدال
