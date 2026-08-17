@@ -84,15 +84,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       {
-        title: "تمكين",
+        title: "تمكين الطالب",
       },
       {
         name: "description",
         content:
           "منصة تعليمية تساعد طلاب الثانوية على المذاكرة، مراجعة الدروس، حل الاختبارات، والتدرب على نماذج وزارية تناسب الصف والمنهج والمحافظة.",
       },
-      { property: "og:site_name", content: "تمكين طلاب الثانوية" },
-      { property: "og:title", content: "تمكين طلاب الثانوية" },
+      { property: "og:site_name", content: "تمكين الطالب" },
+      { property: "og:title", content: "تمكين الطالب" },
       {
         property: "og:description",
         content:
@@ -104,7 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       {
         name: "twitter:title",
-        content: "تمكين طلاب الثانوية | الاستعداد للثانوية والاختبارات الوزارية",
+        content: "تمكين الطالب",
       },
       {
         name: "twitter:description",
@@ -113,7 +113,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { name: "theme-color", content: "#1E2A78" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-title", content: "تمكين طلاب الثانوية" },
+      { name: "apple-mobile-web-app-title", content: "تمكين الطالب" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { name: "mobile-web-app-capable", content: "yes" },
     ],
@@ -138,14 +138,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             {
               "@type": "Organization",
               "@id": "https://tas-heel.lovable.app/#organization",
-              name: "تمكين طلاب الثانوية",
+              name: "تمكين الطالب",
               url: "https://tas-heel.lovable.app/",
             },
             {
               "@type": "WebSite",
               "@id": "https://tas-heel.lovable.app/#website",
               url: "https://tas-heel.lovable.app/",
-              name: "تمكين طلاب الثانوية",
+              name: "تمكين الطالب",
               description:
                 "منصة تعليمية لطلاب الثانوية تساعدهم على المراجعة والتدرب على الاختبارات، مع اهتمام خاص بالصف الثالث الثانوي والاختبارات الوزارية السابقة.",
               inLanguage: "ar-YE",
