@@ -96,7 +96,7 @@ const PILLARS = [
   { icon: BookOpen, label: "تعلم", tone: "text-primary" },
   { icon: ClipboardList, label: "تدرب", tone: "text-secondary" },
   { icon: LineChart, label: "تحسن", tone: "text-accent" },
-  { icon: GraduationCap, label: "استعد للوزاري", tone: "text-[var(--fm-goal)]" },
+  { icon: GraduationCap, label: "استعد للاختبار الوزاري", tone: "text-[var(--fm-goal)]" },
 ];
 
 function HeroSection() {
