@@ -41,6 +41,7 @@ import { Route as AuthenticatedSemestersIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedPaymentsIndexRouteImport } from './routes/_authenticated/payments.index'
 import { Route as AuthenticatedMinisterialExamsIndexRouteImport } from './routes/_authenticated/ministerial-exams.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as Prototype19aLandingRouteImport } from './routes/prototype.19a.landing'
 import { Route as ApiLessonFileResourceIdRouteImport } from './routes/api/lesson-file.$resourceId'
 import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedSemestersSemesterRouteImport } from './routes/_authenticated/semesters.$semester'
@@ -244,6 +245,11 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const Prototype19aLandingRoute = Prototype19aLandingRouteImport.update({
+  id: '/landing',
+  path: '/landing',
+  getParentRoute: () => Prototype19aRoute,
 } as any)
 const ApiLessonFileResourceIdRoute = ApiLessonFileResourceIdRouteImport.update({
   id: '/api/lesson-file/$resourceId',
@@ -515,6 +521,7 @@ export interface FileRoutesByFullPath {
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/prototype/19a/landing': typeof Prototype19aLandingRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/ministerial-exams/': typeof AuthenticatedMinisterialExamsIndexRoute
   '/payments/': typeof AuthenticatedPaymentsIndexRoute
@@ -582,6 +589,7 @@ export interface FileRoutesByTo {
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/prototype/19a/landing': typeof Prototype19aLandingRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/ministerial-exams': typeof AuthenticatedMinisterialExamsIndexRoute
   '/payments': typeof AuthenticatedPaymentsIndexRoute
@@ -654,6 +662,7 @@ export interface FileRoutesById {
   '/_authenticated/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/prototype/19a/landing': typeof Prototype19aLandingRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/ministerial-exams/': typeof AuthenticatedMinisterialExamsIndexRoute
   '/_authenticated/payments/': typeof AuthenticatedPaymentsIndexRoute
@@ -726,6 +735,7 @@ export interface FileRouteTypes {
     | '/semesters/$semester'
     | '/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/prototype/19a/landing'
     | '/admin/'
     | '/ministerial-exams/'
     | '/payments/'
@@ -793,6 +803,7 @@ export interface FileRouteTypes {
     | '/semesters/$semester'
     | '/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/prototype/19a/landing'
     | '/admin'
     | '/ministerial-exams'
     | '/payments'
@@ -864,6 +875,7 @@ export interface FileRouteTypes {
     | '/_authenticated/semesters/$semester'
     | '/_authenticated/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/prototype/19a/landing'
     | '/_authenticated/admin/'
     | '/_authenticated/ministerial-exams/'
     | '/_authenticated/payments/'
@@ -1129,6 +1141,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/prototype/19a/landing': {
+      id: '/prototype/19a/landing'
+      path: '/landing'
+      fullPath: '/prototype/19a/landing'
+      preLoaderRoute: typeof Prototype19aLandingRouteImport
+      parentRoute: typeof Prototype19aRoute
     }
     '/api/lesson-file/$resourceId': {
       id: '/api/lesson-file/$resourceId'
@@ -1597,10 +1616,12 @@ const AuthRouteChildren: AuthRouteChildren = {
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface Prototype19aRouteChildren {
+  Prototype19aLandingRoute: typeof Prototype19aLandingRoute
   Prototype19aIndexRoute: typeof Prototype19aIndexRoute
 }
 
 const Prototype19aRouteChildren: Prototype19aRouteChildren = {
+  Prototype19aLandingRoute: Prototype19aLandingRoute,
   Prototype19aIndexRoute: Prototype19aIndexRoute,
 }
 
