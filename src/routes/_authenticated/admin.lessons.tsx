@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
