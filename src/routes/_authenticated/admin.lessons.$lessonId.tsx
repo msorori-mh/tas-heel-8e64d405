@@ -9,6 +9,8 @@ import { LessonSummaryDialog } from "@/components/admin/LessonSummaryDialog";
 import { LessonExplanationsDialog } from "@/components/admin/LessonExplanationsDialog";
 import { LessonResourcesDialog } from "@/components/admin/LessonResourcesDialog";
 import { LessonPrimaryPdfCard } from "@/components/admin/LessonPrimaryPdfCard";
+import { LessonContentWorkspace } from "@/components/admin/LessonContentWorkspace";
+import { buildLessonCapabilityContract } from "@/lib/lessons/lesson-content-contract";
 import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil } from "lucide-react";
 
 
@@ -161,8 +163,14 @@ function AdminLessonDetailPage() {
           .eq("lesson_id", lessonId)
           .order("sort_order", { ascending: true });
 
-      const base = "id, lesson_id, resource_type, title, url, description, sort_order";
-      let { data, error, count } = (await run(`${base}, is_primary`)) as any;
+      const base =
+        "id, lesson_id, resource_type, title, url, description, sort_order, created_at";
+      let { data, error, count } = (await run(
+        `${base}, is_primary, html_resource_type, lifecycle_status, resource_code`,
+      )) as any;
+      if (error) {
+        ({ data, error, count } = (await run(`${base}, is_primary`)) as any);
+      }
       if (error) {
         ({ data, error, count } = (await run(base)) as any);
       }
@@ -187,6 +195,25 @@ function AdminLessonDetailPage() {
         .eq("lesson_id", lessonId);
       if (error) throw error;
       return { count: count ?? 0, items: data ?? [] };
+    },
+  });
+
+  const assessmentsQ = useQuery({
+    enabled: enabled && !!lessonQ.data,
+    queryKey: ["admin-lesson-detail", "assessments", lessonId],
+    queryFn: async () => {
+      const assess = await supabase
+        .from("lesson_assessments")
+        .select("id", { count: "exact", head: true })
+        .eq("lesson_id", lessonId);
+      const exams = await supabase
+        .from("exam_templates")
+        .select("id", { count: "exact", head: true })
+        .eq("lesson_id", lessonId);
+      return {
+        assessmentsCount: assess.error ? 0 : assess.count ?? 0,
+        lessonExamCount: exams.error ? 0 : exams.count ?? 0,
+      };
     },
   });
 
@@ -272,6 +299,23 @@ function AdminLessonDetailPage() {
   const subjectName = (lesson as any).subject?.name ?? "—";
   const unitTitle = (lesson as any).unit?.title ?? "—";
 
+  // 20B — one contract, derived from the same rows the student reads.
+  const capabilityContract = buildLessonCapabilityContract({
+    lessonTitle: (lesson as any)?.title ?? null,
+    deliveryMode: (lesson as any)?.delivery_mode ?? null,
+    bookContents: (bookQ.data?.raw ?? []) as any,
+    inlineContent: (lesson as any)?.content_text ?? null,
+    explanations: (explanationsQ.data?.items ?? []) as any,
+    resources: (resourcesQ.data?.items ?? []) as any,
+    simulations: (simulationsQ.data?.items ?? []) as any,
+    summaries: (summaryQ.data?.raw ?? []) as any,
+    questionsCount: questionsQ.data?.count ?? 0,
+    assessmentsCount: assessmentsQ.data?.assessmentsCount ?? 0,
+    lessonExamCount: assessmentsQ.data?.lessonExamCount ?? 0,
+    performanceTrackable: true,
+    enhancementsAccessible: true,
+  });
+
   return (
     <AdminLayout>
       <div className="space-y-6" dir="rtl">
@@ -293,6 +337,27 @@ function AdminLessonDetailPage() {
             قائمة الدروس
           </Link>
         </div>
+
+        <LessonContentWorkspace
+          lessonId={lessonId}
+          contract={capabilityContract}
+          header={{
+            subjectName,
+            gradeName: gradeQ.data ?? "—",
+            trackNames: unitTitle,
+            lessonTitle: (lesson as any).title,
+            lessonCode: (lesson as any).slug ?? (lesson as any).id.slice(0, 8),
+          }}
+          onEdit={{
+            officialBookContent: () => setOpenBookDialog(true),
+            tamkeenExplanation: () => setOpenExplanationsDialog(true),
+            quickReview: () => setOpenSummaryDialog(true),
+            mindMap: () => setOpenResourcesDialog(true),
+            simulation: () => setOpenResourcesDialog(true),
+            supportingResources: () => setOpenResourcesDialog(true),
+            originalBookPdf: () => setOpenResourcesDialog(true),
+          }}
+        />
 
         {/* Basic info */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
