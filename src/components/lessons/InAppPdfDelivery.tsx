@@ -44,10 +44,11 @@ function Placeholder() {
  */
 export function prefetchPdfViewerChunk(): void {
   try {
-    const kind = selectPdfRenderer();
-    if (kind === "ANDROID_NATIVE") void import("./NativePdfDelivery");
-    else if (kind === "BROWSER_NATIVE") void import("./BrowserNativePdfDelivery");
-    else void import("./PdfViewer").then((m) => m.prefetchPdfEngine());
+    void import("./NativePdfDelivery").catch(() => undefined);
+    void import("./BrowserNativePdfDelivery").catch(() => undefined);
+    void import("./PdfViewer")
+      .then((m) => m.prefetchPdfEngine())
+      .catch(() => undefined);
   } catch {
     /* prefetch is best-effort */
   }
