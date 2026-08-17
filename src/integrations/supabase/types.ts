@@ -2936,7 +2936,7 @@ export type Database = {
       }
       subject_textbooks: {
         Row: {
-          coverage: string
+          coverage_type: string
           created_at: string
           created_by: string | null
           curriculum_track_id: string | null
@@ -2955,7 +2955,7 @@ export type Database = {
           version: string
         }
         Insert: {
-          coverage?: string
+          coverage_type?: string
           created_at?: string
           created_by?: string | null
           curriculum_track_id?: string | null
@@ -2974,7 +2974,7 @@ export type Database = {
           version: string
         }
         Update: {
-          coverage?: string
+          coverage_type?: string
           created_at?: string
           created_by?: string | null
           curriculum_track_id?: string | null
