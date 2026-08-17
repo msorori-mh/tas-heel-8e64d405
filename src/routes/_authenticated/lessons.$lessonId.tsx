@@ -67,8 +67,16 @@ import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
   // 20C-B — `?preview=1` is an operator preview; it only has an effect for
   // content staff (see `previewMode` below), students never bypass the gate.
-  validateSearch: (search: Record<string, unknown>): { preview?: number } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { preview?: number; semester?: 1 | 2 } => ({
     preview: search.preview === 1 || search.preview === "1" ? 1 : undefined,
+    semester:
+      search.semester === 1 || search.semester === "1"
+        ? 1
+        : search.semester === 2 || search.semester === "2"
+          ? 2
+          : undefined,
   }),
   component: LessonPage,
 });
