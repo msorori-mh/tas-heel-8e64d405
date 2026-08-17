@@ -547,6 +547,13 @@ function LessonPage() {
   const primaryCapability = capabilities.find((c) => c.type === "PRIMARY_CONTENT");
   const primaryUnavailable = !primaryCapability?.available || !primaryCapability?.studentVisible;
 
+  // 20D §8 — show the original textbook PDF as a standalone reference only when
+  // the lesson itself is served in-app and the PDF passed the editorial gate.
+  const originalPdfGateOpen =
+    previewMode ||
+    lifecycleGate?.managed !== true ||
+    (lifecycleGate?.readyKeys ?? new Set<string>()).has("originalBookPdf");
+
   const rawBook = (book?.content ?? lesson.content_text ?? "").trim();
   const bookContent = isPlaceholderBookContent(rawBook, lesson.title) ? "" : rawBook;
 
@@ -556,6 +563,14 @@ function LessonPage() {
     primaryResource ??
     ((resources ?? []).find((r) => r.is_primary === true) as unknown as PrimaryLessonResource) ??
     null;
+
+  const showOriginalBookPdf =
+    originalPdfGateOpen &&
+    canAccessEnhancements &&
+    primaryCapability?.source === "book_content" &&
+    effectivePrimary?.resource_type === "pdf" &&
+    !!effectivePrimary.url;
+
 
   const renderCapabilityBody = (capability: LessonCapability) => {
     switch (capability.type) {
@@ -818,6 +833,25 @@ function LessonPage() {
             </JourneyCard>
           ))}
         </div>
+      )}
+
+      {/* 20D §8 — the original textbook file stays available as an independent
+          reference (last), never as the lesson's primary content. */}
+      {showOriginalBookPdf && effectivePrimary && (
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
+          <h2 className="mb-2 text-sm font-bold text-foreground">
+            📚 نسخة الكتاب الأصلية
+          </h2>
+          <p className="mb-3 text-xs text-muted-foreground">
+            مرجع اختياري — الصفحات الأصلية من الكتاب المدرسي كما هي.
+          </p>
+          <InAppPdfDelivery
+            resourceId={effectivePrimary.id}
+            lessonId={lessonId}
+            title={effectivePrimary.title}
+            fallbackUrl={isSafeHttpUrl(effectivePrimary.url) ? effectivePrimary.url : null}
+          />
+        </section>
       )}
 
       <nav

@@ -36,6 +36,31 @@ const STATUS_CLASS: Record<LessonCapabilityState["status"], string> = {
   ABSENT: "bg-muted text-muted-foreground border-border",
 };
 
+/**
+ * 20D §13 — capabilities every lesson must have. Anything else that is absent
+ * is "غير مطلوب لهذا الدرس" (N/A), never a gap the operator must chase.
+ */
+const REQUIRED_CAPABILITIES: readonly LessonContentCapabilityKey[] = [
+  "officialBookContent",
+  "tamkeenExplanation",
+  "quickReview",
+  "checkUnderstanding",
+];
+
+/** Matrix cell label: READY / DRAFT / REVIEW / MISSING / N/A. */
+function matrixLabel(
+  cap: LessonCapabilityState,
+  stage: LessonCapabilityLifecycleStatus | null,
+): string {
+  if (cap.status === "ABSENT") {
+    return REQUIRED_CAPABILITIES.includes(cap.key)
+      ? "ناقص (MISSING)"
+      : "غير مطلوب لهذا الدرس (N/A)";
+  }
+  if (cap.status === "DRAFT" && stage === "REVIEW") return "قيد المراجعة";
+  return STATUS_AR[cap.status];
+}
+
 const REASON_AR: Record<string, string> = {
   NOT_ENTERED: "لم يُدخل بعد",
   DRAFT_NOT_PUBLISHED: "مسودة لم تُنشر",
@@ -148,7 +173,7 @@ export function LessonContentWorkspace({
                   <span
                     className={`rounded-full border px-2 py-0.5 text-[10px] ${STATUS_CLASS[cap.status]}`}
                   >
-                    {STATUS_AR[cap.status]}
+                    {matrixLabel(cap, stage)}
                   </span>
                   {hasLifecycle && (
                     <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
