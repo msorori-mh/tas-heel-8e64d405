@@ -71,9 +71,22 @@ function LessonPrototype() {
         </div>
       </header>
 
+      <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 py-1.5 pe-3 ps-2">
+        <img
+          src={officialBookImage}
+          alt="محتوى الكتاب الوزاري الرسمي"
+          loading="lazy"
+          width={816}
+          height={816}
+          className="h-5 w-5 shrink-0"
+        />
+        <span className="text-[12.5px] font-bold text-primary">محتوى الكتاب الرسمي</span>
+      </div>
+
       <section className="fm-card fm-read py-4">
         <StructuredTextbookReader document={doc} />
       </section>
+
 
       <section className="mt-5">
         <h2 className="mb-2 text-[15px] font-bold text-foreground">أنشطة هذا الدرس</h2>
