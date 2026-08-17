@@ -45,6 +45,7 @@ export function LessonExplanationsDialog({
 }: Props) {
   const qc = useQueryClient();
   const [rows, setRows] = useState<LessonExplanationItem[]>([]);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
@@ -52,6 +53,7 @@ export function LessonExplanationsDialog({
     if (open) {
       setErrMsg(null);
       setSaving(false);
+      setDeletedIds([]);
       setRows(
         [...items]
           .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
