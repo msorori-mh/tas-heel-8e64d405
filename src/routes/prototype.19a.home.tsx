@@ -7,7 +7,7 @@ import {
   Flame,
   GraduationCap,
   Play,
-  Trophy,
+  
   Zap,
 } from "lucide-react";
 import { Bar, BottomNav, SectionTitle } from "@/components/prototype/fm-v2/primitives";
