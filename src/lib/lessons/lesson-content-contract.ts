@@ -410,19 +410,23 @@ export function buildLessonCapabilityContract(
     updatedAt: latest(primaryPdf?.created_at, bookPdf?.updated_at),
   });
 
-  return {
-    officialBookContent,
-    tamkeenExplanation,
-    mindMap,
-    simulation,
-    supportingResources,
-    quickReview,
-    checkUnderstanding,
-    lessonAssessment,
-    studentPerformance,
-    originalBookPdf,
-  };
+  return applyLifecycleOverlay(
+    {
+      officialBookContent,
+      tamkeenExplanation,
+      mindMap,
+      simulation,
+      supportingResources,
+      quickReview,
+      checkUnderstanding,
+      lessonAssessment,
+      studentPerformance,
+      originalBookPdf,
+    },
+    input.lifecycle ?? {},
+  );
 }
+
 
 /** Capabilities in official student order, unavailable ones removed entirely. */
 export function studentVisibleContract(
