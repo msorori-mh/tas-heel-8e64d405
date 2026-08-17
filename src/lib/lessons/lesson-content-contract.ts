@@ -156,7 +156,50 @@ export interface LessonContentContractInput {
   performanceTrackable?: boolean;
   /** Enhancement access gate (subscription / free unit / admin). */
   enhancementsAccessible?: boolean;
+  /**
+   * 20C — editorial lifecycle rows (lesson_capability_lifecycle).
+   * A missing entry means "legacy content", handled by 20B presence rules.
+   * Any present entry is authoritative and FAIL-CLOSED: only READY may render.
+   */
+  lifecycle?: Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>>;
 }
+
+/** 20C editorial lifecycle. Students may only ever see READY. */
+export type LessonCapabilityLifecycleStatus = "DRAFT" | "REVIEW" | "READY";
+
+/** Capabilities that carry an editorial lifecycle (performance is derived). */
+export const LIFECYCLE_CAPABILITIES: readonly LessonContentCapabilityKey[] =
+  LESSON_CONTENT_CAPABILITIES.filter((k) => k !== "studentPerformance");
+
+/**
+ * 20C §2 — overlay the editorial lifecycle on top of the 20B presence contract.
+ * Rules:
+ *  - no lifecycle row  → unchanged (legacy grandfathering, no silent hiding)
+ *  - READY             → unchanged (presence rules still apply)
+ *  - DRAFT / REVIEW    → never student visible, status forced to DRAFT
+ */
+export function applyLifecycleOverlay(
+  contract: LessonCapabilityContract,
+  lifecycle: Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>> = {},
+): LessonCapabilityContract {
+  const next = { ...contract };
+  for (const key of LIFECYCLE_CAPABILITIES) {
+    const st = lifecycle[key];
+    if (!st || st === "READY") continue;
+    next[key] = {
+      ...next[key],
+      status: "DRAFT",
+      studentVisible: false,
+      readinessReason: "DRAFT_NOT_PUBLISHED",
+      note:
+        st === "REVIEW"
+          ? "قيد المراجعة — غير مرئي للطالب حتى الاعتماد"
+          : "مسودة — غير مرئية للطالب حتى الاعتماد",
+    };
+  }
+  return next;
+}
+
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -367,19 +410,23 @@ export function buildLessonCapabilityContract(
     updatedAt: latest(primaryPdf?.created_at, bookPdf?.updated_at),
   });
 
-  return {
-    officialBookContent,
-    tamkeenExplanation,
-    mindMap,
-    simulation,
-    supportingResources,
-    quickReview,
-    checkUnderstanding,
-    lessonAssessment,
-    studentPerformance,
-    originalBookPdf,
-  };
+  return applyLifecycleOverlay(
+    {
+      officialBookContent,
+      tamkeenExplanation,
+      mindMap,
+      simulation,
+      supportingResources,
+      quickReview,
+      checkUnderstanding,
+      lessonAssessment,
+      studentPerformance,
+      originalBookPdf,
+    },
+    input.lifecycle ?? {},
+  );
 }
+
 
 /** Capabilities in official student order, unavailable ones removed entirely. */
 export function studentVisibleContract(
