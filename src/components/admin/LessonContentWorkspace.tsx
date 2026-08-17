@@ -28,6 +28,13 @@ const STATUS_CLASS: Record<LessonCapabilityState["status"], string> = {
   ABSENT: "bg-muted text-muted-foreground border-border",
 };
 
+const REASON_AR: Record<string, string> = {
+  NOT_ENTERED: "لم يُدخل بعد",
+  DRAFT_NOT_PUBLISHED: "مسودة لم تُنشر",
+  INVALID_DATA: "بيانات غير صالحة",
+  ACCESS_GATED: "محجوب بقيود الوصول",
+};
+
 function fmtDate(value: string | null): string {
   if (!value) return "—";
   const d = new Date(value);
@@ -130,6 +137,11 @@ export function LessonContentWorkspace({
                     <span className="font-mono text-primary">HTML: {cap.htmlRef}</span>
                   )}
                 </div>
+                {cap.readinessReason && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    سبب عدم الجاهزية: {REASON_AR[cap.readinessReason]}
+                  </p>
+                )}
                 {cap.note && (
                   <p className="mt-1 text-[11px] text-amber-600">{cap.note}</p>
                 )}

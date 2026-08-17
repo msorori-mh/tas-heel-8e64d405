@@ -78,6 +78,13 @@ export const CAPABILITY_ICON_AR: Record<LessonContentCapabilityKey, string> = {
  */
 export type CapabilityStatus = "ABSENT" | "DRAFT" | "READY" | "INVALID";
 
+/** 20B §1 — why a capability is not student-ready. */
+export type CapabilityReadinessReason =
+  | "NOT_ENTERED"
+  | "DRAFT_NOT_PUBLISHED"
+  | "INVALID_DATA"
+  | "ACCESS_GATED";
+
 export interface LessonCapabilityState {
   key: LessonContentCapabilityKey;
   label: string;
@@ -99,6 +106,11 @@ export interface LessonCapabilityState {
   htmlRef?: string | null;
   /** Operator-only note; never shown to the student. */
   note?: string;
+  /**
+   * 20B §1 — machine-readable reason the capability is not student-ready.
+   * `null` when the capability is READY. Operator-facing only.
+   */
+  readinessReason: CapabilityReadinessReason | null;
 }
 
 export type LessonCapabilityContract = Record<
@@ -167,13 +179,27 @@ function validOfType(
 
 function state(
   key: LessonContentCapabilityKey,
-  partial: Omit<LessonCapabilityState, "key" | "label" | "icon">,
+  partial: Omit<LessonCapabilityState, "key" | "label" | "icon" | "readinessReason"> & {
+    readinessReason?: CapabilityReadinessReason | null;
+  },
 ): LessonCapabilityState {
+  const derived: CapabilityReadinessReason | null =
+    partial.status === "ABSENT"
+      ? "NOT_ENTERED"
+      : partial.status === "INVALID"
+        ? "INVALID_DATA"
+        : partial.status === "DRAFT"
+          ? "DRAFT_NOT_PUBLISHED"
+          : partial.studentVisible
+            ? null
+            : "ACCESS_GATED";
+
   return {
     key,
     label: CAPABILITY_LABEL_AR[key],
     icon: CAPABILITY_ICON_AR[key],
     ...partial,
+    readinessReason: partial.readinessReason ?? derived,
   };
 }
 
@@ -404,4 +430,45 @@ export function computeLessonReadinessLevels(
     fullyReady,
     missing: required.filter((k) => !ready(k)),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* 18B bridge (20B §5) — one decision source for visibility + order    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Maps the legacy 18B capability types onto the canonical 20B capability
+ * keys. Visibility is still decided once, by 18B `computeLessonCapabilities`;
+ * ORDER is decided once, here. No component may re-implement either.
+ */
+export const LEGACY_CAPABILITY_TO_KEY: Record<string, LessonContentCapabilityKey> = {
+  PRIMARY_CONTENT: "officialBookContent",
+  EXPLANATION: "tamkeenExplanation",
+  MINDMAP: "mindMap",
+  PRACTICAL: "simulation",
+  VIDEO: "supportingResources",
+  EXTRA_RESOURCES: "supportingResources",
+  SUMMARY: "quickReview",
+  ASSESSMENT: "checkUnderstanding",
+  LESSON_EXAM: "lessonAssessment",
+};
+
+/**
+ * Orders already-visible 18B capabilities by the canonical student order
+ * (20B §4). Stable within a bucket (video before extra resources).
+ * Anything unmapped is appended, never dropped and never labelled
+ * "غير متوفر" — hidden capabilities were already filtered out upstream.
+ */
+export function orderStudentCapabilities<T extends { type: string }>(
+  capabilities: readonly T[],
+): T[] {
+  const rank = (type: string) => {
+    const key = LEGACY_CAPABILITY_TO_KEY[type];
+    const index = key ? STUDENT_CAPABILITY_ORDER.indexOf(key) : -1;
+    return index === -1 ? STUDENT_CAPABILITY_ORDER.length : index;
+  };
+  return capabilities
+    .map((c, i) => ({ c, i, r: rank(c.type) }))
+    .sort((a, b) => a.r - b.r || a.i - b.i)
+    .map((x) => x.c);
 }
