@@ -6,7 +6,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 
 const LESSON_PAGE = "src/routes/_authenticated/lessons.$lessonId.tsx";
-const ADMIN_PAGE = "src/routes/_authenticated/admin.lessons.tsx";
+const ADMIN_PAGE = "src/routes/_authenticated/admin.lesson-content.$lessonId.tsx";
 const ENGINE = "src/lib/lessons/lesson-capabilities.ts";
 
 const read = (p) => readFileSync(p, "utf8");
@@ -44,7 +44,7 @@ describe("18B static guards", () => {
 
   it("admin readiness reuses the same engine (single source of truth)", () => {
     const admin = read(ADMIN_PAGE);
-    expect(admin).toMatch(/lesson-capabilities/);
-    expect(admin).toMatch(/computeLessonReadiness/);
+    expect(admin).toMatch(/lesson-content-contract/);
+    expect(admin).toMatch(/buildLessonCapabilityContract/);
   });
 });
