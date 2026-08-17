@@ -287,7 +287,7 @@ function CTAFooter() {
                 <BookOpen className="h-4 w-4 text-primary-foreground" />
               </div>
               <span className="text-sm font-bold text-foreground">
-                تمكين طلاب الثانوية
+                تمكين الطالب
               </span>
             </div>
 
