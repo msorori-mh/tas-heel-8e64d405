@@ -63,7 +63,7 @@ const SUBJECTS = [
 function HomePrototype() {
   return (
     <div className="mx-auto w-full max-w-[880px] px-[14px] pt-4 sm:px-5">
-      <header className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+      <header className="mb-2.5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="min-w-0">
           <p className="truncate text-[17px] font-extrabold text-foreground">مرحبًا محمد</p>
           <p className="truncate text-[13px] text-muted-foreground">الثالث الثانوي — علمي</p>
@@ -74,8 +74,8 @@ function HomePrototype() {
       </header>
 
       {/* Continue learning — strongest visual element */}
-      <section className="fm-grad fm-press mb-4 rounded-2xl p-[1.5px] shadow-sm">
-        <div className="rounded-[calc(1rem-1px)] bg-card px-4 py-4">
+      <section className="fm-grad fm-press mb-3.5 rounded-2xl p-[1.5px] shadow-sm">
+        <div className="rounded-[calc(1rem-1px)] bg-card px-4 py-3.5">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
             <div className="min-w-0">
               <p className="text-[12px] font-bold text-secondary">واصل من حيث توقفت</p>
@@ -92,7 +92,7 @@ function HomePrototype() {
               loading="lazy"
               width={816}
               height={816}
-              className="h-12 w-12 shrink-0 sm:h-14 sm:w-14"
+              className="h-10 w-10 shrink-0 sm:h-12 sm:w-12"
             />
           </div>
 
@@ -113,7 +113,7 @@ function HomePrototype() {
       </section>
 
       {/* Daily goal */}
-      <section className="fm-card mb-4 px-4 py-3.5">
+      <section className="fm-card mb-3.5 px-4 py-3">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <h2 className="min-w-0 truncate text-[15px] font-bold text-foreground">هدف اليوم</h2>
           <span className="shrink-0 text-[13px] font-bold text-[var(--fm-goal)]">2 / 3 دروس</span>
@@ -123,19 +123,19 @@ function HomePrototype() {
       </section>
 
       {/* Quick actions */}
-      <section className="mb-4">
+      <section className="mb-3.5">
         <SectionTitle>أدوات سريعة</SectionTitle>
-        <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {QUICK_ACTIONS.map((a) => {
             const Icon = a.icon;
             return (
               <li key={a.label}>
                 <button
                   type="button"
-                  className="fm-card fm-press flex w-full items-center gap-2 px-3 py-3 text-right"
+                  className="fm-card fm-press flex w-full items-center gap-2 px-3 py-2.5 text-right"
                 >
-                  <Icon className={`h-[18px] w-[18px] shrink-0 ${a.tone}`} aria-hidden />
-                  <span className="min-w-0 truncate text-[14px] font-bold text-foreground">
+                  <Icon className={`h-[17px] w-[17px] shrink-0 ${a.tone}`} aria-hidden />
+                  <span className="min-w-0 truncate text-[13.5px] font-bold text-foreground">
                     {a.label}
                   </span>
                 </button>
@@ -146,9 +146,9 @@ function HomePrototype() {
       </section>
 
       {/* Needs attention */}
-      <section className="mb-4">
+      <section className="mb-3.5">
         <SectionTitle>يحتاج انتباهك</SectionTitle>
-        <ul className="space-y-2.5">
+        <ul className="space-y-2">
           {NEEDS_ATTENTION.map((n) => (
             <li key={n.subject} className="fm-card px-4 py-3">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
@@ -171,8 +171,8 @@ function HomePrototype() {
       </section>
 
       {/* Ministerial challenge — grade 3 only */}
-      <section className="mb-4">
-        <div className="fm-card fm-press border-[var(--fm-goal)]/35 bg-[var(--fm-goal-soft)]/50 px-4 py-3.5">
+      <section className="mb-3.5">
+        <div className="fm-card fm-press border-[var(--fm-goal)]/35 bg-[var(--fm-goal-soft)]/50 px-4 py-3">
           <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
             <img
               src={ministerialImage}
@@ -180,7 +180,7 @@ function HomePrototype() {
               loading="lazy"
               width={816}
               height={816}
-              className="h-10 w-10 shrink-0"
+              className="h-8 w-8 shrink-0"
             />
             <div className="min-w-0">
               <p className="truncate text-[14.5px] font-bold text-foreground">تحدي وزاري اليوم</p>
@@ -194,22 +194,22 @@ function HomePrototype() {
       </section>
 
       {/* Subjects */}
-      <section className="pb-4">
+      <section className="pb-3.5">
         <SectionTitle>موادك</SectionTitle>
-        <div className="fm-card mb-2.5 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-4 py-3">
+        <div className="fm-card mb-2 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-4 py-2.5">
           <img
             src={firstStepImage}
             alt="اختر مادة وابدأ أول درس"
             loading="lazy"
             width={816}
             height={816}
-            className="h-11 w-11 shrink-0"
+            className="h-9 w-9 shrink-0"
           />
           <p className="min-w-0 text-[13.5px] leading-[1.8] text-muted-foreground">
             اختر مادة وابدأ أول درس اليوم — خطوة واحدة تكفي للبداية.
           </p>
         </div>
-        <ul className="grid gap-2.5 sm:grid-cols-2">
+        <ul className="grid gap-2 sm:grid-cols-2">
           {SUBJECTS.map((s) => (
             <li key={s.name} className="fm-card fm-press px-4 py-3">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
