@@ -34,6 +34,7 @@ import {
   type LessonCapability,
   type LessonCapabilityType,
 } from "@/lib/lessons/lesson-capabilities";
+import { orderStudentCapabilities } from "@/lib/lessons/lesson-content-contract";
 
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import {
@@ -506,7 +507,8 @@ function LessonPage() {
       : null,
   });
 
-  const actions = visibleLessonCapabilities(capabilities);
+  // 20B §4/§5 — visibility from 18B, canonical order from the 20B contract.
+  const actions = orderStudentCapabilities(visibleLessonCapabilities(capabilities));
   const lessonProgress = computeLessonProgress(capabilities);
   const primaryCapability = capabilities.find((c) => c.type === "PRIMARY_CONTENT");
   const primaryUnavailable = !primaryCapability?.available || !primaryCapability?.studentVisible;
