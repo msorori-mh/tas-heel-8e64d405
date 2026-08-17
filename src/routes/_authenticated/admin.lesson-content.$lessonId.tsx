@@ -343,21 +343,33 @@ function AdminLessonDetailPage() {
   const unitTitle = (lesson as any).unit?.title ?? "—";
 
   // 20B — one contract, derived from the same rows the student reads.
-  const capabilityContract = buildLessonCapabilityContract({
-    lessonTitle: (lesson as any)?.title ?? null,
-    deliveryMode: (lesson as any)?.delivery_mode ?? null,
-    bookContents: (bookQ.data?.raw ?? []) as any,
-    inlineContent: (lesson as any)?.content_text ?? null,
-    explanations: (explanationsQ.data?.items ?? []) as any,
-    resources: (resourcesQ.data?.items ?? []) as any,
-    simulations: (simulationsQ.data?.items ?? []) as any,
-    summaries: (summaryQ.data?.raw ?? []) as any,
-    questionsCount: questionsQ.data?.count ?? 0,
-    assessmentsCount: assessmentsQ.data?.assessmentsCount ?? 0,
-    lessonExamCount: assessmentsQ.data?.lessonExamCount ?? 0,
-    performanceTrackable: true,
-    enhancementsAccessible: true,
-  });
+  const lifecycleMap = rowsToLifecycleMap(lifecycleQ.data ?? []);
+  const lifecycleStatuses = Object.fromEntries(
+    Object.entries(lifecycleMap).map(([k, v]) => [
+      k,
+      typeof v === "string" ? v : v!.status,
+    ]),
+  ) as Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>>;
+
+  const capabilityContract = applyLifecycleOverlay(
+    buildLessonCapabilityContract({
+      lessonTitle: (lesson as any)?.title ?? null,
+      deliveryMode: (lesson as any)?.delivery_mode ?? null,
+      bookContents: (bookQ.data?.raw ?? []) as any,
+      inlineContent: (lesson as any)?.content_text ?? null,
+      explanations: (explanationsQ.data?.items ?? []) as any,
+      resources: (resourcesQ.data?.items ?? []) as any,
+      simulations: (simulationsQ.data?.items ?? []) as any,
+      summaries: (summaryQ.data?.raw ?? []) as any,
+      questionsCount: questionsQ.data?.count ?? 0,
+      assessmentsCount: assessmentsQ.data?.assessmentsCount ?? 0,
+      lessonExamCount: assessmentsQ.data?.lessonExamCount ?? 0,
+      performanceTrackable: true,
+      enhancementsAccessible: true,
+    }),
+    lifecycleMap,
+  );
+
 
   return (
     <AdminLayout>
