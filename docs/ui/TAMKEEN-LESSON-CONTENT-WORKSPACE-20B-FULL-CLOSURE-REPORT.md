@@ -15,7 +15,7 @@ readinessReason` — و`readinessReason ∈ {NOT_ENTERED, DRAFT_NOT_PUBLISHED, I
 
 | Capability | SOURCE_TABLE_OR_SERVICE | ADMIN_PATH | IMPORT_PATH | STUDENT_RENDERER | STATUS_MODEL | VISIBILITY_RULE |
 |---|---|---|---|---|---|---|
-| officialBookContent | `lesson_book_contents.content` (+ `lessons.content_text` legacy) | `/admin/lessons/$id` → LessonBookContentDialog | Template 04 | `StructuredTextbookReader` / `OfficialTextbookContent` | READY / INVALID (placeholder) / ABSENT | محتوى صالح غير Placeholder |
+| officialBookContent | `lesson_book_contents.content` (+ `lessons.content_text` legacy) | `/admin/lesson-content/$id` → LessonBookContentDialog | Template 04 | `StructuredTextbookReader` / `OfficialTextbookContent` | READY / INVALID (placeholder) / ABSENT | محتوى صالح غير Placeholder |
 | tamkeenExplanation | `lesson_explanations` | LessonExplanationsDialog (تحرير/حذف) | Template 05 | قسم الشرح في صفحة الدرس | READY / ABSENT | rows > 0 |
 | mindMap | `lesson_resources` (`resource_type=mindmap` أو `html_resource_type=mindmap`) — **HTML** | LessonResourcesDialog + مسار HTML القائم | رفع HTML `<lesson_code>.html` | `PublishedHtmlResourceViewer` | READY (published) / DRAFT (draft·in_review) / ABSENT | `lifecycle_status=published` + بوابة الوصول |
 | simulation | `lesson_simulations` + `lesson_resources(experiment)` | LessonResourcesDialog | Template 06 / HTML | بطاقة PRACTICAL | READY / ABSENT | محتوى صالح + بوابة الوصول — **غير إلزامية** |
@@ -30,7 +30,7 @@ readinessReason` — و`readinessReason ∈ {NOT_ENTERED, DRAFT_NOT_PUBLISHED, I
 **Student Performance** مشتقة بالكامل ولا تحتاج إدخالاً.
 
 ## 3. ADMIN_WORKSPACE
-`src/components/admin/LessonContentWorkspace.tsx` مثبّت الآن أعلى `/admin/lessons/$lessonId`.
+`src/components/admin/LessonContentWorkspace.tsx` مثبّت الآن في مركز محتوى الدرس `/admin/lesson-content/$lessonId` (يُفتح من `/admin/lessons` عبر زر «إدارة المحتوى»).
 يعرض القدرات العشر بالترتيب الرسمي مع: الحالة، سبب عدم الجاهزية، آخر تحديث، العدد، مصدر البيانات،
 `htmlRef` للخريطة الذهنية، وزر «تحرير» **فقط** حيث يوجد محرّر فعلي (الكتاب، الشرح، المراجعة، الموارد/الخريطة/المحاكاة/PDF).
 القدرات بلا محرّر تُعلَّم «عبر الاستيراد». لا أزرار وهمية.
@@ -77,7 +77,7 @@ Proposal (بلا تنفيذ الآن): عمود واحد
 ## 11. سجل الإغلاق
 ```
 CAPABILITY_CONTRACT=FINAL_10_CAPABILITIES
-ADMIN_WORKSPACE=MOUNTED(/admin/lessons/$lessonId)
+ADMIN_WORKSPACE=MOUNTED(/admin/lesson-content/$lessonId)
 STUDENT_RENDERER_ORDER=ENFORCED_SINGLE_SOURCE
 DYNAMIC_CAPABILITIES_18B_REUSED=YES
 OFFICIAL_CONTENT=REUSED(lesson_book_contents)
