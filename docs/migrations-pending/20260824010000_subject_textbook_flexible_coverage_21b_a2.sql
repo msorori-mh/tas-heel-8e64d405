@@ -95,10 +95,10 @@ GRANT ALL ON public.subject_textbooks TO service_role;
 --   ALTER TABLE public.subject_textbooks ADD CONSTRAINT subject_textbooks_coverage_valid
 --     CHECK (coverage IN ('FULL_ACADEMIC_YEAR'));
 --   ALTER TABLE public.subject_textbooks DROP CONSTRAINT subject_textbooks_coverage_type_valid;
+--   DROP INDEX public.subject_textbooks_subject_idx;          -- depends on coverage_type
 --   ALTER TABLE public.subject_textbooks DROP COLUMN coverage_type;
---   DROP INDEX public.subject_textbooks_scope_path_uidx;
+--   DROP INDEX IF EXISTS public.subject_textbooks_scope_path_uidx;
 --   CREATE UNIQUE INDEX subject_textbooks_scope_path_uidx ON public.subject_textbooks
 --     (subject_id, COALESCE(curriculum_track_id,'00000000-0000-0000-0000-000000000000'::uuid), storage_path);
---   DROP INDEX public.subject_textbooks_subject_idx;
 --   CREATE INDEX subject_textbooks_subject_idx ON public.subject_textbooks (subject_id, sort_order);
 -- =====================================================================
