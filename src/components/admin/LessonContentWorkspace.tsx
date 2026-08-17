@@ -173,7 +173,7 @@ export function LessonContentWorkspace({
                   <span
                     className={`rounded-full border px-2 py-0.5 text-[10px] ${STATUS_CLASS[cap.status]}`}
                   >
-                    {STATUS_AR[cap.status]}
+                    {matrixLabel(cap, stage)}
                   </span>
                   {hasLifecycle && (
                     <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
