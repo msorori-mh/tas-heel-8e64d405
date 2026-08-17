@@ -164,8 +164,24 @@ export function LessonResourcesDialog({
 
     setSaving(true);
     try {
+      // Delete removed saved resources first (clears primary flag side effects).
+      if (deletedIds.length > 0) {
+        const { error: delError } = await supabase
+          .from("lesson_resources")
+          .delete()
+          .in("id", deletedIds);
+        if (delError) {
+          throw new Error(
+            /violates foreign key|RESTRICT/i.test(delError.message)
+              ? "تعذر حذف مورد لأنه مرتبط بمحتوى منشور أو ملفات مرفوعة."
+              : delError.message,
+          );
+        }
+      }
+
       let primaryResourceId: string | null = null;
       let hasPrimarySelection = false;
+
 
       for (const r of rows) {
         const title = r.title.trim();
