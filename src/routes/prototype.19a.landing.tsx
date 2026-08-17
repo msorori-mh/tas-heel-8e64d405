@@ -81,7 +81,7 @@ function LandingPrototype() {
 
         <div className="order-1 lg:order-2">
           <img
-            src={heroImage}
+            src={heroAsset.url}
             alt="طالب ثانوية يمني يراجع دروسه من هاتفه وكتابه المدرسي"
             width={1024}
             height={1024}
