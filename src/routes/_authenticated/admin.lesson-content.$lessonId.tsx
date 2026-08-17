@@ -10,11 +10,12 @@ import { LessonExplanationsDialog } from "@/components/admin/LessonExplanationsD
 import { LessonResourcesDialog } from "@/components/admin/LessonResourcesDialog";
 import { LessonPrimaryPdfCard } from "@/components/admin/LessonPrimaryPdfCard";
 import { LessonContentWorkspace } from "@/components/admin/LessonContentWorkspace";
+import { Button } from "@/components/ui/button";
 import { buildLessonCapabilityContract } from "@/lib/lessons/lesson-content-contract";
-import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil } from "lucide-react";
+import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil, FileText, FolderOpen } from "lucide-react";
 
 
-export const Route = createFileRoute("/_authenticated/admin/lessons/$lessonId")({
+export const Route = createFileRoute("/_authenticated/admin/lesson-content/$lessonId")({
   component: AdminLessonDetailPage,
 });
 
@@ -55,8 +56,7 @@ function AdminLessonDetailPage() {
       const { data, error } = await supabase
         .from("lessons")
         .select(
-          // Existence flags only; raw URLs are admin-only via RPC.
-          "id, title, slug, delivery_mode, content_text, sort_order, duration, has_video, has_content_pdf, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)"
+          "id, title, sort_order, duration, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)"
         )
         .eq("id", lessonId)
         .maybeSingle();
@@ -326,7 +326,7 @@ function AdminLessonDetailPage() {
               {(lesson as any).title}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              تفاصيل الدرس — قراءة فقط.
+              إدارة محتوى الدرس وقدراته التعليمية.
             </p>
           </div>
           <Link
@@ -336,6 +336,27 @@ function AdminLessonDetailPage() {
             <ArrowRight className="h-4 w-4" />
             قائمة الدروس
           </Link>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-12 justify-start gap-2"
+            onClick={() => setOpenExplanationsDialog(true)}
+          >
+            <FileText className="h-4 w-4 text-primary" />
+            إدارة الشروحات وحذفها
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-12 justify-start gap-2"
+            onClick={() => setOpenResourcesDialog(true)}
+          >
+            <FolderOpen className="h-4 w-4 text-primary" />
+            إدارة الموارد وحذفها
+          </Button>
         </div>
 
         <LessonContentWorkspace
