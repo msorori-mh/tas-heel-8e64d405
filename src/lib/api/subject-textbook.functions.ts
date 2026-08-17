@@ -4,8 +4,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const semesterSchema = z.number().int().min(1).max(2).nullable();
-
 export const listSubjectTextbooksAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ subjectId: z.string().uuid(), includeInactive: z.boolean().optional() }))
@@ -48,7 +46,6 @@ export const bindSubjectTextbookFile = createServerFn({ method: "POST" })
     z.object({
       subjectId: z.string().uuid(),
       curriculumTrackId: z.string().uuid().nullable(),
-      semester: semesterSchema,
       title: z.string().min(1).max(200),
       path: z.string().min(1).max(500),
       fileName: z.string().min(1).max(300),
@@ -64,7 +61,6 @@ export const bindSubjectTextbookFile = createServerFn({ method: "POST" })
     return m.bindSubjectTextbook(supabaseAdmin as never, context.userId, {
       subjectId: data.subjectId,
       curriculumTrackId: data.curriculumTrackId,
-      semester: data.semester,
       title: data.title,
       path: data.path,
       fileName: data.fileName,

@@ -12,7 +12,6 @@ import { getEntry, removeFile } from "@/lib/offline/pdf-cache";
 export type StudentTextbook = {
   id: string;
   subjectId: string;
-  semester: number | null;
   title: string;
   fileName: string | null;
   fileSize: number | null;
@@ -29,11 +28,10 @@ export type TextbookLocalState = {
 
 export async function listStudentTextbooks(params: {
   subjectId: string;
-  semester?: number | null;
 }): Promise<StudentTextbook[]> {
   const query = (supabase as never as { from: (t: string) => any })
     .from("subject_textbooks")
-    .select("id, subject_id, semester, title, file_name, file_size, version, sort_order")
+    .select("id, subject_id, title, file_name, file_size, version, sort_order")
     .eq("subject_id", params.subjectId)
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
@@ -42,17 +40,9 @@ export async function listStudentTextbooks(params: {
   if (error) throw error;
 
   const rows = (data ?? []) as Array<Record<string, unknown>>;
-  return rows
-    .filter(
-      (r) =>
-        params.semester == null ||
-        r["semester"] == null ||
-        Number(r["semester"]) === Number(params.semester),
-    )
-    .map((r) => ({
+  return rows.map((r) => ({
       id: String(r["id"]),
       subjectId: String(r["subject_id"]),
-      semester: (r["semester"] as number | null) ?? null,
       title: String(r["title"] ?? "كتاب المنهج"),
       fileName: (r["file_name"] as string | null) ?? null,
       fileSize: (r["file_size"] as number | null) ?? null,
