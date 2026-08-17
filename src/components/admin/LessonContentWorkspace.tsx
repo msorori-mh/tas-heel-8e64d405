@@ -126,11 +126,15 @@ export function LessonContentWorkspace({
                 <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
                   <span>آخر تحديث: {fmtDate(cap.updatedAt)}</span>
                   <span className="font-mono">{cap.sourceRef}</span>
+                  {cap.htmlRef && (
+                    <span className="font-mono text-primary">HTML: {cap.htmlRef}</span>
+                  )}
                 </div>
                 {cap.note && (
                   <p className="mt-1 text-[11px] text-amber-600">{cap.note}</p>
                 )}
               </div>
+
               {edit ? (
                 <button
                   onClick={edit}
