@@ -10,8 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
-import heroStudentAsset from "@/assets/prototype/fm-v2-hero-real.png.asset.json";
-const heroStudent = heroStudentAsset.url;
+import heroStudent from "@/assets/hero-tamkeen.png";
 import { PwaInstallHint } from "@/components/pwa/PwaInstallHint";
 
 export const Route = createFileRoute("/")({
@@ -89,48 +88,51 @@ const features: {
   },
 ];
 
+/**
+ * 19D — Landing hero rebuilt on the approved Focused Momentum V2 direction.
+ * Presentation only: same routes, same CTAs, same copy intent.
+ */
+const PILLARS = [
+  { icon: BookOpen, label: "تعلم", tone: "text-primary" },
+  { icon: ClipboardList, label: "تدرب", tone: "text-secondary" },
+  { icon: LineChart, label: "تحسن", tone: "text-accent" },
+  { icon: GraduationCap, label: "استعد للوزاري", tone: "text-[var(--fm-goal)]" },
+];
+
 function HeroSection() {
   return (
-    <section className="relative overflow-hidden px-4 pt-8 pb-10 md:pt-12 md:pb-14">
-      <div className="absolute inset-0 pointer-events-none" aria-hidden>
-        <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-secondary/15 blur-3xl" />
-      </div>
-
-      <div className="container relative mx-auto max-w-5xl">
-        <div className="relative overflow-hidden rounded-3xl bg-hero-gradient shadow-card-hover grid items-center gap-6 p-6 md:grid-cols-2 md:gap-10 md:p-10">
-          <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-white/10 blur-3xl pointer-events-none" aria-hidden />
-          <div className="absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-accent/25 blur-3xl pointer-events-none" aria-hidden />
-
-          <div className="relative text-center md:text-right order-2 md:order-1">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/15 backdrop-blur-sm px-3 py-1 mb-3 text-xs font-medium text-white shadow-card">
-              <Sparkles className="h-3.5 w-3.5" />
+    <section className="px-4 pt-5 pb-6 md:pt-8 md:pb-8">
+      <div className="container mx-auto max-w-[1100px]">
+        <div className="grid items-center gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-8">
+          <div className="order-2 text-center lg:order-1 lg:text-right">
+            <div className="mb-3 inline-flex items-center gap-1.5 rounded-[var(--ds-radius-pill)] bg-muted px-3 py-1 text-[11px] font-semibold text-muted-foreground">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden />
               تمكين طلاب الثانوية
             </div>
 
-            <p className="mb-4 text-sm font-semibold text-white/90">
-              منصتك الذكية للاستعداد للثانوية والاختبارات الوزارية
-            </p>
-
-            <h1 className="text-display mb-4 text-white">
+            <h1 className="text-[24px] font-extrabold leading-[1.5] text-foreground sm:text-[30px] lg:text-[38px]">
               طريقك المنظم للتفوّق في الثانوية
             </h1>
 
-            <p className="text-body-lg mx-auto md:mx-0 mb-6 max-w-lg text-white/85">
-              منصة تعليمية تساعد طلاب الثانوية على المذاكرة، مراجعة الدروس، حل
-              الاختبارات، والتدرب على نماذج تناسب الصف والمنهج والمحافظة.
+            <p className="mx-auto mt-2 max-w-[46ch] text-[15px] leading-[1.9] text-muted-foreground lg:mx-0 sm:text-[16px]">
+              راجع دروسك، تدرب على الاختبارات الوزارية، واعرف نقاط ضعفك يومًا بعد يوم —
+              بمحتوى يناسب صفك ومنهج محافظتك.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-              <Link to="/auth" search={{ mode: "signup" }} className="w-full sm:w-auto">
-                <Button size="lg" className="w-full sm:w-auto gap-2 px-6 py-5 bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
+            <div className="mt-4 flex flex-wrap justify-center gap-2.5 lg:justify-start">
+              <Link to="/auth" search={{ mode: "signup" }}>
+                <Button
+                  size="lg"
+                  className="fm-press fm-grad rounded-xl px-5 py-5 text-[15px] font-bold text-primary-foreground shadow-sm hover:opacity-95"
+                >
                   ابدأ الآن
                 </Button>
               </Link>
-              <Link to="/auth" search={{ mode: "login" }} className="w-full sm:w-auto">
+              <Link to="/auth" search={{ mode: "login" }}>
                 <Button
                   size="lg"
-                  className="w-full sm:w-auto gap-2 px-6 py-5 bg-secondary text-secondary-foreground hover:bg-secondary/90 shadow-lg"
+                  variant="outline"
+                  className="fm-press rounded-xl border-primary/25 bg-card px-5 py-5 text-[15px] font-bold text-primary"
                 >
                   تسجيل الدخول
                 </Button>
@@ -138,28 +140,32 @@ function HeroSection() {
             </div>
           </div>
 
-
-          <div className="relative order-1 md:order-2 flex justify-center">
-            <div className="relative w-full max-w-[280px] sm:max-w-xs md:max-w-sm">
-              <div
-                className="absolute inset-0 bg-white/20 blur-3xl rounded-full"
-                aria-hidden
-              />
-
-              <img
-                src={heroStudent}
-                alt="طالب ثانوي يذاكر عبر المنصة"
-                width={1024}
-                height={1024}
-                className="relative w-full h-auto drop-shadow-xl"
-              />
-            </div>
+          <div className="order-1 lg:order-2">
+            <img
+              src={heroStudent}
+              alt="طالب ثانوي يذاكر عبر منصة تمكين"
+              width={1024}
+              height={1024}
+              className="mx-auto h-auto w-[62%] max-w-[240px] rounded-2xl sm:w-[48%] lg:w-full lg:max-w-[420px]"
+            />
           </div>
         </div>
+
+        <ul className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {PILLARS.map((p) => (
+            <li key={p.label} className="fm-card flex items-center gap-2 px-3 py-2 text-right">
+              <p.icon className={`h-[17px] w-[17px] shrink-0 ${p.tone}`} aria-hidden />
+              <span className="min-w-0 truncate text-[13.5px] font-bold text-foreground">
+                {p.label}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
 }
+
 
 function FeaturesSection() {
   return (
@@ -309,7 +315,7 @@ function CTAFooter() {
 
 function LandingPage() {
   return (
-    <div className="landing-page-bg min-h-screen text-foreground" dir="rtl">
+    <div className="ds-v2 min-h-screen text-foreground" dir="rtl">
       <HeroSection />
       <div className="container mx-auto max-w-5xl px-4">
         <PwaInstallHint />

@@ -710,7 +710,8 @@ function LessonPage() {
   };
 
   return (
-    <article className="space-y-4" dir="rtl">
+    // 19D — route-level Design System V2 opt-in (presentation only).
+    <article className="ds-v2 space-y-3.5" dir="rtl">
       <Breadcrumbs
         subjectName={subject?.name ?? null}
         subjectId={subject?.id ?? null}
