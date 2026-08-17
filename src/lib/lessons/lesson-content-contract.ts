@@ -92,6 +92,11 @@ export interface LessonCapabilityState {
   /** How many concrete rows back it. */
   count: number;
   updatedAt: string | null;
+  /**
+   * 20B — pointer to the backing HTML artifact (resource_code) when the
+   * capability is served by the existing HTML pipeline. Mind map only today.
+   */
+  htmlRef?: string | null;
   /** Operator-only note; never shown to the student. */
   note?: string;
 }
@@ -120,6 +125,9 @@ export interface LessonContentContractInput {
   resources: readonly (CapabilityResourceInput & {
     html_resource_type?: string | null;
     created_at?: string | null;
+    /** HTML pipeline lifecycle: draft | in_review | approved | published. */
+    lifecycle_status?: string | null;
+    resource_code?: string | null;
   })[];
   simulations: readonly { created_at?: string | null }[];
   summaries: readonly {
@@ -204,22 +212,30 @@ export function buildLessonCapabilityContract(
     updatedAt: latest(...input.explanations.map((r) => r.updated_at)),
   });
 
-  /* 3 — mind map (resource-based today; no structured model yet) */
+  /* 3 — mind map — MIND_MAP_SOURCE=HTML (existing html pipeline, no new model) */
   const mindMapRows = [
     ...validOfType(input.resources, "mindmap"),
     ...input.resources.filter(
       (r) => r.html_resource_type === "mindmap" && isValidResourceUrl(r.url),
     ),
-  ];
-  const mindMapCount = new Set(mindMapRows.map((r) => r.id)).size;
+  ].filter((r, i, arr) => arr.findIndex((x) => x.id === r.id) === i);
+  const mindMapCount = mindMapRows.length;
+  const mindMapPublished = mindMapRows.filter(
+    (r) => !r.lifecycle_status || r.lifecycle_status === "published",
+  );
+  const mindMapRef = mindMapRows[0] ?? null;
   const mindMap = state("mindMap", {
     present: mindMapCount > 0,
-    status: mindMapCount > 0 ? "READY" : "ABSENT",
-    studentVisible: mindMapCount > 0 && gateOpen,
-    sourceRef: "lesson_resources(resource_type=mindmap | html_resource_type=mindmap)",
+    status:
+      mindMapCount === 0 ? "ABSENT" : mindMapPublished.length > 0 ? "READY" : "DRAFT",
+    studentVisible: mindMapPublished.length > 0 && gateOpen,
+    sourceRef: "lesson_resources(resource_type=mindmap | html_resource_type=mindmap) [HTML]",
     count: mindMapCount,
     updatedAt: latest(...mindMapRows.map((r) => r.created_at)),
-    ...(mindMapCount > 0 ? { note: "المصدر الحالي ملف/HTML وليس نموذجاً بنيوياً (عقد 20B §5)" } : {}),
+    htmlRef: mindMapRef?.resource_code ?? mindMapRef?.id ?? null,
+    ...(mindMapCount > 0 && mindMapPublished.length === 0
+      ? { note: "خريطة ذهنية HTML بحالة مسودة/مراجعة — غير مرئية للطالب حتى النشر" }
+      : {}),
   });
 
   /* 4 — simulation / interactive activity */
