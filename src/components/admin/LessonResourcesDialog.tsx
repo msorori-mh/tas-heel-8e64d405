@@ -72,6 +72,7 @@ export function LessonResourcesDialog({
 }: Props) {
   const qc = useQueryClient();
   const [rows, setRows] = useState<LessonResourceItem[]>([]);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
@@ -79,6 +80,7 @@ export function LessonResourcesDialog({
     if (open) {
       setErrMsg(null);
       setSaving(false);
+      setDeletedIds([]);
       setRows(
         [...items]
           .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
