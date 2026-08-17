@@ -2934,6 +2934,78 @@ export type Database = {
           },
         ]
       }
+      subject_textbooks: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          curriculum_track_id: string | null
+          file_name: string | null
+          file_size: number | null
+          id: string
+          is_active: boolean
+          semester: number | null
+          sha256: string | null
+          sort_order: number
+          storage_bucket: string
+          storage_path: string
+          subject_id: string
+          title: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          curriculum_track_id?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          is_active?: boolean
+          semester?: number | null
+          sha256?: string | null
+          sort_order?: number
+          storage_bucket?: string
+          storage_path: string
+          subject_id: string
+          title: string
+          updated_at?: string
+          version: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          curriculum_track_id?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          is_active?: boolean
+          semester?: number | null
+          sha256?: string | null
+          sort_order?: number
+          storage_bucket?: string
+          storage_path?: string
+          subject_id?: string
+          title?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subject_textbooks_curriculum_track_id_fkey"
+            columns: ["curriculum_track_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_tracks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subject_textbooks_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subjects: {
         Row: {
           code: string | null
