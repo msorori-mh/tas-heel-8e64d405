@@ -62,12 +62,22 @@ export function LessonContentWorkspace({
   contract,
   onEdit,
   lessonId,
+  lifecycle = {},
+  onTransition,
+  pendingCapability = null,
 }: {
   header: LessonWorkspaceHeader;
   contract: LessonCapabilityContract;
   /** Opens the existing editor dialog for a capability, when one exists. */
   onEdit: Partial<Record<LessonContentCapabilityKey, () => void>>;
   lessonId: string;
+  /** 20C-B — current lifecycle status per capability (staff view). */
+  lifecycle?: Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>>;
+  onTransition?: (
+    capability: LessonContentCapabilityKey,
+    to: LessonCapabilityLifecycleStatus,
+  ) => void;
+  pendingCapability?: LessonContentCapabilityKey | null;
 }) {
   const readiness = computeLessonReadinessLevels(contract);
 
@@ -89,13 +99,15 @@ export function LessonContentWorkspace({
         <Link
           to="/lessons/$lessonId"
           params={{ lessonId }}
+          search={{ preview: 1 }}
           target="_blank"
           className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
         >
           <Eye className="h-3.5 w-3.5" />
-          معاينة كطالب
+          معاينة كطالب (تشمل المسودات)
         </Link>
       </header>
+
 
       <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]">
         {[
