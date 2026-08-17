@@ -87,6 +87,11 @@ export function LessonExplanationsDialog({
     setRows((rs) => rs.filter((r) => r.id !== id));
   };
 
+  const removeSaved = (id: string) => {
+    setRows((rs) => rs.filter((r) => r.id !== id));
+    setDeletedIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  };
+
   const handleSave = async () => {
     if (saving) return;
     setErrMsg(null);
