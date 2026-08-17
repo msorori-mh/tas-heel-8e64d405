@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BookOpen, Target, Trophy, Zap } from "lucide-react";
-import heroImage from "@/assets/prototype/fm-v2-hero.png";
+import heroAsset from "@/assets/prototype/fm-v2-hero-real.png.asset.json";
 import featureImage from "@/assets/prototype/fm-v2-feature.png";
 
 
@@ -81,7 +81,7 @@ function LandingPrototype() {
 
         <div className="order-1 lg:order-2">
           <img
-            src={heroImage}
+            src={heroAsset.url}
             alt="طالب ثانوية يمني يراجع دروسه من هاتفه وكتابه المدرسي"
             width={1024}
             height={1024}
