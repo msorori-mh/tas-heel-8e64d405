@@ -325,7 +325,7 @@ function AdminLessonDetailPage() {
               {(lesson as any).title}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              تفاصيل الدرس — قراءة فقط.
+              إدارة محتوى الدرس وقدراته التعليمية.
             </p>
           </div>
           <Link
@@ -335,6 +335,27 @@ function AdminLessonDetailPage() {
             <ArrowRight className="h-4 w-4" />
             قائمة الدروس
           </Link>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-12 justify-start gap-2"
+            onClick={() => setOpenExplanationsDialog(true)}
+          >
+            <FileText className="h-4 w-4 text-primary" />
+            إدارة الشروحات وحذفها
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-12 justify-start gap-2"
+            onClick={() => setOpenResourcesDialog(true)}
+          >
+            <FolderOpen className="h-4 w-4 text-primary" />
+            إدارة الموارد وحذفها
+          </Button>
         </div>
 
         <LessonContentWorkspace
