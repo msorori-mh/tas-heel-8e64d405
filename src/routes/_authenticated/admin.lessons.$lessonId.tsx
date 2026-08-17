@@ -94,7 +94,7 @@ function AdminLessonDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_summaries")
-        .select("id, summary, key_points, study_tip")
+        .select("id, summary, key_points, study_tip, updated_at")
         .eq("lesson_id", lessonId);
       if (error) throw error;
       const rows = data ?? [];
@@ -107,6 +107,7 @@ function AdminLessonDetailPage() {
           key_points: r.key_points,
           study_tip: r.study_tip,
         })),
+        raw: rows,
         count: rows.length,
         keyPointsCount: kp.length,
         preview: first?.summary ? first.summary.slice(0, 200) : "",
@@ -120,7 +121,7 @@ function AdminLessonDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_explanations")
-        .select("id, lesson_id, title, content, sort_order")
+        .select("id, lesson_id, title, content, sort_order, updated_at")
         .eq("lesson_id", lessonId)
         .order("sort_order", { ascending: true });
       if (error) throw error;
