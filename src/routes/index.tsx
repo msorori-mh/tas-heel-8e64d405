@@ -115,8 +115,8 @@ function HeroSection() {
             </h1>
 
             <p className="mx-auto mt-2 max-w-[46ch] text-[15px] leading-[1.9] text-muted-foreground lg:mx-0 sm:text-[16px]">
-              راجع دروسك، تدرب على الاختبارات الوزارية، واعرف نقاط ضعفك يومًا بعد يوم —
-              بمحتوى يناسب صفك ومنهج محافظتك.
+              راجع دروسك، تدرب على اختبارات محاكاة، واعرف نقاط ضعفك يومًا بعد يوم —
+              بمحتوى يناسب منهجك الدراسي.
             </p>
 
             <div className="mt-4 flex flex-wrap justify-center gap-2.5 lg:justify-start">
