@@ -36,10 +36,14 @@ import { Route as AuthenticatedMyMistakesRouteImport } from './routes/_authentic
 import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as Prototype19aIndexRouteImport } from './routes/prototype.19a.index'
 import { Route as AuthenticatedSemestersIndexRouteImport } from './routes/_authenticated/semesters.index'
 import { Route as AuthenticatedPaymentsIndexRouteImport } from './routes/_authenticated/payments.index'
 import { Route as AuthenticatedMinisterialExamsIndexRouteImport } from './routes/_authenticated/ministerial-exams.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as Prototype19aLessonRouteImport } from './routes/prototype.19a.lesson'
+import { Route as Prototype19aLandingRouteImport } from './routes/prototype.19a.landing'
+import { Route as Prototype19aHomeRouteImport } from './routes/prototype.19a.home'
 import { Route as ApiLessonFileResourceIdRouteImport } from './routes/api/lesson-file.$resourceId'
 import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedSemestersSemesterRouteImport } from './routes/_authenticated/semesters.$semester'
@@ -216,6 +220,11 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const Prototype19aIndexRoute = Prototype19aIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => Prototype19aRoute,
+} as any)
 const AuthenticatedSemestersIndexRoute =
   AuthenticatedSemestersIndexRouteImport.update({
     id: '/semesters/',
@@ -238,6 +247,21 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const Prototype19aLessonRoute = Prototype19aLessonRouteImport.update({
+  id: '/lesson',
+  path: '/lesson',
+  getParentRoute: () => Prototype19aRoute,
+} as any)
+const Prototype19aLandingRoute = Prototype19aLandingRouteImport.update({
+  id: '/landing',
+  path: '/landing',
+  getParentRoute: () => Prototype19aRoute,
+} as any)
+const Prototype19aHomeRoute = Prototype19aHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => Prototype19aRoute,
 } as any)
 const ApiLessonFileResourceIdRoute = ApiLessonFileResourceIdRouteImport.update({
   id: '/api/lesson-file/$resourceId',
@@ -485,7 +509,7 @@ export interface FileRoutesByFullPath {
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
-  '/prototype/19a': typeof Prototype19aRoute
+  '/prototype/19a': typeof Prototype19aRouteWithChildren
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/admin/content-review': typeof AuthenticatedAdminContentReviewRoute
   '/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
@@ -509,10 +533,14 @@ export interface FileRoutesByFullPath {
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/prototype/19a/home': typeof Prototype19aHomeRoute
+  '/prototype/19a/landing': typeof Prototype19aLandingRoute
+  '/prototype/19a/lesson': typeof Prototype19aLessonRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/ministerial-exams/': typeof AuthenticatedMinisterialExamsIndexRoute
   '/payments/': typeof AuthenticatedPaymentsIndexRoute
   '/semesters/': typeof AuthenticatedSemestersIndexRoute
+  '/prototype/19a/': typeof Prototype19aIndexRoute
   '/admin/learning-insights/mistakes': typeof AuthenticatedAdminLearningInsightsMistakesRoute
   '/admin/learning-insights/performance': typeof AuthenticatedAdminLearningInsightsPerformanceRoute
   '/admin/learning-insights/quick-review': typeof AuthenticatedAdminLearningInsightsQuickReviewRoute
@@ -552,7 +580,6 @@ export interface FileRoutesByTo {
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
-  '/prototype/19a': typeof Prototype19aRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/admin/content-review': typeof AuthenticatedAdminContentReviewRoute
   '/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
@@ -576,10 +603,14 @@ export interface FileRoutesByTo {
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/prototype/19a/home': typeof Prototype19aHomeRoute
+  '/prototype/19a/landing': typeof Prototype19aLandingRoute
+  '/prototype/19a/lesson': typeof Prototype19aLessonRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/ministerial-exams': typeof AuthenticatedMinisterialExamsIndexRoute
   '/payments': typeof AuthenticatedPaymentsIndexRoute
   '/semesters': typeof AuthenticatedSemestersIndexRoute
+  '/prototype/19a': typeof Prototype19aIndexRoute
   '/admin/learning-insights/mistakes': typeof AuthenticatedAdminLearningInsightsMistakesRoute
   '/admin/learning-insights/performance': typeof AuthenticatedAdminLearningInsightsPerformanceRoute
   '/admin/learning-insights/quick-review': typeof AuthenticatedAdminLearningInsightsQuickReviewRoute
@@ -623,7 +654,7 @@ export interface FileRoutesById {
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
-  '/prototype/19a': typeof Prototype19aRoute
+  '/prototype/19a': typeof Prototype19aRouteWithChildren
   '/_authenticated/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/_authenticated/admin/content-review': typeof AuthenticatedAdminContentReviewRoute
   '/_authenticated/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
@@ -647,10 +678,14 @@ export interface FileRoutesById {
   '/_authenticated/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/prototype/19a/home': typeof Prototype19aHomeRoute
+  '/prototype/19a/landing': typeof Prototype19aLandingRoute
+  '/prototype/19a/lesson': typeof Prototype19aLessonRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/ministerial-exams/': typeof AuthenticatedMinisterialExamsIndexRoute
   '/_authenticated/payments/': typeof AuthenticatedPaymentsIndexRoute
   '/_authenticated/semesters/': typeof AuthenticatedSemestersIndexRoute
+  '/prototype/19a/': typeof Prototype19aIndexRoute
   '/_authenticated/admin/learning-insights/mistakes': typeof AuthenticatedAdminLearningInsightsMistakesRoute
   '/_authenticated/admin/learning-insights/performance': typeof AuthenticatedAdminLearningInsightsPerformanceRoute
   '/_authenticated/admin/learning-insights/quick-review': typeof AuthenticatedAdminLearningInsightsQuickReviewRoute
@@ -718,10 +753,14 @@ export interface FileRouteTypes {
     | '/semesters/$semester'
     | '/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/prototype/19a/home'
+    | '/prototype/19a/landing'
+    | '/prototype/19a/lesson'
     | '/admin/'
     | '/ministerial-exams/'
     | '/payments/'
     | '/semesters/'
+    | '/prototype/19a/'
     | '/admin/learning-insights/mistakes'
     | '/admin/learning-insights/performance'
     | '/admin/learning-insights/quick-review'
@@ -761,7 +800,6 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/auth/callback'
     | '/preview/structured-textbook-20a1b'
-    | '/prototype/19a'
     | '/admin/academic'
     | '/admin/content-review'
     | '/admin/curriculum'
@@ -785,10 +823,14 @@ export interface FileRouteTypes {
     | '/semesters/$semester'
     | '/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/prototype/19a/home'
+    | '/prototype/19a/landing'
+    | '/prototype/19a/lesson'
     | '/admin'
     | '/ministerial-exams'
     | '/payments'
     | '/semesters'
+    | '/prototype/19a'
     | '/admin/learning-insights/mistakes'
     | '/admin/learning-insights/performance'
     | '/admin/learning-insights/quick-review'
@@ -855,10 +897,14 @@ export interface FileRouteTypes {
     | '/_authenticated/semesters/$semester'
     | '/_authenticated/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/prototype/19a/home'
+    | '/prototype/19a/landing'
+    | '/prototype/19a/lesson'
     | '/_authenticated/admin/'
     | '/_authenticated/ministerial-exams/'
     | '/_authenticated/payments/'
     | '/_authenticated/semesters/'
+    | '/prototype/19a/'
     | '/_authenticated/admin/learning-insights/mistakes'
     | '/_authenticated/admin/learning-insights/performance'
     | '/_authenticated/admin/learning-insights/quick-review'
@@ -890,7 +936,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   AdminLoginRoute: typeof AdminLoginRoute
   PreviewStructuredTextbook20a1bRoute: typeof PreviewStructuredTextbook20a1bRoute
-  Prototype19aRoute: typeof Prototype19aRoute
+  Prototype19aRoute: typeof Prototype19aRouteWithChildren
   ApiLessonFileResourceIdRoute: typeof ApiLessonFileResourceIdRoute
 }
 
@@ -1085,6 +1131,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/prototype/19a/': {
+      id: '/prototype/19a/'
+      path: '/'
+      fullPath: '/prototype/19a/'
+      preLoaderRoute: typeof Prototype19aIndexRouteImport
+      parentRoute: typeof Prototype19aRoute
+    }
     '/_authenticated/semesters/': {
       id: '/_authenticated/semesters/'
       path: '/semesters'
@@ -1112,6 +1165,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/prototype/19a/lesson': {
+      id: '/prototype/19a/lesson'
+      path: '/lesson'
+      fullPath: '/prototype/19a/lesson'
+      preLoaderRoute: typeof Prototype19aLessonRouteImport
+      parentRoute: typeof Prototype19aRoute
+    }
+    '/prototype/19a/landing': {
+      id: '/prototype/19a/landing'
+      path: '/landing'
+      fullPath: '/prototype/19a/landing'
+      preLoaderRoute: typeof Prototype19aLandingRouteImport
+      parentRoute: typeof Prototype19aRoute
+    }
+    '/prototype/19a/home': {
+      id: '/prototype/19a/home'
+      path: '/home'
+      fullPath: '/prototype/19a/home'
+      preLoaderRoute: typeof Prototype19aHomeRouteImport
+      parentRoute: typeof Prototype19aRoute
     }
     '/api/lesson-file/$resourceId': {
       id: '/api/lesson-file/$resourceId'
@@ -1579,6 +1653,24 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface Prototype19aRouteChildren {
+  Prototype19aHomeRoute: typeof Prototype19aHomeRoute
+  Prototype19aLandingRoute: typeof Prototype19aLandingRoute
+  Prototype19aLessonRoute: typeof Prototype19aLessonRoute
+  Prototype19aIndexRoute: typeof Prototype19aIndexRoute
+}
+
+const Prototype19aRouteChildren: Prototype19aRouteChildren = {
+  Prototype19aHomeRoute: Prototype19aHomeRoute,
+  Prototype19aLandingRoute: Prototype19aLandingRoute,
+  Prototype19aLessonRoute: Prototype19aLessonRoute,
+  Prototype19aIndexRoute: Prototype19aIndexRoute,
+}
+
+const Prototype19aRouteWithChildren = Prototype19aRoute._addFileChildren(
+  Prototype19aRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
@@ -1594,7 +1686,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   AdminLoginRoute: AdminLoginRoute,
   PreviewStructuredTextbook20a1bRoute: PreviewStructuredTextbook20a1bRoute,
-  Prototype19aRoute: Prototype19aRoute,
+  Prototype19aRoute: Prototype19aRouteWithChildren,
   ApiLessonFileResourceIdRoute: ApiLessonFileResourceIdRoute,
 }
 export const routeTree = rootRouteImport

@@ -465,3 +465,19 @@ html[dir="rtl"] body {
 @utility fm-bar {
   transition: width 320ms cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Signature purple/cyan gradient — accent surfaces only. */
+@utility fm-grad {
+  background-image: var(--fm-signature);
+}
+
+.fm-v2 .fm-read {
+  font-size: 16px;
+  line-height: 1.95;
+}
+@media (min-width: 640px) {
+  .fm-v2 .fm-read {
+    font-size: 17px;
+  }
+}
+
