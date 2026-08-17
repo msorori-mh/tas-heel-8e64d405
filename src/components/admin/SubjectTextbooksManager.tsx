@@ -208,18 +208,13 @@ export function SubjectTextbooksManager() {
               </select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">الفصل الدراسي</Label>
-              <select
-                value={semester}
-                onChange={(e) => setSemester(e.target.value as "1" | "2" | "")}
-                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
-              >
-                <option value="">كل الفصول</option>
-                <option value="1">الفصل الأول</option>
-                <option value="2">الفصل الثاني</option>
-              </select>
+              <Label className="text-xs">التغطية</Label>
+              <div className="flex h-10 items-center rounded-lg border border-border bg-muted/40 px-3 text-xs text-muted-foreground">
+                كتاب واحد يغطي الفصلين
+              </div>
             </div>
           </div>
+
 
           <input
             ref={fileRef}
