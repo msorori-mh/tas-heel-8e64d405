@@ -130,8 +130,8 @@ function TextbookRow({ book, onOpen }: { book: StudentTextbook; onOpen: () => vo
     void refresh();
   }, [refresh]);
   useEffect(() => {
-    if (local?.status === "READY") prefetchPdfViewerChunk();
-  }, [local?.status]);
+    if (local?.cached) prefetchPdfViewerChunk();
+  }, [local?.cached]);
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const start = async () => {
