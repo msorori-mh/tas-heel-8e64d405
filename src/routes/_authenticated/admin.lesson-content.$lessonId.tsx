@@ -14,7 +14,7 @@ import { buildLessonCapabilityContract } from "@/lib/lessons/lesson-content-cont
 import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil } from "lucide-react";
 
 
-export const Route = createFileRoute("/_authenticated/admin/lessons/$lessonId")({
+export const Route = createFileRoute("/_authenticated/admin/lesson-content/$lessonId")({
   component: AdminLessonDetailPage,
 });
 
