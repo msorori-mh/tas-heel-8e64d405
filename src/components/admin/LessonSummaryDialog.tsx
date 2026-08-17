@@ -149,12 +149,23 @@ export function LessonSummaryDialog({
         <DialogHeader>
           <DialogTitle className="text-right flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            تحرير ملخص الدرس
+            🧠 المراجعة السريعة
           </DialogTitle>
           <DialogDescription className="text-right">
-            {lessonTitle ? `الدرس: ${lessonTitle}` : "تحرير ملخص الدرس."}
+            {lessonTitle ? `الدرس: ${lessonTitle}` : "تحرير المراجعة السريعة للدرس."}
           </DialogDescription>
         </DialogHeader>
+
+        {/* 20D1 §2 — Quick Review هي طبقة تعلّم من تمكين، وليست نص الكتاب. */}
+        <div className="rounded-md border border-primary/25 bg-primary/5 px-3 py-2 text-[11px] leading-5 text-muted-foreground text-right">
+          المراجعة السريعة طبقة تعلّم من إعداد تمكين: أهم الأفكار، النقاط التي يجب
+          تذكّرها، المفاهيم الرئيسية، وتنبيهات على الأخطاء الشائعة.
+          <span className="block text-amber-600">
+            لا تنسخ نص الكتاب الرسمي أو «تقويم الكتاب» هنا.
+          </span>
+          بعد الحفظ لن يراها الطالب حتى تمر بالمسار: مسودة ← مراجعة ← اعتماد.
+        </div>
+
 
         {tooMany && (
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 text-right">
