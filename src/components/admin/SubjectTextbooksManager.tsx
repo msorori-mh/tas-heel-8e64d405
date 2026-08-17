@@ -311,7 +311,12 @@ export function SubjectTextbooksManager() {
                 className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 p-3 text-xs"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">{book.title}</p>
+                  <p className="flex flex-wrap items-center gap-2 truncate text-sm font-semibold text-foreground">
+                    {book.title}
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                      {BOOK_TYPE_LABEL[book.bookType]}
+                    </span>
+                  </p>
                   <p className="text-muted-foreground">
                     {trackName(book.curriculumTrackId)} ·{" "}
                     {book.coverageType === "SEMESTER_SPECIFIC"
@@ -321,6 +326,7 @@ export function SubjectTextbooksManager() {
                     {formatBytes(book.fileSize)} · إصدار {book.version.slice(0, 6)} ·{" "}
                     {book.isActive ? "مفعّل" : "معطّل"}
                   </p>
+
                   <p className="text-muted-foreground">
                     آخر تحديث:{" "}
                     {book.updatedAt ? new Date(book.updatedAt).toLocaleDateString("ar") : "—"}
