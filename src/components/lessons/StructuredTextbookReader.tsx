@@ -40,7 +40,7 @@ function QuranBlock({ block }: { block: StructuredBlock }) {
       {block.ayahs.map((ayah, i) => (
         <p
           key={i}
-          className="text-center text-[19px] font-medium leading-[2.5] text-foreground sm:text-[21px]"
+          className="whitespace-pre-line text-center text-[19px] font-medium leading-[2.5] text-foreground sm:text-[21px]"
         >
           {ayah.text_exact}
         </p>
@@ -60,14 +60,14 @@ function VerseMeanings({ items }: { items: string[] }) {
       {items.map((item, i) => {
         const idx = item.indexOf(" : ");
         const term = idx > 0 ? item.slice(0, idx) : null;
-        const meaning = idx > 0 ? item.slice(idx + 1) : item;
+        const meaning = idx > 0 ? item.slice(idx + 3) : item;
         return (
           <div
             key={i}
             className="rounded-xl border-r-4 border-primary/40 bg-muted/40 px-3 py-2.5 sm:px-4"
           >
             {term && (
-              <dt className="mb-1 text-[15px] font-bold leading-[2] text-foreground">{term}</dt>
+              <dt className="mb-1 text-[15px] font-bold leading-[2] text-foreground">{term} :</dt>
             )}
             <dd className="text-[15px] leading-[2.1] text-card-foreground">{meaning}</dd>
           </div>
