@@ -219,7 +219,21 @@ export function SubjectTextbooksManager() {
               </select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">نوع التغطية</Label>
+              <Label className="text-xs">نوع الكتاب</Label>
+              <select
+                value={bookType}
+                onChange={(e) =>
+                  setBookType(e.target.value as "MAIN_TEXTBOOK" | "EXERCISE_BOOK" | "OTHER")
+                }
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
+              >
+                <option value="MAIN_TEXTBOOK">الكتاب الأساسي</option>
+                <option value="EXERCISE_BOOK">كتاب التمارين</option>
+                <option value="OTHER">ملحق / آخر</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">نطاق الكتاب</Label>
               <select
                 value={coverageType}
                 onChange={(e) =>
@@ -227,11 +241,12 @@ export function SubjectTextbooksManager() {
                 }
                 className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
               >
-                <option value="FULL_ACADEMIC_YEAR">يغطي العام الدراسي كاملاً</option>
-                <option value="SEMESTER_SPECIFIC">خاص بفصل دراسي</option>
+                <option value="FULL_ACADEMIC_YEAR">العام الدراسي كاملاً</option>
+                <option value="SEMESTER_SPECIFIC">فصل محدد</option>
               </select>
             </div>
           </div>
+
 
           {coverageType === "SEMESTER_SPECIFIC" && (
             <div className="max-w-xs space-y-1">
