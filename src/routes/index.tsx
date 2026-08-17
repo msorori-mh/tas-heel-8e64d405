@@ -10,7 +10,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
-import heroStudent from "@/assets/hero-student.png";
+import heroStudentAsset from "@/assets/prototype/fm-v2-hero-real.png.asset.json";
+const heroStudent = heroStudentAsset.url;
 import { PwaInstallHint } from "@/components/pwa/PwaInstallHint";
 
 export const Route = createFileRoute("/")({
