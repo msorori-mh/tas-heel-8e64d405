@@ -179,13 +179,27 @@ function validOfType(
 
 function state(
   key: LessonContentCapabilityKey,
-  partial: Omit<LessonCapabilityState, "key" | "label" | "icon">,
+  partial: Omit<LessonCapabilityState, "key" | "label" | "icon" | "readinessReason"> & {
+    readinessReason?: CapabilityReadinessReason | null;
+  },
 ): LessonCapabilityState {
+  const derived: CapabilityReadinessReason | null =
+    partial.status === "ABSENT"
+      ? "NOT_ENTERED"
+      : partial.status === "INVALID"
+        ? "INVALID_DATA"
+        : partial.status === "DRAFT"
+          ? "DRAFT_NOT_PUBLISHED"
+          : partial.studentVisible
+            ? null
+            : "ACCESS_GATED";
+
   return {
     key,
     label: CAPABILITY_LABEL_AR[key],
     icon: CAPABILITY_ICON_AR[key],
     ...partial,
+    readinessReason: partial.readinessReason ?? derived,
   };
 }
 
