@@ -45,6 +45,7 @@ export function LessonExplanationsDialog({
 }: Props) {
   const qc = useQueryClient();
   const [rows, setRows] = useState<LessonExplanationItem[]>([]);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
@@ -52,6 +53,7 @@ export function LessonExplanationsDialog({
     if (open) {
       setErrMsg(null);
       setSaving(false);
+      setDeletedIds([]);
       setRows(
         [...items]
           .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
@@ -85,6 +87,11 @@ export function LessonExplanationsDialog({
     setRows((rs) => rs.filter((r) => r.id !== id));
   };
 
+  const removeSaved = (id: string) => {
+    setRows((rs) => rs.filter((r) => r.id !== id));
+    setDeletedIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  };
+
   const handleSave = async () => {
     if (saving) return;
     setErrMsg(null);
@@ -106,6 +113,14 @@ export function LessonExplanationsDialog({
 
     setSaving(true);
     try {
+      if (deletedIds.length > 0) {
+        const { error } = await supabase
+          .from("lesson_explanations")
+          .delete()
+          .in("id", deletedIds);
+        if (error) throw error;
+      }
+
       for (const r of rows) {
         const titleTrim = (r.title ?? "").trim();
         const titleOrNull = titleTrim.length > 0 ? titleTrim : null;
@@ -173,10 +188,16 @@ export function LessonExplanationsDialog({
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
-            يمكنك تعديل الشروحات الموجودة وإضافة شروحات جديدة. حذف الشروحات
-            المحفوظة سيتم دعمه لاحقًا.
+            يمكنك تعديل الشروحات الموجودة، وإضافة شروحات جديدة، وحذف الشروحات
+            المحفوظة. الحذف يُنفَّذ نهائيًا عند الضغط على «حفظ».
+            {deletedIds.length > 0 ? (
+              <strong className="block mt-1">
+                سيتم حذف {deletedIds.length} شرح نهائيًا عند الحفظ.
+              </strong>
+            ) : null}
           </span>
         </div>
+
 
         {errMsg && (
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive text-right">
@@ -206,23 +227,19 @@ export function LessonExplanationsDialog({
                         </span>
                       )}
                     </span>
-                    {local ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeLocal(r.id)}
-                        disabled={saving}
-                        className="h-7 px-2 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 ml-1" />
-                        حذف من الواجهة
-                      </Button>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground">
-                        حذف الشرح المحفوظ سيتم دعمه لاحقًا.
-                      </span>
-                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        local ? removeLocal(r.id) : removeSaved(r.id)
+                      }
+                      disabled={saving}
+                      className="h-7 px-2 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 ml-1" />
+                      {local ? "حذف من الواجهة" : "حذف الشرح"}
+                    </Button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
