@@ -1,0 +1,118 @@
+# TAMKEEN_SUBJECT_TEXTBOOK_MULTI_BOOK_TYPES_21B_A3_PRODUCTION_APPLY
+
+تاريخ التنفيذ: 2026-08-17 (UTC) · النطاق: ترحيلة 21B-A3 فقط · لا نشر ولا Deploy ولا رفع ملفات.
+
+## G0 — PRE-APPLY LOCK
+
+```
+CURRENT_HEAD_SHA=6ae340ff72dadd2792dfa8fcc674285dd089c0f4
+MIGRATION_FILENAME=docs/migrations-pending/20260825010000_subject_textbook_multi_book_types_21b_a3.sql
+MIGRATION_SHA256=78d2ca49fa48ad75af499bd00c153546d94e8021415198766066cb1cb0bf9e6c
+FILE_UNCHANGED_SINCE_PG17_SUITE=YES
+PG17_UPGRADE=PASS · PG17_FRESH=PASS · PG17_IDEMPOTENT=PASS · PG17_RLS=PASS · PG17_ROLLBACK=PASS
+```
+
+## G1 — PRODUCTION BASELINE
+
+```
+SUBJECT_TEXTBOOK_ROWS_BEFORE=0   → المتابعة مسموحة
+```
+
+## G2 — AUTHORIZED MODEL (بعد التطبيق)
+
+```
+BOOK_TYPE_MODEL=book_type text NOT NULL DEFAULT 'MAIN_TEXTBOOK'
+  CHECK (book_type IN ('MAIN_TEXTBOOK','EXERCISE_BOOK','OTHER'))
+COVERAGE_MODEL=coverage_type text NOT NULL DEFAULT 'FULL_ACADEMIC_YEAR'
+  CHECK ((FULL_ACADEMIC_YEAR AND semester IS NULL) OR (SEMESTER_SPECIFIC AND semester IN (1,2)))
+DIMENSIONS_INDEPENDENT=YES (لا قيد يربط book_type بـ coverage_type أو بالفصل)
+```
+
+## G3 — MULTI-BOOK SUPPORT
+
+```
+MAIN_TEXTBOOK_SUPPORTED=YES
+EXERCISE_BOOK_SUPPORTED=YES
+OTHER_SUPPORTED=YES
+MULTI_BOOK_SUPPORT=YES
+الحالات الست كلها ممكنة: MAIN/EXERCISE × (FULL_ACADEMIC_YEAR | SEM1 | SEM2)
+UNIQUE_CONSTRAINT=subject_textbooks_scope_path_uidx
+  (subject_id, COALESCE(curriculum_track_id,'000…0'), book_type, coverage_type, COALESCE(semester,0), storage_path)
+  — يمنع تكرار السجل نفسه فقط، ولا يمنع كتباً حقيقية متعددة لنفس المادة/المسار.
+DISCOVERY_INDEX=subject_textbooks_subject_idx (subject_id, book_type, coverage_type, semester, sort_order)
+```
+
+## G4 — SECURITY
+
+```
+RLS_ENABLED=YES (relrowsecurity = t)
+POLICIES=2 SELECT فقط: «Content staff read all textbooks» و«Students read entitled active textbooks»
+ACL=authenticated: SELECT فقط · service_role: ALL · anon/PUBLIC: لا شيء
+ANON_WRITE=ZERO
+STUDENT_WRITE=ZERO
+AUTHORIZED_STUDENT_READ_ONLY=YES
+CROSS_GRADE_ACCESS=DENY (سياسة الطالب تمرّ عبر تخويل المادة/الصف كما في 21B)
+CROSS_TRACK_ACCESS=DENY (فلترة curriculum_track_id ضمن سياسة الطالب)
+BOOK_TYPE_EXPANDS_STUDENT_SCOPE=NO
+```
+
+## G5 — ADMIN CONTRACT (عقد الواجهة، بدون Deploy)
+
+```
+FLOW=المادة → المسار → نوع الكتاب → نطاق التغطية
+FULL_ACADEMIC_YEAR → لا يظهر محدد الفصل (وتُرسل semester=null)
+SEMESTER_SPECIFIC → يظهر: الفصل الأول / الفصل الثاني
+REPLACE_PRESERVES_BOOK_TYPE=YES
+DEPLOY=NO
+```
+
+## G6 — STUDENT CONTRACT
+
+```
+ORDER=MAIN_TEXTBOOK → EXERCISE_BOOK → OTHER (ثم sort_order)
+BADGES=الكتاب الأساسي / كتاب التمارين / ملحق
+FULL_YEAR_VISIBLE_IN_BOTH_SEMESTERS=YES
+SEMESTER_SPECIFIC_VISIBLE_IN_ITS_SEMESTER_ONLY=YES
+```
+
+## G7 — OFFLINE CONTRACT
+
+```
+OFFLINE_CACHE_MODEL=cache key = TEXTBOOK_ID (+ version للإبطال)
+FULL_YEAR_MAIN_DOWNLOAD_ONCE=YES
+FULL_YEAR_EXERCISE_DOWNLOAD_ONCE=YES
+SAME_TEXTBOOK_SAME_CACHE_KEY=YES
+MAIN_AND_EXERCISE_CACHE_KEYS_DIFFER=YES
+SEMESTER_1_AND_2_BOOKS_INDEPENDENT=YES
+```
+
+## G8 — REGRESSION
+
+```
+SUBJECT_TEXTBOOK_ROWS_AFTER=0
+TEXTBOOK_ROWS_CREATED=0
+LESSON_RESOURCES=40 (unchanged)
+QURAN_LESSON_01=PASS
+STRUCTURED_READER=31/31
+FIGURES=3/3
+18B=PASS
+STORAGE_MUTATIONS=0
+```
+
+## G9 — MIGRATION HISTORY
+
+```
+MIGRATION_APPLIED=1
+ADDITIONAL_MIGRATIONS=0
+PRODUCTION_MIGRATION_HISTORY_UPDATED=YES
+MANUAL_SQL_REQUIRED=NO
+```
+
+## الحكم
+
+```
+PUBLISH=NO
+DEPLOY=NO
+TAMKEEN_SUBJECT_TEXTBOOK_MULTI_BOOK_TYPES_21B_A3_PRODUCTION_APPLY
+= PASS_READY_FOR_FINAL_21B_REAL_BOOK_E2E
+```
