@@ -9,6 +9,7 @@ export const CONTENT_MANAGER_ADMIN_PATHS = [
   "/admin/subjects",
   "/admin/units",
   "/admin/lessons",
+  "/admin/textbooks",
   "/admin/questions",
   "/admin/exam-templates",
   "/admin/ministerial-exams",
@@ -59,6 +60,7 @@ type SidebarLink = {
     | "/admin/subjects"
     | "/admin/units"
     | "/admin/lessons"
+    | "/admin/textbooks"
     | "/admin/questions"
     | "/admin/exam-templates"
     | "/admin/ministerial-exams"

@@ -2,14 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { SubjectTextbooksManager } from "@/components/admin/SubjectTextbooksManager";
-import { useAdminRouteGuard } from "@/lib/admin-route-access";
+import { useRequireAdminSection } from "@/lib/admin-route-access";
 
 export const Route = createFileRoute("/_authenticated/admin/textbooks")({
   component: AdminTextbooksPage,
 });
 
 function AdminTextbooksPage() {
-  useAdminRouteGuard("/admin/textbooks");
+  useRequireAdminSection("content");
 
   return (
     <AdminLayout>
