@@ -78,6 +78,13 @@ export const CAPABILITY_ICON_AR: Record<LessonContentCapabilityKey, string> = {
  */
 export type CapabilityStatus = "ABSENT" | "DRAFT" | "READY" | "INVALID";
 
+/** 20B §1 — why a capability is not student-ready. */
+export type CapabilityReadinessReason =
+  | "NOT_ENTERED"
+  | "DRAFT_NOT_PUBLISHED"
+  | "INVALID_DATA"
+  | "ACCESS_GATED";
+
 export interface LessonCapabilityState {
   key: LessonContentCapabilityKey;
   label: string;
