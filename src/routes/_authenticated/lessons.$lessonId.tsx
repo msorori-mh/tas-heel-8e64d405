@@ -535,7 +535,14 @@ function LessonPage() {
   });
 
   // 20B §4/§5 — visibility from 18B, canonical order from the 20B contract.
-  const actions = orderStudentCapabilities(visibleLessonCapabilities(capabilities));
+  // 20C-B §5 — plus the editorial gate (skipped in staff preview mode).
+  const gatedCapabilities = previewMode
+    ? visibleLessonCapabilities(capabilities)
+    : filterStudentCapabilitiesByLifecycle(visibleLessonCapabilities(capabilities), {
+        managed: lifecycleGate?.managed === true,
+        readyKeys: lifecycleGate?.readyKeys ?? new Set<string>(),
+      });
+  const actions = orderStudentCapabilities(gatedCapabilities);
   const lessonProgress = computeLessonProgress(capabilities);
   const primaryCapability = capabilities.find((c) => c.type === "PRIMARY_CONTENT");
   const primaryUnavailable = !primaryCapability?.available || !primaryCapability?.studentVisible;
