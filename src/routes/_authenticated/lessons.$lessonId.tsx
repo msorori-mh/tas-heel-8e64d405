@@ -564,6 +564,14 @@ function LessonPage() {
     ((resources ?? []).find((r) => r.is_primary === true) as unknown as PrimaryLessonResource) ??
     null;
 
+  const showOriginalBookPdf =
+    originalPdfGateOpen &&
+    canAccessEnhancements &&
+    primaryCapability?.source === "book_content" &&
+    effectivePrimary?.resource_type === "pdf" &&
+    !!effectivePrimary.url;
+
+
   const renderCapabilityBody = (capability: LessonCapability) => {
     switch (capability.type) {
       case "PRIMARY_CONTENT":
