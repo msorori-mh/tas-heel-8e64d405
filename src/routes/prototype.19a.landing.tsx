@@ -90,13 +90,13 @@ function LandingPrototype() {
         </div>
       </section>
 
-      <ul className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      <ul className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         {PILLARS.map((p) => {
           const Icon = p.icon;
           return (
-            <li key={p.label} className="fm-card flex items-center gap-2 px-3 py-2.5 text-right">
-              <Icon className={`h-[18px] w-[18px] shrink-0 ${p.tone}`} aria-hidden />
-              <span className="min-w-0 truncate text-[14px] font-bold text-foreground">
+            <li key={p.label} className="fm-card flex items-center gap-2 px-3 py-2 text-right">
+              <Icon className={`h-[17px] w-[17px] shrink-0 ${p.tone}`} aria-hidden />
+              <span className="min-w-0 truncate text-[13.5px] font-bold text-foreground">
                 {p.label}
               </span>
             </li>
@@ -104,10 +104,10 @@ function LandingPrototype() {
         })}
       </ul>
 
-      <section className="fm-card mt-5 grid items-center gap-4 px-4 py-4 text-right sm:grid-cols-[minmax(0,1fr)_auto]">
+      <section className="fm-card mt-4 grid items-center gap-3 px-4 py-3.5 text-right sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="min-w-0">
-          <h2 className="text-[16px] font-bold text-foreground">لماذا تمكين؟</h2>
-          <p className="mt-1.5 text-[14.5px] leading-[1.95] text-muted-foreground">
+          <h2 className="text-[15.5px] font-bold text-foreground">لماذا تمكين؟</h2>
+          <p className="mt-1 text-[14px] leading-[1.95] text-muted-foreground">
             محتوى الكتاب الوزاري الرسمي داخل التطبيق، نماذج امتحانات سابقة حقيقية، وتحليل يوضح
             مستواك في كل مادة — يعمل حتى مع إنترنت ضعيف.
           </p>
@@ -118,7 +118,7 @@ function LandingPrototype() {
           loading="lazy"
           width={1024}
           height={1024}
-          className="mx-auto h-auto w-[46%] max-w-[170px] sm:w-[150px]"
+          className="mx-auto h-auto w-[40%] max-w-[150px] sm:w-[130px]"
         />
       </section>
     </main>
