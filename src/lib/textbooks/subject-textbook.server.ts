@@ -25,7 +25,6 @@ export type SubjectTextbook = {
   id: string;
   subjectId: string;
   curriculumTrackId: string | null;
-  semester: number | null;
   title: string;
   fileName: string | null;
   fileSize: number | null;
@@ -37,14 +36,13 @@ export type SubjectTextbook = {
 };
 
 const SELECT_COLUMNS =
-  "id, subject_id, curriculum_track_id, semester, title, file_name, file_size, version, sha256, sort_order, is_active, updated_at";
+  "id, subject_id, curriculum_track_id, title, file_name, file_size, version, sha256, sort_order, is_active, updated_at";
 
 export function mapTextbook(row: Record<string, unknown>): SubjectTextbook {
   return {
     id: String(row["id"]),
     subjectId: String(row["subject_id"]),
     curriculumTrackId: (row["curriculum_track_id"] as string | null) ?? null,
-    semester: (row["semester"] as number | null) ?? null,
     title: String(row["title"] ?? ""),
     fileName: (row["file_name"] as string | null) ?? null,
     fileSize: (row["file_size"] as number | null) ?? null,
@@ -74,7 +72,6 @@ export async function listSubjectTextbooks(
     .from("subject_textbooks")
     .select(SELECT_COLUMNS)
     .eq("subject_id", params.subjectId)
-    .order("semester", { ascending: true, nullsFirst: true })
     .order("sort_order", { ascending: true });
   if (!params.includeInactive) query = query.eq("is_active", true);
   const { data, error } = await query;
@@ -125,8 +122,7 @@ export async function bindSubjectTextbook(
   input: {
     subjectId: string;
     curriculumTrackId: string | null;
-    semester: number | null;
-    title: string;
+      title: string;
     path: string;
     fileName: string;
     fileSize: number;
@@ -166,7 +162,6 @@ export async function bindSubjectTextbook(
       .update({
         title,
         curriculum_track_id: input.curriculumTrackId,
-        semester: input.semester,
         storage_path: input.path,
         file_name: input.fileName,
         file_size: input.fileSize,
@@ -234,7 +229,6 @@ export async function cloneTextbookForTrack(
     .insert({
       subject_id: source.subject_id,
       curriculum_track_id: input.curriculumTrackId,
-      semester: source.semester,
       title: source.title,
       storage_bucket: source.storage_bucket,
       storage_path: source.storage_path,

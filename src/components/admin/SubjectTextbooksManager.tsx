@@ -64,7 +64,6 @@ export function SubjectTextbooksManager() {
 
   const [subjectId, setSubjectId] = useState<string>("");
   const [search, setSearch] = useState("");
-  const [semester, setSemester] = useState<"1" | "2" | "">("");
   const [trackId, setTrackId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [replaceId, setReplaceId] = useState<string | null>(null);
@@ -134,7 +133,6 @@ export function SubjectTextbooksManager() {
         data: {
           subjectId,
           curriculumTrackId: trackId || null,
-          semester: semester ? (Number(semester) as 1 | 2) : null,
           title: title.trim() || file.name.replace(/\.pdf$/i, ""),
           path: target.path,
           fileName: file.name,
@@ -267,7 +265,7 @@ export function SubjectTextbooksManager() {
                   <p className="truncate text-sm font-semibold text-foreground">{book.title}</p>
                   <p className="text-muted-foreground">
                     {trackName(book.curriculumTrackId)} ·{" "}
-                    {book.semester ? `الفصل ${book.semester === 1 ? "الأول" : "الثاني"}` : "كل الفصول"} ·{" "}
+                    الفصلان معاً ·{" "}
                     {formatBytes(book.fileSize)} · إصدار {book.version.slice(0, 6)} ·{" "}
                     {book.isActive ? "مفعّل" : "معطّل"}
                   </p>
@@ -287,7 +285,6 @@ export function SubjectTextbooksManager() {
                       setReplaceId(book.id);
                       setTitle(book.title);
                       setTrackId(book.curriculumTrackId ?? "");
-                      setSemester(book.semester ? (String(book.semester) as "1" | "2") : "");
                     }}
                   >
                     <Upload className="ms-1.5 h-3.5 w-3.5" /> استبدال
