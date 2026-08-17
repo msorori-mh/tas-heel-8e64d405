@@ -142,6 +142,8 @@ export function SubjectTextbooksManager() {
           subjectId,
           curriculumTrackId: trackId || null,
           bookType,
+          coverageType,
+
 
           semester: coverageType === "SEMESTER_SPECIFIC" ? semester : null,
           title: title.trim() || file.name.replace(/\.pdf$/i, ""),
