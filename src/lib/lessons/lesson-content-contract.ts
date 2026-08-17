@@ -11,7 +11,18 @@
  *   - A capability that is not backed by real content does NOT exist.
  *   - Nothing is implied by subject type.
  *   - Student order is fixed and defined once (STUDENT_CAPABILITY_ORDER).
+ *
+ * 21B transition note:
+ *   The original textbook now lives at SUBJECT x TRACK x SEMESTER level
+ *   (`subject_textbooks`, downloaded from "موادي"). `originalBookPdf` stays a
+ *   lesson capability ONLY for backward compatibility during the transition
+ *   and is scheduled for removal once every subject has its textbooks.
  */
+
+/** 21B — the subject textbook is the primary original-book reference. */
+export const SUBJECT_TEXTBOOK_PRIMARY_REFERENCE = true;
+/** 21B — lesson-level PDF stays readable/visible until the migration completes. */
+export const LESSON_PDF_LEGACY_COMPATIBILITY = true;
 
 import { isPlaceholderBookContent, isValidResourceUrl } from "./lesson-capabilities";
 import type { CapabilityResourceInput } from "./lesson-capabilities";
