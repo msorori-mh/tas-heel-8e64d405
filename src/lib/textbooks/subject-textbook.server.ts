@@ -22,11 +22,20 @@ type Loose = {
 };
 
 export type TextbookCoverage = "FULL_ACADEMIC_YEAR" | "SEMESTER_SPECIFIC";
+/** 21B-A3 — book kind, an independent dimension from coverage. */
+export type TextbookBookType = "MAIN_TEXTBOOK" | "EXERCISE_BOOK" | "OTHER";
+
+export const BOOK_TYPE_RANK: Record<TextbookBookType, number> = {
+  MAIN_TEXTBOOK: 0,
+  EXERCISE_BOOK: 1,
+  OTHER: 2,
+};
 
 export type SubjectTextbook = {
   id: string;
   subjectId: string;
   curriculumTrackId: string | null;
+  bookType: TextbookBookType;
   coverageType: TextbookCoverage;
   semester: 1 | 2 | null;
   title: string;
@@ -39,14 +48,26 @@ export type SubjectTextbook = {
   updatedAt: string | null;
 };
 
-const SELECT_COLUMNS =
+const BASE_COLUMNS =
   "id, subject_id, curriculum_track_id, coverage_type, semester, title, file_name, file_size, version, sha256, sort_order, is_active, updated_at";
+const SELECT_COLUMNS = `${BASE_COLUMNS}, book_type`;
+
+/** Pre-migration databases have no `book_type` column yet (PostgREST 42703). */
+function isMissingBookTypeColumn(error: unknown): boolean {
+  const message = String((error as { message?: string } | null)?.message ?? "");
+  return /book_type/.test(message) && /(does not exist|42703|column)/i.test(message);
+}
+
+export function normalizeBookType(value: unknown): TextbookBookType {
+  return value === "EXERCISE_BOOK" || value === "OTHER" ? value : "MAIN_TEXTBOOK";
+}
 
 export function mapTextbook(row: Record<string, unknown>): SubjectTextbook {
   return {
     id: String(row["id"]),
     subjectId: String(row["subject_id"]),
     curriculumTrackId: (row["curriculum_track_id"] as string | null) ?? null,
+    bookType: normalizeBookType(row["book_type"]),
     coverageType:
       row["coverage_type"] === "SEMESTER_SPECIFIC" ? "SEMESTER_SPECIFIC" : "FULL_ACADEMIC_YEAR",
     semester: (row["semester"] as 1 | 2 | null) ?? null,
@@ -59,6 +80,15 @@ export function mapTextbook(row: Record<string, unknown>): SubjectTextbook {
     isActive: Boolean(row["is_active"]),
     updatedAt: (row["updated_at"] as string | null) ?? null,
   };
+}
+
+/** Student/admin display order: main book, then exercise book, then extras. */
+export function sortTextbooks<T extends { bookType: TextbookBookType; sortOrder: number }>(
+  books: T[],
+): T[] {
+  return [...books].sort(
+    (a, b) => BOOK_TYPE_RANK[a.bookType] - BOOK_TYPE_RANK[b.bookType] || a.sortOrder - b.sortOrder,
+  );
 }
 
 /** Coverage contract (21B-A2): full-year books never carry a semester. */
@@ -87,16 +117,22 @@ export async function listSubjectTextbooks(
   admin: Caller,
   params: { subjectId: string; includeInactive?: boolean },
 ): Promise<SubjectTextbook[]> {
-  let query = (admin as unknown as Loose)
-    .from("subject_textbooks")
-    .select(SELECT_COLUMNS)
-    .eq("subject_id", params.subjectId)
-    .order("sort_order", { ascending: true });
-  if (!params.includeInactive) query = query.eq("is_active", true);
-  const { data, error } = await query;
+  const run = async (columns: string) => {
+    let query = (admin as unknown as Loose)
+      .from("subject_textbooks")
+      .select(columns)
+      .eq("subject_id", params.subjectId)
+      .order("sort_order", { ascending: true });
+    if (!params.includeInactive) query = query.eq("is_active", true);
+    return query;
+  };
+
+  let { data, error } = await run(SELECT_COLUMNS);
+  if (error && isMissingBookTypeColumn(error)) ({ data, error } = await run(BASE_COLUMNS));
   if (error) throw new Error("textbook_lookup_failed");
-  return ((data ?? []) as Record<string, unknown>[]).map(mapTextbook);
+  return sortTextbooks(((data ?? []) as Record<string, unknown>[]).map(mapTextbook));
 }
+
 
 export function validateUploadInput(fileName: string, fileSize: number) {
   if (!/\.pdf$/i.test(fileName)) throw new Error("invalid_extension");
