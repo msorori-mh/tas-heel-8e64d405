@@ -78,5 +78,5 @@ Closing this requires one authorized content binding write (marker/approved cont
 Screenshots: `/tmp/browser/19d1/lesson-390.png`, `/tmp/browser/19d1/lesson-1440.png`.
 
 ## Final verdict (supersedes the earlier line above)
-TAMKEEN_DESIGN_SYSTEM_V2_CONTROLLED_REAL_APP_ROLLOUT_19D = HOLD_AUTHORIZED_LESSON_VISUAL
+TAMKEEN_DESIGN_SYSTEM_V2_CONTROLLED_REAL_APP_ROLLOUT_19D = PASS_READY_FOR_PRODUCTION_BASELINE_CHECK (updated 2026-08-17 after 20A1C production bind + authorized-student E2E)
 PUBLISH = NO · DEPLOY = NO · MIGRATION = NO · DB_WRITES = NO
