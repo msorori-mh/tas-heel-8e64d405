@@ -183,14 +183,16 @@ function FeaturesSection() {
               key={f.title}
               className={`${f.cardClass ?? "card-student-quiet"} p-4 transition-all hover:-translate-y-0.5 hover:shadow-card-hover`}
             >
-              <div
-                className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${f.iconClass ?? "edu-lesson"}`}
-              >
-                <f.icon className="h-5 w-5" />
+              <div className="flex items-start gap-2.5">
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${f.iconClass ?? "edu-lesson"}`}
+                >
+                  <f.icon className="h-5 w-5" />
+                </div>
+                <h3 className="min-w-0 text-sm font-bold leading-snug text-card-foreground">
+                  {f.title}
+                </h3>
               </div>
-              <h3 className="text-sm font-bold text-card-foreground leading-snug">
-                {f.title}
-              </h3>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                 {f.desc}
               </p>
