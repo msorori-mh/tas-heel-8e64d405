@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { StructuredTextbookReader } from "@/components/lessons/StructuredTextbookReader";
 import { PILOT_20A1B_DOCUMENT } from "@/lib/content/official-textbook/structured-blocks";
+import officialBookImage from "@/assets/prototype/fm-v2-official-book.png";
+
 
 /**
  * TAMKEEN_FOCUSED_MOMENTUM_V2_PROTOTYPE_19A — Lesson screen.
@@ -51,7 +53,7 @@ function LessonPrototype() {
   const doc = PILOT_20A1B_DOCUMENT;
   return (
     <main className="mx-auto w-full max-w-[900px] px-[14px] pb-10 pt-3 sm:px-4">
-      <header className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
+      <header className="mb-3 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
         <Link
           to="/prototype/19a/home"
           aria-label="رجوع"
@@ -67,11 +69,21 @@ function LessonPrototype() {
             {doc.detected_subject} — {doc.detected_section}
           </p>
         </div>
+        <img
+          src={officialBookImage}
+          alt="محتوى الكتاب الوزاري الرسمي المعتمد"
+          loading="lazy"
+          width={816}
+          height={816}
+          className="h-9 w-9 shrink-0"
+        />
       </header>
+
 
       <section className="fm-card fm-read py-4">
         <StructuredTextbookReader document={doc} />
       </section>
+
 
       <section className="mt-5">
         <h2 className="mb-2 text-[15px] font-bold text-foreground">أنشطة هذا الدرس</h2>

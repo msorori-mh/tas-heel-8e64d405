@@ -7,10 +7,14 @@ import {
   Flame,
   GraduationCap,
   Play,
-  Trophy,
+  
   Zap,
 } from "lucide-react";
 import { Bar, BottomNav, SectionTitle } from "@/components/prototype/fm-v2/primitives";
+import continueImage from "@/assets/prototype/fm-v2-continue.png";
+import firstStepImage from "@/assets/prototype/fm-v2-first-step.png";
+import ministerialImage from "@/assets/prototype/fm-v2-ministerial.png";
+
 
 /**
  * TAMKEEN_FOCUSED_MOMENTUM_V2_PROTOTYPE_19A — Student Home as a personal
@@ -72,11 +76,26 @@ function HomePrototype() {
       {/* Continue learning — strongest visual element */}
       <section className="fm-grad fm-press mb-4 rounded-2xl p-[1.5px] shadow-sm">
         <div className="rounded-[calc(1rem-1px)] bg-card px-4 py-4">
-          <p className="text-[12px] font-bold text-secondary">واصل من حيث توقفت</p>
-          <h2 className="mt-1 text-[17px] font-extrabold leading-[1.7] text-foreground sm:text-[19px]">
-            مكانة القرآن الكريم وكمال قدرة الله
-          </h2>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">القرآن الكريم — الوحدة الأولى</p>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+            <div className="min-w-0">
+              <p className="text-[12px] font-bold text-secondary">واصل من حيث توقفت</p>
+              <h2 className="mt-1 text-[17px] font-extrabold leading-[1.7] text-foreground sm:text-[19px]">
+                مكانة القرآن الكريم وكمال قدرة الله
+              </h2>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">
+                القرآن الكريم — الوحدة الأولى
+              </p>
+            </div>
+            <img
+              src={continueImage}
+              alt="استكمال الدرس من حيث توقفت"
+              loading="lazy"
+              width={816}
+              height={816}
+              className="h-12 w-12 shrink-0 sm:h-14 sm:w-14"
+            />
+          </div>
+
           <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
             <div className="min-w-0">
               <Bar value={62} />
@@ -155,7 +174,14 @@ function HomePrototype() {
       <section className="mb-4">
         <div className="fm-card fm-press border-[var(--fm-goal)]/35 bg-[var(--fm-goal-soft)]/50 px-4 py-3.5">
           <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
-            <Trophy className="h-5 w-5 shrink-0 text-[var(--fm-goal)]" aria-hidden />
+            <img
+              src={ministerialImage}
+              alt="الاستعداد للاختبار الوزاري والتقدم في الأداء"
+              loading="lazy"
+              width={816}
+              height={816}
+              className="h-10 w-10 shrink-0"
+            />
             <div className="min-w-0">
               <p className="truncate text-[14.5px] font-bold text-foreground">تحدي وزاري اليوم</p>
               <p className="truncate text-[13px] text-muted-foreground">
@@ -170,6 +196,19 @@ function HomePrototype() {
       {/* Subjects */}
       <section className="pb-4">
         <SectionTitle>موادك</SectionTitle>
+        <div className="fm-card mb-2.5 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-4 py-3">
+          <img
+            src={firstStepImage}
+            alt="اختر مادة وابدأ أول درس"
+            loading="lazy"
+            width={816}
+            height={816}
+            className="h-11 w-11 shrink-0"
+          />
+          <p className="min-w-0 text-[13.5px] leading-[1.8] text-muted-foreground">
+            اختر مادة وابدأ أول درس اليوم — خطوة واحدة تكفي للبداية.
+          </p>
+        </div>
         <ul className="grid gap-2.5 sm:grid-cols-2">
           {SUBJECTS.map((s) => (
             <li key={s.name} className="fm-card fm-press px-4 py-3">
@@ -182,6 +221,7 @@ function HomePrototype() {
           ))}
         </ul>
       </section>
+
 
       <BottomNav active={0} />
     </div>
