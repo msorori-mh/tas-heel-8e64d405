@@ -96,7 +96,7 @@ const PILLARS = [
   { icon: BookOpen, label: "تعلم", tone: "text-primary" },
   { icon: ClipboardList, label: "تدرب", tone: "text-secondary" },
   { icon: LineChart, label: "تحسن", tone: "text-accent" },
-  { icon: GraduationCap, label: "استعد للوزاري", tone: "text-[var(--fm-goal)]" },
+  { icon: GraduationCap, label: "استعد للاختبار الوزاري", tone: "text-[var(--fm-goal)]" },
 ];
 
 function HeroSection() {
@@ -105,13 +105,13 @@ function HeroSection() {
       <div className="container mx-auto max-w-[1100px]">
         <div className="grid items-center gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-8">
           <div className="order-2 text-center lg:order-1 lg:text-right">
-            <div className="mb-3 inline-flex items-center gap-1.5 rounded-[var(--ds-radius-pill)] bg-muted px-3 py-1 text-[11px] font-semibold text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5" aria-hidden />
-              تمكين طلاب الثانوية
+            <div className="mb-3 inline-flex items-center gap-1.5 rounded-[var(--ds-radius-pill)] bg-primary/15 px-4 py-1.5 text-[14px] font-bold text-primary shadow-sm border border-primary/20">
+              <Sparkles className="h-4 w-4" aria-hidden />
+              تمكين الطالب
             </div>
 
-            <h1 className="text-[24px] font-extrabold leading-[1.5] text-foreground sm:text-[30px] lg:text-[38px]">
-              طريقك المنظم للتفوّق في الثانوية
+            <h1 className="text-[26px] font-extrabold leading-[1.5] text-foreground sm:text-[32px] lg:text-[40px]">
+              طريقك المنظم للتفوّق
             </h1>
 
             <p className="mx-auto mt-2 max-w-[46ch] text-[15px] leading-[1.9] text-muted-foreground lg:mx-0 sm:text-[16px]">
@@ -287,7 +287,7 @@ function CTAFooter() {
                 <BookOpen className="h-4 w-4 text-primary-foreground" />
               </div>
               <span className="text-sm font-bold text-foreground">
-                تمكين طلاب الثانوية
+                تمكين الطالب
               </span>
             </div>
 
@@ -305,7 +305,7 @@ function CTAFooter() {
           </div>
 
           <p className="mt-4 pt-4 border-t border-border text-center text-[11px] text-muted-foreground">
-            © {new Date().getFullYear()} تمكين طلاب الثانوية — جميع الحقوق محفوظة
+            © {new Date().getFullYear()} تمكين الطالب — جميع الحقوق محفوظة
           </p>
         </div>
       </footer>
