@@ -76,11 +76,26 @@ function HomePrototype() {
       {/* Continue learning — strongest visual element */}
       <section className="fm-grad fm-press mb-4 rounded-2xl p-[1.5px] shadow-sm">
         <div className="rounded-[calc(1rem-1px)] bg-card px-4 py-4">
-          <p className="text-[12px] font-bold text-secondary">واصل من حيث توقفت</p>
-          <h2 className="mt-1 text-[17px] font-extrabold leading-[1.7] text-foreground sm:text-[19px]">
-            مكانة القرآن الكريم وكمال قدرة الله
-          </h2>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">القرآن الكريم — الوحدة الأولى</p>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+            <div className="min-w-0">
+              <p className="text-[12px] font-bold text-secondary">واصل من حيث توقفت</p>
+              <h2 className="mt-1 text-[17px] font-extrabold leading-[1.7] text-foreground sm:text-[19px]">
+                مكانة القرآن الكريم وكمال قدرة الله
+              </h2>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">
+                القرآن الكريم — الوحدة الأولى
+              </p>
+            </div>
+            <img
+              src={continueImage}
+              alt="استكمال الدرس من حيث توقفت"
+              loading="lazy"
+              width={816}
+              height={816}
+              className="h-12 w-12 shrink-0 sm:h-14 sm:w-14"
+            />
+          </div>
+
           <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
             <div className="min-w-0">
               <Bar value={62} />
