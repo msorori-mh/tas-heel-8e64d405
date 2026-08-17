@@ -47,3 +47,36 @@ Screenshots: `/tmp/browser/19d/{landing,home,lesson}-{390,768,1440}.png`.
 ## Verdict
 TAMKEEN_DESIGN_SYSTEM_V2_CONTROLLED_REAL_APP_ROLLOUT_19D = PASS_READY_FOR_PRODUCTION_BASELINE_CHECK
 (with the lesson content visual re-check noted above)
+
+---
+
+## TAMKEEN_19D_AUTHORIZED_LESSON_VISUAL_CLOSURE (read-only verification)
+
+Session: existing authorized student `omh692022@gmail.com` (grade 1ث `ae2fd78d…`, curriculum track `7751f472…`, non-admin). No data created, no permissions widened, no writes.
+Lesson: "مكانة القرآن الكريم وكمال قدرة الله" — `16c10040-7a7b-4647-add2-4aa4d3f70583`, real route `/lessons/16c10040…` (not `/prototype/*`).
+
+| Check | Result |
+|---|---|
+| ACCESS_GATE | PASS — real lesson renders, NOT the blocked screen |
+| DS_V2_SCOPE_APPLIED | PASS |
+| RTL | PASS |
+| NO_HORIZONTAL_OVERFLOW | PASS (390px = 0, 1440px = 0) |
+| READABLE_LINE_LENGTH | PASS |
+| CONSOLE_ERRORS | ZERO |
+| DYNAMIC_CAPABILITIES (18B) | PASS — only the derived available step renders: `PRIMARY_CONTENT` = "اقرأ الدرس", progress 0/1 |
+| OFFICIAL_CONTENT (31/31 blocks) | FAIL_NOT_BOUND |
+| FIGURES (3 approved images) | NOT_VERIFIABLE (depends on binding) |
+| OFFICIAL ACTIVITY / ASSESSMENT / QURAN BLOCKS / ORDER | NOT_VERIFIABLE (depends on binding) |
+| PDF_REFERENCE_PRESERVED | NOT_VERIFIABLE (no primary PDF resource row bound for this lesson) |
+| VISUAL SEPARATION (book vs Tamkeen explanation) | NOT_VERIFIABLE (structured reader not rendered) |
+
+### Root cause (no fix applied — writes are out of scope this turn)
+`resolveStructuredDocument()` binds the approved 20A1B document only when the lesson's stored book content contains the marker `TAMKEEN_STRUCTURED_PILOT:20A1B`.
+Live row `lesson_book_contents.lesson_id = 16c10040…` holds 95 characters of chapter-heading text and does **not** contain the marker (`position(marker in content) = 0`); `lessons.content_text` is empty. The lesson therefore falls back to `OfficialTextbookContent` with a single heading line instead of the 31-block Structured Textbook Reader.
+Closing this requires one authorized content binding write (marker/approved content on the lesson book row), which was explicitly forbidden for this task.
+
+Screenshots: `/tmp/browser/19d1/lesson-390.png`, `/tmp/browser/19d1/lesson-1440.png`.
+
+## Final verdict (supersedes the earlier line above)
+TAMKEEN_DESIGN_SYSTEM_V2_CONTROLLED_REAL_APP_ROLLOUT_19D = HOLD_AUTHORIZED_LESSON_VISUAL
+PUBLISH = NO · DEPLOY = NO · MIGRATION = NO · DB_WRITES = NO
