@@ -10,8 +10,9 @@ import { LessonExplanationsDialog } from "@/components/admin/LessonExplanationsD
 import { LessonResourcesDialog } from "@/components/admin/LessonResourcesDialog";
 import { LessonPrimaryPdfCard } from "@/components/admin/LessonPrimaryPdfCard";
 import { LessonContentWorkspace } from "@/components/admin/LessonContentWorkspace";
+import { Button } from "@/components/ui/button";
 import { buildLessonCapabilityContract } from "@/lib/lessons/lesson-content-contract";
-import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil } from "lucide-react";
+import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil, FileText, FolderOpen } from "lucide-react";
 
 
 export const Route = createFileRoute("/_authenticated/admin/lesson-content/$lessonId")({
