@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
@@ -97,6 +97,12 @@ function ReadinessBadge({ readiness }: { readiness: LessonReadiness | undefined 
 }
 
 function AdminLessonsPage() {
+  const childMatches = useChildMatches();
+  if (childMatches.length > 0) return <Outlet />;
+  return <AdminLessonsList />;
+}
+
+function AdminLessonsList() {
   const { loading, enabled } = useRequireAdminSection("content");
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
