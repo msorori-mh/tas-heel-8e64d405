@@ -410,3 +410,58 @@ html[dir="rtl"] body {
   font-family: "Cairo", system-ui, sans-serif;
   line-height: 1.6;
 }
+
+/*
+ * TAMKEEN_FOCUSED_MOMENTUM_V2_PROTOTYPE_19A
+ * Scoped prototype theme. Applies ONLY inside .fm-v2 subtrees
+ * (the /prototype/19a screens) so the rest of the app is untouched.
+ */
+.fm-v2 {
+  --background: #FBFAF7;
+  --foreground: #131A33;
+  --card: #FFFFFF;
+  --card-foreground: #131A33;
+  --primary: #1E2A63;
+  --primary-foreground: #FFFFFF;
+  --secondary: #0EA5E9;
+  --secondary-foreground: #FFFFFF;
+  --muted: #F1F0EC;
+  --muted-foreground: #56607F;
+  --accent: #06B6D4;
+  --accent-foreground: #06263A;
+  --success: #10B981;
+  --success-foreground: #FFFFFF;
+  --destructive: #F87171;
+  --destructive-foreground: #FFFFFF;
+  --border: #E6E4DC;
+  --input: #E6E4DC;
+  --ring: #0EA5E9;
+
+  --fm-goal: #F59E0B;
+  --fm-goal-soft: #FEF3C7;
+  --fm-signature: linear-gradient(135deg, #1E2A63 0%, #4C4BC9 55%, #06B6D4 100%);
+  --fm-card-shadow: 0 2px 10px -6px rgb(19 26 51 / 0.18);
+
+  background: var(--background);
+  color: var(--foreground);
+}
+
+@utility fm-card {
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--fm-card-shadow);
+}
+
+@utility fm-press {
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+  &:active {
+    transform: scale(0.985);
+  }
+}
+
+@utility fm-bar {
+  transition: width 320ms cubic-bezier(0.4, 0, 0.2, 1);
+}
