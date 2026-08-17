@@ -138,14 +138,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             {
               "@type": "Organization",
               "@id": "https://tas-heel.lovable.app/#organization",
-              name: "تمكين طلاب الثانوية",
+              name: "تمكين الطالب",
               url: "https://tas-heel.lovable.app/",
             },
             {
               "@type": "WebSite",
               "@id": "https://tas-heel.lovable.app/#website",
               url: "https://tas-heel.lovable.app/",
-              name: "تمكين طلاب الثانوية",
+              name: "تمكين الطالب",
               description:
                 "منصة تعليمية لطلاب الثانوية تساعدهم على المراجعة والتدرب على الاختبارات، مع اهتمام خاص بالصف الثالث الثانوي والاختبارات الوزارية السابقة.",
               inLanguage: "ar-YE",
