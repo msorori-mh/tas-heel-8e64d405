@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BookOpen, Target, Trophy, Zap } from "lucide-react";
-import heroImage from "@/assets/prototype/fm-v2-hero.png";
+import heroAsset from "@/assets/prototype/fm-v2-hero-real.png.asset.json";
 import featureImage from "@/assets/prototype/fm-v2-feature.png";
 
 
