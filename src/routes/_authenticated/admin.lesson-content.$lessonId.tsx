@@ -417,6 +417,9 @@ function AdminLessonDetailPage() {
         <LessonContentWorkspace
           lessonId={lessonId}
           contract={capabilityContract}
+          lifecycle={lifecycleStatuses}
+          onTransition={(cap, to) => void runTransition(cap, to)}
+          pendingCapability={pendingCapability}
           header={{
             subjectName,
             gradeName: gradeQ.data ?? "—",
