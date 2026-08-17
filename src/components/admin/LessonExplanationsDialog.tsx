@@ -113,6 +113,14 @@ export function LessonExplanationsDialog({
 
     setSaving(true);
     try {
+      if (deletedIds.length > 0) {
+        const { error } = await supabase
+          .from("lesson_explanations")
+          .delete()
+          .in("id", deletedIds);
+        if (error) throw error;
+      }
+
       for (const r of rows) {
         const titleTrim = (r.title ?? "").trim();
         const titleOrNull = titleTrim.length > 0 ? titleTrim : null;
