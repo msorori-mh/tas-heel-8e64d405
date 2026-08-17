@@ -748,11 +748,18 @@ function LessonPage() {
   return (
     // 19D — route-level Design System V2 opt-in (presentation only).
     <article className="ds-v2 space-y-3.5" dir="rtl">
+      {previewMode && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700">
+          وضع المعاينة — تشاهد الدرس كما سيراه الطالب، بما في ذلك المحتوى غير المعتمد (المسودات).
+          هذا العرض مرئي لفريق المحتوى فقط.
+        </div>
+      )}
       <Breadcrumbs
         subjectName={subject?.name ?? null}
         subjectId={subject?.id ?? null}
         lessonName={titleParts.main}
       />
+
 
       {/* Lesson header */}
       <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
