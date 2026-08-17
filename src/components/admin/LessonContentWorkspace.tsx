@@ -5,14 +5,22 @@
  * every present/status decision comes from `buildLessonCapabilityContract`.
  */
 import { Link } from "@tanstack/react-router";
-import { Eye, Pencil } from "lucide-react";
+import { Eye, Loader2, Pencil } from "lucide-react";
 import {
   STUDENT_CAPABILITY_ORDER,
   computeLessonReadinessLevels,
+  LIFECYCLE_CAPABILITIES,
   type LessonCapabilityContract,
   type LessonContentCapabilityKey,
   type LessonCapabilityState,
 } from "@/lib/lessons/lesson-content-contract";
+import {
+  allowedTransitions,
+  STATUS_LABEL_AR,
+  TRANSITION_LABEL_AR,
+  type LessonCapabilityLifecycleStatus,
+} from "@/lib/lessons/lesson-lifecycle";
+
 
 const STATUS_AR: Record<LessonCapabilityState["status"], string> = {
   READY: "جاهز",
