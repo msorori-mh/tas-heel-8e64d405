@@ -11,7 +11,18 @@ import { LessonResourcesDialog } from "@/components/admin/LessonResourcesDialog"
 import { LessonPrimaryPdfCard } from "@/components/admin/LessonPrimaryPdfCard";
 import { LessonContentWorkspace } from "@/components/admin/LessonContentWorkspace";
 import { Button } from "@/components/ui/button";
-import { buildLessonCapabilityContract } from "@/lib/lessons/lesson-content-contract";
+import { toast } from "sonner";
+import {
+  buildLessonCapabilityContract,
+  applyLifecycleOverlay,
+  type LessonContentCapabilityKey,
+} from "@/lib/lessons/lesson-content-contract";
+import {
+  fetchLessonLifecycleRows,
+  rowsToLifecycleMap,
+  transitionCapability,
+  type LessonCapabilityLifecycleStatus,
+} from "@/lib/lessons/lesson-lifecycle";
 import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil, FileText, FolderOpen } from "lucide-react";
 
 
