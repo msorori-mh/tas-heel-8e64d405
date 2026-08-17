@@ -174,7 +174,14 @@ function HomePrototype() {
       <section className="mb-4">
         <div className="fm-card fm-press border-[var(--fm-goal)]/35 bg-[var(--fm-goal-soft)]/50 px-4 py-3.5">
           <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
-            <Trophy className="h-5 w-5 shrink-0 text-[var(--fm-goal)]" aria-hidden />
+            <img
+              src={ministerialImage}
+              alt="الاستعداد للاختبار الوزاري والتقدم في الأداء"
+              loading="lazy"
+              width={816}
+              height={816}
+              className="h-10 w-10 shrink-0"
+            />
             <div className="min-w-0">
               <p className="truncate text-[14.5px] font-bold text-foreground">تحدي وزاري اليوم</p>
               <p className="truncate text-[13px] text-muted-foreground">
@@ -189,6 +196,19 @@ function HomePrototype() {
       {/* Subjects */}
       <section className="pb-4">
         <SectionTitle>موادك</SectionTitle>
+        <div className="fm-card mb-2.5 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-4 py-3">
+          <img
+            src={firstStepImage}
+            alt="اختر مادة وابدأ أول درس"
+            loading="lazy"
+            width={816}
+            height={816}
+            className="h-11 w-11 shrink-0"
+          />
+          <p className="min-w-0 text-[13.5px] leading-[1.8] text-muted-foreground">
+            اختر مادة وابدأ أول درس اليوم — خطوة واحدة تكفي للبداية.
+          </p>
+        </div>
         <ul className="grid gap-2.5 sm:grid-cols-2">
           {SUBJECTS.map((s) => (
             <li key={s.name} className="fm-card fm-press px-4 py-3">
@@ -201,6 +221,7 @@ function HomePrototype() {
           ))}
         </ul>
       </section>
+
 
       <BottomNav active={0} />
     </div>
