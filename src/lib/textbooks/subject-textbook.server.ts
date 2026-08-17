@@ -177,6 +177,7 @@ export async function bindSubjectTextbook(
   input: {
     subjectId: string;
     curriculumTrackId: string | null;
+    bookType?: TextbookBookType | null;
     coverageType?: TextbookCoverage | null;
     semester?: number | null;
     title: string;
@@ -202,6 +203,7 @@ export async function bindSubjectTextbook(
 
   const version = makeVersion();
   const coverage = normalizeCoverage(input);
+  const bookType = normalizeBookType(input.bookType);
   const title = input.title.trim() || "كتاب المنهج";
   const db = admin as unknown as Loose;
 
@@ -215,21 +217,25 @@ export async function bindSubjectTextbook(
     if (!previous) throw new Error("textbook_not_found");
     if (previous.subject_id !== input.subjectId) throw new Error("wrong_subject_binding");
 
-    const { error } = await db
+    const patch: Record<string, unknown> = {
+      title,
+      curriculum_track_id: input.curriculumTrackId,
+      coverage_type: coverage.coverageType,
+      semester: coverage.semester,
+      storage_path: input.path,
+      file_name: input.fileName,
+      file_size: input.fileSize,
+      sha256: input.sha256,
+      version,
+      is_active: true,
+    };
+    let { error } = await db
       .from("subject_textbooks")
-      .update({
-        title,
-        curriculum_track_id: input.curriculumTrackId,
-        coverage_type: coverage.coverageType,
-        semester: coverage.semester,
-        storage_path: input.path,
-        file_name: input.fileName,
-        file_size: input.fileSize,
-        sha256: input.sha256,
-        version,
-        is_active: true,
-      })
+      .update({ ...patch, book_type: bookType })
       .eq("id", input.replaceId);
+    if (error && isMissingBookTypeColumn(error)) {
+      ({ error } = await db.from("subject_textbooks").update(patch).eq("id", input.replaceId));
+    }
     if (error) throw new Error(error.message || "textbook_update_failed");
 
     // Drop the previous bytes only when nothing else references them.
@@ -247,28 +253,33 @@ export async function bindSubjectTextbook(
     return { textbookId: input.replaceId, replaced: true, version };
   }
 
-  const { data, error } = await db
+  const row: Record<string, unknown> = {
+    subject_id: input.subjectId,
+    curriculum_track_id: input.curriculumTrackId,
+    coverage_type: coverage.coverageType,
+    semester: coverage.semester,
+    title,
+    storage_bucket: TEXTBOOK_BUCKET,
+    storage_path: input.path,
+    file_name: input.fileName,
+    file_size: input.fileSize,
+    sha256: input.sha256,
+    version,
+    created_by: userId,
+  };
+  let { data, error } = await db
     .from("subject_textbooks")
-    .insert({
-      subject_id: input.subjectId,
-      curriculum_track_id: input.curriculumTrackId,
-      coverage_type: coverage.coverageType,
-      semester: coverage.semester,
-      title,
-      storage_bucket: TEXTBOOK_BUCKET,
-      storage_path: input.path,
-      file_name: input.fileName,
-      file_size: input.fileSize,
-      sha256: input.sha256,
-      version,
-      created_by: userId,
-    })
+    .insert({ ...row, book_type: bookType })
     .select("id")
     .single();
+  if (error && isMissingBookTypeColumn(error)) {
+    ({ data, error } = await db.from("subject_textbooks").insert(row).select("id").single());
+  }
   if (error) throw new Error(error.message || "textbook_insert_failed");
 
   return { textbookId: String(data.id), replaced: false, version };
 }
+
 
 /** Reuse the very same bytes for another track (NO duplicated storage object). */
 export async function cloneTextbookForTrack(
