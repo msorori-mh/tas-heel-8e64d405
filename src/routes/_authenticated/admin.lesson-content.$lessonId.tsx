@@ -48,6 +48,38 @@ function AdminLessonDetailPage() {
   const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
   const [openExplanationsDialog, setOpenExplanationsDialog] = useState(false);
   const [openResourcesDialog, setOpenResourcesDialog] = useState(false);
+  const [pendingCapability, setPendingCapability] =
+    useState<LessonContentCapabilityKey | null>(null);
+
+  // 20C-B — editorial lifecycle rows (staff read every status).
+  const lifecycleQ = useQuery({
+    enabled,
+    queryKey: ["admin-lesson-lifecycle", lessonId],
+    queryFn: () => fetchLessonLifecycleRows(lessonId),
+  });
+
+  const runTransition = async (
+    capability: LessonContentCapabilityKey,
+    to: LessonCapabilityLifecycleStatus,
+  ) => {
+    setPendingCapability(capability);
+    try {
+      await transitionCapability({ lessonId, capability, to });
+      await lifecycleQ.refetch();
+      toast.success(
+        to === "READY"
+          ? "تم اعتماد القدرة ونشرها للطالب."
+          : to === "REVIEW"
+            ? "تم إرسال القدرة للمراجعة."
+            : "تم فتح نسخة تعديل جديدة (مسودة).",
+      );
+    } catch (err) {
+      toast.error((err as Error).message || "تعذّر تنفيذ الانتقال.");
+    } finally {
+      setPendingCapability(null);
+    }
+  };
+
 
   const lessonQ = useQuery({
     enabled,
