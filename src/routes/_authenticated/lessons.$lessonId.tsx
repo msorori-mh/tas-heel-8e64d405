@@ -141,7 +141,17 @@ type ExplanationRow = {
 
 function LessonPage() {
   const { lessonId } = Route.useParams();
-  const { profile } = useAuth();
+  const { preview } = Route.useSearch();
+  const { profile, isContentStaff } = useAuth();
+  // 20C-B §4 — real "preview as student" for content staff only.
+  const previewMode = preview === 1 && isContentStaff === true;
+
+  // 20C-B §5 — editorial gate. RLS returns READY rows only for students.
+  const { data: lifecycleGate } = useQuery({
+    queryKey: ["lesson-lifecycle-gate", lessonId],
+    queryFn: () => fetchStudentLifecycleGate(lessonId),
+  });
+
 
   const {
     data: lesson,
