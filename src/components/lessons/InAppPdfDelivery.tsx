@@ -38,6 +38,21 @@ function Placeholder() {
   );
 }
 
+/**
+ * 21B2 — warm the lazy viewer chunk so a book downloaded for offline use can
+ * still be opened after the network is gone (cold start with no cached chunk).
+ */
+export function prefetchPdfViewerChunk(): void {
+  try {
+    const kind = selectPdfRenderer();
+    if (kind === "ANDROID_NATIVE") void import("./NativePdfDelivery");
+    else if (kind === "BROWSER_NATIVE") void import("./BrowserNativePdfDelivery");
+    else void import("./PdfViewer");
+  } catch {
+    /* prefetch is best-effort */
+  }
+}
+
 export function InAppPdfDelivery(props: PdfViewerProps) {
   const [renderer, setRenderer] = useState<PdfRendererKind | null>(null);
   useEffect(() => setRenderer(selectPdfRenderer()), []);

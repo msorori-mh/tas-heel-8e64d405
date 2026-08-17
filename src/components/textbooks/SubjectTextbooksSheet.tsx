@@ -26,7 +26,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { InAppPdfDelivery } from "@/components/lessons/InAppPdfDelivery";
+import { InAppPdfDelivery, prefetchPdfViewerChunk } from "@/components/lessons/InAppPdfDelivery";
 import { formatBytes } from "@/lib/offline/network";
 import {
   deleteLocalTextbook,
@@ -129,11 +129,15 @@ function TextbookRow({ book, onOpen }: { book: StudentTextbook; onOpen: () => vo
   useEffect(() => {
     void refresh();
   }, [refresh]);
+  useEffect(() => {
+    if (local?.status === "READY") prefetchPdfViewerChunk();
+  }, [local?.status]);
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const start = async () => {
     setBusy(true);
     setFailed(false);
+    prefetchPdfViewerChunk();
     const controller = new AbortController();
     abortRef.current = controller;
     try {
