@@ -292,7 +292,7 @@ function AdminMistakeInsightsPage() {
                               </Button>
                               {q.lesson_id ? (
                                 <Button asChild size="sm" variant="ghost">
-                                  <Link to="/admin/lessons/$lessonId" params={{ lessonId: q.lesson_id }}>
+                                  <Link to="/admin/lesson-content/$lessonId" params={{ lessonId: q.lesson_id }}>
                                     الدرس
                                   </Link>
                                 </Button>

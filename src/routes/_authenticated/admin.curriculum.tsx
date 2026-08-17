@@ -482,7 +482,7 @@ function LessonRow({ lesson, onDelete }: { lesson: Lesson; onDelete: () => void 
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="تعديل">
-          <Link to="/admin/lessons/$lessonId" params={{ lessonId: lesson.id }}>
+          <Link to="/admin/lesson-content/$lessonId" params={{ lessonId: lesson.id }}>
             <Pencil className="h-3.5 w-3.5" />
           </Link>
         </Button>
