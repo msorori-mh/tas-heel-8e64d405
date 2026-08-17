@@ -47,7 +47,7 @@ export function prefetchPdfViewerChunk(): void {
     const kind = selectPdfRenderer();
     if (kind === "ANDROID_NATIVE") void import("./NativePdfDelivery");
     else if (kind === "BROWSER_NATIVE") void import("./BrowserNativePdfDelivery");
-    else void import("./PdfViewer");
+    else void import("./PdfViewer").then((m) => m.prefetchPdfEngine());
   } catch {
     /* prefetch is best-effort */
   }

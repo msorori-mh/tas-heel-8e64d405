@@ -57,6 +57,11 @@ async function loadPdfJs() {
   return pdfjsPromise;
 }
 
+/** 21B2 — warm the engine + worker so cached books open with no network. */
+export function prefetchPdfEngine(): void {
+  void loadPdfJs().catch(() => undefined);
+}
+
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
 
