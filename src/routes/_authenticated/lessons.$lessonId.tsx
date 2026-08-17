@@ -835,6 +835,7 @@ function LessonPage() {
         </div>
       )}
 
+      <span data-dbg={JSON.stringify({g:originalPdfGateOpen,e:canAccessEnhancements,src:primaryCapability?.source,rt:effectivePrimary?.resource_type})} hidden />
       {/* 20D §8 — the original textbook file stays available as an independent
           reference (last), never as the lesson's primary content. */}
       {showOriginalBookPdf && effectivePrimary && (
