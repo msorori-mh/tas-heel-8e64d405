@@ -48,7 +48,7 @@ describe("student visibility", () => {
     ]);
     assert.deepEqual(map.tamkeenExplanation, { status: "DRAFT", hasReady: true });
     assert.deepEqual(map.mindMap, { status: "DRAFT", hasReady: false });
-    expect(Object.keys(map)).toHaveLength(2);
+    assert.equal(Object.keys(map).length, 2);
   });
 });
 
@@ -57,8 +57,9 @@ describe("student capability gate", () => {
 
   test("is a no-op for unmanaged (legacy) lessons", () => {
     assert.equal(
-      filterStudentCapabilitiesByLifecycle(caps, { managed: false, readyKeys: new Set() }),
-    ).toHaveLength(3);
+      filterStudentCapabilitiesByLifecycle(caps, { managed: false, readyKeys: new Set() }).length,
+      3,
+    );
   });
 
   test("keeps only READY capabilities once the lesson is managed", () => {
