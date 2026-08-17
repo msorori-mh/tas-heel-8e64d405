@@ -41,6 +41,7 @@ import { Route as AuthenticatedSemestersIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedPaymentsIndexRouteImport } from './routes/_authenticated/payments.index'
 import { Route as AuthenticatedMinisterialExamsIndexRouteImport } from './routes/_authenticated/ministerial-exams.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as Prototype19aLessonRouteImport } from './routes/prototype.19a.lesson'
 import { Route as Prototype19aLandingRouteImport } from './routes/prototype.19a.landing'
 import { Route as Prototype19aHomeRouteImport } from './routes/prototype.19a.home'
 import { Route as ApiLessonFileResourceIdRouteImport } from './routes/api/lesson-file.$resourceId'
@@ -246,6 +247,11 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const Prototype19aLessonRoute = Prototype19aLessonRouteImport.update({
+  id: '/lesson',
+  path: '/lesson',
+  getParentRoute: () => Prototype19aRoute,
 } as any)
 const Prototype19aLandingRoute = Prototype19aLandingRouteImport.update({
   id: '/landing',
@@ -529,6 +535,7 @@ export interface FileRoutesByFullPath {
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
   '/prototype/19a/home': typeof Prototype19aHomeRoute
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
+  '/prototype/19a/lesson': typeof Prototype19aLessonRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/ministerial-exams/': typeof AuthenticatedMinisterialExamsIndexRoute
   '/payments/': typeof AuthenticatedPaymentsIndexRoute
@@ -598,6 +605,7 @@ export interface FileRoutesByTo {
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
   '/prototype/19a/home': typeof Prototype19aHomeRoute
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
+  '/prototype/19a/lesson': typeof Prototype19aLessonRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/ministerial-exams': typeof AuthenticatedMinisterialExamsIndexRoute
   '/payments': typeof AuthenticatedPaymentsIndexRoute
@@ -672,6 +680,7 @@ export interface FileRoutesById {
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
   '/prototype/19a/home': typeof Prototype19aHomeRoute
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
+  '/prototype/19a/lesson': typeof Prototype19aLessonRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/ministerial-exams/': typeof AuthenticatedMinisterialExamsIndexRoute
   '/_authenticated/payments/': typeof AuthenticatedPaymentsIndexRoute
@@ -746,6 +755,7 @@ export interface FileRouteTypes {
     | '/api/lesson-file/$resourceId'
     | '/prototype/19a/home'
     | '/prototype/19a/landing'
+    | '/prototype/19a/lesson'
     | '/admin/'
     | '/ministerial-exams/'
     | '/payments/'
@@ -815,6 +825,7 @@ export interface FileRouteTypes {
     | '/api/lesson-file/$resourceId'
     | '/prototype/19a/home'
     | '/prototype/19a/landing'
+    | '/prototype/19a/lesson'
     | '/admin'
     | '/ministerial-exams'
     | '/payments'
@@ -888,6 +899,7 @@ export interface FileRouteTypes {
     | '/api/lesson-file/$resourceId'
     | '/prototype/19a/home'
     | '/prototype/19a/landing'
+    | '/prototype/19a/lesson'
     | '/_authenticated/admin/'
     | '/_authenticated/ministerial-exams/'
     | '/_authenticated/payments/'
@@ -1153,6 +1165,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/prototype/19a/lesson': {
+      id: '/prototype/19a/lesson'
+      path: '/lesson'
+      fullPath: '/prototype/19a/lesson'
+      preLoaderRoute: typeof Prototype19aLessonRouteImport
+      parentRoute: typeof Prototype19aRoute
     }
     '/prototype/19a/landing': {
       id: '/prototype/19a/landing'
@@ -1637,12 +1656,14 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 interface Prototype19aRouteChildren {
   Prototype19aHomeRoute: typeof Prototype19aHomeRoute
   Prototype19aLandingRoute: typeof Prototype19aLandingRoute
+  Prototype19aLessonRoute: typeof Prototype19aLessonRoute
   Prototype19aIndexRoute: typeof Prototype19aIndexRoute
 }
 
 const Prototype19aRouteChildren: Prototype19aRouteChildren = {
   Prototype19aHomeRoute: Prototype19aHomeRoute,
   Prototype19aLandingRoute: Prototype19aLandingRoute,
+  Prototype19aLessonRoute: Prototype19aLessonRoute,
   Prototype19aIndexRoute: Prototype19aIndexRoute,
 }
 
