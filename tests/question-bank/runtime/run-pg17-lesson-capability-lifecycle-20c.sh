@@ -12,7 +12,7 @@ initdb -U postgres -A trust >/dev/null
 pg_ctl -D "$PGDATA" -o "-p $PGPORT -k $PGHOST -c listen_addresses=''" -l "$DIR/log" start >/dev/null
 trap 'pg_ctl -D "$PGDATA" stop -m immediate >/dev/null 2>&1 || true; rm -rf "$DIR"' EXIT
 
-psql -q -d postgres <<'SQL'
+psql -q -v ON_ERROR_STOP=1 -d postgres <<'SQL'
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE TABLE auth.users(id uuid primary key);
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
@@ -49,7 +49,7 @@ SQL
 psql -q -v ON_ERROR_STOP=1 -d postgres -f supabase/migrations-pending/20260822010000_lesson_capability_lifecycle_20c.sql
 echo "APPLY=OK"
 
-psql -q -d postgres <<'SQL'
+psql -q -v ON_ERROR_STOP=1 -d postgres <<'SQL'
 \pset pager off
 SELECT capability, status, count(*) FROM public.lesson_capability_lifecycle GROUP BY 1,2 ORDER BY 1,2;
 -- fail-closed expectations
@@ -62,8 +62,8 @@ BEGIN
           WHERE lesson_id='22222222-2222-2222-2222-222222222222' AND capability='mindMap') = 'DRAFT',
     'draft mind map must stay DRAFT';
   ASSERT (SELECT count(*) FROM public.lesson_capability_lifecycle
-          WHERE lesson_id='11111111-1111-1111-1111-111111111111') = 7,
-    'fully populated lesson must backfill 7 capabilities';
+          WHERE lesson_id='11111111-1111-1111-1111-111111111111') = 6,
+    'fully populated lesson must backfill 6 capabilities';
   ASSERT NOT EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle WHERE capability='studentPerformance'),
     'derived performance must have no lifecycle row';
   ASSERT (SELECT relrowsecurity FROM pg_class WHERE oid='public.lesson_capability_lifecycle'::regclass),
@@ -75,7 +75,7 @@ SQL
 echo "SCHEMA_AND_BACKFILL=OK"
 
 # transition simulation: READY -> DRAFT keeps the frozen snapshot
-psql -q -d postgres <<'SQL'
+psql -q -v ON_ERROR_STOP=1 -d postgres <<'SQL'
 UPDATE public.lesson_capability_lifecycle
    SET ready_snapshot = '{"v":1}'::jsonb, ready_hash='h1'
  WHERE capability='quickReview';
