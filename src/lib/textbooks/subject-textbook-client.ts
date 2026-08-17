@@ -82,7 +82,7 @@ export async function readTextbookLocalState(
     cached: true,
     cachedVersion: entry.downloadedVersion,
     updateAvailable,
-    bytes: entry.size ?? null,
+    bytes: entry.fileSize ?? null,
   };
 }
 
