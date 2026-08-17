@@ -97,6 +97,12 @@ function ReadinessBadge({ readiness }: { readiness: LessonReadiness | undefined 
 }
 
 function AdminLessonsPage() {
+  const childMatches = useChildMatches();
+  if (childMatches.length > 0) return <Outlet />;
+  return <AdminLessonsList />;
+}
+
+function AdminLessonsList() {
   const { loading, enabled } = useRequireAdminSection("content");
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
