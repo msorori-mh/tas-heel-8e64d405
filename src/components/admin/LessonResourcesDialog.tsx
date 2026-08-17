@@ -72,6 +72,7 @@ export function LessonResourcesDialog({
 }: Props) {
   const qc = useQueryClient();
   const [rows, setRows] = useState<LessonResourceItem[]>([]);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
@@ -79,6 +80,7 @@ export function LessonResourcesDialog({
     if (open) {
       setErrMsg(null);
       setSaving(false);
+      setDeletedIds([]);
       setRows(
         [...items]
           .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
@@ -122,6 +124,12 @@ export function LessonResourcesDialog({
     setRows((rs) => rs.filter((r) => r.id !== id));
   };
 
+  // Saved resources are queued for deletion and removed on save.
+  const removeSaved = (id: string) => {
+    setRows((rs) => rs.filter((r) => r.id !== id));
+    setDeletedIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  };
+
   const handleSave = async () => {
     setErrMsg(null);
 
@@ -156,8 +164,24 @@ export function LessonResourcesDialog({
 
     setSaving(true);
     try {
+      // Delete removed saved resources first (clears primary flag side effects).
+      if (deletedIds.length > 0) {
+        const { error: delError } = await supabase
+          .from("lesson_resources")
+          .delete()
+          .in("id", deletedIds);
+        if (delError) {
+          throw new Error(
+            /violates foreign key|RESTRICT/i.test(delError.message)
+              ? "تعذر حذف مورد لأنه مرتبط بمحتوى منشور أو ملفات مرفوعة."
+              : delError.message,
+          );
+        }
+      }
+
       let primaryResourceId: string | null = null;
       let hasPrimarySelection = false;
+
 
       for (const r of rows) {
         const title = r.title.trim();
@@ -250,10 +274,17 @@ export function LessonResourcesDialog({
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
-            يمكنك تعديل الموارد الموجودة وإضافة موارد جديدة (روابط نصية فقط، بدون
-            رفع ملفات). حذف المورد المحفوظ سيتم دعمه لاحقًا.
+            يمكنك تعديل الموارد الموجودة وإضافة موارد جديدة، وحذف الموارد
+            المحفوظة. الحذف يُنفَّذ نهائيًا عند الضغط على «حفظ»، ولا يمكن التراجع
+            عنه.
           </span>
         </div>
+
+        {deletedIds.length > 0 && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive text-right">
+            سيتم حذف {deletedIds.length} مورد نهائيًا عند الحفظ.
+          </div>
+        )}
 
         {errMsg && (
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive text-right">
@@ -283,23 +314,17 @@ export function LessonResourcesDialog({
                         </span>
                       )}
                     </span>
-                    {local ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeLocal(r.id)}
-                        disabled={saving}
-                        className="h-7 px-2 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 ml-1" />
-                        حذف من الواجهة
-                      </Button>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground">
-                        حذف المورد المحفوظ سيتم دعمه لاحقًا.
-                      </span>
-                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => (local ? removeLocal(r.id) : removeSaved(r.id))}
+                      disabled={saving}
+                      className="h-7 px-2 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 ml-1" />
+                      {local ? "حذف من الواجهة" : "حذف المورد"}
+                    </Button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
