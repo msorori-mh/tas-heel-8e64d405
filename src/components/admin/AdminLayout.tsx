@@ -37,6 +37,7 @@ type LinkItem = {
     | "/admin/subjects"
     | "/admin/units"
     | "/admin/lessons"
+    | "/admin/textbooks"
     | "/admin/questions"
     | "/admin/exam-templates"
     | "/admin/ministerial-exams"
@@ -66,6 +67,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/subjects", label: "المواد", icon: BookOpen },
   { href: "/admin/units", label: "الوحدات", icon: Layers },
   { href: "/admin/lessons", label: "الدروس", icon: BookOpen },
+  { href: "/admin/textbooks", label: "كتب المنهج", icon: BookOpen },
   { href: "/admin/questions", label: "الأسئلة", icon: HelpCircle },
   { href: "/admin/exam-templates", label: "قوالب الاختبارات", icon: ClipboardList },
   { href: "/admin/ministerial-exams", label: "النماذج الوزارية", icon: ClipboardList },

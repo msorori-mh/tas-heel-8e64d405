@@ -45,6 +45,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as Prototype19aLessonRouteImport } from './routes/prototype.19a.lesson'
 import { Route as Prototype19aLandingRouteImport } from './routes/prototype.19a.landing'
 import { Route as Prototype19aHomeRouteImport } from './routes/prototype.19a.home'
+import { Route as ApiSubjectTextbookTextbookIdRouteImport } from './routes/api/subject-textbook.$textbookId'
 import { Route as ApiLessonFileResourceIdRouteImport } from './routes/api/lesson-file.$resourceId'
 import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedSemestersSemesterRouteImport } from './routes/_authenticated/semesters.$semester'
@@ -56,6 +57,7 @@ import { Route as AuthenticatedExamsHistoryRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminWalletTopupsRouteImport } from './routes/_authenticated/admin.wallet-topups'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminUnitsRouteImport } from './routes/_authenticated/admin.units'
+import { Route as AuthenticatedAdminTextbooksRouteImport } from './routes/_authenticated/admin.textbooks'
 import { Route as AuthenticatedAdminSubjectsRouteImport } from './routes/_authenticated/admin.subjects'
 import { Route as AuthenticatedAdminStudentsRouteImport } from './routes/_authenticated/admin.students'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin.questions'
@@ -270,6 +272,12 @@ const Prototype19aHomeRoute = Prototype19aHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => Prototype19aRoute,
 } as any)
+const ApiSubjectTextbookTextbookIdRoute =
+  ApiSubjectTextbookTextbookIdRouteImport.update({
+    id: '/api/subject-textbook/$textbookId',
+    path: '/api/subject-textbook/$textbookId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiLessonFileResourceIdRoute = ApiLessonFileResourceIdRouteImport.update({
   id: '/api/lesson-file/$resourceId',
   path: '/api/lesson-file/$resourceId',
@@ -333,6 +341,12 @@ const AuthenticatedAdminUnitsRoute = AuthenticatedAdminUnitsRouteImport.update({
   path: '/units',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminTextbooksRoute =
+  AuthenticatedAdminTextbooksRouteImport.update({
+    id: '/textbooks',
+    path: '/textbooks',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminSubjectsRoute =
   AuthenticatedAdminSubjectsRouteImport.update({
     id: '/subjects',
@@ -536,6 +550,7 @@ export interface FileRoutesByFullPath {
   '/admin/questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/admin/subjects': typeof AuthenticatedAdminSubjectsRoute
+  '/admin/textbooks': typeof AuthenticatedAdminTextbooksRoute
   '/admin/units': typeof AuthenticatedAdminUnitsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/wallet-topups': typeof AuthenticatedAdminWalletTopupsRoute
@@ -547,6 +562,7 @@ export interface FileRoutesByFullPath {
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/api/subject-textbook/$textbookId': typeof ApiSubjectTextbookTextbookIdRoute
   '/prototype/19a/home': typeof Prototype19aHomeRoute
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
   '/prototype/19a/lesson': typeof Prototype19aLessonRoute
@@ -607,6 +623,7 @@ export interface FileRoutesByTo {
   '/admin/questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/admin/subjects': typeof AuthenticatedAdminSubjectsRoute
+  '/admin/textbooks': typeof AuthenticatedAdminTextbooksRoute
   '/admin/units': typeof AuthenticatedAdminUnitsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/wallet-topups': typeof AuthenticatedAdminWalletTopupsRoute
@@ -618,6 +635,7 @@ export interface FileRoutesByTo {
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/api/subject-textbook/$textbookId': typeof ApiSubjectTextbookTextbookIdRoute
   '/prototype/19a/home': typeof Prototype19aHomeRoute
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
   '/prototype/19a/lesson': typeof Prototype19aLessonRoute
@@ -684,6 +702,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin/students': typeof AuthenticatedAdminStudentsRoute
   '/_authenticated/admin/subjects': typeof AuthenticatedAdminSubjectsRoute
+  '/_authenticated/admin/textbooks': typeof AuthenticatedAdminTextbooksRoute
   '/_authenticated/admin/units': typeof AuthenticatedAdminUnitsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/wallet-topups': typeof AuthenticatedAdminWalletTopupsRoute
@@ -695,6 +714,7 @@ export interface FileRoutesById {
   '/_authenticated/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/api/subject-textbook/$textbookId': typeof ApiSubjectTextbookTextbookIdRoute
   '/prototype/19a/home': typeof Prototype19aHomeRoute
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
   '/prototype/19a/lesson': typeof Prototype19aLessonRoute
@@ -761,6 +781,7 @@ export interface FileRouteTypes {
     | '/admin/questions'
     | '/admin/students'
     | '/admin/subjects'
+    | '/admin/textbooks'
     | '/admin/units'
     | '/admin/users'
     | '/admin/wallet-topups'
@@ -772,6 +793,7 @@ export interface FileRouteTypes {
     | '/semesters/$semester'
     | '/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/api/subject-textbook/$textbookId'
     | '/prototype/19a/home'
     | '/prototype/19a/landing'
     | '/prototype/19a/lesson'
@@ -832,6 +854,7 @@ export interface FileRouteTypes {
     | '/admin/questions'
     | '/admin/students'
     | '/admin/subjects'
+    | '/admin/textbooks'
     | '/admin/units'
     | '/admin/users'
     | '/admin/wallet-topups'
@@ -843,6 +866,7 @@ export interface FileRouteTypes {
     | '/semesters/$semester'
     | '/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/api/subject-textbook/$textbookId'
     | '/prototype/19a/home'
     | '/prototype/19a/landing'
     | '/prototype/19a/lesson'
@@ -908,6 +932,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/questions'
     | '/_authenticated/admin/students'
     | '/_authenticated/admin/subjects'
+    | '/_authenticated/admin/textbooks'
     | '/_authenticated/admin/units'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/wallet-topups'
@@ -919,6 +944,7 @@ export interface FileRouteTypes {
     | '/_authenticated/semesters/$semester'
     | '/_authenticated/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/api/subject-textbook/$textbookId'
     | '/prototype/19a/home'
     | '/prototype/19a/landing'
     | '/prototype/19a/lesson'
@@ -962,6 +988,7 @@ export interface RootRouteChildren {
   Prototype19aRoute: typeof Prototype19aRouteWithChildren
   Prototype19cRoute: typeof Prototype19cRoute
   ApiLessonFileResourceIdRoute: typeof ApiLessonFileResourceIdRoute
+  ApiSubjectTextbookTextbookIdRoute: typeof ApiSubjectTextbookTextbookIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1218,6 +1245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Prototype19aHomeRouteImport
       parentRoute: typeof Prototype19aRoute
     }
+    '/api/subject-textbook/$textbookId': {
+      id: '/api/subject-textbook/$textbookId'
+      path: '/api/subject-textbook/$textbookId'
+      fullPath: '/api/subject-textbook/$textbookId'
+      preLoaderRoute: typeof ApiSubjectTextbookTextbookIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/lesson-file/$resourceId': {
       id: '/api/lesson-file/$resourceId'
       path: '/api/lesson-file/$resourceId'
@@ -1293,6 +1327,13 @@ declare module '@tanstack/react-router' {
       path: '/units'
       fullPath: '/admin/units'
       preLoaderRoute: typeof AuthenticatedAdminUnitsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/textbooks': {
+      id: '/_authenticated/admin/textbooks'
+      path: '/textbooks'
+      fullPath: '/admin/textbooks'
+      preLoaderRoute: typeof AuthenticatedAdminTextbooksRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/subjects': {
@@ -1514,6 +1555,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminQuestionsRoute: typeof AuthenticatedAdminQuestionsRoute
   AuthenticatedAdminStudentsRoute: typeof AuthenticatedAdminStudentsRoute
   AuthenticatedAdminSubjectsRoute: typeof AuthenticatedAdminSubjectsRoute
+  AuthenticatedAdminTextbooksRoute: typeof AuthenticatedAdminTextbooksRoute
   AuthenticatedAdminUnitsRoute: typeof AuthenticatedAdminUnitsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminWalletTopupsRoute: typeof AuthenticatedAdminWalletTopupsRoute
@@ -1539,6 +1581,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminQuestionsRoute: AuthenticatedAdminQuestionsRoute,
   AuthenticatedAdminStudentsRoute: AuthenticatedAdminStudentsRoute,
   AuthenticatedAdminSubjectsRoute: AuthenticatedAdminSubjectsRoute,
+  AuthenticatedAdminTextbooksRoute: AuthenticatedAdminTextbooksRoute,
   AuthenticatedAdminUnitsRoute: AuthenticatedAdminUnitsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminWalletTopupsRoute: AuthenticatedAdminWalletTopupsRoute,
@@ -1729,6 +1772,7 @@ const rootRouteChildren: RootRouteChildren = {
   Prototype19aRoute: Prototype19aRouteWithChildren,
   Prototype19cRoute: Prototype19cRoute,
   ApiLessonFileResourceIdRoute: ApiLessonFileResourceIdRoute,
+  ApiSubjectTextbookTextbookIdRoute: ApiSubjectTextbookTextbookIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

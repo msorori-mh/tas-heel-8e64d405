@@ -19,6 +19,7 @@ export function BrowserNativePdfDelivery({
   lessonId,
   subjectId,
   title,
+  kind,
   className,
 }: PdfViewerProps) {
   const [url, setUrl] = useState<string | null>(null);
@@ -32,7 +33,7 @@ export function BrowserNativePdfDelivery({
 
     (async () => {
       try {
-        const resolved = await resolveLessonFile({ resourceId, lessonId, subjectId });
+        const resolved = await resolveLessonFile({ resourceId, lessonId, subjectId, kind });
         if (cancelled) return;
         objectUrl = URL.createObjectURL(resolved.blob);
         setUrl(objectUrl);
