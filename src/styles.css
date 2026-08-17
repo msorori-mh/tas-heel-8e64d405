@@ -412,10 +412,15 @@ html[dir="rtl"] body {
 }
 
 /*
- * TAMKEEN_FOCUSED_MOMENTUM_V2_PROTOTYPE_19A
- * Scoped prototype theme. Applies ONLY inside .fm-v2 subtrees
- * (the /prototype/19a screens) so the rest of the app is untouched.
+ * TAMKEEN_DESIGN_SYSTEM_V2_FOUNDATION_19C
+ * BASE_SHA=a8f6ee3f1a93a11ddfddc0783dadcbab1259411a
+ *
+ * Canonical token surface for Design System V2. It is still SCOPED — it only
+ * applies inside `.ds-v2` (foundation + showcase) and `.fm-v2` (the frozen 19A/19B
+ * prototype screens). No real-app rollout happens in 19C: the app shell keeps its
+ * existing tokens untouched.
  */
+.ds-v2,
 .fm-v2 {
   --background: #FBFAF7;
   --foreground: #131A33;
@@ -442,12 +447,21 @@ html[dir="rtl"] body {
   --fm-signature: linear-gradient(135deg, #1E2A63 0%, #4C4BC9 55%, #06B6D4 100%);
   --fm-card-shadow: 0 2px 10px -6px rgb(19 26 51 / 0.18);
 
+  /* 19C — documented scale primitives (radius / elevation / rhythm). */
+  --ds-radius-sm: 0.625rem;
+  --ds-radius-md: 1rem;
+  --ds-radius-lg: 1.25rem;
+  --ds-radius-pill: 999px;
+  --ds-shadow-raised: 0 6px 20px -12px rgb(19 26 51 / 0.32);
+  --ds-space-section: 0.875rem;
+  --ds-space-card: 0.875rem;
+
   background: var(--background);
   color: var(--foreground);
 }
 
 @utility fm-card {
-  border-radius: 1rem;
+  border-radius: var(--ds-radius-md, 1rem);
   border: 1px solid var(--border);
   background: var(--card);
   box-shadow: var(--fm-card-shadow);
@@ -471,13 +485,20 @@ html[dir="rtl"] body {
   background-image: var(--fm-signature);
 }
 
+@utility ds-raised {
+  box-shadow: var(--ds-shadow-raised);
+}
+
+.ds-v2 .fm-read,
 .fm-v2 .fm-read {
   font-size: 16px;
   line-height: 1.95;
 }
 @media (min-width: 640px) {
+  .ds-v2 .fm-read,
   .fm-v2 .fm-read {
     font-size: 17px;
   }
 }
+
 
