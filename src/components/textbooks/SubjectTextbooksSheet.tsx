@@ -42,7 +42,7 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   subjectId: string;
   subjectName: string;
-  /** Kept for call-site compatibility: the same book serves both semesters. */
+  /** Full-year books show in both semesters; semester books only in theirs. */
   semester?: 1 | 2;
 };
 
@@ -51,11 +51,12 @@ export function SubjectTextbooksSheet({
   onOpenChange,
   subjectId,
   subjectName,
+  semester,
 }: Props) {
   const { data, isLoading, error } = useQuery({
     enabled: open,
-    queryKey: ["subject-textbooks", subjectId],
-    queryFn: () => listStudentTextbooks({ subjectId }),
+    queryKey: ["subject-textbooks", subjectId, semester ?? null],
+    queryFn: () => listStudentTextbooks({ subjectId, semester: semester ?? null }),
   });
 
   const [reading, setReading] = useState<StudentTextbook | null>(null);
@@ -169,7 +170,10 @@ function TextbookRow({ book, onOpen }: { book: StudentTextbook; onOpen: () => vo
         <div className="min-w-0">
           <h3 className="truncate text-sm font-bold text-foreground">{book.title}</h3>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            كتاب الفصلين · {formatBytes(book.fileSize)} · إصدار{" "}
+            {book.coverageType === "SEMESTER_SPECIFIC"
+              ? `كتاب الفصل ${book.semester === 2 ? "الثاني" : "الأول"}`
+              : "كتاب الفصلين"}{" "}
+            · {formatBytes(book.fileSize)} · إصدار{" "}
             {book.version.slice(0, 6)}
           </p>
         </div>

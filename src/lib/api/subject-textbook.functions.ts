@@ -46,6 +46,8 @@ export const bindSubjectTextbookFile = createServerFn({ method: "POST" })
     z.object({
       subjectId: z.string().uuid(),
       curriculumTrackId: z.string().uuid().nullable(),
+      coverageType: z.enum(["FULL_ACADEMIC_YEAR", "SEMESTER_SPECIFIC"]).default("FULL_ACADEMIC_YEAR"),
+      semester: z.union([z.literal(1), z.literal(2)]).nullable().default(null),
       title: z.string().min(1).max(200),
       path: z.string().min(1).max(500),
       fileName: z.string().min(1).max(300),
@@ -61,6 +63,8 @@ export const bindSubjectTextbookFile = createServerFn({ method: "POST" })
     return m.bindSubjectTextbook(supabaseAdmin as never, context.userId, {
       subjectId: data.subjectId,
       curriculumTrackId: data.curriculumTrackId,
+      coverageType: data.coverageType,
+      semester: data.semester,
       title: data.title,
       path: data.path,
       fileName: data.fileName,

@@ -12,6 +12,8 @@ import { getEntry, removeFile } from "@/lib/offline/pdf-cache";
 export type StudentTextbook = {
   id: string;
   subjectId: string;
+  coverageType: "FULL_ACADEMIC_YEAR" | "SEMESTER_SPECIFIC";
+  semester: 1 | 2 | null;
   title: string;
   fileName: string | null;
   fileSize: number | null;
@@ -26,15 +28,27 @@ export type TextbookLocalState = {
   bytes: number | null;
 };
 
+/**
+ * 21B-A2 discovery rule for a given semester:
+ *   FULL_ACADEMIC_YEAR books always show, SEMESTER_SPECIFIC books only in
+ *   their own semester. Without a semester, everything active is returned.
+ */
 export async function listStudentTextbooks(params: {
   subjectId: string;
+  semester?: 1 | 2 | null;
 }): Promise<StudentTextbook[]> {
-  const query = (supabase as never as { from: (t: string) => any })
+  let query = (supabase as never as { from: (t: string) => any })
     .from("subject_textbooks")
-    .select("id, subject_id, title, file_name, file_size, version, sort_order")
+    .select("id, subject_id, coverage_type, semester, title, file_name, file_size, version, sort_order")
     .eq("subject_id", params.subjectId)
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
+
+  if (params.semester === 1 || params.semester === 2) {
+    query = query.or(
+      `coverage_type.eq.FULL_ACADEMIC_YEAR,and(coverage_type.eq.SEMESTER_SPECIFIC,semester.eq.${params.semester})`,
+    );
+  }
 
   const { data, error } = await query;
   if (error) throw error;
@@ -43,6 +57,9 @@ export async function listStudentTextbooks(params: {
   return rows.map((r) => ({
       id: String(r["id"]),
       subjectId: String(r["subject_id"]),
+      coverageType:
+        r["coverage_type"] === "SEMESTER_SPECIFIC" ? "SEMESTER_SPECIFIC" : "FULL_ACADEMIC_YEAR",
+      semester: (r["semester"] as 1 | 2 | null) ?? null,
       title: String(r["title"] ?? "كتاب المنهج"),
       fileName: (r["file_name"] as string | null) ?? null,
       fileSize: (r["file_size"] as number | null) ?? null,
