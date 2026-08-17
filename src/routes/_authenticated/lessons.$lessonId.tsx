@@ -820,6 +820,25 @@ function LessonPage() {
         </div>
       )}
 
+      {/* 20D §8 — the original textbook file stays available as an independent
+          reference (last), never as the lesson's primary content. */}
+      {showOriginalBookPdf && effectivePrimary && (
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
+          <h2 className="mb-2 text-sm font-bold text-foreground">
+            📚 نسخة الكتاب الأصلية
+          </h2>
+          <p className="mb-3 text-xs text-muted-foreground">
+            مرجع اختياري — الصفحات الأصلية من الكتاب المدرسي كما هي.
+          </p>
+          <InAppPdfDelivery
+            resourceId={effectivePrimary.id}
+            lessonId={lessonId}
+            title={effectivePrimary.title}
+            fallbackUrl={isSafeHttpUrl(effectivePrimary.url) ? effectivePrimary.url : null}
+          />
+        </section>
+      )}
+
       <nav
         aria-label="التنقل بين الدروس"
         className="grid grid-cols-2 gap-2.5 border-t border-border/60 pt-4"
