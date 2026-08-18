@@ -14,7 +14,7 @@ const registry = read("src/lib/offline/local-textbook-registry.ts");
 describe("21B4D state machine", () => {
   it("1. NOT_DOWNLOADED offers a تنزيل CTA", () => {
     expect(sheet).toContain('"NOT_DOWNLOADED"');
-    expect(sheet).toContain(">تنزيل");
+    expect(sheet).toContain('{message ? "إعادة المحاولة" : "تنزيل"}');
   });
 
   it("2. DOWNLOADING shows progress and no competing CTA", () => {
