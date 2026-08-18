@@ -315,7 +315,7 @@ function TextbookRow({
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" dir="rtl">
+            <DropdownMenuContent align="start" className="text-right">
               {local?.updateAvailable && (
                 <DropdownMenuItem onSelect={() => void start()}>
                   <RefreshCw className="ms-2 h-4 w-4" /> تحديث النسخة
