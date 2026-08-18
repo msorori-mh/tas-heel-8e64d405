@@ -9,11 +9,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   BookOpen,
+  CheckCircle2,
   CloudDownload,
   Loader2,
   RefreshCw,
   Trash2,
   Wifi,
+  WifiOff,
   X,
 } from "lucide-react";
 
@@ -27,6 +29,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { InAppPdfDelivery, prefetchPdfViewerChunk } from "@/components/lessons/InAppPdfDelivery";
+import { ensureReaderReady, isReaderReady } from "@/lib/pdf/reader-runtime";
 import { formatBytes } from "@/lib/offline/network";
 import {
   deleteLocalTextbook,
@@ -37,6 +40,7 @@ import {
   type StudentTextbook,
   type TextbookLocalState,
 } from "@/lib/textbooks/subject-textbook-client";
+
 
 type Props = {
   open: boolean;
