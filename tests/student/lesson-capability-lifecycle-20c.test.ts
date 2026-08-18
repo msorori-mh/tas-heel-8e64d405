@@ -76,7 +76,11 @@ describe("20C lifecycle overlay", () => {
 
   it("H — capability order preserved", () => {
     expect(STUDENT_CAPABILITY_ORDER[0]).toBe("officialBookContent");
-    expect(STUDENT_CAPABILITY_ORDER[9]).toBe("originalBookPdf");
+    // 21B4E — originalBookPdf left the student journey entirely.
+    expect(STUDENT_CAPABILITY_ORDER).not.toContain("originalBookPdf");
+    expect(STUDENT_CAPABILITY_ORDER[STUDENT_CAPABILITY_ORDER.length - 1]).toBe(
+      "studentPerformance",
+    );
     const c = buildLessonCapabilityContract(base);
     const keys = studentVisibleContract(c).map((x) => x.key);
     const idx = keys.map((k) => STUDENT_CAPABILITY_ORDER.indexOf(k));
