@@ -21,7 +21,11 @@ const config: CapacitorConfig = {
     androidScheme: "https",
     cleartext: false,
     hostname: "studentamkeen.com",
+    // 21B4-B — when the remote origin cannot be reached, Android loads this
+    // bundled page (Tamkeen Offline Entry) instead of chrome-error://.
+    errorPath: "index.html",
   },
+
   plugins: {
     SplashScreen: {
       launchShowDuration: 1200,

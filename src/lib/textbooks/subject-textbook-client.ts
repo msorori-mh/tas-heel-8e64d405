@@ -7,6 +7,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { downloadAndCache, fetchFileMeta } from "@/lib/offline/lesson-file-client";
+import { isReaderReady } from "@/lib/pdf/reader-runtime";
 import { getEntry, removeFile } from "@/lib/offline/pdf-cache";
 import {
   computeSha256,
@@ -174,8 +175,10 @@ export async function downloadTextbook(params: {
           sha256: await computeSha256(result.blob),
           fileSize: entry.fileSize ?? params.textbook.fileSize ?? null,
           downloadedAt: entry.downloadedAt,
-          // ANDROID_NATIVE renderer ships inside the APK ⇒ ready on save.
-          offlineReady: true,
+          // OFFLINE_READY = PDF_READY && READER_READY. On Android the native
+          // renderer ships inside the APK, so isReaderReady() is true there.
+          offlineReady: isReaderReady(),
+
         });
       }
     } catch {
