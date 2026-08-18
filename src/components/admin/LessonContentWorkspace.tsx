@@ -192,6 +192,12 @@ export function LessonContentWorkspace({
                   >
                     {matrixLabel(cap, stage, v3.applicability)}
                   </span>
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                    {APPLICABILITY_AR[resolveApplicability(applicability, v3.key)]}
+                  </span>
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                    {v3.owner === "OFFICIAL" ? "رسمي" : "تمكين"}
+                  </span>
                   {hasLifecycle && (
                     <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
                       المسار التحريري: {stage ? STATUS_LABEL_AR[stage] : "غير مُدار"}
@@ -262,7 +268,7 @@ export function LessonContentWorkspace({
           محفوظة ولم تُحذف.
         </p>
         <ul className="mt-2 space-y-1">
-          {LEGACY_REFERENCE_CAPABILITIES.map((key) => {
+          {[...LEGACY_REFERENCE_CAPABILITIES, "supportingResources" as const].map((key) => {
             const cap = contract[key];
             return (
               <li
