@@ -7,9 +7,7 @@
 import { Link } from "@tanstack/react-router";
 import { Eye, Loader2, Pencil } from "lucide-react";
 import {
-  STUDENT_CAPABILITY_ORDER,
   LEGACY_REFERENCE_CAPABILITIES,
-  computeLessonReadinessLevels,
   LIFECYCLE_CAPABILITIES,
   type LessonCapabilityContract,
   type LessonContentCapabilityKey,
@@ -21,6 +19,15 @@ import {
   TRANSITION_LABEL_AR,
   type LessonCapabilityLifecycleStatus,
 } from "@/lib/lessons/lesson-lifecycle";
+import {
+  buildV3CapabilityView,
+  computeV3Readiness,
+  explainMissing,
+  resolveApplicability,
+  type ApplicabilityMap,
+  type CapabilityApplicability,
+  type V3CapabilityKey,
+} from "@/lib/lessons/content-v3";
 
 
 const STATUS_AR: Record<LessonCapabilityState["status"], string> = {
@@ -37,26 +44,22 @@ const STATUS_CLASS: Record<LessonCapabilityState["status"], string> = {
   ABSENT: "bg-muted text-muted-foreground border-border",
 };
 
-/**
- * 20D §13 — capabilities every lesson must have. Anything else that is absent
- * is "غير مطلوب لهذا الدرس" (N/A), never a gap the operator must chase.
- */
-const REQUIRED_CAPABILITIES: readonly LessonContentCapabilityKey[] = [
-  "officialBookContent",
-  "tamkeenExplanation",
-  "quickReview",
-  "checkUnderstanding",
-];
+/** 21F — applicability decides whether "absent" is a gap or simply N/A. */
+const APPLICABILITY_AR: Record<CapabilityApplicability, string> = {
+  REQUIRED: "إلزامي",
+  OPTIONAL: "اختياري",
+  NA: "غير مطلوب لهذا الدرس",
+};
 
 /** Matrix cell label: READY / DRAFT / REVIEW / MISSING / N/A. */
 function matrixLabel(
   cap: LessonCapabilityState,
   stage: LessonCapabilityLifecycleStatus | null,
+  applicability: CapabilityApplicability,
 ): string {
+  if (applicability === "NA") return "غير مطلوب لهذا الدرس (N/A)";
   if (cap.status === "ABSENT") {
-    return REQUIRED_CAPABILITIES.includes(cap.key)
-      ? "ناقص (MISSING)"
-      : "غير مطلوب لهذا الدرس (N/A)";
+    return applicability === "REQUIRED" ? "ناقص (MISSING)" : "غير مُدخل (اختياري)";
   }
   if (cap.status === "DRAFT" && stage === "REVIEW") return "قيد المراجعة";
   return STATUS_AR[cap.status];
@@ -91,6 +94,7 @@ export function LessonContentWorkspace({
   lifecycle = {},
   onTransition,
   pendingCapability = null,
+  applicability,
 }: {
   header: LessonWorkspaceHeader;
   contract: LessonCapabilityContract;
@@ -104,8 +108,11 @@ export function LessonContentWorkspace({
     to: LessonCapabilityLifecycleStatus,
   ) => void;
   pendingCapability?: LessonContentCapabilityKey | null;
+  /** 21F — per-lesson REQUIRED / OPTIONAL / N-A overrides (defaults applied). */
+  applicability?: ApplicabilityMap;
 }) {
-  const readiness = computeLessonReadinessLevels(contract);
+  const readiness = computeV3Readiness(contract, applicability);
+  const v3View = buildV3CapabilityView(contract, applicability);
 
   return (
     <section className="rounded-2xl border border-border bg-card p-4" dir="rtl">
@@ -183,7 +190,7 @@ export function LessonContentWorkspace({
                   <span
                     className={`rounded-full border px-2 py-0.5 text-[10px] ${STATUS_CLASS[cap.status]}`}
                   >
-                    {matrixLabel(cap, stage)}
+                    {matrixLabel(cap, stage, v3.applicability)}
                   </span>
                   {hasLifecycle && (
                     <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
