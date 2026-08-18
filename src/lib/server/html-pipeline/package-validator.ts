@@ -11,6 +11,7 @@ import {
   type SecurityFinding,
   type ValidationCode,
 } from "@/lib/content-import/html-package";
+import { ANSWER_LEAK_PATTERNS } from "@/lib/lessons/html-content-standard";
 import type { StorageClientAdapter } from "./storage-adapter";
 import type { ServerPackageValidationResult } from "./types";
 
