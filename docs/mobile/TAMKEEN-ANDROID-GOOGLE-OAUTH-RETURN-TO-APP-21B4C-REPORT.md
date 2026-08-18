@@ -222,3 +222,61 @@ callback = app.studentamkeen.tamkeen://auth/callback  ✔ مطابق
 
 **FAILED_CONFIG_VERIFICATION** — التحقق البعدي أثبت أن الـ redirect URI الجديد غير موجود بعد؛
 الإضافة تحتاج خطوة يدوية واحدة من المالك. لم يُنشر ولم يُدمج شيء، ولم تتغير أي قيمة قائمة.
+
+---
+
+## POST-APPLY VERIFY (READ-ONLY) — 2026-08-18 03:34 UTC
+
+قراءة إعدادات المصادقة بعد الإضافة اليدوية المعلَنة:
+
+```
+Site URL: https://tas-heel.lovable.app
+URI allow list (8 قيم — نفس ما سُجِّل في G0، بلا حذف ولا تعديل):
+- https://studentamkeen.com/**
+- https://www.studentamkeen.com/**
+- https://id-preview*--0e731d8e-4edd-4b70-80ca-41ff8733cacc.lovable.app/**
+- https://id-preview*--0e731d8e-4edd-4b70-80ca-41ff8733cacc.*.lovable.app/**
+- https://0e731d8e-4edd-4b70-80ca-41ff8733cacc.lovableproject.com/**
+- https://0e731d8e-4edd-4b70-80ca-41ff8733cacc-thr_*.lovableproject.com/**
+- https://preview--tas-heel.lovable.app/**
+- https://tas-heel.lovable.app/**
+```
+
+النتيجة الحاسمة:
+
+```
+REDIRECT_URI_PRESENT=NO   ← app.studentamkeen.tamkeen://auth/callback غير ظاهر في القائمة
+REDIRECT_COUNT_BEFORE=8
+REDIRECT_COUNT_AFTER=8    (لا زيادة)
+SITE_URL_UNCHANGED=YES
+GOOGLE_PROVIDER_UNCHANGED=YES
+EXISTING_REDIRECTS_PRESERVED=YES
+WILDCARD_ADDED=NO
+```
+
+احتمالات السبب: لم يُحفَظ الحقل (Save)، أو أُضيف في مشروع/بيئة أخرى، أو رفض الحقل السكيم المخصص.
+
+### Source contract (ما زال مطابقاً)
+
+```
+scheme   = app.studentamkeen.tamkeen   (capacitor.config.ts:12, AndroidManifest.xml:31, native-oauth.ts:19)
+callback = app.studentamkeen.tamkeen://auth/callback
+```
+
+### Security (تشغيل فعلي للاختبارات: 12/12 PASS)
+
+```
+FAIL_CLOSED_CALLBACK=PASS
+WRONG_SCHEME_REJECTED=PASS
+WRONG_PATH_REJECTED=PASS
+TOKEN_LOGGING=NONE
+PKCE=PASS
+WEB_AUTH_REGRESSION=PASS
+PHYSICAL_ANDROID_TEST=PENDING_DEVICE_AVAILABLE
+```
+
+## FINAL VERDICT
+
+**FAILED_CONFIG_VERIFICATION** — كل الضمانات الأمنية والمصدرية سليمة، لكن الـ redirect URI
+الجديد غير موجود فعلياً في Auth Redirect Allow List عند القراءة. يلزم إعادة الإضافة والحفظ ثم
+إعادة هذا التحقق. لا نشر، لا دمج، لا تغييرات أخرى.
