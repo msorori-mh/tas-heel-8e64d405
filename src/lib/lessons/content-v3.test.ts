@@ -3,7 +3,24 @@
  * Unified test matrix: HTML standard · official questions · self test ·
  * readiness · student UX · admin · regressions.
  */
-import { describe, expect, it } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+
+/** Minimal expect shim over node:assert (project runs node --test). */
+function expect(actual: any) {
+  return {
+    toBe: (v: any) => assert.strictEqual(actual, v),
+    toEqual: (v: any) => assert.deepStrictEqual(actual, v),
+    toBeNull: () => assert.strictEqual(actual, null),
+    toHaveLength: (n: number) => assert.strictEqual(actual.length, n),
+    toContain: (v: any) => assert.ok(actual.includes(v), `expected to contain ${String(v)}`),
+    toBeGreaterThan: (n: number) => assert.ok(actual > n),
+    not: {
+      toContain: (v: any) => assert.ok(!actual.includes(v), `expected NOT to contain ${String(v)}`),
+      toBe: (v: any) => assert.notStrictEqual(actual, v),
+    },
+  };
+}
 import {
   buildV3CapabilityView,
   computeV3Readiness,
