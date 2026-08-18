@@ -43,9 +43,10 @@ describe("21B3 offline-ready gate in the textbooks sheet", () => {
   });
 
   it("offers a reader-only retry that does not re-download the file", () => {
-    expect(sheet).toContain("تجهيز القارئ");
-    const retry = sheet.slice(sheet.indexOf("تجهيز القارئ") - 200, sheet.indexOf("تجهيز القارئ"));
+    const idx = sheet.lastIndexOf("تجهيز القارئ");
+    const retry = sheet.slice(idx - 220, idx);
     expect(retry).toContain("prepareReader");
     expect(retry).not.toContain("onClick={start}");
   });
+
 });
