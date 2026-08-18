@@ -7,6 +7,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { downloadAndCache, fetchFileMeta } from "@/lib/offline/lesson-file-client";
+import { isReaderReady } from "@/lib/pdf/reader-runtime";
 import { getEntry, removeFile } from "@/lib/offline/pdf-cache";
 import {
   computeSha256,
