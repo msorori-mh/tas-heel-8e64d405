@@ -8,6 +8,13 @@
 import { supabase } from "@/integrations/supabase/client";
 import { downloadAndCache, fetchFileMeta } from "@/lib/offline/lesson-file-client";
 import { getEntry, removeFile } from "@/lib/offline/pdf-cache";
+import {
+  computeSha256,
+  isNativeRegistry,
+  registerLocalTextbook,
+  unregisterLocalTextbook,
+} from "@/lib/offline/local-textbook-registry";
+
 
 export type StudentBookType = "MAIN_TEXTBOOK" | "EXERCISE_BOOK" | "OTHER";
 
@@ -134,8 +141,9 @@ export async function downloadTextbook(params: {
   textbook: StudentTextbook;
   signal?: AbortSignal;
   onProgress?: (loaded: number, total: number | null) => void;
+  subjectLabel?: string | null;
 }) {
-  return downloadAndCache({
+  const result = await downloadAndCache({
     resourceId: params.textbook.id,
     lessonId: null,
     subjectId: params.textbook.subjectId,
@@ -144,8 +152,42 @@ export async function downloadTextbook(params: {
     signal: params.signal,
     onProgress: params.onProgress,
   });
+
+  // 21B4-B — mirror metadata into the app-private offline registry so the
+  // in-APK offline entry screen can find and open this book without network.
+  if (isNativeRegistry()) {
+    try {
+      const entry = await getEntry(params.textbook.id);
+      if (entry?.localPath) {
+        await registerLocalTextbook({
+          textbookId: params.textbook.id,
+          title: params.textbook.title,
+          subjectId: params.textbook.subjectId,
+          subjectLabel: params.subjectLabel ?? null,
+          bookType: params.textbook.bookType,
+          coverageLabel:
+            params.textbook.coverageType === "SEMESTER_SPECIFIC"
+              ? `الفصل ${params.textbook.semester === 2 ? "الثاني" : "الأول"}`
+              : "الفصلان",
+          localPath: entry.localPath,
+          version: result.version ?? params.textbook.version,
+          sha256: await computeSha256(result.blob),
+          fileSize: entry.fileSize ?? params.textbook.fileSize ?? null,
+          downloadedAt: entry.downloadedAt,
+          // ANDROID_NATIVE renderer ships inside the APK ⇒ ready on save.
+          offlineReady: true,
+        });
+      }
+    } catch {
+      /* the registry is an offline convenience, never a download blocker */
+    }
+  }
+
+  return result;
 }
 
 export async function deleteLocalTextbook(textbookId: string): Promise<void> {
   await removeFile(textbookId);
+  await unregisterLocalTextbook(textbookId);
 }
+
