@@ -52,11 +52,12 @@ describe("20C lifecycle overlay", () => {
     expect(studentVisibleContract(c).map((x) => x.key)).toContain("quickReview");
   });
 
-  it("D — a new draft over a READY capability never hides the approved version", () => {
-    // the workspace keeps serving the frozen READY snapshot: the student-facing
-    // contract is built from the READY snapshot, so status stays READY.
+  it("D — a new draft over a READY capability is hidden until READY again", () => {
     const student = buildLessonCapabilityContract({ ...base, lifecycle: { quickReview: "READY" } });
-    const admin = buildLessonCapabilityContract({ ...base, lifecycle: { quickReview: "DRAFT" } });
+    const admin = buildLessonCapabilityContract({
+      ...base,
+      lifecycle: { quickReview: { status: "DRAFT", hasReady: true } },
+    });
     expect(student.quickReview.studentVisible).toBe(true);
     expect(admin.quickReview.studentVisible).toBe(false);
   });

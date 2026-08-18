@@ -13,9 +13,49 @@ if ([string]::IsNullOrWhiteSpace($DatabaseUrl)) {
   exit 3
 }
 
-if ($DatabaseUrl -notmatch '(?i)(localhost|127\.0\.0\.1|\[?::1\]?)') {
-  throw 'Refusing to mutate a non-local database. This runner is local-only.'
+function Stop-NonLocalDatabaseTarget([string]$Reason) {
+  Write-Output 'STOP_NON_LOCAL_DATABASE_TARGET'
+  throw $Reason
 }
+
+function Test-ExplicitLocalHost([string]$HostValue) {
+  if ([string]::IsNullOrWhiteSpace($HostValue)) { return $false }
+  $normalized = $HostValue.Trim().TrimStart('[').TrimEnd(']')
+  if ($normalized -in @('localhost', '127.0.0.1', '::1')) { return $true }
+  $ip = $null
+  return [System.Net.IPAddress]::TryParse($normalized, [ref]$ip) -and
+    $ip.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetworkV6 -and
+    $ip.Equals([System.Net.IPAddress]::IPv6Loopback)
+}
+
+function Get-ConnectionHosts([string]$ConnectionString) {
+  $uri = $null
+  if ([System.Uri]::TryCreate($ConnectionString, [System.UriKind]::Absolute, [ref]$uri) -and
+      $uri.Scheme -in @('postgres', 'postgresql')) {
+    return @($uri.Host)
+  }
+
+  $hosts = [System.Collections.Generic.List[string]]::new()
+  foreach ($match in [regex]::Matches($ConnectionString, '(?i)(?:^|\s)(host|hostaddr)\s*=\s*(?:"([^"]*)"|''([^'']*)''|([^\s]+))')) {
+    $value = @($match.Groups[2].Value, $match.Groups[3].Value, $match.Groups[4].Value) |
+      Where-Object { $_ -ne '' } | Select-Object -First 1
+    if ($null -ne $value) { [void]$hosts.Add([string]$value) }
+  }
+  return $hosts.ToArray()
+}
+
+$targetHosts = @(Get-ConnectionHosts $DatabaseUrl)
+if ($targetHosts.Count -eq 0 -or ($targetHosts | Where-Object { -not (Test-ExplicitLocalHost $_) }).Count -gt 0) {
+  Stop-NonLocalDatabaseTarget 'The connection target host could not be proven to be localhost, 127.0.0.1, or ::1.'
+}
+if ($targetHosts.Count -gt 2 -or ($targetHosts | Select-Object -Unique).Count -ne $targetHosts.Count) {
+  Stop-NonLocalDatabaseTarget 'The connection string contains ambiguous or duplicate host targets.'
+}
+if ($DatabaseUrl -match '(?i)(?:^|\s)(?:host|hostaddr)\s*=\s*[^\s]+,[^\s]+') {
+  Stop-NonLocalDatabaseTarget 'Multi-host connection targets are not accepted.'
+}
+
+Write-Output 'PG17_TARGET_CLASS=LOCAL_ONLY'
 
 $psql = Get-Command psql -ErrorAction SilentlyContinue
 if ($null -eq $psql) {

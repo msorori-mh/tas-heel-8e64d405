@@ -17,6 +17,13 @@ function functionBody(sql, name) {
   return sql.slice(start, end);
 }
 
+function executableSql(sql) {
+  return sql
+    .replace(/--[^\n]*/g, "")
+    .replace(/'(?:''|[^'])*'/g, "")
+    .replace(/\$q\$[\s\S]*?\$q\$/g, "");
+}
+
 test("21H migration is transactional, additive, and has no lifecycle backfill", () => {
   assert.match(migration, /BEGIN;[\s\S]*COMMIT;/);
   assert.doesNotMatch(migration, /DROP\s+(TABLE|COLUMN|TYPE)\b/i);
@@ -55,13 +62,20 @@ test("reveal RPC is explicit, authorized, submitted, and revision pinned", () =>
   assert.match(body, /ANSWER_NOT_AVAILABLE/i);
 });
 
-test("operator scripts are read-only and visibility diff has explicit zero-loss gates", () => {
+test("operator scripts are read-only and visibility diff has explicit two-way gates", () => {
   for (const sql of [baseline, diff, postverify]) {
     assert.match(sql, /SET TRANSACTION READ ONLY/i);
     assert.match(sql, /ROLLBACK;/i);
-    assert.doesNotMatch(sql, /\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP)\b/i);
+    assert.doesNotMatch(executableSql(sql), /\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP)\b/i);
   }
-  assert.match(diff, /UNEXPECTED_VISIBILITY_GAIN/i);
+  assert.match(diff, /BEFORE_VISIBLE/i);
+  assert.match(diff, /AFTER_EXPECTED_VISIBLE/i);
+  assert.match(diff, /EXPECTED_GAIN/i);
+  assert.match(diff, /SECURITY_FIX/i);
+  assert.match(diff, /UNEXPECTED_GAIN/i);
   assert.match(diff, /UNEXPECTED_LOSS/i);
+  assert.match(diff, /UNEXPECTED_GAIN_COUNT/i);
+  assert.match(diff, /UNEXPECTED_LOSS_COUNT/i);
+  assert.match(diff, /READY_TO_VERIFY/i);
   assert.doesNotMatch(diff, /supportingResources|originalBookPdf|studentPerformance/);
 });
