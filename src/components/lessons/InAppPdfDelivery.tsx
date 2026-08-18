@@ -39,20 +39,16 @@ function Placeholder() {
 }
 
 /**
- * 21B2 — warm the lazy viewer chunk so a book downloaded for offline use can
- * still be opened after the network is gone (cold start with no cached chunk).
+ * 21B2/21B3 — warm every reader runtime asset so a downloaded book can be
+ * opened offline on the very first try. Delegates to the 21B3 readiness
+ * module, which also records READER_READY for the offline badge.
  */
 export function prefetchPdfViewerChunk(): void {
-  try {
-    void import("./NativePdfDelivery").catch(() => undefined);
-    void import("./BrowserNativePdfDelivery").catch(() => undefined);
-    void import("./PdfViewer")
-      .then((m) => m.prefetchPdfEngine())
-      .catch(() => undefined);
-  } catch {
-    /* prefetch is best-effort */
-  }
+  void import("@/lib/pdf/reader-runtime")
+    .then((m) => m.ensureReaderReady())
+    .catch(() => undefined);
 }
+
 
 export function InAppPdfDelivery(props: PdfViewerProps) {
   const [renderer, setRenderer] = useState<PdfRendererKind | null>(null);

@@ -9,11 +9,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   BookOpen,
+  CheckCircle2,
   CloudDownload,
   Loader2,
   RefreshCw,
   Trash2,
   Wifi,
+  WifiOff,
   X,
 } from "lucide-react";
 
@@ -27,6 +29,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { InAppPdfDelivery, prefetchPdfViewerChunk } from "@/components/lessons/InAppPdfDelivery";
+import { ensureReaderReady, isReaderReady } from "@/lib/pdf/reader-runtime";
 import { formatBytes } from "@/lib/offline/network";
 import {
   deleteLocalTextbook,
@@ -37,6 +40,7 @@ import {
   type StudentTextbook,
   type TextbookLocalState,
 } from "@/lib/textbooks/subject-textbook-client";
+
 
 type Props = {
   open: boolean;
@@ -61,6 +65,13 @@ export function SubjectTextbooksSheet({
   });
 
   const [reading, setReading] = useState<StudentTextbook | null>(null);
+
+  // 21B3 — start warming the reader runtime as soon as the sheet opens.
+  useEffect(() => {
+    if (open) prefetchPdfViewerChunk();
+  }, [open]);
+
+
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -120,24 +131,40 @@ function TextbookRow({ book, onOpen }: { book: StudentTextbook; onOpen: () => vo
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ loaded: number; total: number | null } | null>(null);
   const [failed, setFailed] = useState(false);
+  /** 21B3 — READER_READY is independent of PDF_READY. */
+  const [readerReady, setReaderReady] = useState(false);
+  const [readerBusy, setReaderBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(async () => {
     setLocal(await readTextbookLocalState(book));
   }, [book]);
 
+  const prepareReader = useCallback(async () => {
+    setReaderBusy(true);
+    try {
+      setReaderReady(await ensureReaderReady());
+    } finally {
+      setReaderBusy(false);
+    }
+  }, []);
+
   useEffect(() => {
     void refresh();
+    setReaderReady(isReaderReady());
   }, [refresh]);
+
+  // Whenever the bytes exist locally, make sure the reader runtime exists too.
   useEffect(() => {
-    if (local?.cached) prefetchPdfViewerChunk();
-  }, [local?.cached]);
+    if (local?.cached && !readerReady && !readerBusy) void prepareReader();
+  }, [local?.cached, readerReady, readerBusy, prepareReader]);
+
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const start = async () => {
     setBusy(true);
     setFailed(false);
-    prefetchPdfViewerChunk();
+    void prepareReader();
     const controller = new AbortController();
     abortRef.current = controller;
     try {
@@ -168,6 +195,9 @@ function TextbookRow({ book, onOpen }: { book: StudentTextbook; onOpen: () => vo
 
   const percent =
     progress && progress.total ? Math.round((progress.loaded / progress.total) * 100) : null;
+
+  const pdfReady = Boolean(local?.cached);
+  const offlineReady = pdfReady && readerReady;
 
   return (
     <section className="space-y-2 rounded-2xl border border-border bg-card p-3.5 shadow-sm">
@@ -207,17 +237,44 @@ function TextbookRow({ book, onOpen }: { book: StudentTextbook; onOpen: () => vo
         <p className="text-[11px] text-destructive">تعذّر إكمال التنزيل. يمكنك إعادة المحاولة.</p>
       )}
 
+      {pdfReady && !busy && (
+        <p
+          className={`flex items-center gap-1 text-[11px] ${
+            offlineReady ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          {offlineReady ? (
+            <>
+              <CheckCircle2 className="h-3.5 w-3.5" /> محفوظ للاستخدام دون إنترنت
+            </>
+          ) : readerBusy ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> الملف محفوظ · جارٍ تجهيز القارئ…
+            </>
+          ) : (
+            <>
+              <WifiOff className="h-3.5 w-3.5" /> الملف محفوظ · القارئ غير جاهز للعمل دون إنترنت
+            </>
+          )}
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {busy ? (
           <Button size="sm" variant="outline" onClick={() => abortRef.current?.abort()}>
             <X className="ms-2 h-4 w-4" /> إيقاف
           </Button>
-        ) : local?.cached ? (
+        ) : pdfReady ? (
           <>
             <Button size="sm" onClick={onOpen}>
               <BookOpen className="ms-2 h-4 w-4" /> فتح
             </Button>
-            {local.updateAvailable && (
+            {!offlineReady && !readerBusy && (
+              <Button size="sm" variant="outline" onClick={() => void prepareReader()}>
+                <RefreshCw className="ms-2 h-4 w-4" /> تجهيز القارئ
+              </Button>
+            )}
+            {local?.updateAvailable && (
               <Button size="sm" variant="outline" onClick={start}>
                 <RefreshCw className="ms-2 h-4 w-4" /> تحديث
               </Button>
@@ -241,5 +298,6 @@ function TextbookRow({ book, onOpen }: { book: StudentTextbook; onOpen: () => vo
     </section>
   );
 }
+
 
 export default SubjectTextbooksSheet;
