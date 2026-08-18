@@ -67,16 +67,21 @@ export const FINAL_LESSON_CAPABILITIES: readonly LessonContentCapabilityKey[] = 
   "lessonAssessment",
 ];
 
-/** Official student rendering order (20B §3, 21B4E Content V3). */
+/**
+ * Official student rendering order (20B §3, 21B4E Content V3, 21G-B final V3).
+ * Order mirrors `V3_STUDENT_ORDER` in `content-v3.ts`; supporting resources and
+ * derived performance are appended after the seven V3 capabilities and are
+ * never mandatory journey steps.
+ */
 export const STUDENT_CAPABILITY_ORDER: readonly LessonContentCapabilityKey[] = [
   "officialBookContent",
   "tamkeenExplanation",
+  "quickReview",
   "mindMap",
   "simulation",
-  "supportingResources",
-  "quickReview",
   "checkUnderstanding",
   "lessonAssessment",
+  "supportingResources",
   "studentPerformance",
 ];
 
@@ -84,11 +89,11 @@ export const CAPABILITY_LABEL_AR: Record<LessonContentCapabilityKey, string> = {
   officialBookContent: "محتوى الكتاب الرسمي",
   tamkeenExplanation: "شرح تمكين",
   mindMap: "الخريطة الذهنية",
-  simulation: "المحاكاة / النشاط التفاعلي",
+  simulation: "التجارب / النشاط التفاعلي",
   supportingResources: "الموارد المساعدة",
-  quickReview: "المراجعة السريعة",
-  checkUnderstanding: "اختبر فهمك",
-  lessonAssessment: "اختبار الدرس",
+  quickReview: "ملخص الدرس",
+  checkUnderstanding: "أسئلة الدرس",
+  lessonAssessment: "اختبر نفسك",
   studentPerformance: "مستواك وأخطاؤك",
   originalBookPdf: "نسخة الكتاب الأصلية (PDF)",
 };
