@@ -34,7 +34,7 @@ export function deriveNeedsAttention(items: ContinueItem[]): AttentionItem[] {
   return out.slice(0, 3);
 }
 
-/** Hidden entirely when there is nothing to flag — no "لا يوجد شيء" card. */
+/** Hidden entirely when there is nothing to flag (no empty-state card at all). */
 export function NeedsAttentionSection({ items }: { items: ContinueItem[] }) {
   const flagged = deriveNeedsAttention(items);
   if (flagged.length === 0) return null;
