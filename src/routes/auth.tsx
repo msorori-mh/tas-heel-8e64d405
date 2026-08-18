@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { translateAuthError, getAuthRedirectUrl } from "@/lib/auth-helpers";
+import { startGoogleSignIn } from "@/lib/auth/google-sign-in";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,37 +26,6 @@ export const Route = createFileRoute("/auth")({
 });
 
 const PHONE_OTP_ENABLED = false;
-
-async function signInWithGoogle() {
-  // Google blocks its sign-in page inside iframes (403). Get the URL first and
-  // open it in the top-level window / a new tab instead of the embedded frame.
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: getAuthRedirectUrl("/auth/callback"),
-      skipBrowserRedirect: true,
-    },
-  });
-  if (error) throw error;
-  const url = data?.url;
-  if (!url) throw new Error("تعذّر بدء تسجيل الدخول عبر Google.");
-
-  const isEmbedded = typeof window !== "undefined" && window.top !== window.self;
-  if (isEmbedded) {
-    try {
-      // Same-origin parent (rare) — navigate the top frame.
-      if (window.top?.location.origin === window.location.origin) {
-        window.top.location.href = url;
-        return;
-      }
-    } catch {
-      /* cross-origin parent: fall through to opening a new tab */
-    }
-    window.open(url, "_blank", "noopener,noreferrer");
-    return;
-  }
-  window.location.href = url;
-}
 
 function AuthPage() {
   const navigate = useNavigate();
@@ -154,7 +124,7 @@ function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
     setErr(null);
     setBusy(true);
     try {
-      await signInWithGoogle();
+      await startGoogleSignIn();
     } catch (e) {
       setErr(translateAuthError(e));
       setBusy(false);
@@ -311,7 +281,7 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
     setErr(null);
     setBusy(true);
     try {
-      await signInWithGoogle();
+      await startGoogleSignIn();
     } catch (e) {
       setErr(translateAuthError(e));
       setBusy(false);
