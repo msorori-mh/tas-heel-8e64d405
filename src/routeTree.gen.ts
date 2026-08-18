@@ -24,6 +24,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as Prototype19cRouteImport } from './routes/prototype.19c'
 import { Route as Prototype19aRouteImport } from './routes/prototype.19a'
 import { Route as PreviewStructuredTextbook20a1bRouteImport } from './routes/preview.structured-textbook-20a1b'
+import { Route as AuthMobileCallbackRouteImport } from './routes/auth.mobile-callback'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
@@ -161,6 +162,11 @@ const PreviewStructuredTextbook20a1bRoute =
     path: '/preview/structured-textbook-20a1b',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthMobileCallbackRoute = AuthMobileCallbackRouteImport.update({
+  id: '/mobile-callback',
+  path: '/mobile-callback',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
@@ -535,6 +541,7 @@ export interface FileRoutesByFullPath {
   '/wallet': typeof AuthenticatedWalletRoute
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/auth/mobile-callback': typeof AuthMobileCallbackRoute
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
   '/prototype/19a': typeof Prototype19aRouteWithChildren
   '/prototype/19c': typeof Prototype19cRoute
@@ -610,6 +617,7 @@ export interface FileRoutesByTo {
   '/wallet': typeof AuthenticatedWalletRoute
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/auth/mobile-callback': typeof AuthMobileCallbackRoute
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
   '/prototype/19c': typeof Prototype19cRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
@@ -687,6 +695,7 @@ export interface FileRoutesById {
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/auth/mobile-callback': typeof AuthMobileCallbackRoute
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
   '/prototype/19a': typeof Prototype19aRouteWithChildren
   '/prototype/19c': typeof Prototype19cRoute
@@ -766,6 +775,7 @@ export interface FileRouteTypes {
     | '/wallet'
     | '/admin/login'
     | '/auth/callback'
+    | '/auth/mobile-callback'
     | '/preview/structured-textbook-20a1b'
     | '/prototype/19a'
     | '/prototype/19c'
@@ -841,6 +851,7 @@ export interface FileRouteTypes {
     | '/wallet'
     | '/admin/login'
     | '/auth/callback'
+    | '/auth/mobile-callback'
     | '/preview/structured-textbook-20a1b'
     | '/prototype/19c'
     | '/admin/academic'
@@ -917,6 +928,7 @@ export interface FileRouteTypes {
     | '/_authenticated/wallet'
     | '/admin/login'
     | '/auth/callback'
+    | '/auth/mobile-callback'
     | '/preview/structured-textbook-20a1b'
     | '/prototype/19a'
     | '/prototype/19c'
@@ -1097,6 +1109,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/preview/structured-textbook-20a1b'
       preLoaderRoute: typeof PreviewStructuredTextbook20a1bRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/auth/mobile-callback': {
+      id: '/auth/mobile-callback'
+      path: '/mobile-callback'
+      fullPath: '/auth/mobile-callback'
+      preLoaderRoute: typeof AuthMobileCallbackRouteImport
+      parentRoute: typeof AuthRoute
     }
     '/auth/callback': {
       id: '/auth/callback'
@@ -1728,10 +1747,12 @@ const AuthenticatedRouteRouteWithChildren =
 
 interface AuthRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
+  AuthMobileCallbackRoute: typeof AuthMobileCallbackRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
+  AuthMobileCallbackRoute: AuthMobileCallbackRoute,
 }
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
