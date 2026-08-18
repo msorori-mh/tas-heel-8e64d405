@@ -66,6 +66,13 @@ export function SubjectTextbooksSheet({
 
   const [reading, setReading] = useState<StudentTextbook | null>(null);
 
+  // 21B3 — start warming the reader runtime as soon as the sheet opens.
+  useEffect(() => {
+    if (open) prefetchPdfViewerChunk();
+  }, [open]);
+
+
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" dir="rtl" className="max-h-[88vh] overflow-y-auto">
