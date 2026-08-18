@@ -101,6 +101,10 @@ export const FORBIDDEN_CLIENT_KEYS: readonly string[] = [
   "is_correct",
   "isCorrect",
   "correct_option",
+  "correct_answer",
+  "correctAnswer",
+  "answer_key",
+  "answerKey",
   "correctOptionIds",
   "answer",
   "model_answer",
@@ -112,6 +116,11 @@ export const FORBIDDEN_CLIENT_KEYS: readonly string[] = [
   "whyCorrect",
   "why_wrong",
   "whyWrong",
+  "hidden_explanation",
+  "hiddenExplanation",
+  "solution",
+  "solution_steps",
+  "accepted_answers",
 ];
 
 /** Strips every answer-bearing field. The only client serializer allowed. */
@@ -162,6 +171,7 @@ export function containsAnswerLeak(payload: unknown): boolean {
 
 export type RevealDenyReason =
   | "NO_ATTEMPT_SUBMITTED"
+  | "EMPTY_SUBMISSION"
   | "REVISION_MISMATCH"
   | "LESSON_NOT_READY";
 
@@ -190,6 +200,9 @@ export function evaluateReveal(request: RevealRequest): RevealDecision {
   if (!request.capabilityReady) return { allowed: false, reason: "LESSON_NOT_READY" };
   if (!request.attemptSubmitted || request.submittedAnswer === null) {
     return { allowed: false, reason: "NO_ATTEMPT_SUBMITTED" };
+  }
+  if (request.submittedAnswer.trim().length === 0) {
+    return { allowed: false, reason: "EMPTY_SUBMISSION" };
   }
   if (request.servedRevisionId !== request.attemptRevisionId) {
     return { allowed: false, reason: "REVISION_MISMATCH" };

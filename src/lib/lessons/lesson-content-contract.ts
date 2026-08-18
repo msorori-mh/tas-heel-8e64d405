@@ -446,12 +446,12 @@ export function buildLessonCapabilityContract(
       : {}),
   });
 
-  /* 7 — check understanding (lesson question bank via grade_lesson_quiz) */
+  /* 7 — check understanding (V3 revision-pinned official question RPC) */
   const checkUnderstanding = state("checkUnderstanding", {
     present: input.questionsCount > 0,
     status: input.questionsCount > 0 ? "READY" : "ABSENT",
     studentVisible: input.questionsCount > 0,
-    sourceRef: "questions(lesson_id) → get_lesson_quiz_questions",
+    sourceRef: "questions(current_published_revision_id) → get_lesson_official_questions",
     count: input.questionsCount,
     updatedAt: null,
   });
