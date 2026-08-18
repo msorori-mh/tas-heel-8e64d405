@@ -22,7 +22,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- 21B4-C — Google OAuth return-to-app deep link (app-private scheme). -->
+            <!-- 21B4-C-R1 — Google OAuth return-to-app HTTPS App Link.
+                 autoVerify stays false until /.well-known/assetlinks.json is
+                 published with the real signing SHA-256 (separate gate). -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="studentamkeen.com"
+                    android:pathPrefix="/auth/mobile-callback" />
+            </intent-filter>
+
+            <!-- 21B4-C-R1 — app-private bridge hop used by the HTTPS callback page. -->
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

@@ -16,10 +16,21 @@
  * ever logged.
  */
 
+export const HTTPS_CALLBACK_ORIGIN = "https://studentamkeen.com";
+export const HTTPS_CALLBACK_PATH = "/auth/mobile-callback";
+/** Android OAuth redirect target — an HTTPS App Link on the production domain. */
+export const NATIVE_OAUTH_REDIRECT_URL = `${HTTPS_CALLBACK_ORIGIN}${HTTPS_CALLBACK_PATH}`;
+
+/**
+ * Bridge deep link. The HTTPS App Link is only handed to the app directly once
+ * Digital Asset Links verification is live; until then the HTTPS callback page
+ * forwards the authorization code to this app-private scheme. It is an
+ * app-internal hop only and is never sent to the auth provider.
+ */
 export const NATIVE_APP_SCHEME = "app.studentamkeen.tamkeen";
-export const NATIVE_CALLBACK_HOST = "auth";
-export const NATIVE_CALLBACK_PATH = "/callback";
-export const NATIVE_OAUTH_REDIRECT_URL = `${NATIVE_APP_SCHEME}://${NATIVE_CALLBACK_HOST}${NATIVE_CALLBACK_PATH}`;
+export const NATIVE_BRIDGE_HOST = "auth";
+export const NATIVE_BRIDGE_PATH = "/callback";
+export const NATIVE_BRIDGE_URL = `${NATIVE_APP_SCHEME}://${NATIVE_BRIDGE_HOST}${NATIVE_BRIDGE_PATH}`;
 
 export type NativeAuthCallback =
   | { kind: "ignored"; reason: string }
@@ -40,15 +51,25 @@ export function parseNativeAuthCallback(rawUrl: unknown): NativeAuthCallback {
   } catch {
     return { kind: "ignored", reason: "malformed" };
   }
-  if (url.protocol !== `${NATIVE_APP_SCHEME}:`) {
-    return { kind: "ignored", reason: "scheme" };
-  }
-  if (url.host !== NATIVE_CALLBACK_HOST) {
-    return { kind: "ignored", reason: "host" };
-  }
   const path = url.pathname.replace(/\/+$/, "") || "/";
-  if (path !== NATIVE_CALLBACK_PATH) {
-    return { kind: "ignored", reason: "path" };
+  if (url.protocol === "https:") {
+    // Verified HTTPS App Link (production domain only — http is refused).
+    if (`${url.protocol}//${url.host}` !== HTTPS_CALLBACK_ORIGIN) {
+      return { kind: "ignored", reason: "host" };
+    }
+    if (path !== HTTPS_CALLBACK_PATH) {
+      return { kind: "ignored", reason: "path" };
+    }
+  } else if (url.protocol === `${NATIVE_APP_SCHEME}:`) {
+    // App-private bridge hop from the HTTPS callback page.
+    if (url.host !== NATIVE_BRIDGE_HOST) {
+      return { kind: "ignored", reason: "host" };
+    }
+    if (path !== NATIVE_BRIDGE_PATH) {
+      return { kind: "ignored", reason: "path" };
+    }
+  } else {
+    return { kind: "ignored", reason: "scheme" };
   }
 
   // Provider/Supabase error is reported without echoing any other parameter.

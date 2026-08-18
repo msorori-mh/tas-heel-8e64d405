@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 import {
   NATIVE_OAUTH_REDIRECT_URL,
+  NATIVE_BRIDGE_URL,
   parseNativeAuthCallback,
   isCallbackConsumed,
   markCallbackConsumed,
@@ -21,13 +22,25 @@ const authRoute = read("src/routes/auth.tsx");
 describe("21B4-C — Android Google OAuth return-to-app", () => {
   beforeEach(() => resetConsumedCallbacks());
 
-  it("1. Android OAuth uses the native deep-link callback", () => {
-    expect(NATIVE_OAUTH_REDIRECT_URL).toBe("app.studentamkeen.tamkeen://auth/callback");
+  it("1. Android OAuth uses the HTTPS App Link callback", () => {
+    expect(NATIVE_OAUTH_REDIRECT_URL).toBe("https://studentamkeen.com/auth/mobile-callback");
+    expect(NATIVE_BRIDGE_URL).toBe("app.studentamkeen.tamkeen://auth/callback");
     expect(googleSignIn).toMatch(/native \? NATIVE_OAUTH_REDIRECT_URL/);
-    expect(manifest).toMatch(/android:scheme="app\.studentamkeen\.tamkeen"/);
-    expect(manifest).toMatch(/android:host="auth"/);
-    expect(manifest).toMatch(/android:path="\/callback"/);
+    expect(manifest).toMatch(/android:scheme="https"/);
+    expect(manifest).toMatch(/android:host="studentamkeen\.com"/);
+    expect(manifest).toMatch(/android:pathPrefix="\/auth\/mobile-callback"/);
     expect(manifest).toMatch(/android\.intent\.category\.BROWSABLE/);
+  });
+
+  it("1b. the HTTPS callback page forwards the code without exposing it", () => {
+    const page = read("src/routes/auth.mobile-callback.tsx");
+    expect(page).toMatch(/createFileRoute\("\/auth\/mobile-callback"\)/);
+    expect(page).toMatch(/NATIVE_BRIDGE_URL/);
+    expect(page).toMatch(/window\.location\.replace\(target\)/);
+    expect(page).toMatch(/noindex, nofollow/);
+    expect(page).not.toMatch(/console\.(log|warn|info|debug|error)/);
+    // never renders the raw code/state/session
+    expect(page).not.toMatch(/\{code\}|\{state\}|access_token/);
   });
 
   it("2. Web OAuth keeps the https web callback", () => {
@@ -40,27 +53,38 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
   });
 
   it("3. the allowed callback is accepted", () => {
-    const r = parseNativeAuthCallback("app.studentamkeen.tamkeen://auth/callback?code=abc12345&state=xyz");
+    const r = parseNativeAuthCallback(
+      "https://studentamkeen.com/auth/mobile-callback?code=abc12345&state=xyz",
+    );
     expect(r).toEqual({ kind: "code", code: "abc12345", state: "xyz" });
+    // the app-private bridge hop is also accepted
+    expect(
+      parseNativeAuthCallback("app.studentamkeen.tamkeen://auth/callback?code=abc12345&state=xyz"),
+    ).toEqual({ kind: "code", code: "abc12345", state: "xyz" });
   });
 
-  it("4. a wrong scheme is rejected", () => {
-    expect(parseNativeAuthCallback("https://studentamkeen.com/auth/callback?code=abc12345").kind).toBe("ignored");
+  it("4. a wrong scheme or host is rejected", () => {
+    expect(parseNativeAuthCallback("http://studentamkeen.com/auth/mobile-callback?code=abc12345").kind).toBe("ignored");
     expect(parseNativeAuthCallback("evil.app://auth/callback?code=abc12345").kind).toBe("ignored");
+    expect(parseNativeAuthCallback("https://evil.com/auth/mobile-callback?code=abc12345").kind).toBe("ignored");
+    expect(parseNativeAuthCallback("https://studentamkeen.com.evil.com/auth/mobile-callback?code=abc12345").kind).toBe("ignored");
+    expect(parseNativeAuthCallback("https://www.studentamkeen.com/auth/mobile-callback?code=abc12345").kind).toBe("ignored");
   });
 
-  it("5. a wrong host or path is rejected", () => {
+  it("5. a wrong path is rejected", () => {
+    expect(parseNativeAuthCallback("https://studentamkeen.com/auth/callback?code=abc12345").kind).toBe("ignored");
+    expect(parseNativeAuthCallback("https://studentamkeen.com/auth/mobile-callback/extra?code=abc12345").kind).toBe("ignored");
     expect(parseNativeAuthCallback("app.studentamkeen.tamkeen://evil/callback?code=abc12345").kind).toBe("ignored");
     expect(parseNativeAuthCallback("app.studentamkeen.tamkeen://auth/other?code=abc12345").kind).toBe("ignored");
     expect(parseNativeAuthCallback("app.studentamkeen.tamkeen://auth/callback/extra?code=abc12345").kind).toBe("ignored");
   });
 
   it("6. malformed input is rejected", () => {
-    for (const bad of ["", "not a url", null, undefined, 42, "app.studentamkeen.tamkeen://auth/callback"]) {
+    for (const bad of ["", "not a url", null, undefined, 42, "https://studentamkeen.com/auth/mobile-callback"]) {
       expect(parseNativeAuthCallback(bad).kind).toBe("ignored");
     }
     // code shape is validated too
-    expect(parseNativeAuthCallback("app.studentamkeen.tamkeen://auth/callback?code=%20%20").kind).toBe("ignored");
+    expect(parseNativeAuthCallback("https://studentamkeen.com/auth/mobile-callback?code=%20%20").kind).toBe("ignored");
   });
 
   it("7. tokens and secrets are never logged, and implicit tokens are refused", () => {
@@ -69,14 +93,14 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
     }
     expect(nativeOauth).not.toMatch(/service_role|SERVICE_ROLE|client_secret/);
     const r = parseNativeAuthCallback(
-      "app.studentamkeen.tamkeen://auth/callback#access_token=leak&refresh_token=leak",
+      "https://studentamkeen.com/auth/mobile-callback#access_token=leak&refresh_token=leak",
     );
     expect(r.kind).toBe("error");
     expect(JSON.stringify(r)).not.toContain("leak");
   });
 
   it("8. duplicate callbacks are idempotent", () => {
-    const url = "app.studentamkeen.tamkeen://auth/callback?code=dup12345";
+    const url = "https://studentamkeen.com/auth/mobile-callback?code=dup12345";
     const first = parseNativeAuthCallback(url);
     expect(isCallbackConsumed(first.code)).toBe(false);
     markCallbackConsumed(first.code);
