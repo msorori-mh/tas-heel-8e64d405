@@ -1,7 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">تمكين</string>
-    <string name="title_activity_main">تمكين</string>
+    <!-- 21B4G — final user-visible product identity. Package ID unchanged. -->
+    <string name="app_name">تمكين الطالب</string>
+    <string name="title_activity_main">تمكين الطالب</string>
     <string name="package_name">app.studentamkeen.tamkeen</string>
     <string name="custom_url_scheme">app.studentamkeen.tamkeen</string>
 </resources>
