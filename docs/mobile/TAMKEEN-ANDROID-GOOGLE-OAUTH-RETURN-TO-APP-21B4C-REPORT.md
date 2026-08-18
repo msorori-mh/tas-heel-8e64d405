@@ -152,3 +152,73 @@ ANDROID_SCHEME/HOST/PATH = app.studentamkeen.tamkeen / auth / /callback
 **PASS_SOURCE_READY_PENDING_OAUTH_CONFIG_AND_PHYSICAL_TEST**
 
 المصدر مكتمل ومختبَر ثابتاً؛ الإكمال الفعلي يتوقف على إضافة redirect URI واحد في إعدادات المصادقة (بوابة `APPROVED_21B4C_PRODUCTION_OAUTH_CONFIG`) ثم اختبار على جهاز حقيقي. لا نشر ولا merge.
+
+---
+
+## PRODUCTION OAUTH CONFIG — G0 PREFLIGHT (2026-08-18)
+
+قراءة الحالة الحالية لإعدادات المصادقة (read-only):
+
+```
+Site URL: https://tas-heel.lovable.app
+OAuth server (managed): Disabled
+Redirect URI allow list (كما هي، بدون أي تعديل):
+- https://studentamkeen.com/**
+- https://www.studentamkeen.com/**
+- https://id-preview*--0e731d8e-4edd-4b70-80ca-41ff8733cacc.lovable.app/**
+- https://id-preview*--0e731d8e-4edd-4b70-80ca-41ff8733cacc.*.lovable.app/**
+- https://0e731d8e-4edd-4b70-80ca-41ff8733cacc.lovableproject.com/**
+- https://0e731d8e-4edd-4b70-80ca-41ff8733cacc-thr_*.lovableproject.com/**
+- https://preview--tas-heel.lovable.app/**
+- https://tas-heel.lovable.app/**
+```
+
+المطلوب الوحيد: إضافة `app.studentamkeen.tamkeen://auth/callback` (exact match، بلا wildcard).
+
+## APPLY — النتيجة
+
+`PRODUCTION_OAUTH_CONFIG_APPLIED=NO (TOOLING_GAP)`
+
+لا تتوفر للوكيل أي أداة تكتب في Auth Redirect Allow List. الأدوات المتاحة للمصادقة
+(`configure_auth`, `configure_social_auth`, `configure_oauth_server`) لا تملك حقل redirect URLs،
+واستخدام `configure_oauth_server` كان سيفعّل OAuth server (تغيير خارج النطاق) → رُفض التزاماً بـ
+"ممنوع أي تغيير إضافي".
+
+الإجراء اليدوي المطلوب من المالك (خطوة واحدة، بلا حذف أي قيمة):
+Cloud → Users → Auth Settings → URL Configuration → Additional Redirect URLs →
+إضافة سطر واحد: `app.studentamkeen.tamkeen://auth/callback`
+
+## POST-APPLY VERIFY (حالة اليوم)
+
+```
+PRODUCTION_OAUTH_CONFIG_APPLIED=NO (pending manual add — no agent tool)
+REDIRECT_URI=app.studentamkeen.tamkeen://auth/callback (NOT YET PRESENT)
+SITE_URL_UNCHANGED=YES
+GOOGLE_PROVIDER_UNCHANGED=YES
+EXISTING_REDIRECTS_PRESERVED=YES
+WILDCARD_ADDED=NO
+PHYSICAL_ANDROID_TEST=PENDING_DEVICE_AVAILABLE
+```
+
+## SOURCE CONTRACT CHECK
+
+```
+capacitor.config.ts:12                  appId  = app.studentamkeen.tamkeen
+AndroidManifest.xml:31                  scheme = app.studentamkeen.tamkeen
+src/lib/auth/native-oauth.ts:19         NATIVE_APP_SCHEME = app.studentamkeen.tamkeen
+callback = app.studentamkeen.tamkeen://auth/callback  ✔ مطابق
+```
+
+## SECURITY CHECK
+
+- callback matcher fail-closed (host=auth, path=/callback، غير ذلك يُرفض صامتاً) ✔
+- wrong scheme / wrong callback / malformed callback مرفوضة — مغطاة باختبارات
+  `tests/mobile/android-google-oauth-return-21b4c.static.test.mjs` ✔
+- لا تسجيل لأي `code` أو `access_token` في اللوج ✔
+- PKCE مفعّل كما هو (لا تغيير) ✔
+- تدفق الويب دون تغيير ✔
+
+## VERDICT
+
+**FAILED_CONFIG_VERIFICATION** — التحقق البعدي أثبت أن الـ redirect URI الجديد غير موجود بعد؛
+الإضافة تحتاج خطوة يدوية واحدة من المالك. لم يُنشر ولم يُدمج شيء، ولم تتغير أي قيمة قائمة.
