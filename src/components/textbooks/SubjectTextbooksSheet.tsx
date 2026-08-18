@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/sheet";
 import { InAppPdfDelivery, prefetchPdfViewerChunk } from "@/components/lessons/InAppPdfDelivery";
 import { ensureReaderReady, isReaderReady } from "@/lib/pdf/reader-runtime";
+import { markLocalTextbookOfflineReady } from "@/lib/offline/local-textbook-registry";
 import { formatBytes } from "@/lib/offline/network";
 import {
   deleteLocalTextbook,
@@ -143,11 +144,15 @@ function TextbookRow({ book, onOpen }: { book: StudentTextbook; onOpen: () => vo
   const prepareReader = useCallback(async () => {
     setReaderBusy(true);
     try {
-      setReaderReady(await ensureReaderReady());
+      const ready = await ensureReaderReady();
+      setReaderReady(ready);
+      // 21B4-B — keep the offline registry's OFFLINE_READY flag in sync.
+      await markLocalTextbookOfflineReady(book.id, ready);
     } finally {
       setReaderBusy(false);
     }
-  }, []);
+  }, [book.id]);
+
 
   useEffect(() => {
     void refresh();
