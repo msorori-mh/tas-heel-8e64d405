@@ -5,11 +5,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { useHomeDashboard } from "@/hooks/use-home-dashboard";
 
 import { StateMessage } from "@/components/student/StudentNav";
-import { WelcomeCard } from "@/components/home/WelcomeCard";
-import { TodayMissionCard } from "@/components/home/TodayMissionCard";
+import { HomeGreeting } from "@/components/home/HomeGreeting";
+import { ContinueLearningCard } from "@/components/home/ContinueLearningCard";
+import { DailyGoalCard } from "@/components/home/DailyGoalCard";
+import { NeedsAttentionSection } from "@/components/home/NeedsAttentionSection";
+import { CompactProgress } from "@/components/home/CompactProgress";
 import { HomeSubscriptionBanner } from "@/components/home/HomeSubscriptionBanner";
-import { ProgressSummary } from "@/components/home/ProgressSummary";
-import { ContinueSection } from "@/components/home/ContinueSection";
 import { AchievementsSection } from "@/components/home/AchievementsSection";
 import { AiAssistantCard } from "@/components/home/AiAssistantCard";
 import { SemesterPicker } from "@/components/home/SemesterPicker";
@@ -36,47 +37,47 @@ export const Route = createFileRoute("/_authenticated/app")({
 
 function StudentHome() {
   const { loading } = useAuth();
-  const { stats, statsLoading, continueItems, continueLoading, badges, badgesLoading } =
-    useHomeDashboard();
+  const { stats, continueItems, continueLoading, badges } = useHomeDashboard();
 
   if (loading) {
     return <StateMessage variant="loading">جارٍ التحميل…</StateMessage>;
   }
 
+  // 21B4F — achievements are a real feature but never a "قريباً" placeholder on Home.
+  const earnedBadges = badges.filter((b) => b.earnedAt);
+
   return (
     // 19D — route-level Design System V2 opt-in (presentation only).
-    <div className="ds-v2 space-y-3.5 pb-4 lg:space-y-4" dir="rtl">
-      {/* 1. Compact greeting */}
-      <WelcomeCard stats={stats} />
+    <div className="ds-v2 space-y-3 pb-4 lg:space-y-4" dir="rtl">
+      {/* 1. Greeting */}
+      <HomeGreeting hint="خطوة واحدة اليوم تصنع الفرق." />
 
       <HomeSubscriptionBanner />
 
-      {/* 2. Continue learning */}
-      <ContinueSection items={continueItems} loading={continueLoading} />
+      {/* 2. Continue learning — primary CTA of the page */}
+      <ContinueLearningCard items={continueItems} loading={continueLoading} />
 
       {/* 3. Daily goal */}
-      <TodayMissionCard items={continueItems} loading={continueLoading} />
+      <DailyGoalCard items={continueItems} />
 
-      {/* 4. Quick actions (quick review / mistakes / performance / ministerial) */}
+      {/* 4. Needs attention — hidden when there is no real signal */}
+      <NeedsAttentionSection items={continueItems} />
+
+      {/* 5. Quick actions */}
       <LearningToolsSection />
 
-      {/* 5. Needs attention — real progress signals only */}
-      <ProgressSummary stats={stats} loading={statsLoading} />
-
-      {/* 6. Subjects compact progress */}
+      {/* 6. Subjects */}
       <SemesterPicker />
 
-      <div className="grid gap-4 lg:grid-cols-12 lg:items-stretch lg:gap-5">
-        <div className="lg:col-span-8 lg:flex lg:flex-col">
-          <AchievementsSection badges={badges.slice(0, 3)} loading={badgesLoading} />
-        </div>
-        <div id="ai-assistant" className="scroll-mt-20 lg:col-span-4 lg:flex lg:flex-col">
-          <AiAssistantCard />
-        </div>
+      {/* 7. Compact progress */}
+      <CompactProgress stats={stats} />
+
+      {earnedBadges.length > 0 && <AchievementsSection badges={earnedBadges.slice(0, 3)} loading={false} />}
+
+      {/* Secondary — always after Continue Learning */}
+      <div id="ai-assistant" className="scroll-mt-20">
+        <AiAssistantCard />
       </div>
     </div>
   );
 }
-
-
-
