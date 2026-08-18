@@ -8,6 +8,7 @@ import { Link } from "@tanstack/react-router";
 import { Eye, Loader2, Pencil } from "lucide-react";
 import {
   STUDENT_CAPABILITY_ORDER,
+  LEGACY_REFERENCE_CAPABILITIES,
   computeLessonReadinessLevels,
   LIFECYCLE_CAPABILITIES,
   type LessonCapabilityContract,
@@ -236,6 +237,41 @@ export function LessonContentWorkspace({
         })}
       </ul>
 
+      {/* 21B4E — legacy reference layer: not one of the final capabilities. */}
+      <section className="mt-5 rounded-xl border border-dashed border-border bg-muted/40 p-3">
+        <h3 className="text-xs font-bold text-foreground">مرجع قديم (Legacy)</h3>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          كتب المنهج الرسمية أصبحت على مستوى المادة (المادة × المسار × الفصل) ويصل إليها
+          الطالب من "كتب المنهج" داخل المادة — لم تعد خطوة داخل الدرس. البيانات القديمة
+          محفوظة ولم تُحذف.
+        </p>
+        <ul className="mt-2 space-y-1">
+          {LEGACY_REFERENCE_CAPABILITIES.map((key) => {
+            const cap = contract[key];
+            return (
+              <li
+                key={key}
+                className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"
+              >
+                <span className="text-sm">{cap.icon}</span>
+                <span className="font-medium text-foreground">{cap.label}</span>
+                <span className={`rounded-full border px-2 py-0.5 ${STATUS_CLASS[cap.status]}`}>
+                  {cap.status === "READY" ? "بيانات موجودة" : "لا توجد بيانات"}
+                </span>
+                <span className="font-mono">{cap.sourceRef}</span>
+                {onEdit[key] && (
+                  <button
+                    onClick={onEdit[key]}
+                    className="rounded-lg border border-border bg-card px-2 py-1 text-foreground hover:bg-muted"
+                  >
+                    عرض الملفات
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </section>
   );
 }

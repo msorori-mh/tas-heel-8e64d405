@@ -87,9 +87,13 @@ describe("computeLessonCapabilities", () => {
         url: "https://drive.google.com/file/d/abc",
       },
     });
+    // 21B4E — Content V3: a PDF-only lesson no longer serves the PDF as a
+    // journey step; it fails closed and is reported as a legacy gap.
     const visible = visibleLessonCapabilities(capabilities);
-    expect(visible.map((c) => c.type)).toEqual(["PRIMARY_CONTENT"]);
-    expect(computeLessonReadiness(capabilities).studentReady).toBe(true);
+    expect(visible.map((c) => c.type)).toEqual([]);
+    const primary = capabilities.find((c) => c.type === "PRIMARY_CONTENT")!;
+    expect(primary.readinessIssue).toBe("LEGACY_ORIGINAL_PDF_ONLY");
+    expect(computeLessonReadiness(capabilities).studentReady).toBe(false);
   });
 
   it("treats a resource row with a blank url as invalid content", () => {

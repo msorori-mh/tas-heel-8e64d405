@@ -12,17 +12,18 @@
  *   - Nothing is implied by subject type.
  *   - Student order is fixed and defined once (STUDENT_CAPABILITY_ORDER).
  *
- * 21B transition note:
- *   The original textbook now lives at SUBJECT x TRACK x SEMESTER level
- *   (`subject_textbooks`, downloaded from "موادي"). `originalBookPdf` stays a
- *   lesson capability ONLY for backward compatibility during the transition
- *   and is scheduled for removal once every subject has its textbooks.
+ * 21B4E — Content V3 alignment:
+ *   The original textbook lives at SUBJECT x TRACK x SEMESTER level
+ *   (`subject_textbooks`, opened from "كتب المنهج"). `originalBookPdf` is NO
+ *   LONGER part of the student lesson journey, its ordering, progress or
+ *   readiness. The key survives ONLY as an admin/legacy reference so existing
+ *   rows keep rendering in the workspace — no data is deleted.
  */
 
 /** 21B — the subject textbook is the primary original-book reference. */
 export const SUBJECT_TEXTBOOK_PRIMARY_REFERENCE = true;
-/** 21B — lesson-level PDF stays readable/visible until the migration completes. */
-export const LESSON_PDF_LEGACY_COMPATIBILITY = true;
+/** 21B4E — lesson-level PDF is admin/legacy reference only; never a student step. */
+export const LESSON_PDF_LEGACY_COMPATIBILITY = false;
 
 import { isPlaceholderBookContent, isValidResourceUrl } from "./lesson-capabilities";
 import type { CapabilityResourceInput } from "./lesson-capabilities";
@@ -42,7 +43,31 @@ export const LESSON_CONTENT_CAPABILITIES = [
 
 export type LessonContentCapabilityKey = (typeof LESSON_CONTENT_CAPABILITIES)[number];
 
-/** Official student rendering order (20B §3). */
+/**
+ * 21B4E — capabilities that exist only as an admin/legacy reference. They are
+ * never rendered as a student step, never ordered, never counted in progress
+ * and never part of any readiness level. Their data is preserved as-is.
+ */
+export const LEGACY_REFERENCE_CAPABILITIES: readonly LessonContentCapabilityKey[] = [
+  "originalBookPdf",
+];
+
+/**
+ * 21B4E — the final Content V3 lesson journey. `originalBookPdf` is absent by
+ * contract; `studentPerformance` is derived (not authored content).
+ */
+export const FINAL_LESSON_CAPABILITIES: readonly LessonContentCapabilityKey[] = [
+  "officialBookContent",
+  "tamkeenExplanation",
+  "quickReview",
+  "mindMap",
+  "simulation",
+  "supportingResources",
+  "checkUnderstanding",
+  "lessonAssessment",
+];
+
+/** Official student rendering order (20B §3, 21B4E Content V3). */
 export const STUDENT_CAPABILITY_ORDER: readonly LessonContentCapabilityKey[] = [
   "officialBookContent",
   "tamkeenExplanation",
@@ -53,7 +78,6 @@ export const STUDENT_CAPABILITY_ORDER: readonly LessonContentCapabilityKey[] = [
   "checkUnderstanding",
   "lessonAssessment",
   "studentPerformance",
-  "originalBookPdf",
 ];
 
 export const CAPABILITY_LABEL_AR: Record<LessonContentCapabilityKey, string> = {
@@ -502,6 +526,8 @@ export function studentVisibleContract(
 export interface LessonReadinessLevels {
   bookReady: boolean;
   learningReady: boolean;
+  /** 21B4E — official book questions + self test. */
+  assessmentReady: boolean;
   fullyReady: boolean;
   missing: LessonContentCapabilityKey[];
 }
@@ -518,20 +544,28 @@ export function computeLessonReadinessLevels(
   const ready = (k: LessonContentCapabilityKey) =>
     contract[k].present && contract[k].status === "READY";
 
+  // 21B4E READINESS V3 — originalBookPdf never participates in any level.
   const bookReady = ready("officialBookContent");
-  const learningReady = bookReady && ready("tamkeenExplanation") && ready("quickReview");
-  const fullyReady = learningReady && ready("checkUnderstanding");
+  const learningReady =
+    bookReady && ready("tamkeenExplanation") && ready("quickReview") && ready("mindMap");
+  // GAP (Content V3): there is no REQUIRED/OPTIONAL/N-A flag per capability yet,
+  // so the lab experiment (simulation) is treated as OPTIONAL for every lesson.
+  const assessmentReady = ready("checkUnderstanding") && ready("lessonAssessment");
+  const fullyReady = learningReady && assessmentReady;
 
   const required: LessonContentCapabilityKey[] = [
     "officialBookContent",
     "tamkeenExplanation",
     "quickReview",
+    "mindMap",
     "checkUnderstanding",
+    "lessonAssessment",
   ];
 
   return {
     bookReady,
     learningReady,
+    assessmentReady,
     fullyReady,
     missing: required.filter((k) => !ready(k)),
   };

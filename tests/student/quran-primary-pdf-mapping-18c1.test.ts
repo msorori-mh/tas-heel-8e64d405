@@ -56,11 +56,12 @@ describe("18C1 — primary PDF mapping", () => {
     expect(isPlaceholderBookContent("قال تعالى: ألم تنزيل الكتاب…", LESSON_TITLE)).toBe(false);
   });
 
-  it("uses the flagged PDF as PRIMARY_CONTENT even without an explicit primary row", () => {
+  it("21B4E — a flagged PDF is no longer promoted to PRIMARY_CONTENT", () => {
     const caps = computeLessonCapabilities(baseInput());
     const primary = caps.find((c) => c.type === "PRIMARY_CONTENT")!;
-    expect(primary.available).toBe(true);
-    expect(primary.source).toBe("primary_resource");
+    expect(primary.available).toBe(false);
+    expect(primary.studentVisible).toBe(false);
+    expect(primary.readinessIssue).toBe("LEGACY_ORIGINAL_PDF_ONLY");
   });
 
   it("never lists the primary resource under EXTRA_RESOURCES", () => {
@@ -70,12 +71,13 @@ describe("18C1 — primary PDF mapping", () => {
     expect(extras.available).toBe(false);
   });
 
-  it("title-only book content cannot override the primary PDF", () => {
+  it("21B4E — title-only book content + PDF still yields no student step", () => {
     const caps = computeLessonCapabilities(
       baseInput({ deliveryMode: "in_app_content", bookContent: LESSON_TITLE }),
     );
     const primary = caps.find((c) => c.type === "PRIMARY_CONTENT")!;
-    expect(primary.source).toBe("primary_resource");
+    expect(primary.source).toBe("none");
+    expect(primary.readinessIssue).toBe("LEGACY_ORIGINAL_PDF_ONLY");
   });
 
   it("real book content still wins for in-app lessons", () => {
@@ -92,14 +94,14 @@ describe("18C1 — primary PDF mapping", () => {
     expect(extras.count).toBe(1);
   });
 
-  it("a PDF-only lesson without any 04 row is student ready", () => {
+  it("21B4E — a PDF-only lesson is NOT student ready (legacy content gap)", () => {
     const readiness = computeLessonReadiness(computeLessonCapabilities(baseInput()));
-    expect(readiness.studentReady).toBe(true);
+    expect(readiness.studentReady).toBe(false);
   });
 
-  it("exposes exactly one primary action", () => {
+  it("21B4E — exposes no primary action for a PDF-only lesson", () => {
     const visible = visibleLessonCapabilities(computeLessonCapabilities(baseInput()));
-    expect(visible.filter((c) => c.type === "PRIMARY_CONTENT")).toHaveLength(1);
+    expect(visible.filter((c) => c.type === "PRIMARY_CONTENT")).toHaveLength(0);
   });
 
   it("reports a data defect when only placeholder book content exists", () => {
