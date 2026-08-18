@@ -45,7 +45,9 @@ export type LessonReadinessIssue =
   | "PRIMARY_RESOURCE_INVALID"
   | "DELIVERY_MODE_MISMATCH"
   | "BOOK_CONTENT_PLACEHOLDER"
-  | "CONTENT_NOT_STUDENT_VISIBLE";
+  | "CONTENT_NOT_STUDENT_VISIBLE"
+  /** 21B4E — legacy lesson whose only content is the original textbook PDF. */
+  | "LEGACY_ORIGINAL_PDF_ONLY";
 
 
 export interface LessonCapability {
@@ -212,6 +214,21 @@ function primaryContentCapability(input: LessonCapabilityInput): LessonCapabilit
   }
 
   if (primaryValid) {
+    // 21B4E — Content V3: the original textbook PDF is no longer a lesson step.
+    // A legacy lesson backed only by a PDF fails closed (the student sees the
+    // "content not added yet" state) and the gap is reported to the operator.
+    if ((primary?.resource_type ?? "").toLowerCase() === "pdf") {
+      return {
+        ...base,
+        available: false,
+        studentVisible: false,
+        completed: false,
+        action: "غير متوفر",
+        description: "محتوى الدرس لم يُضف بعد.",
+        source: "none",
+        readinessIssue: "LEGACY_ORIGINAL_PDF_ONLY",
+      };
+    }
     const visible = input.enhancementsAccessible;
     const capability: LessonCapability = {
       ...base,
@@ -450,6 +467,8 @@ export const LESSON_READINESS_REASON_AR: Record<LessonReadinessReason, string> =
   DELIVERY_MODE_MISMATCH: "عدم تطابق نمط التسليم مع المحتوى",
   BOOK_CONTENT_PLACEHOLDER: "محتوى الكتاب مجرد عنوان/بيانات وصفية (خلل بيانات 04)",
   CONTENT_NOT_STUDENT_VISIBLE: "المحتوى الأساسي غير ظاهر للطالب",
+  LEGACY_ORIGINAL_PDF_ONLY:
+    "درس قديم: محتواه الوحيد نسخة الكتاب الأصلية (PDF) — يحتاج محتوى الكتاب الرسمي المنسّق",
 
 };
 
