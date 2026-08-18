@@ -1,0 +1,116 @@
+/**
+ * 21B4-C — Android "return to app" Google OAuth.
+ *
+ * Web is untouched: every helper here is a no-op unless the app is running
+ * inside the Capacitor Android shell. On Android the flow is:
+ *
+ *   Tamkeen (WebView)
+ *     -> supabase.auth.signInWithOAuth({ skipBrowserRedirect: true })  [PKCE verifier stored in WebView]
+ *     -> Custom Tab (@capacitor/browser) opens the Google consent screen
+ *     -> Google -> Supabase /auth/v1/callback -> 302 to the app deep link
+ *     -> Android intent-filter delivers `appUrlOpen` back to the SAME WebView
+ *     -> exchangeCodeForSession() in the WebView (verifier is available there)
+ *
+ * Security: fail closed. Any deep link whose scheme/host/path does not match
+ * the single allowed callback is ignored. No token, code or verifier value is
+ * ever logged.
+ */
+
+export const NATIVE_APP_SCHEME = "app.studentamkeen.tamkeen";
+export const NATIVE_CALLBACK_HOST = "auth";
+export const NATIVE_CALLBACK_PATH = "/callback";
+export const NATIVE_OAUTH_REDIRECT_URL = `${NATIVE_APP_SCHEME}://${NATIVE_CALLBACK_HOST}${NATIVE_CALLBACK_PATH}`;
+
+export type NativeAuthCallback =
+  | { kind: "ignored"; reason: string }
+  | { kind: "error"; message: string }
+  | { kind: "code"; code: string; state: string | null };
+
+/**
+ * Strictly validate an incoming deep link. Anything unexpected is ignored
+ * (never thrown to the user, never logged with its query values).
+ */
+export function parseNativeAuthCallback(rawUrl: unknown): NativeAuthCallback {
+  if (typeof rawUrl !== "string" || rawUrl.length === 0 || rawUrl.length > 4096) {
+    return { kind: "ignored", reason: "malformed" };
+  }
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return { kind: "ignored", reason: "malformed" };
+  }
+  if (url.protocol !== `${NATIVE_APP_SCHEME}:`) {
+    return { kind: "ignored", reason: "scheme" };
+  }
+  if (url.host !== NATIVE_CALLBACK_HOST) {
+    return { kind: "ignored", reason: "host" };
+  }
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  if (path !== NATIVE_CALLBACK_PATH) {
+    return { kind: "ignored", reason: "path" };
+  }
+
+  // Provider/Supabase error is reported without echoing any other parameter.
+  const errCode = url.searchParams.get("error");
+  const errDesc = url.searchParams.get("error_description");
+  if (errCode || errDesc) {
+    return { kind: "error", message: errDesc || errCode || "OAuth error" };
+  }
+
+  // Implicit-flow tokens must never arrive on a deep link; refuse instead of
+  // trying to consume them (and never surface their value).
+  if (/[#?&](access_token|refresh_token)=/.test(rawUrl)) {
+    return { kind: "error", message: "استجابة تسجيل دخول غير مدعومة." };
+  }
+
+  const code = url.searchParams.get("code");
+  if (!code || !/^[A-Za-z0-9._~-]{8,512}$/.test(code)) {
+    return { kind: "ignored", reason: "no-code" };
+  }
+  return { kind: "code", code, state: url.searchParams.get("state") };
+}
+
+/** Codes already exchanged in this WebView session — duplicate links are no-ops. */
+const consumedCodes = new Set<string>();
+
+export function isCallbackConsumed(code: string): boolean {
+  return consumedCodes.has(code);
+}
+
+export function markCallbackConsumed(code: string): void {
+  consumedCodes.add(code);
+  if (consumedCodes.size > 20) {
+    consumedCodes.delete(consumedCodes.values().next().value as string);
+  }
+}
+
+/** Test seam. */
+export function resetConsumedCallbacks(): void {
+  consumedCodes.clear();
+}
+
+export async function isNativeShell(): Promise<boolean> {
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+}
+
+/** Close the Custom Tab if it is still in front of the app. */
+export async function closeNativeAuthBrowser(): Promise<void> {
+  try {
+    const { Browser } = await import("@capacitor/browser");
+    await Browser.close();
+  } catch {
+    /* already closed / not native — nothing to clean up */
+  }
+}
+
+/** Open the provider consent URL in an in-app Custom Tab. */
+export async function openNativeAuthBrowser(url: string): Promise<void> {
+  const { Browser } = await import("@capacitor/browser");
+  await Browser.open({ url, presentationStyle: "fullscreen" });
+}

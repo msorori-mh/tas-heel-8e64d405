@@ -16,6 +16,7 @@ import { PwaUpdateNotice } from "@/components/pwa/PwaUpdateNotice";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { AndroidBackHandler } from "@/components/mobile/AndroidBackHandler";
+import { NativeAuthDeepLinkHandler } from "@/components/mobile/NativeAuthDeepLinkHandler";
 
 
 function NotFoundComponent() {
@@ -188,6 +189,7 @@ function RootComponent() {
       <AuthProvider>
         <Outlet />
         <AndroidBackHandler />
+        <NativeAuthDeepLinkHandler />
         <PwaUpdateNotice />
         <Toaster position="top-center" richColors />
       </AuthProvider>
