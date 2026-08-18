@@ -280,3 +280,25 @@ PHYSICAL_ANDROID_TEST=PENDING_DEVICE_AVAILABLE
 **FAILED_CONFIG_VERIFICATION** — كل الضمانات الأمنية والمصدرية سليمة، لكن الـ redirect URI
 الجديد غير موجود فعلياً في Auth Redirect Allow List عند القراءة. يلزم إعادة الإضافة والحفظ ثم
 إعادة هذا التحقق. لا نشر، لا دمج، لا تغييرات أخرى.
+
+---
+
+## FINAL VERIFY (READ-ONLY) — 2026-08-18 03:38 UTC
+
+إعادة قراءة إعدادات المصادقة:
+
+```
+REDIRECT_URI_PRESENT=NO
+REDIRECT_COUNT_BEFORE=8
+REDIRECT_COUNT_AFTER=8   (المتوقع 9)
+القائمة مطابقة تماماً لقراءة G0 — لا إضافة ولا حذف.
+SITE_URL_UNCHANGED=YES
+GOOGLE_PROVIDER_UNCHANGED=YES
+EXISTING_REDIRECTS_PRESERVED=YES
+WILDCARD_ADDED=NO
+SOURCE_CALLBACK_CONTRACT=PASS
+SECURITY_TESTS=PASS (12/12)
+PHYSICAL_ANDROID_TEST=PENDING_DEVICE_AVAILABLE
+```
+
+**FINAL VERDICT: FAILED_CONFIG_VERIFICATION** — الـ redirect URI ما زال غائباً عن Allow List.
