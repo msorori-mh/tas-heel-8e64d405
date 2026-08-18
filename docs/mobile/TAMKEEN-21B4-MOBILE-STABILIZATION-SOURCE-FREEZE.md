@@ -35,9 +35,11 @@ All six batches are committed and present in `FINAL_21B4_BRANCH`:
 ## Remote Branch Status
 
 - Target remote: `origin`
-- Branch pushed: attempted (tool environment may enforce its own push gate)
+- `git add` / `git commit` / `git push`: blocked by the tool environment (git state is managed internally)
+- The freeze report was written to the working tree; the environment reports a clean working tree
 - No merge to `main` performed.
 - No production deploy performed.
+
 
 ## Restricted Operations (NOT APPLIED)
 
