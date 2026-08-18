@@ -25,12 +25,9 @@ const PII_PATTERNS: readonly RegExp[] = [
   /\b\d{3}-\d{2}-\d{4}\b/i, // SSN pattern
 ];
 
-const LEAKAGE_PATTERNS: readonly RegExp[] = [
-  /data-answer\s*=/i,
-  /correct-answer\s*=/i,
-  /class=["'][^"']*\b(answer-key|solution-text|teacher-note|explanation-hidden)\b[^"']*["']/i,
-  /id=["'][^"']*\b(answer-key|solution-text|teacher-note)\b[^"']*["']/i,
-];
+// 21C — single source of truth for answer-leak detection, shared with the
+// unified HTML content standard (src/lib/lessons/html-content-standard.ts).
+const LEAKAGE_PATTERNS: readonly RegExp[] = ANSWER_LEAK_PATTERNS;
 
 const MAX_PACKAGE_BYTES = 52428800; // 50MB
 
