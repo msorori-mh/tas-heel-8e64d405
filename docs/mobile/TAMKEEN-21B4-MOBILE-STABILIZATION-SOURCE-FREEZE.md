@@ -7,7 +7,7 @@ Source-only lock report for the 21B4 series.
 | Gate | Value |
 | --- | --- |
 | `FINAL_21B4_BRANCH` | `edit/edt-cf4e21ce-f9d1-40ba-ae8d-55526bc8f64c` |
-| `FINAL_21B4_HEAD` | `c24acb0c1daba830dbdef51a92ecb47039d5103a` |
+| `FINAL_21B4_HEAD` | `3da4bed645407ec490ab4be452d9a3f07f8e46d8` |
 | `FINAL_SOURCE_STATUS` | `PASS` |
 | `PHYSICAL_ANDROID_FINAL_SESSION` | `PENDING_DEVICE_AVAILABLE` |
 | `PRODUCTION_DEPLOY` | `NOT_APPLIED` |
