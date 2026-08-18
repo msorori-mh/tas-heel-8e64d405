@@ -9,6 +9,12 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 const read = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), "utf8");
+/** Comments document what is forbidden; the guards must inspect code only. */
+const stripComments = (src) =>
+  src
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
 
 const registryTs = read("src/lib/offline/local-textbook-registry.ts");
 const clientTs = read("src/lib/textbooks/subject-textbook-client.ts");
@@ -39,7 +45,7 @@ describe("registry contract", () => {
     for (const src of [registryTs, pluginJava]) {
       expect(src).toMatch(/startsWith\("\/"\)/);
       expect(src).toMatch(/\.\./);
-      expect(src).toMatch(/:\/\//);
+      expect(src).toMatch(/(:\/\/|:\\\/\\\/)/);
     }
     expect(pluginJava).toMatch(/getCanonicalPath\(\)/);
   });
@@ -57,14 +63,15 @@ describe("registry contract", () => {
       "apikey",
       "Authorization",
     ];
-    for (const key of forbidden) expect(registryTs).not.toContain(key);
+    const registryCode = stripComments(registryTs);
+    for (const key of forbidden) expect(registryCode).not.toContain(key);
     expect(registryTs).toMatch(/REGISTRY_ALLOWED_FIELDS/);
     expect(registryTs).toMatch(/sanitizeRecord/);
   });
 
   it("8 — the offline page sends only a trusted identifier to native", () => {
     expect(offlineHtml).toMatch(/openTextbook\(\{ textbookId: textbookId \}\)/);
-    expect(offlineHtml).not.toMatch(/localPath/);
+    expect(stripComments(offlineHtml)).not.toMatch(/localPath/);
     expect(offlineHtml).not.toMatch(/file:\/\//);
   });
 });
@@ -73,10 +80,10 @@ describe("offline entry surface", () => {
   it("6 — no remote asset or network dependency", () => {
     expect(offlineHtml).not.toMatch(/<script[^>]+src=/i);
     expect(offlineHtml).not.toMatch(/<link[^>]+href=/i);
-    expect(offlineHtml).not.toMatch(/fetch\(/);
+    expect(stripComments(offlineHtml)).not.toMatch(/fetch\(/);
     expect(offlineHtml).not.toMatch(/XMLHttpRequest/);
-    expect(offlineHtml).not.toMatch(/supabase/i);
-    expect(offlineHtml).not.toMatch(/https:\/\/(?!studentamkeen\.com)/);
+    expect(stripComments(offlineHtml)).not.toMatch(/supabase/i);
+    expect(stripComments(offlineHtml)).not.toMatch(/https:\/\/(?!studentamkeen\.com)/);
     // The only remote reference allowed is the explicit retry navigation.
     expect(offlineHtml).toMatch(/var ORIGIN = "https:\/\/studentamkeen\.com"/);
   });
@@ -108,7 +115,7 @@ describe("regression guards", () => {
   });
 
   it("no second offline content system was introduced", () => {
-    expect(offlineHtml).not.toMatch(/lesson|درس|dashboard/i);
+    expect(stripComments(offlineHtml)).not.toMatch(/lesson|درس|dashboard/i);
     expect(registryTs).not.toMatch(/from "@\/integrations\/supabase/);
   });
 });
