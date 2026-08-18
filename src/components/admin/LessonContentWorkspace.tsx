@@ -135,12 +135,14 @@ export function LessonContentWorkspace({
       </header>
 
 
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]">
+      {/* 21G — readiness dashboard with an explicit "what is missing" answer. */}
+      <div className="mt-3 grid grid-cols-2 gap-2 text-center text-[11px] sm:grid-cols-4">
         {[
-          ["جاهزية الكتاب", readiness.bookReady],
-          ["جاهزية التعلم", readiness.learningReady],
-          ["جاهزية كاملة", readiness.fullyReady],
-        ].map(([label, on]) => (
+          ["جاهزية الكتاب", readiness.bookReady, [] as V3CapabilityKey[]],
+          ["جاهزية التعلم", readiness.learningReady, readiness.missingForLearning],
+          ["جاهزية التقييم", readiness.assessmentReady, readiness.missingForAssessment],
+          ["جاهزية كاملة", readiness.fullyReady, readiness.missing],
+        ].map(([label, on, missing]) => (
           <div
             key={label as string}
             className={`rounded-lg border px-2 py-2 ${
@@ -149,14 +151,21 @@ export function LessonContentWorkspace({
           >
             <div className="font-medium">{label as string}</div>
             <div className="mt-0.5">{on ? "نعم" : "لا"}</div>
+            {!on && (missing as V3CapabilityKey[]).length > 0 && (
+              <div className="mt-1 text-[10px] leading-relaxed">
+                ينقص: {explainMissing(missing as V3CapabilityKey[])}
+              </div>
+            )}
           </div>
         ))}
       </div>
 
       <ul className="mt-4 space-y-2">
-        {STUDENT_CAPABILITY_ORDER.map((key, index) => {
-          const cap = contract[key];
+        {v3View.map((v3, index) => {
+          const key = v3.legacyKey;
+          const cap = { ...contract[key], label: v3.label, icon: v3.icon };
           const edit = onEdit[key];
+
           const hasLifecycle = LIFECYCLE_CAPABILITIES.includes(key) && cap.present;
           const stage = lifecycle[key] ?? null;
           const nextStates = hasLifecycle ? allowedTransitions(stage) : [];
