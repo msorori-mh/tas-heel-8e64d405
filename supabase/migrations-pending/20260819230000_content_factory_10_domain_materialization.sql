@@ -101,7 +101,7 @@ BEGIN
     RAISE EXCEPTION 'CF10_ADMIN_REQUIRED' USING ERRCODE = '42501';
   END IF;
 
-  PERFORM pg_advisory_xact_lock(hashtextextended('golden_lesson_materialize', 0), hashtextextended(_batch_id::text, 0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('cf10:' || _batch_id::text, 0));
 
   SELECT * INTO batch FROM public.golden_lesson_domain_stage_batches WHERE id = _batch_id;
   IF batch.id IS NULL THEN
