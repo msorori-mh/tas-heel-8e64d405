@@ -5,6 +5,7 @@ import { test } from "node:test";
 import JSZip from "jszip";
 
 import { verifyGoldenLessonBundle } from "../../src/lib/content-factory/golden-lesson-bundle-verifier.ts";
+import { buildGoldenDomainStageEnvelope } from "../../src/lib/content-factory/golden-lesson-domain-staging.ts";
 
 const h = (value: string) => createHash("sha256").update(value).digest("hex");
 const files = {
@@ -58,4 +59,15 @@ test("extra files fail closed", async () => {
 
 test("a declared hash mismatch fails closed", async () => {
   await assert.rejects(async () => verifyGoldenLessonBundle(await bundle({ corruptHash: true })), /ZIP_FILE_HASH_MISMATCH/);
+});
+
+test("verified bytes map deterministically to seven domain staging targets", async () => {
+  const verified = await verifyGoldenLessonBundle(await bundle());
+  const envelope = buildGoldenDomainStageEnvelope(verified);
+  assert.equal(envelope.entries.length, 7);
+  assert.equal(envelope.entries[0]?.targetPlan, "lesson_book_contents");
+  assert.equal(envelope.entries[2]?.lifecycleCapability, "quickReview");
+  assert.equal(envelope.entries[4]?.targetPlan, "lesson_resources:experiment");
+  assert.equal(envelope.entries[0]?.sourceBase64, Buffer.from(files["official.json"]).toString("base64"));
+  assert.equal(envelope.answersCompanion, null);
 });

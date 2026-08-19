@@ -20,6 +20,13 @@ export interface VerifiedGoldenLessonBundle {
   fileCount: number;
   compressedBytes: number;
   uncompressedBytes: number;
+  files: VerifiedGoldenLessonFile[];
+}
+
+export interface VerifiedGoldenLessonFile {
+  path: string;
+  sha256: string;
+  bytes: Uint8Array;
 }
 
 interface CentralEntry {
@@ -132,10 +139,13 @@ export async function verifyGoldenLessonBundle(input: Uint8Array): Promise<Verif
   }
   const expectedNames = new Set(["manifest.json", ...expectedHashes.keys()]);
   if (entries.length !== expectedNames.size || entries.some((entry) => !expectedNames.has(entry.name))) fail("ZIP_FILE_SET_MISMATCH");
+  const files: VerifiedGoldenLessonFile[] = [];
   for (const [name, expected] of expectedHashes) {
     const entry = zip.file(name);
     if (!entry) fail("ZIP_EXPECTED_FILE_MISSING");
-    if (sha256(await entry.async("uint8array")) !== expected) fail("ZIP_FILE_HASH_MISMATCH");
+    const bytes = await entry.async("uint8array");
+    if (sha256(bytes) !== expected) fail("ZIP_FILE_HASH_MISMATCH");
+    files.push({ path: name, sha256: expected, bytes });
   }
   return {
     manifest,
@@ -144,5 +154,6 @@ export async function verifyGoldenLessonBundle(input: Uint8Array): Promise<Verif
     fileCount: entries.length,
     compressedBytes: input.byteLength,
     uncompressedBytes: entries.reduce((sum, entry) => sum + entry.uncompressedSize, 0),
+    files,
   };
 }
