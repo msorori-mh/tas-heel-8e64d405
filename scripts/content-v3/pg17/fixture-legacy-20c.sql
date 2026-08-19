@@ -31,6 +31,10 @@ END $$;
 
 \i :schema_file
 
+-- Composite uniqueness that production carries and 21H's composite FKs need.
+ALTER TABLE public.question_revisions ADD CONSTRAINT question_revisions_question_id_id_key UNIQUE (question_id, id);
+ALTER TABLE public.lesson_capability_lifecycle ADD CONSTRAINT lesson_capability_lifecycle_lesson_capability_key UNIQUE (lesson_id, capability);
+
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role text) RETURNS boolean
   LANGUAGE sql STABLE AS $$
     SELECT EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=_user_id AND r.role=_role)
