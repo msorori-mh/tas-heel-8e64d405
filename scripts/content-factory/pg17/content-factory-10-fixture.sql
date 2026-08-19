@@ -576,3 +576,11 @@ SELECT public.golden_lesson_stage_domain_bundle(
  jsonb_build_object('path','answers.server-only.json','sha256',public.cf08_sha('{"answers":[{"question_id":"s1","correct_option":"(b)","rationale":"why"}]}'),
  'base64',encode(convert_to('{"answers":[{"question_id":"s1","correct_option":"(b)","rationale":"why"}]}','UTF8'),'base64')));
 RESET ROLE;
+
+-- Production parity: PostgREST roles hold table grants; invoker-side trigger functions rely on them.
+DO $$ DECLARE t text; BEGIN
+  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname='public' LOOP
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+    EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
+  END LOOP;
+END $$;
