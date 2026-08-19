@@ -57,12 +57,19 @@ GRANT SELECT ON public.golden_lesson_domain_stage_answers TO authenticated;
 GRANT ALL ON public.golden_lesson_domain_stage_batches,
   public.golden_lesson_domain_stage_entries, public.golden_lesson_domain_stage_answers TO service_role;
 
+CREATE OR REPLACE FUNCTION public.is_golden_lesson_admin(_user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT public.golden_lesson_has_role(_user_id,'admin');
+$$;
+REVOKE ALL ON FUNCTION public.is_golden_lesson_admin(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_golden_lesson_admin(uuid) TO authenticated, service_role;
+
 CREATE POLICY "golden domain stage staff read" ON public.golden_lesson_domain_stage_batches
   FOR SELECT TO authenticated USING (public.is_golden_lesson_content_staff(auth.uid()));
 CREATE POLICY "golden domain entries staff read" ON public.golden_lesson_domain_stage_entries
   FOR SELECT TO authenticated USING (public.is_golden_lesson_content_staff(auth.uid()));
 CREATE POLICY "golden domain answers admin read" ON public.golden_lesson_domain_stage_answers
-  FOR SELECT TO authenticated USING (public.golden_lesson_has_role(auth.uid(),'admin'));
+  FOR SELECT TO authenticated USING (public.is_golden_lesson_admin(auth.uid()));
 
 CREATE OR REPLACE FUNCTION public.reject_golden_domain_stage_mutation()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$

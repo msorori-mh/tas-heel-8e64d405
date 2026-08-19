@@ -29,5 +29,6 @@ test("staging is immutable, atomic and service-role only", () => {
   assert.match(migration, /GRANT EXECUTE[^;]+TO service_role/s);
   assert.match(migration, /REVOKE ALL[^;]+authenticated/s);
   assert.match(migration, /golden domain answers admin read/);
+  assert.match(migration, /is_golden_lesson_admin\(auth\.uid\(\)\)/);
   assert.doesNotMatch(migration, /review_status\s*=\s*'READY'|publication_status\s*=\s*'published'/);
 });
