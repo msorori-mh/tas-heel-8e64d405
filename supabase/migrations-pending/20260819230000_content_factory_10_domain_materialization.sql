@@ -88,7 +88,9 @@ DECLARE
   options_written integer := 0;
   answers_written integer := 0;
   rationales_written integer := 0;
+  targets_written integer := 0;
   lifecycle_written integer := 0;
+
   payloads jsonb := '{}'::jsonb;
   existing_hash text;
   new_hash text;
