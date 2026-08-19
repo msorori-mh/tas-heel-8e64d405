@@ -240,8 +240,34 @@ $$;
 
 REVOKE ALL ON FUNCTION public.v3_capability_snapshot_hash(jsonb) FROM PUBLIC, anon, authenticated;
 
-/* 3. Pin the legacy READY rows. status is never changed here, so the student
-      surface is bit-for-bit identical before and after. */
+/* 2b. Reconcilability test. A snapshot may only be pinned when the capability's
+       current source content can actually be rebuilt. An empty payload means
+       the source is gone (or was never there), so no snapshot is invented. */
+CREATE OR REPLACE FUNCTION public.v3_capability_snapshot_is_reconcilable(_snapshot jsonb)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT CASE jsonb_typeof(_snapshot -> 'payload')
+    WHEN 'array'  THEN jsonb_array_length(_snapshot -> 'payload') > 0
+    WHEN 'object' THEN EXISTS (
+      SELECT 1 FROM jsonb_each(_snapshot -> 'payload') AS kv(key, value)
+       WHERE CASE jsonb_typeof(kv.value)
+               WHEN 'array' THEN jsonb_array_length(kv.value) > 0
+               WHEN 'null'  THEN false
+               ELSE true
+             END
+    )
+    ELSE false
+  END;
+$$;
+
+REVOKE ALL ON FUNCTION public.v3_capability_snapshot_is_reconcilable(jsonb) FROM PUBLIC, anon, authenticated;
+
+/* 3. Pin the legacy READY rows whose source content is deterministically
+      reconcilable. status is never changed here, so the student surface is
+      bit-for-bit identical before and after. */
 UPDATE public.lesson_capability_lifecycle x
    SET ready_by = COALESCE(x.ready_by, ev.actor_id),
        evidence_origin = CASE
