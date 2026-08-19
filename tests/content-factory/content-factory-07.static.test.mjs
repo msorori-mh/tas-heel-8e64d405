@@ -10,7 +10,9 @@ test("bundle intake is private, owner-scoped and immutable", () => {
   assert.match(migration, /golden-lesson-intake/);
   assert.match(migration, /public\.is_golden_lesson_content_staff\(auth\.uid\(\)\)/);
   assert.match(migration, /storage\.foldername\(name\)/);
-  assert.doesNotMatch(migration, /FOR UPDATE|FOR DELETE/);
+  const policies = [...migration.matchAll(/CREATE POLICY[\s\S]*?;/g)].map((match) => match[0]);
+  assert.equal(policies.length, 2);
+  for (const policy of policies) assert.doesNotMatch(policy, /FOR UPDATE|FOR DELETE/);
 });
 
 test("only server-attested bytes can cross DRAFT to SUBMITTED", () => {
@@ -27,4 +29,3 @@ test("ZIP verifier rejects structural and expansion attacks", () => {
   }
   assert.match(verifier, /checkCRC32: true/);
 });
-
