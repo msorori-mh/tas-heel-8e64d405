@@ -524,7 +524,8 @@ UPDATE public.lesson_capability_lifecycle x
  WHERE x.status = 'READY'
    AND NOT (x.capability = ANY (public.v3_retired_capabilities()))
    AND NOT public.v3_capability_snapshot_is_reconcilable(
-         public.v3_capability_snapshot(x.lesson_id, x.capability)
+         COALESCE(x.ready_snapshot,
+                  public.v3_capability_snapshot(x.lesson_id, x.capability))
        );
 
 /* 4. Retire EVERY capability outside the V3 contract without deleting history.
