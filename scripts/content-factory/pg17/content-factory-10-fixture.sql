@@ -106,3 +106,71 @@ CREATE TABLE public.lesson_capability_lifecycle(
   updated_at timestamptz NOT NULL DEFAULT now(), evidence_origin text, retirement_origin text,
   applicability public.capability_applicability NOT NULL DEFAULT 'REQUIRED',
   UNIQUE (lesson_id, capability));
+
+-- Rich second package: exercises lesson creation, questions, options, answers, rationales, resources.
+CREATE OR REPLACE FUNCTION public.cf10_manifest() RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
+SELECT jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(
+ jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(
+  jsonb_set(public.cf04_manifest('cf10'),'{packageCode}','"QURAN-G10-L04-PKG"'),
+  '{identity,lessonSlug}','"quran-lesson-04"'),
+  '{identity,lessonCode}','"QURAN-G10-L04"'),
+  '{identity,lessonTitle}','"الدرس الرابع"'),
+  '{artifacts,0,sha256}',to_jsonb(public.cf08_sha('official-04'))),
+  '{artifacts,0,provenanceSha256}',to_jsonb(public.cf08_sha('official-source-04'))),
+  '{artifacts,1,sha256}',to_jsonb(public.cf08_sha('<p>explanation-04</p>'))),
+  '{artifacts,2,sha256}',to_jsonb(public.cf08_sha('<p>summary-04</p>'))),
+  '{artifacts,3,applicability}','"REQUIRED"'),
+  '{artifacts,3,sourcePath}','"mindmap.html"'),
+  '{artifacts,3,sha256}',to_jsonb(public.cf08_sha('<p>mindmap-04</p>'))),
+  '{artifacts,4,applicability}','"REQUIRED"'),
+  '{artifacts,4,sourcePath}','"lab.html"'),
+  '{artifacts,4,sha256}',to_jsonb(public.cf08_sha('<p>lab-04</p>'))),
+  '{artifacts,5,sha256}',to_jsonb(public.cf08_sha('{"questions":[{"question_number":"7","official_text":"Q7","question_type":"SHORT_ANSWER"}]}'))),
+  '{artifacts,5,provenanceSha256}',to_jsonb(public.cf08_sha('questions-source-04'))),
+  '{artifacts,6,applicability}','"REQUIRED"'),
+  '{artifacts,6,sourcePath}','"self-test.json"'),
+  '{artifacts,6,sha256}',to_jsonb(public.cf08_sha('{"questions":[{"id":"s1","question":"SQ1","type":"multiple_choice","options":["a1","a2"],"source_row":2}]}'))),
+  '{security,answersCompanionSha256}',to_jsonb(public.cf08_sha('{"answers":[{"question_id":"s1","correct_option":"(b)","rationale":"why"}]}')));
+$$;
+
+CREATE OR REPLACE FUNCTION public.cf10_entry(cap text, lifecycle text, target text, authority text, path text, body text, prov text, prov_body text)
+RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
+SELECT jsonb_build_object('capability',cap,'lifecycleCapability',lifecycle,'targetPlan',target,
+ 'applicability','REQUIRED','authority',authority,'sourcePath',path,'sourceSha256',public.cf08_sha(body),
+ 'sourceBase64',encode(convert_to(body,'UTF8'),'base64'),'provenancePath',prov,
+ 'provenanceSha256',CASE WHEN prov IS NULL THEN NULL ELSE public.cf08_sha(prov_body) END,
+ 'provenanceBase64',CASE WHEN prov IS NULL THEN NULL ELSE encode(convert_to(prov_body,'UTF8'),'base64') END);
+$$;
+
+CREATE OR REPLACE FUNCTION public.cf10_entries() RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
+SELECT jsonb_build_array(
+ public.cf10_entry('officialBookContent','officialBookContent','lesson_book_contents','OFFICIAL','official.json','official-04','official.provenance.json','official-source-04'),
+ public.cf10_entry('tamkeenExplanationHtml','tamkeenExplanation','lesson_explanations','TAMKEEN','explanation.html','<p>explanation-04</p>',NULL,NULL),
+ public.cf10_entry('lessonSummaryHtml','quickReview','lesson_summaries','TAMKEEN','summary.html','<p>summary-04</p>',NULL,NULL),
+ public.cf10_entry('mindMapHtml','mindMap','lesson_resources:mindmap','TAMKEEN','mindmap.html','<p>mindmap-04</p>',NULL,NULL),
+ public.cf10_entry('labExperimentHtml','simulation','lesson_resources:experiment','TAMKEEN','lab.html','<p>lab-04</p>',NULL,NULL),
+ public.cf10_entry('officialBookQuestions','checkUnderstanding','questions:official','OFFICIAL','questions.json','{"questions":[{"question_number":"7","official_text":"Q7","question_type":"SHORT_ANSWER"}]}','questions.provenance.json','questions-source-04'),
+ public.cf10_entry('selfTest','lessonAssessment','lesson_assessments:self_test','TAMKEEN','self-test.json','{"questions":[{"id":"s1","question":"SQ1","type":"multiple_choice","options":["a1","a2"],"source_row":2}]}',NULL,NULL));
+$$;
+
+SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000001'; SET ROLE authenticated;
+SELECT public.golden_lesson_stage_manifest(public.cf10_manifest(),repeat('a',64)); RESET ROLE;
+SET ROLE service_role;
+SELECT public.golden_lesson_attest_bundle(
+ (SELECT id FROM public.golden_lesson_packages WHERE package_code='QURAN-G10-L04-PKG'),1,
+ '10000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001/30000000-0000-0000-0000-000000000004.zip',
+ repeat('c',64),7,2048,4096); RESET ROLE;
+SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000001'; SET ROLE authenticated;
+SELECT public.golden_lesson_advance_review((SELECT id FROM public.golden_lesson_packages WHERE package_code='QURAN-G10-L04-PKG'),1,'SUBMITTED','{"packageValidationPassed":true}',NULL);
+RESET ROLE; SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000002'; SET ROLE authenticated;
+SELECT public.golden_lesson_advance_review((SELECT id FROM public.golden_lesson_packages WHERE package_code='QURAN-G10-L04-PKG'),1,'CONTENT_APPROVED','{"officialProvenanceChecked":true,"answerSeparationChecked":true}',NULL);
+RESET ROLE; SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000003'; SET ROLE authenticated;
+SELECT public.golden_lesson_advance_review((SELECT id FROM public.golden_lesson_packages WHERE package_code='QURAN-G10-L04-PKG'),1,'APPROVED_FOR_STAGING','{"responsivePreviewChecked":true}',NULL);
+RESET ROLE; RESET request.jwt.claim.sub;
+SET ROLE service_role;
+SELECT public.golden_lesson_stage_domain_bundle(
+ (SELECT id FROM public.golden_lesson_packages WHERE package_code='QURAN-G10-L04-PKG'),1,
+ '10000000-0000-0000-0000-000000000003',repeat('c',64),public.cf10_entries(),
+ jsonb_build_object('path','answers.server-only.json','sha256',public.cf08_sha('{"answers":[{"question_id":"s1","correct_option":"(b)","rationale":"why"}]}'),
+ 'base64',encode(convert_to('{"answers":[{"question_id":"s1","correct_option":"(b)","rationale":"why"}]}','UTF8'),'base64')));
+RESET ROLE;
