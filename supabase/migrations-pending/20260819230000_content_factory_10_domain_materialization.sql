@@ -1,9 +1,20 @@
--- CONTENT_FACTORY_10_DOMAIN_MATERIALIZATION
+-- CONTENT_FACTORY_10_DOMAIN_MATERIALIZATION (revision R2)
 -- Status: SOURCE-READY / NOT APPLIED TO PRODUCTION.
 -- Scope: atomic, idempotent, fail-closed materialization of one verified CF08 batch
 --        (optionally CF09-bound) into the natural domain tables, DRAFT lifecycle only.
+-- R2 remediation vs the first CF10 draft (which was BLOCKED_BY_PRODUCTION_SCHEMA_CONTRACT):
+--   * question_revisions are inserted as 'DRAFT' (lowercase 'published' violated
+--     question_revisions_status_check, and the lifecycle guard forbids inserting APPROVED/
+--     PUBLISHED/SUPERSEDED revisions at all).
+--   * published_at / published_by / questions.current_published_revision_id are never written.
+--   * payload_hash is computed with the existing canonical QB contract
+--     public._qb_compute_revision_payload_hash (canonical_payload_v1); source_payload_hash carries
+--     the staged capability sha256.
+--   * assessment_questions membership is NOT written: validate_assessment_question_link requires a
+--     PUBLISHED revision plus a matching published-revision target, which is impossible DRAFT-only.
 -- Explicitly absent: subject creation, curriculum deletes, storage/textbook mutation,
 --                    REVIEW/READY transitions, publication, answer exposure in student payload.
+
 
 CREATE TABLE public.golden_lesson_domain_materializations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
