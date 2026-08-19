@@ -69,6 +69,43 @@ DO \$\$ BEGIN
 END \$\$;"
 echo "EMPTY_SNAPSHOT_FAIL_CLOSED=PASS"
 
+ALLOW="SET tamkeen.r5_manual_review_allowlist = '99999999-9999-9999-9999-999999999999'"
+
+# R5-R3 negative: a stored ready_hash without a stored ready_snapshot has no
+# provable provenance and must roll the whole migration back.
+echo "== 2a2. hash without snapshot (expect R5_READY_HASH_WITHOUT_SNAPSHOT + rollback)"
+psql -q -X -v ON_ERROR_STOP=1 -c "
+UPDATE public.lesson_capability_lifecycle SET ready_hash='deadbeef'
+ WHERE capability='tamkeenExplanation' AND lesson_id='55555555-0000-0000-0000-000000000010';"
+if psql -q -X -v ON_ERROR_STOP=1 -c "$ALLOW" -f "$R5" >"$WORK/hash_no_snapshot.log" 2>&1; then
+  echo "REHEARSAL_FAIL: hash without snapshot did NOT abort"; exit 1
+fi
+grep -q "R5_READY_HASH_WITHOUT_SNAPSHOT" "$WORK/hash_no_snapshot.log" \
+  || { echo "REHEARSAL_FAIL: wrong abort reason"; cat "$WORK/hash_no_snapshot.log"; exit 1; }
+psql -q -X -v ON_ERROR_STOP=1 -c "
+UPDATE public.lesson_capability_lifecycle SET ready_hash=NULL
+ WHERE capability='tamkeenExplanation' AND lesson_id='55555555-0000-0000-0000-000000000010';"
+echo "MISSING_SNAPSHOT_WITH_EXISTING_HASH_FAIL_CLOSED=PASS"
+
+# R5-R3 negative: a stored snapshot whose stored hash does not describe it.
+echo "== 2a3. snapshot/hash mismatch (expect R5_READY_SNAPSHOT_HASH_MISMATCH + rollback)"
+psql -q -X -v ON_ERROR_STOP=1 -c "
+UPDATE public.lesson_capability_lifecycle
+   SET ready_snapshot='{\"snapshotVersion\":\"v3.snapshot.1\",\"capability\":\"tamkeenExplanation\",\"payload\":[{\"content\":\"x\"}]}'::jsonb,
+       ready_hash='0000000000000000000000000000000000000000000000000000000000000000'
+ WHERE capability='tamkeenExplanation' AND lesson_id='55555555-0000-0000-0000-000000000011';"
+if psql -q -X -v ON_ERROR_STOP=1 -c "$ALLOW" -f "$R5" >"$WORK/hash_mismatch.log" 2>&1; then
+  echo "REHEARSAL_FAIL: snapshot/hash mismatch did NOT abort"; exit 1
+fi
+grep -q "R5_READY_SNAPSHOT_HASH_MISMATCH" "$WORK/hash_mismatch.log" \
+  || { echo "REHEARSAL_FAIL: wrong abort reason"; cat "$WORK/hash_mismatch.log"; exit 1; }
+psql -q -X -v ON_ERROR_STOP=1 -c "
+UPDATE public.lesson_capability_lifecycle SET ready_snapshot=NULL, ready_hash=NULL
+ WHERE capability='tamkeenExplanation' AND lesson_id='55555555-0000-0000-0000-000000000011';"
+echo "SNAPSHOT_HASH_MISMATCH_FAIL_CLOSED=PASS"
+
+
+
 # 2b. Operator reviews the row, allow-lists it explicitly, and re-runs.
 echo "== 2b. remediation candidate (R5-R2, with reviewed allow-list)"
 psql -q -X -v ON_ERROR_STOP=1 \
