@@ -9,12 +9,20 @@
 
 export const IMPORT_EXECUTION_IMPL_VERSION = "IMPORT-STAGING-EXECUTION-03" as const;
 
-/** Migration file backing this module. Kept out of supabase/migrations until the apply gate. */
+/**
+ * Historical source artifact backing this module. The path remains pending-only
+ * to preserve the applied bytes; it is not an instruction to re-apply it.
+ */
 export const PHASE_03_MIGRATION_PATH =
   "supabase/migrations-pending/20260813010000_import_staging_and_execution_03.sql" as const;
 
-/** Phase boundary: nothing in phase 03 may be applied to a database. */
-export const PHASE_03_APPLY_STATUS = "not_applied" as const;
+/**
+ * Measured shared Lovable datastore state. Evidence is retained in the
+ * production readiness review; source placement and runtime state are separate.
+ */
+export const PHASE_03_APPLY_STATUS = "applied_shared_lovable_db" as const;
+export const PHASE_03_APPLY_EVIDENCE =
+  "docs/import/PRODUCTION-CONTENT-IMPORT-READINESS-REVIEW-10.md" as const;
 
 /* ------------------------------------------------------------------ */
 /* States                                                              */
