@@ -296,7 +296,25 @@ UPDATE public.lesson_capability_lifecycle x
   ) ev
  WHERE ev.lifecycle_id = x.id
    AND x.status = 'READY'
-   AND (x.ready_snapshot IS NULL OR x.ready_hash IS NULL OR x.evidence_origin IS NULL);
+   AND x.capability <> 'originalBookPdf'
+   AND (x.ready_snapshot IS NULL OR x.ready_hash IS NULL OR x.evidence_origin IS NULL)
+   AND public.v3_capability_snapshot_is_reconcilable(
+         public.v3_capability_snapshot(x.lesson_id, x.capability)
+       );
+
+/* 3b. Rows whose source cannot be rebuilt get no invented evidence. They are
+       flagged for a human and moved out of READY, which is the only honest
+       state for "we cannot prove what this row published". In the measured
+       production baseline this set is empty (0 rows). */
+UPDATE public.lesson_capability_lifecycle x
+   SET status = 'REVIEW',
+       evidence_origin = 'NEEDS_MANUAL_REVIEW'
+ WHERE x.status = 'READY'
+   AND x.capability <> 'originalBookPdf'
+   AND (x.ready_snapshot IS NULL OR x.ready_hash IS NULL)
+   AND NOT public.v3_capability_snapshot_is_reconcilable(
+         public.v3_capability_snapshot(x.lesson_id, x.capability)
+       );
 
 /* 4. Retire originalBookPdf without deleting history.
       READY is removed (the capability is out of the V3 contract) but the row,
