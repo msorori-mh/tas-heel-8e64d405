@@ -17,7 +17,7 @@ function validPackage(): GoldenLessonPackage {
       const applicability = GOLDEN_QURAN_V1.applicability[capability];
       const authority = capability === "officialBookContent" || capability === "officialBookQuestions" ? "OFFICIAL" : "TAMKEEN";
       const sourcePath = applicability === "REQUIRED" ? `${capability}.json` : null;
-      return { capability, applicability, authority, sourcePath, sha256: sourcePath ? "a".repeat(64) : null, provenancePath: authority === "OFFICIAL" && sourcePath ? `${capability}.provenance.json` : null };
+      return { capability, applicability, authority, sourcePath, sha256: sourcePath ? "a".repeat(64) : null, provenancePath: authority === "OFFICIAL" && sourcePath ? `${capability}.provenance.json` : null, provenanceSha256: authority === "OFFICIAL" && sourcePath ? "c".repeat(64) : null };
     }),
     lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },
     security: { productionApply: false, publicPayloadContainsAnswers: false, answersCompanionPath: "answers.server-only.json", answersCompanionSha256: "b".repeat(64), htmlNetworkAccess: "NONE" },

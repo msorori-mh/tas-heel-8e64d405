@@ -1,3 +1,4 @@
+import JSZip from "jszip";
 import { useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, Download, FileArchive, Loader2, ShieldCheck } from "lucide-react";
 
@@ -46,11 +47,35 @@ const CAPABILITY_LABEL: Record<GoldenCapability, string> = {
 interface UploadedArtifact {
   fileName: string;
   sha256: string;
+  file: File;
 }
 
 async function sha256Hex(file: File): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function downloadPackageBundle(
+  pkg: GoldenLessonPackage,
+  uploads: Partial<Record<GoldenCapability, UploadedArtifact>>,
+  provenance: Partial<Record<GoldenCapability, UploadedArtifact>>,
+  answersCompanion: UploadedArtifact | null,
+): Promise<void> {
+  const zip = new JSZip();
+  zip.file("manifest.json", JSON.stringify(pkg, null, 2));
+  for (const item of [...Object.values(uploads), ...Object.values(provenance)]) {
+    if (item) zip.file(item.fileName, item.file);
+  }
+  if (answersCompanion) zip.file(answersCompanion.fileName, answersCompanion.file);
+  const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${pkg.packageCode || "golden-lesson"}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function downloadJson(value: unknown, filename: string): void {
@@ -77,9 +102,9 @@ export function GoldenLessonPackageBuilder() {
   const [semester, setSemester] = useState("");
   const [sortOrder, setSortOrder] = useState("");
   const [uploads, setUploads] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
-  const [provenance, setProvenance] = useState<Partial<Record<GoldenCapability, string>>>({});
+  const [provenance, setProvenance] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
   const [answersCompanion, setAnswersCompanion] = useState<UploadedArtifact | null>(null);
-  const [hashing, setHashing] = useState<GoldenCapability | "answers" | null>(null);
+  const [hashing, setHashing] = useState<GoldenCapability | `provenance:${GoldenCapability}` | "answers" | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [validation, setValidation] = useState<GoldenLessonValidationResult | null>(null);
 
@@ -93,7 +118,8 @@ export function GoldenLessonPackageBuilder() {
         authority: GOLDEN_CAPABILITY_AUTHORITY[capability],
         sourcePath: uploads[capability]?.fileName ?? null,
         sha256: uploads[capability]?.sha256 ?? null,
-        provenancePath: provenance[capability] ?? null,
+        provenancePath: provenance[capability]?.fileName ?? null,
+        provenanceSha256: provenance[capability]?.sha256 ?? null,
       })),
     [profile, uploads, provenance],
   );
@@ -146,7 +172,25 @@ export function GoldenLessonPackageBuilder() {
     setHashing(capability);
     try {
       const sha256 = await sha256Hex(file);
-      setUploads((current) => ({ ...current, [capability]: { fileName: file.name, sha256 } }));
+      setUploads((current) => ({ ...current, [capability]: { fileName: file.name, sha256, file } }));
+    } finally {
+      setHashing(null);
+    }
+  };
+
+  const handleProvenanceFile = async (capability: GoldenCapability, file?: File) => {
+    if (!file) return;
+    if (file.size > MAX_FILE_BYTES) {
+      setFileError(`ملف التوثيق ${file.name} أكبر من 5MB.`);
+      return;
+    }
+    setFileError(null);
+    setValidation(null);
+    const target = `provenance:${capability}` as const;
+    setHashing(target);
+    try {
+      const sha256 = await sha256Hex(file);
+      setProvenance((current) => ({ ...current, [capability]: { fileName: file.name, sha256, file } }));
     } finally {
       setHashing(null);
     }
@@ -166,7 +210,7 @@ export function GoldenLessonPackageBuilder() {
     setHashing("answers");
     try {
       const sha256 = await sha256Hex(file);
-      setAnswersCompanion({ fileName: file.name, sha256 });
+      setAnswersCompanion({ fileName: file.name, sha256, file });
     } finally {
       setHashing(null);
     }
@@ -248,7 +292,12 @@ export function GoldenLessonPackageBuilder() {
                   {hashing === capability && <p className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" />حساب SHA-256…</p>}
                   {upload && <p className="text-xs break-all"><CheckCircle2 className="inline h-4 w-4 text-emerald-600 ms-1" />{upload.fileName}<br/><span className="font-mono text-[10px] text-muted-foreground">{upload.sha256}</span></p>}
                   {authority === "OFFICIAL" && upload && (
-                    <Input value={provenance[capability] ?? ""} onChange={(event) => setProvenance((current) => ({ ...current, [capability]: event.target.value }))} placeholder="مسار ملف توثيق المصدر: provenance.json" className="min-h-[44px]" />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">ملف توثيق المصدر الرسمي</Label>
+                      <Input type="file" accept=".json,.txt,.md" disabled={hashing !== null} onChange={(event) => void handleProvenanceFile(capability, event.target.files?.[0])} className="min-h-[44px]" />
+                      {hashing === `provenance:${capability}` && <p className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" />حساب بصمة التوثيق…</p>}
+                      {provenance[capability] && <p className="text-[10px] break-all font-mono text-muted-foreground">{provenance[capability]?.fileName}<br/>{provenance[capability]?.sha256}</p>}
+                    </div>
                   )}
                 </>
               )}
@@ -269,6 +318,7 @@ export function GoldenLessonPackageBuilder() {
       <div className="flex flex-wrap gap-2">
         <Button type="button" onClick={runValidation} disabled={hashing !== null} className="min-h-[44px] gap-2"><ShieldCheck className="h-4 w-4" />فحص الحزمة</Button>
         <Button type="button" variant="outline" disabled={!validation?.valid} onClick={() => downloadJson(packageDraft, `${packageDraft.packageCode || "golden-lesson"}.manifest.json`)} className="min-h-[44px] gap-2"><Download className="h-4 w-4" />تنزيل Manifest</Button>
+        <Button type="button" variant="outline" disabled={!validation?.valid} onClick={() => void downloadPackageBundle(packageDraft, uploads, provenance, answersCompanion)} className="min-h-[44px] gap-2"><FileArchive className="h-4 w-4" />تنزيل حزمة ZIP</Button>
       </div>
 
       {validation && (

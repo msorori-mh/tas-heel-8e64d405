@@ -37,7 +37,8 @@ function packageFor(profile: typeof GOLDEN_QURAN_V1 | typeof GOLDEN_CHEMISTRY_V1
         authority: official ? "OFFICIAL" : "TAMKEEN",
         sourcePath: applicability === "NA" ? null : applicability === "OPTIONAL" ? null : `${capability}.json`,
         sha256: applicability === "REQUIRED" ? "a".repeat(64) : null,
-        provenancePath: official && applicability === "REQUIRED" ? "provenance.json" : null,
+        provenancePath: official && applicability === "REQUIRED" ? `${capability}.provenance.json` : null,
+        provenanceSha256: official && applicability === "REQUIRED" ? "b".repeat(64) : null,
       };
     }),
     lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },

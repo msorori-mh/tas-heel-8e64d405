@@ -47,12 +47,12 @@ SELECT jsonb_build_object(
  'identity',jsonb_build_object('gradeCode','GRADE-10','curriculumTrackCodes',jsonb_build_array('sanaa'),'subjectCode','QURAN-G10','lessonCode','QURAN-G10-L01','lessonSlug','quran-lesson','unitCode',NULL,'semester',1,'sortOrder',1),
  'capabilityOrder',jsonb_build_array('officialBookContent','tamkeenExplanationHtml','lessonSummaryHtml','mindMapHtml','labExperimentHtml','officialBookQuestions','selfTest'),
  'artifacts',jsonb_build_array(
-   jsonb_build_object('capability','officialBookContent','applicability','REQUIRED','authority','OFFICIAL','sourcePath','official.json','sha256',repeat('a',64),'provenancePath','official.provenance.json'),
+   jsonb_build_object('capability','officialBookContent','applicability','REQUIRED','authority','OFFICIAL','sourcePath','official.json','sha256',repeat('a',64),'provenancePath','official.provenance.json','provenanceSha256',repeat('f',64)),
    jsonb_build_object('capability','tamkeenExplanationHtml','applicability','REQUIRED','authority','TAMKEEN','sourcePath','explanation.html','sha256',repeat('b',64),'provenancePath',NULL),
    jsonb_build_object('capability','lessonSummaryHtml','applicability','REQUIRED','authority','TAMKEEN','sourcePath','summary.html','sha256',repeat('c',64),'provenancePath',NULL),
    jsonb_build_object('capability','mindMapHtml','applicability','OPTIONAL','authority','TAMKEEN','sourcePath',NULL,'sha256',NULL,'provenancePath',NULL),
    jsonb_build_object('capability','labExperimentHtml','applicability','NA','authority','TAMKEEN','sourcePath',NULL,'sha256',NULL,'provenancePath',NULL),
-   jsonb_build_object('capability','officialBookQuestions','applicability','REQUIRED','authority','OFFICIAL','sourcePath','questions.json','sha256',repeat('d',64),'provenancePath','questions.provenance.json'),
+   jsonb_build_object('capability','officialBookQuestions','applicability','REQUIRED','authority','OFFICIAL','sourcePath','questions.json','sha256',repeat('d',64),'provenancePath','questions.provenance.json','provenanceSha256',repeat('9',64)),
    jsonb_build_object('capability','selfTest','applicability','OPTIONAL','authority','TAMKEEN','sourcePath',NULL,'sha256',NULL,'provenancePath',NULL)
  ),
  'lifecycle',jsonb_build_object('initialStatus','DRAFT','allowDirectReady',false),

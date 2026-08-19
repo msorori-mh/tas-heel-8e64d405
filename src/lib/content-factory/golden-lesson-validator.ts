@@ -88,8 +88,13 @@ export function validateGoldenLessonPackage(pkg: GoldenLessonPackage): GoldenLes
     if (artifact.sourcePath && (!artifact.sha256 || !SHA256.test(artifact.sha256))) {
       error("ARTIFACT_HASH_INVALID", `artifacts.${artifact.capability}.sha256`, "SHA-256 مفقود أو غير صالح.");
     }
-    if (artifact.authority === "OFFICIAL" && artifact.sourcePath && !artifact.provenancePath) {
-      error("OFFICIAL_PROVENANCE_MISSING", `artifacts.${artifact.capability}.provenancePath`, "المحتوى الرسمي يحتاج توثيق مصدر.");
+    if (artifact.authority === "OFFICIAL" && artifact.sourcePath) {
+      if (!artifact.provenancePath) {
+        error("OFFICIAL_PROVENANCE_MISSING", `artifacts.${artifact.capability}.provenancePath`, "المحتوى الرسمي يحتاج ملف توثيق مصدر.");
+      }
+      if (!artifact.provenanceSha256 || !SHA256.test(artifact.provenanceSha256)) {
+        error("OFFICIAL_PROVENANCE_HASH_INVALID", `artifacts.${artifact.capability}.provenanceSha256`, "ملف توثيق المصدر الرسمي يحتاج SHA-256 صالحًا.");
+      }
     }
   }
   for (const capability of GOLDEN_CAPABILITIES) {
@@ -111,6 +116,19 @@ export function validateGoldenLessonPackage(pkg: GoldenLessonPackage): GoldenLes
   }
   if (!pkg.security.answersCompanionPath && pkg.security.answersCompanionSha256) {
     error("ANSWER_COMPANION_PATH_MISSING", "security.answersCompanionPath", "لا يجوز تثبيت بصمة إجابات دون مسار ملف خادمي.");
+  }
+
+  const packagePaths = [
+    ...pkg.artifacts.flatMap((artifact) => [artifact.sourcePath, artifact.provenancePath]),
+    pkg.security.answersCompanionPath,
+  ].filter((path): path is string => typeof path === "string");
+  const seenPaths = new Set<string>();
+  for (const path of packagePaths) {
+    if (!path || path.length > 255 || path === "." || path === ".." || /[\\/\\\\\\u0000-\\u001f]/u.test(path)) {
+      error("PACKAGE_PATH_UNSAFE", "artifacts", "اسم الملف غير آمن؛ استخدم اسم ملف فقط دون مجلدات أو محارف تحكم.");
+    }
+    if (seenPaths.has(path)) error("PACKAGE_PATH_DUPLICATE", "artifacts", "لا يجوز أن يشترك ملفان في الاسم نفسه داخل الحزمة.");
+    seenPaths.add(path);
   }
 
   return { valid: findings.every((finding) => finding.severity !== "ERROR"), writesPerformed: 0, findings };

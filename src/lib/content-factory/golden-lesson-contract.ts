@@ -42,6 +42,7 @@ export interface GoldenLessonArtifact {
   sourcePath: string | null;
   sha256: string | null;
   provenancePath: string | null;
+  provenanceSha256: string | null;
 }
 
 export interface GoldenLessonPackage {
