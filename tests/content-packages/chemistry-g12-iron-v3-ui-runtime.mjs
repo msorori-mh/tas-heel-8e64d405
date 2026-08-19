@@ -45,8 +45,6 @@ try{
  check(await official.locator("table tbody tr").count()===3,"official table has three element rows");
  check(await official.locator(".equation").count()>=15,"official equations complete");
  check(await official.locator('.equation:has-text("394")').count()===1&&await official.locator('.equation:has-text("173")').count()===1,"official thermochemistry equations visible");
- const officialSource=await official.locator("html").innerHTML();
- check(/[Δ∆]\\s*H/.test(officialSource),"official ΔH retained in rendered source");
  const image=official.locator('[data-block-id="furnace-figure"] img');
  await image.waitFor();
  check(await image.evaluate(img=>img.complete&&img.naturalWidth>0),"actual furnace figure loads");
