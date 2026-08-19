@@ -43,7 +43,8 @@ ALTER TABLE public.lesson_capability_lifecycle
   ADD CONSTRAINT lesson_capability_lifecycle_evidence_origin_chk
   CHECK (evidence_origin IS NULL OR evidence_origin IN (
     'LEGACY_20C_VISIBLE_BASELINE',
-    'AUDITED_APPROVAL'
+    'AUDITED_APPROVAL',
+    'NEEDS_MANUAL_REVIEW'
   ));
 
 ALTER TABLE public.lesson_capability_lifecycle
@@ -53,7 +54,7 @@ ALTER TABLE public.lesson_capability_lifecycle
   CHECK (retirement_origin IS NULL OR retirement_origin IN ('LEGACY_20C'));
 
 -- Every READY row must carry either a real approver or a documented legacy
--- provenance. This is the contract that replaces "ready_by is always present".
+-- provenance. NEEDS_MANUAL_REVIEW is explicitly NOT sufficient for READY.
 ALTER TABLE public.lesson_capability_lifecycle
   DROP CONSTRAINT IF EXISTS lesson_capability_lifecycle_ready_evidence_chk;
 ALTER TABLE public.lesson_capability_lifecycle
