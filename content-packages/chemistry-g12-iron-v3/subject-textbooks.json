@@ -1,0 +1,33 @@
+{
+  "status": "IMPORT_PLAN_ONLY",
+  "records": [
+    {
+      "source_file": "كتاب الكيمياء الصف ثالث ثانوي منهج صنعاء.pdf",
+      "source_sha256": "sha256:59206662fee5c2e2610646d68ba8bf34afff75a667d089544751ec87178723bb",
+      "book_type": "MAIN_TEXTBOOK",
+      "track": "SANAA",
+      "track_code": "sanaa",
+      "coverage_type": "FULL_ACADEMIC_YEAR"
+    },
+    {
+      "source_file": "كتاب الكيمياء الصف ثالث ثانوي منهج عدن.pdf",
+      "source_sha256": "sha256:59206662fee5c2e2610646d68ba8bf34afff75a667d089544751ec87178723bb",
+      "book_type": "MAIN_TEXTBOOK",
+      "track": "ADEN",
+      "track_code": "aden",
+      "coverage_type": "FULL_ACADEMIC_YEAR"
+    },
+    {
+      "source_file": "كتاب الكيمياء - الانشطة والتجارب العملية منهج صنعاء وعدن.pdf",
+      "source_sha256": "sha256:6b6d31c3a726afc4089cae592ba6a14d538c7018e2253f5cf7444b72fcc8b4df",
+      "book_type": "EXERCISE_BOOK",
+      "track": "BOTH",
+      "track_codes": [
+        "sanaa",
+        "aden"
+      ],
+      "coverage_type": "FULL_ACADEMIC_YEAR",
+      "shared_bytes_within_tracks": true
+    }
+  ]
+}

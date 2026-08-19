@@ -1,0 +1,60 @@
+{
+  "capability": "officialBookQuestions",
+  "status": "REVIEW_REQUIRED",
+  "source_file": "تقويم الوحده الاولى (2).pdf",
+  "source_sha256": "sha256:39f4bff7bc683e343cf470815fd01a796a9c77f6d011f08f04ebd7b5ef2707a9",
+  "source_page": "PDF page 1 / printed page 19",
+  "questions": [
+    {
+      "question_number": "7",
+      "official_text": "لأكاسيد الحديد أسماء ورموز كيميائية مختلفة. ما أسماء هذه الأكاسيد، وما رموزها الكيميائية؟",
+      "source_page": 1,
+      "relevance": "FULLY_IRON",
+      "evidence": "Explicitly asks for iron oxides.",
+      "question_type": "SHORT_ANSWER"
+    },
+    {
+      "question_number": "8",
+      "official_text": "وضح بالرسم كيف تتم عملية اختزال الحديد في الفرن العالي (اللافح) مدعماً إجابتك بالمعادلات الكيميائية.",
+      "source_page": 1,
+      "relevance": "FULLY_IRON",
+      "evidence": "Explicitly asks for blast-furnace reduction.",
+      "question_type": "EXTENDED_RESPONSE"
+    },
+    {
+      "question_number": "9",
+      "official_text": "أين يقع عنصر الحديد من بين العناصر الانتقالية الأخرى في الجدول الدوري؟",
+      "source_page": 1,
+      "relevance": "FULLY_IRON",
+      "evidence": "Explicitly asks for iron location.",
+      "question_type": "SHORT_ANSWER"
+    },
+    {
+      "question_number": "10",
+      "official_text": "كيف يمكن الكشف عن الحديد في أملاحه؟",
+      "source_page": 1,
+      "relevance": "FULLY_IRON",
+      "evidence": "Explicitly asks for iron-salt detection; activity corroborates.",
+      "question_type": "SHORT_ANSWER"
+    },
+    {
+      "question_number": "11a-d",
+      "official_text": "أ) لا يتأثر الحديد بحمض الكبريتيك وحمض النيتريك المركزين.\\nب) يعتبر الحديد من المواد المختزلة.\\nج) يضاف الحجر الجيري إلى المزيج المسمى بالشحنة عند استخراج الحديد من خاماته.\\nد) الحديد من أكثر الفلزات الانتقالية استخداماً.",
+      "source_page": 1,
+      "relevance": "PARTIALLY_IRON",
+      "evidence": "a-d concern iron; subpart e concerns lanthanides/actinides and is excluded.",
+      "question_type": "TRUE_FALSE_SUBPARTS",
+      "parent_question_number": "11",
+      "excluded_subpart": "هـ) توضع سلسلتي اللانثنيدات والأكتينيدات أسفل الجدول."
+    }
+  ],
+  "excluded_question_numbers": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6"
+  ],
+  "unit_level_question_numbers": []
+}

@@ -1,0 +1,41 @@
+{
+  "package": "chemistry-g12-iron-v3",
+  "overall": "REVIEW_REQUIRED",
+  "checks": {
+    "CSP": "PASS",
+    "SCRIPT_SHA256_MATCH": "YES",
+    "CSP_RUNTIME": "PASS",
+    "CONNECT_SRC": "none",
+    "NO_EXTERNAL_NETWORK": "YES",
+    "SANDBOX_ESCAPE": "NO",
+    "ANSWER_LEAK_SCAN": "PASS",
+    "RATIONALE_LEAK_SCAN": "PASS",
+    "EXTERNAL_DEPENDENCY": "ZERO",
+    "RTL": "PASS",
+    "MOBILE": "PASS_STATIC",
+    "OFFICIAL_PARSER": "PASS (0 errors)",
+    "OFFICIAL_TEXT_FIDELITY": "EXACT",
+    "OFFICIAL_COMPLETENESS": "PASS (5/5 pages; all sections represented)",
+    "TABLE_FIDELITY": "PASS (6 columns; 3 rows; units retained)",
+    "EQUATION_FIDELITY": "PASS (balanced coefficients, ΔH, arrows, conditions retained)",
+    "FURNACE_FIGURE": "PASS (embedded source figure; page 3; asset hash recorded)",
+    "IDENTITY": "CONTENT_GAP",
+    "PACKAGE_TESTS": "PASS (15/15)",
+    "REGRESSION_TESTS": "PASS (209/209)",
+    "TYPECHECK": "PASS",
+    "BUILD": "PASS",
+    "BROWSER_VISUAL": "ENVIRONMENT_BLOCKED (no browser backend)"
+  },
+  "readiness": {
+    "BOOK_READY": false,
+    "LEARNING_READY": false,
+    "ASSESSMENT_READY": false,
+    "FULLY_READY": false,
+    "lifecycle": "SOURCE_READY_FOR_REVIEW",
+    "expected_readiness": "SOURCE_READY_FOR_REVIEW",
+    "missing_reasons": [
+      "Chemistry Grade 12 lesson identity IDs/codes are not resolvable from this repo checkout.",
+      "Curriculum ownership confirmation remains PENDING_PRODUCTION_METADATA."
+    ]
+  }
+}

@@ -1,0 +1,110 @@
+[
+  {
+    "file": "كتاب الكيمياء الصف ثالث ثانوي منهج صنعاء.pdf",
+    "sha256": "sha256:59206662fee5c2e2610646d68ba8bf34afff75a667d089544751ec87178723bb",
+    "role": "main textbook",
+    "curriculum_track": "sanaa",
+    "content_type": "pdf",
+    "source_authority": "OFFICIAL",
+    "v3_destination": "subject-textbooks"
+  },
+  {
+    "file": "كتاب الكيمياء الصف ثالث ثانوي منهج عدن.pdf",
+    "sha256": "sha256:59206662fee5c2e2610646d68ba8bf34afff75a667d089544751ec87178723bb",
+    "role": "main textbook",
+    "curriculum_track": "aden",
+    "content_type": "pdf",
+    "source_authority": "OFFICIAL",
+    "v3_destination": "subject-textbooks"
+  },
+  {
+    "file": "كتاب الكيمياء - الانشطة والتجارب العملية منهج صنعاء وعدن.pdf",
+    "sha256": "sha256:6b6d31c3a726afc4089cae592ba6a14d538c7018e2253f5cf7444b72fcc8b4df",
+    "role": "exercise/practical book",
+    "curriculum_track": "sanaa|aden",
+    "content_type": "pdf",
+    "source_authority": "OFFICIAL",
+    "v3_destination": "subject-textbooks"
+  },
+  {
+    "file": "الدرس الرابع-الحديد (2).pdf",
+    "sha256": "sha256:79bffd410fde5ff776b28ca805173d66d9ff02e12b76e324006986ee57b4b0b7",
+    "role": "official lesson",
+    "curriculum_track": "sanaa|aden",
+    "content_type": "pdf",
+    "source_authority": "OFFICIAL",
+    "v3_destination": "official_lesson"
+  },
+  {
+    "file": "شرح درس الحديد Fe.docx",
+    "sha256": "sha256:a263880b7bf86a4a8c702ed6869f091bdca1188e3064fae4308fe5dee1b473c9",
+    "role": "Tamkeen explanation",
+    "curriculum_track": "sanaa|aden",
+    "content_type": "docx",
+    "source_authority": "TAMKEEN",
+    "v3_destination": "explanation"
+  },
+  {
+    "file": "الحديد – ملخص شامل ومنظم.docx",
+    "sha256": "sha256:cfc5ba5f7cd36285ce1332c8f47a1259d351868af4130f68938dc69add95933b",
+    "role": "Tamkeen summary",
+    "curriculum_track": "sanaa|aden",
+    "content_type": "docx",
+    "source_authority": "TAMKEEN",
+    "v3_destination": "summary"
+  },
+  {
+    "file": "4.html",
+    "sha256": "sha256:4424b0760d6193e32ff5f0de3e0e523dc487e3c7acc3e421a73d0f6eb4dfaaab",
+    "role": "Tamkeen mind map",
+    "curriculum_track": "sanaa|aden",
+    "content_type": "html",
+    "source_authority": "TAMKEEN",
+    "v3_destination": "mindmap"
+  },
+  {
+    "file": "مختبر_تمكين_الكشف_عن_الحديد (2).html",
+    "sha256": "sha256:0580b370bca601280c9e092066c488d0254c6a5841829e5986593f2e7fc6be17",
+    "role": "Tamkeen lab",
+    "curriculum_track": "sanaa|aden",
+    "content_type": "html",
+    "source_authority": "TAMKEEN",
+    "v3_destination": "lab"
+  },
+  {
+    "file": "تقويم الوحده الاولى (2).pdf",
+    "sha256": "sha256:39f4bff7bc683e343cf470815fd01a796a9c77f6d011f08f04ebd7b5ef2707a9",
+    "role": "unit assessment",
+    "curriculum_track": "sanaa|aden",
+    "content_type": "pdf",
+    "source_authority": "OFFICIAL",
+    "v3_destination": "unit_assessment"
+  },
+  {
+    "file": "درس الحديد_استيراد_أسئلة (1).xlsx",
+    "sha256": "sha256:c307a28b1cf74e635787731b92f136b2851c502e384581642a5d7f729a1acad1",
+    "role": "self-test",
+    "curriculum_track": "sanaa|aden",
+    "content_type": "xlsx",
+    "source_authority": "TAMKEEN",
+    "v3_destination": "self_test"
+  },
+  {
+    "file": "نماذج_ثالث_ثانوي_كيمياء_علمي_2022_عدن.pdf",
+    "sha256": "sha256:edecf8122a3dc931bc51d612e91d2f1001057ecb949a717e21b95bd7e99fe7a1",
+    "role": "ministerial audit",
+    "curriculum_track": "sanaa|aden",
+    "content_type": "pdf",
+    "source_authority": "OFFICIAL",
+    "v3_destination": "reference-only"
+  },
+  {
+    "file": "tamkeen_iron_mindmap_site_preview.html",
+    "sha256": "sha256:66df2e0076a398c85bee98e833904f684461cc902a47cae8bfc46e68190bd894",
+    "role": "UX reference",
+    "curriculum_track": "sanaa|aden",
+    "content_type": "html",
+    "source_authority": "REFERENCE",
+    "v3_destination": "reference-only"
+  }
+]
