@@ -51,4 +51,3 @@ SELECT public.cf04_assert(
    FROM public.golden_lesson_package_versions v JOIN public.golden_lesson_packages p ON p.id=v.package_id
    WHERE p.package_code='QURAN-G10-L02-PKG' AND v.version=1),
   'bundle evidence persisted');
-

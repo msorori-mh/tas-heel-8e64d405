@@ -77,13 +77,14 @@ function scanCentralDirectory(bytes: Uint8Array): CentralEntry[] {
     const commentLength = u16(bytes, offset + 32);
     const externalAttributes = u32(bytes, offset + 38);
     if ((flags & 0x1) !== 0) fail("ZIP_ENCRYPTED_FORBIDDEN");
-    if ((flags & 0x800) === 0) fail("ZIP_UTF8_REQUIRED");
     if (method !== 0 && method !== 8) fail("ZIP_COMPRESSION_UNSUPPORTED");
     const nameStart = offset + 46;
     const next = nameStart + nameLength + extraLength + commentLength;
     if (nameLength === 0 || next > directoryOffset + directorySize) fail("ZIP_ENTRY_BOUNDS");
+    const nameBytes = bytes.subarray(nameStart, nameStart + nameLength);
+    if ((flags & 0x800) === 0 && nameBytes.some((byte) => byte > 0x7f)) fail("ZIP_FILENAME_ENCODING_AMBIGUOUS");
     let name: string;
-    try { name = decoder.decode(bytes.subarray(nameStart, nameStart + nameLength)); }
+    try { name = decoder.decode(nameBytes); }
     catch { fail("ZIP_FILENAME_UTF8_INVALID"); }
     if (!safeLeafName(name)) fail("ZIP_PATH_UNSAFE");
     const key = name.normalize("NFKC").toLocaleLowerCase("en-US");
