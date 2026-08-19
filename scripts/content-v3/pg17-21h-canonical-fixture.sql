@@ -11,7 +11,7 @@ CREATE SCHEMA IF NOT EXISTS public;
 
 -- Supabase-defined database roles required by GRANT/REVOKE statements in the
 -- production migration. These are disposable NOLOGIN roles in this fixture.
-DO $
+DO $roles$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
     CREATE ROLE anon NOLOGIN;
@@ -22,7 +22,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
     CREATE ROLE service_role NOLOGIN;
   END IF;
-END $;
+END $roles$;
 
 CREATE TABLE IF NOT EXISTS auth.users (
   id uuid PRIMARY KEY
