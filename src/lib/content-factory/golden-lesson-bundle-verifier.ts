@@ -117,7 +117,7 @@ export async function verifyGoldenLessonBundle(input: Uint8Array): Promise<Verif
   if (!manifestEntry) fail("MANIFEST_MISSING");
   const manifestBytes = await manifestEntry.async("uint8array");
   let manifest: GoldenLessonPackage;
-  try { manifest = parseGoldenLessonManifest(new TextDecoder("utf-8", { fatal: true }).decode(manifestBytes)); }
+  try { manifest = parseGoldenLessonManifest(new TextDecoder("utf-8", { fatal: true }).decode(manifestBytes)) as GoldenLessonPackage; }
   catch { fail("MANIFEST_INVALID"); }
   if (!previewGoldenLessonStaging(manifest).valid) fail("MANIFEST_SERVER_VALIDATION_FAILED");
 

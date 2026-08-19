@@ -8,7 +8,6 @@ CREATE TABLE storage.objects(
 );
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION storage.foldername(name text) RETURNS text[]
-LANGUAGE sql IMMUTABLE AS $$ SELECT string_to_array(name, '/')[1:greatest(array_length(string_to_array(name, '/'),1)-1,0)] $$;
+LANGUAGE sql IMMUTABLE AS $$ SELECT (string_to_array(name, '/'))[1:greatest(array_length(string_to_array(name, '/'),1)-1,0)] $$;
 GRANT USAGE ON SCHEMA storage TO authenticated, service_role;
 GRANT SELECT, INSERT ON storage.objects TO authenticated;
-
