@@ -145,7 +145,7 @@ BEGIN
                 WHERE batch_id = _batch_id ORDER BY capability LOOP
     payload_text := CASE WHEN entry.source_payload IS NULL THEN NULL
                          ELSE convert_from(entry.source_payload,'UTF8') END;
-    IF entry.applicability <> 'NA' AND payload_text IS NULL THEN
+    IF entry.applicability = 'REQUIRED' AND payload_text IS NULL THEN
       RAISE EXCEPTION 'CF10_EMPTY_PAYLOAD: %', entry.capability USING ERRCODE = '22023';
     END IF;
     IF payload_text IS NOT NULL
@@ -287,7 +287,9 @@ BEGIN
 
   -- 6) officialBookQuestions -> questions + question_revisions + question_options,
   --    answers strictly revision-pinned into the confidential tables.
-  question_json := (payloads->'officialBookQuestions'->>'text')::jsonb;
+  question_json := CASE WHEN payloads->'officialBookQuestions'->>'text' IS NULL THEN '{}'::jsonb
+                        ELSE (payloads->'officialBookQuestions'->>'text')::jsonb END;
+  IF jsonb_typeof(question_json) <> 'object' THEN question_json := jsonb_build_object('questions', question_json); END IF;
   FOR item IN SELECT value FROM jsonb_array_elements(coalesce(question_json->'questions','[]'::jsonb)) LOOP
     question_code := external_lesson_code || '-OFFQ-' || coalesce(item->>'question_number', item->>'id');
     SELECT * INTO question_row FROM public.questions WHERE code = question_code;
@@ -338,7 +340,9 @@ BEGIN
   END LOOP;
 
   -- 7) selfTest -> lesson_assessments + assessment_questions (+ revision-pinned rationales)
-  question_json := (payloads->'selfTest'->>'text')::jsonb;
+  question_json := CASE WHEN payloads->'selfTest'->>'text' IS NULL THEN NULL
+                        ELSE (payloads->'selfTest'->>'text')::jsonb END;
+  IF question_json IS NOT NULL THEN
   SELECT id INTO assessment_id FROM public.lesson_assessments
    WHERE assessment_code = external_lesson_code || '-SELFTEST';
   IF assessment_id IS NULL THEN
@@ -405,6 +409,7 @@ BEGIN
       writes := writes + 2;
     END IF;
   END LOOP;
+  END IF;
 
   -- Lifecycle: seven capabilities, DRAFT + REQUIRED only. No REVIEW / READY / publish.
   FOR cap, lifecycle_cap IN
