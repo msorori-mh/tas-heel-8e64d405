@@ -156,7 +156,7 @@ BEGIN
       RAISE EXCEPTION 'APPLICABILITY_MISMATCH: %', capability USING ERRCODE = '22023';
     END IF;
     IF artifact->>'authority' IS DISTINCT FROM
-       CASE WHEN capability IN ('officialBookContent','officialBookQuestions') THEN 'OFFICIAL' ELSE 'TAMKEEN' END THEN
+       (CASE WHEN capability IN ('officialBookContent','officialBookQuestions') THEN 'OFFICIAL' ELSE 'TAMKEEN' END) THEN
       RAISE EXCEPTION 'AUTHORITY_MISMATCH: %', capability USING ERRCODE = '22023';
     END IF;
     IF expected_applicability = 'NA' AND (artifact->'sourcePath' <> 'null'::jsonb OR artifact->'sha256' <> 'null'::jsonb) THEN
