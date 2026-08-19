@@ -3,6 +3,7 @@ param(
   [string[]]$PrerequisiteSql = @(),
   [string]$FixtureSql = (Join-Path $PSScriptRoot 'pg17-21h-canonical-fixture.sql'),
   [switch]$SkipFixture,
+  [string]$R5MigrationSql = (Join-Path $PSScriptRoot '..\..\supabase\migrations-pending\20260819130000_content_v3_legacy_20c_reconciliation_r5.sql'),
   [string]$MigrationSql = (Join-Path $PSScriptRoot '..\..\supabase\migrations-pending\20260818210000_content_v3_21h_hardened_preflight.sql'),
   [string]$PostverifySql = (Join-Path $PSScriptRoot 'postverify-21h.sql'),
   [string]$ContractSql = (Join-Path $PSScriptRoot 'runtime-contract-21h-r3.sql')
