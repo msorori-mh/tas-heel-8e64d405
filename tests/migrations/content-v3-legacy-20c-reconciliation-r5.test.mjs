@@ -6,7 +6,7 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 const read = (relative) => fs.readFileSync(new URL(relative, root), "utf8");
 
-const r5 = read("supabase/migrations-pending/20260819120000_content_v3_r5_legacy_evidence_pinning.sql");
+const r5 = read("supabase/migrations-pending/20260819130000_content_v3_legacy_20c_reconciliation_r5.sql");
 const preflight = read("scripts/content-v3/production-preflight-readonly.sql");
 const postverify = read("scripts/content-v3/postverify-21h.sql");
 const mapping = read("src/lib/lessons/capability-mapping.ts");
@@ -62,6 +62,34 @@ test("postverify enforces snapshot evidence and the retirement contract", () => 
   assert.match(postverify, /COALESCE\(evidence_origin, ''\) <> 'LEGACY_20C_VISIBLE_BASELINE'/);
   assert.match(postverify, /originalBookPdf retirement contract/);
   assert.match(postverify, /SET TRANSACTION READ ONLY/i);
+});
+
+test("unreconcilable rows are flagged, never pinned", () => {
+  assert.match(r5, /v3_capability_snapshot_is_reconcilable/);
+  assert.match(r5, /evidence_origin = 'NEEDS_MANUAL_REVIEW'/);
+  // NEEDS_MANUAL_REVIEW must never satisfy the READY evidence constraint.
+  const chk = r5.slice(r5.indexOf("lesson_capability_lifecycle_ready_evidence_chk\n  CHECK"));
+  assert.doesNotMatch(chk.slice(0, 400), /NEEDS_MANUAL_REVIEW/);
+  assert.match(r5, /AND public\.v3_capability_snapshot_is_reconcilable\(/);
+});
+
+test("PG17 rehearsal fixture reproduces the measured production counts", () => {
+  const fixture = read("scripts/content-v3/pg17/fixture-legacy-20c.sql");
+  assert.match(fixture, /sort_order <= 21/);          // officialBookContent = 21
+  assert.match(fixture, /'originalBookPdf', 'READY'/); // 40 lessons
+  assert.match(fixture, /quickReview','checkUnderstanding','lessonAssessment'/);
+  const asserts = read("scripts/content-v3/pg17/assert-r5.sql");
+  for (const gate of [
+    "READY_WITHOUT_EVIDENCE",
+    "ORIGINAL_BOOK_PDF_V3_APPLICABLE",
+    "LEGACY_ROWS_DELETED",
+    "READY_BY_INVENTED",
+    "VISIBILITY_GAIN",
+    "ANSWER_LEAK",
+    "REVISION_PINNING",
+  ]) {
+    assert.match(asserts, new RegExp(gate), gate);
+  }
 });
 
 test("capability mapping translates package names to lifecycle names", () => {
