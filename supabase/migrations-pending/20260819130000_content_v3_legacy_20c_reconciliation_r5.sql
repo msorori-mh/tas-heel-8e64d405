@@ -360,8 +360,9 @@ SET search_path = public, pg_temp
 AS $$
   SELECT a.actor_id, a.created_at
     FROM public.audit_logs a
-   WHERE a.action = 'lesson_capability_lifecycle_transition'
-     AND a.target_id = _lesson_id
+  WHERE a.action = 'lesson_capability_lifecycle_transition'
+    AND a.target_type = 'lesson_capability'
+    AND a.target_id = _lesson_id
      AND a.metadata ->> 'capability' = _capability
      AND a.metadata ->> 'from_status' = 'REVIEW'
      AND a.metadata ->> 'to_status' = 'READY'
