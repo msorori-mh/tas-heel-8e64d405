@@ -1,4 +1,5 @@
 -- CF10 PG17 fixture: minimal domain surface matching production natural keys.
+ALTER TABLE public.lessons ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE public.lessons ADD COLUMN title text NOT NULL DEFAULT 'درس';
 ALTER TABLE public.lessons ADD COLUMN is_free boolean DEFAULT false;
 ALTER TABLE public.lessons ADD COLUMN semester integer;
