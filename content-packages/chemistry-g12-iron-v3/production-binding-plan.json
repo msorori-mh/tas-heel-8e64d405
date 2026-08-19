@@ -1,0 +1,104 @@
+{
+  "schema": "tamkeen.iron.production-binding-plan.v1",
+  "mode": "SOURCE_ONLY_NO_PRODUCTION_WRITES",
+  "source": {
+    "repository": "msorori-mh/tas-heel-8e64d405",
+    "baseline_sha": "bbe1c6d8367505f2ef68e3b68f787cb548d17f5e",
+    "package": "chemistry-g12-iron-v3",
+    "package_production_apply": false
+  },
+  "preconditions": {
+    "required_schema_gates": ["R5_APPLIED", "21H_APPLIED", "POSTVERIFY_PASS", "VISIBILITY_DIFF_ZERO"],
+    "identity_status": "PARTIALLY_RESOLVED_FROM_PRODUCTION_READONLY_BASELINE",
+    "curriculum_ownership_confirmation": "PENDING_PRODUCTION_METADATA",
+    "fail_closed": true
+  },
+  "identity": {
+    "grade": {
+      "id": "03780461-126a-4c63-bd1b-493098582dd9",
+      "code": "grade-12",
+      "name_ar": "الصف الثالث الثانوي"
+    },
+    "tracks": [
+      {"id": "cbbe62a4-1e49-4805-9640-c23347b15619", "code": "sanaa"},
+      {"id": "7751f472-ef61-4b50-b940-0521eac2baef", "code": "aden"}
+    ],
+    "subject": {
+      "id": null,
+      "code": "CHEM-G12",
+      "slug": "chemistry-grade-12",
+      "name_ar": "الكيمياء",
+      "resolution": "CREATE_IF_ABSENT_BY_GRADE_AND_CODE"
+    },
+    "lesson": {
+      "id": null,
+      "code": "CHEM-G12-IRON-FE",
+      "slug": "الحديد-fe",
+      "title_ar": "الحديد Fe",
+      "unit_id": null,
+      "semester": null,
+      "sort_order": null,
+      "is_free": true,
+      "resolution": "CREATE_IF_ABSENT_BY_SUBJECT_AND_CODE",
+      "pending_fields": ["semester", "sort_order"]
+    }
+  },
+  "write_contract": {
+    "idempotency": "READ_BEFORE_WRITE_AND_UNIQUE_NATURAL_KEYS",
+    "no_silent_overwrite_on_hash_change": true,
+    "no_delete": true,
+    "no_ready_transition": true,
+    "initial_lifecycle_status": "DRAFT",
+    "expected_capabilities": [
+      "officialBookContent",
+      "tamkeenExplanation",
+      "quickReview",
+      "mindMap",
+      "simulation",
+      "checkUnderstanding",
+      "lessonAssessment"
+    ],
+    "answer_storage": {
+      "initial_payload_contains_answers": false,
+      "official_answers_table": "official_question_answers",
+      "option_rationales_table": "question_option_rationales",
+      "revision_pinned": true
+    }
+  },
+  "textbooks": {
+    "bucket_visibility": "PRIVATE",
+    "access": "SIGNED_URL_ONLY",
+    "records": [
+      {
+        "natural_key": ["CHEM-G12", "MAIN_TEXTBOOK", "sanaa"],
+        "book_type": "MAIN_TEXTBOOK",
+        "track_id": "cbbe62a4-1e49-4805-9640-c23347b15619",
+        "sha256": "59206662fee5c2e2610646d68ba8bf34afff75a667d089544751ec87178723bb",
+        "storage_object": null
+      },
+      {
+        "natural_key": ["CHEM-G12", "MAIN_TEXTBOOK", "aden"],
+        "book_type": "MAIN_TEXTBOOK",
+        "track_id": "7751f472-ef61-4b50-b940-0521eac2baef",
+        "sha256": "59206662fee5c2e2610646d68ba8bf34afff75a667d089544751ec87178723bb",
+        "storage_object": null,
+        "reuse_same_object_as": "MAIN_TEXTBOOK:sanaa"
+      },
+      {
+        "natural_key": ["CHEM-G12", "EXERCISE_BOOK", "shared"],
+        "book_type": "EXERCISE_BOOK",
+        "track_id": null,
+        "track_codes": ["sanaa", "aden"],
+        "sha256": "6b6d31c3a726afc4089cae592ba6a14d538c7018e2253f5cf7444b72fcc8b4df",
+        "storage_object": null
+      }
+    ]
+  },
+  "acceptance": {
+    "expected_visibility_gain_before_ready": 0,
+    "expected_visibility_loss": 0,
+    "expected_answer_leak": 0,
+    "student_paywall": false,
+    "production_content_import_authorized": false
+  }
+}

@@ -12,6 +12,7 @@ import { test } from "node:test";
 import {
   IMPORT_RPC,
   JOB_EXECUTION_STATES,
+  PHASE_03_APPLY_EVIDENCE,
   PHASE_03_APPLY_STATUS,
   PHASE_03_MIGRATION_PATH,
   QUESTION_BANK_BOUNDARY,
@@ -38,10 +39,11 @@ const SQL = readFileSync(PHASE_03_MIGRATION_PATH, "utf8");
 /* Migration source guards                                             */
 /* ------------------------------------------------------------------ */
 
-test("phase 03 is not applied and lives outside supabase/migrations", () => {
-  assert.equal(PHASE_03_APPLY_STATUS, "not_applied");
+test("phase 03 runtime status is applied while historical source bytes stay pending-only", () => {
+  assert.equal(PHASE_03_APPLY_STATUS, "applied_shared_lovable_db");
+  assert.equal(PHASE_03_APPLY_EVIDENCE, "docs/import/PRODUCTION-CONTENT-IMPORT-READINESS-REVIEW-10.md");
   assert.ok(PHASE_03_MIGRATION_PATH.startsWith("supabase/migrations-pending/"));
-  assert.ok(SQL.includes("NOT APPLIED"));
+  assert.ok(SQL.includes("NOT APPLIED"), "historical source marker must not be rewritten after apply");
 });
 
 test("no security trigger is left commented out", () => {
