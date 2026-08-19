@@ -1,4 +1,4 @@
--- TAMKEEN CONTENT V3 / R5-R2 — LEGACY 20C RECONCILIATION (FAIL-CLOSED)
+-- TAMKEEN CONTENT V3 / R5-R3 — LEGACY 20C RECONCILIATION (FAIL-CLOSED)
 -- Source-only apply candidate. NOT applied by this worktree.
 --
 -- Ordering contract: this file runs BEFORE
@@ -25,10 +25,32 @@
 --   6. The canonical JSON serializer is named _v3_canonical_json_v1. It is a
 --      PROJECT-DEFINED deterministic canonical JSON, NOT RFC 8785 / JCS.
 --
+-- R5-R3 forward corrections over R5-R2 (this file is still unapplied anywhere;
+-- the correction is carried forward in source, no prior commit is rewritten):
+--   A. snapshot/hash atomic consistency for every READY row:
+--        both NULL            -> rebuild snapshot, hash the rebuilt snapshot
+--        snapshot, no hash    -> hash the STORED snapshot (not the rebuilt one)
+--        hash, no snapshot    -> ABORT (R5_READY_HASH_WITHOUT_SNAPSHOT):
+--                                the hash provenance cannot be proven
+--        both present         -> recompute from the stored snapshot and ABORT
+--                                on any difference
+--                                (R5_READY_SNAPSHOT_HASH_MISMATCH)
+--      Post-state gate: READY_SNAPSHOT_HASH_MISMATCH = 0.
+--   B. approval identity consistency: a row is AUDITED_APPROVAL only when
+--      ready_by equals the audit actor_id AND ready_at is the matching audit
+--      row's created_at. A pre-existing, conflicting ready_by is NEVER silently
+--      replaced — the row is documented as LEGACY_20C_ROW_APPROVER instead.
+--      Post-state gate: AUDITED_APPROVAL_ACTOR_MISMATCH = 0.
+--   C. audit target scope is pinned to the real audit contract:
+--      target_type = 'lesson_capability' (verified against the live audit_logs
+--      contract) in addition to action / target_id / capability / REVIEW->READY
+--      / non-NULL actor.
+--
 -- Governing rules preserved:
 --   * ready_by is NEVER fabricated.
 --   * No lifecycle row is deleted or archived-then-deleted.
 --   * No student-visible content row is created, copied, renamed, or removed.
+
 
 BEGIN;
 
@@ -338,8 +360,9 @@ SET search_path = public, pg_temp
 AS $$
   SELECT a.actor_id, a.created_at
     FROM public.audit_logs a
-   WHERE a.action = 'lesson_capability_lifecycle_transition'
-     AND a.target_id = _lesson_id
+  WHERE a.action = 'lesson_capability_lifecycle_transition'
+    AND a.target_type = 'lesson_capability'
+    AND a.target_id = _lesson_id
      AND a.metadata ->> 'capability' = _capability
      AND a.metadata ->> 'from_status' = 'REVIEW'
      AND a.metadata ->> 'to_status' = 'READY'
@@ -369,15 +392,42 @@ DECLARE
   v_empty bigint;
   v_nullrev bigint;
   v_retired_ready bigint;
+  v_hash_no_snapshot bigint;
+  v_hash_mismatch bigint;
+  v_actor_conflict bigint;
 BEGIN
-  -- 3.1 No READY row may be pinned without real, rebuildable content.
+  -- 3.0a A stored ready_hash without a stored ready_snapshot can never have its
+  --      provenance proven. There is no allow-list escape for this.
+  SELECT count(*) INTO v_hash_no_snapshot
+    FROM public.lesson_capability_lifecycle x
+   WHERE x.status = 'READY'
+     AND x.ready_snapshot IS NULL
+     AND x.ready_hash IS NOT NULL;
+  IF v_hash_no_snapshot > 0 THEN
+    RAISE EXCEPTION 'R5_READY_HASH_WITHOUT_SNAPSHOT=% (hash provenance cannot be proven)', v_hash_no_snapshot;
+  END IF;
+
+  -- 3.0b A stored snapshot + stored hash pair must be self-consistent.
+  SELECT count(*) INTO v_hash_mismatch
+    FROM public.lesson_capability_lifecycle x
+   WHERE x.status = 'READY'
+     AND x.ready_snapshot IS NOT NULL
+     AND x.ready_hash IS NOT NULL
+     AND x.ready_hash IS DISTINCT FROM public.v3_capability_snapshot_hash(x.ready_snapshot);
+  IF v_hash_mismatch > 0 THEN
+    RAISE EXCEPTION 'R5_READY_SNAPSHOT_HASH_MISMATCH=%', v_hash_mismatch;
+  END IF;
+
+  -- 3.1 No READY row may be pinned without real, rebuildable content. A row that
+  --     already stores a snapshot is proven by that stored snapshot.
   SELECT count(*) INTO v_empty
     FROM public.lesson_capability_lifecycle x
    WHERE x.status = 'READY'
      AND NOT (x.capability = ANY (public.v3_retired_capabilities()))
      AND NOT (x.id = ANY (v_allow))
      AND NOT public.v3_capability_snapshot_is_reconcilable(
-           public.v3_capability_snapshot(x.lesson_id, x.capability));
+           COALESCE(x.ready_snapshot,
+                    public.v3_capability_snapshot(x.lesson_id, x.capability)));
   IF v_empty > 0 THEN
     RAISE EXCEPTION 'R5_EMPTY_READY_SNAPSHOT=% (no ready_hash may be created without content; review and allow-list the rows explicitly)', v_empty;
   END IF;
@@ -386,7 +436,9 @@ BEGIN
   SELECT count(*) INTO v_nullrev
     FROM public.lesson_capability_lifecycle x,
          LATERAL jsonb_array_elements(
-           COALESCE(public.v3_capability_snapshot(x.lesson_id, x.capability) -> 'payload', '[]'::jsonb)
+           COALESCE(COALESCE(x.ready_snapshot,
+                             public.v3_capability_snapshot(x.lesson_id, x.capability)) -> 'payload',
+                    '[]'::jsonb)
          ) q
    WHERE x.status = 'READY'
      AND x.capability = 'checkUnderstanding'
@@ -401,24 +453,44 @@ BEGIN
    WHERE x.capability = ANY (public.v3_retired_capabilities())
      AND x.status = 'READY';
   RAISE NOTICE 'R5_RETIRED_READY_ROWS_TO_DEMOTE=%', v_retired_ready;
+
+  -- 3.4 A pre-existing approver that disagrees with the audit actor is reported
+  --     and documented as LEGACY_20C_ROW_APPROVER. It is never overwritten.
+  SELECT count(*) INTO v_actor_conflict
+    FROM public.lesson_capability_lifecycle x
+    JOIN LATERAL public.v3_capability_audited_approval(x.lesson_id, x.capability) ap ON true
+   WHERE x.status = 'READY'
+     AND x.ready_by IS NOT NULL
+     AND ap.actor_id IS NOT NULL
+     AND x.ready_by <> ap.actor_id;
+  RAISE NOTICE 'R5_ROW_APPROVER_DIFFERS_FROM_AUDIT_ACTOR=%', v_actor_conflict;
 END $$;
 
 /* 3a. Pin the legacy READY rows whose source content is deterministically
        reconcilable. status is never changed here, so the student surface is
-       bit-for-bit identical before and after. */
+       bit-for-bit identical before and after.
+
+       `ev.audited` is the ONLY path to AUDITED_APPROVAL: the audit actor must
+       agree with any pre-existing ready_by, and the audit time must agree with
+       any pre-existing ready_at. Otherwise the row keeps its own approver and
+       is documented as LEGACY_20C_ROW_APPROVER.
+
+       `ev.snapshot` is the EFFECTIVE snapshot: the stored one when present,
+       else the rebuilt one. The hash is always derived from that same value,
+       so snapshot and hash can never describe different content. */
 UPDATE public.lesson_capability_lifecycle x
-   SET ready_by = COALESCE(x.ready_by, ev.actor_id),
+   SET ready_by = CASE WHEN ev.audited THEN COALESCE(x.ready_by, ev.actor_id) ELSE x.ready_by END,
        evidence_origin = CASE
-         WHEN ev.actor_id IS NOT NULL THEN 'AUDITED_APPROVAL'
-         WHEN x.ready_by IS NOT NULL  THEN 'LEGACY_20C_ROW_APPROVER'
+         WHEN ev.audited             THEN 'AUDITED_APPROVAL'
+         WHEN x.ready_by IS NOT NULL THEN 'LEGACY_20C_ROW_APPROVER'
          ELSE 'LEGACY_20C_VISIBLE_BASELINE'
        END,
-       ready_snapshot = COALESCE(x.ready_snapshot, ev.snapshot),
+       ready_snapshot = ev.snapshot,
        ready_hash = COALESCE(x.ready_hash, public.v3_capability_snapshot_hash(ev.snapshot)),
        ready_at = CASE
-         WHEN x.ready_at IS NOT NULL THEN x.ready_at
          -- Audited rows take the approval time from the audit row itself.
-         WHEN ev.actor_id IS NOT NULL THEN ev.approved_at
+         WHEN ev.audited THEN ev.approved_at
+         WHEN x.ready_at IS NOT NULL THEN x.ready_at
          -- Legacy baseline rows record the observed baseline time, and their
          -- provenance says explicitly that this is not an approval timestamp.
          ELSE COALESCE(x.updated_at, x.created_at)
@@ -427,7 +499,11 @@ UPDATE public.lesson_capability_lifecycle x
     SELECT l.id AS lifecycle_id,
            ap.actor_id,
            ap.approved_at,
-           public.v3_capability_snapshot(l.lesson_id, l.capability) AS snapshot
+           (ap.actor_id IS NOT NULL
+            AND (l.ready_by IS NULL OR l.ready_by = ap.actor_id)
+            AND (l.ready_at IS NULL OR l.ready_at = ap.approved_at)) AS audited,
+           COALESCE(l.ready_snapshot,
+                    public.v3_capability_snapshot(l.lesson_id, l.capability)) AS snapshot
       FROM public.lesson_capability_lifecycle l
       LEFT JOIN LATERAL public.v3_capability_audited_approval(l.lesson_id, l.capability) ap ON true
      WHERE l.status = 'READY'
@@ -448,7 +524,8 @@ UPDATE public.lesson_capability_lifecycle x
  WHERE x.status = 'READY'
    AND NOT (x.capability = ANY (public.v3_retired_capabilities()))
    AND NOT public.v3_capability_snapshot_is_reconcilable(
-         public.v3_capability_snapshot(x.lesson_id, x.capability)
+         COALESCE(x.ready_snapshot,
+                  public.v3_capability_snapshot(x.lesson_id, x.capability))
        );
 
 /* 4. Retire EVERY capability outside the V3 contract without deleting history.
@@ -498,6 +575,23 @@ BEGIN
    WHERE status = 'READY'
      AND NOT public.v3_capability_snapshot_is_reconcilable(ready_snapshot);
   IF n > 0 THEN RAISE EXCEPTION 'R5_EMPTY_READY_SNAPSHOT_POST=%', n; END IF;
+
+  -- R5-R3 gate A: snapshot and hash must describe the same content.
+  SELECT count(*) INTO n FROM public.lesson_capability_lifecycle
+   WHERE status = 'READY'
+     AND ready_hash IS DISTINCT FROM public.v3_capability_snapshot_hash(ready_snapshot);
+  IF n > 0 THEN RAISE EXCEPTION 'R5_READY_SNAPSHOT_HASH_MISMATCH_POST=%', n; END IF;
+
+  -- R5-R3 gate B: AUDITED_APPROVAL rows must match their audit row exactly.
+  SELECT count(*) INTO n FROM public.lesson_capability_lifecycle x
+   WHERE x.evidence_origin = 'AUDITED_APPROVAL'
+     AND NOT EXISTS (
+       SELECT 1
+         FROM public.v3_capability_audited_approval(x.lesson_id, x.capability) ap
+        WHERE ap.actor_id = x.ready_by
+          AND ap.approved_at = x.ready_at
+     );
+  IF n > 0 THEN RAISE EXCEPTION 'R5_AUDITED_APPROVAL_ACTOR_MISMATCH=%', n; END IF;
 
   SELECT count(*) INTO n FROM public.lesson_capability_lifecycle x
    WHERE x.ready_snapshot::text ~* '(is_correct|isCorrect|why_correct|why_wrong|model_answer|correct_option)';

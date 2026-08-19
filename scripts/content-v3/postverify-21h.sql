@@ -97,7 +97,27 @@ BEGIN
        AND NOT public.v3_capability_snapshot_is_reconcilable(ready_snapshot)
   ) THEN RAISE EXCEPTION 'ASSERT_FAIL: EMPTY_READY_SNAPSHOT'; END IF;
 
+  -- R5-R3: snapshot and hash must describe exactly the same content, and a
+  -- stored hash without a stored snapshot has no provable provenance.
+  IF EXISTS (
+    SELECT 1 FROM public.lesson_capability_lifecycle
+     WHERE status='READY' AND ready_snapshot IS NULL AND ready_hash IS NOT NULL
+  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: MISSING_SNAPSHOT_WITH_EXISTING_HASH'; END IF;
 
+  IF EXISTS (
+    SELECT 1 FROM public.lesson_capability_lifecycle
+     WHERE status='READY'
+       AND ready_hash IS DISTINCT FROM public.v3_capability_snapshot_hash(ready_snapshot)
+  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: READY_SNAPSHOT_HASH_MISMATCH'; END IF;
+
+  -- R5-R3: AUDITED_APPROVAL rows must match their audit row exactly.
+  IF EXISTS (
+    SELECT 1 FROM public.lesson_capability_lifecycle x
+     WHERE x.evidence_origin='AUDITED_APPROVAL'
+       AND NOT EXISTS (
+         SELECT 1 FROM public.v3_capability_audited_approval(x.lesson_id, x.capability) ap
+          WHERE ap.actor_id = x.ready_by AND ap.approved_at = x.ready_at)
+  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: AUDITED_APPROVAL_ACTOR_MISMATCH'; END IF;
 
 
   IF EXISTS (

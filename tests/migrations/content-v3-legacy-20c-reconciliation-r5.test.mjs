@@ -25,7 +25,7 @@ test("R5 runs before 21H, is transactional, and never fabricates an approver", (
   assert.match(r5, /R5_MUST_RUN_BEFORE_21H/);
   assert.doesNotMatch(r5, /\bapplicability\b\s*=/i);
   // ready_by may only come from audit_logs evidence.
-  assert.match(r5, /ready_by = COALESCE\(x\.ready_by, ev\.actor_id\)/);
+  assert.match(r5, /ready_by = CASE WHEN ev\.audited THEN COALESCE\(x\.ready_by, ev\.actor_id\) ELSE x\.ready_by END/);
   assert.match(r5, /LEGACY_20C_VISIBLE_BASELINE/);
   assert.doesNotMatch(r5, /system_actor|SYSTEM_ACTOR|00000000-0000-0000-0000-000000000000/);
   assert.match(r5, /lesson_capability_lifecycle_legacy_baseline_no_approver_chk/);
@@ -43,7 +43,7 @@ test("AUDITED_APPROVAL requires a literal REVIEW -> READY transition", () => {
 test("ready_at provenance comes from the audit row, never from updated_at for audited rows", () => {
   const block = r5.slice(r5.indexOf("ready_at = CASE"), r5.indexOf("END\n  FROM ("));
   assert.match(block, /WHEN x\.ready_at IS NOT NULL THEN x\.ready_at/);
-  assert.match(block, /WHEN ev\.actor_id IS NOT NULL THEN ev\.approved_at/);
+  assert.match(block, /WHEN ev\.audited THEN ev\.approved_at/);
 });
 
 test("checkUnderstanding snapshot can never emit a null revisionId", () => {
@@ -167,4 +167,63 @@ test("capability mapping translates package names to lifecycle names", () => {
     assert.match(mapping, new RegExp(`${pkg}: "${lifecycle}"`));
   }
   assert.match(mapping, /V3_RETIRED_CAPABILITIES/);
+});
+
+test("R5-R3: snapshot/hash atomic consistency is fail-closed", () => {
+  assert.match(r5, /R5_READY_HASH_WITHOUT_SNAPSHOT=%/);
+  assert.match(r5, /R5_READY_SNAPSHOT_HASH_MISMATCH=%/);
+  assert.match(r5, /R5_READY_SNAPSHOT_HASH_MISMATCH_POST=%/);
+  // Both hash preconditions must precede the first UPDATE.
+  const firstUpdate = r5.indexOf("UPDATE public.lesson_capability_lifecycle x\n   SET ready_by");
+  assert.ok(r5.indexOf("R5_READY_HASH_WITHOUT_SNAPSHOT=%") < firstUpdate);
+  assert.ok(r5.indexOf("R5_READY_SNAPSHOT_HASH_MISMATCH=%") < firstUpdate);
+  // The hash is always derived from the effective (stored-first) snapshot.
+  assert.match(r5, /ready_snapshot = ev\.snapshot/);
+  assert.match(r5, /ready_hash = COALESCE\(x\.ready_hash, public\.v3_capability_snapshot_hash\(ev\.snapshot\)\)/);
+  assert.match(r5, /COALESCE\(l\.ready_snapshot,\s*\n\s*public\.v3_capability_snapshot\(l\.lesson_id, l\.capability\)\) AS snapshot/);
+});
+
+test("R5-R3: AUDITED_APPROVAL requires actor and time identity", () => {
+  assert.match(r5, /\(ap\.actor_id IS NOT NULL\s*\n\s*AND \(l\.ready_by IS NULL OR l\.ready_by = ap\.actor_id\)\s*\n\s*AND \(l\.ready_at IS NULL OR l\.ready_at = ap\.approved_at\)\) AS audited/);
+  assert.match(r5, /WHEN ev\.audited\s+THEN 'AUDITED_APPROVAL'/);
+  assert.match(r5, /WHEN x\.ready_by IS NOT NULL THEN 'LEGACY_20C_ROW_APPROVER'/);
+  assert.match(r5, /ready_by = CASE WHEN ev\.audited THEN COALESCE\(x\.ready_by, ev\.actor_id\) ELSE x\.ready_by END/);
+  assert.match(r5, /R5_AUDITED_APPROVAL_ACTOR_MISMATCH=%/);
+});
+
+test("R5-R3: audit target scope is pinned to the real audit contract", () => {
+  const fn = r5.slice(r5.indexOf("FUNCTION public.v3_capability_audited_approval("));
+  assert.match(fn, /a\.target_type = 'lesson_capability'/);
+});
+
+test("R5-R3: postverify carries the new read-only gates", () => {
+  assert.match(postverify, /MISSING_SNAPSHOT_WITH_EXISTING_HASH/);
+  assert.match(postverify, /READY_SNAPSHOT_HASH_MISMATCH/);
+  assert.match(postverify, /AUDITED_APPROVAL_ACTOR_MISMATCH/);
+  assert.match(postverify, /SET TRANSACTION READ ONLY/i);
+});
+
+test("R5-R3: PG17 rehearsal executes every new negative scenario", () => {
+  const runner = read("scripts/content-v3/pg17/rehearse-r5.sh");
+  assert.match(runner, /R5_READY_HASH_WITHOUT_SNAPSHOT/);
+  assert.match(runner, /R5_READY_SNAPSHOT_HASH_MISMATCH/);
+  assert.match(runner, /MISSING_SNAPSHOT_WITH_EXISTING_HASH_FAIL_CLOSED=PASS/);
+  assert.match(runner, /SNAPSHOT_HASH_MISMATCH_FAIL_CLOSED=PASS/);
+
+  const fixture = read("scripts/content-v3/pg17/fixture-legacy-20c.sql");
+  assert.match(fixture, /STORED-ONLY-SNAPSHOT/);
+  assert.match(fixture, /44444444-4444-4444-4444-444444444445/);
+  assert.match(fixture, /'lesson_capability_lifecycle_transition','lesson',/);
+
+  const asserts = read("scripts/content-v3/pg17/assert-r5.sql");
+  for (const gate of [
+    "READY_SNAPSHOT_HASH_MISMATCH",
+    "MISSING_SNAPSHOT_WITH_EXISTING_HASH",
+    "STORED_SNAPSHOT_HASHED_FROM_STORED",
+    "AUDITED_APPROVAL_ACTOR_MISMATCH",
+    "ROW_APPROVER_CONFLICT_PRESERVED",
+    "AUDIT_TARGET_TYPE_ENFORCED",
+  ]) {
+    assert.match(asserts, new RegExp(gate), gate);
+  }
 });

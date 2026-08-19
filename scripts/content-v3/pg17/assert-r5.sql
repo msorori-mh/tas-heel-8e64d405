@@ -31,11 +31,12 @@ BEGIN
   RAISE NOTICE 'LIFECYCLE_ROWS_TOTAL=% (fixture inserted 106)', n;
   IF n <> 106 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: lifecycle row count changed'; END IF;
 
-  -- ready_by may only exist where the fixture seeded a real approver (2 rows)
-  -- or where a literal REVIEW->READY audit transition exists (1 row).
+  -- ready_by may only exist where the fixture seeded a real approver (3 rows:
+  -- quickReview, one explanation, one conflicting-approver row) or where a
+  -- literal REVIEW->READY audit transition exists (1 row).
   SELECT count(*) INTO n FROM public.lesson_capability_lifecycle WHERE ready_by IS NOT NULL;
-  RAISE NOTICE 'READY_BY_PRESENT=% INVENTED_READY_BY=%', n, GREATEST(n - 3, 0);
-  IF n <> 3 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: INVENTED_READY_BY=%', n - 3; END IF;
+  RAISE NOTICE 'READY_BY_PRESENT=% INVENTED_READY_BY=%', n, GREATEST(n - 4, 0);
+  IF n <> 4 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: INVENTED_READY_BY=%', n - 4; END IF;
 
   SELECT count(*) INTO n FROM public.lesson_capability_lifecycle
    WHERE evidence_origin='LEGACY_20C_VISIBLE_BASELINE' AND ready_by IS NOT NULL;
@@ -136,6 +137,54 @@ BEGIN
    WHERE ns.nspname='public' AND c.relname='lesson_capability_lifecycle' AND c.relrowsecurity;
   RAISE NOTICE 'RLS=%', CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END;
   IF n <> 1 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: RLS disabled'; END IF;
+
+  -- ------------------------------------------------------------------
+  -- R5-R3 gates
+  -- ------------------------------------------------------------------
+
+  -- Gate A: snapshot/hash atomic consistency across the whole table.
+  SELECT count(*) INTO n FROM public.lesson_capability_lifecycle
+   WHERE status='READY'
+     AND ready_hash IS DISTINCT FROM public.v3_capability_snapshot_hash(ready_snapshot);
+  RAISE NOTICE 'READY_SNAPSHOT_HASH_MISMATCH=%', n;
+  IF n <> 0 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: READY_SNAPSHOT_HASH_MISMATCH=%', n; END IF;
+
+  SELECT count(*) INTO n FROM public.lesson_capability_lifecycle
+   WHERE status='READY' AND ready_snapshot IS NULL AND ready_hash IS NOT NULL;
+  RAISE NOTICE 'MISSING_SNAPSHOT_WITH_EXISTING_HASH=%', n;
+  IF n <> 0 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: MISSING_SNAPSHOT_WITH_EXISTING_HASH=%', n; END IF;
+
+  -- (e) stored snapshot + missing hash: the STORED snapshot is kept and hashed.
+  SELECT count(*) INTO n FROM public.lesson_capability_lifecycle
+   WHERE capability='officialBookContent' AND lesson_id='55555555-0000-0000-0000-000000000005'
+     AND ready_snapshot::text LIKE '%STORED-ONLY-SNAPSHOT%'
+     AND ready_hash = public.v3_capability_snapshot_hash(ready_snapshot);
+  RAISE NOTICE 'STORED_SNAPSHOT_HASHED_FROM_STORED=%', n;
+  IF n <> 1 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: stored snapshot was replaced or hashed from the rebuilt value'; END IF;
+
+  -- Gate B: AUDITED_APPROVAL identity consistency.
+  SELECT count(*) INTO n FROM public.lesson_capability_lifecycle x
+   WHERE x.evidence_origin='AUDITED_APPROVAL'
+     AND NOT EXISTS (SELECT 1 FROM public.v3_capability_audited_approval(x.lesson_id, x.capability) ap
+                      WHERE ap.actor_id = x.ready_by AND ap.approved_at = x.ready_at);
+  RAISE NOTICE 'AUDITED_APPROVAL_ACTOR_MISMATCH=%', n;
+  IF n <> 0 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: AUDITED_APPROVAL_ACTOR_MISMATCH=%', n; END IF;
+
+  -- (f) a conflicting pre-existing approver is documented, never overwritten.
+  SELECT count(*) INTO n FROM public.lesson_capability_lifecycle
+   WHERE capability='officialBookContent' AND lesson_id='55555555-0000-0000-0000-000000000006'
+     AND evidence_origin='LEGACY_20C_ROW_APPROVER'
+     AND ready_by='44444444-4444-4444-4444-444444444445'
+     AND ready_at=timestamptz '2026-03-03 00:00:00+00';
+  RAISE NOTICE 'ROW_APPROVER_CONFLICT_PRESERVED=%', n;
+  IF n <> 1 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: conflicting ready_by was silently replaced'; END IF;
+
+  -- (g) an otherwise valid audit row with the wrong target_type grants nothing.
+  SELECT count(*) INTO n FROM public.lesson_capability_lifecycle
+   WHERE capability='officialBookContent' AND lesson_id='55555555-0000-0000-0000-000000000007'
+     AND evidence_origin='LEGACY_20C_VISIBLE_BASELINE' AND ready_by IS NULL;
+  RAISE NOTICE 'AUDIT_TARGET_TYPE_ENFORCED=%', CASE WHEN n=1 THEN 'YES' ELSE 'NO' END;
+  IF n <> 1 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: wrong target_type audit granted approval'; END IF;
 
   RAISE NOTICE 'PG17_REHEARSAL=PASS';
 END $$;

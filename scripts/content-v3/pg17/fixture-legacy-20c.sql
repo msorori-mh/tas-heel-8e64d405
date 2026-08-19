@@ -200,3 +200,49 @@ VALUES (gen_random_uuid(),'44444444-4444-4444-4444-444444444444',
         '55555555-0000-0000-0000-000000000004',
         '{"capability":"officialBookContent","from_status":"DRAFT","to_status":"READY"}'::jsonb,
         timestamptz '2026-07-02 10:00:00+00');
+
+-- ---------------------------------------------------------------------------
+-- R5-R3 NEGATIVE / EDGE SCENARIOS (fixture-only, none of these exist in prod)
+-- ---------------------------------------------------------------------------
+
+INSERT INTO auth.users (id) VALUES ('44444444-4444-4444-4444-444444444445');
+
+-- (e) STORED snapshot present, hash MISSING. The hash must be computed from the
+--     STORED snapshot, and the stored snapshot must never be replaced by the
+--     rebuilt one.
+UPDATE public.lesson_capability_lifecycle
+   SET ready_snapshot = jsonb_build_object(
+         'snapshotVersion','v3.snapshot.1',
+         'capability','officialBookContent',
+         'lessonId','55555555-0000-0000-0000-000000000005'::uuid,
+         'payload', jsonb_build_array(jsonb_build_object('content','STORED-ONLY-SNAPSHOT'))),
+       ready_hash = NULL
+ WHERE capability = 'officialBookContent'
+   AND lesson_id = '55555555-0000-0000-0000-000000000005';
+
+-- (f) A pre-existing ready_by that DISAGREES with a valid audit actor. The row
+--     must keep its own approver and be documented as LEGACY_20C_ROW_APPROVER.
+UPDATE public.lesson_capability_lifecycle
+   SET ready_by = '44444444-4444-4444-4444-444444444445',
+       ready_at = timestamptz '2026-03-03 00:00:00+00'
+ WHERE capability = 'officialBookContent'
+   AND lesson_id = '55555555-0000-0000-0000-000000000006';
+INSERT INTO public.audit_logs (id, actor_id, action, target_type, target_id, metadata, created_at)
+VALUES (gen_random_uuid(),'44444444-4444-4444-4444-444444444444',
+        'lesson_capability_lifecycle_transition','lesson_capability',
+        '55555555-0000-0000-0000-000000000006',
+        '{"capability":"officialBookContent","from_status":"REVIEW","to_status":"READY"}'::jsonb,
+        timestamptz '2026-07-03 10:00:00+00');
+
+-- (g) A perfectly shaped REVIEW -> READY audit row with the WRONG target_type.
+--     It must NOT grant AUDITED_APPROVAL.
+UPDATE public.lesson_capability_lifecycle
+   SET ready_at = NULL, ready_by = NULL, updated_at = timestamptz '2026-04-04 00:00:00+00'
+ WHERE capability = 'officialBookContent'
+   AND lesson_id = '55555555-0000-0000-0000-000000000007';
+INSERT INTO public.audit_logs (id, actor_id, action, target_type, target_id, metadata, created_at)
+VALUES (gen_random_uuid(),'44444444-4444-4444-4444-444444444444',
+        'lesson_capability_lifecycle_transition','lesson',
+        '55555555-0000-0000-0000-000000000007',
+        '{"capability":"officialBookContent","from_status":"REVIEW","to_status":"READY"}'::jsonb,
+        timestamptz '2026-07-04 10:00:00+00');
