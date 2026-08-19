@@ -31,11 +31,12 @@ BEGIN
   RAISE NOTICE 'LIFECYCLE_ROWS_TOTAL=% (fixture inserted 106)', n;
   IF n <> 106 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: lifecycle row count changed'; END IF;
 
-  -- ready_by may only exist where the fixture seeded a real approver (2 rows)
-  -- or where a literal REVIEW->READY audit transition exists (1 row).
+  -- ready_by may only exist where the fixture seeded a real approver (3 rows:
+  -- quickReview, one explanation, one conflicting-approver row) or where a
+  -- literal REVIEW->READY audit transition exists (1 row).
   SELECT count(*) INTO n FROM public.lesson_capability_lifecycle WHERE ready_by IS NOT NULL;
-  RAISE NOTICE 'READY_BY_PRESENT=% INVENTED_READY_BY=%', n, GREATEST(n - 3, 0);
-  IF n <> 3 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: INVENTED_READY_BY=%', n - 3; END IF;
+  RAISE NOTICE 'READY_BY_PRESENT=% INVENTED_READY_BY=%', n, GREATEST(n - 4, 0);
+  IF n <> 4 THEN RAISE EXCEPTION 'REHEARSAL_FAIL: INVENTED_READY_BY=%', n - 4; END IF;
 
   SELECT count(*) INTO n FROM public.lesson_capability_lifecycle
    WHERE evidence_origin='LEGACY_20C_VISIBLE_BASELINE' AND ready_by IS NOT NULL;
