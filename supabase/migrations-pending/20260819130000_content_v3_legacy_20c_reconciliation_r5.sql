@@ -1,4 +1,4 @@
--- TAMKEEN CONTENT V3 / R5-R2 — LEGACY 20C RECONCILIATION (FAIL-CLOSED)
+-- TAMKEEN CONTENT V3 / R5-R3 — LEGACY 20C RECONCILIATION (FAIL-CLOSED)
 -- Source-only apply candidate. NOT applied by this worktree.
 --
 -- Ordering contract: this file runs BEFORE
@@ -25,10 +25,32 @@
 --   6. The canonical JSON serializer is named _v3_canonical_json_v1. It is a
 --      PROJECT-DEFINED deterministic canonical JSON, NOT RFC 8785 / JCS.
 --
+-- R5-R3 forward corrections over R5-R2 (this file is still unapplied anywhere;
+-- the correction is carried forward in source, no prior commit is rewritten):
+--   A. snapshot/hash atomic consistency for every READY row:
+--        both NULL            -> rebuild snapshot, hash the rebuilt snapshot
+--        snapshot, no hash    -> hash the STORED snapshot (not the rebuilt one)
+--        hash, no snapshot    -> ABORT (R5_READY_HASH_WITHOUT_SNAPSHOT):
+--                                the hash provenance cannot be proven
+--        both present         -> recompute from the stored snapshot and ABORT
+--                                on any difference
+--                                (R5_READY_SNAPSHOT_HASH_MISMATCH)
+--      Post-state gate: READY_SNAPSHOT_HASH_MISMATCH = 0.
+--   B. approval identity consistency: a row is AUDITED_APPROVAL only when
+--      ready_by equals the audit actor_id AND ready_at is the matching audit
+--      row's created_at. A pre-existing, conflicting ready_by is NEVER silently
+--      replaced — the row is documented as LEGACY_20C_ROW_APPROVER instead.
+--      Post-state gate: AUDITED_APPROVAL_ACTOR_MISMATCH = 0.
+--   C. audit target scope is pinned to the real audit contract:
+--      target_type = 'lesson_capability' (verified against the live audit_logs
+--      contract) in addition to action / target_id / capability / REVIEW->READY
+--      / non-NULL actor.
+--
 -- Governing rules preserved:
 --   * ready_by is NEVER fabricated.
 --   * No lifecycle row is deleted or archived-then-deleted.
 --   * No student-visible content row is created, copied, renamed, or removed.
+
 
 BEGIN;
 
