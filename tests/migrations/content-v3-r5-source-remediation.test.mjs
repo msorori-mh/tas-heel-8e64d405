@@ -39,7 +39,7 @@ test("R5 retires originalBookPdf without deleting lifecycle history", () => {
 test("canonical snapshot is deterministic and structurally answer-free", () => {
   const start = r5.indexOf("FUNCTION public.v3_capability_snapshot(");
   const end = r5.indexOf("$$;", start);
-  const body = r5.slice(start, end);
+  const body = r5.slice(start, end).replace(/--[^\n]*/g, "");
   for (const leak of ["is_correct", "why_correct", "why_wrong", "model_answer", "correct_index"]) {
     assert.doesNotMatch(body, new RegExp(`\\b${leak}\\b`, "i"), leak);
   }
