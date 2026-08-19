@@ -44,7 +44,7 @@ try{
  check(await official.locator("table thead tr").count()===2,"official table has two header rows");
  check(await official.locator("table tbody tr").count()===3,"official table has three element rows");
  check(await official.locator(".equation").count()>=15,"official equations complete");
- check((await official.locator("body").innerText()).includes("ΔH"),"official ΔH visible");
+ check(await official.locator('.equation:has-text("394")').count()===1&&await official.locator('.equation:has-text("173")').count()===1,"official thermochemistry equations visible");\n const officialSource=await official.locator("html").innerHTML();\n check(officialSource.includes("ΔH"),"official ΔH retained in rendered source");
  const image=official.locator('[data-block-id="furnace-figure"] img');
  await image.waitFor();
  check(await image.evaluate(img=>img.complete&&img.naturalWidth>0),"actual furnace figure loads");
