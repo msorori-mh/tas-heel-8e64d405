@@ -52,8 +52,6 @@ jobs:
     name: Content V3 disposable PG17 runtime
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: ${{ hashFiles('scripts/content-v3/pg17-runner.ps1') != '' }}
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
