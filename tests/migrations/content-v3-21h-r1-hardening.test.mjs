@@ -54,6 +54,15 @@ test("visibility diff preserves the unchanged case", () => {
   assert.match(diff, /'UNCHANGED'/);
 });
 
+test("visibility diff keeps every UNION output value explicitly text-typed", () => {
+  const outputContract = diff.slice(diff.indexOf("SELECT 'EXPECTED_GAIN_COUNT'"), diff.indexOf("-- A zero result"));
+  assert.match(outputContract, /expected_gain_count::text/);
+  assert.match(outputContract, /security_fix_count::text/);
+  assert.match(outputContract, /unexpected_gain_count::text/);
+  assert.match(outputContract, /unexpected_loss_count::text/);
+  assert.doesNotMatch(outputContract, /SELECT\s+'(?:SECURITY_FIX_COUNT|UNEXPECTED_GAIN_COUNT|UNEXPECTED_LOSS_COUNT)'[^\n]*,\s*[a-z_]+_count\s+FROM/i);
+});
+
 test("security fixes are distinct from unexplained losses", () => {
   assert.equal(classify({ before: true, expected: false, observed: false, security: true }), "SECURITY_FIX");
   assert.match(diff, /SECURITY_FIX/);
@@ -107,6 +116,15 @@ test("pinned revisions and unpublished revisions are protected", () => {
   assert.match(migration, /question_revision_id/);
   assert.match(migration, /paq\.question_revision_id/);
   assert.match(diff, /r\.status = 'PUBLISHED'/);
+});
+
+test("reveal RPC resolves the lesson from the owned practice attempt", () => {
+  const start = migration.indexOf("FUNCTION public.reveal_official_question_answer");
+  const end = migration.indexOf("$$;", start);
+  const body = migration.slice(start, end);
+  assert.match(body, /SELECT pa\.lesson_id, paq\.question_revision_id/i);
+  assert.doesNotMatch(body, /SELECT q\.lesson_id/i);
+  assert.match(body, /FROM public\.practice_attempts pa/i);
 });
 
 test("RPC and snapshot semantics use one strict READY contract", () => {

@@ -227,10 +227,10 @@ WITH capability_presence AS (
          count(*) FILTER (WHERE (before_visible AND NOT after_expected_visible AND NOT after_observed_visible AND NOT (lifecycle_present AND (status <> 'READY' OR applicability = 'NA'))) OR (before_visible AND after_expected_visible AND NOT after_observed_visible)) AS unexpected_loss_count
     FROM classified
 )
-SELECT 'EXPECTED_GAIN_COUNT' AS check_name, expected_gain_count AS capability_rows FROM counts
-UNION ALL SELECT 'SECURITY_FIX_COUNT', security_fix_count FROM counts
-UNION ALL SELECT 'UNEXPECTED_GAIN_COUNT', unexpected_gain_count FROM counts
-UNION ALL SELECT 'UNEXPECTED_LOSS_COUNT', unexpected_loss_count FROM counts
+SELECT 'EXPECTED_GAIN_COUNT' AS check_name, expected_gain_count::text AS capability_rows FROM counts
+UNION ALL SELECT 'SECURITY_FIX_COUNT', security_fix_count::text FROM counts
+UNION ALL SELECT 'UNEXPECTED_GAIN_COUNT', unexpected_gain_count::text FROM counts
+UNION ALL SELECT 'UNEXPECTED_LOSS_COUNT', unexpected_loss_count::text FROM counts
 UNION ALL
 SELECT 'VISIBILITY_DIFF', CASE WHEN unexpected_gain_count = 0 AND unexpected_loss_count = 0 THEN 'READY_TO_VERIFY' ELSE 'STOP_VISIBILITY_DIFF' END FROM counts;
 

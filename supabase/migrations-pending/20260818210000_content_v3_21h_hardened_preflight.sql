@@ -351,7 +351,7 @@ BEGIN
     RETURN jsonb_build_object('error', 'UNAUTHORIZED');
   END IF;
 
-  SELECT q.lesson_id, paq.question_revision_id
+  SELECT pa.lesson_id, paq.question_revision_id
     INTO v_lesson, v_revision
     FROM public.practice_attempts pa
     JOIN public.practice_attempt_questions paq ON paq.practice_attempt_id = pa.id
