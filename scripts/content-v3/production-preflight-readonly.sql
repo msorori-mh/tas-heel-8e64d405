@@ -86,18 +86,58 @@ BEGIN
       RAISE NOTICE '20C orphan_or_invalid_lesson_capability_rows=0';
     END IF;
 
+    -- A READY row needs a snapshot, a hash, a timestamp, and either a proven
+    -- approver or an explicitly documented legacy provenance. R5 labels the
+    -- pre-snapshot 20C rows 'LEGACY_20C_VISIBLE_BASELINE'; it never invents an
+    -- approver, so ready_by alone cannot be the gate.
     EXECUTE $q$
       SELECT count(*) FROM public.lesson_capability_lifecycle x
        WHERE x.status = 'READY'
-         AND (x.ready_at IS NULL OR x.ready_by IS NULL
-           OR x.ready_snapshot IS NULL OR x.ready_hash IS NULL)
+         AND (x.ready_at IS NULL
+           OR x.ready_snapshot IS NULL
+           OR x.ready_hash IS NULL
+           OR (x.ready_by IS NULL
+               AND COALESCE(
+                     CASE WHEN EXISTS (
+                       SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public'
+                          AND table_name='lesson_capability_lifecycle'
+                          AND column_name='evidence_origin'
+                     ) THEN NULL ELSE 'MISSING' END, '') IS NOT NULL))
     $q$ INTO v_count;
+    IF v_count = 0 AND EXISTS (
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public'
+         AND table_name='lesson_capability_lifecycle'
+         AND column_name='evidence_origin'
+    ) THEN
+      EXECUTE $q$
+        SELECT count(*) FROM public.lesson_capability_lifecycle x
+         WHERE x.status = 'READY'
+           AND x.ready_by IS NULL
+           AND COALESCE(x.evidence_origin, '') <> 'LEGACY_20C_VISIBLE_BASELINE'
+      $q$ INTO v_count;
+    END IF;
     IF v_count > 0 THEN
       v_bad := v_bad + v_count;
       RAISE NOTICE 'STOP_PRODUCTION_STATE_INCOMPATIBLE READY_rows_without_current_evidence=%', v_count;
     ELSE
       RAISE NOTICE '20C READY_rows_without_current_evidence=0';
     END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public'
+         AND table_name='lesson_capability_lifecycle'
+         AND column_name='evidence_origin'
+    ) THEN
+      EXECUTE $q$
+        SELECT count(*) FROM public.lesson_capability_lifecycle
+         WHERE status = 'READY' AND evidence_origin = 'LEGACY_20C_VISIBLE_BASELINE'
+      $q$ INTO v_count;
+      RAISE NOTICE 'R5 legacy_baseline_pinned_ready_rows=% human_review_claimed=false', v_count;
+    END IF;
+
 
     EXECUTE $q$
       SELECT count(*) FROM public.lesson_capability_lifecycle x
