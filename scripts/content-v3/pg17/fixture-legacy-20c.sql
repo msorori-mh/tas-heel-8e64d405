@@ -143,3 +143,60 @@ UPDATE public.lesson_capability_lifecycle
 -- Extra, NOT in production: a READY row whose source content does not exist.
 INSERT INTO public.lesson_capability_lifecycle (id, lesson_id, capability, status, ready_at, created_at, updated_at)
 VALUES ('99999999-9999-9999-9999-999999999999','55555555-0000-0000-0000-000000000040','mindMap','READY', now(), now(), now());
+
+-- Preflight reads public.exam_templates; production has it, the trimmed
+-- rehearsal schema does not. Stub only, never populated.
+CREATE TABLE IF NOT EXISTS public.exam_templates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  lesson_id uuid
+);
+
+-- ---------------------------------------------------------------------------
+-- R5-R2 NEGATIVE / EDGE SCENARIOS (fixture-only, none of these exist in prod)
+-- ---------------------------------------------------------------------------
+
+-- (a) A second retired capability that is still READY: supportingResources.
+INSERT INTO public.lesson_capability_lifecycle (id, lesson_id, capability, status, ready_at, created_at, updated_at)
+VALUES ('aaaaaaaa-0000-0000-0000-000000000001',
+        '55555555-0000-0000-0000-000000000002','supportingResources','READY', now(), now(), now());
+
+-- (b) A question with NO current published revision, and one whose revision is
+--     not PUBLISHED. Neither may appear in the checkUnderstanding snapshot, and
+--     neither may produce revisionId = null.
+INSERT INTO public.questions (id, lesson_id, question_type, sort_order, current_published_revision_id)
+VALUES ('66666666-0000-0000-0000-000000000004','55555555-0000-0000-0000-000000000001','MCQ',4,NULL),
+       ('66666666-0000-0000-0000-000000000005','55555555-0000-0000-0000-000000000001','MCQ',5,
+        '77777777-0000-0000-0000-000000000005');
+INSERT INTO public.question_revisions (id, question_id, status)
+VALUES ('77777777-0000-0000-0000-000000000005','66666666-0000-0000-0000-000000000005','DRAFT');
+
+-- (c) A REAL REVIEW -> READY audit transition. The row has no ready_at, so the
+--     approval time must come from the audit row, and ready_by from its actor.
+UPDATE public.lesson_capability_lifecycle
+   SET ready_at = NULL, updated_at = timestamptz '2026-01-01 00:00:00+00'
+ WHERE capability = 'officialBookContent'
+   AND lesson_id = '55555555-0000-0000-0000-000000000003';
+INSERT INTO public.audit_logs (id, actor_id, action, target_type, target_id, metadata, created_at)
+VALUES (gen_random_uuid(),'44444444-4444-4444-4444-444444444444',
+        'lesson_capability_lifecycle_transition','lesson_capability',
+        '55555555-0000-0000-0000-000000000003',
+        '{"capability":"officialBookContent","from_status":"REVIEW","to_status":"READY"}'::jsonb,
+        timestamptz '2026-07-01 10:00:00+00'),
+       -- An older REVIEW -> READY transition must lose to the newest one.
+       (gen_random_uuid(),'44444444-4444-4444-4444-444444444444',
+        'lesson_capability_lifecycle_transition','lesson_capability',
+        '55555555-0000-0000-0000-000000000003',
+        '{"capability":"officialBookContent","from_status":"REVIEW","to_status":"READY"}'::jsonb,
+        timestamptz '2025-01-01 10:00:00+00');
+
+-- (d) A DRAFT -> READY audit transition must NOT count as an approval.
+UPDATE public.lesson_capability_lifecycle
+   SET ready_at = NULL, updated_at = timestamptz '2026-02-02 00:00:00+00'
+ WHERE capability = 'officialBookContent'
+   AND lesson_id = '55555555-0000-0000-0000-000000000004';
+INSERT INTO public.audit_logs (id, actor_id, action, target_type, target_id, metadata, created_at)
+VALUES (gen_random_uuid(),'44444444-4444-4444-4444-444444444444',
+        'lesson_capability_lifecycle_transition','lesson_capability',
+        '55555555-0000-0000-0000-000000000004',
+        '{"capability":"officialBookContent","from_status":"DRAFT","to_status":"READY"}'::jsonb,
+        timestamptz '2026-07-02 10:00:00+00');

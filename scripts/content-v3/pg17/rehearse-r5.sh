@@ -52,9 +52,37 @@ SELECT l.id AS lesson_id, x.capability
 
 psql -X -A -t -c "SELECT 'FIXTURE_READY_ROWS=' || count(*) FROM public.lesson_capability_lifecycle WHERE status='READY'"
 
-run "2. remediation candidate (R5)" "$R5"
+# 2a. FAIL-CLOSED: without an explicit operator allow-list, the unreconcilable
+#     READY row must abort the whole migration and leave the DB untouched.
+echo "== 2a. fail-closed negative (expect R5_EMPTY_READY_SNAPSHOT + rollback)"
+if psql -q -X -v ON_ERROR_STOP=1 -f "$R5" >"$WORK/failclosed.log" 2>&1; then
+  echo "REHEARSAL_FAIL: empty snapshot did NOT abort the migration"; exit 1
+fi
+grep -q "R5_EMPTY_READY_SNAPSHOT" "$WORK/failclosed.log" \
+  || { echo "REHEARSAL_FAIL: wrong abort reason"; cat "$WORK/failclosed.log"; exit 1; }
+psql -X -A -t -c "
+DO \$\$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_schema='public' AND table_name='lesson_capability_lifecycle'
+                AND column_name='evidence_origin')
+  THEN RAISE EXCEPTION 'REHEARSAL_FAIL: aborted migration left schema changes'; END IF;
+END \$\$;"
+echo "EMPTY_SNAPSHOT_FAIL_CLOSED=PASS"
+
+# 2b. Operator reviews the row, allow-lists it explicitly, and re-runs.
+echo "== 2b. remediation candidate (R5-R2, with reviewed allow-list)"
+psql -q -X -v ON_ERROR_STOP=1 \
+  -c "SET tamkeen.r5_manual_review_allowlist = '99999999-9999-9999-9999-999999999999'" \
+  -f "$R5"
+
+echo "== 2c. production preflight (READ ONLY) against the remediated state"
+psql -q -X -v ON_ERROR_STOP=1 -f "$ROOT/scripts/content-v3/production-preflight-readonly.sql" 2>&1 | tee "$WORK/preflight.log"
+grep -q "STOP_PRODUCTION_STATE_INCOMPATIBLE" "$WORK/preflight.log" \
+  && { echo "REHEARSAL_FAIL: preflight still blocking"; exit 1; }
+
 run "3. migration 21H (byte-for-byte)" "$H21"
 run "4. postverify" "$ROOT/scripts/content-v3/postverify-21h.sql"
 
 echo "== 5. visibility diff + assertions"
 psql -q -X -v ON_ERROR_STOP=1 -f "$ROOT/scripts/content-v3/pg17/assert-r5.sql"
+
