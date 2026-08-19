@@ -1,0 +1,535 @@
+{
+  "capability": "selfTest",
+  "status": "DRAFT",
+  "revision_pin": "sha256:c307a28b1cf74e635787731b92f136b2851c502e384581642a5d7f729a1acad1",
+  "source_file": "درس الحديد_استيراد_أسئلة (1).xlsx",
+  "source_sha256": "sha256:c307a28b1cf74e635787731b92f136b2851c502e384581642a5d7f729a1acad1",
+  "sheet": "الأسئلة",
+  "question_count": 40,
+  "question_types": {
+    "multiple_choice": 20,
+    "true_false": 20
+  },
+  "questions": [
+    {
+      "id": "iron-self-001",
+      "question": "ما أكثر حالات تأكسد الحديد شيوعًا في مركباته؟",
+      "type": "multiple_choice",
+      "options": [
+        "+1 و+2",
+        "+2 و+3",
+        "+3 و+4",
+        "+1 و+3"
+      ],
+      "source_row": 2,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-002",
+      "question": "ما الصيغة الكيميائية للماجنيتايت؟",
+      "type": "multiple_choice",
+      "options": [
+        "FeO",
+        "Fe2O3",
+        "Fe3O4",
+        "FeS"
+      ],
+      "source_row": 3,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-003",
+      "question": "أي خام من خامات الحديد يتميز بخاصيته المغناطيسية؟",
+      "type": "multiple_choice",
+      "options": [
+        "الهيماتيت",
+        "الليمونايت",
+        "الماجنيتايت",
+        "FeO"
+      ],
+      "source_row": 4,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-004",
+      "question": "ما الصيغة الكيميائية للهيماتيت؟",
+      "type": "multiple_choice",
+      "options": [
+        "Fe3O4",
+        "Fe2O3",
+        "FeO",
+        "FeS"
+      ],
+      "source_row": 5,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-005",
+      "question": "ما الصيغة الكيميائية للليمونايت؟",
+      "type": "multiple_choice",
+      "options": [
+        "Fe2O3·nH2O",
+        "Fe3O4",
+        "FeO",
+        "FeCl3"
+      ],
+      "source_row": 6,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-006",
+      "question": "ما المادة المختزلة المستخدمة في استخلاص الحديد؟",
+      "type": "multiple_choice",
+      "options": [
+        "الحجر الجيري",
+        "فحم الكوك",
+        "الخبث",
+        "الأكسجين"
+      ],
+      "source_row": 7,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-007",
+      "question": "أين تتم عملية اختزال خام الحديد؟",
+      "type": "multiple_choice",
+      "options": [
+        "الفرن الكهربائي",
+        "الفرن العالي",
+        "المعمل",
+        "المكثف"
+      ],
+      "source_row": 8,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-008",
+      "question": "مم تتكون شحنة الفرن العالي؟",
+      "type": "multiple_choice",
+      "options": [
+        "خام الحديد وفحم الكوك والحجر الجيري",
+        "الحديد والماء والأكسجين",
+        "الكبريت والحديد والماء",
+        "FeO وFeS وHCl"
+      ],
+      "source_row": 9,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-009",
+      "question": "ما الغاز الذي يعد عامل الاختزال الفعال في الفرن العالي؟",
+      "type": "multiple_choice",
+      "options": [
+        "CO2",
+        "CO",
+        "O2",
+        "H2"
+      ],
+      "source_row": 10,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-010",
+      "question": "ما التفاعل الذي ينتج ثاني أكسيد الكربون في الفرن؟",
+      "type": "multiple_choice",
+      "options": [
+        "C + O2 → CO2",
+        "CO2 + C → 2CO",
+        "CaCO3 → CaO + CO2",
+        "Fe + S → FeS"
+      ],
+      "source_row": 11,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-011",
+      "question": "ما التفاعل الذي ينتج أول أكسيد الكربون؟",
+      "type": "multiple_choice",
+      "options": [
+        "C + O2 → CO2",
+        "CO2 + C → 2CO",
+        "CaO + SiO2 → CaSiO3",
+        "Fe + HCl → FeCl2 + H2"
+      ],
+      "source_row": 12,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-012",
+      "question": "ما ترتيب اختزال أكاسيد الحديد في الفرن العالي؟",
+      "type": "multiple_choice",
+      "options": [
+        "FeO → Fe3O4 → Fe2O3 → Fe",
+        "Fe2O3 → Fe3O4 → FeO → Fe",
+        "Fe3O4 → Fe2O3 → FeO → Fe",
+        "Fe → FeO → Fe3O4 → Fe2O3"
+      ],
+      "source_row": 13,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-013",
+      "question": "ما وظيفة الحجر الجيري في الفرن العالي؟",
+      "type": "multiple_choice",
+      "options": [
+        "زيادة كمية الحديد",
+        "تكوين الهيدروجين",
+        "المساعدة في التخلص من الشوائب",
+        "إنتاج الأكسجين"
+      ],
+      "source_row": 14,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-014",
+      "question": "ما الصيغة الكيميائية للحجر الجيري؟",
+      "type": "multiple_choice",
+      "options": [
+        "CaO",
+        "CaCO3",
+        "CaSiO3",
+        "CO2"
+      ],
+      "source_row": 15,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-015",
+      "question": "إلى ماذا يتحلل CaCO3 عند درجات الحرارة المرتفعة؟",
+      "type": "multiple_choice",
+      "options": [
+        "Fe وCO2",
+        "CaO وCO2",
+        "CaSiO3 وFe",
+        "CaO وO2"
+      ],
+      "source_row": 16,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-016",
+      "question": "ما الناتج من تفاعل CaO مع SiO2؟",
+      "type": "multiple_choice",
+      "options": [
+        "CaCO3",
+        "CaSiO3",
+        "FeSiO3",
+        "Al2O3"
+      ],
+      "source_row": 17,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-017",
+      "question": "أين يتجمع الحديد المصهور في الفرن العالي؟",
+      "type": "multiple_choice",
+      "options": [
+        "في قمة الفرن",
+        "في منتصف الفرن",
+        "في قاعدة الفرن",
+        "خارج الفرن"
+      ],
+      "source_row": 18,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-018",
+      "question": "ما اسم المزيج الناتج من تفاعل CaO مع الشوائب؟",
+      "type": "multiple_choice",
+      "options": [
+        "الحديد الفلزي",
+        "الخبث",
+        "فحم الكوك",
+        "الهيماتيت"
+      ],
+      "source_row": 19,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-019",
+      "question": "ما نسبة الحديد التقريبية في الحديد الفلزي حسب المصدر؟",
+      "type": "multiple_choice",
+      "options": [
+        "0.25",
+        "0.5",
+        "0.75",
+        "0.95"
+      ],
+      "source_row": 20,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-020",
+      "question": "ما درجة انصهار الحديد؟",
+      "type": "multiple_choice",
+      "options": [
+        "1000°C",
+        "1535°C",
+        "2000°C",
+        "2750°C"
+      ],
+      "source_row": 21,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-021",
+      "question": "الحديد من أكثر الفلزات الانتقالية استعمالًا.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 22,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-022",
+      "question": "Fe3O4 هو أكسيد الحديد (III).",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 23,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-023",
+      "question": "الماجنيتايت خام مغناطيسي.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 24,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-024",
+      "question": "الهيماتيت صيغته الكيميائية Fe2O3.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 25,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-025",
+      "question": "الليمونايت لا يحتوي على ماء في تركيبه.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 26,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-026",
+      "question": "فحم الكوك ينتج من الفحم الحجري بتسخينه بمعزل عن الهواء.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 27,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-027",
+      "question": "يتم استخلاص الحديد من خاماته عن طريق الأكسدة.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 28,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-028",
+      "question": "الشحنة في الفرن العالي تتكون من خام الحديد وفحم الكوك والحجر الجيري.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 29,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-029",
+      "question": "أول أكسيد الكربون CO هو عامل الاختزال الفعال في الفرن العالي.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 30,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-030",
+      "question": "التفاعل CO2 + C → 2CO تفاعل طارد للحرارة.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 31,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-031",
+      "question": "يتحول Fe2O3 مباشرة إلى الحديد دون المرور بمراحل أخرى في الفرن.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 32,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-032",
+      "question": "الحجر الجيري صيغته CaCO3.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 33,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-033",
+      "question": "يتحلل CaCO3 عند درجات الحرارة المرتفعة إلى CaO وCO2.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 34,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-034",
+      "question": "يتفاعل CaO مع SiO2 مكونًا CaSiO3.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 35,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-035",
+      "question": "الخبث يطفو على سطح الحديد المصهور في الفرن.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 36,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-036",
+      "question": "درجة انصهار الحديد هي 2750°C.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 37,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-037",
+      "question": "يتفاعل الحديد مع الكبريت مكونًا FeS.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 38,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-038",
+      "question": "يتفاعل الحديد مع الكلور مكونًا FeCl2.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 39,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-039",
+      "question": "يتفاعل الحديد مع حمض الهيدروكلوريك منتجًا غاز الهيدروجين.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 40,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    },
+    {
+      "id": "iron-self-040",
+      "question": "طبقة الصدأ تحمي الحديد من استمرار التآكل حماية كاملة.",
+      "type": "true_false",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "source_row": 41,
+      "subject": "كيمياء",
+      "content_status": "DRAFT"
+    }
+  ]
+}

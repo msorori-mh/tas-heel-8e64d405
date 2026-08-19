@@ -1,0 +1,158 @@
+{
+  "capability": "officialBookContent",
+  "status": "REVIEW_REQUIRED",
+  "standard": "20A",
+  "source_file": "الدرس الرابع-الحديد (2).pdf",
+  "source_sha256": "sha256:79bffd410fde5ff776b28ca805173d66d9ff02e12b76e324006986ee57b4b0b7",
+  "source_pages": "PDF pages 1-5; printed pages 14-18",
+  "blocks": [
+    {
+      "id": "iron-family",
+      "type": "TABLE",
+      "source_page": 1,
+      "book_page": 14,
+      "text": "عائلة الحديد"
+    },
+    {
+      "id": "intro",
+      "type": "PARAGRAPH",
+      "source_page": 1,
+      "book_page": 14,
+      "text": "يعد الحديد من أكثر الفلزات الانتقالية استخداماً، ويقع في المجموعة الثامنة والدورة الرابعة من الجدول الدوري."
+    },
+    {
+      "id": "ores",
+      "type": "PARAGRAPH",
+      "source_page": 1,
+      "book_page": 14,
+      "text": "أهم خامات الحديد: الماجنيتيت Fe3O4، والهيماتيت Fe2O3، والليمونيت Fe2O3·nH2O."
+    },
+    {
+      "id": "mining",
+      "type": "PARAGRAPH",
+      "source_page": 1,
+      "book_page": 14,
+      "text": "يستخلص الحديد من خاماته في الفرن العالي (اللافح)، وتسمى المواد الداخلة إلى الفرن بالشحنة."
+    },
+    {
+      "id": "charge",
+      "type": "PARAGRAPH",
+      "source_page": 2,
+      "book_page": 15,
+      "text": "تتكون الشحنة من خام الحديد وفحم الكوك والحجر الجيري."
+    },
+    {
+      "id": "carbon",
+      "type": "FORMULA",
+      "source_page": 2,
+      "book_page": 15,
+      "text": "C + O2 → CO2"
+    },
+    {
+      "id": "furnace-diagram",
+      "type": "DIAGRAM",
+      "source_page": 3,
+      "book_page": 16,
+      "text": "رسم تخطيطي للفرن العالي (اللافح)"
+    },
+    {
+      "id": "co",
+      "type": "FORMULA",
+      "source_page": 3,
+      "book_page": 16,
+      "text": "CO2 + C → 2CO"
+    },
+    {
+      "id": "reduction",
+      "type": "FORMULA",
+      "source_page": 3,
+      "book_page": 16,
+      "text": "Fe2O3 → Fe3O4 → FeO → Fe"
+    },
+    {
+      "id": "reduction-reactions",
+      "type": "FORMULA",
+      "source_page": 3,
+      "book_page": 16,
+      "text": "Fe2O3 + CO → Fe3O4 + CO2؛ Fe3O4 + CO → FeO + CO2؛ FeO + CO → Fe + CO2"
+    },
+    {
+      "id": "limestone",
+      "type": "PARAGRAPH",
+      "source_page": 4,
+      "book_page": 17,
+      "text": "يتحلل الحجر الجيري بالحرارة، ويتفاعل أكسيد الكالسيوم الناتج مع الشوائب مكوناً الخبث."
+    },
+    {
+      "id": "slag",
+      "type": "FORMULA",
+      "source_page": 4,
+      "book_page": 17,
+      "text": "CaCO3 → CaO + CO2؛ CaO + SiO2 → CaSiO3 (الخبث)"
+    },
+    {
+      "id": "pig-iron",
+      "type": "PARAGRAPH",
+      "source_page": 4,
+      "book_page": 17,
+      "text": "ينتج الحديد الغفل، ثم ينقل إلى مراحل التصنيع المختلفة."
+    },
+    {
+      "id": "physical-properties",
+      "type": "PARAGRAPH",
+      "source_page": 4,
+      "book_page": 17,
+      "text": "الحديد فلز فضي اللون، لين قابل للطرق والسحب، وموصل جيد للحرارة والكهرباء، ودرجة انصهاره 1535 درجة مئوية."
+    },
+    {
+      "id": "oxygen-water",
+      "type": "FORMULA",
+      "source_page": 5,
+      "book_page": 18,
+      "text": "يتفاعل الحديد مع الأكسجين وبخار الماء مكوناً Fe3O4."
+    },
+    {
+      "id": "rust",
+      "type": "PARAGRAPH",
+      "source_page": 5,
+      "book_page": 18,
+      "text": "يتكون الصدأ عند تعرض الحديد للهواء الرطب."
+    },
+    {
+      "id": "chlorine",
+      "type": "FORMULA",
+      "source_page": 5,
+      "book_page": 18,
+      "text": "2Fe + 3Cl2 → 2FeCl3"
+    },
+    {
+      "id": "sulfur",
+      "type": "FORMULA",
+      "source_page": 5,
+      "book_page": 18,
+      "text": "يتفاعل الحديد مع الكبريت مكوناً كبريتيد الحديد."
+    },
+    {
+      "id": "acids",
+      "type": "PARAGRAPH",
+      "source_page": 5,
+      "book_page": 18,
+      "text": "يتفاعل الحديد مع الأحماض المخففة وينتج الهيدروجين وأملاح الحديد، ولا يتأثر الحديد بحمض الكبريتيك وحمض النيتريك المركزين."
+    },
+    {
+      "id": "passivation",
+      "type": "PARAGRAPH",
+      "source_page": 5,
+      "book_page": 18,
+      "text": "تخميل الحديد هو تكوّن طبقة واقية على سطحه عند تعرضه لبعض العوامل."
+    },
+    {
+      "id": "activity-reference",
+      "type": "NOTE",
+      "source_page": 5,
+      "book_page": 18,
+      "text": "ارجع إلى النشاط العملي للكشف عن الحديد في أملاحه."
+    }
+  ],
+  "source_note": "Embedded Arabic PDF font makes raw text extraction unreliable. Human page/image fidelity review is required before READY; no external correction was applied."
+}

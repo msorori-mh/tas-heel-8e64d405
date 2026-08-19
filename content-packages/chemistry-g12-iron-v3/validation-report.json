@@ -1,0 +1,30 @@
+{
+  "package": "chemistry-g12-iron-v3",
+  "overall": "REVIEW_REQUIRED",
+  "checks": {
+    "CSP": "PASS",
+    "ANSWER_LEAK_SCAN": "PASS",
+    "RATIONALE_LEAK_SCAN": "PASS",
+    "EXTERNAL_DEPENDENCY": "ZERO",
+    "RTL": "PASS",
+    "MOBILE": "PASS_STATIC",
+    "OFFICIAL_PARSER": "PASS (0 errors)",
+    "OFFICIAL_FIDELITY": "REVIEW_REQUIRED",
+    "IDENTITY": "CONTENT_GAP",
+    "PACKAGE_TESTS": "12/12 PASS",
+    "REGRESSION_TESTS": "209/209 PASS",
+    "TYPECHECK": "PASS (npx tsc --noEmit)",
+    "BUILD": "PASS (npm run build)",
+    "BROWSER_VISUAL": "UNAVAILABLE_IN_EXECUTION_ENV; static checks completed"
+  },
+  "readiness": {
+    "BOOK_READY": false,
+    "LEARNING_READY": false,
+    "ASSESSMENT_READY": false,
+    "FULLY_READY": false,
+    "missing_reasons": [
+      "Chemistry Grade 12 lesson identity IDs/codes are not resolvable from this repo checkout.",
+      "Official PDF requires human page-by-page fidelity approval before READY."
+    ]
+  }
+}
