@@ -198,18 +198,20 @@ BEGIN
   IF _idempotency_key IS NULL OR length(btrim(_idempotency_key)) < 8 THEN
     RAISE EXCEPTION 'CF10_IDEMPOTENCY_KEY_REQUIRED' USING ERRCODE = '22023';
   END IF;
-  IF _expected_plan_sha256 IS DISTINCT FROM plan_sha THEN
-    RAISE EXCEPTION 'CF10_WRITE_PLAN_HASH_MISMATCH' USING ERRCODE = '23514';
-  END IF;
-
+  -- Replay is resolved against the pinned ledger plan first: a completed batch changes the
+  -- observed pre-state (lessonExists), so the freshly computed plan hash is not comparable.
   SELECT * INTO replay FROM public.golden_lesson_domain_materializations WHERE batch_id = _batch_id;
   IF replay.id IS NOT NULL THEN
-    IF replay.write_plan_sha256 IS DISTINCT FROM plan_sha
-       OR replay.idempotency_key IS DISTINCT FROM btrim(_idempotency_key) THEN
+    IF replay.idempotency_key IS DISTINCT FROM btrim(_idempotency_key)
+       OR _expected_plan_sha256 IS DISTINCT FROM replay.write_plan_sha256 THEN
       RAISE EXCEPTION 'CF10_REPLAY_CONFLICT' USING ERRCODE = '23514';
     END IF;
     RETURN replay.result || jsonb_build_object('idempotent',true,'writes_performed',0,
       'domain_writes_performed',0);
+  END IF;
+
+  IF _expected_plan_sha256 IS DISTINCT FROM plan_sha THEN
+    RAISE EXCEPTION 'CF10_WRITE_PLAN_HASH_MISMATCH' USING ERRCODE = '23514';
   END IF;
 
   -- Lesson: created only when absent under the authoritative existing subject.
