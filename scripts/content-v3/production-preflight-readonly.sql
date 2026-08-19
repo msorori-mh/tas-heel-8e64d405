@@ -159,11 +159,39 @@ BEGIN
       RAISE NOTICE '20C READY_rows_without_content=0';
     END IF;
 
+    -- originalBookPdf is out of the V3 contract, but lifecycle history is kept.
+    -- The blocker is a RETIRED-but-still-READY row, never the row's existence.
     EXECUTE $q$SELECT count(*) FROM public.lesson_capability_lifecycle WHERE capability = 'originalBookPdf'$q$ INTO v_count;
-    RAISE NOTICE '20C legacy_originalBookPdf_lifecycle_rows=% final_contract=EXCLUDED', v_count;
+    RAISE NOTICE '20C legacy_originalBookPdf_lifecycle_rows=% final_contract=EXCLUDED_RETAINED_AS_HISTORY', v_count;
+
+    EXECUTE $q$
+      SELECT count(*) FROM public.lesson_capability_lifecycle
+       WHERE capability = 'originalBookPdf' AND status = 'READY'
+    $q$ INTO v_count;
     IF v_count > 0 THEN
       v_bad := v_bad + v_count;
-      RAISE NOTICE 'STOP_PRODUCTION_STATE_INCOMPATIBLE legacy_originalBookPdf_lifecycle_rows_present=%', v_count;
+      RAISE NOTICE 'STOP_PRODUCTION_STATE_INCOMPATIBLE originalBookPdf_rows_still_ready=%', v_count;
+    ELSE
+      RAISE NOTICE 'R5 originalBookPdf_rows_still_ready=0';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public'
+         AND table_name='lesson_capability_lifecycle'
+         AND column_name='retirement_origin'
+    ) THEN
+      EXECUTE $q$
+        SELECT count(*) FROM public.lesson_capability_lifecycle
+         WHERE capability = 'originalBookPdf'
+           AND COALESCE(retirement_origin, '') <> 'LEGACY_20C'
+      $q$ INTO v_count;
+      IF v_count > 0 THEN
+        v_bad := v_bad + v_count;
+        RAISE NOTICE 'STOP_PRODUCTION_STATE_INCOMPATIBLE originalBookPdf_rows_without_retirement_provenance=%', v_count;
+      ELSE
+        RAISE NOTICE 'R5 originalBookPdf_retirement_provenance=COMPLETE';
+      END IF;
     END IF;
 
     SELECT count(*) INTO v_count
