@@ -172,7 +172,10 @@ BEGIN
       IF COALESCE(artifact->>'provenancePath','') = '' THEN
         RAISE EXCEPTION 'OFFICIAL_PROVENANCE_MISSING: %', capability USING ERRCODE = '22023';
       END IF;
-      IF COALESCE(artifact->>'provenanceSha256','') !~ '^[a-f0-9]{64}
+      IF COALESCE(artifact->>'provenanceSha256','') !~ '^[a-f0-9]{64}$' THEN
+        RAISE EXCEPTION 'OFFICIAL_PROVENANCE_HASH_INVALID: %', capability USING ERRCODE = '22023';
+      END IF;
+    END IF;
   END LOOP;
 
   IF (_manifest#>>'{security,answersCompanionPath}' IS NULL) <> (_manifest#>>'{security,answersCompanionSha256}' IS NULL) THEN

@@ -124,7 +124,7 @@ export function validateGoldenLessonPackage(pkg: GoldenLessonPackage): GoldenLes
   ].filter((path): path is string => typeof path === "string");
   const seenPaths = new Set<string>();
   for (const path of packagePaths) {
-    if (!path || path.length > 255 || path === "." || path === ".." || /[\\/\\\\\\u0000-\\u001f]/u.test(path)) {
+    if (!path || path.length > 255 || path === "." || path === ".." || /[\/\\\u0000-\u001f]/u.test(path)) {
       error("PACKAGE_PATH_UNSAFE", "artifacts", "اسم الملف غير آمن؛ استخدم اسم ملف فقط دون مجلدات أو محارف تحكم.");
     }
     if (seenPaths.has(path)) error("PACKAGE_PATH_DUPLICATE", "artifacts", "لا يجوز أن يشترك ملفان في الاسم نفسه داخل الحزمة.");

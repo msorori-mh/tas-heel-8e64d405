@@ -25,5 +25,5 @@ test("builder emits a portable ZIP containing manifest and actual files", () => 
 test("duplicate and unsafe package paths fail closed", () => {
   assert.match(validator, /PACKAGE_PATH_DUPLICATE/);
   assert.match(validator, /PACKAGE_PATH_UNSAFE/);
-  assert.match(validator, /[\\/]\\\\/);
+  assert.match(validator, /u0000/);
 });
