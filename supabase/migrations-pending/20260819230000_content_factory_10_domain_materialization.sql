@@ -287,8 +287,11 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- 6) officialBookQuestions -> questions + question_revisions + question_options,
-  --    answers strictly revision-pinned into the confidential tables.
+  -- 6) officialBookQuestions -> questions + question_revisions(DRAFT) + question_options + targets.
+  --    Answers stay strictly revision-pinned inside the confidential tables.
+  --    CF10-R2: production `qb_guard_question_revision_lifecycle` forbids inserting a revision as
+  --    APPROVED/PUBLISHED/SUPERSEDED, and `questions.current_published_revision_id` may only point at a
+  --    PUBLISHED revision. CF10 therefore writes DRAFT revisions only and never moves the pointer.
   question_json := CASE WHEN payloads->'officialBookQuestions'->>'text' IS NULL THEN '{}'::jsonb
                         ELSE (payloads->'officialBookQuestions'->>'text')::jsonb END;
   IF jsonb_typeof(question_json) <> 'object' THEN question_json := jsonb_build_object('questions', question_json); END IF;
@@ -306,16 +309,16 @@ BEGIN
       writes := writes + 1;
 
       INSERT INTO public.question_revisions(question_id, revision_number, status, interaction_type,
-                                            question_text, max_score, allow_partial, requires_media,
-                                            manual_grading_required, payload_hash_version, created_by,
-                                            published_at, published_by)
-      VALUES (question_row.id, 1, 'published', coalesce(item->>'question_type','SHORT_ANSWER'),
-              item->>'official_text', 1, false, false, true, 'v1', _actor_id, now(), _actor_id)
+                                            grading_mode, question_text, max_score, allow_partial,
+                                            requires_media, manual_grading_required,
+                                            payload_hash_version, source_payload_hash, created_by)
+      VALUES (question_row.id, 1, 'DRAFT', coalesce(item->>'question_type','SHORT_ANSWER'),
+              'MANUAL', item->>'official_text', 1, false, false, true,
+              'canonical_payload_v1', payloads->'officialBookQuestions'->>'sha256', _actor_id)
       RETURNING id INTO v_revision_id;
       writes := writes + 1;
 
-      UPDATE public.questions SET current_published_revision_id = v_revision_id WHERE id = question_row.id;
-
+      options_written := 0;
       FOR opt IN SELECT value FROM jsonb_array_elements(coalesce(item->'options','[]'::jsonb)) LOOP
         INSERT INTO public.question_options(question_revision_id, option_code, body, sort_order, is_correct)
         VALUES (v_revision_id, coalesce(opt->>'code', 'opt-' || options_written::text),
@@ -323,11 +326,25 @@ BEGIN
         options_written := options_written + 1;
         writes := writes + 1;
       END LOOP;
+
+      INSERT INTO public.question_targets(question_id, revision_id, target_type, subject_id,
+                                          lesson_id, is_primary, created_by)
+      VALUES (question_row.id, v_revision_id, 'LESSON', subject_row.id, lesson_row.id, true, _actor_id);
+      targets_written := targets_written + 1;
+      writes := writes + 1;
+
+      -- Canonical QB contract hash over the freshly written draft payload (no invented algorithm).
+      UPDATE public.question_revisions
+         SET payload_hash = public._qb_compute_revision_payload_hash(v_revision_id),
+             payload_hash_version = 'canonical_payload_v1'
+       WHERE id = v_revision_id;
     ELSE
       IF question_row.question_text IS DISTINCT FROM item->>'official_text' THEN
         RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: questions %', question_code USING ERRCODE = '23514';
       END IF;
-      v_revision_id := question_row.current_published_revision_id;
+      SELECT id INTO v_revision_id FROM public.question_revisions
+       WHERE question_id = question_row.id AND status = 'DRAFT'
+       ORDER BY revision_number DESC LIMIT 1;
     END IF;
 
     SELECT value INTO answer FROM jsonb_array_elements(coalesce((companion->>'body')::jsonb->'answers','[]'::jsonb))
@@ -341,7 +358,10 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- 7) selfTest -> lesson_assessments + assessment_questions (+ revision-pinned rationales)
+  -- 7) selfTest -> lesson_assessments shell + DRAFT questions (+ revision-pinned rationales).
+  --    CF10-R2: `validate_assessment_question_link` requires a PUBLISHED revision plus a matching
+  --    target on that published revision, so assessment membership CANNOT be written in a DRAFT-only
+  --    pass. Membership is deliberately deferred to the later approval/publish stage.
   question_json := CASE WHEN payloads->'selfTest'->>'text' IS NULL THEN NULL
                         ELSE (payloads->'selfTest'->>'text')::jsonb END;
   IF question_json IS NOT NULL THEN
@@ -369,13 +389,13 @@ BEGIN
 
       INSERT INTO public.question_revisions(question_id, revision_number, status, interaction_type,
                                             question_text, max_score, allow_partial, requires_media,
-                                            manual_grading_required, payload_hash_version, created_by,
-                                            published_at, published_by)
-      VALUES (question_row.id, 1, 'published', coalesce(item->>'type','multiple_choice'),
-              item->>'question', 1, false, false, false, 'v1', _actor_id, now(), _actor_id)
+                                            manual_grading_required, payload_hash_version,
+                                            source_payload_hash, created_by)
+      VALUES (question_row.id, 1, 'DRAFT', coalesce(item->>'type','multiple_choice'),
+              item->>'question', 1, false, false, false, 'canonical_payload_v1',
+              payloads->'selfTest'->>'sha256', _actor_id)
       RETURNING id INTO v_revision_id;
       writes := writes + 1;
-      UPDATE public.questions SET current_published_revision_id = v_revision_id WHERE id = question_row.id;
 
       options_written := 0;
       FOR opt IN SELECT value FROM jsonb_array_elements(coalesce(item->'options','[]'::jsonb)) LOOP
@@ -385,14 +405,22 @@ BEGIN
         options_written := options_written + 1;
         writes := writes + 1;
       END LOOP;
-    ELSE
-      v_revision_id := question_row.current_published_revision_id;
-    END IF;
 
-    INSERT INTO public.assessment_questions(assessment_id, question_id, sort_order, points)
-    VALUES (v_assessment_id, question_row.id, coalesce((item->>'source_row')::integer, 0), 1)
-    ON CONFLICT (assessment_id, question_id) DO NOTHING;
-    writes := writes + 1;
+      INSERT INTO public.question_targets(question_id, revision_id, target_type, subject_id,
+                                          lesson_id, is_primary, created_by)
+      VALUES (question_row.id, v_revision_id, 'LESSON', subject_row.id, lesson_row.id, true, _actor_id);
+      targets_written := targets_written + 1;
+      writes := writes + 1;
+
+      UPDATE public.question_revisions
+         SET payload_hash = public._qb_compute_revision_payload_hash(v_revision_id),
+             payload_hash_version = 'canonical_payload_v1'
+       WHERE id = v_revision_id;
+    ELSE
+      SELECT id INTO v_revision_id FROM public.question_revisions
+       WHERE question_id = question_row.id AND status = 'DRAFT'
+       ORDER BY revision_number DESC LIMIT 1;
+    END IF;
 
     SELECT value INTO answer FROM jsonb_array_elements(coalesce((companion->>'body')::jsonb->'answers','[]'::jsonb))
       WHERE value->>'question_id' = (item->>'id');
@@ -412,6 +440,7 @@ BEGIN
     END IF;
   END LOOP;
   END IF;
+
 
   -- Lifecycle: seven capabilities, DRAFT + REQUIRED only. No REVIEW / READY / publish.
   FOR cap, lifecycle_cap IN
