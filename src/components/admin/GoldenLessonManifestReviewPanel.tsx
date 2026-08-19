@@ -80,7 +80,7 @@ export function GoldenLessonManifestReviewPanel() {
     try {
       if (file.size > GOLDEN_PACKAGE_MAX_MANIFEST_BYTES) throw new Error("MANIFEST_TOO_LARGE");
       const raw = await file.text(); const parsed = parseGoldenLessonManifest(raw); const result = previewGoldenLessonStaging(parsed);
-      setManifest(parsed); setPreview(result); setManifestHash(await sha256Text(raw));
+      setManifest(parsed as GoldenLessonPackage); setPreview(result); setManifestHash(await sha256Text(raw));
       setEvidence((current) => ({ ...current, packageValidationPassed: result.valid }));
       setMessage(result.valid ? "نجح Dry-Run المحلي. الحفظ في staging متاح فقط بعد تطبيق المخطط." : "فشل Dry-Run: صحح الأخطاء.");
     } catch (error) {

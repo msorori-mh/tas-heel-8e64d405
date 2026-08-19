@@ -35,7 +35,7 @@ export interface GoldenPackageReview {
   fromStatus: GoldenPersistentReviewStatus;
   toStatus: GoldenPersistentReviewStatus;
   actorRole: "CONTENT_EDITOR" | "CONTENT_REVIEWER" | "TECHNICAL_REVIEWER";
-  evidence: Record<string, unknown>;
+  evidence: Record<string, boolean | string | number | null>;
   note: string | null;
   createdAt: string;
 }
@@ -116,7 +116,7 @@ export const getGoldenLessonPackageHistory = createServerFn({ method: "GET" })
     const reviews = assertDb(reviewsResult) as Array<Record<string, unknown>>;
     return {
       versions: versions.map((row) => ({ version: Number(row.version), clientManifestSha256: String(row.client_manifest_sha256), canonicalManifestSha256: String(row.canonical_manifest_sha256), createdAt: String(row.created_at) })),
-      reviews: reviews.map((row) => ({ packageVersion: Number(row.package_version), fromStatus: row.from_status as GoldenPersistentReviewStatus, toStatus: row.to_status as GoldenPersistentReviewStatus, actorRole: row.actor_role as GoldenPackageReview["actorRole"], evidence: (row.evidence ?? {}) as Record<string, unknown>, note: row.note === null ? null : String(row.note), createdAt: String(row.created_at) })),
+      reviews: reviews.map((row) => ({ packageVersion: Number(row.package_version), fromStatus: row.from_status as GoldenPersistentReviewStatus, toStatus: row.to_status as GoldenPersistentReviewStatus, actorRole: row.actor_role as GoldenPackageReview["actorRole"], evidence: (row.evidence ?? {}) as Record<string, boolean | string | number | null>, note: row.note === null ? null : String(row.note), createdAt: String(row.created_at) })),
     };
   });
 
