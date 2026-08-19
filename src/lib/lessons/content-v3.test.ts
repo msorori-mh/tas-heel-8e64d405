@@ -200,9 +200,10 @@ describe("21D — official book questions answer layer", () => {
       allowed: false,
       reason: "NO_ATTEMPT_SUBMITTED",
     });
-    expect(
-      evaluateReveal({ ...base, attemptSubmitted: true, submittedAnswer: "" }).allowed,
-    ).toBe(true);
+    expect(evaluateReveal({ ...base, attemptSubmitted: true, submittedAnswer: "" })).toEqual({
+      allowed: false,
+      reason: "EMPTY_SUBMISSION",
+    });
   });
 
   it("fails closed on revision mismatch and unready lessons", () => {

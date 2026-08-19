@@ -199,8 +199,7 @@ export interface LessonContentContractInput {
   /**
    * 20C — editorial lifecycle rows (lesson_capability_lifecycle).
    * A missing entry means "legacy content", handled by 20B presence rules.
-   * Any present entry is authoritative and FAIL-CLOSED: only READY may render,
-   * unless a previously approved (frozen) READY snapshot exists.
+   * Any present entry is authoritative and FAIL-CLOSED: only READY may render.
    */
   lifecycle?: LessonLifecycleMap;
 }
@@ -210,8 +209,9 @@ export type LessonCapabilityLifecycleStatus = "DRAFT" | "REVIEW" | "READY";
 
 /**
  * 20C-B — a lifecycle row as the workspace sees it.
- * `hasReady` means an approved snapshot was frozen at some point, so a newer
- * DRAFT revision must NOT remove the approved version from the student.
+ * `hasReady` is retained for editorial/admin diagnostics. Student-facing
+ * visibility is governed by the canonical RPC contract: only READY is
+ * visible; a stored snapshot never upgrades DRAFT or REVIEW to visible.
  */
 export interface LessonCapabilityLifecycleEntry {
   status: LessonCapabilityLifecycleStatus;
@@ -236,16 +236,14 @@ export function normalizeLifecycleEntry(
  * 20C-B — may the student render this capability, lifecycle-wise?
  *  - no row              → yes (legacy grandfathering)
  *  - READY               → yes
- *  - DRAFT/REVIEW + frozen approved snapshot → yes (previous READY stays live)
- *  - DRAFT/REVIEW        → no
+ *  - DRAFT/REVIEW        → no, even when a snapshot exists
  */
 export function isLifecycleStudentVisible(
   value: LessonCapabilityLifecycleStatus | LessonCapabilityLifecycleEntry | undefined,
 ): boolean {
   const entry = normalizeLifecycleEntry(value);
   if (!entry) return true;
-  if (entry.status === "READY") return true;
-  return entry.hasReady === true;
+  return entry.status === "READY";
 }
 
 /** Capabilities that carry an editorial lifecycle (performance is derived). */
@@ -257,8 +255,8 @@ export const LIFECYCLE_CAPABILITIES: readonly LessonContentCapabilityKey[] =
  * Rules:
  *  - no lifecycle row  → unchanged (legacy grandfathering, no silent hiding)
  *  - READY             → unchanged (presence rules still apply)
- *  - DRAFT / REVIEW    → status DRAFT; student sees it only when an approved
- *                        snapshot was frozen earlier (READY stays live).
+ *  - DRAFT / REVIEW    → status DRAFT and hidden from students. A snapshot is
+ *                        operator metadata, not a student visibility grant.
  */
 export function applyLifecycleOverlay(
   contract: LessonCapabilityContract,
@@ -268,17 +266,13 @@ export function applyLifecycleOverlay(
   for (const key of LIFECYCLE_CAPABILITIES) {
     const entry = normalizeLifecycleEntry(lifecycle[key]);
     if (!entry || entry.status === "READY") continue;
-    const frozenVisible = entry.hasReady === true && next[key].studentVisible;
     next[key] = {
       ...next[key],
       status: "DRAFT",
-      studentVisible: frozenVisible,
-      readinessReason: frozenVisible ? null : "DRAFT_NOT_PUBLISHED",
-      note: frozenVisible
-        ? entry.status === "REVIEW"
-          ? "نسخة جديدة قيد المراجعة — الطالب يرى النسخة المعتمدة السابقة"
-          : "نسخة تعديل جديدة (مسودة) — الطالب يرى النسخة المعتمدة السابقة"
-        : entry.status === "REVIEW"
+      studentVisible: false,
+      readinessReason: "DRAFT_NOT_PUBLISHED",
+      note:
+        entry.status === "REVIEW"
           ? "قيد المراجعة — غير مرئي للطالب حتى الاعتماد"
           : "مسودة — غير مرئية للطالب حتى الاعتماد",
     };
@@ -446,12 +440,12 @@ export function buildLessonCapabilityContract(
       : {}),
   });
 
-  /* 7 — check understanding (lesson question bank via grade_lesson_quiz) */
+  /* 7 — check understanding (V3 revision-pinned official question RPC) */
   const checkUnderstanding = state("checkUnderstanding", {
     present: input.questionsCount > 0,
     status: input.questionsCount > 0 ? "READY" : "ABSENT",
     studentVisible: input.questionsCount > 0,
-    sourceRef: "questions(lesson_id) → get_lesson_quiz_questions",
+    sourceRef: "questions(current_published_revision_id) → get_lesson_official_questions",
     count: input.questionsCount,
     updatedAt: null,
   });

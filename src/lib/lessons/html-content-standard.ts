@@ -74,8 +74,10 @@ export const ANSWER_LEAK_PATTERNS: readonly RegExp[] = [
   /data-correct\s*=/i,
   /correct-answer\s*=/i,
   /data-rationale\s*=/i,
+  /(?:data|aria)-(?:answer-key|correct-answer|model-answer|rationale)\s*=/i,
   /class=["'][^"']*\b(answer-key|solution-text|teacher-note|explanation-hidden|model-answer)\b[^"']*["']/i,
   /id=["'][^"']*\b(answer-key|solution-text|teacher-note|model-answer)\b[^"']*["']/i,
+  /(?:class|id)=["'][^"']*(?:answer_key|correct-answer|correct_answer|solution_steps|hidden-explanation)[^"']*["']/i,
 ];
 
 /** Any absolute remote reference — external CDNs are forbidden by contract. */

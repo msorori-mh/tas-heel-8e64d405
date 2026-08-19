@@ -32,12 +32,13 @@ describe("lifecycle transitions", () => {
 });
 
 describe("student visibility", () => {
-  test("hides never-approved drafts and keeps frozen READY snapshots live", () => {
+  test("hides DRAFT/REVIEW, including rows with a frozen snapshot", () => {
     assert.equal(lifecycleVisibleForStudent(undefined), true); // legacy
     assert.equal(lifecycleVisibleForStudent("READY"), true);
     assert.equal(lifecycleVisibleForStudent({ status: "DRAFT" }), false);
     assert.equal(lifecycleVisibleForStudent({ status: "REVIEW" }), false);
-    assert.equal(lifecycleVisibleForStudent({ status: "DRAFT", hasReady: true }), true);
+    assert.equal(lifecycleVisibleForStudent({ status: "DRAFT", hasReady: true }), false);
+    assert.equal(lifecycleVisibleForStudent({ status: "REVIEW", hasReady: true }), false);
   });
 
   test("maps rows with hasReady from ready_at or snapshot", () => {
@@ -87,12 +88,12 @@ describe("admin overlay", () => {
     },
   } as any;
 
-  test("marks a new draft revision but keeps the approved version live", () => {
+  test("marks a new draft revision and keeps it hidden", () => {
     const out = applyLifecycleOverlay(base, {
       tamkeenExplanation: { status: "DRAFT", hasReady: true },
     });
     assert.equal(out.tamkeenExplanation.status, "DRAFT");
-    assert.equal(out.tamkeenExplanation.studentVisible, true);
+    assert.equal(out.tamkeenExplanation.studentVisible, false);
   });
 
   test("hides a never-approved draft", () => {
