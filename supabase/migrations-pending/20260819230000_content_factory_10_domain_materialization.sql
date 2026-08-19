@@ -429,14 +429,17 @@ BEGIN
       VALUES (question_row.id, v_revision_id, answer->>'correct_option', answer->>'rationale')
       ON CONFLICT (question_id, revision_id) DO NOTHING;
       answers_written := answers_written + 1;
-      INSERT INTO public.question_option_rationales(question_id, question_revision_id, option_id,
-                                                    why_correct, why_wrong)
-      VALUES (question_row.id, v_revision_id,
-              regexp_replace(coalesce(answer->>'correct_option','?'),'[^a-z]','','g'),
-              answer->>'rationale', NULL)
-      ON CONFLICT (question_revision_id, option_id) DO NOTHING;
-      rationales_written := rationales_written + 1;
-      writes := writes + 2;
+      writes := writes + 1;
+      option_code := regexp_replace(lower(coalesce(answer->>'correct_option','')),'[^a-z]','','g');
+      IF answer->>'rationale' IS NOT NULL AND option_code <> '' THEN
+        INSERT INTO public.question_option_rationales(question_id, question_revision_id, option_id,
+                                                      why_correct, why_wrong)
+        VALUES (question_row.id, v_revision_id, option_code, answer->>'rationale', NULL)
+        ON CONFLICT (question_revision_id, option_id) DO NOTHING;
+        rationales_written := rationales_written + 1;
+        writes := writes + 1;
+      END IF;
+
     END IF;
   END LOOP;
   END IF;
