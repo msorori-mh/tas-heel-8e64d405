@@ -60,10 +60,28 @@ BEGIN
         OR applicability NOT IN ('REQUIRED','OPTIONAL','NA')
   ) THEN RAISE EXCEPTION 'ASSERT_FAIL: invalid lifecycle semantics'; END IF;
 
+  -- Approval evidence: snapshot + hash + timestamp are mandatory. ready_by is
+  -- mandatory unless the row carries the documented R5 legacy provenance,
+  -- which asserts a measured visible baseline and claims no human review.
   IF EXISTS (
     SELECT 1 FROM public.lesson_capability_lifecycle
-     WHERE status='READY' AND (ready_at IS NULL OR ready_by IS NULL)
+     WHERE status='READY'
+       AND (ready_at IS NULL OR ready_snapshot IS NULL OR ready_hash IS NULL)
+  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: READY row lacks snapshot evidence'; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.lesson_capability_lifecycle
+     WHERE status='READY'
+       AND ready_by IS NULL
+       AND COALESCE(evidence_origin, '') <> 'LEGACY_20C_VISIBLE_BASELINE'
   ) THEN RAISE EXCEPTION 'ASSERT_FAIL: READY row lacks approval evidence'; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.lesson_capability_lifecycle
+     WHERE capability='originalBookPdf'
+       AND (status='READY' OR COALESCE(retirement_origin,'') <> 'LEGACY_20C')
+  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: originalBookPdf retirement contract'; END IF;
+
 
   IF EXISTS (
     SELECT 1 FROM public.lesson_capability_lifecycle
