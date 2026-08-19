@@ -10,11 +10,13 @@ test("manifest review panel is mounted after the package builder", () => {
   assert.ok(route.indexOf("<GoldenLessonPackageBuilder />") < route.indexOf("<GoldenLessonManifestReviewPanel />"));
 });
 
-test("review panel is client-only and exposes no execute or server mutation", () => {
-  assert.doesNotMatch(component, /useServerFn|\.rpc\(|\.insert\(|\.update\(|\.upsert\(|\.delete\(/);
+test("review panel uses typed staging functions and exposes no direct RPC or execute path", () => {
+  assert.match(component, /useServerFn/);
+  assert.match(component, /stageGoldenLessonManifest/);
+  assert.match(component, /advanceGoldenLessonReview/);
+  assert.doesNotMatch(component, /\.rpc\(|\.insert\(|\.update\(|\.upsert\(|\.delete\(/);
   assert.doesNotMatch(component, /runContentImportExecute|executeContentImport/);
-  assert.match(component, /domain writes: \{preview\.domainWritesPerformed\}/);
-  assert.match(component, /0 writes/);
+  assert.match(component, /domain writes: 0/);
 });
 
 test("manifest is hash-pinned, size-limited, dry-run checked, and role gated", () => {
