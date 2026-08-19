@@ -16,8 +16,10 @@ production read-only baseline/visibility diff by the Production Operator.
 ## G0 — source lock
 
 ```text
-LOCKED_SOURCE_SHA=bb70108695a3a9e512323221c108fc7e13fdf0c2
-WORK_BRANCH=codex/21h-content-v3-production-preflight
+CURRENT_R3_SOURCE_SHA=f42c22b9f013834b78347bf125d0742363dc27e0
+CURRENT_R3_MIGRATION_SHA256=3D8CDD27A24EA9F0E998BA14E26ADCB87DD0FF6B62FCC3FBD9B790114DD631E3
+LOCKED_SOURCE_SHA=f42c22b9f013834b78347bf125d0742363dc27e0
+WORK_BRANCH=codex/21h-r4-release-metadata
 WORKTREE=C:\projects\tas-heel-content-v3-21h-codex
 CLEAN_START=YES
 ```
@@ -57,7 +59,7 @@ and revokes the grants needed for its own admin RLS policies.
 | `supabase/migrations-pending/20260822010000_lesson_capability_lifecycle_20c.sql` | `235841E9FD532032A22870F31F82B719C059DEEB2B3EF54B123D0E186850EA37` | Duplicate 20C table/RPC/backfill | Do not apply |
 | `supabase/migrations-pending/20260822020000_lesson_capability_lifecycle_20c_grants_hardening.sql` | `4B35D3B6FB210C81523BBF99A9A05D5C8FA3645996A689F7EC9C4A2EADAC5498` | Duplicate 20C grant hardening | Do not apply |
 | `docs/content/drafts/21F-capability-applicability-and-rationale.draft.sql` | `45B674574195D3E79F031F5AEFFF6051FB65EC0667291240169772E7F378F7D9` | Original 21F draft; no completed reveal RPC | Reference only; superseded |
-| `supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql` | `E451B3F571D0DA197475BF44E793BF49B45F9CC08E822AC735C9D12FC1318F40` | Additive lifecycle/applicability + revision-pinned answer layer + safe initial/reveal RPCs | Only 21H apply candidate |
+| `supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql` | `3D8CDD27A24EA9F0E998BA14E26ADCB87DD0FF6B62FCC3FBD9B790114DD631E3` | Additive lifecycle/applicability + revision-pinned answer layer + safe initial/reveal RPCs | Only 21H apply candidate |
 
 The revised candidate is transactional, has no destructive DDL, creates no
 lifecycle backfill rows, and fails before DDL if an unsafe old answer-layer
@@ -263,10 +265,12 @@ Stop before apply if any of the following occurs:
 
 ```text
 FINAL_VERDICT=PASS_CODEX_PREFLIGHT_READY_PENDING_PG17
-SOURCE_SHA=bb70108695a3a9e512323221c108fc7e13fdf0c2
-WORK_BRANCH=codex/21h-content-v3-production-preflight
+CURRENT_R3_SOURCE_SHA=f42c22b9f013834b78347bf125d0742363dc27e0
+CURRENT_R3_MIGRATION_SHA256=3D8CDD27A24EA9F0E998BA14E26ADCB87DD0FF6B62FCC3FBD9B790114DD631E3
+SOURCE_SHA=f42c22b9f013834b78347bf125d0742363dc27e0
+WORK_BRANCH=codex/21h-r4-release-metadata
 MIGRATION_FILES=supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql
-MIGRATION_SHA256=E451B3F571D0DA197475BF44E793BF49B45F9CC08E822AC735C9D12FC1318F40
+MIGRATION_SHA256=3D8CDD27A24EA9F0E998BA14E26ADCB87DD0FF6B62FCC3FBD9B790114DD631E3
 PG17=BLOCKED_PG17_ENVIRONMENT
 PRODUCTION_READONLY=NOT_AVAILABLE; PRODUCTION_BASELINE_PENDING_OPERATOR=YES
 VISIBILITY_DIFF=READY_TO_RUN; EXPECTED_UNCHANGED; UNEXPECTED_GAIN=0; UNEXPECTED_LOSS=0
@@ -277,3 +281,23 @@ TYPECHECK=ENV/BASELINE ERRORS; NO TOUCHED V3 FILE ERROR OBSERVED
 BUILD=ENV-BLOCKED (missing rou3)
 REPORT=docs/content/TAMKEEN-CONTENT-V3-PRODUCTION-APPLY-PREFLIGHT-21H-CODEX-REPORT.md
 ```
+
+## R4 metadata closure addendum
+
+R1/R2 migration identities are historical only:
+
+```text
+R1_MIGRATION_SHA256=E451B3F571D0DA197475BF44E793BF49B45F9CC08E822AC735C9D12FC1318F40
+R2_MIGRATION_SHA256=78F8E642A8DB60CCA3909FCC0A7CB4124B753A122FAB92380E086EA85B02CD34
+```
+
+```text
+QWEN_R3:
+CRITICAL=0
+HIGH hash identity finding=CLOSED
+MEDIUM documentation consistency finding=CLOSED
+QWEN_REVIEW_AFTER_R4=NOT_CLAIMED
+```
+
+This addendum closes metadata consistency only. It does not claim that Qwen
+performed a review after R4.

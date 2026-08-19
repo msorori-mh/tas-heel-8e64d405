@@ -5,9 +5,10 @@ This is an apply package only. Codex did not apply it to production.
 ## 1. Exact source lock
 
 ```text
-SOURCE_SHA=de8c79abf28d2f03307633a4e79088e4334d0269
-WORK_BRANCH=codex/21h-r2-runtime-fixes
-BASE_R1_SHA=4b5465afe371868eef330c6c03766a274d2dcb52
+CURRENT_R3_SOURCE_SHA=f42c22b9f013834b78347bf125d0742363dc27e0
+CURRENT_R3_MIGRATION_SHA256=3D8CDD27A24EA9F0E998BA14E26ADCB87DD0FF6B62FCC3FBD9B790114DD631E3
+WORK_BRANCH=codex/21h-r4-release-metadata
+BASE_R3_SHA=f42c22b9f013834b78347bf125d0742363dc27e0
 ```
 
 ## 2. Exact migration
@@ -17,11 +18,15 @@ gates:
 
 ```text
 supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql
-SHA256=78F8E642A8DB60CCA3909FCC0A7CB4124B753A122FAB92380E086EA85B02CD34
+SHA256=3D8CDD27A24EA9F0E998BA14E26ADCB87DD0FF6B62FCC3FBD9B790114DD631E3
 ```
 
-The R1 migration identity `E451B3F571D0DA197475BF44E793BF49B45F9CC08E822AC735C9D12FC1318F40`
-is historical only. The current R2 candidate is the SHA above.
+Historical migration identities (not current):
+
+- R1: `E451B3F571D0DA197475BF44E793BF49B45F9CC08E822AC735C9D12FC1318F40`
+- R2: `78F8E642A8DB60CCA3909FCC0A7CB4124B753A122FAB92380E086EA85B02CD34`
+
+The current R3 candidate is the SHA above.
 
 R2 closes the two PostgreSQL 17 runtime findings: the visibility-diff
 `UNION ALL` now has an explicit `text` output contract, and
@@ -131,3 +136,15 @@ EXACT_REVISION_PINNING=PASS_STATIC_CANDIDATE
 
 Runtime/network-level confirmation remains the responsibility of the PG17
 rehearsal and the production read-only operator gate.
+
+## R4 metadata closure addendum
+
+```text
+QWEN_R3:
+CRITICAL=0
+HIGH hash identity finding=CLOSED
+MEDIUM documentation consistency finding=CLOSED
+QWEN_REVIEW_AFTER_R4=NOT_CLAIMED
+```
+
+This records finding closure and does not claim a post-R4 Qwen review.

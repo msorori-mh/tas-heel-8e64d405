@@ -1,13 +1,24 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
 
 const root = new URL("../../", import.meta.url);
 const read = (relative) => fs.readFileSync(new URL(relative, root), "utf8");
+const readBytes = (relative) => fs.readFileSync(new URL(relative, root));
 const migration = read("supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql");
+const migrationBytes = readBytes("supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql");
 const baseline = read("scripts/content-v3/production-preflight-readonly.sql");
 const diff = read("scripts/content-v3/visibility-diff-21h.sql");
 const postverify = read("scripts/content-v3/postverify-21h.sql");
+const currentSourceSha = "f42c22b9f013834b78347bf125d0742363dc27e0";
+const currentMigrationSha256 = "3D8CDD27A24EA9F0E998BA14E26ADCB87DD0FF6B62FCC3FBD9B790114DD631E3";
+const releaseMetadata = [
+  read("docs/content/TAMKEEN-CONTENT-V3-21H-R3-FINAL-SCHEMA-RUNTIME-CLOSURE.md"),
+  read("docs/content/TAMKEEN-CONTENT-V3-PRODUCTION-APPLY-BUNDLE-21H.md"),
+  read("docs/content/TAMKEEN-CONTENT-V3-PRODUCTION-APPLY-PREFLIGHT-21H-CODEX-REPORT.md"),
+  read("docs/content/TAMKEEN-CONTENT-V3-21H-R4-FINAL-RELEASE-METADATA-CLOSURE.md"),
+];
 
 function functionBody(sql, name) {
   const start = sql.indexOf(`FUNCTION public.${name}`);
@@ -23,6 +34,16 @@ function executableSql(sql) {
     .replace(/'(?:''|[^'])*'/g, "")
     .replace(/\$q\$[\s\S]*?\$q\$/g, "");
 }
+
+test("R4 release metadata pins the current R3 identity and migration bytes", () => {
+  const canonicalBytes = Buffer.from(migrationBytes.toString("utf8").replace(/\r\n/g, "\n"), "utf8");
+  const actual = createHash("sha256").update(canonicalBytes).digest("hex").toUpperCase();
+  assert.equal(actual, currentMigrationSha256);
+  for (const document of releaseMetadata) {
+    assert.match(document, new RegExp(`CURRENT_R3_SOURCE_SHA=${currentSourceSha}`));
+    assert.match(document, new RegExp(`CURRENT_R3_MIGRATION_SHA256=${currentMigrationSha256}`));
+  }
+});
 
 test("21H migration is transactional, additive, and has no lifecycle backfill", () => {
   assert.match(migration, /BEGIN;[\s\S]*COMMIT;/);

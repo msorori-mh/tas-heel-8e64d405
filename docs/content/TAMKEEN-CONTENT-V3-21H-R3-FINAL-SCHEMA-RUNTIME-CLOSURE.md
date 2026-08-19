@@ -129,10 +129,12 @@ R1/R2 values are historical only:
 ```text
 R1_MIGRATION_SHA256=E451B3F571D0DA197475BF44E793BF49B45F9CC08E822AC735C9D12FC1318F40
 R2_MIGRATION_SHA256=78F8E642A8DB60CCA3909FCC0A7CB4124B753A122FAB92380E086EA85B02CD34
-R3_MIGRATION_SHA256=6378CAACEB941066C6CF360EAEFFC6F63581BED53FF59908F4454AB2F53CDF0D
+CURRENT_R3_SOURCE_SHA=f42c22b9f013834b78347bf125d0742363dc27e0
+CURRENT_R3_MIGRATION_SHA256=3D8CDD27A24EA9F0E998BA14E26ADCB87DD0FF6B62FCC3FBD9B790114DD631E3
 ```
 
-Only the pending migration was changed; no applied migration was rewritten.
+R1 and R2 values are historical only. The current R3 identity is the exact
+pending migration at the locked R3 source; no applied migration was rewritten.
 
 ## Visibility
 
@@ -163,6 +165,22 @@ Blocked only by local tooling:
 
 - 20C disposable PG17 runner: `initdb: command not found`.
 - 21H PG17 runner: locality guard passed, then `psql was not found`.
+
+## R4 metadata closure addendum
+
+This R4 change closes release metadata identity only. The migration SQL bytes
+remain unchanged.
+
+```text
+QWEN_R3:
+CRITICAL=0
+HIGH hash identity finding=CLOSED
+MEDIUM documentation consistency finding=CLOSED
+QWEN_REVIEW_AFTER_R4=NOT_CLAIMED
+```
+
+The Qwen fields record closure of the finding; they do not claim that Qwen
+performed a review after R4.
 - 21H visibility runtime test: skipped because `TAMKEEN_PG17_LOCAL_URL` is unset.
 
 No remote target was substituted for the missing local PG17 environment.
