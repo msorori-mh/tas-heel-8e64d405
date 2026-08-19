@@ -1,10 +1,13 @@
--- CF10 PG17 fixture: minimal domain surface matching production natural keys.
+-- CF10 PG17 fixture: domain surface mirroring production natural keys, constraints and triggers.
 ALTER TABLE public.lessons ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE public.lessons ADD COLUMN title text NOT NULL DEFAULT 'درس';
 ALTER TABLE public.lessons ADD COLUMN is_free boolean DEFAULT false;
 ALTER TABLE public.lessons ADD COLUMN semester integer;
+ALTER TABLE public.lessons ADD COLUMN unit_id uuid;
+ALTER TABLE public.lessons ADD COLUMN delivery_mode text NOT NULL DEFAULT 'in_app_content';
 ALTER TABLE public.lessons ADD COLUMN sort_order integer NOT NULL DEFAULT 0;
 ALTER TABLE public.lessons ADD CONSTRAINT lessons_subject_id_slug_key UNIQUE (subject_id, slug);
+
 
 CREATE TABLE public.lesson_book_contents(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
