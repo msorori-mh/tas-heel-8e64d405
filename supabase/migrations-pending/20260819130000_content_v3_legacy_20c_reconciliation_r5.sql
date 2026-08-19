@@ -576,6 +576,23 @@ BEGIN
      AND NOT public.v3_capability_snapshot_is_reconcilable(ready_snapshot);
   IF n > 0 THEN RAISE EXCEPTION 'R5_EMPTY_READY_SNAPSHOT_POST=%', n; END IF;
 
+  -- R5-R3 gate A: snapshot and hash must describe the same content.
+  SELECT count(*) INTO n FROM public.lesson_capability_lifecycle
+   WHERE status = 'READY'
+     AND ready_hash IS DISTINCT FROM public.v3_capability_snapshot_hash(ready_snapshot);
+  IF n > 0 THEN RAISE EXCEPTION 'R5_READY_SNAPSHOT_HASH_MISMATCH_POST=%', n; END IF;
+
+  -- R5-R3 gate B: AUDITED_APPROVAL rows must match their audit row exactly.
+  SELECT count(*) INTO n FROM public.lesson_capability_lifecycle x
+   WHERE x.evidence_origin = 'AUDITED_APPROVAL'
+     AND NOT EXISTS (
+       SELECT 1
+         FROM public.v3_capability_audited_approval(x.lesson_id, x.capability) ap
+        WHERE ap.actor_id = x.ready_by
+          AND ap.approved_at = x.ready_at
+     );
+  IF n > 0 THEN RAISE EXCEPTION 'R5_AUDITED_APPROVAL_ACTOR_MISMATCH=%', n; END IF;
+
   SELECT count(*) INTO n FROM public.lesson_capability_lifecycle x
    WHERE x.ready_snapshot::text ~* '(is_correct|isCorrect|why_correct|why_wrong|model_answer|correct_option)';
   IF n > 0 THEN RAISE EXCEPTION 'R5_ANSWER_LEAK=%', n; END IF;
