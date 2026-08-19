@@ -93,31 +93,30 @@ BEGIN
     EXECUTE $q$
       SELECT count(*) FROM public.lesson_capability_lifecycle x
        WHERE x.status = 'READY'
-         AND (x.ready_at IS NULL
-           OR x.ready_snapshot IS NULL
-           OR x.ready_hash IS NULL
-           OR (x.ready_by IS NULL
-               AND COALESCE(
-                     CASE WHEN EXISTS (
-                       SELECT 1 FROM information_schema.columns
-                        WHERE table_schema='public'
-                          AND table_name='lesson_capability_lifecycle'
-                          AND column_name='evidence_origin'
-                     ) THEN NULL ELSE 'MISSING' END, '') IS NOT NULL))
+         AND (x.ready_at IS NULL OR x.ready_snapshot IS NULL OR x.ready_hash IS NULL)
     $q$ INTO v_count;
-    IF v_count = 0 AND EXISTS (
+
+    IF EXISTS (
       SELECT 1 FROM information_schema.columns
        WHERE table_schema='public'
          AND table_name='lesson_capability_lifecycle'
          AND column_name='evidence_origin'
     ) THEN
-      EXECUTE $q$
+      v_sql := $q$
         SELECT count(*) FROM public.lesson_capability_lifecycle x
          WHERE x.status = 'READY'
            AND x.ready_by IS NULL
            AND COALESCE(x.evidence_origin, '') <> 'LEGACY_20C_VISIBLE_BASELINE'
-      $q$ INTO v_count;
+      $q$;
+    ELSE
+      v_sql := $q$
+        SELECT count(*) FROM public.lesson_capability_lifecycle x
+         WHERE x.status = 'READY' AND x.ready_by IS NULL
+      $q$;
     END IF;
+    EXECUTE v_sql INTO v_unattributed;
+    v_count := v_count + v_unattributed;
+
     IF v_count > 0 THEN
       v_bad := v_bad + v_count;
       RAISE NOTICE 'STOP_PRODUCTION_STATE_INCOMPATIBLE READY_rows_without_current_evidence=%', v_count;
