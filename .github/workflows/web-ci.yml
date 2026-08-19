@@ -48,6 +48,8 @@ jobs:
           node --test tests/content-factory/content-factory-04-contract.test.mjs
           node --test tests/content-factory/content-factory-05-api.static.test.mjs
           node --test tests/content-factory/content-factory-06-bundle.static.test.mjs
+          node --import tsx --test tests/content-factory/content-factory-07-bundle.test.ts
+          node --test tests/content-factory/content-factory-07.static.test.mjs
           if [ -f tests/content-packages/chemistry-g12-iron-v3.test.mjs ]; then
             node --test tests/content-packages/chemistry-g12-iron-v3.test.mjs
           fi
