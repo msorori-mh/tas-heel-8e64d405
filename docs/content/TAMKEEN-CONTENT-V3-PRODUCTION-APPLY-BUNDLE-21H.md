@@ -5,8 +5,9 @@ This is an apply package only. Codex did not apply it to production.
 ## 1. Exact source lock
 
 ```text
-SOURCE_SHA=bb70108695a3a9e512323221c108fc7e13fdf0c2
-WORK_BRANCH=codex/21h-content-v3-production-preflight
+SOURCE_SHA=de8c79abf28d2f03307633a4e79088e4334d0269
+WORK_BRANCH=codex/21h-r2-runtime-fixes
+BASE_R1_SHA=4b5465afe371868eef330c6c03766a274d2dcb52
 ```
 
 ## 2. Exact migration
@@ -16,8 +17,17 @@ gates:
 
 ```text
 supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql
-SHA256=E451B3F571D0DA197475BF44E793BF49B45F9CC08E822AC735C9D12FC1318F40
+SHA256=78F8E642A8DB60CCA3909FCC0A7CB4124B753A122FAB92380E086EA85B02CD34
 ```
+
+The R1 migration identity `E451B3F571D0DA197475BF44E793BF49B45F9CC08E822AC735C9D12FC1318F40`
+is historical only. The current R2 candidate is the SHA above.
+
+R2 closes the two PostgreSQL 17 runtime findings: the visibility-diff
+`UNION ALL` now has an explicit `text` output contract, and
+`reveal_official_question_answer` resolves `lesson_id` from `practice_attempts
+(pa)`, not an undefined `q` alias. No production apply, deploy, merge, remote
+database, storage, OAuth, data, or fixture change is included.
 
 Do not apply the duplicate/legacy 20C files listed in the preflight report as
 part of this bundle. The bundle candidate creates the lifecycle table without
