@@ -1,133 +1,82 @@
-# TAMKEEN CONTENT V3 — R5 SOURCE REMEDIATION
+# TAMKEEN_CONTENT_V3_LEGACY_20C_RECONCILIATION_R5
 
-`GATE=R5_SOURCE_REMEDIATION` · `PRODUCTION_WRITES=0`
+Source-only remediation for `HOLD_PRODUCTION_PREFLIGHT`. **No production write was performed.**
 
-This gate is source-only. Nothing in it has been applied to production. It exists to
-remove the two Preflight blockers **honestly**, so that the later
-`PRODUCTION SCHEMA APPLY` and `IRON DATA BINDING` gates can run on truthful evidence.
+## A — Classification of the 104 legacy READY rows
 
-## 1. No fabricated approver
+Measured read-only against production `lesson_capability_lifecycle`:
 
-`ready_by` is written only when an actual READY transition for the same
-`(lesson_id, capability)` exists in `audit_logs`. Those rows are labelled
-`evidence_origin='AUDITED_APPROVAL'`.
-
-Every other legacy row is labelled:
-
-```text
-evidence_origin=LEGACY_20C_VISIBLE_BASELINE
-```
-
-That value asserts exactly one thing: *this capability was already visible to students
-under 20C, and its snapshot/hash record what was visible at pinning time.* It claims no
-human review and no approver. A synthetic "system actor" is never used.
-
-Both `production-preflight-readonly.sql` and `postverify-21h.sql` were updated to match:
-snapshot + hash + `ready_at` are unconditionally required; `ready_by` is required unless
-the row carries the documented legacy provenance. Without this change the plan would have
-produced either dishonest evidence or a guaranteed Postverify failure.
-
-## 2. No lifecycle deletion
-
-The 40 `originalBookPdf` rows are **kept**. They are demoted out of READY to `REVIEW` and
-labelled `retirement_origin='LEGACY_20C'`. 21H then flips their `applicability` to `NA`
-by itself, which is already part of the approved migration.
-
-The Preflight blocker was rewritten accordingly: the existence of an `originalBookPdf` row
-is no longer a blocker; a **retired-but-still-READY** row, or a retired row without
-retirement provenance, is.
-
-Student impact is nil: `originalBookPdf` was removed from the lesson journey in 21B4E, and
-the PDFs themselves live at subject level in `subject_textbooks`.
-
-## 3. Canonical snapshot v1 (exact definition)
-
-`public.v3_capability_snapshot(lesson_id, capability)` produces:
-
-```json
-{ "snapshotVersion": "v3.snapshot.1", "capability": "...", "lessonId": "...", "payload": ... }
-```
-
-`public.v3_capability_snapshot_hash(snapshot)` = `sha256` over
-`public._v3_jcs(snapshot)` encoded as UTF-8. `_v3_jcs` is a recursive canonical serializer:
-object keys sorted with `COLLATE "C"`, no insignificant whitespace, array order preserved
-as produced by the ordered queries below.
-
-Per-capability payload and ordering:
-
-| Capability | Source | Ordering |
+| capability | rows | class |
 | --- | --- | --- |
-| officialBookContent | `lesson_book_contents.content` (non-empty) | `id` |
-| tamkeenExplanation | `lesson_explanations` code/title/content | `sort_order`, `id` |
-| quickReview | `lesson_summaries` summary/key_points/study_tip | `id` |
-| mindMap | `lesson_resources` where mindmap, non-empty url | `sort_order`, `id` |
-| simulation | experiment resources + `lesson_simulations` | `sort_order`, `id` in each list |
-| checkUnderstanding | `questions` + published revision id + option **codes** | question `sort_order`,`id`; options `sort_order`,`option_code` |
-| lessonAssessment | `lesson_assessments` + `assessment_questions` | `sort_order`,`id` / `sort_order`,`question_id` |
+| officialBookContent | 21 | legacy 20C, source content present, reconcilable |
+| tamkeenExplanation | 40 | legacy 20C, source content present, reconcilable |
+| originalBookPdf | 40 | retired capability under V3 (`NA`) |
+| quickReview | 1 | legacy 20C, reconcilable |
+| checkUnderstanding | 1 | legacy 20C, reconcilable |
+| lessonAssessment | 1 | legacy 20C, reconcilable |
 
-Answer safety is structural, not filtered: `is_correct`, `why_correct`, `why_wrong`,
-`model_answer` and `explanation` are never selected by the snapshot function, so no
-snapshot or hash can carry an answer. Only PUBLISHED revisions are pinned
-(`current_published_revision_id` joined with `status='PUBLISHED'`); archived questions are
-excluded.
+`ready_by` is present on only the rows that genuinely carry it (2 in the fixture mirror); none is invented.
 
-## 4. Operator privileges
+## B — Visibility baseline
 
-`sandbox_exec` gets no permanent production grant, and specifically no standing read on
-`supabase_migrations`. The baseline must be measured either by the database owner inside a
-`READ ONLY` transaction, or by a temporary operator role whose grants are revoked in the
-same session.
+Visibility was measured inside `BEGIN … ROLLBACK` from the real predicates
+(`can_access_lesson` → `can_access_subject` → `profiles.grade_uuid` + `curriculum_track_id`),
+not from assumptions. Result: retiring `originalBookPdf` removes **0** student-visible
+capabilities, because no lesson depends on it as its only content path.
 
-`can_access_lesson` cannot be validated by `GRANT EXECUTE` alone — `auth.uid()` stays NULL
-for a bare SQL role. Visibility must be measured either with a real test-student JWT or by
-evaluating the policy predicates directly against a fixed user id.
+## C — Remediation migration (candidate, unapplied)
 
-## 5. Capability mapping (fixed in source)
+`supabase/migrations-pending/20260819130000_content_v3_legacy_20c_reconciliation_r5.sql`
+SHA256 `0ac77353daeddc702e8f1f697305943c664d9413bf6b4f0fe7a2d14715edf407`
 
-`src/lib/lessons/capability-mapping.ts`:
+- Adds provenance columns `evidence_origin`, `retirement_origin` with CHECK constraints.
+- Pins a rebuilt `ready_snapshot` + `ready_hash` for legacy rows, stamped
+  `evidence_origin = 'LEGACY_20C_VISIBLE_BASELINE'` — an explicit "grandfathered,
+  not human-reviewed" marker. `ready_by`/`reviewed_by` are never fabricated.
+- `v3_capability_snapshot_is_reconcilable()` gates the pinning: a capability whose
+  source payload is empty cannot be pinned and is instead flagged
+  `evidence_origin = 'NEEDS_MANUAL_REVIEW'`, which the READY evidence constraint rejects
+  (production currently has 0 such rows).
+- `originalBookPdf` rows are demoted to `REVIEW` with `retirement_origin = 'LEGACY_20C'`;
+  no row and no underlying `lesson_resources` data is deleted.
 
-| Package | lifecycle |
-| --- | --- |
-| officialBookContent | officialBookContent |
-| tamkeenExplanationHtml | tamkeenExplanation |
-| lessonSummaryHtml | quickReview |
-| mindMapHtml | mindMap |
-| labExperimentHtml | simulation |
-| officialBookQuestions | checkUnderstanding |
-| selfTest | lessonAssessment |
+## D — PG17 rehearsal
 
-Any importer that writes lifecycle rows must translate through this map; the strings are
-not interchangeable.
+`scripts/content-v3/pg17/rehearse-r5.sh` runs Fixture → R5 → 21H (byte-for-byte,
+SHA256 `3d8cdd27a24ea9f0e998ba14e26adcb87dd0ff6b62fcc3fbd9b790114dd631e3`) → Postverify → assertions
+on a throwaway PostgreSQL 17.9 cluster.
 
-## 6. Identity is not guessed
-
-No default `semester`, `sort_order`, or curriculum ownership. While the official source
-does not settle them:
-
-```text
-identity_status=UNRESOLVED
-FULLY_READY=false
+```
+FIXTURE_READY_ROWS=105          (104 production-matched + 1 unreconcilable negative row)
+READY_WITHOUT_EVIDENCE=0
+ORIGINAL_BOOK_PDF_V3_APPLICABLE=0
+ORIGINAL_BOOK_PDF_ROWS=40 (deleted=0)
+LIFECYCLE_ROWS_TOTAL=105
+READY_BY_PRESENT=2 READY_BY_INVENTED=0
+MANUAL_REVIEW_ROWS=1 (fixture-only; production=0)
+VISIBILITY_GAIN=0 VISIBILITY_LOSS=0
+ANSWER_LEAK=0
+REVISION_PINNING_UNPINNED=0
+HASH_NONDETERMINISM=0
+RLS=PASS
+PG17_REHEARSAL=PASS
 ```
 
-A defaulted-then-labelled-PENDING value would create a wrong production ordering, so the
-Iron lesson is not created until identity is resolved from the official source.
+Postverify on the rehearsed cluster: `visibility_runtime_gate` 64 ready/applicable,
+41 denied, 40 excluded `NA`; answer layers empty; `lesson_resources_preserved=40`;
+`rls_grants_expected=t`.
 
-## 7. Execution gates
+## E — Tests
 
-```text
-R5 SOURCE REMEDIATION            <- this document (source only, PR + PG17 + review)
-PRODUCTION SCHEMA APPLY          <- read-only baseline, R5 reconciliation, Preflight,
-                                    21H byte-for-byte, Postverify + visibility diff
-IRON DATA BINDING                <- identity + books, DRAFT, REVIEW, READY, Student E2E
-```
+- `tests/migrations/content-v3-legacy-20c-reconciliation-r5.test.mjs`: 9/9 pass
+  (contract, no invented reviewer, reconcilability branch, fixture/assert gates).
+- `tsgo --noEmit`: clean. Build: OK.
+- Full vitest run: 276/278 pass. The 2 failures are pre-existing and unrelated to R5:
+  admin delete dialogs added in the 20D/QURAN work (`no-direct-curriculum-delete`)
+  and the `STUDENT_CAPABILITY_ORDER` tail assertion in the 21B4E contract test.
 
-## Artifacts in this gate
+## Verdict
 
-- `supabase/migrations-pending/20260819120000_content_v3_r5_legacy_evidence_pinning.sql` (not applied)
-- `scripts/content-v3/production-preflight-readonly.sql` (updated gates, still read-only)
-- `scripts/content-v3/postverify-21h.sql` (updated gates, still read-only)
-- `src/lib/lessons/capability-mapping.ts`
-- `tests/migrations/content-v3-r5-source-remediation.test.mjs`
+`FINAL_VERDICT=PASS_R5_SOURCE_READY_FOR_INDEPENDENT_REVIEW`
 
-The approved 21H migration file is untouched; its SHA256 is unchanged
-(`3D8CDD27A24EA9F0E998BA14E26ADCB87DD0FF6B62FCC3FBD9B790114DD631E3`).
+Applying R5 and 21H to production remains a separate, owner-approved gate.
