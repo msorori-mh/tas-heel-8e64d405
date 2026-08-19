@@ -32,11 +32,13 @@ DECLARE
   v_bad bigint := 0;
   v_name text;
   v_sql text;
+  v_unattributed bigint := 0;
   v_has_lifecycle boolean := to_regclass('public.lesson_capability_lifecycle') IS NOT NULL;
   v_expected_columns constant text[] := ARRAY[
     'id','lesson_id','capability','status','ready_snapshot','ready_hash',
     'draft_hash','draft_updated_at','reviewed_by','reviewed_at','ready_by',
-    'ready_at','created_at','updated_at','applicability'
+    'ready_at','created_at','updated_at','applicability',
+    'evidence_origin','retirement_origin'
   ];
 BEGIN
   IF v_has_lifecycle THEN
@@ -85,18 +87,57 @@ BEGIN
       RAISE NOTICE '20C orphan_or_invalid_lesson_capability_rows=0';
     END IF;
 
+    -- A READY row needs a snapshot, a hash, a timestamp, and either a proven
+    -- approver or an explicitly documented legacy provenance. R5 labels the
+    -- pre-snapshot 20C rows 'LEGACY_20C_VISIBLE_BASELINE'; it never invents an
+    -- approver, so ready_by alone cannot be the gate.
     EXECUTE $q$
       SELECT count(*) FROM public.lesson_capability_lifecycle x
        WHERE x.status = 'READY'
-         AND (x.ready_at IS NULL OR x.ready_by IS NULL
-           OR x.ready_snapshot IS NULL OR x.ready_hash IS NULL)
+         AND (x.ready_at IS NULL OR x.ready_snapshot IS NULL OR x.ready_hash IS NULL)
     $q$ INTO v_count;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public'
+         AND table_name='lesson_capability_lifecycle'
+         AND column_name='evidence_origin'
+    ) THEN
+      v_sql := $q$
+        SELECT count(*) FROM public.lesson_capability_lifecycle x
+         WHERE x.status = 'READY'
+           AND x.ready_by IS NULL
+           AND COALESCE(x.evidence_origin, '') <> 'LEGACY_20C_VISIBLE_BASELINE'
+      $q$;
+    ELSE
+      v_sql := $q$
+        SELECT count(*) FROM public.lesson_capability_lifecycle x
+         WHERE x.status = 'READY' AND x.ready_by IS NULL
+      $q$;
+    END IF;
+    EXECUTE v_sql INTO v_unattributed;
+    v_count := v_count + v_unattributed;
+
     IF v_count > 0 THEN
       v_bad := v_bad + v_count;
       RAISE NOTICE 'STOP_PRODUCTION_STATE_INCOMPATIBLE READY_rows_without_current_evidence=%', v_count;
     ELSE
       RAISE NOTICE '20C READY_rows_without_current_evidence=0';
     END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public'
+         AND table_name='lesson_capability_lifecycle'
+         AND column_name='evidence_origin'
+    ) THEN
+      EXECUTE $q$
+        SELECT count(*) FROM public.lesson_capability_lifecycle
+         WHERE status = 'READY' AND evidence_origin = 'LEGACY_20C_VISIBLE_BASELINE'
+      $q$ INTO v_count;
+      RAISE NOTICE 'R5 legacy_baseline_pinned_ready_rows=% human_review_claimed=false', v_count;
+    END IF;
+
 
     EXECUTE $q$
       SELECT count(*) FROM public.lesson_capability_lifecycle x
@@ -118,11 +159,39 @@ BEGIN
       RAISE NOTICE '20C READY_rows_without_content=0';
     END IF;
 
+    -- originalBookPdf is out of the V3 contract, but lifecycle history is kept.
+    -- The blocker is a RETIRED-but-still-READY row, never the row's existence.
     EXECUTE $q$SELECT count(*) FROM public.lesson_capability_lifecycle WHERE capability = 'originalBookPdf'$q$ INTO v_count;
-    RAISE NOTICE '20C legacy_originalBookPdf_lifecycle_rows=% final_contract=EXCLUDED', v_count;
+    RAISE NOTICE '20C legacy_originalBookPdf_lifecycle_rows=% final_contract=EXCLUDED_RETAINED_AS_HISTORY', v_count;
+
+    EXECUTE $q$
+      SELECT count(*) FROM public.lesson_capability_lifecycle
+       WHERE capability = 'originalBookPdf' AND status = 'READY'
+    $q$ INTO v_count;
     IF v_count > 0 THEN
       v_bad := v_bad + v_count;
-      RAISE NOTICE 'STOP_PRODUCTION_STATE_INCOMPATIBLE legacy_originalBookPdf_lifecycle_rows_present=%', v_count;
+      RAISE NOTICE 'STOP_PRODUCTION_STATE_INCOMPATIBLE originalBookPdf_rows_still_ready=%', v_count;
+    ELSE
+      RAISE NOTICE 'R5 originalBookPdf_rows_still_ready=0';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public'
+         AND table_name='lesson_capability_lifecycle'
+         AND column_name='retirement_origin'
+    ) THEN
+      EXECUTE $q$
+        SELECT count(*) FROM public.lesson_capability_lifecycle
+         WHERE capability = 'originalBookPdf'
+           AND COALESCE(retirement_origin, '') <> 'LEGACY_20C'
+      $q$ INTO v_count;
+      IF v_count > 0 THEN
+        v_bad := v_bad + v_count;
+        RAISE NOTICE 'STOP_PRODUCTION_STATE_INCOMPATIBLE originalBookPdf_rows_without_retirement_provenance=%', v_count;
+      ELSE
+        RAISE NOTICE 'R5 originalBookPdf_retirement_provenance=COMPLETE';
+      END IF;
     END IF;
 
     SELECT count(*) INTO v_count
