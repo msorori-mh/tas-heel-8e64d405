@@ -492,8 +492,10 @@ BEGIN
           btrim(_idempotency_key), plan, plan_sha,
           jsonb_build_object('mode','EXECUTE','lesson_id',lesson_row.id,'subject_id',subject_row.id,
             'lesson_created',lesson_created,'questions',questions_written,'answers',answers_written,
-            'rationales',rationales_written,'lifecycle_rows',lifecycle_written,
+            'rationales',rationales_written,'targets',targets_written,'lifecycle_rows',lifecycle_written,
+            'revision_status','DRAFT','assessment_membership_deferred',true,
             'write_plan_sha256',plan_sha,'answer_leak',0,'published',false,'ready',false),
+
           _actor_id)
   RETURNING * INTO replay;
 
