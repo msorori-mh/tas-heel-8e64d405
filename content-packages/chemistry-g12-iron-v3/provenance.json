@@ -1,0 +1,73 @@
+{
+  "officialBookContent": {
+    "source_file": "الدرس الرابع-الحديد (2).pdf",
+    "source_sha256": "sha256:79bffd410fde5ff776b28ca805173d66d9ff02e12b76e324006986ee57b4b0b7",
+    "content_owner": "OFFICIAL",
+    "curriculum_track": "sanaa|aden",
+    "conversion_method": "existing 20A structured-content pipeline",
+    "review_status": "REVIEW_REQUIRED",
+    "official_text_fidelity": "EXACT",
+    "page_provenance": "PDF pages 1-5 / printed pages 14-18",
+    "furnace_figure": {
+      "pdf_page": 3,
+      "printed_page": 16,
+      "source_region_pdf_points": {
+        "x0": 66.36,
+        "y0": 54.29,
+        "x1": 313.92,
+        "y1": 355.49
+      },
+      "asset": "assets/official-figure-1-1.png",
+      "asset_sha256": "sha256:a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf",
+      "extraction": "embedded source image; no redraw or montage"
+    }
+  },
+  "tamkeenExplanationHtml": {
+    "source_file": "شرح درس الحديد Fe.docx",
+    "source_sha256": "sha256:a263880b7bf86a4a8c702ed6869f091bdca1188e3064fae4308fe5dee1b473c9",
+    "content_owner": "TAMKEEN",
+    "curriculum_track": "sanaa|aden",
+    "conversion_method": "STATIC_EDUCATIONAL_HTML",
+    "review_status": "REVIEW_REQUIRED"
+  },
+  "lessonSummaryHtml": {
+    "source_file": "الحديد – ملخص شامل ومنظم.docx",
+    "source_sha256": "sha256:cfc5ba5f7cd36285ce1332c8f47a1259d351868af4130f68938dc69add95933b",
+    "content_owner": "TAMKEEN",
+    "curriculum_track": "sanaa|aden",
+    "conversion_method": "STATIC_EDUCATIONAL_HTML",
+    "review_status": "REVIEW_REQUIRED"
+  },
+  "mindMapHtml": {
+    "source_file": "4.html",
+    "source_sha256": "sha256:4424b0760d6193e32ff5f0de3e0e523dc487e3c7acc3e421a73d0f6eb4dfaaab",
+    "content_owner": "TAMKEEN",
+    "curriculum_track": "sanaa|aden",
+    "conversion_method": "STATIC_EDUCATIONAL_HTML",
+    "review_status": "REVIEW_REQUIRED"
+  },
+  "labExperimentHtml": {
+    "source_file": "مختبر_تمكين_الكشف_عن_الحديد (2).html",
+    "source_sha256": "sha256:0580b370bca601280c9e092066c488d0254c6a5841829e5986593f2e7fc6be17",
+    "content_owner": "TAMKEEN",
+    "curriculum_track": "sanaa|aden",
+    "conversion_method": "INTERACTIVE_EDUCATIONAL_HTML",
+    "review_status": "REVIEW_REQUIRED"
+  },
+  "officialBookQuestions": {
+    "source_file": "تقويم الوحده الاولى (2).pdf",
+    "source_sha256": "sha256:39f4bff7bc683e343cf470815fd01a796a9c77f6d011f08f04ebd7b5ef2707a9",
+    "content_owner": "OFFICIAL",
+    "curriculum_track": "sanaa|aden",
+    "conversion_method": "STATIC_EDUCATIONAL_HTML",
+    "review_status": "REVIEW_REQUIRED"
+  },
+  "selfTest": {
+    "source_file": "درس الحديد_استيراد_أسئلة (1).xlsx",
+    "source_sha256": "sha256:c307a28b1cf74e635787731b92f136b2851c502e384581642a5d7f729a1acad1",
+    "content_owner": "TAMKEEN",
+    "curriculum_track": "sanaa|aden",
+    "conversion_method": "STATIC_EDUCATIONAL_HTML",
+    "review_status": "REVIEW_REQUIRED"
+  }
+}

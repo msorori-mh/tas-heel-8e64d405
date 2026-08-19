@@ -1,0 +1,52 @@
+{
+  "package": "chemistry-g12-iron-v3",
+  "schema": "Content V3 package artifact",
+  "identity": {
+    "grade": "الثالث الثانوي",
+    "subject": "الكيمياء",
+    "grade_id": null,
+    "subject_id": null,
+    "grade_code": "grade-12",
+    "subject_code": null,
+    "sanaa_track_id": null,
+    "sanaa_track_code": "sanaa",
+    "aden_track_id": null,
+    "aden_track_code": "aden",
+    "lesson_id": null,
+    "lesson_code": null,
+    "lesson_slug": "الحديد-fe",
+    "unit_id": null,
+    "semester": null,
+    "identity_status": "UNRESOLVED_FROM_REPO_READ_ONLY_CONTEXT",
+    "curriculum_ownership_confirmation": "PENDING_PRODUCTION_METADATA"
+  },
+  "capability_order": [
+    "officialBookContent",
+    "tamkeenExplanationHtml",
+    "lessonSummaryHtml",
+    "mindMapHtml",
+    "labExperimentHtml",
+    "officialBookQuestions",
+    "selfTest"
+  ],
+  "applicability": {
+    "officialBookContent": "REQUIRED",
+    "tamkeenExplanationHtml": "REQUIRED",
+    "lessonSummaryHtml": "REQUIRED",
+    "mindMapHtml": "REQUIRED",
+    "labExperimentHtml": "REQUIRED",
+    "officialBookQuestions": "REQUIRED",
+    "selfTest": "REQUIRED"
+  },
+  "student_order": [
+    "officialBookContent",
+    "tamkeenExplanationHtml",
+    "lessonSummaryHtml",
+    "mindMapHtml",
+    "labExperimentHtml",
+    "officialBookQuestions",
+    "selfTest"
+  ],
+  "originalBookPdf_in_lesson": false,
+  "production_apply": false
+}
