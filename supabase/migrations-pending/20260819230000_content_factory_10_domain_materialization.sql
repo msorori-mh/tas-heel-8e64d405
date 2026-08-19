@@ -79,7 +79,7 @@ DECLARE
   opt jsonb;
   question_row public.questions;
   revision_id uuid;
-  assessment_id uuid;
+  v_assessment_id uuid;
   question_code text;
   option_code text;
   answer jsonb;
@@ -343,12 +343,12 @@ BEGIN
   question_json := CASE WHEN payloads->'selfTest'->>'text' IS NULL THEN NULL
                         ELSE (payloads->'selfTest'->>'text')::jsonb END;
   IF question_json IS NOT NULL THEN
-  SELECT id INTO assessment_id FROM public.lesson_assessments
+  SELECT id INTO v_assessment_id FROM public.lesson_assessments
    WHERE assessment_code = external_lesson_code || '-SELFTEST';
-  IF assessment_id IS NULL THEN
+  IF v_assessment_id IS NULL THEN
     INSERT INTO public.lesson_assessments(lesson_id, title, instructions, sort_order, assessment_code)
     VALUES (lesson_row.id, 'اختبر نفسك', NULL, 0, external_lesson_code || '-SELFTEST')
-    RETURNING id INTO assessment_id;
+    RETURNING id INTO v_assessment_id;
     writes := writes + 1;
   END IF;
 
@@ -388,7 +388,7 @@ BEGIN
     END IF;
 
     INSERT INTO public.assessment_questions(assessment_id, question_id, sort_order, points)
-    VALUES (assessment_id, question_row.id, coalesce((item->>'source_row')::integer, 0), 1)
+    VALUES (v_assessment_id, question_row.id, coalesce((item->>'source_row')::integer, 0), 1)
     ON CONFLICT (assessment_id, question_id) DO NOTHING;
     writes := writes + 1;
 
