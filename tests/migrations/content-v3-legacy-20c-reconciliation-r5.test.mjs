@@ -25,7 +25,7 @@ test("R5 runs before 21H, is transactional, and never fabricates an approver", (
   assert.match(r5, /R5_MUST_RUN_BEFORE_21H/);
   assert.doesNotMatch(r5, /\bapplicability\b\s*=/i);
   // ready_by may only come from audit_logs evidence.
-  assert.match(r5, /ready_by = COALESCE\(x\.ready_by, ev\.actor_id\)/);
+  assert.match(r5, /ready_by = CASE WHEN ev\.audited THEN COALESCE\(x\.ready_by, ev\.actor_id\) ELSE x\.ready_by END/);
   assert.match(r5, /LEGACY_20C_VISIBLE_BASELINE/);
   assert.doesNotMatch(r5, /system_actor|SYSTEM_ACTOR|00000000-0000-0000-0000-000000000000/);
   assert.match(r5, /lesson_capability_lifecycle_legacy_baseline_no_approver_chk/);
@@ -43,7 +43,7 @@ test("AUDITED_APPROVAL requires a literal REVIEW -> READY transition", () => {
 test("ready_at provenance comes from the audit row, never from updated_at for audited rows", () => {
   const block = r5.slice(r5.indexOf("ready_at = CASE"), r5.indexOf("END\n  FROM ("));
   assert.match(block, /WHEN x\.ready_at IS NOT NULL THEN x\.ready_at/);
-  assert.match(block, /WHEN ev\.actor_id IS NOT NULL THEN ev\.approved_at/);
+  assert.match(block, /WHEN ev\.audited THEN ev\.approved_at/);
 });
 
 test("checkUnderstanding snapshot can never emit a null revisionId", () => {
