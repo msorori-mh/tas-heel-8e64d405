@@ -761,6 +761,368 @@ export type Database = {
           },
         ]
       }
+      golden_lesson_domain_stage_answers: {
+        Row: {
+          batch_id: string
+          companion_path: string
+          companion_payload: string
+          companion_sha256: string
+          id: string
+        }
+        Insert: {
+          batch_id: string
+          companion_path: string
+          companion_payload: string
+          companion_sha256: string
+          id?: string
+        }
+        Update: {
+          batch_id?: string
+          companion_path?: string
+          companion_payload?: string
+          companion_sha256?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_domain_stage_answers_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: true
+            referencedRelation: "golden_lesson_domain_stage_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      golden_lesson_domain_stage_batches: {
+        Row: {
+          id: string
+          package_id: string
+          package_version: number
+          stage_status: string
+          staged_at: string
+          staged_by: string
+          verified_bundle_sha256: string
+        }
+        Insert: {
+          id?: string
+          package_id: string
+          package_version: number
+          stage_status?: string
+          staged_at?: string
+          staged_by: string
+          verified_bundle_sha256: string
+        }
+        Update: {
+          id?: string
+          package_id?: string
+          package_version?: number
+          stage_status?: string
+          staged_at?: string
+          staged_by?: string
+          verified_bundle_sha256?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_domain_stage_batc_package_id_package_version_fkey"
+            columns: ["package_id", "package_version"]
+            isOneToOne: true
+            referencedRelation: "golden_lesson_package_versions"
+            referencedColumns: ["package_id", "version"]
+          },
+        ]
+      }
+      golden_lesson_domain_stage_entries: {
+        Row: {
+          applicability: string
+          authority: string
+          batch_id: string
+          capability: string
+          id: string
+          lifecycle_capability: string
+          provenance_path: string | null
+          provenance_payload: string | null
+          provenance_sha256: string | null
+          source_path: string | null
+          source_payload: string | null
+          source_sha256: string | null
+          target_plan: string
+        }
+        Insert: {
+          applicability: string
+          authority: string
+          batch_id: string
+          capability: string
+          id?: string
+          lifecycle_capability: string
+          provenance_path?: string | null
+          provenance_payload?: string | null
+          provenance_sha256?: string | null
+          source_path?: string | null
+          source_payload?: string | null
+          source_sha256?: string | null
+          target_plan: string
+        }
+        Update: {
+          applicability?: string
+          authority?: string
+          batch_id?: string
+          capability?: string
+          id?: string
+          lifecycle_capability?: string
+          provenance_path?: string | null
+          provenance_payload?: string | null
+          provenance_sha256?: string | null
+          source_path?: string | null
+          source_payload?: string | null
+          source_sha256?: string | null
+          target_plan?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_domain_stage_entries_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "golden_lesson_domain_stage_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      golden_lesson_identity_bindings: {
+        Row: {
+          batch_id: string
+          bound_at: string
+          bound_by: string
+          curriculum_track_ids: string[]
+          external_lesson_code: string
+          grade_id: string
+          id: string
+          identity_sha256: string
+          identity_snapshot: Json
+          lesson_id: string
+          subject_id: string
+          unit_id: string | null
+        }
+        Insert: {
+          batch_id: string
+          bound_at?: string
+          bound_by: string
+          curriculum_track_ids: string[]
+          external_lesson_code: string
+          grade_id: string
+          id?: string
+          identity_sha256: string
+          identity_snapshot: Json
+          lesson_id: string
+          subject_id: string
+          unit_id?: string | null
+        }
+        Update: {
+          batch_id?: string
+          bound_at?: string
+          bound_by?: string
+          curriculum_track_ids?: string[]
+          external_lesson_code?: string
+          grade_id?: string
+          id?: string
+          identity_sha256?: string
+          identity_snapshot?: Json
+          lesson_id?: string
+          subject_id?: string
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_identity_bindings_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: true
+            referencedRelation: "golden_lesson_domain_stage_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_identity_bindings_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_identity_bindings_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_identity_bindings_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_identity_bindings_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      golden_lesson_package_reviews: {
+        Row: {
+          actor_id: string
+          actor_role: string
+          created_at: string
+          evidence: Json
+          from_status: string
+          id: string
+          note: string | null
+          package_id: string
+          package_version: number
+          to_status: string
+        }
+        Insert: {
+          actor_id: string
+          actor_role: string
+          created_at?: string
+          evidence?: Json
+          from_status: string
+          id?: string
+          note?: string | null
+          package_id: string
+          package_version: number
+          to_status: string
+        }
+        Update: {
+          actor_id?: string
+          actor_role?: string
+          created_at?: string
+          evidence?: Json
+          from_status?: string
+          id?: string
+          note?: string | null
+          package_id?: string
+          package_version?: number
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_package_reviews_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "golden_lesson_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_package_reviews_package_id_package_version_fkey"
+            columns: ["package_id", "package_version"]
+            isOneToOne: false
+            referencedRelation: "golden_lesson_package_versions"
+            referencedColumns: ["package_id", "version"]
+          },
+        ]
+      }
+      golden_lesson_package_versions: {
+        Row: {
+          bundle_verified_at: string | null
+          canonical_manifest_sha256: string
+          client_manifest_sha256: string
+          created_at: string
+          created_by: string
+          id: string
+          manifest: Json
+          package_id: string
+          verified_bundle_sha256: string | null
+          verified_compressed_bytes: number | null
+          verified_file_count: number | null
+          verified_storage_path: string | null
+          verified_uncompressed_bytes: number | null
+          version: number
+        }
+        Insert: {
+          bundle_verified_at?: string | null
+          canonical_manifest_sha256: string
+          client_manifest_sha256: string
+          created_at?: string
+          created_by: string
+          id?: string
+          manifest: Json
+          package_id: string
+          verified_bundle_sha256?: string | null
+          verified_compressed_bytes?: number | null
+          verified_file_count?: number | null
+          verified_storage_path?: string | null
+          verified_uncompressed_bytes?: number | null
+          version: number
+        }
+        Update: {
+          bundle_verified_at?: string | null
+          canonical_manifest_sha256?: string
+          client_manifest_sha256?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          manifest?: Json
+          package_id?: string
+          verified_bundle_sha256?: string | null
+          verified_compressed_bytes?: number | null
+          verified_file_count?: number | null
+          verified_storage_path?: string | null
+          verified_uncompressed_bytes?: number | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_package_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "golden_lesson_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      golden_lesson_packages: {
+        Row: {
+          created_at: string
+          created_by: string
+          current_canonical_sha256: string
+          current_manifest_sha256: string
+          current_version: number
+          id: string
+          identity: Json
+          package_code: string
+          profile_id: string
+          review_status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          current_canonical_sha256: string
+          current_manifest_sha256: string
+          current_version?: number
+          id?: string
+          identity: Json
+          package_code: string
+          profile_id: string
+          review_status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          current_canonical_sha256?: string
+          current_manifest_sha256?: string
+          current_version?: number
+          id?: string
+          identity?: Json
+          package_code?: string
+          profile_id?: string
+          review_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       governorate_curriculum_map: {
         Row: {
           created_at: string
@@ -1153,48 +1515,57 @@ export type Database = {
       }
       lesson_capability_lifecycle: {
         Row: {
+          applicability: Database["public"]["Enums"]["capability_applicability"]
           capability: string
           created_at: string
           draft_hash: string | null
           draft_updated_at: string | null
+          evidence_origin: string | null
           id: string
           lesson_id: string
           ready_at: string | null
           ready_by: string | null
           ready_hash: string | null
           ready_snapshot: Json | null
+          retirement_origin: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
           updated_at: string
         }
         Insert: {
+          applicability?: Database["public"]["Enums"]["capability_applicability"]
           capability: string
           created_at?: string
           draft_hash?: string | null
           draft_updated_at?: string | null
+          evidence_origin?: string | null
           id?: string
           lesson_id: string
           ready_at?: string | null
           ready_by?: string | null
           ready_hash?: string | null
           ready_snapshot?: Json | null
+          retirement_origin?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
+          applicability?: Database["public"]["Enums"]["capability_applicability"]
           capability?: string
           created_at?: string
           draft_hash?: string | null
           draft_updated_at?: string | null
+          evidence_origin?: string | null
           id?: string
           lesson_id?: string
           ready_at?: string | null
           ready_by?: string | null
           ready_hash?: string | null
           ready_snapshot?: Json | null
+          retirement_origin?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
@@ -1723,6 +2094,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      official_question_answers: {
+        Row: {
+          created_at: string
+          explanation: string | null
+          id: string
+          model_answer: string | null
+          question_id: string
+          revision_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          model_answer?: string | null
+          question_id: string
+          revision_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          model_answer?: string | null
+          question_id?: string
+          revision_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "official_question_answers_revision_fk"
+            columns: ["question_id", "revision_id"]
+            isOneToOne: true
+            referencedRelation: "question_revisions"
+            referencedColumns: ["question_id", "id"]
+          },
+        ]
       }
       payment_methods: {
         Row: {
@@ -2347,6 +2756,47 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_revisions"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_option_rationales: {
+        Row: {
+          created_at: string
+          id: string
+          option_id: string
+          question_id: string
+          question_revision_id: string
+          updated_at: string
+          why_correct: string | null
+          why_wrong: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          option_id: string
+          question_id: string
+          question_revision_id: string
+          updated_at?: string
+          why_correct?: string | null
+          why_wrong?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          option_id?: string
+          question_id?: string
+          question_revision_id?: string
+          updated_at?: string
+          why_correct?: string | null
+          why_wrong?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_option_rationales_revision_fk"
+            columns: ["question_id", "question_revision_id"]
+            isOneToOne: false
+            referencedRelation: "question_revisions"
+            referencedColumns: ["question_id", "id"]
           },
         ]
       }
@@ -3740,6 +4190,7 @@ export type Database = {
           track_id: string
         }[]
       }
+      _v3_canonical_json_v1: { Args: { v: Json }; Returns: string }
       admin_adjust_wallet: {
         Args: {
           _amount: number
@@ -3817,6 +4268,10 @@ export type Database = {
       }
       assert_exam_template_not_ministry_bypassed: {
         Args: { _template_id: string }
+        Returns: undefined
+      }
+      assert_golden_lesson_manifest: {
+        Args: { _manifest: Json }
         Returns: undefined
       }
       assert_import_job_operator: {
@@ -4014,6 +4469,17 @@ export type Database = {
       }
       get_exam_session_state: { Args: { _session_id: string }; Returns: Json }
       get_lesson_full_content: { Args: { _lesson_id: string }; Returns: Json }
+      get_lesson_official_questions: {
+        Args: { _lesson_id: string }
+        Returns: {
+          id: string
+          options: Json
+          question_text: string
+          question_type: string
+          revision_id: string
+          sort_order: number
+        }[]
+      }
       get_lesson_primary_resource: {
         Args: { _lesson_id: string }
         Returns: {
@@ -4104,6 +4570,52 @@ export type Database = {
       }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       get_user_total_points: { Args: { _user_id: string }; Returns: number }
+      golden_lesson_advance_review: {
+        Args: {
+          _evidence: Json
+          _expected_version: number
+          _note?: string
+          _package_id: string
+          _to_status: string
+        }
+        Returns: Json
+      }
+      golden_lesson_attest_bundle: {
+        Args: {
+          _actor_id: string
+          _bundle_sha256: string
+          _compressed_bytes: number
+          _file_count: number
+          _package_id: string
+          _storage_path: string
+          _uncompressed_bytes: number
+          _version: number
+        }
+        Returns: Json
+      }
+      golden_lesson_bind_authoritative_identity: {
+        Args: { _actor_id: string; _batch_id: string }
+        Returns: Json
+      }
+      golden_lesson_has_role: {
+        Args: { _role: string; _user_id: string }
+        Returns: boolean
+      }
+      golden_lesson_stage_domain_bundle: {
+        Args: {
+          _actor_id: string
+          _answers_companion?: Json
+          _bundle_sha256: string
+          _entries: Json
+          _package_id: string
+          _version: number
+        }
+        Returns: Json
+      }
+      golden_lesson_stage_manifest: {
+        Args: { _client_manifest_sha256: string; _manifest: Json }
+        Returns: Json
+      }
       grade_lesson_quiz: {
         Args: { _answers: Json; _lesson_id: string }
         Returns: Json
@@ -4172,6 +4684,11 @@ export type Database = {
         Returns: boolean
       }
       is_full_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_golden_lesson_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_golden_lesson_content_staff: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       lesson_capability_transition: {
         Args: {
           _capability: string
@@ -4363,6 +4880,10 @@ export type Database = {
         Args: { _session_id: string; _session_question_id: string }
         Returns: Json
       }
+      reveal_official_question_answer: {
+        Args: { _attempt_id: string; _question_id: string }
+        Returns: Json
+      }
       revoke_question_bank_capability: {
         Args: { p_grant_id: string; p_reason: string }
         Returns: Json
@@ -4393,6 +4914,26 @@ export type Database = {
         Args: { _subject_id: string }
         Returns: boolean
       }
+      v3_capability_audited_approval: {
+        Args: { _capability: string; _lesson_id: string }
+        Returns: {
+          actor_id: string
+          approved_at: string
+        }[]
+      }
+      v3_capability_snapshot: {
+        Args: { _capability: string; _lesson_id: string }
+        Returns: Json
+      }
+      v3_capability_snapshot_hash: {
+        Args: { _snapshot: Json }
+        Returns: string
+      }
+      v3_capability_snapshot_is_reconcilable: {
+        Args: { _snapshot: Json }
+        Returns: boolean
+      }
+      v3_retired_capabilities: { Args: never; Returns: string[] }
       write_audit_log: {
         Args: {
           _action: string
@@ -4405,6 +4946,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user" | "content_manager"
+      capability_applicability: "REQUIRED" | "OPTIONAL" | "NA"
       exam_mode: "training" | "strict" | "ministry"
       exam_session_status: "in_progress" | "submitted" | "expired"
       lesson_resource_type: "video" | "mindmap" | "experiment" | "pdf" | "link"
@@ -4537,6 +5079,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user", "content_manager"],
+      capability_applicability: ["REQUIRED", "OPTIONAL", "NA"],
       exam_mode: ["training", "strict", "ministry"],
       exam_session_status: ["in_progress", "submitted", "expired"],
       lesson_resource_type: ["video", "mindmap", "experiment", "pdf", "link"],
