@@ -14,7 +14,7 @@ $$;
 GRANT USAGE ON SCHEMA auth, public TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated, service_role;
 
-CREATE TYPE public.app_role AS ENUM ('admin','teacher','content_editor','content_reviewer','student');
+CREATE TYPE public.app_role AS ENUM ('admin','teacher','content_manager','student');
 CREATE TABLE public.user_roles(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id),
@@ -28,8 +28,8 @@ INSERT INTO auth.users(id) VALUES
  ('10000000-0000-0000-0000-000000000003'),
  ('10000000-0000-0000-0000-000000000004');
 INSERT INTO public.user_roles(user_id,role) VALUES
- ('10000000-0000-0000-0000-000000000001','content_editor'),
- ('10000000-0000-0000-0000-000000000002','content_reviewer'),
+ ('10000000-0000-0000-0000-000000000001','content_manager'),
+ ('10000000-0000-0000-0000-000000000002','content_manager'),
  ('10000000-0000-0000-0000-000000000003','admin'),
  ('10000000-0000-0000-0000-000000000004','student');
 

@@ -77,8 +77,7 @@ CREATE OR REPLACE FUNCTION public.is_golden_lesson_content_staff(_user_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = public, pg_temp AS $$
   SELECT public.golden_lesson_has_role(_user_id, 'admin')
-      OR public.golden_lesson_has_role(_user_id, 'content_editor')
-      OR public.golden_lesson_has_role(_user_id, 'content_reviewer');
+      OR public.golden_lesson_has_role(_user_id, 'content_manager');
 $$;
 
 CREATE POLICY "golden package staff read" ON public.golden_lesson_packages
@@ -259,6 +258,7 @@ DECLARE
   pkg public.golden_lesson_packages;
   required_role text;
   actor_role text;
+  previous_actor uuid;
 BEGIN
   IF actor IS NULL THEN RAISE EXCEPTION 'NOT_AUTHORIZED' USING ERRCODE = '42501'; END IF;
   SELECT * INTO pkg FROM public.golden_lesson_packages WHERE id = _package_id FOR UPDATE;
@@ -267,10 +267,10 @@ BEGIN
   IF jsonb_typeof(COALESCE(_evidence, '{}'::jsonb)) <> 'object' THEN RAISE EXCEPTION 'EVIDENCE_INVALID' USING ERRCODE = '22023'; END IF;
 
   IF pkg.review_status = 'DRAFT' AND _to_status = 'SUBMITTED' THEN
-    required_role := 'content_editor'; actor_role := 'CONTENT_EDITOR';
+    required_role := 'content_manager'; actor_role := 'CONTENT_EDITOR';
     IF COALESCE((_evidence->>'packageValidationPassed')::boolean, false) IS NOT TRUE THEN RAISE EXCEPTION 'EVIDENCE_MISSING' USING ERRCODE = '22023'; END IF;
   ELSIF pkg.review_status = 'SUBMITTED' AND _to_status = 'CONTENT_APPROVED' THEN
-    required_role := 'content_reviewer'; actor_role := 'CONTENT_REVIEWER';
+    required_role := 'content_manager'; actor_role := 'CONTENT_REVIEWER';
     IF COALESCE((_evidence->>'officialProvenanceChecked')::boolean, false) IS NOT TRUE
        OR COALESCE((_evidence->>'answerSeparationChecked')::boolean, false) IS NOT TRUE THEN RAISE EXCEPTION 'EVIDENCE_MISSING' USING ERRCODE = '22023'; END IF;
   ELSIF pkg.review_status = 'CONTENT_APPROVED' AND _to_status = 'APPROVED_FOR_STAGING' THEN
@@ -282,6 +282,23 @@ BEGIN
 
   IF NOT public.golden_lesson_has_role(actor, required_role) THEN
     RAISE EXCEPTION 'ROLE_FORBIDDEN' USING ERRCODE = '42501';
+  END IF;
+
+  -- Operational duties map to production roles; identity separation prevents self-approval.
+  IF actor_role = 'CONTENT_REVIEWER' THEN
+    SELECT actor_id INTO previous_actor
+    FROM public.golden_lesson_package_reviews
+    WHERE package_id = pkg.id AND package_version = pkg.current_version AND to_status = 'SUBMITTED'
+    ORDER BY created_at DESC, id DESC LIMIT 1;
+    IF previous_actor IS NULL THEN RAISE EXCEPTION 'SUBMISSION_AUDIT_MISSING' USING ERRCODE = '23514'; END IF;
+    IF previous_actor = actor THEN RAISE EXCEPTION 'REVIEWER_MUST_DIFFER_FROM_SUBMITTER' USING ERRCODE = '42501'; END IF;
+  ELSIF actor_role = 'TECHNICAL_REVIEWER' THEN
+    SELECT actor_id INTO previous_actor
+    FROM public.golden_lesson_package_reviews
+    WHERE package_id = pkg.id AND package_version = pkg.current_version AND to_status = 'CONTENT_APPROVED'
+    ORDER BY created_at DESC, id DESC LIMIT 1;
+    IF previous_actor IS NULL THEN RAISE EXCEPTION 'CONTENT_APPROVAL_AUDIT_MISSING' USING ERRCODE = '23514'; END IF;
+    IF previous_actor = actor THEN RAISE EXCEPTION 'TECHNICAL_REVIEWER_MUST_DIFFER' USING ERRCODE = '42501'; END IF;
   END IF;
 
   UPDATE public.golden_lesson_packages SET review_status = _to_status, updated_at = now()

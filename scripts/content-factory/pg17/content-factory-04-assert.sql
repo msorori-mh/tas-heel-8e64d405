@@ -20,7 +20,16 @@ SELECT id AS package_id FROM public.golden_lesson_packages WHERE package_code='Q
 SELECT set_config('app.cf04.package_id', :'package_id', false);
 SELECT public.golden_lesson_advance_review(:'package_id',1,'SUBMITTED','{"packageValidationPassed":true}'::jsonb,'editor submit');
 
--- Reviewer must supply both content evidence fields.
+-- The submitter cannot approve their own content, even though both duties map to content_manager.
+DO $ BEGIN
+  PERFORM public.golden_lesson_advance_review(current_setting('app.cf04.package_id')::uuid,1,'CONTENT_APPROVED',
+    '{"officialProvenanceChecked":true,"answerSeparationChecked":true}'::jsonb,NULL);
+  RAISE EXCEPTION 'self approval unexpectedly succeeded';
+EXCEPTION WHEN insufficient_privilege THEN
+  IF SQLERRM <> 'REVIEWER_MUST_DIFFER_FROM_SUBMITTER' THEN RAISE; END IF;
+END $;
+
+-- A different content manager must supply both content evidence fields.
 SET request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
 DO $$ BEGIN
   PERFORM public.golden_lesson_advance_review(current_setting('app.cf04.package_id')::uuid,1,'CONTENT_APPROVED','{}'::jsonb,NULL);

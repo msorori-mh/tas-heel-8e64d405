@@ -32,8 +32,9 @@ test("all mutations are RPC-only under RLS and no anonymous write exists", () =>
 
 test("review transitions are version-pinned, role-separated and evidence-gated", () => {
   assert.match(migration, /STALE_PACKAGE_VERSION/);
-  assert.match(migration, /required_role := 'content_editor'/);
-  assert.match(migration, /required_role := 'content_reviewer'/);
+  assert.equal((migration.match(/required_role := 'content_manager'/g) ?? []).length, 2);
+  assert.match(migration, /REVIEWER_MUST_DIFFER_FROM_SUBMITTER/);
+  assert.match(migration, /TECHNICAL_REVIEWER_MUST_DIFFER/);
   assert.match(migration, /required_role := 'admin'/);
   for (const evidence of ["packageValidationPassed", "officialProvenanceChecked", "answerSeparationChecked", "responsivePreviewChecked"]) {
     assert.match(migration, new RegExp(evidence));
