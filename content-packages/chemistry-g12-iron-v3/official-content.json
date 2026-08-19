@@ -2,157 +2,463 @@
   "capability": "officialBookContent",
   "status": "REVIEW_REQUIRED",
   "standard": "20A",
+  "content_owner": "OFFICIAL",
+  "official_text_fidelity": "EXACT",
   "source_file": "الدرس الرابع-الحديد (2).pdf",
   "source_sha256": "sha256:79bffd410fde5ff776b28ca805173d66d9ff02e12b76e324006986ee57b4b0b7",
   "source_pages": "PDF pages 1-5; printed pages 14-18",
+  "source_evidence": {
+    "pages": [
+      {
+        "pdf_page": 1,
+        "printed_page": 14,
+        "source_file": "الدرس الرابع-الحديد (2).pdf",
+        "source_sha256": "sha256:79bffd410fde5ff776b28ca805173d66d9ff02e12b76e324006986ee57b4b0b7"
+      },
+      {
+        "pdf_page": 2,
+        "printed_page": 15,
+        "source_file": "الدرس الرابع-الحديد (2).pdf",
+        "source_sha256": "sha256:79bffd410fde5ff776b28ca805173d66d9ff02e12b76e324006986ee57b4b0b7"
+      },
+      {
+        "pdf_page": 3,
+        "printed_page": 16,
+        "source_file": "الدرس الرابع-الحديد (2).pdf",
+        "source_sha256": "sha256:79bffd410fde5ff776b28ca805173d66d9ff02e12b76e324006986ee57b4b0b7"
+      },
+      {
+        "pdf_page": 4,
+        "printed_page": 17,
+        "source_file": "الدرس الرابع-الحديد (2).pdf",
+        "source_sha256": "sha256:79bffd410fde5ff776b28ca805173d66d9ff02e12b76e324006986ee57b4b0b7"
+      },
+      {
+        "pdf_page": 5,
+        "printed_page": 18,
+        "source_file": "الدرس الرابع-الحديد (2).pdf",
+        "source_sha256": "sha256:79bffd410fde5ff776b28ca805173d66d9ff02e12b76e324006986ee57b4b0b7"
+      }
+    ],
+    "furnace_figure": {
+      "pdf_page": 3,
+      "printed_page": 16,
+      "source_region_pdf_points": {
+        "x0": 66.36,
+        "y0": 54.29,
+        "x1": 313.92,
+        "y1": 355.49
+      },
+      "asset": "assets/official-figure-1-1.png",
+      "asset_sha256": "sha256:a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf",
+      "extraction": "embedded source image; no redraw or montage"
+    }
+  },
   "blocks": [
     {
       "id": "iron-family",
-      "type": "TABLE",
+      "type": "table",
       "source_page": 1,
-      "book_page": 14,
-      "text": "عائلة الحديد"
+      "printed_page": 14,
+      "text": "جدول (1-3) خواص عائلة الحديد",
+      "source_region": {
+        "x0": 66.0,
+        "y0": 54.0,
+        "x1": 494.0,
+        "y1": 190.0
+      },
+      "columns": [
+        "العنصر",
+        "رمز العنصر",
+        "التركيب الإلكتروني",
+        "الوزن الذري",
+        "نصف القطر الذري (Å)",
+        "نصف القطر الأيوني (Å)"
+      ],
+      "units": {
+        "الوزن الذري": "وحدة كتلة ذرية",
+        "نصف القطر الذري (Å)": "Å",
+        "نصف القطر الأيوني (Å)": "Å"
+      },
+      "rows": [
+        [
+          "حديد",
+          "²⁶Fe",
+          "[Ar] 3d⁶ 4s²",
+          "55.85",
+          "1.16",
+          "0.76"
+        ],
+        [
+          "كوبلت",
+          "²⁷Co",
+          "[Ar] 3d⁷ 4s²",
+          "58.62",
+          "1.16",
+          "0.74"
+        ],
+        [
+          "نيكل",
+          "²⁸Ni",
+          "[Ar] 3d⁸ 4s²",
+          "58.71",
+          "1.15",
+          "0.72"
+        ]
+      ]
+    },
+    {
+      "id": "lesson-heading",
+      "type": "heading",
+      "source_page": 1,
+      "printed_page": 14,
+      "text": "الحديد (Fe)"
     },
     {
       "id": "intro",
-      "type": "PARAGRAPH",
+      "type": "paragraph",
       "source_page": 1,
-      "book_page": 14,
-      "text": "يعد الحديد من أكثر الفلزات الانتقالية استخداماً، ويقع في المجموعة الثامنة والدورة الرابعة من الجدول الدوري."
+      "printed_page": 14,
+      "text": "الحديد هو أكثر الفلزات الانتقالية استعمالاً، وذلك لوفرته النسبية وسهولة استخلاصه من خاماته، وفي حالته النقية نجد أنه ليس قاسياً جداً، ولكن عند إضافة كميات صغيرة من الكربون والفلزات الأخرى إليه تتكون سبائك الفولاذ القوية."
     },
     {
-      "id": "ores",
-      "type": "PARAGRAPH",
+      "id": "ores-heading",
+      "type": "heading",
       "source_page": 1,
-      "book_page": 14,
-      "text": "أهم خامات الحديد: الماجنيتيت Fe3O4، والهيماتيت Fe2O3، والليمونيت Fe2O3·nH2O."
+      "printed_page": 14,
+      "text": "خامات الحديد:"
+    },
+    {
+      "id": "oxidation-and-oxides",
+      "type": "paragraph",
+      "source_page": 1,
+      "printed_page": 14,
+      "text": "لأن الحديد فلز فعّال نوعاً ما، ويكوّن مركبات بشكل رئيس في حالتي التأكسد (+2 و +3)، فهو يعمل على أكسدة مركبات الحديد (II) لتعطي مركبات الحديد (III) المقابلة لها. كما يكوّن الحديد ثلاثة أكاسيد هي: FeO و Fe₂O₃ و (FeO . Fe₂O₃). وأكسيد الحديد (II) صعب التحضير، ويتحول إلى: Fe و Fe₂O₃ عند تسخينه، كما توضحه المعادلة الآتية:"
+    },
+    {
+      "id": "iron-ii-decomposition",
+      "type": "equation",
+      "source_page": 1,
+      "printed_page": 14,
+      "text": "3FeO(s) → Fe(s) + Fe₂O₃(s)"
+    },
+    {
+      "id": "ores-intro",
+      "type": "paragraph",
+      "source_page": 1,
+      "printed_page": 14,
+      "text": "وتختلف خامات الحديد حسب تركيبها الكيميائي والمعدني، ومن أهمها:"
+    },
+    {
+      "id": "magnetite",
+      "type": "paragraph",
+      "source_page": 1,
+      "printed_page": 14,
+      "text": "١- أكسيد الحديد المغناطيسي (Fe₃O₄): وهو خام لونه رمادي مائل للسواد ويسمى بالاسم المعروف الماجنيتايت Magnetite، وتكون نسبة الحديد عادةً من (40-70%)، وفي حالة تأكسدين مختلفين، وتكتب صيغته بالشكل (Feᴵᴵ, Feᴵᴵᴵ) للدلالة على حالات تأكسد الحديد، وكما يدل اسمه فإن الماجنيتايت مغناطيسي، وهو من خامات الحديد المهمة؛ لأنه من الممكن فصله بسهولة عن الصخور عديمة الفائدة بواسطة مغناطيس قوي؛ لأنه غني بالحديد."
+    },
+    {
+      "id": "hematite",
+      "type": "paragraph",
+      "source_page": 2,
+      "printed_page": 15,
+      "text": "٢- أكسيد الحديد اللامائي: ويسمى أكسيد الحديد هنا بالهيماتيت، ويكون الحديد فيه على شكل أكسيد الحديد (III) الأحمر (Fe₂O₃). وتتراوح نسبة الحديد فيه ما بين 45-50%، واستخراج الحديد من هذا الأكسيد يعد اقتصادياً أكثر من استخراجه من الخامات الأخرى، مثل: الماجنيتايت؛ لأنه من السهل اختزال الخامات الحمراء منه."
+    },
+    {
+      "id": "limonite",
+      "type": "paragraph",
+      "source_page": 2,
+      "printed_page": 15,
+      "text": "٣- أكسيد الحديد المائي: ورمزه الكيميائي هو (Fe₂O₃.nH₂O)، حيث يحتوي هذا المركب على كمية من الماء، ويسمى (بالليمونيت) نسبة إلى لونه الأصفر، ويحتوي غالباً على 57.14% من فلز الحديد، و52.35% ماء، وهذا الأكسيد المميأ هو الصدأ (Rust)."
+    },
+    {
+      "id": "other-ores",
+      "type": "paragraph",
+      "source_page": 2,
+      "printed_page": 15,
+      "text": "أما خامات الحديد الأخرى فيكون الحديد فيها قليلاً، إذ تتراوح نسبته فيها مابين 25-50%."
+    },
+    {
+      "id": "mining-heading",
+      "type": "heading",
+      "source_page": 2,
+      "printed_page": 15,
+      "text": "تعدين الحديد:"
     },
     {
       "id": "mining",
-      "type": "PARAGRAPH",
-      "source_page": 1,
-      "book_page": 14,
-      "text": "يستخلص الحديد من خاماته في الفرن العالي (اللافح)، وتسمى المواد الداخلة إلى الفرن بالشحنة."
+      "type": "paragraph",
+      "source_page": 2,
+      "printed_page": 15,
+      "text": "يستخرج الحديد من خاماته وذلك عن طريق الاختزال، ولأن الحديد ينتج بكميات كبيرة، فإن المادة المختزلة يجب أن تكون رخيصة الثمن وأقل تكلفة. ومن أرخص هذه المواد الكربون (على شكل فحم الكوك) الذي ينتج من الفحم الحجري بعد تسخينه إلى درجات حرارة مرتفعة بمعزل عن الهواء. وتؤدي هذه المعالجة إلى طرد المواد المتطايرة الموجودة في الفحم الحجري (والتي يتم منها اشتقاق مواد كيميائية أخرى مهمة) مخلفة وراءها كربوناً نقياً إلى حد ما. وتتم عملية اختزال الحديد في الفرن العالي (اللافح) كما يأتي:"
     },
     {
       "id": "charge",
-      "type": "PARAGRAPH",
+      "type": "paragraph",
       "source_page": 2,
-      "book_page": 15,
-      "text": "تتكون الشحنة من خام الحديد وفحم الكوك والحجر الجيري."
+      "printed_page": 15,
+      "text": "- يضاف إلى الفرن مزيج من الخامات تسمى بالشحنة (Charge) والتي تتألف من حجر جيري وفحم الكوك وخام الحديد، الذي يحتوي غالباً على Fe₂O₃ مخلوطاً ببعض الشوائب مثل SiO₂ (أي رمل، حوالي 10%)، وكميات ضئيلة من مركبات أخرى تحتوي على الكبريت والفوسفور والألومنيوم والمنجنيز. وبعد ذلك يدفع إلى داخل الفرن هواء ساخن مضغوط أو أكسجين نقي، كما في شكل (1-1)، حيث يتفاعل الأكسجين مع الكربون منتجاً غاز ثاني أكسيد الكربون مصحوباً بحرارة عالية، حسب المعادلة الآتية:"
     },
     {
-      "id": "carbon",
-      "type": "FORMULA",
+      "id": "carbon-dioxide-formation",
+      "type": "equation",
       "source_page": 2,
-      "book_page": 15,
-      "text": "C + O2 → CO2"
+      "printed_page": 15,
+      "text": "C(s) + O₂(g) → CO₂(g)  ΔH= −394 Kj/mole"
     },
     {
-      "id": "furnace-diagram",
-      "type": "DIAGRAM",
+      "id": "hot-zone",
+      "type": "paragraph",
       "source_page": 3,
-      "book_page": 16,
-      "text": "رسم تخطيطي للفرن العالي (اللافح)"
+      "printed_page": 16,
+      "text": "- وتؤدي كمية الحرارة المرتفعة المتولدة في هذا القسم من الفرن إلى رفع درجة الحرارة إلى ما يقارب 1900°م، وفي أثناء تصاعد الغازات الساخنة يتفاعل CO₂ مع كميات إضافية من الكربون في تفاعل ماص للحرارة ليكون أول أكسيد الكربون الذي يعتبر عامل الاختزال الفعال في الفرن."
     },
     {
-      "id": "co",
-      "type": "FORMULA",
+      "id": "carbon-monoxide-formation",
+      "type": "equation",
       "source_page": 3,
-      "book_page": 16,
-      "text": "CO2 + C → 2CO"
+      "printed_page": 16,
+      "text": "CO₂(g) + C(s) → 2CO(g)  ΔH= +173 Kj"
     },
     {
-      "id": "reduction",
-      "type": "FORMULA",
+      "id": "furnace-figure",
+      "type": "figure",
       "source_page": 3,
-      "book_page": 16,
-      "text": "Fe2O3 → Fe3O4 → FeO → Fe"
+      "printed_page": 16,
+      "text": "شكل (1-1) الفرن العالي (اللافح)",
+      "source_region": {
+        "x0": 66.36,
+        "y0": 54.29,
+        "x1": 313.92,
+        "y1": 355.49
+      },
+      "asset": "assets/official-figure-1-1.png",
+      "asset_sha256": "sha256:a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf",
+      "extraction": "embedded source image; no redraw or montage"
     },
     {
-      "id": "reduction-reactions",
-      "type": "FORMULA",
+      "id": "reduction-intro",
+      "type": "paragraph",
       "source_page": 3,
-      "book_page": 16,
-      "text": "Fe2O3 + CO → Fe3O4 + CO2؛ Fe3O4 + CO → FeO + CO2؛ FeO + CO → Fe + CO2"
+      "printed_page": 16,
+      "text": "وتحدث عملية اختزال خام الحديد في سلسلة من الخطوات، انظر الشكل (1-1) تجد أنه بقرب قمة الفرن يتم اختزال Fe₂O₃ إلى Fe₃O₄، كما في المعادلة الآتية:"
     },
     {
-      "id": "limestone",
-      "type": "PARAGRAPH",
+      "id": "hematite-reduction",
+      "type": "equation",
+      "source_page": 3,
+      "printed_page": 16,
+      "text": "3Fe₂O₃ + CO → 2Fe₃O₄ + CO₂"
+    },
+    {
+      "id": "magnetite-reduction-intro",
+      "type": "paragraph",
+      "source_page": 3,
+      "printed_page": 16,
+      "text": "وإلى أسفل من ذلك بقليل، في منطقة أكثر حرارة من الفرن، يختزل Fe₃O₄ إلى FeO، حسب المعادلة الآتية:"
+    },
+    {
+      "id": "magnetite-reduction",
+      "type": "equation",
+      "source_page": 3,
+      "printed_page": 16,
+      "text": "Fe₃O₄ + CO → 3FeO + CO₂"
+    },
+    {
+      "id": "ferrous-reduction-intro",
+      "type": "paragraph",
+      "source_page": 3,
+      "printed_page": 16,
+      "text": "وأخيراً يختزل FeO إلى الفلز تحت المنطقة السابقة - أيضاً - ويكون الفلز عند درجات الحرارة العالية هذه سائلاً فينساب إلى الأسفل مكوناً بركة من الفلز المصهور في قاعدة البرج."
+    },
+    {
+      "id": "ferrous-reduction",
+      "type": "equation",
+      "source_page": 3,
+      "printed_page": 16,
+      "text": "FeO + CO → Fe + CO₂"
+    },
+    {
+      "id": "limestone-function",
+      "type": "paragraph",
+      "source_page": 3,
+      "printed_page": 16,
+      "text": "ووظيفة الحجر الجيري في الفرن تتمثل في تزويد وسط قاعدي تتفاعل معه الأكاسيد الحامضية، مثل: SiO₂ و P₂O₅، أو الأكاسيد الأمفوتيرية مثل Al₂O₃. فعند درجات الحرارة المرتفعة"
+    },
+    {
+      "id": "limestone-decomposition-intro",
+      "type": "paragraph",
       "source_page": 4,
-      "book_page": 17,
-      "text": "يتحلل الحجر الجيري بالحرارة، ويتفاعل أكسيد الكالسيوم الناتج مع الشوائب مكوناً الخبث."
+      "printed_page": 17,
+      "text": "الحرارة المرتفعة يتحلل الحجر الجيري CaCO₃ ليكون الجير (CaO) و CO₂، حسب المعادلة الآتية:"
     },
     {
-      "id": "slag",
-      "type": "FORMULA",
+      "id": "limestone-decomposition",
+      "type": "equation",
       "source_page": 4,
-      "book_page": 17,
-      "text": "CaCO3 → CaO + CO2؛ CaO + SiO2 → CaSiO3 (الخبث)"
+      "printed_page": 17,
+      "text": "CaCO₃ → CaO + CO₂"
     },
     {
-      "id": "pig-iron",
-      "type": "PARAGRAPH",
+      "id": "slag-heading",
+      "type": "paragraph",
       "source_page": 4,
-      "book_page": 17,
-      "text": "ينتج الحديد الغفل، ثم ينقل إلى مراحل التصنيع المختلفة."
+      "printed_page": 17,
+      "text": "ويتفاعل بعد ذلك الجير، كالآتي:"
+    },
+    {
+      "id": "silicate-slag",
+      "type": "equation",
+      "source_page": 4,
+      "printed_page": 17,
+      "text": "CaO + SiO₂ → CaSiO₃"
+    },
+    {
+      "id": "phosphate-slag",
+      "type": "equation",
+      "source_page": 4,
+      "printed_page": 17,
+      "text": "6CaO + 2P₂O₅ → 2Ca₃(PO₄)₂"
+    },
+    {
+      "id": "aluminate-slag",
+      "type": "equation",
+      "source_page": 4,
+      "printed_page": 17,
+      "text": "CaO + Al₂O₃ → Ca(AlO₂)₂"
+    },
+    {
+      "id": "slag-process",
+      "type": "paragraph",
+      "source_page": 4,
+      "printed_page": 17,
+      "text": "وللمواد الناتجة عن هذه التفاعلات درجات انصهار منخفضة وهي في الحالة السائلة عند تكوينها، ويتجه هذا المزيج والذي يسمى بالخبث (Slag) إلى قاعدة الفرن، حيث يطفو على سطح الحديد المصهور. وفي أثناء تكون هاتين الطبقتين تهبط الشحنة في الفرن، وعندها يتم وضع كميات إضافية من مزيج (الحجر الجيري، وخام الحديد، وفحم الكوك) من الفتحة العليا للفرن. وبهذه الطريقة يعمل الفرن العالي (اللافح) باستمرار عن طريق إضافة شحنة من الأعلى وسحب الحديد المصهور والخبث من الأسفل، ويتم عادة تشغيل هذه الأفران لمدة شهور في كل مرة قبل إيقافها لأغراض الصيانة الروتينية. ويسمى الحديد السائل الذي يتم سحبه من الفرن العالي بالحديد الفضي، ويتكون من حوالي 95% حديد، وما يقارب 4% من الكربون، مع بعض الكميات الضئيلة من: السيليكون، والمنجنيز، والفوسفور، والكبريت. وهذا الحديد الناتج يعد صلباً جداً، ويمكن صبه في قوالب صب (Cast Iron)، أما الخَبَث فيمكن استعماله في صناعة الإسمنت."
+    },
+    {
+      "id": "properties-heading",
+      "type": "heading",
+      "source_page": 4,
+      "printed_page": 17,
+      "text": "خواص الحديد:"
     },
     {
       "id": "physical-properties",
-      "type": "PARAGRAPH",
+      "type": "paragraph",
       "source_page": 4,
-      "book_page": 17,
-      "text": "الحديد فلز فضي اللون، لين قابل للطرق والسحب، وموصل جيد للحرارة والكهرباء، ودرجة انصهاره 1535 درجة مئوية."
+      "printed_page": 17,
+      "text": "الحديد النقي في حالته الصلبة عبارة عن فلز فضي أبيض اللون، لين، قابل للطرق وكثافته عند درجة 20°م تساوي 7.874 جم/سم³، ودرجة انصهاره 1535°م، ودرجة غليانه 2750°م، وعند انصهار الحديد يزداد حجمه بمقدار 4.4%."
     },
     {
-      "id": "oxygen-water",
-      "type": "FORMULA",
-      "source_page": 5,
-      "book_page": 18,
-      "text": "يتفاعل الحديد مع الأكسجين وبخار الماء مكوناً Fe3O4."
+      "id": "physical-properties-followup",
+      "type": "paragraph",
+      "source_page": 4,
+      "printed_page": 17,
+      "text": "ويعتبر الحديد من المواد المختزلة الجيدة، كما أنه يعد موصلاً جيداً للحرارة والكهرباء، ومسحوق الحديد أسود وغالباً ما يتوفر في المعامل المدرسية باسم برادة الحديد."
     },
     {
-      "id": "rust",
-      "type": "PARAGRAPH",
+      "id": "reactions-heading",
+      "type": "heading",
       "source_page": 5,
-      "book_page": 18,
-      "text": "يتكون الصدأ عند تعرض الحديد للهواء الرطب."
+      "printed_page": 18,
+      "text": "ومن أهم تفاعلات الحديد ما يلي:"
+    },
+    {
+      "id": "oxygen-water-intro",
+      "type": "paragraph",
+      "source_page": 5,
+      "printed_page": 18,
+      "text": "١- عند تسخين الحديد لدرجة الاحمرار فإنه يتفاعل مع الأكسجين، وكذلك مع بخار الماء مكوناً أكسيد الحديد المغناطيسي."
+    },
+    {
+      "id": "oxygen",
+      "type": "equation",
+      "source_page": 5,
+      "printed_page": 18,
+      "text": "3Fe + 2O₂ → Fe₃O₄"
+    },
+    {
+      "id": "steam",
+      "type": "equation",
+      "source_page": 5,
+      "printed_page": 18,
+      "text": "3Fe + 4H₂O(g) → Fe₃O₄ + 4H₂↑"
+    },
+    {
+      "id": "rust-intro",
+      "type": "paragraph",
+      "source_page": 5,
+      "printed_page": 18,
+      "text": "٢- يتفاعل الحديد مع الهواء الرطب مكوناً طبقة من الصدأ، وهي طبقة هشة مسامية غير قادرة على وقاية الحديد من مواصلة التآكل، ولذلك لا بد من حماية الحديد من التآكل، والتفاعل الإجمالي لتكوين الصدأ هو:"
+    },
+    {
+      "id": "rust-equation",
+      "type": "equation",
+      "source_page": 5,
+      "printed_page": 18,
+      "text": "4Fe + 2H₂O + 3O₂ → 2(Fe₂O₃ . H₂O)"
+    },
+    {
+      "id": "nonmetal-intro",
+      "type": "paragraph",
+      "source_page": 5,
+      "printed_page": 18,
+      "text": "٣- يتحد الحديد مع كثير من اللافلزات في درجات الحرارة العالية، فمثلاً يكون مع الكلور كلوريد الحديد (III)، ومع الكبريت كبريتيد الحديد (II):"
     },
     {
       "id": "chlorine",
-      "type": "FORMULA",
+      "type": "equation",
       "source_page": 5,
-      "book_page": 18,
-      "text": "2Fe + 3Cl2 → 2FeCl3"
+      "printed_page": 18,
+      "text": "2Fe + 3Cl₂ → 2FeCl₃"
     },
     {
       "id": "sulfur",
-      "type": "FORMULA",
+      "type": "equation",
       "source_page": 5,
-      "book_page": 18,
-      "text": "يتفاعل الحديد مع الكبريت مكوناً كبريتيد الحديد."
+      "printed_page": 18,
+      "text": "Fe + S → FeS"
     },
     {
-      "id": "acids",
-      "type": "PARAGRAPH",
+      "id": "acids-intro",
+      "type": "paragraph",
       "source_page": 5,
-      "book_page": 18,
-      "text": "يتفاعل الحديد مع الأحماض المخففة وينتج الهيدروجين وأملاح الحديد، ولا يتأثر الحديد بحمض الكبريتيك وحمض النيتريك المركزين."
+      "printed_page": 18,
+      "text": "٤- يتفاعل الحديد مع حمض الهيدروكلوريك المخفف أو المركز، وحمض الكبريتيك المخفف ليعطي أملاح الحديد المطابقة وغاز الهيدروجين."
+    },
+    {
+      "id": "hydrochloric-acid",
+      "type": "equation",
+      "source_page": 5,
+      "printed_page": 18,
+      "text": "Fe + 2HCl → FeCl₂ + H₂↑"
+    },
+    {
+      "id": "sulfuric-acid",
+      "type": "equation",
+      "source_page": 5,
+      "printed_page": 18,
+      "text": "Fe + H₂SO₄ → FeSO₄ + H₂↑"
     },
     {
       "id": "passivation",
-      "type": "PARAGRAPH",
+      "type": "note",
       "source_page": 5,
-      "book_page": 18,
-      "text": "تخميل الحديد هو تكوّن طبقة واقية على سطحه عند تعرضه لبعض العوامل."
+      "printed_page": 18,
+      "text": "ملاحظة: لا يتأثر الحديد بحمض الكبريتيك وحمض النيتريك المركزين، ويرجع ذلك لتكوين طبقة رقيقة من أكسيد الحديد المغناطيسي (Fe₃O₄)، وهذه الطبقة تحمي فلز الحديد وتحول دون تفاعله."
     },
     {
-      "id": "activity-reference",
-      "type": "NOTE",
+      "id": "activity-caption",
+      "type": "caption",
       "source_page": 5,
-      "book_page": 18,
-      "text": "ارجع إلى النشاط العملي للكشف عن الحديد في أملاحه."
+      "printed_page": 18,
+      "text": "نشاط (1-1)"
+    },
+    {
+      "id": "activity",
+      "type": "activity",
+      "source_page": 5,
+      "printed_page": 18,
+      "text": "الكشف عن الحديد في أملاحه: قم بتنفيذ التجارب الخاصة بالكشف عن الحديد في أملاحه في كتاب الأنشطة والتجارب العملية المرفق بهذا الكتاب."
     }
   ],
-  "source_note": "Embedded Arabic PDF font makes raw text extraction unreliable. Human page/image fidelity review is required before READY; no external correction was applied."
+  "source_note": "Page-by-page transcription/structured representation from the supplied official PDF. No summarization, paraphrase, simplification, or external correction was applied."
 }
