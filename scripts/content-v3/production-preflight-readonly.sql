@@ -159,20 +159,22 @@ BEGIN
       RAISE NOTICE '20C READY_rows_without_content=0';
     END IF;
 
-    -- originalBookPdf is out of the V3 contract, but lifecycle history is kept.
-    -- The blocker is a RETIRED-but-still-READY row, never the row's existence.
-    EXECUTE $q$SELECT count(*) FROM public.lesson_capability_lifecycle WHERE capability = 'originalBookPdf'$q$ INTO v_count;
-    RAISE NOTICE '20C legacy_originalBookPdf_lifecycle_rows=% final_contract=EXCLUDED_RETAINED_AS_HISTORY', v_count;
+    -- Retired capabilities (V3_RETIRED_CAPABILITIES) are out of the V3
+    -- contract, but lifecycle history is kept. The blocker is a
+    -- RETIRED-but-still-READY row, never the row's existence.
+    EXECUTE $q$SELECT count(*) FROM public.lesson_capability_lifecycle WHERE capability IN ('originalBookPdf','supportingResources')$q$ INTO v_count;
+    RAISE NOTICE '20C legacy_retired_lifecycle_rows=% final_contract=EXCLUDED_RETAINED_AS_HISTORY', v_count;
 
     EXECUTE $q$
       SELECT count(*) FROM public.lesson_capability_lifecycle
-       WHERE capability = 'originalBookPdf' AND status = 'READY'
+       WHERE capability IN ('originalBookPdf','supportingResources') AND status = 'READY'
     $q$ INTO v_count;
     IF v_count > 0 THEN
       v_bad := v_bad + v_count;
       RAISE NOTICE 'STOP_PRODUCTION_STATE_INCOMPATIBLE originalBookPdf_rows_still_ready=%', v_count;
     ELSE
       RAISE NOTICE 'R5 originalBookPdf_rows_still_ready=0';
+      RAISE NOTICE 'R5 retired_ready_rows=0';
     END IF;
 
     IF EXISTS (
@@ -183,7 +185,7 @@ BEGIN
     ) THEN
       EXECUTE $q$
         SELECT count(*) FROM public.lesson_capability_lifecycle
-         WHERE capability = 'originalBookPdf'
+         WHERE capability IN ('originalBookPdf','supportingResources')
            AND COALESCE(retirement_origin, '') <> 'LEGACY_20C'
       $q$ INTO v_count;
       IF v_count > 0 THEN
@@ -193,6 +195,7 @@ BEGIN
         RAISE NOTICE 'R5 originalBookPdf_retirement_provenance=COMPLETE';
       END IF;
     END IF;
+
 
     SELECT count(*) INTO v_count
       FROM pg_policies

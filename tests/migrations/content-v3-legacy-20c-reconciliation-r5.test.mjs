@@ -28,15 +28,65 @@ test("R5 runs before 21H, is transactional, and never fabricates an approver", (
   assert.match(r5, /ready_by = COALESCE\(x\.ready_by, ev\.actor_id\)/);
   assert.match(r5, /LEGACY_20C_VISIBLE_BASELINE/);
   assert.doesNotMatch(r5, /system_actor|SYSTEM_ACTOR|00000000-0000-0000-0000-000000000000/);
+  assert.match(r5, /lesson_capability_lifecycle_legacy_baseline_no_approver_chk/);
 });
 
-test("R5 retires originalBookPdf without deleting lifecycle history", () => {
+test("AUDITED_APPROVAL requires a literal REVIEW -> READY transition", () => {
+  const fn = r5.slice(r5.indexOf("FUNCTION public.v3_capability_audited_approval("));
+  assert.match(fn, /from_status' = 'REVIEW'/);
+  assert.match(fn, /to_status' = 'READY'/);
+  assert.match(fn, /metadata ->> 'capability' = _capability/);
+  assert.match(fn, /a\.target_id = _lesson_id/);
+  assert.match(fn, /ORDER BY a\.created_at DESC, a\.id DESC/);
+});
+
+test("ready_at provenance comes from the audit row, never from updated_at for audited rows", () => {
+  const block = r5.slice(r5.indexOf("ready_at = CASE"), r5.indexOf("END\n  FROM ("));
+  assert.match(block, /WHEN x\.ready_at IS NOT NULL THEN x\.ready_at/);
+  assert.match(block, /WHEN ev\.actor_id IS NOT NULL THEN ev\.approved_at/);
+});
+
+test("checkUnderstanding snapshot can never emit a null revisionId", () => {
+  const start = r5.indexOf("WHEN 'checkUnderstanding'");
+  const body = r5.slice(start, r5.indexOf("WHEN 'lessonAssessment'", start));
+  assert.match(body, /JOIN public\.question_revisions rev/);
+  assert.match(body, /rev\.id = q\.current_published_revision_id/);
+  assert.match(body, /rev\.id IS NOT NULL/);
+  assert.match(body, /rev\.status = 'PUBLISHED'/);
+  assert.match(r5, /R5_PUBLISHED_REVISION_NULL/);
+});
+
+test("every retired capability is handled, not just originalBookPdf", () => {
+  assert.match(r5, /FUNCTION public\.v3_retired_capabilities\(\)/);
+  assert.match(r5, /ARRAY\['originalBookPdf', 'supportingResources'\]/);
+  assert.match(r5, /capability = ANY \(public\.v3_retired_capabilities\(\)\)/);
+  assert.match(mapping, /V3_RETIRED_CAPABILITIES = \["originalBookPdf", "supportingResources"\]/);
+});
+
+test("empty snapshots fail closed before the first UPDATE", () => {
+  const firstUpdate = r5.indexOf("UPDATE public.lesson_capability_lifecycle x\n   SET ready_by");
+  const precondition = r5.indexOf("R5_EMPTY_READY_SNAPSHOT=%");
+  assert.ok(precondition > 0 && precondition < firstUpdate, "precondition must precede the first UPDATE");
+  assert.match(r5, /tamkeen\.r5_manual_review_allowlist/);
+  assert.match(r5, /R5_EMPTY_READY_SNAPSHOT_POST/);
+});
+
+test("canonical JSON is named honestly and is deterministic", () => {
+  assert.match(r5, /DROP FUNCTION IF EXISTS public\._v3_jcs\(jsonb\);/);
+  assert.match(r5, /FUNCTION public\._v3_canonical_json_v1\(jsonb\)/);
+  assert.match(r5, /NOT RFC 8785 \/ JCS/);
+  assert.match(r5, /ORDER BY kv\.key COLLATE "C"/);
+  assert.match(r5, /ORDER BY e\.ordinality/);
+  assert.match(r5, /sha256\(convert_to\(public\._v3_canonical_json_v1\(_snapshot\), 'UTF8'\)\)/);
+});
+
+test("R5 retires capabilities without deleting lifecycle history", () => {
   assert.doesNotMatch(r5, /DELETE\s+FROM\s+public\.lesson_capability_lifecycle/i);
   assert.doesNotMatch(r5, /DROP\s+(TABLE|COLUMN)\b/i);
-  assert.match(r5, /SET status = 'REVIEW',\s*\n\s*retirement_origin = 'LEGACY_20C'/);
+  assert.match(r5, /retirement_origin = 'LEGACY_20C'/);
 });
 
-test("canonical snapshot is deterministic and structurally answer-free", () => {
+test("canonical snapshot is structurally answer-free", () => {
   const start = r5.indexOf("FUNCTION public.v3_capability_snapshot(");
   const end = r5.indexOf("$$;", start);
   const body = r5.slice(start, end).replace(/--[^\n]*/g, "");
@@ -45,14 +95,13 @@ test("canonical snapshot is deterministic and structurally answer-free", () => {
   }
   assert.match(body, /status = 'PUBLISHED'/);
   assert.match(body, /snapshotVersion/);
-  assert.match(r5, /ORDER BY kv\.key COLLATE "C"/);
-  assert.match(r5, /sha256\(convert_to\(public\._v3_jcs\(_snapshot\), 'UTF8'\)\)/);
 });
 
 test("preflight accepts documented legacy evidence and retired-not-ready rows", () => {
   assert.match(preflight, /COALESCE\(x\.evidence_origin, ''\) <> 'LEGACY_20C_VISIBLE_BASELINE'/);
   assert.match(preflight, /originalBookPdf_rows_still_ready/);
   assert.match(preflight, /originalBookPdf_rows_without_retirement_provenance/);
+  assert.match(preflight, /capability IN \('originalBookPdf','supportingResources'\)/);
   assert.doesNotMatch(preflight, /legacy_originalBookPdf_lifecycle_rows_present/);
   assert.match(preflight, /SET TRANSACTION READ ONLY/i);
 });
@@ -61,6 +110,8 @@ test("postverify enforces snapshot evidence and the retirement contract", () => 
   assert.match(postverify, /READY row lacks snapshot evidence/);
   assert.match(postverify, /COALESCE\(evidence_origin, ''\) <> 'LEGACY_20C_VISIBLE_BASELINE'/);
   assert.match(postverify, /originalBookPdf retirement contract/);
+  assert.match(postverify, /PUBLISHED_REVISION_NULL in READY snapshot/);
+  assert.match(postverify, /EMPTY_READY_SNAPSHOT/);
   assert.match(postverify, /SET TRANSACTION READ ONLY/i);
 });
 
@@ -73,20 +124,33 @@ test("unreconcilable rows are flagged, never pinned", () => {
   assert.match(r5, /AND public\.v3_capability_snapshot_is_reconcilable\(/);
 });
 
-test("PG17 rehearsal fixture reproduces the measured production counts", () => {
+test("PG17 rehearsal is executable and covers the R5-R2 negative scenarios", () => {
   const fixture = read("scripts/content-v3/pg17/fixture-legacy-20c.sql");
   assert.match(fixture, /sort_order <= 21/);          // officialBookContent = 21
   assert.match(fixture, /'originalBookPdf', 'READY'/); // 40 lessons
-  assert.match(fixture, /quickReview','checkUnderstanding','lessonAssessment'/);
+  assert.match(fixture, /'supportingResources','READY'/);
+  assert.match(fixture, /"from_status":"REVIEW","to_status":"READY"/);
+  assert.match(fixture, /"from_status":"DRAFT","to_status":"READY"/);
+  assert.match(fixture, /'77777777-0000-0000-0000-000000000005','66666666-0000-0000-0000-000000000005','DRAFT'/);
+
+  const runner = read("scripts/content-v3/pg17/rehearse-r5.sh");
+  assert.match(runner, /EMPTY_SNAPSHOT_FAIL_CLOSED=PASS/);
+  assert.match(runner, /production-preflight-readonly\.sql/);
+  assert.match(runner, /postverify-21h\.sql/);
+  assert.match(runner, /tamkeen\.r5_manual_review_allowlist/);
+
   const asserts = read("scripts/content-v3/pg17/assert-r5.sql");
   for (const gate of [
-    "READY_WITHOUT_EVIDENCE",
-    "ORIGINAL_BOOK_PDF_V3_APPLICABLE",
-    "LEGACY_ROWS_DELETED",
-    "READY_BY_INVENTED",
-    "VISIBILITY_GAIN",
+    "READY_ROWS_WITHOUT_VALID_EVIDENCE",
+    "RETIRED_READY_ROWS",
+    "INVENTED_READY_BY",
+    "UNEXPECTED_VISIBILITY_GAIN",
+    "UNEXPECTED_VISIBILITY_LOSS",
     "ANSWER_LEAK",
-    "REVISION_PINNING",
+    "PUBLISHED_REVISION_NULL",
+    "EMPTY_READY_SNAPSHOT",
+    "DRAFT_TO_READY_REJECTED",
+    "AUDIT_REVIEW_TO_READY_ONLY",
   ]) {
     assert.match(asserts, new RegExp(gate), gate);
   }

@@ -78,9 +78,26 @@ BEGIN
 
   IF EXISTS (
     SELECT 1 FROM public.lesson_capability_lifecycle
-     WHERE capability='originalBookPdf'
+     WHERE capability IN ('originalBookPdf','supportingResources')
        AND (status='READY' OR COALESCE(retirement_origin,'') <> 'LEGACY_20C')
   ) THEN RAISE EXCEPTION 'ASSERT_FAIL: originalBookPdf retirement contract'; END IF;
+
+  -- No READY snapshot may pin a question without a published revision.
+  IF EXISTS (
+    SELECT 1 FROM public.lesson_capability_lifecycle x,
+         LATERAL jsonb_array_elements(COALESCE(x.ready_snapshot -> 'payload', '[]'::jsonb)) q
+     WHERE x.status='READY' AND x.capability='checkUnderstanding'
+       AND COALESCE(q ->> 'revisionId', '') = ''
+  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: PUBLISHED_REVISION_NULL in READY snapshot'; END IF;
+
+  -- No READY row may carry an empty snapshot payload.
+  IF EXISTS (
+    SELECT 1 FROM public.lesson_capability_lifecycle
+     WHERE status='READY'
+       AND NOT public.v3_capability_snapshot_is_reconcilable(ready_snapshot)
+  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: EMPTY_READY_SNAPSHOT'; END IF;
+
+
 
 
   IF EXISTS (
