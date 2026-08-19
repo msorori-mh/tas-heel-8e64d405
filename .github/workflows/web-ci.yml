@@ -44,6 +44,7 @@ jobs:
           if [ -f tests/content-packages/chemistry-g12-iron-v3.test.mjs ]; then
             node --test tests/content-packages/chemistry-g12-iron-v3.test.mjs
           fi
+          node --experimental-strip-types --test tests/content-packages/chemistry-g12-iron-production-import-dry-run.test.ts
 
       - name: Run PWA service worker policy test
         run: node tests/pwa/service-worker-policy.static.test.mjs
