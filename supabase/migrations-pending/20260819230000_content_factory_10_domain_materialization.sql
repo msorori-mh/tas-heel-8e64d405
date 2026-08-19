@@ -78,7 +78,7 @@ DECLARE
   item jsonb;
   opt jsonb;
   question_row public.questions;
-  revision_id uuid;
+  v_revision_id uuid;
   v_assessment_id uuid;
   question_code text;
   option_code text;
@@ -309,14 +309,14 @@ BEGIN
                                             published_at, published_by)
       VALUES (question_row.id, 1, 'published', coalesce(item->>'question_type','SHORT_ANSWER'),
               item->>'official_text', 1, false, false, true, 'v1', _actor_id, now(), _actor_id)
-      RETURNING id INTO revision_id;
+      RETURNING id INTO v_revision_id;
       writes := writes + 1;
 
-      UPDATE public.questions SET current_published_revision_id = revision_id WHERE id = question_row.id;
+      UPDATE public.questions SET current_published_revision_id = v_revision_id WHERE id = question_row.id;
 
       FOR opt IN SELECT value FROM jsonb_array_elements(coalesce(item->'options','[]'::jsonb)) LOOP
         INSERT INTO public.question_options(question_revision_id, option_code, body, sort_order, is_correct)
-        VALUES (revision_id, coalesce(opt->>'code', 'opt-' || options_written::text),
+        VALUES (v_revision_id, coalesce(opt->>'code', 'opt-' || options_written::text),
                 coalesce(opt->>'body', opt#>>'{}'), options_written, false);
         options_written := options_written + 1;
         writes := writes + 1;
@@ -325,14 +325,14 @@ BEGIN
       IF question_row.question_text IS DISTINCT FROM item->>'official_text' THEN
         RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: questions %', question_code USING ERRCODE = '23514';
       END IF;
-      revision_id := question_row.current_published_revision_id;
+      v_revision_id := question_row.current_published_revision_id;
     END IF;
 
     SELECT value INTO answer FROM jsonb_array_elements(coalesce((companion->>'body')::jsonb->'answers','[]'::jsonb))
       WHERE value->>'question_id' = coalesce(item->>'id', question_code);
-    IF answer IS NOT NULL AND revision_id IS NOT NULL THEN
+    IF answer IS NOT NULL AND v_revision_id IS NOT NULL THEN
       INSERT INTO public.official_question_answers(question_id, revision_id, model_answer, explanation)
-      VALUES (question_row.id, revision_id, answer->>'correct_option', answer->>'rationale')
+      VALUES (question_row.id, v_revision_id, answer->>'correct_option', answer->>'rationale')
       ON CONFLICT (question_id, revision_id) DO NOTHING;
       answers_written := answers_written + 1;
       writes := writes + 1;
@@ -371,20 +371,20 @@ BEGIN
                                             published_at, published_by)
       VALUES (question_row.id, 1, 'published', coalesce(item->>'type','multiple_choice'),
               item->>'question', 1, false, false, false, 'v1', _actor_id, now(), _actor_id)
-      RETURNING id INTO revision_id;
+      RETURNING id INTO v_revision_id;
       writes := writes + 1;
-      UPDATE public.questions SET current_published_revision_id = revision_id WHERE id = question_row.id;
+      UPDATE public.questions SET current_published_revision_id = v_revision_id WHERE id = question_row.id;
 
       options_written := 0;
       FOR opt IN SELECT value FROM jsonb_array_elements(coalesce(item->'options','[]'::jsonb)) LOOP
         option_code := chr(97 + options_written);
         INSERT INTO public.question_options(question_revision_id, option_code, body, sort_order, is_correct)
-        VALUES (revision_id, option_code, coalesce(opt->>'body', opt#>>'{}'), options_written, false);
+        VALUES (v_revision_id, option_code, coalesce(opt->>'body', opt#>>'{}'), options_written, false);
         options_written := options_written + 1;
         writes := writes + 1;
       END LOOP;
     ELSE
-      revision_id := question_row.current_published_revision_id;
+      v_revision_id := question_row.current_published_revision_id;
     END IF;
 
     INSERT INTO public.assessment_questions(assessment_id, question_id, sort_order, points)
@@ -394,14 +394,14 @@ BEGIN
 
     SELECT value INTO answer FROM jsonb_array_elements(coalesce((companion->>'body')::jsonb->'answers','[]'::jsonb))
       WHERE value->>'question_id' = (item->>'id');
-    IF answer IS NOT NULL AND revision_id IS NOT NULL THEN
+    IF answer IS NOT NULL AND v_revision_id IS NOT NULL THEN
       INSERT INTO public.official_question_answers(question_id, revision_id, model_answer, explanation)
-      VALUES (question_row.id, revision_id, answer->>'correct_option', answer->>'rationale')
+      VALUES (question_row.id, v_revision_id, answer->>'correct_option', answer->>'rationale')
       ON CONFLICT (question_id, revision_id) DO NOTHING;
       answers_written := answers_written + 1;
       INSERT INTO public.question_option_rationales(question_id, question_revision_id, option_id,
                                                     why_correct, why_wrong)
-      VALUES (question_row.id, revision_id,
+      VALUES (question_row.id, v_revision_id,
               regexp_replace(coalesce(answer->>'correct_option','?'),'[^a-z]','','g'),
               answer->>'rationale', NULL)
       ON CONFLICT (question_revision_id, option_id) DO NOTHING;
