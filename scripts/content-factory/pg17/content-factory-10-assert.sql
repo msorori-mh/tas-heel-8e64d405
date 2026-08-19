@@ -99,16 +99,55 @@ SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources),'mind
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_resources WHERE is_primary),'no primary resource promoted');
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.questions),'official and self-test questions written');
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.question_revisions),'one pinned revision per question');
-SELECT public.cf04_assert((SELECT count(*)=2 FROM public.questions WHERE current_published_revision_id IS NOT NULL),'published revision pointer set');
+-- CF10-R2: DRAFT-only revision contract.
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.question_revisions WHERE status='DRAFT'),'all revisions are DRAFT');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.question_revisions WHERE status='PUBLISHED'),'zero PUBLISHED revisions');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.question_revisions WHERE published_at IS NOT NULL OR published_by IS NOT NULL),'no publish metadata written');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.questions WHERE current_published_revision_id IS NOT NULL),'zero current_published_revision_id pointers');
+SELECT public.cf04_assert((SELECT bool_and(payload_hash_version='canonical_payload_v1' AND payload_hash ~ '^[0-9a-f]{64}$') FROM public.question_revisions),'payload_hash follows canonical_payload_v1');
+SELECT public.cf04_assert((SELECT bool_and(payload_hash = public._qb_compute_revision_payload_hash(id)) FROM public.question_revisions),'payload_hash matches the canonical QB contract');
+SELECT public.cf04_assert((SELECT bool_and(source_payload_hash ~ '^[a-f0-9]{64}$') FROM public.question_revisions),'source_payload_hash carries the staged capability digest');
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.question_targets WHERE target_type='LESSON'),'each draft revision has a lesson target');
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.question_options),'self-test options written');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.question_options WHERE is_correct),'options carry no answer key');
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.official_question_answers),'answer stored revision-pinned only');
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.question_option_rationales),'rationale stored revision-pinned only');
-SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_assessments),'self-test assessment created');
-SELECT public.cf04_assert((SELECT count(*)=1 FROM public.assessment_questions),'assessment membership created');
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_assessments),'self-test assessment shell created');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.assessment_questions),'assessment membership deferred to the publish stage');
 SELECT public.cf04_assert((SELECT count(*)=14 FROM public.lesson_capability_lifecycle WHERE status='DRAFT'),'all lifecycle rows DRAFT');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_capability_lifecycle WHERE status IN ('REVIEW','READY')),'no REVIEW or READY produced');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.questions q WHERE q.question_text ILIKE '%correct_option%' OR q.options::text ILIKE '%rationale%'),'student payload free of answers');
+
+-- 6b) Negative tests against the real production contract.
+DO $$ DECLARE q uuid; BEGIN
+  SELECT id INTO q FROM public.questions LIMIT 1;
+  BEGIN
+    INSERT INTO public.question_revisions(question_id, revision_number, status, interaction_type, question_text)
+    VALUES (q, 99, 'published', 'SHORT_ANSWER', 'x');
+    RAISE EXCEPTION 'CF10_EXPECTED_LOWERCASE_STATUS_REJECTION';
+  EXCEPTION WHEN others THEN
+    IF SQLERRM LIKE '%CF10_EXPECTED_LOWERCASE_STATUS_REJECTION%' THEN RAISE; END IF;
+  END;
+  BEGIN
+    INSERT INTO public.question_revisions(question_id, revision_number, status, interaction_type,
+                                          question_text, payload_hash, published_at, published_by)
+    VALUES (q, 98, 'PUBLISHED', 'SHORT_ANSWER', 'x', repeat('a',64), now(),
+            '10000000-0000-0000-0000-000000000003');
+    RAISE EXCEPTION 'CF10_EXPECTED_PUBLISHED_INSERT_REJECTION';
+  EXCEPTION WHEN others THEN
+    IF SQLERRM LIKE '%CF10_EXPECTED_PUBLISHED_INSERT_REJECTION%' THEN RAISE; END IF;
+  END;
+  BEGIN
+    UPDATE public.questions SET current_published_revision_id =
+      (SELECT id FROM public.question_revisions WHERE question_id = q LIMIT 1) WHERE id = q;
+    RAISE EXCEPTION 'CF10_EXPECTED_POINTER_REJECTION';
+  EXCEPTION WHEN others THEN
+    IF SQLERRM LIKE '%CF10_EXPECTED_POINTER_REJECTION%' THEN RAISE; END IF;
+  END;
+END $$;
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.question_revisions),'negative tests wrote no revisions');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.questions WHERE current_published_revision_id IS NOT NULL),'negative tests left pointers NULL');
+
 
 -- 7) Replay of the rich batch is a no-op; conflicting idempotency key is rejected.
 SET ROLE service_role;
