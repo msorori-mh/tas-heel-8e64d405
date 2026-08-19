@@ -43,7 +43,8 @@ ALTER TABLE public.lesson_capability_lifecycle
   ADD CONSTRAINT lesson_capability_lifecycle_evidence_origin_chk
   CHECK (evidence_origin IS NULL OR evidence_origin IN (
     'LEGACY_20C_VISIBLE_BASELINE',
-    'AUDITED_APPROVAL'
+    'AUDITED_APPROVAL',
+    'NEEDS_MANUAL_REVIEW'
   ));
 
 ALTER TABLE public.lesson_capability_lifecycle
@@ -53,7 +54,7 @@ ALTER TABLE public.lesson_capability_lifecycle
   CHECK (retirement_origin IS NULL OR retirement_origin IN ('LEGACY_20C'));
 
 -- Every READY row must carry either a real approver or a documented legacy
--- provenance. This is the contract that replaces "ready_by is always present".
+-- provenance. NEEDS_MANUAL_REVIEW is explicitly NOT sufficient for READY.
 ALTER TABLE public.lesson_capability_lifecycle
   DROP CONSTRAINT IF EXISTS lesson_capability_lifecycle_ready_evidence_chk;
 ALTER TABLE public.lesson_capability_lifecycle
@@ -239,8 +240,34 @@ $$;
 
 REVOKE ALL ON FUNCTION public.v3_capability_snapshot_hash(jsonb) FROM PUBLIC, anon, authenticated;
 
-/* 3. Pin the legacy READY rows. status is never changed here, so the student
-      surface is bit-for-bit identical before and after. */
+/* 2b. Reconcilability test. A snapshot may only be pinned when the capability's
+       current source content can actually be rebuilt. An empty payload means
+       the source is gone (or was never there), so no snapshot is invented. */
+CREATE OR REPLACE FUNCTION public.v3_capability_snapshot_is_reconcilable(_snapshot jsonb)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT CASE jsonb_typeof(_snapshot -> 'payload')
+    WHEN 'array'  THEN jsonb_array_length(_snapshot -> 'payload') > 0
+    WHEN 'object' THEN EXISTS (
+      SELECT 1 FROM jsonb_each(_snapshot -> 'payload') AS kv(key, value)
+       WHERE CASE jsonb_typeof(kv.value)
+               WHEN 'array' THEN jsonb_array_length(kv.value) > 0
+               WHEN 'null'  THEN false
+               ELSE true
+             END
+    )
+    ELSE false
+  END;
+$$;
+
+REVOKE ALL ON FUNCTION public.v3_capability_snapshot_is_reconcilable(jsonb) FROM PUBLIC, anon, authenticated;
+
+/* 3. Pin the legacy READY rows whose source content is deterministically
+      reconcilable. status is never changed here, so the student surface is
+      bit-for-bit identical before and after. */
 UPDATE public.lesson_capability_lifecycle x
    SET ready_by = COALESCE(x.ready_by, ev.actor_id),
        evidence_origin = CASE
@@ -269,7 +296,25 @@ UPDATE public.lesson_capability_lifecycle x
   ) ev
  WHERE ev.lifecycle_id = x.id
    AND x.status = 'READY'
-   AND (x.ready_snapshot IS NULL OR x.ready_hash IS NULL OR x.evidence_origin IS NULL);
+   AND x.capability <> 'originalBookPdf'
+   AND (x.ready_snapshot IS NULL OR x.ready_hash IS NULL OR x.evidence_origin IS NULL)
+   AND public.v3_capability_snapshot_is_reconcilable(
+         public.v3_capability_snapshot(x.lesson_id, x.capability)
+       );
+
+/* 3b. Rows whose source cannot be rebuilt get no invented evidence. They are
+       flagged for a human and moved out of READY, which is the only honest
+       state for "we cannot prove what this row published". In the measured
+       production baseline this set is empty (0 rows). */
+UPDATE public.lesson_capability_lifecycle x
+   SET status = 'REVIEW',
+       evidence_origin = 'NEEDS_MANUAL_REVIEW'
+ WHERE x.status = 'READY'
+   AND x.capability <> 'originalBookPdf'
+   AND (x.ready_snapshot IS NULL OR x.ready_hash IS NULL)
+   AND NOT public.v3_capability_snapshot_is_reconcilable(
+         public.v3_capability_snapshot(x.lesson_id, x.capability)
+       );
 
 /* 4. Retire originalBookPdf without deleting history.
       READY is removed (the capability is out of the V3 contract) but the row,
