@@ -3,7 +3,6 @@ param(
   [string[]]$PrerequisiteSql = @(),
   [string]$FixtureSql = (Join-Path $PSScriptRoot 'pg17-21h-canonical-fixture.sql'),
   [switch]$SkipFixture,
-  [string]$R5MigrationSql = (Join-Path $PSScriptRoot '..\..\supabase\migrations-pending\20260819130000_content_v3_legacy_20c_reconciliation_r5.sql'),
   [string]$MigrationSql = (Join-Path $PSScriptRoot '..\..\supabase\migrations-pending\20260818210000_content_v3_21h_hardened_preflight.sql'),
   [string]$PostverifySql = (Join-Path $PSScriptRoot 'postverify-21h.sql'),
   [string]$ContractSql = (Join-Path $PSScriptRoot 'runtime-contract-21h-r3.sql')
@@ -83,9 +82,6 @@ Write-Output "PG17_VERSION=$($version.Trim())"
 
 if (-not $SkipFixture) { Invoke-PsqlFile $FixtureSql }
 foreach ($file in $PrerequisiteSql) { Invoke-PsqlFile $file }
-# R5 is an ordering prerequisite for 21H: it adds evidence provenance and
-# reconciles legacy READY rows before 21H introduces applicability.
-Invoke-PsqlFile $R5MigrationSql
 Invoke-PsqlFile $MigrationSql
 Invoke-PsqlFile $PostverifySql
 Invoke-PsqlFile $ContractSql
