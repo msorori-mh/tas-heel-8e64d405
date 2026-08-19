@@ -112,6 +112,7 @@ CREATE OR REPLACE FUNCTION public.cf10_manifest() RETURNS jsonb LANGUAGE sql IMM
 SELECT jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(
  jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(
   jsonb_set(public.cf04_manifest('cf10'),'{packageCode}','"QURAN-G10-L04-PKG"'),
+  '{profileId}','"GOLDEN_CHEMISTRY_V1"'),
   '{identity,lessonSlug}','"quran-lesson-04"'),
   '{identity,lessonCode}','"QURAN-G10-L04"'),
   '{identity,lessonTitle}','"الدرس الرابع"'),
@@ -122,7 +123,7 @@ SELECT jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jso
   '{artifacts,3,applicability}','"REQUIRED"'),
   '{artifacts,3,sourcePath}','"mindmap.html"'),
   '{artifacts,3,sha256}',to_jsonb(public.cf08_sha('<p>mindmap-04</p>'))),
-  '{artifacts,4,applicability}','"REQUIRED"'),
+  '{artifacts,4,applicability}','"OPTIONAL"'),
   '{artifacts,4,sourcePath}','"lab.html"'),
   '{artifacts,4,sha256}',to_jsonb(public.cf08_sha('<p>lab-04</p>'))),
   '{artifacts,5,sha256}',to_jsonb(public.cf08_sha('{"questions":[{"question_number":"7","official_text":"Q7","question_type":"SHORT_ANSWER"}]}'))),
@@ -148,7 +149,7 @@ SELECT jsonb_build_array(
  public.cf10_entry('tamkeenExplanationHtml','tamkeenExplanation','lesson_explanations','TAMKEEN','explanation.html','<p>explanation-04</p>',NULL,NULL),
  public.cf10_entry('lessonSummaryHtml','quickReview','lesson_summaries','TAMKEEN','summary.html','<p>summary-04</p>',NULL,NULL),
  public.cf10_entry('mindMapHtml','mindMap','lesson_resources:mindmap','TAMKEEN','mindmap.html','<p>mindmap-04</p>',NULL,NULL),
- public.cf10_entry('labExperimentHtml','simulation','lesson_resources:experiment','TAMKEEN','lab.html','<p>lab-04</p>',NULL,NULL),
+ jsonb_set(public.cf10_entry('labExperimentHtml','simulation','lesson_resources:experiment','TAMKEEN','lab.html','<p>lab-04</p>',NULL,NULL),'{applicability}','"OPTIONAL"'),
  public.cf10_entry('officialBookQuestions','checkUnderstanding','questions:official','OFFICIAL','questions.json','{"questions":[{"question_number":"7","official_text":"Q7","question_type":"SHORT_ANSWER"}]}','questions.provenance.json','questions-source-04'),
  public.cf10_entry('selfTest','lessonAssessment','lesson_assessments:self_test','TAMKEEN','self-test.json','{"questions":[{"id":"s1","question":"SQ1","type":"multiple_choice","options":["a1","a2"],"source_row":2}]}',NULL,NULL));
 $$;
