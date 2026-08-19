@@ -109,7 +109,7 @@ CREATE TABLE public.lesson_capability_lifecycle(
 
 -- Rich second package: exercises lesson creation, questions, options, answers, rationales, resources.
 CREATE OR REPLACE FUNCTION public.cf10_manifest() RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
-SELECT jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(
+SELECT jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(
  jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(
   jsonb_set(public.cf04_manifest('cf10'),'{packageCode}','"QURAN-G10-L04-PKG"'),
   '{profileId}','"GOLDEN_CHEMISTRY_V1"'),
