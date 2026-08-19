@@ -32,6 +32,7 @@ DECLARE
   v_bad bigint := 0;
   v_name text;
   v_sql text;
+  v_unattributed bigint := 0;
   v_has_lifecycle boolean := to_regclass('public.lesson_capability_lifecycle') IS NOT NULL;
   v_expected_columns constant text[] := ARRAY[
     'id','lesson_id','capability','status','ready_snapshot','ready_hash',
