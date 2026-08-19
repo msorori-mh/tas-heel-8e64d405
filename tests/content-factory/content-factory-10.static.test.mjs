@@ -16,8 +16,9 @@ test("CF10 materializes the seven capabilities into domain tables", () => {
     "lesson_summaries",
     "lesson_resources",
     "questions",
+    "question_revisions",
+    "question_targets",
     "lesson_assessments",
-    "assessment_questions",
     "lesson_capability_lifecycle",
   ]) {
     assert.match(sql, new RegExp(`INSERT INTO public\\.${table}\\b`));
@@ -25,6 +26,18 @@ test("CF10 materializes the seven capabilities into domain tables", () => {
   assert.match(sql, /'status','DRAFT'/);
   assert.match(sql, /'DRAFT', 'REQUIRED'/);
 });
+
+test("CF10-R2 keeps the question bank DRAFT-only (production schema contract)", () => {
+  // assessment membership requires a PUBLISHED revision, so CF10 must defer it.
+  assert.doesNotMatch(sql, /INSERT INTO public\.assessment_questions\b/);
+  assert.doesNotMatch(sql, /'published'/);
+  assert.doesNotMatch(sql, /published_at\s*=|published_by\s*=/);
+  assert.doesNotMatch(sql, /current_published_revision_id\s*=/);
+  assert.match(sql, /_qb_compute_revision_payload_hash/);
+  assert.match(sql, /source_payload_hash/);
+  assert.match(sql, /assessment_membership_deferred/);
+});
+
 
 test("CF10 never creates curriculum, publishes, or deletes", () => {
   for (const table of ["grades", "curriculum_tracks", "subjects", "subject_curriculum_tracks", "units"]) {
