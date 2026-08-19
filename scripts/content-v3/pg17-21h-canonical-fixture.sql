@@ -230,7 +230,13 @@ CREATE TABLE IF NOT EXISTS public.lesson_resources (
   resource_type text NOT NULL,
   html_resource_type text,
   title text NOT NULL DEFAULT 'fixture',
-  url text NOT NULL DEFAULT 'https://example.test/fixture'
+  url text NOT NULL DEFAULT 'https://example.test/fixture',
+  is_primary boolean NOT NULL DEFAULT false
+);
+CREATE TABLE IF NOT EXISTS public.subject_textbooks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject_id uuid REFERENCES public.subjects(id),
+  title text NOT NULL DEFAULT 'fixture'
 );
 CREATE TABLE IF NOT EXISTS public.exam_templates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
