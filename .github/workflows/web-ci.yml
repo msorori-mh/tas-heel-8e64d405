@@ -51,6 +51,7 @@ jobs:
           node --import tsx --test tests/content-factory/content-factory-07-bundle.test.ts
           node --test tests/content-factory/content-factory-07.static.test.mjs
           node --test tests/content-factory/content-factory-08.static.test.mjs
+          node --test tests/content-factory/content-factory-09.static.test.mjs
           if [ -f tests/content-packages/chemistry-g12-iron-v3.test.mjs ]; then
             node --test tests/content-packages/chemistry-g12-iron-v3.test.mjs
           fi
@@ -170,7 +171,7 @@ jobs:
           docker logs tamkeen-content-factory-pg17
           exit 1
 
-      - name: Rehearse CF04 schema, RLS, idempotency, and review audit
+      - name: Rehearse CF04-CF09 staging, RLS, identity, and idempotency
         env:
           CONTENT_FACTORY_PG17_URL: postgresql://postgres:tamkeen_cf_ci_only@localhost:5432/tamkeen_cf
         run: bash scripts/content-factory/pg17/rehearse-content-factory-04.sh
