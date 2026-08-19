@@ -45,6 +45,7 @@ jobs:
           node --test tests/content-factory/content-factory-02-ui.static.test.mjs
           node --experimental-strip-types --test tests/content-factory/content-factory-03.test.ts
           node --test tests/content-factory/content-factory-03-ui.static.test.mjs
+          node --test tests/content-factory/content-factory-04-contract.test.mjs
           if [ -f tests/content-packages/chemistry-g12-iron-v3.test.mjs ]; then
             node --test tests/content-packages/chemistry-g12-iron-v3.test.mjs
           fi
@@ -141,3 +142,39 @@ jobs:
           name: iron-ui-runtime-evidence
           path: artifacts/iron-ui-runtime
           if-no-files-found: error
+
+
+  content-factory-pg17:
+    name: Content Factory persistent staging PG17
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Start isolated PostgreSQL 17
+        run: |
+          docker run --detach --rm \\
+            --name tamkeen-content-factory-pg17 \\
+            --publish 127.0.0.1:5432:5432 \\
+            --env POSTGRES_PASSWORD=tamkeen_cf_ci_only \\
+            --env POSTGRES_DB=tamkeen_cf \\
+            postgres:17
+          for attempt in {1..30}; do
+            if docker exec tamkeen-content-factory-pg17 pg_isready --username postgres --dbname tamkeen_cf; then exit 0; fi
+            sleep 1
+          done
+          docker logs tamkeen-content-factory-pg17
+          exit 1
+
+      - name: Rehearse CF04 schema, RLS, idempotency, and review audit
+        env:
+          CONTENT_FACTORY_PG17_URL: postgresql://postgres:tamkeen_cf_ci_only@localhost:5432/tamkeen_cf
+        run: bash scripts/content-factory/pg17/rehearse-content-factory-04.sh
+
+      - name: Stop isolated PostgreSQL 17
+        if: always()
+        run: docker stop tamkeen-content-factory-pg17 || true
