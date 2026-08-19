@@ -125,7 +125,7 @@ DO $$ DECLARE q uuid; BEGIN
     INSERT INTO public.question_revisions(question_id, revision_number, status, interaction_type, question_text)
     VALUES (q, 99, 'published', 'SHORT_ANSWER', 'x');
     RAISE EXCEPTION 'CF10_EXPECTED_LOWERCASE_STATUS_REJECTION';
-  EXCEPTION WHEN check_violation THEN
+  EXCEPTION WHEN others THEN
     IF SQLERRM LIKE '%CF10_EXPECTED_LOWERCASE_STATUS_REJECTION%' THEN RAISE; END IF;
   END;
   BEGIN
