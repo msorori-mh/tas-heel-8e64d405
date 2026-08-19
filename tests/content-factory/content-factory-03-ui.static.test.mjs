@@ -21,7 +21,7 @@ test("manifest is hash-pinned, size-limited, dry-run checked, and role gated", (
   assert.match(component, /crypto\.subtle\.digest\("SHA-256"/);
   assert.match(component, /GOLDEN_PACKAGE_MAX_MANIFEST_BYTES/);
   assert.match(component, /previewGoldenLessonStaging/);
-  assert.match(component, /evaluateGoldenReviewTransition/);
+  assert.match(component, /advanceGoldenLessonReview/);
   assert.match(component, /packageValidationPassed/);
 });
 
