@@ -82,9 +82,6 @@ Write-Output "PG17_VERSION=$($version.Trim())"
 
 if (-not $SkipFixture) { Invoke-PsqlFile $FixtureSql }
 foreach ($file in $PrerequisiteSql) { Invoke-PsqlFile $file }
-# R5 is an ordering prerequisite for 21H: it adds evidence provenance and
-# reconciles legacy READY rows before 21H introduces applicability.
-Invoke-PsqlFile $R5MigrationSql
 Invoke-PsqlFile $MigrationSql
 Invoke-PsqlFile $PostverifySql
 Invoke-PsqlFile $ContractSql
