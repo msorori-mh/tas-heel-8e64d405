@@ -59,6 +59,7 @@ export interface GoldenLessonPackage {
     productionApply: false;
     publicPayloadContainsAnswers: false;
     answersCompanionPath: string | null;
+    answersCompanionSha256: string | null;
     htmlNetworkAccess: "NONE";
   };
 }

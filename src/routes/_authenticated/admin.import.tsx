@@ -31,6 +31,7 @@ import { ContentImportDryRunPanel } from "@/components/admin/ContentImportDryRun
 import { ContextualTemplateGenerator } from "@/components/admin/ContextualTemplateGenerator";
 import { InteractiveHtmlImportPanel } from "@/components/admin/InteractiveHtmlImportPanel";
 import { BulkLessonPdfUploadPanel } from "@/components/admin/BulkLessonPdfUploadPanel";
+import { GoldenLessonPackageBuilder } from "@/components/admin/GoldenLessonPackageBuilder";
 
 export const Route = createFileRoute("/_authenticated/admin/import")({
   component: AdminImportPage,
@@ -149,6 +150,8 @@ function AdminImportPage() {
             </p>
 
           </div>
+
+          <GoldenLessonPackageBuilder />
 
           <ContextualTemplateGenerator />
 

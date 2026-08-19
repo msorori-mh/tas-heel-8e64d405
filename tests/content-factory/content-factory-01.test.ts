@@ -45,6 +45,7 @@ function packageFor(profile: typeof GOLDEN_QURAN_V1 | typeof GOLDEN_CHEMISTRY_V1
       productionApply: false,
       publicPayloadContainsAnswers: false,
       answersCompanionPath: "answers.server-only.json",
+      answersCompanionSha256: "c".repeat(64),
       htmlNetworkAccess: "NONE",
     },
   };
@@ -55,6 +56,16 @@ test("Quran and chemistry profiles preserve the canonical seven-capability order
   assert.deepEqual(GOLDEN_CHEMISTRY_V1.capabilityOrder, GOLDEN_CAPABILITIES);
   assert.equal(GOLDEN_QURAN_V1.applicability.labExperimentHtml, "NA");
   assert.equal(GOLDEN_CHEMISTRY_V1.applicability.labExperimentHtml, "OPTIONAL");
+});
+
+test("package identity and the server-only answers companion fail closed", () => {
+  const pkg = packageFor(GOLDEN_QURAN_V1);
+  pkg.packageCode = "";
+  pkg.security.answersCompanionSha256 = null;
+  const result = validateGoldenLessonPackage(pkg);
+  assert.ok(result.findings.some((finding) => finding.code === "PACKAGE_CODE_INVALID"));
+  assert.ok(result.findings.some((finding) => finding.code === "ANSWER_COMPANION_HASH_INVALID"));
+  assert.equal(result.writesPerformed, 0);
 });
 
 test("valid Quran and chemistry packages pass with zero writes", () => {

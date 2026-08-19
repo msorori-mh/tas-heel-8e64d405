@@ -40,6 +40,9 @@ export function validateGoldenLessonPackage(pkg: GoldenLessonPackage): GoldenLes
   if (pkg.schema !== GOLDEN_LESSON_SCHEMA) error("SCHEMA_UNSUPPORTED", "schema", "إصدار مخطط الحزمة غير مدعوم.");
   const profile = getGoldenLessonProfile(pkg.profileId);
   if (!profile) error("PROFILE_UNKNOWN", "profileId", "نمط الدرس الذهبي غير معروف.");
+  if (!CODE.test(pkg.packageCode)) {
+    error("PACKAGE_CODE_INVALID", "packageCode", "رمز الحزمة مطلوب ويجب أن يكون ثابتًا وبأحرف لاتينية كبيرة.");
+  }
 
   for (const [field, value] of [
     ["identity.gradeCode", pkg.identity.gradeCode],
@@ -101,6 +104,13 @@ export function validateGoldenLessonPackage(pkg: GoldenLessonPackage): GoldenLes
   if (pkg.security.htmlNetworkAccess !== "NONE") error("HTML_NETWORK_FORBIDDEN", "security.htmlNetworkAccess", "HTML التفاعلي لا يسمح باتصالات شبكة.");
   if (pkg.security.answersCompanionPath && !pkg.security.answersCompanionPath.endsWith(".server-only.json")) {
     error("ANSWER_COMPANION_PATH_UNSAFE", "security.answersCompanionPath", "ملف الإجابات يجب أن يكون server-only.");
+  }
+  if (pkg.security.answersCompanionPath &&
+      (!pkg.security.answersCompanionSha256 || !SHA256.test(pkg.security.answersCompanionSha256))) {
+    error("ANSWER_COMPANION_HASH_INVALID", "security.answersCompanionSha256", "ملف الإجابات يحتاج SHA-256 صالحًا.");
+  }
+  if (!pkg.security.answersCompanionPath && pkg.security.answersCompanionSha256) {
+    error("ANSWER_COMPANION_PATH_MISSING", "security.answersCompanionPath", "لا يجوز تثبيت بصمة إجابات دون مسار ملف خادمي.");
   }
 
   return { valid: findings.every((finding) => finding.severity !== "ERROR"), writesPerformed: 0, findings };

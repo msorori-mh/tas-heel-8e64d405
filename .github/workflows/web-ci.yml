@@ -42,6 +42,7 @@ jobs:
           npm test
           npm run test:question-bank-import
           node --experimental-strip-types --test tests/content-factory/content-factory-01.test.ts
+          node --test tests/content-factory/content-factory-02-ui.static.test.mjs
           if [ -f tests/content-packages/chemistry-g12-iron-v3.test.mjs ]; then
             node --test tests/content-packages/chemistry-g12-iron-v3.test.mjs
           fi
