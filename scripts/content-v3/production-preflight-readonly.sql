@@ -36,7 +36,8 @@ DECLARE
   v_expected_columns constant text[] := ARRAY[
     'id','lesson_id','capability','status','ready_snapshot','ready_hash',
     'draft_hash','draft_updated_at','reviewed_by','reviewed_at','ready_by',
-    'ready_at','created_at','updated_at','applicability'
+    'ready_at','created_at','updated_at','applicability',
+    'evidence_origin','retirement_origin'
   ];
 BEGIN
   IF v_has_lifecycle THEN
