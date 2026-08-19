@@ -60,14 +60,14 @@ CREATE OR REPLACE FUNCTION public.can_access_lesson(_lesson_id uuid) RETURNS boo
   $$;
 
 -- Identity: 1 grade, 1 track, 1 subject, 40 lessons, 1 student profile.
-INSERT INTO public.grades (id, grade_code, grade_name)
-  VALUES ('11111111-1111-1111-1111-111111111111','g12','الثالث الثانوي');
+INSERT INTO public.grades (id, slug, name)
+  VALUES ('11111111-1111-1111-1111-111111111111','grade-12','الثالث الثانوي');
 INSERT INTO public.curriculum_tracks (id, track_code, track_name, is_active)
   VALUES ('22222222-2222-2222-2222-222222222222','aden','عدن', true);
-INSERT INTO public.subjects (id, grade_id, subject_name, subject_code)
-  VALUES ('33333333-3333-3333-3333-333333333333','11111111-1111-1111-1111-111111111111','الكيمياء','chem');
-INSERT INTO public.subject_curriculum_tracks (id, subject_id, curriculum_track_id, is_active)
-  VALUES (gen_random_uuid(),'33333333-3333-3333-3333-333333333333','22222222-2222-2222-2222-222222222222', true);
+INSERT INTO public.subjects (id, grade_id, slug, name)
+  VALUES ('33333333-3333-3333-3333-333333333333','11111111-1111-1111-1111-111111111111','chemistry','الكيمياء');
+INSERT INTO public.subject_curriculum_tracks (subject_id, curriculum_track_id, is_active)
+  VALUES ('33333333-3333-3333-3333-333333333333','22222222-2222-2222-2222-222222222222', true);
 INSERT INTO auth.users (id) VALUES ('44444444-4444-4444-4444-444444444444');
 INSERT INTO public.profiles (id, user_id, grade_uuid, curriculum_track_id)
   VALUES (gen_random_uuid(),'44444444-4444-4444-4444-444444444444',
@@ -89,7 +89,7 @@ SELECT gen_random_uuid(), l.id, 'exp-' || l.sort_order, 'شرح ' || l.sort_orde
   FROM public.lessons l;
 
 INSERT INTO public.lesson_summaries (id, lesson_id, summary, key_points, study_tip)
-SELECT gen_random_uuid(), l.id, 'ملخص', ARRAY['نقطة'], 'نصيحة'
+SELECT gen_random_uuid(), l.id, 'ملخص', '["نقطة"]'::jsonb, 'نصيحة'
   FROM public.lessons l WHERE l.sort_order = 1;
 
 INSERT INTO public.lesson_resources (id, lesson_id, resource_type, title, url, sort_order)
@@ -106,7 +106,7 @@ SELECT ('77777777-0000-0000-0000-' || lpad(g::text, 12, '0'))::uuid,
   FROM generate_series(1, 3) g;
 UPDATE public.questions q
    SET current_published_revision_id = ('77777777-0000-0000-0000-' || lpad(q.sort_order::text, 12, '0'))::uuid;
-INSERT INTO public.question_options (id, question_revision_id, option_code, option_text, is_correct, sort_order)
+INSERT INTO public.question_options (id, question_revision_id, option_code, body, is_correct, sort_order)
 SELECT gen_random_uuid(), r.id, code, 'نص الخيار', code = 'A', ascii(code)
   FROM public.question_revisions r, unnest(ARRAY['A','B','C','D']) AS code;
 
