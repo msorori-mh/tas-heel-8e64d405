@@ -47,3 +47,45 @@ jobs:
 
       - name: Build client and server bundles
         run: npm run build
+
+  content-v3-pg17:
+    name: Content V3 disposable PG17 runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ hashFiles('scripts/content-v3/pg17-runner.ps1') != '' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Start isolated PostgreSQL 17
+        run: |
+          docker run --detach --rm \
+            --name tamkeen-content-v3-pg17 \
+            --publish 127.0.0.1:5432:5432 \
+            --env POSTGRES_PASSWORD=tamkeen_ci_only \
+            --env POSTGRES_DB=tamkeen \
+            postgres:17
+          for attempt in {1..30}; do
+            if docker exec tamkeen-content-v3-pg17 pg_isready --username postgres --dbname tamkeen; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs tamkeen-content-v3-pg17
+          exit 1
+
+      - name: Run Content V3 PG17 fixture, migration, postverify, and runtime contract
+        shell: pwsh
+        env:
+          TAMKEEN_PG17_LOCAL_URL: postgresql://postgres:tamkeen_ci_only@localhost:5432/tamkeen
+        run: ./scripts/content-v3/pg17-runner.ps1
+
+      - name: Stop isolated PostgreSQL 17
+        if: always()
+        run: docker stop tamkeen-content-v3-pg17 || true
