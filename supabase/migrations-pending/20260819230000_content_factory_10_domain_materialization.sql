@@ -198,8 +198,11 @@ BEGIN
     'answerCompanionSha256', companion->>'companion_sha256',
     'entries', plan,
     'lifecycleTarget', jsonb_build_object('status','DRAFT','applicability','REQUIRED','capabilities',7),
+    'revisionTarget', jsonb_build_object('status','DRAFT','payloadHashVersion','canonical_payload_v1',
+                                         'publishedPointer',false,'assessmentMembership',false),
     'forbidden', jsonb_build_object('subjectCreate',false,'delete',false,'storage',false,
                                     'publish',false,'ready',false));
+
   plan_sha := public.cf10_text_sha256(plan::text);
 
   IF _mode = 'DRY_RUN' THEN
