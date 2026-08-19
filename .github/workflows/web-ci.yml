@@ -157,12 +157,7 @@ jobs:
 
       - name: Start isolated PostgreSQL 17
         run: |
-          docker run --detach --rm \\
-            --name tamkeen-content-factory-pg17 \\
-            --publish 127.0.0.1:5432:5432 \\
-            --env POSTGRES_PASSWORD=tamkeen_cf_ci_only \\
-            --env POSTGRES_DB=tamkeen_cf \\
-            postgres:17
+          docker run --detach --rm --name tamkeen-content-factory-pg17 --publish 127.0.0.1:5432:5432 --env POSTGRES_PASSWORD=tamkeen_cf_ci_only --env POSTGRES_DB=tamkeen_cf postgres:17
           for attempt in {1..30}; do
             if docker exec tamkeen-content-factory-pg17 pg_isready --username postgres --dbname tamkeen_cf; then exit 0; fi
             sleep 1
