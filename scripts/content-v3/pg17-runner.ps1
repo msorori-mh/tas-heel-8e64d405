@@ -1,8 +1,11 @@
 param(
   [string]$DatabaseUrl = $env:TAMKEEN_PG17_LOCAL_URL,
   [string[]]$PrerequisiteSql = @(),
+  [string]$FixtureSql = (Join-Path $PSScriptRoot 'pg17-21h-canonical-fixture.sql'),
+  [switch]$SkipFixture,
   [string]$MigrationSql = (Join-Path $PSScriptRoot '..\..\supabase\migrations-pending\20260818210000_content_v3_21h_hardened_preflight.sql'),
-  [string]$PostverifySql = (Join-Path $PSScriptRoot 'postverify-21h.sql')
+  [string]$PostverifySql = (Join-Path $PSScriptRoot 'postverify-21h.sql'),
+  [string]$ContractSql = (Join-Path $PSScriptRoot 'runtime-contract-21h-r3.sql')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -57,6 +60,10 @@ if ($DatabaseUrl -match '(?i)(?:^|\s)(?:host|hostaddr)\s*=\s*[^\s]+,[^\s]+') {
 
 Write-Output 'PG17_TARGET_CLASS=LOCAL_ONLY'
 
+$schemaGate = Join-Path $PSScriptRoot 'verify-21h-fixture-schema.mjs'
+& node $schemaGate
+if ($LASTEXITCODE -ne 0) { throw '21H R3 fixture schema gate failed' }
+
 $psql = Get-Command psql -ErrorAction SilentlyContinue
 if ($null -eq $psql) {
   Write-Output 'BLOCKED_PG17_ENVIRONMENT'
@@ -73,7 +80,9 @@ $version = (& $psql.Source $DatabaseUrl --no-align --tuples-only --command="SHOW
 if ([int]$version.Trim() -lt 170000) { throw "PostgreSQL 17 required; got $version" }
 Write-Output "PG17_VERSION=$($version.Trim())"
 
+if (-not $SkipFixture) { Invoke-PsqlFile $FixtureSql }
 foreach ($file in $PrerequisiteSql) { Invoke-PsqlFile $file }
 Invoke-PsqlFile $MigrationSql
 Invoke-PsqlFile $PostverifySql
+Invoke-PsqlFile $ContractSql
 Write-Output 'PG17_PREFLIGHT=PASS'

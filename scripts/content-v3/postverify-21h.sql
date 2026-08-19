@@ -17,6 +17,22 @@ BEGIN
 
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='practice_attempts'
+       AND column_name='lesson_assessment_id'
+  ) OR EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='practice_attempts'
+       AND column_name='lesson_id'
+  ) THEN
+    RAISE EXCEPTION 'ASSERT_FAIL: canonical practice_attempts lesson path mismatch';
+  END IF;
+
+  IF to_regclass('public.lesson_assessments') IS NULL
+     OR to_regclass('public.assessment_questions') IS NULL
+  THEN RAISE EXCEPTION 'ASSERT_FAIL: canonical assessment membership tables missing'; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
      WHERE table_schema='public' AND table_name='lesson_capability_lifecycle'
        AND column_name='applicability'
   ) THEN RAISE EXCEPTION 'ASSERT_FAIL: applicability missing'; END IF;
@@ -109,7 +125,10 @@ BEGIN
 
   SELECT pg_get_functiondef(oid) INTO v_def
     FROM pg_proc WHERE oid=to_regprocedure('public.reveal_official_question_answer(uuid,uuid)');
-  IF lower(v_def) NOT LIKE '%paq.question_revision_id%'
+  IF lower(v_def) NOT LIKE '%la.lesson_id%'
+     OR lower(v_def) NOT LIKE '%la.id = pa.lesson_assessment_id%'
+     OR lower(v_def) NOT LIKE '%aq.assessment_id = la.id%'
+     OR lower(v_def) NOT LIKE '%paq.question_revision_id%'
      OR lower(v_def) NOT LIKE '%a.revision_id = v_revision%'
      OR lower(v_def) NOT LIKE '%pa.submitted_at is not null%'
      OR lower(v_def) NOT LIKE '%par.submitted_at is not null%'

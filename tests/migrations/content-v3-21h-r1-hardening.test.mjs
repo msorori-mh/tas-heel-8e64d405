@@ -118,12 +118,13 @@ test("pinned revisions and unpublished revisions are protected", () => {
   assert.match(diff, /r\.status = 'PUBLISHED'/);
 });
 
-test("reveal RPC resolves the lesson from the owned practice attempt", () => {
+test("reveal RPC resolves the lesson through the canonical lesson assessment", () => {
   const start = migration.indexOf("FUNCTION public.reveal_official_question_answer");
   const end = migration.indexOf("$$;", start);
   const body = migration.slice(start, end);
-  assert.match(body, /SELECT pa\.lesson_id, paq\.question_revision_id/i);
-  assert.doesNotMatch(body, /SELECT q\.lesson_id/i);
+  assert.match(body, /SELECT la\.lesson_id, paq\.question_revision_id/i);
+  assert.match(body, /JOIN public\.lesson_assessments la\s+ON la\.id = pa\.lesson_assessment_id/i);
+  assert.doesNotMatch(body, /pa\.lesson_id/i);
   assert.match(body, /FROM public\.practice_attempts pa/i);
 });
 

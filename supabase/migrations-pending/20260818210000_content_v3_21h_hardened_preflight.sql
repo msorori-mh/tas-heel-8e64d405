@@ -198,8 +198,8 @@ CREATE TABLE IF NOT EXISTS public.question_option_rationales (
   UNIQUE (question_revision_id, option_id),
   CHECK (why_correct IS NOT NULL OR why_wrong IS NOT NULL),
   CONSTRAINT question_option_rationales_revision_fk
-    FOREIGN KEY (question_revision_id, question_id)
-    REFERENCES public.question_revisions(id, question_id)
+    FOREIGN KEY (question_id, question_revision_id)
+    REFERENCES public.question_revisions(question_id, id)
     ON DELETE RESTRICT
 );
 
@@ -216,8 +216,8 @@ CREATE TABLE IF NOT EXISTS public.official_question_answers (
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (question_id, revision_id),
   CONSTRAINT official_question_answers_revision_fk
-    FOREIGN KEY (revision_id, question_id)
-    REFERENCES public.question_revisions(id, question_id)
+    FOREIGN KEY (question_id, revision_id)
+    REFERENCES public.question_revisions(question_id, id)
     ON DELETE RESTRICT
 );
 
@@ -351,15 +351,25 @@ BEGIN
     RETURN jsonb_build_object('error', 'UNAUTHORIZED');
   END IF;
 
-  SELECT pa.lesson_id, paq.question_revision_id
+  SELECT la.lesson_id, paq.question_revision_id
     INTO v_lesson, v_revision
     FROM public.practice_attempts pa
+    JOIN public.lesson_assessments la
+      ON la.id = pa.lesson_assessment_id
     JOIN public.practice_attempt_questions paq ON paq.practice_attempt_id = pa.id
+    JOIN public.assessment_questions aq
+      ON aq.assessment_id = la.id
+     AND aq.question_id = paq.logical_question_id
     JOIN public.practice_attempt_responses par ON par.practice_attempt_question_id = paq.id
+     JOIN public.questions q
+      ON q.id = paq.logical_question_id
+     AND q.lesson_id = la.lesson_id
    WHERE pa.id = _attempt_id
      AND pa.user_id = v_user
+     AND pa.attempt_type = 'LESSON'
      AND pa.submitted_at IS NOT NULL
      AND par.submitted_at IS NOT NULL
+     AND par.practice_attempt_id = pa.id
      AND paq.logical_question_id = _question_id
    LIMIT 1;
 

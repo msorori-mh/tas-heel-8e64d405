@@ -34,17 +34,22 @@ test("R2 visibility output contract is PG17 type-safe", () => {
   assert.match(output, /CASE\s+WHEN unexpected_gain_count = 0 AND unexpected_loss_count = 0/s);
 });
 
-test("R2 reveal RPC has no undefined alias and uses practice_attempts.lesson_id", () => {
+test("R3 reveal RPC has no undefined alias and uses the canonical lesson-assessment path", () => {
   const body = functionBody(migration, "reveal_official_question_answer");
   assert.match(body, /FROM public\.practice_attempts pa/i);
-  assert.match(body, /SELECT pa\.lesson_id, paq\.question_revision_id/i);
-  assert.doesNotMatch(body, /\bq\./i);
+  assert.match(body, /SELECT la\.lesson_id, paq\.question_revision_id/i);
+  assert.match(body, /JOIN public\.lesson_assessments la\s+ON la\.id = pa\.lesson_assessment_id/i);
+  assert.doesNotMatch(body, /pa\.lesson_id/i);
 });
 
 test("R2 reveal authorization covers correct attempt, user, lesson, and lifecycle state", () => {
   const body = functionBody(migration, "reveal_official_question_answer");
   assert.match(body, /pa\.id = _attempt_id/i);
   assert.match(body, /pa\.user_id = v_user/i);
+  assert.match(body, /pa\.attempt_type = 'LESSON'/i);
+  assert.match(body, /aq\.assessment_id = la\.id/i);
+  assert.match(body, /aq\.question_id = paq\.logical_question_id/i);
+  assert.match(body, /q\.lesson_id = la\.lesson_id/i);
   assert.match(body, /paq\.logical_question_id = _question_id/i);
   assert.match(body, /pa\.submitted_at IS NOT NULL/i);
   assert.match(body, /par\.submitted_at IS NOT NULL/i);
