@@ -468,9 +468,21 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.questions WHERE lesson_id = lesson_row.id AND correct_index >= 0) THEN
     RAISE EXCEPTION 'CF10_ANSWER_LEAK_IN_QUESTION_ROW' USING ERRCODE = '23514';
   END IF;
+  -- CF10-R2 publish gates: zero non-DRAFT revisions and zero published pointers for this lesson.
+  IF EXISTS (
+    SELECT 1 FROM public.question_revisions r
+      JOIN public.questions q ON q.id = r.question_id
+     WHERE q.lesson_id = lesson_row.id AND r.status <> 'DRAFT') THEN
+    RAISE EXCEPTION 'CF10_REVISION_MUST_STAY_DRAFT' USING ERRCODE = '23514';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.questions
+              WHERE lesson_id = lesson_row.id AND current_published_revision_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'CF10_PUBLISHED_POINTER_FORBIDDEN' USING ERRCODE = '23514';
+  END IF;
   IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle
               WHERE lesson_id = lesson_row.id AND status <> 'DRAFT') THEN
     RAISE EXCEPTION 'CF10_LIFECYCLE_MUST_STAY_DRAFT' USING ERRCODE = '23514';
+
   END IF;
 
   INSERT INTO public.golden_lesson_domain_materializations(
