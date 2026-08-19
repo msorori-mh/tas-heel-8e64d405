@@ -9,6 +9,7 @@ DO $$
 DECLARE
   v_def text;
   v_count bigint;
+  v_has_r5_evidence boolean;
 BEGIN
   IF to_regclass('public.lesson_capability_lifecycle') IS NULL
      OR to_regclass('public.question_option_rationales') IS NULL
@@ -60,65 +61,78 @@ BEGIN
         OR applicability NOT IN ('REQUIRED','OPTIONAL','NA')
   ) THEN RAISE EXCEPTION 'ASSERT_FAIL: invalid lifecycle semantics'; END IF;
 
-  -- Approval evidence: snapshot + hash + timestamp are mandatory. ready_by is
-  -- mandatory unless the row carries the documented R5 legacy provenance,
-  -- which asserts a measured visible baseline and claims no human review.
-  IF EXISTS (
-    SELECT 1 FROM public.lesson_capability_lifecycle
-     WHERE status='READY'
-       AND (ready_at IS NULL OR ready_snapshot IS NULL OR ready_hash IS NULL)
-  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: READY row lacks snapshot evidence'; END IF;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='lesson_capability_lifecycle'
+       AND column_name='evidence_origin'
+  ) INTO v_has_r5_evidence;
 
-  IF EXISTS (
-    SELECT 1 FROM public.lesson_capability_lifecycle
-     WHERE status='READY'
-       AND ready_by IS NULL
-       AND COALESCE(evidence_origin, '') <> 'LEGACY_20C_VISIBLE_BASELINE'
-  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: READY row lacks approval evidence'; END IF;
-
-  IF EXISTS (
-    SELECT 1 FROM public.lesson_capability_lifecycle
-     WHERE capability IN ('originalBookPdf','supportingResources')
-       AND (status='READY' OR COALESCE(retirement_origin,'') <> 'LEGACY_20C')
-  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: originalBookPdf retirement contract'; END IF;
-
-  -- No READY snapshot may pin a question without a published revision.
-  IF EXISTS (
-    SELECT 1 FROM public.lesson_capability_lifecycle x,
-         LATERAL jsonb_array_elements(COALESCE(x.ready_snapshot -> 'payload', '[]'::jsonb)) q
-     WHERE x.status='READY' AND x.capability='checkUnderstanding'
-       AND COALESCE(q ->> 'revisionId', '') = ''
-  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: PUBLISHED_REVISION_NULL in READY snapshot'; END IF;
-
-  -- No READY row may carry an empty snapshot payload.
-  IF EXISTS (
-    SELECT 1 FROM public.lesson_capability_lifecycle
-     WHERE status='READY'
-       AND NOT public.v3_capability_snapshot_is_reconcilable(ready_snapshot)
-  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: EMPTY_READY_SNAPSHOT'; END IF;
-
-  -- R5-R3: snapshot and hash must describe exactly the same content, and a
-  -- stored hash without a stored snapshot has no provable provenance.
-  IF EXISTS (
-    SELECT 1 FROM public.lesson_capability_lifecycle
-     WHERE status='READY' AND ready_snapshot IS NULL AND ready_hash IS NOT NULL
-  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: MISSING_SNAPSHOT_WITH_EXISTING_HASH'; END IF;
-
-  IF EXISTS (
-    SELECT 1 FROM public.lesson_capability_lifecycle
-     WHERE status='READY'
-       AND ready_hash IS DISTINCT FROM public.v3_capability_snapshot_hash(ready_snapshot)
-  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: READY_SNAPSHOT_HASH_MISMATCH'; END IF;
-
-  -- R5-R3: AUDITED_APPROVAL rows must match their audit row exactly.
-  IF EXISTS (
-    SELECT 1 FROM public.lesson_capability_lifecycle x
-     WHERE x.evidence_origin='AUDITED_APPROVAL'
-       AND NOT EXISTS (
-         SELECT 1 FROM public.v3_capability_audited_approval(x.lesson_id, x.capability) ap
-          WHERE ap.actor_id = x.ready_by AND ap.approved_at = x.ready_at)
-  ) THEN RAISE EXCEPTION 'ASSERT_FAIL: AUDITED_APPROVAL_ACTOR_MISMATCH'; END IF;
-
+  -- R5 evidence assertions apply to upgraded legacy installations. A clean
+  -- 21H installation has no legacy lifecycle rows and legitimately has no R5
+  -- provenance layer.
+  IF v_has_r5_evidence THEN
+      -- Approval evidence: snapshot + hash + timestamp are mandatory. ready_by is
+      -- mandatory unless the row carries the documented R5 legacy provenance,
+      -- which asserts a measured visible baseline and claims no human review.
+      IF EXISTS (
+        SELECT 1 FROM public.lesson_capability_lifecycle
+         WHERE status='READY'
+           AND (ready_at IS NULL OR ready_snapshot IS NULL OR ready_hash IS NULL)
+      ) THEN RAISE EXCEPTION 'ASSERT_FAIL: READY row lacks snapshot evidence'; END IF;
+    
+      IF EXISTS (
+        SELECT 1 FROM public.lesson_capability_lifecycle
+         WHERE status='READY'
+           AND ready_by IS NULL
+           AND COALESCE(evidence_origin, '') <> 'LEGACY_20C_VISIBLE_BASELINE'
+      ) THEN RAISE EXCEPTION 'ASSERT_FAIL: READY row lacks approval evidence'; END IF;
+    
+      IF EXISTS (
+        SELECT 1 FROM public.lesson_capability_lifecycle
+         WHERE capability IN ('originalBookPdf','supportingResources')
+           AND (status='READY' OR COALESCE(retirement_origin,'') <> 'LEGACY_20C')
+      ) THEN RAISE EXCEPTION 'ASSERT_FAIL: originalBookPdf retirement contract'; END IF;
+    
+      -- No READY snapshot may pin a question without a published revision.
+      IF EXISTS (
+        SELECT 1 FROM public.lesson_capability_lifecycle x,
+             LATERAL jsonb_array_elements(COALESCE(x.ready_snapshot -> 'payload', '[]'::jsonb)) q
+         WHERE x.status='READY' AND x.capability='checkUnderstanding'
+           AND COALESCE(q ->> 'revisionId', '') = ''
+      ) THEN RAISE EXCEPTION 'ASSERT_FAIL: PUBLISHED_REVISION_NULL in READY snapshot'; END IF;
+    
+      -- No READY row may carry an empty snapshot payload.
+      IF EXISTS (
+        SELECT 1 FROM public.lesson_capability_lifecycle
+         WHERE status='READY'
+           AND NOT public.v3_capability_snapshot_is_reconcilable(ready_snapshot)
+      ) THEN RAISE EXCEPTION 'ASSERT_FAIL: EMPTY_READY_SNAPSHOT'; END IF;
+    
+      -- R5-R3: snapshot and hash must describe exactly the same content, and a
+      -- stored hash without a stored snapshot has no provable provenance.
+      IF EXISTS (
+        SELECT 1 FROM public.lesson_capability_lifecycle
+         WHERE status='READY' AND ready_snapshot IS NULL AND ready_hash IS NOT NULL
+      ) THEN RAISE EXCEPTION 'ASSERT_FAIL: MISSING_SNAPSHOT_WITH_EXISTING_HASH'; END IF;
+    
+      IF EXISTS (
+        SELECT 1 FROM public.lesson_capability_lifecycle
+         WHERE status='READY'
+           AND ready_hash IS DISTINCT FROM public.v3_capability_snapshot_hash(ready_snapshot)
+      ) THEN RAISE EXCEPTION 'ASSERT_FAIL: READY_SNAPSHOT_HASH_MISMATCH'; END IF;
+    
+      -- R5-R3: AUDITED_APPROVAL rows must match their audit row exactly.
+      IF EXISTS (
+        SELECT 1 FROM public.lesson_capability_lifecycle x
+         WHERE x.evidence_origin='AUDITED_APPROVAL'
+           AND NOT EXISTS (
+             SELECT 1 FROM public.v3_capability_audited_approval(x.lesson_id, x.capability) ap
+              WHERE ap.actor_id = x.ready_by AND ap.approved_at = x.ready_at)
+      ) THEN RAISE EXCEPTION 'ASSERT_FAIL: AUDITED_APPROVAL_ACTOR_MISMATCH'; END IF;
+    
+  ELSIF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle) THEN
+    RAISE EXCEPTION 'ASSERT_FAIL: R5 evidence layer missing for existing lifecycle rows';
+  END IF;
 
   IF EXISTS (
     SELECT 1 FROM public.lesson_capability_lifecycle
