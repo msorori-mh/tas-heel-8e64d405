@@ -9,12 +9,11 @@ const sql = readFileSync(
 const assertSql = readFileSync("scripts/content-factory/pg17/content-factory-10-assert.sql", "utf8");
 const rehearse = readFileSync("scripts/content-factory/pg17/rehearse-content-factory-04.sh", "utf8");
 
-test("CF10 materializes the seven capabilities into domain tables", () => {
+test("CF10 materializes the core capabilities into domain tables (HTML deferred to CF11)", () => {
   for (const table of [
     "lesson_book_contents",
     "lesson_explanations",
     "lesson_summaries",
-    "lesson_resources",
     "questions",
     "question_revisions",
     "question_targets",
@@ -23,6 +22,10 @@ test("CF10 materializes the seven capabilities into domain tables", () => {
   ]) {
     assert.match(sql, new RegExp(`INSERT INTO public\\.${table}\\b`));
   }
+  // CF10-R6/R7: zero HTML writes into legacy lesson_resources; the bytes stay in staging.
+  assert.doesNotMatch(sql, /INSERT INTO public\.lesson_resources\b/);
+  assert.match(sql, /CF10_HTML_LEGACY_ROW_FORBIDDEN/);
+  assert.match(sql, /'deferred_to_cf11',true/);
   assert.match(sql, /'status','DRAFT'/);
   // CF10-R4: lifecycle rows are always DRAFT; applicability is copied verbatim from the staged
   // entry (REQUIRED / OPTIONAL / NA) and never hard-coded.
@@ -30,6 +33,34 @@ test("CF10 materializes the seven capabilities into domain tables", () => {
   assert.match(sql, /SELECT capability, lifecycle_capability, applicability\s*\n\s*FROM public\.golden_lesson_domain_stage_entries/);
   assert.doesNotMatch(sql, /applicability'\s*,\s*'REQUIRED'/);
   assert.match(sql, /CF10_LIFECYCLE_STAGED_SET_INVALID/);
+});
+
+test("CF10-R7 closes the four independent-review blockers", () => {
+  // (2) lesson_resources is entirely outside the immutable seed attestation.
+  const seedFn = sql.slice(
+    sql.indexOf("FUNCTION public.cf10_seed_state_sha256"),
+    sql.indexOf("FUNCTION public.cf10_html_publication_pending"),
+  );
+  assert.ok(seedFn.length > 200);
+  assert.doesNotMatch(seedFn, /FROM public\.lesson_resources/);
+  assert.match(seedFn, /'resources','cf10-owns-no-lesson-resources'/);
+  // (3) the HTML READY guard is unspoofable: no lesson_resources bypass at all.
+  const guard = sql.slice(sql.indexOf("FUNCTION public.cf10_block_ready_before_html_publication"));
+  assert.doesNotMatch(guard, /lesson_resources/);
+  assert.match(guard, /NEW\.draft_hash IS NOT NULL THEN/);
+  assert.doesNotMatch(sql, /cf10_html_publication_pending\(NEW\.lesson_id/);
+  // (4) binding_id is NOT NULL in the DDL itself.
+  assert.match(sql, /binding_id uuid NOT NULL REFERENCES public\.golden_lesson_identity_bindings/);
+  // PG17 rehearsal proves the spoofed row and the NOT NULL constraint.
+  for (const marker of [
+    "a spoofed cf11_published_at row does not clear the pending flag",
+    "a spoofed CF11 row never opens the lesson to students",
+    "ledger binding_id is NOT NULL in the DDL",
+    "a CF11 resource addition does not break replay",
+    "CF10 wrote no legacy lesson_resources row for the HTML capabilities",
+  ]) {
+    assert.ok(assertSql.includes(marker), `missing assertion: ${marker}`);
+  }
 });
 
 test("CF10-R2 keeps the question bank DRAFT-only (production schema contract)", () => {
