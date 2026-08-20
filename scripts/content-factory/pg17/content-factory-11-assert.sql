@@ -254,9 +254,13 @@ BEGIN
     IF SQLERRM NOT LIKE '%CF11_ASSET_MIME_FORBIDDEN%' THEN RAISE; END IF;
   END;
 
-  -- An undeclared body reference cannot survive: strip the manifest assets and publish.
-  UPDATE public.golden_lesson_package_versions
-     SET manifest = manifest - 'assets' WHERE id = '50100000-0000-0000-0000-000000000001';
+END $$;
+RESET ROLE;
+-- An undeclared body reference cannot survive: strip the manifest assets (owner-side) and publish.
+UPDATE public.golden_lesson_package_versions
+   SET manifest = manifest - 'assets' WHERE id = '50100000-0000-0000-0000-000000000001';
+SET ROLE authenticated;
+DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
       '10000000-0000-0000-0000-000000000003','DRY_RUN','[]'::jsonb);
