@@ -1101,20 +1101,34 @@ BEGIN
   --    authoritative `lifecycle_capability` for every staged capability, and CF10 verified the
   --    staged set equals cf10_required_capabilities(). Re-deriving them keeps CF11 in lockstep
   --    with the real production vocabulary (quickReview / checkUnderstanding / lessonAssessment).
-  FOR q IN
-    SELECT DISTINCT e.lifecycle_capability AS code
-      FROM public.golden_lesson_domain_stage_entries e
-     WHERE e.batch_id = _batch_id
-       AND e.capability = ANY (public.cf10_required_capabilities())
-     ORDER BY e.lifecycle_capability
-  LOOP
-    PERFORM public.lesson_capability_transition(lesson_row.id, q.code, 'REVIEW', NULL, NULL);
+  SELECT coalesce(array_agg(DISTINCT e.lifecycle_capability ORDER BY e.lifecycle_capability),
+                  ARRAY[]::text[])
+    INTO lifecycle_caps
+    FROM public.golden_lesson_domain_stage_entries e
+   WHERE e.batch_id = _batch_id
+     AND e.capability = ANY (public.cf10_required_capabilities());
+
+  -- The lifecycle namespace is fixed production vocabulary. Any alternate spelling
+  -- (lessonSummary / officialBookQuestions / selfTest) is a hard failure, not a rename.
+  IF lifecycle_caps IS DISTINCT FROM ARRAY[
+       'checkUnderstanding','lessonAssessment','mindMap','officialBookContent',
+       'quickReview','simulation','tamkeenExplanation']::text[] THEN
+    RAISE EXCEPTION 'CF11_LIFECYCLE_NAMESPACE_MISMATCH: %', array_to_string(lifecycle_caps, ',')
+      USING ERRCODE = '23514';
+  END IF;
+
+  FOREACH cap IN ARRAY lifecycle_caps LOOP
+    PERFORM public.lesson_capability_transition(lesson_row.id, cap, 'REVIEW', NULL, NULL);
   END LOOP;
 
-  IF (SELECT count(*) FROM public.lesson_capability_lifecycle
-       WHERE lesson_id = lesson_row.id AND status = 'REVIEW') <> 7 THEN
-    RAISE EXCEPTION 'CF11_LIFECYCLE_REVIEW_NOT_EXACTLY_SEVEN' USING ERRCODE = '23514';
+  SELECT coalesce(array_agg(capability ORDER BY capability), ARRAY[]::text[]) INTO live_caps
+    FROM public.lesson_capability_lifecycle
+   WHERE lesson_id = lesson_row.id AND status = 'REVIEW';
+  IF live_caps IS DISTINCT FROM lifecycle_caps THEN
+    RAISE EXCEPTION 'CF11_LIFECYCLE_REVIEW_NOT_EXACTLY_SEVEN: %', array_to_string(live_caps, ',')
+      USING ERRCODE = '23514';
   END IF;
+
 
 
 
