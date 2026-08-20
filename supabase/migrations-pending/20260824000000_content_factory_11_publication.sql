@@ -588,7 +588,8 @@ BEGIN
 
   att_hash := public.cf11_attestation_hash(binding.lesson_id, _asset_code, decl->>'fileName',
     decl->>'mimeType', decl->>'sha256', (decl->>'bytes')::bigint, _magic_hex,
-    'golden-lesson-assets', decl->>'storagePath', obj.id, obj.version, obj_etag);
+    'golden-lesson-assets', decl->>'storagePath', obj.id, obj.version, obj_etag,
+    _verification_origin);
 
   SELECT * INTO existing FROM public.golden_lesson_asset_attestations
    WHERE lesson_id = binding.lesson_id AND asset_code = _asset_code;
@@ -608,15 +609,19 @@ BEGIN
   INSERT INTO public.golden_lesson_asset_attestations(
     batch_id, lesson_id, asset_code, file_name, mime_type, sha256, byte_size, magic_hex,
     storage_bucket, storage_path, storage_object_id, storage_version, storage_etag,
-    attestation_sha256, attested_by)
+    attestation_sha256, verification_origin, requested_by)
   VALUES (_batch_id, binding.lesson_id, _asset_code, decl->>'fileName', decl->>'mimeType',
           decl->>'sha256', (decl->>'bytes')::bigint, lower(_magic_hex),
           'golden-lesson-assets', decl->>'storagePath', obj.id, obj.version, obj_etag,
-          att_hash, uid);
+          att_hash, _verification_origin, _requested_by);
 
   INSERT INTO public.audit_logs(actor_id, action, target_type, target_id, metadata)
-  VALUES (uid, 'golden_lesson_cf11_asset_attested', 'lesson_capability', binding.lesson_id,
-          jsonb_build_object('batchId',_batch_id,'assetCode',_asset_code,'attestationSha256',att_hash));
+  VALUES (_requested_by, 'golden_lesson_cf11_asset_attested', 'lesson_capability', binding.lesson_id,
+          jsonb_build_object('batchId',_batch_id,'assetCode',_asset_code,
+                             'attestationSha256',att_hash,
+                             'verificationOrigin',_verification_origin,
+                             'attestedBy','SERVER'));
+
 
   RETURN jsonb_build_object('mode','EXECUTE','assetCode',_asset_code,'idempotent',false,
     'writes_performed',1,'attestationSha256',att_hash);
