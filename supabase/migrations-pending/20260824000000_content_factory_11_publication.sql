@@ -655,16 +655,24 @@ BEGIN
     IF q.revision_id IS NULL THEN
       RAISE EXCEPTION 'CF11_QUESTION_REVISION_MISSING: %', q.code USING ERRCODE = '23514';
     END IF;
-    UPDATE public.question_revisions
-       SET status = 'PUBLISHED', published_at = now(), published_by = uid,
-           reviewed_at = coalesce(reviewed_at, now()), reviewed_by = coalesce(reviewed_by, uid)
-     WHERE id = q.revision_id AND status <> 'PUBLISHED';
-    GET DIAGNOSTICS rc = ROW_COUNT; writes := writes + rc;
+    -- The canonical payload hash must already exist; CF11 never invents one.
+    IF (SELECT payload_hash FROM public.question_revisions WHERE id = q.revision_id) IS NULL THEN
+      RAISE EXCEPTION 'CF11_QUESTION_PAYLOAD_HASH_MISSING: %', q.code USING ERRCODE = '23514';
+    END IF;
 
+    -- Supersede first: `question_revisions_one_published_uidx` allows exactly one PUBLISHED row.
     UPDATE public.question_revisions
        SET status = 'SUPERSEDED', superseded_at = coalesce(superseded_at, now())
      WHERE question_id = q.question_id AND id <> q.revision_id AND status = 'PUBLISHED';
     GET DIAGNOSTICS rc = ROW_COUNT; writes := writes + rc;
+
+    UPDATE public.question_revisions
+       SET status = 'PUBLISHED', published_at = coalesce(published_at, now()),
+           published_by = coalesce(published_by, uid),
+           reviewed_at = coalesce(reviewed_at, now()), reviewed_by = coalesce(reviewed_by, uid)
+     WHERE id = q.revision_id AND status <> 'PUBLISHED';
+    GET DIAGNOSTICS rc = ROW_COUNT; writes := writes + rc;
+
 
     UPDATE public.questions SET current_published_revision_id = q.revision_id
      WHERE id = q.question_id AND current_published_revision_id IS DISTINCT FROM q.revision_id;
