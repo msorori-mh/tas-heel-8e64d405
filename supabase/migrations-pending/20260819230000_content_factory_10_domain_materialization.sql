@@ -74,7 +74,7 @@ CREATE TRIGGER golden_materialization_immutable
 -- Deterministic content hash helper (bytes-in, hex-out).
 CREATE OR REPLACE FUNCTION public.cf10_text_sha256(_value text)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
-  SELECT encode(digest(convert_to(coalesce(_value,''),'UTF8'),'sha256'),'hex');
+  SELECT encode(extensions.digest(convert_to(coalesce(_value,''),'UTF8'),'sha256'),'hex');
 $$;
 
 -- Fail-closed answer-leak detector for any payload that will reach the student.
@@ -117,7 +117,7 @@ $$;
 -- identity was re-bound; replay must abort instead of returning a cached success.
 CREATE OR REPLACE FUNCTION public.cf10_seed_state_sha256(_lesson_id uuid)
 RETURNS text LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
-  SELECT encode(digest(convert_to(jsonb_build_object(
+  SELECT encode(extensions.digest(convert_to(jsonb_build_object(
     'schema','tamkeen.content-factory-10.seed-attestation.v1',
     'lesson', (SELECT jsonb_build_object('id',l.id,'subjectId',l.subject_id,'slug',l.slug,
                         'title',l.title,'semester',l.semester)
@@ -404,7 +404,7 @@ BEGIN
       RAISE EXCEPTION 'CF10_EMPTY_PAYLOAD: %', entry.capability USING ERRCODE = '22023';
     END IF;
     IF payload_text IS NOT NULL
-       AND encode(digest(entry.source_payload,'sha256'),'hex') IS DISTINCT FROM entry.source_sha256 THEN
+       AND encode(extensions.digest(entry.source_payload,'sha256'),'hex') IS DISTINCT FROM entry.source_sha256 THEN
       RAISE EXCEPTION 'CF10_PAYLOAD_HASH_MISMATCH: %', entry.capability USING ERRCODE = '23514';
     END IF;
     PERFORM public.cf10_assert_no_answer_leak(entry.capability, payload_text);
