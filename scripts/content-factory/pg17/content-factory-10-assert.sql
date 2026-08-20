@@ -71,9 +71,18 @@ SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_explanations),'t
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_summaries),'lesson summary written once');
 SELECT public.cf04_assert((SELECT count(*)=7 FROM public.lesson_capability_lifecycle),'seven lifecycle rows');
 SELECT public.cf04_assert((SELECT count(*)=7 FROM public.lesson_capability_lifecycle WHERE status='DRAFT'),'lifecycle is DRAFT only');
--- CF10-R4: staged capabilities with a payload are REQUIRED; declared-NA capabilities are NA and never block visibility.
-SELECT public.cf04_assert((SELECT count(*)=4 FROM public.lesson_capability_lifecycle WHERE applicability='REQUIRED'),'payload-backed capabilities are REQUIRED');
-SELECT public.cf04_assert((SELECT count(*)=3 FROM public.lesson_capability_lifecycle WHERE applicability='NA'),'payload-less capabilities are NA');
+-- CF10-R4: applicability is copied verbatim from the staged entries (REQUIRED/OPTIONAL/NA),
+-- never hard-coded. The L03 package stages 4 REQUIRED, 2 OPTIONAL and 1 NA capability.
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.golden_lesson_domain_stage_entries e
+   LEFT JOIN public.lesson_capability_lifecycle l
+     ON l.capability = e.lifecycle_capability AND l.lesson_id = '43000000-0000-0000-0000-000000000001'
+  WHERE e.batch_id = public.cf10_batch('QURAN-G10-L03-PKG')
+    AND l.applicability::text IS DISTINCT FROM e.applicability),
+  'lifecycle applicability mirrors the staged entries exactly');
+SELECT public.cf04_assert((SELECT count(*)=4 FROM public.lesson_capability_lifecycle WHERE applicability='REQUIRED'),'staged REQUIRED capabilities are REQUIRED');
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_capability_lifecycle WHERE applicability='OPTIONAL'),'staged OPTIONAL capabilities stay OPTIONAL');
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_capability_lifecycle WHERE applicability='NA'),'staged NA capability stays NA');
+SELECT public.cf04_assert((SELECT count(*)=7 FROM public.lesson_capability_lifecycle),'exact staged capability set = 7');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_capability_lifecycle WHERE ready_at IS NOT NULL OR ready_hash IS NOT NULL OR ready_snapshot IS NOT NULL),'no READY evidence invented');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.question_options WHERE is_correct),'zero answer leak in options');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.questions WHERE correct_index >= 0),'zero answer leak in question rows');
@@ -535,16 +544,25 @@ SELECT public.cf04_assert((SELECT NOT visible FROM public.lesson_student_content
   '43000000-0000-0000-0000-000000000001')),'6/7 READY: gate still closed');
 RESET ROLE; RESET request.jwt.claim.sub;
 
--- 10d) All seven READY: the lesson and its content finally open.
+-- 10d) All REQUIRED READY while OPTIONAL and NA stay DRAFT: the lesson opens.
+--      OPTIONAL/NA capabilities must never gate the lesson, only REQUIRED ones do.
+UPDATE public.lesson_capability_lifecycle
+   SET status='DRAFT', ready_at=NULL, ready_by=NULL, ready_hash=NULL
+ WHERE lesson_id='43000000-0000-0000-0000-000000000001'
+   AND applicability IN ('OPTIONAL','NA');
 UPDATE public.lesson_capability_lifecycle
    SET status='READY', ready_at=now(), ready_by='10000000-0000-0000-0000-000000000003',
        ready_hash=draft_hash
- WHERE lesson_id='43000000-0000-0000-0000-000000000001' AND status='DRAFT';
+ WHERE lesson_id='43000000-0000-0000-0000-000000000001'
+   AND applicability='REQUIRED' AND status='DRAFT';
+SELECT public.cf04_assert((SELECT count(*)=3 FROM public.lesson_capability_lifecycle
+   WHERE lesson_id='43000000-0000-0000-0000-000000000001' AND status='DRAFT'),
+  'OPTIONAL and NA capabilities are still DRAFT while the gate opens');
 SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000004'; SET ROLE authenticated;
-SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lessons),'7/7 READY: the completed lesson appears');
-SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_book_contents),'7/7 READY: book content exposed');
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lessons),'all REQUIRED READY: the completed lesson appears');
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_book_contents),'all REQUIRED READY: book content exposed');
 SELECT public.cf04_assert((SELECT visible FROM public.lesson_student_content_gate(
-  '43000000-0000-0000-0000-000000000001')),'7/7 READY: gate open');
+  '43000000-0000-0000-0000-000000000001')),'all REQUIRED READY: gate open');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lessons WHERE slug='quran-lesson-04'),
   'the still-DRAFT lesson stays hidden');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.question_options WHERE is_correct),
@@ -565,12 +583,35 @@ ROLLBACK;
 BEGIN;
 UPDATE public.lesson_capability_lifecycle SET status='REVIEW'
  WHERE ctid IN (SELECT ctid FROM public.lesson_capability_lifecycle
-                 WHERE lesson_id='43000000-0000-0000-0000-000000000001' ORDER BY capability LIMIT 1);
+                 WHERE lesson_id='43000000-0000-0000-0000-000000000001'
+                   AND applicability='REQUIRED' ORDER BY capability LIMIT 1);
 SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000004'; SET ROLE authenticated;
 SELECT public.cf04_assert((SELECT NOT visible FROM public.lesson_student_content_gate(
   '43000000-0000-0000-0000-000000000001')),'a REQUIRED REVIEW capability closes the gate again');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_book_contents),
   'a REQUIRED regression hides the content again');
+RESET ROLE; RESET request.jwt.claim.sub;
+ROLLBACK;
+
+-- 10f) An OPTIONAL capability that never reaches READY still does not block the lesson.
+BEGIN;
+UPDATE public.lesson_capability_lifecycle SET status='REVIEW'
+ WHERE lesson_id='43000000-0000-0000-0000-000000000001' AND applicability='OPTIONAL';
+SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000004'; SET ROLE authenticated;
+SELECT public.cf04_assert((SELECT visible FROM public.lesson_student_content_gate(
+  '43000000-0000-0000-0000-000000000001')),'OPTIONAL capability never blocks visibility');
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_book_contents),
+  'OPTIONAL non-READY keeps the REQUIRED content readable');
+RESET ROLE; RESET request.jwt.claim.sub;
+ROLLBACK;
+
+-- 10g) A lesson whose capabilities are all OPTIONAL/NA has no REQUIRED row and stays hidden.
+BEGIN;
+UPDATE public.lesson_capability_lifecycle SET applicability='OPTIONAL'
+ WHERE lesson_id='43000000-0000-0000-0000-000000000001' AND applicability='REQUIRED';
+SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000004'; SET ROLE authenticated;
+SELECT public.cf04_assert((SELECT NOT visible FROM public.lesson_student_content_gate(
+  '43000000-0000-0000-0000-000000000001')),'a managed lesson with zero REQUIRED rows stays hidden');
 RESET ROLE; RESET request.jwt.claim.sub;
 ROLLBACK;
 

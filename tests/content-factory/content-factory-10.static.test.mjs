@@ -24,10 +24,12 @@ test("CF10 materializes the seven capabilities into domain tables", () => {
     assert.match(sql, new RegExp(`INSERT INTO public\\.${table}\\b`));
   }
   assert.match(sql, /'status','DRAFT'/);
-  // CF10-R4: lifecycle rows are always DRAFT; applicability is REQUIRED for payload-backed
-  // capabilities and NA for declared-absent ones (NA never blocks student visibility).
+  // CF10-R4: lifecycle rows are always DRAFT; applicability is copied verbatim from the staged
+  // entry (REQUIRED / OPTIONAL / NA) and never hard-coded.
   assert.match(sql, /'DRAFT', expected_applicability::public\.capability_applicability/);
-  assert.match(sql, /expected_applicability := CASE WHEN \(payloads->cap->>'text'\) IS NULL THEN 'NA' ELSE 'REQUIRED' END/);
+  assert.match(sql, /SELECT capability, lifecycle_capability, applicability\s*\n\s*FROM public\.golden_lesson_domain_stage_entries/);
+  assert.doesNotMatch(sql, /applicability'\s*,\s*'REQUIRED'/);
+  assert.match(sql, /CF10_LIFECYCLE_STAGED_SET_INVALID/);
 });
 
 test("CF10-R2 keeps the question bank DRAFT-only (production schema contract)", () => {
@@ -120,9 +122,17 @@ test("CF10-R4 PG17 rehearsal asserts collisions and all-or-nothing student blind
     "all-DRAFT: zero questions",
     "gate keeps unmanaged legacy lessons visible",
     "content staff still see DRAFT questions",
-    "7/7 READY: the completed lesson appears",
+    "all REQUIRED READY: the completed lesson appears",
     "1/7 READY: lesson still hidden",
     "6/7 READY: lesson still hidden",
+    "lifecycle applicability mirrors the staged entries exactly",
+    "staged OPTIONAL capabilities stay OPTIONAL",
+    "staged NA capability stays NA",
+    "exact staged capability set = 7",
+    "OPTIONAL and NA capabilities are still DRAFT while the gate opens",
+    "OPTIONAL capability never blocks visibility",
+    "NA capability does not block visibility",
+    "a managed lesson with zero REQUIRED rows stays hidden",
     "a REQUIRED REVIEW capability closes the gate again",
     "idempotent replay performs zero writes",
     "CF10_EXPECTED_IDENTITY_CONFLICT",
