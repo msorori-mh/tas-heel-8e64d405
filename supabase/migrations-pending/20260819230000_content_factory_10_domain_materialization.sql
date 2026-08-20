@@ -89,6 +89,10 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
 $$;
 
 -- CF10-R4b: canonical attestation of the live materialized domain state for one lesson.
+-- Scope: content identity (codes, titles, urls, structure and sha256 of every stored body).
+-- Deliberately excluded: mutable workflow status (lifecycle.status, revision.status,
+-- current_published_revision_id), which advances legitimately after materialization.
+-- Anything else changing means the materialized content drifted or was tampered with.
 -- Replay must re-attest this hash against the ledger; any drift or tampering aborts.
 CREATE OR REPLACE FUNCTION public.cf10_live_state_sha256(_lesson_id uuid)
 RETURNS text LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
@@ -113,10 +117,9 @@ RETURNS text LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
                         FROM public.lesson_resources r WHERE r.lesson_id = _lesson_id),'[]'::jsonb),
     'questions', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',q.code,
                         'type',q.question_type,'correctIndex',q.correct_index,
-                        'published',q.current_published_revision_id,
                         'textSha',public.cf10_text_sha256(q.question_text),
                         'revisions',(SELECT COALESCE(jsonb_agg(jsonb_build_object(
-                              'number',rv.revision_number,'status',rv.status,
+                              'number',rv.revision_number,
                               'interaction',rv.interaction_type,'grading',rv.grading_mode,
                               'payloadHash',rv.payload_hash,'payloadHashVersion',rv.payload_hash_version,
                               'sourceHash',rv.source_payload_hash,
@@ -151,7 +154,7 @@ RETURNS text LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
                                     WHERE aq.assessment_id = a.id)) ORDER BY a.assessment_code)
                         FROM public.lesson_assessments a WHERE a.lesson_id = _lesson_id),'[]'::jsonb),
     'lifecycle', COALESCE((SELECT jsonb_agg(jsonb_build_object('capability',lc.capability,
-                        'status',lc.status,'applicability',lc.applicability::text,
+                        'applicability',lc.applicability::text,
                         'draftHash',lc.draft_hash) ORDER BY lc.capability)
                         FROM public.lesson_capability_lifecycle lc WHERE lc.lesson_id = _lesson_id),'[]'::jsonb)
   )::text,'UTF8'),'sha256'),'hex');
