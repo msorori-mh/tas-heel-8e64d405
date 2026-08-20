@@ -24,7 +24,10 @@ test("CF10 materializes the seven capabilities into domain tables", () => {
     assert.match(sql, new RegExp(`INSERT INTO public\\.${table}\\b`));
   }
   assert.match(sql, /'status','DRAFT'/);
-  assert.match(sql, /'DRAFT', 'REQUIRED'/);
+  // CF10-R4: lifecycle rows are always DRAFT; applicability is REQUIRED for payload-backed
+  // capabilities and NA for declared-absent ones (NA never blocks student visibility).
+  assert.match(sql, /'DRAFT', expected_applicability::public\.capability_applicability/);
+  assert.match(sql, /expected_applicability := CASE WHEN \(payloads->cap->>'text'\) IS NULL THEN 'NA' ELSE 'REQUIRED' END/);
 });
 
 test("CF10-R2 keeps the question bank DRAFT-only (production schema contract)", () => {
@@ -108,16 +111,19 @@ test("CF10-R3 adds identity, lifecycle and counter hardening", () => {
   assert.match(sql, /CF10_IDENTITY_CONFLICT/);
   assert.match(sql, /CF10_LIFECYCLE_CONFLICT/);
   assert.match(sql, /GET DIAGNOSTICS/);
-  assert.match(sql, /writes := writes \+ rc/);
+  assert.match(sql, /domain_writes := domain_writes \+ rc/);
 });
 
 test("CF10-R3 PG17 rehearsal asserts collisions and student blindness", () => {
   for (const marker of [
     "student sees only the unmanaged legacy lesson",
-    "student sees zero DRAFT questions",
+    "all-DRAFT: zero questions",
     "gate keeps unmanaged legacy lessons visible",
     "content staff still see DRAFT questions",
-    "READY capability reveals the managed lesson",
+    "7/7 READY: the completed lesson appears",
+    "1/7 READY: lesson still hidden",
+    "6/7 READY: lesson still hidden",
+    "a REQUIRED REVIEW capability closes the gate again",
     "idempotent replay performs zero writes",
     "CF10_EXPECTED_IDENTITY_CONFLICT",
     "CF10_EXPECTED_LIFECYCLE_CONFLICT",

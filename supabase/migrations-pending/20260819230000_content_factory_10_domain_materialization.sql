@@ -131,6 +131,7 @@ DECLARE
   expected_resource_title text;
   expected_resource_sort integer;
   expected_html_type text;
+  expected_applicability text;
   opt_index integer := 0;
   domain_writes integer := 0;
   hash_updates integer := 0;
@@ -712,21 +713,21 @@ BEGIN
   FOR cap, lifecycle_cap IN
     SELECT capability, lifecycle_capability FROM public.golden_lesson_domain_stage_entries
      WHERE batch_id = _batch_id ORDER BY capability LOOP
-    expected_grading := CASE WHEN (payloads->cap->>'text') IS NULL THEN 'NA' ELSE 'REQUIRED' END;
+    expected_applicability := CASE WHEN (payloads->cap->>'text') IS NULL THEN 'NA' ELSE 'REQUIRED' END;
     SELECT status, applicability::text, draft_hash
       INTO existing_status, existing_applicability, existing_draft_hash
       FROM public.lesson_capability_lifecycle
      WHERE lesson_id = lesson_row.id AND capability = lifecycle_cap;
     IF existing_status IS NOT NULL AND (
          existing_status IS DISTINCT FROM 'DRAFT'
-      OR existing_applicability IS DISTINCT FROM expected_grading
+      OR existing_applicability IS DISTINCT FROM expected_applicability
       OR existing_draft_hash IS DISTINCT FROM (payloads->cap->>'sha256')) THEN
       RAISE EXCEPTION 'CF10_LIFECYCLE_CONFLICT: %', lifecycle_cap USING ERRCODE = '23514';
     END IF;
     IF existing_status IS NULL THEN
       INSERT INTO public.lesson_capability_lifecycle(lesson_id, capability, status, applicability,
                                                      draft_hash, draft_updated_at)
-      VALUES (lesson_row.id, lifecycle_cap, 'DRAFT', expected_grading::public.capability_applicability,
+      VALUES (lesson_row.id, lifecycle_cap, 'DRAFT', expected_applicability::public.capability_applicability,
               payloads->cap->>'sha256', now());
       GET DIAGNOSTICS rc = ROW_COUNT;
       lifecycle_written := lifecycle_written + rc;
