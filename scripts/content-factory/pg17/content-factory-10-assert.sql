@@ -625,7 +625,7 @@ SELECT public.cf04_assert(
   (public.golden_lesson_materialize_domain_batch(
      public.cf10_batch('QURAN-G10-L03-PKG'),
      '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001')
-   ->>'state_attested')::boolean, 'exact replay attests the live domain state');
+   ->>'live_attested')::boolean, 'exact replay attests the immutable seed');
 RESET ROLE;
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.golden_lesson_domain_materializations
                             WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG')),
@@ -674,7 +674,7 @@ ROLLBACK;
 --      that legacy shape inside a rolled-back transaction.
 BEGIN;
 ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
-UPDATE public.golden_lesson_domain_materializations SET result = result - 'state_sha256'
+UPDATE public.golden_lesson_domain_materializations SET result = result - 'seed_sha256' - 'state_sha256'
  WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
 ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
 SET ROLE service_role;
