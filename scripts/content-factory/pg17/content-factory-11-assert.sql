@@ -80,10 +80,9 @@ DO $$ BEGIN
 END $$;
 
 -- ------------------------------------------------------------------------------------
--- B2) Upload attestation is mandatory and byte-exact.
+-- B2) Upload attestation is MACHINE-ONLY (CF11-R5), mandatory and byte-exact.
 -- ------------------------------------------------------------------------------------
 DO $$
-DECLARE res jsonb;
 BEGIN
   -- publish without an attestation must fail closed
   BEGIN
@@ -94,11 +93,34 @@ BEGIN
     IF SQLERRM NOT LIKE '%CF11_ASSET_ATTESTATION_MISSING%' THEN RAISE; END IF;
   END;
 
+  -- CF11-R5: a signed-in human — even a real staff operator — may not attest bytes at all.
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
+      'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+      'image/jpeg','ffd8ffe000104a46','SERVER_BYTE_READBACK','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_MACHINE_ONLY';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_ATTESTATION_MACHINE_ONLY%'
+       AND SQLERRM NOT LIKE '%permission denied%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert(
+    (SELECT count(*)=0 FROM public.golden_lesson_asset_attestations),
+    'a human-claimed attestation must write zero rows');
+END $$;
+
+-- The machine identity: service_role, no auth.uid() at all.
+RESET ROLE;
+SELECT set_config('request.jwt.claim.sub', '', false);
+SET ROLE service_role;
+DO $$
+DECLARE res jsonb;
+BEGIN
   -- wrong bytes / size / mime are all refused
   BEGIN
     PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
       '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1', repeat('b',64), 26742,
-      'image/jpeg','ffd8ffe0','EXECUTE');
+      'image/jpeg','ffd8ffe0','SERVER_BYTE_READBACK','EXECUTE');
     RAISE EXCEPTION 'CF11_EXPECTED_BYTES_MISMATCH';
   EXCEPTION WHEN check_violation THEN
     IF SQLERRM NOT LIKE '%CF11_ASSET_BYTES_MISMATCH%' THEN RAISE; END IF;
@@ -107,7 +129,7 @@ BEGIN
     PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
       '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
       'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26743,
-      'image/jpeg','ffd8ffe0','EXECUTE');
+      'image/jpeg','ffd8ffe0','SERVER_BYTE_READBACK','EXECUTE');
     RAISE EXCEPTION 'CF11_EXPECTED_SIZE_MISMATCH';
   EXCEPTION WHEN check_violation THEN
     IF SQLERRM NOT LIKE '%CF11_ASSET_SIZE_MISMATCH%' THEN RAISE; END IF;
@@ -116,7 +138,7 @@ BEGIN
     PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
       '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
       'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
-      'image/png','89504e47','EXECUTE');
+      'image/png','89504e47','SERVER_BYTE_READBACK','EXECUTE');
     RAISE EXCEPTION 'CF11_EXPECTED_MIME_MISMATCH';
   EXCEPTION WHEN check_violation THEN
     IF SQLERRM NOT LIKE '%CF11_ASSET_MIME_MISMATCH%' THEN RAISE; END IF;
@@ -126,7 +148,7 @@ BEGIN
     PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
       '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
       'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
-      'image/jpeg','89504e47','EXECUTE');
+      'image/jpeg','89504e47','SERVER_BYTE_READBACK','EXECUTE');
     RAISE EXCEPTION 'CF11_EXPECTED_MAGIC_MISMATCH';
   EXCEPTION WHEN check_violation THEN
     IF SQLERRM NOT LIKE '%CF11_ASSET_MAGIC_MISMATCH%' THEN RAISE; END IF;
@@ -136,34 +158,71 @@ BEGIN
     PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
       '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-9-9',
       'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
-      'image/jpeg','ffd8ffe0','EXECUTE');
+      'image/jpeg','ffd8ffe0','SERVER_BYTE_READBACK','EXECUTE');
     RAISE EXCEPTION 'CF11_EXPECTED_NOT_DECLARED';
   EXCEPTION WHEN check_violation THEN
     IF SQLERRM NOT LIKE '%CF11_ASSET_NOT_DECLARED%' THEN RAISE; END IF;
+  END;
+  -- a fabricated verification origin is refused: only a real server readback is evidence
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
+      'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+      'image/jpeg','ffd8ffe000104a46','OPERATOR_CLAIM','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_ORIGIN_INVALID';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_VERIFICATION_ORIGIN_INVALID%' THEN RAISE; END IF;
+  END;
+  -- the recorded requester must be real content staff
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000004','OFFICIAL-FIGURE-1-1',
+      'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+      'image/jpeg','ffd8ffe000104a46','SERVER_BYTE_READBACK','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_REQUESTER_NOT_STAFF';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM NOT LIKE '%CF11_NOT_AUTHORIZED%' THEN RAISE; END IF;
   END;
   PERFORM public.cf04_assert(
     (SELECT count(*)=0 FROM public.golden_lesson_asset_attestations),
     'a refused attestation must write zero rows');
 
-  -- the real, byte-exact attestation
+  -- the real, byte-exact machine attestation
   res := public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
     '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
     'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
-    'image/jpeg','ffd8ffe000104a46','EXECUTE');
+    'image/jpeg','ffd8ffe000104a46','SERVER_BYTE_READBACK','EXECUTE');
   PERFORM public.cf04_assert((res->>'writes_performed')::int = 1,'attestation must append one row');
   res := public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
     '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
     'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
-    'image/jpeg','ffd8ffe000104a46','EXECUTE');
+    'image/jpeg','ffd8ffe000104a46','SERVER_BYTE_READBACK','EXECUTE');
   PERFORM public.cf04_assert((res->>'idempotent')::boolean,'attestation replay must be idempotent');
+  PERFORM public.cf04_assert(
+    (SELECT count(*)=1 FROM public.golden_lesson_asset_attestations
+      WHERE verification_origin='SERVER_BYTE_READBACK'
+        AND requested_by='10000000-0000-0000-0000-000000000003'),
+    'the attestation records the machine origin and the requesting human');
 
-  -- the ledger is immutable even for the attester
+  -- CF11-R5: the service role may not reach the raw CF10 entry point
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(
+      '51000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000003','DRY_RUN');
+    RAISE EXCEPTION 'CF11_EXPECTED_CF10_DENIED_TO_SERVICE_ROLE';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+
+  -- the ledger is immutable even for the machine
   BEGIN
     UPDATE public.golden_lesson_asset_attestations SET sha256 = repeat('c',64);
     RAISE EXCEPTION 'CF11_EXPECTED_LEDGER_IMMUTABLE';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
 END $$;
+RESET ROLE;
+SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
+
 
 -- ------------------------------------------------------------------------------------
 -- C) DRY_RUN writes nothing and returns a stable plan
