@@ -561,3 +561,44 @@ CF11 EXECUTE (publication ledger row only) → فحص الاعتماد → اع�
 
 PG17 execution status: **NOT EXECUTED here** (no PG17 in this environment); Sections N/O/P remain
 the clean-room proof to run before any production apply.
+
+## R8 ADDENDUM — DIRECT_TRANSITION_BYPASS = CLOSED
+
+Source-only. Production writes: **0**. Migration applied: **NO**. Migration bytes unchanged, so
+the final R8 CF11 migration SHA-256 remains
+`6aaa63ffcfd451df29fde56a118c63af322b1b0b9b06d7f66f92cf8c896ba395`.
+
+**Finding.** 21H grants `lesson_capability_transition` to `authenticated` and only demands a full
+admin for `-> READY` and `REVIEW -> DRAFT`; plain content staff could therefore call
+`READY -> DRAFT` on an attested Golden Lesson and bypass full-admin, separation of duties,
+reason, idempotency and the immutable revocation ledger.
+
+**Closure (no 21H bytes modified).** The CF11 migration re-declares the generic RPC
+byte-identically except for one added `PERFORM public.cf11_assert_demotion_allowed(...)`, and
+installs the same rule as a `BEFORE UPDATE OR DELETE` trigger on
+`lesson_capability_lifecycle` so raw DML cannot route around it:
+
+* fires **only** when `from_status = 'READY'`, `to_status <> 'READY'`, the capability is one of
+  the canonical seven at `REQUIRED`, and the lesson is CF11-bound — every other case returns
+  early, so legacy content behaves exactly as before (PG17 proves `DRAFT -> REVIEW` on a legacy
+  lesson still succeeds);
+* the only escape hatch is the transaction-local ticket opened inside
+  `golden_lesson_revoke_cf11_ready`, so even a full admin is refused on the generic path;
+* `cf11_assert_demotion_allowed`, `cf11_has_revocation_ticket`, `cf11_is_managed_lesson` and the
+  trigger function are revoked from `PUBLIC, anon, authenticated, service_role`; the migration
+  additionally asserts at install time that no Data API role can write
+  `lesson_capability_lifecycle` or reach the ticket table. No alternate raw-table bypass exists.
+
+**Evidence.**
+* `node --test tests/content-factory/*.mjs` — **102/102 PASS**, including four new addendum
+  statics (guard scope and restrictive-only early returns, raw-DML trigger + revoked grants,
+  21H bytes untouched with its grant surface preserved, PG17 coverage present).
+* PG17 Section O (written, not executed here): non-admin content staff `READY -> DRAFT` and
+  `READY -> REVIEW` on a CF11-bound lesson refused with `CF11_DIRECT_TRANSITION_FORBIDDEN` and
+  zero lifecycle/audit writes and unchanged student visibility; a full admin refused on the same
+  path; legacy lesson transition unchanged. Section N2: the controlled
+  `golden_lesson_revoke_cf11_ready` EXECUTE succeeds and leaves **exactly one** row in
+  `golden_lesson_ready_revocations` for the batch.
+
+**DIRECT_TRANSITION_BYPASS = CLOSED** (source). PG17 Sections N/O/P remain to be executed in a
+clean room before any production apply; no PASS/verdict is issued on unexecuted evidence.
