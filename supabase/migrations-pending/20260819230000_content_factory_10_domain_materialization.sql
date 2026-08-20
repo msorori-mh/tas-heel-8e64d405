@@ -1212,13 +1212,17 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.lesson_student_visible(_lesson_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  -- R6: RLS is lesson-scoped, so "all REQUIRED READY" is not sufficient — an OPTIONAL capability
+  -- that already carries a materialized payload (draft_hash) would leak its DRAFT/REVIEW content.
+  -- A managed lesson is visible only when it has at least one REQUIRED capability and NO
+  -- capability that carries a payload is still un-READY. NA rows without payload never block.
   SELECT CASE
     WHEN NOT public.lesson_is_editorially_managed(_lesson_id) THEN true
     ELSE EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle l
                   WHERE l.lesson_id = _lesson_id AND l.applicability = 'REQUIRED')
      AND NOT EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle l
                       WHERE l.lesson_id = _lesson_id
-                        AND l.applicability = 'REQUIRED'
+                        AND (l.applicability = 'REQUIRED' OR l.draft_hash IS NOT NULL)
                         AND l.status IS DISTINCT FROM 'READY')
   END;
 $$;
