@@ -474,6 +474,8 @@ BEGIN
     -- (1) Ledger + source identity: batch, plan hash, idempotency key, verified bundle,
     --     answer companion hash and the subject/lesson identity are re-verified now.
     IF replay.subject_id IS DISTINCT FROM subject_row.id
+       OR replay.binding_id IS NULL
+       OR replay.binding_id IS DISTINCT FROM binding.id
        OR (replay.write_plan->>'verifiedBundleSha256') IS DISTINCT FROM batch.verified_bundle_sha256
        OR (replay.write_plan->>'answerCompanionSha256') IS DISTINCT FROM (companion->>'companion_sha256')
        OR (replay.write_plan->>'externalLessonCode') IS DISTINCT FROM external_lesson_code
