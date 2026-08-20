@@ -751,7 +751,12 @@ BEGIN
   END LOOP;
   verified := verified || to_jsonb('html'::text);
 
-  -- 3) every planned asset is still registered with the same bytes, path and attestation
+  -- 3) CF11-R6 — EXACT live asset set. Every planned asset must still be published with the same
+  --    bytes, still carry its immutable machine attestation, and the storage object must still be
+  --    the very same object version/eTag/metadata the attestation recorded. The *set* of published
+  --    assets must equal the planned set exactly: an extra published asset fails just as hard as a
+  --    missing one. NOTE (honesty): no byte readback happens here — SQL compares recorded identity
+  --    and object metadata only. Byte readback is the machine server attestation step.
   FOR a IN SELECT value FROM jsonb_array_elements(coalesce(_plan->'assets','[]'::jsonb)) LOOP
     IF NOT EXISTS (
       SELECT 1 FROM public.golden_lesson_published_assets p
@@ -759,49 +764,92 @@ BEGIN
           ON t.lesson_id = p.lesson_id AND t.asset_code = p.asset_code
          AND t.attestation_sha256 = p.attestation_sha256
          AND t.verification_origin = 'SERVER_BYTE_READBACK'
+         AND t.sha256 = p.sha256 AND t.byte_size = p.byte_size AND t.mime_type = p.mime_type
+         AND t.storage_bucket = p.storage_bucket AND t.storage_path = p.storage_path
+         AND t.attestation_sha256 = public.cf11_attestation_hash(
+               t.lesson_id, t.asset_code, t.sha256, t.byte_size, t.mime_type,
+               t.storage_bucket, t.storage_path, t.magic_hex)
         JOIN storage.objects o
           ON o.bucket_id = t.storage_bucket AND o.name = t.storage_path
          AND o.id = t.storage_object_id AND o.version = t.storage_version
+         AND coalesce(o.metadata->>'eTag', o.metadata->>'etag') IS NOT DISTINCT FROM t.storage_etag
+         AND coalesce((o.metadata->>'size')::bigint, t.byte_size) = t.byte_size
+         AND coalesce(o.metadata->>'mimetype', o.metadata->>'contentType', t.mime_type) = t.mime_type
        WHERE p.lesson_id = v_lesson AND p.asset_code = a->>'assetCode'
          AND p.sha256 = a->>'sha256' AND p.byte_size = (a->>'bytes')::bigint
          AND p.mime_type = a->>'mimeType'
+         AND p.storage_path = a->>'storagePath'
     ) THEN
       RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: asset.%', a->>'assetCode'
         USING ERRCODE = '23505';
     END IF;
   END LOOP;
+  SELECT coalesce(array_agg(DISTINCT value ORDER BY value), ARRAY[]::text[]) INTO v_planned_assets
+    FROM jsonb_array_elements(coalesce(_plan->'assets','[]'::jsonb)) e(value_json),
+         LATERAL (SELECT e.value_json->>'assetCode') s(value);
+  SELECT coalesce(array_agg(DISTINCT asset_code ORDER BY asset_code), ARRAY[]::text[])
+    INTO v_live_assets
+    FROM public.golden_lesson_published_assets WHERE lesson_id = v_lesson;
   SELECT count(*) INTO v_count FROM public.golden_lesson_published_assets WHERE lesson_id = v_lesson;
-  IF v_count IS DISTINCT FROM jsonb_array_length(coalesce(_plan->'assets','[]'::jsonb)) THEN
-    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assets' USING ERRCODE = '23505';
+  IF v_live_assets IS DISTINCT FROM v_planned_assets
+     OR v_count IS DISTINCT FROM coalesce(array_length(v_planned_assets,1),0) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assets live=[%] planned=[%]',
+      array_to_string(v_live_assets,','), array_to_string(v_planned_assets,',')
+      USING ERRCODE = '23505';
   END IF;
   verified := verified || to_jsonb('assets'::text);
 
-  -- 4) all 45 questions still point at a PUBLISHED revision
-  SELECT array_agg(value::text) INTO v_official
+  -- 4) CF11-R6 — EXACT planned question-code set (official + self-test). No missing, extra,
+  --    duplicate or substituted code; each planned question belongs to the lesson and points at
+  --    the intended PUBLISHED revision; and the lesson carries no additional published question.
+  SELECT coalesce(array_agg(DISTINCT value ORDER BY value), ARRAY[]::text[]) INTO v_official
     FROM jsonb_array_elements_text(coalesce(_plan->'questions'->'official','[]'::jsonb)) value;
-  SELECT array_agg(value::text) INTO v_self
+  SELECT coalesce(array_agg(DISTINCT value ORDER BY value), ARRAY[]::text[]) INTO v_self
     FROM jsonb_array_elements_text(coalesce(_plan->'questions'->'selfTest','[]'::jsonb)) value;
+  v_planned_questions := ARRAY(SELECT unnest(v_official || v_self) ORDER BY 1);
+  IF coalesce(array_length(v_planned_questions,1),0)
+       <> jsonb_array_length(coalesce(_plan->'questions'->'official','[]'::jsonb))
+        + jsonb_array_length(coalesce(_plan->'questions'->'selfTest','[]'::jsonb)) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: questionsDuplicatePlan' USING ERRCODE = '23505';
+  END IF;
+
+  -- every code in the plan resolves to exactly one lesson question on a PUBLISHED revision
+  SELECT coalesce(array_agg(DISTINCT q.code ORDER BY q.code), ARRAY[]::text[]) INTO v_live_questions
+    FROM public.questions q
+    JOIN public.question_revisions rv ON rv.id = q.current_published_revision_id
+   WHERE q.lesson_id = v_lesson AND rv.status = 'PUBLISHED' AND rv.question_id = q.id;
+  IF v_live_questions IS DISTINCT FROM v_planned_questions THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: questions live=[%] planned=[%]',
+      array_to_string(v_live_questions,','), array_to_string(v_planned_questions,',')
+      USING ERRCODE = '23505';
+  END IF;
   SELECT count(*) INTO v_count
     FROM public.questions q
     JOIN public.question_revisions rv ON rv.id = q.current_published_revision_id
-   WHERE q.lesson_id = v_lesson
-     AND q.code = ANY (coalesce(v_official,ARRAY[]::text[]) || coalesce(v_self,ARRAY[]::text[]))
-     AND rv.status = 'PUBLISHED';
-  IF v_count IS DISTINCT FROM (coalesce(array_length(v_official,1),0)
-                             + coalesce(array_length(v_self,1),0)) THEN
-    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: questions' USING ERRCODE = '23505';
+   WHERE q.lesson_id = v_lesson AND q.code = ANY (v_planned_questions)
+     AND rv.status = 'PUBLISHED' AND rv.question_id = q.id;
+  IF v_count IS DISTINCT FROM coalesce(array_length(v_planned_questions,1),0) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: questionRevisions' USING ERRCODE = '23505';
   END IF;
   verified := verified || to_jsonb('questions'::text);
 
-  -- 5) assessment membership is still exactly the self-test set, with zero official questions
+  -- 5) CF11-R6 — assessment membership is the EXACT planned self-test code set. A substituted
+  --    member with an identical member count is a conflict, and zero official questions may leak.
   SELECT id INTO v_assessment FROM public.lesson_assessments
    WHERE lesson_id = v_lesson AND assessment_code = _plan->'assessment'->>'code';
   IF v_assessment IS NULL THEN
     RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assessment' USING ERRCODE = '23505';
   END IF;
-  SELECT count(*) INTO v_count FROM public.assessment_questions WHERE assessment_id = v_assessment;
-  IF v_count IS DISTINCT FROM (_plan->'assessment'->>'memberCount')::integer THEN
-    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assessmentMembers' USING ERRCODE = '23505';
+  SELECT coalesce(array_agg(DISTINCT q.code ORDER BY q.code), ARRAY[]::text[]), count(*)
+    INTO v_live_members, v_count
+    FROM public.assessment_questions aq
+    JOIN public.questions q ON q.id = aq.question_id
+   WHERE aq.assessment_id = v_assessment;
+  IF v_live_members IS DISTINCT FROM v_self
+     OR v_count IS DISTINCT FROM coalesce(array_length(v_self,1),0)
+     OR v_count IS DISTINCT FROM (_plan->'assessment'->>'memberCount')::integer THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assessmentMembers live=[%] planned=[%]',
+      array_to_string(v_live_members,','), array_to_string(v_self,',') USING ERRCODE = '23505';
   END IF;
   IF EXISTS (SELECT 1 FROM public.assessment_questions aq
                JOIN public.questions q ON q.id = aq.question_id
@@ -811,14 +859,19 @@ BEGIN
   END IF;
   verified := verified || to_jsonb('assessment'::text);
 
-  -- 6) the exact seven lifecycle rows, none of them regressed below REVIEW
-  SELECT count(*) INTO v_count FROM public.lesson_capability_lifecycle WHERE lesson_id = v_lesson;
-  IF v_count <> 7 OR EXISTS (
+  -- 6) CF11-R6 — the EXACT canonical seven lifecycle capabilities (set equality, not count),
+  --    none of them regressed below REVIEW.
+  IF public.cf11_live_lifecycle_capabilities(v_lesson)
+       IS DISTINCT FROM public.cf11_lifecycle_capabilities()
+     OR (SELECT count(*) FROM public.lesson_capability_lifecycle WHERE lesson_id = v_lesson) <> 7
+     OR EXISTS (
        SELECT 1 FROM public.lesson_capability_lifecycle
         WHERE lesson_id = v_lesson AND status NOT IN ('REVIEW','READY')) THEN
-    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: lifecycle' USING ERRCODE = '23505';
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: lifecycle live=[%]',
+      array_to_string(public.cf11_live_lifecycle_capabilities(v_lesson), ',') USING ERRCODE = '23505';
   END IF;
   verified := verified || to_jsonb('lifecycle'::text);
+
 
   RETURN jsonb_build_object('revalidated', verified);
 END $$;
