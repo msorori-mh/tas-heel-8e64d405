@@ -736,29 +736,34 @@ SELECT public.cf10_expect_identity_conflict('QURAN-G10-L04-PKG','question_revisi
 RESET ROLE;
 ROLLBACK;
 
+-- The rich (L04) batch is the one carrying the mindMap / lab-experiment capabilities.
+CREATE OR REPLACE FUNCTION public.cf10_rich_lesson() RETURNS uuid LANGUAGE sql STABLE AS $$
+  SELECT lesson_id FROM public.golden_lesson_domain_materializations
+   WHERE batch_id = public.cf10_batch('QURAN-G10-L04-PKG') $$;
+
 -- 11f) Inline HTML delivery: mind map and lab experiment bind to the published in-app scheme,
 --      keep a non-empty snapshot payload, and expose the exact body the UI renders.
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources r
-   WHERE r.lesson_id='43000000-0000-0000-0000-000000000001'
+   WHERE r.lesson_id=public.cf10_rich_lesson()
      AND r.html_resource_type IS NOT NULL
      AND r.url LIKE 'lesson-internal://html/%'
      AND coalesce(r.description,'') <> ''),
   'mindMap and simulation are bound to non-empty inline HTML resources');
 
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_resources r
-   WHERE r.lesson_id='43000000-0000-0000-0000-000000000001'
+   WHERE r.lesson_id=public.cf10_rich_lesson()
      AND r.html_resource_type IS NOT NULL
      AND r.metadata->>'contentHash' IS DISTINCT FROM public.cf10_text_sha256(r.description)),
   'inline HTML metadata hash matches the stored body byte-for-byte');
 
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_resources r
-   WHERE r.lesson_id='43000000-0000-0000-0000-000000000001'
+   WHERE r.lesson_id=public.cf10_rich_lesson()
      AND r.html_resource_type='STATIC' AND r.resource_type::text='mindmap'
      AND r.metadata->>'renderMode'='STATIC_NO_SCRIPT'),
   'the mind map renders JS-free (STATIC_NO_SCRIPT)');
 
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_resources r
-   WHERE r.lesson_id='43000000-0000-0000-0000-000000000001'
+   WHERE r.lesson_id=public.cf10_rich_lesson()
      AND r.html_resource_type='INTERACTIVE' AND r.resource_type::text='experiment'
      AND r.metadata->>'renderMode'='SANDBOXED_NO_NETWORK'),
   'the lab experiment renders sandboxed with no network');
@@ -767,8 +772,8 @@ SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_resources r
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources r
    JOIN public.golden_lesson_domain_stage_entries e
      ON e.capability = CASE WHEN r.resource_type::text='mindmap' THEN 'mindMap' ELSE 'simulation' END
-    AND e.batch_id = public.cf10_batch('QURAN-G10-L03-PKG')
-   WHERE r.lesson_id='43000000-0000-0000-0000-000000000001'
+    AND e.batch_id = public.cf10_batch('QURAN-G10-L04-PKG')
+   WHERE r.lesson_id=public.cf10_rich_lesson()
      AND r.html_resource_type IS NOT NULL
      AND e.payload_sha256 = public.cf10_text_sha256(r.description)),
   'inline HTML body equals the staged payload the UI renders');
@@ -776,17 +781,17 @@ SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources r
 -- V3 snapshots for both capabilities are non-empty and reconcilable
 SELECT public.cf04_assert(
   jsonb_array_length(coalesce(public.v3_capability_snapshot(
-    '43000000-0000-0000-0000-000000000001','mindMap')->'resources','[]'::jsonb)) > 0,
+    public.cf10_rich_lesson(),'mindMap')->'resources','[]'::jsonb)) > 0,
   'mindMap snapshot is non-empty');
 SELECT public.cf04_assert(
   jsonb_array_length(coalesce(public.v3_capability_snapshot(
-    '43000000-0000-0000-0000-000000000001','simulation')->'resources','[]'::jsonb)) > 0,
+    public.cf10_rich_lesson(),'simulation')->'resources','[]'::jsonb)) > 0,
   'simulation snapshot is non-empty');
 SELECT public.cf04_assert(public.v3_capability_snapshot_is_reconcilable(
-  public.v3_capability_snapshot('43000000-0000-0000-0000-000000000001','mindMap')),
+  public.v3_capability_snapshot(public.cf10_rich_lesson(),'mindMap')),
   'mindMap snapshot is reconcilable');
 SELECT public.cf04_assert(public.v3_capability_snapshot_is_reconcilable(
-  public.v3_capability_snapshot('43000000-0000-0000-0000-000000000001','simulation')),
+  public.v3_capability_snapshot(public.cf10_rich_lesson(),'simulation')),
   'simulation snapshot is reconcilable');
 
 SELECT 'PASS_CONTENT_FACTORY_10_PG17' AS verdict;
