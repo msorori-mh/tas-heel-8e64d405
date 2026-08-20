@@ -179,12 +179,11 @@ BEGIN
   IF coalesce(btrim(ident->>'subjectCode'),'') = ''
      OR coalesce(btrim(ident->>'lessonSlug'),'') = ''
      OR coalesce(btrim(ident->>'lessonCode'),'') = ''
-     OR coalesce(btrim(ident->>'lessonTitle'),'') = ''
      OR (ident->>'semester') IS NULL THEN
     RAISE EXCEPTION 'CF10_IDENTITY_MANIFEST_INCOMPLETE' USING ERRCODE = '22023';
   END IF;
   external_lesson_code := btrim(ident->>'lessonCode');
-  expected_title := btrim(ident->>'lessonTitle');
+  expected_title := coalesce(nullif(btrim(coalesce(ident->>'lessonTitle','')),''), btrim(ident->>'lessonSlug'));
   expected_semester := (ident->>'semester')::integer;
   expected_sort := coalesce((ident->>'sortOrder')::integer, 0);
 
