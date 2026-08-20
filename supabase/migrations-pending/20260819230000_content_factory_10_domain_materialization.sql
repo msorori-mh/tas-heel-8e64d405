@@ -44,7 +44,9 @@ CREATE TABLE public.golden_lesson_domain_materializations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id uuid NOT NULL UNIQUE
     REFERENCES public.golden_lesson_domain_stage_batches(id) ON DELETE RESTRICT,
-  binding_id uuid REFERENCES public.golden_lesson_identity_bindings(id) ON DELETE RESTRICT,
+  -- R7: enforced by the DDL itself, not only by a runtime guard. CF10 is not applied in
+  -- production, so there is no compatibility debt for making this column NOT NULL.
+  binding_id uuid NOT NULL REFERENCES public.golden_lesson_identity_bindings(id) ON DELETE RESTRICT,
   subject_id uuid NOT NULL REFERENCES public.subjects(id) ON DELETE RESTRICT,
   lesson_id uuid NOT NULL REFERENCES public.lessons(id) ON DELETE RESTRICT,
   lesson_created boolean NOT NULL DEFAULT false,
@@ -108,7 +110,7 @@ $$;
 -- Deliberately EXCLUDED because downstream workflow may change them legitimately:
 --   * lesson_capability_lifecycle.status (DRAFT -> REVIEW -> READY) and draft_hash bumps
 --   * question_revisions.status, later revisions, questions.current_published_revision_id
---   * lesson_resources.is_primary / sort_order (publication + editorial ordering)
+--   * the WHOLE lesson_resources table (R7): CF10 owns no resource row; CF11 adds them later
 --   * lessons.unit_id / is_free / sort_order (curriculum placement + pricing)
 --   * assessment membership counts (CF10 defers membership on purpose)
 -- Any change outside that allow-list means the materialized seed drifted, was deleted or the
@@ -128,11 +130,10 @@ RETURNS text LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
                         FROM public.lesson_explanations e WHERE e.lesson_id = _lesson_id),'[]'::jsonb),
     'summaries', COALESCE((SELECT jsonb_agg(public.cf10_text_sha256(s.summary) ORDER BY s.id)
                         FROM public.lesson_summaries s WHERE s.lesson_id = _lesson_id),'[]'::jsonb),
-    'resources', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',r.resource_code,
-                        'type',r.resource_type::text,'title',r.title,'url',r.url,
-                        'htmlType',r.html_resource_type,'metaSha',r.metadata->>'sha256',
-                        'bodySha',public.cf10_text_sha256(r.description)) ORDER BY r.resource_code)
-                        FROM public.lesson_resources r WHERE r.lesson_id = _lesson_id),'[]'::jsonb),
+    -- R7: lesson_resources is entirely OUT of the immutable seed. CF10 owns no resource row at
+    -- all (HTML is deferred to CF11), so hashing the resource set would only capture rows CF11
+    -- legitimately adds later and would break an otherwise valid replay.
+    'resources','cf10-owns-no-lesson-resources',
     'questions', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',q.code,
                         'type',q.question_type,'correctIndex',q.correct_index,
                         'textSha',public.cf10_text_sha256(q.question_text),
@@ -176,21 +177,20 @@ RETURNS text LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
   )::text,'UTF8'),'sha256'),'hex');
 $$;
 
--- CF10-R6: CF10 NEVER materializes mindMapHtml / labExperimentHtml into the legacy
+-- CF10-R7: CF10 NEVER materializes mindMapHtml / labExperimentHtml into the legacy
 -- lesson_resources table. Their bytes, sha256 and provenance stay in the staff-only
 -- golden_lesson_domain_stage_entries rows, and the work is recorded as deferred_to_cf11.
--- Only CF11 creates the HTML version, private storage object, preview and publication,
--- and only then may the capability reach READY.
--- "Publication pending" is therefore true until a CF11-published resource row exists.
+--
+-- The CF11 schema (published HTML version + private storage object + SHA verification) does NOT
+-- exist yet, so CF10 has NO trustworthy signal for "published". The previous
+-- `metadata->>'cf11_published_at'` probe was spoofable by any writer that can insert a
+-- lesson_resources row. Until the CF11 forward migration replaces this function with a real
+-- published-version + SHA + private-storage check, publication is UNCONDITIONALLY pending.
 CREATE OR REPLACE FUNCTION public.cf10_html_publication_pending(_lesson_id uuid, _capability text)
-RETURNS boolean LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
-  SELECT NOT EXISTS (
-    SELECT 1 FROM public.lesson_resources r
-     WHERE r.lesson_id = _lesson_id
-       AND ((_capability = 'mindMap' AND r.resource_type::text = 'mindmap')
-         OR (_capability = 'simulation' AND r.resource_type::text = 'experiment'))
-       AND coalesce(r.metadata->>'cf11_published_at','') <> '');
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
+  SELECT true;
 $$;
+
 
 
 CREATE OR REPLACE FUNCTION public.golden_lesson_materialize_domain_batch(
@@ -533,7 +533,7 @@ BEGIN
         'lesson_capability_lifecycle.status','lesson_capability_lifecycle.draft_hash',
         'question_revisions.status','question_revisions(additional)',
         'questions.current_published_revision_id',
-        'lesson_resources.is_primary','lesson_resources.sort_order',
+        'lesson_resources(entire table, CF11-owned)',
         'lessons.unit_id','lessons.is_free','lessons.sort_order',
         'assessment_questions(membership)'),
       'html_publication_pending', jsonb_build_object(
@@ -628,12 +628,11 @@ BEGIN
                             ELSE external_lesson_code || '-EXPERIMENT' END;
     expected_resource_type := CASE cap WHEN 'mindMapHtml' THEN 'mindmap' ELSE 'experiment' END;
     -- Legacy inline rows are forbidden: an unpublished HTML body must never sit in
-    -- lesson_resources.description with an empty / internal url.
+    -- lesson_resources.description. R7: no metadata marker can exempt such a row.
     IF EXISTS (SELECT 1 FROM public.lesson_resources r
                 WHERE r.lesson_id = lesson_row.id
                   AND (r.resource_code = option_code
-                    OR r.resource_type::text = expected_resource_type)
-                  AND coalesce(r.metadata->>'cf11_published_at','') = '') THEN
+                    OR r.resource_type::text = expected_resource_type)) THEN
       RAISE EXCEPTION 'CF10_HTML_LEGACY_ROW_FORBIDDEN: %', cap USING ERRCODE = '23514';
     END IF;
     -- The staged bytes must still be intact and staff-only in CF08 staging.
@@ -1096,11 +1095,12 @@ BEGIN
   -- R6 postcondition: CF10 leaves NO legacy lesson_resources row for mindMap / simulation,
   -- claims no snapshot and no READY for them; CF11 is the only producer of those artefacts.
   FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
+    -- R7: ANY mindmap/experiment resource row is forbidden at the end of a CF10 batch — a
+    -- `cf11_published_at` marker is not a trust signal while the CF11 schema does not exist.
     IF EXISTS (SELECT 1 FROM public.lesson_resources r
                 WHERE r.lesson_id = lesson_row.id
                   AND ((cap = 'mindMap' AND r.resource_type::text = 'mindmap')
-                    OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))
-                  AND coalesce(r.metadata->>'cf11_published_at','') = '') THEN
+                    OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))) THEN
       RAISE EXCEPTION 'CF10_HTML_LEGACY_ROW_FORBIDDEN: %', cap USING ERRCODE = '23514';
     END IF;
     IF NOT public.cf10_html_publication_pending(lesson_row.id, cap) THEN
@@ -1172,16 +1172,18 @@ GRANT EXECUTE ON FUNCTION public.cf10_seed_state_sha256(uuid) TO service_role;
 REVOKE ALL ON FUNCTION public.cf10_html_publication_pending(uuid,text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cf10_html_publication_pending(uuid,text) TO authenticated, service_role;
 
--- CF10-R4c: mindMap / simulation can never reach READY while their HTML is still the temporary
--- CF10 stage. Only CF11 (which stamps metadata->>'cf11_published_at') unlocks that transition.
+-- CF10-R7: mindMap / simulation can NEVER reach READY inside the CF10 stage, full stop.
+-- There is deliberately no lesson_resources-based bypass: a spoofed row (any writer with insert
+-- rights on lesson_resources) must not be able to unlock READY. The CF11 forward migration is the
+-- only thing allowed to REPLACE this function with a real published-version + SHA256 +
+-- private-storage verification.
 CREATE OR REPLACE FUNCTION public.cf10_block_ready_before_html_publication()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
   -- Only a capability that actually carries materialized HTML bytes is gated:
   -- an OPTIONAL/NA row with no payload may legitimately reach READY.
   IF NEW.status = 'READY' AND NEW.capability IN ('mindMap','simulation')
-     AND NEW.draft_hash IS NOT NULL
-     AND public.cf10_html_publication_pending(NEW.lesson_id, NEW.capability) THEN
+     AND NEW.draft_hash IS NOT NULL THEN
     RAISE EXCEPTION 'CF10_HTML_CAPABILITY_READY_TOO_EARLY: %', NEW.capability USING ERRCODE = '23514';
   END IF;
   RETURN NEW;

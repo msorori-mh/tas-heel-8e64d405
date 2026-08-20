@@ -258,3 +258,38 @@ PRODUCTION_WRITES=0
 R6=SOURCE_CANDIDATE
 FINAL_VERDICT=PASS_CONTENT_FACTORY_10_R6_SOURCE_READY
 PRODUCTION_WRITES=0
+
+## CF10-R7 — independent-audit blocker closure (source only)
+
+1. **Static contract test is truthful and reproducible.** The stale expectation of
+   `INSERT INTO public.lesson_resources` (and the removed `missing lesson created exactly once`
+   marker, obsolete since R5's pre-existing lesson shell contract) are gone. The suite now proves
+   zero HTML `lesson_resources` writes and `deferred_to_cf11 = true`, and it is wired into
+   `.github/workflows/web-ci.yml` so it runs on every push.
+2. **Immutable seed excludes resources entirely.** `cf10_seed_state_sha256` no longer folds the
+   `lesson_resources` set into the digest — CF10 owns no row there, so the slot is a constant.
+   A legitimate CF11 resource insert therefore cannot break an exact replay, while tampering with
+   or deleting any CF10-owned core seed row still fails attestation.
+3. **HTML READY guard is unforgeable.** `cf10_block_ready_before_html_publication` blocks `READY`
+   for any `mindMap` / `simulation` lifecycle row carrying a `draft_hash`, unconditionally.
+   A spoofed raw `lesson_resources` INSERT no longer opens the gate; the rehearsal asserts the
+   spoofed row is denied instead of allowed.
+4. **`binding_id` is `NOT NULL` in the DDL.** Enforced on the table itself, with rehearsal coverage
+   for the `not_null_violation` and for a non-null ledger row after a real EXECUTE.
+
+Preserved invariants: no HTML writes, OPTIONAL-payload visibility gate, `semester` PENDING => NULL,
+exactly-one identity binding on EXECUTE, `live_attested = false` on ledger shortcut, answer leak = 0.
+
+### R7 verification (reproducible)
+
+- PG17.9 rehearsal CF04 → CF07 → CF08 → CF09 → CF10: `PASS_CONTENT_FACTORY_10_PG17`, EXIT=0,
+  131 assertions in the CF10 stage, zero errors in the transcript.
+- Content-factory static contract tests: 40/40 PASS (`node --test tests/content-factory/*.test.mjs`).
+- Unit suite `npm test`: 209/209 PASS.
+- Typecheck: PASS. Build: PASS.
+- CF10-R7 migration SHA256:
+  `b3e5158dfd7cd24b7abcad607abbe2d33c88ca10accc56e0de297624682dbf06`
+
+R7=SOURCE_CANDIDATE
+FINAL_VERDICT=PASS_CONTENT_FACTORY_10_R7_SOURCE_READY
+PRODUCTION_WRITES=0
