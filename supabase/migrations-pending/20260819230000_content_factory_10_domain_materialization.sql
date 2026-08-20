@@ -451,9 +451,12 @@ BEGIN
     'lifecycleTarget', jsonb_build_object('status','DRAFT','applicability','AS_STAGED','capabilities',7),
     'revisionTarget', jsonb_build_object('status','DRAFT','payloadHashVersion','canonical_payload_v1',
                                          'publishedPointer',false,'assessmentMembership',false),
-    'visibilityTarget', jsonb_build_object('studentVisible',false,'requiresAllRequiredReady',true),
+    'visibilityTarget', jsonb_build_object('studentVisible',false,'requiresAllRequiredReady',true,
+                                           'hiddenWhileAnyPayloadCapabilityNotReady',true),
+    'htmlTarget', jsonb_build_object('mindMap','DEFERRED_TO_CF11','simulation','DEFERRED_TO_CF11',
+                                     'legacyLessonResourceWrite',false,'snapshot',false,'ready',false),
     'forbidden', jsonb_build_object('subjectCreate',false,'delete',false,'storage',false,
-                                    'publish',false,'ready',false));
+                                    'publish',false,'ready',false,'htmlResourceWrite',false));
 
   plan_sha := public.cf10_text_sha256(plan::text);
 
