@@ -2173,10 +2173,17 @@ BEGIN
     RAISE EXCEPTION 'CF11_REVOKE_IDEMPOTENCY_KEY_REQUIRED' USING ERRCODE = '22023';
   END IF;
 
+  -- CF11-R8B: open the transaction-local revocation ticket. The generic 21H transition RPC
+  -- refuses READY -> anything-else for a CF11-managed lesson unless this ticket exists, and the
+  -- ticket lives in a table that carries NO grant to anon/authenticated/service_role, so it can
+  -- only ever be opened from inside this very function.
+  PERFORM public.cf11_open_revocation_ticket(pub.lesson_id, uid, revocation_id);
   FOREACH cap IN ARRAY public.cf11_lifecycle_capabilities() LOOP
     PERFORM public.lesson_capability_transition(pub.lesson_id, cap, 'DRAFT', NULL, NULL);
     transitions := transitions + 1;
   END LOOP;
+  PERFORM public.cf11_close_revocation_ticket(pub.lesson_id);
+
 
   -- Atomicity proof: all seven really left READY and really landed on DRAFT.
   SELECT coalesce(array_agg(DISTINCT capability ORDER BY capability), ARRAY[]::text[]) INTO live_caps
