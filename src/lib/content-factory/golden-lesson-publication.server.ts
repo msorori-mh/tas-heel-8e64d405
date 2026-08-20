@@ -283,13 +283,18 @@ export async function ensureVerifiedAssets(batchId: string): Promise<{
 }
 
 /**
+ * CF11-R5 — MACHINE attestation.
+ *
  * Re-measures the bytes that are actually in the bucket — never the bytes we think we uploaded,
- * and never the object's own filename — then asks the database to append one immutable upload
- * attestation per declared asset with the operator's token.
+ * and never the object's own filename — and then appends one immutable attestation per declared
+ * asset THROUGH THE SERVER'S OWN identity. The human operator is recorded as `requested_by`
+ * (evidence of intent) and can no longer execute the attestation RPC at all: a human claim about
+ * bytes is not evidence, a server readback is.
  */
+export const CF11_VERIFICATION_ORIGIN = "SERVER_BYTE_READBACK" as const;
+
 export async function attestStoredAssets(
-  supabase: { rpc: unknown },
-  userId: string,
+  requestedBy: string,
   batchId: string,
   declarations: Cf11AssetDeclaration[],
   uploadedPaths: Set<string>,
@@ -308,14 +313,16 @@ export async function attestStoredAssets(
     if (bytes.byteLength !== declaration.bytes) throw new Error(`CF11_ASSET_SIZE_MISMATCH: ${declaration.assetCode}`);
     const magicHex = Buffer.from(bytes.subarray(0, 16)).toString("hex");
 
-    const result = await rpc(supabase)("golden_lesson_attest_cf11_asset", {
+    // Service-role client only: the attestation RPC refuses any session that carries auth.uid().
+    const result = await rpc(admin)("golden_lesson_attest_cf11_asset", {
       _batch_id: batchId,
-      _actor_id: userId,
+      _requested_by: requestedBy,
       _asset_code: declaration.assetCode,
       _observed_sha256: observedSha,
       _observed_bytes: bytes.byteLength,
       _observed_mime: declaration.mimeType,
       _magic_hex: magicHex,
+      _verification_origin: CF11_VERIFICATION_ORIGIN,
       _mode: mode,
     });
     if (result.error) throw new Error(`CF11_ASSET_ATTESTATION_FAILED: ${result.error.message}`);
@@ -331,3 +338,4 @@ export async function attestStoredAssets(
   }
   return out;
 }
+
