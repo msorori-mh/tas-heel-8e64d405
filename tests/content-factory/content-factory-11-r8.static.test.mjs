@@ -529,3 +529,10 @@ test("CF11-R9C/4 — published-revision replay drift probe bypasses only the fix
   assert.match(drift, /cf11_assert_replay_state\(plan\)/);
   assert.match(drift, /CF11_EXPECTED_PINNED_REVISION_REFUSED/);
 });
+
+
+test("CF11-R9C/5 — demotion probes use canonical lifecycle capability names", () => {
+  const o1 = asserts.slice(asserts.indexOf("-- O) CF11-R8B"), asserts.indexOf("-- O2)"));
+  assert.match(o1, /lesson_capability_transition\(lesson, 'lessonAssessment', 'REVIEW'/);
+  assert.doesNotMatch(o1, /lesson_capability_transition\(lesson, 'selfTest'/);
+});
