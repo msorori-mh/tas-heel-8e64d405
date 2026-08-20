@@ -710,20 +710,14 @@ BEGIN
   PERFORM public.cf04_assert(true, 'duplicate '||_label||' aborts as CF10_IDENTITY_CONFLICT');
 END $$;
 
--- duplicate lesson rows for the same (subject, slug): the lesson lookup key is not unique in
--- production, so ambiguity must abort instead of binding to an arbitrary row.
-BEGIN;
-ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
-DELETE FROM public.golden_lesson_domain_materializations
- WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
-ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
-INSERT INTO public.lessons(id, slug, subject_id, unit_id)
-  SELECT gen_random_uuid(), l.slug, l.subject_id, l.unit_id FROM public.lessons l
-   WHERE l.id='43000000-0000-0000-0000-000000000001';
-SET ROLE service_role;
-SELECT public.cf10_expect_identity_conflict('QURAN-G10-L03-PKG','lessons');
-RESET ROLE;
-ROLLBACK;
+-- The other lookup keys the RPC binds on are protected by unique indexes, so ambiguity is
+-- structurally impossible there; assert that protection instead of forging an unreachable state.
+SELECT public.cf04_assert((SELECT count(*)=6 FROM pg_indexes
+   WHERE schemaname='public' AND indexname IN (
+     'lessons_subject_id_slug_key','questions_code_uniq','idx_lesson_resources_code_per_lesson',
+     'lesson_explanations_code_lesson_uniq','lesson_assessments_code_uniq',
+     'lesson_book_contents_lesson_id_key')),
+  'every single-row lookup key the RPC binds on is uniquely indexed');
 
 -- duplicate revisions for the same question
 BEGIN;
