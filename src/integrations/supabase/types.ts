@@ -761,6 +761,80 @@ export type Database = {
           },
         ]
       }
+      golden_lesson_domain_materializations: {
+        Row: {
+          batch_id: string
+          binding_id: string
+          id: string
+          idempotency_key: string
+          lesson_created: boolean
+          lesson_id: string
+          materialized_at: string
+          materialized_by: string
+          result: Json
+          subject_id: string
+          write_plan: Json
+          write_plan_sha256: string
+        }
+        Insert: {
+          batch_id: string
+          binding_id: string
+          id?: string
+          idempotency_key: string
+          lesson_created?: boolean
+          lesson_id: string
+          materialized_at?: string
+          materialized_by: string
+          result: Json
+          subject_id: string
+          write_plan: Json
+          write_plan_sha256: string
+        }
+        Update: {
+          batch_id?: string
+          binding_id?: string
+          id?: string
+          idempotency_key?: string
+          lesson_created?: boolean
+          lesson_id?: string
+          materialized_at?: string
+          materialized_by?: string
+          result?: Json
+          subject_id?: string
+          write_plan?: Json
+          write_plan_sha256?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_domain_materializations_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: true
+            referencedRelation: "golden_lesson_domain_stage_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_domain_materializations_binding_id_fkey"
+            columns: ["binding_id"]
+            isOneToOne: false
+            referencedRelation: "golden_lesson_identity_bindings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_domain_materializations_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_domain_materializations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       golden_lesson_domain_stage_answers: {
         Row: {
           batch_id: string
@@ -4346,6 +4420,21 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: boolean
       }
+      cf10_assert_no_answer_leak: {
+        Args: { _capability: string; _payload: string }
+        Returns: undefined
+      }
+      cf10_html_publication_pending: {
+        Args: { _capability: string; _lesson_id: string }
+        Returns: boolean
+      }
+      cf10_inline_html_url: {
+        Args: { _resource_code: string }
+        Returns: string
+      }
+      cf10_required_capabilities: { Args: never; Returns: string[] }
+      cf10_seed_state_sha256: { Args: { _lesson_id: string }; Returns: string }
+      cf10_text_sha256: { Args: { _value: string }; Returns: string }
       check_lesson_question: {
         Args: { _question_id: string; _selected_index: number }
         Returns: Json
@@ -4601,6 +4690,16 @@ export type Database = {
         Args: { _role: string; _user_id: string }
         Returns: boolean
       }
+      golden_lesson_materialize_domain_batch: {
+        Args: {
+          _actor_id: string
+          _batch_id: string
+          _expected_plan_sha256?: string
+          _idempotency_key?: string
+          _mode?: string
+        }
+        Returns: Json
+      }
       golden_lesson_stage_domain_bundle: {
         Args: {
           _actor_id: string
@@ -4698,6 +4797,28 @@ export type Database = {
           _to_status: string
         }
         Returns: Json
+      }
+      lesson_is_editorially_managed: {
+        Args: { _lesson_id: string }
+        Returns: boolean
+      }
+      lesson_student_content_gate: {
+        Args: { _lesson_id: string }
+        Returns: {
+          lesson_id: string
+          managed: boolean
+          ready_capabilities: string[]
+          visible: boolean
+        }[]
+      }
+      lesson_student_visible: { Args: { _lesson_id: string }; Returns: boolean }
+      lessons_student_visible: {
+        Args: { _lesson_ids: string[] }
+        Returns: {
+          lesson_id: string
+          managed: boolean
+          visible: boolean
+        }[]
       }
       list_ministerial_attempts: {
         Args: { _model_id?: string }
