@@ -743,8 +743,20 @@ BEGIN
   -- echo it back for cross-checking, but any difference is a hard failure.
   declared_assets := public.cf11_manifest_assets(ver.manifest, lesson_row.id);
   manifest_assets_sha := public.cf11_text_sha256(declared_assets::text);
-  IF jsonb_array_length(coalesce(_assets,'[]'::jsonb)) > 0
-     AND public.cf11_text_sha256(_assets::text) IS DISTINCT FROM manifest_assets_sha THEN
+  -- The caller's echo is advisory only: it is compared on the identifying fields and can never
+  -- widen, narrow or alter the authoritative set.
+  IF jsonb_array_length(coalesce(_assets,'[]'::jsonb)) > 0 AND (
+       SELECT coalesce(jsonb_agg(jsonb_build_object(
+                'assetCode', e->>'assetCode', 'fileName', e->>'fileName',
+                'mimeType', e->>'mimeType', 'sha256', e->>'sha256',
+                'bytes', (e->>'bytes')::bigint) ORDER BY e->>'assetCode'), '[]'::jsonb)
+         FROM jsonb_array_elements(_assets) e)
+     IS DISTINCT FROM (
+       SELECT coalesce(jsonb_agg(jsonb_build_object(
+                'assetCode', d->>'assetCode', 'fileName', d->>'fileName',
+                'mimeType', d->>'mimeType', 'sha256', d->>'sha256',
+                'bytes', (d->>'bytes')::bigint) ORDER BY d->>'assetCode'), '[]'::jsonb)
+         FROM jsonb_array_elements(declared_assets) d) THEN
     RAISE EXCEPTION 'CF11_ASSET_DECLARATION_NOT_AUTHORITATIVE' USING ERRCODE = '42501';
   END IF;
 
