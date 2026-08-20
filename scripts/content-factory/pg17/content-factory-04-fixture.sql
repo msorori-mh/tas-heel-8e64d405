@@ -1,4 +1,6 @@
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- R8: mirror production — pgcrypto lives in the `extensions` schema, never in public.
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 CREATE SCHEMA IF NOT EXISTS auth;
 
 DO $$ BEGIN
