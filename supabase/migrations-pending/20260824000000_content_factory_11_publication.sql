@@ -1138,8 +1138,10 @@ BEGIN
   END IF;
 
   INSERT INTO public.golden_lesson_publications(
-    id, batch_id, lesson_id, binding_id, plan_sha256, result, idempotency_key, published_by)
+    id, batch_id, lesson_id, binding_id, plan_sha256, manifest_assets_sha256,
+    asset_attestation_sha256, result, idempotency_key, published_by)
   VALUES (publication_id, _batch_id, lesson_row.id, binding.id, plan_sha,
+          manifest_assets_sha, attestation_sha,
           plan || jsonb_build_object('publicationId', publication_id,
                                      'writesPerformed', writes,
                                      'lifecycleStatus','REVIEW'),
