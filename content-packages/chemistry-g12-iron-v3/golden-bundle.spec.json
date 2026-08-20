@@ -47,8 +47,8 @@
   "assets": [
     {
       "assetCode": "OFFICIAL-FIGURE-1-1",
-      "path": "official-figure-1-1.png",
-      "mimeType": "image/png",
+      "path": "official-figure-1-1.jpg",
+      "mimeType": "image/jpeg",
       "referencedBy": ["officialBookContent"],
       "altTextAr": "شكل (1-1) الفرن العالي (اللافح)"
     }
@@ -58,7 +58,7 @@
     "labExperimentHtml is OPTIONAL under GOLDEN_CHEMISTRY_V1; it still ships bytes + hash.",
     "mindMapHtml and labExperimentHtml are deferred to CF11 by CF10; no lesson_resources rows.",
     "The bundle carries leaf file names only — no folders, no assets subtree.",
-    "CF11: official-figure-1-1.png is a DECLARED supplemental asset (leaf name, image/png, exact sha256). official-content.html references it by leaf name only; no base64, no external URL."
+    "CF11: official-figure-1-1.jpg is a DECLARED supplemental asset (leaf name, image/png, exact sha256). official-content.html references it by leaf name only; no base64, no external URL."
   ]
 }
 
