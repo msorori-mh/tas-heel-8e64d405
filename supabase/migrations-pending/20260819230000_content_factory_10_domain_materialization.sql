@@ -230,6 +230,7 @@ DECLARE
   new_hash text;
   dup_count integer := 0;
   live_state_sha text;
+  snapshot_ok boolean;
   external_lesson_code text;
 BEGIN
   IF _mode NOT IN ('DRY_RUN','EXECUTE') THEN
@@ -978,16 +979,19 @@ BEGIN
   -- R4b: the mindMap / simulation capabilities must be reconcilable, i.e. the V3 snapshot the
   -- rest of the platform reads must not be empty for a materialized HTML resource.
   FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
-    IF EXISTS (SELECT 1 FROM public.lesson_resources r
+    IF to_regprocedure('public.v3_capability_snapshot_is_reconcilable(jsonb)') IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.lesson_resources r
                 WHERE r.lesson_id = lesson_row.id
                   AND r.resource_code IN (external_lesson_code || '-MINDMAP',
                                           external_lesson_code || '-EXPERIMENT')
                   AND r.html_resource_type IS NOT NULL
                   AND ((cap = 'mindMap' AND r.resource_type::text = 'mindmap')
-                    OR (cap = 'simulation' AND r.resource_type::text = 'experiment')))
-       AND NOT public.v3_capability_snapshot_is_reconcilable(
-             public.v3_capability_snapshot(lesson_row.id, cap)) THEN
-      RAISE EXCEPTION 'CF10_SNAPSHOT_NOT_RECONCILABLE: %', cap USING ERRCODE = '23514';
+                    OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))) THEN
+      EXECUTE 'SELECT public.v3_capability_snapshot_is_reconcilable(public.v3_capability_snapshot($1,$2))'
+        INTO snapshot_ok USING lesson_row.id, cap;
+      IF NOT coalesce(snapshot_ok,false) THEN
+        RAISE EXCEPTION 'CF10_SNAPSHOT_NOT_RECONCILABLE: %', cap USING ERRCODE = '23514';
+      END IF;
     END IF;
   END LOOP;
 
