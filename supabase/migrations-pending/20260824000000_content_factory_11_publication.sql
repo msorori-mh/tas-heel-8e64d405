@@ -1140,9 +1140,13 @@ BEGIN
     IF obj_row.id IS NULL THEN
       RAISE EXCEPTION 'CF11_ASSET_OBJECT_MISSING: %', att.storage_path USING ERRCODE = '23514';
     END IF;
-    IF obj_row.metadata IS NULL OR NOT (obj_row.metadata ? 'size') OR NOT (obj_row.metadata ? 'mimetype') THEN
+    -- CF11-R8 — FAIL-CLOSED metadata: size, mimetype AND a non-empty eTag must all be present.
+    IF obj_row.metadata IS NULL OR NOT (obj_row.metadata ? 'size') OR NOT (obj_row.metadata ? 'mimetype')
+       OR coalesce(obj_row.metadata->>'size','') = '' OR coalesce(obj_row.metadata->>'mimetype','') = ''
+       OR coalesce(obj_row.metadata->>'eTag', obj_row.metadata->>'etag','') = '' THEN
       RAISE EXCEPTION 'CF11_ASSET_OBJECT_METADATA_MISSING: %', att.storage_path USING ERRCODE = '23514';
     END IF;
+
     IF obj_row.id IS DISTINCT FROM att.storage_object_id
        OR obj_row.version IS DISTINCT FROM att.storage_version
        OR coalesce(obj_row.metadata->>'eTag', obj_row.metadata->>'etag') IS DISTINCT FROM att.storage_etag
