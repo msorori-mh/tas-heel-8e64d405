@@ -1570,8 +1570,14 @@ GRANT EXECUTE ON FUNCTION public.golden_lesson_publish_cf11(uuid, uuid, text, js
 GRANT EXECUTE ON FUNCTION public.golden_lesson_attest_cf11_ready(uuid, uuid, jsonb, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cf11_asset_url(text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cf11_text_sha256(text) TO authenticated;
-REVOKE ALL ON FUNCTION public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text) TO authenticated;
+-- CF11-R5: the upload attestation is a MACHINE measurement. No human role may execute it.
+REVOKE ALL ON FUNCTION public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text, text)
+  TO service_role;
+-- The pre-R5 (8-argument) shape must not survive as a callable, human-executable overload.
+DROP FUNCTION IF EXISTS public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text);
+
 GRANT EXECUTE ON FUNCTION public.cf11_manifest_assets(jsonb, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cf11_magic_matches(text, text) TO authenticated;
 
