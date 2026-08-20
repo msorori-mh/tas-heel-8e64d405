@@ -2249,3 +2249,240 @@ BEGIN
     RAISE EXCEPTION 'CF11_LIFECYCLE_NAMESPACE_CONFLICT: public.lesson_content_lifecycle must not exist';
   END IF;
 END $$;
+
+-- ------------------------------------------------------------------------------------
+-- 11) CF11-R8B — DIRECT TRANSITION BYPASS CLOSURE.
+--
+-- 21H ships a generic, publicly granted RPC `public.lesson_capability_transition`, and its own
+-- rule set only demands a FULL ADMIN for `-> READY` and for `REVIEW -> DRAFT`. A plain content
+-- staff member could therefore call it directly with `READY -> DRAFT` and silently un-publish an
+-- attested CF11 Golden Lesson, bypassing every CF11 control at once: the full-admin requirement,
+-- separation of duties, the mandatory written reason, the idempotency key and the immutable
+-- `golden_lesson_ready_revocations` ledger.
+--
+-- This section closes that hole WITHOUT editing a single byte of the 21H migration, and without
+-- changing behaviour for legacy, non-CF11 lessons:
+--
+--   * a transaction-local TICKET table that carries NO privilege for anon / authenticated /
+--     service_role. It is written exclusively by SECURITY DEFINER helpers that are themselves
+--     ungranted, so the only way a ticket can exist is that `golden_lesson_revoke_cf11_ready`
+--     opened it a few statements earlier, in this very transaction. It is not a GUC, not a
+--     boolean argument and not anything a caller can set or forge;
+--   * the generic transition RPC is re-declared (same signature, same semantics) with one extra
+--     precondition: for a CF11-managed lesson and a canonical REQUIRED capability, leaving READY
+--     requires that ticket;
+--   * a row-level trigger repeats the check at the TABLE, so even a role holding raw DML (today:
+--     service_role) cannot demote an attested capability behind the RPC's back.
+-- ------------------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS public.cf11_revocation_tickets (
+  xact_id       bigint      NOT NULL,
+  lesson_id     uuid        NOT NULL,
+  actor_id      uuid        NOT NULL,
+  revocation_id uuid        NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (xact_id, lesson_id)
+);
+-- No grants at all: no role reachable from the Data API can read, insert or delete a ticket.
+REVOKE ALL ON TABLE public.cf11_revocation_tickets FROM PUBLIC;
+REVOKE ALL ON TABLE public.cf11_revocation_tickets FROM anon;
+REVOKE ALL ON TABLE public.cf11_revocation_tickets FROM authenticated;
+REVOKE ALL ON TABLE public.cf11_revocation_tickets FROM service_role;
+ALTER TABLE public.cf11_revocation_tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cf11_revocation_tickets FORCE ROW LEVEL SECURITY;
+-- RLS is FORCED and deliberately policy-less: not even the owner role reaches these rows through
+-- ordinary DML. Only the SECURITY DEFINER helpers below, which run with BYPASSRLS via their owner
+-- being the bootstrap superuser, may touch them.
+DROP POLICY IF EXISTS "cf11 tickets are unreachable" ON public.cf11_revocation_tickets;
+
+/* Is this lesson under CF11 governance at all? Legacy lessons answer NO and keep 21H behaviour. */
+CREATE OR REPLACE FUNCTION public.cf11_is_managed_lesson(_lesson_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT EXISTS (SELECT 1 FROM public.golden_lesson_publications WHERE lesson_id = _lesson_id);
+$$;
+
+/* Ticket lifecycle. All three are ungranted: only other SECURITY DEFINER code can call them. */
+CREATE OR REPLACE FUNCTION public.cf11_open_revocation_ticket(
+  _lesson_id uuid, _actor_id uuid, _revocation_id uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+  IF _lesson_id IS NULL OR _actor_id IS NULL OR _revocation_id IS NULL THEN
+    RAISE EXCEPTION 'CF11_REVOCATION_TICKET_INVALID' USING ERRCODE = '22023';
+  END IF;
+  -- The ticket is bound to THIS transaction id: a leftover row from any other transaction is
+  -- inert, and a transaction id cannot be chosen by the caller.
+  INSERT INTO public.cf11_revocation_tickets(xact_id, lesson_id, actor_id, revocation_id)
+  VALUES (txid_current(), _lesson_id, _actor_id, _revocation_id)
+  ON CONFLICT (xact_id, lesson_id) DO NOTHING;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.cf11_close_revocation_ticket(_lesson_id uuid)
+RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  DELETE FROM public.cf11_revocation_tickets
+   WHERE xact_id = txid_current() AND lesson_id = _lesson_id;
+$$;
+
+CREATE OR REPLACE FUNCTION public.cf11_has_revocation_ticket(_lesson_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.cf11_revocation_tickets
+     WHERE xact_id = txid_current() AND lesson_id = _lesson_id);
+$$;
+
+REVOKE ALL ON FUNCTION public.cf11_open_revocation_ticket(uuid, uuid, uuid)
+  FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.cf11_close_revocation_ticket(uuid)
+  FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.cf11_has_revocation_ticket(uuid)
+  FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.cf11_is_managed_lesson(uuid)
+  FROM PUBLIC, anon, authenticated, service_role;
+
+/* The single decision point, shared by the RPC and the table trigger. */
+CREATE OR REPLACE FUNCTION public.cf11_assert_demotion_allowed(
+  _lesson_id uuid, _capability text, _from_status text, _to_status text, _applicability text,
+  _origin text)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+  -- Only ever restrictive, and only for the exact CF11 surface:
+  --   * the lesson is bound to a CF11 publication (legacy lessons are untouched);
+  --   * the capability is one of the canonical seven and is REQUIRED;
+  --   * the row is leaving READY.
+  IF _from_status IS DISTINCT FROM 'READY' THEN RETURN; END IF;
+  IF _to_status IS NOT DISTINCT FROM 'READY' THEN RETURN; END IF;
+  IF NOT (_capability = ANY (public.cf11_lifecycle_capabilities())) THEN RETURN; END IF;
+  IF coalesce(_applicability, 'REQUIRED') <> 'REQUIRED' THEN RETURN; END IF;
+  IF NOT public.cf11_is_managed_lesson(_lesson_id) THEN RETURN; END IF;
+  IF public.cf11_has_revocation_ticket(_lesson_id) THEN RETURN; END IF;
+
+  RAISE EXCEPTION
+    'CF11_DIRECT_TRANSITION_FORBIDDEN: % READY -> % for CF11 lesson % must go through '
+    'golden_lesson_revoke_cf11_ready (origin=%)',
+    _capability, coalesce(_to_status,'DELETED'), _lesson_id, _origin
+    USING ERRCODE = '42501';
+END;
+$$;
+REVOKE ALL ON FUNCTION public.cf11_assert_demotion_allowed(uuid, text, text, text, text, text)
+  FROM PUBLIC, anon, authenticated, service_role;
+
+/* ------------------------------------------------------------------------------------
+ * The generic 21H RPC, re-declared byte-for-byte identical EXCEPT for the CF11 guard.
+ * Signature, grants, error codes and legacy behaviour are preserved exactly.
+ * ------------------------------------------------------------------------------------ */
+CREATE OR REPLACE FUNCTION public.lesson_capability_transition(
+  _lesson_id uuid, _capability text, _to_status text,
+  _snapshot jsonb DEFAULT NULL, _hash text DEFAULT NULL
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+  cur public.lesson_capability_lifecycle;
+  frm text;
+  uid uuid := auth.uid();
+BEGIN
+  IF uid IS NULL OR NOT public.is_content_staff(uid) THEN
+    RAISE EXCEPTION 'NOT_AUTHORIZED' USING ERRCODE = '42501';
+  END IF;
+  IF _to_status NOT IN ('DRAFT','REVIEW','READY') THEN
+    RAISE EXCEPTION 'INVALID_STATUS' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO cur FROM public.lesson_capability_lifecycle
+   WHERE lesson_id = _lesson_id AND capability = _capability FOR UPDATE;
+  frm := COALESCE(cur.status, 'ABSENT');
+
+  -- CF11-R8B: an attested Golden Lesson may only leave READY through the controlled,
+  -- ledger-backed CF11 withdrawal. Legacy lessons never reach this branch.
+  PERFORM public.cf11_assert_demotion_allowed(
+    _lesson_id, _capability, frm, _to_status, cur.applicability::text,
+    'lesson_capability_transition');
+
+  IF _to_status = 'READY' OR (frm = 'REVIEW' AND _to_status = 'DRAFT') THEN
+    IF NOT public.is_full_admin(uid) THEN
+      RAISE EXCEPTION 'NOT_AUTHORIZED' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  IF _to_status = 'READY' AND frm <> 'REVIEW' THEN
+    RAISE EXCEPTION 'READY_REQUIRES_REVIEW' USING ERRCODE = '22023';
+  END IF;
+  IF _to_status = 'READY' AND (_snapshot IS NULL OR _hash IS NULL) THEN
+    RAISE EXCEPTION 'READY_REQUIRES_SNAPSHOT' USING ERRCODE = '22023';
+  END IF;
+  IF _to_status = 'REVIEW' AND frm <> 'DRAFT' THEN
+    RAISE EXCEPTION 'REVIEW_REQUIRES_DRAFT' USING ERRCODE = '22023';
+  END IF;
+  IF cur.id IS NULL THEN
+    IF _to_status <> 'DRAFT' THEN
+      RAISE EXCEPTION 'LIFECYCLE_ROW_NOT_FOUND' USING ERRCODE = 'P0002';
+    END IF;
+    INSERT INTO public.lesson_capability_lifecycle
+      (lesson_id, capability, status, draft_hash, draft_updated_at)
+    VALUES (_lesson_id, _capability, 'DRAFT', _hash, now()) RETURNING * INTO cur;
+  ELSE
+    UPDATE public.lesson_capability_lifecycle
+       SET status = _to_status,
+           draft_hash = CASE WHEN _to_status = 'DRAFT' THEN COALESCE(_hash, draft_hash) ELSE draft_hash END,
+           draft_updated_at = CASE WHEN _to_status = 'DRAFT' THEN now() ELSE draft_updated_at END,
+           reviewed_by = CASE WHEN _to_status IN ('REVIEW','READY') THEN uid ELSE reviewed_by END,
+           reviewed_at = CASE WHEN _to_status IN ('REVIEW','READY') THEN now() ELSE reviewed_at END,
+           ready_snapshot = CASE WHEN _to_status = 'READY' THEN _snapshot ELSE ready_snapshot END,
+           ready_hash = CASE WHEN _to_status = 'READY' THEN _hash ELSE ready_hash END,
+           ready_by = CASE WHEN _to_status = 'READY' THEN uid ELSE ready_by END,
+           ready_at = CASE WHEN _to_status = 'READY' THEN now() ELSE ready_at END
+     WHERE id = cur.id RETURNING * INTO cur;
+  END IF;
+  INSERT INTO public.audit_logs (actor_id, action, target_type, target_id, metadata)
+  VALUES (uid, 'lesson_capability_lifecycle_transition', 'lesson_capability', _lesson_id,
+          jsonb_build_object('lesson_id', _lesson_id, 'capability', _capability,
+                             'from_status', frm, 'to_status', cur.status));
+  RETURN jsonb_build_object('lesson_id', _lesson_id, 'capability', _capability,
+                            'from_status', frm, 'to_status', cur.status,
+                            'ready_at', cur.ready_at);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.lesson_capability_transition(uuid,text,text,jsonb,text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.lesson_capability_transition(uuid,text,text,jsonb,text) TO authenticated;
+
+/* Raw-DML defence in depth: the same rule, enforced at the table for EVERY role. */
+CREATE OR REPLACE FUNCTION public.cf11_guard_lifecycle_demotion()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    PERFORM public.cf11_assert_demotion_allowed(
+      OLD.lesson_id, OLD.capability, OLD.status, NULL, OLD.applicability::text, 'raw_delete');
+    RETURN OLD;
+  END IF;
+  PERFORM public.cf11_assert_demotion_allowed(
+    OLD.lesson_id, OLD.capability, OLD.status, NEW.status, OLD.applicability::text, 'raw_update');
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.cf11_guard_lifecycle_demotion()
+  FROM PUBLIC, anon, authenticated, service_role;
+DROP TRIGGER IF EXISTS trg_cf11_guard_lifecycle_demotion ON public.lesson_capability_lifecycle;
+CREATE TRIGGER trg_cf11_guard_lifecycle_demotion
+  BEFORE UPDATE OR DELETE ON public.lesson_capability_lifecycle
+  FOR EACH ROW EXECUTE FUNCTION public.cf11_guard_lifecycle_demotion();
+
+/* Grant truth: prove at migration time that no Data API role can write the lifecycle table or
+   reach the ticket table, so neither bypass path can be reopened silently. */
+DO $$
+DECLARE r text; p text;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['anon','authenticated'] LOOP
+    FOREACH p IN ARRAY ARRAY['INSERT','UPDATE','DELETE','TRUNCATE'] LOOP
+      IF has_table_privilege(r, 'public.lesson_capability_lifecycle', p) THEN
+        RAISE EXCEPTION 'CF11_RAW_TABLE_BYPASS: % holds % on lesson_capability_lifecycle', r, p;
+      END IF;
+    END LOOP;
+  END LOOP;
+  FOREACH r IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
+    FOREACH p IN ARRAY ARRAY['SELECT','INSERT','UPDATE','DELETE'] LOOP
+      IF has_table_privilege(r, 'public.cf11_revocation_tickets', p) THEN
+        RAISE EXCEPTION 'CF11_TICKET_TABLE_REACHABLE: % holds % on cf11_revocation_tickets', r, p;
+      END IF;
+    END LOOP;
+    IF has_function_privilege(r, 'public.cf11_open_revocation_ticket(uuid,uuid,uuid)', 'EXECUTE') THEN
+      RAISE EXCEPTION 'CF11_TICKET_FORGEABLE: % may open a revocation ticket', r;
+    END IF;
+  END LOOP;
+END $$;
