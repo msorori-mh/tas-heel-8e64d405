@@ -116,6 +116,25 @@ INSERT INTO auth.users(id) VALUES ('10000000-0000-0000-0000-000000000005')
 INSERT INTO public.user_roles(user_id, role)
 VALUES ('10000000-0000-0000-0000-000000000005','admin') ON CONFLICT DO NOTHING;
 
+-- CF11-R8B: production parity for content staff. In production `is_content_staff` is TRUE for
+-- admins AND content managers, while `is_full_admin` is admin-only; the earlier fixture collapsed
+-- both onto 'admin', which would have hidden the 21H direct-transition bypass entirely.
+CREATE OR REPLACE FUNCTION public.is_content_staff(_user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT public.golden_lesson_has_role(_user_id, 'admin')
+      OR public.golden_lesson_has_role(_user_id, 'content_manager');
+$$;
+
+-- CF11-R8B: a LEGACY lesson that CF11 never governs, so the generic 21H transition behaviour can
+-- be proven unchanged for everything outside the Golden Lesson programme.
+INSERT INTO public.lessons(id, slug, subject_id)
+VALUES ('43000000-0000-0000-0000-000000000099','legacy-lesson',
+        (SELECT subject_id FROM public.lessons WHERE id = '43000000-0000-0000-0000-000000000012'))
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.lesson_capability_lifecycle(lesson_id, capability, status, applicability)
+VALUES ('43000000-0000-0000-0000-000000000099','officialBookContent','READY','REQUIRED')
+ON CONFLICT (lesson_id, capability) DO NOTHING;
+
 -- CF11-R8: a THIRD admin, so a withdrawal can be executed for real by someone who is neither the
 -- publisher nor the READY attester (separation of duties applies to the withdrawal too).
 INSERT INTO auth.users(id) VALUES ('10000000-0000-0000-0000-000000000006')
