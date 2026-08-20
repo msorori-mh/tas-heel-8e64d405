@@ -874,38 +874,10 @@ BEGIN
   asset_refs := public.cf11_html_asset_refs(book_old);
 
   book_new := book_old;
-  FOR asset IN SELECT value FROM jsonb_array_elements(coalesce(_assets,'[]'::jsonb)) LOOP
-    IF asset->>'fileName' ~ '[/\\]' OR asset->>'fileName' ~ '\.\.' THEN
-      RAISE EXCEPTION 'CF11_ASSET_NOT_LEAF: %', asset->>'fileName' USING ERRCODE = '23514';
-    END IF;
-    IF (asset->>'mimeType') NOT IN ('image/png','image/jpeg','image/webp') THEN
-      RAISE EXCEPTION 'CF11_ASSET_MIME_FORBIDDEN: %', asset->>'mimeType' USING ERRCODE = '23514';
-    END IF;
-    IF (asset->>'sha256') !~ '^[0-9a-f]{64}$' THEN
-      RAISE EXCEPTION 'CF11_ASSET_SHA_INVALID' USING ERRCODE = '23514';
-    END IF;
-    IF (asset->>'storageBucket') IS DISTINCT FROM 'golden-lesson-assets' THEN
-      RAISE EXCEPTION 'CF11_ASSET_BUCKET_FORBIDDEN' USING ERRCODE = '23514';
-    END IF;
-    -- Content-addressed path, scoped to the lesson: no cross-lesson reuse, no overwrite.
-    IF (asset->>'storagePath') IS DISTINCT FROM
-       (lesson_row.id::text || '/' || (asset->>'sha256') || '-' || (asset->>'fileName')) THEN
-      RAISE EXCEPTION 'CF11_ASSET_PATH_CONTRACT: %', asset->>'storagePath' USING ERRCODE = '23514';
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM storage.objects o
-                    WHERE o.bucket_id = 'golden-lesson-assets' AND o.name = asset->>'storagePath') THEN
-      RAISE EXCEPTION 'CF11_ASSET_OBJECT_MISSING: %', asset->>'storagePath' USING ERRCODE = '23514';
-    END IF;
-    -- No overwrite when the hash differs for the same logical asset.
-    IF EXISTS (SELECT 1 FROM public.golden_lesson_published_assets a
-                WHERE a.lesson_id = lesson_row.id AND a.asset_code = asset->>'assetCode'
-                  AND a.sha256 IS DISTINCT FROM asset->>'sha256') THEN
-      RAISE EXCEPTION 'CF11_ASSET_HASH_CONFLICT: %', asset->>'assetCode' USING ERRCODE = '23514';
-    END IF;
+  FOR asset IN SELECT value FROM jsonb_array_elements(declared_assets) LOOP
     IF NOT (asset->>'fileName' = ANY (asset_refs)) THEN
       RAISE EXCEPTION 'CF11_ASSET_NOT_REFERENCED: %', asset->>'fileName' USING ERRCODE = '23514';
     END IF;
-
     declared_refs := declared_refs || (asset->>'fileName');
     asset_map := asset_map || jsonb_build_object(asset->>'fileName',
       public.cf11_asset_url(asset->>'storageBucket', asset->>'storagePath'));
@@ -931,11 +903,12 @@ BEGIN
   IF book_new IS DISTINCT FROM book_old THEN
     DECLARE reversed text := book_new;
     BEGIN
-      FOR asset IN SELECT value FROM jsonb_array_elements(coalesce(_assets,'[]'::jsonb)) LOOP
+      FOR asset IN SELECT value FROM jsonb_array_elements(declared_assets) LOOP
         reversed := replace(reversed,
           'src="' || (asset_map->>(asset->>'fileName')) || '"',
           'src="' || (asset->>'fileName') || '"');
       END LOOP;
+
       IF reversed IS DISTINCT FROM book_old THEN
         RAISE EXCEPTION 'CF11_OFFICIAL_TEXT_DRIFT' USING ERRCODE = '23514';
       END IF;
