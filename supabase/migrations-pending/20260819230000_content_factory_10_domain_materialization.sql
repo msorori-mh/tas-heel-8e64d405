@@ -399,9 +399,15 @@ BEGIN
     IF live_state_sha IS DISTINCT FROM (replay.result->>'state_sha256') THEN
       RAISE EXCEPTION 'CF10_REPLAY_STATE_DRIFT' USING ERRCODE = '23514';
     END IF;
-    IF public.lesson_student_visible(replay.lesson_id) THEN
+    -- Visibility stays fail-closed on replay: the lesson may only be student-visible if every
+    -- REQUIRED capability legitimately reached READY afterwards. Any other visibility is a leak.
+    IF public.lesson_student_visible(replay.lesson_id)
+       AND EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle lc
+                    WHERE lc.lesson_id = replay.lesson_id
+                      AND lc.applicability = 'REQUIRED' AND lc.status <> 'READY') THEN
       RAISE EXCEPTION 'CF10_STUDENT_VISIBILITY_LEAK' USING ERRCODE = '23514';
     END IF;
+
     RETURN replay.result || jsonb_build_object('idempotent',true,'writes_performed',0,
       'domain_writes_performed',0,'payload_hash_updates',0,'ledger_writes',0,
       'state_attested',true);
