@@ -63,6 +63,18 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'CF11_PREFLIGHT_MISSING_LIFECYCLE_TRANSITION' USING ERRCODE = '0A000';
   END IF;
+  -- CF11-R4 addendum: the publication ledger's idempotency key is NOT NULL and non-empty.
+  -- A legacy CF11 ledger row without a durable key can never be replay-guarded, and the ledger
+  -- is append-only (never rewritten), so the migration must refuse to install over one.
+  IF to_regclass('public.golden_lesson_publications') IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1 FROM public.golden_lesson_publications
+       WHERE idempotency_key IS NULL OR length(btrim(idempotency_key)) < 8
+    ) THEN
+      RAISE EXCEPTION 'CF11_PREFLIGHT_LEGACY_PUBLICATION_WITHOUT_IDEMPOTENCY_KEY: forward remediation migration required'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
 END
 $preflight$;
 
@@ -187,7 +199,9 @@ CREATE TABLE IF NOT EXISTS public.golden_lesson_publications (
   published_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT golden_lesson_publications_plan_sha_chk CHECK (plan_sha256 ~ '^[0-9a-f]{64}$'),
   CONSTRAINT golden_lesson_publications_manifest_sha_chk CHECK (manifest_assets_sha256 ~ '^[0-9a-f]{64}$'),
-  CONSTRAINT golden_lesson_publications_attestation_sha_chk CHECK (asset_attestation_sha256 ~ '^[0-9a-f]{64}$')
+  CONSTRAINT golden_lesson_publications_attestation_sha_chk CHECK (asset_attestation_sha256 ~ '^[0-9a-f]{64}$'),
+  -- CF11-R4 addendum: NOT NULL alone still admits '' / '   '. EXECUTE also enforces >= 8 chars.
+  CONSTRAINT golden_lesson_publications_key_chk CHECK (length(btrim(idempotency_key)) >= 8)
 );
 
 -- 2.4) READY attestation evidence: a SEPARATE append-only record. The publication row is never

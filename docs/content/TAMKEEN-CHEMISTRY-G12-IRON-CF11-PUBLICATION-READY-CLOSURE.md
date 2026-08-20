@@ -7,9 +7,9 @@ Source-only closure. **No production writes and no migration apply were performe
 | Item | Value |
 | --- | --- |
 | Remediation base commit | `9e8d9294e36b0a38b0094b8b58075423da6f85c5` |
-| Revision | R9C (source-only; independent PG17 gate in progress) |
+| Revision | R9C + CF11-R4 doc/schema addendum (source-only; independent PG17 gate in progress) |
 | CF11 migration | `supabase/migrations-pending/20260824000000_content_factory_11_publication.sql` |
-| Current migration SHA-256 (R9C) | `0d88ec8605c25dbf4aafa6bd4d080273ceac43a032bbbbfdf6d53d0436d03957` |
+| Current migration SHA-256 (R9C+R4A) | `f043dee1731572c4584d5cefb8e921a229067456e100c2213cd675e72be35135` |
 | Production writes | 0 |
 | Migration applied | NO |
 | PG17 rehearsal (this task) | **BLOCKED — NOT EXECUTED.** No PostgreSQL 17 instance is reachable from this environment, so the R8/R8B SQL has **not** been executed anywhere. Every claim below is a source-level claim. |
@@ -129,13 +129,29 @@ Replay of any RPC returns the recorded result with `writes_performed = 0`.
 ## Rollback
 
 CF11 adds tables and functions only; it alters no earlier migration bytes (R5, 21H, CF04, CF07,
-CF08, CF09, R9, CF10 are unchanged). The ledgers are append-only by design, so rollback is a
-controlled **forward lifecycle transition**, never an ad-hoc `UPDATE`. To withdraw a lesson from
-students, drive each of the canonical seven through `lesson_capability_transition` to `HOLD`
-(the audited transition path), which removes student visibility while leaving every ledger row
-intact for audit. Do not reset statuses with direct SQL: the immutability triggers exist precisely
-to make that impossible, and a hand-written reset would destroy the evidence chain. The uploaded
-asset object and its attestation are content-addressed and harmless to retain.
+CF08, CF09, R9, CF10 are unchanged).
+
+**Ledgers are immutable.** `golden_lesson_publications`, `golden_lesson_ready_attestations`,
+`golden_lesson_published_assets`, `golden_lesson_asset_attestations` and
+`golden_lesson_ready_revocations` are append-only: `UPDATE`/`DELETE` are revoked and blocked by
+trigger. They are **never** deleted, reset or rewritten — not during rollback, not during
+remediation. There is no ad-hoc lifecycle-reset procedure, and any such instruction from
+an earlier revision is withdrawn.
+
+**The only audited withdrawal path** is the controlled RPC
+`golden_lesson_revoke_cf11_ready(_batch_id, _actor_id, _reason, _mode, _idempotency_key)` (R7): it
+is an authenticated human RPC (`actor = auth.uid()`, content staff only), requires a written
+reason and a durable idempotency key on EXECUTE, opens a transaction-local revocation ticket, drives
+exactly the canonical seven `READY -> DRAFT` inside one transaction, copies the original READY
+evidence into `golden_lesson_ready_revocations`, and re-asserts `lesson_student_visible() = false`.
+Direct `lesson_capability_transition` demotion of a CF11-managed lesson is refused (R8B), and there
+is no `HOLD` status in production's lifecycle — `DRAFT` is the only supported non-visible state.
+
+**If no audited path fits a given situation, the verdict is HOLD, not hand-written SQL.** Record
+the HOLD, then ship a *forward remediation migration* that adds the missing audited transition
+(new SECURITY DEFINER RPC + new append-only evidence rows). Never mutate history to reach the
+desired state. The uploaded asset object and its machine attestation are content-addressed and
+harmless to retain.
 
 ## Operator runbook
 
@@ -265,7 +281,7 @@ reason field, the separation-of-duties block, and a "مسحوب" badge on withdr
 | --- | --- |
 | Base commit (R8 remediation) | `509ed2a569b908d7368ccce1e55a55310bc083f6` |
 | Base commit (R8B remediation) | `c605f43452be50c2b120cd9762140eba1dc0a859` |
-| Current CF11 migration SHA-256 (R9C) | `0d88ec8605c25dbf4aafa6bd4d080273ceac43a032bbbbfdf6d53d0436d03957` |
+| Current CF11 migration SHA-256 (R9C+R4A) | `f043dee1731572c4584d5cefb8e921a229067456e100c2213cd675e72be35135` |
 | Migration applied | NO |
 | Production writes | 0 |
 | PG17 rehearsal | **BLOCKED — not executed in this environment** (no PostgreSQL 17 reachable; `CONTENT_FACTORY_PG17_URL` unset) |
@@ -429,6 +445,6 @@ PostgreSQL 17 instance. It correctly failed closed twice:
    The plan now pins both fields and a static regression test enforces the contract.
 
 Because the CF11 migration bytes changed, its current SHA-256 is
-`0d88ec8605c25dbf4aafa6bd4d080273ceac43a032bbbbfdf6d53d0436d03957`.
+`f043dee1731572c4584d5cefb8e921a229067456e100c2213cd675e72be35135`.
 The older `311265f3…` value remains historical for R8B/R9B only and must not be applied.
 Production remains untouched until the refreshed clean PG17 run succeeds.
