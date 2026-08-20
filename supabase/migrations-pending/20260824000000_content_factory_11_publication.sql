@@ -1625,6 +1625,13 @@ END $$;
 REVOKE ALL ON FUNCTION public.golden_lesson_materialize_domain_batch_operator(uuid,uuid,text,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.golden_lesson_materialize_domain_batch_operator(uuid,uuid,text,text,text) TO authenticated;
 
+-- CF11-R5: the raw CF10 entry point trusts `_actor_id` as passed, so the service role must not
+-- be able to reach it at all. The operator wrapper (SECURITY DEFINER, owned by the migration
+-- role) keeps working because it delegates as its owner, not as the caller.
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_materialize_domain_batch(uuid,uuid,text,text,text)
+  FROM service_role, authenticated, anon, PUBLIC;
+
+
 -- ------------------------------------------------------------------------------------
 -- 10) CF11-R4 — lifecycle namespace guard.
 --
