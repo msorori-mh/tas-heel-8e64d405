@@ -1257,7 +1257,7 @@ BEGIN
     RAISE EXCEPTION 'CF11_HTML_NOT_PUBLISHED' USING ERRCODE = '23514';
   END IF;
 
-  -- Declared assets still registered and still resolvable through private storage.
+  -- Declared assets still registered, still attested and still resolvable in private storage.
   IF EXISTS (
     SELECT 1 FROM public.golden_lesson_published_assets a
      WHERE a.lesson_id = lesson_row.id
@@ -1266,6 +1266,33 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'CF11_ASSET_OBJECT_VANISHED' USING ERRCODE = '23514';
   END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.golden_lesson_published_assets a
+     LEFT JOIN public.golden_lesson_asset_attestations t
+            ON t.lesson_id = a.lesson_id AND t.asset_code = a.asset_code
+     WHERE a.lesson_id = lesson_row.id
+       AND (t.id IS NULL OR t.attestation_sha256 IS DISTINCT FROM a.attestation_sha256)
+  ) THEN
+    RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_DRIFT_AT_READY' USING ERRCODE = '23514';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.golden_lesson_asset_attestations t
+     JOIN storage.objects o ON o.bucket_id = t.storage_bucket AND o.name = t.storage_path
+     WHERE t.lesson_id = lesson_row.id
+       AND (o.id IS DISTINCT FROM t.storage_object_id
+            OR o.version IS DISTINCT FROM t.storage_version
+            OR coalesce(o.metadata->>'eTag', o.metadata->>'etag') IS DISTINCT FROM t.storage_etag)
+  ) THEN
+    RAISE EXCEPTION 'CF11_ASSET_OBJECT_IDENTITY_DRIFT_AT_READY' USING ERRCODE = '23514';
+  END IF;
+  SELECT public.cf11_text_sha256(coalesce(string_agg(t.asset_code || ':' || t.attestation_sha256,
+                                                     '|' ORDER BY t.asset_code), ''))
+    INTO live_attestation_sha
+    FROM public.golden_lesson_asset_attestations t WHERE t.lesson_id = lesson_row.id;
+  IF live_attestation_sha IS DISTINCT FROM pub.asset_attestation_sha256 THEN
+    RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_SET_DRIFT_AT_READY' USING ERRCODE = '23514';
+  END IF;
+
 
   -- Answer leak = 0 across every student-reachable body.
   SELECT count(*) INTO leak_count FROM (
