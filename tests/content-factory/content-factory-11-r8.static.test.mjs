@@ -444,8 +444,7 @@ test("CF11-R8B/6 — PG17 proves the bypass closed, legacy intact, controlled pa
   assert.match(n, /CF11_EXPECTED_REVOKE_LEDGER: exactly one withdrawal row/);
 });
 
-const FIXTURE = "scripts/content-factory/pg17/content-factory-11-fixture.sql";
-const fixtureSql = readFileSync(FIXTURE, "utf8");
+const fixtureSql = fixture;
 
 test("CF11-R9B/1 — legacy lesson is inserted only AFTER the authoritative fixture identity", () => {
   const ironLesson = fixtureSql.indexOf("'43000000-0000-0000-0000-000000000012','iron-and-its-compounds'");
