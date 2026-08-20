@@ -1109,73 +1109,216 @@ BEGIN
 END $$;
 
 -- ------------------------------------------------------------------------------------
--- N) CF11-R7 — ZERO-WRITE DRY_RUN and CONTROLLED WITHDRAWAL.
+-- N) CF11-R8 — EXECUTABLE ZERO-WRITE DRY_RUN and REAL CONTROLLED WITHDRAWAL.
+--
+-- Nothing here swallows `OTHERS`: every DRY_RUN must actually SUCCEED and must actually
+-- report mode=DRY_RUN with writes_performed=0, and every counter is compared before/after.
+-- An error raised before the tested behaviour is therefore a FAILURE, never a pass.
 -- ------------------------------------------------------------------------------------
+SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$
 DECLARE
-  before_assets bigint;
-  after_assets bigint;
-  before_attest bigint;
-  after_attest bigint;
+  res jsonb;
+  before_assets bigint; after_assets bigint;
+  before_attest bigint; after_attest bigint;
+  before_pub bigint; after_pub bigint;
+  before_audit bigint; after_audit bigint;
 BEGIN
   SELECT count(*) INTO before_assets FROM public.golden_lesson_published_assets;
   SELECT count(*) INTO before_attest FROM public.golden_lesson_asset_attestations;
-  BEGIN
-    PERFORM public.golden_lesson_publish_cf11(
-      _batch_id => '51000000-0000-0000-0000-000000000001',
-      _actor_id => '52000000-0000-0000-0000-0000000000a1',
-      _mode => 'DRY_RUN');
-  EXCEPTION WHEN OTHERS THEN NULL;
-  END;
+  SELECT count(*) INTO before_pub FROM public.golden_lesson_publications;
+  SELECT count(*) INTO before_audit FROM public.audit_logs;
+
+  res := public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
+           '10000000-0000-0000-0000-000000000003','DRY_RUN', public.cf11_iron_assets());
+
+  PERFORM public.cf04_assert(res->>'mode' = 'DRY_RUN',
+    'CF11_EXPECTED_DRY_RUN_MODE: publication DRY_RUN must report mode DRY_RUN');
+  PERFORM public.cf04_assert(coalesce((res->>'writes_performed')::int, -1) = 0,
+    'CF11_EXPECTED_DRY_RUN_ZERO_WRITES: writes_performed must be 0');
+
   SELECT count(*) INTO after_assets FROM public.golden_lesson_published_assets;
   SELECT count(*) INTO after_attest FROM public.golden_lesson_asset_attestations;
-  PERFORM public.cf04_assert(
-    before_assets = after_assets AND before_attest = after_attest,
-    'CF11_EXPECTED_DRY_RUN_ZERO_WRITES: a DRY_RUN wrote rows');
+  SELECT count(*) INTO after_pub FROM public.golden_lesson_publications;
+  SELECT count(*) INTO after_audit FROM public.audit_logs;
+  PERFORM public.cf04_assert(before_assets = after_assets,
+    'CF11_EXPECTED_DRY_RUN_ZERO_WRITES: published assets changed');
+  PERFORM public.cf04_assert(before_attest = after_attest,
+    'CF11_EXPECTED_DRY_RUN_ZERO_WRITES: asset attestations changed');
+  PERFORM public.cf04_assert(before_pub = after_pub,
+    'CF11_EXPECTED_DRY_RUN_ZERO_WRITES: publications changed');
+  PERFORM public.cf04_assert(before_audit = after_audit,
+    'CF11_EXPECTED_DRY_RUN_ZERO_WRITES: audit_logs changed');
 END $$;
+RESET ROLE;
 
+-- N2) The withdrawal itself: DRY_RUN succeeds and writes nothing, EXECUTE really moves the exact
+--     seven back to DRAFT+REQUIRED, hides the lesson, records one immutable ledger row and
+--     preserves the original READY evidence.
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000006', false);
+SET ROLE authenticated;
 DO $$
 DECLARE
   batch uuid := '51000000-0000-0000-0000-000000000001';
-  lesson uuid := (SELECT lesson_id FROM public.golden_lesson_publications WHERE batch_id=batch);
-  ledger bigint;
+  admin_actor uuid := '10000000-0000-0000-0000-000000000006';
+  lesson uuid := (SELECT lesson_id FROM public.golden_lesson_publications WHERE batch_id = batch);
+  res jsonb;
+  before_ledger bigint; before_audit bigint;
 BEGIN
-  -- the service role may never withdraw
+  PERFORM public.cf04_assert(lesson IS NOT NULL, 'CF11_EXPECTED_REVOKE: probe lesson resolves');
   PERFORM public.cf04_assert(
     NOT has_function_privilege('service_role',
       'public.golden_lesson_revoke_cf11_ready(uuid,uuid,text,text,text)','EXECUTE'),
     'CF11_EXPECTED_REVOKE_SERVICE_ROLE_DENIED');
 
-  -- a DRY_RUN withdrawal writes nothing
-  SELECT count(*) INTO ledger FROM public.golden_lesson_ready_revocations;
-  BEGIN
-    PERFORM public.golden_lesson_revoke_cf11_ready(_batch_id => batch,
-      _actor_id => '52000000-0000-0000-0000-0000000000a1',
-      _reason => 'withdrawn for regression probe', _mode => 'DRY_RUN');
-  EXCEPTION WHEN OTHERS THEN NULL;
-  END;
+  SELECT count(*) INTO before_ledger FROM public.golden_lesson_ready_revocations;
+  SELECT count(*) INTO before_audit FROM public.audit_logs;
+
+  -- DRY_RUN must SUCCEED, report DRY_RUN / zero writes, and leave every counter untouched.
+  res := public.golden_lesson_revoke_cf11_ready(_batch_id => batch, _actor_id => admin_actor,
+    _reason => 'withdrawn for regression probe', _mode => 'DRY_RUN');
+  PERFORM public.cf04_assert(res->>'mode' = 'DRY_RUN',
+    'CF11_EXPECTED_REVOKE_DRY_RUN_MODE');
+  PERFORM public.cf04_assert(coalesce((res->>'writes_performed')::int,-1) = 0,
+    'CF11_EXPECTED_REVOKE_DRY_RUN_ZERO_WRITES: writes_performed must be 0');
   PERFORM public.cf04_assert(
-    (SELECT count(*) FROM public.golden_lesson_ready_revocations) = ledger,
-    'CF11_EXPECTED_REVOKE_DRY_RUN_ZERO_WRITES');
+    (SELECT count(*) FROM public.golden_lesson_ready_revocations) = before_ledger
+    AND (SELECT count(*) FROM public.audit_logs) = before_audit,
+    'CF11_EXPECTED_REVOKE_DRY_RUN_ZERO_WRITES: counters moved');
+  PERFORM public.cf04_assert(
+    (SELECT count(*) = 7 FROM public.lesson_capability_lifecycle
+      WHERE lesson_id = lesson AND status = 'READY'),
+    'CF11_EXPECTED_REVOKE_DRY_RUN_ZERO_WRITES: lifecycle moved');
+
+  -- CF11-R8: EXECUTE always demands a real idempotency key, BEFORE any replay branch.
+  BEGIN
+    PERFORM public.golden_lesson_revoke_cf11_ready(_batch_id => batch, _actor_id => admin_actor,
+      _reason => 'withdrawn for regression probe', _mode => 'EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_REVOKE_KEY_REQUIRED: a null key was accepted';
+  EXCEPTION WHEN invalid_parameter_value THEN
+    IF SQLERRM NOT LIKE '%CF11_REVOKE_IDEMPOTENCY_KEY_REQUIRED%' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.golden_lesson_revoke_cf11_ready(_batch_id => batch, _actor_id => admin_actor,
+      _reason => 'withdrawn for regression probe', _idempotency_key => 'tiny',
+      _mode => 'EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_REVOKE_KEY_REQUIRED: a short key was accepted';
+  EXCEPTION WHEN invalid_parameter_value THEN
+    IF SQLERRM NOT LIKE '%CF11_REVOKE_IDEMPOTENCY_KEY_REQUIRED%' THEN RAISE; END IF;
+  END;
 
   -- a short reason is refused
   BEGIN
-    PERFORM public.golden_lesson_revoke_cf11_ready(_batch_id => batch,
-      _actor_id => '52000000-0000-0000-0000-0000000000a1', _reason => 'short',
-      _idempotency_key => 'cf11-revoke-probe', _mode => 'EXECUTE');
+    PERFORM public.golden_lesson_revoke_cf11_ready(_batch_id => batch, _actor_id => admin_actor,
+      _reason => 'short', _idempotency_key => 'cf11-revoke-probe', _mode => 'EXECUTE');
     RAISE EXCEPTION 'CF11_EXPECTED_REVOKE_REASON_REFUSED';
-  EXCEPTION WHEN check_violation OR insufficient_privilege THEN NULL;
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_REVOKE_REASON_REQUIRED%' THEN RAISE; END IF;
   END;
 
-  -- the withdrawal ledger is append-only, exactly like the READY ledger
+  -- the real withdrawal
+  res := public.golden_lesson_revoke_cf11_ready(_batch_id => batch, _actor_id => admin_actor,
+    _reason => 'withdrawn for regression probe', _idempotency_key => 'cf11-revoke-probe',
+    _mode => 'EXECUTE');
+  PERFORM public.cf04_assert((res->>'transitions')::int = 7,
+    'CF11_EXPECTED_REVOKE_ATOMIC: all seven capabilities must be withdrawn');
+  PERFORM public.cf04_assert(res->>'to_status' = 'DRAFT',
+    'CF11_EXPECTED_REVOKE_ATOMIC: DRAFT is the only supported withdrawal target');
+  PERFORM public.cf04_assert(NOT (res->>'student_visible')::boolean,
+    'CF11_EXPECTED_REVOKE_HIDDEN: the lesson must stop being student visible');
+  PERFORM public.cf04_assert(
+    (SELECT count(*) = 7 FROM public.lesson_capability_lifecycle
+      WHERE lesson_id = lesson AND status = 'DRAFT' AND applicability = 'REQUIRED'),
+    'CF11_EXPECTED_REVOKE_ATOMIC: exactly seven DRAFT+REQUIRED rows');
+  PERFORM public.cf04_assert(
+    (SELECT coalesce(array_agg(DISTINCT capability ORDER BY capability), ARRAY[]::text[])
+       FROM public.lesson_capability_lifecycle
+      WHERE lesson_id = lesson AND status = 'DRAFT') = public.cf11_lifecycle_capabilities(),
+    'CF11_EXPECTED_REVOKE_ATOMIC: the withdrawn set must be the canonical seven');
+  PERFORM public.cf04_assert(NOT public.lesson_student_visible(lesson),
+    'CF11_EXPECTED_REVOKE_HIDDEN: live visibility must be false');
+  PERFORM public.cf04_assert(
+    (SELECT count(*) = 1 FROM public.golden_lesson_ready_revocations WHERE batch_id = batch),
+    'CF11_EXPECTED_REVOKE_LEDGER: exactly one withdrawal row');
+  PERFORM public.cf04_assert(
+    (SELECT r.preserved_evidence->>'attestedBy' = a.attested_by::text
+       FROM public.golden_lesson_ready_revocations r
+       JOIN public.golden_lesson_ready_attestations a ON a.id = r.ready_attestation_id
+      WHERE r.batch_id = batch),
+    'CF11_EXPECTED_REVOKE_LEDGER: the original READY evidence must be preserved');
+  PERFORM public.cf04_assert(
+    (SELECT count(*) = 1 FROM public.golden_lesson_ready_attestations WHERE batch_id = batch),
+    'CF11_EXPECTED_REVOKE_LEDGER: the READY attestation row must survive intact');
+  PERFORM public.cf04_assert(
+    (SELECT count(*) = 1 FROM public.audit_logs
+      WHERE action = 'golden_lesson_cf11_ready_revoked' AND actor_id = admin_actor),
+    'CF11_EXPECTED_REVOKE_AUDITED');
+
+  -- replay with the SAME key: idempotent, zero writes
+  SELECT count(*) INTO before_audit FROM public.audit_logs;
+  res := public.golden_lesson_revoke_cf11_ready(_batch_id => batch, _actor_id => admin_actor,
+    _reason => 'withdrawn for regression probe', _idempotency_key => 'cf11-revoke-probe',
+    _mode => 'EXECUTE');
+  PERFORM public.cf04_assert((res->>'idempotent')::boolean
+    AND coalesce((res->>'writes_performed')::int,-1) = 0,
+    'CF11_EXPECTED_REVOKE_REPLAY_IDEMPOTENT');
+  PERFORM public.cf04_assert(
+    (SELECT count(*) = 1 FROM public.golden_lesson_ready_revocations WHERE batch_id = batch)
+    AND (SELECT count(*) FROM public.audit_logs) = before_audit,
+    'CF11_EXPECTED_REVOKE_REPLAY_IDEMPOTENT: a replay wrote rows');
+
+  -- replay with a NULL key: refused before the replay branch
+  BEGIN
+    PERFORM public.golden_lesson_revoke_cf11_ready(_batch_id => batch, _actor_id => admin_actor,
+      _reason => 'withdrawn for regression probe', _mode => 'EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_REVOKE_KEY_REQUIRED: a null key replayed successfully';
+  EXCEPTION WHEN invalid_parameter_value THEN
+    IF SQLERRM NOT LIKE '%CF11_REVOKE_IDEMPOTENCY_KEY_REQUIRED%' THEN RAISE; END IF;
+  END;
+
+  -- replay with a DIFFERENT key: conflict
+  BEGIN
+    PERFORM public.golden_lesson_revoke_cf11_ready(_batch_id => batch, _actor_id => admin_actor,
+      _reason => 'withdrawn for regression probe', _idempotency_key => 'cf11-revoke-other',
+      _mode => 'EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_REVOKE_KEY_CONFLICT: a different key was accepted';
+  EXCEPTION WHEN unique_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_REVOKE_IDEMPOTENCY_KEY_CONFLICT%' THEN RAISE; END IF;
+  END;
+END $$;
+RESET ROLE;
+
+-- N3) A withdrawal is terminal for this publication: the same batch can never be re-attested.
+SELECT set_config('request.jwt.claim.sub', :'att', false);
+SET ROLE authenticated;
+DO $$
+DECLARE
+  batch uuid := '51000000-0000-0000-0000-000000000001';
+  lesson uuid := (SELECT lesson_id FROM public.golden_lesson_publications WHERE batch_id = batch);
+BEGIN
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_ready(batch,
+      '10000000-0000-0000-0000-000000000005',
+      jsonb_build_object('reviewedContent',true,'reviewedSecurity',true,'note','after withdrawal'),
+      'EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_TERMINAL_READY_REFUSED: a withdrawn publication was re-attested';
+  EXCEPTION WHEN check_violation OR insufficient_privilege OR unique_violation THEN NULL;
+  END;
+  PERFORM public.cf04_assert(
+    (SELECT count(*) = 7 FROM public.lesson_capability_lifecycle
+      WHERE lesson_id = lesson AND status = 'DRAFT'),
+    'CF11_EXPECTED_TERMINAL_READY_REFUSED: the lifecycle must stay withdrawn');
+END $$;
+RESET ROLE;
+
+-- N4) The withdrawal ledger is append-only, exactly like the READY ledger.
+DO $$ BEGIN
   BEGIN
     UPDATE public.golden_lesson_ready_revocations SET reason='tampered';
     RAISE EXCEPTION 'CF11_EXPECTED_REVOKE_LEDGER_IMMUTABLE: an update was accepted';
   EXCEPTION WHEN raise_exception OR insufficient_privilege THEN NULL;
   END;
-  PERFORM public.cf04_assert(lesson IS NOT NULL, 'CF11_EXPECTED_REVOKE probe lesson resolves');
 END $$;
 
 SELECT 'PASS_CONTENT_FACTORY_11_PG17' AS verdict;
-
-
