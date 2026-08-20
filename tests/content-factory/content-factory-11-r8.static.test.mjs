@@ -567,7 +567,7 @@ test("R8-ADD/1 — the CF11 guard fires exactly on READY -> non-READY for CF11 l
   // Restrictive-only: every early RETURN keeps legacy / non-CF11 behaviour untouched.
   assert.match(body, /IF _from_status IS DISTINCT FROM 'READY' THEN RETURN; END IF;/);
   assert.match(body, /IF _to_status IS NOT DISTINCT FROM 'READY' THEN RETURN; END IF;/);
-  assert.match(body, /cf11_lifecycle_capabilities\(\)\) THEN RETURN; END IF;/);
+  assert.match(body, /cf11_lifecycle_capabilities\(\)\)\) THEN RETURN; END IF;/);
   assert.match(body, /NOT public\.cf11_is_managed_lesson\(_lesson_id\) THEN RETURN; END IF;/);
   // The controlled path is the ONLY escape hatch.
   assert.match(body, /cf11_has_revocation_ticket\(_lesson_id\) THEN RETURN; END IF;/);
