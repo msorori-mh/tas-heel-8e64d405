@@ -80,6 +80,92 @@ DO $$ BEGIN
 END $$;
 
 -- ------------------------------------------------------------------------------------
+-- B2) Upload attestation is mandatory and byte-exact.
+-- ------------------------------------------------------------------------------------
+DO $$
+DECLARE res jsonb;
+BEGIN
+  -- publish without an attestation must fail closed
+  BEGIN
+    PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','DRY_RUN', public.cf11_iron_assets());
+    RAISE EXCEPTION 'CF11_EXPECTED_ATTESTATION_REQUIRED';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_ATTESTATION_MISSING%' THEN RAISE; END IF;
+  END;
+
+  -- wrong bytes / size / mime are all refused
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1', repeat('b',64), 26742,
+      'image/jpeg','ffd8ffe0','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_BYTES_MISMATCH';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_BYTES_MISMATCH%' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
+      'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26743,
+      'image/jpeg','ffd8ffe0','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_SIZE_MISMATCH';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_SIZE_MISMATCH%' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
+      'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+      'image/png','89504e47','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_MIME_MISMATCH';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_MIME_MISMATCH%' THEN RAISE; END IF;
+  END;
+  -- correct MIME but PNG magic bytes: magic sniffing must refuse it
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
+      'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+      'image/jpeg','89504e47','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_MAGIC_MISMATCH';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_MAGIC_MISMATCH%' THEN RAISE; END IF;
+  END;
+  -- an undeclared asset code can never be attested
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-9-9',
+      'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+      'image/jpeg','ffd8ffe0','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_NOT_DECLARED';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_NOT_DECLARED%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert(
+    (SELECT count(*)=0 FROM public.golden_lesson_asset_attestations),
+    'a refused attestation must write zero rows');
+
+  -- the real, byte-exact attestation
+  res := public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
+    'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+    'image/jpeg','ffd8ffe000104a46','EXECUTE');
+  PERFORM public.cf04_assert((res->>'writes_performed')::int = 1,'attestation must append one row');
+  res := public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
+    'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+    'image/jpeg','ffd8ffe000104a46','EXECUTE');
+  PERFORM public.cf04_assert((res->>'idempotent')::boolean,'attestation replay must be idempotent');
+
+  -- the ledger is immutable even for the attester
+  BEGIN
+    UPDATE public.golden_lesson_asset_attestations SET sha256 = repeat('c',64);
+    RAISE EXCEPTION 'CF11_EXPECTED_LEDGER_IMMUTABLE';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+END $$;
+
+-- ------------------------------------------------------------------------------------
 -- C) DRY_RUN writes nothing and returns a stable plan
 -- ------------------------------------------------------------------------------------
 DO $$
