@@ -1,0 +1,12 @@
+{
+  "contract": "tamkeen.golden-lesson-provenance.v1",
+  "capability": "officialBookQuestions",
+  "authority": "OFFICIAL",
+  "source_file": "تقويم الوحده الاولى (2).pdf",
+  "source_sha256": "sha256:39f4bff7bc683e343cf470815fd01a796a9c77f6d011f08f04ebd7b5ef2707a9",
+  "content_owner": "OFFICIAL",
+  "curriculum_track": "sanaa|aden",
+  "conversion_method": "STATIC_EDUCATIONAL_HTML",
+  "review_status": "REVIEW_REQUIRED",
+  "payload_file": "official-questions.json"
+}
