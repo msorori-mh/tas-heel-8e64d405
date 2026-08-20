@@ -110,7 +110,7 @@ $$;
 -- Deliberately EXCLUDED because downstream workflow may change them legitimately:
 --   * lesson_capability_lifecycle.status (DRAFT -> REVIEW -> READY) and draft_hash bumps
 --   * question_revisions.status, later revisions, questions.current_published_revision_id
---   * lesson_resources.is_primary / sort_order (publication + editorial ordering)
+--   * the WHOLE lesson_resources table (R7): CF10 owns no resource row; CF11 adds them later
 --   * lessons.unit_id / is_free / sort_order (curriculum placement + pricing)
 --   * assessment membership counts (CF10 defers membership on purpose)
 -- Any change outside that allow-list means the materialized seed drifted, was deleted or the
