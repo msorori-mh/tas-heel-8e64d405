@@ -1,6 +1,8 @@
 -- R8: mirror production — pgcrypto lives in the `extensions` schema, never in public.
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+-- production-like session search_path (extensions visible, but NOT to functions pinned to public,pg_temp)
+SET search_path = public, extensions, pg_temp;
 CREATE SCHEMA IF NOT EXISTS auth;
 
 DO $$ BEGIN
