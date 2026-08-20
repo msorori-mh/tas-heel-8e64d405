@@ -580,16 +580,18 @@ SELECT public.cf04_assert((SELECT count(*)=0 FROM public.question_options WHERE 
   'no answer key is ever readable');
 RESET ROLE; RESET request.jwt.claim.sub;
 
--- 10e) NA capabilities never block visibility; a REQUIRED regression closes the gate again.
+-- 10e) An NA capability with no payload never blocks visibility; a REQUIRED regression closes
+--      the gate again. (An NA row that DOES carry a payload keeps blocking — see 11g.)
 BEGIN;
-UPDATE public.lesson_capability_lifecycle SET applicability='NA', status='DRAFT'
+UPDATE public.lesson_capability_lifecycle SET applicability='NA', status='DRAFT', draft_hash=NULL
  WHERE ctid IN (SELECT ctid FROM public.lesson_capability_lifecycle
                  WHERE lesson_id='43000000-0000-0000-0000-000000000001' ORDER BY capability LIMIT 1);
 SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000004'; SET ROLE authenticated;
 SELECT public.cf04_assert((SELECT visible FROM public.lesson_student_content_gate(
-  '43000000-0000-0000-0000-000000000001')),'NA capability does not block visibility');
+  '43000000-0000-0000-0000-000000000001')),'payload-free NA capability does not block visibility');
 RESET ROLE; RESET request.jwt.claim.sub;
 ROLLBACK;
+
 
 BEGIN;
 UPDATE public.lesson_capability_lifecycle SET status='REVIEW'
