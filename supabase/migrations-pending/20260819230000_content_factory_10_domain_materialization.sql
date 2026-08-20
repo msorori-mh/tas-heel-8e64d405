@@ -266,7 +266,7 @@ BEGIN
     'verifiedBundleSha256', batch.verified_bundle_sha256,
     'answerCompanionSha256', companion->>'companion_sha256',
     'entries', plan,
-    'lifecycleTarget', jsonb_build_object('status','DRAFT','applicability','REQUIRED','capabilities',7),
+    'lifecycleTarget', jsonb_build_object('status','DRAFT','applicability','AS_STAGED','capabilities',7),
     'revisionTarget', jsonb_build_object('status','DRAFT','payloadHashVersion','canonical_payload_v1',
                                          'publishedPointer',false,'assessmentMembership',false),
     'visibilityTarget', jsonb_build_object('studentVisible',false,'requiresAllRequiredReady',true),
@@ -707,13 +707,18 @@ BEGIN
   END IF;
 
 
-  -- Lifecycle: seven capabilities, DRAFT + REQUIRED only. No REVIEW / READY / publish.
-  --      A staged capability with a payload is REQUIRED; a capability the package declares
-  --      NA/OPTIONAL without a payload is recorded NA and never blocks student visibility.
-  FOR cap, lifecycle_cap IN
-    SELECT capability, lifecycle_capability FROM public.golden_lesson_domain_stage_entries
+  -- Lifecycle: the exact staged capability set, DRAFT only. No REVIEW / READY / publish.
+  --      Applicability is copied verbatim from the staged entry (REQUIRED / OPTIONAL / NA);
+  --      CF10 never hard-codes REQUIRED, because profiles such as GOLDEN_CHEMISTRY_V1 legitimately
+  --      declare capabilities like labExperimentHtml OPTIONAL.
+  FOR cap, lifecycle_cap, expected_applicability IN
+    SELECT capability, lifecycle_capability, applicability
+      FROM public.golden_lesson_domain_stage_entries
      WHERE batch_id = _batch_id ORDER BY capability LOOP
-    expected_applicability := CASE WHEN (payloads->cap->>'text') IS NULL THEN 'NA' ELSE 'REQUIRED' END;
+    IF expected_applicability = 'NA' AND (payloads->cap->>'text') IS NOT NULL THEN
+      RAISE EXCEPTION 'CF10_LIFECYCLE_CONFLICT: NA capability % carries a payload', cap
+        USING ERRCODE = '23514';
+    END IF;
     SELECT status, applicability::text, draft_hash
       INTO existing_status, existing_applicability, existing_draft_hash
       FROM public.lesson_capability_lifecycle
@@ -735,12 +740,14 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- The seven pinned capabilities must all carry a DRAFT lifecycle row for this lesson.
+  -- The exact staged capability set (7 for the golden profiles) must all carry a DRAFT lifecycle
+  -- row for this lesson. This pins the staged set, NOT an applicability distribution.
   IF (SELECT count(*) FROM public.lesson_capability_lifecycle l
        JOIN public.golden_lesson_domain_stage_entries e
          ON e.lifecycle_capability = l.capability AND e.batch_id = _batch_id
-      WHERE l.lesson_id = lesson_row.id AND l.status = 'DRAFT') <> 7 THEN
-    RAISE EXCEPTION 'CF10_LIFECYCLE_REQUIRED_SET_INVALID' USING ERRCODE = '23514';
+      WHERE l.lesson_id = lesson_row.id AND l.status = 'DRAFT')
+     <> (SELECT count(*) FROM public.golden_lesson_domain_stage_entries WHERE batch_id = _batch_id) THEN
+    RAISE EXCEPTION 'CF10_LIFECYCLE_STAGED_SET_INVALID' USING ERRCODE = '23514';
   END IF;
 
   IF EXISTS (
