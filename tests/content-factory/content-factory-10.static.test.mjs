@@ -121,7 +121,8 @@ test("CF10 PG17 rehearsal is wired and asserts the rich path", () => {
   assert.match(rehearse, /20260819230000_content_factory_10_domain_materialization\.sql/);
   assert.match(rehearse, /content-factory-10-assert\.sql/);
   assert.match(assertSql, /PASS_CONTENT_FACTORY_10_PG17/);
-  assert.match(assertSql, /missing lesson created exactly once/);
+  // R5: a bound EXECUTE never creates a lesson shell; the shell must pre-exist.
+  assert.match(sql, /CF10_IDENTITY_BINDING_LESSON_MISMATCH/);
   assert.match(assertSql, /options carry no answer key/);
   assert.match(assertSql, /rich replay is idempotent/);
 });
