@@ -7,9 +7,9 @@ Source-only closure. **No production writes and no migration apply were performe
 | Item | Value |
 | --- | --- |
 | Remediation base commit | `9e8d9294e36b0a38b0094b8b58075423da6f85c5` |
-| Revision | R9B (source-only) |
+| Revision | R9C (source-only; independent PG17 gate in progress) |
 | CF11 migration | `supabase/migrations-pending/20260824000000_content_factory_11_publication.sql` |
-| Migration SHA-256 (final, after all R8B edits) | `311265f33580f2ce1cffbc56a974c0978e5d8bf7e2713141db637c975ac69691` |
+| Current migration SHA-256 (R9C) | `0d88ec8605c25dbf4aafa6bd4d080273ceac43a032bbbbfdf6d53d0436d03957` |
 | Production writes | 0 |
 | Migration applied | NO |
 | PG17 rehearsal (this task) | **BLOCKED — NOT EXECUTED.** No PostgreSQL 17 instance is reachable from this environment, so the R8/R8B SQL has **not** been executed anywhere. Every claim below is a source-level claim. |
@@ -265,7 +265,7 @@ reason field, the separation-of-duties block, and a "مسحوب" badge on withdr
 | --- | --- |
 | Base commit (R8 remediation) | `509ed2a569b908d7368ccce1e55a55310bc083f6` |
 | Base commit (R8B remediation) | `c605f43452be50c2b120cd9762140eba1dc0a859` |
-| Final CF11 migration SHA-256 | `311265f33580f2ce1cffbc56a974c0978e5d8bf7e2713141db637c975ac69691` |
+| Current CF11 migration SHA-256 (R9C) | `0d88ec8605c25dbf4aafa6bd4d080273ceac43a032bbbbfdf6d53d0436d03957` |
 | Migration applied | NO |
 | Production writes | 0 |
 | PG17 rehearsal | **BLOCKED — not executed in this environment** (no PostgreSQL 17 reachable; `CONTENT_FACTORY_PG17_URL` unset) |
@@ -411,3 +411,24 @@ The full clean-room PG17 rehearsal remains **pending an independent rerun**; it 
 executed in this environment.
 
 **FINAL_VERDICT = PASS_CF11_R9B_SOURCE_READY_FOR_CLEAN_PG17_RERUN**
+
+
+## R9C — independent PG17 findings and replay-plan closure
+
+Base: R9B `05ccc375da25dfbddb0b4709cf4bcefb88ddf032`. Production writes: zero.
+
+The repository-owned GitHub Actions gate executed the complete CF04→CF11 chain on a clean
+PostgreSQL 17 instance. It correctly failed closed twice:
+
+1. The clean fixture still carried a broad historical PostgREST grant on
+   `lesson_capability_lifecycle`; the R9C fixture now mirrors the already-approved production
+   20C hardening by revoking raw DML from `authenticated`.
+2. The CF11 durable asset report omitted `storageBucket` and `storagePath`, although replay
+   validates exact storage identity. This made a legitimate replay fail with
+   `CF11_REPLAY_LIVE_STATE_CONFLICT: asset.OFFICIAL-FIGURE-1-1`.
+   The plan now pins both fields and a static regression test enforces the contract.
+
+Because the CF11 migration bytes changed, its current SHA-256 is
+`0d88ec8605c25dbf4aafa6bd4d080273ceac43a032bbbbfdf6d53d0436d03957`.
+The older `311265f3…` value remains historical for R8B/R9B only and must not be applied.
+Production remains untouched until the refreshed clean PG17 run succeeds.
