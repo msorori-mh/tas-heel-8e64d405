@@ -152,6 +152,20 @@ INSERT INTO public.lessons(id, slug, subject_id, unit_id, title, is_free, semest
 VALUES ('43000000-0000-0000-0000-000000000012','iron-and-its-compounds',
         '42000000-0000-0000-0000-000000000012', NULL, 'الحديد ومركباته', true, 1, 1);
 
+-- CF11-R9B: a LEGACY lesson that CF11 never governs, so the generic 21H transition behaviour can
+-- be proven unchanged for everything outside the Golden Lesson programme. It is inserted only
+-- after the authoritative fixture grade/subject/Iron lesson exist, with the full required column
+-- set and an explicit subject_id (never derived from a not-yet-created row).
+INSERT INTO public.lessons(id, slug, subject_id, unit_id, title, is_free, semester, sort_order)
+VALUES ('43000000-0000-0000-0000-000000000099','legacy-lesson',
+        '42000000-0000-0000-0000-000000000012', NULL, 'درس قديم', true, 1, 99)
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.lesson_capability_lifecycle(lesson_id, capability, status, applicability)
+VALUES ('43000000-0000-0000-0000-000000000099','officialBookContent','READY','REQUIRED')
+ON CONFLICT (lesson_id, capability) DO NOTHING;
+
+
+
 -- ---------------------------------------------------------------------------
 -- CF04/07/08/09 chain rows for the Iron batch (already-approved, already-verified state).
 -- ---------------------------------------------------------------------------
