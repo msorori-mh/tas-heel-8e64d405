@@ -202,9 +202,10 @@ test("CF10-R9 ships a forward dependency-namespace migration for CF04/CF08/CF09"
   assert.match(fwd, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_stage_manifest\(jsonb,text\) TO authenticated;/);
   assert.match(fwd, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_stage_domain_bundle\(uuid,integer,uuid,text,jsonb,jsonb\) TO service_role;/);
   assert.match(fwd, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_bind_authoritative_identity\(uuid,uuid\) TO service_role;/);
-  // zero stale unqualified digest calls in the forward definitions
-  assert.equal((fwd.match(/(?<!extensions\.)\bdigest\s*\(/g) ?? []).length, 0);
-  assert.equal((fwd.match(/extensions\.digest\(/g) ?? []).length, 4);
+  // zero stale unqualified digest calls in the forward definitions (comments excluded)
+  const fwdCode = fwd.replace(/^\s*--.*$/gm, "");
+  assert.equal((fwdCode.match(/(?<!extensions\.)\bdigest\s*\(/g) ?? []).length, 0);
+  assert.equal((fwdCode.match(/extensions\.digest\(/g) ?? []).length, 4);
   // the already-applied dependency migrations keep their original bytes
   for (const dep of [
     "supabase/migrations-pending/20260819190000_content_factory_04_package_staging.sql",
