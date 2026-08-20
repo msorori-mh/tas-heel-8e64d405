@@ -511,19 +511,23 @@ BEGIN
        coalesce(replay.result->>'seed_sha256', replay.result->>'state_sha256') THEN
       RAISE EXCEPTION 'CF10_REPLAY_STATE_DRIFT' USING ERRCODE = '23514';
     END IF;
-    -- Visibility stays fail-closed on replay: the lesson may only be student-visible if every
-    -- REQUIRED capability legitimately reached READY afterwards. Any other visibility is a leak.
+    -- Visibility stays fail-closed on replay: any capability that carries a materialized payload
+    -- (draft_hash) and is not READY must keep the lesson hidden, REQUIRED or OPTIONAL alike.
     IF public.lesson_student_visible(replay.lesson_id)
        AND EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle lc
                     WHERE lc.lesson_id = replay.lesson_id
-                      AND lc.applicability = 'REQUIRED' AND lc.status <> 'READY') THEN
+                      AND (lc.applicability = 'REQUIRED' OR lc.draft_hash IS NOT NULL)
+                      AND lc.status IS DISTINCT FROM 'READY') THEN
       RAISE EXCEPTION 'CF10_STUDENT_VISIBILITY_LEAK' USING ERRCODE = '23514';
     END IF;
 
     RETURN replay.result || jsonb_build_object('idempotent',true,'writes_performed',0,
       'domain_writes_performed',0,'payload_hash_updates',0,'ledger_writes',0,
       'ledger_attested',true,
-      'live_attested',true,
+      -- R6: a ledger shortcut never claims the whole live state was attested. Only the
+      -- immutable seed is re-hashed here; mutable workflow fields are explicitly out of scope.
+      'live_attested',false,
+      'seed_attested',true,
       'attested_scope','immutable_seed',
       'mutable_fields_allowed', jsonb_build_array(
         'lesson_capability_lifecycle.status','lesson_capability_lifecycle.draft_hash',
