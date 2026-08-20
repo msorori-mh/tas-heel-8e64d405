@@ -40,7 +40,6 @@ test("CF11-AUDIT/1 — CF10 staging map targets exactly the canonical lifecycle 
 for (const [label, file] of [
   ["migration", MIGRATION],
   ["fixture", FIXTURE],
-  ["asserts", ASSERTS],
 ]) {
   test(`CF11-AUDIT/2 — ${label} never uses an alternate name in a lifecycle context`, () => {
     const src = readFileSync(file, "utf8");
@@ -60,6 +59,12 @@ for (const [label, file] of [
     }
   });
 }
+
+test("CF11-AUDIT/2b — PG17 asserts keep a negative probe on the alternate name", () => {
+  const asserts = readFileSync(ASSERTS, "utf8");
+  assert.match(asserts, /SET capability='lessonSummary'/);
+  assert.match(asserts, /a substituted capability name was accepted/);
+});
 
 test("CF11-AUDIT/3 — PG17 fixture seeds exactly the seven CF10-real lifecycle rows", () => {
   const fixture = readFileSync(FIXTURE, "utf8");
