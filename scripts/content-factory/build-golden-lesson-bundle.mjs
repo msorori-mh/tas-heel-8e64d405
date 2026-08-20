@@ -104,6 +104,26 @@ export function buildGoldenLessonBundleFiles(packageDir, spec) {
   const answersCompanionPath = spec.answersCompanionPath ?? null;
   const answersCompanionSha256 = read(answersCompanionPath);
 
+  // CF11 supplemental static assets: leaf-only, MIME-declared, hash + size pinned.
+  const assets = [...(spec.assets ?? [])]
+    .sort((a, b) => (a.assetCode < b.assetCode ? -1 : a.assetCode > b.assetCode ? 1 : 0))
+    .map((asset) => {
+      if (typeof asset.path !== "string" || asset.path.includes("/") || asset.path.includes("\\")) {
+        throw new Error(`ASSET_PATH_UNSAFE:${asset.path}`);
+      }
+      const bytes = new Uint8Array(readFileSync(join(packageDir, asset.path)));
+      files.set(asset.path, bytes);
+      return {
+        assetCode: asset.assetCode,
+        path: asset.path,
+        mimeType: asset.mimeType,
+        sha256: sha256(bytes),
+        bytes: bytes.byteLength,
+        referencedBy: [...asset.referencedBy].sort(),
+        altTextAr: asset.altTextAr,
+      };
+    });
+
   const manifest = {
     schema: GOLDEN_LESSON_SCHEMA,
     profileId: spec.profileId,
@@ -120,6 +140,7 @@ export function buildGoldenLessonBundleFiles(packageDir, spec) {
     },
     capabilityOrder: [...CAPABILITY_ORDER],
     artifacts,
+    assets,
     lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },
     security: {
       productionApply: false,
@@ -129,6 +150,7 @@ export function buildGoldenLessonBundleFiles(packageDir, spec) {
       htmlNetworkAccess: "NONE",
     },
   };
+
 
   return { manifest, files };
 }
