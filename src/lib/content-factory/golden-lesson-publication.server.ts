@@ -1,21 +1,25 @@
 /**
  * CF11 — server-only helpers behind the operator server functions.
  *
- * Security contract (CF11-R4):
- *   * EVERY state transition — CF10 materialization, upload attestation, publication and READY
- *     attestation — is executed with the OPERATOR'S OWN token. The service role never performs,
- *     approves or orchestrates a transition. CF10 is reached exclusively through
+ * Security contract (CF11-R5):
+ *   * EVERY editorial transition — CF10 materialization, publication and READY attestation — is
+ *     executed with the OPERATOR'S OWN token. The service role never performs, approves or
+ *     orchestrates an editorial transition. CF10 is reached exclusively through
  *     `golden_lesson_materialize_domain_batch_operator`, which re-derives the actor from
- *     `auth.uid()` and refuses any disagreement with `_actor_id`.
- *   * The service role is used ONLY to read staging metadata and to move content-addressed,
- *     hash-pinned bytes into the private asset bucket. Storing bytes is not an approval; they
- *     only become usable once a human attests them and the server re-measures them.
+ *     `auth.uid()` and refuses any disagreement with `_actor_id`; the raw CF10 RPC has no grant
+ *     to service_role at all.
+ *   * The upload attestation is the one MACHINE step: the server downloads the stored object,
+ *     re-measures sha256 / byte size / magic bytes and appends the attestation with the service
+ *     role. A human cannot execute that RPC, so no operator can ever claim bytes they did not
+ *     produce; the requesting operator is recorded as `requested_by` only.
  *   * Asset declarations are re-derived server-side from the verified bundle manifest. The client
  *     cannot inject a path, a hash, a MIME type or a bucket.
  *   * Fail-closed: every query/storage/RPC error throws. A read that cannot be completed must
  *     never degrade into "nothing to review".
  *   * Replay-guarded: EXECUTE requires the write-plan hash the operator actually reviewed in the
- *     DRY_RUN, and carries a deterministic idempotency key derived from that same hash.
+ *     DRY_RUN, carries a deterministic idempotency key derived from that same hash, and every
+ *     replay re-derives the full live state before it may report success.
+
  */
 
 import { createHash } from "node:crypto";
@@ -283,13 +287,18 @@ export async function ensureVerifiedAssets(batchId: string): Promise<{
 }
 
 /**
+ * CF11-R5 — MACHINE attestation.
+ *
  * Re-measures the bytes that are actually in the bucket — never the bytes we think we uploaded,
- * and never the object's own filename — then asks the database to append one immutable upload
- * attestation per declared asset with the operator's token.
+ * and never the object's own filename — and then appends one immutable attestation per declared
+ * asset THROUGH THE SERVER'S OWN identity. The human operator is recorded as `requested_by`
+ * (evidence of intent) and can no longer execute the attestation RPC at all: a human claim about
+ * bytes is not evidence, a server readback is.
  */
+export const CF11_VERIFICATION_ORIGIN = "SERVER_BYTE_READBACK" as const;
+
 export async function attestStoredAssets(
-  supabase: { rpc: unknown },
-  userId: string,
+  requestedBy: string,
   batchId: string,
   declarations: Cf11AssetDeclaration[],
   uploadedPaths: Set<string>,
@@ -308,14 +317,16 @@ export async function attestStoredAssets(
     if (bytes.byteLength !== declaration.bytes) throw new Error(`CF11_ASSET_SIZE_MISMATCH: ${declaration.assetCode}`);
     const magicHex = Buffer.from(bytes.subarray(0, 16)).toString("hex");
 
-    const result = await rpc(supabase)("golden_lesson_attest_cf11_asset", {
+    // Service-role client only: the attestation RPC refuses any session that carries auth.uid().
+    const result = await rpc(admin)("golden_lesson_attest_cf11_asset", {
       _batch_id: batchId,
-      _actor_id: userId,
+      _requested_by: requestedBy,
       _asset_code: declaration.assetCode,
       _observed_sha256: observedSha,
       _observed_bytes: bytes.byteLength,
       _observed_mime: declaration.mimeType,
       _magic_hex: magicHex,
+      _verification_origin: CF11_VERIFICATION_ORIGIN,
       _mode: mode,
     });
     if (result.error) throw new Error(`CF11_ASSET_ATTESTATION_FAILED: ${result.error.message}`);
@@ -331,3 +342,4 @@ export async function attestStoredAssets(
   }
   return out;
 }
+

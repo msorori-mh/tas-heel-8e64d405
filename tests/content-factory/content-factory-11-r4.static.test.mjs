@@ -45,14 +45,19 @@ test("CF11-R4/2 — publication requires server-side upload attestation of the r
   assert.match(server, /subarray\(0, 16\)\)\.toString\("hex"\)/);
   assert.match(server, /golden_lesson_attest_cf11_asset/);
   // Publication runs attestation first, so an unattested asset can never be published.
-  assert.match(fns, /attestStoredAssets\(\s*\n?\s*supabase, userId, data\.batchId, declarations, uploadedPaths, "EXECUTE",/);
+  assert.match(fns, /attestStoredAssets\(\s*\n?\s*userId, data\.batchId, declarations, uploadedPaths, "EXECUTE",/);
+  // CF11-R5: attestation is MACHINE-only — the server signs for bytes it re-read itself and the
+  // human is recorded as the requester, never as the attester.
+  assert.match(server, /const admin = serviceClient\(\);[\s\S]{0,4000}rpc\(admin\)\("golden_lesson_attest_cf11_asset"/);
+  assert.match(server, /SERVER_BYTE_READBACK/);
+  assert.match(sql, /CF11_ASSET_ATTESTATION_MACHINE_ONLY/);
+  assert.match(sql, /CF11_ASSET_VERIFICATION_ORIGIN_INVALID/);
 });
 
 test("CF11-R4/5 — every human transition uses the operator token, never the service role", () => {
   // CF10 is reached only through the operator wrapper, which re-derives the actor from auth.uid().
   assert.match(fns, /golden_lesson_materialize_domain_batch_operator/);
   assert.doesNotMatch(fns, /rpc\(serviceClient\(\)\)/);
-  assert.doesNotMatch(server, /rpc\(serviceClient\(\)\)/);
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.golden_lesson_materialize_domain_batch_operator/);
   assert.match(sql, /CF10_ACTOR_IDENTITY_MISMATCH/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_materialize_domain_batch_operator/);
@@ -60,10 +65,19 @@ test("CF11-R4/5 — every human transition uses the operator token, never the se
   for (const rpcName of [
     "golden_lesson_publish_cf11",
     "golden_lesson_attest_cf11_ready",
-    "golden_lesson_attest_cf11_asset",
   ]) {
     assert.match(fns + server, new RegExp(`rpc\\(supabase\\)\\("${rpcName}"`));
   }
+});
+
+test("CF11-R5 — an idempotent replay re-verifies every live category", () => {
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.cf11_assert_replay_state/);
+  assert.match(sql, /CF11_REPLAY_LIVE_STATE_CONFLICT/);
+  // Both replay branches (publication and READY) must run the exhaustive validator.
+  assert.ok((sql.match(/cf11_assert_replay_state\(/g) ?? []).length >= 3);
+  assert.match(asserts, /CF11_EXPECTED_REPLAY_REFUSED_/);
+  // The raw CF10 entry point is denied to the service role: only the operator wrapper may reach it.
+  assert.match(sql, /REVOKE[\s\S]{0,200}golden_lesson_materialize_domain_batch\(/);
 });
 
 test("CF11-R4/4 — strict replay guards: plan hash + idempotency key are mandatory on EXECUTE", () => {

@@ -131,10 +131,13 @@ CREATE TABLE IF NOT EXISTS public.golden_lesson_published_assets (
   CONSTRAINT golden_lesson_published_assets_unique UNIQUE (lesson_id, asset_code)
 );
 
--- 2.2) Immutable upload attestation: the ONLY proof that real bytes reached private storage.
---      It binds the measured bundle bytes (sha256 / size / magic-verified MIME) to the ACTUAL
---      storage object identity (id + version + etag + storage-side size/mimetype metadata).
---      A name-only storage.objects row can never satisfy it.
+-- 2.2) Immutable MACHINE upload attestation: the ONLY proof that real bytes reached private
+--      storage. CF11-R5: a human can no longer claim it. The attestation is appended by the
+--      server after it downloaded the object back out of the bucket and re-measured the bytes
+--      (sha256 / size / magic-verified MIME), and it is bound to the ACTUAL storage object
+--      identity (id + version + etag + storage-side size/mimetype metadata). The human operator
+--      who requested the verification is recorded as `requested_by` — evidence of intent, never
+--      evidence of bytes. A name-only storage.objects row can never satisfy it.
 CREATE TABLE IF NOT EXISTS public.golden_lesson_asset_attestations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id uuid NOT NULL REFERENCES public.golden_lesson_domain_stage_batches(id) ON DELETE RESTRICT,
@@ -151,10 +154,13 @@ CREATE TABLE IF NOT EXISTS public.golden_lesson_asset_attestations (
   storage_version text NOT NULL,
   storage_etag text NOT NULL,
   attestation_sha256 text NOT NULL,
-  attested_by uuid NOT NULL,
+  verification_origin text NOT NULL,
+  requested_by uuid NOT NULL,
   verified_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT golden_lesson_asset_attestations_sha_chk CHECK (sha256 ~ '^[0-9a-f]{64}$'),
   CONSTRAINT golden_lesson_asset_attestations_att_chk CHECK (attestation_sha256 ~ '^[0-9a-f]{64}$'),
+  CONSTRAINT golden_lesson_asset_attestations_origin_chk
+    CHECK (verification_origin = 'SERVER_BYTE_READBACK'),
   CONSTRAINT golden_lesson_asset_attestations_mime_chk
     CHECK (mime_type IN ('image/png','image/jpeg','image/webp')),
   CONSTRAINT golden_lesson_asset_attestations_size_chk CHECK (byte_size BETWEEN 64 AND 2097152),
@@ -162,6 +168,7 @@ CREATE TABLE IF NOT EXISTS public.golden_lesson_asset_attestations (
   CONSTRAINT golden_lesson_asset_attestations_magic_chk CHECK (magic_hex ~ '^[0-9a-f]{8,32}$'),
   CONSTRAINT golden_lesson_asset_attestations_unique UNIQUE (lesson_id, asset_code)
 );
+
 
 -- 2.3) Publication ledger (one row per successfully published batch, never updated).
 CREATE TABLE IF NOT EXISTS public.golden_lesson_publications (
@@ -173,7 +180,9 @@ CREATE TABLE IF NOT EXISTS public.golden_lesson_publications (
   manifest_assets_sha256 text NOT NULL,
   asset_attestation_sha256 text NOT NULL,
   result jsonb NOT NULL,
-  idempotency_key text,
+  -- CF11-R5: never NULL. A ledger row without a durable key cannot be replay-guarded.
+  idempotency_key text NOT NULL,
+
   published_by uuid NOT NULL,
   published_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT golden_lesson_publications_plan_sha_chk CHECK (plan_sha256 ~ '^[0-9a-f]{64}$'),
@@ -453,33 +462,41 @@ BEGIN
   RETURN out_arr;
 END $$;
 
--- Canonical hash of ONE upload attestation: measured bytes bound to the live object identity.
+-- Canonical hash of ONE upload attestation: measured bytes bound to the live object identity,
+-- plus the verification origin (CF11-R5: only a server byte readback may ever be hashed here).
 CREATE OR REPLACE FUNCTION public.cf11_attestation_hash(
   _lesson_id uuid, _asset_code text, _file_name text, _mime text, _sha256 text,
   _bytes bigint, _magic_hex text, _bucket text, _path text,
-  _object_id uuid, _version text, _etag text)
+  _object_id uuid, _version text, _etag text, _origin text DEFAULT 'SERVER_BYTE_READBACK')
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   SELECT public.cf11_text_sha256(jsonb_build_object(
-    'schema','tamkeen.content-factory-11.asset-attestation.v1',
+    'schema','tamkeen.content-factory-11.asset-attestation.v2',
     'lessonId', _lesson_id, 'assetCode', _asset_code, 'fileName', _file_name,
     'mimeType', _mime, 'sha256', _sha256, 'bytes', _bytes, 'magicHex', lower(_magic_hex),
-    'bucket', _bucket, 'path', _path,
+    'bucket', _bucket, 'path', _path, 'verificationOrigin', _origin,
     'objectId', _object_id, 'objectVersion', _version, 'objectEtag', _etag)::text);
 $$;
 
+
 -- ------------------------------------------------------------------------------------
--- 4c) Upload attestation RPC. Appends ONE immutable row proving the real bytes reached the
---     private bucket. Refuses a storage.objects row that carries no size/mimetype metadata,
---     so a fabricated name-only row can never stand in for an upload.
+-- 4c) Upload attestation RPC — CF11-R5: MACHINE ONLY.
+--     Appends ONE immutable row proving the real bytes reached the private bucket. It is a
+--     measurement, not an approval, so it is executed by the server (service_role, no
+--     `auth.uid()`) right after it downloaded the object back out of the bucket. A signed-in
+--     human can no longer call it at all: an operator claim about bytes is not evidence.
+--     The requesting human is recorded as `requested_by` and must be real content staff.
+--     Refuses a storage.objects row that carries no size/mimetype metadata, so a fabricated
+--     name-only row can never stand in for an upload.
 -- ------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.golden_lesson_attest_cf11_asset(
   _batch_id uuid,
-  _actor_id uuid,
+  _requested_by uuid,
   _asset_code text,
   _observed_sha256 text,
   _observed_bytes bigint,
   _observed_mime text,
   _magic_hex text,
+  _verification_origin text DEFAULT 'SERVER_BYTE_READBACK',
   _mode text DEFAULT 'EXECUTE'
 ) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
@@ -499,12 +516,18 @@ BEGIN
   IF _mode NOT IN ('DRY_RUN','EXECUTE') THEN
     RAISE EXCEPTION 'CF11_INVALID_MODE' USING ERRCODE = '22023';
   END IF;
-  IF uid IS NULL OR _actor_id IS NULL OR uid <> _actor_id THEN
-    RAISE EXCEPTION 'CF11_ACTOR_IDENTITY_MISMATCH' USING ERRCODE = '42501';
+  -- Machine-only: an end-user session (any auth.uid()) is refused outright.
+  IF uid IS NOT NULL THEN
+    RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_MACHINE_ONLY' USING ERRCODE = '42501';
   END IF;
-  IF NOT public.is_golden_lesson_content_staff(uid) THEN
+  IF _verification_origin IS DISTINCT FROM 'SERVER_BYTE_READBACK' THEN
+    RAISE EXCEPTION 'CF11_ASSET_VERIFICATION_ORIGIN_INVALID: %',
+      coalesce(_verification_origin,'<null>') USING ERRCODE = '42501';
+  END IF;
+  IF _requested_by IS NULL OR NOT public.is_golden_lesson_content_staff(_requested_by) THEN
     RAISE EXCEPTION 'CF11_NOT_AUTHORIZED' USING ERRCODE = '42501';
   END IF;
+
 
   SELECT * INTO batch FROM public.golden_lesson_domain_stage_batches WHERE id = _batch_id;
   IF batch.id IS NULL THEN
@@ -565,7 +588,8 @@ BEGIN
 
   att_hash := public.cf11_attestation_hash(binding.lesson_id, _asset_code, decl->>'fileName',
     decl->>'mimeType', decl->>'sha256', (decl->>'bytes')::bigint, _magic_hex,
-    'golden-lesson-assets', decl->>'storagePath', obj.id, obj.version, obj_etag);
+    'golden-lesson-assets', decl->>'storagePath', obj.id, obj.version, obj_etag,
+    _verification_origin);
 
   SELECT * INTO existing FROM public.golden_lesson_asset_attestations
    WHERE lesson_id = binding.lesson_id AND asset_code = _asset_code;
@@ -585,15 +609,19 @@ BEGIN
   INSERT INTO public.golden_lesson_asset_attestations(
     batch_id, lesson_id, asset_code, file_name, mime_type, sha256, byte_size, magic_hex,
     storage_bucket, storage_path, storage_object_id, storage_version, storage_etag,
-    attestation_sha256, attested_by)
+    attestation_sha256, verification_origin, requested_by)
   VALUES (_batch_id, binding.lesson_id, _asset_code, decl->>'fileName', decl->>'mimeType',
           decl->>'sha256', (decl->>'bytes')::bigint, lower(_magic_hex),
           'golden-lesson-assets', decl->>'storagePath', obj.id, obj.version, obj_etag,
-          att_hash, uid);
+          att_hash, _verification_origin, _requested_by);
 
   INSERT INTO public.audit_logs(actor_id, action, target_type, target_id, metadata)
-  VALUES (uid, 'golden_lesson_cf11_asset_attested', 'lesson_capability', binding.lesson_id,
-          jsonb_build_object('batchId',_batch_id,'assetCode',_asset_code,'attestationSha256',att_hash));
+  VALUES (_requested_by, 'golden_lesson_cf11_asset_attested', 'lesson_capability', binding.lesson_id,
+          jsonb_build_object('batchId',_batch_id,'assetCode',_asset_code,
+                             'attestationSha256',att_hash,
+                             'verificationOrigin',_verification_origin,
+                             'attestedBy','SERVER'));
+
 
   RETURN jsonb_build_object('mode','EXECUTE','assetCode',_asset_code,'idempotent',false,
     'writes_performed',1,'attestationSha256',att_hash);
@@ -625,6 +653,132 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
                                                   ELSE 'simulation' END)->>'sha256')
   );
 $$;
+
+-- ------------------------------------------------------------------------------------
+-- 5b) CF11-R5 — EXHAUSTIVE replay revalidation.
+--
+-- A replay may only report success when EVERY category the recorded write plan claims is still
+-- literally true in the live database. "The ledger row exists" is not evidence; each category is
+-- re-derived from live rows and any divergence raises a named conflict instead of silently
+-- returning a stale success. Read-only: this function writes nothing, ever.
+-- ------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.cf11_assert_replay_state(_plan jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path = public, pg_temp AS $$
+DECLARE
+  v_lesson uuid := (_plan->>'lessonId')::uuid;
+  v_ext text := _plan->>'externalLessonCode';
+  a jsonb;
+  cap text;
+  v_code text;
+  v_expected text;
+  v_live text;
+  v_count integer;
+  v_official text[];
+  v_self text[];
+  v_assessment uuid;
+  verified jsonb := '[]'::jsonb;
+BEGIN
+  IF v_lesson IS NULL OR coalesce(v_ext,'') = '' THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: plan' USING ERRCODE = '23505';
+  END IF;
+
+  -- 1) official body
+  SELECT public.cf11_text_sha256(content) INTO v_live
+    FROM public.lesson_book_contents WHERE lesson_id = v_lesson;
+  IF v_live IS DISTINCT FROM (_plan->'bookContent'->>'afterSha256') THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: bookContent' USING ERRCODE = '23505';
+  END IF;
+  verified := verified || to_jsonb('bookContent'::text);
+
+  -- 2) published HTML artefacts, body-hash exact and still delivered inline
+  FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
+    v_code := _plan->'html'->cap->>'resourceCode';
+    v_expected := _plan->'html'->cap->>'sha256';
+    SELECT public.cf11_text_sha256(r.description) INTO v_live
+      FROM public.lesson_resources r
+     WHERE r.lesson_id = v_lesson AND r.resource_code = v_code
+       AND r.url = public.cf10_inline_html_url(r.resource_code);
+    IF v_live IS DISTINCT FROM v_expected
+       OR public.cf10_html_publication_pending(v_lesson, cap) THEN
+      RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: html.%', cap USING ERRCODE = '23505';
+    END IF;
+  END LOOP;
+  verified := verified || to_jsonb('html'::text);
+
+  -- 3) every planned asset is still registered with the same bytes, path and attestation
+  FOR a IN SELECT value FROM jsonb_array_elements(coalesce(_plan->'assets','[]'::jsonb)) LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM public.golden_lesson_published_assets p
+        JOIN public.golden_lesson_asset_attestations t
+          ON t.lesson_id = p.lesson_id AND t.asset_code = p.asset_code
+         AND t.attestation_sha256 = p.attestation_sha256
+         AND t.verification_origin = 'SERVER_BYTE_READBACK'
+        JOIN storage.objects o
+          ON o.bucket_id = t.storage_bucket AND o.name = t.storage_path
+         AND o.id = t.storage_object_id AND o.version = t.storage_version
+       WHERE p.lesson_id = v_lesson AND p.asset_code = a->>'assetCode'
+         AND p.sha256 = a->>'sha256' AND p.byte_size = (a->>'bytes')::bigint
+         AND p.mime_type = a->>'mimeType'
+    ) THEN
+      RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: asset.%', a->>'assetCode'
+        USING ERRCODE = '23505';
+    END IF;
+  END LOOP;
+  SELECT count(*) INTO v_count FROM public.golden_lesson_published_assets WHERE lesson_id = v_lesson;
+  IF v_count IS DISTINCT FROM jsonb_array_length(coalesce(_plan->'assets','[]'::jsonb)) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assets' USING ERRCODE = '23505';
+  END IF;
+  verified := verified || to_jsonb('assets'::text);
+
+  -- 4) all 45 questions still point at a PUBLISHED revision
+  SELECT array_agg(value::text) INTO v_official
+    FROM jsonb_array_elements_text(coalesce(_plan->'questions'->'official','[]'::jsonb)) value;
+  SELECT array_agg(value::text) INTO v_self
+    FROM jsonb_array_elements_text(coalesce(_plan->'questions'->'selfTest','[]'::jsonb)) value;
+  SELECT count(*) INTO v_count
+    FROM public.questions q
+    JOIN public.question_revisions rv ON rv.id = q.current_published_revision_id
+   WHERE q.lesson_id = v_lesson
+     AND q.code = ANY (coalesce(v_official,ARRAY[]::text[]) || coalesce(v_self,ARRAY[]::text[]))
+     AND rv.status = 'PUBLISHED';
+  IF v_count IS DISTINCT FROM (coalesce(array_length(v_official,1),0)
+                             + coalesce(array_length(v_self,1),0)) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: questions' USING ERRCODE = '23505';
+  END IF;
+  verified := verified || to_jsonb('questions'::text);
+
+  -- 5) assessment membership is still exactly the self-test set, with zero official questions
+  SELECT id INTO v_assessment FROM public.lesson_assessments
+   WHERE lesson_id = v_lesson AND assessment_code = _plan->'assessment'->>'code';
+  IF v_assessment IS NULL THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assessment' USING ERRCODE = '23505';
+  END IF;
+  SELECT count(*) INTO v_count FROM public.assessment_questions WHERE assessment_id = v_assessment;
+  IF v_count IS DISTINCT FROM (_plan->'assessment'->>'memberCount')::integer THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assessmentMembers' USING ERRCODE = '23505';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.assessment_questions aq
+               JOIN public.questions q ON q.id = aq.question_id
+              WHERE aq.assessment_id = v_assessment
+                AND q.code = ANY (coalesce(v_official,ARRAY[]::text[]))) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assessmentOfficialLeak' USING ERRCODE = '23505';
+  END IF;
+  verified := verified || to_jsonb('assessment'::text);
+
+  -- 6) the exact seven lifecycle rows, none of them regressed below REVIEW
+  SELECT count(*) INTO v_count FROM public.lesson_capability_lifecycle WHERE lesson_id = v_lesson;
+  IF v_count <> 7 OR EXISTS (
+       SELECT 1 FROM public.lesson_capability_lifecycle
+        WHERE lesson_id = v_lesson AND status NOT IN ('REVIEW','READY')) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: lifecycle' USING ERRCODE = '23505';
+  END IF;
+  verified := verified || to_jsonb('lifecycle'::text);
+
+  RETURN jsonb_build_object('revalidated', verified);
+END $$;
+
+GRANT EXECUTE ON FUNCTION public.cf11_assert_replay_state(jsonb) TO authenticated, service_role;
+
 
 -- ------------------------------------------------------------------------------------
 -- 6) CF11 publication RPC: DRAFT -> REVIEW only.
@@ -795,12 +949,19 @@ BEGIN
        OR obj_row.metadata->>'mimetype' IS DISTINCT FROM att.mime_type THEN
       RAISE EXCEPTION 'CF11_ASSET_OBJECT_IDENTITY_DRIFT: %', asset->>'assetCode' USING ERRCODE = '23514';
     END IF;
+    -- CF11-R5: only a server byte readback is admissible evidence for the bytes.
+    IF att.verification_origin IS DISTINCT FROM 'SERVER_BYTE_READBACK' THEN
+      RAISE EXCEPTION 'CF11_ASSET_VERIFICATION_ORIGIN_INVALID: %', asset->>'assetCode'
+        USING ERRCODE = '42501';
+    END IF;
     IF att.attestation_sha256 IS DISTINCT FROM public.cf11_attestation_hash(
          lesson_row.id, att.asset_code, att.file_name, att.mime_type, att.sha256, att.byte_size,
          att.magic_hex, att.storage_bucket, att.storage_path, obj_row.id, obj_row.version,
-         coalesce(obj_row.metadata->>'eTag', obj_row.metadata->>'etag')) THEN
+         coalesce(obj_row.metadata->>'eTag', obj_row.metadata->>'etag'),
+         att.verification_origin) THEN
       RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_HASH_DRIFT: %', asset->>'assetCode' USING ERRCODE = '23514';
     END IF;
+
     -- No overwrite when the hash differs for the same logical asset.
     IF EXISTS (SELECT 1 FROM public.golden_lesson_published_assets a
                 WHERE a.lesson_id = lesson_row.id AND a.asset_code = asset->>'assetCode'
@@ -851,7 +1012,8 @@ BEGIN
        OR attestation_sha IS DISTINCT FROM replay.asset_attestation_sha256 THEN
       RAISE EXCEPTION 'CF11_REPLAY_ASSET_CONFLICT' USING ERRCODE = '23505';
     END IF;
-    -- Re-attest the LIVE state, do not trust the recorded result blindly.
+    -- CF11-R5: re-derive EVERY write-plan category from live rows. The recorded result is
+    -- never trusted on its own; a replay that cannot reprove the full state conflicts.
     IF public.cf10_html_publication_pending(replay.lesson_id,'mindMap')
        OR public.cf10_html_publication_pending(replay.lesson_id,'simulation') THEN
       RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: html' USING ERRCODE = '23505';
@@ -860,12 +1022,13 @@ BEGIN
          WHERE lesson_id = replay.lesson_id) <> jsonb_array_length(declared_assets) THEN
       RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assets' USING ERRCODE = '23505';
     END IF;
-    RETURN replay.result || jsonb_build_object(
+    RETURN replay.result || public.cf11_assert_replay_state(replay.result) || jsonb_build_object(
       'idempotent', true, 'writes_performed', 0, 'mode', _mode,
       'replay_revalidated', true,
       'html_publication_pending', jsonb_build_object(
         'mindMap', public.cf10_html_publication_pending(replay.lesson_id,'mindMap'),
         'simulation', public.cf10_html_publication_pending(replay.lesson_id,'simulation')));
+
   END IF;
 
 
@@ -1251,9 +1414,28 @@ BEGIN
   END IF;
   SELECT * INTO ready_row FROM public.golden_lesson_ready_attestations WHERE publication_id = pub.id;
   IF ready_row.id IS NOT NULL THEN
+    -- CF11-R5: a READY replay must reprove the whole published state, the live attestation set
+    -- and that every capability is really READY. An existing evidence row proves nothing today.
+    PERFORM public.cf11_assert_replay_state(pub.result);
+    SELECT public.cf11_text_sha256(coalesce(string_agg(t.asset_code || ':' || t.attestation_sha256,
+                                                       '|' ORDER BY t.asset_code), ''))
+      INTO live_attestation_sha
+      FROM public.golden_lesson_asset_attestations t WHERE t.lesson_id = pub.lesson_id;
+    IF live_attestation_sha IS DISTINCT FROM ready_row.asset_attestation_sha256 THEN
+      RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: assets' USING ERRCODE = '23505';
+    END IF;
+    IF ready_row.snapshot_set_sha256 IS DISTINCT FROM public.cf11_text_sha256(ready_row.checks::text) THEN
+      RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: evidence' USING ERRCODE = '23505';
+    END IF;
+    IF (SELECT count(*) FROM public.lesson_capability_lifecycle
+         WHERE lesson_id = pub.lesson_id AND status = 'READY') <> 7 THEN
+      RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: lifecycle' USING ERRCODE = '23505';
+    END IF;
     RETURN pub.result || jsonb_build_object('idempotent', true, 'transitions', 0,
+      'replay_revalidated', true,
       'ready_attested_by', ready_row.attested_by, 'ready_attested_at', ready_row.attested_at);
   END IF;
+
 
 
   -- Explicit human evidence. No default, no inference.
@@ -1388,8 +1570,14 @@ GRANT EXECUTE ON FUNCTION public.golden_lesson_publish_cf11(uuid, uuid, text, js
 GRANT EXECUTE ON FUNCTION public.golden_lesson_attest_cf11_ready(uuid, uuid, jsonb, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cf11_asset_url(text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cf11_text_sha256(text) TO authenticated;
-REVOKE ALL ON FUNCTION public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text) TO authenticated;
+-- CF11-R5: the upload attestation is a MACHINE measurement. No human role may execute it.
+REVOKE ALL ON FUNCTION public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text, text)
+  TO service_role;
+-- The pre-R5 (8-argument) shape must not survive as a callable, human-executable overload.
+DROP FUNCTION IF EXISTS public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text);
+
 GRANT EXECUTE ON FUNCTION public.cf11_manifest_assets(jsonb, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cf11_magic_matches(text, text) TO authenticated;
 
@@ -1436,6 +1624,13 @@ END $$;
 
 REVOKE ALL ON FUNCTION public.golden_lesson_materialize_domain_batch_operator(uuid,uuid,text,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.golden_lesson_materialize_domain_batch_operator(uuid,uuid,text,text,text) TO authenticated;
+
+-- CF11-R5: the raw CF10 entry point trusts `_actor_id` as passed, so the service role must not
+-- be able to reach it at all. The operator wrapper (SECURITY DEFINER, owned by the migration
+-- role) keeps working because it delegates as its owner, not as the caller.
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_materialize_domain_batch(uuid,uuid,text,text,text)
+  FROM service_role, authenticated, anon, PUBLIC;
+
 
 -- ------------------------------------------------------------------------------------
 -- 10) CF11-R4 — lifecycle namespace guard.

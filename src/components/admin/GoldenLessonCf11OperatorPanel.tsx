@@ -25,7 +25,12 @@ import {
   type Cf11BatchStatus,
 } from "@/lib/content-factory/golden-lesson-publication.functions";
 
-const REQUIRED_READY = ["officialBookContent", "explanation", "summary", "quickReview", "checkUnderstanding", "lessonAssessment"];
+/**
+ * CF11-R5: the required capability set is NEVER hardcoded here. The seven authoritative rows are
+ * created by CF10 and are read back live from `lesson_capability_lifecycle`, so this console can
+ * never claim a capability the database does not actually track.
+ */
+const CF11_EXPECTED_CAPABILITY_COUNT = 7;
 
 function short(value: string | null | undefined) {
   return value ? `${value.slice(0, 8)}…` : "—";
@@ -106,8 +111,13 @@ export function GoldenLessonCf11OperatorPanel() {
   const bound = Boolean(selected?.bindingId);
   const readyCount = (selected?.lifecycle ?? []).filter((row) => row.status === "READY").length;
   const inReview = (selected?.lifecycle ?? []).filter((row) => row.status === "REVIEW").length;
+  const liveCapabilities = useMemo(
+    () => [...(selected?.lifecycle ?? [])].map((row) => row.capability).sort(),
+    [selected],
+  );
   const isPublisher = Boolean(selected?.publishedBy && user?.id && selected.publishedBy === user.id);
-  const canAttest = Boolean(selected?.published) && !selected?.readyAttestedAt && !isPublisher;
+  const canAttest = Boolean(selected?.published) && !selected?.readyAttestedAt && !isPublisher
+    && liveCapabilities.length === CF11_EXPECTED_CAPABILITY_COUNT;
 
 
   return (
@@ -244,7 +254,10 @@ export function GoldenLessonCf11OperatorPanel() {
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              القدرات المطلوبة: {REQUIRED_READY.join("، ")} — والمختبر اختياري.
+              القدرات الحيّة ({liveCapabilities.length}/{CF11_EXPECTED_CAPABILITY_COUNT}):{" "}
+              {liveCapabilities.length > 0 ? liveCapabilities.join("، ") : "لا توجد قدرات مسجّلة"}
+              {liveCapabilities.length !== CF11_EXPECTED_CAPABILITY_COUNT
+                && " — الاعتماد مرفوض ما لم تكن سبع قدرات بالضبط."}
             </p>
           </div>
         </div>
