@@ -1012,7 +1012,8 @@ BEGIN
        OR attestation_sha IS DISTINCT FROM replay.asset_attestation_sha256 THEN
       RAISE EXCEPTION 'CF11_REPLAY_ASSET_CONFLICT' USING ERRCODE = '23505';
     END IF;
-    -- Re-attest the LIVE state, do not trust the recorded result blindly.
+    -- CF11-R5: re-derive EVERY write-plan category from live rows. The recorded result is
+    -- never trusted on its own; a replay that cannot reprove the full state conflicts.
     IF public.cf10_html_publication_pending(replay.lesson_id,'mindMap')
        OR public.cf10_html_publication_pending(replay.lesson_id,'simulation') THEN
       RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: html' USING ERRCODE = '23505';
@@ -1021,12 +1022,13 @@ BEGIN
          WHERE lesson_id = replay.lesson_id) <> jsonb_array_length(declared_assets) THEN
       RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assets' USING ERRCODE = '23505';
     END IF;
-    RETURN replay.result || jsonb_build_object(
+    RETURN replay.result || public.cf11_assert_replay_state(replay.result) || jsonb_build_object(
       'idempotent', true, 'writes_performed', 0, 'mode', _mode,
       'replay_revalidated', true,
       'html_publication_pending', jsonb_build_object(
         'mindMap', public.cf10_html_publication_pending(replay.lesson_id,'mindMap'),
         'simulation', public.cf10_html_publication_pending(replay.lesson_id,'simulation')));
+
   END IF;
 
 
