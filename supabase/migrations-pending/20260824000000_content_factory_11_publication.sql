@@ -1451,7 +1451,7 @@ BEGIN
   -- --- deterministic write plan --------------------------------------------------------
 
   plan := jsonb_build_object(
-    'schema','tamkeen.content-factory-11.write-plan.v2',
+    'schema','tamkeen.content-factory-11.write-plan.v3',
     'batchId', _batch_id,
     'lessonId', lesson_row.id,
     'bindingId', binding.id,
