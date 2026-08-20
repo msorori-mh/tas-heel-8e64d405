@@ -197,7 +197,7 @@ test("CF10-R9 ships a forward dependency-namespace migration for CF04/CF08/CF09"
   }
   assert.equal((fwd.match(/CREATE OR REPLACE FUNCTION/g) ?? []).length, 3);
   assert.equal((fwd.match(/SECURITY DEFINER/g) ?? []).length, 3);
-  assert.equal((fwd.match(/SET search_path = public, pg_temp/g) ?? []).length, 3);
+  assert.equal((fwd.match(/SET search_path = public, pg_temp AS \$\$/g) ?? []).length, 3);
   // grants/revokes preserved verbatim
   assert.match(fwd, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_stage_manifest\(jsonb,text\) TO authenticated;/);
   assert.match(fwd, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_stage_domain_bundle\(uuid,integer,uuid,text,jsonb,jsonb\) TO service_role;/);
