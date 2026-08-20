@@ -173,4 +173,180 @@ EXCEPTION WHEN check_violation THEN
   IF SQLERRM NOT LIKE '%GOLDEN_DOMAIN_STAGE_IMMUTABLE%' THEN RAISE; END IF;
 END $$;
 
+
+-- ---------------------------------------------------------------------------
+-- 9) CF10-R3 — identity / lifecycle collision guards.
+--    Each case rebuilds a divergent pre-state inside a transaction and rolls back,
+--    so the asserted end-state of the rehearsal is unchanged.
+-- ---------------------------------------------------------------------------
+
+-- 9a) A question code that already belongs to another lesson is a hard conflict.
+BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER golden_materialization_immutable;
+DO $$
+DECLARE b uuid; l4 uuid; other uuid; sha text;
+BEGIN
+  b := public.cf10_batch('QURAN-G10-L04-PKG');
+  SELECT lesson_id INTO l4 FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
+  SELECT id INTO other FROM public.lessons WHERE id <> l4 LIMIT 1;
+  DELETE FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
+  UPDATE public.questions SET lesson_id = other WHERE code LIKE '%-OFFQ-%';
+  sha := public.golden_lesson_materialize_domain_batch(
+           b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(
+      b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-r3-a');
+    RAISE EXCEPTION 'CF10_EXPECTED_IDENTITY_CONFLICT';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_IDENTITY_CONFLICT%' THEN RAISE; END IF;
+  END;
+END $$;
+ROLLBACK;
+
+-- 9b) A question code on the right lesson but the wrong subject is also a conflict.
+BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER golden_materialization_immutable;
+INSERT INTO public.subjects(id, code, grade_id, curriculum_track_id, name)
+SELECT '42000000-0000-0000-0000-0000000000ff', 'CF10-OTHER', grade_id, curriculum_track_id, 'مادة أخرى'
+  FROM public.subjects LIMIT 1;
+DO $$
+DECLARE b uuid; sha text;
+BEGIN
+  b := public.cf10_batch('QURAN-G10-L04-PKG');
+  DELETE FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
+  UPDATE public.questions SET subject_id = '42000000-0000-0000-0000-0000000000ff'
+   WHERE code LIKE '%-OFFQ-%';
+  sha := public.golden_lesson_materialize_domain_batch(
+           b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(
+      b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-r3-b');
+    RAISE EXCEPTION 'CF10_EXPECTED_SUBJECT_IDENTITY_CONFLICT';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_IDENTITY_CONFLICT%' THEN RAISE; END IF;
+  END;
+END $$;
+ROLLBACK;
+
+-- 9c) A diverging selfTest question text is a content conflict, never an overwrite.
+BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER golden_materialization_immutable;
+DO $$
+DECLARE b uuid; sha text;
+BEGIN
+  b := public.cf10_batch('QURAN-G10-L04-PKG');
+  DELETE FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
+  UPDATE public.questions SET question_text = question_text || ' (tampered)' WHERE code LIKE '%-SELF-%';
+  sha := public.golden_lesson_materialize_domain_batch(
+           b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(
+      b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-r3-c');
+    RAISE EXCEPTION 'CF10_EXPECTED_SELFTEST_TEXT_CONFLICT';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_CONTENT_HASH_CONFLICT%' THEN RAISE; END IF;
+  END;
+END $$;
+ROLLBACK;
+
+-- 9d) A self-test assessment code owned by another lesson is a conflict.
+BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER golden_materialization_immutable;
+DO $$
+DECLARE b uuid; l4 uuid; other uuid; sha text;
+BEGIN
+  b := public.cf10_batch('QURAN-G10-L04-PKG');
+  SELECT lesson_id INTO l4 FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
+  SELECT id INTO other FROM public.lessons WHERE id <> l4 LIMIT 1;
+  DELETE FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
+  UPDATE public.lesson_assessments SET lesson_id = other WHERE assessment_code LIKE '%-SELFTEST';
+  sha := public.golden_lesson_materialize_domain_batch(
+           b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(
+      b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-r3-d');
+    RAISE EXCEPTION 'CF10_EXPECTED_ASSESSMENT_CONFLICT';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_IDENTITY_CONFLICT%' THEN RAISE; END IF;
+  END;
+END $$;
+ROLLBACK;
+
+-- 9e) A diverging lifecycle row (hash / status / applicability) is a conflict.
+BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER golden_materialization_immutable;
+DO $$
+DECLARE b uuid; l4 uuid; sha text;
+BEGIN
+  b := public.cf10_batch('QURAN-G10-L04-PKG');
+  SELECT lesson_id INTO l4 FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
+  DELETE FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
+  UPDATE public.lesson_capability_lifecycle SET draft_hash = repeat('e',64)
+   WHERE lesson_id = l4 AND capability = 'mindMap';
+  sha := public.golden_lesson_materialize_domain_batch(
+           b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(
+      b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-r3-e');
+    RAISE EXCEPTION 'CF10_EXPECTED_LIFECYCLE_CONFLICT';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_LIFECYCLE_CONFLICT%' THEN RAISE; END IF;
+  END;
+END $$;
+ROLLBACK;
+
+-- 9f) Replaying an already-materialized batch writes nothing new (real ROW_COUNT).
+SELECT public.cf04_assert(
+  (public.golden_lesson_materialize_domain_batch(public.cf10_batch('QURAN-G10-L04-PKG'),
+     '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan4'),
+     'cf10-key-0004')->>'writes_performed')::int = 0,
+  'idempotent replay performs zero writes');
+
+-- ---------------------------------------------------------------------------
+-- 10) CF10-R3 — RLS student visibility gate.
+-- ---------------------------------------------------------------------------
+-- A legacy, unmanaged lesson must stay visible; CF10-managed DRAFT lessons must not.
+INSERT INTO public.lessons(id, slug, subject_id, title)
+VALUES ('43000000-0000-0000-0000-0000000000aa','legacy-unmanaged','42000000-0000-0000-0000-000000000001','درس قديم');
+
+SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000004'; SET ROLE authenticated;
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lessons),'student sees only the unmanaged legacy lesson');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_book_contents),'student sees zero DRAFT book content');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_summaries),'student sees zero DRAFT summaries');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_explanations),'student sees zero DRAFT explanations');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_resources),'student sees zero DRAFT resources');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.questions),'student sees zero DRAFT questions');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_assessments),'student sees zero DRAFT assessments');
+SELECT public.cf04_assert((SELECT NOT visible FROM public.lesson_student_content_gate(
+  '43000000-0000-0000-0000-000000000001')),'gate reports the managed lesson as hidden');
+SELECT public.cf04_assert((SELECT managed FROM public.lesson_student_content_gate(
+  '43000000-0000-0000-0000-000000000001')),'gate reports the managed lesson as managed');
+SELECT public.cf04_assert((SELECT visible AND NOT managed FROM public.lesson_student_content_gate(
+  '43000000-0000-0000-0000-0000000000aa')),'gate keeps unmanaged legacy lessons visible');
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lessons_student_visible(
+  ARRAY['43000000-0000-0000-0000-000000000001','43000000-0000-0000-0000-0000000000aa']::uuid[])
+  WHERE visible),'batch gate returns exactly the visible lesson');
+RESET ROLE; RESET request.jwt.claim.sub;
+
+-- Content staff keep full DRAFT visibility.
+SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000003'; SET ROLE authenticated;
+SELECT public.cf04_assert((SELECT count(*)=3 FROM public.lessons),'content staff still see every lesson');
+SELECT public.cf04_assert((SELECT count(*)>0 FROM public.questions),'content staff still see DRAFT questions');
+RESET ROLE; RESET request.jwt.claim.sub;
+
+-- One READY capability opens the managed lesson for students.
+UPDATE public.lesson_capability_lifecycle
+   SET status='READY', ready_at=now(), ready_by='10000000-0000-0000-0000-000000000003',
+       ready_hash=draft_hash
+ WHERE lesson_id='43000000-0000-0000-0000-000000000001' AND capability='officialBookContent';
+
+SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000004'; SET ROLE authenticated;
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lessons),'READY capability reveals the managed lesson');
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_book_contents),'READY lesson exposes its book content');
+SELECT public.cf04_assert((SELECT visible FROM public.lesson_student_content_gate(
+  '43000000-0000-0000-0000-000000000001')),'gate flips to visible once READY');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lessons
+  WHERE slug='quran-lesson-04'),'the still-DRAFT lesson stays hidden');
+RESET ROLE; RESET request.jwt.claim.sub;
+
 SELECT 'PASS_CONTENT_FACTORY_10_PG17' AS verdict;
