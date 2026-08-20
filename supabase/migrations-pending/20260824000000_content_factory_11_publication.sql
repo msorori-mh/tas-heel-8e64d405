@@ -1831,6 +1831,33 @@ REVOKE EXECUTE ON FUNCTION public.golden_lesson_advance_review(uuid,integer,text
 REVOKE EXECUTE ON FUNCTION public.golden_lesson_bind_authoritative_identity(uuid,uuid)
   FROM service_role, anon, PUBLIC;
 
+-- Identity binding still needs a caller, so it gets the same shape as CF10: a SECURITY DEFINER
+-- operator wrapper that derives the actor from `auth.uid()` (never from an argument) and can only
+-- be reached by an authenticated admin.
+CREATE OR REPLACE FUNCTION public.golden_lesson_bind_authoritative_identity_operator(
+  _batch_id uuid,
+  _actor_id uuid
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+  uid uuid := auth.uid();
+BEGIN
+  IF uid IS NULL OR _actor_id IS NULL OR uid <> _actor_id THEN
+    RAISE EXCEPTION 'CF09_ACTOR_IDENTITY_MISMATCH' USING ERRCODE = '42501';
+  END IF;
+  IF NOT public.golden_lesson_has_role(uid, 'admin') THEN
+    RAISE EXCEPTION 'CF09_ADMIN_REQUIRED' USING ERRCODE = '42501';
+  END IF;
+  RETURN public.golden_lesson_bind_authoritative_identity(_batch_id, uid);
+END $$;
+
+REVOKE ALL ON FUNCTION public.golden_lesson_bind_authoritative_identity_operator(uuid,uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.golden_lesson_bind_authoritative_identity_operator(uuid,uuid) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_bind_authoritative_identity_operator(uuid,uuid)
+  FROM service_role, anon, PUBLIC;
+
+
+
 
 
 
