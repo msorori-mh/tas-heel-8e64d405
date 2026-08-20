@@ -831,9 +831,14 @@ BEGIN
         JOIN storage.objects o
           ON o.bucket_id = t.storage_bucket AND o.name = t.storage_path
          AND o.id = t.storage_object_id AND o.version = t.storage_version
-         AND coalesce(o.metadata->>'eTag', o.metadata->>'etag') IS NOT DISTINCT FROM t.storage_etag
-         AND coalesce((o.metadata->>'size')::bigint, t.byte_size) = t.byte_size
-         AND coalesce(o.metadata->>'mimetype', o.metadata->>'contentType', t.mime_type) = t.mime_type
+         -- CF11-R8 — FAIL-CLOSED metadata: absent metadata is drift, never an implicit match.
+         AND o.metadata IS NOT NULL
+         AND (o.metadata ? 'size') AND (o.metadata ? 'mimetype')
+         AND coalesce(o.metadata->>'eTag', o.metadata->>'etag', '') <> ''
+         AND coalesce(o.metadata->>'eTag', o.metadata->>'etag') = t.storage_etag
+         AND (o.metadata->>'size')::bigint = t.byte_size
+         AND o.metadata->>'mimetype' = t.mime_type
+
        WHERE p.lesson_id = v_lesson AND p.asset_code = a->>'assetCode'
          AND p.sha256 = a->>'sha256' AND p.byte_size = (a->>'bytes')::bigint
          AND p.mime_type = a->>'mimeType'
