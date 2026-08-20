@@ -1,4 +1,4 @@
--- CF10-R8: reproduce the production search path exactly before running the CF10 migration.
+-- CF10-R8/R9: reproduce the production search path exactly before running the CF10 migration.
 -- Production hosts pgcrypto in `extensions`; nothing named digest is reachable from `public`.
 DROP FUNCTION IF EXISTS public.digest(bytea, text);
 DO $$ BEGIN
