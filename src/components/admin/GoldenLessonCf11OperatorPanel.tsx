@@ -158,13 +158,30 @@ export function GoldenLessonCf11OperatorPanel() {
             <p>نشر إلى المراجعة بواسطة: <span className="font-mono">{short(selected.publishedBy)}</span></p>
             <p>اعتمد READY بواسطة: <span className="font-mono">{short(selected.readyAttestedBy)}</span></p>
             <p>قدرات REVIEW: {inReview} · قدرات READY: {readyCount}</p>
-            <p>الأصول المنشورة: {selected.declaredAssets}</p>
+            <p>الأصول: منشورة {selected.declaredAssets} · موثّقة رفعاً {selected.attestedAssets}</p>
+            <p className="sm:col-span-2 font-mono text-[10px] break-all">
+              خطة CF10: {selectedPlans.cf10 ? short(selectedPlans.cf10) : "لم تُراجَع"} · خطة CF11:{" "}
+              {selectedPlans.cf11 ? short(selectedPlans.cf11) : "لم تُراجَع"}
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" className="min-h-[44px] gap-2"
+            <Button type="button" variant="outline" className="min-h-[44px] gap-2"
               disabled={busy !== null || !approved || !bound || selected.materialized}
-              onClick={() => void run("materialize", () => materialize({ data: { batchId: selected.batchId, mode: "EXECUTE" } }))}>
+              onClick={() => void run("materialize-dry",
+                () => materialize({ data: { batchId: selected.batchId, mode: "DRY_RUN" } }),
+                { batchId: selected.batchId, stage: "cf10" })}>
+              <FlaskConical className="h-4 w-4" />معاينة CF10
+            </Button>
+            <Button type="button" variant="secondary" className="min-h-[44px] gap-2"
+              disabled={busy !== null || !approved || !bound || selected.materialized || !selectedPlans.cf10}
+              onClick={() => void run("materialize", () => materialize({
+                data: {
+                  batchId: selected.batchId,
+                  mode: "EXECUTE",
+                  expectedPlanSha256: selectedPlans.cf10!,
+                },
+              }))}>
               <Layers className="h-4 w-4" />تجسيد CF10
             </Button>
             <Button type="button" variant="secondary" className="min-h-[44px] gap-2"
@@ -174,12 +191,20 @@ export function GoldenLessonCf11OperatorPanel() {
             </Button>
             <Button type="button" variant="outline" className="min-h-[44px] gap-2"
               disabled={busy !== null || !approved || !selected.materialized}
-              onClick={() => void run("dry", () => publish({ data: { batchId: selected.batchId, mode: "DRY_RUN" } }))}>
+              onClick={() => void run("dry",
+                () => publish({ data: { batchId: selected.batchId, mode: "DRY_RUN" } }),
+                { batchId: selected.batchId, stage: "cf11" })}>
               <FlaskConical className="h-4 w-4" />CF11 DRY_RUN
             </Button>
             <Button type="button" className="min-h-[44px] gap-2"
-              disabled={busy !== null || !approved || !selected.materialized || selected.published}
-              onClick={() => void run("publish", () => publish({ data: { batchId: selected.batchId, mode: "EXECUTE" } }))}>
+              disabled={busy !== null || !approved || !selected.materialized || selected.published || !selectedPlans.cf11}
+              onClick={() => void run("publish", () => publish({
+                data: {
+                  batchId: selected.batchId,
+                  mode: "EXECUTE",
+                  expectedPlanSha256: selectedPlans.cf11!,
+                },
+              }))}>
               <BadgeCheck className="h-4 w-4" />نشر إلى REVIEW
             </Button>
             {selected.lessonId && (
@@ -188,6 +213,11 @@ export function GoldenLessonCf11OperatorPanel() {
               </Button>
             )}
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            لا يمكن التنفيذ قبل مراجعة خطة الكتابة (DRY_RUN): يُرسل التنفيذ بصمة الخطة نفسها،
+            ويرفضها الخادم إذا تغيّرت.
+          </p>
+
 
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
             <p className="text-sm font-medium flex items-center gap-2">
