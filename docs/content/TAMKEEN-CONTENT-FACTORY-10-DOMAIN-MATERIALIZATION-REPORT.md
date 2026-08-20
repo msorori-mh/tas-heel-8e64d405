@@ -166,8 +166,15 @@ readable through the Data API. Verdict: **R3=BLOCKED_PARTIAL_READY_LESSON_SCOPE_
   least one `REQUIRED` lifecycle row exists **and** no `REQUIRED` row is anything other than
   `READY`. `NA` rows never block; `DRAFT`/`REVIEW` rows always block.
 - Legacy unmanaged lessons stay visible unchanged; content staff keep full DRAFT visibility.
-- CF10 pins the seven capabilities for its own batch; a capability staged with a payload is
-  recorded `REQUIRED`, a declared-absent one `NA`.
+- CF10 pins the **exact staged capability set** (7 for the golden profiles) — not a distribution of
+  REQUIRED rows. Lifecycle applicability is copied verbatim from
+  `golden_lesson_domain_stage_entries.applicability` (`REQUIRED` / `OPTIONAL` / `NA`), so profiles
+  such as `GOLDEN_CHEMISTRY_V1` that declare `labExperimentHtml` OPTIONAL are materialized
+  faithfully. Reuse of an existing lifecycle row requires the same staged applicability
+  (`CF10_LIFECYCLE_CONFLICT` otherwise), and a staged `NA` capability carrying a payload is rejected.
+- `OPTIONAL` / `NA` capabilities never block the lesson, but because RLS is lesson-scoped,
+  `can_access_lesson()` stays closed until every `REQUIRED` capability is `READY`, so no non-READY
+  payload is reachable through the app.
 
 ### Fail-closed replay / identity (HIGH, closed)
 
@@ -197,16 +204,20 @@ separately and never inflates the domain count.
 ### R4 verification
 
 - PG17 rehearsal CF04 → CF08 → CF09 → CF10: `PASS_CONTENT_FACTORY_10_PG17`, including
-  all-DRAFT / 1-of-7 / 6-of-7 / 7-of-7 READY gate tests, a `REQUIRED` REVIEW re-close test, direct
+  all-DRAFT / one-REQUIRED-READY / all-but-one-REQUIRED-READY / all-REQUIRED-READY gate tests,
+  explicit OPTIONAL and NA tests (staged distribution 4 REQUIRED + 2 OPTIONAL + 1 NA, OPTIONAL in
+  REVIEW does not block, NA does not block, zero REQUIRED rows keeps the lesson hidden, and the gate
+  opens while OPTIONAL/NA rows are still DRAFT), a lifecycle-mirrors-staged-applicability test, a `REQUIRED` REVIEW re-close test, direct
   base-table queries under RLS, legacy-unmanaged parity, answer-leak = 0, no publish pointer, no
   assessment membership, and negative collision tests for every table above.
 - Fixture mirrors production constraints and RLS, including staff-only RLS on the question-bank
   layer (`question_revisions`, `question_options`, `question_targets`,
   `official_question_answers`, `question_option_rationales`).
-- Content-factory contract tests: 39/39 PASS. Typecheck: PASS.
+- Typecheck: PASS.
 - Full regression: 276/278 PASS (same two previously triaged category-B expectations).
+- Content-factory contract tests after the applicability correction: 39/39 PASS.
 - CF10-R4 migration SHA256:
-  `52dfed80c2622c702b56939d8cfb563d988b14d147b13724b1071db27a37ebad`
+  `401fca215fcba62e258e5ec16219b6ed13c0910de339cae2b30399e27dbcc6f7`
 
 R3=BLOCKED_PARTIAL_READY_LESSON_SCOPE_LEAK
 R4=SOURCE_CANDIDATE
