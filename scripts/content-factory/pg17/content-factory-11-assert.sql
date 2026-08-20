@@ -914,13 +914,15 @@ BEGIN
    WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND resource_type='mindmap';
 
   -- 3) an assessment membership quietly removed
-  SELECT question_id INTO member FROM public.lesson_assessments
-   WHERE lesson_id='43000000-0000-0000-0000-000000000012' LIMIT 1;
-  DELETE FROM public.lesson_assessments
-   WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND question_id=member;
+  SELECT aq.id INTO member FROM public.assessment_questions aq
+    JOIN public.lesson_assessments la ON la.id = aq.assessment_id
+   WHERE la.lesson_id='43000000-0000-0000-0000-000000000012' LIMIT 1;
+  CREATE TEMP TABLE cf11_member_backup ON COMMIT DROP AS
+    SELECT * FROM public.assessment_questions WHERE id = member;
+  DELETE FROM public.assessment_questions WHERE id = member;
   PERFORM public.cf11_assert_replay_refuses('assessmentMembers');
-  INSERT INTO public.lesson_assessments(lesson_id, question_id)
-  VALUES ('43000000-0000-0000-0000-000000000012', member);
+  INSERT INTO public.assessment_questions SELECT * FROM cf11_member_backup;
+  DROP TABLE cf11_member_backup;
 
   -- 4) a lifecycle row pushed back below REVIEW
   UPDATE public.lesson_capability_lifecycle SET status='DRAFT'
