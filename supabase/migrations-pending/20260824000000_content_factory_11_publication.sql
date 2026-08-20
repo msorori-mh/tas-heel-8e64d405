@@ -1812,6 +1812,27 @@ GRANT EXECUTE ON FUNCTION public.golden_lesson_materialize_domain_batch_operator
 REVOKE EXECUTE ON FUNCTION public.golden_lesson_materialize_domain_batch(uuid,uuid,text,text,text)
   FROM service_role, authenticated, anon, PUBLIC;
 
+-- ------------------------------------------------------------------------------------
+-- 9b) CF11-R6 — SERVICE-ROLE EDITORIAL DENIAL.
+--
+-- Machine duties (byte readback attestation, reads) stay with the service role. EVERY human
+-- editorial decision — publication, READY attestation, package review/state transitions,
+-- authoritative identity binding, operator materialization — is denied to the machine roles, so
+-- an automated caller holding the service key can never stand in for a reviewer.
+-- ------------------------------------------------------------------------------------
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_publish_cf11(uuid, uuid, text, jsonb, text, text)
+  FROM service_role, anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_attest_cf11_ready(uuid, uuid, jsonb, text)
+  FROM service_role, anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_materialize_domain_batch_operator(uuid,uuid,text,text,text)
+  FROM service_role, anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_advance_review(uuid,integer,text,jsonb,text)
+  FROM service_role, anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_bind_authoritative_identity(uuid,uuid)
+  FROM service_role, anon, PUBLIC;
+
+
+
 
 -- ------------------------------------------------------------------------------------
 -- 10) CF11-R4 — lifecycle namespace guard.
