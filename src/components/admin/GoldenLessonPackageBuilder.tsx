@@ -50,6 +50,8 @@ const CAPABILITY_LABEL: Record<GoldenCapability, string> = {
   selfTest: "اختبر نفسك",
 };
 
+type BundleIntakeResult = Awaited<ReturnType<typeof verifyAndStageGoldenLessonBundle>>;
+
 interface UploadedArtifact {
   fileName: string;
   sha256: string;

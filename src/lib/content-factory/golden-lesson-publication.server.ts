@@ -125,7 +125,8 @@ export async function readCf11Batches(): Promise<Cf11BatchStatus[]> {
     await admin
       .from("golden_lesson_domain_stage_batches")
       .select("id,package_id,package_version")
-      .order("created_at", { ascending: false })
+      // Schema of record orders staged batches by staged_at; there is no created_at column.
+      .order("staged_at", { ascending: false })
       .limit(25),
     "CF11_BATCHES_READ_FAILED",
   );
