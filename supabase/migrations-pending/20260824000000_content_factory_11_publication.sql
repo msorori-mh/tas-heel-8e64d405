@@ -971,7 +971,7 @@ BEGIN
   -- ===================================== EXECUTE =======================================
 
   -- 1) asset registry
-  FOR asset IN SELECT value FROM jsonb_array_elements(coalesce(_assets,'[]'::jsonb)) LOOP
+  FOR asset IN SELECT value FROM jsonb_array_elements(declared_assets) LOOP
     INSERT INTO public.golden_lesson_published_assets(
       batch_id, lesson_id, asset_code, file_name, mime_type, sha256, byte_size,
       storage_bucket, storage_path, alt_text_ar, published_by)
