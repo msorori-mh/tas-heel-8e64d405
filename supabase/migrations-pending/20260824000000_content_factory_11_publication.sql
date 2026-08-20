@@ -790,9 +790,9 @@ BEGIN
         USING ERRCODE = '23505';
     END IF;
   END LOOP;
-  SELECT coalesce(array_agg(DISTINCT value ORDER BY value), ARRAY[]::text[]) INTO v_planned_assets
-    FROM jsonb_array_elements(coalesce(_plan->'assets','[]'::jsonb)) e(value_json),
-         LATERAL (SELECT e.value_json->>'assetCode') s(value);
+  SELECT coalesce(array_agg(DISTINCT e.v->>'assetCode' ORDER BY e.v->>'assetCode'),
+                  ARRAY[]::text[]) INTO v_planned_assets
+    FROM jsonb_array_elements(coalesce(_plan->'assets','[]'::jsonb)) AS e(v);
   SELECT coalesce(array_agg(DISTINCT asset_code ORDER BY asset_code), ARRAY[]::text[])
     INTO v_live_assets
     FROM public.golden_lesson_published_assets WHERE lesson_id = v_lesson;
