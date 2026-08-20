@@ -230,6 +230,31 @@ export function GoldenLessonPackageBuilder() {
 
   const runValidation = () => setValidation(validateGoldenLessonPackage(packageDraft));
 
+  /**
+   * CF11 intake: uploads the exact ZIP the factory produced, then asks the server to download it,
+   * recompute every hash from the stored bytes and bind the attestation to the existing package
+   * version idempotently. The client never sends a hash, so an attestation cannot be forged here.
+   */
+  const uploadAndVerifyBundle = async () => {
+    setIntakeBusy(true);
+    setIntakeError(null);
+    setIntake(null);
+    try {
+      const blob = await buildPackageZipBlob(packageDraft, uploads, provenance, answersCompanion);
+      const slot = await createGoldenLessonBundleUpload();
+      const uploaded = await supabase.storage
+        .from(slot.bucket)
+        .uploadToSignedUrl(slot.path, slot.token, blob, { contentType: "application/zip" });
+      if (uploaded.error) throw new Error(uploaded.error.message);
+      const verified = await verifyAndStageGoldenLessonBundle({ data: { path: slot.path } });
+      setIntake(verified);
+    } catch (error) {
+      setIntakeError(error instanceof Error ? error.message : "BUNDLE_INTAKE_FAILED");
+    } finally {
+      setIntakeBusy(false);
+    }
+  };
+
   return (
     <section dir="rtl" aria-labelledby="golden-package-builder-heading" className="rounded-2xl border border-primary/25 bg-card p-5 shadow-card space-y-5">
       <div className="space-y-2">
