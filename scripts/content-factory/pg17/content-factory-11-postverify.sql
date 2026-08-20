@@ -43,7 +43,7 @@ WITH l AS (SELECT :'lesson'::uuid AS id),
   UNION ALL SELECT 'mindmap_is_js_free','0',
          (SELECT count(*)::text FROM public.lesson_resources
            WHERE lesson_id=(SELECT id FROM l) AND html_resource_type='mindmap'
-             AND description ~* '<script\b')
+             AND description ~* '<script\y')
   UNION ALL SELECT 'lab_csp_connect_src_none','1',
          (SELECT count(*)::text FROM public.lesson_resources
            WHERE lesson_id=(SELECT id FROM l) AND html_resource_type='experiment'

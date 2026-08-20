@@ -196,7 +196,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.cf11_inline_scripts(_html text)
 RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   SELECT coalesce(array_agg(m[1] ORDER BY ord), ARRAY[]::text[])
-    FROM regexp_matches(coalesce(_html,''), '<script\b[^>]*>([\s\S]*?)</script\s*>', 'gi')
+    FROM regexp_matches(coalesce(_html,''), '<script\y[^>]*>([\s\S]*?)</script\s*>', 'gi')
       WITH ORDINALITY AS t(m, ord);
 $$;
 
@@ -207,13 +207,13 @@ BEGIN
   IF _html ~* '(https?:)?//[a-z0-9]' THEN
     RAISE EXCEPTION 'CF11_HTML_EXTERNAL_URL: %', _label USING ERRCODE = '23514';
   END IF;
-  IF _html ~* '\b(src|href|action|formaction|data|poster)\s*=\s*["'']?\s*data:' THEN
+  IF _html ~* '\y(src|href|action|formaction|data|poster)\s*=\s*["'']?\s*data:' THEN
     RAISE EXCEPTION 'CF11_HTML_DATA_URI: %', _label USING ERRCODE = '23514';
   END IF;
-  IF _html ~* '<(iframe|object|embed|form|link|base)\b' THEN
+  IF _html ~* '<(iframe|object|embed|form|link|base)\y' THEN
     RAISE EXCEPTION 'CF11_HTML_FORBIDDEN_ELEMENT: %', _label USING ERRCODE = '23514';
   END IF;
-  IF _html ~* '\bon[a-z]+\s*=\s*["'']' THEN
+  IF _html ~* '\yon[a-z]+\s*=\s*["'']' THEN
     RAISE EXCEPTION 'CF11_HTML_INLINE_EVENT_HANDLER: %', _label USING ERRCODE = '23514';
   END IF;
 END $$;
@@ -225,10 +225,10 @@ BEGIN
   IF coalesce(btrim(_html),'') = '' THEN
     RAISE EXCEPTION 'CF11_HTML_EMPTY: %', _label USING ERRCODE = '23514';
   END IF;
-  IF _html ~* '<script\b' THEN
+  IF _html ~* '<script\y' THEN
     RAISE EXCEPTION 'CF11_STATIC_HTML_HAS_SCRIPT: %', _label USING ERRCODE = '23514';
   END IF;
-  IF _html !~* '<details\b' OR _html !~* '<summary\b' THEN
+  IF _html !~* '<details\y' OR _html !~* '<summary\y' THEN
     RAISE EXCEPTION 'CF11_MINDMAP_MISSING_DETAILS_SUMMARY: %', _label USING ERRCODE = '23514';
   END IF;
   PERFORM public.cf11_assert_no_network(_label, _html);
@@ -250,7 +250,7 @@ BEGIN
   END IF;
 
   SELECT (regexp_match(_html,
-    '<meta\s+http-equiv\s*=\s*["'']Content-Security-Policy["''][^>]*\bcontent\s*=\s*["'']([^"'']+)["'']',
+    '<meta\s+http-equiv\s*=\s*["'']Content-Security-Policy["''][^>]*\ycontent\s*=\s*["'']([^"'']+)["'']',
     'i'))[1] INTO csp;
   IF csp IS NULL THEN
     RAISE EXCEPTION 'CF11_LAB_CSP_MISSING: %', _label USING ERRCODE = '23514';
@@ -267,7 +267,7 @@ BEGIN
   IF _html !~* 'data-tamkeen-sandbox\s*=\s*["'']allow-scripts["'']' THEN
     RAISE EXCEPTION 'CF11_LAB_SANDBOX_CONTRACT_MISSING: %', _label USING ERRCODE = '23514';
   END IF;
-  IF _html ~* '<script\b[^>]*\bsrc\s*=' THEN
+  IF _html ~* '<script\y[^>]*\ysrc\s*=' THEN
     RAISE EXCEPTION 'CF11_LAB_EXTERNAL_SCRIPT: %', _label USING ERRCODE = '23514';
   END IF;
 
@@ -302,7 +302,7 @@ CREATE OR REPLACE FUNCTION public.cf11_html_asset_refs(_html text)
 RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   SELECT coalesce(array_agg(DISTINCT m[1]), ARRAY[]::text[])
     FROM regexp_matches(coalesce(_html,''),
-      '<img\b[^>]*\bsrc\s*=\s*["'']([^"''>]+)["'']', 'gi') AS t(m);
+      '<img\y[^>]*\ysrc\s*=\s*["'']([^"''>]+)["'']', 'gi') AS t(m);
 $$;
 
 -- ------------------------------------------------------------------------------------
