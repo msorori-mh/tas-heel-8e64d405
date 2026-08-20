@@ -472,16 +472,28 @@ BEGIN
 
 
   -- Lifecycle: seven capabilities, DRAFT + REQUIRED only. No REVIEW / READY / publish.
+  -- R3: reuse is only legal when the existing row is byte-identical in contract terms.
   FOR cap, lifecycle_cap IN
     SELECT capability, lifecycle_capability FROM public.golden_lesson_domain_stage_entries
      WHERE batch_id = _batch_id ORDER BY capability LOOP
+    SELECT status, applicability::text, draft_hash
+      INTO existing_status, existing_applicability, existing_draft_hash
+      FROM public.lesson_capability_lifecycle
+     WHERE lesson_id = lesson_row.id AND capability = lifecycle_cap;
+    IF existing_status IS NOT NULL AND (
+         existing_status IS DISTINCT FROM 'DRAFT'
+      OR existing_applicability IS DISTINCT FROM 'REQUIRED'
+      OR existing_draft_hash IS DISTINCT FROM (payloads->cap->>'sha256')) THEN
+      RAISE EXCEPTION 'CF10_LIFECYCLE_CONFLICT: %', lifecycle_cap USING ERRCODE = '23514';
+    END IF;
     INSERT INTO public.lesson_capability_lifecycle(lesson_id, capability, status, applicability,
                                                    draft_hash, draft_updated_at)
     VALUES (lesson_row.id, lifecycle_cap, 'DRAFT', 'REQUIRED',
             payloads->cap->>'sha256', now())
     ON CONFLICT (lesson_id, capability) DO NOTHING;
-    lifecycle_written := lifecycle_written + 1;
-    writes := writes + 1;
+    GET DIAGNOSTICS rc = ROW_COUNT;
+    lifecycle_written := lifecycle_written + rc;
+    writes := writes + rc;
   END LOOP;
 
   IF EXISTS (
