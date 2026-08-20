@@ -585,17 +585,19 @@ test("R8-ADD/2 — no alternate raw-table bypass: table trigger + no Data API wr
 });
 
 test("R8-ADD/3 — 21H bytes untouched and its grant surface preserved verbatim", () => {
+  const h21 = readFileSync(
+    "supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql", "utf8");
   assert.doesNotMatch(h21, /cf11_assert_demotion_allowed|golden_lesson_revoke_cf11_ready/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.lesson_capability_transition\(uuid,text,text,jsonb,text\) TO authenticated;/);
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.lesson_capability_transition\(uuid,text,text,jsonb,text\) FROM PUBLIC, anon;/);
 });
 
 test("R8-ADD/4 — PG17 proves refusal with zero writes and exactly one ledger row on the controlled path", () => {
-  const o = assertSql.slice(assertSql.indexOf("-- O) CF11-R8B"));
+  const o = asserts.slice(asserts.indexOf("-- O) CF11-R8B"));
   assert.match(o, /is_content_staff\('10000000-0000-0000-0000-000000000001'\)/);
   assert.match(o, /NOT public\.is_full_admin\('10000000-0000-0000-0000-000000000001'\)/);
   assert.match(o, /CF11_EXPECTED_DIRECT_TRANSITION_ZERO_WRITES: audit_logs moved/);
   assert.match(o, /CF11_EXPECTED_LEGACY_TRANSITION_UNCHANGED/);
-  const n2 = assertSql.slice(assertSql.indexOf("-- N2)"));
+  const n2 = asserts.slice(asserts.indexOf("-- N2)"));
   assert.match(n2, /count\(\*\) = 1 FROM public\.golden_lesson_ready_revocations WHERE batch_id = batch/);
 });
