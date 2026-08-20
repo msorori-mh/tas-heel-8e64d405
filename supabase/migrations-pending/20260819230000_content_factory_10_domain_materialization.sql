@@ -130,11 +130,10 @@ RETURNS text LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
                         FROM public.lesson_explanations e WHERE e.lesson_id = _lesson_id),'[]'::jsonb),
     'summaries', COALESCE((SELECT jsonb_agg(public.cf10_text_sha256(s.summary) ORDER BY s.id)
                         FROM public.lesson_summaries s WHERE s.lesson_id = _lesson_id),'[]'::jsonb),
-    'resources', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',r.resource_code,
-                        'type',r.resource_type::text,'title',r.title,'url',r.url,
-                        'htmlType',r.html_resource_type,'metaSha',r.metadata->>'sha256',
-                        'bodySha',public.cf10_text_sha256(r.description)) ORDER BY r.resource_code)
-                        FROM public.lesson_resources r WHERE r.lesson_id = _lesson_id),'[]'::jsonb),
+    -- R7: lesson_resources is entirely OUT of the immutable seed. CF10 owns no resource row at
+    -- all (HTML is deferred to CF11), so hashing the resource set would only capture rows CF11
+    -- legitimately adds later and would break an otherwise valid replay.
+    'resources','cf10-owns-no-lesson-resources',
     'questions', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',q.code,
                         'type',q.question_type,'correctIndex',q.correct_index,
                         'textSha',public.cf10_text_sha256(q.question_text),
