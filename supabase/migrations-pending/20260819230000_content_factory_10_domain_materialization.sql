@@ -1,26 +1,27 @@
--- CONTENT_FACTORY_10_DOMAIN_MATERIALIZATION (revision R3)
+-- CONTENT_FACTORY_10_DOMAIN_MATERIALIZATION (revision R4)
 -- Status: SOURCE-READY / NOT APPLIED TO PRODUCTION.
 -- Scope: atomic, idempotent, fail-closed materialization of one verified CF08 batch
 --        (optionally CF09-bound) into the natural domain tables, DRAFT lifecycle only.
--- R2 remediation vs the first CF10 draft (which was BLOCKED_BY_PRODUCTION_SCHEMA_CONTRACT):
---   * question_revisions are inserted as 'DRAFT' (lowercase 'published' violated
---     question_revisions_status_check, and the lifecycle guard forbids inserting APPROVED/
---     PUBLISHED/SUPERSEDED revisions at all).
---   * published_at / published_by / questions.current_published_revision_id are never written.
---   * payload_hash is computed with the existing canonical QB contract
---     public._qb_compute_revision_payload_hash (canonical_payload_v1); source_payload_hash carries
---     the staged capability sha256.
---   * assessment_questions membership is NOT written: validate_assessment_question_link requires a
---     PUBLISHED revision plus a matching published-revision target, which is impossible DRAFT-only.
--- R3 hardening (this revision):
---   * Student visibility gate: public.lesson_student_content_gate / public.lessons_student_visible.
---     A lesson that CF10 manages (lifecycle rows or a materialization ledger row) stays invisible to
---     students until at least one capability reaches READY. Unmanaged legacy lessons are untouched.
---   * Identity collision guards: an existing questions.code must belong to the same lesson_id AND
---     subject_id (CF10_IDENTITY_CONFLICT); selfTest reuse also compares question text/hash.
---   * lesson_assessments reuse is scoped to the same lesson_id (CF10_IDENTITY_CONFLICT).
---   * lifecycle reuse compares status / applicability / draft_hash (CF10_LIFECYCLE_CONFLICT).
---   * every conflict-capable write counter is derived from the real GET DIAGNOSTICS ROW_COUNT.
+--
+-- R2: revisions are DRAFT only; no publish pointers; canonical QB payload_hash;
+--     assessment_questions membership deliberately deferred.
+-- R3: first student visibility gate + first identity guards.
+--     VERDICT R3 = BLOCKED_PARTIAL_READY_LESSON_SCOPE_LEAK — the gate opened the whole
+--     lesson scope (can_access_lesson) as soon as ONE capability turned READY, so the
+--     remaining DRAFT capabilities became readable through the Data API.
+-- R4 (this revision):
+--   * Visibility is all-or-nothing: a managed lesson is student-visible only when it has
+--     at least one REQUIRED lifecycle row AND every REQUIRED row is READY. NA rows never
+--     block. OPTIONAL rows never block. Legacy unmanaged lessons are untouched.
+--     CF10 pins exactly seven REQUIRED capabilities per batch.
+--   * Fail-closed replay/identity: every pre-existing row that CF10 would otherwise reuse
+--     is compared field-by-field (lesson, resources, questions, revisions, options,
+--     targets, answers, rationales, assessment, lifecycle). Any divergence aborts the whole
+--     transaction with CF10_IDENTITY_CONFLICT / CF10_CONTENT_HASH_CONFLICT and no ledger row.
+--   * Binding resolution is authoritative: zero or exactly one binding; ambiguity aborts.
+--   * Counters come from real ROW_COUNT / RETURNING. payload_hash UPDATEs are reported in a
+--     separate counter and never inflate domain_writes_performed. An exact replay or a fully
+--     pre-existing identical state performs 0 domain writes.
 -- Explicitly absent: subject creation, curriculum deletes, storage/textbook mutation,
 --                    REVIEW/READY transitions, publication, answer exposure in student payload.
 
@@ -71,6 +72,13 @@ BEGIN
   END IF;
 END $$;
 
+-- The exact seven capabilities a CF10 batch must stage, and their lifecycle names.
+CREATE OR REPLACE FUNCTION public.cf10_required_capabilities()
+RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
+  SELECT ARRAY['labExperimentHtml','lessonSummaryHtml','mindMapHtml','officialBookContent',
+               'officialBookQuestions','selfTest','tamkeenExplanationHtml']::text[];
+$$;
+
 CREATE OR REPLACE FUNCTION public.golden_lesson_materialize_domain_batch(
   _batch_id uuid,
   _actor_id uuid,
@@ -83,6 +91,7 @@ DECLARE
   batch public.golden_lesson_domain_stage_batches;
   ver public.golden_lesson_package_versions;
   binding public.golden_lesson_identity_bindings;
+  binding_count integer := 0;
   replay public.golden_lesson_domain_materializations;
   ident jsonb;
   subject_row public.subjects;
@@ -99,12 +108,34 @@ DECLARE
   item jsonb;
   opt jsonb;
   question_row public.questions;
+  revision_row public.question_revisions;
+  resource_row public.lesson_resources;
+  answer_row public.official_question_answers;
+  rationale_row public.question_option_rationales;
+  target_row public.question_targets;
+  assessment_row public.lesson_assessments;
   v_revision_id uuid;
   v_assessment_id uuid;
   question_code text;
   option_code text;
   answer jsonb;
-  writes integer := 0;
+  staged_caps text[];
+  expected_title text;
+  expected_semester integer;
+  expected_sort integer;
+  expected_type text;
+  expected_options jsonb;
+  expected_grading text;
+  expected_interaction text;
+  expected_resource_type text;
+  expected_resource_title text;
+  expected_resource_sort integer;
+  expected_html_type text;
+  expected_applicability text;
+  opt_index integer := 0;
+  domain_writes integer := 0;
+  hash_updates integer := 0;
+  ledger_writes integer := 0;
   questions_written integer := 0;
   options_written integer := 0;
   answers_written integer := 0;
@@ -115,7 +146,6 @@ DECLARE
   existing_status text;
   existing_applicability text;
   existing_draft_hash text;
-  v_assessment_lesson uuid;
 
   payloads jsonb := '{}'::jsonb;
   existing_hash text;
@@ -146,7 +176,17 @@ BEGIN
   IF jsonb_typeof(ident) <> 'object' THEN
     RAISE EXCEPTION 'CF10_IDENTITY_MANIFEST_MISSING' USING ERRCODE = '22023';
   END IF;
-  external_lesson_code := ident->>'lessonCode';
+  -- R4: identity is never invented. Every field CF10 would write must be present.
+  IF coalesce(btrim(ident->>'subjectCode'),'') = ''
+     OR coalesce(btrim(ident->>'lessonSlug'),'') = ''
+     OR coalesce(btrim(ident->>'lessonCode'),'') = ''
+     OR (ident->>'semester') IS NULL THEN
+    RAISE EXCEPTION 'CF10_IDENTITY_MANIFEST_INCOMPLETE' USING ERRCODE = '22023';
+  END IF;
+  external_lesson_code := btrim(ident->>'lessonCode');
+  expected_title := coalesce(nullif(btrim(coalesce(ident->>'lessonTitle','')),''), btrim(ident->>'lessonSlug'));
+  expected_semester := (ident->>'semester')::integer;
+  expected_sort := coalesce((ident->>'sortOrder')::integer, 0);
 
   -- Subject: authoritative existing row only. CF10 never creates or renames a subject.
   IF (SELECT count(*) FROM public.subjects
@@ -156,14 +196,26 @@ BEGIN
   SELECT * INTO subject_row FROM public.subjects
    WHERE lower(btrim(code)) = lower(btrim(ident->>'subjectCode'));
 
-  SELECT * INTO binding FROM public.golden_lesson_identity_bindings WHERE batch_id = _batch_id;
-  IF binding.id IS NOT NULL AND binding.subject_id IS DISTINCT FROM subject_row.id THEN
-    RAISE EXCEPTION 'CF10_IDENTITY_BINDING_SUBJECT_MISMATCH' USING ERRCODE = '23514';
+  -- R4: binding resolution must be authoritative — zero bindings (explicit no-binding path)
+  -- or exactly one. Ambiguity is never resolved heuristically.
+  SELECT count(*) INTO binding_count
+    FROM public.golden_lesson_identity_bindings WHERE batch_id = _batch_id;
+  IF binding_count > 1 THEN
+    RAISE EXCEPTION 'CF10_IDENTITY_BINDING_AMBIGUOUS' USING ERRCODE = '23514';
+  END IF;
+  IF binding_count = 1 THEN
+    SELECT * INTO binding FROM public.golden_lesson_identity_bindings WHERE batch_id = _batch_id;
+    IF binding.subject_id IS DISTINCT FROM subject_row.id THEN
+      RAISE EXCEPTION 'CF10_IDENTITY_BINDING_SUBJECT_MISMATCH' USING ERRCODE = '23514';
+    END IF;
+    IF btrim(binding.external_lesson_code) IS DISTINCT FROM external_lesson_code THEN
+      RAISE EXCEPTION 'CF10_IDENTITY_BINDING_CODE_MISMATCH' USING ERRCODE = '23514';
+    END IF;
   END IF;
 
   SELECT * INTO lesson_row FROM public.lessons
    WHERE subject_id = subject_row.id AND lower(btrim(slug)) = lower(btrim(ident->>'lessonSlug'));
-  IF binding.id IS NOT NULL AND lesson_row.id IS NOT NULL
+  IF binding_count = 1 AND lesson_row.id IS NOT NULL
      AND binding.lesson_id IS DISTINCT FROM lesson_row.id THEN
     RAISE EXCEPTION 'CF10_IDENTITY_BINDING_LESSON_MISMATCH' USING ERRCODE = '23514';
   END IF;
@@ -189,7 +241,9 @@ BEGIN
       'lifecycleCapability', entry.lifecycle_capability,
       'applicability', entry.applicability, 'sha256', entry.source_sha256));
   END LOOP;
-  IF jsonb_array_length(plan) <> 7 THEN
+  -- R4: exactly the seven pinned capabilities, no more, no fewer, no substitutes.
+  SELECT array_agg(k ORDER BY k) INTO staged_caps FROM jsonb_object_keys(payloads) AS k;
+  IF coalesce(staged_caps, ARRAY[]::text[]) IS DISTINCT FROM public.cf10_required_capabilities() THEN
     RAISE EXCEPTION 'CF10_STAGED_CAPABILITY_SET_INVALID' USING ERRCODE = '22023';
   END IF;
 
@@ -215,6 +269,7 @@ BEGIN
     'lifecycleTarget', jsonb_build_object('status','DRAFT','applicability','REQUIRED','capabilities',7),
     'revisionTarget', jsonb_build_object('status','DRAFT','payloadHashVersion','canonical_payload_v1',
                                          'publishedPointer',false,'assessmentMembership',false),
+    'visibilityTarget', jsonb_build_object('studentVisible',false,'requiresAllRequiredReady',true),
     'forbidden', jsonb_build_object('subjectCreate',false,'delete',false,'storage',false,
                                     'publish',false,'ready',false));
 
@@ -222,7 +277,8 @@ BEGIN
 
   IF _mode = 'DRY_RUN' THEN
     RETURN jsonb_build_object('mode','DRY_RUN','write_plan',plan,'write_plan_sha256',plan_sha,
-      'writes_performed',0,'domain_writes_performed',0,'answer_leak',0,
+      'writes_performed',0,'domain_writes_performed',0,'payload_hash_updates',0,
+      'ledger_writes',0,'answer_leak',0,
       'lesson_will_be_created', lesson_row.id IS NULL);
   END IF;
 
@@ -238,22 +294,31 @@ BEGIN
       RAISE EXCEPTION 'CF10_REPLAY_CONFLICT' USING ERRCODE = '23514';
     END IF;
     RETURN replay.result || jsonb_build_object('idempotent',true,'writes_performed',0,
-      'domain_writes_performed',0);
+      'domain_writes_performed',0,'payload_hash_updates',0,'ledger_writes',0);
   END IF;
 
   IF _expected_plan_sha256 IS DISTINCT FROM plan_sha THEN
     RAISE EXCEPTION 'CF10_WRITE_PLAN_HASH_MISMATCH' USING ERRCODE = '23514';
   END IF;
 
-  -- Lesson: created only when absent under the authoritative existing subject.
+  -- Lesson: created only when absent. An existing lesson must match the manifest exactly.
   IF lesson_row.id IS NULL THEN
     INSERT INTO public.lessons(subject_id, slug, title, unit_id, is_free, semester, sort_order)
-    VALUES (subject_row.id, btrim(ident->>'lessonSlug'),
-            coalesce(nullif(btrim(coalesce(ident->>'lessonTitle','')),''), btrim(ident->>'lessonSlug')),
-            NULL, true, (ident->>'semester')::integer, coalesce((ident->>'sortOrder')::integer,0))
+    VALUES (subject_row.id, btrim(ident->>'lessonSlug'), expected_title,
+            NULL, true, expected_semester, expected_sort)
     RETURNING * INTO lesson_row;
+    GET DIAGNOSTICS rc = ROW_COUNT;
     lesson_created := true;
-    writes := writes + 1;
+    domain_writes := domain_writes + rc;
+  ELSE
+    IF lesson_row.subject_id IS DISTINCT FROM subject_row.id
+       OR lesson_row.title IS DISTINCT FROM expected_title
+       OR lesson_row.unit_id IS NOT NULL
+       OR lesson_row.is_free IS DISTINCT FROM true
+       OR lesson_row.semester IS DISTINCT FROM expected_semester
+       OR lesson_row.sort_order IS DISTINCT FROM expected_sort THEN
+      RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: lessons %', lesson_row.slug USING ERRCODE = '23514';
+    END IF;
   END IF;
 
   -- 1) officialBookContent -> lesson_book_contents (natural key: lesson_id)
@@ -263,7 +328,8 @@ BEGIN
     FROM public.lesson_book_contents WHERE lesson_id = lesson_row.id;
   IF existing_hash IS NULL THEN
     INSERT INTO public.lesson_book_contents(lesson_id, content) VALUES (lesson_row.id, payload_text);
-    writes := writes + 1;
+    GET DIAGNOSTICS rc = ROW_COUNT;
+    domain_writes := domain_writes + rc;
   ELSIF existing_hash IS DISTINCT FROM new_hash THEN
     RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: lesson_book_contents' USING ERRCODE = '23514';
   END IF;
@@ -277,7 +343,8 @@ BEGIN
   IF existing_hash IS NULL THEN
     INSERT INTO public.lesson_explanations(lesson_id, title, content, sort_order, explanation_code)
     VALUES (lesson_row.id, 'شرح تمكين', payload_text, 0, external_lesson_code || '-EXP');
-    writes := writes + 1;
+    GET DIAGNOSTICS rc = ROW_COUNT;
+    domain_writes := domain_writes + rc;
   ELSIF existing_hash IS DISTINCT FROM new_hash THEN
     RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: lesson_explanations' USING ERRCODE = '23514';
   END IF;
@@ -289,241 +356,392 @@ BEGIN
     FROM public.lesson_summaries WHERE lesson_id = lesson_row.id;
   IF existing_hash IS NULL THEN
     INSERT INTO public.lesson_summaries(lesson_id, summary) VALUES (lesson_row.id, payload_text);
-    writes := writes + 1;
+    GET DIAGNOSTICS rc = ROW_COUNT;
+    domain_writes := domain_writes + rc;
   ELSIF existing_hash IS DISTINCT FROM new_hash THEN
     RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: lesson_summaries' USING ERRCODE = '23514';
   END IF;
 
   -- 4/5) mindMapHtml + labExperimentHtml -> lesson_resources (natural key: lesson_id, resource_code)
+  --      R4: a reused resource row must match EVERY written column, not only the body.
   FOREACH cap IN ARRAY ARRAY['mindMapHtml','labExperimentHtml'] LOOP
     payload_text := payloads->cap->>'text';
     CONTINUE WHEN payload_text IS NULL;
     option_code := CASE cap WHEN 'mindMapHtml' THEN external_lesson_code || '-MINDMAP'
                             ELSE external_lesson_code || '-EXPERIMENT' END;
-    new_hash := public.cf10_text_sha256(payload_text);
-    SELECT public.cf10_text_sha256(description) INTO existing_hash
-      FROM public.lesson_resources WHERE lesson_id = lesson_row.id AND resource_code = option_code;
-    IF existing_hash IS NULL THEN
+    expected_resource_type := CASE cap WHEN 'mindMapHtml' THEN 'mindmap' ELSE 'experiment' END;
+    expected_resource_title := CASE cap WHEN 'mindMapHtml' THEN 'الخريطة الذهنية' ELSE 'التجربة العملية' END;
+    expected_resource_sort := CASE cap WHEN 'mindMapHtml' THEN 1 ELSE 2 END;
+    expected_html_type := CASE cap WHEN 'mindMapHtml' THEN 'STATIC' ELSE 'INTERACTIVE' END;
+    SELECT * INTO resource_row FROM public.lesson_resources
+     WHERE lesson_id = lesson_row.id AND resource_code = option_code;
+    IF resource_row.id IS NULL THEN
       INSERT INTO public.lesson_resources(lesson_id, resource_type, title, url, description,
                                           sort_order, resource_code, html_resource_type, metadata, is_primary)
-      VALUES (lesson_row.id,
-              (CASE cap WHEN 'mindMapHtml' THEN 'mindmap' ELSE 'experiment' END)::public.lesson_resource_type,
-              CASE cap WHEN 'mindMapHtml' THEN 'الخريطة الذهنية' ELSE 'التجربة العملية' END,
-              '', payload_text, CASE cap WHEN 'mindMapHtml' THEN 1 ELSE 2 END, option_code,
-              CASE cap WHEN 'mindMapHtml' THEN 'STATIC' ELSE 'INTERACTIVE' END,
+      VALUES (lesson_row.id, expected_resource_type::public.lesson_resource_type,
+              expected_resource_title, '', payload_text, expected_resource_sort, option_code,
+              expected_html_type,
               jsonb_build_object('contentFactory','CF10','sha256', payloads->cap->>'sha256'), false);
-      writes := writes + 1;
-    ELSIF existing_hash IS DISTINCT FROM new_hash THEN
-      RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: lesson_resources %', cap USING ERRCODE = '23514';
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      domain_writes := domain_writes + rc;
+    ELSE
+      IF resource_row.lesson_id IS DISTINCT FROM lesson_row.id
+         OR resource_row.resource_type::text IS DISTINCT FROM expected_resource_type
+         OR resource_row.title IS DISTINCT FROM expected_resource_title
+         OR coalesce(resource_row.url,'') IS DISTINCT FROM ''
+         OR resource_row.sort_order IS DISTINCT FROM expected_resource_sort
+         OR resource_row.html_resource_type IS DISTINCT FROM expected_html_type
+         OR coalesce(resource_row.metadata->>'sha256','') IS DISTINCT FROM (payloads->cap->>'sha256')
+         OR coalesce(resource_row.metadata->>'contentFactory','') IS DISTINCT FROM 'CF10'
+         OR resource_row.is_primary IS DISTINCT FROM false THEN
+        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: lesson_resources %', option_code USING ERRCODE = '23514';
+      END IF;
+      IF public.cf10_text_sha256(resource_row.description)
+         IS DISTINCT FROM public.cf10_text_sha256(payload_text) THEN
+        RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: lesson_resources %', cap USING ERRCODE = '23514';
+      END IF;
     END IF;
   END LOOP;
 
   -- 6) officialBookQuestions -> questions + question_revisions(DRAFT) + question_options + targets.
   --    Answers stay strictly revision-pinned inside the confidential tables.
-  --    CF10-R2: production `qb_guard_question_revision_lifecycle` forbids inserting a revision as
-  --    APPROVED/PUBLISHED/SUPERSEDED, and `questions.current_published_revision_id` may only point at a
-  --    PUBLISHED revision. CF10 therefore writes DRAFT revisions only and never moves the pointer.
   question_json := CASE WHEN payloads->'officialBookQuestions'->>'text' IS NULL THEN '{}'::jsonb
                         ELSE (payloads->'officialBookQuestions'->>'text')::jsonb END;
   IF jsonb_typeof(question_json) <> 'object' THEN question_json := jsonb_build_object('questions', question_json); END IF;
   FOR item IN SELECT value FROM jsonb_array_elements(coalesce(question_json->'questions','[]'::jsonb)) LOOP
     question_code := external_lesson_code || '-OFFQ-' || coalesce(item->>'question_number', item->>'id');
+    expected_type := coalesce(item->>'question_type','SHORT_ANSWER');
+    expected_options := coalesce(item->'options','[]'::jsonb);
+    expected_grading := 'MANUAL';
+    expected_interaction := expected_type;
     SELECT * INTO question_row FROM public.questions WHERE code = question_code;
     IF question_row.id IS NULL THEN
       INSERT INTO public.questions(lesson_id, subject_id, question_text, options, correct_index,
                                    question_type, sort_order, code, created_by)
       VALUES (lesson_row.id, subject_row.id, item->>'official_text',
-              coalesce(item->'options','[]'::jsonb), -1,
-              coalesce(item->>'question_type','SHORT_ANSWER'), questions_written, question_code, _actor_id)
+              expected_options, -1, expected_type, questions_written, question_code, _actor_id)
       RETURNING * INTO question_row;
-      questions_written := questions_written + 1;
-      writes := writes + 1;
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      questions_written := questions_written + rc;
+      domain_writes := domain_writes + rc;
 
       INSERT INTO public.question_revisions(question_id, revision_number, status, interaction_type,
                                             grading_mode, question_text, max_score, allow_partial,
                                             requires_media, manual_grading_required,
                                             payload_hash_version, source_payload_hash, created_by)
-      VALUES (question_row.id, 1, 'DRAFT', coalesce(item->>'question_type','SHORT_ANSWER'),
-              'MANUAL', item->>'official_text', 1, false, false, true,
+      VALUES (question_row.id, 1, 'DRAFT', expected_interaction,
+              expected_grading, item->>'official_text', 1, false, false, true,
               'canonical_payload_v1', payloads->'officialBookQuestions'->>'sha256', _actor_id)
       RETURNING id INTO v_revision_id;
-      writes := writes + 1;
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      domain_writes := domain_writes + rc;
 
-      options_written := 0;
-      FOR opt IN SELECT value FROM jsonb_array_elements(coalesce(item->'options','[]'::jsonb)) LOOP
+      opt_index := 0;
+      FOR opt IN SELECT value FROM jsonb_array_elements(expected_options) LOOP
         INSERT INTO public.question_options(question_revision_id, option_code, body, sort_order, is_correct)
-        VALUES (v_revision_id, coalesce(opt->>'code', 'opt-' || options_written::text),
-                coalesce(opt->>'body', opt#>>'{}'), options_written, false);
-        options_written := options_written + 1;
-        writes := writes + 1;
+        VALUES (v_revision_id, coalesce(opt->>'code', 'opt-' || opt_index::text),
+                coalesce(opt->>'body', opt#>>'{}'), opt_index, false);
+        GET DIAGNOSTICS rc = ROW_COUNT;
+        opt_index := opt_index + 1;
+        options_written := options_written + rc;
+        domain_writes := domain_writes + rc;
       END LOOP;
 
       INSERT INTO public.question_targets(question_id, revision_id, target_type, subject_id,
                                           lesson_id, is_primary, created_by)
       VALUES (question_row.id, v_revision_id, 'LESSON', subject_row.id, lesson_row.id, true, _actor_id);
-      targets_written := targets_written + 1;
-      writes := writes + 1;
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      targets_written := targets_written + rc;
+      domain_writes := domain_writes + rc;
 
       -- Canonical QB contract hash over the freshly written draft payload (no invented algorithm).
       UPDATE public.question_revisions
          SET payload_hash = public._qb_compute_revision_payload_hash(v_revision_id),
              payload_hash_version = 'canonical_payload_v1'
        WHERE id = v_revision_id;
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      hash_updates := hash_updates + rc;
     ELSE
-      -- R3: identity before content. A reused code must sit on the same lesson AND subject.
+      -- R4: reuse only when the pre-existing graph is byte-for-byte what CF10 would write.
       IF question_row.lesson_id IS DISTINCT FROM lesson_row.id
-         OR question_row.subject_id IS DISTINCT FROM subject_row.id THEN
+         OR question_row.subject_id IS DISTINCT FROM subject_row.id
+         OR question_row.code IS DISTINCT FROM question_code
+         OR question_row.question_type IS DISTINCT FROM expected_type
+         OR question_row.correct_index IS DISTINCT FROM -1 THEN
         RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: questions %', question_code USING ERRCODE = '23514';
       END IF;
-      IF question_row.question_text IS DISTINCT FROM item->>'official_text' THEN
+      IF coalesce(question_row.options,'[]'::jsonb) IS DISTINCT FROM expected_options
+         OR question_row.question_text IS DISTINCT FROM item->>'official_text' THEN
         RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: questions %', question_code USING ERRCODE = '23514';
       END IF;
-      SELECT id INTO v_revision_id FROM public.question_revisions
+      SELECT * INTO revision_row FROM public.question_revisions
        WHERE question_id = question_row.id AND status = 'DRAFT'
        ORDER BY revision_number DESC LIMIT 1;
+      IF revision_row.id IS NULL THEN
+        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: question_revisions %', question_code USING ERRCODE = '23514';
+      END IF;
+      IF revision_row.revision_number IS DISTINCT FROM 1
+         OR revision_row.status IS DISTINCT FROM 'DRAFT'
+         OR revision_row.interaction_type IS DISTINCT FROM expected_interaction
+         OR revision_row.grading_mode IS DISTINCT FROM expected_grading
+         OR revision_row.question_text IS DISTINCT FROM item->>'official_text'
+         OR revision_row.source_payload_hash IS DISTINCT FROM (payloads->'officialBookQuestions'->>'sha256')
+         OR revision_row.payload_hash_version IS DISTINCT FROM 'canonical_payload_v1'
+         OR revision_row.payload_hash IS DISTINCT FROM public._qb_compute_revision_payload_hash(revision_row.id) THEN
+        RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: question_revisions %', question_code USING ERRCODE = '23514';
+      END IF;
+      v_revision_id := revision_row.id;
+      -- options: exact set, order, body, and no answer key.
+      IF (SELECT count(*) FROM public.question_options WHERE question_revision_id = v_revision_id)
+         IS DISTINCT FROM jsonb_array_length(expected_options) THEN
+        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: question_options %', question_code USING ERRCODE = '23514';
+      END IF;
+      opt_index := 0;
+      FOR opt IN SELECT value FROM jsonb_array_elements(expected_options) LOOP
+        IF NOT EXISTS (SELECT 1 FROM public.question_options o
+                        WHERE o.question_revision_id = v_revision_id
+                          AND o.sort_order = opt_index
+                          AND o.option_code = coalesce(opt->>'code','opt-' || opt_index::text)
+                          AND o.body = coalesce(opt->>'body', opt#>>'{}')
+                          AND o.is_correct = false) THEN
+          RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: question_options %', question_code USING ERRCODE = '23514';
+        END IF;
+        opt_index := opt_index + 1;
+      END LOOP;
+      SELECT * INTO target_row FROM public.question_targets
+       WHERE question_id = question_row.id AND revision_id = v_revision_id AND target_type = 'LESSON';
+      IF target_row.id IS NULL
+         OR target_row.subject_id IS DISTINCT FROM subject_row.id
+         OR target_row.lesson_id IS DISTINCT FROM lesson_row.id
+         OR target_row.is_primary IS DISTINCT FROM true THEN
+        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: question_targets %', question_code USING ERRCODE = '23514';
+      END IF;
     END IF;
 
     SELECT value INTO answer FROM jsonb_array_elements(coalesce((companion->>'body')::jsonb->'answers','[]'::jsonb))
       WHERE value->>'question_id' = coalesce(item->>'id', question_code);
     IF answer IS NOT NULL AND v_revision_id IS NOT NULL THEN
-      INSERT INTO public.official_question_answers(question_id, revision_id, model_answer, explanation)
-      VALUES (question_row.id, v_revision_id, answer->>'correct_option', answer->>'rationale')
-      ON CONFLICT (question_id, revision_id) DO NOTHING;
-      GET DIAGNOSTICS rc = ROW_COUNT;
-      answers_written := answers_written + rc;
-      writes := writes + rc;
+      SELECT * INTO answer_row FROM public.official_question_answers
+       WHERE question_id = question_row.id AND revision_id = v_revision_id;
+      IF answer_row.id IS NULL THEN
+        INSERT INTO public.official_question_answers(question_id, revision_id, model_answer, explanation)
+        VALUES (question_row.id, v_revision_id, answer->>'correct_option', answer->>'rationale');
+        GET DIAGNOSTICS rc = ROW_COUNT;
+        answers_written := answers_written + rc;
+        domain_writes := domain_writes + rc;
+      ELSIF answer_row.model_answer IS DISTINCT FROM (answer->>'correct_option')
+         OR answer_row.explanation IS DISTINCT FROM (answer->>'rationale') THEN
+        RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: official_question_answers %', question_code USING ERRCODE = '23514';
+      END IF;
     END IF;
   END LOOP;
 
   -- 7) selfTest -> lesson_assessments shell + DRAFT questions (+ revision-pinned rationales).
-  --    CF10-R2: `validate_assessment_question_link` requires a PUBLISHED revision plus a matching
-  --    target on that published revision, so assessment membership CANNOT be written in a DRAFT-only
-  --    pass. Membership is deliberately deferred to the later approval/publish stage.
+  --    Membership in assessment_questions requires a PUBLISHED revision, so it stays deferred.
   question_json := CASE WHEN payloads->'selfTest'->>'text' IS NULL THEN NULL
                         ELSE (payloads->'selfTest'->>'text')::jsonb END;
   IF question_json IS NOT NULL THEN
-  -- R3: an existing assessment code must belong to this very lesson.
-  SELECT id, lesson_id INTO v_assessment_id, v_assessment_lesson FROM public.lesson_assessments
+
+  -- R4: an existing assessment must match every written column, and belong to this lesson.
+  SELECT * INTO assessment_row FROM public.lesson_assessments
    WHERE assessment_code = external_lesson_code || '-SELFTEST';
-  IF v_assessment_id IS NOT NULL AND v_assessment_lesson IS DISTINCT FROM lesson_row.id THEN
-    RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: lesson_assessments %',
-      external_lesson_code || '-SELFTEST' USING ERRCODE = '23514';
-  END IF;
-  IF v_assessment_id IS NULL THEN
+  IF assessment_row.id IS NOT NULL THEN
+    IF assessment_row.lesson_id IS DISTINCT FROM lesson_row.id
+       OR assessment_row.title IS DISTINCT FROM 'اختبر نفسك'
+       OR assessment_row.instructions IS NOT NULL
+       OR assessment_row.sort_order IS DISTINCT FROM 0 THEN
+      RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: lesson_assessments %',
+        external_lesson_code || '-SELFTEST' USING ERRCODE = '23514';
+    END IF;
+    v_assessment_id := assessment_row.id;
+  ELSE
     INSERT INTO public.lesson_assessments(lesson_id, title, instructions, sort_order, assessment_code)
     VALUES (lesson_row.id, 'اختبر نفسك', NULL, 0, external_lesson_code || '-SELFTEST')
     RETURNING id INTO v_assessment_id;
     GET DIAGNOSTICS rc = ROW_COUNT;
-    writes := writes + rc;
+    domain_writes := domain_writes + rc;
   END IF;
 
   FOR item IN SELECT value FROM jsonb_array_elements(coalesce(question_json->'questions','[]'::jsonb)) LOOP
     question_code := external_lesson_code || '-SELF-' || (item->>'id');
+    expected_type := coalesce(item->>'type','multiple_choice');
+    expected_options := coalesce(item->'options','[]'::jsonb);
+    expected_interaction := expected_type;
+    expected_grading := 'AUTO_SINGLE';
     SELECT * INTO question_row FROM public.questions WHERE code = question_code;
     IF question_row.id IS NULL THEN
       INSERT INTO public.questions(lesson_id, subject_id, question_text, options, correct_index,
                                    question_type, sort_order, code, created_by)
       VALUES (lesson_row.id, subject_row.id, item->>'question',
-              coalesce(item->'options','[]'::jsonb), -1,
-              coalesce(item->>'type','multiple_choice'), questions_written, question_code, _actor_id)
+              expected_options, -1, expected_type, questions_written, question_code, _actor_id)
       RETURNING * INTO question_row;
-      questions_written := questions_written + 1;
-      writes := writes + 1;
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      questions_written := questions_written + rc;
+      domain_writes := domain_writes + rc;
 
       INSERT INTO public.question_revisions(question_id, revision_number, status, interaction_type,
-                                            question_text, max_score, allow_partial, requires_media,
-                                            manual_grading_required, payload_hash_version,
-                                            source_payload_hash, created_by)
-      VALUES (question_row.id, 1, 'DRAFT', coalesce(item->>'type','multiple_choice'),
+                                            grading_mode, question_text, max_score, allow_partial,
+                                            requires_media, manual_grading_required,
+                                            payload_hash_version, source_payload_hash, created_by)
+      VALUES (question_row.id, 1, 'DRAFT', expected_interaction, expected_grading,
               item->>'question', 1, false, false, false, 'canonical_payload_v1',
               payloads->'selfTest'->>'sha256', _actor_id)
       RETURNING id INTO v_revision_id;
-      writes := writes + 1;
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      domain_writes := domain_writes + rc;
 
-      options_written := 0;
-      FOR opt IN SELECT value FROM jsonb_array_elements(coalesce(item->'options','[]'::jsonb)) LOOP
-        option_code := chr(97 + options_written);
+      opt_index := 0;
+      FOR opt IN SELECT value FROM jsonb_array_elements(expected_options) LOOP
         INSERT INTO public.question_options(question_revision_id, option_code, body, sort_order, is_correct)
-        VALUES (v_revision_id, option_code, coalesce(opt->>'body', opt#>>'{}'), options_written, false);
-        options_written := options_written + 1;
-        writes := writes + 1;
+        VALUES (v_revision_id, chr(97 + opt_index), coalesce(opt->>'body', opt#>>'{}'), opt_index, false);
+        GET DIAGNOSTICS rc = ROW_COUNT;
+        opt_index := opt_index + 1;
+        options_written := options_written + rc;
+        domain_writes := domain_writes + rc;
       END LOOP;
 
       INSERT INTO public.question_targets(question_id, revision_id, target_type, subject_id,
                                           lesson_id, is_primary, created_by)
       VALUES (question_row.id, v_revision_id, 'LESSON', subject_row.id, lesson_row.id, true, _actor_id);
-      targets_written := targets_written + 1;
-      writes := writes + 1;
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      targets_written := targets_written + rc;
+      domain_writes := domain_writes + rc;
 
       UPDATE public.question_revisions
          SET payload_hash = public._qb_compute_revision_payload_hash(v_revision_id),
              payload_hash_version = 'canonical_payload_v1'
        WHERE id = v_revision_id;
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      hash_updates := hash_updates + rc;
     ELSE
-      -- R3: an existing question code must belong to this lesson AND subject, and carry the
-      -- same staged text; otherwise CF10 is colliding with foreign content.
       IF question_row.lesson_id IS DISTINCT FROM lesson_row.id
-         OR question_row.subject_id IS DISTINCT FROM subject_row.id THEN
+         OR question_row.subject_id IS DISTINCT FROM subject_row.id
+         OR question_row.code IS DISTINCT FROM question_code
+         OR question_row.question_type IS DISTINCT FROM expected_type
+         OR question_row.correct_index IS DISTINCT FROM -1 THEN
         RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: questions %', question_code USING ERRCODE = '23514';
       END IF;
-      IF public.cf10_text_sha256(question_row.question_text)
-         IS DISTINCT FROM public.cf10_text_sha256(item->>'question') THEN
+      IF coalesce(question_row.options,'[]'::jsonb) IS DISTINCT FROM expected_options
+         OR public.cf10_text_sha256(question_row.question_text)
+            IS DISTINCT FROM public.cf10_text_sha256(item->>'question') THEN
         RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: questions %', question_code USING ERRCODE = '23514';
       END IF;
-      SELECT id INTO v_revision_id FROM public.question_revisions
+      SELECT * INTO revision_row FROM public.question_revisions
        WHERE question_id = question_row.id AND status = 'DRAFT'
        ORDER BY revision_number DESC LIMIT 1;
+      IF revision_row.id IS NULL THEN
+        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: question_revisions %', question_code USING ERRCODE = '23514';
+      END IF;
+      IF revision_row.revision_number IS DISTINCT FROM 1
+         OR revision_row.status IS DISTINCT FROM 'DRAFT'
+         OR revision_row.interaction_type IS DISTINCT FROM expected_interaction
+         OR revision_row.grading_mode IS DISTINCT FROM expected_grading
+         OR revision_row.question_text IS DISTINCT FROM item->>'question'
+         OR revision_row.source_payload_hash IS DISTINCT FROM (payloads->'selfTest'->>'sha256')
+         OR revision_row.payload_hash_version IS DISTINCT FROM 'canonical_payload_v1'
+         OR revision_row.payload_hash IS DISTINCT FROM public._qb_compute_revision_payload_hash(revision_row.id) THEN
+        RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: question_revisions %', question_code USING ERRCODE = '23514';
+      END IF;
+      v_revision_id := revision_row.id;
+      IF (SELECT count(*) FROM public.question_options WHERE question_revision_id = v_revision_id)
+         IS DISTINCT FROM jsonb_array_length(expected_options) THEN
+        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: question_options %', question_code USING ERRCODE = '23514';
+      END IF;
+      opt_index := 0;
+      FOR opt IN SELECT value FROM jsonb_array_elements(expected_options) LOOP
+        IF NOT EXISTS (SELECT 1 FROM public.question_options o
+                        WHERE o.question_revision_id = v_revision_id
+                          AND o.sort_order = opt_index
+                          AND o.option_code = chr(97 + opt_index)
+                          AND o.body = coalesce(opt->>'body', opt#>>'{}')
+                          AND o.is_correct = false) THEN
+          RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: question_options %', question_code USING ERRCODE = '23514';
+        END IF;
+        opt_index := opt_index + 1;
+      END LOOP;
+      SELECT * INTO target_row FROM public.question_targets
+       WHERE question_id = question_row.id AND revision_id = v_revision_id AND target_type = 'LESSON';
+      IF target_row.id IS NULL
+         OR target_row.subject_id IS DISTINCT FROM subject_row.id
+         OR target_row.lesson_id IS DISTINCT FROM lesson_row.id
+         OR target_row.is_primary IS DISTINCT FROM true THEN
+        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: question_targets %', question_code USING ERRCODE = '23514';
+      END IF;
     END IF;
 
     SELECT value INTO answer FROM jsonb_array_elements(coalesce((companion->>'body')::jsonb->'answers','[]'::jsonb))
       WHERE value->>'question_id' = (item->>'id');
     IF answer IS NOT NULL AND v_revision_id IS NOT NULL THEN
-      INSERT INTO public.official_question_answers(question_id, revision_id, model_answer, explanation)
-      VALUES (question_row.id, v_revision_id, answer->>'correct_option', answer->>'rationale')
-      ON CONFLICT (question_id, revision_id) DO NOTHING;
-      GET DIAGNOSTICS rc = ROW_COUNT;
-      answers_written := answers_written + rc;
-      writes := writes + rc;
-      option_code := regexp_replace(lower(coalesce(answer->>'correct_option','')),'[^a-z]','','g');
-      IF answer->>'rationale' IS NOT NULL AND option_code <> '' THEN
-        INSERT INTO public.question_option_rationales(question_id, question_revision_id, option_id,
-                                                      why_correct, why_wrong)
-        VALUES (question_row.id, v_revision_id, option_code, answer->>'rationale', NULL)
-        ON CONFLICT (question_revision_id, option_id) DO NOTHING;
+      SELECT * INTO answer_row FROM public.official_question_answers
+       WHERE question_id = question_row.id AND revision_id = v_revision_id;
+      IF answer_row.id IS NULL THEN
+        INSERT INTO public.official_question_answers(question_id, revision_id, model_answer, explanation)
+        VALUES (question_row.id, v_revision_id, answer->>'correct_option', answer->>'rationale');
         GET DIAGNOSTICS rc = ROW_COUNT;
-        rationales_written := rationales_written + rc;
-        writes := writes + rc;
+        answers_written := answers_written + rc;
+        domain_writes := domain_writes + rc;
+      ELSIF answer_row.model_answer IS DISTINCT FROM (answer->>'correct_option')
+         OR answer_row.explanation IS DISTINCT FROM (answer->>'rationale') THEN
+        RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: official_question_answers %', question_code USING ERRCODE = '23514';
       END IF;
 
+      option_code := regexp_replace(lower(coalesce(answer->>'correct_option','')),'[^a-z]','','g');
+      IF answer->>'rationale' IS NOT NULL AND option_code <> '' THEN
+        SELECT * INTO rationale_row FROM public.question_option_rationales
+         WHERE question_revision_id = v_revision_id AND option_id = option_code;
+        IF rationale_row.id IS NULL THEN
+          INSERT INTO public.question_option_rationales(question_id, question_revision_id, option_id,
+                                                        why_correct, why_wrong)
+          VALUES (question_row.id, v_revision_id, option_code, answer->>'rationale', NULL);
+          GET DIAGNOSTICS rc = ROW_COUNT;
+          rationales_written := rationales_written + rc;
+          domain_writes := domain_writes + rc;
+        ELSIF rationale_row.question_id IS DISTINCT FROM question_row.id
+           OR rationale_row.why_correct IS DISTINCT FROM (answer->>'rationale')
+           OR rationale_row.why_wrong IS NOT NULL THEN
+          RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: question_option_rationales %', question_code USING ERRCODE = '23514';
+        END IF;
+      END IF;
     END IF;
   END LOOP;
   END IF;
 
 
   -- Lifecycle: seven capabilities, DRAFT + REQUIRED only. No REVIEW / READY / publish.
-  -- R3: reuse is only legal when the existing row is byte-identical in contract terms.
+  --      A staged capability with a payload is REQUIRED; a capability the package declares
+  --      NA/OPTIONAL without a payload is recorded NA and never blocks student visibility.
   FOR cap, lifecycle_cap IN
     SELECT capability, lifecycle_capability FROM public.golden_lesson_domain_stage_entries
      WHERE batch_id = _batch_id ORDER BY capability LOOP
+    expected_applicability := CASE WHEN (payloads->cap->>'text') IS NULL THEN 'NA' ELSE 'REQUIRED' END;
     SELECT status, applicability::text, draft_hash
       INTO existing_status, existing_applicability, existing_draft_hash
       FROM public.lesson_capability_lifecycle
      WHERE lesson_id = lesson_row.id AND capability = lifecycle_cap;
     IF existing_status IS NOT NULL AND (
          existing_status IS DISTINCT FROM 'DRAFT'
-      OR existing_applicability IS DISTINCT FROM 'REQUIRED'
+      OR existing_applicability IS DISTINCT FROM expected_applicability
       OR existing_draft_hash IS DISTINCT FROM (payloads->cap->>'sha256')) THEN
       RAISE EXCEPTION 'CF10_LIFECYCLE_CONFLICT: %', lifecycle_cap USING ERRCODE = '23514';
     END IF;
-    INSERT INTO public.lesson_capability_lifecycle(lesson_id, capability, status, applicability,
-                                                   draft_hash, draft_updated_at)
-    VALUES (lesson_row.id, lifecycle_cap, 'DRAFT', 'REQUIRED',
-            payloads->cap->>'sha256', now())
-    ON CONFLICT (lesson_id, capability) DO NOTHING;
-    GET DIAGNOSTICS rc = ROW_COUNT;
-    lifecycle_written := lifecycle_written + rc;
-    writes := writes + rc;
+    IF existing_status IS NULL THEN
+      INSERT INTO public.lesson_capability_lifecycle(lesson_id, capability, status, applicability,
+                                                     draft_hash, draft_updated_at)
+      VALUES (lesson_row.id, lifecycle_cap, 'DRAFT', expected_applicability::public.capability_applicability,
+              payloads->cap->>'sha256', now());
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      lifecycle_written := lifecycle_written + rc;
+      domain_writes := domain_writes + rc;
+    END IF;
   END LOOP;
+
+  -- The seven pinned capabilities must all carry a DRAFT lifecycle row for this lesson.
+  IF (SELECT count(*) FROM public.lesson_capability_lifecycle l
+       JOIN public.golden_lesson_domain_stage_entries e
+         ON e.lifecycle_capability = l.capability AND e.batch_id = _batch_id
+      WHERE l.lesson_id = lesson_row.id AND l.status = 'DRAFT') <> 7 THEN
+    RAISE EXCEPTION 'CF10_LIFECYCLE_REQUIRED_SET_INVALID' USING ERRCODE = '23514';
+  END IF;
 
   IF EXISTS (
     SELECT 1 FROM public.question_options o
@@ -535,7 +753,6 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.questions WHERE lesson_id = lesson_row.id AND correct_index >= 0) THEN
     RAISE EXCEPTION 'CF10_ANSWER_LEAK_IN_QUESTION_ROW' USING ERRCODE = '23514';
   END IF;
-  -- CF10-R2 publish gates: zero non-DRAFT revisions and zero published pointers for this lesson.
   IF EXISTS (
     SELECT 1 FROM public.question_revisions r
       JOIN public.questions q ON q.id = r.question_id
@@ -549,7 +766,10 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle
               WHERE lesson_id = lesson_row.id AND status <> 'DRAFT') THEN
     RAISE EXCEPTION 'CF10_LIFECYCLE_MUST_STAY_DRAFT' USING ERRCODE = '23514';
-
+  END IF;
+  -- R4: the materialized lesson must be invisible to students at the end of EXECUTE.
+  IF public.lesson_student_visible(lesson_row.id) THEN
+    RAISE EXCEPTION 'CF10_STUDENT_VISIBILITY_LEAK' USING ERRCODE = '23514';
   END IF;
 
   INSERT INTO public.golden_lesson_domain_materializations(
@@ -558,16 +778,22 @@ BEGIN
   VALUES (_batch_id, binding.id, subject_row.id, lesson_row.id, lesson_created,
           btrim(_idempotency_key), plan, plan_sha,
           jsonb_build_object('mode','EXECUTE','lesson_id',lesson_row.id,'subject_id',subject_row.id,
-            'lesson_created',lesson_created,'questions',questions_written,'answers',answers_written,
+            'lesson_created',lesson_created,'questions',questions_written,'options',options_written,
+            'answers',answers_written,
             'rationales',rationales_written,'targets',targets_written,'lifecycle_rows',lifecycle_written,
             'revision_status','DRAFT','assessment_membership_deferred',true,
-            'write_plan_sha256',plan_sha,'answer_leak',0,'published',false,'ready',false),
-
+            'write_plan_sha256',plan_sha,'answer_leak',0,'published',false,'ready',false,
+            'student_visible',false),
           _actor_id)
   RETURNING * INTO replay;
+  GET DIAGNOSTICS rc = ROW_COUNT;
+  ledger_writes := ledger_writes + rc;
 
-  RETURN replay.result || jsonb_build_object('idempotent',false,'writes_performed',writes,
-    'domain_writes_performed',writes);
+  RETURN replay.result || jsonb_build_object('idempotent',false,
+    'writes_performed',domain_writes,
+    'domain_writes_performed',domain_writes,
+    'payload_hash_updates',hash_updates,
+    'ledger_writes',ledger_writes);
 END;
 $$;
 
@@ -578,17 +804,19 @@ REVOKE ALL ON FUNCTION public.cf10_assert_no_answer_leak(text,text) FROM PUBLIC,
 GRANT EXECUTE ON FUNCTION public.cf10_assert_no_answer_leak(text,text) TO authenticated, service_role;
 REVOKE ALL ON FUNCTION public.cf10_text_sha256(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cf10_text_sha256(text) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.cf10_required_capabilities() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cf10_required_capabilities() TO authenticated, service_role;
 
 COMMENT ON TABLE public.golden_lesson_domain_materializations IS
   'Immutable CF10 ledger: one atomic DRAFT-only materialization per verified staged batch; never publishes, never deletes, never creates subjects.';
 
 -- ---------------------------------------------------------------------------
--- CF10-R3 — server-side student visibility gate.
+-- CF10-R4 — server-side student visibility gate (all-REQUIRED-READY).
 -- A lesson becomes "editorially managed" the moment CF10 (or the 20C workflow)
--- creates lifecycle rows or a materialization ledger row for it. A managed
--- lesson stays completely invisible to students until at least one capability
--- reaches READY. Legacy lessons with no lifecycle/ledger evidence keep their
--- pre-CF10 behaviour: nothing is silently hidden.
+-- creates lifecycle rows or a materialization ledger row for it. A managed lesson
+-- stays completely invisible to students until EVERY REQUIRED capability is READY.
+-- NA / OPTIONAL rows never block. Legacy lessons with no lifecycle/ledger evidence
+-- keep their pre-CF10 behaviour: nothing is silently hidden.
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.lesson_is_editorially_managed(_lesson_id uuid)
@@ -599,9 +827,15 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.lesson_student_visible(_lesson_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-  SELECT NOT public.lesson_is_editorially_managed(_lesson_id)
-      OR EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle l
-                  WHERE l.lesson_id = _lesson_id AND l.status = 'READY');
+  SELECT CASE
+    WHEN NOT public.lesson_is_editorially_managed(_lesson_id) THEN true
+    ELSE EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle l
+                  WHERE l.lesson_id = _lesson_id AND l.applicability = 'REQUIRED')
+     AND NOT EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle l
+                      WHERE l.lesson_id = _lesson_id
+                        AND l.applicability = 'REQUIRED'
+                        AND l.status IS DISTINCT FROM 'READY')
+  END;
 $$;
 
 -- Single-lesson gate for the lesson page (never exposes draft content itself).
@@ -611,9 +845,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
   SELECT _lesson_id,
          public.lesson_is_editorially_managed(_lesson_id),
          public.lesson_student_visible(_lesson_id),
-         COALESCE((SELECT array_agg(l.capability ORDER BY l.capability)
-                     FROM public.lesson_capability_lifecycle l
-                    WHERE l.lesson_id = _lesson_id AND l.status = 'READY'), ARRAY[]::text[]);
+         CASE WHEN public.lesson_student_visible(_lesson_id)
+              THEN COALESCE((SELECT array_agg(l.capability ORDER BY l.capability)
+                               FROM public.lesson_capability_lifecycle l
+                              WHERE l.lesson_id = _lesson_id AND l.status = 'READY'), ARRAY[]::text[])
+              ELSE ARRAY[]::text[] END;
 $$;
 
 -- Batch gate for subject lesson lists.
@@ -650,4 +886,4 @@ GRANT EXECUTE ON FUNCTION public.lesson_student_content_gate(uuid) TO authentica
 GRANT EXECUTE ON FUNCTION public.lessons_student_visible(uuid[]) TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.lesson_student_content_gate(uuid) IS
-  'CF10-R3 student visibility gate: a CF10-managed lesson stays hidden until one capability is READY.';
+  'CF10-R4 student visibility gate: a managed lesson stays hidden until every REQUIRED capability is READY.';

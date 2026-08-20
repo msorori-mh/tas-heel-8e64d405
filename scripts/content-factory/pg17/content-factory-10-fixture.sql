@@ -7,6 +7,11 @@ ALTER TABLE public.lessons ADD COLUMN delivery_mode text NOT NULL DEFAULT 'in_ap
 ALTER TABLE public.lessons ADD COLUMN sort_order integer NOT NULL DEFAULT 0;
 ALTER TABLE public.lessons ADD CONSTRAINT lessons_subject_id_slug_key UNIQUE (subject_id, slug);
 
+-- Production parity: the CF09-bound pre-existing lesson matches its package manifest identity
+-- exactly (CF10-R4 refuses to reuse a lesson whose identity diverges from the manifest).
+UPDATE public.lessons SET title='quran-lesson', is_free=true, semester=1, sort_order=1
+ WHERE id='43000000-0000-0000-0000-000000000001';
+
 
 CREATE TABLE public.lesson_book_contents(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -539,6 +544,17 @@ DO $$ DECLARE t text; BEGIN
       CASE t WHEN 'lessons' THEN 'public.can_access_lesson(id)'
              ELSE 'public.can_access_lesson(lesson_id)' END);
     EXECUTE format('CREATE POLICY %I ON public.%I FOR ALL TO authenticated USING (public.is_content_staff(auth.uid()))',
+      t || '_staff_all', t);
+  END LOOP;
+END $$;
+
+-- Production parity: the question-bank layer is staff-only for every authenticated reader;
+-- students never read revisions, options, targets, answers or rationales directly.
+DO $$ DECLARE t text; BEGIN
+  FOREACH t IN ARRAY ARRAY['question_revisions','question_options','question_targets',
+                           'official_question_answers','question_option_rationales'] LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR ALL TO authenticated USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()))',
       t || '_staff_all', t);
   END LOOP;
 END $$;
