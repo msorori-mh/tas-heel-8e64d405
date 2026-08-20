@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
+import { V3_LIFECYCLE_CAPABILITIES } from "@/lib/lessons/capability-mapping";
 import {
   attestGoldenLessonCf11Ready,
   getGoldenLessonCf11Batches,
@@ -26,11 +27,13 @@ import {
 } from "@/lib/content-factory/golden-lesson-publication.functions";
 
 /**
- * CF11-R5: the required capability set is NEVER hardcoded here. The seven authoritative rows are
- * created by CF10 and are read back live from `lesson_capability_lifecycle`, so this console can
- * never claim a capability the database does not actually track.
+ * CF11-R6: READY is enabled only when the live lifecycle SET equals the canonical set exactly.
+ * A count of seven proves nothing — a substituted, duplicated or retired capability name must
+ * block attestation — so the expected set is imported from the single canonical source
+ * (`src/lib/lessons/capability-mapping.ts`) and compared sorted, element by element.
  */
-const CF11_EXPECTED_CAPABILITY_COUNT = 7;
+const CF11_EXPECTED_CAPABILITIES = [...V3_LIFECYCLE_CAPABILITIES].sort();
+
 
 function short(value: string | null | undefined) {
   return value ? `${value.slice(0, 8)}…` : "—";
