@@ -651,6 +651,14 @@ DECLARE
   asset jsonb;
   asset_refs text[];
   declared_refs text[] := ARRAY[]::text[];
+  declared_assets jsonb := '[]'::jsonb;
+  manifest_assets_sha text;
+  attestation_sha text;
+  attestation_rows integer := 0;
+  att public.golden_lesson_asset_attestations;
+  obj_row record;
+  lifecycle_caps text[];
+  live_caps text[];
   book_old text;
   book_new text;
   mind_html text;
