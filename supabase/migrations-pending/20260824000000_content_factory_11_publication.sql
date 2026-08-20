@@ -74,7 +74,19 @@ BEGIN
       RAISE EXCEPTION 'CF11_PREFLIGHT_LEGACY_PUBLICATION_WITHOUT_IDEMPOTENCY_KEY: forward remediation migration required'
         USING ERRCODE = '23514';
     END IF;
+    -- CF11-R4 AUDIT: a legacy v2 write-plan carries no `lessonGating` pin, so its replay could
+    -- never re-verify gating / question counts. Refuse to install over one; a forward remediation
+    -- migration (new package version + new publication) is the only path.
+    IF EXISTS (
+      SELECT 1 FROM public.golden_lesson_publications
+       WHERE coalesce(result->>'schema','') <> 'tamkeen.content-factory-11.write-plan.v3'
+          OR result->'lessonGating' IS NULL
+    ) THEN
+      RAISE EXCEPTION 'CF11_PREFLIGHT_LEGACY_PUBLICATION_WITHOUT_GATING_PIN: forward remediation migration required'
+        USING ERRCODE = '23514';
+    END IF;
   END IF;
+
 END
 $preflight$;
 
