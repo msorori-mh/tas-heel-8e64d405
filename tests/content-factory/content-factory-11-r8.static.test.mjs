@@ -443,3 +443,30 @@ test("CF11-R8B/6 — PG17 proves the bypass closed, legacy intact, controlled pa
   assert.match(n, /status = 'DRAFT' AND applicability = 'REQUIRED'/);
   assert.match(n, /CF11_EXPECTED_REVOKE_LEDGER: exactly one withdrawal row/);
 });
+
+const FIXTURE = "scripts/content-factory/pg17/content-factory-11-fixture.sql";
+const fixtureSql = readFileSync(FIXTURE, "utf8");
+
+test("CF11-R9B/1 — legacy lesson is inserted only AFTER the authoritative fixture identity", () => {
+  const ironLesson = fixtureSql.indexOf("'43000000-0000-0000-0000-000000000012','iron-and-its-compounds'");
+  const subject = fixtureSql.indexOf("'42000000-0000-0000-0000-000000000012','CHEM-G12'");
+  const grade = fixtureSql.indexOf("'40000000-0000-0000-0000-000000000012','GRADE-12'");
+  const legacy = fixtureSql.indexOf("'43000000-0000-0000-0000-000000000099','legacy-lesson'");
+  assert.ok(grade > 0 && subject > grade, "grade then subject");
+  assert.ok(ironLesson > subject, "Iron lesson after subject");
+  assert.ok(legacy > ironLesson, "legacy lesson must be inserted after the Iron lesson");
+  // Exactly one legacy lesson insert, and it never derives the subject from another lesson row.
+  assert.equal((fixtureSql.match(/'43000000-0000-0000-0000-000000000099','legacy-lesson'/g) ?? []).length, 1);
+  assert.doesNotMatch(fixtureSql, /SELECT subject_id FROM public\.lessons/);
+});
+
+test("CF11-R9B/2 — legacy lesson uses the full required column set with non-null values", () => {
+  const legacy = fixtureSql.slice(
+    fixtureSql.indexOf("INSERT INTO public.lessons(id, slug, subject_id, unit_id, title, is_free, semester, sort_order)\nVALUES ('43000000-0000-0000-0000-000000000099'"),
+  ).slice(0, 600);
+  assert.match(legacy, /INSERT INTO public\.lessons\(id, slug, subject_id, unit_id, title, is_free, semester, sort_order\)/);
+  // Explicit subject, explicit non-null title, is_free/semester/sort_order all provided.
+  assert.match(legacy, /'42000000-0000-0000-0000-000000000012', NULL, 'درس قديم', true, 1, 99\)/);
+  // Its READY + REQUIRED lifecycle row follows immediately.
+  assert.match(legacy, /VALUES \('43000000-0000-0000-0000-000000000099','officialBookContent','READY','REQUIRED'\)/);
+});
