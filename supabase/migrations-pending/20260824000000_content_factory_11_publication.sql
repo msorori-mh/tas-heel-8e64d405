@@ -986,8 +986,49 @@ BEGIN
   END IF;
   verified := verified || to_jsonb('lifecycle'::text);
 
+  -- 7) CF11-R4 AUDIT — answer-leak is re-derived from the LIVE delivered text on every replay,
+  --    never trusted from the publication-time check. Official body plus both inline HTML
+  --    artefacts are re-scanned; a single leak refuses the replay with zero writes.
+  BEGIN
+    PERFORM public.cf10_assert_no_answer_leak('officialBookContent',
+      (SELECT content FROM public.lesson_book_contents WHERE lesson_id = v_lesson));
+    PERFORM public.cf10_assert_no_answer_leak('mindMapHtml',
+      (SELECT r.description FROM public.lesson_resources r
+        WHERE r.lesson_id = v_lesson AND r.resource_code = _plan->'html'->'mindMap'->>'resourceCode'));
+    PERFORM public.cf10_assert_no_answer_leak('labExperimentHtml',
+      (SELECT r.description FROM public.lesson_resources r
+        WHERE r.lesson_id = v_lesson
+          AND r.resource_code = _plan->'html'->'simulation'->>'resourceCode'));
+  EXCEPTION WHEN OTHERS THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: answerLeak (%)', SQLERRM
+      USING ERRCODE = '23505';
+  END;
+  verified := verified || to_jsonb('answerLeak'::text);
+
+  -- 8) CF11-R4 AUDIT — student-visible gating and the exact published question counts. The plan
+  --    pins the lesson gating it was approved under; a lesson silently flipped to paid/hidden (or
+  --    exposed early), or a 45-question corpus that is no longer exactly 5 official + 40 self-test,
+  --    is drift and refuses the replay.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.lessons l
+     WHERE l.id = v_lesson
+       AND l.is_free IS NOT DISTINCT FROM (_plan->'lessonGating'->>'isFree')::boolean
+       AND l.visibility IS NOT DISTINCT FROM (_plan->'lessonGating'->>'visibility')::boolean
+  ) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: lessonGating' USING ERRCODE = '23505';
+  END IF;
+  IF jsonb_array_length(coalesce(_plan->'questions'->'official','[]'::jsonb))
+       IS DISTINCT FROM (_plan->'lessonGating'->>'officialCount')::integer
+     OR jsonb_array_length(coalesce(_plan->'questions'->'selfTest','[]'::jsonb))
+       IS DISTINCT FROM (_plan->'lessonGating'->>'selfTestCount')::integer
+     OR (_plan->'lessonGating'->>'officialCount')::integer IS DISTINCT FROM 5
+     OR (_plan->'lessonGating'->>'selfTestCount')::integer IS DISTINCT FROM 40 THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: questionCounts' USING ERRCODE = '23505';
+  END IF;
+  verified := verified || to_jsonb('lessonGating'::text);
 
   RETURN jsonb_build_object('revalidated', verified);
+
 END $$;
 
 GRANT EXECUTE ON FUNCTION public.cf11_assert_replay_state(jsonb) TO authenticated, service_role;
