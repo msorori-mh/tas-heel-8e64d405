@@ -92,8 +92,19 @@ CREATE POLICY "golden_lesson_assets_staff_write"
 -- Deliberately NO update/delete policy: assets are content-addressed and immutable.
 
 -- ------------------------------------------------------------------------------------
--- 2) Registry of published assets (content-addressed, no overwrite on hash change).
+-- 2) Append-only ledgers.
+--
+--    R3 hardening: NOTHING may write these tables directly — not `authenticated`, not `anon`
+--    and not `service_role`. Every row is appended by a SECURITY DEFINER RPC that first proves
+--    the human actor, and UPDATE / DELETE / TRUNCATE are refused unconditionally by triggers.
 -- ------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.reject_golden_publication_mutation()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+BEGIN
+  RAISE EXCEPTION 'CF11_LEDGER_IMMUTABLE' USING ERRCODE = '42501';
+END $$;
+
+-- 2.1) Registry of published assets (content-addressed, no overwrite on hash change).
 CREATE TABLE IF NOT EXISTS public.golden_lesson_published_assets (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id uuid NOT NULL REFERENCES public.golden_lesson_domain_stage_batches(id) ON DELETE RESTRICT,
@@ -105,6 +116,7 @@ CREATE TABLE IF NOT EXISTS public.golden_lesson_published_assets (
   byte_size bigint NOT NULL,
   storage_bucket text NOT NULL,
   storage_path text NOT NULL,
+  attestation_sha256 text NOT NULL,
   alt_text_ar text,
   published_by uuid NOT NULL,
   published_at timestamptz NOT NULL DEFAULT now(),
@@ -113,62 +125,103 @@ CREATE TABLE IF NOT EXISTS public.golden_lesson_published_assets (
   CONSTRAINT golden_lesson_published_assets_mime_chk
     CHECK (mime_type IN ('image/png','image/jpeg','image/webp')),
   CONSTRAINT golden_lesson_published_assets_sha_chk CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+  CONSTRAINT golden_lesson_published_assets_attestation_chk CHECK (attestation_sha256 ~ '^[0-9a-f]{64}$'),
   CONSTRAINT golden_lesson_published_assets_size_chk CHECK (byte_size BETWEEN 64 AND 2097152),
   CONSTRAINT golden_lesson_published_assets_bucket_chk CHECK (storage_bucket = 'golden-lesson-assets'),
   CONSTRAINT golden_lesson_published_assets_unique UNIQUE (lesson_id, asset_code)
 );
 
-GRANT SELECT ON public.golden_lesson_published_assets TO authenticated;
-GRANT ALL ON public.golden_lesson_published_assets TO service_role;
-ALTER TABLE public.golden_lesson_published_assets ENABLE ROW LEVEL SECURITY;
+-- 2.2) Immutable upload attestation: the ONLY proof that real bytes reached private storage.
+--      It binds the measured bundle bytes (sha256 / size / magic-verified MIME) to the ACTUAL
+--      storage object identity (id + version + etag + storage-side size/mimetype metadata).
+--      A name-only storage.objects row can never satisfy it.
+CREATE TABLE IF NOT EXISTS public.golden_lesson_asset_attestations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  batch_id uuid NOT NULL REFERENCES public.golden_lesson_domain_stage_batches(id) ON DELETE RESTRICT,
+  lesson_id uuid NOT NULL REFERENCES public.lessons(id) ON DELETE RESTRICT,
+  asset_code text NOT NULL,
+  file_name text NOT NULL,
+  mime_type text NOT NULL,
+  sha256 text NOT NULL,
+  byte_size bigint NOT NULL,
+  magic_hex text NOT NULL,
+  storage_bucket text NOT NULL,
+  storage_path text NOT NULL,
+  storage_object_id uuid NOT NULL,
+  storage_version text NOT NULL,
+  storage_etag text NOT NULL,
+  attestation_sha256 text NOT NULL,
+  attested_by uuid NOT NULL,
+  verified_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT golden_lesson_asset_attestations_sha_chk CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+  CONSTRAINT golden_lesson_asset_attestations_att_chk CHECK (attestation_sha256 ~ '^[0-9a-f]{64}$'),
+  CONSTRAINT golden_lesson_asset_attestations_mime_chk
+    CHECK (mime_type IN ('image/png','image/jpeg','image/webp')),
+  CONSTRAINT golden_lesson_asset_attestations_size_chk CHECK (byte_size BETWEEN 64 AND 2097152),
+  CONSTRAINT golden_lesson_asset_attestations_bucket_chk CHECK (storage_bucket = 'golden-lesson-assets'),
+  CONSTRAINT golden_lesson_asset_attestations_magic_chk CHECK (magic_hex ~ '^[0-9a-f]{8,32}$'),
+  CONSTRAINT golden_lesson_asset_attestations_unique UNIQUE (lesson_id, asset_code)
+);
 
-DROP POLICY IF EXISTS "golden_lesson_published_assets_staff_read" ON public.golden_lesson_published_assets;
-CREATE POLICY "golden_lesson_published_assets_staff_read"
-  ON public.golden_lesson_published_assets FOR SELECT TO authenticated
-  USING (public.is_golden_lesson_content_staff(auth.uid()));
-
--- All writes flow through the SECURITY DEFINER RPCs below; no direct-write policy exists.
-
--- ------------------------------------------------------------------------------------
--- 3) Publication ledger (immutable, one row per successfully published batch).
--- ------------------------------------------------------------------------------------
+-- 2.3) Publication ledger (one row per successfully published batch, never updated).
 CREATE TABLE IF NOT EXISTS public.golden_lesson_publications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id uuid NOT NULL UNIQUE REFERENCES public.golden_lesson_domain_stage_batches(id) ON DELETE RESTRICT,
   lesson_id uuid NOT NULL REFERENCES public.lessons(id) ON DELETE RESTRICT,
   binding_id uuid NOT NULL REFERENCES public.golden_lesson_identity_bindings(id) ON DELETE RESTRICT,
   plan_sha256 text NOT NULL,
+  manifest_assets_sha256 text NOT NULL,
+  asset_attestation_sha256 text NOT NULL,
   result jsonb NOT NULL,
   idempotency_key text,
   published_by uuid NOT NULL,
   published_at timestamptz NOT NULL DEFAULT now(),
-  ready_attested_by uuid,
-  ready_attested_at timestamptz,
-  ready_evidence jsonb,
   CONSTRAINT golden_lesson_publications_plan_sha_chk CHECK (plan_sha256 ~ '^[0-9a-f]{64}$'),
-  CONSTRAINT golden_lesson_publications_separation_chk
-    CHECK (ready_attested_by IS NULL OR ready_attested_by <> published_by)
+  CONSTRAINT golden_lesson_publications_manifest_sha_chk CHECK (manifest_assets_sha256 ~ '^[0-9a-f]{64}$'),
+  CONSTRAINT golden_lesson_publications_attestation_sha_chk CHECK (asset_attestation_sha256 ~ '^[0-9a-f]{64}$')
 );
 
-GRANT SELECT ON public.golden_lesson_publications TO authenticated;
-GRANT ALL ON public.golden_lesson_publications TO service_role;
-ALTER TABLE public.golden_lesson_publications ENABLE ROW LEVEL SECURITY;
+-- 2.4) READY attestation evidence: a SEPARATE append-only record. The publication row is never
+--      mutated to carry it, so "published" and "attested READY" are two independent facts.
+CREATE TABLE IF NOT EXISTS public.golden_lesson_ready_attestations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  publication_id uuid NOT NULL UNIQUE REFERENCES public.golden_lesson_publications(id) ON DELETE RESTRICT,
+  batch_id uuid NOT NULL UNIQUE REFERENCES public.golden_lesson_domain_stage_batches(id) ON DELETE RESTRICT,
+  lesson_id uuid NOT NULL REFERENCES public.lessons(id) ON DELETE RESTRICT,
+  published_by uuid NOT NULL,
+  attested_by uuid NOT NULL,
+  attested_at timestamptz NOT NULL DEFAULT now(),
+  evidence jsonb NOT NULL,
+  checks jsonb NOT NULL,
+  snapshot_set_sha256 text NOT NULL,
+  asset_attestation_sha256 text NOT NULL,
+  CONSTRAINT golden_lesson_ready_attestations_separation_chk CHECK (attested_by <> published_by),
+  CONSTRAINT golden_lesson_ready_attestations_snapshot_chk CHECK (snapshot_set_sha256 ~ '^[0-9a-f]{64}$')
+);
 
-DROP POLICY IF EXISTS "golden_lesson_publications_staff_read" ON public.golden_lesson_publications;
-CREATE POLICY "golden_lesson_publications_staff_read"
-  ON public.golden_lesson_publications FOR SELECT TO authenticated
-  USING (public.is_golden_lesson_content_staff(auth.uid()));
-
-CREATE OR REPLACE FUNCTION public.reject_golden_publication_mutation()
-RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+-- 2.5) Grants: SELECT only, for everyone. Direct writes are impossible by privilege AND by trigger.
+DO $ledger$
+DECLARE t text;
 BEGIN
-  RAISE EXCEPTION 'CF11_LEDGER_IMMUTABLE' USING ERRCODE = '42501';
-END $$;
+  FOREACH t IN ARRAY ARRAY['golden_lesson_published_assets','golden_lesson_asset_attestations',
+                           'golden_lesson_publications','golden_lesson_ready_attestations']
+  LOOP
+    EXECUTE format('REVOKE ALL ON public.%I FROM PUBLIC, anon, authenticated, service_role', t);
+    EXECUTE format('GRANT SELECT ON public.%I TO authenticated, service_role', t);
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_staff_read', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.is_golden_lesson_content_staff(auth.uid()))',
+                   t || '_staff_read', t);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', t || '_immutable_row', t);
+    EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.reject_golden_publication_mutation()',
+                   t || '_immutable_row', t);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', t || '_immutable_truncate', t);
+    EXECUTE format('CREATE TRIGGER %I BEFORE TRUNCATE ON public.%I FOR EACH STATEMENT EXECUTE FUNCTION public.reject_golden_publication_mutation()',
+                   t || '_immutable_truncate', t);
+  END LOOP;
+END
+$ledger$;
 
-DROP TRIGGER IF EXISTS golden_lesson_publications_no_delete ON public.golden_lesson_publications;
-CREATE TRIGGER golden_lesson_publications_no_delete
-  BEFORE DELETE ON public.golden_lesson_publications
-  FOR EACH ROW EXECUTE FUNCTION public.reject_golden_publication_mutation();
 
 -- ------------------------------------------------------------------------------------
 -- 4) CF11 helper contracts.
