@@ -176,18 +176,20 @@ RETURNS text LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
   )::text,'UTF8'),'sha256'),'hex');
 $$;
 
--- CF10-R4c: mindMap / simulation HTML staged by CF10 is TEMPORARY. It stays an internal
--- lesson-internal:// payload until CF11 publishes the HTML asset and stamps
--- metadata->>'cf11_published_at'. Until then CF10 must not claim READY nor a valid snapshot.
+-- CF10-R6: CF10 NEVER materializes mindMapHtml / labExperimentHtml into the legacy
+-- lesson_resources table. Their bytes, sha256 and provenance stay in the staff-only
+-- golden_lesson_domain_stage_entries rows, and the work is recorded as deferred_to_cf11.
+-- Only CF11 creates the HTML version, private storage object, preview and publication,
+-- and only then may the capability reach READY.
+-- "Publication pending" is therefore true until a CF11-published resource row exists.
 CREATE OR REPLACE FUNCTION public.cf10_html_publication_pending(_lesson_id uuid, _capability text)
 RETURNS boolean LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
-  SELECT EXISTS (
+  SELECT NOT EXISTS (
     SELECT 1 FROM public.lesson_resources r
      WHERE r.lesson_id = _lesson_id
        AND ((_capability = 'mindMap' AND r.resource_type::text = 'mindmap')
          OR (_capability = 'simulation' AND r.resource_type::text = 'experiment'))
-       AND r.url LIKE 'lesson-internal://html/%'
-       AND coalesce(r.metadata->>'cf11_published_at','') = '');
+       AND coalesce(r.metadata->>'cf11_published_at','') <> '');
 $$;
 
 
