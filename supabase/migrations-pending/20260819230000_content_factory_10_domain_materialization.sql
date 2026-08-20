@@ -500,20 +500,29 @@ BEGIN
       INSERT INTO public.lesson_resources(lesson_id, resource_type, title, url, description,
                                           sort_order, resource_code, html_resource_type, metadata, is_primary)
       VALUES (lesson_row.id, expected_resource_type::public.lesson_resource_type,
-              expected_resource_title, '', payload_text, expected_resource_sort, option_code,
-              expected_html_type,
-              jsonb_build_object('contentFactory','CF10','sha256', payloads->cap->>'sha256'), false);
+              expected_resource_title, public.cf10_inline_html_url(option_code), payload_text,
+              expected_resource_sort, option_code, expected_html_type,
+              jsonb_build_object('contentFactory','CF10','sha256', payloads->cap->>'sha256',
+                                 'htmlDelivery','INLINE_SANDBOXED',
+                                 'renderMode', CASE WHEN expected_html_type = 'INTERACTIVE'
+                                                    THEN 'SANDBOXED_NO_NETWORK' ELSE 'STATIC_NO_SCRIPT' END,
+                                 'contentHash', public.cf10_text_sha256(payload_text)), false);
       GET DIAGNOSTICS rc = ROW_COUNT;
       domain_writes := domain_writes + rc;
     ELSE
       IF resource_row.lesson_id IS DISTINCT FROM lesson_row.id
          OR resource_row.resource_type::text IS DISTINCT FROM expected_resource_type
          OR resource_row.title IS DISTINCT FROM expected_resource_title
-         OR coalesce(resource_row.url,'') IS DISTINCT FROM ''
+         OR coalesce(resource_row.url,'') IS DISTINCT FROM public.cf10_inline_html_url(option_code)
          OR resource_row.sort_order IS DISTINCT FROM expected_resource_sort
          OR resource_row.html_resource_type IS DISTINCT FROM expected_html_type
          OR coalesce(resource_row.metadata->>'sha256','') IS DISTINCT FROM (payloads->cap->>'sha256')
          OR coalesce(resource_row.metadata->>'contentFactory','') IS DISTINCT FROM 'CF10'
+         OR coalesce(resource_row.metadata->>'htmlDelivery','') IS DISTINCT FROM 'INLINE_SANDBOXED'
+         OR coalesce(resource_row.metadata->>'renderMode','') IS DISTINCT FROM
+            (CASE WHEN expected_html_type = 'INTERACTIVE' THEN 'SANDBOXED_NO_NETWORK' ELSE 'STATIC_NO_SCRIPT' END)
+         OR coalesce(resource_row.metadata->>'contentHash','')
+            IS DISTINCT FROM public.cf10_text_sha256(payload_text)
          OR resource_row.is_primary IS DISTINCT FROM false THEN
         RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: lesson_resources %', option_code USING ERRCODE = '23514';
       END IF;
@@ -688,8 +697,7 @@ BEGIN
 
   -- R4: an existing assessment must match every written column, and belong to this lesson.
   IF (SELECT count(*) FROM public.lesson_assessments
-       WHERE lesson_id = lesson_row.id
-         AND assessment_code = external_lesson_code || '-SELFTEST') > 1 THEN
+       WHERE assessment_code = external_lesson_code || '-SELFTEST') > 1 THEN
     RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: duplicate lesson_assessments' USING ERRCODE = '23514';
   END IF;
   SELECT * INTO assessment_row FROM public.lesson_assessments
@@ -967,6 +975,24 @@ BEGIN
     RAISE EXCEPTION 'CF10_STUDENT_VISIBILITY_LEAK' USING ERRCODE = '23514';
   END IF;
 
+  -- R4b: the mindMap / simulation capabilities must be reconcilable, i.e. the V3 snapshot the
+  -- rest of the platform reads must not be empty for a materialized HTML resource.
+  FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
+    IF EXISTS (SELECT 1 FROM public.lesson_resources r
+                WHERE r.lesson_id = lesson_row.id
+                  AND r.resource_code IN (external_lesson_code || '-MINDMAP',
+                                          external_lesson_code || '-EXPERIMENT')
+                  AND r.html_resource_type IS NOT NULL
+                  AND ((cap = 'mindMap' AND r.resource_type::text = 'mindmap')
+                    OR (cap = 'simulation' AND r.resource_type::text = 'experiment')))
+       AND NOT public.v3_capability_snapshot_is_reconcilable(
+             public.v3_capability_snapshot(lesson_row.id, cap)) THEN
+      RAISE EXCEPTION 'CF10_SNAPSHOT_NOT_RECONCILABLE: %', cap USING ERRCODE = '23514';
+    END IF;
+  END LOOP;
+
+  live_state_sha := public.cf10_live_state_sha256(lesson_row.id);
+
   INSERT INTO public.golden_lesson_domain_materializations(
     batch_id, binding_id, subject_id, lesson_id, lesson_created, idempotency_key,
     write_plan, write_plan_sha256, result, materialized_by)
@@ -978,7 +1004,7 @@ BEGIN
             'rationales',rationales_written,'targets',targets_written,'lifecycle_rows',lifecycle_written,
             'revision_status','DRAFT','assessment_membership_deferred',true,
             'write_plan_sha256',plan_sha,'answer_leak',0,'published',false,'ready',false,
-            'student_visible',false),
+            'student_visible',false,'state_sha256',live_state_sha),
           _actor_id)
   RETURNING * INTO replay;
   GET DIAGNOSTICS rc = ROW_COUNT;
