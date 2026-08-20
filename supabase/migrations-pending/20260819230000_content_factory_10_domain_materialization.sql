@@ -111,6 +111,11 @@ DECLARE
   rationales_written integer := 0;
   targets_written integer := 0;
   lifecycle_written integer := 0;
+  rc integer := 0;
+  existing_status text;
+  existing_applicability text;
+  existing_draft_hash text;
+  v_assessment_lesson uuid;
 
   payloads jsonb := '{}'::jsonb;
   existing_hash text;
