@@ -581,3 +581,73 @@ GRANT EXECUTE ON FUNCTION public.cf10_text_sha256(text) TO authenticated, servic
 
 COMMENT ON TABLE public.golden_lesson_domain_materializations IS
   'Immutable CF10 ledger: one atomic DRAFT-only materialization per verified staged batch; never publishes, never deletes, never creates subjects.';
+
+-- ---------------------------------------------------------------------------
+-- CF10-R3 — server-side student visibility gate.
+-- A lesson becomes "editorially managed" the moment CF10 (or the 20C workflow)
+-- creates lifecycle rows or a materialization ledger row for it. A managed
+-- lesson stays completely invisible to students until at least one capability
+-- reaches READY. Legacy lessons with no lifecycle/ledger evidence keep their
+-- pre-CF10 behaviour: nothing is silently hidden.
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.lesson_is_editorially_managed(_lesson_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle l WHERE l.lesson_id = _lesson_id)
+      OR EXISTS (SELECT 1 FROM public.golden_lesson_domain_materializations m WHERE m.lesson_id = _lesson_id);
+$$;
+
+CREATE OR REPLACE FUNCTION public.lesson_student_visible(_lesson_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT NOT public.lesson_is_editorially_managed(_lesson_id)
+      OR EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle l
+                  WHERE l.lesson_id = _lesson_id AND l.status = 'READY');
+$$;
+
+-- Single-lesson gate for the lesson page (never exposes draft content itself).
+CREATE OR REPLACE FUNCTION public.lesson_student_content_gate(_lesson_id uuid)
+RETURNS TABLE(lesson_id uuid, managed boolean, visible boolean, ready_capabilities text[])
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT _lesson_id,
+         public.lesson_is_editorially_managed(_lesson_id),
+         public.lesson_student_visible(_lesson_id),
+         COALESCE((SELECT array_agg(l.capability ORDER BY l.capability)
+                     FROM public.lesson_capability_lifecycle l
+                    WHERE l.lesson_id = _lesson_id AND l.status = 'READY'), ARRAY[]::text[]);
+$$;
+
+-- Batch gate for subject lesson lists.
+CREATE OR REPLACE FUNCTION public.lessons_student_visible(_lesson_ids uuid[])
+RETURNS TABLE(lesson_id uuid, managed boolean, visible boolean)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT x.id,
+         public.lesson_is_editorially_managed(x.id),
+         public.lesson_student_visible(x.id)
+    FROM unnest(coalesce(_lesson_ids, ARRAY[]::uuid[])) AS x(id);
+$$;
+
+-- RLS enforcement: every lesson-scoped read policy already routes through
+-- can_access_lesson, so the gate is applied once, server-side, for everybody
+-- except content staff (who must still see their drafts).
+CREATE OR REPLACE FUNCTION public.can_access_lesson(_lesson_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT
+    auth.uid() IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM public.lessons l
+       WHERE l.id = _lesson_id AND public.can_access_subject(l.subject_id)
+    )
+    AND (public.is_content_staff(auth.uid()) OR public.lesson_student_visible(_lesson_id))
+$$;
+
+REVOKE ALL ON FUNCTION public.lesson_is_editorially_managed(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.lesson_student_visible(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.lesson_student_content_gate(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.lessons_student_visible(uuid[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.lesson_is_editorially_managed(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.lesson_student_visible(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.lesson_student_content_gate(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.lessons_student_visible(uuid[]) TO authenticated, service_role;
+
+COMMENT ON FUNCTION public.lesson_student_content_gate(uuid) IS
+  'CF10-R3 student visibility gate: a CF10-managed lesson stays hidden until one capability is READY.';
