@@ -638,6 +638,13 @@ DO $$ DECLARE t text; BEGIN
   END LOOP;
 END $$;
 
+CREATE TABLE public.lesson_simulations(
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  lesson_id uuid NOT NULL REFERENCES public.lessons(id) ON DELETE CASCADE,
+  title text NOT NULL, description text, phet_url text NOT NULL,
+  thumbnail_url text, sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now());
+
 -- CF10-R4b: the real V3 snapshot surface (copied verbatim from the R5 migration) so the
 -- rehearsal exercises the same reconcilability contract production uses.
 CREATE OR REPLACE FUNCTION public._v3_canonical_json_v1(v jsonb)
