@@ -22,6 +22,8 @@ in the test suite so the same mislabelling can never pass again.
 
 ## Changed files
 
+* `scripts/content-factory/pg17/content-factory-11-assert.sql` — R5 machine-attestation and
+  exhaustive-replay negatives.
 * `src/lib/content-factory/golden-lesson-assets.ts` — CF11 supplemental asset contract: raster-only
   MIME allowlist with magic-byte sniffing, leaf-only names, size caps, exact SHA-256, HTML
   reference scanner (no base64, no URLs, no folders, no traversal).
@@ -42,7 +44,22 @@ in the test suite so the same mislabelling can never pass again.
   sends to `golden_lesson_publish_cf11` is an advisory echo: any difference raises
   `CF11_ASSET_DECLARATION_NOT_AUTHORITATIVE` (42501). No client, server function or operator can add,
   drop or edit a declaration.
-* **Uploads must be attested server-side.** `golden_lesson_attest_cf11_asset` re-measures the upload
+* **Attestation is machine-only (R5).** `golden_lesson_attest_cf11_asset` is granted to `service_role`
+  alone and refuses any call that carries an `auth.uid()`
+  (`CF11_ASSET_ATTESTATION_MACHINE_ONLY`). The server downloads the stored object, re-measures it and
+  records `verification_origin = 'SERVER_BYTE_READBACK'` — any other origin is rejected
+  (`CF11_ASSET_VERIFICATION_ORIGIN_INVALID`). The operator who asked for the upload is recorded as
+  `requested_by` and must be real content staff; no human can ever claim bytes.
+* **Exhaustive replay (R5).** Before any replay may report success, `cf11_assert_replay_state`
+  re-derives the live state of every category — official body hash, inline HTML artefacts, asset
+  registration and storage-object identity, published questions, assessment membership (with no
+  official-question leak) and the seven lifecycle rows. Any drift raises
+  `CF11_REPLAY_LIVE_STATE_CONFLICT` instead of a comfortable idempotent success. Publication rows
+  also require a non-null `idempotency_key`.
+* **CF10 has no machine path.** The raw `golden_lesson_materialize_domain_batch` is revoked from
+  `service_role` and `authenticated`; materialization is only reachable through the operator wrapper
+  running on the human's own token.
+* **Uploads are bound to real objects.** The attestation re-measures the upload
   (SHA-256, byte size, MIME, magic-byte prefix) against the manifest and binds it to the live
   `storage.objects` identity (`id` + `version` + `eTag`). Rows without real size/mimetype metadata are
   refused (`CF11_ASSET_OBJECT_METADATA_MISSING`), so a fabricated name-only object can never stand in
@@ -75,7 +92,7 @@ in the test suite so the same mislabelling can never pass again.
 | Step | Writes |
 | --- | --- |
 | Asset upload (`verifyGoldenLessonCf11Assets`) | 1 storage object (idempotent; 0 on replay) |
-| `golden_lesson_attest_cf11_asset(mode => 'EXECUTE')` | 1 attestation row per asset (0 on replay) |
+| `golden_lesson_attest_cf11_asset(mode => 'EXECUTE')` (machine, service role) | 1 attestation row per asset (0 on replay) |
 | `golden_lesson_publish_cf11(mode => 'DRY_RUN')` | 0 |
 | `golden_lesson_publish_cf11(mode => 'EXECUTE')` | 1 publication row, 1 published-asset row, 1 book-content update, 2 `lesson_resources` (mindmap + experiment), 45 question revisions published, 40 assessment memberships, 7 lifecycle rows `DRAFT → REVIEW` |
 | `golden_lesson_attest_cf11_ready(mode => 'DRY_RUN')` | 0 |
@@ -97,8 +114,9 @@ attestation are content-addressed and harmless to retain.
 2. Build/upload the verified bundle and take the package through
    `DRAFT → SUBMITTED → CONTENT_APPROVED → APPROVED_FOR_STAGING` in the review panel.
 3. Stage the domain bundle, bind the authoritative identity, then press **تجسيد CF10**.
-4. Press **تحقق ورفع الأصول** — this verifies JPEG magic bytes and the pinned hash, uploads to the
-   private bucket, then records the server-side upload attestation for every manifest asset.
+4. Press **تحقق ورفع الأصول** — the server verifies JPEG magic bytes and the pinned hash, uploads to
+   the private bucket, re-downloads the stored object and appends a machine attestation
+   (`SERVER_BYTE_READBACK`) for every manifest asset, with the operator recorded as the requester.
 5. Press **CF11 DRY_RUN**, read the plan, then **نشر إلى REVIEW**.
 6. Open **معاينة الطالب** and run
    `node scripts/e2e/iron-cf11-student-probe.mjs --base <url> --lesson <lesson-uuid>`.
@@ -108,7 +126,10 @@ attestation are content-addressed and harmless to retain.
 
 * PG17 rehearsal R5 → 21H → CF04 → CF07 → CF08 → CF09 → R9 → CF10 → CF11 with the Iron fixture,
   assertions and `content-factory-11-postverify.sql`: `PASS_CONTENT_FACTORY_11_POSTVERIFY`,
-  including the R3 attestation negatives (bytes/size/MIME/magic/undeclared/ledger immutability).
+  including the R3 attestation negatives (bytes/size/MIME/magic/undeclared/ledger immutability) and
+  the R5 negatives: human-claimed attestation refused, fabricated verification origin refused,
+  non-staff requester refused, raw CF10 denied to `service_role`, and a tampered replay refused for
+  each of bookContent / inline HTML / assessment membership / lifecycle / stored asset object.
 * Regressions: 209/209 core, 60/60 import contract, 37/37 QB source, 438/438 QB import.
   Typecheck clean. Production build OK.
 
