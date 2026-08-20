@@ -565,7 +565,8 @@ END $$;
 CREATE OR REPLACE FUNCTION public.cf10_manifest() RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
 SELECT jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(
  jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(
-  jsonb_set(public.cf04_manifest('cf10'),'{packageCode}','"QURAN-G10-L04-PKG"'),
+  jsonb_set(jsonb_set(public.cf04_manifest('cf10'),'{packageCode}','"QURAN-G10-L04-PKG"'),
+  '{identity,semester}','"PENDING"'),
   '{profileId}','"GOLDEN_CHEMISTRY_V1"'),
   '{identity,lessonSlug}','"quran-lesson-04"'),
   '{identity,lessonCode}','"QURAN-G10-L04"'),
@@ -628,6 +629,20 @@ SELECT public.golden_lesson_stage_domain_bundle(
  '10000000-0000-0000-0000-000000000003',repeat('c',64),public.cf10_entries(),
  jsonb_build_object('path','answers.server-only.json','sha256',public.cf08_sha('{"answers":[{"question_id":"s1","correct_option":"(b)","rationale":"why"}]}'),
  'base64',encode(convert_to('{"answers":[{"question_id":"s1","correct_option":"(b)","rationale":"why"}]}','UTF8'),'base64')));
+RESET ROLE;
+
+-- CF10-R5.3 operational contract parity: the Iron run creates the lesson SHELL idempotently
+-- BEFORE CF09, then CF09 binds it. CF10 EXECUTE therefore always runs against a bound,
+-- pre-existing lesson and never creates one. Semester stays NULL: the manifest declares PENDING.
+INSERT INTO public.lessons(subject_id, slug, title, unit_id, is_free, semester, sort_order)
+SELECT (SELECT id FROM public.subjects LIMIT 1),'quran-lesson-04','الدرس الرابع',NULL,true,NULL,1
+ WHERE NOT EXISTS (SELECT 1 FROM public.lessons WHERE slug='quran-lesson-04');
+SET ROLE service_role;
+SELECT public.golden_lesson_bind_authoritative_identity(
+ (SELECT b.id FROM public.golden_lesson_domain_stage_batches b
+    JOIN public.golden_lesson_packages p ON p.id=b.package_id
+   WHERE p.package_code='QURAN-G10-L04-PKG'),
+ '10000000-0000-0000-0000-000000000003');
 RESET ROLE;
 
 -- Production parity: PostgREST roles hold table grants; invoker-side trigger functions rely on them.
