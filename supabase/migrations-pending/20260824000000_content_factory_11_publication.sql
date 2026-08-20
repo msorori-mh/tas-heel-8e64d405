@@ -1477,8 +1477,13 @@ BEGIN
                                                                 ORDER BY e.v->>'questionId'),
                                                       '[]'::jsonb)
                                         FROM jsonb_array_elements(self_plan) AS e(v))),
+    'lessonGating', jsonb_build_object('isFree', lesson_row.is_free,
+                                       'visibility', lesson_row.visibility,
+                                       'officialCount', array_length(official_codes,1),
+                                       'selfTestCount', array_length(self_codes,1)),
     'lifecycle', jsonb_build_object('from','DRAFT','to','REVIEW',
                                     'capabilities', to_jsonb(public.cf11_lifecycle_capabilities())));
+
   plan_sha := public.cf11_text_sha256(plan::text);
 
   IF _mode = 'DRY_RUN' THEN
