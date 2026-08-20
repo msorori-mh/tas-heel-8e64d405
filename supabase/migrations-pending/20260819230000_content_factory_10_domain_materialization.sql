@@ -404,17 +404,35 @@ BEGIN
        OR _expected_plan_sha256 IS DISTINCT FROM replay.write_plan_sha256 THEN
       RAISE EXCEPTION 'CF10_REPLAY_CONFLICT' USING ERRCODE = '23514';
     END IF;
-    -- R4b: a cached success is NEVER returned before the live domain state is re-attested
-    -- against the hash pinned by the original EXECUTE. Any tamper / drift aborts the replay.
-    IF coalesce(replay.result->>'state_sha256','') = '' THEN
+    -- R4c: replay proves the LEDGER SEED, not the whole mutable live state.
+    -- (1) Ledger + source identity: batch, plan hash, idempotency key, verified bundle,
+    --     answer companion hash and the subject/lesson identity are re-verified now.
+    IF replay.subject_id IS DISTINCT FROM subject_row.id
+       OR (replay.write_plan->>'verifiedBundleSha256') IS DISTINCT FROM batch.verified_bundle_sha256
+       OR (replay.write_plan->>'answerCompanionSha256') IS DISTINCT FROM (companion->>'companion_sha256')
+       OR (replay.write_plan->>'externalLessonCode') IS DISTINCT FROM external_lesson_code
+       OR lower(btrim(coalesce(replay.write_plan->>'lessonSlug',''))) IS DISTINCT FROM
+          lower(btrim(ident->>'lessonSlug')) THEN
+      RAISE EXCEPTION 'CF10_REPLAY_IDENTITY_REBOUND' USING ERRCODE = '23514';
+    END IF;
+    -- (2) A cached success is NEVER returned before the immutable seed is re-attested.
+    IF coalesce(replay.result->>'seed_sha256', replay.result->>'state_sha256','') = '' THEN
       RAISE EXCEPTION 'CF10_REPLAY_ATTESTATION_MISSING' USING ERRCODE = '23514';
     END IF;
     IF replay.lesson_id IS NULL
        OR NOT EXISTS (SELECT 1 FROM public.lessons WHERE id = replay.lesson_id) THEN
       RAISE EXCEPTION 'CF10_REPLAY_STATE_DRIFT: lesson missing' USING ERRCODE = '23514';
     END IF;
-    live_state_sha := public.cf10_live_state_sha256(replay.lesson_id);
-    IF live_state_sha IS DISTINCT FROM (replay.result->>'state_sha256') THEN
+    -- The lesson the ledger points at must still be the lesson this identity resolves to.
+    IF lesson_row.id IS NOT NULL AND lesson_row.id IS DISTINCT FROM replay.lesson_id THEN
+      RAISE EXCEPTION 'CF10_REPLAY_IDENTITY_REBOUND' USING ERRCODE = '23514';
+    END IF;
+    -- (3) Seed attestation: deletions, payload edits and identity rewrites abort;
+    --     legitimate downstream transitions (REVIEW/READY, new revisions, publishing a
+    --     revision or a resource, curriculum placement) are outside the attested scope.
+    seed_state_sha := public.cf10_seed_state_sha256(replay.lesson_id);
+    IF seed_state_sha IS DISTINCT FROM
+       coalesce(replay.result->>'seed_sha256', replay.result->>'state_sha256') THEN
       RAISE EXCEPTION 'CF10_REPLAY_STATE_DRIFT' USING ERRCODE = '23514';
     END IF;
     -- Visibility stays fail-closed on replay: the lesson may only be student-visible if every
@@ -428,7 +446,19 @@ BEGIN
 
     RETURN replay.result || jsonb_build_object('idempotent',true,'writes_performed',0,
       'domain_writes_performed',0,'payload_hash_updates',0,'ledger_writes',0,
-      'state_attested',true);
+      'ledger_attested',true,
+      'live_attested',true,
+      'attested_scope','immutable_seed',
+      'mutable_fields_allowed', jsonb_build_array(
+        'lesson_capability_lifecycle.status','lesson_capability_lifecycle.draft_hash',
+        'question_revisions.status','question_revisions(additional)',
+        'questions.current_published_revision_id',
+        'lesson_resources.is_primary','lesson_resources.sort_order',
+        'lessons.unit_id','lessons.is_free','lessons.sort_order',
+        'assessment_questions(membership)'),
+      'html_publication_pending', jsonb_build_object(
+        'mindMap', public.cf10_html_publication_pending(replay.lesson_id,'mindMap'),
+        'simulation', public.cf10_html_publication_pending(replay.lesson_id,'simulation')));
   END IF;
 
   IF _expected_plan_sha256 IS DISTINCT FROM plan_sha THEN
