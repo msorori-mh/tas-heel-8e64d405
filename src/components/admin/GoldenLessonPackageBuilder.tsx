@@ -1,6 +1,12 @@
 import JSZip from "jszip";
 import { useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Download, FileArchive, Loader2, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, FileArchive, Loader2, ShieldCheck, UploadCloud } from "lucide-react";
+
+import { supabase } from "@/integrations/supabase/client";
+import {
+  createGoldenLessonBundleUpload,
+  verifyAndStageGoldenLessonBundle,
+} from "@/lib/content-factory/golden-lesson-bundle.functions";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
