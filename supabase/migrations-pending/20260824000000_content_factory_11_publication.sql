@@ -1335,9 +1335,12 @@ BEGIN
       'checks', checks, 'transitions', 0, 'would_be_student_visible', false);
   END IF;
 
-  UPDATE public.golden_lesson_publications
-     SET ready_attested_by = uid, ready_attested_at = now(), ready_evidence = _evidence
-   WHERE id = pub.id;
+  -- READY evidence is appended as an independent record; the publication row stays immutable.
+  INSERT INTO public.golden_lesson_ready_attestations(
+    publication_id, batch_id, lesson_id, published_by, attested_by, evidence, checks,
+    snapshot_set_sha256, asset_attestation_sha256)
+  VALUES (pub.id, _batch_id, lesson_row.id, pub.published_by, uid, _evidence, checks,
+          public.cf11_text_sha256(checks::text), live_attestation_sha);
 
   INSERT INTO public.audit_logs(actor_id, action, target_type, target_id, metadata)
   VALUES (uid, 'golden_lesson_cf11_ready_attested', 'lesson_capability', lesson_row.id,
