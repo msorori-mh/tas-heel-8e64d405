@@ -26,7 +26,7 @@ import { verifyGoldenLessonBundle } from "./golden-lesson-bundle-verifier";
 export const INTAKE_BUCKET = "golden-lesson-intake";
 export const ASSET_BUCKET = "golden-lesson-assets";
 
-/** The single authoritative lifecycle relation. `lesson_content_lifecycle` does not exist. */
+/** The single authoritative lifecycle relation. No other lifecycle relation exists. */
 export const CF11_LIFECYCLE_TABLE = "lesson_capability_lifecycle" as const;
 
 export const SHA256_RE = /^[0-9a-f]{64}$/;
