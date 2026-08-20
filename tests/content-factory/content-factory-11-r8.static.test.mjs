@@ -208,3 +208,132 @@ test("CF11-R6/6 — the operator panel gates READY on the exact set, not a count
     assert.match(panel, new RegExp(`setDiff\\.${marker}`));
   }
 });
+
+/* ------------------------------------------------------------------------------------ *
+ * CF11-R8 — EXECUTE ISOLATION, FAIL-CLOSED METADATA, REVOCATION KEY, EXECUTABLE GATE.
+ * ------------------------------------------------------------------------------------ */
+
+/** The publication handler source, isolated from the other server functions in the file. */
+const publishHandler = fns.slice(
+  fns.indexOf("export const publishGoldenLessonCf11"),
+  fns.indexOf("export const attestGoldenLessonCf11Ready"),
+);
+const verifyHandler = fns.slice(
+  fns.indexOf("export const verifyGoldenLessonCf11Assets"),
+  fns.indexOf("export const publishGoldenLessonCf11"),
+);
+
+test("CF11-R8/1 — publish performs ZERO asset writes in DRY_RUN *and* EXECUTE", () => {
+  assert.ok(publishHandler.length > 0, "the publication handler must exist");
+  for (const forbidden of [
+    "uploadVerifiedAssets",
+    "ensureVerifiedAssets",
+    "attestStoredAssets",
+    "golden_lesson_attest_cf11_asset",
+    "storage.from",
+    ".upload(",
+  ]) {
+    assert.ok(
+      !publishHandler.includes(forbidden),
+      `publish must not reach ${forbidden} in any mode`,
+    );
+  }
+  // No mode-conditional write remains: there is no `execute ? ... upload/attest` ternary.
+  assert.doesNotMatch(publishHandler, /execute\s*\?\s*await\s+(upload|attest)/);
+  // Both modes go through the same read-only resolution.
+  assert.match(publishHandler, /await resolveVerifiedAssets\(data\.batchId\)/);
+  assert.match(publishHandler, /assetsAttested: 0/);
+  assert.match(publishHandler, /assetsUploaded: 0/);
+});
+
+test("CF11-R8/2 — only verifyGoldenLessonCf11Assets may upload or attest", () => {
+  assert.match(verifyHandler, /ensureVerifiedAssets/);
+  assert.match(verifyHandler, /attestStoredAssets/);
+  // Exactly one call site each across the whole server-function module.
+  assert.equal((fns.match(/ensureVerifiedAssets/g) ?? []).length, 2); // import + call
+  assert.equal((fns.match(/attestStoredAssets/g) ?? []).length, 2);
+  assert.equal((fns.match(/uploadVerifiedAssets/g) ?? []).length, 0);
+  // The only storage upload and the only attestation RPC live in the server module.
+  assert.equal((server.match(/\.upload\(/g) ?? []).length, 1);
+  assert.equal((server.match(/golden_lesson_attest_cf11_asset/g) ?? []).length, 1);
+});
+
+test("CF11-R8/3 — publish proves assets were already verified, read-only", () => {
+  assert.match(server, /export async function assertAssetsVerified/);
+  assert.match(server, /CF11_ASSETS_NOT_VERIFIED/);
+  assert.match(publishHandler, /await assertAssetsVerified\(lessonId, declarations\)/);
+  // The precondition helper itself never writes.
+  const helper = server.slice(
+    server.indexOf("export async function assertAssetsVerified"),
+    server.indexOf("export const CF11_VERIFICATION_ORIGIN"),
+  );
+  for (const forbidden of [".upload(", "rpc(", "insert("]) {
+    assert.ok(!helper.includes(forbidden), `the precondition helper must not call ${forbidden}`);
+  }
+  // The operator UI enforces the runbook order: verify assets -> DRY_RUN -> EXECUTE.
+  assert.match(panel, /const assetsVerified = \(selected\?\.attestedAssets \?\? 0\) > 0/);
+  assert.ok((panel.match(/!assetsVerified/g) ?? []).length >= 2);
+  assert.match(panel, /تحقق ورفع الأصول/);
+});
+
+test("CF11-R8/4 — asset metadata replay is FAIL-CLOSED (no coalesce fallback)", () => {
+  // The old fail-open comparisons are gone everywhere.
+  assert.doesNotMatch(sql, /coalesce\(\(o\.metadata->>'size'\)::bigint,\s*t\.byte_size\)/);
+  assert.doesNotMatch(sql, /coalesce\(o\.metadata->>'mimetype',\s*o\.metadata->>'contentType'/);
+  // Presence is mandatory, values are compared exactly.
+  assert.match(sql, /AND o\.metadata IS NOT NULL\n\s*AND \(o\.metadata \? 'size'\) AND \(o\.metadata \? 'mimetype'\)/);
+  assert.match(sql, /AND \(o\.metadata->>'size'\)::bigint = t\.byte_size/);
+  assert.match(sql, /AND o\.metadata->>'mimetype' = t\.mime_type/);
+  // Same contract at first READY.
+  assert.match(sql, /OR NOT \(o\.metadata \? 'size'\) OR NOT \(o\.metadata \? 'mimetype'\)/);
+  assert.match(sql, /OR \(o\.metadata->>'size'\)::bigint IS DISTINCT FROM t\.byte_size/);
+  assert.match(sql, /OR o\.metadata->>'mimetype' IS DISTINCT FROM t\.mime_type/);
+  // And at publication time, including a non-empty eTag.
+  assert.match(sql, /coalesce\(obj_row\.metadata->>'eTag', obj_row\.metadata->>'etag',''\) = ''/);
+});
+
+test("CF11-R8/5 — revocation EXECUTE demands its key BEFORE the replay branch", () => {
+  const fn = sql.slice(
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_revoke_cf11_ready"),
+  );
+  const keyGate = fn.indexOf("CF11_REVOKE_IDEMPOTENCY_KEY_REQUIRED");
+  const replayBranch = fn.indexOf("SELECT * INTO existing FROM public.golden_lesson_ready_revocations");
+  assert.ok(keyGate > 0 && replayBranch > 0);
+  assert.ok(keyGate < replayBranch, "the key gate must run before the existing-row replay branch");
+  assert.match(fn, /IF _mode = 'EXECUTE' AND \(_idempotency_key IS NULL OR length\(btrim\(_idempotency_key\)\) < 8\)/);
+  assert.match(fn, /IF _mode = 'EXECUTE'\n\s*AND btrim\(_idempotency_key\) IS DISTINCT FROM existing\.idempotency_key/);
+  assert.match(fn, /CF11_REVOKE_IDEMPOTENCY_KEY_CONFLICT/);
+});
+
+test("CF11-R8/6 — applicability, pinned revisions and READY revalidation stay exact", () => {
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.cf11_assert_exact_required_lifecycle_set/);
+  assert.ok((sql.match(/cf11_assert_exact_required_lifecycle_set\(/g) ?? []).length >= 4);
+  assert.match(sql, /tamkeen\.content-factory-11\.write-plan\.v2/);
+  assert.match(sql, /'revisionId'/);
+  assert.match(sql, /'payloadHash'/);
+  // First READY revalidates the full live state against the recorded plan.
+  const ready = sql.slice(sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_attest_cf11_ready"));
+  assert.match(ready, /cf11_assert_replay_state\(pub\.result\)/);
+  assert.match(panel, /setDiff\.notRequired/);
+});
+
+test("CF11-R8/7 — PG17 negatives are executable, not swallowed", () => {
+  const section = asserts.slice(asserts.indexOf("-- N) CF11-R8"));
+  assert.ok(section.length > 0, "section N must be the R8 version");
+  assert.doesNotMatch(section, /EXCEPTION WHEN OTHERS THEN NULL/);
+  // DRY_RUN must succeed and self-report.
+  assert.match(section, /res->>'mode' = 'DRY_RUN'/);
+  assert.match(section, /writes_performed'\)::int, -1\) = 0|writes_performed'\)::int,-1\) = 0/);
+  // A real EXECUTE withdrawal with fixture actors, and its exact aftermath.
+  assert.match(section, /_mode => 'EXECUTE'/);
+  assert.match(section, /status = 'DRAFT' AND applicability = 'REQUIRED'/);
+  assert.match(section, /NOT public\.lesson_student_visible\(lesson\)/);
+  assert.match(section, /CF11_EXPECTED_REVOKE_LEDGER: the original READY evidence must be preserved/);
+  assert.match(section, /CF11_EXPECTED_REVOKE_REPLAY_IDEMPOTENT/);
+  assert.match(section, /CF11_EXPECTED_REVOKE_KEY_REQUIRED: a null key replayed successfully/);
+  assert.match(section, /CF11_EXPECTED_REVOKE_KEY_CONFLICT/);
+  assert.match(section, /CF11_EXPECTED_TERMINAL_READY_REFUSED/);
+  // The nine-argument machine attestation signature is unchanged.
+  assert.match(server, /_batch_id:[\s\S]{0,400}_mode: mode,/);
+  assert.equal((server.match(/_(batch_id|requested_by|asset_code|observed_sha256|observed_bytes|observed_mime|magic_hex|verification_origin|mode):/g) ?? []).length, 9);
+});
