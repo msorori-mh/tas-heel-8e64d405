@@ -2,8 +2,17 @@ import { createHash } from "node:crypto";
 
 import JSZip from "jszip";
 
+import {
+  assetMagicMatches,
+  isAllowedAssetMime,
+  scanHtmlAssetReferences,
+  GOLDEN_ASSET_MAX_BYTES,
+  GOLDEN_ASSET_MIN_BYTES,
+  type GoldenLessonAsset,
+} from "./golden-lesson-assets";
 import type { GoldenLessonPackage } from "./golden-lesson-contract";
 import { parseGoldenLessonManifest, previewGoldenLessonStaging } from "./golden-lesson-staging";
+
 
 export const GOLDEN_BUNDLE_LIMITS = {
   maxCompressedBytes: 50 * 1024 * 1024,
@@ -21,7 +30,9 @@ export interface VerifiedGoldenLessonBundle {
   compressedBytes: number;
   uncompressedBytes: number;
   files: VerifiedGoldenLessonFile[];
+  assets: GoldenLessonAsset[];
 }
+
 
 export interface VerifiedGoldenLessonFile {
   path: string;
