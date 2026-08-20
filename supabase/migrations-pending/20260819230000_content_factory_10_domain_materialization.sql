@@ -1196,12 +1196,13 @@ COMMENT ON TABLE public.golden_lesson_domain_materializations IS
   'Immutable CF10 ledger: one atomic DRAFT-only materialization per verified staged batch; never publishes, never deletes, never creates subjects.';
 
 -- ---------------------------------------------------------------------------
--- CF10-R4 — server-side student visibility gate (all-REQUIRED-READY).
+-- CF10-R6 — server-side student visibility gate (no payload leak).
 -- A lesson becomes "editorially managed" the moment CF10 (or the 20C workflow)
 -- creates lifecycle rows or a materialization ledger row for it. A managed lesson
--- stays completely invisible to students until EVERY REQUIRED capability is READY.
--- NA / OPTIONAL rows never block. Legacy lessons with no lifecycle/ledger evidence
--- keep their pre-CF10 behaviour: nothing is silently hidden.
+-- stays completely invisible to students until it has REQUIRED capabilities AND no
+-- capability carrying a materialized payload (draft_hash) is still un-READY —
+-- OPTIONAL payloads included. NA rows without payload never block. Legacy lessons
+-- with no lifecycle/ledger evidence keep their pre-CF10 behaviour.
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.lesson_is_editorially_managed(_lesson_id uuid)
