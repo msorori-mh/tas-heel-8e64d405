@@ -18,13 +18,15 @@ test("CF11-R4/1 — lifecycle namespace: only lesson_capability_lifecycle exists
   // A read against a non-existent relation fails OPEN (empty lifecycle => "nothing in REVIEW"),
   // which is precisely the wrong direction for a review gate.
   for (const [name, source] of Object.entries({
-    [MIGRATION]: sql,
     [FUNCTIONS]: fns,
     [SERVER]: server,
     [PANEL]: panel,
   })) {
     assert.doesNotMatch(source, /lesson_content_lifecycle/, `${name} must not reference lesson_content_lifecycle`);
   }
+  // The migration may only NAME the phantom relation inside the guard that forbids it.
+  assert.doesNotMatch(sql, /(FROM|INTO|UPDATE|JOIN)\s+public\.lesson_content_lifecycle/);
+
   assert.match(server, /CF11_LIFECYCLE_TABLE = "lesson_capability_lifecycle"/);
   assert.match(server, /from\(CF11_LIFECYCLE_TABLE\)/);
   // The migration itself refuses to install alongside a second, silently-empty namespace.
