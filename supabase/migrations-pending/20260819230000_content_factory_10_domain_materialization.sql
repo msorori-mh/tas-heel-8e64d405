@@ -224,10 +224,11 @@ BEGIN
                 WHERE batch_id = _batch_id ORDER BY capability LOOP
     payload_text := CASE WHEN entry.source_payload IS NULL THEN NULL
                          ELSE convert_from(entry.source_payload,'UTF8') END;
-    IF payload_text IS NULL THEN
+    IF entry.applicability = 'REQUIRED' AND payload_text IS NULL THEN
       RAISE EXCEPTION 'CF10_EMPTY_PAYLOAD: %', entry.capability USING ERRCODE = '22023';
     END IF;
-    IF encode(digest(entry.source_payload,'sha256'),'hex') IS DISTINCT FROM entry.source_sha256 THEN
+    IF payload_text IS NOT NULL
+       AND encode(digest(entry.source_payload,'sha256'),'hex') IS DISTINCT FROM entry.source_sha256 THEN
       RAISE EXCEPTION 'CF10_PAYLOAD_HASH_MISMATCH: %', entry.capability USING ERRCODE = '23514';
     END IF;
     PERFORM public.cf10_assert_no_answer_leak(entry.capability, payload_text);
@@ -237,7 +238,7 @@ BEGIN
     plan := plan || jsonb_build_array(jsonb_build_object(
       'capability', entry.capability, 'targetPlan', entry.target_plan,
       'lifecycleCapability', entry.lifecycle_capability,
-      'applicability', 'REQUIRED', 'sha256', entry.source_sha256));
+      'applicability', entry.applicability, 'sha256', entry.source_sha256));
   END LOOP;
   -- R4: exactly the seven pinned capabilities, no more, no fewer, no substitutes.
   SELECT array_agg(k ORDER BY k) INTO staged_caps FROM jsonb_object_keys(payloads) AS k;
@@ -364,6 +365,7 @@ BEGIN
   --      R4: a reused resource row must match EVERY written column, not only the body.
   FOREACH cap IN ARRAY ARRAY['mindMapHtml','labExperimentHtml'] LOOP
     payload_text := payloads->cap->>'text';
+    CONTINUE WHEN payload_text IS NULL;
     option_code := CASE cap WHEN 'mindMapHtml' THEN external_lesson_code || '-MINDMAP'
                             ELSE external_lesson_code || '-EXPERIMENT' END;
     expected_resource_type := CASE cap WHEN 'mindMapHtml' THEN 'mindmap' ELSE 'experiment' END;
@@ -402,7 +404,8 @@ BEGIN
 
   -- 6) officialBookQuestions -> questions + question_revisions(DRAFT) + question_options + targets.
   --    Answers stay strictly revision-pinned inside the confidential tables.
-  question_json := (payloads->'officialBookQuestions'->>'text')::jsonb;
+  question_json := CASE WHEN payloads->'officialBookQuestions'->>'text' IS NULL THEN '{}'::jsonb
+                        ELSE (payloads->'officialBookQuestions'->>'text')::jsonb END;
   IF jsonb_typeof(question_json) <> 'object' THEN question_json := jsonb_build_object('questions', question_json); END IF;
   FOR item IN SELECT value FROM jsonb_array_elements(coalesce(question_json->'questions','[]'::jsonb)) LOOP
     question_code := external_lesson_code || '-OFFQ-' || coalesce(item->>'question_number', item->>'id');
@@ -534,7 +537,9 @@ BEGIN
 
   -- 7) selfTest -> lesson_assessments shell + DRAFT questions (+ revision-pinned rationales).
   --    Membership in assessment_questions requires a PUBLISHED revision, so it stays deferred.
-  question_json := (payloads->'selfTest'->>'text')::jsonb;
+  question_json := CASE WHEN payloads->'selfTest'->>'text' IS NULL THEN NULL
+                        ELSE (payloads->'selfTest'->>'text')::jsonb END;
+  IF question_json IS NOT NULL THEN
 
   -- R4: an existing assessment must match every written column, and belong to this lesson.
   SELECT * INTO assessment_row FROM public.lesson_assessments
@@ -698,26 +703,30 @@ BEGIN
       END IF;
     END IF;
   END LOOP;
+  END IF;
 
 
   -- Lifecycle: seven capabilities, DRAFT + REQUIRED only. No REVIEW / READY / publish.
+  --      A staged capability with a payload is REQUIRED; a capability the package declares
+  --      NA/OPTIONAL without a payload is recorded NA and never blocks student visibility.
   FOR cap, lifecycle_cap IN
     SELECT capability, lifecycle_capability FROM public.golden_lesson_domain_stage_entries
      WHERE batch_id = _batch_id ORDER BY capability LOOP
+    expected_grading := CASE WHEN (payloads->cap->>'text') IS NULL THEN 'NA' ELSE 'REQUIRED' END;
     SELECT status, applicability::text, draft_hash
       INTO existing_status, existing_applicability, existing_draft_hash
       FROM public.lesson_capability_lifecycle
      WHERE lesson_id = lesson_row.id AND capability = lifecycle_cap;
     IF existing_status IS NOT NULL AND (
          existing_status IS DISTINCT FROM 'DRAFT'
-      OR existing_applicability IS DISTINCT FROM 'REQUIRED'
+      OR existing_applicability IS DISTINCT FROM expected_grading
       OR existing_draft_hash IS DISTINCT FROM (payloads->cap->>'sha256')) THEN
       RAISE EXCEPTION 'CF10_LIFECYCLE_CONFLICT: %', lifecycle_cap USING ERRCODE = '23514';
     END IF;
     IF existing_status IS NULL THEN
       INSERT INTO public.lesson_capability_lifecycle(lesson_id, capability, status, applicability,
                                                      draft_hash, draft_updated_at)
-      VALUES (lesson_row.id, lifecycle_cap, 'DRAFT', 'REQUIRED',
+      VALUES (lesson_row.id, lifecycle_cap, 'DRAFT', expected_grading::public.capability_applicability,
               payloads->cap->>'sha256', now());
       GET DIAGNOSTICS rc = ROW_COUNT;
       lifecycle_written := lifecycle_written + rc;
@@ -725,8 +734,11 @@ BEGIN
     END IF;
   END LOOP;
 
-  IF (SELECT count(*) FROM public.lesson_capability_lifecycle
-       WHERE lesson_id = lesson_row.id AND applicability = 'REQUIRED' AND status = 'DRAFT') < 7 THEN
+  -- The seven pinned capabilities must all carry a DRAFT lifecycle row for this lesson.
+  IF (SELECT count(*) FROM public.lesson_capability_lifecycle l
+       JOIN public.golden_lesson_domain_stage_entries e
+         ON e.lifecycle_capability = l.capability AND e.batch_id = _batch_id
+      WHERE l.lesson_id = lesson_row.id AND l.status = 'DRAFT') <> 7 THEN
     RAISE EXCEPTION 'CF10_LIFECYCLE_REQUIRED_SET_INVALID' USING ERRCODE = '23514';
   END IF;
 
