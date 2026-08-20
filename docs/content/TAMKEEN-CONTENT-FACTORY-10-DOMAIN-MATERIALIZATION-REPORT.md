@@ -150,3 +150,65 @@ R2 is the corrected candidate:
 
 FINAL_VERDICT=PASS_CONTENT_FACTORY_10_R2_SOURCE_READY
 PRODUCTION_WRITES=0
+
+## 9. CF10-R3 — BLOCKED (partial-READY lesson-scope leak)
+
+R3 added a student visibility gate, but it opened the lesson as soon as **one** capability reached
+`READY`. Because `can_access_lesson()` then authorizes every lesson-scoped table, the remaining
+DRAFT capabilities (book content, explanations, summaries, resources, questions, assessments) were
+readable through the Data API. Verdict: **R3=BLOCKED_PARTIAL_READY_LESSON_SCOPE_LEAK**.
+
+## 10. CF10-R4 — source candidate (all-or-nothing gate + exact identity replay)
+
+### Visibility (CRITICAL, closed)
+
+- `lesson_student_visible()` now returns true for an editorially managed lesson **only** when at
+  least one `REQUIRED` lifecycle row exists **and** no `REQUIRED` row is anything other than
+  `READY`. `NA` rows never block; `DRAFT`/`REVIEW` rows always block.
+- Legacy unmanaged lessons stay visible unchanged; content staff keep full DRAFT visibility.
+- CF10 pins the seven capabilities for its own batch; a capability staged with a payload is
+  recorded `REQUIRED`, a declared-absent one `NA`.
+
+### Fail-closed replay / identity (HIGH, closed)
+
+Reuse of an existing row is allowed only on an exact field-level match, otherwise
+`CF10_IDENTITY_CONFLICT` / `CF10_CONTENT_HASH_CONFLICT` / `CF10_LIFECYCLE_CONFLICT` aborts the whole
+transaction with no ledger row:
+
+- lessons: `subject_id, title, unit_id IS NULL, is_free=true, semester, sort_order`
+- binding resolution: exactly one authoritative binding or an explicit no-binding path; no
+  ambiguity, no invented identity, no duplicate subject
+- lesson_resources: `resource_type, title, url, description, sort_order, resource_code,
+  html_resource_type, metadata sha256, is_primary`
+- questions: `lesson_id, subject_id, code, text, type, options, correct_index = -1`
+- question_revisions: `revision_number, status, interaction_type, grading_mode, question_text,
+  source_payload_hash, payload_hash_version` and canonical `payload_hash` after options/targets
+- question_options and the LESSON target: exact set, order, body, `is_correct=false`, lesson+subject
+- official_question_answers and question_option_rationales: exact companion match
+- lesson_assessments: `lesson_id, title, instructions, sort_order, assessment_code`
+- lifecycle: `DRAFT` + expected applicability + `draft_hash`
+
+### Counters
+
+Every counter comes from real `ROW_COUNT` / `RETURNING`; the canonical `payload_hash` update is
+counted explicitly. Exact replay performs **0 domain writes**; the ledger insert is recorded
+separately and never inflates the domain count.
+
+### R4 verification
+
+- PG17 rehearsal CF04 → CF08 → CF09 → CF10: `PASS_CONTENT_FACTORY_10_PG17`, including
+  all-DRAFT / 1-of-7 / 6-of-7 / 7-of-7 READY gate tests, a `REQUIRED` REVIEW re-close test, direct
+  base-table queries under RLS, legacy-unmanaged parity, answer-leak = 0, no publish pointer, no
+  assessment membership, and negative collision tests for every table above.
+- Fixture mirrors production constraints and RLS, including staff-only RLS on the question-bank
+  layer (`question_revisions`, `question_options`, `question_targets`,
+  `official_question_answers`, `question_option_rationales`).
+- Content-factory contract tests: 39/39 PASS. Typecheck: PASS.
+- Full regression: 276/278 PASS (same two previously triaged category-B expectations).
+- CF10-R4 migration SHA256:
+  `52dfed80c2622c702b56939d8cfb563d988b14d147b13724b1071db27a37ebad`
+
+R3=BLOCKED_PARTIAL_READY_LESSON_SCOPE_LEAK
+R4=SOURCE_CANDIDATE
+FINAL_VERDICT=PASS_CONTENT_FACTORY_10_R4_SOURCE_READY
+PRODUCTION_WRITES=0
