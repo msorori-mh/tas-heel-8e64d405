@@ -862,9 +862,12 @@ BEGIN
     RAISE EXCEPTION 'CF11_ANSWER_LEAK_DETECTED: %', leak_count USING ERRCODE = '23514';
   END IF;
 
-  -- Per-capability snapshot/hash verification.
-  FOREACH lifecycle_cap IN ARRAY ARRAY['officialBookContent','tamkeenExplanation','lessonSummary',
-                                       'mindMap','simulation','officialBookQuestions','selfTest'] LOOP
+  -- Per-capability snapshot/hash verification over the EXACT seven rows this lesson carries
+  -- (already asserted to be seven, all in REVIEW/READY). No hardcoded vocabulary.
+  FOR lifecycle_cap IN
+    SELECT capability FROM public.lesson_capability_lifecycle
+     WHERE lesson_id = lesson_row.id ORDER BY capability
+  LOOP
     snap := public.v3_capability_snapshot(lesson_row.id, lifecycle_cap);
     IF snap IS NULL OR NOT public.v3_capability_snapshot_is_reconcilable(snap) THEN
       RAISE EXCEPTION 'CF11_SNAPSHOT_NOT_RECONCILABLE: %', lifecycle_cap USING ERRCODE = '23514';
