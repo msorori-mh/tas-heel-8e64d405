@@ -504,7 +504,7 @@ UPDATE public.lesson_capability_lifecycle
        ready_hash=draft_hash
  WHERE ctid IN (SELECT ctid FROM public.lesson_capability_lifecycle
                  WHERE lesson_id='43000000-0000-0000-0000-000000000001' AND status='DRAFT'
-                 ORDER BY capability LIMIT 1);
+                   AND applicability='REQUIRED' ORDER BY capability LIMIT 1);
 SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000004'; SET ROLE authenticated;
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lessons),'1/7 READY: lesson still hidden');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_book_contents),'1/7 READY: zero book content');
@@ -520,10 +520,14 @@ UPDATE public.lesson_capability_lifecycle
        ready_hash=draft_hash
  WHERE ctid IN (SELECT ctid FROM public.lesson_capability_lifecycle
                  WHERE lesson_id='43000000-0000-0000-0000-000000000001' AND status='DRAFT'
-                 ORDER BY capability LIMIT 5);
+                   AND ctid <> (SELECT ctid FROM public.lesson_capability_lifecycle
+                                 WHERE lesson_id='43000000-0000-0000-0000-000000000001'
+                                   AND status='DRAFT' AND applicability='REQUIRED'
+                                 ORDER BY capability LIMIT 1));
 SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000004'; SET ROLE authenticated;
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_capability_lifecycle
-   WHERE lesson_id='43000000-0000-0000-0000-000000000001') OR true,'sanity');
+   WHERE lesson_id='43000000-0000-0000-0000-000000000001' AND status='DRAFT'
+     AND applicability='REQUIRED'),'exactly one REQUIRED capability is left DRAFT');
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lessons),'6/7 READY: lesson still hidden');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_book_contents),'6/7 READY: zero book content');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.questions),'6/7 READY: zero questions');
