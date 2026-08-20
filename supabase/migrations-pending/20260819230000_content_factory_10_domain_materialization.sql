@@ -1172,16 +1172,18 @@ GRANT EXECUTE ON FUNCTION public.cf10_seed_state_sha256(uuid) TO service_role;
 REVOKE ALL ON FUNCTION public.cf10_html_publication_pending(uuid,text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cf10_html_publication_pending(uuid,text) TO authenticated, service_role;
 
--- CF10-R4c: mindMap / simulation can never reach READY while their HTML is still the temporary
--- CF10 stage. Only CF11 (which stamps metadata->>'cf11_published_at') unlocks that transition.
+-- CF10-R7: mindMap / simulation can NEVER reach READY inside the CF10 stage, full stop.
+-- There is deliberately no lesson_resources-based bypass: a spoofed row (any writer with insert
+-- rights on lesson_resources) must not be able to unlock READY. The CF11 forward migration is the
+-- only thing allowed to REPLACE this function with a real published-version + SHA256 +
+-- private-storage verification.
 CREATE OR REPLACE FUNCTION public.cf10_block_ready_before_html_publication()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
   -- Only a capability that actually carries materialized HTML bytes is gated:
   -- an OPTIONAL/NA row with no payload may legitimately reach READY.
   IF NEW.status = 'READY' AND NEW.capability IN ('mindMap','simulation')
-     AND NEW.draft_hash IS NOT NULL
-     AND public.cf10_html_publication_pending(NEW.lesson_id, NEW.capability) THEN
+     AND NEW.draft_hash IS NOT NULL THEN
     RAISE EXCEPTION 'CF10_HTML_CAPABILITY_READY_TOO_EARLY: %', NEW.capability USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
