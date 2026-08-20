@@ -785,7 +785,7 @@ SELECT public.cf04_assert(
   'mindMap snapshot is non-empty');
 SELECT public.cf04_assert(
   jsonb_array_length(coalesce(public.v3_capability_snapshot(
-    public.cf10_rich_lesson(),'simulation')->'payload','[]'::jsonb)) > 0,
+    public.cf10_rich_lesson(),'simulation')->'payload'->'resources','[]'::jsonb)) > 0,
   'simulation snapshot is non-empty');
 SELECT public.cf04_assert(public.v3_capability_snapshot_is_reconcilable(
   public.v3_capability_snapshot(public.cf10_rich_lesson(),'mindMap')),
