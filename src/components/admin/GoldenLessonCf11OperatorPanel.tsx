@@ -49,11 +49,18 @@ export function GoldenLessonCf11OperatorPanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [available, setAvailable] = useState(true);
   const [note, setNote] = useState("");
+  /**
+   * Write-plan hashes captured from the DRY_RUN the operator actually reviewed, per batch.
+   * EXECUTE is impossible until the matching hash exists: the server rejects a plan hash that
+   * no longer describes the pending writes, so a stale review can never be executed.
+   */
+  const [plans, setPlans] = useState<Record<string, { cf10?: string; cf11?: string }>>({});
 
   const selected = useMemo(
     () => batches.find((batch) => batch.batchId === selectedId) ?? null,
     [batches, selectedId],
   );
+  const selectedPlans = selectedId ? plans[selectedId] ?? {} : {};
 
   const refresh = useCallback(async () => {
     setBusy("refresh");
@@ -71,11 +78,22 @@ export function GoldenLessonCf11OperatorPanel() {
   }, [loadBatches, selectedId]);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const run = async (key: string, action: () => Promise<unknown>) => {
+  const run = async (
+    key: string,
+    action: () => Promise<unknown>,
+    capture?: { batchId: string; stage: "cf10" | "cf11" },
+  ) => {
     setBusy(key); setMessage(null);
     try {
       const result = await action();
       setMessage(JSON.stringify(result));
+      const sha = (result as { planSha256?: string | null } | null)?.planSha256;
+      if (capture && typeof sha === "string") {
+        setPlans((current) => ({
+          ...current,
+          [capture.batchId]: { ...current[capture.batchId], [capture.stage]: sha },
+        }));
+      }
       await refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "رفض الخادم العملية.");
@@ -90,6 +108,7 @@ export function GoldenLessonCf11OperatorPanel() {
   const inReview = (selected?.lifecycle ?? []).filter((row) => row.status === "REVIEW").length;
   const isPublisher = Boolean(selected?.publishedBy && user?.id && selected.publishedBy === user.id);
   const canAttest = Boolean(selected?.published) && !selected?.readyAttestedAt && !isPublisher;
+
 
   return (
     <section dir="rtl" aria-labelledby="cf11-operator-heading"
