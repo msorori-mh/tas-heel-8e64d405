@@ -1202,6 +1202,8 @@ DECLARE
   checks jsonb := '[]'::jsonb;
   transitions integer := 0;
   leak_count integer := 0;
+  ready_row public.golden_lesson_ready_attestations;
+  live_attestation_sha text;
 BEGIN
   IF _mode NOT IN ('DRY_RUN','EXECUTE') THEN
     RAISE EXCEPTION 'CF11_INVALID_MODE' USING ERRCODE = '22023';
