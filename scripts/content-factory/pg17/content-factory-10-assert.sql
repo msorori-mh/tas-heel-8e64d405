@@ -906,6 +906,13 @@ UPDATE public.questions SET current_published_revision_id=(
     SELECT id FROM public.question_revisions rv WHERE rv.question_id=questions.id
      ORDER BY revision_number DESC LIMIT 1)
  WHERE lesson_id='43000000-0000-0000-0000-000000000001';
+-- R7: a legitimate CF11 resource addition must NOT break replay (lesson_resources is entirely
+-- outside the immutable seed).
+INSERT INTO public.lesson_resources(lesson_id, resource_type, title, url, sort_order,
+                                    resource_code, html_resource_type, metadata, is_primary)
+VALUES ('43000000-0000-0000-0000-000000000001','mindmap','CF11 mind map',
+        'https://cdn.example.test/cf11/mindmap.html',1,'CF11-MINDMAP-L03','STATIC',
+        jsonb_build_object('contentFactory','CF11','cf11_published_at',now()),true);
 UPDATE public.lesson_resources SET is_primary = NOT is_primary, sort_order = sort_order + 10
  WHERE lesson_id='43000000-0000-0000-0000-000000000001';
 UPDATE public.lessons SET is_free=false, sort_order=sort_order+5
