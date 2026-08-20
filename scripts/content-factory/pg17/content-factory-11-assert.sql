@@ -214,37 +214,56 @@ RESET ROLE;
 BEGIN;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
 SET ROLE authenticated;
-DO $$ BEGIN
-  BEGIN  -- undeclared reference: the body points at an asset nobody declared
-    PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
-      '10000000-0000-0000-0000-000000000003','DRY_RUN','[]'::jsonb);
-    RAISE EXCEPTION 'CF11_EXPECTED_UNDECLARED';
-  EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF11_UNDECLARED_ASSET_REFERENCE%' THEN RAISE; END IF;
-  END;
-  BEGIN  -- folder / traversal names are impossible
-    PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
-      '10000000-0000-0000-0000-000000000003','DRY_RUN',
-      jsonb_set(public.cf11_iron_assets(),'{0,fileName}','"assets/official-figure-1-1.jpg"'));
+DO $$
+DECLARE tampered jsonb;
+BEGIN
+  -- The client is NOT authoritative: any tampered echo is refused before anything is read.
+  FOREACH tampered IN ARRAY ARRAY[
+    jsonb_set(public.cf11_iron_assets(),'{0,fileName}','"assets/official-figure-1-1.jpg"'),
+    jsonb_set(public.cf11_iron_assets(),'{0,mimeType}','"image/svg+xml"'),
+    jsonb_set(public.cf11_iron_assets(),'{0,sha256}', to_jsonb(repeat('b',64))),
+    jsonb_set(public.cf11_iron_assets(),'{0,bytes}','999'),
+    '[]'::jsonb || jsonb_build_array(jsonb_build_object('assetCode','EXTRA-ASSET'))
+  ] LOOP
+    BEGIN
+      PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
+        '10000000-0000-0000-0000-000000000003','DRY_RUN', tampered);
+      RAISE EXCEPTION 'CF11_EXPECTED_NOT_AUTHORITATIVE';
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE '%CF11_ASSET_DECLARATION_NOT_AUTHORITATIVE%' THEN RAISE; END IF;
+    END;
+  END LOOP;
+
+  -- Manifest-level violations are refused by the declaration authority itself.
+  BEGIN
+    PERFORM public.cf11_manifest_assets(jsonb_build_object('assets', jsonb_build_array(
+      jsonb_build_object('assetCode','OFFICIAL-FIGURE-1-1','path','assets/x.jpg',
+        'mimeType','image/jpeg','sha256',repeat('a',64),'bytes',1024))),
+      '43000000-0000-0000-0000-000000000012');
     RAISE EXCEPTION 'CF11_EXPECTED_NOT_LEAF';
   EXCEPTION WHEN check_violation THEN
     IF SQLERRM NOT LIKE '%CF11_ASSET_NOT_LEAF%' THEN RAISE; END IF;
   END;
-  BEGIN  -- SVG / script-capable MIME types are refused
-    PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
-      '10000000-0000-0000-0000-000000000003','DRY_RUN',
-      jsonb_set(public.cf11_iron_assets(),'{0,mimeType}','"image/svg+xml"'));
+  BEGIN
+    PERFORM public.cf11_manifest_assets(jsonb_build_object('assets', jsonb_build_array(
+      jsonb_build_object('assetCode','OFFICIAL-FIGURE-1-1','path','x.svg',
+        'mimeType','image/svg+xml','sha256',repeat('a',64),'bytes',1024))),
+      '43000000-0000-0000-0000-000000000012');
     RAISE EXCEPTION 'CF11_EXPECTED_MIME';
   EXCEPTION WHEN check_violation THEN
     IF SQLERRM NOT LIKE '%CF11_ASSET_MIME_FORBIDDEN%' THEN RAISE; END IF;
   END;
-  BEGIN  -- a public bucket is never accepted
+
+  -- An undeclared body reference cannot survive: strip the manifest assets and publish.
+  UPDATE public.golden_lesson_package_versions
+     SET manifest = manifest - 'assets' WHERE id = '50100000-0000-0000-0000-000000000001';
+  BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
-      '10000000-0000-0000-0000-000000000003','DRY_RUN',
-      jsonb_set(public.cf11_iron_assets(),'{0,storageBucket}','"lesson-pdfs"'));
-    RAISE EXCEPTION 'CF11_EXPECTED_BUCKET';
+      '10000000-0000-0000-0000-000000000003','DRY_RUN','[]'::jsonb);
+    RAISE EXCEPTION 'CF11_EXPECTED_UNDECLARED';
   EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF11_ASSET_BUCKET_FORBIDDEN%' THEN RAISE; END IF;
+    IF SQLERRM NOT LIKE '%CF11_UNDECLARED_ASSET_REFERENCE%'
+       AND SQLERRM NOT LIKE '%CF11_ASSET_ATTESTATION_SET_MISMATCH%' THEN RAISE; END IF;
   END;
   PERFORM public.cf04_assert(true,'asset declaration contract is fail-closed');
 END $$;
