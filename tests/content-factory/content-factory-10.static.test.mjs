@@ -205,7 +205,9 @@ test("CF10-R9 ships a forward dependency-namespace migration for CF04/CF08/CF09"
   // zero stale unqualified digest calls in the forward definitions (comments excluded)
   const fwdCode = fwd.replace(/^\s*--.*$/gm, "");
   assert.equal((fwdCode.match(/(?<!extensions\.)\bdigest\s*\(/g) ?? []).length, 0);
-  assert.equal((fwdCode.match(/extensions\.digest\(/g) ?? []).length, 4);
+  // 5 re-created hash call sites (CF04 x1, CF08 x3, CF09 x1) + the 2 guard references
+  assert.equal((fwdCode.match(/encode\(extensions\.digest\(/g) ?? []).length, 5);
+  assert.equal((fwdCode.match(/extensions\.digest\(/g) ?? []).length, 7);
   // the already-applied dependency migrations keep their original bytes
   for (const dep of [
     "supabase/migrations-pending/20260819190000_content_factory_04_package_staging.sql",
