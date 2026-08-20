@@ -940,6 +940,8 @@ BEGIN
     'externalLessonCode', ext_code,
     'verifiedBundleSha256', batch.verified_bundle_sha256,
     'assets', asset_report,
+    'manifestAssetsSha256', manifest_assets_sha,
+    'assetAttestationSha256', attestation_sha,
     'bookContent', jsonb_build_object('beforeSha256', public.cf11_text_sha256(book_old),
                                       'afterSha256', public.cf11_text_sha256(book_new)),
     'html', jsonb_build_object(
