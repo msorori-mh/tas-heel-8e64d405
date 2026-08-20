@@ -405,7 +405,9 @@ DECLARE b uuid; sha text;
 BEGIN
   b := public.cf10_batch('QURAN-G10-L04-PKG');
   DELETE FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
+  ALTER TABLE public.official_question_answers DISABLE TRIGGER trg_v3_official_answers_immutable;
   UPDATE public.official_question_answers SET model_answer = '(z)';
+  ALTER TABLE public.official_question_answers ENABLE TRIGGER trg_v3_official_answers_immutable;
   sha := public.golden_lesson_materialize_domain_batch(
            b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
   BEGIN
@@ -426,7 +428,9 @@ DECLARE b uuid; sha text;
 BEGIN
   b := public.cf10_batch('QURAN-G10-L04-PKG');
   DELETE FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
+  ALTER TABLE public.question_option_rationales DISABLE TRIGGER trg_v3_rationales_immutable;
   UPDATE public.question_option_rationales SET why_correct = 'tampered';
+  ALTER TABLE public.question_option_rationales ENABLE TRIGGER trg_v3_rationales_immutable;
   sha := public.golden_lesson_materialize_domain_batch(
            b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
   BEGIN
