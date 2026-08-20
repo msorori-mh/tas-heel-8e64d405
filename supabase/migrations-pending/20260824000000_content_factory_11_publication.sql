@@ -366,6 +366,242 @@ RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
 $$;
 
 -- ------------------------------------------------------------------------------------
+-- 4b) THE asset declaration authority (R3).
+--     The ONLY source of truth for what a Golden Lesson may ship is the verified package
+--     manifest that CF07 already hash-pinned. No client, no server function and no operator
+--     can add, drop or edit a declaration: they are derived here, deterministically, from
+--     golden_lesson_package_versions.manifest -> 'assets'.
+-- ------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.cf11_magic_matches(_mime text, _hex text)
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
+  SELECT CASE lower(coalesce(_mime,''))
+    WHEN 'image/jpeg' THEN lower(coalesce(_hex,'')) LIKE 'ffd8ff%'
+    WHEN 'image/png'  THEN lower(coalesce(_hex,'')) LIKE '89504e470d0a1a0a%'
+    WHEN 'image/webp' THEN lower(coalesce(_hex,'')) LIKE '52494646%'
+                       AND substr(lower(coalesce(_hex,'')), 17, 8) = '57454250'
+    ELSE false END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.cf11_asset_extension_ok(_mime text, _leaf text)
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
+  SELECT CASE lower(coalesce(_mime,''))
+    WHEN 'image/jpeg' THEN _leaf ~ '\.(jpg|jpeg)$'
+    WHEN 'image/png'  THEN _leaf ~ '\.png$'
+    WHEN 'image/webp' THEN _leaf ~ '\.webp$'
+    ELSE false END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.cf11_manifest_assets(_manifest jsonb, _lesson_id uuid)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path = public, pg_temp AS $$
+DECLARE
+  a jsonb;
+  leaf text;
+  code text;
+  mime text;
+  sha text;
+  sz bigint;
+  seen text[] := ARRAY[]::text[];
+  out_arr jsonb := '[]'::jsonb;
+BEGIN
+  IF _manifest ? 'assets' AND jsonb_typeof(_manifest->'assets') <> 'array' THEN
+    RAISE EXCEPTION 'CF11_MANIFEST_ASSETS_MALFORMED' USING ERRCODE = '23514';
+  END IF;
+  FOR a IN
+    SELECT value FROM jsonb_array_elements(coalesce(_manifest->'assets','[]'::jsonb))
+     ORDER BY value->>'assetCode'
+  LOOP
+    code := a->>'assetCode';
+    leaf := a->>'path';
+    mime := a->>'mimeType';
+    sha  := a->>'sha256';
+    IF coalesce(code,'') !~ '^[A-Z0-9][A-Z0-9-]{2,63}$' THEN
+      RAISE EXCEPTION 'CF11_ASSET_CODE_INVALID: %', coalesce(code,'<null>') USING ERRCODE = '23514';
+    END IF;
+    IF leaf IS NULL OR leaf ~ '[/\\]' OR leaf ~ '\.\.' OR leaf !~ '^[a-z0-9][a-z0-9._-]{0,63}$' THEN
+      RAISE EXCEPTION 'CF11_ASSET_NOT_LEAF: %', coalesce(leaf,'<null>') USING ERRCODE = '23514';
+    END IF;
+    IF mime NOT IN ('image/png','image/jpeg','image/webp') THEN
+      RAISE EXCEPTION 'CF11_ASSET_MIME_FORBIDDEN: %', coalesce(mime,'<null>') USING ERRCODE = '23514';
+    END IF;
+    IF NOT public.cf11_asset_extension_ok(mime, leaf) THEN
+      RAISE EXCEPTION 'CF11_ASSET_EXTENSION_MISMATCH: % %', mime, leaf USING ERRCODE = '23514';
+    END IF;
+    IF coalesce(sha,'') !~ '^[0-9a-f]{64}$' THEN
+      RAISE EXCEPTION 'CF11_ASSET_SHA_INVALID: %', code USING ERRCODE = '23514';
+    END IF;
+    IF jsonb_typeof(a->'bytes') <> 'number' THEN
+      RAISE EXCEPTION 'CF11_ASSET_SIZE_INVALID: %', code USING ERRCODE = '23514';
+    END IF;
+    sz := (a->>'bytes')::bigint;
+    IF sz < 64 OR sz > 2097152 THEN
+      RAISE EXCEPTION 'CF11_ASSET_SIZE_OUT_OF_RANGE: % %', code, sz USING ERRCODE = '23514';
+    END IF;
+    IF code = ANY (seen) OR leaf = ANY (seen) THEN
+      RAISE EXCEPTION 'CF11_ASSET_DUPLICATE: %', code USING ERRCODE = '23514';
+    END IF;
+    seen := seen || code || leaf;
+    out_arr := out_arr || jsonb_build_object(
+      'assetCode', code,
+      'fileName', leaf,
+      'mimeType', mime,
+      'sha256', sha,
+      'bytes', sz,
+      'altTextAr', a->>'altTextAr',
+      'storageBucket', 'golden-lesson-assets',
+      'storagePath', _lesson_id::text || '/' || sha || '-' || leaf);
+  END LOOP;
+  RETURN out_arr;
+END $$;
+
+-- Canonical hash of ONE upload attestation: measured bytes bound to the live object identity.
+CREATE OR REPLACE FUNCTION public.cf11_attestation_hash(
+  _lesson_id uuid, _asset_code text, _file_name text, _mime text, _sha256 text,
+  _bytes bigint, _magic_hex text, _bucket text, _path text,
+  _object_id uuid, _version text, _etag text)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
+  SELECT public.cf11_text_sha256(jsonb_build_object(
+    'schema','tamkeen.content-factory-11.asset-attestation.v1',
+    'lessonId', _lesson_id, 'assetCode', _asset_code, 'fileName', _file_name,
+    'mimeType', _mime, 'sha256', _sha256, 'bytes', _bytes, 'magicHex', lower(_magic_hex),
+    'bucket', _bucket, 'path', _path,
+    'objectId', _object_id, 'objectVersion', _version, 'objectEtag', _etag)::text);
+$$;
+
+-- ------------------------------------------------------------------------------------
+-- 4c) Upload attestation RPC. Appends ONE immutable row proving the real bytes reached the
+--     private bucket. Refuses a storage.objects row that carries no size/mimetype metadata,
+--     so a fabricated name-only row can never stand in for an upload.
+-- ------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.golden_lesson_attest_cf11_asset(
+  _batch_id uuid,
+  _actor_id uuid,
+  _asset_code text,
+  _observed_sha256 text,
+  _observed_bytes bigint,
+  _observed_mime text,
+  _magic_hex text,
+  _mode text DEFAULT 'EXECUTE'
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+  uid uuid := auth.uid();
+  batch public.golden_lesson_domain_stage_batches;
+  ver public.golden_lesson_package_versions;
+  binding public.golden_lesson_identity_bindings;
+  decl jsonb;
+  obj record;
+  obj_size bigint;
+  obj_mime text;
+  obj_etag text;
+  att_hash text;
+  existing public.golden_lesson_asset_attestations;
+BEGIN
+  IF _mode NOT IN ('DRY_RUN','EXECUTE') THEN
+    RAISE EXCEPTION 'CF11_INVALID_MODE' USING ERRCODE = '22023';
+  END IF;
+  IF uid IS NULL OR _actor_id IS NULL OR uid <> _actor_id THEN
+    RAISE EXCEPTION 'CF11_ACTOR_IDENTITY_MISMATCH' USING ERRCODE = '42501';
+  END IF;
+  IF NOT public.is_golden_lesson_content_staff(uid) THEN
+    RAISE EXCEPTION 'CF11_NOT_AUTHORIZED' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO batch FROM public.golden_lesson_domain_stage_batches WHERE id = _batch_id;
+  IF batch.id IS NULL THEN
+    RAISE EXCEPTION 'CF11_BATCH_NOT_FOUND' USING ERRCODE = 'P0002';
+  END IF;
+  SELECT * INTO ver FROM public.golden_lesson_package_versions
+   WHERE package_id = batch.package_id AND version = batch.package_version;
+  IF ver.id IS NULL OR ver.verified_bundle_sha256 IS DISTINCT FROM batch.verified_bundle_sha256 THEN
+    RAISE EXCEPTION 'CF11_VERIFIED_BUNDLE_MISMATCH' USING ERRCODE = '23514';
+  END IF;
+  SELECT * INTO binding FROM public.golden_lesson_identity_bindings WHERE batch_id = _batch_id;
+  IF binding.id IS NULL THEN
+    RAISE EXCEPTION 'CF11_IDENTITY_BINDING_MISSING' USING ERRCODE = '23514';
+  END IF;
+
+  SELECT value INTO decl
+    FROM jsonb_array_elements(public.cf11_manifest_assets(ver.manifest, binding.lesson_id))
+   WHERE value->>'assetCode' = _asset_code;
+  IF decl IS NULL THEN
+    RAISE EXCEPTION 'CF11_ASSET_NOT_DECLARED: %', coalesce(_asset_code,'<null>') USING ERRCODE = '23514';
+  END IF;
+
+  -- Measured bytes must equal the manifest declaration, exactly.
+  IF lower(coalesce(_observed_sha256,'')) IS DISTINCT FROM decl->>'sha256' THEN
+    RAISE EXCEPTION 'CF11_ASSET_BYTES_MISMATCH: %', _asset_code USING ERRCODE = '23514';
+  END IF;
+  IF _observed_bytes IS DISTINCT FROM (decl->>'bytes')::bigint THEN
+    RAISE EXCEPTION 'CF11_ASSET_SIZE_MISMATCH: % got %', _asset_code, _observed_bytes USING ERRCODE = '23514';
+  END IF;
+  IF _observed_mime IS DISTINCT FROM decl->>'mimeType' THEN
+    RAISE EXCEPTION 'CF11_ASSET_MIME_MISMATCH: % got %', _asset_code, coalesce(_observed_mime,'<null>')
+      USING ERRCODE = '23514';
+  END IF;
+  IF NOT public.cf11_magic_matches(_observed_mime, _magic_hex) THEN
+    RAISE EXCEPTION 'CF11_ASSET_MAGIC_MISMATCH: % %', _asset_code, coalesce(_magic_hex,'<null>')
+      USING ERRCODE = '23514';
+  END IF;
+
+  -- The live storage object, with real metadata. Name-only rows are refused.
+  SELECT o.id, o.version, o.metadata INTO obj
+    FROM storage.objects o
+   WHERE o.bucket_id = 'golden-lesson-assets' AND o.name = decl->>'storagePath';
+  IF obj.id IS NULL THEN
+    RAISE EXCEPTION 'CF11_ASSET_OBJECT_MISSING: %', decl->>'storagePath' USING ERRCODE = '23514';
+  END IF;
+  IF obj.metadata IS NULL OR obj.version IS NULL
+     OR NOT (obj.metadata ? 'size') OR NOT (obj.metadata ? 'mimetype')
+     OR coalesce(obj.metadata->>'eTag', obj.metadata->>'etag','') = '' THEN
+    RAISE EXCEPTION 'CF11_ASSET_OBJECT_METADATA_MISSING: %', decl->>'storagePath' USING ERRCODE = '23514';
+  END IF;
+  obj_size := (obj.metadata->>'size')::bigint;
+  obj_mime := obj.metadata->>'mimetype';
+  obj_etag := coalesce(obj.metadata->>'eTag', obj.metadata->>'etag');
+  IF obj_size IS DISTINCT FROM (decl->>'bytes')::bigint OR obj_mime IS DISTINCT FROM decl->>'mimeType' THEN
+    RAISE EXCEPTION 'CF11_ASSET_OBJECT_METADATA_MISMATCH: % size=% mime=%',
+      _asset_code, obj_size, coalesce(obj_mime,'<null>') USING ERRCODE = '23514';
+  END IF;
+
+  att_hash := public.cf11_attestation_hash(binding.lesson_id, _asset_code, decl->>'fileName',
+    decl->>'mimeType', decl->>'sha256', (decl->>'bytes')::bigint, _magic_hex,
+    'golden-lesson-assets', decl->>'storagePath', obj.id, obj.version, obj_etag);
+
+  SELECT * INTO existing FROM public.golden_lesson_asset_attestations
+   WHERE lesson_id = binding.lesson_id AND asset_code = _asset_code;
+  IF existing.id IS NOT NULL THEN
+    IF existing.attestation_sha256 IS DISTINCT FROM att_hash THEN
+      RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_CONFLICT: %', _asset_code USING ERRCODE = '23514';
+    END IF;
+    RETURN jsonb_build_object('mode',_mode,'assetCode',_asset_code,'idempotent',true,
+      'writes_performed',0,'attestationSha256',att_hash);
+  END IF;
+
+  IF _mode = 'DRY_RUN' THEN
+    RETURN jsonb_build_object('mode','DRY_RUN','assetCode',_asset_code,'idempotent',false,
+      'writes_performed',0,'attestationSha256',att_hash);
+  END IF;
+
+  INSERT INTO public.golden_lesson_asset_attestations(
+    batch_id, lesson_id, asset_code, file_name, mime_type, sha256, byte_size, magic_hex,
+    storage_bucket, storage_path, storage_object_id, storage_version, storage_etag,
+    attestation_sha256, attested_by)
+  VALUES (_batch_id, binding.lesson_id, _asset_code, decl->>'fileName', decl->>'mimeType',
+          decl->>'sha256', (decl->>'bytes')::bigint, lower(_magic_hex),
+          'golden-lesson-assets', decl->>'storagePath', obj.id, obj.version, obj_etag,
+          att_hash, uid);
+
+  INSERT INTO public.audit_logs(actor_id, action, target_type, target_id, metadata)
+  VALUES (uid, 'golden_lesson_cf11_asset_attested', 'lesson_capability', binding.lesson_id,
+          jsonb_build_object('batchId',_batch_id,'assetCode',_asset_code,'attestationSha256',att_hash));
+
+  RETURN jsonb_build_object('mode','EXECUTE','assetCode',_asset_code,'idempotent',false,
+    'writes_performed',1,'attestationSha256',att_hash);
+END $$;
+
+
+
+-- ------------------------------------------------------------------------------------
 -- 5) The CF10 stub becomes the real, CF11-aware publication probe.
 --    Truthful signal only: publication is no longer pending when a lesson_resources row exists
 --    that (a) carries the CF11 publication id, (b) matches the published body sha256 recorded in
