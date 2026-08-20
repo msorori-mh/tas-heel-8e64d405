@@ -53,6 +53,9 @@ jobs:
           node --test tests/content-factory/content-factory-08.static.test.mjs
           node --test tests/content-factory/content-factory-09.static.test.mjs
           node --test tests/content-factory/content-factory-10.static.test.mjs
+          node --test tests/content-factory/content-factory-11-r4.static.test.mjs
+          node --import tsx --test tests/content-packages/chemistry-g12-iron-cf11-assets.test.ts
+
           if [ -f tests/content-packages/chemistry-g12-iron-v3.test.mjs ]; then
             node --test tests/content-packages/chemistry-g12-iron-v3.test.mjs
           fi
