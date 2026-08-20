@@ -823,12 +823,19 @@ BEGIN
        OR obj_row.metadata->>'mimetype' IS DISTINCT FROM att.mime_type THEN
       RAISE EXCEPTION 'CF11_ASSET_OBJECT_IDENTITY_DRIFT: %', asset->>'assetCode' USING ERRCODE = '23514';
     END IF;
+    -- CF11-R5: only a server byte readback is admissible evidence for the bytes.
+    IF att.verification_origin IS DISTINCT FROM 'SERVER_BYTE_READBACK' THEN
+      RAISE EXCEPTION 'CF11_ASSET_VERIFICATION_ORIGIN_INVALID: %', asset->>'assetCode'
+        USING ERRCODE = '42501';
+    END IF;
     IF att.attestation_sha256 IS DISTINCT FROM public.cf11_attestation_hash(
          lesson_row.id, att.asset_code, att.file_name, att.mime_type, att.sha256, att.byte_size,
          att.magic_hex, att.storage_bucket, att.storage_path, obj_row.id, obj_row.version,
-         coalesce(obj_row.metadata->>'eTag', obj_row.metadata->>'etag')) THEN
+         coalesce(obj_row.metadata->>'eTag', obj_row.metadata->>'etag'),
+         att.verification_origin) THEN
       RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_HASH_DRIFT: %', asset->>'assetCode' USING ERRCODE = '23514';
     END IF;
+
     -- No overwrite when the hash differs for the same logical asset.
     IF EXISTS (SELECT 1 FROM public.golden_lesson_published_assets a
                 WHERE a.lesson_id = lesson_row.id AND a.asset_code = asset->>'assetCode'
