@@ -1012,7 +1012,7 @@ BEGIN
   -- here explicitly for the two editorial RPCs the addendum names).
   PERFORM public.cf04_assert(
     NOT has_function_privilege('service_role',
-      'public.golden_lesson_publish_cf11(uuid,uuid,text,text,text)','EXECUTE')
+      'public.golden_lesson_publish_cf11(uuid,uuid,text,jsonb,text,text)','EXECUTE')
     AND NOT has_function_privilege('service_role',
       'public.golden_lesson_attest_cf11_ready(uuid,uuid,jsonb,text)','EXECUTE'),
     'CF11_R4: service_role must never publish or attest READY');
