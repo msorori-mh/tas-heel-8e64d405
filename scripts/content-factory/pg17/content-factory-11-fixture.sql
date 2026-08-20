@@ -116,6 +116,14 @@ INSERT INTO auth.users(id) VALUES ('10000000-0000-0000-0000-000000000005')
 INSERT INTO public.user_roles(user_id, role)
 VALUES ('10000000-0000-0000-0000-000000000005','admin') ON CONFLICT DO NOTHING;
 
+-- CF11-R8: a THIRD admin, so a withdrawal can be executed for real by someone who is neither the
+-- publisher nor the READY attester (separation of duties applies to the withdrawal too).
+INSERT INTO auth.users(id) VALUES ('10000000-0000-0000-0000-000000000006')
+  ON CONFLICT DO NOTHING;
+INSERT INTO public.user_roles(user_id, role)
+VALUES ('10000000-0000-0000-0000-000000000006','admin') ON CONFLICT DO NOTHING;
+
+
 -- ---------------------------------------------------------------------------
 -- Iron curriculum identity.
 -- ---------------------------------------------------------------------------
