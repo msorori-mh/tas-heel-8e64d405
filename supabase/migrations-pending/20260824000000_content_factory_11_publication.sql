@@ -248,6 +248,52 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   SELECT encode(extensions.digest(convert_to(coalesce(_value,''),'UTF8'),'sha256'),'hex');
 $$;
 
+-- ------------------------------------------------------------------------------------
+-- CF11-R6 — THE canonical production lifecycle capability set.
+--
+-- Mirrors src/lib/lessons/capability-mapping.ts `V3_LIFECYCLE_CAPABILITIES` exactly, sorted so
+-- it can be compared with `=`/`IS DISTINCT FROM` against a sorted live aggregate. Every gate in
+-- this migration compares the SET, never a count and never statuses alone: a lesson carrying
+-- seven rows with one substituted, duplicated-equivalent or retired name is rejected.
+-- ------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.cf11_lifecycle_capabilities()
+RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
+  SELECT ARRAY['checkUnderstanding','lessonAssessment','mindMap','officialBookContent',
+               'quickReview','simulation','tamkeenExplanation']::text[];
+$$;
+
+-- The live, sorted, de-duplicated lifecycle capability set of one lesson.
+CREATE OR REPLACE FUNCTION public.cf11_live_lifecycle_capabilities(_lesson_id uuid)
+RETURNS text[] LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
+  SELECT coalesce(array_agg(DISTINCT capability ORDER BY capability), ARRAY[]::text[])
+    FROM public.lesson_capability_lifecycle WHERE lesson_id = _lesson_id;
+$$;
+
+/**
+ * Exact-set gate. Raises `<_code>` when the live set is not literally the canonical seven
+ * (missing, extra, duplicate-equivalent, retired or substituted names all fail), and when the
+ * live row count differs from seven (a duplicate row is not a valid set either).
+ */
+CREATE OR REPLACE FUNCTION public.cf11_assert_exact_lifecycle_set(_lesson_id uuid, _code text)
+RETURNS void LANGUAGE plpgsql STABLE SET search_path = public, pg_temp AS $$
+DECLARE
+  live text[] := public.cf11_live_lifecycle_capabilities(_lesson_id);
+  want text[] := public.cf11_lifecycle_capabilities();
+  n integer;
+BEGIN
+  SELECT count(*) INTO n FROM public.lesson_capability_lifecycle WHERE lesson_id = _lesson_id;
+  IF live IS DISTINCT FROM want OR n <> array_length(want,1) THEN
+    RAISE EXCEPTION '%: live=[%] expected=[%] rows=%',
+      _code, array_to_string(live,','), array_to_string(want,','), n USING ERRCODE = '23514';
+  END IF;
+END $$;
+
+GRANT EXECUTE ON FUNCTION public.cf11_lifecycle_capabilities() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.cf11_live_lifecycle_capabilities(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.cf11_assert_exact_lifecycle_set(uuid, text) TO authenticated, service_role;
+
+
+
 -- base64 sha256 of one inline script body, i.e. the value a CSP `sha256-...` token must carry.
 CREATE OR REPLACE FUNCTION public.cf11_script_csp_hash(_script text)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
