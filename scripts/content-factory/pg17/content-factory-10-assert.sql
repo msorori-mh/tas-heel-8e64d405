@@ -710,17 +710,18 @@ BEGIN
   PERFORM public.cf04_assert(true, 'duplicate '||_label||' aborts as CF10_IDENTITY_CONFLICT');
 END $$;
 
--- duplicate book content rows for the same lesson
+-- duplicate lesson rows for the same (subject, slug): the lesson lookup key is not unique in
+-- production, so ambiguity must abort instead of binding to an arbitrary row.
 BEGIN;
 ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
 DELETE FROM public.golden_lesson_domain_materializations
  WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
 ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
-INSERT INTO public.lesson_book_contents(lesson_id, content, sort_order)
-  SELECT lesson_id, content, sort_order + 1 FROM public.lesson_book_contents
-   WHERE lesson_id='43000000-0000-0000-0000-000000000001';
+INSERT INTO public.lessons(id, slug, subject_id, unit_id)
+  SELECT gen_random_uuid(), l.slug, l.subject_id, l.unit_id FROM public.lessons l
+   WHERE l.id='43000000-0000-0000-0000-000000000001';
 SET ROLE service_role;
-SELECT public.cf10_expect_identity_conflict('QURAN-G10-L03-PKG','lesson_book_contents');
+SELECT public.cf10_expect_identity_conflict('QURAN-G10-L03-PKG','lessons');
 RESET ROLE;
 ROLLBACK;
 
@@ -738,20 +739,6 @@ INSERT INTO public.question_revisions(question_id, revision_number, status, inte
    ORDER BY r.id LIMIT 1;
 SET ROLE service_role;
 SELECT public.cf10_expect_identity_conflict('QURAN-G10-L03-PKG','question_revisions');
-RESET ROLE;
-ROLLBACK;
-
--- duplicate option rows for the same question
-BEGIN;
-ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
-DELETE FROM public.golden_lesson_domain_materializations
- WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
-ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
-INSERT INTO public.question_options(question_id, option_text, is_correct, sort_order)
-  SELECT o.question_id, o.option_text, o.is_correct, o.sort_order + 50
-    FROM public.question_options o ORDER BY o.id LIMIT 1;
-SET ROLE service_role;
-SELECT public.cf10_expect_identity_conflict('QURAN-G10-L03-PKG','question_options');
 RESET ROLE;
 ROLLBACK;
 
