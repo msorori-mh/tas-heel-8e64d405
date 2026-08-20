@@ -18,7 +18,20 @@
 --     is compared field-by-field (lesson, resources, questions, revisions, options,
 --     targets, answers, rationales, assessment, lifecycle). Any divergence aborts the whole
 --     transaction with CF10_IDENTITY_CONFLICT / CF10_CONTENT_HASH_CONFLICT and no ledger row.
---   * Binding resolution is authoritative: zero or exactly one binding; ambiguity aborts.
+--   * Binding resolution is authoritative: EXECUTE requires EXACTLY ONE
+--     golden_lesson_identity_binding for the batch (subject/lesson/external lesson code);
+--     zero => CF10_IDENTITY_BINDING_REQUIRED, many => CF10_IDENTITY_BINDING_AMBIGUOUS.
+--     The ledger never stores binding_id NULL. Subject identity is taken from
+--     binding.subject_id and re-checked against the CURRENT subjects.code in the manifest
+--     (a stale code such as CHEM-G12 is a conflict, never a silent remap).
+--     Zero-binding is only tolerated in DRY_RUN / fixture inspection.
+--   * Operational contract: CF09 binds an ALREADY EXISTING lesson shell, so the Iron run
+--     MUST create the lesson shell idempotently (exact subject_id + slug) BEFORE CF09.
+--     CF10 never creates a subject and never invents identity; in a bound EXECUTE the
+--     lesson must already resolve and match the binding — lesson creation is reachable
+--     only on the unbound DRY_RUN / fixture path.
+--   * Semester is honoured as declared: pinned 1|2 must match lessons.semester exactly;
+--     PENDING/UNRESOLVED/absent means lessons.semester must be NULL. CF10 never invents it.
 --   * Counters come from real ROW_COUNT / RETURNING. payload_hash UPDATEs are reported in a
 --     separate counter and never inflate domain_writes_performed. An exact replay or a fully
 --     pre-existing identical state performs 0 domain writes.
