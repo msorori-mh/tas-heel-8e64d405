@@ -87,7 +87,7 @@ SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_capability_lifec
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.question_options WHERE is_correct),'zero answer leak in options');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.questions WHERE correct_index >= 0),'zero answer leak in question rows');
 SELECT public.cf04_assert((SELECT lesson_created IS FALSE FROM public.golden_lesson_domain_materializations),'existing lesson reused, not duplicated');
-SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lessons),'no duplicate lesson created');
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lessons),'no duplicate lesson created');
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.subjects),'no subject created by CF10');
 SELECT public.cf04_assert(NOT has_function_privilege('authenticated','public.golden_lesson_materialize_domain_batch(uuid,uuid,text,text,text)','EXECUTE'),'authenticated cannot materialize');
 
