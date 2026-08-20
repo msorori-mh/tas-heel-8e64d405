@@ -55,19 +55,28 @@ async function sha256Hex(file: File): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function downloadPackageBundle(
+async function buildPackageZipBlob(
   pkg: GoldenLessonPackage,
   uploads: Partial<Record<GoldenCapability, UploadedArtifact>>,
   provenance: Partial<Record<GoldenCapability, UploadedArtifact>>,
   answersCompanion: UploadedArtifact | null,
-): Promise<void> {
+): Promise<Blob> {
   const zip = new JSZip();
   zip.file("manifest.json", JSON.stringify(pkg, null, 2));
   for (const item of [...Object.values(uploads), ...Object.values(provenance)]) {
     if (item) zip.file(item.fileName, item.file);
   }
   if (answersCompanion) zip.file(answersCompanion.fileName, answersCompanion.file);
-  const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
+  return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
+}
+
+async function downloadPackageBundle(
+  pkg: GoldenLessonPackage,
+  uploads: Partial<Record<GoldenCapability, UploadedArtifact>>,
+  provenance: Partial<Record<GoldenCapability, UploadedArtifact>>,
+  answersCompanion: UploadedArtifact | null,
+): Promise<void> {
+  const blob = await buildPackageZipBlob(pkg, uploads, provenance, answersCompanion);
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
