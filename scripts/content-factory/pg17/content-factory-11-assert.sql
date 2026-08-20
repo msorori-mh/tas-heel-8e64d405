@@ -972,18 +972,22 @@ DROP FUNCTION public.cf11_assert_replay_refuses(text);
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
 CREATE OR REPLACE FUNCTION public.cf11_assert_audit_replay_refuses(_category text)
 RETURNS void LANGUAGE plpgsql AS $$
-DECLARE recorded text; pubs bigint; readies bigint;
+DECLARE recorded text; pubs bigint; readies bigint; publisher uuid; attester uuid;
 BEGIN
-  SELECT plan_sha256 INTO recorded FROM public.golden_lesson_publications
+  SELECT plan_sha256, published_by INTO recorded, publisher
+    FROM public.golden_lesson_publications
+   WHERE batch_id='51000000-0000-0000-0000-000000000001';
+  SELECT attested_by INTO attester FROM public.golden_lesson_ready_attestations
    WHERE batch_id='51000000-0000-0000-0000-000000000001';
   SELECT count(*) INTO pubs FROM public.golden_lesson_publications;
   SELECT count(*) INTO readies FROM public.golden_lesson_ready_attestations;
 
   -- publication replay
   BEGIN
+    PERFORM set_config('request.jwt.claim.sub', publisher::text, true);
     SET LOCAL ROLE authenticated;
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
-      '10000000-0000-0000-0000-000000000003','EXECUTE', public.cf11_iron_assets(), recorded,
+      publisher,'EXECUTE', public.cf11_iron_assets(), recorded,
       'cf11-iron-key');
     RESET ROLE;
     RAISE EXCEPTION 'CF11_EXPECTED_AUDIT_REPLAY_REFUSED_%', _category;
@@ -994,17 +998,17 @@ BEGIN
 
   -- READY replay: it must NOT early-return on the stored attestation either.
   BEGIN
-    PERFORM set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a2',true);
+    PERFORM set_config('request.jwt.claim.sub', attester::text, true);
     SET LOCAL ROLE authenticated;
     PERFORM public.golden_lesson_attest_cf11_ready('51000000-0000-0000-0000-000000000001',
-      '10000000-0000-0000-0000-000000000005',
+      attester,
       jsonb_build_object('reviewedContent',true,'reviewedSecurity',true,'note','audit probe'),
       'EXECUTE');
     RESET ROLE;
     RAISE EXCEPTION 'CF11_EXPECTED_AUDIT_READY_REPLAY_REFUSED_%', _category;
   EXCEPTION WHEN OTHERS THEN
     RESET ROLE;
-    PERFORM set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',true);
+    PERFORM set_config('request.jwt.claim.sub', publisher::text, true);
     IF SQLERRM NOT LIKE '%CF11_REPLAY_LIVE_STATE_CONFLICT%'
        AND SQLERRM NOT LIKE '%CF11_READY_REPLAY_CONFLICT%' THEN RAISE; END IF;
   END;
