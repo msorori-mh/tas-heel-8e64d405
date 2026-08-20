@@ -502,6 +502,18 @@ function LessonPage() {
       </div>
     );
   }
+  // CF10-R3 — server-side visibility gate: a lesson managed by the content
+  // factory stays "under preparation" for students until one capability is READY.
+  if (!previewMode && isContentStaff !== true && lifecycleGate?.visible === false) {
+    return (
+      <div className="space-y-4">
+        <Breadcrumbs subjectName={null} subjectId={null} lessonName={null} />
+        <StateMessage>هذا الدرس قيد الإعداد وسيظهر فور اعتماده.</StateMessage>
+        <BackToApp />
+      </div>
+    );
+  }
+
 
   const titleParts = parseLessonTitle(lesson.title);
 

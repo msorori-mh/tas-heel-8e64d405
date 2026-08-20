@@ -1,4 +1,4 @@
--- CONTENT_FACTORY_10_DOMAIN_MATERIALIZATION (revision R2)
+-- CONTENT_FACTORY_10_DOMAIN_MATERIALIZATION (revision R3)
 -- Status: SOURCE-READY / NOT APPLIED TO PRODUCTION.
 -- Scope: atomic, idempotent, fail-closed materialization of one verified CF08 batch
 --        (optionally CF09-bound) into the natural domain tables, DRAFT lifecycle only.
@@ -12,8 +12,18 @@
 --     the staged capability sha256.
 --   * assessment_questions membership is NOT written: validate_assessment_question_link requires a
 --     PUBLISHED revision plus a matching published-revision target, which is impossible DRAFT-only.
+-- R3 hardening (this revision):
+--   * Student visibility gate: public.lesson_student_content_gate / public.lessons_student_visible.
+--     A lesson that CF10 manages (lifecycle rows or a materialization ledger row) stays invisible to
+--     students until at least one capability reaches READY. Unmanaged legacy lessons are untouched.
+--   * Identity collision guards: an existing questions.code must belong to the same lesson_id AND
+--     subject_id (CF10_IDENTITY_CONFLICT); selfTest reuse also compares question text/hash.
+--   * lesson_assessments reuse is scoped to the same lesson_id (CF10_IDENTITY_CONFLICT).
+--   * lifecycle reuse compares status / applicability / draft_hash (CF10_LIFECYCLE_CONFLICT).
+--   * every conflict-capable write counter is derived from the real GET DIAGNOSTICS ROW_COUNT.
 -- Explicitly absent: subject creation, curriculum deletes, storage/textbook mutation,
 --                    REVIEW/READY transitions, publication, answer exposure in student payload.
+
 
 
 CREATE TABLE public.golden_lesson_domain_materializations (
@@ -101,6 +111,11 @@ DECLARE
   rationales_written integer := 0;
   targets_written integer := 0;
   lifecycle_written integer := 0;
+  rc integer := 0;
+  existing_status text;
+  existing_applicability text;
+  existing_draft_hash text;
+  v_assessment_lesson uuid;
 
   payloads jsonb := '{}'::jsonb;
   existing_hash text;
@@ -355,6 +370,11 @@ BEGIN
              payload_hash_version = 'canonical_payload_v1'
        WHERE id = v_revision_id;
     ELSE
+      -- R3: identity before content. A reused code must sit on the same lesson AND subject.
+      IF question_row.lesson_id IS DISTINCT FROM lesson_row.id
+         OR question_row.subject_id IS DISTINCT FROM subject_row.id THEN
+        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: questions %', question_code USING ERRCODE = '23514';
+      END IF;
       IF question_row.question_text IS DISTINCT FROM item->>'official_text' THEN
         RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: questions %', question_code USING ERRCODE = '23514';
       END IF;
@@ -369,8 +389,9 @@ BEGIN
       INSERT INTO public.official_question_answers(question_id, revision_id, model_answer, explanation)
       VALUES (question_row.id, v_revision_id, answer->>'correct_option', answer->>'rationale')
       ON CONFLICT (question_id, revision_id) DO NOTHING;
-      answers_written := answers_written + 1;
-      writes := writes + 1;
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      answers_written := answers_written + rc;
+      writes := writes + rc;
     END IF;
   END LOOP;
 
@@ -381,13 +402,19 @@ BEGIN
   question_json := CASE WHEN payloads->'selfTest'->>'text' IS NULL THEN NULL
                         ELSE (payloads->'selfTest'->>'text')::jsonb END;
   IF question_json IS NOT NULL THEN
-  SELECT id INTO v_assessment_id FROM public.lesson_assessments
+  -- R3: an existing assessment code must belong to this very lesson.
+  SELECT id, lesson_id INTO v_assessment_id, v_assessment_lesson FROM public.lesson_assessments
    WHERE assessment_code = external_lesson_code || '-SELFTEST';
+  IF v_assessment_id IS NOT NULL AND v_assessment_lesson IS DISTINCT FROM lesson_row.id THEN
+    RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: lesson_assessments %',
+      external_lesson_code || '-SELFTEST' USING ERRCODE = '23514';
+  END IF;
   IF v_assessment_id IS NULL THEN
     INSERT INTO public.lesson_assessments(lesson_id, title, instructions, sort_order, assessment_code)
     VALUES (lesson_row.id, 'اختبر نفسك', NULL, 0, external_lesson_code || '-SELFTEST')
     RETURNING id INTO v_assessment_id;
-    writes := writes + 1;
+    GET DIAGNOSTICS rc = ROW_COUNT;
+    writes := writes + rc;
   END IF;
 
   FOR item IN SELECT value FROM jsonb_array_elements(coalesce(question_json->'questions','[]'::jsonb)) LOOP
@@ -433,6 +460,16 @@ BEGIN
              payload_hash_version = 'canonical_payload_v1'
        WHERE id = v_revision_id;
     ELSE
+      -- R3: an existing question code must belong to this lesson AND subject, and carry the
+      -- same staged text; otherwise CF10 is colliding with foreign content.
+      IF question_row.lesson_id IS DISTINCT FROM lesson_row.id
+         OR question_row.subject_id IS DISTINCT FROM subject_row.id THEN
+        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: questions %', question_code USING ERRCODE = '23514';
+      END IF;
+      IF public.cf10_text_sha256(question_row.question_text)
+         IS DISTINCT FROM public.cf10_text_sha256(item->>'question') THEN
+        RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: questions %', question_code USING ERRCODE = '23514';
+      END IF;
       SELECT id INTO v_revision_id FROM public.question_revisions
        WHERE question_id = question_row.id AND status = 'DRAFT'
        ORDER BY revision_number DESC LIMIT 1;
@@ -444,16 +481,18 @@ BEGIN
       INSERT INTO public.official_question_answers(question_id, revision_id, model_answer, explanation)
       VALUES (question_row.id, v_revision_id, answer->>'correct_option', answer->>'rationale')
       ON CONFLICT (question_id, revision_id) DO NOTHING;
-      answers_written := answers_written + 1;
-      writes := writes + 1;
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      answers_written := answers_written + rc;
+      writes := writes + rc;
       option_code := regexp_replace(lower(coalesce(answer->>'correct_option','')),'[^a-z]','','g');
       IF answer->>'rationale' IS NOT NULL AND option_code <> '' THEN
         INSERT INTO public.question_option_rationales(question_id, question_revision_id, option_id,
                                                       why_correct, why_wrong)
         VALUES (question_row.id, v_revision_id, option_code, answer->>'rationale', NULL)
         ON CONFLICT (question_revision_id, option_id) DO NOTHING;
-        rationales_written := rationales_written + 1;
-        writes := writes + 1;
+        GET DIAGNOSTICS rc = ROW_COUNT;
+        rationales_written := rationales_written + rc;
+        writes := writes + rc;
       END IF;
 
     END IF;
@@ -462,16 +501,28 @@ BEGIN
 
 
   -- Lifecycle: seven capabilities, DRAFT + REQUIRED only. No REVIEW / READY / publish.
+  -- R3: reuse is only legal when the existing row is byte-identical in contract terms.
   FOR cap, lifecycle_cap IN
     SELECT capability, lifecycle_capability FROM public.golden_lesson_domain_stage_entries
      WHERE batch_id = _batch_id ORDER BY capability LOOP
+    SELECT status, applicability::text, draft_hash
+      INTO existing_status, existing_applicability, existing_draft_hash
+      FROM public.lesson_capability_lifecycle
+     WHERE lesson_id = lesson_row.id AND capability = lifecycle_cap;
+    IF existing_status IS NOT NULL AND (
+         existing_status IS DISTINCT FROM 'DRAFT'
+      OR existing_applicability IS DISTINCT FROM 'REQUIRED'
+      OR existing_draft_hash IS DISTINCT FROM (payloads->cap->>'sha256')) THEN
+      RAISE EXCEPTION 'CF10_LIFECYCLE_CONFLICT: %', lifecycle_cap USING ERRCODE = '23514';
+    END IF;
     INSERT INTO public.lesson_capability_lifecycle(lesson_id, capability, status, applicability,
                                                    draft_hash, draft_updated_at)
     VALUES (lesson_row.id, lifecycle_cap, 'DRAFT', 'REQUIRED',
             payloads->cap->>'sha256', now())
     ON CONFLICT (lesson_id, capability) DO NOTHING;
-    lifecycle_written := lifecycle_written + 1;
-    writes := writes + 1;
+    GET DIAGNOSTICS rc = ROW_COUNT;
+    lifecycle_written := lifecycle_written + rc;
+    writes := writes + rc;
   END LOOP;
 
   IF EXISTS (
@@ -530,3 +581,73 @@ GRANT EXECUTE ON FUNCTION public.cf10_text_sha256(text) TO authenticated, servic
 
 COMMENT ON TABLE public.golden_lesson_domain_materializations IS
   'Immutable CF10 ledger: one atomic DRAFT-only materialization per verified staged batch; never publishes, never deletes, never creates subjects.';
+
+-- ---------------------------------------------------------------------------
+-- CF10-R3 — server-side student visibility gate.
+-- A lesson becomes "editorially managed" the moment CF10 (or the 20C workflow)
+-- creates lifecycle rows or a materialization ledger row for it. A managed
+-- lesson stays completely invisible to students until at least one capability
+-- reaches READY. Legacy lessons with no lifecycle/ledger evidence keep their
+-- pre-CF10 behaviour: nothing is silently hidden.
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.lesson_is_editorially_managed(_lesson_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle l WHERE l.lesson_id = _lesson_id)
+      OR EXISTS (SELECT 1 FROM public.golden_lesson_domain_materializations m WHERE m.lesson_id = _lesson_id);
+$$;
+
+CREATE OR REPLACE FUNCTION public.lesson_student_visible(_lesson_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT NOT public.lesson_is_editorially_managed(_lesson_id)
+      OR EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle l
+                  WHERE l.lesson_id = _lesson_id AND l.status = 'READY');
+$$;
+
+-- Single-lesson gate for the lesson page (never exposes draft content itself).
+CREATE OR REPLACE FUNCTION public.lesson_student_content_gate(_lesson_id uuid)
+RETURNS TABLE(lesson_id uuid, managed boolean, visible boolean, ready_capabilities text[])
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT _lesson_id,
+         public.lesson_is_editorially_managed(_lesson_id),
+         public.lesson_student_visible(_lesson_id),
+         COALESCE((SELECT array_agg(l.capability ORDER BY l.capability)
+                     FROM public.lesson_capability_lifecycle l
+                    WHERE l.lesson_id = _lesson_id AND l.status = 'READY'), ARRAY[]::text[]);
+$$;
+
+-- Batch gate for subject lesson lists.
+CREATE OR REPLACE FUNCTION public.lessons_student_visible(_lesson_ids uuid[])
+RETURNS TABLE(lesson_id uuid, managed boolean, visible boolean)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT x.id,
+         public.lesson_is_editorially_managed(x.id),
+         public.lesson_student_visible(x.id)
+    FROM unnest(coalesce(_lesson_ids, ARRAY[]::uuid[])) AS x(id);
+$$;
+
+-- RLS enforcement: every lesson-scoped read policy already routes through
+-- can_access_lesson, so the gate is applied once, server-side, for everybody
+-- except content staff (who must still see their drafts).
+CREATE OR REPLACE FUNCTION public.can_access_lesson(_lesson_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT
+    auth.uid() IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM public.lessons l
+       WHERE l.id = _lesson_id AND public.can_access_subject(l.subject_id)
+    )
+    AND (public.is_content_staff(auth.uid()) OR public.lesson_student_visible(_lesson_id))
+$$;
+
+REVOKE ALL ON FUNCTION public.lesson_is_editorially_managed(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.lesson_student_visible(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.lesson_student_content_gate(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.lessons_student_visible(uuid[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.lesson_is_editorially_managed(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.lesson_student_visible(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.lesson_student_content_gate(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.lessons_student_visible(uuid[]) TO authenticated, service_role;
+
+COMMENT ON FUNCTION public.lesson_student_content_gate(uuid) IS
+  'CF10-R3 student visibility gate: a CF10-managed lesson stays hidden until one capability is READY.';

@@ -508,6 +508,43 @@ CREATE TABLE public.lesson_capability_lifecycle(
   applicability public.capability_applicability NOT NULL DEFAULT 'REQUIRED',
   UNIQUE (lesson_id, capability));
 
+-- ---------------------------------------------------------------------------
+-- CF10-R3 RLS parity: the production student read path for every lesson-scoped
+-- table goes through can_access_lesson(). The migration replaces that function
+-- with the visibility gate, so the fixture must provide the same surface.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.can_access_subject(_subject_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT auth.uid() IS NOT NULL AND EXISTS (SELECT 1 FROM public.subjects s WHERE s.id = _subject_id);
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_content_staff(_user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT public.golden_lesson_has_role(_user_id, 'admin');
+$$;
+
+CREATE OR REPLACE FUNCTION public.can_access_lesson(_lesson_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT auth.uid() IS NOT NULL
+     AND EXISTS (SELECT 1 FROM public.lessons l
+                  WHERE l.id = _lesson_id AND public.can_access_subject(l.subject_id));
+$$;
+
+DO $$ DECLARE t text; BEGIN
+  FOREACH t IN ARRAY ARRAY['lessons','lesson_book_contents','lesson_explanations',
+                           'lesson_summaries','lesson_resources','questions','lesson_assessments'] LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (%s)',
+      t || '_student_read', t,
+      CASE t WHEN 'lessons' THEN 'public.can_access_lesson(id)'
+             ELSE 'public.can_access_lesson(lesson_id)' END);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR ALL TO authenticated USING (public.is_content_staff(auth.uid()))',
+      t || '_staff_all', t);
+  END LOOP;
+END $$;
+
+
+
 -- Rich second package: exercises lesson creation, questions, options, answers, rationales, resources.
 CREATE OR REPLACE FUNCTION public.cf10_manifest() RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
 SELECT jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(

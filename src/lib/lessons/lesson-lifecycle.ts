@@ -119,10 +119,28 @@ export async function fetchLessonLifecycleRows(lessonId: string): Promise<Lesson
   return (data ?? []) as unknown as LessonLifecycleRow[];
 }
 
-/** Student read: RLS returns READY rows only. */
+/**
+ * Student read: CF10-R3 server-side visibility gate.
+ * `lesson_student_content_gate` is SECURITY DEFINER and reports only whether a
+ * lesson is editorially managed, whether it is visible, and which capabilities
+ * are READY — never any draft content. Falls back to the RLS-filtered table
+ * read when the RPC is not deployed yet.
+ */
 export async function fetchStudentLifecycleGate(
   lessonId: string,
-): Promise<{ managed: boolean; readyKeys: Set<string> }> {
+): Promise<{ managed: boolean; visible: boolean; readyKeys: Set<string> }> {
+  const rpc = await (supabase.rpc as any)("lesson_student_content_gate", { _lesson_id: lessonId });
+  if (!rpc.error) {
+    const row = (Array.isArray(rpc.data) ? rpc.data[0] : rpc.data) as
+      | { managed: boolean; visible: boolean; ready_capabilities: string[] | null }
+      | undefined;
+    return {
+      managed: row?.managed === true,
+      visible: row?.visible !== false,
+      readyKeys: new Set(row?.ready_capabilities ?? []),
+    };
+  }
+
   const { data, error } = await supabase
     .from("lesson_capability_lifecycle")
     .select("capability,status")
@@ -130,8 +148,29 @@ export async function fetchStudentLifecycleGate(
   if (error) throw error;
   const rows = (data ?? []) as { capability: string; status: string }[];
   const readyKeys = new Set(rows.filter((r) => r.status === "READY").map((r) => r.capability));
-  return { managed: readyKeys.size > 0, readyKeys };
+  return { managed: rows.length > 0, visible: rows.length === 0 || readyKeys.size > 0, readyKeys };
 }
+
+/** Batch gate for subject lesson lists; unknown lessons default to visible. */
+export async function fetchStudentLessonVisibility(
+  lessonIds: readonly string[],
+): Promise<Map<string, boolean>> {
+  const map = new Map<string, boolean>();
+  if (lessonIds.length === 0) return map;
+  const { data, error } = await (supabase.rpc as any)("lessons_student_visible", {
+    _lesson_ids: lessonIds,
+  });
+  if (error) {
+    for (const id of lessonIds) map.set(id, true);
+    return map;
+  }
+  for (const row of (data ?? []) as { lesson_id: string; visible: boolean }[]) {
+    map.set(row.lesson_id, row.visible !== false);
+  }
+  for (const id of lessonIds) if (!map.has(id)) map.set(id, true);
+  return map;
+}
+
 
 export async function transitionCapability(input: {
   lessonId: string;
