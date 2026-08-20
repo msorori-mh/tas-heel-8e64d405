@@ -1622,10 +1622,10 @@ BEGIN
     RAISE EXCEPTION 'CF11_LESSON_NOT_FREE' USING ERRCODE = '23514';
   END IF;
 
-  -- Required capability coverage: the exact seven rows, none missing.
-  IF (SELECT count(*) FROM public.lesson_capability_lifecycle WHERE lesson_id = lesson_row.id) <> 7 THEN
-    RAISE EXCEPTION 'CF11_CAPABILITY_SET_NOT_EXACTLY_SEVEN' USING ERRCODE = '23514';
-  END IF;
+  -- CF11-R6: exact canonical SET, not a count. Missing, extra, duplicate-equivalent, retired or
+  -- substituted capability names are all refused before any transition is considered.
+  PERFORM public.cf11_assert_exact_lifecycle_set(
+    lesson_row.id, 'CF11_CAPABILITY_SET_NOT_EXACTLY_SEVEN');
   IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle
               WHERE lesson_id = lesson_row.id AND status NOT IN ('REVIEW','READY')) THEN
     RAISE EXCEPTION 'CF11_READY_REQUIRES_REVIEW_FOR_ALL' USING ERRCODE = '23514';
