@@ -91,7 +91,10 @@ test('blast furnace uses the actual embedded source figure with page provenance 
   assert.deepEqual(figure.source_region, {x0:66.36,y0:54.29,x1:313.92,y1:355.49});
   assert.equal(figure.asset_sha256, 'sha256:' + crypto.createHash('sha256').update(asset).digest('hex'));
   assert.equal(figure.extraction, 'embedded source image; no redraw or montage');
-  assert.match(read('official-content.html'), /assets\/official-figure-1-1\.png/);
+  // CF11: declared supplemental assets are leaf-only (no folders) and MIME-truthful (real JPEG).
+  assert.match(read('official-content.html'), /src="official-figure-1-1\.jpg"/);
+  assert.equal(figure.asset, 'official-figure-1-1.jpg');
+  assert.deepEqual([asset[0], asset[1], asset[2]], [0xff, 0xd8, 0xff]);
 });
 
 for (const file of ['explanation.html','summary.html']) test(file + ' is static RTL HTML', () => {
