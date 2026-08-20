@@ -1,6 +1,7 @@
 -- R8: mirror production — pgcrypto lives in the `extensions` schema, never in public.
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+GRANT USAGE ON SCHEMA extensions TO PUBLIC;
 -- production-like session search_path (extensions visible, but NOT to functions pinned to public,pg_temp)
 SET search_path = public, extensions, pg_temp;
 -- Legacy-compat shim ONLY for the already-applied dependency migrations (CF04/07/08/09) whose
