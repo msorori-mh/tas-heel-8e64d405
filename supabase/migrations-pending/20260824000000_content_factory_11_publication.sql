@@ -365,7 +365,7 @@ DECLARE
   plan jsonb;
   plan_sha text;
   cap text;
-  resource_code text;
+  v_resource_code text;
   question_codes text[];
   official_codes text[];
   self_codes text[];
@@ -612,11 +612,11 @@ BEGIN
 
   -- 3) mind map + lab experiment resources
   FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
-    resource_code := CASE cap WHEN 'mindMap' THEN ext_code || '-MINDMAP'
+    v_resource_code := CASE cap WHEN 'mindMap' THEN ext_code || '-MINDMAP'
                               ELSE ext_code || '-EXPERIMENT' END;
     IF EXISTS (SELECT 1 FROM public.lesson_resources
-                WHERE lesson_id = lesson_row.id AND resource_code = resource_code) THEN
-      RAISE EXCEPTION 'CF11_RESOURCE_ALREADY_EXISTS: %', resource_code USING ERRCODE = '23514';
+                WHERE lesson_id = lesson_row.id AND resource_code = v_resource_code) THEN
+      RAISE EXCEPTION 'CF11_RESOURCE_ALREADY_EXISTS: %', v_resource_code USING ERRCODE = '23514';
     END IF;
     INSERT INTO public.lesson_resources(
       lesson_id, resource_type, title, url, description, sort_order,
@@ -625,10 +625,10 @@ BEGIN
       lesson_row.id,
       (CASE cap WHEN 'mindMap' THEN 'mindmap' ELSE 'experiment' END)::public.lesson_resource_type,
       CASE cap WHEN 'mindMap' THEN 'الخريطة الذهنية' ELSE 'التجربة العملية' END,
-      public.cf10_inline_html_url(resource_code),
+      public.cf10_inline_html_url(v_resource_code),
       CASE cap WHEN 'mindMap' THEN mind_html ELSE lab_html END,
       CASE cap WHEN 'mindMap' THEN 4 ELSE 5 END,
-      resource_code,
+      v_resource_code,
       CASE cap WHEN 'mindMap' THEN 'mindmap' ELSE 'experiment' END,
       jsonb_build_object(
         'cf11_publication_id', publication_id,
