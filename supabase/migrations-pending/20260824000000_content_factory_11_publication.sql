@@ -1419,23 +1419,11 @@ BEGIN
       member_count, official_in_assessment USING ERRCODE = '23514';
   END IF;
 
-  -- 6) lifecycle DRAFT -> REVIEW for the exact seven capabilities. No READY here, ever.
-  --    The staged->lifecycle capability names are NOT hardcoded here: CF08 already recorded the
-  --    authoritative `lifecycle_capability` for every staged capability, and CF10 verified the
-  --    staged set equals cf10_required_capabilities(). Re-deriving them keeps CF11 in lockstep
-  --    with the real production vocabulary (quickReview / checkUnderstanding / lessonAssessment).
-  SELECT coalesce(array_agg(DISTINCT e.lifecycle_capability ORDER BY e.lifecycle_capability),
-                  ARRAY[]::text[])
-    INTO lifecycle_caps
-    FROM public.golden_lesson_domain_stage_entries e
-   WHERE e.batch_id = _batch_id
-     AND e.capability = ANY (public.cf10_required_capabilities());
-
-  -- The lifecycle namespace is fixed production vocabulary. Any alternate spelling
-  -- (lessonSummary / officialBookQuestions / selfTest) is a hard failure, not a rename.
-  IF lifecycle_caps IS DISTINCT FROM ARRAY[
-       'checkUnderstanding','lessonAssessment','mindMap','officialBookContent',
-       'quickReview','simulation','tamkeenExplanation']::text[] THEN
+  -- 6) lifecycle DRAFT -> REVIEW for the exact canonical seven. No READY here, ever.
+  --    `lifecycle_caps` was already re-derived from CF08's authoritative `lifecycle_capability`
+  --    and proven equal to `cf11_lifecycle_capabilities()` during plan validation, so no
+  --    vocabulary is hardcoded and no alternate spelling can slip through here.
+  IF lifecycle_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN
     RAISE EXCEPTION 'CF11_LIFECYCLE_NAMESPACE_MISMATCH: %', array_to_string(lifecycle_caps, ',')
       USING ERRCODE = '23514';
   END IF;
@@ -1444,13 +1432,17 @@ BEGIN
     PERFORM public.lesson_capability_transition(lesson_row.id, cap, 'REVIEW', NULL, NULL);
   END LOOP;
 
-  SELECT coalesce(array_agg(capability ORDER BY capability), ARRAY[]::text[]) INTO live_caps
+  -- Exact set, twice: the REVIEW rows are exactly the canonical seven AND the lesson carries no
+  -- eighth lifecycle row of any status.
+  SELECT coalesce(array_agg(DISTINCT capability ORDER BY capability), ARRAY[]::text[]) INTO live_caps
     FROM public.lesson_capability_lifecycle
    WHERE lesson_id = lesson_row.id AND status = 'REVIEW';
-  IF live_caps IS DISTINCT FROM lifecycle_caps THEN
+  IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN
     RAISE EXCEPTION 'CF11_LIFECYCLE_REVIEW_NOT_EXACTLY_SEVEN: %', array_to_string(live_caps, ',')
       USING ERRCODE = '23514';
   END IF;
+  PERFORM public.cf11_assert_exact_lifecycle_set(lesson_row.id, 'CF11_LIFECYCLE_SET_MISMATCH');
+
 
 
 
