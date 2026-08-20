@@ -129,13 +129,29 @@ Replay of any RPC returns the recorded result with `writes_performed = 0`.
 ## Rollback
 
 CF11 adds tables and functions only; it alters no earlier migration bytes (R5, 21H, CF04, CF07,
-CF08, CF09, R9, CF10 are unchanged). The ledgers are append-only by design, so rollback is a
-controlled **forward lifecycle transition**, never an ad-hoc `UPDATE`. To withdraw a lesson from
-students, drive each of the canonical seven through `lesson_capability_transition` to `HOLD`
-(the audited transition path), which removes student visibility while leaving every ledger row
-intact for audit. Do not reset statuses with direct SQL: the immutability triggers exist precisely
-to make that impossible, and a hand-written reset would destroy the evidence chain. The uploaded
-asset object and its attestation are content-addressed and harmless to retain.
+CF08, CF09, R9, CF10 are unchanged).
+
+**Ledgers are immutable.** `golden_lesson_publications`, `golden_lesson_ready_attestations`,
+`golden_lesson_published_assets`, `golden_lesson_asset_attestations` and
+`golden_lesson_ready_revocations` are append-only: `UPDATE`/`DELETE` are revoked and blocked by
+trigger. They are **never** deleted, reset or rewritten — not during rollback, not during
+remediation. There is no "reset the seven lifecycle rows" procedure, and any such instruction from
+an earlier revision is withdrawn.
+
+**The only audited withdrawal path** is the controlled RPC
+`golden_lesson_revoke_cf11_ready(_batch_id, _actor_id, _reason, _mode, _idempotency_key)` (R7): it
+is an authenticated human RPC (`actor = auth.uid()`, content staff only), requires a written
+reason and a durable idempotency key on EXECUTE, opens a transaction-local revocation ticket, drives
+exactly the canonical seven `READY -> DRAFT` inside one transaction, copies the original READY
+evidence into `golden_lesson_ready_revocations`, and re-asserts `lesson_student_visible() = false`.
+Direct `lesson_capability_transition` demotion of a CF11-managed lesson is refused (R8B), and there
+is no `HOLD` status in production's lifecycle — `DRAFT` is the only supported non-visible state.
+
+**If no audited path fits a given situation, the verdict is HOLD, not hand-written SQL.** Record
+the HOLD, then ship a *forward remediation migration* that adds the missing audited transition
+(new SECURITY DEFINER RPC + new append-only evidence rows). Never mutate history to reach the
+desired state. The uploaded asset object and its machine attestation are content-addressed and
+harmless to retain.
 
 ## Operator runbook
 
