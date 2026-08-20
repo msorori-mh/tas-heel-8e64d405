@@ -52,6 +52,12 @@ export interface GoldenLessonPackage {
   identity: GoldenLessonIdentity;
   capabilityOrder: GoldenCapability[];
   artifacts: GoldenLessonArtifact[];
+  /**
+   * CF11: supplemental static assets referenced by the HTML bodies. Optional for
+   * backwards compatibility with v1 manifests built before CF11; absent means "no
+   * asset references are permitted in any HTML body" (fail-closed, not fail-open).
+   */
+  assets?: GoldenLessonAsset[];
   lifecycle: {
     initialStatus: "DRAFT";
     allowDirectReady: false;
@@ -64,6 +70,7 @@ export interface GoldenLessonPackage {
     htmlNetworkAccess: "NONE";
   };
 }
+
 
 export interface GoldenLessonProfile {
   id: string;
