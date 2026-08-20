@@ -1090,17 +1090,23 @@ BEGIN
     'CF11_EXPECTED_PINNED_REVISION_REFUSED: every planned question must pin revision + payload');
   PERFORM public.cf11_assert_replay_state(plan);
 
-  -- payload drift at an identical code/count
+  -- payload drift at an identical code/count. CF11-R9C: PUBLISHED payloads are already
+  -- immutable through the QB trigger, so this replay-only corruption probe temporarily disables
+  -- USER triggers as a database-owner/out-of-band drift simulation, then restores them.
+  ALTER TABLE public.question_revisions DISABLE TRIGGER USER;
   UPDATE public.question_revisions
      SET payload_hash = repeat('0',64)
    WHERE id = (pinned->>'revisionId')::uuid;
+  ALTER TABLE public.question_revisions ENABLE TRIGGER USER;
   BEGIN
     PERFORM public.cf11_assert_replay_state(plan);
     RAISE EXCEPTION 'CF11_EXPECTED_PINNED_REVISION_REFUSED: payload drift was accepted';
   EXCEPTION WHEN unique_violation THEN NULL;
   END;
+  ALTER TABLE public.question_revisions DISABLE TRIGGER USER;
   UPDATE public.question_revisions SET payload_hash = original
    WHERE id = (pinned->>'revisionId')::uuid;
+  ALTER TABLE public.question_revisions ENABLE TRIGGER USER;
 
   -- revision substitution at an identical code/count
   UPDATE public.questions SET current_published_revision_id = NULL WHERE id = qid;
