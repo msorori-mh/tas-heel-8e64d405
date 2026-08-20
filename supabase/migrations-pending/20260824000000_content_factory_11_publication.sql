@@ -772,8 +772,9 @@ BEGIN
          AND t.sha256 = p.sha256 AND t.byte_size = p.byte_size AND t.mime_type = p.mime_type
          AND t.storage_bucket = p.storage_bucket AND t.storage_path = p.storage_path
          AND t.attestation_sha256 = public.cf11_attestation_hash(
-               t.lesson_id, t.asset_code, t.sha256, t.byte_size, t.mime_type,
-               t.storage_bucket, t.storage_path, t.magic_hex)
+               t.lesson_id, t.asset_code, t.file_name, t.mime_type, t.sha256, t.byte_size,
+               t.magic_hex, t.storage_bucket, t.storage_path, t.storage_object_id,
+               t.storage_version, t.storage_etag, t.verification_origin)
         JOIN storage.objects o
           ON o.bucket_id = t.storage_bucket AND o.name = t.storage_path
          AND o.id = t.storage_object_id AND o.version = t.storage_version
