@@ -392,7 +392,8 @@ test("CF11-R8B/3 — authorization is transaction-local and not forgeable by a c
 });
 
 test("CF11-R8B/4 — only the controlled withdrawal opens a ticket, and it closes it", () => {
-  assert.equal((sql.match(/cf11_open_revocation_ticket\(/g) ?? []).length, 3); // def + revoke + call
+  // Exactly one call site in the whole migration: the controlled withdrawal.
+  assert.equal((sql.match(/PERFORM public\.cf11_open_revocation_ticket\(/g) ?? []).length, 1);
   const revoke = sql.slice(
     sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_revoke_cf11_ready"));
   const open = revoke.indexOf("cf11_open_revocation_ticket(pub.lesson_id, uid, revocation_id)");
