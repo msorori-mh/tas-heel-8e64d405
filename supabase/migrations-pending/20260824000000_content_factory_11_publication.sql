@@ -666,12 +666,25 @@ BEGIN
      WHERE question_id = q.question_id AND id <> q.revision_id AND status = 'PUBLISHED';
     GET DIAGNOSTICS rc = ROW_COUNT; writes := writes + rc;
 
+    -- The question-bank lifecycle guard only allows DRAFT/READY_FOR_REVIEW -> APPROVED ->
+    -- PUBLISHED, and re-asserts the canonical payload hash on the APPROVED step. CF11 follows
+    -- that contract exactly instead of forcing a status.
+    UPDATE public.question_revisions
+       SET status = 'APPROVED',
+           reviewed_at = coalesce(reviewed_at, now()), reviewed_by = coalesce(reviewed_by, uid)
+     WHERE id = q.revision_id AND status IN ('DRAFT','READY_FOR_REVIEW');
+    GET DIAGNOSTICS rc = ROW_COUNT; writes := writes + rc;
+
     UPDATE public.question_revisions
        SET status = 'PUBLISHED', published_at = coalesce(published_at, now()),
-           published_by = coalesce(published_by, uid),
-           reviewed_at = coalesce(reviewed_at, now()), reviewed_by = coalesce(reviewed_by, uid)
-     WHERE id = q.revision_id AND status <> 'PUBLISHED';
+           published_by = coalesce(published_by, uid)
+     WHERE id = q.revision_id AND status = 'APPROVED';
     GET DIAGNOSTICS rc = ROW_COUNT; writes := writes + rc;
+
+    IF (SELECT status FROM public.question_revisions WHERE id = q.revision_id) <> 'PUBLISHED' THEN
+      RAISE EXCEPTION 'CF11_QUESTION_NOT_PUBLISHED: %', q.code USING ERRCODE = '23514';
+    END IF;
+
 
 
     UPDATE public.questions SET current_published_revision_id = q.revision_id
