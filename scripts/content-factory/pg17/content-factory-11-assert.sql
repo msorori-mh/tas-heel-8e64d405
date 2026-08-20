@@ -1251,7 +1251,10 @@ DECLARE
   legacy uuid := '43000000-0000-0000-0000-000000000099';
   res jsonb;
 BEGIN
-  PERFORM public.cf04_assert(NOT public.cf11_is_managed_lesson(legacy),
+  -- CF11-R9C: authenticated correctly cannot EXECUTE the private managed-lesson helper.
+  -- Prove the same predicate from the staff-readable immutable publication ledger.
+  PERFORM public.cf04_assert(
+    NOT EXISTS (SELECT 1 FROM public.golden_lesson_publications WHERE lesson_id = legacy),
     'CF11_EXPECTED_LEGACY_UNMANAGED');
   res := public.lesson_capability_transition(legacy, 'officialBookContent', 'DRAFT', NULL, NULL);
   PERFORM public.cf04_assert(res->>'from_status' = 'READY' AND res->>'to_status' = 'DRAFT',
