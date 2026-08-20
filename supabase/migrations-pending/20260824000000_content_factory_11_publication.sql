@@ -1688,11 +1688,10 @@ BEGIN
     RAISE EXCEPTION 'CF11_ANSWER_LEAK_DETECTED: %', leak_count USING ERRCODE = '23514';
   END IF;
 
-  -- Per-capability snapshot/hash verification over the EXACT seven rows this lesson carries
-  -- (already asserted to be seven, all in REVIEW/READY). No hardcoded vocabulary.
-  FOR lifecycle_cap IN
-    SELECT capability FROM public.lesson_capability_lifecycle
-     WHERE lesson_id = lesson_row.id ORDER BY capability
+  -- CF11-R6: snapshot/hash verification over the CANONICAL seven, iterated from the contract
+  -- itself (already proven set-equal to the live rows), so a substituted live row cannot decide
+  -- which capabilities get verified.
+  FOREACH lifecycle_cap IN ARRAY public.cf11_lifecycle_capabilities()
   LOOP
     snap := public.v3_capability_snapshot(lesson_row.id, lifecycle_cap);
     IF snap IS NULL OR NOT public.v3_capability_snapshot_is_reconcilable(snap) THEN
@@ -1714,6 +1713,16 @@ BEGIN
     RETURN jsonb_build_object('mode','DRY_RUN','batch_id',_batch_id,'lesson_id',lesson_row.id,
       'checks', checks, 'transitions', 0, 'would_be_student_visible', false);
   END IF;
+
+  -- After the transitions, the READY set must be the canonical seven exactly — no more, no less.
+  SELECT coalesce(array_agg(DISTINCT capability ORDER BY capability), ARRAY[]::text[]) INTO live_caps
+    FROM public.lesson_capability_lifecycle
+   WHERE lesson_id = lesson_row.id AND status = 'READY';
+  IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN
+    RAISE EXCEPTION 'CF11_READY_SET_NOT_EXACT: live=[%]', array_to_string(live_caps, ',')
+      USING ERRCODE = '23514';
+  END IF;
+
 
   -- READY evidence is appended as an independent record; the publication row stays immutable.
   INSERT INTO public.golden_lesson_ready_attestations(
