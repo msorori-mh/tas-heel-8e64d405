@@ -1,6 +1,12 @@
 import JSZip from "jszip";
 import { useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Download, FileArchive, Loader2, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, FileArchive, Loader2, ShieldCheck, UploadCloud } from "lucide-react";
+
+import { supabase } from "@/integrations/supabase/client";
+import {
+  createGoldenLessonBundleUpload,
+  verifyAndStageGoldenLessonBundle,
+} from "@/lib/content-factory/golden-lesson-bundle.functions";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +50,8 @@ const CAPABILITY_LABEL: Record<GoldenCapability, string> = {
   selfTest: "اختبر نفسك",
 };
 
+type BundleIntakeResult = Awaited<ReturnType<typeof verifyAndStageGoldenLessonBundle>>;
+
 interface UploadedArtifact {
   fileName: string;
   sha256: string;
@@ -55,19 +63,28 @@ async function sha256Hex(file: File): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function downloadPackageBundle(
+async function buildPackageZipBlob(
   pkg: GoldenLessonPackage,
   uploads: Partial<Record<GoldenCapability, UploadedArtifact>>,
   provenance: Partial<Record<GoldenCapability, UploadedArtifact>>,
   answersCompanion: UploadedArtifact | null,
-): Promise<void> {
+): Promise<Blob> {
   const zip = new JSZip();
   zip.file("manifest.json", JSON.stringify(pkg, null, 2));
   for (const item of [...Object.values(uploads), ...Object.values(provenance)]) {
     if (item) zip.file(item.fileName, item.file);
   }
   if (answersCompanion) zip.file(answersCompanion.fileName, answersCompanion.file);
-  const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
+  return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
+}
+
+async function downloadPackageBundle(
+  pkg: GoldenLessonPackage,
+  uploads: Partial<Record<GoldenCapability, UploadedArtifact>>,
+  provenance: Partial<Record<GoldenCapability, UploadedArtifact>>,
+  answersCompanion: UploadedArtifact | null,
+): Promise<void> {
+  const blob = await buildPackageZipBlob(pkg, uploads, provenance, answersCompanion);
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -107,6 +124,9 @@ export function GoldenLessonPackageBuilder() {
   const [hashing, setHashing] = useState<GoldenCapability | `provenance:${GoldenCapability}` | "answers" | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [validation, setValidation] = useState<GoldenLessonValidationResult | null>(null);
+  const [intake, setIntake] = useState<BundleIntakeResult | null>(null);
+  const [intakeError, setIntakeError] = useState<string | null>(null);
+  const [intakeBusy, setIntakeBusy] = useState(false);
 
   const profile = getGoldenLessonProfile(profileId) ?? GOLDEN_QURAN_V1;
 
@@ -218,6 +238,31 @@ export function GoldenLessonPackageBuilder() {
 
   const runValidation = () => setValidation(validateGoldenLessonPackage(packageDraft));
 
+  /**
+   * CF11 intake: uploads the exact ZIP the factory produced, then asks the server to download it,
+   * recompute every hash from the stored bytes and bind the attestation to the existing package
+   * version idempotently. The client never sends a hash, so an attestation cannot be forged here.
+   */
+  const uploadAndVerifyBundle = async () => {
+    setIntakeBusy(true);
+    setIntakeError(null);
+    setIntake(null);
+    try {
+      const blob = await buildPackageZipBlob(packageDraft, uploads, provenance, answersCompanion);
+      const slot = await createGoldenLessonBundleUpload();
+      const uploaded = await supabase.storage
+        .from(slot.bucket)
+        .uploadToSignedUrl(slot.path, slot.token, blob, { contentType: "application/zip" });
+      if (uploaded.error) throw new Error(uploaded.error.message);
+      const verified = await verifyAndStageGoldenLessonBundle({ data: { path: slot.path } });
+      setIntake(verified);
+    } catch (error) {
+      setIntakeError(error instanceof Error ? error.message : "BUNDLE_INTAKE_FAILED");
+    } finally {
+      setIntakeBusy(false);
+    }
+  };
+
   return (
     <section dir="rtl" aria-labelledby="golden-package-builder-heading" className="rounded-2xl border border-primary/25 bg-card p-5 shadow-card space-y-5">
       <div className="space-y-2">
@@ -319,7 +364,22 @@ export function GoldenLessonPackageBuilder() {
         <Button type="button" onClick={runValidation} disabled={hashing !== null} className="min-h-[44px] gap-2"><ShieldCheck className="h-4 w-4" />فحص الحزمة</Button>
         <Button type="button" variant="outline" disabled={!validation?.valid} onClick={() => downloadJson(packageDraft, `${packageDraft.packageCode || "golden-lesson"}.manifest.json`)} className="min-h-[44px] gap-2"><Download className="h-4 w-4" />تنزيل Manifest</Button>
         <Button type="button" variant="outline" disabled={!validation?.valid} onClick={() => void downloadPackageBundle(packageDraft, uploads, provenance, answersCompanion)} className="min-h-[44px] gap-2"><FileArchive className="h-4 w-4" />تنزيل حزمة ZIP</Button>
+        <Button type="button" disabled={!validation?.valid || intakeBusy} onClick={() => void uploadAndVerifyBundle()} className="min-h-[44px] gap-2">
+          {intakeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+          رفع الحزمة والتحقق على الخادم
+        </Button>
       </div>
+
+      {intakeError && <p role="alert" className="text-sm text-destructive flex gap-2"><AlertCircle className="h-4 w-4 mt-0.5" />{intakeError}</p>}
+
+      {intake && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-1 text-sm">
+          <p className="font-medium flex gap-2"><CheckCircle2 className="h-4 w-4 mt-0.5" />تم التحقق من الحزمة على الخادم وربطها بالإصدار</p>
+          <p className="text-xs">الإصدار: {intake.version} — الحالة: {intake.status}{intake.idempotent ? " (إعادة تنفيذ بلا كتابة جديدة)" : ""}</p>
+          <p className="text-xs break-all font-mono">bundle sha256: {intake.verifiedBundleSha256}</p>
+          <p className="text-xs">عدد الملفات: {intake.verifiedFileCount} — كتابات المحتوى: {intake.domainWritesPerformed}</p>
+        </div>
+      )}
 
       {validation && (
         <div className={`rounded-xl border p-4 space-y-3 ${validation.valid ? "border-emerald-500/30 bg-emerald-500/10" : "border-destructive/30 bg-destructive/5"}`}>
