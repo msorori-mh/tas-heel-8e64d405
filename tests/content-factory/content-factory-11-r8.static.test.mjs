@@ -469,3 +469,22 @@ test("CF11-R9B/2 — legacy lesson uses the full required column set with non-nu
   // Its READY + REQUIRED lifecycle row follows immediately.
   assert.match(legacy, /VALUES \('43000000-0000-0000-0000-000000000099','officialBookContent','READY','REQUIRED'\)/);
 });
+
+
+test("CF11-R9C/1 — fixture mirrors production lifecycle grant hardening before CF11", () => {
+  assert.match(
+    fixtureSql,
+    /REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER\s+ON TABLE public\.lesson_capability_lifecycle FROM authenticated;/,
+  );
+  assert.match(
+    fixtureSql,
+    /GRANT SELECT ON TABLE public\.lesson_capability_lifecycle TO authenticated;/,
+  );
+  const hardening = fixtureSql.indexOf(
+    "REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER",
+  );
+  const legacyInsert = fixtureSql.indexOf(
+    "'43000000-0000-0000-0000-000000000099','legacy-lesson'",
+  );
+  assert.ok(hardening > 0 && hardening < legacyInsert, "grant hardening must precede fixture lifecycle writes");
+});
