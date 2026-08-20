@@ -606,59 +606,39 @@ BEGIN
     RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: lesson_summaries' USING ERRCODE = '23514';
   END IF;
 
-  -- 4/5) mindMapHtml + labExperimentHtml -> lesson_resources (natural key: lesson_id, resource_code)
-  --      R4: a reused resource row must match EVERY written column, not only the body.
+  -- 4/5) mindMapHtml + labExperimentHtml -> DEFERRED TO CF11 (R6).
+  --      CF10 writes NOTHING for them: no lesson_resources row, no inline body, no url.
+  --      The bytes / sha256 / provenance already live in the staff-only stage entries and are
+  --      re-verified above; here we only prove that no legacy row was (or is being) created and
+  --      record deferred_to_cf11 = true. CF11 owns version + private storage + preview + publish.
   FOREACH cap IN ARRAY ARRAY['mindMapHtml','labExperimentHtml'] LOOP
     payload_text := payloads->cap->>'text';
     CONTINUE WHEN payload_text IS NULL;
     option_code := CASE cap WHEN 'mindMapHtml' THEN external_lesson_code || '-MINDMAP'
                             ELSE external_lesson_code || '-EXPERIMENT' END;
     expected_resource_type := CASE cap WHEN 'mindMapHtml' THEN 'mindmap' ELSE 'experiment' END;
-    expected_resource_title := CASE cap WHEN 'mindMapHtml' THEN 'الخريطة الذهنية' ELSE 'التجربة العملية' END;
-    expected_resource_sort := CASE cap WHEN 'mindMapHtml' THEN 1 ELSE 2 END;
-    expected_html_type := CASE cap WHEN 'mindMapHtml' THEN 'STATIC' ELSE 'INTERACTIVE' END;
-    IF (SELECT count(*) FROM public.lesson_resources
-         WHERE lesson_id = lesson_row.id AND resource_code = option_code) > 1 THEN
-      RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: duplicate lesson_resources %', option_code
-        USING ERRCODE = '23514';
+    -- Legacy inline rows are forbidden: an unpublished HTML body must never sit in
+    -- lesson_resources.description with an empty / internal url.
+    IF EXISTS (SELECT 1 FROM public.lesson_resources r
+                WHERE r.lesson_id = lesson_row.id
+                  AND (r.resource_code = option_code
+                    OR r.resource_type::text = expected_resource_type)
+                  AND coalesce(r.metadata->>'cf11_published_at','') = '') THEN
+      RAISE EXCEPTION 'CF10_HTML_LEGACY_ROW_FORBIDDEN: %', cap USING ERRCODE = '23514';
     END IF;
-    SELECT * INTO resource_row FROM public.lesson_resources
-     WHERE lesson_id = lesson_row.id AND resource_code = option_code;
-    IF resource_row.id IS NULL THEN
-      INSERT INTO public.lesson_resources(lesson_id, resource_type, title, url, description,
-                                          sort_order, resource_code, html_resource_type, metadata, is_primary)
-      VALUES (lesson_row.id, expected_resource_type::public.lesson_resource_type,
-              expected_resource_title, public.cf10_inline_html_url(option_code), payload_text,
-              expected_resource_sort, option_code, expected_html_type,
-              jsonb_build_object('contentFactory','CF10','sha256', payloads->cap->>'sha256',
-                                 'htmlDelivery','INLINE_SANDBOXED',
-                                 'renderMode', CASE WHEN expected_html_type = 'INTERACTIVE'
-                                                    THEN 'SANDBOXED_NO_NETWORK' ELSE 'STATIC_NO_SCRIPT' END,
-                                 'contentHash', public.cf10_text_sha256(payload_text)), false);
-      GET DIAGNOSTICS rc = ROW_COUNT;
-      domain_writes := domain_writes + rc;
-    ELSE
-      IF resource_row.lesson_id IS DISTINCT FROM lesson_row.id
-         OR resource_row.resource_type::text IS DISTINCT FROM expected_resource_type
-         OR resource_row.title IS DISTINCT FROM expected_resource_title
-         OR coalesce(resource_row.url,'') IS DISTINCT FROM public.cf10_inline_html_url(option_code)
-         OR resource_row.sort_order IS DISTINCT FROM expected_resource_sort
-         OR resource_row.html_resource_type IS DISTINCT FROM expected_html_type
-         OR coalesce(resource_row.metadata->>'sha256','') IS DISTINCT FROM (payloads->cap->>'sha256')
-         OR coalesce(resource_row.metadata->>'contentFactory','') IS DISTINCT FROM 'CF10'
-         OR coalesce(resource_row.metadata->>'htmlDelivery','') IS DISTINCT FROM 'INLINE_SANDBOXED'
-         OR coalesce(resource_row.metadata->>'renderMode','') IS DISTINCT FROM
-            (CASE WHEN expected_html_type = 'INTERACTIVE' THEN 'SANDBOXED_NO_NETWORK' ELSE 'STATIC_NO_SCRIPT' END)
-         OR coalesce(resource_row.metadata->>'contentHash','')
-            IS DISTINCT FROM public.cf10_text_sha256(payload_text)
-         OR resource_row.is_primary IS DISTINCT FROM false THEN
-        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: lesson_resources %', option_code USING ERRCODE = '23514';
-      END IF;
-      IF public.cf10_text_sha256(resource_row.description)
-         IS DISTINCT FROM public.cf10_text_sha256(payload_text) THEN
-        RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: lesson_resources %', cap USING ERRCODE = '23514';
-      END IF;
+    -- The staged bytes must still be intact and staff-only in CF08 staging.
+    IF NOT EXISTS (SELECT 1 FROM public.golden_lesson_domain_stage_entries e
+                    WHERE e.batch_id = _batch_id AND e.capability = cap
+                      AND e.source_payload IS NOT NULL
+                      AND e.source_sha256 = (payloads->cap->>'sha256')) THEN
+      RAISE EXCEPTION 'CF10_HTML_STAGE_INVALID: %', cap USING ERRCODE = '23514';
     END IF;
+    html_deferred := html_deferred || jsonb_build_object(
+      CASE cap WHEN 'mindMapHtml' THEN 'mindMap' ELSE 'simulation' END,
+      jsonb_build_object('deferred_to_cf11',true,'owner','CF11',
+                         'sha256', payloads->cap->>'sha256',
+                         'resourceCode', option_code,
+                         'domainRowsWritten',0,'snapshot',null,'ready',false));
   END LOOP;
 
   -- 6) officialBookQuestions -> questions + question_revisions(DRAFT) + question_options + targets.
