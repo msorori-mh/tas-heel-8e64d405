@@ -46,7 +46,10 @@ test("CF10 never creates curriculum, publishes, or deletes", () => {
     assert.doesNotMatch(sql, new RegExp(`INSERT INTO public\\.${table}\\b`));
   }
   assert.doesNotMatch(sql, /DELETE FROM public\./);
-  assert.doesNotMatch(sql, /publication_status\s*=|status\s*=\s*'READY'/);
+  // CF10 never promotes: no publication writes and no READY assignment.
+  // (Read-only `status = 'READY'` predicates inside the visibility gate are fine.)
+  assert.doesNotMatch(sql, /SET\s+publication_status\s*=|SET\s+status\s*=\s*'READY'/i);
+  assert.doesNotMatch(sql, /'READY'[^\n]*--\s*written/);
   assert.match(sql, /CF10_SUBJECT_NOT_EXACTLY_ONE/);
 });
 
