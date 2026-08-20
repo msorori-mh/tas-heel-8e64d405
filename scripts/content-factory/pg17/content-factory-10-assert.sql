@@ -615,4 +615,185 @@ SELECT public.cf04_assert((SELECT NOT visible FROM public.lesson_student_content
 RESET ROLE; RESET request.jwt.claim.sub;
 ROLLBACK;
 
+-- ============================================================================
+-- 11) CF10-R4b: replay attestation, identity ambiguity, inline HTML binding.
+-- ============================================================================
+
+-- 11a) Exact replay re-attests the live state and writes nothing new.
+SET ROLE service_role;
+SELECT public.cf04_assert(
+  (public.golden_lesson_materialize_domain_batch(
+     public.cf10_batch('QURAN-G10-L03-PKG'),
+     '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001')
+   ->>'state_attested')::boolean, 'exact replay attests the live domain state');
+RESET ROLE;
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.golden_lesson_domain_materializations),
+  'exact replay wrote no extra ledger row');
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_book_contents
+                            WHERE lesson_id='43000000-0000-0000-0000-000000000001'),
+  'exact replay wrote no extra domain rows');
+
+-- 11b) Tampering a materialized row makes replay fail instead of returning cached success.
+BEGIN;
+UPDATE public.lesson_summaries SET summary = summary || ' TAMPERED'
+ WHERE lesson_id='43000000-0000-0000-0000-000000000001';
+SET ROLE service_role;
+DO $$ BEGIN
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(
+      public.cf10_batch('QURAN-G10-L03-PKG'),
+      '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001');
+    RAISE EXCEPTION 'CF10_EXPECTED_REPLAY_DRIFT_REJECTION';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_REPLAY_STATE_DRIFT%' THEN RAISE; END IF;
+  END;
+END $$;
+RESET ROLE;
+ROLLBACK;
+
+-- 11c) Deleting a materialized row is drift too (not a silent cached success).
+BEGIN;
+DELETE FROM public.lesson_book_contents WHERE lesson_id='43000000-0000-0000-0000-000000000001';
+SET ROLE service_role;
+DO $$ BEGIN
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(
+      public.cf10_batch('QURAN-G10-L03-PKG'),
+      '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001');
+    RAISE EXCEPTION 'CF10_EXPECTED_REPLAY_DELETE_DRIFT';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_REPLAY_STATE_DRIFT%' THEN RAISE; END IF;
+  END;
+END $$;
+RESET ROLE;
+ROLLBACK;
+
+-- 11d) A ledger row without an attestation hash cannot replay at all.
+BEGIN;
+UPDATE public.golden_lesson_domain_materializations SET result = result - 'state_sha256';
+SET ROLE service_role;
+DO $$ BEGIN
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(
+      public.cf10_batch('QURAN-G10-L03-PKG'),
+      '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001');
+    RAISE EXCEPTION 'CF10_EXPECTED_ATTESTATION_MISSING';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_REPLAY_ATTESTATION_MISSING%' THEN RAISE; END IF;
+  END;
+END $$;
+RESET ROLE;
+ROLLBACK;
+
+-- 11e) Ambiguous (duplicated) pre-existing rows on non-unique lookup keys abort as identity
+--      conflicts instead of silently binding to an arbitrary row.
+CREATE OR REPLACE FUNCTION public.cf10_expect_identity_conflict(_pkg text, _label text)
+RETURNS void LANGUAGE plpgsql AS $$
+DECLARE b uuid; sha text;
+BEGIN
+  b := public.cf10_batch(_pkg);
+  sha := public.golden_lesson_materialize_domain_batch(
+           b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(
+      b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-dup-'||md5(_label));
+    RAISE EXCEPTION 'CF10_EXPECTED_IDENTITY_CONFLICT: %', _label;
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_IDENTITY_CONFLICT%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert(true, 'duplicate '||_label||' aborts as CF10_IDENTITY_CONFLICT');
+END $$;
+
+-- duplicate book content rows for the same lesson
+BEGIN;
+DELETE FROM public.golden_lesson_domain_materializations
+ WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
+INSERT INTO public.lesson_book_contents(lesson_id, content, sort_order)
+  SELECT lesson_id, content, sort_order + 1 FROM public.lesson_book_contents
+   WHERE lesson_id='43000000-0000-0000-0000-000000000001';
+SET ROLE service_role;
+SELECT public.cf10_expect_identity_conflict('QURAN-G10-L03-PKG','lesson_book_contents');
+RESET ROLE;
+ROLLBACK;
+
+-- duplicate revisions for the same question
+BEGIN;
+DELETE FROM public.golden_lesson_domain_materializations
+ WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
+INSERT INTO public.question_revisions(question_id, revision_number, status, interaction_type,
+                                      question_text, max_score, created_by)
+  SELECT r.question_id, r.revision_number + 90, r.status, r.interaction_type,
+         r.question_text, r.max_score, r.created_by
+    FROM public.question_revisions r
+   ORDER BY r.id LIMIT 1;
+SET ROLE service_role;
+SELECT public.cf10_expect_identity_conflict('QURAN-G10-L03-PKG','question_revisions');
+RESET ROLE;
+ROLLBACK;
+
+-- duplicate option rows for the same question
+BEGIN;
+DELETE FROM public.golden_lesson_domain_materializations
+ WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
+INSERT INTO public.question_options(question_id, option_text, is_correct, sort_order)
+  SELECT o.question_id, o.option_text, o.is_correct, o.sort_order + 50
+    FROM public.question_options o ORDER BY o.id LIMIT 1;
+SET ROLE service_role;
+SELECT public.cf10_expect_identity_conflict('QURAN-G10-L03-PKG','question_options');
+RESET ROLE;
+ROLLBACK;
+
+-- 11f) Inline HTML delivery: mind map and lab experiment bind to the published in-app scheme,
+--      keep a non-empty snapshot payload, and expose the exact body the UI renders.
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources r
+   WHERE r.lesson_id='43000000-0000-0000-0000-000000000001'
+     AND r.html_resource_type IS NOT NULL
+     AND r.url LIKE 'lesson-internal://html/%'
+     AND coalesce(r.description,'') <> ''),
+  'mindMap and simulation are bound to non-empty inline HTML resources');
+
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_resources r
+   WHERE r.lesson_id='43000000-0000-0000-0000-000000000001'
+     AND r.html_resource_type IS NOT NULL
+     AND r.metadata->>'contentHash' IS DISTINCT FROM public.cf10_text_sha256(r.description)),
+  'inline HTML metadata hash matches the stored body byte-for-byte');
+
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_resources r
+   WHERE r.lesson_id='43000000-0000-0000-0000-000000000001'
+     AND r.html_resource_type='STATIC' AND r.resource_type::text='mindmap'
+     AND r.metadata->>'renderMode'='STATIC_NO_SCRIPT'),
+  'the mind map renders JS-free (STATIC_NO_SCRIPT)');
+
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_resources r
+   WHERE r.lesson_id='43000000-0000-0000-0000-000000000001'
+     AND r.html_resource_type='INTERACTIVE' AND r.resource_type::text='experiment'
+     AND r.metadata->>'renderMode'='SANDBOXED_NO_NETWORK'),
+  'the lab experiment renders sandboxed with no network');
+
+-- the body the student runtime reads is exactly the staged payload
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources r
+   JOIN public.golden_lesson_domain_stage_entries e
+     ON e.capability = CASE WHEN r.resource_type::text='mindmap' THEN 'mindMap' ELSE 'simulation' END
+    AND e.batch_id = public.cf10_batch('QURAN-G10-L03-PKG')
+   WHERE r.lesson_id='43000000-0000-0000-0000-000000000001'
+     AND r.html_resource_type IS NOT NULL
+     AND e.payload_sha256 = public.cf10_text_sha256(r.description)),
+  'inline HTML body equals the staged payload the UI renders');
+
+-- V3 snapshots for both capabilities are non-empty and reconcilable
+SELECT public.cf04_assert(
+  jsonb_array_length(coalesce(public.v3_capability_snapshot(
+    '43000000-0000-0000-0000-000000000001','mindMap')->'resources','[]'::jsonb)) > 0,
+  'mindMap snapshot is non-empty');
+SELECT public.cf04_assert(
+  jsonb_array_length(coalesce(public.v3_capability_snapshot(
+    '43000000-0000-0000-0000-000000000001','simulation')->'resources','[]'::jsonb)) > 0,
+  'simulation snapshot is non-empty');
+SELECT public.cf04_assert(public.v3_capability_snapshot_is_reconcilable(
+  public.v3_capability_snapshot('43000000-0000-0000-0000-000000000001','mindMap')),
+  'mindMap snapshot is reconcilable');
+SELECT public.cf04_assert(public.v3_capability_snapshot_is_reconcilable(
+  public.v3_capability_snapshot('43000000-0000-0000-0000-000000000001','simulation')),
+  'simulation snapshot is reconcilable');
+
 SELECT 'PASS_CONTENT_FACTORY_10_PG17' AS verdict;
