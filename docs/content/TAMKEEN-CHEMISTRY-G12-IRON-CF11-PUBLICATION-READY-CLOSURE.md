@@ -7,9 +7,9 @@ Source-only closure. **No production writes and no migration apply were performe
 | Item | Value |
 | --- | --- |
 | Remediation base commit | `9e8d9294e36b0a38b0094b8b58075423da6f85c5` |
-| Revision | R9C (source-only; independent PG17 gate in progress) |
+| Revision | R9C + CF11-R4 doc/schema addendum (source-only; independent PG17 gate in progress) |
 | CF11 migration | `supabase/migrations-pending/20260824000000_content_factory_11_publication.sql` |
-| Current migration SHA-256 (R9C) | `0d88ec8605c25dbf4aafa6bd4d080273ceac43a032bbbbfdf6d53d0436d03957` |
+| Current migration SHA-256 (R9C+R4A) | `f043dee1731572c4584d5cefb8e921a229067456e100c2213cd675e72be35135` |
 | Production writes | 0 |
 | Migration applied | NO |
 | PG17 rehearsal (this task) | **BLOCKED — NOT EXECUTED.** No PostgreSQL 17 instance is reachable from this environment, so the R8/R8B SQL has **not** been executed anywhere. Every claim below is a source-level claim. |
@@ -281,7 +281,7 @@ reason field, the separation-of-duties block, and a "مسحوب" badge on withdr
 | --- | --- |
 | Base commit (R8 remediation) | `509ed2a569b908d7368ccce1e55a55310bc083f6` |
 | Base commit (R8B remediation) | `c605f43452be50c2b120cd9762140eba1dc0a859` |
-| Current CF11 migration SHA-256 (R9C) | `0d88ec8605c25dbf4aafa6bd4d080273ceac43a032bbbbfdf6d53d0436d03957` |
+| Current CF11 migration SHA-256 (R9C+R4A) | `f043dee1731572c4584d5cefb8e921a229067456e100c2213cd675e72be35135` |
 | Migration applied | NO |
 | Production writes | 0 |
 | PG17 rehearsal | **BLOCKED — not executed in this environment** (no PostgreSQL 17 reachable; `CONTENT_FACTORY_PG17_URL` unset) |
@@ -445,6 +445,6 @@ PostgreSQL 17 instance. It correctly failed closed twice:
    The plan now pins both fields and a static regression test enforces the contract.
 
 Because the CF11 migration bytes changed, its current SHA-256 is
-`0d88ec8605c25dbf4aafa6bd4d080273ceac43a032bbbbfdf6d53d0436d03957`.
+`f043dee1731572c4584d5cefb8e921a229067456e100c2213cd675e72be35135`.
 The older `311265f3…` value remains historical for R8B/R9B only and must not be applied.
 Production remains untouched until the refreshed clean PG17 run succeeds.
