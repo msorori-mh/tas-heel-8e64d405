@@ -1218,7 +1218,33 @@ BEGIN
   END IF;
   question_codes := official_codes || self_codes;
 
+  -- --- CF11-R6: exact lifecycle capability set, validated in the PLAN, not only at EXECUTE ----
+  -- The staged->lifecycle vocabulary is re-derived from CF08's authoritative `lifecycle_capability`
+  -- and compared as a SORTED SET against the canonical seven. Missing, extra, duplicate-equivalent,
+  -- retired and substituted names are all rejected here, so a DRY_RUN can never advertise a plan
+  -- that EXECUTE would have to refuse.
+  SELECT coalesce(array_agg(DISTINCT e.lifecycle_capability ORDER BY e.lifecycle_capability),
+                  ARRAY[]::text[])
+    INTO lifecycle_caps
+    FROM public.golden_lesson_domain_stage_entries e
+   WHERE e.batch_id = _batch_id
+     AND e.capability = ANY (public.cf10_required_capabilities());
+  IF lifecycle_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN
+    RAISE EXCEPTION 'CF11_LIFECYCLE_NAMESPACE_MISMATCH: staged=[%] expected=[%]',
+      array_to_string(lifecycle_caps, ','),
+      array_to_string(public.cf11_lifecycle_capabilities(), ',') USING ERRCODE = '23514';
+  END IF;
+  -- Any lifecycle row that already exists for this lesson must belong to the canonical set.
+  IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle
+              WHERE lesson_id = lesson_row.id
+                AND NOT (capability = ANY (public.cf11_lifecycle_capabilities()))) THEN
+    RAISE EXCEPTION 'CF11_LIFECYCLE_SET_FOREIGN_CAPABILITY: live=[%]',
+      array_to_string(public.cf11_live_lifecycle_capabilities(lesson_row.id), ',')
+      USING ERRCODE = '23514';
+  END IF;
+
   -- --- deterministic write plan --------------------------------------------------------
+
   plan := jsonb_build_object(
     'schema','tamkeen.content-factory-11.write-plan.v1',
     'batchId', _batch_id,
