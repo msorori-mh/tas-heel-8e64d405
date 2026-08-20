@@ -17,7 +17,7 @@
         "x1": 313.92,
         "y1": 355.49
       },
-      "asset": "assets/official-figure-1-1.png",
+      "asset": "official-figure-1-1.png",
       "asset_sha256": "sha256:a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf",
       "extraction": "embedded source image; no redraw or montage"
     }
