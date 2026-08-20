@@ -1,4 +1,9 @@
+import type { GoldenLessonAsset } from "./golden-lesson-assets.ts";
+
 export const GOLDEN_LESSON_SCHEMA = "tamkeen.golden-lesson-package.v1" as const;
+
+export type { GoldenLessonAsset };
+
 
 export const GOLDEN_CAPABILITIES = [
   "officialBookContent",
