@@ -74,10 +74,10 @@ SELECT public.cf04_assert((SELECT count(*)=7 FROM public.lesson_capability_lifec
 -- CF10-R4: applicability is copied verbatim from the staged entries (REQUIRED/OPTIONAL/NA),
 -- never hard-coded. The L03 package stages 4 REQUIRED, 2 OPTIONAL and 1 NA capability.
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.golden_lesson_domain_stage_entries e
-   JOIN public.golden_lesson_domain_stage_batches b ON b.id = e.batch_id
    LEFT JOIN public.lesson_capability_lifecycle l
      ON l.capability = e.lifecycle_capability AND l.lesson_id = '43000000-0000-0000-0000-000000000001'
-  WHERE l.applicability::text IS DISTINCT FROM e.applicability),
+  WHERE e.batch_id = public.cf10_batch('QURAN-G10-L03-PKG')
+    AND l.applicability::text IS DISTINCT FROM e.applicability),
   'lifecycle applicability mirrors the staged entries exactly');
 SELECT public.cf04_assert((SELECT count(*)=4 FROM public.lesson_capability_lifecycle WHERE applicability='REQUIRED'),'staged REQUIRED capabilities are REQUIRED');
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_capability_lifecycle WHERE applicability='OPTIONAL'),'staged OPTIONAL capabilities stay OPTIONAL');
