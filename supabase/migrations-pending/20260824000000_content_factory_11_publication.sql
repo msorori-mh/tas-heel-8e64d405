@@ -1414,9 +1414,28 @@ BEGIN
   END IF;
   SELECT * INTO ready_row FROM public.golden_lesson_ready_attestations WHERE publication_id = pub.id;
   IF ready_row.id IS NOT NULL THEN
+    -- CF11-R5: a READY replay must reprove the whole published state, the live attestation set
+    -- and that every capability is really READY. An existing evidence row proves nothing today.
+    PERFORM public.cf11_assert_replay_state(pub.result);
+    SELECT public.cf11_text_sha256(coalesce(string_agg(t.asset_code || ':' || t.attestation_sha256,
+                                                       '|' ORDER BY t.asset_code), ''))
+      INTO live_attestation_sha
+      FROM public.golden_lesson_asset_attestations t WHERE t.lesson_id = pub.lesson_id;
+    IF live_attestation_sha IS DISTINCT FROM ready_row.asset_attestation_sha256 THEN
+      RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: assets' USING ERRCODE = '23505';
+    END IF;
+    IF ready_row.snapshot_set_sha256 IS DISTINCT FROM public.cf11_text_sha256(ready_row.checks::text) THEN
+      RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: evidence' USING ERRCODE = '23505';
+    END IF;
+    IF (SELECT count(*) FROM public.lesson_capability_lifecycle
+         WHERE lesson_id = pub.lesson_id AND status = 'READY') <> 7 THEN
+      RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: lifecycle' USING ERRCODE = '23505';
+    END IF;
     RETURN pub.result || jsonb_build_object('idempotent', true, 'transitions', 0,
+      'replay_revalidated', true,
       'ready_attested_by', ready_row.attested_by, 'ready_attested_at', ready_row.attested_at);
   END IF;
+
 
 
   -- Explicit human evidence. No default, no inference.
