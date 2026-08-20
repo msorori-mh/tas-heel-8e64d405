@@ -831,7 +831,13 @@ BEGIN
        OR replay.binding_id IS DISTINCT FROM binding.id THEN
       RAISE EXCEPTION 'CF11_REPLAY_IDENTITY_DRIFT' USING ERRCODE = '23514';
     END IF;
-    IF _idempotency_key IS DISTINCT FROM replay.idempotency_key THEN
+    -- CF11-R4: EXECUTE always carries a key; DRY_RUN may inspect without one, but if it
+    -- supplies a key the key must be the one already recorded.
+    IF _mode = 'EXECUTE' AND (_idempotency_key IS NULL OR length(btrim(_idempotency_key)) < 8) THEN
+      RAISE EXCEPTION 'CF11_IDEMPOTENCY_KEY_REQUIRED' USING ERRCODE = '22023';
+    END IF;
+    IF _idempotency_key IS NOT NULL
+       AND btrim(_idempotency_key) IS DISTINCT FROM replay.idempotency_key THEN
       RAISE EXCEPTION 'CF11_REPLAY_IDEMPOTENCY_KEY_CONFLICT' USING ERRCODE = '23505';
     END IF;
     IF _mode = 'EXECUTE' AND _expected_plan_sha256 IS DISTINCT FROM replay.plan_sha256 THEN
@@ -840,6 +846,7 @@ BEGIN
     IF _expected_plan_sha256 IS NOT NULL AND _expected_plan_sha256 IS DISTINCT FROM replay.plan_sha256 THEN
       RAISE EXCEPTION 'CF11_REPLAY_PLAN_CONFLICT' USING ERRCODE = '23505';
     END IF;
+
     IF manifest_assets_sha IS DISTINCT FROM replay.manifest_assets_sha256
        OR attestation_sha IS DISTINCT FROM replay.asset_attestation_sha256 THEN
       RAISE EXCEPTION 'CF11_REPLAY_ASSET_CONFLICT' USING ERRCODE = '23505';
