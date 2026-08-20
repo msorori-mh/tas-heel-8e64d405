@@ -187,6 +187,30 @@ export type Database = {
           },
         ]
       }
+      cf11_revocation_tickets: {
+        Row: {
+          actor_id: string
+          created_at: string
+          lesson_id: string
+          revocation_id: string
+          xact_id: number
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          lesson_id: string
+          revocation_id: string
+          xact_id: number
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          lesson_id?: string
+          revocation_id?: string
+          xact_id?: number
+        }
+        Relationships: []
+      }
       contact_submissions: {
         Row: {
           created_at: string
@@ -761,6 +785,84 @@ export type Database = {
           },
         ]
       }
+      golden_lesson_asset_attestations: {
+        Row: {
+          asset_code: string
+          attestation_sha256: string
+          batch_id: string
+          byte_size: number
+          file_name: string
+          id: string
+          lesson_id: string
+          magic_hex: string
+          mime_type: string
+          requested_by: string
+          sha256: string
+          storage_bucket: string
+          storage_etag: string
+          storage_object_id: string
+          storage_path: string
+          storage_version: string
+          verification_origin: string
+          verified_at: string
+        }
+        Insert: {
+          asset_code: string
+          attestation_sha256: string
+          batch_id: string
+          byte_size: number
+          file_name: string
+          id?: string
+          lesson_id: string
+          magic_hex: string
+          mime_type: string
+          requested_by: string
+          sha256: string
+          storage_bucket: string
+          storage_etag: string
+          storage_object_id: string
+          storage_path: string
+          storage_version: string
+          verification_origin: string
+          verified_at?: string
+        }
+        Update: {
+          asset_code?: string
+          attestation_sha256?: string
+          batch_id?: string
+          byte_size?: number
+          file_name?: string
+          id?: string
+          lesson_id?: string
+          magic_hex?: string
+          mime_type?: string
+          requested_by?: string
+          sha256?: string
+          storage_bucket?: string
+          storage_etag?: string
+          storage_object_id?: string
+          storage_path?: string
+          storage_version?: string
+          verification_origin?: string
+          verified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_asset_attestations_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "golden_lesson_domain_stage_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_asset_attestations_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       golden_lesson_domain_materializations: {
         Row: {
           batch_id: string
@@ -1196,6 +1298,277 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      golden_lesson_publications: {
+        Row: {
+          asset_attestation_sha256: string
+          batch_id: string
+          binding_id: string
+          id: string
+          idempotency_key: string
+          lesson_id: string
+          manifest_assets_sha256: string
+          plan_sha256: string
+          published_at: string
+          published_by: string
+          result: Json
+        }
+        Insert: {
+          asset_attestation_sha256: string
+          batch_id: string
+          binding_id: string
+          id?: string
+          idempotency_key: string
+          lesson_id: string
+          manifest_assets_sha256: string
+          plan_sha256: string
+          published_at?: string
+          published_by: string
+          result: Json
+        }
+        Update: {
+          asset_attestation_sha256?: string
+          batch_id?: string
+          binding_id?: string
+          id?: string
+          idempotency_key?: string
+          lesson_id?: string
+          manifest_assets_sha256?: string
+          plan_sha256?: string
+          published_at?: string
+          published_by?: string
+          result?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_publications_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: true
+            referencedRelation: "golden_lesson_domain_stage_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_publications_binding_id_fkey"
+            columns: ["binding_id"]
+            isOneToOne: false
+            referencedRelation: "golden_lesson_identity_bindings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_publications_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      golden_lesson_published_assets: {
+        Row: {
+          alt_text_ar: string | null
+          asset_code: string
+          attestation_sha256: string
+          batch_id: string
+          byte_size: number
+          file_name: string
+          id: string
+          lesson_id: string
+          mime_type: string
+          published_at: string
+          published_by: string
+          sha256: string
+          storage_bucket: string
+          storage_path: string
+        }
+        Insert: {
+          alt_text_ar?: string | null
+          asset_code: string
+          attestation_sha256: string
+          batch_id: string
+          byte_size: number
+          file_name: string
+          id?: string
+          lesson_id: string
+          mime_type: string
+          published_at?: string
+          published_by: string
+          sha256: string
+          storage_bucket: string
+          storage_path: string
+        }
+        Update: {
+          alt_text_ar?: string | null
+          asset_code?: string
+          attestation_sha256?: string
+          batch_id?: string
+          byte_size?: number
+          file_name?: string
+          id?: string
+          lesson_id?: string
+          mime_type?: string
+          published_at?: string
+          published_by?: string
+          sha256?: string
+          storage_bucket?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_published_assets_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "golden_lesson_domain_stage_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_published_assets_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      golden_lesson_ready_attestations: {
+        Row: {
+          asset_attestation_sha256: string
+          attested_at: string
+          attested_by: string
+          batch_id: string
+          checks: Json
+          evidence: Json
+          id: string
+          lesson_id: string
+          publication_id: string
+          published_by: string
+          snapshot_set_sha256: string
+        }
+        Insert: {
+          asset_attestation_sha256: string
+          attested_at?: string
+          attested_by: string
+          batch_id: string
+          checks: Json
+          evidence: Json
+          id?: string
+          lesson_id: string
+          publication_id: string
+          published_by: string
+          snapshot_set_sha256: string
+        }
+        Update: {
+          asset_attestation_sha256?: string
+          attested_at?: string
+          attested_by?: string
+          batch_id?: string
+          checks?: Json
+          evidence?: Json
+          id?: string
+          lesson_id?: string
+          publication_id?: string
+          published_by?: string
+          snapshot_set_sha256?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_ready_attestations_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: true
+            referencedRelation: "golden_lesson_domain_stage_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_ready_attestations_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_ready_attestations_publication_id_fkey"
+            columns: ["publication_id"]
+            isOneToOne: true
+            referencedRelation: "golden_lesson_publications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      golden_lesson_ready_revocations: {
+        Row: {
+          attested_by: string
+          batch_id: string
+          capabilities: string[]
+          id: string
+          idempotency_key: string
+          lesson_id: string
+          preserved_evidence: Json
+          publication_id: string
+          ready_attestation_id: string
+          reason: string
+          revoked_at: string
+          revoked_by: string
+          to_status: string
+        }
+        Insert: {
+          attested_by: string
+          batch_id: string
+          capabilities: string[]
+          id?: string
+          idempotency_key: string
+          lesson_id: string
+          preserved_evidence: Json
+          publication_id: string
+          ready_attestation_id: string
+          reason: string
+          revoked_at?: string
+          revoked_by: string
+          to_status: string
+        }
+        Update: {
+          attested_by?: string
+          batch_id?: string
+          capabilities?: string[]
+          id?: string
+          idempotency_key?: string
+          lesson_id?: string
+          preserved_evidence?: Json
+          publication_id?: string
+          ready_attestation_id?: string
+          reason?: string
+          revoked_at?: string
+          revoked_by?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_ready_revocations_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: true
+            referencedRelation: "golden_lesson_domain_stage_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_ready_revocations_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_ready_revocations_publication_id_fkey"
+            columns: ["publication_id"]
+            isOneToOne: true
+            referencedRelation: "golden_lesson_publications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_ready_revocations_ready_attestation_id_fkey"
+            columns: ["ready_attestation_id"]
+            isOneToOne: true
+            referencedRelation: "golden_lesson_ready_attestations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       governorate_curriculum_map: {
         Row: {
@@ -4435,6 +4808,94 @@ export type Database = {
       cf10_required_capabilities: { Args: never; Returns: string[] }
       cf10_seed_state_sha256: { Args: { _lesson_id: string }; Returns: string }
       cf10_text_sha256: { Args: { _value: string }; Returns: string }
+      cf11_assert_demotion_allowed: {
+        Args: {
+          _applicability: string
+          _capability: string
+          _from_status: string
+          _lesson_id: string
+          _origin: string
+          _to_status: string
+        }
+        Returns: undefined
+      }
+      cf11_assert_exact_lifecycle_set: {
+        Args: { _code: string; _lesson_id: string }
+        Returns: undefined
+      }
+      cf11_assert_exact_required_lifecycle_set: {
+        Args: { _code: string; _lesson_id: string }
+        Returns: undefined
+      }
+      cf11_assert_interactive_contract: {
+        Args: { _html: string; _label: string }
+        Returns: Json
+      }
+      cf11_assert_no_network: {
+        Args: { _html: string; _label: string }
+        Returns: undefined
+      }
+      cf11_assert_replay_state: { Args: { _plan: Json }; Returns: Json }
+      cf11_assert_static_contract: {
+        Args: { _html: string; _label: string }
+        Returns: undefined
+      }
+      cf11_asset_extension_ok: {
+        Args: { _leaf: string; _mime: string }
+        Returns: boolean
+      }
+      cf11_asset_url: {
+        Args: { _bucket: string; _path: string }
+        Returns: string
+      }
+      cf11_attestation_hash: {
+        Args: {
+          _asset_code: string
+          _bucket: string
+          _bytes: number
+          _etag: string
+          _file_name: string
+          _lesson_id: string
+          _magic_hex: string
+          _mime: string
+          _object_id: string
+          _origin?: string
+          _path: string
+          _sha256: string
+          _version: string
+        }
+        Returns: string
+      }
+      cf11_close_revocation_ticket: {
+        Args: { _lesson_id: string }
+        Returns: undefined
+      }
+      cf11_has_revocation_ticket: {
+        Args: { _lesson_id: string }
+        Returns: boolean
+      }
+      cf11_html_asset_refs: { Args: { _html: string }; Returns: string[] }
+      cf11_inline_scripts: { Args: { _html: string }; Returns: string[] }
+      cf11_is_managed_lesson: { Args: { _lesson_id: string }; Returns: boolean }
+      cf11_lifecycle_capabilities: { Args: never; Returns: string[] }
+      cf11_live_lifecycle_capabilities: {
+        Args: { _lesson_id: string }
+        Returns: string[]
+      }
+      cf11_magic_matches: {
+        Args: { _hex: string; _mime: string }
+        Returns: boolean
+      }
+      cf11_manifest_assets: {
+        Args: { _lesson_id: string; _manifest: Json }
+        Returns: Json
+      }
+      cf11_open_revocation_ticket: {
+        Args: { _actor_id: string; _lesson_id: string; _revocation_id: string }
+        Returns: undefined
+      }
+      cf11_script_csp_hash: { Args: { _script: string }; Returns: string }
+      cf11_text_sha256: { Args: { _value: string }; Returns: string }
       check_lesson_question: {
         Args: { _question_id: string; _selected_index: number }
         Returns: Json
@@ -4682,7 +5143,34 @@ export type Database = {
         }
         Returns: Json
       }
+      golden_lesson_attest_cf11_asset: {
+        Args: {
+          _asset_code: string
+          _batch_id: string
+          _magic_hex: string
+          _mode?: string
+          _observed_bytes: number
+          _observed_mime: string
+          _observed_sha256: string
+          _requested_by: string
+          _verification_origin?: string
+        }
+        Returns: Json
+      }
+      golden_lesson_attest_cf11_ready: {
+        Args: {
+          _actor_id: string
+          _batch_id: string
+          _evidence?: Json
+          _mode?: string
+        }
+        Returns: Json
+      }
       golden_lesson_bind_authoritative_identity: {
+        Args: { _actor_id: string; _batch_id: string }
+        Returns: Json
+      }
+      golden_lesson_bind_authoritative_identity_operator: {
         Args: { _actor_id: string; _batch_id: string }
         Returns: Json
       }
@@ -4697,6 +5185,37 @@ export type Database = {
           _expected_plan_sha256?: string
           _idempotency_key?: string
           _mode?: string
+        }
+        Returns: Json
+      }
+      golden_lesson_materialize_domain_batch_operator: {
+        Args: {
+          _actor_id: string
+          _batch_id: string
+          _expected_plan_sha256?: string
+          _idempotency_key?: string
+          _mode?: string
+        }
+        Returns: Json
+      }
+      golden_lesson_publish_cf11: {
+        Args: {
+          _actor_id: string
+          _assets?: Json
+          _batch_id: string
+          _expected_plan_sha256?: string
+          _idempotency_key?: string
+          _mode?: string
+        }
+        Returns: Json
+      }
+      golden_lesson_revoke_cf11_ready: {
+        Args: {
+          _actor_id: string
+          _batch_id: string
+          _idempotency_key?: string
+          _mode?: string
+          _reason: string
         }
         Returns: Json
       }
