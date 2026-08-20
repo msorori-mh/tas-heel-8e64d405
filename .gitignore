@@ -39,3 +39,6 @@ android/keystore.properties
 android/*.jks
 android/app/build/
 android/.gradle/
+
+# Content Factory generated bundles
+content-packages/*/dist/
