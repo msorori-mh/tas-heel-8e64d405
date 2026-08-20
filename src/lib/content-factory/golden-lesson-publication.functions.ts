@@ -32,6 +32,19 @@ const AttestInput = ModeInput.extend({
   }),
 });
 
+type UntypedRpc = (name: string, args: Record<string, unknown>) =>
+  Promise<{ data: unknown; error: { message: string } | null }>;
+
+/** The CF11 RPCs are pending migrations, so they are absent from generated types. */
+function rpc(client: { rpc: unknown }): UntypedRpc {
+  return client.rpc as unknown as UntypedRpc;
+}
+
+/** RPC payloads are opaque JSON; return them as a string so the boundary stays serializable. */
+function asRpcResult(data: unknown) {
+  return { raw: JSON.stringify(data ?? null) };
+}
+
 function serviceClient() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -142,13 +155,13 @@ export const materializeGoldenLessonBatch = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId, isFullAdmin } = context as ContentStaffAuthContext;
     if (!isFullAdmin) throw new Error("CF10_MATERIALIZE_ADMIN_REQUIRED");
-    const result = await serviceClient().rpc("golden_lesson_materialize_domain_batch" as never, {
+    const result = await rpc(serviceClient())("golden_lesson_materialize_domain_batch", {
       _batch_id: data.batchId,
       _actor_id: userId,
       _mode: data.mode,
-    } as never);
+    });
     if (result.error || !result.data) throw new Error(result.error?.message ?? "CF10_MATERIALIZE_EMPTY_RESPONSE");
-    return result.data as unknown as Record<string, unknown>;
+    return asRpcResult(result.data);
   });
 
 /**
@@ -239,14 +252,14 @@ export const publishGoldenLessonCf11 = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as ContentStaffAuthContext;
     const { declarations, uploaded } = await ensureVerifiedAssets(data.batchId);
-    const result = await supabase.rpc("golden_lesson_publish_cf11" as never, {
+    const result = await rpc(supabase)("golden_lesson_publish_cf11", {
       _batch_id: data.batchId,
       _actor_id: userId,
       _mode: data.mode,
       _assets: declarations,
-    } as never);
+    });
     if (result.error || !result.data) throw new Error(result.error?.message ?? "CF11_PUBLISH_EMPTY_RESPONSE");
-    return { ...(result.data as unknown as Record<string, unknown>), assetsUploaded: uploaded, actorId: userId };
+    return { ...asRpcResult(result.data), assetsUploaded: uploaded, actorId: userId };
   });
 
 /** CF11 READY attestation: REVIEW → READY only, by a human, separate from publication. */
@@ -255,12 +268,12 @@ export const attestGoldenLessonCf11Ready = createServerFn({ method: "POST" })
   .inputValidator((input) => AttestInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as ContentStaffAuthContext;
-    const result = await supabase.rpc("golden_lesson_attest_cf11_ready" as never, {
+    const result = await rpc(supabase)("golden_lesson_attest_cf11_ready", {
       _batch_id: data.batchId,
       _actor_id: userId,
       _evidence: data.evidence,
       _mode: data.mode,
-    } as never);
+    });
     if (result.error || !result.data) throw new Error(result.error?.message ?? "CF11_ATTEST_EMPTY_RESPONSE");
-    return { ...(result.data as unknown as Record<string, unknown>), actorId: userId };
+    return { ...asRpcResult(result.data), actorId: userId };
   });
