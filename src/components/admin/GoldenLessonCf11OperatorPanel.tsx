@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
+import { V3_LIFECYCLE_CAPABILITIES } from "@/lib/lessons/capability-mapping";
 import {
   attestGoldenLessonCf11Ready,
   getGoldenLessonCf11Batches,
@@ -26,11 +27,13 @@ import {
 } from "@/lib/content-factory/golden-lesson-publication.functions";
 
 /**
- * CF11-R5: the required capability set is NEVER hardcoded here. The seven authoritative rows are
- * created by CF10 and are read back live from `lesson_capability_lifecycle`, so this console can
- * never claim a capability the database does not actually track.
+ * CF11-R6: READY is enabled only when the live lifecycle SET equals the canonical set exactly.
+ * A count of seven proves nothing — a substituted, duplicated or retired capability name must
+ * block attestation — so the expected set is imported from the single canonical source
+ * (`src/lib/lessons/capability-mapping.ts`) and compared sorted, element by element.
  */
-const CF11_EXPECTED_CAPABILITY_COUNT = 7;
+const CF11_EXPECTED_CAPABILITIES = [...V3_LIFECYCLE_CAPABILITIES].sort();
+
 
 function short(value: string | null | undefined) {
   return value ? `${value.slice(0, 8)}…` : "—";
@@ -115,9 +118,21 @@ export function GoldenLessonCf11OperatorPanel() {
     () => [...(selected?.lifecycle ?? [])].map((row) => row.capability).sort(),
     [selected],
   );
+  /** Exact-set diagnosis: what is missing, what is foreign, and which rows are not in REVIEW. */
+  const setDiff = useMemo(() => {
+    const rows = selected?.lifecycle ?? [];
+    const live = rows.map((row) => row.capability);
+    const missing = CF11_EXPECTED_CAPABILITIES.filter((cap) => !live.includes(cap));
+    const extra = [...new Set(live.filter((cap) => !CF11_EXPECTED_CAPABILITIES.includes(cap as never)))].sort();
+    const duplicated = [...new Set(live.filter((cap, i) => live.indexOf(cap) !== i))].sort();
+    const notInReview = rows.filter((row) => row.status !== "REVIEW").map((row) => `${row.capability}:${row.status}`).sort();
+    const exact = missing.length === 0 && extra.length === 0 && duplicated.length === 0
+      && live.length === CF11_EXPECTED_CAPABILITIES.length;
+    return { missing, extra, duplicated, notInReview, exact };
+  }, [selected]);
   const isPublisher = Boolean(selected?.publishedBy && user?.id && selected.publishedBy === user.id);
   const canAttest = Boolean(selected?.published) && !selected?.readyAttestedAt && !isPublisher
-    && liveCapabilities.length === CF11_EXPECTED_CAPABILITY_COUNT;
+    && setDiff.exact && setDiff.notInReview.length === 0;
 
 
   return (
@@ -253,12 +268,28 @@ export function GoldenLessonCf11OperatorPanel() {
                 اعتماد READY
               </Button>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              القدرات الحيّة ({liveCapabilities.length}/{CF11_EXPECTED_CAPABILITY_COUNT}):{" "}
-              {liveCapabilities.length > 0 ? liveCapabilities.join("، ") : "لا توجد قدرات مسجّلة"}
-              {liveCapabilities.length !== CF11_EXPECTED_CAPABILITY_COUNT
-                && " — الاعتماد مرفوض ما لم تكن سبع قدرات بالضبط."}
-            </p>
+            <div className="space-y-1 text-[11px] text-muted-foreground">
+              <p>
+                القدرات الحيّة ({liveCapabilities.length}/{CF11_EXPECTED_CAPABILITIES.length}):{" "}
+                {liveCapabilities.length > 0 ? liveCapabilities.join("، ") : "لا توجد قدرات مسجّلة"}
+              </p>
+              {setDiff.missing.length > 0 && (
+                <p className="text-amber-600">قدرات ناقصة: {setDiff.missing.join("، ")}</p>
+              )}
+              {setDiff.extra.length > 0 && (
+                <p className="text-amber-600">قدرات دخيلة: {setDiff.extra.join("، ")}</p>
+              )}
+              {setDiff.duplicated.length > 0 && (
+                <p className="text-amber-600">قدرات مكرّرة: {setDiff.duplicated.join("، ")}</p>
+              )}
+              {setDiff.notInReview.length > 0 && (
+                <p className="text-amber-600">حالات غير REVIEW: {setDiff.notInReview.join("، ")}</p>
+              )}
+              {!setDiff.exact && (
+                <p>الاعتماد مرفوض ما لم تطابق المجموعة الحيّة المجموعة القانونية بالضبط.</p>
+              )}
+            </div>
+
           </div>
         </div>
       )}

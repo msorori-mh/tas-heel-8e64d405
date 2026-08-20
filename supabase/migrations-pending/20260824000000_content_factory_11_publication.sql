@@ -248,6 +248,52 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   SELECT encode(extensions.digest(convert_to(coalesce(_value,''),'UTF8'),'sha256'),'hex');
 $$;
 
+-- ------------------------------------------------------------------------------------
+-- CF11-R6 — THE canonical production lifecycle capability set.
+--
+-- Mirrors src/lib/lessons/capability-mapping.ts `V3_LIFECYCLE_CAPABILITIES` exactly, sorted so
+-- it can be compared with `=`/`IS DISTINCT FROM` against a sorted live aggregate. Every gate in
+-- this migration compares the SET, never a count and never statuses alone: a lesson carrying
+-- seven rows with one substituted, duplicated-equivalent or retired name is rejected.
+-- ------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.cf11_lifecycle_capabilities()
+RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
+  SELECT ARRAY['checkUnderstanding','lessonAssessment','mindMap','officialBookContent',
+               'quickReview','simulation','tamkeenExplanation']::text[];
+$$;
+
+-- The live, sorted, de-duplicated lifecycle capability set of one lesson.
+CREATE OR REPLACE FUNCTION public.cf11_live_lifecycle_capabilities(_lesson_id uuid)
+RETURNS text[] LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
+  SELECT coalesce(array_agg(DISTINCT capability ORDER BY capability), ARRAY[]::text[])
+    FROM public.lesson_capability_lifecycle WHERE lesson_id = _lesson_id;
+$$;
+
+/**
+ * Exact-set gate. Raises `<_code>` when the live set is not literally the canonical seven
+ * (missing, extra, duplicate-equivalent, retired or substituted names all fail), and when the
+ * live row count differs from seven (a duplicate row is not a valid set either).
+ */
+CREATE OR REPLACE FUNCTION public.cf11_assert_exact_lifecycle_set(_lesson_id uuid, _code text)
+RETURNS void LANGUAGE plpgsql STABLE SET search_path = public, pg_temp AS $$
+DECLARE
+  live text[] := public.cf11_live_lifecycle_capabilities(_lesson_id);
+  want text[] := public.cf11_lifecycle_capabilities();
+  n integer;
+BEGIN
+  SELECT count(*) INTO n FROM public.lesson_capability_lifecycle WHERE lesson_id = _lesson_id;
+  IF live IS DISTINCT FROM want OR n <> array_length(want,1) THEN
+    RAISE EXCEPTION '%: live=[%] expected=[%] rows=%',
+      _code, array_to_string(live,','), array_to_string(want,','), n USING ERRCODE = '23514';
+  END IF;
+END $$;
+
+GRANT EXECUTE ON FUNCTION public.cf11_lifecycle_capabilities() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.cf11_live_lifecycle_capabilities(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.cf11_assert_exact_lifecycle_set(uuid, text) TO authenticated, service_role;
+
+
+
 -- base64 sha256 of one inline script body, i.e. the value a CSP `sha256-...` token must carry.
 CREATE OR REPLACE FUNCTION public.cf11_script_csp_hash(_script text)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
@@ -676,6 +722,11 @@ DECLARE
   v_official text[];
   v_self text[];
   v_assessment uuid;
+  v_planned_assets text[];
+  v_live_assets text[];
+  v_planned_questions text[];
+  v_live_questions text[];
+  v_live_members text[];
   verified jsonb := '[]'::jsonb;
 BEGIN
   IF v_lesson IS NULL OR coalesce(v_ext,'') = '' THEN
@@ -705,7 +756,12 @@ BEGIN
   END LOOP;
   verified := verified || to_jsonb('html'::text);
 
-  -- 3) every planned asset is still registered with the same bytes, path and attestation
+  -- 3) CF11-R6 — EXACT live asset set. Every planned asset must still be published with the same
+  --    bytes, still carry its immutable machine attestation, and the storage object must still be
+  --    the very same object version/eTag/metadata the attestation recorded. The *set* of published
+  --    assets must equal the planned set exactly: an extra published asset fails just as hard as a
+  --    missing one. NOTE (honesty): no byte readback happens here — SQL compares recorded identity
+  --    and object metadata only. Byte readback is the machine server attestation step.
   FOR a IN SELECT value FROM jsonb_array_elements(coalesce(_plan->'assets','[]'::jsonb)) LOOP
     IF NOT EXISTS (
       SELECT 1 FROM public.golden_lesson_published_assets p
@@ -713,49 +769,93 @@ BEGIN
           ON t.lesson_id = p.lesson_id AND t.asset_code = p.asset_code
          AND t.attestation_sha256 = p.attestation_sha256
          AND t.verification_origin = 'SERVER_BYTE_READBACK'
+         AND t.sha256 = p.sha256 AND t.byte_size = p.byte_size AND t.mime_type = p.mime_type
+         AND t.storage_bucket = p.storage_bucket AND t.storage_path = p.storage_path
+         AND t.attestation_sha256 = public.cf11_attestation_hash(
+               t.lesson_id, t.asset_code, t.file_name, t.mime_type, t.sha256, t.byte_size,
+               t.magic_hex, t.storage_bucket, t.storage_path, t.storage_object_id,
+               t.storage_version, t.storage_etag, t.verification_origin)
         JOIN storage.objects o
           ON o.bucket_id = t.storage_bucket AND o.name = t.storage_path
          AND o.id = t.storage_object_id AND o.version = t.storage_version
+         AND coalesce(o.metadata->>'eTag', o.metadata->>'etag') IS NOT DISTINCT FROM t.storage_etag
+         AND coalesce((o.metadata->>'size')::bigint, t.byte_size) = t.byte_size
+         AND coalesce(o.metadata->>'mimetype', o.metadata->>'contentType', t.mime_type) = t.mime_type
        WHERE p.lesson_id = v_lesson AND p.asset_code = a->>'assetCode'
          AND p.sha256 = a->>'sha256' AND p.byte_size = (a->>'bytes')::bigint
          AND p.mime_type = a->>'mimeType'
+         AND p.storage_path = a->>'storagePath'
     ) THEN
       RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: asset.%', a->>'assetCode'
         USING ERRCODE = '23505';
     END IF;
   END LOOP;
+  SELECT coalesce(array_agg(DISTINCT e.v->>'assetCode' ORDER BY e.v->>'assetCode'),
+                  ARRAY[]::text[]) INTO v_planned_assets
+    FROM jsonb_array_elements(coalesce(_plan->'assets','[]'::jsonb)) AS e(v);
+  SELECT coalesce(array_agg(DISTINCT asset_code ORDER BY asset_code), ARRAY[]::text[])
+    INTO v_live_assets
+    FROM public.golden_lesson_published_assets WHERE lesson_id = v_lesson;
   SELECT count(*) INTO v_count FROM public.golden_lesson_published_assets WHERE lesson_id = v_lesson;
-  IF v_count IS DISTINCT FROM jsonb_array_length(coalesce(_plan->'assets','[]'::jsonb)) THEN
-    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assets' USING ERRCODE = '23505';
+  IF v_live_assets IS DISTINCT FROM v_planned_assets
+     OR v_count IS DISTINCT FROM coalesce(array_length(v_planned_assets,1),0) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assets live=[%] planned=[%]',
+      array_to_string(v_live_assets,','), array_to_string(v_planned_assets,',')
+      USING ERRCODE = '23505';
   END IF;
   verified := verified || to_jsonb('assets'::text);
 
-  -- 4) all 45 questions still point at a PUBLISHED revision
-  SELECT array_agg(value::text) INTO v_official
+  -- 4) CF11-R6 — EXACT planned question-code set (official + self-test). No missing, extra,
+  --    duplicate or substituted code; each planned question belongs to the lesson and points at
+  --    the intended PUBLISHED revision; and the lesson carries no additional published question.
+  SELECT coalesce(array_agg(DISTINCT value ORDER BY value), ARRAY[]::text[]) INTO v_official
     FROM jsonb_array_elements_text(coalesce(_plan->'questions'->'official','[]'::jsonb)) value;
-  SELECT array_agg(value::text) INTO v_self
+  SELECT coalesce(array_agg(DISTINCT value ORDER BY value), ARRAY[]::text[]) INTO v_self
     FROM jsonb_array_elements_text(coalesce(_plan->'questions'->'selfTest','[]'::jsonb)) value;
+  v_planned_questions := ARRAY(SELECT unnest(v_official || v_self) ORDER BY 1);
+  IF coalesce(array_length(v_planned_questions,1),0)
+       <> jsonb_array_length(coalesce(_plan->'questions'->'official','[]'::jsonb))
+        + jsonb_array_length(coalesce(_plan->'questions'->'selfTest','[]'::jsonb)) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: questionsDuplicatePlan' USING ERRCODE = '23505';
+  END IF;
+
+  -- every code in the plan resolves to exactly one lesson question on a PUBLISHED revision
+  SELECT coalesce(array_agg(DISTINCT q.code ORDER BY q.code), ARRAY[]::text[]) INTO v_live_questions
+    FROM public.questions q
+    JOIN public.question_revisions rv ON rv.id = q.current_published_revision_id
+   WHERE q.lesson_id = v_lesson AND rv.status = 'PUBLISHED' AND rv.question_id = q.id;
+  IF v_live_questions IS DISTINCT FROM v_planned_questions THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: questions live=[%] planned=[%]',
+      array_to_string(v_live_questions,','), array_to_string(v_planned_questions,',')
+      USING ERRCODE = '23505';
+  END IF;
   SELECT count(*) INTO v_count
     FROM public.questions q
     JOIN public.question_revisions rv ON rv.id = q.current_published_revision_id
-   WHERE q.lesson_id = v_lesson
-     AND q.code = ANY (coalesce(v_official,ARRAY[]::text[]) || coalesce(v_self,ARRAY[]::text[]))
-     AND rv.status = 'PUBLISHED';
-  IF v_count IS DISTINCT FROM (coalesce(array_length(v_official,1),0)
-                             + coalesce(array_length(v_self,1),0)) THEN
-    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: questions' USING ERRCODE = '23505';
+   WHERE q.lesson_id = v_lesson AND q.code = ANY (v_planned_questions)
+     AND rv.status = 'PUBLISHED' AND rv.question_id = q.id;
+  IF v_count IS DISTINCT FROM coalesce(array_length(v_planned_questions,1),0) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: questionRevisions' USING ERRCODE = '23505';
   END IF;
   verified := verified || to_jsonb('questions'::text);
 
-  -- 5) assessment membership is still exactly the self-test set, with zero official questions
+  -- 5) CF11-R6 — assessment membership is the EXACT planned self-test code set. A substituted
+  --    member with an identical member count is a conflict, and zero official questions may leak.
   SELECT id INTO v_assessment FROM public.lesson_assessments
    WHERE lesson_id = v_lesson AND assessment_code = _plan->'assessment'->>'code';
   IF v_assessment IS NULL THEN
     RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assessment' USING ERRCODE = '23505';
   END IF;
-  SELECT count(*) INTO v_count FROM public.assessment_questions WHERE assessment_id = v_assessment;
-  IF v_count IS DISTINCT FROM (_plan->'assessment'->>'memberCount')::integer THEN
-    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assessmentMembers' USING ERRCODE = '23505';
+  SELECT coalesce(array_agg(DISTINCT q.code ORDER BY q.code), ARRAY[]::text[]), count(*)
+    INTO v_live_members, v_count
+    FROM public.assessment_questions aq
+    JOIN public.questions q ON q.id = aq.question_id
+   WHERE aq.assessment_id = v_assessment;
+  IF v_live_members IS DISTINCT FROM v_self
+     OR v_count IS DISTINCT FROM coalesce(array_length(v_self,1),0)
+     OR v_count IS DISTINCT FROM (_plan->'assessment'->>'memberCount')::integer THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assessmentMembers live=[%] planned=[%]',
+      array_to_string(v_live_members,','), array_to_string(v_self,',') USING ERRCODE = '23505';
   END IF;
   IF EXISTS (SELECT 1 FROM public.assessment_questions aq
                JOIN public.questions q ON q.id = aq.question_id
@@ -765,14 +865,19 @@ BEGIN
   END IF;
   verified := verified || to_jsonb('assessment'::text);
 
-  -- 6) the exact seven lifecycle rows, none of them regressed below REVIEW
-  SELECT count(*) INTO v_count FROM public.lesson_capability_lifecycle WHERE lesson_id = v_lesson;
-  IF v_count <> 7 OR EXISTS (
+  -- 6) CF11-R6 — the EXACT canonical seven lifecycle capabilities (set equality, not count),
+  --    none of them regressed below REVIEW.
+  IF public.cf11_live_lifecycle_capabilities(v_lesson)
+       IS DISTINCT FROM public.cf11_lifecycle_capabilities()
+     OR (SELECT count(*) FROM public.lesson_capability_lifecycle WHERE lesson_id = v_lesson) <> 7
+     OR EXISTS (
        SELECT 1 FROM public.lesson_capability_lifecycle
         WHERE lesson_id = v_lesson AND status NOT IN ('REVIEW','READY')) THEN
-    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: lifecycle' USING ERRCODE = '23505';
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: lifecycle live=[%]',
+      array_to_string(public.cf11_live_lifecycle_capabilities(v_lesson), ',') USING ERRCODE = '23505';
   END IF;
   verified := verified || to_jsonb('lifecycle'::text);
+
 
   RETURN jsonb_build_object('revalidated', verified);
 END $$;
@@ -1113,7 +1218,33 @@ BEGIN
   END IF;
   question_codes := official_codes || self_codes;
 
+  -- --- CF11-R6: exact lifecycle capability set, validated in the PLAN, not only at EXECUTE ----
+  -- The staged->lifecycle vocabulary is re-derived from CF08's authoritative `lifecycle_capability`
+  -- and compared as a SORTED SET against the canonical seven. Missing, extra, duplicate-equivalent,
+  -- retired and substituted names are all rejected here, so a DRY_RUN can never advertise a plan
+  -- that EXECUTE would have to refuse.
+  SELECT coalesce(array_agg(DISTINCT e.lifecycle_capability ORDER BY e.lifecycle_capability),
+                  ARRAY[]::text[])
+    INTO lifecycle_caps
+    FROM public.golden_lesson_domain_stage_entries e
+   WHERE e.batch_id = _batch_id
+     AND e.capability = ANY (public.cf10_required_capabilities());
+  IF lifecycle_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN
+    RAISE EXCEPTION 'CF11_LIFECYCLE_NAMESPACE_MISMATCH: staged=[%] expected=[%]',
+      array_to_string(lifecycle_caps, ','),
+      array_to_string(public.cf11_lifecycle_capabilities(), ',') USING ERRCODE = '23514';
+  END IF;
+  -- Any lifecycle row that already exists for this lesson must belong to the canonical set.
+  IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle
+              WHERE lesson_id = lesson_row.id
+                AND NOT (capability = ANY (public.cf11_lifecycle_capabilities()))) THEN
+    RAISE EXCEPTION 'CF11_LIFECYCLE_SET_FOREIGN_CAPABILITY: live=[%]',
+      array_to_string(public.cf11_live_lifecycle_capabilities(lesson_row.id), ',')
+      USING ERRCODE = '23514';
+  END IF;
+
   -- --- deterministic write plan --------------------------------------------------------
+
   plan := jsonb_build_object(
     'schema','tamkeen.content-factory-11.write-plan.v1',
     'batchId', _batch_id,
@@ -1138,7 +1269,7 @@ BEGIN
                                     'selfTest', to_jsonb(self_codes)),
     'assessment', jsonb_build_object('code', ext_code || '-SELFTEST', 'memberCount', 40),
     'lifecycle', jsonb_build_object('from','DRAFT','to','REVIEW',
-                                    'capabilities', to_jsonb(public.cf10_required_capabilities())));
+                                    'capabilities', to_jsonb(public.cf11_lifecycle_capabilities())));
   plan_sha := public.cf11_text_sha256(plan::text);
 
   IF _mode = 'DRY_RUN' THEN
@@ -1288,23 +1419,11 @@ BEGIN
       member_count, official_in_assessment USING ERRCODE = '23514';
   END IF;
 
-  -- 6) lifecycle DRAFT -> REVIEW for the exact seven capabilities. No READY here, ever.
-  --    The staged->lifecycle capability names are NOT hardcoded here: CF08 already recorded the
-  --    authoritative `lifecycle_capability` for every staged capability, and CF10 verified the
-  --    staged set equals cf10_required_capabilities(). Re-deriving them keeps CF11 in lockstep
-  --    with the real production vocabulary (quickReview / checkUnderstanding / lessonAssessment).
-  SELECT coalesce(array_agg(DISTINCT e.lifecycle_capability ORDER BY e.lifecycle_capability),
-                  ARRAY[]::text[])
-    INTO lifecycle_caps
-    FROM public.golden_lesson_domain_stage_entries e
-   WHERE e.batch_id = _batch_id
-     AND e.capability = ANY (public.cf10_required_capabilities());
-
-  -- The lifecycle namespace is fixed production vocabulary. Any alternate spelling
-  -- (lessonSummary / officialBookQuestions / selfTest) is a hard failure, not a rename.
-  IF lifecycle_caps IS DISTINCT FROM ARRAY[
-       'checkUnderstanding','lessonAssessment','mindMap','officialBookContent',
-       'quickReview','simulation','tamkeenExplanation']::text[] THEN
+  -- 6) lifecycle DRAFT -> REVIEW for the exact canonical seven. No READY here, ever.
+  --    `lifecycle_caps` was already re-derived from CF08's authoritative `lifecycle_capability`
+  --    and proven equal to `cf11_lifecycle_capabilities()` during plan validation, so no
+  --    vocabulary is hardcoded and no alternate spelling can slip through here.
+  IF lifecycle_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN
     RAISE EXCEPTION 'CF11_LIFECYCLE_NAMESPACE_MISMATCH: %', array_to_string(lifecycle_caps, ',')
       USING ERRCODE = '23514';
   END IF;
@@ -1313,13 +1432,17 @@ BEGIN
     PERFORM public.lesson_capability_transition(lesson_row.id, cap, 'REVIEW', NULL, NULL);
   END LOOP;
 
-  SELECT coalesce(array_agg(capability ORDER BY capability), ARRAY[]::text[]) INTO live_caps
+  -- Exact set, twice: the REVIEW rows are exactly the canonical seven AND the lesson carries no
+  -- eighth lifecycle row of any status.
+  SELECT coalesce(array_agg(DISTINCT capability ORDER BY capability), ARRAY[]::text[]) INTO live_caps
     FROM public.lesson_capability_lifecycle
    WHERE lesson_id = lesson_row.id AND status = 'REVIEW';
-  IF live_caps IS DISTINCT FROM lifecycle_caps THEN
+  IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN
     RAISE EXCEPTION 'CF11_LIFECYCLE_REVIEW_NOT_EXACTLY_SEVEN: %', array_to_string(live_caps, ',')
       USING ERRCODE = '23514';
   END IF;
+  PERFORM public.cf11_assert_exact_lifecycle_set(lesson_row.id, 'CF11_LIFECYCLE_SET_MISMATCH');
+
 
 
 
@@ -1393,6 +1516,10 @@ DECLARE
   leak_count integer := 0;
   ready_row public.golden_lesson_ready_attestations;
   live_attestation_sha text;
+  live_caps text[];
+  replay_checks jsonb := '[]'::jsonb;
+  stored_ready_hash text;
+  stored_ready_snapshot jsonb;
 BEGIN
   IF _mode NOT IN ('DRY_RUN','EXECUTE') THEN
     RAISE EXCEPTION 'CF11_INVALID_MODE' USING ERRCODE = '22023';
@@ -1414,8 +1541,9 @@ BEGIN
   END IF;
   SELECT * INTO ready_row FROM public.golden_lesson_ready_attestations WHERE publication_id = pub.id;
   IF ready_row.id IS NOT NULL THEN
-    -- CF11-R5: a READY replay must reprove the whole published state, the live attestation set
-    -- and that every capability is really READY. An existing evidence row proves nothing today.
+    -- CF11-R6: a READY replay reproves the whole published state, the live attestation set, the
+    -- EXACT canonical seven lifecycle rows, and re-derives every capability snapshot/hash with
+    -- the canonical Content V3 functions. A stored ledger checksum is not evidence about today.
     PERFORM public.cf11_assert_replay_state(pub.result);
     SELECT public.cf11_text_sha256(coalesce(string_agg(t.asset_code || ':' || t.attestation_sha256,
                                                        '|' ORDER BY t.asset_code), ''))
@@ -1427,14 +1555,58 @@ BEGIN
     IF ready_row.snapshot_set_sha256 IS DISTINCT FROM public.cf11_text_sha256(ready_row.checks::text) THEN
       RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: evidence' USING ERRCODE = '23505';
     END IF;
-    IF (SELECT count(*) FROM public.lesson_capability_lifecycle
-         WHERE lesson_id = pub.lesson_id AND status = 'READY') <> 7 THEN
-      RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: lifecycle' USING ERRCODE = '23505';
+
+    -- Exact set equality (not count), and every one of them really READY today.
+    PERFORM public.cf11_assert_exact_lifecycle_set(pub.lesson_id, 'CF11_READY_REPLAY_CONFLICT');
+    SELECT coalesce(array_agg(DISTINCT capability ORDER BY capability), ARRAY[]::text[])
+      INTO live_caps
+      FROM public.lesson_capability_lifecycle
+     WHERE lesson_id = pub.lesson_id AND status = 'READY';
+    IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN
+      RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: lifecycle live=[%]',
+        array_to_string(live_caps, ',') USING ERRCODE = '23505';
     END IF;
+
+    -- Re-derive each of the exact seven snapshots and compare against BOTH the frozen ledger
+    -- evidence and the live lifecycle ready_snapshot/ready_hash. Any drift refuses the replay.
+    replay_checks := '[]'::jsonb;
+    FOREACH lifecycle_cap IN ARRAY public.cf11_lifecycle_capabilities() LOOP
+      snap := public.v3_capability_snapshot(pub.lesson_id, lifecycle_cap);
+      IF snap IS NULL OR NOT public.v3_capability_snapshot_is_reconcilable(snap) THEN
+        RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: snapshot.%', lifecycle_cap USING ERRCODE = '23505';
+      END IF;
+      snap_hash := public.v3_capability_snapshot_hash(snap);
+      replay_checks := replay_checks
+        || jsonb_build_object('capability', lifecycle_cap, 'hash', snap_hash);
+
+      SELECT ready_hash, ready_snapshot INTO stored_ready_hash, stored_ready_snapshot
+        FROM public.lesson_capability_lifecycle
+       WHERE lesson_id = pub.lesson_id AND capability = lifecycle_cap;
+      IF stored_ready_snapshot IS NULL OR stored_ready_hash IS DISTINCT FROM snap_hash THEN
+        RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: readySnapshot.%', lifecycle_cap
+          USING ERRCODE = '23505';
+      END IF;
+      IF public.v3_capability_snapshot_hash(stored_ready_snapshot) IS DISTINCT FROM snap_hash THEN
+        RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: readySnapshotBody.%', lifecycle_cap
+          USING ERRCODE = '23505';
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(coalesce(ready_row.checks,'[]'::jsonb)) AS c(v)
+         WHERE c.v->>'capability' = lifecycle_cap AND c.v->>'hash' = snap_hash) THEN
+        RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: evidenceHash.%', lifecycle_cap
+          USING ERRCODE = '23505';
+      END IF;
+    END LOOP;
+    IF jsonb_array_length(coalesce(ready_row.checks,'[]'::jsonb))
+         <> jsonb_array_length(replay_checks) THEN
+      RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: evidenceSet' USING ERRCODE = '23505';
+    END IF;
+
     RETURN pub.result || jsonb_build_object('idempotent', true, 'transitions', 0,
-      'replay_revalidated', true,
+      'replay_revalidated', true, 'replay_checks', replay_checks,
       'ready_attested_by', ready_row.attested_by, 'ready_attested_at', ready_row.attested_at);
   END IF;
+
 
 
 
@@ -1450,10 +1622,10 @@ BEGIN
     RAISE EXCEPTION 'CF11_LESSON_NOT_FREE' USING ERRCODE = '23514';
   END IF;
 
-  -- Required capability coverage: the exact seven rows, none missing.
-  IF (SELECT count(*) FROM public.lesson_capability_lifecycle WHERE lesson_id = lesson_row.id) <> 7 THEN
-    RAISE EXCEPTION 'CF11_CAPABILITY_SET_NOT_EXACTLY_SEVEN' USING ERRCODE = '23514';
-  END IF;
+  -- CF11-R6: exact canonical SET, not a count. Missing, extra, duplicate-equivalent, retired or
+  -- substituted capability names are all refused before any transition is considered.
+  PERFORM public.cf11_assert_exact_lifecycle_set(
+    lesson_row.id, 'CF11_CAPABILITY_SET_NOT_EXACTLY_SEVEN');
   IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle
               WHERE lesson_id = lesson_row.id AND status NOT IN ('REVIEW','READY')) THEN
     RAISE EXCEPTION 'CF11_READY_REQUIRES_REVIEW_FOR_ALL' USING ERRCODE = '23514';
@@ -1516,11 +1688,10 @@ BEGIN
     RAISE EXCEPTION 'CF11_ANSWER_LEAK_DETECTED: %', leak_count USING ERRCODE = '23514';
   END IF;
 
-  -- Per-capability snapshot/hash verification over the EXACT seven rows this lesson carries
-  -- (already asserted to be seven, all in REVIEW/READY). No hardcoded vocabulary.
-  FOR lifecycle_cap IN
-    SELECT capability FROM public.lesson_capability_lifecycle
-     WHERE lesson_id = lesson_row.id ORDER BY capability
+  -- CF11-R6: snapshot/hash verification over the CANONICAL seven, iterated from the contract
+  -- itself (already proven set-equal to the live rows), so a substituted live row cannot decide
+  -- which capabilities get verified.
+  FOREACH lifecycle_cap IN ARRAY public.cf11_lifecycle_capabilities()
   LOOP
     snap := public.v3_capability_snapshot(lesson_row.id, lifecycle_cap);
     IF snap IS NULL OR NOT public.v3_capability_snapshot_is_reconcilable(snap) THEN
@@ -1542,6 +1713,16 @@ BEGIN
     RETURN jsonb_build_object('mode','DRY_RUN','batch_id',_batch_id,'lesson_id',lesson_row.id,
       'checks', checks, 'transitions', 0, 'would_be_student_visible', false);
   END IF;
+
+  -- After the transitions, the READY set must be the canonical seven exactly — no more, no less.
+  SELECT coalesce(array_agg(DISTINCT capability ORDER BY capability), ARRAY[]::text[]) INTO live_caps
+    FROM public.lesson_capability_lifecycle
+   WHERE lesson_id = lesson_row.id AND status = 'READY';
+  IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN
+    RAISE EXCEPTION 'CF11_READY_SET_NOT_EXACT: live=[%]', array_to_string(live_caps, ',')
+      USING ERRCODE = '23514';
+  END IF;
+
 
   -- READY evidence is appended as an independent record; the publication row stays immutable.
   INSERT INTO public.golden_lesson_ready_attestations(
@@ -1630,6 +1811,54 @@ GRANT EXECUTE ON FUNCTION public.golden_lesson_materialize_domain_batch_operator
 -- role) keeps working because it delegates as its owner, not as the caller.
 REVOKE EXECUTE ON FUNCTION public.golden_lesson_materialize_domain_batch(uuid,uuid,text,text,text)
   FROM service_role, authenticated, anon, PUBLIC;
+
+-- ------------------------------------------------------------------------------------
+-- 9b) CF11-R6 — SERVICE-ROLE EDITORIAL DENIAL.
+--
+-- Machine duties (byte readback attestation, reads) stay with the service role. EVERY human
+-- editorial decision — publication, READY attestation, package review/state transitions,
+-- authoritative identity binding, operator materialization — is denied to the machine roles, so
+-- an automated caller holding the service key can never stand in for a reviewer.
+-- ------------------------------------------------------------------------------------
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_publish_cf11(uuid, uuid, text, jsonb, text, text)
+  FROM service_role, anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_attest_cf11_ready(uuid, uuid, jsonb, text)
+  FROM service_role, anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_materialize_domain_batch_operator(uuid,uuid,text,text,text)
+  FROM service_role, anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_advance_review(uuid,integer,text,jsonb,text)
+  FROM service_role, anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_bind_authoritative_identity(uuid,uuid)
+  FROM service_role, anon, PUBLIC;
+
+-- Identity binding still needs a caller, so it gets the same shape as CF10: a SECURITY DEFINER
+-- operator wrapper that derives the actor from `auth.uid()` (never from an argument) and can only
+-- be reached by an authenticated admin.
+CREATE OR REPLACE FUNCTION public.golden_lesson_bind_authoritative_identity_operator(
+  _batch_id uuid,
+  _actor_id uuid
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+  uid uuid := auth.uid();
+BEGIN
+  IF uid IS NULL OR _actor_id IS NULL OR uid <> _actor_id THEN
+    RAISE EXCEPTION 'CF09_ACTOR_IDENTITY_MISMATCH' USING ERRCODE = '42501';
+  END IF;
+  IF NOT public.golden_lesson_has_role(uid, 'admin') THEN
+    RAISE EXCEPTION 'CF09_ADMIN_REQUIRED' USING ERRCODE = '42501';
+  END IF;
+  RETURN public.golden_lesson_bind_authoritative_identity(_batch_id, uid);
+END $$;
+
+REVOKE ALL ON FUNCTION public.golden_lesson_bind_authoritative_identity_operator(uuid,uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.golden_lesson_bind_authoritative_identity_operator(uuid,uuid) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.golden_lesson_bind_authoritative_identity_operator(uuid,uuid)
+  FROM service_role, anon, PUBLIC;
+
+
+
+
 
 
 -- ------------------------------------------------------------------------------------

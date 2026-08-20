@@ -1,4 +1,4 @@
-# CF11 — Iron (الحديد Fe) Golden Lesson: publication-to-READY closure
+# CF11-R6 — Iron (الحديد Fe) Golden Lesson: publication-to-READY closure
 
 Source-only closure. **No production writes and no migration apply were performed in this task.**
 
@@ -6,9 +6,12 @@ Source-only closure. **No production writes and no migration apply were performe
 
 | Item | Value |
 | --- | --- |
-| Source commit (base) | `d720dea513720316aa27ca945715702bd3219eac` |
+| Remediation base commit | `c6d02ef9932282473f10101630bd289bd4d2739e` |
+| Revision | R6 (source-only) |
 | CF11 migration | `supabase/migrations-pending/20260824000000_content_factory_11_publication.sql` |
-| Migration SHA-256 | `908e2626ffda702c60112e8fcaecc6f6f57c25b368b7c7f27853854dc89ff660` |
+| Migration SHA-256 (final, after all R6 edits) | `170cac3651aee1fffe3b60e06aa1ad7ccccced6d5be8c9ed4d8c4c7919ec5183` |
+| Production writes | 0 |
+| Migration applied | NO |
 | Iron bundle | `content-packages/chemistry-g12-iron-v3/dist/CHEM-G12-IRON-FE.zip` |
 | Bundle SHA-256 | `a7369bf13b6646bb2181ff39dac0c18f4fe3b00a9609f27cb7a451152988c100` |
 | Furnace asset | `official-figure-1-1.jpg` |
@@ -37,7 +40,7 @@ in the test suite so the same mislabelling can never pass again.
 * `scripts/e2e/iron-cf11-student-probe.mjs` *(new)* — read-only student probe at 390x844 / 1280x900.
 * `tests/content-packages/chemistry-g12-iron-cf11-assets.test.ts` *(new)*, `chemistry-g12-iron-v3.test.mjs` (leaf/MIME assertion corrected).
 
-## Security model (R3)
+## Security model (R6)
 
 * **Manifest is the only declaration authority.** `cf11_manifest_assets(manifest, lesson_id)` derives
   the asset set deterministically from the CF07 hash-pinned package manifest. Whatever the client
@@ -50,12 +53,34 @@ in the test suite so the same mislabelling can never pass again.
   records `verification_origin = 'SERVER_BYTE_READBACK'` — any other origin is rejected
   (`CF11_ASSET_VERIFICATION_ORIGIN_INVALID`). The operator who asked for the upload is recorded as
   `requested_by` and must be real content staff; no human can ever claim bytes.
-* **Exhaustive replay (R5).** Before any replay may report success, `cf11_assert_replay_state`
-  re-derives the live state of every category — official body hash, inline HTML artefacts, asset
-  registration and storage-object identity, published questions, assessment membership (with no
-  official-question leak) and the seven lifecycle rows. Any drift raises
-  `CF11_REPLAY_LIVE_STATE_CONFLICT` instead of a comfortable idempotent success. Publication rows
-  also require a non-null `idempotency_key`.
+* **Exact-set semantics everywhere (R6).** The only valid lifecycle vocabulary is the canonical
+  seven (`officialBookContent`, `tamkeenExplanation`, `quickReview`, `mindMap`, `simulation`,
+  `checkUnderstanding`, `lessonAssessment`), mirrored from `src/lib/lessons/capability-mapping.ts`
+  into `cf11_lifecycle_capabilities()`. Publication plan validation, `cf11_assert_replay_state`,
+  READY first execution and READY replay all compare **sorted set equality**, never a count and
+  never statuses alone, so a missing, extra, duplicate-equivalent, retired or substituted name is
+  refused. The operator panel gates the READY button on the same imported set and names the
+  missing / foreign / duplicated / non-REVIEW rows.
+* **Exhaustive replay (R6).** Before any replay may report success, `cf11_assert_replay_state`
+  re-derives the live state of every category: official body hash; inline HTML artefacts; the exact
+  published-asset set with its immutable attestation and current storage object identity
+  (`id`, `version`, eTag, metadata size, MIME); the exact planned 45 question-code set, each code
+  resolving to its intended `PUBLISHED` revision on this lesson with no extra published question;
+  assessment membership equal to the exact planned self-test set (a substituted member at an
+  identical count fails) with zero official questions; and the exact seven lifecycle rows. Any drift
+  raises `CF11_REPLAY_LIVE_STATE_CONFLICT`. Publication rows require a non-null `idempotency_key`.
+  **Honest scope:** this SQL replay compares recorded identity and object metadata — the byte
+  readback itself is the machine server attestation step, not something SQL performs.
+* **READY snapshot replay (R6).** A READY replay re-derives all seven capability snapshots and
+  hashes with the canonical Content V3 functions and compares them against the READY ledger
+  evidence *and* the live `ready_snapshot` / `ready_hash`. A stored ledger checksum alone is never
+  accepted as evidence about today's state.
+* **Service-role editorial denial (R6).** The machine role keeps byte attestation and reads only.
+  `golden_lesson_publish_cf11`, `golden_lesson_attest_cf11_ready`, the CF10 operator wrapper,
+  `golden_lesson_advance_review` and identity binding are all revoked from `service_role`, `anon`
+  and `PUBLIC`. Identity binding gained an authenticated admin wrapper
+  (`golden_lesson_bind_authoritative_identity_operator`) that derives the actor from `auth.uid()`,
+  and the server function now calls it with the operator's own token instead of the service key.
 * **CF10 has no machine path.** The raw `golden_lesson_materialize_domain_batch` is revoked from
   `service_role` and `authenticated`; materialization is only reachable through the operator wrapper
   running on the human's own token.
@@ -104,9 +129,12 @@ Replay of any RPC returns the recorded result with `writes_performed = 0`.
 
 CF11 adds tables and functions only; it alters no earlier migration bytes (R5, 21H, CF04, CF07,
 CF08, CF09, R9, CF10 are unchanged). The ledgers are append-only by design, so rollback is a
-lifecycle operation, not a delete: reset the seven lifecycle rows to `DRAFT` (before READY) or to
-`REVIEW` (after READY) — student visibility requires READY. The uploaded asset object and its
-attestation are content-addressed and harmless to retain.
+controlled **forward lifecycle transition**, never an ad-hoc `UPDATE`. To withdraw a lesson from
+students, drive each of the canonical seven through `lesson_capability_transition` to `HOLD`
+(the audited transition path), which removes student visibility while leaving every ledger row
+intact for audit. Do not reset statuses with direct SQL: the immutability triggers exist precisely
+to make that impossible, and a hand-written reset would destroy the evidence chain. The uploaded
+asset object and its attestation are content-addressed and harmless to retain.
 
 ## Operator runbook
 
@@ -124,14 +152,25 @@ attestation are content-addressed and harmless to retain.
 
 ## Verification performed in this task
 
-* PG17 rehearsal R5 → 21H → CF04 → CF07 → CF08 → CF09 → R9 → CF10 → CF11 with the Iron fixture,
-  assertions and `content-factory-11-postverify.sql`: `PASS_CONTENT_FACTORY_11_POSTVERIFY`,
-  including the R3 attestation negatives (bytes/size/MIME/magic/undeclared/ledger immutability) and
-  the R5 negatives: human-claimed attestation refused, fabricated verification origin refused,
-  non-staff requester refused, raw CF10 denied to `service_role`, and a tampered replay refused for
-  each of bookContent / inline HTML / assessment membership / lifecycle / stored asset object.
-* Regressions: 209/209 core, 60/60 import contract, 37/37 QB source, 438/438 QB import.
-  Typecheck clean. Production build OK.
+Executed in the R6 task:
+
+* `tests/content-factory/content-factory-11-r6.static.test.mjs` (renamed from R4): 12/12 PASS,
+  including the new exact-set, question/assessment/asset replay, READY-snapshot and service-role
+  denial assertions.
+* Content-factory + content-package suites: 54/54 (`node --import tsx --test`), Iron CF11 assets
+  17/17, Iron golden bundle 7/7 (vitest).
+* Core regression suite: 209/209 PASS. Typecheck clean (`tsgo --noEmit`). Production build OK.
+
+Written but **not executed in this environment** (no PostgreSQL 17 instance is reachable here —
+`CONTENT_FACTORY_PG17_URL` is unset, so the rehearsal is reported as BLOCKED, not PASS):
+
+* `scripts/content-factory/pg17/content-factory-11-assert.sql` section K — service-role denial for
+  every human editorial RPC, the identity-binding wrapper privileges, and the exact-set probe that
+  refuses a substituted capability name at an identical row count. These run in the full
+  R5 → 21H → CF04 → CF07 → CF08 → CF09 → R9 → CF10 → CF11 rehearsal alongside the earlier R3/R5
+  attestation and tampered-replay negatives.
+* `tests/content-packages/chemistry-g12-iron-v3-ui-runtime.mjs` — requires the Playwright package,
+  which is not installed in this environment.
 
 
 ## Remaining production-only steps
