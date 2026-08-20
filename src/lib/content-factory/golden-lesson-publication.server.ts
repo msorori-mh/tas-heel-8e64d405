@@ -111,7 +111,9 @@ export interface Cf11BatchStatus {
   publishedAt: string | null;
   readyAttestedBy: string | null;
   readyAttestedAt: string | null;
-  lifecycle: { capability: string; status: string }[];
+  readyRevokedBy: string | null;
+  readyRevokedAt: string | null;
+  lifecycle: { capability: string; status: string; applicability: string }[];
   declaredAssets: number;
   attestedAssets: number;
 }
@@ -130,7 +132,7 @@ export async function readCf11Batches(): Promise<Cf11BatchStatus[]> {
 
   const rows: Cf11BatchStatus[] = [];
   for (const batch of batches ?? []) {
-    const [binding, mat, review, publication, readyAttestation] = await Promise.all([
+    const [binding, mat, review, publication, readyAttestation, revocation] = await Promise.all([
       admin.from("golden_lesson_identity_bindings")
         .select("id,lesson_id,external_lesson_code").eq("batch_id", batch.id).maybeSingle(),
       admin.from("golden_lesson_domain_materializations")
@@ -145,6 +147,9 @@ export async function readCf11Batches(): Promise<Cf11BatchStatus[]> {
       // READY evidence lives in its own append-only ledger, never on the publication row.
       admin.from("golden_lesson_ready_attestations")
         .select("attested_by,attested_at").eq("batch_id", batch.id).maybeSingle(),
+      // CF11-R7: a withdrawal is a forward fact in its own ledger; the READY row stays intact.
+      admin.from("golden_lesson_ready_revocations")
+        .select("revoked_by,revoked_at").eq("batch_id", batch.id).maybeSingle(),
     ]);
     const bindingRow = ok(binding, "CF11_BINDING_READ_FAILED") as
       { id?: string; lesson_id?: string; external_lesson_code?: string } | null;
@@ -154,16 +159,19 @@ export async function readCf11Batches(): Promise<Cf11BatchStatus[]> {
       { published_by?: string; published_at?: string } | null;
     const readyRow = ok(readyAttestation, "CF11_READY_LEDGER_READ_FAILED") as
       { attested_by?: string; attested_at?: string } | null;
+    const revokedRow = ok(revocation, "CF11_REVOCATION_LEDGER_READ_FAILED") as
+      { revoked_by?: string; revoked_at?: string } | null;
 
     const lessonId = bindingRow?.lesson_id ?? null;
-    let lifecycle: { capability: string; status: string }[] = [];
+    let lifecycle: { capability: string; status: string; applicability: string }[] = [];
     let declaredAssets = 0;
     let attestedAssets = 0;
     if (lessonId) {
       lifecycle = (ok(
-        await admin.from(CF11_LIFECYCLE_TABLE).select("capability,status").eq("lesson_id", lessonId),
+        await admin.from(CF11_LIFECYCLE_TABLE)
+          .select("capability,status,applicability").eq("lesson_id", lessonId),
         "CF11_LIFECYCLE_READ_FAILED",
-      ) ?? []) as { capability: string; status: string }[];
+      ) ?? []) as { capability: string; status: string; applicability: string }[];
       const assetRows = await admin
         .from("golden_lesson_published_assets")
         .select("id", { count: "exact", head: true })
@@ -192,6 +200,8 @@ export async function readCf11Batches(): Promise<Cf11BatchStatus[]> {
       publishedAt: publicationRow?.published_at ?? null,
       readyAttestedBy: readyRow?.attested_by ?? null,
       readyAttestedAt: readyRow?.attested_at ?? null,
+      readyRevokedBy: revokedRow?.revoked_by ?? null,
+      readyRevokedAt: revokedRow?.revoked_at ?? null,
       lifecycle,
       declaredAssets,
       attestedAssets,
@@ -201,14 +211,15 @@ export async function readCf11Batches(): Promise<Cf11BatchStatus[]> {
 }
 
 /**
- * Re-derives asset declarations from the verified bundle and stores the bytes in the private
- * asset bucket under a content-addressed, lesson-scoped path. Never overwrites: an existing
- * object at the same path already has the same SHA-256 by construction.
+ * CF11-R7 — READ-ONLY resolver. Downloads and re-verifies the bundle, then derives the exact
+ * asset declarations (content-addressed, lesson-scoped paths) WITHOUT writing anything: no
+ * storage upload, no attestation, no RPC. This is the only helper a DRY_RUN may call, which is
+ * what makes "preview" genuinely side-effect free.
  */
-export async function ensureVerifiedAssets(batchId: string): Promise<{
+export async function resolveVerifiedAssets(batchId: string): Promise<{
   lessonId: string;
   declarations: Cf11AssetDeclaration[];
-  uploadedPaths: Set<string>;
+  files: Map<string, Uint8Array>;
   bundleSha256: string;
 }> {
   const admin = serviceClient();
@@ -221,8 +232,6 @@ export async function ensureVerifiedAssets(batchId: string): Promise<{
     "CF11_BATCH_NOT_FOUND",
   );
   if (!batch) throw new Error("CF11_BATCH_NOT_FOUND");
-
-
 
   const binding = ok(
     await admin
@@ -256,23 +265,13 @@ export async function ensureVerifiedAssets(batchId: string): Promise<{
   }
 
   const declarations: Cf11AssetDeclaration[] = [];
-  const uploadedPaths = new Set<string>();
+  const files = new Map<string, Uint8Array>();
   for (const asset of verified.assets) {
     const file = verified.files.find((entry) => entry.path === asset.path);
     if (!file) throw new Error("CF11_ASSET_BYTES_MISSING");
     const objectName = `${asset.sha256}-${asset.path}`;
     const storagePath = `${lessonId}/${objectName}`;
-    const existing = await admin.storage.from(ASSET_BUCKET).list(lessonId, { search: objectName });
-    if (existing.error) throw new Error(`CF11_ASSET_LIST_FAILED: ${existing.error.message}`);
-    const present = (existing.data ?? []).some((object) => object.name === objectName);
-    if (!present) {
-      const upload = await admin.storage.from(ASSET_BUCKET).upload(storagePath, file.bytes, {
-        contentType: asset.mimeType,
-        upsert: false,
-      });
-      if (upload.error) throw new Error(`CF11_ASSET_UPLOAD_FAILED: ${upload.error.message}`);
-      uploadedPaths.add(storagePath);
-    }
+    files.set(storagePath, file.bytes);
     declarations.push({
       assetCode: asset.assetCode,
       fileName: asset.path,
@@ -283,7 +282,48 @@ export async function ensureVerifiedAssets(batchId: string): Promise<{
       storagePath,
     });
   }
-  return { lessonId, declarations, uploadedPaths, bundleSha256: verified.bundleSha256 };
+  return { lessonId, declarations, files, bundleSha256: verified.bundleSha256 };
+}
+
+/**
+ * CF11-R7 — WRITE step, called only on an EXECUTE path. Stores any missing bytes in the private
+ * asset bucket. Never overwrites: an existing object at the same path already has the same
+ * SHA-256 by construction, because the path is content-addressed.
+ */
+export async function uploadVerifiedAssets(
+  declarations: Cf11AssetDeclaration[],
+  files: Map<string, Uint8Array>,
+): Promise<Set<string>> {
+  const admin = serviceClient();
+  const uploadedPaths = new Set<string>();
+  for (const declaration of declarations) {
+    const bytes = files.get(declaration.storagePath);
+    if (!bytes) throw new Error("CF11_ASSET_BYTES_MISSING");
+    const [lessonId, ...rest] = declaration.storagePath.split("/");
+    const objectName = rest.join("/");
+    const existing = await admin.storage.from(ASSET_BUCKET).list(lessonId, { search: objectName });
+    if (existing.error) throw new Error(`CF11_ASSET_LIST_FAILED: ${existing.error.message}`);
+    if ((existing.data ?? []).some((object) => object.name === objectName)) continue;
+    const upload = await admin.storage.from(ASSET_BUCKET).upload(declaration.storagePath, bytes, {
+      contentType: declaration.mimeType,
+      upsert: false,
+    });
+    if (upload.error) throw new Error(`CF11_ASSET_UPLOAD_FAILED: ${upload.error.message}`);
+    uploadedPaths.add(declaration.storagePath);
+  }
+  return uploadedPaths;
+}
+
+/** Convenience for the explicit write paths: resolve, then upload. Never call from a DRY_RUN. */
+export async function ensureVerifiedAssets(batchId: string): Promise<{
+  lessonId: string;
+  declarations: Cf11AssetDeclaration[];
+  uploadedPaths: Set<string>;
+  bundleSha256: string;
+}> {
+  const { lessonId, declarations, files, bundleSha256 } = await resolveVerifiedAssets(batchId);
+  const uploadedPaths = await uploadVerifiedAssets(declarations, files);
+  return { lessonId, declarations, uploadedPaths, bundleSha256 };
 }
 
 /**
@@ -302,8 +342,11 @@ export async function attestStoredAssets(
   batchId: string,
   declarations: Cf11AssetDeclaration[],
   uploadedPaths: Set<string>,
-  mode: "DRY_RUN" | "EXECUTE",
+  mode: "EXECUTE",
 ): Promise<Cf11AssetAttestation[]> {
+  // CF11-R7: attestation is a WRITE. There is deliberately no DRY_RUN variant — a preview must
+  // never append to the attestation ledger, so callers on a DRY_RUN path do not call this at all.
+  if (mode !== "EXECUTE") throw new Error("CF11_ATTESTATION_IS_WRITE_ONLY");
   const admin = serviceClient();
   const out: Cf11AssetAttestation[] = [];
   for (const declaration of declarations) {

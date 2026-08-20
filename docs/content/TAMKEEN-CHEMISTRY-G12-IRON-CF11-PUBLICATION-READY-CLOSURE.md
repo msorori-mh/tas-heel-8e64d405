@@ -1,4 +1,4 @@
-# CF11-R6 — Iron (الحديد Fe) Golden Lesson: publication-to-READY closure
+# CF11-R7 — Iron (الحديد Fe) Golden Lesson: publication-to-READY closure
 
 Source-only closure. **No production writes and no migration apply were performed in this task.**
 
@@ -6,12 +6,13 @@ Source-only closure. **No production writes and no migration apply were performe
 
 | Item | Value |
 | --- | --- |
-| Remediation base commit | `c6d02ef9932282473f10101630bd289bd4d2739e` |
-| Revision | R6 (source-only) |
+| Remediation base commit | `9e8d9294e36b0a38b0094b8b58075423da6f85c5` |
+| Revision | R7 (source-only) |
 | CF11 migration | `supabase/migrations-pending/20260824000000_content_factory_11_publication.sql` |
-| Migration SHA-256 (final, after all R6 edits) | `170cac3651aee1fffe3b60e06aa1ad7ccccced6d5be8c9ed4d8c4c7919ec5183` |
+| Migration SHA-256 (final, after all R7 edits) | `497fa8a62e68fa8aa20e2288bad9be8e01f0a223e413af46f792db6101e16444` |
 | Production writes | 0 |
 | Migration applied | NO |
+| PG17 rehearsal (this task) | **BLOCKED — NOT EXECUTED.** No PostgreSQL 17 instance is reachable from this environment, so the R7 SQL has **not** been executed anywhere. Every R7 claim below is a source-level claim. |
 | Iron bundle | `content-packages/chemistry-g12-iron-v3/dist/CHEM-G12-IRON-FE.zip` |
 | Bundle SHA-256 | `a7369bf13b6646bb2181ff39dac0c18f4fe3b00a9609f27cb7a451152988c100` |
 | Furnace asset | `official-figure-1-1.jpg` |
@@ -177,3 +178,116 @@ Written but **not executed in this environment** (no PostgreSQL 17 instance is r
 
 Applying the CF11 migration, running the operator sequence above, and executing the student probe
 against the published lesson id. All three require an explicit production authorization.
+
+
+## R7 — closure of the remaining blockers
+
+### A) Zero-write DRY_RUN (was: publish DRY_RUN silently uploaded and attested)
+
+`golden-lesson-publication.server.ts` is split into a read-only resolver and an explicit writer:
+
+* `resolveVerifiedAssets(batchId)` downloads and re-verifies the bundle and derives the exact
+  content-addressed declarations. It contains **no** `.upload(`, no attestation and no RPC.
+* `uploadVerifiedAssets(declarations, files)` is the only code path that writes bytes.
+* `attestStoredAssets(...)` now accepts `mode: "EXECUTE"` only and throws
+  `CF11_ATTESTATION_IS_WRITE_ONLY` otherwise — there is no DRY_RUN attestation path left.
+* `publishGoldenLessonCf11` resolves in both modes and uploads/attests **only** when
+  `mode === "EXECUTE"`. A DRY_RUN therefore performs zero storage writes and zero ledger rows;
+  the response carries `writesPerformed: false`.
+* PG17 negative `CF11_EXPECTED_DRY_RUN_ZERO_WRITES` counts `golden_lesson_published_assets` and
+  `golden_lesson_asset_attestations` around a DRY_RUN and requires both counts unchanged.
+
+### B) Applicability and exact state
+
+`cf11_assert_exact_required_lifecycle_set()` wraps the exact-set assertion and additionally
+requires `applicability = 'REQUIRED'` on all seven rows
+(`CF11_LIFECYCLE_APPLICABILITY_NOT_REQUIRED`). It runs at the publication plan, in
+`cf11_assert_replay_state`, at first READY and at READY replay. A first READY additionally
+requires the REVIEW set to equal the canonical seven exactly, so a mixed REVIEW/READY lesson is
+refused with `CF11_READY_REQUIRES_REVIEW_FOR_ALL: review=[...]` instead of being "completed".
+The operator panel surfaces `notRequired` rows and blocks attestation on them.
+
+### C) Pinned question identity and payload
+
+The write plan is now `tamkeen.content-factory-11.write-plan.v2`. Each of the 45 questions is
+recorded as `{code, questionId, revisionId, payloadHash, sourcePayloadHash}`:
+
+* the plan refuses to form if any pin is unresolved (`CF11_QUESTION_PIN_INCOMPLETE`,
+  `CF11_QUESTION_PIN_UNRESOLVED`), and the pins are inside the hashed plan;
+* EXECUTE publishes exactly those `revisionId`s and re-checks payload identity first
+  (`CF11_QUESTION_REVISION_DRIFT`) — it never re-derives a "latest" revision;
+* assessment membership is inserted from the pinned self-test `questionId`s;
+* `cf11_assert_replay_state` compares code, question id, revision id, `payload_hash` and
+  `source_payload_hash` per question, plus assessment membership by **id and code**, so a
+  same-count substitution or an edited payload is a conflict
+  (`questionPlanUnpinned.*`, `questionRevision.*`, `assessmentMembers`).
+
+### D) First READY revalidates the full live state
+
+`golden_lesson_attest_cf11_ready` calls `cf11_assert_replay_state(pub.result)` **before** any
+transition on the first (non-replay) path, so approval on stale evidence is impossible: asset
+identity/version/eTag/size/MIME, pinned revisions, assessment set, official body and inline HTML
+are all re-derived against the recorded plan.
+
+### E) Truthful controlled withdrawal
+
+`golden_lesson_revoke_cf11_ready(_batch_id, _actor_id, _reason, _idempotency_key, _mode)`:
+
+* **authenticated full admin only**; actor re-derived from `auth.uid()`
+  (`CF11_ACTOR_IDENTITY_MISMATCH`), and `service_role` / `anon` / `PUBLIC` are revoked;
+* separation of duties — the human who attested READY cannot withdraw it;
+* mandatory written reason (>= 12 chars) and, on EXECUTE, a durable idempotency key;
+* preconditions: exactly the canonical seven, all `REQUIRED`, all `READY`, rows locked
+  `FOR UPDATE`;
+* **target state is `DRAFT`, and this is stated honestly**: production's
+  `lesson_capability_transition` accepts only `DRAFT` / `REVIEW` / `READY` and rejects
+  `READY -> REVIEW` with `REVIEW_REQUIRES_DRAFT`, so `DRAFT` is the only supported non-visible
+  forward state for an already-READY capability. There is no `HOLD` status and none was invented;
+* atomic: all seven transition in one transaction and the function re-reads the live set
+  afterwards (`CF11_REVOKE_NOT_ATOMIC`) and asserts `lesson_student_visible()` is false
+  (`CF11_REVOKE_STILL_STUDENT_VISIBLE`);
+* evidence-preserving: the original READY attestation row is **copied** into the append-only
+  `golden_lesson_ready_revocations` ledger (immutability trigger + `UPDATE`/`DELETE` revoked) and
+  is never mutated or deleted;
+* idempotent: the same key replays with `writes_performed: 0` after re-verifying the live
+  withdrawn set (`CF11_REVOKE_REPLAY_CONFLICT`); a different key conflicts;
+* terminal: `golden_lesson_attest_cf11_ready` refuses a withdrawn publication forever
+  (`CF11_PUBLICATION_REVOKED`), so recovery requires a new package version / batch / publication;
+* audited in `audit_logs` as `golden_lesson_cf11_ready_revoked`.
+
+The operator console exposes a withdrawal card (DRY_RUN preview + EXECUTE) with the mandatory
+reason field, the separation-of-duties block, and a "مسحوب" badge on withdrawn batches.
+
+### F) Release identity and test truth
+
+| Item | Value |
+| --- | --- |
+| Base commit | `9e8d9294e36b0a38b0094b8b58075423da6f85c5` |
+| Final CF11 migration SHA-256 | `497fa8a62e68fa8aa20e2288bad9be8e01f0a223e413af46f792db6101e16444` |
+| Migration applied | NO |
+| Production writes | 0 |
+| PG17 rehearsal | **BLOCKED — not executed in this environment** |
+
+Executed in this task:
+
+| Suite | Result |
+| --- | --- |
+| `bun run test` (core) | 209/209 PASS |
+| `bun run test:question-bank-import` | 438/438 PASS |
+| `node --test tests/content-factory/*.mjs` (incl. new R7 statics) | 60/60 PASS |
+| `tests/content-packages/chemistry-g12-iron-cf11-assets.test.ts` | 17/17 PASS |
+| `tsgo --noEmit` | clean |
+
+New PG17 negatives (written, **not executed**): Section L
+(`CF11_EXPECTED_APPLICABILITY_REFUSED`), Section M
+(`CF11_EXPECTED_PINNED_REVISION_REFUSED` — payload drift and revision substitution at identical
+code/count), Section N (`CF11_EXPECTED_DRY_RUN_ZERO_WRITES`, `CF11_EXPECTED_REVOKE_*`
+including service-role denial, DRY_RUN zero writes, short-reason refusal and ledger
+immutability). The stale `golden_lesson_attest_cf11_asset` signature in Section K1 was corrected
+to the real 9-argument signature.
+
+Static regression file renamed `content-factory-11-r6.static.test.mjs` ->
+`content-factory-11-r7.static.test.mjs` with six new R7 tests (A-F).
+
+**FINAL_VERDICT = PASS_CF11_R7_SOURCE_READY_FOR_INDEPENDENT_PG17_GATE**
+(source-only; the independent PG17 gate remains outstanding and unexecuted).
