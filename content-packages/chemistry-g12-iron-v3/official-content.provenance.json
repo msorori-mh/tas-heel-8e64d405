@@ -1,0 +1,27 @@
+{
+  "contract": "tamkeen.golden-lesson-provenance.v1",
+  "capability": "officialBookContent",
+  "authority": "OFFICIAL",
+  "source_file": "الدرس الرابع-الحديد (2).pdf",
+  "source_sha256": "sha256:79bffd410fde5ff776b28ca805173d66d9ff02e12b76e324006986ee57b4b0b7",
+  "content_owner": "OFFICIAL",
+  "curriculum_track": "sanaa|aden",
+  "conversion_method": "existing 20A structured-content pipeline",
+  "review_status": "REVIEW_REQUIRED",
+  "official_text_fidelity": "EXACT",
+  "page_provenance": "PDF pages 1-5 / printed pages 14-18",
+  "furnace_figure": {
+    "pdf_page": 3,
+    "printed_page": 16,
+    "source_region_pdf_points": {
+      "x0": 66.36,
+      "y0": 54.29,
+      "x1": 313.92,
+      "y1": 355.49
+    },
+    "asset": "assets/official-figure-1-1.png",
+    "asset_sha256": "sha256:a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf",
+    "extraction": "embedded source image; no redraw or montage"
+  },
+  "payload_file": "official-content.html"
+}
