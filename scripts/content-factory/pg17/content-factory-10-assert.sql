@@ -712,8 +712,10 @@ END $$;
 
 -- duplicate book content rows for the same lesson
 BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
 DELETE FROM public.golden_lesson_domain_materializations
  WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
+ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
 INSERT INTO public.lesson_book_contents(lesson_id, content, sort_order)
   SELECT lesson_id, content, sort_order + 1 FROM public.lesson_book_contents
    WHERE lesson_id='43000000-0000-0000-0000-000000000001';
@@ -724,8 +726,10 @@ ROLLBACK;
 
 -- duplicate revisions for the same question
 BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
 DELETE FROM public.golden_lesson_domain_materializations
  WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
+ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
 INSERT INTO public.question_revisions(question_id, revision_number, status, interaction_type,
                                       question_text, max_score, created_by)
   SELECT r.question_id, r.revision_number + 90, r.status, r.interaction_type,
@@ -739,8 +743,10 @@ ROLLBACK;
 
 -- duplicate option rows for the same question
 BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
 DELETE FROM public.golden_lesson_domain_materializations
  WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
+ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
 INSERT INTO public.question_options(question_id, option_text, is_correct, sort_order)
   SELECT o.question_id, o.option_text, o.is_correct, o.sort_order + 50
     FROM public.question_options o ORDER BY o.id LIMIT 1;
