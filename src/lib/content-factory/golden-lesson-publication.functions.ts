@@ -101,31 +101,28 @@ export const verifyGoldenLessonCf11Assets = createServerFn({ method: "POST" })
 /**
  * CF11 publication: DRAFT → REVIEW only. Executed as the human operator. Never reaches READY.
  *
- * CF11-R7 — a DRY_RUN performs ZERO writes: it only resolves the asset declarations read-only
- * from the verified bundle and asks the RPC for a plan. Storage uploads and the attestation
- * ledger are touched exclusively on the EXECUTE path, after the operator approved a plan hash.
+ * CF11-R8 — publication performs ZERO asset writes in BOTH modes. It resolves the declarations
+ * read-only from the verified bundle, PROVES that the explicit `verifyGoldenLessonCf11Assets`
+ * step already uploaded and machine-attested every declared asset, and then calls the RPC with
+ * the human operator's token. Storage upload and the attestation ledger are unreachable from
+ * here: `uploadVerifiedAssets`, `ensureVerifiedAssets` and `attestStoredAssets` are never
+ * imported by this handler.
  */
 export const publishGoldenLessonCf11 = createServerFn({ method: "POST" })
   .middleware([requireContentStaffAuth])
   .inputValidator((input) => ModeInput.parse(input))
   .handler(async ({ data, context }) => {
     const {
-      asRpcResult, attestStoredAssets, idempotencyKey, planSha, requirePlan, resolveVerifiedAssets,
-      rpc, uploadVerifiedAssets,
+      asRpcResult, assertAssetsVerified, idempotencyKey, planSha, requirePlan,
+      resolveVerifiedAssets, rpc,
     } = await import("./golden-lesson-publication.server");
     const { supabase, userId } = context as ContentStaffAuthContext;
     const expected = requirePlan(data.mode, data.expectedPlanSha256, "CF11_WRITE_PLAN_HASH_REQUIRED");
     const execute = data.mode === "EXECUTE";
     // Read-only in both modes: download + re-verify the bundle, derive content-addressed paths.
-    const { declarations, files } = await resolveVerifiedAssets(data.batchId);
-    // Writes happen only under EXECUTE. Publication may then proceed exclusively on bytes the
-    // SERVER re-measured out of the bucket.
-    const uploadedPaths = execute
-      ? await uploadVerifiedAssets(declarations, files)
-      : new Set<string>();
-    const attestations = execute
-      ? await attestStoredAssets(userId, data.batchId, declarations, uploadedPaths, "EXECUTE")
-      : [];
+    const { lessonId, declarations } = await resolveVerifiedAssets(data.batchId);
+    // Read-only precondition: the explicit verify-assets step must already have run.
+    await assertAssetsVerified(lessonId, declarations);
     const result = await rpc(supabase)("golden_lesson_publish_cf11", {
       _batch_id: data.batchId,
       _actor_id: userId,
@@ -139,12 +136,13 @@ export const publishGoldenLessonCf11 = createServerFn({ method: "POST" })
     return {
       ...asRpcResult(result.data),
       planSha256: planSha(result.data, "plan_sha256"),
-      assetsAttested: attestations.length,
-      assetsUploaded: uploadedPaths.size,
+      assetsAttested: 0,
+      assetsUploaded: 0,
       writesPerformed: execute,
       actorId: userId,
     };
   });
+
 
 /** CF11 READY attestation: REVIEW → READY only, by a human, separate from publication. */
 export const attestGoldenLessonCf11Ready = createServerFn({ method: "POST" })
