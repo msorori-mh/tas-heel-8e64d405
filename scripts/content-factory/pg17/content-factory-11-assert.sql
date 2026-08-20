@@ -927,12 +927,18 @@ BEGIN
   INSERT INTO public.assessment_questions SELECT * FROM cf11_member_backup;
   DROP TABLE cf11_member_backup;
 
-  -- 4) a lifecycle row pushed back below REVIEW
+  -- 4) a lifecycle row pushed back below REVIEW. CF11-R9C: the live trigger correctly blocks
+  -- this raw demotion, so this replay-only drift probe emulates an out-of-band owner repair by
+  -- disabling USER triggers only for the two fixture mutations. Production code never does this.
+  ALTER TABLE public.lesson_capability_lifecycle DISABLE TRIGGER USER;
   UPDATE public.lesson_capability_lifecycle SET status='DRAFT'
    WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND capability='quickReview';
+  ALTER TABLE public.lesson_capability_lifecycle ENABLE TRIGGER USER;
   PERFORM public.cf11_assert_replay_refuses('lifecycle');
+  ALTER TABLE public.lesson_capability_lifecycle DISABLE TRIGGER USER;
   UPDATE public.lesson_capability_lifecycle SET status='READY'
    WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND capability='quickReview';
+  ALTER TABLE public.lesson_capability_lifecycle ENABLE TRIGGER USER;
 
   -- 5) the stored asset object removed underneath the attestation
   UPDATE storage.objects SET name = name || '.moved'
