@@ -1,3 +1,4 @@
+import { validateGoldenLessonAssets, type GoldenLessonAsset } from "./golden-lesson-assets.ts";
 import {
   GOLDEN_CAPABILITIES,
   GOLDEN_CAPABILITY_AUTHORITY,
@@ -6,6 +7,7 @@ import {
   type GoldenLessonPackage,
 } from "./golden-lesson-contract.ts";
 import { getGoldenLessonProfile } from "./golden-lesson-profiles.ts";
+
 
 export type GoldenLessonFindingSeverity = "ERROR" | "WARNING";
 
