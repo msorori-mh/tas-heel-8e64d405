@@ -116,6 +116,9 @@ export function GoldenLessonPackageBuilder() {
   const [hashing, setHashing] = useState<GoldenCapability | `provenance:${GoldenCapability}` | "answers" | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [validation, setValidation] = useState<GoldenLessonValidationResult | null>(null);
+  const [intake, setIntake] = useState<BundleIntakeResult | null>(null);
+  const [intakeError, setIntakeError] = useState<string | null>(null);
+  const [intakeBusy, setIntakeBusy] = useState(false);
 
   const profile = getGoldenLessonProfile(profileId) ?? GOLDEN_QURAN_V1;
 
