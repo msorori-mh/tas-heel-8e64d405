@@ -1,8 +1,9 @@
+import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
-import { describe, expect, it } from "vitest";
+import { dirname, resolve } from "node:path";
+import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   buildGoldenLessonBundleFiles,
@@ -20,7 +21,8 @@ import {
 } from "../../src/lib/content-factory/golden-lesson-assets";
 import { verifyGoldenLessonBundle } from "../../src/lib/content-factory/golden-lesson-bundle-verifier";
 
-const PACKAGE_DIR = resolve(__dirname, "../../content-packages/chemistry-g12-iron-v3");
+const HERE = dirname(fileURLToPath(import.meta.url));
+const PACKAGE_DIR = resolve(HERE, "../../content-packages/chemistry-g12-iron-v3");
 const spec = JSON.parse(readFileSync(resolve(PACKAGE_DIR, "golden-bundle.spec.json"), "utf8"));
 
 const FURNACE_LEAF = "official-figure-1-1.jpg";
@@ -46,90 +48,97 @@ describe("CF11 — Iron furnace asset is real, declared and byte-pinned", () => 
   const raw = new Uint8Array(readFileSync(resolve(PACKAGE_DIR, FURNACE_LEAF)));
 
   it("is a genuine JPEG by magic bytes, not just by extension", () => {
-    expect([raw[0], raw[1], raw[2]]).toEqual([0xff, 0xd8, 0xff]);
-    expect(assetMagicMatches("image/jpeg", raw)).toBe(true);
+    assert.deepEqual([raw[0], raw[1], raw[2]], [0xff, 0xd8, 0xff]);
+    assert.equal(assetMagicMatches("image/jpeg", raw), true);
     // The same bytes must be rejected when mislabelled as PNG — this is exactly the R1 defect.
-    expect(assetMagicMatches("image/png", raw)).toBe(false);
+    assert.equal(assetMagicMatches("image/png", raw), false);
   });
 
   it("matches the declared SHA-256 and size caps", () => {
-    expect(sha256(raw)).toBe(FURNACE_SHA);
-    expect(raw.byteLength).toBe(26742);
-    expect(raw.byteLength).toBeGreaterThanOrEqual(GOLDEN_ASSET_MIN_BYTES);
-    expect(raw.byteLength).toBeLessThanOrEqual(GOLDEN_ASSET_MAX_BYTES);
+    assert.equal(sha256(raw), FURNACE_SHA);
+    assert.equal(raw.byteLength, 26742);
+    assert.ok(raw.byteLength >= GOLDEN_ASSET_MIN_BYTES);
+    assert.ok(raw.byteLength <= GOLDEN_ASSET_MAX_BYTES);
   });
 
   it("is declared exactly once in the manifest with a leaf-only path", () => {
-    expect(manifest.assets).toHaveLength(1);
-    const [asset] = manifest.assets as GoldenLessonAsset[];
-    expect(asset.path).toBe(FURNACE_LEAF);
-    expect(isSafeAssetLeaf(asset.path)).toBe(true);
-    expect(asset.sha256).toBe(FURNACE_SHA);
-    expect(asset.bytes).toBe(raw.byteLength);
-    expect(validateGoldenLessonAssets(manifest.assets as GoldenLessonAsset[], always)).toEqual([]);
+    const assets = manifest.assets as GoldenLessonAsset[];
+    assert.equal(assets.length, 1);
+    const asset = assets[0]!;
+    assert.equal(asset.path, FURNACE_LEAF);
+    assert.equal(isSafeAssetLeaf(asset.path), true);
+    assert.equal(asset.sha256, FURNACE_SHA);
+    assert.equal(asset.bytes, raw.byteLength);
+    assert.deepEqual(validateGoldenLessonAssets(assets, always), []);
   });
 
   it("is shipped inside the ZIP and accepted by the server verifier", async () => {
-    expect(files.has(FURNACE_LEAF)).toBe(true);
+    assert.equal(files.has(FURNACE_LEAF), true);
     const { bytes } = await packGoldenLessonBundle(manifest, files);
     const verified = await verifyGoldenLessonBundle(bytes);
-    expect(verified.assets.map((a) => a.path)).toEqual([FURNACE_LEAF]);
+    assert.deepEqual(verified.assets.map((a) => a.path), [FURNACE_LEAF]);
   });
 
   it("is referenced from official HTML as a bare leaf, never base64 or a URL", () => {
     const html = readFileSync(resolve(PACKAGE_DIR, "official-content.html"), "utf8");
-    expect(html).toContain(`src="${FURNACE_LEAF}"`);
-    expect(html).not.toMatch(/data:image/i);
-    expect(html).not.toMatch(/https?:\/\//i);
-    expect(scanHtmlAssetReferences("official-content.html", html, new Set([FURNACE_LEAF]))).toEqual([]);
+    assert.ok(html.includes(`src="${FURNACE_LEAF}"`));
+    assert.doesNotMatch(html, /data:image/i);
+    assert.doesNotMatch(html, /https?:\/\//i);
+    assert.deepEqual(scanHtmlAssetReferences("official-content.html", html, new Set([FURNACE_LEAF])), []);
   });
 });
 
 describe("CF11 — asset declaration negatives (all fail closed)", () => {
   it("rejects SVG and every MIME outside the raster allowlist", () => {
-    expect(isAllowedAssetMime("image/svg+xml")).toBe(false);
-    expect(isAllowedAssetMime("text/html")).toBe(false);
-    expect(isAllowedAssetMime("application/pdf")).toBe(false);
+    assert.equal(isAllowedAssetMime("image/svg+xml"), false);
+    assert.equal(isAllowedAssetMime("text/html"), false);
+    assert.equal(isAllowedAssetMime("application/pdf"), false);
     const findings = validateGoldenLessonAssets(
       [{ ...baseAsset(), path: "figure.svg", mimeType: "image/svg+xml" }],
       always,
     );
-    expect(codesOf(findings)).toContain("ASSET_MIME_FORBIDDEN");
+    assert.ok(codesOf(findings).includes("ASSET_MIME_FORBIDDEN"));
   });
 
   it("rejects folders, traversal, absolute paths and uppercase leaves", () => {
     for (const bad of ["a/b.jpg", "../secret.jpg", "/etc/passwd", "..", ".", "Figure.JPG", "x\\y.jpg"]) {
-      expect(isSafeAssetLeaf(bad)).toBe(false);
+      assert.equal(isSafeAssetLeaf(bad), false, bad);
     }
-    expect(codesOf(validateGoldenLessonAssets([{ ...baseAsset(), path: "figures/a.jpg" }], always)))
-      .toContain("ASSET_PATH_UNSAFE");
+    assert.ok(
+      codesOf(validateGoldenLessonAssets([{ ...baseAsset(), path: "figures/a.jpg" }], always))
+        .includes("ASSET_PATH_UNSAFE"),
+    );
   });
 
   it("rejects an extension that disagrees with the declared MIME", () => {
-    expect(codesOf(validateGoldenLessonAssets([{ ...baseAsset(), path: "figure.png" }], always)))
-      .toContain("ASSET_EXTENSION_MISMATCH");
+    assert.ok(
+      codesOf(validateGoldenLessonAssets([{ ...baseAsset(), path: "figure.png" }], always))
+        .includes("ASSET_EXTENSION_MISMATCH"),
+    );
   });
 
   it("rejects a malformed hash, an out-of-range size and a missing alt text", () => {
-    const findings = validateGoldenLessonAssets(
-      [{ ...baseAsset(), sha256: "nope", bytes: GOLDEN_ASSET_MAX_BYTES + 1, altTextAr: " " }],
-      always,
+    const codes = codesOf(
+      validateGoldenLessonAssets(
+        [{ ...baseAsset(), sha256: "nope", bytes: GOLDEN_ASSET_MAX_BYTES + 1, altTextAr: " " }],
+        always,
+      ),
     );
-    expect(codesOf(findings)).toEqual(
-      expect.arrayContaining(["ASSET_HASH_INVALID", "ASSET_SIZE_OUT_OF_RANGE", "ASSET_ALT_TEXT_MISSING"]),
-    );
+    for (const code of ["ASSET_HASH_INVALID", "ASSET_SIZE_OUT_OF_RANGE", "ASSET_ALT_TEXT_MISSING"]) {
+      assert.ok(codes.includes(code), code);
+    }
   });
 
   it("rejects duplicate codes and duplicate file names", () => {
-    const findings = validateGoldenLessonAssets([baseAsset(), baseAsset()], always);
-    expect(codesOf(findings)).toEqual(
-      expect.arrayContaining(["ASSET_CODE_DUPLICATE", "ASSET_PATH_DUPLICATE"]),
-    );
+    const codes = codesOf(validateGoldenLessonAssets([baseAsset(), baseAsset()], always));
+    for (const code of ["ASSET_CODE_DUPLICATE", "ASSET_PATH_DUPLICATE"]) {
+      assert.ok(codes.includes(code), code);
+    }
   });
 
   it("rejects an asset bound to a capability that carries no source file", () => {
     const findings = validateGoldenLessonAssets([baseAsset()], () => false);
-    expect(codesOf(findings)).toContain("ASSET_REFERENCE_CAPABILITY_INVALID");
+    assert.ok(codesOf(findings).includes("ASSET_REFERENCE_CAPABILITY_INVALID"));
   });
 });
 
@@ -138,37 +147,46 @@ describe("CF11 — HTML reference negatives (undeclared bytes never load)", () =
 
   it("rejects a reference to a file that is not declared", () => {
     const findings = scanHtmlAssetReferences("x.html", '<img src="rogue.jpg">', declared);
-    expect(findings.length).toBeGreaterThan(0);
-    expect(codesOf(findings)[0]).toMatch(/UNDECLARED|REFERENCE/);
+    assert.ok(findings.length > 0);
+    assert.match(codesOf(findings)[0]!, /UNDECLARED|REFERENCE/);
   });
 
   it("rejects base64/data URIs", () => {
-    expect(codesOf(scanHtmlAssetReferences("x.html", '<img src="data:image/png;base64,AAAA">', declared)))
-      .toContain("HTML_REFERENCE_DATA_URI_FORBIDDEN");
+    assert.ok(
+      codesOf(scanHtmlAssetReferences("x.html", '<img src="data:image/png;base64,AAAA">', declared))
+        .includes("HTML_REFERENCE_DATA_URI_FORBIDDEN"),
+    );
   });
 
   it("rejects every network reference form", () => {
     for (const url of ["https://evil.test/a.jpg", "http://evil.test/a.jpg", "//evil.test/a.jpg"]) {
-      expect(codesOf(scanHtmlAssetReferences("x.html", `<img src="${url}">`, declared)))
-        .toContain("HTML_REFERENCE_EXTERNAL_FORBIDDEN");
+      assert.ok(
+        codesOf(scanHtmlAssetReferences("x.html", `<img src="${url}">`, declared))
+          .includes("HTML_REFERENCE_EXTERNAL_FORBIDDEN"),
+        url,
+      );
     }
   });
 
   it("rejects nested paths and traversal inside HTML", () => {
-    expect(codesOf(scanHtmlAssetReferences("x.html", '<img src="img/a.jpg">', declared)))
-      .toContain("HTML_REFERENCE_PATH_FORBIDDEN");
-    expect(codesOf(scanHtmlAssetReferences("x.html", '<img src="../a.jpg">', declared)).length)
-      .toBeGreaterThan(0);
+    assert.ok(
+      codesOf(scanHtmlAssetReferences("x.html", '<img src="img/a.jpg">', declared))
+        .includes("HTML_REFERENCE_PATH_FORBIDDEN"),
+    );
+    assert.ok(scanHtmlAssetReferences("x.html", '<img src="../a.jpg">', declared).length > 0);
   });
 
   it("rejects an empty reference and CSS url() escapes", () => {
-    expect(codesOf(scanHtmlAssetReferences("x.html", '<img src="">', declared)))
-      .toContain("HTML_REFERENCE_EMPTY");
-    expect(codesOf(scanHtmlAssetReferences("x.html", '<i style="background:url(https://e.test/a.png)">', declared)))
-      .toContain("HTML_REFERENCE_EXTERNAL_FORBIDDEN");
+    assert.ok(
+      codesOf(scanHtmlAssetReferences("x.html", '<img src="">', declared)).includes("HTML_REFERENCE_EMPTY"),
+    );
+    assert.ok(
+      codesOf(scanHtmlAssetReferences("x.html", '<i style="background:url(https://e.test/a.png)">', declared))
+        .includes("HTML_REFERENCE_EXTERNAL_FORBIDDEN"),
+    );
   });
 
   it("accepts the declared leaf and nothing else", () => {
-    expect(scanHtmlAssetReferences("x.html", `<img src="${FURNACE_LEAF}" alt="a">`, declared)).toEqual([]);
+    assert.deepEqual(scanHtmlAssetReferences("x.html", `<img src="${FURNACE_LEAF}" alt="a">`, declared), []);
   });
 });

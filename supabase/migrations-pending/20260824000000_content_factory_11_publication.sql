@@ -831,7 +831,13 @@ BEGIN
        OR replay.binding_id IS DISTINCT FROM binding.id THEN
       RAISE EXCEPTION 'CF11_REPLAY_IDENTITY_DRIFT' USING ERRCODE = '23514';
     END IF;
-    IF _idempotency_key IS DISTINCT FROM replay.idempotency_key THEN
+    -- CF11-R4: EXECUTE always carries a key; DRY_RUN may inspect without one, but if it
+    -- supplies a key the key must be the one already recorded.
+    IF _mode = 'EXECUTE' AND (_idempotency_key IS NULL OR length(btrim(_idempotency_key)) < 8) THEN
+      RAISE EXCEPTION 'CF11_IDEMPOTENCY_KEY_REQUIRED' USING ERRCODE = '22023';
+    END IF;
+    IF _idempotency_key IS NOT NULL
+       AND btrim(_idempotency_key) IS DISTINCT FROM replay.idempotency_key THEN
       RAISE EXCEPTION 'CF11_REPLAY_IDEMPOTENCY_KEY_CONFLICT' USING ERRCODE = '23505';
     END IF;
     IF _mode = 'EXECUTE' AND _expected_plan_sha256 IS DISTINCT FROM replay.plan_sha256 THEN
@@ -840,6 +846,7 @@ BEGIN
     IF _expected_plan_sha256 IS NOT NULL AND _expected_plan_sha256 IS DISTINCT FROM replay.plan_sha256 THEN
       RAISE EXCEPTION 'CF11_REPLAY_PLAN_CONFLICT' USING ERRCODE = '23505';
     END IF;
+
     IF manifest_assets_sha IS DISTINCT FROM replay.manifest_assets_sha256
        OR attestation_sha IS DISTINCT FROM replay.asset_attestation_sha256 THEN
       RAISE EXCEPTION 'CF11_REPLAY_ASSET_CONFLICT' USING ERRCODE = '23505';
@@ -979,6 +986,13 @@ BEGIN
   IF _expected_plan_sha256 IS DISTINCT FROM plan_sha THEN
     RAISE EXCEPTION 'CF11_WRITE_PLAN_HASH_MISMATCH' USING ERRCODE = '23514';
   END IF;
+
+  -- CF11-R4: an EXECUTE without a durable idempotency key can never be replay-guarded,
+  -- because the ledger row would carry NULL and a second call could not be recognised.
+  IF _idempotency_key IS NULL OR length(btrim(_idempotency_key)) < 8 THEN
+    RAISE EXCEPTION 'CF11_IDEMPOTENCY_KEY_REQUIRED' USING ERRCODE = '22023';
+  END IF;
+
 
   -- ===================================== EXECUTE =======================================
 
@@ -1160,7 +1174,7 @@ BEGIN
           plan || jsonb_build_object('publicationId', publication_id,
                                      'writesPerformed', writes,
                                      'lifecycleStatus','REVIEW'),
-          _idempotency_key, uid);
+          btrim(_idempotency_key), uid);
 
   INSERT INTO public.audit_logs(actor_id, action, target_type, target_id, metadata)
   VALUES (uid, 'golden_lesson_cf11_publish', 'lesson_capability', lesson_row.id,
@@ -1378,3 +1392,65 @@ REVOKE ALL ON FUNCTION public.golden_lesson_attest_cf11_asset(uuid, uuid, text, 
 GRANT EXECUTE ON FUNCTION public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cf11_manifest_assets(jsonb, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cf11_magic_matches(text, text) TO authenticated;
+
+-- ------------------------------------------------------------------------------------
+-- 9) CF11-R4 — operator-token materialization.
+--
+-- The CF10 RPC is granted to service_role only and trusts `_actor_id` as passed. Orchestrating
+-- CF10 from the app with the service key would let a non-human caller impersonate an operator.
+-- This thin wrapper is the ONLY materialization entry point the application uses: it is executed
+-- with the signed-in operator's own token, re-derives the actor from auth.uid(), refuses any
+-- disagreement with `_actor_id`, requires the `admin` role, and only then delegates. The inner
+-- CF10 function keeps its own independent role check, so this adds a gate and removes none.
+-- ------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.golden_lesson_materialize_domain_batch_operator(
+  _batch_id uuid,
+  _actor_id uuid,
+  _mode text DEFAULT 'DRY_RUN',
+  _expected_plan_sha256 text DEFAULT NULL,
+  _idempotency_key text DEFAULT NULL
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+  uid uuid := auth.uid();
+BEGIN
+  IF _mode NOT IN ('DRY_RUN','EXECUTE') THEN
+    RAISE EXCEPTION 'CF10_MODE_INVALID' USING ERRCODE = '22023';
+  END IF;
+  IF uid IS NULL OR _actor_id IS NULL OR uid <> _actor_id THEN
+    RAISE EXCEPTION 'CF10_ACTOR_IDENTITY_MISMATCH' USING ERRCODE = '42501';
+  END IF;
+  IF NOT public.golden_lesson_has_role(uid, 'admin') THEN
+    RAISE EXCEPTION 'CF10_ADMIN_REQUIRED' USING ERRCODE = '42501';
+  END IF;
+  IF _mode = 'EXECUTE' AND (_idempotency_key IS NULL OR length(btrim(_idempotency_key)) < 8) THEN
+    RAISE EXCEPTION 'CF10_IDEMPOTENCY_KEY_REQUIRED' USING ERRCODE = '22023';
+  END IF;
+  IF _mode = 'EXECUTE' AND coalesce(_expected_plan_sha256,'') !~ '^[0-9a-f]{64}$' THEN
+    RAISE EXCEPTION 'CF10_WRITE_PLAN_HASH_REQUIRED' USING ERRCODE = '22023';
+  END IF;
+
+  RETURN public.golden_lesson_materialize_domain_batch(
+    _batch_id, uid, _mode, _expected_plan_sha256, _idempotency_key);
+END $$;
+
+REVOKE ALL ON FUNCTION public.golden_lesson_materialize_domain_batch_operator(uuid,uuid,text,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.golden_lesson_materialize_domain_batch_operator(uuid,uuid,text,text,text) TO authenticated;
+
+-- ------------------------------------------------------------------------------------
+-- 10) CF11-R4 — lifecycle namespace guard.
+--
+-- The one true lifecycle table is public.lesson_capability_lifecycle. A relation named
+-- lesson_content_lifecycle has never existed; code that reads it fails open (empty lifecycle,
+-- "nothing in REVIEW"), which is exactly the wrong direction for a review gate. Fail the
+-- migration rather than ship a second, silently-empty namespace.
+-- ------------------------------------------------------------------------------------
+DO $$
+BEGIN
+  IF to_regclass('public.lesson_capability_lifecycle') IS NULL THEN
+    RAISE EXCEPTION 'CF11_LIFECYCLE_TABLE_MISSING: public.lesson_capability_lifecycle';
+  END IF;
+  IF to_regclass('public.lesson_content_lifecycle') IS NOT NULL THEN
+    RAISE EXCEPTION 'CF11_LIFECYCLE_NAMESPACE_CONFLICT: public.lesson_content_lifecycle must not exist';
+  END IF;
+END $$;

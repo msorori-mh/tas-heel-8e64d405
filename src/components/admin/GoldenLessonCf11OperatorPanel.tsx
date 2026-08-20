@@ -49,11 +49,18 @@ export function GoldenLessonCf11OperatorPanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [available, setAvailable] = useState(true);
   const [note, setNote] = useState("");
+  /**
+   * Write-plan hashes captured from the DRY_RUN the operator actually reviewed, per batch.
+   * EXECUTE is impossible until the matching hash exists: the server rejects a plan hash that
+   * no longer describes the pending writes, so a stale review can never be executed.
+   */
+  const [plans, setPlans] = useState<Record<string, { cf10?: string; cf11?: string }>>({});
 
   const selected = useMemo(
     () => batches.find((batch) => batch.batchId === selectedId) ?? null,
     [batches, selectedId],
   );
+  const selectedPlans = selectedId ? plans[selectedId] ?? {} : {};
 
   const refresh = useCallback(async () => {
     setBusy("refresh");
@@ -71,11 +78,22 @@ export function GoldenLessonCf11OperatorPanel() {
   }, [loadBatches, selectedId]);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const run = async (key: string, action: () => Promise<unknown>) => {
+  const run = async (
+    key: string,
+    action: () => Promise<unknown>,
+    capture?: { batchId: string; stage: "cf10" | "cf11" },
+  ) => {
     setBusy(key); setMessage(null);
     try {
       const result = await action();
       setMessage(JSON.stringify(result));
+      const sha = (result as { planSha256?: string | null } | null)?.planSha256;
+      if (capture && typeof sha === "string") {
+        setPlans((current) => ({
+          ...current,
+          [capture.batchId]: { ...current[capture.batchId], [capture.stage]: sha },
+        }));
+      }
       await refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "رفض الخادم العملية.");
@@ -90,6 +108,7 @@ export function GoldenLessonCf11OperatorPanel() {
   const inReview = (selected?.lifecycle ?? []).filter((row) => row.status === "REVIEW").length;
   const isPublisher = Boolean(selected?.publishedBy && user?.id && selected.publishedBy === user.id);
   const canAttest = Boolean(selected?.published) && !selected?.readyAttestedAt && !isPublisher;
+
 
   return (
     <section dir="rtl" aria-labelledby="cf11-operator-heading"
@@ -139,13 +158,30 @@ export function GoldenLessonCf11OperatorPanel() {
             <p>نشر إلى المراجعة بواسطة: <span className="font-mono">{short(selected.publishedBy)}</span></p>
             <p>اعتمد READY بواسطة: <span className="font-mono">{short(selected.readyAttestedBy)}</span></p>
             <p>قدرات REVIEW: {inReview} · قدرات READY: {readyCount}</p>
-            <p>الأصول المنشورة: {selected.declaredAssets}</p>
+            <p>الأصول: منشورة {selected.declaredAssets} · موثّقة رفعاً {selected.attestedAssets}</p>
+            <p className="sm:col-span-2 font-mono text-[10px] break-all">
+              خطة CF10: {selectedPlans.cf10 ? short(selectedPlans.cf10) : "لم تُراجَع"} · خطة CF11:{" "}
+              {selectedPlans.cf11 ? short(selectedPlans.cf11) : "لم تُراجَع"}
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" className="min-h-[44px] gap-2"
+            <Button type="button" variant="outline" className="min-h-[44px] gap-2"
               disabled={busy !== null || !approved || !bound || selected.materialized}
-              onClick={() => void run("materialize", () => materialize({ data: { batchId: selected.batchId, mode: "EXECUTE" } }))}>
+              onClick={() => void run("materialize-dry",
+                () => materialize({ data: { batchId: selected.batchId, mode: "DRY_RUN" } }),
+                { batchId: selected.batchId, stage: "cf10" })}>
+              <FlaskConical className="h-4 w-4" />معاينة CF10
+            </Button>
+            <Button type="button" variant="secondary" className="min-h-[44px] gap-2"
+              disabled={busy !== null || !approved || !bound || selected.materialized || !selectedPlans.cf10}
+              onClick={() => void run("materialize", () => materialize({
+                data: {
+                  batchId: selected.batchId,
+                  mode: "EXECUTE",
+                  expectedPlanSha256: selectedPlans.cf10!,
+                },
+              }))}>
               <Layers className="h-4 w-4" />تجسيد CF10
             </Button>
             <Button type="button" variant="secondary" className="min-h-[44px] gap-2"
@@ -155,12 +191,20 @@ export function GoldenLessonCf11OperatorPanel() {
             </Button>
             <Button type="button" variant="outline" className="min-h-[44px] gap-2"
               disabled={busy !== null || !approved || !selected.materialized}
-              onClick={() => void run("dry", () => publish({ data: { batchId: selected.batchId, mode: "DRY_RUN" } }))}>
+              onClick={() => void run("dry",
+                () => publish({ data: { batchId: selected.batchId, mode: "DRY_RUN" } }),
+                { batchId: selected.batchId, stage: "cf11" })}>
               <FlaskConical className="h-4 w-4" />CF11 DRY_RUN
             </Button>
             <Button type="button" className="min-h-[44px] gap-2"
-              disabled={busy !== null || !approved || !selected.materialized || selected.published}
-              onClick={() => void run("publish", () => publish({ data: { batchId: selected.batchId, mode: "EXECUTE" } }))}>
+              disabled={busy !== null || !approved || !selected.materialized || selected.published || !selectedPlans.cf11}
+              onClick={() => void run("publish", () => publish({
+                data: {
+                  batchId: selected.batchId,
+                  mode: "EXECUTE",
+                  expectedPlanSha256: selectedPlans.cf11!,
+                },
+              }))}>
               <BadgeCheck className="h-4 w-4" />نشر إلى REVIEW
             </Button>
             {selected.lessonId && (
@@ -169,6 +213,11 @@ export function GoldenLessonCf11OperatorPanel() {
               </Button>
             )}
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            لا يمكن التنفيذ قبل مراجعة خطة الكتابة (DRY_RUN): يُرسل التنفيذ بصمة الخطة نفسها،
+            ويرفضها الخادم إذا تغيّرت.
+          </p>
+
 
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
             <p className="text-sm font-medium flex items-center gap-2">
