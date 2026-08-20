@@ -719,18 +719,25 @@ BEGIN
   END IF;
 
   -- 6) lifecycle DRAFT -> REVIEW for the exact seven capabilities. No READY here, ever.
-  FOREACH cap IN ARRAY public.cf10_required_capabilities() LOOP
-    PERFORM public.lesson_capability_transition(
-      lesson_row.id,
-      CASE cap WHEN 'mindMapHtml' THEN 'mindMap'
-               WHEN 'labExperimentHtml' THEN 'simulation'
-               WHEN 'officialBookContent' THEN 'officialBookContent'
-               WHEN 'officialBookQuestions' THEN 'officialBookQuestions'
-               WHEN 'tamkeenExplanationHtml' THEN 'tamkeenExplanation'
-               WHEN 'lessonSummaryHtml' THEN 'lessonSummary'
-               ELSE 'selfTest' END,
-      'REVIEW', NULL, NULL);
+  --    The staged->lifecycle capability names are NOT hardcoded here: CF08 already recorded the
+  --    authoritative `lifecycle_capability` for every staged capability, and CF10 verified the
+  --    staged set equals cf10_required_capabilities(). Re-deriving them keeps CF11 in lockstep
+  --    with the real production vocabulary (quickReview / checkUnderstanding / lessonAssessment).
+  FOR q IN
+    SELECT DISTINCT e.lifecycle_capability AS code
+      FROM public.golden_lesson_domain_stage_entries e
+     WHERE e.batch_id = _batch_id
+       AND e.capability = ANY (public.cf10_required_capabilities())
+     ORDER BY e.lifecycle_capability
+  LOOP
+    PERFORM public.lesson_capability_transition(lesson_row.id, q.code, 'REVIEW', NULL, NULL);
   END LOOP;
+
+  IF (SELECT count(*) FROM public.lesson_capability_lifecycle
+       WHERE lesson_id = lesson_row.id AND status = 'REVIEW') <> 7 THEN
+    RAISE EXCEPTION 'CF11_LIFECYCLE_REVIEW_NOT_EXACTLY_SEVEN' USING ERRCODE = '23514';
+  END IF;
+
 
   IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle
               WHERE lesson_id = lesson_row.id AND status = 'READY') THEN
