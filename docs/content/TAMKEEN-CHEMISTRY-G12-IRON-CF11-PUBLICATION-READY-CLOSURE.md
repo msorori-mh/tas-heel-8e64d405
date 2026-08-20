@@ -1,4 +1,4 @@
-# CF11-R7 — Iron (الحديد Fe) Golden Lesson: publication-to-READY closure
+# CF11-R8 — Iron (الحديد Fe) Golden Lesson: publication-to-READY closure
 
 Source-only closure. **No production writes and no migration apply were performed in this task.**
 
@@ -7,12 +7,12 @@ Source-only closure. **No production writes and no migration apply were performe
 | Item | Value |
 | --- | --- |
 | Remediation base commit | `9e8d9294e36b0a38b0094b8b58075423da6f85c5` |
-| Revision | R7 (source-only) |
+| Revision | R8 (source-only) |
 | CF11 migration | `supabase/migrations-pending/20260824000000_content_factory_11_publication.sql` |
-| Migration SHA-256 (final, after all R7 edits) | `497fa8a62e68fa8aa20e2288bad9be8e01f0a223e413af46f792db6101e16444` |
+| Migration SHA-256 (final, after all R8 edits) | `cb3021f2103a974ded10e5a8b98702f6b1ff24979710d82395a7f0b2d3b3c1b0` |
 | Production writes | 0 |
 | Migration applied | NO |
-| PG17 rehearsal (this task) | **BLOCKED — NOT EXECUTED.** No PostgreSQL 17 instance is reachable from this environment, so the R7 SQL has **not** been executed anywhere. Every R7 claim below is a source-level claim. |
+| PG17 rehearsal (this task) | **BLOCKED — NOT EXECUTED.** No PostgreSQL 17 instance is reachable from this environment, so the R8 SQL has **not** been executed anywhere. Every R8 claim below is a source-level claim. |
 | Iron bundle | `content-packages/chemistry-g12-iron-v3/dist/CHEM-G12-IRON-FE.zip` |
 | Bundle SHA-256 | `a7369bf13b6646bb2181ff39dac0c18f4fe3b00a9609f27cb7a451152988c100` |
 | Furnace asset | `official-figure-1-1.jpg` |
@@ -191,7 +191,8 @@ against the published lesson id. All three require an explicit production author
 * `uploadVerifiedAssets(declarations, files)` is the only code path that writes bytes.
 * `attestStoredAssets(...)` now accepts `mode: "EXECUTE"` only and throws
   `CF11_ATTESTATION_IS_WRITE_ONLY` otherwise — there is no DRY_RUN attestation path left.
-* `publishGoldenLessonCf11` resolves in both modes and uploads/attests **only** when
+* **R8 correction.** The earlier R7 wording ("publish EXECUTE uploads and attests") described a
+  real defect, now removed: `publishGoldenLessonCf11` resolves in both modes and uploads/attests **never**. The old text said it uploaded when
   `mode === "EXECUTE"`. A DRY_RUN therefore performs zero storage writes and zero ledger rows;
   the response carries `writesPerformed: false`.
 * PG17 negative `CF11_EXPECTED_DRY_RUN_ZERO_WRITES` counts `golden_lesson_published_assets` and
@@ -262,32 +263,74 @@ reason field, the separation-of-duties block, and a "مسحوب" badge on withdr
 
 | Item | Value |
 | --- | --- |
-| Base commit | `9e8d9294e36b0a38b0094b8b58075423da6f85c5` |
-| Final CF11 migration SHA-256 | `497fa8a62e68fa8aa20e2288bad9be8e01f0a223e413af46f792db6101e16444` |
+| Base commit (R8 remediation) | `509ed2a569b908d7368ccce1e55a55310bc083f6` |
+| Final CF11 migration SHA-256 | `cb3021f2103a974ded10e5a8b98702f6b1ff24979710d82395a7f0b2d3b3c1b0` |
 | Migration applied | NO |
 | Production writes | 0 |
-| PG17 rehearsal | **BLOCKED — not executed in this environment** |
+| PG17 rehearsal | **BLOCKED — not executed in this environment** (no PostgreSQL 17 reachable; `CONTENT_FACTORY_PG17_URL` unset) |
+
+## R8 — closure of the remaining blockers
+
+### 1) Publish EXECUTE no longer writes assets, implicitly or otherwise
+
+`verifyGoldenLessonCf11Assets` is now the **only** code path in the codebase that can upload an
+object or call `golden_lesson_attest_cf11_asset`. `publishGoldenLessonCf11` — in **both** DRY_RUN and
+EXECUTE — resolves the manifest declarations read-only and then calls a new read-only precondition,
+`assertAssetsVerified(lessonId, declarations)`, which proves that every declared object already
+exists in the private bucket at the attested size and that an immutable machine attestation
+(`verification_origin = 'SERVER_BYTE_READBACK'`) matches its hash, size, MIME, bucket and path — as
+an exact set. Anything missing, stale or extra fails with `CF11_ASSETS_NOT_VERIFIED`. The handler
+contains no `.upload(`, no `uploadVerifiedAssets`, no `ensureVerifiedAssets` and no
+`attestStoredAssets` in any branch.
+
+Operator runbook order, enforced by the panel (CF11 buttons stay disabled until assets are
+verified): **تحقق ورفع الأصول → CF11 DRY_RUN → CF11 EXECUTE**.
+
+### 2) Asset metadata replay is fail-closed
+
+Every `coalesce(..., attested_value)` fallback is gone from the replay join and from the first-READY
+full replay. `storage.objects.metadata` must be non-null and must explicitly carry `size`,
+`mimetype`/`contentType` and a non-empty `eTag`; each is compared exactly against the attested
+value. Missing live metadata now fails instead of passing.
+
+### 3) Revocation EXECUTE requires its idempotency key before any replay branch
+
+`golden_lesson_revoke_cf11_ready` validates `_mode = 'EXECUTE' AND length(btrim(key)) >= 8` **before**
+loading the existing ledger row. A replay succeeds only on an exact non-null key match; a null,
+short or different key is refused (`CF11_REVOKE_IDEMPOTENCY_KEY_REQUIRED` /
+`CF11_REVOKE_IDEMPOTENCY_KEY_CONFLICT`). DRY_RUN stays zero-write and may omit the key.
+
+### 4) Honest tests
+
+The stale R7 static file (byte-identical to R6, containing zero R7 cases — the R7 report's claim of
+"six new R7 tests" was false) is replaced by
+`tests/content-factory/content-factory-11-r8.static.test.mjs` with seven genuinely new R8 cases:
+publish has no upload/attestation in either mode; only the verify function reaches upload and
+attestation; the read-only precondition itself never writes; strict metadata rejection with no
+coalesce fallback; applicability/status exactness plus pinned revision/payload and first-READY
+revalidation; the revocation key gate ordering; and PG17 section-N executability.
+
+### 5) PG17 negatives are executable
+
+Section N was rewritten with **no** `EXCEPTION WHEN OTHERS THEN NULL`. Publication DRY_RUN and
+revocation DRY_RUN must now actually succeed, must self-report `mode = DRY_RUN` and
+`writes_performed = 0`, and every relevant counter (published assets, attestations, publications,
+revocation ledger, `audit_logs`) is compared before and after. A **real** revocation EXECUTE runs
+with a third fixture admin (separate from both publisher and attester) and asserts: exactly seven
+`DRAFT` + `REQUIRED` rows equal to the canonical set, `lesson_student_visible = false`, exactly one
+immutable ledger row, the original READY evidence preserved, one audit row, same-key replay with
+`writes_performed = 0` and no new rows, null/different key refused, terminal re-attest refused, and
+ledger immutability. The 9-argument machine-attestation signature is retained.
 
 Executed in this task:
 
 | Suite | Result |
 | --- | --- |
 | `bun run test` (core) | 209/209 PASS |
-| `bun run test:question-bank-import` | 438/438 PASS |
-| `node --test tests/content-factory/*.mjs` (incl. new R7 statics) | 60/60 PASS |
-| `tests/content-packages/chemistry-g12-iron-cf11-assets.test.ts` | 17/17 PASS |
+| `node --test tests/content-factory/*.mjs` (incl. the new R8 statics) | 61/61 PASS |
 | `tsgo --noEmit` | clean |
 
-New PG17 negatives (written, **not executed**): Section L
-(`CF11_EXPECTED_APPLICABILITY_REFUSED`), Section M
-(`CF11_EXPECTED_PINNED_REVISION_REFUSED` — payload drift and revision substitution at identical
-code/count), Section N (`CF11_EXPECTED_DRY_RUN_ZERO_WRITES`, `CF11_EXPECTED_REVOKE_*`
-including service-role denial, DRY_RUN zero writes, short-reason refusal and ledger
-immutability). The stale `golden_lesson_attest_cf11_asset` signature in Section K1 was corrected
-to the real 9-argument signature.
+PG17 assertions are **written, not executed**.
 
-Static regression file renamed `content-factory-11-r6.static.test.mjs` ->
-`content-factory-11-r7.static.test.mjs` with six new R7 tests (A-F).
-
-**FINAL_VERDICT = PASS_CF11_R7_SOURCE_READY_FOR_INDEPENDENT_PG17_GATE**
+**FINAL_VERDICT = PASS_CF11_R8_SOURCE_READY_FOR_INDEPENDENT_PG17_GATE**
 (source-only; the independent PG17 gate remains outstanding and unexecuted).

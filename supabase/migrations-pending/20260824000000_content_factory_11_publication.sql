@@ -831,9 +831,14 @@ BEGIN
         JOIN storage.objects o
           ON o.bucket_id = t.storage_bucket AND o.name = t.storage_path
          AND o.id = t.storage_object_id AND o.version = t.storage_version
-         AND coalesce(o.metadata->>'eTag', o.metadata->>'etag') IS NOT DISTINCT FROM t.storage_etag
-         AND coalesce((o.metadata->>'size')::bigint, t.byte_size) = t.byte_size
-         AND coalesce(o.metadata->>'mimetype', o.metadata->>'contentType', t.mime_type) = t.mime_type
+         -- CF11-R8 — FAIL-CLOSED metadata: absent metadata is drift, never an implicit match.
+         AND o.metadata IS NOT NULL
+         AND (o.metadata ? 'size') AND (o.metadata ? 'mimetype')
+         AND coalesce(o.metadata->>'eTag', o.metadata->>'etag', '') <> ''
+         AND coalesce(o.metadata->>'eTag', o.metadata->>'etag') = t.storage_etag
+         AND (o.metadata->>'size')::bigint = t.byte_size
+         AND o.metadata->>'mimetype' = t.mime_type
+
        WHERE p.lesson_id = v_lesson AND p.asset_code = a->>'assetCode'
          AND p.sha256 = a->>'sha256' AND p.byte_size = (a->>'bytes')::bigint
          AND p.mime_type = a->>'mimeType'
@@ -1135,9 +1140,13 @@ BEGIN
     IF obj_row.id IS NULL THEN
       RAISE EXCEPTION 'CF11_ASSET_OBJECT_MISSING: %', att.storage_path USING ERRCODE = '23514';
     END IF;
-    IF obj_row.metadata IS NULL OR NOT (obj_row.metadata ? 'size') OR NOT (obj_row.metadata ? 'mimetype') THEN
+    -- CF11-R8 — FAIL-CLOSED metadata: size, mimetype AND a non-empty eTag must all be present.
+    IF obj_row.metadata IS NULL OR NOT (obj_row.metadata ? 'size') OR NOT (obj_row.metadata ? 'mimetype')
+       OR coalesce(obj_row.metadata->>'size','') = '' OR coalesce(obj_row.metadata->>'mimetype','') = ''
+       OR coalesce(obj_row.metadata->>'eTag', obj_row.metadata->>'etag','') = '' THEN
       RAISE EXCEPTION 'CF11_ASSET_OBJECT_METADATA_MISSING: %', att.storage_path USING ERRCODE = '23514';
     END IF;
+
     IF obj_row.id IS DISTINCT FROM att.storage_object_id
        OR obj_row.version IS DISTINCT FROM att.storage_version
        OR coalesce(obj_row.metadata->>'eTag', obj_row.metadata->>'etag') IS DISTINCT FROM att.storage_etag
@@ -1829,16 +1838,24 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_DRIFT_AT_READY' USING ERRCODE = '23514';
   END IF;
+  -- CF11-R8 — the same FAIL-CLOSED metadata contract at first READY: absent or empty live
+  -- metadata is treated as drift, and no attested value is ever used as a fallback.
   IF EXISTS (
     SELECT 1 FROM public.golden_lesson_asset_attestations t
      JOIN storage.objects o ON o.bucket_id = t.storage_bucket AND o.name = t.storage_path
      WHERE t.lesson_id = lesson_row.id
        AND (o.id IS DISTINCT FROM t.storage_object_id
             OR o.version IS DISTINCT FROM t.storage_version
-            OR coalesce(o.metadata->>'eTag', o.metadata->>'etag') IS DISTINCT FROM t.storage_etag)
+            OR o.metadata IS NULL
+            OR NOT (o.metadata ? 'size') OR NOT (o.metadata ? 'mimetype')
+            OR coalesce(o.metadata->>'eTag', o.metadata->>'etag', '') = ''
+            OR coalesce(o.metadata->>'eTag', o.metadata->>'etag') IS DISTINCT FROM t.storage_etag
+            OR (o.metadata->>'size')::bigint IS DISTINCT FROM t.byte_size
+            OR o.metadata->>'mimetype' IS DISTINCT FROM t.mime_type)
   ) THEN
     RAISE EXCEPTION 'CF11_ASSET_OBJECT_IDENTITY_DRIFT_AT_READY' USING ERRCODE = '23514';
   END IF;
+
   SELECT public.cf11_text_sha256(coalesce(string_agg(t.asset_code || ':' || t.attestation_sha256,
                                                      '|' ORDER BY t.asset_code), ''))
     INTO live_attestation_sha
@@ -2101,13 +2118,25 @@ BEGIN
     RAISE EXCEPTION 'CF11_REVOKE_SEPARATION_OF_DUTIES' USING ERRCODE = '42501';
   END IF;
 
-  -- Idempotent: the same key replays the recorded withdrawal, a different key conflicts.
+  -- CF11-R8 — EXECUTE always requires a real idempotency key, INCLUDING a replay. This validation
+  -- runs BEFORE the existing-row branch, so a null/short key can never be laundered into a
+  -- comfortable "already withdrawn" success. DRY_RUN stays zero-write and may omit the key.
+  IF _mode = 'EXECUTE' AND (_idempotency_key IS NULL OR length(btrim(_idempotency_key)) < 8) THEN
+    RAISE EXCEPTION 'CF11_REVOKE_IDEMPOTENCY_KEY_REQUIRED' USING ERRCODE = '22023';
+  END IF;
+
+  -- Idempotent: the exact same key replays the recorded withdrawal, anything else conflicts.
   SELECT * INTO existing FROM public.golden_lesson_ready_revocations WHERE publication_id = pub.id;
   IF existing.id IS NOT NULL THEN
-    IF _idempotency_key IS NOT NULL
+    IF _mode = 'EXECUTE'
        AND btrim(_idempotency_key) IS DISTINCT FROM existing.idempotency_key THEN
       RAISE EXCEPTION 'CF11_REVOKE_IDEMPOTENCY_KEY_CONFLICT' USING ERRCODE = '23505';
     END IF;
+    IF _mode <> 'EXECUTE' AND _idempotency_key IS NOT NULL
+       AND btrim(_idempotency_key) IS DISTINCT FROM existing.idempotency_key THEN
+      RAISE EXCEPTION 'CF11_REVOKE_IDEMPOTENCY_KEY_CONFLICT' USING ERRCODE = '23505';
+    END IF;
+
     SELECT coalesce(array_agg(DISTINCT capability ORDER BY capability), ARRAY[]::text[])
       INTO live_caps
       FROM public.lesson_capability_lifecycle

@@ -153,6 +153,11 @@ export function GoldenLessonCf11OperatorPanel() {
   );
   const canRevoke = Boolean(selected?.readyAttestedAt) && !selected?.readyRevokedAt
     && !isAttester && setDiff.exact && setDiff.allReady;
+  /**
+   * CF11-R8: publication (DRY_RUN and EXECUTE alike) performs zero asset writes, so the explicit
+   * "تحقق ورفع الأصول" step must have produced machine attestations first.
+   */
+  const assetsVerified = (selected?.attestedAssets ?? 0) > 0;
 
 
   return (
@@ -237,14 +242,14 @@ export function GoldenLessonCf11OperatorPanel() {
               <ImageUp className="h-4 w-4" />تحقق ورفع الأصول
             </Button>
             <Button type="button" variant="outline" className="min-h-[44px] gap-2"
-              disabled={busy !== null || !approved || !selected.materialized}
+              disabled={busy !== null || !approved || !selected.materialized || !assetsVerified}
               onClick={() => void run("dry",
                 () => publish({ data: { batchId: selected.batchId, mode: "DRY_RUN" } }),
                 { batchId: selected.batchId, stage: "cf11" })}>
               <FlaskConical className="h-4 w-4" />CF11 DRY_RUN
             </Button>
             <Button type="button" className="min-h-[44px] gap-2"
-              disabled={busy !== null || !approved || !selected.materialized || selected.published || !selectedPlans.cf11}
+              disabled={busy !== null || !approved || !selected.materialized || !assetsVerified || selected.published || !selectedPlans.cf11}
               onClick={() => void run("publish", () => publish({
                 data: {
                   batchId: selected.batchId,
@@ -261,9 +266,12 @@ export function GoldenLessonCf11OperatorPanel() {
             )}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            DRY_RUN لا يكتب أي شيء إطلاقاً: لا رفع أصول ولا توثيق ولا صفوف. لا يمكن التنفيذ قبل
-            مراجعة خطة الكتابة: يُرسل التنفيذ بصمة الخطة نفسها، ويرفضها الخادم إذا تغيّرت.
+            الترتيب الإلزامي: «تحقق ورفع الأصول» ← CF11 DRY_RUN ← CF11 EXECUTE. النشر بمرحلتيه لا
+            يرفع أصلاً ولا يوثّقه إطلاقاً؛ إن لم تكن الأصول موثّقة مسبقاً يرفض الخادم بـ
+            CF11_ASSETS_NOT_VERIFIED. DRY_RUN لا يكتب أي شيء، والتنفيذ يرسل بصمة الخطة نفسها
+            ويرفضها الخادم إذا تغيّرت.
           </p>
+
 
 
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">

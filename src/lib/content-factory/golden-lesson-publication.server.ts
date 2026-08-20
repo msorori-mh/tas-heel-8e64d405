@@ -314,7 +314,10 @@ export async function uploadVerifiedAssets(
   return uploadedPaths;
 }
 
-/** Convenience for the explicit write paths: resolve, then upload. Never call from a DRY_RUN. */
+/**
+ * Convenience for the ONE explicit write path (`verifyGoldenLessonCf11Assets`): resolve, then
+ * upload. CF11-R8 forbids reaching this from the publication handler in ANY mode.
+ */
 export async function ensureVerifiedAssets(batchId: string): Promise<{
   lessonId: string;
   declarations: Cf11AssetDeclaration[];
@@ -325,6 +328,61 @@ export async function ensureVerifiedAssets(batchId: string): Promise<{
   const uploadedPaths = await uploadVerifiedAssets(declarations, files);
   return { lessonId, declarations, uploadedPaths, bundleSha256 };
 }
+
+/**
+ * CF11-R8 — READ-ONLY publication precondition.
+ *
+ * Proves, without a single write, that the explicit "verify & upload assets" step already ran:
+ * every declared object exists in the private bucket with the exact declared size, and every
+ * declared asset already carries an immutable machine attestation (`SERVER_BYTE_READBACK`) whose
+ * recorded bytes/mime/path match the declaration. Anything else fails with
+ * CF11_ASSETS_NOT_VERIFIED — publication never repairs the gap by uploading or attesting.
+ */
+export async function assertAssetsVerified(
+  lessonId: string,
+  declarations: Cf11AssetDeclaration[],
+): Promise<void> {
+  const admin = serviceClient();
+  const attestations = (ok(
+    await admin
+      .from("golden_lesson_asset_attestations")
+      .select("asset_code,sha256,byte_size,mime_type,storage_bucket,storage_path,verification_origin")
+      .eq("lesson_id", lessonId),
+    "CF11_ASSET_ATTESTATIONS_READ_FAILED",
+  ) ?? []) as {
+    asset_code: string; sha256: string; byte_size: number; mime_type: string;
+    storage_bucket: string; storage_path: string; verification_origin: string;
+  }[];
+
+  for (const declaration of declarations) {
+    const att = attestations.find((row) => row.asset_code === declaration.assetCode);
+    if (
+      !att
+      || att.verification_origin !== CF11_VERIFICATION_ORIGIN
+      || att.sha256 !== declaration.sha256
+      || Number(att.byte_size) !== declaration.bytes
+      || att.mime_type !== declaration.mimeType
+      || att.storage_bucket !== declaration.storageBucket
+      || att.storage_path !== declaration.storagePath
+    ) {
+      throw new Error(`CF11_ASSETS_NOT_VERIFIED: ${declaration.assetCode}`);
+    }
+    const [prefix, ...rest] = declaration.storagePath.split("/");
+    const objectName = rest.join("/");
+    const listed = await admin.storage.from(ASSET_BUCKET).list(prefix, { search: objectName });
+    if (listed.error) throw new Error(`CF11_ASSET_LIST_FAILED: ${listed.error.message}`);
+    const object = (listed.data ?? []).find((entry) => entry.name === objectName) as
+      { name: string; metadata?: { size?: number; mimetype?: string } } | undefined;
+    if (!object || Number(object.metadata?.size) !== declaration.bytes) {
+      throw new Error(`CF11_ASSETS_NOT_VERIFIED: ${declaration.assetCode}`);
+    }
+  }
+  // Exact set: an extra attestation is drift, never a harmless leftover.
+  if (attestations.length !== declarations.length) {
+    throw new Error("CF11_ASSETS_NOT_VERIFIED: attestation set mismatch");
+  }
+}
+
 
 /**
  * CF11-R5 — MACHINE attestation.
