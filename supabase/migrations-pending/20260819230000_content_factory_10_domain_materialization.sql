@@ -1084,38 +1084,29 @@ BEGIN
     RAISE EXCEPTION 'CF10_STUDENT_VISIBILITY_LEAK' USING ERRCODE = '23514';
   END IF;
 
-  -- R4c: CF10 stages the mindMap / simulation HTML only TEMPORARILY. Until CF11 publishes the
-  -- HTML asset, CF10 must not claim those capabilities are READY nor that their V3 snapshot is
-  -- valid. The staged body must exist and be internally addressable (so nothing is invented and
-  -- nothing is lost), but the capability stays DRAFT + pending.
+  -- R6 postcondition: CF10 leaves NO legacy lesson_resources row for mindMap / simulation,
+  -- claims no snapshot and no READY for them; CF11 is the only producer of those artefacts.
   FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
     IF EXISTS (SELECT 1 FROM public.lesson_resources r
                 WHERE r.lesson_id = lesson_row.id
-                  AND r.resource_code IN (external_lesson_code || '-MINDMAP',
-                                          external_lesson_code || '-EXPERIMENT')
                   AND ((cap = 'mindMap' AND r.resource_type::text = 'mindmap')
-                    OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))) THEN
-      -- the staged body must be non-empty and addressed through the internal (unpublished) path
-      IF NOT EXISTS (SELECT 1 FROM public.lesson_resources r
-                      WHERE r.lesson_id = lesson_row.id
-                        AND ((cap = 'mindMap' AND r.resource_type::text = 'mindmap')
-                          OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))
-                        AND r.html_resource_type IS NOT NULL
-                        AND coalesce(btrim(r.description),'') <> ''
-                        AND r.url LIKE 'lesson-internal://html/%') THEN
-        RAISE EXCEPTION 'CF10_HTML_STAGE_INVALID: %', cap USING ERRCODE = '23514';
-      END IF;
-      -- and it must still be pending CF11 publication: CF10 never stamps cf11_published_at
-      IF NOT public.cf10_html_publication_pending(lesson_row.id, cap) THEN
-        RAISE EXCEPTION 'CF10_HTML_PUBLICATION_CLAIMED: %', cap USING ERRCODE = '23514';
-      END IF;
-      IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle lc
-                  WHERE lc.lesson_id = lesson_row.id AND lc.capability = cap
-                    AND lc.status <> 'DRAFT') THEN
-        RAISE EXCEPTION 'CF10_HTML_CAPABILITY_READY_TOO_EARLY: %', cap USING ERRCODE = '23514';
-      END IF;
+                    OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))
+                  AND coalesce(r.metadata->>'cf11_published_at','') = '') THEN
+      RAISE EXCEPTION 'CF10_HTML_LEGACY_ROW_FORBIDDEN: %', cap USING ERRCODE = '23514';
+    END IF;
+    IF NOT public.cf10_html_publication_pending(lesson_row.id, cap) THEN
+      RAISE EXCEPTION 'CF10_HTML_PUBLICATION_CLAIMED: %', cap USING ERRCODE = '23514';
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle lc
+                WHERE lc.lesson_id = lesson_row.id AND lc.capability = cap
+                  AND lc.status <> 'DRAFT') THEN
+      RAISE EXCEPTION 'CF10_HTML_CAPABILITY_READY_TOO_EARLY: %', cap USING ERRCODE = '23514';
     END IF;
   END LOOP;
+  -- and the lesson must still be invisible to students after the HTML deferral.
+  IF public.lesson_student_visible(lesson_row.id) THEN
+    RAISE EXCEPTION 'CF10_STUDENT_VISIBILITY_LEAK' USING ERRCODE = '23514';
+  END IF;
 
   -- R5.2: the ledger never records a zero-binding EXECUTE.
   IF binding.id IS NULL THEN
