@@ -980,6 +980,13 @@ BEGIN
     RAISE EXCEPTION 'CF11_WRITE_PLAN_HASH_MISMATCH' USING ERRCODE = '23514';
   END IF;
 
+  -- CF11-R4: an EXECUTE without a durable idempotency key can never be replay-guarded,
+  -- because the ledger row would carry NULL and a second call could not be recognised.
+  IF _idempotency_key IS NULL OR length(btrim(_idempotency_key)) < 8 THEN
+    RAISE EXCEPTION 'CF11_IDEMPOTENCY_KEY_REQUIRED' USING ERRCODE = '22023';
+  END IF;
+
+
   -- ===================================== EXECUTE =======================================
 
   -- 1) asset registry
