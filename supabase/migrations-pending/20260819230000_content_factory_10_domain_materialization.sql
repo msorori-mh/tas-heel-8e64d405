@@ -44,7 +44,9 @@ CREATE TABLE public.golden_lesson_domain_materializations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id uuid NOT NULL UNIQUE
     REFERENCES public.golden_lesson_domain_stage_batches(id) ON DELETE RESTRICT,
-  binding_id uuid REFERENCES public.golden_lesson_identity_bindings(id) ON DELETE RESTRICT,
+  -- R7: enforced by the DDL itself, not only by a runtime guard. CF10 is not applied in
+  -- production, so there is no compatibility debt for making this column NOT NULL.
+  binding_id uuid NOT NULL REFERENCES public.golden_lesson_identity_bindings(id) ON DELETE RESTRICT,
   subject_id uuid NOT NULL REFERENCES public.subjects(id) ON DELETE RESTRICT,
   lesson_id uuid NOT NULL REFERENCES public.lessons(id) ON DELETE RESTRICT,
   lesson_created boolean NOT NULL DEFAULT false,
