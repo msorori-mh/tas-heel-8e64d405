@@ -30,6 +30,7 @@ import { semesterLabel, type Semester } from "@/lib/subject-semester";
 import { getSubjectIcon } from "@/lib/subjects/subject-icon";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 import { OfflinePackCard } from "@/components/offline/OfflinePackCard";
+import { fetchStudentLessonVisibility } from "@/lib/lessons/lesson-lifecycle";
 
 const searchSchema = z.object({
   semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
@@ -69,7 +70,7 @@ type Lesson = {
 function SubjectIndexPage() {
   const { subjectId } = Route.useParams();
   const { semester } = Route.useSearch();
-  const { profile, user } = useAuth();
+  const { profile, user, isContentStaff } = useAuth();
 
   const { data: subject, isLoading: loadingSubject } = useQuery({
     queryKey: ["subject-meta", subjectId],
@@ -100,7 +101,7 @@ function SubjectIndexPage() {
 
   const { data, isLoading, error } = useQuery({
     enabled: !!subject && accessible === true,
-    queryKey: ["subject-index", subjectId, semester ?? null],
+    queryKey: ["subject-index", subjectId, semester ?? null, isContentStaff === true],
     queryFn: async () => {
       const [u, l] = await Promise.all([
         supabase
@@ -128,7 +129,11 @@ function SubjectIndexPage() {
       const lessons = semester
         ? allLessons.filter((x) => x.semester === null || x.semester === semester)
         : allLessons;
-      return { units, lessons };
+      // CF10-R3 — server-side visibility gate: CF10-managed lessons whose
+      // capabilities are all still DRAFT never appear in the student index.
+      if (isContentStaff === true) return { units, lessons };
+      const visibility = await fetchStudentLessonVisibility(lessons.map((x) => x.id));
+      return { units, lessons: lessons.filter((x) => visibility.get(x.id) !== false) };
     },
   });
 
