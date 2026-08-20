@@ -26,10 +26,9 @@ const BatchInput = z.object({ batchId: z.string().uuid() });
 const ModeInput = BatchInput.extend({ mode: z.enum(["DRY_RUN", "EXECUTE"]) });
 const AttestInput = ModeInput.extend({
   evidence: z.object({
-    snapshotsVerified: z.boolean(),
-    studentPreviewChecked: z.boolean(),
-    answerLeakChecked: z.boolean(),
-    freeAccessChecked: z.boolean(),
+    reviewedContent: z.literal(true),
+    reviewedSecurity: z.literal(true),
+    note: z.string().trim().min(8).max(500),
   }),
 });
 
@@ -60,7 +59,9 @@ export interface Cf11BatchStatus {
   externalLessonCode: string | null;
   materialized: boolean;
   published: boolean;
-  publicationStatus: string | null;
+  publishedBy: string | null;
+  publishedAt: string | null;
+  readyAttestedBy: string | null;
   readyAttestedAt: string | null;
   lifecycle: { capability: string; status: string }[];
   declaredAssets: number;
@@ -90,7 +91,8 @@ export const getGoldenLessonCf11Batches = createServerFn({ method: "GET" })
           .eq("package_version", batch.package_version)
           .order("created_at", { ascending: false }).limit(1).maybeSingle(),
         admin.from("golden_lesson_publications")
-          .select("id,status,ready_attested_at").eq("batch_id", batch.id).maybeSingle(),
+          .select("id,published_by,published_at,ready_attested_by,ready_attested_at")
+          .eq("batch_id", batch.id).maybeSingle(),
       ]);
 
       const lessonId = (binding.data as { lesson_id?: string } | null)?.lesson_id ?? null;
@@ -120,7 +122,10 @@ export const getGoldenLessonCf11Batches = createServerFn({ method: "GET" })
           (binding.data as { external_lesson_code?: string } | null)?.external_lesson_code ?? null,
         materialized: Boolean(mat.data),
         published: Boolean(publication.data),
-        publicationStatus: (publication.data as { status?: string } | null)?.status ?? null,
+        publishedBy: (publication.data as { published_by?: string } | null)?.published_by ?? null,
+        publishedAt: (publication.data as { published_at?: string } | null)?.published_at ?? null,
+        readyAttestedBy:
+          (publication.data as { ready_attested_by?: string } | null)?.ready_attested_by ?? null,
         readyAttestedAt:
           (publication.data as { ready_attested_at?: string } | null)?.ready_attested_at ?? null,
         lifecycle,
