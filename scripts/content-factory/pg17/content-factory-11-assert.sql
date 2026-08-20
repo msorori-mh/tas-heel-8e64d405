@@ -1313,6 +1313,9 @@ RESET ROLE;
 -- N2) The withdrawal itself: DRY_RUN succeeds and writes nothing, EXECUTE really moves the exact
 --     seven back to DRAFT+REQUIRED, hides the lesson, records one immutable ledger row and
 --     preserves the original READY evidence.
+-- CF11-R9C: the destructive withdrawal proof is transaction-isolated. All assertions execute
+-- against the real functions and rows, then ROLLBACK restores READY for the canonical postverify.
+BEGIN;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000006', false);
 SET ROLE authenticated;
 DO $$
@@ -1476,6 +1479,8 @@ DO $$ BEGIN
     RAISE EXCEPTION 'CF11_EXPECTED_REVOKE_LEDGER_IMMUTABLE: an update was accepted';
   EXCEPTION WHEN raise_exception OR insufficient_privilege THEN NULL;
   END;
-END $$;
+END $;
+
+ROLLBACK;
 
 SELECT 'PASS_CONTENT_FACTORY_11_PG17' AS verdict;
