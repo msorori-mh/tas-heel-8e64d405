@@ -269,6 +269,7 @@ DECLARE
   new_hash text;
   dup_count integer := 0;
   seed_state_sha text;
+  html_deferred jsonb := '{}'::jsonb;
   external_lesson_code text;
 BEGIN
   IF _mode NOT IN ('DRY_RUN','EXECUTE') THEN
