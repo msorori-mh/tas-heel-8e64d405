@@ -237,14 +237,14 @@ export function GoldenLessonCf11OperatorPanel() {
               <ImageUp className="h-4 w-4" />تحقق ورفع الأصول
             </Button>
             <Button type="button" variant="outline" className="min-h-[44px] gap-2"
-              disabled={busy !== null || !approved || !selected.materialized}
+              disabled={busy !== null || !approved || !selected.materialized || !assetsVerified}
               onClick={() => void run("dry",
                 () => publish({ data: { batchId: selected.batchId, mode: "DRY_RUN" } }),
                 { batchId: selected.batchId, stage: "cf11" })}>
               <FlaskConical className="h-4 w-4" />CF11 DRY_RUN
             </Button>
             <Button type="button" className="min-h-[44px] gap-2"
-              disabled={busy !== null || !approved || !selected.materialized || selected.published || !selectedPlans.cf11}
+              disabled={busy !== null || !approved || !selected.materialized || !assetsVerified || selected.published || !selectedPlans.cf11}
               onClick={() => void run("publish", () => publish({
                 data: {
                   batchId: selected.batchId,
