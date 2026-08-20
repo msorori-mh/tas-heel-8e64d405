@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import {
   attestGoldenLessonCf11Ready,
   getGoldenLessonCf11Batches,
@@ -165,7 +165,7 @@ export function GoldenLessonCf11OperatorPanel() {
             </Button>
             {selected.lessonId && (
               <Button asChild type="button" variant="ghost" className="min-h-[44px]">
-                <a href={`/lesson/${selected.lessonId}`} target="_blank" rel="noreferrer">معاينة الطالب</a>
+                <a href={`/lessons/${selected.lessonId}`} target="_blank" rel="noreferrer">معاينة الطالب</a>
               </Button>
             )}
           </div>

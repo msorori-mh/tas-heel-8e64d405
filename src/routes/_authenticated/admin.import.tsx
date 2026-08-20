@@ -33,6 +33,7 @@ import { InteractiveHtmlImportPanel } from "@/components/admin/InteractiveHtmlIm
 import { BulkLessonPdfUploadPanel } from "@/components/admin/BulkLessonPdfUploadPanel";
 import { GoldenLessonPackageBuilder } from "@/components/admin/GoldenLessonPackageBuilder";
 import { GoldenLessonManifestReviewPanel } from "@/components/admin/GoldenLessonManifestReviewPanel";
+import { GoldenLessonCf11OperatorPanel } from "@/components/admin/GoldenLessonCf11OperatorPanel";
 
 export const Route = createFileRoute("/_authenticated/admin/import")({
   component: AdminImportPage,
@@ -155,6 +156,8 @@ function AdminImportPage() {
           <GoldenLessonPackageBuilder />
 
           <GoldenLessonManifestReviewPanel />
+
+          <GoldenLessonCf11OperatorPanel />
 
           <ContextualTemplateGenerator />
 
