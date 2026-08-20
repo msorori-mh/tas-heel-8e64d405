@@ -2,14 +2,9 @@
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 GRANT USAGE ON SCHEMA extensions TO PUBLIC;
--- production-like session search_path (extensions visible, but NOT to functions pinned to public,pg_temp)
+-- production-like session search_path (extensions visible, but NOT to functions pinned to public,pg_temp).
+-- CF10-R9: there is NO public.digest shim; every hashing function must qualify extensions.digest.
 SET search_path = public, extensions, pg_temp;
--- Legacy-compat shim ONLY for the already-applied dependency migrations (CF04/07/08/09) whose
--- functions are pinned to search_path=public,pg_temp. It is dropped by
--- content-factory-10-r8-production-search-path.sql before CF10 runs, so CF10 is rehearsed against
--- the exact production condition (no digest reachable from public).
-CREATE OR REPLACE FUNCTION public.digest(bytea, text) RETURNS bytea
-LANGUAGE sql IMMUTABLE AS $legacy$ SELECT extensions.digest($1,$2) $legacy$;
 CREATE SCHEMA IF NOT EXISTS auth;
 
 DO $$ BEGIN

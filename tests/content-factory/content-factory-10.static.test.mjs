@@ -176,6 +176,55 @@ test("CF10-R4 PG17 rehearsal asserts collisions and all-or-nothing student blind
   }
 });
 
+test("CF10-R9 ships a forward dependency-namespace migration for CF04/CF08/CF09", () => {
+  const fwd = readFileSync(
+    "supabase/migrations-pending/20260819225000_content_factory_dependency_pgcrypto_namespace_r9.sql",
+    "utf8",
+  );
+  // ordered strictly before CF10 (20260819225000 < 20260819230000)
+  assert.ok("20260819225000" < "20260819230000");
+  // fail-closed guard before any DDL
+  const guardIdx = fwd.indexOf("CF10_DEPENDENCY_PGCRYPTO_DIGEST_MISSING");
+  assert.ok(guardIdx > 0 && guardIdx < fwd.indexOf("CREATE OR REPLACE FUNCTION"));
+  assert.match(fwd, /to_regprocedure\('extensions\.digest\(bytea,text\)'\)/);
+  // exactly the three affected functions, same signatures / security / search_path
+  for (const sig of [
+    "public.golden_lesson_stage_manifest(\n  _manifest jsonb,\n  _client_manifest_sha256 text\n)",
+    "public.golden_lesson_stage_domain_bundle(\n  _package_id uuid, _version integer, _actor_id uuid, _bundle_sha256 text,\n  _entries jsonb, _answers_companion jsonb DEFAULT NULL\n)",
+    "public.golden_lesson_bind_authoritative_identity(\n  _batch_id uuid, _actor_id uuid\n)",
+  ]) {
+    assert.ok(fwd.includes(`CREATE OR REPLACE FUNCTION ${sig}`), sig);
+  }
+  assert.equal((fwd.match(/CREATE OR REPLACE FUNCTION/g) ?? []).length, 3);
+  assert.equal((fwd.match(/SECURITY DEFINER/g) ?? []).length, 3);
+  assert.equal((fwd.match(/SET search_path = public, pg_temp AS \$\$/g) ?? []).length, 3);
+  // grants/revokes preserved verbatim
+  assert.match(fwd, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_stage_manifest\(jsonb,text\) TO authenticated;/);
+  assert.match(fwd, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_stage_domain_bundle\(uuid,integer,uuid,text,jsonb,jsonb\) TO service_role;/);
+  assert.match(fwd, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_bind_authoritative_identity\(uuid,uuid\) TO service_role;/);
+  // zero stale unqualified digest calls in the forward definitions (comments excluded)
+  const fwdCode = fwd.replace(/^\s*--.*$/gm, "");
+  assert.equal((fwdCode.match(/(?<!extensions\.)\bdigest\s*\(/g) ?? []).length, 0);
+  // 5 re-created hash call sites (CF04 x1, CF08 x3, CF09 x1) + the 2 guard references
+  assert.equal((fwdCode.match(/encode\(extensions\.digest\(/g) ?? []).length, 5);
+  assert.equal((fwdCode.match(/extensions\.digest\(/g) ?? []).length, 7);
+  // the already-applied dependency migrations keep their original bytes
+  for (const dep of [
+    "supabase/migrations-pending/20260819190000_content_factory_04_package_staging.sql",
+    "supabase/migrations-pending/20260819210000_content_factory_08_atomic_domain_staging.sql",
+    "supabase/migrations-pending/20260819220000_content_factory_09_authoritative_identity_binding.sql",
+  ]) {
+    assert.doesNotMatch(readFileSync(dep, "utf8"), /extensions\.digest\(/);
+  }
+  // rehearsal applies the forward migration before any runtime assert and before CF10
+  const order = (needle) => rehearse.indexOf(needle);
+  assert.ok(order("20260819225000_content_factory_dependency_pgcrypto_namespace_r9.sql") > 0);
+  for (const a of ["content-factory-04-assert.sql", "content-factory-08-assert.sql", "content-factory-09-assert.sql"]) {
+    assert.ok(order("_r9.sql") < order(a), a);
+  }
+  assert.ok(order("_r9.sql") < order("20260819230000_content_factory_10_domain_materialization.sql"));
+});
+
 test("CF10-R8 pins pgcrypto to the extensions schema (production search path)", () => {
   const fixture = readFileSync("scripts/content-factory/pg17/content-factory-04-fixture.sql", "utf8");
   const searchPath = readFileSync(
@@ -191,5 +240,8 @@ test("CF10-R8 pins pgcrypto to the extensions schema (production search path)", 
   assert.match(fixture, /CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions/);
   assert.doesNotMatch(fixture, /CREATE EXTENSION IF NOT EXISTS pgcrypto;/);
   assert.match(searchPath, /DROP FUNCTION IF EXISTS public\.digest\(bytea, text\)/);
+  // CF10-R9: the fixture no longer defines any public.digest shim at any point
+  assert.doesNotMatch(fixture, /FUNCTION public\.digest/);
+  assert.match(searchPath, /R9_STALE_UNQUALIFIED_DIGEST/);
   assert.match(rehearse, /content-factory-10-r8-production-search-path\.sql/);
 });
