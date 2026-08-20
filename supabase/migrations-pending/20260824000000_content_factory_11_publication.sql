@@ -1221,10 +1221,12 @@ BEGIN
   IF pub.published_by = uid THEN
     RAISE EXCEPTION 'CF11_SEPARATION_OF_DUTIES' USING ERRCODE = '42501';
   END IF;
-  IF pub.ready_attested_at IS NOT NULL THEN
+  SELECT * INTO ready_row FROM public.golden_lesson_ready_attestations WHERE publication_id = pub.id;
+  IF ready_row.id IS NOT NULL THEN
     RETURN pub.result || jsonb_build_object('idempotent', true, 'transitions', 0,
-      'ready_attested_by', pub.ready_attested_by, 'ready_attested_at', pub.ready_attested_at);
+      'ready_attested_by', ready_row.attested_by, 'ready_attested_at', ready_row.attested_at);
   END IF;
+
 
   -- Explicit human evidence. No default, no inference.
   IF coalesce((_evidence->>'reviewedContent')::boolean,false) IS DISTINCT FROM true
