@@ -177,6 +177,15 @@ jobs:
           CONTENT_FACTORY_PG17_URL: postgresql://postgres:tamkeen_cf_ci_only@localhost:5432/tamkeen_cf
         run: bash scripts/content-factory/pg17/rehearse-content-factory-04.sh
 
+      - name: Rehearse the full CF04-CF11 publication chain on a clean database
+        env:
+          CONTENT_FACTORY_PG17_URL: postgresql://postgres:tamkeen_cf_ci_only@localhost:5432/tamkeen_cf11
+        run: |
+          docker exec tamkeen-content-factory-pg17 \
+            psql --username postgres --dbname postgres --command 'CREATE DATABASE tamkeen_cf11'
+          bash scripts/content-factory/pg17/rehearse-content-factory-11.sh
+
       - name: Stop isolated PostgreSQL 17
         if: always()
         run: docker stop tamkeen-content-factory-pg17 || true
+
