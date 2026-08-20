@@ -425,6 +425,8 @@ BEGIN
     'externalLessonCode', external_lesson_code,
     'lessonExists', lesson_row.id IS NOT NULL,
     'bindingId', binding.id,
+    'semester', to_jsonb(expected_semester),
+    'semesterResolved', semester_resolved,
     'verifiedBundleSha256', batch.verified_bundle_sha256,
     'answerCompanionSha256', companion->>'companion_sha256',
     'entries', plan,
