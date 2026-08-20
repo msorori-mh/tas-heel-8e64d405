@@ -118,9 +118,21 @@ export function GoldenLessonCf11OperatorPanel() {
     () => [...(selected?.lifecycle ?? [])].map((row) => row.capability).sort(),
     [selected],
   );
+  /** Exact-set diagnosis: what is missing, what is foreign, and which rows are not in REVIEW. */
+  const setDiff = useMemo(() => {
+    const rows = selected?.lifecycle ?? [];
+    const live = rows.map((row) => row.capability);
+    const missing = CF11_EXPECTED_CAPABILITIES.filter((cap) => !live.includes(cap));
+    const extra = [...new Set(live.filter((cap) => !CF11_EXPECTED_CAPABILITIES.includes(cap as never)))].sort();
+    const duplicated = [...new Set(live.filter((cap, i) => live.indexOf(cap) !== i))].sort();
+    const notInReview = rows.filter((row) => row.status !== "REVIEW").map((row) => `${row.capability}:${row.status}`).sort();
+    const exact = missing.length === 0 && extra.length === 0 && duplicated.length === 0
+      && live.length === CF11_EXPECTED_CAPABILITIES.length;
+    return { missing, extra, duplicated, notInReview, exact };
+  }, [selected]);
   const isPublisher = Boolean(selected?.publishedBy && user?.id && selected.publishedBy === user.id);
   const canAttest = Boolean(selected?.published) && !selected?.readyAttestedAt && !isPublisher
-    && liveCapabilities.length === CF11_EXPECTED_CAPABILITY_COUNT;
+    && setDiff.exact && setDiff.notInReview.length === 0;
 
 
   return (
