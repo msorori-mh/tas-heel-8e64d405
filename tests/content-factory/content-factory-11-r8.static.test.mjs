@@ -488,3 +488,19 @@ test("CF11-R9C/1 — fixture mirrors production lifecycle grant hardening before
   );
   assert.ok(hardening > 0 && hardening < legacyInsert, "grant hardening must precede fixture lifecycle writes");
 });
+
+
+test("CF11-R9C/2 — durable asset plan pins the storage identity replay validates", () => {
+  const report = sql.slice(
+    sql.indexOf("asset_report := asset_report || jsonb_build_object("),
+    sql.indexOf("-- Every reference in the official body must be declared"),
+  );
+  assert.match(report, /'storageBucket', asset->>'storageBucket'/);
+  assert.match(report, /'storagePath', asset->>'storagePath'/);
+  const replay = sql.slice(
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.cf11_assert_replay_state"),
+    sql.indexOf("-- 4) CF11-R7 — EXACT PINNED question identity"),
+  );
+  assert.match(replay, /p\.storage_path = a->>'storagePath'/);
+  assert.match(replay, /t\.storage_bucket = p\.storage_bucket AND t\.storage_path = p\.storage_path/);
+});
