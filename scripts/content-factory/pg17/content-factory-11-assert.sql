@@ -892,42 +892,42 @@ BEGIN
   PERFORM public.cf04_assert((res->>'idempotent')::boolean,'an intact replay stays idempotent');
   PERFORM public.cf04_assert((res->>'writes_performed')::int = 0,'an intact replay writes nothing');
   PERFORM public.cf04_assert(
-    jsonb_array_length(coalesce(res->'replay_verified','[]'::jsonb)) >= 5,
+    jsonb_array_length(coalesce(res->'revalidated','[]'::jsonb)) >= 5,
     'the replay must report every re-verified category');
 
   -- 1) official body drift
   SELECT content INTO original FROM public.lesson_book_contents
-   WHERE lesson_id='40000000-0000-0000-0000-000000000001';
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012';
   UPDATE public.lesson_book_contents SET content = original || '<p>drift</p>'
-   WHERE lesson_id='40000000-0000-0000-0000-000000000001';
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012';
   PERFORM public.cf11_assert_replay_refuses('bookContent');
   UPDATE public.lesson_book_contents SET content = original
-   WHERE lesson_id='40000000-0000-0000-0000-000000000001';
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012';
 
   -- 2) a published HTML artefact silently repointed away from inline delivery
   SELECT url INTO original FROM public.lesson_resources
-   WHERE lesson_id='40000000-0000-0000-0000-000000000001' AND resource_type='mindmap';
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND resource_type='mindmap';
   UPDATE public.lesson_resources SET url='https://evil.example/mindmap.html'
-   WHERE lesson_id='40000000-0000-0000-0000-000000000001' AND resource_type='mindmap';
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND resource_type='mindmap';
   PERFORM public.cf11_assert_replay_refuses('html.mindMap');
   UPDATE public.lesson_resources SET url=original
-   WHERE lesson_id='40000000-0000-0000-0000-000000000001' AND resource_type='mindmap';
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND resource_type='mindmap';
 
   -- 3) an assessment membership quietly removed
   SELECT question_id INTO member FROM public.lesson_assessments
-   WHERE lesson_id='40000000-0000-0000-0000-000000000001' LIMIT 1;
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012' LIMIT 1;
   DELETE FROM public.lesson_assessments
-   WHERE lesson_id='40000000-0000-0000-0000-000000000001' AND question_id=member;
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND question_id=member;
   PERFORM public.cf11_assert_replay_refuses('assessmentMembers');
   INSERT INTO public.lesson_assessments(lesson_id, question_id)
-  VALUES ('40000000-0000-0000-0000-000000000001', member);
+  VALUES ('43000000-0000-0000-0000-000000000012', member);
 
   -- 4) a lifecycle row pushed back below REVIEW
   UPDATE public.lesson_capability_lifecycle SET status='DRAFT'
-   WHERE lesson_id='40000000-0000-0000-0000-000000000001' AND capability='summary';
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND capability='summary';
   PERFORM public.cf11_assert_replay_refuses('lifecycle');
   UPDATE public.lesson_capability_lifecycle SET status='READY'
-   WHERE lesson_id='40000000-0000-0000-0000-000000000001' AND capability='summary';
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND capability='summary';
 
   -- 5) the stored asset object removed underneath the attestation
   UPDATE storage.objects SET name = name || '.moved'
