@@ -1167,7 +1167,7 @@ BEGIN
           plan || jsonb_build_object('publicationId', publication_id,
                                      'writesPerformed', writes,
                                      'lifecycleStatus','REVIEW'),
-          _idempotency_key, uid);
+          btrim(_idempotency_key), uid);
 
   INSERT INTO public.audit_logs(actor_id, action, target_type, target_id, metadata)
   VALUES (uid, 'golden_lesson_cf11_publish', 'lesson_capability', lesson_row.id,
