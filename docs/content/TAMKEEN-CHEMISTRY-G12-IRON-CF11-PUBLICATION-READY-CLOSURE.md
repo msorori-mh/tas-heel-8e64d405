@@ -509,3 +509,55 @@ hash, and separation of duties.
 
 **VERDICT = CF11-R4 INDEPENDENT AUDIT ADDENDUM CLOSED IN SOURCE — PRODUCTION_WRITES = 0,
 PG17_EXECUTED = NO**
+
+## CF11-R6 ADDENDUM — zero-write publication DRY_RUN (source-only)
+
+Base: the R4-audit source. Production writes: **0**. Migration applied: **NO**.
+Final R6 CF11 migration SHA-256 (bytes unchanged in this addendum):
+`6aaa63ffcfd451df29fde56a118c63af322b1b0b9b06d7f66f92cf8c896ba395`.
+
+### SHA-256 correction (accepted)
+
+The actual R5 migration SHA-256 was
+`c306af8752fb958c13838f7f9637318ddd9a2c2355c26bce4dcb203117dea726`; any report line still
+quoting an earlier value for R5 is stale. Authoritative current value is the R6 hash above.
+
+| Revision | CF11 migration SHA-256 |
+| --- | --- |
+| R6 (current, applicable) | `6aaa63ffcfd451df29fde56a118c63af322b1b0b9b06d7f66f92cf8c896ba395` |
+| R5 (actual, previously misreported) | `c306af8752fb958c13838f7f9637318ddd9a2c2355c26bce4dcb203117dea726` |
+
+### Architecture: assets are a separate, explicitly labelled write action
+
+* `verifyGoldenLessonCf11Assets` — the ONE write path: resolve → upload missing content-addressed
+  bytes → machine attestation (`SERVER_BYTE_READBACK`). Labelled in the operator console as
+  «تحقق ورفع الأصول».
+* `publishGoldenLessonCf11` — **zero asset writes in BOTH modes**. It imports only
+  `resolveVerifiedAssets` (read-only) and `assertAssetsVerified` (read-only precondition);
+  `ensureVerifiedAssets`, `uploadVerifiedAssets` and `attestStoredAssets` are unreachable from the
+  handler. EXECUTE consumes already-verified live declarations/attestations and fails closed with
+  `CF11_ASSETS_NOT_VERIFIED` when they are absent or stale — it never repairs the gap.
+* DRY_RUN additionally sends `_idempotency_key = null`, so a preview cannot claim a key slot.
+  Response reports `assetsUploaded: 0`, `assetsAttested: 0`, `writesPerformed: false`.
+
+Runbook order (unchanged, now accurate): **تحقق ورفع الأصول → CF11 DRY_RUN (0 writes) →
+CF11 EXECUTE (publication ledger row only) → فحص الاعتماد → اعتماد READY**.
+
+### Executable evidence produced in this task
+
+* `bunx vitest run tests/content-factory/content-factory-11-r6-dry-run-zero-write.test.ts` —
+  **3/3 PASS**: DRY_RUN reaches no upload/ensure/attest helper and reports zero writes and a null
+  idempotency key; EXECUTE likewise performs no upload/attestation and still runs the fail-closed
+  `assertAssetsVerified` precondition; the handler source contains no write-helper reference.
+* `node --test tests/content-factory/*.mjs` — **98/98 PASS**.
+* Audit categories confirmed present in the migration: exact lifecycle names **and** applicability
+  (`cf11_assert_exact_required_lifecycle_set`), revision pinning by
+  `current_published_revision_id` + `payload_hash` + `source_payload_hash`, exact assessment
+  member identities with official-leak refusal, and READY replay recomputing all seven live
+  snapshots/hashes before any idempotent return.
+* Revocation stays the controlled, audited forward path (`golden_lesson_revoke_cf11_ready` with a
+  transaction-local ticket + append-only ledger); ad-hoc lifecycle reset remains blocked by
+  `cf11_guard_lifecycle_demotion`.
+
+PG17 execution status: **NOT EXECUTED here** (no PG17 in this environment); Sections N/O/P remain
+the clean-room proof to run before any production apply.
