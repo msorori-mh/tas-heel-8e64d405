@@ -443,6 +443,16 @@ BEGIN
              payload_hash_version = 'canonical_payload_v1'
        WHERE id = v_revision_id;
     ELSE
+      -- R3: an existing question code must belong to this lesson AND subject, and carry the
+      -- same staged text; otherwise CF10 is colliding with foreign content.
+      IF question_row.lesson_id IS DISTINCT FROM lesson_row.id
+         OR question_row.subject_id IS DISTINCT FROM subject_row.id THEN
+        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: questions %', question_code USING ERRCODE = '23514';
+      END IF;
+      IF public.cf10_text_sha256(question_row.question_text)
+         IS DISTINCT FROM public.cf10_text_sha256(item->>'question') THEN
+        RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: questions %', question_code USING ERRCODE = '23514';
+      END IF;
       SELECT id INTO v_revision_id FROM public.question_revisions
        WHERE question_id = question_row.id AND status = 'DRAFT'
        ORDER BY revision_number DESC LIMIT 1;
@@ -454,16 +464,18 @@ BEGIN
       INSERT INTO public.official_question_answers(question_id, revision_id, model_answer, explanation)
       VALUES (question_row.id, v_revision_id, answer->>'correct_option', answer->>'rationale')
       ON CONFLICT (question_id, revision_id) DO NOTHING;
-      answers_written := answers_written + 1;
-      writes := writes + 1;
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      answers_written := answers_written + rc;
+      writes := writes + rc;
       option_code := regexp_replace(lower(coalesce(answer->>'correct_option','')),'[^a-z]','','g');
       IF answer->>'rationale' IS NOT NULL AND option_code <> '' THEN
         INSERT INTO public.question_option_rationales(question_id, question_revision_id, option_id,
                                                       why_correct, why_wrong)
         VALUES (question_row.id, v_revision_id, option_code, answer->>'rationale', NULL)
         ON CONFLICT (question_revision_id, option_id) DO NOTHING;
-        rationales_written := rationales_written + 1;
-        writes := writes + 1;
+        GET DIAGNOSTICS rc = ROW_COUNT;
+        rationales_written := rationales_written + rc;
+        writes := writes + rc;
       END IF;
 
     END IF;
