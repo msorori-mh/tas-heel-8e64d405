@@ -685,9 +685,14 @@ SELECT public.cf04_assert(
   to_regclass('public.lesson_content_lifecycle') IS NULL,
   'CF11_LIFECYCLE_NAMESPACE: lesson_content_lifecycle must never exist');
 SELECT public.cf04_assert(
-  (SELECT count(*)=0 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-    WHERE n.nspname='public' AND pg_get_functiondef(p.oid) LIKE '%lesson_content_lifecycle%'),
+  (SELECT count(*)=0 FROM pg_proc p
+     JOIN pg_namespace n ON n.oid=p.pronamespace
+     JOIN pg_language l ON l.oid=p.prolang
+    WHERE n.nspname='public' AND p.prokind IN ('f','p')
+      AND l.lanname IN ('sql','plpgsql')
+      AND p.prosrc LIKE '%lesson_content_lifecycle%'),
   'CF11_LIFECYCLE_NAMESPACE: no function may read lesson_content_lifecycle');
+
 
 -- J2) CF10 is reachable by an operator token ONLY through the R4 wrapper; the raw RPC stays
 --     service_role-only.
