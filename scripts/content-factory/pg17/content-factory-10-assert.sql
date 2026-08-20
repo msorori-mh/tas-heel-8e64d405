@@ -781,11 +781,11 @@ SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources r
 -- V3 snapshots for both capabilities are non-empty and reconcilable
 SELECT public.cf04_assert(
   jsonb_array_length(coalesce(public.v3_capability_snapshot(
-    public.cf10_rich_lesson(),'mindMap')->'resources','[]'::jsonb)) > 0,
+    public.cf10_rich_lesson(),'mindMap')->'payload','[]'::jsonb)) > 0,
   'mindMap snapshot is non-empty');
 SELECT public.cf04_assert(
   jsonb_array_length(coalesce(public.v3_capability_snapshot(
-    public.cf10_rich_lesson(),'simulation')->'resources','[]'::jsonb)) > 0,
+    public.cf10_rich_lesson(),'simulation')->'payload','[]'::jsonb)) > 0,
   'simulation snapshot is non-empty');
 SELECT public.cf04_assert(public.v3_capability_snapshot_is_reconcilable(
   public.v3_capability_snapshot(public.cf10_rich_lesson(),'mindMap')),
