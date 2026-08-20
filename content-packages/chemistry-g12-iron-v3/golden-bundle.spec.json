@@ -1,0 +1,53 @@
+{
+  "spec": "tamkeen.golden-lesson-bundle-spec.v1",
+  "profileId": "GOLDEN_CHEMISTRY_V1",
+  "packageCode": "CHEM-G12-IRON-FE",
+  "identity": {
+    "gradeCode": "GRADE-12",
+    "curriculumTrackCodes": ["aden", "sanaa"],
+    "subjectCode": "SUB-G12-012",
+    "lessonCode": "CHEM-G12-IRON-FE",
+    "lessonSlug": "الحديد-fe",
+    "unitCode": null,
+    "semester": 1,
+    "sortOrder": 4
+  },
+  "identityEvidence": {
+    "gradeCode": "matched case-insensitively against grades.slug = 'grade-12' (CF09 rule).",
+    "subjectCode": "matched case-insensitively against subjects.code = 'sub-g12-012'.",
+    "curriculumTrackCodes": "subject_curriculum_tracks holds active bindings for aden + sanaa only.",
+    "unitCode": "null — no units rows exist for this subject; units are never invented.",
+    "semester": "1 — official source is the first-unit lesson set (تقويم الوحدة الأولى).",
+    "sortOrder": "4 — official source file is 'الدرس الرابع-الحديد', printed pages 14-18."
+  },
+  "lessonShell": {
+    "title": "الحديد Fe",
+    "slug": "الحديد-fe",
+    "semester": 1,
+    "sortOrder": 4,
+    "unitId": null,
+    "isFree": true,
+    "deliveryMode": "in_app_content"
+  },
+  "artifacts": {
+    "officialBookContent": {
+      "sourcePath": "official-content.html",
+      "provenancePath": "official-content.provenance.json"
+    },
+    "tamkeenExplanationHtml": { "sourcePath": "explanation.html", "provenancePath": null },
+    "lessonSummaryHtml": { "sourcePath": "summary.html", "provenancePath": null },
+    "mindMapHtml": { "sourcePath": "mindmap.html", "provenancePath": null },
+    "labExperimentHtml": { "sourcePath": "lab.html", "provenancePath": null },
+    "officialBookQuestions": {
+      "sourcePath": "official-questions.json",
+      "provenancePath": "official-questions.provenance.json"
+    },
+    "selfTest": { "sourcePath": "self-test.json", "provenancePath": null }
+  },
+  "answersCompanionPath": "answer-companion.server-only.json",
+  "notes": [
+    "labExperimentHtml is OPTIONAL under GOLDEN_CHEMISTRY_V1; it still ships bytes + hash.",
+    "mindMapHtml and labExperimentHtml are deferred to CF11 by CF10; no lesson_resources rows.",
+    "The bundle carries leaf file names only — no folders, no assets subtree."
+  ]
+}
