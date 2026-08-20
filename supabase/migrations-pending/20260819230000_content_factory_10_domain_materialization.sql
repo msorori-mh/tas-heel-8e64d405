@@ -628,12 +628,11 @@ BEGIN
                             ELSE external_lesson_code || '-EXPERIMENT' END;
     expected_resource_type := CASE cap WHEN 'mindMapHtml' THEN 'mindmap' ELSE 'experiment' END;
     -- Legacy inline rows are forbidden: an unpublished HTML body must never sit in
-    -- lesson_resources.description with an empty / internal url.
+    -- lesson_resources.description. R7: no metadata marker can exempt such a row.
     IF EXISTS (SELECT 1 FROM public.lesson_resources r
                 WHERE r.lesson_id = lesson_row.id
                   AND (r.resource_code = option_code
-                    OR r.resource_type::text = expected_resource_type)
-                  AND coalesce(r.metadata->>'cf11_published_at','') = '') THEN
+                    OR r.resource_type::text = expected_resource_type)) THEN
       RAISE EXCEPTION 'CF10_HTML_LEGACY_ROW_FORBIDDEN: %', cap USING ERRCODE = '23514';
     END IF;
     -- The staged bytes must still be intact and staff-only in CF08 staging.
