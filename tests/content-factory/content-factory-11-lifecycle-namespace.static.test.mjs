@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 
 const MIGRATION = "supabase/migrations-pending/20260824000000_content_factory_11_publication.sql";
 const FIXTURE = "scripts/content-factory/pg17/content-factory-11-fixture.sql";
-const ASSERTS = "scripts/content-factory/pg17/content-factory-11-asserts.sql";
+const ASSERTS = "scripts/content-factory/pg17/content-factory-11-assert.sql";
 const STAGING = "src/lib/content-factory/golden-lesson-domain-staging.ts";
 const CANONICAL = "src/lib/lessons/capability-mapping.ts";
 
@@ -42,14 +42,20 @@ for (const [label, file] of [
   ["fixture", FIXTURE],
   ["asserts", ASSERTS],
 ]) {
-  test(`CF11-AUDIT/2 — ${label} never uses an alternate name as a lifecycle capability`, () => {
+  test(`CF11-AUDIT/2 — ${label} never uses an alternate name in a lifecycle context`, () => {
     const src = readFileSync(file, "utf8");
+    // Only lines that actually touch lifecycle rows/capability values can leak a wrong
+    // namespace; `selfTest` remains legitimate as a plan question-group key and
+    // `lessonSummaryHtml` as a package capability key.
+    const lifecycleLines = src
+      .split("\n")
+      .filter((l) => /lifecycle|capability\s*=|capability,|_capability|capability_transition/i.test(l));
     for (const bad of FORBIDDEN) {
-      // Quoted SQL literal form is the only way a capability value can reach a row.
-      assert.doesNotMatch(
-        src,
-        new RegExp(`'${bad}'`),
-        `${file} must not use '${bad}' — CF10 writes ${canonical.join("/")}`,
+      const hit = lifecycleLines.find((l) => new RegExp(`'${bad}'`).test(l));
+      assert.equal(
+        hit,
+        undefined,
+        `${file} uses '${bad}' as a lifecycle capability — CF10 writes ${canonical.join("/")}\n${hit}`,
       );
     }
   });
