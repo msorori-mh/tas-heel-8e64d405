@@ -261,9 +261,12 @@ export function GoldenLessonCf11OperatorPanel() {
             )}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            DRY_RUN لا يكتب أي شيء إطلاقاً: لا رفع أصول ولا توثيق ولا صفوف. لا يمكن التنفيذ قبل
-            مراجعة خطة الكتابة: يُرسل التنفيذ بصمة الخطة نفسها، ويرفضها الخادم إذا تغيّرت.
+            الترتيب الإلزامي: «تحقق ورفع الأصول» ← CF11 DRY_RUN ← CF11 EXECUTE. النشر بمرحلتيه لا
+            يرفع أصلاً ولا يوثّقه إطلاقاً؛ إن لم تكن الأصول موثّقة مسبقاً يرفض الخادم بـ
+            CF11_ASSETS_NOT_VERIFIED. DRY_RUN لا يكتب أي شيء، والتنفيذ يرسل بصمة الخطة نفسها
+            ويرفضها الخادم إذا تغيّرت.
           </p>
+
 
 
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
