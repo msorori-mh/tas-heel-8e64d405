@@ -7,9 +7,9 @@ Source-only closure. **No production writes and no migration apply were performe
 | Item | Value |
 | --- | --- |
 | Remediation base commit | `9e8d9294e36b0a38b0094b8b58075423da6f85c5` |
-| Revision | R9C + CF11-R4 doc/schema addendum (source-only; independent PG17 gate in progress) |
+| Revision | R9C + CF11-R4 doc/schema addendum + **CF11-R4 independent audit addendum** (source-only) |
 | CF11 migration | `supabase/migrations-pending/20260824000000_content_factory_11_publication.sql` |
-| Current migration SHA-256 (R9C+R4A) | `f043dee1731572c4584d5cefb8e921a229067456e100c2213cd675e72be35135` |
+| Current migration SHA-256 (R9C+R4A+R4-audit) | `6aaa63ffcfd451df29fde56a118c63af322b1b0b9b06d7f66f92cf8c896ba395` |
 | Production writes | 0 |
 | Migration applied | NO |
 | PG17 rehearsal (this task) | **BLOCKED — NOT EXECUTED.** No PostgreSQL 17 instance is reachable from this environment, so the R8/R8B SQL has **not** been executed anywhere. Every claim below is a source-level claim. |
@@ -448,3 +448,64 @@ Because the CF11 migration bytes changed, its current SHA-256 is
 `f043dee1731572c4584d5cefb8e921a229067456e100c2213cd675e72be35135`.
 The older `311265f3…` value remains historical for R8B/R9B only and must not be applied.
 Production remains untouched until the refreshed clean PG17 run succeeds.
+
+
+## CF11-R4 independent audit addendum — closure
+
+Base: the R9C+R4A source. Production writes: **0**. Migration applied: **NO**.
+
+### SHA-256 corrections (the audit finding is accepted)
+
+The R3 report retained the R2 value `908e…` although the R3 migration bytes were actually
+`563d4e79e7dd46bcf240edbd2e9652b616dc4de6eadcbabb80fd6ac41afed367`. That was a reporting
+defect, not a code defect. Authoritative chain, newest first:
+
+| Revision | CF11 migration SHA-256 |
+| --- | --- |
+| R4 audit addendum (current, the only applicable value) | `6aaa63ffcfd451df29fde56a118c63af322b1b0b9b06d7f66f92cf8c896ba395` |
+| R9C + R4A | `f043dee1731572c4584d5cefb8e921a229067456e100c2213cd675e72be35135` |
+| R8B / R9B | `311265f33580f2ce1cffbc56a974c0978e5d8bf7e2713141db637c975ac69691` |
+| R3 (report previously carried the stale R2 `908e…`) | `563d4e79e7dd46bcf240edbd2e9652b616dc4de6eadcbabb80fd6ac41afed367` |
+
+### What changed in the replay contract
+
+`cf11_assert_replay_state` now revalidates, in one pass and with zero writes on any drift:
+official body hash, both inline HTML artefacts (hash + inline delivery + no pending
+publication), the manifest-derived asset set with live storage object identity, all pinned
+published question revisions with exact set equality, the exact self-test assessment
+membership with no official-question leak, the exact seven REQUIRED lifecycle rows, **plus the
+two newly added categories**:
+
+* **`answerLeak`** — re-derived from the LIVE delivered text (official body and both HTML
+  artefacts) on every replay, never trusted from the publication-time scan.
+* **`lessonGating`** — the live `lessons.is_free` / `lessons.visibility` must still equal the
+  gating the plan was approved under, and the published corpus must still be exactly
+  5 official + 40 self-test questions.
+
+The write plan is therefore versioned `tamkeen.content-factory-11.write-plan.v3` and pins
+`lessonGating`. A migration preflight refuses to install over any legacy publication whose plan
+lacks that pin (`CF11_PREFLIGHT_LEGACY_PUBLICATION_WITHOUT_GATING_PIN`); the ledger is
+append-only, so a forward remediation publication is the only path.
+
+The READY path runs `cf11_assert_replay_state` **before** the idempotent return, then rechecks
+lifecycle READY set equality, re-derives all seven capability snapshots/hashes against both the
+frozen evidence and the live `ready_snapshot`, the live asset attestation digest, the evidence
+hash, and separation of duties.
+
+### Evidence actually produced in this task
+
+* `node --test tests/content-factory/*.mjs` — **98/98 PASS** (7 of them the new
+  `content-factory-11-r4-audit.static.test.mjs` cases; one stale R8 assertion on the plan
+  schema version was updated to `v3`).
+* `scripts/content-factory/pg17/content-factory-11-assert.sql` gains **Section P**, which mutates
+  each newly covered category (answer key smuggled into the official body, answer key smuggled
+  into a delivered HTML artefact, `is_free` flipped, `visibility` flipped, a self-test question
+  unpublished) and asserts that BOTH the publication replay and the READY replay refuse with
+  `CF11_REPLAY_LIVE_STATE_CONFLICT` / `CF11_READY_REPLAY_CONFLICT`, that neither ledger grows,
+  and that the restored state revalidates every category again.
+* **PG17 execution: NOT PERFORMED in this task.** No PostgreSQL 17 instance is reachable here,
+  so Section P is a written, unexecuted assertion. No operator execution was performed and none
+  is claimed.
+
+**VERDICT = CF11-R4 INDEPENDENT AUDIT ADDENDUM CLOSED IN SOURCE — PRODUCTION_WRITES = 0,
+PG17_EXECUTED = NO**

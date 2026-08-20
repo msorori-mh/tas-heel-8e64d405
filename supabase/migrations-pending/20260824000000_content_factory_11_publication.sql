@@ -74,7 +74,19 @@ BEGIN
       RAISE EXCEPTION 'CF11_PREFLIGHT_LEGACY_PUBLICATION_WITHOUT_IDEMPOTENCY_KEY: forward remediation migration required'
         USING ERRCODE = '23514';
     END IF;
+    -- CF11-R4 AUDIT: a legacy v2 write-plan carries no `lessonGating` pin, so its replay could
+    -- never re-verify gating / question counts. Refuse to install over one; a forward remediation
+    -- migration (new package version + new publication) is the only path.
+    IF EXISTS (
+      SELECT 1 FROM public.golden_lesson_publications
+       WHERE coalesce(result->>'schema','') <> 'tamkeen.content-factory-11.write-plan.v3'
+          OR result->'lessonGating' IS NULL
+    ) THEN
+      RAISE EXCEPTION 'CF11_PREFLIGHT_LEGACY_PUBLICATION_WITHOUT_GATING_PIN: forward remediation migration required'
+        USING ERRCODE = '23514';
+    END IF;
   END IF;
+
 END
 $preflight$;
 
@@ -986,8 +998,49 @@ BEGIN
   END IF;
   verified := verified || to_jsonb('lifecycle'::text);
 
+  -- 7) CF11-R4 AUDIT — answer-leak is re-derived from the LIVE delivered text on every replay,
+  --    never trusted from the publication-time check. Official body plus both inline HTML
+  --    artefacts are re-scanned; a single leak refuses the replay with zero writes.
+  BEGIN
+    PERFORM public.cf10_assert_no_answer_leak('officialBookContent',
+      (SELECT content FROM public.lesson_book_contents WHERE lesson_id = v_lesson));
+    PERFORM public.cf10_assert_no_answer_leak('mindMapHtml',
+      (SELECT r.description FROM public.lesson_resources r
+        WHERE r.lesson_id = v_lesson AND r.resource_code = _plan->'html'->'mindMap'->>'resourceCode'));
+    PERFORM public.cf10_assert_no_answer_leak('labExperimentHtml',
+      (SELECT r.description FROM public.lesson_resources r
+        WHERE r.lesson_id = v_lesson
+          AND r.resource_code = _plan->'html'->'simulation'->>'resourceCode'));
+  EXCEPTION WHEN OTHERS THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: answerLeak (%)', SQLERRM
+      USING ERRCODE = '23505';
+  END;
+  verified := verified || to_jsonb('answerLeak'::text);
+
+  -- 8) CF11-R4 AUDIT — student-visible gating and the exact published question counts. The plan
+  --    pins the lesson gating it was approved under; a lesson silently flipped to paid/hidden (or
+  --    exposed early), or a 45-question corpus that is no longer exactly 5 official + 40 self-test,
+  --    is drift and refuses the replay.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.lessons l
+     WHERE l.id = v_lesson
+       AND l.is_free IS NOT DISTINCT FROM (_plan->'lessonGating'->>'isFree')::boolean
+       AND l.visibility IS NOT DISTINCT FROM (_plan->'lessonGating'->>'visibility')::boolean
+  ) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: lessonGating' USING ERRCODE = '23505';
+  END IF;
+  IF jsonb_array_length(coalesce(_plan->'questions'->'official','[]'::jsonb))
+       IS DISTINCT FROM (_plan->'lessonGating'->>'officialCount')::integer
+     OR jsonb_array_length(coalesce(_plan->'questions'->'selfTest','[]'::jsonb))
+       IS DISTINCT FROM (_plan->'lessonGating'->>'selfTestCount')::integer
+     OR (_plan->'lessonGating'->>'officialCount')::integer IS DISTINCT FROM 5
+     OR (_plan->'lessonGating'->>'selfTestCount')::integer IS DISTINCT FROM 40 THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: questionCounts' USING ERRCODE = '23505';
+  END IF;
+  verified := verified || to_jsonb('lessonGating'::text);
 
   RETURN jsonb_build_object('revalidated', verified);
+
 END $$;
 
 GRANT EXECUTE ON FUNCTION public.cf11_assert_replay_state(jsonb) TO authenticated, service_role;
@@ -1410,7 +1463,7 @@ BEGIN
   -- --- deterministic write plan --------------------------------------------------------
 
   plan := jsonb_build_object(
-    'schema','tamkeen.content-factory-11.write-plan.v2',
+    'schema','tamkeen.content-factory-11.write-plan.v3',
     'batchId', _batch_id,
     'lessonId', lesson_row.id,
     'bindingId', binding.id,
@@ -1436,8 +1489,13 @@ BEGIN
                                                                 ORDER BY e.v->>'questionId'),
                                                       '[]'::jsonb)
                                         FROM jsonb_array_elements(self_plan) AS e(v))),
+    'lessonGating', jsonb_build_object('isFree', lesson_row.is_free,
+                                       'visibility', lesson_row.visibility,
+                                       'officialCount', array_length(official_codes,1),
+                                       'selfTestCount', array_length(self_codes,1)),
     'lifecycle', jsonb_build_object('from','DRAFT','to','REVIEW',
                                     'capabilities', to_jsonb(public.cf11_lifecycle_capabilities())));
+
   plan_sha := public.cf11_text_sha256(plan::text);
 
   IF _mode = 'DRY_RUN' THEN
