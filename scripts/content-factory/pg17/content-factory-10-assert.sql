@@ -775,7 +775,7 @@ SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources r
     AND e.batch_id = public.cf10_batch('QURAN-G10-L04-PKG')
    WHERE r.lesson_id=public.cf10_rich_lesson()
      AND r.html_resource_type IS NOT NULL
-     AND e.payload_sha256 = public.cf10_text_sha256(r.description)),
+     AND e.source_sha256 = public.cf10_text_sha256(r.description)),
   'inline HTML body equals the staged payload the UI renders');
 
 -- V3 snapshots for both capabilities are non-empty and reconcilable
