@@ -518,9 +518,10 @@ BEGIN
       WHERE lesson_id=v_lesson AND ready_by='10000000-0000-0000-0000-000000000005'),
     'READY must be attributed to the real attester');
   PERFORM public.cf04_assert(
-    (SELECT published_by <> ready_attested_by FROM public.golden_lesson_publications
-      WHERE batch_id='51000000-0000-0000-0000-000000000001'),
-    'publisher and attester must be two different humans');
+    (SELECT count(*)=1 FROM public.golden_lesson_ready_attestations
+      WHERE batch_id='51000000-0000-0000-0000-000000000001'
+        AND attested_by <> published_by),
+    'READY evidence must be a separate append-only row by a different human');
   PERFORM public.cf04_assert(
     (SELECT count(*)=1 FROM public.audit_logs
       WHERE action='golden_lesson_cf11_ready_attested'
