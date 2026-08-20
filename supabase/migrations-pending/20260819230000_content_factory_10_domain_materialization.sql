@@ -391,13 +391,19 @@ BEGIN
   question_json := CASE WHEN payloads->'selfTest'->>'text' IS NULL THEN NULL
                         ELSE (payloads->'selfTest'->>'text')::jsonb END;
   IF question_json IS NOT NULL THEN
-  SELECT id INTO v_assessment_id FROM public.lesson_assessments
+  -- R3: an existing assessment code must belong to this very lesson.
+  SELECT id, lesson_id INTO v_assessment_id, v_assessment_lesson FROM public.lesson_assessments
    WHERE assessment_code = external_lesson_code || '-SELFTEST';
+  IF v_assessment_id IS NOT NULL AND v_assessment_lesson IS DISTINCT FROM lesson_row.id THEN
+    RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: lesson_assessments %',
+      external_lesson_code || '-SELFTEST' USING ERRCODE = '23514';
+  END IF;
   IF v_assessment_id IS NULL THEN
     INSERT INTO public.lesson_assessments(lesson_id, title, instructions, sort_order, assessment_code)
     VALUES (lesson_row.id, 'اختبر نفسك', NULL, 0, external_lesson_code || '-SELFTEST')
     RETURNING id INTO v_assessment_id;
-    writes := writes + 1;
+    GET DIAGNOSTICS rc = ROW_COUNT;
+    writes := writes + rc;
   END IF;
 
   FOR item IN SELECT value FROM jsonb_array_elements(coalesce(question_json->'questions','[]'::jsonb)) LOOP
