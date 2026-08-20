@@ -7,7 +7,7 @@ Source-only closure. **No production writes and no migration apply were performe
 | Item | Value |
 | --- | --- |
 | Remediation base commit | `9e8d9294e36b0a38b0094b8b58075423da6f85c5` |
-| Revision | R8B (source-only) |
+| Revision | R9B (source-only) |
 | CF11 migration | `supabase/migrations-pending/20260824000000_content_factory_11_publication.sql` |
 | Migration SHA-256 (final, after all R8B edits) | `311265f33580f2ce1cffbc56a974c0978e5d8bf7e2713141db637c975ac69691` |
 | Production writes | 0 |
@@ -328,7 +328,7 @@ Executed in this task:
 | Suite | Result |
 | --- | --- |
 | `bun run test` (core) | 209/209 PASS |
-| `node --test tests/content-factory/*.mjs` (incl. the R8 + R8B statics) | 67/67 PASS |
+| `node --test tests/content-factory/*.mjs` (incl. the R8 + R8B + R9B statics) | 69/69 PASS |
 | `tsgo --noEmit` | clean |
 
 PG17 assertions are **written, not executed**.
@@ -382,3 +382,32 @@ same-key replay zero-write.
 
 **FINAL_VERDICT = PASS_CF11_R8B_SOURCE_READY_FOR_INDEPENDENT_PG17_GATE**
 (source-only; the independent PG17 gate remains outstanding and unexecuted).
+
+## R9B — executable fixture ordering and required columns
+
+Base commit: `78d382a896e88c165e97762d180e1c2c12be6556`. Source only, zero production writes.
+
+An independent PG17 transaction established two facts:
+
+- The exact R8B CF11 migration, alone, **installs successfully on the live production schema and
+  rolls back cleanly**; no CF11 table, function, trigger or history row survives the rollback.
+  `MIGRATION_SCHEMA_INSTALL_ROLLBACK=PASS`.
+- The full clean-room fixture cannot run unchanged against the live production schema (expected),
+  but it exposed two genuine fixture defects, both of which are now fixed once and for all:
+
+| Defect | Fix |
+| --- | --- |
+| The legacy lesson `43000000-…-099` was inserted **before** the Iron lesson `…-012`, and derived its `subject_id` with `SELECT subject_id FROM public.lessons WHERE id = '…-012'` — a not-yet-created row, so `subject_id` was NULL and the FK failed. | The early legacy INSERT block is **removed entirely**. The legacy lesson is now inserted only **after** the authoritative fixture grade, subject and Iron lesson exist, with an **explicit** `subject_id = 42000000-0000-0000-0000-000000000012`. |
+| The legacy insert omitted the required `lessons.title` (and other required fixture columns). | It now uses the **full explicit column list** matching the fixture lesson schema — `id, slug, subject_id, unit_id, title, is_free, semester, sort_order` — with non-null values, followed by its `READY` + `REQUIRED` lifecycle row. |
+
+No CF11 migration or security code was touched; the migration SHA-256 is unchanged at
+`311265f33580f2ce1cffbc56a974c0978e5d8bf7e2713141db637c975ac69691`.
+
+Two new static tests (`CF11-R9B/1`, `CF11-R9B/2`) prove the ordering (grade → subject → Iron
+lesson → legacy lesson), the absence of any `SELECT subject_id FROM public.lessons` derivation,
+and the full non-null required column set including `title` and the explicit subject.
+
+The full clean-room PG17 rehearsal remains **pending an independent rerun**; it has not been
+executed in this environment.
+
+**FINAL_VERDICT = PASS_CF11_R9B_SOURCE_READY_FOR_CLEAN_PG17_RERUN**
