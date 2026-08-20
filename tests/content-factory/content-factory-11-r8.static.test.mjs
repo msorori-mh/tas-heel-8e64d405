@@ -517,3 +517,15 @@ test("CF11-R9C/3 — replay lifecycle drift probe bypasses only the fixture trig
   assert.equal((drift.match(/ENABLE TRIGGER USER/g) ?? []).length, 2);
   assert.match(drift, /cf11_assert_replay_refuses\('lifecycle'\)/);
 });
+
+
+test("CF11-R9C/4 — published-revision replay drift probe bypasses only the fixture trigger", () => {
+  const drift = asserts.slice(
+    asserts.indexOf("-- payload drift at an identical code/count"),
+    asserts.indexOf("-- revision substitution at an identical code/count"),
+  );
+  assert.equal((drift.match(/ALTER TABLE public\.question_revisions DISABLE TRIGGER USER/g) ?? []).length, 2);
+  assert.equal((drift.match(/ALTER TABLE public\.question_revisions ENABLE TRIGGER USER/g) ?? []).length, 2);
+  assert.match(drift, /cf11_assert_replay_state\(plan\)/);
+  assert.match(drift, /CF11_EXPECTED_PINNED_REVISION_REFUSED/);
+});
