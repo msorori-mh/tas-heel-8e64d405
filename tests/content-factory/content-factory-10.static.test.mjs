@@ -114,9 +114,9 @@ test("CF10-R3 adds identity, lifecycle and counter hardening", () => {
   assert.match(sql, /domain_writes := domain_writes \+ rc/);
 });
 
-test("CF10-R3 PG17 rehearsal asserts collisions and student blindness", () => {
+test("CF10-R4 PG17 rehearsal asserts collisions and all-or-nothing student blindness", () => {
   for (const marker of [
-    "student sees only the unmanaged legacy lesson",
+    "gate hides the all-DRAFT managed lesson",
     "all-DRAFT: zero questions",
     "gate keeps unmanaged legacy lessons visible",
     "content staff still see DRAFT questions",
