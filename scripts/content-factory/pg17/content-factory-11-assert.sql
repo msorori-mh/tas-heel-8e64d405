@@ -957,5 +957,79 @@ BEGIN
 END $$;
 DROP FUNCTION public.cf11_assert_replay_refuses(text);
 
+-- ======================================================================================
+-- K) CF11-R6 — SERVICE-ROLE EDITORIAL DENIAL + EXACT LIFECYCLE SET.
+-- ======================================================================================
+
+-- K1) The machine role keeps byte attestation and reads; every human editorial RPC is denied to
+--     it, so an automated caller holding the service key can never stand in for a reviewer.
+--     CF11_EXPECTED_SERVICE_ROLE_DENIED
+DO $$
+DECLARE
+  fn text;
+BEGIN
+  FOREACH fn IN ARRAY ARRAY[
+    'public.golden_lesson_publish_cf11(uuid,uuid,text,jsonb,text,text)',
+    'public.golden_lesson_attest_cf11_ready(uuid,uuid,jsonb,text)',
+    'public.golden_lesson_materialize_domain_batch_operator(uuid,uuid,text,text,text)',
+    'public.golden_lesson_materialize_domain_batch(uuid,uuid,text,text,text)',
+    'public.golden_lesson_advance_review(uuid,integer,text,jsonb,text)',
+    'public.golden_lesson_bind_authoritative_identity(uuid,uuid)',
+    'public.golden_lesson_bind_authoritative_identity_operator(uuid,uuid)'
+  ] LOOP
+    PERFORM public.cf04_assert(
+      NOT has_function_privilege('service_role', fn, 'EXECUTE'),
+      'CF11_EXPECTED_SERVICE_ROLE_DENIED: service_role cannot call ' || fn);
+    PERFORM public.cf04_assert(
+      NOT has_function_privilege('anon', fn, 'EXECUTE'),
+      'CF11_EXPECTED_SERVICE_ROLE_DENIED: anon cannot call ' || fn);
+  END LOOP;
+  -- ...while machine byte attestation stays service-role-only.
+  PERFORM public.cf04_assert(
+    has_function_privilege('service_role',
+      'public.golden_lesson_attest_cf11_asset(uuid,uuid,text,text,text,text,bigint,text,text,text,uuid,text,text,text)',
+      'EXECUTE'),
+    'CF11_R6: machine attestation stays available to service_role');
+END $$;
+
+-- K2) The identity-binding operator wrapper exists, is SECURITY DEFINER and is reachable by an
+--     authenticated admin token only.
+SELECT public.cf04_assert(
+  (SELECT prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='public' AND p.proname='golden_lesson_bind_authoritative_identity_operator'),
+  'CF11_R6: the identity-binding wrapper must be SECURITY DEFINER');
+SELECT public.cf04_assert(
+  has_function_privilege('authenticated',
+    'public.golden_lesson_bind_authoritative_identity_operator(uuid,uuid)','EXECUTE'),
+  'CF11_R6: authenticated binds identity through the wrapper');
+
+-- K3) EXACT lifecycle set: a substituted name at an identical count is refused, and so is one
+--     missing + one extra. The lesson is restored after each probe.
+DO $$
+DECLARE
+  lesson uuid := (SELECT lesson_id FROM public.golden_lesson_publications
+                   WHERE batch_id='51000000-0000-0000-0000-000000000001');
+BEGIN
+  PERFORM public.cf04_assert(
+    public.cf11_live_lifecycle_capabilities(lesson) = public.cf11_lifecycle_capabilities(),
+    'CF11_R6: the live lifecycle set is exactly the canonical seven');
+
+  -- substitution: seven rows, one wrong name
+  UPDATE public.lesson_capability_lifecycle SET capability='lessonSummary'
+   WHERE lesson_id=lesson AND capability='quickReview';
+  BEGIN
+    PERFORM public.cf11_assert_exact_lifecycle_set(lesson,'CF11_PROBE');
+    RAISE EXCEPTION 'CF11_R6_FAILED: a substituted capability name was accepted';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+  UPDATE public.lesson_capability_lifecycle SET capability='quickReview'
+   WHERE lesson_id=lesson AND capability='lessonSummary';
+
+  PERFORM public.cf04_assert(
+    public.cf11_live_lifecycle_capabilities(lesson) = public.cf11_lifecycle_capabilities(),
+    'CF11_R6: the lifecycle set is restored after the substitution probe');
+END $$;
+
 SELECT 'PASS_CONTENT_FACTORY_11_PG17' AS verdict;
+
 
