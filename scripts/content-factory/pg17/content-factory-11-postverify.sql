@@ -105,9 +105,14 @@ WITH l AS (SELECT :'lesson'::uuid AS id),
   UNION ALL SELECT 'publication_rows','1',
          (SELECT count(*)::text FROM public.golden_lesson_publications WHERE lesson_id=(SELECT id FROM l))
   UNION ALL SELECT 'publisher_differs_from_attester','1',
-         (SELECT count(*)::text FROM public.golden_lesson_publications
-           WHERE lesson_id=(SELECT id FROM l)
-             AND ready_attested_by IS NOT NULL AND ready_attested_by <> published_by)
+         (SELECT count(*)::text FROM public.golden_lesson_ready_attestations
+           WHERE lesson_id=(SELECT id FROM l) AND attested_by <> published_by)
+  UNION ALL SELECT 'asset_attestations_bound','1',
+         (SELECT count(*)::text FROM public.golden_lesson_published_assets a
+            JOIN public.golden_lesson_asset_attestations t
+              ON t.lesson_id=a.lesson_id AND t.asset_code=a.asset_code
+             AND t.attestation_sha256=a.attestation_sha256
+           WHERE a.lesson_id=(SELECT id FROM l))
 )
 SELECT check_name, expected, actual, actual IS NOT DISTINCT FROM expected FROM probe;
 

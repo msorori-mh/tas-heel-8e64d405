@@ -5,7 +5,8 @@ CREATE TABLE storage.buckets(
   file_size_limit bigint, allowed_mime_types text[]
 );
 CREATE TABLE storage.objects(
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text NOT NULL REFERENCES storage.buckets(id), name text NOT NULL
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text NOT NULL REFERENCES storage.buckets(id), name text NOT NULL,
+  version text, metadata jsonb
 );
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION storage.foldername(name text) RETURNS text[]

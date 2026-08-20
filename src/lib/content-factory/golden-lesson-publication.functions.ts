@@ -104,9 +104,14 @@ export const getGoldenLessonCf11Batches = createServerFn({ method: "GET" })
           .eq("package_version", batch.package_version)
           .order("created_at", { ascending: false }).limit(1).maybeSingle(),
         admin.from("golden_lesson_publications")
-          .select("id,published_by,published_at,ready_attested_by,ready_attested_at")
+          .select("id,published_by,published_at")
           .eq("batch_id", batch.id).maybeSingle(),
       ]);
+      // READY evidence lives in its own append-only ledger, never on the publication row.
+      const readyAttestation = await admin
+        .from("golden_lesson_ready_attestations")
+        .select("attested_by,attested_at")
+        .eq("batch_id", batch.id).maybeSingle();
 
       const lessonId = (binding.data as { lesson_id?: string } | null)?.lesson_id ?? null;
       let lifecycle: { capability: string; status: string }[] = [];
@@ -138,9 +143,9 @@ export const getGoldenLessonCf11Batches = createServerFn({ method: "GET" })
         publishedBy: (publication.data as { published_by?: string } | null)?.published_by ?? null,
         publishedAt: (publication.data as { published_at?: string } | null)?.published_at ?? null,
         readyAttestedBy:
-          (publication.data as { ready_attested_by?: string } | null)?.ready_attested_by ?? null,
+          (readyAttestation.data as { attested_by?: string } | null)?.attested_by ?? null,
         readyAttestedAt:
-          (publication.data as { ready_attested_at?: string } | null)?.ready_attested_at ?? null,
+          (readyAttestation.data as { attested_at?: string } | null)?.attested_at ?? null,
         lifecycle,
         declaredAssets,
       });

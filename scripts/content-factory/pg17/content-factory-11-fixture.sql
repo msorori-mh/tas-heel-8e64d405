@@ -148,7 +148,14 @@ INSERT INTO public.golden_lesson_package_versions(
   created_by, verified_bundle_sha256, verified_storage_path, verified_file_count,
   verified_compressed_bytes, verified_uncompressed_bytes, bundle_verified_at)
 VALUES ('50100000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001',1,
-        jsonb_build_object('schema','tamkeen.golden-lesson-package.v1','packageCode','CHEM-G12-IRON-FE'),
+        jsonb_build_object('schema','tamkeen.golden-lesson-package.v1','packageCode','CHEM-G12-IRON-FE',
+          'assets', jsonb_build_array(jsonb_build_object(
+            'assetCode','OFFICIAL-FIGURE-1-1',
+            'path','official-figure-1-1.jpg',
+            'mimeType','image/jpeg',
+            'sha256','a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf',
+            'bytes', 26742,
+            'altTextAr','شكل (1-1) الفرن العالي (اللافح)'))),
         repeat('1',64), repeat('2',64), '10000000-0000-0000-0000-000000000003',
         repeat('3',64), 'golden-lesson-intake/CHEM-G12-IRON-FE.zip', 12, 51262, 116867, now());
 
@@ -319,9 +326,11 @@ BEGIN
           jsonb_build_object('mode','EXECUTE'), v_actor);
 
   -- The verified furnace asset, already uploaded to the private bucket by the server function.
-  INSERT INTO storage.objects(bucket_id, name)
+  INSERT INTO storage.objects(bucket_id, name, version, metadata)
   VALUES ('golden-lesson-assets',
-          v_lesson::text || '/a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf-official-figure-1-1.jpg');
+          v_lesson::text || '/a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf-official-figure-1-1.jpg',
+          'v-iron-figure-1', jsonb_build_object('size', 26742, 'mimetype', 'image/jpeg',
+                                                'eTag', '"a5e17da2c7343bc3f4289a3258f646d6"'));
 END
 $fixture$;
 

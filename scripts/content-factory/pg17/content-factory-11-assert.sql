@@ -80,6 +80,92 @@ DO $$ BEGIN
 END $$;
 
 -- ------------------------------------------------------------------------------------
+-- B2) Upload attestation is mandatory and byte-exact.
+-- ------------------------------------------------------------------------------------
+DO $$
+DECLARE res jsonb;
+BEGIN
+  -- publish without an attestation must fail closed
+  BEGIN
+    PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','DRY_RUN', public.cf11_iron_assets());
+    RAISE EXCEPTION 'CF11_EXPECTED_ATTESTATION_REQUIRED';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_ATTESTATION_MISSING%' THEN RAISE; END IF;
+  END;
+
+  -- wrong bytes / size / mime are all refused
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1', repeat('b',64), 26742,
+      'image/jpeg','ffd8ffe0','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_BYTES_MISMATCH';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_BYTES_MISMATCH%' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
+      'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26743,
+      'image/jpeg','ffd8ffe0','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_SIZE_MISMATCH';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_SIZE_MISMATCH%' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
+      'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+      'image/png','89504e47','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_MIME_MISMATCH';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_MIME_MISMATCH%' THEN RAISE; END IF;
+  END;
+  -- correct MIME but PNG magic bytes: magic sniffing must refuse it
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
+      'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+      'image/jpeg','89504e47','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_MAGIC_MISMATCH';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_MAGIC_MISMATCH%' THEN RAISE; END IF;
+  END;
+  -- an undeclared asset code can never be attested
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-9-9',
+      'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+      'image/jpeg','ffd8ffe0','EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_NOT_DECLARED';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_ASSET_NOT_DECLARED%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert(
+    (SELECT count(*)=0 FROM public.golden_lesson_asset_attestations),
+    'a refused attestation must write zero rows');
+
+  -- the real, byte-exact attestation
+  res := public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
+    'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+    'image/jpeg','ffd8ffe000104a46','EXECUTE');
+  PERFORM public.cf04_assert((res->>'writes_performed')::int = 1,'attestation must append one row');
+  res := public.golden_lesson_attest_cf11_asset('51000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000003','OFFICIAL-FIGURE-1-1',
+    'a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf', 26742,
+    'image/jpeg','ffd8ffe000104a46','EXECUTE');
+  PERFORM public.cf04_assert((res->>'idempotent')::boolean,'attestation replay must be idempotent');
+
+  -- the ledger is immutable even for the attester
+  BEGIN
+    UPDATE public.golden_lesson_asset_attestations SET sha256 = repeat('c',64);
+    RAISE EXCEPTION 'CF11_EXPECTED_LEDGER_IMMUTABLE';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+END $$;
+
+-- ------------------------------------------------------------------------------------
 -- C) DRY_RUN writes nothing and returns a stable plan
 -- ------------------------------------------------------------------------------------
 DO $$
@@ -128,37 +214,60 @@ RESET ROLE;
 BEGIN;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
 SET ROLE authenticated;
-DO $$ BEGIN
-  BEGIN  -- undeclared reference: the body points at an asset nobody declared
-    PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
-      '10000000-0000-0000-0000-000000000003','DRY_RUN','[]'::jsonb);
-    RAISE EXCEPTION 'CF11_EXPECTED_UNDECLARED';
-  EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF11_UNDECLARED_ASSET_REFERENCE%' THEN RAISE; END IF;
-  END;
-  BEGIN  -- folder / traversal names are impossible
-    PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
-      '10000000-0000-0000-0000-000000000003','DRY_RUN',
-      jsonb_set(public.cf11_iron_assets(),'{0,fileName}','"assets/official-figure-1-1.jpg"'));
+DO $$
+DECLARE tampered jsonb;
+BEGIN
+  -- The client is NOT authoritative: any tampered echo is refused before anything is read.
+  FOREACH tampered IN ARRAY ARRAY[
+    jsonb_set(public.cf11_iron_assets(),'{0,fileName}','"assets/official-figure-1-1.jpg"'),
+    jsonb_set(public.cf11_iron_assets(),'{0,mimeType}','"image/svg+xml"'),
+    jsonb_set(public.cf11_iron_assets(),'{0,sha256}', to_jsonb(repeat('b',64))),
+    jsonb_set(public.cf11_iron_assets(),'{0,bytes}','999'),
+    '[]'::jsonb || jsonb_build_array(jsonb_build_object('assetCode','EXTRA-ASSET'))
+  ] LOOP
+    BEGIN
+      PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
+        '10000000-0000-0000-0000-000000000003','DRY_RUN', tampered);
+      RAISE EXCEPTION 'CF11_EXPECTED_NOT_AUTHORITATIVE';
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE '%CF11_ASSET_DECLARATION_NOT_AUTHORITATIVE%' THEN RAISE; END IF;
+    END;
+  END LOOP;
+
+  -- Manifest-level violations are refused by the declaration authority itself.
+  BEGIN
+    PERFORM public.cf11_manifest_assets(jsonb_build_object('assets', jsonb_build_array(
+      jsonb_build_object('assetCode','OFFICIAL-FIGURE-1-1','path','assets/x.jpg',
+        'mimeType','image/jpeg','sha256',repeat('a',64),'bytes',1024))),
+      '43000000-0000-0000-0000-000000000012');
     RAISE EXCEPTION 'CF11_EXPECTED_NOT_LEAF';
   EXCEPTION WHEN check_violation THEN
     IF SQLERRM NOT LIKE '%CF11_ASSET_NOT_LEAF%' THEN RAISE; END IF;
   END;
-  BEGIN  -- SVG / script-capable MIME types are refused
-    PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
-      '10000000-0000-0000-0000-000000000003','DRY_RUN',
-      jsonb_set(public.cf11_iron_assets(),'{0,mimeType}','"image/svg+xml"'));
+  BEGIN
+    PERFORM public.cf11_manifest_assets(jsonb_build_object('assets', jsonb_build_array(
+      jsonb_build_object('assetCode','OFFICIAL-FIGURE-1-1','path','x.svg',
+        'mimeType','image/svg+xml','sha256',repeat('a',64),'bytes',1024))),
+      '43000000-0000-0000-0000-000000000012');
     RAISE EXCEPTION 'CF11_EXPECTED_MIME';
   EXCEPTION WHEN check_violation THEN
     IF SQLERRM NOT LIKE '%CF11_ASSET_MIME_FORBIDDEN%' THEN RAISE; END IF;
   END;
-  BEGIN  -- a public bucket is never accepted
+
+END $$;
+RESET ROLE;
+-- An undeclared body reference cannot survive: strip the manifest assets (owner-side) and publish.
+UPDATE public.golden_lesson_package_versions
+   SET manifest = manifest - 'assets' WHERE id = '50100000-0000-0000-0000-000000000001';
+SET ROLE authenticated;
+DO $$ BEGIN
+  BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
-      '10000000-0000-0000-0000-000000000003','DRY_RUN',
-      jsonb_set(public.cf11_iron_assets(),'{0,storageBucket}','"lesson-pdfs"'));
-    RAISE EXCEPTION 'CF11_EXPECTED_BUCKET';
+      '10000000-0000-0000-0000-000000000003','DRY_RUN','[]'::jsonb);
+    RAISE EXCEPTION 'CF11_EXPECTED_UNDECLARED';
   EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF11_ASSET_BUCKET_FORBIDDEN%' THEN RAISE; END IF;
+    IF SQLERRM NOT LIKE '%CF11_UNDECLARED_ASSET_REFERENCE%'
+       AND SQLERRM NOT LIKE '%CF11_ASSET_ATTESTATION_SET_MISMATCH%' THEN RAISE; END IF;
   END;
   PERFORM public.cf04_assert(true,'asset declaration contract is fail-closed');
 END $$;
@@ -518,9 +627,10 @@ BEGIN
       WHERE lesson_id=v_lesson AND ready_by='10000000-0000-0000-0000-000000000005'),
     'READY must be attributed to the real attester');
   PERFORM public.cf04_assert(
-    (SELECT published_by <> ready_attested_by FROM public.golden_lesson_publications
-      WHERE batch_id='51000000-0000-0000-0000-000000000001'),
-    'publisher and attester must be two different humans');
+    (SELECT count(*)=1 FROM public.golden_lesson_ready_attestations
+      WHERE batch_id='51000000-0000-0000-0000-000000000001'
+        AND attested_by <> published_by),
+    'READY evidence must be a separate append-only row by a different human');
   PERFORM public.cf04_assert(
     (SELECT count(*)=1 FROM public.audit_logs
       WHERE action='golden_lesson_cf11_ready_attested'
