@@ -2289,11 +2289,9 @@ REVOKE ALL ON TABLE public.cf11_revocation_tickets FROM anon;
 REVOKE ALL ON TABLE public.cf11_revocation_tickets FROM authenticated;
 REVOKE ALL ON TABLE public.cf11_revocation_tickets FROM service_role;
 ALTER TABLE public.cf11_revocation_tickets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.cf11_revocation_tickets FORCE ROW LEVEL SECURITY;
--- RLS is FORCED and deliberately policy-less: not even the owner role reaches these rows through
--- ordinary DML. Only the SECURITY DEFINER helpers below, which run with BYPASSRLS via their owner
--- being the bootstrap superuser, may touch them.
-DROP POLICY IF EXISTS "cf11 tickets are unreachable" ON public.cf11_revocation_tickets;
+-- RLS is enabled and deliberately policy-less. Combined with the absent grants this makes the
+-- table unreachable for every Data API role; the SECURITY DEFINER helpers below run as the table
+-- owner and are the only writers/readers in the system.
 
 /* Is this lesson under CF11 governance at all? Legacy lessons answer NO and keep 21H behaviour. */
 CREATE OR REPLACE FUNCTION public.cf11_is_managed_lesson(_lesson_id uuid)
