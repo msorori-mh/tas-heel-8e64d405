@@ -153,6 +153,11 @@ export function GoldenLessonCf11OperatorPanel() {
   );
   const canRevoke = Boolean(selected?.readyAttestedAt) && !selected?.readyRevokedAt
     && !isAttester && setDiff.exact && setDiff.allReady;
+  /**
+   * CF11-R8: publication (DRY_RUN and EXECUTE alike) performs zero asset writes, so the explicit
+   * "تحقق ورفع الأصول" step must have produced machine attestations first.
+   */
+  const assetsVerified = (selected?.attestedAssets ?? 0) > 0;
 
 
   return (
