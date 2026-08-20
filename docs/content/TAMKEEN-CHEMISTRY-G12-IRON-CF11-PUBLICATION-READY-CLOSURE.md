@@ -135,7 +135,7 @@ CF08, CF09, R9, CF10 are unchanged).
 `golden_lesson_published_assets`, `golden_lesson_asset_attestations` and
 `golden_lesson_ready_revocations` are append-only: `UPDATE`/`DELETE` are revoked and blocked by
 trigger. They are **never** deleted, reset or rewritten — not during rollback, not during
-remediation. There is no "reset the seven lifecycle rows" procedure, and any such instruction from
+remediation. There is no ad-hoc lifecycle-reset procedure, and any such instruction from
 an earlier revision is withdrawn.
 
 **The only audited withdrawal path** is the controlled RPC
