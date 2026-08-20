@@ -63,6 +63,18 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'CF11_PREFLIGHT_MISSING_LIFECYCLE_TRANSITION' USING ERRCODE = '0A000';
   END IF;
+  -- CF11-R4 addendum: the publication ledger's idempotency key is NOT NULL and non-empty.
+  -- A legacy CF11 ledger row without a durable key can never be replay-guarded, and the ledger
+  -- is append-only (never rewritten), so the migration must refuse to install over one.
+  IF to_regclass('public.golden_lesson_publications') IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1 FROM public.golden_lesson_publications
+       WHERE idempotency_key IS NULL OR length(btrim(idempotency_key)) < 8
+    ) THEN
+      RAISE EXCEPTION 'CF11_PREFLIGHT_LEGACY_PUBLICATION_WITHOUT_IDEMPOTENCY_KEY: forward remediation migration required'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
 END
 $preflight$;
 
