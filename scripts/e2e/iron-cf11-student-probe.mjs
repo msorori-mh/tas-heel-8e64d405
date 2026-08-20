@@ -12,8 +12,6 @@
  *   node scripts/e2e/iron-cf11-student-probe.mjs [--base http://localhost:8080] [--lesson <uuid>]
  */
 
-import { chromium } from "playwright";
-
 const args = process.argv.slice(2);
 const argOf = (name, fallback) => {
   const index = args.indexOf(`--${name}`);
@@ -47,6 +45,14 @@ function check(name, ok, detail = "") {
 
 if (!LESSON) {
   console.error("FAIL probe.lessonId — pass --lesson <uuid> (production-only value).");
+  process.exit(2);
+}
+
+let chromium;
+try {
+  ({ chromium } = await import("playwright"));
+} catch {
+  console.error("FAIL probe.dependency — playwright is not installed. Run: bun add -d playwright && bunx playwright install chromium");
   process.exit(2);
 }
 
