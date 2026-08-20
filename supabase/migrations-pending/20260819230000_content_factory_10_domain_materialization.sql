@@ -1177,7 +1177,10 @@ GRANT EXECUTE ON FUNCTION public.cf10_html_publication_pending(uuid,text) TO aut
 CREATE OR REPLACE FUNCTION public.cf10_block_ready_before_html_publication()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
+  -- Only a capability that actually carries materialized HTML bytes is gated:
+  -- an OPTIONAL/NA row with no payload may legitimately reach READY.
   IF NEW.status = 'READY' AND NEW.capability IN ('mindMap','simulation')
+     AND NEW.draft_hash IS NOT NULL
      AND public.cf10_html_publication_pending(NEW.lesson_id, NEW.capability) THEN
     RAISE EXCEPTION 'CF10_HTML_CAPABILITY_READY_TOO_EARLY: %', NEW.capability USING ERRCODE = '23514';
   END IF;
