@@ -38,6 +38,17 @@
 -- Explicitly absent: subject creation, curriculum deletes, storage/textbook mutation,
 --                    REVIEW/READY transitions, publication, answer exposure in student payload.
 
+-- R8: production hosts pgcrypto in the `extensions` schema, not `public`. Every CF10 hash
+-- call is schema-qualified as extensions.digest(bytea,text); this preflight fails closed
+-- before any DDL if that function is unavailable.
+DO $cf10_pgcrypto$
+BEGIN
+  IF to_regprocedure('extensions.digest(bytea,text)') IS NULL THEN
+    RAISE EXCEPTION 'CF10_PGCRYPTO_DIGEST_MISSING: extensions.digest(bytea,text) is not installed'
+      USING ERRCODE = '42883';
+  END IF;
+END
+$cf10_pgcrypto$;
 
 
 CREATE TABLE public.golden_lesson_domain_materializations (
