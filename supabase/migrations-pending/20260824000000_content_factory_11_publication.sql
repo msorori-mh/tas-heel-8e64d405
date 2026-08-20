@@ -1537,8 +1537,9 @@ BEGIN
   END IF;
   SELECT * INTO ready_row FROM public.golden_lesson_ready_attestations WHERE publication_id = pub.id;
   IF ready_row.id IS NOT NULL THEN
-    -- CF11-R5: a READY replay must reprove the whole published state, the live attestation set
-    -- and that every capability is really READY. An existing evidence row proves nothing today.
+    -- CF11-R6: a READY replay reproves the whole published state, the live attestation set, the
+    -- EXACT canonical seven lifecycle rows, and re-derives every capability snapshot/hash with
+    -- the canonical Content V3 functions. A stored ledger checksum is not evidence about today.
     PERFORM public.cf11_assert_replay_state(pub.result);
     SELECT public.cf11_text_sha256(coalesce(string_agg(t.asset_code || ':' || t.attestation_sha256,
                                                        '|' ORDER BY t.asset_code), ''))
@@ -1550,14 +1551,58 @@ BEGIN
     IF ready_row.snapshot_set_sha256 IS DISTINCT FROM public.cf11_text_sha256(ready_row.checks::text) THEN
       RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: evidence' USING ERRCODE = '23505';
     END IF;
-    IF (SELECT count(*) FROM public.lesson_capability_lifecycle
-         WHERE lesson_id = pub.lesson_id AND status = 'READY') <> 7 THEN
-      RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: lifecycle' USING ERRCODE = '23505';
+
+    -- Exact set equality (not count), and every one of them really READY today.
+    PERFORM public.cf11_assert_exact_lifecycle_set(pub.lesson_id, 'CF11_READY_REPLAY_CONFLICT');
+    SELECT coalesce(array_agg(DISTINCT capability ORDER BY capability), ARRAY[]::text[])
+      INTO live_caps
+      FROM public.lesson_capability_lifecycle
+     WHERE lesson_id = pub.lesson_id AND status = 'READY';
+    IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN
+      RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: lifecycle live=[%]',
+        array_to_string(live_caps, ',') USING ERRCODE = '23505';
     END IF;
+
+    -- Re-derive each of the exact seven snapshots and compare against BOTH the frozen ledger
+    -- evidence and the live lifecycle ready_snapshot/ready_hash. Any drift refuses the replay.
+    replay_checks := '[]'::jsonb;
+    FOREACH lifecycle_cap IN ARRAY public.cf11_lifecycle_capabilities() LOOP
+      snap := public.v3_capability_snapshot(pub.lesson_id, lifecycle_cap);
+      IF snap IS NULL OR NOT public.v3_capability_snapshot_is_reconcilable(snap) THEN
+        RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: snapshot.%', lifecycle_cap USING ERRCODE = '23505';
+      END IF;
+      snap_hash := public.v3_capability_snapshot_hash(snap);
+      replay_checks := replay_checks
+        || jsonb_build_object('capability', lifecycle_cap, 'hash', snap_hash);
+
+      SELECT ready_hash, ready_snapshot INTO stored_ready_hash, stored_ready_snapshot
+        FROM public.lesson_capability_lifecycle
+       WHERE lesson_id = pub.lesson_id AND capability = lifecycle_cap;
+      IF stored_ready_snapshot IS NULL OR stored_ready_hash IS DISTINCT FROM snap_hash THEN
+        RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: readySnapshot.%', lifecycle_cap
+          USING ERRCODE = '23505';
+      END IF;
+      IF public.v3_capability_snapshot_hash(stored_ready_snapshot) IS DISTINCT FROM snap_hash THEN
+        RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: readySnapshotBody.%', lifecycle_cap
+          USING ERRCODE = '23505';
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(coalesce(ready_row.checks,'[]'::jsonb)) AS c(v)
+         WHERE c.v->>'capability' = lifecycle_cap AND c.v->>'hash' = snap_hash) THEN
+        RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: evidenceHash.%', lifecycle_cap
+          USING ERRCODE = '23505';
+      END IF;
+    END LOOP;
+    IF jsonb_array_length(coalesce(ready_row.checks,'[]'::jsonb))
+         <> jsonb_array_length(replay_checks) THEN
+      RAISE EXCEPTION 'CF11_READY_REPLAY_CONFLICT: evidenceSet' USING ERRCODE = '23505';
+    END IF;
+
     RETURN pub.result || jsonb_build_object('idempotent', true, 'transitions', 0,
-      'replay_revalidated', true,
+      'replay_revalidated', true, 'replay_checks', replay_checks,
       'ready_attested_by', ready_row.attested_by, 'ready_attested_at', ready_row.attested_at);
   END IF;
+
 
 
 
