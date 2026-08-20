@@ -738,18 +738,117 @@ BEGIN
   END IF;
   ext_code := binding.external_lesson_code;
 
-  -- Idempotent replay: return the recorded result without re-writing anything.
+  -- --- authoritative asset declarations + upload attestations (R3) ----------------------
+  -- The declaration set comes from the VERIFIED manifest, never from the caller. A caller may
+  -- echo it back for cross-checking, but any difference is a hard failure.
+  declared_assets := public.cf11_manifest_assets(ver.manifest, lesson_row.id);
+  manifest_assets_sha := public.cf11_text_sha256(declared_assets::text);
+  IF jsonb_array_length(coalesce(_assets,'[]'::jsonb)) > 0
+     AND public.cf11_text_sha256(_assets::text) IS DISTINCT FROM manifest_assets_sha THEN
+    RAISE EXCEPTION 'CF11_ASSET_DECLARATION_NOT_AUTHORITATIVE' USING ERRCODE = '42501';
+  END IF;
+
+  -- Every declared asset needs a live attestation whose bytes AND whose storage object identity
+  -- (id + version + etag) still match. Extra attestations are a set mismatch, never ignored.
+  FOR asset IN SELECT value FROM jsonb_array_elements(declared_assets) LOOP
+    SELECT * INTO att FROM public.golden_lesson_asset_attestations
+     WHERE lesson_id = lesson_row.id AND asset_code = asset->>'assetCode';
+    IF att.id IS NULL THEN
+      RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_MISSING: %', asset->>'assetCode' USING ERRCODE = '23514';
+    END IF;
+    IF att.sha256 IS DISTINCT FROM asset->>'sha256'
+       OR att.byte_size IS DISTINCT FROM (asset->>'bytes')::bigint
+       OR att.mime_type IS DISTINCT FROM asset->>'mimeType'
+       OR att.file_name IS DISTINCT FROM asset->>'fileName'
+       OR att.storage_path IS DISTINCT FROM asset->>'storagePath'
+       OR att.storage_bucket IS DISTINCT FROM asset->>'storageBucket' THEN
+      RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_DRIFT: %', asset->>'assetCode' USING ERRCODE = '23514';
+    END IF;
+    IF NOT public.cf11_magic_matches(att.mime_type, att.magic_hex) THEN
+      RAISE EXCEPTION 'CF11_ASSET_MAGIC_MISMATCH: %', asset->>'assetCode' USING ERRCODE = '23514';
+    END IF;
+    SELECT o.id, o.version, o.metadata INTO obj_row
+      FROM storage.objects o
+     WHERE o.bucket_id = att.storage_bucket AND o.name = att.storage_path;
+    IF obj_row.id IS NULL THEN
+      RAISE EXCEPTION 'CF11_ASSET_OBJECT_MISSING: %', att.storage_path USING ERRCODE = '23514';
+    END IF;
+    IF obj_row.metadata IS NULL OR NOT (obj_row.metadata ? 'size') OR NOT (obj_row.metadata ? 'mimetype') THEN
+      RAISE EXCEPTION 'CF11_ASSET_OBJECT_METADATA_MISSING: %', att.storage_path USING ERRCODE = '23514';
+    END IF;
+    IF obj_row.id IS DISTINCT FROM att.storage_object_id
+       OR obj_row.version IS DISTINCT FROM att.storage_version
+       OR coalesce(obj_row.metadata->>'eTag', obj_row.metadata->>'etag') IS DISTINCT FROM att.storage_etag
+       OR (obj_row.metadata->>'size')::bigint IS DISTINCT FROM att.byte_size
+       OR obj_row.metadata->>'mimetype' IS DISTINCT FROM att.mime_type THEN
+      RAISE EXCEPTION 'CF11_ASSET_OBJECT_IDENTITY_DRIFT: %', asset->>'assetCode' USING ERRCODE = '23514';
+    END IF;
+    IF att.attestation_sha256 IS DISTINCT FROM public.cf11_attestation_hash(
+         lesson_row.id, att.asset_code, att.file_name, att.mime_type, att.sha256, att.byte_size,
+         att.magic_hex, att.storage_bucket, att.storage_path, obj_row.id, obj_row.version,
+         coalesce(obj_row.metadata->>'eTag', obj_row.metadata->>'etag')) THEN
+      RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_HASH_DRIFT: %', asset->>'assetCode' USING ERRCODE = '23514';
+    END IF;
+    -- No overwrite when the hash differs for the same logical asset.
+    IF EXISTS (SELECT 1 FROM public.golden_lesson_published_assets a
+                WHERE a.lesson_id = lesson_row.id AND a.asset_code = asset->>'assetCode'
+                  AND a.sha256 IS DISTINCT FROM asset->>'sha256') THEN
+      RAISE EXCEPTION 'CF11_ASSET_HASH_CONFLICT: %', asset->>'assetCode' USING ERRCODE = '23514';
+    END IF;
+  END LOOP;
+
+  SELECT count(*) INTO attestation_rows FROM public.golden_lesson_asset_attestations
+   WHERE lesson_id = lesson_row.id;
+  IF attestation_rows <> jsonb_array_length(declared_assets) THEN
+    RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_SET_MISMATCH: declared=% attested=%',
+      jsonb_array_length(declared_assets), attestation_rows USING ERRCODE = '23514';
+  END IF;
+
+  SELECT public.cf11_text_sha256(coalesce(string_agg(a.asset_code || ':' || a.attestation_sha256,
+                                                     '|' ORDER BY a.asset_code), ''))
+    INTO attestation_sha
+    FROM public.golden_lesson_asset_attestations a WHERE a.lesson_id = lesson_row.id;
+
+  -- --- strict replay --------------------------------------------------------------------
+  -- A replay only succeeds when the idempotency key, the write-plan hash, the manifest asset
+  -- set, the attestation set AND the live published state are all still exactly what was
+  -- recorded. Anything else conflicts and writes zero.
   SELECT * INTO replay FROM public.golden_lesson_publications WHERE batch_id = _batch_id;
   IF replay.id IS NOT NULL THEN
-    IF replay.lesson_id IS DISTINCT FROM binding.lesson_id THEN
+    IF replay.lesson_id IS DISTINCT FROM binding.lesson_id
+       OR replay.binding_id IS DISTINCT FROM binding.id THEN
       RAISE EXCEPTION 'CF11_REPLAY_IDENTITY_DRIFT' USING ERRCODE = '23514';
+    END IF;
+    IF _idempotency_key IS DISTINCT FROM replay.idempotency_key THEN
+      RAISE EXCEPTION 'CF11_REPLAY_IDEMPOTENCY_KEY_CONFLICT' USING ERRCODE = '23505';
+    END IF;
+    IF _mode = 'EXECUTE' AND _expected_plan_sha256 IS DISTINCT FROM replay.plan_sha256 THEN
+      RAISE EXCEPTION 'CF11_REPLAY_PLAN_CONFLICT' USING ERRCODE = '23505';
+    END IF;
+    IF _expected_plan_sha256 IS NOT NULL AND _expected_plan_sha256 IS DISTINCT FROM replay.plan_sha256 THEN
+      RAISE EXCEPTION 'CF11_REPLAY_PLAN_CONFLICT' USING ERRCODE = '23505';
+    END IF;
+    IF manifest_assets_sha IS DISTINCT FROM replay.manifest_assets_sha256
+       OR attestation_sha IS DISTINCT FROM replay.asset_attestation_sha256 THEN
+      RAISE EXCEPTION 'CF11_REPLAY_ASSET_CONFLICT' USING ERRCODE = '23505';
+    END IF;
+    -- Re-attest the LIVE state, do not trust the recorded result blindly.
+    IF public.cf10_html_publication_pending(replay.lesson_id,'mindMap')
+       OR public.cf10_html_publication_pending(replay.lesson_id,'simulation') THEN
+      RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: html' USING ERRCODE = '23505';
+    END IF;
+    IF (SELECT count(*) FROM public.golden_lesson_published_assets
+         WHERE lesson_id = replay.lesson_id) <> jsonb_array_length(declared_assets) THEN
+      RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assets' USING ERRCODE = '23505';
     END IF;
     RETURN replay.result || jsonb_build_object(
       'idempotent', true, 'writes_performed', 0, 'mode', _mode,
+      'replay_revalidated', true,
       'html_publication_pending', jsonb_build_object(
         'mindMap', public.cf10_html_publication_pending(replay.lesson_id,'mindMap'),
         'simulation', public.cf10_html_publication_pending(replay.lesson_id,'simulation')));
   END IF;
+
 
   -- --- staged HTML bodies -------------------------------------------------------------
   SELECT convert_from(source_payload,'UTF8') INTO mind_html
