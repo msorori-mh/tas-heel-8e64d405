@@ -479,18 +479,24 @@ $$;
 
 
 -- ------------------------------------------------------------------------------------
--- 4c) Upload attestation RPC. Appends ONE immutable row proving the real bytes reached the
---     private bucket. Refuses a storage.objects row that carries no size/mimetype metadata,
---     so a fabricated name-only row can never stand in for an upload.
+-- 4c) Upload attestation RPC — CF11-R5: MACHINE ONLY.
+--     Appends ONE immutable row proving the real bytes reached the private bucket. It is a
+--     measurement, not an approval, so it is executed by the server (service_role, no
+--     `auth.uid()`) right after it downloaded the object back out of the bucket. A signed-in
+--     human can no longer call it at all: an operator claim about bytes is not evidence.
+--     The requesting human is recorded as `requested_by` and must be real content staff.
+--     Refuses a storage.objects row that carries no size/mimetype metadata, so a fabricated
+--     name-only row can never stand in for an upload.
 -- ------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.golden_lesson_attest_cf11_asset(
   _batch_id uuid,
-  _actor_id uuid,
+  _requested_by uuid,
   _asset_code text,
   _observed_sha256 text,
   _observed_bytes bigint,
   _observed_mime text,
   _magic_hex text,
+  _verification_origin text DEFAULT 'SERVER_BYTE_READBACK',
   _mode text DEFAULT 'EXECUTE'
 ) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
@@ -510,12 +516,18 @@ BEGIN
   IF _mode NOT IN ('DRY_RUN','EXECUTE') THEN
     RAISE EXCEPTION 'CF11_INVALID_MODE' USING ERRCODE = '22023';
   END IF;
-  IF uid IS NULL OR _actor_id IS NULL OR uid <> _actor_id THEN
-    RAISE EXCEPTION 'CF11_ACTOR_IDENTITY_MISMATCH' USING ERRCODE = '42501';
+  -- Machine-only: an end-user session (any auth.uid()) is refused outright.
+  IF uid IS NOT NULL THEN
+    RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_MACHINE_ONLY' USING ERRCODE = '42501';
   END IF;
-  IF NOT public.is_golden_lesson_content_staff(uid) THEN
+  IF _verification_origin IS DISTINCT FROM 'SERVER_BYTE_READBACK' THEN
+    RAISE EXCEPTION 'CF11_ASSET_VERIFICATION_ORIGIN_INVALID: %',
+      coalesce(_verification_origin,'<null>') USING ERRCODE = '42501';
+  END IF;
+  IF _requested_by IS NULL OR NOT public.is_golden_lesson_content_staff(_requested_by) THEN
     RAISE EXCEPTION 'CF11_NOT_AUTHORIZED' USING ERRCODE = '42501';
   END IF;
+
 
   SELECT * INTO batch FROM public.golden_lesson_domain_stage_batches WHERE id = _batch_id;
   IF batch.id IS NULL THEN
