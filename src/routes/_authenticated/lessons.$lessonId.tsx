@@ -11,6 +11,8 @@ import { Breadcrumbs as SharedBreadcrumbs } from "@/components/student/Breadcrum
 
 import { Button } from "@/components/ui/button";
 import { getLessonFileUrl } from "@/lib/api/lesson-file.functions";
+import { InlineHtmlResourceViewer } from "@/components/lessons/InlineHtmlResourceViewer";
+import { isInlineHtmlResourceUrl } from "@/lib/lessons/inline-html-resource";
 import {
   getLessonPublishedHtmlResourcesFn,
   createSignedStudentAccessUrlFn,
@@ -119,6 +121,7 @@ type ResourceRow = {
   description: string | null;
   sort_order: number;
   is_primary?: boolean | null;
+  html_resource_type?: string | null;
 };
 
 
@@ -329,7 +332,7 @@ function LessonPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_resources")
-        .select("id,resource_type,title,url,description,sort_order,is_primary")
+        .select("id,resource_type,title,url,description,sort_order,is_primary,html_resource_type")
         .eq("lesson_id", lessonId)
         .order("sort_order");
       if (error) throw error;
@@ -1151,6 +1154,7 @@ function isExternalUrl(u: string) {
 
 function EnhancementItemRow({ item, lessonId }: { item: EnhancementItem; lessonId: string }) {
   const getUrl = useServerFn(getLessonFileUrl);
+  const inlineHtml = isInlineHtmlResourceUrl(item.url);
   const externalRaw = isExternalUrl(item.url);
   const externalSafe = isSafeHttpUrl(item.url);
   const externalUnsafe = externalRaw && !externalSafe;
@@ -1168,6 +1172,7 @@ function EnhancementItemRow({ item, lessonId }: { item: EnhancementItem; lessonI
       setResolved(null);
       return;
     }
+    if (inlineHtml) return;
     let cancelled = false;
     setLoading(true);
     const isInternalLessonMedia = item.url.startsWith("lesson-internal://");
@@ -1187,7 +1192,18 @@ function EnhancementItemRow({ item, lessonId }: { item: EnhancementItem; lessonI
     return () => {
       cancelled = true;
     };
-  }, [item.url, lessonId, getUrl, externalSafe, externalUnsafe]);
+  }, [item.url, lessonId, getUrl, externalSafe, externalUnsafe, inlineHtml]);
+
+  if (inlineHtml) {
+    return (
+      <InlineHtmlResourceViewer
+        title={item.title}
+        html={item.description}
+        htmlResourceType={null}
+        resourceType="mindmap"
+      />
+    );
+  }
 
   return (
     <div className="rounded-lg border border-border bg-card p-2">
@@ -1230,6 +1246,20 @@ function ResourceTypeBadge({ type }: { type: string }) {
 
 function ResourceCard({ resource, lessonId }: { resource: ResourceRow; lessonId: string }) {
   const getUrl = useServerFn(getLessonFileUrl);
+
+  // CF10-R4b — inline HTML resources (mind map / lab experiment) render in-app through the
+  // sandboxed viewer, reading the exact body the V3 snapshot hashes.
+  if (isInlineHtmlResourceUrl(resource.url)) {
+    return (
+      <InlineHtmlResourceViewer
+        title={resource.title}
+        html={resource.description}
+        htmlResourceType={resource.html_resource_type ?? null}
+        resourceType={resource.resource_type}
+      />
+    );
+  }
+
   const isStorageRef = resource.url.trim().startsWith("supabase-storage://");
   const safeHttp = !isStorageRef && isSafeHttpUrl(resource.url);
 

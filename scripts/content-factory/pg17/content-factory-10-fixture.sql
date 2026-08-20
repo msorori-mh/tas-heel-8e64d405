@@ -637,3 +637,197 @@ DO $$ DECLARE t text; BEGIN
     EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
   END LOOP;
 END $$;
+
+CREATE TABLE public.lesson_simulations(
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  lesson_id uuid NOT NULL REFERENCES public.lessons(id) ON DELETE CASCADE,
+  title text NOT NULL, description text, phet_url text NOT NULL,
+  thumbnail_url text, sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now());
+
+-- CF10-R4b: the real V3 snapshot surface (copied verbatim from the R5 migration) so the
+-- rehearsal exercises the same reconcilability contract production uses.
+CREATE OR REPLACE FUNCTION public._v3_canonical_json_v1(v jsonb)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT CASE jsonb_typeof(v)
+    WHEN 'null'    THEN 'null'
+    WHEN 'boolean' THEN CASE WHEN v = 'true'::jsonb THEN 'true' ELSE 'false' END
+    WHEN 'number'  THEN v #>> '{}'
+    WHEN 'string'  THEN to_json(v #>> '{}')::text
+    WHEN 'array'   THEN '[' || COALESCE((
+        SELECT string_agg(public._v3_canonical_json_v1(e.value), ',' ORDER BY e.ordinality)
+          FROM jsonb_array_elements(v) WITH ORDINALITY AS e(value, ordinality)
+      ), '') || ']'
+    WHEN 'object'  THEN '{' || COALESCE((
+        SELECT string_agg(to_json(kv.key)::text || ':' || public._v3_canonical_json_v1(kv.value), ',' ORDER BY kv.key COLLATE "C")
+          FROM jsonb_each(v) AS kv(key, value)
+      ), '') || '}'
+  END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.v3_capability_snapshot(_lesson_id uuid, _capability text)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT jsonb_build_object(
+    'snapshotVersion', 'v3.snapshot.1',
+    'capability', _capability,
+    'lessonId', _lesson_id,
+    'payload', CASE _capability
+
+      WHEN 'officialBookContent' THEN COALESCE((
+        SELECT jsonb_agg(jsonb_build_object('content', b.content) ORDER BY b.id)
+          FROM public.lesson_book_contents b
+         WHERE b.lesson_id = _lesson_id
+           AND COALESCE(btrim(b.content), '') <> ''
+      ), '[]'::jsonb)
+
+      WHEN 'tamkeenExplanation' THEN COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+                 'code', e.explanation_code,
+                 'title', e.title,
+                 'content', e.content,
+                 'sortOrder', COALESCE(e.sort_order, 0)
+               ) ORDER BY COALESCE(e.sort_order, 0), e.id)
+          FROM public.lesson_explanations e
+         WHERE e.lesson_id = _lesson_id
+           AND COALESCE(btrim(e.content), '') <> ''
+      ), '[]'::jsonb)
+
+      WHEN 'quickReview' THEN COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+                 'summary', s.summary,
+                 'keyPoints', to_jsonb(s.key_points),
+                 'studyTip', s.study_tip
+               ) ORDER BY s.id)
+          FROM public.lesson_summaries s
+         WHERE s.lesson_id = _lesson_id
+           AND COALESCE(btrim(s.summary), '') <> ''
+      ), '[]'::jsonb)
+
+      WHEN 'mindMap' THEN COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+                 'code', r.resource_code,
+                 'title', r.title,
+                 'url', r.url,
+                 'sortOrder', COALESCE(r.sort_order, 0)
+               ) ORDER BY COALESCE(r.sort_order, 0), r.id)
+          FROM public.lesson_resources r
+         WHERE r.lesson_id = _lesson_id
+           AND (r.resource_type::text = 'mindmap' OR r.html_resource_type::text = 'mindmap')
+           AND COALESCE(btrim(r.url), '') <> ''
+      ), '[]'::jsonb)
+
+      WHEN 'simulation' THEN jsonb_build_object(
+        'resources', COALESCE((
+          SELECT jsonb_agg(jsonb_build_object(
+                   'code', r.resource_code,
+                   'title', r.title,
+                   'url', r.url,
+                   'sortOrder', COALESCE(r.sort_order, 0)
+                 ) ORDER BY COALESCE(r.sort_order, 0), r.id)
+            FROM public.lesson_resources r
+           WHERE r.lesson_id = _lesson_id
+             AND (r.resource_type::text = 'experiment' OR r.html_resource_type::text = 'experiment')
+             AND COALESCE(btrim(r.url), '') <> ''
+        ), '[]'::jsonb),
+        'simulations', COALESCE((
+          SELECT jsonb_agg(jsonb_build_object(
+                   'title', s.title,
+                   'phetUrl', s.phet_url,
+                   'sortOrder', COALESCE(s.sort_order, 0)
+                 ) ORDER BY COALESCE(s.sort_order, 0), s.id)
+            FROM public.lesson_simulations s
+           WHERE s.lesson_id = _lesson_id
+        ), '[]'::jsonb)
+      )
+
+      -- Questions: identity, published revision pin, and option ORDER only.
+      -- is_correct, rationales and model answers are never selected.
+      -- INNER JOIN: a question without a valid current published revision is
+      -- structurally excluded, so revisionId can never be null.
+      WHEN 'checkUnderstanding' THEN COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+                 'questionId', q.id,
+                 'revisionId', rev.id,
+                 'questionType', q.question_type,
+                 'sortOrder', COALESCE(q.sort_order, 0),
+                 'optionCodes', COALESCE((
+                   SELECT jsonb_agg(o.option_code ORDER BY o.sort_order, o.option_code)
+                     FROM public.question_options o
+                    WHERE o.question_revision_id = rev.id
+                 ), '[]'::jsonb)
+               ) ORDER BY COALESCE(q.sort_order, 0), q.id)
+          FROM public.questions q
+          JOIN public.question_revisions rev
+            ON rev.id = q.current_published_revision_id
+           AND rev.question_id = q.id
+         WHERE q.lesson_id = _lesson_id
+           AND q.archived_at IS NULL
+           AND rev.id IS NOT NULL
+           AND rev.status = 'PUBLISHED'
+      ), '[]'::jsonb)
+
+      WHEN 'lessonAssessment' THEN COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+                 'assessmentCode', a.assessment_code,
+                 'title', a.title,
+                 'sortOrder', COALESCE(a.sort_order, 0),
+                 'questions', COALESCE((
+                   SELECT jsonb_agg(jsonb_build_object(
+                            'questionId', aq.question_id,
+                            'sortOrder', COALESCE(aq.sort_order, 0),
+                            'points', aq.points
+                          ) ORDER BY COALESCE(aq.sort_order, 0), aq.question_id)
+                     FROM public.assessment_questions aq
+                    WHERE aq.assessment_id = a.id
+                 ), '[]'::jsonb)
+               ) ORDER BY COALESCE(a.sort_order, 0), a.id)
+          FROM public.lesson_assessments a
+         WHERE a.lesson_id = _lesson_id
+      ), '[]'::jsonb)
+
+      ELSE 'null'::jsonb
+    END
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.v3_capability_snapshot_hash(_snapshot jsonb)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT encode(sha256(convert_to(public._v3_canonical_json_v1(_snapshot), 'UTF8')), 'hex');
+$$;
+
+CREATE OR REPLACE FUNCTION public.v3_capability_snapshot_is_reconcilable(_snapshot jsonb)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT CASE
+    WHEN _snapshot IS NULL THEN false
+    ELSE CASE jsonb_typeof(_snapshot -> 'payload')
+      WHEN 'array'  THEN jsonb_array_length(_snapshot -> 'payload') > 0
+      WHEN 'object' THEN EXISTS (
+        SELECT 1 FROM jsonb_each(_snapshot -> 'payload') AS kv(key, value)
+         WHERE CASE jsonb_typeof(kv.value)
+                 WHEN 'array' THEN jsonb_array_length(kv.value) > 0
+                 WHEN 'null'  THEN false
+                 ELSE true
+               END
+      )
+      ELSE false
+    END
+  END;
+$$;
+
