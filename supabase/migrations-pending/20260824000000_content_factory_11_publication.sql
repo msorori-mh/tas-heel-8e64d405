@@ -740,6 +740,22 @@ BEGIN
     RAISE EXCEPTION 'CF11_LIFECYCLE_REVIEW_NOT_EXACTLY_SEVEN' USING ERRCODE = '23514';
   END IF;
 
+  -- 6b) Consume the HTML drafts. CF10's `cf10_block_ready_before_html_publication` trigger
+  --     refuses READY for mindMap/simulation while `draft_hash` is still set: an unconsumed
+  --     draft means the staged bytes were never turned into a real, published artefact.
+  --     CF11 is the only component allowed to clear it, and only after the truthful publication
+  --     probe confirms a matching lesson_resources row actually exists. Fail closed otherwise.
+  FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
+    IF public.cf10_html_publication_pending(lesson_row.id, cap) THEN
+      RAISE EXCEPTION 'CF11_HTML_PUBLICATION_NOT_MATERIALIZED: %', cap USING ERRCODE = '23514';
+    END IF;
+    UPDATE public.lesson_capability_lifecycle
+       SET draft_hash = NULL, draft_updated_at = now()
+     WHERE lesson_id = lesson_row.id AND capability = cap AND draft_hash IS NOT NULL;
+    GET DIAGNOSTICS rc = ROW_COUNT; writes := writes + rc;
+  END LOOP;
+
+
 
   IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle
               WHERE lesson_id = lesson_row.id AND status = 'READY') THEN
