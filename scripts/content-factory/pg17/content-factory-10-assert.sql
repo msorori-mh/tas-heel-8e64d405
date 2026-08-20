@@ -756,7 +756,8 @@ RESET ROLE;
 ROLLBACK;
 
 -- The rich (L04) batch is the one carrying the mindMap / lab-experiment capabilities.
-CREATE OR REPLACE FUNCTION public.cf10_rich_lesson() RETURNS uuid LANGUAGE sql STABLE AS $$
+CREATE OR REPLACE FUNCTION public.cf10_rich_lesson() RETURNS uuid LANGUAGE sql STABLE
+  SECURITY DEFINER SET search_path = public, pg_temp AS $$
   SELECT lesson_id FROM public.golden_lesson_domain_materializations
    WHERE batch_id = public.cf10_batch('QURAN-G10-L04-PKG') $$;
 
