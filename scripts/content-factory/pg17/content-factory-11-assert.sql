@@ -975,7 +975,8 @@ BEGIN
     'public.golden_lesson_materialize_domain_batch(uuid,uuid,text,text,text)',
     'public.golden_lesson_advance_review(uuid,integer,text,jsonb,text)',
     'public.golden_lesson_bind_authoritative_identity(uuid,uuid)',
-    'public.golden_lesson_bind_authoritative_identity_operator(uuid,uuid)'
+    'public.golden_lesson_bind_authoritative_identity_operator(uuid,uuid)',
+    'public.golden_lesson_revoke_cf11_ready(uuid,uuid,text,text,text)'
   ] LOOP
     PERFORM public.cf04_assert(
       NOT has_function_privilege('service_role', fn, 'EXECUTE'),
@@ -987,7 +988,7 @@ BEGIN
   -- ...while machine byte attestation stays service-role-only.
   PERFORM public.cf04_assert(
     has_function_privilege('service_role',
-      'public.golden_lesson_attest_cf11_asset(uuid,uuid,text,text,text,text,bigint,text,text,text,uuid,text,text,text)',
+      'public.golden_lesson_attest_cf11_asset(uuid,uuid,text,text,bigint,text,text,text,text)',
       'EXECUTE'),
     'CF11_R6: machine attestation stays available to service_role');
 END $$;
@@ -1028,6 +1029,151 @@ BEGIN
   PERFORM public.cf04_assert(
     public.cf11_live_lifecycle_capabilities(lesson) = public.cf11_lifecycle_capabilities(),
     'CF11_R6: the lifecycle set is restored after the substitution probe');
+END $$;
+
+-- ------------------------------------------------------------------------------------
+-- L) CF11-R7 — APPLICABILITY. A capability parked at OPTIONAL/NA is excused from the readiness
+--    contract while the SET still looks complete, so every gate must refuse it.
+-- ------------------------------------------------------------------------------------
+DO $$
+DECLARE
+  lesson uuid := (SELECT lesson_id FROM public.golden_lesson_publications
+                   WHERE batch_id='51000000-0000-0000-0000-000000000001');
+BEGIN
+  PERFORM public.cf11_assert_exact_required_lifecycle_set(lesson,'CF11_PROBE');
+
+  UPDATE public.lesson_capability_lifecycle SET applicability='OPTIONAL'
+   WHERE lesson_id=lesson AND capability='mindMap';
+  BEGIN
+    PERFORM public.cf11_assert_exact_required_lifecycle_set(lesson,'CF11_PROBE');
+    RAISE EXCEPTION 'CF11_EXPECTED_APPLICABILITY_REFUSED: OPTIONAL row accepted at the exact-set gate';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+  BEGIN
+    PERFORM public.golden_lesson_attest_cf11_ready(
+      _batch_id => '51000000-0000-0000-0000-000000000001',
+      _actor_id => '52000000-0000-0000-0000-0000000000a2',
+      _evidence => jsonb_build_object('reviewedContent',true,'reviewedSecurity',true,
+                                      'note','applicability probe'),
+      _mode => 'EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_APPLICABILITY_REFUSED: READY accepted a non-REQUIRED capability';
+  EXCEPTION WHEN check_violation OR insufficient_privilege OR unique_violation THEN NULL;
+  END;
+  UPDATE public.lesson_capability_lifecycle SET applicability='REQUIRED'
+   WHERE lesson_id=lesson AND capability='mindMap';
+  PERFORM public.cf11_assert_exact_required_lifecycle_set(lesson,'CF11_PROBE');
+END $$;
+
+-- ------------------------------------------------------------------------------------
+-- M) CF11-R7 — PINNED QUESTION IDENTITY. Same code, same count, different published revision or
+--    payload hash must be a replay conflict, not a match.
+-- ------------------------------------------------------------------------------------
+DO $$
+DECLARE
+  plan jsonb := (SELECT result FROM public.golden_lesson_publications
+                  WHERE batch_id='51000000-0000-0000-0000-000000000001');
+  pinned jsonb := plan->'questions'->'official'->0;
+  qid uuid := (pinned->>'questionId')::uuid;
+  original text := pinned->>'payloadHash';
+BEGIN
+  PERFORM public.cf04_assert(
+    plan->>'schema' = 'tamkeen.content-factory-11.write-plan.v2',
+    'CF11_EXPECTED_PINNED_REVISION_REFUSED: the plan must be the pinned v2 schema');
+  PERFORM public.cf04_assert(
+    coalesce(pinned->>'revisionId','') <> '' AND coalesce(pinned->>'payloadHash','') <> '',
+    'CF11_EXPECTED_PINNED_REVISION_REFUSED: every planned question must pin revision + payload');
+  PERFORM public.cf11_assert_replay_state(plan);
+
+  -- payload drift at an identical code/count
+  UPDATE public.question_revisions
+     SET payload_hash = repeat('0',64)
+   WHERE id = (pinned->>'revisionId')::uuid;
+  BEGIN
+    PERFORM public.cf11_assert_replay_state(plan);
+    RAISE EXCEPTION 'CF11_EXPECTED_PINNED_REVISION_REFUSED: payload drift was accepted';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
+  UPDATE public.question_revisions SET payload_hash = original
+   WHERE id = (pinned->>'revisionId')::uuid;
+
+  -- revision substitution at an identical code/count
+  UPDATE public.questions SET current_published_revision_id = NULL WHERE id = qid;
+  BEGIN
+    PERFORM public.cf11_assert_replay_state(plan);
+    RAISE EXCEPTION 'CF11_EXPECTED_PINNED_REVISION_REFUSED: a swapped revision was accepted';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
+  UPDATE public.questions SET current_published_revision_id = (pinned->>'revisionId')::uuid
+   WHERE id = qid;
+  PERFORM public.cf11_assert_replay_state(plan);
+END $$;
+
+-- ------------------------------------------------------------------------------------
+-- N) CF11-R7 — ZERO-WRITE DRY_RUN and CONTROLLED WITHDRAWAL.
+-- ------------------------------------------------------------------------------------
+DO $$
+DECLARE
+  before_assets bigint;
+  after_assets bigint;
+  before_attest bigint;
+  after_attest bigint;
+BEGIN
+  SELECT count(*) INTO before_assets FROM public.golden_lesson_published_assets;
+  SELECT count(*) INTO before_attest FROM public.golden_lesson_asset_attestations;
+  BEGIN
+    PERFORM public.golden_lesson_publish_cf11(
+      _batch_id => '51000000-0000-0000-0000-000000000001',
+      _actor_id => '52000000-0000-0000-0000-0000000000a1',
+      _mode => 'DRY_RUN');
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+  SELECT count(*) INTO after_assets FROM public.golden_lesson_published_assets;
+  SELECT count(*) INTO after_attest FROM public.golden_lesson_asset_attestations;
+  PERFORM public.cf04_assert(
+    before_assets = after_assets AND before_attest = after_attest,
+    'CF11_EXPECTED_DRY_RUN_ZERO_WRITES: a DRY_RUN wrote rows');
+END $$;
+
+DO $$
+DECLARE
+  batch uuid := '51000000-0000-0000-0000-000000000001';
+  lesson uuid := (SELECT lesson_id FROM public.golden_lesson_publications WHERE batch_id=batch);
+  ledger bigint;
+BEGIN
+  -- the service role may never withdraw
+  PERFORM public.cf04_assert(
+    NOT has_function_privilege('service_role',
+      'public.golden_lesson_revoke_cf11_ready(uuid,uuid,text,text,text)','EXECUTE'),
+    'CF11_EXPECTED_REVOKE_SERVICE_ROLE_DENIED');
+
+  -- a DRY_RUN withdrawal writes nothing
+  SELECT count(*) INTO ledger FROM public.golden_lesson_ready_revocations;
+  BEGIN
+    PERFORM public.golden_lesson_revoke_cf11_ready(_batch_id => batch,
+      _actor_id => '52000000-0000-0000-0000-0000000000a1',
+      _reason => 'withdrawn for regression probe', _mode => 'DRY_RUN');
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+  PERFORM public.cf04_assert(
+    (SELECT count(*) FROM public.golden_lesson_ready_revocations) = ledger,
+    'CF11_EXPECTED_REVOKE_DRY_RUN_ZERO_WRITES');
+
+  -- a short reason is refused
+  BEGIN
+    PERFORM public.golden_lesson_revoke_cf11_ready(_batch_id => batch,
+      _actor_id => '52000000-0000-0000-0000-0000000000a1', _reason => 'short',
+      _idempotency_key => 'cf11-revoke-probe', _mode => 'EXECUTE');
+    RAISE EXCEPTION 'CF11_EXPECTED_REVOKE_REASON_REFUSED';
+  EXCEPTION WHEN check_violation OR insufficient_privilege THEN NULL;
+  END;
+
+  -- the withdrawal ledger is append-only, exactly like the READY ledger
+  BEGIN
+    UPDATE public.golden_lesson_ready_revocations SET reason='tampered';
+    RAISE EXCEPTION 'CF11_EXPECTED_REVOKE_LEDGER_IMMUTABLE: an update was accepted';
+  EXCEPTION WHEN raise_exception OR insufficient_privilege THEN NULL;
+  END;
+  PERFORM public.cf04_assert(lesson IS NOT NULL, 'CF11_EXPECTED_REVOKE probe lesson resolves');
 END $$;
 
 SELECT 'PASS_CONTENT_FACTORY_11_PG17' AS verdict;

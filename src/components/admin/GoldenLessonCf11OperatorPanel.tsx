@@ -9,10 +9,12 @@ import {
   RefreshCw,
   ShieldCheck,
   Rocket,
+  Undo2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
@@ -22,6 +24,7 @@ import {
   getGoldenLessonCf11Batches,
   materializeGoldenLessonBatch,
   publishGoldenLessonCf11,
+  revokeGoldenLessonCf11Ready,
   verifyGoldenLessonCf11Assets,
   type Cf11BatchStatus,
 } from "@/lib/content-factory/golden-lesson-publication.functions";
@@ -50,6 +53,7 @@ export function GoldenLessonCf11OperatorPanel() {
   const verifyAssets = useServerFn(verifyGoldenLessonCf11Assets);
   const publish = useServerFn(publishGoldenLessonCf11);
   const attest = useServerFn(attestGoldenLessonCf11Ready);
+  const revoke = useServerFn(revokeGoldenLessonCf11Ready);
 
   const [batches, setBatches] = useState<Cf11BatchStatus[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -57,6 +61,7 @@ export function GoldenLessonCf11OperatorPanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [available, setAvailable] = useState(true);
   const [note, setNote] = useState("");
+  const [revokeReason, setRevokeReason] = useState("");
   /**
    * Write-plan hashes captured from the DRY_RUN the operator actually reviewed, per batch.
    * EXECUTE is impossible until the matching hash exists: the server rejects a plan hash that
@@ -126,13 +131,28 @@ export function GoldenLessonCf11OperatorPanel() {
     const extra = [...new Set(live.filter((cap) => !CF11_EXPECTED_CAPABILITIES.includes(cap as never)))].sort();
     const duplicated = [...new Set(live.filter((cap, i) => live.indexOf(cap) !== i))].sort();
     const notInReview = rows.filter((row) => row.status !== "REVIEW").map((row) => `${row.capability}:${row.status}`).sort();
+    /**
+     * CF11-R7: set equality is not enough. A row parked at OPTIONAL/NA is silently excused from
+     * the readiness contract, so it blocks attestation exactly like a missing capability does.
+     */
+    const notRequired = rows
+      .filter((row) => row.applicability !== "REQUIRED")
+      .map((row) => `${row.capability}:${row.applicability}`)
+      .sort();
+    const allReady = rows.length > 0 && rows.every((row) => row.status === "READY");
     const exact = missing.length === 0 && extra.length === 0 && duplicated.length === 0
-      && live.length === CF11_EXPECTED_CAPABILITIES.length;
-    return { missing, extra, duplicated, notInReview, exact };
+      && live.length === CF11_EXPECTED_CAPABILITIES.length && notRequired.length === 0;
+    return { missing, extra, duplicated, notInReview, notRequired, allReady, exact };
   }, [selected]);
   const isPublisher = Boolean(selected?.publishedBy && user?.id && selected.publishedBy === user.id);
   const canAttest = Boolean(selected?.published) && !selected?.readyAttestedAt && !isPublisher
-    && setDiff.exact && setDiff.notInReview.length === 0;
+    && !selected?.readyRevokedAt && setDiff.exact && setDiff.notInReview.length === 0;
+  /** Withdrawal: only an attested, not-yet-withdrawn publication whose seven rows are all READY. */
+  const isAttester = Boolean(
+    selected?.readyAttestedBy && user?.id && selected.readyAttestedBy === user.id,
+  );
+  const canRevoke = Boolean(selected?.readyAttestedAt) && !selected?.readyRevokedAt
+    && !isAttester && setDiff.exact && setDiff.allReady;
 
 
   return (
@@ -169,7 +189,8 @@ export function GoldenLessonCf11OperatorPanel() {
               </Badge>
               {batch.materialized && <Badge variant="outline">CF10</Badge>}
               {batch.published && <Badge variant="outline">REVIEW</Badge>}
-              {batch.readyAttestedAt && <Badge>READY</Badge>}
+              {batch.readyAttestedAt && !batch.readyRevokedAt && <Badge>READY</Badge>}
+              {batch.readyRevokedAt && <Badge variant="destructive">مسحوب</Badge>}
             </span>
           </button>
         ))}
@@ -184,6 +205,7 @@ export function GoldenLessonCf11OperatorPanel() {
             <p>اعتمد READY بواسطة: <span className="font-mono">{short(selected.readyAttestedBy)}</span></p>
             <p>قدرات REVIEW: {inReview} · قدرات READY: {readyCount}</p>
             <p>الأصول: منشورة {selected.declaredAssets} · موثّقة رفعاً {selected.attestedAssets}</p>
+            <p>سُحب الاعتماد بواسطة: <span className="font-mono">{short(selected.readyRevokedBy)}</span></p>
             <p className="sm:col-span-2 font-mono text-[10px] break-all">
               خطة CF10: {selectedPlans.cf10 ? short(selectedPlans.cf10) : "لم تُراجَع"} · خطة CF11:{" "}
               {selectedPlans.cf11 ? short(selectedPlans.cf11) : "لم تُراجَع"}
@@ -239,8 +261,8 @@ export function GoldenLessonCf11OperatorPanel() {
             )}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            لا يمكن التنفيذ قبل مراجعة خطة الكتابة (DRY_RUN): يُرسل التنفيذ بصمة الخطة نفسها،
-            ويرفضها الخادم إذا تغيّرت.
+            DRY_RUN لا يكتب أي شيء إطلاقاً: لا رفع أصول ولا توثيق ولا صفوف. لا يمكن التنفيذ قبل
+            مراجعة خطة الكتابة: يُرسل التنفيذ بصمة الخطة نفسها، ويرفضها الخادم إذا تغيّرت.
           </p>
 
 
@@ -285,11 +307,50 @@ export function GoldenLessonCf11OperatorPanel() {
               {setDiff.notInReview.length > 0 && (
                 <p className="text-amber-600">حالات غير REVIEW: {setDiff.notInReview.join("، ")}</p>
               )}
+              {setDiff.notRequired.length > 0 && (
+                <p className="text-amber-600">قدرات ليست REQUIRED: {setDiff.notRequired.join("، ")}</p>
+              )}
               {!setDiff.exact && (
                 <p>الاعتماد مرفوض ما لم تطابق المجموعة الحيّة المجموعة القانونية بالضبط.</p>
               )}
             </div>
 
+          </div>
+
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-3">
+            <p className="text-sm font-medium flex items-center gap-2">
+              <Undo2 className="h-4 w-4" />سحب الاعتماد (إخفاء عن الطلاب)
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              السحب يعيد القدرات السبع جميعاً إلى DRAFT ذرّياً — وهي الحالة غير المرئية الوحيدة
+              المدعومة بعد READY — ويحفظ أدلة الاعتماد الأصلية في سجل إلحاقي. لا يجوز لمن اعتمد
+              READY أن يسحبه، والسحب نهائي: لا يمكن إعادة اعتماد النشر نفسه بعده.
+            </p>
+            <div className="space-y-1">
+              <Label htmlFor="cf11-revoke-reason">سبب السحب (١٢ حرفاً فأكثر)</Label>
+              <Input id="cf11-revoke-reason" value={revokeReason}
+                onChange={(event) => setRevokeReason(event.target.value)}
+                placeholder="لماذا يجب إخفاء هذا الدرس الآن؟" />
+            </div>
+            {isAttester && (
+              <p className="text-xs text-amber-600">لا يمكنك سحب اعتماد قمت أنت باعتماده.</p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" className="min-h-[44px]"
+                disabled={busy !== null || !canRevoke || revokeReason.trim().length < 12}
+                onClick={() => void run("revoke-dry", () => revoke({
+                  data: { batchId: selected.batchId, mode: "DRY_RUN", reason: revokeReason.trim() },
+                }))}>
+                معاينة السحب (DRY_RUN)
+              </Button>
+              <Button type="button" variant="destructive" className="min-h-[44px]"
+                disabled={busy !== null || !canRevoke || revokeReason.trim().length < 12}
+                onClick={() => void run("revoke", () => revoke({
+                  data: { batchId: selected.batchId, mode: "EXECUTE", reason: revokeReason.trim() },
+                }))}>
+                سحب الاعتماد
+              </Button>
+            </div>
           </div>
         </div>
       )}

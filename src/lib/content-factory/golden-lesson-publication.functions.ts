@@ -32,6 +32,12 @@ const AttestInput = BatchInput.extend({
     note: z.string().trim().min(8).max(500),
   }),
 });
+const RevokeInput = BatchInput.extend({
+  mode: z.enum(["DRY_RUN", "EXECUTE"]),
+  /** A written justification is mandatory; the RPC rejects anything shorter than 12 chars. */
+  reason: z.string().trim().min(12).max(500),
+});
+
 
 /** Reads the operator dashboard state for every staged batch. Read-only; zero writes. */
 export const getGoldenLessonCf11Batches = createServerFn({ method: "GET" })
@@ -92,29 +98,41 @@ export const verifyGoldenLessonCf11Assets = createServerFn({ method: "POST" })
     };
   });
 
-/** CF11 publication: DRAFT → REVIEW only. Executed as the human operator. Never reaches READY. */
+/**
+ * CF11 publication: DRAFT → REVIEW only. Executed as the human operator. Never reaches READY.
+ *
+ * CF11-R7 — a DRY_RUN performs ZERO writes: it only resolves the asset declarations read-only
+ * from the verified bundle and asks the RPC for a plan. Storage uploads and the attestation
+ * ledger are touched exclusively on the EXECUTE path, after the operator approved a plan hash.
+ */
 export const publishGoldenLessonCf11 = createServerFn({ method: "POST" })
   .middleware([requireContentStaffAuth])
   .inputValidator((input) => ModeInput.parse(input))
   .handler(async ({ data, context }) => {
     const {
-      asRpcResult, attestStoredAssets, ensureVerifiedAssets, idempotencyKey, planSha, requirePlan, rpc,
+      asRpcResult, attestStoredAssets, idempotencyKey, planSha, requirePlan, resolveVerifiedAssets,
+      rpc, uploadVerifiedAssets,
     } = await import("./golden-lesson-publication.server");
     const { supabase, userId } = context as ContentStaffAuthContext;
     const expected = requirePlan(data.mode, data.expectedPlanSha256, "CF11_WRITE_PLAN_HASH_REQUIRED");
-    const { declarations, uploadedPaths } = await ensureVerifiedAssets(data.batchId);
-    // Publication may only proceed on bytes the SERVER re-measured out of the bucket.
-    const attestations = await attestStoredAssets(
-      userId, data.batchId, declarations, uploadedPaths, "EXECUTE",
-    );
+    const execute = data.mode === "EXECUTE";
+    // Read-only in both modes: download + re-verify the bundle, derive content-addressed paths.
+    const { declarations, files } = await resolveVerifiedAssets(data.batchId);
+    // Writes happen only under EXECUTE. Publication may then proceed exclusively on bytes the
+    // SERVER re-measured out of the bucket.
+    const uploadedPaths = execute
+      ? await uploadVerifiedAssets(declarations, files)
+      : new Set<string>();
+    const attestations = execute
+      ? await attestStoredAssets(userId, data.batchId, declarations, uploadedPaths, "EXECUTE")
+      : [];
     const result = await rpc(supabase)("golden_lesson_publish_cf11", {
       _batch_id: data.batchId,
       _actor_id: userId,
       _mode: data.mode,
       _assets: declarations,
       _expected_plan_sha256: expected,
-      _idempotency_key:
-        data.mode === "EXECUTE" && expected ? idempotencyKey("cf11", data.batchId, expected) : null,
+      _idempotency_key: execute && expected ? idempotencyKey("cf11", data.batchId, expected) : null,
     });
     if (result.error) throw new Error(result.error.message);
     if (!result.data) throw new Error("CF11_PUBLISH_EMPTY_RESPONSE");
@@ -123,6 +141,7 @@ export const publishGoldenLessonCf11 = createServerFn({ method: "POST" })
       planSha256: planSha(result.data, "plan_sha256"),
       assetsAttested: attestations.length,
       assetsUploaded: uploadedPaths.size,
+      writesPerformed: execute,
       actorId: userId,
     };
   });
@@ -144,3 +163,29 @@ export const attestGoldenLessonCf11Ready = createServerFn({ method: "POST" })
     if (!result.data) throw new Error("CF11_ATTEST_EMPTY_RESPONSE");
     return { ...asRpcResult(result.data), actorId: userId };
   });
+
+/**
+ * CF11-R7 — controlled, audited withdrawal of an attested READY publication. Admin-only, and the
+ * RPC itself re-derives the actor from `auth.uid()`; the service role cannot execute it at all.
+ * Moves the exact canonical seven back to DRAFT (the only supported non-visible forward state)
+ * atomically and idempotently, preserving the original READY evidence in an append-only ledger.
+ */
+export const revokeGoldenLessonCf11Ready = createServerFn({ method: "POST" })
+  .middleware([requireContentStaffAuth])
+  .inputValidator((input) => RevokeInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { asRpcResult, rpc } = await import("./golden-lesson-publication.server");
+    const { supabase, userId, isFullAdmin } = context as ContentStaffAuthContext;
+    if (!isFullAdmin) throw new Error("CF11_REVOKE_ADMIN_REQUIRED");
+    const result = await rpc(supabase)("golden_lesson_revoke_cf11_ready", {
+      _batch_id: data.batchId,
+      _actor_id: userId,
+      _reason: data.reason,
+      _idempotency_key: data.mode === "EXECUTE" ? `cf11-revoke-${data.batchId}` : null,
+      _mode: data.mode,
+    });
+    if (result.error) throw new Error(result.error.message);
+    if (!result.data) throw new Error("CF11_REVOKE_EMPTY_RESPONSE");
+    return { ...asRpcResult(result.data), actorId: userId };
+  });
+
