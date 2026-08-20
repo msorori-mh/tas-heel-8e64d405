@@ -337,3 +337,109 @@ test("CF11-R8/7 — PG17 negatives are executable, not swallowed", () => {
   assert.match(server, /_batch_id:[\s\S]{0,400}_mode: mode,/);
   assert.equal((server.match(/_(batch_id|requested_by|asset_code|observed_sha256|observed_bytes|observed_mime|magic_hex|verification_origin|mode):/g) ?? []).length, 9);
 });
+
+/* ------------------------------------------------------------------------------------ *
+ * CF11-R8B — the generic 21H transition RPC can no longer demote an attested Golden Lesson.
+ * ------------------------------------------------------------------------------------ */
+
+const FIXTURE = "scripts/content-factory/pg17/content-factory-11-fixture.sql";
+const fixture = readFileSync(FIXTURE, "utf8");
+
+test("CF11-R8B/1 — CF11 re-declares the generic transition with a demotion guard", () => {
+  // The 21H migration itself is never edited: CF11 supersedes the function definition.
+  const h21 = readFileSync(
+    "supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql", "utf8");
+  assert.doesNotMatch(h21, /CF11_DIRECT_TRANSITION_FORBIDDEN/);
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.lesson_capability_transition\(/);
+  assert.match(sql, /CF11_DIRECT_TRANSITION_FORBIDDEN/);
+  // The guard runs before any privilege branch and before any mutation.
+  const fn = sql.slice(sql.indexOf("CREATE OR REPLACE FUNCTION public.lesson_capability_transition("));
+  const guard = fn.indexOf("cf11_assert_demotion_allowed");
+  const update = fn.indexOf("UPDATE public.lesson_capability_lifecycle");
+  const insert = fn.indexOf("INSERT INTO public.lesson_capability_lifecycle");
+  assert.ok(guard > 0 && guard < update && guard < insert);
+  // Signature and grants are unchanged, so 21H callers keep working.
+  assert.match(fn, /GRANT EXECUTE ON FUNCTION public\.lesson_capability_transition\(uuid,text,text,jsonb,text\) TO authenticated/);
+});
+
+test("CF11-R8B/2 — the guard is narrow: only CF11 lessons, canonical REQUIRED, leaving READY", () => {
+  const guard = sql.slice(
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.cf11_assert_demotion_allowed"),
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.lesson_capability_transition("),
+  );
+  assert.match(guard, /IF _from_status IS DISTINCT FROM 'READY' THEN RETURN; END IF;/);
+  assert.match(guard, /IF _to_status IS NOT DISTINCT FROM 'READY' THEN RETURN; END IF;/);
+  assert.match(guard, /_capability = ANY \(public\.cf11_lifecycle_capabilities\(\)\)/);
+  assert.match(guard, /coalesce\(_applicability, 'REQUIRED'\) <> 'REQUIRED'/);
+  assert.match(guard, /NOT public\.cf11_is_managed_lesson\(_lesson_id\)/);
+  // Legacy lessons: managed-ness is decided by an actual CF11 publication row.
+  assert.match(sql, /FROM public\.golden_lesson_publications WHERE lesson_id = _lesson_id/);
+});
+
+test("CF11-R8B/3 — authorization is transaction-local and not forgeable by a client", () => {
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.cf11_revocation_tickets/);
+  assert.match(sql, /xact_id\s+bigint\s+NOT NULL/);
+  assert.match(sql, /VALUES \(txid_current\(\), _lesson_id, _actor_id, _revocation_id\)/);
+  assert.match(sql, /WHERE xact_id = txid_current\(\) AND lesson_id = _lesson_id/);
+  for (const role of ["anon", "authenticated", "service_role"]) {
+    assert.match(sql, new RegExp(`REVOKE ALL ON TABLE public\\.cf11_revocation_tickets FROM ${role};`));
+  }
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.cf11_open_revocation_ticket\(uuid, uuid, uuid\)\s*\n\s*FROM PUBLIC, anon, authenticated, service_role;/);
+  assert.match(sql, /ALTER TABLE public\.cf11_revocation_tickets ENABLE ROW LEVEL SECURITY/);
+  // No GUC and no boolean bypass parameter anywhere in the guard path.
+  assert.doesNotMatch(sql, /current_setting\('cf11[^']*'/);
+  assert.doesNotMatch(sql, /_bypass|_allow_direct|_force\b/);
+});
+
+test("CF11-R8B/4 — only the controlled withdrawal opens a ticket, and it closes it", () => {
+  // Exactly one call site in the whole migration: the controlled withdrawal.
+  assert.equal((sql.match(/PERFORM public\.cf11_open_revocation_ticket\(/g) ?? []).length, 1);
+  const revoke = sql.slice(
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_revoke_cf11_ready"));
+  const open = revoke.indexOf("cf11_open_revocation_ticket(pub.lesson_id, uid, revocation_id)");
+  const loop = revoke.indexOf("FOREACH cap IN ARRAY public.cf11_lifecycle_capabilities() LOOP");
+  const close = revoke.indexOf("cf11_close_revocation_ticket(pub.lesson_id)");
+  assert.ok(open > 0 && open < loop && loop < close, "ticket must wrap the transition loop only");
+  // The ticket is opened only after the key/reason/admin/exact-set gates already passed.
+  assert.ok(revoke.indexOf("CF11_REVOKE_IDEMPOTENCY_KEY_REQUIRED") < open);
+  assert.ok(revoke.indexOf("cf11_assert_exact_required_lifecycle_set") < open);
+  // Nothing else in the codebase opens one.
+  assert.ok(!fns.includes("cf11_open_revocation_ticket"));
+  assert.ok(!server.includes("cf11_open_revocation_ticket"));
+});
+
+test("CF11-R8B/5 — raw table DML cannot bypass either path", () => {
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.cf11_guard_lifecycle_demotion/);
+  assert.match(sql, /BEFORE UPDATE OR DELETE ON public\.lesson_capability_lifecycle\n\s*FOR EACH ROW EXECUTE FUNCTION public\.cf11_guard_lifecycle_demotion\(\)/);
+  assert.match(sql, /'raw_delete'/);
+  assert.match(sql, /'raw_update'/);
+  // The migration itself refuses to install if a Data API role can write the lifecycle table
+  // or reach the ticket table.
+  assert.match(sql, /CF11_RAW_TABLE_BYPASS: % holds % on lesson_capability_lifecycle/);
+  assert.match(sql, /CF11_TICKET_TABLE_REACHABLE/);
+  assert.match(sql, /CF11_TICKET_FORGEABLE/);
+});
+
+test("CF11-R8B/6 — PG17 proves the bypass closed, legacy intact, controlled path alone works", () => {
+  const section = asserts.slice(asserts.indexOf("-- O) CF11-R8B"), asserts.indexOf("-- N) CF11-R8"));
+  assert.ok(section.length > 0, "section O must exist before section N");
+  assert.doesNotMatch(section, /EXCEPTION WHEN OTHERS/);
+  // Non-admin staff and full admin both refused, with zero writes.
+  assert.match(section, /NOT public\.is_full_admin\('10000000-0000-0000-0000-000000000001'\)/);
+  assert.match(section, /public\.cf04_assert\(public\.is_full_admin\('10000000-0000-0000-0000-000000000006'\)/);
+  assert.ok((section.match(/CF11_EXPECTED_DIRECT_TRANSITION_REFUSED/g) ?? []).length >= 3);
+  assert.ok((section.match(/CF11_EXPECTED_DIRECT_TRANSITION_ZERO_WRITES/g) ?? []).length >= 4);
+  assert.match(section, /CF11_EXPECTED_RAW_DEMOTION_REFUSED/);
+  assert.match(section, /CF11_EXPECTED_TICKET_UNREACHABLE/);
+  assert.match(section, /CF11_EXPECTED_RAW_TABLE_BYPASS_CLOSED/);
+  // Legacy lesson keeps the exact 21H behaviour, including READY -> DRAFT by content staff.
+  assert.match(section, /CF11_EXPECTED_LEGACY_UNMANAGED/);
+  assert.match(section, /CF11_EXPECTED_LEGACY_TRANSITION_UNCHANGED/);
+  // The fixture models production honestly: content_manager IS staff but is NOT a full admin.
+  assert.match(fixture, /golden_lesson_has_role\(_user_id, 'content_manager'\)/);
+  assert.match(fixture, /43000000-0000-0000-0000-000000000099/);
+  // The controlled withdrawal (section N) is still the only thing that demotes the seven.
+  const n = asserts.slice(asserts.indexOf("-- N) CF11-R8"));
+  assert.match(n, /status = 'DRAFT' AND applicability = 'REQUIRED'/);
+  assert.match(n, /CF11_EXPECTED_REVOKE_LEDGER: exactly one withdrawal row/);
+});

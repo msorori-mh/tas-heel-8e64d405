@@ -1109,6 +1109,148 @@ BEGIN
 END $$;
 
 -- ------------------------------------------------------------------------------------
+-- O) CF11-R8B — THE GENERIC 21H TRANSITION CANNOT DEMOTE AN ATTESTED GOLDEN LESSON.
+--
+-- 21H grants `lesson_capability_transition` to `authenticated` and only demands a full admin for
+-- `-> READY` and `REVIEW -> DRAFT`, so plain content staff could call `READY -> DRAFT` directly
+-- and un-publish an attested lesson with none of the CF11 controls. These assertions prove the
+-- hole is closed for CF11 lessons, still open (unchanged) for legacy lessons, and unreachable
+-- through raw DML. Nothing here swallows OTHERS.
+-- ------------------------------------------------------------------------------------
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', false);
+SET ROLE authenticated;
+DO $$
+DECLARE
+  lesson uuid := '43000000-0000-0000-0000-000000000012';
+  before_audit bigint;
+BEGIN
+  -- Preconditions: a non-admin content staff member, on an attested CF11 lesson.
+  PERFORM public.cf04_assert(public.is_content_staff('10000000-0000-0000-0000-000000000001'),
+    'CF11_EXPECTED_DIRECT_TRANSITION_SETUP: actor must be content staff');
+  PERFORM public.cf04_assert(NOT public.is_full_admin('10000000-0000-0000-0000-000000000001'),
+    'CF11_EXPECTED_DIRECT_TRANSITION_SETUP: actor must NOT be a full admin');
+  PERFORM public.cf04_assert(
+    (SELECT count(*) = 7 FROM public.lesson_capability_lifecycle
+      WHERE lesson_id = lesson AND status = 'READY'),
+    'CF11_EXPECTED_DIRECT_TRANSITION_SETUP: the lesson must be attested READY');
+  SELECT count(*) INTO before_audit FROM public.audit_logs;
+
+  BEGIN
+    PERFORM public.lesson_capability_transition(lesson, 'officialBookContent', 'DRAFT', NULL, NULL);
+    RAISE EXCEPTION 'CF11_EXPECTED_DIRECT_TRANSITION_REFUSED: staff demoted an attested capability';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM NOT LIKE '%CF11_DIRECT_TRANSITION_FORBIDDEN%' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.lesson_capability_transition(lesson, 'selfTest', 'REVIEW', NULL, NULL);
+    RAISE EXCEPTION 'CF11_EXPECTED_DIRECT_TRANSITION_REFUSED: READY -> REVIEW was accepted';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM NOT LIKE '%CF11_DIRECT_TRANSITION_FORBIDDEN%' THEN RAISE; END IF;
+  END;
+
+  -- Zero writes: the lifecycle and the audit trail are byte-for-byte where they were.
+  PERFORM public.cf04_assert(
+    (SELECT count(*) = 7 FROM public.lesson_capability_lifecycle
+      WHERE lesson_id = lesson AND status = 'READY' AND applicability = 'REQUIRED'),
+    'CF11_EXPECTED_DIRECT_TRANSITION_ZERO_WRITES: lifecycle moved');
+  PERFORM public.cf04_assert((SELECT count(*) FROM public.audit_logs) = before_audit,
+    'CF11_EXPECTED_DIRECT_TRANSITION_ZERO_WRITES: audit_logs moved');
+  PERFORM public.cf04_assert(public.lesson_student_visible(lesson),
+    'CF11_EXPECTED_DIRECT_TRANSITION_ZERO_WRITES: visibility must be untouched');
+END $$;
+RESET ROLE;
+
+-- O2) A FULL ADMIN is refused on the generic path too: privilege is not the control here, the
+--     controlled ledger-backed withdrawal is.
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000006', false);
+SET ROLE authenticated;
+DO $$
+DECLARE
+  lesson uuid := '43000000-0000-0000-0000-000000000012';
+  before_audit bigint;
+  cap text;
+BEGIN
+  PERFORM public.cf04_assert(public.is_full_admin('10000000-0000-0000-0000-000000000006'),
+    'CF11_EXPECTED_DIRECT_TRANSITION_SETUP: actor must be a full admin');
+  SELECT count(*) INTO before_audit FROM public.audit_logs;
+  FOREACH cap IN ARRAY public.cf11_lifecycle_capabilities() LOOP
+    BEGIN
+      PERFORM public.lesson_capability_transition(lesson, cap, 'DRAFT', NULL, NULL);
+      RAISE EXCEPTION 'CF11_EXPECTED_DIRECT_TRANSITION_REFUSED: admin demoted % directly', cap;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE '%CF11_DIRECT_TRANSITION_FORBIDDEN%' THEN RAISE; END IF;
+    END;
+  END LOOP;
+  PERFORM public.cf04_assert(
+    (SELECT count(*) = 7 FROM public.lesson_capability_lifecycle
+      WHERE lesson_id = lesson AND status = 'READY'),
+    'CF11_EXPECTED_DIRECT_TRANSITION_ZERO_WRITES: admin path moved the lifecycle');
+  PERFORM public.cf04_assert((SELECT count(*) FROM public.audit_logs) = before_audit,
+    'CF11_EXPECTED_DIRECT_TRANSITION_ZERO_WRITES: admin path wrote audit rows');
+
+  -- The ticket that authorises the controlled path is not reachable from a granted role.
+  PERFORM public.cf04_assert(
+    NOT has_table_privilege('authenticated','public.cf11_revocation_tickets','INSERT')
+    AND NOT has_table_privilege('service_role','public.cf11_revocation_tickets','INSERT')
+    AND NOT has_function_privilege('authenticated',
+      'public.cf11_open_revocation_ticket(uuid,uuid,uuid)','EXECUTE')
+    AND NOT has_function_privilege('service_role',
+      'public.cf11_open_revocation_ticket(uuid,uuid,uuid)','EXECUTE'),
+    'CF11_EXPECTED_TICKET_UNREACHABLE');
+  -- Raw DML is closed for every Data API role as well.
+  PERFORM public.cf04_assert(
+    NOT has_table_privilege('authenticated','public.lesson_capability_lifecycle','UPDATE')
+    AND NOT has_table_privilege('authenticated','public.lesson_capability_lifecycle','DELETE')
+    AND NOT has_table_privilege('anon','public.lesson_capability_lifecycle','SELECT'),
+    'CF11_EXPECTED_RAW_TABLE_BYPASS_CLOSED');
+END $$;
+RESET ROLE;
+
+-- O3) Raw DML, run with table-owner power, is stopped by the row trigger as well.
+DO $$
+DECLARE lesson uuid := '43000000-0000-0000-0000-000000000012';
+BEGIN
+  BEGIN
+    UPDATE public.lesson_capability_lifecycle SET status = 'DRAFT'
+     WHERE lesson_id = lesson AND capability = 'officialBookContent';
+    RAISE EXCEPTION 'CF11_EXPECTED_RAW_DEMOTION_REFUSED: a raw UPDATE demoted an attested row';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM NOT LIKE '%CF11_DIRECT_TRANSITION_FORBIDDEN%' THEN RAISE; END IF;
+  END;
+  BEGIN
+    DELETE FROM public.lesson_capability_lifecycle
+     WHERE lesson_id = lesson AND capability = 'officialBookContent';
+    RAISE EXCEPTION 'CF11_EXPECTED_RAW_DEMOTION_REFUSED: a raw DELETE removed an attested row';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM NOT LIKE '%CF11_DIRECT_TRANSITION_FORBIDDEN%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert(
+    (SELECT count(*) = 7 FROM public.lesson_capability_lifecycle
+      WHERE lesson_id = lesson AND status = 'READY'),
+    'CF11_EXPECTED_RAW_DEMOTION_REFUSED: the lifecycle must be untouched');
+END $$;
+
+-- O4) LEGACY BEHAVIOUR IS PRESERVED: a lesson with no CF11 publication still transitions exactly
+--     as 21H specifies, including READY -> DRAFT by ordinary content staff.
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', false);
+SET ROLE authenticated;
+DO $$
+DECLARE
+  legacy uuid := '43000000-0000-0000-0000-000000000099';
+  res jsonb;
+BEGIN
+  PERFORM public.cf04_assert(NOT public.cf11_is_managed_lesson(legacy),
+    'CF11_EXPECTED_LEGACY_UNMANAGED');
+  res := public.lesson_capability_transition(legacy, 'officialBookContent', 'DRAFT', NULL, NULL);
+  PERFORM public.cf04_assert(res->>'from_status' = 'READY' AND res->>'to_status' = 'DRAFT',
+    'CF11_EXPECTED_LEGACY_TRANSITION_UNCHANGED');
+  res := public.lesson_capability_transition(legacy, 'officialBookContent', 'REVIEW', NULL, NULL);
+  PERFORM public.cf04_assert(res->>'to_status' = 'REVIEW',
+    'CF11_EXPECTED_LEGACY_TRANSITION_UNCHANGED: DRAFT -> REVIEW');
+END $$;
+RESET ROLE;
+
+-- ------------------------------------------------------------------------------------
 -- N) CF11-R8 — EXECUTABLE ZERO-WRITE DRY_RUN and REAL CONTROLLED WITHDRAWAL.
 --
 -- Nothing here swallows `OTHERS`: every DRY_RUN must actually SUCCEED and must actually
