@@ -268,12 +268,28 @@ export function GoldenLessonCf11OperatorPanel() {
                 اعتماد READY
               </Button>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              القدرات الحيّة ({liveCapabilities.length}/{CF11_EXPECTED_CAPABILITY_COUNT}):{" "}
-              {liveCapabilities.length > 0 ? liveCapabilities.join("، ") : "لا توجد قدرات مسجّلة"}
-              {liveCapabilities.length !== CF11_EXPECTED_CAPABILITY_COUNT
-                && " — الاعتماد مرفوض ما لم تكن سبع قدرات بالضبط."}
-            </p>
+            <div className="space-y-1 text-[11px] text-muted-foreground">
+              <p>
+                القدرات الحيّة ({liveCapabilities.length}/{CF11_EXPECTED_CAPABILITIES.length}):{" "}
+                {liveCapabilities.length > 0 ? liveCapabilities.join("، ") : "لا توجد قدرات مسجّلة"}
+              </p>
+              {setDiff.missing.length > 0 && (
+                <p className="text-amber-600">قدرات ناقصة: {setDiff.missing.join("، ")}</p>
+              )}
+              {setDiff.extra.length > 0 && (
+                <p className="text-amber-600">قدرات دخيلة: {setDiff.extra.join("، ")}</p>
+              )}
+              {setDiff.duplicated.length > 0 && (
+                <p className="text-amber-600">قدرات مكرّرة: {setDiff.duplicated.join("، ")}</p>
+              )}
+              {setDiff.notInReview.length > 0 && (
+                <p className="text-amber-600">حالات غير REVIEW: {setDiff.notInReview.join("، ")}</p>
+              )}
+              {!setDiff.exact && (
+                <p>الاعتماد مرفوض ما لم تطابق المجموعة الحيّة المجموعة القانونية بالضبط.</p>
+              )}
+            </div>
+
           </div>
         </div>
       )}
