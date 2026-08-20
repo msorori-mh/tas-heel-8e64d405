@@ -35,5 +35,5 @@ test("R10/4 — batch reads use the real staged_at column, never created_at", ()
     publication.indexOf("CF11_BATCHES_READ_FAILED"),
   );
   assert.match(read, /\.order\("staged_at"/);
-  assert.doesNotMatch(read, /\\.order\\("created_at"/);
+  assert.ok(!read.includes('.order("created_at")'));
 });
