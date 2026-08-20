@@ -1154,7 +1154,7 @@ BEGIN
     IF SQLERRM NOT LIKE '%CF11_DIRECT_TRANSITION_FORBIDDEN%' THEN RAISE; END IF;
   END;
   BEGIN
-    PERFORM public.lesson_capability_transition(lesson, 'selfTest', 'REVIEW', NULL, NULL);
+    PERFORM public.lesson_capability_transition(lesson, 'lessonAssessment', 'REVIEW', NULL, NULL);
     RAISE EXCEPTION 'CF11_EXPECTED_DIRECT_TRANSITION_REFUSED: READY -> REVIEW was accepted';
   EXCEPTION WHEN insufficient_privilege THEN
     IF SQLERRM NOT LIKE '%CF11_DIRECT_TRANSITION_FORBIDDEN%' THEN RAISE; END IF;
