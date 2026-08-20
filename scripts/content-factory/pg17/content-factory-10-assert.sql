@@ -778,20 +778,113 @@ SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources r
      AND e.source_sha256 = public.cf10_text_sha256(r.description)),
   'inline HTML body equals the staged payload the UI renders');
 
--- V3 snapshots for both capabilities are non-empty and reconcilable
-SELECT public.cf04_assert(
-  jsonb_array_length(coalesce(public.v3_capability_snapshot(
-    public.cf10_rich_lesson(),'mindMap')->'payload','[]'::jsonb)) > 0,
-  'mindMap snapshot is non-empty');
-SELECT public.cf04_assert(
-  jsonb_array_length(coalesce(public.v3_capability_snapshot(
-    public.cf10_rich_lesson(),'simulation')->'payload'->'resources','[]'::jsonb)) > 0,
-  'simulation snapshot is non-empty');
+-- The staged body exists and is addressable, but CF10 claims NO published HTML and NO READY.
+SELECT public.cf04_assert(public.cf10_html_publication_pending(public.cf10_rich_lesson(),'mindMap'),
+  'mindMap HTML stays pending CF11 publication after CF10');
+SELECT public.cf04_assert(public.cf10_html_publication_pending(public.cf10_rich_lesson(),'simulation'),
+  'simulation HTML stays pending CF11 publication after CF10');
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_capability_lifecycle
+   WHERE lesson_id=public.cf10_rich_lesson()
+     AND capability IN ('mindMap','simulation') AND status='DRAFT'),
+  'CF10 leaves mindMap/simulation in DRAFT, never READY');
+
+-- Marking them READY before CF11 publication is rejected outright.
+DO $$ BEGIN
+  BEGIN
+    UPDATE public.lesson_capability_lifecycle SET status='READY'
+     WHERE lesson_id=public.cf10_rich_lesson() AND capability='mindMap';
+    RAISE EXCEPTION 'CF10_EXPECTED_READY_TOO_EARLY';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_HTML_CAPABILITY_READY_TOO_EARLY%' THEN RAISE; END IF;
+  END;
+END $$;
+
+-- After CF11 stamps publication, READY becomes legitimate and the V3 snapshot is reconcilable.
+BEGIN;
+UPDATE public.lesson_resources
+   SET metadata = coalesce(metadata,'{}'::jsonb) || jsonb_build_object('cf11_published_at', now())
+ WHERE lesson_id=public.cf10_rich_lesson() AND html_resource_type IS NOT NULL;
+SELECT public.cf04_assert(NOT public.cf10_html_publication_pending(public.cf10_rich_lesson(),'mindMap'),
+  'CF11 publication clears the mindMap pending flag');
+UPDATE public.lesson_capability_lifecycle SET status='READY'
+ WHERE lesson_id=public.cf10_rich_lesson() AND capability IN ('mindMap','simulation');
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_capability_lifecycle
+   WHERE lesson_id=public.cf10_rich_lesson()
+     AND capability IN ('mindMap','simulation') AND status='READY'),
+  'READY is allowed once CF11 published the HTML');
 SELECT public.cf04_assert(public.v3_capability_snapshot_is_reconcilable(
   public.v3_capability_snapshot(public.cf10_rich_lesson(),'mindMap')),
-  'mindMap snapshot is reconcilable');
+  'mindMap snapshot is reconcilable after CF11 publication');
 SELECT public.cf04_assert(public.v3_capability_snapshot_is_reconcilable(
   public.v3_capability_snapshot(public.cf10_rich_lesson(),'simulation')),
-  'simulation snapshot is reconcilable');
+  'simulation snapshot is reconcilable after CF11 publication');
+ROLLBACK;
+
+-- ============================================================================
+-- 12) CF10-R4c: replay attests the immutable seed, not legitimate transitions.
+-- ============================================================================
+
+-- 12a) Legitimate downstream transitions do NOT break replay.
+BEGIN;
+UPDATE public.lesson_capability_lifecycle SET status='REVIEW'
+ WHERE lesson_id='43000000-0000-0000-0000-000000000001' AND capability='officialBookContent';
+UPDATE public.question_revisions r SET status='PUBLISHED'
+  FROM public.questions q WHERE q.id=r.question_id
+   AND q.lesson_id='43000000-0000-0000-0000-000000000001';
+UPDATE public.questions SET current_published_revision_id=(
+    SELECT id FROM public.question_revisions rv WHERE rv.question_id=questions.id
+     ORDER BY revision_number DESC LIMIT 1)
+ WHERE lesson_id='43000000-0000-0000-0000-000000000001';
+UPDATE public.lesson_resources SET is_primary = NOT is_primary, sort_order = sort_order + 10
+ WHERE lesson_id='43000000-0000-0000-0000-000000000001';
+UPDATE public.lessons SET is_free=false, sort_order=sort_order+5
+ WHERE id='43000000-0000-0000-0000-000000000001';
+SET ROLE service_role;
+SELECT public.cf04_assert(
+  (public.golden_lesson_materialize_domain_batch(
+     public.cf10_batch('QURAN-G10-L03-PKG'),
+     '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001')
+   ->>'live_attested')::boolean,
+  'replay still attests after legitimate lifecycle/publish transitions');
+RESET ROLE;
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.golden_lesson_domain_materializations
+                            WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG')),
+  'attested replay after transitions wrote no ledger row');
+ROLLBACK;
+
+-- 12b) Replay reports the attested scope explicitly (never an implicit "everything matches").
+SET ROLE service_role;
+SELECT public.cf04_assert(
+  (public.golden_lesson_materialize_domain_batch(
+     public.cf10_batch('QURAN-G10-L03-PKG'),
+     '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001')
+   ->>'attested_scope') = 'immutable_seed',
+  'replay declares attested_scope = immutable_seed');
+SELECT public.cf04_assert(
+  (public.golden_lesson_materialize_domain_batch(
+     public.cf10_batch('QURAN-G10-L03-PKG'),
+     '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001')
+   ->>'ledger_attested')::boolean, 'replay attests the ledger batch/plan/idempotency identity');
+RESET ROLE;
+
+-- 12c) Re-binding the identity under a valid ledger row aborts the replay.
+BEGIN;
+UPDATE public.lessons SET slug = slug || '-rebound'
+ WHERE id='43000000-0000-0000-0000-000000000001';
+SET ROLE service_role;
+DO $$ BEGIN
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(
+      public.cf10_batch('QURAN-G10-L03-PKG'),
+      '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001');
+    RAISE EXCEPTION 'CF10_EXPECTED_IDENTITY_REBOUND';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_REPLAY_STATE_DRIFT%'
+       AND SQLERRM NOT LIKE '%CF10_REPLAY_IDENTITY_REBOUND%' THEN RAISE; END IF;
+  END;
+END $$;
+RESET ROLE;
+ROLLBACK;
 
 SELECT 'PASS_CONTENT_FACTORY_10_PG17' AS verdict;
+
