@@ -627,7 +627,8 @@ SELECT public.cf04_assert(
      '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001')
    ->>'state_attested')::boolean, 'exact replay attests the live domain state');
 RESET ROLE;
-SELECT public.cf04_assert((SELECT count(*)=1 FROM public.golden_lesson_domain_materializations),
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.golden_lesson_domain_materializations
+                            WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG')),
   'exact replay wrote no extra ledger row');
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_book_contents
                             WHERE lesson_id='43000000-0000-0000-0000-000000000001'),
@@ -670,7 +671,8 @@ ROLLBACK;
 
 -- 11d) A ledger row without an attestation hash cannot replay at all.
 BEGIN;
-UPDATE public.golden_lesson_domain_materializations SET result = result - 'state_sha256';
+UPDATE public.golden_lesson_domain_materializations SET result = result - 'state_sha256'
+ WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
 SET ROLE service_role;
 DO $$ BEGIN
   BEGIN
