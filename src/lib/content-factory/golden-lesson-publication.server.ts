@@ -216,6 +216,9 @@ export async function ensureVerifiedAssets(batchId: string): Promise<{
       .single(),
     "CF11_BATCH_NOT_FOUND",
   );
+  if (!batch) throw new Error("CF11_BATCH_NOT_FOUND");
+
+
 
   const binding = ok(
     await admin
