@@ -35,19 +35,37 @@ in the test suite so the same mislabelling can never pass again.
 * `scripts/e2e/iron-cf11-student-probe.mjs` *(new)* — read-only student probe at 390x844 / 1280x900.
 * `tests/content-packages/chemistry-g12-iron-cf11-assets.test.ts` *(new)*, `chemistry-g12-iron-v3.test.mjs` (leaf/MIME assertion corrected).
 
-## Security model
+## Security model (R3)
 
-* `golden_lesson_publish_cf11` and `golden_lesson_attest_cf11_ready` are granted to `authenticated`
-  only and re-derive `auth.uid()`; `_actor_id` must agree. The server functions call them with the
-  operator's own token (`context.supabase`) — never the service role. An agent cannot approve.
-* Separation of duties is enforced in the schema:
-  `CHECK (ready_attested_by IS NULL OR ready_attested_by <> published_by)`. The UI disables the
-  attest controls for the operator who published.
+* **Manifest is the only declaration authority.** `cf11_manifest_assets(manifest, lesson_id)` derives
+  the asset set deterministically from the CF07 hash-pinned package manifest. Whatever the client
+  sends to `golden_lesson_publish_cf11` is an advisory echo: any difference raises
+  `CF11_ASSET_DECLARATION_NOT_AUTHORITATIVE` (42501). No client, server function or operator can add,
+  drop or edit a declaration.
+* **Uploads must be attested server-side.** `golden_lesson_attest_cf11_asset` re-measures the upload
+  (SHA-256, byte size, MIME, magic-byte prefix) against the manifest and binds it to the live
+  `storage.objects` identity (`id` + `version` + `eTag`). Rows without real size/mimetype metadata are
+  refused (`CF11_ASSET_OBJECT_METADATA_MISSING`), so a fabricated name-only object can never stand in
+  for an upload. Publication fails closed when an attestation is missing, stale or when the attested
+  set differs from the manifest set (`CF11_ASSET_ATTESTATION_MISSING`, `..._SET_MISMATCH`).
+* **Append-only ledgers.** `golden_lesson_asset_attestations`, `golden_lesson_publications` and
+  `golden_lesson_ready_attestations` have `UPDATE`/`DELETE` revoked from every role and immutability
+  triggers behind them. READY evidence is a separate ledger row, never a mutation of the publication
+  row.
+* **Replay guards.** Publication is idempotent on (batch, plan hash); a replay whose plan hash,
+  `manifest_assets_sha256` or `asset_attestation_sha256` differs from the recorded row is rejected
+  instead of silently re-publishing.
+* **Human identity only.** Both RPCs are granted to `authenticated`, re-derive `auth.uid()` and
+  require `_actor_id = auth.uid()`; the server functions call them with the operator's own token
+  (`context.supabase`) — never the service role. Separation of duties is in the schema
+  (`ready_attested_by <> published_by`) and mirrored in the UI.
 * Assets live in the private `golden-lesson-assets` bucket at the content-addressed path
   `<lesson_id>/<sha256>-<leaf>`. No public bucket, no overwrite: a differing hash for the same
-  `asset_code` raises `CF11_ASSET_HASH_CONFLICT`.
+  `asset_code` raises `CF11_ASSET_HASH_CONFLICT`. Raster MIME allowlist only — SVG and any
+  script-capable type are refused, and path traversal is impossible (leaf names only).
 * Only declared `src="<leaf>"` references are rewritten. The rewrite is proven reversible against
-  the original body (`CF11_OFFICIAL_TEXT_DRIFT`), so official text cannot change.
+  the original body (`CF11_OFFICIAL_TEXT_DRIFT`), so official text cannot change; an undeclared
+  reference raises `CF11_UNDECLARED_ASSET_REFERENCE`.
 * Answers and rationales stay in `official_question_answers` / `question_option_rationales`; the
   initial student payload is scanned by `cf10_assert_no_answer_leak` for every published body.
 * `DRAFT → REVIEW` is the only transition CF11 publication performs. READY is a separate RPC.
@@ -57,20 +75,21 @@ in the test suite so the same mislabelling can never pass again.
 | Step | Writes |
 | --- | --- |
 | Asset upload (`verifyGoldenLessonCf11Assets`) | 1 storage object (idempotent; 0 on replay) |
+| `golden_lesson_attest_cf11_asset(mode => 'EXECUTE')` | 1 attestation row per asset (0 on replay) |
 | `golden_lesson_publish_cf11(mode => 'DRY_RUN')` | 0 |
 | `golden_lesson_publish_cf11(mode => 'EXECUTE')` | 1 publication row, 1 published-asset row, 1 book-content update, 2 `lesson_resources` (mindmap + experiment), 45 question revisions published, 40 assessment memberships, 7 lifecycle rows `DRAFT → REVIEW` |
 | `golden_lesson_attest_cf11_ready(mode => 'DRY_RUN')` | 0 |
-| `golden_lesson_attest_cf11_ready(mode => 'EXECUTE')` | lifecycle rows `REVIEW → READY` + 1 publication row update (attestation evidence) |
+| `golden_lesson_attest_cf11_ready(mode => 'EXECUTE')` | 1 `golden_lesson_ready_attestations` row + lifecycle rows `REVIEW → READY` |
 
-Replay of either RPC returns the recorded result with `writes_performed = 0`.
+Replay of any RPC returns the recorded result with `writes_performed = 0`.
 
 ## Rollback
 
 CF11 adds tables and functions only; it alters no earlier migration bytes (R5, 21H, CF04, CF07,
-CF08, CF09, R9, CF10 are unchanged). To roll back before READY: delete the
-`golden_lesson_publications` row for the batch and reset the seven lifecycle rows to `DRAFT`; the
-uploaded asset object is content-addressed and harmless to retain. After READY, roll back by
-transitioning the lifecycle rows back to `REVIEW` — student visibility requires READY.
+CF08, CF09, R9, CF10 are unchanged). The ledgers are append-only by design, so rollback is a
+lifecycle operation, not a delete: reset the seven lifecycle rows to `DRAFT` (before READY) or to
+`REVIEW` (after READY) — student visibility requires READY. The uploaded asset object and its
+attestation are content-addressed and harmless to retain.
 
 ## Operator runbook
 
@@ -78,7 +97,8 @@ transitioning the lifecycle rows back to `REVIEW` — student visibility require
 2. Build/upload the verified bundle and take the package through
    `DRAFT → SUBMITTED → CONTENT_APPROVED → APPROVED_FOR_STAGING` in the review panel.
 3. Stage the domain bundle, bind the authoritative identity, then press **تجسيد CF10**.
-4. Press **تحقق ورفع الأصول** — this verifies JPEG magic bytes and the pinned hash before upload.
+4. Press **تحقق ورفع الأصول** — this verifies JPEG magic bytes and the pinned hash, uploads to the
+   private bucket, then records the server-side upload attestation for every manifest asset.
 5. Press **CF11 DRY_RUN**, read the plan, then **نشر إلى REVIEW**.
 6. Open **معاينة الطالب** and run
    `node scripts/e2e/iron-cf11-student-probe.mjs --base <url> --lesson <lesson-uuid>`.
@@ -87,8 +107,11 @@ transitioning the lifecycle rows back to `REVIEW` — student visibility require
 ## Verification performed in this task
 
 * PG17 rehearsal R5 → 21H → CF04 → CF07 → CF08 → CF09 → R9 → CF10 → CF11 with the Iron fixture,
-  assertions and `content-factory-11-postverify.sql`: `PASS_CONTENT_FACTORY_11_POSTVERIFY`.
-* Regression: 209/209. Iron bundle + CF11 asset suites: 24/24. Typecheck clean. Production build OK.
+  assertions and `content-factory-11-postverify.sql`: `PASS_CONTENT_FACTORY_11_POSTVERIFY`,
+  including the R3 attestation negatives (bytes/size/MIME/magic/undeclared/ledger immutability).
+* Regressions: 209/209 core, 60/60 import contract, 37/37 QB source, 438/438 QB import.
+  Typecheck clean. Production build OK.
+
 
 ## Remaining production-only steps
 
