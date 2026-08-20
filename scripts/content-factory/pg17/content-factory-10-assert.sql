@@ -91,22 +91,30 @@ SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lessons),'no duplicate 
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.subjects),'no subject created by CF10');
 SELECT public.cf04_assert(NOT has_function_privilege('authenticated','public.golden_lesson_materialize_domain_batch(uuid,uuid,text,text,text)','EXECUTE'),'authenticated cannot materialize');
 
--- 6) Rich batch: creates the missing lesson and materializes every capability.
+-- 6) Rich batch: bound (CF09) pre-existing lesson shell with an UNRESOLVED (PENDING) semester.
 SET ROLE service_role;
 SELECT set_config('cf10.plan4',
   (public.golden_lesson_materialize_domain_batch(public.cf10_batch('QURAN-G10-L04-PKG'),
     '10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256'), false);
 RESET ROLE;
-SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lessons),'rich dry run created no lesson');
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lessons),'rich dry run created no lesson');
 
 SET ROLE service_role;
 SELECT public.golden_lesson_materialize_domain_batch(public.cf10_batch('QURAN-G10-L04-PKG'),
   '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan4'),'cf10-key-0004');
 RESET ROLE;
 
-SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lessons),'missing lesson created exactly once');
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lessons),'bound EXECUTE created no extra lesson');
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.subjects),'still no subject created');
-SELECT public.cf04_assert((SELECT lesson_created FROM public.golden_lesson_domain_materializations m JOIN public.golden_lesson_packages p ON true WHERE m.batch_id=public.cf10_batch('QURAN-G10-L04-PKG') LIMIT 1),'ledger records lesson creation');
+SELECT public.cf04_assert((SELECT NOT lesson_created FROM public.golden_lesson_domain_materializations m WHERE m.batch_id=public.cf10_batch('QURAN-G10-L04-PKG')),'bound EXECUTE never creates a lesson');
+-- R5.1: PENDING/unresolved semester stays NULL and is never invented.
+SELECT public.cf04_assert((SELECT semester IS NULL FROM public.lessons WHERE slug='quran-lesson-04'),'PENDING semester materializes as NULL');
+SELECT public.cf04_assert((SELECT (write_plan->'semester') = 'null'::jsonb AND (write_plan->>'semesterResolved')='false'
+  FROM public.golden_lesson_domain_materializations WHERE batch_id=public.cf10_batch('QURAN-G10-L04-PKG')),'write plan records the unresolved semester explicitly');
+-- R5.2: the ledger never records a zero-binding EXECUTE.
+SELECT public.cf04_assert((SELECT bool_and(binding_id IS NOT NULL) FROM public.golden_lesson_domain_materializations),'ledger binding_id is always non-null');
+SELECT public.cf04_assert((SELECT m.binding_id = (SELECT id FROM public.golden_lesson_identity_bindings b WHERE b.batch_id=m.batch_id)
+  FROM public.golden_lesson_domain_materializations m WHERE m.batch_id=public.cf10_batch('QURAN-G10-L04-PKG')),'ledger binding points at the CF09 binding');
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources),'mindmap and experiment resources written');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_resources WHERE is_primary),'no primary resource promoted');
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.questions),'official and self-test questions written');
