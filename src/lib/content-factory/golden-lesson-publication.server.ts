@@ -1,21 +1,25 @@
 /**
  * CF11 — server-only helpers behind the operator server functions.
  *
- * Security contract (CF11-R4):
- *   * EVERY state transition — CF10 materialization, upload attestation, publication and READY
- *     attestation — is executed with the OPERATOR'S OWN token. The service role never performs,
- *     approves or orchestrates a transition. CF10 is reached exclusively through
+ * Security contract (CF11-R5):
+ *   * EVERY editorial transition — CF10 materialization, publication and READY attestation — is
+ *     executed with the OPERATOR'S OWN token. The service role never performs, approves or
+ *     orchestrates an editorial transition. CF10 is reached exclusively through
  *     `golden_lesson_materialize_domain_batch_operator`, which re-derives the actor from
- *     `auth.uid()` and refuses any disagreement with `_actor_id`.
- *   * The service role is used ONLY to read staging metadata and to move content-addressed,
- *     hash-pinned bytes into the private asset bucket. Storing bytes is not an approval; they
- *     only become usable once a human attests them and the server re-measures them.
+ *     `auth.uid()` and refuses any disagreement with `_actor_id`; the raw CF10 RPC has no grant
+ *     to service_role at all.
+ *   * The upload attestation is the one MACHINE step: the server downloads the stored object,
+ *     re-measures sha256 / byte size / magic bytes and appends the attestation with the service
+ *     role. A human cannot execute that RPC, so no operator can ever claim bytes they did not
+ *     produce; the requesting operator is recorded as `requested_by` only.
  *   * Asset declarations are re-derived server-side from the verified bundle manifest. The client
  *     cannot inject a path, a hash, a MIME type or a bucket.
  *   * Fail-closed: every query/storage/RPC error throws. A read that cannot be completed must
  *     never degrade into "nothing to review".
  *   * Replay-guarded: EXECUTE requires the write-plan hash the operator actually reviewed in the
- *     DRY_RUN, and carries a deterministic idempotency key derived from that same hash.
+ *     DRY_RUN, carries a deterministic idempotency key derived from that same hash, and every
+ *     replay re-derives the full live state before it may report success.
+
  */
 
 import { createHash } from "node:crypto";
