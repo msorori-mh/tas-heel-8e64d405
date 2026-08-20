@@ -555,3 +555,47 @@ test("CF11-R9C/7 — destructive withdrawal proof rolls back before canonical po
   assert.match(asserts.slice(begin, rollback), /golden_lesson_revoke_cf11_ready/);
   assert.match(asserts.slice(begin, rollback), /CF11_EXPECTED_TERMINAL_READY_REFUSED/);
 });
+
+/* ------------------------------------------------------------------------------------
+ * R8 ADDENDUM — DIRECT_TRANSITION_BYPASS
+ * ---------------------------------------------------------------------------------- */
+test("R8-ADD/1 — the CF11 guard fires exactly on READY -> non-READY for CF11 lessons only", () => {
+  const body = sql.slice(
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.cf11_assert_demotion_allowed"),
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.lesson_capability_transition"),
+  );
+  // Restrictive-only: every early RETURN keeps legacy / non-CF11 behaviour untouched.
+  assert.match(body, /IF _from_status IS DISTINCT FROM 'READY' THEN RETURN; END IF;/);
+  assert.match(body, /IF _to_status IS NOT DISTINCT FROM 'READY' THEN RETURN; END IF;/);
+  assert.match(body, /cf11_lifecycle_capabilities\(\)\) THEN RETURN; END IF;/);
+  assert.match(body, /NOT public\.cf11_is_managed_lesson\(_lesson_id\) THEN RETURN; END IF;/);
+  // The controlled path is the ONLY escape hatch.
+  assert.match(body, /cf11_has_revocation_ticket\(_lesson_id\) THEN RETURN; END IF;/);
+  assert.match(body, /CF11_DIRECT_TRANSITION_FORBIDDEN[\s\S]*golden_lesson_revoke_cf11_ready/);
+  assert.match(body, /ERRCODE = '42501'/);
+});
+
+test("R8-ADD/2 — no alternate raw-table bypass: table trigger + no Data API write grants", () => {
+  assert.match(sql, /CREATE TRIGGER trg_cf11_guard_lifecycle_demotion\s+BEFORE UPDATE OR DELETE ON public\.lesson_capability_lifecycle/);
+  assert.match(sql, /'raw_update'/);
+  assert.match(sql, /'raw_delete'/);
+  // The guard helpers are unreachable from any Data API role.
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.cf11_assert_demotion_allowed\(uuid, text, text, text, text, text\)\s*\n\s*FROM PUBLIC, anon, authenticated, service_role;/);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.cf11_has_revocation_ticket\(uuid\)/);
+});
+
+test("R8-ADD/3 — 21H bytes untouched and its grant surface preserved verbatim", () => {
+  assert.doesNotMatch(h21, /cf11_assert_demotion_allowed|golden_lesson_revoke_cf11_ready/);
+  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.lesson_capability_transition\(uuid,text,text,jsonb,text\) TO authenticated;/);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.lesson_capability_transition\(uuid,text,text,jsonb,text\) FROM PUBLIC, anon;/);
+});
+
+test("R8-ADD/4 — PG17 proves refusal with zero writes and exactly one ledger row on the controlled path", () => {
+  const o = assertSql.slice(assertSql.indexOf("-- O) CF11-R8B"));
+  assert.match(o, /is_content_staff\('10000000-0000-0000-0000-000000000001'\)/);
+  assert.match(o, /NOT public\.is_full_admin\('10000000-0000-0000-0000-000000000001'\)/);
+  assert.match(o, /CF11_EXPECTED_DIRECT_TRANSITION_ZERO_WRITES: audit_logs moved/);
+  assert.match(o, /CF11_EXPECTED_LEGACY_TRANSITION_UNCHANGED/);
+  const n2 = assertSql.slice(assertSql.indexOf("-- N2)"));
+  assert.match(n2, /count\(\*\) = 1 FROM public\.golden_lesson_ready_revocations WHERE batch_id = batch/);
+});
