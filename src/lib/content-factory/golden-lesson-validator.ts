@@ -1,3 +1,4 @@
+import { validateGoldenLessonAssets, type GoldenLessonAsset } from "./golden-lesson-assets.ts";
 import {
   GOLDEN_CAPABILITIES,
   GOLDEN_CAPABILITY_AUTHORITY,
@@ -6,6 +7,7 @@ import {
   type GoldenLessonPackage,
 } from "./golden-lesson-contract.ts";
 import { getGoldenLessonProfile } from "./golden-lesson-profiles.ts";
+
 
 export type GoldenLessonFindingSeverity = "ERROR" | "WARNING";
 
@@ -118,8 +120,22 @@ export function validateGoldenLessonPackage(pkg: GoldenLessonPackage): GoldenLes
     error("ANSWER_COMPANION_PATH_MISSING", "security.answersCompanionPath", "لا يجوز تثبيت بصمة إجابات دون مسار ملف خادمي.");
   }
 
+  // CF11: supplemental static assets are part of the package path namespace and of the
+  // ZIP file-set equality check. `undefined` is a valid v1 manifest (no assets at all).
+  const assets: GoldenLessonAsset[] = Array.isArray(pkg.assets) ? pkg.assets : [];
+  if (pkg.assets !== undefined && !Array.isArray(pkg.assets)) {
+    error("ASSETS_SHAPE_INVALID", "assets", "قائمة الأصول الثابتة يجب أن تكون مصفوفة.");
+  }
+  const capabilityHasSource = (capability: GoldenCapability): boolean =>
+    pkg.artifacts.some((artifact) =>
+      artifact.capability === capability && artifact.applicability !== "NA" && Boolean(artifact.sourcePath));
+  for (const finding of validateGoldenLessonAssets(assets, capabilityHasSource)) {
+    error(finding.code, finding.field, finding.messageAr);
+  }
+
   const packagePaths = [
     ...pkg.artifacts.flatMap((artifact) => [artifact.sourcePath, artifact.provenancePath]),
+    ...assets.map((asset) => (typeof asset?.path === "string" ? asset.path : null)),
     pkg.security.answersCompanionPath,
   ].filter((path): path is string => typeof path === "string");
   const seenPaths = new Set<string>();
@@ -132,4 +148,5 @@ export function validateGoldenLessonPackage(pkg: GoldenLessonPackage): GoldenLes
   }
 
   return { valid: findings.every((finding) => finding.severity !== "ERROR"), writesPerformed: 0, findings };
+
 }
