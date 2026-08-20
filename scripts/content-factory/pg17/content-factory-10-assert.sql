@@ -206,9 +206,8 @@ ROLLBACK;
 -- 9b) A question code on the right lesson but the wrong subject is also a conflict.
 BEGIN;
 ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER golden_materialization_immutable;
-INSERT INTO public.subjects(id, code, grade_id, curriculum_track_id, name)
-SELECT '42000000-0000-0000-0000-0000000000ff', 'CF10-OTHER', grade_id, curriculum_track_id, 'مادة أخرى'
-  FROM public.subjects LIMIT 1;
+INSERT INTO public.subjects(id, code, grade_id)
+SELECT '42000000-0000-0000-0000-0000000000ff', 'CF10-OTHER', grade_id FROM public.subjects LIMIT 1;
 DO $$
 DECLARE b uuid; sha text;
 BEGIN
@@ -306,8 +305,8 @@ SELECT public.cf04_assert(
 -- 10) CF10-R3 — RLS student visibility gate.
 -- ---------------------------------------------------------------------------
 -- A legacy, unmanaged lesson must stay visible; CF10-managed DRAFT lessons must not.
-INSERT INTO public.lessons(id, slug, subject_id, title)
-VALUES ('43000000-0000-0000-0000-0000000000aa','legacy-unmanaged','42000000-0000-0000-0000-000000000001','درس قديم');
+INSERT INTO public.lessons(id, slug, subject_id)
+VALUES ('43000000-0000-0000-0000-0000000000aa','legacy-unmanaged','42000000-0000-0000-0000-000000000001');
 
 SET request.jwt.claim.sub='10000000-0000-0000-0000-000000000004'; SET ROLE authenticated;
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lessons),'student sees only the unmanaged legacy lesson');
