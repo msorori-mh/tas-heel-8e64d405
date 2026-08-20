@@ -143,9 +143,9 @@ export const getGoldenLessonCf11Batches = createServerFn({ method: "GET" })
         publishedBy: (publication.data as { published_by?: string } | null)?.published_by ?? null,
         publishedAt: (publication.data as { published_at?: string } | null)?.published_at ?? null,
         readyAttestedBy:
-          (publication.data as { ready_attested_by?: string } | null)?.ready_attested_by ?? null,
+          (readyAttestation.data as { attested_by?: string } | null)?.attested_by ?? null,
         readyAttestedAt:
-          (publication.data as { ready_attested_at?: string } | null)?.ready_attested_at ?? null,
+          (readyAttestation.data as { attested_at?: string } | null)?.attested_at ?? null,
         lifecycle,
         declaredAssets,
       });
