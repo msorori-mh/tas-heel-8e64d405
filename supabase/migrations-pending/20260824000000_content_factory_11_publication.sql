@@ -972,12 +972,15 @@ BEGIN
 
   -- 1) asset registry
   FOR asset IN SELECT value FROM jsonb_array_elements(declared_assets) LOOP
+    SELECT * INTO att FROM public.golden_lesson_asset_attestations
+     WHERE lesson_id = lesson_row.id AND asset_code = asset->>'assetCode';
     INSERT INTO public.golden_lesson_published_assets(
       batch_id, lesson_id, asset_code, file_name, mime_type, sha256, byte_size,
-      storage_bucket, storage_path, alt_text_ar, published_by)
+      storage_bucket, storage_path, attestation_sha256, alt_text_ar, published_by)
     VALUES (_batch_id, lesson_row.id, asset->>'assetCode', asset->>'fileName',
             asset->>'mimeType', asset->>'sha256', (asset->>'bytes')::bigint,
-            asset->>'storageBucket', asset->>'storagePath', asset->>'altTextAr', uid)
+            asset->>'storageBucket', asset->>'storagePath', att.attestation_sha256,
+            asset->>'altTextAr', uid)
     ON CONFLICT (lesson_id, asset_code) DO NOTHING;
     GET DIAGNOSTICS rc = ROW_COUNT; writes := writes + rc;
   END LOOP;
