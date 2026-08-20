@@ -923,7 +923,7 @@ SELECT public.cf04_assert(
      public.cf10_batch('QURAN-G10-L03-PKG'),
      '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001')
    ->>'seed_attested')::boolean,
-  'replay still attests after legitimate lifecycle/publish transitions');
+  'a CF11 resource addition does not break replay');
 RESET ROLE;
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.golden_lesson_domain_materializations
                             WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG')),
