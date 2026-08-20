@@ -1,4 +1,4 @@
-# CF11-R8 — Iron (الحديد Fe) Golden Lesson: publication-to-READY closure
+# CF11-R8B — Iron (الحديد Fe) Golden Lesson: publication-to-READY closure
 
 Source-only closure. **No production writes and no migration apply were performed in this task.**
 
@@ -7,12 +7,12 @@ Source-only closure. **No production writes and no migration apply were performe
 | Item | Value |
 | --- | --- |
 | Remediation base commit | `9e8d9294e36b0a38b0094b8b58075423da6f85c5` |
-| Revision | R8 (source-only) |
+| Revision | R8B (source-only) |
 | CF11 migration | `supabase/migrations-pending/20260824000000_content_factory_11_publication.sql` |
-| Migration SHA-256 (final, after all R8 edits) | `cb3021f2103a974ded10e5a8b98702f6b1ff24979710d82395a7f0b2d3b3c1b0` |
+| Migration SHA-256 (final, after all R8B edits) | `311265f33580f2ce1cffbc56a974c0978e5d8bf7e2713141db637c975ac69691` |
 | Production writes | 0 |
 | Migration applied | NO |
-| PG17 rehearsal (this task) | **BLOCKED — NOT EXECUTED.** No PostgreSQL 17 instance is reachable from this environment, so the R8 SQL has **not** been executed anywhere. Every R8 claim below is a source-level claim. |
+| PG17 rehearsal (this task) | **BLOCKED — NOT EXECUTED.** No PostgreSQL 17 instance is reachable from this environment, so the R8/R8B SQL has **not** been executed anywhere. Every claim below is a source-level claim. |
 | Iron bundle | `content-packages/chemistry-g12-iron-v3/dist/CHEM-G12-IRON-FE.zip` |
 | Bundle SHA-256 | `a7369bf13b6646bb2181ff39dac0c18f4fe3b00a9609f27cb7a451152988c100` |
 | Furnace asset | `official-figure-1-1.jpg` |
@@ -264,7 +264,8 @@ reason field, the separation-of-duties block, and a "مسحوب" badge on withdr
 | Item | Value |
 | --- | --- |
 | Base commit (R8 remediation) | `509ed2a569b908d7368ccce1e55a55310bc083f6` |
-| Final CF11 migration SHA-256 | `cb3021f2103a974ded10e5a8b98702f6b1ff24979710d82395a7f0b2d3b3c1b0` |
+| Base commit (R8B remediation) | `c605f43452be50c2b120cd9762140eba1dc0a859` |
+| Final CF11 migration SHA-256 | `311265f33580f2ce1cffbc56a974c0978e5d8bf7e2713141db637c975ac69691` |
 | Migration applied | NO |
 | Production writes | 0 |
 | PG17 rehearsal | **BLOCKED — not executed in this environment** (no PostgreSQL 17 reachable; `CONTENT_FACTORY_PG17_URL` unset) |
@@ -327,10 +328,57 @@ Executed in this task:
 | Suite | Result |
 | --- | --- |
 | `bun run test` (core) | 209/209 PASS |
-| `node --test tests/content-factory/*.mjs` (incl. the new R8 statics) | 61/61 PASS |
+| `node --test tests/content-factory/*.mjs` (incl. the R8 + R8B statics) | 67/67 PASS |
 | `tsgo --noEmit` | clean |
 
 PG17 assertions are **written, not executed**.
 
-**FINAL_VERDICT = PASS_CF11_R8_SOURCE_READY_FOR_INDEPENDENT_PG17_GATE**
+## R8B — closure of the direct 21H transition bypass
+
+**The finding.** 21H's `public.lesson_capability_transition` is `EXECUTE`-granted to
+`authenticated` and only demands a full admin for `-> READY` and `REVIEW -> DRAFT`. `READY -> DRAFT`
+needed nothing more than content staff. Any content manager could therefore un-publish an attested
+Golden Lesson directly, bypassing the CF11 withdrawal entirely: no full admin, no separation of
+duties, no reason, no idempotency key, and no immutable revocation ledger row. This was a real,
+reachable critical hole, and R8 did not address it.
+
+**How it is closed — without editing a single byte of 21H.** The CF11 migration runs after 21H and
+supersedes the function:
+
+1. **Transaction-local ticket.** `public.cf11_revocation_tickets` keys authorisation on
+   `txid_current()`. The table has RLS enabled, no policies, and `REVOKE ALL` from `anon`,
+   `authenticated` and `service_role`; the three `SECURITY DEFINER` helpers
+   (`cf11_open_revocation_ticket`, `cf11_close_revocation_ticket`, `cf11_has_revocation_ticket`)
+   are revoked from `PUBLIC` and from every Data API role. There is no GUC, no client-set
+   `current_setting`, and no boolean bypass argument anywhere in the path, so nothing here is
+   spoofable by an authenticated caller.
+2. **Guarded generic RPC.** `lesson_capability_transition` is re-declared with the identical 21H
+   signature and grants, and calls `public.cf11_assert_demotion_allowed(...)` before any privilege
+   branch and before any mutation. For a lesson bound to a CF11 publication, any of the canonical
+   seven capabilities marked `REQUIRED`, leaving `READY` for a non-`READY` status is refused with
+   `CF11_DIRECT_TRANSITION_FORBIDDEN` (SQLSTATE 42501) unless a ticket for this exact transaction
+   exists — i.e. unless the call is inside `golden_lesson_revoke_cf11_ready`.
+3. **Table-level trigger.** `cf11_guard_lifecycle_demotion` fires `BEFORE UPDATE OR DELETE` on
+   `lesson_capability_lifecycle` and applies the same policy to raw DML, so neither `service_role`
+   nor direct SQL can route around the RPC.
+4. **Grant truth asserted at install time.** The migration refuses to install if any Data API role
+   holds `INSERT`/`UPDATE`/`DELETE` on the lifecycle table (`CF11_RAW_TABLE_BYPASS`), or if the
+   ticket table or its helpers are reachable (`CF11_TICKET_TABLE_REACHABLE`, `CF11_TICKET_FORGEABLE`).
+5. **Legacy behaviour untouched.** The guard returns immediately when the lesson has no CF11
+   publication, so every non-Golden lesson keeps exactly the 21H semantics.
+
+**Fixture honesty.** The PG17 fixture previously collapsed `is_content_staff` onto `admin`, which
+would have hidden this bypass. It now matches production (`admin` OR `content_manager`), and a
+legacy unmanaged lesson (`...099`) was added.
+
+**PG17 section O** (written, not executed; no `EXCEPTION WHEN OTHERS`) asserts: non-admin content
+staff direct `READY -> DRAFT` and `READY -> REVIEW` refused with zero lifecycle/audit writes and
+visibility unchanged; a full admin refused on all seven the same way; ticket table/helpers
+unreachable and raw lifecycle DML ungranted; owner-level raw `UPDATE`/`DELETE` refused by the
+trigger; and the legacy lesson still transitioning `READY -> DRAFT -> REVIEW` normally. Section N
+(unchanged) remains the only successful demotion: separate qualified admin, reason, exact
+idempotency key, seven `DRAFT` + `REQUIRED`, visibility false, exactly one immutable ledger row,
+same-key replay zero-write.
+
+**FINAL_VERDICT = PASS_CF11_R8B_SOURCE_READY_FOR_INDEPENDENT_PG17_GATE**
 (source-only; the independent PG17 gate remains outstanding and unexecuted).
