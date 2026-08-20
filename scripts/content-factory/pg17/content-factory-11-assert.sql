@@ -997,6 +997,31 @@ BEGIN
       'public.golden_lesson_attest_cf11_asset(uuid,uuid,text,text,bigint,text,text,text,text)',
       'EXECUTE'),
     'CF11_R6: machine attestation stays available to service_role');
+  -- CF11-R4 addendum: no human role may EXECUTE the machine byte-attestation RPC.
+  PERFORM public.cf04_assert(
+    NOT has_function_privilege('authenticated',
+      'public.golden_lesson_attest_cf11_asset(uuid,uuid,text,text,bigint,text,text,text,text)',
+      'EXECUTE'),
+    'CF11_R4: authenticated must never EXECUTE the machine asset attestation RPC');
+  PERFORM public.cf04_assert(
+    NOT has_function_privilege('anon',
+      'public.golden_lesson_attest_cf11_asset(uuid,uuid,text,text,bigint,text,text,text,text)',
+      'EXECUTE'),
+    'CF11_R4: anon must never EXECUTE the machine asset attestation RPC');
+  -- ...and the machine role may never publish or attest READY (asserted above per-fn, restated
+  -- here explicitly for the two editorial RPCs the addendum names).
+  PERFORM public.cf04_assert(
+    NOT has_function_privilege('service_role',
+      'public.golden_lesson_publish_cf11(uuid,uuid,text,text,text)','EXECUTE')
+    AND NOT has_function_privilege('service_role',
+      'public.golden_lesson_attest_cf11_ready(uuid,uuid,jsonb,text)','EXECUTE'),
+    'CF11_R4: service_role must never publish or attest READY');
+  -- The publication ledger key is structurally non-empty, not merely NOT NULL.
+  PERFORM public.cf04_assert(
+    EXISTS (SELECT 1 FROM pg_constraint
+             WHERE conname = 'golden_lesson_publications_key_chk'
+               AND conrelid = 'public.golden_lesson_publications'::regclass),
+    'CF11_R4: publications.idempotency_key must carry a non-empty CHECK');
 END $$;
 
 -- K2) The identity-binding operator wrapper exists, is SECURITY DEFINER and is reachable by an
