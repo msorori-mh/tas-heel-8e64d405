@@ -771,7 +771,7 @@ SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_resources r
 -- the body the student runtime reads is exactly the staged payload
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources r
    JOIN public.golden_lesson_domain_stage_entries e
-     ON e.capability = CASE WHEN r.resource_type::text='mindmap' THEN 'mindMap' ELSE 'simulation' END
+     ON e.lifecycle_capability = CASE WHEN r.resource_type::text='mindmap' THEN 'mindMap' ELSE 'simulation' END
     AND e.batch_id = public.cf10_batch('QURAN-G10-L04-PKG')
    WHERE r.lesson_id=public.cf10_rich_lesson()
      AND r.html_resource_type IS NOT NULL
