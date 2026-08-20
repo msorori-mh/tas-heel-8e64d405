@@ -199,7 +199,9 @@ CREATE TABLE IF NOT EXISTS public.golden_lesson_publications (
   published_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT golden_lesson_publications_plan_sha_chk CHECK (plan_sha256 ~ '^[0-9a-f]{64}$'),
   CONSTRAINT golden_lesson_publications_manifest_sha_chk CHECK (manifest_assets_sha256 ~ '^[0-9a-f]{64}$'),
-  CONSTRAINT golden_lesson_publications_attestation_sha_chk CHECK (asset_attestation_sha256 ~ '^[0-9a-f]{64}$')
+  CONSTRAINT golden_lesson_publications_attestation_sha_chk CHECK (asset_attestation_sha256 ~ '^[0-9a-f]{64}$'),
+  -- CF11-R4 addendum: NOT NULL alone still admits '' / '   '. EXECUTE also enforces >= 8 chars.
+  CONSTRAINT golden_lesson_publications_key_chk CHECK (length(btrim(idempotency_key)) >= 8)
 );
 
 -- 2.4) READY attestation evidence: a SEPARATE append-only record. The publication row is never
