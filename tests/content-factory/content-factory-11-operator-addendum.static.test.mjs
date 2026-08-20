@@ -38,7 +38,8 @@ test("ADDENDUM/2 — server inputs accept the SHA and derive the idempotency key
   assert.match(SERVER, /if \(!expected \|\| !SHA256_RE\.test\(expected\)\) throw new Error\(code\)/);
   // The SQL side refuses a blank key on EXECUTE, so a regression in the client still rolls back.
   assert.ok((SQL.match(/length\(btrim\(_idempotency_key\)\) < 8/g) ?? []).length >= 3);
-  assert.match(SQL, /CF11_EXPECTED_PLAN|EXPECTED_PLAN_SHA256/);
+  assert.match(SQL, /_mode = 'EXECUTE' AND coalesce\(_expected_plan_sha256,''\) !~ '\^\[0-9a-f\]\{64\}\$'/);
+  assert.match(SQL, /IF _expected_plan_sha256 IS DISTINCT FROM plan_sha THEN/);
 });
 
 test("ADDENDUM/3 — batch status reads lesson_capability_lifecycle and fails closed", () => {
