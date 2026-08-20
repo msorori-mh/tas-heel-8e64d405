@@ -719,22 +719,20 @@ SELECT public.cf04_assert((SELECT count(*)=6 FROM pg_indexes
      'lesson_book_contents_lesson_id_key')),
   'every single-row lookup key the RPC binds on is uniquely indexed');
 
--- duplicate revisions for the same question
+-- duplicate revisions for the same question (question_id is not a unique key on
+-- question_revisions, so ambiguity there must abort rather than pick a row)
 BEGIN;
 ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
 DELETE FROM public.golden_lesson_domain_materializations
- WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
+ WHERE batch_id = public.cf10_batch('QURAN-G10-L04-PKG');
 ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
 INSERT INTO public.question_revisions(question_id, revision_number, status, interaction_type,
                                       question_text, max_score, created_by)
   SELECT r.question_id, r.revision_number + 90, r.status, r.interaction_type,
          r.question_text, r.max_score, r.created_by
-    FROM public.question_revisions r
-    JOIN public.questions q ON q.id = r.question_id
-   WHERE q.lesson_id='43000000-0000-0000-0000-000000000001'
-   ORDER BY r.id LIMIT 1;
+    FROM public.question_revisions r ORDER BY r.id LIMIT 1;
 SET ROLE service_role;
-SELECT public.cf10_expect_identity_conflict('QURAN-G10-L03-PKG','question_revisions');
+SELECT public.cf10_expect_identity_conflict('QURAN-G10-L04-PKG','question_revisions');
 RESET ROLE;
 ROLLBACK;
 
