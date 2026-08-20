@@ -180,7 +180,9 @@ CREATE TABLE IF NOT EXISTS public.golden_lesson_publications (
   manifest_assets_sha256 text NOT NULL,
   asset_attestation_sha256 text NOT NULL,
   result jsonb NOT NULL,
-  idempotency_key text,
+  -- CF11-R5: never NULL. A ledger row without a durable key cannot be replay-guarded.
+  idempotency_key text NOT NULL,
+
   published_by uuid NOT NULL,
   published_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT golden_lesson_publications_plan_sha_chk CHECK (plan_sha256 ~ '^[0-9a-f]{64}$'),
