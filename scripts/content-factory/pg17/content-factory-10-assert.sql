@@ -70,7 +70,10 @@ SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_book_contents),'
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_explanations),'tamkeen explanation written once');
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_summaries),'lesson summary written once');
 SELECT public.cf04_assert((SELECT count(*)=7 FROM public.lesson_capability_lifecycle),'seven lifecycle rows');
-SELECT public.cf04_assert((SELECT count(*)=7 FROM public.lesson_capability_lifecycle WHERE status='DRAFT' AND applicability='REQUIRED'),'lifecycle is DRAFT and REQUIRED only');
+SELECT public.cf04_assert((SELECT count(*)=7 FROM public.lesson_capability_lifecycle WHERE status='DRAFT'),'lifecycle is DRAFT only');
+-- CF10-R4: staged capabilities with a payload are REQUIRED; declared-NA capabilities are NA and never block visibility.
+SELECT public.cf04_assert((SELECT count(*)=4 FROM public.lesson_capability_lifecycle WHERE applicability='REQUIRED'),'payload-backed capabilities are REQUIRED');
+SELECT public.cf04_assert((SELECT count(*)=3 FROM public.lesson_capability_lifecycle WHERE applicability='NA'),'payload-less capabilities are NA');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_capability_lifecycle WHERE ready_at IS NOT NULL OR ready_hash IS NOT NULL OR ready_snapshot IS NOT NULL),'no READY evidence invented');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.question_options WHERE is_correct),'zero answer leak in options');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.questions WHERE correct_index >= 0),'zero answer leak in question rows');
