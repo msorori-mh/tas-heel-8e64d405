@@ -131,10 +131,13 @@ CREATE TABLE IF NOT EXISTS public.golden_lesson_published_assets (
   CONSTRAINT golden_lesson_published_assets_unique UNIQUE (lesson_id, asset_code)
 );
 
--- 2.2) Immutable upload attestation: the ONLY proof that real bytes reached private storage.
---      It binds the measured bundle bytes (sha256 / size / magic-verified MIME) to the ACTUAL
---      storage object identity (id + version + etag + storage-side size/mimetype metadata).
---      A name-only storage.objects row can never satisfy it.
+-- 2.2) Immutable MACHINE upload attestation: the ONLY proof that real bytes reached private
+--      storage. CF11-R5: a human can no longer claim it. The attestation is appended by the
+--      server after it downloaded the object back out of the bucket and re-measured the bytes
+--      (sha256 / size / magic-verified MIME), and it is bound to the ACTUAL storage object
+--      identity (id + version + etag + storage-side size/mimetype metadata). The human operator
+--      who requested the verification is recorded as `requested_by` — evidence of intent, never
+--      evidence of bytes. A name-only storage.objects row can never satisfy it.
 CREATE TABLE IF NOT EXISTS public.golden_lesson_asset_attestations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id uuid NOT NULL REFERENCES public.golden_lesson_domain_stage_batches(id) ON DELETE RESTRICT,
@@ -151,10 +154,13 @@ CREATE TABLE IF NOT EXISTS public.golden_lesson_asset_attestations (
   storage_version text NOT NULL,
   storage_etag text NOT NULL,
   attestation_sha256 text NOT NULL,
-  attested_by uuid NOT NULL,
+  verification_origin text NOT NULL,
+  requested_by uuid NOT NULL,
   verified_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT golden_lesson_asset_attestations_sha_chk CHECK (sha256 ~ '^[0-9a-f]{64}$'),
   CONSTRAINT golden_lesson_asset_attestations_att_chk CHECK (attestation_sha256 ~ '^[0-9a-f]{64}$'),
+  CONSTRAINT golden_lesson_asset_attestations_origin_chk
+    CHECK (verification_origin = 'SERVER_BYTE_READBACK'),
   CONSTRAINT golden_lesson_asset_attestations_mime_chk
     CHECK (mime_type IN ('image/png','image/jpeg','image/webp')),
   CONSTRAINT golden_lesson_asset_attestations_size_chk CHECK (byte_size BETWEEN 64 AND 2097152),
@@ -162,6 +168,7 @@ CREATE TABLE IF NOT EXISTS public.golden_lesson_asset_attestations (
   CONSTRAINT golden_lesson_asset_attestations_magic_chk CHECK (magic_hex ~ '^[0-9a-f]{8,32}$'),
   CONSTRAINT golden_lesson_asset_attestations_unique UNIQUE (lesson_id, asset_code)
 );
+
 
 -- 2.3) Publication ledger (one row per successfully published batch, never updated).
 CREATE TABLE IF NOT EXISTS public.golden_lesson_publications (
