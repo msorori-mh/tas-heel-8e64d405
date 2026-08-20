@@ -223,3 +223,38 @@ R3=BLOCKED_PARTIAL_READY_LESSON_SCOPE_LEAK
 R4=SOURCE_CANDIDATE
 FINAL_VERDICT=PASS_CONTENT_FACTORY_10_R4_SOURCE_READY
 PRODUCTION_WRITES=0
+
+## CF10-R6 — final security remediation (audit 2924f7), source only
+
+1. **HTML deferral to CF11.** CF10 no longer writes `mindMapHtml` / `labExperimentHtml` into
+   legacy `lesson_resources` (no `url=''` / `description` body rows at all). The bytes, hash and
+   provenance stay staff-only in `golden_lesson_domain_stage_entries`; the write plan and the
+   ledger record `deferred_to_cf11 = true` with no snapshot claim. A pre-existing legacy inline
+   HTML row for these capabilities aborts the batch with `CF10_HTML_LEGACY_ROW_FORBIDDEN`.
+   CF11 alone creates the HTML version, private storage object, preview and publication, and only
+   then may the capability become `READY`.
+2. **No OPTIONAL payload leak.** `public.lesson_student_visible` now hides a managed lesson while
+   *any* lifecycle row carries a materialized payload (`draft_hash` not null) and is not `READY`,
+   regardless of `REQUIRED` / `OPTIONAL`. Payload-free `NA` / `OPTIONAL` rows never block.
+   Rehearsal covers OPTIONAL payload in DRAFT = hidden, in REVIEW = hidden, in READY = visible.
+3. **No READY / snapshot claim in CF10.** Postconditions assert zero legacy resource rows for the
+   HTML capabilities, `cf10_html_publication_pending = true`, both lifecycle rows in `DRAFT`, and
+   student visibility `false` after materialization. The `READY` trigger blocks a payload-carrying
+   `mindMap` / `simulation` until CF11 stamps `cf11_published_at`.
+4. **Honest replay attestation.** A ledger shortcut returns `live_attested = false`,
+   `seed_attested = true`, `attested_scope = 'immutable_seed'` — identity, ledger and immutable
+   seed hashes are verified, legitimate downstream lifecycle/publish transitions are not blocked.
+5. **Separation of concerns.** CF10 = core DRAFT domain materialization only.
+   `HTML_FOUNDATION_20260806_07_08` is **not applied in production**, and CF11 (HTML publication
+   pipeline) is a **prerequisite** for any mindMap/simulation runtime, snapshot or READY state.
+
+### R6 verification
+
+- PG17 rehearsal CF04 → CF07 → CF08 → CF09 → CF10: `PASS_CONTENT_FACTORY_10_PG17`, EXIT=0,
+  140 assertions, `lesson_resources` row count = 0 after CF10.
+- CF10-R6 migration SHA256:
+  `496f217bf10e2bae924d359a85b96b055cf4a6255a5c0227f3cd117c2dd423f6`
+
+R6=SOURCE_CANDIDATE
+FINAL_VERDICT=PASS_CONTENT_FACTORY_10_R6_SOURCE_READY
+PRODUCTION_WRITES=0

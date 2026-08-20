@@ -176,18 +176,20 @@ RETURNS text LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
   )::text,'UTF8'),'sha256'),'hex');
 $$;
 
--- CF10-R4c: mindMap / simulation HTML staged by CF10 is TEMPORARY. It stays an internal
--- lesson-internal:// payload until CF11 publishes the HTML asset and stamps
--- metadata->>'cf11_published_at'. Until then CF10 must not claim READY nor a valid snapshot.
+-- CF10-R6: CF10 NEVER materializes mindMapHtml / labExperimentHtml into the legacy
+-- lesson_resources table. Their bytes, sha256 and provenance stay in the staff-only
+-- golden_lesson_domain_stage_entries rows, and the work is recorded as deferred_to_cf11.
+-- Only CF11 creates the HTML version, private storage object, preview and publication,
+-- and only then may the capability reach READY.
+-- "Publication pending" is therefore true until a CF11-published resource row exists.
 CREATE OR REPLACE FUNCTION public.cf10_html_publication_pending(_lesson_id uuid, _capability text)
 RETURNS boolean LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
-  SELECT EXISTS (
+  SELECT NOT EXISTS (
     SELECT 1 FROM public.lesson_resources r
      WHERE r.lesson_id = _lesson_id
        AND ((_capability = 'mindMap' AND r.resource_type::text = 'mindmap')
          OR (_capability = 'simulation' AND r.resource_type::text = 'experiment'))
-       AND r.url LIKE 'lesson-internal://html/%'
-       AND coalesce(r.metadata->>'cf11_published_at','') = '');
+       AND coalesce(r.metadata->>'cf11_published_at','') <> '');
 $$;
 
 
@@ -267,6 +269,7 @@ DECLARE
   new_hash text;
   dup_count integer := 0;
   seed_state_sha text;
+  html_deferred jsonb := '{}'::jsonb;
   external_lesson_code text;
 BEGIN
   IF _mode NOT IN ('DRY_RUN','EXECUTE') THEN
@@ -411,7 +414,9 @@ BEGIN
     plan := plan || jsonb_build_array(jsonb_build_object(
       'capability', entry.capability, 'targetPlan', entry.target_plan,
       'lifecycleCapability', entry.lifecycle_capability,
-      'applicability', entry.applicability, 'sha256', entry.source_sha256));
+      'applicability', entry.applicability, 'sha256', entry.source_sha256,
+      -- R6: HTML capabilities are staged only; CF11 owns their domain artefacts.
+      'deferredToCf11', entry.capability IN ('mindMapHtml','labExperimentHtml')));
   END LOOP;
   -- R4: exactly the seven pinned capabilities, no more, no fewer, no substitutes.
   SELECT array_agg(k ORDER BY k) INTO staged_caps FROM jsonb_object_keys(payloads) AS k;
@@ -446,9 +451,12 @@ BEGIN
     'lifecycleTarget', jsonb_build_object('status','DRAFT','applicability','AS_STAGED','capabilities',7),
     'revisionTarget', jsonb_build_object('status','DRAFT','payloadHashVersion','canonical_payload_v1',
                                          'publishedPointer',false,'assessmentMembership',false),
-    'visibilityTarget', jsonb_build_object('studentVisible',false,'requiresAllRequiredReady',true),
+    'visibilityTarget', jsonb_build_object('studentVisible',false,'requiresAllRequiredReady',true,
+                                           'hiddenWhileAnyPayloadCapabilityNotReady',true),
+    'htmlTarget', jsonb_build_object('mindMap','DEFERRED_TO_CF11','simulation','DEFERRED_TO_CF11',
+                                     'legacyLessonResourceWrite',false,'snapshot',false,'ready',false),
     'forbidden', jsonb_build_object('subjectCreate',false,'delete',false,'storage',false,
-                                    'publish',false,'ready',false));
+                                    'publish',false,'ready',false,'htmlResourceWrite',false));
 
   plan_sha := public.cf10_text_sha256(plan::text);
 
@@ -503,19 +511,23 @@ BEGIN
        coalesce(replay.result->>'seed_sha256', replay.result->>'state_sha256') THEN
       RAISE EXCEPTION 'CF10_REPLAY_STATE_DRIFT' USING ERRCODE = '23514';
     END IF;
-    -- Visibility stays fail-closed on replay: the lesson may only be student-visible if every
-    -- REQUIRED capability legitimately reached READY afterwards. Any other visibility is a leak.
+    -- Visibility stays fail-closed on replay: any capability that carries a materialized payload
+    -- (draft_hash) and is not READY must keep the lesson hidden, REQUIRED or OPTIONAL alike.
     IF public.lesson_student_visible(replay.lesson_id)
        AND EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle lc
                     WHERE lc.lesson_id = replay.lesson_id
-                      AND lc.applicability = 'REQUIRED' AND lc.status <> 'READY') THEN
+                      AND (lc.applicability = 'REQUIRED' OR lc.draft_hash IS NOT NULL)
+                      AND lc.status IS DISTINCT FROM 'READY') THEN
       RAISE EXCEPTION 'CF10_STUDENT_VISIBILITY_LEAK' USING ERRCODE = '23514';
     END IF;
 
     RETURN replay.result || jsonb_build_object('idempotent',true,'writes_performed',0,
       'domain_writes_performed',0,'payload_hash_updates',0,'ledger_writes',0,
       'ledger_attested',true,
-      'live_attested',true,
+      -- R6: a ledger shortcut never claims the whole live state was attested. Only the
+      -- immutable seed is re-hashed here; mutable workflow fields are explicitly out of scope.
+      'live_attested',false,
+      'seed_attested',true,
       'attested_scope','immutable_seed',
       'mutable_fields_allowed', jsonb_build_array(
         'lesson_capability_lifecycle.status','lesson_capability_lifecycle.draft_hash',
@@ -604,59 +616,39 @@ BEGIN
     RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: lesson_summaries' USING ERRCODE = '23514';
   END IF;
 
-  -- 4/5) mindMapHtml + labExperimentHtml -> lesson_resources (natural key: lesson_id, resource_code)
-  --      R4: a reused resource row must match EVERY written column, not only the body.
+  -- 4/5) mindMapHtml + labExperimentHtml -> DEFERRED TO CF11 (R6).
+  --      CF10 writes NOTHING for them: no lesson_resources row, no inline body, no url.
+  --      The bytes / sha256 / provenance already live in the staff-only stage entries and are
+  --      re-verified above; here we only prove that no legacy row was (or is being) created and
+  --      record deferred_to_cf11 = true. CF11 owns version + private storage + preview + publish.
   FOREACH cap IN ARRAY ARRAY['mindMapHtml','labExperimentHtml'] LOOP
     payload_text := payloads->cap->>'text';
     CONTINUE WHEN payload_text IS NULL;
     option_code := CASE cap WHEN 'mindMapHtml' THEN external_lesson_code || '-MINDMAP'
                             ELSE external_lesson_code || '-EXPERIMENT' END;
     expected_resource_type := CASE cap WHEN 'mindMapHtml' THEN 'mindmap' ELSE 'experiment' END;
-    expected_resource_title := CASE cap WHEN 'mindMapHtml' THEN 'الخريطة الذهنية' ELSE 'التجربة العملية' END;
-    expected_resource_sort := CASE cap WHEN 'mindMapHtml' THEN 1 ELSE 2 END;
-    expected_html_type := CASE cap WHEN 'mindMapHtml' THEN 'STATIC' ELSE 'INTERACTIVE' END;
-    IF (SELECT count(*) FROM public.lesson_resources
-         WHERE lesson_id = lesson_row.id AND resource_code = option_code) > 1 THEN
-      RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: duplicate lesson_resources %', option_code
-        USING ERRCODE = '23514';
+    -- Legacy inline rows are forbidden: an unpublished HTML body must never sit in
+    -- lesson_resources.description with an empty / internal url.
+    IF EXISTS (SELECT 1 FROM public.lesson_resources r
+                WHERE r.lesson_id = lesson_row.id
+                  AND (r.resource_code = option_code
+                    OR r.resource_type::text = expected_resource_type)
+                  AND coalesce(r.metadata->>'cf11_published_at','') = '') THEN
+      RAISE EXCEPTION 'CF10_HTML_LEGACY_ROW_FORBIDDEN: %', cap USING ERRCODE = '23514';
     END IF;
-    SELECT * INTO resource_row FROM public.lesson_resources
-     WHERE lesson_id = lesson_row.id AND resource_code = option_code;
-    IF resource_row.id IS NULL THEN
-      INSERT INTO public.lesson_resources(lesson_id, resource_type, title, url, description,
-                                          sort_order, resource_code, html_resource_type, metadata, is_primary)
-      VALUES (lesson_row.id, expected_resource_type::public.lesson_resource_type,
-              expected_resource_title, public.cf10_inline_html_url(option_code), payload_text,
-              expected_resource_sort, option_code, expected_html_type,
-              jsonb_build_object('contentFactory','CF10','sha256', payloads->cap->>'sha256',
-                                 'htmlDelivery','INLINE_SANDBOXED',
-                                 'renderMode', CASE WHEN expected_html_type = 'INTERACTIVE'
-                                                    THEN 'SANDBOXED_NO_NETWORK' ELSE 'STATIC_NO_SCRIPT' END,
-                                 'contentHash', public.cf10_text_sha256(payload_text)), false);
-      GET DIAGNOSTICS rc = ROW_COUNT;
-      domain_writes := domain_writes + rc;
-    ELSE
-      IF resource_row.lesson_id IS DISTINCT FROM lesson_row.id
-         OR resource_row.resource_type::text IS DISTINCT FROM expected_resource_type
-         OR resource_row.title IS DISTINCT FROM expected_resource_title
-         OR coalesce(resource_row.url,'') IS DISTINCT FROM public.cf10_inline_html_url(option_code)
-         OR resource_row.sort_order IS DISTINCT FROM expected_resource_sort
-         OR resource_row.html_resource_type IS DISTINCT FROM expected_html_type
-         OR coalesce(resource_row.metadata->>'sha256','') IS DISTINCT FROM (payloads->cap->>'sha256')
-         OR coalesce(resource_row.metadata->>'contentFactory','') IS DISTINCT FROM 'CF10'
-         OR coalesce(resource_row.metadata->>'htmlDelivery','') IS DISTINCT FROM 'INLINE_SANDBOXED'
-         OR coalesce(resource_row.metadata->>'renderMode','') IS DISTINCT FROM
-            (CASE WHEN expected_html_type = 'INTERACTIVE' THEN 'SANDBOXED_NO_NETWORK' ELSE 'STATIC_NO_SCRIPT' END)
-         OR coalesce(resource_row.metadata->>'contentHash','')
-            IS DISTINCT FROM public.cf10_text_sha256(payload_text)
-         OR resource_row.is_primary IS DISTINCT FROM false THEN
-        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: lesson_resources %', option_code USING ERRCODE = '23514';
-      END IF;
-      IF public.cf10_text_sha256(resource_row.description)
-         IS DISTINCT FROM public.cf10_text_sha256(payload_text) THEN
-        RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: lesson_resources %', cap USING ERRCODE = '23514';
-      END IF;
+    -- The staged bytes must still be intact and staff-only in CF08 staging.
+    IF NOT EXISTS (SELECT 1 FROM public.golden_lesson_domain_stage_entries e
+                    WHERE e.batch_id = _batch_id AND e.capability = cap
+                      AND e.source_payload IS NOT NULL
+                      AND e.source_sha256 = (payloads->cap->>'sha256')) THEN
+      RAISE EXCEPTION 'CF10_HTML_STAGE_INVALID: %', cap USING ERRCODE = '23514';
     END IF;
+    html_deferred := html_deferred || jsonb_build_object(
+      CASE cap WHEN 'mindMapHtml' THEN 'mindMap' ELSE 'simulation' END,
+      jsonb_build_object('deferred_to_cf11',true,'owner','CF11',
+                         'sha256', payloads->cap->>'sha256',
+                         'resourceCode', option_code,
+                         'domainRowsWritten',0,'snapshot',null,'ready',false));
   END LOOP;
 
   -- 6) officialBookQuestions -> questions + question_revisions(DRAFT) + question_options + targets.
@@ -1101,38 +1093,29 @@ BEGIN
     RAISE EXCEPTION 'CF10_STUDENT_VISIBILITY_LEAK' USING ERRCODE = '23514';
   END IF;
 
-  -- R4c: CF10 stages the mindMap / simulation HTML only TEMPORARILY. Until CF11 publishes the
-  -- HTML asset, CF10 must not claim those capabilities are READY nor that their V3 snapshot is
-  -- valid. The staged body must exist and be internally addressable (so nothing is invented and
-  -- nothing is lost), but the capability stays DRAFT + pending.
+  -- R6 postcondition: CF10 leaves NO legacy lesson_resources row for mindMap / simulation,
+  -- claims no snapshot and no READY for them; CF11 is the only producer of those artefacts.
   FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
     IF EXISTS (SELECT 1 FROM public.lesson_resources r
                 WHERE r.lesson_id = lesson_row.id
-                  AND r.resource_code IN (external_lesson_code || '-MINDMAP',
-                                          external_lesson_code || '-EXPERIMENT')
                   AND ((cap = 'mindMap' AND r.resource_type::text = 'mindmap')
-                    OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))) THEN
-      -- the staged body must be non-empty and addressed through the internal (unpublished) path
-      IF NOT EXISTS (SELECT 1 FROM public.lesson_resources r
-                      WHERE r.lesson_id = lesson_row.id
-                        AND ((cap = 'mindMap' AND r.resource_type::text = 'mindmap')
-                          OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))
-                        AND r.html_resource_type IS NOT NULL
-                        AND coalesce(btrim(r.description),'') <> ''
-                        AND r.url LIKE 'lesson-internal://html/%') THEN
-        RAISE EXCEPTION 'CF10_HTML_STAGE_INVALID: %', cap USING ERRCODE = '23514';
-      END IF;
-      -- and it must still be pending CF11 publication: CF10 never stamps cf11_published_at
-      IF NOT public.cf10_html_publication_pending(lesson_row.id, cap) THEN
-        RAISE EXCEPTION 'CF10_HTML_PUBLICATION_CLAIMED: %', cap USING ERRCODE = '23514';
-      END IF;
-      IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle lc
-                  WHERE lc.lesson_id = lesson_row.id AND lc.capability = cap
-                    AND lc.status <> 'DRAFT') THEN
-        RAISE EXCEPTION 'CF10_HTML_CAPABILITY_READY_TOO_EARLY: %', cap USING ERRCODE = '23514';
-      END IF;
+                    OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))
+                  AND coalesce(r.metadata->>'cf11_published_at','') = '') THEN
+      RAISE EXCEPTION 'CF10_HTML_LEGACY_ROW_FORBIDDEN: %', cap USING ERRCODE = '23514';
+    END IF;
+    IF NOT public.cf10_html_publication_pending(lesson_row.id, cap) THEN
+      RAISE EXCEPTION 'CF10_HTML_PUBLICATION_CLAIMED: %', cap USING ERRCODE = '23514';
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle lc
+                WHERE lc.lesson_id = lesson_row.id AND lc.capability = cap
+                  AND lc.status <> 'DRAFT') THEN
+      RAISE EXCEPTION 'CF10_HTML_CAPABILITY_READY_TOO_EARLY: %', cap USING ERRCODE = '23514';
     END IF;
   END LOOP;
+  -- and the lesson must still be invisible to students after the HTML deferral.
+  IF public.lesson_student_visible(lesson_row.id) THEN
+    RAISE EXCEPTION 'CF10_STUDENT_VISIBILITY_LEAK' USING ERRCODE = '23514';
+  END IF;
 
   -- R5.2: the ledger never records a zero-binding EXECUTE.
   IF binding.id IS NULL THEN
@@ -1158,6 +1141,7 @@ BEGIN
             'write_plan_sha256',plan_sha,'answer_leak',0,'published',false,'ready',false,
             'student_visible',false,'seed_sha256',seed_state_sha,
             'attested_scope','immutable_seed',
+            'html_deferred_to_cf11', html_deferred,
             'html_publication_pending', jsonb_build_object(
               'mindMap', public.cf10_html_publication_pending(lesson_row.id,'mindMap'),
               'simulation', public.cf10_html_publication_pending(lesson_row.id,'simulation'))),
@@ -1193,7 +1177,10 @@ GRANT EXECUTE ON FUNCTION public.cf10_html_publication_pending(uuid,text) TO aut
 CREATE OR REPLACE FUNCTION public.cf10_block_ready_before_html_publication()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
+  -- Only a capability that actually carries materialized HTML bytes is gated:
+  -- an OPTIONAL/NA row with no payload may legitimately reach READY.
   IF NEW.status = 'READY' AND NEW.capability IN ('mindMap','simulation')
+     AND NEW.draft_hash IS NOT NULL
      AND public.cf10_html_publication_pending(NEW.lesson_id, NEW.capability) THEN
     RAISE EXCEPTION 'CF10_HTML_CAPABILITY_READY_TOO_EARLY: %', NEW.capability USING ERRCODE = '23514';
   END IF;
@@ -1212,12 +1199,13 @@ COMMENT ON TABLE public.golden_lesson_domain_materializations IS
   'Immutable CF10 ledger: one atomic DRAFT-only materialization per verified staged batch; never publishes, never deletes, never creates subjects.';
 
 -- ---------------------------------------------------------------------------
--- CF10-R4 — server-side student visibility gate (all-REQUIRED-READY).
+-- CF10-R6 — server-side student visibility gate (no payload leak).
 -- A lesson becomes "editorially managed" the moment CF10 (or the 20C workflow)
 -- creates lifecycle rows or a materialization ledger row for it. A managed lesson
--- stays completely invisible to students until EVERY REQUIRED capability is READY.
--- NA / OPTIONAL rows never block. Legacy lessons with no lifecycle/ledger evidence
--- keep their pre-CF10 behaviour: nothing is silently hidden.
+-- stays completely invisible to students until it has REQUIRED capabilities AND no
+-- capability carrying a materialized payload (draft_hash) is still un-READY —
+-- OPTIONAL payloads included. NA rows without payload never block. Legacy lessons
+-- with no lifecycle/ledger evidence keep their pre-CF10 behaviour.
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.lesson_is_editorially_managed(_lesson_id uuid)
@@ -1228,13 +1216,17 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.lesson_student_visible(_lesson_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  -- R6: RLS is lesson-scoped, so "all REQUIRED READY" is not sufficient — an OPTIONAL capability
+  -- that already carries a materialized payload (draft_hash) would leak its DRAFT/REVIEW content.
+  -- A managed lesson is visible only when it has at least one REQUIRED capability and NO
+  -- capability that carries a payload is still un-READY. NA rows without payload never block.
   SELECT CASE
     WHEN NOT public.lesson_is_editorially_managed(_lesson_id) THEN true
     ELSE EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle l
                   WHERE l.lesson_id = _lesson_id AND l.applicability = 'REQUIRED')
      AND NOT EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle l
                       WHERE l.lesson_id = _lesson_id
-                        AND l.applicability = 'REQUIRED'
+                        AND (l.applicability = 'REQUIRED' OR l.draft_hash IS NOT NULL)
                         AND l.status IS DISTINCT FROM 'READY')
   END;
 $$;
