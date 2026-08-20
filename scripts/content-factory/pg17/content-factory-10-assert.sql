@@ -87,26 +87,34 @@ SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_capability_lifec
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.question_options WHERE is_correct),'zero answer leak in options');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.questions WHERE correct_index >= 0),'zero answer leak in question rows');
 SELECT public.cf04_assert((SELECT lesson_created IS FALSE FROM public.golden_lesson_domain_materializations),'existing lesson reused, not duplicated');
-SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lessons),'no duplicate lesson created');
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lessons),'no duplicate lesson created');
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.subjects),'no subject created by CF10');
 SELECT public.cf04_assert(NOT has_function_privilege('authenticated','public.golden_lesson_materialize_domain_batch(uuid,uuid,text,text,text)','EXECUTE'),'authenticated cannot materialize');
 
--- 6) Rich batch: creates the missing lesson and materializes every capability.
+-- 6) Rich batch: bound (CF09) pre-existing lesson shell with an UNRESOLVED (PENDING) semester.
 SET ROLE service_role;
 SELECT set_config('cf10.plan4',
   (public.golden_lesson_materialize_domain_batch(public.cf10_batch('QURAN-G10-L04-PKG'),
     '10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256'), false);
 RESET ROLE;
-SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lessons),'rich dry run created no lesson');
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lessons),'rich dry run created no lesson');
 
 SET ROLE service_role;
 SELECT public.golden_lesson_materialize_domain_batch(public.cf10_batch('QURAN-G10-L04-PKG'),
   '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan4'),'cf10-key-0004');
 RESET ROLE;
 
-SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lessons),'missing lesson created exactly once');
+SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lessons),'bound EXECUTE created no extra lesson');
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.subjects),'still no subject created');
-SELECT public.cf04_assert((SELECT lesson_created FROM public.golden_lesson_domain_materializations m JOIN public.golden_lesson_packages p ON true WHERE m.batch_id=public.cf10_batch('QURAN-G10-L04-PKG') LIMIT 1),'ledger records lesson creation');
+SELECT public.cf04_assert((SELECT NOT lesson_created FROM public.golden_lesson_domain_materializations m WHERE m.batch_id=public.cf10_batch('QURAN-G10-L04-PKG')),'bound EXECUTE never creates a lesson');
+-- R5.1: PENDING/unresolved semester stays NULL and is never invented.
+SELECT public.cf04_assert((SELECT semester IS NULL FROM public.lessons WHERE slug='quran-lesson-04'),'PENDING semester materializes as NULL');
+SELECT public.cf04_assert((SELECT (write_plan->'semester') = 'null'::jsonb AND (write_plan->>'semesterResolved')='false'
+  FROM public.golden_lesson_domain_materializations WHERE batch_id=public.cf10_batch('QURAN-G10-L04-PKG')),'write plan records the unresolved semester explicitly');
+-- R5.2: the ledger never records a zero-binding EXECUTE.
+SELECT public.cf04_assert((SELECT bool_and(binding_id IS NOT NULL) FROM public.golden_lesson_domain_materializations),'ledger binding_id is always non-null');
+SELECT public.cf04_assert((SELECT m.binding_id = (SELECT id FROM public.golden_lesson_identity_bindings b WHERE b.batch_id=m.batch_id)
+  FROM public.golden_lesson_domain_materializations m WHERE m.batch_id=public.cf10_batch('QURAN-G10-L04-PKG')),'ledger binding points at the CF09 binding');
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources),'mindmap and experiment resources written');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_resources WHERE is_primary),'no primary resource promoted');
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.questions),'official and self-test questions written');
@@ -880,11 +888,138 @@ DO $$ BEGIN
     RAISE EXCEPTION 'CF10_EXPECTED_IDENTITY_REBOUND';
   EXCEPTION WHEN check_violation THEN
     IF SQLERRM NOT LIKE '%CF10_REPLAY_STATE_DRIFT%'
-       AND SQLERRM NOT LIKE '%CF10_REPLAY_IDENTITY_REBOUND%' THEN RAISE; END IF;
+       AND SQLERRM NOT LIKE '%CF10_REPLAY_IDENTITY_REBOUND%'
+       AND SQLERRM NOT LIKE '%CF10_IDENTITY_BINDING_LESSON_MISMATCH%' THEN RAISE; END IF;
   END;
 END $$;
 RESET ROLE;
 ROLLBACK;
+
+-- 13) CF10-R5 — semester contract and mandatory CF09 binding on EXECUTE.
+
+-- 13a) A pinned manifest semester that contradicts the live lesson aborts and rolls back.
+BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
+DELETE FROM public.golden_lesson_domain_materializations
+ WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
+ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
+UPDATE public.lessons SET semester = 2 WHERE slug = 'quran-lesson';
+SET ROLE service_role;
+DO $$ DECLARE b uuid; sha text; BEGIN
+  b := public.cf10_batch('QURAN-G10-L03-PKG');
+  sha := public.golden_lesson_materialize_domain_batch(b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-sem-1');
+    RAISE EXCEPTION 'CF10_EXPECTED_SEMESTER_CONFLICT';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_IDENTITY_CONFLICT%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert((SELECT count(*)=0 FROM public.golden_lesson_domain_materializations
+    WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG')),'semester conflict rolled the ledger back');
+END $$;
+RESET ROLE;
+ROLLBACK;
+
+-- 13b) A manifest that declares a resolved semester without a value is rejected outright.
+SET ROLE service_role;
+DO $$ DECLARE b uuid; BEGIN
+  b := public.cf10_batch('QURAN-G10-L04-PKG');
+  UPDATE public.golden_lesson_package_versions
+     SET manifest = jsonb_set(jsonb_set(manifest,'{identity,semester}','null'),'{identity,semesterStatus}','"RESOLVED"')
+   WHERE id = (SELECT v.id FROM public.golden_lesson_package_versions v
+                 JOIN public.golden_lesson_domain_stage_batches sb ON sb.package_id=v.package_id AND sb.package_version=v.version
+                WHERE sb.id=b);
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(b,'10000000-0000-0000-0000-000000000003','DRY_RUN');
+    RAISE EXCEPTION 'CF10_EXPECTED_SEMESTER_STATUS_CONFLICT';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_IDENTITY_SEMESTER_CONFLICT%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert(true,'resolved semester status without a value is rejected');
+  RAISE EXCEPTION 'CF10_R5_ROLLBACK_SENTINEL';
+EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM NOT LIKE '%CF10_R5_ROLLBACK_SENTINEL%' THEN RAISE; END IF;
+END $$;
+RESET ROLE;
+
+-- 13c) EXECUTE with no CF09 binding is refused; nothing is written.
+BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
+ALTER TABLE public.golden_lesson_identity_bindings DISABLE TRIGGER USER;
+DELETE FROM public.golden_lesson_domain_materializations
+ WHERE batch_id = public.cf10_batch('QURAN-G10-L04-PKG');
+DELETE FROM public.golden_lesson_identity_bindings
+ WHERE batch_id = public.cf10_batch('QURAN-G10-L04-PKG');
+ALTER TABLE public.golden_lesson_identity_bindings ENABLE TRIGGER USER;
+ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
+SET ROLE service_role;
+DO $$ DECLARE b uuid; sha text; BEGIN
+  b := public.cf10_batch('QURAN-G10-L04-PKG');
+  sha := public.golden_lesson_materialize_domain_batch(b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-nobind');
+    RAISE EXCEPTION 'CF10_EXPECTED_BINDING_REQUIRED';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_IDENTITY_BINDING_REQUIRED%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert((SELECT count(*)=0 FROM public.golden_lesson_domain_materializations
+    WHERE batch_id = public.cf10_batch('QURAN-G10-L04-PKG')),'zero-binding EXECUTE rolled back with no ledger row');
+END $$;
+RESET ROLE;
+ROLLBACK;
+
+-- 13d) Two bindings for one batch are never disambiguated heuristically.
+BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
+DELETE FROM public.golden_lesson_domain_materializations
+ WHERE batch_id = public.cf10_batch('QURAN-G10-L04-PKG');
+ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
+ALTER TABLE public.golden_lesson_identity_bindings DROP CONSTRAINT golden_lesson_identity_bindings_batch_id_key;
+INSERT INTO public.golden_lesson_identity_bindings(
+  batch_id, grade_id, subject_id, lesson_id, unit_id, curriculum_track_ids,
+  external_lesson_code, identity_snapshot, identity_sha256, bound_by)
+SELECT batch_id, grade_id, subject_id, lesson_id, unit_id, curriculum_track_ids,
+       external_lesson_code, identity_snapshot, identity_sha256, bound_by
+  FROM public.golden_lesson_identity_bindings
+ WHERE batch_id = public.cf10_batch('QURAN-G10-L04-PKG');
+SET ROLE service_role;
+DO $$ DECLARE b uuid; BEGIN
+  b := public.cf10_batch('QURAN-G10-L04-PKG');
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch(b,'10000000-0000-0000-0000-000000000003','EXECUTE',repeat('0',64),'cf10-key-dupbind');
+    RAISE EXCEPTION 'CF10_EXPECTED_BINDING_AMBIGUOUS';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%CF10_IDENTITY_BINDING_AMBIGUOUS%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert((SELECT count(*)=0 FROM public.golden_lesson_domain_materializations
+    WHERE batch_id = public.cf10_batch('QURAN-G10-L04-PKG')),'duplicate binding rolled back with no ledger row');
+END $$;
+RESET ROLE;
+ROLLBACK;
+
+-- 13e) The subject is authoritative from the binding: a stale manifest subject code conflicts.
+SET ROLE service_role;
+DO $$ DECLARE b uuid; BEGIN
+  b := public.cf10_batch('QURAN-G10-L04-PKG');
+  BEGIN
+    UPDATE public.golden_lesson_package_versions
+       SET manifest = jsonb_set(manifest,'{identity,subjectCode}','"CHEM-G12"')
+     WHERE id = (SELECT v.id FROM public.golden_lesson_package_versions v
+                   JOIN public.golden_lesson_domain_stage_batches sb ON sb.package_id=v.package_id AND sb.package_version=v.version
+                  WHERE sb.id=b);
+    BEGIN
+      PERFORM public.golden_lesson_materialize_domain_batch(b,'10000000-0000-0000-0000-000000000003','DRY_RUN');
+      RAISE EXCEPTION 'CF10_EXPECTED_SUBJECT_MISMATCH';
+    EXCEPTION WHEN check_violation THEN
+      IF SQLERRM NOT LIKE '%CF10_IDENTITY_BINDING_SUBJECT_MISMATCH%' THEN RAISE; END IF;
+    END;
+    PERFORM public.cf04_assert(true,'stale manifest subject code never remaps silently');
+    RAISE EXCEPTION 'CF10_R5_ROLLBACK_SENTINEL';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM NOT LIKE '%CF10_R5_ROLLBACK_SENTINEL%' THEN RAISE; END IF;
+  END;
+END $$;
+RESET ROLE;
 
 SELECT 'PASS_CONTENT_FACTORY_10_PG17' AS verdict;
 

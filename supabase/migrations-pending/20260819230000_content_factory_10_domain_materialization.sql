@@ -18,7 +18,20 @@
 --     is compared field-by-field (lesson, resources, questions, revisions, options,
 --     targets, answers, rationales, assessment, lifecycle). Any divergence aborts the whole
 --     transaction with CF10_IDENTITY_CONFLICT / CF10_CONTENT_HASH_CONFLICT and no ledger row.
---   * Binding resolution is authoritative: zero or exactly one binding; ambiguity aborts.
+--   * Binding resolution is authoritative: EXECUTE requires EXACTLY ONE
+--     golden_lesson_identity_binding for the batch (subject/lesson/external lesson code);
+--     zero => CF10_IDENTITY_BINDING_REQUIRED, many => CF10_IDENTITY_BINDING_AMBIGUOUS.
+--     The ledger never stores binding_id NULL. Subject identity is taken from
+--     binding.subject_id and re-checked against the CURRENT subjects.code in the manifest
+--     (a stale code such as CHEM-G12 is a conflict, never a silent remap).
+--     Zero-binding is only tolerated in DRY_RUN / fixture inspection.
+--   * Operational contract: CF09 binds an ALREADY EXISTING lesson shell, so the Iron run
+--     MUST create the lesson shell idempotently (exact subject_id + slug) BEFORE CF09.
+--     CF10 never creates a subject and never invents identity; in a bound EXECUTE the
+--     lesson must already resolve and match the binding — lesson creation is reachable
+--     only on the unbound DRY_RUN / fixture path.
+--   * Semester is honoured as declared: pinned 1|2 must match lessons.semester exactly;
+--     PENDING/UNRESOLVED/absent means lessons.semester must be NULL. CF10 never invents it.
 --   * Counters come from real ROW_COUNT / RETURNING. payload_hash UPDATEs are reported in a
 --     separate counter and never inflate domain_writes_performed. An exact replay or a fully
 --     pre-existing identical state performs 0 domain writes.
@@ -221,6 +234,9 @@ DECLARE
   staged_caps text[];
   expected_title text;
   expected_semester integer;
+  semester_raw text;
+  semester_status text;
+  semester_resolved boolean := false;
   expected_sort integer;
   expected_type text;
   expected_options jsonb;
@@ -277,41 +293,80 @@ BEGIN
   IF jsonb_typeof(ident) <> 'object' THEN
     RAISE EXCEPTION 'CF10_IDENTITY_MANIFEST_MISSING' USING ERRCODE = '22023';
   END IF;
-  -- R4: identity is never invented. Every field CF10 would write must be present.
+  -- R5: identity is never invented. Fields CF10 writes verbatim must be present; the
+  -- semester is honoured as DECLARED by the manifest, including an explicit unresolved state.
   IF coalesce(btrim(ident->>'subjectCode'),'') = ''
      OR coalesce(btrim(ident->>'lessonSlug'),'') = ''
-     OR coalesce(btrim(ident->>'lessonCode'),'') = ''
-     OR (ident->>'semester') IS NULL THEN
+     OR coalesce(btrim(ident->>'lessonCode'),'') = '' THEN
     RAISE EXCEPTION 'CF10_IDENTITY_MANIFEST_INCOMPLETE' USING ERRCODE = '22023';
   END IF;
   external_lesson_code := btrim(ident->>'lessonCode');
   expected_title := coalesce(nullif(btrim(coalesce(ident->>'lessonTitle','')),''), btrim(ident->>'lessonSlug'));
-  expected_semester := (ident->>'semester')::integer;
+
+  -- Semester contract (R5.1):
+  --   * pinned 1|2                      -> lessons.semester must equal it
+  --   * PENDING / UNRESOLVED / absent   -> lessons.semester must be NULL (never invented)
+  --   * a declared status contradicting a pinned value -> hard failure
+  semester_raw := nullif(btrim(coalesce(ident->>'semester','')),'');
+  semester_status := upper(nullif(btrim(coalesce(ident->>'semesterStatus','')),''));
+  IF semester_raw IS NOT NULL AND upper(semester_raw) IN ('PENDING','UNRESOLVED','NULL','NONE') THEN
+    semester_status := coalesce(semester_status, upper(semester_raw));
+    semester_raw := NULL;
+  END IF;
+  IF semester_status IS NOT NULL AND semester_status NOT IN ('PENDING','UNRESOLVED','RESOLVED','PINNED') THEN
+    RAISE EXCEPTION 'CF10_IDENTITY_SEMESTER_STATUS_INVALID: %', semester_status USING ERRCODE = '22023';
+  END IF;
+  IF semester_raw IS NULL THEN
+    IF semester_status IN ('RESOLVED','PINNED') THEN
+      RAISE EXCEPTION 'CF10_IDENTITY_SEMESTER_CONFLICT: resolved status without value' USING ERRCODE = '23514';
+    END IF;
+    semester_resolved := false;
+    expected_semester := NULL;
+  ELSE
+    IF semester_raw !~ '^[12]$' THEN
+      RAISE EXCEPTION 'CF10_IDENTITY_SEMESTER_INVALID: %', semester_raw USING ERRCODE = '22023';
+    END IF;
+    IF semester_status IN ('PENDING','UNRESOLVED') THEN
+      RAISE EXCEPTION 'CF10_IDENTITY_SEMESTER_CONFLICT: % declared pending', semester_raw USING ERRCODE = '23514';
+    END IF;
+    semester_resolved := true;
+    expected_semester := semester_raw::integer;
+  END IF;
   expected_sort := coalesce((ident->>'sortOrder')::integer, 0);
 
-  -- Subject: authoritative existing row only. CF10 never creates or renames a subject.
-  IF (SELECT count(*) FROM public.subjects
-       WHERE lower(btrim(code)) = lower(btrim(ident->>'subjectCode'))) <> 1 THEN
-    RAISE EXCEPTION 'CF10_SUBJECT_NOT_EXACTLY_ONE' USING ERRCODE = '23514';
-  END IF;
-  SELECT * INTO subject_row FROM public.subjects
-   WHERE lower(btrim(code)) = lower(btrim(ident->>'subjectCode'));
-
-  -- R4: binding resolution must be authoritative — zero bindings (explicit no-binding path)
-  -- or exactly one. Ambiguity is never resolved heuristically.
+  -- R5.2 / R5.4: binding resolution first. CF10 runs AFTER CF09, so in EXECUTE there must be
+  -- exactly one authoritative binding for this batch; subject identity comes from that binding.
   SELECT count(*) INTO binding_count
     FROM public.golden_lesson_identity_bindings WHERE batch_id = _batch_id;
   IF binding_count > 1 THEN
     RAISE EXCEPTION 'CF10_IDENTITY_BINDING_AMBIGUOUS' USING ERRCODE = '23514';
   END IF;
+  IF binding_count = 0 AND _mode = 'EXECUTE' THEN
+    RAISE EXCEPTION 'CF10_IDENTITY_BINDING_REQUIRED' USING ERRCODE = '23514';
+  END IF;
+
   IF binding_count = 1 THEN
     SELECT * INTO binding FROM public.golden_lesson_identity_bindings WHERE batch_id = _batch_id;
-    IF binding.subject_id IS DISTINCT FROM subject_row.id THEN
+    -- Subject is authoritative from the binding; the manifest code must still match the CURRENT
+    -- subject code (a stale code in the manifest is a conflict, never a silent remap).
+    SELECT * INTO subject_row FROM public.subjects WHERE id = binding.subject_id;
+    IF subject_row.id IS NULL THEN
+      RAISE EXCEPTION 'CF10_IDENTITY_BINDING_SUBJECT_MISSING' USING ERRCODE = '23514';
+    END IF;
+    IF lower(btrim(subject_row.code)) IS DISTINCT FROM lower(btrim(ident->>'subjectCode')) THEN
       RAISE EXCEPTION 'CF10_IDENTITY_BINDING_SUBJECT_MISMATCH' USING ERRCODE = '23514';
     END IF;
     IF btrim(binding.external_lesson_code) IS DISTINCT FROM external_lesson_code THEN
       RAISE EXCEPTION 'CF10_IDENTITY_BINDING_CODE_MISMATCH' USING ERRCODE = '23514';
     END IF;
+  ELSE
+    -- DRY_RUN / fixture path only: resolve the subject by its current code, exactly one row.
+    IF (SELECT count(*) FROM public.subjects
+         WHERE lower(btrim(code)) = lower(btrim(ident->>'subjectCode'))) <> 1 THEN
+      RAISE EXCEPTION 'CF10_SUBJECT_NOT_EXACTLY_ONE' USING ERRCODE = '23514';
+    END IF;
+    SELECT * INTO subject_row FROM public.subjects
+     WHERE lower(btrim(code)) = lower(btrim(ident->>'subjectCode'));
   END IF;
 
   IF (SELECT count(*) FROM public.lessons
@@ -322,10 +377,20 @@ BEGIN
   END IF;
   SELECT * INTO lesson_row FROM public.lessons
    WHERE subject_id = subject_row.id AND lower(btrim(slug)) = lower(btrim(ident->>'lessonSlug'));
-  IF binding_count = 1 AND lesson_row.id IS NOT NULL
-     AND binding.lesson_id IS DISTINCT FROM lesson_row.id THEN
-    RAISE EXCEPTION 'CF10_IDENTITY_BINDING_LESSON_MISMATCH' USING ERRCODE = '23514';
+  IF binding_count = 1 THEN
+    IF binding.lesson_id IS NULL THEN
+      RAISE EXCEPTION 'CF10_IDENTITY_BINDING_LESSON_MISSING' USING ERRCODE = '23514';
+    END IF;
+    IF lesson_row.id IS NOT NULL AND binding.lesson_id IS DISTINCT FROM lesson_row.id THEN
+      RAISE EXCEPTION 'CF10_IDENTITY_BINDING_LESSON_MISMATCH' USING ERRCODE = '23514';
+    END IF;
+    -- R5.3: CF09 binds an EXISTING lesson shell. A bound EXECUTE never creates a lesson.
+    IF lesson_row.id IS NULL AND _mode = 'EXECUTE' THEN
+      RAISE EXCEPTION 'CF10_IDENTITY_BINDING_LESSON_MISMATCH: bound lesson not resolvable by identity'
+        USING ERRCODE = '23514';
+    END IF;
   END IF;
+
 
   -- Answer-leak gate on every student-visible staged payload, before any write.
   FOR entry IN SELECT * FROM public.golden_lesson_domain_stage_entries
@@ -373,6 +438,8 @@ BEGIN
     'externalLessonCode', external_lesson_code,
     'lessonExists', lesson_row.id IS NOT NULL,
     'bindingId', binding.id,
+    'semester', to_jsonb(expected_semester),
+    'semesterResolved', semester_resolved,
     'verifiedBundleSha256', batch.verified_bundle_sha256,
     'answerCompanionSha256', companion->>'companion_sha256',
     'entries', plan,
@@ -407,6 +474,8 @@ BEGIN
     -- (1) Ledger + source identity: batch, plan hash, idempotency key, verified bundle,
     --     answer companion hash and the subject/lesson identity are re-verified now.
     IF replay.subject_id IS DISTINCT FROM subject_row.id
+       OR replay.binding_id IS NULL
+       OR replay.binding_id IS DISTINCT FROM binding.id
        OR (replay.write_plan->>'verifiedBundleSha256') IS DISTINCT FROM batch.verified_bundle_sha256
        OR (replay.write_plan->>'answerCompanionSha256') IS DISTINCT FROM (companion->>'companion_sha256')
        OR (replay.write_plan->>'externalLessonCode') IS DISTINCT FROM external_lesson_code
@@ -1064,6 +1133,15 @@ BEGIN
       END IF;
     END IF;
   END LOOP;
+
+  -- R5.2: the ledger never records a zero-binding EXECUTE.
+  IF binding.id IS NULL THEN
+    RAISE EXCEPTION 'CF10_IDENTITY_BINDING_REQUIRED' USING ERRCODE = '23514';
+  END IF;
+  IF lesson_created THEN
+    RAISE EXCEPTION 'CF10_IDENTITY_BINDING_LESSON_MISMATCH: bound EXECUTE created a lesson'
+      USING ERRCODE = '23514';
+  END IF;
 
   seed_state_sha := public.cf10_seed_state_sha256(lesson_row.id);
 
