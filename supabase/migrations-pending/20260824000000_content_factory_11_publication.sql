@@ -462,19 +462,21 @@ BEGIN
   RETURN out_arr;
 END $$;
 
--- Canonical hash of ONE upload attestation: measured bytes bound to the live object identity.
+-- Canonical hash of ONE upload attestation: measured bytes bound to the live object identity,
+-- plus the verification origin (CF11-R5: only a server byte readback may ever be hashed here).
 CREATE OR REPLACE FUNCTION public.cf11_attestation_hash(
   _lesson_id uuid, _asset_code text, _file_name text, _mime text, _sha256 text,
   _bytes bigint, _magic_hex text, _bucket text, _path text,
-  _object_id uuid, _version text, _etag text)
+  _object_id uuid, _version text, _etag text, _origin text DEFAULT 'SERVER_BYTE_READBACK')
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   SELECT public.cf11_text_sha256(jsonb_build_object(
-    'schema','tamkeen.content-factory-11.asset-attestation.v1',
+    'schema','tamkeen.content-factory-11.asset-attestation.v2',
     'lessonId', _lesson_id, 'assetCode', _asset_code, 'fileName', _file_name,
     'mimeType', _mime, 'sha256', _sha256, 'bytes', _bytes, 'magicHex', lower(_magic_hex),
-    'bucket', _bucket, 'path', _path,
+    'bucket', _bucket, 'path', _path, 'verificationOrigin', _origin,
     'objectId', _object_id, 'objectVersion', _version, 'objectEtag', _etag)::text);
 $$;
+
 
 -- ------------------------------------------------------------------------------------
 -- 4c) Upload attestation RPC. Appends ONE immutable row proving the real bytes reached the
