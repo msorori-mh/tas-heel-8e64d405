@@ -11,6 +11,27 @@
 -- =====================================================================================
 
 -- ---------------------------------------------------------------------------
+-- Fixture-local hashing helpers. The CF11 migration installs the real
+-- public.cf11_text_sha256 / public.cf11_script_csp_hash AFTER this file runs, so the fixture
+-- cannot call them yet. These are byte-identical in behaviour and go through extensions.digest
+-- exactly like the real ones -- there is no public.digest shim anywhere.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.cf11fx_sha256(_value text)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $fx$
+  SELECT encode(extensions.digest(convert_to(coalesce(_value,''),'UTF8'),'sha256'),'hex');
+$fx$;
+CREATE OR REPLACE FUNCTION public.cf11fx_csp_hash(_script text)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $fx$
+  SELECT encode(extensions.digest(convert_to(coalesce(_script,''),'UTF8'),'sha256'),'base64');
+$fx$;
+
+-- The private asset bucket must exist before the fixture can register the stored object.
+-- The CF11 migration re-asserts public=false / limits / MIME allowlist on top of this row.
+INSERT INTO storage.buckets(id, name, public)
+VALUES ('golden-lesson-assets','golden-lesson-assets',false)
+ON CONFLICT (id) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
 -- Production objects CF11 depends on.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.audit_logs(
@@ -175,8 +196,10 @@ DECLARE
   i integer;
   caps text[] := ARRAY['officialBookContent','tamkeenExplanationHtml','lessonSummaryHtml',
                        'mindMapHtml','labExperimentHtml','officialBookQuestions','selfTest'];
-  lifecycle_caps text[] := ARRAY['officialBookContent','tamkeenExplanation','lessonSummary',
-                                 'mindMap','simulation','officialBookQuestions','selfTest'];
+  -- Production vocabulary (verified against the live lesson_capability_lifecycle rows):
+  -- quickReview / checkUnderstanding / lessonAssessment, NOT lessonSummary/officialBookQuestions/selfTest.
+  lifecycle_caps text[] := ARRAY['officialBookContent','tamkeenExplanation','quickReview',
+                                 'mindMap','simulation','checkUnderstanding','lessonAssessment'];
   cap text;
 BEGIN
   -- Official body: real leaf asset reference, no path, no data URI.
@@ -202,7 +225,7 @@ BEGIN
   v_lab := '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">'
         || '<meta http-equiv="Content-Security-Policy" content="default-src ''none''; '
         || 'connect-src ''none''; img-src ''none''; style-src ''self''; '
-        || 'script-src ''sha256-' || public.cf11_script_csp_hash(v_script) || '''">'
+        || 'script-src ''sha256-' || public.cf11fx_csp_hash(v_script) || '''">'
         || '</head><body data-tamkeen-sandbox="allow-scripts" data-tamkeen-render="INTERACTIVE">'
         || '<button data-act="fe2">Fe2+</button><button data-act="fe3">Fe3+</button>'
         || '<button data-act="reset">إعادة</button><output id="out">0/0</output>'
@@ -218,7 +241,7 @@ BEGIN
             'CF10', 'REQUIRED',
             CASE WHEN cap IN ('officialBookContent','officialBookQuestions') THEN 'OFFICIAL' ELSE 'TAMKEEN' END,
             cap || '.src',
-            public.cf11_text_sha256(CASE cap WHEN 'mindMapHtml' THEN v_mind
+            public.cf11fx_sha256(CASE cap WHEN 'mindMapHtml' THEN v_mind
                                              WHEN 'labExperimentHtml' THEN v_lab
                                              ELSE cap END),
             convert_to(CASE cap WHEN 'mindMapHtml' THEN v_mind
@@ -284,7 +307,7 @@ BEGIN
   FOREACH cap IN ARRAY lifecycle_caps LOOP
     INSERT INTO public.lesson_capability_lifecycle(lesson_id, capability, status, applicability,
                                                    draft_hash, draft_updated_at)
-    VALUES (v_lesson, cap, 'DRAFT', 'REQUIRED', public.cf11_text_sha256(cap), now());
+    VALUES (v_lesson, cap, 'DRAFT', 'REQUIRED', public.cf11fx_sha256(cap), now());
   END LOOP;
 
   -- CF10 ledger row.

@@ -36,8 +36,8 @@ SELECT public.cf04_assert(
 -- ------------------------------------------------------------------------------------
 -- B) Authorization + actor identity
 -- ------------------------------------------------------------------------------------
-SET ROLE service_role;
 SELECT set_config('request.jwt.claim.sub', :'stu', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
@@ -50,6 +50,7 @@ DO $$ BEGIN
 END $$;
 
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN
     -- Claiming to act as someone else must fail even for a real staff session.
@@ -125,8 +126,8 @@ RESET ROLE;
 -- D) Asset contract violations (each rolled back)
 -- ------------------------------------------------------------------------------------
 BEGIN;
-SET ROLE service_role;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN  -- undeclared reference: the body points at an asset nobody declared
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
@@ -166,8 +167,8 @@ ROLLBACK;
 
 BEGIN;
 DELETE FROM storage.objects WHERE bucket_id='golden-lesson-assets';
-SET ROLE service_role;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
@@ -192,8 +193,8 @@ UPDATE public.golden_lesson_domain_stage_entries
                'script-src ''sha256-AAAA'), 'UTF8')
  WHERE batch_id = :'batch' AND capability = 'labExperimentHtml';
 ALTER TABLE public.golden_lesson_domain_stage_entries ENABLE TRIGGER USER;
-SET ROLE service_role;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
@@ -214,8 +215,8 @@ UPDATE public.golden_lesson_domain_stage_entries
        replace(convert_from(source_payload,'UTF8'), 'connect-src ''none''', 'connect-src ''self'''), 'UTF8')
  WHERE batch_id = :'batch' AND capability = 'labExperimentHtml';
 ALTER TABLE public.golden_lesson_domain_stage_entries ENABLE TRIGGER USER;
-SET ROLE service_role;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
@@ -237,8 +238,8 @@ UPDATE public.golden_lesson_domain_stage_entries
                '</details><script>alert(1)</script></section>'), 'UTF8')
  WHERE batch_id = :'batch' AND capability = 'mindMapHtml';
 ALTER TABLE public.golden_lesson_domain_stage_entries ENABLE TRIGGER USER;
-SET ROLE service_role;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
@@ -260,8 +261,8 @@ UPDATE public.golden_lesson_domain_stage_entries
                '<output id="out">0/0</output><img src="https://cdn.example.com/x.png">'), 'UTF8')
  WHERE batch_id = :'batch' AND capability = 'labExperimentHtml';
 ALTER TABLE public.golden_lesson_domain_stage_entries ENABLE TRIGGER USER;
-SET ROLE service_role;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
@@ -280,8 +281,8 @@ ROLLBACK;
 -- ------------------------------------------------------------------------------------
 BEGIN;
 UPDATE public.lessons SET is_free = false WHERE id = :'lesson';
-SET ROLE service_role;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
@@ -298,8 +299,8 @@ ROLLBACK;
 BEGIN;
 DELETE FROM public.golden_lesson_package_reviews
  WHERE package_id='50000000-0000-0000-0000-000000000001' AND to_status='APPROVED_FOR_STAGING';
-SET ROLE service_role;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
@@ -321,8 +322,8 @@ INSERT INTO public.golden_lesson_identity_bindings(
 SELECT batch_id, grade_id, subject_id, lesson_id, unit_id, curriculum_track_ids,
        external_lesson_code, identity_snapshot, identity_sha256, bound_by
   FROM public.golden_lesson_identity_bindings WHERE batch_id = :'batch';
-SET ROLE service_role;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
@@ -339,8 +340,8 @@ ROLLBACK;
 -- ------------------------------------------------------------------------------------
 -- G) The real EXECUTE
 -- ------------------------------------------------------------------------------------
-SET ROLE service_role;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$
 DECLARE dry jsonb; res jsonb; again jsonb; v_lesson uuid := '43000000-0000-0000-0000-000000000012';
 BEGIN
@@ -456,8 +457,8 @@ RESET ROLE;
 -- ------------------------------------------------------------------------------------
 -- H) READY attestation
 -- ------------------------------------------------------------------------------------
-SET ROLE service_role;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN  -- the publisher may not attest their own work
     PERFORM public.golden_lesson_attest_cf11_ready('51000000-0000-0000-0000-000000000001',
@@ -474,6 +475,7 @@ DO $$ BEGIN
 END $$;
 
 SELECT set_config('request.jwt.claim.sub', :'att', false);
+SET ROLE authenticated;
 DO $$ BEGIN
   BEGIN  -- explicit human evidence is mandatory
     PERFORM public.golden_lesson_attest_cf11_ready('51000000-0000-0000-0000-000000000001',

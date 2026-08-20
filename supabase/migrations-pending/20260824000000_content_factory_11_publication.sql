@@ -196,7 +196,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.cf11_inline_scripts(_html text)
 RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   SELECT coalesce(array_agg(m[1] ORDER BY ord), ARRAY[]::text[])
-    FROM regexp_matches(coalesce(_html,''), '<script\b[^>]*>([\s\S]*?)</script\s*>', 'gi')
+    FROM regexp_matches(coalesce(_html,''), '<script\y[^>]*>([\s\S]*?)</script\s*>', 'gi')
       WITH ORDINALITY AS t(m, ord);
 $$;
 
@@ -207,13 +207,13 @@ BEGIN
   IF _html ~* '(https?:)?//[a-z0-9]' THEN
     RAISE EXCEPTION 'CF11_HTML_EXTERNAL_URL: %', _label USING ERRCODE = '23514';
   END IF;
-  IF _html ~* '\b(src|href|action|formaction|data|poster)\s*=\s*["'']?\s*data:' THEN
+  IF _html ~* '\y(src|href|action|formaction|data|poster)\s*=\s*["'']?\s*data:' THEN
     RAISE EXCEPTION 'CF11_HTML_DATA_URI: %', _label USING ERRCODE = '23514';
   END IF;
-  IF _html ~* '<(iframe|object|embed|form|link|base)\b' THEN
+  IF _html ~* '<(iframe|object|embed|form|link|base)\y' THEN
     RAISE EXCEPTION 'CF11_HTML_FORBIDDEN_ELEMENT: %', _label USING ERRCODE = '23514';
   END IF;
-  IF _html ~* '\bon[a-z]+\s*=\s*["'']' THEN
+  IF _html ~* '\yon[a-z]+\s*=\s*["'']' THEN
     RAISE EXCEPTION 'CF11_HTML_INLINE_EVENT_HANDLER: %', _label USING ERRCODE = '23514';
   END IF;
 END $$;
@@ -225,10 +225,10 @@ BEGIN
   IF coalesce(btrim(_html),'') = '' THEN
     RAISE EXCEPTION 'CF11_HTML_EMPTY: %', _label USING ERRCODE = '23514';
   END IF;
-  IF _html ~* '<script\b' THEN
+  IF _html ~* '<script\y' THEN
     RAISE EXCEPTION 'CF11_STATIC_HTML_HAS_SCRIPT: %', _label USING ERRCODE = '23514';
   END IF;
-  IF _html !~* '<details\b' OR _html !~* '<summary\b' THEN
+  IF _html !~* '<details\y' OR _html !~* '<summary\y' THEN
     RAISE EXCEPTION 'CF11_MINDMAP_MISSING_DETAILS_SUMMARY: %', _label USING ERRCODE = '23514';
   END IF;
   PERFORM public.cf11_assert_no_network(_label, _html);
@@ -249,9 +249,16 @@ BEGIN
     RAISE EXCEPTION 'CF11_HTML_EMPTY: %', _label USING ERRCODE = '23514';
   END IF;
 
-  SELECT (regexp_match(_html,
-    '<meta\s+http-equiv\s*=\s*["'']Content-Security-Policy["''][^>]*\bcontent\s*=\s*["'']([^"'']+)["'']',
-    'i'))[1] INTO csp;
+  -- Two explicit delimiter alternatives with negated character classes. A back-reference plus
+  -- a non-greedy `.*?` is NOT usable here: Postgres ARE derives greediness from the FIRST
+  -- quantifier in the branch (the leading \s+), so `.*?` would still run to the last quote and
+  -- swallow the whole document into the "CSP".
+  SELECT coalesce((regexp_match(_html,
+           '<meta\s+http-equiv\s*=\s*["'']Content-Security-Policy["''][^>]*\ycontent\s*=\s*"([^"]*)"',
+           'i'))[1],
+         (regexp_match(_html,
+           '<meta\s+http-equiv\s*=\s*["'']Content-Security-Policy["''][^>]*\ycontent\s*=\s*''([^'']*)''',
+           'i'))[1]) INTO csp;
   IF csp IS NULL THEN
     RAISE EXCEPTION 'CF11_LAB_CSP_MISSING: %', _label USING ERRCODE = '23514';
   END IF;
@@ -267,7 +274,7 @@ BEGIN
   IF _html !~* 'data-tamkeen-sandbox\s*=\s*["'']allow-scripts["'']' THEN
     RAISE EXCEPTION 'CF11_LAB_SANDBOX_CONTRACT_MISSING: %', _label USING ERRCODE = '23514';
   END IF;
-  IF _html ~* '<script\b[^>]*\bsrc\s*=' THEN
+  IF _html ~* '<script\y[^>]*\ysrc\s*=' THEN
     RAISE EXCEPTION 'CF11_LAB_EXTERNAL_SCRIPT: %', _label USING ERRCODE = '23514';
   END IF;
 
@@ -302,7 +309,7 @@ CREATE OR REPLACE FUNCTION public.cf11_html_asset_refs(_html text)
 RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   SELECT coalesce(array_agg(DISTINCT m[1]), ARRAY[]::text[])
     FROM regexp_matches(coalesce(_html,''),
-      '<img\b[^>]*\bsrc\s*=\s*["'']([^"''>]+)["'']', 'gi') AS t(m);
+      '<img\y[^>]*\ysrc\s*=\s*["'']([^"''>]+)["'']', 'gi') AS t(m);
 $$;
 
 -- ------------------------------------------------------------------------------------
@@ -719,18 +726,26 @@ BEGIN
   END IF;
 
   -- 6) lifecycle DRAFT -> REVIEW for the exact seven capabilities. No READY here, ever.
-  FOREACH cap IN ARRAY public.cf10_required_capabilities() LOOP
-    PERFORM public.lesson_capability_transition(
-      lesson_row.id,
-      CASE cap WHEN 'mindMapHtml' THEN 'mindMap'
-               WHEN 'labExperimentHtml' THEN 'simulation'
-               WHEN 'officialBookContent' THEN 'officialBookContent'
-               WHEN 'officialBookQuestions' THEN 'officialBookQuestions'
-               WHEN 'tamkeenExplanationHtml' THEN 'tamkeenExplanation'
-               WHEN 'lessonSummaryHtml' THEN 'lessonSummary'
-               ELSE 'selfTest' END,
-      'REVIEW', NULL, NULL);
+  --    The staged->lifecycle capability names are NOT hardcoded here: CF08 already recorded the
+  --    authoritative `lifecycle_capability` for every staged capability, and CF10 verified the
+  --    staged set equals cf10_required_capabilities(). Re-deriving them keeps CF11 in lockstep
+  --    with the real production vocabulary (quickReview / checkUnderstanding / lessonAssessment).
+  FOR q IN
+    SELECT DISTINCT e.lifecycle_capability AS code
+      FROM public.golden_lesson_domain_stage_entries e
+     WHERE e.batch_id = _batch_id
+       AND e.capability = ANY (public.cf10_required_capabilities())
+     ORDER BY e.lifecycle_capability
+  LOOP
+    PERFORM public.lesson_capability_transition(lesson_row.id, q.code, 'REVIEW', NULL, NULL);
   END LOOP;
+
+  IF (SELECT count(*) FROM public.lesson_capability_lifecycle
+       WHERE lesson_id = lesson_row.id AND status = 'REVIEW') <> 7 THEN
+    RAISE EXCEPTION 'CF11_LIFECYCLE_REVIEW_NOT_EXACTLY_SEVEN' USING ERRCODE = '23514';
+  END IF;
+
+
 
   IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle
               WHERE lesson_id = lesson_row.id AND status = 'READY') THEN
@@ -749,6 +764,23 @@ BEGIN
   VALUES (uid, 'golden_lesson_cf11_publish', 'lesson_capability', lesson_row.id,
           jsonb_build_object('batchId',_batch_id,'publicationId',publication_id,
                              'planSha256',plan_sha,'writes',writes));
+
+  -- 8)  Consume the HTML drafts. CF10's `cf10_block_ready_before_html_publication` trigger
+  --     refuses READY for mindMap/simulation while `draft_hash` is still set: an unconsumed
+  --     draft means the staged bytes were never turned into a real, published artefact.
+  --     CF11 is the only component allowed to clear it, and only after the truthful publication
+  --     probe confirms a matching lesson_resources row actually exists. Fail closed otherwise.
+  --     This runs AFTER the ledger insert on purpose: the probe joins the publication row.
+  FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
+    IF public.cf10_html_publication_pending(lesson_row.id, cap) THEN
+      RAISE EXCEPTION 'CF11_HTML_PUBLICATION_NOT_MATERIALIZED: %', cap USING ERRCODE = '23514';
+    END IF;
+    UPDATE public.lesson_capability_lifecycle
+       SET draft_hash = NULL, draft_updated_at = now()
+     WHERE lesson_id = lesson_row.id AND capability = cap AND draft_hash IS NOT NULL;
+    GET DIAGNOSTICS rc = ROW_COUNT; writes := writes + rc;
+  END LOOP;
+
 
   RETURN jsonb_build_object('mode','EXECUTE','batch_id',_batch_id,'lesson_id',lesson_row.id,
     'publication_id', publication_id, 'plan', plan, 'plan_sha256', plan_sha,
@@ -855,9 +887,12 @@ BEGIN
     RAISE EXCEPTION 'CF11_ANSWER_LEAK_DETECTED: %', leak_count USING ERRCODE = '23514';
   END IF;
 
-  -- Per-capability snapshot/hash verification.
-  FOREACH lifecycle_cap IN ARRAY ARRAY['officialBookContent','tamkeenExplanation','lessonSummary',
-                                       'mindMap','simulation','officialBookQuestions','selfTest'] LOOP
+  -- Per-capability snapshot/hash verification over the EXACT seven rows this lesson carries
+  -- (already asserted to be seven, all in REVIEW/READY). No hardcoded vocabulary.
+  FOR lifecycle_cap IN
+    SELECT capability FROM public.lesson_capability_lifecycle
+     WHERE lesson_id = lesson_row.id ORDER BY capability
+  LOOP
     snap := public.v3_capability_snapshot(lesson_row.id, lifecycle_cap);
     IF snap IS NULL OR NOT public.v3_capability_snapshot_is_reconcilable(snap) THEN
       RAISE EXCEPTION 'CF11_SNAPSHOT_NOT_RECONCILABLE: %', lifecycle_cap USING ERRCODE = '23514';
