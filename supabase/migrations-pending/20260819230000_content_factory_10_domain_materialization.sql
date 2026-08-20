@@ -79,6 +79,84 @@ RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
                'officialBookQuestions','selfTest','tamkeenExplanationHtml']::text[];
 $$;
 
+-- CF10-R4b: the single safe inline-HTML delivery reference. `lesson-internal://` is the
+-- existing, published in-app scheme (see lesson-capabilities.isValidResourceUrl); CF10 adds the
+-- `html/<resource_code>` kind for HTML bodies that live in lesson_resources.description.
+-- No storage bucket is invented and no data: URI is used.
+CREATE OR REPLACE FUNCTION public.cf10_inline_html_url(_resource_code text)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
+  SELECT 'lesson-internal://html/' || btrim(coalesce(_resource_code,''));
+$$;
+
+-- CF10-R4b: canonical attestation of the live materialized domain state for one lesson.
+-- Replay must re-attest this hash against the ledger; any drift or tampering aborts.
+CREATE OR REPLACE FUNCTION public.cf10_live_state_sha256(_lesson_id uuid)
+RETURNS text LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
+  SELECT encode(digest(convert_to(jsonb_build_object(
+    'lesson', (SELECT jsonb_build_object('id',l.id,'subjectId',l.subject_id,'slug',l.slug,
+                        'title',l.title,'unitId',l.unit_id,'isFree',l.is_free,
+                        'semester',l.semester,'sortOrder',l.sort_order)
+                 FROM public.lessons l WHERE l.id = _lesson_id),
+    'book', COALESCE((SELECT jsonb_agg(public.cf10_text_sha256(b.content) ORDER BY b.id)
+                        FROM public.lesson_book_contents b WHERE b.lesson_id = _lesson_id),'[]'::jsonb),
+    'explanations', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',e.explanation_code,
+                        'title',e.title,'sortOrder',e.sort_order,
+                        'sha256',public.cf10_text_sha256(e.content)) ORDER BY e.explanation_code)
+                        FROM public.lesson_explanations e WHERE e.lesson_id = _lesson_id),'[]'::jsonb),
+    'summaries', COALESCE((SELECT jsonb_agg(public.cf10_text_sha256(s.summary) ORDER BY s.id)
+                        FROM public.lesson_summaries s WHERE s.lesson_id = _lesson_id),'[]'::jsonb),
+    'resources', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',r.resource_code,
+                        'type',r.resource_type::text,'title',r.title,'url',r.url,
+                        'htmlType',r.html_resource_type,'sortOrder',r.sort_order,
+                        'isPrimary',r.is_primary,'metaSha',r.metadata->>'sha256',
+                        'bodySha',public.cf10_text_sha256(r.description)) ORDER BY r.resource_code)
+                        FROM public.lesson_resources r WHERE r.lesson_id = _lesson_id),'[]'::jsonb),
+    'questions', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',q.code,
+                        'type',q.question_type,'correctIndex',q.correct_index,
+                        'published',q.current_published_revision_id,
+                        'textSha',public.cf10_text_sha256(q.question_text),
+                        'revisions',(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+                              'number',rv.revision_number,'status',rv.status,
+                              'interaction',rv.interaction_type,'grading',rv.grading_mode,
+                              'payloadHash',rv.payload_hash,'payloadHashVersion',rv.payload_hash_version,
+                              'sourceHash',rv.source_payload_hash,
+                              'textSha',public.cf10_text_sha256(rv.question_text),
+                              'options',(SELECT COALESCE(jsonb_agg(jsonb_build_object('code',o.option_code,
+                                    'sortOrder',o.sort_order,'isCorrect',o.is_correct,
+                                    'bodySha',public.cf10_text_sha256(o.body))
+                                    ORDER BY o.sort_order,o.option_code),'[]'::jsonb)
+                                 FROM public.question_options o WHERE o.question_revision_id = rv.id),
+                              'targets',(SELECT COALESCE(jsonb_agg(jsonb_build_object('type',t.target_type,
+                                    'subjectId',t.subject_id,'lessonId',t.lesson_id,'isPrimary',t.is_primary)
+                                    ORDER BY t.target_type),'[]'::jsonb)
+                                 FROM public.question_targets t WHERE t.revision_id = rv.id),
+                              'answers',(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+                                    'modelSha',public.cf10_text_sha256(a.model_answer),
+                                    'explanationSha',public.cf10_text_sha256(a.explanation))
+                                    ORDER BY a.id),'[]'::jsonb)
+                                 FROM public.official_question_answers a WHERE a.revision_id = rv.id),
+                              'rationales',(SELECT COALESCE(jsonb_agg(jsonb_build_object('optionId',ra.option_id,
+                                    'whyCorrectSha',public.cf10_text_sha256(ra.why_correct),
+                                    'whyWrongSha',public.cf10_text_sha256(ra.why_wrong))
+                                    ORDER BY ra.option_id),'[]'::jsonb)
+                                 FROM public.question_option_rationales ra
+                                WHERE ra.question_revision_id = rv.id))
+                            ORDER BY rv.revision_number),'[]'::jsonb)
+                          FROM public.question_revisions rv WHERE rv.question_id = q.id))
+                        ORDER BY q.code)
+                        FROM public.questions q WHERE q.lesson_id = _lesson_id),'[]'::jsonb),
+    'assessments', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',a.assessment_code,
+                        'title',a.title,'sortOrder',a.sort_order,
+                        'members',(SELECT count(*) FROM public.assessment_questions aq
+                                    WHERE aq.assessment_id = a.id)) ORDER BY a.assessment_code)
+                        FROM public.lesson_assessments a WHERE a.lesson_id = _lesson_id),'[]'::jsonb),
+    'lifecycle', COALESCE((SELECT jsonb_agg(jsonb_build_object('capability',lc.capability,
+                        'status',lc.status,'applicability',lc.applicability::text,
+                        'draftHash',lc.draft_hash) ORDER BY lc.capability)
+                        FROM public.lesson_capability_lifecycle lc WHERE lc.lesson_id = _lesson_id),'[]'::jsonb)
+  )::text,'UTF8'),'sha256'),'hex');
+$$;
+
 CREATE OR REPLACE FUNCTION public.golden_lesson_materialize_domain_batch(
   _batch_id uuid,
   _actor_id uuid,
@@ -811,6 +889,10 @@ REVOKE ALL ON FUNCTION public.cf10_assert_no_answer_leak(text,text) FROM PUBLIC,
 GRANT EXECUTE ON FUNCTION public.cf10_assert_no_answer_leak(text,text) TO authenticated, service_role;
 REVOKE ALL ON FUNCTION public.cf10_text_sha256(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cf10_text_sha256(text) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.cf10_inline_html_url(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cf10_inline_html_url(text) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.cf10_live_state_sha256(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cf10_live_state_sha256(uuid) TO service_role;
 REVOKE ALL ON FUNCTION public.cf10_required_capabilities() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cf10_required_capabilities() TO authenticated, service_role;
 
