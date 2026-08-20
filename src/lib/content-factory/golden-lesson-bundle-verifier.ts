@@ -134,19 +134,51 @@ export async function verifyGoldenLessonBundle(input: Uint8Array): Promise<Verif
     if (artifact.sourcePath && artifact.sha256) expectedHashes.set(artifact.sourcePath, artifact.sha256);
     if (artifact.provenancePath && artifact.provenanceSha256) expectedHashes.set(artifact.provenancePath, artifact.provenanceSha256);
   }
+  // CF11: declared supplemental assets participate in file-set equality and hash pinning.
+  const assets: GoldenLessonAsset[] = Array.isArray(manifest.assets) ? manifest.assets : [];
+  for (const asset of assets) expectedHashes.set(asset.path, asset.sha256);
   if (manifest.security.answersCompanionPath && manifest.security.answersCompanionSha256) {
     expectedHashes.set(manifest.security.answersCompanionPath, manifest.security.answersCompanionSha256);
   }
   const expectedNames = new Set(["manifest.json", ...expectedHashes.keys()]);
   if (entries.length !== expectedNames.size || entries.some((entry) => !expectedNames.has(entry.name))) fail("ZIP_FILE_SET_MISMATCH");
   const files: VerifiedGoldenLessonFile[] = [];
+  const bytesByPath = new Map<string, Uint8Array>();
   for (const [name, expected] of expectedHashes) {
     const entry = zip.file(name);
     if (!entry) fail("ZIP_EXPECTED_FILE_MISSING");
     const bytes = await entry.async("uint8array");
     if (sha256(bytes) !== expected) fail("ZIP_FILE_HASH_MISMATCH");
+    bytesByPath.set(name, bytes);
     files.push({ path: name, sha256: expected, bytes });
   }
+
+  // CF11 asset byte validation: exact declared size, MIME allowlist and real container magic.
+  for (const asset of assets) {
+    const bytes = bytesByPath.get(asset.path);
+    if (!bytes) fail("ASSET_BYTES_MISSING");
+    if (bytes.byteLength !== asset.bytes) fail("ASSET_SIZE_MISMATCH");
+    if (bytes.byteLength < GOLDEN_ASSET_MIN_BYTES || bytes.byteLength > GOLDEN_ASSET_MAX_BYTES) {
+      fail("ASSET_SIZE_OUT_OF_RANGE");
+    }
+    if (!isAllowedAssetMime(asset.mimeType)) fail("ASSET_MIME_FORBIDDEN");
+    if (!assetMagicMatches(asset.mimeType, bytes)) fail("ASSET_MAGIC_MISMATCH");
+  }
+
+  // CF11: no HTML body may reference anything that is not a declared leaf asset.
+  const declaredLeaves = new Set(assets.map((asset) => asset.path));
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  for (const artifact of manifest.artifacts) {
+    if (!artifact.sourcePath || !artifact.sourcePath.toLowerCase().endsWith(".html")) continue;
+    const bytes = bytesByPath.get(artifact.sourcePath);
+    if (!bytes) fail("ZIP_EXPECTED_FILE_MISSING");
+    let html: string;
+    try { html = decoder.decode(bytes); }
+    catch { fail("HTML_UTF8_INVALID"); }
+    const findings = scanHtmlAssetReferences(artifact.sourcePath, html, declaredLeaves);
+    if (findings.length > 0) fail(findings[0]!.code);
+  }
+
   return {
     manifest,
     manifestSha256: sha256(manifestBytes),
@@ -155,5 +187,7 @@ export async function verifyGoldenLessonBundle(input: Uint8Array): Promise<Verif
     compressedBytes: input.byteLength,
     uncompressedBytes: entries.reduce((sum, entry) => sum + entry.uncompressedSize, 0),
     files,
+    assets,
   };
 }
+
