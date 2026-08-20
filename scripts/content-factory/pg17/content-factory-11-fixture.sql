@@ -201,16 +201,12 @@ BEGIN
            || 'document.getElementById("out").textContent=s.fe2+"/"+s.fe3;});';
   v_lab := '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">'
         || '<meta http-equiv="Content-Security-Policy" content="default-src ''none''; '
-        || 'style-src ''sha256-DUMMY''; connect-src ''none''; img-src ''none''; '
+        || 'connect-src ''none''; img-src ''none''; style-src ''self''; '
         || 'script-src ''sha256-' || public.cf11_script_csp_hash(v_script) || '''">'
         || '</head><body data-tamkeen-sandbox="allow-scripts" data-tamkeen-render="INTERACTIVE">'
         || '<button data-act="fe2">Fe2+</button><button data-act="fe3">Fe3+</button>'
         || '<button data-act="reset">إعادة</button><output id="out">0/0</output>'
         || '<script>' || v_script || '</script></body></html>';
-  -- The style-src placeholder above must NOT count as a script hash token; strip it so the CSP
-  -- pins exactly one sha256 token, matching the single inline script.
-  v_lab := replace(v_lab, 'style-src ''sha256-DUMMY''; ', 'style-src ''unsafe-hashes-none''; ');
-  v_lab := replace(v_lab, 'style-src ''unsafe-hashes-none''; ', '');
 
   -- Stage entries (CF08 output).
   FOREACH cap IN ARRAY caps LOOP
