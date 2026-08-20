@@ -504,3 +504,16 @@ test("CF11-R9C/2 — durable asset plan pins the storage identity replay validat
   assert.match(replay, /p\.storage_path = a->>'storagePath'/);
   assert.match(replay, /t\.storage_bucket = p\.storage_bucket AND t\.storage_path = p\.storage_path/);
 });
+
+
+test("CF11-R9C/3 — replay lifecycle drift probe bypasses only the fixture trigger", () => {
+  const drift = asserts.slice(
+    asserts.indexOf("-- 4) a lifecycle row pushed back below REVIEW"),
+    asserts.indexOf("-- 5) the stored asset object removed"),
+  );
+  assert.match(drift, /DISABLE TRIGGER USER/);
+  assert.match(drift, /ENABLE TRIGGER USER/);
+  assert.equal((drift.match(/DISABLE TRIGGER USER/g) ?? []).length, 2);
+  assert.equal((drift.match(/ENABLE TRIGGER USER/g) ?? []).length, 2);
+  assert.match(drift, /cf11_assert_replay_refuses\('lifecycle'\)/);
+});
