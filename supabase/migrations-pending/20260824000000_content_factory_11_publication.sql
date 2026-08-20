@@ -722,6 +722,11 @@ DECLARE
   v_official text[];
   v_self text[];
   v_assessment uuid;
+  v_planned_assets text[];
+  v_live_assets text[];
+  v_planned_questions text[];
+  v_live_questions text[];
+  v_live_members text[];
   verified jsonb := '[]'::jsonb;
 BEGIN
   IF v_lesson IS NULL OR coalesce(v_ext,'') = '' THEN
