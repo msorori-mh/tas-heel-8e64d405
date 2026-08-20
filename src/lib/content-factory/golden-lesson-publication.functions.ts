@@ -77,10 +77,11 @@ export const verifyGoldenLessonCf11Assets = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { attestStoredAssets, ensureVerifiedAssets } =
       await import("./golden-lesson-publication.server");
-    const { supabase, userId } = context as ContentStaffAuthContext;
+    const { userId } = context as ContentStaffAuthContext;
     const { declarations, uploadedPaths, bundleSha256 } = await ensureVerifiedAssets(data.batchId);
+    // Machine attestation: the server re-measures the stored bytes and signs for them itself.
     const attestations = await attestStoredAssets(
-      supabase, userId, data.batchId, declarations, uploadedPaths, "EXECUTE",
+      userId, data.batchId, declarations, uploadedPaths, "EXECUTE",
     );
     return {
       declarations,
@@ -102,9 +103,9 @@ export const publishGoldenLessonCf11 = createServerFn({ method: "POST" })
     const { supabase, userId } = context as ContentStaffAuthContext;
     const expected = requirePlan(data.mode, data.expectedPlanSha256, "CF11_WRITE_PLAN_HASH_REQUIRED");
     const { declarations, uploadedPaths } = await ensureVerifiedAssets(data.batchId);
-    // Publication may only proceed on bytes that are already attested by a human operator.
+    // Publication may only proceed on bytes the SERVER re-measured out of the bucket.
     const attestations = await attestStoredAssets(
-      supabase, userId, data.batchId, declarations, uploadedPaths, "EXECUTE",
+      userId, data.batchId, declarations, uploadedPaths, "EXECUTE",
     );
     const result = await rpc(supabase)("golden_lesson_publish_cf11", {
       _batch_id: data.batchId,
