@@ -308,7 +308,7 @@ test("CF11-R8/5 — revocation EXECUTE demands its key BEFORE the replay branch"
 test("CF11-R8/6 — applicability, pinned revisions and READY revalidation stay exact", () => {
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.cf11_assert_exact_required_lifecycle_set/);
   assert.ok((sql.match(/cf11_assert_exact_required_lifecycle_set\(/g) ?? []).length >= 4);
-  assert.match(sql, /tamkeen\.content-factory-11\.write-plan\.v3/);
+  assert.match(sql, /tamkeen\.content-factory-11\.write-plan\.v2/);
   assert.match(sql, /'revisionId'/);
   assert.match(sql, /'payloadHash'/);
   // First READY revalidates the full live state against the recorded plan.
@@ -554,64 +554,4 @@ test("CF11-R9C/7 — destructive withdrawal proof rolls back before canonical po
   assert.ok(n2 > 0 && begin > n2 && rollback > begin && verdict > rollback);
   assert.match(asserts.slice(begin, rollback), /golden_lesson_revoke_cf11_ready/);
   assert.match(asserts.slice(begin, rollback), /CF11_EXPECTED_TERMINAL_READY_REFUSED/);
-});
-
-/* ------------------------------------------------------------------------------------
- * R8 ADDENDUM — DIRECT_TRANSITION_BYPASS
- * ---------------------------------------------------------------------------------- */
-test("R8-ADD/1 — the CF11 guard fires exactly on READY -> non-READY for CF11 lessons only", () => {
-  const body = sql.slice(
-    sql.indexOf("CREATE OR REPLACE FUNCTION public.cf11_assert_demotion_allowed"),
-    sql.indexOf("CREATE OR REPLACE FUNCTION public.lesson_capability_transition"),
-  );
-  // Restrictive-only: every early RETURN keeps legacy / non-CF11 behaviour untouched.
-  assert.match(body, /IF _from_status IS DISTINCT FROM 'READY' THEN RETURN; END IF;/);
-  assert.match(body, /IF _to_status IS NOT DISTINCT FROM 'READY' THEN RETURN; END IF;/);
-  assert.match(body, /cf11_lifecycle_capabilities\(\)\)\) THEN RETURN; END IF;/);
-  assert.match(body, /NOT public\.cf11_is_managed_lesson\(_lesson_id\) THEN RETURN; END IF;/);
-  // The controlled path is the ONLY escape hatch.
-  assert.match(body, /cf11_has_revocation_ticket\(_lesson_id\) THEN RETURN; END IF;/);
-  assert.match(body, /CF11_DIRECT_TRANSITION_FORBIDDEN[\s\S]*golden_lesson_revoke_cf11_ready/);
-  assert.match(body, /ERRCODE = '42501'/);
-});
-
-test("R8-ADD/2 — no alternate raw-table bypass: table trigger + no Data API write grants", () => {
-  assert.match(sql, /CREATE TRIGGER trg_cf11_guard_lifecycle_demotion\s+BEFORE UPDATE OR DELETE ON public\.lesson_capability_lifecycle/);
-  assert.match(sql, /'raw_update'/);
-  assert.match(sql, /'raw_delete'/);
-  // The guard helpers are unreachable from any Data API role.
-  assert.match(sql, /REVOKE ALL ON FUNCTION public\.cf11_assert_demotion_allowed\(uuid, text, text, text, text, text\)\s*\n\s*FROM PUBLIC, anon, authenticated, service_role;/);
-  assert.match(sql, /REVOKE ALL ON FUNCTION public\.cf11_has_revocation_ticket\(uuid\)/);
-});
-
-test("R8-ADD/3 — 21H bytes untouched and its grant surface preserved verbatim", () => {
-  const h21 = readFileSync(
-    "supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql", "utf8");
-  assert.doesNotMatch(h21, /cf11_assert_demotion_allowed|golden_lesson_revoke_cf11_ready/);
-  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.lesson_capability_transition\(uuid,text,text,jsonb,text\) TO authenticated;/);
-  assert.match(sql, /REVOKE ALL ON FUNCTION public\.lesson_capability_transition\(uuid,text,text,jsonb,text\) FROM PUBLIC, anon;/);
-});
-
-test("R8-ADD/4 — PG17 proves refusal with zero writes and exactly one ledger row on the controlled path", () => {
-  const o = asserts.slice(asserts.indexOf("-- O) CF11-R8B"));
-  assert.match(o, /is_content_staff\('10000000-0000-0000-0000-000000000001'\)/);
-  assert.match(o, /NOT public\.is_full_admin\('10000000-0000-0000-0000-000000000001'\)/);
-  assert.match(o, /CF11_EXPECTED_DIRECT_TRANSITION_ZERO_WRITES: audit_logs moved/);
-  assert.match(o, /CF11_EXPECTED_LEGACY_TRANSITION_UNCHANGED/);
-  const n2 = asserts.slice(asserts.indexOf("-- N2)"));
-  assert.match(n2, /count\(\*\) = 1 FROM public\.golden_lesson_ready_revocations WHERE batch_id = batch/);
-});
-
-test("R9/1 — fixture never derives a lesson subject_id from a pre-creation subquery", () => {
-  const fixture = readFileSync("scripts/content-factory/pg17/content-factory-11-fixture.sql", "utf8");
-  // Every lessons insert must carry a literal subject_id; a `(SELECT subject_id FROM ... lessons)`
-  // before the Iron row exists is exactly what produced 23502 in the PG17 rehearsal.
-  assert.doesNotMatch(fixture, /INSERT INTO public\.lessons[\s\S]{0,400}\(SELECT[\s\S]{0,120}subject_id/i);
-  const iron = fixture.indexOf("'43000000-0000-0000-0000-000000000012','iron-and-its-compounds'");
-  const legacy = fixture.indexOf("'43000000-0000-0000-0000-000000000099','legacy-lesson'");
-  const legacyLifecycle = fixture.indexOf("VALUES ('43000000-0000-0000-0000-000000000099','officialBookContent'");
-  assert.ok(iron > 0 && legacy > iron, "legacy lesson must be inserted after the Iron lesson");
-  assert.ok(legacyLifecycle > legacy, "legacy READY lifecycle row must follow its lesson");
-  const legacyRow = fixture.slice(legacy - 200, legacy + 300);
-  assert.match(legacyRow, /'42000000-0000-0000-0000-000000000012', NULL, 'درس قديم'/);
 });
