@@ -88,40 +88,45 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   SELECT 'lesson-internal://html/' || btrim(coalesce(_resource_code,''));
 $$;
 
--- CF10-R4b: canonical attestation of the live materialized domain state for one lesson.
--- Scope: content identity (codes, titles, urls, structure and sha256 of every stored body).
--- Deliberately excluded: mutable workflow status (lifecycle.status, revision.status,
--- current_published_revision_id), which advances legitimately after materialization.
--- Anything else changing means the materialized content drifted or was tampered with.
--- Replay must re-attest this hash against the ledger; any drift or tampering aborts.
-CREATE OR REPLACE FUNCTION public.cf10_live_state_sha256(_lesson_id uuid)
+-- CF10-R4c: canonical attestation of the IMMUTABLE SEED that CF10 materialized for one lesson.
+-- Scope (immutable seed): content identity (subject, slug, title, codes, urls, structural links)
+-- and the sha256 of every body CF10 wrote, plus the seed (lowest-numbered) revision of every
+-- seeded question and the exact staged capability/applicability set.
+-- Deliberately EXCLUDED because downstream workflow may change them legitimately:
+--   * lesson_capability_lifecycle.status (DRAFT -> REVIEW -> READY) and draft_hash bumps
+--   * question_revisions.status, later revisions, questions.current_published_revision_id
+--   * lesson_resources.is_primary / sort_order (publication + editorial ordering)
+--   * lessons.unit_id / is_free / sort_order (curriculum placement + pricing)
+--   * assessment membership counts (CF10 defers membership on purpose)
+-- Any change outside that allow-list means the materialized seed drifted, was deleted or the
+-- identity was re-bound; replay must abort instead of returning a cached success.
+CREATE OR REPLACE FUNCTION public.cf10_seed_state_sha256(_lesson_id uuid)
 RETURNS text LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
   SELECT encode(digest(convert_to(jsonb_build_object(
+    'schema','tamkeen.content-factory-10.seed-attestation.v1',
     'lesson', (SELECT jsonb_build_object('id',l.id,'subjectId',l.subject_id,'slug',l.slug,
-                        'title',l.title,'unitId',l.unit_id,'isFree',l.is_free,
-                        'semester',l.semester,'sortOrder',l.sort_order)
+                        'title',l.title,'semester',l.semester)
                  FROM public.lessons l WHERE l.id = _lesson_id),
     'book', COALESCE((SELECT jsonb_agg(public.cf10_text_sha256(b.content) ORDER BY b.id)
                         FROM public.lesson_book_contents b WHERE b.lesson_id = _lesson_id),'[]'::jsonb),
     'explanations', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',e.explanation_code,
-                        'title',e.title,'sortOrder',e.sort_order,
+                        'title',e.title,
                         'sha256',public.cf10_text_sha256(e.content)) ORDER BY e.explanation_code)
                         FROM public.lesson_explanations e WHERE e.lesson_id = _lesson_id),'[]'::jsonb),
     'summaries', COALESCE((SELECT jsonb_agg(public.cf10_text_sha256(s.summary) ORDER BY s.id)
                         FROM public.lesson_summaries s WHERE s.lesson_id = _lesson_id),'[]'::jsonb),
     'resources', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',r.resource_code,
                         'type',r.resource_type::text,'title',r.title,'url',r.url,
-                        'htmlType',r.html_resource_type,'sortOrder',r.sort_order,
-                        'isPrimary',r.is_primary,'metaSha',r.metadata->>'sha256',
+                        'htmlType',r.html_resource_type,'metaSha',r.metadata->>'sha256',
                         'bodySha',public.cf10_text_sha256(r.description)) ORDER BY r.resource_code)
                         FROM public.lesson_resources r WHERE r.lesson_id = _lesson_id),'[]'::jsonb),
     'questions', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',q.code,
                         'type',q.question_type,'correctIndex',q.correct_index,
                         'textSha',public.cf10_text_sha256(q.question_text),
-                        'revisions',(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+                        -- seed revision only: a later DRAFT/REVIEW/PUBLISHED revision is legitimate
+                        'seedRevision',(SELECT jsonb_build_object(
                               'number',rv.revision_number,
                               'interaction',rv.interaction_type,'grading',rv.grading_mode,
-                              'payloadHash',rv.payload_hash,'payloadHashVersion',rv.payload_hash_version,
                               'sourceHash',rv.source_payload_hash,
                               'textSha',public.cf10_text_sha256(rv.question_text),
                               'options',(SELECT COALESCE(jsonb_agg(jsonb_build_object('code',o.option_code,
@@ -144,21 +149,34 @@ RETURNS text LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
                                     ORDER BY ra.option_id),'[]'::jsonb)
                                  FROM public.question_option_rationales ra
                                 WHERE ra.question_revision_id = rv.id))
-                            ORDER BY rv.revision_number),'[]'::jsonb)
-                          FROM public.question_revisions rv WHERE rv.question_id = q.id))
+                           FROM public.question_revisions rv
+                          WHERE rv.question_id = q.id
+                          ORDER BY rv.revision_number LIMIT 1))
                         ORDER BY q.code)
                         FROM public.questions q WHERE q.lesson_id = _lesson_id),'[]'::jsonb),
     'assessments', COALESCE((SELECT jsonb_agg(jsonb_build_object('code',a.assessment_code,
-                        'title',a.title,'sortOrder',a.sort_order,
-                        'members',(SELECT count(*) FROM public.assessment_questions aq
-                                    WHERE aq.assessment_id = a.id)) ORDER BY a.assessment_code)
+                        'title',a.title) ORDER BY a.assessment_code)
                         FROM public.lesson_assessments a WHERE a.lesson_id = _lesson_id),'[]'::jsonb),
-    'lifecycle', COALESCE((SELECT jsonb_agg(jsonb_build_object('capability',lc.capability,
-                        'applicability',lc.applicability::text,
-                        'draftHash',lc.draft_hash) ORDER BY lc.capability)
+    'lifecycleSet', COALESCE((SELECT jsonb_agg(jsonb_build_object('capability',lc.capability,
+                        'applicability',lc.applicability::text) ORDER BY lc.capability)
                         FROM public.lesson_capability_lifecycle lc WHERE lc.lesson_id = _lesson_id),'[]'::jsonb)
   )::text,'UTF8'),'sha256'),'hex');
 $$;
+
+-- CF10-R4c: mindMap / simulation HTML staged by CF10 is TEMPORARY. It stays an internal
+-- lesson-internal:// payload until CF11 publishes the HTML asset and stamps
+-- metadata->>'cf11_published_at'. Until then CF10 must not claim READY nor a valid snapshot.
+CREATE OR REPLACE FUNCTION public.cf10_html_publication_pending(_lesson_id uuid, _capability text)
+RETURNS boolean LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.lesson_resources r
+     WHERE r.lesson_id = _lesson_id
+       AND ((_capability = 'mindMap' AND r.resource_type::text = 'mindmap')
+         OR (_capability = 'simulation' AND r.resource_type::text = 'experiment'))
+       AND r.url LIKE 'lesson-internal://html/%'
+       AND coalesce(r.metadata->>'cf11_published_at','') = '');
+$$;
+
 
 CREATE OR REPLACE FUNCTION public.golden_lesson_materialize_domain_batch(
   _batch_id uuid,
@@ -232,8 +250,7 @@ DECLARE
   existing_hash text;
   new_hash text;
   dup_count integer := 0;
-  live_state_sha text;
-  snapshot_ok boolean;
+  seed_state_sha text;
   external_lesson_code text;
 BEGIN
   IF _mode NOT IN ('DRY_RUN','EXECUTE') THEN
@@ -386,17 +403,35 @@ BEGIN
        OR _expected_plan_sha256 IS DISTINCT FROM replay.write_plan_sha256 THEN
       RAISE EXCEPTION 'CF10_REPLAY_CONFLICT' USING ERRCODE = '23514';
     END IF;
-    -- R4b: a cached success is NEVER returned before the live domain state is re-attested
-    -- against the hash pinned by the original EXECUTE. Any tamper / drift aborts the replay.
-    IF coalesce(replay.result->>'state_sha256','') = '' THEN
+    -- R4c: replay proves the LEDGER SEED, not the whole mutable live state.
+    -- (1) Ledger + source identity: batch, plan hash, idempotency key, verified bundle,
+    --     answer companion hash and the subject/lesson identity are re-verified now.
+    IF replay.subject_id IS DISTINCT FROM subject_row.id
+       OR (replay.write_plan->>'verifiedBundleSha256') IS DISTINCT FROM batch.verified_bundle_sha256
+       OR (replay.write_plan->>'answerCompanionSha256') IS DISTINCT FROM (companion->>'companion_sha256')
+       OR (replay.write_plan->>'externalLessonCode') IS DISTINCT FROM external_lesson_code
+       OR lower(btrim(coalesce(replay.write_plan->>'lessonSlug',''))) IS DISTINCT FROM
+          lower(btrim(ident->>'lessonSlug')) THEN
+      RAISE EXCEPTION 'CF10_REPLAY_IDENTITY_REBOUND' USING ERRCODE = '23514';
+    END IF;
+    -- (2) A cached success is NEVER returned before the immutable seed is re-attested.
+    IF coalesce(replay.result->>'seed_sha256', replay.result->>'state_sha256','') = '' THEN
       RAISE EXCEPTION 'CF10_REPLAY_ATTESTATION_MISSING' USING ERRCODE = '23514';
     END IF;
     IF replay.lesson_id IS NULL
        OR NOT EXISTS (SELECT 1 FROM public.lessons WHERE id = replay.lesson_id) THEN
       RAISE EXCEPTION 'CF10_REPLAY_STATE_DRIFT: lesson missing' USING ERRCODE = '23514';
     END IF;
-    live_state_sha := public.cf10_live_state_sha256(replay.lesson_id);
-    IF live_state_sha IS DISTINCT FROM (replay.result->>'state_sha256') THEN
+    -- The lesson the ledger points at must still be the lesson this identity resolves to.
+    IF lesson_row.id IS NOT NULL AND lesson_row.id IS DISTINCT FROM replay.lesson_id THEN
+      RAISE EXCEPTION 'CF10_REPLAY_IDENTITY_REBOUND' USING ERRCODE = '23514';
+    END IF;
+    -- (3) Seed attestation: deletions, payload edits and identity rewrites abort;
+    --     legitimate downstream transitions (REVIEW/READY, new revisions, publishing a
+    --     revision or a resource, curriculum placement) are outside the attested scope.
+    seed_state_sha := public.cf10_seed_state_sha256(replay.lesson_id);
+    IF seed_state_sha IS DISTINCT FROM
+       coalesce(replay.result->>'seed_sha256', replay.result->>'state_sha256') THEN
       RAISE EXCEPTION 'CF10_REPLAY_STATE_DRIFT' USING ERRCODE = '23514';
     END IF;
     -- Visibility stays fail-closed on replay: the lesson may only be student-visible if every
@@ -410,7 +445,19 @@ BEGIN
 
     RETURN replay.result || jsonb_build_object('idempotent',true,'writes_performed',0,
       'domain_writes_performed',0,'payload_hash_updates',0,'ledger_writes',0,
-      'state_attested',true);
+      'ledger_attested',true,
+      'live_attested',true,
+      'attested_scope','immutable_seed',
+      'mutable_fields_allowed', jsonb_build_array(
+        'lesson_capability_lifecycle.status','lesson_capability_lifecycle.draft_hash',
+        'question_revisions.status','question_revisions(additional)',
+        'questions.current_published_revision_id',
+        'lesson_resources.is_primary','lesson_resources.sort_order',
+        'lessons.unit_id','lessons.is_free','lessons.sort_order',
+        'assessment_questions(membership)'),
+      'html_publication_pending', jsonb_build_object(
+        'mindMap', public.cf10_html_publication_pending(replay.lesson_id,'mindMap'),
+        'simulation', public.cf10_html_publication_pending(replay.lesson_id,'simulation')));
   END IF;
 
   IF _expected_plan_sha256 IS DISTINCT FROM plan_sha THEN
@@ -985,26 +1032,40 @@ BEGIN
     RAISE EXCEPTION 'CF10_STUDENT_VISIBILITY_LEAK' USING ERRCODE = '23514';
   END IF;
 
-  -- R4b: the mindMap / simulation capabilities must be reconcilable, i.e. the V3 snapshot the
-  -- rest of the platform reads must not be empty for a materialized HTML resource.
+  -- R4c: CF10 stages the mindMap / simulation HTML only TEMPORARILY. Until CF11 publishes the
+  -- HTML asset, CF10 must not claim those capabilities are READY nor that their V3 snapshot is
+  -- valid. The staged body must exist and be internally addressable (so nothing is invented and
+  -- nothing is lost), but the capability stays DRAFT + pending.
   FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
-    IF to_regprocedure('public.v3_capability_snapshot_is_reconcilable(jsonb)') IS NOT NULL
-       AND EXISTS (SELECT 1 FROM public.lesson_resources r
+    IF EXISTS (SELECT 1 FROM public.lesson_resources r
                 WHERE r.lesson_id = lesson_row.id
                   AND r.resource_code IN (external_lesson_code || '-MINDMAP',
                                           external_lesson_code || '-EXPERIMENT')
-                  AND r.html_resource_type IS NOT NULL
                   AND ((cap = 'mindMap' AND r.resource_type::text = 'mindmap')
                     OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))) THEN
-      EXECUTE 'SELECT public.v3_capability_snapshot_is_reconcilable(public.v3_capability_snapshot($1,$2))'
-        INTO snapshot_ok USING lesson_row.id, cap;
-      IF NOT coalesce(snapshot_ok,false) THEN
-        RAISE EXCEPTION 'CF10_SNAPSHOT_NOT_RECONCILABLE: %', cap USING ERRCODE = '23514';
+      -- the staged body must be non-empty and addressed through the internal (unpublished) path
+      IF NOT EXISTS (SELECT 1 FROM public.lesson_resources r
+                      WHERE r.lesson_id = lesson_row.id
+                        AND ((cap = 'mindMap' AND r.resource_type::text = 'mindmap')
+                          OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))
+                        AND r.html_resource_type IS NOT NULL
+                        AND coalesce(btrim(r.description),'') <> ''
+                        AND r.url LIKE 'lesson-internal://html/%') THEN
+        RAISE EXCEPTION 'CF10_HTML_STAGE_INVALID: %', cap USING ERRCODE = '23514';
+      END IF;
+      -- and it must still be pending CF11 publication: CF10 never stamps cf11_published_at
+      IF NOT public.cf10_html_publication_pending(lesson_row.id, cap) THEN
+        RAISE EXCEPTION 'CF10_HTML_PUBLICATION_CLAIMED: %', cap USING ERRCODE = '23514';
+      END IF;
+      IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle lc
+                  WHERE lc.lesson_id = lesson_row.id AND lc.capability = cap
+                    AND lc.status <> 'DRAFT') THEN
+        RAISE EXCEPTION 'CF10_HTML_CAPABILITY_READY_TOO_EARLY: %', cap USING ERRCODE = '23514';
       END IF;
     END IF;
   END LOOP;
 
-  live_state_sha := public.cf10_live_state_sha256(lesson_row.id);
+  seed_state_sha := public.cf10_seed_state_sha256(lesson_row.id);
 
   INSERT INTO public.golden_lesson_domain_materializations(
     batch_id, binding_id, subject_id, lesson_id, lesson_created, idempotency_key,
@@ -1017,7 +1078,11 @@ BEGIN
             'rationales',rationales_written,'targets',targets_written,'lifecycle_rows',lifecycle_written,
             'revision_status','DRAFT','assessment_membership_deferred',true,
             'write_plan_sha256',plan_sha,'answer_leak',0,'published',false,'ready',false,
-            'student_visible',false,'state_sha256',live_state_sha),
+            'student_visible',false,'seed_sha256',seed_state_sha,
+            'attested_scope','immutable_seed',
+            'html_publication_pending', jsonb_build_object(
+              'mindMap', public.cf10_html_publication_pending(lesson_row.id,'mindMap'),
+              'simulation', public.cf10_html_publication_pending(lesson_row.id,'simulation'))),
           _actor_id)
   RETURNING * INTO replay;
   GET DIAGNOSTICS rc = ROW_COUNT;
@@ -1040,8 +1105,28 @@ REVOKE ALL ON FUNCTION public.cf10_text_sha256(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cf10_text_sha256(text) TO authenticated, service_role;
 REVOKE ALL ON FUNCTION public.cf10_inline_html_url(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cf10_inline_html_url(text) TO authenticated, service_role;
-REVOKE ALL ON FUNCTION public.cf10_live_state_sha256(uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.cf10_live_state_sha256(uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.cf10_seed_state_sha256(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cf10_seed_state_sha256(uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.cf10_html_publication_pending(uuid,text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cf10_html_publication_pending(uuid,text) TO authenticated, service_role;
+
+-- CF10-R4c: mindMap / simulation can never reach READY while their HTML is still the temporary
+-- CF10 stage. Only CF11 (which stamps metadata->>'cf11_published_at') unlocks that transition.
+CREATE OR REPLACE FUNCTION public.cf10_block_ready_before_html_publication()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+  IF NEW.status = 'READY' AND NEW.capability IN ('mindMap','simulation')
+     AND public.cf10_html_publication_pending(NEW.lesson_id, NEW.capability) THEN
+    RAISE EXCEPTION 'CF10_HTML_CAPABILITY_READY_TOO_EARLY: %', NEW.capability USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_cf10_block_ready_before_html_publication
+  ON public.lesson_capability_lifecycle;
+CREATE TRIGGER trg_cf10_block_ready_before_html_publication
+  BEFORE INSERT OR UPDATE ON public.lesson_capability_lifecycle
+  FOR EACH ROW EXECUTE FUNCTION public.cf10_block_ready_before_html_publication();
 REVOKE ALL ON FUNCTION public.cf10_required_capabilities() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cf10_required_capabilities() TO authenticated, service_role;
 
