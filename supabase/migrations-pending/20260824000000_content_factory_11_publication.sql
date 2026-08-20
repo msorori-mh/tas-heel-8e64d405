@@ -1834,16 +1834,24 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'CF11_ASSET_ATTESTATION_DRIFT_AT_READY' USING ERRCODE = '23514';
   END IF;
+  -- CF11-R8 — the same FAIL-CLOSED metadata contract at first READY: absent or empty live
+  -- metadata is treated as drift, and no attested value is ever used as a fallback.
   IF EXISTS (
     SELECT 1 FROM public.golden_lesson_asset_attestations t
      JOIN storage.objects o ON o.bucket_id = t.storage_bucket AND o.name = t.storage_path
      WHERE t.lesson_id = lesson_row.id
        AND (o.id IS DISTINCT FROM t.storage_object_id
             OR o.version IS DISTINCT FROM t.storage_version
-            OR coalesce(o.metadata->>'eTag', o.metadata->>'etag') IS DISTINCT FROM t.storage_etag)
+            OR o.metadata IS NULL
+            OR NOT (o.metadata ? 'size') OR NOT (o.metadata ? 'mimetype')
+            OR coalesce(o.metadata->>'eTag', o.metadata->>'etag', '') = ''
+            OR coalesce(o.metadata->>'eTag', o.metadata->>'etag') IS DISTINCT FROM t.storage_etag
+            OR (o.metadata->>'size')::bigint IS DISTINCT FROM t.byte_size
+            OR o.metadata->>'mimetype' IS DISTINCT FROM t.mime_type)
   ) THEN
     RAISE EXCEPTION 'CF11_ASSET_OBJECT_IDENTITY_DRIFT_AT_READY' USING ERRCODE = '23514';
   END IF;
+
   SELECT public.cf11_text_sha256(coalesce(string_agg(t.asset_code || ':' || t.attestation_sha256,
                                                      '|' ORDER BY t.asset_code), ''))
     INTO live_attestation_sha
