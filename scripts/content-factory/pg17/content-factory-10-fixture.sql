@@ -548,6 +548,17 @@ DO $$ DECLARE t text; BEGIN
   END LOOP;
 END $$;
 
+-- Production parity: the question-bank layer is staff-only for every authenticated reader;
+-- students never read revisions, options, targets, answers or rationales directly.
+DO $$ DECLARE t text; BEGIN
+  FOREACH t IN ARRAY ARRAY['question_revisions','question_options','question_targets',
+                           'official_question_answers','question_option_rationales'] LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR ALL TO authenticated USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()))',
+      t || '_staff_all', t);
+  END LOOP;
+END $$;
+
 
 
 -- Rich second package: exercises lesson creation, questions, options, answers, rationales, resources.
