@@ -964,6 +964,116 @@ END $$;
 DROP FUNCTION public.cf11_assert_replay_refuses(text);
 
 -- ======================================================================================
+-- P) CF11-R4 AUDIT — the categories the earlier replay never covered: live answer-leak,
+--    student gating (is_free / visibility) and the exact 5+40 published question corpus.
+--    Every mutation must make BOTH the publication replay and the READY replay refuse,
+--    and no ledger row may be appended.
+-- ======================================================================================
+SELECT set_config('request.jwt.claim.sub', :'pub', false);
+CREATE OR REPLACE FUNCTION public.cf11_assert_audit_replay_refuses(_category text)
+RETURNS void LANGUAGE plpgsql AS $$
+DECLARE recorded text; pubs bigint; readies bigint;
+BEGIN
+  SELECT plan_sha256 INTO recorded FROM public.golden_lesson_publications
+   WHERE batch_id='51000000-0000-0000-0000-000000000001';
+  SELECT count(*) INTO pubs FROM public.golden_lesson_publications;
+  SELECT count(*) INTO readies FROM public.golden_lesson_ready_attestations;
+
+  -- publication replay
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','EXECUTE', public.cf11_iron_assets(), recorded,
+      'cf11-iron-key');
+    RESET ROLE;
+    RAISE EXCEPTION 'CF11_EXPECTED_AUDIT_REPLAY_REFUSED_%', _category;
+  EXCEPTION WHEN OTHERS THEN
+    RESET ROLE;
+    IF SQLERRM NOT LIKE '%CF11_REPLAY_LIVE_STATE_CONFLICT%' THEN RAISE; END IF;
+  END;
+
+  -- READY replay: it must NOT early-return on the stored attestation either.
+  BEGIN
+    PERFORM set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a2',true);
+    SET LOCAL ROLE authenticated;
+    PERFORM public.golden_lesson_attest_cf11_ready('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000005',
+      jsonb_build_object('reviewedContent',true,'reviewedSecurity',true,'note','audit probe'),
+      'EXECUTE');
+    RESET ROLE;
+    RAISE EXCEPTION 'CF11_EXPECTED_AUDIT_READY_REPLAY_REFUSED_%', _category;
+  EXCEPTION WHEN OTHERS THEN
+    RESET ROLE;
+    PERFORM set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',true);
+    IF SQLERRM NOT LIKE '%CF11_REPLAY_LIVE_STATE_CONFLICT%'
+       AND SQLERRM NOT LIKE '%CF11_READY_REPLAY_CONFLICT%' THEN RAISE; END IF;
+  END;
+
+  -- zero writes: neither ledger grew during the refusal
+  PERFORM public.cf04_assert(
+    (SELECT count(*) FROM public.golden_lesson_publications) = pubs
+    AND (SELECT count(*) FROM public.golden_lesson_ready_attestations) = readies,
+    'CF11_EXPECTED_AUDIT_REPLAY_ZERO_WRITES: ' || _category);
+END $$;
+
+DO $$
+DECLARE
+  lesson uuid := '43000000-0000-0000-0000-000000000012';
+  original text; orig_bool boolean; victim uuid; rev uuid;
+BEGIN
+  -- P1) an answer key smuggled into the official body AFTER publication
+  SELECT content INTO original FROM public.lesson_book_contents WHERE lesson_id = lesson;
+  UPDATE public.lesson_book_contents
+     SET content = original || '<script>{"correct_option":2}</script>'
+   WHERE lesson_id = lesson;
+  PERFORM public.cf11_assert_audit_replay_refuses('answerLeak.bookContent');
+  UPDATE public.lesson_book_contents SET content = original WHERE lesson_id = lesson;
+
+  -- P2) an answer key smuggled into a delivered HTML artefact
+  SELECT description INTO original FROM public.lesson_resources
+   WHERE lesson_id = lesson AND resource_type = 'mindmap';
+  UPDATE public.lesson_resources
+     SET description = original || '<!-- {"model_answer":"Fe2O3"} -->'
+   WHERE lesson_id = lesson AND resource_type = 'mindmap';
+  -- the body hash moves too, so either category may fire first; both are refusals.
+  PERFORM public.cf11_assert_audit_replay_refuses('answerLeak.html');
+  UPDATE public.lesson_resources SET description = original
+   WHERE lesson_id = lesson AND resource_type = 'mindmap';
+
+  -- P3) the lesson silently turned into paid content
+  SELECT is_free INTO orig_bool FROM public.lessons WHERE id = lesson;
+  UPDATE public.lessons SET is_free = NOT orig_bool WHERE id = lesson;
+  PERFORM public.cf11_assert_audit_replay_refuses('lessonGating.isFree');
+  UPDATE public.lessons SET is_free = orig_bool WHERE id = lesson;
+
+  -- P4) the lesson exposed to students out of band
+  SELECT visibility INTO orig_bool FROM public.lessons WHERE id = lesson;
+  UPDATE public.lessons SET visibility = NOT orig_bool WHERE id = lesson;
+  PERFORM public.cf11_assert_audit_replay_refuses('lessonGating.visibility');
+  UPDATE public.lessons SET visibility = orig_bool WHERE id = lesson;
+
+  -- P5) the published corpus is no longer exactly 45: one self-test question unpublished
+  SELECT q.id, q.current_published_revision_id INTO victim, rev
+    FROM public.questions q
+   WHERE q.lesson_id = lesson AND q.code LIKE '%-SELF-%'
+     AND q.current_published_revision_id IS NOT NULL
+   ORDER BY q.code LIMIT 1;
+  UPDATE public.questions SET current_published_revision_id = NULL WHERE id = victim;
+  PERFORM public.cf11_assert_audit_replay_refuses('questions.unpublished');
+  UPDATE public.questions SET current_published_revision_id = rev WHERE id = victim;
+
+  -- P6) after every mutate/restore cycle the intact state still replays cleanly
+  PERFORM public.cf04_assert(
+    (SELECT jsonb_array_length(public.cf11_assert_replay_state(result)->'revalidated') >= 7
+       FROM public.golden_lesson_publications
+      WHERE batch_id='51000000-0000-0000-0000-000000000001'),
+    'CF11_EXPECTED_AUDIT_REPLAY_FULL_SET: the restored state revalidates every category');
+END $$;
+DROP FUNCTION public.cf11_assert_audit_replay_refuses(text);
+
+
+
+-- ======================================================================================
 -- K) CF11-R6 — SERVICE-ROLE EDITORIAL DENIAL + EXACT LIFECYCLE SET.
 -- ======================================================================================
 
