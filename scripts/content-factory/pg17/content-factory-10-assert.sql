@@ -730,6 +730,8 @@ INSERT INTO public.question_revisions(question_id, revision_number, status, inte
   SELECT r.question_id, r.revision_number + 90, r.status, r.interaction_type,
          r.question_text, r.max_score, r.created_by
     FROM public.question_revisions r
+    JOIN public.questions q ON q.id = r.question_id
+   WHERE q.lesson_id='43000000-0000-0000-0000-000000000001'
    ORDER BY r.id LIMIT 1;
 SET ROLE service_role;
 SELECT public.cf10_expect_identity_conflict('QURAN-G10-L03-PKG','question_revisions');
