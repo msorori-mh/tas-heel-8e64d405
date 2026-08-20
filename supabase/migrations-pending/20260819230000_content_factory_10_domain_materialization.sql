@@ -1096,11 +1096,12 @@ BEGIN
   -- R6 postcondition: CF10 leaves NO legacy lesson_resources row for mindMap / simulation,
   -- claims no snapshot and no READY for them; CF11 is the only producer of those artefacts.
   FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
+    -- R7: ANY mindmap/experiment resource row is forbidden at the end of a CF10 batch — a
+    -- `cf11_published_at` marker is not a trust signal while the CF11 schema does not exist.
     IF EXISTS (SELECT 1 FROM public.lesson_resources r
                 WHERE r.lesson_id = lesson_row.id
                   AND ((cap = 'mindMap' AND r.resource_type::text = 'mindmap')
-                    OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))
-                  AND coalesce(r.metadata->>'cf11_published_at','') = '') THEN
+                    OR (cap = 'simulation' AND r.resource_type::text = 'experiment'))) THEN
       RAISE EXCEPTION 'CF10_HTML_LEGACY_ROW_FORBIDDEN: %', cap USING ERRCODE = '23514';
     END IF;
     IF NOT public.cf10_html_publication_pending(lesson_row.id, cap) THEN
