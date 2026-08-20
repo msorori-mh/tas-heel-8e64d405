@@ -871,9 +871,12 @@ BEGIN
       'cf11-iron-key');
     RESET ROLE;
     RAISE EXCEPTION 'CF11_EXPECTED_REPLAY_REFUSED_%', _category;
-  EXCEPTION WHEN unique_violation THEN
+  EXCEPTION WHEN OTHERS THEN
     RESET ROLE;
-    IF SQLERRM NOT LIKE '%CF11_REPLAY_LIVE_STATE_CONFLICT%' THEN RAISE; END IF;
+    -- The replay must die on the divergence itself: either the exhaustive live-state
+    -- revalidation, or the storage-identity check that guards the attested bytes.
+    IF SQLERRM NOT LIKE '%CF11_REPLAY_LIVE_STATE_CONFLICT%'
+       AND SQLERRM NOT LIKE '%CF11_ASSET_OBJECT_%' THEN RAISE; END IF;
   END;
 END $$;
 
