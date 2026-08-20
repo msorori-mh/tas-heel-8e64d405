@@ -536,3 +536,11 @@ test("CF11-R9C/5 — demotion probes use canonical lifecycle capability names", 
   assert.match(o1, /lesson_capability_transition\(lesson, 'lessonAssessment', 'REVIEW'/);
   assert.doesNotMatch(o1, /lesson_capability_transition\(lesson, 'selfTest'/);
 });
+
+
+test("CF11-R9C/6 — legacy probe does not grant or call the private managed helper", () => {
+  const o4 = asserts.slice(asserts.indexOf("-- O4) LEGACY"), asserts.indexOf("-- N) CF11-R8"));
+  assert.doesNotMatch(o4, /cf11_is_managed_lesson\(/);
+  assert.match(o4, /NOT EXISTS \(SELECT 1 FROM public\.golden_lesson_publications WHERE lesson_id = legacy\)/);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.cf11_is_managed_lesson\(uuid\)/);
+});
