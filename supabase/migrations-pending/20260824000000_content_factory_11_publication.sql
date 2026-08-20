@@ -2118,13 +2118,25 @@ BEGIN
     RAISE EXCEPTION 'CF11_REVOKE_SEPARATION_OF_DUTIES' USING ERRCODE = '42501';
   END IF;
 
-  -- Idempotent: the same key replays the recorded withdrawal, a different key conflicts.
+  -- CF11-R8 — EXECUTE always requires a real idempotency key, INCLUDING a replay. This validation
+  -- runs BEFORE the existing-row branch, so a null/short key can never be laundered into a
+  -- comfortable "already withdrawn" success. DRY_RUN stays zero-write and may omit the key.
+  IF _mode = 'EXECUTE' AND (_idempotency_key IS NULL OR length(btrim(_idempotency_key)) < 8) THEN
+    RAISE EXCEPTION 'CF11_REVOKE_IDEMPOTENCY_KEY_REQUIRED' USING ERRCODE = '22023';
+  END IF;
+
+  -- Idempotent: the exact same key replays the recorded withdrawal, anything else conflicts.
   SELECT * INTO existing FROM public.golden_lesson_ready_revocations WHERE publication_id = pub.id;
   IF existing.id IS NOT NULL THEN
-    IF _idempotency_key IS NOT NULL
+    IF _mode = 'EXECUTE'
        AND btrim(_idempotency_key) IS DISTINCT FROM existing.idempotency_key THEN
       RAISE EXCEPTION 'CF11_REVOKE_IDEMPOTENCY_KEY_CONFLICT' USING ERRCODE = '23505';
     END IF;
+    IF _mode <> 'EXECUTE' AND _idempotency_key IS NOT NULL
+       AND btrim(_idempotency_key) IS DISTINCT FROM existing.idempotency_key THEN
+      RAISE EXCEPTION 'CF11_REVOKE_IDEMPOTENCY_KEY_CONFLICT' USING ERRCODE = '23505';
+    END IF;
+
     SELECT coalesce(array_agg(DISTINCT capability ORDER BY capability), ARRAY[]::text[])
       INTO live_caps
       FROM public.lesson_capability_lifecycle
