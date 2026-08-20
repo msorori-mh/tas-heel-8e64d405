@@ -469,3 +469,89 @@ test("CF11-R9B/2 — legacy lesson uses the full required column set with non-nu
   // Its READY + REQUIRED lifecycle row follows immediately.
   assert.match(legacy, /VALUES \('43000000-0000-0000-0000-000000000099','officialBookContent','READY','REQUIRED'\)/);
 });
+
+
+test("CF11-R9C/1 — fixture mirrors production lifecycle grant hardening before CF11", () => {
+  assert.match(
+    fixtureSql,
+    /REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER\s+ON TABLE public\.lesson_capability_lifecycle FROM authenticated;/,
+  );
+  assert.match(
+    fixtureSql,
+    /GRANT SELECT ON TABLE public\.lesson_capability_lifecycle TO authenticated;/,
+  );
+  const hardening = fixtureSql.indexOf(
+    "REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER",
+  );
+  const legacyInsert = fixtureSql.indexOf(
+    "'43000000-0000-0000-0000-000000000099','legacy-lesson'",
+  );
+  assert.ok(hardening > 0 && hardening < legacyInsert, "grant hardening must precede fixture lifecycle writes");
+});
+
+
+test("CF11-R9C/2 — durable asset plan pins the storage identity replay validates", () => {
+  const report = sql.slice(
+    sql.indexOf("asset_report := asset_report || jsonb_build_object("),
+    sql.indexOf("-- Every reference in the official body must be declared"),
+  );
+  assert.match(report, /'storageBucket', asset->>'storageBucket'/);
+  assert.match(report, /'storagePath', asset->>'storagePath'/);
+  const replay = sql.slice(
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.cf11_assert_replay_state"),
+    sql.indexOf("-- 4) CF11-R7 — EXACT PINNED question identity"),
+  );
+  assert.match(replay, /p\.storage_path = a->>'storagePath'/);
+  assert.match(replay, /t\.storage_bucket = p\.storage_bucket AND t\.storage_path = p\.storage_path/);
+});
+
+
+test("CF11-R9C/3 — replay lifecycle drift probe bypasses only the fixture trigger", () => {
+  const drift = asserts.slice(
+    asserts.indexOf("-- 4) a lifecycle row pushed back below REVIEW"),
+    asserts.indexOf("-- 5) the stored asset object removed"),
+  );
+  assert.match(drift, /DISABLE TRIGGER USER/);
+  assert.match(drift, /ENABLE TRIGGER USER/);
+  assert.equal((drift.match(/DISABLE TRIGGER USER/g) ?? []).length, 2);
+  assert.equal((drift.match(/ENABLE TRIGGER USER/g) ?? []).length, 2);
+  assert.match(drift, /cf11_assert_replay_refuses\('lifecycle'\)/);
+});
+
+
+test("CF11-R9C/4 — published-revision replay drift probe bypasses only the fixture trigger", () => {
+  const drift = asserts.slice(
+    asserts.indexOf("-- payload drift at an identical code/count"),
+    asserts.indexOf("-- revision substitution at an identical code/count"),
+  );
+  assert.equal((drift.match(/ALTER TABLE public\.question_revisions DISABLE TRIGGER USER/g) ?? []).length, 2);
+  assert.equal((drift.match(/ALTER TABLE public\.question_revisions ENABLE TRIGGER USER/g) ?? []).length, 2);
+  assert.match(drift, /cf11_assert_replay_state\(plan\)/);
+  assert.match(drift, /CF11_EXPECTED_PINNED_REVISION_REFUSED/);
+});
+
+
+test("CF11-R9C/5 — demotion probes use canonical lifecycle capability names", () => {
+  const o1 = asserts.slice(asserts.indexOf("-- O) CF11-R8B"), asserts.indexOf("-- O2)"));
+  assert.match(o1, /lesson_capability_transition\(lesson, 'lessonAssessment', 'REVIEW'/);
+  assert.doesNotMatch(o1, /lesson_capability_transition\(lesson, 'selfTest'/);
+});
+
+
+test("CF11-R9C/6 — legacy probe does not grant or call the private managed helper", () => {
+  const o4 = asserts.slice(asserts.indexOf("-- O4) LEGACY"), asserts.indexOf("-- N) CF11-R8"));
+  assert.doesNotMatch(o4, /cf11_is_managed_lesson\(/);
+  assert.match(o4, /NOT EXISTS \(SELECT 1 FROM public\.golden_lesson_publications WHERE lesson_id = legacy\)/);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.cf11_is_managed_lesson\(uuid\)/);
+});
+
+
+test("CF11-R9C/7 — destructive withdrawal proof rolls back before canonical postverify", () => {
+  const n2 = asserts.indexOf("-- N2) The withdrawal itself");
+  const begin = asserts.indexOf("BEGIN;", n2);
+  const rollback = asserts.lastIndexOf("ROLLBACK;");
+  const verdict = asserts.indexOf("PASS_CONTENT_FACTORY_11_PG17");
+  assert.ok(n2 > 0 && begin > n2 && rollback > begin && verdict > rollback);
+  assert.match(asserts.slice(begin, rollback), /golden_lesson_revoke_cf11_ready/);
+  assert.match(asserts.slice(begin, rollback), /CF11_EXPECTED_TERMINAL_READY_REFUSED/);
+});

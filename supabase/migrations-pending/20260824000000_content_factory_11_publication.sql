@@ -1275,6 +1275,10 @@ BEGIN
       'assetCode', asset->>'assetCode', 'fileName', asset->>'fileName',
       'mimeType', asset->>'mimeType', 'sha256', asset->>'sha256',
       'bytes', (asset->>'bytes')::bigint,
+      -- CF11-R9C: the replay validator is storage-identity exact, so the durable plan must pin
+      -- the same bucket/path it later compares. Omitting storagePath made every replay fail.
+      'storageBucket', asset->>'storageBucket',
+      'storagePath', asset->>'storagePath',
       'url', public.cf11_asset_url(asset->>'storageBucket', asset->>'storagePath'));
   END LOOP;
 

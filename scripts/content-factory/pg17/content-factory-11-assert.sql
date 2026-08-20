@@ -927,12 +927,18 @@ BEGIN
   INSERT INTO public.assessment_questions SELECT * FROM cf11_member_backup;
   DROP TABLE cf11_member_backup;
 
-  -- 4) a lifecycle row pushed back below REVIEW
+  -- 4) a lifecycle row pushed back below REVIEW. CF11-R9C: the live trigger correctly blocks
+  -- this raw demotion, so this replay-only drift probe emulates an out-of-band owner repair by
+  -- disabling USER triggers only for the two fixture mutations. Production code never does this.
+  ALTER TABLE public.lesson_capability_lifecycle DISABLE TRIGGER USER;
   UPDATE public.lesson_capability_lifecycle SET status='DRAFT'
    WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND capability='quickReview';
+  ALTER TABLE public.lesson_capability_lifecycle ENABLE TRIGGER USER;
   PERFORM public.cf11_assert_replay_refuses('lifecycle');
+  ALTER TABLE public.lesson_capability_lifecycle DISABLE TRIGGER USER;
   UPDATE public.lesson_capability_lifecycle SET status='READY'
    WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND capability='quickReview';
+  ALTER TABLE public.lesson_capability_lifecycle ENABLE TRIGGER USER;
 
   -- 5) the stored asset object removed underneath the attestation
   UPDATE storage.objects SET name = name || '.moved'
@@ -1084,17 +1090,23 @@ BEGIN
     'CF11_EXPECTED_PINNED_REVISION_REFUSED: every planned question must pin revision + payload');
   PERFORM public.cf11_assert_replay_state(plan);
 
-  -- payload drift at an identical code/count
+  -- payload drift at an identical code/count. CF11-R9C: PUBLISHED payloads are already
+  -- immutable through the QB trigger, so this replay-only corruption probe temporarily disables
+  -- USER triggers as a database-owner/out-of-band drift simulation, then restores them.
+  ALTER TABLE public.question_revisions DISABLE TRIGGER USER;
   UPDATE public.question_revisions
      SET payload_hash = repeat('0',64)
    WHERE id = (pinned->>'revisionId')::uuid;
+  ALTER TABLE public.question_revisions ENABLE TRIGGER USER;
   BEGIN
     PERFORM public.cf11_assert_replay_state(plan);
     RAISE EXCEPTION 'CF11_EXPECTED_PINNED_REVISION_REFUSED: payload drift was accepted';
   EXCEPTION WHEN unique_violation THEN NULL;
   END;
+  ALTER TABLE public.question_revisions DISABLE TRIGGER USER;
   UPDATE public.question_revisions SET payload_hash = original
    WHERE id = (pinned->>'revisionId')::uuid;
+  ALTER TABLE public.question_revisions ENABLE TRIGGER USER;
 
   -- revision substitution at an identical code/count
   UPDATE public.questions SET current_published_revision_id = NULL WHERE id = qid;
@@ -1142,7 +1154,7 @@ BEGIN
     IF SQLERRM NOT LIKE '%CF11_DIRECT_TRANSITION_FORBIDDEN%' THEN RAISE; END IF;
   END;
   BEGIN
-    PERFORM public.lesson_capability_transition(lesson, 'selfTest', 'REVIEW', NULL, NULL);
+    PERFORM public.lesson_capability_transition(lesson, 'lessonAssessment', 'REVIEW', NULL, NULL);
     RAISE EXCEPTION 'CF11_EXPECTED_DIRECT_TRANSITION_REFUSED: READY -> REVIEW was accepted';
   EXCEPTION WHEN insufficient_privilege THEN
     IF SQLERRM NOT LIKE '%CF11_DIRECT_TRANSITION_FORBIDDEN%' THEN RAISE; END IF;
@@ -1239,7 +1251,10 @@ DECLARE
   legacy uuid := '43000000-0000-0000-0000-000000000099';
   res jsonb;
 BEGIN
-  PERFORM public.cf04_assert(NOT public.cf11_is_managed_lesson(legacy),
+  -- CF11-R9C: authenticated correctly cannot EXECUTE the private managed-lesson helper.
+  -- Prove the same predicate from the staff-readable immutable publication ledger.
+  PERFORM public.cf04_assert(
+    NOT EXISTS (SELECT 1 FROM public.golden_lesson_publications WHERE lesson_id = legacy),
     'CF11_EXPECTED_LEGACY_UNMANAGED');
   res := public.lesson_capability_transition(legacy, 'officialBookContent', 'DRAFT', NULL, NULL);
   PERFORM public.cf04_assert(res->>'from_status' = 'READY' AND res->>'to_status' = 'DRAFT',
@@ -1298,6 +1313,9 @@ RESET ROLE;
 -- N2) The withdrawal itself: DRY_RUN succeeds and writes nothing, EXECUTE really moves the exact
 --     seven back to DRAFT+REQUIRED, hides the lesson, records one immutable ledger row and
 --     preserves the original READY evidence.
+-- CF11-R9C: the destructive withdrawal proof is transaction-isolated. All assertions execute
+-- against the real functions and rows, then ROLLBACK restores READY for the canonical postverify.
+BEGIN;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000006', false);
 SET ROLE authenticated;
 DO $$
@@ -1462,5 +1480,7 @@ DO $$ BEGIN
   EXCEPTION WHEN raise_exception OR insufficient_privilege THEN NULL;
   END;
 END $$;
+
+ROLLBACK;
 
 SELECT 'PASS_CONTENT_FACTORY_11_PG17' AS verdict;
