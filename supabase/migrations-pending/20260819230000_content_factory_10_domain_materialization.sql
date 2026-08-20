@@ -533,7 +533,7 @@ BEGIN
         'lesson_capability_lifecycle.status','lesson_capability_lifecycle.draft_hash',
         'question_revisions.status','question_revisions(additional)',
         'questions.current_published_revision_id',
-        'lesson_resources.is_primary','lesson_resources.sort_order',
+        'lesson_resources(entire table, CF11-owned)',
         'lessons.unit_id','lessons.is_free','lessons.sort_order',
         'assessment_questions(membership)'),
       'html_publication_pending', jsonb_build_object(
