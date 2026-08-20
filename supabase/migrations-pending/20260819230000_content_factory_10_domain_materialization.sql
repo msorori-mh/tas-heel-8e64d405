@@ -1132,6 +1132,7 @@ BEGIN
             'write_plan_sha256',plan_sha,'answer_leak',0,'published',false,'ready',false,
             'student_visible',false,'seed_sha256',seed_state_sha,
             'attested_scope','immutable_seed',
+            'html_deferred_to_cf11', html_deferred,
             'html_publication_pending', jsonb_build_object(
               'mindMap', public.cf10_html_publication_pending(lesson_row.id,'mindMap'),
               'simulation', public.cf10_html_publication_pending(lesson_row.id,'simulation'))),
