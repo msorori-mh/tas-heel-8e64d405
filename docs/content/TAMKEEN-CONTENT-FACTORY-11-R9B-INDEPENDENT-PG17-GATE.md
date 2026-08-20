@@ -45,3 +45,26 @@ current migration bytes and hash above, then run production postverify before an
 import.
 
 **FINAL_VERDICT = PASS_CF11_R9C_PRODUCTION_PREFLIGHT_GATE_READY**
+
+## Addendum — CF11-R9 fixture execution-order blocker (23502 on `lessons.subject_id`)
+
+Reported base: `78d382a896e88c165e97762d180e1c2c12be6556`. Source-only; no migration apply and no
+production content writes.
+
+- Root cause (as reported): the legacy lesson `43000000-...-099` was inserted before the Iron
+  lesson `43000000-...-012` existed and derived `subject_id` from a subquery over that not-yet
+  created row, yielding NULL.
+- Current fixture state (`scripts/content-factory/pg17/content-factory-11-fixture.sql`): the Iron
+  lesson is inserted first; the legacy lesson and its READY lifecycle row follow it and bind
+  `subject_id` to the authoritative fixture subject literal `42000000-...-012`. No nullable
+  pre-creation subquery remains for any lesson insert.
+- New regression: `R9/1` in `tests/content-factory/content-factory-11-r8.static.test.mjs` asserts
+  (a) no `INSERT INTO public.lessons` derives `subject_id` from a subquery, (b) the Iron block
+  precedes the legacy insert, (c) the legacy lifecycle row follows its lesson, and (d) the legacy
+  row carries the literal subject id.
+- R8/R8B security behaviour, migration logic, and hashes are unchanged by this addendum.
+
+FIXTURE_ORDER = FIXED (Iron before legacy, literal subject_id)
+STATIC_TESTS = 103/103 PASS
+PRODUCTION_WRITES = 0
+PG17 = NOT PASS until the independent transaction rerun succeeds.
