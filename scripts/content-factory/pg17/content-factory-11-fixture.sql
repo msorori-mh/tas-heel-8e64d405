@@ -110,6 +110,15 @@ END;
 $function$;
 GRANT EXECUTE ON FUNCTION public.lesson_capability_transition(uuid,text,text,jsonb,text) TO authenticated;
 
+-- CF11-R9C: mirror the production 20C grants-hardening baseline after the broad PostgREST
+-- fixture grants from content-factory-10-fixture.sql. Editorial lifecycle writes must go only
+-- through the SECURITY DEFINER transition RPC; anon/authenticated never write this table raw.
+REVOKE ALL ON TABLE public.lesson_capability_lifecycle FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+  ON TABLE public.lesson_capability_lifecycle FROM authenticated;
+GRANT SELECT ON TABLE public.lesson_capability_lifecycle TO authenticated;
+GRANT ALL ON TABLE public.lesson_capability_lifecycle TO service_role;
+
 -- A second real staff user so separation of duties can be exercised honestly.
 INSERT INTO auth.users(id) VALUES ('10000000-0000-0000-0000-000000000005')
   ON CONFLICT DO NOTHING;
