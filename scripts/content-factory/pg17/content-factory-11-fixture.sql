@@ -175,8 +175,10 @@ DECLARE
   i integer;
   caps text[] := ARRAY['officialBookContent','tamkeenExplanationHtml','lessonSummaryHtml',
                        'mindMapHtml','labExperimentHtml','officialBookQuestions','selfTest'];
-  lifecycle_caps text[] := ARRAY['officialBookContent','tamkeenExplanation','lessonSummary',
-                                 'mindMap','simulation','officialBookQuestions','selfTest'];
+  -- Production vocabulary (verified against the live lesson_capability_lifecycle rows):
+  -- quickReview / checkUnderstanding / lessonAssessment, NOT lessonSummary/officialBookQuestions/selfTest.
+  lifecycle_caps text[] := ARRAY['officialBookContent','tamkeenExplanation','quickReview',
+                                 'mindMap','simulation','checkUnderstanding','lessonAssessment'];
   cap text;
 BEGIN
   -- Official body: real leaf asset reference, no path, no data URI.
