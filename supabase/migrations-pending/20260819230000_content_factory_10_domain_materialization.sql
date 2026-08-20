@@ -414,7 +414,9 @@ BEGIN
     plan := plan || jsonb_build_array(jsonb_build_object(
       'capability', entry.capability, 'targetPlan', entry.target_plan,
       'lifecycleCapability', entry.lifecycle_capability,
-      'applicability', entry.applicability, 'sha256', entry.source_sha256));
+      'applicability', entry.applicability, 'sha256', entry.source_sha256,
+      -- R6: HTML capabilities are staged only; CF11 owns their domain artefacts.
+      'deferredToCf11', entry.capability IN ('mindMapHtml','labExperimentHtml')));
   END LOOP;
   -- R4: exactly the seven pinned capabilities, no more, no fewer, no substitutes.
   SELECT array_agg(k ORDER BY k) INTO staged_caps FROM jsonb_object_keys(payloads) AS k;
