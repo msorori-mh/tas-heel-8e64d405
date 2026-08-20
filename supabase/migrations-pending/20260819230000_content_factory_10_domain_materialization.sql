@@ -221,6 +221,9 @@ DECLARE
   staged_caps text[];
   expected_title text;
   expected_semester integer;
+  semester_raw text;
+  semester_status text;
+  semester_resolved boolean := false;
   expected_sort integer;
   expected_type text;
   expected_options jsonb;
