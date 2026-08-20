@@ -801,7 +801,7 @@ SELECT public.cf04_assert((SELECT NOT visible FROM public.lesson_student_content
   public.cf10_rich_lesson())),'the CF10 lesson stays invisible to students');
 RESET ROLE; RESET request.jwt.claim.sub;
 
--- Marking them READY before CF11 publication is rejected outright.
+-- Marking them READY inside the CF10 stage is rejected outright.
 DO $$ BEGIN
   BEGIN
     UPDATE public.lesson_capability_lifecycle SET status='READY'
@@ -812,23 +812,47 @@ DO $$ BEGIN
   END;
 END $$;
 
--- 11g) R6 visibility: an OPTIONAL capability that carries a payload must keep the lesson hidden
---      while it is DRAFT / REVIEW, and only then may the lesson open once it is READY.
+-- 11g) CF10-R7: the HTML READY block is UNSPOOFABLE. A raw lesson_resources row that merely
+--      claims `cf11_published_at` must NOT unlock READY, for REQUIRED or OPTIONAL alike.
+--      (The old "simulate CF11 then READY is allowed" test is deleted: CF11 does not exist yet.)
 BEGIN;
--- simulate the CF11 publication so the READY transition is legitimate at all
 INSERT INTO public.lesson_resources(lesson_id, resource_type, title, url, sort_order,
                                     resource_code, html_resource_type, metadata, is_primary)
-VALUES (public.cf10_rich_lesson(),'mindmap','الخريطة الذهنية',
-        'https://cdn.example.test/cf11/mindmap.html',1,'CF11-MINDMAP','STATIC',
+VALUES (public.cf10_rich_lesson(),'mindmap','spoof',
+        'https://cdn.example.test/spoof/mindmap.html',1,'SPOOF-MINDMAP','STATIC',
         jsonb_build_object('contentFactory','CF11','cf11_published_at',now()),false),
-       (public.cf10_rich_lesson(),'experiment','التجربة العملية',
-        'https://cdn.example.test/cf11/lab.html',2,'CF11-EXPERIMENT','INTERACTIVE',
+       (public.cf10_rich_lesson(),'experiment','spoof',
+        'https://cdn.example.test/spoof/lab.html',2,'SPOOF-EXPERIMENT','INTERACTIVE',
         jsonb_build_object('contentFactory','CF11','cf11_published_at',now()),false);
+SELECT public.cf04_assert(public.cf10_html_publication_pending(public.cf10_rich_lesson(),'mindMap'),
+  'a spoofed cf11_published_at row does not clear the pending flag');
+DO $$
+DECLARE cap text;
+BEGIN
+  FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
+    BEGIN
+      UPDATE public.lesson_capability_lifecycle SET status='READY', ready_at=now(),
+             ready_by='10000000-0000-0000-0000-000000000003', ready_hash=draft_hash
+       WHERE lesson_id=public.cf10_rich_lesson() AND capability=cap;
+      RAISE EXCEPTION 'CF10_EXPECTED_SPOOFED_READY_REJECTION: %', cap;
+    EXCEPTION WHEN check_violation THEN
+      IF SQLERRM NOT LIKE '%CF10_HTML_CAPABILITY_READY_TOO_EARLY%' THEN RAISE; END IF;
+    END;
+  END LOOP;
+END $$;
+SELECT public.cf04_assert(NOT public.lesson_student_visible(public.cf10_rich_lesson()),
+  'a spoofed CF11 row never opens the lesson to students');
+ROLLBACK;
+
+-- 11h) R6/R7 visibility: a payload-carrying capability keeps the lesson hidden while it is not
+--      READY, OPTIONAL included. mindMap/simulation can never be READY before CF11, so the
+--      rich lesson stays hidden by construction.
+BEGIN;
 UPDATE public.lesson_capability_lifecycle
    SET status='READY', ready_at=now(), ready_by='10000000-0000-0000-0000-000000000003',
        ready_hash=draft_hash
- WHERE lesson_id=public.cf10_rich_lesson() AND applicability='REQUIRED';
--- the OPTIONAL simulation capability still carries a DRAFT payload
+ WHERE lesson_id=public.cf10_rich_lesson()
+   AND capability NOT IN ('mindMap','simulation');
 SELECT public.cf04_assert((SELECT draft_hash IS NOT NULL AND status='DRAFT'
    FROM public.lesson_capability_lifecycle
   WHERE lesson_id=public.cf10_rich_lesson() AND capability='simulation'),
@@ -839,13 +863,32 @@ UPDATE public.lesson_capability_lifecycle SET status='REVIEW'
  WHERE lesson_id=public.cf10_rich_lesson() AND capability='simulation';
 SELECT public.cf04_assert(NOT public.lesson_student_visible(public.cf10_rich_lesson()),
   'OPTIONAL payload in REVIEW keeps the lesson hidden');
-UPDATE public.lesson_capability_lifecycle
-   SET status='READY', ready_at=now(), ready_by='10000000-0000-0000-0000-000000000003',
-       ready_hash=draft_hash
- WHERE lesson_id=public.cf10_rich_lesson() AND capability='simulation';
-SELECT public.cf04_assert(public.lesson_student_visible(public.cf10_rich_lesson()),
-  'the lesson opens only once the OPTIONAL payload is READY too');
+SELECT public.cf04_assert(NOT public.lesson_student_visible(public.cf10_rich_lesson()),
+  'the HTML capabilities keep the lesson closed until CF11 publishes them');
 ROLLBACK;
+
+-- 11i) CF10-R7: binding_id is NOT NULL in the DDL itself, not only via a runtime guard.
+SELECT public.cf04_assert((SELECT a.attnotnull FROM pg_attribute a
+   WHERE a.attrelid='public.golden_lesson_domain_materializations'::regclass
+     AND a.attname='binding_id'),
+  'ledger binding_id is NOT NULL in the DDL');
+BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
+DO $$ BEGIN
+  BEGIN
+    INSERT INTO public.golden_lesson_domain_materializations(
+      batch_id, binding_id, subject_id, lesson_id, idempotency_key,
+      write_plan, write_plan_sha256, result, materialized_by)
+    VALUES (public.cf10_batch('QURAN-G10-L04-PKG'), NULL,
+            '42000000-0000-0000-0000-000000000001', public.cf10_rich_lesson(),
+            'cf10-key-notnull','{}'::jsonb, repeat('a',64), '{}'::jsonb,
+            '10000000-0000-0000-0000-000000000003');
+    RAISE EXCEPTION 'CF10_EXPECTED_BINDING_NOT_NULL_VIOLATION';
+  EXCEPTION WHEN not_null_violation THEN NULL;
+  END;
+END $$;
+ROLLBACK;
+
 
 
 -- ============================================================================
