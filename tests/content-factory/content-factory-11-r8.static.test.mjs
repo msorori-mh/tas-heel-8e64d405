@@ -601,3 +601,17 @@ test("R8-ADD/4 — PG17 proves refusal with zero writes and exactly one ledger r
   const n2 = asserts.slice(asserts.indexOf("-- N2)"));
   assert.match(n2, /count\(\*\) = 1 FROM public\.golden_lesson_ready_revocations WHERE batch_id = batch/);
 });
+
+test("R9/1 — fixture never derives a lesson subject_id from a pre-creation subquery", () => {
+  const fixture = readFileSync("scripts/content-factory/pg17/content-factory-11-fixture.sql", "utf8");
+  // Every lessons insert must carry a literal subject_id; a `(SELECT subject_id FROM ... lessons)`
+  // before the Iron row exists is exactly what produced 23502 in the PG17 rehearsal.
+  assert.doesNotMatch(fixture, /INSERT INTO public\.lessons[\s\S]{0,400}\(SELECT[\s\S]{0,120}subject_id/i);
+  const iron = fixture.indexOf("'43000000-0000-0000-0000-000000000012','iron-and-its-compounds'");
+  const legacy = fixture.indexOf("'43000000-0000-0000-0000-000000000099','legacy-lesson'");
+  const legacyLifecycle = fixture.indexOf("VALUES ('43000000-0000-0000-0000-000000000099','officialBookContent'");
+  assert.ok(iron > 0 && legacy > iron, "legacy lesson must be inserted after the Iron lesson");
+  assert.ok(legacyLifecycle > legacy, "legacy READY lifecycle row must follow its lesson");
+  const legacyRow = fixture.slice(legacy - 200, legacy + 300);
+  assert.match(legacyRow, /'42000000-0000-0000-0000-000000000012', NULL, 'درس قديم'/);
+});
