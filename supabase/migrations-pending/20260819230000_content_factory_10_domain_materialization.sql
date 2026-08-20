@@ -365,6 +365,11 @@ BEGIN
              payload_hash_version = 'canonical_payload_v1'
        WHERE id = v_revision_id;
     ELSE
+      -- R3: identity before content. A reused code must sit on the same lesson AND subject.
+      IF question_row.lesson_id IS DISTINCT FROM lesson_row.id
+         OR question_row.subject_id IS DISTINCT FROM subject_row.id THEN
+        RAISE EXCEPTION 'CF10_IDENTITY_CONFLICT: questions %', question_code USING ERRCODE = '23514';
+      END IF;
       IF question_row.question_text IS DISTINCT FROM item->>'official_text' THEN
         RAISE EXCEPTION 'CF10_CONTENT_HASH_CONFLICT: questions %', question_code USING ERRCODE = '23514';
       END IF;
@@ -379,8 +384,9 @@ BEGIN
       INSERT INTO public.official_question_answers(question_id, revision_id, model_answer, explanation)
       VALUES (question_row.id, v_revision_id, answer->>'correct_option', answer->>'rationale')
       ON CONFLICT (question_id, revision_id) DO NOTHING;
-      answers_written := answers_written + 1;
-      writes := writes + 1;
+      GET DIAGNOSTICS rc = ROW_COUNT;
+      answers_written := answers_written + rc;
+      writes := writes + rc;
     END IF;
   END LOOP;
 
