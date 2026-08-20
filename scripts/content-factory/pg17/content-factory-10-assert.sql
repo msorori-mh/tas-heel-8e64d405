@@ -115,7 +115,7 @@ SELECT public.cf04_assert((SELECT (write_plan->'semester') = 'null'::jsonb AND (
 SELECT public.cf04_assert((SELECT bool_and(binding_id IS NOT NULL) FROM public.golden_lesson_domain_materializations),'ledger binding_id is always non-null');
 SELECT public.cf04_assert((SELECT m.binding_id = (SELECT id FROM public.golden_lesson_identity_bindings b WHERE b.batch_id=m.batch_id)
   FROM public.golden_lesson_domain_materializations m WHERE m.batch_id=public.cf10_batch('QURAN-G10-L04-PKG')),'ledger binding points at the CF09 binding');
-SELECT public.cf04_assert((SELECT count(*)=2 FROM public.lesson_resources),'mindmap and experiment resources written');
+SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_resources),'CF10-R6: no legacy resource rows written (HTML deferred to CF11)');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_resources WHERE is_primary),'no primary resource promoted');
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.questions),'official and self-test questions written');
 SELECT public.cf04_assert((SELECT count(*)=2 FROM public.question_revisions),'one pinned revision per question');
@@ -371,23 +371,26 @@ BEGIN
 END $$;
 ROLLBACK;
 
--- 9i) CF10-R4: a diverging lesson_resources column (not only the body) is a conflict.
+-- 9i) CF10-R6: a pre-existing legacy inline-HTML row for a deferred capability is forbidden.
 BEGIN;
 ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER golden_materialization_immutable;
 DO $$
-DECLARE b uuid; sha text;
+DECLARE b uuid; sha text; l uuid;
 BEGIN
   b := public.cf10_batch('QURAN-G10-L04-PKG');
+  SELECT lesson_id INTO l FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
   DELETE FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
-  UPDATE public.lesson_resources SET sort_order = 9 WHERE resource_code LIKE '%-MINDMAP';
+  INSERT INTO public.lesson_resources(lesson_id, resource_type, title, url, sort_order,
+                                      resource_code, html_resource_type, description, metadata, is_primary)
+  VALUES (l,'mindmap','legacy','',1,'LEGACY-MINDMAP','STATIC','<p>mindmap-04</p>','{}'::jsonb,false);
   sha := public.golden_lesson_materialize_domain_batch(
            b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
   BEGIN
     PERFORM public.golden_lesson_materialize_domain_batch(
-      b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-r4-res');
-    RAISE EXCEPTION 'CF10_EXPECTED_RESOURCE_CONFLICT';
+      b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-r6-res');
+    RAISE EXCEPTION 'CF10_EXPECTED_LEGACY_HTML_REJECTION';
   EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF10_IDENTITY_CONFLICT: lesson_resources%' THEN RAISE; END IF;
+    IF SQLERRM NOT LIKE '%CF10_HTML_LEGACY_ROW_FORBIDDEN%' THEN RAISE; END IF;
   END;
 END $$;
 ROLLBACK;
@@ -633,7 +636,13 @@ SELECT public.cf04_assert(
   (public.golden_lesson_materialize_domain_batch(
      public.cf10_batch('QURAN-G10-L03-PKG'),
      '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001')
-   ->>'live_attested')::boolean, 'exact replay attests the immutable seed');
+   ->>'seed_attested')::boolean, 'exact replay attests the immutable seed');
+SET ROLE service_role;
+SELECT public.cf04_assert(
+  NOT (public.golden_lesson_materialize_domain_batch(
+     public.cf10_batch('QURAN-G10-L03-PKG'),
+     '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001')
+   ->>'live_attested')::boolean, 'ledger shortcut never claims live-state attestation');
 RESET ROLE;
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.golden_lesson_domain_materializations
                             WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG')),
@@ -860,7 +869,7 @@ SELECT public.cf04_assert(
   (public.golden_lesson_materialize_domain_batch(
      public.cf10_batch('QURAN-G10-L03-PKG'),
      '10000000-0000-0000-0000-000000000003','EXECUTE',current_setting('cf10.plan'),'cf10-key-0001')
-   ->>'live_attested')::boolean,
+   ->>'seed_attested')::boolean,
   'replay still attests after legitimate lifecycle/publish transitions');
 RESET ROLE;
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.golden_lesson_domain_materializations
