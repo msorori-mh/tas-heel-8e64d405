@@ -249,9 +249,11 @@ BEGIN
     RAISE EXCEPTION 'CF11_HTML_EMPTY: %', _label USING ERRCODE = '23514';
   END IF;
 
+  -- The attribute delimiter is captured and back-referenced (\1) so that a double-quoted
+  -- content="..." may legally contain the CSP's own single-quoted 'none' / 'sha256-...' tokens.
   SELECT (regexp_match(_html,
-    '<meta\s+http-equiv\s*=\s*["'']Content-Security-Policy["''][^>]*\ycontent\s*=\s*["'']([^"'']+)["'']',
-    'i'))[1] INTO csp;
+    '<meta\s+http-equiv\s*=\s*["'']Content-Security-Policy["''][^>]*\ycontent\s*=\s*(["''])(.*?)\1',
+    'i'))[2] INTO csp;
   IF csp IS NULL THEN
     RAISE EXCEPTION 'CF11_LAB_CSP_MISSING: %', _label USING ERRCODE = '23514';
   END IF;
