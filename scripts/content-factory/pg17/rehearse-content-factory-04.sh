@@ -9,9 +9,12 @@ root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 #   * CF04/CF07/CF08/CF09 schema migrations are applied byte-for-byte (they still ship the
 #     unqualified digest calls that production has today),
 #   * the R9 forward migration (20260819225000) re-creates the three hashing functions with
-#     `extensions.digest(...)`,
-#   * only then do the runtime asserts actually EXECUTE stage manifest / stage domain bundle /
-#     authoritative identity binding, followed by CF10.
+#     `extensions.digest(...)`. It is idempotent and is re-applied after every dependency migration
+#     that re-defines one of those functions (CF04, CF08, CF09), because each of those already
+#     applied migrations still ships the unqualified call,
+#   * every runtime assert (stage manifest / stage domain bundle / authoritative identity binding)
+#     therefore EXECUTES against the qualified functions with NO public.digest reachable, and CF10
+#     runs last, after the production-search-path guard.
 psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-04-fixture.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-07-storage-fixture.sql" \
