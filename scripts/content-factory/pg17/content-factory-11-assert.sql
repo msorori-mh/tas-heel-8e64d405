@@ -926,10 +926,10 @@ BEGIN
 
   -- 4) a lifecycle row pushed back below REVIEW
   UPDATE public.lesson_capability_lifecycle SET status='DRAFT'
-   WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND capability='summary';
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND capability='quickReview';
   PERFORM public.cf11_assert_replay_refuses('lifecycle');
   UPDATE public.lesson_capability_lifecycle SET status='READY'
-   WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND capability='summary';
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012' AND capability='quickReview';
 
   -- 5) the stored asset object removed underneath the attestation
   UPDATE storage.objects SET name = name || '.moved'
