@@ -1479,7 +1479,7 @@ DO $$ BEGIN
     RAISE EXCEPTION 'CF11_EXPECTED_REVOKE_LEDGER_IMMUTABLE: an update was accepted';
   EXCEPTION WHEN raise_exception OR insufficient_privilege THEN NULL;
   END;
-END $;
+END $$;
 
 ROLLBACK;
 
