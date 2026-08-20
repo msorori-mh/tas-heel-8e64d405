@@ -52,6 +52,7 @@ jobs:
           node --test tests/content-factory/content-factory-07.static.test.mjs
           node --test tests/content-factory/content-factory-08.static.test.mjs
           node --test tests/content-factory/content-factory-09.static.test.mjs
+          node --test tests/content-factory/content-factory-10.static.test.mjs
           if [ -f tests/content-packages/chemistry-g12-iron-v3.test.mjs ]; then
             node --test tests/content-packages/chemistry-g12-iron-v3.test.mjs
           fi
