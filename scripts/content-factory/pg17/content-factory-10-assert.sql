@@ -669,10 +669,14 @@ END $$;
 RESET ROLE;
 ROLLBACK;
 
--- 11d) A ledger row without an attestation hash cannot replay at all.
+-- 11d) A ledger row without an attestation hash (e.g. a legacy pre-R4b row) cannot replay at all.
+--      The ledger is immutable in normal operation, so the trigger is disabled only to forge
+--      that legacy shape inside a rolled-back transaction.
 BEGIN;
+ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
 UPDATE public.golden_lesson_domain_materializations SET result = result - 'state_sha256'
  WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
+ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
 SET ROLE service_role;
 DO $$ BEGIN
   BEGIN
