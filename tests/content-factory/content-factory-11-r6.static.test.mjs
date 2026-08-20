@@ -115,3 +115,96 @@ test("CF11-R4/fail-closed — no read error is allowed to degrade into an empty 
   // Nothing may silently swallow a Supabase error object.
   assert.doesNotMatch(server, /\.data \?\? \[\]\) as \{ capability/);
 });
+
+/* ------------------------------------------------------------------------------------ *
+ * CF11-R6 — EXACT SET SEMANTICS.
+ * These tests are written so that they FAIL for: seven wrong names, one missing + one
+ * extra, mixed REVIEW/READY where an exact state is required, a substituted assessment
+ * member at an identical count, an extra published question, storage eTag/metadata drift,
+ * READY snapshot/hash drift, and a service_role attempting any human editorial RPC.
+ * ------------------------------------------------------------------------------------ */
+
+const CANONICAL = readFileSync("src/lib/lessons/capability-mapping.ts", "utf8");
+const canonicalNames = [...CANONICAL.matchAll(/V3_LIFECYCLE_CAPABILITIES = \[([^\]]+)\]/g)]
+  .flatMap(([, body]) => [...body.matchAll(/"([A-Za-z]+)"/g)].map(([, n]) => n))
+  .sort();
+
+test("CF11-R6/1 — SQL canonical set equals src/lib/lessons/capability-mapping.ts exactly", () => {
+  assert.equal(canonicalNames.length, 7);
+  const fn = sql.match(/cf11_lifecycle_capabilities\(\)\s*\nRETURNS text\[\][\s\S]*?\$\$;/);
+  assert.ok(fn, "cf11_lifecycle_capabilities() must exist");
+  const sqlNames = [...fn[0].matchAll(/'([A-Za-z]+)'/g)].map(([, n]) => n);
+  // Exact multiset equality: a wrong name, a missing name or an eighth name all fail here.
+  assert.deepEqual([...sqlNames].sort(), canonicalNames);
+  assert.deepEqual(sqlNames, [...sqlNames].sort(), "must be stored sorted for `=` comparison");
+});
+
+test("CF11-R6/2 — every gate compares the SET, never a bare count", () => {
+  // Publication plan validation, replay, READY first execution and READY replay.
+  assert.match(sql, /CF11_LIFECYCLE_NAMESPACE_MISMATCH: staged=/);
+  assert.match(sql, /CF11_LIFECYCLE_SET_FOREIGN_CAPABILITY/);
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.cf11_assert_exact_lifecycle_set/);
+  assert.match(sql, /CF11_READY_SET_NOT_EXACT/);
+  assert.ok((sql.match(/cf11_assert_exact_lifecycle_set\(/g) ?? []).length >= 4);
+  assert.ok((sql.match(/cf11_lifecycle_capabilities\(\)/g) ?? []).length >= 8);
+  // The retired count-only gates are gone.
+  assert.doesNotMatch(sql, /lesson_capability_lifecycle WHERE lesson_id = lesson_row\.id\) <> 7/);
+  assert.doesNotMatch(sql, /status = 'READY'\) <> 7/);
+});
+
+test("CF11-R6/3 — replay proves exact question, assessment and asset sets", () => {
+  assert.match(sql, /CF11_REPLAY_LIVE_STATE_CONFLICT: questions live=/);
+  assert.match(sql, /CF11_REPLAY_LIVE_STATE_CONFLICT: questionsDuplicatePlan/);
+  assert.match(sql, /CF11_REPLAY_LIVE_STATE_CONFLICT: questionRevisions/);
+  // A substituted member at an identical count must fail: membership is compared as a code set.
+  assert.match(sql, /CF11_REPLAY_LIVE_STATE_CONFLICT: assessmentMembers live=/);
+  assert.match(sql, /CF11_REPLAY_LIVE_STATE_CONFLICT: assessmentOfficialLeak/);
+  assert.match(sql, /CF11_REPLAY_LIVE_STATE_CONFLICT: assets live=/);
+  // Storage identity drift (object id / version / eTag / size / mime) breaks the replay join.
+  assert.match(sql, /o\.version = t\.storage_version/);
+  assert.match(sql, /metadata->>'eTag'[\s\S]{0,120}IS NOT DISTINCT FROM t\.storage_etag/);
+  assert.match(sql, /\(o\.metadata->>'size'\)::bigint, t\.byte_size\) = t\.byte_size/);
+  // Honest wording: SQL replays recorded identity/metadata; byte readback is the server step.
+  assert.match(sql, /no byte readback happens here/);
+});
+
+test("CF11-R6/4 — READY replay re-derives the seven snapshots and hashes", () => {
+  assert.match(sql, /CF11_READY_REPLAY_CONFLICT: readySnapshot\./);
+  assert.match(sql, /CF11_READY_REPLAY_CONFLICT: readySnapshotBody\./);
+  assert.match(sql, /CF11_READY_REPLAY_CONFLICT: evidenceHash\./);
+  assert.match(sql, /CF11_READY_REPLAY_CONFLICT: evidenceSet/);
+  assert.match(sql, /FOREACH lifecycle_cap IN ARRAY public\.cf11_lifecycle_capabilities\(\)/);
+  assert.match(sql, /v3_capability_snapshot_hash\(stored_ready_snapshot\)/);
+});
+
+test("CF11-R6/5 — service_role is denied every human editorial RPC", () => {
+  for (const fnName of [
+    "golden_lesson_publish_cf11",
+    "golden_lesson_attest_cf11_ready",
+    "golden_lesson_materialize_domain_batch_operator",
+    "golden_lesson_advance_review",
+    "golden_lesson_bind_authoritative_identity",
+  ]) {
+    assert.match(
+      sql,
+      new RegExp(`REVOKE EXECUTE ON FUNCTION public\\.${fnName}\\([^)]*\\)\\s*\\n?\\s*FROM service_role`),
+      `${fnName} must be revoked from service_role`,
+    );
+  }
+  // Machine attestation stays service-role-only.
+  assert.match(sql, /CF11_ASSET_ATTESTATION_MACHINE_ONLY/);
+  // Identity binding now runs on the operator's own token, not the service key.
+  const binding = readFileSync("src/lib/content-factory/golden-lesson-identity-binding.functions.ts", "utf8");
+  assert.match(binding, /golden_lesson_bind_authoritative_identity_operator/);
+  assert.doesNotMatch(binding, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(asserts, /service_role cannot|CF11_EXPECTED_SERVICE_ROLE_DENIED/);
+});
+
+test("CF11-R6/6 — the operator panel gates READY on the exact set, not a count", () => {
+  assert.match(panel, /import \{ V3_LIFECYCLE_CAPABILITIES \} from "@\/lib\/lessons\/capability-mapping"/);
+  assert.doesNotMatch(panel, /CF11_EXPECTED_CAPABILITY_COUNT/);
+  assert.match(panel, /setDiff\.exact && setDiff\.notInReview\.length === 0/);
+  for (const marker of ["missing", "extra", "duplicated", "notInReview"]) {
+    assert.match(panel, new RegExp(`setDiff\\.${marker}`));
+  }
+});
