@@ -175,3 +175,21 @@ test("CF10-R4 PG17 rehearsal asserts collisions and all-or-nothing student blind
     assert.ok(assertSql.includes(marker), `missing assertion: ${marker}`);
   }
 });
+
+test("CF10-R8 pins pgcrypto to the extensions schema (production search path)", () => {
+  const fixture = readFileSync("scripts/content-factory/pg17/content-factory-04-fixture.sql", "utf8");
+  const searchPath = readFileSync(
+    "scripts/content-factory/pg17/content-factory-10-r8-production-search-path.sql",
+    "utf8",
+  );
+  // every digest call in CF10 is schema-qualified; zero stale unqualified calls remain
+  assert.equal((sql.match(/(?<!extensions\.)\bdigest\s*\(/g) ?? []).length, 0);
+  assert.ok(sql.includes("extensions.digest("));
+  assert.match(sql, /CF10_PGCRYPTO_DIGEST_MISSING/);
+  assert.match(sql, /to_regprocedure\('extensions\.digest\(bytea,text\)'\)/);
+  // rehearsal reproduces production: pgcrypto in extensions, nothing digest-shaped in public
+  assert.match(fixture, /CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions/);
+  assert.doesNotMatch(fixture, /CREATE EXTENSION IF NOT EXISTS pgcrypto;/);
+  assert.match(searchPath, /DROP FUNCTION IF EXISTS public\.digest\(bytea, text\)/);
+  assert.match(rehearse, /content-factory-10-r8-production-search-path\.sql/);
+});
