@@ -1119,6 +1119,15 @@ BEGIN
     END IF;
   END LOOP;
 
+  -- R5.2: the ledger never records a zero-binding EXECUTE.
+  IF binding.id IS NULL THEN
+    RAISE EXCEPTION 'CF10_IDENTITY_BINDING_REQUIRED' USING ERRCODE = '23514';
+  END IF;
+  IF lesson_created THEN
+    RAISE EXCEPTION 'CF10_IDENTITY_BINDING_LESSON_MISMATCH: bound EXECUTE created a lesson'
+      USING ERRCODE = '23514';
+  END IF;
+
   seed_state_sha := public.cf10_seed_state_sha256(lesson_row.id);
 
   INSERT INTO public.golden_lesson_domain_materializations(
