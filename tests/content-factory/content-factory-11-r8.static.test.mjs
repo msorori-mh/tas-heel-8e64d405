@@ -544,3 +544,14 @@ test("CF11-R9C/6 — legacy probe does not grant or call the private managed hel
   assert.match(o4, /NOT EXISTS \(SELECT 1 FROM public\.golden_lesson_publications WHERE lesson_id = legacy\)/);
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.cf11_is_managed_lesson\(uuid\)/);
 });
+
+
+test("CF11-R9C/7 — destructive withdrawal proof rolls back before canonical postverify", () => {
+  const n2 = asserts.indexOf("-- N2) The withdrawal itself");
+  const begin = asserts.indexOf("BEGIN;", n2);
+  const rollback = asserts.lastIndexOf("ROLLBACK;");
+  const verdict = asserts.indexOf("PASS_CONTENT_FACTORY_11_PG17");
+  assert.ok(n2 > 0 && begin > n2 && rollback > begin && verdict > rollback);
+  assert.match(asserts.slice(begin, rollback), /golden_lesson_revoke_cf11_ready/);
+  assert.match(asserts.slice(begin, rollback), /CF11_EXPECTED_TERMINAL_READY_REFUSED/);
+});
