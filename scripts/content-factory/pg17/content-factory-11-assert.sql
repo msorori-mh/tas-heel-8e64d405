@@ -672,4 +672,122 @@ SELECT public.cf04_assert(
     WHERE b.batch_id='51000000-0000-0000-0000-000000000001'),
   'FINAL: the sanaa/aden binding must stay exact');
 
+-- ------------------------------------------------------------------------------------
+-- J) CF11-R4 — lifecycle namespace, operator-token materialization, strict replay guards
+-- ------------------------------------------------------------------------------------
+
+-- J1) There is exactly ONE lifecycle relation. A second, empty namespace would make the review
+--     gate fail OPEN ("nothing is in REVIEW"), so its absence is asserted, not assumed.
+SELECT public.cf04_assert(
+  to_regclass('public.lesson_capability_lifecycle') IS NOT NULL,
+  'CF11_LIFECYCLE_NAMESPACE: lesson_capability_lifecycle must exist');
+SELECT public.cf04_assert(
+  to_regclass('public.lesson_content_lifecycle') IS NULL,
+  'CF11_LIFECYCLE_NAMESPACE: lesson_content_lifecycle must never exist');
+SELECT public.cf04_assert(
+  (SELECT count(*)=0 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='public' AND pg_get_functiondef(p.oid) LIKE '%lesson_content_lifecycle%'),
+  'CF11_LIFECYCLE_NAMESPACE: no function may read lesson_content_lifecycle');
+
+-- J2) CF10 is reachable by an operator token ONLY through the R4 wrapper; the raw RPC stays
+--     service_role-only.
+SELECT public.cf04_assert(
+  has_function_privilege('authenticated',
+    'public.golden_lesson_materialize_domain_batch_operator(uuid,uuid,text,text,text)','EXECUTE'),
+  'CF11_R4: authenticated must reach CF10 through the operator wrapper');
+SELECT public.cf04_assert(
+  NOT has_function_privilege('authenticated',
+    'public.golden_lesson_materialize_domain_batch(uuid,uuid,text,text,text)','EXECUTE'),
+  'CF11_R4: authenticated must never call the raw CF10 RPC');
+SELECT public.cf04_assert(
+  (SELECT prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='public' AND p.proname='golden_lesson_materialize_domain_batch_operator'),
+  'CF11_R4: the operator wrapper must be SECURITY DEFINER');
+
+-- J3) The wrapper derives the actor from auth.uid(): a staff session cannot materialize "as"
+--     somebody else, and a student cannot materialize at all.
+SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
+DO $$ BEGIN
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch_operator(
+      '51000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000005','DRY_RUN');
+    RAISE EXCEPTION 'CF11_EXPECTED_CF10_ACTOR_MISMATCH';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM NOT LIKE '%CF10_ACTOR_IDENTITY_MISMATCH%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert(true,'CF10 orchestration cannot impersonate another operator');
+
+  -- EXECUTE without the reviewed write-plan hash, or without a durable replay key, writes zero.
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch_operator(
+      '51000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000003','EXECUTE',
+      NULL,'cf10-iron-key');
+    RAISE EXCEPTION 'CF11_EXPECTED_CF10_PLAN_REQUIRED';
+  EXCEPTION WHEN invalid_parameter_value THEN
+    IF SQLERRM NOT LIKE '%CF10_WRITE_PLAN_HASH_REQUIRED%' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch_operator(
+      '51000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000003','EXECUTE',
+      repeat('0',64), NULL);
+    RAISE EXCEPTION 'CF11_EXPECTED_CF10_KEY_REQUIRED';
+  EXCEPTION WHEN invalid_parameter_value THEN
+    IF SQLERRM NOT LIKE '%CF10_IDEMPOTENCY_KEY_REQUIRED%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert(true,'CF10 EXECUTE demands a reviewed plan hash and a replay key');
+END $$;
+RESET ROLE;
+
+SELECT set_config('request.jwt.claim.sub', :'stu', false);
+SET ROLE authenticated;
+DO $$ BEGIN
+  BEGIN
+    PERFORM public.golden_lesson_materialize_domain_batch_operator(
+      '51000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000004','DRY_RUN');
+    RAISE EXCEPTION 'CF11_EXPECTED_CF10_ADMIN_REQUIRED';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM NOT LIKE '%CF10_ADMIN_REQUIRED%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert(true,'a student can never orchestrate CF10');
+END $$;
+RESET ROLE;
+
+-- J4) Publication EXECUTE can never proceed without a durable idempotency key, even on the
+--     replay path where the plan hash already matches the recorded publication.
+SELECT set_config('request.jwt.claim.sub', :'pub', false);
+SET ROLE authenticated;
+DO $$
+DECLARE recorded text;
+BEGIN
+  SELECT plan_sha256 INTO recorded FROM public.golden_lesson_publications
+   WHERE batch_id='51000000-0000-0000-0000-000000000001';
+  PERFORM public.cf04_assert(recorded ~ '^[0-9a-f]{64}$','the ledger must record a plan hash');
+  PERFORM public.cf04_assert(
+    (SELECT idempotency_key='cf11-iron-key' FROM public.golden_lesson_publications
+      WHERE batch_id='51000000-0000-0000-0000-000000000001'),
+    'the ledger must record the replay key verbatim');
+  BEGIN
+    PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','EXECUTE', public.cf11_iron_assets(), recorded, NULL);
+    RAISE EXCEPTION 'CF11_EXPECTED_KEY_REQUIRED';
+  EXCEPTION WHEN invalid_parameter_value THEN
+    IF SQLERRM NOT LIKE '%CF11_IDEMPOTENCY_KEY_REQUIRED%' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000003','EXECUTE', public.cf11_iron_assets(), recorded,
+      'a-different-key');
+    RAISE EXCEPTION 'CF11_EXPECTED_KEY_CONFLICT';
+  EXCEPTION WHEN unique_violation THEN
+    IF SQLERRM NOT LIKE '%CF11_REPLAY_IDEMPOTENCY_KEY_CONFLICT%' THEN RAISE; END IF;
+  END;
+  PERFORM public.cf04_assert(true,'a replay under a different key conflicts and writes nothing');
+  PERFORM public.cf04_assert(
+    (SELECT count(*)=1 FROM public.golden_lesson_publications
+      WHERE batch_id='51000000-0000-0000-0000-000000000001'),
+    'the publication ledger must still hold exactly one row');
+END $$;
+RESET ROLE;
+
 SELECT 'PASS_CONTENT_FACTORY_11_PG17' AS verdict;
