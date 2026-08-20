@@ -1269,7 +1269,7 @@ BEGIN
                                     'selfTest', to_jsonb(self_codes)),
     'assessment', jsonb_build_object('code', ext_code || '-SELFTEST', 'memberCount', 40),
     'lifecycle', jsonb_build_object('from','DRAFT','to','REVIEW',
-                                    'capabilities', to_jsonb(public.cf10_required_capabilities())));
+                                    'capabilities', to_jsonb(public.cf11_lifecycle_capabilities())));
   plan_sha := public.cf11_text_sha256(plan::text);
 
   IF _mode = 'DRY_RUN' THEN
