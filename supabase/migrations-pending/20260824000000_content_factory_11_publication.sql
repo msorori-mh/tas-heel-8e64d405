@@ -655,6 +655,132 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
 $$;
 
 -- ------------------------------------------------------------------------------------
+-- 5b) CF11-R5 — EXHAUSTIVE replay revalidation.
+--
+-- A replay may only report success when EVERY category the recorded write plan claims is still
+-- literally true in the live database. "The ledger row exists" is not evidence; each category is
+-- re-derived from live rows and any divergence raises a named conflict instead of silently
+-- returning a stale success. Read-only: this function writes nothing, ever.
+-- ------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.cf11_assert_replay_state(_plan jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path = public, pg_temp AS $$
+DECLARE
+  v_lesson uuid := (_plan->>'lessonId')::uuid;
+  v_ext text := _plan->>'externalLessonCode';
+  a jsonb;
+  cap text;
+  v_code text;
+  v_expected text;
+  v_live text;
+  v_count integer;
+  v_official text[];
+  v_self text[];
+  v_assessment uuid;
+  verified jsonb := '[]'::jsonb;
+BEGIN
+  IF v_lesson IS NULL OR coalesce(v_ext,'') = '' THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: plan' USING ERRCODE = '23505';
+  END IF;
+
+  -- 1) official body
+  SELECT public.cf11_text_sha256(content) INTO v_live
+    FROM public.lesson_book_contents WHERE lesson_id = v_lesson;
+  IF v_live IS DISTINCT FROM (_plan->'bookContent'->>'afterSha256') THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: bookContent' USING ERRCODE = '23505';
+  END IF;
+  verified := verified || to_jsonb('bookContent'::text);
+
+  -- 2) published HTML artefacts, body-hash exact and still delivered inline
+  FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
+    v_code := _plan->'html'->cap->>'resourceCode';
+    v_expected := _plan->'html'->cap->>'sha256';
+    SELECT public.cf11_text_sha256(r.description) INTO v_live
+      FROM public.lesson_resources r
+     WHERE r.lesson_id = v_lesson AND r.resource_code = v_code
+       AND r.url = public.cf10_inline_html_url(r.resource_code);
+    IF v_live IS DISTINCT FROM v_expected
+       OR public.cf10_html_publication_pending(v_lesson, cap) THEN
+      RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: html.%', cap USING ERRCODE = '23505';
+    END IF;
+  END LOOP;
+  verified := verified || to_jsonb('html'::text);
+
+  -- 3) every planned asset is still registered with the same bytes, path and attestation
+  FOR a IN SELECT value FROM jsonb_array_elements(coalesce(_plan->'assets','[]'::jsonb)) LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM public.golden_lesson_published_assets p
+        JOIN public.golden_lesson_asset_attestations t
+          ON t.lesson_id = p.lesson_id AND t.asset_code = p.asset_code
+         AND t.attestation_sha256 = p.attestation_sha256
+         AND t.verification_origin = 'SERVER_BYTE_READBACK'
+        JOIN storage.objects o
+          ON o.bucket_id = t.storage_bucket AND o.name = t.storage_path
+         AND o.id = t.storage_object_id AND o.version = t.storage_version
+       WHERE p.lesson_id = v_lesson AND p.asset_code = a->>'assetCode'
+         AND p.sha256 = a->>'sha256' AND p.byte_size = (a->>'bytes')::bigint
+         AND p.mime_type = a->>'mimeType'
+    ) THEN
+      RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: asset.%', a->>'assetCode'
+        USING ERRCODE = '23505';
+    END IF;
+  END LOOP;
+  SELECT count(*) INTO v_count FROM public.golden_lesson_published_assets WHERE lesson_id = v_lesson;
+  IF v_count IS DISTINCT FROM jsonb_array_length(coalesce(_plan->'assets','[]'::jsonb)) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assets' USING ERRCODE = '23505';
+  END IF;
+  verified := verified || to_jsonb('assets'::text);
+
+  -- 4) all 45 questions still point at a PUBLISHED revision
+  SELECT array_agg(value::text) INTO v_official
+    FROM jsonb_array_elements_text(coalesce(_plan->'questions'->'official','[]'::jsonb)) value;
+  SELECT array_agg(value::text) INTO v_self
+    FROM jsonb_array_elements_text(coalesce(_plan->'questions'->'selfTest','[]'::jsonb)) value;
+  SELECT count(*) INTO v_count
+    FROM public.questions q
+    JOIN public.question_revisions rv ON rv.id = q.current_published_revision_id
+   WHERE q.lesson_id = v_lesson
+     AND q.code = ANY (coalesce(v_official,ARRAY[]::text[]) || coalesce(v_self,ARRAY[]::text[]))
+     AND rv.status = 'PUBLISHED';
+  IF v_count IS DISTINCT FROM (coalesce(array_length(v_official,1),0)
+                             + coalesce(array_length(v_self,1),0)) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: questions' USING ERRCODE = '23505';
+  END IF;
+  verified := verified || to_jsonb('questions'::text);
+
+  -- 5) assessment membership is still exactly the self-test set, with zero official questions
+  SELECT id INTO v_assessment FROM public.lesson_assessments
+   WHERE lesson_id = v_lesson AND assessment_code = _plan->'assessment'->>'code';
+  IF v_assessment IS NULL THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assessment' USING ERRCODE = '23505';
+  END IF;
+  SELECT count(*) INTO v_count FROM public.assessment_questions WHERE assessment_id = v_assessment;
+  IF v_count IS DISTINCT FROM (_plan->'assessment'->>'memberCount')::integer THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assessmentMembers' USING ERRCODE = '23505';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.assessment_questions aq
+               JOIN public.questions q ON q.id = aq.question_id
+              WHERE aq.assessment_id = v_assessment
+                AND q.code = ANY (coalesce(v_official,ARRAY[]::text[]))) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: assessmentOfficialLeak' USING ERRCODE = '23505';
+  END IF;
+  verified := verified || to_jsonb('assessment'::text);
+
+  -- 6) the exact seven lifecycle rows, none of them regressed below REVIEW
+  SELECT count(*) INTO v_count FROM public.lesson_capability_lifecycle WHERE lesson_id = v_lesson;
+  IF v_count <> 7 OR EXISTS (
+       SELECT 1 FROM public.lesson_capability_lifecycle
+        WHERE lesson_id = v_lesson AND status NOT IN ('REVIEW','READY')) THEN
+    RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: lifecycle' USING ERRCODE = '23505';
+  END IF;
+  verified := verified || to_jsonb('lifecycle'::text);
+
+  RETURN jsonb_build_object('revalidated', verified);
+END $$;
+
+GRANT EXECUTE ON FUNCTION public.cf11_assert_replay_state(jsonb) TO authenticated, service_role;
+
+
+-- ------------------------------------------------------------------------------------
 -- 6) CF11 publication RPC: DRAFT -> REVIEW only.
 -- ------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.golden_lesson_publish_cf11(
