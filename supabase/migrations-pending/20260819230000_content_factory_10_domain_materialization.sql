@@ -1,4 +1,4 @@
--- CONTENT_FACTORY_10_DOMAIN_MATERIALIZATION (revision R2)
+-- CONTENT_FACTORY_10_DOMAIN_MATERIALIZATION (revision R3)
 -- Status: SOURCE-READY / NOT APPLIED TO PRODUCTION.
 -- Scope: atomic, idempotent, fail-closed materialization of one verified CF08 batch
 --        (optionally CF09-bound) into the natural domain tables, DRAFT lifecycle only.
@@ -12,8 +12,18 @@
 --     the staged capability sha256.
 --   * assessment_questions membership is NOT written: validate_assessment_question_link requires a
 --     PUBLISHED revision plus a matching published-revision target, which is impossible DRAFT-only.
+-- R3 hardening (this revision):
+--   * Student visibility gate: public.lesson_student_content_gate / public.lessons_student_visible.
+--     A lesson that CF10 manages (lifecycle rows or a materialization ledger row) stays invisible to
+--     students until at least one capability reaches READY. Unmanaged legacy lessons are untouched.
+--   * Identity collision guards: an existing questions.code must belong to the same lesson_id AND
+--     subject_id (CF10_IDENTITY_CONFLICT); selfTest reuse also compares question text/hash.
+--   * lesson_assessments reuse is scoped to the same lesson_id (CF10_IDENTITY_CONFLICT).
+--   * lifecycle reuse compares status / applicability / draft_hash (CF10_LIFECYCLE_CONFLICT).
+--   * every conflict-capable write counter is derived from the real GET DIAGNOSTICS ROW_COUNT.
 -- Explicitly absent: subject creation, curriculum deletes, storage/textbook mutation,
 --                    REVIEW/READY transitions, publication, answer exposure in student payload.
+
 
 
 CREATE TABLE public.golden_lesson_domain_materializations (
