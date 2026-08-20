@@ -326,9 +326,11 @@ BEGIN
           jsonb_build_object('mode','EXECUTE'), v_actor);
 
   -- The verified furnace asset, already uploaded to the private bucket by the server function.
-  INSERT INTO storage.objects(bucket_id, name)
+  INSERT INTO storage.objects(bucket_id, name, version, metadata)
   VALUES ('golden-lesson-assets',
-          v_lesson::text || '/a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf-official-figure-1-1.jpg');
+          v_lesson::text || '/a5e17da2c7343bc3f4289a3258f646d635e7a8365b84f2b7c7209134f0614daf-official-figure-1-1.jpg',
+          'v-iron-figure-1', jsonb_build_object('size', 26742, 'mimetype', 'image/jpeg',
+                                                'eTag', '"a5e17da2c7343bc3f4289a3258f646d6"'));
 END
 $fixture$;
 

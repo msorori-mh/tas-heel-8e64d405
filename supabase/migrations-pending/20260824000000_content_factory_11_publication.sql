@@ -1374,3 +1374,7 @@ GRANT EXECUTE ON FUNCTION public.golden_lesson_publish_cf11(uuid, uuid, text, js
 GRANT EXECUTE ON FUNCTION public.golden_lesson_attest_cf11_ready(uuid, uuid, jsonb, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cf11_asset_url(text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cf11_text_sha256(text) TO authenticated;
+REVOKE ALL ON FUNCTION public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.golden_lesson_attest_cf11_asset(uuid, uuid, text, text, bigint, text, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.cf11_manifest_assets(jsonb, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.cf11_magic_matches(text, text) TO authenticated;
