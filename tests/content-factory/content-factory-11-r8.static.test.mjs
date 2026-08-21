@@ -38,7 +38,7 @@ test("CF11-R4/1 — lifecycle namespace: only lesson_capability_lifecycle exists
 test("CF11-R4/2 — publication requires server-side upload attestation of the real bytes", () => {
   // The app re-downloads what is actually in the bucket and re-measures it; it never trusts the
   // bytes it believes it uploaded, nor the object's filename.
-  assert.match(server, /storage\.from\(ASSET_BUCKET\)\.download\(declaration\.storagePath\)/);
+  assert.match(server, /storageDownload\(\s*ASSET_BUCKET,\s*declaration\.storagePath,/);
   assert.match(server, /createHash\("sha256"\)\.update\(bytes\)\.digest\("hex"\)/);
   assert.match(server, /CF11_ASSET_BYTES_MISMATCH/);
   assert.match(server, /CF11_ASSET_SIZE_MISMATCH/);
@@ -254,7 +254,8 @@ test("CF11-R8/2 — only verifyGoldenLessonCf11Assets may upload or attest", () 
   assert.ok((verifyHandler.match(/attestStoredAssets/g) ?? []).length >= 2);
   assert.equal((publishHandler.match(/uploadVerifiedAssets/g) ?? []).length, 0);
   // The only storage upload and the only attestation RPC live in the server module.
-  assert.equal((server.match(/\.upload\(/g) ?? []).length, 1);
+  assert.match(server, /async function storageUpload/);
+  assert.equal((server.match(/await storageUpload\(/g) ?? []).length, 1);
   assert.equal((server.match(/golden_lesson_attest_cf11_asset/g) ?? []).length, 1);
 });
 
