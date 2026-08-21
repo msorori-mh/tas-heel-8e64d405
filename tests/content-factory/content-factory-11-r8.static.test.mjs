@@ -87,7 +87,8 @@ test("CF11-R4/4 — strict replay guards: plan hash + idempotency key are mandat
   assert.match(sql, /CF10_IDEMPOTENCY_KEY_REQUIRED/);
   assert.match(sql, /CF10_WRITE_PLAN_HASH_REQUIRED/);
   assert.match(server, /export function requirePlan/);
-  assert.match(server, /export function idempotencyKey/);\n  assert.match(server, /client\\.rpc as UntypedRpc\\)\\.bind\\(client\\)/);
+  assert.match(server, /export function idempotencyKey/);
+  assert.match(server, /client\.rpc as UntypedRpc\)\.bind\(client\)/);
   assert.match(fns, /CF11_WRITE_PLAN_HASH_REQUIRED/);
   assert.match(fns, /CF10_WRITE_PLAN_HASH_REQUIRED/);
   assert.match(fns, /_expected_plan_sha256: expected/);
