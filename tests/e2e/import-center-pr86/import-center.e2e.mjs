@@ -100,16 +100,20 @@ try {
   }
   assert.equal(await page.getByRole("button", { name: "تنزيل حزمة ZIP" }).count(), 0);
 
-  await page.getByRole("combobox").click();
-  await page.getByRole("option", { name: "الدرس الذهبي — الكيمياء" }).click();
+  await page.locator("#lesson-import-grade").click();
+  await page.getByRole("option", { name: "الصف الثالث الثانوي" }).click();
+  await page.locator("#lesson-import-track").click();
+  await page.getByRole("option", { name: "منهج صنعاء" }).click();
+  await page.locator("#lesson-import-subject").click();
+  await page.getByRole("option", { name: "الكيمياء" }).click();
+  await page.locator("#lesson-import-lesson").click();
+  await page.getByRole("option", { name: "الحديد" }).click();
   await page.getByText("5. التجربة / النشاط التفاعلي", { exact: true }).waitFor();
+  await page.getByText("الكيمياء ← الحديد", { exact: true }).waitFor();
 
-  await page.getByPlaceholder("CHEM-G12-IRON-FE-PKG").fill("CHEM-G12-IRON-FE-E2E-FINAL");
-  await page.getByPlaceholder("GRADE-12").fill("GRADE-12");
-  await page.getByPlaceholder("sanaa,aden").fill("sanaa,aden");
-  await page.getByPlaceholder("SUB-G12-012").fill("SUB-G12-012");
-  await page.getByPlaceholder("CHEM-G12-IRON-FE", { exact: true }).fill("CHEM-G12-IRON-FE");
-  await page.getByPlaceholder("الحديد-fe").fill("iron-fe-final-import-e2e");
+  for (const placeholder of ["CHEM-G12-IRON-FE-PKG", "GRADE-12", "SUB-G12-012"]) {
+    assert.equal(await page.getByPlaceholder(placeholder).count(), 0, `manual identity field must not exist: ${placeholder}`);
+  }
 
   await page.locator("#golden-artifact-lessonSummaryHtml").setInputFiles({
     name: "lesson-package.zip",
@@ -150,14 +154,14 @@ try {
   await page.getByText("تم فصل الإجابات والتعليلات آليًا", { exact: false }).waitFor();
 
   await page.getByText("6/6 — 100%", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "فحص الملفات" }).click();
+  await page.getByRole("button", { name: "فحص ومعاينة الملفات" }).click();
   await page.getByText("الملفات مكتملة وجاهزة للاستيراد", { exact: true }).waitFor();
-  const importButton = page.getByRole("button", { name: "استيراد المحتوى كمسودة" });
+  const importButton = page.getByRole("button", { name: "حفظ واستيراد كمسودة" });
   assert.equal(await importButton.isEnabled(), true);
   await importButton.click();
   await page.getByText("تم استيراد ملفات الدرس وربطها بإصدار المسودة", { exact: true }).waitFor();
-  await page.getByText("الحالة: DRAFT", { exact: false }).waitFor();
-  await page.getByText("كتابات المحتوى: 0", { exact: false }).waitFor();
+  await page.getByText("تم حفظ الإصدار 1 كمسودة آمنة", { exact: false }).waitFor();
+  await page.getByText("المحتوى غير ظاهر للطالب", { exact: false }).waitFor();
   assert.equal(await page.getByRole("alert").filter({ hasText: "TEST_ONLY" }).count(), 0);
   const directStage = await page.evaluate(() => globalThis.__TAMKEEN_TEST_ONLY_DIRECT_STAGE__);
   assert.equal(directStage?.lessonZipCreatedOrUploaded, false);
