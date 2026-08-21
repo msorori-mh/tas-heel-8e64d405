@@ -61,6 +61,12 @@ const AdvanceInput = z.object({
   evidence: z.record(z.string(), z.unknown()),
   note: z.string().trim().max(1000).nullable().default(null),
 });
+const OwnerApproveInput = z.object({
+  packageId: PackageId,
+  expectedVersion: z.number().int().positive(),
+  evidence: z.record(z.string(), z.unknown()),
+  reason: z.string().trim().min(20).max(1000),
+});
 const StageInput = z.object({ manifest: z.unknown(), clientManifestSha256: Hash });
 
 const MISSING_SCHEMA_CODES = new Set(["42P01", "42883", "PGRST202", "PGRST205"]);
@@ -141,4 +147,25 @@ export const advanceGoldenLessonReview = createServerFn({ method: "POST" })
       _evidence: data.evidence, _note: data.note,
     })) as Record<string, unknown>;
     return { packageId: String(result.package_id), version: Number(result.version), status: result.status as GoldenPersistentReviewStatus, writesPerformed: Number(result.writes_performed), domainWritesPerformed: 0 };
+  });
+
+
+export const ownerApproveGoldenLessonForStaging = createServerFn({ method: "POST" })
+  .middleware([requireContentStaffAuth])
+  .inputValidator((input) => OwnerApproveInput.parse(input))
+  .handler(async ({ data, context }): Promise<{ packageId: string; version: number; status: GoldenPersistentReviewStatus; idempotent: boolean; writesPerformed: number; domainWritesPerformed: 0 }> => {
+    const result = assertDb(await pendingClient(context as ContentStaffAuthContext).rpc("golden_lesson_owner_approve_for_staging", {
+      _package_id: data.packageId,
+      _expected_version: data.expectedVersion,
+      _evidence: data.evidence,
+      _reason: data.reason,
+    })) as Record<string, unknown>;
+    return {
+      packageId: String(result.package_id),
+      version: Number(result.version),
+      status: result.status as GoldenPersistentReviewStatus,
+      idempotent: Boolean(result.idempotent),
+      writesPerformed: Number(result.writes_performed),
+      domainWritesPerformed: 0,
+    };
   });
