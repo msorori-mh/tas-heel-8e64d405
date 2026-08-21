@@ -32,7 +32,7 @@ const PrepareInput = z.object({
 
 const ExecuteInput = z.object({
   jobId: z.string().uuid(),
-  templateKeys: z.array(z.string().min(1).max(64)).min(1).max(9),
+  templateKeys: z.array(z.string().min(1).max(64)).min(1).max(10),
 });
 
 /**

@@ -764,7 +764,7 @@ function LessonPage() {
           <ol className="space-y-4">
             {(officialQuestions ?? []).map((q, idx) => (
               <li key={q.id}>
-                <OfficialBookQuestionCard index={idx + 1} q={q} />
+                <OfficialBookQuestionCard lessonId={lessonId} index={idx + 1} q={q} />
               </li>
             ))}
           </ol>
@@ -775,7 +775,7 @@ function LessonPage() {
           <ol className="space-y-4">
             {(selfTestQuestions ?? []).map((q, idx) => (
               <li key={q.id}>
-                <SelfTestQuestionCard index={idx + 1} q={q} />
+                <SelfTestQuestionCard lessonId={lessonId} index={idx + 1} q={q} />
               </li>
             ))}
           </ol>
@@ -989,7 +989,15 @@ function CapabilityIcon({ type }: { type: LessonCapabilityType }) {
   }
 }
 
-function OfficialBookQuestionCard({ index, q }: { index: number; q: LessonQuestionRow }) {
+function OfficialBookQuestionCard({
+  lessonId,
+  index,
+  q,
+}: {
+  lessonId: string;
+  index: number;
+  q: LessonQuestionRow;
+}) {
   const [answer, setAnswer] = useState("");
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
@@ -1014,6 +1022,7 @@ function OfficialBookQuestionCard({ index, q }: { index: number; q: LessonQuesti
       }>("reveal_lesson_official_question_answer", {
         _question_id: q.id,
         _revision_id: q.revision_id,
+        _lesson_id: lessonId,
         _student_answer: attemptedAnswer,
       });
       if (result.error) throw new Error(result.error);
@@ -1101,7 +1110,15 @@ function OfficialBookQuestionCard({ index, q }: { index: number; q: LessonQuesti
   );
 }
 
-function SelfTestQuestionCard({ index, q }: { index: number; q: LessonQuestionRow }) {
+function SelfTestQuestionCard({
+  lessonId,
+  index,
+  q,
+}: {
+  lessonId: string;
+  index: number;
+  q: LessonQuestionRow;
+}) {
   const [selected, setSelected] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -1128,6 +1145,7 @@ function SelfTestQuestionCard({ index, q }: { index: number; q: LessonQuestionRo
       }>("check_lesson_self_test_question", {
         _question_id: q.id,
         _revision_id: q.revision_id,
+        _lesson_id: lessonId,
         _selected_option_id: selected,
       });
       if (response.error) throw new Error(response.error);

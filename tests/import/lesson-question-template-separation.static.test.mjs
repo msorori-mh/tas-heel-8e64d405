@@ -37,3 +37,23 @@ test("import contract derives semantic roles from template identity", async () =
   assert.match(source, /derived by template: SELF_TEST; never inferred from options/);
   assert.match(source, /self_test_questions:/);
 });
+
+test("both templates bypass the generic upsert executor", async () => {
+  const execution = await readFile(new URL("src/lib/import/import-execution-state.ts", root), "utf8");
+  const server = await readFile(new URL("src/lib/import/import-staging.server.ts", root), "utf8");
+  assert.match(execution, /templateKeys: \["questions", "self_test_questions"\]/);
+  assert.match(execution, /import_execute_lesson_question_template/);
+  assert.match(server, /questionBankExecuteRpcForTemplate/);
+});
+
+test("pending import SQL derives roles from template identity and writes draft QB revisions", async () => {
+  const sql = await readFile(
+    new URL("supabase/migrations-pending/20260821010000_lesson_question_role_separation.sql", root),
+    "utf8",
+  );
+  assert.match(sql, /qb_import_ingest_lesson_question_revision/);
+  assert.match(sql, /import_execute_lesson_question_template/);
+  assert.match(sql, /WHEN 'questions' THEN 'OFFICIAL_BOOK_QUESTION'/);
+  assert.match(sql, /WHEN 'self_test_questions' THEN 'SELF_TEST'/);
+  assert.match(sql, /'DRAFT'/);
+});

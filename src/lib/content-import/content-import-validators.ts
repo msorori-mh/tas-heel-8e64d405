@@ -145,7 +145,7 @@ function pushWarning(
   warnings.push(issue);
 }
 
-function validateQuestionsRow(
+function validateChoiceQuestionRow(
   rowNumber: number,
   data: Record<string, string>,
   errors: ContentImportDryRunIssue[],
@@ -209,6 +209,55 @@ function validateQuestionsRow(
       column: "correct_index",
       code: "CORRECT_INDEX_NO_OPTION",
       message: `correct_index=${indexNum} يشير إلى ${target?.key ?? "option"} فارغ.`,
+    });
+  }
+}
+
+function validateOfficialBookQuestionRow(
+  rowNumber: number,
+  data: Record<string, string>,
+  errors: ContentImportDryRunIssue[],
+): void {
+  const interaction = data.interaction_type?.trim().toUpperCase();
+  const grading = data.grading_mode?.trim().toUpperCase();
+  const compatible =
+    (interaction === "SINGLE_CHOICE" && grading === "AUTO_SINGLE") ||
+    (interaction === "SHORT_TEXT" && grading === "AUTO_TEXT") ||
+    (interaction === "LONG_TEXT" && grading === "MANUAL");
+
+  if (!compatible) {
+    pushError(errors, {
+      rowNumber,
+      column: "grading_mode",
+      code: "INCOMPATIBLE_TYPE_MODE",
+      message: "الأنواع المسموحة: SINGLE_CHOICE/AUTO_SINGLE أو SHORT_TEXT/AUTO_TEXT أو LONG_TEXT/MANUAL.",
+    });
+    return;
+  }
+
+  if (interaction === "SINGLE_CHOICE") {
+    validateChoiceQuestionRow(rowNumber, data, errors);
+    return;
+  }
+
+  const hasOptions = [1, 2, 3, 4, 5, 6].some((index) =>
+    Boolean(data[`option_${index}`]?.trim()),
+  );
+  if (hasOptions || data.correct_index?.trim()) {
+    pushError(errors, {
+      rowNumber,
+      column: hasOptions ? "option_1" : "correct_index",
+      code: "ANSWER_NOT_ALLOWED",
+      message: "الخيارات وcorrect_index مسموحة فقط لسؤال SINGLE_CHOICE.",
+    });
+  }
+
+  if (interaction === "SHORT_TEXT" && !data.accepted_answers?.trim()) {
+    pushError(errors, {
+      rowNumber,
+      column: "accepted_answers",
+      code: "ACCEPTED_ANSWER_REQUIRED",
+      message: "accepted_answers مطلوبة لسؤال SHORT_TEXT.",
     });
   }
 }
@@ -467,7 +516,11 @@ export function validateContentImportSheet(
     }
 
     if (templateKey === "questions") {
-      validateQuestionsRow(row.rowNumber, row.data, errors);
+      validateOfficialBookQuestionRow(row.rowNumber, row.data, errors);
+    }
+
+    if (templateKey === "self_test_questions") {
+      validateChoiceQuestionRow(row.rowNumber, row.data, errors);
     }
 
     if (errors.some((e) => e.rowNumber === row.rowNumber)) {

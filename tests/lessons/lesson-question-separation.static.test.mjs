@@ -54,6 +54,10 @@ test("pending SQL filters by semantic role and omits answers from initial payloa
     assert.doesNotMatch(initialPayload, /model_answer/i);
     assert.doesNotMatch(initialPayload, /why_wrong/i);
   }
+  assert.match(sql, /FROM public\.question_targets qt/);
+  assert.match(sql, /qt\.lesson_id = _lesson_id/);
+  assert.match(sql, /reveal_lesson_official_question_answer\([\s\S]*_lesson_id uuid/);
+  assert.match(sql, /check_lesson_self_test_question\([\s\S]*_lesson_id uuid/);
 });
 
 test("database candidate is pending/source-only, never an applied migration", () => {

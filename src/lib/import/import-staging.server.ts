@@ -20,7 +20,11 @@ import {
   buildStagingPayload,
   computeRowHash,
 } from "./import-row-hash";
-import { IMPORT_RPC, assertTemplateExecutable } from "./import-execution-state";
+import {
+  IMPORT_RPC,
+  assertTemplateExecutable,
+  questionBankExecuteRpcForTemplate,
+} from "./import-execution-state";
 import { canonicalSubjectCodeInput, planSubjectSlugs } from "./subject-slug";
 
 export interface StagingRowInput {
@@ -127,14 +131,18 @@ export async function executeContentImport(
   const results: ExecuteTemplateResult[] = [];
 
   for (const templateKey of ordered) {
-    // Template 09 is routed inside the database to the question-bank workflow
-    // (draft revisions only); every other template uses the generic upsert path.
+    // Templates 09/10 use the role-aware question-bank workflow (DRAFT only).
     assertTemplateExecutable(templateKey);
-
-    const { data, error } = await asRpcClient(supabase).rpc(IMPORT_RPC.execute, {
-      _job_id: jobId,
-      _template_key: templateKey,
-    });
+    const questionRpc = questionBankExecuteRpcForTemplate(templateKey);
+    const { data, error } = questionRpc
+      ? await asRpcClient(supabase).rpc(questionRpc, {
+          _job_id: jobId,
+          _template_key: templateKey,
+        })
+      : await asRpcClient(supabase).rpc(IMPORT_RPC.execute, {
+          _job_id: jobId,
+          _template_key: templateKey,
+        });
 
     if (error) {
       // Best-effort finalize; the RPC bridge returns a thenable without .catch().

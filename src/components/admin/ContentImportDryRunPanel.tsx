@@ -259,8 +259,8 @@ export function ContentImportDryRunPanel() {
   }, [jobId, pickFile, preparedHash, runExecute, templateKey]);
 
   const dryRunPassed = report != null && report.status !== "fail" && report.errorCount === 0;
-  const isQuestionsTemplate = templateKey === "questions";
-
+  const isQuestionsTemplate =
+    templateKey === "questions" || templateKey === "self_test_questions";
 
   const previewColumns =
     report?.previewRows.length
@@ -276,7 +276,7 @@ export function ContentImportDryRunPanel() {
         </CardTitle>
         <CardDescription className="space-y-1 text-sm">
           <p>
-            ارفع ملف Excel مملوءاً من أحد قوالب 01–09، ثم اتبع الخطوات:
+            ارفع ملف Excel مملوءاً من أحد قوالب 01–10، ثم اتبع الخطوات:
             فحص ← تجهيز ← تنفيذ.
           </p>
           <p className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
@@ -368,8 +368,8 @@ export function ContentImportDryRunPanel() {
         </div>
         {isQuestionsTemplate ? (
           <p className="text-xs text-amber-700 dark:text-amber-400">
-            قالب الأسئلة (09) يُستورد عبر مسار بنك الأسئلة: تُنشأ نسخ «مسودة» فقط، ولا يُنشر أي سؤال
-            تلقائياً، ولا تُكتب الإجابات في الجداول القديمة.
+            قالبا أسئلة الكتاب (09) و«اختبر فهمك» (10) يُستوردان عبر مسار بنك الأسئلة:
+            تُنشأ نسخ «مسودة» فقط، ولا يُنشر أي سؤال تلقائياً، ولا تُكتب الإجابات في الجداول القديمة.
           </p>
         ) : (
           <p className="text-xs text-muted-foreground">

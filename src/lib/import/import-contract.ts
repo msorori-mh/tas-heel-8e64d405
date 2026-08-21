@@ -570,7 +570,15 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
     kind: "schema_change",
     decision:
       "Single side table content_review_state keyed by (entity_type, entity_id) and BOUND TO content_hash. Any change of content_hash resets the row to review_status='pending' + publication_status='draft'; approval never survives a payload change.",
-    entities: ["subjects", "units", "lessons", "explanations", "assessments", "questions"],
+    entities: [
+      "subjects",
+      "units",
+      "lessons",
+      "explanations",
+      "assessments",
+      "questions",
+      "self_test_questions",
+    ],
     status: "applied",
     appliedObjects: ["public.content_review_state"],
   },
