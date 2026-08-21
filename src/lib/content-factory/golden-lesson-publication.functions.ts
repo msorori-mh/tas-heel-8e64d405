@@ -77,7 +77,7 @@ export const materializeGoldenLessonBatch = createServerFn({ method: "POST" })
  * Verify-and-stage the furnace bytes and append their upload attestations, without publishing.
  * Idempotent and content-addressed; the attestation RPC refuses a second, different attestation.
  */
-export const verifyGoldenLessonCf11Assets = createServerFn({ method: "POST" })
+export const verifyGoldenLessonCf11AssetsV2 = createServerFn({ method: "POST" })
   .middleware([requireContentStaffAuth])
   .inputValidator((input) => BatchInput.parse(input))
   .handler(async ({ data, context }) => {
