@@ -4,10 +4,15 @@ import { test } from "node:test";
 
 const component = readFileSync("src/components/admin/GoldenLessonManifestReviewPanel.tsx", "utf8");
 const route = readFileSync("src/routes/_authenticated/admin.import.tsx", "utf8");
+const reviewRoute = readFileSync("src/routes/_authenticated/admin.content-review.tsx", "utf8");
 
-test("the current CF11 review panel is mounted after the direct package builder", () => {
-  assert.match(route, /GoldenLessonCf11OperatorPanel/);
-  assert.ok(route.indexOf("<GoldenLessonPackageBuilder />") < route.indexOf("<GoldenLessonCf11OperatorPanel />"));
+test("upload, review and release interfaces are separated", () => {
+  assert.match(route, /<GoldenLessonPackageBuilder \/>/);
+  assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel/);
+  assert.match(reviewRoute, /GoldenLessonManifestReviewPanel/);
+  assert.match(reviewRoute, /view=\"release\"/);
+  assert.match(reviewRoute, /GoldenLessonCf11OperatorPanel/);
+  assert.match(reviewRoute, /false && isAdmin && selectedItem\.lifecycle_status === "approved"/);
 });
 
 test("review panel uses typed staging functions and exposes no direct RPC or execute path", () => {
