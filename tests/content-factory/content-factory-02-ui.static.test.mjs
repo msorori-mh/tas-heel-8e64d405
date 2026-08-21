@@ -10,9 +10,16 @@ const xlsx = readFileSync("src/lib/content-factory/golden-lesson-xlsx.ts", "utf8
 test("the import center exposes only the final lesson-content workflow", () => {
   assert.match(route, /<GoldenLessonPackageBuilder\s*\/>/);
   assert.match(route, /كتاب المادة الرسمي/);
-  assert.match(route, /09_official_book_questions_template\.xlsx/);
-  assert.match(route, /10_self_test_questions_template\.xlsx/);
-  assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|BulkLessonPdfUploadPanel|ContentImportDryRunPanel/);
+  assert.match(route, /اختيار الدرس/);
+  assert.match(route, /رفع المحتويات/);
+  assert.match(route, /الفحص والحفظ كمسودة/);
+  assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel|BulkLessonPdfUploadPanel|ContentImportDryRunPanel/);
+  assert.match(component, /09_official_book_questions_template\.xlsx/);
+  assert.match(component, /10_self_test_questions_template\.xlsx/);
+  assert.match(component, /getContentCodeRegistry/);
+  assert.match(component, /lesson-import-grade/);
+  assert.match(component, /lesson-import-lesson/);
+  assert.doesNotMatch(component, /رمز عملية الاستيراد|رمز الصف|رمز الدرس|رابط الدرس/);
   assert.doesNotMatch(route, /operator-pack|حزمة المشغّل/);
 });
 
