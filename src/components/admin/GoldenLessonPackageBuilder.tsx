@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { AlertCircle, BookOpen, CheckCircle2, Loader2, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertCircle, BookOpen, CheckCircle2, Download, Eye, FileCheck2, Loader2, Trash2, UploadCloud } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -51,6 +51,9 @@ import {
 } from "@/lib/content-factory/golden-lesson-file-contract";
 import { convertQuestionWorkbook } from "@/lib/content-factory/golden-lesson-xlsx";
 import { convertHtml5ActivityZip } from "@/lib/content-factory/golden-lesson-html5";
+import { getContentCodeRegistry } from "@/lib/content-codes/content-codes.functions";
+import type { ContentCodeRegistry } from "@/lib/content-codes/content-codes.types";
+import { contentImportTemplateDownloadUrl } from "@/lib/content-import/content-import-templates";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
@@ -115,7 +118,7 @@ function ArabicFilePicker({ id, accept, disabled, fileName, onFile }: ArabicFile
         htmlFor={id}
         className="inline-flex min-h-[36px] cursor-pointer items-center rounded-md border px-3 text-sm font-medium hover:bg-accent"
       >
-        اختيار ملف
+        {fileName ? "استبدال الملف" : "اختيار الملف"}
       </Label>
       <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
         {fileName || "لم يتم اختيار ملف"}
@@ -241,16 +244,14 @@ function directUploadContentType(file: File): string {
 }
 
 export function GoldenLessonPackageBuilder() {
-  const [profileId, setProfileId] = useState("");
-  const [packageCode, setPackageCode] = useState("");
-  const [gradeCode, setGradeCode] = useState("");
-  const [trackCodes, setTrackCodes] = useState("sanaa");
-  const [subjectCode, setSubjectCode] = useState("");
-  const [lessonCode, setLessonCode] = useState("");
-  const [lessonSlug, setLessonSlug] = useState("");
-  const [unitCode, setUnitCode] = useState("");
-  const [semester, setSemester] = useState("");
-  const [sortOrder, setSortOrder] = useState("");
+  const [registry, setRegistry] = useState<ContentCodeRegistry | null>(null);
+  const [registryLoading, setRegistryLoading] = useState(true);
+  const [registryError, setRegistryError] = useState<string | null>(null);
+  const [gradeSlug, setGradeSlug] = useState("");
+  const [trackCode, setTrackCode] = useState("");
+  const [selectedSubjectCode, setSelectedSubjectCode] = useState("");
+  const [selectedUnitCode, setSelectedUnitCode] = useState("");
+  const [selectedLessonCode, setSelectedLessonCode] = useState("");
   const [uploads, setUploads] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
   const [internalProvenance, setInternalProvenance] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
   const [answerSets, setAnswerSets] = useState<Partial<Record<"officialBookQuestions" | "selfTest", Array<Record<string, unknown>>>>>({});
@@ -263,7 +264,63 @@ export function GoldenLessonPackageBuilder() {
   const [intakeError, setIntakeError] = useState<string | null>(null);
   const [intakeBusy, setIntakeBusy] = useState(false);
 
+  useEffect(() => {
+    let active = true;
+    setRegistryLoading(true);
+    void getContentCodeRegistry()
+      .then((value) => {
+        if (!active) return;
+        setRegistry(value);
+        setRegistryError(null);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setRegistryError(error instanceof Error ? error.message : "تعذر تحميل هيكل المنهج.");
+      })
+      .finally(() => {
+        if (active) setRegistryLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const subjects = useMemo(
+    () => (registry?.subjects ?? []).filter((subject) =>
+      (!gradeSlug || subject.gradeSlug === gradeSlug) &&
+      (!trackCode || subject.trackCodes.includes(trackCode)) &&
+      subject.isOfficialCode
+    ),
+    [registry, gradeSlug, trackCode],
+  );
+  const units = useMemo(
+    () => (registry?.units ?? []).filter((unit) => unit.subjectCode === selectedSubjectCode),
+    [registry, selectedSubjectCode],
+  );
+  const lessons = useMemo(
+    () => (registry?.lessons ?? []).filter((lesson) =>
+      lesson.subjectCode === selectedSubjectCode &&
+      (!selectedUnitCode || lesson.unitCode === selectedUnitCode)
+    ),
+    [registry, selectedSubjectCode, selectedUnitCode],
+  );
+  const selectedSubject = subjects.find((subject) => subject.subjectCode === selectedSubjectCode) ?? null;
+  const selectedLesson = lessons.find((lesson) => lesson.lessonCode === selectedLessonCode) ?? null;
+  const profileId = selectedSubject
+    ? (/قرآن/.test(selectedSubject.name) ? GOLDEN_QURAN_V1.id : GOLDEN_CHEMISTRY_V1.id)
+    : "";
   const profile = getGoldenLessonProfile(profileId);
+  const packageCode = selectedLesson ? `${selectedLesson.lessonCode}-PKG` : "";
+  const gradeCode = gradeSlug.toUpperCase();
+  const trackCodes = trackCode;
+  const subjectCode = selectedSubjectCode;
+  const lessonCode = selectedLesson?.lessonCode ?? "";
+  const lessonSlug = lessonCode.toLowerCase();
+  const unitCode = selectedLesson?.unitCode ?? "";
+  const semester = selectedLesson?.semester ? String(selectedLesson.semester) : "";
+  const sortOrder = selectedLesson?.sortOrder ? String(selectedLesson.sortOrder) : "";
+  const canonicalIdentityComplete = Boolean(
+    profile && selectedSubject && selectedLesson && gradeCode && trackCode &&
+    semester && sortOrder,
+  );
 
   const artifacts = useMemo<GoldenLessonArtifact[]>(
     () =>
@@ -316,24 +373,6 @@ export function GoldenLessonPackageBuilder() {
   const completion = requiredCapabilities.length
     ? Math.round((completedRequired / requiredCapabilities.length) * 100)
     : 0;
-  const identityExample = profile?.subjectFamily === "SCIENCE"
-    ? {
-        packageCode: "CHEM-G12-IRON-FE-PKG",
-        gradeCode: "GRADE-12",
-        trackCodes: "sanaa,aden",
-        subjectCode: "SUB-G12-012",
-        lessonCode: "CHEM-G12-IRON-FE",
-        lessonSlug: "الحديد-fe",
-      }
-    : {
-        packageCode: "QURAN-G10-L01-PKG",
-        gradeCode: "GRADE-10",
-        trackCodes: "sanaa",
-        subjectCode: "QURAN-G10",
-        lessonCode: "QURAN-G10-L01",
-        lessonSlug: "مكانة-القرآن",
-      };
-
   const handleCapabilityFile = async (capability: GoldenCapability, file?: File) => {
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
@@ -478,13 +517,10 @@ export function GoldenLessonPackageBuilder() {
     setFileError(null);
   };
 
-  const handleProfileChange = (value: string) => {
-    const hasSelectedFiles = Object.keys(uploads).length > 0 ||
-      supplementalAssets.length > 0 || Boolean(answersCompanion);
-    if (hasSelectedFiles && !window.confirm("تغيير نمط الدرس سيزيل جميع الملفات المختارة. هل تريد المتابعة؟")) {
-      return;
-    }
-    setProfileId(value);
+  const hasSelectedFiles = Object.keys(uploads).length > 0 ||
+    supplementalAssets.length > 0 || Boolean(answersCompanion);
+
+  const clearSelectedFiles = () => {
     setUploads({});
     setInternalProvenance({});
     setAnswerSets({});
@@ -492,6 +528,56 @@ export function GoldenLessonPackageBuilder() {
     setSupplementalAssets([]);
     setValidation(null);
     setFileError(null);
+    setIntake(null);
+  };
+
+  const allowContextChange = () =>
+    !hasSelectedFiles || window.confirm("تغيير الدرس سيزيل الملفات المختارة من المسودة الحالية. هل تريد المتابعة؟");
+
+  const chooseGrade = (value: string) => {
+    if (!allowContextChange()) return;
+    clearSelectedFiles();
+    setGradeSlug(value);
+    setTrackCode("");
+    setSelectedSubjectCode("");
+    setSelectedUnitCode("");
+    setSelectedLessonCode("");
+  };
+
+  const chooseTrack = (value: string) => {
+    if (!allowContextChange()) return;
+    clearSelectedFiles();
+    setTrackCode(value);
+    setSelectedSubjectCode("");
+    setSelectedUnitCode("");
+    setSelectedLessonCode("");
+  };
+
+  const chooseSubject = (value: string) => {
+    if (!allowContextChange()) return;
+    clearSelectedFiles();
+    setSelectedSubjectCode(value);
+    setSelectedUnitCode("");
+    setSelectedLessonCode("");
+  };
+
+  const chooseUnit = (value: string) => {
+    if (!allowContextChange()) return;
+    clearSelectedFiles();
+    setSelectedUnitCode(value === "__NO_UNIT__" ? "" : value);
+    setSelectedLessonCode("");
+  };
+
+  const chooseLesson = (value: string) => {
+    if (!allowContextChange()) return;
+    clearSelectedFiles();
+    setSelectedLessonCode(value);
+  };
+
+  const previewArtifact = (upload: UploadedArtifact) => {
+    const url = URL.createObjectURL(upload.file);
+    window.open(url, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
 
   const handleSupplementalAssets = async (files: File[]) => {
@@ -522,7 +608,7 @@ export function GoldenLessonPackageBuilder() {
 
   const runValidation = async () => {
     if (!profile) {
-      setFileError("اختر نوع الدرس أولًا؛ لا يوجد نمط افتراضي للاستيراد.");
+      setFileError("اختر الدرس من هيكل المنهج أولًا.");
       return;
     }
     setFileError(null);
@@ -558,6 +644,24 @@ export function GoldenLessonPackageBuilder() {
       findings: [...manifestValidation.findings, ...coverageFindings],
     });
   };
+
+  useEffect(() => {
+    if (!canonicalIdentityComplete) {
+      setValidation(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void runValidation();
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [
+    canonicalIdentityComplete,
+    uploads,
+    internalProvenance,
+    answersCompanion,
+    supplementalAssets,
+    selectedLessonCode,
+  ]);
 
   /** Each declared file is uploaded directly; no lesson archive is created or uploaded. */
   const uploadAndVerifyDirectIntake = async () => {
@@ -610,49 +714,90 @@ export function GoldenLessonPackageBuilder() {
         </a>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="space-y-1.5">
-          <Label>نوع الدرس <span className="text-destructive">*</span></Label>
-          <Select value={profileId || undefined} onValueChange={handleProfileChange}>
-            <SelectTrigger className="min-h-[44px]"><SelectValue placeholder="اختر نوع الدرس أولًا" /></SelectTrigger>
-            <SelectContent>
-              {[GOLDEN_QURAN_V1, GOLDEN_CHEMISTRY_V1].map((item) => (
-                <SelectItem key={item.id} value={item.id}>{item.labelAr}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <section aria-labelledby="lesson-context-heading" className="rounded-xl border bg-muted/20 p-4 space-y-4">
+        <div className="space-y-1">
+          <h3 id="lesson-context-heading" className="font-semibold">1. اختيار الدرس</h3>
+          <p className="text-xs text-muted-foreground">
+            اختر الدرس من الهيكل الرسمي؛ ينشئ النظام الأكواد والربط والإصدار تلقائيًا.
+          </p>
         </div>
-        {[
-          ["رمز عملية الاستيراد", packageCode, setPackageCode, identityExample.packageCode],
-          ["رمز الصف", gradeCode, setGradeCode, identityExample.gradeCode],
-          ["المسارات (بفاصلة)", trackCodes, setTrackCodes, identityExample.trackCodes],
-          ["رمز المادة", subjectCode, setSubjectCode, identityExample.subjectCode],
-          ["رمز الدرس", lessonCode, setLessonCode, identityExample.lessonCode],
-          ["رابط الدرس", lessonSlug, setLessonSlug, identityExample.lessonSlug],
-          ["رمز الوحدة (اختياري)", unitCode, setUnitCode, ""],
-          ["الفصل (اختياري)", semester, setSemester, "1"],
-          ["الترتيب (اختياري)", sortOrder, setSortOrder, "1"],
-        ].map(([label, value, setter, placeholder]) => (
-          <div key={label as string} className="space-y-1.5">
-            <Label>{label as string}</Label>
-            <Input value={value as string} onChange={(event) => (setter as (value: string) => void)(event.target.value)} placeholder={placeholder as string} className="min-h-[44px]" />
+        {registryLoading ? (
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />جاري تحميل هيكل المنهج…
+          </p>
+        ) : registryError ? (
+          <p role="alert" className="text-sm text-destructive">{registryError}</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="lesson-import-grade">الصف</Label>
+              <Select value={gradeSlug || undefined} onValueChange={chooseGrade}>
+                <SelectTrigger id="lesson-import-grade" className="min-h-[44px]"><SelectValue placeholder="اختر الصف" /></SelectTrigger>
+                <SelectContent>{(registry?.grades ?? []).map((grade) => (
+                  <SelectItem key={grade.gradeSlug} value={grade.gradeSlug}>{grade.nameAr}</SelectItem>
+                ))}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lesson-import-track">المسار</Label>
+              <Select value={trackCode || undefined} onValueChange={chooseTrack} disabled={!gradeSlug}>
+                <SelectTrigger id="lesson-import-track" className="min-h-[44px]"><SelectValue placeholder="اختر المسار" /></SelectTrigger>
+                <SelectContent>{(registry?.tracks ?? []).map((track) => (
+                  <SelectItem key={track.trackCode} value={track.trackCode}>{track.nameAr}</SelectItem>
+                ))}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lesson-import-subject">المادة</Label>
+              <Select value={selectedSubjectCode || undefined} onValueChange={chooseSubject} disabled={!trackCode}>
+                <SelectTrigger id="lesson-import-subject" className="min-h-[44px]"><SelectValue placeholder="اختر المادة" /></SelectTrigger>
+                <SelectContent>{subjects.map((subject) => (
+                  <SelectItem key={subject.subjectCode} value={subject.subjectCode}>{subject.name}</SelectItem>
+                ))}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lesson-import-unit">الوحدة</Label>
+              <Select value={selectedUnitCode || "__NO_UNIT__"} onValueChange={chooseUnit} disabled={!selectedSubjectCode}>
+                <SelectTrigger id="lesson-import-unit" className="min-h-[44px]"><SelectValue placeholder="بدون وحدة" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__NO_UNIT__">دروس مرتبطة بالمادة مباشرة</SelectItem>
+                  {units.map((unit) => <SelectItem key={unit.unitCode} value={unit.unitCode}>{unit.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="lesson-import-lesson">الدرس</Label>
+              <Select value={selectedLessonCode || undefined} onValueChange={chooseLesson} disabled={!selectedSubjectCode}>
+                <SelectTrigger id="lesson-import-lesson" className="min-h-[44px]"><SelectValue placeholder="اختر الدرس" /></SelectTrigger>
+                <SelectContent>{lessons.map((lesson) => (
+                  <SelectItem key={lesson.lessonCode} value={lesson.lessonCode}>{lesson.title}</SelectItem>
+                ))}</SelectContent>
+              </Select>
+            </div>
           </div>
-        ))}
-      </div>
+        )}
+        {selectedLesson && (
+          <div className={`rounded-lg border p-3 text-sm ${canonicalIdentityComplete ? "border-emerald-500/30 bg-emerald-500/10" : "border-amber-500/40 bg-amber-500/10"}`}>
+            <p className="font-medium">{selectedSubject?.name} ← {selectedLesson.title}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              الفصل {selectedLesson.semester ?? "غير محدد"} · الترتيب {selectedLesson.sortOrder ?? "غير محدد"}
+              {selectedLesson.unitCode ? ` · الوحدة: ${units.find((unit) => unit.unitCode === selectedLesson.unitCode)?.title ?? selectedLesson.unitCode}` : " · مرتبط بالمادة مباشرة"}
+            </p>
+            {!canonicalIdentityComplete && (
+              <p className="mt-2 text-xs text-destructive">بيانات الفصل أو الترتيب ناقصة في سجل الدرس؛ أصلحها من إدارة المنهج قبل الرفع.</p>
+            )}
+          </div>
+        )}
+      </section>
 
-      {!profile && (
+      {!selectedLesson && (
         <div role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
-          يجب اختيار نوع الدرس قبل رفع أي ملف. لا يعتمد المركز الآن نمط القرآن افتراضيًا.
-        </div>
-      )}
-      {profile && (
-        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm space-y-1">
-          <p className="font-medium">العقد المختار: {profile.labelAr}</p>
-          {profile.notesAr.map((note) => <p key={note} className="text-xs text-muted-foreground">• {note}</p>)}
+          أكمل اختيار الصف والمسار والمادة والدرس قبل رفع الملفات.
         </div>
       )}
 
-      {profile && <div className="space-y-2">
+      {canonicalIdentityComplete && <div className="space-y-2">
         <div className="flex items-center justify-between gap-3 text-sm">
           <span>اكتمال الملفات الإلزامية</span>
           <span className="font-semibold">{completedRequired}/{requiredCapabilities.length} — {completion}%</span>
@@ -660,18 +805,17 @@ export function GoldenLessonPackageBuilder() {
         <Progress value={completion} />
       </div>}
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        {profile && GOLDEN_CAPABILITIES.map((capability) => {
+      <div className="space-y-3">
+        {canonicalIdentityComplete && GOLDEN_CAPABILITIES.map((capability) => {
           const applicability = profile.applicability[capability];
           const authority = GOLDEN_CAPABILITY_AUTHORITY[capability];
           const upload = uploads[capability];
           const fileContract = GOLDEN_ARTIFACT_FILE_CONTRACTS[capability];
           return (
-            <div key={capability} className={`rounded-xl border p-4 space-y-3 ${applicability === "NA" ? "bg-muted/40 opacity-75" : "bg-background"}`}>
+            <div key={capability} className={`rounded-xl border p-4 space-y-3 ${capability === "labExperimentHtml" ? "border-dashed bg-muted/15" : "bg-background"}`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="font-medium">{CAPABILITY_NUMBER[capability]}. {CAPABILITY_LABEL[capability]}</p>
-                  <p className="text-[11px] font-mono text-muted-foreground">{capability}</p>
                 </div>
                 <div className="flex gap-1">
                   <Badge variant={authority === "OFFICIAL" ? "default" : "secondary"}>{authority === "OFFICIAL" ? "رسمي" : "تمكين"}</Badge>
@@ -691,6 +835,15 @@ export function GoldenLessonPackageBuilder() {
                           ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
                         : fileContract.expectedAr}
                   </p>
+                  {(capability === "officialBookQuestions" || capability === "selfTest") && (
+                    <Button asChild type="button" size="sm" variant="outline" className="min-h-[40px] gap-2">
+                      <a href={contentImportTemplateDownloadUrl(capability === "officialBookQuestions"
+                        ? "09_official_book_questions_template.xlsx"
+                        : "10_self_test_questions_template.xlsx")} download>
+                        <Download className="h-4 w-4" />تنزيل القالب المعتمد
+                      </a>
+                    </Button>
+                  )}
                   <ArabicFilePicker
                     id={`golden-artifact-${capability}`}
                     accept={capability === "officialBookQuestions" || capability === "selfTest"
@@ -722,7 +875,14 @@ export function GoldenLessonPackageBuilder() {
                           <Trash2 className="h-3.5 w-3.5" />إزالة
                         </Button>
                       </div>
-                      <span className="font-mono text-[10px] text-muted-foreground">{upload.sha256}</span>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {upload.fileName.endsWith(".html") && (
+                          <Button type="button" variant="outline" size="sm" className="h-8 gap-1" onClick={() => previewArtifact(upload)}>
+                            <Eye className="h-3.5 w-3.5" />معاينة
+                          </Button>
+                        )}
+                        <span className="text-[11px] text-muted-foreground">{Math.max(1, Math.round(upload.file.size / 1024))} كيلوبايت</span>
+                      </div>
                     </div>
                   )}
                 </>
@@ -738,23 +898,23 @@ export function GoldenLessonPackageBuilder() {
         })}
       </div>
 
-      <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 space-y-2">
-        <Label>الصور والأصول المساندة المشار إليها داخل HTML</Label>
+      {canonicalIdentityComplete && Object.values(uploads).some((upload) => upload?.fileName.endsWith(".html")) && <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 space-y-2">
+        <Label>الصور والرسومات المشار إليها داخل ملفات HTML</Label>
         <ArabicMultiFilePicker
           id="golden-supplemental-assets"
           accept="image/png,image/jpeg,image/webp"
-          disabled={hashing !== null || !profile}
+          disabled={hashing !== null || !canonicalIdentityComplete}
           selectedCount={supplementalAssets.length}
           onFiles={handleSupplementalAssets}
         />
-        <p className="text-xs text-muted-foreground">تُستخرج القدرة والنص البديل من HTML، وتُحسب البصمة محليًا، ثم يتحقق الخادم من البايتات مرة أخرى.</p>
+        <p className="text-xs text-muted-foreground">يربط النظام الصور تلقائيًا بالملفات التي تشير إليها، ويرفض الصورة المفقودة أو غير المستخدمة.</p>
         {supplementalAssets.map((asset) => (
           <p key={asset.path} className="text-xs break-all text-emerald-700 dark:text-emerald-400">
             <CheckCircle2 className="inline h-4 w-4 ms-1" />{asset.path} — {asset.assetCode}
             <br/><span className="font-mono text-[10px]">{asset.sha256}</span>
           </p>
         ))}
-      </div>
+      </div>}
 
       {answersCompanion && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs">
@@ -764,11 +924,11 @@ export function GoldenLessonPackageBuilder() {
 
       {fileError && <p role="alert" className="text-sm text-destructive flex gap-2"><AlertCircle className="h-4 w-4 mt-0.5" />{fileError}</p>}
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={() => void runValidation()} disabled={hashing !== null || !profile} className="min-h-[44px] gap-2"><ShieldCheck className="h-4 w-4" />فحص الملفات</Button>
+      <div className="sticky bottom-3 z-10 flex flex-wrap gap-2 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
+        <Button type="button" onClick={() => void runValidation()} disabled={hashing !== null || !canonicalIdentityComplete} className="min-h-[44px] gap-2"><FileCheck2 className="h-4 w-4" />فحص ومعاينة الملفات</Button>
         <Button type="button" disabled={!validation?.valid || intakeBusy} onClick={() => void uploadAndVerifyDirectIntake()} className="min-h-[44px] gap-2">
           {intakeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-          استيراد المحتوى كمسودة
+          حفظ واستيراد كمسودة
         </Button>
       </div>
 
@@ -777,21 +937,20 @@ export function GoldenLessonPackageBuilder() {
       {intake && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-1 text-sm">
           <p className="font-medium flex gap-2"><CheckCircle2 className="h-4 w-4 mt-0.5" />تم استيراد ملفات الدرس وربطها بإصدار المسودة</p>
-          <p className="text-xs">الإصدار: {intake.version} — الحالة: {intake.status}{intake.idempotent ? " (إعادة تنفيذ بلا كتابة جديدة)" : ""}</p>
-          <p className="text-xs">عدد الملفات: {intake.verifiedFileCount} — كتابات المحتوى: {intake.domainWritesPerformed}</p>
+          <p className="text-xs">تم حفظ الإصدار {intake.version} كمسودة آمنة{intake.idempotent ? " دون تكرار الكتابة" : ""}.</p>
+          <p className="text-xs">عدد الملفات المتحقق منها: {intake.verifiedFileCount}. المحتوى غير ظاهر للطالب حتى المراجعة والاعتماد.</p>
         </div>
       )}
 
       {validation && (
         <div className={`rounded-xl border p-4 space-y-3 ${validation.valid ? "border-emerald-500/30 bg-emerald-500/10" : "border-destructive/30 bg-destructive/5"}`}>
           <p className="font-medium">{validation.valid ? "الملفات مكتملة وجاهزة للاستيراد" : "الملفات تحتاج تصحيحًا"}</p>
-          <p className="text-xs text-muted-foreground">الكتابات المنفذة: {validation.writesPerformed}</p>
           {validation.findings.length > 0 && (
             <ul className="space-y-1 text-sm">
               {validation.findings.map((finding, index) => (
                 <li key={`${finding.code}-${index}`} className="rounded-lg border bg-background/70 px-3 py-2">
                   <Badge variant={finding.severity === "ERROR" ? "destructive" : "outline"} className="ms-2">{finding.severity === "ERROR" ? "خطأ" : "تنبيه"}</Badge>
-                  {finding.messageAr} <span className="font-mono text-[10px] text-muted-foreground">({finding.field})</span>
+                  {finding.messageAr}
                 </li>
               ))}
             </ul>
