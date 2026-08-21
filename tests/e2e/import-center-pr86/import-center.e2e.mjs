@@ -20,6 +20,7 @@ const result = {
   questionTemplates: ["09", "10"],
   isolatedDraftStageCompleted: false,
   productionWritesPerformed: 0,
+  lessonZipCreatedOrUploaded: null,
   forbiddenInputsAbsent: [],
   passed: false,
 };
@@ -158,7 +159,11 @@ try {
   await page.getByText("الحالة: DRAFT", { exact: false }).waitFor();
   await page.getByText("كتابات المحتوى: 0", { exact: false }).waitFor();
   assert.equal(await page.getByRole("alert").filter({ hasText: "TEST_ONLY" }).count(), 0);
+  const directStage = await page.evaluate(() => globalThis.__TAMKEEN_TEST_ONLY_DIRECT_STAGE__);
+  assert.equal(directStage?.lessonZipCreatedOrUploaded, false);
+  assert.ok(directStage?.fileCount >= 6);
   result.isolatedDraftStageCompleted = true;
+  result.lessonZipCreatedOrUploaded = false;
 
   await page.screenshot({ path: path.join(evidenceDir, "desktop-final-import.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });

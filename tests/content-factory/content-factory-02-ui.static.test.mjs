@@ -21,6 +21,9 @@ test("operators upload seven declared items and never upload a lesson ZIP or pro
   assert.match(component, /لا يوجد ملف ZIP للدرس/);
   assert.doesNotMatch(component, /تنزيل حزمة ZIP|رفع الحزمة والتحقق|ملف توثيق المصدر الرسمي/);
   assert.doesNotMatch(component, /handleProvenanceFile|handleAnswersFile/);
+  assert.doesNotMatch(component, /JSZip|buildInternalIntakeBlob|createGoldenLessonBundleUpload/);
+  assert.match(component, /createGoldenLessonDirectUpload/);
+  assert.match(component, /uploadToSignedUrl\(upload\.storagePath/);
   assert.match(component, /CAPABILITY_NUMBER/);
 });
 

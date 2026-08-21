@@ -1,12 +1,11 @@
-import JSZip from "jszip";
 import { useMemo, useState } from "react";
 import { AlertCircle, BookOpen, CheckCircle2, Loader2, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import {
-  createGoldenLessonBundleUpload,
-  verifyAndStageGoldenLessonBundle,
-} from "@/lib/content-factory/golden-lesson-bundle.functions";
+  createGoldenLessonDirectUpload,
+  verifyAndStageGoldenLessonDirect,
+} from "@/lib/content-factory/golden-lesson-direct.functions";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,7 +74,7 @@ const CAPABILITY_NUMBER: Record<GoldenCapability, number> = {
   selfTest: 7,
 };
 
-type BundleIntakeResult = Awaited<ReturnType<typeof verifyAndStageGoldenLessonBundle>>;
+type DirectIntakeResult = Awaited<ReturnType<typeof verifyAndStageGoldenLessonDirect>>;
 
 interface UploadedArtifact {
   fileName: string;
@@ -217,21 +216,19 @@ async function buildSupplementalAssetDeclarations(
   return next;
 }
 
-async function buildInternalIntakeBlob(
-  pkg: GoldenLessonPackage,
+function buildDirectIntakeFiles(
   uploads: Partial<Record<GoldenCapability, UploadedArtifact>>,
   internalProvenance: Partial<Record<GoldenCapability, UploadedArtifact>>,
   answersCompanion: UploadedArtifact | null,
   supplementalAssets: UploadedSupplementalAsset[],
-): Promise<Blob> {
-  const zip = new JSZip();
-  zip.file("manifest.json", JSON.stringify(pkg, null, 2));
+): Map<string, File> {
+  const files = new Map<string, File>();
   for (const item of [...Object.values(uploads), ...Object.values(internalProvenance)]) {
-    if (item) zip.file(item.fileName, item.file);
+    if (item) files.set(item.fileName, item.file);
   }
-  if (answersCompanion) zip.file(answersCompanion.fileName, answersCompanion.file);
-  for (const asset of supplementalAssets) zip.file(asset.path, asset.file);
-  return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
+  if (answersCompanion) files.set(answersCompanion.fileName, answersCompanion.file);
+  for (const asset of supplementalAssets) files.set(asset.path, asset.file);
+  return files;
 }
 
 export function GoldenLessonPackageBuilder() {
@@ -253,7 +250,7 @@ export function GoldenLessonPackageBuilder() {
   const [hashing, setHashing] = useState<GoldenCapability | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [validation, setValidation] = useState<GoldenLessonValidationResult | null>(null);
-  const [intake, setIntake] = useState<BundleIntakeResult | null>(null);
+  const [intake, setIntake] = useState<DirectIntakeResult | null>(null);
   const [intakeError, setIntakeError] = useState<string | null>(null);
   const [intakeBusy, setIntakeBusy] = useState(false);
 
@@ -553,28 +550,35 @@ export function GoldenLessonPackageBuilder() {
     });
   };
 
-  /** Internal transport only: the operator uploads the seven declared files, never a lesson ZIP. */
-  const uploadAndVerifyBundle = async () => {
+  /** Each declared file is uploaded directly; no lesson archive is created or uploaded. */
+  const uploadAndVerifyDirectIntake = async () => {
     setIntakeBusy(true);
     setIntakeError(null);
     setIntake(null);
     try {
-      const blob = await buildInternalIntakeBlob(
-        packageDraft,
+      const files = buildDirectIntakeFiles(
         uploads,
         internalProvenance,
         answersCompanion,
         supplementalAssets,
       );
-      const slot = await createGoldenLessonBundleUpload();
-      const uploaded = await supabase.storage
-        .from(slot.bucket)
-        .uploadToSignedUrl(slot.path, slot.token, blob, { contentType: "application/zip" });
-      if (uploaded.error) throw new Error(uploaded.error.message);
-      const verified = await verifyAndStageGoldenLessonBundle({ data: { path: slot.path } });
+      const slot = await createGoldenLessonDirectUpload({ data: { manifest: packageDraft } });
+      for (const upload of slot.uploads) {
+        const file = files.get(upload.logicalPath);
+        if (!file) throw new Error(`DIRECT_DECLARED_FILE_MISSING:${upload.logicalPath}`);
+        const uploaded = await supabase.storage
+          .from(slot.bucket)
+          .uploadToSignedUrl(upload.storagePath, upload.token, file, {
+            contentType: file.type || "application/octet-stream",
+          });
+        if (uploaded.error) throw new Error(uploaded.error.message);
+      }
+      const verified = await verifyAndStageGoldenLessonDirect({
+        data: { intakeId: slot.intakeId, manifest: packageDraft },
+      });
       setIntake(verified);
     } catch (error) {
-      setIntakeError(error instanceof Error ? error.message : "BUNDLE_INTAKE_FAILED");
+      setIntakeError(error instanceof Error ? error.message : "DIRECT_INTAKE_FAILED");
     } finally {
       setIntakeBusy(false);
     }
@@ -753,7 +757,7 @@ export function GoldenLessonPackageBuilder() {
 
       <div className="flex flex-wrap gap-2">
         <Button type="button" onClick={() => void runValidation()} disabled={hashing !== null || !profile} className="min-h-[44px] gap-2"><ShieldCheck className="h-4 w-4" />فحص الملفات</Button>
-        <Button type="button" disabled={!validation?.valid || intakeBusy} onClick={() => void uploadAndVerifyBundle()} className="min-h-[44px] gap-2">
+        <Button type="button" disabled={!validation?.valid || intakeBusy} onClick={() => void uploadAndVerifyDirectIntake()} className="min-h-[44px] gap-2">
           {intakeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
           استيراد المحتوى كمسودة
         </Button>

@@ -1,44 +1,50 @@
-export interface TestOnlyUploadedBundle {
-  bucket: string;
-  path: string;
-  token: string;
-  blob: Blob;
-  uploadCount: number;
+export interface TestOnlyDirectFile {
+  storagePath: string;
+  contentType: string;
+  file: Blob;
 }
 
 declare global {
   // Shared only by the isolated browser preview stubs.
   // eslint-disable-next-line no-var
-  var __TAMKEEN_TEST_ONLY_UPLOADED_BUNDLE__: TestOnlyUploadedBundle | undefined;
+  var __TAMKEEN_TEST_ONLY_DIRECT_FILES__: Map<string, TestOnlyDirectFile> | undefined;
+  // eslint-disable-next-line no-var
+  var __TAMKEEN_TEST_ONLY_DIRECT_STAGE__: {
+    intakeId: string;
+    fileCount: number;
+    totalBytes: number;
+    lessonZipCreatedOrUploaded: false;
+  } | undefined;
 }
 
 export const supabase = {
   storage: {
     from: (bucket: string) => ({
       uploadToSignedUrl: async (
-        path: string,
+        storagePath: string,
         token: string,
-        blob: Blob,
+        file: Blob,
         options?: { contentType?: string },
       ) => {
-        if (bucket !== "test-only-lesson-intake") {
+        if (bucket !== "test-only-direct-intake") {
           return { data: null, error: new Error("TEST_ONLY_UNEXPECTED_BUCKET") };
         }
-        if (path !== "test-only/final-lesson-import.zip" || token !== "TEST_ONLY_SIGNED_TOKEN") {
+        const prefix = "test-only/00000000-0000-4000-8000-000000000086/";
+        if (!storagePath.startsWith(prefix) || token !== `TEST_ONLY:${storagePath.slice(prefix.length)}`) {
           return { data: null, error: new Error("TEST_ONLY_INVALID_SIGNED_UPLOAD") };
         }
-        if (!(blob instanceof Blob) || blob.size === 0 || options?.contentType !== "application/zip") {
+        if (!(file instanceof Blob) || file.size === 0 || !options?.contentType) {
           return { data: null, error: new Error("TEST_ONLY_INVALID_UPLOAD_BODY") };
         }
-        const previous = globalThis.__TAMKEEN_TEST_ONLY_UPLOADED_BUNDLE__;
-        globalThis.__TAMKEEN_TEST_ONLY_UPLOADED_BUNDLE__ = {
-          bucket,
-          path,
-          token,
-          blob,
-          uploadCount: (previous?.uploadCount ?? 0) + 1,
-        };
-        return { data: { path }, error: null };
+        if (storagePath.endsWith(".zip") || options.contentType === "application/zip") {
+          return { data: null, error: new Error("TEST_ONLY_LESSON_ZIP_FORBIDDEN") };
+        }
+        const logicalPath = storagePath.slice(prefix.length);
+        const files = globalThis.__TAMKEEN_TEST_ONLY_DIRECT_FILES__ ?? new Map();
+        if (files.has(logicalPath)) return { data: null, error: new Error("TEST_ONLY_DUPLICATE_UPLOAD") };
+        files.set(logicalPath, { storagePath, contentType: options.contentType, file });
+        globalThis.__TAMKEEN_TEST_ONLY_DIRECT_FILES__ = files;
+        return { data: { path: storagePath }, error: null };
       },
     }),
   },

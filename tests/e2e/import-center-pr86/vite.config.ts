@@ -14,8 +14,8 @@ export default defineConfig({
   resolve: {
     alias: [
       {
-        find: "@/lib/content-factory/golden-lesson-bundle.functions",
-        replacement: path.resolve(here, "stubs/golden-lesson-bundle.functions.ts"),
+        find: "@/lib/content-factory/golden-lesson-direct.functions",
+        replacement: path.resolve(here, "stubs/golden-lesson-direct.functions.ts"),
       },
       {
         find: "@/integrations/supabase/client",
@@ -28,4 +28,3 @@ export default defineConfig({
     fs: { allow: [repoRoot] },
   },
 });
-
