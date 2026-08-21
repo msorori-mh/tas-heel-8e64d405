@@ -102,7 +102,7 @@ export function GoldenLessonManifestReviewPanel() {
       const result = await saveManifest({ data: { manifest, clientManifestSha256: manifestHash } });
       setMessage(`حُفظت بيانات staging: الإصدار ${result.version}، الكتابات ${result.writesPerformed}، كتابات المحتوى 0.`);
       await refresh();
-      const current = (await loadPackages()).find((pkg) => pkg.id === result.packageId);
+      const current = (await loadPackages()).find((pkg: GoldenPackageSummary) => pkg.id === result.packageId);
       if (current) await selectPackage(current);
     } catch (error) { setMessage(error instanceof Error ? error.message : "تعذر حفظ staging."); }
     finally { setBusy(false); }
@@ -112,9 +112,15 @@ export function GoldenLessonManifestReviewPanel() {
     setBusy(true); setMessage(null);
     try {
       const result = await advanceReview({ data: { packageId: selected.id, expectedVersion: selected.currentVersion, toStatus: next.to, evidence, note: null } });
-      setMessage(`تم الانتقال الخادمي إلى ${STATUS_LABEL[result.status]}. كتابات المحتوى: ${result.domainWritesPerformed}.`);
+      let automaticPreparation = "";
+      if (result.status === "APPROVED_FOR_STAGING") {
+        const staged = await stageDomain({ data: { packageId: selected.id, version: selected.currentVersion } });
+        await bindIdentity({ data: { batchId: staged.batchId } });
+        automaticPreparation = " وتم تجهيزها وربطها بالدرس تلقائيًا.";
+      }
+      setMessage(`تم تحديث حالة المراجعة إلى ${STATUS_LABEL[result.status as GoldenReviewStatus]}${automaticPreparation}`);
       const latest = await loadPackages(); setPackages(latest);
-      const current = latest.find((pkg) => pkg.id === selected.id); if (current) await selectPackage(current);
+      const current = latest.find((pkg: GoldenPackageSummary) => pkg.id === selected.id); if (current) await selectPackage(current);
     } catch (error) { setMessage(error instanceof Error ? error.message : "رفض الخادم الانتقال."); }
     finally { setBusy(false); }
   };
@@ -130,7 +136,7 @@ export function GoldenLessonManifestReviewPanel() {
       } });
       setMessage(`تم اعتماد مالك المنصة للتجهيز مع سجل تدقيق. كتابات المحتوى: ${result.domainWritesPerformed}.`);
       const latest = await loadPackages(); setPackages(latest);
-      const current = latest.find((pkg) => pkg.id === selected.id); if (current) await selectPackage(current);
+      const current = latest.find((pkg: GoldenPackageSummary) => pkg.id === selected.id); if (current) await selectPackage(current);
     } catch (error) { setMessage(error instanceof Error ? error.message : "رفض الخادم اعتماد مالك المنصة."); }
     finally { setBusy(false); }
   };
@@ -147,27 +153,31 @@ export function GoldenLessonManifestReviewPanel() {
 
   return (
     <section dir="rtl" aria-labelledby="golden-review-heading" className="rounded-2xl border border-primary/25 bg-card p-5 shadow-card space-y-5">
-      <div className="flex flex-wrap items-center gap-2"><ClipboardCheck className="h-5 w-5 text-primary" /><h2 id="golden-review-heading" className="text-lg font-semibold">تجهيز ومراجعة حزمة الدرس</h2>
-        <Badge variant={persistence.available ? "default" : "secondary"}>{persistence.available ? "Persistent staging" : "المخطط غير مطبق"}</Badge><Badge variant="outline">domain writes: 0</Badge>
-        <Button type="button" size="sm" variant="ghost" onClick={() => void refresh()} disabled={busy}><RefreshCw className="h-4 w-4" />تحديث</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <ClipboardCheck className="h-5 w-5 text-primary" />
+        <div className="min-w-0 flex-1">
+          <h2 id="golden-review-heading" className="text-lg font-semibold">مسودات الدروس الواردة للمراجعة</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            اختر المسودة، تحقق من الأدلة، ثم اطلب التعديل أو اعتمدها. التجهيز التقني يتم تلقائيًا بعد الاعتماد.
+          </p>
+        </div>
+        <Button type="button" size="sm" variant="ghost" onClick={() => void refresh()} disabled={busy}>
+          <RefreshCw className="h-4 w-4" />تحديث
+        </Button>
       </div>
-      {!persistence.available && <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">الحفظ والانتقالات معطلة fail-closed حتى تطبيق CF04. تبقى المعاينة المحلية متاحة ولا تنفذ كتابة.</p>}
-      <div className="space-y-2"><Label htmlFor="golden-manifest-file">Manifest JSON</Label><Input id="golden-manifest-file" type="file" accept=".json,application/json" disabled={busy} onChange={(event) => void loadManifest(event.target.files?.[0])} className="min-h-[44px]" /></div>
+      {!persistence.available && <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">خدمة المراجعة غير متاحة حاليًا؛ أوقِف الاعتماد حتى عودتها.</p>}
       {busy && <p className="text-sm flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />جارٍ التحقق…</p>}
-      {manifestHash && <p className="font-mono text-[10px] break-all text-muted-foreground">client_manifest_sha256={manifestHash}</p>}
-      {preview && <div className="space-y-3"><div className="flex flex-wrap gap-2"><Badge variant={preview.valid ? "default" : "destructive"}>{preview.valid ? "DRY-RUN PASS" : "DRY-RUN FAIL"}</Badge><Badge variant="outline">{preview.packageCode}</Badge><Badge variant="outline">drafts: {preview.stagedDraftsPlanned}</Badge></div>
-        <Button type="button" onClick={() => void persistManifest()} disabled={busy || !preview.valid || !persistence.available} className="min-h-[44px] gap-2"><Database className="h-4 w-4" />حفظ الإصدار في staging</Button></div>}
 
-      {persistence.available && <div className="grid gap-4 lg:grid-cols-2"><div className="rounded-xl border p-4 space-y-2"><h3 className="font-medium">الحزم</h3>{packages.length === 0 && <p className="text-sm text-muted-foreground">لا توجد حزم محفوظة.</p>}{packages.map((pkg) => <button key={pkg.id} type="button" onClick={() => void selectPackage(pkg)} className="w-full min-h-[44px] rounded-lg border p-3 text-start hover:bg-muted/50"><span className="font-mono text-xs">{pkg.packageCode}</span><span className="float-left"><Badge>{STATUS_LABEL[pkg.reviewStatus]}</Badge> <Badge variant="outline">v{pkg.currentVersion}</Badge></span></button>)}</div>
-        <div className="rounded-xl border p-4 space-y-3"><h3 className="font-medium">الإصدارات وسجل المراجعة</h3>{selected ? <><p className="font-mono text-xs">{selected.packageCode}</p><div className="max-h-48 overflow-auto space-y-1">{versions.map((version) => <p key={version.version} className="rounded border p-2 text-xs">v{version.version} · canonical <span className="font-mono">{version.canonicalManifestSha256.slice(0, 12)}…</span></p>)}{reviews.map((review, index) => <p key={`${review.createdAt}-${index}`} className="rounded border p-2 text-xs">v{review.packageVersion}: {review.fromStatus} → {review.toStatus} · {review.actorRole}</p>)}</div></> : <p className="text-sm text-muted-foreground">اختر حزمة.</p>}</div></div>}
+      {persistence.available && <div className="grid gap-4 lg:grid-cols-2"><div className="rounded-xl border p-4 space-y-2"><h3 className="font-medium">المسودات الواردة</h3>{packages.length === 0 && <p className="text-sm text-muted-foreground">لا توجد حزم محفوظة.</p>}{packages.map((pkg) => <button key={pkg.id} type="button" onClick={() => void selectPackage(pkg)} className="w-full min-h-[44px] rounded-lg border p-3 text-start hover:bg-muted/50"><span className="font-mono text-xs">{pkg.packageCode}</span><span className="float-left"><Badge>{STATUS_LABEL[pkg.reviewStatus]}</Badge> <Badge variant="outline">v{pkg.currentVersion}</Badge></span></button>)}</div>
+        <div className="rounded-xl border p-4 space-y-3"><h3 className="font-medium">سجل الإصدارات والمراجعة</h3>{selected ? <><p className="font-mono text-xs">{selected.packageCode}</p><div className="max-h-48 overflow-auto space-y-1">{versions.map((version) => <p key={version.version} className="rounded border p-2 text-xs">الإصدار {version.version}</p>)}{reviews.map((review, index) => <p key={`${review.createdAt}-${index}`} className="rounded border p-2 text-xs">v{review.packageVersion}: {review.fromStatus} → {review.toStatus} · {review.actorRole}</p>)}</div></> : <p className="text-sm text-muted-foreground">اختر حزمة.</p>}</div></div>}
 
-      <div className="rounded-xl border p-4 space-y-3"><div className="flex items-center justify-between gap-2"><span className="font-medium">الانتقال الخادمي</span><Badge>{selected ? STATUS_LABEL[selected.reviewStatus] : "اختر حزمة"}</Badge></div>
+      <div className="rounded-xl border p-4 space-y-3"><div className="flex items-center justify-between gap-2"><span className="font-medium">قرار المراجعة</span><Badge>{selected ? STATUS_LABEL[selected.reviewStatus] : "اختر حزمة"}</Badge></div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{(Object.keys(EVIDENCE_LABEL) as (keyof GoldenReviewEvidence)[]).map((key) => <label key={key} className="flex min-h-[44px] items-center gap-2 rounded-lg border px-3 py-2 text-sm"><input type="checkbox" checked={evidence[key]} disabled={key === "packageValidationPassed"} onChange={(event) => setEvidence((current) => ({ ...current, [key]: event.target.checked }))}/>{EVIDENCE_LABEL[key]}</label>)}</div>
         <Button type="button" onClick={() => void persistTransition()} disabled={busy || !persistence.available || !selected || !next} className="min-h-[44px] gap-2">{next ? <><CheckCircle2 className="h-4 w-4" />الانتقال إلى {STATUS_LABEL[next.to]}</> : <><ShieldAlert className="h-4 w-4" />لا انتقال متاح</>}</Button>
-        {selected?.reviewStatus === "APPROVED_FOR_STAGING" && <Button type="button" variant="secondary" onClick={() => void stageAndBindSelectedPackage()} disabled={busy || !persistence.available} className="min-h-[44px] gap-2">
+        {false && selected?.reviewStatus === "APPROVED_FOR_STAGING" && <Button type="button" variant="secondary" onClick={() => void stageAndBindSelectedPackage()} disabled={busy || !persistence.available} className="min-h-[44px] gap-2">
           <Database className="h-4 w-4" />تجهيز الحزمة وربط هوية الدرس
         </Button>}
-        {selected && (selected.reviewStatus === "SUBMITTED" || selected.reviewStatus === "CONTENT_APPROVED") && <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
+        {false && selected && (selected.reviewStatus === "SUBMITTED" || selected.reviewStatus === "CONTENT_APPROVED") && <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
           <Label htmlFor="owner-approval-reason">سبب اعتماد مالك المنصة (موثّق في سجل المراجعة)</Label>
           <Input id="owner-approval-reason" value={ownerReason} onChange={(event) => setOwnerReason(event.target.value)} placeholder="اكتب سبب الإطلاق العاجل بعد اكتمال التحقق" disabled={busy} />
           <Button type="button" variant="outline" onClick={() => void persistOwnerApproval()} disabled={busy || !persistence.available || ownerReason.trim().length < 20 || !Object.values(evidence).every(Boolean)} className="min-h-[44px] gap-2">
