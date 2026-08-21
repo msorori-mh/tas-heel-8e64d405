@@ -100,7 +100,9 @@ export async function convertHtml5ActivityZip(file: File): Promise<ConvertedHtml
     const relativeCandidates = [path, path.slice(base.length + (base ? 1 : 0))].filter(Boolean);
     for (const candidate of relativeCandidates) html = html.split(candidate).join(assetLeaf);
     const bytes = await zip.files[path]!.async("uint8array");
-    const assetBuffer = new ArrayBuffer(bytes.byteLength);\n    new Uint8Array(assetBuffer).set(bytes);\n    assets.push(new File([assetBuffer], assetLeaf, { type: mime }));
+    const assetBuffer = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(assetBuffer).set(bytes);
+    assets.push(new File([assetBuffer], assetLeaf, { type: mime }));
   }
 
   return {
