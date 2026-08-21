@@ -101,7 +101,7 @@ function AdminImportPage() {
                 <li>• مسار المحتوى يعمل بثلاث خطوات: فحص ← تجهيز ← تنفيذ.</li>
                 <li>• التنفيذ يتم داخل معاملة واحدة لكل قالب — ينجح كاملاً أو يتراجع كاملاً.</li>
                 <li>• المحتوى الجديد يبقى مسودة قيد المراجعة ولا يظهر للطالب قبل الاعتماد.</li>
-                <li>• قالب الأسئلة (09) يمر حصراً عبر مسار بنك الأسئلة.</li>
+                <li>• قالبا أسئلة الكتاب (09) و«اختبر فهمك» (10) يمران حصراً عبر مسار بنك الأسئلة.</li>
               </ul>
 
             </div>
@@ -118,7 +118,7 @@ function AdminImportPage() {
                 حزمة المشغّل الرسمية
               </h2>
               <p className="text-sm leading-relaxed text-muted-foreground max-w-2xl">
-                ملف واحد يجمع القوالب التسعة (01–09) والأدلة الثلاثة: قواعد التسمية، قاموس
+                ملف واحد يجمع القوالب العشرة (01–10) والأدلة الثلاثة: قواعد التسمية، قاموس
                 البيانات، ودليل خطوات الاستيراد.
               </p>
             </div>
@@ -144,7 +144,7 @@ function AdminImportPage() {
               <h2 id="lesson-content-import-heading" className="text-lg font-semibold text-foreground">
                 استيراد محتوى الدروس
               </h2>
-              <Badge variant="secondary" className="text-[11px]">قوالب 01–09</Badge>
+              <Badge variant="secondary" className="text-[11px]">قوالب 01–10</Badge>
             </div>
             <p className="text-sm leading-relaxed text-muted-foreground max-w-3xl">
               هذه القوالب هي المسار الرسمي لإدخال محتوى الدروس. لكل قالب: فحص الملف ← تجهيز ←
@@ -189,8 +189,8 @@ function AdminImportPage() {
                   {CONTENT_IMPORT_WORKFLOW_ORDER}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  عرّف lesson_code في نموذج 03 قبل الموارد والأسئلة. أعد بنك الأسئلة (09) قبل ربط
-                  التقييمات (07–08).
+                  عرّف lesson_code في نموذج 03 قبل الموارد والأسئلة. جهّز أسئلة الكتاب (09)
+                  و«اختبر فهمك» (10) وفق عقد كل منهما قبل ربط التقييمات.
                 </p>
               </div>
             </div>
@@ -261,8 +261,8 @@ function AdminImportPage() {
 
 
         <p className="text-xs leading-relaxed text-muted-foreground/90 border-t border-border/40 pt-4">
-          الترتيب الرسمي لتنفيذ القوالب: 01 → 02 → 03 → 04 → 05 → 06 → 07 → 09 → 08. لا تنفّذ قالباً
-          قبل نجاح ما يسبقه، وكل تنفيذ يمرّ إلزامياً بمعاينة (Dry-Run) قبل الاعتماد.
+          الترتيب الرسمي المعروض أعلاه مشتق من عقد الاستيراد الحالي، ويشمل القوالب 01–10. لا تنفّذ
+          قالباً قبل نجاح اعتمادياته، وكل تنفيذ يمرّ إلزامياً بمعاينة (Dry-Run) قبل الاعتماد.
         </p>
       </div>
     </AdminLayout>

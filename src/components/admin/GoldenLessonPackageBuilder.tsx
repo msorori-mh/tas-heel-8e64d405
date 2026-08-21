@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Download, FileArchive, Loader2, ShieldCheck, UploadCloud } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, FileArchive, Loader2, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -45,6 +45,10 @@ import {
   validateGoldenLessonPackage,
   type GoldenLessonValidationResult,
 } from "@/lib/content-factory/golden-lesson-validator";
+import {
+  GOLDEN_ARTIFACT_FILE_CONTRACTS,
+  validateGoldenLessonArtifactBytes,
+} from "@/lib/content-factory/golden-lesson-file-contract";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
@@ -68,6 +72,80 @@ interface UploadedArtifact {
 
 interface UploadedSupplementalAsset extends GoldenLessonAsset {
   file: File;
+}
+
+interface ArabicFilePickerProps {
+  id: string;
+  accept: string;
+  disabled: boolean;
+  fileName?: string | null;
+  onFile: (file?: File) => void | Promise<void>;
+}
+
+function ArabicFilePicker({ id, accept, disabled, fileName, onFile }: ArabicFilePickerProps) {
+  return (
+    <div className="flex min-h-[44px] items-center gap-2 rounded-md border bg-background px-2 py-1.5">
+      <Input
+        id={id}
+        type="file"
+        accept={accept}
+        disabled={disabled}
+        className="sr-only"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          event.currentTarget.value = "";
+          void onFile(file);
+        }}
+      />
+      <Label
+        htmlFor={id}
+        className="inline-flex min-h-[36px] cursor-pointer items-center rounded-md border px-3 text-sm font-medium hover:bg-accent"
+      >
+        اختيار ملف
+      </Label>
+      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+        {fileName || "لم يتم اختيار ملف"}
+      </span>
+    </div>
+  );
+}
+
+function ArabicMultiFilePicker({
+  id,
+  accept,
+  disabled,
+  selectedCount,
+  onFiles,
+}: {
+  id: string;
+  accept: string;
+  disabled: boolean;
+  selectedCount: number;
+  onFiles: (files?: FileList) => void | Promise<void>;
+}) {
+  return (
+    <div className="flex min-h-[44px] items-center gap-2 rounded-md border bg-background px-2 py-1.5">
+      <Input
+        id={id}
+        type="file"
+        accept={accept}
+        multiple
+        disabled={disabled}
+        className="sr-only"
+        onChange={(event) => {
+          const files = event.currentTarget.files ?? undefined;
+          void onFiles(files);
+          event.currentTarget.value = "";
+        }}
+      />
+      <Label htmlFor={id} className="inline-flex min-h-[36px] cursor-pointer items-center rounded-md border px-3 text-sm font-medium hover:bg-accent">
+        اختيار ملفات
+      </Label>
+      <span className="text-xs text-muted-foreground">
+        {selectedCount > 0 ? `تم اختيار ${selectedCount} ملف` : "لم يتم اختيار ملفات"}
+      </span>
+    </div>
+  );
 }
 
 async function sha256Hex(file: File): Promise<string> {
@@ -123,7 +201,7 @@ function downloadJson(value: unknown, filename: string): void {
 }
 
 export function GoldenLessonPackageBuilder() {
-  const [profileId, setProfileId] = useState(GOLDEN_QURAN_V1.id);
+  const [profileId, setProfileId] = useState("");
   const [packageCode, setPackageCode] = useState("");
   const [gradeCode, setGradeCode] = useState("");
   const [trackCodes, setTrackCodes] = useState("sanaa");
@@ -144,13 +222,13 @@ export function GoldenLessonPackageBuilder() {
   const [intakeError, setIntakeError] = useState<string | null>(null);
   const [intakeBusy, setIntakeBusy] = useState(false);
 
-  const profile = getGoldenLessonProfile(profileId) ?? GOLDEN_QURAN_V1;
+  const profile = getGoldenLessonProfile(profileId);
 
   const artifacts = useMemo<GoldenLessonArtifact[]>(
     () =>
       GOLDEN_CAPABILITIES.map((capability) => ({
         capability,
-        applicability: profile.applicability[capability],
+        applicability: profile?.applicability[capability] ?? "NA",
         authority: GOLDEN_CAPABILITY_AUTHORITY[capability],
         sourcePath: uploads[capability]?.fileName ?? null,
         sha256: uploads[capability]?.sha256 ?? null,
@@ -163,7 +241,7 @@ export function GoldenLessonPackageBuilder() {
   const packageDraft = useMemo<GoldenLessonPackage>(
     () => ({
       schema: GOLDEN_LESSON_SCHEMA,
-      profileId: profile.id,
+      profileId: profile?.id ?? "",
       packageCode: packageCode.trim(),
       identity: {
         gradeCode: gradeCode.trim().toUpperCase(),
@@ -190,13 +268,30 @@ export function GoldenLessonPackageBuilder() {
     [profile, packageCode, gradeCode, trackCodes, subjectCode, lessonCode, lessonSlug, unitCode, semester, sortOrder, artifacts, answersCompanion, supplementalAssets],
   );
 
-  const requiredCapabilities = GOLDEN_CAPABILITIES.filter(
-    (capability) => profile.applicability[capability] === "REQUIRED",
-  );
+  const requiredCapabilities = profile
+    ? GOLDEN_CAPABILITIES.filter((capability) => profile.applicability[capability] === "REQUIRED")
+    : [];
   const completedRequired = requiredCapabilities.filter((capability) => uploads[capability]).length;
   const completion = requiredCapabilities.length
     ? Math.round((completedRequired / requiredCapabilities.length) * 100)
-    : 100;
+    : 0;
+  const identityExample = profile?.subjectFamily === "SCIENCE"
+    ? {
+        packageCode: "CHEM-G12-IRON-FE-PKG",
+        gradeCode: "GRADE-12",
+        trackCodes: "sanaa,aden",
+        subjectCode: "SUB-G12-012",
+        lessonCode: "CHEM-G12-IRON-FE",
+        lessonSlug: "الحديد-fe",
+      }
+    : {
+        packageCode: "QURAN-G10-L01-PKG",
+        gradeCode: "GRADE-10",
+        trackCodes: "sanaa",
+        subjectCode: "QURAN-G10",
+        lessonCode: "QURAN-G10-L01",
+        lessonSlug: "مكانة-القرآن",
+      };
 
   const handleCapabilityFile = async (capability: GoldenCapability, file?: File) => {
     if (!file) return;
@@ -204,10 +299,33 @@ export function GoldenLessonPackageBuilder() {
       setFileError(`الملف ${file.name} أكبر من 5MB.`);
       return;
     }
+    const duplicate = Object.entries(uploads).some(
+      ([key, item]) => key !== capability && item?.fileName === file.name,
+    ) || Object.values(provenance).some((item) => item?.fileName === file.name) ||
+      answersCompanion?.fileName === file.name || supplementalAssets.some((item) => item.path === file.name);
+    if (duplicate) {
+      setFileError(`اسم الملف ${file.name} مستخدم مسبقًا داخل الحزمة؛ استخدم اسمًا فريدًا لكل محتوى.`);
+      return;
+    }
     setFileError(null);
     setValidation(null);
     setHashing(capability);
     try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const artifactValidation = validateGoldenLessonArtifactBytes(capability, file.name, bytes);
+      if (!artifactValidation.valid) {
+        setUploads((current) => {
+          const next = { ...current };
+          delete next[capability];
+          return next;
+        });
+        const visible = artifactValidation.findings.slice(0, 3).map((item) => item.messageAr).join(" — ");
+        const remaining = artifactValidation.findings.length - 3;
+        setFileError(
+          `${CAPABILITY_LABEL[capability]}: ${visible}${remaining > 0 ? ` — و${remaining} مشكلة أخرى` : ""}`,
+        );
+        return;
+      }
       const sha256 = await sha256Hex(file);
       setUploads((current) => ({ ...current, [capability]: { fileName: file.name, sha256, file } }));
     } finally {
@@ -215,10 +333,51 @@ export function GoldenLessonPackageBuilder() {
     }
   };
 
+  const removeCapabilityFile = (capability: GoldenCapability) => {
+    setUploads((current) => {
+      const next = { ...current };
+      delete next[capability];
+      return next;
+    });
+    setProvenance((current) => {
+      const next = { ...current };
+      delete next[capability];
+      return next;
+    });
+    setValidation(null);
+    setFileError(null);
+  };
+
+  const handleProfileChange = (value: string) => {
+    const hasSelectedFiles = Object.keys(uploads).length > 0 || Object.keys(provenance).length > 0 ||
+      supplementalAssets.length > 0 || Boolean(answersCompanion);
+    if (hasSelectedFiles && !window.confirm("تغيير نمط الدرس سيزيل جميع الملفات المختارة. هل تريد المتابعة؟")) {
+      return;
+    }
+    setProfileId(value);
+    setUploads({});
+    setProvenance({});
+    setAnswersCompanion(null);
+    setSupplementalAssets([]);
+    setValidation(null);
+    setFileError(null);
+  };
+
   const handleProvenanceFile = async (capability: GoldenCapability, file?: File) => {
     if (!file) return;
+    if (!/\.(json|txt|md)$/i.test(file.name)) {
+      setFileError("ملف توثيق المصدر يجب أن يكون JSON أو TXT أو MD.");
+      return;
+    }
     if (file.size > MAX_FILE_BYTES) {
       setFileError(`ملف التوثيق ${file.name} أكبر من 5MB.`);
+      return;
+    }
+    const duplicate = Object.values(uploads).some((item) => item?.fileName === file.name) ||
+      Object.entries(provenance).some(([key, item]) => key !== capability && item?.fileName === file.name) ||
+      answersCompanion?.fileName === file.name || supplementalAssets.some((item) => item.path === file.name);
+    if (duplicate) {
+      setFileError(`اسم الملف ${file.name} مستخدم مسبقًا داخل الحزمة.`);
       return;
     }
     setFileError(null);
@@ -226,6 +385,19 @@ export function GoldenLessonPackageBuilder() {
     const target = `provenance:${capability}` as const;
     setHashing(target);
     try {
+      const textValue = await file.text();
+      if (!textValue.trim()) {
+        setFileError("ملف توثيق المصدر فارغ.");
+        return;
+      }
+      if (file.name.toLowerCase().endsWith(".json")) {
+        try {
+          JSON.parse(textValue);
+        } catch {
+          setFileError("ملف توثيق المصدر JSON غير صالح.");
+          return;
+        }
+      }
       const sha256 = await sha256Hex(file);
       setProvenance((current) => ({ ...current, [capability]: { fileName: file.name, sha256, file } }));
     } finally {
@@ -243,9 +415,22 @@ export function GoldenLessonPackageBuilder() {
       setFileError(`الملف ${file.name} أكبر من 5MB.`);
       return;
     }
+    const duplicate = Object.values(uploads).some((item) => item?.fileName === file.name) ||
+      Object.values(provenance).some((item) => item?.fileName === file.name) ||
+      supplementalAssets.some((item) => item.path === file.name);
+    if (duplicate) {
+      setFileError(`اسم الملف ${file.name} مستخدم مسبقًا داخل الحزمة.`);
+      return;
+    }
     setFileError(null);
     setHashing("answers");
     try {
+      try {
+        JSON.parse(await file.text());
+      } catch {
+        setFileError("ملف الإجابات الخادمي JSON غير صالح.");
+        return;
+      }
       const sha256 = await sha256Hex(file);
       setAnswersCompanion({ fileName: file.name, sha256, file });
     } finally {
@@ -316,7 +501,14 @@ export function GoldenLessonPackageBuilder() {
     }
   };
 
-  const runValidation = () => setValidation(validateGoldenLessonPackage(packageDraft));
+  const runValidation = () => {
+    if (!profile) {
+      setFileError("اختر نوع الدرس أولًا؛ لا يوجد نمط افتراضي للاستيراد.");
+      return;
+    }
+    setFileError(null);
+    setValidation(validateGoldenLessonPackage(packageDraft));
+  };
 
   /**
    * CF11 intake: uploads the exact ZIP the factory produced, then asks the server to download it,
@@ -358,9 +550,9 @@ export function GoldenLessonPackageBuilder() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1.5">
-          <Label>نمط الدرس</Label>
-          <Select value={profileId} onValueChange={(value) => { setProfileId(value); setUploads({}); setProvenance({}); setSupplementalAssets([]); setValidation(null); }}>
-            <SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger>
+          <Label>نوع الدرس <span className="text-destructive">*</span></Label>
+          <Select value={profileId || undefined} onValueChange={handleProfileChange}>
+            <SelectTrigger className="min-h-[44px]"><SelectValue placeholder="اختر نوع الدرس أولًا" /></SelectTrigger>
             <SelectContent>
               {[GOLDEN_QURAN_V1, GOLDEN_CHEMISTRY_V1].map((item) => (
                 <SelectItem key={item.id} value={item.id}>{item.labelAr}</SelectItem>
@@ -369,12 +561,12 @@ export function GoldenLessonPackageBuilder() {
           </Select>
         </div>
         {[
-          ["رمز الحزمة", packageCode, setPackageCode, "QURAN-G10-L01-PKG"],
-          ["رمز الصف", gradeCode, setGradeCode, "GRADE-10"],
-          ["المسارات (بفاصلة)", trackCodes, setTrackCodes, "sanaa,aden"],
-          ["رمز المادة", subjectCode, setSubjectCode, "QURAN-G10"],
-          ["رمز الدرس", lessonCode, setLessonCode, "QURAN-G10-L01"],
-          ["رابط الدرس", lessonSlug, setLessonSlug, "مكانة-القرآن"],
+          ["رمز الحزمة", packageCode, setPackageCode, identityExample.packageCode],
+          ["رمز الصف", gradeCode, setGradeCode, identityExample.gradeCode],
+          ["المسارات (بفاصلة)", trackCodes, setTrackCodes, identityExample.trackCodes],
+          ["رمز المادة", subjectCode, setSubjectCode, identityExample.subjectCode],
+          ["رمز الدرس", lessonCode, setLessonCode, identityExample.lessonCode],
+          ["رابط الدرس", lessonSlug, setLessonSlug, identityExample.lessonSlug],
           ["رمز الوحدة (اختياري)", unitCode, setUnitCode, ""],
           ["الفصل (اختياري)", semester, setSemester, "1"],
           ["الترتيب (اختياري)", sortOrder, setSortOrder, "1"],
@@ -386,19 +578,32 @@ export function GoldenLessonPackageBuilder() {
         ))}
       </div>
 
-      <div className="space-y-2">
+      {!profile && (
+        <div role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+          يجب اختيار نوع الدرس قبل رفع أي ملف. لا يعتمد المركز الآن نمط القرآن افتراضيًا.
+        </div>
+      )}
+      {profile && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm space-y-1">
+          <p className="font-medium">العقد المختار: {profile.labelAr}</p>
+          {profile.notesAr.map((note) => <p key={note} className="text-xs text-muted-foreground">• {note}</p>)}
+        </div>
+      )}
+
+      {profile && <div className="space-y-2">
         <div className="flex items-center justify-between gap-3 text-sm">
           <span>اكتمال الملفات الإلزامية</span>
           <span className="font-semibold">{completedRequired}/{requiredCapabilities.length} — {completion}%</span>
         </div>
         <Progress value={completion} />
-      </div>
+      </div>}
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        {GOLDEN_CAPABILITIES.map((capability) => {
+        {profile && GOLDEN_CAPABILITIES.map((capability) => {
           const applicability = profile.applicability[capability];
           const authority = GOLDEN_CAPABILITY_AUTHORITY[capability];
           const upload = uploads[capability];
+          const fileContract = GOLDEN_ARTIFACT_FILE_CONTRACTS[capability];
           return (
             <div key={capability} className={`rounded-xl border p-4 space-y-3 ${applicability === "NA" ? "bg-muted/40 opacity-75" : "bg-background"}`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -408,23 +613,62 @@ export function GoldenLessonPackageBuilder() {
                 </div>
                 <div className="flex gap-1">
                   <Badge variant={authority === "OFFICIAL" ? "default" : "secondary"}>{authority === "OFFICIAL" ? "رسمي" : "تمكين"}</Badge>
-                  <Badge variant="outline">{applicability}</Badge>
+                  <Badge variant="outline">
+                    {applicability === "REQUIRED" ? "إلزامي" : applicability === "OPTIONAL" ? "اختياري" : "غير منطبق"}
+                  </Badge>
                 </div>
               </div>
               {applicability !== "NA" && (
                 <>
-                  <Input type="file" accept=".json,.html,.zip" disabled={hashing !== null} onChange={(event) => void handleCapabilityFile(capability, event.target.files?.[0])} className="min-h-[44px]" />
+                  <p className="text-xs text-muted-foreground">المطلوب: {fileContract.expectedAr}</p>
+                  <ArabicFilePicker
+                    id={`golden-artifact-${capability}`}
+                    accept={fileContract.accept}
+                    disabled={hashing !== null}
+                    fileName={upload?.fileName}
+                    onFile={(file) => handleCapabilityFile(capability, file)}
+                  />
                   {hashing === capability && <p className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" />حساب SHA-256…</p>}
-                  {upload && <p className="text-xs break-all"><CheckCircle2 className="inline h-4 w-4 text-emerald-600 ms-1" />{upload.fileName}<br/><span className="font-mono text-[10px] text-muted-foreground">{upload.sha256}</span></p>}
+                  {upload && (
+                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="min-w-0 break-all text-emerald-700 dark:text-emerald-400">
+                          <CheckCircle2 className="inline h-4 w-4 ms-1" />تم التحقق من الملف: {upload.fileName}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 shrink-0 gap-1 text-destructive"
+                          onClick={() => removeCapabilityFile(capability)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />إزالة
+                        </Button>
+                      </div>
+                      <span className="font-mono text-[10px] text-muted-foreground">{upload.sha256}</span>
+                    </div>
+                  )}
                   {authority === "OFFICIAL" && upload && (
                     <div className="space-y-1.5">
                       <Label className="text-xs">ملف توثيق المصدر الرسمي</Label>
-                      <Input type="file" accept=".json,.txt,.md" disabled={hashing !== null} onChange={(event) => void handleProvenanceFile(capability, event.target.files?.[0])} className="min-h-[44px]" />
+                      <ArabicFilePicker
+                        id={`golden-provenance-${capability}`}
+                        accept=".json,.txt,.md,application/json,text/plain,text/markdown"
+                        disabled={hashing !== null}
+                        fileName={provenance[capability]?.fileName}
+                        onFile={(file) => handleProvenanceFile(capability, file)}
+                      />
                       {hashing === `provenance:${capability}` && <p className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" />حساب بصمة التوثيق…</p>}
                       {provenance[capability] && <p className="text-[10px] break-all font-mono text-muted-foreground">{provenance[capability]?.fileName}<br/>{provenance[capability]?.sha256}</p>}
                     </div>
                   )}
                 </>
+              )}
+              {applicability === "NA" && (
+                <p className="text-xs text-muted-foreground">
+                  هذه القدرة غير منطبقة على نوع الدرس المختار.
+                  {capability === "labExperimentHtml" ? " لرفع تجربة معملية اختر نوع الدرس «الكيمياء»." : ""}
+                </p>
               )}
             </div>
           );
@@ -433,13 +677,12 @@ export function GoldenLessonPackageBuilder() {
 
       <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 space-y-2">
         <Label>الصور والأصول المساندة المشار إليها داخل HTML</Label>
-        <Input
-          type="file"
+        <ArabicMultiFilePicker
+          id="golden-supplemental-assets"
           accept="image/png,image/jpeg,image/webp"
-          multiple
-          disabled={hashing !== null}
-          onChange={(event) => void handleSupplementalAssets(event.target.files ?? undefined)}
-          className="min-h-[44px]"
+          disabled={hashing !== null || !profile}
+          selectedCount={supplementalAssets.length}
+          onFiles={handleSupplementalAssets}
         />
         <p className="text-xs text-muted-foreground">تُستخرج القدرة والنص البديل من HTML، وتُحسب البصمة محليًا، ثم يتحقق الخادم من البايتات مرة أخرى.</p>
         {supplementalAssets.map((asset) => (
@@ -452,7 +695,13 @@ export function GoldenLessonPackageBuilder() {
 
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
         <Label>ملف الإجابات الخادمي (اختياري في هذه المرحلة)</Label>
-        <Input type="file" accept=".json" disabled={hashing !== null} onChange={(event) => void handleAnswersFile(event.target.files?.[0])} className="min-h-[44px]" />
+        <ArabicFilePicker
+          id="golden-answers-companion"
+          accept=".server-only.json,.json,application/json"
+          disabled={hashing !== null || !profile}
+          fileName={answersCompanion?.fileName}
+          onFile={handleAnswersFile}
+        />
         <p className="text-xs text-muted-foreground">يجب أن ينتهي الاسم بـ <span className="font-mono">.server-only.json</span>، ولا يدخل في الحمولة العامة.</p>
         {answersCompanion && <p className="text-xs break-all text-emerald-700 dark:text-emerald-400">تم تثبيت: {answersCompanion.fileName}<br/><span className="font-mono text-[10px]">{answersCompanion.sha256}</span></p>}
       </div>
@@ -460,7 +709,7 @@ export function GoldenLessonPackageBuilder() {
       {fileError && <p role="alert" className="text-sm text-destructive flex gap-2"><AlertCircle className="h-4 w-4 mt-0.5" />{fileError}</p>}
 
       <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={runValidation} disabled={hashing !== null} className="min-h-[44px] gap-2"><ShieldCheck className="h-4 w-4" />فحص الحزمة</Button>
+        <Button type="button" onClick={runValidation} disabled={hashing !== null || !profile} className="min-h-[44px] gap-2"><ShieldCheck className="h-4 w-4" />فحص الحزمة</Button>
         <Button type="button" variant="outline" disabled={!validation?.valid} onClick={() => downloadJson(packageDraft, `${packageDraft.packageCode || "golden-lesson"}.manifest.json`)} className="min-h-[44px] gap-2"><Download className="h-4 w-4" />تنزيل Manifest</Button>
         <Button type="button" variant="outline" disabled={!validation?.valid} onClick={() => void downloadPackageBundle(packageDraft, uploads, provenance, answersCompanion, supplementalAssets)} className="min-h-[44px] gap-2"><FileArchive className="h-4 w-4" />تنزيل حزمة ZIP</Button>
         <Button type="button" disabled={!validation?.valid || intakeBusy} onClick={() => void uploadAndVerifyBundle()} className="min-h-[44px] gap-2">

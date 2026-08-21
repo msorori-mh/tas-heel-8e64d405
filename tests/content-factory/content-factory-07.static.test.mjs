@@ -29,3 +29,8 @@ test("ZIP verifier rejects structural and expansion attacks", () => {
   }
   assert.match(verifier, /checkCRC32: true/);
 });
+
+test("server verifier checks capability bytes after hash verification", () => {
+  assert.match(verifier, /validateGoldenLessonArtifactBytes/);
+  assert.match(verifier, /ARTIFACT_CONTENT_INVALID/);
+});

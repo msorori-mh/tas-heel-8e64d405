@@ -7,6 +7,7 @@ import {
   type GoldenLessonPackage,
 } from "./golden-lesson-contract.ts";
 import { getGoldenLessonProfile } from "./golden-lesson-profiles.ts";
+import { validateGoldenLessonArtifactPath } from "./golden-lesson-file-contract.ts";
 
 
 export type GoldenLessonFindingSeverity = "ERROR" | "WARNING";
@@ -58,6 +59,14 @@ export function validateGoldenLessonPackage(pkg: GoldenLessonPackage): GoldenLes
     error("TRACK_IDENTITY_INVALID", "identity.curriculumTrackCodes", "يجب تحديد مسار منهجي صحيح واحد على الأقل.");
   }
   if (!pkg.identity.lessonSlug.trim()) error("LESSON_SLUG_MISSING", "identity.lessonSlug", "اسم رابط الدرس مطلوب.");
+  const lessonFamily = pkg.identity.lessonCode.toUpperCase().startsWith("QURAN-")
+    ? "QURAN"
+    : pkg.identity.lessonCode.toUpperCase().startsWith("CHEM-")
+      ? "SCIENCE"
+      : null;
+  if (profile && lessonFamily && profile.subjectFamily !== lessonFamily) {
+    error("PROFILE_IDENTITY_MISMATCH", "profileId", "نمط الدرس المختار لا يطابق رمز الدرس؛ اختر نمط المادة الصحيح.");
+  }
   if (pkg.identity.semester === null) warning("SEMESTER_PENDING", "identity.semester", "الفصل الدراسي غير محسوم وسيبقى PENDING.");
   if (pkg.identity.sortOrder === null) warning("SORT_ORDER_PENDING", "identity.sortOrder", "ترتيب الدرس غير محسوم وسيبقى PENDING.");
 
@@ -89,6 +98,11 @@ export function validateGoldenLessonPackage(pkg: GoldenLessonPackage): GoldenLes
     }
     if (artifact.sourcePath && (!artifact.sha256 || !SHA256.test(artifact.sha256))) {
       error("ARTIFACT_HASH_INVALID", `artifacts.${artifact.capability}.sha256`, "SHA-256 مفقود أو غير صالح.");
+    }
+    if (artifact.sourcePath) {
+      for (const finding of validateGoldenLessonArtifactPath(artifact.capability, artifact.sourcePath).findings) {
+        error(finding.code, `artifacts.${artifact.capability}.sourcePath`, finding.messageAr);
+      }
     }
     if (artifact.authority === "OFFICIAL" && artifact.sourcePath) {
       if (!artifact.provenancePath) {
