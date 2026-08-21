@@ -37,6 +37,8 @@ export interface CodeRegistryLesson {
   subjectCode: string;
   unitCode: string | null;
   title: string;
+  semester: number | null;
+  sortOrder: number | null;
 }
 
 export interface CodeRegistryScopeAllocation {
