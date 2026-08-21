@@ -254,7 +254,8 @@ test("CF11-R8/2 — only verifyGoldenLessonCf11Assets may upload or attest", () 
   assert.ok((verifyHandler.match(/attestStoredAssets/g) ?? []).length >= 2);
   assert.equal((publishHandler.match(/uploadVerifiedAssets/g) ?? []).length, 0);
   // The only storage upload and the only attestation RPC live in the server module.
-  assert.match(server, /async function storageUpload/);\n  assert.equal((server.match(/await storageUpload\(/g) ?? []).length, 1);
+  assert.match(server, /async function storageUpload/);
+  assert.equal((server.match(/await storageUpload\(/g) ?? []).length, 1);
   assert.equal((server.match(/golden_lesson_attest_cf11_asset/g) ?? []).length, 1);
 });
 
