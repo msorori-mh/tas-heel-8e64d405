@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import ExcelJS from "exceljs";
@@ -18,6 +18,8 @@ const result = {
   requiredFiles: 6,
   optionalActivityUploaded: true,
   questionTemplates: ["09", "10"],
+  isolatedDraftStageCompleted: false,
+  productionWritesPerformed: 0,
   forbiddenInputsAbsent: [],
   passed: false,
 };
@@ -149,7 +151,14 @@ try {
   await page.getByText("6/6 — 100%", { exact: true }).waitFor();
   await page.getByRole("button", { name: "فحص الملفات" }).click();
   await page.getByText("الملفات مكتملة وجاهزة للاستيراد", { exact: true }).waitFor();
-  assert.equal(await page.getByRole("button", { name: "استيراد المحتوى كمسودة" }).isEnabled(), true);
+  const importButton = page.getByRole("button", { name: "استيراد المحتوى كمسودة" });
+  assert.equal(await importButton.isEnabled(), true);
+  await importButton.click();
+  await page.getByText("تم استيراد ملفات الدرس وربطها بإصدار المسودة", { exact: true }).waitFor();
+  await page.getByText("الحالة: DRAFT", { exact: false }).waitFor();
+  await page.getByText("كتابات المحتوى: 0", { exact: false }).waitFor();
+  assert.equal(await page.getByRole("alert").filter({ hasText: "TEST_ONLY" }).count(), 0);
+  result.isolatedDraftStageCompleted = true;
 
   await page.screenshot({ path: path.join(evidenceDir, "desktop-final-import.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
