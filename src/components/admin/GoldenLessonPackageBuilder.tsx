@@ -807,7 +807,7 @@ export function GoldenLessonPackageBuilder() {
 
       <div className="space-y-3">
         {canonicalIdentityComplete && GOLDEN_CAPABILITIES.map((capability) => {
-          const applicability = profile.applicability[capability];
+          const applicability = profile?.applicability[capability] ?? "NA";
           const authority = GOLDEN_CAPABILITY_AUTHORITY[capability];
           const upload = uploads[capability];
           const fileContract = GOLDEN_ARTIFACT_FILE_CONTRACTS[capability];
