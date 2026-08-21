@@ -18,6 +18,10 @@ export default defineConfig({
         replacement: path.resolve(here, "stubs/golden-lesson-direct.functions.ts"),
       },
       {
+        find: "@/lib/content-codes/content-codes.functions",
+        replacement: path.resolve(here, "stubs/content-codes.functions.ts"),
+      },
+      {
         find: "@/integrations/supabase/client",
         replacement: path.resolve(here, "stubs/supabase-client.ts"),
       },
