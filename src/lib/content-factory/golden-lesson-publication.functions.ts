@@ -94,6 +94,7 @@ export const verifyGoldenLessonCf11Assets = createServerFn({ method: "POST" })
       attestations,
       uploaded: uploadedPaths.size,
       bundleSha256,
+      transport: "BOUND_RPC_REST_V1" as const,
       publicationPerformed: false as const,
     };
   });
