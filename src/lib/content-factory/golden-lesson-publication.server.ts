@@ -81,6 +81,77 @@ export function serviceClient() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
+type StorageListObject = {
+  name: string;
+  metadata?: { size?: number; mimetype?: string };
+};
+
+function storageServiceConfig() {
+  const url = process.env["SUPABASE_URL"];
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  if (!url || !key) throw new Error("CONTENT_FACTORY_PUBLICATION_NOT_CONFIGURED");
+  return { url: url.replace(/\/$/, ""), key };
+}
+
+function storageObjectPath(bucket: string, path: string, authenticated = false) {
+  const { url } = storageServiceConfig();
+  const encoded = [bucket, ...path.split("/")].map(encodeURIComponent).join("/");
+  return `${url}/storage/v1/object/${authenticated ? "authenticated/" : ""}${encoded}`;
+}
+
+function storageHeaders(contentType?: string) {
+  const { key } = storageServiceConfig();
+  return {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    ...(contentType ? { "Content-Type": contentType } : {}),
+  };
+}
+
+async function storageDownload(bucket: string, path: string, code: string): Promise<Uint8Array> {
+  const response = await fetch(storageObjectPath(bucket, path, true), {
+    method: "GET",
+    headers: storageHeaders(),
+  });
+  if (!response.ok) throw new Error(`${code}: HTTP ${response.status}`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function storageList(bucket: string, prefix: string, search: string): Promise<StorageListObject[]> {
+  const { url } = storageServiceConfig();
+  const response = await fetch(`${url}/storage/v1/object/list/${encodeURIComponent(bucket)}`, {
+    method: "POST",
+    headers: storageHeaders("application/json"),
+    body: JSON.stringify({
+      prefix,
+      search,
+      limit: 100,
+      offset: 0,
+      sortBy: { column: "name", order: "asc" },
+    }),
+  });
+  if (!response.ok) throw new Error(`CF11_ASSET_LIST_FAILED: HTTP ${response.status}`);
+  const payload: unknown = await response.json();
+  if (!Array.isArray(payload)) throw new Error("CF11_ASSET_LIST_FAILED: invalid response");
+  return payload as StorageListObject[];
+}
+
+async function storageUpload(
+  bucket: string,
+  path: string,
+  bytes: Uint8Array,
+  mimeType: string,
+): Promise<void> {
+  const body = new Uint8Array(bytes.byteLength);
+  body.set(bytes);
+  const response = await fetch(storageObjectPath(bucket, path), {
+    method: "POST",
+    headers: { ...storageHeaders(mimeType), "x-upsert": "false" },
+    body: body.buffer,
+  });
+  if (!response.ok) throw new Error(`CF11_ASSET_UPLOAD_FAILED: HTTP ${response.status}`);
+}
+
 export interface Cf11AssetDeclaration {
   assetCode: string;
   fileName: string;
@@ -256,11 +327,12 @@ export async function resolveVerifiedAssets(batchId: string): Promise<{
   );
   if (!version?.verified_storage_path) throw new Error("CF11_VERIFIED_BUNDLE_REQUIRED");
 
-  const downloaded = await admin.storage.from(INTAKE_BUCKET).download(version.verified_storage_path);
-  if (downloaded.error || !downloaded.data) {
-    throw new Error(`CF11_BUNDLE_DOWNLOAD_FAILED: ${downloaded.error?.message ?? "empty"}`);
-  }
-  const verified = await verifyGoldenLessonBundle(new Uint8Array(await downloaded.data.arrayBuffer()));
+  const bundleBytes = await storageDownload(
+    INTAKE_BUCKET,
+    version.verified_storage_path,
+    "CF11_BUNDLE_DOWNLOAD_FAILED",
+  );
+  const verified = await verifyGoldenLessonBundle(bundleBytes);
   if (verified.bundleSha256 !== batch.verified_bundle_sha256) {
     throw new Error("CF11_VERIFIED_BUNDLE_IDENTITY_MISMATCH");
   }
@@ -295,21 +367,15 @@ export async function uploadVerifiedAssets(
   declarations: Cf11AssetDeclaration[],
   files: Map<string, Uint8Array>,
 ): Promise<Set<string>> {
-  const admin = serviceClient();
   const uploadedPaths = new Set<string>();
   for (const declaration of declarations) {
     const bytes = files.get(declaration.storagePath);
     if (!bytes) throw new Error("CF11_ASSET_BYTES_MISSING");
     const [lessonId, ...rest] = declaration.storagePath.split("/");
     const objectName = rest.join("/");
-    const existing = await admin.storage.from(ASSET_BUCKET).list(lessonId, { search: objectName });
-    if (existing.error) throw new Error(`CF11_ASSET_LIST_FAILED: ${existing.error.message}`);
-    if ((existing.data ?? []).some((object) => object.name === objectName)) continue;
-    const upload = await admin.storage.from(ASSET_BUCKET).upload(declaration.storagePath, bytes, {
-      contentType: declaration.mimeType,
-      upsert: false,
-    });
-    if (upload.error) throw new Error(`CF11_ASSET_UPLOAD_FAILED: ${upload.error.message}`);
+    const existing = await storageList(ASSET_BUCKET, lessonId, objectName);
+    if (existing.some((object) => object.name === objectName)) continue;
+    await storageUpload(ASSET_BUCKET, declaration.storagePath, bytes, declaration.mimeType);
     uploadedPaths.add(declaration.storagePath);
   }
   return uploadedPaths;
@@ -370,10 +436,8 @@ export async function assertAssetsVerified(
     }
     const [prefix, ...rest] = declaration.storagePath.split("/");
     const objectName = rest.join("/");
-    const listed = await admin.storage.from(ASSET_BUCKET).list(prefix, { search: objectName });
-    if (listed.error) throw new Error(`CF11_ASSET_LIST_FAILED: ${listed.error.message}`);
-    const object = (listed.data ?? []).find((entry) => entry.name === objectName) as
-      { name: string; metadata?: { size?: number; mimetype?: string } } | undefined;
+    const listed = await storageList(ASSET_BUCKET, prefix, objectName);
+    const object = listed.find((entry) => entry.name === objectName);
     if (!object || Number(object.metadata?.size) !== declaration.bytes) {
       throw new Error(`CF11_ASSETS_NOT_VERIFIED: ${declaration.assetCode}`);
     }
@@ -409,11 +473,11 @@ export async function attestStoredAssets(
   const admin = serviceClient();
   const out: Cf11AssetAttestation[] = [];
   for (const declaration of declarations) {
-    const stored = await admin.storage.from(ASSET_BUCKET).download(declaration.storagePath);
-    if (stored.error || !stored.data) {
-      throw new Error(`CF11_ASSET_READBACK_FAILED: ${declaration.assetCode}`);
-    }
-    const bytes = new Uint8Array(await stored.data.arrayBuffer());
+    const bytes = await storageDownload(
+      ASSET_BUCKET,
+      declaration.storagePath,
+      `CF11_ASSET_READBACK_FAILED: ${declaration.assetCode}`,
+    );
     const observedSha = createHash("sha256").update(bytes).digest("hex");
     if (observedSha !== declaration.sha256) throw new Error(`CF11_ASSET_BYTES_MISMATCH: ${declaration.assetCode}`);
     if (bytes.byteLength !== declaration.bytes) throw new Error(`CF11_ASSET_SIZE_MISMATCH: ${declaration.assetCode}`);
