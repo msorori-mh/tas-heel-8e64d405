@@ -122,7 +122,7 @@ function ArabicMultiFilePicker({
   accept: string;
   disabled: boolean;
   selectedCount: number;
-  onFiles: (files?: FileList) => void | Promise<void>;
+  onFiles: (files: File[]) => void | Promise<void>;
 }) {
   return (
     <div className="flex min-h-[44px] items-center gap-2 rounded-md border bg-background px-2 py-1.5">
@@ -134,9 +134,11 @@ function ArabicMultiFilePicker({
         disabled={disabled}
         className="sr-only"
         onChange={(event) => {
-          const files = event.currentTarget.files ?? undefined;
-          void onFiles(files);
+          // FileList is live: clearing the input would otherwise empty it before
+          // the async asset validator reads the selected files.
+          const files = Array.from(event.currentTarget.files ?? []);
           event.currentTarget.value = "";
+          void onFiles(files);
         }}
       />
       <Label htmlFor={id} className="inline-flex min-h-[36px] cursor-pointer items-center rounded-md border px-3 text-sm font-medium hover:bg-accent">
@@ -439,7 +441,7 @@ export function GoldenLessonPackageBuilder() {
     }
   };
 
-  const handleSupplementalAssets = async (files?: FileList) => {
+  const handleSupplementalAssets = async (files: File[]) => {
     if (!files?.length) return;
     setFileError(null);
     setValidation(null);
@@ -453,7 +455,7 @@ export function GoldenLessonPackageBuilder() {
         }),
       );
       const next: UploadedSupplementalAsset[] = [];
-      for (const file of Array.from(files)) {
+      for (const file of files) {
         if (!isSafeAssetLeaf(file.name)) throw new Error(`اسم الأصل غير آمن: ${file.name}`);
         if (!isAllowedAssetMime(file.type)) throw new Error(`نوع الأصل غير مسموح: ${file.name}`);
         if (file.size < GOLDEN_ASSET_MIN_BYTES || file.size > GOLDEN_ASSET_MAX_BYTES) {

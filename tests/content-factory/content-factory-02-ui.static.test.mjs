@@ -56,3 +56,9 @@ test("capability inputs use Arabic pickers and strict per-file contracts", () =>
   assert.match(component, /لرفع تجربة معملية اختر نوع الدرس «الكيمياء»/);
   assert.doesNotMatch(component, /accept="\.json,\.html,\.zip"/);
 });
+
+test("supplemental asset picker snapshots the live FileList before clearing the input", () => {
+  assert.match(component, /const files = Array\.from\(event\.currentTarget\.files \?\? \[\]\)/);
+  assert.match(component, /event\.currentTarget\.value = "";\s*void onFiles\(files\)/);
+  assert.match(component, /handleSupplementalAssets = async \(files: File\[\]\)/);
+});
