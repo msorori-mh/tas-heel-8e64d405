@@ -6,6 +6,10 @@ const routePath = new URL(
   "../../src/routes/_authenticated/lessons.$lessonId.tsx",
   import.meta.url,
 );
+const adminLessonsPath = new URL(
+  "../../src/routes/_authenticated/admin.lessons.index.tsx",
+  import.meta.url,
+);
 const migrationPath = new URL(
   "../../supabase/migrations-pending/20260821010000_lesson_question_role_separation.sql",
   import.meta.url,
@@ -32,6 +36,13 @@ test("lesson route uses distinct role-filtered RPCs and no generic mixed quiz RP
   assert.match(source, /check_lesson_self_test_question/);
   assert.doesNotMatch(source, /get_lesson_quiz_questions/);
   assert.doesNotMatch(source, /check_lesson_question/);
+});
+
+test("admin lesson indicators expose both question roles without the removed assessment type", async () => {
+  const source = await readFile(adminLessonsPath, "utf8");
+  assert.match(source, /type: "OFFICIAL_QUESTIONS", label: "أسئلة الكتاب"/);
+  assert.match(source, /type: "SELF_TEST", label: "اختبر فهمك"/);
+  assert.doesNotMatch(source, /type: "ASSESSMENT"/);
 });
 
 test("pending SQL filters by semantic role and omits answers from initial payloads", async () => {
