@@ -25,7 +25,7 @@ import {
   materializeGoldenLessonBatch,
   publishGoldenLessonCf11,
   revokeGoldenLessonCf11Ready,
-  verifyGoldenLessonCf11Assets,
+  verifyGoldenLessonCf11AssetsV2,
   type Cf11BatchStatus,
 } from "@/lib/content-factory/golden-lesson-publication.functions";
 
@@ -50,7 +50,7 @@ export function GoldenLessonCf11OperatorPanel() {
   const { user } = useAuth();
   const loadBatches = useServerFn(getGoldenLessonCf11Batches);
   const materialize = useServerFn(materializeGoldenLessonBatch);
-  const verifyAssets = useServerFn(verifyGoldenLessonCf11Assets);
+  const verifyAssets = useServerFn(verifyGoldenLessonCf11AssetsV2);
   const publish = useServerFn(publishGoldenLessonCf11);
   const attest = useServerFn(attestGoldenLessonCf11Ready);
   const revoke = useServerFn(revokeGoldenLessonCf11Ready);
