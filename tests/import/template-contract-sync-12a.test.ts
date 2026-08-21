@@ -48,9 +48,25 @@ describe("12A — template ↔ contract sync", () => {
     expect([...IMPORT_EXECUTION_ORDER].sort()).toEqual([...CONTENT_IMPORT_TEMPLATE_KEYS].sort());
   });
 
-  it("questions (09) execute before assessment_questions (08)", () => {
+  it("both separated question templates execute before assessment_questions (08)", () => {
     expect(IMPORT_EXECUTION_ORDER.indexOf("questions")).toBeLessThan(
       IMPORT_EXECUTION_ORDER.indexOf("assessment_questions"),
+    );
+    expect(IMPORT_EXECUTION_ORDER.indexOf("self_test_questions")).toBeLessThan(
+      IMPORT_EXECUTION_ORDER.indexOf("assessment_questions"),
+    );
+  });
+
+  it("keeps official-book questions and self-test in separate workbooks", () => {
+    expect(getContentImportTemplateByKey("questions").filename).toBe(
+      "09_official_book_questions_template.xlsx",
+    );
+    expect(getContentImportTemplateByKey("self_test_questions").filename).toBe(
+      "10_self_test_questions_template.xlsx",
+    );
+    expect(requiredTemplateColumnsForEntity("questions")).toContain("model_answer");
+    expect(requiredTemplateColumnsForEntity("self_test_questions")).toEqual(
+      expect.arrayContaining(["option_1", "option_2", "correct_index", "explanation"]),
     );
   });
 

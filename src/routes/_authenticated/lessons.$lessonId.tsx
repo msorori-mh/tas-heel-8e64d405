@@ -42,7 +42,6 @@ import {
   filterStudentCapabilitiesByLifecycle,
 } from "@/lib/lessons/lesson-lifecycle";
 
-import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
 import {
   Home,
   BookOpen,
@@ -132,12 +131,49 @@ type SimulationRow = {
   phet_url: string;
 };
 
-type QuestionRow = {
+type StudentQuestionOption = {
+  id: string;
+  text: string;
+  sortOrder: number;
+};
+
+type LessonQuestionRow = {
   id: string;
   question_text: string;
-  options: unknown;
+  options: StudentQuestionOption[];
+  question_type: string | null;
   sort_order: number;
+  revision_id: string;
 };
+
+function parseStudentOptions(value: unknown): StudentQuestionOption[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((option, index) => {
+    if (typeof option === "string") {
+      return [{ id: String(index + 1), text: option, sortOrder: index + 1 }];
+    }
+    if (!option || typeof option !== "object") return [];
+    const candidate = option as Record<string, unknown>;
+    const id = String(candidate.id ?? candidate.option_code ?? index + 1);
+    const text = String(candidate.text ?? candidate.body ?? "").trim();
+    if (!text) return [];
+    const sortOrder = Number(candidate.sortOrder ?? candidate.sort_order ?? index + 1);
+    return [{ id, text, sortOrder: Number.isFinite(sortOrder) ? sortOrder : index + 1 }];
+  }).sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+async function callLessonQuestionRpc<T>(
+  name: string,
+  args: Record<string, unknown>,
+): Promise<T> {
+  const rpc = supabase.rpc as unknown as (
+    functionName: string,
+    parameters: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: Error | null }>;
+  const { data, error } = await rpc(name, args);
+  if (error) throw error;
+  return data as T;
+}
 
 type ExplanationRow = {
   id: string;
@@ -251,21 +287,40 @@ function LessonPage() {
     },
   });
 
-  const { data: questions } = useQuery({
+  const { data: officialQuestions } = useQuery({
     enabled: !!lesson && accessible === true,
-    queryKey: ["lesson-questions", lessonId],
+    queryKey: ["lesson-official-book-questions", lessonId],
     queryFn: async () => {
-      // SECURITY: use SECURITY DEFINER RPC which omits correct_index/explanation.
-      const { data, error } = await supabase.rpc("get_lesson_quiz_questions", {
+      // Role-filtered initial payload: no answer, correct option, explanation, or rationale.
+      const data = await callLessonQuestionRpc<any[]>("get_lesson_official_questions", {
         _lesson_id: lessonId,
       });
-      if (error) throw error;
       return ((data ?? []) as any[]).map((r) => ({
         id: r.id,
         question_text: r.question_text,
-        options: r.options,
+        options: parseStudentOptions(r.options),
+        question_type: r.question_type ?? null,
         sort_order: r.sort_order ?? 0,
-      })) as QuestionRow[];
+        revision_id: r.revision_id,
+      })) as LessonQuestionRow[];
+    },
+  });
+
+  const { data: selfTestQuestions } = useQuery({
+    enabled: !!lesson && accessible === true,
+    queryKey: ["lesson-self-test-questions", lessonId],
+    queryFn: async () => {
+      const data = await callLessonQuestionRpc<any[]>("get_lesson_self_test_questions", {
+        _lesson_id: lessonId,
+      });
+      return ((data ?? []) as any[]).map((r) => ({
+        id: r.id,
+        question_text: r.question_text,
+        options: parseStudentOptions(r.options),
+        question_type: r.question_type ?? "mcq",
+        sort_order: r.sort_order ?? 0,
+        revision_id: r.revision_id,
+      })) as LessonQuestionRow[];
     },
   });
 
@@ -428,22 +483,6 @@ function LessonPage() {
     },
   });
 
-  // Detect availability of a training template (for the journey CTA hint).
-  const { data: trainingTemplates } = useQuery({
-    enabled: !!lesson && accessible === true,
-    queryKey: ["lesson-training-templates-count", lessonId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("exam_templates")
-        .select("id,mode,questions:exam_template_questions(count)")
-        .eq("is_active", true)
-        .eq("lesson_id", lessonId);
-      if (error) throw error;
-      const rows = ((data ?? []) as any[]).filter((r) => (r.questions?.[0]?.count ?? 0) > 0);
-      return rows.length;
-    },
-  });
-
   // Sibling lessons for previous/next navigation inside the same subject.
   const { data: siblings } = useQuery({
     enabled: !!lesson?.subject_id && accessible === true,
@@ -540,8 +579,8 @@ function LessonPage() {
     htmlSummariesCount: htmlSummaries.length,
     summaryText: summary?.summary ?? null,
     explanationsCount: explanations?.length ?? 0,
-    questionsCount: questions?.length ?? 0,
-    lessonExamCount: trainingTemplates ?? 0,
+    officialQuestionsCount: officialQuestions?.length ?? 0,
+    selfTestQuestionsCount: selfTestQuestions?.length ?? 0,
     hasLessonVideoFlag: lessonExtra?.has_video === true,
     enhancementsAccessible: canAccessEnhancements,
     progress: progressRow
@@ -720,26 +759,26 @@ function LessonPage() {
           </ul>
         );
 
-      case "ASSESSMENT":
+      case "OFFICIAL_QUESTIONS":
         return (
           <ol className="space-y-4">
-            {(questions ?? []).map((q, idx) => (
+            {(officialQuestions ?? []).map((q, idx) => (
               <li key={q.id}>
-                <QuestionCard index={idx + 1} q={q} />
+                <OfficialBookQuestionCard index={idx + 1} q={q} />
               </li>
             ))}
           </ol>
         );
 
-      case "LESSON_EXAM":
+      case "SELF_TEST":
         return (
-          <ExamTemplatesSection
-            scope={{ kind: "lesson", lessonId }}
-            canAccess={canAccessEnhancements}
-            title="اختبارات الدرس"
-            emptyMessage="لا توجد اختبارات لهذا الدرس بعد."
-            lockedMessage="اختبارات الدرس غير متاحة حالياً."
-          />
+          <ol className="space-y-4">
+            {(selfTestQuestions ?? []).map((q, idx) => (
+              <li key={q.id}>
+                <SelfTestQuestionCard index={idx + 1} q={q} />
+              </li>
+            ))}
+          </ol>
         );
 
       case "EXTRA_RESOURCES":
@@ -941,69 +980,165 @@ function CapabilityIcon({ type }: { type: LessonCapabilityType }) {
       return <FlaskConical className={className} />;
     case "VIDEO":
       return <Video className={className} />;
-    case "ASSESSMENT":
+    case "OFFICIAL_QUESTIONS":
       return <Target className={className} />;
-    case "LESSON_EXAM":
+    case "SELF_TEST":
       return <Trophy className={className} />;
     default:
       return <Library className={className} />;
   }
 }
 
-function EssayQuestionCard({ index, q }: { index: number; q: QuestionRow }) {
+function OfficialBookQuestionCard({ index, q }: { index: number; q: LessonQuestionRow }) {
   const [answer, setAnswer] = useState("");
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  const [revealing, setRevealing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState<{
+    modelAnswer: string | null;
+    explanation: string | null;
+    correctOptionIds: string[];
+  } | null>(null);
+  const attemptedAnswer = q.options.length > 0 ? selectedOptionId : answer.trim();
+
+  const revealModelAnswer = async () => {
+    if (!attemptedAnswer) return;
+    setRevealing(true);
+    setErrorMessage(null);
+    try {
+      const result = await callLessonQuestionRpc<{
+        modelAnswer?: string | null;
+        explanation?: string | null;
+        correctOptionIds?: string[];
+        error?: string;
+      }>("reveal_lesson_official_question_answer", {
+        _question_id: q.id,
+        _revision_id: q.revision_id,
+        _student_answer: attemptedAnswer,
+      });
+      if (result.error) throw new Error(result.error);
+      setRevealed({
+        modelAnswer: result.modelAnswer ?? null,
+        explanation: result.explanation ?? null,
+        correctOptionIds: Array.isArray(result.correctOptionIds)
+          ? result.correctOptionIds.map(String)
+          : [],
+      });
+    } catch {
+      setErrorMessage("تعذر عرض الإجابة النموذجية الآن. حاول مرة أخرى.");
+    } finally {
+      setRevealing(false);
+    }
+  };
+
   return (
     <div className="rounded-xl border border-border bg-background p-3">
-      <div className="mb-2 whitespace-pre-line text-sm font-semibold text-foreground">
+      <div className="mb-3 whitespace-pre-line text-sm font-semibold text-foreground">
         <span className="text-muted-foreground">س{index}: </span>
         {q.question_text}
       </div>
-      <textarea
-        value={answer}
-        onChange={(e) => setAnswer(e.target.value)}
-        rows={4}
-        placeholder="اكتب إجابتك هنا…"
-        className="w-full rounded-lg border border-border bg-card p-2 text-right text-sm text-card-foreground outline-none focus:border-primary"
-      />
+
+      {q.options.length > 0 ? (
+        <div className="space-y-2">
+          {q.options.map((option) => {
+            const isCorrect = revealed?.correctOptionIds.includes(option.id) === true;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                disabled={revealed !== null}
+                onClick={() => setSelectedOptionId(option.id)}
+                className={`flex w-full items-start gap-2 rounded-lg border p-2 text-right text-sm ${
+                  isCorrect
+                    ? "border-emerald-500 bg-emerald-500/10"
+                    : selectedOptionId === option.id
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-card"
+                }`}
+              >
+                <span className="font-semibold">{option.id}</span>
+                <span>{option.text}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <textarea
+          value={answer}
+          disabled={revealed !== null}
+          onChange={(event) => setAnswer(event.target.value)}
+          rows={4}
+          placeholder="اكتب إجابتك هنا…"
+          className="w-full rounded-lg border border-border bg-card p-2 text-right text-sm text-card-foreground outline-none focus:border-primary"
+        />
+      )}
+
+      {!revealed && (
+        <Button
+          className="mt-3"
+          size="sm"
+          disabled={!attemptedAnswer || revealing}
+          onClick={revealModelAnswer}
+        >
+          {revealing ? "جارٍ العرض…" : "عرض الإجابة النموذجية"}
+        </Button>
+      )}
+
+      {revealed && (
+        <div className="mt-3 space-y-2 rounded-lg bg-secondary/40 p-3 text-sm">
+          <p className="font-semibold">الإجابة النموذجية</p>
+          <p className="whitespace-pre-line">{revealed.modelAnswer ?? "لا توجد إجابة نموذجية منشورة."}</p>
+          {revealed.explanation && (
+            <p className="whitespace-pre-line text-muted-foreground">{revealed.explanation}</p>
+          )}
+        </div>
+      )}
+      {errorMessage && <p className="mt-2 text-xs text-destructive">{errorMessage}</p>}
       <p className="mt-2 text-xs text-muted-foreground">
-        سؤال مقالي من تقويم الكتاب الوزاري — اكتب إجابتك ثم راجعها مع معلمك.
+        سؤال من الكتاب الرسمي بصيغته الأصلية — تظهر الإجابة النموذجية بعد محاولتك.
       </p>
     </div>
   );
 }
 
-function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
-  const options = Array.isArray(q.options) ? (q.options as unknown[]) : [];
-  const [selected, setSelected] = useState<number | null>(null);
+function SelfTestQuestionCard({ index, q }: { index: number; q: LessonQuestionRow }) {
+  const [selected, setSelected] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<{
     is_correct: boolean;
-    correct_index: number | null;
+    correct_option_id: string | null;
     explanation: string | null;
+    correction: string | null;
   } | null>(null);
   const checked = result !== null;
   const isCorrect = checked && result!.is_correct;
 
-  if (options.length === 0) {
-    return <EssayQuestionCard index={index} q={q} />;
-  }
-
-
   const handleCheck = async () => {
     if (selected === null) return;
     setChecking(true);
+    setErrorMessage(null);
     try {
-      const { data, error } = await supabase.rpc("check_lesson_question", {
+      const response = await callLessonQuestionRpc<{
+        is_correct?: boolean;
+        correct_option_id?: string | null;
+        explanation?: string | null;
+        correction?: string | null;
+        error?: string;
+      }>("check_lesson_self_test_question", {
         _question_id: q.id,
-        _selected_index: selected,
+        _revision_id: q.revision_id,
+        _selected_option_id: selected,
       });
-      if (error) throw error;
-      const r = data as { is_correct: boolean; correct_index: number; explanation: string | null };
+      if (response.error) throw new Error(response.error);
       setResult({
-        is_correct: !!r.is_correct,
-        correct_index: typeof r.correct_index === "number" ? r.correct_index : null,
-        explanation: r.explanation ?? null,
+        is_correct: response.is_correct === true,
+        correct_option_id: response.correct_option_id ?? null,
+        explanation: response.explanation ?? null,
+        correction: response.correction ?? null,
       });
+    } catch {
+      setErrorMessage("تعذر التحقق من الإجابة الآن. حاول مرة أخرى.");
     } finally {
       setChecking(false);
     }
@@ -1017,30 +1152,30 @@ function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
       </div>
 
       <div className="space-y-2">
-        {options.map((opt, i) => {
-          const active = selected === i;
+        {q.options.map((option) => {
+          const active = selected === option.id;
           const showCorrectness = checked && active;
           const correctnessClass = showCorrectness
             ? isCorrect
               ? "border-emerald-500 bg-emerald-500/10"
               : "border-destructive bg-destructive/10"
-            : checked && result!.correct_index !== null && i === result!.correct_index
+            : checked && result!.correct_option_id === option.id
               ? "border-emerald-500 bg-emerald-500/5"
               : active
                 ? "border-primary bg-primary/5"
                 : "border-border bg-card";
           return (
             <button
-              key={i}
+              key={option.id}
               type="button"
               disabled={checked}
-              onClick={() => setSelected(i)}
+              onClick={() => setSelected(option.id)}
               className={`flex w-full items-start gap-2 rounded-lg border p-2 text-right text-sm transition-colors ${correctnessClass}`}
             >
               <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs">
-                {String.fromCharCode(0x0623 + i) /* أ ب ت ث … */}
+                {option.id}
               </span>
-              <span className="min-w-0 flex-1 text-card-foreground">{String(opt)}</span>
+              <span className="min-w-0 flex-1 text-card-foreground">{option.text}</span>
             </button>
           );
         })}
@@ -1079,6 +1214,11 @@ function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
               {result!.explanation}
             </p>
           )}
+          {!isCorrect && result!.correction && (
+            <p className="rounded-md bg-amber-500/10 p-2 text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+              {result!.correction}
+            </p>
+          )}
           <Button
             type="button"
             size="sm"
@@ -1092,6 +1232,7 @@ function QuestionCard({ index, q }: { index: number; q: QuestionRow }) {
           </Button>
         </div>
       )}
+      {errorMessage && <p className="mt-2 text-xs text-destructive">{errorMessage}</p>}
     </div>
   );
 }

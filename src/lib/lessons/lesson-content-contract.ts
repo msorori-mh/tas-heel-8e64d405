@@ -93,7 +93,7 @@ export const CAPABILITY_LABEL_AR: Record<LessonContentCapabilityKey, string> = {
   supportingResources: "الموارد المساعدة",
   quickReview: "ملخص الدرس",
   checkUnderstanding: "أسئلة الدرس",
-  lessonAssessment: "اختبر نفسك",
+  lessonAssessment: "اختبر فهمك",
   studentPerformance: "مستواك وأخطاؤك",
   originalBookPdf: "نسخة الكتاب الأصلية (PDF)",
 };
@@ -186,12 +186,16 @@ export interface LessonContentContractInput {
     summary: string | null;
     updated_at?: string | null;
   }[];
-  /** questions bound to this lesson (student-visible bank). */
-  questionsCount: number;
+  /** Published OFFICIAL_BOOK_QUESTION revisions bound to this lesson. */
+  officialQuestionsCount?: number;
+  /** Published SELF_TEST revisions bound to this lesson. */
+  selfTestQuestionsCount?: number;
+  /** @deprecated Unclassified legacy question count. */
+  questionsCount?: number;
   /** lesson_assessments rows. */
   assessmentsCount: number;
   /** exam_templates scoped to this lesson and active. */
-  lessonExamCount: number;
+  lessonExamCount?: number;
   /** Whether student progress/mistakes tracking can produce a signal. */
   performanceTrackable?: boolean;
   /** Enhancement access gate (subscription / free unit / admin). */
@@ -441,29 +445,31 @@ export function buildLessonCapabilityContract(
   });
 
   /* 7 — check understanding (V3 revision-pinned official question RPC) */
+  const officialQuestionsCount = input.officialQuestionsCount ?? input.questionsCount ?? 0;
   const checkUnderstanding = state("checkUnderstanding", {
-    present: input.questionsCount > 0,
-    status: input.questionsCount > 0 ? "READY" : "ABSENT",
-    studentVisible: input.questionsCount > 0,
+    present: officialQuestionsCount > 0,
+    status: officialQuestionsCount > 0 ? "READY" : "ABSENT",
+    studentVisible: officialQuestionsCount > 0,
     sourceRef: "questions(current_published_revision_id) → get_lesson_official_questions",
-    count: input.questionsCount,
+    count: officialQuestionsCount,
     updatedAt: null,
   });
 
   /* 8 — lesson assessment (formal card / exam template) */
-  const assessCount = input.assessmentsCount + input.lessonExamCount;
+  const selfTestCount =
+    input.selfTestQuestionsCount ?? (input.assessmentsCount + (input.lessonExamCount ?? 0));
   const lessonAssessment = state("lessonAssessment", {
-    present: assessCount > 0,
-    status: assessCount > 0 ? "READY" : "ABSENT",
-    studentVisible: assessCount > 0 && gateOpen,
-    sourceRef: "lesson_assessments + exam_templates(lesson_id)",
-    count: assessCount,
+    present: selfTestCount > 0,
+    status: selfTestCount > 0 ? "READY" : "ABSENT",
+    studentVisible: selfTestCount > 0 && gateOpen,
+    sourceRef: "question_revisions(educational_label=SELF_TEST) → get_lesson_self_test_questions",
+    count: selfTestCount,
     updatedAt: null,
   });
 
   /* 9 — student performance (derived, never authored) */
   const perfPresent = input.performanceTrackable !== false && (
-    input.questionsCount > 0 || assessCount > 0
+    officialQuestionsCount > 0 || selfTestCount > 0
   );
   const studentPerformance = state("studentPerformance", {
     present: perfPresent,
@@ -587,8 +593,8 @@ export const LEGACY_CAPABILITY_TO_KEY: Record<string, LessonContentCapabilityKey
   VIDEO: "supportingResources",
   EXTRA_RESOURCES: "supportingResources",
   SUMMARY: "quickReview",
-  ASSESSMENT: "checkUnderstanding",
-  LESSON_EXAM: "lessonAssessment",
+  OFFICIAL_QUESTIONS: "checkUnderstanding",
+  SELF_TEST: "lessonAssessment",
 };
 
 /**

@@ -1,4 +1,5 @@
 export * from "./official-normalized-v1.ts";
+export * from "./question-content-role.ts";
 export * from "./validation-codes.ts";
 export * from "./errors.ts";
 export * from "./authorization.ts";
@@ -18,3 +19,4 @@ export * from "./adapters/detect.ts";
 export * from "./adapters/legacy-flat-15col.ts";
 export * from "./adapters/teacher-flat-ar-v0.ts";
 export * from "./adapters/official-flat-v0.ts";
+export * from "./adapters/lesson-content-question-v1.ts";
