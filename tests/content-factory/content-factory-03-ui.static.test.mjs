@@ -39,5 +39,5 @@ test("panel remains RTL and mobile-first", () => {
   assert.match(component, /dir="rtl"/);
   assert.match(component, /grid-cols-1/);
   assert.ok((component.match(/min-h-\[44px\]/g) ?? []).length >= 2);
-  assert.doesNotMatch(component, /تجهيز الحزمة وربط هوية الدرس|اعتماد مالك المنصة للتجهيز/);
+  assert.doesNotMatch(component, /<Database|owner-approval-reason/);
 });
