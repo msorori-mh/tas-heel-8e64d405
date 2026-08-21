@@ -1,0 +1,64 @@
+name: PR86 Import Center Browser E2E
+
+on:
+  pull_request:
+    branches:
+      - fix/content-official-questions-self-test-separation-01
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr86-import-center-e2e-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  import-center-browser-e2e:
+    name: Chromium import journey (TEST_ONLY)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out PR merge ref
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install repository and Chromium runtime
+        run: |
+          npm ci
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start isolated import preview
+        run: |
+          mkdir -p artifacts/import-center-e2e
+          npx vite --config tests/e2e/import-center-pr86/vite.config.ts \
+            --host 127.0.0.1 --port 4173 \
+            > artifacts/import-center-e2e/vite.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat artifacts/import-center-e2e/vite.log
+          exit 1
+
+      - name: Run Chromium E2E journey
+        env:
+          IMPORT_CENTER_PREVIEW_URL: http://127.0.0.1:4173
+        run: node tests/e2e/import-center-pr86/import-center.e2e.mjs
+
+      - name: Upload E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr86-import-center-e2e-evidence
+          path: artifacts/import-center-e2e
+          if-no-files-found: error
+
