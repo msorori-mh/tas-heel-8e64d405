@@ -5,9 +5,9 @@ import { test } from "node:test";
 const component = readFileSync("src/components/admin/GoldenLessonManifestReviewPanel.tsx", "utf8");
 const route = readFileSync("src/routes/_authenticated/admin.import.tsx", "utf8");
 
-test("manifest review panel is mounted after the package builder", () => {
-  assert.match(route, /GoldenLessonManifestReviewPanel/);
-  assert.ok(route.indexOf("<GoldenLessonPackageBuilder />") < route.indexOf("<GoldenLessonManifestReviewPanel />"));
+test("the current CF11 review panel is mounted after the direct package builder", () => {
+  assert.match(route, /GoldenLessonCf11OperatorPanel/);
+  assert.ok(route.indexOf("<GoldenLessonPackageBuilder />") < route.indexOf("<GoldenLessonCf11OperatorPanel />"));
 });
 
 test("review panel uses typed staging functions and exposes no direct RPC or execute path", () => {
