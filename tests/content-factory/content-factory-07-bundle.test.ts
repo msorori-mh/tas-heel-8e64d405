@@ -17,9 +17,16 @@ const files = {
   "summary.html": staticHtml("summary"),
   "questions.json": JSON.stringify({
     capability: "officialBookQuestions",
-    questions: [{ official_text: "سؤال رسمي", model_answer: "إجابة نموذجية" }],
+    questions: [{ question_number: "7", official_text: "سؤال رسمي" }],
   }),
   "questions.provenance.json": "questions-source",
+  "answers.server-only.json": JSON.stringify({
+    answers: [{
+      capability: "officialBookQuestions",
+      question_id: "7",
+      model_answer: "إجابة نموذجية",
+    }],
+  }),
 };
 
 function manifest(bundleFiles = files) {
@@ -37,7 +44,7 @@ function manifest(bundleFiles = files) {
       { capability: "selfTest", applicability: "OPTIONAL", authority: "TAMKEEN", sourcePath: null, sha256: null, provenancePath: null, provenanceSha256: null },
     ],
     lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },
-    security: { productionApply: false, publicPayloadContainsAnswers: false, answersCompanionPath: null, answersCompanionSha256: null, htmlNetworkAccess: "NONE" },
+    security: { productionApply: false, publicPayloadContainsAnswers: false, answersCompanionPath: "answers.server-only.json", answersCompanionSha256: h(bundleFiles["answers.server-only.json"]), htmlNetworkAccess: "NONE" },
   };
 }
 
@@ -48,7 +55,7 @@ async function bundle(options: { extra?: boolean; corruptHash?: boolean; invalid
     ...(options.invalidQuestions ? {
       "questions.json": JSON.stringify({
         capability: "officialBookQuestions",
-        questions: [{ official_text: "سؤال بلا إجابة" }],
+        questions: [{ question_number: "8", official_text: "سؤال بلا إجابة خادمية" }],
       }),
     } : {}),
   };
@@ -62,7 +69,7 @@ async function bundle(options: { extra?: boolean; corruptHash?: boolean; invalid
 
 test("exact stored ZIP verifies every declared byte", async () => {
   const verified = await verifyGoldenLessonBundle(await bundle());
-  assert.equal(verified.fileCount, 7);
+  assert.equal(verified.fileCount, 8);
   assert.match(verified.bundleSha256, /^[a-f0-9]{64}$/);
   assert.match(verified.manifestSha256, /^[a-f0-9]{64}$/);
 });
@@ -75,10 +82,10 @@ test("a declared hash mismatch fails closed", async () => {
   await assert.rejects(async () => verifyGoldenLessonBundle(await bundle({ corruptHash: true })), /ZIP_FILE_HASH_MISMATCH/);
 });
 
-test("valid hashes cannot hide semantically incomplete question content", async () => {
+test("valid hashes cannot hide incomplete server-only answer coverage", async () => {
   await assert.rejects(
     async () => verifyGoldenLessonBundle(await bundle({ invalidQuestions: true })),
-    /MODEL_ANSWER_MISSING/,
+    /ANSWER_COMPANION_COVERAGE_MISSING/,
   );
 });
 
@@ -90,5 +97,5 @@ test("verified bytes map deterministically to seven domain staging targets", asy
   assert.equal(envelope.entries[2]?.lifecycleCapability, "quickReview");
   assert.equal(envelope.entries[4]?.targetPlan, "lesson_resources:experiment");
   assert.equal(envelope.entries[0]?.sourceBase64, Buffer.from(files["official.json"]).toString("base64"));
-  assert.equal(envelope.answersCompanion, null);
+  assert.equal(envelope.answersCompanion?.path, "answers.server-only.json");
 });

@@ -49,6 +49,7 @@ test("profile selection is explicit and never defaults to Quran", () => {
 test("capability inputs use Arabic pickers and strict per-file contracts", () => {
   assert.match(component, /GOLDEN_ARTIFACT_FILE_CONTRACTS/);
   assert.match(component, /validateGoldenLessonArtifactBytes/);
+  assert.match(component, /validateGoldenLessonAnswerCoverage/);
   assert.match(component, /اختيار ملف/);
   assert.match(component, /لم يتم اختيار ملف/);
   assert.match(component, /تم التحقق من الملف/);

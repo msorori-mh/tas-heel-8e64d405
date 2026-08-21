@@ -92,13 +92,16 @@ function questionText(question: Record<string, unknown>): unknown {
   return question.question_text ?? question.official_text ?? question.question ?? question.prompt ?? question.text;
 }
 
-function modelAnswer(question: Record<string, unknown>): unknown {
-  return question.model_answer ?? question.modelAnswer ?? question.answer ?? question.solution;
-}
-
 function correctAnswer(question: Record<string, unknown>): unknown {
   return question.correct_index ?? question.correctIndex ?? question.correct_option_id ??
-    question.correctOptionId ?? question.correct_answer ?? question.correctAnswer ?? question.answer;
+    question.correctOptionId ?? question.correct_option ?? question.correctOption ??
+    question.correct_answer ?? question.correctAnswer ?? question.answer;
+}
+
+function questionId(question: Record<string, unknown>): string | null {
+  const value = question.id ?? question.question_id ?? question.questionId ?? question.question_code ??
+    question.questionCode ?? question.question_number ?? question.questionNumber;
+  return typeof value === "string" || typeof value === "number" ? String(value).trim() || null : null;
 }
 
 function validateJsonCapability(
@@ -138,10 +141,10 @@ function validateJsonCapability(
     if (!nonEmptyString(questionText(entry))) {
       findings.push({ code: "QUESTION_TEXT_MISSING", messageAr: `نص السؤال رقم ${index + 1} مفقود.` });
     }
+    if (!questionId(entry)) {
+      findings.push({ code: "QUESTION_ID_MISSING", messageAr: `معرّف السؤال رقم ${index + 1} مفقود.` });
+    }
     if (capability === "officialBookQuestions") {
-      if (!nonEmptyString(modelAnswer(entry))) {
-        findings.push({ code: "MODEL_ANSWER_MISSING", messageAr: `الإجابة النموذجية للسؤال رقم ${index + 1} مفقودة.` });
-      }
       return;
     }
 
@@ -149,14 +152,123 @@ function validateJsonCapability(
     if (!Array.isArray(options) || options.filter(nonEmptyString).length < 2) {
       findings.push({ code: "SELF_TEST_OPTIONS_MISSING", messageAr: `السؤال رقم ${index + 1} يحتاج خيارين على الأقل.` });
     }
-    const correct = correctAnswer(entry);
-    if (!(nonEmptyString(correct) || typeof correct === "number")) {
-      findings.push({ code: "SELF_TEST_CORRECT_ANSWER_MISSING", messageAr: `الإجابة الصحيحة للسؤال رقم ${index + 1} مفقودة.` });
-    }
-    if (!nonEmptyString(entry.explanation ?? entry.rationale)) {
-      findings.push({ code: "SELF_TEST_EXPLANATION_MISSING", messageAr: `شرح الإجابة للسؤال رقم ${index + 1} مفقود.` });
+    if (correctAnswer(entry) !== undefined || entry.explanation !== undefined || entry.rationale !== undefined) {
+      findings.push({
+        code: "ANSWER_LEAKAGE_DETECTED",
+        messageAr: `إجابة السؤال رقم ${index + 1} يجب أن تكون في الملف الخادمي المنفصل.`,
+      });
     }
   });
+}
+
+interface QuestionAnswerRequirement {
+  capability: "officialBookQuestions" | "selfTest";
+  questionId: string;
+}
+
+function answerRequirements(
+  capability: GoldenCapability,
+  fileName: string,
+  bytes: Uint8Array,
+): QuestionAnswerRequirement[] {
+  if (capability !== "officialBookQuestions" && capability !== "selfTest") return [];
+  if (extensionOf(fileName) !== ".json") return [];
+  let value: unknown;
+  try {
+    value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+  } catch {
+    return [];
+  }
+  const questions = questionsFrom(value) ?? [];
+  return questions.flatMap((entry) => {
+    if (!isPlainRecord(entry)) return [];
+    const id = questionId(entry);
+    return id ? [{ capability, questionId: id }] : [];
+  });
+}
+
+function companionAnswers(value: unknown): Array<Record<string, unknown> & { capability: string }> {
+  if (!isPlainRecord(value) || !Array.isArray(value.answers)) return [];
+  const topCapability = nonEmptyString(value.capability) ? String(value.capability) : "";
+  return value.answers.flatMap((entry) => {
+    if (!isPlainRecord(entry)) return [];
+    const capability = nonEmptyString(entry.capability) ? String(entry.capability) : topCapability;
+    return capability ? [{ ...entry, capability }] : [];
+  });
+}
+
+export function validateGoldenLessonAnswerCoverage(
+  artifacts: Partial<Record<GoldenCapability, { fileName: string; bytes: Uint8Array }>>,
+  companion: { fileName: string; bytes: Uint8Array } | null,
+): GoldenArtifactFileValidation {
+  const findings: GoldenArtifactFileFinding[] = [];
+  const requirements = (["officialBookQuestions", "selfTest"] as const).flatMap((capability) => {
+    const artifact = artifacts[capability];
+    return artifact ? answerRequirements(capability, artifact.fileName, artifact.bytes) : [];
+  });
+  if (requirements.length === 0) return { valid: true, findings };
+  if (!companion) {
+    return {
+      valid: false,
+      findings: [{
+        code: "ANSWER_COMPANION_REQUIRED",
+        messageAr: "ملف الإجابات الخادمي مطلوب لتغطية أسئلة الكتاب و«اختبر فهمك».",
+      }],
+    };
+  }
+  if (!companion.fileName.toLowerCase().endsWith(".server-only.json")) {
+    findings.push({ code: "ANSWER_COMPANION_PATH_UNSAFE", messageAr: "ملف الإجابات يجب أن ينتهي بـ .server-only.json." });
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(companion.bytes)) as unknown;
+  } catch {
+    return { valid: false, findings: [{ code: "ANSWER_COMPANION_JSON_INVALID", messageAr: "ملف الإجابات الخادمي JSON غير صالح." }] };
+  }
+  const answers = companionAnswers(value);
+  if (answers.length === 0) {
+    findings.push({ code: "ANSWER_COMPANION_EMPTY", messageAr: "ملف الإجابات الخادمي لا يحتوي إجابات." });
+    return { valid: false, findings };
+  }
+
+  for (const requirement of requirements) {
+    const answer = answers.find((entry) => {
+      const id = entry.question_id ?? entry.questionId ?? entry.question_code ?? entry.questionNumber;
+      return entry.capability === requirement.capability && String(id ?? "").trim() === requirement.questionId;
+    });
+    if (!answer) {
+      findings.push({
+        code: "ANSWER_COMPANION_COVERAGE_MISSING",
+        messageAr: `لا توجد إجابة خادمية للسؤال ${requirement.questionId} ضمن ${requirement.capability}.`,
+      });
+      continue;
+    }
+    if (requirement.capability === "officialBookQuestions") {
+      const model = answer.model_answer ?? answer.modelAnswer ?? answer.answer ?? answer.solution;
+      if (!nonEmptyString(model)) {
+        findings.push({
+          code: "MODEL_ANSWER_MISSING",
+          messageAr: `الإجابة النموذجية للسؤال ${requirement.questionId} مفقودة من الملف الخادمي.`,
+        });
+      }
+    } else {
+      const correct = correctAnswer(answer);
+      if (!(nonEmptyString(correct) || typeof correct === "number")) {
+        findings.push({
+          code: "SELF_TEST_CORRECT_ANSWER_MISSING",
+          messageAr: `الإجابة الصحيحة للسؤال ${requirement.questionId} مفقودة من الملف الخادمي.`,
+        });
+      }
+      if (!nonEmptyString(answer.explanation ?? answer.rationale)) {
+        findings.push({
+          code: "SELF_TEST_EXPLANATION_MISSING",
+          messageAr: `شرح إجابة السؤال ${requirement.questionId} مفقود من الملف الخادمي.`,
+        });
+      }
+    }
+  }
+
+  return { valid: findings.length === 0, findings };
 }
 
 export function validateGoldenLessonArtifactPath(

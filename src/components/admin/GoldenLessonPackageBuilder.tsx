@@ -47,6 +47,7 @@ import {
 } from "@/lib/content-factory/golden-lesson-validator";
 import {
   GOLDEN_ARTIFACT_FILE_CONTRACTS,
+  validateGoldenLessonAnswerCoverage,
   validateGoldenLessonArtifactBytes,
 } from "@/lib/content-factory/golden-lesson-file-contract";
 
@@ -501,13 +502,43 @@ export function GoldenLessonPackageBuilder() {
     }
   };
 
-  const runValidation = () => {
+  const runValidation = async () => {
     if (!profile) {
       setFileError("اختر نوع الدرس أولًا؛ لا يوجد نمط افتراضي للاستيراد.");
       return;
     }
     setFileError(null);
-    setValidation(validateGoldenLessonPackage(packageDraft));
+    const manifestValidation = validateGoldenLessonPackage(packageDraft);
+    const artifactInputs: Partial<Record<GoldenCapability, { fileName: string; bytes: Uint8Array }>> = {};
+    for (const capability of ["officialBookQuestions", "selfTest"] as const) {
+      const upload = uploads[capability];
+      if (upload) {
+        artifactInputs[capability] = {
+          fileName: upload.fileName,
+          bytes: new Uint8Array(await upload.file.arrayBuffer()),
+        };
+      }
+    }
+    const coverage = validateGoldenLessonAnswerCoverage(
+      artifactInputs,
+      answersCompanion
+        ? {
+            fileName: answersCompanion.fileName,
+            bytes: new Uint8Array(await answersCompanion.file.arrayBuffer()),
+          }
+        : null,
+    );
+    const coverageFindings = coverage.findings.map((finding) => ({
+      code: finding.code,
+      severity: "ERROR" as const,
+      field: "security.answersCompanionPath",
+      messageAr: finding.messageAr,
+    }));
+    setValidation({
+      ...manifestValidation,
+      valid: manifestValidation.valid && coverage.valid,
+      findings: [...manifestValidation.findings, ...coverageFindings],
+    });
   };
 
   /**
@@ -694,7 +725,7 @@ export function GoldenLessonPackageBuilder() {
       </div>
 
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
-        <Label>ملف الإجابات الخادمي (اختياري في هذه المرحلة)</Label>
+        <Label>ملف الإجابات الخادمي</Label>
         <ArabicFilePicker
           id="golden-answers-companion"
           accept=".server-only.json,.json,application/json"
@@ -702,14 +733,24 @@ export function GoldenLessonPackageBuilder() {
           fileName={answersCompanion?.fileName}
           onFile={handleAnswersFile}
         />
-        <p className="text-xs text-muted-foreground">يجب أن ينتهي الاسم بـ <span className="font-mono">.server-only.json</span>، ولا يدخل في الحمولة العامة.</p>
-        {answersCompanion && <p className="text-xs break-all text-emerald-700 dark:text-emerald-400">تم تثبيت: {answersCompanion.fileName}<br/><span className="font-mono text-[10px]">{answersCompanion.sha256}</span></p>}
+        <p className="text-xs text-muted-foreground">
+          يصبح إلزاميًا عند رفع أسئلة الكتاب أو «اختبر فهمك». يجب أن ينتهي الاسم بـ
+          <span className="font-mono"> .server-only.json</span>، ولا يدخل في الحمولة العامة.
+        </p>
+        {answersCompanion && (
+          <div className="flex items-start justify-between gap-2 text-xs text-emerald-700 dark:text-emerald-400">
+            <p className="break-all">تم تثبيت: {answersCompanion.fileName}<br/><span className="font-mono text-[10px]">{answersCompanion.sha256}</span></p>
+            <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 text-destructive" onClick={() => { setAnswersCompanion(null); setValidation(null); }}>
+              <Trash2 className="h-3.5 w-3.5" />إزالة
+            </Button>
+          </div>
+        )}
       </div>
 
       {fileError && <p role="alert" className="text-sm text-destructive flex gap-2"><AlertCircle className="h-4 w-4 mt-0.5" />{fileError}</p>}
 
       <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={runValidation} disabled={hashing !== null || !profile} className="min-h-[44px] gap-2"><ShieldCheck className="h-4 w-4" />فحص الحزمة</Button>
+        <Button type="button" onClick={() => void runValidation()} disabled={hashing !== null || !profile} className="min-h-[44px] gap-2"><ShieldCheck className="h-4 w-4" />فحص الحزمة</Button>
         <Button type="button" variant="outline" disabled={!validation?.valid} onClick={() => downloadJson(packageDraft, `${packageDraft.packageCode || "golden-lesson"}.manifest.json`)} className="min-h-[44px] gap-2"><Download className="h-4 w-4" />تنزيل Manifest</Button>
         <Button type="button" variant="outline" disabled={!validation?.valid} onClick={() => void downloadPackageBundle(packageDraft, uploads, provenance, answersCompanion, supplementalAssets)} className="min-h-[44px] gap-2"><FileArchive className="h-4 w-4" />تنزيل حزمة ZIP</Button>
         <Button type="button" disabled={!validation?.valid || intakeBusy} onClick={() => void uploadAndVerifyBundle()} className="min-h-[44px] gap-2">
