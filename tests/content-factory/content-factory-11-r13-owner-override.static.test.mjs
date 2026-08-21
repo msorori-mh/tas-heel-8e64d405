@@ -44,3 +44,11 @@ test("R13 approval performs no lesson-domain writes and keeps normal review inta
   assert.match(panel, /اعتماد مالك المنصة للتجهيز/);
   assert.match(panel, /ownerReason\.trim\(\)\.length < 20/);
 });
+
+test("R13 exposes the missing approved-package staging and identity-binding bridge", () => {
+  assert.match(panel, /stageApprovedGoldenLessonDomainBundle/);
+  assert.match(panel, /bindApprovedGoldenLessonIdentity/);
+  assert.match(panel, /stageAndBindSelectedPackage/);
+  assert.match(panel, /تجهيز الحزمة وربط هوية الدرس/);
+  assert.match(panel, /كتاب(?:ات)? المحتوى 0/);
+});
