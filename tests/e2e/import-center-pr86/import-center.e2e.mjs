@@ -82,13 +82,17 @@ try {
   await page.locator("#golden-provenance-officialBookContent").setInputFiles(
     path.join(packageDir, "official-content.provenance.json"),
   );
+  await page.getByText("official-content.provenance.json", { exact: false }).last().waitFor();
   await page.locator("#golden-provenance-officialBookQuestions").setInputFiles(
     path.join(packageDir, "official-questions.provenance.json"),
   );
+  await page.getByText("official-questions.provenance.json", { exact: false }).last().waitFor();
+  await page.locator("#golden-supplemental-assets:not([disabled])").waitFor();
   await page.locator("#golden-supplemental-assets").setInputFiles(
     path.join(packageDir, "official-figure-1-1.jpg"),
   );
   await page.getByText("official-figure-1-1.jpg", { exact: false }).last().waitFor();
+  await page.locator("#golden-answers-companion:not([disabled])").waitFor();
 
   const currentCompanion = JSON.parse(
     await readFile(path.join(packageDir, "answer-companion.server-only.json"), "utf8"),
