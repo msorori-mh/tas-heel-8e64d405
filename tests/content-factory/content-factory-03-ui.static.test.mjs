@@ -10,7 +10,7 @@ test("upload, review and release interfaces are separated", () => {
   assert.match(route, /<GoldenLessonPackageBuilder \/>/);
   assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel/);
   assert.match(reviewRoute, /GoldenLessonManifestReviewPanel/);
-  assert.match(reviewRoute, /view=\"release\"/);
+  assert.match(reviewRoute, /view=release/);
   assert.match(reviewRoute, /GoldenLessonCf11OperatorPanel/);
   assert.match(reviewRoute, /false && isAdmin && selectedItem\.lifecycle_status === "approved"/);
 });
