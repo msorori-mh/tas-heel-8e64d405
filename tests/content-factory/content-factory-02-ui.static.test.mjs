@@ -77,3 +77,11 @@ test("supplemental picker snapshots the live FileList before clearing", () => {
   assert.match(component, /const files = Array\.from\(event\.currentTarget\.files \?\? \[\]\)/);
   assert.match(component, /event\.currentTarget\.value = "";\s*void onFiles\(files\)/);
 });
+
+test("partial lesson drafts are autosaved and restored without server publication", () => {
+  assert.match(component, /indexedDB\.open\(LOCAL_DRAFT_DB/);
+  assert.match(component, /writeLocalLessonDraft/);
+  assert.match(component, /readLocalLessonDraft/);
+  assert.match(component, /تم حفظ المسودة تلقائيًا/);
+  assert.match(component, /removeLocalLessonDraft/);
+});
