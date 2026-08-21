@@ -109,18 +109,19 @@ export function GoldenLessonManifestReviewPanel() {
   };
   const persistTransition = async () => {
     if (!selected || !next || !persistence.available) return;
+    const selectedPackage = selected;
     setBusy(true); setMessage(null);
     try {
-      const result = await advanceReview({ data: { packageId: selected.id, expectedVersion: selected.currentVersion, toStatus: next.to, evidence, note: null } });
+      const result = await advanceReview({ data: { packageId: selectedPackage.id, expectedVersion: selectedPackage.currentVersion, toStatus: next.to, evidence, note: null } });
       let automaticPreparation = "";
       if (result.status === "APPROVED_FOR_STAGING") {
-        const staged = await stageDomain({ data: { packageId: selected!.id, version: selected!.currentVersion } });
+        const staged = await stageDomain({ data: { packageId: selectedPackage.id, version: selectedPackage.currentVersion } });
         await bindIdentity({ data: { batchId: staged.batchId } });
         automaticPreparation = " وتم تجهيزها وربطها بالدرس تلقائيًا.";
       }
       setMessage(`تم تحديث حالة المراجعة إلى ${STATUS_LABEL[result.status as GoldenReviewStatus]}${automaticPreparation}`);
       const latest = await loadPackages(); setPackages(latest);
-      const current = latest.find((pkg: GoldenPackageSummary) => pkg.id === selected.id); if (current) await selectPackage(current);
+      const current = latest.find((pkg: GoldenPackageSummary) => pkg.id === selectedPackage.id); if (current) await selectPackage(current);
     } catch (error) { setMessage(error instanceof Error ? error.message : "رفض الخادم الانتقال."); }
     finally { setBusy(false); }
   };
