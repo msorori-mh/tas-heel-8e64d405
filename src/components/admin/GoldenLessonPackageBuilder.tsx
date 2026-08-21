@@ -390,12 +390,13 @@ export function GoldenLessonPackageBuilder() {
           `${capability}.system-source.json`,
           { type: "application/json" },
         );
+        const provenanceSha256 = await sha256Hex(provenanceFile);
         setInternalProvenance((current) => ({
           ...current,
           [capability]: {
             fileName: provenanceFile.name,
             displayName: "مرجع نظامي آلي",
-            sha256: await sha256Hex(provenanceFile),
+            sha256: provenanceSha256,
             file: provenanceFile,
           },
         }));

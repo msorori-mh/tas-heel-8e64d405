@@ -34,6 +34,13 @@ jobs:
           npm install --no-save --package-lock=false playwright@1.55.0
           npx playwright install --with-deps chromium
 
+      - name: Verify final import contract and production build
+        run: |
+          node --test \
+            tests/content-factory/content-factory-02-ui.static.test.mjs \
+            tests/content-factory/content-factory-07.static.test.mjs
+          npm run build
+
       - name: Start isolated import preview
         run: |
           mkdir -p artifacts/import-center-e2e

@@ -110,7 +110,8 @@ export async function convertQuestionWorkbook(
   file: File,
 ): Promise<ConvertedQuestionWorkbook> {
   if (!/\.xlsx$/i.test(file.name)) throw new Error("يُقبل قالب XLSX المعتمد فقط.");
-  const ExcelJS = await import("exceljs");
+  const ExcelJSModule = await import("exceljs");
+  const ExcelJS = (ExcelJSModule.default ?? ExcelJSModule) as typeof import("exceljs");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await file.arrayBuffer() as any);
   const sheet = workbook.worksheets[0];
