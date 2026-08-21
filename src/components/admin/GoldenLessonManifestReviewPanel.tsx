@@ -175,16 +175,6 @@ export function GoldenLessonManifestReviewPanel() {
       <div className="rounded-xl border p-4 space-y-3"><div className="flex items-center justify-between gap-2"><span className="font-medium">قرار المراجعة</span><Badge>{selected ? STATUS_LABEL[selected.reviewStatus] : "اختر حزمة"}</Badge></div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{(Object.keys(EVIDENCE_LABEL) as (keyof GoldenReviewEvidence)[]).map((key) => <label key={key} className="flex min-h-[44px] items-center gap-2 rounded-lg border px-3 py-2 text-sm"><input type="checkbox" checked={evidence[key]} disabled={key === "packageValidationPassed"} onChange={(event) => setEvidence((current) => ({ ...current, [key]: event.target.checked }))}/>{EVIDENCE_LABEL[key]}</label>)}</div>
         <Button type="button" onClick={() => void persistTransition()} disabled={busy || !persistence.available || !selected || !next} className="min-h-[44px] gap-2">{next ? <><CheckCircle2 className="h-4 w-4" />الانتقال إلى {STATUS_LABEL[next.to]}</> : <><ShieldAlert className="h-4 w-4" />لا انتقال متاح</>}</Button>
-        {false && selected?.reviewStatus === "APPROVED_FOR_STAGING" && <Button type="button" variant="secondary" onClick={() => void stageAndBindSelectedPackage()} disabled={busy || !persistence.available} className="min-h-[44px] gap-2">
-          <Database className="h-4 w-4" />تجهيز الحزمة وربط هوية الدرس
-        </Button>}
-        {false && selected && (selected.reviewStatus === "SUBMITTED" || selected.reviewStatus === "CONTENT_APPROVED") && <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
-          <Label htmlFor="owner-approval-reason">سبب اعتماد مالك المنصة (موثّق في سجل المراجعة)</Label>
-          <Input id="owner-approval-reason" value={ownerReason} onChange={(event) => setOwnerReason(event.target.value)} placeholder="اكتب سبب الإطلاق العاجل بعد اكتمال التحقق" disabled={busy} />
-          <Button type="button" variant="outline" onClick={() => void persistOwnerApproval()} disabled={busy || !persistence.available || ownerReason.trim().length < 20 || !Object.values(evidence).every(Boolean)} className="min-h-[44px] gap-2">
-            <ShieldAlert className="h-4 w-4" />اعتماد مالك المنصة للتجهيز
-          </Button>
-        </div>}
       </div>
       {message && <p role="status" className="text-sm rounded-lg border bg-muted/30 px-3 py-2 flex items-start gap-2"><FileSearch className="h-4 w-4 mt-0.5 shrink-0" />{message}</p>}
     </section>
