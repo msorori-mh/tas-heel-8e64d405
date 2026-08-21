@@ -29,6 +29,14 @@ import {
   type GoldenLessonPackage,
 } from "@/lib/content-factory/golden-lesson-contract";
 import {
+  GOLDEN_ASSET_MAX_BYTES,
+  GOLDEN_ASSET_MIN_BYTES,
+  assetMagicMatches,
+  isAllowedAssetMime,
+  isSafeAssetLeaf,
+  type GoldenLessonAsset,
+} from "@/lib/content-factory/golden-lesson-assets";
+import {
   GOLDEN_CHEMISTRY_V1,
   GOLDEN_QURAN_V1,
   getGoldenLessonProfile,
@@ -58,6 +66,10 @@ interface UploadedArtifact {
   file: File;
 }
 
+interface UploadedSupplementalAsset extends GoldenLessonAsset {
+  file: File;
+}
+
 async function sha256Hex(file: File): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -68,6 +80,7 @@ async function buildPackageZipBlob(
   uploads: Partial<Record<GoldenCapability, UploadedArtifact>>,
   provenance: Partial<Record<GoldenCapability, UploadedArtifact>>,
   answersCompanion: UploadedArtifact | null,
+  supplementalAssets: UploadedSupplementalAsset[],
 ): Promise<Blob> {
   const zip = new JSZip();
   zip.file("manifest.json", JSON.stringify(pkg, null, 2));
@@ -75,6 +88,7 @@ async function buildPackageZipBlob(
     if (item) zip.file(item.fileName, item.file);
   }
   if (answersCompanion) zip.file(answersCompanion.fileName, answersCompanion.file);
+  for (const asset of supplementalAssets) zip.file(asset.path, asset.file);
   return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
 }
 
@@ -83,8 +97,9 @@ async function downloadPackageBundle(
   uploads: Partial<Record<GoldenCapability, UploadedArtifact>>,
   provenance: Partial<Record<GoldenCapability, UploadedArtifact>>,
   answersCompanion: UploadedArtifact | null,
+  supplementalAssets: UploadedSupplementalAsset[],
 ): Promise<void> {
-  const blob = await buildPackageZipBlob(pkg, uploads, provenance, answersCompanion);
+  const blob = await buildPackageZipBlob(pkg, uploads, provenance, answersCompanion, supplementalAssets);
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -121,6 +136,7 @@ export function GoldenLessonPackageBuilder() {
   const [uploads, setUploads] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
   const [provenance, setProvenance] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
   const [answersCompanion, setAnswersCompanion] = useState<UploadedArtifact | null>(null);
+  const [supplementalAssets, setSupplementalAssets] = useState<UploadedSupplementalAsset[]>([]);
   const [hashing, setHashing] = useState<GoldenCapability | `provenance:${GoldenCapability}` | "answers" | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [validation, setValidation] = useState<GoldenLessonValidationResult | null>(null);
@@ -161,6 +177,7 @@ export function GoldenLessonPackageBuilder() {
       },
       capabilityOrder: [...GOLDEN_CAPABILITIES],
       artifacts,
+      assets: supplementalAssets.map(({ file: _file, ...asset }) => asset),
       lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },
       security: {
         productionApply: false,
@@ -170,7 +187,7 @@ export function GoldenLessonPackageBuilder() {
         htmlNetworkAccess: "NONE",
       },
     }),
-    [profile, packageCode, gradeCode, trackCodes, subjectCode, lessonCode, lessonSlug, unitCode, semester, sortOrder, artifacts, answersCompanion],
+    [profile, packageCode, gradeCode, trackCodes, subjectCode, lessonCode, lessonSlug, unitCode, semester, sortOrder, artifacts, answersCompanion, supplementalAssets],
   );
 
   const requiredCapabilities = GOLDEN_CAPABILITIES.filter(
@@ -236,6 +253,69 @@ export function GoldenLessonPackageBuilder() {
     }
   };
 
+  const handleSupplementalAssets = async (files?: FileList) => {
+    if (!files?.length) return;
+    setFileError(null);
+    setValidation(null);
+    try {
+      const htmlSources = await Promise.all(
+        GOLDEN_CAPABILITIES.map(async (capability) => {
+          const upload = uploads[capability];
+          return upload?.fileName.endsWith(".html")
+            ? { capability, html: await upload.file.text() }
+            : null;
+        }),
+      );
+      const next: UploadedSupplementalAsset[] = [];
+      for (const file of Array.from(files)) {
+        if (!isSafeAssetLeaf(file.name)) throw new Error(`اسم الأصل غير آمن: ${file.name}`);
+        if (!isAllowedAssetMime(file.type)) throw new Error(`نوع الأصل غير مسموح: ${file.name}`);
+        if (file.size < GOLDEN_ASSET_MIN_BYTES || file.size > GOLDEN_ASSET_MAX_BYTES) {
+          throw new Error(`حجم الأصل خارج النطاق المسموح: ${file.name}`);
+        }
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        if (!assetMagicMatches(file.type, bytes)) throw new Error(`توقيع الملف لا يطابق نوعه: ${file.name}`);
+
+        const referencedBy: GoldenCapability[] = [];
+        let altTextAr = "";
+        for (const source of htmlSources) {
+          if (!source) continue;
+          const document = new DOMParser().parseFromString(source.html, "text/html");
+          const matchingImage = Array.from(document.querySelectorAll("img"))
+            .find((image) => image.getAttribute("src") === file.name);
+          const matchingLink = Array.from(document.querySelectorAll("[href], [src]"))
+            .some((element) => element.getAttribute("href") === file.name || element.getAttribute("src") === file.name);
+          if (matchingImage || matchingLink) {
+            referencedBy.push(source.capability);
+            altTextAr ||= matchingImage?.getAttribute("alt")?.trim() ?? "";
+          }
+        }
+        if (referencedBy.length === 0) throw new Error(`الأصل غير مشار إليه من أي ملف HTML: ${file.name}`);
+        if (altTextAr.length < 3) throw new Error(`النص البديل العربي مفقود في HTML للأصل: ${file.name}`);
+
+        const stem = file.name.replace(/\.[^.]+$/, "").toUpperCase()
+          .replace(/[^A-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        const assetCode = (stem.length >= 3 ? stem : `ASSET-${stem || "FILE"}`).slice(0, 64);
+        next.push({
+          assetCode,
+          path: file.name,
+          mimeType: file.type,
+          sha256: await sha256Hex(file),
+          bytes: file.size,
+          referencedBy,
+          altTextAr,
+          file,
+        });
+      }
+      setSupplementalAssets((current) => {
+        const replacing = new Set(next.map((asset) => asset.path));
+        return [...current.filter((asset) => !replacing.has(asset.path)), ...next];
+      });
+    } catch (error) {
+      setFileError(error instanceof Error ? error.message : "ASSET_UPLOAD_FAILED");
+    }
+  };
+
   const runValidation = () => setValidation(validateGoldenLessonPackage(packageDraft));
 
   /**
@@ -248,7 +328,7 @@ export function GoldenLessonPackageBuilder() {
     setIntakeError(null);
     setIntake(null);
     try {
-      const blob = await buildPackageZipBlob(packageDraft, uploads, provenance, answersCompanion);
+      const blob = await buildPackageZipBlob(packageDraft, uploads, provenance, answersCompanion, supplementalAssets);
       const slot = await createGoldenLessonBundleUpload();
       const uploaded = await supabase.storage
         .from(slot.bucket)
@@ -279,7 +359,7 @@ export function GoldenLessonPackageBuilder() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1.5">
           <Label>نمط الدرس</Label>
-          <Select value={profileId} onValueChange={(value) => { setProfileId(value); setUploads({}); setProvenance({}); setValidation(null); }}>
+          <Select value={profileId} onValueChange={(value) => { setProfileId(value); setUploads({}); setProvenance({}); setSupplementalAssets([]); setValidation(null); }}>
             <SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               {[GOLDEN_QURAN_V1, GOLDEN_CHEMISTRY_V1].map((item) => (
@@ -351,6 +431,25 @@ export function GoldenLessonPackageBuilder() {
         })}
       </div>
 
+      <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 space-y-2">
+        <Label>الصور والأصول المساندة المشار إليها داخل HTML</Label>
+        <Input
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          multiple
+          disabled={hashing !== null}
+          onChange={(event) => void handleSupplementalAssets(event.target.files ?? undefined)}
+          className="min-h-[44px]"
+        />
+        <p className="text-xs text-muted-foreground">تُستخرج القدرة والنص البديل من HTML، وتُحسب البصمة محليًا، ثم يتحقق الخادم من البايتات مرة أخرى.</p>
+        {supplementalAssets.map((asset) => (
+          <p key={asset.path} className="text-xs break-all text-emerald-700 dark:text-emerald-400">
+            <CheckCircle2 className="inline h-4 w-4 ms-1" />{asset.path} — {asset.assetCode}
+            <br/><span className="font-mono text-[10px]">{asset.sha256}</span>
+          </p>
+        ))}
+      </div>
+
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
         <Label>ملف الإجابات الخادمي (اختياري في هذه المرحلة)</Label>
         <Input type="file" accept=".json" disabled={hashing !== null} onChange={(event) => void handleAnswersFile(event.target.files?.[0])} className="min-h-[44px]" />
@@ -363,7 +462,7 @@ export function GoldenLessonPackageBuilder() {
       <div className="flex flex-wrap gap-2">
         <Button type="button" onClick={runValidation} disabled={hashing !== null} className="min-h-[44px] gap-2"><ShieldCheck className="h-4 w-4" />فحص الحزمة</Button>
         <Button type="button" variant="outline" disabled={!validation?.valid} onClick={() => downloadJson(packageDraft, `${packageDraft.packageCode || "golden-lesson"}.manifest.json`)} className="min-h-[44px] gap-2"><Download className="h-4 w-4" />تنزيل Manifest</Button>
-        <Button type="button" variant="outline" disabled={!validation?.valid} onClick={() => void downloadPackageBundle(packageDraft, uploads, provenance, answersCompanion)} className="min-h-[44px] gap-2"><FileArchive className="h-4 w-4" />تنزيل حزمة ZIP</Button>
+        <Button type="button" variant="outline" disabled={!validation?.valid} onClick={() => void downloadPackageBundle(packageDraft, uploads, provenance, answersCompanion, supplementalAssets)} className="min-h-[44px] gap-2"><FileArchive className="h-4 w-4" />تنزيل حزمة ZIP</Button>
         <Button type="button" disabled={!validation?.valid || intakeBusy} onClick={() => void uploadAndVerifyBundle()} className="min-h-[44px] gap-2">
           {intakeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
           رفع الحزمة والتحقق على الخادم
