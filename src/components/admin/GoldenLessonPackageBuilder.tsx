@@ -380,7 +380,7 @@ export function GoldenLessonPackageBuilder() {
   const lessons = useMemo(
     () => (registry?.lessons ?? []).filter((lesson) =>
       lesson.subjectCode === selectedSubjectCode &&
-      (!selectedUnitCode || lesson.unitCode === selectedUnitCode)
+      (selectedUnitCode ? lesson.unitCode === selectedUnitCode : lesson.unitCode === null)
     ),
     [registry, selectedSubjectCode, selectedUnitCode],
   );
@@ -961,6 +961,9 @@ export function GoldenLessonPackageBuilder() {
           <span className="font-semibold">{completedRequired}/{requiredCapabilities.length} — {completion}%</span>
         </div>
         <Progress value={completion} />
+        <p className="text-xs text-muted-foreground">
+          النشاط الاختياري: {uploads.labExperimentHtml ? "مرفوع" : "غير مرفوع — لا يمنع حفظ بقية محتويات الدرس"}
+        </p>
       </div>}
 
       <div className="space-y-3">
