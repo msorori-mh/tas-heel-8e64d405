@@ -114,7 +114,7 @@ export function GoldenLessonManifestReviewPanel() {
       const result = await advanceReview({ data: { packageId: selected.id, expectedVersion: selected.currentVersion, toStatus: next.to, evidence, note: null } });
       let automaticPreparation = "";
       if (result.status === "APPROVED_FOR_STAGING") {
-        const staged = await stageDomain({ data: { packageId: selected.id, version: selected.currentVersion } });
+        const staged = await stageDomain({ data: { packageId: selected!.id, version: selected!.currentVersion } });
         await bindIdentity({ data: { batchId: staged.batchId } });
         automaticPreparation = " وتم تجهيزها وربطها بالدرس تلقائيًا.";
       }
