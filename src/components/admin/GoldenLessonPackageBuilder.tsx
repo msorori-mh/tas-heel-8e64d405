@@ -231,6 +231,15 @@ function buildDirectIntakeFiles(
   return files;
 }
 
+function directUploadContentType(file: File): string {
+  if (/\.html$/i.test(file.name)) return "text/html";
+  if (/\.json$/i.test(file.name)) return "application/json";
+  if (/\.png$/i.test(file.name)) return "image/png";
+  if (/\.jpe?g$/i.test(file.name)) return "image/jpeg";
+  if (/\.webp$/i.test(file.name)) return "image/webp";
+  throw new Error(`DIRECT_FILE_TYPE_UNSUPPORTED:${file.name}`);
+}
+
 export function GoldenLessonPackageBuilder() {
   const [profileId, setProfileId] = useState("");
   const [packageCode, setPackageCode] = useState("");
@@ -569,7 +578,7 @@ export function GoldenLessonPackageBuilder() {
         const uploaded = await supabase.storage
           .from(slot.bucket)
           .uploadToSignedUrl(upload.storagePath, upload.token, file, {
-            contentType: file.type || "application/octet-stream",
+            contentType: directUploadContentType(file),
           });
         if (uploaded.error) throw new Error(uploaded.error.message);
       }

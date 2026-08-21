@@ -28,6 +28,7 @@ test("direct verifier rejects path, set, size and hash attacks", () => {
     assert.match(verifier, new RegExp(guard));
   }
   assert.doesNotMatch(api, /JSZip|application\/zip|\.zip/);
+  assert.match(api, /downloadedBytes > GOLDEN_DIRECT_LIMITS\.maxTotalBytes/);
 });
 
 test("server verifier checks capability bytes after hash verification", () => {

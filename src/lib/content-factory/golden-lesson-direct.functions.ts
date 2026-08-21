@@ -10,6 +10,7 @@ import {
 } from "@/integrations/supabase/auth-middleware";
 import type { GoldenLessonPackage } from "./golden-lesson-contract";
 import {
+  GOLDEN_DIRECT_LIMITS,
   planGoldenLessonDirectFiles,
   verifyGoldenLessonDirectIntake,
 } from "./golden-lesson-direct-verifier";
@@ -62,16 +63,25 @@ export const verifyAndStageGoldenLessonDirect = createServerFn({ method: "POST" 
     const manifest = data.manifest as GoldenLessonPackage;
     const declarations = planGoldenLessonDirectFiles(manifest);
     const files = [];
+    let downloadedBytes = 0;
     for (const declaration of declarations) {
       const storagePath = `${userId}/${data.intakeId}/${declaration.path}`;
       const downloaded = await supabase.storage.from(BUCKET).download(storagePath);
       if (downloaded.error || !downloaded.data) {
         throw new Error(downloaded.error?.message ?? "DIRECT_FILE_DOWNLOAD_FAILED");
       }
+      const bytes = new Uint8Array(await downloaded.data.arrayBuffer());
+      if (bytes.byteLength === 0 || bytes.byteLength > GOLDEN_DIRECT_LIMITS.maxFileBytes) {
+        throw new Error("DIRECT_FILE_SIZE_LIMIT");
+      }
+      downloadedBytes += bytes.byteLength;
+      if (downloadedBytes > GOLDEN_DIRECT_LIMITS.maxTotalBytes) {
+        throw new Error("DIRECT_TOTAL_SIZE_LIMIT");
+      }
       files.push({
         path: declaration.path,
         sha256: declaration.sha256,
-        bytes: new Uint8Array(await downloaded.data.arrayBuffer()),
+        bytes,
       });
     }
     const verified = verifyGoldenLessonDirectIntake(manifest, files);
