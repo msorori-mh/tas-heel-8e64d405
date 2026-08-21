@@ -4,6 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useAuth } from "@/hooks/use-auth";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { GoldenLessonManifestReviewPanel } from "@/components/admin/GoldenLessonManifestReviewPanel";
+import { GoldenLessonCf11OperatorPanel } from "@/components/admin/GoldenLessonCf11OperatorPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -194,9 +196,44 @@ function AdminContentReviewPage() {
     }
   };
 
+  const releaseView = typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("view") === "release";
+
+  if (releaseView) {
+    return (
+      <AdminLayout>
+        <main className="mx-auto max-w-6xl space-y-6 pb-20" dir="rtl">
+          <header className="space-y-2">
+            <h1 className="text-2xl font-bold">عمليات نشر المحتوى</h1>
+            <p className="text-sm text-muted-foreground">
+              هذه الواجهة مخصصة لمسؤول النشر فقط. لا يمكن نشر محتوى لم يكتمل اعتماده.
+            </p>
+            <Button asChild variant="outline" size="sm">
+              <a href="/admin/content-review">العودة إلى مراجعة المحتوى</a>
+            </Button>
+          </header>
+          <GoldenLessonCf11OperatorPanel />
+        </main>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="mx-auto max-w-6xl space-y-6" dir="rtl">
+        <section className="space-y-3">
+          <header className="space-y-2">
+            <h1 className="text-2xl font-bold">مراجعة محتوى الدروس</h1>
+            <p className="text-sm text-muted-foreground">
+              راجع المسودة، اطلب التعديل أو اعتمد المحتوى. أدوات النشر موجودة في واجهة منفصلة.
+            </p>
+            <Button asChild size="sm" variant="outline">
+              <a href="/admin/content-review?view=release">فتح عمليات النشر</a>
+            </Button>
+          </header>
+          <GoldenLessonManifestReviewPanel />
+        </section>
+
         {/* Backend Status Banner */}
         {backendEnabled === false && (
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs font-semibold text-amber-200 flex items-center gap-2">
@@ -208,7 +245,7 @@ function AdminContentReviewPage() {
         <header className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <ShieldCheck className="h-6 w-6 text-emerald-400 shrink-0" />
-            <h1 className="text-2xl font-bold text-foreground">مراجعة المحتوى التفاعلي</h1>
+            <h2 className="text-xl font-bold text-foreground">مراجعة الموارد التفاعلية</h2>
             {backendEnabled && (
               <Badge variant="outline" className="border-emerald-500/40 text-emerald-300">
                 متصل بالخادم
@@ -356,7 +393,7 @@ function AdminContentReviewPage() {
                         </>
                       )}
 
-                      {isAdmin && selectedItem.lifecycle_status === "approved" && (
+                      {false && isAdmin && selectedItem.lifecycle_status === "approved" && (
                         <Button
                           size="sm"
                           className="bg-emerald-600 hover:bg-emerald-500 text-white gap-1"
@@ -372,7 +409,7 @@ function AdminContentReviewPage() {
                         </Button>
                       )}
 
-                      {isAdmin && selectedItem.lifecycle_status === "published" && (
+                      {false && isAdmin && selectedItem.lifecycle_status === "published" && (
                         <Button
                           size="sm"
                           variant="outline"
