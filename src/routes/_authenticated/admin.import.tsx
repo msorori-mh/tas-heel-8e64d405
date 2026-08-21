@@ -1,30 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BookOpen, Download, FileSpreadsheet, ShieldCheck } from "lucide-react";
+import { BookOpen, FileCheck2, FileSpreadsheet, UploadCloud } from "lucide-react";
 
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { GoldenLessonCf11OperatorPanel } from "@/components/admin/GoldenLessonCf11OperatorPanel";
 import { GoldenLessonPackageBuilder } from "@/components/admin/GoldenLessonPackageBuilder";
 import { Button } from "@/components/ui/button";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
-import { contentImportTemplateDownloadUrl } from "@/lib/content-import/content-import-templates";
 
 export const Route = createFileRoute("/_authenticated/admin/import")({
   component: AdminImportPage,
 });
 
-const QUESTION_TEMPLATES = [
-  {
-    number: 6,
-    title: "أسئلة الكتاب الأصلية",
-    filename: "09_official_book_questions_template.xlsx",
-    description: "تعريفات، تعليلات، أسئلة قصيرة، شرح، واختيار واحد بالنص الأصلي للكتاب.",
-  },
-  {
-    number: 7,
-    title: "اختبر فهمك",
-    filename: "10_self_test_questions_template.xlsx",
-    description: "اختيار من متعدد مع الإجابة الصحيحة والشرح وتصويب الخيارات الخاطئة.",
-  },
+const STEPS = [
+  { number: 1, label: "اختيار الدرس" },
+  { number: 2, label: "رفع المحتويات" },
+  { number: 3, label: "الفحص والحفظ كمسودة" },
 ] as const;
 
 function AdminImportPage() {
@@ -42,27 +31,38 @@ function AdminImportPage() {
 
   return (
     <AdminLayout>
-      <main className="mx-auto max-w-6xl space-y-6" dir="rtl">
-        <header className="space-y-2">
+      <main className="mx-auto max-w-5xl space-y-6 pb-24" dir="rtl">
+        <header className="space-y-3">
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">مركز استيراد محتوى الدرس</h1>
+            <h1 className="text-2xl font-bold">استيراد محتويات درس</h1>
           </div>
           <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            المسار المعتمد يتكون من سبعة محتويات مرتبة. ستة إلزامية، والتجربة أو النشاط
-            التفاعلي وحده اختياري. لا يوجد ZIP للدرس ولا PDF مستقل له ولا ملف توثيق مصدر.
+            اختر الدرس، ارفع محتوياته السبعة، ثم افحصها واحفظها كمسودة. ستة محتويات
+            إلزامية، والتجربة أو النشاط التفاعلي وحده اختياري.
           </p>
+          <ol aria-label="خطوات استيراد الدرس" className="grid gap-2 sm:grid-cols-3">
+            {STEPS.map((step) => (
+              <li key={step.number} className="flex min-h-[52px] items-center gap-3 rounded-xl border bg-card px-4 py-2">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                  {step.number}
+                </span>
+                <span className="text-sm font-medium">{step.label}</span>
+              </li>
+            ))}
+          </ol>
         </header>
 
-        <section className="rounded-2xl border border-primary/25 bg-primary/5 p-5">
+        <section className="rounded-xl border border-primary/25 bg-primary/5 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="flex items-center gap-2 font-semibold">
-                <BookOpen className="h-5 w-5 text-primary" /> كتاب المادة الرسمي
-              </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                يرفع PDF مرة واحدة فقط بحسب الصف والمادة والمسار ونطاق الفصل الدراسي.
-              </p>
+            <div className="flex items-start gap-3">
+              <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div>
+                <h2 className="font-semibold">كتاب المادة الرسمي</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  يرفع مرة واحدة فقط على مستوى المادة والفصل الدراسي، ولا يرفع PDF مستقل للدرس.
+                </p>
+              </div>
             </div>
             <Button asChild variant="outline">
               <a href="/admin/textbooks">إدارة كتب المواد</a>
@@ -70,32 +70,28 @@ function AdminImportPage() {
           </div>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2" aria-label="قوالب الأسئلة المعتمدة">
-          {QUESTION_TEMPLATES.map((template) => (
-            <article key={template.filename} className="rounded-xl border bg-card p-4">
-              <h2 className="font-semibold">{template.number}. {template.title}</h2>
-              <p className="mt-1 min-h-10 text-xs text-muted-foreground">{template.description}</p>
-              <Button asChild size="sm" variant="outline" className="mt-3">
-                <a href={contentImportTemplateDownloadUrl(template.filename)} download>
-                  <Download className="ms-1 h-4 w-4" /> تنزيل قالب XLSX المعتمد
-                </a>
-              </Button>
-            </article>
-          ))}
-        </section>
-
         <GoldenLessonPackageBuilder />
 
-        <section className="space-y-3 rounded-2xl border bg-card p-5">
-          <div>
-            <h2 className="flex items-center gap-2 font-semibold">
-              <ShieldCheck className="h-5 w-5 text-primary" /> مراجعة المسودات واعتمادها
-            </h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              الاستيراد ينشئ مسودة فقط. لا يظهر أي محتوى للطالب قبل المراجعة والاعتماد.
-            </p>
+        <section aria-label="الواجهات الإدارية المنفصلة" className="rounded-xl border bg-muted/20 p-4">
+          <div className="flex items-start gap-3">
+            <FileCheck2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <div className="space-y-2">
+              <h2 className="font-semibold">بعد حفظ المسودة</h2>
+              <p className="text-xs text-muted-foreground">
+                المراجعة والاعتماد والنشر عمليات منفصلة بصلاحيات مستقلة، ولا تظهر أدواتها داخل رحلة الرفع.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <a href="/admin/content-review">فتح مراجعة المحتوى</a>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <a href="/admin/content-review?view=release">
+                    <UploadCloud className="h-4 w-4" />عمليات النشر
+                  </a>
+                </Button>
+              </div>
+            </div>
           </div>
-          <GoldenLessonCf11OperatorPanel />
         </section>
       </main>
     </AdminLayout>
