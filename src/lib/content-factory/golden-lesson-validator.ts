@@ -104,12 +104,13 @@ export function validateGoldenLessonPackage(pkg: GoldenLessonPackage): GoldenLes
         error(finding.code, `artifacts.${artifact.capability}.sourcePath`, finding.messageAr);
       }
     }
+    // Generated internally from the registered subject textbook; never uploaded by the operator.
     if (artifact.authority === "OFFICIAL" && artifact.sourcePath) {
       if (!artifact.provenancePath) {
-        error("OFFICIAL_PROVENANCE_MISSING", `artifacts.${artifact.capability}.provenancePath`, "المحتوى الرسمي يحتاج ملف توثيق مصدر.");
+        error("OFFICIAL_PROVENANCE_MISSING", `artifacts.${artifact.capability}.provenancePath`, "مرجع كتاب المادة النظامي مفقود.");
       }
       if (!artifact.provenanceSha256 || !SHA256.test(artifact.provenanceSha256)) {
-        error("OFFICIAL_PROVENANCE_HASH_INVALID", `artifacts.${artifact.capability}.provenanceSha256`, "ملف توثيق المصدر الرسمي يحتاج SHA-256 صالحًا.");
+        error("OFFICIAL_PROVENANCE_HASH_INVALID", `artifacts.${artifact.capability}.provenanceSha256`, "بصمة مرجع كتاب المادة النظامي غير صالحة.");
       }
     }
   }

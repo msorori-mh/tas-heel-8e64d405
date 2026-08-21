@@ -13,14 +13,14 @@ export const GOLDEN_QURAN_V1: GoldenLessonProfile = {
     officialBookContent: "REQUIRED",
     tamkeenExplanationHtml: "REQUIRED",
     lessonSummaryHtml: "REQUIRED",
-    mindMapHtml: "OPTIONAL",
-    labExperimentHtml: "NA",
+    mindMapHtml: "REQUIRED",
+    labExperimentHtml: "OPTIONAL",
     officialBookQuestions: "REQUIRED",
-    selfTest: "OPTIONAL",
+    selfTest: "REQUIRED",
   },
   notesAr: [
     "النص الرسمي وأسئلته لا يعادان صياغتهما.",
-    "النشاط المختبري غير منطبق، ولا ينشأ له محتوى أو lifecycle READY.",
+    "التجربة أو النشاط التفاعلي اختياري وحده، ولا يمنع غيابه اعتماد بقية الدرس.",
     "الوحدة اختيارية؛ لا تُخترع إذا كان الدرس مرتبطًا بالمادة مباشرة.",
   ],
 };
@@ -41,9 +41,9 @@ export const GOLDEN_CHEMISTRY_V1: GoldenLessonProfile = {
     selfTest: "REQUIRED",
   },
   notesAr: [
-    "المعادلات والجداول والأشكال الرسمية تحفظ مع provenance وSHA-256.",
+    "المعادلات والجداول والأشكال الرسمية تحفظ كما وردت في الكتاب مع بصمة سلامة داخلية.",
     "المختبر اختياري حسب الدرس، وعند وجوده يعمل داخل CSP بلا شبكة.",
-    "الإجابات والتبريرات تحفظ في companion خادمي مرتبط بالـrevision.",
+    "الإجابات والتعليلات تُفصل آليًا من XLSX وتحفظ خادميًا؛ لا يرفع الفريق ملفًا منفصلًا.",
   ],
 };
 

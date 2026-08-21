@@ -1,4 +1,4 @@
-name: PR86 Import Center Browser E2E
+name: Final Lesson Import Browser E2E
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   import-center-browser-e2e:
-    name: Chromium import journey (TEST_ONLY)
+    name: Chromium seven-content import journey (TEST_ONLY)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -61,4 +61,3 @@ jobs:
           name: pr86-import-center-e2e-evidence
           path: artifacts/import-center-e2e
           if-no-files-found: error
-
