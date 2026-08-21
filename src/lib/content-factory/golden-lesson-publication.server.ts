@@ -40,7 +40,9 @@ export type UntypedRpc = (name: string, args: Record<string, unknown>) =>
 
 /** The CF11 RPCs are pending migrations, so they are absent from generated types. */
 export function rpc(client: { rpc: unknown }): UntypedRpc {
-  return client.rpc as unknown as UntypedRpc;
+  // Supabase's rpc method reads `this.rest`; returning it unbound makes `this` undefined at
+  // runtime even though TypeScript accepts the cast.
+  return (client.rpc as UntypedRpc).bind(client);
 }
 
 /** RPC payloads are opaque JSON; return them as a string so the boundary stays serializable. */
