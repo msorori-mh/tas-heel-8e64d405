@@ -243,6 +243,64 @@ function directUploadContentType(file: File): string {
   throw new Error(`DIRECT_FILE_TYPE_UNSUPPORTED:${file.name}`);
 }
 
+const LOCAL_DRAFT_DB = "tamkeen-lesson-import-drafts-v1";
+const LOCAL_DRAFT_STORE = "drafts";
+const LAST_CONTEXT_KEY = "tamkeen:last-lesson-import-context";
+
+interface LocalLessonDraft {
+  lessonCode: string;
+  uploads: Partial<Record<GoldenCapability, UploadedArtifact>>;
+  internalProvenance: Partial<Record<GoldenCapability, UploadedArtifact>>;
+  answerSets: Partial<Record<"officialBookQuestions" | "selfTest", Array<Record<string, unknown>>>>;
+  answersCompanion: UploadedArtifact | null;
+  supplementalAssets: UploadedSupplementalAsset[];
+  savedAt: string;
+}
+
+function openLocalDraftDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(LOCAL_DRAFT_DB, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(LOCAL_DRAFT_STORE)) {
+        request.result.createObjectStore(LOCAL_DRAFT_STORE, { keyPath: "lessonCode" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("LOCAL_DRAFT_DB_OPEN_FAILED"));
+  });
+}
+
+async function readLocalLessonDraft(lessonCode: string): Promise<LocalLessonDraft | null> {
+  const db = await openLocalDraftDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(LOCAL_DRAFT_STORE, "readonly");
+    const request = transaction.objectStore(LOCAL_DRAFT_STORE).get(lessonCode);
+    request.onsuccess = () => resolve((request.result as LocalLessonDraft | undefined) ?? null);
+    request.onerror = () => reject(request.error ?? new Error("LOCAL_DRAFT_READ_FAILED"));
+    transaction.oncomplete = () => db.close();
+  });
+}
+
+async function writeLocalLessonDraft(draft: LocalLessonDraft): Promise<void> {
+  const db = await openLocalDraftDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(LOCAL_DRAFT_STORE, "readwrite");
+    transaction.objectStore(LOCAL_DRAFT_STORE).put(draft);
+    transaction.oncomplete = () => { db.close(); resolve(); };
+    transaction.onerror = () => { db.close(); reject(transaction.error ?? new Error("LOCAL_DRAFT_WRITE_FAILED")); };
+  });
+}
+
+async function removeLocalLessonDraft(lessonCode: string): Promise<void> {
+  const db = await openLocalDraftDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(LOCAL_DRAFT_STORE, "readwrite");
+    transaction.objectStore(LOCAL_DRAFT_STORE).delete(lessonCode);
+    transaction.oncomplete = () => { db.close(); resolve(); };
+    transaction.onerror = () => { db.close(); reject(transaction.error ?? new Error("LOCAL_DRAFT_DELETE_FAILED")); };
+  });
+}
+
 export function GoldenLessonPackageBuilder() {
   const [registry, setRegistry] = useState<ContentCodeRegistry | null>(null);
   const [registryLoading, setRegistryLoading] = useState(true);
@@ -263,6 +321,8 @@ export function GoldenLessonPackageBuilder() {
   const [intake, setIntake] = useState<DirectIntakeResult | null>(null);
   const [intakeError, setIntakeError] = useState<string | null>(null);
   const [intakeBusy, setIntakeBusy] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftMessage, setDraftMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -282,6 +342,28 @@ export function GoldenLessonPackageBuilder() {
       });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!registry) return;
+    try {
+      const raw = window.localStorage.getItem(LAST_CONTEXT_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        gradeSlug?: string;
+        trackCode?: string;
+        subjectCode?: string;
+        unitCode?: string;
+        lessonCode?: string;
+      };
+      if (saved.gradeSlug) setGradeSlug(saved.gradeSlug);
+      if (saved.trackCode) setTrackCode(saved.trackCode);
+      if (saved.subjectCode) setSelectedSubjectCode(saved.subjectCode);
+      if (saved.unitCode) setSelectedUnitCode(saved.unitCode);
+      if (saved.lessonCode) setSelectedLessonCode(saved.lessonCode);
+    } catch {
+      window.localStorage.removeItem(LAST_CONTEXT_KEY);
+    }
+  }, [registry]);
 
   const subjects = useMemo(
     () => (registry?.subjects ?? []).filter((subject) =>
@@ -321,6 +403,33 @@ export function GoldenLessonPackageBuilder() {
     profile && selectedSubject && selectedLesson && gradeCode && trackCode &&
     semester && sortOrder,
   );
+
+  useEffect(() => {
+    if (!selectedLessonCode) {
+      setDraftReady(false);
+      setDraftMessage(null);
+      return;
+    }
+    let active = true;
+    setDraftReady(false);
+    void readLocalLessonDraft(selectedLessonCode)
+      .then((draft) => {
+        if (!active || !draft) return;
+        setUploads(draft.uploads);
+        setInternalProvenance(draft.internalProvenance);
+        setAnswerSets(draft.answerSets);
+        setAnswersCompanion(draft.answersCompanion);
+        setSupplementalAssets(draft.supplementalAssets);
+        setDraftMessage(`تمت استعادة المسودة المحفوظة تلقائيًا في ${new Date(draft.savedAt).toLocaleString("ar-YE")}.`);
+      })
+      .catch(() => {
+        if (active) setDraftMessage("تعذر استعادة المسودة المحلية؛ يمكنك متابعة الرفع بصورة طبيعية.");
+      })
+      .finally(() => {
+        if (active) setDraftReady(true);
+      });
+    return () => { active = false; };
+  }, [selectedLessonCode]);
 
   const artifacts = useMemo<GoldenLessonArtifact[]>(
     () =>
@@ -529,6 +638,7 @@ export function GoldenLessonPackageBuilder() {
     setValidation(null);
     setFileError(null);
     setIntake(null);
+    setDraftMessage(null);
   };
 
   const allowContextChange = () =>
@@ -537,6 +647,7 @@ export function GoldenLessonPackageBuilder() {
   const chooseGrade = (value: string) => {
     if (!allowContextChange()) return;
     clearSelectedFiles();
+    window.localStorage.removeItem(LAST_CONTEXT_KEY);
     setGradeSlug(value);
     setTrackCode("");
     setSelectedSubjectCode("");
@@ -547,6 +658,7 @@ export function GoldenLessonPackageBuilder() {
   const chooseTrack = (value: string) => {
     if (!allowContextChange()) return;
     clearSelectedFiles();
+    window.localStorage.removeItem(LAST_CONTEXT_KEY);
     setTrackCode(value);
     setSelectedSubjectCode("");
     setSelectedUnitCode("");
@@ -556,6 +668,7 @@ export function GoldenLessonPackageBuilder() {
   const chooseSubject = (value: string) => {
     if (!allowContextChange()) return;
     clearSelectedFiles();
+    window.localStorage.removeItem(LAST_CONTEXT_KEY);
     setSelectedSubjectCode(value);
     setSelectedUnitCode("");
     setSelectedLessonCode("");
@@ -564,6 +677,7 @@ export function GoldenLessonPackageBuilder() {
   const chooseUnit = (value: string) => {
     if (!allowContextChange()) return;
     clearSelectedFiles();
+    window.localStorage.removeItem(LAST_CONTEXT_KEY);
     setSelectedUnitCode(value === "__NO_UNIT__" ? "" : value);
     setSelectedLessonCode("");
   };
@@ -571,7 +685,15 @@ export function GoldenLessonPackageBuilder() {
   const chooseLesson = (value: string) => {
     if (!allowContextChange()) return;
     clearSelectedFiles();
+    setDraftReady(false);
     setSelectedLessonCode(value);
+    window.localStorage.setItem(LAST_CONTEXT_KEY, JSON.stringify({
+      gradeSlug,
+      trackCode,
+      subjectCode: selectedSubjectCode,
+      unitCode: selectedUnitCode,
+      lessonCode: value,
+    }));
   };
 
   const previewArtifact = (upload: UploadedArtifact) => {
@@ -579,6 +701,32 @@ export function GoldenLessonPackageBuilder() {
     window.open(url, "_blank", "noopener,noreferrer");
     window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
+
+  useEffect(() => {
+    if (!draftReady || !selectedLessonCode) return;
+    const timer = window.setTimeout(() => {
+      void writeLocalLessonDraft({
+        lessonCode: selectedLessonCode,
+        uploads,
+        internalProvenance,
+        answerSets,
+        answersCompanion,
+        supplementalAssets,
+        savedAt: new Date().toISOString(),
+      })
+        .then(() => setDraftMessage("تم حفظ المسودة تلقائيًا على هذا الجهاز."))
+        .catch(() => setDraftMessage("تعذر الحفظ التلقائي؛ لا تغادر الصفحة قبل الاستيراد."));
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [
+    draftReady,
+    selectedLessonCode,
+    uploads,
+    internalProvenance,
+    answerSets,
+    answersCompanion,
+    supplementalAssets,
+  ]);
 
   const handleSupplementalAssets = async (files: File[]) => {
     if (!files?.length) return;
@@ -690,6 +838,10 @@ export function GoldenLessonPackageBuilder() {
         data: { intakeId: slot.intakeId, manifest: packageDraft },
       });
       setIntake(verified);
+      if (selectedLessonCode) {
+        await removeLocalLessonDraft(selectedLessonCode).catch(() => undefined);
+        setDraftMessage("اكتمل حفظ المسودة على الخادم وحُذفت النسخة المحلية المؤقتة.");
+      }
     } catch (error) {
       setIntakeError(error instanceof Error ? error.message : "DIRECT_INTAKE_FAILED");
     } finally {
@@ -790,6 +942,12 @@ export function GoldenLessonPackageBuilder() {
           </div>
         )}
       </section>
+
+      {draftMessage && (
+        <p role="status" className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          {draftMessage}
+        </p>
+      )}
 
       {!selectedLesson && (
         <div role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
