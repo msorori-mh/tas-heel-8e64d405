@@ -15,17 +15,30 @@ const files = {
   "official.provenance.json": "official-source",
   "explanation.html": staticHtml("explanation"),
   "summary.html": staticHtml("summary"),
+  "mindmap.html": staticHtml("mind map"),
   "questions.json": JSON.stringify({
     capability: "officialBookQuestions",
     questions: [{ question_number: "7", official_text: "سؤال رسمي" }],
   }),
   "questions.provenance.json": "questions-source",
+  "self-test.json": JSON.stringify({
+    capability: "selfTest",
+    questions: [{ id: "self-1", question: "ما رمز الحديد؟", options: ["Fe", "Cu"] }],
+  }),
   "answers.server-only.json": JSON.stringify({
-    answers: [{
-      capability: "officialBookQuestions",
-      question_id: "7",
-      model_answer: "إجابة نموذجية",
-    }],
+    answers: [
+      {
+        capability: "officialBookQuestions",
+        question_id: "7",
+        model_answer: "إجابة نموذجية",
+      },
+      {
+        capability: "selfTest",
+        question_id: "self-1",
+        correct_option: "Fe",
+        rationale: "Fe هو رمز الحديد.",
+      },
+    ],
   }),
 };
 
@@ -38,10 +51,10 @@ function manifest(bundleFiles = files) {
       { capability: "officialBookContent", applicability: "REQUIRED", authority: "OFFICIAL", sourcePath: "official.json", sha256: h(bundleFiles["official.json"]), provenancePath: "official.provenance.json", provenanceSha256: h(bundleFiles["official.provenance.json"]) },
       { capability: "tamkeenExplanationHtml", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "explanation.html", sha256: h(bundleFiles["explanation.html"]), provenancePath: null, provenanceSha256: null },
       { capability: "lessonSummaryHtml", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "summary.html", sha256: h(bundleFiles["summary.html"]), provenancePath: null, provenanceSha256: null },
-      { capability: "mindMapHtml", applicability: "OPTIONAL", authority: "TAMKEEN", sourcePath: null, sha256: null, provenancePath: null, provenanceSha256: null },
-      { capability: "labExperimentHtml", applicability: "NA", authority: "TAMKEEN", sourcePath: null, sha256: null, provenancePath: null, provenanceSha256: null },
+      { capability: "mindMapHtml", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "mindmap.html", sha256: h(bundleFiles["mindmap.html"]), provenancePath: null, provenanceSha256: null },
+      { capability: "labExperimentHtml", applicability: "OPTIONAL", authority: "TAMKEEN", sourcePath: null, sha256: null, provenancePath: null, provenanceSha256: null },
       { capability: "officialBookQuestions", applicability: "REQUIRED", authority: "OFFICIAL", sourcePath: "questions.json", sha256: h(bundleFiles["questions.json"]), provenancePath: "questions.provenance.json", provenanceSha256: h(bundleFiles["questions.provenance.json"]) },
-      { capability: "selfTest", applicability: "OPTIONAL", authority: "TAMKEEN", sourcePath: null, sha256: null, provenancePath: null, provenanceSha256: null },
+      { capability: "selfTest", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "self-test.json", sha256: h(bundleFiles["self-test.json"]), provenancePath: null, provenanceSha256: null },
     ],
     lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },
     security: { productionApply: false, publicPayloadContainsAnswers: false, answersCompanionPath: "answers.server-only.json", answersCompanionSha256: h(bundleFiles["answers.server-only.json"]), htmlNetworkAccess: "NONE" },
@@ -69,7 +82,7 @@ async function bundle(options: { extra?: boolean; corruptHash?: boolean; invalid
 
 test("exact stored ZIP verifies every declared byte", async () => {
   const verified = await verifyGoldenLessonBundle(await bundle());
-  assert.equal(verified.fileCount, 8);
+  assert.equal(verified.fileCount, 10);
   assert.match(verified.bundleSha256, /^[a-f0-9]{64}$/);
   assert.match(verified.manifestSha256, /^[a-f0-9]{64}$/);
 });
