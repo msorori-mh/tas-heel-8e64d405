@@ -49,7 +49,7 @@ try {
   await page.getByPlaceholder("GRADE-12").fill("GRADE-12");
   await page.getByPlaceholder("sanaa,aden").fill("sanaa,aden");
   await page.getByPlaceholder("SUB-G12-012").fill("SUB-G12-012");
-  await page.getByPlaceholder("CHEM-G12-IRON-FE").fill("CHEM-G12-IRON-FE");
+  await page.getByPlaceholder("CHEM-G12-IRON-FE", { exact: true }).fill("CHEM-G12-IRON-FE");
   await page.getByPlaceholder("الحديد-fe").fill("iron-fe-e2e-test-only");
   await page.getByPlaceholder("1").nth(0).fill("1");
   await page.getByPlaceholder("1").nth(1).fill("1");
