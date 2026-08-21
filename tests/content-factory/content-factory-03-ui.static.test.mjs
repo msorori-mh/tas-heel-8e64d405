@@ -21,7 +21,9 @@ test("review panel uses typed staging functions and exposes no direct RPC or exe
   assert.match(component, /advanceGoldenLessonReview/);
   assert.doesNotMatch(component, /\.rpc\(|\.insert\(|\.update\(|\.upsert\(|\.delete\(/);
   assert.doesNotMatch(component, /runContentImportExecute|executeContentImport/);
-  assert.match(component, /domain writes: 0/);
+  assert.match(component, /stageDomain/);
+  assert.match(component, /bindIdentity/);
+  assert.match(component, /automaticPreparation/);
 });
 
 test("manifest is hash-pinned, size-limited, dry-run checked, and role gated", () => {
@@ -30,6 +32,7 @@ test("manifest is hash-pinned, size-limited, dry-run checked, and role gated", (
   assert.match(component, /previewGoldenLessonStaging/);
   assert.match(component, /advanceGoldenLessonReview/);
   assert.match(component, /packageValidationPassed/);
+  assert.doesNotMatch(component, /id="golden-manifest-file"/);
 });
 
 test("panel remains RTL and mobile-first", () => {
