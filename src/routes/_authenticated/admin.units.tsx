@@ -80,11 +80,20 @@ function AdminUnitsPage() {
       ? (subjectsQ.data?.filter((s) => s.grade_id === gradeFilter).map((s) => s.id) ?? [])
       : [];
 
+  useEffect(() => {
+    if (subjectFilter === "all" || gradeFilter === "all") return;
+    const selected = subjectsQ.data?.find((subject) => subject.id === subjectFilter);
+    if (selected && selected.grade_id !== gradeFilter) setSubjectFilter("all");
+  }, [gradeFilter, subjectFilter, subjectsQ.data]);
+
   const unitsQ = useQuery({
     enabled,
     placeholderData: keepPreviousData,
     queryKey: ["admin-units", page, debounced, subjectFilter, gradeFilter, freeFilter],
     queryFn: async () => {
+      if (gradeFilter !== "all" && gradeSubjectIds.length === 0) {
+        return { rows: [] as UnitRow[], count: 0 };
+      }
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
       let q = supabase
@@ -143,6 +152,10 @@ function AdminUnitsPage() {
   for (const g of gradesQ.data ?? []) {
     if (g.id && g.name) gradeNameMap[g.id] = g.name;
   }
+  const subjectOptions =
+    gradeFilter === "all"
+      ? (subjectsQ.data ?? [])
+      : (subjectsQ.data ?? []).filter((subject) => subject.grade_id === gradeFilter);
 
   if (loading) {
     return (
@@ -213,26 +226,29 @@ function AdminUnitsPage() {
             />
           </div>
           <select
-            value={subjectFilter}
-            onChange={(e) => setSubjectFilter(e.target.value)}
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
-          >
-            <option value="all">كل المواد</option>
-            {subjectsQ.data?.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          <select
             value={gradeFilter}
-            onChange={(e) => setGradeFilter(e.target.value)}
+            onChange={(e) => {
+              setGradeFilter(e.target.value);
+              setSubjectFilter("all");
+            }}
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
           >
             <option value="all">كل الصفوف</option>
             {gradesQ.data?.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={subjectFilter}
+            onChange={(e) => setSubjectFilter(e.target.value)}
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
+          >
+            <option value="all">كل المواد</option>
+            {subjectOptions.map((subject) => (
+              <option key={subject.id} value={subject.id}>
+                {subject.name}{gradeFilter === "all" && subject.grade_id ? ` — ${gradeNameMap[subject.grade_id] ?? ""}` : ""}
               </option>
             ))}
           </select>
@@ -446,6 +462,7 @@ function AdminUnitsPage() {
           }}
           mode="create"
           subjects={subjectsQ.data ?? []}
+          grades={gradesQ.data ?? []}
         />
 
         <CurriculumDeleteDialog
@@ -463,3 +480,4 @@ function AdminUnitsPage() {
     </AdminLayout>
   );
 }
+

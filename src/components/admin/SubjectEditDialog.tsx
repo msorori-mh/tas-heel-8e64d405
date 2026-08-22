@@ -94,7 +94,8 @@ export function SubjectEditDialog({
       setIcon("");
       setColor("#0d7377");
       setTrackId("");
-      setGradeId(grades[0]?.id ?? "");
+      // A grade is never guessed: the operator must make an explicit choice.
+      setGradeId("");
       setError(null);
       setSaving(false);
     } else if (subject) {
@@ -437,3 +438,4 @@ export function SubjectEditDialog({
 }
 
 export default SubjectEditDialog;
+

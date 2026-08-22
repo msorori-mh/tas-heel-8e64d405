@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { createCurriculumLessonAdmin } from "@/lib/content-codes/content-codes.functions";
 
 interface Props {
   open: boolean;
@@ -22,7 +24,9 @@ interface Props {
 
 export function LessonCreateDialog({ open, onOpenChange }: Props) {
   const queryClient = useQueryClient();
+  const createLessonFn = useServerFn(createCurriculumLessonAdmin);
   const [title, setTitle] = useState("");
+  const [gradeId, setGradeId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [unitId, setUnitId] = useState("");
   const [sortOrder, setSortOrder] = useState<number>(0);
@@ -34,6 +38,7 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
   useEffect(() => {
     if (!open) {
       setTitle("");
+      setGradeId("");
       setSubjectId("");
       setUnitId("");
       setSortOrder(0);
@@ -50,12 +55,30 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subjects")
-        .select("id, name")
+        .select("id, name, grade_id")
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
   });
+
+  const gradesQ = useQuery({
+    enabled: open,
+    queryKey: ["lesson-create", "grades"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("grades")
+        .select("id, name, sort_order")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const filteredSubjects = useMemo(() => {
+    if (!gradeId) return [];
+    return (subjectsQ.data ?? []).filter((subject: any) => subject.grade_id === gradeId);
+  }, [subjectsQ.data, gradeId]);
 
   const unitsQ = useQuery({
     enabled: open,
@@ -76,8 +99,8 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
   }, [unitsQ.data, subjectId]);
 
   const subjectIds = useMemo(
-    () => new Set((subjectsQ.data ?? []).map((s: any) => s.id)),
-    [subjectsQ.data]
+    () => new Set(filteredSubjects.map((s: any) => s.id)),
+    [filteredSubjects]
   );
 
   const unitIds = useMemo(
@@ -94,6 +117,10 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
       return;
     }
 
+    if (!gradeId || !(gradesQ.data ?? []).some((grade: any) => grade.id === gradeId)) {
+      setError("اختيار الصف مطلوب.");
+      return;
+    }
     if (!subjectId) {
       setError("اختيار المادة مطلوب.");
       return;
@@ -103,11 +130,7 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
       return;
     }
 
-    if (!unitId) {
-      setError("اختيار الوحدة مطلوب.");
-      return;
-    }
-    if (!unitIds.has(unitId)) {
+    if (unitId && !unitIds.has(unitId)) {
       setError("الوحدة المختارة غير موجودة ضمن المادة.");
       return;
     }
@@ -120,38 +143,28 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
     const trimmedDuration = duration.trim();
     const durationVal = trimmedDuration || null;
 
-    const slugBase = trimmedTitle
-      .toLowerCase()
-      .replace(/[^a-z0-9\u0600-\u06FF]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40) || "lesson";
-    const slug = `${slugBase}-${Math.random().toString(36).slice(2, 8)}`;
-
-    const payload = {
-      title: trimmedTitle,
-      subject_id: subjectId,
-      unit_id: unitId,
-      sort_order: sortOrder,
-      duration: durationVal,
-      is_free: !!isFree,
-      slug,
-    };
-
     setSaving(true);
-    const { error: insertError } = await supabase
-      .from("lessons")
-      .insert(payload);
-    setSaving(false);
-
-    if (insertError) {
-      setError("تعذر إنشاء الدرس.");
+    try {
+      const created = await createLessonFn({
+        data: {
+          title: trimmedTitle,
+          subjectId,
+          unitId: unitId || null,
+          sortOrder,
+          duration: durationVal,
+          isFree: !!isFree,
+        },
+      });
+      toast.success(`تم إنشاء الدرس بالكود ${created.slug}.`);
+      await queryClient.invalidateQueries({ queryKey: ["admin-lessons"] });
+      onOpenChange(false);
+    } catch (e) {
+      const message = e instanceof Error && e.message ? e.message : "تعذر إنشاء الدرس.";
+      setError(message);
       toast.error("تعذر إنشاء الدرس.");
-      return;
+    } finally {
+      setSaving(false);
     }
-
-    toast.success("تم إنشاء الدرس بنجاح.");
-    queryClient.invalidateQueries({ queryKey: ["admin-lessons"] });
-    onOpenChange(false);
   }
 
   return (
@@ -183,6 +196,26 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="create-grade">الصف</Label>
+            <select
+              id="create-grade"
+              value={gradeId}
+              onChange={(e) => {
+                setGradeId(e.target.value);
+                setSubjectId("");
+                setUnitId("");
+              }}
+              disabled={saving}
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
+            >
+              <option value="">اختر الصف أولاً…</option>
+              {(gradesQ.data ?? []).map((grade: any) => (
+                <option key={grade.id} value={grade.id}>{grade.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="create-subject">المادة</Label>
             <select
               id="create-subject"
@@ -191,11 +224,11 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
                 setSubjectId(e.target.value);
                 setUnitId("");
               }}
-              disabled={saving}
+              disabled={!gradeId || saving}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
             >
-              <option value="">اختر المادة…</option>
-              {(subjectsQ.data ?? []).map((s: any) => (
+              <option value="">{gradeId ? "اختر المادة…" : "اختر الصف أولاً"}</option>
+              {filteredSubjects.map((s: any) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
@@ -212,15 +245,16 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
               disabled={!subjectId || saving}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
             >
-              <option value="">
-                {subjectId ? "اختر الوحدة…" : "اختر المادة أولاً"}
-              </option>
+              <option value="">{subjectId ? "لا توجد وحدة — ربط الدرس بالمادة مباشرة" : "اختر المادة أولاً"}</option>
               {filteredUnits.map((u: any) => (
                 <option key={u.id} value={u.id}>
                   {u.title}
                 </option>
               ))}
             </select>
+            {subjectId && filteredUnits.length === 0 && (
+              <p className="text-xs text-muted-foreground">هذه المادة لا تحتوي وحدات؛ سيُربط الدرس بالمادة مباشرة.</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -296,3 +330,4 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
     </Dialog>
   );
 }
+

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Dialog,
@@ -32,10 +32,11 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   unit?: UnitEditValue | null;
   mode?: "edit" | "create";
-  subjects?: { id: string; name: string | null }[];
+  subjects?: { id: string; name: string | null; grade_id: string | null }[];
+  grades?: { id: string; name: string | null }[];
 }
 
-export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjects = [] }: Props) {
+export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjects = [], grades = [] }: Props) {
   const queryClient = useQueryClient();
   const createUnitFn = useServerFn(createCurriculumUnitAdmin);
   const isCreate = mode === "create";
@@ -44,6 +45,7 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [isFree, setIsFree] = useState(false);
   const [description, setDescription] = useState("");
+  const [selectedGradeId, setSelectedGradeId] = useState<string>("");
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +61,7 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
       setSortOrder(0);
       setIsFree(false);
       setDescription("");
+      setSelectedGradeId("");
       setSelectedSubjectId("");
       setError(null);
     } else if (unit) {
@@ -66,10 +69,16 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
       setSortOrder(unit.sort_order ?? 0);
       setIsFree(unit.is_free ?? false);
       setDescription(unit.description ?? "");
+      setSelectedGradeId("");
       setSelectedSubjectId(unit.subject_id ?? "");
       setError(null);
     }
   }, [open, unit, isCreate]);
+
+  const filteredSubjects = useMemo(
+    () => selectedGradeId ? subjects.filter((subject) => subject.grade_id === selectedGradeId) : [],
+    [subjects, selectedGradeId],
+  );
 
   const handleSave = async () => {
     setError(null);
@@ -87,11 +96,15 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
     }
 
     if (isCreate) {
+      if (!selectedGradeId || !grades.some((grade) => grade.id === selectedGradeId)) {
+        setError("اختيار الصف مطلوب.");
+        return;
+      }
       if (!selectedSubjectId) {
         setError("اختيار المادة مطلوب.");
         return;
       }
-      const subjectExists = subjects.some((s) => s.id === selectedSubjectId);
+      const subjectExists = filteredSubjects.some((s) => s.id === selectedSubjectId);
       if (!subjectExists) {
         setError("المادة المختارة غير موجودة.");
         return;
@@ -201,7 +214,7 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="unit-order">الترتيب</Label>
               <Input
@@ -214,31 +227,54 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="unit-subject">المادة</Label>
+              <Label htmlFor="unit-grade">الصف</Label>
               {isCreate ? (
                 <select
-                  id="unit-subject"
-                  value={selectedSubjectId}
-                  onChange={(e) => setSelectedSubjectId(e.target.value)}
+                  id="unit-grade"
+                  value={selectedGradeId}
+                  onChange={(e) => {
+                    setSelectedGradeId(e.target.value);
+                    setSelectedSubjectId("");
+                  }}
                   disabled={saving}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                 >
-                  <option value="">اختر المادة…</option>
-                  {subjects.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name || "—"}
+                  <option value="">اختر الصف أولاً…</option>
+                  {grades.map((grade) => (
+                    <option key={grade.id} value={grade.id}>
+                      {grade.name || "—"}
                     </option>
                   ))}
                 </select>
               ) : (
                 <Input
-                  id="unit-subject"
-                  value={unit?.subject_name || "—"}
+                  id="unit-grade"
+                  value="يُحدد من المادة"
                   disabled
                   dir="rtl"
                 />
               )}
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="unit-subject">المادة</Label>
+            {isCreate ? (
+              <select
+                id="unit-subject"
+                value={selectedSubjectId}
+                onChange={(e) => setSelectedSubjectId(e.target.value)}
+                disabled={!selectedGradeId || saving}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
+              >
+                <option value="">{selectedGradeId ? "اختر المادة…" : "اختر الصف أولاً"}</option>
+                {filteredSubjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>{subject.name || "—"}</option>
+                ))}
+              </select>
+            ) : (
+              <Input id="unit-subject" value={unit?.subject_name || "—"} disabled dir="rtl" />
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -310,3 +346,4 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
 }
 
 export default UnitEditDialog;
+
