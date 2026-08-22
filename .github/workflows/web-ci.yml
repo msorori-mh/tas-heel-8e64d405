@@ -40,6 +40,7 @@ jobs:
       - name: Run unit tests
         run: |
           npm test
+          node --test tests/security/ministerial-cross-track-mufadala-parity-14i.static.test.mjs
           npm run test:question-bank-import
           node --experimental-strip-types --test tests/content-factory/content-factory-01.test.ts
           node --test tests/content-factory/content-factory-02-ui.static.test.mjs
