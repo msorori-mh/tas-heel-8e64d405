@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { createCurriculumUnitAdmin } from "@/lib/content-codes/content-codes.functions";
 
 export type UnitEditValue = {
   id: string;
@@ -35,6 +37,7 @@ interface Props {
 
 export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjects = [] }: Props) {
   const queryClient = useQueryClient();
+  const createUnitFn = useServerFn(createCurriculumUnitAdmin);
   const isCreate = mode === "create";
 
   const [title, setTitle] = useState("");
@@ -94,26 +97,19 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
         return;
       }
 
-      const payload: {
-        title: string;
-        subject_id: string;
-        sort_order: number;
-        is_free: boolean;
-        description: string | null;
-      } = {
-        title: trimmedTitle,
-        subject_id: selectedSubjectId,
-        sort_order: order,
-        is_free: !!isFree,
-        description: description.trim().length > 0 ? description.trim() : null,
-      };
-
       setSaving(true);
       try {
-        const { error: insertError } = await supabase.from("units").insert(payload);
-        if (insertError) throw insertError;
+        const created = await createUnitFn({
+          data: {
+            title: trimmedTitle,
+            subjectId: selectedSubjectId,
+            sortOrder: order,
+            isFree: !!isFree,
+            description: description.trim().length > 0 ? description.trim() : null,
+          },
+        });
 
-        toast.success("تم إنشاء الوحدة بنجاح.");
+        toast.success(`تم إنشاء الوحدة بالكود ${created.code}.`);
         queryClient.invalidateQueries({ queryKey: ["admin-units"] });
         onOpenChange(false);
       } catch (e) {
@@ -182,7 +178,7 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
           </DialogTitle>
           <DialogDescription className="text-right">
             {isCreate
-              ? "أدخل بيانات الوحدة الجديدة."
+              ? "أدخل بيانات الوحدة؛ ينشئ النظام كود TCS-2 تلقائيًا."
               : "يمكنك تعديل بيانات الوحدة هنا."}
           </DialogDescription>
         </DialogHeader>
