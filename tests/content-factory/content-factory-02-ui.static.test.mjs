@@ -6,6 +6,10 @@ const component = readFileSync("src/components/admin/GoldenLessonPackageBuilder.
 const route = readFileSync("src/routes/_authenticated/admin.import.tsx", "utf8");
 const profiles = readFileSync("src/lib/content-factory/golden-lesson-profiles.ts", "utf8");
 const xlsx = readFileSync("src/lib/content-factory/golden-lesson-xlsx.ts", "utf8");
+const unitDialog = readFileSync("src/components/admin/UnitEditDialog.tsx", "utf8");
+const unitFunctions = readFileSync("src/lib/content-codes/content-codes.functions.ts", "utf8");
+const textbookManager = readFileSync("src/components/admin/SubjectTextbooksManager.tsx", "utf8");
+const adminLayout = readFileSync("src/components/admin/AdminLayout.tsx", "utf8");
 
 test("the import center exposes only the final lesson-content workflow", () => {
   assert.match(route, /<GoldenLessonPackageBuilder\s*\/>/);
@@ -84,4 +88,29 @@ test("partial lesson drafts are autosaved and restored without server publicatio
   assert.match(component, /readLocalLessonDraft/);
   assert.match(component, /تم حفظ المسودة تلقائيًا/);
   assert.match(component, /removeLocalLessonDraft/);
+});
+
+test("curriculum prerequisites are explicit and use only the two operational tracks", () => {
+  assert.match(component, /المسار \(اختيار متعدد\)/);
+  assert.match(component, /lesson-import-track-\$\{track\.trackCode\}/);
+  assert.match(component, /track\.trackCode === "sanaa" \|\| track\.trackCode === "aden"/);
+  assert.match(component, /selectedTrackCodes\.every/);
+  assert.match(component, /href="\/admin\/units"/);
+  assert.match(component, /href="\/admin\/textbooks"/);
+  assert.match(component, /لا توجد وحدة — الدرس مرتبط بالمادة مباشرة/);
+  assert.match(textbookManager, /لا يشترط وجود كتاب مسبقًا/);
+  assert.match(textbookManager, /id="subject-textbook-pdf"/);
+  assert.match(textbookManager, /منهج صنعاء وعدن معًا/);
+  assert.match(adminLayout, /رفع كتب المواد/);
+  assert.match(adminLayout, /استيراد محتوى الدروس/);
+});
+
+test("manual unit entry allocates a server-owned TCS-2 code", () => {
+  assert.match(unitDialog, /useServerFn\(createCurriculumUnitAdmin\)/);
+  assert.match(unitDialog, /ينشئ النظام كود TCS-2 تلقائيًا/);
+  assert.doesNotMatch(unitDialog, /from\("units"\)\.insert/);
+  assert.match(unitFunctions, /parseTcs2Code/);
+  assert.match(unitFunctions, /nextAllocatedNumber\(existingCodes, "unit"/);
+  assert.match(unitFunctions, /buildUnitCode/);
+  assert.match(unitFunctions, /\.insert\(\{\s*code,/);
 });
