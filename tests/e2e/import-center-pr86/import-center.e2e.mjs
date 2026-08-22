@@ -102,8 +102,11 @@ try {
 
   await page.locator("#lesson-import-grade").click();
   await page.getByRole("option", { name: "الصف الثالث الثانوي" }).click();
-  await page.locator("#lesson-import-track").click();
-  await page.getByRole("option", { name: "منهج صنعاء" }).click();
+  await page.locator("#lesson-import-track-sanaa").check();
+  await page.locator("#lesson-import-track-aden").check();
+  assert.equal(await page.locator("#lesson-import-track-sanaa").isChecked(), true);
+  assert.equal(await page.locator("#lesson-import-track-aden").isChecked(), true);
+  assert.equal(await page.getByText("آخر", { exact: true }).count(), 0);
   await page.locator("#lesson-import-subject").click();
   await page.getByRole("option", { name: "الكيمياء" }).click();
   await page.locator("#lesson-import-lesson").click();
