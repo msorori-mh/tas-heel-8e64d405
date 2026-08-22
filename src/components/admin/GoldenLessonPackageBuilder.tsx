@@ -306,7 +306,7 @@ export function GoldenLessonPackageBuilder() {
   const [registryLoading, setRegistryLoading] = useState(true);
   const [registryError, setRegistryError] = useState<string | null>(null);
   const [gradeSlug, setGradeSlug] = useState("");
-  const [trackCode, setTrackCode] = useState("");
+  const [selectedTrackCodes, setSelectedTrackCodes] = useState<string[]>([]);
   const [selectedSubjectCode, setSelectedSubjectCode] = useState("");
   const [selectedUnitCode, setSelectedUnitCode] = useState("");
   const [selectedLessonCode, setSelectedLessonCode] = useState("");
@@ -351,12 +351,18 @@ export function GoldenLessonPackageBuilder() {
       const saved = JSON.parse(raw) as {
         gradeSlug?: string;
         trackCode?: string;
+        trackCodes?: string[];
         subjectCode?: string;
         unitCode?: string;
         lessonCode?: string;
       };
       if (saved.gradeSlug) setGradeSlug(saved.gradeSlug);
-      if (saved.trackCode) setTrackCode(saved.trackCode);
+      const restoredTracks = Array.isArray(saved.trackCodes)
+        ? saved.trackCodes
+        : saved.trackCode
+          ? [saved.trackCode]
+          : [];
+      setSelectedTrackCodes(restoredTracks.filter((code) => code === "sanaa" || code === "aden"));
       if (saved.subjectCode) setSelectedSubjectCode(saved.subjectCode);
       if (saved.unitCode) setSelectedUnitCode(saved.unitCode);
       if (saved.lessonCode) setSelectedLessonCode(saved.lessonCode);
@@ -365,13 +371,20 @@ export function GoldenLessonPackageBuilder() {
     }
   }, [registry]);
 
+  const availableTracks = useMemo(
+    () => (registry?.tracks ?? []).filter((track) =>
+      track.trackCode === "sanaa" || track.trackCode === "aden"
+    ),
+    [registry],
+  );
   const subjects = useMemo(
     () => (registry?.subjects ?? []).filter((subject) =>
       (!gradeSlug || subject.gradeSlug === gradeSlug) &&
-      (!trackCode || subject.trackCodes.includes(trackCode)) &&
+      (selectedTrackCodes.length === 0 ||
+        selectedTrackCodes.every((code) => subject.trackCodes.includes(code))) &&
       subject.isOfficialCode
     ),
-    [registry, gradeSlug, trackCode],
+    [registry, gradeSlug, selectedTrackCodes],
   );
   const units = useMemo(
     () => (registry?.units ?? []).filter((unit) => unit.subjectCode === selectedSubjectCode),
@@ -392,7 +405,7 @@ export function GoldenLessonPackageBuilder() {
   const profile = getGoldenLessonProfile(profileId);
   const packageCode = selectedLesson ? `${selectedLesson.lessonCode}-PKG` : "";
   const gradeCode = gradeSlug.toUpperCase();
-  const trackCodes = trackCode;
+  const trackCodes = selectedTrackCodes;
   const subjectCode = selectedSubjectCode;
   const lessonCode = selectedLesson?.lessonCode ?? "";
   const lessonSlug = lessonCode.toLowerCase();
@@ -400,7 +413,7 @@ export function GoldenLessonPackageBuilder() {
   const semester = selectedLesson?.semester ? String(selectedLesson.semester) : "";
   const sortOrder = selectedLesson?.sortOrder ? String(selectedLesson.sortOrder) : "";
   const canonicalIdentityComplete = Boolean(
-    profile && selectedSubject && selectedLesson && gradeCode && trackCode &&
+    profile && selectedSubject && selectedLesson && gradeCode && selectedTrackCodes.length > 0 &&
     semester && sortOrder,
   );
 
@@ -452,7 +465,7 @@ export function GoldenLessonPackageBuilder() {
       packageCode: packageCode.trim(),
       identity: {
         gradeCode: gradeCode.trim().toUpperCase(),
-        curriculumTrackCodes: trackCodes.split(",").map((code) => code.trim().toLowerCase()).filter(Boolean),
+        curriculumTrackCodes: trackCodes.map((code) => code.trim().toLowerCase()).filter(Boolean),
         subjectCode: subjectCode.trim().toUpperCase(),
         lessonCode: lessonCode.trim().toUpperCase(),
         lessonSlug: lessonSlug.trim(),
@@ -649,17 +662,21 @@ export function GoldenLessonPackageBuilder() {
     clearSelectedFiles();
     window.localStorage.removeItem(LAST_CONTEXT_KEY);
     setGradeSlug(value);
-    setTrackCode("");
+    setSelectedTrackCodes([]);
     setSelectedSubjectCode("");
     setSelectedUnitCode("");
     setSelectedLessonCode("");
   };
 
-  const chooseTrack = (value: string) => {
+  const toggleTrack = (value: string) => {
     if (!allowContextChange()) return;
     clearSelectedFiles();
     window.localStorage.removeItem(LAST_CONTEXT_KEY);
-    setTrackCode(value);
+    setSelectedTrackCodes((current) =>
+      current.includes(value)
+        ? current.filter((code) => code !== value)
+        : [...current, value].sort(),
+    );
     setSelectedSubjectCode("");
     setSelectedUnitCode("");
     setSelectedLessonCode("");
@@ -689,7 +706,7 @@ export function GoldenLessonPackageBuilder() {
     setSelectedLessonCode(value);
     window.localStorage.setItem(LAST_CONTEXT_KEY, JSON.stringify({
       gradeSlug,
-      trackCode,
+      trackCodes: selectedTrackCodes,
       subjectCode: selectedSubjectCode,
       unitCode: selectedUnitCode,
       lessonCode: value,
@@ -861,9 +878,17 @@ export function GoldenLessonPackageBuilder() {
           ارفع كل محتوى في مكانه. لا يوجد ملف ZIP للدرس، ولا PDF للدرس، ولا ملف توثيق مصدر.
           الإجابات تُستخرج آليًا من قالبي 09 و10 وتحفظ في الطبقة الخادمية المحمية.
         </p>
-        <a href="/admin/textbooks" className="inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-medium hover:bg-accent">
-          إدارة كتاب المادة الرسمي (PDF مرة واحدة على مستوى المادة)
-        </a>
+        <div className="flex flex-wrap gap-2">
+          <a href="/admin/textbooks" className="inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-medium hover:bg-accent">
+            رفع أو إدارة كتاب المادة الرسمي
+          </a>
+          <a href="/admin/units" className="inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-medium hover:bg-accent">
+            إضافة أو إدارة الوحدات
+          </a>
+          <a href="/admin/curriculum" className="inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-medium hover:bg-accent">
+            مراجعة هيكل المنهج
+          </a>
+        </div>
       </div>
 
       <section aria-labelledby="lesson-context-heading" className="rounded-xl border bg-muted/20 p-4 space-y-4">
@@ -890,18 +915,34 @@ export function GoldenLessonPackageBuilder() {
                 ))}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="lesson-import-track">المسار</Label>
-              <Select value={trackCode || undefined} onValueChange={chooseTrack} disabled={!gradeSlug}>
-                <SelectTrigger id="lesson-import-track" className="min-h-[44px]"><SelectValue placeholder="اختر المسار" /></SelectTrigger>
-                <SelectContent>{(registry?.tracks ?? []).map((track) => (
-                  <SelectItem key={track.trackCode} value={track.trackCode}>{track.nameAr}</SelectItem>
-                ))}</SelectContent>
-              </Select>
-            </div>
+            <fieldset className="space-y-1.5" disabled={!gradeSlug}>
+              <legend className="text-sm font-medium">المسار (اختيار متعدد)</legend>
+              <div id="lesson-import-track" className="flex min-h-[44px] flex-wrap items-center gap-2 rounded-md border bg-background px-2 py-1.5">
+                {availableTracks.map((track) => {
+                  const checked = selectedTrackCodes.includes(track.trackCode);
+                  return (
+                    <label
+                      key={track.trackCode}
+                      htmlFor={`lesson-import-track-${track.trackCode}`}
+                      className={`inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm ${checked ? "border-primary bg-primary/10 text-primary" : "hover:bg-accent"}`}
+                    >
+                      <input
+                        id={`lesson-import-track-${track.trackCode}`}
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleTrack(track.trackCode)}
+                        className="h-4 w-4"
+                      />
+                      {track.nameAr}
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground">اختر صنعاء وعدن معًا عندما تكون المادة أو الكتاب مشتركًا بين المسارين.</p>
+            </fieldset>
             <div className="space-y-1.5">
               <Label htmlFor="lesson-import-subject">المادة</Label>
-              <Select value={selectedSubjectCode || undefined} onValueChange={chooseSubject} disabled={!trackCode}>
+              <Select value={selectedSubjectCode || undefined} onValueChange={chooseSubject} disabled={selectedTrackCodes.length === 0}>
                 <SelectTrigger id="lesson-import-subject" className="min-h-[44px]"><SelectValue placeholder="اختر المادة" /></SelectTrigger>
                 <SelectContent>{subjects.map((subject) => (
                   <SelectItem key={subject.subjectCode} value={subject.subjectCode}>{subject.name}</SelectItem>
@@ -909,14 +950,22 @@ export function GoldenLessonPackageBuilder() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="lesson-import-unit">الوحدة</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="lesson-import-unit">الوحدة</Label>
+                <a href="/admin/units" className="text-xs font-medium text-primary hover:underline">إضافة/إدارة الوحدات</a>
+              </div>
               <Select value={selectedUnitCode || "__NO_UNIT__"} onValueChange={chooseUnit} disabled={!selectedSubjectCode}>
-                <SelectTrigger id="lesson-import-unit" className="min-h-[44px]"><SelectValue placeholder="بدون وحدة" /></SelectTrigger>
+                <SelectTrigger id="lesson-import-unit" className="min-h-[44px]"><SelectValue placeholder="اختر الوحدة" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__NO_UNIT__">دروس مرتبطة بالمادة مباشرة</SelectItem>
-                  {units.map((unit) => <SelectItem key={unit.unitCode} value={unit.unitCode}>{unit.title}</SelectItem>)}
+                  <SelectItem value="__NO_UNIT__">لا توجد وحدة — الدرس مرتبط بالمادة مباشرة</SelectItem>
+                  {units.filter((unit) => Boolean(unit.unitCode)).map((unit) => (
+                    <SelectItem key={unit.unitCode} value={unit.unitCode}>{unit.title}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {selectedSubjectCode && units.length === 0 && (
+                <p className="text-[11px] text-amber-700">لا توجد وحدات مسجلة لهذه المادة. يمكنك إضافة وحدة أو إبقاء الدرس مرتبطًا بالمادة مباشرة.</p>
+              )}
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="lesson-import-lesson">الدرس</Label>
