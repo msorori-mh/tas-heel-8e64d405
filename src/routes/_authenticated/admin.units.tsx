@@ -179,7 +179,7 @@ function AdminUnitsPage() {
               الوحدات الدراسية
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              قائمة الوحدات — قراءة فقط.
+              أضف الوحدات واربط كل وحدة بمادتها، أو اترك الدرس مرتبطًا بالمادة مباشرة عندما لا توجد وحدة في الكتاب.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -188,7 +188,7 @@ function AdminUnitsPage() {
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
               <Plus className="h-4 w-4" />
-              إضافة وحدة
+              إدخال وحدة جديدة
             </button>
             <Link
               to="/admin/academic"

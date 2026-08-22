@@ -54,19 +54,27 @@ function AdminImportPage() {
         </header>
 
         <section className="rounded-xl border border-primary/25 bg-primary/5 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <div className="flex items-start gap-3">
+            <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <div className="flex-1 space-y-3">
               <div>
-                <h2 className="font-semibold">كتاب المادة الرسمي</h2>
+                <h2 className="font-semibold">التجهيز المطلوب قبل استيراد محتوى الدرس</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  يرفع مرة واحدة فقط على مستوى المادة والفصل الدراسي، ولا يرفع PDF مستقل للدرس.
+                  عرّف هيكل المنهج والوحدات أولًا، ثم ارفع كتاب المادة الرسمي PDF. لا يشترط أن يكون الكتاب موجودًا مسبقًا.
                 </p>
               </div>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <a href="/admin/curriculum">هيكل المنهج</a>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <a href="/admin/units">إضافة أو إدارة الوحدات</a>
+                </Button>
+                <Button asChild size="sm">
+                  <a href="/admin/textbooks">رفع أو إدارة كتاب المادة PDF</a>
+                </Button>
+              </div>
             </div>
-            <Button asChild variant="outline">
-              <a href="/admin/textbooks">إدارة كتب المواد</a>
-            </Button>
           </div>
         </section>
 

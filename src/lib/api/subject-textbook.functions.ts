@@ -4,6 +4,35 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export const listSubjectTextbookCatalogAdmin = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const m = await import("@/lib/textbooks/subject-textbook.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await m.assertContentStaff(context.supabase as never, context.userId);
+    const [subjectsResult, tracksResult] = await Promise.all([
+      supabaseAdmin
+        .from("subjects")
+        .select("id,name,grade_id,semester,curriculum_track_id")
+        .order("name"),
+      supabaseAdmin
+        .from("curriculum_tracks")
+        .select("id,track_code,track_name")
+        .in("track_code", ["sanaa", "aden"])
+        .order("track_name"),
+    ]);
+    if (subjectsResult.error) throw subjectsResult.error;
+    if (tracksResult.error) throw tracksResult.error;
+    return {
+      subjects: subjectsResult.data ?? [],
+      tracks: (tracksResult.data ?? []).map((track) => ({
+        id: track.id,
+        code: track.track_code,
+        name: track.track_name ?? "مسار",
+      })),
+    };
+  });
+
 export const listSubjectTextbooksAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ subjectId: z.string().uuid(), includeInactive: z.boolean().optional() }))

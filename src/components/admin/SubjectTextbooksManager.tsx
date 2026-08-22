@@ -27,6 +27,7 @@ import {
   bindSubjectTextbookFile,
   createSubjectTextbookUploadTarget,
   deleteSubjectTextbook,
+  listSubjectTextbookCatalogAdmin,
   listSubjectTextbooksAdmin,
   setSubjectTextbookActive,
 } from "@/lib/api/subject-textbook.functions";
@@ -57,6 +58,7 @@ async function sha256Hex(file: File): Promise<string | null> {
 
 export function SubjectTextbooksManager() {
   const qc = useQueryClient();
+  const catalogFn = useServerFn(listSubjectTextbookCatalogAdmin);
   const listFn = useServerFn(listSubjectTextbooksAdmin);
   const targetFn = useServerFn(createSubjectTextbookUploadTarget);
   const bindFn = useServerFn(bindSubjectTextbookFile);
@@ -80,28 +82,9 @@ export function SubjectTextbooksManager() {
   const fileRef = useRef<HTMLInputElement>(null);
 
 
-  const subjectsQuery = useQuery({
-    queryKey: ["admin-textbooks-subjects"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("subjects")
-        .select("id,name,grade_id,semester,curriculum_track_id")
-        .order("name");
-      if (error) throw error;
-      return (data ?? []) as SubjectRow[];
-    },
-  });
-
-  const tracksQuery = useQuery({
-    queryKey: ["admin-textbooks-tracks"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("curriculum_tracks")
-        .select("id,track_name")
-        .order("track_name");
-      if (error) throw error;
-      return (data ?? []).map((t) => ({ id: t.id as string, name: (t.track_name as string) ?? "مسار" }));
-    },
+  const catalogQuery = useQuery({
+    queryKey: ["admin-textbooks-catalog"],
+    queryFn: () => catalogFn(),
   });
 
   const textbooksQuery = useQuery({
@@ -111,13 +94,13 @@ export function SubjectTextbooksManager() {
   });
 
   const subjects = useMemo(() => {
-    const rows = subjectsQuery.data ?? [];
+    const rows = (catalogQuery.data?.subjects ?? []) as SubjectRow[];
     const term = search.trim();
     return (term ? rows.filter((s) => s.name.includes(term)) : rows).slice(0, 200);
-  }, [subjectsQuery.data, search]);
+  }, [catalogQuery.data, search]);
 
   const trackName = (id: string | null) =>
-    id ? (tracksQuery.data?.find((t) => t.id === id)?.name ?? "مسار") : "كل المسارات";
+    id ? (catalogQuery.data?.tracks.find((t) => t.id === id)?.name ?? "مسار") : "صنعاء وعدن معًا";
 
   const upload = async (file: File) => {
     if (!subjectId) return toast.error("اختر المادة أولاً.");
@@ -172,7 +155,8 @@ export function SubjectTextbooksManager() {
   return (
     <div className="space-y-4" dir="rtl">
       <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
-        <h2 className="text-sm font-bold text-foreground">اختر المادة</h2>
+        <h2 className="text-sm font-bold text-foreground">1. اختر المادة لرفع كتاب جديد أو إدارة كتاب مرفوع</h2>
+        <p className="text-xs text-muted-foreground">لا يشترط وجود كتاب مسبقًا. بعد اختيار المادة يظهر حقل رفع ملف PDF مباشرة.</p>
         <Input
           placeholder="ابحث باسم المادة…"
           value={search}
@@ -184,6 +168,7 @@ export function SubjectTextbooksManager() {
           className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
         >
           <option value="">— اختر المادة —</option>
+          {catalogQuery.isLoading && <option disabled>جارٍ تحميل المواد…</option>}
           {subjects.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -192,11 +177,23 @@ export function SubjectTextbooksManager() {
         </select>
       </section>
 
+      {catalogQuery.isError && (
+        <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          تعذر تحميل المواد. أعد فتح الصفحة أو تحقق من صلاحية إدارة المحتوى.
+        </p>
+      )}
+
+      {!catalogQuery.isLoading && !catalogQuery.isError && subjects.length === 0 && (
+        <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          لا توجد مواد متاحة. أضف المواد واربطها بالمسارات من «هيكل المنهج» أولًا.
+        </p>
+      )}
+
       {subjectId && (
         <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
           <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
             <Upload className="h-4 w-4 text-primary" />
-            {replaceId ? "استبدال كتاب" : "رفع كتاب منهج"}
+            {replaceId ? "استبدال كتاب" : "2. رفع ملف كتاب المادة الرسمي"}
           </h2>
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -211,8 +208,8 @@ export function SubjectTextbooksManager() {
                 onChange={(e) => setTrackId(e.target.value)}
                 className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
               >
-                <option value="">كل المسارات</option>
-                {(tracksQuery.data ?? []).map((t) => (
+                <option value="">منهج صنعاء وعدن معًا</option>
+                {(catalogQuery.data?.tracks ?? []).map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
                   </option>
@@ -264,17 +261,22 @@ export function SubjectTextbooksManager() {
           )}
 
 
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/pdf"
-            disabled={busy}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void upload(file);
-            }}
-            className="block w-full text-xs"
-          />
+          <div className="space-y-1.5 rounded-xl border border-dashed border-primary/40 bg-primary/5 p-3">
+            <Label htmlFor="subject-textbook-pdf" className="text-sm font-semibold">ملف الكتاب الرسمي PDF</Label>
+            <p className="text-xs text-muted-foreground">اختر الملف من جهازك؛ يبدأ الرفع بعد الاختيار ويُحفظ مرة واحدة على مستوى المادة والنطاق المحدد.</p>
+            <input
+              id="subject-textbook-pdf"
+              ref={fileRef}
+              type="file"
+              accept="application/pdf"
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void upload(file);
+              }}
+              className="block w-full text-xs"
+            />
+          </div>
 
           {busy && (
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
