@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/ministerial-exams/")({
       { title: "نماذج الاختبارات الوزارية — تمكين" },
       {
         name: "description",
-        content: "استعرض نماذج الاختبارات الوزارية السابقة الخاصة بمسارك الدراسي وتدرّب عليها.",
+        content: "استعرض نماذج اختبارات صنعاء وعدن الوزارية السابقة وتدرّب عليها مهما كان مسارك الدراسي.",
       },
       { property: "og:title", content: "نماذج الاختبارات الوزارية — تمكين" },
       {
@@ -46,7 +46,7 @@ function MinisterialExamsIndex() {
               نماذج الاختبارات الوزارية
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              النماذج المعروضة تخص منهجك الدراسي فقط.
+              استعرض وتدرّب على نماذج صنعاء وعدن، مهما كان مسارك الدراسي.
             </p>
           </div>
         </div>
@@ -73,7 +73,7 @@ function MinisterialExamsIndex() {
       {error && <StateMessage variant="error">تعذّر تحميل النماذج الوزارية.</StateMessage>}
 
       {!isLoading && !error && (data?.length ?? 0) === 0 && (
-        <StateMessage>لا توجد نماذج وزارية منشورة لمسارك الدراسي حالياً.</StateMessage>
+        <StateMessage>لا توجد نماذج وزارية منشورة لصفك الدراسي حالياً.</StateMessage>
       )}
 
       <ul className="grid gap-3 sm:grid-cols-2">
@@ -91,6 +91,18 @@ function MinisterialExamsIndex() {
                 <span className="mt-1 block text-xs text-muted-foreground">
                   {s.models_count} نموذج
                   {s.latest_year ? ` • أحدث سنة ${s.latest_year}` : ""}
+                </span>
+                <span className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                  {s.sanaa_models_count > 0 && (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+                      صنعاء {s.sanaa_models_count}
+                    </span>
+                  )}
+                  {s.aden_models_count > 0 && (
+                    <span className="rounded-full bg-secondary px-2 py-0.5 font-medium text-secondary-foreground">
+                      عدن {s.aden_models_count}
+                    </span>
+                  )}
                 </span>
               </span>
               <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
