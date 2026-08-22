@@ -22,6 +22,15 @@ const CreateCurriculumUnitInput = z.object({
   isFree: z.boolean(),
 });
 
+const CreateCurriculumLessonInput = z.object({
+  subjectId: z.string().uuid(),
+  unitId: z.string().uuid().nullable().optional(),
+  title: z.string().trim().min(1).max(200),
+  duration: z.string().trim().max(100).nullable().optional(),
+  sortOrder: z.number().int().min(0).max(100000),
+  isFree: z.boolean(),
+});
+
 const ContextTemplateInput = z.object({
   templateKey: z.enum(CONTEXT_TEMPLATE_KEYS),
   gradeSlug: z.string().min(1).max(32),
@@ -156,3 +165,85 @@ export const createCurriculumUnitAdmin = createServerFn({ method: "POST" })
 
     return created;
   });
+
+/** Create a lesson with a server-owned TCS-2 code; unitId is deliberately nullable. */
+export const createCurriculumLessonAdmin = createServerFn({ method: "POST" })
+  .middleware([requireContentStaffAuth])
+  .inputValidator((input) => CreateCurriculumLessonInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { buildLessonCode, nextAllocatedNumber, parseTcs2Code } = await import("./tcs2");
+
+    const { data: subject, error: subjectError } = await context.supabase
+      .from("subjects")
+      .select("id, code, grade_id")
+      .eq("id", data.subjectId)
+      .maybeSingle();
+    if (subjectError) throw new Error(`تعذر قراءة المادة: ${subjectError.message}`);
+    if (!subject?.grade_id) throw new Error("المادة غير موجودة أو غير مرتبطة بصف دراسي.");
+
+    const parsedSubject = parseTcs2Code((subject.code ?? "").trim());
+    if (!parsedSubject || parsedSubject.kind !== "subject") {
+      throw new Error("لا يمكن إنشاء الدرس: المادة لا تحمل كود TCS-2 رسميًا.");
+    }
+
+    const { data: grade, error: gradeError } = await context.supabase
+      .from("grades")
+      .select("slug")
+      .eq("id", subject.grade_id)
+      .maybeSingle();
+    if (gradeError) throw new Error(`تعذر قراءة الصف الدراسي: ${gradeError.message}`);
+    if (!grade?.slug || grade.slug !== parsedSubject.gradeSlug) {
+      throw new Error("بيانات الصف وكود المادة غير متطابقة.");
+    }
+
+    const unitId = data.unitId ?? null;
+    if (unitId) {
+      const { data: unit, error: unitError } = await context.supabase
+        .from("units")
+        .select("id, subject_id")
+        .eq("id", unitId)
+        .maybeSingle();
+      if (unitError) throw new Error(`تعذر قراءة الوحدة: ${unitError.message}`);
+      if (!unit || unit.subject_id !== subject.id) {
+        throw new Error("الوحدة المختارة لا تنتمي إلى المادة المحددة.");
+      }
+    }
+
+    const { data: existingLessons, error: lessonsError } = await context.supabase
+      .from("lessons")
+      .select("slug")
+      .eq("subject_id", subject.id)
+      .limit(2000);
+    if (lessonsError) throw new Error(`تعذر قراءة أكواد الدروس: ${lessonsError.message}`);
+
+    const existingCodes = (existingLessons ?? [])
+      .map((row) => (row.slug ?? "").trim())
+      .filter(Boolean);
+    const subjectNo = parsedSubject.numbers[0];
+    if (!subjectNo) throw new Error("تعذر استخراج رقم المادة من كود TCS-2.");
+    const scope = { gradeSlug: grade.slug };
+    const lessonNo = nextAllocatedNumber(existingCodes, "lesson", scope, [subjectNo]);
+    const slug = buildLessonCode(scope, subjectNo, lessonNo);
+
+    const { data: created, error: createError } = await context.supabase
+      .from("lessons")
+      .insert({
+        subject_id: subject.id,
+        unit_id: unitId,
+        slug,
+        title: data.title,
+        duration: data.duration?.trim() || null,
+        sort_order: data.sortOrder,
+        is_free: data.isFree,
+      })
+      .select("id, slug, title, subject_id, unit_id, sort_order, duration, is_free")
+      .single();
+    if (createError) {
+      if (createError.code === "23505") {
+        throw new Error("تعذر حجز كود الدرس بسبب إنشاء متزامن. أعد المحاولة.");
+      }
+      throw new Error(`تعذر إنشاء الدرس: ${createError.message}`);
+    }
+    return created;
+  });
+

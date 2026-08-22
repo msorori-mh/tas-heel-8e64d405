@@ -185,11 +185,23 @@ function AdminLessonsList() {
       ? (subjectsQ.data?.filter((s) => s.grade_id === gradeFilter).map((s) => s.id) ?? [])
       : [];
 
+  useEffect(() => {
+    if (subjectFilter === "all" || gradeFilter === "all") return;
+    const selected = subjectsQ.data?.find((subject) => subject.id === subjectFilter);
+    if (selected && selected.grade_id !== gradeFilter) {
+      setSubjectFilter("all");
+      setUnitFilter("all");
+    }
+  }, [gradeFilter, subjectFilter, subjectsQ.data]);
+
   const lessonsQ = useQuery({
     enabled,
     placeholderData: keepPreviousData,
     queryKey: ["admin-lessons", page, debounced, subjectFilter, unitFilter, gradeFilter],
     queryFn: async () => {
+      if (gradeFilter !== "all" && gradeSubjectIds.length === 0) {
+        return { rows: [] as LessonRow[], count: 0 };
+      }
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
       let q = supabase
@@ -203,7 +215,8 @@ function AdminLessonsList() {
 
       if (debounced) q = q.ilike("title", `%${debounced}%`);
       if (subjectFilter !== "all") q = q.eq("subject_id", subjectFilter);
-      if (unitFilter !== "all") q = q.eq("unit_id", unitFilter);
+      if (unitFilter === "__NO_UNIT__") q = q.is("unit_id", null);
+      else if (unitFilter !== "all") q = q.eq("unit_id", unitFilter);
       if (gradeFilter !== "all" && gradeSubjectIds.length > 0) {
         q = q.in("subject_id", gradeSubjectIds);
       }
@@ -344,11 +357,18 @@ function AdminLessonsList() {
     if (g.id && g.name) gradeNameMap[g.id] = g.name;
   }
 
-  // Filter unit options based on subject filter
+  const subjectOptions =
+    gradeFilter === "all"
+      ? (subjectsQ.data ?? [])
+      : (subjectsQ.data ?? []).filter((subject) => subject.grade_id === gradeFilter);
+
+  // Unit options follow the selected subject or grade; direct lessons remain explicit.
   const unitOptions =
     subjectFilter !== "all"
       ? (unitsQ.data?.filter((u) => u.subject_id === subjectFilter) ?? [])
-      : (unitsQ.data ?? []);
+      : gradeFilter !== "all"
+        ? (unitsQ.data?.filter((unit) => gradeSubjectIds.includes(unit.subject_id)) ?? [])
+        : (unitsQ.data ?? []);
 
   if (loading) {
     return (
@@ -418,7 +438,11 @@ function AdminLessonsList() {
           </div>
           <select
             value={gradeFilter}
-            onChange={(e) => setGradeFilter(e.target.value)}
+            onChange={(e) => {
+              setGradeFilter(e.target.value);
+              setSubjectFilter("all");
+              setUnitFilter("all");
+            }}
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
           >
             <option value="all">كل الصفوف</option>
@@ -437,9 +461,9 @@ function AdminLessonsList() {
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
           >
             <option value="all">كل المواد</option>
-            {subjectsQ.data?.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
+            {subjectOptions.map((subject) => (
+              <option key={subject.id} value={subject.id}>
+                {subject.name}{gradeFilter === "all" && subject.grade_id ? ` — ${gradeNameMap[subject.grade_id] ?? ""}` : ""}
               </option>
             ))}
           </select>
@@ -449,6 +473,7 @@ function AdminLessonsList() {
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
           >
             <option value="all">كل الوحدات</option>
+            <option value="__NO_UNIT__">دروس مرتبطة بالمادة مباشرة (بلا وحدة)</option>
             {unitOptions.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.title}
@@ -719,3 +744,4 @@ function AdminLessonsList() {
     </AdminLayout>
   );
 }
+
