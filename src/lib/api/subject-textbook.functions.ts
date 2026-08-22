@@ -1,4 +1,4 @@
-/** 21B — subject textbook server functions (content staff only). */
+/** 21B / 13K — subject textbook server functions (content staff only). */
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -10,7 +10,8 @@ export const listSubjectTextbookCatalogAdmin = createServerFn({ method: "GET" })
     const m = await import("@/lib/textbooks/subject-textbook.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await m.assertContentStaff(context.supabase as never, context.userId);
-    const [subjectsResult, tracksResult] = await Promise.all([
+    const [gradesResult, subjectsResult, tracksResult, subjectTracksResult] = await Promise.all([
+      supabaseAdmin.from("grades").select("id,name,sort_order").order("sort_order"),
       supabaseAdmin
         .from("subjects")
         .select("id,name,grade_id,semester,curriculum_track_id")
@@ -20,16 +21,23 @@ export const listSubjectTextbookCatalogAdmin = createServerFn({ method: "GET" })
         .select("id,track_code,track_name")
         .in("track_code", ["sanaa", "aden"])
         .order("track_name"),
+      supabaseAdmin
+        .from("subject_curriculum_tracks")
+        .select("subject_id,curriculum_track_id"),
     ]);
+    if (gradesResult.error) throw gradesResult.error;
     if (subjectsResult.error) throw subjectsResult.error;
     if (tracksResult.error) throw tracksResult.error;
+    if (subjectTracksResult.error) throw subjectTracksResult.error;
     return {
+      grades: gradesResult.data ?? [],
       subjects: subjectsResult.data ?? [],
       tracks: (tracksResult.data ?? []).map((track) => ({
         id: track.id,
         code: track.track_code,
         name: track.track_name ?? "مسار",
       })),
+      subjectTracks: subjectTracksResult.data ?? [],
     };
   });
 
@@ -104,7 +112,6 @@ export const bindSubjectTextbookFile = createServerFn({ method: "POST" })
       replaceId: data.replaceId ?? null,
     });
   });
-
 
 export const cloneSubjectTextbookForTrack = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
