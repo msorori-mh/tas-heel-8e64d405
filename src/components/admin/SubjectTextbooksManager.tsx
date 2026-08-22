@@ -258,6 +258,7 @@ export function SubjectTextbooksManager() {
           <h2 className="text-sm font-bold text-foreground">1. تحديد الكتاب وربطه بالمنهج</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             حدد الصف أولًا، ثم اختر صنعاء وعدن معًا أو أحدهما، وبعدها ستظهر مواد هذا الصف فقط.
+            لا يشترط وجود كتاب مسبقًا؛ يمكنك رفع أول نسخة مباشرة بعد إكمال الربط.
           </p>
         </div>
 
