@@ -183,9 +183,10 @@ test("BLOCKED_PUBLISHED is never executable", () => {
   assert.equal(isExecutableAction("NEW_REVISION"), true);
 });
 
-test("questions stay on the question-bank workflow", () => {
-  assert.deepEqual([...QUESTION_BANK_ROUTED_TEMPLATES], ["questions"]);
+test("both lesson-question templates stay on the question-bank workflow", () => {
+  assert.deepEqual([...QUESTION_BANK_ROUTED_TEMPLATES], ["questions", "self_test_questions"]);
   assert.equal(IMPORT_ENTITY_CONTRACTS.questions.questionBankWorkflow, true);
+  assert.equal(IMPORT_ENTITY_CONTRACTS.self_test_questions.questionBankWorkflow, true);
 });
 
 test("staging tables are content-staff scoped and job-keyed", () => {

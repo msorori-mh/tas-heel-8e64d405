@@ -28,6 +28,7 @@ import {
   v3ProgressTotal,
   V3_CAPABILITIES,
   V3_CONTENT_OWNER,
+  V3_LABEL_AR,
   V3_STUDENT_ORDER,
   V3_TO_LEGACY_KEY,
   type ApplicabilityMap,
@@ -415,6 +416,11 @@ describe("21G-B — student lesson journey", () => {
 /* ------------------------------------------------------------------ */
 
 describe("21G — admin workspace view", () => {
+  it("labels capability 7 as اختبر فهمك after official questions", () => {
+    expect(V3_STUDENT_ORDER.slice(-2)).toEqual(["officialBookQuestions", "selfTest"]);
+    expect(V3_LABEL_AR.selfTest).toBe("اختبر فهمك");
+  });
+
   it("lists all seven capabilities with applicability and lifecycle state", () => {
     const view = buildV3CapabilityView(fullyReady, { labExperimentHtml: "NA" });
     expect(view).toHaveLength(7);

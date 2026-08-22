@@ -21,8 +21,8 @@ export const LESSON_CAPABILITY_TYPES = [
   "MINDMAP",
   "PRACTICAL",
   "VIDEO",
-  "ASSESSMENT",
-  "LESSON_EXAM",
+  "OFFICIAL_QUESTIONS",
+  "SELF_TEST",
   "EXTRA_RESOURCES",
 ] as const;
 
@@ -36,8 +36,8 @@ export type LessonCapabilitySource =
   | "simulation"
   | "summary_row"
   | "explanation_row"
-  | "quiz_rpc"
-  | "exam_template"
+  | "official_questions_rpc"
+  | "self_test_rpc"
   | "none";
 
 export type LessonReadinessIssue =
@@ -102,8 +102,14 @@ export interface LessonCapabilityInput {
   htmlSummariesCount: number;
   summaryText: string | null | undefined;
   explanationsCount: number;
-  questionsCount: number;
-  lessonExamCount: number;
+  /** Number of published OFFICIAL_BOOK_QUESTION revisions. */
+  officialQuestionsCount?: number;
+  /** Number of published SELF_TEST revisions. */
+  selfTestQuestionsCount?: number;
+  /** @deprecated Legacy unclassified count; only a compatibility fallback. */
+  questionsCount?: number;
+  /** @deprecated Legacy exam-template count; only a compatibility fallback. */
+  lessonExamCount?: number;
   hasLessonVideoFlag?: boolean;
   /** Enhancement gate result (subscription / free unit / admin). */
   enhancementsAccessible: boolean;
@@ -375,12 +381,12 @@ export function computeLessonCapabilities(input: LessonCapabilityInput): LessonC
       input,
     ),
     enhancement(
-      "ASSESSMENT",
-      Math.max(0, input.questionsCount),
-      "quiz_rpc",
+      "OFFICIAL_QUESTIONS",
+      Math.max(0, input.officialQuestionsCount ?? input.questionsCount ?? 0),
+      "official_questions_rpc",
       "أسئلة الدرس",
       "حل الأسئلة",
-      "أسئلة تفاعلية للتأكد من فهمك.",
+      "أسئلة الدرس بصيغتها الأصلية في الكتاب، مع إجابة نموذجية بعد المحاولة.",
       input,
       {
         trackable: true,
@@ -389,12 +395,12 @@ export function computeLessonCapabilities(input: LessonCapabilityInput): LessonC
       },
     ),
     enhancement(
-      "LESSON_EXAM",
-      Math.max(0, input.lessonExamCount),
-      "exam_template",
-      "اختبر نفسك",
-      "ابدأ الاختبار",
-      "اختبار شامل لقياس إتقانك للدرس.",
+      "SELF_TEST",
+      Math.max(0, input.selfTestQuestionsCount ?? input.lessonExamCount ?? 0),
+      "self_test_rpc",
+      "اختبر فهمك",
+      "ابدأ الأسئلة",
+      "بنك اختيار من متعدد مع تصويب وشرح بعد الإجابة.",
       input,
     ),
     enhancement(
@@ -479,8 +485,8 @@ export const LESSON_CAPABILITY_LABEL_AR: Record<LessonCapabilityType, string> = 
   MINDMAP: "خريطة ذهنية",
   PRACTICAL: "تجربة عملية",
   VIDEO: "فيديو",
-  ASSESSMENT: "أسئلة",
-  LESSON_EXAM: "اختبار",
+  OFFICIAL_QUESTIONS: "أسئلة الدرس",
+  SELF_TEST: "اختبر فهمك",
   EXTRA_RESOURCES: "موارد",
 };
 

@@ -8,6 +8,7 @@ import { issue, type QbImportIssue } from "../errors.ts";
 import { QB_IMPORT_CODES, type QbImportCode } from "../validation-codes.ts";
 import { normalizeNumeric, normalizeText } from "../unicode.ts";
 import { validateMediaUrl } from "../media-policy.ts";
+import { parseQuestionContentRole } from "../question-content-role.ts";
 
 export const OFFICIAL_FLAT_V0 = "official_flat_v0" as const;
 
@@ -56,6 +57,10 @@ export function adaptOfficialFlatV0(
   const question_text = text("question_text");
   const subject = text("subject_code");
   const lesson = text("lesson_code");
+  const contentRole = parseQuestionContentRole(text("content_role"));
+  if (text("content_role") && !contentRole) {
+    issues.push(makeIssue(QB_IMPORT_CODES.INVALID_CONTRACT, { column: "content_role" }));
+  }
 
   for (const [value, column] of [
     [question_code, "question_code"],
@@ -253,6 +258,7 @@ export function adaptOfficialFlatV0(
         status: "DRAFT",
         interaction_type: interaction as OfficialNormalizedV1["revision"]["interaction_type"],
         grading_mode: grading as OfficialNormalizedV1["revision"]["grading_mode"],
+        educational_label: contentRole,
         question_text,
         stimulus_text: text("stimulus_text") || null,
         max_score: score ?? 1,
@@ -265,6 +271,16 @@ export function adaptOfficialFlatV0(
         sort_order: index + 1,
       })),
       solutions: text("explanation") ? [{ body: text("explanation") }] : [],
+      answer_layer: contentRole
+        ? {
+            model_answer:
+              contentRole === "OFFICIAL_BOOK_QUESTION"
+                ? text("model_answer") || text("explanation") || null
+                : null,
+            explanation: text("explanation") || null,
+            option_rationales: [],
+          }
+        : null,
       media:
         mediaUrl && media?.ok && mediaType
           ? [

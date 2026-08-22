@@ -41,7 +41,9 @@ test("execution order is dependency-correct", () => {
 test("questions and assessment links come after their parents", () => {
   const idx = (k: string) => IMPORT_EXECUTION_ORDER.indexOf(k as never);
   assert.ok(idx("questions") > idx("lessons"));
+  assert.ok(idx("self_test_questions") > idx("lessons"));
   assert.ok(idx("assessment_questions") > idx("questions"));
+  assert.ok(idx("assessment_questions") > idx("self_test_questions"));
   assert.ok(idx("assessment_questions") > idx("assessments"));
   assert.ok(idx("book_contents") > idx("lessons"));
   assert.ok(idx("units") > idx("subjects"));
@@ -90,8 +92,9 @@ test("entities without DB-enforced uniqueness are declared as blocking gaps", ()
 });
 
 
-test("questions are routed through the question-bank workflow", () => {
+test("both question capabilities are routed through the question-bank workflow", () => {
   assert.equal(IMPORT_ENTITY_CONTRACTS.questions.questionBankWorkflow, true);
+  assert.equal(IMPORT_ENTITY_CONTRACTS.self_test_questions.questionBankWorkflow, true);
 });
 
 test("review and publication remain independent axes", () => {

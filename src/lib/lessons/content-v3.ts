@@ -58,7 +58,7 @@ export const V3_LABEL_AR: Record<V3CapabilityKey, string> = {
   mindMapHtml: "الخريطة الذهنية",
   labExperimentHtml: "التجارب / النشاط التفاعلي",
   officialBookQuestions: "أسئلة الدرس",
-  selfTest: "اختبر نفسك",
+  selfTest: "اختبر فهمك",
 };
 
 export const V3_ICON: Record<V3CapabilityKey, string> = {

@@ -3,6 +3,7 @@ import { issue, type QbImportIssue } from "./errors.ts";
 import { QB_IMPORT_CODES } from "./validation-codes.ts";
 import type { OfficialNormalizedV1 } from "./official-normalized-v1.ts";
 import { canonicalHash, contentFingerprint } from "./canonical-json.ts";
+import { validateQuestionContentRole } from "./question-content-role.ts";
 export { contentFingerprint, canonicalHash } from "./canonical-json.ts";
 export type CatalogLookup = {
   subjects: Set<string>;
@@ -32,6 +33,12 @@ export function validateNormalizedRow(
     source_subsystem: "validate",
   };
   const { interaction_type: type, grading_mode: grading } = row.revision;
+
+  issues.push(...validateQuestionContentRole(row, {
+    file: ctx.file,
+    sheet: ctx.sheet,
+    rowNumber: ctx.rowNumber,
+  }));
 
   if (
     type === "MULTIPLE_CHOICE" ||

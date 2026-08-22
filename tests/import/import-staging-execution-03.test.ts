@@ -198,12 +198,13 @@ test("counters are only updated after the row loop", () => {
   assert.ok(counters > loopEnd, "counters must be written after the loop, inside the same transaction");
 });
 
-test("template 09 never reaches a generic questions upsert", () => {
+test("templates 09 and 10 never reach a generic questions upsert", () => {
   assert.ok(SQL.includes("QUESTION_BANK_WORKFLOW_REQUIRED"));
   assert.ok(!/INSERT INTO public\.questions\b/.test(SQL), "no generic write into questions");
   assert.ok(!/UPDATE public\.questions\b/.test(SQL), "no generic update of questions");
   assert.equal(QUESTION_BANK_BOUNDARY.sharedTransactionWithContentTemplates, false);
   assert.throws(() => assertGenericUpsertAllowed("questions"), /QUESTION_BANK_WORKFLOW_REQUIRED/);
+  assert.throws(() => assertGenericUpsertAllowed("self_test_questions"), /QUESTION_BANK_WORKFLOW_REQUIRED/);
 });
 
 test("dry-run stays a zero-write path", () => {

@@ -31,7 +31,8 @@ const TEMPLATES = [
   { prefix: "06", key: "resources", file: "06_lesson_resources_template.xlsx", label: "الموارد", required: ["lesson_code", "resource_type", "title"] },
   { prefix: "07", key: "assessments", file: "07_lesson_assessments_template.xlsx", label: "تقييمات الدروس", required: ["assessment_code", "lesson_code", "title"], codeColumn: "assessment_code" },
   { prefix: "08", key: "assessment_questions", file: "08_assessment_questions_template.xlsx", label: "أسئلة التقييمات", required: ["assessment_code", "question_code"] },
-  { prefix: "09", key: "questions", file: "09_questions_template.xlsx", label: "بنك الأسئلة", required: ["question_code", "question_text", "option_1", "option_2", "correct_index"], codeColumn: "question_code" },
+  { prefix: "09", key: "questions", file: "09_official_book_questions_template.xlsx", label: "أسئلة الكتاب الأصلية", required: ["question_code", "subject_code", "lesson_code", "prompt_kind", "question_text", "interaction_type", "grading_mode", "model_answer"], codeColumn: "question_code" },
+  { prefix: "10", key: "self_test_questions", file: "10_self_test_questions_template.xlsx", label: "اختبر فهمك", required: ["question_code", "subject_code", "lesson_code", "question_text", "option_1", "option_2", "correct_index", "explanation"], codeColumn: "question_code" },
 ];
 
 const RESOURCE_TYPES = ["video", "mindmap", "experiment", "pdf", "link"];
@@ -220,15 +221,43 @@ export async function validateContentPackage(dir) {
     }
   }
   for (const row of getRows("questions")) {
+    const interaction = row.data.interaction_type?.trim().toUpperCase();
+    const grading = row.data.grading_mode?.trim().toUpperCase();
+    const compatible =
+      (interaction === "SINGLE_CHOICE" && grading === "AUTO_SINGLE") ||
+      (interaction === "SHORT_TEXT" && grading === "AUTO_TEXT") ||
+      (interaction === "LONG_TEXT" && grading === "MANUAL");
+    if (!compatible) {
+      issue(errors, filesByTemplate.get("questions"), row.rowNumber, "INCOMPATIBLE_TYPE_MODE", "نوع التفاعل ووضع التصحيح غير متوافقين.");
+      continue;
+    }
+    const hasOptions = [1, 2, 3, 4, 5, 6].some((index) => row.data[`option_${index}`]?.trim());
+    if (interaction === "SINGLE_CHOICE") {
+      const raw = row.data.correct_index?.trim();
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n < 1 || n > 6 || !row.data[`option_${n}`]?.trim()) {
+        issue(errors, filesByTemplate.get("questions"), row.rowNumber, "INVALID_CORRECT_INDEX", "سؤال SINGLE_CHOICE يتطلب correct_index صالحاً وخياراً غير فارغ.");
+      }
+      if ([1, 2, 3, 4, 5, 6].filter((index) => row.data[`option_${index}`]?.trim()).length < 2) {
+        issue(errors, filesByTemplate.get("questions"), row.rowNumber, "MISSING_OPTION", "سؤال SINGLE_CHOICE يتطلب خيارين على الأقل.");
+      }
+    } else if (hasOptions || row.data.correct_index?.trim()) {
+      issue(errors, filesByTemplate.get("questions"), row.rowNumber, "ANSWER_NOT_ALLOWED", "الخيارات وcorrect_index مسموحة فقط لسؤال SINGLE_CHOICE.");
+    }
+    if (interaction === "SHORT_TEXT" && !row.data.accepted_answers?.trim()) {
+      issue(errors, filesByTemplate.get("questions"), row.rowNumber, "ACCEPTED_ANSWER_REQUIRED", "accepted_answers مطلوبة لسؤال SHORT_TEXT.");
+    }
+  }
+  for (const row of getRows("self_test_questions")) {
     const raw = row.data.correct_index?.trim();
     if (!raw) continue;
     const n = Number(raw);
     if (!Number.isInteger(n) || n < 1 || n > 6) {
-      issue(errors, filesByTemplate.get("questions"), row.rowNumber, "INVALID_CORRECT_INDEX", `correct_index يجب أن يكون رقماً صحيحاً بين 1 و 6 (القيمة: «${raw}»).`);
+      issue(errors, filesByTemplate.get("self_test_questions"), row.rowNumber, "INVALID_CORRECT_INDEX", `correct_index يجب أن يكون رقماً صحيحاً بين 1 و 6 (القيمة: «${raw}»).`);
       continue;
     }
     if (!row.data[`option_${n}`]?.trim()) {
-      issue(errors, filesByTemplate.get("questions"), row.rowNumber, "CORRECT_INDEX_NO_OPTION", `correct_index=${n} يشير إلى option_${n} الفارغ.`);
+      issue(errors, filesByTemplate.get("self_test_questions"), row.rowNumber, "CORRECT_INDEX_NO_OPTION", `correct_index=${n} يشير إلى option_${n} الفارغ.`);
     }
   }
 
@@ -258,17 +287,18 @@ export async function validateContentPackage(dir) {
   link("resources", "lesson_code", "lessons", "03 الدروس");
   link("assessments", "lesson_code", "lessons", "03 الدروس");
   link("assessment_questions", "assessment_code", "assessments", "07 التقييمات");
-  link("assessment_questions", "question_code", "questions", "09 بنك الأسئلة");
-  // questions link columns are optional
-  for (const row of getRows("questions")) {
-    const file = filesByTemplate.get("questions");
-    const lessonRef = row.data.lesson_code?.trim().toLowerCase();
-    if (lessonRef && codeSet("lessons").size > 0 && !codeSet("lessons").has(lessonRef)) {
-      issue(errors, file, row.rowNumber, "UNKNOWN_REFERENCE", `lesson_code «${row.data.lesson_code}» غير معرّف في قالب 03 الدروس.`);
-    }
-    const subjectRef = row.data.subject_code?.trim().toLowerCase();
-    if (subjectRef && codeSet("subjects").size > 0 && !codeSet("subjects").has(subjectRef)) {
-      issue(errors, file, row.rowNumber, "UNKNOWN_REFERENCE", `subject_code «${row.data.subject_code}» غير معرّف في قالب 01 المواد.`);
+  link("assessment_questions", "question_code", "self_test_questions", "10 اختبر فهمك");
+  for (const questionKey of ["questions", "self_test_questions"]) {
+    for (const row of getRows(questionKey)) {
+      const file = filesByTemplate.get(questionKey);
+      const lessonRef = row.data.lesson_code?.trim().toLowerCase();
+      if (lessonRef && codeSet("lessons").size > 0 && !codeSet("lessons").has(lessonRef)) {
+        issue(errors, file, row.rowNumber, "UNKNOWN_REFERENCE", `lesson_code «${row.data.lesson_code}» غير معرّف في قالب 03 الدروس.`);
+      }
+      const subjectRef = row.data.subject_code?.trim().toLowerCase();
+      if (subjectRef && codeSet("subjects").size > 0 && !codeSet("subjects").has(subjectRef)) {
+        issue(errors, file, row.rowNumber, "UNKNOWN_REFERENCE", `subject_code «${row.data.subject_code}» غير معرّف في قالب 01 المواد.`);
+      }
     }
   }
 

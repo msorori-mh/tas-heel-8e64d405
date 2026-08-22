@@ -51,7 +51,8 @@ type LessonRow = {
 const ROW_CAPABILITIES: { type: LessonCapabilityType; label: string }[] = [
   { type: "PRIMARY_CONTENT", label: "محتوى" },
   { type: "SUMMARY", label: "ملخص" },
-  { type: "ASSESSMENT", label: "أسئلة" },
+  { type: "OFFICIAL_QUESTIONS", label: "أسئلة الكتاب" },
+  { type: "SELF_TEST", label: "اختبر فهمك" },
   { type: "EXTRA_RESOURCES", label: "موارد" },
   { type: "VIDEO", label: "فيديو" },
   { type: "PRACTICAL", label: "عملي" },

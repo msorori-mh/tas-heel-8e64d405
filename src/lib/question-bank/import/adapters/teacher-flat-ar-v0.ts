@@ -8,6 +8,7 @@ import { issue, type QbImportIssue } from "../errors.ts";
 import { QB_IMPORT_CODES, type QbImportCode } from "../validation-codes.ts";
 import { normalizeNumeric, normalizeText } from "../unicode.ts";
 import { inferMediaType, validateMediaUrl } from "../media-policy.ts";
+import { parseQuestionContentRole } from "../question-content-role.ts";
 
 export const TEACHER_FLAT_AR_V0 = "teacher_flat_ar_v0" as const;
 
@@ -56,6 +57,10 @@ export function adaptTeacherFlatArV0(
   const subject_code = text("رمز_المادة");
   const question_code = text("رمز_السؤال");
   const lesson_code = text("رمز_الدرس");
+  const contentRole = parseQuestionContentRole(text("دور_المحتوى"));
+  if (text("دور_المحتوى") && !contentRole) {
+    issues.push(makeIssue(QB_IMPORT_CODES.INVALID_CONTRACT, { column: "دور_المحتوى" }));
+  }
 
   if (!question_text) {
     issues.push(makeIssue(QB_IMPORT_CODES.MISSING_VALUE, { column: "نص_السؤال" }));
@@ -246,6 +251,7 @@ export function adaptTeacherFlatArV0(
         status: "DRAFT",
         interaction_type: mapped![0],
         grading_mode: mapped![1],
+        educational_label: contentRole,
         question_text,
         stimulus_text: null,
         max_score: score ?? 1,

@@ -16,7 +16,7 @@ async function writeXlsx(path: string, headers: string[], rows: Row[]): Promise<
   await wb.xlsx.writeFile(path);
 }
 
-/** Minimal valid 9-file package; pass overrides per template key. */
+/** Minimal valid 10-file package; pass overrides per template key. */
 async function makePackage(
   overrides: Partial<Record<string, { headers: string[]; rows: Row[] }>> = {},
   omit: string[] = [],
@@ -58,9 +58,49 @@ async function makePackage(
       headers: ["assessment_code", "question_code"],
       rows: [["islam-g10-u1-l1-a1", "islam-g10-q1"]],
     },
-    "09_questions_template.xlsx": {
-      headers: ["question_code", "lesson_code", "subject_code", "question_text", "option_1", "option_2", "correct_index"],
-      rows: [["islam-g10-q1", "islam-g10-u1-l1", "islam-g10-sira", "نص السؤال؟", "أ", "ب", 1]],
+    "09_official_book_questions_template.xlsx": {
+      headers: [
+        "question_code",
+        "subject_code",
+        "lesson_code",
+        "prompt_kind",
+        "question_text",
+        "interaction_type",
+        "grading_mode",
+        "model_answer",
+      ],
+      rows: [[
+        "islam-g10-book-q1",
+        "islam-g10-sira",
+        "islam-g10-u1-l1",
+        "تعليل",
+        "علل ما سبق.",
+        "LONG_TEXT",
+        "MANUAL",
+        "الإجابة النموذجية.",
+      ]],
+    },
+    "10_self_test_questions_template.xlsx": {
+      headers: [
+        "question_code",
+        "subject_code",
+        "lesson_code",
+        "question_text",
+        "option_1",
+        "option_2",
+        "correct_index",
+        "explanation",
+      ],
+      rows: [[
+        "islam-g10-q1",
+        "islam-g10-sira",
+        "islam-g10-u1-l1",
+        "اختر الإجابة الصحيحة.",
+        "أ",
+        "ب",
+        1,
+        "الخيار الأول هو الصحيح.",
+      ]],
     },
     ...overrides,
   };
@@ -172,7 +212,7 @@ test("ordinary subject without separator is not broken", async () => {
   try {
     const report = await validateContentPackage(dir);
     assert.equal(report.ok, true, JSON.stringify(report.errors, null, 1));
-    assert.equal(report.found.length, 9);
+    assert.equal(report.found.length, 10);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -1,5 +1,5 @@
 /**
- * Static metadata for lesson content Excel templates (01–09). No file I/O.
+ * Static metadata for lesson content Excel templates (01–10). No file I/O.
  *
  * Column contracts are NOT declared here: requiredColumns / knownColumns and the
  * duplicate-key configuration are derived from IMPORT_ENTITY_CONTRACTS so that
@@ -103,9 +103,17 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
   {
     order: 9,
     key: "questions",
-    titleAr: "بنك الأسئلة",
-    filename: "09_questions_template.xlsx",
-    descriptionAr: "أسئلة MCQ — أعمدة الإجابة للمحررين فقط.",
+    titleAr: "أسئلة الكتاب الأصلية",
+    filename: "09_official_book_questions_template.xlsx",
+    descriptionAr: "أسئلة الدرس بصيغتها الأصلية في الكتاب مع الإجابة النموذجية.",
+    editorOnly: true,
+  },
+  {
+    order: 10,
+    key: "self_test_questions",
+    titleAr: "اختبر فهمك",
+    filename: "10_self_test_questions_template.xlsx",
+    descriptionAr: "بنك اختيار من متعدد مستقل مع الإجابة الصحيحة والشرح والتصويبات.",
     editorOnly: true,
   },
 ];
@@ -182,11 +190,17 @@ const INFO_WARNINGS: Record<TemplateKey, readonly string[]> = {
     "assessment_code فريد على مستوى المنصة كلها.",
   ],
   assessment_questions: [
-    "لا يعمل هذا القالب إلا بعد مراجعة ونشر أسئلة القالب 09.",
+    "لا يعمل هذا القالب إلا بعد مراجعة ونشر أسئلة «اختبر فهمك» من القالب 10.",
   ],
   questions: [
-    "correct_index و explanation للمحررين فقط — لا تُعرض للطلاب.",
-    "correct_index يبدأ من 1 في Excel.",
+    "هذا القالب لأسئلة الكتاب الأصلية فقط؛ يحفظ النص كما ورد في الكتاب.",
+    "وجود خيارات في سؤال كتاب أصلي لا ينقله إلى «اختبر فهمك».",
+    "model_answer للمحررين ويظهر للطالب فقط بعد محاولته.",
+  ],
+  self_test_questions: [
+    "هذا القالب لـ«اختبر فهمك» فقط، وكل أسئلته اختيار من متعدد.",
+    "correct_index يبدأ من 1 في Excel ولا يظهر في الحمولة الأولية للطالب.",
+    "explanation إلزامي ويظهر بعد اختيار الطالب، ويمكن إضافة تصويب خاص لكل خيار خاطئ.",
   ],
 };
 
@@ -211,7 +225,7 @@ const DRY_RUN_CONFIG: Record<TemplateKey, ContentImportDryRunConfig> = Object.fr
 
 /**
  * Workflow display order — the single canonical order, derived from the
- * dependency graph in IMPORT_ENTITY_CONTRACTS (01…07 → 09 → review/publish → 08).
+ * dependency graph in IMPORT_ENTITY_CONTRACTS (01…07 → 09 → 10 → review/publish → 08).
  */
 export const CONTENT_IMPORT_TEMPLATES_DISPLAY_ORDER: ContentImportTemplateMeta[] =
   IMPORT_EXECUTION_ORDER.map((key) => getContentImportTemplateByKey(key));

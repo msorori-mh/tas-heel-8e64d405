@@ -164,4 +164,7 @@ export function isExecutableAction(action: ImportRowAction): boolean {
 }
 
 /** Templates whose writes bypass generic upsert and must go through the question-bank workflow. */
-export const QUESTION_BANK_ROUTED_TEMPLATES: readonly ContentImportTemplateKey[] = ["questions"];
+export const QUESTION_BANK_ROUTED_TEMPLATES: readonly ContentImportTemplateKey[] = [
+  "questions",
+  "self_test_questions",
+];

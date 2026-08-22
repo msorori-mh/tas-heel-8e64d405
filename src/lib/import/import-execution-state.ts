@@ -81,32 +81,32 @@ export const IMPORT_RPC = {
 export const RPC_ONLY_TABLES = ["import_staging_rows", "content_review_state"] as const;
 
 /* ------------------------------------------------------------------ */
-/* Question bank boundary (template 09)                                */
+/* Question bank boundary (templates 09 and 10)                        */
 /* ------------------------------------------------------------------ */
 
 /**
  * QUESTION_IMPORT_QB_BINDING_08.
  *
- * Template 09 is executable, but NEVER through the generic upsert path:
- * import_execute_template() delegates it to import_execute_questions_template(),
- * which calls the internal qb_import_ingest_revision() once per staged row
- * inside one transaction. That function is not callable by anon/authenticated.
+ * Templates 09 and 10 are executable, but NEVER through the generic upsert
+ * path. Both are routed through the role-aware lesson-question importer.
  *
  * The import path stops at DRAFT revisions — it never approves and never
  * publishes, and it never writes the legacy answer columns of public.questions.
  */
 export const QUESTION_BANK_BOUNDARY = {
   templateKey: "questions",
+  templateKeys: ["questions", "self_test_questions"],
   rejectedBy: IMPORT_RPC.execute,
   errorCode: "QUESTION_BANK_WORKFLOW_REQUIRED",
   sharedTransactionWithContentTemplates: false,
-  writePath: "question bank import workflow (qb_import_ingest_revision → DRAFT revision)",
+  writePath:
+    "question bank import workflow (qb_import_ingest_lesson_question_revision → DRAFT revision)",
 } as const;
 
 export const QUESTION_BANK_IMPORT_BINDING = {
-  templateKey: "questions",
-  executeRpc: "import_execute_questions_template",
-  internalFunction: "qb_import_ingest_revision",
+  templateKeys: ["questions", "self_test_questions"],
+  executeRpc: "import_execute_lesson_question_template",
+  internalFunction: "qb_import_ingest_lesson_question_revision",
   clientCallable: false,
   publishesFromImport: false,
   contentIdentity: "question_revisions.source_payload_hash (targets excluded)",
@@ -126,7 +126,15 @@ export const QB_IMPORT_ROW_ACTIONS = [
 export type QbImportRowAction = (typeof QB_IMPORT_ROW_ACTIONS)[number];
 
 export function isQuestionBankRoutedTemplate(templateKey: string): boolean {
-  return templateKey === QUESTION_BANK_BOUNDARY.templateKey;
+  return QUESTION_BANK_BOUNDARY.templateKeys.includes(
+    templateKey as (typeof QUESTION_BANK_BOUNDARY.templateKeys)[number],
+  );
+}
+
+export function questionBankExecuteRpcForTemplate(templateKey: string): string | null {
+  return isQuestionBankRoutedTemplate(templateKey)
+    ? QUESTION_BANK_IMPORT_BINDING.executeRpc
+    : null;
 }
 
 /**
@@ -141,7 +149,7 @@ export function assertGenericUpsertAllowed(templateKey: string): void {
 
 /**
  * Execution gate used by the prepare/execute wiring: every contract template is
- * executable, questions through the question-bank binding, everything else
+ * executable, lesson questions through the question-bank binding, everything else
  * through the generic upsert path.
  */
 export function assertTemplateExecutable(_templateKey: string): void {
