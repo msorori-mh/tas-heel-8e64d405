@@ -7,10 +7,11 @@ const builder = readFileSync(
   "utf8",
 );
 
-test("CF11 R12 declares supplemental assets in the manifest and exact ZIP bytes", () => {
+test("CF11 R12 declares supplemental assets and uploads their exact files directly", () => {
   assert.match(builder, /assets: supplementalAssets\.map/);
-  assert.match(builder, /zip\.file\(asset\.path, asset\.file\)/);
-  assert.match(builder, /buildPackageZipBlob\(packageDraft, uploads, provenance, answersCompanion, supplementalAssets\)/);
+  assert.match(builder, /for \(const asset of supplementalAssets\) files\.set\(asset\.path, asset\.file\)/);
+  assert.match(builder, /files\.get\(upload\.logicalPath\)/);
+  assert.doesNotMatch(builder, /buildPackageZipBlob|zip\.file\(asset\.path/);
 });
 
 test("CF11 R12 accepts only allowlisted raster assets and checks magic and bounds", () => {
@@ -29,7 +30,7 @@ test("CF11 R12 derives asset ownership and Arabic alt text from uploaded HTML", 
   assert.match(builder, /النص البديل العربي مفقود في HTML/);
 });
 
-test("CF11 R12 keeps server attestation path-only and fail-closed", () => {
-  assert.match(builder, /verifyAndStageGoldenLessonBundle\(\{ data: \{ path: slot\.path \} \}\)/);
-  assert.doesNotMatch(builder, /verifyAndStageGoldenLessonBundle\([^)]*(sha256|bytes|fileCount)/s);
+test("CF11 R12 keeps direct attestation server-authoritative and fail-closed", () => {
+  assert.match(builder, /verifyAndStageGoldenLessonDirect\(\{[\s\S]*intakeId: slot\.intakeId, manifest: packageDraft/);
+  assert.doesNotMatch(builder, /verifyAndStageGoldenLessonDirect\([^)]*(fileCount|totalBytes|intakeSha256)/s);
 });

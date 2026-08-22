@@ -15,7 +15,7 @@ test("pending schema is an explicit fail-closed capability", () => {
   assert.match(api, /SCHEMA_NOT_APPLIED/);
   assert.match(api, /42P01/);
   assert.match(ui, /persistence\.available/);
-  assert.match(ui, /المخطط غير مطبق/);
+  assert.match(ui, /خدمة المراجعة غير متاحة حاليًا؛ أوقِف الاعتماد/);
 });
 
 test("only staging and review RPCs are reachable", () => {

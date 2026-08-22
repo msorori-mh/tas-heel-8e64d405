@@ -31,14 +31,19 @@ function packageFor(profile: typeof GOLDEN_QURAN_V1 | typeof GOLDEN_CHEMISTRY_V1
     artifacts: GOLDEN_CAPABILITIES.map((capability) => {
       const applicability = profile.applicability[capability];
       const official = capability === "officialBookContent" || capability === "officialBookQuestions";
+      const sourcePath = applicability === "REQUIRED"
+        ? ["tamkeenExplanationHtml", "lessonSummaryHtml", "mindMapHtml", "labExperimentHtml"].includes(capability)
+          ? `${capability}.html`
+          : `${capability}.json`
+        : null;
       return {
         capability,
         applicability,
         authority: official ? "OFFICIAL" : "TAMKEEN",
-        sourcePath: applicability === "NA" ? null : applicability === "OPTIONAL" ? null : `${capability}.json`,
-        sha256: applicability === "REQUIRED" ? "a".repeat(64) : null,
-        provenancePath: official && applicability === "REQUIRED" ? `${capability}.provenance.json` : null,
-        provenanceSha256: official && applicability === "REQUIRED" ? "b".repeat(64) : null,
+        sourcePath,
+        sha256: sourcePath ? "a".repeat(64) : null,
+        provenancePath: official && sourcePath ? `${capability}.provenance.json` : null,
+        provenanceSha256: official && sourcePath ? "b".repeat(64) : null,
       };
     }),
     lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },
@@ -55,7 +60,7 @@ function packageFor(profile: typeof GOLDEN_QURAN_V1 | typeof GOLDEN_CHEMISTRY_V1
 test("Quran and chemistry profiles preserve the canonical seven-capability order", () => {
   assert.deepEqual(GOLDEN_QURAN_V1.capabilityOrder, GOLDEN_CAPABILITIES);
   assert.deepEqual(GOLDEN_CHEMISTRY_V1.capabilityOrder, GOLDEN_CAPABILITIES);
-  assert.equal(GOLDEN_QURAN_V1.applicability.labExperimentHtml, "NA");
+  assert.equal(GOLDEN_QURAN_V1.applicability.labExperimentHtml, "OPTIONAL");
   assert.equal(GOLDEN_CHEMISTRY_V1.applicability.labExperimentHtml, "OPTIONAL");
 });
 
@@ -102,13 +107,13 @@ test("answers, direct READY, production apply and HTML network access are reject
   assert.equal(result.writesPerformed, 0);
 });
 
-test("NA capability cannot smuggle content and duplicate capability is rejected", () => {
+test("optional lab may be absent, while partial artifacts and duplicate capabilities fail closed", () => {
   const pkg = packageFor(GOLDEN_QURAN_V1);
   const lab = pkg.artifacts.find((item) => item.capability === "labExperimentHtml")!;
   lab.sourcePath = "lab.html";
-  lab.sha256 = "b".repeat(64);
+  lab.sha256 = null;
   pkg.artifacts.push({ ...pkg.artifacts[0]! });
   const result = validateGoldenLessonPackage(pkg);
-  assert.ok(result.findings.some((finding) => finding.code === "NA_ARTIFACT_HAS_CONTENT"));
+  assert.ok(result.findings.some((finding) => finding.code === "ARTIFACT_HASH_INVALID"));
   assert.ok(result.findings.some((finding) => finding.code === "CAPABILITY_DUPLICATE"));
 });

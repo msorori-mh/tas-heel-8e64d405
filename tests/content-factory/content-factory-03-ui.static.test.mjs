@@ -4,10 +4,15 @@ import { test } from "node:test";
 
 const component = readFileSync("src/components/admin/GoldenLessonManifestReviewPanel.tsx", "utf8");
 const route = readFileSync("src/routes/_authenticated/admin.import.tsx", "utf8");
+const reviewRoute = readFileSync("src/routes/_authenticated/admin.content-review.tsx", "utf8");
 
-test("manifest review panel is mounted after the package builder", () => {
-  assert.match(route, /GoldenLessonManifestReviewPanel/);
-  assert.ok(route.indexOf("<GoldenLessonPackageBuilder />") < route.indexOf("<GoldenLessonManifestReviewPanel />"));
+test("upload, review and release interfaces are separated", () => {
+  assert.match(route, /<GoldenLessonPackageBuilder \/>/);
+  assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel/);
+  assert.match(reviewRoute, /GoldenLessonManifestReviewPanel/);
+  assert.match(reviewRoute, /view=release/);
+  assert.match(reviewRoute, /GoldenLessonCf11OperatorPanel/);
+  assert.match(reviewRoute, /false && isAdmin && selectedItem\.lifecycle_status === "approved"/);
 });
 
 test("review panel uses typed staging functions and exposes no direct RPC or execute path", () => {
@@ -16,7 +21,9 @@ test("review panel uses typed staging functions and exposes no direct RPC or exe
   assert.match(component, /advanceGoldenLessonReview/);
   assert.doesNotMatch(component, /\.rpc\(|\.insert\(|\.update\(|\.upsert\(|\.delete\(/);
   assert.doesNotMatch(component, /runContentImportExecute|executeContentImport/);
-  assert.match(component, /domain writes: 0/);
+  assert.match(component, /stageDomain/);
+  assert.match(component, /bindIdentity/);
+  assert.match(component, /automaticPreparation/);
 });
 
 test("manifest is hash-pinned, size-limited, dry-run checked, and role gated", () => {
@@ -25,10 +32,12 @@ test("manifest is hash-pinned, size-limited, dry-run checked, and role gated", (
   assert.match(component, /previewGoldenLessonStaging/);
   assert.match(component, /advanceGoldenLessonReview/);
   assert.match(component, /packageValidationPassed/);
+  assert.doesNotMatch(component, /id="golden-manifest-file"/);
 });
 
 test("panel remains RTL and mobile-first", () => {
   assert.match(component, /dir="rtl"/);
   assert.match(component, /grid-cols-1/);
-  assert.ok((component.match(/min-h-\[44px\]/g) ?? []).length >= 4);
+  assert.ok((component.match(/min-h-\[44px\]/g) ?? []).length >= 2);
+  assert.doesNotMatch(component, /<Database|owner-approval-reason/);
 });

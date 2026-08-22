@@ -16,7 +16,10 @@ function validPackage(): GoldenLessonPackage {
     artifacts: GOLDEN_CAPABILITIES.map((capability) => {
       const applicability = GOLDEN_QURAN_V1.applicability[capability];
       const authority = capability === "officialBookContent" || capability === "officialBookQuestions" ? "OFFICIAL" : "TAMKEEN";
-      const sourcePath = applicability === "REQUIRED" ? `${capability}.json` : null;
+      const sourceExtension = capability === "tamkeenExplanationHtml" || capability === "lessonSummaryHtml" || capability === "mindMapHtml"
+        ? "html"
+        : "json";
+      const sourcePath = applicability === "REQUIRED" ? `${capability}.${sourceExtension}` : null;
       return { capability, applicability, authority, sourcePath, sha256: sourcePath ? "a".repeat(64) : null, provenancePath: authority === "OFFICIAL" && sourcePath ? `${capability}.provenance.json` : null, provenanceSha256: authority === "OFFICIAL" && sourcePath ? "c".repeat(64) : null };
     }),
     lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },
@@ -29,7 +32,7 @@ test("valid manifest produces a deterministic seven-capability plan with zero wr
   const preview = previewGoldenLessonStaging(parsed);
   assert.equal(preview.valid, true, JSON.stringify(preview.findings));
   assert.equal(preview.actions.length, 7);
-  assert.equal(preview.stagedDraftsPlanned, 4);
+  assert.equal(preview.stagedDraftsPlanned, 6);
   assert.equal(preview.domainWritesPerformed, 0);
   assert.equal(preview.productionWritesPerformed, 0);
   assert.equal(preview.executable, false);

@@ -9,9 +9,13 @@ import {
   GOLDEN_ASSET_MAX_BYTES,
   GOLDEN_ASSET_MIN_BYTES,
   type GoldenLessonAsset,
-} from "./golden-lesson-assets";
-import type { GoldenLessonPackage } from "./golden-lesson-contract";
-import { parseGoldenLessonManifest, previewGoldenLessonStaging } from "./golden-lesson-staging";
+} from "./golden-lesson-assets.ts";
+import type { GoldenCapability, GoldenLessonPackage } from "./golden-lesson-contract.ts";
+import {
+  validateGoldenLessonAnswerCoverage,
+  validateGoldenLessonArtifactBytes,
+} from "./golden-lesson-file-contract.ts";
+import { parseGoldenLessonManifest, previewGoldenLessonStaging } from "./golden-lesson-staging.ts";
 
 
 export const GOLDEN_BUNDLE_LIMITS = {
@@ -164,6 +168,33 @@ export async function verifyGoldenLessonBundle(input: Uint8Array): Promise<Verif
     files.push({ path: name, sha256: expected, bytes });
   }
 
+  // The manifest, extension and SHA are not enough: validate the actual bytes
+  // against the contract of the capability they claim to represent.
+  for (const artifact of manifest.artifacts) {
+    if (!artifact.sourcePath) continue;
+    const bytes = bytesByPath.get(artifact.sourcePath);
+    if (!bytes) fail("ZIP_EXPECTED_FILE_MISSING");
+    const validation = validateGoldenLessonArtifactBytes(
+      artifact.capability,
+      artifact.sourcePath,
+      bytes,
+    );
+    if (!validation.valid) fail(validation.findings[0]?.code ?? "ARTIFACT_CONTENT_INVALID");
+  }
+  const artifactInputs: Partial<Record<GoldenCapability, { fileName: string; bytes: Uint8Array }>> = {};
+  for (const artifact of manifest.artifacts) {
+    if (!artifact.sourcePath) continue;
+    const bytes = bytesByPath.get(artifact.sourcePath);
+    if (bytes) artifactInputs[artifact.capability] = { fileName: artifact.sourcePath, bytes };
+  }
+  const companionPath = manifest.security.answersCompanionPath;
+  const companionBytes = companionPath ? bytesByPath.get(companionPath) : undefined;
+  const answerCoverage = validateGoldenLessonAnswerCoverage(
+    artifactInputs,
+    companionPath && companionBytes ? { fileName: companionPath, bytes: companionBytes } : null,
+  );
+  if (!answerCoverage.valid) fail(answerCoverage.findings[0]?.code ?? "ANSWER_COMPANION_INVALID");
+
   // CF11 asset byte validation: exact declared size, MIME allowlist and real container magic.
   for (const asset of assets) {
     const bytes = bytesByPath.get(asset.path);
@@ -201,4 +232,3 @@ export async function verifyGoldenLessonBundle(input: Uint8Array): Promise<Verif
     assets,
   };
 }
-

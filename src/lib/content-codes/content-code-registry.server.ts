@@ -34,7 +34,7 @@ export async function loadContentCodeRegistry(
       .select("id, code, name, group_code, group_name, grade_id")
       .order("code", { ascending: true }),
     supabase.from("units").select("id, code, title, subject_id").order("code", { ascending: true }),
-    supabase.from("lessons").select("id, slug, title, subject_id, unit_id").order("slug", { ascending: true }),
+    supabase.from("lessons").select("id, slug, title, subject_id, unit_id, semester, sort_order").order("sort_order", { ascending: true }),
     supabase
       .from("subject_curriculum_tracks")
       .select("subject_id, curriculum_track_id, is_active"),
@@ -112,6 +112,8 @@ export async function loadContentCodeRegistry(
       subjectCode: (l.subject_id ? subjectById.get(l.subject_id)?.subjectCode : "") ?? "",
       unitCode: (l.unit_id ? unitCodeById.get(l.unit_id) : null) ?? null,
       title: l.title ?? "",
+      semester: l.semester ?? null,
+      sortOrder: l.sort_order ?? null,
     });
   }
 
