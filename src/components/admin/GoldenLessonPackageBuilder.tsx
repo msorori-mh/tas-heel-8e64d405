@@ -945,10 +945,7 @@ export function GoldenLessonPackageBuilder() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="lesson-import-unit">الوحدة</Label>
-                <a href="/admin/units" className="text-xs font-medium text-primary hover:underline">إضافة/إدارة الوحدات</a>
-              </div>
+              <Label htmlFor="lesson-import-unit">الوحدة (اختيارية)</Label>
               <Select value={selectedUnitCode || "__NO_UNIT__"} onValueChange={chooseUnit} disabled={!selectedSubjectCode}>
                 <SelectTrigger id="lesson-import-unit" className="min-h-[44px]"><SelectValue placeholder="اختر الوحدة" /></SelectTrigger>
                 <SelectContent>
