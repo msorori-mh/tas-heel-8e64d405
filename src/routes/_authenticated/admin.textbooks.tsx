@@ -15,9 +15,9 @@ function AdminTextbooksPage() {
     <AdminLayout>
       <div className="space-y-4" dir="rtl">
         <header>
-          <h1 className="text-lg font-bold text-foreground">كتب المنهج</h1>
+          <h1 className="text-lg font-bold text-foreground">رفع كتب المواد</h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            ارفع كتاب المادة الرسمي PDF لأول مرة أو استبدله لاحقًا، وحدد هل يشمل صنعاء وعدن معًا أو مسارًا واحدًا، والفصلين أو فصلًا محددًا.
+            اختر الصف والمسار والمادة والفصل، ثم ارفع ملف كتاب المادة الرسمي PDF مرة واحدة للنطاق المحدد.
           </p>
         </header>
         <SubjectTextbooksManager />
