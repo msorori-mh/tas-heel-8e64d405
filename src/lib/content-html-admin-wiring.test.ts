@@ -492,26 +492,31 @@ describe("Content HTML Admin Wiring — Import/Review Workflow Tests", () => {
     );
   });
 
-  // ─── Review Queue From Server ──────────────────────────────────
+  // ─── Canonical Lesson Review Surface ───────────────────────────
 
-  test("34. Review queue fetched via server function (not browser SELECT)", () => {
+  test("34. Content review uses the verified lesson manifest surface", () => {
     const filePath = path.resolve("src/routes/_authenticated/admin.content-review.tsx");
     const content = fs.readFileSync(filePath, "utf-8");
     assert.ok(
-      content.includes("getHtmlReviewQueueFn"),
-      "content-review must use getHtmlReviewQueueFn server function",
+      content.includes("GoldenLessonManifestReviewPanel"),
+      "content-review must use the verified golden-lesson review panel",
+    );
+    assert.ok(
+      !content.includes("getHtmlReviewQueueFn"),
+      "the obsolete HTML resource queue must not be mounted",
     );
   });
 
-  // ─── No Optimistic Updates ─────────────────────────────────────
+  // ─── No Browser-Side Legacy Queue Writes ───────────────────────
 
-  test("35. Content review actions await server confirmation before UI update", () => {
+  test("35. Content review delegates decisions to server-backed panels", () => {
     const filePath = path.resolve("src/routes/_authenticated/admin.content-review.tsx");
     const content = fs.readFileSync(filePath, "utf-8");
 
+    assert.ok(content.includes("GoldenLessonCf11OperatorPanel"));
     assert.ok(
-      content.includes("await fetchQueue()"),
-      "Actions must refresh from server after confirmation",
+      !content.includes("supabase.from"),
+      "the route must not perform browser-side legacy queue writes",
     );
     assert.ok(
       !content.includes("setItems((prev) =>"),
