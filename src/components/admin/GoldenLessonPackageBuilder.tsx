@@ -410,8 +410,14 @@ export function GoldenLessonPackageBuilder() {
   const lessonCode = selectedLesson?.lessonCode ?? "";
   const lessonSlug = lessonCode.toLowerCase();
   const unitCode = selectedLesson?.unitCode ?? "";
-  const semester = selectedLesson?.semester ? String(selectedLesson.semester) : "";
-  const sortOrder = selectedLesson?.sortOrder ? String(selectedLesson.sortOrder) : "";
+  // Legacy lesson rows may not have these operational fields yet. Derive stable
+  // intake values locally so the operator is never sent to another page mid-flow.
+  const semester = String(selectedLesson?.semester ?? 1);
+  const selectedLessonIndex = lessons.findIndex((lesson) => lesson.lessonCode === selectedLessonCode);
+  const existingSortOrder = selectedLesson?.sortOrder ?? 0;
+  const sortOrder = String(
+    existingSortOrder > 0 ? existingSortOrder : Math.max(1, selectedLessonIndex + 1),
+  );
   const canonicalIdentityComplete = Boolean(
     profile && selectedSubject && selectedLesson && gradeCode && selectedTrackCodes.length > 0 &&
     semester && sortOrder,
@@ -878,18 +884,7 @@ export function GoldenLessonPackageBuilder() {
           ارفع كل محتوى في مكانه. لا يوجد ملف ZIP للدرس، ولا PDF للدرس، ولا ملف توثيق مصدر.
           الإجابات تُستخرج آليًا من قالبي 09 و10 وتحفظ في الطبقة الخادمية المحمية.
         </p>
-        <div className="flex flex-wrap gap-2">
-          <a href="/admin/textbooks" className="inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-medium hover:bg-accent">
-            رفع أو إدارة كتاب المادة الرسمي
-          </a>
-          <a href="/admin/units" className="inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-medium hover:bg-accent">
-            إضافة أو إدارة الوحدات
-          </a>
-          <a href="/admin/curriculum" className="inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-medium hover:bg-accent">
-            مراجعة هيكل المنهج
-          </a>
-        </div>
-      </div>
+       </div>
 
       <section aria-labelledby="lesson-context-heading" className="rounded-xl border bg-muted/20 p-4 space-y-4">
         <div className="space-y-1">
@@ -950,10 +945,7 @@ export function GoldenLessonPackageBuilder() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="lesson-import-unit">الوحدة</Label>
-                <a href="/admin/units" className="text-xs font-medium text-primary hover:underline">إضافة/إدارة الوحدات</a>
-              </div>
+              <Label htmlFor="lesson-import-unit">الوحدة (اختيارية)</Label>
               <Select value={selectedUnitCode || "__NO_UNIT__"} onValueChange={chooseUnit} disabled={!selectedSubjectCode}>
                 <SelectTrigger id="lesson-import-unit" className="min-h-[44px]"><SelectValue placeholder="اختر الوحدة" /></SelectTrigger>
                 <SelectContent>
@@ -982,12 +974,10 @@ export function GoldenLessonPackageBuilder() {
           <div className={`rounded-lg border p-3 text-sm ${canonicalIdentityComplete ? "border-emerald-500/30 bg-emerald-500/10" : "border-amber-500/40 bg-amber-500/10"}`}>
             <p className="font-medium">{selectedSubject?.name} ← {selectedLesson.title}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              الفصل {selectedLesson.semester ?? "غير محدد"} · الترتيب {selectedLesson.sortOrder ?? "غير محدد"}
+              الفصل {semester} · الترتيب {sortOrder}
               {selectedLesson.unitCode ? ` · الوحدة: ${units.find((unit) => unit.unitCode === selectedLesson.unitCode)?.title ?? selectedLesson.unitCode}` : " · مرتبط بالمادة مباشرة"}
+              {(!selectedLesson.semester || (selectedLesson.sortOrder ?? 0) <= 0) ? " · استكمل النظام البيانات التشغيلية تلقائيًا" : ""}
             </p>
-            {!canonicalIdentityComplete && (
-              <p className="mt-2 text-xs text-destructive">بيانات الفصل أو الترتيب ناقصة في سجل الدرس؛ أصلحها من إدارة المنهج قبل الرفع.</p>
-            )}
           </div>
         )}
       </section>
@@ -1149,6 +1139,9 @@ export function GoldenLessonPackageBuilder() {
           <p className="font-medium flex gap-2"><CheckCircle2 className="h-4 w-4 mt-0.5" />تم استيراد ملفات الدرس وربطها بإصدار المسودة</p>
           <p className="text-xs">تم حفظ الإصدار {intake.version} كمسودة آمنة{intake.idempotent ? " دون تكرار الكتابة" : ""}.</p>
           <p className="text-xs">عدد الملفات المتحقق منها: {intake.verifiedFileCount}. المحتوى غير ظاهر للطالب حتى المراجعة والاعتماد.</p>
+          <Button asChild type="button" size="sm" variant="outline" className="mt-3">
+            <a href="/admin/content-review">فتح مراجعة هذا الدرس</a>
+          </Button>
         </div>
       )}
 

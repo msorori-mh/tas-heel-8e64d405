@@ -84,14 +84,16 @@ export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: P
   });
 
   const lessonsQ = useQuery({
-    enabled: open && !!unitId,
-    queryKey: ["admin-templates-lessons", unitId],
+    enabled: open && !!subjectId,
+    queryKey: ["admin-templates-lessons", subjectId, unitId || "direct"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("lessons")
         .select("id, title, unit_id")
-        .eq("unit_id", unitId)
+        .eq("subject_id", subjectId)
         .order("sort_order", { ascending: true });
+      query = unitId ? query.eq("unit_id", unitId) : query.is("unit_id", null);
+      const { data, error } = await query;
       if (error) throw error;
       return data ?? [];
     },
@@ -277,7 +279,7 @@ export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: P
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="tpl-unit">الوحدة</Label>
+              <Label htmlFor="tpl-unit">الوحدة (اختياري)</Label>
               <select
                 id="tpl-unit"
                 value={unitId}
@@ -300,7 +302,7 @@ export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: P
                 id="tpl-lesson"
                 value={lessonId}
                 onChange={(e) => setLessonId(e.target.value)}
-                disabled={saving || !unitId}
+                disabled={saving || !subjectId}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
               >
                 <option value="">— غير محدد —</option>

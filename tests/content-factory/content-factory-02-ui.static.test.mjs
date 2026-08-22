@@ -13,10 +13,10 @@ const adminLayout = readFileSync("src/components/admin/AdminLayout.tsx", "utf8")
 
 test("the import center exposes only the final lesson-content workflow", () => {
   assert.match(route, /<GoldenLessonPackageBuilder\s*\/>/);
-  assert.match(route, /كتاب المادة الرسمي/);
+  assert.doesNotMatch(route, /التجهيز المطلوب قبل استيراد محتوى الدرس/);
   assert.match(route, /اختيار الدرس/);
   assert.match(route, /رفع المحتويات/);
-  assert.match(route, /الفحص والحفظ كمسودة/);
+  assert.match(route, /فحص وحفظ المسودة/);
   assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel|BulkLessonPdfUploadPanel|ContentImportDryRunPanel/);
   assert.match(component, /09_official_book_questions_template\.xlsx/);
   assert.match(component, /10_self_test_questions_template\.xlsx/);
@@ -95,8 +95,8 @@ test("curriculum prerequisites are explicit and use only the two operational tra
   assert.match(component, /lesson-import-track-\$\{track\.trackCode\}/);
   assert.match(component, /track\.trackCode === "sanaa" \|\| track\.trackCode === "aden"/);
   assert.match(component, /selectedTrackCodes\.every/);
-  assert.match(component, /href="\/admin\/units"/);
-  assert.match(component, /href="\/admin\/textbooks"/);
+  assert.doesNotMatch(component, /href="\/admin\/units"/);
+  assert.doesNotMatch(component, /href="\/admin\/textbooks"/);
   assert.match(component, /لا توجد وحدة — الدرس مرتبط بالمادة مباشرة/);
   assert.match(textbookManager, /لا يشترط وجود كتاب مسبقًا/);
   assert.match(textbookManager, /id="subject-textbook-pdf"/);

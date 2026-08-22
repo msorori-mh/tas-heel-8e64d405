@@ -12,7 +12,7 @@ test("upload, review and release interfaces are separated", () => {
   assert.match(reviewRoute, /GoldenLessonManifestReviewPanel/);
   assert.match(reviewRoute, /view=release/);
   assert.match(reviewRoute, /GoldenLessonCf11OperatorPanel/);
-  assert.match(reviewRoute, /false && isAdmin && selectedItem\.lifecycle_status === "approved"/);
+  assert.doesNotMatch(reviewRoute, /getHtmlReviewQueueFn|lesson_resources\.lifecycle_status/);
 });
 
 test("review panel uses typed staging functions and exposes no direct RPC or execute path", () => {

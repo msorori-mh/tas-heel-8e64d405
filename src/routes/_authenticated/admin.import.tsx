@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BookOpen, FileCheck2, FileSpreadsheet, UploadCloud } from "lucide-react";
+import { FileSpreadsheet } from "lucide-react";
 
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { GoldenLessonPackageBuilder } from "@/components/admin/GoldenLessonPackageBuilder";
-import { Button } from "@/components/ui/button";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 
 export const Route = createFileRoute("/_authenticated/admin/import")({
@@ -12,12 +11,13 @@ export const Route = createFileRoute("/_authenticated/admin/import")({
 
 const STEPS = [
   { number: 1, label: "اختيار الدرس" },
-  { number: 2, label: "رفع المحتويات" },
-  { number: 3, label: "الفحص والحفظ كمسودة" },
+  { number: 2, label: "رفع المحتويات السبعة" },
+  { number: 3, label: "فحص وحفظ المسودة" },
 ] as const;
 
 function AdminImportPage() {
   const { loading, enabled } = useRequireAdminSection("content");
+
   if (loading) {
     return (
       <AdminLayout>
@@ -27,6 +27,7 @@ function AdminImportPage() {
       </AdminLayout>
     );
   }
+
   if (!enabled) return null;
 
   return (
@@ -38,8 +39,8 @@ function AdminImportPage() {
             <h1 className="text-2xl font-bold">استيراد محتويات درس</h1>
           </div>
           <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            اختر الدرس، ارفع محتوياته السبعة، ثم افحصها واحفظها كمسودة. ستة محتويات
-            إلزامية، والتجربة أو النشاط التفاعلي وحده اختياري.
+            اختر الدرس مرة واحدة، ثم ارفع محتوياته السبعة مباشرة واحفظها كمسودة.
+            ستة محتويات إلزامية، والتجربة أو النشاط التفاعلي وحده اختياري.
           </p>
           <ol aria-label="خطوات استيراد الدرس" className="grid gap-2 sm:grid-cols-3">
             {STEPS.map((step) => (
@@ -53,54 +54,7 @@ function AdminImportPage() {
           </ol>
         </header>
 
-        <section className="rounded-xl border border-primary/25 bg-primary/5 p-4">
-          <div className="flex items-start gap-3">
-            <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-            <div className="flex-1 space-y-3">
-              <div>
-                <h2 className="font-semibold">التجهيز المطلوب قبل استيراد محتوى الدرس</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  عرّف هيكل المنهج والوحدات أولًا، ثم ارفع كتاب المادة الرسمي PDF. لا يشترط أن يكون الكتاب موجودًا مسبقًا.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild size="sm" variant="outline">
-                  <a href="/admin/curriculum">هيكل المنهج</a>
-                </Button>
-                <Button asChild size="sm" variant="outline">
-                  <a href="/admin/units">إضافة أو إدارة الوحدات</a>
-                </Button>
-                <Button asChild size="sm">
-                  <a href="/admin/textbooks">رفع أو إدارة كتاب المادة PDF</a>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <GoldenLessonPackageBuilder />
-
-        <section aria-label="الواجهات الإدارية المنفصلة" className="rounded-xl border bg-muted/20 p-4">
-          <div className="flex items-start gap-3">
-            <FileCheck2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-            <div className="space-y-2">
-              <h2 className="font-semibold">بعد حفظ المسودة</h2>
-              <p className="text-xs text-muted-foreground">
-                المراجعة والاعتماد والنشر عمليات منفصلة بصلاحيات مستقلة، ولا تظهر أدواتها داخل رحلة الرفع.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild size="sm" variant="outline">
-                  <a href="/admin/content-review">فتح مراجعة المحتوى</a>
-                </Button>
-                <Button asChild size="sm" variant="outline">
-                  <a href="/admin/content-review?view=release">
-                    <UploadCloud className="h-4 w-4" />عمليات النشر
-                  </a>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
       </main>
     </AdminLayout>
   );
