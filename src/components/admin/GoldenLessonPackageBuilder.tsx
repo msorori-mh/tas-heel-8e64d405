@@ -414,10 +414,9 @@ export function GoldenLessonPackageBuilder() {
   // intake values locally so the operator is never sent to another page mid-flow.
   const semester = String(selectedLesson?.semester ?? 1);
   const selectedLessonIndex = lessons.findIndex((lesson) => lesson.lessonCode === selectedLessonCode);
+  const existingSortOrder = selectedLesson?.sortOrder ?? 0;
   const sortOrder = String(
-    selectedLesson && selectedLesson.sortOrder > 0
-      ? selectedLesson.sortOrder
-      : Math.max(1, selectedLessonIndex + 1),
+    existingSortOrder > 0 ? existingSortOrder : Math.max(1, selectedLessonIndex + 1),
   );
   const canonicalIdentityComplete = Boolean(
     profile && selectedSubject && selectedLesson && gradeCode && selectedTrackCodes.length > 0 &&
@@ -980,7 +979,7 @@ export function GoldenLessonPackageBuilder() {
             <p className="mt-1 text-xs text-muted-foreground">
               الفصل {semester} · الترتيب {sortOrder}
               {selectedLesson.unitCode ? ` · الوحدة: ${units.find((unit) => unit.unitCode === selectedLesson.unitCode)?.title ?? selectedLesson.unitCode}` : " · مرتبط بالمادة مباشرة"}
-              {(!selectedLesson.semester || selectedLesson.sortOrder <= 0) ? " · استكمل النظام البيانات التشغيلية تلقائيًا" : ""}
+              {(!selectedLesson.semester || (selectedLesson.sortOrder ?? 0) <= 0) ? " · استكمل النظام البيانات التشغيلية تلقائيًا" : ""}
             </p>
           </div>
         )}
