@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
  * PAST_MINISTERIAL_EXAMS_STUDENT_EXPERIENCE_14D
  * Student read paths for ministerial exam models.
  *
- * Track isolation, subject access and answer secrecy are enforced server-side
+ * Grade access, Sanaa/Aden model attribution and answer secrecy are enforced server-side
  * (RLS + SECURITY DEFINER RPCs). Nothing here may fetch correct answers,
  * solutions, question_revisions or ministerial_exam_questions directly.
  */
@@ -15,6 +15,8 @@ export type MinisterialSubjectCard = {
   subject_code: string | null;
   models_count: number;
   latest_year: number | null;
+  sanaa_models_count: number;
+  aden_models_count: number;
 };
 
 export type MinisterialModelRow = {
@@ -28,6 +30,8 @@ export type MinisterialModelRow = {
   duration_seconds: number | null;
   last_session_id: string | null;
   last_session_status: string | null;
+  track_code: "sanaa" | "aden";
+  track_name: string;
 };
 
 export type MinisterialModelOverview = MinisterialModelRow & {
@@ -317,7 +321,7 @@ export function mapMinisterialError(err: unknown): string {
   if (msg.includes("MINISTERIAL_MODEL_NOT_PUBLISHED")) return "هذا النموذج غير منشور.";
   if (msg.includes("MINISTERIAL_MODEL_HAS_NO_QUESTIONS")) return "هذا النموذج لا يحتوي على أسئلة بعد.";
   if (msg.includes("ministerial_model_not_available") || msg.includes("curriculum_or_grade_mismatch")) {
-    return "هذا النموذج غير متاح لمسارك الدراسي.";
+    return "هذا النموذج غير متاح لصفك الدراسي أو لم يعد منشوراً.";
   }
   if (msg.includes("ANSWER_ALREADY_REVEALED_LOCKED")) return "تم كشف الإجابة، ولا يمكن تغييرها.";
   if (msg.includes("ANSWER_REQUIRED_BEFORE_REVEAL")) return "اختر إجابة أولاً قبل كشف الحل.";
