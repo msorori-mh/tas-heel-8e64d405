@@ -62,7 +62,7 @@ function SubjectMinisterialModels() {
       />
 
       <h1 className="text-lg font-bold text-foreground sm:text-xl">
-{subject?.subject_name ?? "المادة"} — النماذج الوزارية
+        {subject?.subject_name ?? "المادة"} — النماذج الوزارية
       </h1>
       <p className="text-sm text-muted-foreground">
         جميع نماذج صنعاء وعدن متاحة لك؛ استخدم المرشح لعرض أحد المسارين أو كليهما.
