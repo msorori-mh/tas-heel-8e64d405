@@ -446,7 +446,7 @@ BEGIN
     first := false;
     canonical := canonical || f || '=' || COALESCE(p->>f, '');
   END LOOP;
-  RETURN encode(digest(canonical, 'sha256'), 'hex');
+  RETURN encode(extensions.digest(canonical, 'sha256'), 'hex');
 END;
 $$;
 
@@ -460,7 +460,7 @@ IMMUTABLE
 SET search_path = public, pg_temp
 AS $$
   SELECT encode(
-    digest(
+    extensions.digest(
       p_role || chr(31) ||
       (p - 'subject_code' - 'lesson_code' - 'sort_order' - 'review_status' - 'editor_notes')::text,
       'sha256'
