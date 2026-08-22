@@ -56,4 +56,5 @@ test("pending import SQL derives roles from template identity and writes draft Q
   assert.match(sql, /WHEN 'questions' THEN 'OFFICIAL_BOOK_QUESTION'/);
   assert.match(sql, /WHEN 'self_test_questions' THEN 'SELF_TEST'/);
   assert.match(sql, /'DRAFT'/);
+  assert.equal((sql.match(/extensions\\.digest\\(/g) ?? []).length, 2);
 });
