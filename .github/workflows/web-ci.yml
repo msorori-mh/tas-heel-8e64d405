@@ -42,6 +42,7 @@ jobs:
           npm test
           node --test tests/import/curriculum-subject-unit-lesson-intake-13j.static.test.mjs
           node --test tests/import/subject-textbook-grade-upload-13k.static.test.mjs
+          node --test tests/security/student-textbook-governorate-track-13l.static.test.mjs
           node --test tests/security/ministerial-cross-track-mufadala-parity-14i.static.test.mjs
           npm run test:question-bank-import
           node --experimental-strip-types --test tests/content-factory/content-factory-01.test.ts

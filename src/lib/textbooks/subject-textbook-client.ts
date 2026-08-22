@@ -1,8 +1,9 @@
 /**
- * 21B — student side of subject textbooks.
+ * 21B/13L — student side of subject textbooks.
  *
- * Reads metadata through RLS (fail-closed), then reuses the 18C secure
- * delivery + offline cache verbatim. No new storage flow, no auto-download.
+ * Student discovery is intentionally separated from the administrative
+ * read-all policy. The scoped RPC always applies the profile grade and exact
+ * governorate curriculum track, even if the account also has a staff role.
  */
 
 import { supabase } from "@/integrations/supabase/client";
@@ -15,7 +16,6 @@ import {
   registerLocalTextbook,
   unregisterLocalTextbook,
 } from "@/lib/offline/local-textbook-registry";
-
 
 export type StudentBookType = "MAIN_TEXTBOOK" | "EXERCISE_BOOK" | "OTHER";
 
@@ -51,45 +51,33 @@ export const BOOK_TYPE_LABEL: Record<StudentBookType, string> = {
   OTHER: "ملحق",
 };
 
-const BASE_COLUMNS =
-  "id, subject_id, coverage_type, semester, title, file_name, file_size, version, sort_order";
-
-function isMissingBookTypeColumn(error: unknown): boolean {
-  const message = String((error as { message?: string } | null)?.message ?? "");
-  return /book_type/.test(message) && /(does not exist|42703|column)/i.test(message);
-}
+type StudentTextbookRpcRow = Record<string, unknown>;
+type StudentTextbookRpcClient = {
+  rpc: (
+    name: "list_student_subject_textbooks",
+    args: { _subject_id: string; _semester: 1 | 2 | null },
+  ) => Promise<{ data: StudentTextbookRpcRow[] | null; error: unknown }>;
+};
 
 /**
  * 21B-A2/A3 discovery rule for a given semester:
- *   FULL_ACADEMIC_YEAR books always show, SEMESTER_SPECIFIC books only in
- *   their own semester. Results are ordered main → exercise → other.
+ * FULL_ACADEMIC_YEAR books always show, SEMESTER_SPECIFIC books only in their
+ * own semester. The server additionally enforces grade + profile track.
  */
 export async function listStudentTextbooks(params: {
   subjectId: string;
   semester?: 1 | 2 | null;
 }): Promise<StudentTextbook[]> {
-  const run = async (columns: string) => {
-    let query = (supabase as never as { from: (t: string) => any })
-      .from("subject_textbooks")
-      .select(columns)
-      .eq("subject_id", params.subjectId)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
-
-    if (params.semester === 1 || params.semester === 2) {
-      query = query.or(
-        `coverage_type.eq.FULL_ACADEMIC_YEAR,and(coverage_type.eq.SEMESTER_SPECIFIC,semester.eq.${params.semester})`,
-      );
-    }
-    return query;
-  };
-
-  let { data, error } = await run(`${BASE_COLUMNS}, book_type`);
-  if (error && isMissingBookTypeColumn(error)) ({ data, error } = await run(BASE_COLUMNS));
+  const { data, error } = await (supabase as unknown as StudentTextbookRpcClient).rpc(
+    "list_student_subject_textbooks",
+    {
+      _subject_id: params.subjectId,
+      _semester: params.semester === 1 || params.semester === 2 ? params.semester : null,
+    },
+  );
   if (error) throw error;
 
-  const rows = (data ?? []) as Array<Record<string, unknown>>;
-  return rows
+  return (data ?? [])
     .map((r) => ({
       id: String(r["id"]),
       subjectId: String(r["subject_id"]),
@@ -110,7 +98,6 @@ export async function listStudentTextbooks(params: {
         BOOK_TYPE_RANK[a.bookType] - BOOK_TYPE_RANK[b.bookType] || a.sortOrder - b.sortOrder,
     );
 }
-
 
 /** Local (device) state for one textbook — offline-safe, never throws. */
 export async function readTextbookLocalState(
@@ -154,8 +141,6 @@ export async function downloadTextbook(params: {
     onProgress: params.onProgress,
   });
 
-  // 21B4-B — mirror metadata into the app-private offline registry so the
-  // in-APK offline entry screen can find and open this book without network.
   if (isNativeRegistry()) {
     try {
       const entry = await getEntry(params.textbook.id);
@@ -175,10 +160,7 @@ export async function downloadTextbook(params: {
           sha256: await computeSha256(result.blob),
           fileSize: entry.fileSize ?? params.textbook.fileSize ?? null,
           downloadedAt: entry.downloadedAt,
-          // OFFLINE_READY = PDF_READY && READER_READY. On Android the native
-          // renderer ships inside the APK, so isReaderReady() is true there.
           offlineReady: isReaderReady(),
-
         });
       }
     } catch {
@@ -193,4 +175,3 @@ export async function deleteLocalTextbook(textbookId: string): Promise<void> {
   await removeFile(textbookId);
   await unregisterLocalTextbook(textbookId);
 }
-
