@@ -17,7 +17,7 @@ function AdminTextbooksPage() {
         <header>
           <h1 className="text-lg font-bold text-foreground">كتب المنهج</h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            كتب المادة حسب المسار والفصل الدراسي. يراها الطالب داخل «موادي» ويحمّلها اختيارياً.
+            ارفع كتاب المادة الرسمي PDF لأول مرة أو استبدله لاحقًا، وحدد هل يشمل صنعاء وعدن معًا أو مسارًا واحدًا، والفصلين أو فصلًا محددًا.
           </p>
         </header>
         <SubjectTextbooksManager />
