@@ -148,6 +148,13 @@ test("CF10-R3 adds identity, lifecycle and counter hardening", () => {
   assert.match(sql, /domain_writes := domain_writes \+ rc/);
 });
 
+test("CF10-R10 trusts the authoritative binding over mutable lesson metadata", () => {
+  assert.match(sql, /ELSIF binding_count = 0 THEN/);
+  assert.match(sql, /existing lesson shell and must never overwrite or reject its operational metadata/);
+  assert.ok(assertSql.includes("bound lesson mutable metadata does not cause an identity conflict"));
+  assert.doesNotMatch(assertSql, /CF10_EXPECTED_LESSON_IDENTITY_CONFLICT/);
+});
+
 test("CF10-R4 PG17 rehearsal asserts collisions and all-or-nothing student blindness", () => {
   for (const marker of [
     "gate hides the all-DRAFT managed lesson",

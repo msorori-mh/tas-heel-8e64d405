@@ -349,25 +349,24 @@ BEGIN
 END $$;
 ROLLBACK;
 
--- 9h) CF10-R4: an existing lesson whose identity diverges from the manifest is a hard conflict.
+-- 9h) CF10-R10: mutable lesson metadata does not invalidate an authoritative CF09 binding.
 BEGIN;
 ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER golden_materialization_immutable;
 DO $$
-DECLARE b uuid; l4 uuid; sha text;
+DECLARE b uuid; l4 uuid; sha text; res jsonb;
 BEGIN
   b := public.cf10_batch('QURAN-G10-L04-PKG');
   SELECT lesson_id INTO l4 FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
   DELETE FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
-  UPDATE public.lessons SET is_free = false WHERE id = l4;
+  UPDATE public.lessons
+     SET title = title || ' — تحرير', is_free = false, semester = 2, sort_order = sort_order + 10
+   WHERE id = l4;
   sha := public.golden_lesson_materialize_domain_batch(
            b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
-  BEGIN
-    PERFORM public.golden_lesson_materialize_domain_batch(
-      b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-r4-lesson');
-    RAISE EXCEPTION 'CF10_EXPECTED_LESSON_IDENTITY_CONFLICT';
-  EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF10_IDENTITY_CONFLICT: lessons%' THEN RAISE; END IF;
-  END;
+  res := public.golden_lesson_materialize_domain_batch(
+    b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-r10-metadata');
+  PERFORM public.cf04_assert((res->>'domain_writes_performed')::int = 0,
+    'bound lesson mutable metadata does not cause an identity conflict');
 END $$;
 ROLLBACK;
 

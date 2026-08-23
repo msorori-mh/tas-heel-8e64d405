@@ -556,7 +556,10 @@ BEGIN
     RAISE EXCEPTION 'CF10_WRITE_PLAN_HASH_MISMATCH' USING ERRCODE = '23514';
   END IF;
 
-  -- Lesson: created only when absent. An existing lesson must match the manifest exactly.
+  -- Lesson identity is authoritative from the CF09 binding. A bound EXECUTE targets an
+  -- existing lesson shell and must never overwrite or reject its operational metadata
+  -- (title, unit placement, free flag, semester or sort order). Identity remains strict:
+  -- binding.lesson_id, subject_id and slug were all verified above.
   IF lesson_row.id IS NULL THEN
     INSERT INTO public.lessons(subject_id, slug, title, unit_id, is_free, semester, sort_order)
     VALUES (subject_row.id, btrim(ident->>'lessonSlug'), expected_title,
@@ -565,7 +568,8 @@ BEGIN
     GET DIAGNOSTICS rc = ROW_COUNT;
     lesson_created := true;
     domain_writes := domain_writes + rc;
-  ELSE
+  ELSIF binding_count = 0 THEN
+    -- Unbound DRY_RUN / fixture compatibility keeps the legacy exact-match assertion.
     IF lesson_row.subject_id IS DISTINCT FROM subject_row.id
        OR lesson_row.title IS DISTINCT FROM expected_title
        OR lesson_row.unit_id IS NOT NULL
