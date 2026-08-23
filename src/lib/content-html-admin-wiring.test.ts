@@ -293,10 +293,11 @@ describe("Content HTML Admin Wiring — Import/Review Workflow Tests", () => {
     assert.ok(!content.includes("demoHtmlBody"), "InteractiveHtmlImportPanel must not contain demoHtmlBody");
   });
 
-  test("19. admin.content-review has no DEMO_REVIEW_ITEMS", () => {
-    const filePath = path.resolve("src/routes/_authenticated/admin.content-review.tsx");
-    const content = fs.readFileSync(filePath, "utf-8");
-    assert.ok(!content.includes("DEMO_REVIEW_ITEMS"), "content-review must not contain DEMO_REVIEW_ITEMS");
+  test("19. the separate content-review page is retired", () => {
+    assert.ok(
+      !fs.existsSync(path.resolve("src/routes/_authenticated/admin.content-review.tsx")),
+      "publishing happens directly from the import center",
+    );
   });
 
   test("20. InteractiveHtmlImportPanel has no 'as any' casts", () => {
@@ -305,20 +306,20 @@ describe("Content HTML Admin Wiring — Import/Review Workflow Tests", () => {
     assert.ok(!content.includes("as any"), "InteractiveHtmlImportPanel must not contain 'as any'");
   });
 
-  test("21. admin.content-review has no 'as any' casts", () => {
-    const filePath = path.resolve("src/routes/_authenticated/admin.content-review.tsx");
+  test("21. direct publish orchestrator has no 'as any' casts", () => {
+    const filePath = path.resolve("src/lib/content-factory/golden-lesson-direct-publish.functions.ts");
     const content = fs.readFileSync(filePath, "utf-8");
-    assert.ok(!content.includes("as any"), "content-review must not contain 'as any'");
+    assert.ok(!content.includes("as any"), "direct publish must not contain 'as any'");
   });
 
   // ─── No Direct Browser Mutations ──────────────────────────────
 
-  test("22. content-review has no direct supabase client imports", () => {
-    const filePath = path.resolve("src/routes/_authenticated/admin.content-review.tsx");
+  test("22. direct publish runs server-side only", () => {
+    const filePath = path.resolve("src/components/admin/GoldenLessonPackageBuilder.tsx");
     const content = fs.readFileSync(filePath, "utf-8");
     assert.ok(
-      !content.includes("supabaseAdmin") && !content.includes("supabase.from"),
-      "content-review must not directly access supabase client",
+      !content.includes("supabaseAdmin") && !content.includes("SERVICE_ROLE"),
+      "builder must not access privileged clients",
     );
   });
 
@@ -339,7 +340,7 @@ describe("Content HTML Admin Wiring — Import/Review Workflow Tests", () => {
       "utf-8",
     );
     const reviewPage = fs.readFileSync(
-      path.resolve("src/routes/_authenticated/admin.content-review.tsx"),
+      path.resolve("src/components/admin/GoldenLessonPackageBuilder.tsx"),
       "utf-8",
     );
     assert.ok(!importPanel.includes("SERVICE_ROLE"));
