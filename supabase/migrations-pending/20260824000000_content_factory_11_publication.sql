@@ -1491,7 +1491,7 @@ BEGIN
       CASE cap WHEN 'mindMap' THEN mind_html ELSE lab_html END,
       CASE cap WHEN 'mindMap' THEN 4 ELSE 5 END,
       v_resource_code,
-      'INTERACTIVE',
+      CASE cap WHEN 'mindMap' THEN 'mindmap' ELSE 'experiment' END,
       jsonb_build_object(
         'cf11_publication_id', publication_id,
         'cf11_published_at', now(),
