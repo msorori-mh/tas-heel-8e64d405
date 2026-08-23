@@ -140,6 +140,19 @@ test("CF11-R6/1 — SQL canonical set equals src/lib/lessons/capability-mapping.
   assert.deepEqual(sqlNames, [...sqlNames].sort(), "must be stored sorted for `=` comparison");
 });
 
+test("CF11 HTML policy — mind map and lab share the isolated interactive contract", () => {
+  assert.match(sql, /mind_contract := public\.cf11_assert_interactive_contract\('mindMapHtml', mind_html\)/);
+  assert.match(sql, /lab_contract := public\.cf11_assert_interactive_contract\('labExperimentHtml', lab_html\)/);
+  assert.doesNotMatch(sql, /cf11_assert_static_contract\('mindMapHtml', mind_html\)/);
+  assert.match(sql, /'mindMap',[\s\S]{0,260}'renderMode','INTERACTIVE',[\s\S]{0,80}'csp', mind_contract/);
+  assert.match(sql, /'cf11_render_mode', 'INTERACTIVE'/);
+  assert.match(sql, /'cf11_csp', CASE cap WHEN 'mindMap' THEN mind_contract ELSE lab_contract END/);
+  assert.match(sql, /CF11_INTERACTIVE_EXTERNAL_SCRIPT/);
+  assert.match(sql, /CF11_INTERACTIVE_DYNAMIC_EXECUTION/);
+  assert.match(asserts, /the mind map must use the interactive runtime contract/);
+  assert.doesNotMatch(asserts, /the mind map must stay completely JS-free/);
+});
+
 test("CF11-R6/2 — every gate compares the SET, never a bare count", () => {
   // Publication plan validation, replay, READY first execution and READY replay.
   assert.match(sql, /CF11_LIFECYCLE_NAMESPACE_MISMATCH: staged=/);

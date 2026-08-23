@@ -422,6 +422,10 @@ BEGIN
     'csp', 'default-src ''none''; script-src ''unsafe-inline''; style-src ''unsafe-inline''; img-src data:; font-src data:; media-src ''none''; connect-src ''none''; frame-src ''none''; object-src ''none''; base-uri ''none''; form-action ''none''');
 END $$;
 
+REVOKE ALL ON FUNCTION public.cf11_assert_interactive_contract(text, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cf11_assert_interactive_contract(text, text) TO service_role;
+
 -- Leaf-only asset references found in an HTML body (src="name.ext" with no path separator).
 CREATE OR REPLACE FUNCTION public.cf11_html_asset_refs(_html text)
 RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
