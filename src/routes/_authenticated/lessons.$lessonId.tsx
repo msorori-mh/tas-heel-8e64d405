@@ -324,6 +324,11 @@ function LessonPage() {
     },
   });
 
+  // Student-owned notebook for official book questions (free-text answers).
+  const questionNotes = useLessonQuestionNotes(lessonId, profile?.user_id ?? null);
+
+
+
   // ── Phase N2D: unit-level access gate for enhancements ──
   // Free-access pivot: skip subscription RPC for UI gating.
   const { data: hasActiveSub } = useQuery({
