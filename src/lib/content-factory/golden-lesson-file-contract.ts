@@ -7,11 +7,20 @@ import {
 export type GoldenArtifactFormat = "HTML" | "JSON";
 
 export interface GoldenArtifactFileContract {
+  /** Format of the artifact stored inside the package. */
   formats: readonly GoldenArtifactFormat[];
   extensions: readonly string[];
   accept: string;
   expectedAr: string;
+  /**
+   * What the content team actually uploads in the admin UI. For the two question
+   * capabilities this is the approved XLSX template, converted client-side into the
+   * JSON artifact + server-only answers file before validation.
+   */
+  sourceAccept?: string;
+  sourceExpectedAr?: string;
 }
+
 
 export interface GoldenArtifactFileFinding {
   code: string;
@@ -59,14 +68,21 @@ export const GOLDEN_ARTIFACT_FILE_CONTRACTS: Record<GoldenCapability, GoldenArti
     extensions: [".json"],
     accept: ".json,application/json",
     expectedAr: "JSON لأسئلة الكتاب الأصلية مع الإجابات النموذجية",
+    sourceAccept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    sourceExpectedAr:
+      "قالب Excel رقم 09 «أسئلة الكتاب الأصلية» — نوع السؤال وطريقة التصحيح والإجابة النموذجية لكل صف",
   },
   selfTest: {
     formats: ["JSON"],
     extensions: [".json"],
     accept: ".json,application/json",
     expectedAr: "JSON لاختبر فهمك مع الإجابة الصحيحة والشرح",
+    sourceAccept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    sourceExpectedAr:
+      "قالب Excel رقم 10 «اختبر فهمك» — من خيارين إلى ستة خيارات مع correct_index وتعليل إلزامي",
   },
 };
+
 
 function extensionOf(path: string): string {
   const normalized = path.trim().toLocaleLowerCase("en-US");

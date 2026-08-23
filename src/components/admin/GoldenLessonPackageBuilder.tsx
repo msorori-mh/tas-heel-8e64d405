@@ -681,10 +681,14 @@ export function GoldenLessonPackageBuilder() {
           rowCount = converted.rowCount;
           convertedAnswers = converted.answers;
         } catch (excelError) {
-          throw new Error(
-            `تعذّرت قراءة ملف Excel: ${excelError instanceof Error ? excelError.message : "ملف غير صالح"} — استخدم القالب المعتمد أعلاه دون تغيير أسماء الأعمدة.`,
-          );
+          const detail = excelError instanceof Error ? excelError.message : "ملف غير صالح";
+          setCapabilityError(capability, [
+            ...detail.split(" | ").map((part) => part.trim()).filter(Boolean),
+            "نزّل القالب المعتمد أعلاه ولا تغيّر أسماء الأعمدة أو اسم الورقة.",
+          ]);
+          return;
         }
+
       }
 
       const bytes = new Uint8Array(await artifactFile.arrayBuffer());
@@ -1182,14 +1186,12 @@ export function GoldenLessonPackageBuilder() {
               {applicability !== "NA" && (
                 <>
                    <p className="text-xs text-muted-foreground">
-                     المطلوب: {capability === "officialBookQuestions"
-                       ? "قالب XLSX لأنشطة وأسئلة الدرس — نص السؤال والإجابة النموذجية لكل صف"
-                       : capability === "selfTest"
-                         ? "قالب XLSX لبنك الاختيار من متعدد — أربعة خيارات وتعليل لكل سؤال"
-                        : capability === "labExperimentHtml" || capability === "mindMapHtml"
-                          ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
-                        : fileContract.expectedAr}
+                     المطلوب: {fileContract.sourceExpectedAr
+                       ?? (capability === "labExperimentHtml" || capability === "mindMapHtml"
+                         ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
+                         : fileContract.expectedAr)}
                   </p>
+
                   {fileContract.formats.includes("HTML") && (
                     <ul className="list-disc space-y-0.5 pe-4 text-[11px] leading-relaxed text-muted-foreground">
                       <li>يجب أن يحتوي وسم html على dir="rtl".</li>
@@ -1228,11 +1230,11 @@ export function GoldenLessonPackageBuilder() {
                   )}
                   <ArabicFilePicker
                     id={`golden-artifact-${capability}`}
-                     accept={capability === "selfTest" || capability === "officialBookQuestions"
-                      ? ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                       : capability === "labExperimentHtml" || capability === "mindMapHtml"
-                          ? ".html,.zip,text/html,application/zip"
-                         : ".html,text/html"}
+                     accept={fileContract.sourceAccept
+                       ?? (capability === "labExperimentHtml" || capability === "mindMapHtml"
+                         ? ".html,.zip,text/html,application/zip"
+                         : ".html,text/html")}
+
 
                     disabled={hashing !== null}
                     fileName={upload?.displayName}
