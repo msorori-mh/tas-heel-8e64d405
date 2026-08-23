@@ -32,6 +32,14 @@ function serviceClient() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
+// Storage keys must be ASCII-safe; logical paths may be Arabic file names.
+// Derive a deterministic ASCII object name from the declared hash so both the
+// upload and the verification step resolve the same object.
+function storageObjectName(declaration: { path: string; sha256: string }, index: number) {
+  const extension = (/\.([A-Za-z0-9]{1,8})$/.exec(declaration.path)?.[1] ?? "bin").toLowerCase();
+  return `${String(index).padStart(2, "0")}-${declaration.sha256}.${extension}`;
+}
+
 export const createGoldenLessonDirectUpload = createServerFn({ method: "POST" })
   .middleware([requireContentStaffAuth])
   .inputValidator((input) => z.object({ manifest: z.unknown() }).parse(input))
