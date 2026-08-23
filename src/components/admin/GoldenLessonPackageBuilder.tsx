@@ -623,7 +623,7 @@ export function GoldenLessonPackageBuilder() {
       delete next[capability];
       return next;
     });
-    if (capability === "selfTest") {
+    if (capability === "selfTest" || capability === "officialBookQuestions") {
       const nextAnswerSets = { ...answerSets };
       delete nextAnswerSets[capability];
       setAnswerSets(nextAnswerSets);
