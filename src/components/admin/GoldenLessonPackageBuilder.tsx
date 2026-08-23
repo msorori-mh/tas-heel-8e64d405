@@ -754,7 +754,9 @@ export function GoldenLessonPackageBuilder() {
         [capability]: { fileName: artifactFile.name, displayName, sha256, file: artifactFile, rowCount },
       }));
     } catch (error) {
-      setFileError(error instanceof Error ? error.message : "تعذر فحص الملف.");
+      setCapabilityError(capability, [
+        error instanceof Error ? error.message : "تعذر فحص الملف.",
+      ]);
     } finally {
       setHashing(null);
     }
