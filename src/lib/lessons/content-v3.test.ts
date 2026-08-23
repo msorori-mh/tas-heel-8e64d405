@@ -109,7 +109,7 @@ describe("21C — unified HTML content standard", () => {
     expect(res.isValid).toBe(true);
   });
 
-  it("denies JavaScript in the static profile but allows it for labs", () => {
+  it("denies JavaScript in the static profile but allows it for interactive HTML", () => {
     const withJs = STATIC_HTML.replace("<body>", "<body><script>let a=1</script>");
     const staticRes = validateHtmlAgainstProfile(withJs, { profile: "STATIC_EDUCATIONAL_HTML" });
     expect(staticRes.isValid).toBe(false);
@@ -119,6 +119,12 @@ describe("21C — unified HTML content standard", () => {
       profile: "INTERACTIVE_EDUCATIONAL_HTML",
     });
     expect(labRes.isValid).toBe(true);
+
+    const mindMapRes = validateHtmlAgainstProfile(
+      withJs.replace("<h1>", '<button onclick="this.hidden=true">فتح</button><h1>'),
+      { profile: htmlProfileFor("mindMapHtml") ?? "STATIC_EDUCATIONAL_HTML" },
+    );
+    expect(mindMapRes.isValid).toBe(true);
   });
 
   it("rejects external CDN dependencies in both profiles", () => {

@@ -261,11 +261,12 @@ BEGIN
          || '<tbody><tr><td>a</td><td>b</td><td>c</td><td>d</td><td>e</td><td>f</td></tr></tbody></table>'
          || '</section>';
 
-  -- Mind map: JS-free details/summary tree.
-  v_mind := '<section data-tamkeen-render="STATIC"><details open><summary>الحديد</summary>'
+  -- Mind map: self-contained interaction; the student viewer imposes sandbox + CSP centrally.
+  v_mind := '<section data-tamkeen-render="INTERACTIVE"><details open><summary>الحديد</summary>'
          || '<details><summary>الاستخلاص</summary><p>الفرن العالي</p></details>'
          || '<details><summary>المركبات</summary><p>Fe<sub>2</sub>O<sub>3</sub></p></details>'
-         || '</details></section>';
+          || '</details><button onclick="this.dataset.opened=''true''">افتح</button>'
+          || '<script>document.documentElement.dataset.mindReady="true";</script></section>';
 
   -- Lab: single inline script, CSP pins its ACTUAL sha256, connect-src 'none', zero URLs.
   v_script := 'const s={fe2:0,fe3:0};'

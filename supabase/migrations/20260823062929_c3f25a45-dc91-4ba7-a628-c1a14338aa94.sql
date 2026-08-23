@@ -1,0 +1,3 @@
+ALTER FUNCTION public.cf11_assert_interactive_contract(text, text) SET search_path = public, pg_temp;
+REVOKE ALL ON FUNCTION public.cf11_assert_interactive_contract(text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cf11_assert_interactive_contract(text, text) TO service_role;

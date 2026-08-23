@@ -10,7 +10,7 @@ interface Props {
   title: string;
   /** The HTML body stored in `lesson_resources.description` (same payload the snapshot hashes). */
   html: string | null;
-  /** `lesson_resources.html_resource_type` — STATIC (mind map) or INTERACTIVE (experiment). */
+  /** `lesson_resources.html_resource_type` — current mind maps and experiments are INTERACTIVE. */
   htmlResourceType: string | null;
   resourceType: string;
 }
