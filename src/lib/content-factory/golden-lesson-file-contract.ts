@@ -68,14 +68,21 @@ export const GOLDEN_ARTIFACT_FILE_CONTRACTS: Record<GoldenCapability, GoldenArti
     extensions: [".json"],
     accept: ".json,application/json",
     expectedAr: "JSON لأسئلة الكتاب الأصلية مع الإجابات النموذجية",
+    sourceAccept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    sourceExpectedAr:
+      "قالب Excel رقم 09 «أسئلة الكتاب الأصلية» — نوع السؤال وطريقة التصحيح والإجابة النموذجية لكل صف",
   },
   selfTest: {
     formats: ["JSON"],
     extensions: [".json"],
     accept: ".json,application/json",
     expectedAr: "JSON لاختبر فهمك مع الإجابة الصحيحة والشرح",
+    sourceAccept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    sourceExpectedAr:
+      "قالب Excel رقم 10 «اختبر فهمك» — من خيارين إلى ستة خيارات مع correct_index وتعليل إلزامي",
   },
 };
+
 
 function extensionOf(path: string): string {
   const normalized = path.trim().toLocaleLowerCase("en-US");
