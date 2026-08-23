@@ -1012,12 +1012,19 @@ function OfficialBookQuestionCard({
   lessonId,
   index,
   q,
+  savedAnswer,
+  onAnswerChange,
+  saving,
 }: {
   lessonId: string;
   index: number;
   q: LessonQuestionRow;
+  savedAnswer: string;
+  onAnswerChange: (questionId: string, answerText: string) => void;
+  saving: boolean;
 }) {
-  const [answer, setAnswer] = useState("");
+  const [answer, setAnswer] = useState(savedAnswer);
+  const [hydratedFromServer, setHydratedFromServer] = useState(savedAnswer.length > 0);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -1027,6 +1034,20 @@ function OfficialBookQuestionCard({
     correctOptionIds: string[];
   } | null>(null);
   const attemptedAnswer = q.options.length > 0 ? selectedOptionId : answer.trim();
+
+  // Restore the saved answer once it arrives, without clobbering fresh typing.
+  useEffect(() => {
+    if (hydratedFromServer || !savedAnswer) return;
+    setAnswer((current) => (current.length === 0 ? savedAnswer : current));
+    setHydratedFromServer(true);
+  }, [hydratedFromServer, savedAnswer]);
+
+  const handleAnswerInput = (value: string) => {
+    setAnswer(value);
+    setHydratedFromServer(true);
+    onAnswerChange(q.id, value);
+  };
+
 
   const revealModelAnswer = async () => {
     if (!attemptedAnswer) return;
