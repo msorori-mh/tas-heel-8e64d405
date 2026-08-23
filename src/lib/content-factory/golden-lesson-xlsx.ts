@@ -1,6 +1,6 @@
 import type { GoldenCapability } from "./golden-lesson-contract.ts";
 
-type QuestionCapability = Extract<GoldenCapability, "officialBookQuestions" | "selfTest">;
+type QuestionCapability = Extract<GoldenCapability, "selfTest">;
 
 export interface ConvertedQuestionWorkbook {
   publicFile: File;
@@ -9,16 +9,6 @@ export interface ConvertedQuestionWorkbook {
 }
 
 const REQUIRED: Record<QuestionCapability, readonly string[]> = {
-  officialBookQuestions: [
-    "question_code",
-    "subject_code",
-    "lesson_code",
-    "prompt_kind",
-    "question_text",
-    "interaction_type",
-    "grading_mode",
-    "model_answer",
-  ],
   selfTest: [
     "question_code",
     "subject_code",
@@ -26,6 +16,8 @@ const REQUIRED: Record<QuestionCapability, readonly string[]> = {
     "question_text",
     "option_1",
     "option_2",
+    "option_3",
+    "option_4",
     "correct_index",
     "explanation",
   ],
@@ -50,7 +42,7 @@ function options(row: Record<string, string>): string[] {
     .filter(Boolean);
 }
 
-function toPublicQuestion(capability: QuestionCapability, row: Record<string, string>) {
+function toPublicQuestion(_capability: QuestionCapability, row: Record<string, string>) {
   const base = {
     id: row.question_code,
     question_code: row.question_code,
@@ -59,38 +51,10 @@ function toPublicQuestion(capability: QuestionCapability, row: Record<string, st
     options: options(row),
     sort_order: row.sort_order ? Number(row.sort_order) : undefined,
   };
-  if (capability === "officialBookQuestions") {
-    const questionType = row.interaction_type === "LONG_TEXT"
-      ? "EXTENDED_RESPONSE"
-      : row.interaction_type === "SINGLE_CHOICE"
-        ? "SINGLE_CHOICE"
-        : "SHORT_ANSWER";
-    return {
-      ...base,
-      question_number: row.question_code,
-      official_text: row.question_text,
-      question_type: questionType,
-      prompt_kind: row.prompt_kind,
-      interaction_type: row.interaction_type,
-      grading_mode: row.grading_mode,
-    };
-  }
   return { ...base, type: "multiple_choice" };
 }
 
 function toAnswer(capability: QuestionCapability, row: Record<string, string>) {
-  if (capability === "officialBookQuestions") {
-    return {
-      capability,
-      question_id: row.question_code,
-      model_answer: row.model_answer,
-      explanation: row.explanation || undefined,
-      correct_option: row.model_answer,
-      rationale: row.explanation || row.model_answer,
-      correct_index: row.correct_index ? Number(row.correct_index) : undefined,
-      accepted_answers: row.accepted_answers || undefined,
-    };
-  }
   const answer: Record<string, unknown> = {
     capability,
     question_id: row.question_code,
@@ -142,8 +106,11 @@ export async function convertQuestionWorkbook(
     if (capability === "selfTest") {
       const index = Number(row.correct_index);
       const optionCount = options(row).length;
-      if (!Number.isInteger(index) || index < 1 || index > optionCount) {
-        throw new Error(`الصف ${rowNumber}: correct_index يجب أن يشير إلى خيار موجود.`);
+      if (optionCount !== 4 || row.option_5 || row.option_6) {
+        throw new Error(`الصف ${rowNumber}: يجب إدخال أربعة خيارات بالضبط.`);
+      }
+      if (!Number.isInteger(index) || index < 1 || index > 4) {
+        throw new Error(`الصف ${rowNumber}: correct_index يجب أن يكون من 1 إلى 4.`);
       }
     }
     rows.push(row);
@@ -156,11 +123,8 @@ export async function convertQuestionWorkbook(
     source_file: file.name,
     questions: rows.map((row) => toPublicQuestion(capability, row)),
   };
-  const filename = capability === "officialBookQuestions"
-    ? "official-book-questions.json"
-    : "self-test.json";
   return {
-    publicFile: new File([JSON.stringify(payload)], filename, { type: "application/json" }),
+    publicFile: new File([JSON.stringify(payload)], "self-test.json", { type: "application/json" }),
     answers: rows.map((row) => toAnswer(capability, row)),
     rowCount: rows.length,
   };
