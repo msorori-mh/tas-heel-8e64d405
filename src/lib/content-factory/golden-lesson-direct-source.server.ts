@@ -61,8 +61,18 @@ export async function loadVerifiedDirectIntake(
   }
   const verified = verifyGoldenLessonDirectIntake(manifest, files);
   const expected = row['verified_intake_sha256'] as string | null;
-  if (expected && verified.intakeSha256 !== expected) {
-    throw new Error("DIRECT_INTAKE_IDENTITY_MISMATCH");
+  const attestedManifestSha = row['verified_manifest_sha256'] as string | null;
+  if (expected) {
+    // Anchor on the attested manifest digest: the manifest read back from jsonb may
+    // serialize with a different key order, so only the file set can be re-derived.
+    const recomputed = computeGoldenLessonIntakeSha256(
+      attestedManifestSha ?? verified.manifestSha256,
+      verified.files,
+    );
+    if (recomputed !== expected && verified.intakeSha256 !== expected) {
+      throw new Error("DIRECT_INTAKE_IDENTITY_MISMATCH");
+    }
   }
   return verified;
 }
+
