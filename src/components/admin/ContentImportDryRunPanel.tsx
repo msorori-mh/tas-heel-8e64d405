@@ -82,13 +82,35 @@ function statusLabel(status: ContentImportDryRunReport["status"]): string {
   return "FAIL";
 }
 
-export function ContentImportDryRunPanel() {
+interface ContentImportDryRunPanelProps {
+  allowedTemplateKeys?: readonly ContentImportTemplateKey[];
+  initialTemplateKey?: ContentImportTemplateKey;
+  heading?: string;
+  description?: string;
+  idPrefix?: string;
+}
+
+export function ContentImportDryRunPanel({
+  allowedTemplateKeys,
+  initialTemplateKey,
+  heading = "فحص ملف قبل الاستيراد",
+  description = "ارفع ملف Excel المملوء، ثم اتبع الخطوات: فحص ← تجهيز ← تنفيذ.",
+  idPrefix = "content-import",
+}: ContentImportDryRunPanelProps = {}) {
   const runDryRun = useServerFn(dryRunContentImport);
   const createJob = useServerFn(createContentImportJob);
   const prepareStaging = useServerFn(prepareContentImportStaging);
   const runExecute = useServerFn(runContentImportExecute);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [templateKey, setTemplateKey] = useState<ContentImportTemplateKey>("subjects");
+  const availableTemplates = allowedTemplateKeys?.length
+    ? CONTENT_IMPORT_TEMPLATES.filter((template) => allowedTemplateKeys.includes(template.key))
+    : CONTENT_IMPORT_TEMPLATES;
+  const fallbackTemplateKey = availableTemplates[0]?.key ?? "subjects";
+  const [templateKey, setTemplateKey] = useState<ContentImportTemplateKey>(
+    initialTemplateKey && availableTemplates.some((template) => template.key === initialTemplateKey)
+      ? initialTemplateKey
+      : fallbackTemplateKey,
+  );
   const [fileName, setFileName] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [preparing, setPreparing] = useState(false);
@@ -272,13 +294,10 @@ export function ContentImportDryRunPanel() {
       <CardHeader className="space-y-3 pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <FileSearch className="h-4 w-4" />
-          فحص ملف قبل الاستيراد
+          {heading}
         </CardTitle>
         <CardDescription className="space-y-1 text-sm">
-          <p>
-            ارفع ملف Excel مملوءاً من أحد قوالب 01–10، ثم اتبع الخطوات:
-            فحص ← تجهيز ← تنفيذ.
-          </p>
+          <p>{description}</p>
           <p className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
             <ShieldCheck className="h-4 w-4 shrink-0" />
             الفحص لا يكتب شيئاً، والتجهيز يكتب صفوفاً مؤقتة فقط، والتنفيذ يتم داخل معاملة واحدة لكل قالب.
@@ -288,9 +307,9 @@ export function ContentImportDryRunPanel() {
       <CardContent className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="content-import-template">نوع القالب</Label>
+            <Label htmlFor={`${idPrefix}-template`}>نوع القالب</Label>
             <select
-              id="content-import-template"
+              id={`${idPrefix}-template`}
               value={templateKey}
               onChange={(e) => {
                 setTemplateKey(e.target.value as ContentImportTemplateKey);
@@ -298,7 +317,7 @@ export function ContentImportDryRunPanel() {
               }}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              {CONTENT_IMPORT_TEMPLATES.map((t) => (
+              {availableTemplates.map((t) => (
                 <option key={t.key} value={t.key}>
                   {String(t.order).padStart(2, "0")} — {t.titleAr}
                 </option>
@@ -307,10 +326,10 @@ export function ContentImportDryRunPanel() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="content-import-file">ملف Excel (.xlsx)</Label>
+            <Label htmlFor={`${idPrefix}-file`}>ملف Excel (.xlsx)</Label>
             <input
               ref={inputRef}
-              id="content-import-file"
+              id={`${idPrefix}-file`}
               type="file"
               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:me-3 file:border-0 file:bg-transparent file:text-sm"
