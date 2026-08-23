@@ -1238,7 +1238,20 @@ export function GoldenLessonPackageBuilder() {
                     fileName={upload?.displayName}
                     onFile={(file) => handleCapabilityFile(capability, file)}
                   />
-                  {hashing === capability && <p className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" />حساب SHA-256…</p>}
+                  {hashing === capability && <p className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" />جارٍ فحص الملف…</p>}
+                  {capabilityErrors[capability]?.length ? (
+                    <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs">
+                      <p className="flex items-center gap-2 font-semibold text-destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        لم يُقبل الملف — صحّح ما يلي ثم أعد الاختيار:
+                      </p>
+                      <ul className="mt-2 list-disc space-y-1 pe-4 text-destructive">
+                        {capabilityErrors[capability]!.map((message) => (
+                          <li key={message}>{message}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                   {upload && (
                     <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs">
                       <div className="flex items-center justify-between gap-2">
