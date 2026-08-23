@@ -14,6 +14,7 @@ import {
 import {
   GOLDEN_DIRECT_LIMITS,
   planGoldenLessonDirectFiles,
+  computeGoldenLessonIntakeSha256,
   verifyGoldenLessonDirectIntake,
   type VerifiedGoldenLessonDirectIntake,
 } from "./golden-lesson-direct-verifier";
@@ -32,7 +33,7 @@ export async function loadVerifiedDirectIntake(
   const admin = serviceClient();
   const result = await admin
     .from("golden_lesson_package_versions")
-    .select("manifest,created_by,verified_intake_id,verified_intake_sha256")
+    .select("manifest,created_by,verified_intake_id,verified_intake_sha256,verified_manifest_sha256")
     .eq("package_id", packageId)
     .eq("version", version)
     .single();
@@ -61,8 +62,18 @@ export async function loadVerifiedDirectIntake(
   }
   const verified = verifyGoldenLessonDirectIntake(manifest, files);
   const expected = row['verified_intake_sha256'] as string | null;
-  if (expected && verified.intakeSha256 !== expected) {
-    throw new Error("DIRECT_INTAKE_IDENTITY_MISMATCH");
+  const attestedManifestSha = row['verified_manifest_sha256'] as string | null;
+  if (expected) {
+    // Anchor on the attested manifest digest: the manifest read back from jsonb may
+    // serialize with a different key order, so only the file set can be re-derived.
+    const recomputed = computeGoldenLessonIntakeSha256(
+      attestedManifestSha ?? verified.manifestSha256,
+      verified.files,
+    );
+    if (recomputed !== expected && verified.intakeSha256 !== expected) {
+      throw new Error("DIRECT_INTAKE_IDENTITY_MISMATCH");
+    }
   }
   return verified;
 }
+

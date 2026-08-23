@@ -160,17 +160,31 @@ export function verifyGoldenLessonDirectIntake(
 
   const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest));
   const manifestSha256 = sha256(manifestBytes);
-  const intakeHash = createHash("sha256").update(manifestSha256);
-  for (const file of [...inputFiles].sort((left, right) => left.path.localeCompare(right.path, "en"))) {
-    intakeHash.update("\0").update(file.path).update("\0").update(file.sha256);
-  }
   return {
     manifest,
     manifestSha256,
-    intakeSha256: intakeHash.digest("hex"),
+    intakeSha256: computeGoldenLessonIntakeSha256(manifestSha256, inputFiles),
     fileCount: inputFiles.length,
     totalBytes,
     files: inputFiles,
     assets,
   };
 }
+
+/**
+ * Deterministic intake identity: manifest digest + the sorted (path, sha256) file set.
+ * Exported so server-side re-verification can anchor on the attested manifest digest
+ * instead of re-serializing a manifest that round-tripped through jsonb (key order
+ * is not preserved by Postgres, which would otherwise produce a false mismatch).
+ */
+export function computeGoldenLessonIntakeSha256(
+  manifestSha256: string,
+  inputFiles: GoldenLessonDirectFileDeclaration[],
+): string {
+  const intakeHash = createHash("sha256").update(manifestSha256);
+  for (const file of [...inputFiles].sort((left, right) => left.path.localeCompare(right.path, "en"))) {
+    intakeHash.update("\0").update(file.path).update("\0").update(file.sha256);
+  }
+  return intakeHash.digest("hex");
+}
+
