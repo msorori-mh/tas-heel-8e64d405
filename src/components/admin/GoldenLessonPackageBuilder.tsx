@@ -77,6 +77,88 @@ const CAPABILITY_NUMBER: Record<GoldenCapability, number> = {
   selfTest: 7,
 };
 
+const CAPABILITY_FORMAT_HINT: Partial<Record<GoldenCapability, string>> = {
+  officialBookQuestions: "Excel (قالب 09)",
+  selfTest: "Excel (قالب 10)",
+};
+
+interface FriendlyFinding {
+  key: string;
+  severity: "ERROR" | "WARNING";
+  text: string;
+  capability: GoldenCapability | null;
+  order: number;
+}
+
+function capabilityFromField(field: string): GoldenCapability | null {
+  const match = /^artifacts\.([A-Za-z]+)/.exec(field ?? "");
+  const candidate = match?.[1] as GoldenCapability | undefined;
+  return candidate && candidate in CAPABILITY_LABEL ? candidate : null;
+}
+
+function toFriendlyFindings(
+  findings: ReadonlyArray<{ code: string; severity: string; field: string; messageAr: string }>,
+  hasLesson: boolean,
+): FriendlyFinding[] {
+  const mapped: FriendlyFinding[] = [];
+  let identityNoticeAdded = false;
+
+  findings.forEach((finding, index) => {
+    const severity = finding.severity === "ERROR" ? "ERROR" : "WARNING";
+    const isIdentity =
+      finding.code === "PACKAGE_CODE_INVALID" || finding.field?.startsWith("identity.");
+
+    if (isIdentity && !hasLesson) {
+      if (identityNoticeAdded) return;
+      identityNoticeAdded = true;
+      mapped.push({
+        key: "identity-missing",
+        severity: "ERROR",
+        text: "اختر الصف والمادة والدرس أولاً — رمز الحزمة يُنشأ تلقائيًا بعد الاختيار.",
+        capability: null,
+        order: -1,
+      });
+      return;
+    }
+
+    const capability = capabilityFromField(finding.field);
+    if (capability) {
+      const label = `(${CAPABILITY_NUMBER[capability]}) ${CAPABILITY_LABEL[capability]}`;
+      const hint = CAPABILITY_FORMAT_HINT[capability];
+      const text =
+        finding.code === "REQUIRED_ARTIFACT_MISSING"
+          ? `${label} — الملف الإلزامي مفقود${hint ? ` (${hint})` : " (HTML)"}.`
+          : `${label} — ${finding.messageAr}`;
+      mapped.push({
+        key: `${finding.code}-${index}`,
+        severity,
+        text,
+        capability,
+        order: CAPABILITY_NUMBER[capability],
+      });
+      return;
+    }
+
+    mapped.push({
+      key: `${finding.code}-${index}`,
+      severity,
+      text: finding.messageAr,
+      capability: null,
+      order: 100,
+    });
+  });
+
+  return mapped.sort((a, b) => a.order - b.order);
+}
+
+function scrollToCapability(capability: GoldenCapability) {
+  const node = document.getElementById(`golden-capability-${capability}`);
+  if (!node) return;
+  node.scrollIntoView({ behavior: "smooth", block: "center" });
+  node.classList.add("ring-2", "ring-destructive");
+  window.setTimeout(() => node.classList.remove("ring-2", "ring-destructive"), 2000);
+}
+
 type DirectIntakeResult = Awaited<ReturnType<typeof verifyAndStageGoldenLessonDirect>>;
 
 interface UploadedArtifact {
@@ -1014,7 +1096,7 @@ export function GoldenLessonPackageBuilder() {
           const upload = uploads[capability];
           const fileContract = GOLDEN_ARTIFACT_FILE_CONTRACTS[capability];
           return (
-            <div key={capability} className={`rounded-xl border p-4 space-y-3 ${capability === "labExperimentHtml" ? "border-dashed bg-muted/15" : "bg-background"}`}>
+            <div key={capability} id={`golden-capability-${capability}`} className={`scroll-mt-24 rounded-xl border p-4 space-y-3 ${capability === "labExperimentHtml" ? "border-dashed bg-muted/15" : "bg-background"}`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="font-medium">{CAPABILITY_NUMBER[capability]}. {CAPABILITY_LABEL[capability]}</p>
@@ -1130,6 +1212,21 @@ export function GoldenLessonPackageBuilder() {
 
       {fileError && <p role="alert" className="text-sm text-destructive flex gap-2"><AlertCircle className="h-4 w-4 mt-0.5" />{fileError}</p>}
 
+      {canonicalIdentityComplete && (
+        <div className="rounded-xl border bg-muted/20 p-3 space-y-1 text-xs">
+          <p className="font-medium text-sm">قائمة المكوّنات قبل الفحص</p>
+          {GOLDEN_CAPABILITIES.filter((capability) => (profile?.applicability[capability] ?? "NA") !== "NA").map((capability) => {
+            const done = Boolean(uploads[capability]);
+            return (
+              <p key={capability} className={done ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}>
+                {done ? "✓" : "•"} ({CAPABILITY_NUMBER[capability]}) {CAPABILITY_LABEL[capability]} — {CAPABILITY_FORMAT_HINT[capability] ?? "HTML"}
+                {done ? " — مرفوع" : " — بانتظار الملف"}
+              </p>
+            );
+          })}
+        </div>
+      )}
+
       <div className="sticky bottom-3 z-10 flex flex-wrap gap-2 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
         <Button type="button" onClick={() => void runValidation()} disabled={hashing !== null || !canonicalIdentityComplete} className="min-h-[44px] gap-2"><FileCheck2 className="h-4 w-4" />فحص ومعاينة الملفات</Button>
         <Button type="button" disabled={!validation?.valid || intakeBusy} onClick={() => void uploadAndVerifyDirectIntake()} className="min-h-[44px] gap-2">
@@ -1154,16 +1251,43 @@ export function GoldenLessonPackageBuilder() {
       {validation && (
         <div className={`rounded-xl border p-4 space-y-3 ${validation.valid ? "border-emerald-500/30 bg-emerald-500/10" : "border-destructive/30 bg-destructive/5"}`}>
           <p className="font-medium">{validation.valid ? "الملفات مكتملة وجاهزة للاستيراد" : "الملفات تحتاج تصحيحًا"}</p>
-          {validation.findings.length > 0 && (
-            <ul className="space-y-1 text-sm">
-              {validation.findings.map((finding, index) => (
-                <li key={`${finding.code}-${index}`} className="rounded-lg border bg-background/70 px-3 py-2">
-                  <Badge variant={finding.severity === "ERROR" ? "destructive" : "outline"} className="ms-2">{finding.severity === "ERROR" ? "خطأ" : "تنبيه"}</Badge>
-                  {finding.messageAr}
-                </li>
-              ))}
-            </ul>
-          )}
+          {validation.findings.length > 0 && (() => {
+            const friendly = toFriendlyFindings(validation.findings, Boolean(selectedLesson));
+            const errors = friendly.filter((item) => item.severity === "ERROR");
+            const warnings = friendly.filter((item) => item.severity === "WARNING");
+            const renderItem = (item: FriendlyFinding) => (
+              <li key={item.key} className="flex flex-wrap items-center gap-2 rounded-lg border bg-background/70 px-3 py-2">
+                <Badge variant={item.severity === "ERROR" ? "destructive" : "outline"}>
+                  {item.severity === "ERROR" ? "خطأ" : "تنبيه"}
+                </Badge>
+                <span className="flex-1">{item.text}</span>
+                {item.capability && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[36px]"
+                    onClick={() => scrollToCapability(item.capability!)}
+                  >
+                    انتقال إلى المكوّن
+                  </Button>
+                )}
+              </li>
+            );
+            return (
+              <div className="space-y-3 text-sm">
+                {errors.length > 0 && <ul className="space-y-1">{errors.map(renderItem)}</ul>}
+                {warnings.length > 0 && (
+                  <details className="rounded-lg border bg-background/50 px-3 py-2">
+                    <summary className="cursor-pointer text-xs text-muted-foreground">
+                      تفاصيل إضافية ({warnings.length})
+                    </summary>
+                    <ul className="mt-2 space-y-1">{warnings.map(renderItem)}</ul>
+                  </details>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
     </section>
