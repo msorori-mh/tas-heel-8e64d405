@@ -4898,6 +4898,7 @@ export type Database = {
         Args: { _resource_code: string }
         Returns: string
       }
+      cf10_question_text: { Args: { _item: Json }; Returns: string }
       cf10_required_capabilities: { Args: never; Returns: string[] }
       cf10_seed_state_sha256: { Args: { _lesson_id: string }; Returns: string }
       cf10_text_sha256: { Args: { _value: string }; Returns: string }
