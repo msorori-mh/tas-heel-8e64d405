@@ -77,6 +77,88 @@ const CAPABILITY_NUMBER: Record<GoldenCapability, number> = {
   selfTest: 7,
 };
 
+const CAPABILITY_FORMAT_HINT: Partial<Record<GoldenCapability, string>> = {
+  officialBookQuestions: "Excel (قالب 09)",
+  selfTest: "Excel (قالب 10)",
+};
+
+interface FriendlyFinding {
+  key: string;
+  severity: "ERROR" | "WARNING";
+  text: string;
+  capability: GoldenCapability | null;
+  order: number;
+}
+
+function capabilityFromField(field: string): GoldenCapability | null {
+  const match = /^artifacts\.([A-Za-z]+)/.exec(field ?? "");
+  const candidate = match?.[1] as GoldenCapability | undefined;
+  return candidate && candidate in CAPABILITY_LABEL ? candidate : null;
+}
+
+function toFriendlyFindings(
+  findings: ReadonlyArray<{ code: string; severity: string; field: string; messageAr: string }>,
+  hasLesson: boolean,
+): FriendlyFinding[] {
+  const mapped: FriendlyFinding[] = [];
+  let identityNoticeAdded = false;
+
+  findings.forEach((finding, index) => {
+    const severity = finding.severity === "ERROR" ? "ERROR" : "WARNING";
+    const isIdentity =
+      finding.code === "PACKAGE_CODE_INVALID" || finding.field?.startsWith("identity.");
+
+    if (isIdentity && !hasLesson) {
+      if (identityNoticeAdded) return;
+      identityNoticeAdded = true;
+      mapped.push({
+        key: "identity-missing",
+        severity: "ERROR",
+        text: "اختر الصف والمادة والدرس أولاً — رمز الحزمة يُنشأ تلقائيًا بعد الاختيار.",
+        capability: null,
+        order: -1,
+      });
+      return;
+    }
+
+    const capability = capabilityFromField(finding.field);
+    if (capability) {
+      const label = `(${CAPABILITY_NUMBER[capability]}) ${CAPABILITY_LABEL[capability]}`;
+      const hint = CAPABILITY_FORMAT_HINT[capability];
+      const text =
+        finding.code === "REQUIRED_ARTIFACT_MISSING"
+          ? `${label} — الملف الإلزامي مفقود${hint ? ` (${hint})` : " (HTML)"}.`
+          : `${label} — ${finding.messageAr}`;
+      mapped.push({
+        key: `${finding.code}-${index}`,
+        severity,
+        text,
+        capability,
+        order: CAPABILITY_NUMBER[capability],
+      });
+      return;
+    }
+
+    mapped.push({
+      key: `${finding.code}-${index}`,
+      severity,
+      text: finding.messageAr,
+      capability: null,
+      order: 100,
+    });
+  });
+
+  return mapped.sort((a, b) => a.order - b.order);
+}
+
+function scrollToCapability(capability: GoldenCapability) {
+  const node = document.getElementById(`golden-capability-${capability}`);
+  if (!node) return;
+  node.scrollIntoView({ behavior: "smooth", block: "center" });
+  node.classList.add("ring-2", "ring-destructive");
+  window.setTimeout(() => node.classList.remove("ring-2", "ring-destructive"), 2000);
+}
+
 type DirectIntakeResult = Awaited<ReturnType<typeof verifyAndStageGoldenLessonDirect>>;
 
 interface UploadedArtifact {
