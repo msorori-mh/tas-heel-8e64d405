@@ -753,7 +753,30 @@ function LessonPage() {
                 ))}
               </ul>
             )}
+            {labAttachments.length > 0 && (
+              <section className="rounded-xl border border-border bg-card p-3">
+                <h3 className="mb-2 text-sm font-semibold text-foreground">
+                  ملفات التجربة القابلة للتحميل ({labAttachments.length})
+                </h3>
+                <ul className="space-y-2">
+                  {labAttachments.map((r) => (
+                    <li key={r.id}>
+                      <EnhancementItemRow
+                        item={{
+                          id: r.id,
+                          title: r.title,
+                          description: r.description,
+                          url: r.url,
+                        }}
+                        lessonId={lessonId}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
           </div>
+
         );
 
       case "VIDEO":
