@@ -275,6 +275,18 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   SELECT encode(extensions.digest(convert_to(coalesce(_value,''),'UTF8'),'sha256'),'hex');
 $$;
 
+-- One canonical identity for CF11 HTML resources. lesson_resources normalizes natural codes on
+-- write, so the publication plan, inline URL and replay validator must use that same identity.
+CREATE OR REPLACE FUNCTION public.cf11_html_resource_code(_external_lesson_code text, _capability text)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
+  SELECT public.normalize_resource_code(
+    btrim(coalesce(_external_lesson_code,'')) ||
+    CASE _capability WHEN 'mindMap' THEN '-MINDMAP'
+                     WHEN 'simulation' THEN '-EXPERIMENT'
+                     ELSE NULL END
+  );
+$$;
+
 -- ------------------------------------------------------------------------------------
 -- CF11-R6 — THE canonical production lifecycle capability set.
 --
@@ -736,6 +748,7 @@ DECLARE
   v_expected text;
   v_live text;
   v_count integer;
+  v_publication_id uuid := nullif(_plan->>'publicationId','')::uuid;
   v_official text[];
   v_self text[];
   v_assessment uuid;
@@ -762,13 +775,15 @@ BEGIN
 
   -- 2) published HTML artefacts, body-hash exact and still delivered inline
   FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
-    v_code := _plan->'html'->cap->>'resourceCode';
+    v_code := public.normalize_resource_code(_plan->'html'->cap->>'resourceCode');
     v_expected := _plan->'html'->cap->>'sha256';
-    SELECT public.cf11_text_sha256(r.description) INTO v_live
+    SELECT count(*), min(public.cf11_text_sha256(r.description)) INTO v_count, v_live
       FROM public.lesson_resources r
-     WHERE r.lesson_id = v_lesson AND lower(r.resource_code) = lower(v_code)
-       AND r.url = public.cf10_inline_html_url(r.resource_code);
-    IF v_live IS DISTINCT FROM v_expected
+     WHERE r.lesson_id = v_lesson
+       AND r.resource_code = v_code
+       AND r.url = public.cf10_inline_html_url(v_code)
+       AND r.metadata->>'cf11_publication_id' = v_publication_id::text;
+    IF v_count <> 1 OR v_live IS DISTINCT FROM v_expected
        OR public.cf10_html_publication_pending(v_lesson, cap) THEN
       RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: html.%', cap USING ERRCODE = '23505';
     END IF;
@@ -1414,11 +1429,11 @@ BEGIN
     'bookContent', jsonb_build_object('beforeSha256', public.cf11_text_sha256(book_old),
                                       'afterSha256', public.cf11_text_sha256(book_new)),
     'html', jsonb_build_object(
-      'mindMap', jsonb_build_object('resourceCode', ext_code || '-MINDMAP',
+      'mindMap', jsonb_build_object('resourceCode', public.cf11_html_resource_code(ext_code, 'mindMap'),
                                     'sha256', public.cf11_text_sha256(mind_html),
                                     'renderMode','INTERACTIVE',
                                     'csp', mind_contract),
-      'simulation', jsonb_build_object('resourceCode', ext_code || '-EXPERIMENT',
+      'simulation', jsonb_build_object('resourceCode', public.cf11_html_resource_code(ext_code, 'simulation'),
                                        'sha256', public.cf11_text_sha256(lab_html),
                                        'renderMode','INTERACTIVE',
                                        'csp', lab_contract)),
@@ -1475,8 +1490,7 @@ BEGIN
 
   -- 3) mind map + lab experiment resources
   FOREACH cap IN ARRAY ARRAY['mindMap','simulation'] LOOP
-    v_resource_code := CASE cap WHEN 'mindMap' THEN ext_code || '-MINDMAP'
-                              ELSE ext_code || '-EXPERIMENT' END;
+    v_resource_code := public.cf11_html_resource_code(ext_code, cap);
     IF EXISTS (SELECT 1 FROM public.lesson_resources
                 WHERE lesson_id = lesson_row.id AND resource_code = v_resource_code) THEN
       RAISE EXCEPTION 'CF11_RESOURCE_ALREADY_EXISTS: %', v_resource_code USING ERRCODE = '23514';
