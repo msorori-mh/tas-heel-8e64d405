@@ -30,8 +30,25 @@ export type LessonResourceItem = {
   description: string | null;
   sort_order: number;
   is_primary?: boolean;
+  metadata?: Record<string, unknown> | null;
   __local?: boolean;
 };
+
+/** `metadata.attachment_of === "lab"` — a downloadable lab-experiment file. */
+const isLabAttachment = (r: LessonResourceItem) =>
+  typeof r.metadata?.["attachment_of"] === "string" &&
+  (r.metadata["attachment_of"] as string).toLowerCase() === "lab";
+
+const withLabAttachment = (
+  metadata: Record<string, unknown> | null | undefined,
+  value: boolean,
+): Record<string, unknown> => {
+  const next = { ...(metadata ?? {}) };
+  if (value) next["attachment_of"] = "lab";
+  else delete next["attachment_of"];
+  return next;
+};
+
 
 type ResourceTypeValue =
   | "pdf"
