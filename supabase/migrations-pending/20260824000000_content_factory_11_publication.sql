@@ -2356,12 +2356,11 @@ RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, 
 BEGIN
   -- Only ever restrictive, and only for the exact CF11 surface:
   --   * the lesson is bound to a CF11 publication (legacy lessons are untouched);
-  --   * the capability is one of the canonical seven and is REQUIRED;
+  --   * the capability is one of the canonical seven (REQUIRED or OPTIONAL);
   --   * the row is leaving READY.
   IF _from_status IS DISTINCT FROM 'READY' THEN RETURN; END IF;
   IF _to_status IS NOT DISTINCT FROM 'READY' THEN RETURN; END IF;
   IF NOT (_capability = ANY (public.cf11_lifecycle_capabilities())) THEN RETURN; END IF;
-  IF coalesce(_applicability, 'REQUIRED') <> 'REQUIRED' THEN RETURN; END IF;
   IF NOT public.cf11_is_managed_lesson(_lesson_id) THEN RETURN; END IF;
   IF public.cf11_has_revocation_ticket(_lesson_id) THEN RETURN; END IF;
 
