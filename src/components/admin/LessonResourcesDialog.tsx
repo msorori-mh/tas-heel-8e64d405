@@ -30,8 +30,25 @@ export type LessonResourceItem = {
   description: string | null;
   sort_order: number;
   is_primary?: boolean;
+  metadata?: Record<string, unknown> | null;
   __local?: boolean;
 };
+
+/** `metadata.attachment_of === "lab"` — a downloadable lab-experiment file. */
+const isLabAttachment = (r: LessonResourceItem) =>
+  typeof r.metadata?.["attachment_of"] === "string" &&
+  (r.metadata["attachment_of"] as string).toLowerCase() === "lab";
+
+const withLabAttachment = (
+  metadata: Record<string, unknown> | null | undefined,
+  value: boolean,
+): Record<string, unknown> => {
+  const next = { ...(metadata ?? {}) };
+  if (value) next["attachment_of"] = "lab";
+  else delete next["attachment_of"];
+  return next;
+};
+
 
 type ResourceTypeValue =
   | "pdf"
@@ -108,7 +125,9 @@ export function LessonResourcesDialog({
         description: null,
         sort_order: nextSort,
         is_primary: false,
+        metadata: null,
         __local: true,
+
       },
     ]);
   };
@@ -189,6 +208,7 @@ export function LessonResourcesDialog({
         const descTrim = (r.description ?? "").trim();
         const description = descTrim.length > 0 ? descTrim : null;
         const sortOrder = Number(r.sort_order);
+        const metadata = withLabAttachment(r.metadata, isLabAttachment(r));
 
         if (isLocal(r)) {
           const { data, error } = await supabase
@@ -200,6 +220,7 @@ export function LessonResourcesDialog({
               url,
               description,
               sort_order: sortOrder,
+              metadata: metadata as never,
             })
             .select("id")
             .single();
@@ -217,8 +238,10 @@ export function LessonResourcesDialog({
               url,
               description,
               sort_order: sortOrder,
+              metadata: metadata as never,
             })
             .eq("id", r.id);
+
           if (error) throw error;
           if (r.is_primary) {
             hasPrimarySelection = true;
@@ -378,6 +401,23 @@ export function LessonResourcesDialog({
                     />
                     محتوى الدرس الأساسي (ملف خارجي — يفتحه الطالب مباشرة)
                   </label>
+
+                  <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary"
+                      checked={isLabAttachment(r)}
+                      onChange={(e) =>
+                        updateRow(r.id, {
+                          metadata: withLabAttachment(r.metadata, e.target.checked),
+                        })
+                      }
+                      disabled={saving}
+                    />
+                    مرفق للتجربة المعملية (يظهر ضمن ملفات التجربة القابلة للتحميل)
+                  </label>
+
+
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="sm:col-span-2">

@@ -37,6 +37,8 @@ import {
   type LessonCapabilityType,
 } from "@/lib/lessons/lesson-capabilities";
 import { orderStudentCapabilities } from "@/lib/lessons/lesson-content-contract";
+import { useLessonQuestionNotes } from "@/lib/lessons/lesson-question-notes";
+
 import {
   fetchStudentLifecycleGate,
   filterStudentCapabilitiesByLifecycle,
@@ -121,7 +123,16 @@ type ResourceRow = {
   sort_order: number;
   is_primary?: boolean | null;
   html_resource_type?: string | null;
+  /** `{ attachment_of: "lab" }` marks a downloadable lab-experiment attachment. */
+  metadata?: Record<string, unknown> | null;
 };
+
+/** A resource explicitly attached to the lab/practical capability. */
+function isLabAttachment(resource: ResourceRow): boolean {
+  const target = resource.metadata?.["attachment_of"];
+  return typeof target === "string" && target.toLowerCase() === "lab";
+}
+
 
 
 type SimulationRow = {
@@ -324,6 +335,11 @@ function LessonPage() {
     },
   });
 
+  // Student-owned notebook for official book questions (free-text answers).
+  const questionNotes = useLessonQuestionNotes(lessonId, profile?.user_id ?? null);
+
+
+
   // ── Phase N2D: unit-level access gate for enhancements ──
   // Free-access pivot: skip subscription RPC for UI gating.
   const { data: hasActiveSub } = useQuery({
@@ -387,7 +403,7 @@ function LessonPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_resources")
-        .select("id,resource_type,title,url,description,sort_order,is_primary,html_resource_type")
+        .select("id,resource_type,title,url,description,sort_order,is_primary,html_resource_type,metadata")
         .eq("lesson_id", lessonId)
         .order("sort_order");
       if (error) throw error;
@@ -515,14 +531,22 @@ function LessonPage() {
 
   const mindmaps = (resources ?? []).filter((r) => r.resource_type === "mindmap");
   const videos = (resources ?? []).filter((r) => r.resource_type === "video");
-  const experiments = (resources ?? []).filter((r) => r.resource_type === "experiment");
+  const experiments = (resources ?? []).filter(
+    (r) => r.resource_type === "experiment" && !isLabAttachment(r),
+  );
+  // Multi-file downloads that belong to the lab/practical experiment.
+  const labAttachments = (resources ?? []).filter(
+    (r) => isLabAttachment(r) && r.is_primary !== true,
+  );
   // 18C1 invariant: a primary resource never appears under "موارد إضافية".
   const extras = (resources ?? []).filter(
     (r) =>
       (r.resource_type === "pdf" || r.resource_type === "link") &&
       r.is_primary !== true &&
+      !isLabAttachment(r) &&
       r.id !== primaryResource?.id,
   );
+
 
 
   if (loadingLesson) return <StateMessage variant="loading">جارٍ تحميل الدرس…</StateMessage>;
@@ -729,7 +753,30 @@ function LessonPage() {
                 ))}
               </ul>
             )}
+            {labAttachments.length > 0 && (
+              <section className="rounded-xl border border-border bg-card p-3">
+                <h3 className="mb-2 text-sm font-semibold text-foreground">
+                  ملفات التجربة القابلة للتحميل ({labAttachments.length})
+                </h3>
+                <ul className="space-y-2">
+                  {labAttachments.map((r) => (
+                    <li key={r.id}>
+                      <EnhancementItemRow
+                        item={{
+                          id: r.id,
+                          title: r.title,
+                          description: r.description,
+                          url: r.url,
+                        }}
+                        lessonId={lessonId}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
           </div>
+
         );
 
       case "VIDEO":
@@ -761,14 +808,28 @@ function LessonPage() {
 
       case "OFFICIAL_QUESTIONS":
         return (
-          <ol className="space-y-4">
-            {(officialQuestions ?? []).map((q, idx) => (
-              <li key={q.id}>
-                <OfficialBookQuestionCard lessonId={lessonId} index={idx + 1} q={q} />
-              </li>
-            ))}
-          </ol>
+          <div className="space-y-4">
+            <ol className="space-y-4">
+              {(officialQuestions ?? []).map((q, idx) => (
+                <li key={q.id}>
+                  <OfficialBookQuestionCard
+                    lessonId={lessonId}
+                    index={idx + 1}
+                    q={q}
+                    savedAnswer={questionNotes.notes[q.id] ?? ""}
+                    onAnswerChange={questionNotes.saveNote}
+                    saving={questionNotes.savingIds.includes(q.id)}
+                  />
+                </li>
+              ))}
+            </ol>
+            <MyAnswersLog
+              questions={officialQuestions ?? []}
+              notes={questionNotes.notes}
+            />
+          </div>
         );
+
 
       case "SELF_TEST":
         return (
@@ -989,16 +1050,56 @@ function CapabilityIcon({ type }: { type: LessonCapabilityType }) {
   }
 }
 
+/** «سجل إجاباتي» — read-only review of what the student wrote for this lesson. */
+function MyAnswersLog({
+  questions,
+  notes,
+}: {
+  questions: LessonQuestionRow[];
+  notes: Record<string, string>;
+}) {
+  const answered = questions.filter((q) => (notes[q.id] ?? "").trim().length > 0);
+  if (answered.length === 0) return null;
+
+  return (
+    <details className="rounded-xl border border-border bg-card p-3">
+      <summary className="cursor-pointer text-sm font-semibold text-foreground">
+        سجل إجاباتي ({answered.length})
+      </summary>
+      <ul className="mt-3 space-y-3">
+        {answered.map((q) => (
+          <li key={q.id} className="rounded-lg border border-border bg-background p-3">
+            <p className="whitespace-pre-line text-sm font-medium text-foreground">
+              {q.question_text}
+            </p>
+            <p className="mt-2 whitespace-pre-line rounded-md bg-muted/50 p-2 text-sm text-muted-foreground">
+              {notes[q.id]}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function OfficialBookQuestionCard({
+
   lessonId,
   index,
   q,
+  savedAnswer,
+  onAnswerChange,
+  saving,
 }: {
   lessonId: string;
   index: number;
   q: LessonQuestionRow;
+  savedAnswer: string;
+  onAnswerChange: (questionId: string, answerText: string) => void;
+  saving: boolean;
 }) {
-  const [answer, setAnswer] = useState("");
+  const [answer, setAnswer] = useState(savedAnswer);
+  const [hydratedFromServer, setHydratedFromServer] = useState(savedAnswer.length > 0);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -1008,6 +1109,20 @@ function OfficialBookQuestionCard({
     correctOptionIds: string[];
   } | null>(null);
   const attemptedAnswer = q.options.length > 0 ? selectedOptionId : answer.trim();
+
+  // Restore the saved answer once it arrives, without clobbering fresh typing.
+  useEffect(() => {
+    if (hydratedFromServer || !savedAnswer) return;
+    setAnswer((current) => (current.length === 0 ? savedAnswer : current));
+    setHydratedFromServer(true);
+  }, [hydratedFromServer, savedAnswer]);
+
+  const handleAnswerInput = (value: string) => {
+    setAnswer(value);
+    setHydratedFromServer(true);
+    onAnswerChange(q.id, value);
+  };
+
 
   const revealModelAnswer = async () => {
     if (!attemptedAnswer) return;
@@ -1072,15 +1187,20 @@ function OfficialBookQuestionCard({
           })}
         </div>
       ) : (
-        <textarea
-          value={answer}
-          disabled={revealed !== null}
-          onChange={(event) => setAnswer(event.target.value)}
-          rows={4}
-          placeholder="اكتب إجابتك هنا…"
-          className="w-full rounded-lg border border-border bg-card p-2 text-right text-sm text-card-foreground outline-none focus:border-primary"
-        />
+        <div className="space-y-1">
+          <textarea
+            value={answer}
+            onChange={(event) => handleAnswerInput(event.target.value)}
+            rows={4}
+            placeholder="اكتب إجابتك هنا…"
+            className="w-full rounded-lg border border-border bg-card p-2 text-right text-sm text-card-foreground outline-none focus:border-primary"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            {saving ? "جارٍ حفظ إجابتك…" : "تُحفظ إجابتك تلقائيًا ويمكنك مراجعتها لاحقًا."}
+          </p>
+        </div>
       )}
+
 
       {!revealed && (
         <Button
