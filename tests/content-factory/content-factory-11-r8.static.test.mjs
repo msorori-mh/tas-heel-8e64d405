@@ -153,6 +153,10 @@ test("CF11 HTML policy — mind map and lab share the isolated interactive contr
   assert.doesNotMatch(asserts, /the mind map must stay completely JS-free/);
 });
 
+test("CF11 asset extraction — embedded image data is not mistaken for an undeclared file", () => {
+  assert.match(sql, /cf11_html_asset_refs[\s\S]{0,420}WHERE m\[1\] !~\* '\^data:image\/\(png\|jpeg\|jpg\|gif\|webp\);base64,'/);
+});
+
 test("CF11-R6/2 — every gate compares the SET, never a bare count", () => {
   // Publication plan validation, replay, READY first execution and READY replay.
   assert.match(sql, /CF11_LIFECYCLE_NAMESPACE_MISMATCH: staged=/);
