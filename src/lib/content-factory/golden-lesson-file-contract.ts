@@ -313,7 +313,7 @@ export function validateGoldenLessonArtifactBytes(
 
   const extension = extensionOf(fileName);
   if (extension === ".html") {
-    const profile: HtmlProfile = capability === "labExperimentHtml"
+    const profile: HtmlProfile = capability === "labExperimentHtml" || capability === "mindMapHtml"
       ? "INTERACTIVE_EDUCATIONAL_HTML"
       : "STATIC_EDUCATIONAL_HTML";
     const result = validateHtmlAgainstProfile(textValue, { profile });
