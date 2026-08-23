@@ -14,6 +14,7 @@ import {
 import {
   GOLDEN_DIRECT_LIMITS,
   planGoldenLessonDirectFiles,
+  computeGoldenLessonIntakeSha256,
   verifyGoldenLessonDirectIntake,
   type VerifiedGoldenLessonDirectIntake,
 } from "./golden-lesson-direct-verifier";
@@ -32,7 +33,7 @@ export async function loadVerifiedDirectIntake(
   const admin = serviceClient();
   const result = await admin
     .from("golden_lesson_package_versions")
-    .select("manifest,created_by,verified_intake_id,verified_intake_sha256")
+    .select("manifest,created_by,verified_intake_id,verified_intake_sha256,verified_manifest_sha256")
     .eq("package_id", packageId)
     .eq("version", version)
     .single();
