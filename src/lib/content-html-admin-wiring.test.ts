@@ -293,10 +293,11 @@ describe("Content HTML Admin Wiring — Import/Review Workflow Tests", () => {
     assert.ok(!content.includes("demoHtmlBody"), "InteractiveHtmlImportPanel must not contain demoHtmlBody");
   });
 
-  test("19. admin.content-review has no DEMO_REVIEW_ITEMS", () => {
-    const filePath = path.resolve("src/routes/_authenticated/admin.content-review.tsx");
-    const content = fs.readFileSync(filePath, "utf-8");
-    assert.ok(!content.includes("DEMO_REVIEW_ITEMS"), "content-review must not contain DEMO_REVIEW_ITEMS");
+  test("19. the separate content-review page is retired", () => {
+    assert.ok(
+      !fs.existsSync(path.resolve("src/routes/_authenticated/admin.content-review.tsx")),
+      "publishing happens directly from the import center",
+    );
   });
 
   test("20. InteractiveHtmlImportPanel has no 'as any' casts", () => {
@@ -305,20 +306,20 @@ describe("Content HTML Admin Wiring — Import/Review Workflow Tests", () => {
     assert.ok(!content.includes("as any"), "InteractiveHtmlImportPanel must not contain 'as any'");
   });
 
-  test("21. admin.content-review has no 'as any' casts", () => {
-    const filePath = path.resolve("src/routes/_authenticated/admin.content-review.tsx");
+  test("21. direct publish orchestrator has no 'as any' casts", () => {
+    const filePath = path.resolve("src/lib/content-factory/golden-lesson-direct-publish.functions.ts");
     const content = fs.readFileSync(filePath, "utf-8");
-    assert.ok(!content.includes("as any"), "content-review must not contain 'as any'");
+    assert.ok(!content.includes("as any"), "direct publish must not contain 'as any'");
   });
 
   // ─── No Direct Browser Mutations ──────────────────────────────
 
-  test("22. content-review has no direct supabase client imports", () => {
-    const filePath = path.resolve("src/routes/_authenticated/admin.content-review.tsx");
+  test("22. direct publish runs server-side only", () => {
+    const filePath = path.resolve("src/components/admin/GoldenLessonPackageBuilder.tsx");
     const content = fs.readFileSync(filePath, "utf-8");
     assert.ok(
-      !content.includes("supabaseAdmin") && !content.includes("supabase.from"),
-      "content-review must not directly access supabase client",
+      !content.includes("supabaseAdmin") && !content.includes("SERVICE_ROLE"),
+      "builder must not access privileged clients",
     );
   });
 
@@ -339,7 +340,7 @@ describe("Content HTML Admin Wiring — Import/Review Workflow Tests", () => {
       "utf-8",
     );
     const reviewPage = fs.readFileSync(
-      path.resolve("src/routes/_authenticated/admin.content-review.tsx"),
+      path.resolve("src/components/admin/GoldenLessonPackageBuilder.tsx"),
       "utf-8",
     );
     assert.ok(!importPanel.includes("SERVICE_ROLE"));
@@ -494,33 +495,29 @@ describe("Content HTML Admin Wiring — Import/Review Workflow Tests", () => {
 
   // ─── Canonical Lesson Review Surface ───────────────────────────
 
-  test("34. Content review uses the verified lesson manifest surface", () => {
-    const filePath = path.resolve("src/routes/_authenticated/admin.content-review.tsx");
-    const content = fs.readFileSync(filePath, "utf-8");
-    assert.ok(
-      content.includes("GoldenLessonManifestReviewPanel"),
-      "content-review must use the verified golden-lesson review panel",
+  test("34. Publishing is orchestrated server-side from the import center", () => {
+    const builder = fs.readFileSync(
+      path.resolve("src/components/admin/GoldenLessonPackageBuilder.tsx"),
+      "utf-8",
     );
     assert.ok(
-      !content.includes("getHtmlReviewQueueFn"),
+      builder.includes("publishGoldenLessonDirect"),
+      "the import center must publish through the server orchestrator",
+    );
+    assert.ok(
+      !builder.includes("getHtmlReviewQueueFn"),
       "the obsolete HTML resource queue must not be mounted",
     );
   });
 
   // ─── No Browser-Side Legacy Queue Writes ───────────────────────
 
-  test("35. Content review delegates decisions to server-backed panels", () => {
-    const filePath = path.resolve("src/routes/_authenticated/admin.content-review.tsx");
-    const content = fs.readFileSync(filePath, "utf-8");
-
-    assert.ok(content.includes("GoldenLessonCf11OperatorPanel"));
-    assert.ok(
-      !content.includes("supabase.from"),
-      "the route must not perform browser-side legacy queue writes",
+  test("35. The import center performs no browser-side privileged writes", () => {
+    const builder = fs.readFileSync(
+      path.resolve("src/components/admin/GoldenLessonPackageBuilder.tsx"),
+      "utf-8",
     );
-    assert.ok(
-      !content.includes("setItems((prev) =>"),
-      "Must not do optimistic local state updates",
-    );
+    assert.ok(!builder.includes("supabase.from"), "no browser-side table writes");
+    assert.ok(!builder.includes("setItems((prev) =>"), "no optimistic local state updates");
   });
 });

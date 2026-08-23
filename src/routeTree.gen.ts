@@ -69,7 +69,6 @@ import { Route as AuthenticatedAdminLessonsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
 import { Route as AuthenticatedAdminExamTemplatesRouteImport } from './routes/_authenticated/admin.exam-templates'
 import { Route as AuthenticatedAdminCurriculumRouteImport } from './routes/_authenticated/admin.curriculum'
-import { Route as AuthenticatedAdminContentReviewRouteImport } from './routes/_authenticated/admin.content-review'
 import { Route as AuthenticatedAdminAcademicRouteImport } from './routes/_authenticated/admin.academic'
 import { Route as AuthenticatedMinisterialExamsRepeatedIndexRouteImport } from './routes/_authenticated/ministerial-exams.repeated.index'
 import { Route as AuthenticatedAdminLessonsIndexRouteImport } from './routes/_authenticated/admin.lessons.index'
@@ -413,12 +412,6 @@ const AuthenticatedAdminCurriculumRoute =
     path: '/curriculum',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedAdminContentReviewRoute =
-  AuthenticatedAdminContentReviewRouteImport.update({
-    id: '/content-review',
-    path: '/content-review',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 const AuthenticatedAdminAcademicRoute =
   AuthenticatedAdminAcademicRouteImport.update({
     id: '/academic',
@@ -546,7 +539,6 @@ export interface FileRoutesByFullPath {
   '/prototype/19a': typeof Prototype19aRouteWithChildren
   '/prototype/19c': typeof Prototype19cRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
-  '/admin/content-review': typeof AuthenticatedAdminContentReviewRoute
   '/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
   '/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/admin/import': typeof AuthenticatedAdminImportRoute
@@ -621,7 +613,6 @@ export interface FileRoutesByTo {
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
   '/prototype/19c': typeof Prototype19cRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
-  '/admin/content-review': typeof AuthenticatedAdminContentReviewRoute
   '/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
   '/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/admin/import': typeof AuthenticatedAdminImportRoute
@@ -700,7 +691,6 @@ export interface FileRoutesById {
   '/prototype/19a': typeof Prototype19aRouteWithChildren
   '/prototype/19c': typeof Prototype19cRoute
   '/_authenticated/admin/academic': typeof AuthenticatedAdminAcademicRoute
-  '/_authenticated/admin/content-review': typeof AuthenticatedAdminContentReviewRoute
   '/_authenticated/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
   '/_authenticated/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRoute
@@ -780,7 +770,6 @@ export interface FileRouteTypes {
     | '/prototype/19a'
     | '/prototype/19c'
     | '/admin/academic'
-    | '/admin/content-review'
     | '/admin/curriculum'
     | '/admin/exam-templates'
     | '/admin/import'
@@ -855,7 +844,6 @@ export interface FileRouteTypes {
     | '/preview/structured-textbook-20a1b'
     | '/prototype/19c'
     | '/admin/academic'
-    | '/admin/content-review'
     | '/admin/curriculum'
     | '/admin/exam-templates'
     | '/admin/import'
@@ -933,7 +921,6 @@ export interface FileRouteTypes {
     | '/prototype/19a'
     | '/prototype/19c'
     | '/_authenticated/admin/academic'
-    | '/_authenticated/admin/content-review'
     | '/_authenticated/admin/curriculum'
     | '/_authenticated/admin/exam-templates'
     | '/_authenticated/admin/import'
@@ -1425,13 +1412,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCurriculumRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/admin/content-review': {
-      id: '/_authenticated/admin/content-review'
-      path: '/content-review'
-      fullPath: '/admin/content-review'
-      preLoaderRoute: typeof AuthenticatedAdminContentReviewRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
     '/_authenticated/admin/academic': {
       id: '/_authenticated/admin/academic'
       path: '/academic'
@@ -1563,7 +1543,6 @@ const AuthenticatedAdminLessonsRouteWithChildren =
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAcademicRoute: typeof AuthenticatedAdminAcademicRoute
-  AuthenticatedAdminContentReviewRoute: typeof AuthenticatedAdminContentReviewRoute
   AuthenticatedAdminCurriculumRoute: typeof AuthenticatedAdminCurriculumRoute
   AuthenticatedAdminExamTemplatesRoute: typeof AuthenticatedAdminExamTemplatesRoute
   AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRoute
@@ -1587,7 +1566,6 @@ interface AuthenticatedAdminRouteChildren {
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAcademicRoute: AuthenticatedAdminAcademicRoute,
-  AuthenticatedAdminContentReviewRoute: AuthenticatedAdminContentReviewRoute,
   AuthenticatedAdminCurriculumRoute: AuthenticatedAdminCurriculumRoute,
   AuthenticatedAdminExamTemplatesRoute: AuthenticatedAdminExamTemplatesRoute,
   AuthenticatedAdminImportRoute: AuthenticatedAdminImportRoute,

@@ -3,6 +3,10 @@ import { AlertCircle, BookOpen, CheckCircle2, Download, Eye, FileCheck2, Loader2
 
 import { supabase } from "@/integrations/supabase/client";
 import {
+  publishGoldenLessonDirect,
+  type DirectPublishStep,
+} from "@/lib/content-factory/golden-lesson-direct-publish.functions";
+import {
   createGoldenLessonDirectUpload,
   verifyAndStageGoldenLessonDirect,
 } from "@/lib/content-factory/golden-lesson-direct.functions";
@@ -448,6 +452,9 @@ export function GoldenLessonPackageBuilder() {
   const [intakeBusy, setIntakeBusy] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const [draftMessage, setDraftMessage] = useState<string | null>(null);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishSteps, setPublishSteps] = useState<DirectPublishStep[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -1037,6 +1044,25 @@ export function GoldenLessonPackageBuilder() {
     }
   };
 
+  /** Approve + publish in one audited server round-trip; no separate review page. */
+  const publishDirectNow = async () => {
+    if (!intake) return;
+    setPublishBusy(true);
+    setPublishError(null);
+    try {
+      const result = await publishGoldenLessonDirect({
+        data: { packageId: intake.packageId, version: intake.version },
+      });
+      setPublishSteps(result.steps);
+    } catch (error) {
+      setPublishError(error instanceof Error ? error.message : "DIRECT_PUBLISH_FAILED");
+    } finally {
+      setPublishBusy(false);
+    }
+  };
+
+
+
   return (
     <section dir="rtl" aria-labelledby="golden-package-builder-heading" className="rounded-2xl border border-primary/25 bg-card p-5 shadow-card space-y-5">
       <div className="space-y-2">
@@ -1352,15 +1378,35 @@ export function GoldenLessonPackageBuilder() {
       {intakeError && <p role="alert" className="text-sm text-destructive flex gap-2"><AlertCircle className="h-4 w-4 mt-0.5" />{intakeError}</p>}
 
       {intake && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-1 text-sm">
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2 text-sm">
           <p className="font-medium flex gap-2"><CheckCircle2 className="h-4 w-4 mt-0.5" />تم استيراد ملفات الدرس وربطها بإصدار المسودة</p>
           <p className="text-xs">تم حفظ الإصدار {intake.version} كمسودة آمنة{intake.idempotent ? " دون تكرار الكتابة" : ""}.</p>
-          <p className="text-xs">عدد الملفات المتحقق منها: {intake.verifiedFileCount}. المحتوى غير ظاهر للطالب حتى المراجعة والاعتماد.</p>
-          <Button asChild type="button" size="sm" variant="outline" className="mt-3">
-            <a href="/admin/content-review">فتح مراجعة هذا الدرس</a>
+          <p className="text-xs">عدد الملفات المتحقق منها: {intake.verifiedFileCount}. اضغط الزر أدناه لاعتماد الدرس ونشره للطلاب مباشرة.</p>
+          <Button
+            type="button"
+            size="sm"
+            className="mt-2 min-h-[44px] gap-2"
+            disabled={publishBusy || publishSteps.length > 0}
+            onClick={() => void publishDirectNow()}
+          >
+            {publishBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            اعتماد ونشر الدرس الآن
           </Button>
+          {publishSteps.length > 0 && (
+            <ul className="mt-2 space-y-1 text-xs">
+              {publishSteps.map((step) => (
+                <li key={step.key} className="text-emerald-700 dark:text-emerald-400">✓ {step.label} — {step.detail}</li>
+              ))}
+            </ul>
+          )}
+          {publishError && (
+            <p role="alert" className="text-sm text-destructive flex gap-2">
+              <AlertCircle className="h-4 w-4 mt-0.5" />تعذّر النشر: {publishError}
+            </p>
+          )}
         </div>
       )}
+
 
       {validation && (
         <div className={`rounded-xl border p-4 space-y-3 ${validation.valid ? "border-emerald-500/30 bg-emerald-500/10" : "border-destructive/30 bg-destructive/5"}`}>

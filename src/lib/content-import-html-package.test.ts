@@ -27,14 +27,15 @@ import {
   evaluateRuntimeCapability,
 } from "./content-import/html-package/index.ts";
 
-test("1. Route registration: /admin/content-review and /admin/import exist in routeTree.gen.ts", () => {
+test("1. Route registration: /admin/import exists in routeTree.gen.ts", () => {
   const routeTreePath = path.resolve("src/routeTree.gen.ts");
   const routeTreeContent = fs.readFileSync(routeTreePath, "utf-8");
 
   assert.ok(
-    routeTreeContent.includes("admin/content-review") || routeTreeContent.includes("AuthenticatedAdminContentReviewRoute"),
-    "Route tree manifest must contain /admin/content-review"
+    !routeTreeContent.includes("admin/content-review"),
+    "The separate review route is retired; publishing happens in /admin/import"
   );
+
   assert.ok(
     routeTreeContent.includes("admin/import") || routeTreeContent.includes("AuthenticatedAdminImportRoute"),
     "Route tree manifest must contain /admin/import"
