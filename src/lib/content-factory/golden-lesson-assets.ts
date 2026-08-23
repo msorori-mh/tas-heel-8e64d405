@@ -188,7 +188,10 @@ export function scanHtmlAssetReferences(
       continue;
     }
     if (/^data:/i.test(value)) {
-      push("HTML_REFERENCE_DATA_URI_FORBIDDEN", "ممنوع تضمين الصور كـ base64 داخل HTML.");
+      // Inline data URIs are offline-safe. Allow images/fonts/audio/video only.
+      if (!/^data:(image\/[a-z0-9.+-]+|font\/[a-z0-9.+-]+|application\/font-[a-z0-9.+-]+|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+);/i.test(value)) {
+        push("HTML_REFERENCE_DATA_URI_FORBIDDEN", "يُسمح فقط بتضمين الصور أو الخطوط أو الوسائط كـ data URI داخل HTML.");
+      }
       continue;
     }
     if (/^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith("//")) {
