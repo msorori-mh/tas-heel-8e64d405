@@ -37,6 +37,8 @@ import {
   type LessonCapabilityType,
 } from "@/lib/lessons/lesson-capabilities";
 import { orderStudentCapabilities } from "@/lib/lessons/lesson-content-contract";
+import { useLessonQuestionNotes } from "@/lib/lessons/lesson-question-notes";
+
 import {
   fetchStudentLifecycleGate,
   filterStudentCapabilitiesByLifecycle,
