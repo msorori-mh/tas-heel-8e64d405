@@ -495,33 +495,29 @@ describe("Content HTML Admin Wiring — Import/Review Workflow Tests", () => {
 
   // ─── Canonical Lesson Review Surface ───────────────────────────
 
-  test("34. Content review uses the verified lesson manifest surface", () => {
-    const filePath = path.resolve("src/routes/_authenticated/admin.content-review.tsx");
-    const content = fs.readFileSync(filePath, "utf-8");
-    assert.ok(
-      content.includes("GoldenLessonManifestReviewPanel"),
-      "content-review must use the verified golden-lesson review panel",
+  test("34. Publishing is orchestrated server-side from the import center", () => {
+    const builder = fs.readFileSync(
+      path.resolve("src/components/admin/GoldenLessonPackageBuilder.tsx"),
+      "utf-8",
     );
     assert.ok(
-      !content.includes("getHtmlReviewQueueFn"),
+      builder.includes("publishGoldenLessonDirect"),
+      "the import center must publish through the server orchestrator",
+    );
+    assert.ok(
+      !builder.includes("getHtmlReviewQueueFn"),
       "the obsolete HTML resource queue must not be mounted",
     );
   });
 
   // ─── No Browser-Side Legacy Queue Writes ───────────────────────
 
-  test("35. Content review delegates decisions to server-backed panels", () => {
-    const filePath = path.resolve("src/routes/_authenticated/admin.content-review.tsx");
-    const content = fs.readFileSync(filePath, "utf-8");
-
-    assert.ok(content.includes("GoldenLessonCf11OperatorPanel"));
-    assert.ok(
-      !content.includes("supabase.from"),
-      "the route must not perform browser-side legacy queue writes",
+  test("35. The import center performs no browser-side privileged writes", () => {
+    const builder = fs.readFileSync(
+      path.resolve("src/components/admin/GoldenLessonPackageBuilder.tsx"),
+      "utf-8",
     );
-    assert.ok(
-      !content.includes("setItems((prev) =>"),
-      "Must not do optimistic local state updates",
-    );
+    assert.ok(!builder.includes("supabase.from"), "no browser-side table writes");
+    assert.ok(!builder.includes("setItems((prev) =>"), "no optimistic local state updates");
   });
 });

@@ -27,7 +27,7 @@ import {
   evaluateRuntimeCapability,
 } from "./content-import/html-package/index.ts";
 
-test("1. Route registration: /admin/content-review and /admin/import exist in routeTree.gen.ts", () => {
+test("1. Route registration: /admin/import exists in routeTree.gen.ts", () => {
   const routeTreePath = path.resolve("src/routeTree.gen.ts");
   const routeTreeContent = fs.readFileSync(routeTreePath, "utf-8");
 
