@@ -80,6 +80,22 @@ test("CF11-R5 — an idempotent replay re-verifies every live category", () => {
   assert.match(sql, /REVOKE[\s\S]{0,200}golden_lesson_materialize_domain_batch\(/);
 });
 
+test("CF11 HTML identity — plan, write and replay use one normalized resource code", () => {
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.cf11_html_resource_code/);
+  assert.match(sql, /public\.normalize_resource_code\(/);
+  assert.match(sql, /'resourceCode', public\.cf11_html_resource_code\(ext_code, 'mindMap'\)/);
+  assert.match(sql, /'resourceCode', public\.cf11_html_resource_code\(ext_code, 'simulation'\)/);
+  assert.match(sql, /v_resource_code := public\.cf11_html_resource_code\(ext_code, cap\)/);
+  assert.match(sql, /v_code := public\.normalize_resource_code\(_plan->'html'->cap->>'resourceCode'\)/);
+  assert.match(sql, /r\.resource_code = v_code/);
+  assert.match(sql, /r\.url = public\.cf10_inline_html_url\(v_code\)/);
+  assert.match(sql, /r\.metadata->>'cf11_publication_id' = v_publication_id::text/);
+  assert.match(sql, /IF v_count <> 1 OR v_live IS DISTINCT FROM v_expected/);
+  assert.doesNotMatch(sql, /v_live IS DISTINCT FROM v_expected\s+OR public\.cf10_html_publication_pending/);
+  assert.match(sql, /assessment_code = public\.normalize_content_code\(ext_code \|\| '-SELFTEST'\)/);
+  assert.doesNotMatch(sql, /lower\(r\.resource_code\) = lower\(v_code\)/);
+});
+
 test("CF11-R4/4 — strict replay guards: plan hash + idempotency key are mandatory on EXECUTE", () => {
   assert.match(sql, /CF11_IDEMPOTENCY_KEY_REQUIRED/);
   assert.match(sql, /CF11_WRITE_PLAN_HASH_MISMATCH/);
