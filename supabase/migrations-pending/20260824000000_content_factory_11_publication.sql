@@ -287,6 +287,9 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   );
 $$;
 
+REVOKE ALL ON FUNCTION public.cf11_html_resource_code(text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cf11_html_resource_code(text, text) TO authenticated, service_role;
+
 -- ------------------------------------------------------------------------------------
 -- CF11-R6 — THE canonical production lifecycle capability set.
 --
@@ -718,10 +721,13 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
         ON p.id = (r.metadata->>'cf11_publication_id')::uuid
        AND p.lesson_id = r.lesson_id
      WHERE r.lesson_id = _lesson_id
+       AND r.resource_code = public.cf11_html_resource_code(
+             p.result->>'externalLessonCode', _capability)
        AND coalesce(r.html_resource_type, r.resource_type::text)
              = CASE _capability WHEN 'mindMap' THEN 'mindmap'
                                 WHEN 'simulation' THEN 'experiment' END
-       AND r.url = public.cf10_inline_html_url(r.resource_code)
+       AND r.url = public.cf10_inline_html_url(public.cf11_html_resource_code(
+             p.result->>'externalLessonCode', _capability))
        AND r.metadata->>'cf11_body_sha256' = public.cf11_text_sha256(r.description)
        AND r.metadata->>'cf11_body_sha256' =
              (p.result->'html'->(CASE _capability WHEN 'mindMap' THEN 'mindMap'
