@@ -4921,6 +4921,10 @@ export type Database = {
         Args: { _code: string; _lesson_id: string }
         Returns: undefined
       }
+      cf11_assert_html_replay_state: {
+        Args: { _plan: Json }
+        Returns: undefined
+      }
       cf11_assert_interactive_contract: {
         Args: { _html: string; _label: string }
         Returns: Json
@@ -4969,6 +4973,10 @@ export type Database = {
         Returns: boolean
       }
       cf11_html_asset_refs: { Args: { _html: string }; Returns: string[] }
+      cf11_html_resource_code: {
+        Args: { _capability: string; _external_lesson_code: string }
+        Returns: string
+      }
       cf11_inline_scripts: { Args: { _html: string }; Returns: string[] }
       cf11_is_managed_lesson: { Args: { _lesson_id: string }; Returns: boolean }
       cf11_lifecycle_capabilities: { Args: never; Returns: string[] }
