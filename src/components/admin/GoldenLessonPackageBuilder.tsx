@@ -528,12 +528,18 @@ export function GoldenLessonPackageBuilder() {
     ? (/قرآن/.test(selectedSubject.name) ? GOLDEN_QURAN_V1.id : GOLDEN_CHEMISTRY_V1.id)
     : "";
   const profile = getGoldenLessonProfile(profileId);
-  const packageCode = selectedLesson ? `${selectedLesson.lessonCode}-PKG` : "";
-  const gradeCode = gradeSlug.toUpperCase();
+  // System-owned codes arrive lowercase (TCS-2). The package contract requires
+  // stable uppercase Latin identifiers, so normalize here instead of asking the
+  // operator to retype anything.
+  const toContractCode = (value: string) =>
+    value.trim().toUpperCase().replace(/[^A-Z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+  const rawLessonCode = selectedLesson?.lessonCode ?? "";
+  const packageCode = rawLessonCode ? `${toContractCode(rawLessonCode)}-PKG` : "";
+  const gradeCode = toContractCode(gradeSlug);
   const trackCodes = selectedTrackCodes;
-  const subjectCode = selectedSubjectCode;
-  const lessonCode = selectedLesson?.lessonCode ?? "";
-  const lessonSlug = lessonCode.toLowerCase();
+  const subjectCode = toContractCode(selectedSubjectCode);
+  const lessonCode = toContractCode(rawLessonCode);
+  const lessonSlug = rawLessonCode.toLowerCase();
   const unitCode = selectedLesson?.unitCode ?? "";
   // Legacy lesson rows may not have these operational fields yet. Derive stable
   // intake values locally so the operator is never sent to another page mid-flow.
