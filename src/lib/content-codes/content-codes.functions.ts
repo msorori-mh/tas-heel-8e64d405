@@ -27,7 +27,7 @@ const CreateCurriculumLessonInput = z.object({
   unitId: z.string().uuid().nullable().optional(),
   title: z.string().trim().min(1).max(200),
   duration: z.string().trim().max(100).nullable().optional(),
-  sortOrder: z.number().int().min(0).max(100000),
+  sortOrder: z.number().int().min(1).max(100000),
   isFree: z.boolean(),
 });
 
