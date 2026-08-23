@@ -1205,12 +1205,18 @@ export type Database = {
           client_manifest_sha256: string
           created_at: string
           created_by: string
+          direct_intake_verified_at: string | null
           id: string
           manifest: Json
           package_id: string
           verified_bundle_sha256: string | null
           verified_compressed_bytes: number | null
+          verified_direct_bytes: number | null
+          verified_direct_file_count: number | null
           verified_file_count: number | null
+          verified_intake_id: string | null
+          verified_intake_sha256: string | null
+          verified_manifest_sha256: string | null
           verified_storage_path: string | null
           verified_uncompressed_bytes: number | null
           version: number
@@ -1221,12 +1227,18 @@ export type Database = {
           client_manifest_sha256: string
           created_at?: string
           created_by: string
+          direct_intake_verified_at?: string | null
           id?: string
           manifest: Json
           package_id: string
           verified_bundle_sha256?: string | null
           verified_compressed_bytes?: number | null
+          verified_direct_bytes?: number | null
+          verified_direct_file_count?: number | null
           verified_file_count?: number | null
+          verified_intake_id?: string | null
+          verified_intake_sha256?: string | null
+          verified_manifest_sha256?: string | null
           verified_storage_path?: string | null
           verified_uncompressed_bytes?: number | null
           version: number
@@ -1237,12 +1249,18 @@ export type Database = {
           client_manifest_sha256?: string
           created_at?: string
           created_by?: string
+          direct_intake_verified_at?: string | null
           id?: string
           manifest?: Json
           package_id?: string
           verified_bundle_sha256?: string | null
           verified_compressed_bytes?: number | null
+          verified_direct_bytes?: number | null
+          verified_direct_file_count?: number | null
           verified_file_count?: number | null
+          verified_intake_id?: string | null
+          verified_intake_sha256?: string | null
+          verified_manifest_sha256?: string | null
           verified_storage_path?: string | null
           verified_uncompressed_bytes?: number | null
           version?: number
@@ -4514,6 +4532,14 @@ export type Database = {
       }
     }
     Functions: {
+      _lesson_question_content_fingerprint: {
+        Args: { p: Json; p_role: string }
+        Returns: string
+      }
+      _lesson_question_import_row_hash: {
+        Args: { p: Json; p_template_key: string }
+        Returns: string
+      }
       _ministerial_is_correct: {
         Args: {
           _exam_session_question_id: string
@@ -4673,6 +4699,20 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_save_curriculum_subject: {
+        Args: {
+          _color?: string
+          _grade_id: string
+          _group_code?: string
+          _group_name?: string
+          _icon?: string
+          _name: string
+          _sort_order?: number
+          _subject_id: string
+          _track_ids: string[]
+        }
+        Returns: Json
+      }
       admin_set_primary_lesson_resource: {
         Args: { _lesson_id: string; _resource_id: string }
         Returns: Json
@@ -4763,6 +4803,10 @@ export type Database = {
         Returns: undefined
       }
       can_access_lesson: { Args: { _lesson_id: string }; Returns: boolean }
+      can_access_ministerial_model: {
+        Args: { _model_id: string }
+        Returns: boolean
+      }
       can_access_subject: { Args: { _subject_id: string }; Returns: boolean }
       can_delete_draft_question: {
         Args: { p_user_id?: string }
@@ -4787,6 +4831,10 @@ export type Database = {
       }
       can_read_hidden_solutions: {
         Args: { p_user_id?: string }
+        Returns: boolean
+      }
+      can_read_lesson_media_storage_object: {
+        Args: { _object_name: string }
         Returns: boolean
       }
       can_review_question_content: {
@@ -4898,6 +4946,15 @@ export type Database = {
       cf11_text_sha256: { Args: { _value: string }; Returns: string }
       check_lesson_question: {
         Args: { _question_id: string; _selected_index: number }
+        Returns: Json
+      }
+      check_lesson_self_test_question: {
+        Args: {
+          _lesson_id: string
+          _question_id: string
+          _revision_id: string
+          _selected_option_id: string
+        }
         Returns: Json
       }
       compute_and_set_revision_payload_hash: {
@@ -5062,6 +5119,17 @@ export type Database = {
           title: string
         }[]
       }
+      get_lesson_self_test_questions: {
+        Args: { _lesson_id: string }
+        Returns: {
+          id: string
+          options: Json
+          question_text: string
+          question_type: string
+          revision_id: string
+          sort_order: number
+        }[]
+      }
       get_ministerial_model_overview: {
         Args: { _model_id: string }
         Returns: Json
@@ -5166,6 +5234,19 @@ export type Database = {
         }
         Returns: Json
       }
+      golden_lesson_attest_direct_intake: {
+        Args: {
+          _actor_id: string
+          _file_count: number
+          _intake_id: string
+          _intake_sha256: string
+          _manifest_sha256: string
+          _package_id: string
+          _total_bytes: number
+          _version: number
+        }
+        Returns: Json
+      }
       golden_lesson_bind_authoritative_identity: {
         Args: { _actor_id: string; _batch_id: string }
         Returns: Json
@@ -5195,6 +5276,15 @@ export type Database = {
           _expected_plan_sha256?: string
           _idempotency_key?: string
           _mode?: string
+        }
+        Returns: Json
+      }
+      golden_lesson_owner_approve_for_staging: {
+        Args: {
+          _evidence: Json
+          _expected_version: number
+          _package_id: string
+          _reason: string
         }
         Returns: Json
       }
@@ -5263,6 +5353,10 @@ export type Database = {
       import_apply_subject_track_codes: {
         Args: { _subject: string; _track_codes: string }
         Returns: number
+      }
+      import_execute_lesson_question_template: {
+        Args: { _job_id: string; _template_key: string }
+        Returns: Json
       }
       import_execute_questions_template: {
         Args: { _job_id: string }
@@ -5374,14 +5468,18 @@ export type Database = {
           model_label: string
           question_count: number
           round_code: string
+          track_code: string
+          track_name: string
           variant_code: string
         }[]
       }
       list_ministerial_subjects: {
         Args: never
         Returns: {
+          aden_models_count: number
           latest_year: number
           models_count: number
+          sanaa_models_count: number
           subject_code: string
           subject_id: string
           subject_name: string
@@ -5415,6 +5513,21 @@ export type Database = {
           subject_code: string
           subject_id: string
           subject_name: string
+        }[]
+      }
+      list_student_subject_textbooks: {
+        Args: { _semester?: number; _subject_id: string }
+        Returns: {
+          book_type: string
+          coverage_type: string
+          file_name: string
+          file_size: number
+          id: string
+          semester: number
+          sort_order: number
+          subject_id: string
+          title: string
+          version: string
         }[]
       }
       ministerial_build_model_code: {
@@ -5482,6 +5595,10 @@ export type Database = {
         Returns: boolean
       }
       qb_i_have_capability: { Args: { p_capability: string }; Returns: boolean }
+      qb_import_ingest_lesson_question_revision: {
+        Args: { _staging_row_id: string }
+        Returns: Json
+      }
       qb_import_ingest_revision: {
         Args: { _staging_row_id: string }
         Returns: Json
@@ -5513,6 +5630,15 @@ export type Database = {
           p_reason: string
           p_revision_id: string
           p_targets: Json
+        }
+        Returns: Json
+      }
+      reveal_lesson_official_question_answer: {
+        Args: {
+          _lesson_id: string
+          _question_id: string
+          _revision_id: string
+          _student_answer: string
         }
         Returns: Json
       }
