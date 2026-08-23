@@ -530,18 +530,14 @@ export function GoldenLessonPackageBuilder() {
         displayName = `${file.name} (HTML5)`;
         convertedActivityAssets = converted.assets;
       }
-      if (capability === "officialBookQuestions") {
-        const converted = await convertLessonQuestionsHtml(file);
+      if (capability === "officialBookQuestions" || capability === "selfTest") {
+        const converted = await convertQuestionWorkbook(capability, file);
         artifactFile = converted.publicFile;
         displayName = file.name;
         rowCount = converted.rowCount;
-      }
-      if (capability === "selfTest") {
-        const converted = await convertQuestionWorkbook(capability, file);
-        artifactFile = converted.publicFile;
-        rowCount = converted.rowCount;
         convertedAnswers = converted.answers;
       }
+
       const bytes = new Uint8Array(await artifactFile.arrayBuffer());
       const artifactValidation = validateGoldenLessonArtifactBytes(capability, artifactFile.name, bytes);
       if (!artifactValidation.valid) {
