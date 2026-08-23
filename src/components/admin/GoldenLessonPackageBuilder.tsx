@@ -1186,17 +1186,17 @@ export function GoldenLessonPackageBuilder() {
                        ? "قالب XLSX لأنشطة وأسئلة الدرس — نص السؤال والإجابة النموذجية لكل صف"
                        : capability === "selfTest"
                          ? "قالب XLSX لبنك الاختيار من متعدد — أربعة خيارات وتعليل لكل سؤال"
-                        : capability === "labExperimentHtml"
+                        : capability === "labExperimentHtml" || capability === "mindMapHtml"
                           ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
                         : fileContract.expectedAr}
                   </p>
                   {fileContract.formats.includes("HTML") && (
                     <ul className="list-disc space-y-0.5 pe-4 text-[11px] leading-relaxed text-muted-foreground">
-                      <li>يجب أن يحتوي وسم html على dir="rtl" ووسم meta باسم viewport.</li>
+                      <li>يجب أن يحتوي وسم html على dir="rtl".</li>
                       <li>بدون روابط خارجية (خطوط أو مكتبات على الإنترنت) — ضمِّن الأنماط داخل الملف.</li>
                       <li>
-                        {capability === "labExperimentHtml"
-                          ? "JavaScript مسموح داخل الحزمة التفاعلية، وحزمة ZIP مقبولة إذا احتوت index.html في جذرها."
+                        {capability === "labExperimentHtml" || capability === "mindMapHtml"
+                          ? "JavaScript ومعالجات onclick مسموحة داخل المحتوى التفاعلي، وحزمة ZIP مقبولة إذا احتوت index.html في جذرها."
                           : "بدون وسم script أو معالجات onclick — المحتوى ثابت."}
                       </li>
                     </ul>
