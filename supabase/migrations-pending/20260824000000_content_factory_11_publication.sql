@@ -706,8 +706,9 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
         ON p.id = (r.metadata->>'cf11_publication_id')::uuid
        AND p.lesson_id = r.lesson_id
      WHERE r.lesson_id = _lesson_id
-       AND r.html_resource_type = CASE _capability WHEN 'mindMap' THEN 'mindmap'
-                                                   WHEN 'simulation' THEN 'experiment' END
+       AND coalesce(r.html_resource_type, r.resource_type::text)
+             = CASE _capability WHEN 'mindMap' THEN 'mindmap'
+                                WHEN 'simulation' THEN 'experiment' END
        AND r.url = public.cf10_inline_html_url(r.resource_code)
        AND r.metadata->>'cf11_body_sha256' = public.cf11_text_sha256(r.description)
        AND r.metadata->>'cf11_body_sha256' =
