@@ -202,7 +202,7 @@ export function validateGoldenLessonAnswerCoverage(
   companion: { fileName: string; bytes: Uint8Array } | null,
 ): GoldenArtifactFileValidation {
   const findings: GoldenArtifactFileFinding[] = [];
-  const requirements = (["selfTest"] as const).flatMap((capability) => {
+  const requirements = (["selfTest", "officialBookQuestions"] as const).flatMap((capability) => {
     const artifact = artifacts[capability];
     return artifact ? answerRequirements(capability, artifact.fileName, artifact.bytes) : [];
   });

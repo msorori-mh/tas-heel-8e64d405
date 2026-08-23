@@ -1,6 +1,6 @@
 import type { GoldenCapability } from "./golden-lesson-contract.ts";
 
-type QuestionCapability = Extract<GoldenCapability, "selfTest">;
+type QuestionCapability = Extract<GoldenCapability, "selfTest" | "officialBookQuestions">;
 
 export interface ConvertedQuestionWorkbook {
   publicFile: File;
@@ -21,6 +21,18 @@ const REQUIRED: Record<QuestionCapability, readonly string[]> = {
     "correct_index",
     "explanation",
   ],
+  officialBookQuestions: [
+    "question_code",
+    "subject_code",
+    "lesson_code",
+    "question_text",
+    "model_answer",
+  ],
+};
+
+const PUBLIC_FILE_NAME: Record<QuestionCapability, string> = {
+  selfTest: "self-test.json",
+  officialBookQuestions: "lesson-activities.json",
 };
 
 function cellText(value: unknown): string {
@@ -42,7 +54,7 @@ function options(row: Record<string, string>): string[] {
     .filter(Boolean);
 }
 
-function toPublicQuestion(_capability: QuestionCapability, row: Record<string, string>) {
+function toPublicQuestion(capability: QuestionCapability, row: Record<string, string>) {
   const base = {
     id: row.question_code,
     question_code: row.question_code,
@@ -51,10 +63,29 @@ function toPublicQuestion(_capability: QuestionCapability, row: Record<string, s
     options: options(row),
     sort_order: row.sort_order ? Number(row.sort_order) : undefined,
   };
+  if (capability === "officialBookQuestions") {
+    return {
+      ...base,
+      prompt_kind: row.prompt_kind || undefined,
+      question_type: "EXTENDED_RESPONSE",
+      type: base.options.length >= 2 ? "multiple_choice" : "extended_response",
+    };
+  }
   return { ...base, type: "multiple_choice" };
 }
 
 function toAnswer(capability: QuestionCapability, row: Record<string, string>) {
+  if (capability === "officialBookQuestions") {
+    const answer: Record<string, unknown> = {
+      capability,
+      question_id: row.question_code,
+      model_answer: row.model_answer,
+    };
+    if (row.explanation) answer.explanation = row.explanation;
+    if (row.accepted_answers) answer.accepted_answers = row.accepted_answers;
+    if (row.correct_index) answer.correct_index = Number(row.correct_index);
+    return answer;
+  }
   const answer: Record<string, unknown> = {
     capability,
     question_id: row.question_code,
@@ -69,6 +100,7 @@ function toAnswer(capability: QuestionCapability, row: Record<string, string>) {
   return answer;
 }
 
+
 export async function convertQuestionWorkbook(
   capability: QuestionCapability,
   file: File,
@@ -78,18 +110,28 @@ export async function convertQuestionWorkbook(
   const ExcelJS = (ExcelJSModule.default ?? ExcelJSModule) as typeof import("exceljs");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await file.arrayBuffer() as any);
-  const sheet = workbook.worksheets[0];
+  const normalizeHeader = (value: string) => value.replace(/\*/g, "").trim().toLowerCase();
+  const readHeaders = (worksheet: import("exceljs").Worksheet) => {
+    const map = new Map<number, string>();
+    worksheet.getRow(1).eachCell({ includeEmpty: false }, (cell, column) => {
+      const header = normalizeHeader(cellText(cell.value));
+      if (header) map.set(column, header);
+    });
+    return map;
+  };
+
+  const sheet = workbook.worksheets.find((worksheet) => {
+    const map = readHeaders(worksheet);
+    return REQUIRED[capability].every((required) => Array.from(map.values()).includes(required));
+  }) ?? workbook.worksheets[0];
   if (!sheet) throw new Error("ملف XLSX لا يحتوي ورقة عمل.");
 
-  const headers = new Map<number, string>();
-  sheet.getRow(1).eachCell({ includeEmpty: false }, (cell, column) => {
-    const header = cellText(cell.value).toLowerCase();
-    if (header) headers.set(column, header);
-  });
+  const headers = readHeaders(sheet);
   const missing = REQUIRED[capability].filter(
     (required) => !Array.from(headers.values()).includes(required),
   );
   if (missing.length) throw new Error(`أعمدة إلزامية مفقودة: ${missing.join("، ")}`);
+
 
   const rows: Array<Record<string, string>> = [];
   for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
@@ -124,7 +166,7 @@ export async function convertQuestionWorkbook(
     questions: rows.map((row) => toPublicQuestion(capability, row)),
   };
   return {
-    publicFile: new File([JSON.stringify(payload)], "self-test.json", { type: "application/json" }),
+    publicFile: new File([JSON.stringify(payload)], PUBLIC_FILE_NAME[capability], { type: "application/json" }),
     answers: rows.map((row) => toAnswer(capability, row)),
     rowCount: rows.length,
   };
