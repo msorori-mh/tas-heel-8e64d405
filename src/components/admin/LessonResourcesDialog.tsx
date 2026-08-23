@@ -402,6 +402,23 @@ export function LessonResourcesDialog({
                     محتوى الدرس الأساسي (ملف خارجي — يفتحه الطالب مباشرة)
                   </label>
 
+                  <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary"
+                      checked={isLabAttachment(r)}
+                      onChange={(e) =>
+                        updateRow(r.id, {
+                          metadata: withLabAttachment(r.metadata, e.target.checked),
+                        })
+                      }
+                      disabled={saving}
+                    />
+                    مرفق للتجربة المعملية (يظهر ضمن ملفات التجربة القابلة للتحميل)
+                  </label>
+
+
+
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="sm:col-span-2">
                       <label className="text-[11px] text-muted-foreground">
