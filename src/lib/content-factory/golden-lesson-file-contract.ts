@@ -25,10 +25,10 @@ export interface GoldenArtifactFileValidation {
 
 export const GOLDEN_ARTIFACT_FILE_CONTRACTS: Record<GoldenCapability, GoldenArtifactFileContract> = {
   officialBookContent: {
-    formats: ["HTML", "JSON"],
-    extensions: [".html", ".json"],
-    accept: ".html,.json,text/html,application/json",
-    expectedAr: "HTML أو JSON للمحتوى الرسمي فقط",
+    formats: ["HTML"],
+    extensions: [".html"],
+    accept: ".html,text/html",
+    expectedAr: "ملف HTML لمحتوى الكتاب المدرسي",
   },
   tamkeenExplanationHtml: {
     formats: ["HTML"],
@@ -202,7 +202,7 @@ export function validateGoldenLessonAnswerCoverage(
   companion: { fileName: string; bytes: Uint8Array } | null,
 ): GoldenArtifactFileValidation {
   const findings: GoldenArtifactFileFinding[] = [];
-  const requirements = (["officialBookQuestions", "selfTest"] as const).flatMap((capability) => {
+  const requirements = (["selfTest"] as const).flatMap((capability) => {
     const artifact = artifacts[capability];
     return artifact ? answerRequirements(capability, artifact.fileName, artifact.bytes) : [];
   });

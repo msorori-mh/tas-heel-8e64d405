@@ -15,7 +15,7 @@ export const GOLDEN_QURAN_V1: GoldenLessonProfile = {
     lessonSummaryHtml: "REQUIRED",
     mindMapHtml: "REQUIRED",
     labExperimentHtml: "OPTIONAL",
-    officialBookQuestions: "REQUIRED",
+    officialBookQuestions: "OPTIONAL",
     selfTest: "REQUIRED",
   },
   notesAr: [
@@ -37,13 +37,13 @@ export const GOLDEN_CHEMISTRY_V1: GoldenLessonProfile = {
     lessonSummaryHtml: "REQUIRED",
     mindMapHtml: "REQUIRED",
     labExperimentHtml: "OPTIONAL",
-    officialBookQuestions: "REQUIRED",
+    officialBookQuestions: "OPTIONAL",
     selfTest: "REQUIRED",
   },
   notesAr: [
     "المعادلات والجداول والأشكال الرسمية تحفظ كما وردت في الكتاب مع بصمة سلامة داخلية.",
     "المختبر اختياري حسب الدرس، وعند وجوده يعمل داخل CSP بلا شبكة.",
-    "الإجابات والتعليلات تُفصل آليًا من XLSX وتحفظ خادميًا؛ لا يرفع الفريق ملفًا منفصلًا.",
+    "إجابات اختبر فهمك وتعليلاته تُفصل آليًا من XLSX وتحفظ خادميًا؛ لا يرفع الفريق ملفًا منفصلًا.",
   ],
 };
 

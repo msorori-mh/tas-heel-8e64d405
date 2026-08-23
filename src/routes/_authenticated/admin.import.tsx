@@ -17,16 +17,6 @@ const STEPS = [
   { number: 4, label: "الفحص والحفظ كمسودة" },
 ] as const;
 
-const LESSON_CONTENT_TEMPLATE_KEYS = [
-  "book_contents",
-  "explanations",
-  "resources",
-  "assessments",
-  "assessment_questions",
-  "questions",
-  "self_test_questions",
-] as const;
-
 function AdminImportPage() {
   const { loading, enabled } = useRequireAdminSection("content");
 
@@ -115,30 +105,12 @@ function AdminImportPage() {
               3. استيراد محتويات الدروس السبعة
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              اختر نوع ملف المحتوى الجاهز من القوالب 04–10، ثم افحصه وجهّزه ونفّذه.
+              اختر الدرس وارفع مكوناته في نموذج واحد: ستة مكونات HTML، و«اختبر فهمك» فقط بصيغة Excel.
               تُحفظ النتائج كمسودات ولا تظهر للطالب قبل الاعتماد.
             </p>
           </div>
-          <ContentImportDryRunPanel
-            allowedTemplateKeys={LESSON_CONTENT_TEMPLATE_KEYS}
-            initialTemplateKey="book_contents"
-            heading="استيراد ملفات المحتويات السبعة"
-            description="اختر ملف المحتوى الجاهز من 04–10، ثم نفّذ: فحص ← تجهيز ← تنفيذ."
-            idPrefix="lesson-contents-import"
-          />
+          <GoldenLessonPackageBuilder />
         </section>
-
-        <details className="rounded-2xl border bg-card p-4">
-          <summary className="cursor-pointer font-semibold">
-            رفع محتويات درس واحد يدويًا من ملفات HTML وXLSX
-          </summary>
-          <p className="mt-2 text-sm text-muted-foreground">
-            مسار مساعد عند تجهيز درس منفرد بدل ملفات Excel الجماعية: اختيار الدرس ثم رفع محتوياته السبعة.
-          </p>
-          <div className="mt-5">
-            <GoldenLessonPackageBuilder />
-          </div>
-        </details>
       </main>
     </AdminLayout>
   );
