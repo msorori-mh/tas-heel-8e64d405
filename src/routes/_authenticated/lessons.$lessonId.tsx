@@ -1112,15 +1112,20 @@ function OfficialBookQuestionCard({
           })}
         </div>
       ) : (
-        <textarea
-          value={answer}
-          disabled={revealed !== null}
-          onChange={(event) => setAnswer(event.target.value)}
-          rows={4}
-          placeholder="اكتب إجابتك هنا…"
-          className="w-full rounded-lg border border-border bg-card p-2 text-right text-sm text-card-foreground outline-none focus:border-primary"
-        />
+        <div className="space-y-1">
+          <textarea
+            value={answer}
+            onChange={(event) => handleAnswerInput(event.target.value)}
+            rows={4}
+            placeholder="اكتب إجابتك هنا…"
+            className="w-full rounded-lg border border-border bg-card p-2 text-right text-sm text-card-foreground outline-none focus:border-primary"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            {saving ? "جارٍ حفظ إجابتك…" : "تُحفظ إجابتك تلقائيًا ويمكنك مراجعتها لاحقًا."}
+          </p>
+        </div>
       )}
+
 
       {!revealed && (
         <Button
