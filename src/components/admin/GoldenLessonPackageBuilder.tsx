@@ -1181,7 +1181,7 @@ export function GoldenLessonPackageBuilder() {
               </div>
               {applicability !== "NA" && (
                 <>
-                  <p className="text-xs text-muted-foreground">
+                   <p className="text-xs text-muted-foreground">
                      المطلوب: {capability === "officialBookQuestions"
                        ? "قالب XLSX لأنشطة وأسئلة الدرس — نص السؤال والإجابة النموذجية لكل صف"
                        : capability === "selfTest"
@@ -1190,18 +1190,40 @@ export function GoldenLessonPackageBuilder() {
                           ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
                         : fileContract.expectedAr}
                   </p>
+                  {fileContract.formats.includes("HTML") && (
+                    <ul className="list-disc space-y-0.5 pe-4 text-[11px] leading-relaxed text-muted-foreground">
+                      <li>يجب أن يحتوي وسم html على dir="rtl" ووسم meta باسم viewport.</li>
+                      <li>بدون روابط خارجية (خطوط أو مكتبات على الإنترنت) — ضمِّن الأنماط داخل الملف.</li>
+                      <li>
+                        {capability === "labExperimentHtml"
+                          ? "JavaScript مسموح داخل الحزمة التفاعلية، وحزمة ZIP مقبولة إذا احتوت index.html في جذرها."
+                          : "بدون وسم script أو معالجات onclick — المحتوى ثابت."}
+                      </li>
+                    </ul>
+                  )}
                    {(capability === "selfTest" || capability === "officialBookQuestions") && (
-                    <Button asChild type="button" size="sm" variant="outline" className="min-h-[40px] gap-2">
-                       <a
-                         href={contentImportTemplateDownloadUrl(
-                           capability === "selfTest"
-                             ? "10_self_test_questions_template.xlsx"
-                             : "09_official_book_questions_template.xlsx",
-                         )}
-                         download
-                       >
-                        <Download className="h-4 w-4" />تنزيل القالب المعتمد
-                      </a>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="min-h-[40px] gap-2"
+                      disabled={templateBusy === capability}
+                      onClick={() => {
+                        const filename = capability === "selfTest"
+                          ? "10_self_test_questions_template.xlsx"
+                          : "09_official_book_questions_template.xlsx";
+                        setTemplateBusy(capability);
+                        void downloadTemplateFile(contentImportTemplateDownloadUrl(filename), filename)
+                          .catch(() => {
+                            window.open(contentImportTemplateDownloadUrl(filename), "_blank", "noopener");
+                          })
+                          .finally(() => setTemplateBusy(null));
+                      }}
+                    >
+                      {templateBusy === capability
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <Download className="h-4 w-4" />}
+                      تنزيل القالب المعتمد
                     </Button>
                   )}
                   <ArabicFilePicker
