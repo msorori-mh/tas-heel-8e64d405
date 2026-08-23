@@ -1230,7 +1230,7 @@ export function GoldenLessonPackageBuilder() {
                     id={`golden-artifact-${capability}`}
                      accept={capability === "selfTest" || capability === "officialBookQuestions"
                       ? ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                       : capability === "labExperimentHtml"
+                       : capability === "labExperimentHtml" || capability === "mindMapHtml"
                           ? ".html,.zip,text/html,application/zip"
                          : ".html,text/html"}
 
