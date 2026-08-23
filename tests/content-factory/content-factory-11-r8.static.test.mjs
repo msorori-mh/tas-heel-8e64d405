@@ -340,6 +340,9 @@ test("CF11-R8/5 — revocation EXECUTE demands its key BEFORE the replay branch"
 test("CF11-R8/6 — applicability, pinned revisions and READY revalidation stay exact", () => {
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.cf11_assert_exact_required_lifecycle_set/);
   assert.ok((sql.match(/cf11_assert_exact_required_lifecycle_set\(/g) ?? []).length >= 4);
+  assert.match(sql, /applicability NOT IN \('REQUIRED','OPTIONAL'\)/);
+  assert.match(sql, /CF11_LIFECYCLE_APPLICABILITY_NOT_PUBLISHABLE/);
+  assert.doesNotMatch(sql, /applicability <> 'REQUIRED'/);
   assert.match(sql, /tamkeen\.content-factory-11\.write-plan\.v2/);
   assert.match(sql, /'revisionId'/);
   assert.match(sql, /'payloadHash'/);
@@ -394,7 +397,7 @@ test("CF11-R8B/1 — CF11 re-declares the generic transition with a demotion gua
   assert.match(fn, /GRANT EXECUTE ON FUNCTION public\.lesson_capability_transition\(uuid,text,text,jsonb,text\) TO authenticated/);
 });
 
-test("CF11-R8B/2 — the guard is narrow: only CF11 lessons, canonical REQUIRED, leaving READY", () => {
+test("CF11-R8B/2 — the guard is narrow: only CF11 lessons, canonical capabilities, leaving READY", () => {
   const guard = sql.slice(
     sql.indexOf("CREATE OR REPLACE FUNCTION public.cf11_assert_demotion_allowed"),
     sql.indexOf("CREATE OR REPLACE FUNCTION public.lesson_capability_transition("),
@@ -402,7 +405,7 @@ test("CF11-R8B/2 — the guard is narrow: only CF11 lessons, canonical REQUIRED,
   assert.match(guard, /IF _from_status IS DISTINCT FROM 'READY' THEN RETURN; END IF;/);
   assert.match(guard, /IF _to_status IS NOT DISTINCT FROM 'READY' THEN RETURN; END IF;/);
   assert.match(guard, /_capability = ANY \(public\.cf11_lifecycle_capabilities\(\)\)/);
-  assert.match(guard, /coalesce\(_applicability, 'REQUIRED'\) <> 'REQUIRED'/);
+  assert.doesNotMatch(guard, /_applicability[^;]*<> 'REQUIRED'/);
   assert.match(guard, /NOT public\.cf11_is_managed_lesson\(_lesson_id\)/);
   // Legacy lessons: managed-ness is decided by an actual CF11 publication row.
   assert.match(sql, /FROM public\.golden_lesson_publications WHERE lesson_id = _lesson_id/);

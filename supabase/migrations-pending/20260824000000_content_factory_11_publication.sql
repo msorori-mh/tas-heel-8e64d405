@@ -320,9 +320,9 @@ GRANT EXECUTE ON FUNCTION public.cf11_live_lifecycle_capabilities(uuid) TO authe
 GRANT EXECUTE ON FUNCTION public.cf11_assert_exact_lifecycle_set(uuid, text) TO authenticated, service_role;
 
 /**
- * CF11-R7 — exact SET *and* applicability. Set equality alone is not enough: a row parked at
- * applicability OPTIONAL / NA is silently excused from the readiness contract while the set still
- * looks complete. Every one of the canonical seven must exist exactly once AND be REQUIRED.
+ * CF11-R7 — exact SET *and* publishable applicability. The verified package profile is the
+ * authority for REQUIRED versus OPTIONAL: an OPTIONAL artifact is publishable when it is present
+ * in the exact seven-artifact set. NA is not publishable in a complete Golden Lesson package.
  * Enforced at publication plan, publication replay, first READY and READY replay.
  */
 CREATE OR REPLACE FUNCTION public.cf11_assert_exact_required_lifecycle_set(_lesson_id uuid, _code text)
@@ -334,9 +334,9 @@ BEGIN
                   ARRAY[]::text[])
     INTO bad
     FROM public.lesson_capability_lifecycle
-   WHERE lesson_id = _lesson_id AND applicability <> 'REQUIRED';
+   WHERE lesson_id = _lesson_id AND applicability NOT IN ('REQUIRED','OPTIONAL');
   IF coalesce(array_length(bad,1),0) > 0 THEN
-    RAISE EXCEPTION 'CF11_LIFECYCLE_APPLICABILITY_NOT_REQUIRED %: [%]', _code,
+    RAISE EXCEPTION 'CF11_LIFECYCLE_APPLICABILITY_NOT_PUBLISHABLE %: [%]', _code,
       array_to_string(bad, ',') USING ERRCODE = '23514';
   END IF;
 END $$;
@@ -1351,9 +1351,9 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
 
-  -- CF11-R7: the live lifecycle rows must ALREADY be exactly the canonical seven, each carrying
-  -- applicability='REQUIRED'. A capability parked at OPTIONAL/NA would be excused from the
-  -- readiness contract while the set still looks complete, so the plan refuses to describe it.
+  -- CF11-R7: the live lifecycle rows must already be exactly the canonical seven. REQUIRED and
+  -- OPTIONAL are both publishable because applicability comes from the verified package profile;
+  -- NA remains forbidden for a complete seven-artifact publication.
   PERFORM public.cf11_assert_exact_required_lifecycle_set(
     lesson_row.id, 'CF11_LIFECYCLE_SET_NOT_EXACTLY_SEVEN_REQUIRED');
 
@@ -2162,7 +2162,7 @@ BEGIN
       'student_visible', public.lesson_student_visible(pub.lesson_id));
   END IF;
 
-  -- Precondition: the EXACT canonical seven, all REQUIRED, all READY. Locked for the transaction.
+  -- Precondition: the exact canonical seven, all publishable (REQUIRED or OPTIONAL), all READY.
   PERFORM public.cf11_assert_exact_required_lifecycle_set(
     pub.lesson_id, 'CF11_REVOKE_CAPABILITY_SET_NOT_EXACTLY_SEVEN');
   PERFORM 1 FROM public.lesson_capability_lifecycle WHERE lesson_id = pub.lesson_id FOR UPDATE;
@@ -2280,7 +2280,7 @@ END $$;
 --     opened it a few statements earlier, in this very transaction. It is not a GUC, not a
 --     boolean argument and not anything a caller can set or forge;
 --   * the generic transition RPC is re-declared (same signature, same semantics) with one extra
---     precondition: for a CF11-managed lesson and a canonical REQUIRED capability, leaving READY
+--     precondition: for a CF11-managed lesson and any canonical capability, leaving READY
 --     requires that ticket;
 --   * a row-level trigger repeats the check at the TABLE, so even a role holding raw DML (today:
 --     service_role) cannot demote an attested capability behind the RPC's back.
@@ -2356,12 +2356,11 @@ RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, 
 BEGIN
   -- Only ever restrictive, and only for the exact CF11 surface:
   --   * the lesson is bound to a CF11 publication (legacy lessons are untouched);
-  --   * the capability is one of the canonical seven and is REQUIRED;
+  --   * the capability is one of the canonical seven (REQUIRED or OPTIONAL);
   --   * the row is leaving READY.
   IF _from_status IS DISTINCT FROM 'READY' THEN RETURN; END IF;
   IF _to_status IS NOT DISTINCT FROM 'READY' THEN RETURN; END IF;
   IF NOT (_capability = ANY (public.cf11_lifecycle_capabilities())) THEN RETURN; END IF;
-  IF coalesce(_applicability, 'REQUIRED') <> 'REQUIRED' THEN RETURN; END IF;
   IF NOT public.cf11_is_managed_lesson(_lesson_id) THEN RETURN; END IF;
   IF public.cf11_has_revocation_ticket(_lesson_id) THEN RETURN; END IF;
 
