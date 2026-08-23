@@ -1031,27 +1031,35 @@ export function GoldenLessonPackageBuilder() {
                 <>
                   <p className="text-xs text-muted-foreground">
                      المطلوب: {capability === "officialBookQuestions"
-                       ? "ملف HTML منظّم؛ كل سؤال داخل عنصر يحمل data-question-id ونصه داخل data-question-text"
+                       ? "قالب XLSX لأنشطة وأسئلة الدرس — نص السؤال والإجابة النموذجية لكل صف"
                        : capability === "selfTest"
                          ? "قالب XLSX لبنك الاختيار من متعدد — أربعة خيارات وتعليل لكل سؤال"
                         : capability === "labExperimentHtml"
                           ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
                         : fileContract.expectedAr}
                   </p>
-                   {capability === "selfTest" && (
+                   {(capability === "selfTest" || capability === "officialBookQuestions") && (
                     <Button asChild type="button" size="sm" variant="outline" className="min-h-[40px] gap-2">
-                       <a href={contentImportTemplateDownloadUrl("10_self_test_questions_template.xlsx")} download>
+                       <a
+                         href={contentImportTemplateDownloadUrl(
+                           capability === "selfTest"
+                             ? "10_self_test_questions_template.xlsx"
+                             : "09_official_book_questions_template.xlsx",
+                         )}
+                         download
+                       >
                         <Download className="h-4 w-4" />تنزيل القالب المعتمد
                       </a>
                     </Button>
                   )}
                   <ArabicFilePicker
                     id={`golden-artifact-${capability}`}
-                     accept={capability === "selfTest"
+                     accept={capability === "selfTest" || capability === "officialBookQuestions"
                       ? ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                        : capability === "labExperimentHtml"
                           ? ".html,.zip,text/html,application/zip"
                          : ".html,text/html"}
+
                     disabled={hashing !== null}
                     fileName={upload?.displayName}
                     onFile={(file) => handleCapabilityFile(capability, file)}
