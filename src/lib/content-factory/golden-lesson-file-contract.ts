@@ -7,11 +7,20 @@ import {
 export type GoldenArtifactFormat = "HTML" | "JSON";
 
 export interface GoldenArtifactFileContract {
+  /** Format of the artifact stored inside the package. */
   formats: readonly GoldenArtifactFormat[];
   extensions: readonly string[];
   accept: string;
   expectedAr: string;
+  /**
+   * What the content team actually uploads in the admin UI. For the two question
+   * capabilities this is the approved XLSX template, converted client-side into the
+   * JSON artifact + server-only answers file before validation.
+   */
+  sourceAccept?: string;
+  sourceExpectedAr?: string;
 }
+
 
 export interface GoldenArtifactFileFinding {
   code: string;
