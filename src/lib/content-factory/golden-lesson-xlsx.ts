@@ -26,9 +26,20 @@ const REQUIRED: Record<QuestionCapability, readonly string[]> = {
     "question_text",
     "option_1",
     "option_2",
+    "option_3",
+    "option_4",
     "correct_index",
     "explanation",
+    "why_wrong_1",
+    "why_wrong_2",
+    "why_wrong_3",
+    "why_wrong_4",
   ],
+};
+
+const REQUIRED_ROW_VALUES: Record<QuestionCapability, readonly string[]> = {
+  officialBookQuestions: REQUIRED.officialBookQuestions,
+  selfTest: REQUIRED.selfTest.filter((field) => !field.startsWith("why_wrong_")),
 };
 
 function cellText(value: unknown): string {
@@ -44,8 +55,8 @@ function cellText(value: unknown): string {
   return String(value).trim();
 }
 
-function options(row: Record<string, string>): string[] {
-  return [1, 2, 3, 4, 5, 6]
+function options(row: Record<string, string>, maximum = 6): string[] {
+  return Array.from({ length: maximum }, (_, index) => index + 1)
     .map((index) => row[`option_${index}`] ?? "")
     .filter(Boolean);
 }
@@ -75,7 +86,7 @@ function toPublicQuestion(capability: QuestionCapability, row: Record<string, st
       grading_mode: row.grading_mode,
     };
   }
-  return { ...base, type: "multiple_choice" };
+  return { ...base, options: options(row, 4), type: "multiple_choice" };
 }
 
 function toAnswer(capability: QuestionCapability, row: Record<string, string>) {
@@ -99,7 +110,7 @@ function toAnswer(capability: QuestionCapability, row: Record<string, string>) {
     correct_option: `(${String.fromCharCode(96 + Number(row.correct_index))})`,
     rationale: row.explanation,
   };
-  for (let index = 1; index <= 6; index += 1) {
+  for (let index = 1; index <= 4; index += 1) {
     if (row[`why_wrong_${index}`]) answer[`why_wrong_${index}`] = row[`why_wrong_${index}`];
   }
   return answer;
@@ -135,15 +146,30 @@ export async function convertQuestionWorkbook(
       row[header] = cellText(excelRow.getCell(column).value);
     });
     if (!Object.values(row).some(Boolean)) continue;
-    const emptyRequired = REQUIRED[capability].filter((field) => !row[field]);
+    const emptyRequired = REQUIRED_ROW_VALUES[capability].filter((field) => !row[field]);
     if (emptyRequired.length) {
       throw new Error(`الصف ${rowNumber}: حقول إلزامية فارغة: ${emptyRequired.join("، ")}`);
     }
     if (capability === "selfTest") {
       const index = Number(row.correct_index);
-      const optionCount = options(row).length;
-      if (!Number.isInteger(index) || index < 1 || index > optionCount) {
-        throw new Error(`الصف ${rowNumber}: correct_index يجب أن يشير إلى خيار موجود.`);
+      const selfTestOptions = options(row, 4);
+      if (selfTestOptions.length !== 4) {
+        throw new Error(`الصف ${rowNumber}: اختبر فهمك يتطلب أربعة خيارات غير فارغة بالضبط.`);
+      }
+      if (row.option_5 || row.option_6) {
+        throw new Error(`الصف ${rowNumber}: اختبر فهمك يقبل أربعة خيارات فقط؛ احذف option_5 وoption_6.`);
+      }
+      if (!Number.isInteger(index) || index < 1 || index > 4) {
+        throw new Error(`الصف ${rowNumber}: correct_index يجب أن يكون رقمًا من 1 إلى 4.`);
+      }
+      const missingWrongRationales = [1, 2, 3, 4]
+        .filter((optionIndex) => optionIndex !== index && !row[`why_wrong_${optionIndex}`]);
+      if (missingWrongRationales.length) {
+        throw new Error(
+          `الصف ${rowNumber}: تعليل الخيار الخاطئ مفقود للأعمدة: ${missingWrongRationales
+            .map((optionIndex) => `why_wrong_${optionIndex}`)
+            .join("، ")}.`,
+        );
       }
     }
     rows.push(row);

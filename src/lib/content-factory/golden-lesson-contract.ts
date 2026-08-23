@@ -1,11 +1,21 @@
 import type { GoldenLessonAsset } from "./golden-lesson-assets.ts";
 
-export const GOLDEN_LESSON_SCHEMA = "tamkeen.golden-lesson-package.v1" as const;
+/**
+ * Keep the v1 symbol as the default export used by the current Quran/package
+ * builder. New callers must opt into v2 explicitly; this prevents an implicit
+ * schema upgrade of already-published v1 manifests.
+ */
+export const GOLDEN_LESSON_SCHEMA_V1 = "tamkeen.golden-lesson-package.v1" as const;
+export const GOLDEN_LESSON_SCHEMA_V2 = "tamkeen.golden-lesson-package.v2" as const;
+export const GOLDEN_LESSON_SCHEMA = GOLDEN_LESSON_SCHEMA_V1;
+export const GOLDEN_LESSON_SCHEMAS = [GOLDEN_LESSON_SCHEMA_V1, GOLDEN_LESSON_SCHEMA_V2] as const;
+
+export type GoldenLessonSchema = (typeof GOLDEN_LESSON_SCHEMAS)[number];
 
 export type { GoldenLessonAsset };
 
 
-export const GOLDEN_CAPABILITIES = [
+export const GOLDEN_CAPABILITIES_V1 = [
   "officialBookContent",
   "tamkeenExplanationHtml",
   "lessonSummaryHtml",
@@ -15,7 +25,24 @@ export const GOLDEN_CAPABILITIES = [
   "selfTest",
 ] as const;
 
-export type GoldenCapability = (typeof GOLDEN_CAPABILITIES)[number];
+/** Final import/display order agreed for v2. The activity is an extra optional layer. */
+export const GOLDEN_CAPABILITIES_V2 = [
+  "officialBookContent",
+  "tamkeenExplanationHtml",
+  "lessonSummaryHtml",
+  "conceptsAndTermsHtml",
+  "equationsAndLawsHtml",
+  "officialBookQuestions",
+  "selfTest",
+  "interactiveActivityHtml",
+] as const;
+
+/** Backwards-compatible alias. Existing v1 code keeps its seven-key contract. */
+export const GOLDEN_CAPABILITIES = GOLDEN_CAPABILITIES_V1;
+
+export type GoldenCapabilityV1 = (typeof GOLDEN_CAPABILITIES_V1)[number];
+export type GoldenCapabilityV2 = (typeof GOLDEN_CAPABILITIES_V2)[number];
+export type GoldenCapability = GoldenCapabilityV1 | GoldenCapabilityV2;
 export type CapabilityApplicability = "REQUIRED" | "OPTIONAL" | "NA";
 export type ContentAuthority = "OFFICIAL" | "TAMKEEN";
 
@@ -24,10 +51,23 @@ export const GOLDEN_CAPABILITY_AUTHORITY: Record<GoldenCapability, ContentAuthor
   tamkeenExplanationHtml: "TAMKEEN",
   lessonSummaryHtml: "TAMKEEN",
   mindMapHtml: "TAMKEEN",
+  conceptsAndTermsHtml: "TAMKEEN",
+  equationsAndLawsHtml: "TAMKEEN",
   labExperimentHtml: "TAMKEEN",
+  interactiveActivityHtml: "TAMKEEN",
   officialBookQuestions: "OFFICIAL",
   selfTest: "TAMKEEN",
 };
+
+export function isGoldenLessonSchema(value: unknown): value is GoldenLessonSchema {
+  return typeof value === "string" && (GOLDEN_LESSON_SCHEMAS as readonly string[]).includes(value);
+}
+
+export function capabilitiesForGoldenLessonSchema(
+  schema: GoldenLessonSchema,
+): readonly GoldenCapability[] {
+  return schema === GOLDEN_LESSON_SCHEMA_V2 ? GOLDEN_CAPABILITIES_V2 : GOLDEN_CAPABILITIES_V1;
+}
 
 export interface GoldenLessonIdentity {
   gradeCode: string;
@@ -51,7 +91,7 @@ export interface GoldenLessonArtifact {
 }
 
 export interface GoldenLessonPackage {
-  schema: typeof GOLDEN_LESSON_SCHEMA;
+  schema: GoldenLessonSchema;
   profileId: string;
   packageCode: string;
   identity: GoldenLessonIdentity;
@@ -79,10 +119,11 @@ export interface GoldenLessonPackage {
 
 export interface GoldenLessonProfile {
   id: string;
-  version: 1;
+  version: 1 | 2;
+  schema: GoldenLessonSchema;
   labelAr: string;
   subjectFamily: "QURAN" | "SCIENCE";
   capabilityOrder: readonly GoldenCapability[];
-  applicability: Readonly<Record<GoldenCapability, CapabilityApplicability>>;
+  applicability: Readonly<Partial<Record<GoldenCapability, CapabilityApplicability>>>;
   notesAr: readonly string[];
 }

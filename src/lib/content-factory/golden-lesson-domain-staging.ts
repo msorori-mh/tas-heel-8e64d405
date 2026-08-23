@@ -1,18 +1,21 @@
 import { Buffer } from "node:buffer";
 
 import {
-  GOLDEN_CAPABILITIES,
+  capabilitiesForGoldenLessonSchema,
   type GoldenCapability,
   type GoldenLessonArtifact,
-} from "./golden-lesson-contract";
-import type { VerifiedGoldenLessonBundle } from "./golden-lesson-bundle-verifier";
+} from "./golden-lesson-contract.ts";
+import type { VerifiedGoldenLessonBundle } from "./golden-lesson-bundle-verifier.ts";
 
 export const GOLDEN_DOMAIN_TARGETS: Record<GoldenCapability, string> = {
   officialBookContent: "lesson_book_contents",
   tamkeenExplanationHtml: "lesson_explanations",
   lessonSummaryHtml: "lesson_summaries",
   mindMapHtml: "lesson_resources:mindmap",
+  conceptsAndTermsHtml: "lesson_resources:concepts_and_terms_html",
+  equationsAndLawsHtml: "lesson_resources:equations_and_laws_html",
   labExperimentHtml: "lesson_resources:experiment",
+  interactiveActivityHtml: "lesson_resources:interactive_activity_html",
   officialBookQuestions: "questions:official",
   selfTest: "lesson_assessments:self_test",
 };
@@ -22,7 +25,10 @@ export const GOLDEN_LIFECYCLE_TARGETS: Record<GoldenCapability, string> = {
   tamkeenExplanationHtml: "tamkeenExplanation",
   lessonSummaryHtml: "quickReview",
   mindMapHtml: "mindMap",
+  conceptsAndTermsHtml: "conceptsAndTerms",
+  equationsAndLawsHtml: "equationsAndLaws",
   labExperimentHtml: "simulation",
+  interactiveActivityHtml: "interactiveActivity",
   officialBookQuestions: "checkUnderstanding",
   selfTest: "lessonAssessment",
 };
@@ -56,7 +62,7 @@ export function buildGoldenDomainStageEnvelope(bundle: VerifiedGoldenLessonBundl
     return Buffer.from(file.bytes).toString("base64");
   };
   const byCapability = new Map(bundle.manifest.artifacts.map((item) => [item.capability, item]));
-  const entries = GOLDEN_CAPABILITIES.map((capability): GoldenDomainStageEntry => {
+  const entries = capabilitiesForGoldenLessonSchema(bundle.manifest.schema).map((capability): GoldenDomainStageEntry => {
     const artifact = byCapability.get(capability);
     if (!artifact) throw new Error("DOMAIN_STAGE_CAPABILITY_MISSING");
     return {

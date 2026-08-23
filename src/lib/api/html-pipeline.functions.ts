@@ -122,7 +122,13 @@ export const compensateHtmlPipelineFn = createServerFn({ method: "POST" })
  */
 export interface LessonHtmlResourceItem {
   resourceId: string;
-  resourceType: "mind_map_html" | "practical_experiment_html" | "summary_html";
+  resourceType:
+    | "mind_map_html"
+    | "practical_experiment_html"
+    | "summary_html"
+    | "concepts_and_terms_html"
+    | "equations_and_laws_html"
+    | "interactive_activity_html";
   title: string;
   resourceCode: string;
   version: number;

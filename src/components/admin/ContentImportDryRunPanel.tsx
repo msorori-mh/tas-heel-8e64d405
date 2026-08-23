@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,6 +88,16 @@ interface ContentImportDryRunPanelProps {
   heading?: string;
   description?: string;
   idPrefix?: string;
+  /** يثبت نطاق الصف/المسار/الفصل/المادة قبل قبول ملف الوحدات أو الدروس. */
+  requireScope?: boolean;
+  scope?: ContentImportScope | null;
+}
+
+export interface ContentImportScope {
+  gradeSlug: string;
+  trackCodes: string[];
+  semester: 1 | 2;
+  subjectCode: string;
 }
 
 export function ContentImportDryRunPanel({
@@ -96,6 +106,8 @@ export function ContentImportDryRunPanel({
   heading = "فحص ملف قبل الاستيراد",
   description = "ارفع ملف Excel المملوء، ثم اتبع الخطوات: فحص ← تجهيز ← تنفيذ.",
   idPrefix = "content-import",
+  requireScope = false,
+  scope = null,
 }: ContentImportDryRunPanelProps = {}) {
   const runDryRun = useServerFn(dryRunContentImport);
   const createJob = useServerFn(createContentImportJob);
@@ -121,7 +133,6 @@ export function ContentImportDryRunPanel({
   const [preparedHash, setPreparedHash] = useState<string | null>(null);
   const [stagedRows, setStagedRows] = useState<number | null>(null);
   const [executeResult, setExecuteResult] = useState<ExecuteImportResult | null>(null);
-
   const resetPipeline = useCallback(() => {
     setReport(null);
     setError(null);
@@ -130,6 +141,13 @@ export function ContentImportDryRunPanel({
     setStagedRows(null);
     setExecuteResult(null);
   }, []);
+
+  const scopeKey = scope
+    ? `${scope.gradeSlug}|${scope.trackCodes.join("|")}|${scope.semester}|${scope.subjectCode}`
+    : "";
+  useEffect(() => {
+    resetPipeline();
+  }, [resetPipeline, scopeKey]);
 
   const pickFile = useCallback((): File | null => {
     const file = inputRef.current?.files?.[0];
@@ -151,6 +169,10 @@ export function ContentImportDryRunPanel({
   }, []);
 
   const handleCheck = useCallback(async () => {
+    if (requireScope && !scope) {
+      setError("أكمل الصف والمسار والفصل والمادة قبل فحص الملف.");
+      return;
+    }
     const file = pickFile();
     if (!file) return;
 
@@ -165,6 +187,7 @@ export function ContentImportDryRunPanel({
           fileName: file.name,
           fileBase64,
           fileSize: file.size,
+          ...(scope ? { scope } : {}),
         },
       });
       setReport(result);
@@ -178,7 +201,7 @@ export function ContentImportDryRunPanel({
     } finally {
       setChecking(false);
     }
-  }, [pickFile, resetPipeline, runDryRun, templateKey]);
+  }, [pickFile, requireScope, resetPipeline, runDryRun, scope, templateKey]);
 
   const handlePrepare = useCallback(async () => {
     const file = pickFile();
@@ -216,6 +239,7 @@ export function ContentImportDryRunPanel({
           fileName: file.name,
           fileBase64,
           fileSize: file.size,
+          ...(scope ? { scope } : {}),
         },
       });
 
@@ -240,7 +264,7 @@ export function ContentImportDryRunPanel({
     } finally {
       setPreparing(false);
     }
-  }, [createJob, pickFile, prepareStaging, report, templateKey]);
+  }, [createJob, pickFile, prepareStaging, report, scope, templateKey]);
 
   const handleExecute = useCallback(async () => {
     const file = pickFile();
@@ -305,6 +329,15 @@ export function ContentImportDryRunPanel({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {requireScope && scope && (
+          <section aria-label="سياق الاستيراد الثابت" className="rounded-xl border bg-background p-3 space-y-3">
+            <p className="text-sm font-semibold">النطاق المثبت لهذه المرحلة</p>
+            <p className="text-sm">
+              {scope.gradeSlug} ← {scope.trackCodes.join(" + ")} ← الفصل {scope.semester} ← {scope.subjectCode}
+            </p>
+            <p className="text-xs text-muted-foreground">لن يُقبل صف يحمل subject_code خارج هذا النطاق، وتظل أكواد الوحدات والدروس هي مفاتيح الربط داخل المادة.</p>
+          </section>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor={`${idPrefix}-template`}>نوع القالب</Label>
@@ -346,7 +379,7 @@ export function ContentImportDryRunPanel({
             type="button"
             className="min-h-[44px] gap-2"
             onClick={handleCheck}
-            disabled={checking || preparing || executing}
+            disabled={checking || preparing || executing || (requireScope && !scope)}
           >
             {checking ? (
               <Loader2 className="h-4 w-4 animate-spin" />

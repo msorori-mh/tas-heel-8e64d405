@@ -16,11 +16,13 @@ test("the import center exposes the unified curriculum and lesson-content workfl
   assert.match(route, /ContentImportDryRunPanel/);
   assert.match(route, /allowedTemplateKeys=\{\["units"\]\}/);
   assert.match(route, /allowedTemplateKeys=\{\["lessons"\]\}/);
-  assert.match(route, /LESSON_CONTENT_TEMPLATE_KEYS/);
+  assert.doesNotMatch(route, /LESSON_CONTENT_TEMPLATE_KEYS/);
+  assert.match(route, /المحتويات 1–5 ملفات HTML/);
+  assert.match(route, /أسئلة الكتاب و«اختبر فهمك» فقط بصيغة XLSX/);
   assert.match(route, /الوحدات أو الفصول — اختياري/);
   assert.match(route, /unit_code/);
   assert.match(route, /<GoldenLessonPackageBuilder\s*\/>/);
-  assert.match(route, /اختيار الدرس/);
+  assert.match(component, /اختيار الدرس/);
   assert.match(route, /الفحص والحفظ كمسودة/);
   assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel|BulkLessonPdfUploadPanel/);
   assert.match(component, /09_official_book_questions_template\.xlsx/);
@@ -43,13 +45,17 @@ test("operators upload seven declared items and never upload a lesson ZIP or pro
   assert.match(component, /CAPABILITY_NUMBER/);
 });
 
-test("exactly six capabilities are required and the activity alone is optional", () => {
-  for (const id of ["GOLDEN_QURAN_V1", "GOLDEN_CHEMISTRY_V1"]) assert.match(profiles, new RegExp(id));
+test("v1 stays readable while v2 requires seven numbered items and keeps only activity optional", () => {
+  for (const id of ["GOLDEN_QURAN_V1", "GOLDEN_CHEMISTRY_V1", "GOLDEN_QURAN_V2", "GOLDEN_CHEMISTRY_V2"]) {
+    assert.match(profiles, new RegExp(id));
+  }
   const required = profiles.match(/: "REQUIRED"/g) ?? [];
-  const optional = profiles.match(/labExperimentHtml: "OPTIONAL"/g) ?? [];
-  assert.equal(required.length, 12);
-  assert.equal(optional.length, 2);
-  assert.doesNotMatch(profiles, /mindMapHtml: "OPTIONAL"|selfTest: "OPTIONAL"|labExperimentHtml: "NA"/);
+  const legacyOptional = profiles.match(/labExperimentHtml: "OPTIONAL"/g) ?? [];
+  const v2Optional = profiles.match(/interactiveActivityHtml: "OPTIONAL"/g) ?? [];
+  assert.equal(required.length, 26);
+  assert.equal(legacyOptional.length, 2);
+  assert.equal(v2Optional.length, 2);
+  assert.doesNotMatch(profiles, /mindMapHtml: "OPTIONAL"|selfTest: "OPTIONAL"|interactiveActivityHtml: "REQUIRED"/);
 });
 
 test("question XLSX files are split automatically into public and server-only layers", () => {
@@ -63,7 +69,7 @@ test("question XLSX files are split automatically into public and server-only la
 });
 
 test("the optional activity has its own HTML or HTML5 ZIP picker", () => {
-  assert.match(component, /capability === "labExperimentHtml"/);
+  assert.match(component, /capability === "interactiveActivityHtml"/);
   assert.match(component, /\.html,\.zip,text\/html,application\/zip/);
   assert.match(component, /convertHtml5ActivityZip/);
 });

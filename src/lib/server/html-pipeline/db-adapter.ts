@@ -220,6 +220,9 @@ export function createSupabaseDbAdapter({
           "mind_map_html",
           "practical_experiment_html",
           "summary_html",
+          "concepts_and_terms_html",
+          "equations_and_laws_html",
+          "interactive_activity_html",
         ])
         .eq("lifecycle_status", "published")
         .not("published_version_id", "is", null)

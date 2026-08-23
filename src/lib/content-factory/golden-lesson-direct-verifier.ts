@@ -115,7 +115,12 @@ export function verifyGoldenLessonDirectIntake(
     if (!artifact.sourcePath) continue;
     const file = files.get(artifact.sourcePath);
     if (!file) fail("DIRECT_EXPECTED_FILE_MISSING");
-    const validation = validateGoldenLessonArtifactBytes(artifact.capability, artifact.sourcePath, file.bytes);
+    const validation = validateGoldenLessonArtifactBytes(
+      artifact.capability,
+      artifact.sourcePath,
+      file.bytes,
+      manifest.schema,
+    );
     if (!validation.valid) fail(validation.findings[0]?.code ?? "ARTIFACT_CONTENT_INVALID");
   }
 
@@ -130,6 +135,7 @@ export function verifyGoldenLessonDirectIntake(
   const answerCoverage = validateGoldenLessonAnswerCoverage(
     artifactInputs,
     companionPath && companion ? { fileName: companionPath, bytes: companion.bytes } : null,
+    manifest.schema,
   );
   if (!answerCoverage.valid) fail(answerCoverage.findings[0]?.code ?? "ANSWER_COMPANION_INVALID");
 

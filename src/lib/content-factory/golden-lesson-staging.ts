@@ -1,5 +1,6 @@
 import {
-  GOLDEN_CAPABILITIES,
+  capabilitiesForGoldenLessonSchema,
+  isGoldenLessonSchema,
   type GoldenCapability,
   type GoldenLessonPackage,
 } from "./golden-lesson-contract.ts";
@@ -15,7 +16,10 @@ export const CAPABILITY_DRAFT_TARGET: Record<GoldenCapability, string> = {
   tamkeenExplanationHtml: "lesson_explanations",
   lessonSummaryHtml: "lesson_summaries",
   mindMapHtml: "lesson_resources:mindmap",
+  conceptsAndTermsHtml: "lesson_resources:concepts_and_terms_html",
+  equationsAndLawsHtml: "lesson_resources:equations_and_laws_html",
   labExperimentHtml: "lesson_resources:experiment",
+  interactiveActivityHtml: "lesson_resources:interactive_activity_html",
   officialBookQuestions: "questions+question_revisions:official",
   selfTest: "questions+question_revisions:self_test",
 };
@@ -70,7 +74,10 @@ export function previewGoldenLessonStaging(value: unknown): GoldenLessonStagingP
   const pkg = value as GoldenLessonPackage;
   const validation = validateGoldenLessonPackage(pkg);
   const artifacts = Array.isArray(pkg.artifacts) ? pkg.artifacts : [];
-  const actions = GOLDEN_CAPABILITIES.map((capability, index): GoldenLessonStagingAction => {
+  const capabilities = isGoldenLessonSchema(pkg.schema)
+    ? capabilitiesForGoldenLessonSchema(pkg.schema)
+    : [];
+  const actions = capabilities.map((capability, index): GoldenLessonStagingAction => {
     const artifact = artifacts.find((item) => item?.capability === capability);
     const applicability = artifact?.applicability;
     const action = applicability === "NA"

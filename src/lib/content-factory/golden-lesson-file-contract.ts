@@ -1,4 +1,8 @@
-import type { GoldenCapability } from "./golden-lesson-contract.ts";
+import {
+  GOLDEN_LESSON_SCHEMA_V2,
+  type GoldenCapability,
+  type GoldenLessonSchema,
+} from "./golden-lesson-contract.ts";
 import {
   validateHtmlAgainstProfile,
   type HtmlProfile,
@@ -48,11 +52,29 @@ export const GOLDEN_ARTIFACT_FILE_CONTRACTS: Record<GoldenCapability, GoldenArti
     accept: ".html,text/html",
     expectedAr: "ملف HTML ثابت للخريطة الذهنية",
   },
+  conceptsAndTermsHtml: {
+    formats: ["HTML"],
+    extensions: [".html"],
+    accept: ".html,text/html",
+    expectedAr: "HTML منظم للمفاهيم والمصطلحات",
+  },
+  equationsAndLawsHtml: {
+    formats: ["HTML"],
+    extensions: [".html"],
+    accept: ".html,text/html",
+    expectedAr: "HTML يدعم المعادلات والقوانين، أو NA دون ملف",
+  },
   labExperimentHtml: {
     formats: ["HTML"],
     extensions: [".html"],
     accept: ".html,text/html",
     expectedAr: "ملف HTML تفاعلي للتجربة أو النشاط",
+  },
+  interactiveActivityHtml: {
+    formats: ["HTML"],
+    extensions: [".html"],
+    accept: ".html,text/html",
+    expectedAr: "ملف HTML تفاعلي اختياري للتجربة أو النشاط",
   },
   officialBookQuestions: {
     formats: ["JSON"],
@@ -67,6 +89,23 @@ export const GOLDEN_ARTIFACT_FILE_CONTRACTS: Record<GoldenCapability, GoldenArti
     expectedAr: "JSON لاختبر فهمك مع الإجابة الصحيحة والشرح",
   },
 };
+
+export const GOLDEN_V2_OFFICIAL_CONTENT_FILE_CONTRACT: GoldenArtifactFileContract = {
+  formats: ["HTML"],
+  extensions: [".html"],
+  accept: ".html,text/html",
+  expectedAr: "HTML منظم مطابق للكتاب مع الصور والرسومات والجداول",
+};
+
+export function getGoldenArtifactFileContract(
+  capability: GoldenCapability,
+  schema?: GoldenLessonSchema,
+): GoldenArtifactFileContract {
+  if (schema === GOLDEN_LESSON_SCHEMA_V2 && capability === "officialBookContent") {
+    return GOLDEN_V2_OFFICIAL_CONTENT_FILE_CONTRACT;
+  }
+  return GOLDEN_ARTIFACT_FILE_CONTRACTS[capability];
+}
 
 function extensionOf(path: string): string {
   const normalized = path.trim().toLocaleLowerCase("en-US");
@@ -108,6 +147,7 @@ function validateJsonCapability(
   capability: GoldenCapability,
   value: unknown,
   findings: GoldenArtifactFileFinding[],
+  schema?: GoldenLessonSchema,
 ): void {
   if (isPlainRecord(value) && nonEmptyString(value.capability) && value.capability !== capability) {
     findings.push({
@@ -149,8 +189,14 @@ function validateJsonCapability(
     }
 
     const options = entry.options;
-    if (!Array.isArray(options) || options.filter(nonEmptyString).length < 2) {
-      findings.push({ code: "SELF_TEST_OPTIONS_MISSING", messageAr: `السؤال رقم ${index + 1} يحتاج خيارين على الأقل.` });
+    const optionCount = Array.isArray(options) ? options.filter(nonEmptyString).length : 0;
+    if (schema === GOLDEN_LESSON_SCHEMA_V2 ? optionCount !== 4 : optionCount < 2) {
+      findings.push({
+        code: schema === GOLDEN_LESSON_SCHEMA_V2 ? "SELF_TEST_OPTIONS_NOT_FOUR" : "SELF_TEST_OPTIONS_MISSING",
+        messageAr: schema === GOLDEN_LESSON_SCHEMA_V2
+          ? `السؤال رقم ${index + 1} يجب أن يعرض أربعة خيارات بالضبط.`
+          : `السؤال رقم ${index + 1} يحتاج خيارين على الأقل.`,
+      });
     }
     if (correctAnswer(entry) !== undefined || entry.explanation !== undefined || entry.rationale !== undefined) {
       findings.push({
@@ -200,6 +246,7 @@ function companionAnswers(value: unknown): Array<Record<string, unknown> & { cap
 export function validateGoldenLessonAnswerCoverage(
   artifacts: Partial<Record<GoldenCapability, { fileName: string; bytes: Uint8Array }>>,
   companion: { fileName: string; bytes: Uint8Array } | null,
+  schema?: GoldenLessonSchema,
 ): GoldenArtifactFileValidation {
   const findings: GoldenArtifactFileFinding[] = [];
   const requirements = (["officialBookQuestions", "selfTest"] as const).flatMap((capability) => {
@@ -265,6 +312,25 @@ export function validateGoldenLessonAnswerCoverage(
           messageAr: `شرح إجابة السؤال ${requirement.questionId} مفقود من الملف الخادمي.`,
         });
       }
+      if (schema === GOLDEN_LESSON_SCHEMA_V2) {
+        const correctIndex = Number(answer.correct_index ?? answer.correctIndex);
+        if (!Number.isInteger(correctIndex) || correctIndex < 1 || correctIndex > 4) {
+          findings.push({
+            code: "SELF_TEST_CORRECT_INDEX_INVALID",
+            messageAr: `الإجابة الصحيحة للسؤال ${requirement.questionId} يجب أن تكون رقمًا من 1 إلى 4.`,
+          });
+        } else {
+          for (let optionIndex = 1; optionIndex <= 4; optionIndex += 1) {
+            if (optionIndex === correctIndex) continue;
+            if (!nonEmptyString(answer[`why_wrong_${optionIndex}`])) {
+              findings.push({
+                code: "SELF_TEST_WRONG_RATIONALE_MISSING",
+                messageAr: `تعليل الخيار الخاطئ ${optionIndex} للسؤال ${requirement.questionId} مفقود.`,
+              });
+            }
+          }
+        }
+      }
     }
   }
 
@@ -274,9 +340,10 @@ export function validateGoldenLessonAnswerCoverage(
 export function validateGoldenLessonArtifactPath(
   capability: GoldenCapability,
   fileName: string,
+  schema?: GoldenLessonSchema,
 ): GoldenArtifactFileValidation {
   const findings: GoldenArtifactFileFinding[] = [];
-  const contract = GOLDEN_ARTIFACT_FILE_CONTRACTS[capability];
+  const contract = getGoldenArtifactFileContract(capability, schema);
   const extension = extensionOf(fileName);
   if (!contract.extensions.includes(extension)) {
     findings.push({
@@ -294,8 +361,9 @@ export function validateGoldenLessonArtifactBytes(
   capability: GoldenCapability,
   fileName: string,
   bytes: Uint8Array,
+  schema?: GoldenLessonSchema,
 ): GoldenArtifactFileValidation {
-  const findings = [...validateGoldenLessonArtifactPath(capability, fileName).findings];
+  const findings = [...validateGoldenLessonArtifactPath(capability, fileName, schema).findings];
   if (bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04) {
     findings.push({ code: "NESTED_ZIP_FORBIDDEN", messageAr: "محتوى الملف حزمة ZIP وليس ملف القدرة المطلوب." });
   }
@@ -313,7 +381,7 @@ export function validateGoldenLessonArtifactBytes(
 
   const extension = extensionOf(fileName);
   if (extension === ".html") {
-    const profile: HtmlProfile = capability === "labExperimentHtml"
+    const profile: HtmlProfile = capability === "labExperimentHtml" || capability === "interactiveActivityHtml"
       ? "INTERACTIVE_EDUCATIONAL_HTML"
       : "STATIC_EDUCATIONAL_HTML";
     const result = validateHtmlAgainstProfile(textValue, { profile });
@@ -328,7 +396,7 @@ export function validateGoldenLessonArtifactBytes(
       findings.push({ code: "ARTIFACT_JSON_INVALID", messageAr: "JSON غير صالح أو غير مكتمل." });
       return { valid: false, findings };
     }
-    validateJsonCapability(capability, value, findings);
+    validateJsonCapability(capability, value, findings, schema);
   }
 
   return { valid: findings.length === 0, findings };

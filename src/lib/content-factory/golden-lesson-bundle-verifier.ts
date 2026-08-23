@@ -178,6 +178,7 @@ export async function verifyGoldenLessonBundle(input: Uint8Array): Promise<Verif
       artifact.capability,
       artifact.sourcePath,
       bytes,
+      manifest.schema,
     );
     if (!validation.valid) fail(validation.findings[0]?.code ?? "ARTIFACT_CONTENT_INVALID");
   }
@@ -192,6 +193,7 @@ export async function verifyGoldenLessonBundle(input: Uint8Array): Promise<Verif
   const answerCoverage = validateGoldenLessonAnswerCoverage(
     artifactInputs,
     companionPath && companionBytes ? { fileName: companionPath, bytes: companionBytes } : null,
+    manifest.schema,
   );
   if (!answerCoverage.valid) fail(answerCoverage.findings[0]?.code ?? "ANSWER_COMPANION_INVALID");
 
