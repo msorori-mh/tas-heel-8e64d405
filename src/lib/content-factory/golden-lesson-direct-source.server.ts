@@ -73,6 +73,9 @@ export async function loadVerifiedDirectIntake(
     if (recomputed !== expected && verified.intakeSha256 !== expected) {
       throw new Error("DIRECT_INTAKE_IDENTITY_MISMATCH");
     }
+    // Downstream contracts (CF08/CF10/CF11) compare against the attested digest stored
+    // in the database, so surface that exact value once the bytes have been re-verified.
+    return { ...verified, intakeSha256: expected };
   }
   return verified;
 }
