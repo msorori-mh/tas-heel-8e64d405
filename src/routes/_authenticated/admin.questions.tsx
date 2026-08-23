@@ -29,6 +29,12 @@ function truncate(s: string, n: number) {
   return s.length > n ? s.slice(0, n) + "…" : s;
 }
 
+function questionSource(type: string | null) {
+  return ["multiple_choice", "true_false"].includes((type ?? "").toLowerCase())
+    ? "اختبر نفسك"
+    : "أسئلة الكتاب الرسمية";
+}
+
 function AdminQuestionsPage() {
   const { loading, enabled } = useRequireAdminSection("content");
   const [page, setPage] = useState(0);
@@ -218,10 +224,10 @@ function AdminQuestionsPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <HelpCircle className="h-6 w-6 text-primary" />
-              الأسئلة
+              مراجعة أسئلة الدروس
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              قائمة الأسئلة — قراءة فقط. لا يتم عرض الإجابات الصحيحة.
+              واجهة تدقيق وقراءة فقط؛ تُدار الأسئلة من مسار استيراد محتويات الدرس.
             </p>
           </div>
           <Link
@@ -230,6 +236,22 @@ function AdminQuestionsPage() {
           >
             <ArrowRight className="h-4 w-4" />
             المحتوى الدراسي
+          </Link>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+          <div>
+            <p className="font-medium text-foreground">لماذا هذه الصفحة؟</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              لمراجعة ارتباط السؤال بالصف والمادة والدرس ونوعه. الإجابات والتعليلات محمية ولا تظهر هنا،
+              ولا يوجد حذف أو تعديل مباشر يتجاوز سجل الاستيراد.
+            </p>
+          </div>
+          <Link
+            to="/admin/import"
+            className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground"
+          >
+            استيراد أو استبدال أسئلة درس
           </Link>
         </div>
 
@@ -323,6 +345,7 @@ function AdminQuestionsPage() {
                   <tr>
                     <th className="px-3 py-3 text-right font-medium">#</th>
                     <th className="px-3 py-3 text-right font-medium">السؤال</th>
+                    <th className="px-3 py-3 text-right font-medium">المحتوى</th>
                     <th className="px-3 py-3 text-right font-medium">النوع</th>
                     <th className="px-3 py-3 text-right font-medium">الدرس</th>
                     <th className="px-3 py-3 text-right font-medium">المادة</th>
@@ -336,6 +359,11 @@ function AdminQuestionsPage() {
                       <td className="px-3 py-3 text-muted-foreground">{r.sort_order}</td>
                       <td className="px-3 py-3 text-foreground max-w-md">
                         {truncate(r.question_text, 120)}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+                          {questionSource(r.question_type)}
+                        </span>
                       </td>
                       <td className="px-3 py-3 text-muted-foreground">
                         {r.question_type || "—"}
@@ -369,6 +397,7 @@ function AdminQuestionsPage() {
                     </span>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-y-1 text-xs text-muted-foreground">
+                    <span>المحتوى: {questionSource(r.question_type)}</span>
                     <span>النوع: {r.question_type || "—"}</span>
                     <span>الخيارات: {r.options_count}</span>
                     <span>الدرس: {r.lesson?.title || "—"}</span>
@@ -410,3 +439,4 @@ function AdminQuestionsPage() {
     </AdminLayout>
   );
 }
+

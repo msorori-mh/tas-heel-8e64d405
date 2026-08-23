@@ -31,6 +31,23 @@ const CreateCurriculumLessonInput = z.object({
   isFree: z.boolean(),
 });
 
+const SaveCurriculumSubjectInput = z.object({
+  subjectId: z.string().uuid().nullable().optional(),
+  name: z.string().trim().min(1).max(160),
+  gradeId: z.string().uuid(),
+  trackIds: z.array(z.string().uuid()).min(1).max(2),
+  sortOrder: z.number().int().min(0).max(100000),
+  icon: z.string().trim().max(80).nullable().optional(),
+  color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+  groupCode: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .nullable()
+    .optional(),
+  groupName: z.string().trim().max(160).nullable().optional(),
+});
+
 const ContextTemplateInput = z.object({
   templateKey: z.enum(CONTEXT_TEMPLATE_KEYS),
   gradeSlug: z.string().min(1).max(32),
@@ -76,6 +93,37 @@ export const downloadContextualTemplate = createServerFn({ method: "POST" })
     }
 
     return buildContextualTemplate({ ...data, registry, extraExistingCodes });
+  });
+
+/**
+ * Save a subject through the database-owned atomic boundary.
+ * TCS-2 identity is generated on create; availability accepts only Sanaa/Aden.
+ */
+export const saveCurriculumSubjectAdmin = createServerFn({ method: "POST" })
+  .middleware([requireContentStaffAuth])
+  .inputValidator((input) => SaveCurriculumSubjectInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: saved, error } = await (context.supabase as any).rpc(
+      "admin_save_curriculum_subject",
+      {
+        _subject_id: data.subjectId ?? null,
+        _name: data.name,
+        _grade_id: data.gradeId,
+        _track_ids: Array.from(new Set(data.trackIds)),
+        _sort_order: data.sortOrder,
+        _icon: data.icon?.trim() || null,
+        _color: data.color?.trim() || null,
+        _group_code: data.groupCode?.trim() || null,
+        _group_name: data.groupName?.trim() || null,
+      },
+    );
+    if (error) {
+      if (error.message?.includes("SUBJECT_TRACK_DETACH_REQUIRES_IMPACT_REVIEW")) {
+        throw new Error("إزالة مسار قائم تتطلب مراجعة أثر مستقلة؛ يمكنك إضافة المسار الآخر فقط من هنا.");
+      }
+      throw new Error(`تعذر حفظ المادة: ${error.message}`);
+    }
+    return saved as { id: string; code: string; track_ids: string[]; created: boolean };
   });
 
 /**
@@ -246,4 +294,3 @@ export const createCurriculumLessonAdmin = createServerFn({ method: "POST" })
     }
     return created;
   });
-
