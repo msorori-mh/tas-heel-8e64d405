@@ -133,7 +133,7 @@ function AdminImportPage() {
             رفع محتويات درس واحد يدويًا من ملفات HTML وXLSX
           </summary>
           <p className="mt-2 text-sm text-muted-foreground">
-            مسار مساعد عند تجهيز درس منفرد بدل ملفات Excel الجماعية.
+            مسار مساعد عند تجهيز درس منفرد بدل ملفات Excel الجماعية: اختيار الدرس ثم رفع محتوياته السبعة.
           </p>
           <div className="mt-5">
             <GoldenLessonPackageBuilder />
