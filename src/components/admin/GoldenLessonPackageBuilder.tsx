@@ -3,6 +3,10 @@ import { AlertCircle, BookOpen, CheckCircle2, Download, Eye, FileCheck2, Loader2
 
 import { supabase } from "@/integrations/supabase/client";
 import {
+  publishGoldenLessonDirect,
+  type DirectPublishStep,
+} from "@/lib/content-factory/golden-lesson-direct-publish.functions";
+import {
   createGoldenLessonDirectUpload,
   verifyAndStageGoldenLessonDirect,
 } from "@/lib/content-factory/golden-lesson-direct.functions";
@@ -448,6 +452,9 @@ export function GoldenLessonPackageBuilder() {
   const [intakeBusy, setIntakeBusy] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const [draftMessage, setDraftMessage] = useState<string | null>(null);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishSteps, setPublishSteps] = useState<DirectPublishStep[]>([]);
 
   useEffect(() => {
     let active = true;
