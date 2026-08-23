@@ -29,7 +29,7 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
   const [gradeId, setGradeId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [unitId, setUnitId] = useState("");
-  const [sortOrder, setSortOrder] = useState<number>(0);
+  const [sortOrder, setSortOrder] = useState<number>(1);
   const [duration, setDuration] = useState("");
   const [isFree, setIsFree] = useState<boolean>(false);
   const [saving, setSaving] = useState(false);
@@ -41,7 +41,7 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
       setGradeId("");
       setSubjectId("");
       setUnitId("");
-      setSortOrder(0);
+      setSortOrder(1);
       setDuration("");
       setIsFree(false);
       setError(null);
@@ -135,8 +135,8 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
       return;
     }
 
-    if (!Number.isInteger(sortOrder) || sortOrder < 0) {
-      setError("الترتيب يجب أن يكون عددًا صحيحًا غير سالب.");
+    if (!Number.isInteger(sortOrder) || sortOrder < 1) {
+      setError("الترتيب يجب أن يكون عددًا صحيحًا موجبًا ويبدأ من 1.");
       return;
     }
 
@@ -262,7 +262,7 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
             <Input
               id="create-sort"
               type="number"
-              min={0}
+              min={1}
               value={sortOrder}
               onChange={(e) => setSortOrder(Number(e.target.value))}
               disabled={saving}

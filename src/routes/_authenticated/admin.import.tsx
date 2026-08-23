@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { FileSpreadsheet } from "lucide-react";
 
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { ContentImportDryRunPanel } from "@/components/admin/ContentImportDryRunPanel";
 import { GoldenLessonPackageBuilder } from "@/components/admin/GoldenLessonPackageBuilder";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 
@@ -10,9 +11,20 @@ export const Route = createFileRoute("/_authenticated/admin/import")({
 });
 
 const STEPS = [
-  { number: 1, label: "اختيار الدرس" },
-  { number: 2, label: "رفع المحتويات السبعة" },
-  { number: 3, label: "فحص وحفظ المسودة" },
+  { number: 1, label: "الوحدات أو الفصول — اختياري" },
+  { number: 2, label: "الدروس" },
+  { number: 3, label: "المحتويات السبعة" },
+  { number: 4, label: "الفحص والحفظ كمسودة" },
+] as const;
+
+const LESSON_CONTENT_TEMPLATE_KEYS = [
+  "book_contents",
+  "explanations",
+  "resources",
+  "assessments",
+  "assessment_questions",
+  "questions",
+  "self_test_questions",
 ] as const;
 
 function AdminImportPage() {
@@ -32,19 +44,21 @@ function AdminImportPage() {
 
   return (
     <AdminLayout>
-      <main className="mx-auto max-w-5xl space-y-6 pb-24" dir="rtl">
+      <main className="mx-auto max-w-5xl space-y-8 pb-24" dir="rtl">
         <header className="space-y-3">
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">استيراد محتويات درس</h1>
+            <h1 className="text-2xl font-bold">استيراد المنهج ومحتويات الدروس</h1>
           </div>
-          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            اختر الدرس مرة واحدة، ثم ارفع محتوياته السبعة مباشرة واحفظها كمسودة.
-            ستة محتويات إلزامية، والتجربة أو النشاط التفاعلي وحده اختياري.
+          <p className="max-w-4xl text-sm leading-relaxed text-muted-foreground">
+            هذا هو مكان الاستيراد الموحد لفريق المحتوى: ارفع الوحدات إن كانت المادة
+            تحتوي عليها، ثم الدروس، ثم ملفات المحتويات السبعة. إذا كانت المادة بلا
+            وحدات فتجاوز الخطوة الأولى واترك <span className="font-mono">unit_code</span> فارغًا
+            في ملف الدروس.
           </p>
-          <ol aria-label="خطوات استيراد الدرس" className="grid gap-2 sm:grid-cols-3">
+          <ol aria-label="خطوات الاستيراد الموحد" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((step) => (
-              <li key={step.number} className="flex min-h-[52px] items-center gap-3 rounded-xl border bg-card px-4 py-2">
+              <li key={step.number} className="flex min-h-[58px] items-center gap-3 rounded-xl border bg-card px-4 py-2">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
                   {step.number}
                 </span>
@@ -54,7 +68,77 @@ function AdminImportPage() {
           </ol>
         </header>
 
-        <GoldenLessonPackageBuilder />
+        <section className="space-y-3" aria-labelledby="units-import-heading">
+          <div>
+            <h2 id="units-import-heading" className="text-lg font-bold">
+              1. استيراد الوحدات أو الفصول
+              <span className="mr-2 rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                اختياري
+              </span>
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              استخدم هذه الخطوة فقط للمواد المقسمة إلى وحدات أو فصول. المواد الأخرى
+              تنتقل مباشرة إلى استيراد الدروس.
+            </p>
+          </div>
+          <ContentImportDryRunPanel
+            allowedTemplateKeys={["units"]}
+            initialTemplateKey="units"
+            heading="استيراد ملف الوحدات"
+            description="ارفع ملف Excel الخاص بالوحدات، ثم نفّذ: فحص ← تجهيز ← تنفيذ."
+            idPrefix="units-import"
+          />
+        </section>
+
+        <section className="space-y-3" aria-labelledby="lessons-import-heading">
+          <div>
+            <h2 id="lessons-import-heading" className="text-lg font-bold">
+              2. استيراد الدروس
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              يقبل الدروس المرتبطة بوحدة، كما يقبل الدروس المرتبطة بالمادة مباشرة.
+              يبدأ ترتيب الدرس من 1.
+            </p>
+          </div>
+          <ContentImportDryRunPanel
+            allowedTemplateKeys={["lessons"]}
+            initialTemplateKey="lessons"
+            heading="استيراد ملف الدروس"
+            description="ارفع ملف Excel الخاص بالدروس. اترك unit_code فارغًا للمادة التي لا تحتوي وحدات."
+            idPrefix="lessons-import"
+          />
+        </section>
+
+        <section className="space-y-3" aria-labelledby="contents-import-heading">
+          <div>
+            <h2 id="contents-import-heading" className="text-lg font-bold">
+              3. استيراد محتويات الدروس السبعة
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              اختر نوع ملف المحتوى الجاهز من القوالب 04–10، ثم افحصه وجهّزه ونفّذه.
+              تُحفظ النتائج كمسودات ولا تظهر للطالب قبل الاعتماد.
+            </p>
+          </div>
+          <ContentImportDryRunPanel
+            allowedTemplateKeys={LESSON_CONTENT_TEMPLATE_KEYS}
+            initialTemplateKey="book_contents"
+            heading="استيراد ملفات المحتويات السبعة"
+            description="اختر ملف المحتوى الجاهز من 04–10، ثم نفّذ: فحص ← تجهيز ← تنفيذ."
+            idPrefix="lesson-contents-import"
+          />
+        </section>
+
+        <details className="rounded-2xl border bg-card p-4">
+          <summary className="cursor-pointer font-semibold">
+            رفع محتويات درس واحد يدويًا من ملفات HTML وXLSX
+          </summary>
+          <p className="mt-2 text-sm text-muted-foreground">
+            مسار مساعد عند تجهيز درس منفرد بدل ملفات Excel الجماعية: اختيار الدرس ثم رفع محتوياته السبعة.
+          </p>
+          <div className="mt-5">
+            <GoldenLessonPackageBuilder />
+          </div>
+        </details>
       </main>
     </AdminLayout>
   );
