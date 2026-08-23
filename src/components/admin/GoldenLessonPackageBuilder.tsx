@@ -50,7 +50,6 @@ import {
   validateGoldenLessonArtifactBytes,
 } from "@/lib/content-factory/golden-lesson-file-contract";
 import { convertQuestionWorkbook } from "@/lib/content-factory/golden-lesson-xlsx";
-import { convertLessonQuestionsHtml } from "@/lib/content-factory/golden-lesson-questions-html";
 import { convertHtml5ActivityZip } from "@/lib/content-factory/golden-lesson-html5";
 import { getContentCodeRegistry } from "@/lib/content-codes/content-codes.functions";
 import type { ContentCodeRegistry } from "@/lib/content-codes/content-codes.types";
