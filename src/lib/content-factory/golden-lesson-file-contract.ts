@@ -45,8 +45,8 @@ export const GOLDEN_ARTIFACT_FILE_CONTRACTS: Record<GoldenCapability, GoldenArti
   mindMapHtml: {
     formats: ["HTML"],
     extensions: [".html"],
-    accept: ".html,text/html",
-    expectedAr: "ملف HTML ثابت للخريطة الذهنية",
+    accept: ".html,.zip,text/html,application/zip",
+    expectedAr: "ملف HTML تفاعلي للخريطة الذهنية (JavaScript مسموح)",
   },
   labExperimentHtml: {
     formats: ["HTML"],
