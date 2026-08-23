@@ -766,7 +766,7 @@ BEGIN
     v_expected := _plan->'html'->cap->>'sha256';
     SELECT public.cf11_text_sha256(r.description) INTO v_live
       FROM public.lesson_resources r
-     WHERE r.lesson_id = v_lesson AND r.resource_code = v_code
+     WHERE r.lesson_id = v_lesson AND lower(r.resource_code) = lower(v_code)
        AND r.url = public.cf10_inline_html_url(r.resource_code);
     IF v_live IS DISTINCT FROM v_expected
        OR public.cf10_html_publication_pending(v_lesson, cap) THEN
