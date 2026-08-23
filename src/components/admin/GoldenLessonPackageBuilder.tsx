@@ -661,7 +661,7 @@ export function GoldenLessonPackageBuilder() {
       let rowCount: number | undefined;
       let convertedAnswers: Array<Record<string, unknown>> | null = null;
       let convertedActivityAssets: File[] = [];
-      if (capability === "labExperimentHtml" && /\.zip$/i.test(file.name)) {
+      if ((capability === "labExperimentHtml" || capability === "mindMapHtml") && /\.zip$/i.test(file.name)) {
         try {
           const converted = await convertHtml5ActivityZip(file);
           artifactFile = converted.htmlFile;
