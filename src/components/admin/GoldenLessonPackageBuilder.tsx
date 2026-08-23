@@ -1212,6 +1212,21 @@ export function GoldenLessonPackageBuilder() {
 
       {fileError && <p role="alert" className="text-sm text-destructive flex gap-2"><AlertCircle className="h-4 w-4 mt-0.5" />{fileError}</p>}
 
+      {canonicalIdentityComplete && (
+        <div className="rounded-xl border bg-muted/20 p-3 space-y-1 text-xs">
+          <p className="font-medium text-sm">قائمة المكوّنات قبل الفحص</p>
+          {GOLDEN_CAPABILITIES.filter((capability) => (profile?.applicability[capability] ?? "NA") !== "NA").map((capability) => {
+            const done = Boolean(uploads[capability]);
+            return (
+              <p key={capability} className={done ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}>
+                {done ? "✓" : "•"} ({CAPABILITY_NUMBER[capability]}) {CAPABILITY_LABEL[capability]} — {CAPABILITY_FORMAT_HINT[capability] ?? "HTML"}
+                {done ? " — مرفوع" : " — بانتظار الملف"}
+              </p>
+            );
+          })}
+        </div>
+      )}
+
       <div className="sticky bottom-3 z-10 flex flex-wrap gap-2 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
         <Button type="button" onClick={() => void runValidation()} disabled={hashing !== null || !canonicalIdentityComplete} className="min-h-[44px] gap-2"><FileCheck2 className="h-4 w-4" />فحص ومعاينة الملفات</Button>
         <Button type="button" disabled={!validation?.valid || intakeBusy} onClick={() => void uploadAndVerifyDirectIntake()} className="min-h-[44px] gap-2">
