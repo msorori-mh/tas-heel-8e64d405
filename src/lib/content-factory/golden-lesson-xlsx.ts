@@ -166,7 +166,7 @@ export async function convertQuestionWorkbook(
     questions: rows.map((row) => toPublicQuestion(capability, row)),
   };
   return {
-    publicFile: new File([JSON.stringify(payload)], "self-test.json", { type: "application/json" }),
+    publicFile: new File([JSON.stringify(payload)], PUBLIC_FILE_NAME[capability], { type: "application/json" }),
     answers: rows.map((row) => toAnswer(capability, row)),
     rowCount: rows.length,
   };
