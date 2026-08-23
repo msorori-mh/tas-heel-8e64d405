@@ -249,6 +249,47 @@ function ArabicMultiFilePicker({
   );
 }
 
+/** يحوّل رموز مخالفات المعيار إلى جمل تصحيحية واضحة للمستخدم. */
+const ARTIFACT_FIX_HINTS: Record<string, string> = {
+  RTL_DIRECTION_MISSING:
+    'الملف لا يحتوي dir="rtl" — أضِف السمة إلى وسم <html> ثم أعد الرفع.',
+  RESPONSIVE_VIEWPORT_MISSING:
+    'وسم viewport مفقود — أضِف <meta name="viewport" content="width=device-width, initial-scale=1"> داخل <head>.',
+  JS_NOT_ALLOWED_IN_STATIC_PROFILE:
+    "الملف يحتوي كود JavaScript — الشرح والملخص والخريطة الذهنية يجب أن تكون HTML ثابتًا بلا وسم <script>.",
+  INLINE_EVENT_HANDLER_FORBIDDEN:
+    "الملف يحتوي معالجات أحداث مضمّنة مثل onclick — احذفها من الوسوم.",
+  EXTERNAL_RESOURCE_FORBIDDEN:
+    "الملف يشير إلى مصدر خارجي على الإنترنت (خط أو مكتبة أو صورة برابط https) — ضمِّن الأنماط داخل الملف وارفع الصور كمرفقات.",
+  ANSWER_LEAKAGE_DETECTED:
+    "الملف يحتوي إجابات أو تبريرات — يجب ألا تُكتب داخل HTML؛ الإجابات تُرفع عبر قالب الأسئلة فقط.",
+  EMPTY_HTML: "الملف فارغ.",
+  ARTIFACT_EMPTY: "الملف فارغ.",
+  ARTIFACT_UTF8_INVALID: "الملف ليس نصًا بترميز UTF-8 — احفظه بترميز UTF-8 وأعد الرفع.",
+  NESTED_ZIP_FORBIDDEN:
+    "لا ترفع حزمة ZIP في هذه الخانة — حزمة ZIP مقبولة في «التجارب المعملية» فقط ويجب أن تحتوي index.html.",
+  ARTIFACT_EXTENSION_FORBIDDEN: "امتداد الملف غير مسموح لهذا المكوّن.",
+};
+
+function friendlyArtifactMessage(finding: { code: string; messageAr: string }): string {
+  return ARTIFACT_FIX_HINTS[finding.code] ?? finding.messageAr;
+}
+
+/** تنزيل القالب كـ Blob حتى لا يُعرض الملف الثنائي كرموز داخل إطار المعاينة. */
+async function downloadTemplateFile(url: string, filename: string): Promise<void> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`تعذر تنزيل القالب (HTTP ${response.status}).`);
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+}
+
 async function sha256Hex(file: File): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
