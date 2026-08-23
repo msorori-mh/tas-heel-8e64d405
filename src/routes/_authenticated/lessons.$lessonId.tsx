@@ -766,14 +766,28 @@ function LessonPage() {
 
       case "OFFICIAL_QUESTIONS":
         return (
-          <ol className="space-y-4">
-            {(officialQuestions ?? []).map((q, idx) => (
-              <li key={q.id}>
-                <OfficialBookQuestionCard lessonId={lessonId} index={idx + 1} q={q} />
-              </li>
-            ))}
-          </ol>
+          <div className="space-y-4">
+            <ol className="space-y-4">
+              {(officialQuestions ?? []).map((q, idx) => (
+                <li key={q.id}>
+                  <OfficialBookQuestionCard
+                    lessonId={lessonId}
+                    index={idx + 1}
+                    q={q}
+                    savedAnswer={questionNotes.notes[q.id] ?? ""}
+                    onAnswerChange={questionNotes.saveNote}
+                    saving={questionNotes.savingIds.includes(q.id)}
+                  />
+                </li>
+              ))}
+            </ol>
+            <MyAnswersLog
+              questions={officialQuestions ?? []}
+              notes={questionNotes.notes}
+            />
+          </div>
         );
+
 
       case "SELF_TEST":
         return (
