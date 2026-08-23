@@ -531,14 +531,22 @@ function LessonPage() {
 
   const mindmaps = (resources ?? []).filter((r) => r.resource_type === "mindmap");
   const videos = (resources ?? []).filter((r) => r.resource_type === "video");
-  const experiments = (resources ?? []).filter((r) => r.resource_type === "experiment");
+  const experiments = (resources ?? []).filter(
+    (r) => r.resource_type === "experiment" && !isLabAttachment(r),
+  );
+  // Multi-file downloads that belong to the lab/practical experiment.
+  const labAttachments = (resources ?? []).filter(
+    (r) => isLabAttachment(r) && r.is_primary !== true,
+  );
   // 18C1 invariant: a primary resource never appears under "موارد إضافية".
   const extras = (resources ?? []).filter(
     (r) =>
       (r.resource_type === "pdf" || r.resource_type === "link") &&
       r.is_primary !== true &&
+      !isLabAttachment(r) &&
       r.id !== primaryResource?.id,
   );
+
 
 
   if (loadingLesson) return <StateMessage variant="loading">جارٍ تحميل الدرس…</StateMessage>;
