@@ -226,10 +226,21 @@ export async function convertQuestionWorkbook(
   };
 
   const required = REQUIRED_COLUMNS[capability];
-  const matching = workbook.worksheets.find((worksheet) => {
-    const values = Array.from(readHeaders(worksheet).values());
-    return required.every((column) => values.includes(column));
-  });
+  const otherCapability: QuestionCapability =
+    capability === "selfTest" ? "officialBookQuestions" : "selfTest";
+  const named = workbook.worksheets.find(
+    (worksheet) => worksheet.name.trim() === SHEET_NAME[capability],
+  );
+  const matching = named
+    ? (required.every((column) => Array.from(readHeaders(named).values()).includes(column))
+        ? named
+        : undefined)
+    : workbook.worksheets.find((worksheet) => {
+        if (worksheet.name.trim() === SHEET_NAME[otherCapability]) return false;
+        const values = Array.from(readHeaders(worksheet).values());
+        return required.every((column) => values.includes(column));
+      });
+
 
   if (!matching) {
     const named = workbook.worksheets.find((worksheet) => worksheet.name.trim() === SHEET_NAME[capability]);
