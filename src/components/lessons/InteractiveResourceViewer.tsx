@@ -15,7 +15,13 @@ import {
 export interface InteractiveResourceItem {
   id: string;
   resource_code: string;
-  resource_type:\n    | "mind_map_html"\n    | "practical_experiment_html"\n    | "summary_html"\n    | "concepts_and_terms_html"\n    | "equations_and_laws_html"\n    | "interactive_activity_html";
+  resource_type:
+    | "mind_map_html"
+    | "practical_experiment_html"
+    | "summary_html"
+    | "concepts_and_terms_html"
+    | "equations_and_laws_html"
+    | "interactive_activity_html";
   title_ar: string;
   description_ar?: string | null;
   alt_text_ar?: string | null;
