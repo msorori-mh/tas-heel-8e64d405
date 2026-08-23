@@ -11,13 +11,18 @@ const unitFunctions = readFileSync("src/lib/content-codes/content-codes.function
 const textbookManager = readFileSync("src/components/admin/SubjectTextbooksManager.tsx", "utf8");
 const adminLayout = readFileSync("src/components/admin/AdminLayout.tsx", "utf8");
 
-test("the import center exposes only the final lesson-content workflow", () => {
+test("the import center exposes the unified curriculum and lesson-content workflow", () => {
+  assert.match(route, /استيراد المنهج ومحتويات الدروس/);
+  assert.match(route, /ContentImportDryRunPanel/);
+  assert.match(route, /allowedTemplateKeys=\{\["units"\]\}/);
+  assert.match(route, /allowedTemplateKeys=\{\["lessons"\]\}/);
+  assert.match(route, /LESSON_CONTENT_TEMPLATE_KEYS/);
+  assert.match(route, /الوحدات أو الفصول — اختياري/);
+  assert.match(route, /unit_code/);
   assert.match(route, /<GoldenLessonPackageBuilder\s*\/>/);
-  assert.doesNotMatch(route, /التجهيز المطلوب قبل استيراد محتوى الدرس/);
   assert.match(route, /اختيار الدرس/);
-  assert.match(route, /رفع المحتويات/);
   assert.match(route, /فحص وحفظ المسودة/);
-  assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel|BulkLessonPdfUploadPanel|ContentImportDryRunPanel/);
+  assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel|BulkLessonPdfUploadPanel/);
   assert.match(component, /09_official_book_questions_template\.xlsx/);
   assert.match(component, /10_self_test_questions_template\.xlsx/);
   assert.match(component, /getContentCodeRegistry/);
