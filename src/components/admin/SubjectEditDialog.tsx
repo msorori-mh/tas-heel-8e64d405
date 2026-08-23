@@ -65,14 +65,25 @@ export function SubjectEditDialog({
 
   useEffect(() => {
     if (!open) return;
-    setName(isCreate ? "" : subject?.name ?? "");
-    setGradeId(isCreate ? "" : subject?.grade_id ?? "");
-    setTrackIds(isCreate ? [] : subject?.track_ids ?? []);
-    setSortOrder(isCreate ? 0 : subject?.sort_order ?? 0);
-    setIcon(isCreate ? "BookOpen" : subject?.icon ?? "BookOpen");
-    setColor(isCreate ? "#3b82f6" : subject?.color ?? "#3b82f6");
-    setGroupCode(isCreate ? "" : subject?.group_code ?? "");
-    setGroupName(isCreate ? "" : subject?.group_name ?? "");
+    if (isCreate) {
+      setName("");
+      setGradeId("");
+      setTrackIds([]);
+      setSortOrder(0);
+      setIcon("BookOpen");
+      setColor("#3b82f6");
+      setGroupCode("");
+      setGroupName("");
+    } else {
+      setName(subject?.name ?? "");
+      setGradeId(subject?.grade_id ?? "");
+      setTrackIds(subject?.track_ids ?? []);
+      setSortOrder(subject?.sort_order ?? 0);
+      setIcon(subject?.icon ?? "BookOpen");
+      setColor(subject?.color ?? "#3b82f6");
+      setGroupCode(subject?.group_code ?? "");
+      setGroupName(subject?.group_name ?? "");
+    }
     setError(null);
   }, [isCreate, open, subject]);
 
@@ -97,7 +108,7 @@ export function SubjectEditDialog({
       return;
     }
     if (!gradeId) {
-      setError("اختيار الصف مطلوب.");
+      setError("الصف مطلوب ويجب اختياره من القائمة.");
       return;
     }
     if (trackIds.length < 1 || trackIds.length > 2) {
