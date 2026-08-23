@@ -249,6 +249,47 @@ function ArabicMultiFilePicker({
   );
 }
 
+/** يحوّل رموز مخالفات المعيار إلى جمل تصحيحية واضحة للمستخدم. */
+const ARTIFACT_FIX_HINTS: Record<string, string> = {
+  RTL_DIRECTION_MISSING:
+    'الملف لا يحتوي dir="rtl" — أضِف السمة إلى وسم <html> ثم أعد الرفع.',
+  RESPONSIVE_VIEWPORT_MISSING:
+    'وسم viewport مفقود — أضِف <meta name="viewport" content="width=device-width, initial-scale=1"> داخل <head>.',
+  JS_NOT_ALLOWED_IN_STATIC_PROFILE:
+    "الملف يحتوي كود JavaScript — الشرح والملخص والخريطة الذهنية يجب أن تكون HTML ثابتًا بلا وسم <script>.",
+  INLINE_EVENT_HANDLER_FORBIDDEN:
+    "الملف يحتوي معالجات أحداث مضمّنة مثل onclick — احذفها من الوسوم.",
+  EXTERNAL_RESOURCE_FORBIDDEN:
+    "الملف يشير إلى مصدر خارجي على الإنترنت (خط أو مكتبة أو صورة برابط https) — ضمِّن الأنماط داخل الملف وارفع الصور كمرفقات.",
+  ANSWER_LEAKAGE_DETECTED:
+    "الملف يحتوي إجابات أو تبريرات — يجب ألا تُكتب داخل HTML؛ الإجابات تُرفع عبر قالب الأسئلة فقط.",
+  EMPTY_HTML: "الملف فارغ.",
+  ARTIFACT_EMPTY: "الملف فارغ.",
+  ARTIFACT_UTF8_INVALID: "الملف ليس نصًا بترميز UTF-8 — احفظه بترميز UTF-8 وأعد الرفع.",
+  NESTED_ZIP_FORBIDDEN:
+    "لا ترفع حزمة ZIP في هذه الخانة — حزمة ZIP مقبولة في «التجارب المعملية» فقط ويجب أن تحتوي index.html.",
+  ARTIFACT_EXTENSION_FORBIDDEN: "امتداد الملف غير مسموح لهذا المكوّن.",
+};
+
+function friendlyArtifactMessage(finding: { code: string; messageAr: string }): string {
+  return ARTIFACT_FIX_HINTS[finding.code] ?? finding.messageAr;
+}
+
+/** تنزيل القالب كـ Blob حتى لا يُعرض الملف الثنائي كرموز داخل إطار المعاينة. */
+async function downloadTemplateFile(url: string, filename: string): Promise<void> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`تعذر تنزيل القالب (HTTP ${response.status}).`);
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+}
+
 async function sha256Hex(file: File): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -399,6 +440,8 @@ export function GoldenLessonPackageBuilder() {
   const [supplementalAssets, setSupplementalAssets] = useState<UploadedSupplementalAsset[]>([]);
   const [hashing, setHashing] = useState<GoldenCapability | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [capabilityErrors, setCapabilityErrors] = useState<Partial<Record<GoldenCapability, string[]>>>({});
+  const [templateBusy, setTemplateBusy] = useState<GoldenCapability | null>(null);
   const [validation, setValidation] = useState<GoldenLessonValidationResult | null>(null);
   const [intake, setIntake] = useState<DirectIntakeResult | null>(null);
   const [intakeError, setIntakeError] = useState<string | null>(null);
@@ -583,20 +626,33 @@ export function GoldenLessonPackageBuilder() {
   const completion = requiredCapabilities.length
     ? Math.round((completedRequired / requiredCapabilities.length) * 100)
     : 0;
+  const setCapabilityError = (capability: GoldenCapability, messages: string[] | null) => {
+    setCapabilityErrors((current) => {
+      const next = { ...current };
+      if (messages && messages.length) next[capability] = messages;
+      else delete next[capability];
+      return next;
+    });
+    if (messages && messages.length) scrollToCapability(capability);
+  };
+
   const handleCapabilityFile = async (capability: GoldenCapability, file?: File) => {
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
-      setFileError(`الملف ${file.name} أكبر من 5MB.`);
+      setCapabilityError(capability, [`الملف ${file.name} أكبر من 5 ميجابايت.`]);
       return;
     }
     const duplicate = Object.entries(uploads).some(
       ([key, item]) => key !== capability && item?.fileName === file.name,
     ) || answersCompanion?.fileName === file.name || supplementalAssets.some((item) => item.path === file.name);
     if (duplicate) {
-      setFileError(`اسم الملف ${file.name} مستخدم مسبقًا داخل عملية الاستيراد؛ استخدم اسمًا فريدًا لكل محتوى.`);
+      setCapabilityError(capability, [
+        `اسم الملف ${file.name} مستخدم مسبقًا في مكوّن آخر؛ أعد تسميته باسم فريد ثم أعد الرفع.`,
+      ]);
       return;
     }
     setFileError(null);
+    setCapabilityError(capability, null);
     setValidation(null);
     setHashing(capability);
     try {
@@ -606,17 +662,29 @@ export function GoldenLessonPackageBuilder() {
       let convertedAnswers: Array<Record<string, unknown>> | null = null;
       let convertedActivityAssets: File[] = [];
       if (capability === "labExperimentHtml" && /\.zip$/i.test(file.name)) {
-        const converted = await convertHtml5ActivityZip(file);
-        artifactFile = converted.htmlFile;
-        displayName = `${file.name} (HTML5)`;
-        convertedActivityAssets = converted.assets;
+        try {
+          const converted = await convertHtml5ActivityZip(file);
+          artifactFile = converted.htmlFile;
+          displayName = `${file.name} (HTML5)`;
+          convertedActivityAssets = converted.assets;
+        } catch (zipError) {
+          throw new Error(
+            `تعذّر استخراج حزمة ZIP: ${zipError instanceof Error ? zipError.message : "ملف غير صالح"} — يجب أن تحتوي الحزمة ملف index.html في جذرها.`,
+          );
+        }
       }
       if (capability === "officialBookQuestions" || capability === "selfTest") {
-        const converted = await convertQuestionWorkbook(capability, file);
-        artifactFile = converted.publicFile;
-        displayName = file.name;
-        rowCount = converted.rowCount;
-        convertedAnswers = converted.answers;
+        try {
+          const converted = await convertQuestionWorkbook(capability, file);
+          artifactFile = converted.publicFile;
+          displayName = file.name;
+          rowCount = converted.rowCount;
+          convertedAnswers = converted.answers;
+        } catch (excelError) {
+          throw new Error(
+            `تعذّرت قراءة ملف Excel: ${excelError instanceof Error ? excelError.message : "ملف غير صالح"} — استخدم القالب المعتمد أعلاه دون تغيير أسماء الأعمدة.`,
+          );
+        }
       }
 
       const bytes = new Uint8Array(await artifactFile.arrayBuffer());
@@ -627,10 +695,9 @@ export function GoldenLessonPackageBuilder() {
           delete next[capability];
           return next;
         });
-        const visible = artifactValidation.findings.slice(0, 3).map((item) => item.messageAr).join(" — ");
-        const remaining = artifactValidation.findings.length - 3;
-        setFileError(
-          `${CAPABILITY_LABEL[capability]}: ${visible}${remaining > 0 ? ` — و${remaining} مشكلة أخرى` : ""}`,
+        setCapabilityError(
+          capability,
+          Array.from(new Set(artifactValidation.findings.map(friendlyArtifactMessage))),
         );
         return;
       }
@@ -687,7 +754,9 @@ export function GoldenLessonPackageBuilder() {
         [capability]: { fileName: artifactFile.name, displayName, sha256, file: artifactFile, rowCount },
       }));
     } catch (error) {
-      setFileError(error instanceof Error ? error.message : "تعذر فحص الملف.");
+      setCapabilityError(capability, [
+        error instanceof Error ? error.message : "تعذر فحص الملف.",
+      ]);
     } finally {
       setHashing(null);
     }
@@ -727,6 +796,7 @@ export function GoldenLessonPackageBuilder() {
     }
     setValidation(null);
     setFileError(null);
+    setCapabilityError(capability, null);
   };
 
   const hasSelectedFiles = Object.keys(uploads).length > 0 ||
@@ -740,6 +810,7 @@ export function GoldenLessonPackageBuilder() {
     setSupplementalAssets([]);
     setValidation(null);
     setFileError(null);
+    setCapabilityErrors({});
     setIntake(null);
     setDraftMessage(null);
   };
@@ -1110,7 +1181,7 @@ export function GoldenLessonPackageBuilder() {
               </div>
               {applicability !== "NA" && (
                 <>
-                  <p className="text-xs text-muted-foreground">
+                   <p className="text-xs text-muted-foreground">
                      المطلوب: {capability === "officialBookQuestions"
                        ? "قالب XLSX لأنشطة وأسئلة الدرس — نص السؤال والإجابة النموذجية لكل صف"
                        : capability === "selfTest"
@@ -1119,18 +1190,40 @@ export function GoldenLessonPackageBuilder() {
                           ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
                         : fileContract.expectedAr}
                   </p>
+                  {fileContract.formats.includes("HTML") && (
+                    <ul className="list-disc space-y-0.5 pe-4 text-[11px] leading-relaxed text-muted-foreground">
+                      <li>يجب أن يحتوي وسم html على dir="rtl" ووسم meta باسم viewport.</li>
+                      <li>بدون روابط خارجية (خطوط أو مكتبات على الإنترنت) — ضمِّن الأنماط داخل الملف.</li>
+                      <li>
+                        {capability === "labExperimentHtml"
+                          ? "JavaScript مسموح داخل الحزمة التفاعلية، وحزمة ZIP مقبولة إذا احتوت index.html في جذرها."
+                          : "بدون وسم script أو معالجات onclick — المحتوى ثابت."}
+                      </li>
+                    </ul>
+                  )}
                    {(capability === "selfTest" || capability === "officialBookQuestions") && (
-                    <Button asChild type="button" size="sm" variant="outline" className="min-h-[40px] gap-2">
-                       <a
-                         href={contentImportTemplateDownloadUrl(
-                           capability === "selfTest"
-                             ? "10_self_test_questions_template.xlsx"
-                             : "09_official_book_questions_template.xlsx",
-                         )}
-                         download
-                       >
-                        <Download className="h-4 w-4" />تنزيل القالب المعتمد
-                      </a>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="min-h-[40px] gap-2"
+                      disabled={templateBusy === capability}
+                      onClick={() => {
+                        const filename = capability === "selfTest"
+                          ? "10_self_test_questions_template.xlsx"
+                          : "09_official_book_questions_template.xlsx";
+                        setTemplateBusy(capability);
+                        void downloadTemplateFile(contentImportTemplateDownloadUrl(filename), filename)
+                          .catch(() => {
+                            window.open(contentImportTemplateDownloadUrl(filename), "_blank", "noopener");
+                          })
+                          .finally(() => setTemplateBusy(null));
+                      }}
+                    >
+                      {templateBusy === capability
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <Download className="h-4 w-4" />}
+                      تنزيل القالب المعتمد
                     </Button>
                   )}
                   <ArabicFilePicker
@@ -1145,7 +1238,20 @@ export function GoldenLessonPackageBuilder() {
                     fileName={upload?.displayName}
                     onFile={(file) => handleCapabilityFile(capability, file)}
                   />
-                  {hashing === capability && <p className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" />حساب SHA-256…</p>}
+                  {hashing === capability && <p className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" />جارٍ فحص الملف…</p>}
+                  {capabilityErrors[capability]?.length ? (
+                    <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs">
+                      <p className="flex items-center gap-2 font-semibold text-destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        لم يُقبل الملف — صحّح ما يلي ثم أعد الاختيار:
+                      </p>
+                      <ul className="mt-2 list-disc space-y-1 pe-4 text-destructive">
+                        {capabilityErrors[capability]!.map((message) => (
+                          <li key={message}>{message}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                   {upload && (
                     <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs">
                       <div className="flex items-center justify-between gap-2">
