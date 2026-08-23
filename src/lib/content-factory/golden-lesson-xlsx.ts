@@ -1,6 +1,6 @@
 import type { GoldenCapability } from "./golden-lesson-contract.ts";
 
-type QuestionCapability = Extract<GoldenCapability, "selfTest">;
+type QuestionCapability = Extract<GoldenCapability, "selfTest" | "officialBookQuestions">;
 
 export interface ConvertedQuestionWorkbook {
   publicFile: File;
@@ -21,6 +21,18 @@ const REQUIRED: Record<QuestionCapability, readonly string[]> = {
     "correct_index",
     "explanation",
   ],
+  officialBookQuestions: [
+    "question_code",
+    "subject_code",
+    "lesson_code",
+    "question_text",
+    "model_answer",
+  ],
+};
+
+const PUBLIC_FILE_NAME: Record<QuestionCapability, string> = {
+  selfTest: "self-test.json",
+  officialBookQuestions: "lesson-activities.json",
 };
 
 function cellText(value: unknown): string {
@@ -42,7 +54,7 @@ function options(row: Record<string, string>): string[] {
     .filter(Boolean);
 }
 
-function toPublicQuestion(_capability: QuestionCapability, row: Record<string, string>) {
+function toPublicQuestion(capability: QuestionCapability, row: Record<string, string>) {
   const base = {
     id: row.question_code,
     question_code: row.question_code,
@@ -51,10 +63,29 @@ function toPublicQuestion(_capability: QuestionCapability, row: Record<string, s
     options: options(row),
     sort_order: row.sort_order ? Number(row.sort_order) : undefined,
   };
+  if (capability === "officialBookQuestions") {
+    return {
+      ...base,
+      prompt_kind: row.prompt_kind || undefined,
+      question_type: "EXTENDED_RESPONSE",
+      type: base.options.length >= 2 ? "multiple_choice" : "extended_response",
+    };
+  }
   return { ...base, type: "multiple_choice" };
 }
 
 function toAnswer(capability: QuestionCapability, row: Record<string, string>) {
+  if (capability === "officialBookQuestions") {
+    const answer: Record<string, unknown> = {
+      capability,
+      question_id: row.question_code,
+      model_answer: row.model_answer,
+    };
+    if (row.explanation) answer.explanation = row.explanation;
+    if (row.accepted_answers) answer.accepted_answers = row.accepted_answers;
+    if (row.correct_index) answer.correct_index = Number(row.correct_index);
+    return answer;
+  }
   const answer: Record<string, unknown> = {
     capability,
     question_id: row.question_code,
@@ -68,6 +99,7 @@ function toAnswer(capability: QuestionCapability, row: Record<string, string>) {
   }
   return answer;
 }
+
 
 export async function convertQuestionWorkbook(
   capability: QuestionCapability,
