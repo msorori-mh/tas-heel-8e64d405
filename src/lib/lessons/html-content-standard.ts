@@ -146,14 +146,14 @@ export function validateHtmlAgainstProfile(
   if (!rules.javascriptAllowed && SCRIPT_PATTERN.test(body)) {
     push("JS_NOT_ALLOWED_IN_STATIC_PROFILE");
   }
-  if (INLINE_HANDLER_PATTERN.test(body)) {
+  if (!rules.javascriptAllowed && INLINE_HANDLER_PATTERN.test(body)) {
     push("INLINE_EVENT_HANDLER_FORBIDDEN");
   }
   if (rules.requireRtl && !RTL_PATTERN.test(body)) {
     push("RTL_DIRECTION_MISSING");
   }
   if (rules.requireResponsiveViewport && !VIEWPORT_PATTERN.test(body)) {
-    push("RESPONSIVE_VIEWPORT_MISSING");
+    push("RESPONSIVE_VIEWPORT_MISSING", "warning");
   }
   if (ANSWER_LEAK_PATTERNS.some((p) => p.test(body))) {
     push("ANSWER_LEAKAGE_DETECTED");
