@@ -796,6 +796,7 @@ export function GoldenLessonPackageBuilder() {
     }
     setValidation(null);
     setFileError(null);
+    setCapabilityError(capability, null);
   };
 
   const hasSelectedFiles = Object.keys(uploads).length > 0 ||
@@ -809,6 +810,7 @@ export function GoldenLessonPackageBuilder() {
     setSupplementalAssets([]);
     setValidation(null);
     setFileError(null);
+    setCapabilityErrors({});
     setIntake(null);
     setDraftMessage(null);
   };
