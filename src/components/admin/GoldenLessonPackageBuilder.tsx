@@ -1236,16 +1236,43 @@ export function GoldenLessonPackageBuilder() {
       {validation && (
         <div className={`rounded-xl border p-4 space-y-3 ${validation.valid ? "border-emerald-500/30 bg-emerald-500/10" : "border-destructive/30 bg-destructive/5"}`}>
           <p className="font-medium">{validation.valid ? "الملفات مكتملة وجاهزة للاستيراد" : "الملفات تحتاج تصحيحًا"}</p>
-          {validation.findings.length > 0 && (
-            <ul className="space-y-1 text-sm">
-              {validation.findings.map((finding, index) => (
-                <li key={`${finding.code}-${index}`} className="rounded-lg border bg-background/70 px-3 py-2">
-                  <Badge variant={finding.severity === "ERROR" ? "destructive" : "outline"} className="ms-2">{finding.severity === "ERROR" ? "خطأ" : "تنبيه"}</Badge>
-                  {finding.messageAr}
-                </li>
-              ))}
-            </ul>
-          )}
+          {validation.findings.length > 0 && (() => {
+            const friendly = toFriendlyFindings(validation.findings, Boolean(selectedLesson));
+            const errors = friendly.filter((item) => item.severity === "ERROR");
+            const warnings = friendly.filter((item) => item.severity === "WARNING");
+            const renderItem = (item: FriendlyFinding) => (
+              <li key={item.key} className="flex flex-wrap items-center gap-2 rounded-lg border bg-background/70 px-3 py-2">
+                <Badge variant={item.severity === "ERROR" ? "destructive" : "outline"}>
+                  {item.severity === "ERROR" ? "خطأ" : "تنبيه"}
+                </Badge>
+                <span className="flex-1">{item.text}</span>
+                {item.capability && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[36px]"
+                    onClick={() => scrollToCapability(item.capability!)}
+                  >
+                    انتقال إلى المكوّن
+                  </Button>
+                )}
+              </li>
+            );
+            return (
+              <div className="space-y-3 text-sm">
+                {errors.length > 0 && <ul className="space-y-1">{errors.map(renderItem)}</ul>}
+                {warnings.length > 0 && (
+                  <details className="rounded-lg border bg-background/50 px-3 py-2">
+                    <summary className="cursor-pointer text-xs text-muted-foreground">
+                      تفاصيل إضافية ({warnings.length})
+                    </summary>
+                    <ul className="mt-2 space-y-1">{warnings.map(renderItem)}</ul>
+                  </details>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
     </section>
