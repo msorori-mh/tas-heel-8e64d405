@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -116,15 +116,29 @@ function AdminExamTemplatesPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h1 className="text-xl font-bold text-foreground">قوالب الاختبارات</h1>
+            <h1 className="text-xl font-bold text-foreground">قوالب اختبارات مخصصة</h1>
             <p className="text-xs text-muted-foreground mt-1">
-              إدارة قوالب الاختبارات وربط الأسئلة بها.
+              أداة متقدمة واختيارية لبناء اختبار مخصص من بنك الأسئلة؛ ليست من محتويات الدرس السبعة ولا من أرشيف النماذج الوزارية.
             </p>
           </div>
           <Button onClick={() => setDialogState({ kind: "create" })} className="gap-1">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">قالب جديد</span>
           </Button>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs text-muted-foreground">
+          <span>
+            اختبار الدرس الرسمي وأسئلة «اختبر نفسك» تُرفعان من استيراد محتويات الدرس. استخدم هذه الصفحة فقط عند الحاجة إلى قالب إضافي مخصص.
+          </span>
+          <div className="flex gap-2">
+            <Link to="/admin/import" className="rounded-lg border border-border bg-card px-3 py-1.5 hover:bg-muted">
+              استيراد محتوى درس
+            </Link>
+            <Link to="/admin/ministerial-exams" className="rounded-lg border border-border bg-card px-3 py-1.5 hover:bg-muted">
+              النماذج الوزارية
+            </Link>
+          </div>
         </div>
 
         {templatesQ.isLoading ? (
@@ -137,7 +151,7 @@ function AdminExamTemplatesPage() {
           </div>
         ) : rows.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-            لا توجد قوالب اختبار بعد. ابدأ بإضافة قالب جديد.
+            لا توجد قوالب مخصصة، وهذا طبيعي. أنشئ قالبًا فقط عندما تحتاج اختبارًا إضافيًا خارج محتويات الدرس الأساسية.
           </div>
         ) : (
           <ul className="space-y-2">
@@ -234,3 +248,4 @@ function AdminExamTemplatesPage() {
     </AdminLayout>
   );
 }
+
