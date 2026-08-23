@@ -48,15 +48,22 @@ export const publishGoldenLessonDirect = createServerFn({ method: "POST" })
     const steps: DirectPublishStep[] = [];
     const push = (key: string, label: string, detail: string) => steps.push({ key, label, detail });
 
-    const pkgResult = await supabase
-      .from("golden_lesson_packages" as never)
+    const pkgResult = (await (supabase as unknown as {
+      from(table: string): {
+        select(columns: string): {
+          eq(column: string, value: string): { single(): PromiseLike<{ data: unknown; error: { message: string } | null }> };
+        };
+      };
+    })
+      .from("golden_lesson_packages")
       .select("review_status,current_version")
       .eq("id", data.packageId)
-      .single();
+      .single());
     if (pkgResult.error || !pkgResult.data) {
       throw new Error(pkgResult.error?.message ?? "PACKAGE_NOT_FOUND");
     }
-    const pkg = pkgResult.data as unknown as Record<string, unknown>;
+    const pkg = pkgResult.data as Record<string, unknown>;
+
     if (Number(pkg['current_version']) !== data.version) throw new Error("STALE_PACKAGE_VERSION");
     let status = String(pkg['review_status']);
 
