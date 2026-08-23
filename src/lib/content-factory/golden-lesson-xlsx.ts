@@ -243,7 +243,6 @@ export async function convertQuestionWorkbook(
 
 
   if (!matching) {
-    const named = workbook.worksheets.find((worksheet) => worksheet.name.trim() === SHEET_NAME[capability]);
     if (named) {
       const values = Array.from(readHeaders(named).values());
       const missing = required.filter((column) => !values.includes(column));
@@ -251,6 +250,7 @@ export async function convertQuestionWorkbook(
         `ورقة «${SHEET_NAME[capability]}» ينقصها أعمدة إلزامية: ${missing.join("، ")} — نزّل القالب المعتمد ولا تغيّر أسماء الأعمدة.`,
       );
     }
+
     throw new Error(
       `لم يُعثر على ورقة «${SHEET_NAME[capability]}» بأعمدة ${CAPABILITY_LABEL[capability]} المعتمدة — تأكد أنك رفعت القالب الصحيح لهذا المكوّن.`,
     );
