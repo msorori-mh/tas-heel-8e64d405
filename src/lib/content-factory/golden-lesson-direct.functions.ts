@@ -49,8 +49,8 @@ export const createGoldenLessonDirectUpload = createServerFn({ method: "POST" })
     const declarations = planGoldenLessonDirectFiles(manifest);
     const intakeId = randomUUID();
     const uploads = [];
-    for (const declaration of declarations) {
-      const storagePath = `${userId}/${intakeId}/${declaration.path}`;
+    for (const [index, declaration] of declarations.entries()) {
+      const storagePath = `${userId}/${intakeId}/${storageObjectName(declaration, index)}`;
       const signed = assertDb(await supabase.storage.from(BUCKET).createSignedUploadUrl(storagePath));
       if (!signed.token) throw new Error("SIGNED_UPLOAD_TOKEN_MISSING");
       uploads.push({
@@ -72,8 +72,8 @@ export const verifyAndStageGoldenLessonDirect = createServerFn({ method: "POST" 
     const declarations = planGoldenLessonDirectFiles(manifest);
     const files = [];
     let downloadedBytes = 0;
-    for (const declaration of declarations) {
-      const storagePath = `${userId}/${data.intakeId}/${declaration.path}`;
+    for (const [index, declaration] of declarations.entries()) {
+      const storagePath = `${userId}/${data.intakeId}/${storageObjectName(declaration, index)}`;
       const downloaded = await supabase.storage.from(BUCKET).download(storagePath);
       if (downloaded.error || !downloaded.data) {
         throw new Error(downloaded.error?.message ?? "DIRECT_FILE_DOWNLOAD_FAILED");
