@@ -50,6 +50,7 @@ import {
   validateGoldenLessonArtifactBytes,
 } from "@/lib/content-factory/golden-lesson-file-contract";
 import { convertQuestionWorkbook } from "@/lib/content-factory/golden-lesson-xlsx";
+import { convertLessonQuestionsHtml } from "@/lib/content-factory/golden-lesson-questions-html";
 import { convertHtml5ActivityZip } from "@/lib/content-factory/golden-lesson-html5";
 import { getContentCodeRegistry } from "@/lib/content-codes/content-codes.functions";
 import type { ContentCodeRegistry } from "@/lib/content-codes/content-codes.types";
@@ -58,12 +59,12 @@ import { contentImportTemplateDownloadUrl } from "@/lib/content-import/content-i
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 const CAPABILITY_LABEL: Record<GoldenCapability, string> = {
-  officialBookContent: "محتوى الكتاب الرسمي",
+  officialBookContent: "محتوى الكتاب المدرسي",
   tamkeenExplanationHtml: "شرح تمكين",
   lessonSummaryHtml: "ملخص الدرس",
   mindMapHtml: "الخريطة الذهنية",
-  labExperimentHtml: "التجربة / النشاط التفاعلي",
-  officialBookQuestions: "أسئلة الكتاب الرسمية",
+  labExperimentHtml: "التجارب المعملية والتطبيقية",
+  officialBookQuestions: "أنشطة وأسئلة الدرس",
   selfTest: "اختبر فهمك",
 };
 
@@ -251,7 +252,7 @@ interface LocalLessonDraft {
   lessonCode: string;
   uploads: Partial<Record<GoldenCapability, UploadedArtifact>>;
   internalProvenance: Partial<Record<GoldenCapability, UploadedArtifact>>;
-  answerSets: Partial<Record<"officialBookQuestions" | "selfTest", Array<Record<string, unknown>>>>;
+  answerSets: Partial<Record<"selfTest", Array<Record<string, unknown>>>>;
   answersCompanion: UploadedArtifact | null;
   supplementalAssets: UploadedSupplementalAsset[];
   savedAt: string;
@@ -312,7 +313,7 @@ export function GoldenLessonPackageBuilder() {
   const [selectedLessonCode, setSelectedLessonCode] = useState("");
   const [uploads, setUploads] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
   const [internalProvenance, setInternalProvenance] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
-  const [answerSets, setAnswerSets] = useState<Partial<Record<"officialBookQuestions" | "selfTest", Array<Record<string, unknown>>>>>({});
+  const [answerSets, setAnswerSets] = useState<Partial<Record<"selfTest", Array<Record<string, unknown>>>>>({});
   const [answersCompanion, setAnswersCompanion] = useState<UploadedArtifact | null>(null);
   const [supplementalAssets, setSupplementalAssets] = useState<UploadedSupplementalAsset[]>([]);
   const [hashing, setHashing] = useState<GoldenCapability | null>(null);
@@ -529,7 +530,13 @@ export function GoldenLessonPackageBuilder() {
         displayName = `${file.name} (HTML5)`;
         convertedActivityAssets = converted.assets;
       }
-      if (capability === "officialBookQuestions" || capability === "selfTest") {
+      if (capability === "officialBookQuestions") {
+        const converted = await convertLessonQuestionsHtml(file);
+        artifactFile = converted.publicFile;
+        displayName = file.name;
+        rowCount = converted.rowCount;
+      }
+      if (capability === "selfTest") {
         const converted = await convertQuestionWorkbook(capability, file);
         artifactFile = converted.publicFile;
         rowCount = converted.rowCount;
@@ -620,7 +627,7 @@ export function GoldenLessonPackageBuilder() {
       delete next[capability];
       return next;
     });
-    if (capability === "officialBookQuestions" || capability === "selfTest") {
+    if (capability === "selfTest") {
       const nextAnswerSets = { ...answerSets };
       delete nextAnswerSets[capability];
       setAnswerSets(nextAnswerSets);
@@ -882,7 +889,7 @@ export function GoldenLessonPackageBuilder() {
         </div>
         <p className="text-sm text-muted-foreground max-w-3xl">
           ارفع كل محتوى في مكانه. لا يوجد ملف ZIP للدرس، ولا PDF للدرس، ولا ملف توثيق مصدر.
-          الإجابات تُستخرج آليًا من قالبي 09 و10 وتحفظ في الطبقة الخادمية المحمية.
+           «اختبر فهمك» وحده يستخدم Excel، وتُفصل إجاباته وتعليلاته آليًا في الطبقة الخادمية المحمية.
         </p>
        </div>
 
@@ -1001,7 +1008,7 @@ export function GoldenLessonPackageBuilder() {
         </div>
         <Progress value={completion} />
         <p className="text-xs text-muted-foreground">
-          النشاط الاختياري: {uploads.labExperimentHtml ? "مرفوع" : "غير مرفوع — لا يمنع حفظ بقية محتويات الدرس"}
+          المكونات الاختيارية: التجارب المعملية وأنشطة وأسئلة الدرس؛ غيابهما لا يمنع حفظ بقية المحتوى.
         </p>
       </div>}
 
@@ -1027,32 +1034,28 @@ export function GoldenLessonPackageBuilder() {
               {applicability !== "NA" && (
                 <>
                   <p className="text-xs text-muted-foreground">
-                    المطلوب: {capability === "officialBookQuestions"
-                      ? "قالب 09 بصيغة XLSX لأسئلة الكتاب الأصلية"
-                      : capability === "selfTest"
-                        ? "قالب 10 بصيغة XLSX لبنك الاختيار من متعدد"
+                     المطلوب: {capability === "officialBookQuestions"
+                       ? "ملف HTML منظّم؛ كل سؤال داخل عنصر يحمل data-question-id ونصه داخل data-question-text"
+                       : capability === "selfTest"
+                         ? "قالب XLSX لبنك الاختيار من متعدد — أربعة خيارات وتعليل لكل سؤال"
                         : capability === "labExperimentHtml"
                           ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
                         : fileContract.expectedAr}
                   </p>
-                  {(capability === "officialBookQuestions" || capability === "selfTest") && (
+                   {capability === "selfTest" && (
                     <Button asChild type="button" size="sm" variant="outline" className="min-h-[40px] gap-2">
-                      <a href={contentImportTemplateDownloadUrl(capability === "officialBookQuestions"
-                        ? "09_official_book_questions_template.xlsx"
-                        : "10_self_test_questions_template.xlsx")} download>
+                       <a href={contentImportTemplateDownloadUrl("10_self_test_questions_template.xlsx")} download>
                         <Download className="h-4 w-4" />تنزيل القالب المعتمد
                       </a>
                     </Button>
                   )}
                   <ArabicFilePicker
                     id={`golden-artifact-${capability}`}
-                    accept={capability === "officialBookQuestions" || capability === "selfTest"
+                     accept={capability === "selfTest"
                       ? ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                      : capability === "officialBookContent"
-                        ? ".html,text/html"
-                        : capability === "labExperimentHtml"
+                       : capability === "labExperimentHtml"
                           ? ".html,.zip,text/html,application/zip"
-                        : fileContract.accept}
+                         : ".html,text/html"}
                     disabled={hashing !== null}
                     fileName={upload?.displayName}
                     onFile={(file) => handleCapabilityFile(capability, file)}
