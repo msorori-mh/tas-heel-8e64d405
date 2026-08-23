@@ -626,20 +626,33 @@ export function GoldenLessonPackageBuilder() {
   const completion = requiredCapabilities.length
     ? Math.round((completedRequired / requiredCapabilities.length) * 100)
     : 0;
+  const setCapabilityError = (capability: GoldenCapability, messages: string[] | null) => {
+    setCapabilityErrors((current) => {
+      const next = { ...current };
+      if (messages && messages.length) next[capability] = messages;
+      else delete next[capability];
+      return next;
+    });
+    if (messages && messages.length) scrollToCapability(capability);
+  };
+
   const handleCapabilityFile = async (capability: GoldenCapability, file?: File) => {
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
-      setFileError(`الملف ${file.name} أكبر من 5MB.`);
+      setCapabilityError(capability, [`الملف ${file.name} أكبر من 5 ميجابايت.`]);
       return;
     }
     const duplicate = Object.entries(uploads).some(
       ([key, item]) => key !== capability && item?.fileName === file.name,
     ) || answersCompanion?.fileName === file.name || supplementalAssets.some((item) => item.path === file.name);
     if (duplicate) {
-      setFileError(`اسم الملف ${file.name} مستخدم مسبقًا داخل عملية الاستيراد؛ استخدم اسمًا فريدًا لكل محتوى.`);
+      setCapabilityError(capability, [
+        `اسم الملف ${file.name} مستخدم مسبقًا في مكوّن آخر؛ أعد تسميته باسم فريد ثم أعد الرفع.`,
+      ]);
       return;
     }
     setFileError(null);
+    setCapabilityError(capability, null);
     setValidation(null);
     setHashing(capability);
     try {
@@ -649,17 +662,29 @@ export function GoldenLessonPackageBuilder() {
       let convertedAnswers: Array<Record<string, unknown>> | null = null;
       let convertedActivityAssets: File[] = [];
       if (capability === "labExperimentHtml" && /\.zip$/i.test(file.name)) {
-        const converted = await convertHtml5ActivityZip(file);
-        artifactFile = converted.htmlFile;
-        displayName = `${file.name} (HTML5)`;
-        convertedActivityAssets = converted.assets;
+        try {
+          const converted = await convertHtml5ActivityZip(file);
+          artifactFile = converted.htmlFile;
+          displayName = `${file.name} (HTML5)`;
+          convertedActivityAssets = converted.assets;
+        } catch (zipError) {
+          throw new Error(
+            `تعذّر استخراج حزمة ZIP: ${zipError instanceof Error ? zipError.message : "ملف غير صالح"} — يجب أن تحتوي الحزمة ملف index.html في جذرها.`,
+          );
+        }
       }
       if (capability === "officialBookQuestions" || capability === "selfTest") {
-        const converted = await convertQuestionWorkbook(capability, file);
-        artifactFile = converted.publicFile;
-        displayName = file.name;
-        rowCount = converted.rowCount;
-        convertedAnswers = converted.answers;
+        try {
+          const converted = await convertQuestionWorkbook(capability, file);
+          artifactFile = converted.publicFile;
+          displayName = file.name;
+          rowCount = converted.rowCount;
+          convertedAnswers = converted.answers;
+        } catch (excelError) {
+          throw new Error(
+            `تعذّرت قراءة ملف Excel: ${excelError instanceof Error ? excelError.message : "ملف غير صالح"} — استخدم القالب المعتمد أعلاه دون تغيير أسماء الأعمدة.`,
+          );
+        }
       }
 
       const bytes = new Uint8Array(await artifactFile.arrayBuffer());
@@ -670,10 +695,9 @@ export function GoldenLessonPackageBuilder() {
           delete next[capability];
           return next;
         });
-        const visible = artifactValidation.findings.slice(0, 3).map((item) => item.messageAr).join(" — ");
-        const remaining = artifactValidation.findings.length - 3;
-        setFileError(
-          `${CAPABILITY_LABEL[capability]}: ${visible}${remaining > 0 ? ` — و${remaining} مشكلة أخرى` : ""}`,
+        setCapabilityError(
+          capability,
+          Array.from(new Set(artifactValidation.findings.map(friendlyArtifactMessage))),
         );
         return;
       }
