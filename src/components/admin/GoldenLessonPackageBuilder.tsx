@@ -251,7 +251,7 @@ interface LocalLessonDraft {
   lessonCode: string;
   uploads: Partial<Record<GoldenCapability, UploadedArtifact>>;
   internalProvenance: Partial<Record<GoldenCapability, UploadedArtifact>>;
-  answerSets: Partial<Record<"selfTest", Array<Record<string, unknown>>>>;
+  answerSets: Partial<Record<"selfTest" | "officialBookQuestions", Array<Record<string, unknown>>>>;
   answersCompanion: UploadedArtifact | null;
   supplementalAssets: UploadedSupplementalAsset[];
   savedAt: string;
@@ -312,7 +312,7 @@ export function GoldenLessonPackageBuilder() {
   const [selectedLessonCode, setSelectedLessonCode] = useState("");
   const [uploads, setUploads] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
   const [internalProvenance, setInternalProvenance] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
-  const [answerSets, setAnswerSets] = useState<Partial<Record<"selfTest", Array<Record<string, unknown>>>>>({});
+  const [answerSets, setAnswerSets] = useState<Partial<Record<"selfTest" | "officialBookQuestions", Array<Record<string, unknown>>>>>({});
   const [answersCompanion, setAnswersCompanion] = useState<UploadedArtifact | null>(null);
   const [supplementalAssets, setSupplementalAssets] = useState<UploadedSupplementalAsset[]>([]);
   const [hashing, setHashing] = useState<GoldenCapability | null>(null);
