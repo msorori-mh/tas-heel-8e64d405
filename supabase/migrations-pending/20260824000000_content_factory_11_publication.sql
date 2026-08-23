@@ -789,8 +789,9 @@ BEGIN
        AND r.resource_code = v_code
        AND r.url = public.cf10_inline_html_url(v_code)
        AND r.metadata->>'cf11_publication_id' = v_publication_id::text;
-    IF v_count <> 1 OR v_live IS DISTINCT FROM v_expected
-       OR public.cf10_html_publication_pending(v_lesson, cap) THEN
+    -- This publication-scoped identity + hash query is authoritative. The legacy lesson-wide
+    -- pending probe can be affected by unrelated historical publication rows.
+    IF v_count <> 1 OR v_live IS DISTINCT FROM v_expected THEN
       RAISE EXCEPTION 'CF11_REPLAY_LIVE_STATE_CONFLICT: html.%', cap USING ERRCODE = '23505';
     END IF;
   END LOOP;
