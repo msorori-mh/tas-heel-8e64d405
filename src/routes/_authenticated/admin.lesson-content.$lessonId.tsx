@@ -209,7 +209,7 @@ function AdminLessonDetailPage() {
       const base =
         "id, lesson_id, resource_type, title, url, description, sort_order, created_at";
       let { data, error, count } = (await run(
-        `${base}, is_primary, html_resource_type, resource_code`,
+        `${base}, is_primary, html_resource_type, resource_code, metadata`,
       )) as any;
       if (error) {
         ({ data, error, count } = (await run(`${base}, is_primary`)) as any);
