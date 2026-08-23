@@ -125,7 +125,9 @@ export function LessonResourcesDialog({
         description: null,
         sort_order: nextSort,
         is_primary: false,
+        metadata: null,
         __local: true,
+
       },
     ]);
   };
