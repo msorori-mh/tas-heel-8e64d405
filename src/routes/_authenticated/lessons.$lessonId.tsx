@@ -403,7 +403,7 @@ function LessonPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_resources")
-        .select("id,resource_type,title,url,description,sort_order,is_primary,html_resource_type")
+        .select("id,resource_type,title,url,description,sort_order,is_primary,html_resource_type,metadata")
         .eq("lesson_id", lessonId)
         .order("sort_order");
       if (error) throw error;
