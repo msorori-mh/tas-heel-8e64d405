@@ -1037,6 +1037,25 @@ export function GoldenLessonPackageBuilder() {
     }
   };
 
+  /** Approve + publish in one audited server round-trip; no separate review page. */
+  const publishDirectNow = async () => {
+    if (!intake) return;
+    setPublishBusy(true);
+    setPublishError(null);
+    try {
+      const result = await publishGoldenLessonDirect({
+        data: { packageId: intake.packageId, version: intake.version },
+      });
+      setPublishSteps(result.steps);
+    } catch (error) {
+      setPublishError(error instanceof Error ? error.message : "DIRECT_PUBLISH_FAILED");
+    } finally {
+      setPublishBusy(false);
+    }
+  };
+
+
+
   return (
     <section dir="rtl" aria-labelledby="golden-package-builder-heading" className="rounded-2xl border border-primary/25 bg-card p-5 shadow-card space-y-5">
       <div className="space-y-2">
