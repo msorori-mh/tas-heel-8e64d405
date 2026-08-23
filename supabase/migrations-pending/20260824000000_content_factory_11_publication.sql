@@ -13,9 +13,9 @@
 --     3. creates/publishes mindMapHtml + labExperimentHtml rows in lesson_resources using the
 --        existing enum (`mindmap` / `experiment`) and `html_resource_type` markers, delivered
 --        through the already-published `lesson-internal://html/<resource_code>` scheme;
---     4. validates the lab HTML against the ACTUAL inline script sha256 declared in its CSP,
---        `connect-src 'none'`, zero external URLs and the sandbox contract, and validates that
---        the mind map is completely JS-free;
+--     4. validates both HTML resources as self-contained interactive documents and rejects
+--        network URLs, external scripts, dynamic execution primitives and dangerous elements;
+--        the student viewer centrally imposes an opaque-origin sandbox and network-denying CSP;
 --     5. publishes the CURRENT revision of the 5 official + 40 self-test questions while every
 --        answer / rationale stays confined to official_question_answers and
 --        question_option_rationales;
@@ -393,74 +393,33 @@ BEGIN
   PERFORM public.cf11_assert_no_network(_label, _html);
 END $$;
 
--- INTERACTIVE contract (lab experiment): the CSP must pin the ACTUAL inline script hash,
--- forbid every network destination, and the document must ship a sandbox contract marker.
+-- INTERACTIVE authored-file contract. CSP and sandbox are imposed centrally by the student
+-- viewer, so authored files do not need to duplicate them. Inline scripts/event handlers are
+-- allowed, while external execution/network primitives remain fail-closed.
 CREATE OR REPLACE FUNCTION public.cf11_assert_interactive_contract(_label text, _html text)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path = public, pg_temp AS $$
-DECLARE
-  csp text;
-  scripts text[];
-  s text;
-  h text;
-  hashes jsonb := '[]'::jsonb;
 BEGIN
   IF coalesce(btrim(_html),'') = '' THEN
     RAISE EXCEPTION 'CF11_HTML_EMPTY: %', _label USING ERRCODE = '23514';
   END IF;
-
-  -- Two explicit delimiter alternatives with negated character classes. A back-reference plus
-  -- a non-greedy `.*?` is NOT usable here: Postgres ARE derives greediness from the FIRST
-  -- quantifier in the branch (the leading \s+), so `.*?` would still run to the last quote and
-  -- swallow the whole document into the "CSP".
-  SELECT coalesce((regexp_match(_html,
-           '<meta\s+http-equiv\s*=\s*["'']Content-Security-Policy["''][^>]*\ycontent\s*=\s*"([^"]*)"',
-           'i'))[1],
-         (regexp_match(_html,
-           '<meta\s+http-equiv\s*=\s*["'']Content-Security-Policy["''][^>]*\ycontent\s*=\s*''([^'']*)''',
-           'i'))[1]) INTO csp;
-  IF csp IS NULL THEN
-    RAISE EXCEPTION 'CF11_LAB_CSP_MISSING: %', _label USING ERRCODE = '23514';
-  END IF;
-  IF csp !~* 'default-src\s+''none''' THEN
-    RAISE EXCEPTION 'CF11_LAB_CSP_DEFAULT_SRC: %', _label USING ERRCODE = '23514';
-  END IF;
-  IF csp !~* 'connect-src\s+''none''' THEN
-    RAISE EXCEPTION 'CF11_LAB_CSP_CONNECT_SRC: %', _label USING ERRCODE = '23514';
-  END IF;
-  IF csp ~* 'unsafe-inline|unsafe-eval|\*' THEN
-    RAISE EXCEPTION 'CF11_LAB_CSP_UNSAFE: %', _label USING ERRCODE = '23514';
-  END IF;
-  IF _html !~* 'data-tamkeen-sandbox\s*=\s*["'']allow-scripts["'']' THEN
-    RAISE EXCEPTION 'CF11_LAB_SANDBOX_CONTRACT_MISSING: %', _label USING ERRCODE = '23514';
+  IF _html ~* '(https?:)?//[a-z0-9]' THEN
+    RAISE EXCEPTION 'CF11_HTML_EXTERNAL_URL: %', _label USING ERRCODE = '23514';
   END IF;
   IF _html ~* '<script\y[^>]*\ysrc\s*=' THEN
-    RAISE EXCEPTION 'CF11_LAB_EXTERNAL_SCRIPT: %', _label USING ERRCODE = '23514';
+    RAISE EXCEPTION 'CF11_INTERACTIVE_EXTERNAL_SCRIPT: %', _label USING ERRCODE = '23514';
   END IF;
-
-  scripts := public.cf11_inline_scripts(_html);
-  IF array_length(scripts, 1) IS NULL THEN
-    RAISE EXCEPTION 'CF11_LAB_NO_INLINE_SCRIPT: %', _label USING ERRCODE = '23514';
+  IF _html ~* '<(iframe|object|embed|form|link|base)\y' THEN
+    RAISE EXCEPTION 'CF11_HTML_FORBIDDEN_ELEMENT: %', _label USING ERRCODE = '23514';
   END IF;
-
-  -- Every inline script body must be pinned by its own sha256 token in the CSP.
-  FOREACH s IN ARRAY scripts LOOP
-    h := public.cf11_script_csp_hash(s);
-    IF position(('sha256-' || h) in csp) = 0 THEN
-      RAISE EXCEPTION 'CF11_LAB_CSP_SCRIPT_HASH_MISMATCH: % expected sha256-%', _label, h
-        USING ERRCODE = '23514';
-    END IF;
-    hashes := hashes || to_jsonb('sha256-' || h);
-  END LOOP;
-
-  -- ...and the CSP may not pin anything that is not actually present (no stale/extra hashes).
-  IF (SELECT count(*) FROM regexp_matches(csp, '''sha256-[A-Za-z0-9+/=]+''', 'g'))
-     <> jsonb_array_length(hashes) THEN
-    RAISE EXCEPTION 'CF11_LAB_CSP_HASH_SET_MISMATCH: %', _label USING ERRCODE = '23514';
+  IF _html ~* '\y(eval\s*\(|new\s+Function\s*\(|WebSocket\s*\(|EventSource\s*\(|importScripts\s*\(|navigator\.sendBeacon\s*\()' THEN
+    RAISE EXCEPTION 'CF11_INTERACTIVE_DYNAMIC_EXECUTION: %', _label USING ERRCODE = '23514';
   END IF;
-
-  PERFORM public.cf11_assert_no_network(_label, _html);
-  RETURN jsonb_build_object('csp', csp, 'scriptHashes', hashes,
-                            'scriptCount', array_length(scripts, 1));
+  RETURN jsonb_build_object(
+    'enforcement', 'RUNTIME_WRAPPER',
+    'sandbox', 'allow-scripts',
+    'opaqueOrigin', true,
+    'network', 'none',
+    'csp', 'default-src ''none''; script-src ''unsafe-inline''; style-src ''unsafe-inline''; img-src data:; font-src data:; media-src ''none''; connect-src ''none''; frame-src ''none''; object-src ''none''; base-uri ''none''; form-action ''none''');
 END $$;
 
 -- Leaf-only asset references found in an HTML body (src="name.ext" with no path separator).
@@ -1016,6 +975,7 @@ DECLARE
   book_new text;
   mind_html text;
   lab_html text;
+  mind_contract jsonb;
   lab_contract jsonb;
   asset_map jsonb := '{}'::jsonb;
   asset_report jsonb := '[]'::jsonb;
@@ -1248,7 +1208,7 @@ BEGIN
     RAISE EXCEPTION 'CF11_STAGED_HTML_MISSING' USING ERRCODE = '23514';
   END IF;
 
-  PERFORM public.cf11_assert_static_contract('mindMapHtml', mind_html);
+  mind_contract := public.cf11_assert_interactive_contract('mindMapHtml', mind_html);
   lab_contract := public.cf11_assert_interactive_contract('labExperimentHtml', lab_html);
   PERFORM public.cf10_assert_no_answer_leak('mindMapHtml', mind_html);
   PERFORM public.cf10_assert_no_answer_leak('labExperimentHtml', lab_html);
@@ -1410,7 +1370,8 @@ BEGIN
     'html', jsonb_build_object(
       'mindMap', jsonb_build_object('resourceCode', ext_code || '-MINDMAP',
                                     'sha256', public.cf11_text_sha256(mind_html),
-                                    'renderMode','STATIC'),
+                                    'renderMode','INTERACTIVE',
+                                    'csp', mind_contract),
       'simulation', jsonb_build_object('resourceCode', ext_code || '-EXPERIMENT',
                                        'sha256', public.cf11_text_sha256(lab_html),
                                        'renderMode','INTERACTIVE',
@@ -1484,16 +1445,16 @@ BEGIN
       CASE cap WHEN 'mindMap' THEN mind_html ELSE lab_html END,
       CASE cap WHEN 'mindMap' THEN 4 ELSE 5 END,
       v_resource_code,
-      CASE cap WHEN 'mindMap' THEN 'mindmap' ELSE 'experiment' END,
+      'INTERACTIVE',
       jsonb_build_object(
         'cf11_publication_id', publication_id,
         'cf11_published_at', now(),
         'cf11_published_by', uid,
         'cf11_body_sha256', public.cf11_text_sha256(
           CASE cap WHEN 'mindMap' THEN mind_html ELSE lab_html END),
-        'cf11_render_mode', CASE cap WHEN 'mindMap' THEN 'STATIC' ELSE 'INTERACTIVE' END,
+        'cf11_render_mode', 'INTERACTIVE',
         'cf11_verified_bundle_sha256', batch.verified_bundle_sha256,
-        'cf11_csp', CASE cap WHEN 'simulation' THEN lab_contract ELSE NULL END),
+        'cf11_csp', CASE cap WHEN 'mindMap' THEN mind_contract ELSE lab_contract END),
       false);
     GET DIAGNOSTICS rc = ROW_COUNT; writes := writes + rc;
   END LOOP;

@@ -117,12 +117,19 @@ try {
       check(`${tag} furnace bytes actually load`, loaded);
     }
 
-    // 6. Mind map is a JS-free details/summary tree.
-    const mindMap = page.locator('[data-capability="mindMap"], #mindMap').first();
+    // 6. Mind map executes only in the same isolated, network-free frame contract as the lab.
+    const mindMap = page.locator('iframe[title*="خريطة"], iframe[data-capability="mindMap"]').first();
     if (await mindMap.count()) {
-      const html = await mindMap.innerHTML();
-      check(`${tag} mind map uses details/summary`, /<details/i.test(html) && /<summary/i.test(html));
-      check(`${tag} mind map contains no script`, !/<script\b/i.test(html));
+      const sandbox = await mindMap.getAttribute("sandbox");
+      check(`${tag} mind map iframe allows scripts without same-origin`, /allow-scripts/.test(sandbox ?? "") && !/allow-same-origin/.test(sandbox ?? ""), sandbox ?? "");
+      const frame = await mindMap.contentFrame();
+      if (frame) {
+        const html = await frame.content();
+        check(`${tag} mind map CSP forbids network`, /connect-src\s+'none'/.test(html));
+        check(`${tag} mind map uses details/summary`, /<details/i.test(html) && /<summary/i.test(html));
+      } else {
+        check(`${tag} mind map frame reachable`, false);
+      }
     } else {
       check(`${tag} mind map present`, false);
     }

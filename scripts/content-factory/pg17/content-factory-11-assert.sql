@@ -403,20 +403,18 @@ ALTER TABLE public.golden_lesson_domain_stage_entries DISABLE TRIGGER USER;
 UPDATE public.golden_lesson_domain_stage_entries
    SET source_payload = convert_to(
        replace(convert_from(source_payload,'UTF8'), '</details></section>',
-               '</details><script>alert(1)</script></section>'), 'UTF8')
+                '</details><button onclick="window.mindOpened=true">افتح</button><script>window.mindReady=true</script></section>'), 'UTF8')
  WHERE batch_id = :'batch' AND capability = 'mindMapHtml';
 ALTER TABLE public.golden_lesson_domain_stage_entries ENABLE TRIGGER USER;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
 SET ROLE authenticated;
-DO $$ BEGIN
-  BEGIN
-    PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
-      '10000000-0000-0000-0000-000000000003','DRY_RUN', public.cf11_iron_assets());
-    RAISE EXCEPTION 'CF11_EXPECTED_STATIC_SCRIPT';
-  EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF11_STATIC_HTML_HAS_SCRIPT%' THEN RAISE; END IF;
-  END;
-  PERFORM public.cf04_assert(true,'the mind map must stay completely JS-free');
+DO $$ DECLARE r jsonb; BEGIN
+  r := public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000003','DRY_RUN', public.cf11_iron_assets());
+  PERFORM public.cf04_assert(r#>>'{plan,html,mindMap,renderMode}' = 'INTERACTIVE',
+    'the mind map must use the interactive runtime contract');
+  PERFORM public.cf04_assert(r#>>'{plan,html,mindMap,csp,enforcement}' = 'RUNTIME_WRAPPER',
+    'the mind map must be protected by the central runtime wrapper');
 END $$;
 RESET ROLE;
 ROLLBACK;

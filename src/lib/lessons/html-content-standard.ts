@@ -9,8 +9,8 @@
  * workspace share.
  *
  * Two profiles:
- *   STATIC_EDUCATIONAL_HTML      — explanation, summary, mind map. JS denied.
- *   INTERACTIVE_EDUCATIONAL_HTML — labs / simulations. JS only inside the
+ *   STATIC_EDUCATIONAL_HTML      — explanation and summary. JS denied.
+ *   INTERACTIVE_EDUCATIONAL_HTML — mind maps, labs and simulations. JS only inside the
  *                                  existing restricted sandbox + bridge.
  */
 

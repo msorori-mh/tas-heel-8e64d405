@@ -1,15 +1,15 @@
 /**
  * CF10-R4b — inline HTML lesson resources.
  *
- * CF10 materializes mind maps (STATIC) and lab experiments (INTERACTIVE) as HTML bodies stored in
+ * CF10 materializes mind maps and lab experiments as INTERACTIVE HTML bodies stored in
  * `lesson_resources.description`, referenced by the already-published in-app scheme
  * `lesson-internal://html/<resource_code>` (see `isValidResourceUrl`). No storage bucket is
  * invented and no `data:` URI is used, so `v3_capability_snapshot` (which drops rows with an empty
  * url) keeps a non-empty, hashable payload while the student runtime renders the very same body.
  *
  * Rendering is fail-closed:
- *  - STATIC (mind map): sandbox with NO scripts at all, CSP `script-src 'none'`.
- *  - INTERACTIVE (experiment): sandbox `allow-scripts` only — no same-origin, no forms, no popups —
+ *  - STATIC (legacy resources only): sandbox with NO scripts at all, CSP `script-src 'none'`.
+ *  - INTERACTIVE (mind map / experiment): sandbox `allow-scripts` only — no same-origin, no forms, no popups —
  *    and a CSP that forbids every network egress (`connect-src 'none'`, `default-src 'none'`).
  */
 
