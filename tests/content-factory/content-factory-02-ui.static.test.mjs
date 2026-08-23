@@ -21,7 +21,7 @@ test("the import center exposes the unified curriculum and lesson-content workfl
   assert.match(route, /unit_code/);
   assert.match(route, /<GoldenLessonPackageBuilder\s*\/>/);
   assert.match(route, /اختيار الدرس/);
-  assert.match(route, /فحص وحفظ المسودة/);
+  assert.match(route, /الفحص والحفظ كمسودة/);
   assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel|BulkLessonPdfUploadPanel/);
   assert.match(component, /09_official_book_questions_template\.xlsx/);
   assert.match(component, /10_self_test_questions_template\.xlsx/);
