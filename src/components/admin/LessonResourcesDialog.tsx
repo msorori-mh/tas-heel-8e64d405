@@ -208,6 +208,7 @@ export function LessonResourcesDialog({
         const descTrim = (r.description ?? "").trim();
         const description = descTrim.length > 0 ? descTrim : null;
         const sortOrder = Number(r.sort_order);
+        const metadata = withLabAttachment(r.metadata, isLabAttachment(r));
 
         if (isLocal(r)) {
           const { data, error } = await supabase
@@ -219,6 +220,7 @@ export function LessonResourcesDialog({
               url,
               description,
               sort_order: sortOrder,
+              metadata,
             })
             .select("id")
             .single();
@@ -236,8 +238,10 @@ export function LessonResourcesDialog({
               url,
               description,
               sort_order: sortOrder,
+              metadata,
             })
             .eq("id", r.id);
+
           if (error) throw error;
           if (r.is_primary) {
             hasPrimarySelection = true;
