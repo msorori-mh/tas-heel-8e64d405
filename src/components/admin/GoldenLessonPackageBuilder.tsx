@@ -791,7 +791,7 @@ export function GoldenLessonPackageBuilder() {
       );
       const next = await buildSupplementalAssetDeclarations(
         files,
-        htmlSources.filter((source): source is { capability: GoldenCapability; html: string } => Boolean(source)),
+        htmlSources.filter((source): source is NonNullable<typeof source> => source !== null),
       );
       setSupplementalAssets((current) => {
         const replacing = new Set(next.map((asset) => asset.path));
