@@ -27,7 +27,7 @@ export type HtmlProfile = (typeof HTML_PROFILES)[number];
 export const CAPABILITY_HTML_PROFILE: Partial<Record<V3CapabilityKey, HtmlProfile>> = {
   tamkeenExplanationHtml: "STATIC_EDUCATIONAL_HTML",
   lessonSummaryHtml: "STATIC_EDUCATIONAL_HTML",
-  mindMapHtml: "STATIC_EDUCATIONAL_HTML",
+  mindMapHtml: "INTERACTIVE_EDUCATIONAL_HTML",
   labExperimentHtml: "INTERACTIVE_EDUCATIONAL_HTML",
 };
 
