@@ -26,6 +26,9 @@ import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 import { verifyGoldenLessonBundle } from "./golden-lesson-bundle-verifier";
+import { loadVerifiedDirectIntake } from "./golden-lesson-direct-source.server";
+import { isDirectVerifiedPath } from "./golden-lesson-direct-storage";
+
 
 export const INTAKE_BUCKET = "golden-lesson-intake";
 export const ASSET_BUCKET = "golden-lesson-assets";
