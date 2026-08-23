@@ -110,18 +110,28 @@ export async function convertQuestionWorkbook(
   const ExcelJS = (ExcelJSModule.default ?? ExcelJSModule) as typeof import("exceljs");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await file.arrayBuffer() as any);
-  const sheet = workbook.worksheets[0];
+  const normalizeHeader = (value: string) => value.replace(/\*/g, "").trim().toLowerCase();
+  const readHeaders = (worksheet: import("exceljs").Worksheet) => {
+    const map = new Map<number, string>();
+    worksheet.getRow(1).eachCell({ includeEmpty: false }, (cell, column) => {
+      const header = normalizeHeader(cellText(cell.value));
+      if (header) map.set(column, header);
+    });
+    return map;
+  };
+
+  const sheet = workbook.worksheets.find((worksheet) => {
+    const map = readHeaders(worksheet);
+    return REQUIRED[capability].every((required) => Array.from(map.values()).includes(required));
+  }) ?? workbook.worksheets[0];
   if (!sheet) throw new Error("ملف XLSX لا يحتوي ورقة عمل.");
 
-  const headers = new Map<number, string>();
-  sheet.getRow(1).eachCell({ includeEmpty: false }, (cell, column) => {
-    const header = cellText(cell.value).toLowerCase();
-    if (header) headers.set(column, header);
-  });
+  const headers = readHeaders(sheet);
   const missing = REQUIRED[capability].filter(
     (required) => !Array.from(headers.values()).includes(required),
   );
   if (missing.length) throw new Error(`أعمدة إلزامية مفقودة: ${missing.join("، ")}`);
+
 
   const rows: Array<Record<string, string>> = [];
   for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
