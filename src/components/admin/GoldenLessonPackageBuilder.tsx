@@ -1014,7 +1014,7 @@ export function GoldenLessonPackageBuilder() {
           const upload = uploads[capability];
           const fileContract = GOLDEN_ARTIFACT_FILE_CONTRACTS[capability];
           return (
-            <div key={capability} className={`rounded-xl border p-4 space-y-3 ${capability === "labExperimentHtml" ? "border-dashed bg-muted/15" : "bg-background"}`}>
+            <div key={capability} id={`golden-capability-${capability}`} className={`scroll-mt-24 rounded-xl border p-4 space-y-3 ${capability === "labExperimentHtml" ? "border-dashed bg-muted/15" : "bg-background"}`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="font-medium">{CAPABILITY_NUMBER[capability]}. {CAPABILITY_LABEL[capability]}</p>
