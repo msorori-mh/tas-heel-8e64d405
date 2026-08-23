@@ -661,7 +661,7 @@ export function GoldenLessonPackageBuilder() {
       let rowCount: number | undefined;
       let convertedAnswers: Array<Record<string, unknown>> | null = null;
       let convertedActivityAssets: File[] = [];
-      if (capability === "labExperimentHtml" && /\.zip$/i.test(file.name)) {
+      if ((capability === "labExperimentHtml" || capability === "mindMapHtml") && /\.zip$/i.test(file.name)) {
         try {
           const converted = await convertHtml5ActivityZip(file);
           artifactFile = converted.htmlFile;
@@ -1186,17 +1186,17 @@ export function GoldenLessonPackageBuilder() {
                        ? "قالب XLSX لأنشطة وأسئلة الدرس — نص السؤال والإجابة النموذجية لكل صف"
                        : capability === "selfTest"
                          ? "قالب XLSX لبنك الاختيار من متعدد — أربعة خيارات وتعليل لكل سؤال"
-                        : capability === "labExperimentHtml"
+                        : capability === "labExperimentHtml" || capability === "mindMapHtml"
                           ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
                         : fileContract.expectedAr}
                   </p>
                   {fileContract.formats.includes("HTML") && (
                     <ul className="list-disc space-y-0.5 pe-4 text-[11px] leading-relaxed text-muted-foreground">
-                      <li>يجب أن يحتوي وسم html على dir="rtl" ووسم meta باسم viewport.</li>
+                      <li>يجب أن يحتوي وسم html على dir="rtl".</li>
                       <li>بدون روابط خارجية (خطوط أو مكتبات على الإنترنت) — ضمِّن الأنماط داخل الملف.</li>
                       <li>
-                        {capability === "labExperimentHtml"
-                          ? "JavaScript مسموح داخل الحزمة التفاعلية، وحزمة ZIP مقبولة إذا احتوت index.html في جذرها."
+                        {capability === "labExperimentHtml" || capability === "mindMapHtml"
+                          ? "JavaScript ومعالجات onclick مسموحة داخل المحتوى التفاعلي، وحزمة ZIP مقبولة إذا احتوت index.html في جذرها."
                           : "بدون وسم script أو معالجات onclick — المحتوى ثابت."}
                       </li>
                     </ul>
@@ -1230,7 +1230,7 @@ export function GoldenLessonPackageBuilder() {
                     id={`golden-artifact-${capability}`}
                      accept={capability === "selfTest" || capability === "officialBookQuestions"
                       ? ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                       : capability === "labExperimentHtml"
+                       : capability === "labExperimentHtml" || capability === "mindMapHtml"
                           ? ".html,.zip,text/html,application/zip"
                          : ".html,text/html"}
 

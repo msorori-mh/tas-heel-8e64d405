@@ -45,8 +45,8 @@ export const GOLDEN_ARTIFACT_FILE_CONTRACTS: Record<GoldenCapability, GoldenArti
   mindMapHtml: {
     formats: ["HTML"],
     extensions: [".html"],
-    accept: ".html,text/html",
-    expectedAr: "ملف HTML ثابت للخريطة الذهنية",
+    accept: ".html,.zip,text/html,application/zip",
+    expectedAr: "ملف HTML تفاعلي للخريطة الذهنية (JavaScript مسموح)",
   },
   labExperimentHtml: {
     formats: ["HTML"],
@@ -313,7 +313,7 @@ export function validateGoldenLessonArtifactBytes(
 
   const extension = extensionOf(fileName);
   if (extension === ".html") {
-    const profile: HtmlProfile = capability === "labExperimentHtml"
+    const profile: HtmlProfile = capability === "labExperimentHtml" || capability === "mindMapHtml"
       ? "INTERACTIVE_EDUCATIONAL_HTML"
       : "STATIC_EDUCATIONAL_HTML";
     const result = validateHtmlAgainstProfile(textValue, { profile });
