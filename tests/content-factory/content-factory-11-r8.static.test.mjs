@@ -157,6 +157,19 @@ test("CF11 asset extraction — embedded image data is not mistaken for an undec
   assert.match(sql, /cf11_html_asset_refs[\s\S]{0,420}WHERE m\[1\] !~\* '\^data:image\/\(png\|jpeg\|jpg\|gif\|webp\);base64,'/);
 });
 
+test("CF11 question sets come from the verified staged payload, never fixture counts", () => {
+  assert.match(sql, /INTO expected_official_codes[\s\S]{0,500}capability = 'officialBookQuestions'/);
+  assert.match(sql, /INTO expected_self_codes[\s\S]{0,500}capability = 'selfTest'/);
+  assert.match(sql, /official_codes IS DISTINCT FROM expected_official_codes/);
+  assert.match(sql, /self_codes IS DISTINCT FROM expected_self_codes/);
+  assert.match(sql, /'memberCount', cardinality\(expected_self_codes\)/);
+  assert.match(sql, /member_count <> cardinality\(expected_self_codes\)/);
+  assert.doesNotMatch(sql, /CF11_OFFICIAL_QUESTION_COUNT/);
+  assert.doesNotMatch(sql, /CF11_SELFTEST_QUESTION_COUNT/);
+  assert.doesNotMatch(sql, /jsonb_array_length\(official_plan\) <> 5/);
+  assert.doesNotMatch(sql, /jsonb_array_length\(self_plan\) <> 40/);
+});
+
 test("CF11-R6/2 — every gate compares the SET, never a bare count", () => {
   // Publication plan validation, replay, READY first execution and READY replay.
   assert.match(sql, /CF11_LIFECYCLE_NAMESPACE_MISMATCH: staged=/);
