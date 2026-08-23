@@ -123,7 +123,16 @@ type ResourceRow = {
   sort_order: number;
   is_primary?: boolean | null;
   html_resource_type?: string | null;
+  /** `{ attachment_of: "lab" }` marks a downloadable lab-experiment attachment. */
+  metadata?: Record<string, unknown> | null;
 };
+
+/** A resource explicitly attached to the lab/practical capability. */
+function isLabAttachment(resource: ResourceRow): boolean {
+  const target = resource.metadata?.["attachment_of"];
+  return typeof target === "string" && target.toLowerCase() === "lab";
+}
+
 
 
 type SimulationRow = {
