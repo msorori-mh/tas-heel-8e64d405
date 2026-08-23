@@ -1226,11 +1226,11 @@ export function GoldenLessonPackageBuilder() {
                   )}
                   <ArabicFilePicker
                     id={`golden-artifact-${capability}`}
-                     accept={capability === "selfTest" || capability === "officialBookQuestions"
-                      ? ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                       : capability === "labExperimentHtml" || capability === "mindMapHtml"
-                          ? ".html,.zip,text/html,application/zip"
-                         : ".html,text/html"}
+                     accept={fileContract.sourceAccept
+                       ?? (capability === "labExperimentHtml" || capability === "mindMapHtml"
+                         ? ".html,.zip,text/html,application/zip"
+                         : ".html,text/html")}
+
 
                     disabled={hashing !== null}
                     fileName={upload?.displayName}
