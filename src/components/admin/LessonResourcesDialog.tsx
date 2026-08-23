@@ -220,7 +220,7 @@ export function LessonResourcesDialog({
               url,
               description,
               sort_order: sortOrder,
-              metadata,
+              metadata: metadata as never,
             })
             .select("id")
             .single();
@@ -238,7 +238,7 @@ export function LessonResourcesDialog({
               url,
               description,
               sort_order: sortOrder,
-              metadata,
+              metadata: metadata as never,
             })
             .eq("id", r.id);
 
