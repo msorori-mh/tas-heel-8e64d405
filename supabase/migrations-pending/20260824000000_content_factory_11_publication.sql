@@ -16,11 +16,12 @@
 --     4. validates both HTML resources as self-contained interactive documents and rejects
 --        network URLs, external scripts, dynamic execution primitives and dangerous elements;
 --        the student viewer centrally imposes an opaque-origin sandbox and network-denying CSP;
---     5. publishes the CURRENT revision of the 5 official + 40 self-test questions while every
+--     5. publishes the CURRENT revision of the exact official + self-test question sets declared
+--        by the verified staged payload while every
 --        answer / rationale stays confined to official_question_answers and
 --        question_option_rationales;
---     6. creates assessment membership for EXACTLY the 40 self-test questions and never for the
---        5 official questions;
+--     6. creates assessment membership for EXACTLY the staged self-test questions and never for
+--        any official question;
 --     7. transitions all seven lifecycle rows DRAFT -> REVIEW. Nothing else.
 --
 --   READY is a SEPARATE, explicitly attested RPC (`golden_lesson_attest_cf11_ready`) that
@@ -991,6 +992,8 @@ DECLARE
   question_codes text[];
   official_codes text[];
   self_codes text[];
+  expected_official_codes text[];
+  expected_self_codes text[];
   official_plan jsonb := '[]'::jsonb;
   self_plan jsonb := '[]'::jsonb;
   q record;
@@ -1273,16 +1276,52 @@ BEGIN
   PERFORM public.cf10_assert_no_answer_leak('officialBookContent', book_new);
 
   -- --- question sets ------------------------------------------------------------------
+  -- The verified, byte-pinned CF08 payload is authoritative. Counts vary by lesson, so CF11
+  -- compares exact sorted code sets instead of enforcing the five/forty Iron rehearsal fixture.
+  SELECT coalesce(array_agg(ext_code || '-OFFQ-' || coalesce(item->>'question_number', item->>'id')
+                            ORDER BY ext_code || '-OFFQ-' || coalesce(item->>'question_number', item->>'id')),
+                  ARRAY[]::text[])
+    INTO expected_official_codes
+    FROM public.golden_lesson_domain_stage_entries e
+    CROSS JOIN LATERAL jsonb_array_elements(
+      coalesce((convert_from(e.source_payload,'UTF8')::jsonb)->'questions','[]'::jsonb)) AS item
+   WHERE e.batch_id = _batch_id AND e.capability = 'officialBookQuestions';
+  SELECT coalesce(array_agg(ext_code || '-SELF-' || (item->>'id')
+                            ORDER BY ext_code || '-SELF-' || (item->>'id')),
+                  ARRAY[]::text[])
+    INTO expected_self_codes
+    FROM public.golden_lesson_domain_stage_entries e
+    CROSS JOIN LATERAL jsonb_array_elements(
+      coalesce((convert_from(e.source_payload,'UTF8')::jsonb)->'questions','[]'::jsonb)) AS item
+   WHERE e.batch_id = _batch_id AND e.capability = 'selfTest';
+
+  IF coalesce(array_length(expected_official_codes,1),0) = 0
+     OR array_position(expected_official_codes,NULL) IS NOT NULL THEN
+    RAISE EXCEPTION 'CF11_OFFICIAL_QUESTION_SET_INVALID' USING ERRCODE = '23514';
+  END IF;
+  IF coalesce(array_length(expected_self_codes,1),0) = 0
+     OR array_position(expected_self_codes,NULL) IS NOT NULL THEN
+    RAISE EXCEPTION 'CF11_SELFTEST_QUESTION_SET_INVALID' USING ERRCODE = '23514';
+  END IF;
+  IF cardinality(expected_official_codes) <> cardinality(ARRAY(SELECT DISTINCT unnest(expected_official_codes))) THEN
+    RAISE EXCEPTION 'CF11_OFFICIAL_QUESTION_CODES_DUPLICATED' USING ERRCODE = '23514';
+  END IF;
+  IF cardinality(expected_self_codes) <> cardinality(ARRAY(SELECT DISTINCT unnest(expected_self_codes))) THEN
+    RAISE EXCEPTION 'CF11_SELFTEST_QUESTION_CODES_DUPLICATED' USING ERRCODE = '23514';
+  END IF;
+
   SELECT coalesce(array_agg(code ORDER BY code), ARRAY[]::text[]) INTO official_codes
     FROM public.questions WHERE lesson_id = lesson_row.id AND code LIKE ext_code || '-OFFQ-%';
   SELECT coalesce(array_agg(code ORDER BY code), ARRAY[]::text[]) INTO self_codes
     FROM public.questions WHERE lesson_id = lesson_row.id AND code LIKE ext_code || '-SELF-%';
-  IF array_length(official_codes,1) IS DISTINCT FROM 5 THEN
-    RAISE EXCEPTION 'CF11_OFFICIAL_QUESTION_COUNT: %', coalesce(array_length(official_codes,1),0)
+  IF official_codes IS DISTINCT FROM expected_official_codes THEN
+    RAISE EXCEPTION 'CF11_OFFICIAL_QUESTION_SET_MISMATCH: expected=[%] actual=[%]',
+      array_to_string(expected_official_codes,','), array_to_string(official_codes,',')
       USING ERRCODE = '23514';
   END IF;
-  IF array_length(self_codes,1) IS DISTINCT FROM 40 THEN
-    RAISE EXCEPTION 'CF11_SELFTEST_QUESTION_COUNT: %', coalesce(array_length(self_codes,1),0)
+  IF self_codes IS DISTINCT FROM expected_self_codes THEN
+    RAISE EXCEPTION 'CF11_SELFTEST_QUESTION_SET_MISMATCH: expected=[%] actual=[%]',
+      array_to_string(expected_self_codes,','), array_to_string(self_codes,',')
       USING ERRCODE = '23514';
   END IF;
   question_codes := official_codes || self_codes;
@@ -1349,7 +1388,8 @@ BEGIN
                        ORDER BY r.revision_number DESC LIMIT 1) rv ON true
        WHERE qq.lesson_id = lesson_row.id AND qq.code = ANY (self_codes)
     ) x;
-  IF jsonb_array_length(official_plan) <> 5 OR jsonb_array_length(self_plan) <> 40 THEN
+  IF jsonb_array_length(official_plan) <> cardinality(expected_official_codes)
+     OR jsonb_array_length(self_plan) <> cardinality(expected_self_codes) THEN
     RAISE EXCEPTION 'CF11_QUESTION_PIN_INCOMPLETE: official=% selfTest=%',
       jsonb_array_length(official_plan), jsonb_array_length(self_plan) USING ERRCODE = '23514';
   END IF;
@@ -1382,7 +1422,8 @@ BEGIN
                                        'renderMode','INTERACTIVE',
                                        'csp', lab_contract)),
     'questions', jsonb_build_object('official', official_plan, 'selfTest', self_plan),
-    'assessment', jsonb_build_object('code', ext_code || '-SELFTEST', 'memberCount', 40,
+    'assessment', jsonb_build_object('code', ext_code || '-SELFTEST',
+                                     'memberCount', cardinality(expected_self_codes),
                                      'memberQuestionIds',
                                      (SELECT coalesce(jsonb_agg(e.v->>'questionId'
                                                                 ORDER BY e.v->>'questionId'),
@@ -1524,7 +1565,7 @@ BEGIN
     GET DIAGNOSTICS rc = ROW_COUNT; writes := writes + rc;
   END LOOP;
 
-  -- 5) assessment membership: EXACTLY the 40 self-test questions
+  -- 5) assessment membership: EXACTLY the self-test set pinned from the staged payload
   SELECT id INTO v_assessment_id FROM public.lesson_assessments
    WHERE lesson_id = lesson_row.id AND assessment_code = ext_code || '-SELFTEST';
   IF v_assessment_id IS NULL THEN
@@ -1548,7 +1589,7 @@ BEGIN
     FROM public.assessment_questions aq
     JOIN public.questions qq ON qq.id = aq.question_id
    WHERE aq.assessment_id = v_assessment_id AND qq.code = ANY (official_codes);
-  IF member_count <> 40 OR official_in_assessment <> 0 THEN
+  IF member_count <> cardinality(expected_self_codes) OR official_in_assessment <> 0 THEN
     RAISE EXCEPTION 'CF11_ASSESSMENT_MEMBERSHIP_CONTRACT: members=% official=%',
       member_count, official_in_assessment USING ERRCODE = '23514';
   END IF;
