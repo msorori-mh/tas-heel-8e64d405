@@ -2162,7 +2162,7 @@ BEGIN
       'student_visible', public.lesson_student_visible(pub.lesson_id));
   END IF;
 
-  -- Precondition: the EXACT canonical seven, all REQUIRED, all READY. Locked for the transaction.
+  -- Precondition: the exact canonical seven, all publishable (REQUIRED or OPTIONAL), all READY.
   PERFORM public.cf11_assert_exact_required_lifecycle_set(
     pub.lesson_id, 'CF11_REVOKE_CAPABILITY_SET_NOT_EXACTLY_SEVEN');
   PERFORM 1 FROM public.lesson_capability_lifecycle WHERE lesson_id = pub.lesson_id FOR UPDATE;
@@ -2280,7 +2280,7 @@ END $$;
 --     opened it a few statements earlier, in this very transaction. It is not a GUC, not a
 --     boolean argument and not anything a caller can set or forge;
 --   * the generic transition RPC is re-declared (same signature, same semantics) with one extra
---     precondition: for a CF11-managed lesson and a canonical REQUIRED capability, leaving READY
+--     precondition: for a CF11-managed lesson and any canonical capability, leaving READY
 --     requires that ticket;
 --   * a row-level trigger repeats the check at the TABLE, so even a role holding raw DML (today:
 --     service_role) cannot demote an attested capability behind the RPC's back.
