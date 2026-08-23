@@ -96,7 +96,7 @@ describe("21C — unified HTML content standard", () => {
   it("assigns the right profile per capability", () => {
     expect(htmlProfileFor("tamkeenExplanationHtml")).toBe("STATIC_EDUCATIONAL_HTML");
     expect(htmlProfileFor("lessonSummaryHtml")).toBe("STATIC_EDUCATIONAL_HTML");
-    expect(htmlProfileFor("mindMapHtml")).toBe("STATIC_EDUCATIONAL_HTML");
+    expect(htmlProfileFor("mindMapHtml")).toBe("INTERACTIVE_EDUCATIONAL_HTML");
     expect(htmlProfileFor("labExperimentHtml")).toBe("INTERACTIVE_EDUCATIONAL_HTML");
     expect(htmlProfileFor("officialBookContent")).toBeNull();
   });
