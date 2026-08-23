@@ -1182,14 +1182,12 @@ export function GoldenLessonPackageBuilder() {
               {applicability !== "NA" && (
                 <>
                    <p className="text-xs text-muted-foreground">
-                     المطلوب: {capability === "officialBookQuestions"
-                       ? "قالب XLSX لأنشطة وأسئلة الدرس — نص السؤال والإجابة النموذجية لكل صف"
-                       : capability === "selfTest"
-                         ? "قالب XLSX لبنك الاختيار من متعدد — أربعة خيارات وتعليل لكل سؤال"
-                        : capability === "labExperimentHtml" || capability === "mindMapHtml"
-                          ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
-                        : fileContract.expectedAr}
+                     المطلوب: {fileContract.sourceExpectedAr
+                       ?? (capability === "labExperimentHtml" || capability === "mindMapHtml"
+                         ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
+                         : fileContract.expectedAr)}
                   </p>
+
                   {fileContract.formats.includes("HTML") && (
                     <ul className="list-disc space-y-0.5 pe-4 text-[11px] leading-relaxed text-muted-foreground">
                       <li>يجب أن يحتوي وسم html على dir="rtl".</li>
