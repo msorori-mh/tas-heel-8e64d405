@@ -440,6 +440,8 @@ export function GoldenLessonPackageBuilder() {
   const [supplementalAssets, setSupplementalAssets] = useState<UploadedSupplementalAsset[]>([]);
   const [hashing, setHashing] = useState<GoldenCapability | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [capabilityErrors, setCapabilityErrors] = useState<Partial<Record<GoldenCapability, string[]>>>({});
+  const [templateBusy, setTemplateBusy] = useState<GoldenCapability | null>(null);
   const [validation, setValidation] = useState<GoldenLessonValidationResult | null>(null);
   const [intake, setIntake] = useState<DirectIntakeResult | null>(null);
   const [intakeError, setIntakeError] = useState<string | null>(null);
