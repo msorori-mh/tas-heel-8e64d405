@@ -1010,7 +1010,40 @@ function CapabilityIcon({ type }: { type: LessonCapabilityType }) {
   }
 }
 
+/** «سجل إجاباتي» — read-only review of what the student wrote for this lesson. */
+function MyAnswersLog({
+  questions,
+  notes,
+}: {
+  questions: LessonQuestionRow[];
+  notes: Record<string, string>;
+}) {
+  const answered = questions.filter((q) => (notes[q.id] ?? "").trim().length > 0);
+  if (answered.length === 0) return null;
+
+  return (
+    <details className="rounded-xl border border-border bg-card p-3">
+      <summary className="cursor-pointer text-sm font-semibold text-foreground">
+        سجل إجاباتي ({answered.length})
+      </summary>
+      <ul className="mt-3 space-y-3">
+        {answered.map((q) => (
+          <li key={q.id} className="rounded-lg border border-border bg-background p-3">
+            <p className="whitespace-pre-line text-sm font-medium text-foreground">
+              {q.question_text}
+            </p>
+            <p className="mt-2 whitespace-pre-line rounded-md bg-muted/50 p-2 text-sm text-muted-foreground">
+              {notes[q.id]}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function OfficialBookQuestionCard({
+
   lessonId,
   index,
   q,
