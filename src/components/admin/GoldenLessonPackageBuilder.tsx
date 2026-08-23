@@ -681,10 +681,14 @@ export function GoldenLessonPackageBuilder() {
           rowCount = converted.rowCount;
           convertedAnswers = converted.answers;
         } catch (excelError) {
-          throw new Error(
-            `تعذّرت قراءة ملف Excel: ${excelError instanceof Error ? excelError.message : "ملف غير صالح"} — استخدم القالب المعتمد أعلاه دون تغيير أسماء الأعمدة.`,
-          );
+          const detail = excelError instanceof Error ? excelError.message : "ملف غير صالح";
+          setCapabilityError(capability, [
+            ...detail.split(" | ").map((part) => part.trim()).filter(Boolean),
+            "نزّل القالب المعتمد أعلاه ولا تغيّر أسماء الأعمدة أو اسم الورقة.",
+          ]);
+          return;
         }
+
       }
 
       const bytes = new Uint8Array(await artifactFile.arrayBuffer());
