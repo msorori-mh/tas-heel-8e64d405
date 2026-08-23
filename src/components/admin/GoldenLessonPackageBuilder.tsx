@@ -20,9 +20,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  GOLDEN_CAPABILITIES,
+  GOLDEN_CAPABILITIES_V2,
   GOLDEN_CAPABILITY_AUTHORITY,
-  GOLDEN_LESSON_SCHEMA,
+  GOLDEN_LESSON_SCHEMA_V2,
   type GoldenCapability,
   type GoldenLessonArtifact,
   type GoldenLessonPackage,
@@ -36,8 +36,8 @@ import {
   type GoldenLessonAsset,
 } from "@/lib/content-factory/golden-lesson-assets";
 import {
-  GOLDEN_CHEMISTRY_V1,
-  GOLDEN_QURAN_V1,
+  GOLDEN_CHEMISTRY_V2,
+  GOLDEN_QURAN_V2,
   getGoldenLessonProfile,
 } from "@/lib/content-factory/golden-lesson-profiles";
 import {
@@ -45,7 +45,7 @@ import {
   type GoldenLessonValidationResult,
 } from "@/lib/content-factory/golden-lesson-validator";
 import {
-  GOLDEN_ARTIFACT_FILE_CONTRACTS,
+  getGoldenArtifactFileContract,
   validateGoldenLessonAnswerCoverage,
   validateGoldenLessonArtifactBytes,
 } from "@/lib/content-factory/golden-lesson-file-contract";
@@ -63,6 +63,9 @@ const CAPABILITY_LABEL: Record<GoldenCapability, string> = {
   lessonSummaryHtml: "ملخص الدرس",
   mindMapHtml: "الخريطة الذهنية",
   labExperimentHtml: "التجربة / النشاط التفاعلي",
+  conceptsAndTermsHtml: "المفاهيم والمصطلحات",
+  equationsAndLawsHtml: "المعادلات والقوانين",
+  interactiveActivityHtml: "التجربة / النشاط التفاعلي",
   officialBookQuestions: "أسئلة الكتاب الرسمية",
   selfTest: "اختبر فهمك",
 };
@@ -73,6 +76,9 @@ const CAPABILITY_NUMBER: Record<GoldenCapability, number> = {
   lessonSummaryHtml: 3,
   mindMapHtml: 4,
   labExperimentHtml: 5,
+  conceptsAndTermsHtml: 4,
+  equationsAndLawsHtml: 5,
+  interactiveActivityHtml: 8,
   officialBookQuestions: 6,
   selfTest: 7,
 };
@@ -254,6 +260,7 @@ interface LocalLessonDraft {
   answerSets: Partial<Record<"officialBookQuestions" | "selfTest", Array<Record<string, unknown>>>>;
   answersCompanion: UploadedArtifact | null;
   supplementalAssets: UploadedSupplementalAsset[];
+  equationsNotApplicable?: boolean;
   savedAt: string;
 }
 
@@ -315,6 +322,7 @@ export function GoldenLessonPackageBuilder() {
   const [answerSets, setAnswerSets] = useState<Partial<Record<"officialBookQuestions" | "selfTest", Array<Record<string, unknown>>>>>({});
   const [answersCompanion, setAnswersCompanion] = useState<UploadedArtifact | null>(null);
   const [supplementalAssets, setSupplementalAssets] = useState<UploadedSupplementalAsset[]>([]);
+  const [equationsNotApplicable, setEquationsNotApplicable] = useState(false);
   const [hashing, setHashing] = useState<GoldenCapability | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [validation, setValidation] = useState<GoldenLessonValidationResult | null>(null);
@@ -400,7 +408,7 @@ export function GoldenLessonPackageBuilder() {
   const selectedSubject = subjects.find((subject) => subject.subjectCode === selectedSubjectCode) ?? null;
   const selectedLesson = lessons.find((lesson) => lesson.lessonCode === selectedLessonCode) ?? null;
   const profileId = selectedSubject
-    ? (/قرآن/.test(selectedSubject.name) ? GOLDEN_QURAN_V1.id : GOLDEN_CHEMISTRY_V1.id)
+    ? (/قرآن/.test(selectedSubject.name) ? GOLDEN_QURAN_V2.id : GOLDEN_CHEMISTRY_V2.id)
     : "";
   const profile = getGoldenLessonProfile(profileId);
   const packageCode = selectedLesson ? `${selectedLesson.lessonCode}-PKG` : "";
@@ -439,6 +447,7 @@ export function GoldenLessonPackageBuilder() {
         setAnswerSets(draft.answerSets);
         setAnswersCompanion(draft.answersCompanion);
         setSupplementalAssets(draft.supplementalAssets);
+        setEquationsNotApplicable(Boolean(draft.equationsNotApplicable));
         setDraftMessage(`تمت استعادة المسودة المحفوظة تلقائيًا في ${new Date(draft.savedAt).toLocaleString("ar-YE")}.`);
       })
       .catch(() => {
@@ -452,21 +461,27 @@ export function GoldenLessonPackageBuilder() {
 
   const artifacts = useMemo<GoldenLessonArtifact[]>(
     () =>
-      GOLDEN_CAPABILITIES.map((capability) => ({
+      GOLDEN_CAPABILITIES_V2.map((capability) => ({
         capability,
-        applicability: profile?.applicability[capability] ?? "NA",
+        applicability: capability === "equationsAndLawsHtml" && equationsNotApplicable
+          ? "NA"
+          : profile?.applicability[capability] ?? "NA",
         authority: GOLDEN_CAPABILITY_AUTHORITY[capability],
-        sourcePath: uploads[capability]?.fileName ?? null,
-        sha256: uploads[capability]?.sha256 ?? null,
+        sourcePath: capability === "equationsAndLawsHtml" && equationsNotApplicable
+          ? null
+          : uploads[capability]?.fileName ?? null,
+        sha256: capability === "equationsAndLawsHtml" && equationsNotApplicable
+          ? null
+          : uploads[capability]?.sha256 ?? null,
         provenancePath: internalProvenance[capability]?.fileName ?? null,
         provenanceSha256: internalProvenance[capability]?.sha256 ?? null,
       })),
-    [profile, uploads, internalProvenance],
+    [profile, uploads, internalProvenance, equationsNotApplicable],
   );
 
   const packageDraft = useMemo<GoldenLessonPackage>(
     () => ({
-      schema: GOLDEN_LESSON_SCHEMA,
+      schema: GOLDEN_LESSON_SCHEMA_V2,
       profileId: profile?.id ?? "",
       packageCode: packageCode.trim(),
       identity: {
@@ -479,7 +494,7 @@ export function GoldenLessonPackageBuilder() {
         semester: semester ? Number(semester) : null,
         sortOrder: sortOrder ? Number(sortOrder) : null,
       },
-      capabilityOrder: [...GOLDEN_CAPABILITIES],
+      capabilityOrder: [...GOLDEN_CAPABILITIES_V2],
       artifacts,
       assets: supplementalAssets.map(({ file: _file, ...asset }) => asset),
       lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },
@@ -495,7 +510,9 @@ export function GoldenLessonPackageBuilder() {
   );
 
   const requiredCapabilities = profile
-    ? GOLDEN_CAPABILITIES.filter((capability) => profile.applicability[capability] === "REQUIRED")
+    ? GOLDEN_CAPABILITIES_V2.filter((capability) =>
+        profile.applicability[capability] === "REQUIRED" &&
+        !(capability === "equationsAndLawsHtml" && equationsNotApplicable))
     : [];
   const completedRequired = requiredCapabilities.filter((capability) => uploads[capability]).length;
   const completion = requiredCapabilities.length
@@ -523,7 +540,7 @@ export function GoldenLessonPackageBuilder() {
       let rowCount: number | undefined;
       let convertedAnswers: Array<Record<string, unknown>> | null = null;
       let convertedActivityAssets: File[] = [];
-      if (capability === "labExperimentHtml" && /\.zip$/i.test(file.name)) {
+      if (capability === "interactiveActivityHtml" && /\.zip$/i.test(file.name)) {
         const converted = await convertHtml5ActivityZip(file);
         artifactFile = converted.htmlFile;
         displayName = `${file.name} (HTML5)`;
@@ -536,7 +553,12 @@ export function GoldenLessonPackageBuilder() {
         convertedAnswers = converted.answers;
       }
       const bytes = new Uint8Array(await artifactFile.arrayBuffer());
-      const artifactValidation = validateGoldenLessonArtifactBytes(capability, artifactFile.name, bytes);
+      const artifactValidation = validateGoldenLessonArtifactBytes(
+        capability,
+        artifactFile.name,
+        bytes,
+        GOLDEN_LESSON_SCHEMA_V2,
+      );
       if (!artifactValidation.valid) {
         setUploads((current) => {
           const next = { ...current };
@@ -646,7 +668,7 @@ export function GoldenLessonPackageBuilder() {
   };
 
   const hasSelectedFiles = Object.keys(uploads).length > 0 ||
-    supplementalAssets.length > 0 || Boolean(answersCompanion);
+    supplementalAssets.length > 0 || Boolean(answersCompanion) || equationsNotApplicable;
 
   const clearSelectedFiles = () => {
     setUploads({});
@@ -654,6 +676,7 @@ export function GoldenLessonPackageBuilder() {
     setAnswerSets({});
     setAnswersCompanion(null);
     setSupplementalAssets([]);
+    setEquationsNotApplicable(false);
     setValidation(null);
     setFileError(null);
     setIntake(null);
@@ -735,6 +758,7 @@ export function GoldenLessonPackageBuilder() {
         answerSets,
         answersCompanion,
         supplementalAssets,
+        equationsNotApplicable,
         savedAt: new Date().toISOString(),
       })
         .then(() => setDraftMessage("تم حفظ المسودة تلقائيًا على هذا الجهاز."))
@@ -749,6 +773,7 @@ export function GoldenLessonPackageBuilder() {
     answerSets,
     answersCompanion,
     supplementalAssets,
+    equationsNotApplicable,
   ]);
 
   const handleSupplementalAssets = async (files: File[]) => {
@@ -757,7 +782,7 @@ export function GoldenLessonPackageBuilder() {
     setValidation(null);
     try {
       const htmlSources = await Promise.all(
-        GOLDEN_CAPABILITIES.map(async (capability) => {
+        GOLDEN_CAPABILITIES_V2.map(async (capability) => {
           const upload = uploads[capability];
           return upload?.fileName.endsWith(".html")
             ? { capability, html: await upload.file.text() }
@@ -802,6 +827,7 @@ export function GoldenLessonPackageBuilder() {
             bytes: new Uint8Array(await answersCompanion.file.arrayBuffer()),
           }
         : null,
+      GOLDEN_LESSON_SCHEMA_V2,
     );
     const coverageFindings = coverage.findings.map((finding) => ({
       code: finding.code,
@@ -1001,18 +1027,20 @@ export function GoldenLessonPackageBuilder() {
         </div>
         <Progress value={completion} />
         <p className="text-xs text-muted-foreground">
-          النشاط الاختياري: {uploads.labExperimentHtml ? "مرفوع" : "غير مرفوع — لا يمنع حفظ بقية محتويات الدرس"}
+          النشاط الاختياري: {uploads.interactiveActivityHtml ? "مرفوع" : "غير مرفوع — لا يمنع حفظ بقية محتويات الدرس"}
         </p>
       </div>}
 
       <div className="space-y-3">
-        {canonicalIdentityComplete && GOLDEN_CAPABILITIES.map((capability) => {
-          const applicability = profile?.applicability[capability] ?? "NA";
+        {canonicalIdentityComplete && GOLDEN_CAPABILITIES_V2.map((capability) => {
+          const applicability = capability === "equationsAndLawsHtml" && equationsNotApplicable
+            ? "NA"
+            : profile?.applicability[capability] ?? "NA";
           const authority = GOLDEN_CAPABILITY_AUTHORITY[capability];
           const upload = uploads[capability];
-          const fileContract = GOLDEN_ARTIFACT_FILE_CONTRACTS[capability];
+          const fileContract = getGoldenArtifactFileContract(capability, GOLDEN_LESSON_SCHEMA_V2);
           return (
-            <div key={capability} className={`rounded-xl border p-4 space-y-3 ${capability === "labExperimentHtml" ? "border-dashed bg-muted/15" : "bg-background"}`}>
+            <div key={capability} className={`rounded-xl border p-4 space-y-3 ${capability === "interactiveActivityHtml" ? "border-dashed bg-muted/15" : "bg-background"}`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="font-medium">{CAPABILITY_NUMBER[capability]}. {CAPABILITY_LABEL[capability]}</p>
@@ -1024,6 +1052,21 @@ export function GoldenLessonPackageBuilder() {
                   </Badge>
                 </div>
               </div>
+              {capability === "equationsAndLawsHtml" && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={equationsNotApplicable ? "secondary" : "outline"}
+                  onClick={() => {
+                    if (!equationsNotApplicable && uploads.equationsAndLawsHtml) {
+                      void removeCapabilityFile("equationsAndLawsHtml");
+                    }
+                    setEquationsNotApplicable((current) => !current);
+                  }}
+                >
+                  {equationsNotApplicable ? "إلغاء NA ورفع ملف HTML" : "لا تنطبق معادلات أو قوانين (NA)"}
+                </Button>
+              )}
               {applicability !== "NA" && (
                 <>
                   <p className="text-xs text-muted-foreground">
@@ -1031,7 +1074,7 @@ export function GoldenLessonPackageBuilder() {
                       ? "قالب 09 بصيغة XLSX لأسئلة الكتاب الأصلية"
                       : capability === "selfTest"
                         ? "قالب 10 بصيغة XLSX لبنك الاختيار من متعدد"
-                        : capability === "labExperimentHtml"
+                        : capability === "interactiveActivityHtml"
                           ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
                         : fileContract.expectedAr}
                   </p>
@@ -1050,7 +1093,7 @@ export function GoldenLessonPackageBuilder() {
                       ? ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                       : capability === "officialBookContent"
                         ? ".html,text/html"
-                        : capability === "labExperimentHtml"
+                        : capability === "interactiveActivityHtml"
                           ? ".html,.zip,text/html,application/zip"
                         : fileContract.accept}
                     disabled={hashing !== null}
@@ -1090,7 +1133,9 @@ export function GoldenLessonPackageBuilder() {
               {applicability === "NA" && (
                 <p className="text-xs text-muted-foreground">
                   هذه القدرة غير منطبقة على نوع الدرس المختار.
-                  {capability === "labExperimentHtml" ? " لرفع تجربة معملية اختر نوع الدرس «الكيمياء»." : ""}
+                  {capability === "equationsAndLawsHtml"
+                    ? " تم توثيق عدم انطباق المعادلات والقوانين على هذا الدرس."
+                    : ""}
                 </p>
               )}
             </div>

@@ -1,10 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { FileSpreadsheet } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { ContentImportDryRunPanel } from "@/components/admin/ContentImportDryRunPanel";
+import {
+  ContentImportDryRunPanel,
+  type ContentImportScope,
+} from "@/components/admin/ContentImportDryRunPanel";
 import { GoldenLessonPackageBuilder } from "@/components/admin/GoldenLessonPackageBuilder";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
+import { getContentCodeRegistry } from "@/lib/content-codes/content-codes.functions";
+import type { ContentCodeRegistry } from "@/lib/content-codes/content-codes.types";
 
 export const Route = createFileRoute("/_authenticated/admin/import")({
   component: AdminImportPage,
@@ -17,18 +23,49 @@ const STEPS = [
   { number: 4, label: "الفحص والحفظ كمسودة" },
 ] as const;
 
-const LESSON_CONTENT_TEMPLATE_KEYS = [
-  "book_contents",
-  "explanations",
-  "resources",
-  "assessments",
-  "assessment_questions",
-  "questions",
-  "self_test_questions",
-] as const;
-
 function AdminImportPage() {
   const { loading, enabled } = useRequireAdminSection("content");
+  const [registry, setRegistry] = useState<ContentCodeRegistry | null>(null);
+  const [scopeError, setScopeError] = useState<string | null>(null);
+  const [gradeSlug, setGradeSlug] = useState("");
+  const [trackCodes, setTrackCodes] = useState<string[]>([]);
+  const [semester, setSemester] = useState<"" | "1" | "2">("");
+  const [subjectCode, setSubjectCode] = useState("");
+
+  useEffect(() => {
+    if (!enabled) return;
+    let active = true;
+    void getContentCodeRegistry()
+      .then((value) => {
+        if (active) setRegistry(value);
+      })
+      .catch(() => {
+        if (active) setScopeError("تعذر تحميل سياق المنهج؛ أعد فتح الصفحة.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [enabled]);
+
+  const scopedSubjects = useMemo(
+    () => (registry?.subjects ?? []).filter((subject) =>
+      subject.isOfficialCode &&
+      subject.gradeSlug === gradeSlug &&
+      trackCodes.length > 0 &&
+      trackCodes.every((code) => subject.trackCodes.includes(code)),
+    ),
+    [gradeSlug, registry, trackCodes],
+  );
+
+  const scope: ContentImportScope | null =
+    gradeSlug && trackCodes.length > 0 && semester && subjectCode
+      ? {
+          gradeSlug,
+          trackCodes,
+          semester: Number(semester) as 1 | 2,
+          subjectCode,
+        }
+      : null;
 
   if (loading) {
     return (
@@ -52,7 +89,7 @@ function AdminImportPage() {
           </div>
           <p className="max-w-4xl text-sm leading-relaxed text-muted-foreground">
             هذا هو مكان الاستيراد الموحد لفريق المحتوى: ارفع الوحدات إن كانت المادة
-            تحتوي عليها، ثم الدروس، ثم ملفات المحتويات السبعة. إذا كانت المادة بلا
+            تحتوي عليها، ثم الدروس، ثم اختر سياقًا ثابتًا وارفع محتويات الدرس بصيغها الصحيحة. إذا كانت المادة بلا
             وحدات فتجاوز الخطوة الأولى واترك <span className="font-mono">unit_code</span> فارغًا
             في ملف الدروس.
           </p>
@@ -67,6 +104,103 @@ function AdminImportPage() {
             ))}
           </ol>
         </header>
+
+        <section aria-labelledby="import-scope-heading" className="space-y-3 rounded-2xl border bg-card p-4">
+          <div>
+            <h2 id="import-scope-heading" className="text-lg font-bold">
+              تثبيت سياق الاستيراد
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              اختر السياق مرة واحدة: الصف ← المسار/المسارات ← الفصل ← المادة.
+              تُربط الوحدات والدروس بهذه الأكواد، وليس بالأسماء المكتوبة داخل Excel.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="space-y-1 text-sm">
+              الصف
+              <select
+                id="curriculum-import-grade"
+                value={gradeSlug}
+                onChange={(event) => {
+                  setGradeSlug(event.target.value);
+                  setTrackCodes([]);
+                  setSemester("");
+                  setSubjectCode("");
+                }}
+                className="flex min-h-[44px] w-full rounded-md border bg-background px-3"
+              >
+                <option value="">اختر الصف</option>
+                {(registry?.grades ?? []).map((grade) => (
+                  <option key={grade.gradeSlug} value={grade.gradeSlug}>{grade.nameAr}</option>
+                ))}
+              </select>
+            </label>
+            <fieldset className="space-y-1" disabled={!gradeSlug}>
+              <legend className="text-sm">المسار/المسارات</legend>
+              <div className="flex min-h-[44px] items-center gap-3 rounded-md border px-3">
+                {(registry?.tracks ?? [])
+                  .filter((track) => track.trackCode === "sanaa" || track.trackCode === "aden")
+                  .map((track) => (
+                    <label key={track.trackCode} className="flex items-center gap-1 text-sm">
+                      <input
+                        id={`curriculum-import-track-${track.trackCode}`}
+                        type="checkbox"
+                        checked={trackCodes.includes(track.trackCode)}
+                        onChange={() => {
+                          setTrackCodes((current) =>
+                            current.includes(track.trackCode)
+                              ? current.filter((code) => code !== track.trackCode)
+                              : [...current, track.trackCode].sort(),
+                          );
+                          setSemester("");
+                          setSubjectCode("");
+                        }}
+                      />
+                      {track.nameAr}
+                    </label>
+                  ))}
+              </div>
+            </fieldset>
+            <label className="space-y-1 text-sm">
+              الفصل
+              <select
+                id="curriculum-import-semester"
+                value={semester}
+                disabled={trackCodes.length === 0}
+                onChange={(event) => {
+                  setSemester(event.target.value as "" | "1" | "2");
+                  setSubjectCode("");
+                }}
+                className="flex min-h-[44px] w-full rounded-md border bg-background px-3"
+              >
+                <option value="">اختر الفصل</option>
+                <option value="1">الفصل الأول</option>
+                <option value="2">الفصل الثاني</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-sm">
+              المادة
+              <select
+                id="curriculum-import-subject"
+                value={subjectCode}
+                disabled={!semester}
+                onChange={(event) => setSubjectCode(event.target.value)}
+                className="flex min-h-[44px] w-full rounded-md border bg-background px-3"
+              >
+                <option value="">اختر المادة</option>
+                {scopedSubjects.map((subject) => (
+                  <option key={subject.subjectCode} value={subject.subjectCode}>{subject.name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {scopeError && <p role="alert" className="text-sm text-destructive">{scopeError}</p>}
+          <p aria-label="مسار الربط المحدد" className="text-sm font-medium">
+            {scope
+              ? `${scope.gradeSlug} ← ${scope.trackCodes.join(" + ")} ← الفصل ${scope.semester} ← ${scope.subjectCode}`
+              : "أكمل الحقول الأربعة لتفعيل فحص ملفات الوحدات والدروس."}
+          </p>
+        </section>
 
         <section className="space-y-3" aria-labelledby="units-import-heading">
           <div>
@@ -87,6 +221,8 @@ function AdminImportPage() {
             heading="استيراد ملف الوحدات"
             description="ارفع ملف Excel الخاص بالوحدات، ثم نفّذ: فحص ← تجهيز ← تنفيذ."
             idPrefix="units-import"
+            requireScope
+            scope={scope}
           />
         </section>
 
@@ -106,6 +242,8 @@ function AdminImportPage() {
             heading="استيراد ملف الدروس"
             description="ارفع ملف Excel الخاص بالدروس. اترك unit_code فارغًا للمادة التي لا تحتوي وحدات."
             idPrefix="lessons-import"
+            requireScope
+            scope={scope}
           />
         </section>
 
@@ -115,30 +253,13 @@ function AdminImportPage() {
               3. استيراد محتويات الدروس السبعة
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              اختر نوع ملف المحتوى الجاهز من القوالب 04–10، ثم افحصه وجهّزه ونفّذه.
+              ثبّت الصف والمسار/المسارات والفصل والمادة، ثم الوحدة الاختيارية والدرس.
+              المحتويات 1–5 ملفات HTML، وأسئلة الكتاب و«اختبر فهمك» فقط بصيغة XLSX.
               تُحفظ النتائج كمسودات ولا تظهر للطالب قبل الاعتماد.
             </p>
           </div>
-          <ContentImportDryRunPanel
-            allowedTemplateKeys={LESSON_CONTENT_TEMPLATE_KEYS}
-            initialTemplateKey="book_contents"
-            heading="استيراد ملفات المحتويات السبعة"
-            description="اختر ملف المحتوى الجاهز من 04–10، ثم نفّذ: فحص ← تجهيز ← تنفيذ."
-            idPrefix="lesson-contents-import"
-          />
+          <GoldenLessonPackageBuilder />
         </section>
-
-        <details className="rounded-2xl border bg-card p-4">
-          <summary className="cursor-pointer font-semibold">
-            رفع محتويات درس واحد يدويًا من ملفات HTML وXLSX
-          </summary>
-          <p className="mt-2 text-sm text-muted-foreground">
-            مسار مساعد عند تجهيز درس منفرد بدل ملفات Excel الجماعية: اختيار الدرس ثم رفع محتوياته السبعة.
-          </p>
-          <div className="mt-5">
-            <GoldenLessonPackageBuilder />
-          </div>
-        </details>
       </main>
     </AdminLayout>
   );

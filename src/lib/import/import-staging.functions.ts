@@ -9,8 +9,19 @@ import { IMPORT_TYPE_STRUCTURE } from "./import-job.types";
 import { CONTENT_IMPORT_MAX_FILE_BYTES } from "../content-import/content-import-types";
 import { assertAllowedContentImportTemplateKey } from "../content-import/content-import-validators";
 import { assertTemplateExecutable } from "./import-execution-state";
+import {
+  applyStructuralImportScopeValidation,
+  assertStructuralScopeTemplateKey,
+} from "../content-import/content-import-scope";
 
 const MAX_BASE64_LENGTH = Math.ceil(CONTENT_IMPORT_MAX_FILE_BYTES * 1.37) + 64;
+
+const StructuralImportScopeInput = z.object({
+  gradeSlug: z.string().trim().min(1).max(64),
+  trackCodes: z.array(z.string().trim().min(1).max(64)).min(1).max(20),
+  semester: z.union([z.literal(1), z.literal(2)]),
+  subjectCode: z.string().trim().min(1).max(128),
+}).strict();
 
 const CreateJobInput = z.object({
   templateKey: z.string().min(1).max(64),
@@ -28,6 +39,7 @@ const PrepareInput = z.object({
   fileName: z.string().min(1).max(255),
   fileBase64: z.string().min(1).max(MAX_BASE64_LENGTH),
   fileSize: z.number().int().positive().max(CONTENT_IMPORT_MAX_FILE_BYTES),
+  scope: StructuralImportScopeInput.optional(),
 });
 
 const ExecuteInput = z.object({
@@ -101,7 +113,25 @@ export const prepareContentImportStaging = createServerFn({ method: "POST" })
     const { validateContentImportSheet } = await import(
       "../content-import/content-import-validators"
     );
-    const report = validateContentImportSheet(templateKey, parsed);
+    const baseReport = validateContentImportSheet(templateKey, parsed);
+    let report = baseReport;
+    if (templateKey === "units" || templateKey === "lessons") {
+      assertStructuralScopeTemplateKey(templateKey);
+      if (!data.scope) {
+        throw new Error("سياق الصف والمسار والفصل والمادة مطلوب لاستيراد الوحدات والدروس.");
+      }
+      const { loadContentCodeRegistry } = await import(
+        "../content-codes/content-code-registry.server"
+      );
+      const registry = await loadContentCodeRegistry(supabase);
+      report = applyStructuralImportScopeValidation(
+        baseReport,
+        parsed,
+        data.scope,
+        registry,
+        templateKey,
+      );
+    }
 
     if (!report.ok) {
       return {

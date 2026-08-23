@@ -451,6 +451,18 @@ function LessonPage() {
     (r) => r.resourceType === "practical_experiment_html",
   );
   const htmlSummaries = (htmlResources ?? []).filter((r) => r.resourceType === "summary_html");
+  // Golden Lesson v2 native HTML resources are student-visible only behind an
+  // explicit READY lifecycle key. Published storage alone never opens the gate.
+  const v2Ready = (key: string) => previewMode || lifecycleGate?.readyKeys?.has(key) === true;
+  const htmlConceptsAndTerms = (htmlResources ?? []).filter(
+    (r) => r.resourceType === "concepts_and_terms_html" && v2Ready("conceptsAndTerms"),
+  );
+  const htmlEquationsAndLaws = (htmlResources ?? []).filter(
+    (r) => r.resourceType === "equations_and_laws_html" && v2Ready("equationsAndLaws"),
+  );
+  const htmlInteractiveActivities = (htmlResources ?? []).filter(
+    (r) => r.resourceType === "interactive_activity_html" && v2Ready("interactiveActivity"),
+  );
 
   // Additional written explanations — a capability only when real text exists.
   const { data: explanations } = useQuery({
@@ -597,6 +609,11 @@ function LessonPage() {
         readyKeys: lifecycleGate?.readyKeys ?? new Set<string>(),
       });
   const actions = orderStudentCapabilities(gatedCapabilities);
+  const assessmentStart = actions.findIndex(
+    (capability) => capability.type === "OFFICIAL_QUESTIONS" || capability.type === "SELF_TEST",
+  );
+  const learningActions = assessmentStart >= 0 ? actions.slice(0, assessmentStart) : actions;
+  const assessmentAndLaterActions = assessmentStart >= 0 ? actions.slice(assessmentStart) : [];
   const lessonProgress = computeLessonProgress(capabilities);
   const primaryCapability = capabilities.find((c) => c.type === "PRIMARY_CONTENT");
   const primaryUnavailable = !primaryCapability?.available || !primaryCapability?.studentVisible;
@@ -852,9 +869,9 @@ function LessonPage() {
       )}
 
       {/* Content-driven learning actions — only what actually exists */}
-      {actions.length > 0 && (
+      {(actions.length > 0 || htmlConceptsAndTerms.length > 0 || htmlEquationsAndLaws.length > 0 || htmlInteractiveActivities.length > 0) && (
         <div className="space-y-3">
-          {actions.map((capability, index) => (
+          {learningActions.map((capability, index) => (
             <JourneyCard
               key={capability.type}
               stepNumber={index + 1}
@@ -867,6 +884,80 @@ function LessonPage() {
               {renderCapabilityBody(capability)}
             </JourneyCard>
           ))}
+          {htmlConceptsAndTerms.length > 0 && (
+            <JourneyCard
+              stepNumber={learningActions.length + 1}
+              icon={<Library className="h-5 w-5" />}
+              title="المفاهيم والمصطلحات"
+              description="المفاهيم الأساسية والمصطلحات المنظمة في الدرس."
+              ctaLabel="عرض المفاهيم"
+            >
+              <div className="space-y-4">
+                {htmlConceptsAndTerms.map((resource) => (
+                  <PublishedHtmlResourceViewer
+                    key={resource.resourceId}
+                    resource={resource}
+                    onReloadSignedUrl={handleReloadSignedUrl(resource.resourceId)}
+                  />
+                ))}
+              </div>
+            </JourneyCard>
+          )}
+          {htmlEquationsAndLaws.length > 0 && (
+            <JourneyCard
+              stepNumber={learningActions.length + (htmlConceptsAndTerms.length > 0 ? 2 : 1)}
+              icon={<FileText className="h-5 w-5" />}
+              title="المعادلات والقوانين"
+              description="المعادلات والقوانين المرتبطة بالدرس."
+              ctaLabel="عرض المعادلات"
+            >
+              <div className="space-y-4">
+                {htmlEquationsAndLaws.map((resource) => (
+                  <PublishedHtmlResourceViewer
+                    key={resource.resourceId}
+                    resource={resource}
+                    onReloadSignedUrl={handleReloadSignedUrl(resource.resourceId)}
+                  />
+                ))}
+              </div>
+            </JourneyCard>
+          )}
+          {assessmentAndLaterActions.map((capability, index) => (
+            <JourneyCard
+              key={capability.type}
+              stepNumber={learningActions.length +
+                (htmlConceptsAndTerms.length > 0 ? 1 : 0) +
+                (htmlEquationsAndLaws.length > 0 ? 1 : 0) + index + 1}
+              icon={<CapabilityIcon type={capability.type} />}
+              title={capability.label}
+              description={capability.description}
+              ctaLabel={capability.action}
+            >
+              {renderCapabilityBody(capability)}
+            </JourneyCard>
+          ))}
+          {htmlInteractiveActivities.length > 0 && (
+            <JourneyCard
+              stepNumber={learningActions.length +
+                (htmlConceptsAndTerms.length > 0 ? 1 : 0) +
+                (htmlEquationsAndLaws.length > 0 ? 1 : 0) +
+                assessmentAndLaterActions.length + 1}
+              icon={<FlaskConical className="h-5 w-5" />}
+              title="التجربة / النشاط التفاعلي"
+              description="نشاط إضافي اختياري مرتبط بمحتوى الدرس."
+              ctaLabel="بدء النشاط"
+            >
+              <div className="space-y-4">
+                {htmlInteractiveActivities.map((resource) => (
+                  <PublishedHtmlResourceViewer
+                    key={resource.resourceId}
+                    resource={resource}
+                    onReloadSignedUrl={handleReloadSignedUrl(resource.resourceId)}
+                  />
+                ))}
+              </div>
+            </JourneyCard>
+          )}
         </div>
       )}
 
