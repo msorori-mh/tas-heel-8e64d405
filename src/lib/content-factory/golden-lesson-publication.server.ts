@@ -329,15 +329,24 @@ export async function resolveVerifiedAssets(batchId: string): Promise<{
   );
   if (!version?.verified_storage_path) throw new Error("CF11_VERIFIED_BUNDLE_REQUIRED");
 
-  const bundleBytes = await storageDownload(
-    INTAKE_BUCKET,
-    version.verified_storage_path,
-    "CF11_BUNDLE_DOWNLOAD_FAILED",
-  );
-  const verified = await verifyGoldenLessonBundle(bundleBytes);
+  // Two verified sources exist: the legacy ZIP bundle and the direct per-file intake.
+  // Both are re-verified read-only here and must match the batch identity hash.
+  const verified = isDirectVerifiedPath(version.verified_storage_path)
+    ? await (async () => {
+        const direct = await loadVerifiedDirectIntake(batch.package_id, batch.package_version);
+        return { ...direct, bundleSha256: direct.intakeSha256 };
+      })()
+    : await verifyGoldenLessonBundle(
+        await storageDownload(
+          INTAKE_BUCKET,
+          version.verified_storage_path,
+          "CF11_BUNDLE_DOWNLOAD_FAILED",
+        ),
+      );
   if (verified.bundleSha256 !== batch.verified_bundle_sha256) {
     throw new Error("CF11_VERIFIED_BUNDLE_IDENTITY_MISMATCH");
   }
+
 
   const declarations: Cf11AssetDeclaration[] = [];
   const files = new Map<string, Uint8Array>();
