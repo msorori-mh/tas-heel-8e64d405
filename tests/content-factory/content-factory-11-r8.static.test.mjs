@@ -91,6 +91,8 @@ test("CF11 HTML identity — plan, write and replay use one normalized resource 
   assert.match(sql, /r\.url = public\.cf10_inline_html_url\(v_code\)/);
   assert.match(sql, /r\.metadata->>'cf11_publication_id' = v_publication_id::text/);
   assert.match(sql, /IF v_count <> 1 OR v_live IS DISTINCT FROM v_expected/);
+  assert.doesNotMatch(sql, /v_live IS DISTINCT FROM v_expected\s+OR public\.cf10_html_publication_pending/);
+  assert.match(sql, /assessment_code = public\.normalize_content_code\(ext_code \|\| '-SELFTEST'\)/);
   assert.doesNotMatch(sql, /lower\(r\.resource_code\) = lower\(v_code\)/);
 });
 

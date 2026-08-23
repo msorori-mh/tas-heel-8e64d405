@@ -1589,7 +1589,8 @@ BEGIN
 
   -- 5) assessment membership: EXACTLY the self-test set pinned from the staged payload
   SELECT id INTO v_assessment_id FROM public.lesson_assessments
-   WHERE lesson_id = lesson_row.id AND assessment_code = ext_code || '-SELFTEST';
+   WHERE lesson_id = lesson_row.id
+     AND assessment_code = public.normalize_content_code(ext_code || '-SELFTEST');
   IF v_assessment_id IS NULL THEN
     RAISE EXCEPTION 'CF11_ASSESSMENT_SHELL_MISSING' USING ERRCODE = '23514';
   END IF;
