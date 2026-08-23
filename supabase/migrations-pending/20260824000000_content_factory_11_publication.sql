@@ -320,9 +320,9 @@ GRANT EXECUTE ON FUNCTION public.cf11_live_lifecycle_capabilities(uuid) TO authe
 GRANT EXECUTE ON FUNCTION public.cf11_assert_exact_lifecycle_set(uuid, text) TO authenticated, service_role;
 
 /**
- * CF11-R7 — exact SET *and* applicability. Set equality alone is not enough: a row parked at
- * applicability OPTIONAL / NA is silently excused from the readiness contract while the set still
- * looks complete. Every one of the canonical seven must exist exactly once AND be REQUIRED.
+ * CF11-R7 — exact SET *and* publishable applicability. The verified package profile is the
+ * authority for REQUIRED versus OPTIONAL: an OPTIONAL artifact is publishable when it is present
+ * in the exact seven-artifact set. NA is not publishable in a complete Golden Lesson package.
  * Enforced at publication plan, publication replay, first READY and READY replay.
  */
 CREATE OR REPLACE FUNCTION public.cf11_assert_exact_required_lifecycle_set(_lesson_id uuid, _code text)
@@ -334,9 +334,9 @@ BEGIN
                   ARRAY[]::text[])
     INTO bad
     FROM public.lesson_capability_lifecycle
-   WHERE lesson_id = _lesson_id AND applicability <> 'REQUIRED';
+   WHERE lesson_id = _lesson_id AND applicability NOT IN ('REQUIRED','OPTIONAL');
   IF coalesce(array_length(bad,1),0) > 0 THEN
-    RAISE EXCEPTION 'CF11_LIFECYCLE_APPLICABILITY_NOT_REQUIRED %: [%]', _code,
+    RAISE EXCEPTION 'CF11_LIFECYCLE_APPLICABILITY_NOT_PUBLISHABLE %: [%]', _code,
       array_to_string(bad, ',') USING ERRCODE = '23514';
   END IF;
 END $$;
@@ -1351,9 +1351,9 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
 
-  -- CF11-R7: the live lifecycle rows must ALREADY be exactly the canonical seven, each carrying
-  -- applicability='REQUIRED'. A capability parked at OPTIONAL/NA would be excused from the
-  -- readiness contract while the set still looks complete, so the plan refuses to describe it.
+  -- CF11-R7: the live lifecycle rows must already be exactly the canonical seven. REQUIRED and
+  -- OPTIONAL are both publishable because applicability comes from the verified package profile;
+  -- NA remains forbidden for a complete seven-artifact publication.
   PERFORM public.cf11_assert_exact_required_lifecycle_set(
     lesson_row.id, 'CF11_LIFECYCLE_SET_NOT_EXACTLY_SEVEN_REQUIRED');
 

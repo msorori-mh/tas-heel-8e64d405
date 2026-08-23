@@ -340,6 +340,9 @@ test("CF11-R8/5 — revocation EXECUTE demands its key BEFORE the replay branch"
 test("CF11-R8/6 — applicability, pinned revisions and READY revalidation stay exact", () => {
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.cf11_assert_exact_required_lifecycle_set/);
   assert.ok((sql.match(/cf11_assert_exact_required_lifecycle_set\(/g) ?? []).length >= 4);
+  assert.match(sql, /applicability NOT IN \('REQUIRED','OPTIONAL'\)/);
+  assert.match(sql, /CF11_LIFECYCLE_APPLICABILITY_NOT_PUBLISHABLE/);
+  assert.doesNotMatch(sql, /applicability <> 'REQUIRED'/);
   assert.match(sql, /tamkeen\.content-factory-11\.write-plan\.v2/);
   assert.match(sql, /'revisionId'/);
   assert.match(sql, /'payloadHash'/);
