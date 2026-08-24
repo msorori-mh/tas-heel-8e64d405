@@ -19,7 +19,7 @@ test("the import center exposes the unified curriculum and lesson-content workfl
   assert.match(route, /الوحدات أو الفصول — اختياري/);
   assert.match(route, /unit_code/);
   assert.match(route, /<GoldenLessonPackageBuilder\s*\/>/);
-  assert.match(component, /LESSON_CONTENT_TEMPLATE_KEYS/);
+  assert.match(component, /GOLDEN_CAPABILITIES/);
   assert.match(component, /1\. اختيار الدرس/);
   assert.match(component, /فحص ومعاينة الملفات/);
   assert.match(component, /نشر الدرس الآن/);
