@@ -41,5 +41,6 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/tests/import/fixtures/pg17-prereq-content-code.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-11-fixture.sql" \
   -f "$root_dir/supabase/migrations-pending/20260824000000_content_factory_11_publication.sql" \
+  -f "$root_dir/supabase/migrations/20260826020000_cf11_assessment_replay_identity_normalization.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-11-assert.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-11-postverify.sql"
