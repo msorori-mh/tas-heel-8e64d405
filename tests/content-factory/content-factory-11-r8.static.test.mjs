@@ -248,6 +248,16 @@ test("CF11-R6/5 — service_role is denied every human editorial RPC", () => {
   assert.match(asserts, /service_role cannot|CF11_EXPECTED_SERVICE_ROLE_DENIED/);
 });
 
+test("CF11 READY separation of duties has no admin bypass", () => {
+  const ready = sql.slice(
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_attest_cf11_ready"),
+    sql.indexOf("-- 8) Grants."),
+  );
+  assert.match(ready, /IF pub\.published_by = uid THEN/);
+  assert.doesNotMatch(ready, /pub\.published_by = uid AND NOT public\.golden_lesson_has_role/);
+  assert.match(ready, /CF11_SEPARATION_OF_DUTIES/);
+});
+
 test("CF11-R6/6 — the operator panel gates READY on the exact set, not a count", () => {
   assert.match(panel, /import \{ V3_LIFECYCLE_CAPABILITIES \} from "@\/lib\/lessons\/capability-mapping"/);
   assert.doesNotMatch(panel, /CF11_EXPECTED_CAPABILITY_COUNT/);
@@ -418,3 +428,33 @@ test("CF11-R8B/2 — the guard is narrow: only CF11 lessons, canonical capabilit
   const guard = sql.slice(
     sql.indexOf("CREATE OR REPLACE FUNCTION public.cf11_assert_demotion_allowed"),
     sql.indexOf("CREATE OR REPLACE FUNCTION public.lesson_capability_transition("),
+  );
+  assert.match(guard, /IF _from_status IS DISTINCT FROM 'READY' THEN RETURN; END IF;/);
+  assert.match(guard, /IF _to_status IS NOT DISTINCT FROM 'READY' THEN RETURN; END IF;/);
+  assert.match(guard, /_capability = ANY \(public\.cf11_lifecycle_capabilities\(\)\)/);
+  assert.doesNotMatch(guard, /_applicability[^;]*<> 'REQUIRED'/);
+  assert.match(guard, /NOT public\.cf11_is_managed_lesson\(_lesson_id\)/);
+  // Legacy lessons: managed-ness is decided by an actual CF11 publication row.
+  assert.match(sql, /FROM public\.golden_lesson_publications WHERE lesson_id = _lesson_id/);
+});
+
+test("CF11-R8B/3 — authorization is transaction-local and not forgeable by a client", () => {
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.cf11_revocation_tickets/);
+  assert.match(sql, /xact_id\s+bigint\s+NOT NULL/);
+  assert.match(sql, /VALUES \(txid_current\(\), _lesson_id, _actor_id, _revocation_id\)/);
+  assert.match(sql, /WHERE xact_id = txid_current\(\) AND lesson_id = _lesson_id/);
+  for (const role of ["anon", "authenticated", "service_role"]) {
+    assert.match(sql, new RegExp(`REVOKE ALL ON TABLE public\\.cf11_revocation_tickets FROM ${role};`));
+  }
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.cf11_open_revocation_ticket\(uuid, uuid, uuid\)\s*\n\s*FROM PUBLIC, anon, authenticated, service_role;/);
+  assert.match(sql, /ALTER TABLE public\.cf11_revocation_tickets ENABLE ROW LEVEL SECURITY/);
+  // No GUC and no boolean bypass parameter anywhere in the guard path.
+  assert.doesNotMatch(sql, /current_setting\('cf11[^']*'/);
+  assert.doesNotMatch(sql, /_bypass|_allow_direct|_force\b/);
+});
+
+test("CF11-R8B/4 — only the controlled withdrawal opens a ticket, and it closes it", () => {
+  // Exactly one call site in the whole migration: the controlled withdrawal.
+  assert.equal((sql.match(/PERFORM public\.cf11_open_revocation_ticket\(/g) ?? []).length, 1);
+  const revoke = sql.slice(
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_revoke_cf11_ready"));
