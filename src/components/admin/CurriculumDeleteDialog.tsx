@@ -104,14 +104,23 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
     ? Object.entries(preview.counts).filter(([, n]) => Number(n) > 0)
     : [];
 
-  const handleDelete = async () => {
+  const canForce =
+    isAdmin && !!target && (target.type === "unit" || target.type === "lesson");
+
+  const runDelete = async (force: boolean) => {
     if (!target) return;
     setDeleting(true);
-    const { error } = await supabase.rpc("admin_curriculum_delete", {
-      _entity_type: target.type,
-      _entity_id: target.id,
-      _reason: "admin curriculum management",
-    });
+    const { error } = force
+      ? await supabase.rpc("admin_curriculum_force_delete", {
+          _entity_type: target.type,
+          _entity_id: target.id,
+          _reason: "prelaunch cleanup of legacy import",
+        })
+      : await supabase.rpc("admin_curriculum_delete", {
+          _entity_type: target.type,
+          _entity_id: target.id,
+          _reason: "admin curriculum management",
+        });
     setDeleting(false);
 
     if (error) {
@@ -130,6 +139,9 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
     onOpenChange(false);
     onDeleted?.();
   };
+
+  const handleDelete = () => runDelete(false);
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
