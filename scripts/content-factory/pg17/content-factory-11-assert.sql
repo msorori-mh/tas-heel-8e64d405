@@ -887,6 +887,18 @@ BEGIN
   SELECT plan_sha256 INTO recorded FROM public.golden_lesson_publications
    WHERE batch_id='51000000-0000-0000-0000-000000000001';
 
+  -- Production normalizes the assessment natural code to lowercase while the immutable
+  -- publication plan keeps the uppercase source code. Reproduce that exact live state before
+  -- the baseline replay: it is the identity-equivalent case, not drift.
+  UPDATE public.lesson_assessments
+     SET assessment_code = lower(assessment_code)
+   WHERE lesson_id='43000000-0000-0000-0000-000000000012';
+  PERFORM public.cf04_assert(
+    (SELECT count(*)=1 AND min(assessment_code)='chem-g12-iron-selftest'
+       FROM public.lesson_assessments
+      WHERE lesson_id='43000000-0000-0000-0000-000000000012'),
+    'the fixture must reproduce the production-normalized assessment identity');
+
   -- baseline: an untampered replay is idempotent and writes nothing
   SET LOCAL ROLE authenticated;
   res := public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
