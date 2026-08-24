@@ -147,6 +147,44 @@ export const prepareContentImportStaging = createServerFn({ method: "POST" })
         resolveCurriculumImportScope,
       } = await import("./curriculum-import-scope.server");
       const resolvedScope = await resolveCurriculumImportScope(supabase, data.curriculumScope);
+
+      if (templateKey === "lessons") {
+        const requestedUnitCodes = [
+          ...new Set(
+            parsed.rows
+              .map((row) => row.data.unit_code?.trim())
+              .filter((code): code is string => Boolean(code)),
+          ),
+        ];
+        if (requestedUnitCodes.length > 0) {
+          const { data: existingUnits, error: unitsError } = await supabase
+            .from("units")
+            .select("code")
+            .eq("subject_id", resolvedScope.subjectId)
+            .in("code", requestedUnitCodes);
+          if (unitsError) {
+            throw new Error(`IMPORT_SCOPE_UNITS_LOOKUP_FAILED: ${unitsError.message}`);
+          }
+          const existingCodes = new Set(
+            (existingUnits ?? []).map((unit) => (unit.code ?? "").trim()),
+          );
+          const missingCodes = requestedUnitCodes.filter((code) => !existingCodes.has(code));
+          if (missingCodes.length > 0) {
+            return {
+              jobId: data.jobId,
+              templateKey,
+              stagedRows: 0,
+              ok: false,
+              errors: [{
+                rowNumber: null,
+                message:
+                  `UNIT_NOT_FOUND_IN_SCOPE: ${missingCodes.join(", ")} — استورد ملف الوحدات في السياق نفسه أولاً.`,
+              }],
+            };
+          }
+        }
+      }
+
       scopedParsed = {
         ...parsed,
         rows: applyCurriculumImportScopeToRows(parsed.rows, resolvedScope),
