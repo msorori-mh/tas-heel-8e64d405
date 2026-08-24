@@ -15,9 +15,27 @@ CREATE TABLE public.audit_logs (
   target_type text NOT NULL, target_id uuid, metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE TABLE public.subjects (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE TABLE public.grades (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE TABLE public.tracks (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE TABLE public.curriculum_tracks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), track_code text NOT NULL UNIQUE
+);
+CREATE TABLE public.subjects (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), grade_id uuid,
+  code text, name text NOT NULL DEFAULT 'fixture subject', sort_order integer NOT NULL DEFAULT 1
+);
+CREATE TABLE public.subject_curriculum_tracks (
+  subject_id uuid NOT NULL REFERENCES public.subjects(id) ON DELETE CASCADE,
+  curriculum_track_id uuid NOT NULL REFERENCES public.curriculum_tracks(id) ON DELETE RESTRICT,
+  PRIMARY KEY(subject_id, curriculum_track_id)
+);
+CREATE TABLE public.subject_textbooks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject_id uuid NOT NULL REFERENCES public.subjects(id) ON DELETE CASCADE,
+  storage_path text NOT NULL
+);
+CREATE TABLE public.certificates (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE TABLE public.content_review_state (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE TABLE public.textbooks (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE TABLE public.import_jobs (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE TABLE public.import_staging_rows (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
@@ -78,7 +96,9 @@ CREATE TABLE public.practice_attempt_questions (id uuid PRIMARY KEY DEFAULT gen_
 CREATE TABLE public.practice_attempt_responses (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE TABLE public.unit_practice_attempts (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE TABLE public.exam_template_questions (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE TABLE public.exam_templates (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE TABLE public.ministerial_exam_questions (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE TABLE public.ministerial_exam_models (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 
 CREATE TABLE public.golden_lesson_packages (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE TABLE public.golden_lesson_package_versions (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
@@ -106,12 +126,34 @@ INSERT INTO auth.users(id) VALUES
   ('11111111-1111-4111-8111-111111111111'),
   ('22222222-2222-4222-8222-222222222222');
 
-INSERT INTO public.subjects DEFAULT VALUES;
-INSERT INTO public.grades DEFAULT VALUES;
+INSERT INTO public.grades(id) VALUES ('55555555-5555-4555-8555-555555555555');
+INSERT INTO public.curriculum_tracks(id, track_code)
+VALUES ('66666666-6666-4666-8666-666666666666', 'sanaa');
+INSERT INTO public.subjects(id, grade_id, code, name)
+VALUES (
+  '77777777-7777-4777-8777-777777777777',
+  '55555555-5555-4555-8555-555555555555',
+  'fixture-subject',
+  'مادة تجريبية'
+);
+INSERT INTO public.subject_curriculum_tracks(subject_id, curriculum_track_id)
+VALUES (
+  '77777777-7777-4777-8777-777777777777',
+  '66666666-6666-4666-8666-666666666666'
+);
+INSERT INTO public.subject_textbooks(subject_id, storage_path)
+VALUES (
+  '77777777-7777-4777-8777-777777777777',
+  'subject-textbooks/77777777-7777-4777-8777-777777777777/fixture.pdf'
+);
+INSERT INTO public.certificates DEFAULT VALUES;
+INSERT INTO public.content_review_state DEFAULT VALUES;
 INSERT INTO public.tracks DEFAULT VALUES;
 INSERT INTO public.textbooks DEFAULT VALUES;
 INSERT INTO public.import_jobs DEFAULT VALUES;
 INSERT INTO public.import_staging_rows DEFAULT VALUES;
+INSERT INTO public.exam_templates DEFAULT VALUES;
+INSERT INTO public.ministerial_exam_models DEFAULT VALUES;
 INSERT INTO public.audit_logs(actor_id,action,target_type,metadata)
 VALUES ('11111111-1111-4111-8111-111111111111','fixture','fixture','{}');
 
