@@ -15,15 +15,30 @@ import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 
 type PurgeStatus = {
+  scope_version: number;
   enabled: boolean;
   locked_at: string | null;
   counts: Record<string, number>;
   preview_sha256: string;
+  manifest_row_count: number;
   confirmation_phrase: string;
   preserved: string[];
+  subject_candidates: Array<{
+    id: string;
+    code: string | null;
+    name: string;
+    grade_id: string;
+  }>;
+  textbook_storage_paths: string[];
 };
 
 const COUNT_LABEL: Record<string, string> = {
+  subjects: "مادة تجريبية",
+  subject_curriculum_tracks: "ربط مادة بمسار",
+  subject_textbooks: "سجل كتاب مادة",
+  content_review_state: "سجل مراجعة ونشر محتوى",
+  exam_templates: "قالب اختبار",
+  ministerial_exam_models: "نموذجًا وزاريًا",
   units: "وحدة/فصل",
   lessons: "درسًا",
   lesson_book_contents: "محتوى كتاب",
@@ -53,14 +68,16 @@ const COUNT_LABEL: Record<string, string> = {
 };
 
 const PRESERVED_LABEL: Record<string, string> = {
-  subjects: "المواد",
   grades: "الصفوف",
-  tracks: "المسارات",
-  textbooks: "كتب المواد",
+  curriculum_tracks: "المساران الرسميان (صنعاء وعدن)",
   users: "المستخدمون",
+  profiles: "ملفات المستخدمين",
   import_jobs: "سجل عمليات الاستيراد",
   import_staging_rows: "سجل صفوف الاستيراد",
   audit_logs: "سجل التدقيق",
+  finance: "المحافظ والمدفوعات والاشتراكات",
+  storage_objects: "ملفات التخزين حتى تنظيفها بإجراء مستقل",
+  content_code_allocations: "سجل تخصيص الأكواد",
 };
 
 function newIdempotencyKey() {
@@ -96,8 +113,7 @@ export function CurriculumPrelaunchPurgeControl() {
       Object.entries(status?.counts ?? {}).filter(([, count]) => Number(count) > 0),
     [status],
   );
-  const emptyCurriculum =
-    Number(status?.counts?.units ?? 0) === 0 && Number(status?.counts?.lessons ?? 0) === 0;
+  const emptyCurriculum = Number(status?.manifest_row_count ?? 0) === 0;
   const canSubmit =
     !!status?.enabled &&
     !emptyCurriculum &&
@@ -143,7 +159,7 @@ export function CurriculumPrelaunchPurgeControl() {
       return;
     }
 
-    toast.success("تم حذف جميع الوحدات والدروس التجريبية والتحقق من النتيجة.");
+    toast.success("تم حذف بيانات المحتوى التجريبية والتحقق من النتيجة.");
     setOpen(false);
     await queryClient.invalidateQueries();
   };
@@ -171,11 +187,11 @@ export function CurriculumPrelaunchPurgeControl() {
           <DialogHeader className="text-right">
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
-              حذف جميع الوحدات والدروس التجريبية
+              حذف جميع بيانات المحتوى التجريبية
             </DialogTitle>
             <DialogDescription className="text-right">
-              أداة مؤقتة لمرحلة ما قبل الإطلاق، متاحة للأدمن الكامل فقط. العملية ذرية
-              وتفشل كاملة إذا تغيرت البيانات بعد المعاينة.
+              يشمل النطاق المواد وروابط المسارات والكتب والوحدات والدروس والمحتويات
+              والأسئلة التجريبية. العملية ذرية وتفشل كاملة إذا تغير أي معرّف بعد المعاينة.
             </DialogDescription>
           </DialogHeader>
 
@@ -220,6 +236,21 @@ export function CurriculumPrelaunchPurgeControl() {
                 )}
               </div>
 
+              {status.subject_candidates.length > 0 && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+                  <p className="mb-2 font-semibold text-amber-800 dark:text-amber-300">
+                    المواد الداخلة في المعاينة — {status.subject_candidates.length}
+                  </p>
+                  <div className="max-h-36 space-y-1 overflow-y-auto font-mono text-xs text-muted-foreground">
+                    {status.subject_candidates.map((subject) => (
+                      <div key={subject.id} className="rounded bg-background/70 px-2 py-1">
+                        {subject.name} · {subject.code ?? "بلا كود"} · {subject.id}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
                 <p className="mb-2 font-semibold text-emerald-700 dark:text-emerald-300">لن يتم حذف:</p>
                 <p className="text-muted-foreground">
@@ -254,8 +285,11 @@ export function CurriculumPrelaunchPurgeControl() {
               </label>
 
               <p className="text-xs text-muted-foreground">
-                تحتفظ المنصة بسجل التدقيق وسجل الاستيراد. ملفات التخزين الموثقة لا تُحذف
-                في هذه العملية؛ تنظيفها يتم لاحقًا بإجراء مستقل ومدقق.
+                بصمة المعاينة مبنية على {status.manifest_row_count} معرّفًا فعليًا، وليست
+                على الأعداد فقط. تحتفظ المنصة بسجل التدقيق والاستيراد والبيانات المالية.
+                {status.textbook_storage_paths.length > 0
+                  ? ` ستبقى ${status.textbook_storage_paths.length} ملفات كتاب في التخزين إلى أن تُنظف بإجراء مستقل ومدقق.`
+                  : " لا توجد ملفات كتب منفصلة تحتاج تنظيف تخزين."}
               </p>
             </div>
           )}
