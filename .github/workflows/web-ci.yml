@@ -207,6 +207,7 @@ jobs:
           psql "$CURRICULUM_PURGE_PG17_URL" --set=ON_ERROR_STOP=1 \
             --file scripts/curriculum/pg17-prelaunch-purge-fixture.sql \
             --file supabase/migrations/20260824223000_prelaunch_curriculum_global_purge.sql \
+            --file supabase/migrations/20260824231500_prelaunch_purge_pgcrypto_schema_fix.sql \
             --file scripts/curriculum/pg17-prelaunch-purge-assert.sql
 
       - name: Stop isolated PostgreSQL 17
