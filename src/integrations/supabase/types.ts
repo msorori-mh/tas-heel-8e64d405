@@ -1144,6 +1144,57 @@ export type Database = {
           },
         ]
       }
+      golden_lesson_identity_rebindings: {
+        Row: {
+          actor_id: string
+          created_at: string
+          from_version: number
+          id: string
+          new_identity: Json
+          old_identity: Json
+          package_id: string
+          reason: string
+          to_version: number
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          from_version: number
+          id?: string
+          new_identity: Json
+          old_identity: Json
+          package_id: string
+          reason: string
+          to_version: number
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          from_version?: number
+          id?: string
+          new_identity?: Json
+          old_identity?: Json
+          package_id?: string
+          reason?: string
+          to_version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_identity_rebindings_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "golden_lesson_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_identity_rebindings_package_id_to_version_fkey"
+            columns: ["package_id", "to_version"]
+            isOneToOne: true
+            referencedRelation: "golden_lesson_package_versions"
+            referencedColumns: ["package_id", "version"]
+          },
+        ]
+      }
       golden_lesson_package_reviews: {
         Row: {
           actor_id: string
@@ -5350,6 +5401,15 @@ export type Database = {
           _expected_plan_sha256?: string
           _idempotency_key?: string
           _mode?: string
+        }
+        Returns: Json
+      }
+      golden_lesson_rebind_draft_identity: {
+        Args: {
+          _client_manifest_sha256: string
+          _expected_current_version: number
+          _manifest: Json
+          _reason: string
         }
         Returns: Json
       }
