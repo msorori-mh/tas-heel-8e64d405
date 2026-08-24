@@ -137,7 +137,6 @@ export const dryRunContentImport = createServerFn({ method: "POST" })
           ...row,
           grade_slug: resolved.gradeSlug,
           track_codes: expectedTracks,
-          semester: "",
         })),
         filename: data.fileName,
         templateKey: template.key,
