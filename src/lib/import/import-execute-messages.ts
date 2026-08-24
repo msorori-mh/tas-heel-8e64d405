@@ -38,6 +38,10 @@ export const IMPORT_EXECUTE_MESSAGES_AR: Record<string, string> = {
     "تغيّر سياق الاستيراد بعد التجهيز — أعد الفحص والتجهيز.",
   SUBJECT_NOT_FOUND:
     "تعذّر حل المادة الرسمية من سياق الاستيراد — أعد اختيار الصف والمسار والفصل والمادة.",
+  UNIT_NOT_FOUND_IN_SCOPE:
+    "إحدى الوحدات المشار إليها غير موجودة داخل المادة المختارة — استورد ملف الوحدات في السياق نفسه أولاً.",
+  IMPORT_SCOPE_UNITS_LOOKUP_FAILED:
+    "تعذر التحقق من وحدات المادة المختارة — لم يُنفذ أي استيراد.",
   LESSON_NOT_FOUND: "كود الدرس غير موجود — استورد قالب الدروس أولاً.",
   MISSING_RESOURCE_URL: "رابط المورد مفقود في أحد الصفوف.",
   ASSESSMENT_QUESTION_LINK_UNRESOLVED:
