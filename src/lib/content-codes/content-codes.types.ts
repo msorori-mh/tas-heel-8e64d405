@@ -83,6 +83,8 @@ export interface ContextTemplateRequest {
   gradeSlug: string;
   /** Availability prefill for the subjects template; ignored elsewhere. */
   trackCodes?: string[];
+  /** Selected academic semester; prefilled into units/lessons when provided. */
+  semester?: 1 | 2;
   subjectCode?: string;
   unitCode?: string;
   rowCount: number;

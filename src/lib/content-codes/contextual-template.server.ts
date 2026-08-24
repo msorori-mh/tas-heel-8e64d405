@@ -57,7 +57,7 @@ function subjectNoOf(registry: ContentCodeRegistry, subjectCode: string): number
 }
 
 function planRows(input: BuildInput): RowPlan {
-  const { registry, templateKey, gradeSlug, subjectCode, unitCode, rowCount } = input;
+  const { registry, templateKey, gradeSlug, subjectCode, unitCode, rowCount, semester } = input;
   const scope = { gradeSlug };
   const trackCodes = (input.trackCodes ?? []).filter(Boolean);
   const extra = input.extraExistingCodes ?? [];
@@ -104,10 +104,16 @@ function planRows(input: BuildInput): RowPlan {
         rows: codes.map((code, i) => ({
           unit_code: code,
           subject_code: subjectCode,
+          ...(semester ? { semester: String(semester) } : {}),
           sort_order: String(i + 1),
         })),
         allocatedCodes: codes,
-        prefilledColumns: ["unit_code", "subject_code", "sort_order"],
+        prefilledColumns: [
+          "unit_code",
+          "subject_code",
+          ...(semester ? ["semester"] : []),
+          "sort_order",
+        ],
         notes: ["املأ فقط: title (وصف الوحدة اختياري)."],
       };
     }
@@ -127,6 +133,7 @@ function planRows(input: BuildInput): RowPlan {
           lesson_code: code,
           subject_code: subjectCode,
           ...(unitCode ? { unit_code: unitCode } : {}),
+          ...(semester ? { semester: String(semester) } : {}),
           sort_order: String(i + 1),
         })),
         allocatedCodes: codes,
@@ -134,6 +141,7 @@ function planRows(input: BuildInput): RowPlan {
           "lesson_code",
           "subject_code",
           ...(unitCode ? ["unit_code"] : []),
+          ...(semester ? ["semester"] : []),
           "sort_order",
         ],
         notes: [
@@ -290,6 +298,7 @@ function addCodeReferenceSheet(
     }
   }
   if (request.subjectCode) sheet.addRow({ a: "المادة المختارة", b: request.subjectCode, c: "" });
+  if (request.semester) sheet.addRow({ a: "الفصل الدراسي", b: String(request.semester), c: "معبأ مسبقًا في صفوف البيانات" });
   if (request.unitCode) sheet.addRow({ a: "الوحدة المختارة", b: request.unitCode, c: "" });
 
   sheet.addRow({});
@@ -388,7 +397,7 @@ export async function buildContextualTemplate(
 
   const buffer = await workbook.xlsx.writeBuffer();
   const stamp = new Date().toISOString().slice(0, 10);
-  const scopeTag = [input.gradeSlug, ...(input.trackCodes ?? []), input.subjectCode]
+  const scopeTag = [input.gradeSlug, ...(input.trackCodes ?? []), input.subjectCode, input.semester ? `s${input.semester}` : undefined]
     .filter(Boolean)
     .join("_");
 
