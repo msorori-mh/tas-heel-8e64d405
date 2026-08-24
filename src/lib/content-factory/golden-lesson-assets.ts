@@ -9,7 +9,7 @@
  *
  * Explicitly forbidden, by construction:
  *   * SVG (script-capable), and any MIME outside the raster allowlist below.
- *   * `data:` / base64 payloads inline in HTML.
+ *   * active `data:` payloads; only offline-safe image/font/audio/video data URIs are allowed.
  *   * absolute, protocol-relative or nested paths (`/x`, `//x`, `http(s)://x`, `a/b.png`, `../x`).
  *
  * This module is pure. It performs no IO, no database access and no network access.
