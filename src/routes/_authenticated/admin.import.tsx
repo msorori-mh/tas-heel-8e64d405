@@ -42,13 +42,12 @@ function AdminImportPage() {
         <header className="space-y-3">
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">استيراد المنهج ومحتويات الدروس</h1>
+            <h2 className="text-2xl font-bold">الاستيراد والفحص والنشر</h2>
           </div>
           <p className="max-w-4xl text-sm leading-relaxed text-muted-foreground">
-            هذا هو مكان الاستيراد الموحد لفريق المحتوى: ارفع الوحدات إن كانت المادة
-            تحتوي عليها، ثم الدروس، ثم ملفات المحتويات السبعة. إذا كانت المادة بلا
-            وحدات فتجاوز الخطوة الأولى واترك <span className="font-mono">unit_code</span> فارغًا
-            في ملف الدروس.
+            بعد تعريف المادة وكتابها من التبويبات أعلاه، ثبّت سياق الصف والمسار والفصل
+            والمادة هنا، ثم ارفع الوحدات إن وجدت، فالدروس، فمحتويات الدرس. إذا كانت
+            المادة بلا وحدات فاترك <span className="font-mono">unit_code</span> فارغًا.
           </p>
           <ol aria-label="خطوات الاستيراد الموحد" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((step) => (
