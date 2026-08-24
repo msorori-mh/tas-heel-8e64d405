@@ -241,6 +241,8 @@ DECLARE
   v_lab text;
   v_mind text;
   v_book text;
+  v_official_questions text;
+  v_self_test text;
   v_assessment uuid;
   v_qid uuid;
   v_rev uuid;
@@ -283,6 +285,22 @@ BEGIN
         || '<button data-act="reset">إعادة</button><output id="out">0/0</output>'
         || '<script>' || v_script || '</script></body></html>';
 
+  -- CF11 derives the exact domain question codes from the verified CF08 payload.
+  -- Keep the staged payload JSON valid and aligned with the 5/40 CF10 fixture rows below.
+  SELECT jsonb_build_object(
+           'questions',
+           jsonb_agg(jsonb_build_object('question_number', n::text) ORDER BY n)
+         )::text
+    INTO v_official_questions
+    FROM generate_series(1, 5) AS s(n);
+
+  SELECT jsonb_build_object(
+           'questions',
+           jsonb_agg(jsonb_build_object('id', lpad(n::text, 2, '0')) ORDER BY n)
+         )::text
+    INTO v_self_test
+    FROM generate_series(1, 40) AS s(n);
+
   -- Stage entries (CF08 output).
   FOREACH cap IN ARRAY caps LOOP
     INSERT INTO public.golden_lesson_domain_stage_entries(
@@ -295,9 +313,13 @@ BEGIN
             cap || '.src',
             public.cf11fx_sha256(CASE cap WHEN 'mindMapHtml' THEN v_mind
                                              WHEN 'labExperimentHtml' THEN v_lab
+                                             WHEN 'officialBookQuestions' THEN v_official_questions
+                                             WHEN 'selfTest' THEN v_self_test
                                              ELSE cap END),
             convert_to(CASE cap WHEN 'mindMapHtml' THEN v_mind
                                 WHEN 'labExperimentHtml' THEN v_lab
+                                WHEN 'officialBookQuestions' THEN v_official_questions
+                                WHEN 'selfTest' THEN v_self_test
                                 ELSE cap END, 'UTF8'));
   END LOOP;
 
