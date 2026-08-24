@@ -19,7 +19,7 @@ test("R10/2 — the client never supplies authoritative intake totals to the ser
 });
 
 test("R10/3 — direct intake stays fail-closed and server-authoritative", () => {
-  assert.match(directFns, /\$\{userId\}\/\$\{data\.intakeId\}\/\$\{declaration\.path\}/);
+  assert.match(directFns, /\$\{userId\}\/\$\{data\.intakeId\}\/\$\{storageObjectName\(declaration, index\)\}/);
   assert.match(directFns, /\.download\(storagePath\)/);
   assert.match(directFns, /verifyGoldenLessonDirectIntake\(manifest, files\)/);
   assert.match(directFns, /golden_lesson_attest_direct_intake/);
