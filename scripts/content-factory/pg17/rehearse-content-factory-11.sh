@@ -11,7 +11,7 @@ set -euo pipefail
 #                               they install — _v3_canonical_json_v1, v3_capability_snapshot,
 #                               v3_capability_snapshot_hash, v3_capability_snapshot_is_reconcilable
 #                               — are byte-identical in the fixture and are what CF11 consumes)
-#   CF04 -> CF08 -> CF09 -> R9 -> CF07 -> CF10 -> resource-code baseline -> CF11
+#   CF04 -> CF08 -> CF09 -> R9 -> CF07 -> CF10 -> production code baselines -> CF11
 #
 # There is NO public.digest shim at any point and no auth/separation guard is bypassed:
 # every RPC runs as `authenticated` with a real request.jwt.claim.sub.
@@ -38,6 +38,7 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/supabase/migrations-pending/20260819230000_content_factory_10_domain_materialization.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-10-assert.sql" \
   -f "$root_dir/tests/import/fixtures/pg17-prereq-resource-code.sql" \
+  -f "$root_dir/tests/import/fixtures/pg17-prereq-content-code.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-11-fixture.sql" \
   -f "$root_dir/supabase/migrations-pending/20260824000000_content_factory_11_publication.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-11-assert.sql" \
