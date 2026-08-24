@@ -77,21 +77,37 @@ function serviceClient() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-function rawIdentityMatches(current: GoldenLessonIdentity, incoming: GoldenLessonIdentity) {
-  return current.gradeCode === incoming.gradeCode &&
-    current.subjectCode === incoming.subjectCode &&
-    current.lessonCode === incoming.lessonCode &&
-    current.lessonSlug === incoming.lessonSlug &&
-    current.unitCode === incoming.unitCode &&
-    current.semester === incoming.semester &&
-    current.sortOrder === incoming.sortOrder &&
-    JSON.stringify(current.curriculumTrackCodes) === JSON.stringify(incoming.curriculumTrackCodes);
+async function resolveExistingIdentityPackage(
+  context: ContentStaffAuthContext,
+  manifest: GoldenLessonPackage,
+): Promise<GoldenLessonPackage> {
+  const client = context.supabase as any;
+  const candidatesQuery = await client
+    .from("golden_lesson_packages")
+    .select("package_code,profile_id,identity")
+    .eq("profile_id", manifest.profileId);
+  if (candidatesQuery.error) throw new Error(candidatesQuery.error.message);
+
+  const matches = ((candidatesQuery.data ?? []) as Array<Pick<
+    ExistingPackageRow,
+    "package_code" | "profile_id" | "identity"
+  >>).filter((candidate) =>
+    diffGoldenLessonIdentity(candidate.identity, manifest.identity).length === 0
+  );
+  if (matches.length > 1) {
+    throw new Error("PACKAGE_IDENTITY_AMBIGUOUS");
+  }
+  const packageCode = matches[0]?.package_code;
+  return packageCode && packageCode !== manifest.packageCode
+    ? { ...manifest, packageCode }
+    : manifest;
 }
 
 async function readDirectIntakePreflight(
   context: ContentStaffAuthContext,
   manifest: GoldenLessonPackage,
 ): Promise<DirectIntakePreflightResult> {
+  manifest = await resolveExistingIdentityPackage(context, manifest);
   const manifestSha256 = computeGoldenLessonManifestSha256(manifest);
   const client = context.supabase as any;
   const packageQuery = await client
@@ -140,7 +156,7 @@ async function readDirectIntakePreflight(
   const currentVersion = versionQuery.data as CurrentVersionRow | null;
   const differences = diffGoldenLessonIdentity(current.identity, manifest.identity);
   const profileMatches = current.profile_id === manifest.profileId;
-  const identityMatchesExactly = rawIdentityMatches(current.identity, manifest.identity);
+  const identityMatchesExactly = differences.length === 0;
   const reviewCount = Number(reviewQuery.count ?? 0);
   const domainBatchCount = Number(domainBatchQuery.count ?? 0);
 
@@ -257,7 +273,10 @@ export const createGoldenLessonDirectUpload = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const authContext = context as ContentStaffAuthContext;
     const { supabase, userId } = authContext;
-    const manifest = data.manifest as GoldenLessonPackage;
+    const manifest = await resolveExistingIdentityPackage(
+      authContext,
+      data.manifest as GoldenLessonPackage,
+    );
     const preflight = await readDirectIntakePreflight(authContext, manifest);
     if (preflight.status === "IDENTITY_CONFLICT") throw new Error(preflight.messageAr);
     if (preflight.status === "RESUMABLE") throw new Error("DIRECT_INTAKE_ALREADY_VERIFIED");
@@ -285,7 +304,10 @@ export const verifyAndStageGoldenLessonDirect = createServerFn({ method: "POST" 
   .handler(async ({ data, context }) => {
     const authContext = context as ContentStaffAuthContext;
     const { supabase, userId } = authContext;
-    const manifest = data.manifest as GoldenLessonPackage;
+    const manifest = await resolveExistingIdentityPackage(
+      authContext,
+      data.manifest as GoldenLessonPackage,
+    );
     let databaseWritesStarted = false;
 
     try {
