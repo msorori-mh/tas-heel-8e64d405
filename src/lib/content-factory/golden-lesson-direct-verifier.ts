@@ -48,6 +48,11 @@ function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+/** Digest used by the direct-intake RPC and the package preflight. */
+export function computeGoldenLessonManifestSha256(manifest: GoldenLessonPackage): string {
+  return sha256(new TextEncoder().encode(JSON.stringify(manifest)));
+}
+
 function safeLeafName(name: string): boolean {
   return name.length > 0 && name.length <= 255 && name !== "." && name !== ".." &&
     !/[\\/\u0000-\u001f]/u.test(name) && name.normalize("NFC") === name;
@@ -158,8 +163,7 @@ export function verifyGoldenLessonDirectIntake(
     if (findings.length > 0) fail(findings[0]!.code);
   }
 
-  const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest));
-  const manifestSha256 = sha256(manifestBytes);
+  const manifestSha256 = computeGoldenLessonManifestSha256(manifest);
   return {
     manifest,
     manifestSha256,
