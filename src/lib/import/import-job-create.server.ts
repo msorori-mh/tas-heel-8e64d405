@@ -7,7 +7,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 import { IMPORT_TYPE_STRUCTURE } from "./import-job.types";
 import type { CurriculumImportScope } from "./curriculum-import-scope";
 
@@ -27,6 +27,25 @@ export async function createContentImportExecutionJob(
   userId: string,
   input: CreateExecutionJobInput,
 ): Promise<{ jobId: string }> {
+  const metadata: Json = {
+    fileName: input.fileName,
+    fileSize: input.fileSize,
+    fileHash: input.fileHash,
+    templateKey: input.templateKey,
+    source: "admin_import_hub",
+    noExecute: false,
+    ...(input.curriculumScope
+      ? {
+          curriculumImportScope: {
+            gradeSlug: input.curriculumScope.gradeSlug,
+            trackCodes: input.curriculumScope.trackCodes,
+            semester: input.curriculumScope.semester,
+            subjectCode: input.curriculumScope.subjectCode,
+          },
+        }
+      : {}),
+  };
+
   const { data, error } = await supabase
     .from("import_jobs")
     .insert({
@@ -45,15 +64,7 @@ export async function createContentImportExecutionJob(
       warning_rows: input.warningRows,
       started_at: new Date().toISOString(),
       summary: {},
-      metadata: {
-        fileName: input.fileName,
-        fileSize: input.fileSize,
-        fileHash: input.fileHash,
-        templateKey: input.templateKey,
-        source: "admin_import_hub",
-        noExecute: false,
-        ...(input.curriculumScope ? { curriculumImportScope: input.curriculumScope } : {}),
-      },
+      metadata,
     })
     .select("id")
     .single();
