@@ -972,25 +972,25 @@ ROLLBACK;
 
 -- 13) CF10-R5 — semester contract and mandatory CF09 binding on EXECUTE.
 
--- 13a) A pinned manifest semester that contradicts the live lesson aborts and rolls back.
+-- 13a) A CF09-bound EXECUTE treats semester/sort/unit as lesson-shell operational metadata.
+-- Later CF10 revisions deliberately stopped rejecting or overwriting these fields for a bound
+-- lesson; identity remains pinned by binding.lesson_id + subject_id + slug. DRY_RUN must plan
+-- successfully without mutating either the shell or the existing materialization ledger.
 BEGIN;
-ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER USER;
-DELETE FROM public.golden_lesson_domain_materializations
- WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG');
-ALTER TABLE public.golden_lesson_domain_materializations ENABLE TRIGGER USER;
 UPDATE public.lessons SET semester = 2 WHERE slug = 'quran-lesson';
 SET ROLE service_role;
-DO $$ DECLARE b uuid; sha text; BEGIN
+DO $$ DECLARE b uuid; planned jsonb; ledger_before bigint; BEGIN
   b := public.cf10_batch('QURAN-G10-L03-PKG');
-  sha := public.golden_lesson_materialize_domain_batch(b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
-  BEGIN
-    PERFORM public.golden_lesson_materialize_domain_batch(b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-sem-1');
-    RAISE EXCEPTION 'CF10_EXPECTED_SEMESTER_CONFLICT';
-  EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF10_IDENTITY_CONFLICT%' THEN RAISE; END IF;
-  END;
-  PERFORM public.cf04_assert((SELECT count(*)=0 FROM public.golden_lesson_domain_materializations
-    WHERE batch_id = public.cf10_batch('QURAN-G10-L03-PKG')),'semester conflict rolled the ledger back');
+  SELECT count(*) INTO ledger_before
+    FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
+  planned := public.golden_lesson_materialize_domain_batch(
+    b,'10000000-0000-0000-0000-000000000003','DRY_RUN');
+  PERFORM public.cf04_assert(planned->>'mode' = 'DRY_RUN',
+    'bound lesson operational metadata blocked DRY_RUN');
+  PERFORM public.cf04_assert((SELECT semester=2 FROM public.lessons WHERE slug='quran-lesson'),
+    'CF10 overwrote the bound lesson semester');
+  PERFORM public.cf04_assert((SELECT count(*) FROM public.golden_lesson_domain_materializations
+    WHERE batch_id=b)=ledger_before,'DRY_RUN changed the materialization ledger');
 END $$;
 RESET ROLE;
 ROLLBACK;

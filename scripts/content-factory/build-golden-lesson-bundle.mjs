@@ -46,17 +46,17 @@ const PROFILE_APPLICABILITY = {
     lessonSummaryHtml: "REQUIRED",
     mindMapHtml: "REQUIRED",
     labExperimentHtml: "OPTIONAL",
-    officialBookQuestions: "REQUIRED",
+    officialBookQuestions: "OPTIONAL",
     selfTest: "REQUIRED",
   },
   GOLDEN_QURAN_V1: {
     officialBookContent: "REQUIRED",
     tamkeenExplanationHtml: "REQUIRED",
     lessonSummaryHtml: "REQUIRED",
-    mindMapHtml: "OPTIONAL",
-    labExperimentHtml: "NA",
-    officialBookQuestions: "REQUIRED",
-    selfTest: "OPTIONAL",
+    mindMapHtml: "REQUIRED",
+    labExperimentHtml: "OPTIONAL",
+    officialBookQuestions: "OPTIONAL",
+    selfTest: "REQUIRED",
   },
 };
 

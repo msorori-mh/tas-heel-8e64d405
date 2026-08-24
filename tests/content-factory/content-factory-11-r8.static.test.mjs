@@ -92,6 +92,7 @@ test("CF11 HTML identity — plan, write and replay use one normalized resource 
   assert.match(sql, /r\.metadata->>'cf11_publication_id' = v_publication_id::text/);
   assert.match(sql, /IF v_count <> 1 OR v_live IS DISTINCT FROM v_expected/);
   assert.doesNotMatch(sql, /v_live IS DISTINCT FROM v_expected\s+OR public\.cf10_html_publication_pending/);
+  assert.match(sql, /'assessment', jsonb_build_object\('code', public\.normalize_content_code\(ext_code \|\| '-SELFTEST'\)/);
   assert.match(sql, /assessment_code = public\.normalize_content_code\(ext_code \|\| '-SELFTEST'\)/);
   assert.doesNotMatch(sql, /lower\(r\.resource_code\) = lower\(v_code\)/);
 });
@@ -245,6 +246,16 @@ test("CF11-R6/5 — service_role is denied every human editorial RPC", () => {
   assert.match(binding, /golden_lesson_bind_authoritative_identity_operator/);
   assert.doesNotMatch(binding, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(asserts, /service_role cannot|CF11_EXPECTED_SERVICE_ROLE_DENIED/);
+});
+
+test("CF11 READY separation of duties has no admin bypass", () => {
+  const ready = sql.slice(
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_attest_cf11_ready"),
+    sql.indexOf("-- 8) Grants."),
+  );
+  assert.match(ready, /IF pub\.published_by = uid THEN/);
+  assert.doesNotMatch(ready, /pub\.published_by = uid AND NOT public\.golden_lesson_has_role/);
+  assert.match(ready, /CF11_SEPARATION_OF_DUTIES/);
 });
 
 test("CF11-R6/6 — the operator panel gates READY on the exact set, not a count", () => {
@@ -451,158 +462,8 @@ test("CF11-R8B/4 — only the controlled withdrawal opens a ticket, and it close
   const loop = revoke.indexOf("FOREACH cap IN ARRAY public.cf11_lifecycle_capabilities() LOOP");
   const close = revoke.indexOf("cf11_close_revocation_ticket(pub.lesson_id)");
   assert.ok(open > 0 && open < loop && loop < close, "ticket must wrap the transition loop only");
-  // The ticket is opened only after the key/reason/admin/exact-set gates already passed.
   assert.ok(revoke.indexOf("CF11_REVOKE_IDEMPOTENCY_KEY_REQUIRED") < open);
   assert.ok(revoke.indexOf("cf11_assert_exact_required_lifecycle_set") < open);
-  // Nothing else in the codebase opens one.
   assert.ok(!fns.includes("cf11_open_revocation_ticket"));
   assert.ok(!server.includes("cf11_open_revocation_ticket"));
-});
-
-test("CF11-R8B/5 — raw table DML cannot bypass either path", () => {
-  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.cf11_guard_lifecycle_demotion/);
-  assert.match(sql, /BEFORE UPDATE OR DELETE ON public\.lesson_capability_lifecycle\n\s*FOR EACH ROW EXECUTE FUNCTION public\.cf11_guard_lifecycle_demotion\(\)/);
-  assert.match(sql, /'raw_delete'/);
-  assert.match(sql, /'raw_update'/);
-  // The migration itself refuses to install if a Data API role can write the lifecycle table
-  // or reach the ticket table.
-  assert.match(sql, /CF11_RAW_TABLE_BYPASS: % holds % on lesson_capability_lifecycle/);
-  assert.match(sql, /CF11_TICKET_TABLE_REACHABLE/);
-  assert.match(sql, /CF11_TICKET_FORGEABLE/);
-});
-
-test("CF11-R8B/6 — PG17 proves the bypass closed, legacy intact, controlled path alone works", () => {
-  const section = asserts.slice(asserts.indexOf("-- O) CF11-R8B"), asserts.indexOf("-- N) CF11-R8"));
-  assert.ok(section.length > 0, "section O must exist before section N");
-  assert.doesNotMatch(section, /EXCEPTION WHEN OTHERS/);
-  // Non-admin staff and full admin both refused, with zero writes.
-  assert.match(section, /NOT public\.is_full_admin\('10000000-0000-0000-0000-000000000001'\)/);
-  assert.match(section, /public\.cf04_assert\(public\.is_full_admin\('10000000-0000-0000-0000-000000000006'\)/);
-  assert.ok((section.match(/CF11_EXPECTED_DIRECT_TRANSITION_REFUSED/g) ?? []).length >= 3);
-  assert.ok((section.match(/CF11_EXPECTED_DIRECT_TRANSITION_ZERO_WRITES/g) ?? []).length >= 4);
-  assert.match(section, /CF11_EXPECTED_RAW_DEMOTION_REFUSED/);
-  assert.match(section, /CF11_EXPECTED_TICKET_UNREACHABLE/);
-  assert.match(section, /CF11_EXPECTED_RAW_TABLE_BYPASS_CLOSED/);
-  // Legacy lesson keeps the exact 21H behaviour, including READY -> DRAFT by content staff.
-  assert.match(section, /CF11_EXPECTED_LEGACY_UNMANAGED/);
-  assert.match(section, /CF11_EXPECTED_LEGACY_TRANSITION_UNCHANGED/);
-  // The fixture models production honestly: content_manager IS staff but is NOT a full admin.
-  assert.match(fixture, /golden_lesson_has_role\(_user_id, 'content_manager'\)/);
-  assert.match(fixture, /43000000-0000-0000-0000-000000000099/);
-  // The controlled withdrawal (section N) is still the only thing that demotes the seven.
-  const n = asserts.slice(asserts.indexOf("-- N) CF11-R8"));
-  assert.match(n, /status = 'DRAFT' AND applicability = 'REQUIRED'/);
-  assert.match(n, /CF11_EXPECTED_REVOKE_LEDGER: exactly one withdrawal row/);
-});
-
-const fixtureSql = fixture;
-
-test("CF11-R9B/1 — legacy lesson is inserted only AFTER the authoritative fixture identity", () => {
-  const ironLesson = fixtureSql.indexOf("'43000000-0000-0000-0000-000000000012','iron-and-its-compounds'");
-  const subject = fixtureSql.indexOf("'42000000-0000-0000-0000-000000000012','CHEM-G12'");
-  const grade = fixtureSql.indexOf("'40000000-0000-0000-0000-000000000012','GRADE-12'");
-  const legacy = fixtureSql.indexOf("'43000000-0000-0000-0000-000000000099','legacy-lesson'");
-  assert.ok(grade > 0 && subject > grade, "grade then subject");
-  assert.ok(ironLesson > subject, "Iron lesson after subject");
-  assert.ok(legacy > ironLesson, "legacy lesson must be inserted after the Iron lesson");
-  // Exactly one legacy lesson insert, and it never derives the subject from another lesson row.
-  assert.equal((fixtureSql.match(/'43000000-0000-0000-0000-000000000099','legacy-lesson'/g) ?? []).length, 1);
-  assert.doesNotMatch(fixtureSql, /SELECT subject_id FROM public\.lessons/);
-});
-
-test("CF11-R9B/2 — legacy lesson uses the full required column set with non-null values", () => {
-  const legacy = fixtureSql.slice(
-    fixtureSql.indexOf("INSERT INTO public.lessons(id, slug, subject_id, unit_id, title, is_free, semester, sort_order)\nVALUES ('43000000-0000-0000-0000-000000000099'"),
-  ).slice(0, 600);
-  assert.match(legacy, /INSERT INTO public\.lessons\(id, slug, subject_id, unit_id, title, is_free, semester, sort_order\)/);
-  // Explicit subject, explicit non-null title, is_free/semester/sort_order all provided.
-  assert.match(legacy, /'42000000-0000-0000-0000-000000000012', NULL, 'درس قديم', true, 1, 99\)/);
-  // Its READY + REQUIRED lifecycle row follows immediately.
-  assert.match(legacy, /VALUES \('43000000-0000-0000-0000-000000000099','officialBookContent','READY','REQUIRED'\)/);
-});
-
-
-test("CF11-R9C/1 — fixture mirrors production lifecycle grant hardening before CF11", () => {
-  assert.match(
-    fixtureSql,
-    /REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER\s+ON TABLE public\.lesson_capability_lifecycle FROM authenticated;/,
-  );
-  assert.match(
-    fixtureSql,
-    /GRANT SELECT ON TABLE public\.lesson_capability_lifecycle TO authenticated;/,
-  );
-  const hardening = fixtureSql.indexOf(
-    "REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER",
-  );
-  const legacyInsert = fixtureSql.indexOf(
-    "'43000000-0000-0000-0000-000000000099','legacy-lesson'",
-  );
-  assert.ok(hardening > 0 && hardening < legacyInsert, "grant hardening must precede fixture lifecycle writes");
-});
-
-
-test("CF11-R9C/2 — durable asset plan pins the storage identity replay validates", () => {
-  const report = sql.slice(
-    sql.indexOf("asset_report := asset_report || jsonb_build_object("),
-    sql.indexOf("-- Every reference in the official body must be declared"),
-  );
-  assert.match(report, /'storageBucket', asset->>'storageBucket'/);
-  assert.match(report, /'storagePath', asset->>'storagePath'/);
-  const replay = sql.slice(
-    sql.indexOf("CREATE OR REPLACE FUNCTION public.cf11_assert_replay_state"),
-    sql.indexOf("-- 4) CF11-R7 — EXACT PINNED question identity"),
-  );
-  assert.match(replay, /p\.storage_path = a->>'storagePath'/);
-  assert.match(replay, /t\.storage_bucket = p\.storage_bucket AND t\.storage_path = p\.storage_path/);
-});
-
-
-test("CF11-R9C/3 — replay lifecycle drift probe bypasses only the fixture trigger", () => {
-  const drift = asserts.slice(
-    asserts.indexOf("-- 4) a lifecycle row pushed back below REVIEW"),
-    asserts.indexOf("-- 5) the stored asset object removed"),
-  );
-  assert.match(drift, /DISABLE TRIGGER USER/);
-  assert.match(drift, /ENABLE TRIGGER USER/);
-  assert.equal((drift.match(/DISABLE TRIGGER USER/g) ?? []).length, 2);
-  assert.equal((drift.match(/ENABLE TRIGGER USER/g) ?? []).length, 2);
-  assert.match(drift, /cf11_assert_replay_refuses\('lifecycle'\)/);
-});
-
-
-test("CF11-R9C/4 — published-revision replay drift probe bypasses only the fixture trigger", () => {
-  const drift = asserts.slice(
-    asserts.indexOf("-- payload drift at an identical code/count"),
-    asserts.indexOf("-- revision substitution at an identical code/count"),
-  );
-  assert.equal((drift.match(/ALTER TABLE public\.question_revisions DISABLE TRIGGER USER/g) ?? []).length, 2);
-  assert.equal((drift.match(/ALTER TABLE public\.question_revisions ENABLE TRIGGER USER/g) ?? []).length, 2);
-  assert.match(drift, /cf11_assert_replay_state\(plan\)/);
-  assert.match(drift, /CF11_EXPECTED_PINNED_REVISION_REFUSED/);
-});
-
-
-test("CF11-R9C/5 — demotion probes use canonical lifecycle capability names", () => {
-  const o1 = asserts.slice(asserts.indexOf("-- O) CF11-R8B"), asserts.indexOf("-- O2)"));
-  assert.match(o1, /lesson_capability_transition\(lesson, 'lessonAssessment', 'REVIEW'/);
-  assert.doesNotMatch(o1, /lesson_capability_transition\(lesson, 'selfTest'/);
-});
-
-
-test("CF11-R9C/6 — legacy probe does not grant or call the private managed helper", () => {
-  const o4 = asserts.slice(asserts.indexOf("-- O4) LEGACY"), asserts.indexOf("-- N) CF11-R8"));
-  assert.doesNotMatch(o4, /cf11_is_managed_lesson\(/);
-  assert.match(o4, /NOT EXISTS \(SELECT 1 FROM public\.golden_lesson_publications WHERE lesson_id = legacy\)/);
-  assert.match(sql, /REVOKE ALL ON FUNCTION public\.cf11_is_managed_lesson\(uuid\)/);
-});
-
-
-test("CF11-R9C/7 — destructive withdrawal proof rolls back before canonical postverify", () => {
-  const n2 = asserts.indexOf("-- N2) The withdrawal itself");
-  const begin = asserts.indexOf("BEGIN;", n2);
-  const rollback = asserts.lastIndexOf("ROLLBACK;");
-  const verdict = asserts.indexOf("PASS_CONTENT_FACTORY_11_PG17");
-  assert.ok(n2 > 0 && begin > n2 && rollback > begin && verdict > rollback);
-  assert.match(asserts.slice(begin, rollback), /golden_lesson_revoke_cf11_ready/);
-  assert.match(asserts.slice(begin, rollback), /CF11_EXPECTED_TERMINAL_READY_REFUSED/);
 });

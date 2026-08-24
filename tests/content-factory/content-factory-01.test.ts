@@ -32,7 +32,7 @@ function packageFor(profile: typeof GOLDEN_QURAN_V1 | typeof GOLDEN_CHEMISTRY_V1
       const applicability = profile.applicability[capability];
       const official = capability === "officialBookContent" || capability === "officialBookQuestions";
       const sourcePath = applicability === "REQUIRED"
-        ? ["tamkeenExplanationHtml", "lessonSummaryHtml", "mindMapHtml", "labExperimentHtml"].includes(capability)
+        ? ["officialBookContent", "tamkeenExplanationHtml", "lessonSummaryHtml", "mindMapHtml", "labExperimentHtml"].includes(capability)
           ? `${capability}.html`
           : `${capability}.json`
         : null;

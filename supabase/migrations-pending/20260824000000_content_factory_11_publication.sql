@@ -1445,7 +1445,7 @@ BEGIN
                                        'renderMode','INTERACTIVE',
                                        'csp', lab_contract)),
     'questions', jsonb_build_object('official', official_plan, 'selfTest', self_plan),
-    'assessment', jsonb_build_object('code', ext_code || '-SELFTEST',
+    'assessment', jsonb_build_object('code', public.normalize_content_code(ext_code || '-SELFTEST'),
                                      'memberCount', cardinality(expected_self_codes),
                                      'memberQuestionIds',
                                      (SELECT coalesce(jsonb_agg(e.v->>'questionId'
@@ -1733,9 +1733,9 @@ BEGIN
   IF pub.id IS NULL THEN
     RAISE EXCEPTION 'CF11_PUBLICATION_MISSING' USING ERRCODE = 'P0002';
   END IF;
-  -- Separation of duties: a content manager who published cannot also attest READY.
-  -- The owner (admin) may attest their own direct publication.
-  IF pub.published_by = uid AND NOT public.golden_lesson_has_role(uid, 'admin') THEN
+  -- Separation of duties is absolute: no publisher, including a full admin, may attest
+  -- their own publication. The table constraint remains a second fail-closed defense.
+  IF pub.published_by = uid THEN
     RAISE EXCEPTION 'CF11_SEPARATION_OF_DUTIES' USING ERRCODE = '42501';
   END IF;
   -- CF11-R7: a withdrawn publication is terminal. Re-attesting it (or replaying its old READY)

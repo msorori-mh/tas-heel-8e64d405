@@ -11,7 +11,7 @@ const h = (value: string) => createHash("sha256").update(value).digest("hex");
 const staticHtml = (title: string) =>
   `<!doctype html><html dir="rtl"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><h1>${title}</h1></body></html>`;
 const files = {
-  "official.json": JSON.stringify({ blocks: [{ type: "paragraph", text: "official" }] }),
+  "official.html": staticHtml("official"),
   "official.provenance.json": "official-source",
   "explanation.html": staticHtml("explanation"),
   "summary.html": staticHtml("summary"),
@@ -48,12 +48,12 @@ function manifest(bundleFiles = files) {
     identity: { gradeCode: "GRADE-10", curriculumTrackCodes: ["sanaa"], subjectCode: "QURAN-G10", lessonCode: "QURAN-G10-L01", lessonSlug: "quran-lesson", unitCode: null, semester: 1, sortOrder: 1 },
     capabilityOrder: ["officialBookContent","tamkeenExplanationHtml","lessonSummaryHtml","mindMapHtml","labExperimentHtml","officialBookQuestions","selfTest"],
     artifacts: [
-      { capability: "officialBookContent", applicability: "REQUIRED", authority: "OFFICIAL", sourcePath: "official.json", sha256: h(bundleFiles["official.json"]), provenancePath: "official.provenance.json", provenanceSha256: h(bundleFiles["official.provenance.json"]) },
+      { capability: "officialBookContent", applicability: "REQUIRED", authority: "OFFICIAL", sourcePath: "official.html", sha256: h(bundleFiles["official.html"]), provenancePath: "official.provenance.json", provenanceSha256: h(bundleFiles["official.provenance.json"]) },
       { capability: "tamkeenExplanationHtml", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "explanation.html", sha256: h(bundleFiles["explanation.html"]), provenancePath: null, provenanceSha256: null },
       { capability: "lessonSummaryHtml", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "summary.html", sha256: h(bundleFiles["summary.html"]), provenancePath: null, provenanceSha256: null },
       { capability: "mindMapHtml", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "mindmap.html", sha256: h(bundleFiles["mindmap.html"]), provenancePath: null, provenanceSha256: null },
       { capability: "labExperimentHtml", applicability: "OPTIONAL", authority: "TAMKEEN", sourcePath: null, sha256: null, provenancePath: null, provenanceSha256: null },
-      { capability: "officialBookQuestions", applicability: "REQUIRED", authority: "OFFICIAL", sourcePath: "questions.json", sha256: h(bundleFiles["questions.json"]), provenancePath: "questions.provenance.json", provenanceSha256: h(bundleFiles["questions.provenance.json"]) },
+      { capability: "officialBookQuestions", applicability: "OPTIONAL", authority: "OFFICIAL", sourcePath: "questions.json", sha256: h(bundleFiles["questions.json"]), provenancePath: "questions.provenance.json", provenanceSha256: h(bundleFiles["questions.provenance.json"]) },
       { capability: "selfTest", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "self-test.json", sha256: h(bundleFiles["self-test.json"]), provenancePath: null, provenanceSha256: null },
     ],
     lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },
@@ -109,6 +109,6 @@ test("verified bytes map deterministically to seven domain staging targets", asy
   assert.equal(envelope.entries[0]?.targetPlan, "lesson_book_contents");
   assert.equal(envelope.entries[2]?.lifecycleCapability, "quickReview");
   assert.equal(envelope.entries[4]?.targetPlan, "lesson_resources:experiment");
-  assert.equal(envelope.entries[0]?.sourceBase64, Buffer.from(files["official.json"]).toString("base64"));
+  assert.equal(envelope.entries[0]?.sourceBase64, Buffer.from(files["official.html"]).toString("base64"));
   assert.equal(envelope.answersCompanion?.path, "answers.server-only.json");
 });

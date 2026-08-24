@@ -8,7 +8,10 @@ import {
 } from "@/lib/content-factory/golden-lesson-direct-publish.functions";
 import {
   createGoldenLessonDirectUpload,
+  discardGoldenLessonDirectUpload,
+  preflightGoldenLessonDirect,
   verifyAndStageGoldenLessonDirect,
+  type DirectIntakePreflightResult,
 } from "@/lib/content-factory/golden-lesson-direct.functions";
 
 import { Badge } from "@/components/ui/badge";
@@ -164,6 +167,17 @@ function scrollToCapability(capability: GoldenCapability) {
 }
 
 type DirectIntakeResult = Awaited<ReturnType<typeof verifyAndStageGoldenLessonDirect>>;
+
+function friendlyDirectIntakeError(error: unknown) {
+  const message = error instanceof Error ? error.message : "DIRECT_INTAKE_FAILED";
+  if (message.includes("PACKAGE_IDENTITY_IMMUTABLE")) {
+    return "تعذر النشر لأن كود الحزمة مرتبط مسبقًا بهوية درس مختلفة. أعد الفحص لعرض الحقول المتعارضة.";
+  }
+  if (message.includes("DIRECT_INTAKE_ALREADY_VERIFIED")) {
+    return "هذه النسخة متحقق منها مسبقًا؛ أعد الضغط على النشر لاستئناف العملية دون رفع جديد.";
+  }
+  return message;
+}
 
 interface UploadedArtifact {
   fileName: string;
@@ -448,6 +462,7 @@ export function GoldenLessonPackageBuilder() {
   const [templateBusy, setTemplateBusy] = useState<GoldenCapability | null>(null);
   const [validation, setValidation] = useState<GoldenLessonValidationResult | null>(null);
   const [intake, setIntake] = useState<DirectIntakeResult | null>(null);
+  const [serverPreflight, setServerPreflight] = useState<DirectIntakePreflightResult | null>(null);
   const [intakeError, setIntakeError] = useState<string | null>(null);
   const [intakeBusy, setIntakeBusy] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
@@ -631,6 +646,11 @@ export function GoldenLessonPackageBuilder() {
     }),
     [profile, packageCode, gradeCode, trackCodes, subjectCode, lessonCode, lessonSlug, unitCode, semester, sortOrder, artifacts, answersCompanion, supplementalAssets],
   );
+
+  useEffect(() => {
+    setServerPreflight(null);
+    setIntakeError(null);
+  }, [packageDraft]);
 
   const requiredCapabilities = profile
     ? GOLDEN_CAPABILITIES.filter((capability) => profile.applicability[capability] === "REQUIRED")
@@ -829,6 +849,10 @@ export function GoldenLessonPackageBuilder() {
     setFileError(null);
     setCapabilityErrors({});
     setIntake(null);
+    setServerPreflight(null);
+    setIntakeError(null);
+    setPublishError(null);
+    setPublishSteps([]);
     setDraftMessage(null);
   };
 
@@ -1011,6 +1035,7 @@ export function GoldenLessonPackageBuilder() {
     setIntakeBusy(true);
     setIntakeError(null);
     setIntake(null);
+    let activeIntakeId: string | null = null;
     try {
       const files = buildDirectIntakeFiles(
         uploads,
@@ -1019,6 +1044,8 @@ export function GoldenLessonPackageBuilder() {
         supplementalAssets,
       );
       const slot = await createGoldenLessonDirectUpload({ data: { manifest: packageDraft } });
+      activeIntakeId = slot.intakeId;
+      setServerPreflight(slot.preflight);
       for (const upload of slot.uploads) {
         const file = files.get(upload.logicalPath);
         if (!file) throw new Error(`DIRECT_DECLARED_FILE_MISSING:${upload.logicalPath}`);
@@ -1039,7 +1066,12 @@ export function GoldenLessonPackageBuilder() {
       }
       return verified;
     } catch (error) {
-      setIntakeError(error instanceof Error ? error.message : "DIRECT_INTAKE_FAILED");
+      if (activeIntakeId) {
+        await discardGoldenLessonDirectUpload({
+          data: { intakeId: activeIntakeId, manifest: packageDraft },
+        }).catch(() => undefined);
+      }
+      setIntakeError(friendlyDirectIntakeError(error));
       return null;
     } finally {
       setIntakeBusy(false);
@@ -1067,6 +1099,38 @@ export function GoldenLessonPackageBuilder() {
   const importAndPublishNow = async () => {
     setPublishSteps([]);
     setPublishError(null);
+    setIntakeError(null);
+    setIntakeBusy(true);
+    let preflight: DirectIntakePreflightResult;
+    try {
+      preflight = await preflightGoldenLessonDirect({ data: { manifest: packageDraft } });
+      setServerPreflight(preflight);
+    } catch (error) {
+      setIntakeError(friendlyDirectIntakeError(error));
+      return;
+    } finally {
+      setIntakeBusy(false);
+    }
+
+    if (preflight.status === "IDENTITY_CONFLICT") {
+      setIntakeError(preflight.messageAr);
+      return;
+    }
+    if (preflight.status === "RESUMABLE" && preflight.packageId && preflight.version) {
+      const resumed: DirectIntakeResult = {
+        packageId: preflight.packageId,
+        version: preflight.version,
+        status: preflight.reviewStatus ?? "DRAFT",
+        idempotent: true,
+        verifiedIntakeSha256: preflight.verifiedIntakeSha256 ?? "",
+        verifiedFileCount: preflight.verifiedFileCount ?? 0,
+        domainWritesPerformed: 0,
+      };
+      setIntake(resumed);
+      await publishDirectNow(resumed);
+      return;
+    }
+
     const verified = await uploadAndVerifyDirectIntake();
     if (!verified) return;
     await publishDirectNow(verified);
@@ -1375,6 +1439,55 @@ export function GoldenLessonPackageBuilder() {
               </p>
             );
           })}
+        </div>
+      )}
+
+      {serverPreflight && (
+        <div className={`rounded-xl border p-4 space-y-2 text-sm ${
+          serverPreflight.status === "IDENTITY_CONFLICT"
+            ? "border-destructive/40 bg-destructive/5"
+            : serverPreflight.status === "DRAFT_REBINDABLE"
+              ? "border-amber-500/40 bg-amber-500/10"
+              : "border-emerald-500/30 bg-emerald-500/10"
+        }`} role={serverPreflight.status === "IDENTITY_CONFLICT" ? "alert" : "status"}>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium">جاهزية النشر على الخادم</p>
+            <Badge variant={serverPreflight.status === "IDENTITY_CONFLICT" ? "destructive" : "outline"}>
+              {serverPreflight.status === "NEW_PACKAGE" && "حزمة جديدة"}
+              {serverPreflight.status === "UPLOAD_REQUIRED" && "استكمال رفع"}
+              {serverPreflight.status === "NEW_VERSION" && "نسخة جديدة"}
+              {serverPreflight.status === "RESUMABLE" && "استئناف دون رفع"}
+              {serverPreflight.status === "DRAFT_REBINDABLE" && "تصحيح مسودة آمن"}
+              {serverPreflight.status === "IDENTITY_CONFLICT" && "تعارض هوية"}
+            </Badge>
+          </div>
+          <p className="text-xs leading-relaxed">{serverPreflight.messageAr}</p>
+          {serverPreflight.differences.length > 0 && (
+            <div className="overflow-x-auto rounded-lg border bg-background/70">
+              <table className="w-full min-w-[520px] text-xs">
+                <thead>
+                  <tr className="border-b text-muted-foreground">
+                    <th className="p-2 text-start">الحقل</th>
+                    <th className="p-2 text-start">المحفوظ</th>
+                    <th className="p-2 text-start">القادم</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {serverPreflight.differences.map((difference) => {
+                    const renderValue = (value: typeof difference.currentValue) =>
+                      Array.isArray(value) ? value.join("، ") : value === null ? "غير محدد" : String(value);
+                    return (
+                      <tr key={difference.field} className="border-b last:border-0">
+                        <td className="p-2 font-medium">{difference.labelAr}</td>
+                        <td className="p-2">{renderValue(difference.currentValue)}</td>
+                        <td className="p-2">{renderValue(difference.incomingValue)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

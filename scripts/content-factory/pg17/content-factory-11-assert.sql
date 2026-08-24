@@ -357,8 +357,8 @@ BEGIN;
 ALTER TABLE public.golden_lesson_domain_stage_entries DISABLE TRIGGER USER;
 UPDATE public.golden_lesson_domain_stage_entries
    SET source_payload = convert_to(
-       replace(convert_from(source_payload,'UTF8'), 'script-src ''sha256-',
-               'script-src ''sha256-AAAA'), 'UTF8')
+       replace(convert_from(source_payload,'UTF8'), '</body>',
+               '<script src="local.js"></script></body>'), 'UTF8')
  WHERE batch_id = :'batch' AND capability = 'labExperimentHtml';
 ALTER TABLE public.golden_lesson_domain_stage_entries ENABLE TRIGGER USER;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
@@ -367,11 +367,11 @@ DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
       '10000000-0000-0000-0000-000000000003','DRY_RUN', public.cf11_iron_assets());
-    RAISE EXCEPTION 'CF11_EXPECTED_CSP_HASH_MISMATCH';
+    RAISE EXCEPTION 'CF11_EXPECTED_EXTERNAL_SCRIPT';
   EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF11_LAB_CSP_SCRIPT_HASH_MISMATCH%' THEN RAISE; END IF;
+    IF SQLERRM NOT LIKE '%CF11_INTERACTIVE_EXTERNAL_SCRIPT%' THEN RAISE; END IF;
   END;
-  PERFORM public.cf04_assert(true,'the CSP must pin the ACTUAL inline script hash');
+  PERFORM public.cf04_assert(true,'interactive content may not load an external script');
 END $$;
 RESET ROLE;
 ROLLBACK;
@@ -380,7 +380,8 @@ BEGIN;
 ALTER TABLE public.golden_lesson_domain_stage_entries DISABLE TRIGGER USER;
 UPDATE public.golden_lesson_domain_stage_entries
    SET source_payload = convert_to(
-       replace(convert_from(source_payload,'UTF8'), 'connect-src ''none''', 'connect-src ''self'''), 'UTF8')
+       replace(convert_from(source_payload,'UTF8'), 'const s={fe2:0,fe3:0};',
+               'navigator.sendBeacon("/x");const s={fe2:0,fe3:0};'), 'UTF8')
  WHERE batch_id = :'batch' AND capability = 'labExperimentHtml';
 ALTER TABLE public.golden_lesson_domain_stage_entries ENABLE TRIGGER USER;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
@@ -389,11 +390,11 @@ DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
       '10000000-0000-0000-0000-000000000003','DRY_RUN', public.cf11_iron_assets());
-    RAISE EXCEPTION 'CF11_EXPECTED_CONNECT_SRC';
+    RAISE EXCEPTION 'CF11_EXPECTED_DYNAMIC_NETWORK_EXECUTION';
   EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF11_LAB_CSP_CONNECT_SRC%' THEN RAISE; END IF;
+    IF SQLERRM NOT LIKE '%CF11_INTERACTIVE_DYNAMIC_EXECUTION%' THEN RAISE; END IF;
   END;
-  PERFORM public.cf04_assert(true,'the lab may never be allowed to reach the network');
+  PERFORM public.cf04_assert(true,'interactive content may not invoke a network execution primitive');
 END $$;
 RESET ROLE;
 ROLLBACK;
@@ -536,12 +537,14 @@ BEGIN
     (SELECT count(*)=1 FROM public.lesson_resources
       WHERE lesson_id=v_lesson AND html_resource_type='mindmap'
         AND resource_type::text='mindmap'
-        AND url = 'lesson-internal://html/CHEM-G12-IRON-MINDMAP'),'mind map resource contract');
+        AND url = public.cf10_inline_html_url(
+          public.cf11_html_resource_code('CHEM-G12-IRON','mindMap'))),'mind map resource contract');
   PERFORM public.cf04_assert(
     (SELECT count(*)=1 FROM public.lesson_resources
       WHERE lesson_id=v_lesson AND html_resource_type='experiment'
         AND resource_type::text='experiment'
-        AND url = 'lesson-internal://html/CHEM-G12-IRON-EXPERIMENT'),'lab resource contract');
+        AND url = public.cf10_inline_html_url(
+          public.cf11_html_resource_code('CHEM-G12-IRON','simulation'))),'lab resource contract');
   PERFORM public.cf04_assert(
     (SELECT count(*)=0 FROM public.lesson_resources
       WHERE lesson_id=v_lesson AND url ~* '^https?://'),'no external resource URL may be written');
@@ -1036,8 +1039,8 @@ BEGIN
 END $$;
 
 -- ------------------------------------------------------------------------------------
--- L) CF11-R7 — APPLICABILITY. A capability parked at OPTIONAL/NA is excused from the readiness
---    contract while the SET still looks complete, so every gate must refuse it.
+-- L) CF11-R7 — APPLICABILITY. A present OPTIONAL capability is publishable; NA is not.
+--    The exact-set gate must preserve that profile contract without treating the two alike.
 -- ------------------------------------------------------------------------------------
 DO $$
 DECLARE
@@ -1048,20 +1051,14 @@ BEGIN
 
   UPDATE public.lesson_capability_lifecycle SET applicability='OPTIONAL'
    WHERE lesson_id=lesson AND capability='mindMap';
+  PERFORM public.cf11_assert_exact_required_lifecycle_set(lesson,'CF11_PROBE');
+
+  UPDATE public.lesson_capability_lifecycle SET applicability='NA'
+   WHERE lesson_id=lesson AND capability='mindMap';
   BEGIN
     PERFORM public.cf11_assert_exact_required_lifecycle_set(lesson,'CF11_PROBE');
-    RAISE EXCEPTION 'CF11_EXPECTED_APPLICABILITY_REFUSED: OPTIONAL row accepted at the exact-set gate';
+    RAISE EXCEPTION 'CF11_EXPECTED_APPLICABILITY_REFUSED: NA row accepted at the exact-set gate';
   EXCEPTION WHEN check_violation THEN NULL;
-  END;
-  BEGIN
-    PERFORM public.golden_lesson_attest_cf11_ready(
-      _batch_id => '51000000-0000-0000-0000-000000000001',
-      _actor_id => '52000000-0000-0000-0000-0000000000a2',
-      _evidence => jsonb_build_object('reviewedContent',true,'reviewedSecurity',true,
-                                      'note','applicability probe'),
-      _mode => 'EXECUTE');
-    RAISE EXCEPTION 'CF11_EXPECTED_APPLICABILITY_REFUSED: READY accepted a non-REQUIRED capability';
-  EXCEPTION WHEN check_violation OR insufficient_privilege OR unique_violation THEN NULL;
   END;
   UPDATE public.lesson_capability_lifecycle SET applicability='REQUIRED'
    WHERE lesson_id=lesson AND capability='mindMap';

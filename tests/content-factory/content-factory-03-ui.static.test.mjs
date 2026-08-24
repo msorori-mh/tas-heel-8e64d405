@@ -4,15 +4,11 @@ import { test } from "node:test";
 
 const component = readFileSync("src/components/admin/GoldenLessonManifestReviewPanel.tsx", "utf8");
 const route = readFileSync("src/routes/_authenticated/admin.import.tsx", "utf8");
-const reviewRoute = readFileSync("src/routes/_authenticated/admin.content-review.tsx", "utf8");
 
-test("upload, review and release interfaces are separated", () => {
+test("direct import is the active UI and retired review/release panels are not wired", () => {
   assert.match(route, /<GoldenLessonPackageBuilder \/>/);
   assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel/);
-  assert.match(reviewRoute, /GoldenLessonManifestReviewPanel/);
-  assert.match(reviewRoute, /view=release/);
-  assert.match(reviewRoute, /GoldenLessonCf11OperatorPanel/);
-  assert.doesNotMatch(reviewRoute, /getHtmlReviewQueueFn|lesson_resources\.lifecycle_status/);
+  assert.doesNotMatch(route, /view=release|getHtmlReviewQueueFn|lesson_resources\.lifecycle_status/);
 });
 
 test("review panel uses typed staging functions and exposes no direct RPC or execute path", () => {

@@ -16,12 +16,13 @@ test("the import center exposes the unified curriculum and lesson-content workfl
   assert.match(route, /ContentImportDryRunPanel/);
   assert.match(route, /allowedTemplateKeys=\{\["units"\]\}/);
   assert.match(route, /allowedTemplateKeys=\{\["lessons"\]\}/);
-  assert.match(route, /LESSON_CONTENT_TEMPLATE_KEYS/);
   assert.match(route, /الوحدات أو الفصول — اختياري/);
   assert.match(route, /unit_code/);
   assert.match(route, /<GoldenLessonPackageBuilder\s*\/>/);
-  assert.match(route, /اختيار الدرس/);
-  assert.match(route, /الفحص والحفظ كمسودة/);
+  assert.match(component, /GOLDEN_CAPABILITIES/);
+  assert.match(component, /1\. اختيار الدرس/);
+  assert.match(component, /فحص ومعاينة الملفات/);
+  assert.match(component, /نشر الدرس الآن/);
   assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel|BulkLessonPdfUploadPanel/);
   assert.match(component, /09_official_book_questions_template\.xlsx/);
   assert.match(component, /10_self_test_questions_template\.xlsx/);
@@ -43,12 +44,14 @@ test("operators upload seven declared items and never upload a lesson ZIP or pro
   assert.match(component, /CAPABILITY_NUMBER/);
 });
 
-test("exactly six capabilities are required and the activity alone is optional", () => {
+test("exactly five capabilities are required and lab plus official questions are optional", () => {
   for (const id of ["GOLDEN_QURAN_V1", "GOLDEN_CHEMISTRY_V1"]) assert.match(profiles, new RegExp(id));
   const required = profiles.match(/: "REQUIRED"/g) ?? [];
-  const optional = profiles.match(/labExperimentHtml: "OPTIONAL"/g) ?? [];
-  assert.equal(required.length, 12);
-  assert.equal(optional.length, 2);
+  const optional = profiles.match(/: "OPTIONAL"/g) ?? [];
+  assert.equal(required.length, 10);
+  assert.equal(optional.length, 4);
+  assert.equal((profiles.match(/labExperimentHtml: "OPTIONAL"/g) ?? []).length, 2);
+  assert.equal((profiles.match(/officialBookQuestions: "OPTIONAL"/g) ?? []).length, 2);
   assert.doesNotMatch(profiles, /mindMapHtml: "OPTIONAL"|selfTest: "OPTIONAL"|labExperimentHtml: "NA"/);
 });
 

@@ -40,14 +40,18 @@ WITH l AS (SELECT :'lesson'::uuid AS id),
          public.cf10_html_publication_pending((SELECT id FROM l),'mindMap')::text
   UNION ALL SELECT 'simulation_publication_pending','false',
          public.cf10_html_publication_pending((SELECT id FROM l),'simulation')::text
-  UNION ALL SELECT 'mindmap_is_js_free','0',
+  UNION ALL SELECT 'mindmap_runtime_wrapper','1',
          (SELECT count(*)::text FROM public.lesson_resources
            WHERE lesson_id=(SELECT id FROM l) AND html_resource_type='mindmap'
-             AND description ~* '<script\y')
-  UNION ALL SELECT 'lab_csp_connect_src_none','1',
+             AND metadata->>'cf11_render_mode' = 'INTERACTIVE'
+             AND metadata#>>'{cf11_csp,enforcement}' = 'RUNTIME_WRAPPER'
+             AND metadata#>>'{cf11_csp,network}' = 'none')
+  UNION ALL SELECT 'experiment_runtime_wrapper','1',
          (SELECT count(*)::text FROM public.lesson_resources
            WHERE lesson_id=(SELECT id FROM l) AND html_resource_type='experiment'
-             AND description ~* 'connect-src\s+''none''')
+             AND metadata->>'cf11_render_mode' = 'INTERACTIVE'
+             AND metadata#>>'{cf11_csp,enforcement}' = 'RUNTIME_WRAPPER'
+             AND metadata#>>'{cf11_csp,network}' = 'none')
   UNION ALL SELECT 'official_questions','5',
          (SELECT count(*)::text FROM public.questions
            WHERE lesson_id=(SELECT id FROM l) AND code LIKE '%-OFFQ-%')
