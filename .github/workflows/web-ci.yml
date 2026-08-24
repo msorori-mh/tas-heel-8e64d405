@@ -43,6 +43,7 @@ jobs:
           node --test tests/import/curriculum-subject-unit-lesson-intake-13j.static.test.mjs
           node --test tests/import/subject-textbook-grade-upload-13k.static.test.mjs
           node --test tests/security/student-textbook-governorate-track-13l.static.test.mjs
+          node --test tests/security/curriculum-prelaunch-purge.static.test.mjs
           node --test tests/import/curriculum-readiness-subject-tracks-13n.static.test.mjs
           node --test tests/security/ministerial-cross-track-mufadala-parity-14i.static.test.mjs
           npm run test:question-bank-import
@@ -196,6 +197,17 @@ jobs:
           docker exec tamkeen-content-factory-pg17 \
             psql --username postgres --dbname postgres --command 'CREATE DATABASE tamkeen_cf11'
           bash scripts/content-factory/pg17/rehearse-content-factory-11.sh
+
+      - name: Verify gated prelaunch curriculum purge on isolated PG17
+        env:
+          CURRICULUM_PURGE_PG17_URL: postgresql://postgres:tamkeen_cf_ci_only@localhost:5432/tamkeen_purge
+        run: |
+          docker exec tamkeen-content-factory-pg17 \
+            psql --username postgres --dbname postgres --command 'CREATE DATABASE tamkeen_purge'
+          psql "$CURRICULUM_PURGE_PG17_URL" --set=ON_ERROR_STOP=1 \
+            --file scripts/curriculum/pg17-prelaunch-purge-fixture.sql \
+            --file supabase/migrations/20260824223000_prelaunch_curriculum_global_purge.sql \
+            --file scripts/curriculum/pg17-prelaunch-purge-assert.sql
 
       - name: Stop isolated PostgreSQL 17
         if: always()
