@@ -39,3 +39,11 @@ test("publish UI preflights, resumes and presents identity differences", () => {
   assert.match(builder, /difference\.currentValue/);
   assert.match(builder, /discardGoldenLessonDirectUpload/);
 });
+
+test("an existing exact identity under another code is reused before upload", () => {
+  assert.match(source, /resolveExistingIdentityPackage/);
+  assert.match(source, /\.eq\("profile_id", manifest\.profileId\)/);
+  assert.match(source, /diffGoldenLessonIdentity\(candidate\.identity, manifest\.identity\)\.length === 0/);
+  assert.match(source, /PACKAGE_IDENTITY_AMBIGUOUS/);
+  assert.ok((source.match(/await resolveExistingIdentityPackage\(/g) ?? []).length >= 3);
+});
