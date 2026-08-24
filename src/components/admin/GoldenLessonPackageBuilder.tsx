@@ -1007,7 +1007,7 @@ export function GoldenLessonPackageBuilder() {
   ]);
 
   /** Each declared file is uploaded directly; no lesson archive is created or uploaded. */
-  const uploadAndVerifyDirectIntake = async () => {
+  const uploadAndVerifyDirectIntake = async (): Promise<DirectIntakeResult | null> => {
     setIntakeBusy(true);
     setIntakeError(null);
     setIntake(null);
