@@ -34,12 +34,22 @@ export async function resolveCurriculumImportScope(
     throw new Error("IMPORT_SCOPE_SUBJECT_NOT_FOUND");
   }
 
+  const { data: subjectRow, error: subjectError } = await supabase
+    .from("subjects")
+    .select("id")
+    .eq("code", subject.subjectCode)
+    .maybeSingle();
+  if (subjectError || !subjectRow) {
+    throw new Error("IMPORT_SCOPE_SUBJECT_NOT_FOUND");
+  }
+
   const missingTrack = trackCodes.find((code) => !subject.trackCodes.includes(code));
   if (missingTrack) {
     throw new Error(`IMPORT_SCOPE_TRACK_MISMATCH: ${missingTrack}`);
   }
 
   return {
+    subjectId: subjectRow.id,
     gradeSlug,
     trackCodes,
     semester: scope.semester,
