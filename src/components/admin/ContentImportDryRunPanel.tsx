@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { dryRunContentImport } from "@/lib/content-import/content-import-dry-run.functions";
+import { downloadContextualTemplate } from "@/lib/content-codes/content-codes.functions";
 import {
   createContentImportJob,
   prepareContentImportStaging,
@@ -46,7 +47,28 @@ import {
   PlayCircle,
   ShieldCheck,
   Layers,
+  Download,
 } from "lucide-react";
+
+function downloadBase64Workbook(fileBase64: string, fileName: string): void {
+  const binary = atob(fileBase64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  const url = URL.createObjectURL(
+    new Blob([bytes], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+  );
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
 
 async function sha256Hex(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
@@ -105,6 +127,7 @@ export function ContentImportDryRunPanel({
   curriculumScope = null,
 }: ContentImportDryRunPanelProps = {}) {
   const runDryRun = useServerFn(dryRunContentImport);
+  const downloadTemplate = useServerFn(downloadContextualTemplate);
   const createJob = useServerFn(createContentImportJob);
   const prepareStaging = useServerFn(prepareContentImportStaging);
   const runExecute = useServerFn(runContentImportExecute);
@@ -120,6 +143,7 @@ export function ContentImportDryRunPanel({
   );
   const [fileName, setFileName] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +170,40 @@ export function ContentImportDryRunPanel({
     setFileName(null);
     if (inputRef.current) inputRef.current.value = "";
   }, [resetPipeline, scopeKey]);
+
+  const handleTemplateDownload = useCallback(async () => {
+    if (
+      (templateKey !== "units" && templateKey !== "lessons") ||
+      !isCompleteCurriculumImportScope(curriculumScope)
+    ) {
+      setError("أكمل سياق الاستيراد قبل تنزيل النموذج.");
+      return;
+    }
+
+    setDownloadingTemplate(true);
+    setError(null);
+    try {
+      const generated = await downloadTemplate({
+        data: {
+          templateKey,
+          gradeSlug: curriculumScope.gradeSlug,
+          trackCodes: curriculumScope.trackCodes,
+          semester: curriculumScope.semester,
+          subjectCode: curriculumScope.subjectCode,
+          rowCount: templateKey === "units" ? 20 : 50,
+        },
+      });
+      downloadBase64Workbook(generated.fileBase64, generated.filename);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "تعذر إنشاء نموذج الاستيراد. أعد المحاولة.",
+      );
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  }, [curriculumScope, downloadTemplate, templateKey]);
 
   const pickFile = useCallback((): File | null => {
     if (!scopeComplete) {
@@ -332,6 +390,33 @@ export function ContentImportDryRunPanel({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {scopeRequired ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-background/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold">
+                {templateKey === "units" ? "نموذج استيراد الوحدات — 02" : "نموذج استيراد الدروس — 03"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                يُولّد النظام ملف XLSX بأكواد المادة والفصل والترتيب وفق السياق المختار، دون تغيير أسماء الأعمدة.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px] shrink-0 gap-2"
+              onClick={handleTemplateDownload}
+              disabled={!scopeComplete || downloadingTemplate || checking || preparing || executing}
+            >
+              {downloadingTemplate ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {templateKey === "units" ? "تنزيل نموذج الوحدات" : "تنزيل نموذج الدروس"}
+            </Button>
+          </div>
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor={`${idPrefix}-template`}>نوع القالب</Label>
