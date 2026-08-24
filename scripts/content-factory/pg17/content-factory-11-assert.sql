@@ -357,8 +357,8 @@ BEGIN;
 ALTER TABLE public.golden_lesson_domain_stage_entries DISABLE TRIGGER USER;
 UPDATE public.golden_lesson_domain_stage_entries
    SET source_payload = convert_to(
-       replace(convert_from(source_payload,'UTF8'), 'script-src ''sha256-',
-               'script-src ''sha256-AAAA'), 'UTF8')
+       replace(convert_from(source_payload,'UTF8'), '</body>',
+               '<script src="local.js"></script></body>'), 'UTF8')
  WHERE batch_id = :'batch' AND capability = 'labExperimentHtml';
 ALTER TABLE public.golden_lesson_domain_stage_entries ENABLE TRIGGER USER;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
@@ -367,11 +367,11 @@ DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
       '10000000-0000-0000-0000-000000000003','DRY_RUN', public.cf11_iron_assets());
-    RAISE EXCEPTION 'CF11_EXPECTED_CSP_HASH_MISMATCH';
+    RAISE EXCEPTION 'CF11_EXPECTED_EXTERNAL_SCRIPT';
   EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF11_LAB_CSP_SCRIPT_HASH_MISMATCH%' THEN RAISE; END IF;
+    IF SQLERRM NOT LIKE '%CF11_INTERACTIVE_EXTERNAL_SCRIPT%' THEN RAISE; END IF;
   END;
-  PERFORM public.cf04_assert(true,'the CSP must pin the ACTUAL inline script hash');
+  PERFORM public.cf04_assert(true,'interactive content may not load an external script');
 END $$;
 RESET ROLE;
 ROLLBACK;
@@ -380,7 +380,8 @@ BEGIN;
 ALTER TABLE public.golden_lesson_domain_stage_entries DISABLE TRIGGER USER;
 UPDATE public.golden_lesson_domain_stage_entries
    SET source_payload = convert_to(
-       replace(convert_from(source_payload,'UTF8'), 'connect-src ''none''', 'connect-src ''self'''), 'UTF8')
+       replace(convert_from(source_payload,'UTF8'), 'const s={fe2:0,fe3:0};',
+               'navigator.sendBeacon("/x");const s={fe2:0,fe3:0};'), 'UTF8')
  WHERE batch_id = :'batch' AND capability = 'labExperimentHtml';
 ALTER TABLE public.golden_lesson_domain_stage_entries ENABLE TRIGGER USER;
 SELECT set_config('request.jwt.claim.sub', :'pub', false);
@@ -389,11 +390,11 @@ DO $$ BEGIN
   BEGIN
     PERFORM public.golden_lesson_publish_cf11('51000000-0000-0000-0000-000000000001',
       '10000000-0000-0000-0000-000000000003','DRY_RUN', public.cf11_iron_assets());
-    RAISE EXCEPTION 'CF11_EXPECTED_CONNECT_SRC';
+    RAISE EXCEPTION 'CF11_EXPECTED_DYNAMIC_NETWORK_EXECUTION';
   EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF11_LAB_CSP_CONNECT_SRC%' THEN RAISE; END IF;
+    IF SQLERRM NOT LIKE '%CF11_INTERACTIVE_DYNAMIC_EXECUTION%' THEN RAISE; END IF;
   END;
-  PERFORM public.cf04_assert(true,'the lab may never be allowed to reach the network');
+  PERFORM public.cf04_assert(true,'interactive content may not invoke a network execution primitive');
 END $$;
 RESET ROLE;
 ROLLBACK;
