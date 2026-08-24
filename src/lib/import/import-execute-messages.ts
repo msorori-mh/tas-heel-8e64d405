@@ -26,7 +26,18 @@ export const IMPORT_EXECUTE_MESSAGES_AR: Record<string, string> = {
   INVALID_CORRECT_INDEX:
     "رقم الإجابة الصحيحة خارج نطاق الخيارات في أحد الصفوف (الترقيم يبدأ من 1).",
 
-  SUBJECT_NOT_FOUND: "كود المادة غير موجود — استورد قالب المواد أولاً.",
+  IMPORT_SCOPE_REQUIRED:
+    "أكمل سياق الاستيراد: الصف ← المسار ← الفصل ← المادة.",
+  IMPORT_SCOPE_SUBJECT_NOT_FOUND:
+    "المادة المختارة غير موجودة داخل الصف المحدد.",
+  IMPORT_SCOPE_TRACK_MISMATCH:
+    "المادة المختارة غير متاحة في أحد المسارات المحددة.",
+  IMPORT_SCOPE_SEMESTER_INVALID:
+    "الفصل الدراسي في سياق الاستيراد غير صالح.",
+  IMPORT_SCOPE_CHANGED_AFTER_PREPARE:
+    "تغيّر سياق الاستيراد بعد التجهيز — أعد الفحص والتجهيز.",
+  SUBJECT_NOT_FOUND:
+    "تعذّر حل المادة الرسمية من سياق الاستيراد — أعد اختيار الصف والمسار والفصل والمادة.",
   LESSON_NOT_FOUND: "كود الدرس غير موجود — استورد قالب الدروس أولاً.",
   MISSING_RESOURCE_URL: "رابط المورد مفقود في أحد الصفوف.",
   ASSESSMENT_QUESTION_LINK_UNRESOLVED:
