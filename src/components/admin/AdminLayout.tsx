@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Users,
   BookOpen,
-  Layers,
   CreditCard,
   MessageSquare,
   Settings,
@@ -19,12 +18,15 @@ import {
   UserCog,
   Wallet,
   Landmark,
-  Network,
 } from "lucide-react";
 import { TrendingDown, BarChart3 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { filterAdminSidebarLinks } from "@/lib/admin-route-access";
 import { Button } from "@/components/ui/button";
+import {
+  ContentImportCenterNav,
+  isContentCenterPath,
+} from "@/components/admin/ContentImportCenterNav";
 
 type LinkItem = {
   href:
@@ -62,12 +64,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/students", label: "الطلاب", icon: Users },
   { href: "/admin/users", label: "المستخدمون والصلاحيات", icon: UserCog },
   { href: "/admin/academic", label: "نظرة المحتوى", icon: BookOpen },
-  { href: "/admin/curriculum", label: "هيكل المنهج", icon: Network },
-  { href: "/admin/subjects", label: "المواد والمسارات", icon: BookOpen },
-  { href: "/admin/units", label: "الوحدات", icon: Layers },
-  { href: "/admin/lessons", label: "الدروس", icon: BookOpen },
-  { href: "/admin/import", label: "استيراد محتوى الدروس", icon: FileSpreadsheet },
-  { href: "/admin/textbooks", label: "رفع كتب المواد", icon: BookOpen },
+  { href: "/admin/import", label: "استيراد المحتوى", icon: FileSpreadsheet },
   { href: "/admin/ministerial-exams", label: "النماذج الوزارية", icon: ClipboardList },
   { href: "/admin/learning-insights/mistakes", label: "تحليلات الأخطاء", icon: TrendingDown },
   { href: "/admin/learning-insights/performance", label: "تحليل الأداء الموحد", icon: BarChart3 },
@@ -96,8 +93,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     select: (s) => s.location.pathname,
   });
 
-  const isActive = (href: string, end?: boolean) =>
-    end ? currentPath === href : currentPath === href || currentPath.startsWith(href + "/");
+  const isActive = (href: string, end?: boolean) => {
+    if (href === "/admin/import" && isContentCenterPath(currentPath)) return true;
+    return end
+      ? currentPath === href
+      : currentPath === href || currentPath.startsWith(href + "/");
+  };
 
   const handleSignOut = async () => {
     await queryClient.cancelQueries();
@@ -223,7 +224,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </Button>
         </header>
 
-        <main className="p-4 md:p-6">{children}</main>
+        <main className="p-4 md:p-6">
+          {isContentCenterPath(currentPath) && <ContentImportCenterNav />}
+          {children}
+        </main>
       </div>
     </div>
   );
