@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { FileSpreadsheet } from "lucide-react";
 
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { ContentImportDryRunPanel } from "@/components/admin/ContentImportDryRunPanel";
+import { CurriculumImportScopeForm } from "@/components/admin/CurriculumImportScopeForm";
 import { GoldenLessonPackageBuilder } from "@/components/admin/GoldenLessonPackageBuilder";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
+import type { CurriculumImportScope } from "@/lib/import/curriculum-import-scope";
 
 export const Route = createFileRoute("/_authenticated/admin/import")({
   component: AdminImportPage,
@@ -19,6 +22,7 @@ const STEPS = [
 
 function AdminImportPage() {
   const { loading, enabled } = useRequireAdminSection("content");
+  const [structureScope, setStructureScope] = useState<CurriculumImportScope | null>(null);
 
   if (loading) {
     return (
@@ -58,6 +62,8 @@ function AdminImportPage() {
           </ol>
         </header>
 
+        <CurriculumImportScopeForm value={structureScope} onChange={setStructureScope} />
+
         <section className="space-y-3" aria-labelledby="units-import-heading">
           <div>
             <h2 id="units-import-heading" className="text-lg font-bold">
@@ -77,6 +83,7 @@ function AdminImportPage() {
             heading="استيراد ملف الوحدات"
             description="ارفع ملف Excel الخاص بالوحدات، ثم نفّذ: فحص ← تجهيز ← تنفيذ."
             idPrefix="units-import"
+            curriculumScope={structureScope}
           />
         </section>
 
@@ -96,6 +103,7 @@ function AdminImportPage() {
             heading="استيراد ملف الدروس"
             description="ارفع ملف Excel الخاص بالدروس. اترك unit_code فارغًا للمادة التي لا تحتوي وحدات."
             idPrefix="lessons-import"
+            curriculumScope={structureScope}
           />
         </section>
 

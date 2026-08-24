@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,11 @@ import {
   type ExecuteImportResult,
 } from "@/lib/import/import-staging.functions";
 import { toArabicImportExecuteMessage } from "@/lib/import/import-execute-messages";
+import {
+  curriculumImportScopeKey,
+  isCompleteCurriculumImportScope,
+  type CurriculumImportScope,
+} from "@/lib/import/curriculum-import-scope";
 import {
   CONTENT_IMPORT_TEMPLATES,
   type ContentImportTemplateKey,
@@ -88,6 +93,7 @@ interface ContentImportDryRunPanelProps {
   heading?: string;
   description?: string;
   idPrefix?: string;
+  curriculumScope?: CurriculumImportScope | null;
 }
 
 export function ContentImportDryRunPanel({
@@ -96,6 +102,7 @@ export function ContentImportDryRunPanel({
   heading = "فحص ملف قبل الاستيراد",
   description = "ارفع ملف Excel المملوء، ثم اتبع الخطوات: فحص ← تجهيز ← تنفيذ.",
   idPrefix = "content-import",
+  curriculumScope = null,
 }: ContentImportDryRunPanelProps = {}) {
   const runDryRun = useServerFn(dryRunContentImport);
   const createJob = useServerFn(createContentImportJob);
@@ -121,6 +128,9 @@ export function ContentImportDryRunPanel({
   const [preparedHash, setPreparedHash] = useState<string | null>(null);
   const [stagedRows, setStagedRows] = useState<number | null>(null);
   const [executeResult, setExecuteResult] = useState<ExecuteImportResult | null>(null);
+  const scopeRequired = templateKey === "units" || templateKey === "lessons";
+  const scopeComplete = !scopeRequired || isCompleteCurriculumImportScope(curriculumScope);
+  const scopeKey = curriculumImportScopeKey(curriculumScope);
 
   const resetPipeline = useCallback(() => {
     setReport(null);
@@ -131,7 +141,17 @@ export function ContentImportDryRunPanel({
     setExecuteResult(null);
   }, []);
 
+  useEffect(() => {
+    resetPipeline();
+    setFileName(null);
+    if (inputRef.current) inputRef.current.value = "";
+  }, [resetPipeline, scopeKey]);
+
   const pickFile = useCallback((): File | null => {
+    if (!scopeComplete) {
+      setError("أكمل سياق الاستيراد: الصف ← المسار ← الفصل ← المادة.");
+      return null;
+    }
     const file = inputRef.current?.files?.[0];
     if (!file) {
       setError("اختر ملف Excel أولاً.");
@@ -148,7 +168,7 @@ export function ContentImportDryRunPanel({
       return null;
     }
     return file;
-  }, []);
+  }, [scopeComplete]);
 
   const handleCheck = useCallback(async () => {
     const file = pickFile();
@@ -165,6 +185,7 @@ export function ContentImportDryRunPanel({
           fileName: file.name,
           fileBase64,
           fileSize: file.size,
+          curriculumScope: scopeRequired ? curriculumScope : undefined,
         },
       });
       setReport(result);
@@ -178,7 +199,7 @@ export function ContentImportDryRunPanel({
     } finally {
       setChecking(false);
     }
-  }, [pickFile, resetPipeline, runDryRun, templateKey]);
+  }, [curriculumScope, pickFile, resetPipeline, runDryRun, scopeRequired, templateKey]);
 
   const handlePrepare = useCallback(async () => {
     const file = pickFile();
@@ -206,6 +227,7 @@ export function ContentImportDryRunPanel({
           totalRows: report.totalRows,
           validRows: report.validRows,
           warningRows: report.warningCount,
+          curriculumScope: scopeRequired ? curriculumScope : undefined,
         },
       });
 
@@ -216,6 +238,7 @@ export function ContentImportDryRunPanel({
           fileName: file.name,
           fileBase64,
           fileSize: file.size,
+          curriculumScope: scopeRequired ? curriculumScope : undefined,
         },
       });
 
@@ -240,7 +263,7 @@ export function ContentImportDryRunPanel({
     } finally {
       setPreparing(false);
     }
-  }, [createJob, pickFile, prepareStaging, report, templateKey]);
+  }, [createJob, curriculumScope, pickFile, prepareStaging, report, scopeRequired, templateKey]);
 
   const handleExecute = useCallback(async () => {
     const file = pickFile();
@@ -261,7 +284,11 @@ export function ContentImportDryRunPanel({
       }
 
       const result = await runExecute({
-        data: { jobId, templateKeys: [templateKey] },
+        data: {
+          jobId,
+          templateKeys: [templateKey],
+          curriculumScope: scopeRequired ? curriculumScope : undefined,
+        },
       });
       setExecuteResult(result);
       if (!result.ok && result.error) {
@@ -278,7 +305,7 @@ export function ContentImportDryRunPanel({
     } finally {
       setExecuting(false);
     }
-  }, [jobId, pickFile, preparedHash, runExecute, templateKey]);
+  }, [curriculumScope, jobId, pickFile, preparedHash, runExecute, scopeRequired, templateKey]);
 
   const dryRunPassed = report != null && report.status !== "fail" && report.errorCount === 0;
   const isQuestionsTemplate =
@@ -331,6 +358,7 @@ export function ContentImportDryRunPanel({
               ref={inputRef}
               id={`${idPrefix}-file`}
               type="file"
+              disabled={!scopeComplete || checking || preparing || executing}
               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:me-3 file:border-0 file:bg-transparent file:text-sm"
               onChange={() => {
@@ -341,12 +369,18 @@ export function ContentImportDryRunPanel({
           </div>
         </div>
 
+        {scopeRequired && !scopeComplete ? (
+          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+            اختيار ملف Excel معطّل حتى يكتمل سياق الصف والمسار والفصل والمادة أعلاه.
+          </p>
+        ) : null}
+
         <div className="flex flex-col sm:flex-row gap-3">
           <Button
             type="button"
             className="min-h-[44px] gap-2"
             onClick={handleCheck}
-            disabled={checking || preparing || executing}
+            disabled={!scopeComplete || checking || preparing || executing}
           >
             {checking ? (
               <Loader2 className="h-4 w-4 animate-spin" />
