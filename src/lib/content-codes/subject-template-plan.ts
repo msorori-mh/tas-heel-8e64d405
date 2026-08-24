@@ -22,6 +22,7 @@ import {
   allocateTcs2Codes,
   buildGroupCode,
   nextAllocatedNumber,
+  parseTcs2Code,
 } from "./tcs2";
 import { TCS1_TRACKS } from "./tcs1-master-data";
 
@@ -49,6 +50,11 @@ export interface SubjectTemplatePlan {
 }
 
 export const MAX_GROUP_BRANCHES = 50;
+
+function subjectSortOrder(code: string, fallback: number): string {
+  const parsed = parseTcs2Code(code);
+  return String(parsed?.kind === "subject" ? (parsed.numbers[0] ?? fallback) : fallback);
+}
 
 function normalizeTracks(trackCodes: readonly string[]): string[] {
   const out: string[] = [];
@@ -127,6 +133,7 @@ export function planSubjectTemplateRows(input: SubjectTemplatePlanInput): Subjec
         track_codes: trackCell,
         group_code: groupCode,
         group_name: groupName,
+        sort_order: subjectSortOrder(codes[i]!, i + 1),
       })),
       allocatedCodes: [groupCode, ...codes],
       prefilledColumns: [
@@ -136,6 +143,7 @@ export function planSubjectTemplateRows(input: SubjectTemplatePlanInput): Subjec
         "track_codes",
         "group_code",
         "group_name",
+        "sort_order",
       ],
       notes: [
         `مجموعة مواد: «${groupName}» — كود المجموعة ${groupCode} مشترك بين كل الفروع.`,
@@ -160,15 +168,25 @@ export function planSubjectTemplateRows(input: SubjectTemplatePlanInput): Subjec
   });
 
   return {
-    rows: codes.map((code) => ({
+    rows: codes.map((code, i) => ({
       subject_code: code,
       grade_slug: input.gradeSlug,
       track_codes: trackCell,
+      group_code: "",
+      group_name: "",
+      sort_order: subjectSortOrder(code, i + 1),
     })),
     allocatedCodes: codes,
-    prefilledColumns: ["subject_code", "grade_slug", "track_codes"],
+    prefilledColumns: [
+      "subject_code",
+      "grade_slug",
+      "track_codes",
+      "group_code",
+      "group_name",
+      "sort_order",
+    ],
     notes: [
-      "مادة مستقلة: املأ فقط عمود name.",
+      "مادة مستقلة: املأ عمود name فقط؛ الأكواد والصف والمسارات والترتيب يولدها النظام.",
       "لا تعدّل subject_code — النظام هو المالك.",
       "المادة المشتركة تُدخل مرة واحدة: كل المسارات في track_codes مفصولة بـ | (مثال: sanaa|aden).",
       "إذا كانت المادة فروعاً (مثل التربية الإسلامية) استخدم وضع «مجموعة مواد / فروع».",
