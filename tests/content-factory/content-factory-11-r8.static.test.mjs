@@ -458,3 +458,12 @@ test("CF11-R8B/4 — only the controlled withdrawal opens a ticket, and it close
   assert.equal((sql.match(/PERFORM public\.cf11_open_revocation_ticket\(/g) ?? []).length, 1);
   const revoke = sql.slice(
     sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_revoke_cf11_ready"));
+  const open = revoke.indexOf("cf11_open_revocation_ticket(pub.lesson_id, uid, revocation_id)");
+  const loop = revoke.indexOf("FOREACH cap IN ARRAY public.cf11_lifecycle_capabilities() LOOP");
+  const close = revoke.indexOf("cf11_close_revocation_ticket(pub.lesson_id)");
+  assert.ok(open > 0 && open < loop && loop < close, "ticket must wrap the transition loop only");
+  assert.ok(revoke.indexOf("CF11_REVOKE_IDEMPOTENCY_KEY_REQUIRED") < open);
+  assert.ok(revoke.indexOf("cf11_assert_exact_required_lifecycle_set") < open);
+  assert.ok(!fns.includes("cf11_open_revocation_ticket"));
+  assert.ok(!server.includes("cf11_open_revocation_ticket"));
+});
