@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { UnitEditDialog, type UnitEditValue } from "@/components/admin/UnitEditDialog";
 import { CurriculumDeleteDialog } from "@/components/admin/CurriculumDeleteDialog";
+import { CurriculumPrelaunchPurgeControl } from "@/components/admin/CurriculumPrelaunchPurgeControl";
 import { Layers, Loader2, Search, ArrowRight, Pencil, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/units")({
@@ -195,7 +196,8 @@ function AdminUnitsPage() {
               أضف الوحدات واربط كل وحدة بمادتها، أو اترك الدرس مرتبطًا بالمادة مباشرة عندما لا توجد وحدة في الكتاب.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <CurriculumPrelaunchPurgeControl />
             <button
               onClick={() => setCreating(true)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
