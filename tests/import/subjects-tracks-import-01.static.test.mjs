@@ -9,6 +9,9 @@ const scopeContract = fs.readFileSync("src/lib/import/curriculum-import-scope.ts
 const scopeServer = fs.readFileSync("src/lib/import/curriculum-import-scope.server.ts", "utf8");
 const dryRun = fs.readFileSync("src/lib/content-import/content-import-dry-run.functions.ts", "utf8");
 const staging = fs.readFileSync("src/lib/import/import-staging.functions.ts", "utf8");
+const contract = fs.readFileSync("src/lib/import/import-contract.ts", "utf8");
+const planner = fs.readFileSync("src/lib/content-codes/subject-template-plan.ts", "utf8");
+const generator = fs.readFileSync("src/lib/content-codes/contextual-template.server.ts", "utf8");
 
 test("template 01 is the first step in the unified content import route", () => {
   assert.match(route, /SubjectImportPanel/);
@@ -48,4 +51,24 @@ test("subject scope is authoritative during dry-run prepare and execute", () => 
 test("server rejects a subject import carrying a unit or lesson scope", () => {
   assert.match(staging, /templateKeys\.includes\("subjects"\) && "subjectCode" in data\.curriculumScope/);
   assert.match(staging, /IMPORT_SUBJECT_SCOPE_INVALID/);
+});
+
+test("subject codes grade tracks and order are generated while semester is not an operator field", () => {
+  assert.match(planner, /sort_order: subjectSortOrder\(/);
+  assert.match(planner, /parseTcs2Code\(code\)/);
+  assert.match(planner, /"subject_code",\s*"grade_slug",\s*"track_codes"/);
+  assert.match(planner, /"sort_order"/);
+  assert.match(contract, /field: "semester",[\s\S]*?table: "subjects",[\s\S]*?templateField: false/);
+  assert.doesNotMatch(
+    contract,
+    /subjects: \["subject_code", "name", "grade_slug", "track_codes", "semester"/,
+  );
+});
+
+test("generated workbook opens on populated data before instructions", () => {
+  const dataIndex = generator.indexOf('workbook.addWorksheet("البيانات"');
+  const instructionsIndex = generator.indexOf('workbook.addWorksheet("تعليمات"');
+  assert.ok(dataIndex >= 0 && instructionsIndex > dataIndex);
+  assert.match(generator, /المادة لا تُقسّم حسب الفصل الدراسي/);
+  assert.match(generator, /fgColor: \{ argb: "FFE8EEF7" \}/);
 });
