@@ -190,13 +190,22 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
               <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4">
                 <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-destructive">
                   <ShieldAlert className="h-4 w-4" />
-                  الحذف ممنوع — الأرشفة هي الخيار الصحيح
+                  {canForce
+                    ? "يوجد ارتباطات تمنع الحذف العادي"
+                    : "الحذف ممنوع — الأرشفة هي الخيار الصحيح"}
                 </p>
                 <ul className="space-y-1 text-sm text-destructive/90">
                   {preview.blockers.map((b) => (
                     <li key={b}>{describeBlocker(b)}</li>
                   ))}
                 </ul>
+                {canForce && (
+                  <p className="mt-3 text-xs text-destructive/90">
+                    مرحلة ما قبل الإطلاق: يمكن للمدير تنفيذ «حذف نهائي قسري» يزيل هذه
+                    الارتباطات كلها (نشاط الطلاب وسجلات النشر) نهائياً — سيتم منع ذلك بعد
+                    الإطلاق الرسمي.
+                  </p>
+                )}
               </div>
             )}
 
@@ -221,10 +230,21 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
             {deleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
             تأكيد الحذف
           </Button>
+          {canForce && preview && !preview.deletable && (
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={() => runDelete(true)}
+            >
+              {deleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+              حذف نهائي قسري
+            </Button>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={deleting}>
             إلغاء
           </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );
