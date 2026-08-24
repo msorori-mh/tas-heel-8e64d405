@@ -10,6 +10,7 @@ export interface CurriculumImportScope {
 }
 
 export interface ResolvedCurriculumImportScope extends CurriculumImportScope {
+  subjectId: string;
   subjectName: string;
 }
 
