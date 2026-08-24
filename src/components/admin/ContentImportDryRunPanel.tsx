@@ -29,8 +29,9 @@ import {
 import { toArabicImportExecuteMessage } from "@/lib/import/import-execute-messages";
 import {
   curriculumImportScopeKey,
+  isCompleteSubjectImportScope,
   isCompleteCurriculumImportScope,
-  type CurriculumImportScope,
+  type ContentStructureImportScope,
 } from "@/lib/import/curriculum-import-scope";
 import {
   CONTENT_IMPORT_TEMPLATES,
@@ -115,7 +116,8 @@ interface ContentImportDryRunPanelProps {
   heading?: string;
   description?: string;
   idPrefix?: string;
-  curriculumScope?: CurriculumImportScope | null;
+  curriculumScope?: ContentStructureImportScope | null;
+  onExecuted?: () => void | Promise<void>;
 }
 
 export function ContentImportDryRunPanel({
@@ -125,6 +127,7 @@ export function ContentImportDryRunPanel({
   description = "ارفع ملف Excel المملوء، ثم اتبع الخطوات: فحص ← تجهيز ← تنفيذ.",
   idPrefix = "content-import",
   curriculumScope = null,
+  onExecuted,
 }: ContentImportDryRunPanelProps = {}) {
   const runDryRun = useServerFn(dryRunContentImport);
   const downloadTemplate = useServerFn(downloadContextualTemplate);
@@ -152,8 +155,12 @@ export function ContentImportDryRunPanel({
   const [preparedHash, setPreparedHash] = useState<string | null>(null);
   const [stagedRows, setStagedRows] = useState<number | null>(null);
   const [executeResult, setExecuteResult] = useState<ExecuteImportResult | null>(null);
-  const scopeRequired = templateKey === "units" || templateKey === "lessons";
-  const scopeComplete = !scopeRequired || isCompleteCurriculumImportScope(curriculumScope);
+  const scopeRequired = templateKey === "subjects" || templateKey === "units" || templateKey === "lessons";
+  const scopeComplete =
+    !scopeRequired ||
+    (templateKey === "subjects"
+      ? isCompleteSubjectImportScope(curriculumScope)
+      : isCompleteCurriculumImportScope(curriculumScope));
   const scopeKey = curriculumImportScopeKey(curriculumScope);
 
   const resetPipeline = useCallback(() => {
@@ -172,10 +179,7 @@ export function ContentImportDryRunPanel({
   }, [resetPipeline, scopeKey]);
 
   const handleTemplateDownload = useCallback(async () => {
-    if (
-      (templateKey !== "units" && templateKey !== "lessons") ||
-      !isCompleteCurriculumImportScope(curriculumScope)
-    ) {
+    if (templateKey !== "subjects" && templateKey !== "units" && templateKey !== "lessons") {
       setError("أكمل سياق الاستيراد قبل تنزيل النموذج.");
       return;
     }
@@ -183,13 +187,34 @@ export function ContentImportDryRunPanel({
     setDownloadingTemplate(true);
     setError(null);
     try {
+      const templateScope = curriculumScope;
+      if (templateKey === "subjects") {
+        if (!isCompleteSubjectImportScope(templateScope)) {
+          setError("أكمل سياق استيراد المواد: الصف ← المسار أو المسارات.");
+          return;
+        }
+        const generated = await downloadTemplate({
+          data: {
+            templateKey,
+            gradeSlug: templateScope.gradeSlug,
+            trackCodes: templateScope.trackCodes,
+            rowCount: 20,
+          },
+        });
+        downloadBase64Workbook(generated.fileBase64, generated.filename);
+        return;
+      }
+      if (!isCompleteCurriculumImportScope(templateScope)) {
+        setError("أكمل سياق الاستيراد: الصف ← المسار ← الفصل ← المادة.");
+        return;
+      }
       const generated = await downloadTemplate({
         data: {
           templateKey,
-          gradeSlug: curriculumScope.gradeSlug,
-          trackCodes: curriculumScope.trackCodes,
-          semester: curriculumScope.semester,
-          subjectCode: curriculumScope.subjectCode,
+          gradeSlug: templateScope.gradeSlug,
+          trackCodes: templateScope.trackCodes,
+          semester: templateScope.semester,
+          subjectCode: templateScope.subjectCode,
           rowCount: templateKey === "units" ? 20 : 50,
         },
       });
@@ -207,7 +232,11 @@ export function ContentImportDryRunPanel({
 
   const pickFile = useCallback((): File | null => {
     if (!scopeComplete) {
-      setError("أكمل سياق الاستيراد: الصف ← المسار ← الفصل ← المادة.");
+      setError(
+        templateKey === "subjects"
+          ? "أكمل سياق استيراد المواد: الصف ← المسار أو المسارات."
+          : "أكمل سياق الاستيراد: الصف ← المسار ← الفصل ← المادة.",
+      );
       return null;
     }
     const file = inputRef.current?.files?.[0];
@@ -349,6 +378,7 @@ export function ContentImportDryRunPanel({
         },
       });
       setExecuteResult(result);
+      if (result.ok) await onExecuted?.();
       if (!result.ok && result.error) {
         setError(toArabicImportExecuteMessage(result.error));
       }
@@ -363,7 +393,7 @@ export function ContentImportDryRunPanel({
     } finally {
       setExecuting(false);
     }
-  }, [curriculumScope, jobId, pickFile, preparedHash, runExecute, scopeRequired, templateKey]);
+  }, [curriculumScope, jobId, onExecuted, pickFile, preparedHash, runExecute, scopeRequired, templateKey]);
 
   const dryRunPassed = report != null && report.status !== "fail" && report.errorCount === 0;
   const isQuestionsTemplate =
@@ -394,7 +424,11 @@ export function ContentImportDryRunPanel({
           <div className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-background/70 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold">
-                {templateKey === "units" ? "نموذج استيراد الوحدات — 02" : "نموذج استيراد الدروس — 03"}
+                {templateKey === "subjects"
+                  ? "نموذج استيراد المواد والمسارات — 01"
+                  : templateKey === "units"
+                    ? "نموذج استيراد الوحدات — 02"
+                    : "نموذج استيراد الدروس — 03"}
               </p>
               <p className="text-xs text-muted-foreground">
                 يُولّد النظام ملف XLSX بأكواد المادة والفصل والترتيب وفق السياق المختار، دون تغيير أسماء الأعمدة.
@@ -412,7 +446,11 @@ export function ContentImportDryRunPanel({
               ) : (
                 <Download className="h-4 w-4" />
               )}
-              {templateKey === "units" ? "تنزيل نموذج الوحدات" : "تنزيل نموذج الدروس"}
+              {templateKey === "subjects"
+                ? "تنزيل نموذج المواد"
+                : templateKey === "units"
+                  ? "تنزيل نموذج الوحدات"
+                  : "تنزيل نموذج الدروس"}
             </Button>
           </div>
         ) : null}
@@ -456,7 +494,9 @@ export function ContentImportDryRunPanel({
 
         {scopeRequired && !scopeComplete ? (
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
-            اختيار ملف Excel معطّل حتى يكتمل سياق الصف والمسار والفصل والمادة أعلاه.
+            {templateKey === "subjects"
+              ? "اختيار ملف Excel معطّل حتى يكتمل سياق الصف والمسارات أعلاه."
+              : "اختيار ملف Excel معطّل حتى يكتمل سياق الصف والمسار والفصل والمادة أعلاه."}
           </p>
         ) : null}
 

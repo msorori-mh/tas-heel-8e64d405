@@ -9,7 +9,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { IMPORT_TYPE_STRUCTURE } from "./import-job.types";
-import type { CurriculumImportScope } from "./curriculum-import-scope";
+import type { ContentStructureImportScope } from "./curriculum-import-scope";
 
 export interface CreateExecutionJobInput {
   templateKey: string;
@@ -19,7 +19,7 @@ export interface CreateExecutionJobInput {
   totalRows: number;
   validRows: number;
   warningRows: number;
-  curriculumScope?: CurriculumImportScope;
+  curriculumScope?: ContentStructureImportScope;
 }
 
 export async function createContentImportExecutionJob(
@@ -39,8 +39,12 @@ export async function createContentImportExecutionJob(
           curriculumImportScope: {
             gradeSlug: input.curriculumScope.gradeSlug,
             trackCodes: input.curriculumScope.trackCodes,
-            semester: input.curriculumScope.semester,
-            subjectCode: input.curriculumScope.subjectCode,
+            ...("subjectCode" in input.curriculumScope
+              ? {
+                  semester: input.curriculumScope.semester,
+                  subjectCode: input.curriculumScope.subjectCode,
+                }
+              : {}),
           },
         }
       : {}),

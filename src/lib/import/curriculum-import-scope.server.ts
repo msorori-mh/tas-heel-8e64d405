@@ -2,8 +2,60 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type {
   CurriculumImportScope,
+  SubjectImportScope,
   ResolvedCurriculumImportScope,
+  ResolvedSubjectImportScope,
 } from "./curriculum-import-scope";
+
+export async function resolveSubjectImportScope(
+  supabase: SupabaseClient<Database>,
+  scope: SubjectImportScope,
+): Promise<ResolvedSubjectImportScope> {
+  const gradeSlug = scope.gradeSlug.trim().toLowerCase();
+  const trackCodes = [...new Set(scope.trackCodes.map((code) => code.trim().toLowerCase()))].sort();
+  if (!gradeSlug || trackCodes.length === 0) {
+    throw new Error("IMPORT_SUBJECT_SCOPE_REQUIRED: اختر الصف ومسارًا واحدًا على الأقل.");
+  }
+
+  const { data: grade, error: gradeError } = await supabase
+    .from("grades")
+    .select("id, slug")
+    .eq("slug", gradeSlug)
+    .maybeSingle();
+  if (gradeError || !grade) throw new Error("IMPORT_SCOPE_GRADE_NOT_FOUND");
+
+  const { data: tracks, error: tracksError } = await supabase
+    .from("curriculum_tracks")
+    .select("id, track_code")
+    .in("track_code", trackCodes)
+    .eq("is_active", true);
+  if (tracksError) throw new Error(`IMPORT_SCOPE_TRACK_LOOKUP_FAILED: ${tracksError.message}`);
+  const trackByCode = new Map((tracks ?? []).map((track) => [track.track_code, track.id]));
+  const missingTrack = trackCodes.find((code) => !trackByCode.has(code));
+  if (missingTrack) throw new Error(`IMPORT_SCOPE_TRACK_NOT_FOUND: ${missingTrack}`);
+
+  return {
+    gradeId: grade.id,
+    gradeSlug,
+    trackCodes,
+    trackIds: trackCodes.map((code) => trackByCode.get(code)!),
+  };
+}
+
+export function applySubjectImportScopeToRows<T extends { data: Record<string, string> }>(
+  rows: T[],
+  scope: ResolvedSubjectImportScope,
+): T[] {
+  return rows.map((row) => ({
+    ...row,
+    data: {
+      ...row.data,
+      grade_slug: scope.gradeSlug,
+      track_codes: scope.trackCodes.join("|"),
+      semester: "",
+    },
+  }));
+}
 
 export async function resolveCurriculumImportScope(
   supabase: SupabaseClient<Database>,
