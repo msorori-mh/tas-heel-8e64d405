@@ -13,6 +13,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  golden-identity-web:
+    name: Golden identity TypeScript, tests, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Run identity preflight contract tests
+        run: |
+          node --import tsx --test \
+            tests/content-factory/golden-lesson-identity-preflight.test.ts \
+            tests/content-factory/golden-lesson-identity-rebind-migration.test.mjs \
+            tests/content-factory/golden-lesson-direct-preflight.static.test.mjs
+
+      - name: Build client and server bundles
+        run: npm run build
+
   golden-identity-rebind-pg17:
     name: Golden identity preflight and DRAFT rebind PG17
     runs-on: ubuntu-latest
