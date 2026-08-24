@@ -118,7 +118,7 @@ export function SubjectImportPanel() {
         allowedTemplateKeys={["subjects"]}
         initialTemplateKey="subjects"
         heading="استيراد ملف المواد — قالب 01"
-        description="نزّل القالب المولّد، اكتب أسماء المواد وترتيبها، ثم نفّذ: فحص ← تجهيز ← تنفيذ."
+        description="نزّل القالب المولّد واكتب أسماء المواد فقط؛ الأكواد والصف والمسارات والترتيب معبأة آليًا، ثم نفّذ: فحص ← تجهيز ← تنفيذ."
         idPrefix="subjects-import"
         curriculumScope={scope}
       />
