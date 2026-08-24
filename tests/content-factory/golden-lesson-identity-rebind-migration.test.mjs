@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migration = readFileSync(new URL(
-  "../../supabase/migrations-pending/20260824170000_golden_lesson_identity_preflight_rebind.sql",
+  "../../supabase/migrations/20260824170000_golden_lesson_identity_preflight_rebind.sql",
   import.meta.url,
 ), "utf8");
 
