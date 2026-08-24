@@ -24,10 +24,10 @@ test("units and lessons cards expose explicit contextual XLSX downloads", () => 
 });
 
 test("downloaded templates are bound to grade tracks semester and official subject", () => {
-  assert.match(panel, /gradeSlug: curriculumScope\.gradeSlug/);
-  assert.match(panel, /trackCodes: curriculumScope\.trackCodes/);
-  assert.match(panel, /semester: curriculumScope\.semester/);
-  assert.match(panel, /subjectCode: curriculumScope\.subjectCode/);
+  assert.match(panel, /gradeSlug: templateScope\.gradeSlug/);
+  assert.match(panel, /trackCodes: templateScope\.trackCodes/);
+  assert.match(panel, /semester: templateScope\.semester/);
+  assert.match(panel, /subjectCode: templateScope\.subjectCode/);
   assert.match(functions, /semester: z\.union\(\[z\.literal\(1\), z\.literal\(2\)\]\)\.optional\(\)/);
 });
 
