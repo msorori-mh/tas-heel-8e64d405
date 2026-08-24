@@ -1445,7 +1445,7 @@ BEGIN
                                        'renderMode','INTERACTIVE',
                                        'csp', lab_contract)),
     'questions', jsonb_build_object('official', official_plan, 'selfTest', self_plan),
-    'assessment', jsonb_build_object('code', ext_code || '-SELFTEST',
+    'assessment', jsonb_build_object('code', public.normalize_content_code(ext_code || '-SELFTEST'),
                                      'memberCount', cardinality(expected_self_codes),
                                      'memberQuestionIds',
                                      (SELECT coalesce(jsonb_agg(e.v->>'questionId'
