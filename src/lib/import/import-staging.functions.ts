@@ -9,8 +9,19 @@ import { IMPORT_TYPE_STRUCTURE } from "./import-job.types";
 import { CONTENT_IMPORT_MAX_FILE_BYTES } from "../content-import/content-import-types";
 import { assertAllowedContentImportTemplateKey } from "../content-import/content-import-validators";
 import { assertTemplateExecutable } from "./import-execution-state";
+import {
+  curriculumImportScopeKey,
+  type CurriculumImportScope,
+} from "./curriculum-import-scope";
 
 const MAX_BASE64_LENGTH = Math.ceil(CONTENT_IMPORT_MAX_FILE_BYTES * 1.37) + 64;
+
+const CurriculumImportScopeInput = z.object({
+  gradeSlug: z.string().trim().min(1).max(32),
+  trackCodes: z.array(z.string().trim().min(1).max(32)).min(1).max(8),
+  semester: z.union([z.literal(1), z.literal(2)]),
+  subjectCode: z.string().trim().min(1).max(64),
+});
 
 const CreateJobInput = z.object({
   templateKey: z.string().min(1).max(64),
@@ -20,6 +31,7 @@ const CreateJobInput = z.object({
   totalRows: z.number().int().min(0).max(100000),
   validRows: z.number().int().min(0).max(100000),
   warningRows: z.number().int().min(0).max(100000),
+  curriculumScope: CurriculumImportScopeInput.optional(),
 });
 
 const PrepareInput = z.object({
@@ -28,11 +40,13 @@ const PrepareInput = z.object({
   fileName: z.string().min(1).max(255),
   fileBase64: z.string().min(1).max(MAX_BASE64_LENGTH),
   fileSize: z.number().int().positive().max(CONTENT_IMPORT_MAX_FILE_BYTES),
+  curriculumScope: CurriculumImportScopeInput.optional(),
 });
 
 const ExecuteInput = z.object({
   jobId: z.string().uuid(),
   templateKeys: z.array(z.string().min(1).max(64)).min(1).max(10),
+  curriculumScope: CurriculumImportScopeInput.optional(),
 });
 
 /**
@@ -49,6 +63,15 @@ export const createContentImportJob = createServerFn({ method: "POST" })
     const templateKey = assertAllowedContentImportTemplateKey(data.templateKey);
     assertTemplateExecutable(templateKey);
 
+    let curriculumScope: CurriculumImportScope | undefined;
+    if (templateKey === "units" || templateKey === "lessons") {
+      if (!data.curriculumScope) {
+        throw new Error("IMPORT_SCOPE_REQUIRED: اختر الصف والمسار والفصل والمادة قبل رفع الملف.");
+      }
+      const { resolveCurriculumImportScope } = await import("./curriculum-import-scope.server");
+      curriculumScope = await resolveCurriculumImportScope(supabase, data.curriculumScope);
+    }
+
     const { createContentImportExecutionJob } = await import("./import-job-create.server");
     return createContentImportExecutionJob(supabase, userId, {
       templateKey,
@@ -58,6 +81,7 @@ export const createContentImportJob = createServerFn({ method: "POST" })
       totalRows: data.totalRows,
       validRows: data.validRows,
       warningRows: data.warningRows,
+      curriculumScope,
     });
   });
 
@@ -113,8 +137,24 @@ export const prepareContentImportStaging = createServerFn({ method: "POST" })
       };
     }
 
+    let scopedParsed = parsed;
+    if (templateKey === "units" || templateKey === "lessons") {
+      if (!data.curriculumScope) {
+        throw new Error("IMPORT_SCOPE_REQUIRED: اختر الصف والمسار والفصل والمادة قبل رفع الملف.");
+      }
+      const {
+        applyCurriculumImportScopeToRows,
+        resolveCurriculumImportScope,
+      } = await import("./curriculum-import-scope.server");
+      const resolvedScope = await resolveCurriculumImportScope(supabase, data.curriculumScope);
+      scopedParsed = {
+        ...parsed,
+        rows: applyCurriculumImportScopeToRows(parsed.rows, resolvedScope),
+      };
+    }
+
     const { buildStagingRows, stageContentImportRows } = await import("./import-staging.server");
-    const rows = buildStagingRows(templateKey, parsed, templateKey);
+    const rows = buildStagingRows(templateKey, scopedParsed, templateKey);
     const { stagedRows } = await stageContentImportRows(supabase, data.jobId, templateKey, rows);
 
     return { jobId: data.jobId, templateKey, stagedRows, ok: true, errors: [] };
@@ -147,6 +187,29 @@ export const runContentImportExecute = createServerFn({ method: "POST" })
 
     const templateKeys = data.templateKeys.map((k) => assertAllowedContentImportTemplateKey(k));
     for (const key of templateKeys) assertTemplateExecutable(key);
+
+    if (templateKeys.some((key) => key === "units" || key === "lessons")) {
+      if (!data.curriculumScope) {
+        throw new Error("IMPORT_SCOPE_REQUIRED: اختر الصف والمسار والفصل والمادة قبل رفع الملف.");
+      }
+      const { resolveCurriculumImportScope } = await import("./curriculum-import-scope.server");
+      const resolvedScope = await resolveCurriculumImportScope(supabase, data.curriculumScope);
+      const { data: job, error: jobError } = await supabase
+        .from("import_jobs")
+        .select("metadata")
+        .eq("id", data.jobId)
+        .maybeSingle();
+      if (jobError || !job) {
+        throw new Error("IMPORT_JOB_NOT_FOUND");
+      }
+      const savedScope = (job.metadata as Record<string, unknown> | null)?.curriculumImportScope;
+      if (
+        curriculumImportScopeKey(savedScope as CurriculumImportScope | null) !==
+        curriculumImportScopeKey(resolvedScope)
+      ) {
+        throw new Error("IMPORT_SCOPE_CHANGED_AFTER_PREPARE");
+      }
+    }
 
     const { executeContentImport } = await import("./import-staging.server");
     const outcome = await executeContentImport(supabase, data.jobId, templateKeys);
