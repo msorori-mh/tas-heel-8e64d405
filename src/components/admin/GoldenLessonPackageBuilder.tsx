@@ -1380,9 +1380,9 @@ export function GoldenLessonPackageBuilder() {
 
       <div className="sticky bottom-3 z-10 flex flex-wrap gap-2 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
         <Button type="button" onClick={() => void runValidation()} disabled={hashing !== null || !canonicalIdentityComplete} className="min-h-[44px] gap-2"><FileCheck2 className="h-4 w-4" />فحص ومعاينة الملفات</Button>
-        <Button type="button" disabled={!validation?.valid || intakeBusy} onClick={() => void uploadAndVerifyDirectIntake()} className="min-h-[44px] gap-2">
-          {intakeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-          استيراد الدرس (حفظ كمسودة)
+        <Button type="button" disabled={!validation?.valid || intakeBusy || publishBusy} onClick={() => void importAndPublishNow()} className="min-h-[44px] gap-2">
+          {intakeBusy || publishBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+          {intakeBusy ? "جاري رفع الملفات والتحقق…" : publishBusy ? "جاري النشر…" : "نشر الدرس الآن"}
         </Button>
       </div>
 
@@ -1390,30 +1390,40 @@ export function GoldenLessonPackageBuilder() {
 
       {intake && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2 text-sm">
-          <p className="font-medium flex gap-2"><CheckCircle2 className="h-4 w-4 mt-0.5" />تم استيراد ملفات الدرس وربطها بإصدار المسودة</p>
-          <p className="text-xs">تم حفظ الإصدار {intake.version} كمسودة آمنة{intake.idempotent ? " دون تكرار الكتابة" : ""}.</p>
-          <p className="text-xs">عدد الملفات المتحقق منها: {intake.verifiedFileCount}. اضغط الزر أدناه لاعتماد الدرس ونشره للطلاب مباشرة.</p>
-          <Button
-            type="button"
-            size="sm"
-            className="mt-2 min-h-[44px] gap-2"
-            disabled={publishBusy || publishSteps.length > 0}
-            onClick={() => void publishDirectNow()}
-          >
-            {publishBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            اعتماد ونشر الدرس الآن
-          </Button>
-          {publishSteps.length > 0 && (
-            <ul className="mt-2 space-y-1 text-xs">
-              {publishSteps.map((step) => (
-                <li key={step.key} className="text-emerald-700 dark:text-emerald-400">✓ {step.label} — {step.detail}</li>
-              ))}
-            </ul>
-          )}
+          <p className="font-medium flex gap-2">
+            <CheckCircle2 className="h-4 w-4 mt-0.5" />
+            {publishSteps.length > 0 ? "تم نشر الدرس وإتاحته للطلاب" : "تم رفع ملفات الدرس والتحقق منها"}
+          </p>
+          <p className="text-xs">
+            الإصدار {intake.version}{intake.idempotent ? " (دون تكرار الكتابة)" : ""} — عدد الملفات المتحقق منها: {intake.verifiedFileCount}.
+          </p>
+          <ul className="mt-2 space-y-1 text-xs">
+            <li className="text-emerald-700 dark:text-emerald-400">✓ رفع الملفات والتحقق من البصمات</li>
+            {publishSteps.map((step) => (
+              <li key={step.key} className="text-emerald-700 dark:text-emerald-400">✓ {step.label} — {step.detail}</li>
+            ))}
+            {publishBusy && (
+              <li className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />جاري تنفيذ خطوات النشر…
+              </li>
+            )}
+          </ul>
           {publishError && (
-            <p role="alert" className="text-sm text-destructive flex gap-2">
-              <AlertCircle className="h-4 w-4 mt-0.5" />تعذّر النشر: {publishError}
-            </p>
+            <>
+              <p role="alert" className="text-sm text-destructive flex gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5" />تعذّر النشر: {publishError}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                className="mt-1 min-h-[44px] gap-2"
+                disabled={publishBusy}
+                onClick={() => void publishDirectNow()}
+              >
+                {publishBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                إعادة محاولة النشر
+              </Button>
+            </>
           )}
         </div>
       )}
