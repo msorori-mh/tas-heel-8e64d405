@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/admin/import")({
 
 const STEPS = [
   { number: 1, label: "المواد والمسارات" },
-  { number: 2, label: "الوحدات — اختياري" },
+  { number: 2, label: "الوحدات أو الفصول — اختياري" },
   { number: 3, label: "الدروس" },
   { number: 4, label: "محتويات الدرس والنشر" },
 ] as const;
