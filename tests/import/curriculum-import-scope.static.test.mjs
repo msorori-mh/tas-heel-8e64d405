@@ -55,3 +55,10 @@ test("unit_code remains optional for lessons attached directly to a subject", ()
     /f\("unit_code", "units", null, false, "lookup \(subject_id, units\.code\).*empty = lesson attached directly to subject"\)/,
   );
 });
+
+test("non-empty unit_code fails closed when the unit is absent from selected subject", () => {
+  assert.match(staging, /requestedUnitCodes/);
+  assert.match(staging, /\.eq\("subject_id", resolvedScope\.subjectId\)/);
+  assert.match(staging, /UNIT_NOT_FOUND_IN_SCOPE/);
+  assert.match(staging, /stagedRows: 0/);
+});
