@@ -1080,7 +1080,7 @@ export function GoldenLessonPackageBuilder() {
         <div className="flex flex-wrap items-center gap-2">
           <BookOpen className="h-5 w-5 text-primary" />
           <h2 id="golden-package-builder-heading" className="text-lg font-semibold">استيراد محتويات الدرس السبعة</h2>
-          <Badge variant="secondary">مسودة آمنة</Badge>
+          <Badge variant="secondary">نشر مباشر</Badge>
         </div>
         <p className="text-sm text-muted-foreground max-w-3xl">
           ارفع كل محتوى في مكانه. لا يوجد ملف ZIP للدرس، ولا PDF للدرس، ولا ملف توثيق مصدر.
