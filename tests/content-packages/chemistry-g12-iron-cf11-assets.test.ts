@@ -151,9 +151,13 @@ describe("CF11 — HTML reference negatives (undeclared bytes never load)", () =
     assert.match(codesOf(findings)[0]!, /UNDECLARED|REFERENCE/);
   });
 
-  it("rejects base64/data URIs", () => {
+  it("allows offline-safe media data URIs but rejects active data payloads", () => {
+    assert.deepEqual(
+      scanHtmlAssetReferences("x.html", '<img src="data:image/png;base64,AAAA">', declared),
+      [],
+    );
     assert.ok(
-      codesOf(scanHtmlAssetReferences("x.html", '<img src="data:image/png;base64,AAAA">', declared))
+      codesOf(scanHtmlAssetReferences("x.html", '<iframe src="data:text/html;base64,AAAA">', declared))
         .includes("HTML_REFERENCE_DATA_URI_FORBIDDEN"),
     );
   });
