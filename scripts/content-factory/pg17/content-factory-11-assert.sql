@@ -537,12 +537,14 @@ BEGIN
     (SELECT count(*)=1 FROM public.lesson_resources
       WHERE lesson_id=v_lesson AND html_resource_type='mindmap'
         AND resource_type::text='mindmap'
-        AND url = 'lesson-internal://html/CHEM-G12-IRON-MINDMAP'),'mind map resource contract');
+        AND url = public.cf10_inline_html_url(
+          public.cf11_html_resource_code('CHEM-G12-IRON','mindMap'))),'mind map resource contract');
   PERFORM public.cf04_assert(
     (SELECT count(*)=1 FROM public.lesson_resources
       WHERE lesson_id=v_lesson AND html_resource_type='experiment'
         AND resource_type::text='experiment'
-        AND url = 'lesson-internal://html/CHEM-G12-IRON-EXPERIMENT'),'lab resource contract');
+        AND url = public.cf10_inline_html_url(
+          public.cf11_html_resource_code('CHEM-G12-IRON','simulation'))),'lab resource contract');
   PERFORM public.cf04_assert(
     (SELECT count(*)=0 FROM public.lesson_resources
       WHERE lesson_id=v_lesson AND url ~* '^https?://'),'no external resource URL may be written');
