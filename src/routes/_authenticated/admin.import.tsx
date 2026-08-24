@@ -14,7 +14,7 @@ const STEPS = [
   { number: 1, label: "الوحدات أو الفصول — اختياري" },
   { number: 2, label: "الدروس" },
   { number: 3, label: "المحتويات السبعة" },
-  { number: 4, label: "الفحص والحفظ كمسودة" },
+  { number: 4, label: "الفحص والنشر" },
 ] as const;
 
 function AdminImportPage() {
@@ -106,7 +106,7 @@ function AdminImportPage() {
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               اختر الدرس وارفع مكوناته في نموذج واحد: ستة مكونات HTML، و«اختبر فهمك» فقط بصيغة Excel.
-              تُحفظ النتائج كمسودات ولا تظهر للطالب قبل الاعتماد.
+              بعد نجاح الفحص يتم النشر مباشرة بضغطة واحدة دون خطوة مسودة.
             </p>
           </div>
           <GoldenLessonPackageBuilder />

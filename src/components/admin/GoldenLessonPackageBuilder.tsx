@@ -1007,7 +1007,7 @@ export function GoldenLessonPackageBuilder() {
   ]);
 
   /** Each declared file is uploaded directly; no lesson archive is created or uploaded. */
-  const uploadAndVerifyDirectIntake = async () => {
+  const uploadAndVerifyDirectIntake = async (): Promise<DirectIntakeResult | null> => {
     setIntakeBusy(true);
     setIntakeError(null);
     setIntake(null);
@@ -1035,23 +1035,25 @@ export function GoldenLessonPackageBuilder() {
       setIntake(verified);
       if (selectedLessonCode) {
         await removeLocalLessonDraft(selectedLessonCode).catch(() => undefined);
-        setDraftMessage("اكتمل حفظ المسودة على الخادم وحُذفت النسخة المحلية المؤقتة.");
+        setDraftMessage("اكتمل رفع الملفات إلى الخادم وحُذفت النسخة المحلية المؤقتة.");
       }
+      return verified;
     } catch (error) {
       setIntakeError(error instanceof Error ? error.message : "DIRECT_INTAKE_FAILED");
+      return null;
     } finally {
       setIntakeBusy(false);
     }
   };
 
   /** Approve + publish in one audited server round-trip; no separate review page. */
-  const publishDirectNow = async () => {
-    if (!intake) return;
+  const publishDirectNow = async (target: DirectIntakeResult | null = intake) => {
+    if (!target) return;
     setPublishBusy(true);
     setPublishError(null);
     try {
       const result = await publishGoldenLessonDirect({
-        data: { packageId: intake.packageId, version: intake.version },
+        data: { packageId: target.packageId, version: target.version },
       });
       setPublishSteps(result.steps);
     } catch (error) {
@@ -1059,6 +1061,15 @@ export function GoldenLessonPackageBuilder() {
     } finally {
       setPublishBusy(false);
     }
+  };
+
+  /** One click: upload + verify, then approve + publish without stopping at a draft. */
+  const importAndPublishNow = async () => {
+    setPublishSteps([]);
+    setPublishError(null);
+    const verified = await uploadAndVerifyDirectIntake();
+    if (!verified) return;
+    await publishDirectNow(verified);
   };
 
 
@@ -1069,7 +1080,7 @@ export function GoldenLessonPackageBuilder() {
         <div className="flex flex-wrap items-center gap-2">
           <BookOpen className="h-5 w-5 text-primary" />
           <h2 id="golden-package-builder-heading" className="text-lg font-semibold">استيراد محتويات الدرس السبعة</h2>
-          <Badge variant="secondary">مسودة آمنة</Badge>
+          <Badge variant="secondary">نشر مباشر</Badge>
         </div>
         <p className="text-sm text-muted-foreground max-w-3xl">
           ارفع كل محتوى في مكانه. لا يوجد ملف ZIP للدرس، ولا PDF للدرس، ولا ملف توثيق مصدر.
@@ -1369,9 +1380,9 @@ export function GoldenLessonPackageBuilder() {
 
       <div className="sticky bottom-3 z-10 flex flex-wrap gap-2 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
         <Button type="button" onClick={() => void runValidation()} disabled={hashing !== null || !canonicalIdentityComplete} className="min-h-[44px] gap-2"><FileCheck2 className="h-4 w-4" />فحص ومعاينة الملفات</Button>
-        <Button type="button" disabled={!validation?.valid || intakeBusy} onClick={() => void uploadAndVerifyDirectIntake()} className="min-h-[44px] gap-2">
-          {intakeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-          استيراد الدرس (حفظ كمسودة)
+        <Button type="button" disabled={!validation?.valid || intakeBusy || publishBusy} onClick={() => void importAndPublishNow()} className="min-h-[44px] gap-2">
+          {intakeBusy || publishBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+          {intakeBusy ? "جاري رفع الملفات والتحقق…" : publishBusy ? "جاري النشر…" : "نشر الدرس الآن"}
         </Button>
       </div>
 
@@ -1379,30 +1390,40 @@ export function GoldenLessonPackageBuilder() {
 
       {intake && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2 text-sm">
-          <p className="font-medium flex gap-2"><CheckCircle2 className="h-4 w-4 mt-0.5" />تم استيراد ملفات الدرس وربطها بإصدار المسودة</p>
-          <p className="text-xs">تم حفظ الإصدار {intake.version} كمسودة آمنة{intake.idempotent ? " دون تكرار الكتابة" : ""}.</p>
-          <p className="text-xs">عدد الملفات المتحقق منها: {intake.verifiedFileCount}. اضغط الزر أدناه لاعتماد الدرس ونشره للطلاب مباشرة.</p>
-          <Button
-            type="button"
-            size="sm"
-            className="mt-2 min-h-[44px] gap-2"
-            disabled={publishBusy || publishSteps.length > 0}
-            onClick={() => void publishDirectNow()}
-          >
-            {publishBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            اعتماد ونشر الدرس الآن
-          </Button>
-          {publishSteps.length > 0 && (
-            <ul className="mt-2 space-y-1 text-xs">
-              {publishSteps.map((step) => (
-                <li key={step.key} className="text-emerald-700 dark:text-emerald-400">✓ {step.label} — {step.detail}</li>
-              ))}
-            </ul>
-          )}
+          <p className="font-medium flex gap-2">
+            <CheckCircle2 className="h-4 w-4 mt-0.5" />
+            {publishSteps.length > 0 ? "تم نشر الدرس وإتاحته للطلاب" : "تم رفع ملفات الدرس والتحقق منها"}
+          </p>
+          <p className="text-xs">
+            الإصدار {intake.version}{intake.idempotent ? " (دون تكرار الكتابة)" : ""} — عدد الملفات المتحقق منها: {intake.verifiedFileCount}.
+          </p>
+          <ul className="mt-2 space-y-1 text-xs">
+            <li className="text-emerald-700 dark:text-emerald-400">✓ رفع الملفات والتحقق من البصمات</li>
+            {publishSteps.map((step) => (
+              <li key={step.key} className="text-emerald-700 dark:text-emerald-400">✓ {step.label} — {step.detail}</li>
+            ))}
+            {publishBusy && (
+              <li className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />جاري تنفيذ خطوات النشر…
+              </li>
+            )}
+          </ul>
           {publishError && (
-            <p role="alert" className="text-sm text-destructive flex gap-2">
-              <AlertCircle className="h-4 w-4 mt-0.5" />تعذّر النشر: {publishError}
-            </p>
+            <>
+              <p role="alert" className="text-sm text-destructive flex gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5" />تعذّر النشر: {publishError}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                className="mt-1 min-h-[44px] gap-2"
+                disabled={publishBusy}
+                onClick={() => void publishDirectNow()}
+              >
+                {publishBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                إعادة محاولة النشر
+              </Button>
+            </>
           )}
         </div>
       )}
