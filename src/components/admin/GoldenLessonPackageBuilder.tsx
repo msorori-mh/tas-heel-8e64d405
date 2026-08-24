@@ -1035,23 +1035,25 @@ export function GoldenLessonPackageBuilder() {
       setIntake(verified);
       if (selectedLessonCode) {
         await removeLocalLessonDraft(selectedLessonCode).catch(() => undefined);
-        setDraftMessage("اكتمل حفظ المسودة على الخادم وحُذفت النسخة المحلية المؤقتة.");
+        setDraftMessage("اكتمل رفع الملفات إلى الخادم وحُذفت النسخة المحلية المؤقتة.");
       }
+      return verified;
     } catch (error) {
       setIntakeError(error instanceof Error ? error.message : "DIRECT_INTAKE_FAILED");
+      return null;
     } finally {
       setIntakeBusy(false);
     }
   };
 
   /** Approve + publish in one audited server round-trip; no separate review page. */
-  const publishDirectNow = async () => {
-    if (!intake) return;
+  const publishDirectNow = async (target: DirectIntakeResult | null = intake) => {
+    if (!target) return;
     setPublishBusy(true);
     setPublishError(null);
     try {
       const result = await publishGoldenLessonDirect({
-        data: { packageId: intake.packageId, version: intake.version },
+        data: { packageId: target.packageId, version: target.version },
       });
       setPublishSteps(result.steps);
     } catch (error) {
@@ -1059,6 +1061,15 @@ export function GoldenLessonPackageBuilder() {
     } finally {
       setPublishBusy(false);
     }
+  };
+
+  /** One click: upload + verify, then approve + publish without stopping at a draft. */
+  const importAndPublishNow = async () => {
+    setPublishSteps([]);
+    setPublishError(null);
+    const verified = await uploadAndVerifyDirectIntake();
+    if (!verified) return;
+    await publishDirectNow(verified);
   };
 
 
