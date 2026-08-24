@@ -10,6 +10,10 @@ const pgcryptoSchemaFix = readFileSync(
   "supabase/migrations/20260824231500_prelaunch_purge_pgcrypto_schema_fix.sql",
   "utf8",
 );
+const safeUpdateFinal = readFileSync(
+  "supabase/migrations/20260824234000_prelaunch_purge_safeupdate_final.sql",
+  "utf8",
+);
 const ui = readFileSync(
   "src/components/admin/CurriculumPrelaunchPurgeControl.tsx",
   "utf8",
@@ -61,4 +65,22 @@ test("prelaunch purge resolves pgcrypto from the production extensions schema", 
     /ALTER FUNCTION public\.admin_curriculum_prelaunch_purge\(text, text, text, text\)[\s\S]*SET search_path = public, extensions, pg_temp/,
   );
   assert.doesNotMatch(pgcryptoSchemaFix, /DISABLE\s+TRIGGER/i);
+});
+
+
+test("all global purge deletes are explicit and safeupdate-compatible", () => {
+  const boundedDeletes = safeUpdateFinal.match(
+    /DELETE\s+FROM\s+public\.[a-z0-9_]+\s+WHERE\s+true\s*;/gi,
+  ) ?? [];
+  assert.equal(boundedDeletes.length, 47);
+  assert.doesNotMatch(
+    safeUpdateFinal,
+    /DELETE\s+FROM\s+public\.[a-z0-9_]+\s*;/i,
+  );
+  assert.match(safeUpdateFinal, /extensions\.digest/);
+  assert.match(
+    safeUpdateFinal,
+    /PRELAUNCH_PURGE_UNBOUNDED_DELETE_REMAINS/,
+  );
+  assert.doesNotMatch(safeUpdateFinal, /DISABLE\s+TRIGGER/i);
 });
