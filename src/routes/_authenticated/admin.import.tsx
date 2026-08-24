@@ -6,6 +6,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { ContentImportDryRunPanel } from "@/components/admin/ContentImportDryRunPanel";
 import { CurriculumImportScopeForm } from "@/components/admin/CurriculumImportScopeForm";
 import { GoldenLessonPackageBuilder } from "@/components/admin/GoldenLessonPackageBuilder";
+import { SubjectImportPanel } from "@/components/admin/SubjectImportPanel";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import type { CurriculumImportScope } from "@/lib/import/curriculum-import-scope";
 
@@ -14,10 +15,10 @@ export const Route = createFileRoute("/_authenticated/admin/import")({
 });
 
 const STEPS = [
-  { number: 1, label: "الوحدات أو الفصول — اختياري" },
-  { number: 2, label: "الدروس" },
-  { number: 3, label: "المحتويات السبعة" },
-  { number: 4, label: "الفحص والنشر" },
+  { number: 1, label: "المواد والمسارات" },
+  { number: 2, label: "الوحدات — اختياري" },
+  { number: 3, label: "الدروس" },
+  { number: 4, label: "محتويات الدرس والنشر" },
 ] as const;
 
 function AdminImportPage() {
@@ -45,8 +46,8 @@ function AdminImportPage() {
             <h2 className="text-2xl font-bold">الاستيراد والفحص والنشر</h2>
           </div>
           <p className="max-w-4xl text-sm leading-relaxed text-muted-foreground">
-            بعد تعريف المادة وكتابها من التبويبات أعلاه، ثبّت سياق الصف والمسار والفصل
-            والمادة هنا، ثم ارفع الوحدات إن وجدت، فالدروس، فمحتويات الدرس. إذا كانت
+            ابدأ من هنا بتعريف المواد وربطها بالصف والمسارات، ثم ثبّت سياق المادة والفصل
+            وارفع الوحدات إن وجدت، فالدروس، فمحتويات الدرس. إذا كانت
             المادة بلا وحدات فاترك <span className="font-mono">unit_code</span> فارغًا.
           </p>
           <ol aria-label="خطوات الاستيراد الموحد" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -61,12 +62,20 @@ function AdminImportPage() {
           </ol>
         </header>
 
-        <CurriculumImportScopeForm value={structureScope} onChange={setStructureScope} />
+        <SubjectImportPanel />
+
+        <div className="space-y-3 border-t border-border pt-8">
+          <h2 className="text-lg font-bold">سياق استيراد الوحدات والدروس</h2>
+          <p className="text-sm text-muted-foreground">
+            بعد تنفيذ قالب المواد، اختر المادة الرسمية هنا؛ يأخذ النظام منها الصف والمسارات ويثبت الفصل المحدد للوحدات والدروس.
+          </p>
+          <CurriculumImportScopeForm value={structureScope} onChange={setStructureScope} />
+        </div>
 
         <section className="space-y-3" aria-labelledby="units-import-heading">
           <div>
             <h2 id="units-import-heading" className="text-lg font-bold">
-              1. استيراد الوحدات أو الفصول
+              2. استيراد الوحدات أو الفصول
               <span className="mr-2 rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
                 اختياري
               </span>
@@ -89,7 +98,7 @@ function AdminImportPage() {
         <section className="space-y-3" aria-labelledby="lessons-import-heading">
           <div>
             <h2 id="lessons-import-heading" className="text-lg font-bold">
-              2. استيراد الدروس
+              3. استيراد الدروس
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               يقبل الدروس المرتبطة بوحدة، كما يقبل الدروس المرتبطة بالمادة مباشرة.
@@ -109,7 +118,7 @@ function AdminImportPage() {
         <section className="space-y-3" aria-labelledby="contents-import-heading">
           <div>
             <h2 id="contents-import-heading" className="text-lg font-bold">
-              3. استيراد محتويات الدروس السبعة
+              4. استيراد محتويات الدروس السبعة
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               اختر الدرس وارفع مكوناته في نموذج واحد: ستة مكونات HTML، و«اختبر فهمك» فقط بصيغة Excel.
