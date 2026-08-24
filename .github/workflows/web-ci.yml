@@ -209,6 +209,7 @@ jobs:
             --file supabase/migrations/20260824223000_prelaunch_curriculum_global_purge.sql \
             --file supabase/migrations/20260824231500_prelaunch_purge_pgcrypto_schema_fix.sql \
             --file supabase/migrations/20260824234000_prelaunch_purge_safeupdate_final.sql \
+            --file supabase/migrations/20260825020000_prelaunch_content_global_reset_v2.sql \
             --file scripts/curriculum/pg17-prelaunch-purge-assert.sql
 
       - name: Stop isolated PostgreSQL 17

@@ -10,9 +10,13 @@ const unitDialog = readFileSync("src/components/admin/UnitEditDialog.tsx", "utf8
 const unitFunctions = readFileSync("src/lib/content-codes/content-codes.functions.ts", "utf8");
 const textbookManager = readFileSync("src/components/admin/SubjectTextbooksManager.tsx", "utf8");
 const adminLayout = readFileSync("src/components/admin/AdminLayout.tsx", "utf8");
+const contentCenterNav = readFileSync(
+  "src/components/admin/ContentImportCenterNav.tsx",
+  "utf8",
+);
 
 test("the import center exposes the unified curriculum and lesson-content workflow", () => {
-  assert.match(route, /استيراد المنهج ومحتويات الدروس/);
+  assert.match(route, /الاستيراد والفحص والنشر/);
   assert.match(route, /ContentImportDryRunPanel/);
   assert.match(route, /allowedTemplateKeys=\{\["units"\]\}/);
   assert.match(route, /allowedTemplateKeys=\{\["lessons"\]\}/);
@@ -109,8 +113,14 @@ test("curriculum prerequisites are explicit and use only the two operational tra
   assert.match(textbookManager, /لا يشترط وجود كتاب مسبقًا/);
   assert.match(textbookManager, /id="subject-textbook-pdf"/);
   assert.match(textbookManager, /منهج صنعاء وعدن معًا/);
-  assert.match(adminLayout, /رفع كتب المواد/);
-  assert.match(adminLayout, /استيراد محتوى الدروس/);
+  assert.match(adminLayout, /استيراد المحتوى/);
+  assert.doesNotMatch(adminLayout, /رفع كتب المواد|استيراد محتوى الدروس/);
+  assert.match(contentCenterNav, /كتب المواد/);
+  assert.match(contentCenterNav, /هيكل المنهج/);
+  assert.match(contentCenterNav, /المواد والمسارات/);
+  assert.match(contentCenterNav, /الوحدات/);
+  assert.match(contentCenterNav, /الدروس/);
+  assert.match(contentCenterNav, /الاستيراد والنشر/);
 });
 
 test("manual unit entry allocates a server-owned TCS-2 code", () => {

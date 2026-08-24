@@ -23,13 +23,19 @@ DECLARE s jsonb;
 BEGIN
   s := public.admin_curriculum_prelaunch_purge_status();
   IF NOT (s->>'enabled')::boolean THEN RAISE EXCEPTION 'purge should start enabled'; END IF;
-  IF (s#>>'{counts,units}')::int <> 1 OR (s#>>'{counts,lessons}')::int <> 1 THEN
+  IF (s->>'scope_version')::int <> 2
+     OR (s#>>'{counts,subjects}')::int <> 1
+     OR (s#>>'{counts,subject_curriculum_tracks}')::int <> 1
+     OR (s#>>'{counts,subject_textbooks}')::int <> 1
+     OR (s#>>'{counts,content_review_state}')::int <> 1
+     OR (s#>>'{counts,units}')::int <> 1
+     OR (s#>>'{counts,lessons}')::int <> 1 THEN
     RAISE EXCEPTION 'preview counts are wrong: %', s;
   END IF;
 
   BEGIN
     PERFORM public.admin_curriculum_prelaunch_purge(
-      'حذف جميع الوحدات والدروس التجريبية',
+      'حذف جميع بيانات المحتوى التجريبية',
       'تنظيف بيانات الاختبار قبل الإنتاج',
       repeat('0', 64),
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -44,12 +50,20 @@ BEGIN
     'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
   );
 
-  IF EXISTS (SELECT 1 FROM public.units) OR EXISTS (SELECT 1 FROM public.lessons)
+  IF EXISTS (SELECT 1 FROM public.subjects)
+     OR EXISTS (SELECT 1 FROM public.subject_curriculum_tracks)
+     OR EXISTS (SELECT 1 FROM public.subject_textbooks)
+     OR EXISTS (SELECT 1 FROM public.content_review_state)
+     OR EXISTS (SELECT 1 FROM public.certificates)
+     OR EXISTS (SELECT 1 FROM public.units) OR EXISTS (SELECT 1 FROM public.lessons)
      OR EXISTS (SELECT 1 FROM public.questions)
-     OR EXISTS (SELECT 1 FROM public.golden_lesson_publications) THEN
+     OR EXISTS (SELECT 1 FROM public.golden_lesson_publications)
+     OR EXISTS (SELECT 1 FROM public.exam_templates)
+     OR EXISTS (SELECT 1 FROM public.ministerial_exam_models) THEN
     RAISE EXCEPTION 'post-purge rows remain';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.subjects)
+  IF NOT EXISTS (SELECT 1 FROM public.grades)
+     OR NOT EXISTS (SELECT 1 FROM public.curriculum_tracks WHERE track_code = 'sanaa')
      OR NOT EXISTS (SELECT 1 FROM public.import_jobs)
      OR NOT EXISTS (SELECT 1 FROM public.import_staging_rows) THEN
     RAISE EXCEPTION 'preserved rows were deleted';

@@ -33,10 +33,10 @@ describe("UNIFIED_CURRICULUM_IMPORT_FLOW_13O", () => {
   it("presents units, lessons, and seven content templates in one import page", () => {
     const page = read("src/routes/_authenticated/admin.import.tsx");
 
-    assert.ok(page.includes("استيراد المنهج ومحتويات الدروس"));
+    assert.ok(page.includes("الاستيراد والفحص والنشر"));
     assert.ok(page.includes('allowedTemplateKeys={["units"]}'));
     assert.ok(page.includes('allowedTemplateKeys={["lessons"]}'));
-    assert.ok(page.includes("LESSON_CONTENT_TEMPLATE_KEYS"));
+    assert.ok(page.includes("GoldenLessonPackageBuilder"));
     assert.ok(page.includes("unit_code"));
     assert.ok(page.includes("اختياري"));
   });
