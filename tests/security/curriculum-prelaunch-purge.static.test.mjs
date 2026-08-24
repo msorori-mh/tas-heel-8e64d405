@@ -6,6 +6,10 @@ const migration = readFileSync(
   "supabase/migrations/20260824223000_prelaunch_curriculum_global_purge.sql",
   "utf8",
 );
+const pgcryptoSchemaFix = readFileSync(
+  "supabase/migrations/20260824231500_prelaunch_purge_pgcrypto_schema_fix.sql",
+  "utf8",
+);
 const ui = readFileSync(
   "src/components/admin/CurriculumPrelaunchPurgeControl.tsx",
   "utf8",
@@ -40,4 +44,21 @@ test("admin UI requires typed confirmation and reason and does not expose old fo
   assert.match(ui, /_expected_preview_sha256: status\.preview_sha256/);
   assert.match(ui, /useAuth\(\)/);
   assert.doesNotMatch(legacyDialog, /admin_curriculum_force_delete|حذف نهائي قسري/);
+});
+
+
+test("prelaunch purge resolves pgcrypto from the production extensions schema", () => {
+  assert.match(
+    pgcryptoSchemaFix,
+    /to_regprocedure\('extensions\.digest\(text,text\)'\)/,
+  );
+  assert.match(
+    pgcryptoSchemaFix,
+    /ALTER FUNCTION public\.admin_curriculum_prelaunch_purge_status\(\)[\s\S]*SET search_path = public, extensions, pg_temp/,
+  );
+  assert.match(
+    pgcryptoSchemaFix,
+    /ALTER FUNCTION public\.admin_curriculum_prelaunch_purge\(text, text, text, text\)[\s\S]*SET search_path = public, extensions, pg_temp/,
+  );
+  assert.doesNotMatch(pgcryptoSchemaFix, /DISABLE\s+TRIGGER/i);
 });
