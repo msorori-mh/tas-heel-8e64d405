@@ -16,6 +16,7 @@ DO $$ BEGIN
 EXCEPTION WHEN insufficient_privilege THEN NULL; END $$;
 
 SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
+RESET ROLE;
 
 DO $$
 DECLARE s jsonb;
@@ -71,6 +72,7 @@ BEGIN
   END IF;
 END $$;
 
+SET ROLE authenticated;
 DO $$ BEGIN
   UPDATE public.curriculum_prelaunch_purge_control SET enabled = true;
   RAISE EXCEPTION 'authenticated role unexpectedly updated protected control';
