@@ -106,7 +106,7 @@ function AdminImportPage() {
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               اختر الدرس وارفع مكوناته في نموذج واحد: ستة مكونات HTML، و«اختبر فهمك» فقط بصيغة Excel.
-              تُحفظ النتائج كمسودات ولا تظهر للطالب قبل الاعتماد.
+              بعد نجاح الفحص يتم النشر مباشرة بضغطة واحدة دون خطوة مسودة.
             </p>
           </div>
           <GoldenLessonPackageBuilder />
