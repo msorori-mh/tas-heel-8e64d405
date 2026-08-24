@@ -6,6 +6,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { ContentImportDryRunPanel } from "@/components/admin/ContentImportDryRunPanel";
 import { CurriculumImportScopeForm } from "@/components/admin/CurriculumImportScopeForm";
 import { GoldenLessonPackageBuilder } from "@/components/admin/GoldenLessonPackageBuilder";
+import { Grade12SubjectCatalogInitializer } from "@/components/admin/Grade12SubjectCatalogInitializer";
 import { SubjectImportPanel } from "@/components/admin/SubjectImportPanel";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import type { CurriculumImportScope } from "@/lib/import/curriculum-import-scope";
@@ -62,7 +63,16 @@ function AdminImportPage() {
           </ol>
         </header>
 
-        <SubjectImportPanel />
+        <Grade12SubjectCatalogInitializer />
+
+        <details className="rounded-2xl border border-border bg-card p-5">
+          <summary className="cursor-pointer font-semibold">
+            استيراد مواد لصفوف أخرى بواسطة Excel
+          </summary>
+          <div className="mt-5 border-t border-border pt-5">
+            <SubjectImportPanel />
+          </div>
+        </details>
 
         <div className="space-y-3 border-t border-border pt-8">
           <h2 className="text-lg font-bold">سياق استيراد الوحدات والدروس</h2>
