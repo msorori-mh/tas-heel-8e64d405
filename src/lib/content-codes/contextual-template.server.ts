@@ -361,21 +361,8 @@ export async function buildContextualTemplate(
   workbook.creator = `Tamkeen ${CONTENT_CODE_SCHEME_VERSION}`;
   workbook.created = new Date();
 
-  const instructions = workbook.addWorksheet("تعليمات", { views: [{ rightToLeft: true }] });
-  instructions.columns = [{ header: "التعليمات", key: "a", width: 110 }];
-  styleHeaderRow(instructions, new Set());
-  instructions.addRow({ a: `القالب: ${input.templateKey} — إصدار الأكواد ${CONTENT_CODE_SCHEME_VERSION}` });
-  instructions.addRow({ a: "الأعمدة المعبأة مسبقاً من النظام (لا تعدّلها):" });
-  for (const c of plan.prefilledColumns) instructions.addRow({ a: `   • ${c}` });
-  instructions.addRow({ a: "الأعمدة التي تملؤها يدوياً:" });
-  for (const c of columns.filter((c) => !prefilled.has(c))) {
-    instructions.addRow({ a: `   • ${c}${required.has(c) ? " (مطلوب)" : ""}` });
-  }
-  for (const note of plan.notes) instructions.addRow({ a: note });
-  for (const rule of TCS2_RULES_AR) instructions.addRow({ a: rule });
-
-  addCodeReferenceSheet(workbook, input.registry, input);
-
+  // Data is the operator's primary workspace. Keep it first so Excel opens on
+  // the generated codes instead of the reference/instructions sheets.
   const dataSheet = workbook.addWorksheet("البيانات", {
     views: [{ rightToLeft: true, state: "frozen", ySplit: 1 }],
   });
@@ -391,9 +378,30 @@ export async function buildContextualTemplate(
     for (const col of plan.prefilledColumns) {
       const cell = added.getCell(col);
       cell.font = { bold: true, color: { argb: "FF1F3864" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8EEF7" } };
       cell.protection = { locked: true };
     }
   }
+
+  const instructions = workbook.addWorksheet("تعليمات", { views: [{ rightToLeft: true }] });
+  instructions.columns = [{ header: "التعليمات", key: "a", width: 110 }];
+  styleHeaderRow(instructions, new Set());
+  instructions.addRow({ a: `القالب: ${input.templateKey} — إصدار الأكواد ${CONTENT_CODE_SCHEME_VERSION}` });
+  instructions.addRow({ a: "الأعمدة المعبأة مسبقاً من النظام (لا تعدّلها):" });
+  for (const c of plan.prefilledColumns) instructions.addRow({ a: `   • ${c}` });
+  instructions.addRow({ a: "الأعمدة التي تملؤها يدوياً:" });
+  for (const c of columns.filter((c) => !prefilled.has(c))) {
+    instructions.addRow({ a: `   • ${c}${required.has(c) ? " (مطلوب)" : ""}` });
+  }
+  for (const note of plan.notes) instructions.addRow({ a: note });
+  if (input.templateKey === "subjects") {
+    instructions.addRow({
+      a: "المادة لا تُقسّم حسب الفصل الدراسي؛ الفصل يحدد في قالب الوحدات 02 وقالب الدروس 03 فقط.",
+    });
+  }
+  for (const rule of TCS2_RULES_AR) instructions.addRow({ a: rule });
+
+  addCodeReferenceSheet(workbook, input.registry, input);
 
   const buffer = await workbook.xlsx.writeBuffer();
   const stamp = new Date().toISOString().slice(0, 10);
