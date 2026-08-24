@@ -45,6 +45,7 @@ jobs:
           node --test tests/security/student-textbook-governorate-track-13l.static.test.mjs
           node --test tests/security/curriculum-prelaunch-purge.static.test.mjs
           node --test tests/import/curriculum-readiness-subject-tracks-13n.static.test.mjs
+          node --test tests/import/grade12-subject-catalog-initializer.static.test.mjs
           node --test tests/security/ministerial-cross-track-mufadala-parity-14i.static.test.mjs
           npm run test:question-bank-import
           node --experimental-strip-types --test tests/content-factory/content-factory-01.test.ts
@@ -211,6 +212,17 @@ jobs:
             --file supabase/migrations/20260824234000_prelaunch_purge_safeupdate_final.sql \
             --file supabase/migrations/20260825020000_prelaunch_content_global_reset_v2.sql \
             --file scripts/curriculum/pg17-prelaunch-purge-assert.sql
+
+      - name: Verify Grade 12 subject catalog initializer on isolated PG17
+        env:
+          GRADE12_CATALOG_PG17_URL: postgresql://postgres:tamkeen_cf_ci_only@localhost:5432/tamkeen_grade12
+        run: |
+          docker exec tamkeen-content-factory-pg17 \
+            psql --username postgres --dbname postgres --command 'CREATE DATABASE tamkeen_grade12'
+          psql "$GRADE12_CATALOG_PG17_URL" --set=ON_ERROR_STOP=1 \
+            --file scripts/curriculum/pg17-grade12-subject-catalog-fixture.sql \
+            --file supabase/migrations/20260830010000_grade12_subject_catalog_initializer.sql \
+            --file scripts/curriculum/pg17-grade12-subject-catalog-assert.sql
 
       - name: Stop isolated PostgreSQL 17
         if: always()
