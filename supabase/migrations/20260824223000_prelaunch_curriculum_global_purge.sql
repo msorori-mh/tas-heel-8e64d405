@@ -390,7 +390,7 @@ CREATE OR REPLACE FUNCTION public.cf11_assert_demotion_allowed(
 )
 RETURNS void
 LANGUAGE plpgsql
-STABLE
+VOLATILE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
