@@ -27,6 +27,7 @@ import {
 import { LessonBasicEditDialog } from "@/components/admin/LessonBasicEditDialog";
 import { LessonCreateDialog } from "@/components/admin/LessonCreateDialog";
 import { CurriculumDeleteDialog } from "@/components/admin/CurriculumDeleteDialog";
+import { CurriculumPrelaunchPurgeControl } from "@/components/admin/CurriculumPrelaunchPurgeControl";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/admin/lessons/")({
@@ -406,7 +407,8 @@ function AdminLessonsList() {
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">قائمة الدروس — قراءة فقط.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <CurriculumPrelaunchPurgeControl />
             <button
               onClick={() => setCreateOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
