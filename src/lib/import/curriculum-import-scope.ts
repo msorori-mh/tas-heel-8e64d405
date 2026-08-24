@@ -41,10 +41,11 @@ export function isCompleteSubjectImportScope(
 }
 
 export function isCompleteCurriculumImportScope(
-  scope: CurriculumImportScope | null,
+  scope: ContentStructureImportScope | null,
 ): scope is CurriculumImportScope {
   return Boolean(
     scope?.gradeSlug.trim() &&
+      "subjectCode" in scope &&
       scope.subjectCode.trim() &&
       scope.trackCodes.length > 0 &&
       (scope.semester === 1 || scope.semester === 2),
