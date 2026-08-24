@@ -52,7 +52,6 @@ export function applySubjectImportScopeToRows<T extends { data: Record<string, s
       ...row.data,
       grade_slug: scope.gradeSlug,
       track_codes: scope.trackCodes.join("|"),
-      semester: "",
     },
   }));
 }
