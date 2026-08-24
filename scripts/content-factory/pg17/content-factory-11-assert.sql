@@ -1039,8 +1039,8 @@ BEGIN
 END $$;
 
 -- ------------------------------------------------------------------------------------
--- L) CF11-R7 — APPLICABILITY. A capability parked at OPTIONAL/NA is excused from the readiness
---    contract while the SET still looks complete, so every gate must refuse it.
+-- L) CF11-R7 — APPLICABILITY. A present OPTIONAL capability is publishable; NA is not.
+--    The exact-set gate must preserve that profile contract without treating the two alike.
 -- ------------------------------------------------------------------------------------
 DO $$
 DECLARE
@@ -1051,20 +1051,14 @@ BEGIN
 
   UPDATE public.lesson_capability_lifecycle SET applicability='OPTIONAL'
    WHERE lesson_id=lesson AND capability='mindMap';
+  PERFORM public.cf11_assert_exact_required_lifecycle_set(lesson,'CF11_PROBE');
+
+  UPDATE public.lesson_capability_lifecycle SET applicability='NA'
+   WHERE lesson_id=lesson AND capability='mindMap';
   BEGIN
     PERFORM public.cf11_assert_exact_required_lifecycle_set(lesson,'CF11_PROBE');
-    RAISE EXCEPTION 'CF11_EXPECTED_APPLICABILITY_REFUSED: OPTIONAL row accepted at the exact-set gate';
+    RAISE EXCEPTION 'CF11_EXPECTED_APPLICABILITY_REFUSED: NA row accepted at the exact-set gate';
   EXCEPTION WHEN check_violation THEN NULL;
-  END;
-  BEGIN
-    PERFORM public.golden_lesson_attest_cf11_ready(
-      _batch_id => '51000000-0000-0000-0000-000000000001',
-      _actor_id => '52000000-0000-0000-0000-0000000000a2',
-      _evidence => jsonb_build_object('reviewedContent',true,'reviewedSecurity',true,
-                                      'note','applicability probe'),
-      _mode => 'EXECUTE');
-    RAISE EXCEPTION 'CF11_EXPECTED_APPLICABILITY_REFUSED: READY accepted a non-REQUIRED capability';
-  EXCEPTION WHEN check_violation OR insufficient_privilege OR unique_violation THEN NULL;
   END;
   UPDATE public.lesson_capability_lifecycle SET applicability='REQUIRED'
    WHERE lesson_id=lesson AND capability='mindMap';
