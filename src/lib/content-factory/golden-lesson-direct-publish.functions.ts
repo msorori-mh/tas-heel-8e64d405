@@ -144,7 +144,21 @@ export const publishGoldenLessonDirect = createServerFn({ method: "POST" })
       _batch_id: batchId, _actor_id: userId, _mode: "DRY_RUN",
       _assets: ensured.declarations, _expected_plan_sha256: null, _idempotency_key: null,
     }), "CF11_DRY_RUN_FAILED");
-    const publishPlan = planSha(dryPublish, "plan_sha256");
+    let publishPlan = planSha(dryPublish, "plan_sha256");
+    if (!publishPlan) {
+      // A CF11 replay returns the persisted plan body plus replay metadata, not its wrapper
+      // field. Recover the exact reviewed hash from the immutable publication ledger so a retry
+      // can resume at READY without inventing or recomputing a different plan.
+      const persistedPublication = await admin
+        .from("golden_lesson_publications")
+        .select("plan_sha256")
+        .eq("batch_id", batchId)
+        .maybeSingle();
+      if (persistedPublication.error) {
+        throw new Error(`CF11_PUBLICATION_PLAN_READ_FAILED: ${persistedPublication.error.message}`);
+      }
+      publishPlan = planSha(persistedPublication.data, "plan_sha256");
+    }
     if (!publishPlan) throw new Error("CF11_WRITE_PLAN_HASH_REQUIRED");
     const published = record(await rpc("golden_lesson_publish_cf11", {
       _batch_id: batchId, _actor_id: userId, _mode: "EXECUTE",
