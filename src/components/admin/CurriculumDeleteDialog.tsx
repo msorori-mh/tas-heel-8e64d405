@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, ShieldAlert } from "lucide-react";
 
 export type CurriculumEntityType = "subject" | "unit" | "lesson" | "question" | "exam_template";
 
@@ -182,7 +182,7 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
               <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4">
                 <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-destructive">
                   <ShieldAlert className="h-4 w-4" />
-                  "الحذف ممنوع — استخدم أداة التنظيف التجريبي الجماعي أو الأرشفة"
+                  الحذف ممنوع — استخدم أداة التنظيف التجريبي الجماعي أو الأرشفة
                 </p>
                 <ul className="space-y-1 text-sm text-destructive/90">
                   {preview.blockers.map((b) => (
