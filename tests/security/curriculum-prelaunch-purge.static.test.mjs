@@ -26,7 +26,7 @@ test("prelaunch purge is full-admin, preview-bound, idempotent, audited, and cen
     "curriculum_prelaunch_global_purge",
     "admin_lock_curriculum_prelaunch_purge",
     "PRELAUNCH_PURGE_LOCK_REQUIRES_EMPTY_CURRICULUM",
-  ]) assert.match(migration, new RegExp(token));
+  ]) assert.ok(migration.includes(token), `missing security contract: ${token}`);
   assert.doesNotMatch(migration, /DISABLE\s+TRIGGER/i);
   assert.match(
     migration,
