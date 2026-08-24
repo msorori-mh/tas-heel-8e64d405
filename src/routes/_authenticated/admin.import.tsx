@@ -14,7 +14,7 @@ const STEPS = [
   { number: 1, label: "الوحدات أو الفصول — اختياري" },
   { number: 2, label: "الدروس" },
   { number: 3, label: "المحتويات السبعة" },
-  { number: 4, label: "الفحص والحفظ كمسودة" },
+  { number: 4, label: "الفحص والنشر" },
 ] as const;
 
 function AdminImportPage() {
