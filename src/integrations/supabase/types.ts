@@ -280,6 +280,84 @@ export type Database = {
         }
         Relationships: []
       }
+      curriculum_prelaunch_purge_control: {
+        Row: {
+          enabled: boolean
+          lock_reason: string | null
+          locked_at: string | null
+          locked_by: string | null
+          singleton: boolean
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          lock_reason?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          singleton?: boolean
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          lock_reason?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          singleton?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      curriculum_prelaunch_purge_runs: {
+        Row: {
+          actor_id: string
+          created_at: string
+          id: string
+          idempotency_key: string
+          preview_sha256: string
+          reason: string
+          result: Json
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          preview_sha256: string
+          reason: string
+          result: Json
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          preview_sha256?: string
+          reason?: string
+          result?: Json
+        }
+        Relationships: []
+      }
+      curriculum_prelaunch_purge_tickets: {
+        Row: {
+          actor_id: string
+          backend_pid: number
+          created_at: string
+          transaction_id: number
+        }
+        Insert: {
+          actor_id: string
+          backend_pid: number
+          created_at?: string
+          transaction_id: number
+        }
+        Update: {
+          actor_id?: string
+          backend_pid?: number
+          created_at?: string
+          transaction_id?: number
+        }
+        Relationships: []
+      }
       curriculum_tracks: {
         Row: {
           created_at: string
@@ -4782,12 +4860,31 @@ export type Database = {
         Args: { _entity_id: string; _entity_type: string; _reason?: string }
         Returns: Json
       }
+      admin_curriculum_prelaunch_purge: {
+        Args: {
+          _confirmation: string
+          _expected_preview_sha256: string
+          _idempotency_key: string
+          _reason: string
+        }
+        Returns: Json
+      }
+      admin_curriculum_prelaunch_purge_status: { Args: never; Returns: Json }
       admin_get_lesson_media_urls: {
         Args: { _lesson_id: string }
         Returns: {
           content_pdf_url: string
           video_url: string
         }[]
+      }
+      admin_grade12_subject_catalog_status: { Args: never; Returns: Json }
+      admin_initialize_grade12_subject_catalog: {
+        Args: { _expected_preview_sha256: string }
+        Returns: Json
+      }
+      admin_lock_curriculum_prelaunch_purge: {
+        Args: { _confirmation: string; _reason: string }
+        Returns: Json
       }
       admin_refund_subscription: {
         Args: {
@@ -5120,6 +5217,14 @@ export type Database = {
         Returns: Json
       }
       current_student_track_id: { Args: never; Returns: string }
+      curriculum_grade12_subject_catalog_v1: { Args: never; Returns: Json }
+      curriculum_prelaunch_purge_manifest_v2: { Args: never; Returns: Json }
+      curriculum_prelaunch_purge_snapshot: { Args: never; Returns: Json }
+      curriculum_prelaunch_purge_snapshot_v2: { Args: never; Returns: Json }
+      curriculum_prelaunch_purge_ticket_active: {
+        Args: never
+        Returns: boolean
+      }
       delete_draft_question: {
         Args: {
           p_idempotency_key: string
