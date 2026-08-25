@@ -9,6 +9,7 @@ import {
   LAYER_LABELS_AR,
 } from "@/lib/content/official-textbook/standard";
 import { cn } from "@/lib/utils";
+import { InlineHtmlResourceViewer } from "@/components/lessons/InlineHtmlResourceViewer";
 
 /**
  * TAMKEEN_OFFICIAL_TEXTBOOK_STRUCTURED_CONTENT_STANDARD_20A
@@ -118,6 +119,21 @@ export function OfficialTextbookContent({ content, showLayerHeader = true, class
   }
 
   const parsed = parseOfficialContent(raw);
+
+  // Full official documents are authored as self-contained, RTL HTML with
+  // embedded textbook styling. Render them verbatim in the static, network-free
+  // iframe after the official marker check. Scripts remain disabled and the
+  // CSP prevents every external request.
+  if (/<html[\s>]|<!doctype/i.test(raw)) {
+    return (
+      <InlineHtmlResourceViewer
+        title="محتوى الكتاب الرسمي"
+        html={raw}
+        htmlResourceType="STATIC"
+        resourceType="official"
+      />
+    );
+  }
 
   if (!parsed.ok || !parsed.root) {
     return (
