@@ -291,7 +291,7 @@ export function parseOfficialContent(html: string): OfficialParseResult {
     { decodeEntities: true, lowerCaseTags: true, lowerCaseAttributeNames: true },
   );
 
-  parser.write(html ?? "");
+  parser.write(input);
   parser.end();
 
   const elements = rootChildren.filter(
