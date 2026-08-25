@@ -81,7 +81,7 @@ export function buildInlineHtmlDocument(body: string, mode: InlineHtmlRenderMode
       ? document.replace(/<head([^>]*)>/i, `<head$1>${securityHead}`)
       : document.replace(/<html([^>]*)>/i, `<html$1><head>${securityHead}</head>`);
     if (resizeBridge) {
-      document = /<\/body>/i
+      document = /<\/body>/i.test(document)
         ? document.replace(/<\/body>/i, `${resizeBridge}</body>`)
         : `${document}${resizeBridge}`;
     }
