@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.cf11_guard_ready_attestation_separation() FROM PUBLIC, anon, authenticated;
