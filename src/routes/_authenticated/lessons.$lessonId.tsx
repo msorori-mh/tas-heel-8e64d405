@@ -298,7 +298,12 @@ function LessonPage() {
     },
   });
 
-  const { data: officialQuestions } = useQuery({
+  const {
+    data: officialQuestions,
+    isLoading: loadingOfficialQuestions,
+    error: officialQuestionsError,
+    refetch: refetchOfficialQuestions,
+  } = useQuery({
     enabled: !!lesson && accessible === true,
     queryKey: ["lesson-official-book-questions", lessonId],
     queryFn: async () => {
@@ -317,7 +322,12 @@ function LessonPage() {
     },
   });
 
-  const { data: selfTestQuestions } = useQuery({
+  const {
+    data: selfTestQuestions,
+    isLoading: loadingSelfTestQuestions,
+    error: selfTestQuestionsError,
+    refetch: refetchSelfTestQuestions,
+  } = useQuery({
     enabled: !!lesson && accessible === true,
     queryKey: ["lesson-self-test-questions", lessonId],
     queryFn: async () => {
@@ -583,6 +593,14 @@ function LessonPage() {
 
   const titleParts = parseLessonTitle(lesson.title);
 
+  // A READY lifecycle row is the authoritative publication signal. Do not
+  // silently remove either mandatory assessment step while its student RPC is
+  // loading or after a recoverable request failure.
+  const officialQuestionsReady =
+    lifecycleGate?.managed === true && lifecycleGate.readyKeys.has("checkUnderstanding");
+  const selfTestReady =
+    lifecycleGate?.managed === true && lifecycleGate.readyKeys.has("lessonAssessment");
+
   const capabilities = computeLessonCapabilities({
     deliveryMode: (lesson as { delivery_mode?: string }).delivery_mode ?? null,
     lessonTitle: lesson.title,
@@ -603,8 +621,14 @@ function LessonPage() {
     htmlSummariesCount: htmlSummaries.length,
     summaryText: summary?.summary ?? null,
     explanationsCount: explanations?.length ?? 0,
-    officialQuestionsCount: officialQuestions?.length ?? 0,
-    selfTestQuestionsCount: selfTestQuestions?.length ?? 0,
+    officialQuestionsCount: Math.max(
+      officialQuestions?.length ?? 0,
+      officialQuestionsReady ? 1 : 0,
+    ),
+    selfTestQuestionsCount: Math.max(
+      selfTestQuestions?.length ?? 0,
+      selfTestReady ? 1 : 0,
+    ),
     hasLessonVideoFlag: lessonExtra?.has_video === true,
     enhancementsAccessible: canAccessEnhancements,
     progress: progressRow
@@ -825,6 +849,15 @@ function LessonPage() {
       case "OFFICIAL_QUESTIONS":
         return (
           <div className="space-y-4">
+            {loadingOfficialQuestions && (
+              <StateMessage>جارٍ تحميل أسئلة التقويم من الكتاب…</StateMessage>
+            )}
+            {officialQuestionsError && (
+              <QuestionLoadFailure onRetry={() => void refetchOfficialQuestions()} />
+            )}
+            {!loadingOfficialQuestions && !officialQuestionsError && officialQuestions?.length === 0 && (
+              <QuestionLoadFailure onRetry={() => void refetchOfficialQuestions()} />
+            )}
             <ol className="space-y-4">
               {(officialQuestions ?? []).map((q, idx) => (
                 <li key={q.id}>
@@ -849,13 +882,22 @@ function LessonPage() {
 
       case "SELF_TEST":
         return (
-          <ol className="space-y-4">
-            {(selfTestQuestions ?? []).map((q, idx) => (
-              <li key={q.id}>
-                <SelfTestQuestionCard lessonId={lessonId} index={idx + 1} q={q} />
-              </li>
-            ))}
-          </ol>
+          <div className="space-y-4">
+            {loadingSelfTestQuestions && <StateMessage>جارٍ تحميل أسئلة اختبر فهمك…</StateMessage>}
+            {selfTestQuestionsError && (
+              <QuestionLoadFailure onRetry={() => void refetchSelfTestQuestions()} />
+            )}
+            {!loadingSelfTestQuestions && !selfTestQuestionsError && selfTestQuestions?.length === 0 && (
+              <QuestionLoadFailure onRetry={() => void refetchSelfTestQuestions()} />
+            )}
+            <ol className="space-y-4">
+              {(selfTestQuestions ?? []).map((q, idx) => (
+                <li key={q.id}>
+                  <SelfTestQuestionCard lessonId={lessonId} index={idx + 1} q={q} />
+                </li>
+              ))}
+            </ol>
+          </div>
         );
 
       case "EXTRA_RESOURCES":
@@ -985,6 +1027,17 @@ function LessonPage() {
         )}
       </div>
     </article>
+  );
+}
+
+function QuestionLoadFailure({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+      <p className="text-sm text-destructive">تعذر تحميل الأسئلة الآن، مع أن هذا المكون منشور.</p>
+      <Button type="button" size="sm" variant="outline" className="mt-2" onClick={onRetry}>
+        إعادة المحاولة
+      </Button>
+    </div>
   );
 }
 
