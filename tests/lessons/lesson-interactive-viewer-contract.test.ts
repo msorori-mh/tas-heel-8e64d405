@@ -45,6 +45,7 @@ test("student route exposes the seven-step rendering contracts", () => {
   assert.match(route, /min-h-40/);
   assert.match(route, /min-h-24/);
   assert.match(route, /check_lesson_self_test_question/);
+  assert.match(route, /supabase\.rpc\.bind\(supabase\)/);
   assert.match(route, /readyKeys\.has\("checkUnderstanding"\)/);
   assert.match(route, /readyKeys\.has\("lessonAssessment"\)/);
   assert.match(route, /Math\.max\([\s\S]*officialQuestionsReady \? 1 : 0/);
