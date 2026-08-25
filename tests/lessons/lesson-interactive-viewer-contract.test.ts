@@ -53,3 +53,9 @@ test("legacy mind maps and labs are interactive by resource type", () => {
   assert.match(viewer, /event\.source !== iframeRef\.current\?\.contentWindow/);
   assert.match(viewer, /Math\.min\(1600/);
 });
+
+test("lesson packages use the subject's complete official track identity", () => {
+  const builder = readFileSync("src/components/admin/GoldenLessonPackageBuilder.tsx", "utf8");
+  assert.match(builder, /selectedSubject\.trackCodes\.filter/);
+  assert.match(builder, /code === "sanaa" \|\| code === "aden"/);
+});
