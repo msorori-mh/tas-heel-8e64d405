@@ -76,51 +76,6 @@ const PUBLIC_FILE_NAME: Record<QuestionCapability, string> = {
 const MAX_OPTIONS = 6;
 const MAX_REPORTED_ROW_ERRORS = 12;
 
-type ExcelJSModule = typeof import("exceljs");
-
-function isExcelJSModule(candidate: unknown): candidate is ExcelJSModule {
-  return (
-    !!candidate &&
-    (typeof candidate === "object" || typeof candidate === "function") &&
-    typeof (candidate as { Workbook?: unknown }).Workbook === "function"
-  );
-}
-
-/**
- * Resolves the real ExcelJS export across bundler interop shapes.
- * Vite dev (esbuild) exposes `{ default: ExcelJS }`, while the production
- * rollup build of the UMD bundle may expose it under a minified key such as
- * `{ e: { default: ExcelJS, Workbook } }`. Bounded breadth-first search keeps
- * this robust without depending on unstable key names.
- */
-export function resolveExcelJSModule(module: unknown): ExcelJSModule {
-  const visited = new Set<unknown>();
-  const queue: unknown[] = [module];
-  let iterations = 0;
-  while (queue.length && iterations < 100) {
-    iterations += 1;
-    const candidate = queue.shift();
-    if (
-      !candidate ||
-      (typeof candidate !== "object" && typeof candidate !== "function") ||
-      visited.has(candidate)
-    ) {
-      continue;
-    }
-    visited.add(candidate);
-    if (isExcelJSModule(candidate)) return candidate;
-    const record = candidate as Record<string, unknown>;
-    queue.push(record.default);
-    for (const value of Object.values(record)) queue.push(value);
-  }
-  throw new Error("تعذر تحميل مكتبة قراءة Excel (ExcelJS) في هذا المتصفح.");
-}
-
-/** Reads the uploaded file as bytes accepted by exceljs/jszip in every runtime. */
-async function readWorkbookBytes(file: File): Promise<Uint8Array> {
-  return new Uint8Array(await file.arrayBuffer());
-}
-
 function cellText(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "object") {
@@ -254,17 +209,31 @@ export async function convertQuestionWorkbook(
   file: File,
 ): Promise<ConvertedQuestionWorkbook> {
   if (!/\.xlsx$/i.test(file.name)) throw new Error("يُقبل قالب XLSX المعتمد فقط.");
-  const ExcelJS = resolveExcelJSModule(await import("exceljs"));
-  const workbook = new ExcelJS.Workbook();
-  const bytes = await readWorkbookBytes(file);
-  await workbook.xlsx.load(bytes as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+  const XLSX = await import("xlsx");
+  const workbook = XLSX.read(await file.arrayBuffer(), {
+    type: "array",
+    cellFormula: false,
+    cellHTML: false,
+    cellNF: false,
+    cellStyles: false,
+  });
 
   const normalizeHeader = (value: string) =>
     value.replace(/\*/g, "").replace(/\u00a0/g, " ").trim().toLowerCase();
-  const readHeaders = (worksheet: import("exceljs").Worksheet) => {
+  const readRows = (sheetName: string): unknown[][] => {
+    const worksheet = workbook.Sheets[sheetName];
+    if (!worksheet) return [];
+    return XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
+      header: 1,
+      defval: "",
+      raw: false,
+      blankrows: true,
+    });
+  };
+  const readHeaders = (rows: unknown[][]) => {
     const map = new Map<number, string>();
-    worksheet.getRow(1).eachCell({ includeEmpty: false }, (cell, column) => {
-      const header = normalizeHeader(cellText(cell.value));
+    (rows[0] ?? []).forEach((value, column) => {
+      const header = normalizeHeader(cellText(value));
       if (header) map.set(column, header);
     });
     return map;
@@ -273,23 +242,21 @@ export async function convertQuestionWorkbook(
   const required = REQUIRED_COLUMNS[capability];
   const otherCapability: QuestionCapability =
     capability === "selfTest" ? "officialBookQuestions" : "selfTest";
-  const named = workbook.worksheets.find(
-    (worksheet) => worksheet.name.trim() === SHEET_NAME[capability],
-  );
+  const named = workbook.SheetNames.find((sheetName) => sheetName.trim() === SHEET_NAME[capability]);
   const matching = named
-    ? (required.every((column) => Array.from(readHeaders(named).values()).includes(column))
+    ? (required.every((column) => Array.from(readHeaders(readRows(named)).values()).includes(column))
         ? named
         : undefined)
-    : workbook.worksheets.find((worksheet) => {
-        if (worksheet.name.trim() === SHEET_NAME[otherCapability]) return false;
-        const values = Array.from(readHeaders(worksheet).values());
+    : workbook.SheetNames.find((sheetName) => {
+        if (sheetName.trim() === SHEET_NAME[otherCapability]) return false;
+        const values = Array.from(readHeaders(readRows(sheetName)).values());
         return required.every((column) => values.includes(column));
       });
 
 
   if (!matching) {
     if (named) {
-      const values = Array.from(readHeaders(named).values());
+      const values = Array.from(readHeaders(readRows(named)).values());
       const missing = required.filter((column) => !values.includes(column));
       throw new Error(
         `ورقة «${SHEET_NAME[capability]}» ينقصها أعمدة إلزامية: ${missing.join("، ")} — نزّل القالب المعتمد ولا تغيّر أسماء الأعمدة.`,
@@ -301,18 +268,18 @@ export async function convertQuestionWorkbook(
     );
   }
 
-  const sheet = matching;
-  const headers = readHeaders(sheet);
+  const sheetRows = readRows(matching);
+  const headers = readHeaders(sheetRows);
 
   const rows: Array<Record<string, string>> = [];
   const rowErrors: string[] = [];
   const seenCodes = new Set<string>();
 
-  for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
-    const excelRow = sheet.getRow(rowNumber);
+  for (let rowNumber = 2; rowNumber <= sheetRows.length; rowNumber += 1) {
+    const excelRow = sheetRows[rowNumber - 1] ?? [];
     const row: Record<string, string> = {};
     headers.forEach((header, column) => {
-      row[header] = cellText(excelRow.getCell(column).value);
+      row[header] = cellText(excelRow[column]);
     });
     const meaningful = REQUIRED_CELLS[capability].some((field) => row[field]);
     if (!meaningful) continue;
