@@ -558,9 +558,13 @@ export function GoldenLessonPackageBuilder() {
   const rawLessonCode = selectedLesson?.lessonCode ?? "";
   const packageCode = rawLessonCode ? `${toContractCode(rawLessonCode)}-PKG` : "";
   const gradeCode = toContractCode(gradeSlug);
-  const trackCodes = selectedSubject
-    ? selectedSubject.trackCodes.filter((code) => code === "sanaa" || code === "aden")
-    : selectedTrackCodes;
+  const trackCodes = useMemo(
+    () =>
+      selectedSubject
+        ? selectedSubject.trackCodes.filter((code) => code === "sanaa" || code === "aden")
+        : selectedTrackCodes,
+    [selectedSubject, selectedTrackCodes],
+  );
   const subjectCode = toContractCode(selectedSubjectCode);
   const lessonCode = toContractCode(rawLessonCode);
   const lessonSlug = rawLessonCode.toLowerCase();
