@@ -669,7 +669,14 @@ function LessonPage() {
                 ))}
               </div>
             )}
-            {summary?.summary && summary.summary.trim().length > 0 && (
+            {summary?.summary && summary.summary.trim().length > 0 && /<html[\s>]|<!doctype/i.test(summary.summary) ? (
+              <InlineHtmlResourceViewer
+                title="ملخص الدرس"
+                html={summary.summary}
+                htmlResourceType="STATIC"
+                resourceType="summary"
+              />
+            ) : summary?.summary && summary.summary.trim().length > 0 ? (
               <>
                 <p className="text-sm leading-relaxed text-card-foreground">{summary.summary}</p>
                 {Array.isArray(summary.key_points) &&
@@ -687,7 +694,7 @@ function LessonPage() {
                   </p>
                 )}
               </>
-            )}
+            ) : null}
           </>
         );
 
@@ -699,9 +706,18 @@ function LessonPage() {
                 {e.title && (
                   <h3 className="mb-1 text-sm font-semibold text-foreground">{e.title}</h3>
                 )}
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
-                  {e.content}
-                </p>
+                {/<html[\s>]|<!doctype/i.test(e.content) ? (
+                  <InlineHtmlResourceViewer
+                    title={e.title || "شرح تمكين"}
+                    html={e.content}
+                    htmlResourceType="STATIC"
+                    resourceType="explanation"
+                  />
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
+                    {e.content}
+                  </p>
+                )}
               </article>
             ))}
           </div>
@@ -1109,6 +1125,16 @@ function OfficialBookQuestionCard({
     correctOptionIds: string[];
   } | null>(null);
   const attemptedAnswer = q.options.length > 0 ? selectedOptionId : answer.trim();
+  const extendedQuestionTypes = new Set([
+    "EXPLAIN",
+    "DESCRIBE",
+    "COMPARE",
+    "DISCUSS",
+    "EXTENDED_RESPONSE",
+    "ESSAY",
+  ]);
+  const normalizedQuestionType = (q.question_type ?? "SHORT_ANSWER").toUpperCase();
+  const extendedAnswer = extendedQuestionTypes.has(normalizedQuestionType);
 
   // Restore the saved answer once it arrives, without clobbering fresh typing.
   useEffect(() => {
@@ -1189,11 +1215,14 @@ function OfficialBookQuestionCard({
       ) : (
         <div className="space-y-1">
           <textarea
+            aria-label={`إجابة السؤال ${index}`}
             value={answer}
             onChange={(event) => handleAnswerInput(event.target.value)}
-            rows={4}
+            rows={extendedAnswer ? 7 : 4}
             placeholder="اكتب إجابتك هنا…"
-            className="w-full rounded-lg border border-border bg-card p-2 text-right text-sm text-card-foreground outline-none focus:border-primary"
+            className={`w-full resize-y rounded-lg border border-border bg-card p-3 text-right text-sm leading-relaxed text-card-foreground outline-none focus:border-primary ${
+              extendedAnswer ? "min-h-40" : "min-h-24"
+            }`}
           />
           <p className="text-[11px] text-muted-foreground">
             {saving ? "جارٍ حفظ إجابتك…" : "تُحفظ إجابتك تلقائيًا ويمكنك مراجعتها لاحقًا."}

@@ -61,15 +61,42 @@ export function inlineHtmlCsp(mode: InlineHtmlRenderMode): string {
 /** Wraps the stored body in a self-contained, RTL, network-free document for `srcDoc`. */
 export function buildInlineHtmlDocument(body: string, mode: InlineHtmlRenderMode): string {
   const csp = inlineHtmlCsp(mode);
+  const securityHead = [
+    `<meta http-equiv="Content-Security-Policy" content="${csp}" />`,
+    '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+  ].join("");
+  const resizeBridge =
+    mode === "SANDBOXED_NO_NETWORK"
+      ? `<script>(function(){var send=function(){var d=document.documentElement,b=document.body,h=Math.max(d?d.scrollHeight:0,b?b.scrollHeight:0,320);parent.postMessage({type:'tamkeen:inline-height',height:h},'*')};addEventListener('load',send);addEventListener('resize',send);new MutationObserver(send).observe(document.documentElement,{subtree:true,childList:true,attributes:true});setTimeout(send,0);setTimeout(send,250)})();</script>`
+      : "";
+  const value = body ?? "";
+
+  // Preserve a complete uploaded HTML document (including its embedded styles)
+  // while still injecting our stricter CSP and responsive metadata. This keeps
+  // textbook, explanation, and summary layouts faithful instead of nesting a
+  // second <html> document inside <body>.
+  if (/<html[\s>]/i.test(value)) {
+    let document = value;
+    document = /<head[\s>]/i.test(document)
+      ? document.replace(/<head([^>]*)>/i, `<head$1>${securityHead}`)
+      : document.replace(/<html([^>]*)>/i, `<html$1><head>${securityHead}</head>`);
+    if (resizeBridge) {
+      document = /<\/body>/i.test(document)
+        ? document.replace(/<\/body>/i, `${resizeBridge}</body>`)
+        : `${document}${resizeBridge}`;
+    }
+    return document;
+  }
+
   return [
     "<!DOCTYPE html>",
     '<html lang="ar" dir="rtl"><head><meta charset="utf-8" />',
-    `<meta http-equiv="Content-Security-Policy" content="${csp}" />`,
-    '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+    securityHead,
     "<style>html,body{margin:0;padding:12px;font-family:system-ui,'Cairo',sans-serif;",
     "background:#fff;color:#111;line-height:1.7}img{max-width:100%;height:auto}</style>",
     "</head><body>",
-    body ?? "",
+    value,
+    resizeBridge,
     "</body></html>",
   ].join("");
 }
