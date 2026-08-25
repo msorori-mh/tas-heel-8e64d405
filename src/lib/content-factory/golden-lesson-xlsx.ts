@@ -254,10 +254,9 @@ export async function convertQuestionWorkbook(
   file: File,
 ): Promise<ConvertedQuestionWorkbook> {
   if (!/\.xlsx$/i.test(file.name)) throw new Error("يُقبل قالب XLSX المعتمد فقط.");
-  const ExcelJSModule = await import("exceljs");
-  const ExcelJS = (ExcelJSModule.default ?? ExcelJSModule) as typeof import("exceljs");
+  const ExcelJS = resolveExcelJSModule(await import("exceljs"));
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(await file.arrayBuffer() as any);
+  await workbook.xlsx.load(readWorkbookBytes(file) as unknown as ArrayBuffer);
 
   const normalizeHeader = (value: string) =>
     value.replace(/\*/g, "").replace(/\u00a0/g, " ").trim().toLowerCase();
