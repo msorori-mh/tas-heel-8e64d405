@@ -71,8 +71,56 @@ export interface OfficialParseResult {
 const VOID_TAGS = new Set(["img", "br", "hr"]);
 const BLOCK_TYPES = new Set<string>(OFFICIAL_BLOCK_TYPES);
 
+/** Generic HTML void tags — used only for source-position slicing below. */
+const GENERIC_VOID_TAGS = new Set([
+  "area", "base", "br", "col", "embed", "hr", "img", "input",
+  "link", "meta", "source", "track", "wbr",
+]);
+
 function normalize(text: string): string {
   return text.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * 21H: locate the inner element carrying data-layer="A_OFFICIAL_TEXTBOOK" inside
+ * a (possibly full) HTML document and return its exact source slice. Only that
+ * subtree is ever validated or rendered. Returns null when no marked section
+ * exists, so the caller keeps rejecting the input fail-closed.
+ */
+export function extractOfficialSectionHtml(html: string): string | null {
+  const src = html ?? "";
+  if (!src) return null;
+  let start = -1;
+  let end = -1;
+  let depth = 0;
+  const parser = new htmlparser2.Parser(
+    {
+      onopentag(name, attrs) {
+        const tag = name.toLowerCase();
+        if (start === -1) {
+          if ((attrs["data-layer"] ?? "") === "A_OFFICIAL_TEXTBOOK") {
+            start = parser.startIndex;
+            depth = 1;
+          }
+          return;
+        }
+        if (end !== -1) return;
+        if (!GENERIC_VOID_TAGS.has(tag)) depth += 1;
+      },
+      onclosetag(name) {
+        const tag = name.toLowerCase();
+        if (start === -1 || end !== -1) return;
+        if (GENERIC_VOID_TAGS.has(tag)) return;
+        depth -= 1;
+        if (depth === 0) end = parser.endIndex + 1;
+      },
+    },
+    { decodeEntities: false, lowerCaseTags: true, lowerCaseAttributeNames: true },
+  );
+  parser.write(src);
+  parser.end();
+  if (start === -1 || end <= start) return null;
+  return src.slice(start, end);
 }
 
 export function nodeText(node: OfficialNode): string {
@@ -85,8 +133,16 @@ export function nodeText(node: OfficialNode): string {
  * Parse and validate official structured HTML.
  * Fail-closed: any forbidden tag, disallowed attribute, inline event handler,
  * data: image, or external link produces an error and `ok === false`.
+ *
+ * 21H: when the stored value is a full HTML document, only the inner marked
+ * official section is extracted and validated — document chrome (<head>,
+ * <style>, <title>, layout wrappers) never reaches the validator or renderer.
+ * Content without the official markers keeps failing closed as before.
  */
 export function parseOfficialContent(html: string): OfficialParseResult {
+  const source = html ?? "";
+  const extracted = extractOfficialSectionHtml(source);
+  const input = extracted !== null && extracted.trim() !== source.trim() ? extracted : source;
   const errors: OfficialIssue[] = [];
   const warnings: OfficialIssue[] = [];
   const rootChildren: OfficialNode[] = [];
