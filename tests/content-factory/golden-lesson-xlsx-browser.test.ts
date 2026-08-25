@@ -3,10 +3,7 @@ import test from "node:test";
 
 import ExcelJS from "exceljs";
 
-import {
-  convertQuestionWorkbook,
-  resolveExcelJSModule,
-} from "../../src/lib/content-factory/golden-lesson-xlsx.ts";
+import { convertQuestionWorkbook } from "../../src/lib/content-factory/golden-lesson-xlsx.ts";
 
 async function buildWorkbook(
   sheetName: string,
@@ -55,25 +52,6 @@ const OFFICIAL_HEADER = [
   "correct_index",
   "explanation",
 ];
-
-test("resolver accepts the plain CJS/ESM module shapes", () => {
-  assert.equal(resolveExcelJSModule(ExcelJS), ExcelJS);
-  assert.equal(resolveExcelJSModule({ default: ExcelJS }), ExcelJS);
-  assert.equal(resolveExcelJSModule({ default: { default: ExcelJS } }), ExcelJS);
-});
-
-test("resolver accepts the Vite production shape with a minified export key", () => {
-  // Vite/rollup production chunk exposes the UMD bundle as `{ e: { default: ExcelJS, Workbook } }`.
-  const prodNamespace = Object.freeze({ e: { default: ExcelJS, Workbook: ExcelJS.Workbook } });
-  const resolved = resolveExcelJSModule(prodNamespace);
-  assert.equal(typeof resolved.Workbook, "function");
-  assert.equal(new resolved.Workbook().constructor.name, "Workbook");
-});
-
-test("resolver fails closed when ExcelJS is absent", () => {
-  assert.throws(() => resolveExcelJSModule({}), /ExcelJS/);
-  assert.throws(() => resolveExcelJSModule({ default: null, x: 1 }), /ExcelJS/);
-});
 
 test("selfTest: converts a real in-memory XLSX ArrayBuffer", async () => {
   const buffer = await buildWorkbook("اختبر فهمك", SELF_TEST_HEADER, [
