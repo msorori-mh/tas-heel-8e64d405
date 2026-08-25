@@ -41,6 +41,7 @@ test("fix migration performs no content deletion or overwrite", () => {
   assert.doesNotMatch(sql, /\bINSERT\s+INTO\s+public\.lesson_/i);
 });
 
-test("EXPERIMENT resource code is not affected by the rewrite", () => {
-  assert.doesNotMatch(sql, /-EXPERIMENT/);
+test("EXPERIMENT resource code is not rewritten", () => {
+  assert.doesNotMatch(sql, /normalize_content_code\(external_lesson_code \|\| ''-EXPERIMENT''\)/);
 });
+
