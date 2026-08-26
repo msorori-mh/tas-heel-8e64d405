@@ -12,7 +12,6 @@ import {
 import type { ContentImportParsedSheet } from "./content-import-types";
 import {
   cellToImportString,
-  isInstructionSheetName,
   isRowEmpty,
   normalizeContentImportHeader,
 } from "./content-import-validators";
