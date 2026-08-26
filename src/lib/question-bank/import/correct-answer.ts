@@ -11,12 +11,7 @@ export type CorrectResolveOk = {
 
 export type CorrectResolveErr = {
   ok: false;
-  reason:
-    | "EMPTY"
-    | "NOT_FOUND"
-    | "MULTIPLE_NOT_ALLOWED"
-    | "EMPTY_OPTION"
-    | "INVALID_INDEX";
+  reason: "EMPTY" | "NOT_FOUND" | "MULTIPLE_NOT_ALLOWED" | "EMPTY_OPTION" | "INVALID_INDEX";
 };
 
 const ARABIC_LETTER_TO_CODE: Record<string, string> = {
@@ -91,9 +86,7 @@ export function resolveCorrectAnswer(
   }
 
   if (matchedCodes.length === 0) {
-    const byCode = options.find(
-      (o) => o.option_code.toUpperCase() === text.toUpperCase(),
-    );
+    const byCode = options.find((o) => o.option_code.toUpperCase() === text.toUpperCase());
     if (byCode) {
       if (!byCode.body) return { ok: false, reason: "EMPTY_OPTION" };
       matchedCodes = [byCode.option_code];

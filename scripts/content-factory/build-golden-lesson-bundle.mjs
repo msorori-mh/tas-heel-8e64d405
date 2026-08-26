@@ -151,7 +151,6 @@ export function buildGoldenLessonBundleFiles(packageDir, spec) {
     },
   };
 
-
   return { manifest, files };
 }
 

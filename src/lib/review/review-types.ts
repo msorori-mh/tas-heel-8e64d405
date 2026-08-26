@@ -64,10 +64,7 @@ export function buildReviewIndex(
   };
 }
 
-export function filterReviewItems(
-  items: ReviewItem[],
-  subjectId: string | null,
-): ReviewItem[] {
+export function filterReviewItems(items: ReviewItem[], subjectId: string | null): ReviewItem[] {
   if (!subjectId) return items;
   return items.filter((i) => i.subjectId === subjectId);
 }
@@ -79,7 +76,5 @@ export function hasUsableSummary(summary: string | null | undefined): boolean {
 
 export function normalizeKeyPoints(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
-  return raw
-    .map((v) => (typeof v === "string" ? v.trim() : ""))
-    .filter((v) => v.length > 0);
+  return raw.map((v) => (typeof v === "string" ? v.trim() : "")).filter((v) => v.length > 0);
 }

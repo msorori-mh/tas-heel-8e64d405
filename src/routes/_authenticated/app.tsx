@@ -16,7 +16,6 @@ import { AiAssistantCard } from "@/components/home/AiAssistantCard";
 import { SemesterPicker } from "@/components/home/SemesterPicker";
 import { LearningToolsSection } from "@/components/home/LearningToolsSection";
 
-
 const searchSchema = z.object({
   semester: fallback(z.union([z.literal(1), z.literal(2)]).optional(), undefined),
 });
@@ -72,7 +71,9 @@ function StudentHome() {
       {/* 7. Compact progress */}
       <CompactProgress stats={stats} />
 
-      {earnedBadges.length > 0 && <AchievementsSection badges={earnedBadges.slice(0, 3)} loading={false} />}
+      {earnedBadges.length > 0 && (
+        <AchievementsSection badges={earnedBadges.slice(0, 3)} loading={false} />
+      )}
 
       {/* Secondary — always after Continue Learning */}
       <div id="ai-assistant" className="scroll-mt-20">

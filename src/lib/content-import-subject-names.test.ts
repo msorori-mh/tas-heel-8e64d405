@@ -75,10 +75,7 @@ test("dry-run warns on non-unified separators", () => {
       "subjects",
       sheet([subjectRow("soc-g10-hist", `الاجتماعيات ${dash} التاريخ`)]),
     );
-    assert.ok(
-      warningCodes(report).includes("NONSTANDARD_SEPARATOR"),
-      `dash ${dash} must warn`,
-    );
+    assert.ok(warningCodes(report).includes("NONSTANDARD_SEPARATOR"), `dash ${dash} must warn`);
     assert.equal(report.ok, true);
   }
 });

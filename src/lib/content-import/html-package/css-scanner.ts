@@ -5,10 +5,7 @@ import { isUrlSafe } from "./url-normalizer.ts";
 /**
  * Scans CSS string content (from .css files, <style> tags, or style="..." attributes).
  */
-export function scanCssContent(
-  cssCode: string,
-  filePath: string
-): SecurityFinding[] {
+export function scanCssContent(cssCode: string, filePath: string): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
 
   if (!cssCode) return findings;

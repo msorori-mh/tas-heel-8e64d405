@@ -18,7 +18,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { AndroidBackHandler } from "@/components/mobile/AndroidBackHandler";
 import { NativeAuthDeepLinkHandler } from "@/components/mobile/NativeAuthDeepLinkHandler";
 
-
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -195,5 +194,4 @@ function RootComponent() {
       </AuthProvider>
     </QueryClientProvider>
   );
-
 }

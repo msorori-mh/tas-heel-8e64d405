@@ -59,7 +59,7 @@ describe("21B4D delete semantics", () => {
     );
     expect(client).toContain("await removeFile(textbookId)");
     expect(client).toContain("await unregisterLocalTextbook(textbookId)");
-    expect(client).not.toContain('.delete()');
+    expect(client).not.toContain(".delete()");
   });
 });
 
@@ -72,7 +72,9 @@ describe("21B4D multi-book, semester isolation", () => {
   });
 
   it("9. semester-specific books stay scoped to their own semester", () => {
-    expect(client).toContain("and(coverage_type.eq.SEMESTER_SPECIFIC,semester.eq.${params.semester})");
+    expect(client).toContain(
+      "and(coverage_type.eq.SEMESTER_SPECIFIC,semester.eq.${params.semester})",
+    );
   });
 
   it("renders coverage + book type labels per book", () => {

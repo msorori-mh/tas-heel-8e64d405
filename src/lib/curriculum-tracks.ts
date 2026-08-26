@@ -13,7 +13,9 @@ export type CurriculumTrack = {
 export async function fetchTracksForGovernorate(govId: string): Promise<CurriculumTrack[]> {
   const { data, error } = await supabase
     .from("governorate_curriculum_map")
-    .select("curriculum_track:curriculum_tracks!governorate_curriculum_map_curriculum_track_id_fkey(id,track_code,track_name)")
+    .select(
+      "curriculum_track:curriculum_tracks!governorate_curriculum_map_curriculum_track_id_fkey(id,track_code,track_name)",
+    )
     .eq("governorate_id", govId);
   if (error) throw error;
   const rows = (data ?? []) as unknown as Array<{ curriculum_track: CurriculumTrack | null }>;

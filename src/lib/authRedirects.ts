@@ -13,10 +13,7 @@
  * future platform-aware logic only needs to change in one place.
  */
 export function getAuthRedirectUrl(path: string = ""): string {
-  const origin =
-    typeof window !== "undefined" && window.location
-      ? window.location.origin
-      : "";
+  const origin = typeof window !== "undefined" && window.location ? window.location.origin : "";
   if (!path) return origin;
   return `${origin}${path.startsWith("/") ? path : `/${path}`}`;
 }

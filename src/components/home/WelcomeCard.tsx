@@ -16,7 +16,9 @@ export function WelcomeCard({ stats }: { stats?: HomeStats }) {
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-primary">مرحبًا {name}</p>
-          <h1 className="mt-1 text-2xl font-black leading-tight text-foreground lg:text-[30px]">اليوم خطوة، غدًا إنجاز.</h1>
+          <h1 className="mt-1 text-2xl font-black leading-tight text-foreground lg:text-[30px]">
+            اليوم خطوة، غدًا إنجاز.
+          </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             أكملت {stats?.completedLessons ?? 0} من {stats?.totalLessons ?? 0} درسًا في منهجك.
           </p>

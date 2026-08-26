@@ -48,9 +48,7 @@ describe("google drive normalisation", () => {
       "https://drive.google.com/file/d/1AbC_dEf-123/preview",
     );
     expect(toDrivePreviewUrl("https://example.com/a.pdf")).toBeNull();
-    expect(toExternalOpenUrl(DRIVE_VIEW)).toBe(
-      "https://drive.google.com/file/d/1AbC_dEf-123/view",
-    );
+    expect(toExternalOpenUrl(DRIVE_VIEW)).toBe("https://drive.google.com/file/d/1AbC_dEf-123/view");
     expect(toExternalOpenUrl("https://example.com/a.pdf")).toBe("https://example.com/a.pdf");
     expect(toExternalOpenUrl("not a url")).toBeNull();
   });
@@ -91,5 +89,4 @@ describe("import + UI wiring", () => {
     expect(page).toContain("computeLessonCapabilities");
     expect(page).toContain("primary_resource");
   });
-
 });

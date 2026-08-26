@@ -7,7 +7,7 @@ import { ValidationCodes } from "./validation-codes.ts";
 export function resolvePackageAssets(
   entryFile: string,
   referencedAssetPaths: string[],
-  filesInPackage: PackageFileItem[]
+  filesInPackage: PackageFileItem[],
 ): {
   isValid: boolean;
   missingAssets: string[];

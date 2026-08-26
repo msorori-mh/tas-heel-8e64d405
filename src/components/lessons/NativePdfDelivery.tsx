@@ -92,7 +92,9 @@ export function NativePdfDelivery({
 
       {status === "error" && (
         <div className="space-y-2">
-          <p className="text-muted-foreground">تعذّر تجهيز ملف الدرس. تحقق من الاتصال ثم أعد المحاولة.</p>
+          <p className="text-muted-foreground">
+            تعذّر تجهيز ملف الدرس. تحقق من الاتصال ثم أعد المحاولة.
+          </p>
           <Button size="sm" onClick={() => void prepare()}>
             <RefreshCw className="ms-2 h-4 w-4" />
             إعادة المحاولة

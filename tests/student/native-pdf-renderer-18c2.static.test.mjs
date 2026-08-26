@@ -18,7 +18,7 @@ describe("18C2 renderer adapter", () => {
 
   it("selects an Android-native renderer on Capacitor Android", () => {
     expect(adapter).toContain("ANDROID_NATIVE");
-    expect(adapter).toContain("getPlatform() === \"android\"");
+    expect(adapter).toContain('getPlatform() === "android"');
   });
 
   it("keeps a separate web decision path", () => {
@@ -28,7 +28,7 @@ describe("18C2 renderer adapter", () => {
 
   it("never renders pdf.js when the renderer is Android native", () => {
     expect(entry).toContain("selectPdfRenderer");
-    const androidBranch = entry.slice(entry.indexOf("renderer === \"ANDROID_NATIVE\""));
+    const androidBranch = entry.slice(entry.indexOf('renderer === "ANDROID_NATIVE"'));
     const pdfjsIndex = androidBranch.indexOf("<PdfViewer");
     const elseIndex = androidBranch.indexOf(": (");
     expect(pdfjsIndex).toBeGreaterThan(elseIndex);

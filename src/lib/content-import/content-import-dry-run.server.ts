@@ -66,9 +66,7 @@ export async function parseContentImportBuffer(
   const config = getContentImportDryRunConfig(templateKey);
   const workbook = new ExcelJS.Workbook();
   try {
-    await workbook.xlsx.load(
-      buffer as unknown as Parameters<typeof workbook.xlsx.load>[0],
-    );
+    await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
   } catch {
     throw new Error(
       "تعذر قراءة ملف XLSX. أعد تنزيل القالب المعتمد واحفظه بصيغة .xlsx دون تشفير أو حماية بكلمة مرور.",

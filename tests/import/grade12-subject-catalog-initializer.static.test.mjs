@@ -41,8 +41,14 @@ test("initializer is atomic, full-admin-only, preview-bound, conflict-closed, an
   assert.match(migration, /GRADE12_CATALOG_CONFLICT/);
   assert.match(migration, /GRADE12_CATALOG_POSTCONDITION_FAILED/);
   assert.match(migration, /GRADE12_SUBJECT_CATALOG_INITIALIZED/);
-  assert.match(migration, /revoke all on function public\.admin_initialize_grade12_subject_catalog/);
-  assert.match(migration, /grant execute on function public\.admin_initialize_grade12_subject_catalog/);
+  assert.match(
+    migration,
+    /revoke all on function public\.admin_initialize_grade12_subject_catalog/,
+  );
+  assert.match(
+    migration,
+    /grant execute on function public\.admin_initialize_grade12_subject_catalog/,
+  );
 });
 
 test("import page makes automatic Grade 12 initialization primary and keeps Excel for other grades", () => {

@@ -8,8 +8,7 @@ import type { HomeStats } from "@/hooks/use-home-dashboard";
 export function CompactProgress({ stats }: { stats?: HomeStats }) {
   if (!stats) return null;
 
-  const hasData =
-    stats.completedLessons > 0 || stats.examsCompleted > 0 || stats.streakDays > 0;
+  const hasData = stats.completedLessons > 0 || stats.examsCompleted > 0 || stats.streakDays > 0;
 
   if (!hasData) {
     return (

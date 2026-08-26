@@ -36,7 +36,9 @@ function ForgotPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-card">
-        <Link to="/auth" className="text-sm text-muted-foreground">→ العودة لتسجيل الدخول</Link>
+        <Link to="/auth" className="text-sm text-muted-foreground">
+          → العودة لتسجيل الدخول
+        </Link>
         <h1 className="mt-3 text-2xl font-bold">استعادة كلمة المرور</h1>
         {done ? (
           <p className="mt-4 text-sm text-primary">
@@ -46,7 +48,14 @@ function ForgotPassword() {
           <form onSubmit={submit} className="mt-4 space-y-3">
             <div>
               <Label htmlFor="em">البريد الإلكتروني</Label>
-              <Input id="em" type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Input
+                id="em"
+                type="email"
+                dir="ltr"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             {err && <p className="text-sm text-destructive">{err}</p>}
             <Button type="submit" className="w-full" disabled={busy}>

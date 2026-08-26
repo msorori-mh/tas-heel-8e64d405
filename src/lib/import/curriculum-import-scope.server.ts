@@ -61,9 +61,8 @@ export async function resolveCurriculumImportScope(
   supabase: SupabaseClient<Database>,
   scope: CurriculumImportScope,
 ): Promise<ResolvedCurriculumImportScope> {
-  const { loadContentCodeRegistry } = await import(
-    "@/lib/content-codes/content-code-registry.server"
-  );
+  const { loadContentCodeRegistry } =
+    await import("@/lib/content-codes/content-code-registry.server");
   const registry = await loadContentCodeRegistry(supabase);
   const gradeSlug = scope.gradeSlug.trim().toLowerCase();
   const subjectCode = scope.subjectCode.trim().toLowerCase();

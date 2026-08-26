@@ -46,12 +46,7 @@ function QuickReviewPage() {
     enabled: !!gradeKey && !!user?.id,
     staleTime: 2 * 60 * 1000,
     // Scope id in the key so caches never bleed across track/grade/user.
-    queryKey: [
-      "quick-review",
-      user?.id ?? null,
-      gradeKey,
-      profile?.curriculum_track_id ?? null,
-    ],
+    queryKey: ["quick-review", user?.id ?? null, gradeKey, profile?.curriculum_track_id ?? null],
     queryFn: async () => {
       const subjects = await fetchReviewSubjects(gradeKey!);
       const items = await fetchReviewItems({ subjects, userId: user!.id });
@@ -218,9 +213,7 @@ function QuickReviewPage() {
         startIndex={focusIndex ?? 0}
         items={focusItems}
         onClose={() => setFocusIndex(null)}
-        onOpenItem={(item) =>
-          navigate({ to: "/lessons/$lessonId", params: { lessonId: item.id } })
-        }
+        onOpenItem={(item) => navigate({ to: "/lessons/$lessonId", params: { lessonId: item.id } })}
       />
     </div>
   );

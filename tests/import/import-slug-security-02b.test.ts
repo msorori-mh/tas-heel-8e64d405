@@ -19,7 +19,10 @@ import {
 } from "../../src/lib/import/subject-slug.ts";
 import { IMPORT_GAP_RESOLUTIONS } from "../../src/lib/import/import-contract.ts";
 
-const DRAFT_SQL = readFileSync("docs/migration-drafts/IMPORT-EXECUTION-READINESS-02.NOT_APPLIED.sql", "utf8");
+const DRAFT_SQL = readFileSync(
+  "docs/migration-drafts/IMPORT-EXECUTION-READINESS-02.NOT_APPLIED.sql",
+  "utf8",
+);
 
 test("02B: slug digest is SHA-256 at >= 128 bits", () => {
   assert.ok(SUBJECT_SLUG_DIGEST_HEX_LENGTH >= 32, "digest suffix must be at least 128 bits");
@@ -55,7 +58,11 @@ test("02B: canonical normalization is shared and stable", () => {
 
 test("02B: the '--' separator is reserved and keeps both branches disjoint", () => {
   assert.equal(isSlugSafeSubjectCode("math-10"), true);
-  assert.equal(isSlugSafeSubjectCode("math--10"), false, "a raw code containing -- is never identity-mapped");
+  assert.equal(
+    isSlugSafeSubjectCode("math--10"),
+    false,
+    "a raw code containing -- is never identity-mapped",
+  );
   const slug = deriveSubjectSlug("math--10");
   assert.ok(slug.includes(SUBJECT_SLUG_SEPARATOR));
   assert.notEqual(slug, "math--10");

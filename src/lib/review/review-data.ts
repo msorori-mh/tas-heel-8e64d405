@@ -10,11 +10,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
-import {
-  hasUsableSummary,
-  normalizeKeyPoints,
-  type ReviewItem,
-} from "./review-types";
+import { hasUsableSummary, normalizeKeyPoints, type ReviewItem } from "./review-types";
 import { fetchAllPaged } from "./review-paging";
 
 export { REVIEW_PAGE_SIZE, REVIEW_MAX_PAGES, fetchAllPaged } from "./review-paging";
@@ -33,7 +29,6 @@ function chunk<T>(rows: T[], size: number): T[][] {
   for (let i = 0; i < rows.length; i += size) out.push(rows.slice(i, i + size));
   return out;
 }
-
 
 type LessonRow = {
   id: string;
