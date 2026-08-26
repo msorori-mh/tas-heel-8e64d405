@@ -5,10 +5,7 @@ export interface StorageClientAdapter {
     bucket: string,
     path: string,
   ): Promise<{ signedUrl: string; token: string }>;
-  download(
-    bucket: string,
-    path: string,
-  ): Promise<{ data: Uint8Array | null; error: Error | null }>;
+  download(bucket: string, path: string): Promise<{ data: Uint8Array | null; error: Error | null }>;
   upload(
     bucket: string,
     path: string,
@@ -32,27 +29,19 @@ export interface StorageClientAdapter {
 
 export const defaultSupabaseStorageAdapter: StorageClientAdapter = {
   async createSignedUploadUrl(bucket: string, path: string) {
-    const { data, error } = await supabaseAdmin.storage
-      .from(bucket)
-      .createSignedUploadUrl(path);
+    const { data, error } = await supabaseAdmin.storage.from(bucket).createSignedUploadUrl(path);
     if (error || !data?.signedUrl) {
-      throw new Error(
-        `فشل إنشاء رابط الرفع الموقع: ${error?.message || "Storage error"}`,
-      );
+      throw new Error(`فشل إنشاء رابط الرفع الموقع: ${error?.message || "Storage error"}`);
     }
     return { signedUrl: data.signedUrl, token: data.token };
   },
 
   async download(bucket: string, path: string) {
-    const { data, error } = await supabaseAdmin.storage
-      .from(bucket)
-      .download(path);
+    const { data, error } = await supabaseAdmin.storage.from(bucket).download(path);
     if (error || !data) {
       return {
         data: null,
-        error: error
-          ? new Error(error.message)
-          : new Error("الملف غير موجود في التخزين"),
+        error: error ? new Error(error.message) : new Error("الملف غير موجود في التخزين"),
       };
     }
     const arrayBuffer = await data.arrayBuffer();
@@ -82,7 +71,13 @@ export const defaultSupabaseStorageAdapter: StorageClientAdapter = {
     if (downErr || !data) {
       return { error: downErr || new Error("فشل تنزيل المصدر لإكمال عملية النسخ") };
     }
-    const { error: upErr } = await this.upload(toBucket, toPath, data, "application/octet-stream", false);
+    const { error: upErr } = await this.upload(
+      toBucket,
+      toPath,
+      data,
+      "application/octet-stream",
+      false,
+    );
     return { error: upErr };
   },
 
@@ -93,9 +88,7 @@ export const defaultSupabaseStorageAdapter: StorageClientAdapter = {
     if (error || !data?.signedUrl) {
       return {
         signedUrl: null,
-        error: error
-          ? new Error(error.message)
-          : new Error("فشل إنشاء رابط الوصول الموقع"),
+        error: error ? new Error(error.message) : new Error("فشل إنشاء رابط الوصول الموقع"),
       };
     }
     return { signedUrl: data.signedUrl, error: null };

@@ -27,10 +27,7 @@ const SVG_ACTIVE_TAGS = new Set([
   "animatemotion",
 ]);
 
-const MATHML_ACTIVE_TAGS = new Set([
-  "maction",
-  "annotation-xml",
-]);
+const MATHML_ACTIVE_TAGS = new Set(["maction", "annotation-xml"]);
 
 /**
  * Structural HTML Parser using htmlparser2.
@@ -38,7 +35,7 @@ const MATHML_ACTIVE_TAGS = new Set([
  */
 export async function parseHtmlContent(
   htmlContent: string,
-  filePath = "index.html"
+  filePath = "index.html",
 ): Promise<HtmlScanResult> {
   const findings: SecurityFinding[] = [];
   const inlineScripts: HtmlScriptInfo[] = [];
@@ -76,7 +73,8 @@ export async function parseHtmlContent(
 
         // 1. Check forbidden structural tags
         if (FORBIDDEN_TAGS.has(tagName)) {
-          let code: (typeof ValidationCodes)[keyof typeof ValidationCodes] = ValidationCodes.FORBIDDEN_IFRAME_ELEMENT;
+          let code: (typeof ValidationCodes)[keyof typeof ValidationCodes] =
+            ValidationCodes.FORBIDDEN_IFRAME_ELEMENT;
           let msg = `تم رفض عنصر <${tagName}> المحظور أمنياً.`;
 
           if (tagName === "iframe" || tagName === "frame" || tagName === "frameset") {
@@ -111,7 +109,7 @@ export async function parseHtmlContent(
               severity: "error",
               file: filePath,
               snippet: `<meta http-equiv="refresh">`,
-              message: "ممنوع استخدام <meta http-equiv=\"refresh\"> لإعادة التوجيه التلقائي.",
+              message: 'ممنوع استخدام <meta http-equiv="refresh"> لإعادة التوجيه التلقائي.',
             });
           }
         }
@@ -162,7 +160,9 @@ export async function parseHtmlContent(
 
         // 2. Check all attributes
         for (const [rawAttrName, rawAttrVal] of Object.entries(attribs)) {
-          const cleanAttrName = stripControlCharacters(decodeHtmlEntities(rawAttrName)).toLowerCase();
+          const cleanAttrName = stripControlCharacters(
+            decodeHtmlEntities(rawAttrName),
+          ).toLowerCase();
 
           // Reject any event handler attribute starting with "on"
           if (cleanAttrName.startsWith("on")) {
@@ -240,7 +240,9 @@ export async function parseHtmlContent(
                 if (!urlCheck.safe) {
                   const isJsUrl = rawAttrVal.toLowerCase().includes("javascript:");
                   findings.push({
-                    code: isJsUrl ? ValidationCodes.JAVASCRIPT_URL_DETECTED : ValidationCodes.REMOTE_NETWORK_URL_DETECTED,
+                    code: isJsUrl
+                      ? ValidationCodes.JAVASCRIPT_URL_DETECTED
+                      : ValidationCodes.REMOTE_NETWORK_URL_DETECTED,
                     severity: "error",
                     file: filePath,
                     snippet: `${rawAttrName}="${rawAttrVal}"`,
@@ -297,7 +299,7 @@ export async function parseHtmlContent(
         currentTag = null;
       },
     },
-    { decodeEntities: true, lowerCaseAttributeNames: false, lowerCaseTags: true }
+    { decodeEntities: true, lowerCaseAttributeNames: false, lowerCaseTags: true },
   );
 
   parser.write(htmlContent);

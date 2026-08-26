@@ -57,15 +57,23 @@ async function handle(request: Request, textbookId: string, method: "GET" | "HEA
   if (claimsError || !claims?.claims?.sub) return deny(401, "unauthorized");
 
   // RLS-gated read as the caller — fail closed.
-  const { data, error } = await (supabase as never as {
-    from: (t: string) => {
-      select: (c: string) => {
-        eq: (c: string, v: string) => {
-          maybeSingle: () => Promise<{ data: TextbookRow | null; error: { message: string } | null }>;
+  const { data, error } = await (
+    supabase as never as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (
+            c: string,
+            v: string,
+          ) => {
+            maybeSingle: () => Promise<{
+              data: TextbookRow | null;
+              error: { message: string } | null;
+            }>;
+          };
         };
       };
-    };
-  })
+    }
+  )
     .from("subject_textbooks")
     .select("id, storage_bucket, storage_path, version, is_active")
     .eq("id", textbookId)

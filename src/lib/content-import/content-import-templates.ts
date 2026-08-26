@@ -130,17 +130,18 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
   },
 ];
 
-export const CONTENT_IMPORT_TEMPLATES: ContentImportTemplateMeta[] = TEMPLATE_META.map(
-  (meta) => ({ ...meta, requiredBaseColumns: requiredTemplateColumnsForEntity(meta.key) }),
-);
+export const CONTENT_IMPORT_TEMPLATES: ContentImportTemplateMeta[] = TEMPLATE_META.map((meta) => ({
+  ...meta,
+  requiredBaseColumns: requiredTemplateColumnsForEntity(meta.key),
+}));
 
 const TEMPLATE_ORDER_BY_KEY = Object.fromEntries(
   CONTENT_IMPORT_TEMPLATES.map((t) => [t.key, t.order]),
 ) as Record<TemplateKey, number>;
 
 /** Canonical operator order — derived from IMPORT_EXECUTION_ORDER, never hand-written. */
-export const CONTENT_IMPORT_WORKFLOW_ORDER: string = IMPORT_EXECUTION_ORDER.map(
-  (key) => String(TEMPLATE_ORDER_BY_KEY[key]).padStart(2, "0"),
+export const CONTENT_IMPORT_WORKFLOW_ORDER: string = IMPORT_EXECUTION_ORDER.map((key) =>
+  String(TEMPLATE_ORDER_BY_KEY[key]).padStart(2, "0"),
 ).join(" → ");
 
 export interface ContentImportWorkflowStep {
@@ -165,28 +166,18 @@ export const CONTENT_IMPORT_WORKFLOW_STEPS: ContentImportWorkflowStep[] =
       gate: false,
     };
     return key === "assessment_questions"
-      ? [
-          { key: null, label: "مراجعة", gate: true },
-          { key: null, label: "نشر", gate: true },
-          step,
-        ]
+      ? [{ key: null, label: "مراجعة", gate: true }, { key: null, label: "نشر", gate: true }, step]
       : [step];
   });
 
-
 const INFO_WARNINGS: Record<TemplateKey, readonly string[]> = {
-  subjects: [
-    "subjects.slug يُشتق تلقائياً من subject_code — لا تضِف عمود slug.",
-  ],
+  subjects: ["subjects.slug يُشتق تلقائياً من subject_code — لا تضِف عمود slug."],
   units: [],
   lessons: [
     "lesson_code هو نفسه lessons.slug — فريد داخل المادة الواحدة.",
     "اترك unit_code فارغاً إذا كان الدرس مرتبطاً بالمادة مباشرة.",
   ],
-  book_contents: [
-    "subject_code + lesson_code معاً يحددان الدرس بدقة.",
-    "صف واحد فقط لكل درس.",
-  ],
+  book_contents: ["subject_code + lesson_code معاً يحددان الدرس بدقة.", "صف واحد فقط لكل درس."],
   explanations: [
     "subject_code + lesson_code معاً يحددان الدرس بدقة.",
     "explanation_code هو هوية الشرح الثابتة — لا تستخدم sort_order كهوية.",
@@ -201,9 +192,7 @@ const INFO_WARNINGS: Record<TemplateKey, readonly string[]> = {
     "subject_code + lesson_code معاً يحددان الدرس بدقة.",
     "assessment_code فريد على مستوى المنصة كلها.",
   ],
-  assessment_questions: [
-    "لا يعمل هذا القالب إلا بعد مراجعة ونشر أسئلة «اختبر فهمك» من القالب 10.",
-  ],
+  assessment_questions: ["لا يعمل هذا القالب إلا بعد مراجعة ونشر أسئلة «اختبر فهمك» من القالب 10."],
   questions: [
     "هذا القالب لأسئلة الكتاب الأصلية فقط؛ يحفظ النص كما ورد في الكتاب.",
     "وجود خيارات في سؤال كتاب أصلي لا ينقله إلى «اختبر فهمك».",

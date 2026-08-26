@@ -23,10 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
-import {
-  FREE_ACCESS_WALLET_NOTICE,
-  STUDENT_FREE_ACCESS,
-} from "@/lib/student-free-access";
+import { FREE_ACCESS_WALLET_NOTICE, STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   component: WalletPage,
@@ -309,9 +306,7 @@ function WalletPage() {
       return data;
     },
     onSuccess: () => {
-      toast.success(
-        "تم إرسال طلب الشحن للمراجعة. سيتم تحديث رصيدك بعد موافقة الإدارة.",
-      );
+      toast.success("تم إرسال طلب الشحن للمراجعة. سيتم تحديث رصيدك بعد موافقة الإدارة.");
       setMethodId("");
       setSenderName("");
       setSenderAccount("");
@@ -336,9 +331,7 @@ function WalletPage() {
           <span className="mx-1">/</span>
           <span className="text-foreground">المحفظة</span>
         </nav>
-        <StateMessage variant="error">
-          هذه الصفحة مخصصة للطلاب فقط.
-        </StateMessage>
+        <StateMessage variant="error">هذه الصفحة مخصصة للطلاب فقط.</StateMessage>
       </div>
     );
   }
@@ -360,8 +353,7 @@ function WalletPage() {
           {FREE_ACCESS_WALLET_NOTICE}
         </div>
         <p className="text-xs text-muted-foreground">
-          التطبيق متاح حالياً مجاناً لجميع الطلاب. خدمات الدفع والاشتراكات غير
-          مفعّلة حالياً.
+          التطبيق متاح حالياً مجاناً لجميع الطلاب. خدمات الدفع والاشتراكات غير مفعّلة حالياً.
         </p>
         <Button asChild>
           <Link to="/app">العودة إلى موادي</Link>
@@ -546,8 +538,8 @@ function WalletPage() {
           <section className="space-y-3">
             <Label className="text-sm font-semibold">بيانات الحوالة</Label>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              بعد قراءة الإيصال ستظهر البيانات هنا تلقائياً عند تفعيل الميزة. حالياً يرجى
-              إدخال البيانات يدوياً ومراجعتها قبل إرسال الطلب.
+              بعد قراءة الإيصال ستظهر البيانات هنا تلقائياً عند تفعيل الميزة. حالياً يرجى إدخال
+              البيانات يدوياً ومراجعتها قبل إرسال الطلب.
             </p>
             <div className="space-y-3">
               <div>
@@ -717,10 +709,7 @@ function WalletPage() {
             {(txs.data ?? []).map((t) => {
               const isCredit = t.direction === "credit";
               return (
-                <li
-                  key={t.id}
-                  className="rounded-2xl border border-border bg-card p-3 shadow-card"
-                >
+                <li key={t.id} className="rounded-2xl border border-border bg-card p-3 shadow-card">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-2 min-w-0">
                       <span
