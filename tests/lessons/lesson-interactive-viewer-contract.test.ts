@@ -57,6 +57,8 @@ test("student route exposes the seven-step rendering contracts", () => {
   assert.match(route, /aria-selected=\{active\}/);
   assert.match(route, /overflow-x-auto/);
   assert.match(route, /visitedTypes/);
+  assert.match(route, /hasManualSelection/);
+  assert.match(route, /capability\.type === "PRIMARY_CONTENT"/);
   assert.doesNotMatch(route, /function JourneyCard/);
 });
 
