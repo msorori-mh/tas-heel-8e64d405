@@ -14,14 +14,8 @@ const safeUpdateFinal = readFileSync(
   "supabase/migrations/20260824234000_prelaunch_purge_safeupdate_final.sql",
   "utf8",
 );
-const ui = readFileSync(
-  "src/components/admin/CurriculumPrelaunchPurgeControl.tsx",
-  "utf8",
-);
-const legacyDialog = readFileSync(
-  "src/components/admin/CurriculumDeleteDialog.tsx",
-  "utf8",
-);
+const ui = readFileSync("src/components/admin/CurriculumPrelaunchPurgeControl.tsx", "utf8");
+const legacyDialog = readFileSync("src/components/admin/CurriculumDeleteDialog.tsx", "utf8");
 
 test("prelaunch purge is full-admin, preview-bound, idempotent, audited, and centrally lockable", () => {
   for (const token of [
@@ -34,12 +28,10 @@ test("prelaunch purge is full-admin, preview-bound, idempotent, audited, and cen
     "curriculum_prelaunch_global_purge",
     "admin_lock_curriculum_prelaunch_purge",
     "PRELAUNCH_PURGE_LOCK_REQUIRES_EMPTY_CURRICULUM",
-  ]) assert.ok(migration.includes(token), `missing security contract: ${token}`);
+  ])
+    assert.ok(migration.includes(token), `missing security contract: ${token}`);
   assert.doesNotMatch(migration, /DISABLE\s+TRIGGER/i);
-  assert.match(
-    migration,
-    /REVOKE EXECUTE ON FUNCTION public\.admin_curriculum_force_delete/,
-  );
+  assert.match(migration, /REVOKE EXECUTE ON FUNCTION public\.admin_curriculum_force_delete/);
 });
 
 test("admin UI requires typed confirmation and reason and does not expose old force delete", () => {
@@ -50,12 +42,8 @@ test("admin UI requires typed confirmation and reason and does not expose old fo
   assert.doesNotMatch(legacyDialog, /admin_curriculum_force_delete|حذف نهائي قسري/);
 });
 
-
 test("prelaunch purge resolves pgcrypto from the production extensions schema", () => {
-  assert.match(
-    pgcryptoSchemaFix,
-    /to_regprocedure\('extensions\.digest\(text,text\)'\)/,
-  );
+  assert.match(pgcryptoSchemaFix, /to_regprocedure\('extensions\.digest\(text,text\)'\)/);
   assert.match(
     pgcryptoSchemaFix,
     /ALTER FUNCTION public\.admin_curriculum_prelaunch_purge_status\(\)[\s\S]*SET search_path = public, extensions, pg_temp/,
@@ -67,20 +55,12 @@ test("prelaunch purge resolves pgcrypto from the production extensions schema", 
   assert.doesNotMatch(pgcryptoSchemaFix, /DISABLE\s+TRIGGER/i);
 });
 
-
 test("all global purge deletes are explicit and safeupdate-compatible", () => {
-  const boundedDeletes = safeUpdateFinal.match(
-    /DELETE\s+FROM\s+public\.[a-z0-9_]+\s+WHERE\s+true\s*;/gi,
-  ) ?? [];
+  const boundedDeletes =
+    safeUpdateFinal.match(/DELETE\s+FROM\s+public\.[a-z0-9_]+\s+WHERE\s+true\s*;/gi) ?? [];
   assert.equal(boundedDeletes.length, 47);
-  assert.doesNotMatch(
-    safeUpdateFinal,
-    /DELETE\s+FROM\s+public\.[a-z0-9_]+\s*;/i,
-  );
+  assert.doesNotMatch(safeUpdateFinal, /DELETE\s+FROM\s+public\.[a-z0-9_]+\s*;/i);
   assert.match(safeUpdateFinal, /extensions\.digest/);
-  assert.match(
-    safeUpdateFinal,
-    /PRELAUNCH_PURGE_UNBOUNDED_DELETE_REMAINS/,
-  );
+  assert.match(safeUpdateFinal, /PRELAUNCH_PURGE_UNBOUNDED_DELETE_REMAINS/);
   assert.doesNotMatch(safeUpdateFinal, /DISABLE\s+TRIGGER/i);
 });

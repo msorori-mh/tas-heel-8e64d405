@@ -226,7 +226,6 @@ export function buildMinisterialModelCode(
   return `mex-${mexScopePart(scope)}-${pad(subjectNo, TCS2_WIDTH.subjectNo)}-${pad(year, TCS2_WIDTH.mexYear)}-${round}-${variant}`;
 }
 
-
 /* ------------------------------------------------------------------ *
  * Parsing / validation
  * ------------------------------------------------------------------ */
@@ -243,7 +242,9 @@ export const TCS2_PATTERN: Record<Tcs2EntityKind, RegExp> = {
   resource: new RegExp(`^res-${SCOPE_RE}-(\\d{3})-(\\d{3})-(\\d{2})$`),
   assessment: new RegExp(`^asm-${SCOPE_RE}-(\\d{3})-(\\d{3})-(\\d{2})$`),
   question: new RegExp(`^q-${SCOPE_RE}-(\\d{3})-(\\d{5})$`),
-  mex: new RegExp(`^mex-${SCOPE_RE}-(sanaa|aden|other)-(\\d{3})-(\\d{4})-(${TCS2_MEX_ROUND_CODES.join("|")})-([a-z0-9-]{1,20})$`),
+  mex: new RegExp(
+    `^mex-${SCOPE_RE}-(sanaa|aden|other)-(\\d{3})-(\\d{4})-(${TCS2_MEX_ROUND_CODES.join("|")})-([a-z0-9-]{1,20})$`,
+  ),
 };
 
 export interface ParsedTcs2Code {
@@ -294,7 +295,6 @@ export function isTcs2Code(code: string, kind?: Tcs2EntityKind): boolean {
   if (!parsed) return false;
   return kind ? parsed.kind === kind : true;
 }
-
 
 /* ------------------------------------------------------------------ *
  * Allocation — read-only, never reuses a number.
@@ -392,17 +392,17 @@ export function buildForKind(
     case "mex":
       throw new Tcs2Error(
         "TCS2_MEX_USE_DEDICATED_BUILDER",
-        "استخدم buildMinisterialModelCode() لتوليد أكواد النماذج الوزارية."
+        "استخدم buildMinisterialModelCode() لتوليد أكواد النماذج الوزارية.",
       );
   }
 }
-
 
 /* ------------------------------------------------------------------ *
  * Legacy TCS-1 rejection (13C rule 6)
  * ------------------------------------------------------------------ */
 
-const LEGACY_TRACK_SEGMENT = /^(sub|grp|unit|lesson|exp|res|asm|q)-(g10|g11|g12)-(sanaa|aden|other)-/;
+const LEGACY_TRACK_SEGMENT =
+  /^(sub|grp|unit|lesson|exp|res|asm|q)-(g10|g11|g12)-(sanaa|aden|other)-/;
 
 /** true when the code follows the frozen TCS-1 scheme (track inside the code). */
 export function isLegacyTcs1Code(code: string): boolean {
@@ -451,14 +451,58 @@ export const TCS2_FORMAT_TABLE: ReadonlyArray<{
   format: string;
   example: string;
 }> = [
-  { kind: "subject", labelAr: "مادة", format: "sub-{gradeShort}-{subjectNo:003}", example: "sub-g12-001" },
-  { kind: "group", labelAr: "مجموعة مواد", format: "grp-{gradeShort}-{groupNo:02}", example: "grp-g12-01" },
-  { kind: "unit", labelAr: "وحدة", format: "unit-{gradeShort}-{subjectNo:003}-{unitNo:02}", example: "unit-g12-001-01" },
-  { kind: "lesson", labelAr: "درس", format: "lesson-{gradeShort}-{subjectNo:003}-{lessonNo:003}", example: "lesson-g12-001-001" },
-  { kind: "explanation", labelAr: "شرح", format: "exp-{gradeShort}-{subjectNo:003}-{lessonNo:003}-{seq:02}", example: "exp-g12-001-001-01" },
-  { kind: "resource", labelAr: "مورد", format: "res-{gradeShort}-{subjectNo:003}-{lessonNo:003}-{seq:02}", example: "res-g12-001-001-01" },
-  { kind: "assessment", labelAr: "تقييم", format: "asm-{gradeShort}-{subjectNo:003}-{lessonNo:003}-{seq:02}", example: "asm-g12-001-001-01" },
-  { kind: "question", labelAr: "سؤال", format: "q-{gradeShort}-{subjectNo:003}-{questionNo:05}", example: "q-g12-001-00007" },
-  { kind: "mex", labelAr: "نموذج وزاري", format: "mex-{gradeShort}-{trackCode}-{subjectNo:003}-{year:4}-{roundCode}-{variantCode}", example: "mex-g12-aden-001-2024-r1-a" },
+  {
+    kind: "subject",
+    labelAr: "مادة",
+    format: "sub-{gradeShort}-{subjectNo:003}",
+    example: "sub-g12-001",
+  },
+  {
+    kind: "group",
+    labelAr: "مجموعة مواد",
+    format: "grp-{gradeShort}-{groupNo:02}",
+    example: "grp-g12-01",
+  },
+  {
+    kind: "unit",
+    labelAr: "وحدة",
+    format: "unit-{gradeShort}-{subjectNo:003}-{unitNo:02}",
+    example: "unit-g12-001-01",
+  },
+  {
+    kind: "lesson",
+    labelAr: "درس",
+    format: "lesson-{gradeShort}-{subjectNo:003}-{lessonNo:003}",
+    example: "lesson-g12-001-001",
+  },
+  {
+    kind: "explanation",
+    labelAr: "شرح",
+    format: "exp-{gradeShort}-{subjectNo:003}-{lessonNo:003}-{seq:02}",
+    example: "exp-g12-001-001-01",
+  },
+  {
+    kind: "resource",
+    labelAr: "مورد",
+    format: "res-{gradeShort}-{subjectNo:003}-{lessonNo:003}-{seq:02}",
+    example: "res-g12-001-001-01",
+  },
+  {
+    kind: "assessment",
+    labelAr: "تقييم",
+    format: "asm-{gradeShort}-{subjectNo:003}-{lessonNo:003}-{seq:02}",
+    example: "asm-g12-001-001-01",
+  },
+  {
+    kind: "question",
+    labelAr: "سؤال",
+    format: "q-{gradeShort}-{subjectNo:003}-{questionNo:05}",
+    example: "q-g12-001-00007",
+  },
+  {
+    kind: "mex",
+    labelAr: "نموذج وزاري",
+    format: "mex-{gradeShort}-{trackCode}-{subjectNo:003}-{year:4}-{roundCode}-{variantCode}",
+    example: "mex-g12-aden-001-2024-r1-a",
+  },
 ];
-

@@ -133,7 +133,6 @@ export async function listSubjectTextbooks(
   return sortTextbooks(((data ?? []) as Record<string, unknown>[]).map(mapTextbook));
 }
 
-
 export function validateUploadInput(fileName: string, fileSize: number) {
   if (!/\.pdf$/i.test(fileName)) throw new Error("invalid_extension");
   if (!Number.isFinite(fileSize) || fileSize <= 0) throw new Error("empty_file");
@@ -279,7 +278,6 @@ export async function bindSubjectTextbook(
 
   return { textbookId: String(data.id), replaced: false, version };
 }
-
 
 /** Reuse the very same bytes for another track (NO duplicated storage object). */
 export async function cloneTextbookForTrack(

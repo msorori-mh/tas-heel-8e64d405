@@ -22,10 +22,7 @@ import {
   planSubjectPdfBulkUpload,
 } from "@/lib/api/lesson-pdf.functions";
 import type { BulkMatchRow, BulkMatchStatus } from "@/lib/lessons/bulk-pdf-match";
-import {
-  formatBytes,
-  uploadLessonPrimaryPdf,
-} from "@/lib/lessons/lesson-pdf-upload-client";
+import { formatBytes, uploadLessonPrimaryPdf } from "@/lib/lessons/lesson-pdf-upload-client";
 
 const STATUS_LABEL: Record<BulkMatchStatus, string> = {
   MATCHED: "مطابق",
@@ -124,7 +121,8 @@ export function BulkLessonPdfUploadPanel() {
   const execute = async () => {
     if (!plan) return;
     const targets = plan.rows.filter(
-      (r) => (r.status === "MATCHED" || r.status === "REPLACE_EXISTING") && r.lessonId && r.fileName,
+      (r) =>
+        (r.status === "MATCHED" || r.status === "REPLACE_EXISTING") && r.lessonId && r.fileName,
     );
     setRunning(true);
     setFailures([]);
@@ -178,9 +176,7 @@ export function BulkLessonPdfUploadPanel() {
     await runPlan(files);
   };
 
-  const blockerCount = plan
-    ? Object.values(plan.blockers).reduce((a, b) => a + b, 0)
-    : 0;
+  const blockerCount = plan ? Object.values(plan.blockers).reduce((a, b) => a + b, 0) : 0;
 
   return (
     <section
@@ -194,11 +190,13 @@ export function BulkLessonPdfUploadPanel() {
           <h2 id="bulk-pdf-heading" className="text-lg font-semibold text-foreground">
             رفع ملفات PDF جماعياً لمادة
           </h2>
-          <Badge variant="secondary" className="text-[11px]">18D</Badge>
+          <Badge variant="secondary" className="text-[11px]">
+            18D
+          </Badge>
         </div>
         <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          سمِّ كل ملف باسم كود الدرس: <span className="font-mono">&lt;lesson_code&gt;.pdf</span>. يعرض
-          النظام مصفوفة المطابقة قبل التنفيذ ولا ينفّذ عند وجود ملفات غير معروفة أو مكررة.
+          سمِّ كل ملف باسم كود الدرس: <span className="font-mono">&lt;lesson_code&gt;.pdf</span>.
+          يعرض النظام مصفوفة المطابقة قبل التنفيذ ولا ينفّذ عند وجود ملفات غير معروفة أو مكررة.
         </p>
       </div>
 
@@ -259,7 +257,10 @@ export function BulkLessonPdfUploadPanel() {
               </thead>
               <tbody>
                 {plan.rows.map((r, i) => (
-                  <tr key={`${r.lessonId ?? r.fileName}-${i}`} className="border-t border-border/60">
+                  <tr
+                    key={`${r.lessonId ?? r.fileName}-${i}`}
+                    className="border-t border-border/60"
+                  >
                     <td className="p-2 font-mono">{r.lessonCode ?? "—"}</td>
                     <td className="p-2">{r.lessonTitle ?? "—"}</td>
                     <td className="p-2 break-all">{r.fileName ?? "—"}</td>
@@ -304,7 +305,10 @@ export function BulkLessonPdfUploadPanel() {
                 <span className="text-muted-foreground">
                   معالَج {progress.processed} / {progress.total}
                 </span>
-                <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
+                <Badge
+                  variant="outline"
+                  className="border-emerald-500/40 text-emerald-700 dark:text-emerald-400"
+                >
                   مؤكَّد الربط {progress.succeeded}
                 </Badge>
                 <Badge variant="outline" className="border-destructive/40 text-destructive">
@@ -316,7 +320,10 @@ export function BulkLessonPdfUploadPanel() {
               </span>
             )}
             {plan.subjectComplete && (
-              <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
+              <Badge
+                variant="outline"
+                className="border-emerald-500/40 text-emerald-700 dark:text-emerald-400"
+              >
                 كل دروس المادة لديها ملف أساسي
               </Badge>
             )}

@@ -7,7 +7,13 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
 const migrationRoot = path.join(root, "supabase", "migrations");
 const fixturePath = path.join(here, "pg17-21h-canonical-fixture.sql");
-const tables = ["lessons", "questions", "lesson_assessments", "practice_attempts", "practice_attempt_questions"];
+const tables = [
+  "lessons",
+  "questions",
+  "lesson_assessments",
+  "practice_attempts",
+  "practice_attempt_questions",
+];
 
 function collectColumns(sql, table) {
   const create = new RegExp(
@@ -32,7 +38,10 @@ function collectColumns(sql, table) {
   definitions.push(current);
   for (const definition of definitions) {
     const match = /^\s*([a-z_][a-z0-9_]*)\s+/i.exec(definition);
-    if (match && !new Set(["primary", "unique", "check", "constraint", "foreign"]).has(match[1].toLowerCase())) {
+    if (
+      match &&
+      !new Set(["primary", "unique", "check", "constraint", "foreign"]).has(match[1].toLowerCase())
+    ) {
       columns.add(match[1].toLowerCase());
     }
   }
@@ -57,7 +66,8 @@ const fixture = new Map(tables.map((table) => [table, collectColumns(fixtureSql,
 
 for (const table of tables) {
   const extras = [...fixture.get(table)].filter((column) => !canonical.get(table).has(column));
-  if (extras.length) throw new Error(`FIXTURE_SCHEMA_MATCH=FAIL table=${table} extra_columns=${extras.join(",")}`);
+  if (extras.length)
+    throw new Error(`FIXTURE_SCHEMA_MATCH=FAIL table=${table} extra_columns=${extras.join(",")}`);
 }
 
 if (fixture.get("practice_attempts").has("lesson_id")) {

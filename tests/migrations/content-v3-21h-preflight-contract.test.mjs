@@ -6,8 +6,12 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 const read = (relative) => fs.readFileSync(new URL(relative, root), "utf8");
 const readBytes = (relative) => fs.readFileSync(new URL(relative, root));
-const migration = read("supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql");
-const migrationBytes = readBytes("supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql");
+const migration = read(
+  "supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql",
+);
+const migrationBytes = readBytes(
+  "supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql",
+);
 const baseline = read("scripts/content-v3/production-preflight-readonly.sql");
 const diff = read("scripts/content-v3/visibility-diff-21h.sql");
 const postverify = read("scripts/content-v3/postverify-21h.sql");
@@ -36,7 +40,10 @@ function executableSql(sql) {
 }
 
 test("R4 release metadata pins the current R3 identity and migration bytes", () => {
-  const canonicalBytes = Buffer.from(migrationBytes.toString("utf8").replace(/\r\n/g, "\n"), "utf8");
+  const canonicalBytes = Buffer.from(
+    migrationBytes.toString("utf8").replace(/\r\n/g, "\n"),
+    "utf8",
+  );
   const actual = createHash("sha256").update(canonicalBytes).digest("hex").toUpperCase();
   assert.equal(actual, currentMigrationSha256);
   for (const document of releaseMetadata) {
@@ -48,18 +55,36 @@ test("R4 release metadata pins the current R3 identity and migration bytes", () 
 test("21H migration is transactional, additive, and has no lifecycle backfill", () => {
   assert.match(migration, /BEGIN;[\s\S]*COMMIT;/);
   assert.doesNotMatch(migration, /DROP\s+(TABLE|COLUMN|TYPE)\b/i);
-  assert.doesNotMatch(migration, /INSERT\s+INTO\s+public\.lesson_capability_lifecycle[\s\S]{0,200}\bSELECT\b/i);
+  assert.doesNotMatch(
+    migration,
+    /INSERT\s+INTO\s+public\.lesson_capability_lifecycle[\s\S]{0,200}\bSELECT\b/i,
+  );
   assert.match(migration, /ON DELETE RESTRICT/i);
   assert.match(migration, /question_revision_id uuid NOT NULL/i);
   assert.match(migration, /revision_id uuid NOT NULL/i);
 });
 
 test("answer layer is not readable by anon/public and is RLS protected", () => {
-  assert.match(migration, /REVOKE ALL ON TABLE public\.question_option_rationales FROM PUBLIC, anon/i);
-  assert.match(migration, /REVOKE ALL ON TABLE public\.official_question_answers FROM PUBLIC, anon/i);
-  assert.match(migration, /ALTER TABLE public\.question_option_rationales ENABLE ROW LEVEL SECURITY/i);
-  assert.match(migration, /ALTER TABLE public\.official_question_answers ENABLE ROW LEVEL SECURITY/i);
-  assert.match(migration, /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public\.official_question_answers TO authenticated/i);
+  assert.match(
+    migration,
+    /REVOKE ALL ON TABLE public\.question_option_rationales FROM PUBLIC, anon/i,
+  );
+  assert.match(
+    migration,
+    /REVOKE ALL ON TABLE public\.official_question_answers FROM PUBLIC, anon/i,
+  );
+  assert.match(
+    migration,
+    /ALTER TABLE public\.question_option_rationales ENABLE ROW LEVEL SECURITY/i,
+  );
+  assert.match(
+    migration,
+    /ALTER TABLE public\.official_question_answers ENABLE ROW LEVEL SECURITY/i,
+  );
+  assert.match(
+    migration,
+    /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public\.official_question_answers TO authenticated/i,
+  );
 });
 
 test("initial official question RPC contains no answer-bearing field", () => {

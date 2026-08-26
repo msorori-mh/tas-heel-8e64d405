@@ -180,21 +180,11 @@ export function LessonBasicEditDialog({ open, onOpenChange, lesson }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="lesson-subject">المادة</Label>
-              <Input
-                id="lesson-subject"
-                value={lesson?.subject_name || "—"}
-                disabled
-                dir="rtl"
-              />
+              <Input id="lesson-subject" value={lesson?.subject_name || "—"} disabled dir="rtl" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="lesson-unit">الوحدة</Label>
-              <Input
-                id="lesson-unit"
-                value={lesson?.unit_name || "—"}
-                disabled
-                dir="rtl"
-              />
+              <Input id="lesson-unit" value={lesson?.unit_name || "—"} disabled dir="rtl" />
             </div>
           </div>
 
@@ -228,11 +218,7 @@ export function LessonBasicEditDialog({ open, onOpenChange, lesson }: Props) {
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             إلغاء
           </Button>
           <Button onClick={handleSave} disabled={saving}>

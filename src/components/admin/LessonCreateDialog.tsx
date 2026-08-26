@@ -100,13 +100,10 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
 
   const subjectIds = useMemo(
     () => new Set(filteredSubjects.map((s: any) => s.id)),
-    [filteredSubjects]
+    [filteredSubjects],
   );
 
-  const unitIds = useMemo(
-    () => new Set(filteredUnits.map((u: any) => u.id)),
-    [filteredUnits]
-  );
+  const unitIds = useMemo(() => new Set(filteredUnits.map((u: any) => u.id)), [filteredUnits]);
 
   async function handleSave() {
     setError(null);
@@ -168,13 +165,16 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(val) => { if (!saving) onOpenChange(val); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        if (!saving) onOpenChange(val);
+      }}
+    >
       <DialogContent dir="rtl" className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>إضافة درس</DialogTitle>
-          <DialogDescription>
-            إنشاء درس جديد.
-          </DialogDescription>
+          <DialogDescription>إنشاء درس جديد.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -210,7 +210,9 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
             >
               <option value="">اختر الصف أولاً…</option>
               {(gradesQ.data ?? []).map((grade: any) => (
-                <option key={grade.id} value={grade.id}>{grade.name}</option>
+                <option key={grade.id} value={grade.id}>
+                  {grade.name}
+                </option>
               ))}
             </select>
           </div>
@@ -245,7 +247,9 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
               disabled={!subjectId || saving}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
             >
-              <option value="">{subjectId ? "لا توجد وحدة — ربط الدرس بالمادة مباشرة" : "اختر المادة أولاً"}</option>
+              <option value="">
+                {subjectId ? "لا توجد وحدة — ربط الدرس بالمادة مباشرة" : "اختر المادة أولاً"}
+              </option>
               {filteredUnits.map((u: any) => (
                 <option key={u.id} value={u.id}>
                   {u.title}
@@ -253,7 +257,9 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
               ))}
             </select>
             {subjectId && filteredUnits.length === 0 && (
-              <p className="text-xs text-muted-foreground">هذه المادة لا تحتوي وحدات؛ سيُربط الدرس بالمادة مباشرة.</p>
+              <p className="text-xs text-muted-foreground">
+                هذه المادة لا تحتوي وحدات؛ سيُربط الدرس بالمادة مباشرة.
+              </p>
             )}
           </div>
 
@@ -308,11 +314,7 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
         </div>
 
         <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             إلغاء
           </Button>
           <Button onClick={handleSave} disabled={saving}>
@@ -330,4 +332,3 @@ export function LessonCreateDialog({ open, onOpenChange }: Props) {
     </Dialog>
   );
 }
-

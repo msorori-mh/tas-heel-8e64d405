@@ -19,8 +19,7 @@ function AuthCallback() {
         const url = new URL(window.location.href);
         const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
 
-        const errDesc =
-          url.searchParams.get("error_description") || hash.get("error_description");
+        const errDesc = url.searchParams.get("error_description") || hash.get("error_description");
         const errCode = url.searchParams.get("error") || hash.get("error");
         if (errDesc || errCode) {
           throw new Error(errDesc || errCode || "OAuth error");
@@ -40,7 +39,9 @@ function AuthCallback() {
           await new Promise((r) => setTimeout(r, 150));
         }
 
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (!user) throw new Error("لم يتم العثور على جلسة");
 
         const { data: profile } = await supabase

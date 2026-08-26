@@ -64,14 +64,17 @@ function rowsLeakAnswerKey(body) {
   return rows.some(
     (x) =>
       (x.correct_index !== undefined && x.correct_index !== null) ||
-      (x.explanation !== undefined && x.explanation !== null)
+      (x.explanation !== undefined && x.explanation !== null),
   );
 }
 
 function isBlocked(status, body) {
   if (status === 403 || status === 401) return true;
   if (body?.code === "42501" || body?.code === "PGRST301") return true;
-  if (typeof body?.message === "string" && /permission denied|column.*does not exist/i.test(body.message))
+  if (
+    typeof body?.message === "string" &&
+    /permission denied|column.*does not exist/i.test(body.message)
+  )
     return true;
   return false;
 }
@@ -122,7 +125,8 @@ if (token) {
     const leak = rowsLeakAnswerKey(r.body);
     if (expectBlocked) {
       if (isBlocked(r.status, r.body)) pass(name, `HTTP ${r.status}`);
-      else if (leak) fail(name, `HTTP ${r.status} LEAK sample correct_index=${r.body?.[0]?.correct_index}`);
+      else if (leak)
+        fail(name, `HTTP ${r.status} LEAK sample correct_index=${r.body?.[0]?.correct_index}`);
       else fail(name, `HTTP ${r.status} column still selectable (migration not applied?)`);
     } else if (r.status === 200 && !leak) pass(name, `HTTP ${r.status}`);
     else fail(name, `HTTP ${r.status} msg=${r.body?.message ?? ""}`);
@@ -135,11 +139,16 @@ if (token) {
       _lesson_id: lessonId,
     });
     const qrows = quiz ?? [];
-    const rpcLeak = Array.isArray(qrows) && qrows.some((x) => "correct_index" in x || "explanation" in x);
+    const rpcLeak =
+      Array.isArray(qrows) && qrows.some((x) => "correct_index" in x || "explanation" in x);
     if (!qe && !rpcLeak) pass("RPC get_lesson_quiz_questions", `rows=${qrows.length}`);
     else if (qe?.message?.includes("forbidden") || qe?.message?.includes("42501"))
       skip("RPC get_lesson_quiz_questions", qe.message);
-    else fail("RPC get_lesson_quiz_questions", qe?.message ?? (rpcLeak ? "answer key in RPC output" : "unknown"));
+    else
+      fail(
+        "RPC get_lesson_quiz_questions",
+        qe?.message ?? (rpcLeak ? "answer key in RPC output" : "unknown"),
+      );
 
     const { data: qidRow } = await client
       .from("questions")
@@ -154,7 +163,8 @@ if (token) {
       });
       if (!ce && chk && typeof chk.is_correct === "boolean") {
         const rpcDirectLeak = chk.correct_index !== undefined;
-        if (rpcDirectLeak) pass("RPC check_lesson_question", "returns grading fields (expected via RPC)");
+        if (rpcDirectLeak)
+          pass("RPC check_lesson_question", "returns grading fields (expected via RPC)");
         else pass("RPC check_lesson_question", "callable");
       } else if (ce?.message?.includes("forbidden") || ce?.message?.includes("42501"))
         skip("RPC check_lesson_question", ce.message);

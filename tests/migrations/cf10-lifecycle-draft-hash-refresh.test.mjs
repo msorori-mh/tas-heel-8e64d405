@@ -62,7 +62,10 @@ test("the update touches only draft_hash and draft_updated_at", () => {
     sql.indexOf("UPDATE public.lesson_capability_lifecycle"),
     sql.indexOf("GET DIAGNOSTICS rc = ROW_COUNT;\n      IF rc <> 1"),
   );
-  assert.match(update, /SET draft_hash = payloads->cap->>'sha256',\s*\n\s*draft_updated_at = now\(\)/);
+  assert.match(
+    update,
+    /SET draft_hash = payloads->cap->>'sha256',\s*\n\s*draft_updated_at = now\(\)/,
+  );
   for (const forbidden of [
     "ready_at",
     "ready_snapshot",

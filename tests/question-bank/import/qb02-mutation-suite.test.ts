@@ -3,7 +3,10 @@ import test from "node:test";
 import { createHash } from "node:crypto";
 import { resolveCorrectAnswer } from "../../../src/lib/question-bank/import/correct-answer.ts";
 import { DEFAULT_IMPORT_LIMITS } from "../../../src/lib/question-bank/import/limits.ts";
-import { mixedNumeralScripts, normalizeText } from "../../../src/lib/question-bank/import/unicode.ts";
+import {
+  mixedNumeralScripts,
+  normalizeText,
+} from "../../../src/lib/question-bank/import/unicode.ts";
 import { adaptOfficialFlatV0 } from "../../../src/lib/question-bank/import/adapters/official-flat-v0.ts";
 import { adaptLegacyFlat15Col } from "../../../src/lib/question-bank/import/adapters/legacy-flat-15col.ts";
 import { preflightWorkbook } from "../../../src/lib/question-bank/import/preflight.ts";
@@ -46,23 +49,7 @@ const DEFAULT_CATALOG = {
 
 test("mutation 1: legacy remains 0-based (killer for 1-based drift)", () => {
   const { row, issues } = adaptLegacyFlat15Col(
-    [
-      "Q1",
-      "L1",
-      "PHYS",
-      "س",
-      "أ",
-      "ب",
-      "ج",
-      "د",
-      0,
-      "",
-      "mcq",
-      "2026",
-      "1",
-      "1",
-      "",
-    ],
+    ["Q1", "L1", "PHYS", "س", "أ", "ب", "ج", "د", 0, "", "mcq", "2026", "1", "1", ""],
     {},
   );
   assert.equal(issues.length, 0);
@@ -220,13 +207,23 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
   }
 
   // Mutant 1: Auth Guard Bypass
-  const input1 = { fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0], rows: [], authorized: false };
+  const input1 = {
+    fileName: "x.xlsx",
+    headers: [...CONTRACT_HEADERS.official_flat_v0],
+    rows: [],
+    authorized: false,
+  };
   const hash1 = computeHash(input1);
   const baseline1 = runTestEngineDryRun(input1);
   const mutant1 = runTestEngineDryRun({
     ...input1,
     overrides: {
-      authGuard: () => ({ ok: true, actorId: "mutant-actor", capability: QB_IMPORT_CAPABILITY, scope: "tenant:default" }),
+      authGuard: () => ({
+        ok: true,
+        actorId: "mutant-actor",
+        capability: QB_IMPORT_CAPABILITY,
+        scope: "tenant:default",
+      }),
     },
   });
   auditRecords.push({
@@ -243,7 +240,9 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
     mutant_stage: mutant1.issues[0]?.stage ?? "ADAPTER_DETECT",
     mutant_code: mutant1.issues[0]?.code ?? "INVALID_CONTRACT",
     mutant_decision: mutant1.replay_decision,
-    killed: baseline1.summary.file_blocking !== mutant1.summary.file_blocking || baseline1.issues[0]?.code !== mutant1.issues[0]?.code,
+    killed:
+      baseline1.summary.file_blocking !== mutant1.summary.file_blocking ||
+      baseline1.issues[0]?.code !== mutant1.issues[0]?.code,
     false_kill_reason: null,
   });
 
@@ -254,7 +253,20 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
   const mutant2 = runTestEngineDryRun({
     ...input2,
     overrides: {
-      authGuard: (auth, scope) => (auth ? { ok: true, actorId: "actor-1", capability: QB_IMPORT_CAPABILITY, scope: scope ?? "tenant:default" } : { ok: true, actorId: "missing-bypass", capability: QB_IMPORT_CAPABILITY, scope: scope ?? "tenant:default" }),
+      authGuard: (auth, scope) =>
+        auth
+          ? {
+              ok: true,
+              actorId: "actor-1",
+              capability: QB_IMPORT_CAPABILITY,
+              scope: scope ?? "tenant:default",
+            }
+          : {
+              ok: true,
+              actorId: "missing-bypass",
+              capability: QB_IMPORT_CAPABILITY,
+              scope: scope ?? "tenant:default",
+            },
     },
   });
   auditRecords.push({
@@ -271,21 +283,35 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
     mutant_stage: mutant2.issues[0]?.stage ?? "ADAPTER_DETECT",
     mutant_code: mutant2.issues[0]?.code ?? "INVALID_CONTRACT",
     mutant_decision: mutant2.replay_decision,
-    killed: baseline2.summary.file_blocking !== mutant2.summary.file_blocking || baseline2.issues[0]?.code !== mutant2.issues[0]?.code,
+    killed:
+      baseline2.summary.file_blocking !== mutant2.summary.file_blocking ||
+      baseline2.issues[0]?.code !== mutant2.issues[0]?.code,
     false_kill_reason: null,
   });
 
   // Mutant 3: ZIP Preflight Limit Bypass
   const dupZipBytes = await buildZipWithDuplicateEntry();
   const hash3 = computeHash(dupZipBytes);
-  const baseline3 = await runTestEngineOperationalDryRun({ fileName: "x.xlsx", bytes: dupZipBytes, catalog: DEFAULT_CATALOG, authorized: VALID_AUTH });
+  const baseline3 = await runTestEngineOperationalDryRun({
+    fileName: "x.xlsx",
+    bytes: dupZipBytes,
+    catalog: DEFAULT_CATALOG,
+    authorized: VALID_AUTH,
+  });
   const mutant3 = await runTestEngineOperationalDryRun({
     fileName: "x.xlsx",
     bytes: dupZipBytes,
     catalog: DEFAULT_CATALOG,
     authorized: VALID_AUTH,
     overrides: {
-      zipPreflightGuard: () => ({ ok: true, issues: [], entryNames: [], totalUncompressedBytes: 0, totalEntries: 0, isZip: true }),
+      zipPreflightGuard: () => ({
+        ok: true,
+        issues: [],
+        entryNames: [],
+        totalUncompressedBytes: 0,
+        totalEntries: 0,
+        isZip: true,
+      }),
     },
   });
   auditRecords.push({
@@ -309,7 +335,12 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
   // Mutant 4: Duplicate ZIP Entry Detection Bypass (via zipPreflightGuard options override, 0 result filtering)
   const dupBytes = await buildZipWithDuplicateEntry();
   const hash4 = computeHash(dupBytes);
-  const input4 = { fileName: "x.xlsx", bytes: dupBytes, catalog: DEFAULT_CATALOG, authorized: VALID_AUTH };
+  const input4 = {
+    fileName: "x.xlsx",
+    bytes: dupBytes,
+    catalog: DEFAULT_CATALOG,
+    authorized: VALID_AUTH,
+  };
   const baseline4 = await runTestEngineOperationalDryRun(input4);
   const mutant4 = await runTestEngineOperationalDryRun({
     ...input4,
@@ -338,7 +369,12 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
   // Mutant 5: Traversal Detection Bypass (via zipPreflightGuard options override, 0 result filtering)
   const travBytes = await buildZipWithPathTraversal("../secret.txt");
   const hash5 = computeHash(travBytes);
-  const input5 = { fileName: "x.xlsx", bytes: travBytes, catalog: DEFAULT_CATALOG, authorized: VALID_AUTH };
+  const input5 = {
+    fileName: "x.xlsx",
+    bytes: travBytes,
+    catalog: DEFAULT_CATALOG,
+    authorized: VALID_AUTH,
+  };
   const baseline5 = await runTestEngineOperationalDryRun(input5);
   const mutant5 = await runTestEngineOperationalDryRun({
     ...input5,
@@ -367,7 +403,12 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
   // Mutant 6: Formula Guard Bypass (actual XLSX binary bytes, via preflightGuard options override, 0 result filtering)
   const formulaBytes = await buildFormulaXlsx();
   const hash6 = computeHash(formulaBytes);
-  const input6 = { fileName: "formula.xlsx", bytes: formulaBytes, catalog: DEFAULT_CATALOG, authorized: VALID_AUTH };
+  const input6 = {
+    fileName: "formula.xlsx",
+    bytes: formulaBytes,
+    catalog: DEFAULT_CATALOG,
+    authorized: VALID_AUTH,
+  };
   const baseline6 = await runTestEngineOperationalDryRun(input6);
   const mutant6 = await runTestEngineOperationalDryRun({
     ...input6,
@@ -394,7 +435,12 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
   });
 
   // Mutant 7: Schema Detector Bypass
-  const input7 = { fileName: "x.xlsx", headers: ["unsupported_col1", "unsupported_col2"], rows: [], authorized: VALID_AUTH };
+  const input7 = {
+    fileName: "x.xlsx",
+    headers: ["unsupported_col1", "unsupported_col2"],
+    rows: [],
+    authorized: VALID_AUTH,
+  };
   const hash7 = computeHash(input7);
   const baseline7 = runTestEngineDryRun(input7);
   const mutant7 = runTestEngineDryRun({
@@ -424,12 +470,21 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
   // Mutant 8: External Relationship Scanner Bypass
   const extBytes = await buildOoxmlExternalRelXlsx("http://attacker.com");
   const hash8 = computeHash(extBytes);
-  const input8 = { fileName: "ext.xlsx", bytes: extBytes, catalog: DEFAULT_CATALOG, authorized: VALID_AUTH };
+  const input8 = {
+    fileName: "ext.xlsx",
+    bytes: extBytes,
+    catalog: DEFAULT_CATALOG,
+    authorized: VALID_AUTH,
+  };
   const baseline8 = await runTestEngineOperationalDryRun(input8);
   const mutant8 = await runTestEngineOperationalDryRun({
     ...input8,
     overrides: {
-      externalRelScanner: async () => ({ hasExternalLinks: false, externalTargets: [], invalidStructure: false }),
+      externalRelScanner: async () => ({
+        hasExternalLinks: false,
+        externalTargets: [],
+        invalidStructure: false,
+      }),
     },
   });
   auditRecords.push({
@@ -462,7 +517,13 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
     max_score: 1,
     subject_code: "MATH-G10",
   };
-  const input9 = { fileName: "idem.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0], rows: [rowObj, { ...rowObj, question_code: "R2" }], authorized: VALID_AUTH, catalog: DEFAULT_CATALOG };
+  const input9 = {
+    fileName: "idem.xlsx",
+    headers: [...CONTRACT_HEADERS.official_flat_v0],
+    rows: [rowObj, { ...rowObj, question_code: "R2" }],
+    authorized: VALID_AUTH,
+    catalog: DEFAULT_CATALOG,
+  };
   const hash9 = computeHash(input9);
   const baseline9 = runTestEngineDryRun(input9);
   const mutant9 = runTestEngineDryRun({
@@ -490,7 +551,13 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
   });
 
   // Mutant 10: Required-Column Checker Bypass (single dependency change on headersMatcher)
-  const input10 = { fileName: "col.xlsx", headers: ["question_code"], rows: [], schemaHint: "official_flat_v0" as const, authorized: VALID_AUTH };
+  const input10 = {
+    fileName: "col.xlsx",
+    headers: ["question_code"],
+    rows: [],
+    schemaHint: "official_flat_v0" as const,
+    authorized: VALID_AUTH,
+  };
   const hash10 = computeHash(input10);
   const baseline10 = runTestEngineDryRun(input10);
   const mutant10 = runTestEngineDryRun({
@@ -521,12 +588,26 @@ test("Test Engine Mutation Suite: all 10 real mutants killed by single dependenc
   assert.equal(auditRecords.length, 10, "Mutant table must have exactly 10 entries");
 
   for (const m of auditRecords) {
-    assert.equal(m.input_hash_baseline, m.input_hash_mutant, `${m.mutant_id}: input hash mismatch!`);
-    assert.equal(m.engine_path_baseline, m.engine_path_mutant, `${m.mutant_id}: engine path mismatch!`);
-    assert.equal(m.changed_dependency_count, 1, `${m.mutant_id}: changed dependency count must be 1`);
+    assert.equal(
+      m.input_hash_baseline,
+      m.input_hash_mutant,
+      `${m.mutant_id}: input hash mismatch!`,
+    );
+    assert.equal(
+      m.engine_path_baseline,
+      m.engine_path_mutant,
+      `${m.mutant_id}: engine path mismatch!`,
+    );
+    assert.equal(
+      m.changed_dependency_count,
+      1,
+      `${m.mutant_id}: changed dependency count must be 1`,
+    );
     assert.equal(m.killed, true, `${m.mutant_id}: mutant survived!`);
     assert.equal(m.false_kill_reason, null, `${m.mutant_id}: false kill detected!`);
   }
 
-  console.log(`QB02 Mutation Suite: Total=10, RealMutants=10, SameInputHash=10/10, SameEnginePath=10/10, ChangedDepCount=1 (10/10), Killed=10/10, Survived=0, FalseKills=0`);
+  console.log(
+    `QB02 Mutation Suite: Total=10, RealMutants=10, SameInputHash=10/10, SameEnginePath=10/10, ChangedDepCount=1 (10/10), Killed=10/10, Survived=0, FalseKills=0`,
+  );
 });

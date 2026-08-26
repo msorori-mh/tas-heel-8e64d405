@@ -20,7 +20,9 @@ export async function computeSha256Bytes(data: string | Uint8Array | Buffer): Pr
     return new Uint8Array(hash);
   } catch {
     // Fail-closed: No fallback non-cryptographic hashing allowed for security boundaries
-    throw new Error("FAIL_CLOSED: Cryptographic SHA-256 implementation unavailable in environment.");
+    throw new Error(
+      "FAIL_CLOSED: Cryptographic SHA-256 implementation unavailable in environment.",
+    );
   }
 }
 

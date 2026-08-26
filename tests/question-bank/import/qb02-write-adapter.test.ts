@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runQuestionBankImportDryRun, runOperationalQuestionBankImportDryRun } from "../../../src/lib/question-bank/import/dry-run.ts";
+import {
+  runQuestionBankImportDryRun,
+  runOperationalQuestionBankImportDryRun,
+} from "../../../src/lib/question-bank/import/dry-run.ts";
 import { CONTRACT_HEADERS } from "../../../src/lib/question-bank/import/adapters/detect.ts";
 import { OFFICIAL_FLAT_V0 } from "../../../src/lib/question-bank/import/adapters/official-flat-v0.ts";
 import { buildMinimalValidXlsx } from "../../fixtures/question-bank/import/binary-fixtures.ts";
@@ -105,5 +108,9 @@ test("Dry Run operational path with throwing write adapter remains side-effect f
   assert.equal(res1.summary.file_blocking, false);
   assert.equal(res1.summary.ok_rows, 1);
   assert.equal(res1.apply_token_contract.mintable, false);
-  assert.equal(res1.validation_hash, res2.validation_hash, "Dry run must be deterministically repeatable");
+  assert.equal(
+    res1.validation_hash,
+    res2.validation_hash,
+    "Dry run must be deterministically repeatable",
+  );
 });

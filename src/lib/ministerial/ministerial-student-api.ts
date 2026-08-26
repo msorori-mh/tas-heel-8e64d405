@@ -297,9 +297,7 @@ export async function fetchMinisterialSessionResult(
   return data as unknown as MinisterialSessionResult;
 }
 
-export async function fetchMinisterialAttempts(
-  modelId?: string,
-): Promise<MinisterialAttemptRow[]> {
+export async function fetchMinisterialAttempts(modelId?: string): Promise<MinisterialAttemptRow[]> {
   const { data, error } = await supabase.rpc("list_ministerial_attempts", {
     _model_id: modelId ?? undefined,
   });
@@ -317,10 +315,15 @@ export function formatElapsed(seconds: number | null | undefined): string {
 }
 
 export function mapMinisterialError(err: unknown): string {
-  const msg = err instanceof Error ? err.message : String((err as { message?: string })?.message ?? "");
+  const msg =
+    err instanceof Error ? err.message : String((err as { message?: string })?.message ?? "");
   if (msg.includes("MINISTERIAL_MODEL_NOT_PUBLISHED")) return "هذا النموذج غير منشور.";
-  if (msg.includes("MINISTERIAL_MODEL_HAS_NO_QUESTIONS")) return "هذا النموذج لا يحتوي على أسئلة بعد.";
-  if (msg.includes("ministerial_model_not_available") || msg.includes("curriculum_or_grade_mismatch")) {
+  if (msg.includes("MINISTERIAL_MODEL_HAS_NO_QUESTIONS"))
+    return "هذا النموذج لا يحتوي على أسئلة بعد.";
+  if (
+    msg.includes("ministerial_model_not_available") ||
+    msg.includes("curriculum_or_grade_mismatch")
+  ) {
     return "هذا النموذج غير متاح لصفك الدراسي أو لم يعد منشوراً.";
   }
   if (msg.includes("ANSWER_ALREADY_REVEALED_LOCKED")) return "تم كشف الإجابة، ولا يمكن تغييرها.";
@@ -332,7 +335,8 @@ export function mapMinisterialError(err: unknown): string {
   }
   if (msg.includes("INVALID_OPTION_CODE")) return "خيار غير صالح.";
   if (msg.includes("template_inactive")) return "هذا النموذج غير مفعّل حالياً.";
-  if (msg.includes("model_not_found") || msg.includes("session_not_found")) return "العنصر المطلوب غير موجود.";
+  if (msg.includes("model_not_found") || msg.includes("session_not_found"))
+    return "العنصر المطلوب غير موجود.";
   if (msg.includes("forbidden") || msg.includes("42501")) return "ليس لديك صلاحية الوصول.";
   return "تعذّر إتمام العملية. حاول مرة أخرى.";
 }

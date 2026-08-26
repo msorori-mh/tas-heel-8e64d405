@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runQuestionBankImportDryRun, runOperationalQuestionBankImportDryRun } from "../../../src/lib/question-bank/import/dry-run.ts";
+import {
+  runQuestionBankImportDryRun,
+  runOperationalQuestionBankImportDryRun,
+} from "../../../src/lib/question-bank/import/dry-run.ts";
 import { CONTRACT_HEADERS } from "../../../src/lib/question-bank/import/adapters/detect.ts";
 import { OFFICIAL_FLAT_V0 } from "../../../src/lib/question-bank/import/adapters/official-flat-v0.ts";
 import { buildMinimalValidXlsx } from "../../fixtures/question-bank/import/binary-fixtures.ts";
@@ -25,7 +28,13 @@ const DENY_CASES: Array<{ name: string; auth: unknown }> = [
   { name: "authorized:true only", auth: { authorized: true } },
   {
     name: "authenticated missing",
-    auth: { actorId: "a", authorized: true, capability: "question_bank.import", scope: "tenant:default", context: {} },
+    auth: {
+      actorId: "a",
+      authorized: true,
+      capability: "question_bank.import",
+      scope: "tenant:default",
+      context: {},
+    },
   },
   {
     name: "authenticated:false",
@@ -33,7 +42,13 @@ const DENY_CASES: Array<{ name: string; auth: unknown }> = [
   },
   {
     name: "actorId missing",
-    auth: { authenticated: true, authorized: true, capability: "question_bank.import", scope: "tenant:default", context: {} },
+    auth: {
+      authenticated: true,
+      authorized: true,
+      capability: "question_bank.import",
+      scope: "tenant:default",
+      context: {},
+    },
   },
   {
     name: "actorId empty",
@@ -41,7 +56,13 @@ const DENY_CASES: Array<{ name: string; auth: unknown }> = [
   },
   {
     name: "capability missing",
-    auth: { authenticated: true, actorId: "a", authorized: true, scope: "tenant:default", context: {} },
+    auth: {
+      authenticated: true,
+      actorId: "a",
+      authorized: true,
+      scope: "tenant:default",
+      context: {},
+    },
   },
   {
     name: "capability wrong",
@@ -49,7 +70,13 @@ const DENY_CASES: Array<{ name: string; auth: unknown }> = [
   },
   {
     name: "scope missing",
-    auth: { authenticated: true, actorId: "a", authorized: true, capability: "question_bank.import", context: {} },
+    auth: {
+      authenticated: true,
+      actorId: "a",
+      authorized: true,
+      capability: "question_bank.import",
+      context: {},
+    },
   },
   {
     name: "scope wrong",
@@ -158,5 +185,8 @@ test("Operational path verifies authorization FIRST before binary inspection or 
 
   assert.equal(res.summary.file_blocking, true);
   assert.equal(res.preview.length, 0);
-  assert.equal(res.issues[0]?.code === "UNAUTHORIZED_IMPORT" || res.issues[0]?.code === "AUTH_MISSING", true);
+  assert.equal(
+    res.issues[0]?.code === "UNAUTHORIZED_IMPORT" || res.issues[0]?.code === "AUTH_MISSING",
+    true,
+  );
 });

@@ -3,7 +3,6 @@ import { BookOpen, Target, Trophy, Zap } from "lucide-react";
 import heroAsset from "@/assets/prototype/fm-v2-hero-real.png.asset.json";
 import featureImage from "@/assets/prototype/fm-v2-feature.png";
 
-
 /**
  * TAMKEEN_FOCUSED_MOMENTUM_V2_PROTOTYPE_19A — Landing screen (visual only).
  * Compact mobile-first hero, static copy, no data and no auth wiring.
@@ -124,4 +123,3 @@ function LandingPrototype() {
     </main>
   );
 }
-

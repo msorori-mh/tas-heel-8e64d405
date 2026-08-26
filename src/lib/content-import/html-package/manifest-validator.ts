@@ -12,7 +12,7 @@ import { ValidationCodes } from "./validation-codes.ts";
 export function validateManifest(
   rawManifest: unknown,
   expectedResourceCode?: string,
-  excelRow?: InteractiveLessonResourceImportRow
+  excelRow?: InteractiveLessonResourceImportRow,
 ): {
   isValid: boolean;
   manifest?: InteractiveResourceManifest;
@@ -60,7 +60,7 @@ export function validateManifest(
     });
   }
 
-  if (!HTML_RESOURCE_TYPES.includes(resourceType as typeof HTML_RESOURCE_TYPES[number])) {
+  if (!HTML_RESOURCE_TYPES.includes(resourceType as (typeof HTML_RESOURCE_TYPES)[number])) {
     findings.push({
       code: ValidationCodes.INVALID_RESOURCE_TYPE,
       severity: "error",

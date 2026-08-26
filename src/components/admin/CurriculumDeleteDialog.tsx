@@ -100,10 +100,7 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
   });
 
   const preview = previewQ.data;
-  const impact = preview
-    ? Object.entries(preview.counts).filter(([, n]) => Number(n) > 0)
-    : [];
-
+  const impact = preview ? Object.entries(preview.counts).filter(([, n]) => Number(n) > 0) : [];
 
   const runDelete = async () => {
     if (!target) return;
@@ -134,7 +131,6 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
 
   const handleDelete = () => runDelete();
 
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent dir="rtl" className="sm:max-w-lg">
@@ -143,9 +139,7 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
             <AlertTriangle className="h-5 w-5 text-destructive" />
             حذف {target ? ENTITY_LABEL[target.type] : ""}
           </DialogTitle>
-          <DialogDescription className="text-right">
-            {target?.label}
-          </DialogDescription>
+          <DialogDescription className="text-right">{target?.label}</DialogDescription>
         </DialogHeader>
 
         {previewQ.isLoading && (
@@ -189,7 +183,6 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
                     <li key={b}>{describeBlocker(b)}</li>
                   ))}
                 </ul>
-
               </div>
             )}
 
@@ -219,7 +212,6 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
             إلغاء
           </Button>
         </DialogFooter>
-
       </DialogContent>
     </Dialog>
   );

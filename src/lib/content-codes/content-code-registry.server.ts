@@ -8,11 +8,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import {
-  CONTENT_CODE_SCHEME_VERSION,
-  nextAllocatedNumber,
-  parseTcs2Code,
-} from "./tcs2";
+import { CONTENT_CODE_SCHEME_VERSION, nextAllocatedNumber, parseTcs2Code } from "./tcs2";
 import { TCS1_GRADES, TCS1_TRACKS } from "./tcs1-master-data";
 import type {
   CodeRegistryLesson,
@@ -23,9 +19,7 @@ import type {
 
 type AnyClient = SupabaseClient<Database>;
 
-export async function loadContentCodeRegistry(
-  supabase: AnyClient,
-): Promise<ContentCodeRegistry> {
+export async function loadContentCodeRegistry(supabase: AnyClient): Promise<ContentCodeRegistry> {
   const [gradesRes, tracksRes, subjectsRes, unitsRes, lessonsRes, mappingRes] = await Promise.all([
     supabase.from("grades").select("id, slug, name").order("sort_order", { ascending: true }),
     supabase.from("curriculum_tracks").select("id, track_code, track_name"),
@@ -34,10 +28,11 @@ export async function loadContentCodeRegistry(
       .select("id, code, name, group_code, group_name, grade_id")
       .order("code", { ascending: true }),
     supabase.from("units").select("id, code, title, subject_id").order("code", { ascending: true }),
-    supabase.from("lessons").select("id, slug, title, subject_id, unit_id, semester, sort_order").order("sort_order", { ascending: true }),
     supabase
-      .from("subject_curriculum_tracks")
-      .select("subject_id, curriculum_track_id, is_active"),
+      .from("lessons")
+      .select("id, slug, title, subject_id, unit_id, semester, sort_order")
+      .order("sort_order", { ascending: true }),
+    supabase.from("subject_curriculum_tracks").select("subject_id, curriculum_track_id, is_active"),
   ]);
 
   const firstError =
@@ -139,7 +134,9 @@ export async function loadContentCodeRegistry(
     })),
     tracks: TCS1_TRACKS.map((t) => ({
       trackCode: t.trackCode,
-      nameAr: (tracksRes.data ?? []).find((row) => row.track_code === t.trackCode)?.track_name ?? t.nameAr,
+      nameAr:
+        (tracksRes.data ?? []).find((row) => row.track_code === t.trackCode)?.track_name ??
+        t.nameAr,
     })),
     subjects,
     units,

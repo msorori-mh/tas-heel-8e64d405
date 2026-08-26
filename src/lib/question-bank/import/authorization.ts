@@ -30,7 +30,11 @@ export function validateImportAuthorization(
   fileName = "workbook.xlsx",
 ): AuthorizationResult {
   const makeIssue = (code: keyof typeof QB_IMPORT_CODES) => {
-    return issue(code, { file: fileName, stage: "AUTHORIZATION", source_subsystem: "authorization" });
+    return issue(code, {
+      file: fileName,
+      stage: "AUTHORIZATION",
+      source_subsystem: "authorization",
+    });
   };
 
   if (auth === undefined || auth === null || auth === false) {

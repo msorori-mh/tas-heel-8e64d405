@@ -2,14 +2,7 @@ import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import {
-  AlertTriangle,
-  FileText,
-  Loader2,
-  RefreshCw,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { AlertTriangle, FileText, Loader2, RefreshCw, Trash2, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -71,11 +64,7 @@ export function LessonPrimaryPdfCard({ lessonId, enabled }: Props) {
     if (!pending) return;
     setBusy(true);
     try {
-      const res = await uploadLessonPrimaryPdf(
-        { createTarget, bind },
-        lessonId,
-        pending,
-      );
+      const res = await uploadLessonPrimaryPdf({ createTarget, bind }, lessonId, pending);
       toast.success(res.replaced ? "تم استبدال ملف الدرس الأساسي." : "تم رفع ملف الدرس الأساسي.");
       setPending(null);
       if (inputRef.current) inputRef.current.value = "";
@@ -117,9 +106,7 @@ export function LessonPrimaryPdfCard({ lessonId, enabled }: Props) {
               </p>
               <p className="text-muted-foreground">
                 الحجم: {formatBytes(primary.fileSize)} · آخر تحديث:{" "}
-                {primary.uploadedAt
-                  ? new Date(primary.uploadedAt).toLocaleString("ar")
-                  : "—"}
+                {primary.uploadedAt ? new Date(primary.uploadedAt).toLocaleString("ar") : "—"}
               </p>
               <p className="text-muted-foreground">
                 الحالة: مرفوع على التخزين الخاص · جاهز للطالب ·{" "}

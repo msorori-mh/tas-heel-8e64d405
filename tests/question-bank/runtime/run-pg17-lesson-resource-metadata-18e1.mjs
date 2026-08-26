@@ -17,16 +17,34 @@ const migration = join(
   "20260820010000_lesson_resource_upload_metadata_keys_18e1.sql",
 );
 if (!existsSync(migration)) {
-  const applied = join(root, "supabase", "migrations", "20260820010000_lesson_resource_upload_metadata_keys_18e1.sql");
+  const applied = join(
+    root,
+    "supabase",
+    "migrations",
+    "20260820010000_lesson_resource_upload_metadata_keys_18e1.sql",
+  );
   if (!existsSync(applied)) throw new Error("migration file missing");
 }
 const migPath = existsSync(migration)
   ? migration
-  : join(root, "supabase", "migrations", "20260820010000_lesson_resource_upload_metadata_keys_18e1.sql");
+  : join(
+      root,
+      "supabase",
+      "migrations",
+      "20260820010000_lesson_resource_upload_metadata_keys_18e1.sql",
+    );
 
 const dataDir = mkdtempSync(join(tmpdir(), "pg17-18e1-"));
 const sock = mkdtempSync(join(tmpdir(), "pg17-sock-"));
-const env = { ...process.env, PGDATA: dataDir, PGHOST: sock, PGPORT: "55432", PGUSER: "postgres", PGDATABASE: "postgres", PGPASSWORD: "" };
+const env = {
+  ...process.env,
+  PGDATA: dataDir,
+  PGHOST: sock,
+  PGPORT: "55432",
+  PGUSER: "postgres",
+  PGDATABASE: "postgres",
+  PGPASSWORD: "",
+};
 
 function run(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, { encoding: "utf8", env, ...opts });
@@ -41,7 +59,14 @@ let started = false;
 const results = [];
 try {
   run("initdb", ["-U", "postgres", "--auth=trust"]);
-  run("pg_ctl", ["-w", "-o", `-k ${sock} -p 55432 -c listen_addresses=`, "-l", join(dataDir, "log"), "start"]);
+  run("pg_ctl", [
+    "-w",
+    "-o",
+    `-k ${sock} -p 55432 -c listen_addresses=`,
+    "-l",
+    join(dataDir, "log"),
+    "start",
+  ]);
   started = true;
 
   // Minimal schema mirroring the production shape used by the validator.
@@ -70,7 +95,10 @@ try {
     for each row execute function public.validate_lesson_resource_metadata();`);
   if (r.status !== 0) throw new Error(r.stderr);
 
-  const lesson = psql("insert into lessons default values returning id").stdout.trim().split("\n")[0].trim();
+  const lesson = psql("insert into lessons default values returning id")
+    .stdout.trim()
+    .split("\n")[0]
+    .trim();
   const obj = "11111111-1111-4111-8111-111111111111";
   const base = {
     source: "direct_upload",
@@ -108,7 +136,10 @@ try {
     const res = ins(meta);
     const got = res.status === 0 ? "PASS" : "DENY";
     const ok = got === expect;
-    if (!ok) { failures++; if (res.status !== 0) console.log("   err: " + (res.stderr||"").trim().split("\n")[0]); }
+    if (!ok) {
+      failures++;
+      if (res.status !== 0) console.log("   err: " + (res.stderr || "").trim().split("\n")[0]);
+    }
     results.push(`${ok ? "OK  " : "FAIL"}  ${name.padEnd(30)} expected=${expect} got=${got}`);
     if (res.status === 0) psql("delete from lesson_resources");
   }

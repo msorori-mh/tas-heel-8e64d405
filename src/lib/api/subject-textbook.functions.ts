@@ -21,9 +21,7 @@ export const listSubjectTextbookCatalogAdmin = createServerFn({ method: "GET" })
         .select("id,track_code,track_name")
         .in("track_code", ["sanaa", "aden"])
         .order("track_name"),
-      supabaseAdmin
-        .from("subject_curriculum_tracks")
-        .select("subject_id,curriculum_track_id"),
+      supabaseAdmin.from("subject_curriculum_tracks").select("subject_id,curriculum_track_id"),
     ]);
     if (gradesResult.error) throw gradesResult.error;
     if (subjectsResult.error) throw subjectsResult.error;
@@ -43,7 +41,9 @@ export const listSubjectTextbookCatalogAdmin = createServerFn({ method: "GET" })
 
 export const listSubjectTextbooksAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ subjectId: z.string().uuid(), includeInactive: z.boolean().optional() }))
+  .inputValidator(
+    z.object({ subjectId: z.string().uuid(), includeInactive: z.boolean().optional() }),
+  )
   .handler(async ({ data, context }) => {
     const m = await import("@/lib/textbooks/subject-textbook.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -84,13 +84,21 @@ export const bindSubjectTextbookFile = createServerFn({ method: "POST" })
       subjectId: z.string().uuid(),
       curriculumTrackId: z.string().uuid().nullable(),
       bookType: z.enum(["MAIN_TEXTBOOK", "EXERCISE_BOOK", "OTHER"]).default("MAIN_TEXTBOOK"),
-      coverageType: z.enum(["FULL_ACADEMIC_YEAR", "SEMESTER_SPECIFIC"]).default("FULL_ACADEMIC_YEAR"),
-      semester: z.union([z.literal(1), z.literal(2)]).nullable().default(null),
+      coverageType: z
+        .enum(["FULL_ACADEMIC_YEAR", "SEMESTER_SPECIFIC"])
+        .default("FULL_ACADEMIC_YEAR"),
+      semester: z
+        .union([z.literal(1), z.literal(2)])
+        .nullable()
+        .default(null),
       title: z.string().min(1).max(200),
       path: z.string().min(1).max(500),
       fileName: z.string().min(1).max(300),
       fileSize: z.number().int().positive(),
-      sha256: z.string().regex(/^[0-9a-f]{64}$/).nullable(),
+      sha256: z
+        .string()
+        .regex(/^[0-9a-f]{64}$/)
+        .nullable(),
       replaceId: z.string().uuid().nullable().optional(),
     }),
   )

@@ -156,9 +156,7 @@ export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: P
 
     setSaving(true);
     if (isCreate) {
-      const { error: insertError } = await supabase
-        .from("exam_templates")
-        .insert(payload);
+      const { error: insertError } = await supabase.from("exam_templates").insert(payload);
       setSaving(false);
       if (insertError) {
         setError("تعذر إنشاء القالب.");
@@ -238,7 +236,9 @@ export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: P
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
               >
                 {MODES.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -272,7 +272,9 @@ export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: P
             >
               <option value="">— غير محدد —</option>
               {(subjectsQ.data ?? []).map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
               ))}
             </select>
           </div>
@@ -292,7 +294,9 @@ export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: P
               >
                 <option value="">— غير محدد —</option>
                 {(unitsQ.data ?? []).map((u) => (
-                  <option key={u.id} value={u.id}>{u.title}</option>
+                  <option key={u.id} value={u.id}>
+                    {u.title}
+                  </option>
                 ))}
               </select>
             </div>
@@ -307,7 +311,9 @@ export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: P
               >
                 <option value="">— غير محدد —</option>
                 {(lessonsQ.data ?? []).map((l) => (
-                  <option key={l.id} value={l.id}>{l.title}</option>
+                  <option key={l.id} value={l.id}>
+                    {l.title}
+                  </option>
                 ))}
               </select>
             </div>
@@ -343,7 +349,11 @@ export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: P
                 <Loader2 className="h-4 w-4 animate-spin" />
                 جاري الحفظ...
               </>
-            ) : isCreate ? "إنشاء" : "حفظ التعديلات"}
+            ) : isCreate ? (
+              "إنشاء"
+            ) : (
+              "حفظ التعديلات"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

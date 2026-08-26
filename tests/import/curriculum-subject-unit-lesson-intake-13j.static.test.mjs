@@ -10,8 +10,7 @@ const files = {
   unitsPage: "src/routes/_authenticated/admin.units.tsx",
   serverFunctions: "src/lib/content-codes/content-codes.functions.ts",
   importContract: "src/lib/import/import-contract.ts",
-  migration:
-    "supabase/migrations/20260826010000_curriculum_subject_unit_lesson_intake_fix_13j.sql",
+  migration: "supabase/migrations/20260826010000_curriculum_subject_unit_lesson_intake_fix_13j.sql",
 };
 
 const read = (key) => readFileSync(files[key], "utf8");
@@ -29,7 +28,7 @@ describe("CURRICULUM_SUBJECT_UNIT_LESSON_INTAKE_FIX_13J", () => {
     assert.match(contract, /f\("unit_code", "units", "code", true\)/);
     assert.match(
       contract,
-      /f\("unit_code", "units", null, false,[\s\S]*empty = lesson attached directly to subject/,
+      /f\(\s*"unit_code",\s*"units",\s*null,\s*false,\s*"[^"]*empty = lesson attached directly to subject"/,
     );
   });
 

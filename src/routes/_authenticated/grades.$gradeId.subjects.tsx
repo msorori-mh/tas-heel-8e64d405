@@ -54,9 +54,7 @@ function SubjectsPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">
-          مواد {grade?.name ?? "الصف"}
-        </h1>
+        <h1 className="text-xl font-bold">مواد {grade?.name ?? "الصف"}</h1>
         <Link to="/grades" className="text-sm text-muted-foreground hover:text-primary">
           ← كل الصفوف
         </Link>

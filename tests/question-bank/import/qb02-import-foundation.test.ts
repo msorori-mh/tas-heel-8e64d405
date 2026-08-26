@@ -5,7 +5,10 @@ import {
   normalizeArabicDigits,
   optionCodesFromCount,
 } from "../../../src/lib/question-bank/import/correct-answer.ts";
-import { adaptLegacyFlat15Col, LEGACY_FLAT_HEADERS } from "../../../src/lib/question-bank/import/adapters/legacy-flat-15col.ts";
+import {
+  adaptLegacyFlat15Col,
+  LEGACY_FLAT_HEADERS,
+} from "../../../src/lib/question-bank/import/adapters/legacy-flat-15col.ts";
 import { adaptTeacherFlatArV0 } from "../../../src/lib/question-bank/import/adapters/teacher-flat-ar-v0.ts";
 import { adaptOfficialFlatV0 } from "../../../src/lib/question-bank/import/adapters/official-flat-v0.ts";
 import {
@@ -19,7 +22,10 @@ import {
 import { QB_IMPORT_CODES } from "../../../src/lib/question-bank/import/validation-codes.ts";
 import { OFFICIAL_NORMALIZED_V1 } from "../../../src/lib/question-bank/import/official-normalized-v1.ts";
 import { contentFingerprint } from "../../../src/lib/question-bank/import/validate.ts";
-import { canonicalHash, canonicalJson } from "../../../src/lib/question-bank/import/canonical-json.ts";
+import {
+  canonicalHash,
+  canonicalJson,
+} from "../../../src/lib/question-bank/import/canonical-json.ts";
 import { preflightWorkbook } from "../../../src/lib/question-bank/import/preflight.ts";
 import { DEFAULT_IMPORT_LIMITS } from "../../../src/lib/question-bank/import/limits.ts";
 import { validateMediaUrl } from "../../../src/lib/question-bank/import/media-policy.ts";
@@ -133,32 +139,13 @@ test("detect exact teacher/official/legacy headers", () => {
     detectSchemaFromHeaders([...CONTRACT_HEADERS.official_flat_v0]).schema,
     "official_flat_v0",
   );
-  assert.equal(
-    detectSchemaFromHeaders([...LEGACY_FLAT_HEADERS]).schema,
-    "legacy_flat_15col",
-  );
+  assert.equal(detectSchemaFromHeaders([...LEGACY_FLAT_HEADERS]).schema, "legacy_flat_15col");
   assert.equal(detectSchemaFromHeaders(["foo", "bar"]).schema, "unknown");
 });
 
 test("legacy adapter 0-based correct_index", () => {
   const { row, issues } = adaptLegacyFlat15Col(
-    [
-      "Q1",
-      "L1",
-      "PHYS",
-      "س؟",
-      "أ",
-      "ب",
-      "ج",
-      "د",
-      1,
-      "",
-      "mcq",
-      "2026",
-      "1",
-      "1",
-      "",
-    ],
+    ["Q1", "L1", "PHYS", "س؟", "أ", "ب", "ج", "د", 1, "", "mcq", "2026", "1", "1", ""],
     { rowNumber: 2 },
   );
   assert.equal(issues.length, 0);
@@ -170,23 +157,7 @@ test("legacy adapter 0-based correct_index", () => {
 
 test("legacy auto_text is information loss", () => {
   const { issues } = adaptLegacyFlat15Col(
-    [
-      "Q2",
-      "L1",
-      "PHYS",
-      "س",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "auto_text",
-      "2026",
-      "1",
-      "1",
-      "",
-    ],
+    ["Q2", "L1", "PHYS", "س", "", "", "", "", "", "", "auto_text", "2026", "1", "1", ""],
     {},
   );
   assert.ok(issues.some((i) => i.code === QB_IMPORT_CODES.LEGACY_INFORMATION_LOSS));
@@ -302,8 +273,14 @@ test("dry-run teacher happy path", () => {
   });
   assert.equal(r.summary.ok_rows, 1);
   assert.ok(r.accepted_set_hash);
-  assert.equal(r.public_preview[0]!.normalized!.options.every((o) => !o.is_correct), true);
-  assert.equal(r.privileged_preview[0]!.normalized!.options.some((o) => o.is_correct), true);
+  assert.equal(
+    r.public_preview[0]!.normalized!.options.every((o) => !o.is_correct),
+    true,
+  );
+  assert.equal(
+    r.privileged_preview[0]!.normalized!.options.some((o) => o.is_correct),
+    true,
+  );
 });
 
 test("dry-run determinism", () => {
@@ -419,7 +396,10 @@ test("64 KiB cell boundary via preflight metadata", () => {
     rows: [{}],
     metadata: { maxCellBytes: DEFAULT_IMPORT_LIMITS.maxCellBytes },
   });
-  assert.equal(pass.some((i) => i.code === "CELL_TOO_LARGE"), false);
+  assert.equal(
+    pass.some((i) => i.code === "CELL_TOO_LARGE"),
+    false,
+  );
   const fail = preflightWorkbook({
     fileName: "c.xlsx",
     headers: ["a"],
@@ -453,7 +433,10 @@ test("preview redacts answers for public", () => {
     {},
   );
   const pub = previewRows([row!], false);
-  assert.equal(pub[0]!.options.every((o) => !o.is_correct), true);
+  assert.equal(
+    pub[0]!.options.every((o) => !o.is_correct),
+    true,
+  );
 });
 
 test("error export neutralizes formula-like messages with apostrophe", () => {
@@ -491,23 +474,7 @@ test("no DB write symbols in import modules", async () => {
 for (let i = 0; i < 20; i++) {
   test(`legacy edge correct #${i}`, () => {
     const { row, issues } = adaptLegacyFlat15Col(
-      [
-        `E${i}`,
-        "L1",
-        "PHYS",
-        "س",
-        "أ1",
-        "ب1",
-        "ج1",
-        "د1",
-        i % 4,
-        "",
-        "mcq",
-        "2026",
-        "1",
-        "1",
-        "",
-      ],
+      [`E${i}`, "L1", "PHYS", "س", "أ1", "ب1", "ج1", "د1", i % 4, "", "mcq", "2026", "1", "1", ""],
       {},
     );
     assert.equal(issues.length, 0, JSON.stringify(issues));
@@ -643,12 +610,10 @@ test("csv parser integration rejects formula-like cells via trusted path", async
     scope: "tenant:default",
     context: { actorId: "test-actor-123" },
   };
-  const { parseQuestionBankWorkbook } = await import(
-    "../../../src/lib/question-bank/import/workbook-parser.ts"
-  );
-  const { runOperationalQuestionBankImportDryRun } = await import(
-    "../../../src/lib/question-bank/import/dry-run.ts"
-  );
+  const { parseQuestionBankWorkbook } =
+    await import("../../../src/lib/question-bank/import/workbook-parser.ts");
+  const { runOperationalQuestionBankImportDryRun } =
+    await import("../../../src/lib/question-bank/import/dry-run.ts");
   const headers = [...CONTRACT_HEADERS.official_flat_v0];
   const values = headers.map((header) => {
     if (header === "question_code") return "P1";
@@ -664,10 +629,7 @@ test("csv parser integration rejects formula-like cells via trusted path", async
     return "";
   });
   const csv = `${headers.join(",")}\n${values.join(",")}\n`;
-  const trusted = await parseQuestionBankWorkbook(
-    "sample.csv",
-    new TextEncoder().encode(csv),
-  );
+  const trusted = await parseQuestionBankWorkbook("sample.csv", new TextEncoder().encode(csv));
   assert.equal(trusted.trusted_parser_version, "qb02-workbook-parser-v1");
   assert.ok(trusted.parser_result_hash);
   assert.equal(trusted.metadata.csvInjectionCells, true);
@@ -677,11 +639,7 @@ test("csv parser integration rejects formula-like cells via trusted path", async
     authorized: VALID_AUTH,
     catalog: { subjects: new Set(["PHYS"]), lessons: new Set() },
   });
-  assert.ok(
-    result.issues.some(
-      (i) => i.code === "FORMULA_INJECTION" || i.code === "FORMULA_CELL",
-    ),
-  );
+  assert.ok(result.issues.some((i) => i.code === "FORMULA_INJECTION" || i.code === "FORMULA_CELL"));
 });
 
 test("non-scalar scalar fields are not stringified", () => {
@@ -704,9 +662,8 @@ test("non-scalar scalar fields are not stringified", () => {
 });
 
 test("authorization contract matrix: reject partial/invalid auth, allow complete valid state", async () => {
-  const { validateImportAuthorization } = await import(
-    "../../../src/lib/question-bank/import/authorization.ts"
-  );
+  const { validateImportAuthorization } =
+    await import("../../../src/lib/question-bank/import/authorization.ts");
 
   const matrix: Array<{ auth: unknown; expectedCode: string }> = [
     { auth: undefined, expectedCode: "AUTH_MISSING" },
@@ -795,12 +752,10 @@ test("authorization contract matrix: reject partial/invalid auth, allow complete
 });
 
 test("pre-parse authorization guard rejects before parser/JSZip/ExcelJS", async () => {
-  const { runOperationalQuestionBankImportDryRun } = await import(
-    "../../../src/lib/question-bank/import/dry-run.ts"
-  );
-  const { buildMinimalValidXlsx } = await import(
-    "../../fixtures/question-bank/import/binary-fixtures.ts"
-  );
+  const { runOperationalQuestionBankImportDryRun } =
+    await import("../../../src/lib/question-bank/import/dry-run.ts");
+  const { buildMinimalValidXlsx } =
+    await import("../../fixtures/question-bank/import/binary-fixtures.ts");
 
   const bytes = await buildMinimalValidXlsx();
   const res = await runOperationalQuestionBankImportDryRun({
@@ -810,15 +765,16 @@ test("pre-parse authorization guard rejects before parser/JSZip/ExcelJS", async 
     authorized: { valid: true }, // Invalid auth object
   });
 
-  assert.ok(res.issues.some((i) => i.code === "AUTH_MALFORMED" || i.code === "UNAUTHORIZED_IMPORT"));
+  assert.ok(
+    res.issues.some((i) => i.code === "AUTH_MALFORMED" || i.code === "UNAUTHORIZED_IMPORT"),
+  );
   assert.equal(res.summary.file_blocking, true);
   assert.equal(res.preview.length, 0);
 });
 
 test("binary fixtures: real raw XLSX/ZIP bytes execute through operational pipeline", async () => {
-  const { runOperationalQuestionBankImportDryRun } = await import(
-    "../../../src/lib/question-bank/import/dry-run.ts"
-  );
+  const { runOperationalQuestionBankImportDryRun } =
+    await import("../../../src/lib/question-bank/import/dry-run.ts");
   const {
     buildMinimalValidXlsx,
     buildOoxmlExternalRelXlsx,
@@ -911,12 +867,10 @@ test("binary fixtures: real raw XLSX/ZIP bytes execute through operational pipel
 });
 
 test("dry run boundary: preview package only, apply token mintable=false, zero write side-effects", async () => {
-  const { runQuestionBankImportDryRun } = await import(
-    "../../../src/lib/question-bank/import/dry-run.ts"
-  );
-  const { CONTRACT_HEADERS } = await import(
-    "../../../src/lib/question-bank/import/adapters/detect.ts"
-  );
+  const { runQuestionBankImportDryRun } =
+    await import("../../../src/lib/question-bank/import/dry-run.ts");
+  const { CONTRACT_HEADERS } =
+    await import("../../../src/lib/question-bank/import/adapters/detect.ts");
 
   const VALID_AUTH = {
     authenticated: true,

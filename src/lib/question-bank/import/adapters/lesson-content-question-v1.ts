@@ -41,9 +41,7 @@ export function adaptLessonContentQuestionV1(
     explanation: String(source.explanation ?? "").trim() || null,
     option_rationales: OPTION_CODES.flatMap((optionCode, index) => {
       const whyWrong = String(source[`why_wrong_${index + 1}`] ?? "").trim();
-      return whyWrong
-        ? [{ option_code: optionCode, why_correct: null, why_wrong: whyWrong }]
-        : [];
+      return whyWrong ? [{ option_code: optionCode, why_correct: null, why_wrong: whyWrong }] : [];
     }),
   };
   row.provenance = {
@@ -52,9 +50,7 @@ export function adaptLessonContentQuestionV1(
     metadata: {
       ...(row.provenance.metadata ?? {}),
       content_role: role,
-      ...(official && source.prompt_kind
-        ? { prompt_kind: String(source.prompt_kind).trim() }
-        : {}),
+      ...(official && source.prompt_kind ? { prompt_kind: String(source.prompt_kind).trim() } : {}),
     },
   };
 
@@ -63,5 +59,8 @@ export function adaptLessonContentQuestionV1(
     requireRole: true,
     expectedRole: role,
   });
-  return { row: roleIssues.some((entry) => entry.row_blocking) ? null : row, issues: [...adapted.issues, ...roleIssues] };
+  return {
+    row: roleIssues.some((entry) => entry.row_blocking) ? null : row,
+    issues: [...adapted.issues, ...roleIssues],
+  };
 }

@@ -23,8 +23,16 @@ import {
   transitionCapability,
   type LessonCapabilityLifecycleStatus,
 } from "@/lib/lessons/lesson-lifecycle";
-import { Loader2, ArrowRight, Check, Minus, BookOpen, Pencil, FileText, FolderOpen } from "lucide-react";
-
+import {
+  Loader2,
+  ArrowRight,
+  Check,
+  Minus,
+  BookOpen,
+  Pencil,
+  FileText,
+  FolderOpen,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/lesson-content/$lessonId")({
   component: AdminLessonDetailPage,
@@ -59,8 +67,9 @@ function AdminLessonDetailPage() {
   const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
   const [openExplanationsDialog, setOpenExplanationsDialog] = useState(false);
   const [openResourcesDialog, setOpenResourcesDialog] = useState(false);
-  const [pendingCapability, setPendingCapability] =
-    useState<LessonContentCapabilityKey | null>(null);
+  const [pendingCapability, setPendingCapability] = useState<LessonContentCapabilityKey | null>(
+    null,
+  );
 
   // 20C-B — editorial lifecycle rows (staff read every status).
   const lifecycleQ = useQuery({
@@ -91,7 +100,6 @@ function AdminLessonDetailPage() {
     }
   };
 
-
   const lessonQ = useQuery({
     enabled,
     queryKey: ["admin-lesson-detail", lessonId],
@@ -99,7 +107,7 @@ function AdminLessonDetailPage() {
       const { data, error } = await supabase
         .from("lessons")
         .select(
-          "id, title, sort_order, duration, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)"
+          "id, title, sort_order, duration, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)",
         )
         .eq("id", lessonId)
         .maybeSingle();
@@ -206,8 +214,7 @@ function AdminLessonDetailPage() {
           .eq("lesson_id", lessonId)
           .order("sort_order", { ascending: true });
 
-      const base =
-        "id, lesson_id, resource_type, title, url, description, sort_order, created_at";
+      const base = "id, lesson_id, resource_type, title, url, description, sort_order, created_at";
       let { data, error, count } = (await run(
         `${base}, is_primary, html_resource_type, resource_code, metadata`,
       )) as any;
@@ -254,14 +261,13 @@ function AdminLessonDetailPage() {
         .select("id", { count: "exact", head: true })
         .eq("lesson_id", lessonId);
       return {
-        assessmentsCount: assess.error ? 0 : assess.count ?? 0,
-        lessonExamCount: exams.error ? 0 : exams.count ?? 0,
+        assessmentsCount: assess.error ? 0 : (assess.count ?? 0),
+        lessonExamCount: exams.error ? 0 : (exams.count ?? 0),
       };
     },
   });
 
-  const gradeId =
-    (lessonQ.data as any)?.subject?.grade_id ?? null;
+  const gradeId = (lessonQ.data as any)?.subject?.grade_id ?? null;
   const gradeQ = useQuery({
     enabled: enabled && !!gradeId,
     queryKey: ["admin-lesson-detail", "grade", gradeId],
@@ -345,10 +351,7 @@ function AdminLessonDetailPage() {
   // 20B — one contract, derived from the same rows the student reads.
   const lifecycleMap = rowsToLifecycleMap(lifecycleQ.data ?? []);
   const lifecycleStatuses = Object.fromEntries(
-    Object.entries(lifecycleMap).map(([k, v]) => [
-      k,
-      typeof v === "string" ? v : v!.status,
-    ]),
+    Object.entries(lifecycleMap).map(([k, v]) => [k, typeof v === "string" ? v : v!.status]),
   ) as Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>>;
 
   const capabilityContract = applyLifecycleOverlay(
@@ -369,7 +372,6 @@ function AdminLessonDetailPage() {
     }),
     lifecycleMap,
   );
-
 
   return (
     <AdminLayout>
@@ -461,7 +463,10 @@ function AdminLessonDetailPage() {
             <>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
-                  عدد السجلات: <span className="text-foreground font-medium">{bookQ.data?.display?.length ?? 0}</span>
+                  عدد السجلات:{" "}
+                  <span className="text-foreground font-medium">
+                    {bookQ.data?.display?.length ?? 0}
+                  </span>
                 </p>
                 <button
                   onClick={() => setOpenBookDialog(true)}
@@ -472,10 +477,15 @@ function AdminLessonDetailPage() {
                 </button>
               </div>
               {(bookQ.data?.display ?? []).map((b: any, idx: number) => (
-                <div key={b.id} className="mt-2 rounded-lg border border-border bg-muted/30 p-3 text-xs">
+                <div
+                  key={b.id}
+                  className="mt-2 rounded-lg border border-border bg-muted/30 p-3 text-xs"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-muted-foreground">سجل #{idx + 1}</span>
-                    <span>PDF: <YesNo on={b.hasPdf} /></span>
+                    <span>
+                      PDF: <YesNo on={b.hasPdf} />
+                    </span>
                   </div>
                   {b.preview && (
                     <p className="mt-2 line-clamp-3 text-foreground/80 whitespace-pre-wrap">
@@ -497,7 +507,8 @@ function AdminLessonDetailPage() {
             <>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
-                  عدد السجلات: <span className="text-foreground font-medium">{summaryQ.data?.count ?? 0}</span>
+                  عدد السجلات:{" "}
+                  <span className="text-foreground font-medium">{summaryQ.data?.count ?? 0}</span>
                 </p>
                 <button
                   onClick={() => setOpenSummaryDialog(true)}
@@ -564,9 +575,6 @@ function AdminLessonDetailPage() {
           )}
         </Section>
 
-
-
-
         {/* Questions */}
         <Section title="الأسئلة">
           {questionsQ.isLoading ? (
@@ -574,7 +582,8 @@ function AdminLessonDetailPage() {
           ) : (
             <>
               <p className="text-sm text-muted-foreground">
-                عدد الأسئلة: <span className="text-foreground font-medium">{questionsQ.data?.count ?? 0}</span>
+                عدد الأسئلة:{" "}
+                <span className="text-foreground font-medium">{questionsQ.data?.count ?? 0}</span>
               </p>
               {Object.keys(questionsQ.data?.types ?? {}).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -603,7 +612,8 @@ function AdminLessonDetailPage() {
             <>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
-                  عدد الموارد: <span className="text-foreground font-medium">{resourcesQ.data?.count ?? 0}</span>
+                  عدد الموارد:{" "}
+                  <span className="text-foreground font-medium">{resourcesQ.data?.count ?? 0}</span>
                 </p>
                 <button
                   onClick={() => setOpenResourcesDialog(true)}
@@ -629,7 +639,9 @@ function AdminLessonDetailPage() {
                 <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
                   {resourcesQ.data!.items.map((r: any) => (
                     <li key={r.id} className="flex items-center gap-2">
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">{r.resource_type}</span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">
+                        {r.resource_type}
+                      </span>
                       <span className="text-foreground/80">{r.title}</span>
                     </li>
                   ))}
@@ -647,7 +659,8 @@ function AdminLessonDetailPage() {
           ) : (
             <>
               <p className="text-sm text-muted-foreground">
-                عدد المحاكاة: <span className="text-foreground font-medium">{simulationsQ.data?.count ?? 0}</span>
+                عدد المحاكاة:{" "}
+                <span className="text-foreground font-medium">{simulationsQ.data?.count ?? 0}</span>
               </p>
               {(simulationsQ.data?.items ?? []).length > 0 && (
                 <ul className="mt-3 space-y-1 text-xs text-foreground/80">
@@ -717,4 +730,3 @@ function Loading() {
     </div>
   );
 }
-

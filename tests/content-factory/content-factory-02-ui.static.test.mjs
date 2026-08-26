@@ -10,10 +10,7 @@ const unitDialog = readFileSync("src/components/admin/UnitEditDialog.tsx", "utf8
 const unitFunctions = readFileSync("src/lib/content-codes/content-codes.functions.ts", "utf8");
 const textbookManager = readFileSync("src/components/admin/SubjectTextbooksManager.tsx", "utf8");
 const adminLayout = readFileSync("src/components/admin/AdminLayout.tsx", "utf8");
-const contentCenterNav = readFileSync(
-  "src/components/admin/ContentImportCenterNav.tsx",
-  "utf8",
-);
+const contentCenterNav = readFileSync("src/components/admin/ContentImportCenterNav.tsx", "utf8");
 
 test("the import center exposes the unified curriculum and lesson-content workflow", () => {
   assert.match(route, /الاستيراد والفحص والنشر/);
@@ -27,7 +24,10 @@ test("the import center exposes the unified curriculum and lesson-content workfl
   assert.match(component, /1\. اختيار الدرس/);
   assert.match(component, /فحص ومعاينة الملفات/);
   assert.match(component, /نشر الدرس الآن/);
-  assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel|BulkLessonPdfUploadPanel/);
+  assert.doesNotMatch(
+    route,
+    /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel|BulkLessonPdfUploadPanel/,
+  );
   assert.match(component, /09_official_book_questions_template\.xlsx/);
   assert.match(component, /10_self_test_questions_template\.xlsx/);
   assert.match(component, /getContentCodeRegistry/);
@@ -49,14 +49,18 @@ test("operators upload seven declared items and never upload a lesson ZIP or pro
 });
 
 test("exactly six capabilities are required and only the lab is optional", () => {
-  for (const id of ["GOLDEN_QURAN_V1", "GOLDEN_CHEMISTRY_V1"]) assert.match(profiles, new RegExp(id));
+  for (const id of ["GOLDEN_QURAN_V1", "GOLDEN_CHEMISTRY_V1"])
+    assert.match(profiles, new RegExp(id));
   const required = profiles.match(/: "REQUIRED"/g) ?? [];
   const optional = profiles.match(/: "OPTIONAL"/g) ?? [];
   assert.equal(required.length, 12);
   assert.equal(optional.length, 2);
   assert.equal((profiles.match(/labExperimentHtml: "OPTIONAL"/g) ?? []).length, 2);
   assert.equal((profiles.match(/officialBookQuestions: "REQUIRED"/g) ?? []).length, 2);
-  assert.doesNotMatch(profiles, /mindMapHtml: "OPTIONAL"|officialBookQuestions: "OPTIONAL"|selfTest: "OPTIONAL"|labExperimentHtml: "NA"/);
+  assert.doesNotMatch(
+    profiles,
+    /mindMapHtml: "OPTIONAL"|officialBookQuestions: "OPTIONAL"|selfTest: "OPTIONAL"|labExperimentHtml: "NA"/,
+  );
 });
 
 test("question XLSX files are split automatically into public and server-only layers", () => {
@@ -84,7 +88,10 @@ test("student visibility remains fail-closed", () => {
 
 test("mobile-first controls meet the 44px target", () => {
   const controls = component.match(/min-h-\[44px\]/g) ?? [];
-  assert.ok(controls.length >= 5, `expected at least 5 accessible controls, found ${controls.length}`);
+  assert.ok(
+    controls.length >= 5,
+    `expected at least 5 accessible controls, found ${controls.length}`,
+  );
   assert.match(component, /grid-cols-1/);
   assert.match(component, /dir="rtl"/);
 });
@@ -110,7 +117,7 @@ test("curriculum prerequisites are explicit and use only the two operational tra
   assert.doesNotMatch(component, /href="\/admin\/units"/);
   assert.doesNotMatch(component, /href="\/admin\/textbooks"/);
   assert.match(component, /لا توجد وحدة — الدرس مرتبط بالمادة مباشرة/);
-  assert.match(textbookManager, /لا يشترط وجود كتاب مسبقًا/);
+  assert.match(textbookManager, /لا\s+يشترط وجود كتاب مسبقًا/);
   assert.match(textbookManager, /id="subject-textbook-pdf"/);
   assert.match(textbookManager, /منهج صنعاء وعدن معًا/);
   assert.match(adminLayout, /استيراد المحتوى/);

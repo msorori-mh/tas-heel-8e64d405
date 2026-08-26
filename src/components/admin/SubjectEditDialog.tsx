@@ -95,9 +95,7 @@ export function SubjectEditDialog({
     }
     setError(null);
     setTrackIds((current) =>
-      current.includes(trackId)
-        ? current.filter((id) => id !== trackId)
-        : [...current, trackId],
+      current.includes(trackId) ? current.filter((id) => id !== trackId) : [...current, trackId],
     );
   };
 
@@ -124,7 +122,7 @@ export function SubjectEditDialog({
     try {
       const saved = await saveSubject({
         data: {
-          subjectId: isCreate ? null : subject?.id ?? null,
+          subjectId: isCreate ? null : (subject?.id ?? null),
           name: name.trim(),
           gradeId,
           trackIds,
@@ -193,7 +191,9 @@ export function SubjectEditDialog({
             >
               <option value="">اختر الصف</option>
               {grades.map((grade) => (
-                <option key={grade.id} value={grade.id}>{grade.name ?? "—"}</option>
+                <option key={grade.id} value={grade.id}>
+                  {grade.name ?? "—"}
+                </option>
               ))}
             </select>
           </div>
@@ -218,7 +218,8 @@ export function SubjectEditDialog({
               ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              الكتاب أو المادة المشتركة يمكن ربطها بصنعاء وعدن في الوقت نفسه. خيار «آخر» غير مستخدم هنا.
+              الكتاب أو المادة المشتركة يمكن ربطها بصنعاء وعدن في الوقت نفسه. خيار «آخر» غير مستخدم
+              هنا.
             </p>
           </fieldset>
 

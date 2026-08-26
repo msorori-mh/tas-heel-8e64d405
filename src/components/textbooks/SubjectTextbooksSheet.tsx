@@ -396,11 +396,7 @@ function TextbookRow({
           </>
         ) : state === "READER_NOT_READY" ? (
           <>
-            <Button
-              size="sm"
-              className="h-10 min-w-[7.5rem]"
-              onClick={() => void prepareReader()}
-            >
+            <Button size="sm" className="h-10 min-w-[7.5rem]" onClick={() => void prepareReader()}>
               <RefreshCw className="ms-2 h-4 w-4" /> تجهيز القارئ
             </Button>
             <Button size="sm" variant="outline" className="h-10" onClick={() => void openBook()}>

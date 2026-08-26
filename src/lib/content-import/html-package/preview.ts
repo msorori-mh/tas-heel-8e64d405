@@ -13,7 +13,7 @@ export function generatePreviewHtmlBundle(
   resourceCode: string,
   version: number,
   sessionNonce: string,
-  assetMap?: Record<string, string> // asset path -> data URL or blob URL
+  assetMap?: Record<string, string>, // asset path -> data URL or blob URL
 ): string {
   let html = entryFileContent;
 
@@ -31,7 +31,7 @@ export function generatePreviewHtmlBundle(
   const bridgeScriptContent = AppInteractiveResourceBridge.getClientRuntimeBridgeScript(
     resourceCode,
     version,
-    sessionNonce
+    sessionNonce,
   );
   const bridgeScriptTag = `<script>${bridgeScriptContent}</script>`;
 

@@ -39,7 +39,9 @@ test("table-level SELECT on questions is revoked from client roles", () => {
 });
 
 test("student payload allowlist grants exactly the safe columns", () => {
-  const grantMatch = hardening.match(/GRANT SELECT \(([^)]*)\) ON public\.questions TO authenticated;/);
+  const grantMatch = hardening.match(
+    /GRANT SELECT \(([^)]*)\) ON public\.questions TO authenticated;/,
+  );
   assert.ok(grantMatch, "column allowlist GRANT must exist");
   const granted = grantMatch[1].split(",").map((c) => c.trim());
   for (const col of SAFE_COLUMNS) {
@@ -120,7 +122,9 @@ test("client code never selects answer columns from questions", () => {
   const files = walk(srcDir).filter((u) => /\.(ts|tsx)$/.test(u.pathname));
   for (const f of files) {
     const code = readFileSync(f, "utf8");
-    for (const m of code.matchAll(/\.select\(\s*[`]([^`]*)[`]|\.select\(\s*"([^"]*)"|\.select\(\s*'([^']*)'/g)) {
+    for (const m of code.matchAll(
+      /\.select\(\s*[`]([^`]*)[`]|\.select\(\s*"([^"]*)"|\.select\(\s*'([^']*)'/g,
+    )) {
       const cols = m[1] ?? m[2] ?? m[3];
       assert.doesNotMatch(
         cols,

@@ -127,7 +127,8 @@ export const QB_IMPORT_AR_MESSAGES: Record<QbImportCode, string> = {
   WORKBOOK_ENCRYPTED: "المصنف المشفّر بكلمة مرور غير مدعوم.",
   MACRO_CONTENT: "تم اكتشاف محتوى ماكرو أو محتوى نشط.",
   EXTERNAL_LINK: "تم اكتشاف روابط خارجية في المصنف.",
-  OOXML_RELATIONSHIP_STRUCTURE_INVALID: "بنية علاقات OOXML (.rels) مشوهة أو تحتوي عناصر غير معروفة.",
+  OOXML_RELATIONSHIP_STRUCTURE_INVALID:
+    "بنية علاقات OOXML (.rels) مشوهة أو تحتوي عناصر غير معروفة.",
   PATH_TRAVERSAL: "مسار ملف داخل الأرشيف يحتوي على محاولة تجاوز المجلد (Path Traversal).",
   FORMULA_CELL: "خلايا الصيغ غير مسموحة.",
   MERGED_DATA_CELL: "خلايا مدمجة تتقاطع مع منطقة البيانات.",
@@ -217,7 +218,8 @@ const AUDIT_DETAILS: Record<
 > = {
   FILE_TYPE_UNSUPPORTED: {
     trigger: "File extension is not .xlsx or binary signature missing PK magic header",
-    internal_audit_detail: "Preflight rejected unsupported container format or invalid ZIP header signature",
+    internal_audit_detail:
+      "Preflight rejected unsupported container format or invalid ZIP header signature",
     source_module: "zip-preflight",
   },
   FILE_TOO_LARGE: {
@@ -226,7 +228,8 @@ const AUDIT_DETAILS: Record<
     source_module: "zip-preflight",
   },
   ZIP_BOMB_SUSPECTED: {
-    trigger: "Uncompressed size to compressed size ratio exceeds maxCompressionRatio (10:1) for uncompressed data > 1MB",
+    trigger:
+      "Uncompressed size to compressed size ratio exceeds maxCompressionRatio (10:1) for uncompressed data > 1MB",
     internal_audit_detail: "ZIP entry preflight flagged potential compression bomb pattern",
     source_module: "zip-preflight",
   },
@@ -241,8 +244,10 @@ const AUDIT_DETAILS: Record<
     source_module: "zip-preflight",
   },
   ZIP_DECLARED_SIZE_LIMIT: {
-    trigger: "Single entry declared uncompressed size exceeds maxSingleEntryUncompressedBytes (10 MiB)",
-    internal_audit_detail: "ZIP central directory header declared uncompressed size overflowed entry threshold",
+    trigger:
+      "Single entry declared uncompressed size exceeds maxSingleEntryUncompressedBytes (10 MiB)",
+    internal_audit_detail:
+      "ZIP central directory header declared uncompressed size overflowed entry threshold",
     source_module: "zip-preflight",
   },
   ZIP_DUPLICATE_ENTRY: {
@@ -252,7 +257,8 @@ const AUDIT_DETAILS: Record<
   },
   ZIP_MALFORMED_CENTRAL_DIRECTORY: {
     trigger: "Central directory record offset or local header signature invalid",
-    internal_audit_detail: "ZIP binary structural validator encountered truncated or corrupt central directory offset",
+    internal_audit_detail:
+      "ZIP binary structural validator encountered truncated or corrupt central directory offset",
     source_module: "zip-preflight",
   },
   ZIP_MISSING_EOCD: {
@@ -281,12 +287,15 @@ const AUDIT_DETAILS: Record<
     source_module: "workbook-parser",
   },
   OOXML_RELATIONSHIP_STRUCTURE_INVALID: {
-    trigger: "OOXML relationship file structure is malformed or contains unexpected nodes/attributes",
-    internal_audit_detail: "OOXML rel scanner rejected non-standard or malformed relationship XML structure",
+    trigger:
+      "OOXML relationship file structure is malformed or contains unexpected nodes/attributes",
+    internal_audit_detail:
+      "OOXML rel scanner rejected non-standard or malformed relationship XML structure",
     source_module: "workbook-parser",
   },
   PATH_TRAVERSAL: {
-    trigger: "ZIP entry name or OOXML rel target contains directory traversal sequences (..) or percent-encoded variants",
+    trigger:
+      "ZIP entry name or OOXML rel target contains directory traversal sequences (..) or percent-encoded variants",
     internal_audit_detail: "Path sanitizer caught illegal directory traversal segment",
     source_module: "zip-preflight",
   },
@@ -407,7 +416,8 @@ const AUDIT_DETAILS: Record<
   },
   CAPABILITY_INVALID: {
     trigger: "Authorization capability does not match 'question_bank.import'",
-    internal_audit_detail: "Authorization guard rejected context lacking question_bank.import capability",
+    internal_audit_detail:
+      "Authorization guard rejected context lacking question_bank.import capability",
     source_module: "authorization",
   },
   SCOPE_MISMATCH: {
@@ -416,12 +426,14 @@ const AUDIT_DETAILS: Record<
     source_module: "authorization",
   },
   AUTH_EXPIRED: {
-    trigger: "Authorization token expired flag is true, revoked flag is true, or expiresAt is in the past",
+    trigger:
+      "Authorization token expired flag is true, revoked flag is true, or expiresAt is in the past",
     internal_audit_detail: "Authorization guard rejected expired or revoked authorization token",
     source_module: "authorization",
   },
   PRIVILEGE_ESCALATION: {
-    trigger: "Row input attempts to set protected metadata fields like owner_role or publication_status",
+    trigger:
+      "Row input attempts to set protected metadata fields like owner_role or publication_status",
     internal_audit_detail: "Row validator blocked unauthorized attribute escalation attempt",
     source_module: "preflight",
   },
@@ -467,7 +479,8 @@ const AUDIT_DETAILS: Record<
   },
   INCOMPATIBLE_TYPE_MODE: {
     trigger: "interaction_type and grading_mode combination is logically incompatible",
-    internal_audit_detail: "Row validator rejected incompatible interaction_type and grading_mode pair",
+    internal_audit_detail:
+      "Row validator rejected incompatible interaction_type and grading_mode pair",
     source_module: "validate",
   },
   OPTION_COUNT: {
@@ -492,7 +505,8 @@ const AUDIT_DETAILS: Record<
   },
   CORRECT_INDEX_NO_OPTION: {
     trigger: "correct_index points to an option column that has an empty body string",
-    internal_audit_detail: "Answer resolver found correct answer index referencing empty option cell",
+    internal_audit_detail:
+      "Answer resolver found correct answer index referencing empty option cell",
     source_module: "correct-answer",
   },
   ANSWER_NOT_ALLOWED: {
@@ -556,66 +570,136 @@ const AUDIT_DETAILS: Record<
     source_module: "media-policy",
   },
   FORMULA_INJECTION: {
-    trigger: "Cell text begins with CSV/Formula injection trigger characters (=, +, -, @, \\t, \\r)",
-    internal_audit_detail: "Formula injection detector caught cell text starting with unsafe character",
+    trigger:
+      "Cell text begins with CSV/Formula injection trigger characters (=, +, -, @, \\t, \\r)",
+    internal_audit_detail:
+      "Formula injection detector caught cell text starting with unsafe character",
     source_module: "validate",
   },
   MIXED_NUMERAL_SCRIPTS: {
-    trigger: "Question code or index combines Western Arabic digits (0-9) with Eastern Arabic-Indic digits (٠-٩/۰-۹)",
-    internal_audit_detail: "Unicode numeral validator caught mixed script digits within same code string",
+    trigger:
+      "Question code or index combines Western Arabic digits (0-9) with Eastern Arabic-Indic digits (٠-٩/۰-۹)",
+    internal_audit_detail:
+      "Unicode numeral validator caught mixed script digits within same code string",
     source_module: "unicode",
   },
   SCIENTIFIC_NOTATION_LOSS: {
-    trigger: "Numeric identifier string was parsed as floating point scientific notation (e.g. 1e5)",
+    trigger:
+      "Numeric identifier string was parsed as floating point scientific notation (e.g. 1e5)",
     internal_audit_detail: "Row validator detected precision loss from scientific notation parsing",
     source_module: "unicode",
   },
   LEGACY_INFORMATION_LOSS: {
     trigger: "Legacy format row cannot express required modern fields without semantic loss",
-    internal_audit_detail: "Legacy flat adapter flagged semantic information loss during conversion",
+    internal_audit_detail:
+      "Legacy flat adapter flagged semantic information loss during conversion",
     source_module: "legacy-flat-15col",
   },
   NORMALIZATION_CHANGED: {
-    trigger: "Text normalization modified whitespace, Unicode normalization, or digit script representation",
-    internal_audit_detail: "Unicode normalizer recorded non-identity text normalization transformation",
+    trigger:
+      "Text normalization modified whitespace, Unicode normalization, or digit script representation",
+    internal_audit_detail:
+      "Unicode normalizer recorded non-identity text normalization transformation",
     source_module: "unicode",
   },
 };
 
-export const QB_IMPORT_AUDIT_REGISTRY: Record<QbImportCode, AuditRegistryEntry> = Object.fromEntries(
-  Object.keys(QB_IMPORT_AR_MESSAGES).map((codeStr) => {
-    const code = codeStr as QbImportCode;
-    const defaults = VALIDATION_CODE_DEFAULTS[code];
-    const details = AUDIT_DETAILS[code];
+export const QB_IMPORT_AUDIT_REGISTRY: Record<QbImportCode, AuditRegistryEntry> =
+  Object.fromEntries(
+    Object.keys(QB_IMPORT_AR_MESSAGES).map((codeStr) => {
+      const code = codeStr as QbImportCode;
+      const defaults = VALIDATION_CODE_DEFAULTS[code];
+      const details = AUDIT_DETAILS[code];
 
-    let stage: ImportStage = "ROW_VALIDATION";
-    if (["AUTH_MISSING", "AUTH_MALFORMED", "AUTHENTICATION_REQUIRED", "CAPABILITY_INVALID", "SCOPE_MISMATCH", "AUTH_EXPIRED", "UNAUTHORIZED_IMPORT", "PRIVILEGE_ESCALATION"].includes(code)) {
-      stage = "AUTHORIZATION";
-    } else if (["FILE_TOO_LARGE", "FILE_TYPE_UNSUPPORTED"].includes(code)) {
-      stage = "PREFLIGHT_RAW";
-    } else if (["ZIP_BOMB_SUSPECTED", "ZIP_ENTRY_LIMIT", "ZIP_TOTAL_SIZE_LIMIT", "ZIP_DECLARED_SIZE_LIMIT", "ZIP_DUPLICATE_ENTRY", "ZIP_MALFORMED_CENTRAL_DIRECTORY", "ZIP_MISSING_EOCD", "ZIP_ABSOLUTE_PATH", "PATH_TRAVERSAL", "WORKBOOK_ENCRYPTED"].includes(code)) {
-      stage = "PREFLIGHT_ZIP";
-    } else if (["MACRO_CONTENT", "EXTERNAL_LINK", "OOXML_RELATIONSHIP_STRUCTURE_INVALID", "FORMULA_CELL", "FORMULA_INJECTION", "MERGED_DATA_CELL", "HIDDEN_SHEET_DATA", "HIDDEN_ROW_DATA", "HIDDEN_COLUMN_DATA", "SHEET_COUNT_INVALID", "ROW_LIMIT", "COLUMN_LIMIT", "CELL_TOO_LARGE", "MALFORMED_UNICODE", "DUPLICATE_HEADER"].includes(code)) {
-      stage = "PREFLIGHT_OOXML";
-    } else if (["MISSING_HEADER", "UNKNOWN_COLUMN", "FORBIDDEN_COLUMN", "LEGACY_COLUMN_COUNT", "LEGACY_COLUMN_ORDER", "INVALID_CONTRACT"].includes(code)) {
-      stage = "ADAPTER_DETECT";
-    } else if (["DUPLICATE_CODE_EXISTS", "PREVIEW_TOKEN_INVALID", "STALE_VALIDATION", "CONTENT_HASH_MISMATCH", "IMPORT_REPLAY_CONFLICT", "ATOMIC_APPLY_FAILED"].includes(code)) {
-      stage = "IDEMPOTENCY";
-    }
+      let stage: ImportStage = "ROW_VALIDATION";
+      if (
+        [
+          "AUTH_MISSING",
+          "AUTH_MALFORMED",
+          "AUTHENTICATION_REQUIRED",
+          "CAPABILITY_INVALID",
+          "SCOPE_MISMATCH",
+          "AUTH_EXPIRED",
+          "UNAUTHORIZED_IMPORT",
+          "PRIVILEGE_ESCALATION",
+        ].includes(code)
+      ) {
+        stage = "AUTHORIZATION";
+      } else if (["FILE_TOO_LARGE", "FILE_TYPE_UNSUPPORTED"].includes(code)) {
+        stage = "PREFLIGHT_RAW";
+      } else if (
+        [
+          "ZIP_BOMB_SUSPECTED",
+          "ZIP_ENTRY_LIMIT",
+          "ZIP_TOTAL_SIZE_LIMIT",
+          "ZIP_DECLARED_SIZE_LIMIT",
+          "ZIP_DUPLICATE_ENTRY",
+          "ZIP_MALFORMED_CENTRAL_DIRECTORY",
+          "ZIP_MISSING_EOCD",
+          "ZIP_ABSOLUTE_PATH",
+          "PATH_TRAVERSAL",
+          "WORKBOOK_ENCRYPTED",
+        ].includes(code)
+      ) {
+        stage = "PREFLIGHT_ZIP";
+      } else if (
+        [
+          "MACRO_CONTENT",
+          "EXTERNAL_LINK",
+          "OOXML_RELATIONSHIP_STRUCTURE_INVALID",
+          "FORMULA_CELL",
+          "FORMULA_INJECTION",
+          "MERGED_DATA_CELL",
+          "HIDDEN_SHEET_DATA",
+          "HIDDEN_ROW_DATA",
+          "HIDDEN_COLUMN_DATA",
+          "SHEET_COUNT_INVALID",
+          "ROW_LIMIT",
+          "COLUMN_LIMIT",
+          "CELL_TOO_LARGE",
+          "MALFORMED_UNICODE",
+          "DUPLICATE_HEADER",
+        ].includes(code)
+      ) {
+        stage = "PREFLIGHT_OOXML";
+      } else if (
+        [
+          "MISSING_HEADER",
+          "UNKNOWN_COLUMN",
+          "FORBIDDEN_COLUMN",
+          "LEGACY_COLUMN_COUNT",
+          "LEGACY_COLUMN_ORDER",
+          "INVALID_CONTRACT",
+        ].includes(code)
+      ) {
+        stage = "ADAPTER_DETECT";
+      } else if (
+        [
+          "DUPLICATE_CODE_EXISTS",
+          "PREVIEW_TOKEN_INVALID",
+          "STALE_VALIDATION",
+          "CONTENT_HASH_MISMATCH",
+          "IMPORT_REPLAY_CONFLICT",
+          "ATOMIC_APPLY_FAILED",
+        ].includes(code)
+      ) {
+        stage = "IDEMPOTENCY";
+      }
 
-    return [
-      code,
-      {
-        canonical_code: code,
-        stage,
-        trigger: details?.trigger ?? `Trigger condition for ${code}`,
-        message_ar: QB_IMPORT_AR_MESSAGES[code],
-        internal_audit_detail: details?.internal_audit_detail ?? `Audit detail record for ${code}`,
-        retryable: false,
-        severity: defaults.severity,
-        blocking: defaults.file_blocking || defaults.row_blocking,
-        source_module: details?.source_module ?? "unknown",
-      } satisfies AuditRegistryEntry,
-    ];
-  }),
-) as Record<QbImportCode, AuditRegistryEntry>;
+      return [
+        code,
+        {
+          canonical_code: code,
+          stage,
+          trigger: details?.trigger ?? `Trigger condition for ${code}`,
+          message_ar: QB_IMPORT_AR_MESSAGES[code],
+          internal_audit_detail:
+            details?.internal_audit_detail ?? `Audit detail record for ${code}`,
+          retryable: false,
+          severity: defaults.severity,
+          blocking: defaults.file_blocking || defaults.row_blocking,
+          source_module: details?.source_module ?? "unknown",
+        } satisfies AuditRegistryEntry,
+      ];
+    }),
+  ) as Record<QbImportCode, AuditRegistryEntry>;

@@ -33,9 +33,7 @@ interface Props {
 
 function keyPointsToText(kp: unknown): string {
   if (Array.isArray(kp)) {
-    return kp
-      .map((x) => (typeof x === "string" ? x : JSON.stringify(x)))
-      .join("\n");
+    return kp.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join("\n");
   }
   return "";
 }
@@ -47,13 +45,7 @@ function textToKeyPoints(text: string): string[] {
     .filter(Boolean);
 }
 
-export function LessonSummaryDialog({
-  open,
-  onOpenChange,
-  lessonId,
-  lessonTitle,
-  items,
-}: Props) {
+export function LessonSummaryDialog({ open, onOpenChange, lessonId, lessonTitle, items }: Props) {
   const qc = useQueryClient();
   const [summary, setSummary] = useState("");
   const [keyPointsText, setKeyPointsText] = useState("");
@@ -119,14 +111,12 @@ export function LessonSummaryDialog({
           .eq("id", existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from("lesson_summaries")
-          .insert({
-            lesson_id: lessonId,
-            summary: trimmedSummary,
-            key_points: pointsArray,
-            study_tip: tipOrNull,
-          });
+        const { error } = await supabase.from("lesson_summaries").insert({
+          lesson_id: lessonId,
+          summary: trimmedSummary,
+          key_points: pointsArray,
+          study_tip: tipOrNull,
+        });
         if (error) throw error;
       }
 
@@ -158,14 +148,13 @@ export function LessonSummaryDialog({
 
         {/* 20D1 §2 — Quick Review هي طبقة تعلّم من تمكين، وليست نص الكتاب. */}
         <div className="rounded-md border border-primary/25 bg-primary/5 px-3 py-2 text-[11px] leading-5 text-muted-foreground text-right">
-          المراجعة السريعة طبقة تعلّم من إعداد تمكين: أهم الأفكار، النقاط التي يجب
-          تذكّرها، المفاهيم الرئيسية، وتنبيهات على الأخطاء الشائعة.
+          المراجعة السريعة طبقة تعلّم من إعداد تمكين: أهم الأفكار، النقاط التي يجب تذكّرها، المفاهيم
+          الرئيسية، وتنبيهات على الأخطاء الشائعة.
           <span className="block text-amber-600">
             لا تنسخ نص الكتاب الرسمي أو «تقويم الكتاب» هنا.
           </span>
           بعد الحفظ لن يراها الطالب حتى تمر بالمسار: مسودة ← مراجعة ← اعتماد.
         </div>
-
 
         {tooMany && (
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 text-right">
@@ -230,11 +219,7 @@ export function LessonSummaryDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             إلغاء
           </Button>
           <Button onClick={handleSave} disabled={saving || tooMany}>

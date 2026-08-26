@@ -4,7 +4,6 @@ export const GOLDEN_LESSON_SCHEMA = "tamkeen.golden-lesson-package.v1" as const;
 
 export type { GoldenLessonAsset };
 
-
 export const GOLDEN_CAPABILITIES = [
   "officialBookContent",
   "tamkeenExplanationHtml",
@@ -75,7 +74,6 @@ export interface GoldenLessonPackage {
     htmlNetworkAccess: "NONE";
   };
 }
-
 
 export interface GoldenLessonProfile {
   id: string;

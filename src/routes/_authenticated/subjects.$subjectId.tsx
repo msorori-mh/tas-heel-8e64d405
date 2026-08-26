@@ -149,9 +149,7 @@ function SubjectIndexPage() {
         .eq("user_id", user!.id)
         .in("lesson_id", lessonIds);
       if (err) throw err;
-      return new Set(
-        (rows ?? []).filter((r) => r.completed).map((r) => r.lesson_id as string),
-      );
+      return new Set((rows ?? []).filter((r) => r.completed).map((r) => r.lesson_id as string));
     },
   });
 
@@ -230,7 +228,6 @@ function SubjectIndexPage() {
   const hasUnits = units.length > 0;
   const hasAny = hasUnits || lessons.length > 0;
 
-
   const done = completedIds ?? new Set<string>();
   const completedCount = lessons.filter((l) => done.has(l.id)).length;
   const percent = lessons.length > 0 ? Math.round((completedCount / lessons.length) * 100) : 0;
@@ -267,7 +264,6 @@ function SubjectIndexPage() {
                 <FileText className="h-3.5 w-3.5" /> {lessons.length} درس
               </span>
             </div>
-
           </div>
           {semester && (
             <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
@@ -342,7 +338,6 @@ function SubjectIndexPage() {
             <LessonList lessons={lessons} completed={done} />
           </section>
         ))}
-
 
       <ExamTemplatesSection
         scope={{ kind: "subject", subjectId: subject.id }}
@@ -448,13 +443,7 @@ function UnitBlock({
   );
 }
 
-function LessonList({
-  lessons,
-  completed,
-}: {
-  lessons: Lesson[];
-  completed: Set<string>;
-}) {
+function LessonList({ lessons, completed }: { lessons: Lesson[]; completed: Set<string> }) {
   return (
     <ul className="space-y-2">
       {lessons.map((l) => {
@@ -472,11 +461,7 @@ function LessonList({
                     isDone ? "bg-emerald-500/15 text-emerald-600" : "bg-primary/10 text-primary"
                   }`}
                 >
-                  {isDone ? (
-                    <CheckCircle2 className="h-4 w-4" />
-                  ) : (
-                    <BookOpen className="h-4 w-4" />
-                  )}
+                  {isDone ? <CheckCircle2 className="h-4 w-4" /> : <BookOpen className="h-4 w-4" />}
                 </div>
                 <div className="min-w-0">
                   <div className="truncate text-sm font-semibold text-foreground">{l.title}</div>
@@ -491,4 +476,3 @@ function LessonList({
     </ul>
   );
 }
-

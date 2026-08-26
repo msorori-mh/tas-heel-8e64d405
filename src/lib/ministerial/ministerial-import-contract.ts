@@ -114,15 +114,24 @@ export function buildMinisterialModelCode(input: MinisterialCodeInput): string {
   }
   const trackCode = input.trackCode.trim().toLowerCase();
   if (!(MINISTERIAL_TRACK_CODES as readonly string[]).includes(trackCode)) {
-    throw new MinisterialContractError("MINISTERIAL_INVALID_TRACK_CODE", `مسار غير صالح: ${trackCode}`);
+    throw new MinisterialContractError(
+      "MINISTERIAL_INVALID_TRACK_CODE",
+      `مسار غير صالح: ${trackCode}`,
+    );
   }
   const roundCode = input.roundCode.trim().toLowerCase();
   if (!(MINISTERIAL_ROUND_CODES as readonly string[]).includes(roundCode)) {
-    throw new MinisterialContractError("MINISTERIAL_INVALID_ROUND_CODE", `دور غير صالح: ${roundCode}`);
+    throw new MinisterialContractError(
+      "MINISTERIAL_INVALID_ROUND_CODE",
+      `دور غير صالح: ${roundCode}`,
+    );
   }
   const variantCode = input.variantCode.trim().toLowerCase();
   if (!MINISTERIAL_VARIANT_RE.test(variantCode)) {
-    throw new MinisterialContractError("MINISTERIAL_INVALID_VARIANT_CODE", `رمز النموذج غير صالح: ${variantCode}`);
+    throw new MinisterialContractError(
+      "MINISTERIAL_INVALID_VARIANT_CODE",
+      `رمز النموذج غير صالح: ${variantCode}`,
+    );
   }
   const year = input.academicYear;
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {

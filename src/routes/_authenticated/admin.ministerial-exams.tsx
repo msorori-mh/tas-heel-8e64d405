@@ -9,13 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -79,9 +73,7 @@ type SubjectRow = {
 function toCsv(headers: readonly string[], rows: string[][]): string {
   const escape = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
   return (
-    "\uFEFF" +
-    [headers.join(","), ...rows.map((r) => r.map(escape).join(","))].join("\n") +
-    "\n"
+    "\uFEFF" + [headers.join(","), ...rows.map((r) => r.map(escape).join(","))].join("\n") + "\n"
   );
 }
 
@@ -204,7 +196,9 @@ function AdminMinisterialExamsPage() {
   const tracksForSubject = useMemo(() => {
     if (!ref || !subjectId) return [];
     const activeIds = new Set(
-      ref.links.filter((l) => l.subject_id === subjectId && l.is_active).map((l) => l.curriculum_track_id),
+      ref.links
+        .filter((l) => l.subject_id === subjectId && l.is_active)
+        .map((l) => l.curriculum_track_id),
     );
     return ref.tracks.filter((t) => t.is_active && activeIds.has(t.id));
   }, [ref, subjectId]);
@@ -285,7 +279,10 @@ function AdminMinisterialExamsPage() {
     const prepare = kind === "M01" ? m01Prepare : m02Prepare;
     if (!prepare) return;
     void run(`execute-${kind}`, async () => {
-      const result = kind === "M01" ? await executeM01(prepare.prepare_id) : await executeM02(prepare.prepare_id);
+      const result =
+        kind === "M01"
+          ? await executeM01(prepare.prepare_id)
+          : await executeM02(prepare.prepare_id);
       toast.success(
         `تم التنفيذ: إضافة ${result.inserted} / تحديث ${result.updated} / تخطي ${result.skipped} / محجوب ${result.blocked}`,
       );
@@ -341,21 +338,35 @@ function AdminMinisterialExamsPage() {
                     setTrackId("");
                   }}
                 >
-                  <SelectTrigger><SelectValue placeholder="اختر الصف" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر الصف" />
+                  </SelectTrigger>
                   <SelectContent>
                     {(ref?.grades ?? []).map((g) => (
-                      <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>المادة</Label>
-                <Select value={subjectId} onValueChange={(v) => { setSubjectId(v); setTrackId(""); }}>
-                  <SelectTrigger><SelectValue placeholder="اختر المادة" /></SelectTrigger>
+                <Select
+                  value={subjectId}
+                  onValueChange={(v) => {
+                    setSubjectId(v);
+                    setTrackId("");
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر المادة" />
+                  </SelectTrigger>
                   <SelectContent>
                     {subjectsForGrade.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name} — {s.code}</SelectItem>
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name} — {s.code}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -363,10 +374,14 @@ function AdminMinisterialExamsPage() {
               <div className="space-y-1.5">
                 <Label>المسار</Label>
                 <Select value={trackId} onValueChange={setTrackId} disabled={!subjectId}>
-                  <SelectTrigger><SelectValue placeholder="المسارات المرتبطة بالمادة" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="المسارات المرتبطة بالمادة" />
+                  </SelectTrigger>
                   <SelectContent>
                     {tracksForSubject.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>{t.track_name}</SelectItem>
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.track_name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -378,21 +393,33 @@ function AdminMinisterialExamsPage() {
               <div className="space-y-1.5">
                 <Label>الدور</Label>
                 <Select value={round} onValueChange={setRound}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {MINISTERIAL_ROUND_CODES.map((r) => (
-                      <SelectItem key={r} value={r}>{ROUND_LABEL_AR[r]}</SelectItem>
+                      <SelectItem key={r} value={r}>
+                        {ROUND_LABEL_AR[r]}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>رمز النموذج (variant)</Label>
-                <Input value={variant} onChange={(e) => setVariant(e.target.value)} placeholder="main" />
+                <Input
+                  value={variant}
+                  onChange={(e) => setVariant(e.target.value)}
+                  placeholder="main"
+                />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>اسم العرض (اختياري)</Label>
-                <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="النموذج أ" />
+                <Input
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="النموذج أ"
+                />
               </div>
             </div>
 
@@ -463,7 +490,10 @@ function AdminMinisterialExamsPage() {
                   onChange={(e) => setText(e.target.value)}
                 />
                 <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => handlePrepare(kind)} disabled={busy !== null || !text.trim()}>
+                  <Button
+                    onClick={() => handlePrepare(kind)}
+                    disabled={busy !== null || !text.trim()}
+                  >
                     {busy === `prepare-${kind}` ? (
                       <Loader2 className="ms-1 h-4 w-4 animate-spin" />
                     ) : (
@@ -528,11 +558,15 @@ function AdminMinisterialExamsPage() {
                                   <TableCell>
                                     {row.academic_year} / {row.round_code}
                                   </TableCell>
-                                  <TableCell className="font-mono text-xs">{row.model_code}</TableCell>
+                                  <TableCell className="font-mono text-xs">
+                                    {row.model_code}
+                                  </TableCell>
                                 </>
                               ) : (
                                 <>
-                                  <TableCell className="font-mono text-xs">{row.question_code}</TableCell>
+                                  <TableCell className="font-mono text-xs">
+                                    {row.question_code}
+                                  </TableCell>
                                   <TableCell className="font-mono text-[10px]">
                                     {row.pinned_revision_id ?? "—"}
                                   </TableCell>
@@ -543,7 +577,9 @@ function AdminMinisterialExamsPage() {
                               <TableCell>
                                 <span className="text-xs">
                                   {PREVIEW_ACTION_LABEL_AR[row.action]}
-                                  {row.blocked_reason ? ` — ${describeBlockReason(row.blocked_reason)}` : ""}
+                                  {row.blocked_reason
+                                    ? ` — ${describeBlockReason(row.blocked_reason)}`
+                                    : ""}
                                 </span>
                               </TableCell>
                             </TableRow>
@@ -568,18 +604,42 @@ function AdminMinisterialExamsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              <FilterSelect label="الصف" value={filterGrade} onChange={setFilterGrade}
-                options={[...new Set(models.map((m) => m.grade_slug).filter(Boolean))] as string[]} />
-              <FilterSelect label="المادة" value={filterSubject} onChange={setFilterSubject}
-                options={[...new Set(models.map((m) => m.subject_code))]} />
-              <FilterSelect label="المسار" value={filterTrack} onChange={setFilterTrack}
-                options={[...new Set(models.map((m) => m.track_code))]} />
-              <FilterSelect label="السنة" value={filterYear} onChange={setFilterYear}
-                options={[...new Set(models.map((m) => String(m.academic_year)))]} />
-              <FilterSelect label="الدور" value={filterRound} onChange={setFilterRound}
-                options={[...MINISTERIAL_ROUND_CODES]} />
-              <FilterSelect label="الحالة" value={filterStatus} onChange={setFilterStatus}
-                options={["draft", "published", "archived"]} />
+              <FilterSelect
+                label="الصف"
+                value={filterGrade}
+                onChange={setFilterGrade}
+                options={[...new Set(models.map((m) => m.grade_slug).filter(Boolean))] as string[]}
+              />
+              <FilterSelect
+                label="المادة"
+                value={filterSubject}
+                onChange={setFilterSubject}
+                options={[...new Set(models.map((m) => m.subject_code))]}
+              />
+              <FilterSelect
+                label="المسار"
+                value={filterTrack}
+                onChange={setFilterTrack}
+                options={[...new Set(models.map((m) => m.track_code))]}
+              />
+              <FilterSelect
+                label="السنة"
+                value={filterYear}
+                onChange={setFilterYear}
+                options={[...new Set(models.map((m) => String(m.academic_year)))]}
+              />
+              <FilterSelect
+                label="الدور"
+                value={filterRound}
+                onChange={setFilterRound}
+                options={[...MINISTERIAL_ROUND_CODES]}
+              />
+              <FilterSelect
+                label="الحالة"
+                value={filterStatus}
+                onChange={setFilterStatus}
+                options={["draft", "published", "archived"]}
+              />
             </div>
 
             <div className="overflow-x-auto rounded-lg border border-border/60">
@@ -614,7 +674,11 @@ function AdminMinisterialExamsPage() {
                       <TableCell>{m.question_count}</TableCell>
                       <TableCell>
                         <Badge variant={m.status === "published" ? "default" : "secondary"}>
-                          {m.status === "published" ? "منشور" : m.status === "archived" ? "مؤرشف" : "مسودة"}
+                          {m.status === "published"
+                            ? "منشور"
+                            : m.status === "archived"
+                              ? "مؤرشف"
+                              : "مسودة"}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -627,7 +691,9 @@ function AdminMinisterialExamsPage() {
                                 void run(`publish-${m.id}`, async () => {
                                   await publishMinisterialModel(m.id);
                                   toast.success("تم النشر.");
-                                  await queryClient.invalidateQueries({ queryKey: ["ministerial-models"] });
+                                  await queryClient.invalidateQueries({
+                                    queryKey: ["ministerial-models"],
+                                  });
                                 })
                               }
                             >
@@ -644,7 +710,9 @@ function AdminMinisterialExamsPage() {
                                 void run(`archive-${m.id}`, async () => {
                                   await setMinisterialModelStatus(m.id, "archived", "أرشفة إدارية");
                                   toast.success("تمت الأرشفة.");
-                                  await queryClient.invalidateQueries({ queryKey: ["ministerial-models"] });
+                                  await queryClient.invalidateQueries({
+                                    queryKey: ["ministerial-models"],
+                                  });
                                 })
                               }
                             >
@@ -684,11 +752,15 @@ function FilterSelect({
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">الكل</SelectItem>
           {options.map((o) => (
-            <SelectItem key={o} value={o}>{o}</SelectItem>
+            <SelectItem key={o} value={o}>
+              {o}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>

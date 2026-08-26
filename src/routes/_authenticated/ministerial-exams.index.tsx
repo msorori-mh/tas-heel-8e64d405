@@ -11,7 +11,8 @@ export const Route = createFileRoute("/_authenticated/ministerial-exams/")({
       { title: "نماذج الاختبارات الوزارية — تمكين" },
       {
         name: "description",
-        content: "استعرض نماذج اختبارات صنعاء وعدن الوزارية السابقة وتدرّب عليها مهما كان مسارك الدراسي.",
+        content:
+          "استعرض نماذج اختبارات صنعاء وعدن الوزارية السابقة وتدرّب عليها مهما كان مسارك الدراسي.",
       },
       { property: "og:title", content: "نماذج الاختبارات الوزارية — تمكين" },
       {

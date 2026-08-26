@@ -26,9 +26,24 @@ export interface GoldenReviewTransition {
 }
 
 export const GOLDEN_REVIEW_TRANSITIONS: readonly GoldenReviewTransition[] = [
-  { from: "DRAFT", to: "SUBMITTED", role: "CONTENT_EDITOR", requiredEvidence: ["packageValidationPassed"] },
-  { from: "SUBMITTED", to: "CONTENT_APPROVED", role: "CONTENT_REVIEWER", requiredEvidence: ["officialProvenanceChecked", "answerSeparationChecked"] },
-  { from: "CONTENT_APPROVED", to: "APPROVED_FOR_STAGING", role: "TECHNICAL_REVIEWER", requiredEvidence: ["responsivePreviewChecked"] },
+  {
+    from: "DRAFT",
+    to: "SUBMITTED",
+    role: "CONTENT_EDITOR",
+    requiredEvidence: ["packageValidationPassed"],
+  },
+  {
+    from: "SUBMITTED",
+    to: "CONTENT_APPROVED",
+    role: "CONTENT_REVIEWER",
+    requiredEvidence: ["officialProvenanceChecked", "answerSeparationChecked"],
+  },
+  {
+    from: "CONTENT_APPROVED",
+    to: "APPROVED_FOR_STAGING",
+    role: "TECHNICAL_REVIEWER",
+    requiredEvidence: ["responsivePreviewChecked"],
+  },
 ];
 
 export interface GoldenReviewDecision {
@@ -45,10 +60,39 @@ export function evaluateGoldenReviewTransition(
   role: GoldenReviewRole,
   evidence: GoldenReviewEvidence,
 ): GoldenReviewDecision {
-  const transition = GOLDEN_REVIEW_TRANSITIONS.find((item) => item.from === current && item.to === requested);
-  if (!transition) return { allowed: false, nextStatus: current, code: "TRANSITION_INVALID", missingEvidence: [], writesPerformed: 0 };
-  if (transition.role !== role) return { allowed: false, nextStatus: current, code: "ROLE_FORBIDDEN", missingEvidence: [], writesPerformed: 0 };
+  const transition = GOLDEN_REVIEW_TRANSITIONS.find(
+    (item) => item.from === current && item.to === requested,
+  );
+  if (!transition)
+    return {
+      allowed: false,
+      nextStatus: current,
+      code: "TRANSITION_INVALID",
+      missingEvidence: [],
+      writesPerformed: 0,
+    };
+  if (transition.role !== role)
+    return {
+      allowed: false,
+      nextStatus: current,
+      code: "ROLE_FORBIDDEN",
+      missingEvidence: [],
+      writesPerformed: 0,
+    };
   const missingEvidence = transition.requiredEvidence.filter((key) => !evidence[key]);
-  if (missingEvidence.length) return { allowed: false, nextStatus: current, code: "EVIDENCE_MISSING", missingEvidence, writesPerformed: 0 };
-  return { allowed: true, nextStatus: requested, code: "TRANSITION_ALLOWED", missingEvidence: [], writesPerformed: 0 };
+  if (missingEvidence.length)
+    return {
+      allowed: false,
+      nextStatus: current,
+      code: "EVIDENCE_MISSING",
+      missingEvidence,
+      writesPerformed: 0,
+    };
+  return {
+    allowed: true,
+    nextStatus: requested,
+    code: "TRANSITION_ALLOWED",
+    missingEvidence: [],
+    writesPerformed: 0,
+  };
 }

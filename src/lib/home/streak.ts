@@ -10,7 +10,7 @@ export function computeStudyStreak(activityDates: string[]): number {
   );
 
   const today = new Date();
-  let cursor = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const cursor = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   let streak = 0;
 
   const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;

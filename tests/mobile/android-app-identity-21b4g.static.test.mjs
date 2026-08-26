@@ -56,10 +56,10 @@ describe("21B4G — Android app identity and release readiness", () => {
   });
 
   it("7. no release keystore is committed", () => {
-    const out = execSync(
-      "git ls-files | rg '\\.(jks|keystore)$' || true",
-      { cwd: new URL("../../", import.meta.url).pathname, encoding: "utf8" },
-    );
+    const out = execSync("git ls-files | rg '\\.(jks|keystore)$' || true", {
+      cwd: new URL("../../", import.meta.url).pathname,
+      encoding: "utf8",
+    });
     expect(out.trim()).toBe("");
   });
 

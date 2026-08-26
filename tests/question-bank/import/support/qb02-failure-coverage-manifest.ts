@@ -1,4 +1,7 @@
-import type { QbImportCode, ImportStage } from "../../../src/lib/question-bank/import/validation-codes.ts";
+import type {
+  QbImportCode,
+  ImportStage,
+} from "../../../src/lib/question-bank/import/validation-codes.ts";
 
 export type FailureCoverageMapping = {
   code: QbImportCode;

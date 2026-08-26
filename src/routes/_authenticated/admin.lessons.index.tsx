@@ -465,7 +465,10 @@ function AdminLessonsList() {
             <option value="all">كل المواد</option>
             {subjectOptions.map((subject) => (
               <option key={subject.id} value={subject.id}>
-                {subject.name}{gradeFilter === "all" && subject.grade_id ? ` — ${gradeNameMap[subject.grade_id] ?? ""}` : ""}
+                {subject.name}
+                {gradeFilter === "all" && subject.grade_id
+                  ? ` — ${gradeNameMap[subject.grade_id] ?? ""}`
+                  : ""}
               </option>
             ))}
           </select>
@@ -557,7 +560,12 @@ function AdminLessonsList() {
 
                         <td className="px-3 py-3 text-center">
                           <div className="inline-flex items-center gap-1">
-                            <Button asChild size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs">
+                            <Button
+                              asChild
+                              size="sm"
+                              variant="outline"
+                              className="h-7 gap-1 px-2 text-xs"
+                            >
                               <Link
                                 to="/admin/lesson-content/$lessonId"
                                 params={{ lessonId: r.id }}
@@ -649,10 +657,7 @@ function AdminLessonsList() {
 
                     <div className="mt-3 flex gap-2">
                       <Button asChild size="sm" variant="outline" className="gap-1 text-xs">
-                        <Link
-                          to="/admin/lesson-content/$lessonId"
-                          params={{ lessonId: r.id }}
-                        >
+                        <Link to="/admin/lesson-content/$lessonId" params={{ lessonId: r.id }}>
                           <BookOpen className="h-3.5 w-3.5" />
                           إدارة المحتوى
                         </Link>
@@ -746,4 +751,3 @@ function AdminLessonsList() {
     </AdminLayout>
   );
 }
-

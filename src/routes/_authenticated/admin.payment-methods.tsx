@@ -22,14 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Landmark,
-  Loader2,
-  Pencil,
-  Plus,
-  Power,
-  PowerOff,
-} from "lucide-react";
+import { Landmark, Loader2, Pencil, Plus, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/payment-methods")({
@@ -166,10 +159,7 @@ function AdminPaymentMethodsPage() {
     };
 
     if (editing) {
-      const { error } = await supabase
-        .from("payment_methods")
-        .update(payload)
-        .eq("id", editing.id);
+      const { error } = await supabase.from("payment_methods").update(payload).eq("id", editing.id);
       setSaving(false);
       if (error) {
         toast.error("تعذّر تحديث طريقة الدفع: " + error.message);
@@ -240,8 +230,8 @@ function AdminPaymentMethodsPage() {
               طرق الدفع
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
-              إدارة طرق الدفع التي يختارها الطلاب عند شحن المحفظة. الطرق المعطّلة لا
-              تظهر في الطلبات الجديدة.
+              إدارة طرق الدفع التي يختارها الطلاب عند شحن المحفظة. الطرق المعطّلة لا تظهر في الطلبات
+              الجديدة.
             </p>
           </div>
           <Button type="button" size="sm" className="gap-1" onClick={openCreate}>
@@ -353,9 +343,7 @@ function AdminPaymentMethodsPage() {
       <Dialog open={dialogOpen} onOpenChange={(o) => !o && closeDialog()}>
         <DialogContent className="sm:max-w-md" dir="rtl">
           <DialogHeader>
-            <DialogTitle>
-              {editing ? "تعديل طريقة الدفع" : "إضافة طريقة دفع"}
-            </DialogTitle>
+            <DialogTitle>{editing ? "تعديل طريقة الدفع" : "إضافة طريقة دفع"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
@@ -374,9 +362,7 @@ function AdminPaymentMethodsPage() {
               <Label className="text-xs">النوع</Label>
               <Select
                 value={form.type}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, type: v as PaymentMethodType }))
-                }
+                onValueChange={(v) => setForm((f) => ({ ...f, type: v as PaymentMethodType }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -397,9 +383,7 @@ function AdminPaymentMethodsPage() {
               <Input
                 id="pm-account-name"
                 value={form.account_name}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, account_name: e.target.value }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, account_name: e.target.value }))}
                 maxLength={120}
               />
             </div>
@@ -410,9 +394,7 @@ function AdminPaymentMethodsPage() {
               <Input
                 id="pm-account-number"
                 value={form.account_number}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, account_number: e.target.value }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, account_number: e.target.value }))}
                 maxLength={120}
                 dir="ltr"
               />
@@ -426,9 +408,7 @@ function AdminPaymentMethodsPage() {
                 type="number"
                 inputMode="numeric"
                 value={form.sort_order}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, sort_order: e.target.value }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, sort_order: e.target.value }))}
               />
             </div>
             <div>

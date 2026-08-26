@@ -8,8 +8,12 @@ const read = (relative) => fs.readFileSync(new URL(relative, root), "utf8");
 const diff = read("scripts/content-v3/visibility-diff-21h.sql");
 const preflight = read("scripts/content-v3/production-preflight-readonly.sql");
 const postverify = read("scripts/content-v3/postverify-21h.sql");
-const migration = read("supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql");
-const runner = new URL("scripts/content-v3/pg17-runner.ps1", root).pathname.replace(/^\//, "").replaceAll("/", "\\");
+const migration = read(
+  "supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql",
+);
+const runner = new URL("scripts/content-v3/pg17-runner.ps1", root).pathname
+  .replace(/^\//, "")
+  .replaceAll("/", "\\");
 
 function classify({ before, expected, observed, security = false }) {
   if (before && expected && observed) return "UNCHANGED";
@@ -25,13 +29,14 @@ function runRunner(target) {
   const shell = process.env.ComSpec
     ? `${process.env.SystemRoot ?? "C:\\Windows"}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`
     : "pwsh";
-  return spawnSync(shell, [
-    "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", runner,
-    "-DatabaseUrl", target,
-  ], {
-    encoding: "utf8",
-    env: { ...process.env, Path: `${process.env.SystemRoot ?? "C:\\Windows"}\\System32` },
-  });
+  return spawnSync(
+    shell,
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", runner, "-DatabaseUrl", target],
+    {
+      encoding: "utf8",
+      env: { ...process.env, Path: `${process.env.SystemRoot ?? "C:\\Windows"}\\System32` },
+    },
+  );
 }
 
 test("visibility diff detects an expected gain", () => {
@@ -55,16 +60,25 @@ test("visibility diff preserves the unchanged case", () => {
 });
 
 test("visibility diff keeps every UNION output value explicitly text-typed", () => {
-  const outputContract = diff.slice(diff.indexOf("SELECT 'EXPECTED_GAIN_COUNT'"), diff.indexOf("-- A zero result"));
+  const outputContract = diff.slice(
+    diff.indexOf("SELECT 'EXPECTED_GAIN_COUNT'"),
+    diff.indexOf("-- A zero result"),
+  );
   assert.match(outputContract, /expected_gain_count::text/);
   assert.match(outputContract, /security_fix_count::text/);
   assert.match(outputContract, /unexpected_gain_count::text/);
   assert.match(outputContract, /unexpected_loss_count::text/);
-  assert.doesNotMatch(outputContract, /SELECT\s+'(?:SECURITY_FIX_COUNT|UNEXPECTED_GAIN_COUNT|UNEXPECTED_LOSS_COUNT)'[^\n]*,\s*[a-z_]+_count\s+FROM/i);
+  assert.doesNotMatch(
+    outputContract,
+    /SELECT\s+'(?:SECURITY_FIX_COUNT|UNEXPECTED_GAIN_COUNT|UNEXPECTED_LOSS_COUNT)'[^\n]*,\s*[a-z_]+_count\s+FROM/i,
+  );
 });
 
 test("security fixes are distinct from unexplained losses", () => {
-  assert.equal(classify({ before: true, expected: false, observed: false, security: true }), "SECURITY_FIX");
+  assert.equal(
+    classify({ before: true, expected: false, observed: false, security: true }),
+    "SECURITY_FIX",
+  );
   assert.match(diff, /SECURITY_FIX/);
 });
 
@@ -162,7 +176,10 @@ test("Supabase host is rejected before psql lookup", () => {
 test("ambiguous target and locality-looking query text are rejected", () => {
   const queryTextRemote = runRunner("postgresql://db.example.com:5432/postgres?note=localhost");
   const noHost = runRunner("dbname=tamkeen options=localhost");
-  assert.match(`${queryTextRemote.stdout}${queryTextRemote.stderr}`, /STOP_NON_LOCAL_DATABASE_TARGET/);
+  assert.match(
+    `${queryTextRemote.stdout}${queryTextRemote.stderr}`,
+    /STOP_NON_LOCAL_DATABASE_TARGET/,
+  );
   assert.match(`${noHost.stdout}${noHost.stderr}`, /STOP_NON_LOCAL_DATABASE_TARGET/);
 });
 

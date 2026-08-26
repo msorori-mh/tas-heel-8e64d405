@@ -71,7 +71,6 @@ const QUESTION_COLUMNS = [
   "explanation",
 ];
 
-
 function sheet(name, columns, rows) {
   return { name, columns, rows };
 }
@@ -81,7 +80,16 @@ export const FIXTURE_SHEETS = {
     "subjects",
     ["subject_code", "name", "grade_slug", "track_code", "semester", "icon", "color", "sort_order"],
     [
-      [E2E_SUBJECT_CODE, "مادة اختبار E2E", E2E_GRADE_SLUG, E2E_TRACK_CODE, 1, "book", "#3B82F6", 900],
+      [
+        E2E_SUBJECT_CODE,
+        "مادة اختبار E2E",
+        E2E_GRADE_SLUG,
+        E2E_TRACK_CODE,
+        1,
+        "book",
+        "#3B82F6",
+        900,
+      ],
     ],
   ),
   "02_units.xlsx": sheet(
@@ -91,9 +99,27 @@ export const FIXTURE_SHEETS = {
   ),
   "03_lessons.xlsx": sheet(
     "lessons",
-    ["lesson_code", "subject_code", "unit_code", "title", "duration", "semester", "is_free", "sort_order"],
     [
-      [E2E_LESSON_A, E2E_SUBJECT_CODE, E2E_UNIT_CODE, "درس اختبار داخل وحدة", "10 دقائق", 1, "false", 1],
+      "lesson_code",
+      "subject_code",
+      "unit_code",
+      "title",
+      "duration",
+      "semester",
+      "is_free",
+      "sort_order",
+    ],
+    [
+      [
+        E2E_LESSON_A,
+        E2E_SUBJECT_CODE,
+        E2E_UNIT_CODE,
+        "درس اختبار داخل وحدة",
+        "10 دقائق",
+        1,
+        "false",
+        1,
+      ],
       // unit-less lesson — contract requires E2E coverage of the nullable unit_id path
       [E2E_LESSON_B, E2E_SUBJECT_CODE, "", "درس اختبار بدون وحدة", "8 دقائق", 1, "false", 2],
     ],
@@ -169,47 +195,90 @@ export const FIXTURE_SHEETS = {
     ],
   ),
   /** Template 09 — routed to the question bank as DRAFT revisions (phase 08). */
-  "09_questions.xlsx": sheet(
-    "questions",
-    QUESTION_COLUMNS,
+  "09_questions.xlsx": sheet("questions", QUESTION_COLUMNS, [
     [
-      [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي أ؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
-      [E2E_IMPORT_QUESTION_B, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي ب؟", "خيار 1", "خيار 2", 2, ""],
+      E2E_IMPORT_QUESTION_A,
+      E2E_SUBJECT_CODE,
+      E2E_LESSON_A,
+      "سؤال مستورد تجريبي أ؟",
+      "خيار أ",
+      "خيار ب",
+      1,
+      "شرح الإجابة أ",
     ],
-  ),
+    [
+      E2E_IMPORT_QUESTION_B,
+      E2E_SUBJECT_CODE,
+      E2E_LESSON_A,
+      "سؤال مستورد تجريبي ب؟",
+      "خيار 1",
+      "خيار 2",
+      2,
+      "",
+    ],
+  ]),
   /** Same question content, different target → TARGET_ADDED, zero new revisions. */
-  "09b_questions_retarget.xlsx": sheet(
-    "questions",
-    QUESTION_COLUMNS,
+  "09b_questions_retarget.xlsx": sheet("questions", QUESTION_COLUMNS, [
     [
-      [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, "", "سؤال مستورد تجريبي أ؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
+      E2E_IMPORT_QUESTION_A,
+      E2E_SUBJECT_CODE,
+      "",
+      "سؤال مستورد تجريبي أ؟",
+      "خيار أ",
+      "خيار ب",
+      1,
+      "شرح الإجابة أ",
     ],
-  ),
+  ]),
   /** Changed content for the same question_code → new DRAFT revision. */
-  "09c_questions_changed.xlsx": sheet(
-    "questions",
-    QUESTION_COLUMNS,
+  "09c_questions_changed.xlsx": sheet("questions", QUESTION_COLUMNS, [
     [
-      [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي أ — نص معدّل؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
+      E2E_IMPORT_QUESTION_A,
+      E2E_SUBJECT_CODE,
+      E2E_LESSON_A,
+      "سؤال مستورد تجريبي أ — نص معدّل؟",
+      "خيار أ",
+      "خيار ب",
+      1,
+      "شرح الإجابة أ",
     ],
-  ),
+  ]),
   /** Third content variant, imported while a revision is already published. */
-  "09d_questions_after_publish.xlsx": sheet(
-    "questions",
-    QUESTION_COLUMNS,
+  "09d_questions_after_publish.xlsx": sheet("questions", QUESTION_COLUMNS, [
     [
-      [E2E_IMPORT_QUESTION_A, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال مستورد تجريبي أ — تعديل بعد النشر؟", "خيار أ", "خيار ب", 1, "شرح الإجابة أ"],
+      E2E_IMPORT_QUESTION_A,
+      E2E_SUBJECT_CODE,
+      E2E_LESSON_A,
+      "سؤال مستورد تجريبي أ — تعديل بعد النشر؟",
+      "خيار أ",
+      "خيار ب",
+      1,
+      "شرح الإجابة أ",
     ],
-  ),
+  ]),
   /** Valid row followed by an unresolvable lesson → whole template rolls back. */
-  "92_invalid_questions.xlsx": sheet(
-    "questions",
-    QUESTION_COLUMNS,
+  "92_invalid_questions.xlsx": sheet("questions", QUESTION_COLUMNS, [
     [
-      [E2E_IMPORT_QUESTION_C, E2E_SUBJECT_CODE, E2E_LESSON_A, "سؤال يجب ألا يُكتب؟", "خيار أ", "خيار ب", 1, ""],
-      [E2E_IMPORT_QUESTION_D, E2E_SUBJECT_CODE, "e2e-lesson-missing", "سؤال بمرجع درس مفقود؟", "خيار أ", "خيار ب", 2, ""],
+      E2E_IMPORT_QUESTION_C,
+      E2E_SUBJECT_CODE,
+      E2E_LESSON_A,
+      "سؤال يجب ألا يُكتب؟",
+      "خيار أ",
+      "خيار ب",
+      1,
+      "",
     ],
-  ),
+    [
+      E2E_IMPORT_QUESTION_D,
+      E2E_SUBJECT_CODE,
+      "e2e-lesson-missing",
+      "سؤال بمرجع درس مفقود؟",
+      "خيار أ",
+      "خيار ب",
+      2,
+      "",
+    ],
+  ]),
 
   // --- unified package (phase 09) ------------------------------------------
   ...unifiedPackageSheets(),
@@ -227,7 +296,16 @@ function unifiedPackageSheets() {
   return {
     "u09_01_subjects.xlsx": sheet(
       "subjects",
-      ["subject_code", "name", "grade_slug", "track_code", "semester", "icon", "color", "sort_order"],
+      [
+        "subject_code",
+        "name",
+        "grade_slug",
+        "track_code",
+        "semester",
+        "icon",
+        "color",
+        "sort_order",
+      ],
       [[S, "مادة الحزمة الموحّدة", E2E_GRADE_SLUG, E2E_TRACK_CODE, 1, "book", "#0EA5E9", 950]],
     ),
     "u09_02_units.xlsx": sheet(
@@ -237,7 +315,16 @@ function unifiedPackageSheets() {
     ),
     "u09_03_lessons.xlsx": sheet(
       "lessons",
-      ["lesson_code", "subject_code", "unit_code", "title", "duration", "semester", "is_free", "sort_order"],
+      [
+        "lesson_code",
+        "subject_code",
+        "unit_code",
+        "title",
+        "duration",
+        "semester",
+        "is_free",
+        "sort_order",
+      ],
       [
         [L1, S, U9.unit, "درس الحزمة الأول", "12 دقيقة", 1, "false", 1],
         [L2, S, U9.unit, "درس الحزمة الثاني", "9 دقائق", 1, "false", 2],
@@ -266,8 +353,26 @@ function unifiedPackageSheets() {
         "sort_order",
       ],
       [
-        [S, L1, U9.resourceA, "link", "مورد الحزمة الأول", "رابط خارجي", "https://example.org/u09-a", 1],
-        [S, L2, U9.resourceB, "link", "مورد الحزمة الثاني", "رابط خارجي", "https://example.org/u09-b", 2],
+        [
+          S,
+          L1,
+          U9.resourceA,
+          "link",
+          "مورد الحزمة الأول",
+          "رابط خارجي",
+          "https://example.org/u09-a",
+          1,
+        ],
+        [
+          S,
+          L2,
+          U9.resourceB,
+          "link",
+          "مورد الحزمة الثاني",
+          "رابط خارجي",
+          "https://example.org/u09-b",
+          2,
+        ],
       ],
     ),
     "u09_07_assessments.xlsx": sheet(
@@ -283,41 +388,40 @@ function unifiedPackageSheets() {
         [U9.assessment, U9.questionB, 2, 1],
       ],
     ),
-    "u09_09_questions.xlsx": sheet(
-      "questions",
-      QUESTION_COLUMNS,
-      [
-        [U9.questionA, S, L1, "سؤال الحزمة أ؟", "خيار أ", "خيار ب", 1, "شرح أ"],
-        [U9.questionB, S, L1, "سؤال الحزمة ب؟", "خيار أ", "خيار ب", 2, ""],
-        [U9.questionC, S, L2, "سؤال الحزمة ج؟", "خيار أ", "خيار ب", 1, ""],
-      ],
-    ),
+    "u09_09_questions.xlsx": sheet("questions", QUESTION_COLUMNS, [
+      [U9.questionA, S, L1, "سؤال الحزمة أ؟", "خيار أ", "خيار ب", 1, "شرح أ"],
+      [U9.questionB, S, L1, "سؤال الحزمة ب؟", "خيار أ", "خيار ب", 2, ""],
+      [U9.questionC, S, L2, "سؤال الحزمة ج؟", "خيار أ", "خيار ب", 1, ""],
+    ]),
 
     /** Partial update — only the second lesson changed. */
     "u09_03_lessons_changed.xlsx": sheet(
       "lessons",
-      ["lesson_code", "subject_code", "unit_code", "title", "duration", "semester", "is_free", "sort_order"],
+      [
+        "lesson_code",
+        "subject_code",
+        "unit_code",
+        "title",
+        "duration",
+        "semester",
+        "is_free",
+        "sort_order",
+      ],
       [
         [L1, S, U9.unit, "درس الحزمة الأول", "12 دقيقة", 1, "false", 1],
         [L2, S, U9.unit, "درس الحزمة الثاني — عنوان معدّل", "9 دقائق", 1, "false", 2],
       ],
     ),
     /** Partial update — only question A content changed. */
-    "u09_09_questions_changed.xlsx": sheet(
-      "questions",
-      QUESTION_COLUMNS,
-      [
-        [U9.questionA, S, L1, "سؤال الحزمة أ — نص معدّل؟", "خيار أ", "خيار ب", 1, "شرح أ"],
-        [U9.questionB, S, L1, "سؤال الحزمة ب؟", "خيار أ", "خيار ب", 2, ""],
-        [U9.questionC, S, L2, "سؤال الحزمة ج؟", "خيار أ", "خيار ب", 1, ""],
-      ],
-    ),
+    "u09_09_questions_changed.xlsx": sheet("questions", QUESTION_COLUMNS, [
+      [U9.questionA, S, L1, "سؤال الحزمة أ — نص معدّل؟", "خيار أ", "خيار ب", 1, "شرح أ"],
+      [U9.questionB, S, L1, "سؤال الحزمة ب؟", "خيار أ", "خيار ب", 2, ""],
+      [U9.questionC, S, L2, "سؤال الحزمة ج؟", "خيار أ", "خيار ب", 1, ""],
+    ]),
     /** Same (already updated) content for question A, new subject-level target. */
-    "u09_09_questions_retarget.xlsx": sheet(
-      "questions",
-      QUESTION_COLUMNS,
-      [[U9.questionA, S, "", "سؤال الحزمة أ — نص معدّل؟", "خيار أ", "خيار ب", 1, "شرح أ"]],
-    ),
+    "u09_09_questions_retarget.xlsx": sheet("questions", QUESTION_COLUMNS, [
+      [U9.questionA, S, "", "سؤال الحزمة أ — نص معدّل؟", "خيار أ", "خيار ب", 1, "شرح أ"],
+    ]),
     /**
      * Broken subject reference. An unknown unit_code only resolves to NULL
      * (units are optional), so the failure must come from the required
@@ -326,15 +430,32 @@ function unifiedPackageSheets() {
      */
     "u09_03_lessons_broken.xlsx": sheet(
       "lessons",
-      ["lesson_code", "subject_code", "unit_code", "title", "duration", "semester", "is_free", "sort_order"],
+      [
+        "lesson_code",
+        "subject_code",
+        "unit_code",
+        "title",
+        "duration",
+        "semester",
+        "is_free",
+        "sort_order",
+      ],
       [
         [U9.lessonA, S, U9.unit, "درس الحزمة الأول", "12 دقيقة", 1, "false", 1],
-        [U9.lessonBroken, "e2e-u9-sub-missing", U9.unit, "درس بمرجع مادة مفقودة", "5 دقائق", 1, "false", 9],
+        [
+          U9.lessonBroken,
+          "e2e-u9-sub-missing",
+          U9.unit,
+          "درس بمرجع مادة مفقودة",
+          "5 دقائق",
+          1,
+          "false",
+          9,
+        ],
       ],
     ),
   };
 }
-
 
 async function writeWorkbook(filename, spec) {
   const wb = new ExcelJS.Workbook();

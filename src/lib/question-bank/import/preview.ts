@@ -42,7 +42,9 @@ export function previewRows(
 }
 
 /** Apply is deliberately unavailable in this dry-run package. */
-export function rejectApplyContract(code: keyof typeof QB_IMPORT_CODES = "PREVIEW_TOKEN_INVALID"): QbImportIssue {
+export function rejectApplyContract(
+  code: keyof typeof QB_IMPORT_CODES = "PREVIEW_TOKEN_INVALID",
+): QbImportIssue {
   return issue(code, {
     file: null,
     stage: "AUTHORIZATION",

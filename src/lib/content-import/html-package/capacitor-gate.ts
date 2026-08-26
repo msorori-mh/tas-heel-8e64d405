@@ -19,7 +19,12 @@ export function evaluateRuntimeCapability(): CapabilityGateResult {
     };
   }
 
-  const win = window as any;
+  const win = window as Window & {
+    Capacitor?: { isNativePlatform?: () => boolean; platform?: string };
+    CapacitorBridge?: unknown;
+    androidBridge?: unknown;
+    webkit?: { messageHandlers?: unknown };
+  };
 
   // Check Capacitor / Mobile native environment
   const isCapacitorNative = Boolean(
@@ -28,14 +33,16 @@ export function evaluateRuntimeCapability(): CapabilityGateResult {
     win.Capacitor?.platform === "ios" ||
     win.CapacitorBridge ||
     win.androidBridge ||
-    win.webkit?.messageHandlers
+    win.webkit?.messageHandlers,
   );
 
   if (isCapacitorNative) {
     return {
       allowed: false,
-      reason: "Interactive HTML runtime disabled on Capacitor/Native platform until WebView bridge isolation is proven.",
-      userMessage: "المحتوى التفاعلي متاح حالياً في نسخة الويب، وسيتم دعم تشغيله الآمن داخل التطبيق لاحقاً.",
+      reason:
+        "Interactive HTML runtime disabled on Capacitor/Native platform until WebView bridge isolation is proven.",
+      userMessage:
+        "المحتوى التفاعلي متاح حالياً في نسخة الويب، وسيتم دعم تشغيله الآمن داخل التطبيق لاحقاً.",
     };
   }
 

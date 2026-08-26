@@ -206,7 +206,10 @@ export async function markLocalTextbookOfflineReady(
 }
 
 /** Best-effort content hash; skipped for very large files. */
-export async function computeSha256(blob: Blob, maxBytes = 80 * 1024 * 1024): Promise<string | null> {
+export async function computeSha256(
+  blob: Blob,
+  maxBytes = 80 * 1024 * 1024,
+): Promise<string | null> {
   try {
     if (blob.size > maxBytes) return null;
     if (typeof crypto === "undefined" || !crypto.subtle) return null;

@@ -35,7 +35,12 @@ function truncate(s: string, n: number) {
   return s.length > n ? s.slice(0, n) + "…" : s;
 }
 
-export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, templateTitle }: Props) {
+export function ExamTemplateQuestionsDialog({
+  open,
+  onOpenChange,
+  templateId,
+  templateTitle,
+}: Props) {
   const queryClient = useQueryClient();
   const [showPicker, setShowPicker] = useState(false);
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
@@ -59,7 +64,9 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
     queryFn: async () => {
       const { data, error } = await supabase
         .from("exam_template_questions")
-        .select("id, question_id, sort_order, points, question:questions!exam_template_questions_question_id_fkey(question_text)")
+        .select(
+          "id, question_id, sort_order, points, question:questions!exam_template_questions_question_id_fkey(question_text)",
+        )
         .eq("template_id", templateId!)
         .order("sort_order", { ascending: true });
       if (error) throw error;
@@ -76,7 +83,7 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
 
   const existingIds = useMemo(
     () => new Set((linksQ.data ?? []).map((l) => l.question_id)),
-    [linksQ.data]
+    [linksQ.data],
   );
 
   // Filter options
@@ -123,7 +130,9 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
     queryFn: async () => {
       let q = supabase
         .from("questions")
-        .select("id, question_text, lesson_id, subject_id, lesson:lessons!questions_lesson_id_fkey(unit_id)")
+        .select(
+          "id, question_text, lesson_id, subject_id, lesson:lessons!questions_lesson_id_fkey(unit_id)",
+        )
         .order("sort_order", { ascending: true })
         .limit(50);
       if (search.trim()) q = q.ilike("question_text", `%${search.trim()}%`);
@@ -139,14 +148,16 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
     },
   });
 
-  const unitOptions = subjectFilter !== "all"
-    ? (unitsQ.data ?? []).filter((u) => u.subject_id === subjectFilter)
-    : (unitsQ.data ?? []);
-  const lessonOptions = unitFilter !== "all"
-    ? (lessonsQ.data ?? []).filter((l) => l.unit_id === unitFilter)
-    : subjectFilter !== "all"
-      ? (lessonsQ.data ?? []).filter((l) => l.subject_id === subjectFilter)
-      : (lessonsQ.data ?? []);
+  const unitOptions =
+    subjectFilter !== "all"
+      ? (unitsQ.data ?? []).filter((u) => u.subject_id === subjectFilter)
+      : (unitsQ.data ?? []);
+  const lessonOptions =
+    unitFilter !== "all"
+      ? (lessonsQ.data ?? []).filter((l) => l.unit_id === unitFilter)
+      : subjectFilter !== "all"
+        ? (lessonsQ.data ?? []).filter((l) => l.subject_id === subjectFilter)
+        : (lessonsQ.data ?? []);
 
   const addQuestion = async (questionId: string) => {
     if (!templateId) return;
@@ -155,14 +166,12 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
       return;
     }
     const maxSort = (linksQ.data ?? []).reduce((m, r) => Math.max(m, r.sort_order), -1);
-    const { error } = await supabase
-      .from("exam_template_questions")
-      .insert({
-        template_id: templateId,
-        question_id: questionId,
-        sort_order: maxSort + 1,
-        points: 1,
-      });
+    const { error } = await supabase.from("exam_template_questions").insert({
+      template_id: templateId,
+      question_id: questionId,
+      sort_order: maxSort + 1,
+      points: 1,
+    });
     if (error) {
       // Unique violation safeguard
       if ((error as any).code === "23505") {
@@ -178,10 +187,7 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
   };
 
   const updateLink = async (id: string, patch: { sort_order?: number; points?: number }) => {
-    const { error } = await supabase
-      .from("exam_template_questions")
-      .update(patch)
-      .eq("id", id);
+    const { error } = await supabase.from("exam_template_questions").update(patch).eq("id", id);
     if (error) {
       toast.error("تعذر تحديث السؤال.");
       return;
@@ -190,10 +196,7 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
   };
 
   const removeLink = async (id: string) => {
-    const { error } = await supabase
-      .from("exam_template_questions")
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from("exam_template_questions").delete().eq("id", id);
     if (error) {
       toast.error("تعذر إزالة السؤال.");
       return;
@@ -215,7 +218,9 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">الأسئلة الحالية ({(linksQ.data ?? []).length})</h3>
+            <h3 className="text-sm font-semibold">
+              الأسئلة الحالية ({(linksQ.data ?? []).length})
+            </h3>
             <Button size="sm" onClick={() => setShowPicker((v) => !v)} className="gap-1">
               <Plus className="h-4 w-4" />
               {showPicker ? "إخفاء" : "إضافة سؤال"}
@@ -238,7 +243,9 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
                     <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
                       {idx + 1}
                     </span>
-                    <p className="text-sm text-foreground flex-1">{truncate(l.question_text, 140)}</p>
+                    <p className="text-sm text-foreground flex-1">
+                      {truncate(l.question_text, 140)}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex items-center gap-1">
@@ -294,22 +301,33 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <select
                   value={subjectFilter}
-                  onChange={(e) => { setSubjectFilter(e.target.value); setUnitFilter("all"); setLessonFilter("all"); }}
+                  onChange={(e) => {
+                    setSubjectFilter(e.target.value);
+                    setUnitFilter("all");
+                    setLessonFilter("all");
+                  }}
                   className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
                 >
                   <option value="all">كل المواد</option>
                   {(subjectsQ.data ?? []).map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
                   ))}
                 </select>
                 <select
                   value={unitFilter}
-                  onChange={(e) => { setUnitFilter(e.target.value); setLessonFilter("all"); }}
+                  onChange={(e) => {
+                    setUnitFilter(e.target.value);
+                    setLessonFilter("all");
+                  }}
                   className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
                 >
                   <option value="all">كل الوحدات</option>
                   {unitOptions.map((u) => (
-                    <option key={u.id} value={u.id}>{u.title}</option>
+                    <option key={u.id} value={u.id}>
+                      {u.title}
+                    </option>
                   ))}
                 </select>
                 <select
@@ -319,7 +337,9 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
                 >
                   <option value="all">كل الدروس</option>
                   {lessonOptions.map((l) => (
-                    <option key={l.id} value={l.id}>{l.title}</option>
+                    <option key={l.id} value={l.id}>
+                      {l.title}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -338,20 +358,32 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
                   <Loader2 className="h-4 w-4 animate-spin" />
                 </div>
               ) : (questionsQ.data ?? []).length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-2">لا توجد أسئلة مطابقة.</p>
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  لا توجد أسئلة مطابقة.
+                </p>
               ) : (
                 <ul className="space-y-1 max-h-64 overflow-y-auto">
                   {(questionsQ.data ?? []).map((q) => {
                     const added = existingIds.has(q.id);
                     return (
-                      <li key={q.id} className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5">
-                        <p className="text-xs text-foreground flex-1">{truncate(q.question_text, 100)}</p>
+                      <li
+                        key={q.id}
+                        className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5"
+                      >
+                        <p className="text-xs text-foreground flex-1">
+                          {truncate(q.question_text, 100)}
+                        </p>
                         {added ? (
                           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                             <Check className="h-3 w-3" /> مُضاف
                           </span>
                         ) : (
-                          <Button size="sm" variant="outline" className="h-7" onClick={() => addQuestion(q.id)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7"
+                            onClick={() => addQuestion(q.id)}
+                          >
                             <Plus className="h-3 w-3" />
                           </Button>
                         )}
@@ -365,7 +397,9 @@ export function ExamTemplateQuestionsDialog({ open, onOpenChange, templateId, te
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>إغلاق</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            إغلاق
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

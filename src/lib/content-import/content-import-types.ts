@@ -12,8 +12,7 @@ export const CONTENT_IMPORT_RESOURCE_TYPES = [
   "link",
 ] as const;
 
-export type ContentImportResourceType =
-  (typeof CONTENT_IMPORT_RESOURCE_TYPES)[number];
+export type ContentImportResourceType = (typeof CONTENT_IMPORT_RESOURCE_TYPES)[number];
 
 export type ContentImportDryRunStatus = "pass" | "warn" | "fail";
 

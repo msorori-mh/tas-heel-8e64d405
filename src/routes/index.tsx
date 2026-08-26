@@ -115,8 +115,8 @@ function HeroSection() {
             </h1>
 
             <p className="mx-auto mt-2 max-w-[46ch] text-[15px] leading-[1.9] text-muted-foreground lg:mx-0 sm:text-[16px]">
-              راجع دروسك، تدرب على اختبارات محاكاة، واعرف نقاط ضعفك يومًا بعد يوم —
-              بمحتوى يناسب منهجك الدراسي.
+              راجع دروسك، تدرب على اختبارات محاكاة، واعرف نقاط ضعفك يومًا بعد يوم — بمحتوى يناسب
+              منهجك الدراسي.
             </p>
 
             <div className="mt-4 flex flex-wrap justify-center gap-2.5 lg:justify-start">
@@ -166,7 +166,6 @@ function HeroSection() {
   );
 }
 
-
 function FeaturesSection() {
   return (
     <section id="features" className="px-4 py-10 md:py-14">
@@ -193,9 +192,7 @@ function FeaturesSection() {
                   {f.title}
                 </h3>
               </div>
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                {f.desc}
-              </p>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -214,13 +211,11 @@ function GradeTwelveSection() {
               <GraduationCap className="h-6 w-6" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-headline text-foreground">
-                استعد للاختبارات الوزارية بثقة
-              </h2>
+              <h2 className="text-headline text-foreground">استعد للاختبارات الوزارية بثقة</h2>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                لطلاب الصف الثالث الثانوي، توفر المنصة مساحة خاصة لمراجعة نماذج
-                الاختبارات الوزارية السابقة والتدرب عليها حسب المنهج والمحافظة،
-                مع مراعاة اختلاف نماذج صنعاء وعدن وطبيعة الأسئلة في كل نظام.
+                لطلاب الصف الثالث الثانوي، توفر المنصة مساحة خاصة لمراجعة نماذج الاختبارات الوزارية
+                السابقة والتدرب عليها حسب المنهج والمحافظة، مع مراعاة اختلاف نماذج صنعاء وعدن وطبيعة
+                الأسئلة في كل نظام.
               </p>
             </div>
           </div>
@@ -237,9 +232,8 @@ function CurriculumSection() {
         <div className="rounded-2xl border border-secondary/25 bg-secondary/5 p-6 md:p-8">
           <h2 className="text-headline text-foreground">تدريب يناسب منهجك</h2>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            لا تتعامل المنصة مع جميع الطلاب بنفس النموذج؛ بل تراعي اختلاف المنهج
-            والمحافظة وطبيعة الأسئلة، خصوصاً في الاختبارات الوزارية للصف الثالث
-            الثانوي.
+            لا تتعامل المنصة مع جميع الطلاب بنفس النموذج؛ بل تراعي اختلاف المنهج والمحافظة وطبيعة
+            الأسئلة، خصوصاً في الاختبارات الوزارية للصف الثالث الثانوي.
           </p>
         </div>
       </div>
@@ -256,9 +250,7 @@ function CTAFooter() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-hero-gradient">
               <BookOpen className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-sm font-bold text-foreground">
-              تمكين الطالب
-            </span>
+            <span className="text-sm font-bold text-foreground">تمكين الطالب</span>
           </div>
 
           <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">

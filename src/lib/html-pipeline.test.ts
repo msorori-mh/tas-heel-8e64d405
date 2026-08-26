@@ -411,7 +411,9 @@ function createMockDbAdapter(): {
       }
       const ver = versions.get(params.versionId);
       if (!ver || ver.resource_id !== params.resourceId) {
-        throw new Error(`Version ${params.versionId} does not belong to resource ${params.resourceId}`);
+        throw new Error(
+          `Version ${params.versionId} does not belong to resource ${params.resourceId}`,
+        );
       }
       if (!ver.immutable_at) {
         throw new Error(`Version ${params.versionId} is not immutable`);
@@ -669,9 +671,7 @@ interface StubSupabaseClient {
   };
 }
 
-function createStubSupabaseClient(
-  label: string,
-): SupabaseClient<Database> & { calls: string[] } {
+function createStubSupabaseClient(label: string): SupabaseClient<Database> & { calls: string[] } {
   const calls: string[] = [];
   return {
     calls,

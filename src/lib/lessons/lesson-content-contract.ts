@@ -153,10 +153,7 @@ export interface LessonCapabilityState {
   readinessReason: CapabilityReadinessReason | null;
 }
 
-export type LessonCapabilityContract = Record<
-  LessonContentCapabilityKey,
-  LessonCapabilityState
->;
+export type LessonCapabilityContract = Record<LessonContentCapabilityKey, LessonCapabilityState>;
 
 /* ------------------------------------------------------------------ */
 /* Input                                                               */
@@ -282,9 +279,7 @@ export function applyLifecycleOverlay(
     };
   }
   return next;
-
 }
-
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -380,8 +375,7 @@ export function buildLessonCapabilityContract(
   const mindMapRef = mindMapRows[0] ?? null;
   const mindMap = state("mindMap", {
     present: mindMapCount > 0,
-    status:
-      mindMapCount === 0 ? "ABSENT" : mindMapPublished.length > 0 ? "READY" : "DRAFT",
+    status: mindMapCount === 0 ? "ABSENT" : mindMapPublished.length > 0 ? "READY" : "DRAFT",
     studentVisible: mindMapPublished.length > 0 && gateOpen,
     sourceRef: "lesson_resources(resource_type=mindmap | html_resource_type=mindmap) [HTML]",
     count: mindMapCount,
@@ -439,9 +433,7 @@ export function buildLessonCapabilityContract(
     sourceRef: "lesson_summaries",
     count: usableSummary ? 1 : 0,
     updatedAt: latest(...input.summaries.map((s) => s.updated_at)),
-    ...(!usableSummary && input.summaries.length > 0
-      ? { note: "يوجد سجل ملخص لكنه فارغ" }
-      : {}),
+    ...(!usableSummary && input.summaries.length > 0 ? { note: "يوجد سجل ملخص لكنه فارغ" } : {}),
   });
 
   /* 7 — check understanding (V3 revision-pinned official question RPC) */
@@ -457,7 +449,7 @@ export function buildLessonCapabilityContract(
 
   /* 8 — lesson assessment (formal card / exam template) */
   const selfTestCount =
-    input.selfTestQuestionsCount ?? (input.assessmentsCount + (input.lessonExamCount ?? 0));
+    input.selfTestQuestionsCount ?? input.assessmentsCount + (input.lessonExamCount ?? 0);
   const lessonAssessment = state("lessonAssessment", {
     present: selfTestCount > 0,
     status: selfTestCount > 0 ? "READY" : "ABSENT",
@@ -468,9 +460,8 @@ export function buildLessonCapabilityContract(
   });
 
   /* 9 — student performance (derived, never authored) */
-  const perfPresent = input.performanceTrackable !== false && (
-    officialQuestionsCount > 0 || selfTestCount > 0
-  );
+  const perfPresent =
+    input.performanceTrackable !== false && (officialQuestionsCount > 0 || selfTestCount > 0);
   const studentPerformance = state("studentPerformance", {
     present: perfPresent,
     status: perfPresent ? "READY" : "ABSENT",
@@ -490,9 +481,7 @@ export function buildLessonCapabilityContract(
     present: pdfPresent,
     status: pdfPresent ? "READY" : "ABSENT",
     studentVisible: pdfPresent && gateOpen,
-    sourceRef: primaryPdf
-      ? "lesson_resources(is_primary=true)"
-      : "lesson_book_contents.pdf_url",
+    sourceRef: primaryPdf ? "lesson_resources(is_primary=true)" : "lesson_book_contents.pdf_url",
     count: pdfPresent ? 1 : 0,
     updatedAt: latest(primaryPdf?.created_at, bookPdf?.updated_at),
   });
@@ -513,7 +502,6 @@ export function buildLessonCapabilityContract(
     input.lifecycle ?? {},
   );
 }
-
 
 /** Capabilities in official student order, unavailable ones removed entirely. */
 export function studentVisibleContract(

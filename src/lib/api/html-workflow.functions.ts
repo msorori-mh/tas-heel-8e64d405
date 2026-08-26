@@ -1,9 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import {
-  requireAdminAuth,
-  requireContentStaffAuth,
-} from "@/integrations/supabase/auth-middleware";
+import { requireAdminAuth, requireContentStaffAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { createHtmlWorkflowAdapter } from "@/lib/server/html-pipeline/html-workflow-adapter";
 import {
@@ -53,9 +50,8 @@ async function parseInteractiveExcel(
     data: Record<string, string>;
   }>;
 }> {
-  const { parseContentImportBuffer } = await import(
-    "@/lib/content-import/content-import-dry-run.server"
-  );
+  const { parseContentImportBuffer } =
+    await import("@/lib/content-import/content-import-dry-run.server");
 
   const buffer = Buffer.from(fileBase64, "base64");
   const parsed = await parseContentImportBuffer(buffer, fileName, "resources");
@@ -149,10 +145,7 @@ export function validateInteractiveRow(
       height_mode: (data.height_mode || "viewport").trim(),
       completion_mode: (data.completion_mode || "view").trim(),
       completion_event: (data.completion_event || "").trim() || null,
-      minimum_interaction_seconds: parseInt(
-        data.minimum_interaction_seconds || "0",
-        10,
-      ),
+      minimum_interaction_seconds: parseInt(data.minimum_interaction_seconds || "0", 10),
     },
   };
 }
@@ -175,22 +168,15 @@ export const initializeHtmlImportFn = createServerFn({ method: "POST" })
 
     const backendEnabled = await workflow.checkFeatureFlag("html_content_backend");
     if (!backendEnabled) {
-      throw new Error(
-        "Backend pipeline غير مفعّل. يرجى تفعيل html_content_feature_flag أولاً.",
-      );
+      throw new Error("Backend pipeline غير مفعّل. يرجى تفعيل html_content_feature_flag أولاً.");
     }
 
     const uploadEnabled = await workflow.checkFeatureFlag("html_content_upload");
     if (!uploadEnabled) {
-      throw new Error(
-        "رفع المحتوى غير مفعّل. يرجى تفعيل html_content_upload أولاً.",
-      );
+      throw new Error("رفع المحتوى غير مفعّل. يرجى تفعيل html_content_upload أولاً.");
     }
 
-    const { rows } = await parseInteractiveExcel(
-      data.excelFileBase64,
-      data.excelFileName,
-    );
+    const { rows } = await parseInteractiveExcel(data.excelFileBase64, data.excelFileName);
 
     const errors: InitializeImportResult["errors"] = [];
     const warnings: InitializeImportResult["warnings"] = [];
@@ -248,9 +234,7 @@ export const initializeHtmlImportFn = createServerFn({ method: "POST" })
       }
     }
 
-    const validWithLessons = validParsed.filter((v) =>
-      lessonsMap.has(v.parsed.lesson_code),
-    );
+    const validWithLessons = validParsed.filter((v) => lessonsMap.has(v.parsed.lesson_code));
 
     if (validWithLessons.length === 0) {
       return {
@@ -263,7 +247,10 @@ export const initializeHtmlImportFn = createServerFn({ method: "POST" })
 
     const actorId = context.userId;
     const idempotencyKey = `html-import:${actorId}:${Date.now()}`;
-    const batchId = await workflow.createImportBatch({ actor_id: actorId, idempotency_key: idempotencyKey });
+    const batchId = await workflow.createImportBatch({
+      actor_id: actorId,
+      idempotency_key: idempotencyKey,
+    });
 
     const resources: ImportResourceSession[] = [];
 
@@ -402,10 +389,7 @@ export const submitHtmlForReviewFn = createServerFn({ method: "POST" })
 
     for (const resourceId of data.resourceIds) {
       try {
-        await workflow.submitResourceForReview(
-          resourceId,
-          data.lockVersions?.[resourceId],
-        );
+        await workflow.submitResourceForReview(resourceId, data.lockVersions?.[resourceId]);
         submitted.push(resourceId);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -691,12 +675,18 @@ export const rollbackHtmlResourceFn = createServerFn({ method: "POST" })
  */
 export const checkHtmlBackendEnabledFn = createServerFn({ method: "POST" })
   .middleware([requireContentStaffAuth])
-  .handler(async (): Promise<{ backendEnabled: boolean; uploadEnabled: boolean; publishEnabled: boolean }> => {
-    const workflow = buildWorkflowAdapter();
-    const [backend, upload, publish] = await Promise.all([
-      workflow.checkFeatureFlag("html_content_backend"),
-      workflow.checkFeatureFlag("html_content_upload"),
-      workflow.checkFeatureFlag("html_content_publish"),
-    ]);
-    return { backendEnabled: backend, uploadEnabled: upload, publishEnabled: publish };
-  });
+  .handler(
+    async (): Promise<{
+      backendEnabled: boolean;
+      uploadEnabled: boolean;
+      publishEnabled: boolean;
+    }> => {
+      const workflow = buildWorkflowAdapter();
+      const [backend, upload, publish] = await Promise.all([
+        workflow.checkFeatureFlag("html_content_backend"),
+        workflow.checkFeatureFlag("html_content_upload"),
+        workflow.checkFeatureFlag("html_content_publish"),
+      ]);
+      return { backendEnabled: backend, uploadEnabled: upload, publishEnabled: publish };
+    },
+  );

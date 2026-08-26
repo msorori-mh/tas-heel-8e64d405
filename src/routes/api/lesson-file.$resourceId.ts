@@ -90,7 +90,7 @@ async function authorize(request: Request, resourceId: string) {
 }
 
 /** Resolve the fetchable upstream URL for a resource without leaking it to the client. */
-type SupabaseAdmin = typeof import("@/integrations/supabase/client.server")["supabaseAdmin"];
+type SupabaseAdmin = (typeof import("@/integrations/supabase/client.server"))["supabaseAdmin"];
 
 async function resolveUpstream(
   resource: ResourceRow,
@@ -157,7 +157,9 @@ async function handle(request: Request, resourceId: string, method: "GET" | "HEA
 
   if (!upstreamResponse.ok && upstreamResponse.status !== 206) {
     const status = upstreamResponse.status === 404 ? 404 : 502;
-    console.error(`[lesson-file] upstream failed [${upstreamResponse.status}] resource=${resourceId}`);
+    console.error(
+      `[lesson-file] upstream failed [${upstreamResponse.status}] resource=${resourceId}`,
+    );
     return deny(status, status === 404 ? "file_not_found" : "upstream_failed");
   }
 
@@ -171,10 +173,7 @@ async function handle(request: Request, resourceId: string, method: "GET" | "HEA
   const version =
     managedVersion ??
     buildVersionToken(auth.resource.created_at, upstreamResponse.headers.get("etag"));
-  const contentType = guessContentType(
-    auth.resource,
-    upstreamResponse.headers.get("content-type"),
-  );
+  const contentType = guessContentType(auth.resource, upstreamResponse.headers.get("content-type"));
 
   const headers = new Headers();
   headers.set("content-type", contentType);

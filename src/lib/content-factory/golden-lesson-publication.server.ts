@@ -29,7 +29,6 @@ import { verifyGoldenLessonBundle } from "./golden-lesson-bundle-verifier";
 import { loadVerifiedDirectIntake } from "./golden-lesson-direct-source.server";
 import { isDirectVerifiedPath } from "./golden-lesson-direct-storage";
 
-
 export const INTAKE_BUCKET = "golden-lesson-intake";
 export const ASSET_BUCKET = "golden-lesson-assets";
 
@@ -38,8 +37,10 @@ export const CF11_LIFECYCLE_TABLE = "lesson_capability_lifecycle" as const;
 
 export const SHA256_RE = /^[0-9a-f]{64}$/;
 
-export type UntypedRpc = (name: string, args: Record<string, unknown>) =>
-  Promise<{ data: unknown; error: { message: string } | null }>;
+export type UntypedRpc = (
+  name: string,
+  args: Record<string, unknown>,
+) => Promise<{ data: unknown; error: { message: string } | null }>;
 
 /** The CF11 RPCs are pending migrations, so they are absent from generated types. */
 export function rpc(client: { rpc: unknown }): UntypedRpc {
@@ -73,7 +74,11 @@ export function idempotencyKey(prefix: string, batchId: string, sha: string): st
   return `${prefix}-${batchId}-${sha.slice(0, 16)}`;
 }
 
-export function requirePlan(mode: string, expected: string | undefined, code: string): string | null {
+export function requirePlan(
+  mode: string,
+  expected: string | undefined,
+  code: string,
+): string | null {
   if (mode !== "EXECUTE") return expected ?? null;
   if (!expected || !SHA256_RE.test(expected)) throw new Error(code);
   return expected;
@@ -122,7 +127,11 @@ async function storageDownload(bucket: string, path: string, code: string): Prom
   return new Uint8Array(await response.arrayBuffer());
 }
 
-async function storageList(bucket: string, prefix: string, search: string): Promise<StorageListObject[]> {
+async function storageList(
+  bucket: string,
+  prefix: string,
+  search: string,
+): Promise<StorageListObject[]> {
   const { url } = storageServiceConfig();
   const response = await fetch(`${url}/storage/v1/object/list/${encodeURIComponent(bucket)}`, {
     method: "POST",
@@ -210,34 +219,61 @@ export async function readCf11Batches(): Promise<Cf11BatchStatus[]> {
   const rows: Cf11BatchStatus[] = [];
   for (const batch of batches ?? []) {
     const [binding, mat, review, publication, readyAttestation, revocation] = await Promise.all([
-      admin.from("golden_lesson_identity_bindings")
-        .select("id,lesson_id,external_lesson_code").eq("batch_id", batch.id).maybeSingle(),
-      admin.from("golden_lesson_domain_materializations")
-        .select("id").eq("batch_id", batch.id).maybeSingle(),
-      admin.from("golden_lesson_package_reviews")
-        .select("to_status").eq("package_id", batch.package_id)
+      admin
+        .from("golden_lesson_identity_bindings")
+        .select("id,lesson_id,external_lesson_code")
+        .eq("batch_id", batch.id)
+        .maybeSingle(),
+      admin
+        .from("golden_lesson_domain_materializations")
+        .select("id")
+        .eq("batch_id", batch.id)
+        .maybeSingle(),
+      admin
+        .from("golden_lesson_package_reviews")
+        .select("to_status")
+        .eq("package_id", batch.package_id)
         .eq("package_version", batch.package_version)
-        .order("created_at", { ascending: false }).limit(1).maybeSingle(),
-      admin.from("golden_lesson_publications")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin
+        .from("golden_lesson_publications")
         .select("id,published_by,published_at")
-        .eq("batch_id", batch.id).maybeSingle(),
+        .eq("batch_id", batch.id)
+        .maybeSingle(),
       // READY evidence lives in its own append-only ledger, never on the publication row.
-      admin.from("golden_lesson_ready_attestations")
-        .select("attested_by,attested_at").eq("batch_id", batch.id).maybeSingle(),
+      admin
+        .from("golden_lesson_ready_attestations")
+        .select("attested_by,attested_at")
+        .eq("batch_id", batch.id)
+        .maybeSingle(),
       // CF11-R7: a withdrawal is a forward fact in its own ledger; the READY row stays intact.
-      admin.from("golden_lesson_ready_revocations")
-        .select("revoked_by,revoked_at").eq("batch_id", batch.id).maybeSingle(),
+      admin
+        .from("golden_lesson_ready_revocations")
+        .select("revoked_by,revoked_at")
+        .eq("batch_id", batch.id)
+        .maybeSingle(),
     ]);
-    const bindingRow = ok(binding, "CF11_BINDING_READ_FAILED") as
-      { id?: string; lesson_id?: string; external_lesson_code?: string } | null;
+    const bindingRow = ok(binding, "CF11_BINDING_READ_FAILED") as {
+      id?: string;
+      lesson_id?: string;
+      external_lesson_code?: string;
+    } | null;
     const matRow = ok(mat, "CF11_MATERIALIZATION_READ_FAILED");
     const reviewRow = ok(review, "CF11_REVIEW_READ_FAILED") as { to_status?: string } | null;
-    const publicationRow = ok(publication, "CF11_PUBLICATION_READ_FAILED") as
-      { published_by?: string; published_at?: string } | null;
-    const readyRow = ok(readyAttestation, "CF11_READY_LEDGER_READ_FAILED") as
-      { attested_by?: string; attested_at?: string } | null;
-    const revokedRow = ok(revocation, "CF11_REVOCATION_LEDGER_READ_FAILED") as
-      { revoked_by?: string; revoked_at?: string } | null;
+    const publicationRow = ok(publication, "CF11_PUBLICATION_READ_FAILED") as {
+      published_by?: string;
+      published_at?: string;
+    } | null;
+    const readyRow = ok(readyAttestation, "CF11_READY_LEDGER_READ_FAILED") as {
+      attested_by?: string;
+      attested_at?: string;
+    } | null;
+    const revokedRow = ok(revocation, "CF11_REVOCATION_LEDGER_READ_FAILED") as {
+      revoked_by?: string;
+      revoked_at?: string;
+    } | null;
 
     const lessonId = bindingRow?.lesson_id ?? null;
     let lifecycle: { capability: string; status: string; applicability: string }[] = [];
@@ -245,8 +281,10 @@ export async function readCf11Batches(): Promise<Cf11BatchStatus[]> {
     let attestedAssets = 0;
     if (lessonId) {
       lifecycle = (ok(
-        await admin.from(CF11_LIFECYCLE_TABLE)
-          .select("capability,status,applicability").eq("lesson_id", lessonId),
+        await admin
+          .from(CF11_LIFECYCLE_TABLE)
+          .select("capability,status,applicability")
+          .eq("lesson_id", lessonId),
         "CF11_LIFECYCLE_READ_FAILED",
       ) ?? []) as { capability: string; status: string; applicability: string }[];
       const assetRows = await admin
@@ -350,7 +388,6 @@ export async function resolveVerifiedAssets(batchId: string): Promise<{
     throw new Error("CF11_VERIFIED_BUNDLE_IDENTITY_MISMATCH");
   }
 
-
   const declarations: Cf11AssetDeclaration[] = [];
   const files = new Map<string, Uint8Array>();
   for (const asset of verified.assets) {
@@ -427,24 +464,31 @@ export async function assertAssetsVerified(
   const attestations = (ok(
     await admin
       .from("golden_lesson_asset_attestations")
-      .select("asset_code,sha256,byte_size,mime_type,storage_bucket,storage_path,verification_origin")
+      .select(
+        "asset_code,sha256,byte_size,mime_type,storage_bucket,storage_path,verification_origin",
+      )
       .eq("lesson_id", lessonId),
     "CF11_ASSET_ATTESTATIONS_READ_FAILED",
   ) ?? []) as {
-    asset_code: string; sha256: string; byte_size: number; mime_type: string;
-    storage_bucket: string; storage_path: string; verification_origin: string;
+    asset_code: string;
+    sha256: string;
+    byte_size: number;
+    mime_type: string;
+    storage_bucket: string;
+    storage_path: string;
+    verification_origin: string;
   }[];
 
   for (const declaration of declarations) {
     const att = attestations.find((row) => row.asset_code === declaration.assetCode);
     if (
-      !att
-      || att.verification_origin !== CF11_VERIFICATION_ORIGIN
-      || att.sha256 !== declaration.sha256
-      || Number(att.byte_size) !== declaration.bytes
-      || att.mime_type !== declaration.mimeType
-      || att.storage_bucket !== declaration.storageBucket
-      || att.storage_path !== declaration.storagePath
+      !att ||
+      att.verification_origin !== CF11_VERIFICATION_ORIGIN ||
+      att.sha256 !== declaration.sha256 ||
+      Number(att.byte_size) !== declaration.bytes ||
+      att.mime_type !== declaration.mimeType ||
+      att.storage_bucket !== declaration.storageBucket ||
+      att.storage_path !== declaration.storagePath
     ) {
       throw new Error(`CF11_ASSETS_NOT_VERIFIED: ${declaration.assetCode}`);
     }
@@ -461,7 +505,6 @@ export async function assertAssetsVerified(
     throw new Error("CF11_ASSETS_NOT_VERIFIED: attestation set mismatch");
   }
 }
-
 
 /**
  * CF11-R5 — MACHINE attestation.
@@ -493,8 +536,10 @@ export async function attestStoredAssets(
       `CF11_ASSET_READBACK_FAILED: ${declaration.assetCode}`,
     );
     const observedSha = createHash("sha256").update(bytes).digest("hex");
-    if (observedSha !== declaration.sha256) throw new Error(`CF11_ASSET_BYTES_MISMATCH: ${declaration.assetCode}`);
-    if (bytes.byteLength !== declaration.bytes) throw new Error(`CF11_ASSET_SIZE_MISMATCH: ${declaration.assetCode}`);
+    if (observedSha !== declaration.sha256)
+      throw new Error(`CF11_ASSET_BYTES_MISMATCH: ${declaration.assetCode}`);
+    if (bytes.byteLength !== declaration.bytes)
+      throw new Error(`CF11_ASSET_SIZE_MISMATCH: ${declaration.assetCode}`);
     const magicHex = Buffer.from(bytes.subarray(0, 16)).toString("hex");
 
     // Service-role client only: the attestation RPC refuses any session that carries auth.uid().
@@ -511,7 +556,8 @@ export async function attestStoredAssets(
     });
     if (result.error) throw new Error(`CF11_ASSET_ATTESTATION_FAILED: ${result.error.message}`);
     const payload = result.data as { attestationSha256?: string } | null;
-    if (!payload?.attestationSha256) throw new Error(`CF11_ASSET_ATTESTATION_EMPTY: ${declaration.assetCode}`);
+    if (!payload?.attestationSha256)
+      throw new Error(`CF11_ASSET_ATTESTATION_EMPTY: ${declaration.assetCode}`);
 
     out.push({
       ...declaration,
@@ -522,4 +568,3 @@ export async function attestStoredAssets(
   }
   return out;
 }
-

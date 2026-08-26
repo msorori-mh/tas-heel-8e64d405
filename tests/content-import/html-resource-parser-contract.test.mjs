@@ -91,7 +91,11 @@ describe("HTML resource import parser contract", () => {
     }));
 
     const buffer = await buildExcelBuffer(rows);
-    const parsed = await parseContentImportBuffer(Buffer.from(buffer), "test-resources.xlsx", "resources");
+    const parsed = await parseContentImportBuffer(
+      Buffer.from(buffer),
+      "test-resources.xlsx",
+      "resources",
+    );
 
     assert.strictEqual(parsed.rows.length, 3, "Parser must return exactly 3 rows");
 
@@ -99,7 +103,11 @@ describe("HTML resource import parser contract", () => {
       const raw = parsed.rows[i].data;
       const validation = validateInteractiveRow(parsed.rows[i].rowNumber, raw);
 
-      assert.strictEqual(validation.valid, true, `Row ${i + 1} must be valid: ${validation.errors.join(", ")}`);
+      assert.strictEqual(
+        validation.valid,
+        true,
+        `Row ${i + 1} must be valid: ${validation.errors.join(", ")}`,
+      );
       assert.ok(validation.parsed, `Row ${i + 1} must produce a parsed payload`);
       assert.strictEqual(
         validation.parsed.resource_type,
@@ -127,7 +135,11 @@ describe("HTML resource import parser contract", () => {
       },
     ]);
 
-    const parsed = await parseContentImportBuffer(Buffer.from(buffer), "test-bad-type.xlsx", "resources");
+    const parsed = await parseContentImportBuffer(
+      Buffer.from(buffer),
+      "test-bad-type.xlsx",
+      "resources",
+    );
     const validation = validateInteractiveRow(parsed.rows[0].rowNumber, parsed.rows[0].data);
 
     assert.strictEqual(validation.valid, false, "Invalid subtype must be rejected");
@@ -159,7 +171,11 @@ describe("HTML resource import parser contract", () => {
       },
     ]);
 
-    const parsed = await parseContentImportBuffer(Buffer.from(buffer), "test-dup.xlsx", "resources");
+    const parsed = await parseContentImportBuffer(
+      Buffer.from(buffer),
+      "test-dup.xlsx",
+      "resources",
+    );
     const first = validateInteractiveRow(parsed.rows[0].rowNumber, parsed.rows[0].data);
     const second = validateInteractiveRow(parsed.rows[1].rowNumber, parsed.rows[1].data);
 
@@ -168,7 +184,11 @@ describe("HTML resource import parser contract", () => {
     // validateInteractiveRow itself only validates a single row; the batch-level duplicate
     // detection is enforced by initializeHtmlImportFn. Here we assert the canonical payload
     // of each row does not lose the subtype even when the code is duplicated.
-    assert.strictEqual(second.parsed.resource_type, "summary_html", "Duplicate row retains its subtype");
+    assert.strictEqual(
+      second.parsed.resource_type,
+      "summary_html",
+      "Duplicate row retains its subtype",
+    );
     assert.strictEqual(second.parsed.resource_code, "DUP_001", "Duplicate row retains its code");
   });
 

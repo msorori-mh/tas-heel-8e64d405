@@ -6,23 +6,19 @@ export const Route = createFileRoute("/data-deletion")({
       { title: "حذف البيانات — تمكين" },
       {
         name: "description",
-        content:
-          "كيف تحذف حسابك وبياناتك ذاتيًا من منصة تمكين، وما يُحذف وما قد يُحتفظ به.",
+        content: "كيف تحذف حسابك وبياناتك ذاتيًا من منصة تمكين، وما يُحذف وما قد يُحتفظ به.",
       },
       { property: "og:title", content: "حذف البيانات — تمكين" },
       {
         property: "og:description",
-        content:
-          "كيف تحذف حسابك وبياناتك ذاتيًا من منصة تمكين، وما يُحذف وما قد يُحتفظ به.",
+        content: "كيف تحذف حسابك وبياناتك ذاتيًا من منصة تمكين، وما يُحذف وما قد يُحتفظ به.",
       },
       {
         property: "og:url",
         content: "https://tas-heel.lovable.app/data-deletion",
       },
     ],
-    links: [
-      { rel: "canonical", href: "https://tas-heel.lovable.app/data-deletion" },
-    ],
+    links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/data-deletion" }],
   }),
   component: DataDeletionPage,
 });
@@ -75,22 +71,17 @@ function DataDeletionPage() {
         <section>
           <h2 className="text-xl font-semibold">3. ما قد يُحتفظ به</h2>
           <p className="mt-2 text-muted-foreground">
-            لأسباب قانونية ومحاسبية، قد نحتفظ بما يلي لفترة محدودة بعد الحذف،
-            بدون ربطه بهويتك:
+            لأسباب قانونية ومحاسبية، قد نحتفظ بما يلي لفترة محدودة بعد الحذف، بدون ربطه بهويتك:
           </p>
           <ul className="mt-2 list-disc space-y-1 pr-6 text-muted-foreground">
             <li>
-              سجلات تدقيق مجهولة (Audit logs): يُزال معرّفك منها فور الحذف،
-              ويبقى السجل بدون هوية لمتابعة الأمان.
+              سجلات تدقيق مجهولة (Audit logs): يُزال معرّفك منها فور الحذف، ويبقى السجل بدون هوية
+              لمتابعة الأمان.
             </li>
+            <li>ملخصات محاسبية مجمّعة (الإجماليات الشهرية)، بدون أي بيانات شخصية تخصك.</li>
             <li>
-              ملخصات محاسبية مجمّعة (الإجماليات الشهرية)، بدون أي بيانات
-              شخصية تخصك.
-            </li>
-            <li>
-              نسخ احتياطية تقنية مشفّرة قد تحتوي بياناتك لمدة قصيرة قبل
-              انتهاء دورة النسخ، ولا يصل إليها أحد إلا في حالات الطوارئ
-              التقنية.
+              نسخ احتياطية تقنية مشفّرة قد تحتوي بياناتك لمدة قصيرة قبل انتهاء دورة النسخ، ولا يصل
+              إليها أحد إلا في حالات الطوارئ التقنية.
             </li>
           </ul>
         </section>
@@ -101,10 +92,7 @@ function DataDeletionPage() {
             إذا تعذّر عليك الوصول إلى حسابك، أرسل بريدًا من بريدك المسجّل إلى:
           </p>
           <p className="mt-2">
-            <a
-              href="mailto:support@studentamkeen.com"
-              className="text-primary text-lg"
-            >
+            <a href="mailto:support@studentamkeen.com" className="text-primary text-lg">
               support@studentamkeen.com
             </a>
           </p>

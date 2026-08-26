@@ -64,7 +64,10 @@ export function StudentProfileCard() {
     queryKey: ["pcard-grade", gradeKey],
     queryFn: async () => {
       const { data } = await supabase
-        .from("grades").select("name").eq("id", gradeKey!).maybeSingle();
+        .from("grades")
+        .select("name")
+        .eq("id", gradeKey!)
+        .maybeSingle();
       return data as { name: string } | null;
     },
   });
@@ -74,8 +77,10 @@ export function StudentProfileCard() {
     queryKey: ["pcard-track", profile?.curriculum_track_id],
     queryFn: async () => {
       const { data } = await supabase
-        .from("curriculum_tracks").select("track_name")
-        .eq("id", profile!.curriculum_track_id!).maybeSingle();
+        .from("curriculum_tracks")
+        .select("track_name")
+        .eq("id", profile!.curriculum_track_id!)
+        .maybeSingle();
       return data as { track_name: string } | null;
     },
   });
@@ -85,8 +90,10 @@ export function StudentProfileCard() {
     queryKey: ["pcard-gov", profile?.governorate_id],
     queryFn: async () => {
       const { data } = await supabase
-        .from("governorates").select("name")
-        .eq("id", profile!.governorate_id!).maybeSingle();
+        .from("governorates")
+        .select("name")
+        .eq("id", profile!.governorate_id!)
+        .maybeSingle();
       return data as { name: string } | null;
     },
   });
@@ -97,7 +104,9 @@ export function StudentProfileCard() {
     queryFn: async (): Promise<SubRow | null> => {
       const { data } = await supabase
         .from("subscriptions")
-        .select("id,status,starts_at,expires_at,plan:subscription_plans!subscriptions_plan_id_fkey(name)")
+        .select(
+          "id,status,starts_at,expires_at,plan:subscription_plans!subscriptions_plan_id_fkey(name)",
+        )
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -134,10 +143,10 @@ export function StudentProfileCard() {
     sub?.status === "active" && (daysLeft === null || daysLeft > 0)
       ? "active"
       : sub?.status === "pending" || lastPay?.status === "pending"
-      ? "pending"
-      : sub?.status === "expired" || sub?.status === "cancelled" || sub?.status === "refunded"
-      ? "expired"
-      : "none";
+        ? "pending"
+        : sub?.status === "expired" || sub?.status === "cancelled" || sub?.status === "refunded"
+          ? "expired"
+          : "none";
 
   const initial = (profile?.full_name ?? "ط").trim().charAt(0);
 
@@ -166,21 +175,14 @@ export function StudentProfileCard() {
           <h1 className="truncate text-base font-bold text-foreground">
             مرحبًا {profile?.full_name ?? "بك"}
           </h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            جاهز تكمّل مذاكرتك اليوم؟
-          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">جاهز تكمّل مذاكرتك اليوم؟</p>
         </div>
       </div>
 
-
       {/* Identity chips */}
       <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
-        {gradeName && (
-          <Chip icon={<GraduationCap className="h-3 w-3" />}>{gradeName}</Chip>
-        )}
-        {govName && (
-          <Chip icon={<MapPin className="h-3 w-3" />}>{govName}</Chip>
-        )}
+        {gradeName && <Chip icon={<GraduationCap className="h-3 w-3" />}>{gradeName}</Chip>}
+        {govName && <Chip icon={<MapPin className="h-3 w-3" />}>{govName}</Chip>}
         {profile?.school_name && (
           <Chip icon={<School className="h-3 w-3" />}>{profile.school_name}</Chip>
         )}
@@ -192,13 +194,9 @@ export function StudentProfileCard() {
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <Gift className="h-4 w-4 text-emerald-600" aria-hidden />
-              <span className="text-sm font-semibold text-foreground">
-                {FREE_ACCESS_BADGE}
-              </span>
+              <span className="text-sm font-semibold text-foreground">{FREE_ACCESS_BADGE}</span>
             </div>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              {FREE_ACCESS_SHORT}
-            </p>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">{FREE_ACCESS_SHORT}</p>
           </div>
         ) : (
           <SubscriptionBlock
@@ -212,7 +210,11 @@ export function StudentProfileCard() {
 
       {/* Shortcuts */}
       <nav className="mt-4 grid grid-cols-2 gap-2" aria-label="اختصارات">
-        <Shortcut to="/exams/history" icon={<History className="h-4 w-4" />} label="سجل الاختبارات" />
+        <Shortcut
+          to="/exams/history"
+          icon={<History className="h-4 w-4" />}
+          label="سجل الاختبارات"
+        />
         <Shortcut to="/settings" icon={<Settings className="h-4 w-4" />} label="الإعدادات" />
       </nav>
     </section>
@@ -274,13 +276,9 @@ function SubscriptionBlock({
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-amber-600" />
-          <span className="text-sm font-semibold text-foreground">
-            طلبك قيد المراجعة
-          </span>
+          <span className="text-sm font-semibold text-foreground">طلبك قيد المراجعة</span>
         </div>
-        <p className="text-[11px] text-muted-foreground">
-          سنُفعّل اشتراكك فور اعتماد إيصال الدفع.
-        </p>
+        <p className="text-[11px] text-muted-foreground">سنُفعّل اشتراكك فور اعتماد إيصال الدفع.</p>
         <Link
           to="/payments"
           className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
@@ -296,14 +294,10 @@ function SubscriptionBlock({
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <XCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm font-semibold text-foreground">
-            اشتراكك منتهٍ
-          </span>
+          <span className="text-sm font-semibold text-foreground">اشتراكك منتهٍ</span>
         </div>
         {lastPay?.status === "rejected" && (
-          <p className="text-[11px] text-destructive">
-            تم رفض آخر طلب دفع. يمكنك إرسال طلب جديد.
-          </p>
+          <p className="text-[11px] text-destructive">تم رفض آخر طلب دفع. يمكنك إرسال طلب جديد.</p>
         )}
         <Link
           to="/subscription"

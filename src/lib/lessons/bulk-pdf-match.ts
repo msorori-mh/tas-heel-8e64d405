@@ -176,8 +176,10 @@ export function bulkMatchBlockers(rows: BulkMatchRow[]): Record<string, number> 
 }
 
 export function canExecuteBulk(rows: BulkMatchRow[]): boolean {
-  return Object.keys(bulkMatchBlockers(rows)).length === 0
-    && rows.some((r) => r.status === "MATCHED" || r.status === "REPLACE_EXISTING");
+  return (
+    Object.keys(bulkMatchBlockers(rows)).length === 0 &&
+    rows.some((r) => r.status === "MATCHED" || r.status === "REPLACE_EXISTING")
+  );
 }
 
 export function isSubjectComplete(rows: BulkMatchRow[]): boolean {

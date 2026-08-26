@@ -29,8 +29,7 @@ function GradesPage() {
 
   if (isLoading) return <StateMessage variant="loading">جارٍ تحميل الصفوف…</StateMessage>;
   if (error) return <StateMessage variant="error">تعذّر تحميل الصفوف. حاول مجدداً.</StateMessage>;
-  if (!data || data.length === 0)
-    return <StateMessage>لا توجد صفوف متاحة حالياً.</StateMessage>;
+  if (!data || data.length === 0) return <StateMessage>لا توجد صفوف متاحة حالياً.</StateMessage>;
 
   const sorted = [...data].sort((a, b) => {
     if (myGradeId && a.id === myGradeId) return -1;
@@ -55,9 +54,7 @@ function GradesPage() {
               >
                 <div>
                   <div className="font-bold text-card-foreground">{g.name}</div>
-                  {mine && (
-                    <div className="mt-1 text-xs text-primary">صفك الحالي</div>
-                  )}
+                  {mine && <div className="mt-1 text-xs text-primary">صفك الحالي</div>}
                 </div>
                 <ChevronLeft className="h-5 w-5 text-muted-foreground" />
               </Link>

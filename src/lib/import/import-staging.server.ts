@@ -40,7 +40,10 @@ export interface StagingRowInput {
 
 /** Untyped RPC bridge: these functions ship with the phase-03 migration. */
 type RpcClient = {
-  rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+  rpc: (
+    name: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
 };
 
 function asRpcClient(supabase: SupabaseClient<Database>): RpcClient {
@@ -126,7 +129,11 @@ export async function executeContentImport(
   supabase: SupabaseClient<Database>,
   jobId: string,
   templateKeys: readonly ContentImportTemplateKey[],
-): Promise<{ results: ExecuteTemplateResult[]; failedTemplate: ContentImportTemplateKey | null; error: string | null }> {
+): Promise<{
+  results: ExecuteTemplateResult[];
+  failedTemplate: ContentImportTemplateKey | null;
+  error: string | null;
+}> {
   const ordered = orderTemplatesByDependency(templateKeys);
   const results: ExecuteTemplateResult[] = [];
 
@@ -157,7 +164,6 @@ export async function executeContentImport(
       }
       return { results, failedTemplate: templateKey, error: error.message };
     }
-
 
     const r = (data ?? {}) as {
       inserted?: number;

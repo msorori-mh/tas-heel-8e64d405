@@ -15,13 +15,7 @@ const migrationPath = join(
   "migrations",
   "20260801120000_qb01_question_bank_schema_foundation.sql",
 );
-const fixturePath = join(
-  root,
-  "tests",
-  "fixtures",
-  "question-bank",
-  "canonical-payload-v1.json",
-);
+const fixturePath = join(root, "tests", "fixtures", "question-bank", "canonical-payload-v1.json");
 
 function loadSql(): string {
   assert.ok(existsSync(migrationPath), `missing migration: ${migrationPath}`);
@@ -68,10 +62,7 @@ test("does not backfill legacy questions into revisions", () => {
     "must not INSERT into question_revisions (no backfill)",
   );
   assert.match(sql, /UPDATE\s+public\.questions\s+SET\s+current_published_revision_id/i);
-  assert.equal(
-    /UPDATE\s+public\.questions\s+SET\b[^;]*correct_index/i.test(sql),
-    false,
-  );
+  assert.equal(/UPDATE\s+public\.questions\s+SET\b[^;]*correct_index/i.test(sql), false);
 });
 
 test("documents legacy correct_index as 0-based", () => {
@@ -100,10 +91,7 @@ test("final_score <= max_score constraints exist", () => {
 
 test("capability grant reason is NOT NULL", () => {
   const sql = loadSql();
-  assert.match(
-    sql,
-    /question_bank_capability_grants[\s\S]*?reason\s+text\s+NOT\s+NULL/i,
-  );
+  assert.match(sql, /question_bank_capability_grants[\s\S]*?reason\s+text\s+NOT\s+NULL/i);
 });
 
 test("target uniqueness and primary partial unique exist", () => {
@@ -144,18 +132,34 @@ test("39B: caller introspection removed from security boundary", () => {
     false,
   );
   assert.equal(
-    /CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+public\._qb_publish_question_revision_internal/i.test(sql),
+    /CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+public\._qb_publish_question_revision_internal/i.test(
+      sql,
+    ),
     false,
   );
   assert.equal(/to_regprocedure\s*\(/i.test(executable), false);
   assert.equal(/pg_get_function_identity_arguments\s*\(/i.test(executable), false);
   assert.equal(/current_query\s*\(/i.test(executable), false);
-  assert.equal(/CURRENT_USER/i.test(executableSql(
-    (sql.match(/CREATE OR REPLACE FUNCTION public\.qb_guard_question_revision_lifecycle[\s\S]*?\$\$;/) || [""])[0],
-  )), false);
-  assert.equal(/CURRENT_USER/i.test(executableSql(
-    (sql.match(/CREATE OR REPLACE FUNCTION public\.qb_guard_current_published_revision_pointer[\s\S]*?\$\$;/) || [""])[0],
-  )), false);
+  assert.equal(
+    /CURRENT_USER/i.test(
+      executableSql(
+        (sql.match(
+          /CREATE OR REPLACE FUNCTION public\.qb_guard_question_revision_lifecycle[\s\S]*?\$\$;/,
+        ) || [""])[0],
+      ),
+    ),
+    false,
+  );
+  assert.equal(
+    /CURRENT_USER/i.test(
+      executableSql(
+        (sql.match(
+          /CREATE OR REPLACE FUNCTION public\.qb_guard_current_published_revision_pointer[\s\S]*?\$\$;/,
+        ) || [""])[0],
+      ),
+    ),
+    false,
+  );
   assert.match(sql, /illegal revision status transition/i);
   assert.match(sql, /payload fields of % revisions are immutable/i);
 });
@@ -258,7 +262,10 @@ test("45B: capability self-check; internal probe not client-executable", () => {
     sql,
     /REVOKE ALL ON FUNCTION public\.qb_has_capability\(uuid,\s*text\) FROM anon,\s*authenticated,\s*service_role/i,
   );
-  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.qb_i_have_capability\(text\) TO authenticated/i);
+  assert.match(
+    sql,
+    /GRANT EXECUTE ON FUNCTION public\.qb_i_have_capability\(text\) TO authenticated/i,
+  );
   assert.match(sql, /p_user_id IS DISTINCT FROM auth\.uid\(\) THEN false/i);
   assert.match(sql, /DELETE_DRAFT_QUESTION/);
   assert.match(sql, /self-grant is not allowed/i);
@@ -330,7 +337,10 @@ test("45B: controlled delete_draft_question RPC and direct DELETE revoked", () =
   assert.match(sql, /DRAFT_QUESTION_DELETED/);
   assert.match(sql, /assessment_questions/);
   assert.match(sql, /exam_template_questions/);
-  assert.match(sql, /REVOKE DELETE ON public\.questions FROM anon,\s*authenticated,\s*service_role/i);
+  assert.match(
+    sql,
+    /REVOKE DELETE ON public\.questions FROM anon,\s*authenticated,\s*service_role/i,
+  );
   assert.match(
     sql,
     /CREATE TABLE IF NOT EXISTS public\.question_revisions\s*\([\s\S]*?question_id uuid NOT NULL REFERENCES public\.questions\(id\) ON DELETE RESTRICT/i,
@@ -358,14 +368,8 @@ test("42: child parent FK immutable; OLD and NEW freeze checks", () => {
   assert.match(stepGuard![0], /OLD\.solution_id/);
   assert.match(stepGuard![0], /NEW\.solution_id/);
   assert.match(sql, /GRANT SELECT ON public\.exam_session_questions TO service_role/i);
-  assert.equal(
-    /GRANT ALL ON public\.exam_session_questions TO service_role/i.test(sql),
-    false,
-  );
-  assert.equal(
-    /GRANT ALL ON public\.question_options TO service_role/i.test(sql),
-    false,
-  );
+  assert.equal(/GRANT ALL ON public\.exam_session_questions TO service_role/i.test(sql), false);
+  assert.equal(/GRANT ALL ON public\.question_options TO service_role/i.test(sql), false);
 });
 
 test("HOLD-15: lifecycle grant shape retained", () => {
@@ -384,7 +388,10 @@ test("HOLD-15: lifecycle grant shape retained", () => {
   }
   assert.equal(
     /GRANT\s+[^;]*\bUPDATE\b[^;]*ON public\.question_revisions TO authenticated/i.test(
-      sql.replace(/GRANT UPDATE\s*\([^)]+\)\s*ON public\.question_revisions TO authenticated/gi, ""),
+      sql.replace(
+        /GRANT UPDATE\s*\([^)]+\)\s*ON public\.question_revisions TO authenticated/gi,
+        "",
+      ),
     ),
     false,
     "no broad UPDATE on question_revisions to authenticated",
@@ -393,10 +400,7 @@ test("HOLD-15: lifecycle grant shape retained", () => {
 
 test("HOLD-15: revisions RLS is not FOR ALL for editors", () => {
   const sql = loadSql();
-  assert.equal(
-    /CREATE POLICY qb_revisions_edit_manage[\s\S]*FOR ALL/i.test(sql),
-    false,
-  );
+  assert.equal(/CREATE POLICY qb_revisions_edit_manage[\s\S]*FOR ALL/i.test(sql), false);
   assert.match(sql, /qb_revisions_staff_insert|qb_revisions_.*insert/i);
   assert.match(sql, /status\s*=\s*'DRAFT'/);
 });
@@ -412,10 +416,7 @@ test("HOLD-15: cross-session composite FKs", () => {
   const sql = loadSql();
   assert.match(sql, /exam_session_questions_id_session_uidx/);
   assert.match(sql, /exam_session_answers_session_question_fk/);
-  assert.match(
-    sql,
-    /FOREIGN KEY\s*\(\s*session_id\s*,\s*exam_session_question_id\s*\)/i,
-  );
+  assert.match(sql, /FOREIGN KEY\s*\(\s*session_id\s*,\s*exam_session_question_id\s*\)/i);
   assert.match(sql, /practice_attempt_questions_id_attempt_uidx/);
   assert.match(sql, /practice_attempt_responses_attempt_question_fk/);
 });
@@ -433,9 +434,7 @@ test("HOLD-15: grader read scope requires assignment", () => {
   const sql = loadSql();
   assert.match(sql, /assigned_grader_id\s*=\s*auth\.uid\(\)/);
   // Broad can_grade alone must not open all practice responses
-  const practicePolicy = sql.match(
-    /CREATE POLICY qb_practice_r_owner_select[\s\S]*?;/,
-  );
+  const practicePolicy = sql.match(/CREATE POLICY qb_practice_r_owner_select[\s\S]*?;/);
   assert.ok(practicePolicy, "practice response policy missing");
   assert.equal(
     /can_grade_manual_response\(auth\.uid\(\)\)\s*\)\s*$/m.test(practicePolicy![0]),
@@ -505,16 +504,16 @@ test("SECURITY DEFINER functions set search_path", () => {
       `function ${name} SECURITY DEFINER missing search_path`,
     );
   }
-  assert.ok(definerFns.length >= 10, `expected multiple SECURITY DEFINER funcs, got ${definerFns.length}`);
+  assert.ok(
+    definerFns.length >= 10,
+    `expected multiple SECURITY DEFINER funcs, got ${definerFns.length}`,
+  );
 });
 
 test("students are not granted unrestricted SELECT on is_correct or solutions", () => {
   const sql = loadSql();
   assert.match(sql, /REVOKE ALL ON public\.question_options FROM PUBLIC, anon, authenticated/i);
-  assert.match(
-    sql,
-    /REVOKE ALL ON public\.question_solutions FROM PUBLIC, anon, authenticated/i,
-  );
+  assert.match(sql, /REVOKE ALL ON public\.question_solutions FROM PUBLIC, anon, authenticated/i);
   assert.match(
     sql,
     /REVOKE ALL ON public\.question_accepted_answers FROM PUBLIC, anon, authenticated/i,
@@ -524,10 +523,7 @@ test("students are not granted unrestricted SELECT on is_correct or solutions", 
 
 test("default attempt_pin_mode remains LEGACY on sessions and practice", () => {
   const sql = loadSql();
-  assert.match(
-    sql,
-    /attempt_pin_mode\s+text\s+NOT\s+NULL\s+DEFAULT\s+'LEGACY'/i,
-  );
+  assert.match(sql, /attempt_pin_mode\s+text\s+NOT\s+NULL\s+DEFAULT\s+'LEGACY'/i);
 });
 
 test("snapshot create RPCs fail closed and are not granted broadly", () => {

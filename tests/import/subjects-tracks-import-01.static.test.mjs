@@ -7,7 +7,10 @@ const subjectPanel = fs.readFileSync("src/components/admin/SubjectImportPanel.ts
 const importPanel = fs.readFileSync("src/components/admin/ContentImportDryRunPanel.tsx", "utf8");
 const scopeContract = fs.readFileSync("src/lib/import/curriculum-import-scope.ts", "utf8");
 const scopeServer = fs.readFileSync("src/lib/import/curriculum-import-scope.server.ts", "utf8");
-const dryRun = fs.readFileSync("src/lib/content-import/content-import-dry-run.functions.ts", "utf8");
+const dryRun = fs.readFileSync(
+  "src/lib/content-import/content-import-dry-run.functions.ts",
+  "utf8",
+);
 const staging = fs.readFileSync("src/lib/import/import-staging.functions.ts", "utf8");
 
 test("template 01 is the first step in the unified content import route", () => {
@@ -46,6 +49,9 @@ test("subject scope is authoritative during dry-run prepare and execute", () => 
 });
 
 test("server rejects a subject import carrying a unit or lesson scope", () => {
-  assert.match(staging, /templateKeys\.includes\("subjects"\) && "subjectCode" in data\.curriculumScope/);
+  assert.match(
+    staging,
+    /templateKeys\.includes\("subjects"\) && "subjectCode" in data\.curriculumScope/,
+  );
   assert.match(staging, /IMPORT_SUBJECT_SCOPE_INVALID/);
 });

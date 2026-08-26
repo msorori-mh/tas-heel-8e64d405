@@ -109,8 +109,7 @@ export function CurriculumPrelaunchPurgeControl() {
 
   const status = statusQ.data;
   const impact = useMemo(
-    () =>
-      Object.entries(status?.counts ?? {}).filter(([, count]) => Number(count) > 0),
+    () => Object.entries(status?.counts ?? {}).filter(([, count]) => Number(count) > 0),
     [status],
   );
   const emptyCurriculum = Number(status?.manifest_row_count ?? 0) === 0;
@@ -190,8 +189,8 @@ export function CurriculumPrelaunchPurgeControl() {
               حذف جميع بيانات المحتوى التجريبية
             </DialogTitle>
             <DialogDescription className="text-right">
-              يشمل النطاق المواد وروابط المسارات والكتب والوحدات والدروس والمحتويات
-              والأسئلة التجريبية. العملية ذرية وتفشل كاملة إذا تغير أي معرّف بعد المعاينة.
+              يشمل النطاق المواد وروابط المسارات والكتب والوحدات والدروس والمحتويات والأسئلة
+              التجريبية. العملية ذرية وتفشل كاملة إذا تغير أي معرّف بعد المعاينة.
             </DialogDescription>
           </DialogHeader>
 
@@ -213,7 +212,8 @@ export function CurriculumPrelaunchPurgeControl() {
               {!status.enabled && (
                 <div className="rounded-xl border border-border bg-muted p-4 text-sm">
                   تم إغلاق وضع التنظيف التجريبي نهائيًا
-                  {status.locked_at ? ` في ${new Date(status.locked_at).toLocaleString("ar")}` : ""}.
+                  {status.locked_at ? ` في ${new Date(status.locked_at).toLocaleString("ar")}` : ""}
+                  .
                 </div>
               )}
 
@@ -227,7 +227,10 @@ export function CurriculumPrelaunchPurgeControl() {
                 ) : (
                   <div className="grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
                     {impact.map(([key, count]) => (
-                      <div key={key} className="flex justify-between gap-3 rounded-md bg-background/70 px-2 py-1">
+                      <div
+                        key={key}
+                        className="flex justify-between gap-3 rounded-md bg-background/70 px-2 py-1"
+                      >
                         <span>{COUNT_LABEL[key] ?? key}</span>
                         <strong className="text-foreground">{count}</strong>
                       </div>
@@ -252,7 +255,9 @@ export function CurriculumPrelaunchPurgeControl() {
               )}
 
               <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
-                <p className="mb-2 font-semibold text-emerald-700 dark:text-emerald-300">لن يتم حذف:</p>
+                <p className="mb-2 font-semibold text-emerald-700 dark:text-emerald-300">
+                  لن يتم حذف:
+                </p>
                 <p className="text-muted-foreground">
                   {status.preserved.map((key) => PRESERVED_LABEL[key] ?? key).join("، ")}.
                 </p>
@@ -270,9 +275,7 @@ export function CurriculumPrelaunchPurgeControl() {
               </label>
 
               <label className="block space-y-1.5 text-sm">
-                <span className="font-medium">
-                  اكتب العبارة التالية حرفيًا للتأكيد:
-                </span>
+                <span className="font-medium">اكتب العبارة التالية حرفيًا للتأكيد:</span>
                 <code className="block rounded-md bg-muted px-3 py-2 text-xs">
                   {status.confirmation_phrase}
                 </code>
@@ -285,8 +288,8 @@ export function CurriculumPrelaunchPurgeControl() {
               </label>
 
               <p className="text-xs text-muted-foreground">
-                بصمة المعاينة مبنية على {status.manifest_row_count} معرّفًا فعليًا، وليست
-                على الأعداد فقط. تحتفظ المنصة بسجل التدقيق والاستيراد والبيانات المالية.
+                بصمة المعاينة مبنية على {status.manifest_row_count} معرّفًا فعليًا، وليست على
+                الأعداد فقط. تحتفظ المنصة بسجل التدقيق والاستيراد والبيانات المالية.
                 {status.textbook_storage_paths.length > 0
                   ? ` ستبقى ${status.textbook_storage_paths.length} ملفات كتاب في التخزين إلى أن تُنظف بإجراء مستقل ومدقق.`
                   : " لا توجد ملفات كتب منفصلة تحتاج تنظيف تخزين."}

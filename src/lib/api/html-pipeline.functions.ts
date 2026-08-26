@@ -140,18 +140,16 @@ export const getLessonPublishedHtmlResourcesFn = createServerFn({ method: "POST"
   .handler(async ({ data, context }): Promise<{ resources: LessonHtmlResourceItem[] }> => {
     const dbAdapter = buildDbAdapter(context);
 
-    const rows: PublishedHtmlResourceRow[] =
-      await dbAdapter.listLessonPublishedHtmlResources(data.lessonId);
+    const rows: PublishedHtmlResourceRow[] = await dbAdapter.listLessonPublishedHtmlResources(
+      data.lessonId,
+    );
 
     const resources: LessonHtmlResourceItem[] = [];
 
     for (const row of rows) {
       try {
         const binding = await dbAdapter.resolveStudentResourceBinding(row.id);
-        const access = await createSignedStudentAccessUrl(
-          { resourceId: row.id },
-          dbAdapter,
-        );
+        const access = await createSignedStudentAccessUrl({ resourceId: row.id }, dbAdapter);
 
         if (access.granted && access.signedUrl) {
           resources.push({
@@ -178,7 +176,9 @@ export const getLessonPublishedHtmlResourcesFn = createServerFn({ method: "POST"
  * The caller is the server function handle returned by useServerFn.
  */
 export async function requestFreshStudentHtmlSignedUrl(
-  callServerFn: (args: { data: { resourceId: string } }) => Promise<{ signedUrl?: string } | null | undefined>,
+  callServerFn: (args: {
+    data: { resourceId: string };
+  }) => Promise<{ signedUrl?: string } | null | undefined>,
   resourceId: string,
 ): Promise<string | null> {
   const result = await callServerFn({ data: { resourceId } });

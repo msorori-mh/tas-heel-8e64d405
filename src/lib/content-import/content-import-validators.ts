@@ -131,17 +131,11 @@ export function isRowEmpty(data: Record<string, string>): boolean {
   return Object.values(data).every((v) => v === "");
 }
 
-function pushError(
-  errors: ContentImportDryRunIssue[],
-  issue: ContentImportDryRunIssue,
-): void {
+function pushError(errors: ContentImportDryRunIssue[], issue: ContentImportDryRunIssue): void {
   errors.push(issue);
 }
 
-function pushWarning(
-  warnings: ContentImportDryRunIssue[],
-  issue: ContentImportDryRunIssue,
-): void {
+function pushWarning(warnings: ContentImportDryRunIssue[], issue: ContentImportDryRunIssue): void {
   warnings.push(issue);
 }
 
@@ -230,7 +224,8 @@ function validateOfficialBookQuestionRow(
       rowNumber,
       column: "grading_mode",
       code: "INCOMPATIBLE_TYPE_MODE",
-      message: "الأنواع المسموحة: SINGLE_CHOICE/AUTO_SINGLE أو SHORT_TEXT/AUTO_TEXT أو LONG_TEXT/MANUAL.",
+      message:
+        "الأنواع المسموحة: SINGLE_CHOICE/AUTO_SINGLE أو SHORT_TEXT/AUTO_TEXT أو LONG_TEXT/MANUAL.",
     });
     return;
   }
@@ -240,9 +235,7 @@ function validateOfficialBookQuestionRow(
     return;
   }
 
-  const hasOptions = [1, 2, 3, 4, 5, 6].some((index) =>
-    Boolean(data[`option_${index}`]?.trim()),
-  );
+  const hasOptions = [1, 2, 3, 4, 5, 6].some((index) => Boolean(data[`option_${index}`]?.trim()));
   if (hasOptions || data.correct_index?.trim()) {
     pushError(errors, {
       rowNumber,
@@ -270,9 +263,7 @@ function validateResourceRow(
   const type = data.resource_type.trim().toLowerCase();
   if (!type) return;
   if (
-    !CONTENT_IMPORT_RESOURCE_TYPES.includes(
-      type as (typeof CONTENT_IMPORT_RESOURCE_TYPES)[number],
-    )
+    !CONTENT_IMPORT_RESOURCE_TYPES.includes(type as (typeof CONTENT_IMPORT_RESOURCE_TYPES)[number])
   ) {
     pushError(errors, {
       rowNumber,
@@ -373,10 +364,7 @@ function validateSubjectGroupCodeConsistency(
       rowNumbersWithErrors.add(row.rowNumber);
       continue;
     }
-    const scope = [
-      row.data["grade_slug"]?.trim().toLowerCase() ?? "",
-      groupCode,
-    ].join("::");
+    const scope = [row.data["grade_slug"]?.trim().toLowerCase() ?? "", groupCode].join("::");
     const first = firstSeen.get(scope);
     if (!first) {
       firstSeen.set(scope, { rowNumber: row.rowNumber, groupName });
@@ -395,7 +383,6 @@ function validateSubjectGroupCodeConsistency(
 }
 
 function duplicateKeyForRow(
-
   templateKey: ContentImportTemplateKey,
   data: Record<string, string>,
 ): string | null {
@@ -533,20 +520,15 @@ export function validateContentImportSheet(
     validateSubjectGroupCodeConsistency(parsed.rows, errors, rowNumbersWithErrors);
   }
 
-
   const hasFileLevelError = errors.some((e) => e.rowNumber == null);
-  const invalidRows = hasFileLevelError
-    ? parsed.rows.length
-    : rowNumbersWithErrors.size;
+  const invalidRows = hasFileLevelError ? parsed.rows.length : rowNumbersWithErrors.size;
   const validRows = Math.max(0, parsed.rows.length - invalidRows);
 
   let status: ContentImportDryRunStatus = "pass";
   if (errors.length > 0) status = "fail";
   else if (warnings.length > 0) status = "warn";
 
-  const previewRows = parsed.rows
-    .slice(0, CONTENT_IMPORT_PREVIEW_ROWS)
-    .map((r) => ({ ...r.data }));
+  const previewRows = parsed.rows.slice(0, CONTENT_IMPORT_PREVIEW_ROWS).map((r) => ({ ...r.data }));
 
   return {
     ok: status !== "fail",
@@ -560,17 +542,16 @@ export function validateContentImportSheet(
     errors,
     warnings,
     previewRows,
-    detectedColumns: [...config.knownColumns.filter((c) => presentSet.has(c)), ...normalizedHeaders.filter((h) => !config.knownColumns.includes(h))],
+    detectedColumns: [
+      ...config.knownColumns.filter((c) => presentSet.has(c)),
+      ...normalizedHeaders.filter((h) => !config.knownColumns.includes(h)),
+    ],
   };
 }
 
-export function assertAllowedContentImportTemplateKey(
-  key: string,
-): ContentImportTemplateKey {
+export function assertAllowedContentImportTemplateKey(key: string): ContentImportTemplateKey {
   if (!CONTENT_IMPORT_TEMPLATE_KEYS.includes(key as ContentImportTemplateKey)) {
-    throw new Error(
-      "غير مصرح — نوع القالب غير مدعوم. يُقبل قوالب محتوى الدروس 01–09 فقط.",
-    );
+    throw new Error("غير مصرح — نوع القالب غير مدعوم. يُقبل قوالب محتوى الدروس 01–09 فقط.");
   }
   return key as ContentImportTemplateKey;
 }

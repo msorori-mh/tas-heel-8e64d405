@@ -192,9 +192,7 @@ export function createSupabaseDbAdapter({
       return binding;
     },
 
-    async listLessonPublishedHtmlResources(
-      lessonId: string,
-    ): Promise<PublishedHtmlResourceRow[]> {
+    async listLessonPublishedHtmlResources(lessonId: string): Promise<PublishedHtmlResourceRow[]> {
       type LooseQueryBuilder = {
         eq(column: string, value: unknown): LooseQueryBuilder;
         in(column: string, values: unknown[]): LooseQueryBuilder;
@@ -216,19 +214,13 @@ export function createSupabaseDbAdapter({
         .select("id,html_resource_type,title,resource_code,published_version_id")
         .eq("lesson_id", lessonId)
         .eq("resource_type", "html")
-        .in("html_resource_type", [
-          "mind_map_html",
-          "practical_experiment_html",
-          "summary_html",
-        ])
+        .in("html_resource_type", ["mind_map_html", "practical_experiment_html", "summary_html"])
         .eq("lifecycle_status", "published")
         .not("published_version_id", "is", null)
         .order("sort_order", { ascending: true });
 
       if (error) {
-        throw new Error(
-          `فشل جلب موارد HTML المنشورة للدرس: ${error.message}`,
-        );
+        throw new Error(`فشل جلب موارد HTML المنشورة للدرس: ${error.message}`);
       }
 
       const rows = (data ?? []) as Array<{

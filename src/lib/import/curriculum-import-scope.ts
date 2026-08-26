@@ -45,9 +45,9 @@ export function isCompleteCurriculumImportScope(
 ): scope is CurriculumImportScope {
   return Boolean(
     scope?.gradeSlug.trim() &&
-      "subjectCode" in scope &&
-      scope.subjectCode.trim() &&
-      scope.trackCodes.length > 0 &&
-      (scope.semester === 1 || scope.semester === 2),
+    "subjectCode" in scope &&
+    scope.subjectCode.trim() &&
+    scope.trackCodes.length > 0 &&
+    (scope.semester === 1 || scope.semester === 2),
   );
 }

@@ -104,12 +104,9 @@ export function adaptLegacyFlat15Col(
     );
   }
 
-  const rawOptionSlots = [
-    row.answer_a,
-    row.answer_b,
-    row.answer_c,
-    row.answer_d,
-  ].map((v) => normalizeText(v));
+  const rawOptionSlots = [row.answer_a, row.answer_b, row.answer_c, row.answer_d].map((v) =>
+    normalizeText(v),
+  );
   const optionBodies = contiguousOptionBodies(rawOptionSlots);
   const baseForCorrect = rawOptionSlots.map((body, index) => ({
     option_code: optionCodesFromCount(4)[index]!,

@@ -45,7 +45,9 @@ export interface PreviewTokenReplayStore {
 function getSecret(secretOverride?: string): string {
   const secret = secretOverride || process.env.QB_PREVIEW_TOKEN_SECRET;
   if (!secret || !secret.trim()) {
-    throw new Error("Configuration Error: QB_PREVIEW_TOKEN_SECRET environment variable is missing or empty.");
+    throw new Error(
+      "Configuration Error: QB_PREVIEW_TOKEN_SECRET environment variable is missing or empty.",
+    );
   }
   return secret;
 }
@@ -69,7 +71,10 @@ function signPayload(payloadB64Url: string, secret: string): string {
   return crypto.createHmac("sha256", secret).update(payloadB64Url).digest("base64url");
 }
 
-export function mintPreviewToken(envelope: PreviewTokenEnvelope, opts?: { secret?: string }): string {
+export function mintPreviewToken(
+  envelope: PreviewTokenEnvelope,
+  opts?: { secret?: string },
+): string {
   const secret = getSecret(opts?.secret);
   const payloadJson = canonicalizePayload(envelope);
   const payloadB64Url = Buffer.from(payloadJson, "utf8").toString("base64url");
@@ -77,7 +82,10 @@ export function mintPreviewToken(envelope: PreviewTokenEnvelope, opts?: { secret
   return `tok_v1_${payloadB64Url}.${signature}`;
 }
 
-export function parseAndVerifyPreviewToken(tokenStr: unknown, opts?: { secret?: string }): PreviewTokenEnvelope | null {
+export function parseAndVerifyPreviewToken(
+  tokenStr: unknown,
+  opts?: { secret?: string },
+): PreviewTokenEnvelope | null {
   if (typeof tokenStr !== "string" || !tokenStr.startsWith("tok_v1_")) {
     return null;
   }
@@ -110,20 +118,30 @@ export function parseAndVerifyPreviewToken(tokenStr: unknown, opts?: { secret?: 
     if (parsed && typeof parsed === "object") {
       const p = parsed as Record<string, unknown>;
       if (
-        typeof p.token_id === "string" && p.token_id.trim() &&
-        typeof p.snapshot_id === "string" && p.snapshot_id.trim() &&
+        typeof p.token_id === "string" &&
+        p.token_id.trim() &&
+        typeof p.snapshot_id === "string" &&
+        p.snapshot_id.trim() &&
         (typeof p.snapshot_version === "number" || typeof p.snapshot_version === "string") &&
-        typeof p.content_hash === "string" && p.content_hash.trim() &&
-        typeof p.actor_id === "string" && p.actor_id.trim() &&
-        typeof p.scope === "string" && p.scope.trim() &&
-        typeof p.issued_at === "number" && !isNaN(p.issued_at) &&
-        typeof p.expires_at === "number" && !isNaN(p.expires_at) &&
-        typeof p.jti === "string" && p.jti.trim()
+        typeof p.content_hash === "string" &&
+        p.content_hash.trim() &&
+        typeof p.actor_id === "string" &&
+        p.actor_id.trim() &&
+        typeof p.scope === "string" &&
+        p.scope.trim() &&
+        typeof p.issued_at === "number" &&
+        !isNaN(p.issued_at) &&
+        typeof p.expires_at === "number" &&
+        !isNaN(p.expires_at) &&
+        typeof p.jti === "string" &&
+        p.jti.trim()
       ) {
         return parsed as PreviewTokenEnvelope;
       }
     }
-  } catch {}
+  } catch {
+    // Invalid or non-JSON envelopes are rejected below.
+  }
 
   return null;
 }
@@ -145,10 +163,7 @@ async function consumeReplayOnceWithTimeout(
   });
 
   try {
-    const result = await Promise.race([
-      store.consumeOnce(jti, expiresAt),
-      timeoutPromise,
-    ]);
+    const result = await Promise.race([store.consumeOnce(jti, expiresAt), timeoutPromise]);
 
     if (typeof result !== "boolean") {
       throw new Error("Malformed store result: expected boolean");
@@ -169,7 +184,13 @@ export async function validatePreviewToken(
 ): Promise<ApplyValidationResult> {
   const invalidIssue = {
     ok: false,
-    issues: [issue(QB_IMPORT_CODES.PREVIEW_TOKEN_INVALID, { file: "apply-token", stage: "IDEMPOTENCY", source_subsystem: "apply-verifier" })],
+    issues: [
+      issue(QB_IMPORT_CODES.PREVIEW_TOKEN_INVALID, {
+        file: "apply-token",
+        stage: "IDEMPOTENCY",
+        source_subsystem: "apply-verifier",
+      }),
+    ],
   };
 
   const env = parseAndVerifyPreviewToken(token, { secret: opts?.secret });
@@ -188,12 +209,13 @@ export async function validatePreviewToken(
   }
 
   // Mandatory Binding Context: context and all its fields must be explicitly provided and match envelope
-  if (!context ||
-      context.snapshot_id === undefined ||
-      context.snapshot_version === undefined ||
-      context.content_hash === undefined ||
-      context.actor_id === undefined ||
-      context.scope === undefined
+  if (
+    !context ||
+    context.snapshot_id === undefined ||
+    context.snapshot_version === undefined ||
+    context.content_hash === undefined ||
+    context.actor_id === undefined ||
+    context.scope === undefined
   ) {
     return invalidIssue;
   }
@@ -235,7 +257,13 @@ export function validateStaleValidation(
   if (!validationHash || !currentValidationHash || validationHash !== currentValidationHash) {
     return {
       ok: false,
-      issues: [issue(QB_IMPORT_CODES.STALE_VALIDATION, { file: "stale-check", stage: "IDEMPOTENCY", source_subsystem: "apply-verifier" })],
+      issues: [
+        issue(QB_IMPORT_CODES.STALE_VALIDATION, {
+          file: "stale-check",
+          stage: "IDEMPOTENCY",
+          source_subsystem: "apply-verifier",
+        }),
+      ],
     };
   }
   return { ok: true, issues: [] };
@@ -248,7 +276,13 @@ export function validateContentHash(
   if (!contentHash || !expectedContentHash || contentHash !== expectedContentHash) {
     return {
       ok: false,
-      issues: [issue(QB_IMPORT_CODES.CONTENT_HASH_MISMATCH, { file: "content-hash", stage: "IDEMPOTENCY", source_subsystem: "apply-verifier" })],
+      issues: [
+        issue(QB_IMPORT_CODES.CONTENT_HASH_MISMATCH, {
+          file: "content-hash",
+          stage: "IDEMPOTENCY",
+          source_subsystem: "apply-verifier",
+        }),
+      ],
     };
   }
   return { ok: true, issues: [] };
@@ -258,14 +292,26 @@ export function validateAtomicApplyPlan(plan: unknown, rows: unknown[]): ApplyVa
   if (!plan || typeof plan !== "object" || !Array.isArray(rows) || rows.length === 0) {
     return {
       ok: false,
-      issues: [issue(QB_IMPORT_CODES.ATOMIC_APPLY_FAILED, { file: "atomic-plan", stage: "IDEMPOTENCY", source_subsystem: "apply-verifier" })],
+      issues: [
+        issue(QB_IMPORT_CODES.ATOMIC_APPLY_FAILED, {
+          file: "atomic-plan",
+          stage: "IDEMPOTENCY",
+          source_subsystem: "apply-verifier",
+        }),
+      ],
     };
   }
   const p = plan as Record<string, unknown>;
   if (p.invalidVariant || p.rollbackAll || p.simulateFailure) {
     return {
       ok: false,
-      issues: [issue(QB_IMPORT_CODES.ATOMIC_APPLY_FAILED, { file: "atomic-plan", stage: "IDEMPOTENCY", source_subsystem: "apply-verifier" })],
+      issues: [
+        issue(QB_IMPORT_CODES.ATOMIC_APPLY_FAILED, {
+          file: "atomic-plan",
+          stage: "IDEMPOTENCY",
+          source_subsystem: "apply-verifier",
+        }),
+      ],
     };
   }
   return { ok: true, issues: [] };
@@ -275,10 +321,20 @@ export function validateTOCTOUSnapshot(
   snapshot: unknown,
   currentSnapshot: unknown,
 ): ApplyValidationResult {
-  if (!snapshot || !currentSnapshot || JSON.stringify(snapshot) !== JSON.stringify(currentSnapshot)) {
+  if (
+    !snapshot ||
+    !currentSnapshot ||
+    JSON.stringify(snapshot) !== JSON.stringify(currentSnapshot)
+  ) {
     return {
       ok: false,
-      issues: [issue(QB_IMPORT_CODES.CONTENT_HASH_MISMATCH, { file: "toctou-check", stage: "IDEMPOTENCY", source_subsystem: "apply-verifier" })],
+      issues: [
+        issue(QB_IMPORT_CODES.CONTENT_HASH_MISMATCH, {
+          file: "toctou-check",
+          stage: "IDEMPOTENCY",
+          source_subsystem: "apply-verifier",
+        }),
+      ],
     };
   }
   return { ok: true, issues: [] };

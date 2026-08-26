@@ -33,8 +33,7 @@ interface Props {
 
 let _tmpCounter = 0;
 const makeTempId = () => `__tmp_${Date.now()}_${++_tmpCounter}`;
-const isLocal = (r: LessonExplanationItem) =>
-  r.__local === true || r.id.startsWith("__tmp_");
+const isLocal = (r: LessonExplanationItem) => r.__local === true || r.id.startsWith("__tmp_");
 
 export function LessonExplanationsDialog({
   open,
@@ -55,9 +54,7 @@ export function LessonExplanationsDialog({
       setSaving(false);
       setDeletedIds([]);
       setRows(
-        [...items]
-          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-          .map((x) => ({ ...x }))
+        [...items].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((x) => ({ ...x })),
       );
     }
   }, [open, items]);
@@ -67,10 +64,7 @@ export function LessonExplanationsDialog({
   };
 
   const addLocal = () => {
-    const nextSort =
-      rows.length === 0
-        ? 0
-        : Math.max(...rows.map((r) => r.sort_order ?? 0)) + 1;
+    const nextSort = rows.length === 0 ? 0 : Math.max(...rows.map((r) => r.sort_order ?? 0)) + 1;
     setRows((rs) => [
       ...rs,
       {
@@ -114,10 +108,7 @@ export function LessonExplanationsDialog({
     setSaving(true);
     try {
       if (deletedIds.length > 0) {
-        const { error } = await supabase
-          .from("lesson_explanations")
-          .delete()
-          .in("id", deletedIds);
+        const { error } = await supabase.from("lesson_explanations").delete().in("id", deletedIds);
         if (error) throw error;
       }
 
@@ -128,14 +119,12 @@ export function LessonExplanationsDialog({
         const sortOrder = Number(r.sort_order);
 
         if (isLocal(r)) {
-          const { error } = await supabase
-            .from("lesson_explanations")
-            .insert({
-              lesson_id: lessonId,
-              title: titleOrNull,
-              content: contentTrim,
-              sort_order: sortOrder,
-            });
+          const { error } = await supabase.from("lesson_explanations").insert({
+            lesson_id: lessonId,
+            title: titleOrNull,
+            content: contentTrim,
+            sort_order: sortOrder,
+          });
           if (error) throw error;
         } else {
           const { error } = await supabase
@@ -155,25 +144,17 @@ export function LessonExplanationsDialog({
         queryKey: ["admin-lesson-detail", "explanations", lessonId],
       });
       onOpenChange(false);
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast.error("تعذر حفظ شروحات الدرس.");
-      setErrMsg(
-        e?.message ? `تعذر الحفظ: ${e.message}` : "تعذر حفظ شروحات الدرس."
-      );
+      setErrMsg(e instanceof Error ? `تعذر الحفظ: ${e.message}` : "تعذر حفظ شروحات الدرس.");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => (!saving ? onOpenChange(o) : null)}
-    >
-      <DialogContent
-        dir="rtl"
-        className="max-w-2xl text-right max-h-[90vh] overflow-y-auto"
-      >
+    <Dialog open={open} onOpenChange={(o) => (!saving ? onOpenChange(o) : null)}>
+      <DialogContent dir="rtl" className="max-w-2xl text-right max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-right">
             إدارة شروحات الدرس
@@ -188,8 +169,8 @@ export function LessonExplanationsDialog({
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
-            يمكنك تعديل الشروحات الموجودة، وإضافة شروحات جديدة، وحذف الشروحات
-            المحفوظة. الحذف يُنفَّذ نهائيًا عند الضغط على «حفظ».
+            يمكنك تعديل الشروحات الموجودة، وإضافة شروحات جديدة، وحذف الشروحات المحفوظة. الحذف
+            يُنفَّذ نهائيًا عند الضغط على «حفظ».
             {deletedIds.length > 0 ? (
               <strong className="block mt-1">
                 سيتم حذف {deletedIds.length} شرح نهائيًا عند الحفظ.
@@ -197,7 +178,6 @@ export function LessonExplanationsDialog({
             ) : null}
           </span>
         </div>
-
 
         {errMsg && (
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive text-right">
@@ -214,10 +194,7 @@ export function LessonExplanationsDialog({
             rows.map((r, idx) => {
               const local = isLocal(r);
               return (
-                <div
-                  key={r.id}
-                  className="rounded-lg border border-border bg-card p-3 space-y-2"
-                >
+                <div key={r.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs text-muted-foreground">
                       شرح #{idx + 1}
@@ -231,9 +208,7 @@ export function LessonExplanationsDialog({
                       type="button"
                       size="sm"
                       variant="ghost"
-                      onClick={() =>
-                        local ? removeLocal(r.id) : removeSaved(r.id)
-                      }
+                      onClick={() => (local ? removeLocal(r.id) : removeSaved(r.id))}
                       disabled={saving}
                       className="h-7 px-2 text-destructive hover:text-destructive"
                     >
@@ -244,23 +219,17 @@ export function LessonExplanationsDialog({
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="sm:col-span-2">
-                      <label className="text-[11px] text-muted-foreground">
-                        العنوان
-                      </label>
+                      <label className="text-[11px] text-muted-foreground">العنوان</label>
                       <Input
                         value={r.title ?? ""}
-                        onChange={(e) =>
-                          updateRow(r.id, { title: e.target.value })
-                        }
+                        onChange={(e) => updateRow(r.id, { title: e.target.value })}
                         placeholder="عنوان الشرح (اختياري)"
                         className="text-right"
                         disabled={saving}
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-muted-foreground">
-                        الترتيب
-                      </label>
+                      <label className="text-[11px] text-muted-foreground">الترتيب</label>
                       <Input
                         type="number"
                         min={0}
@@ -277,14 +246,10 @@ export function LessonExplanationsDialog({
                   </div>
 
                   <div>
-                    <label className="text-[11px] text-muted-foreground">
-                      المحتوى
-                    </label>
+                    <label className="text-[11px] text-muted-foreground">المحتوى</label>
                     <Textarea
                       value={r.content ?? ""}
-                      onChange={(e) =>
-                        updateRow(r.id, { content: e.target.value })
-                      }
+                      onChange={(e) => updateRow(r.id, { content: e.target.value })}
                       rows={6}
                       className="text-right"
                       placeholder="نص الشرح…"
@@ -309,11 +274,7 @@ export function LessonExplanationsDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             إغلاق
           </Button>
           <Button onClick={handleSave} disabled={saving}>

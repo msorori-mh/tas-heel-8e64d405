@@ -47,13 +47,19 @@ function AdminImportPage() {
             <h2 className="text-2xl font-bold">الاستيراد والفحص والنشر</h2>
           </div>
           <p className="max-w-4xl text-sm leading-relaxed text-muted-foreground">
-            ابدأ من هنا بتعريف المواد وربطها بالصف والمسارات، ثم ثبّت سياق المادة والفصل
-            وارفع الوحدات إن وجدت، فالدروس، فمحتويات الدرس. إذا كانت
-            المادة بلا وحدات فاترك <span className="font-mono">unit_code</span> فارغًا.
+            ابدأ من هنا بتعريف المواد وربطها بالصف والمسارات، ثم ثبّت سياق المادة والفصل وارفع
+            الوحدات إن وجدت، فالدروس، فمحتويات الدرس. إذا كانت المادة بلا وحدات فاترك{" "}
+            <span className="font-mono">unit_code</span> فارغًا.
           </p>
-          <ol aria-label="خطوات الاستيراد الموحد" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <ol
+            aria-label="خطوات الاستيراد الموحد"
+            className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+          >
             {STEPS.map((step) => (
-              <li key={step.number} className="flex min-h-[58px] items-center gap-3 rounded-xl border bg-card px-4 py-2">
+              <li
+                key={step.number}
+                className="flex min-h-[58px] items-center gap-3 rounded-xl border bg-card px-4 py-2"
+              >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
                   {step.number}
                 </span>
@@ -77,7 +83,8 @@ function AdminImportPage() {
         <div className="space-y-3 border-t border-border pt-8">
           <h2 className="text-lg font-bold">سياق استيراد الوحدات والدروس</h2>
           <p className="text-sm text-muted-foreground">
-            بعد تنفيذ قالب المواد، اختر المادة الرسمية هنا؛ يأخذ النظام منها الصف والمسارات ويثبت الفصل المحدد للوحدات والدروس.
+            بعد تنفيذ قالب المواد، اختر المادة الرسمية هنا؛ يأخذ النظام منها الصف والمسارات ويثبت
+            الفصل المحدد للوحدات والدروس.
           </p>
           <CurriculumImportScopeForm value={structureScope} onChange={setStructureScope} />
         </div>
@@ -91,8 +98,8 @@ function AdminImportPage() {
               </span>
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              استخدم هذه الخطوة فقط للمواد المقسمة إلى وحدات أو فصول. المواد الأخرى
-              تنتقل مباشرة إلى استيراد الدروس.
+              استخدم هذه الخطوة فقط للمواد المقسمة إلى وحدات أو فصول. المواد الأخرى تنتقل مباشرة إلى
+              استيراد الدروس.
             </p>
           </div>
           <ContentImportDryRunPanel
@@ -111,8 +118,8 @@ function AdminImportPage() {
               3. استيراد الدروس
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              يقبل الدروس المرتبطة بوحدة، كما يقبل الدروس المرتبطة بالمادة مباشرة.
-              يبدأ ترتيب الدرس من 1.
+              يقبل الدروس المرتبطة بوحدة، كما يقبل الدروس المرتبطة بالمادة مباشرة. يبدأ ترتيب الدرس
+              من 1.
             </p>
           </div>
           <ContentImportDryRunPanel
@@ -131,8 +138,8 @@ function AdminImportPage() {
               4. استيراد محتويات الدروس السبعة
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              اختر الدرس وارفع مكوناته في نموذج واحد: خمسة مكونات HTML، وقالبا Excel إلزاميان لأسئلة الكتاب و«اختبر فهمك».
-              بعد نجاح الفحص يتم النشر مباشرة بضغطة واحدة دون خطوة مسودة.
+              اختر الدرس وارفع مكوناته في نموذج واحد: خمسة مكونات HTML، وقالبا Excel إلزاميان لأسئلة
+              الكتاب و«اختبر فهمك». بعد نجاح الفحص يتم النشر مباشرة بضغطة واحدة دون خطوة مسودة.
             </p>
           </div>
           <GoldenLessonPackageBuilder />

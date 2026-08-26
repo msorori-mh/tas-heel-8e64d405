@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -50,9 +44,7 @@ function statusLabel(status: string): string {
   return labels[status] ?? status;
 }
 
-function statusVariant(
-  status: string,
-): "default" | "secondary" | "destructive" | "outline" {
+function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "validated" || status === "completed") return "default";
   if (status === "validation_failed" || status === "failed") return "destructive";
   return "secondary";
@@ -110,8 +102,7 @@ export function ImportJobsHistory() {
       })
       .catch((err: unknown) => {
         if (active) {
-          const message =
-            err instanceof Error ? err.message : "تعذر تحميل سجل الاستيراد.";
+          const message = err instanceof Error ? err.message : "تعذر تحميل سجل الاستيراد.";
           setError(message);
         }
       })

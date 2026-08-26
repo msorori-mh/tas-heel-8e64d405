@@ -14,17 +14,14 @@ import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const MIGRATIONS_DIR = join(ROOT, "supabase", "migrations");
 
-const FIRST =
-  "20260731033950_a583b6d4-0360-414e-95f8-83b01f470a02.sql";
+const FIRST = "20260731033950_a583b6d4-0360-414e-95f8-83b01f470a02.sql";
 const SECOND = "20260731180000_restrict_units_select_to_authenticated.sql";
 const IMPORT_JOBS_REPAIR = "20260628190000_import_jobs_foundation.sql";
 const RBAC_REPAIR = "20260703204450_5223b435-1a4d-44ab-ad03-ab3d9a8f4432.sql";
 const QB = "20260801120000_qb01_question_bank_schema_foundation.sql";
 
-const FIRST_SHA =
-  "1AB87ED0892E98E2F1CF3AAA9B2629D85BCD59B5948C3FD30B84071ABF6A5FDB";
-const SECOND_PRE_REPAIR_SHA =
-  "92D2D448384F166196B4F9F20F838ED807FEEF55DFBE5B17648FB1944FED3A13";
+const FIRST_SHA = "1AB87ED0892E98E2F1CF3AAA9B2629D85BCD59B5948C3FD30B84071ABF6A5FDB";
+const SECOND_PRE_REPAIR_SHA = "92D2D448384F166196B4F9F20F838ED807FEEF55DFBE5B17648FB1944FED3A13";
 
 const POLICY = "Units viewable per subject access";
 const LEGACY = "Units viewable by everyone";
@@ -60,10 +57,7 @@ test("canonical creator SHA is unchanged and retains the final SELECT policy", (
   const firstBuf = readFileSync(join(MIGRATIONS_DIR, FIRST));
   assert.equal(sha256(firstBuf), FIRST_SHA);
   const first = firstBuf.toString("utf8");
-  assert.match(
-    first,
-    /DROP POLICY IF EXISTS "Units viewable by everyone" ON public\.units;/,
-  );
+  assert.match(first, /DROP POLICY IF EXISTS "Units viewable by everyone" ON public\.units;/);
   assert.match(
     first,
     /CREATE POLICY "Units viewable per subject access" ON public\.units\s+FOR SELECT TO authenticated\s+USING \(public\.can_access_subject\(subject_id\)\);/,
@@ -115,10 +109,7 @@ test("reconciled second migration is documentation-only no-op", () => {
   assert.doesNotMatch(code, /GRANT\s+ALL\s+ON\b[\s\S]*?\bTO\s+authenticated\b/i);
   assert.doesNotMatch(code, /DROP\s+TABLE\b/i);
   assert.doesNotMatch(code, /\bTRUNCATE\b/i);
-  assert.doesNotMatch(
-    code,
-    /\b(INSERT\s+INTO|UPDATE\s+public\.|DELETE\s+FROM)\b/i,
-  );
+  assert.doesNotMatch(code, /\b(INSERT\s+INTO|UPDATE\s+public\.|DELETE\s+FROM)\b/i);
   assert.equal(code.replace(/\s+/g, "").length, 0, "second file must have no executable SQL");
 });
 
@@ -139,11 +130,7 @@ test("no GRANT ALL TO authenticated and no destructive DML in scoped units files
     assert.doesNotMatch(code, /GRANT\s+ALL\s+ON\b[\s\S]*?\bTO\s+authenticated\b/i, f);
     assert.doesNotMatch(code, /DROP\s+TABLE\b/i, f);
     assert.doesNotMatch(code, /\bTRUNCATE\b/i, f);
-    assert.doesNotMatch(
-      code,
-      /\b(INSERT\s+INTO|UPDATE\s+public\.|DELETE\s+FROM)\b/i,
-      f,
-    );
+    assert.doesNotMatch(code, /\b(INSERT\s+INTO|UPDATE\s+public\.|DELETE\s+FROM)\b/i, f);
   }
 });
 
@@ -160,10 +147,7 @@ test("import_jobs and Content Staff RBAC baseline repairs remain present", () =>
 
 test("question bank executable migration is absent from this branch", () => {
   const qbTouched = migrationFiles.filter(
-    (f) =>
-      f === QB ||
-      /qb01_question_bank/i.test(f) ||
-      /question_bank_schema_foundation/i.test(f),
+    (f) => f === QB || /qb01_question_bank/i.test(f) || /question_bank_schema_foundation/i.test(f),
   );
   assert.equal(qbTouched.length, 0, `QB migration must not be present: ${qbTouched.join(", ")}`);
 });
@@ -182,10 +166,7 @@ test("Content staff manage units remains and is not dropped by either units SELE
     /CREATE POLICY "Content staff manage units"\s+ON public\.units FOR ALL TO authenticated/,
   );
   for (const f of [FIRST, SECOND]) {
-    assert.doesNotMatch(
-      readMigration(f),
-      /DROP POLICY IF EXISTS "Content staff manage units"/,
-    );
+    assert.doesNotMatch(readMigration(f), /DROP POLICY IF EXISTS "Content staff manage units"/);
   }
 });
 

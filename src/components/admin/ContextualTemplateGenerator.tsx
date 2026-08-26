@@ -94,7 +94,6 @@ export function ContextualTemplateGenerator() {
     [branchText],
   );
 
-
   const registryQuery = useQuery({
     queryKey: ["content-code-registry"],
     queryFn: () => fetchRegistry(),
@@ -120,8 +119,7 @@ export function ContextualTemplateGenerator() {
   );
 
   const allocation = useMemo(
-    () =>
-      (registry?.allocations ?? []).find((a) => a.gradeSlug === gradeSlug),
+    () => (registry?.allocations ?? []).find((a) => a.gradeSlug === gradeSlug),
     [registry, gradeSlug],
   );
 
@@ -151,9 +149,7 @@ export function ContextualTemplateGenerator() {
           ...(isSubjectsTemplate
             ? {
                 subjectMode,
-                ...(isGroupMode
-                  ? { groupName: groupName.trim(), branchNames }
-                  : {}),
+                ...(isGroupMode ? { groupName: groupName.trim(), branchNames } : {}),
               }
             : {}),
         },
@@ -189,9 +185,8 @@ export function ContextualTemplateGenerator() {
           </Badge>
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          اختر الصف (والمسارات للمواد، والمادة عند الحاجة) وسيولّد النظام الأكواد الرسمية
-          ويعبّئها في الملف. الكود لا يحتوي على المسار: المادة المشتركة تُدخل مرة واحدة وتُربط
-          بأكثر من مسار.
+          اختر الصف (والمسارات للمواد، والمادة عند الحاجة) وسيولّد النظام الأكواد الرسمية ويعبّئها
+          في الملف. الكود لا يحتوي على المسار: المادة المشتركة تُدخل مرة واحدة وتُربط بأكثر من مسار.
         </p>
       </div>
 
@@ -287,9 +282,7 @@ export function ContextualTemplateGenerator() {
                 disabled={subjects.length === 0}
               >
                 <SelectTrigger className="min-h-[44px]">
-                  <SelectValue
-                    placeholder={subjects.length ? "اختر المادة" : "لا توجد مواد بعد"}
-                  />
+                  <SelectValue placeholder={subjects.length ? "اختر المادة" : "لا توجد مواد بعد"} />
                 </SelectTrigger>
                 <SelectContent>
                   {subjects.map((s) => (
@@ -399,15 +392,14 @@ export function ContextualTemplateGenerator() {
                       placeholder={"الإيمان\nالفقه\nالحديث\nالسيرة النبوية"}
                     />
                     <p className="text-[11px] text-muted-foreground">
-                      كل فرع مادة مستقلة بكود subject_code خاص — عدد الصفوف ={" "}
-                      {branchNames.length} فرعاً.
+                      كل فرع مادة مستقلة بكود subject_code خاص — عدد الصفوف = {branchNames.length}{" "}
+                      فرعاً.
                     </p>
                   </div>
                 </div>
               )}
             </div>
           )}
-
 
           {allocation && (
             <p className="text-[11px] text-muted-foreground font-mono">

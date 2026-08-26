@@ -38,7 +38,10 @@ function validateStrictPlainObject(val: unknown): { isValid: boolean; reason?: s
   for (const key of Object.keys(descriptors)) {
     const desc = descriptors[key];
     if (desc.get !== undefined || desc.set !== undefined) {
-      return { isValid: false, reason: "المُنشئات والخصائص التلقائية Getters/Setters غير مسموح بها." };
+      return {
+        isValid: false,
+        reason: "المُنشئات والخصائص التلقائية Getters/Setters غير مسموح بها.",
+      };
     }
     if (!desc.enumerable) {
       return { isValid: false, reason: "الخصائص غير القابلة للتعداد غير مسموح بها." };
@@ -83,7 +86,7 @@ export class AppInteractiveResourceBridge {
   public validateEventPayload(
     rawPayload: unknown,
     eventSource: WindowProxy | null | undefined,
-    expectedWindow: WindowProxy | null | undefined
+    expectedWindow: WindowProxy | null | undefined,
   ): {
     isValid: boolean;
     payload?: BridgeEventPayload;
@@ -96,7 +99,8 @@ export class AppInteractiveResourceBridge {
         finding: {
           code: ValidationCodes.INVALID_EVENT_SOURCE,
           severity: "error",
-          message: "مصدر الحدث (event.source) غير صالح أو لا يطابق إطار المعاينة المحدد (iframeRef.contentWindow).",
+          message:
+            "مصدر الحدث (event.source) غير صالح أو لا يطابق إطار المعاينة المحدد (iframeRef.contentWindow).",
         },
       };
     }
@@ -241,7 +245,11 @@ export class AppInteractiveResourceBridge {
     }
 
     // 8. Sequence monotonic check (positive integer & strict > lastSequence)
-    if (typeof data.event_sequence !== "number" || !Number.isInteger(data.event_sequence) || data.event_sequence <= 0) {
+    if (
+      typeof data.event_sequence !== "number" ||
+      !Number.isInteger(data.event_sequence) ||
+      data.event_sequence <= 0
+    ) {
       return {
         isValid: false,
         finding: {
@@ -305,17 +313,25 @@ export class AppInteractiveResourceBridge {
           };
         }
       }
-      if (typeof payloadObj.interaction_type !== "string" || payloadObj.interaction_type.trim().length === 0 || payloadObj.interaction_type.length > 100) {
+      if (
+        typeof payloadObj.interaction_type !== "string" ||
+        payloadObj.interaction_type.trim().length === 0 ||
+        payloadObj.interaction_type.length > 100
+      ) {
         return {
           isValid: false,
           finding: {
             code: ValidationCodes.INVALID_EVENT_SCHEMA,
             severity: "error",
-            message: "حدث interaction يتطلب interaction_type كسلسلة نصية غير فارغة ومحدودة الطول (حتى 100 حرف).",
+            message:
+              "حدث interaction يتطلب interaction_type كسلسلة نصية غير فارغة ومحدودة الطول (حتى 100 حرف).",
           },
         };
       }
-      if (payloadObj.target !== undefined && (typeof payloadObj.target !== "string" || payloadObj.target.length > 100)) {
+      if (
+        payloadObj.target !== undefined &&
+        (typeof payloadObj.target !== "string" || payloadObj.target.length > 100)
+      ) {
         return {
           isValid: false,
           finding: {
@@ -325,7 +341,10 @@ export class AppInteractiveResourceBridge {
           },
         };
       }
-      if (payloadObj.action !== undefined && (typeof payloadObj.action !== "string" || payloadObj.action.length > 100)) {
+      if (
+        payloadObj.action !== undefined &&
+        (typeof payloadObj.action !== "string" || payloadObj.action.length > 100)
+      ) {
         return {
           isValid: false,
           finding: {
@@ -374,17 +393,24 @@ export class AppInteractiveResourceBridge {
           };
         }
       }
-      if (payloadObj.summary !== undefined && (typeof payloadObj.summary !== "string" || payloadObj.summary.length > 200)) {
+      if (
+        payloadObj.summary !== undefined &&
+        (typeof payloadObj.summary !== "string" || payloadObj.summary.length > 200)
+      ) {
         return {
           isValid: false,
           finding: {
             code: ValidationCodes.INVALID_EVENT_SCHEMA,
             severity: "error",
-            message: "خاصية summary في experiment_completed يجب أن تكون نصية ومحدودة (حتى 200 حرف).",
+            message:
+              "خاصية summary في experiment_completed يجب أن تكون نصية ومحدودة (حتى 200 حرف).",
           },
         };
       }
-      if (payloadObj.completed_at !== undefined && (typeof payloadObj.completed_at !== "number" || !Number.isFinite(payloadObj.completed_at))) {
+      if (
+        payloadObj.completed_at !== undefined &&
+        (typeof payloadObj.completed_at !== "number" || !Number.isFinite(payloadObj.completed_at))
+      ) {
         return {
           isValid: false,
           finding: {
@@ -394,13 +420,19 @@ export class AppInteractiveResourceBridge {
           },
         };
       }
-      if (payloadObj.duration_seconds !== undefined && (typeof payloadObj.duration_seconds !== "number" || !Number.isFinite(payloadObj.duration_seconds) || payloadObj.duration_seconds < 0)) {
+      if (
+        payloadObj.duration_seconds !== undefined &&
+        (typeof payloadObj.duration_seconds !== "number" ||
+          !Number.isFinite(payloadObj.duration_seconds) ||
+          payloadObj.duration_seconds < 0)
+      ) {
         return {
           isValid: false,
           finding: {
             code: ValidationCodes.INVALID_EVENT_SCHEMA,
             severity: "error",
-            message: "خاصية duration_seconds في experiment_completed يجب أن تكون رقماً موجب المحتوى.",
+            message:
+              "خاصية duration_seconds في experiment_completed يجب أن تكون رقماً موجب المحتوى.",
           },
         };
       }
@@ -425,7 +457,8 @@ export class AppInteractiveResourceBridge {
           finding: {
             code: ValidationCodes.INVALID_EVENT_SCHEMA,
             severity: "error",
-            message: "حدث resource_error يتطلب error_code كسلسلة نصية غير فارغة ومحدودة الطول (حتى 50 حرف).",
+            message:
+              "حدث resource_error يتطلب error_code كسلسلة نصية غير فارغة ومحدودة الطول (حتى 50 حرف).",
           },
         };
       }
@@ -467,7 +500,12 @@ export class AppInteractiveResourceBridge {
         }
       }
       const heightVal = payloadObj.height;
-      if (typeof heightVal !== "number" || !Number.isFinite(heightVal) || heightVal <= 0 || heightVal > 5000) {
+      if (
+        typeof heightVal !== "number" ||
+        !Number.isFinite(heightVal) ||
+        heightVal <= 0 ||
+        heightVal > 5000
+      ) {
         return {
           isValid: false,
           finding: {
@@ -518,7 +556,7 @@ export class AppInteractiveResourceBridge {
   public static getClientRuntimeBridgeScript(
     resourceCode: string,
     version: number,
-    nonce: string
+    nonce: string,
   ): string {
     return `(function(){var nonce=${JSON.stringify(nonce)};var resourceCode=${JSON.stringify(resourceCode)};var version=${JSON.stringify(version)};var sequence=0;window.__TasheelBridge={sendEvent:function(eventType,payload){sequence++;var message={resource_code:resourceCode,resource_version:version,session_nonce:nonce,event_type:eventType,event_sequence:sequence,timestamp:Date.now(),payload:payload||{}};window.parent.postMessage(message,"*");},markReady:function(){this.sendEvent("resource_ready",{});},markStarted:function(){this.sendEvent("resource_started",{});},sendInteraction:function(data){this.sendEvent("interaction",data);},markStepCompleted:function(stepIndex){this.sendEvent("step_completed",{step:String(stepIndex)});},markExperimentCompleted:function(summary){this.sendEvent("experiment_completed",summary||{});},requestResize:function(height){this.sendEvent("resize_request",{height:height});}};})();`;
   }

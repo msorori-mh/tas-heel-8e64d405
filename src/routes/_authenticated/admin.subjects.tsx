@@ -3,10 +3,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Loader2, Pencil, Plus, Search } from "lucide-react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import {
-  SubjectEditDialog,
-  type SubjectEditValue,
-} from "@/components/admin/SubjectEditDialog";
+import { SubjectEditDialog, type SubjectEditValue } from "@/components/admin/SubjectEditDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 
@@ -106,7 +103,9 @@ function AdminSubjectsPage() {
         subjects: (subjects.data ?? []) as unknown as SubjectRow[],
         assignments: (assignments.data ?? []) as unknown as Assignment[],
         unitSubjectIds: (units.data ?? []).map((row) => row.subject_id).filter(Boolean) as string[],
-        lessonSubjectIds: (lessons.data ?? []).map((row) => row.subject_id).filter(Boolean) as string[],
+        lessonSubjectIds: (lessons.data ?? [])
+          .map((row) => row.subject_id)
+          .filter(Boolean) as string[],
       };
     },
   });
@@ -125,7 +124,8 @@ function AdminSubjectsPage() {
     const units = new Map<string, number>();
     const lessons = new Map<string, number>();
     for (const id of dataQ.data?.unitSubjectIds ?? []) units.set(id, (units.get(id) ?? 0) + 1);
-    for (const id of dataQ.data?.lessonSubjectIds ?? []) lessons.set(id, (lessons.get(id) ?? 0) + 1);
+    for (const id of dataQ.data?.lessonSubjectIds ?? [])
+      lessons.set(id, (lessons.get(id) ?? 0) + 1);
     return { units, lessons };
   }, [dataQ.data?.unitSubjectIds, dataQ.data?.lessonSubjectIds]);
 
@@ -197,7 +197,9 @@ function AdminSubjectsPage() {
           >
             <option value="all">كل الصفوف</option>
             {dataQ.data?.grades.map((grade) => (
-              <option key={grade.id} value={grade.id}>{grade.name}</option>
+              <option key={grade.id} value={grade.id}>
+                {grade.name}
+              </option>
             ))}
           </select>
           <select
@@ -207,7 +209,9 @@ function AdminSubjectsPage() {
           >
             <option value="all">كل المسارات</option>
             {dataQ.data?.tracks.map((track) => (
-              <option key={track.id} value={track.id}>{track.track_name}</option>
+              <option key={track.id} value={track.id}>
+                {track.track_name}
+              </option>
             ))}
           </select>
         </div>
@@ -284,9 +288,24 @@ function AdminSubjectsPage() {
                             <Pencil className="h-3.5 w-3.5" />
                             تعديل
                           </button>
-                          <a href="/admin/units" className="rounded-lg border border-border px-2.5 py-1 text-xs hover:bg-muted">الوحدات</a>
-                          <a href="/admin/lessons/" className="rounded-lg border border-border px-2.5 py-1 text-xs hover:bg-muted">الدروس</a>
-                          <a href="/admin/textbooks" className="rounded-lg border border-border px-2.5 py-1 text-xs hover:bg-muted">الكتاب</a>
+                          <a
+                            href="/admin/units"
+                            className="rounded-lg border border-border px-2.5 py-1 text-xs hover:bg-muted"
+                          >
+                            الوحدات
+                          </a>
+                          <a
+                            href="/admin/lessons/"
+                            className="rounded-lg border border-border px-2.5 py-1 text-xs hover:bg-muted"
+                          >
+                            الدروس
+                          </a>
+                          <a
+                            href="/admin/textbooks"
+                            className="rounded-lg border border-border px-2.5 py-1 text-xs hover:bg-muted"
+                          >
+                            الكتاب
+                          </a>
                         </div>
                       </td>
                     </tr>

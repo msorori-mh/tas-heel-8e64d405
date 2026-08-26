@@ -22,7 +22,11 @@ test("CF11-R4/1 — lifecycle namespace: only lesson_capability_lifecycle exists
     [SERVER]: server,
     [PANEL]: panel,
   })) {
-    assert.doesNotMatch(source, /lesson_content_lifecycle/, `${name} must not reference lesson_content_lifecycle`);
+    assert.doesNotMatch(
+      source,
+      /lesson_content_lifecycle/,
+      `${name} must not reference lesson_content_lifecycle`,
+    );
   }
   // The migration may only NAME the phantom relation inside the guard that forbids it.
   assert.doesNotMatch(sql, /(FROM|INTO|UPDATE|JOIN)\s+public\.lesson_content_lifecycle/);
@@ -45,10 +49,16 @@ test("CF11-R4/2 — publication requires server-side upload attestation of the r
   assert.match(server, /subarray\(0, 16\)\)\.toString\("hex"\)/);
   assert.match(server, /golden_lesson_attest_cf11_asset/);
   // Publication runs attestation first, so an unattested asset can never be published.
-  assert.match(fns, /attestStoredAssets\(\s*\n?\s*userId, data\.batchId, declarations, uploadedPaths, "EXECUTE",/);
+  assert.match(
+    fns,
+    /attestStoredAssets\(\s*userId,\s*data\.batchId,\s*declarations,\s*uploadedPaths,\s*"EXECUTE",/,
+  );
   // CF11-R5: attestation is MACHINE-only — the server signs for bytes it re-read itself and the
   // human is recorded as the requester, never as the attester.
-  assert.match(server, /const admin = serviceClient\(\);[\s\S]{0,4000}rpc\(admin\)\("golden_lesson_attest_cf11_asset"/);
+  assert.match(
+    server,
+    /const admin = serviceClient\(\);[\s\S]{0,4000}rpc\(admin\)\("golden_lesson_attest_cf11_asset"/,
+  );
   assert.match(server, /SERVER_BYTE_READBACK/);
   assert.match(sql, /CF11_ASSET_ATTESTATION_MACHINE_ONLY/);
   assert.match(sql, /CF11_ASSET_VERIFICATION_ORIGIN_INVALID/);
@@ -58,14 +68,17 @@ test("CF11-R4/5 — every human transition uses the operator token, never the se
   // CF10 is reached only through the operator wrapper, which re-derives the actor from auth.uid().
   assert.match(fns, /golden_lesson_materialize_domain_batch_operator/);
   assert.doesNotMatch(fns, /rpc\(serviceClient\(\)\)/);
-  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.golden_lesson_materialize_domain_batch_operator/);
+  assert.match(
+    sql,
+    /CREATE OR REPLACE FUNCTION public\.golden_lesson_materialize_domain_batch_operator/,
+  );
   assert.match(sql, /CF10_ACTOR_IDENTITY_MISMATCH/);
-  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_materialize_domain_batch_operator/);
+  assert.match(
+    sql,
+    /GRANT EXECUTE ON FUNCTION public\.golden_lesson_materialize_domain_batch_operator/,
+  );
   // The service role keeps read/byte-movement duties only.
-  for (const rpcName of [
-    "golden_lesson_publish_cf11",
-    "golden_lesson_attest_cf11_ready",
-  ]) {
+  for (const rpcName of ["golden_lesson_publish_cf11", "golden_lesson_attest_cf11_ready"]) {
     assert.match(fns + server, new RegExp(`rpc\\(supabase\\)\\("${rpcName}"`));
   }
 });
@@ -86,14 +99,26 @@ test("CF11 HTML identity — plan, write and replay use one normalized resource 
   assert.match(sql, /'resourceCode', public\.cf11_html_resource_code\(ext_code, 'mindMap'\)/);
   assert.match(sql, /'resourceCode', public\.cf11_html_resource_code\(ext_code, 'simulation'\)/);
   assert.match(sql, /v_resource_code := public\.cf11_html_resource_code\(ext_code, cap\)/);
-  assert.match(sql, /v_code := public\.normalize_resource_code\(_plan->'html'->cap->>'resourceCode'\)/);
+  assert.match(
+    sql,
+    /v_code := public\.normalize_resource_code\(_plan->'html'->cap->>'resourceCode'\)/,
+  );
   assert.match(sql, /r\.resource_code = v_code/);
   assert.match(sql, /r\.url = public\.cf10_inline_html_url\(v_code\)/);
   assert.match(sql, /r\.metadata->>'cf11_publication_id' = v_publication_id::text/);
   assert.match(sql, /IF v_count <> 1 OR v_live IS DISTINCT FROM v_expected/);
-  assert.doesNotMatch(sql, /v_live IS DISTINCT FROM v_expected\s+OR public\.cf10_html_publication_pending/);
-  assert.match(sql, /'assessment', jsonb_build_object\('code', public\.normalize_content_code\(ext_code \|\| '-SELFTEST'\)/);
-  assert.match(sql, /assessment_code = public\.normalize_content_code\(ext_code \|\| '-SELFTEST'\)/);
+  assert.doesNotMatch(
+    sql,
+    /v_live IS DISTINCT FROM v_expected\s+OR public\.cf10_html_publication_pending/,
+  );
+  assert.match(
+    sql,
+    /'assessment', jsonb_build_object\('code', public\.normalize_content_code\(ext_code \|\| '-SELFTEST'\)/,
+  );
+  assert.match(
+    sql,
+    /assessment_code = public\.normalize_content_code\(ext_code \|\| '-SELFTEST'\)/,
+  );
   assert.doesNotMatch(sql, /lower\(r\.resource_code\) = lower\(v_code\)/);
 });
 
@@ -158,10 +183,19 @@ test("CF11-R6/1 — SQL canonical set equals src/lib/lessons/capability-mapping.
 });
 
 test("CF11 HTML policy — mind map and lab share the isolated interactive contract", () => {
-  assert.match(sql, /mind_contract := public\.cf11_assert_interactive_contract\('mindMapHtml', mind_html\)/);
-  assert.match(sql, /lab_contract := public\.cf11_assert_interactive_contract\('labExperimentHtml', lab_html\)/);
+  assert.match(
+    sql,
+    /mind_contract := public\.cf11_assert_interactive_contract\('mindMapHtml', mind_html\)/,
+  );
+  assert.match(
+    sql,
+    /lab_contract := public\.cf11_assert_interactive_contract\('labExperimentHtml', lab_html\)/,
+  );
   assert.doesNotMatch(sql, /cf11_assert_static_contract\('mindMapHtml', mind_html\)/);
-  assert.match(sql, /'mindMap',[\s\S]{0,260}'renderMode','INTERACTIVE',[\s\S]{0,80}'csp', mind_contract/);
+  assert.match(
+    sql,
+    /'mindMap',[\s\S]{0,260}'renderMode','INTERACTIVE',[\s\S]{0,80}'csp', mind_contract/,
+  );
   assert.match(sql, /'cf11_render_mode', 'INTERACTIVE'/);
   assert.match(sql, /'cf11_csp', CASE cap WHEN 'mindMap' THEN mind_contract ELSE lab_contract END/);
   assert.match(sql, /CF11_INTERACTIVE_EXTERNAL_SCRIPT/);
@@ -171,11 +205,17 @@ test("CF11 HTML policy — mind map and lab share the isolated interactive contr
 });
 
 test("CF11 asset extraction — embedded image data is not mistaken for an undeclared file", () => {
-  assert.match(sql, /cf11_html_asset_refs[\s\S]{0,420}WHERE m\[1\] !~\* '\^data:image\/\(png\|jpeg\|jpg\|gif\|webp\);base64,'/);
+  assert.match(
+    sql,
+    /cf11_html_asset_refs[\s\S]{0,420}WHERE m\[1\] !~\* '\^data:image\/\(png\|jpeg\|jpg\|gif\|webp\);base64,'/,
+  );
 });
 
 test("CF11 question sets come from the verified staged payload, never fixture counts", () => {
-  assert.match(sql, /INTO expected_official_codes[\s\S]{0,500}capability = 'officialBookQuestions'/);
+  assert.match(
+    sql,
+    /INTO expected_official_codes[\s\S]{0,500}capability = 'officialBookQuestions'/,
+  );
   assert.match(sql, /INTO expected_self_codes[\s\S]{0,500}capability = 'selfTest'/);
   assert.match(sql, /official_codes IS DISTINCT FROM expected_official_codes/);
   assert.match(sql, /self_codes IS DISTINCT FROM expected_self_codes/);
@@ -235,14 +275,19 @@ test("CF11-R6/5 — service_role is denied every human editorial RPC", () => {
   ]) {
     assert.match(
       sql,
-      new RegExp(`REVOKE EXECUTE ON FUNCTION public\\.${fnName}\\([^)]*\\)\\s*\\n?\\s*FROM service_role`),
+      new RegExp(
+        `REVOKE EXECUTE ON FUNCTION public\\.${fnName}\\([^)]*\\)\\s*\\n?\\s*FROM service_role`,
+      ),
       `${fnName} must be revoked from service_role`,
     );
   }
   // Machine attestation stays service-role-only.
   assert.match(sql, /CF11_ASSET_ATTESTATION_MACHINE_ONLY/);
   // Identity binding now runs on the operator's own token, not the service key.
-  const binding = readFileSync("src/lib/content-factory/golden-lesson-identity-binding.functions.ts", "utf8");
+  const binding = readFileSync(
+    "src/lib/content-factory/golden-lesson-identity-binding.functions.ts",
+    "utf8",
+  );
   assert.match(binding, /golden_lesson_bind_authoritative_identity_operator/);
   assert.doesNotMatch(binding, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(asserts, /service_role cannot|CF11_EXPECTED_SERVICE_ROLE_DENIED/);
@@ -259,9 +304,12 @@ test("CF11 READY separation of duties has no admin bypass", () => {
 });
 
 test("CF11-R6/6 — the operator panel gates READY on the exact set, not a count", () => {
-  assert.match(panel, /import \{ V3_LIFECYCLE_CAPABILITIES \} from "@\/lib\/lessons\/capability-mapping"/);
+  assert.match(
+    panel,
+    /import \{ V3_LIFECYCLE_CAPABILITIES \} from "@\/lib\/lessons\/capability-mapping"/,
+  );
   assert.doesNotMatch(panel, /CF11_EXPECTED_CAPABILITY_COUNT/);
-  assert.match(panel, /setDiff\.exact && setDiff\.notInReview\.length === 0/);
+  assert.match(panel, /setDiff\.exact\s*&&\s*setDiff\.notInReview\.length === 0/);
   for (const marker of ["missing", "extra", "duplicated", "notInReview"]) {
     assert.match(panel, new RegExp(`setDiff\\.${marker}`));
   }
@@ -340,7 +388,10 @@ test("CF11-R8/4 — asset metadata replay is FAIL-CLOSED (no coalesce fallback)"
   assert.doesNotMatch(sql, /coalesce\(\(o\.metadata->>'size'\)::bigint,\s*t\.byte_size\)/);
   assert.doesNotMatch(sql, /coalesce\(o\.metadata->>'mimetype',\s*o\.metadata->>'contentType'/);
   // Presence is mandatory, values are compared exactly.
-  assert.match(sql, /AND o\.metadata IS NOT NULL\n\s*AND \(o\.metadata \? 'size'\) AND \(o\.metadata \? 'mimetype'\)/);
+  assert.match(
+    sql,
+    /AND o\.metadata IS NOT NULL\n\s*AND \(o\.metadata \? 'size'\) AND \(o\.metadata \? 'mimetype'\)/,
+  );
   assert.match(sql, /AND \(o\.metadata->>'size'\)::bigint = t\.byte_size/);
   assert.match(sql, /AND o\.metadata->>'mimetype' = t\.mime_type/);
   // Same contract at first READY.
@@ -356,11 +407,19 @@ test("CF11-R8/5 — revocation EXECUTE demands its key BEFORE the replay branch"
     sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_revoke_cf11_ready"),
   );
   const keyGate = fn.indexOf("CF11_REVOKE_IDEMPOTENCY_KEY_REQUIRED");
-  const replayBranch = fn.indexOf("SELECT * INTO existing FROM public.golden_lesson_ready_revocations");
+  const replayBranch = fn.indexOf(
+    "SELECT * INTO existing FROM public.golden_lesson_ready_revocations",
+  );
   assert.ok(keyGate > 0 && replayBranch > 0);
   assert.ok(keyGate < replayBranch, "the key gate must run before the existing-row replay branch");
-  assert.match(fn, /IF _mode = 'EXECUTE' AND \(_idempotency_key IS NULL OR length\(btrim\(_idempotency_key\)\) < 8\)/);
-  assert.match(fn, /IF _mode = 'EXECUTE'\n\s*AND btrim\(_idempotency_key\) IS DISTINCT FROM existing\.idempotency_key/);
+  assert.match(
+    fn,
+    /IF _mode = 'EXECUTE' AND \(_idempotency_key IS NULL OR length\(btrim\(_idempotency_key\)\) < 8\)/,
+  );
+  assert.match(
+    fn,
+    /IF _mode = 'EXECUTE'\n\s*AND btrim\(_idempotency_key\) IS DISTINCT FROM existing\.idempotency_key/,
+  );
   assert.match(fn, /CF11_REVOKE_IDEMPOTENCY_KEY_CONFLICT/);
 });
 
@@ -374,7 +433,9 @@ test("CF11-R8/6 — applicability, pinned revisions and READY revalidation stay 
   assert.match(sql, /'revisionId'/);
   assert.match(sql, /'payloadHash'/);
   // First READY revalidates the full live state against the recorded plan.
-  const ready = sql.slice(sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_attest_cf11_ready"));
+  const ready = sql.slice(
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_attest_cf11_ready"),
+  );
   assert.match(ready, /cf11_assert_replay_state\(pub\.result\)/);
   assert.match(panel, /setDiff\.notRequired/);
 });
@@ -390,14 +451,24 @@ test("CF11-R8/7 — PG17 negatives are executable, not swallowed", () => {
   assert.match(section, /_mode => 'EXECUTE'/);
   assert.match(section, /status = 'DRAFT' AND applicability = 'REQUIRED'/);
   assert.match(section, /NOT public\.lesson_student_visible\(lesson\)/);
-  assert.match(section, /CF11_EXPECTED_REVOKE_LEDGER: the original READY evidence must be preserved/);
+  assert.match(
+    section,
+    /CF11_EXPECTED_REVOKE_LEDGER: the original READY evidence must be preserved/,
+  );
   assert.match(section, /CF11_EXPECTED_REVOKE_REPLAY_IDEMPOTENT/);
   assert.match(section, /CF11_EXPECTED_REVOKE_KEY_REQUIRED: a null key replayed successfully/);
   assert.match(section, /CF11_EXPECTED_REVOKE_KEY_CONFLICT/);
   assert.match(section, /CF11_EXPECTED_TERMINAL_READY_REFUSED/);
   // The nine-argument machine attestation signature is unchanged.
   assert.match(server, /_batch_id:[\s\S]{0,400}_mode: mode,/);
-  assert.equal((server.match(/_(batch_id|requested_by|asset_code|observed_sha256|observed_bytes|observed_mime|magic_hex|verification_origin|mode):/g) ?? []).length, 9);
+  assert.equal(
+    (
+      server.match(
+        /_(batch_id|requested_by|asset_code|observed_sha256|observed_bytes|observed_mime|magic_hex|verification_origin|mode):/g,
+      ) ?? []
+    ).length,
+    9,
+  );
 });
 
 /* ------------------------------------------------------------------------------------ *
@@ -410,18 +481,25 @@ const fixture = readFileSync(FIXTURE, "utf8");
 test("CF11-R8B/1 — CF11 re-declares the generic transition with a demotion guard", () => {
   // The 21H migration itself is never edited: CF11 supersedes the function definition.
   const h21 = readFileSync(
-    "supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql", "utf8");
+    "supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql",
+    "utf8",
+  );
   assert.doesNotMatch(h21, /CF11_DIRECT_TRANSITION_FORBIDDEN/);
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.lesson_capability_transition\(/);
   assert.match(sql, /CF11_DIRECT_TRANSITION_FORBIDDEN/);
   // The guard runs before any privilege branch and before any mutation.
-  const fn = sql.slice(sql.indexOf("CREATE OR REPLACE FUNCTION public.lesson_capability_transition("));
+  const fn = sql.slice(
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.lesson_capability_transition("),
+  );
   const guard = fn.indexOf("cf11_assert_demotion_allowed");
   const update = fn.indexOf("UPDATE public.lesson_capability_lifecycle");
   const insert = fn.indexOf("INSERT INTO public.lesson_capability_lifecycle");
   assert.ok(guard > 0 && guard < update && guard < insert);
   // Signature and grants are unchanged, so 21H callers keep working.
-  assert.match(fn, /GRANT EXECUTE ON FUNCTION public\.lesson_capability_transition\(uuid,text,text,jsonb,text\) TO authenticated/);
+  assert.match(
+    fn,
+    /GRANT EXECUTE ON FUNCTION public\.lesson_capability_transition\(uuid,text,text,jsonb,text\) TO authenticated/,
+  );
 });
 
 test("CF11-R8B/2 — the guard is narrow: only CF11 lessons, canonical capabilities, leaving READY", () => {
@@ -444,9 +522,15 @@ test("CF11-R8B/3 — authorization is transaction-local and not forgeable by a c
   assert.match(sql, /VALUES \(txid_current\(\), _lesson_id, _actor_id, _revocation_id\)/);
   assert.match(sql, /WHERE xact_id = txid_current\(\) AND lesson_id = _lesson_id/);
   for (const role of ["anon", "authenticated", "service_role"]) {
-    assert.match(sql, new RegExp(`REVOKE ALL ON TABLE public\\.cf11_revocation_tickets FROM ${role};`));
+    assert.match(
+      sql,
+      new RegExp(`REVOKE ALL ON TABLE public\\.cf11_revocation_tickets FROM ${role};`),
+    );
   }
-  assert.match(sql, /REVOKE ALL ON FUNCTION public\.cf11_open_revocation_ticket\(uuid, uuid, uuid\)\s*\n\s*FROM PUBLIC, anon, authenticated, service_role;/);
+  assert.match(
+    sql,
+    /REVOKE ALL ON FUNCTION public\.cf11_open_revocation_ticket\(uuid, uuid, uuid\)\s*\n\s*FROM PUBLIC, anon, authenticated, service_role;/,
+  );
   assert.match(sql, /ALTER TABLE public\.cf11_revocation_tickets ENABLE ROW LEVEL SECURITY/);
   // No GUC and no boolean bypass parameter anywhere in the guard path.
   assert.doesNotMatch(sql, /current_setting\('cf11[^']*'/);
@@ -457,7 +541,8 @@ test("CF11-R8B/4 — only the controlled withdrawal opens a ticket, and it close
   // Exactly one call site in the whole migration: the controlled withdrawal.
   assert.equal((sql.match(/PERFORM public\.cf11_open_revocation_ticket\(/g) ?? []).length, 1);
   const revoke = sql.slice(
-    sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_revoke_cf11_ready"));
+    sql.indexOf("CREATE OR REPLACE FUNCTION public.golden_lesson_revoke_cf11_ready"),
+  );
   const open = revoke.indexOf("cf11_open_revocation_ticket(pub.lesson_id, uid, revocation_id)");
   const loop = revoke.indexOf("FOREACH cap IN ARRAY public.cf11_lifecycle_capabilities() LOOP");
   const close = revoke.indexOf("cf11_close_revocation_ticket(pub.lesson_id)");

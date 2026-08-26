@@ -99,13 +99,21 @@ describe("15B — ANON_EXECUTE_ZERO", () => {
   it("every function is hardened SECURITY DEFINER with a pinned search_path", () => {
     const defs = (sql.match(/SECURITY DEFINER/g) ?? []).length;
     expect(defs).toBeGreaterThanOrEqual(2);
-    expect((sql.match(/SET search_path = public, pg_temp/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect((sql.match(/SET search_path = public, pg_temp/g) ?? []).length).toBeGreaterThanOrEqual(
+      2,
+    );
   });
 
   it("revokes PUBLIC/anon and grants execute to authenticated only", () => {
-    expect((sql.match(/REVOKE ALL ON FUNCTION[^;]*FROM PUBLIC/g) ?? []).length).toBeGreaterThanOrEqual(3);
-    expect((sql.match(/REVOKE ALL ON FUNCTION[^;]*FROM anon/g) ?? []).length).toBeGreaterThanOrEqual(3);
-    expect((sql.match(/GRANT EXECUTE ON FUNCTION[^;]*TO authenticated/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect(
+      (sql.match(/REVOKE ALL ON FUNCTION[^;]*FROM PUBLIC/g) ?? []).length,
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      (sql.match(/REVOKE ALL ON FUNCTION[^;]*FROM anon/g) ?? []).length,
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      (sql.match(/GRANT EXECUTE ON FUNCTION[^;]*TO authenticated/g) ?? []).length,
+    ).toBeGreaterThanOrEqual(3);
     expect(sql).not.toMatch(/GRANT EXECUTE ON FUNCTION[^;]*TO anon/);
   });
 });

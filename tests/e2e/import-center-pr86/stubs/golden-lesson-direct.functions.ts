@@ -4,7 +4,10 @@ function declarations(manifest: any) {
   return [
     ...manifest.artifacts.flatMap((artifact: any) => [
       artifact.sourcePath && { path: artifact.sourcePath, sha256: artifact.sha256 },
-      artifact.provenancePath && { path: artifact.provenancePath, sha256: artifact.provenanceSha256 },
+      artifact.provenancePath && {
+        path: artifact.provenancePath,
+        sha256: artifact.provenanceSha256,
+      },
     ]),
     ...(manifest.assets ?? []).map((asset: any) => ({ path: asset.path, sha256: asset.sha256 })),
     manifest.security.answersCompanionPath && {
@@ -27,16 +30,28 @@ export async function createGoldenLessonDirectUpload({ data }: { data: { manifes
   };
 }
 
-export async function verifyAndStageGoldenLessonDirect({ data }: { data: { intakeId: string; manifest: any } }) {
+export async function verifyAndStageGoldenLessonDirect({
+  data,
+}: {
+  data: { intakeId: string; manifest: any };
+}) {
   if (data.intakeId !== TEST_INTAKE_ID) throw new Error("TEST_ONLY_INTAKE_ID_MISMATCH");
   const expected = declarations(data.manifest);
   const uploaded = globalThis.__TAMKEEN_TEST_ONLY_DIRECT_FILES__;
-  if (!uploaded || uploaded.size !== expected.length) throw new Error("TEST_ONLY_DIRECT_FILE_SET_MISMATCH");
-  if (data.manifest.schema !== "tamkeen.golden-lesson-package.v1") throw new Error("TEST_ONLY_SCHEMA_MISMATCH");
-  if (data.manifest.lifecycle?.initialStatus !== "DRAFT" || data.manifest.lifecycle?.allowDirectReady !== false) {
+  if (!uploaded || uploaded.size !== expected.length)
+    throw new Error("TEST_ONLY_DIRECT_FILE_SET_MISMATCH");
+  if (data.manifest.schema !== "tamkeen.golden-lesson-package.v1")
+    throw new Error("TEST_ONLY_SCHEMA_MISMATCH");
+  if (
+    data.manifest.lifecycle?.initialStatus !== "DRAFT" ||
+    data.manifest.lifecycle?.allowDirectReady !== false
+  ) {
     throw new Error("TEST_ONLY_DRAFT_FAIL_CLOSED_REQUIRED");
   }
-  if (data.manifest.security?.productionApply !== false || data.manifest.security?.publicPayloadContainsAnswers !== false) {
+  if (
+    data.manifest.security?.productionApply !== false ||
+    data.manifest.security?.publicPayloadContainsAnswers !== false
+  ) {
     throw new Error("TEST_ONLY_SECURITY_CONTRACT_MISMATCH");
   }
   let totalBytes = 0;

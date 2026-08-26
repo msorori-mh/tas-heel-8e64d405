@@ -6,10 +6,7 @@ const SQL = readFileSync(
   "supabase/migrations-pending/20260824000000_content_factory_11_publication.sql",
   "utf8",
 );
-const ASSERTS = readFileSync(
-  "scripts/content-factory/pg17/content-factory-11-assert.sql",
-  "utf8",
-);
+const ASSERTS = readFileSync("scripts/content-factory/pg17/content-factory-11-assert.sql", "utf8");
 const REPORT = readFileSync(
   "docs/content/TAMKEEN-CHEMISTRY-G12-IRON-CF11-PUBLICATION-READY-CLOSURE.md",
   "utf8",
@@ -29,10 +26,7 @@ test("migration preflight refuses legacy publication rows without a durable key"
 });
 
 test("EXECUTE still enforces a non-empty publication key", () => {
-  assert.match(
-    SQL,
-    /IF _idempotency_key IS NULL OR length\(btrim\(_idempotency_key\)\) < 8 THEN/,
-  );
+  assert.match(SQL, /IF _idempotency_key IS NULL OR length\(btrim\(_idempotency_key\)\) < 8 THEN/);
 });
 
 test("PG17 proves authenticated/anon cannot EXECUTE machine asset attestation", () => {
@@ -47,10 +41,7 @@ test("PG17 proves authenticated/anon cannot EXECUTE machine asset attestation", 
 });
 
 test("PG17 proves service_role can neither publish nor attest READY", () => {
-  assert.match(
-    ASSERTS,
-    /CF11_R4: service_role must never publish or attest READY/,
-  );
+  assert.match(ASSERTS, /CF11_R4: service_role must never publish or attest READY/);
   assert.match(
     ASSERTS,
     /golden_lesson_publications_key_chk[\s\S]{0,200}publications\.idempotency_key must carry a non-empty CHECK/,

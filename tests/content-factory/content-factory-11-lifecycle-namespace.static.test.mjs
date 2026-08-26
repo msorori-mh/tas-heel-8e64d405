@@ -48,7 +48,9 @@ for (const [label, file] of [
     // `lessonSummaryHtml` as a package capability key.
     const lifecycleLines = src
       .split("\n")
-      .filter((l) => /lifecycle|capability\s*=|capability,|_capability|capability_transition/i.test(l));
+      .filter((l) =>
+        /lifecycle|capability\s*=|capability,|_capability|capability_transition/i.test(l),
+      );
     for (const bad of FORBIDDEN) {
       const hit = lifecycleLines.find((l) => new RegExp(`'${bad}'`).test(l));
       assert.equal(

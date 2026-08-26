@@ -5,8 +5,14 @@ import {
   legacyArrayToRow,
   LEGACY_FLAT_15COL,
 } from "../../src/lib/question-bank/import/adapters/legacy-flat-15col.ts";
-import { adaptTeacherFlatArV0, TEACHER_FLAT_AR_V0 } from "../../src/lib/question-bank/import/adapters/teacher-flat-ar-v0.ts";
-import { adaptOfficialFlatV0, OFFICIAL_FLAT_V0 } from "../../src/lib/question-bank/import/adapters/official-flat-v0.ts";
+import {
+  adaptTeacherFlatArV0,
+  TEACHER_FLAT_AR_V0,
+} from "../../src/lib/question-bank/import/adapters/teacher-flat-ar-v0.ts";
+import {
+  adaptOfficialFlatV0,
+  OFFICIAL_FLAT_V0,
+} from "../../src/lib/question-bank/import/adapters/official-flat-v0.ts";
 import {
   CONTRACT_HEADERS,
   detectSchemaFromHeaders,
@@ -19,16 +25,32 @@ import {
   contentFingerprint,
   type CatalogLookup,
 } from "../../src/lib/question-bank/import/validate.ts";
-import { canonicalHash, compareCodePoints } from "../../src/lib/question-bank/import/canonical-json.ts";
-import { issue, sortIssues, type QbImportIssue } from "../../src/lib/question-bank/import/errors.ts";
+import {
+  canonicalHash,
+  compareCodePoints,
+} from "../../src/lib/question-bank/import/canonical-json.ts";
+import {
+  issue,
+  sortIssues,
+  type QbImportIssue,
+} from "../../src/lib/question-bank/import/errors.ts";
 import { QB_IMPORT_CODES } from "../../src/lib/question-bank/import/validation-codes.ts";
-import { preflightWorkbook, type WorkbookParserMetadata } from "../../src/lib/question-bank/import/preflight.ts";
-import { buildPrivilegedPreview, buildPublicPreview } from "../../src/lib/question-bank/import/preview.ts";
+import {
+  preflightWorkbook,
+  type WorkbookParserMetadata,
+} from "../../src/lib/question-bank/import/preflight.ts";
+import {
+  buildPrivilegedPreview,
+  buildPublicPreview,
+} from "../../src/lib/question-bank/import/preview.ts";
 import {
   parseQuestionBankWorkbook,
   scanOoxmlRelationships,
 } from "../../src/lib/question-bank/import/workbook-parser.ts";
-import { validateImportAuthorization, QB_IMPORT_DEFAULT_SCOPE } from "../../src/lib/question-bank/import/authorization.ts";
+import {
+  validateImportAuthorization,
+  QB_IMPORT_DEFAULT_SCOPE,
+} from "../../src/lib/question-bank/import/authorization.ts";
 import { preflightZipBytes } from "../../src/lib/question-bank/import/zip-preflight.ts";
 import { DEFAULT_IMPORT_LIMITS } from "../../src/lib/question-bank/import/limits.ts";
 
@@ -48,7 +70,11 @@ export type TestEngineOverrides = {
   preflightGuard?: typeof preflightWorkbook;
   schemaDetector?: typeof detectSchemaFromHeaders;
   headersMatcher?: (schema: ImportSchemaId, headers: string[]) => boolean;
-  adapter?: (row: any, context?: any, catalog?: any) => { row: OfficialNormalizedV1 | null; issues: QbImportIssue[] };
+  adapter?: (
+    row: any,
+    context?: any,
+    catalog?: any,
+  ) => { row: OfficialNormalizedV1 | null; issues: QbImportIssue[] };
   rowValidator?: typeof validateNormalizedRow;
   idempotencyChecker?: (existing: Map<string, string>, rows: TestEnginePreviewRow[]) => boolean;
   zipPreflightGuard?: typeof preflightZipBytes;
@@ -114,11 +140,17 @@ export function runTestEngineDryRun(opts: TestEngineRunOptions) {
     };
   }
 
-  const objectRows = opts.rows.map((row) =>
-    Array.isArray(row) ? legacyArrayToRow(row) : row,
-  );
+  const objectRows = opts.rows.map((row) => (Array.isArray(row) ? legacyArrayToRow(row) : row));
   const issues = [
-    ...(opts.parserMetadata?.hasExternalLinks ? [issue(QB_IMPORT_CODES.EXTERNAL_LINK, { file: opts.fileName, stage: "PREFLIGHT_OOXML", source_subsystem: "workbook-parser" })] : []),
+    ...(opts.parserMetadata?.hasExternalLinks
+      ? [
+          issue(QB_IMPORT_CODES.EXTERNAL_LINK, {
+            file: opts.fileName,
+            stage: "PREFLIGHT_OOXML",
+            source_subsystem: "workbook-parser",
+          }),
+        ]
+      : []),
     ...preflightFn({
       fileName: opts.fileName,
       headers: opts.headers,
@@ -133,20 +165,50 @@ export function runTestEngineDryRun(opts: TestEngineRunOptions) {
 
   if (opts.schemaHint && opts.schemaHint !== "unknown") {
     if (detected.schema !== "unknown" && detected.schema !== opts.schemaHint) {
-      issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "detect" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.INVALID_CONTRACT, {
+          file: opts.fileName,
+          stage: "ADAPTER_DETECT",
+          source_subsystem: "detect",
+        }),
+      );
     }
     schema = opts.schemaHint;
   }
 
   if (schema === "unknown") {
-    issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "detect" }));
+    issues.push(
+      issue(QB_IMPORT_CODES.INVALID_CONTRACT, {
+        file: opts.fileName,
+        stage: "ADAPTER_DETECT",
+        source_subsystem: "detect",
+      }),
+    );
   } else if (!opts.relaxExactHeaders && !headersMatcherFn(schema, opts.headers)) {
     if (schema === LEGACY_FLAT_15COL && opts.headers.length !== 15) {
-      issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_COUNT, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "legacy-flat-15col" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.LEGACY_COLUMN_COUNT, {
+          file: opts.fileName,
+          stage: "ADAPTER_DETECT",
+          source_subsystem: "legacy-flat-15col",
+        }),
+      );
     } else if (schema === LEGACY_FLAT_15COL) {
-      issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_ORDER, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "legacy-flat-15col" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.LEGACY_COLUMN_ORDER, {
+          file: opts.fileName,
+          stage: "ADAPTER_DETECT",
+          source_subsystem: "legacy-flat-15col",
+        }),
+      );
     } else {
-      issues.push(issue(QB_IMPORT_CODES.MISSING_HEADER, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "detect" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.MISSING_HEADER, {
+          file: opts.fileName,
+          stage: "ADAPTER_DETECT",
+          source_subsystem: "detect",
+        }),
+      );
     }
   }
 
@@ -232,11 +294,12 @@ export function runTestEngineDryRun(opts: TestEngineRunOptions) {
       });
     const fingerprints = okRows.map((row) => row.content_fingerprint!).filter(Boolean);
     duplicateContent =
-      fingerprints.length > 0 &&
-      new Set(fingerprints).size !== fingerprints.length;
+      fingerprints.length > 0 && new Set(fingerprints).size !== fingerprints.length;
   }
 
-  const replay_decision = sorted.some((item) => item.code === QB_IMPORT_CODES.DUPLICATE_CODE_IN_FILE)
+  const replay_decision = sorted.some(
+    (item) => item.code === QB_IMPORT_CODES.DUPLICATE_CODE_IN_FILE,
+  )
     ? "FILE_BLOCK"
     : sorted.some((item) => item.code === QB_IMPORT_CODES.IMPORT_REPLAY_CONFLICT)
       ? "IMPORT_REPLAY_CONFLICT"
@@ -283,7 +346,11 @@ export async function runTestEngineOperationalDryRun(input: {
   const zipGuard = input.overrides?.zipPreflightGuard ?? preflightZipBytes;
 
   // STEP 1: Auth check
-  const authVal = authFn(input.authorized, input.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE, input.fileName);
+  const authVal = authFn(
+    input.authorized,
+    input.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE,
+    input.fileName,
+  );
   if (!authVal.ok) {
     return runTestEngineDryRun({
       fileName: input.fileName,
@@ -330,7 +397,10 @@ export async function runTestEngineOperationalDryRun(input: {
       preview: [],
       issues: sortIssues(zipResult.issues),
       accepted_set_hash: null,
-      validation_hash: canonicalHash({ accepted_set_hash: null, issues: sortIssues(zipResult.issues) }),
+      validation_hash: canonicalHash({
+        accepted_set_hash: null,
+        issues: sortIssues(zipResult.issues),
+      }),
       replay_decision: "FILE_BLOCK" as const,
       public_preview: [],
       privileged_preview: [],
@@ -345,12 +415,16 @@ export async function runTestEngineOperationalDryRun(input: {
       const relScan = await input.overrides.externalRelScanner(zip);
       if (!relScan.hasExternalLinks && !relScan.invalidStructure) {
         trusted.preflight_issues = (trusted.preflight_issues ?? []).filter(
-          (i: any) => i.code !== QB_IMPORT_CODES.EXTERNAL_LINK && i.code !== QB_IMPORT_CODES.OOXML_RELATIONSHIP_STRUCTURE_INVALID,
+          (i: any) =>
+            i.code !== QB_IMPORT_CODES.EXTERNAL_LINK &&
+            i.code !== QB_IMPORT_CODES.OOXML_RELATIONSHIP_STRUCTURE_INVALID,
         );
         trusted.metadata = { ...trusted.metadata, hasExternalLinks: false };
         try {
           const workbook = new ExcelJS.Workbook();
-          await (workbook.xlsx as any).load(Buffer.from(input.bytes.buffer, input.bytes.byteOffset, input.bytes.byteLength));
+          await (workbook.xlsx as any).load(
+            Buffer.from(input.bytes.buffer, input.bytes.byteOffset, input.bytes.byteLength),
+          );
           const worksheet = workbook.worksheets[0];
           if (worksheet) {
             const rawRows: string[][] = [];
@@ -362,11 +436,17 @@ export async function runTestEngineOperationalDryRun(input: {
               rawRows.push(values);
             });
             trusted.headers = rawRows[0] ?? [];
-            trusted.rows = rawRows.slice(1).map((r) => Object.fromEntries(trusted.headers.map((h, i) => [h, r[i] ?? ""])));
+            trusted.rows = rawRows
+              .slice(1)
+              .map((r) => Object.fromEntries(trusted.headers.map((h, i) => [h, r[i] ?? ""])));
           }
-        } catch {}
+        } catch {
+          // Fall through to the deterministic parser result below.
+        }
       }
-    } catch {}
+    } catch {
+      // The trusted parser is best-effort; validation remains fail-closed below.
+    }
   }
   return runTestEngineDryRun({
     fileName: input.fileName,

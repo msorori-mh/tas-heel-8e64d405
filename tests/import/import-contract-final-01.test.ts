@@ -67,15 +67,21 @@ test("natural keys with db_unique name a real audited constraint", () => {
     if (u.kind === "db_unique") {
       assert.ok(audited.has(u.constraint), `${key}: unknown constraint ${u.constraint}`);
     } else if (u.kind === "planned_unique") {
-      assert.ok(u.constraint.length > 0 && u.scope.length > 0, `${key}: planned uniqueness must name constraint + scope`);
-    // Unapplied artifacts live either in the phase-02 NOT_APPLIED draft or in
-    // supabase/migrations-pending/ (phase 03). Both are outside the applied set.
-    assert.ok(
-      u.draftRef.includes("NOT_APPLIED") || u.draftRef.startsWith("supabase/migrations-pending/"),
-      `${key}: planned uniqueness must point at an unapplied migration artifact`,
-    );
+      assert.ok(
+        u.constraint.length > 0 && u.scope.length > 0,
+        `${key}: planned uniqueness must name constraint + scope`,
+      );
+      // Unapplied artifacts live either in the phase-02 NOT_APPLIED draft or in
+      // supabase/migrations-pending/ (phase 03). Both are outside the applied set.
+      assert.ok(
+        u.draftRef.includes("NOT_APPLIED") || u.draftRef.startsWith("supabase/migrations-pending/"),
+        `${key}: planned uniqueness must point at an unapplied migration artifact`,
+      );
 
-      assert.ok(!audited.has(u.constraint), `${key}: planned constraint must not claim an already-applied name`);
+      assert.ok(
+        !audited.has(u.constraint),
+        `${key}: planned constraint must not claim an already-applied name`,
+      );
     } else {
       assert.ok(u.gap.length > 0, `${key}: unenforced uniqueness must document a gap`);
     }
@@ -90,7 +96,6 @@ test("entities without DB-enforced uniqueness are declared as blocking gaps", ()
     }
   }
 });
-
 
 test("both question capabilities are routed through the question-bank workflow", () => {
   assert.equal(IMPORT_ENTITY_CONTRACTS.questions.questionBankWorkflow, true);
@@ -112,10 +117,7 @@ test("idempotency matrix", () => {
     resolveImportRowAction({ ...base, target: "absent", storedRowHash: null }),
     "INSERT",
   );
-  assert.equal(
-    resolveImportRowAction({ ...base, target: "draft", storedRowHash: "h1" }),
-    "SKIP",
-  );
+  assert.equal(resolveImportRowAction({ ...base, target: "draft", storedRowHash: "h1" }), "SKIP");
   assert.equal(
     resolveImportRowAction({ ...base, target: "published", storedRowHash: "h1" }),
     "SKIP",
@@ -129,11 +131,21 @@ test("idempotency matrix", () => {
     "BLOCKED_PUBLISHED",
   );
   assert.equal(
-    resolveImportRowAction({ ...base, target: "published", storedRowHash: "h0", supportsRevision: true }),
+    resolveImportRowAction({
+      ...base,
+      target: "published",
+      storedRowHash: "h0",
+      supportsRevision: true,
+    }),
     "NEW_REVISION",
   );
   assert.equal(
-    resolveImportRowAction({ ...base, target: "archived", storedRowHash: null, supportsRevision: true }),
+    resolveImportRowAction({
+      ...base,
+      target: "archived",
+      storedRowHash: null,
+      supportsRevision: true,
+    }),
     "NEW_REVISION",
   );
 });
@@ -169,6 +181,9 @@ test("every content code has an Arabic message and coherent blocking flags", () 
       assert.equal(def.rowBlocking, false, `${code}: non-error must not block a row`);
       assert.equal(def.fileBlocking, false, `${code}: non-error must not block the file`);
     }
-    assert.ok(!(def.rowBlocking && def.fileBlocking), `${code}: cannot be both row and file blocking`);
+    assert.ok(
+      !(def.rowBlocking && def.fileBlocking),
+      `${code}: cannot be both row and file blocking`,
+    );
   }
 });

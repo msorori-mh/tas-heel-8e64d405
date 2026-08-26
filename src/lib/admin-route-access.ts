@@ -75,10 +75,7 @@ type SidebarLink = {
   end?: boolean;
 };
 
-export function filterAdminSidebarLinks<T extends SidebarLink>(
-  links: T[],
-  isAdmin: boolean,
-): T[] {
+export function filterAdminSidebarLinks<T extends SidebarLink>(links: T[], isAdmin: boolean): T[] {
   if (isAdmin) return links;
   return links.filter(
     (link) =>

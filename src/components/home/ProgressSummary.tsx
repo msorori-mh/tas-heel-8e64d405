@@ -3,13 +3,7 @@ import { StatCard } from "@/components/common/StatCard";
 import type { HomeStats } from "@/hooks/use-home-dashboard";
 
 /** Four compact KPI cards (2x2 on mobile, single row on desktop). */
-export function ProgressSummary({
-  stats,
-  loading,
-}: {
-  stats?: HomeStats;
-  loading?: boolean;
-}) {
+export function ProgressSummary({ stats, loading }: { stats?: HomeStats; loading?: boolean }) {
   const items = [
     {
       label: "الدروس المكتملة",
@@ -60,4 +54,3 @@ export function ProgressSummary({
     </section>
   );
 }
-

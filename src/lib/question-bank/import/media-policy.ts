@@ -32,9 +32,7 @@ export function validateMediaUrl(
       host === "0.0.0.0" ||
       host.endsWith(".local") ||
       /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host);
-    const allow = allowHosts.some(
-      (allowed) => host === allowed || host.endsWith(`.${allowed}`),
-    );
+    const allow = allowHosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
     if (
       url.protocol !== "https:" ||
       url.username ||
@@ -55,10 +53,7 @@ export function validateMediaUrl(
 export function inferMediaType(url: string): string | null {
   try {
     const path = new URL(url).pathname.toLowerCase();
-    return (
-      Object.entries(SAFE_TYPES).find(([extension]) => path.endsWith(extension))?.[1] ??
-      null
-    );
+    return Object.entries(SAFE_TYPES).find(([extension]) => path.endsWith(extension))?.[1] ?? null;
   } catch {
     return null;
   }

@@ -85,28 +85,39 @@ export function buildIronProductionImportDryRun(
 
   if (!plan.preconditions.fail_closed) blockers.push("PLAN_NOT_FAIL_CLOSED");
   if (plan.mode !== "SOURCE_ONLY_NO_PRODUCTION_WRITES") blockers.push("UNEXPECTED_PLAN_MODE");
-  if (plan.acceptance.production_content_import_authorized) blockers.push("SOURCE_PLAN_AUTHORIZES_PRODUCTION");
+  if (plan.acceptance.production_content_import_authorized)
+    blockers.push("SOURCE_PLAN_AUTHORIZES_PRODUCTION");
   if (!plan.write_contract.no_delete) blockers.push("DELETE_NOT_FORBIDDEN");
   if (!plan.write_contract.no_ready_transition) blockers.push("READY_TRANSITION_NOT_FORBIDDEN");
-  if (plan.write_contract.initial_lifecycle_status !== "DRAFT") blockers.push("LIFECYCLE_NOT_DRAFT");
+  if (plan.write_contract.initial_lifecycle_status !== "DRAFT")
+    blockers.push("LIFECYCLE_NOT_DRAFT");
 
   for (const gate of IRON_IMPORT_REQUIRED_GATES) {
-    if (!plan.preconditions.required_schema_gates.includes(gate)) blockers.push(`PLAN_GATE_MISSING:${gate}`);
+    if (!plan.preconditions.required_schema_gates.includes(gate))
+      blockers.push(`PLAN_GATE_MISSING:${gate}`);
     if (observation.gates[gate] !== true) blockers.push(`SCHEMA_GATE_CLOSED:${gate}`);
   }
 
   if (observation.gradeId !== plan.identity.grade.id) blockers.push("GRADE_IDENTITY_MISMATCH");
   for (const track of plan.identity.tracks) {
-    if (observation.trackIdsByCode[track.code] !== track.id) blockers.push(`TRACK_IDENTITY_MISMATCH:${track.code}`);
+    if (observation.trackIdsByCode[track.code] !== track.id)
+      blockers.push(`TRACK_IDENTITY_MISMATCH:${track.code}`);
   }
 
-  if (observation.subject &&
-      (observation.subject.code !== plan.identity.subject.code ||
-       observation.subject.gradeId !== plan.identity.grade.id)) {
+  if (
+    observation.subject &&
+    (observation.subject.code !== plan.identity.subject.code ||
+      observation.subject.gradeId !== plan.identity.grade.id)
+  ) {
     blockers.push("SUBJECT_NATURAL_KEY_CONFLICT");
   }
-  if (observation.lesson && observation.lesson.unitId !== null) blockers.push("LESSON_UNIT_INVENTED");
-  if (observation.lesson && observation.subject && observation.lesson.subjectId !== observation.subject.id) {
+  if (observation.lesson && observation.lesson.unitId !== null)
+    blockers.push("LESSON_UNIT_INVENTED");
+  if (
+    observation.lesson &&
+    observation.subject &&
+    observation.lesson.subjectId !== observation.subject.id
+  ) {
     blockers.push("LESSON_SUBJECT_CONFLICT");
   }
 
@@ -114,7 +125,8 @@ export function buildIronProductionImportDryRun(
   for (const record of plan.textbooks.records) {
     const naturalKey = key(record.natural_key);
     const existingHash = textbookHashes[naturalKey];
-    if (existingHash && existingHash !== record.sha256) blockers.push(`TEXTBOOK_HASH_CONFLICT:${naturalKey}`);
+    if (existingHash && existingHash !== record.sha256)
+      blockers.push(`TEXTBOOK_HASH_CONFLICT:${naturalKey}`);
   }
 
   const intents: IronImportIntent[] = [];
@@ -125,7 +137,11 @@ export function buildIronProductionImportDryRun(
 
   push("CREATE_IF_ABSENT", "subjects", key([plan.identity.grade.id, plan.identity.subject.code]));
   for (const track of plan.identity.tracks) {
-    push("BIND_IF_ABSENT", "subject_curriculum_tracks", key([plan.identity.subject.code, track.id]));
+    push(
+      "BIND_IF_ABSENT",
+      "subject_curriculum_tracks",
+      key([plan.identity.subject.code, track.id]),
+    );
   }
   push("CREATE_IF_ABSENT", "lessons", key([plan.identity.subject.code, plan.identity.lesson.code]));
 

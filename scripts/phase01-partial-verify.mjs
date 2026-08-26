@@ -44,35 +44,51 @@ const tests = [];
 const c03 = await rpc("get_user_email", { _user_id: victim });
 tests.push({
   id: "C-03 anon get_user_email",
-  pass: c03.status === 401 || c03.status === 403 || (c03.body?.code === "42501") || String(c03.body?.message || "").includes("permission"),
+  pass:
+    c03.status === 401 ||
+    c03.status === 403 ||
+    c03.body?.code === "42501" ||
+    String(c03.body?.message || "").includes("permission"),
   detail: `HTTP ${c03.status} ${JSON.stringify(c03.body).slice(0, 80)}`,
 });
 
 const hasSub = await rpc("has_active_subscription", { _user_id: victim });
 tests.push({
   id: "H-03 anon has_active_subscription",
-  pass: hasSub.status === 401 || hasSub.status === 403 || String(hasSub.body?.message || "").includes("permission"),
+  pass:
+    hasSub.status === 401 ||
+    hasSub.status === 403 ||
+    String(hasSub.body?.message || "").includes("permission"),
   detail: `HTTP ${hasSub.status} ${JSON.stringify(hasSub.body).slice(0, 80)}`,
 });
 
 const pts = await rpc("get_user_total_points", { _user_id: victim });
 tests.push({
   id: "H-03 anon get_user_total_points",
-  pass: pts.status === 401 || pts.status === 403 || String(pts.body?.message || "").includes("permission"),
+  pass:
+    pts.status === 401 ||
+    pts.status === 403 ||
+    String(pts.body?.message || "").includes("permission"),
   detail: `HTTP ${pts.status} ${JSON.stringify(pts.body).slice(0, 80)}`,
 });
 
 const wallet = await rpc("ensure_wallet_account", { _user_id: victim });
 tests.push({
   id: "H-03 anon ensure_wallet_account",
-  pass: wallet.status === 401 || wallet.status === 403 || String(wallet.body?.message || "").includes("permission"),
+  pass:
+    wallet.status === 401 ||
+    wallet.status === 403 ||
+    String(wallet.body?.message || "").includes("permission"),
   detail: `HTTP ${wallet.status} ${JSON.stringify(wallet.body).slice(0, 80)}`,
 });
 
 const dash = await rpc("get_dashboard_stats", {});
 tests.push({
   id: "C-04 anon get_dashboard_stats RPC",
-  pass: dash.status !== 200 || dash.body?.code === "42501" || String(dash.body?.message || "").includes("forbidden"),
+  pass:
+    dash.status !== 200 ||
+    dash.body?.code === "42501" ||
+    String(dash.body?.message || "").includes("forbidden"),
   detail: `HTTP ${dash.status} ${JSON.stringify(dash.body).slice(0, 80)}`,
 });
 

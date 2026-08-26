@@ -132,9 +132,7 @@ export function isQuestionBankRoutedTemplate(templateKey: string): boolean {
 }
 
 export function questionBankExecuteRpcForTemplate(templateKey: string): string | null {
-  return isQuestionBankRoutedTemplate(templateKey)
-    ? QUESTION_BANK_IMPORT_BINDING.executeRpc
-    : null;
+  return isQuestionBankRoutedTemplate(templateKey) ? QUESTION_BANK_IMPORT_BINDING.executeRpc : null;
 }
 
 /**
@@ -155,7 +153,6 @@ export function assertGenericUpsertAllowed(templateKey: string): void {
 export function assertTemplateExecutable(_templateKey: string): void {
   // All contract templates are executable; routing happens inside the database.
 }
-
 
 /* ------------------------------------------------------------------ */
 /* Phase separation                                                    */

@@ -99,7 +99,8 @@ export function validateGoldenLessonAssets(
   capabilityHasSource: (capability: GoldenCapability) => boolean,
 ): GoldenAssetFinding[] {
   const findings: GoldenAssetFinding[] = [];
-  const push = (code: string, field: string, messageAr: string) => findings.push({ code, field, messageAr });
+  const push = (code: string, field: string, messageAr: string) =>
+    findings.push({ code, field, messageAr });
 
   const seenCodes = new Set<string>();
   const seenPaths = new Set<string>();
@@ -111,7 +112,11 @@ export function validateGoldenLessonAssets(
       continue;
     }
     if (typeof asset.assetCode !== "string" || !GOLDEN_ASSET_CODE.test(asset.assetCode)) {
-      push("ASSET_CODE_INVALID", `${field}.assetCode`, "رمز الأصل الثابت يجب أن يكون ثابتًا بأحرف لاتينية كبيرة.");
+      push(
+        "ASSET_CODE_INVALID",
+        `${field}.assetCode`,
+        "رمز الأصل الثابت يجب أن يكون ثابتًا بأحرف لاتينية كبيرة.",
+      );
     } else if (seenCodes.has(asset.assetCode)) {
       push("ASSET_CODE_DUPLICATE", `${field}.assetCode`, "رمز الأصل الثابت مكرر داخل الحزمة.");
     } else {
@@ -119,7 +124,11 @@ export function validateGoldenLessonAssets(
     }
 
     if (typeof asset.path !== "string" || !isSafeAssetLeaf(asset.path)) {
-      push("ASSET_PATH_UNSAFE", `${field}.path`, "مسار الأصل يجب أن يكون اسم ملف مفردًا دون مجلدات أو محارف تحكم.");
+      push(
+        "ASSET_PATH_UNSAFE",
+        `${field}.path`,
+        "مسار الأصل يجب أن يكون اسم ملف مفردًا دون مجلدات أو محارف تحكم.",
+      );
     } else if (seenPaths.has(asset.path)) {
       push("ASSET_PATH_DUPLICATE", `${field}.path`, "لا يجوز أن يشترك أصلان في اسم الملف نفسه.");
     } else {
@@ -127,35 +136,60 @@ export function validateGoldenLessonAssets(
     }
 
     if (typeof asset.mimeType !== "string" || !isAllowedAssetMime(asset.mimeType)) {
-      push("ASSET_MIME_FORBIDDEN", `${field}.mimeType`, "نوع الأصل غير مسموح؛ الصور النقطية فقط (PNG/JPEG/WEBP) ولا يُسمح بـ SVG.");
-    } else if (typeof asset.path === "string" &&
-               !(GOLDEN_ASSET_MIME_ALLOWLIST[asset.mimeType].extensions as readonly string[])
-                 .includes(assetLeafExtension(asset.path))) {
-      push("ASSET_EXTENSION_MISMATCH", `${field}.path`, "امتداد الملف لا يطابق نوع المحتوى المعلن.");
+      push(
+        "ASSET_MIME_FORBIDDEN",
+        `${field}.mimeType`,
+        "نوع الأصل غير مسموح؛ الصور النقطية فقط (PNG/JPEG/WEBP) ولا يُسمح بـ SVG.",
+      );
+    } else if (
+      typeof asset.path === "string" &&
+      !(GOLDEN_ASSET_MIME_ALLOWLIST[asset.mimeType].extensions as readonly string[]).includes(
+        assetLeafExtension(asset.path),
+      )
+    ) {
+      push(
+        "ASSET_EXTENSION_MISMATCH",
+        `${field}.path`,
+        "امتداد الملف لا يطابق نوع المحتوى المعلن.",
+      );
     }
 
     if (typeof asset.sha256 !== "string" || !SHA256.test(asset.sha256)) {
       push("ASSET_HASH_INVALID", `${field}.sha256`, "بصمة SHA-256 للأصل مفقودة أو غير صالحة.");
     }
 
-    if (!Number.isSafeInteger(asset.bytes) || asset.bytes < GOLDEN_ASSET_MIN_BYTES ||
-        asset.bytes > GOLDEN_ASSET_MAX_BYTES) {
+    if (
+      !Number.isSafeInteger(asset.bytes) ||
+      asset.bytes < GOLDEN_ASSET_MIN_BYTES ||
+      asset.bytes > GOLDEN_ASSET_MAX_BYTES
+    ) {
       push("ASSET_SIZE_OUT_OF_RANGE", `${field}.bytes`, "حجم الأصل خارج الحدود المسموحة.");
     }
 
     if (!Array.isArray(asset.referencedBy) || asset.referencedBy.length === 0) {
-      push("ASSET_REFERENCE_MISSING", `${field}.referencedBy`, "يجب ربط الأصل بقدرة واحدة على الأقل تستخدمه.");
+      push(
+        "ASSET_REFERENCE_MISSING",
+        `${field}.referencedBy`,
+        "يجب ربط الأصل بقدرة واحدة على الأقل تستخدمه.",
+      );
     } else {
       for (const capability of asset.referencedBy) {
         if (!capabilityHasSource(capability)) {
-          push("ASSET_REFERENCE_CAPABILITY_INVALID", `${field}.referencedBy`,
-            "الأصل مرتبط بقدرة غير موجودة أو بلا ملف محتوى.");
+          push(
+            "ASSET_REFERENCE_CAPABILITY_INVALID",
+            `${field}.referencedBy`,
+            "الأصل مرتبط بقدرة غير موجودة أو بلا ملف محتوى.",
+          );
         }
       }
     }
 
     if (typeof asset.altTextAr !== "string" || asset.altTextAr.trim().length < 3) {
-      push("ASSET_ALT_TEXT_MISSING", `${field}.altTextAr`, "النص البديل العربي مطلوب لكل أصل مصور.");
+      push(
+        "ASSET_ALT_TEXT_MISSING",
+        `${field}.altTextAr`,
+        "النص البديل العربي مطلوب لكل أصل مصور.",
+      );
     }
   }
 
@@ -175,7 +209,8 @@ export function scanHtmlAssetReferences(
   declaredLeaves: ReadonlySet<string>,
 ): GoldenAssetFinding[] {
   const findings: GoldenAssetFinding[] = [];
-  const push = (code: string, messageAr: string) => findings.push({ code, field: sourcePath, messageAr });
+  const push = (code: string, messageAr: string) =>
+    findings.push({ code, field: sourcePath, messageAr });
 
   const references: string[] = [];
   for (const match of html.matchAll(SRC_ATTRIBUTE)) references.push(match[1] ?? "");
@@ -189,8 +224,15 @@ export function scanHtmlAssetReferences(
     }
     if (/^data:/i.test(value)) {
       // Inline data URIs are offline-safe. Allow images/fonts/audio/video only.
-      if (!/^data:(image\/[a-z0-9.+-]+|font\/[a-z0-9.+-]+|application\/font-[a-z0-9.+-]+|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+);/i.test(value)) {
-        push("HTML_REFERENCE_DATA_URI_FORBIDDEN", "يُسمح فقط بتضمين الصور أو الخطوط أو الوسائط كـ data URI داخل HTML.");
+      if (
+        !/^data:(image\/[a-z0-9.+-]+|font\/[a-z0-9.+-]+|application\/font-[a-z0-9.+-]+|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+);/i.test(
+          value,
+        )
+      ) {
+        push(
+          "HTML_REFERENCE_DATA_URI_FORBIDDEN",
+          "يُسمح فقط بتضمين الصور أو الخطوط أو الوسائط كـ data URI داخل HTML.",
+        );
       }
       continue;
     }

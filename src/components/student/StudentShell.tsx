@@ -157,7 +157,6 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
 
       <main className="min-w-0 w-full flex-1 pb-24 pt-4 lg:pr-60 lg:pb-12 lg:pt-8">
         <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8">{children}</div>
-
       </main>
 
       {/* Mobile bottom navigation */}
@@ -191,15 +190,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SidebarLink({
-  item,
-  active,
-  hash,
-}: {
-  item: NavItem;
-  active: boolean;
-  hash?: string;
-}) {
+function SidebarLink({ item, active, hash }: { item: NavItem; active: boolean; hash?: string }) {
   const Icon = item.icon;
   return (
     <Link

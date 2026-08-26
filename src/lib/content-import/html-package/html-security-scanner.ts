@@ -63,10 +63,7 @@ const FORBIDDEN_API_PATTERNS: ApiCheckPattern[] = [
 /**
  * Scan JavaScript text or HTML content for forbidden API patterns and remote network URLs.
  */
-export function scanCodeSecurity(
-  codeContent: string,
-  filePath: string
-): SecurityFinding[] {
+export function scanCodeSecurity(codeContent: string, filePath: string): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
 
   // Check remote URLs (http://, https://, //cdn...)

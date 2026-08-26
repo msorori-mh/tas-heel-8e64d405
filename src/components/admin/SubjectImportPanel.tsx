@@ -69,7 +69,9 @@ export function SubjectImportPanel() {
           >
             <option value="">اختر الصف</option>
             {(options.data?.grades ?? []).map((grade) => (
-              <option key={grade.id} value={grade.slug}>{grade.name}</option>
+              <option key={grade.id} value={grade.slug}>
+                {grade.name}
+              </option>
             ))}
           </select>
         </label>

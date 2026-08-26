@@ -78,7 +78,7 @@ export const extractReceiptData = createServerFn({ method: "POST" })
       choices?: Array<{ message?: { content?: string } }>;
     };
     const content = json.choices?.[0]?.message?.content ?? "";
-    let parsed: any;
+    let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(content);
     } catch {
@@ -108,12 +108,15 @@ export const extractReceiptData = createServerFn({ method: "POST" })
       return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
     };
 
-    const conf = parsed?.confidence ?? {};
+    const conf =
+      parsed.confidence && typeof parsed.confidence === "object"
+        ? (parsed.confidence as Record<string, unknown>)
+        : {};
     return {
-      sender_name: str(parsed?.sender_name),
-      transaction_number: str(parsed?.transaction_number),
-      amount: amt(parsed?.amount),
-      transfer_date: date(parsed?.transfer_date),
+      sender_name: str(parsed.sender_name),
+      transaction_number: str(parsed.transaction_number),
+      amount: amt(parsed.amount),
+      transfer_date: date(parsed.transfer_date),
       confidence: {
         sender_name: num(conf.sender_name),
         transaction_number: num(conf.transaction_number),

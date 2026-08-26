@@ -40,7 +40,13 @@ type Assignment = {
   curriculum_track_id: string;
   track?: Track | null;
 };
-type Unit = { id: string; title: string; code: string | null; subject_id: string; sort_order: number };
+type Unit = {
+  id: string;
+  title: string;
+  code: string | null;
+  subject_id: string;
+  sort_order: number;
+};
 type Lesson = {
   id: string;
   title: string;
@@ -137,14 +143,35 @@ function AdminCurriculumPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">هيكل المنهج</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              استعراض الجاهزية والعلاقات الفعلية فقط؛ تتم الإدارة من صفحات المادة والوحدات والدروس والكتب.
+              استعراض الجاهزية والعلاقات الفعلية فقط؛ تتم الإدارة من صفحات المادة والوحدات والدروس
+              والكتب.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-sm">
-            <a href="/admin/subjects" className="rounded-lg border border-border bg-card px-3 py-2 hover:bg-muted">المواد والمسارات</a>
-            <a href="/admin/units" className="rounded-lg border border-border bg-card px-3 py-2 hover:bg-muted">الوحدات</a>
-            <a href="/admin/lessons/" className="rounded-lg border border-border bg-card px-3 py-2 hover:bg-muted">الدروس</a>
-            <a href="/admin/textbooks" className="rounded-lg border border-border bg-card px-3 py-2 hover:bg-muted">كتب المواد</a>
+            <a
+              href="/admin/subjects"
+              className="rounded-lg border border-border bg-card px-3 py-2 hover:bg-muted"
+            >
+              المواد والمسارات
+            </a>
+            <a
+              href="/admin/units"
+              className="rounded-lg border border-border bg-card px-3 py-2 hover:bg-muted"
+            >
+              الوحدات
+            </a>
+            <a
+              href="/admin/lessons/"
+              className="rounded-lg border border-border bg-card px-3 py-2 hover:bg-muted"
+            >
+              الدروس
+            </a>
+            <a
+              href="/admin/textbooks"
+              className="rounded-lg border border-border bg-card px-3 py-2 hover:bg-muted"
+            >
+              كتب المواد
+            </a>
           </div>
         </header>
 
@@ -187,7 +214,10 @@ function AdminCurriculumPage() {
               if (gradeSubjects.length === 0) return null;
               const gradeOpen = expandedGrades[grade.id] ?? true;
               return (
-                <section key={grade.id} className="overflow-hidden rounded-xl border border-border bg-card">
+                <section
+                  key={grade.id}
+                  className="overflow-hidden rounded-xl border border-border bg-card"
+                >
                   <button
                     type="button"
                     onClick={() =>
@@ -198,9 +228,15 @@ function AdminCurriculumPage() {
                     }
                     className="flex w-full items-center gap-2 px-4 py-3 text-right"
                   >
-                    {gradeOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                    {gradeOpen ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronLeft className="h-4 w-4" />
+                    )}
                     <span className="font-semibold">{grade.name}</span>
-                    <span className="text-xs text-muted-foreground">({gradeSubjects.length} مادة)</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({gradeSubjects.length} مادة)
+                    </span>
                   </button>
 
                   {gradeOpen && (
@@ -212,7 +248,10 @@ function AdminCurriculumPage() {
                         const directLessons = subjectLessons.filter((lesson) => !lesson.unit_id);
                         const subjectOpen = expandedSubjects[subject.id] ?? false;
                         return (
-                          <div key={subject.id} className="rounded-lg border border-border bg-background">
+                          <div
+                            key={subject.id}
+                            className="rounded-lg border border-border bg-background"
+                          >
                             <button
                               type="button"
                               onClick={() =>
@@ -223,7 +262,11 @@ function AdminCurriculumPage() {
                               }
                               className="flex w-full flex-wrap items-center gap-2 px-3 py-3 text-right"
                             >
-                              {subjectOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                              {subjectOpen ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronLeft className="h-4 w-4" />
+                              )}
                               <BookOpen className="h-4 w-4 text-primary" />
                               <span className="font-medium text-foreground">{subject.name}</span>
                               <span className="rounded bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
@@ -234,7 +277,10 @@ function AdminCurriculumPage() {
                                   <span className="text-xs text-destructive">بلا مسار</span>
                                 ) : (
                                   subjectTracks.map((item) => (
-                                    <span key={item.curriculum_track_id} className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+                                    <span
+                                      key={item.curriculum_track_id}
+                                      className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary"
+                                    >
                                       {item.track?.track_name ?? "مسار"}
                                     </span>
                                   ))
@@ -267,9 +313,13 @@ function AdminCurriculumPage() {
                                         <p className="flex items-center gap-2 text-sm font-medium">
                                           <Layers className="h-4 w-4 text-primary" />
                                           {unit.title}
-                                          <span className="font-mono text-[10px] text-muted-foreground">{unit.code}</span>
+                                          <span className="font-mono text-[10px] text-muted-foreground">
+                                            {unit.code}
+                                          </span>
                                         </p>
-                                        <p className="mt-1 text-xs text-muted-foreground">{unitLessons.length} درس</p>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                          {unitLessons.length} درس
+                                        </p>
                                       </div>
                                     );
                                   })
@@ -280,10 +330,30 @@ function AdminCurriculumPage() {
                                   </div>
                                 )}
                                 <div className="flex flex-wrap gap-2 text-xs">
-                                  <a href="/admin/subjects" className="rounded border border-border px-2.5 py-1 hover:bg-muted">إدارة المادة</a>
-                                  <a href="/admin/units" className="rounded border border-border px-2.5 py-1 hover:bg-muted">إدارة الوحدات</a>
-                                  <a href="/admin/lessons/" className="rounded border border-border px-2.5 py-1 hover:bg-muted">إدارة الدروس</a>
-                                  <a href="/admin/textbooks" className="rounded border border-border px-2.5 py-1 hover:bg-muted">إدارة الكتاب</a>
+                                  <a
+                                    href="/admin/subjects"
+                                    className="rounded border border-border px-2.5 py-1 hover:bg-muted"
+                                  >
+                                    إدارة المادة
+                                  </a>
+                                  <a
+                                    href="/admin/units"
+                                    className="rounded border border-border px-2.5 py-1 hover:bg-muted"
+                                  >
+                                    إدارة الوحدات
+                                  </a>
+                                  <a
+                                    href="/admin/lessons/"
+                                    className="rounded border border-border px-2.5 py-1 hover:bg-muted"
+                                  >
+                                    إدارة الدروس
+                                  </a>
+                                  <a
+                                    href="/admin/textbooks"
+                                    className="rounded border border-border px-2.5 py-1 hover:bg-muted"
+                                  >
+                                    إدارة الكتاب
+                                  </a>
                                 </div>
                               </div>
                             )}

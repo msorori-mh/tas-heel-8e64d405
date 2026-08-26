@@ -81,18 +81,19 @@ async function resolveExistingIdentityPackage(
   context: ContentStaffAuthContext,
   manifest: GoldenLessonPackage,
 ): Promise<GoldenLessonPackage> {
-  const client = context.supabase as any;
+  const client = context.supabase as unknown as ReturnType<typeof serviceClient>;
   const candidatesQuery = await client
     .from("golden_lesson_packages")
     .select("package_code,profile_id,identity")
     .eq("profile_id", manifest.profileId);
   if (candidatesQuery.error) throw new Error(candidatesQuery.error.message);
 
-  const matches = ((candidatesQuery.data ?? []) as Array<Pick<
-    ExistingPackageRow,
-    "package_code" | "profile_id" | "identity"
-  >>).filter((candidate) =>
-    diffGoldenLessonIdentity(candidate.identity, manifest.identity).length === 0
+  const matches = (
+    (candidatesQuery.data ?? []) as Array<
+      Pick<ExistingPackageRow, "package_code" | "profile_id" | "identity">
+    >
+  ).filter(
+    (candidate) => diffGoldenLessonIdentity(candidate.identity, manifest.identity).length === 0,
   );
   if (matches.length > 1) {
     throw new Error("PACKAGE_IDENTITY_AMBIGUOUS");
@@ -109,10 +110,12 @@ async function readDirectIntakePreflight(
 ): Promise<DirectIntakePreflightResult> {
   manifest = await resolveExistingIdentityPackage(context, manifest);
   const manifestSha256 = computeGoldenLessonManifestSha256(manifest);
-  const client = context.supabase as any;
+  const client = context.supabase as unknown as ReturnType<typeof serviceClient>;
   const packageQuery = await client
     .from("golden_lesson_packages")
-    .select("id,package_code,profile_id,identity,current_version,current_manifest_sha256,review_status")
+    .select(
+      "id,package_code,profile_id,identity,current_version,current_manifest_sha256,review_status",
+    )
     .eq("package_code", manifest.packageCode)
     .maybeSingle();
   if (packageQuery.error) throw new Error(packageQuery.error.message);
@@ -136,7 +139,9 @@ async function readDirectIntakePreflight(
   const [versionQuery, reviewQuery, domainBatchQuery] = await Promise.all([
     client
       .from("golden_lesson_package_versions")
-      .select("verified_intake_sha256,verified_manifest_sha256,verified_direct_file_count,direct_intake_verified_at")
+      .select(
+        "verified_intake_sha256,verified_manifest_sha256,verified_direct_file_count,direct_intake_verified_at",
+      )
       .eq("package_id", current.id)
       .eq("version", current.current_version)
       .maybeSingle(),
@@ -161,7 +166,8 @@ async function readDirectIntakePreflight(
   const domainBatchCount = Number(domainBatchQuery.count ?? 0);
 
   if (profileMatches && identityMatchesExactly) {
-    const alreadyVerified = current.current_manifest_sha256 === manifestSha256 &&
+    const alreadyVerified =
+      current.current_manifest_sha256 === manifestSha256 &&
       currentVersion?.verified_manifest_sha256 === manifestSha256 &&
       Boolean(currentVersion.direct_intake_verified_at) &&
       Boolean(currentVersion.verified_intake_sha256);
@@ -180,9 +186,8 @@ async function readDirectIntakePreflight(
       };
     }
 
-    const status: DirectIntakePreflightStatus = current.current_manifest_sha256 === manifestSha256
-      ? "UPLOAD_REQUIRED"
-      : "NEW_VERSION";
+    const status: DirectIntakePreflightStatus =
+      current.current_manifest_sha256 === manifestSha256 ? "UPLOAD_REQUIRED" : "NEW_VERSION";
     return {
       status,
       packageId: current.id,
@@ -191,22 +196,25 @@ async function readDirectIntakePreflight(
       manifestSha256,
       differences,
       canRebind: false,
-      messageAr: status === "UPLOAD_REQUIRED"
-        ? "الحزمة موجودة، لكن رفع الملفات لم يكتمل؛ سيُعاد الرفع بأمان."
-        : "هوية الحزمة مطابقة؛ ستُنشأ نسخة جديدة بعد التحقق من الملفات.",
+      messageAr:
+        status === "UPLOAD_REQUIRED"
+          ? "الحزمة موجودة، لكن رفع الملفات لم يكتمل؛ سيُعاد الرفع بأمان."
+          : "هوية الحزمة مطابقة؛ ستُنشأ نسخة جديدة بعد التحقق من الملفات.",
       verifiedIntakeSha256: currentVersion?.verified_intake_sha256 ?? null,
       verifiedFileCount: currentVersion?.verified_direct_file_count ?? null,
     };
   }
 
-  const rebindable = context.isFullAdmin && canRebindGoldenLessonDraft({
-    current: current.identity,
-    incoming: manifest.identity,
-    profileMatches,
-    reviewStatus: current.review_status,
-    reviewCount,
-    domainBatchCount,
-  });
+  const rebindable =
+    context.isFullAdmin &&
+    canRebindGoldenLessonDraft({
+      current: current.identity,
+      incoming: manifest.identity,
+      profileMatches,
+      reviewStatus: current.review_status,
+      reviewCount,
+      domainBatchCount,
+    });
   if (rebindable) {
     return {
       status: "DRAFT_REBINDABLE",
@@ -224,7 +232,8 @@ async function readDirectIntakePreflight(
 
   const reason = !profileMatches
     ? "نوع ملف الدرس الحالي لا يطابق الحزمة المحفوظة."
-    : describeGoldenIdentityConflictAr(differences) || "هوية الحزمة المحفوظة لا تطابق الدرس المختار.";
+    : describeGoldenIdentityConflictAr(differences) ||
+      "هوية الحزمة المحفوظة لا تطابق الدرس المختار.";
   return {
     status: "IDENTITY_CONFLICT",
     packageId: current.id,
@@ -240,12 +249,16 @@ async function readDirectIntakePreflight(
 }
 
 function directStoragePaths(userId: string, intakeId: string, manifest: GoldenLessonPackage) {
-  return planGoldenLessonDirectFiles(manifest).map((declaration, index) =>
-    `${userId}/${intakeId}/${storageObjectName(declaration, index)}`
+  return planGoldenLessonDirectFiles(manifest).map(
+    (declaration, index) => `${userId}/${intakeId}/${storageObjectName(declaration, index)}`,
   );
 }
 
-async function discardDirectUpload(userId: string, intakeId: string, manifest: GoldenLessonPackage) {
+async function discardDirectUpload(
+  userId: string,
+  intakeId: string,
+  manifest: GoldenLessonPackage,
+) {
   const paths = directStoragePaths(userId, intakeId, manifest);
   const removed = await serviceClient().storage.from(BUCKET).remove(paths);
   if (removed.error) throw new Error(removed.error.message);
@@ -256,7 +269,10 @@ export const preflightGoldenLessonDirect = createServerFn({ method: "POST" })
   .middleware([requireContentStaffAuth])
   .inputValidator((input) => z.object({ manifest: z.unknown() }).parse(input))
   .handler(async ({ data, context }) =>
-    readDirectIntakePreflight(context as ContentStaffAuthContext, data.manifest as GoldenLessonPackage)
+    readDirectIntakePreflight(
+      context as ContentStaffAuthContext,
+      data.manifest as GoldenLessonPackage,
+    ),
   );
 
 export const discardGoldenLessonDirectUpload = createServerFn({ method: "POST" })
@@ -264,7 +280,13 @@ export const discardGoldenLessonDirectUpload = createServerFn({ method: "POST" }
   .inputValidator((input) => z.object({ intakeId: IntakeId, manifest: z.unknown() }).parse(input))
   .handler(async ({ data, context }) => {
     const { userId } = context as ContentStaffAuthContext;
-    return { removedFileCount: await discardDirectUpload(userId, data.intakeId, data.manifest as GoldenLessonPackage) };
+    return {
+      removedFileCount: await discardDirectUpload(
+        userId,
+        data.intakeId,
+        data.manifest as GoldenLessonPackage,
+      ),
+    };
   });
 
 export const createGoldenLessonDirectUpload = createServerFn({ method: "POST" })
@@ -286,7 +308,9 @@ export const createGoldenLessonDirectUpload = createServerFn({ method: "POST" })
     const uploads = [];
     for (const [index, declaration] of declarations.entries()) {
       const storagePath = `${userId}/${intakeId}/${storageObjectName(declaration, index)}`;
-      const signed = assertDb(await supabase.storage.from(BUCKET).createSignedUploadUrl(storagePath));
+      const signed = assertDb(
+        await supabase.storage.from(BUCKET).createSignedUploadUrl(storagePath),
+      );
       if (!signed.token) throw new Error("SIGNED_UPLOAD_TOKEN_MISSING");
       uploads.push({
         logicalPath: declaration.path,
@@ -347,31 +371,43 @@ export const verifyAndStageGoldenLessonDirect = createServerFn({ method: "POST" 
         };
       }
 
-      const stageRpc = preflight.status === "DRAFT_REBINDABLE"
-        ? supabase.rpc("golden_lesson_rebind_draft_identity" as never, {
-            _manifest: verified.manifest,
-            _client_manifest_sha256: verified.manifestSha256,
-            _expected_current_version: preflight.version,
-            _reason: "تصحيح ربط مسودة غير مراجعة من فحص الاستيراد المباشر",
-          } as never)
-        : supabase.rpc("golden_lesson_stage_manifest" as never, {
-            _manifest: verified.manifest,
-            _client_manifest_sha256: verified.manifestSha256,
-          } as never);
+      const stageRpc =
+        preflight.status === "DRAFT_REBINDABLE"
+          ? supabase.rpc(
+              "golden_lesson_rebind_draft_identity" as never,
+              {
+                _manifest: verified.manifest,
+                _client_manifest_sha256: verified.manifestSha256,
+                _expected_current_version: preflight.version,
+                _reason: "تصحيح ربط مسودة غير مراجعة من فحص الاستيراد المباشر",
+              } as never,
+            )
+          : supabase.rpc(
+              "golden_lesson_stage_manifest" as never,
+              {
+                _manifest: verified.manifest,
+                _client_manifest_sha256: verified.manifestSha256,
+              } as never,
+            );
       const staged = assertDb(await stageRpc) as unknown as Record<string, unknown>;
       databaseWritesStarted = true;
       const packageId = String(staged.package_id);
       const version = Number(staged.version);
-      const attested = assertDb(await serviceClient().rpc("golden_lesson_attest_direct_intake" as never, {
-        _package_id: packageId,
-        _version: version,
-        _actor_id: userId,
-        _intake_id: data.intakeId,
-        _intake_sha256: verified.intakeSha256,
-        _manifest_sha256: verified.manifestSha256,
-        _file_count: verified.fileCount,
-        _total_bytes: verified.totalBytes,
-      } as never)) as unknown as Record<string, unknown>;
+      const attested = assertDb(
+        await serviceClient().rpc(
+          "golden_lesson_attest_direct_intake" as never,
+          {
+            _package_id: packageId,
+            _version: version,
+            _actor_id: userId,
+            _intake_id: data.intakeId,
+            _intake_sha256: verified.intakeSha256,
+            _manifest_sha256: verified.manifestSha256,
+            _file_count: verified.fileCount,
+            _total_bytes: verified.totalBytes,
+          } as never,
+        ),
+      ) as unknown as Record<string, unknown>;
 
       return {
         packageId,

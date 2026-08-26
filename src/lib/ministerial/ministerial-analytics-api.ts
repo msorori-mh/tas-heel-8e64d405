@@ -13,10 +13,12 @@ import { supabase } from "@/integrations/supabase/client";
 // The analytics RPCs live in a pending migration, so they are not part of the
 // generated Database types yet.
 const rpc = (name: string, args?: Record<string, unknown>) =>
-  (supabase.rpc as unknown as (n: string, a?: Record<string, unknown>) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>)(
-    name,
-    args,
-  );
+  (
+    supabase.rpc as unknown as (
+      n: string,
+      a?: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>
+  )(name, args);
 
 /** True when the RPC itself is missing (migration not applied yet). */
 export function isRpcMissing(err: unknown): boolean {

@@ -74,9 +74,7 @@ async function getSignedReceiptUrl(path: string): Promise<string | null> {
   // path stored as "<uid>/<file>" in receipts bucket; also tolerate legacy URLs
   if (/^https?:\/\//i.test(path)) return path;
   const clean = path.replace(/^supabase-storage:\/\/receipts\//, "");
-  const { data } = await supabase.storage
-    .from("receipts")
-    .createSignedUrl(clean, 60 * 10);
+  const { data } = await supabase.storage.from("receipts").createSignedUrl(clean, 60 * 10);
   return data?.signedUrl ?? null;
 }
 
@@ -136,9 +134,7 @@ function AdminPaymentRequestsPage() {
   const { loading, enabled } = useRequireAdminSection("full");
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<StatusFilter>("pending");
-  const [actionFor, setActionFor] = useState<{ row: Row; kind: "approve" | "reject" } | null>(
-    null,
-  );
+  const [actionFor, setActionFor] = useState<{ row: Row; kind: "approve" | "reject" } | null>(null);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -148,14 +144,16 @@ function AdminPaymentRequestsPage() {
     queryFn: async () => {
       let req = supabase
         .from("payment_requests")
-        .select(`
+        .select(
+          `
           id, user_id, amount, currency, status, created_at,
           sender_name, transaction_reference, payment_date,
           receipt_url, admin_notes, fraud_flags,
           plan:subscription_plans!payment_requests_plan_id_fkey(name),
           method:payment_methods!payment_requests_payment_method_id_fkey(name),
           user:profiles!payment_requests_user_id_fkey(full_name, phone)
-        `)
+        `,
+        )
         .order("created_at", { ascending: false })
         .limit(200);
       if (filter !== "all") req = req.eq("status", filter);
@@ -311,9 +309,7 @@ function AdminPaymentRequestsPage() {
                       {flags.length > 0 && (
                         <div className="mt-2 inline-flex items-start gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-amber-700 dark:text-amber-400">
                           <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          <span className="text-[11px]">
-                            تنبيهات: {flags.join("، ")}
-                          </span>
+                          <span className="text-[11px]">تنبيهات: {flags.join("، ")}</span>
                         </div>
                       )}
                       {r.admin_notes && (
@@ -329,11 +325,7 @@ function AdminPaymentRequestsPage() {
 
                   {r.status === "pending" && (
                     <div className="flex flex-wrap gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        className="gap-1"
-                        onClick={() => openAction(r, "approve")}
-                      >
+                      <Button size="sm" className="gap-1" onClick={() => openAction(r, "approve")}>
                         <CheckCircle2 className="h-4 w-4" /> اعتماد
                       </Button>
                       <Button

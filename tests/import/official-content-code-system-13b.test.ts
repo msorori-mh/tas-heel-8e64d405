@@ -36,14 +36,23 @@ describe("TCS-1 scheme", () => {
   });
 
   it("rejects grades and tracks outside master data", () => {
-    expect(() => buildSubjectCode({ gradeSlug: "grade-99", trackCode: "aden" }, 1)).toThrow(Tcs1Error);
-    expect(() => buildSubjectCode({ gradeSlug: "grade-10", trackCode: "taiz" }, 1)).toThrow(Tcs1Error);
+    expect(() => buildSubjectCode({ gradeSlug: "grade-99", trackCode: "aden" }, 1)).toThrow(
+      Tcs1Error,
+    );
+    expect(() => buildSubjectCode({ gradeSlug: "grade-10", trackCode: "taiz" }, 1)).toThrow(
+      Tcs1Error,
+    );
   });
 
   it("only accepts real master data values", () => {
     for (const g of TCS1_GRADES) {
       for (const t of TCS1_TRACKS) {
-        expect(isTcs1Code(buildSubjectCode({ gradeSlug: g.gradeSlug, trackCode: t.trackCode }, 1), "subject")).toBe(true);
+        expect(
+          isTcs1Code(
+            buildSubjectCode({ gradeSlug: g.gradeSlug, trackCode: t.trackCode }, 1),
+            "subject",
+          ),
+        ).toBe(true);
       }
     }
   });
@@ -59,7 +68,13 @@ describe("TCS-1 scheme", () => {
   });
 
   it("rejects malformed codes", () => {
-    for (const bad of ["sub-g10-aden-3", "SUB-G10-ADEN-003 x", "arabic-g10-nahw", "", "unit-g10-aden-003"]) {
+    for (const bad of [
+      "sub-g10-aden-3",
+      "SUB-G10-ADEN-003 x",
+      "arabic-g10-nahw",
+      "",
+      "unit-g10-aden-003",
+    ]) {
       expect(isTcs1Code(bad)).toBe(false);
     }
   });
@@ -67,10 +82,9 @@ describe("TCS-1 scheme", () => {
   it("allocates after the highest existing number, scoped", () => {
     const existing = ["sub-g10-aden-001", "sub-g10-aden-007", "sub-g10-sanaa-030", "legacy-code"];
     expect(nextAllocatedNumber(existing, "subject", scope)).toBe(8);
-    expect(allocateTcs1Codes({ existingCodes: existing, kind: "subject", scope, count: 2 })).toEqual([
-      "sub-g10-aden-008",
-      "sub-g10-aden-009",
-    ]);
+    expect(
+      allocateTcs1Codes({ existingCodes: existing, kind: "subject", scope, count: 2 }),
+    ).toEqual(["sub-g10-aden-008", "sub-g10-aden-009"]);
   });
 
   it("never reuses a code within a parent scope", () => {

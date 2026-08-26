@@ -6,15 +6,9 @@ const migration = readFileSync(
   "supabase/migrations/20260825020000_prelaunch_content_global_reset_v2.sql",
   "utf8",
 );
-const ui = readFileSync(
-  "src/components/admin/CurriculumPrelaunchPurgeControl.tsx",
-  "utf8",
-);
+const ui = readFileSync("src/components/admin/CurriculumPrelaunchPurgeControl.tsx", "utf8");
 const layout = readFileSync("src/components/admin/AdminLayout.tsx", "utf8");
-const centerNav = readFileSync(
-  "src/components/admin/ContentImportCenterNav.tsx",
-  "utf8",
-);
+const centerNav = readFileSync("src/components/admin/ContentImportCenterNav.tsx", "utf8");
 
 test("V2 reset binds execution to a sorted exact-id manifest", () => {
   assert.match(migration, /curriculum_prelaunch_purge_manifest_v2/);
@@ -37,7 +31,8 @@ test("V2 reset deletes experimental subject scope but preserves protected roots"
     "content_code_allocations",
     "curriculum_tracks",
     "finance",
-  ]) assert.ok(migration.includes(token), `missing V2 scope token: ${token}`);
+  ])
+    assert.ok(migration.includes(token), `missing V2 scope token: ${token}`);
 });
 
 test("admin sees exact candidate identities and the unified content center", () => {
@@ -45,7 +40,11 @@ test("admin sees exact candidate identities and the unified content center", () 
   assert.match(ui, /manifest_row_count/);
   assert.match(ui, /حذف جميع بيانات المحتوى التجريبية/);
   assert.match(layout, /استيراد المحتوى/);
-  assert.equal((layout.match(/label: "(?:هيكل المنهج|المواد والمسارات|الوحدات|الدروس|رفع كتب المواد)"/g) ?? []).length, 0);
+  assert.equal(
+    (layout.match(/label: "(?:هيكل المنهج|المواد والمسارات|الوحدات|الدروس|رفع كتب المواد)"/g) ?? [])
+      .length,
+    0,
+  );
   for (const label of [
     "هيكل المنهج",
     "المواد والمسارات",
@@ -53,5 +52,6 @@ test("admin sees exact candidate identities and the unified content center", () 
     "الوحدات",
     "الدروس",
     "الاستيراد والنشر",
-  ]) assert.ok(centerNav.includes(label));
+  ])
+    assert.ok(centerNav.includes(label));
 });

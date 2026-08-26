@@ -17,7 +17,7 @@ export interface ZipIngestionResult {
  * Employs fail-closed pre-materialization validation on Central Directory metadata before decompressing contents.
  */
 export async function parseMasterZipBuffer(
-  zipBuffer: Uint8Array | Buffer
+  zipBuffer: Uint8Array | Buffer,
 ): Promise<ZipIngestionResult> {
   const findings: SecurityFinding[] = [];
   const packageMap: Record<string, PackageFileItem[]> = {};
@@ -187,7 +187,11 @@ export async function parseMasterZipBuffer(
     const uncompressedSize = rawData?.uncompressedSize;
     const compressedSize = rawData?.compressedSize;
 
-    if (typeof uncompressedSize !== "number" || !Number.isFinite(uncompressedSize) || uncompressedSize < 0) {
+    if (
+      typeof uncompressedSize !== "number" ||
+      !Number.isFinite(uncompressedSize) ||
+      uncompressedSize < 0
+    ) {
       findings.push({
         code: ValidationCodes.ZIP_INGESTION_FAILED,
         severity: "error",

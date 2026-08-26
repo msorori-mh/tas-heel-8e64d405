@@ -100,10 +100,7 @@ function AdminQuestionsPage() {
     enabled,
     queryKey: ["admin-questions", "types"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("questions")
-        .select("question_type")
-        .limit(1000);
+      const { data, error } = await supabase.from("questions").select("question_type").limit(1000);
       if (error) throw error;
       const set = new Set<string>();
       for (const r of data ?? []) {
@@ -139,7 +136,7 @@ function AdminQuestionsPage() {
         .from("questions")
         .select(
           "id, question_text, question_type, sort_order, options, lesson_id, subject_id, lesson:lessons!questions_lesson_id_fkey(id, title, unit_id), subject:subjects!questions_subject_id_fkey(id, name, grade_id)",
-          { count: "exact" }
+          { count: "exact" },
         )
         .order("sort_order", { ascending: true })
         .range(from, to);
@@ -183,15 +180,15 @@ function AdminQuestionsPage() {
 
   const subjectOptions =
     gradeFilter !== "all"
-      ? subjectsQ.data?.filter((s) => s.grade_id === gradeFilter) ?? []
-      : subjectsQ.data ?? [];
+      ? (subjectsQ.data?.filter((s) => s.grade_id === gradeFilter) ?? [])
+      : (subjectsQ.data ?? []);
 
   const lessonOptions =
     subjectFilter !== "all"
-      ? lessonsQ.data?.filter((l) => l.subject_id === subjectFilter) ?? []
+      ? (lessonsQ.data?.filter((l) => l.subject_id === subjectFilter) ?? [])
       : gradeFilter !== "all"
-      ? lessonsQ.data?.filter((l) => gradeSubjectIds.includes(l.subject_id)) ?? []
-      : lessonsQ.data ?? [];
+        ? (lessonsQ.data?.filter((l) => gradeSubjectIds.includes(l.subject_id)) ?? [])
+        : (lessonsQ.data ?? []);
 
   if (loading) {
     return (
@@ -243,8 +240,8 @@ function AdminQuestionsPage() {
           <div>
             <p className="font-medium text-foreground">لماذا هذه الصفحة؟</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              لمراجعة ارتباط السؤال بالصف والمادة والدرس ونوعه. الإجابات والتعليلات محمية ولا تظهر هنا،
-              ولا يوجد حذف أو تعديل مباشر يتجاوز سجل الاستيراد.
+              لمراجعة ارتباط السؤال بالصف والمادة والدرس ونوعه. الإجابات والتعليلات محمية ولا تظهر
+              هنا، ولا يوجد حذف أو تعديل مباشر يتجاوز سجل الاستيراد.
             </p>
           </div>
           <Link
@@ -365,15 +362,9 @@ function AdminQuestionsPage() {
                           {questionSource(r.question_type)}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-muted-foreground">
-                        {r.question_type || "—"}
-                      </td>
-                      <td className="px-3 py-3 text-muted-foreground">
-                        {r.lesson?.title || "—"}
-                      </td>
-                      <td className="px-3 py-3 text-muted-foreground">
-                        {r.subject?.name || "—"}
-                      </td>
+                      <td className="px-3 py-3 text-muted-foreground">{r.question_type || "—"}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{r.lesson?.title || "—"}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{r.subject?.name || "—"}</td>
                       <td className="px-3 py-3 text-muted-foreground">
                         {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
                       </td>
@@ -403,8 +394,7 @@ function AdminQuestionsPage() {
                     <span>الدرس: {r.lesson?.title || "—"}</span>
                     <span>المادة: {r.subject?.name || "—"}</span>
                     <span>
-                      الصف:{" "}
-                      {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
+                      الصف: {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
                     </span>
                   </div>
                 </div>
@@ -439,4 +429,3 @@ function AdminQuestionsPage() {
     </AdminLayout>
   );
 }
-

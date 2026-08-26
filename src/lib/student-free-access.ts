@@ -17,5 +17,4 @@ export const FREE_ACCESS_SHORT =
 export const FREE_ACCESS_SUBSCRIPTION_PAGE =
   "حرصاً على إتاحة التعليم لجميع الطلاب، التطبيق متاح حالياً مجاناً. سنعلن لاحقاً عن أي برامج دعم أو رعاية دون التأثير على وصول الطلاب للمحتوى الأساسي.";
 
-export const FREE_ACCESS_WALLET_NOTICE =
-  "خدمات شحن المحفظة غير مطلوبة حالياً لأن التطبيق مجاني.";
+export const FREE_ACCESS_WALLET_NOTICE = "خدمات شحن المحفظة غير مطلوبة حالياً لأن التطبيق مجاني.";

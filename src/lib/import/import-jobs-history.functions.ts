@@ -72,8 +72,7 @@ export const listRecentImportJobs = createServerFn({ method: "GET" })
         blockedCount: pickBlockedPublishedCount(row.summary),
         errorsCount: row.invalid_rows,
         operatorName: row.created_by
-          ? (operatorNames.get(row.created_by) ??
-            `#${row.created_by.slice(0, 8)}`)
+          ? (operatorNames.get(row.created_by) ?? `#${row.created_by.slice(0, 8)}`)
           : null,
         noExecute: meta.noExecute,
         source: meta.source,

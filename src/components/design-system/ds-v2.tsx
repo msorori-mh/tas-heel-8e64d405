@@ -141,15 +141,7 @@ export function DsProgress({
   );
 }
 
-export function DsStat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
+export function DsStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <DsCard className="text-center">
       <p className="text-[11px] font-semibold text-muted-foreground">{label}</p>

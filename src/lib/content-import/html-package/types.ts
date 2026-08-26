@@ -31,7 +31,13 @@ export type HeightMode = "fixed" | "viewport" | "content";
 export type CompletionMode = "view" | "interaction_event" | "manual_review";
 export type CompletionEvent = "experiment_started" | "step_completed" | "experiment_completed";
 
-export type ResourceStatus = "draft" | "in_review" | "approved" | "published" | "rejected" | "archived";
+export type ResourceStatus =
+  | "draft"
+  | "in_review"
+  | "approved"
+  | "published"
+  | "rejected"
+  | "archived";
 
 /**
  * Single row contract in interactive resources Excel sheet.

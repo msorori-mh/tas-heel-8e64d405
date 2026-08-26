@@ -122,9 +122,12 @@ function AdminMistakeInsightsPage() {
     <AdminLayout>
       <div className="space-y-6" dir="rtl">
         <header className="space-y-1">
-          <h1 className="text-xl font-bold text-foreground md:text-2xl">تحليلات الأخطاء التعليمية</h1>
+          <h1 className="text-xl font-bold text-foreground md:text-2xl">
+            تحليلات الأخطاء التعليمية
+          </h1>
           <p className="text-sm text-muted-foreground">
-            تحليلات مجمّعة مشتقّة من محاولات الطلاب الفعلية — بدون أي بيانات تعريف للطلاب وبدون كشف الإجابات.
+            تحليلات مجمّعة مشتقّة من محاولات الطلاب الفعلية — بدون أي بيانات تعريف للطلاب وبدون كشف
+            الإجابات.
           </p>
           <Badge variant="secondary" className="gap-1">
             <ShieldCheck className="h-3.5 w-3.5" />
@@ -141,17 +144,23 @@ function AdminMistakeInsightsPage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">الفلاتر</CardTitle>
-                <CardDescription>حصر التحليلات حسب الصف والمنهج والمادة والدرس والنطاق والفترة.</CardDescription>
+                <CardDescription>
+                  حصر التحليلات حسب الصف والمنهج والمادة والدرس والنطاق والفترة.
+                </CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label>الصف</Label>
                   <Select value={gradeId} onValueChange={setGradeId}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={ALL}>كل الصفوف</SelectItem>
                       {(refs.data?.grades ?? []).map((g) => (
-                        <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -159,11 +168,15 @@ function AdminMistakeInsightsPage() {
                 <div className="space-y-1.5">
                   <Label>المنهج</Label>
                   <Select value={trackId} onValueChange={setTrackId}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={ALL}>كل المناهج</SelectItem>
                       {(refs.data?.tracks ?? []).map((t) => (
-                        <SelectItem key={t.id} value={t.id}>{t.track_name}</SelectItem>
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.track_name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -177,11 +190,15 @@ function AdminMistakeInsightsPage() {
                       setLessonId(ALL);
                     }}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={ALL}>كل المواد</SelectItem>
                       {(refs.data?.subjects ?? []).map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -189,11 +206,15 @@ function AdminMistakeInsightsPage() {
                 <div className="space-y-1.5">
                   <Label>الدرس</Label>
                   <Select value={lessonId} onValueChange={setLessonId} disabled={subjectId === ALL}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={ALL}>كل الدروس</SelectItem>
                       {(lessons.data ?? []).map((l) => (
-                        <SelectItem key={l.id} value={l.id}>{l.title}</SelectItem>
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.title}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -201,10 +222,14 @@ function AdminMistakeInsightsPage() {
                 <div className="space-y-1.5">
                   <Label>نطاق المحاولات</Label>
                   <Select value={scope} onValueChange={(v) => setScope(v as AdminMistakeScope)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {(Object.keys(ADMIN_MISTAKE_SCOPE_LABEL) as AdminMistakeScope[]).map((k) => (
-                        <SelectItem key={k} value={k}>{ADMIN_MISTAKE_SCOPE_LABEL[k]}</SelectItem>
+                        <SelectItem key={k} value={k}>
+                          {ADMIN_MISTAKE_SCOPE_LABEL[k]}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -236,12 +261,27 @@ function AdminMistakeInsightsPage() {
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                  <SummaryTile label="إجمالي مرات الخطأ" value={data?.summary.total_mistake_occurrences ?? 0} />
-                  <SummaryTile label="أسئلة عليها أخطاء" value={data?.summary.unique_questions_with_mistakes ?? 0} />
+                  <SummaryTile
+                    label="إجمالي مرات الخطأ"
+                    value={data?.summary.total_mistake_occurrences ?? 0}
+                  />
+                  <SummaryTile
+                    label="أسئلة عليها أخطاء"
+                    value={data?.summary.unique_questions_with_mistakes ?? 0}
+                  />
                   <SummaryTile label="أخطاء متكررة" value={data?.summary.repeated_mistakes ?? 0} />
-                  <SummaryTile label="نسبة الترك (Blank)" value={formatPercent(data?.summary.blank_rate)} />
-                  <SummaryTile label="نسبة الإتقان اللاحق" value={formatPercent(data?.summary.mastered_later_rate)} />
-                  <SummaryTile label="إجمالي المحاولات المقيّمة" value={data?.summary.total_evaluated_occurrences ?? 0} />
+                  <SummaryTile
+                    label="نسبة الترك (Blank)"
+                    value={formatPercent(data?.summary.blank_rate)}
+                  />
+                  <SummaryTile
+                    label="نسبة الإتقان اللاحق"
+                    value={formatPercent(data?.summary.mastered_later_rate)}
+                  />
+                  <SummaryTile
+                    label="إجمالي المحاولات المقيّمة"
+                    value={data?.summary.total_evaluated_occurrences ?? 0}
+                  />
                 </div>
 
                 <Card>
@@ -269,30 +309,45 @@ function AdminMistakeInsightsPage() {
                         {(data?.top_questions ?? []).map((q) => (
                           <TableRow key={q.question_id}>
                             <TableCell className="max-w-[260px]">
-                              <div className="text-xs text-muted-foreground">{q.question_code ?? "—"}</div>
-                              <div className="line-clamp-2 text-sm">{q.question_preview || "—"}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {q.question_code ?? "—"}
+                              </div>
+                              <div className="line-clamp-2 text-sm">
+                                {q.question_preview || "—"}
+                              </div>
                             </TableCell>
                             <TableCell className="text-sm">
                               <div>{q.subject_name ?? "—"}</div>
-                              <div className="text-xs text-muted-foreground">{q.lesson_title ?? "بدون درس"}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {q.lesson_title ?? "بدون درس"}
+                              </div>
                             </TableCell>
                             <TableCell className="text-sm">{q.attempt_count}</TableCell>
                             <TableCell className="text-sm">
-                              {q.wrong_count} <span className="text-xs text-muted-foreground">({formatPercent(q.wrong_percentage)})</span>
+                              {q.wrong_count}{" "}
+                              <span className="text-xs text-muted-foreground">
+                                ({formatPercent(q.wrong_percentage)})
+                              </span>
                             </TableCell>
                             <TableCell className="text-sm">
-                              {q.blank_count} <span className="text-xs text-muted-foreground">({formatPercent(q.blank_percentage)})</span>
+                              {q.blank_count}{" "}
+                              <span className="text-xs text-muted-foreground">
+                                ({formatPercent(q.blank_percentage)})
+                              </span>
                             </TableCell>
-                            <TableCell className="text-sm">{formatPercent(q.mastered_later_percentage)}</TableCell>
+                            <TableCell className="text-sm">
+                              {formatPercent(q.mastered_later_percentage)}
+                            </TableCell>
                             <TableCell className="space-x-1 space-x-reverse whitespace-nowrap">
                               <Button asChild size="sm" variant="outline">
-                                <Link to="/admin/questions">
-                                  بنك الأسئلة
-                                </Link>
+                                <Link to="/admin/questions">بنك الأسئلة</Link>
                               </Button>
                               {q.lesson_id ? (
                                 <Button asChild size="sm" variant="ghost">
-                                  <Link to="/admin/lesson-content/$lessonId" params={{ lessonId: q.lesson_id }}>
+                                  <Link
+                                    to="/admin/lesson-content/$lessonId"
+                                    params={{ lessonId: q.lesson_id }}
+                                  >
                                     الدرس
                                   </Link>
                                 </Button>
@@ -302,7 +357,10 @@ function AdminMistakeInsightsPage() {
                         ))}
                         {(data?.top_questions ?? []).length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                            <TableCell
+                              colSpan={7}
+                              className="py-8 text-center text-sm text-muted-foreground"
+                            >
                               لا توجد بيانات مطابقة للفلاتر.
                             </TableCell>
                           </TableRow>
@@ -319,12 +377,19 @@ function AdminMistakeInsightsPage() {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {topByBlank.map((q) => (
-                        <div key={q.question_id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-2">
-                          <span className="line-clamp-1 text-sm">{q.question_preview || q.question_code || "—"}</span>
+                        <div
+                          key={q.question_id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border p-2"
+                        >
+                          <span className="line-clamp-1 text-sm">
+                            {q.question_preview || q.question_code || "—"}
+                          </span>
                           <Badge variant="outline">{formatPercent(q.blank_percentage)}</Badge>
                         </div>
                       ))}
-                      {topByBlank.length === 0 && <p className="text-sm text-muted-foreground">لا توجد بيانات.</p>}
+                      {topByBlank.length === 0 && (
+                        <p className="text-sm text-muted-foreground">لا توجد بيانات.</p>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -337,15 +402,22 @@ function AdminMistakeInsightsPage() {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {weakestLessons.map((l) => (
-                        <div key={l.lesson_id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-2">
+                        <div
+                          key={l.lesson_id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border p-2"
+                        >
                           <div className="min-w-0">
                             <div className="line-clamp-1 text-sm">{l.lesson_title ?? "—"}</div>
-                            <div className="text-xs text-muted-foreground">{l.subject_name ?? "—"}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {l.subject_name ?? "—"}
+                            </div>
                           </div>
                           <Badge variant="outline">{l.mistake_occurrences}</Badge>
                         </div>
                       ))}
-                      {weakestLessons.length === 0 && <p className="text-sm text-muted-foreground">لا توجد بيانات.</p>}
+                      {weakestLessons.length === 0 && (
+                        <p className="text-sm text-muted-foreground">لا توجد بيانات.</p>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -355,12 +427,17 @@ function AdminMistakeInsightsPage() {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {weakestSubjects.map((s) => (
-                        <div key={s.subject_id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-2">
+                        <div
+                          key={s.subject_id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border p-2"
+                        >
                           <span className="line-clamp-1 text-sm">{s.subject_name ?? "—"}</span>
                           <Badge variant="outline">{s.mistake_occurrences}</Badge>
                         </div>
                       ))}
-                      {weakestSubjects.length === 0 && <p className="text-sm text-muted-foreground">لا توجد بيانات.</p>}
+                      {weakestSubjects.length === 0 && (
+                        <p className="text-sm text-muted-foreground">لا توجد بيانات.</p>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -370,13 +447,19 @@ function AdminMistakeInsightsPage() {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {(data?.by_grade ?? []).map((g) => (
-                        <div key={g.grade_id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-2">
+                        <div
+                          key={g.grade_id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border p-2"
+                        >
                           <span className="text-sm">{g.grade_name ?? "—"}</span>
                           <Badge variant="outline">{g.mistake_occurrences}</Badge>
                         </div>
                       ))}
                       {(data?.by_track ?? []).map((t) => (
-                        <div key={t.track_id} className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border p-2">
+                        <div
+                          key={t.track_id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border p-2"
+                        >
                           <span className="text-sm">{t.track_name ?? "—"}</span>
                           <Badge variant="secondary">{t.mistake_occurrences}</Badge>
                         </div>

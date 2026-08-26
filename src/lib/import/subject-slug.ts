@@ -123,7 +123,10 @@ export function sha256HexBytes(bytes: Uint8Array): string {
 
 /** Synchronous digest used by deriveSubjectSlug. */
 export function subjectCodeDigest(subjectCode: string): string {
-  return sha256HexBytes(subjectCodeDigestBytes(subjectCode)).slice(0, SUBJECT_SLUG_DIGEST_HEX_LENGTH);
+  return sha256HexBytes(subjectCodeDigestBytes(subjectCode)).slice(
+    0,
+    SUBJECT_SLUG_DIGEST_HEX_LENGTH,
+  );
 }
 
 /**
@@ -166,10 +169,7 @@ export type SubjectSlugDigestFn = (subjectCode: string) => string;
  * `digest` is injectable so tests can force a collision and prove fail-closed
  * behaviour without searching for a real SHA-256 collision.
  */
-export function deriveSubjectSlug(
-  subjectCode: string,
-  digestFn?: SubjectSlugDigestFn,
-): string {
+export function deriveSubjectSlug(subjectCode: string, digestFn?: SubjectSlugDigestFn): string {
   // Defensive: deriveSubjectSlug is often passed to Array.map, which supplies an index.
   const digest: SubjectSlugDigestFn = typeof digestFn === "function" ? digestFn : subjectCodeDigest;
   const raw = canonicalSubjectCodeInput(subjectCode);

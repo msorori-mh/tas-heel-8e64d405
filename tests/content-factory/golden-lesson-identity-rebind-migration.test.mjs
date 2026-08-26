@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const migration = readFileSync(new URL(
-  "../../supabase/migrations/20260824153727_343eb060-0828-44ec-8b69-48412808768c.sql",
-  import.meta.url,
-), "utf8");
+const migration = readFileSync(
+  new URL(
+    "../../supabase/migrations/20260824153727_343eb060-0828-44ec-8b69-48412808768c.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("rebind migration is admin-only, DRAFT-only and dependency fail-closed", () => {
   assert.match(migration, /golden_lesson_rebind_draft_identity/);
@@ -30,6 +33,12 @@ test("rebind migration preserves stable key and appends an audit version", () =>
 });
 
 test("authenticated users cannot write the audit ledger directly", () => {
-  assert.match(migration, /REVOKE ALL ON public\.golden_lesson_identity_rebindings FROM anon, authenticated/);
-  assert.doesNotMatch(migration, /GRANT (INSERT|UPDATE|DELETE|ALL) ON public\.golden_lesson_identity_rebindings TO authenticated/);
+  assert.match(
+    migration,
+    /REVOKE ALL ON public\.golden_lesson_identity_rebindings FROM anon, authenticated/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /GRANT (INSERT|UPDATE|DELETE|ALL) ON public\.golden_lesson_identity_rebindings TO authenticated/,
+  );
 });

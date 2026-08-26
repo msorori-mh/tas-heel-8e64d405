@@ -84,7 +84,10 @@ const anon = createClient<Database>(SUPABASE_URL, PUBLISHABLE, {
 });
 
 type RpcClient = {
-  rpc: (n: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+  rpc: (
+    n: string,
+    a: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
 };
 
 /** Mint a real session for a user (magic-link → verify) so RLS applies. */
@@ -188,7 +191,12 @@ async function runPackage(
 
   const parsedPerTemplate = new Map<
     ContentImportTemplateKey,
-    { rows: ReturnType<typeof buildStagingRows>; totalRows: number; validRows: number; warningRows: number }
+    {
+      rows: ReturnType<typeof buildStagingRows>;
+      totalRows: number;
+      validRows: number;
+      warningRows: number;
+    }
   >();
 
   let firstFile = "";
@@ -247,7 +255,12 @@ async function runPackage(
   });
 
   for (const templateKey of order) {
-    await stageContentImportRows(staff, jobId, templateKey, parsedPerTemplate.get(templateKey)!.rows);
+    await stageContentImportRows(
+      staff,
+      jobId,
+      templateKey,
+      parsedPerTemplate.get(templateKey)!.rows,
+    );
   }
 
   const exec = await executeContentImport(staff, jobId, order);
@@ -270,7 +283,11 @@ async function runPackage(
 /* ------------------------------------------------------------------ */
 
 async function subjectId(): Promise<string | null> {
-  const { data } = await admin.from("subjects").select("id").eq("code", `${PREFIX}sub`).maybeSingle();
+  const { data } = await admin
+    .from("subjects")
+    .select("id")
+    .eq("code", `${PREFIX}sub`)
+    .maybeSingle();
   return data?.id ?? null;
 }
 
@@ -441,7 +458,9 @@ async function main() {
   // G-1 — template 08 against imported (draft-only) questions.
   // The question root has no legacy lesson/subject binding on purpose, so the
   // link guard must refuse and write nothing.
-  const linkRun = await runPackage(staff, { assessment_questions: "u09_08_assessment_questions.xlsx" });
+  const linkRun = await runPackage(staff, {
+    assessment_questions: "u09_08_assessment_questions.xlsx",
+  });
   const { count: linkedCount } = await admin
     .from("assessment_questions")
     .select("id", { count: "exact", head: true })
@@ -451,7 +470,9 @@ async function main() {
     );
   check(
     "07 G-1 — linking a draft-only question is refused, zero links written",
-    linkRun.error !== null && linkRun.failedTemplate === "assessment_questions" && linkedCount === 0,
+    linkRun.error !== null &&
+      linkRun.failedTemplate === "assessment_questions" &&
+      linkedCount === 0,
     `err=${linkRun.error ?? "none"} links=${linkedCount}`,
   );
 
@@ -480,7 +501,11 @@ async function main() {
     runnerOrder.map((k) => `${k}:${replay.results.get(k)?.skipped ?? "-"}`).join(" "),
   );
   const revsAfterReplay = await revisionsOf(questionsAfterFirst[0]!.id);
-  check("10 replay → no extra question revision", revsAfterReplay.length === 1, `revs=${revsAfterReplay.length}`);
+  check(
+    "10 replay → no extra question revision",
+    revsAfterReplay.length === 1,
+    `revs=${revsAfterReplay.length}`,
+  );
 
   // ---------------------------------------------------------------- pass 3
   // Approve lesson B first so the hash-change reset is observable.
@@ -504,10 +529,12 @@ async function main() {
   );
   check(
     "12 partial update → untouched templates stay skipped",
-    ["subjects", "units", "book_contents", "explanations", "resources", "assessments"].every((k) => {
-      const r = partial.results.get(k as ContentImportTemplateKey);
-      return !!r && r.inserted === 0 && r.updated === 0;
-    }),
+    ["subjects", "units", "book_contents", "explanations", "resources", "assessments"].every(
+      (k) => {
+        const r = partial.results.get(k as ContentImportTemplateKey);
+        return !!r && r.inserted === 0 && r.updated === 0;
+      },
+    ),
   );
   const revsAfterChange = await revisionsOf(questionsAfterFirst[0]!.id);
   check(
@@ -544,7 +571,10 @@ async function main() {
 
   // ---------------------------------------------------------------- pass 5
   const countsBeforeFailure = await domainCounts();
-  const broken = await runPackage(staff, { ...PACKAGE_FILES, lessons: "u09_03_lessons_broken.xlsx" });
+  const broken = await runPackage(staff, {
+    ...PACKAGE_FILES,
+    lessons: "u09_03_lessons_broken.xlsx",
+  });
   const countsAfterFailure = await domainCounts();
 
   check(
@@ -617,7 +647,8 @@ async function main() {
   check(
     "26 student → no answer key on the question roots",
     (sQuestions.data ?? []).every(
-      (q) => q.correct_index === -1 && Array.isArray(q.options) && (q.options as unknown[]).length === 0,
+      (q) =>
+        q.correct_index === -1 && Array.isArray(q.options) && (q.options as unknown[]).length === 0,
     ),
     `rows=${(sQuestions.data ?? []).length}`,
   );
@@ -630,7 +661,8 @@ async function main() {
   const finalQuestions = await packageQuestions();
   check(
     "28 no auto-publish — current_published_revision_id is NULL for every imported question",
-    finalQuestions.length > 0 && finalQuestions.every((q) => q.current_published_revision_id === null),
+    finalQuestions.length > 0 &&
+      finalQuestions.every((q) => q.current_published_revision_id === null),
     `roots=${finalQuestions.length}`,
   );
 
@@ -642,7 +674,11 @@ async function main() {
   const leftover = await teardownDomain();
   check("29 teardown — no e2e-u9 domain rows remain", leftover === 0, `leftover=${leftover}`);
   const after = await domainCounts();
-  check("30 teardown — domain counts back to the pre-run baseline", baseline === after, `${baseline} → ${after}`);
+  check(
+    "30 teardown — domain counts back to the pre-run baseline",
+    baseline === after,
+    `${baseline} → ${after}`,
+  );
   const { count: jobsAfter } = await admin
     .from("import_jobs")
     .select("id", { count: "exact", head: true })
@@ -657,7 +693,11 @@ async function main() {
     .select("id", { count: "exact", head: true })
     .eq("created_by", STAFF_USER_ID)
     .eq("execution_state", "applying");
-  check("32 audit — zero jobs left in the 'applying' state", (dangling ?? 0) === 0, `applying=${dangling}`);
+  check(
+    "32 audit — zero jobs left in the 'applying' state",
+    (dangling ?? 0) === 0,
+    `applying=${dangling}`,
+  );
 
   const failed = results.filter(([, s]) => s === "FAIL");
   console.log(

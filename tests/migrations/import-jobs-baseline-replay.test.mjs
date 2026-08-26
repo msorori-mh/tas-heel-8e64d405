@@ -14,13 +14,11 @@ import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const MIGRATIONS_DIR = join(ROOT, "supabase", "migrations");
 
-const FIRST =
-  "20260628171431_298a038b-a740-482a-9530-10cb6cb377e0.sql";
+const FIRST = "20260628171431_298a038b-a740-482a-9530-10cb6cb377e0.sql";
 const SECOND = "20260628190000_import_jobs_foundation.sql";
 const QB = "20260801120000_qb01_question_bank_schema_foundation.sql";
 
-const FIRST_SHA =
-  "3A529D4CA0D765C390BF64C0B63B25AF2F67F4D9CF24A9A1739E15FF70A7DD0D";
+const FIRST_SHA = "3A529D4CA0D765C390BF64C0B63B25AF2F67F4D9CF24A9A1739E15FF70A7DD0D";
 
 const REQUIRED_COLUMNS = [
   "id",
@@ -149,10 +147,7 @@ test("reconciled second migration is documentation-only (no CREATE / DROP / TRUN
   assert.doesNotMatch(code, /CREATE\s+TABLE\b/i);
   assert.doesNotMatch(code, /DROP\s+TABLE\b/i);
   assert.doesNotMatch(code, /\bTRUNCATE\b/i);
-  assert.doesNotMatch(
-    code,
-    /\b(INSERT\s+INTO|UPDATE\s+public\.|DELETE\s+FROM)\b/i,
-  );
+  assert.doesNotMatch(code, /\b(INSERT\s+INTO|UPDATE\s+public\.|DELETE\s+FROM)\b/i);
   assert.doesNotMatch(code, /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS/i);
 });
 
@@ -168,10 +163,7 @@ test("question bank migration is not modified by this package scope", () => {
   // QB-01 may not be present on this branch yet (still a draft under docs/).
   // This package must neither create nor rewrite it.
   const qbTouched = migrationFiles.filter(
-    (f) =>
-      f === QB ||
-      /qb01_question_bank/i.test(f) ||
-      /question_bank_schema_foundation/i.test(f),
+    (f) => f === QB || /qb01_question_bank/i.test(f) || /question_bank_schema_foundation/i.test(f),
   );
   if (qbTouched.length === 0) {
     assert.ok(true, "QB migration absent — package did not introduce it");
@@ -191,10 +183,6 @@ test("question bank migration is not modified by this package scope", () => {
 test("no unexpected CREATE TABLE IF NOT EXISTS import_jobs workaround", () => {
   for (const f of migrationFiles) {
     const sql = readMigration(f);
-    assert.doesNotMatch(
-      sql,
-      /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.import_jobs\b/i,
-      f,
-    );
+    assert.doesNotMatch(sql, /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.import_jobs\b/i, f);
   }
 });

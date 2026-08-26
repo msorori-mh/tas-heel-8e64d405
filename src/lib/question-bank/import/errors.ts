@@ -49,9 +49,12 @@ export function issue(
 }
 
 export function sortIssues(issues: QbImportIssue[]): QbImportIssue[] {
-  return [...issues].sort((a, b) =>
-    compareCodePoints(String(a.file), String(b.file)) || compareCodePoints(String(a.sheet), String(b.sheet)) ||
-    (a.row ?? -1) - (b.row ?? -1) ||
-    compareCodePoints(String(a.column), String(b.column)) ||
-    compareCodePoints(a.code, b.code));
+  return [...issues].sort(
+    (a, b) =>
+      compareCodePoints(String(a.file), String(b.file)) ||
+      compareCodePoints(String(a.sheet), String(b.sheet)) ||
+      (a.row ?? -1) - (b.row ?? -1) ||
+      compareCodePoints(String(a.column), String(b.column)) ||
+      compareCodePoints(a.code, b.code),
+  );
 }

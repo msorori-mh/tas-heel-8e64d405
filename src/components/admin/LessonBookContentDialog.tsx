@@ -51,9 +51,7 @@ export function LessonBookContentDialog({
       setContent("");
       return;
     }
-    const sorted = [...items].sort(
-      (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
-    );
+    const sorted = [...items].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
     setContent(sorted[0].content ?? "");
   }, [open, items]);
 
@@ -84,12 +82,10 @@ export function LessonBookContentDialog({
           .eq("id", existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from("lesson_book_contents")
-          .insert({
-            lesson_id: lessonId,
-            content: trimmed,
-          });
+        const { error } = await supabase.from("lesson_book_contents").insert({
+          lesson_id: lessonId,
+          content: trimmed,
+        });
         if (error) throw error;
       }
 
@@ -98,9 +94,9 @@ export function LessonBookContentDialog({
         queryKey: ["admin-lesson-detail", "book", lessonId],
       });
       onOpenChange(false);
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast.error("تعذر حفظ محتوى الكتاب.");
-      setErrMsg(e?.message ? `تعذر الحفظ: ${e.message}` : "تعذر حفظ محتوى الكتاب.");
+      setErrMsg(e instanceof Error ? `تعذر الحفظ: ${e.message}` : "تعذر حفظ محتوى الكتاب.");
     } finally {
       setSaving(false);
     }
@@ -150,11 +146,7 @@ export function LessonBookContentDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             إلغاء
           </Button>
           <Button onClick={handleSave} disabled={saving || tooMany}>

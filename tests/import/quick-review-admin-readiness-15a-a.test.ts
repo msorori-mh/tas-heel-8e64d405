@@ -54,7 +54,12 @@ describe("15A_A readiness derivation", () => {
   it("treats a PDF lesson by summary only", () => {
     const c = buildCoverage([
       row({ lessonId: "p1", deliveryMode: "external_pdf" }),
-      row({ lessonId: "p2", deliveryMode: "external_pdf", readiness: "NOT_READY", hasSummary: false }),
+      row({
+        lessonId: "p2",
+        deliveryMode: "external_pdf",
+        readiness: "NOT_READY",
+        hasSummary: false,
+      }),
     ]);
     expect(c.summary.pdfLessons).toBe(2);
     expect(c.summary.pdfReady).toBe(1);
@@ -95,7 +100,13 @@ describe("15A_A readiness derivation", () => {
   it("filters by grade, track, subject and readiness", () => {
     const rows = [
       row({ lessonId: "a", gradeId: "g1", subjectId: "s1" }),
-      row({ lessonId: "b", gradeId: "g2", subjectId: "s2", trackIds: ["t-aden"], trackNames: ["عدن"] }),
+      row({
+        lessonId: "b",
+        gradeId: "g2",
+        subjectId: "s2",
+        trackIds: ["t-aden"],
+        trackNames: ["عدن"],
+      }),
       row({ lessonId: "c", readiness: "NOT_READY", hasSummary: false }),
     ];
     expect(filterLessons(rows, { gradeId: "g2" }).map((r) => r.lessonId)).toEqual(["b"]);

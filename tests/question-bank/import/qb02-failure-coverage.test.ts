@@ -248,55 +248,427 @@ test("Executable Failure Coverage Collector & Integrity Audit: 100% critical cod
   collector.collect(apply4, "Apply Verifier Token", "apply-verifier:Token");
 
   // 5. Preflight triggers
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], fileBytes: 6 * 1024 * 1024 }), "Preflight FILE_TOO_LARGE", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasMacros: true } }), "Preflight MACRO_CONTENT", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasFormulaCells: true } }), "Preflight FORMULA_CELL", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasMergedDataCells: true } }), "Preflight MERGED_DATA_CELL", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenSheetData: true } }), "Preflight HIDDEN_SHEET_DATA", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenRowData: true } }), "Preflight HIDDEN_ROW_DATA", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hiddenColumnData: true } }), "Preflight HIDDEN_COLUMN_DATA", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { visibleSheetCount: 3 } }), "Preflight SHEET_COUNT_INVALID", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: Array.from({ length: 1001 }, () => ({})) }), "Preflight ROW_LIMIT", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: Array.from({ length: 257 }, (_, i) => `c_${i}`), rows: [] }), "Preflight COLUMN_LIMIT", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { maxCellBytes: 65537 } }), "Preflight CELL_TOO_LARGE", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: ["q", "q"], rows: [] }), "Preflight DUPLICATE_HEADER", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: ["bad\u0000"], rows: [] }), "Preflight MALFORMED_UNICODE", "preflightWorkbook");
-  collector.collect(preflightWorkbook({ fileName: "x.xlsx", headers: ["role"], rows: [] }), "Preflight FORBIDDEN_COLUMN", "preflightWorkbook");
+  collector.collect(
+    preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], fileBytes: 6 * 1024 * 1024 }),
+    "Preflight FILE_TOO_LARGE",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({ fileName: "x.xlsx", headers: [], rows: [], metadata: { hasMacros: true } }),
+    "Preflight MACRO_CONTENT",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({
+      fileName: "x.xlsx",
+      headers: [],
+      rows: [],
+      metadata: { hasFormulaCells: true },
+    }),
+    "Preflight FORMULA_CELL",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({
+      fileName: "x.xlsx",
+      headers: [],
+      rows: [],
+      metadata: { hasMergedDataCells: true },
+    }),
+    "Preflight MERGED_DATA_CELL",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({
+      fileName: "x.xlsx",
+      headers: [],
+      rows: [],
+      metadata: { hiddenSheetData: true },
+    }),
+    "Preflight HIDDEN_SHEET_DATA",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({
+      fileName: "x.xlsx",
+      headers: [],
+      rows: [],
+      metadata: { hiddenRowData: true },
+    }),
+    "Preflight HIDDEN_ROW_DATA",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({
+      fileName: "x.xlsx",
+      headers: [],
+      rows: [],
+      metadata: { hiddenColumnData: true },
+    }),
+    "Preflight HIDDEN_COLUMN_DATA",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({
+      fileName: "x.xlsx",
+      headers: [],
+      rows: [],
+      metadata: { visibleSheetCount: 3 },
+    }),
+    "Preflight SHEET_COUNT_INVALID",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({
+      fileName: "x.xlsx",
+      headers: [],
+      rows: Array.from({ length: 1001 }, () => ({})),
+    }),
+    "Preflight ROW_LIMIT",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({
+      fileName: "x.xlsx",
+      headers: Array.from({ length: 257 }, (_, i) => `c_${i}`),
+      rows: [],
+    }),
+    "Preflight COLUMN_LIMIT",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({
+      fileName: "x.xlsx",
+      headers: [],
+      rows: [],
+      metadata: { maxCellBytes: 65537 },
+    }),
+    "Preflight CELL_TOO_LARGE",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({ fileName: "x.xlsx", headers: ["q", "q"], rows: [] }),
+    "Preflight DUPLICATE_HEADER",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({ fileName: "x.xlsx", headers: ["bad\u0000"], rows: [] }),
+    "Preflight MALFORMED_UNICODE",
+    "preflightWorkbook",
+  );
+  collector.collect(
+    preflightWorkbook({ fileName: "x.xlsx", headers: ["role"], rows: [] }),
+    "Preflight FORBIDDEN_COLUMN",
+    "preflightWorkbook",
+  );
 
   // 6. Dry-run triggers
-  const sampleRow1 = { question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: 1, max_score: 1, subject_code: "MATH-G10" };
-  const sampleRow2 = { question_code: "Q1", question_text: "q2", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: 1, max_score: 1, subject_code: "MATH-G10" };
+  const sampleRow1 = {
+    question_code: "Q1",
+    question_text: "q",
+    interaction_type: "SINGLE_CHOICE",
+    grading_mode: "AUTO_SINGLE",
+    option_1: "a",
+    option_2: "b",
+    correct_index: 1,
+    max_score: 1,
+    subject_code: "MATH-G10",
+  };
+  const sampleRow2 = {
+    question_code: "Q1",
+    question_text: "q2",
+    interaction_type: "SINGLE_CHOICE",
+    grading_mode: "AUTO_SINGLE",
+    option_1: "a",
+    option_2: "b",
+    correct_index: 1,
+    max_score: 1,
+    subject_code: "MATH-G10",
+  };
 
-  collector.collect(runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0], rows: [sampleRow1, sampleRow2], authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG }), "DryRun DUPLICATE_CODE_IN_FILE", "runQuestionBankImportDryRun");
-  collector.collect(runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0, "extra_unknown_col"], rows: [sampleRow1], authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG }), "DryRun UNKNOWN_COLUMN", "runQuestionBankImportDryRun");
-  collector.collect(runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: ["question_code", ...CONTRACT_HEADERS.legacy_flat_15col.slice(1)].reverse(), rows: [], schemaHint: "legacy_flat_15col", authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG }), "DryRun LEGACY_COLUMN_ORDER", "runQuestionBankImportDryRun");
-  collector.collect(runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: ["q1", "q2"], rows: [], schemaHint: "legacy_flat_15col", authorized: DEFAULT_AUTH, catalog: DEFAULT_CATALOG }), "DryRun LEGACY_COLUMN_COUNT", "runQuestionBankImportDryRun");
-  collector.collect(runQuestionBankImportDryRun({ fileName: "x.xlsx", headers: [...CONTRACT_HEADERS.official_flat_v0], rows: [{ ...sampleRow1, question_text: "different text" }], authorized: DEFAULT_AUTH, catalog: { ...DEFAULT_CATALOG, existing: new Map([["Q1", "different_hash"]]) } }), "DryRun IMPORT_REPLAY_CONFLICT", "runQuestionBankImportDryRun");
+  collector.collect(
+    runQuestionBankImportDryRun({
+      fileName: "x.xlsx",
+      headers: [...CONTRACT_HEADERS.official_flat_v0],
+      rows: [sampleRow1, sampleRow2],
+      authorized: DEFAULT_AUTH,
+      catalog: DEFAULT_CATALOG,
+    }),
+    "DryRun DUPLICATE_CODE_IN_FILE",
+    "runQuestionBankImportDryRun",
+  );
+  collector.collect(
+    runQuestionBankImportDryRun({
+      fileName: "x.xlsx",
+      headers: [...CONTRACT_HEADERS.official_flat_v0, "extra_unknown_col"],
+      rows: [sampleRow1],
+      authorized: DEFAULT_AUTH,
+      catalog: DEFAULT_CATALOG,
+    }),
+    "DryRun UNKNOWN_COLUMN",
+    "runQuestionBankImportDryRun",
+  );
+  collector.collect(
+    runQuestionBankImportDryRun({
+      fileName: "x.xlsx",
+      headers: ["question_code", ...CONTRACT_HEADERS.legacy_flat_15col.slice(1)].reverse(),
+      rows: [],
+      schemaHint: "legacy_flat_15col",
+      authorized: DEFAULT_AUTH,
+      catalog: DEFAULT_CATALOG,
+    }),
+    "DryRun LEGACY_COLUMN_ORDER",
+    "runQuestionBankImportDryRun",
+  );
+  collector.collect(
+    runQuestionBankImportDryRun({
+      fileName: "x.xlsx",
+      headers: ["q1", "q2"],
+      rows: [],
+      schemaHint: "legacy_flat_15col",
+      authorized: DEFAULT_AUTH,
+      catalog: DEFAULT_CATALOG,
+    }),
+    "DryRun LEGACY_COLUMN_COUNT",
+    "runQuestionBankImportDryRun",
+  );
+  collector.collect(
+    runQuestionBankImportDryRun({
+      fileName: "x.xlsx",
+      headers: [...CONTRACT_HEADERS.official_flat_v0],
+      rows: [{ ...sampleRow1, question_text: "different text" }],
+      authorized: DEFAULT_AUTH,
+      catalog: { ...DEFAULT_CATALOG, existing: new Map([["Q1", "different_hash"]]) },
+    }),
+    "DryRun IMPORT_REPLAY_CONFLICT",
+    "runQuestionBankImportDryRun",
+  );
 
   // 7. Adapter & row validation triggers
-  collector.collect(adaptOfficialFlatV0({ question_code: "", question_text: "q" }, {}), "Validation MISSING_VALUE", "adaptOfficialFlatV0");
-  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "INVALID", grading_mode: "AUTO_SINGLE" }, {}), "Validation INVALID_INTERACTION_TYPE", "adaptOfficialFlatV0");
-  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "INVALID" }, {}), "Validation INVALID_GRADING_MODE", "adaptOfficialFlatV0");
-  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", max_score: "0" }, {}), "Validation INVALID_SCORE", "adaptOfficialFlatV0");
-  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: "invalid_non_numeric", max_score: 1, subject_code: "MATH-G10" }, {}), "Validation INVALID_CORRECT_INDEX", "adaptOfficialFlatV0");
-  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "", correct_index: "2", max_score: 1, subject_code: "MATH-G10" }, {}), "Validation CORRECT_INDEX_NO_OPTION", "adaptOfficialFlatV0");
-  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SHORT_TEXT", grading_mode: "AUTO_TEXT", max_score: 1, subject_code: "MATH-G10" }, {}), "Validation ACCEPTED_ANSWER_REQUIRED", "adaptOfficialFlatV0");
-  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SINGLE_CHOICE", grading_mode: "AUTO_SINGLE", option_1: "a", option_2: "b", correct_index: "1", max_score: 1, allow_partial: "TRUE", subject_code: "MATH-G10" }, {}), "Validation PARTIAL_NOT_ALLOWED", "adaptOfficialFlatV0");
-  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "LONG_TEXT", grading_mode: "MANUAL", option_1: "opt", max_score: 1, subject_code: "MATH-G10" }, {}), "Validation ANSWER_NOT_ALLOWED", "adaptOfficialFlatV0");
-  collector.collect(adaptOfficialFlatV0({ question_code: "Q1", question_text: "q", interaction_type: "SHORT_TEXT", grading_mode: "AUTO_TEXT", option_1: "ans1", option_2: "ans1", accepted_answers: "ans1|ans1", max_score: 1, subject_code: "MATH-G10" }, {}), "Validation DUPLICATE_ACCEPTED_ANSWER", "adaptOfficialFlatV0");
-  collector.collect(adaptOfficialFlatV0({ code: "1e10", question: "q", question_type: "mcq" }, {}), "Validation SCIENTIFIC_NOTATION_LOSS", "validateNormalizedRow");
+  collector.collect(
+    adaptOfficialFlatV0({ question_code: "", question_text: "q" }, {}),
+    "Validation MISSING_VALUE",
+    "adaptOfficialFlatV0",
+  );
+  collector.collect(
+    adaptOfficialFlatV0(
+      {
+        question_code: "Q1",
+        question_text: "q",
+        interaction_type: "INVALID",
+        grading_mode: "AUTO_SINGLE",
+      },
+      {},
+    ),
+    "Validation INVALID_INTERACTION_TYPE",
+    "adaptOfficialFlatV0",
+  );
+  collector.collect(
+    adaptOfficialFlatV0(
+      {
+        question_code: "Q1",
+        question_text: "q",
+        interaction_type: "SINGLE_CHOICE",
+        grading_mode: "INVALID",
+      },
+      {},
+    ),
+    "Validation INVALID_GRADING_MODE",
+    "adaptOfficialFlatV0",
+  );
+  collector.collect(
+    adaptOfficialFlatV0(
+      {
+        question_code: "Q1",
+        question_text: "q",
+        interaction_type: "SINGLE_CHOICE",
+        grading_mode: "AUTO_SINGLE",
+        max_score: "0",
+      },
+      {},
+    ),
+    "Validation INVALID_SCORE",
+    "adaptOfficialFlatV0",
+  );
+  collector.collect(
+    adaptOfficialFlatV0(
+      {
+        question_code: "Q1",
+        question_text: "q",
+        interaction_type: "SINGLE_CHOICE",
+        grading_mode: "AUTO_SINGLE",
+        option_1: "a",
+        option_2: "b",
+        correct_index: "invalid_non_numeric",
+        max_score: 1,
+        subject_code: "MATH-G10",
+      },
+      {},
+    ),
+    "Validation INVALID_CORRECT_INDEX",
+    "adaptOfficialFlatV0",
+  );
+  collector.collect(
+    adaptOfficialFlatV0(
+      {
+        question_code: "Q1",
+        question_text: "q",
+        interaction_type: "SINGLE_CHOICE",
+        grading_mode: "AUTO_SINGLE",
+        option_1: "a",
+        option_2: "",
+        correct_index: "2",
+        max_score: 1,
+        subject_code: "MATH-G10",
+      },
+      {},
+    ),
+    "Validation CORRECT_INDEX_NO_OPTION",
+    "adaptOfficialFlatV0",
+  );
+  collector.collect(
+    adaptOfficialFlatV0(
+      {
+        question_code: "Q1",
+        question_text: "q",
+        interaction_type: "SHORT_TEXT",
+        grading_mode: "AUTO_TEXT",
+        max_score: 1,
+        subject_code: "MATH-G10",
+      },
+      {},
+    ),
+    "Validation ACCEPTED_ANSWER_REQUIRED",
+    "adaptOfficialFlatV0",
+  );
+  collector.collect(
+    adaptOfficialFlatV0(
+      {
+        question_code: "Q1",
+        question_text: "q",
+        interaction_type: "SINGLE_CHOICE",
+        grading_mode: "AUTO_SINGLE",
+        option_1: "a",
+        option_2: "b",
+        correct_index: "1",
+        max_score: 1,
+        allow_partial: "TRUE",
+        subject_code: "MATH-G10",
+      },
+      {},
+    ),
+    "Validation PARTIAL_NOT_ALLOWED",
+    "adaptOfficialFlatV0",
+  );
+  collector.collect(
+    adaptOfficialFlatV0(
+      {
+        question_code: "Q1",
+        question_text: "q",
+        interaction_type: "LONG_TEXT",
+        grading_mode: "MANUAL",
+        option_1: "opt",
+        max_score: 1,
+        subject_code: "MATH-G10",
+      },
+      {},
+    ),
+    "Validation ANSWER_NOT_ALLOWED",
+    "adaptOfficialFlatV0",
+  );
+  collector.collect(
+    adaptOfficialFlatV0(
+      {
+        question_code: "Q1",
+        question_text: "q",
+        interaction_type: "SHORT_TEXT",
+        grading_mode: "AUTO_TEXT",
+        option_1: "ans1",
+        option_2: "ans1",
+        accepted_answers: "ans1|ans1",
+        max_score: 1,
+        subject_code: "MATH-G10",
+      },
+      {},
+    ),
+    "Validation DUPLICATE_ACCEPTED_ANSWER",
+    "adaptOfficialFlatV0",
+  );
+  collector.collect(
+    adaptOfficialFlatV0({ code: "1e10", question: "q", question_type: "mcq" }, {}),
+    "Validation SCIENTIFIC_NOTATION_LOSS",
+    "validateNormalizedRow",
+  );
 
-  collector.collect(adaptLegacyFlat15Col(["Q1", "L1", "PHYS", "q", "a", "b", "", "", 0, "", "auto_text", "2026", "1", "1", ""], {}), "Validation LEGACY_INFORMATION_LOSS", "adaptLegacyFlat15Col");
+  collector.collect(
+    adaptLegacyFlat15Col(
+      ["Q1", "L1", "PHYS", "q", "a", "b", "", "", 0, "", "auto_text", "2026", "1", "1", ""],
+      {},
+    ),
+    "Validation LEGACY_INFORMATION_LOSS",
+    "adaptLegacyFlat15Col",
+  );
 
   const rDupOpt = baseRowModel();
-  rDupOpt.options = [{ option_code: "A", body: "Same", is_correct: true, sort_order: 1 }, { option_code: "B", body: "Same", is_correct: false, sort_order: 2 }];
-  collector.collect(validateNormalizedRow(rDupOpt, { catalog: DEFAULT_CATALOG }), "Validation DUPLICATE_OPTION", "validateNormalizedRow");
+  rDupOpt.options = [
+    { option_code: "A", body: "Same", is_correct: true, sort_order: 1 },
+    { option_code: "B", body: "Same", is_correct: false, sort_order: 2 },
+  ];
+  collector.collect(
+    validateNormalizedRow(rDupOpt, { catalog: DEFAULT_CATALOG }),
+    "Validation DUPLICATE_OPTION",
+    "validateNormalizedRow",
+  );
 
-  collector.collect(validateNormalizedRow({ ...baseRowModel(), question_code: " Q1 " }, { catalog: DEFAULT_CATALOG }), "Validation QUESTION_CODE_INVALID", "validateNormalizedRow");
-  collector.collect(validateNormalizedRow({ ...baseRowModel(), targets: [{ target_type: "SUBJECT", target_code: "UNKNOWN_SUBJECT_XYZ" }] }, { catalog: DEFAULT_CATALOG }), "Validation UNKNOWN_SUBJECT", "validateNormalizedRow");
-  collector.collect(validateNormalizedRow({ ...baseRowModel(), targets: [{ target_type: "SUBJECT", target_code: "MATH-G10" }, { target_type: "LESSON", target_code: "UNKNOWN_LESSON_XYZ" }] }, { catalog: DEFAULT_CATALOG }), "Validation UNKNOWN_LESSON", "validateNormalizedRow");
-  collector.collect(validateNormalizedRow({ ...baseRowModel(), question_code: "Q1٢" }, { catalog: DEFAULT_CATALOG }), "Validation MIXED_NUMERAL_SCRIPTS", "validateNormalizedRow");
-  collector.collect(validateNormalizedRow({ ...baseRowModel(), revision: { ...baseRowModel().revision, question_text: "e\u0301" } }, { catalog: DEFAULT_CATALOG }), "Validation NORMALIZATION_CHANGED", "validateNormalizedRow");
+  collector.collect(
+    validateNormalizedRow(
+      { ...baseRowModel(), question_code: " Q1 " },
+      { catalog: DEFAULT_CATALOG },
+    ),
+    "Validation QUESTION_CODE_INVALID",
+    "validateNormalizedRow",
+  );
+  collector.collect(
+    validateNormalizedRow(
+      {
+        ...baseRowModel(),
+        targets: [{ target_type: "SUBJECT", target_code: "UNKNOWN_SUBJECT_XYZ" }],
+      },
+      { catalog: DEFAULT_CATALOG },
+    ),
+    "Validation UNKNOWN_SUBJECT",
+    "validateNormalizedRow",
+  );
+  collector.collect(
+    validateNormalizedRow(
+      {
+        ...baseRowModel(),
+        targets: [
+          { target_type: "SUBJECT", target_code: "MATH-G10" },
+          { target_type: "LESSON", target_code: "UNKNOWN_LESSON_XYZ" },
+        ],
+      },
+      { catalog: DEFAULT_CATALOG },
+    ),
+    "Validation UNKNOWN_LESSON",
+    "validateNormalizedRow",
+  );
+  collector.collect(
+    validateNormalizedRow(
+      { ...baseRowModel(), question_code: "Q1٢" },
+      { catalog: DEFAULT_CATALOG },
+    ),
+    "Validation MIXED_NUMERAL_SCRIPTS",
+    "validateNormalizedRow",
+  );
+  collector.collect(
+    validateNormalizedRow(
+      { ...baseRowModel(), revision: { ...baseRowModel().revision, question_text: "e\u0301" } },
+      { catalog: DEFAULT_CATALOG },
+    ),
+    "Validation NORMALIZATION_CHANGED",
+    "validateNormalizedRow",
+  );
 
   const emittedMap = collector.emitted;
   const actualTestNames = collector.testNames;
@@ -316,7 +688,9 @@ test("Executable Failure Coverage Collector & Integrity Audit: 100% critical cod
     assert.ok(msg, `Missing Arabic message for code ${code}`);
     if (arMessages.has(msg)) {
       duplicateSemanticCodes++;
-      assert.fail(`Unintended duplicate Arabic message for codes ${arMessages.get(msg)} and ${code}: "${msg}"`);
+      assert.fail(
+        `Unintended duplicate Arabic message for codes ${arMessages.get(msg)} and ${code}: "${msg}"`,
+      );
     }
     arMessages.set(msg, code);
 
@@ -325,7 +699,9 @@ test("Executable Failure Coverage Collector & Integrity Audit: 100% critical cod
     const triggerKey = `${auditEntry.stage}:${auditEntry.trigger}`;
     if (triggerMap.has(triggerKey)) {
       duplicateSemanticCodes++;
-      assert.fail(`Duplicate trigger in audit registry for ${triggerMap.get(triggerKey)} and ${code}: ${triggerKey}`);
+      assert.fail(
+        `Duplicate trigger in audit registry for ${triggerMap.get(triggerKey)} and ${code}: ${triggerKey}`,
+      );
     }
     triggerMap.set(triggerKey, code);
   }
@@ -358,19 +734,25 @@ test("Executable Failure Coverage Collector & Integrity Audit: 100% critical cod
     // Verify test_name exists in actual executed test names
     if (!actualTestNames.has(mapping.test_name)) {
       invalidTestRefCount++;
-      assert.fail(`Code ${code}: manifest test_name "${mapping.test_name}" was not executed by runtime test runner!`);
+      assert.fail(
+        `Code ${code}: manifest test_name "${mapping.test_name}" was not executed by runtime test runner!`,
+      );
     }
 
     // Verify fixture_builder exists in actual executed fixture names
     if (!actualFixtureNames.has(mapping.fixture_builder)) {
       invalidFixtureRefCount++;
-      assert.fail(`Code ${code}: manifest fixture_builder "${mapping.fixture_builder}" was not used by runtime test runner!`);
+      assert.fail(
+        `Code ${code}: manifest fixture_builder "${mapping.fixture_builder}" was not used by runtime test runner!`,
+      );
     }
 
     const records = emittedMap.get(code) ?? [];
     if (records.length === 0) {
       missingActualEmissionsCount++;
-      assert.fail(`Critical code ${code} was registered in manifest but NEVER emitted during actual runtime execution!`);
+      assert.fail(
+        `Critical code ${code} was registered in manifest but NEVER emitted during actual runtime execution!`,
+      );
     }
 
     const matchingRecords = records.filter(
@@ -381,11 +763,15 @@ test("Executable Failure Coverage Collector & Integrity Audit: 100% critical cod
     for (const rec of recordsToCheck) {
       if (rec.stage !== mapping.expected_stage) {
         wrongStagesCount++;
-        assert.fail(`Code ${code}: actual emitted stage "${rec.stage}" does not match manifest expected_stage "${mapping.expected_stage}"`);
+        assert.fail(
+          `Code ${code}: actual emitted stage "${rec.stage}" does not match manifest expected_stage "${mapping.expected_stage}"`,
+        );
       }
       if (rec.source_subsystem !== mapping.source_module) {
         wrongSubsystemsCount++;
-        assert.fail(`Code ${code}: actual emitted subsystem "${rec.source_subsystem}" does not match manifest source_module "${mapping.source_module}"`);
+        assert.fail(
+          `Code ${code}: actual emitted subsystem "${rec.source_subsystem}" does not match manifest source_module "${mapping.source_module}"`,
+        );
       }
     }
   }

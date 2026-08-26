@@ -108,7 +108,10 @@ export function computeGovernorateDryRunCounts(
 }
 
 export function normalizeGovernorateHeader(label: string): string {
-  return label.replace(/\s*\*\s*$/, "").trim().toLowerCase();
+  return label
+    .replace(/\s*\*\s*$/, "")
+    .trim()
+    .toLowerCase();
 }
 
 export function cellToString(value: unknown): string {

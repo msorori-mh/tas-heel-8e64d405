@@ -79,7 +79,10 @@ test("direct lesson (no unit) and unit lesson both supported, no fake unit", () 
 });
 
 test("groups are built only from visible (RLS-returned) subjects with items", () => {
-  const items = [item({ subjectId: "s1" }), item({ lessonId: "l2", subjectId: "s2", subjectName: "كيمياء" })];
+  const items = [
+    item({ subjectId: "s1" }),
+    item({ lessonId: "l2", subjectId: "s2", subjectName: "كيمياء" }),
+  ];
   const idx = buildReviewIndex(items, [
     { id: "s1", name: "فيزياء" },
     { id: "s2", name: "كيمياء" },
@@ -94,7 +97,10 @@ test("groups are built only from visible (RLS-returned) subjects with items", ()
 test("inaccessible subject is excluded because it is never returned by RLS", () => {
   // s9 is not in the subject list (RLS filtered it) => no item can reference it.
   const idx = buildReviewIndex([item({ subjectId: "s1" })], [{ id: "s1", name: "فيزياء" }]);
-  assert.equal(idx.groups.find((g) => g.id === "s9"), undefined);
+  assert.equal(
+    idx.groups.find((g) => g.id === "s9"),
+    undefined,
+  );
 });
 
 test("completed marker and counters", () => {

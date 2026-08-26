@@ -46,7 +46,9 @@ export interface GoldenDomainStageEnvelope {
   answersCompanion: { path: string; sha256: string; base64: string } | null;
 }
 
-export function buildGoldenDomainStageEnvelope(bundle: VerifiedGoldenLessonBundle): GoldenDomainStageEnvelope {
+export function buildGoldenDomainStageEnvelope(
+  bundle: VerifiedGoldenLessonBundle,
+): GoldenDomainStageEnvelope {
   const files = new Map(bundle.files.map((file) => [file.path, file]));
   const bytes = (path: string | null, expected: string | null): string | null => {
     if (path === null && expected === null) return null;
@@ -77,8 +79,9 @@ export function buildGoldenDomainStageEnvelope(bundle: VerifiedGoldenLessonBundl
   const answerSha = bundle.manifest.security.answersCompanionSha256;
   return {
     entries,
-    answersCompanion: answerPath && answerSha
-      ? { path: answerPath, sha256: answerSha, base64: bytes(answerPath, answerSha)! }
-      : null,
+    answersCompanion:
+      answerPath && answerSha
+        ? { path: answerPath, sha256: answerSha, base64: bytes(answerPath, answerSha)! }
+        : null,
   };
 }

@@ -37,7 +37,12 @@ export function StatCard({
           <Icon className="h-4 w-4" />
         </span>
       ) : null}
-      <p className={cn("text-xl font-black leading-tight text-foreground sm:text-2xl", Icon && "mt-2")}>
+      <p
+        className={cn(
+          "text-xl font-black leading-tight text-foreground sm:text-2xl",
+          Icon && "mt-2",
+        )}
+      >
         {loading ? <span className="animate-pulse text-muted-foreground">—</span> : value}
       </p>
       <p className="mt-0.5 truncate text-xs font-semibold text-foreground/80">{label}</p>

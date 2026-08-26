@@ -334,9 +334,7 @@ function AdminUnifiedPerformancePage() {
                   {data.highest_repeated_mistake_rate.map((l) => (
                     <div key={l.lesson_id} className="flex items-center justify-between text-sm">
                       <span className="truncate">{l.lesson_title ?? "—"}</span>
-                      <Badge variant="secondary">
-                        {formatPercentage(l.repeated_mistake_rate)}
-                      </Badge>
+                      <Badge variant="secondary">{formatPercentage(l.repeated_mistake_rate)}</Badge>
                     </div>
                   ))}
                   {data.highest_repeated_mistake_rate.length === 0 ? (

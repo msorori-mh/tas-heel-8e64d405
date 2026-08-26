@@ -1,9 +1,7 @@
 export async function getContentCodeRegistry() {
   return {
     schemeVersion: "TCS-2",
-    grades: [
-      { gradeSlug: "grade-12", gradeShort: "g12", nameAr: "الصف الثالث الثانوي" },
-    ],
+    grades: [{ gradeSlug: "grade-12", gradeShort: "g12", nameAr: "الصف الثالث الثانوي" }],
     tracks: [
       { trackCode: "sanaa", nameAr: "منهج صنعاء" },
       { trackCode: "aden", nameAr: "منهج عدن" },

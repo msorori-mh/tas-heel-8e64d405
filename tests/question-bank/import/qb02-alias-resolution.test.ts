@@ -8,9 +8,7 @@ import {
 } from "../../../src/lib/question-bank/import/curriculum-lookup.ts";
 
 test("Curriculum Alias Resolution (Case 1): self-alias returns SELF_ALIAS error", () => {
-  const aliases = new Map<string, string>([
-    ["MATH-G10", "MATH-G10"],
-  ]);
+  const aliases = new Map<string, string>([["MATH-G10", "MATH-G10"]]);
   const validTargets = new Set(["MATH-G10"]);
 
   const res = resolveCurriculumAlias("MATH-G10", aliases, validTargets);
@@ -51,9 +49,7 @@ test("Curriculum Alias Resolution (Case 3): indirect cycle returns ALIAS_CYCLE e
 });
 
 test("Curriculum Alias Resolution (Case 4): missing target returns MISSING_ALIAS_TARGET error", () => {
-  const aliases = new Map<string, string>([
-    ["OLD-MATH-G10", "MISSING-MATH-TARGET"],
-  ]);
+  const aliases = new Map<string, string>([["OLD-MATH-G10", "MISSING-MATH-TARGET"]]);
   const validTargets = new Set(["MATH-G10", "PHYS-G10"]);
 
   const res = resolveCurriculumAlias("OLD-MATH-G10", aliases, validTargets);
@@ -80,9 +76,7 @@ test("Curriculum Alias Resolution (Case 5): valid multi-step chain resolves corr
 });
 
 test("Curriculum Alias Resolution (Case 6): valid terminal resolution resolves directly", () => {
-  const aliases = new Map<string, string>([
-    ["ALIAS-SINGLE", "MATH-G10"],
-  ]);
+  const aliases = new Map<string, string>([["ALIAS-SINGLE", "MATH-G10"]]);
   const validTargets = new Set(["MATH-G10"]);
 
   const res = resolveCurriculumAlias("ALIAS-SINGLE", aliases, validTargets);
@@ -159,12 +153,12 @@ test("Curriculum Alias Resolution (Case 10): repeated aliases differing only by 
   assert.equal(validation.ok, false);
   assert.equal(validation.error, "DUPLICATE_ALIAS_DECLARATION");
 
-  const normalizedAliases = new Map<string, string>([
-    ["alias-code", "TARGET-FINAL"],
-  ]);
+  const normalizedAliases = new Map<string, string>([["alias-code", "TARGET-FINAL"]]);
   const validTargets = new Set(["TARGET-FINAL"]);
 
-  const res = resolveCurriculumAlias("ALIAS-CODE", normalizedAliases, validTargets, 10, { normalizeCase: true });
+  const res = resolveCurriculumAlias("ALIAS-CODE", normalizedAliases, validTargets, 10, {
+    normalizeCase: true,
+  });
   assert.equal(res.ok, true);
   if (res.ok) {
     assert.equal(res.resolved, "TARGET-FINAL");

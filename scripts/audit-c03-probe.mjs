@@ -19,6 +19,7 @@ if (uid) {
   const r = await c.rpc("get_user_email", { _user_id: uid });
   if (r.error) console.log("get_user_email_err", r.error.message);
   else if (r.data === null) console.log("get_user_email_result", "null");
-  else if (typeof r.data === "string" && r.data.includes("@")) console.log("get_user_email_result", "email_leaked_len", r.data.length);
+  else if (typeof r.data === "string" && r.data.includes("@"))
+    console.log("get_user_email_result", "email_leaked_len", r.data.length);
   else console.log("get_user_email_result", typeof r.data);
 }

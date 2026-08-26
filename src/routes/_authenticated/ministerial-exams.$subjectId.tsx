@@ -69,11 +69,13 @@ function SubjectMinisterialModels() {
       </p>
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="تصفية النماذج حسب المسار">
-        {([
-          ["all", "الكل"],
-          ["sanaa", "صنعاء"],
-          ["aden", "عدن"],
-        ] as const).map(([value, label]) => (
+        {(
+          [
+            ["all", "الكل"],
+            ["sanaa", "صنعاء"],
+            ["aden", "عدن"],
+          ] as const
+        ).map(([value, label]) => (
           <button
             key={value}
             type="button"

@@ -58,8 +58,7 @@ export async function createContentImportExecutionJob(
       template_key: input.templateKey,
       original_filename: input.fileName,
       file_size_bytes: input.fileSize,
-      mime_type:
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      mime_type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       status: "validated",
       mode: "execute",
       total_rows: input.totalRows,
@@ -74,9 +73,7 @@ export async function createContentImportExecutionJob(
     .single();
 
   if (error || !data) {
-    throw new Error(
-      `تعذر إنشاء عملية الاستيراد: ${error?.message ?? "خطأ غير معروف"}`,
-    );
+    throw new Error(`تعذر إنشاء عملية الاستيراد: ${error?.message ?? "خطأ غير معروف"}`);
   }
 
   return { jobId: data.id };

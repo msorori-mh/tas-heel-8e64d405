@@ -37,15 +37,18 @@ export type AliasResolutionResult =
 export function validateCurriculumAliases(
   entries: Iterable<[string, string]>,
   opts?: { normalizeCase?: boolean },
-): { ok: boolean; error?: "DUPLICATE_ALIAS_DECLARATION"; duplicateKey?: string; map: Map<string, string> } {
+): {
+  ok: boolean;
+  error?: "DUPLICATE_ALIAS_DECLARATION";
+  duplicateKey?: string;
+  map: Map<string, string>;
+} {
   const map = new Map<string, string>();
   const seenNormalizedKeys = new Map<string, string>();
 
   for (const [key, target] of entries) {
     const rawKey = key;
-    const normKey = opts?.normalizeCase
-      ? normalizeText(key).toUpperCase()
-      : normalizeText(key);
+    const normKey = opts?.normalizeCase ? normalizeText(key).toUpperCase() : normalizeText(key);
 
     if (seenNormalizedKeys.has(normKey)) {
       return {
@@ -116,8 +119,7 @@ export function resolveCurriculumAlias(
 
   const resolvedTargetKey = norm(current);
   const isValid =
-    !validTargets ||
-    Array.from(validTargets).some((vt) => norm(vt) === resolvedTargetKey);
+    !validTargets || Array.from(validTargets).some((vt) => norm(vt) === resolvedTargetKey);
 
   if (!isValid) {
     return { ok: false, error: "MISSING_ALIAS_TARGET", path };

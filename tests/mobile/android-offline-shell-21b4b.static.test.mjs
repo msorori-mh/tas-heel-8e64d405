@@ -36,7 +36,9 @@ describe("registry contract", () => {
   });
 
   it("3 — missing or truncated local files are rejected", () => {
-    expect(pluginJava).toMatch(/!file\.exists\(\) \|\| !file\.isFile\(\) \|\| file\.length\(\) <= 0/);
+    expect(pluginJava).toMatch(
+      /!file\.exists\(\) \|\| !file\.isFile\(\) \|\| file\.length\(\) <= 0/,
+    );
     expect(pluginJava).toMatch(/recordedSize != file\.length\(\)/);
     expect(clientTs).toMatch(/unregisterLocalTextbook\(textbookId\)/);
   });
@@ -97,7 +99,9 @@ describe("offline entry surface", () => {
   });
 
   it("triggerEvent root cause — the bridge is never assumed to exist", () => {
-    expect(offlineHtml).toMatch(/if \(!cap \|\| !cap\.Plugins \|\| !cap\.Plugins\.TamkeenPdfViewer\) return null;/);
+    expect(offlineHtml).toMatch(
+      /if \(!cap \|\| !cap\.Plugins \|\| !cap\.Plugins\.TamkeenPdfViewer\) return null;/,
+    );
   });
 
   it("Android loads the bundled page instead of chrome-error://", () => {

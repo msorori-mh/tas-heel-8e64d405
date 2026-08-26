@@ -15,8 +15,7 @@ import type {
   SubjectImportScope,
 } from "@/lib/import/curriculum-import-scope";
 
-const MAX_BASE64_LENGTH =
-  Math.ceil(CONTENT_IMPORT_MAX_FILE_BYTES * 1.37) + 64;
+const MAX_BASE64_LENGTH = Math.ceil(CONTENT_IMPORT_MAX_FILE_BYTES * 1.37) + 64;
 
 const SubjectImportScopeInput = z.object({
   gradeSlug: z.string().trim().min(1).max(32),
@@ -32,11 +31,7 @@ const ContentDryRunInput = z.object({
   templateKey: z.string().min(1).max(64),
   fileName: z.string().min(1).max(255),
   fileBase64: z.string().min(1).max(MAX_BASE64_LENGTH),
-  fileSize: z
-    .number()
-    .int()
-    .positive()
-    .max(CONTENT_IMPORT_MAX_FILE_BYTES),
+  fileSize: z.number().int().positive().max(CONTENT_IMPORT_MAX_FILE_BYTES),
   curriculumScope: z.union([CurriculumImportScopeInput, SubjectImportScopeInput]).optional(),
 });
 
@@ -67,14 +62,8 @@ export const dryRunContentImport = createServerFn({ method: "POST" })
       throw new Error("حجم الملف المرفوع لا يطابق المحتوى الفعلي.");
     }
 
-    const { parseContentImportBuffer } = await import(
-      "./content-import-dry-run.server"
-    );
-    const parsed = await parseContentImportBuffer(
-      buffer,
-      data.fileName,
-      templateKey,
-    );
+    const { parseContentImportBuffer } = await import("./content-import-dry-run.server");
+    const parsed = await parseContentImportBuffer(buffer, data.fileName, templateKey);
 
     const report = validateContentImportSheet(templateKey, parsed);
     if (templateKey !== "subjects" && templateKey !== "units" && templateKey !== "lessons") {
@@ -93,17 +82,20 @@ export const dryRunContentImport = createServerFn({ method: "POST" })
       if ("subjectCode" in data.curriculumScope) {
         throw new Error("IMPORT_SUBJECT_SCOPE_INVALID");
       }
-      const { resolveSubjectImportScope } = await import(
-        "@/lib/import/curriculum-import-scope.server"
-      );
+      const { resolveSubjectImportScope } =
+        await import("@/lib/import/curriculum-import-scope.server");
       const resolved = await resolveSubjectImportScope(
         context.supabase,
         data.curriculumScope as SubjectImportScope,
       );
       const expectedTracks = resolved.trackCodes.join("|");
       const scopeWarnings = [] as typeof report.warnings;
-      const workbookGrades = [...new Set(parsed.rows.map((row) => row.data.grade_slug?.trim()).filter(Boolean))];
-      const workbookTracks = [...new Set(parsed.rows.map((row) => row.data.track_codes?.trim()).filter(Boolean))];
+      const workbookGrades = [
+        ...new Set(parsed.rows.map((row) => row.data.grade_slug?.trim()).filter(Boolean)),
+      ];
+      const workbookTracks = [
+        ...new Set(parsed.rows.map((row) => row.data.track_codes?.trim()).filter(Boolean)),
+      ];
       if (workbookGrades.some((grade) => grade!.toLowerCase() !== resolved.gradeSlug)) {
         scopeWarnings.push({
           rowNumber: null,
@@ -112,15 +104,17 @@ export const dryRunContentImport = createServerFn({ method: "POST" })
           message: `سيُربط الملف بالصف المختار ${resolved.gradeSlug} بدل قيمة Excel.`,
         });
       }
-      if (workbookTracks.some((tracks) => {
-        const normalized = tracks!
-          .split(/[|,،]/)
-          .map((code) => code.trim().toLowerCase())
-          .filter(Boolean)
-          .sort()
-          .join("|");
-        return normalized !== expectedTracks;
-      })) {
+      if (
+        workbookTracks.some((tracks) => {
+          const normalized = tracks!
+            .split(/[|,،]/)
+            .map((code) => code.trim().toLowerCase())
+            .filter(Boolean)
+            .sort()
+            .join("|");
+          return normalized !== expectedTracks;
+        })
+      ) {
         scopeWarnings.push({
           rowNumber: null,
           column: "track_codes",
@@ -144,9 +138,8 @@ export const dryRunContentImport = createServerFn({ method: "POST" })
       };
     }
 
-    const { resolveCurriculumImportScope } = await import(
-      "@/lib/import/curriculum-import-scope.server"
-    );
+    const { resolveCurriculumImportScope } =
+      await import("@/lib/import/curriculum-import-scope.server");
     const resolved = await resolveCurriculumImportScope(
       context.supabase,
       data.curriculumScope as CurriculumImportScope,
@@ -162,13 +155,14 @@ export const dryRunContentImport = createServerFn({ method: "POST" })
       (code) => code.toLowerCase() !== resolved.subjectCode.toLowerCase(),
     );
     const scopeWarning = differs
-      ? [{
-          rowNumber: null,
-          column: "subject_code",
-          code: "SUBJECT_CODE_OVERRIDDEN_BY_SCOPE",
-          message:
-            `سيُربط الملف بالمادة المختارة ${resolved.subjectName} (${resolved.subjectCode}) بدل كود Excel: ${workbookCodes.join("، ")}.`,
-        }]
+      ? [
+          {
+            rowNumber: null,
+            column: "subject_code",
+            code: "SUBJECT_CODE_OVERRIDDEN_BY_SCOPE",
+            message: `سيُربط الملف بالمادة المختارة ${resolved.subjectName} (${resolved.subjectCode}) بدل كود Excel: ${workbookCodes.join("، ")}.`,
+          },
+        ]
       : [];
 
     return {

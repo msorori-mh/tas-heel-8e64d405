@@ -65,11 +65,20 @@ vi.mock("@/lib/content-factory/golden-lesson-publication.server", async () => {
 async function runPublish(mode: "DRY_RUN" | "EXECUTE") {
   const server = await import("@/lib/content-factory/golden-lesson-publication.server");
   const {
-    asRpcResult, assertAssetsVerified: assertFn, idempotencyKey, planSha, requirePlan,
-    resolveVerifiedAssets: resolveFn, rpc,
+    asRpcResult,
+    assertAssetsVerified: assertFn,
+    idempotencyKey,
+    planSha,
+    requirePlan,
+    resolveVerifiedAssets: resolveFn,
+    rpc,
   } = server as unknown as Record<string, any>;
   const userId = "00000000-0000-0000-0000-0000000000aa";
-  const expected = requirePlan(mode, mode === "EXECUTE" ? SHA : undefined, "CF11_WRITE_PLAN_HASH_REQUIRED");
+  const expected = requirePlan(
+    mode,
+    mode === "EXECUTE" ? SHA : undefined,
+    "CF11_WRITE_PLAN_HASH_REQUIRED",
+  );
   const execute = mode === "EXECUTE";
   const { lessonId, declarations } = await resolveFn(BATCH);
   await assertFn(lessonId, declarations);
@@ -123,7 +132,10 @@ describe("CF11-R6 — publication DRY_RUN is zero-write", () => {
 
   test("the publication handler source imports no write helper in any mode", async () => {
     const { readFile } = await import("node:fs/promises");
-    const src = await readFile("src/lib/content-factory/golden-lesson-publication.functions.ts", "utf8");
+    const src = await readFile(
+      "src/lib/content-factory/golden-lesson-publication.functions.ts",
+      "utf8",
+    );
     const handler = src.slice(
       src.indexOf("export const publishGoldenLessonCf11"),
       src.indexOf("export const attestGoldenLessonCf11Ready"),

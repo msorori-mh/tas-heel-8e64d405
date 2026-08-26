@@ -1,10 +1,7 @@
 // src/routes/_authenticated/payments.index.tsx
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import {
-  FREE_ACCESS_SHORT,
-  STUDENT_FREE_ACCESS,
-} from "@/lib/student-free-access";
+import { FREE_ACCESS_SHORT, STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 
 export const Route = createFileRoute("/_authenticated/payments/")({
   component: MyPaymentRequestsPage,

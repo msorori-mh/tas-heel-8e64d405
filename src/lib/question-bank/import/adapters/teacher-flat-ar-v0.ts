@@ -212,8 +212,7 @@ export function adaptTeacherFlatArV0(
     );
   }
   const mediaType =
-    text("نوع_الوسائط") ||
-    (mediaValid?.ok ? inferMediaType(mediaValid.url) ?? "" : "");
+    text("نوع_الوسائط") || (mediaValid?.ok ? (inferMediaType(mediaValid.url) ?? "") : "");
   if (mediaUrl && !mediaType) {
     issues.push(
       makeIssue(QB_IMPORT_CODES.MEDIA_TYPE_REQUIRED, {

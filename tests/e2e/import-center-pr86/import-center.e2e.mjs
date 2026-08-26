@@ -34,9 +34,20 @@ async function workbookBuffer(headers, row) {
 }
 
 const officialHeaders = [
-  "question_code", "subject_code", "lesson_code", "prompt_kind", "question_text",
-  "interaction_type", "grading_mode", "option_1", "option_2", "correct_index",
-  "accepted_answers", "model_answer", "explanation", "sort_order",
+  "question_code",
+  "subject_code",
+  "lesson_code",
+  "prompt_kind",
+  "question_text",
+  "interaction_type",
+  "grading_mode",
+  "option_1",
+  "option_2",
+  "correct_index",
+  "accepted_answers",
+  "model_answer",
+  "explanation",
+  "sort_order",
 ];
 const officialXlsx = await workbookBuffer(officialHeaders, {
   question_code: "IRON-OFF-001",
@@ -52,9 +63,21 @@ const officialXlsx = await workbookBuffer(officialHeaders, {
 });
 
 const selfHeaders = [
-  "question_code", "subject_code", "lesson_code", "question_text", "option_1",
-  "option_2", "option_3", "option_4", "correct_index", "explanation",
-  "why_wrong_1", "why_wrong_2", "why_wrong_3", "why_wrong_4", "sort_order",
+  "question_code",
+  "subject_code",
+  "lesson_code",
+  "question_text",
+  "option_1",
+  "option_2",
+  "option_3",
+  "option_4",
+  "correct_index",
+  "explanation",
+  "why_wrong_1",
+  "why_wrong_2",
+  "why_wrong_3",
+  "why_wrong_4",
+  "sort_order",
 ];
 const selfXlsx = await workbookBuffer(selfHeaders, {
   question_code: "IRON-SELF-001",
@@ -74,8 +97,14 @@ const selfXlsx = await workbookBuffer(selfHeaders, {
 });
 
 const html5 = new JSZip();
-html5.file("index.html", `<!doctype html><html dir="rtl"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><button id="run">ابدأ النشاط</button><script src="app.js"></script></body></html>`);
-html5.file("app.js", `document.querySelector("#run").addEventListener("click",()=>document.body.dataset.done="yes")`);
+html5.file(
+  "index.html",
+  `<!doctype html><html dir="rtl"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><button id="run">ابدأ النشاط</button><script src="app.js"></script></body></html>`,
+);
+html5.file(
+  "app.js",
+  `document.querySelector("#run").addEventListener("click",()=>document.body.dataset.done="yes")`,
+);
 const html5Zip = Buffer.from(await html5.generateAsync({ type: "uint8array" }));
 
 const browser = await chromium.launch({ headless: true });
@@ -115,7 +144,11 @@ try {
   await page.getByText("الكيمياء ← الحديد", { exact: true }).waitFor();
 
   for (const placeholder of ["CHEM-G12-IRON-FE-PKG", "GRADE-12", "SUB-G12-012"]) {
-    assert.equal(await page.getByPlaceholder(placeholder).count(), 0, `manual identity field must not exist: ${placeholder}`);
+    assert.equal(
+      await page.getByPlaceholder(placeholder).count(),
+      0,
+      `manual identity field must not exist: ${placeholder}`,
+    );
   }
 
   await page.locator("#golden-artifact-lessonSummaryHtml").setInputFiles({
@@ -129,9 +162,9 @@ try {
   await uploadPath("tamkeenExplanationHtml", "explanation.html");
   await uploadPath("lessonSummaryHtml", "summary.html");
   await uploadPath("mindMapHtml", "mindmap.html");
-  await page.locator("#golden-supplemental-assets").setInputFiles(
-    path.join(lessonDir, "official-figure-1-1.jpg"),
-  );
+  await page
+    .locator("#golden-supplemental-assets")
+    .setInputFiles(path.join(lessonDir, "official-figure-1-1.jpg"));
   await page.getByText("official-figure-1-1.jpg", { exact: false }).last().waitFor();
 
   await page.locator("#golden-artifact-labExperimentHtml").setInputFiles({
@@ -146,14 +179,18 @@ try {
     mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     buffer: officialXlsx,
   });
-  await page.getByText("تم التحقق من الملف: 09_iron_official_questions.xlsx — 1 سؤال", { exact: false }).waitFor();
+  await page
+    .getByText("تم التحقق من الملف: 09_iron_official_questions.xlsx — 1 سؤال", { exact: false })
+    .waitFor();
 
   await page.locator("#golden-artifact-selfTest").setInputFiles({
     name: "10_iron_self_test.xlsx",
     mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     buffer: selfXlsx,
   });
-  await page.getByText("تم التحقق من الملف: 10_iron_self_test.xlsx — 1 سؤال", { exact: false }).waitFor();
+  await page
+    .getByText("تم التحقق من الملف: 10_iron_self_test.xlsx — 1 سؤال", { exact: false })
+    .waitFor();
   await page.getByText("تم فصل الإجابات والتعليلات آليًا", { exact: false }).waitFor();
 
   await page.getByText("6/6 — 100%", { exact: true }).waitFor();
@@ -172,16 +209,27 @@ try {
   result.isolatedDraftStageCompleted = true;
   result.lessonZipCreatedOrUploaded = false;
 
-  await page.screenshot({ path: path.join(evidenceDir, "desktop-final-import.png"), fullPage: true });
+  await page.screenshot({
+    path: path.join(evidenceDir, "desktop-final-import.png"),
+    fullPage: true,
+  });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: path.join(evidenceDir, "mobile-final-import.png"), fullPage: true });
+  await page.screenshot({
+    path: path.join(evidenceDir, "mobile-final-import.png"),
+    fullPage: true,
+  });
   assert.deepEqual(pageErrors, []);
   result.passed = true;
   await writeFile(path.join(evidenceDir, "result.json"), JSON.stringify(result, null, 2));
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 } catch (error) {
-  await page.screenshot({ path: path.join(evidenceDir, "failure.png"), fullPage: true }).catch(() => {});
-  await writeFile(path.join(evidenceDir, "result.json"), JSON.stringify({ ...result, error: String(error), pageErrors }, null, 2));
+  await page
+    .screenshot({ path: path.join(evidenceDir, "failure.png"), fullPage: true })
+    .catch(() => {});
+  await writeFile(
+    path.join(evidenceDir, "result.json"),
+    JSON.stringify({ ...result, error: String(error), pageErrors }, null, 2),
+  );
   throw error;
 } finally {
   await browser.close();

@@ -7,10 +7,9 @@ import {
   type IronBindingPlan,
 } from "../../src/lib/import/iron-production-import-dry-run.ts";
 
-const plan = JSON.parse(readFileSync(
-  "content-packages/chemistry-g12-iron-v3/production-binding-plan.json",
-  "utf8",
-)) as IronBindingPlan;
+const plan = JSON.parse(
+  readFileSync("content-packages/chemistry-g12-iron-v3/production-binding-plan.json", "utf8"),
+) as IronBindingPlan;
 
 const openGates = {
   R5_APPLIED: true,
@@ -32,7 +31,10 @@ test("dry-run is zero-write and deterministic", () => {
   assert.equal(first.verdict, "READY_FOR_OWNER_APPLY");
   assert.equal(first.writesPerformed, 0);
   assert.equal(first.expectedWriteIntentCount, 16);
-  assert.deepEqual(first.intents.map((intent) => intent.order), [...Array(16)].map((_, i) => i + 1));
+  assert.deepEqual(
+    first.intents.map((intent) => intent.order),
+    [...Array(16)].map((_, i) => i + 1),
+  );
 });
 
 test("every closed schema gate blocks but still performs zero writes", () => {

@@ -20,7 +20,6 @@
  *   E. fail-closed guard: a stray lesson_resources.code aborts the migration.
  */
 
-
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -96,14 +95,22 @@ function expectTrue(label, db, sql) {
   return ok;
 }
 
-
 try {
   let r = run("initdb", ["-D", dataDir, "-U", "postgres", "--auth=trust", "-E", "UTF8"]);
   if (r.status !== 0) {
     console.error("initdb failed:", r.stderr || r.stdout);
     process.exit(1);
   }
-  r = run("pg_ctl", ["-D", dataDir, "-o", `-k ${sock} -h ''`, "-w", "-l", join(dataDir, "pg.log"), "start"]);
+  r = run("pg_ctl", [
+    "-D",
+    dataDir,
+    "-o",
+    `-k ${sock} -h ''`,
+    "-w",
+    "-l",
+    join(dataDir, "pg.log"),
+    "start",
+  ]);
   if (r.status !== 0) {
     console.error("pg_ctl start failed:", r.stderr || r.stdout);
     process.exit(1);
@@ -113,7 +120,10 @@ try {
   // ---------------------------------------------------------------- Scenario A
   run("createdb", ["-h", sock, "-U", "postgres", "rehearsal_a"]);
   expectOk("A1 baseline (current managed-DB shape) applies", psql("rehearsal_a", ["-f", BASELINE]));
-  expectOk("A2 pending migration applies on baseline (DDL only)", psql("rehearsal_a", ["-f", PENDING]));
+  expectOk(
+    "A2 pending migration applies on baseline (DDL only)",
+    psql("rehearsal_a", ["-f", PENDING]),
+  );
   expectFail(
     "A3 anonymous/unowned execute is refused before any resolution (fail-closed)",
     psql("rehearsal_a", [
@@ -141,15 +151,18 @@ try {
         AND indexdef ILIKE 'CREATE UNIQUE INDEX%(subject_id, slug)'`,
   );
 
-
-
-
   // ---------------------------------------------------------------- Scenario B
   run("createdb", ["-h", sock, "-U", "postgres", "rehearsal_b"]);
   expectOk("B1 baseline applies", psql("rehearsal_b", ["-f", BASELINE]));
   expectOk("B2 content-html prerequisite delta applies", psql("rehearsal_b", ["-f", PREREQ]));
-  expectOk("B3 pending migration applies on the complete chain", psql("rehearsal_b", ["-f", PENDING]));
-  expectOk("B4 pending migration is re-appliable (idempotent)", psql("rehearsal_b", ["-f", PENDING]));
+  expectOk(
+    "B3 pending migration applies on the complete chain",
+    psql("rehearsal_b", ["-f", PENDING]),
+  );
+  expectOk(
+    "B4 pending migration is re-appliable (idempotent)",
+    psql("rehearsal_b", ["-f", PENDING]),
+  );
 
   const objectCheck = psql("rehearsal_b", [
     "-tA",
@@ -183,7 +196,10 @@ try {
   expectOk("C3 fresh rebuild: pending migration", psql("rehearsal_c", ["-f", PENDING]));
   expectOk(
     "C4 teardown rehearsal (DROP SCHEMA public CASCADE)",
-    psql("rehearsal_c", ["-c", "DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP SCHEMA auth CASCADE;"]),
+    psql("rehearsal_c", [
+      "-c",
+      "DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP SCHEMA auth CASCADE;",
+    ]),
   );
   expectOk("C5 rebuild after teardown: baseline", psql("rehearsal_c", ["-f", BASELINE]));
   expectOk("C6 rebuild after teardown: prerequisite", psql("rehearsal_c", ["-f", PREREQ]));
@@ -191,8 +207,7 @@ try {
 
   // ---------------------------------------------------------------- Scenario D
   // Order independence between the pending migration and the content_html chain.
-  const NORMALIZER =
-    `SELECT md5(pg_get_functiondef(p.oid)) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+  const NORMALIZER = `SELECT md5(pg_get_functiondef(p.oid)) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
       WHERE n.nspname='public' AND p.proname='normalize_resource_code'`;
 
   run("createdb", ["-h", sock, "-U", "postgres", "rehearsal_d1"]);
@@ -208,8 +223,13 @@ try {
   const d1 = psql("rehearsal_d1", ["-tA", "-c", NORMALIZER]).stdout.trim();
   const d2 = psql("rehearsal_d2", ["-tA", "-c", NORMALIZER]).stdout.trim();
   const converged = d1.length > 0 && d1 === d2;
-  results.push(["D7 both orders converge on one normalize_resource_code", converged ? "PASS" : "FAIL"]);
-  console.log(`[${converged ? "PASS" : "FAIL"}] D7 both orders converge on one normalize_resource_code`);
+  results.push([
+    "D7 both orders converge on one normalize_resource_code",
+    converged ? "PASS" : "FAIL",
+  ]);
+  console.log(
+    `[${converged ? "PASS" : "FAIL"}] D7 both orders converge on one normalize_resource_code`,
+  );
   expectOk("D8 order A runtime smoke", psql("rehearsal_d1", ["-f", SMOKE]));
   expectOk("D9 order B runtime smoke", psql("rehearsal_d2", ["-f", SMOKE]));
 
@@ -232,7 +252,6 @@ try {
     `SELECT count(*) = 0 FROM pg_tables WHERE schemaname='public' AND tablename IN ('import_staging_rows','content_review_state')`,
   );
 } finally {
-
   if (started) run("pg_ctl", ["-D", dataDir, "-m", "immediate", "-w", "stop"]);
   rmSync(dataDir, { recursive: true, force: true });
   rmSync(sock, { recursive: true, force: true });

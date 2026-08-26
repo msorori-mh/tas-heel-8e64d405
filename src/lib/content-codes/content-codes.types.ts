@@ -94,7 +94,6 @@ export interface ContextTemplateRequest {
   branchNames?: string[];
 }
 
-
 export interface ContextTemplateResponse {
   filename: string;
   fileBase64: string;

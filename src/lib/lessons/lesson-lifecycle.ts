@@ -171,7 +171,6 @@ export async function fetchStudentLessonVisibility(
   return map;
 }
 
-
 export async function transitionCapability(input: {
   lessonId: string;
   capability: LessonContentCapabilityKey;

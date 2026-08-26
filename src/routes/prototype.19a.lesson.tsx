@@ -12,7 +12,6 @@ import { StructuredTextbookReader } from "@/components/lessons/StructuredTextboo
 import { PILOT_20A1B_DOCUMENT } from "@/lib/content/official-textbook/structured-blocks";
 import officialBookImage from "@/assets/prototype/fm-v2-official-book.png";
 
-
 /**
  * TAMKEEN_FOCUSED_MOMENTUM_V2_PROTOTYPE_19A — Lesson screen.
  * Renders the approved 20A1B structured document verbatim inside the
@@ -79,11 +78,9 @@ function LessonPrototype() {
         />
       </header>
 
-
       <section className="fm-card fm-read py-4">
         <StructuredTextbookReader document={doc} />
       </section>
-
 
       <section className="mt-4">
         <h2 className="mb-2 text-[15px] font-bold text-foreground">أنشطة هذا الدرس</h2>

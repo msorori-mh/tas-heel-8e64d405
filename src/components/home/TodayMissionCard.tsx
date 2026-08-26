@@ -3,13 +3,7 @@ import { Target, ChevronLeft } from "lucide-react";
 import type { ContinueItem } from "@/hooks/use-home-dashboard";
 
 /** Step 2: one concrete action for today, derived from the latest activity. */
-export function TodayMissionCard({
-  items,
-  loading,
-}: {
-  items: ContinueItem[];
-  loading?: boolean;
-}) {
+export function TodayMissionCard({ items, loading }: { items: ContinueItem[]; loading?: boolean }) {
   const next = items.find((i) => !i.completed) ?? items[0];
 
   return (

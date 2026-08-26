@@ -26,7 +26,14 @@ async function makePackage(
     "01_subjects_template.xlsx": {
       headers: ["subject_code", "name", "grade_slug", "color", "icon", "sort_order"],
       rows: [
-        ["islam-g10-sira", "التربية الإسلامية - السيرة النبوية", "grade-10", "#27ae60", "BookOpen", 2],
+        [
+          "islam-g10-sira",
+          "التربية الإسلامية - السيرة النبوية",
+          "grade-10",
+          "#27ae60",
+          "BookOpen",
+          2,
+        ],
         ["math-g10", "الرياضيات", "grade-10", "#111111", "BookOpen", 9],
       ],
     },
@@ -69,16 +76,18 @@ async function makePackage(
         "grading_mode",
         "model_answer",
       ],
-      rows: [[
-        "islam-g10-book-q1",
-        "islam-g10-sira",
-        "islam-g10-u1-l1",
-        "تعليل",
-        "علل ما سبق.",
-        "LONG_TEXT",
-        "MANUAL",
-        "الإجابة النموذجية.",
-      ]],
+      rows: [
+        [
+          "islam-g10-book-q1",
+          "islam-g10-sira",
+          "islam-g10-u1-l1",
+          "تعليل",
+          "علل ما سبق.",
+          "LONG_TEXT",
+          "MANUAL",
+          "الإجابة النموذجية.",
+        ],
+      ],
     },
     "10_self_test_questions_template.xlsx": {
       headers: [
@@ -91,16 +100,18 @@ async function makePackage(
         "correct_index",
         "explanation",
       ],
-      rows: [[
-        "islam-g10-q1",
-        "islam-g10-sira",
-        "islam-g10-u1-l1",
-        "اختر الإجابة الصحيحة.",
-        "أ",
-        "ب",
-        1,
-        "الخيار الأول هو الصحيح.",
-      ]],
+      rows: [
+        [
+          "islam-g10-q1",
+          "islam-g10-sira",
+          "islam-g10-u1-l1",
+          "اختر الإجابة الصحيحة.",
+          "أ",
+          "ب",
+          1,
+          "الخيار الأول هو الصحيح.",
+        ],
+      ],
     },
     ...overrides,
   };
@@ -131,7 +142,9 @@ test("approved grouped subject names pass with no naming warnings", async () => 
   try {
     const report = await validateContentPackage(dir);
     assert.equal(report.ok, true, JSON.stringify(report.errors));
-    const naming = codes(report.warnings).filter((c) => c.startsWith("NONSTANDARD") || c === "PARENT_SPELLING_MISMATCH");
+    const naming = codes(report.warnings).filter(
+      (c) => c.startsWith("NONSTANDARD") || c === "PARENT_SPELLING_MISMATCH",
+    );
     assert.deepEqual(naming, []);
   } finally {
     rmSync(dir, { recursive: true, force: true });

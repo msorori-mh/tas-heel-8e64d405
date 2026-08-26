@@ -17,7 +17,6 @@ import {
 } from "./golden-lesson-file-contract.ts";
 import { parseGoldenLessonManifest, previewGoldenLessonStaging } from "./golden-lesson-staging.ts";
 
-
 export const GOLDEN_BUNDLE_LIMITS = {
   maxCompressedBytes: 50 * 1024 * 1024,
   maxUncompressedBytes: 50 * 1024 * 1024,
@@ -36,7 +35,6 @@ export interface VerifiedGoldenLessonBundle {
   files: VerifiedGoldenLessonFile[];
   assets: GoldenLessonAsset[];
 }
-
 
 export interface VerifiedGoldenLessonFile {
   path: string;
@@ -59,12 +57,30 @@ function u16(bytes: Uint8Array, offset: number): number {
 }
 
 function u32(bytes: Uint8Array, offset: number): number {
-  return (bytes[offset]! | (bytes[offset + 1]! << 8) | (bytes[offset + 2]! << 16) | (bytes[offset + 3]! << 24)) >>> 0;
+  return (
+    (bytes[offset]! |
+      (bytes[offset + 1]! << 8) |
+      (bytes[offset + 2]! << 16) |
+      (bytes[offset + 3]! << 24)) >>>
+    0
+  );
 }
 
 function safeLeafName(name: string): boolean {
-  return name.length > 0 && name.length <= 255 && name !== "." && name !== ".." &&
-    !/[\\/\u0000-\u001f]/u.test(name) && name.normalize("NFC") === name;
+  const hasUnsafeCharacter = Array.from(name).some((character) => {
+    const codePoint = character.codePointAt(0);
+    return (
+      character === "/" || character === "\\" || (codePoint !== undefined && codePoint <= 0x1f)
+    );
+  });
+  return (
+    name.length > 0 &&
+    name.length <= 255 &&
+    name !== "." &&
+    name !== ".." &&
+    !hasUnsafeCharacter &&
+    name.normalize("NFC") === name
+  );
 }
 
 function scanCentralDirectory(bytes: Uint8Array): CentralEntry[] {
@@ -73,12 +89,20 @@ function scanCentralDirectory(bytes: Uint8Array): CentralEntry[] {
   const minimum = Math.max(0, bytes.byteLength - 65_557);
   let eocd = -1;
   for (let offset = bytes.byteLength - 22; offset >= minimum; offset -= 1) {
-    if (u32(bytes, offset) === 0x06054b50) { eocd = offset; break; }
+    if (u32(bytes, offset) === 0x06054b50) {
+      eocd = offset;
+      break;
+    }
   }
   if (eocd < 0) fail("ZIP_EOCD_MISSING");
   if (u16(bytes, eocd + 4) !== 0 || u16(bytes, eocd + 6) !== 0) fail("ZIP_MULTIDISK_FORBIDDEN");
   const count = u16(bytes, eocd + 10);
-  if (count === 0xffff || u32(bytes, eocd + 12) === 0xffffffff || u32(bytes, eocd + 16) === 0xffffffff) fail("ZIP64_FORBIDDEN");
+  if (
+    count === 0xffff ||
+    u32(bytes, eocd + 12) === 0xffffffff ||
+    u32(bytes, eocd + 16) === 0xffffffff
+  )
+    fail("ZIP64_FORBIDDEN");
   if (count === 0 || count > GOLDEN_BUNDLE_LIMITS.maxEntries) fail("ZIP_ENTRY_COUNT_INVALID");
   const directorySize = u32(bytes, eocd + 12);
   const directoryOffset = u32(bytes, eocd + 16);
@@ -104,10 +128,14 @@ function scanCentralDirectory(bytes: Uint8Array): CentralEntry[] {
     const next = nameStart + nameLength + extraLength + commentLength;
     if (nameLength === 0 || next > directoryOffset + directorySize) fail("ZIP_ENTRY_BOUNDS");
     const nameBytes = bytes.subarray(nameStart, nameStart + nameLength);
-    if ((flags & 0x800) === 0 && nameBytes.some((byte) => byte > 0x7f)) fail("ZIP_FILENAME_ENCODING_AMBIGUOUS");
+    if ((flags & 0x800) === 0 && nameBytes.some((byte) => byte > 0x7f))
+      fail("ZIP_FILENAME_ENCODING_AMBIGUOUS");
     let name: string;
-    try { name = decoder.decode(nameBytes); }
-    catch { fail("ZIP_FILENAME_UTF8_INVALID"); }
+    try {
+      name = decoder.decode(nameBytes);
+    } catch {
+      fail("ZIP_FILENAME_UTF8_INVALID");
+    }
     if (!safeLeafName(name)) fail("ZIP_PATH_UNSAFE");
     const key = name.normalize("NFKC").toLocaleLowerCase("en-US");
     if (normalized.has(key)) fail("ZIP_PATH_DUPLICATE");
@@ -115,7 +143,11 @@ function scanCentralDirectory(bytes: Uint8Array): CentralEntry[] {
     const unixMode = (externalAttributes >>> 16) & 0xf000;
     if (unixMode === 0xa000) fail("ZIP_SYMLINK_FORBIDDEN");
     if (uncompressedSize > GOLDEN_BUNDLE_LIMITS.maxEntryBytes) fail("ZIP_ENTRY_SIZE_LIMIT");
-    if (compressedSize === 0 ? uncompressedSize > 0 : uncompressedSize / compressedSize > GOLDEN_BUNDLE_LIMITS.maxCompressionRatio) {
+    if (
+      compressedSize === 0
+        ? uncompressedSize > 0
+        : uncompressedSize / compressedSize > GOLDEN_BUNDLE_LIMITS.maxCompressionRatio
+    ) {
       fail("ZIP_COMPRESSION_RATIO_LIMIT");
     }
     entries.push({ name, compressedSize, uncompressedSize });
@@ -131,32 +163,51 @@ function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-export async function verifyGoldenLessonBundle(input: Uint8Array): Promise<VerifiedGoldenLessonBundle> {
+export async function verifyGoldenLessonBundle(
+  input: Uint8Array,
+): Promise<VerifiedGoldenLessonBundle> {
   const entries = scanCentralDirectory(input);
   let zip: JSZip;
-  try { zip = await JSZip.loadAsync(input, { checkCRC32: true, createFolders: false }); }
-  catch { fail("ZIP_CRC_OR_STRUCTURE_INVALID"); }
+  try {
+    zip = await JSZip.loadAsync(input, { checkCRC32: true, createFolders: false });
+  } catch {
+    fail("ZIP_CRC_OR_STRUCTURE_INVALID");
+  }
   const manifestEntry = zip.file("manifest.json");
   if (!manifestEntry) fail("MANIFEST_MISSING");
   const manifestBytes = await manifestEntry.async("uint8array");
   let manifest: GoldenLessonPackage;
-  try { manifest = parseGoldenLessonManifest(new TextDecoder("utf-8", { fatal: true }).decode(manifestBytes)) as GoldenLessonPackage; }
-  catch { fail("MANIFEST_INVALID"); }
+  try {
+    manifest = parseGoldenLessonManifest(
+      new TextDecoder("utf-8", { fatal: true }).decode(manifestBytes),
+    ) as GoldenLessonPackage;
+  } catch {
+    fail("MANIFEST_INVALID");
+  }
   if (!previewGoldenLessonStaging(manifest).valid) fail("MANIFEST_SERVER_VALIDATION_FAILED");
 
   const expectedHashes = new Map<string, string>();
   for (const artifact of manifest.artifacts) {
-    if (artifact.sourcePath && artifact.sha256) expectedHashes.set(artifact.sourcePath, artifact.sha256);
-    if (artifact.provenancePath && artifact.provenanceSha256) expectedHashes.set(artifact.provenancePath, artifact.provenanceSha256);
+    if (artifact.sourcePath && artifact.sha256)
+      expectedHashes.set(artifact.sourcePath, artifact.sha256);
+    if (artifact.provenancePath && artifact.provenanceSha256)
+      expectedHashes.set(artifact.provenancePath, artifact.provenanceSha256);
   }
   // CF11: declared supplemental assets participate in file-set equality and hash pinning.
   const assets: GoldenLessonAsset[] = Array.isArray(manifest.assets) ? manifest.assets : [];
   for (const asset of assets) expectedHashes.set(asset.path, asset.sha256);
   if (manifest.security.answersCompanionPath && manifest.security.answersCompanionSha256) {
-    expectedHashes.set(manifest.security.answersCompanionPath, manifest.security.answersCompanionSha256);
+    expectedHashes.set(
+      manifest.security.answersCompanionPath,
+      manifest.security.answersCompanionSha256,
+    );
   }
   const expectedNames = new Set(["manifest.json", ...expectedHashes.keys()]);
-  if (entries.length !== expectedNames.size || entries.some((entry) => !expectedNames.has(entry.name))) fail("ZIP_FILE_SET_MISMATCH");
+  if (
+    entries.length !== expectedNames.size ||
+    entries.some((entry) => !expectedNames.has(entry.name))
+  )
+    fail("ZIP_FILE_SET_MISMATCH");
   const files: VerifiedGoldenLessonFile[] = [];
   const bytesByPath = new Map<string, Uint8Array>();
   for (const [name, expected] of expectedHashes) {
@@ -181,7 +232,8 @@ export async function verifyGoldenLessonBundle(input: Uint8Array): Promise<Verif
     );
     if (!validation.valid) fail(validation.findings[0]?.code ?? "ARTIFACT_CONTENT_INVALID");
   }
-  const artifactInputs: Partial<Record<GoldenCapability, { fileName: string; bytes: Uint8Array }>> = {};
+  const artifactInputs: Partial<Record<GoldenCapability, { fileName: string; bytes: Uint8Array }>> =
+    {};
   for (const artifact of manifest.artifacts) {
     if (!artifact.sourcePath) continue;
     const bytes = bytesByPath.get(artifact.sourcePath);
@@ -215,8 +267,11 @@ export async function verifyGoldenLessonBundle(input: Uint8Array): Promise<Verif
     const bytes = bytesByPath.get(artifact.sourcePath);
     if (!bytes) fail("ZIP_EXPECTED_FILE_MISSING");
     let html: string;
-    try { html = decoder.decode(bytes); }
-    catch { fail("HTML_UTF8_INVALID"); }
+    try {
+      html = decoder.decode(bytes);
+    } catch {
+      fail("HTML_UTF8_INVALID");
+    }
     const findings = scanHtmlAssetReferences(artifact.sourcePath, html, declaredLeaves);
     if (findings.length > 0) fail(findings[0]!.code);
   }

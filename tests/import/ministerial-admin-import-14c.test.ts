@@ -19,7 +19,10 @@ import {
 } from "../../src/lib/ministerial/ministerial-import-contract";
 
 const MIGRATION = readFileSync(
-  resolve(__dirname, "../../supabase/migrations-pending/20260814030000_ministerial_admin_import_14c.sql"),
+  resolve(
+    __dirname,
+    "../../supabase/migrations-pending/20260814030000_ministerial_admin_import_14c.sql",
+  ),
   "utf8",
 );
 
@@ -59,15 +62,25 @@ describe("M01/M02 contract", () => {
   });
 
   it("rejects any answer-bearing column in M02", () => {
-    for (const col of ["correct_answer", "correct_index", "explanation", "solution", "options", "question_text"]) {
-      expect(() => assertNoForbiddenM02Columns(["question_code", col])).toThrowError(MinisterialContractError);
+    for (const col of [
+      "correct_answer",
+      "correct_index",
+      "explanation",
+      "solution",
+      "options",
+      "question_text",
+    ]) {
+      expect(() => assertNoForbiddenM02Columns(["question_code", col])).toThrowError(
+        MinisterialContractError,
+      );
     }
     expect(() => assertNoForbiddenM02Columns([...M02_COLUMNS])).not.toThrow();
   });
 
   it("reports missing required columns", () => {
-    expect(() => assertRequiredColumns(["subject_code"], M01_REQUIRED_COLUMNS, MINISTERIAL_TEMPLATE_KEYS.m01))
-      .toThrowError(/track_code/);
+    expect(() =>
+      assertRequiredColumns(["subject_code"], M01_REQUIRED_COLUMNS, MINISTERIAL_TEMPLATE_KEYS.m01),
+    ).toThrowError(/track_code/);
   });
 });
 
@@ -85,7 +98,12 @@ describe("TCS-2 ministerial code generation", () => {
   });
 
   it("keeps sanaa and aden models distinct for a shared subject", () => {
-    const base = { subjectCode: "sub-g12-001", academicYear: 2025, roundCode: "r1", variantCode: "main" };
+    const base = {
+      subjectCode: "sub-g12-001",
+      academicYear: 2025,
+      roundCode: "r1",
+      variantCode: "main",
+    };
     expect(buildMinisterialModelCode({ ...base, trackCode: "sanaa" })).not.toBe(
       buildMinisterialModelCode({ ...base, trackCode: "aden" }),
     );
@@ -104,7 +122,13 @@ describe("TCS-2 ministerial code generation", () => {
   });
 
   it("rejects invalid round, variant, track and year", () => {
-    const base = { subjectCode: "sub-g12-001", trackCode: "sanaa", academicYear: 2025, roundCode: "r1", variantCode: "main" };
+    const base = {
+      subjectCode: "sub-g12-001",
+      trackCode: "sanaa",
+      academicYear: 2025,
+      roundCode: "r1",
+      variantCode: "main",
+    };
     expect(() => buildMinisterialModelCode({ ...base, roundCode: "r9" })).toThrow();
     expect(() => buildMinisterialModelCode({ ...base, variantCode: "النموذج أ" })).toThrow();
     expect(() => buildMinisterialModelCode({ ...base, trackCode: "taiz" })).toThrow();
@@ -116,23 +140,39 @@ describe("pending migration 14C.2 closes the blockers", () => {
   it("B-1: publish requires a separate capability, never is_content_staff", () => {
     expect(MIGRATION).toContain("PUBLISH_MINISTERIAL_MODEL");
     expect(MIGRATION).toMatch(/can_publish_ministerial_exams\(v_actor\)/);
-    const publishBody = MIGRATION.slice(MIGRATION.indexOf("FUNCTION public.publish_ministerial_model"));
+    const publishBody = MIGRATION.slice(
+      MIGRATION.indexOf("FUNCTION public.publish_ministerial_model"),
+    );
     expect(publishBody.slice(0, 1500)).not.toMatch(/is_content_staff\(v_actor\)/);
   });
 
   it("B-2: publish parity compares pinned published revisions", () => {
-    expect(MIGRATION).toContain("q.current_published_revision_id IS DISTINCT FROM mq.published_revision_id");
+    expect(MIGRATION).toContain(
+      "q.current_published_revision_id IS DISTINCT FROM mq.published_revision_id",
+    );
     expect(MIGRATION).toMatch(/v_template\.is_active IS NOT TRUE/);
   });
 
   it("B-3: direct DML is revoked; writes are RPC-only", () => {
-    expect(MIGRATION).toContain("REVOKE INSERT, UPDATE, DELETE ON public.ministerial_exam_models FROM authenticated");
-    expect(MIGRATION).toContain("REVOKE INSERT, UPDATE, DELETE ON public.ministerial_exam_questions FROM authenticated");
-    expect(MIGRATION).not.toMatch(/CREATE POLICY[^;]*ministerial_exam_questions[\s\S]{0,120}FOR ALL/);
+    expect(MIGRATION).toContain(
+      "REVOKE INSERT, UPDATE, DELETE ON public.ministerial_exam_models FROM authenticated",
+    );
+    expect(MIGRATION).toContain(
+      "REVOKE INSERT, UPDATE, DELETE ON public.ministerial_exam_questions FROM authenticated",
+    );
+    expect(MIGRATION).not.toMatch(
+      /CREATE POLICY[^;]*ministerial_exam_questions[\s\S]{0,120}FOR ALL/,
+    );
   });
 
   it("B-4: model_label and M02 metadata columns exist", () => {
-    for (const col of ["model_label", "original_question_number", "section_code", "source_page", "source_reference"]) {
+    for (const col of [
+      "model_label",
+      "original_question_number",
+      "section_code",
+      "source_page",
+      "source_reference",
+    ]) {
       expect(MIGRATION).toContain(col);
     }
   });
@@ -154,7 +194,9 @@ describe("pending migration 14C.2 closes the blockers", () => {
   });
 
   it("membership import is additive and removal is an explicit guarded op", () => {
-    expect(MIGRATION).not.toMatch(/DELETE FROM public\.ministerial_exam_questions[\s\S]{0,200}NOT IN/);
+    expect(MIGRATION).not.toMatch(
+      /DELETE FROM public\.ministerial_exam_questions[\s\S]{0,200}NOT IN/,
+    );
     expect(MIGRATION).toContain("ministerial_membership_remove_preview");
     expect(MIGRATION).toContain("MINISTERIAL_REMOVAL_REASON_REQUIRED");
     expect(MIGRATION).toContain("MINISTERIAL_REMOVAL_BLOCKED_SESSIONS_EXIST");
@@ -166,9 +208,13 @@ describe("pending migration 14C.2 closes the blockers", () => {
     for (const chunk of definers) {
       expect(chunk.slice(0, 120)).toContain("SET search_path = public, pg_temp");
     }
-    const fnNames = [...MIGRATION.matchAll(/GRANT EXECUTE ON FUNCTION public\.(\w+)/g)].map((m) => m[1]);
+    const fnNames = [...MIGRATION.matchAll(/GRANT EXECUTE ON FUNCTION public\.(\w+)/g)].map(
+      (m) => m[1],
+    );
     for (const fn of new Set(fnNames)) {
-      expect(MIGRATION).toMatch(new RegExp(`REVOKE ALL ON FUNCTION public\\.${fn}\\([^)]*\\) FROM anon`));
+      expect(MIGRATION).toMatch(
+        new RegExp(`REVOKE ALL ON FUNCTION public\\.${fn}\\([^)]*\\) FROM anon`),
+      );
     }
   });
 

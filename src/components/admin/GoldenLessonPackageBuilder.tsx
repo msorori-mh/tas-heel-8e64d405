@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, BookOpen, CheckCircle2, Download, Eye, FileCheck2, Loader2, Trash2, UploadCloud } from "lucide-react";
+import {
+  AlertCircle,
+  BookOpen,
+  CheckCircle2,
+  Download,
+  Eye,
+  FileCheck2,
+  Loader2,
+  Trash2,
+  UploadCloud,
+} from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -257,7 +267,10 @@ function ArabicMultiFilePicker({
           void onFiles(files);
         }}
       />
-      <Label htmlFor={id} className="inline-flex min-h-[36px] cursor-pointer items-center rounded-md border px-3 text-sm font-medium hover:bg-accent">
+      <Label
+        htmlFor={id}
+        className="inline-flex min-h-[36px] cursor-pointer items-center rounded-md border px-3 text-sm font-medium hover:bg-accent"
+      >
         اختيار ملفات
       </Label>
       <span className="text-xs text-muted-foreground">
@@ -269,8 +282,7 @@ function ArabicMultiFilePicker({
 
 /** يحوّل رموز مخالفات المعيار إلى جمل تصحيحية واضحة للمستخدم. */
 const ARTIFACT_FIX_HINTS: Record<string, string> = {
-  RTL_DIRECTION_MISSING:
-    'الملف لا يحتوي dir="rtl" — أضِف السمة إلى وسم <html> ثم أعد الرفع.',
+  RTL_DIRECTION_MISSING: 'الملف لا يحتوي dir="rtl" — أضِف السمة إلى وسم <html> ثم أعد الرفع.',
   RESPONSIVE_VIEWPORT_MISSING:
     'وسم viewport مفقود — أضِف <meta name="viewport" content="width=device-width, initial-scale=1"> داخل <head>.',
   JS_NOT_ALLOWED_IN_STATIC_PROFILE:
@@ -325,26 +337,35 @@ async function buildSupplementalAssetDeclarations(
       throw new Error(`حجم الأصل خارج النطاق المسموح: ${file.name}`);
     }
     const bytes = new Uint8Array(await file.arrayBuffer());
-    if (!assetMagicMatches(file.type, bytes)) throw new Error(`توقيع الملف لا يطابق نوعه: ${file.name}`);
+    if (!assetMagicMatches(file.type, bytes))
+      throw new Error(`توقيع الملف لا يطابق نوعه: ${file.name}`);
 
     const referencedBy: GoldenCapability[] = [];
     let altTextAr = "";
     for (const source of htmlSources) {
       const document = new DOMParser().parseFromString(source.html, "text/html");
-      const matchingImage = Array.from(document.querySelectorAll("img"))
-        .find((image) => image.getAttribute("src") === file.name);
-      const matchingLink = Array.from(document.querySelectorAll("[href], [src]"))
-        .some((element) => element.getAttribute("href") === file.name || element.getAttribute("src") === file.name);
+      const matchingImage = Array.from(document.querySelectorAll("img")).find(
+        (image) => image.getAttribute("src") === file.name,
+      );
+      const matchingLink = Array.from(document.querySelectorAll("[href], [src]")).some(
+        (element) =>
+          element.getAttribute("href") === file.name || element.getAttribute("src") === file.name,
+      );
       if (matchingImage || matchingLink) {
         referencedBy.push(source.capability);
         altTextAr ||= matchingImage?.getAttribute("alt")?.trim() ?? "";
       }
     }
-    if (referencedBy.length === 0) throw new Error(`الأصل غير مشار إليه من أي ملف HTML: ${file.name}`);
-    if (altTextAr.length < 3) throw new Error(`النص البديل العربي مفقود في HTML للأصل: ${file.name}`);
+    if (referencedBy.length === 0)
+      throw new Error(`الأصل غير مشار إليه من أي ملف HTML: ${file.name}`);
+    if (altTextAr.length < 3)
+      throw new Error(`النص البديل العربي مفقود في HTML للأصل: ${file.name}`);
 
-    const stem = file.name.replace(/\.[^.]+$/, "").toUpperCase()
-      .replace(/[^A-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const stem = file.name
+      .replace(/\.[^.]+$/, "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
     const assetCode = (stem.length >= 3 ? stem : `ASSET-${stem || "FILE"}`).slice(0, 64);
     next.push({
       assetCode,
@@ -427,8 +448,14 @@ async function writeLocalLessonDraft(draft: LocalLessonDraft): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(LOCAL_DRAFT_STORE, "readwrite");
     transaction.objectStore(LOCAL_DRAFT_STORE).put(draft);
-    transaction.oncomplete = () => { db.close(); resolve(); };
-    transaction.onerror = () => { db.close(); reject(transaction.error ?? new Error("LOCAL_DRAFT_WRITE_FAILED")); };
+    transaction.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    transaction.onerror = () => {
+      db.close();
+      reject(transaction.error ?? new Error("LOCAL_DRAFT_WRITE_FAILED"));
+    };
   });
 }
 
@@ -437,8 +464,14 @@ async function removeLocalLessonDraft(lessonCode: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(LOCAL_DRAFT_STORE, "readwrite");
     transaction.objectStore(LOCAL_DRAFT_STORE).delete(lessonCode);
-    transaction.oncomplete = () => { db.close(); resolve(); };
-    transaction.onerror = () => { db.close(); reject(transaction.error ?? new Error("LOCAL_DRAFT_DELETE_FAILED")); };
+    transaction.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    transaction.onerror = () => {
+      db.close();
+      reject(transaction.error ?? new Error("LOCAL_DRAFT_DELETE_FAILED"));
+    };
   });
 }
 
@@ -452,13 +485,19 @@ export function GoldenLessonPackageBuilder() {
   const [selectedUnitCode, setSelectedUnitCode] = useState("");
   const [selectedLessonCode, setSelectedLessonCode] = useState("");
   const [uploads, setUploads] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
-  const [internalProvenance, setInternalProvenance] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
-  const [answerSets, setAnswerSets] = useState<Partial<Record<"selfTest" | "officialBookQuestions", Array<Record<string, unknown>>>>>({});
+  const [internalProvenance, setInternalProvenance] = useState<
+    Partial<Record<GoldenCapability, UploadedArtifact>>
+  >({});
+  const [answerSets, setAnswerSets] = useState<
+    Partial<Record<"selfTest" | "officialBookQuestions", Array<Record<string, unknown>>>>
+  >({});
   const [answersCompanion, setAnswersCompanion] = useState<UploadedArtifact | null>(null);
   const [supplementalAssets, setSupplementalAssets] = useState<UploadedSupplementalAsset[]>([]);
   const [hashing, setHashing] = useState<GoldenCapability | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [capabilityErrors, setCapabilityErrors] = useState<Partial<Record<GoldenCapability, string[]>>>({});
+  const [capabilityErrors, setCapabilityErrors] = useState<
+    Partial<Record<GoldenCapability, string[]>>
+  >({});
   const [templateBusy, setTemplateBusy] = useState<GoldenCapability | null>(null);
   const [validation, setValidation] = useState<GoldenLessonValidationResult | null>(null);
   const [intake, setIntake] = useState<DirectIntakeResult | null>(null);
@@ -487,7 +526,9 @@ export function GoldenLessonPackageBuilder() {
       .finally(() => {
         if (active) setRegistryLoading(false);
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -519,18 +560,21 @@ export function GoldenLessonPackageBuilder() {
   }, [registry]);
 
   const availableTracks = useMemo(
-    () => (registry?.tracks ?? []).filter((track) =>
-      track.trackCode === "sanaa" || track.trackCode === "aden"
-    ),
+    () =>
+      (registry?.tracks ?? []).filter(
+        (track) => track.trackCode === "sanaa" || track.trackCode === "aden",
+      ),
     [registry],
   );
   const subjects = useMemo(
-    () => (registry?.subjects ?? []).filter((subject) =>
-      (!gradeSlug || subject.gradeSlug === gradeSlug) &&
-      (selectedTrackCodes.length === 0 ||
-        selectedTrackCodes.every((code) => subject.trackCodes.includes(code))) &&
-      subject.isOfficialCode
-    ),
+    () =>
+      (registry?.subjects ?? []).filter(
+        (subject) =>
+          (!gradeSlug || subject.gradeSlug === gradeSlug) &&
+          (selectedTrackCodes.length === 0 ||
+            selectedTrackCodes.every((code) => subject.trackCodes.includes(code))) &&
+          subject.isOfficialCode,
+      ),
     [registry, gradeSlug, selectedTrackCodes],
   );
   const units = useMemo(
@@ -538,23 +582,32 @@ export function GoldenLessonPackageBuilder() {
     [registry, selectedSubjectCode],
   );
   const lessons = useMemo(
-    () => (registry?.lessons ?? []).filter((lesson) =>
-      lesson.subjectCode === selectedSubjectCode &&
-      (selectedUnitCode ? lesson.unitCode === selectedUnitCode : lesson.unitCode === null)
-    ),
+    () =>
+      (registry?.lessons ?? []).filter(
+        (lesson) =>
+          lesson.subjectCode === selectedSubjectCode &&
+          (selectedUnitCode ? lesson.unitCode === selectedUnitCode : lesson.unitCode === null),
+      ),
     [registry, selectedSubjectCode, selectedUnitCode],
   );
-  const selectedSubject = subjects.find((subject) => subject.subjectCode === selectedSubjectCode) ?? null;
+  const selectedSubject =
+    subjects.find((subject) => subject.subjectCode === selectedSubjectCode) ?? null;
   const selectedLesson = lessons.find((lesson) => lesson.lessonCode === selectedLessonCode) ?? null;
   const profileId = selectedSubject
-    ? (/قرآن/.test(selectedSubject.name) ? GOLDEN_QURAN_V1.id : GOLDEN_CHEMISTRY_V1.id)
+    ? /قرآن/.test(selectedSubject.name)
+      ? GOLDEN_QURAN_V1.id
+      : GOLDEN_CHEMISTRY_V1.id
     : "";
   const profile = getGoldenLessonProfile(profileId);
   // System-owned codes arrive lowercase (TCS-2). The package contract requires
   // stable uppercase Latin identifiers, so normalize here instead of asking the
   // operator to retype anything.
   const toContractCode = (value: string) =>
-    value.trim().toUpperCase().replace(/[^A-Z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+    value
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
   const rawLessonCode = selectedLesson?.lessonCode ?? "";
   const packageCode = rawLessonCode ? `${toContractCode(rawLessonCode)}-PKG` : "";
   const gradeCode = toContractCode(gradeSlug);
@@ -572,14 +625,21 @@ export function GoldenLessonPackageBuilder() {
   // Legacy lesson rows may not have these operational fields yet. Derive stable
   // intake values locally so the operator is never sent to another page mid-flow.
   const semester = String(selectedLesson?.semester ?? 1);
-  const selectedLessonIndex = lessons.findIndex((lesson) => lesson.lessonCode === selectedLessonCode);
+  const selectedLessonIndex = lessons.findIndex(
+    (lesson) => lesson.lessonCode === selectedLessonCode,
+  );
   const existingSortOrder = selectedLesson?.sortOrder ?? 0;
   const sortOrder = String(
     existingSortOrder > 0 ? existingSortOrder : Math.max(1, selectedLessonIndex + 1),
   );
   const canonicalIdentityComplete = Boolean(
-    profile && selectedSubject && selectedLesson && gradeCode && selectedTrackCodes.length > 0 &&
-    semester && sortOrder,
+    profile &&
+    selectedSubject &&
+    selectedLesson &&
+    gradeCode &&
+    selectedTrackCodes.length > 0 &&
+    semester &&
+    sortOrder,
   );
 
   useEffect(() => {
@@ -598,15 +658,20 @@ export function GoldenLessonPackageBuilder() {
         setAnswerSets(draft.answerSets);
         setAnswersCompanion(draft.answersCompanion);
         setSupplementalAssets(draft.supplementalAssets);
-        setDraftMessage(`تمت استعادة المسودة المحفوظة تلقائيًا في ${new Date(draft.savedAt).toLocaleString("ar-YE")}.`);
+        setDraftMessage(
+          `تمت استعادة المسودة المحفوظة تلقائيًا في ${new Date(draft.savedAt).toLocaleString("ar-YE")}.`,
+        );
       })
       .catch(() => {
-        if (active) setDraftMessage("تعذر استعادة المسودة المحلية؛ يمكنك متابعة الرفع بصورة طبيعية.");
+        if (active)
+          setDraftMessage("تعذر استعادة المسودة المحلية؛ يمكنك متابعة الرفع بصورة طبيعية.");
       })
       .finally(() => {
         if (active) setDraftReady(true);
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [selectedLessonCode]);
 
   const artifacts = useMemo<GoldenLessonArtifact[]>(
@@ -650,7 +715,21 @@ export function GoldenLessonPackageBuilder() {
         htmlNetworkAccess: "NONE",
       },
     }),
-    [profile, packageCode, gradeCode, trackCodes, subjectCode, lessonCode, lessonSlug, unitCode, semester, sortOrder, artifacts, answersCompanion, supplementalAssets],
+    [
+      profile,
+      packageCode,
+      gradeCode,
+      trackCodes,
+      subjectCode,
+      lessonCode,
+      lessonSlug,
+      unitCode,
+      semester,
+      sortOrder,
+      artifacts,
+      answersCompanion,
+      supplementalAssets,
+    ],
   );
 
   useEffect(() => {
@@ -681,9 +760,12 @@ export function GoldenLessonPackageBuilder() {
       setCapabilityError(capability, [`الملف ${file.name} أكبر من 5 ميجابايت.`]);
       return;
     }
-    const duplicate = Object.entries(uploads).some(
-      ([key, item]) => key !== capability && item?.fileName === file.name,
-    ) || answersCompanion?.fileName === file.name || supplementalAssets.some((item) => item.path === file.name);
+    const duplicate =
+      Object.entries(uploads).some(
+        ([key, item]) => key !== capability && item?.fileName === file.name,
+      ) ||
+      answersCompanion?.fileName === file.name ||
+      supplementalAssets.some((item) => item.path === file.name);
     if (duplicate) {
       setCapabilityError(capability, [
         `اسم الملف ${file.name} مستخدم مسبقًا في مكوّن آخر؛ أعد تسميته باسم فريد ثم أعد الرفع.`,
@@ -700,7 +782,10 @@ export function GoldenLessonPackageBuilder() {
       let rowCount: number | undefined;
       let convertedAnswers: Array<Record<string, unknown>> | null = null;
       let convertedActivityAssets: File[] = [];
-      if ((capability === "labExperimentHtml" || capability === "mindMapHtml") && /\.zip$/i.test(file.name)) {
+      if (
+        (capability === "labExperimentHtml" || capability === "mindMapHtml") &&
+        /\.zip$/i.test(file.name)
+      ) {
         try {
           const converted = await convertHtml5ActivityZip(file);
           artifactFile = converted.htmlFile;
@@ -724,7 +809,11 @@ export function GoldenLessonPackageBuilder() {
             Object.entries(answerSets)
               .filter(([key]) => key !== capability)
               .flatMap(([, answers]) => answers ?? [])
-              .map((answer) => String(answer.question_id ?? "").trim().toUpperCase())
+              .map((answer) =>
+                String(answer.question_id ?? "")
+                  .trim()
+                  .toUpperCase(),
+              )
               .filter(Boolean),
           );
           const crossTemplateDuplicates = converted.answers
@@ -742,16 +831,22 @@ export function GoldenLessonPackageBuilder() {
         } catch (excelError) {
           const detail = excelError instanceof Error ? excelError.message : "ملف غير صالح";
           setCapabilityError(capability, [
-            ...detail.split(" | ").map((part) => part.trim()).filter(Boolean),
+            ...detail
+              .split(" | ")
+              .map((part) => part.trim())
+              .filter(Boolean),
             "نزّل القالب المعتمد أعلاه ولا تغيّر أسماء الأعمدة أو اسم الورقة.",
           ]);
           return;
         }
-
       }
 
       const bytes = new Uint8Array(await artifactFile.arrayBuffer());
-      const artifactValidation = validateGoldenLessonArtifactBytes(capability, artifactFile.name, bytes);
+      const artifactValidation = validateGoldenLessonArtifactBytes(
+        capability,
+        artifactFile.name,
+        bytes,
+      );
       if (!artifactValidation.valid) {
         setUploads((current) => {
           const next = { ...current };
@@ -767,13 +862,15 @@ export function GoldenLessonPackageBuilder() {
       const sha256 = await sha256Hex(artifactFile);
       if (GOLDEN_CAPABILITY_AUTHORITY[capability] === "OFFICIAL") {
         const provenanceFile = new File(
-          [JSON.stringify({
-            source: "REGISTERED_SUBJECT_TEXTBOOK",
-            gradeCode: gradeCode.trim().toUpperCase(),
-            subjectCode: subjectCode.trim().toUpperCase(),
-            lessonCode: lessonCode.trim().toUpperCase(),
-            artifactSha256: sha256,
-          })],
+          [
+            JSON.stringify({
+              source: "REGISTERED_SUBJECT_TEXTBOOK",
+              gradeCode: gradeCode.trim().toUpperCase(),
+              subjectCode: subjectCode.trim().toUpperCase(),
+              lessonCode: lessonCode.trim().toUpperCase(),
+              artifactSha256: sha256,
+            }),
+          ],
           `${capability}.system-source.json`,
           { type: "application/json" },
         );
@@ -801,7 +898,12 @@ export function GoldenLessonPackageBuilder() {
         const nextAnswerSets = { ...answerSets, [capability]: convertedAnswers };
         setAnswerSets(nextAnswerSets);
         const answerFile = new File(
-          [JSON.stringify({ reveal: "SERVER_CONTROLLED_REVEAL_ONLY", answers: Object.values(nextAnswerSets).flat() })],
+          [
+            JSON.stringify({
+              reveal: "SERVER_CONTROLLED_REVEAL_ONLY",
+              answers: Object.values(nextAnswerSets).flat(),
+            }),
+          ],
           "answers.server-only.json",
           { type: "application/json" },
         );
@@ -814,12 +916,16 @@ export function GoldenLessonPackageBuilder() {
       }
       setUploads((current) => ({
         ...current,
-        [capability]: { fileName: artifactFile.name, displayName, sha256, file: artifactFile, rowCount },
+        [capability]: {
+          fileName: artifactFile.name,
+          displayName,
+          sha256,
+          file: artifactFile,
+          rowCount,
+        },
       }));
     } catch (error) {
-      setCapabilityError(capability, [
-        error instanceof Error ? error.message : "تعذر فحص الملف.",
-      ]);
+      setCapabilityError(capability, [error instanceof Error ? error.message : "تعذر فحص الملف."]);
     } finally {
       setHashing(null);
     }
@@ -862,8 +968,8 @@ export function GoldenLessonPackageBuilder() {
     setCapabilityError(capability, null);
   };
 
-  const hasSelectedFiles = Object.keys(uploads).length > 0 ||
-    supplementalAssets.length > 0 || Boolean(answersCompanion);
+  const hasSelectedFiles =
+    Object.keys(uploads).length > 0 || supplementalAssets.length > 0 || Boolean(answersCompanion);
 
   const clearSelectedFiles = () => {
     setUploads({});
@@ -883,7 +989,8 @@ export function GoldenLessonPackageBuilder() {
   };
 
   const allowContextChange = () =>
-    !hasSelectedFiles || window.confirm("تغيير الدرس سيزيل الملفات المختارة من المسودة الحالية. هل تريد المتابعة؟");
+    !hasSelectedFiles ||
+    window.confirm("تغيير الدرس سيزيل الملفات المختارة من المسودة الحالية. هل تريد المتابعة؟");
 
   const chooseGrade = (value: string) => {
     if (!allowContextChange()) return;
@@ -932,13 +1039,16 @@ export function GoldenLessonPackageBuilder() {
     clearSelectedFiles();
     setDraftReady(false);
     setSelectedLessonCode(value);
-    window.localStorage.setItem(LAST_CONTEXT_KEY, JSON.stringify({
-      gradeSlug,
-      trackCodes: selectedTrackCodes,
-      subjectCode: selectedSubjectCode,
-      unitCode: selectedUnitCode,
-      lessonCode: value,
-    }));
+    window.localStorage.setItem(
+      LAST_CONTEXT_KEY,
+      JSON.stringify({
+        gradeSlug,
+        trackCodes: selectedTrackCodes,
+        subjectCode: selectedSubjectCode,
+        unitCode: selectedUnitCode,
+        lessonCode: value,
+      }),
+    );
   };
 
   const previewArtifact = (upload: UploadedArtifact) => {
@@ -988,7 +1098,9 @@ export function GoldenLessonPackageBuilder() {
       );
       const next = await buildSupplementalAssetDeclarations(
         files,
-        htmlSources.filter((source): source is { capability: GoldenCapability; html: string } => Boolean(source)),
+        htmlSources.filter((source): source is { capability: GoldenCapability; html: string } =>
+          Boolean(source),
+        ),
       );
       setSupplementalAssets((current) => {
         const replacing = new Set(next.map((asset) => asset.path));
@@ -1006,7 +1118,9 @@ export function GoldenLessonPackageBuilder() {
     }
     setFileError(null);
     const manifestValidation = validateGoldenLessonPackage(packageDraft);
-    const artifactInputs: Partial<Record<GoldenCapability, { fileName: string; bytes: Uint8Array }>> = {};
+    const artifactInputs: Partial<
+      Record<GoldenCapability, { fileName: string; bytes: Uint8Array }>
+    > = {};
     for (const capability of ["officialBookQuestions", "selfTest"] as const) {
       const upload = uploads[capability];
       if (upload) {
@@ -1162,49 +1276,71 @@ export function GoldenLessonPackageBuilder() {
     await publishDirectNow(verified);
   };
 
-
-
   return (
-    <section dir="rtl" aria-labelledby="golden-package-builder-heading" className="rounded-2xl border border-primary/25 bg-card p-5 shadow-card space-y-5">
+    <section
+      dir="rtl"
+      aria-labelledby="golden-package-builder-heading"
+      className="rounded-2xl border border-primary/25 bg-card p-5 shadow-card space-y-5"
+    >
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <BookOpen className="h-5 w-5 text-primary" />
-          <h2 id="golden-package-builder-heading" className="text-lg font-semibold">استيراد محتويات الدرس السبعة</h2>
+          <h2 id="golden-package-builder-heading" className="text-lg font-semibold">
+            استيراد محتويات الدرس السبعة
+          </h2>
           <Badge variant="secondary">نشر مباشر</Badge>
         </div>
         <p className="text-sm text-muted-foreground max-w-3xl">
-          ارفع كل محتوى في مكانه. لا يوجد ملف ZIP للدرس، ولا PDF للدرس، ولا ملف توثيق مصدر.
-           «أسئلة الكتاب» و«اختبر فهمك» يستخدمان قالبي Excel المعتمدين 09 و10، وتُفصل الإجابات والتعليلات آليًا في الطبقة الخادمية المحمية.
+          ارفع كل محتوى في مكانه. لا يوجد ملف ZIP للدرس، ولا PDF للدرس، ولا ملف توثيق مصدر. «أسئلة
+          الكتاب» و«اختبر فهمك» يستخدمان قالبي Excel المعتمدين 09 و10، وتُفصل الإجابات والتعليلات
+          آليًا في الطبقة الخادمية المحمية.
         </p>
-       </div>
+      </div>
 
-      <section aria-labelledby="lesson-context-heading" className="rounded-xl border bg-muted/20 p-4 space-y-4">
+      <section
+        aria-labelledby="lesson-context-heading"
+        className="rounded-xl border bg-muted/20 p-4 space-y-4"
+      >
         <div className="space-y-1">
-          <h3 id="lesson-context-heading" className="font-semibold">1. اختيار الدرس</h3>
+          <h3 id="lesson-context-heading" className="font-semibold">
+            1. اختيار الدرس
+          </h3>
           <p className="text-xs text-muted-foreground">
             اختر الدرس من الهيكل الرسمي؛ ينشئ النظام الأكواد والربط والإصدار تلقائيًا.
           </p>
         </div>
         {registryLoading ? (
           <p className="text-sm text-muted-foreground flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />جاري تحميل هيكل المنهج…
+            <Loader2 className="h-4 w-4 animate-spin" />
+            جاري تحميل هيكل المنهج…
           </p>
         ) : registryError ? (
-          <p role="alert" className="text-sm text-destructive">{registryError}</p>
+          <p role="alert" className="text-sm text-destructive">
+            {registryError}
+          </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="lesson-import-grade">الصف</Label>
               <Select value={gradeSlug || undefined} onValueChange={chooseGrade}>
-                <SelectTrigger id="lesson-import-grade" className="min-h-[44px]"><SelectValue placeholder="اختر الصف" /></SelectTrigger>
-                <SelectContent>{(registry?.grades ?? []).map((grade) => (
-                  <SelectItem key={grade.gradeSlug} value={grade.gradeSlug}>{grade.nameAr}</SelectItem>
-                ))}</SelectContent>
+                <SelectTrigger id="lesson-import-grade" className="min-h-[44px]">
+                  <SelectValue placeholder="اختر الصف" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(registry?.grades ?? []).map((grade) => (
+                    <SelectItem key={grade.gradeSlug} value={grade.gradeSlug}>
+                      {grade.nameAr}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <fieldset className="space-y-1.5" disabled={!gradeSlug}>
               <legend className="text-sm font-medium">المسار (اختيار متعدد)</legend>
-              <div id="lesson-import-track" className="flex min-h-[44px] flex-wrap items-center gap-2 rounded-md border bg-background px-2 py-1.5">
+              <div
+                id="lesson-import-track"
+                className="flex min-h-[44px] flex-wrap items-center gap-2 rounded-md border bg-background px-2 py-1.5"
+              >
                 {availableTracks.map((track) => {
                   const checked = selectedTrackCodes.includes(track.trackCode);
                   return (
@@ -1225,225 +1361,340 @@ export function GoldenLessonPackageBuilder() {
                   );
                 })}
               </div>
-              <p className="text-[11px] text-muted-foreground">اختر صنعاء وعدن معًا عندما تكون المادة أو الكتاب مشتركًا بين المسارين.</p>
+              <p className="text-[11px] text-muted-foreground">
+                اختر صنعاء وعدن معًا عندما تكون المادة أو الكتاب مشتركًا بين المسارين.
+              </p>
             </fieldset>
             <div className="space-y-1.5">
               <Label htmlFor="lesson-import-subject">المادة</Label>
-              <Select value={selectedSubjectCode || undefined} onValueChange={chooseSubject} disabled={selectedTrackCodes.length === 0}>
-                <SelectTrigger id="lesson-import-subject" className="min-h-[44px]"><SelectValue placeholder="اختر المادة" /></SelectTrigger>
-                <SelectContent>{subjects.map((subject) => (
-                  <SelectItem key={subject.subjectCode} value={subject.subjectCode}>{subject.name}</SelectItem>
-                ))}</SelectContent>
+              <Select
+                value={selectedSubjectCode || undefined}
+                onValueChange={chooseSubject}
+                disabled={selectedTrackCodes.length === 0}
+              >
+                <SelectTrigger id="lesson-import-subject" className="min-h-[44px]">
+                  <SelectValue placeholder="اختر المادة" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.subjectCode} value={subject.subjectCode}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="lesson-import-unit">الوحدة (اختيارية)</Label>
-              <Select value={selectedUnitCode || "__NO_UNIT__"} onValueChange={chooseUnit} disabled={!selectedSubjectCode}>
-                <SelectTrigger id="lesson-import-unit" className="min-h-[44px]"><SelectValue placeholder="اختر الوحدة" /></SelectTrigger>
+              <Select
+                value={selectedUnitCode || "__NO_UNIT__"}
+                onValueChange={chooseUnit}
+                disabled={!selectedSubjectCode}
+              >
+                <SelectTrigger id="lesson-import-unit" className="min-h-[44px]">
+                  <SelectValue placeholder="اختر الوحدة" />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__NO_UNIT__">لا توجد وحدة — الدرس مرتبط بالمادة مباشرة</SelectItem>
-                  {units.filter((unit) => Boolean(unit.unitCode)).map((unit) => (
-                    <SelectItem key={unit.unitCode} value={unit.unitCode}>{unit.title}</SelectItem>
-                  ))}
+                  <SelectItem value="__NO_UNIT__">
+                    لا توجد وحدة — الدرس مرتبط بالمادة مباشرة
+                  </SelectItem>
+                  {units
+                    .filter((unit) => Boolean(unit.unitCode))
+                    .map((unit) => (
+                      <SelectItem key={unit.unitCode} value={unit.unitCode}>
+                        {unit.title}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               {selectedSubjectCode && units.length === 0 && (
-                <p className="text-[11px] text-amber-700">لا توجد وحدات مسجلة لهذه المادة. يمكنك إضافة وحدة أو إبقاء الدرس مرتبطًا بالمادة مباشرة.</p>
+                <p className="text-[11px] text-amber-700">
+                  لا توجد وحدات مسجلة لهذه المادة. يمكنك إضافة وحدة أو إبقاء الدرس مرتبطًا بالمادة
+                  مباشرة.
+                </p>
               )}
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="lesson-import-lesson">الدرس</Label>
-              <Select value={selectedLessonCode || undefined} onValueChange={chooseLesson} disabled={!selectedSubjectCode}>
-                <SelectTrigger id="lesson-import-lesson" className="min-h-[44px]"><SelectValue placeholder="اختر الدرس" /></SelectTrigger>
-                <SelectContent>{lessons.map((lesson) => (
-                  <SelectItem key={lesson.lessonCode} value={lesson.lessonCode}>{lesson.title}</SelectItem>
-                ))}</SelectContent>
+              <Select
+                value={selectedLessonCode || undefined}
+                onValueChange={chooseLesson}
+                disabled={!selectedSubjectCode}
+              >
+                <SelectTrigger id="lesson-import-lesson" className="min-h-[44px]">
+                  <SelectValue placeholder="اختر الدرس" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lessons.map((lesson) => (
+                    <SelectItem key={lesson.lessonCode} value={lesson.lessonCode}>
+                      {lesson.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
           </div>
         )}
         {selectedLesson && (
-          <div className={`rounded-lg border p-3 text-sm ${canonicalIdentityComplete ? "border-emerald-500/30 bg-emerald-500/10" : "border-amber-500/40 bg-amber-500/10"}`}>
-            <p className="font-medium">{selectedSubject?.name} ← {selectedLesson.title}</p>
+          <div
+            className={`rounded-lg border p-3 text-sm ${canonicalIdentityComplete ? "border-emerald-500/30 bg-emerald-500/10" : "border-amber-500/40 bg-amber-500/10"}`}
+          >
+            <p className="font-medium">
+              {selectedSubject?.name} ← {selectedLesson.title}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
               الفصل {semester} · الترتيب {sortOrder}
-              {selectedLesson.unitCode ? ` · الوحدة: ${units.find((unit) => unit.unitCode === selectedLesson.unitCode)?.title ?? selectedLesson.unitCode}` : " · مرتبط بالمادة مباشرة"}
-              {(!selectedLesson.semester || (selectedLesson.sortOrder ?? 0) <= 0) ? " · استكمل النظام البيانات التشغيلية تلقائيًا" : ""}
+              {selectedLesson.unitCode
+                ? ` · الوحدة: ${units.find((unit) => unit.unitCode === selectedLesson.unitCode)?.title ?? selectedLesson.unitCode}`
+                : " · مرتبط بالمادة مباشرة"}
+              {!selectedLesson.semester || (selectedLesson.sortOrder ?? 0) <= 0
+                ? " · استكمل النظام البيانات التشغيلية تلقائيًا"
+                : ""}
             </p>
           </div>
         )}
       </section>
 
       {draftMessage && (
-        <p role="status" className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <p
+          role="status"
+          className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+        >
           {draftMessage}
         </p>
       )}
 
       {!selectedLesson && (
-        <div role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+        <div
+          role="status"
+          className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm"
+        >
           أكمل اختيار الصف والمسار والمادة والدرس قبل رفع الملفات.
         </div>
       )}
 
-      {canonicalIdentityComplete && <div className="space-y-2">
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span>اكتمال الملفات الإلزامية</span>
-          <span className="font-semibold">{completedRequired}/{requiredCapabilities.length} — {completion}%</span>
+      {canonicalIdentityComplete && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span>اكتمال الملفات الإلزامية</span>
+            <span className="font-semibold">
+              {completedRequired}/{requiredCapabilities.length} — {completion}%
+            </span>
+          </div>
+          <Progress value={completion} />
+          <p className="text-xs text-muted-foreground">
+            المكوّن الاختياري الوحيد هو التجربة المعملية أو النشاط التفاعلي؛ المكونات الستة الأخرى
+            إلزامية للنشر.
+          </p>
         </div>
-        <Progress value={completion} />
-        <p className="text-xs text-muted-foreground">
-          المكوّن الاختياري الوحيد هو التجربة المعملية أو النشاط التفاعلي؛ المكونات الستة الأخرى إلزامية للنشر.
-        </p>
-      </div>}
+      )}
 
       <div className="space-y-3">
-        {canonicalIdentityComplete && GOLDEN_CAPABILITIES.map((capability) => {
-          const applicability = profile?.applicability[capability] ?? "NA";
-          const authority = GOLDEN_CAPABILITY_AUTHORITY[capability];
-          const upload = uploads[capability];
-          const fileContract = GOLDEN_ARTIFACT_FILE_CONTRACTS[capability];
-          return (
-            <div key={capability} id={`golden-capability-${capability}`} className={`scroll-mt-24 rounded-xl border p-4 space-y-3 ${capability === "labExperimentHtml" ? "border-dashed bg-muted/15" : "bg-background"}`}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="font-medium">{CAPABILITY_NUMBER[capability]}. {CAPABILITY_LABEL[capability]}</p>
+        {canonicalIdentityComplete &&
+          GOLDEN_CAPABILITIES.map((capability) => {
+            const applicability = profile?.applicability[capability] ?? "NA";
+            const authority = GOLDEN_CAPABILITY_AUTHORITY[capability];
+            const upload = uploads[capability];
+            const fileContract = GOLDEN_ARTIFACT_FILE_CONTRACTS[capability];
+            return (
+              <div
+                key={capability}
+                id={`golden-capability-${capability}`}
+                className={`scroll-mt-24 rounded-xl border p-4 space-y-3 ${capability === "labExperimentHtml" ? "border-dashed bg-muted/15" : "bg-background"}`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="font-medium">
+                      {CAPABILITY_NUMBER[capability]}. {CAPABILITY_LABEL[capability]}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Badge variant={authority === "OFFICIAL" ? "default" : "secondary"}>
+                      {authority === "OFFICIAL" ? "رسمي" : "تمكين"}
+                    </Badge>
+                    <Badge variant="outline">
+                      {applicability === "REQUIRED"
+                        ? "إلزامي"
+                        : applicability === "OPTIONAL"
+                          ? "اختياري"
+                          : "غير منطبق"}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="flex gap-1">
-                  <Badge variant={authority === "OFFICIAL" ? "default" : "secondary"}>{authority === "OFFICIAL" ? "رسمي" : "تمكين"}</Badge>
-                  <Badge variant="outline">
-                    {applicability === "REQUIRED" ? "إلزامي" : applicability === "OPTIONAL" ? "اختياري" : "غير منطبق"}
-                  </Badge>
-                </div>
-              </div>
-              {applicability !== "NA" && (
-                <>
-                   <p className="text-xs text-muted-foreground">
-                     المطلوب: {fileContract.sourceExpectedAr
-                       ?? (capability === "labExperimentHtml" || capability === "mindMapHtml"
-                         ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
-                         : fileContract.expectedAr)}
-                  </p>
+                {applicability !== "NA" && (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      المطلوب:{" "}
+                      {fileContract.sourceExpectedAr ??
+                        (capability === "labExperimentHtml" || capability === "mindMapHtml"
+                          ? "HTML تفاعلي أو حزمة HTML5/ZIP تحتوي index.html"
+                          : fileContract.expectedAr)}
+                    </p>
 
-                  {fileContract.formats.includes("HTML") && (
-                    <ul className="list-disc space-y-0.5 pe-4 text-[11px] leading-relaxed text-muted-foreground">
-                      <li>يجب أن يحتوي وسم html على dir="rtl".</li>
-                      <li>بدون روابط خارجية (خطوط أو مكتبات على الإنترنت) — ضمِّن الأنماط داخل الملف.</li>
-                      <li>
-                        {capability === "labExperimentHtml" || capability === "mindMapHtml"
-                          ? "JavaScript ومعالجات onclick مسموحة داخل المحتوى التفاعلي، وحزمة ZIP مقبولة إذا احتوت index.html في جذرها."
-                          : "بدون وسم script أو معالجات onclick — المحتوى ثابت."}
-                      </li>
-                    </ul>
-                  )}
-                   {(capability === "selfTest" || capability === "officialBookQuestions") && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="min-h-[40px] gap-2"
-                      disabled={templateBusy === capability}
-                      onClick={() => {
-                        const filename = capability === "selfTest"
-                          ? "10_self_test_questions_template.xlsx"
-                          : "09_official_book_questions_template.xlsx";
-                        setTemplateBusy(capability);
-                        void downloadTemplateFile(contentImportTemplateDownloadUrl(filename), filename)
-                          .catch(() => {
-                            window.open(contentImportTemplateDownloadUrl(filename), "_blank", "noopener");
-                          })
-                          .finally(() => setTemplateBusy(null));
-                      }}
-                    >
-                      {templateBusy === capability
-                        ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <Download className="h-4 w-4" />}
-                      تنزيل القالب المعتمد
-                    </Button>
-                  )}
-                  <ArabicFilePicker
-                    id={`golden-artifact-${capability}`}
-                     accept={fileContract.sourceAccept
-                       ?? (capability === "labExperimentHtml" || capability === "mindMapHtml"
-                         ? ".html,.zip,text/html,application/zip"
-                         : ".html,text/html")}
-
-
-                    disabled={hashing !== null}
-                    fileName={upload?.displayName}
-                    onFile={(file) => handleCapabilityFile(capability, file)}
-                  />
-                  {hashing === capability && <p className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" />جارٍ فحص الملف…</p>}
-                  {capabilityErrors[capability]?.length ? (
-                    <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs">
-                      <p className="flex items-center gap-2 font-semibold text-destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        لم يُقبل الملف — صحّح ما يلي ثم أعد الاختيار:
-                      </p>
-                      <ul className="mt-2 list-disc space-y-1 pe-4 text-destructive">
-                        {capabilityErrors[capability]!.map((message) => (
-                          <li key={message}>{message}</li>
-                        ))}
+                    {fileContract.formats.includes("HTML") && (
+                      <ul className="list-disc space-y-0.5 pe-4 text-[11px] leading-relaxed text-muted-foreground">
+                        <li>يجب أن يحتوي وسم html على dir="rtl".</li>
+                        <li>
+                          بدون روابط خارجية (خطوط أو مكتبات على الإنترنت) — ضمِّن الأنماط داخل
+                          الملف.
+                        </li>
+                        <li>
+                          {capability === "labExperimentHtml" || capability === "mindMapHtml"
+                            ? "JavaScript ومعالجات onclick مسموحة داخل المحتوى التفاعلي، وحزمة ZIP مقبولة إذا احتوت index.html في جذرها."
+                            : "بدون وسم script أو معالجات onclick — المحتوى ثابت."}
+                        </li>
                       </ul>
-                    </div>
-                  ) : null}
-                  {upload && (
-                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="min-w-0 break-all text-emerald-700 dark:text-emerald-400">
-                          <CheckCircle2 className="inline h-4 w-4 ms-1" />تم التحقق من الملف: {upload.displayName}
-                          {upload.rowCount ? ` — ${upload.rowCount} سؤال` : ""}
-                        </p>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 shrink-0 gap-1 text-destructive"
-                          onClick={() => void removeCapabilityFile(capability)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />إزالة
-                        </Button>
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {upload.fileName.endsWith(".html") && (
-                          <Button type="button" variant="outline" size="sm" className="h-8 gap-1" onClick={() => previewArtifact(upload)}>
-                            <Eye className="h-3.5 w-3.5" />معاينة
-                          </Button>
+                    )}
+                    {(capability === "selfTest" || capability === "officialBookQuestions") && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="min-h-[40px] gap-2"
+                        disabled={templateBusy === capability}
+                        onClick={() => {
+                          const filename =
+                            capability === "selfTest"
+                              ? "10_self_test_questions_template.xlsx"
+                              : "09_official_book_questions_template.xlsx";
+                          setTemplateBusy(capability);
+                          void downloadTemplateFile(
+                            contentImportTemplateDownloadUrl(filename),
+                            filename,
+                          )
+                            .catch(() => {
+                              window.open(
+                                contentImportTemplateDownloadUrl(filename),
+                                "_blank",
+                                "noopener",
+                              );
+                            })
+                            .finally(() => setTemplateBusy(null));
+                        }}
+                      >
+                        {templateBusy === capability ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download className="h-4 w-4" />
                         )}
-                        <span className="text-[11px] text-muted-foreground">{Math.max(1, Math.round(upload.file.size / 1024))} كيلوبايت</span>
+                        تنزيل القالب المعتمد
+                      </Button>
+                    )}
+                    <ArabicFilePicker
+                      id={`golden-artifact-${capability}`}
+                      accept={
+                        fileContract.sourceAccept ??
+                        (capability === "labExperimentHtml" || capability === "mindMapHtml"
+                          ? ".html,.zip,text/html,application/zip"
+                          : ".html,text/html")
+                      }
+                      disabled={hashing !== null}
+                      fileName={upload?.displayName}
+                      onFile={(file) => handleCapabilityFile(capability, file)}
+                    />
+                    {hashing === capability && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        جارٍ فحص الملف…
+                      </p>
+                    )}
+                    {capabilityErrors[capability]?.length ? (
+                      <div
+                        role="alert"
+                        className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs"
+                      >
+                        <p className="flex items-center gap-2 font-semibold text-destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          لم يُقبل الملف — صحّح ما يلي ثم أعد الاختيار:
+                        </p>
+                        <ul className="mt-2 list-disc space-y-1 pe-4 text-destructive">
+                          {capabilityErrors[capability]!.map((message) => (
+                            <li key={message}>{message}</li>
+                          ))}
+                        </ul>
                       </div>
-                    </div>
-                  )}
-                </>
-              )}
-              {applicability === "NA" && (
-                <p className="text-xs text-muted-foreground">
-                  هذه القدرة غير منطبقة على نوع الدرس المختار.
-                  {capability === "labExperimentHtml" ? " لرفع تجربة معملية اختر نوع الدرس «الكيمياء»." : ""}
-                </p>
-              )}
-            </div>
-          );
-        })}
+                    ) : null}
+                    {upload && (
+                      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="min-w-0 break-all text-emerald-700 dark:text-emerald-400">
+                            <CheckCircle2 className="inline h-4 w-4 ms-1" />
+                            تم التحقق من الملف: {upload.displayName}
+                            {upload.rowCount ? ` — ${upload.rowCount} سؤال` : ""}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 shrink-0 gap-1 text-destructive"
+                            onClick={() => void removeCapabilityFile(capability)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            إزالة
+                          </Button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {upload.fileName.endsWith(".html") && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1"
+                              onClick={() => previewArtifact(upload)}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              معاينة
+                            </Button>
+                          )}
+                          <span className="text-[11px] text-muted-foreground">
+                            {Math.max(1, Math.round(upload.file.size / 1024))} كيلوبايت
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+                {applicability === "NA" && (
+                  <p className="text-xs text-muted-foreground">
+                    هذه القدرة غير منطبقة على نوع الدرس المختار.
+                    {capability === "labExperimentHtml"
+                      ? " لرفع تجربة معملية اختر نوع الدرس «الكيمياء»."
+                      : ""}
+                  </p>
+                )}
+              </div>
+            );
+          })}
       </div>
 
-      {canonicalIdentityComplete && Object.values(uploads).some((upload) => upload?.fileName.endsWith(".html")) && <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 space-y-2">
-        <Label>الصور والرسومات المشار إليها داخل ملفات HTML</Label>
-        <ArabicMultiFilePicker
-          id="golden-supplemental-assets"
-          accept="image/png,image/jpeg,image/webp"
-          disabled={hashing !== null || !canonicalIdentityComplete}
-          selectedCount={supplementalAssets.length}
-          onFiles={handleSupplementalAssets}
-        />
-        <p className="text-xs text-muted-foreground">يربط النظام الصور تلقائيًا بالملفات التي تشير إليها، ويرفض الصورة المفقودة أو غير المستخدمة.</p>
-        {supplementalAssets.map((asset) => (
-          <p key={asset.path} className="text-xs break-all text-emerald-700 dark:text-emerald-400">
-            <CheckCircle2 className="inline h-4 w-4 ms-1" />{asset.path} — {asset.assetCode}
-            <br/><span className="font-mono text-[10px]">{asset.sha256}</span>
-          </p>
-        ))}
-      </div>}
+      {canonicalIdentityComplete &&
+        Object.values(uploads).some((upload) => upload?.fileName.endsWith(".html")) && (
+          <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 space-y-2">
+            <Label>الصور والرسومات المشار إليها داخل ملفات HTML</Label>
+            <ArabicMultiFilePicker
+              id="golden-supplemental-assets"
+              accept="image/png,image/jpeg,image/webp"
+              disabled={hashing !== null || !canonicalIdentityComplete}
+              selectedCount={supplementalAssets.length}
+              onFiles={handleSupplementalAssets}
+            />
+            <p className="text-xs text-muted-foreground">
+              يربط النظام الصور تلقائيًا بالملفات التي تشير إليها، ويرفض الصورة المفقودة أو غير
+              المستخدمة.
+            </p>
+            {supplementalAssets.map((asset) => (
+              <p
+                key={asset.path}
+                className="text-xs break-all text-emerald-700 dark:text-emerald-400"
+              >
+                <CheckCircle2 className="inline h-4 w-4 ms-1" />
+                {asset.path} — {asset.assetCode}
+                <br />
+                <span className="font-mono text-[10px]">{asset.sha256}</span>
+              </p>
+            ))}
+          </div>
+        )}
 
       {answersCompanion && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs">
@@ -1451,16 +1702,29 @@ export function GoldenLessonPackageBuilder() {
         </div>
       )}
 
-      {fileError && <p role="alert" className="text-sm text-destructive flex gap-2"><AlertCircle className="h-4 w-4 mt-0.5" />{fileError}</p>}
+      {fileError && (
+        <p role="alert" className="text-sm text-destructive flex gap-2">
+          <AlertCircle className="h-4 w-4 mt-0.5" />
+          {fileError}
+        </p>
+      )}
 
       {canonicalIdentityComplete && (
         <div className="rounded-xl border bg-muted/20 p-3 space-y-1 text-xs">
           <p className="font-medium text-sm">قائمة المكوّنات قبل الفحص</p>
-          {GOLDEN_CAPABILITIES.filter((capability) => (profile?.applicability[capability] ?? "NA") !== "NA").map((capability) => {
+          {GOLDEN_CAPABILITIES.filter(
+            (capability) => (profile?.applicability[capability] ?? "NA") !== "NA",
+          ).map((capability) => {
             const done = Boolean(uploads[capability]);
             return (
-              <p key={capability} className={done ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}>
-                {done ? "✓" : "•"} ({CAPABILITY_NUMBER[capability]}) {CAPABILITY_LABEL[capability]} — {CAPABILITY_FORMAT_HINT[capability] ?? "HTML"}
+              <p
+                key={capability}
+                className={
+                  done ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"
+                }
+              >
+                {done ? "✓" : "•"} ({CAPABILITY_NUMBER[capability]}) {CAPABILITY_LABEL[capability]}{" "}
+                — {CAPABILITY_FORMAT_HINT[capability] ?? "HTML"}
                 {done ? " — مرفوع" : " — بانتظار الملف"}
               </p>
             );
@@ -1469,16 +1733,21 @@ export function GoldenLessonPackageBuilder() {
       )}
 
       {serverPreflight && (
-        <div className={`rounded-xl border p-4 space-y-2 text-sm ${
-          serverPreflight.status === "IDENTITY_CONFLICT"
-            ? "border-destructive/40 bg-destructive/5"
-            : serverPreflight.status === "DRAFT_REBINDABLE"
-              ? "border-amber-500/40 bg-amber-500/10"
-              : "border-emerald-500/30 bg-emerald-500/10"
-        }`} role={serverPreflight.status === "IDENTITY_CONFLICT" ? "alert" : "status"}>
+        <div
+          className={`rounded-xl border p-4 space-y-2 text-sm ${
+            serverPreflight.status === "IDENTITY_CONFLICT"
+              ? "border-destructive/40 bg-destructive/5"
+              : serverPreflight.status === "DRAFT_REBINDABLE"
+                ? "border-amber-500/40 bg-amber-500/10"
+                : "border-emerald-500/30 bg-emerald-500/10"
+          }`}
+          role={serverPreflight.status === "IDENTITY_CONFLICT" ? "alert" : "status"}
+        >
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium">جاهزية النشر على الخادم</p>
-            <Badge variant={serverPreflight.status === "IDENTITY_CONFLICT" ? "destructive" : "outline"}>
+            <Badge
+              variant={serverPreflight.status === "IDENTITY_CONFLICT" ? "destructive" : "outline"}
+            >
               {serverPreflight.status === "NEW_PACKAGE" && "حزمة جديدة"}
               {serverPreflight.status === "UPLOAD_REQUIRED" && "استكمال رفع"}
               {serverPreflight.status === "NEW_VERSION" && "نسخة جديدة"}
@@ -1501,7 +1770,11 @@ export function GoldenLessonPackageBuilder() {
                 <tbody>
                   {serverPreflight.differences.map((difference) => {
                     const renderValue = (value: typeof difference.currentValue) =>
-                      Array.isArray(value) ? value.join("، ") : value === null ? "غير محدد" : String(value);
+                      Array.isArray(value)
+                        ? value.join("، ")
+                        : value === null
+                          ? "غير محدد"
+                          : String(value);
                     return (
                       <tr key={difference.field} className="border-b last:border-0">
                         <td className="p-2 font-medium">{difference.labelAr}</td>
@@ -1518,39 +1791,75 @@ export function GoldenLessonPackageBuilder() {
       )}
 
       <div className="sticky bottom-3 z-10 flex flex-wrap gap-2 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
-        <Button type="button" onClick={() => void runValidation()} disabled={hashing !== null || !canonicalIdentityComplete} className="min-h-[44px] gap-2"><FileCheck2 className="h-4 w-4" />فحص ومعاينة الملفات</Button>
-        <Button type="button" disabled={!validation?.valid || intakeBusy || publishBusy} onClick={() => void importAndPublishNow()} className="min-h-[44px] gap-2">
-          {intakeBusy || publishBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-          {intakeBusy ? "جاري رفع الملفات والتحقق…" : publishBusy ? "جاري النشر…" : "نشر الدرس الآن"}
+        <Button
+          type="button"
+          onClick={() => void runValidation()}
+          disabled={hashing !== null || !canonicalIdentityComplete}
+          className="min-h-[44px] gap-2"
+        >
+          <FileCheck2 className="h-4 w-4" />
+          فحص ومعاينة الملفات
+        </Button>
+        <Button
+          type="button"
+          disabled={!validation?.valid || intakeBusy || publishBusy}
+          onClick={() => void importAndPublishNow()}
+          className="min-h-[44px] gap-2"
+        >
+          {intakeBusy || publishBusy ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <UploadCloud className="h-4 w-4" />
+          )}
+          {intakeBusy
+            ? "جاري رفع الملفات والتحقق…"
+            : publishBusy
+              ? "جاري النشر…"
+              : "نشر الدرس الآن"}
         </Button>
       </div>
 
-      {intakeError && <p role="alert" className="text-sm text-destructive flex gap-2"><AlertCircle className="h-4 w-4 mt-0.5" />{intakeError}</p>}
+      {intakeError && (
+        <p role="alert" className="text-sm text-destructive flex gap-2">
+          <AlertCircle className="h-4 w-4 mt-0.5" />
+          {intakeError}
+        </p>
+      )}
 
       {intake && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2 text-sm">
           <p className="font-medium flex gap-2">
             <CheckCircle2 className="h-4 w-4 mt-0.5" />
-            {publishSteps.length > 0 ? "تم نشر الدرس وإتاحته للطلاب" : "تم رفع ملفات الدرس والتحقق منها"}
+            {publishSteps.length > 0
+              ? "تم نشر الدرس وإتاحته للطلاب"
+              : "تم رفع ملفات الدرس والتحقق منها"}
           </p>
           <p className="text-xs">
-            الإصدار {intake.version}{intake.idempotent ? " (دون تكرار الكتابة)" : ""} — عدد الملفات المتحقق منها: {intake.verifiedFileCount}.
+            الإصدار {intake.version}
+            {intake.idempotent ? " (دون تكرار الكتابة)" : ""} — عدد الملفات المتحقق منها:{" "}
+            {intake.verifiedFileCount}.
           </p>
           <ul className="mt-2 space-y-1 text-xs">
-            <li className="text-emerald-700 dark:text-emerald-400">✓ رفع الملفات والتحقق من البصمات</li>
+            <li className="text-emerald-700 dark:text-emerald-400">
+              ✓ رفع الملفات والتحقق من البصمات
+            </li>
             {publishSteps.map((step) => (
-              <li key={step.key} className="text-emerald-700 dark:text-emerald-400">✓ {step.label} — {step.detail}</li>
+              <li key={step.key} className="text-emerald-700 dark:text-emerald-400">
+                ✓ {step.label} — {step.detail}
+              </li>
             ))}
             {publishBusy && (
               <li className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />جاري تنفيذ خطوات النشر…
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                جاري تنفيذ خطوات النشر…
               </li>
             )}
           </ul>
           {publishError && (
             <>
               <p role="alert" className="text-sm text-destructive flex gap-2">
-                <AlertCircle className="h-4 w-4 mt-0.5" />تعذّر النشر: {publishError}
+                <AlertCircle className="h-4 w-4 mt-0.5" />
+                تعذّر النشر: {publishError}
               </p>
               <Button
                 type="button"
@@ -1559,7 +1868,11 @@ export function GoldenLessonPackageBuilder() {
                 disabled={publishBusy}
                 onClick={() => void publishDirectNow()}
               >
-                {publishBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                {publishBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
                 إعادة محاولة النشر
               </Button>
             </>
@@ -1567,47 +1880,54 @@ export function GoldenLessonPackageBuilder() {
         </div>
       )}
 
-
       {validation && (
-        <div className={`rounded-xl border p-4 space-y-3 ${validation.valid ? "border-emerald-500/30 bg-emerald-500/10" : "border-destructive/30 bg-destructive/5"}`}>
-          <p className="font-medium">{validation.valid ? "الملفات مكتملة وجاهزة للاستيراد" : "الملفات تحتاج تصحيحًا"}</p>
-          {validation.findings.length > 0 && (() => {
-            const friendly = toFriendlyFindings(validation.findings, Boolean(selectedLesson));
-            const errors = friendly.filter((item) => item.severity === "ERROR");
-            const warnings = friendly.filter((item) => item.severity === "WARNING");
-            const renderItem = (item: FriendlyFinding) => (
-              <li key={item.key} className="flex flex-wrap items-center gap-2 rounded-lg border bg-background/70 px-3 py-2">
-                <Badge variant={item.severity === "ERROR" ? "destructive" : "outline"}>
-                  {item.severity === "ERROR" ? "خطأ" : "تنبيه"}
-                </Badge>
-                <span className="flex-1">{item.text}</span>
-                {item.capability && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="min-h-[36px]"
-                    onClick={() => scrollToCapability(item.capability!)}
-                  >
-                    انتقال إلى المكوّن
-                  </Button>
-                )}
-              </li>
-            );
-            return (
-              <div className="space-y-3 text-sm">
-                {errors.length > 0 && <ul className="space-y-1">{errors.map(renderItem)}</ul>}
-                {warnings.length > 0 && (
-                  <details className="rounded-lg border bg-background/50 px-3 py-2">
-                    <summary className="cursor-pointer text-xs text-muted-foreground">
-                      تفاصيل إضافية ({warnings.length})
-                    </summary>
-                    <ul className="mt-2 space-y-1">{warnings.map(renderItem)}</ul>
-                  </details>
-                )}
-              </div>
-            );
-          })()}
+        <div
+          className={`rounded-xl border p-4 space-y-3 ${validation.valid ? "border-emerald-500/30 bg-emerald-500/10" : "border-destructive/30 bg-destructive/5"}`}
+        >
+          <p className="font-medium">
+            {validation.valid ? "الملفات مكتملة وجاهزة للاستيراد" : "الملفات تحتاج تصحيحًا"}
+          </p>
+          {validation.findings.length > 0 &&
+            (() => {
+              const friendly = toFriendlyFindings(validation.findings, Boolean(selectedLesson));
+              const errors = friendly.filter((item) => item.severity === "ERROR");
+              const warnings = friendly.filter((item) => item.severity === "WARNING");
+              const renderItem = (item: FriendlyFinding) => (
+                <li
+                  key={item.key}
+                  className="flex flex-wrap items-center gap-2 rounded-lg border bg-background/70 px-3 py-2"
+                >
+                  <Badge variant={item.severity === "ERROR" ? "destructive" : "outline"}>
+                    {item.severity === "ERROR" ? "خطأ" : "تنبيه"}
+                  </Badge>
+                  <span className="flex-1">{item.text}</span>
+                  {item.capability && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="min-h-[36px]"
+                      onClick={() => scrollToCapability(item.capability!)}
+                    >
+                      انتقال إلى المكوّن
+                    </Button>
+                  )}
+                </li>
+              );
+              return (
+                <div className="space-y-3 text-sm">
+                  {errors.length > 0 && <ul className="space-y-1">{errors.map(renderItem)}</ul>}
+                  {warnings.length > 0 && (
+                    <details className="rounded-lg border bg-background/50 px-3 py-2">
+                      <summary className="cursor-pointer text-xs text-muted-foreground">
+                        تفاصيل إضافية ({warnings.length})
+                      </summary>
+                      <ul className="mt-2 space-y-1">{warnings.map(renderItem)}</ul>
+                    </details>
+                  )}
+                </div>
+              );
+            })()}
         </div>
       )}
     </section>

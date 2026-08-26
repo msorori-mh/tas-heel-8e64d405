@@ -11,7 +11,10 @@ import {
 import { verifyGoldenLessonBundle } from "./golden-lesson-bundle-verifier";
 
 const BUCKET = "golden-lesson-intake";
-const BundlePath = z.string().max(160).regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.zip$/);
+const BundlePath = z
+  .string()
+  .max(160)
+  .regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.zip$/);
 type DbResult<T> = { data: T | null; error: { message: string } | null };
 
 function assertDb<T>(result: DbResult<T>): T {
@@ -44,26 +47,37 @@ export const verifyAndStageGoldenLessonBundle = createServerFn({ method: "POST" 
     const { supabase, userId } = context as ContentStaffAuthContext;
     if (!data.path.startsWith(`${userId}/`)) throw new Error("BUNDLE_OWNER_MISMATCH");
     const downloaded = await supabase.storage.from(BUCKET).download(data.path);
-    if (downloaded.error || !downloaded.data) throw new Error(downloaded.error?.message ?? "BUNDLE_DOWNLOAD_FAILED");
+    if (downloaded.error || !downloaded.data)
+      throw new Error(downloaded.error?.message ?? "BUNDLE_DOWNLOAD_FAILED");
     const bytes = new Uint8Array(await downloaded.data.arrayBuffer());
     const verified = await verifyGoldenLessonBundle(bytes);
 
-    const staged = assertDb(await supabase.rpc("golden_lesson_stage_manifest" as never, {
-      _manifest: verified.manifest,
-      _client_manifest_sha256: verified.manifestSha256,
-    } as never)) as unknown as Record<string, unknown>;
+    const staged = assertDb(
+      await supabase.rpc(
+        "golden_lesson_stage_manifest" as never,
+        {
+          _manifest: verified.manifest,
+          _client_manifest_sha256: verified.manifestSha256,
+        } as never,
+      ),
+    ) as unknown as Record<string, unknown>;
     const packageId = String(staged.package_id);
     const version = Number(staged.version);
-    const attested = assertDb(await serviceClient().rpc("golden_lesson_attest_bundle" as never, {
-      _package_id: packageId,
-      _version: version,
-      _actor_id: userId,
-      _storage_path: data.path,
-      _bundle_sha256: verified.bundleSha256,
-      _file_count: verified.fileCount,
-      _compressed_bytes: verified.compressedBytes,
-      _uncompressed_bytes: verified.uncompressedBytes,
-    } as never)) as unknown as Record<string, unknown>;
+    const attested = assertDb(
+      await serviceClient().rpc(
+        "golden_lesson_attest_bundle" as never,
+        {
+          _package_id: packageId,
+          _version: version,
+          _actor_id: userId,
+          _storage_path: data.path,
+          _bundle_sha256: verified.bundleSha256,
+          _file_count: verified.fileCount,
+          _compressed_bytes: verified.compressedBytes,
+          _uncompressed_bytes: verified.uncompressedBytes,
+        } as never,
+      ),
+    ) as unknown as Record<string, unknown>;
 
     return {
       packageId,

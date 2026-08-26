@@ -34,7 +34,11 @@ async function headersOf(filename: string): Promise<string[]> {
   const row = ws.getRow(1);
   const headers: string[] = [];
   row.eachCell((cell) => {
-    headers.push(String(cell.value ?? "").replace(/\s*\*$/, "").trim());
+    headers.push(
+      String(cell.value ?? "")
+        .replace(/\s*\*$/, "")
+        .trim(),
+    );
   });
   return headers.filter(Boolean);
 }

@@ -32,8 +32,14 @@ describe("content import workbook data-sheet selection", () => {
     reference.addRow(["الصفوف المعتمدة", "grade-12"]);
     const renamed = workbook.addWorksheet("Units");
     renamed.addRow([
-      "unit_code *", "subject_code *", "title *", "description",
-      "semester", "is_free", "sort_order", "review_status",
+      "unit_code *",
+      "subject_code *",
+      "title *",
+      "description",
+      "semester",
+      "is_free",
+      "sort_order",
+      "review_status",
     ]);
     renamed.addRow(["unit-1", "sub-1", "وحدة", "", 1, "نعم", 1, "معتمد"]);
 
@@ -47,8 +53,14 @@ describe("content import workbook data-sheet selection", () => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("الوحدات");
     sheet.addRow([
-      "unit_code *", "subject_code *", "title *", "title",
-      "semester", "is_free", "sort_order", "review_status",
+      "unit_code *",
+      "subject_code *",
+      "title *",
+      "title",
+      "semester",
+      "is_free",
+      "sort_order",
+      "review_status",
     ]);
     sheet.addRow(["unit-1", "sub-1", "وحدة", "مكرر", 1, "نعم", 1, "معتمد"]);
 

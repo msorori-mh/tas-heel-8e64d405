@@ -8,6 +8,7 @@ import { validateManifest } from "./manifest-validator.ts";
 import { validatePackagePreflight } from "./package-preflight.ts";
 import type {
   ImportDryRunReport,
+  InteractiveResourceManifest,
   InteractiveLessonResourceImportRow,
   PackageFileItem,
   PackageValidationResult,
@@ -21,7 +22,7 @@ import { ValidationCodes } from "./validation-codes.ts";
  */
 export function validateInteractiveResourceRow(
   row: InteractiveLessonResourceImportRow,
-  rowNumber: number
+  rowNumber: number,
 ): {
   isValid: boolean;
   findings: SecurityFinding[];
@@ -77,7 +78,7 @@ export function validateInteractiveResourceRow(
     });
   }
 
-  if (!HTML_RESOURCE_TYPES.includes(row.resource_type as typeof HTML_RESOURCE_TYPES[number])) {
+  if (!HTML_RESOURCE_TYPES.includes(row.resource_type as (typeof HTML_RESOURCE_TYPES)[number])) {
     findings.push({
       code: ValidationCodes.INVALID_RESOURCE_TYPE,
       severity: "error",
@@ -106,7 +107,7 @@ export async function validateSingleHtmlPackage(
   resourceCode: string,
   files: PackageFileItem[],
   totalCompressedSizeBytes?: number,
-  excelRow?: InteractiveLessonResourceImportRow
+  excelRow?: InteractiveLessonResourceImportRow,
 ): Promise<PackageValidationResult> {
   const allFindings: SecurityFinding[] = [];
 
@@ -117,10 +118,10 @@ export async function validateSingleHtmlPackage(
   // 2. Locate entry file and manifest.json
   const entryFileName = excelRow?.entry_file || "index.html";
   const entryFile = files.find(
-    (f) => !f.isDir && f.path.replace(/\\/g, "/").toLowerCase() === entryFileName.toLowerCase()
+    (f) => !f.isDir && f.path.replace(/\\/g, "/").toLowerCase() === entryFileName.toLowerCase(),
   );
   const manifestFile = files.find(
-    (f) => !f.isDir && f.path.replace(/\\/g, "/").toLowerCase() === "manifest.json"
+    (f) => !f.isDir && f.path.replace(/\\/g, "/").toLowerCase() === "manifest.json",
   );
 
   if (!entryFile) {
@@ -132,7 +133,7 @@ export async function validateSingleHtmlPackage(
     });
   }
 
-  let parsedManifest: any = undefined;
+  let parsedManifest: InteractiveResourceManifest | undefined;
   if (!manifestFile) {
     allFindings.push({
       code: ValidationCodes.MISSING_MANIFEST_JSON,
@@ -190,15 +191,19 @@ export async function validateSingleHtmlPackage(
   }
 
   // 5. Build CSP and compute deterministic SHA-256 content hash
-  const cspHeader = await buildPackageCsp(scriptHashes, resourceCode, excelRow?.version || 1, "nonce-preflight");
+  const cspHeader = await buildPackageCsp(
+    scriptHashes,
+    resourceCode,
+    excelRow?.version || 1,
+    "nonce-preflight",
+  );
   const contentHash = await computePackageDeterministicHash(files);
 
   const errorCount = allFindings.filter((f) => f.severity === "error").length;
   const isValid = errorCount === 0;
 
   const offlineEligible =
-    isValid &&
-    (excelRow?.offline_enabled ?? parsedManifest?.offline_enabled ?? true);
+    isValid && (excelRow?.offline_enabled ?? parsedManifest?.offline_enabled ?? true);
 
   return {
     resourceCode,
@@ -220,7 +225,7 @@ export async function validateSingleHtmlPackage(
  */
 export async function runInteractiveResourceImportDryRun(
   excelRows: InteractiveLessonResourceImportRow[],
-  packageFilesMap: Record<string, PackageFileItem[]>
+  packageFilesMap: Record<string, PackageFileItem[]>,
 ): Promise<ImportDryRunReport> {
   const reportRows: ImportDryRunReport["rows"] = [];
   const packageResults: Record<string, PackageValidationResult> = {};

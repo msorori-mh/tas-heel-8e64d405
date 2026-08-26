@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const routePath = new URL(
-  "../../src/routes/_authenticated/lessons.$lessonId.tsx",
-  import.meta.url,
-);
+const routePath = new URL("../../src/routes/_authenticated/lessons.$lessonId.tsx", import.meta.url);
 const adminLessonsPath = new URL(
   "../../src/routes/_authenticated/admin.lessons.index.tsx",
   import.meta.url,
@@ -22,7 +19,9 @@ test("seven-capability contract orders official questions sixth and self-test se
     source.indexOf("export const V3_CAPABILITIES"),
     source.indexOf("] as const;", source.indexOf("export const V3_CAPABILITIES")),
   );
-  assert.ok(capabilityBlock.indexOf('"officialBookQuestions"') < capabilityBlock.indexOf('"selfTest"'));
+  assert.ok(
+    capabilityBlock.indexOf('"officialBookQuestions"') < capabilityBlock.indexOf('"selfTest"'),
+  );
   assert.match(source, /selfTest: "اختبر فهمك"/);
   assert.match(source, /officialBookQuestions: "REQUIRED"/);
   assert.match(source, /selfTest: "REQUIRED"/);

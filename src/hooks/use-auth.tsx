@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { deriveAuthRoles } from "@/lib/auth-roles";
@@ -60,20 +53,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase
       .from("profiles")
       .select(
-        "id,user_id,full_name,grade_id,grade_uuid,governorate,governorate_id,curriculum_track_id,school_name,phone,avatar_url"
+        "id,user_id,full_name,grade_id,grade_uuid,governorate,governorate_id,curriculum_track_id,school_name,phone,avatar_url",
       )
       .eq("user_id", userId)
       .maybeSingle();
     setProfile((data as Profile | null) ?? null);
 
-    const [{ data: adminCheck }, { data: contentManagerCheck }] =
-      await Promise.all([
-        supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
-        supabase.rpc("has_role", {
-          _user_id: userId,
-          _role: "content_manager",
-        }),
-      ]);
+    const [{ data: adminCheck }, { data: contentManagerCheck }] = await Promise.all([
+      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+      supabase.rpc("has_role", {
+        _user_id: userId,
+        _role: "content_manager",
+      }),
+    ]);
     const roles = deriveAuthRoles({
       hasAdmin: Boolean(adminCheck),
       hasContentManager: Boolean(contentManagerCheck),

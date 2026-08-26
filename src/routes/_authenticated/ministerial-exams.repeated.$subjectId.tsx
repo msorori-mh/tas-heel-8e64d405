@@ -107,9 +107,7 @@ function RepeatedQuestionsPage() {
         <StateMessage variant="error">تعذّر تحميل الأسئلة المتكررة.</StateMessage>
       )}
 
-      {data && data.length === 0 && (
-        <StateMessage>لا توجد أسئلة مطابقة لهذه الفلاتر.</StateMessage>
-      )}
+      {data && data.length === 0 && <StateMessage>لا توجد أسئلة مطابقة لهذه الفلاتر.</StateMessage>}
 
       <ul className="space-y-3">
         {(data ?? []).map((q) => (
@@ -123,9 +121,7 @@ function RepeatedQuestionsPage() {
               {q.question_text}
             </p>
 
-            <p className="mt-2 text-xs font-bold text-primary">
-              تكرر {q.occurrence_count} مرات
-            </p>
+            <p className="mt-2 text-xs font-bold text-primary">تكرر {q.occurrence_count} مرات</p>
 
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {(q.occurrences ?? []).map((o) => (

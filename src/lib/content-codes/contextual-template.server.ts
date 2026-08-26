@@ -77,9 +77,7 @@ function planRows(input: BuildInput): RowPlan {
         ...(input.groupName ? { groupName: input.groupName } : {}),
         ...(input.branchNames ? { branchNames: input.branchNames } : {}),
         existingSubjectCodes: subjectCodes,
-        existingGroupCodes: registry.subjects
-          .map((s) => s.groupCode ?? "")
-          .filter(Boolean),
+        existingGroupCodes: registry.subjects.map((s) => s.groupCode ?? "").filter(Boolean),
       });
       return {
         rows: plan.rows,
@@ -89,9 +87,9 @@ function planRows(input: BuildInput): RowPlan {
       };
     }
 
-
     case "units": {
-      if (!subjectCode) throw new Tcs2Error("TCS2_SUBJECT_REQUIRED", "اختر المادة أولاً لتوليد أكواد الوحدات.");
+      if (!subjectCode)
+        throw new Tcs2Error("TCS2_SUBJECT_REQUIRED", "اختر المادة أولاً لتوليد أكواد الوحدات.");
       const subjectNo = subjectNoOf(registry, subjectCode);
       const codes = allocateTcs2Codes({
         existingCodes: registry.units.map((u) => u.unitCode),
@@ -119,7 +117,8 @@ function planRows(input: BuildInput): RowPlan {
     }
 
     case "lessons": {
-      if (!subjectCode) throw new Tcs2Error("TCS2_SUBJECT_REQUIRED", "اختر المادة أولاً لتوليد أكواد الدروس.");
+      if (!subjectCode)
+        throw new Tcs2Error("TCS2_SUBJECT_REQUIRED", "اختر المادة أولاً لتوليد أكواد الدروس.");
       const subjectNo = subjectNoOf(registry, subjectCode);
       const codes = allocateTcs2Codes({
         existingCodes: registry.lessons.map((l) => l.lessonCode),
@@ -218,7 +217,8 @@ function planRows(input: BuildInput): RowPlan {
     }
 
     case "questions": {
-      if (!subjectCode) throw new Tcs2Error("TCS2_SUBJECT_REQUIRED", "اختر المادة أولاً لتوليد أكواد الأسئلة.");
+      if (!subjectCode)
+        throw new Tcs2Error("TCS2_SUBJECT_REQUIRED", "اختر المادة أولاً لتوليد أكواد الأسئلة.");
       const subjectNo = subjectNoOf(registry, subjectCode);
       const codes = allocateTcs2Codes({
         existingCodes: extra,
@@ -269,7 +269,11 @@ function addCodeReferenceSheet(
   ];
   styleHeaderRow(sheet, new Set());
 
-  sheet.addRow({ a: "إصدار نظام الأكواد", b: CONTENT_CODE_SCHEME_VERSION, c: "أكواد مملوكة للنظام" });
+  sheet.addRow({
+    a: "إصدار نظام الأكواد",
+    b: CONTENT_CODE_SCHEME_VERSION,
+    c: "أكواد مملوكة للنظام",
+  });
   sheet.addRow({ a: "الصف المختار", b: request.gradeSlug, c: "من البيانات المرجعية الرسمية" });
   sheet.addRow({
     a: "المسارات المختارة",
@@ -286,7 +290,11 @@ function addCodeReferenceSheet(
         : "مادة واحدة لكل صف — بدون group_code",
     });
     if (isGroup) {
-      sheet.addRow({ a: "اسم المجموعة", b: request.groupName ?? "—", c: "يُكتب في group_name لكل الفروع" });
+      sheet.addRow({
+        a: "اسم المجموعة",
+        b: request.groupName ?? "—",
+        c: "يُكتب في group_name لكل الفروع",
+      });
       sheet.addRow({
         a: "عدد الفروع",
         b: String((request.branchNames ?? []).length),
@@ -298,7 +306,12 @@ function addCodeReferenceSheet(
     }
   }
   if (request.subjectCode) sheet.addRow({ a: "المادة المختارة", b: request.subjectCode, c: "" });
-  if (request.semester) sheet.addRow({ a: "الفصل الدراسي", b: String(request.semester), c: "معبأ مسبقًا في صفوف البيانات" });
+  if (request.semester)
+    sheet.addRow({
+      a: "الفصل الدراسي",
+      b: String(request.semester),
+      c: "معبأ مسبقًا في صفوف البيانات",
+    });
   if (request.unitCode) sheet.addRow({ a: "الوحدة المختارة", b: request.unitCode, c: "" });
 
   sheet.addRow({});
@@ -349,9 +362,7 @@ function addCodeReferenceSheet(
   }
 }
 
-export async function buildContextualTemplate(
-  input: BuildInput,
-): Promise<ContextTemplateResponse> {
+export async function buildContextualTemplate(input: BuildInput): Promise<ContextTemplateResponse> {
   const plan = planRows(input);
   const columns = templateColumnsForEntity(input.templateKey);
   const required = new Set(requiredTemplateColumnsForEntity(input.templateKey));
@@ -364,7 +375,9 @@ export async function buildContextualTemplate(
   const instructions = workbook.addWorksheet("تعليمات", { views: [{ rightToLeft: true }] });
   instructions.columns = [{ header: "التعليمات", key: "a", width: 110 }];
   styleHeaderRow(instructions, new Set());
-  instructions.addRow({ a: `القالب: ${input.templateKey} — إصدار الأكواد ${CONTENT_CODE_SCHEME_VERSION}` });
+  instructions.addRow({
+    a: `القالب: ${input.templateKey} — إصدار الأكواد ${CONTENT_CODE_SCHEME_VERSION}`,
+  });
   instructions.addRow({ a: "الأعمدة المعبأة مسبقاً من النظام (لا تعدّلها):" });
   for (const c of plan.prefilledColumns) instructions.addRow({ a: `   • ${c}` });
   instructions.addRow({ a: "الأعمدة التي تملؤها يدوياً:" });
@@ -397,7 +410,12 @@ export async function buildContextualTemplate(
 
   const buffer = await workbook.xlsx.writeBuffer();
   const stamp = new Date().toISOString().slice(0, 10);
-  const scopeTag = [input.gradeSlug, ...(input.trackCodes ?? []), input.subjectCode, input.semester ? `s${input.semester}` : undefined]
+  const scopeTag = [
+    input.gradeSlug,
+    ...(input.trackCodes ?? []),
+    input.subjectCode,
+    input.semester ? `s${input.semester}` : undefined,
+  ]
     .filter(Boolean)
     .join("_");
 

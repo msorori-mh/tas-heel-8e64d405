@@ -52,9 +52,11 @@ export function ExternalLessonDelivery({ resource }: { resource: PrimaryLessonRe
     );
   }
 
-
   return (
-    <section className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-card" dir="rtl">
+    <section
+      className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-card"
+      dir="rtl"
+    >
       <div className="flex items-start gap-3">
         <span className="mt-0.5 rounded-xl bg-primary/10 p-2 text-primary">
           <Icon className="h-5 w-5" />

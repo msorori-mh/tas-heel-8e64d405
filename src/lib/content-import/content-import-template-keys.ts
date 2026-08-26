@@ -20,5 +20,4 @@ export const CONTENT_IMPORT_TEMPLATE_KEYS = [
   "self_test_questions",
 ] as const;
 
-export type ContentImportTemplateKey =
-  (typeof CONTENT_IMPORT_TEMPLATE_KEYS)[number];
+export type ContentImportTemplateKey = (typeof CONTENT_IMPORT_TEMPLATE_KEYS)[number];

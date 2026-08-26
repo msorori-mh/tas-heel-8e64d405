@@ -90,8 +90,7 @@ function SettingsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  const canSubmit =
-    !submitting && password.length > 0 && confirmText === "DELETE";
+  const canSubmit = !submitting && password.length > 0 && confirmText === "DELETE";
 
   const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
 
@@ -101,7 +100,10 @@ function SettingsPage() {
     queryKey: ["pcard-grade", gradeKey],
     queryFn: async () => {
       const { data } = await supabase
-        .from("grades").select("name").eq("id", gradeKey!).maybeSingle();
+        .from("grades")
+        .select("name")
+        .eq("id", gradeKey!)
+        .maybeSingle();
       return data as { name: string } | null;
     },
   });
@@ -111,8 +113,10 @@ function SettingsPage() {
     queryKey: ["pcard-track", profile?.curriculum_track_id],
     queryFn: async () => {
       const { data } = await supabase
-        .from("curriculum_tracks").select("track_name")
-        .eq("id", profile!.curriculum_track_id!).maybeSingle();
+        .from("curriculum_tracks")
+        .select("track_name")
+        .eq("id", profile!.curriculum_track_id!)
+        .maybeSingle();
       return data as { track_name: string } | null;
     },
   });
@@ -122,8 +126,10 @@ function SettingsPage() {
     queryKey: ["pcard-gov", profile?.governorate_id],
     queryFn: async () => {
       const { data } = await supabase
-        .from("governorates").select("name")
-        .eq("id", profile!.governorate_id!).maybeSingle();
+        .from("governorates")
+        .select("name")
+        .eq("id", profile!.governorate_id!)
+        .maybeSingle();
       return data as { name: string } | null;
     },
   });
@@ -134,7 +140,9 @@ function SettingsPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("subscriptions")
-        .select("id,status,starts_at,expires_at,plan:subscription_plans!subscriptions_plan_id_fkey(name)")
+        .select(
+          "id,status,starts_at,expires_at,plan:subscription_plans!subscriptions_plan_id_fkey(name)",
+        )
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -160,9 +168,7 @@ function SettingsPage() {
         .order("created_at", { ascending: false })
         .limit(1);
       return {
-        last: (data?.[0] ?? null) as
-          | { id: string; status: string; created_at: string }
-          | null,
+        last: (data?.[0] ?? null) as { id: string; status: string; created_at: string } | null,
         total: count ?? 0,
       };
     },
@@ -190,10 +196,10 @@ function SettingsPage() {
     sub?.status === "active" && (daysLeft === null || daysLeft > 0)
       ? "active"
       : sub?.status === "pending"
-      ? "pending"
-      : sub?.status === "expired" || sub?.status === "cancelled" || sub?.status === "refunded"
-      ? "expired"
-      : "none";
+        ? "pending"
+        : sub?.status === "expired" || sub?.status === "cancelled" || sub?.status === "refunded"
+          ? "expired"
+          : "none";
 
   async function handleDelete(e: React.FormEvent) {
     e.preventDefault();
@@ -236,9 +242,7 @@ function SettingsPage() {
     <div className="space-y-4" dir="rtl">
       <header>
         <h1 className="text-2xl font-bold text-foreground">الإعدادات</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          إدارة حسابك ومعلوماتك في منصة تمكين.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">إدارة حسابك ومعلوماتك في منصة تمكين.</p>
       </header>
 
       <Accordion type="multiple" defaultValue={["profile"]} className="space-y-3">
@@ -276,9 +280,7 @@ function SettingsPage() {
           <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-background p-3">
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground">المنهج الدراسي الحالي</p>
-              <p className="mt-0.5 text-sm font-semibold text-foreground">
-                {trackName ?? "—"}
-              </p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground">{trackName ?? "—"}</p>
             </div>
             <ChangeCurriculumTrackButton />
           </div>
@@ -376,7 +378,11 @@ function SettingsPage() {
 
         {/* المدفوعات والمحفظة — مخفية من مسار الطالب أثناء الإتاحة المجانية */}
         {!STUDENT_FREE_ACCESS && (
-          <SectionItem value="pay" icon={<WalletIcon className="h-4 w-4" />} title="المدفوعات والمحفظة">
+          <SectionItem
+            value="pay"
+            icon={<WalletIcon className="h-4 w-4" />}
+            title="المدفوعات والمحفظة"
+          >
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-lg border border-border bg-background p-2">
@@ -393,8 +399,16 @@ function SettingsPage() {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <QuickLink to="/payments/new" icon={<Receipt className="h-4 w-4" />} label="طلب جديد" />
-                <QuickLink to="/payments" icon={<History className="h-4 w-4" />} label="سجل الطلبات" />
+                <QuickLink
+                  to="/payments/new"
+                  icon={<Receipt className="h-4 w-4" />}
+                  label="طلب جديد"
+                />
+                <QuickLink
+                  to="/payments"
+                  icon={<History className="h-4 w-4" />}
+                  label="سجل الطلبات"
+                />
                 <QuickLink to="/wallet" icon={<WalletIcon className="h-4 w-4" />} label="المحفظة" />
               </div>
             </div>
@@ -405,9 +419,21 @@ function SettingsPage() {
         <SectionItem value="help" icon={<LifeBuoy className="h-4 w-4" />} title="الدعم والمساعدة">
           <div className="grid grid-cols-2 gap-2">
             <SupportLink to="/contact" icon={<Mail className="h-4 w-4" />} label="تواصل معنا" />
-            <SupportLink to="/contact" icon={<HelpCircle className="h-4 w-4" />} label="الأسئلة الشائعة" />
-            <SupportLink to="/privacy" icon={<ShieldAlert className="h-4 w-4" />} label="سياسة الخصوصية" />
-            <SupportLink to="/terms" icon={<FileText className="h-4 w-4" />} label="الشروط والأحكام" />
+            <SupportLink
+              to="/contact"
+              icon={<HelpCircle className="h-4 w-4" />}
+              label="الأسئلة الشائعة"
+            />
+            <SupportLink
+              to="/privacy"
+              icon={<ShieldAlert className="h-4 w-4" />}
+              label="سياسة الخصوصية"
+            />
+            <SupportLink
+              to="/terms"
+              icon={<FileText className="h-4 w-4" />}
+              label="الشروط والأحكام"
+            />
           </div>
         </SectionItem>
 
@@ -416,7 +442,9 @@ function SettingsPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between rounded-lg border border-border bg-background p-3 text-sm">
               <span className="text-muted-foreground">البريد الإلكتروني</span>
-              <span className="font-medium text-foreground" dir="ltr">{user?.email ?? "—"}</span>
+              <span className="font-medium text-foreground" dir="ltr">
+                {user?.email ?? "—"}
+              </span>
             </div>
 
             <Button
@@ -426,7 +454,11 @@ function SettingsPage() {
               onClick={handleSignOut}
               disabled={signingOut}
             >
-              {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+              {signingOut ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="h-4 w-4" />
+              )}
               تسجيل الخروج
             </Button>
 
@@ -462,7 +494,9 @@ function SettingsPage() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label htmlFor="pw" className="text-xs">كلمة المرور الحالية</Label>
+                        <Label htmlFor="pw" className="text-xs">
+                          كلمة المرور الحالية
+                        </Label>
                         <Input
                           id="pw"
                           type="password"
@@ -537,11 +571,12 @@ function SettingsPage() {
         <SectionItem value="about" icon={<Info className="h-4 w-4" />} title="معلومات التطبيق">
           <div className="space-y-1 text-sm">
             <p className="font-semibold text-foreground">تمكين</p>
+            <p className="text-xs text-muted-foreground">منصة تعليمية لطلاب المرحلة الثانوية.</p>
             <p className="text-xs text-muted-foreground">
-              منصة تعليمية لطلاب المرحلة الثانوية.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              الإصدار: <span className="font-medium text-foreground" dir="ltr">{APP_VERSION}</span>
+              الإصدار:{" "}
+              <span className="font-medium text-foreground" dir="ltr">
+                {APP_VERSION}
+              </span>
             </p>
           </div>
         </SectionItem>
@@ -552,18 +587,32 @@ function SettingsPage() {
 
 function translateStatus(s: string): string {
   switch (s) {
-    case "pending": return "قيد المراجعة";
-    case "approved": return "مقبول";
-    case "rejected": return "مرفوض";
-    case "refunded": return "مُسترد";
-    case "reversed": return "ملغى";
-    default: return s;
+    case "pending":
+      return "قيد المراجعة";
+    case "approved":
+      return "مقبول";
+    case "rejected":
+      return "مرفوض";
+    case "refunded":
+      return "مُسترد";
+    case "reversed":
+      return "ملغى";
+    default:
+      return s;
   }
 }
 
 function SectionItem({
-  value, icon, title, children,
-}: { value: string; icon: React.ReactNode; title: string; children: React.ReactNode }) {
+  value,
+  icon,
+  title,
+  children,
+}: {
+  value: string;
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <AccordionItem
       value={value}
@@ -591,11 +640,21 @@ function Chip({ icon, children }: { icon: React.ReactNode; children: React.React
   );
 }
 
-function Detail({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+function Detail({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-center gap-1.5">
       <span className="text-primary">{icon}</span>
-      <span>{label}: <span className="font-medium text-foreground">{children}</span></span>
+      <span>
+        {label}: <span className="font-medium text-foreground">{children}</span>
+      </span>
     </div>
   );
 }
@@ -610,8 +669,14 @@ function StatCard({ label, value }: { label: string; value: number }) {
 }
 
 function QuickLink({
-  to, icon, label,
-}: { to: "/payments/new" | "/payments" | "/wallet"; icon: React.ReactNode; label: string }) {
+  to,
+  icon,
+  label,
+}: {
+  to: "/payments/new" | "/payments" | "/wallet";
+  icon: React.ReactNode;
+  label: string;
+}) {
   return (
     <Link
       to={to}
@@ -624,8 +689,14 @@ function QuickLink({
 }
 
 function SupportLink({
-  to, icon, label,
-}: { to: "/contact" | "/privacy" | "/terms"; icon: React.ReactNode; label: string }) {
+  to,
+  icon,
+  label,
+}: {
+  to: "/contact" | "/privacy" | "/terms";
+  icon: React.ReactNode;
+  label: string;
+}) {
   return (
     <Link
       to={to}

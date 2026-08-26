@@ -75,7 +75,9 @@ export function AchievementsSection({ badges, loading }: AchievementsSectionProp
                   {badge.description}
                 </p>
                 {!earned && (
-                  <span className="mt-2 inline-block rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground/70">قريبًا</span>
+                  <span className="mt-2 inline-block rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground/70">
+                    قريبًا
+                  </span>
                 )}
               </div>
             );

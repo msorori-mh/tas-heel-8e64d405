@@ -155,7 +155,8 @@ function MinisterialSessionPage() {
   });
 
   if (isLoading) return <StateMessage variant="loading">جارٍ تحميل الجلسة…</StateMessage>;
-  if (error || !data) return <StateMessage variant="error">{mapMinisterialError(error)}</StateMessage>;
+  if (error || !data)
+    return <StateMessage variant="error">{mapMinisterialError(error)}</StateMessage>;
 
   if (data.session.status !== "in_progress") {
     return (
