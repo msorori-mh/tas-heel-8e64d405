@@ -35,7 +35,7 @@ jobs:
         run: npm ci
 
       - name: Generate non-breaking dependency lock remediation
-        run: npm audit fix --package-lock-only --ignore-scripts
+        run: npm audit fix --package-lock-only --ignore-scripts || test $? -eq 1
 
       - name: Show generated dependency lock patch
         run: git diff -- package-lock.json
