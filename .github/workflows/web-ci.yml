@@ -41,9 +41,11 @@ jobs:
         run: npm run lint
 
       - name: Typecheck
+        if: always()
         run: npx tsc --noEmit
 
       - name: Run unit tests
+        if: always()
         run: |
           npm test
           node --test tests/import/curriculum-subject-unit-lesson-intake-13j.static.test.mjs
@@ -79,9 +81,11 @@ jobs:
           node --experimental-strip-types --test tests/content-packages/chemistry-g12-iron-production-import-dry-run.test.ts
 
       - name: Run PWA service worker policy test
+        if: always()
         run: node tests/pwa/service-worker-policy.static.test.mjs
 
       - name: Build client and server bundles
+        if: always()
         run: npm run build
 
   content-v3-pg17:
