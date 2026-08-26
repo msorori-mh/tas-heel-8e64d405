@@ -250,7 +250,7 @@ export async function convertQuestionWorkbook(
   const ExcelJS = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
   const workbookBytes = new Uint8Array(await file.arrayBuffer());
-  await workbook.xlsx.load(workbookBytes as unknown as Buffer);
+  await workbook.xlsx.load(workbookBytes as unknown as Parameters<typeof workbook.xlsx.load>[0]);
 
   const normalizeHeader = (value: string) =>
     value.replace(/\*/g, "").replace(/\u00a0/g, " ").trim().toLowerCase();
