@@ -1,5 +1,6 @@
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, it } from "node:test";
 import {
   filterStudentCapabilitiesByLifecycle,
   rowsToLifecycleMap,
@@ -21,7 +22,10 @@ describe("independent lesson component publishing", () => {
       managed: true,
       readyKeys: new Set(["officialBookContent"]),
     });
-    expect(visible.map((item) => item.type)).toEqual(["PRIMARY_CONTENT"]);
+    assert.deepEqual(
+      visible.map((item) => item.type),
+      ["PRIMARY_CONTENT"],
+    );
   });
 
   it("preserves independent lifecycle state for each component", () => {
@@ -43,8 +47,11 @@ describe("independent lesson component publishing", () => {
         reviewed_at: null,
       },
     ]);
-    expect(lifecycle.officialBookContent?.status).toBe("READY");
-    expect(lifecycle.quickReview?.status).toBe("DRAFT");
+    assert.equal(
+      (lifecycle.officialBookContent as { status: string }).status,
+      "READY",
+    );
+    assert.equal((lifecycle.quickReview as { status: string }).status, "DRAFT");
   });
 
   it("guards every canonical authored component and keeps READY explicit", () => {
@@ -57,17 +64,17 @@ describe("independent lesson component publishing", () => {
       "checkUnderstanding",
       "lessonAssessment",
     ]) {
-      expect(migration).toContain(`'${capability}'`);
+      assert.ok(migration.includes(`'${capability}'`));
     }
-    expect(migration).toContain("SET status = 'DRAFT'");
-    expect(migration).not.toContain("SET status = 'READY'");
-    expect(migration).toContain("status=READY");
+    assert.ok(migration.includes("SET status = 'DRAFT'"));
+    assert.ok(!migration.includes("SET status = 'READY'"));
+    assert.ok(migration.includes("status=READY"));
   });
 
   it("makes mutation and lifecycle downgrade atomic at the database boundary", () => {
-    expect(migration).toContain("AFTER INSERT OR UPDATE OR DELETE");
-    expect(migration).toContain("PERFORM public.mark_lesson_component_draft");
-    expect(migration).toContain("ON CONFLICT (lesson_id, capability) DO UPDATE");
-    expect(migration).toContain("REVOKE ALL ON FUNCTION");
+    assert.ok(migration.includes("AFTER INSERT OR UPDATE OR DELETE"));
+    assert.ok(migration.includes("PERFORM public.mark_lesson_component_draft"));
+    assert.ok(migration.includes("ON CONFLICT (lesson_id, capability) DO UPDATE"));
+    assert.ok(migration.includes("REVOKE ALL ON FUNCTION"));
   });
 });
