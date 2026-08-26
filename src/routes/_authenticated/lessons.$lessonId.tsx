@@ -59,7 +59,6 @@ import {
   Link2,
   FileText,
   Loader2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Lightbulb,
@@ -972,21 +971,7 @@ function LessonPage() {
 
       {/* Content-driven learning actions — only what actually exists */}
       {actions.length > 0 && (
-        <div className="space-y-3">
-          {actions.map((capability, index) => (
-            <JourneyCard
-              key={capability.type}
-              stepNumber={index + 1}
-              icon={<CapabilityIcon type={capability.type} />}
-              title={capability.label}
-              description={capability.description}
-              ctaLabel={capability.action}
-              defaultOpen={index === 0 && capability.type === "PRIMARY_CONTENT"}
-            >
-              {renderCapabilityBody(capability)}
-            </JourneyCard>
-          ))}
-        </div>
+        <LessonCapabilityTabs actions={actions} renderBody={renderCapabilityBody} />
       )}
 
       <nav
@@ -1041,55 +1026,125 @@ function QuestionLoadFailure({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-function JourneyCard({
-  stepNumber,
-  icon,
-  title,
-  description,
-  ctaLabel,
-  defaultOpen,
-  children,
+function LessonCapabilityTabs({
+  actions,
+  renderBody,
 }: {
-  stepNumber: number;
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  ctaLabel: string;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
+  actions: LessonCapability[];
+  renderBody: (capability: LessonCapability) => React.ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen === true);
+  const firstType = actions[0]?.type ?? null;
+  const [activeType, setActiveType] = useState<LessonCapabilityType | null>(firstType);
+  const [visitedTypes, setVisitedTypes] = useState<Set<LessonCapabilityType>>(
+    () => new Set(firstType ? [firstType] : []),
+  );
+
+  useEffect(() => {
+    if (activeType && actions.some((capability) => capability.type === activeType)) return;
+    const nextType = actions[0]?.type ?? null;
+    setActiveType(nextType);
+    if (nextType) {
+      setVisitedTypes((current) => new Set(current).add(nextType));
+    }
+  }, [actions, activeType]);
+
+  const selectTab = (type: LessonCapabilityType) => {
+    setActiveType(type);
+    setVisitedTypes((current) => new Set(current).add(type));
+  };
+
+  const handleTabKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const rtlStep = event.key === "ArrowRight" ? -1 : 1;
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? actions.length - 1
+          : (index + rtlStep + actions.length) % actions.length;
+    const nextType = actions[nextIndex]?.type;
+    if (!nextType) return;
+    selectTab(nextType);
+    document.getElementById(`lesson-tab-${nextType}`)?.focus();
+  };
+
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-3 p-4 text-right transition-colors hover:bg-muted/30"
+    <section
+      aria-label="محتويات الدرس"
+      className="overflow-hidden rounded-2xl border border-border bg-card shadow-card"
+    >
+      <div
+        role="tablist"
+        aria-label="محتويات الدرس"
+        aria-orientation="horizontal"
+        className="flex w-full gap-1.5 overflow-x-auto border-b border-border bg-muted/20 p-2 [scrollbar-width:thin] lg:gap-2"
       >
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-          {icon}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              خطوة {stepNumber}
-            </span>
-            <h2 className="truncate text-base font-bold text-foreground">{title}</h2>
+        {actions.map((capability, index) => {
+          const active = capability.type === activeType;
+          return (
+            <button
+              key={capability.type}
+              id={`lesson-tab-${capability.type}`}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              aria-controls={`lesson-panel-${capability.type}`}
+              tabIndex={active ? 0 : -1}
+              onClick={() => selectTab(capability.type)}
+              onKeyDown={(event) => handleTabKeyDown(event, index)}
+              className={`flex min-w-[8.75rem] flex-1 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:min-w-0 ${
+                active
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <span
+                className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
+                  active ? "bg-primary-foreground/15" : "bg-primary/10 text-primary"
+                }`}
+              >
+                <CapabilityIcon type={capability.type} />
+              </span>
+              <span className="whitespace-nowrap">{capability.label}</span>
+              <span className={`text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
+                {index + 1}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {actions.map((capability) => {
+        if (!visitedTypes.has(capability.type)) return null;
+        const active = capability.type === activeType;
+        return (
+          <div
+            key={capability.type}
+            id={`lesson-panel-${capability.type}`}
+            role="tabpanel"
+            aria-labelledby={`lesson-tab-${capability.type}`}
+            hidden={!active}
+            className="bg-background/40 p-3 sm:p-4"
+          >
+            <div className="mb-4 flex items-start gap-3 border-b border-border/60 pb-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                <CapabilityIcon type={capability.type} />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground">{capability.label}</h2>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {capability.description}
+                </p>
+              </div>
+            </div>
+            {renderBody(capability)}
           </div>
-          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{description}</p>
-        </div>
-        <div className="shrink-0 text-muted-foreground">
-          <div className="flex items-center gap-1 text-xs font-medium text-primary">
-            <span>{open ? "إغلاق" : ctaLabel}</span>
-            <ChevronDown
-              className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
-              aria-hidden
-            />
-          </div>
-        </div>
-      </button>
-      {open && <div className="border-t border-border bg-background/40 p-4">{children}</div>}
+        );
+      })}
     </section>
   );
 }
