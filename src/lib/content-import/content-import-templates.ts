@@ -21,6 +21,8 @@ export interface ContentImportTemplateMeta {
   key: ContentImportTemplateKey;
   titleAr: string;
   filename: string;
+  /** Exact worksheet containing import rows. Never infer this from workbook order. */
+  dataSheetName: string;
   descriptionAr: string;
   /** Required columns for UI + dry-run validation — derived from the import contract. */
   readonly requiredBaseColumns: readonly string[];
@@ -48,6 +50,7 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
     key: "subjects",
     titleAr: "المواد الدراسية",
     filename: "01_subjects_template.xlsx",
+    dataSheetName: "المواد",
     descriptionAr: "تعريف المواد (كود، صف، منهج، أيقونة، لون).",
   },
   {
@@ -55,6 +58,7 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
     key: "units",
     titleAr: "الوحدات",
     filename: "02_units_template.xlsx",
+    dataSheetName: "الوحدات",
     descriptionAr: "وحدات كل مادة مع الربط بـ subject_code.",
   },
   {
@@ -62,6 +66,7 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
     key: "lessons",
     titleAr: "الدروس",
     filename: "03_lessons_template.xlsx",
+    dataSheetName: "الدروس",
     descriptionAr: "قائمة الدروس — lesson_code يُستخدم في القوالب التالية.",
   },
   {
@@ -69,6 +74,7 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
     key: "book_contents",
     titleAr: "محتوى الكتاب",
     filename: "04_lesson_book_contents_template.xlsx",
+    dataSheetName: "محتوى الكتاب",
     descriptionAr: "نص الدرس الرئيسي (Markdown) وربط PDF اختياري.",
   },
   {
@@ -76,6 +82,7 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
     key: "explanations",
     titleAr: "الشروحات",
     filename: "05_lesson_explanations_template.xlsx",
+    dataSheetName: "الشروحات",
     descriptionAr: "شروحات إضافية متعددة لكل درس.",
   },
   {
@@ -83,6 +90,7 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
     key: "resources",
     titleAr: "الموارد والروابط",
     filename: "06_lesson_resources_template.xlsx",
+    dataSheetName: "موارد الدرس",
     descriptionAr: "فيديو، خريطة ذهنية، تجربة، PDF، وروابط خارجية.",
   },
   {
@@ -90,6 +98,7 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
     key: "assessments",
     titleAr: "تقييمات الدروس",
     filename: "07_lesson_assessments_template.xlsx",
+    dataSheetName: "اختبارات الدرس",
     descriptionAr: "اختبارات قصيرة مرتبطة بدرس (قبل ربط الأسئلة في 08).",
   },
   {
@@ -97,6 +106,7 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
     key: "assessment_questions",
     titleAr: "أسئلة التقييمات",
     filename: "08_assessment_questions_template.xlsx",
+    dataSheetName: "أسئلة الاختبار",
     descriptionAr: "ربط أسئلة (من 09) باختبار (من 07).",
     editorOnly: true,
   },
@@ -105,6 +115,7 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
     key: "questions",
     titleAr: "أسئلة الكتاب الأصلية",
     filename: "09_official_book_questions_template.xlsx",
+    dataSheetName: "أسئلة الكتاب الأصلية",
     descriptionAr: "أسئلة الدرس بصيغتها الأصلية في الكتاب مع الإجابة النموذجية.",
     editorOnly: true,
   },
@@ -113,6 +124,7 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
     key: "self_test_questions",
     titleAr: "اختبر فهمك",
     filename: "10_self_test_questions_template.xlsx",
+    dataSheetName: "اختبر فهمك",
     descriptionAr: "بنك اختيار من متعدد مستقل مع الإجابة الصحيحة والشرح والتصويبات.",
     editorOnly: true,
   },
