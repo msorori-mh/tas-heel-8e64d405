@@ -247,26 +247,23 @@ export async function convertQuestionWorkbook(
   guard: QuestionWorkbookGuard = {},
 ): Promise<ConvertedQuestionWorkbook> {
   if (!/\.xlsx$/i.test(file.name)) throw new Error("يُقبل قالب XLSX المعتمد فقط.");
-  const XLSX = await import("xlsx");
-  const workbook = XLSX.read(await file.arrayBuffer(), {
-    type: "array",
-    cellFormula: false,
-    cellHTML: false,
-    cellNF: false,
-    cellStyles: false,
-  });
+  const ExcelJS = await import("exceljs");
+  const workbook = new ExcelJS.Workbook();
+  const workbookBytes = new Uint8Array(await file.arrayBuffer());
+  await workbook.xlsx.load(workbookBytes as unknown as Buffer);
 
   const normalizeHeader = (value: string) =>
     value.replace(/\*/g, "").replace(/\u00a0/g, " ").trim().toLowerCase();
   const readRows = (sheetName: string): unknown[][] => {
-    const worksheet = workbook.Sheets[sheetName];
+    const worksheet = workbook.worksheets.find(
+      (candidate) => candidate.name.trim() === sheetName.trim(),
+    );
     if (!worksheet) return [];
-    return XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
-      header: 1,
-      defval: "",
-      raw: false,
-      blankrows: true,
-    });
+    return Array.from({ length: worksheet.rowCount }, (_, rowIndex) =>
+      Array.from({ length: worksheet.columnCount }, (_, columnIndex) =>
+        worksheet.getRow(rowIndex + 1).getCell(columnIndex + 1).value,
+      ),
+    );
   };
   const readHeaders = (rows: unknown[][]) => {
     const map = new Map<number, string>();
@@ -278,9 +275,9 @@ export async function convertQuestionWorkbook(
   };
 
   const required = REQUIRED_COLUMNS[capability];
-  const matching = workbook.SheetNames.find(
-    (sheetName) => sheetName.trim() === SHEET_NAME[capability],
-  );
+  const matching = workbook.worksheets
+    .map((worksheet) => worksheet.name)
+    .find((sheetName) => sheetName.trim() === SHEET_NAME[capability]);
   if (!matching) {
     throw new Error(
       `لم يُعثر على ورقة «${SHEET_NAME[capability]}» — نزّل القالب المعتمد ولا تغيّر اسم ورقة البيانات.`,
