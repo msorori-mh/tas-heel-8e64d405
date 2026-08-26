@@ -34,12 +34,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate non-breaking dependency lock remediation
-        run: npm audit fix --package-lock-only --ignore-scripts || test $? -eq 1
-
-      - name: Show generated dependency lock patch
-        run: git diff -- package-lock.json
-
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
