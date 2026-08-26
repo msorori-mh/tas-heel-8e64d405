@@ -15,12 +15,12 @@ export const GOLDEN_QURAN_V1: GoldenLessonProfile = {
     lessonSummaryHtml: "REQUIRED",
     mindMapHtml: "REQUIRED",
     labExperimentHtml: "OPTIONAL",
-    officialBookQuestions: "OPTIONAL",
+    officialBookQuestions: "REQUIRED",
     selfTest: "REQUIRED",
   },
   notesAr: [
     "النص الرسمي وأسئلته لا يعادان صياغتهما.",
-    "التجربة أو النشاط التفاعلي اختياري وحده، ولا يمنع غيابه اعتماد بقية الدرس.",
+    "التجربة أو النشاط التفاعلي وحده اختياري؛ أسئلة الكتاب واختبر فهمك مكونان إلزاميان.",
     "الوحدة اختيارية؛ لا تُخترع إذا كان الدرس مرتبطًا بالمادة مباشرة.",
   ],
 };
@@ -37,7 +37,7 @@ export const GOLDEN_CHEMISTRY_V1: GoldenLessonProfile = {
     lessonSummaryHtml: "REQUIRED",
     mindMapHtml: "REQUIRED",
     labExperimentHtml: "OPTIONAL",
-    officialBookQuestions: "OPTIONAL",
+    officialBookQuestions: "REQUIRED",
     selfTest: "REQUIRED",
   },
   notesAr: [
