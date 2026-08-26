@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>أكاديمية معلم الثانوية — نموذج غير إنتاجي</title>
+<style>
+:root{font-family:Tahoma,"Segoe UI",sans-serif;color:#172033;background:#f5f7fb}*{box-sizing:border-box}body{margin:0}button{font:inherit}.app{min-height:100vh;display:grid;grid-template-columns:270px 1fr}.side{background:#15254f;color:#fff;padding:20px;position:sticky;top:0;height:100vh}.brand{font-size:20px;font-weight:800;margin-bottom:20px}.role{width:100%;padding:10px;border-radius:10px;border:1px solid #6474a2;background:#fff;color:#172033;margin-bottom:18px}.nav{display:grid;gap:8px}.nav button{border:0;border-radius:9px;padding:10px 12px;text-align:right;background:transparent;color:#dbe5ff;cursor:pointer}.nav button.active,.nav button:hover{background:#263a72;color:#fff}.main{padding:24px;max-width:1200px;width:100%;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.badge{background:#fff4d6;color:#7b4b00;padding:7px 10px;border-radius:999px;font-size:12px;border:1px solid #f1d18a}.panel{display:none}.panel.active{display:block}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{background:#fff;border:1px solid #e0e5ef;border-radius:14px;padding:16px;box-shadow:0 5px 18px rgba(30,50,90,.05)}.muted{color:#6a7388;font-size:13px}.kpi{font-size:28px;font-weight:800}.progress{height:9px;background:#edf0f6;border-radius:10px;overflow:hidden}.progress>span{display:block;height:100%;background:#355ac3}.btn{border:0;background:#274eb3;color:#fff;padding:9px 14px;border-radius:9px;cursor:pointer}.btn.secondary{background:#eef2ff;color:#24419b}.status{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;background:#eaf8ef;color:#21693b}.status.warn{background:#fff4d6;color:#835400}.table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden}.table th,.table td{padding:11px;border-bottom:1px solid #e7eaf0;text-align:right}.notice{background:#fff7e8;border:1px solid #f2d398;padding:13px;border-radius:12px;margin-bottom:16px}.empty{padding:35px;text-align:center;background:#fff;border:1px dashed #bdc5d6;border-radius:12px;color:#667085}@media(max-width:850px){.app{grid-template-columns:1fr}.side{height:auto;position:relative}.grid{grid-template-columns:1fr}.nav{grid-template-columns:repeat(2,1fr)}.main{padding:14px}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="side">
+<div class="brand">أكاديمية معلم الثانوية</div>
+<label class="muted" style="color:#c8d5ff">الدور التجريبي</label>
+<select class="role" id="role">
+<option value="learner">المعلم المتعلم</option>
+<option value="trainer">المدرب</option>
+<option value="org">مدير المؤسسة</option>
+<option value="cert">مسؤول الشهادات</option>
+<option value="support">الدعم</option>
+</select>
+<nav class="nav" id="nav">
+<button data-screen="home" class="active">الرئيسية</button>
+<button data-screen="catalog">البرامج</button>
+<button data-screen="cohort">الدُفعات والتقدم</button>
+<button data-screen="commerce">الاشتراكات والعقود</button>
+<button data-screen="certificates">الشهادات</button>
+<button data-screen="support">الدعم والتدقيق</button>
+</nav>
+</aside>
+<main class="main">
+<div class="top"><div><h1 id="title" style="margin:0">الرئيسية</h1><div class="muted">نموذج UX غير إنتاجي — بيانات Mock فقط</div></div><span class="badge">QB integration: Disabled</span></div>
+<div class="notice"><strong>حد العزل:</strong> لا اتصال بقاعدة بيانات، لا Wallet طالب، لا student app_role، لا بيانات طلاب، ولا صلاحيات qb_edit/qb_review/qb_publish.</div>
+<section id="home" class="panel active">
+<div class="grid">
+<div class="card"><div class="muted">برامج نشطة</div><div class="kpi">2</div><span class="status">Entitled</span></div>
+<div class="card"><div class="muted">التقدم في المسار الحالي</div><div class="kpi">68%</div><div class="progress"><span style="width:68%"></span></div></div>
+<div class="card"><div class="muted">الجلسة القادمة</div><div style="font-weight:700;margin:8px 0">التقويم من أجل التعلم</div><div class="muted">الخميس · 6:00 مساءً</div></div>
+</div>
+</section>
+<section id="catalog" class="panel"><div class="grid">
+<div class="card"><span class="status">AVAILABLE</span><h3>التدريس الفعّال للمرحلة الثانوية</h3><p class="muted">الإصدار v1 · 24 ساعة · اشتراك فردي</p><button class="btn">عرض التفاصيل</button></div>
+<div class="card"><span class="status">ENTITLED</span><h3>القياس والتقويم وبناء الاختبارات</h3><p class="muted">الإصدار v2 · 18 ساعة · ضمن عقد المؤسسة</p><button class="btn secondary">متابعة التعلم</button></div>
+<div class="card"><span class="status warn">NOT_ELIGIBLE</span><h3>إعداد المدربين</h3><p class="muted">يتطلب استيفاء متطلبات سابقة</p><button class="btn secondary" disabled>غير متاح</button></div>
+</div></section>
+<section id="cohort" class="panel"><div class="card"><h3>دفعة أغسطس 2026</h3><p class="muted">Program Version ثابت: v2.1</p><div class="progress"><span style="width:72%"></span></div><p>التقدم: 72%</p></div></section>
+<section id="commerce" class="panel"><table class="table"><thead><tr><th>العقد</th><th>المؤسسة</th><th>المقاعد</th><th>المستخدم</th><th>الحالة</th></tr></thead><tbody><tr><td>ORG-2026-014</td><td>مدرسة نموذجية</td><td>50</td><td>31</td><td><span class="status">ACTIVE</span></td></tr><tr><td>ORG-2026-015</td><td>مؤسسة تدريب</td><td>20</td><td>20</td><td><span class="status warn">FULL</span></td></tr></tbody></table></section>
+<section id="certificates" class="panel"><div class="grid"><div class="card"><h3>شهادة إتمام المسار</h3><p class="muted">مرتبطة بإصدار البرنامج v2.1 وCompletion Evidence.</p><span class="status">READY_TO_ISSUE</span></div><div class="card"><h3>تحقق الشهادة</h3><p class="muted">رمز تجريبي: ACAD-MOCK-2026-001</p><button class="btn">تحقق Mock</button></div></div></section>
+<section id="support" class="panel"><div class="grid"><div class="card"><h3>طلب دعم #MOCK-104</h3><p class="muted">أقل قدر من البيانات · لا بيانات طالب.</p><span class="status">OPEN</span></div><div class="card"><h3>وصول حساس مؤقت</h3><p class="muted">يتطلب سببًا + مدة + سجل تدقيق.</p><button class="btn secondary">محاكاة طلب وصول</button></div></div></section>
+</main>
+</div>
+<script>
+const titles={home:'الرئيسية',catalog:'البرامج',cohort:'الدُفعات والتقدم',commerce:'الاشتراكات والعقود',certificates:'الشهادات',support:'الدعم والتدقيق'};
+document.querySelectorAll('[data-screen]').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('[data-screen]').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));document.getElementById(btn.dataset.screen).classList.add('active');document.getElementById('title').textContent=titles[btn.dataset.screen]}));
+document.getElementById('role').addEventListener('change',e=>{document.body.dataset.role=e.target.value;});
+</script>
+</body></html>
