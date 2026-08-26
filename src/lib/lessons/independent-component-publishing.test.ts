@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import {
-  filterStudentCapabilitiesByLifecycle,
-  rowsToLifecycleMap,
-} from "./lesson-lifecycle";
+import { filterStudentCapabilitiesByLifecycle, rowsToLifecycleMap } from "./lesson-lifecycle";
 
 const migration = readFileSync(
   "supabase/migrations/20260826040000_independent_lesson_component_publishing.sql",
@@ -47,10 +44,7 @@ describe("independent lesson component publishing", () => {
         reviewed_at: null,
       },
     ]);
-    assert.equal(
-      (lifecycle.officialBookContent as { status: string }).status,
-      "READY",
-    );
+    assert.equal((lifecycle.officialBookContent as { status: string }).status, "READY");
     assert.equal((lifecycle.quickReview as { status: string }).status, "DRAFT");
   });
 
