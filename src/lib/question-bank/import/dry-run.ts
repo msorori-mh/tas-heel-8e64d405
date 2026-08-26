@@ -12,20 +12,13 @@ import {
   type ImportSchemaId,
 } from "./adapters/detect.ts";
 import type { OfficialNormalizedV1 } from "./official-normalized-v1.ts";
-import {
-  validateNormalizedRow,
-  contentFingerprint,
-  type CatalogLookup,
-} from "./validate.ts";
+import { validateNormalizedRow, contentFingerprint, type CatalogLookup } from "./validate.ts";
 import { canonicalHash, compareCodePoints } from "./canonical-json.ts";
 import { issue, sortIssues, type QbImportIssue } from "./errors.ts";
 import { QB_IMPORT_CODES } from "./validation-codes.ts";
 import { preflightWorkbook, type WorkbookParserMetadata } from "./preflight.ts";
 import { buildPrivilegedPreview, buildPublicPreview } from "./preview.ts";
-import {
-  parseQuestionBankWorkbook,
-  type TrustedWorkbookModel,
-} from "./workbook-parser.ts";
+import { parseQuestionBankWorkbook, type TrustedWorkbookModel } from "./workbook-parser.ts";
 import { validateImportAuthorization, QB_IMPORT_DEFAULT_SCOPE } from "./authorization.ts";
 import { DEFAULT_IMPORT_LIMITS } from "./limits.ts";
 
@@ -114,12 +107,13 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
     };
   }
 
-  if (opts.trustedWorkbook && (!opts.trustedWorkbook.trusted_parser_version || !opts.trustedWorkbook.parser_result_hash)) {
+  if (
+    opts.trustedWorkbook &&
+    (!opts.trustedWorkbook.trusted_parser_version || !opts.trustedWorkbook.parser_result_hash)
+  ) {
     throw new Error("Trusted parser attestation is incomplete.");
   }
-  const objectRows = opts.rows.map((row) =>
-    Array.isArray(row) ? legacyArrayToRow(row) : row,
-  );
+  const objectRows = opts.rows.map((row) => (Array.isArray(row) ? legacyArrayToRow(row) : row));
   const issues = preflightWorkbook({
     fileName: opts.fileName,
     headers: opts.headers,
@@ -129,7 +123,7 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
   });
 
   if (Array.isArray(opts.trustedWorkbook?.preflight_issues)) {
-    issues.push(...(opts.trustedWorkbook.preflight_issues as any[]));
+    issues.push(...(opts.trustedWorkbook.preflight_issues as QbImportIssue[]));
   }
 
   const detected = detectSchemaFromHeaders(opts.headers);
@@ -137,20 +131,50 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
 
   if (opts.schemaHint && opts.schemaHint !== "unknown") {
     if (detected.schema !== "unknown" && detected.schema !== opts.schemaHint) {
-      issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "detect" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.INVALID_CONTRACT, {
+          file: opts.fileName,
+          stage: "ADAPTER_DETECT",
+          source_subsystem: "detect",
+        }),
+      );
     }
     schema = opts.schemaHint;
   }
 
   if (schema === "unknown") {
-    issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "detect" }));
+    issues.push(
+      issue(QB_IMPORT_CODES.INVALID_CONTRACT, {
+        file: opts.fileName,
+        stage: "ADAPTER_DETECT",
+        source_subsystem: "detect",
+      }),
+    );
   } else if (!opts.relaxExactHeaders && !headersMatchContract(schema, opts.headers)) {
     if (schema === LEGACY_FLAT_15COL && opts.headers.length !== 15) {
-      issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_COUNT, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "legacy-flat-15col" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.LEGACY_COLUMN_COUNT, {
+          file: opts.fileName,
+          stage: "ADAPTER_DETECT",
+          source_subsystem: "legacy-flat-15col",
+        }),
+      );
     } else if (schema === LEGACY_FLAT_15COL) {
-      issues.push(issue(QB_IMPORT_CODES.LEGACY_COLUMN_ORDER, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "legacy-flat-15col" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.LEGACY_COLUMN_ORDER, {
+          file: opts.fileName,
+          stage: "ADAPTER_DETECT",
+          source_subsystem: "legacy-flat-15col",
+        }),
+      );
     } else {
-      issues.push(issue(QB_IMPORT_CODES.MISSING_HEADER, { file: opts.fileName, stage: "ADAPTER_DETECT", source_subsystem: "detect" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.MISSING_HEADER, {
+          file: opts.fileName,
+          stage: "ADAPTER_DETECT",
+          source_subsystem: "detect",
+        }),
+      );
     }
   }
 
@@ -158,8 +182,19 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
     const expectedHeaders = new Set(CONTRACT_HEADERS[schema].map((h) => normalizeHeader(h)));
     for (const header of opts.headers) {
       const norm = normalizeHeader(header);
-      if (norm && !expectedHeaders.has(norm) && !/^(id|uuid|role|status|publish|approved_by|publisher|owner_role)$/i.test(norm)) {
-        issues.push(issue(QB_IMPORT_CODES.UNKNOWN_COLUMN, { file: opts.fileName, column: header, stage: "ADAPTER_DETECT", source_subsystem: "detect" }));
+      if (
+        norm &&
+        !expectedHeaders.has(norm) &&
+        !/^(id|uuid|role|status|publish|approved_by|publisher|owner_role)$/i.test(norm)
+      ) {
+        issues.push(
+          issue(QB_IMPORT_CODES.UNKNOWN_COLUMN, {
+            file: opts.fileName,
+            column: header,
+            stage: "ADAPTER_DETECT",
+            source_subsystem: "detect",
+          }),
+        );
       }
     }
   }
@@ -236,10 +271,11 @@ export function runQuestionBankImportDryRun(opts: DryRunOptions) {
     });
   const fingerprints = okRows.map((row) => row.content_fingerprint!).filter(Boolean);
   const duplicateContent =
-    fingerprints.length > 0 &&
-    new Set(fingerprints).size !== fingerprints.length;
+    fingerprints.length > 0 && new Set(fingerprints).size !== fingerprints.length;
 
-  const replay_decision = sorted.some((item) => item.code === QB_IMPORT_CODES.DUPLICATE_CODE_IN_FILE)
+  const replay_decision = sorted.some(
+    (item) => item.code === QB_IMPORT_CODES.DUPLICATE_CODE_IN_FILE,
+  )
     ? "FILE_BLOCK"
     : sorted.some((item) => item.code === QB_IMPORT_CODES.IMPORT_REPLAY_CONFLICT)
       ? "IMPORT_REPLAY_CONFLICT"
@@ -303,7 +339,11 @@ export async function runOperationalQuestionBankImportDryRun(input: {
   expectedScope?: string;
 }) {
   // STEP 1: AUTHORIZATION (FIRST! Before catalog check, before parser, before ZIP, before JSZip/ExcelJS)
-  const authVal = validateImportAuthorization(input.authorized, input.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE, input.fileName);
+  const authVal = validateImportAuthorization(
+    input.authorized,
+    input.expectedScope ?? QB_IMPORT_DEFAULT_SCOPE,
+    input.fileName,
+  );
   if (!authVal.ok) {
     return runQuestionBankImportDryRun({
       fileName: input.fileName,
