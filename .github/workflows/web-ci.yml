@@ -1,5 +1,6 @@
 name: Web CI
 # Temporary isolated formatting generator; removed before merge.
+# Ready-for-review trigger.
 
 on:
   pull_request:
