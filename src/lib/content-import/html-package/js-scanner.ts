@@ -26,7 +26,8 @@ const FORBIDDEN_JS_PATTERNS: ForbiddenJsPattern[] = [
   },
   {
     code: ValidationCodes.FORBIDDEN_API_WINDOW_PARENT,
-    pattern: /\b(window\s*\.\s*parent|parent\s*\.\s*document|window\s*\.\s*top|top\s*\.\s*location|top\s*\.\s*document)\b/i,
+    pattern:
+      /\b(window\s*\.\s*parent|parent\s*\.\s*document|window\s*\.\s*top|top\s*\.\s*location|top\s*\.\s*document)\b/i,
     message: "ممنوع الوصول للنافذة الأب (parent/top) أو شجرة DOM للتطبيق الرئيسي.",
   },
   {
@@ -42,7 +43,8 @@ const FORBIDDEN_JS_PATTERNS: ForbiddenJsPattern[] = [
   {
     code: ValidationCodes.FORBIDDEN_API_NETWORK_FETCH,
     pattern: /\b(fetch|XMLHttpRequest|WebSocket|EventSource|navigator\s*\.\s*sendBeacon)\b/i,
-    message: "ممنوع استخدام الاتصالات الشبكية المباشرة (fetch / XHR / WebSocket / EventSource / sendBeacon).",
+    message:
+      "ممنوع استخدام الاتصالات الشبكية المباشرة (fetch / XHR / WebSocket / EventSource / sendBeacon).",
   },
   {
     code: ValidationCodes.FORBIDDEN_API_CAPACITOR,
@@ -61,7 +63,8 @@ const FORBIDDEN_JS_PATTERNS: ForbiddenJsPattern[] = [
   },
   {
     code: ValidationCodes.FORBIDDEN_WEBRTC,
-    pattern: /\b(RTCPeerConnection|webkitRTCPeerConnection|mozRTCPeerConnection|BroadcastChannel)\b/i,
+    pattern:
+      /\b(RTCPeerConnection|webkitRTCPeerConnection|mozRTCPeerConnection|BroadcastChannel)\b/i,
     message: "ممنوع استخدام قنوات اتصال WebRTC أو BroadcastChannel.",
   },
   {
@@ -84,10 +87,7 @@ const FORBIDDEN_JS_PATTERNS: ForbiddenJsPattern[] = [
 /**
  * Scans JavaScript code content for forbidden APIs and constructs.
  */
-export function scanJavaScriptContent(
-  jsCode: string,
-  filePath: string
-): SecurityFinding[] {
+export function scanJavaScriptContent(jsCode: string, filePath: string): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
 
   // Normalize string for checks (decode entities & strip control chars)

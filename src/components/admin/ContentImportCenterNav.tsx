@@ -12,9 +12,7 @@ const CONTENT_CENTER_TABS = [
 export const CONTENT_CENTER_PATHS = CONTENT_CENTER_TABS.map((tab) => tab.href);
 
 export function isContentCenterPath(path: string) {
-  return CONTENT_CENTER_PATHS.some(
-    (allowed) => path === allowed || path.startsWith(`${allowed}/`),
-  );
+  return CONTENT_CENTER_PATHS.some((allowed) => path === allowed || path.startsWith(`${allowed}/`));
 }
 
 export function ContentImportCenterNav() {
@@ -25,14 +23,16 @@ export function ContentImportCenterNav() {
       <div>
         <h1 className="text-xl font-bold text-foreground">مركز استيراد المحتوى</h1>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          نقطة واحدة لإدارة الهيكل والمواد والكتب والوحدات والدروس، ثم استيراد الملفات
-          وفحصها ونشرها ضمن سياق الصف والمسار والفصل والمادة.
+          نقطة واحدة لإدارة الهيكل والمواد والكتب والوحدات والدروس، ثم استيراد الملفات وفحصها ونشرها
+          ضمن سياق الصف والمسار والفصل والمادة.
         </p>
       </div>
-      <nav className="flex gap-2 overflow-x-auto rounded-xl border border-border bg-card p-2" aria-label="تبويبات استيراد المحتوى">
+      <nav
+        className="flex gap-2 overflow-x-auto rounded-xl border border-border bg-card p-2"
+        aria-label="تبويبات استيراد المحتوى"
+      >
         {CONTENT_CENTER_TABS.map((tab) => {
-          const active =
-            currentPath === tab.href || currentPath.startsWith(`${tab.href}/`);
+          const active = currentPath === tab.href || currentPath.startsWith(`${tab.href}/`);
           return (
             <Link
               key={tab.href}

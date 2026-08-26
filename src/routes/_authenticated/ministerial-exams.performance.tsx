@@ -18,7 +18,8 @@ export const Route = createFileRoute("/_authenticated/ministerial-exams/performa
       { title: "أدائي في الاختبارات الوزارية — تمكين" },
       {
         name: "description",
-        content: "تحليل أدائك في نماذج الاختبارات الوزارية: المتوسط، أفضل نتيجة، والدروس التي تحتاج مراجعة.",
+        content:
+          "تحليل أدائك في نماذج الاختبارات الوزارية: المتوسط، أفضل نتيجة، والدروس التي تحتاج مراجعة.",
       },
       { property: "og:title", content: "أدائي في الاختبارات الوزارية — تمكين" },
       {
@@ -88,7 +89,8 @@ function MinisterialPerformancePage() {
 
   const summary = data?.summary;
   const trend = summary?.improvement_percentage_points ?? null;
-  const TrendIcon = trend === null ? Minus : trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : Minus;
+  const TrendIcon =
+    trend === null ? Minus : trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : Minus;
 
   const lessons = data?.by_lesson ?? [];
   const weak = lessons.filter((l) => l.accuracy !== null && l.accuracy < 60);
@@ -98,10 +100,7 @@ function MinisterialPerformancePage() {
   return (
     <div className="space-y-4 pb-6" dir="rtl">
       <Breadcrumbs
-        items={[
-          { label: "النماذج الوزارية", to: "/ministerial-exams" },
-          { label: "أدائي" },
-        ]}
+        items={[{ label: "النماذج الوزارية", to: "/ministerial-exams" }, { label: "أدائي" }]}
       />
 
       <header>
@@ -144,9 +143,7 @@ function MinisterialPerformancePage() {
               <p className="text-[11px] text-muted-foreground">اتجاه المستوى</p>
               <p className="mt-1 flex items-center gap-1 text-lg font-bold text-foreground">
                 <TrendIcon className="h-4 w-4 text-primary" aria-hidden />
-                {trend === null
-                  ? "—"
-                  : `${trend > 0 ? "+" : ""}${trend} نقطة`}
+                {trend === null ? "—" : `${trend > 0 ? "+" : ""}${trend} نقطة`}
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
                 متوسط الوقت {formatElapsed(summary.avg_elapsed_seconds)}

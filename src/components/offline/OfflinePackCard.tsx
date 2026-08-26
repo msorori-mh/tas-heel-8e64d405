@@ -104,12 +104,14 @@ export function OfflinePackCard({
   };
 
   const failedCount = progress?.failed.length ?? 0;
-  const percent = progress && progress.total > 0
-    ? Math.round((progress.done / progress.total) * 100)
-    : 0;
+  const percent =
+    progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <section dir="rtl" className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-card">
+    <section
+      dir="rtl"
+      className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-card"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-sm font-bold text-foreground">{title}</h3>
@@ -156,7 +158,12 @@ export function OfflinePackCard({
 
       <div className="flex flex-wrap gap-2">
         {missing.length > 0 && !estimate && (
-          <Button size="sm" variant="outline" onClick={handleEstimate} disabled={estimating || busy}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleEstimate}
+            disabled={estimating || busy}
+          >
             {estimating && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
             عرض الحجم التقريبي
           </Button>

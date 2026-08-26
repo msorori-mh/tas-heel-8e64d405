@@ -35,7 +35,7 @@ const MAX_PACKAGE_BYTES = 52428800; // 50MB
 export async function validateServerHtmlPackage(
   zipBuffer: Uint8Array,
   packagePath = "package",
-  expectedResourceCode?: string
+  expectedResourceCode?: string,
 ): Promise<ServerPackageValidationResult> {
   const findings: SecurityFinding[] = [];
   const scannerVersion = "v1-trusted-server-pipeline";
@@ -53,9 +53,7 @@ export async function validateServerHtmlPackage(
   }
 
   const packageFiles =
-    parseRes.packageMap[packagePath] ||
-    Object.values(parseRes.packageMap)[0] ||
-    [];
+    parseRes.packageMap[packagePath] || Object.values(parseRes.packageMap)[0] || [];
 
   if (packageFiles.length === 0) {
     return {
@@ -217,11 +215,11 @@ export async function validateServerHtmlPackage(
 export async function downloadAndValidateStoredZipWorkflow(
   stagingPath: string,
   storageAdapter: StorageClientAdapter,
-  expectedResourceCode?: string
+  expectedResourceCode?: string,
 ): Promise<ServerPackageValidationResult> {
   const { data: zipBytes, error } = await storageAdapter.download(
     "lesson-resource-drafts",
-    stagingPath
+    stagingPath,
   );
   if (error || !zipBytes || zipBytes.byteLength === 0) {
     return {

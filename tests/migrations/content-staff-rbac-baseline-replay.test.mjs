@@ -19,8 +19,7 @@ const SECOND = "20260703204450_5223b435-1a4d-44ab-ad03-ab3d9a8f4432.sql";
 const IMPORT_JOBS_REPAIR = "20260628190000_import_jobs_foundation.sql";
 const QB = "20260801120000_qb01_question_bank_schema_foundation.sql";
 
-const FIRST_SHA =
-  "5C8035188769A816FFDA68CBCF9345F7F8F45B5B705BD2258AE36FD3E263EEAF";
+const FIRST_SHA = "5C8035188769A816FFDA68CBCF9345F7F8F45B5B705BD2258AE36FD3E263EEAF";
 
 const CONTENT_STAFF_POLICIES = [
   "Content staff manage grades",
@@ -86,10 +85,7 @@ test("canonical creator SHA is unchanged and retains is_content_staff helpers", 
   const first = firstBuf.toString("utf8");
   assert.match(first, /CREATE OR REPLACE FUNCTION public\.is_full_admin\(_user_id uuid\)/);
   assert.match(first, /CREATE OR REPLACE FUNCTION public\.is_content_staff\(_user_id uuid\)/);
-  assert.match(
-    first,
-    /OR public\.has_role\(_user_id, 'content_manager'::public\.app_role\)/,
-  );
+  assert.match(first, /OR public\.has_role\(_user_id, 'content_manager'::public\.app_role\)/);
   assert.match(first, /SELECT public\.has_role\(_user_id, 'admin'::public\.app_role\)/);
   assert.doesNotMatch(first, /'moderator'::public\.app_role/);
   assert.doesNotMatch(first, /'user'::public\.app_role/);
@@ -122,9 +118,7 @@ test("exam template read policies are not recreated by the reconciled second fil
     assert.equal(countCreatePolicy(secondCode, name), 0, SECOND);
     assert.match(
       readMigration(FIRST),
-      new RegExp(
-        `DROP POLICY IF EXISTS "${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`,
-      ),
+      new RegExp(`DROP POLICY IF EXISTS "${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`),
     );
   }
 });
@@ -166,11 +160,7 @@ test("no GRANT ALL TO authenticated and no destructive DML in scoped RBAC files"
     assert.doesNotMatch(code, /GRANT\s+ALL\s+ON\b[\s\S]*?\bTO\s+authenticated\b/i, f);
     assert.doesNotMatch(code, /DROP\s+TABLE\b/i, f);
     assert.doesNotMatch(code, /\bTRUNCATE\b/i, f);
-    assert.doesNotMatch(
-      code,
-      /\b(INSERT\s+INTO|UPDATE\s+public\.|DELETE\s+FROM)\b/i,
-      f,
-    );
+    assert.doesNotMatch(code, /\b(INSERT\s+INTO|UPDATE\s+public\.|DELETE\s+FROM)\b/i, f);
   }
 });
 
@@ -198,10 +188,7 @@ test("import_jobs baseline repair remains present on this branch", () => {
 
 test("question bank executable migration is absent from this branch", () => {
   const qbTouched = migrationFiles.filter(
-    (f) =>
-      f === QB ||
-      /qb01_question_bank/i.test(f) ||
-      /question_bank_schema_foundation/i.test(f),
+    (f) => f === QB || /qb01_question_bank/i.test(f) || /question_bank_schema_foundation/i.test(f),
   );
   assert.equal(qbTouched.length, 0, `QB migration must not be present: ${qbTouched.join(", ")}`);
 });

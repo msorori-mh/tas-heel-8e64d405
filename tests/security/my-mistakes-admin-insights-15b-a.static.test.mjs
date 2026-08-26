@@ -56,7 +56,9 @@ describe("15B_A — SAME SOURCE OF TRUTH / NO NEW TABLES", () => {
 
   it("admin insights derive from the existing attempt tables", () => {
     const sql = read("sql");
-    const fn = sql.slice(sql.indexOf("CREATE OR REPLACE FUNCTION public.get_admin_mistake_insights"));
+    const fn = sql.slice(
+      sql.indexOf("CREATE OR REPLACE FUNCTION public.get_admin_mistake_insights"),
+    );
     expect(fn).toContain("public.exam_sessions");
     expect(fn).toContain("public.exam_session_questions");
     expect(fn).toContain("public.exam_session_answers");
@@ -66,11 +68,17 @@ describe("15B_A — SAME SOURCE OF TRUTH / NO NEW TABLES", () => {
 describe("15B_A — ADMIN AUTHZ", () => {
   it("RPC is SECURITY DEFINER, admin-gated and not granted to anon", () => {
     const sql = read("sql");
-    const fn = sql.slice(sql.indexOf("CREATE OR REPLACE FUNCTION public.get_admin_mistake_insights"));
+    const fn = sql.slice(
+      sql.indexOf("CREATE OR REPLACE FUNCTION public.get_admin_mistake_insights"),
+    );
     expect(fn).toContain("SECURITY DEFINER");
     expect(fn).toMatch(/is_full_admin|has_role/);
-    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.get_admin_mistake_insights[\s\S]*FROM anon/);
-    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.get_admin_mistake_insights[\s\S]*TO authenticated/);
+    expect(sql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.get_admin_mistake_insights[\s\S]*FROM anon/,
+    );
+    expect(sql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.get_admin_mistake_insights[\s\S]*TO authenticated/,
+    );
   });
 
   it("admin page is gated to full admins and hidden from content managers", () => {

@@ -14,9 +14,7 @@ import { Loader2 } from "lucide-react";
 import { selectPdfRenderer, type PdfRendererKind } from "@/lib/pdf/pdf-renderer-adapter";
 import type { PdfViewerProps } from "./PdfViewer";
 
-const PdfViewer = lazy(() =>
-  import("./PdfViewer").then((m) => ({ default: m.PdfViewer })),
-);
+const PdfViewer = lazy(() => import("./PdfViewer").then((m) => ({ default: m.PdfViewer })));
 const NativePdfDelivery = lazy(() =>
   import("./NativePdfDelivery").then((m) => ({ default: m.NativePdfDelivery })),
 );
@@ -44,11 +42,8 @@ function Placeholder() {
  * module, which also records READER_READY for the offline badge.
  */
 export function prefetchPdfViewerChunk(): void {
-  void import("@/lib/pdf/reader-runtime")
-    .then((m) => m.ensureReaderReady())
-    .catch(() => undefined);
+  void import("@/lib/pdf/reader-runtime").then((m) => m.ensureReaderReady()).catch(() => undefined);
 }
-
 
 export function InAppPdfDelivery(props: PdfViewerProps) {
   const [renderer, setRenderer] = useState<PdfRendererKind | null>(null);

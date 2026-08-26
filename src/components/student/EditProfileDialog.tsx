@@ -202,7 +202,9 @@ export function EditProfileDialog() {
             >
               <option value="">-- اختر المحافظة --</option>
               {govs.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
               ))}
             </select>
           </div>
@@ -220,7 +222,9 @@ export function EditProfileDialog() {
               >
                 <option value="">-- اختر المنهج --</option>
                 {allowedTracks.map((t) => (
-                  <option key={t.id} value={t.id}>{t.track_name}</option>
+                  <option key={t.id} value={t.id}>
+                    {t.track_name}
+                  </option>
                 ))}
               </select>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -241,18 +245,15 @@ export function EditProfileDialog() {
             >
               <option value="">-- اختر الصف --</option>
               {grades.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
               ))}
             </select>
           </div>
 
           <DialogFooter className="gap-2 pt-2 sm:gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setOpen(false)}
-              disabled={saving}
-            >
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={saving}>
               إلغاء
             </Button>
             <Button type="submit" disabled={saving} className="gap-2">

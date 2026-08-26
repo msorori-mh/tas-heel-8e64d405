@@ -68,7 +68,11 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/ministerial-exams", label: "النماذج الوزارية", icon: ClipboardList },
   { href: "/admin/learning-insights/mistakes", label: "تحليلات الأخطاء", icon: TrendingDown },
   { href: "/admin/learning-insights/performance", label: "تحليل الأداء الموحد", icon: BarChart3 },
-  { href: "/admin/learning-insights/quick-review", label: "جاهزية المراجعة السريعة", icon: BookOpen },
+  {
+    href: "/admin/learning-insights/quick-review",
+    label: "جاهزية المراجعة السريعة",
+    icon: BookOpen,
+  },
   { href: "/admin/payment-methods", label: "طرق الدفع", icon: Landmark },
   { href: "/admin/payment-requests", label: "طلبات الدفع", icon: CreditCard },
   { href: "/admin/wallet-topups", label: "طلبات شحن المحفظة", icon: Wallet },
@@ -95,9 +99,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const isActive = (href: string, end?: boolean) => {
     if (href === "/admin/import" && isContentCenterPath(currentPath)) return true;
-    return end
-      ? currentPath === href
-      : currentPath === href || currentPath.startsWith(href + "/");
+    return end ? currentPath === href : currentPath === href || currentPath.startsWith(href + "/");
   };
 
   const handleSignOut = async () => {
@@ -162,9 +164,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           })}
 
           <div className="pt-3 mt-3 border-t border-border">
-            <p className="px-3 pb-2 text-[11px] font-medium text-muted-foreground/70">
-              قريبًا
-            </p>
+            <p className="px-3 pb-2 text-[11px] font-medium text-muted-foreground/70">قريبًا</p>
             {upcomingLinks.map((link) => {
               const Icon = link.icon;
               return (

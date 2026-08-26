@@ -2,10 +2,17 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-const migration = readFileSync("supabase/migrations-pending/20260819190000_content_factory_04_package_staging.sql", "utf8");
+const migration = readFileSync(
+  "supabase/migrations-pending/20260819190000_content_factory_04_package_staging.sql",
+  "utf8",
+);
 
 test("CF04 persists versioned manifests and immutable review evidence only", () => {
-  for (const table of ["golden_lesson_packages", "golden_lesson_package_versions", "golden_lesson_package_reviews"]) {
+  for (const table of [
+    "golden_lesson_packages",
+    "golden_lesson_package_versions",
+    "golden_lesson_package_reviews",
+  ]) {
     assert.match(migration, new RegExp(`CREATE TABLE public\\.${table}`));
   }
   assert.match(migration, /UNIQUE \(package_id, version\)/);
@@ -36,14 +43,27 @@ test("review transitions are version-pinned, role-separated and evidence-gated",
   assert.match(migration, /REVIEWER_MUST_DIFFER_FROM_SUBMITTER/);
   assert.match(migration, /TECHNICAL_REVIEWER_MUST_DIFFER/);
   assert.match(migration, /required_role := 'admin'/);
-  for (const evidence of ["packageValidationPassed", "officialProvenanceChecked", "answerSeparationChecked", "responsivePreviewChecked"]) {
+  for (const evidence of [
+    "packageValidationPassed",
+    "officialProvenanceChecked",
+    "answerSeparationChecked",
+    "responsivePreviewChecked",
+  ]) {
     assert.match(migration, new RegExp(evidence));
   }
   assert.doesNotMatch(migration, /review_status\s*=\s*'READY'|publication_status|is_published/);
 });
 
 test("server repeats the Golden Lesson security contract fail closed", () => {
-  for (const guard of ["CAPABILITY_ORDER_INVALID", "ARTIFACT_SET_INVALID", "APPLICABILITY_MISMATCH", "AUTHORITY_MISMATCH", "OFFICIAL_PROVENANCE_MISSING", "ANSWER_COMPANION_INVALID", "SECURITY_CONTRACT_INVALID"]) {
+  for (const guard of [
+    "CAPABILITY_ORDER_INVALID",
+    "ARTIFACT_SET_INVALID",
+    "APPLICABILITY_MISMATCH",
+    "AUTHORITY_MISMATCH",
+    "OFFICIAL_PROVENANCE_MISSING",
+    "ANSWER_COMPANION_INVALID",
+    "SECURITY_CONTRACT_INVALID",
+  ]) {
     assert.match(migration, new RegExp(guard));
   }
   assert.match(migration, /productionApply/);

@@ -1,9 +1,6 @@
 import { createElement, Fragment, type ReactNode } from "react";
 import { BookOpen, ImageOff, ShieldAlert } from "lucide-react";
-import {
-  parseOfficialContent,
-  type OfficialNode,
-} from "@/lib/content/official-textbook/parser";
+import { parseOfficialContent, type OfficialNode } from "@/lib/content/official-textbook/parser";
 import {
   isOfficialStructuredContent,
   LAYER_LABELS_AR,
@@ -112,7 +109,12 @@ export function OfficialTextbookContent({ content, showLayerHeader = true, class
   // Legacy plain-text lessons keep working untouched.
   if (!isOfficialStructuredContent(raw)) {
     return (
-      <div className={cn("whitespace-pre-wrap text-sm leading-relaxed text-card-foreground", className)}>
+      <div
+        className={cn(
+          "whitespace-pre-wrap text-sm leading-relaxed text-card-foreground",
+          className,
+        )}
+      >
         {raw}
       </div>
     );
@@ -139,9 +141,7 @@ export function OfficialTextbookContent({ content, showLayerHeader = true, class
     return (
       <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
         <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-        <span>
-          محتوى الكتاب الرسمي لهذا الدرس لم يجتز التحقق ولن يُعرض. تم إبلاغ فريق المحتوى.
-        </span>
+        <span>محتوى الكتاب الرسمي لهذا الدرس لم يجتز التحقق ولن يُعرض. تم إبلاغ فريق المحتوى.</span>
       </div>
     );
   }
@@ -162,9 +162,7 @@ export function OfficialTextbookContent({ content, showLayerHeader = true, class
             <BookOpen className="h-3.5 w-3.5" aria-hidden />
             {LAYER_LABELS_AR.A_OFFICIAL_TEXTBOOK}
           </span>
-          <span className="text-[11px] text-muted-foreground">
-            نص الكتاب الوزاري الرسمي كما هو
-          </span>
+          <span className="text-[11px] text-muted-foreground">نص الكتاب الوزاري الرسمي كما هو</span>
           {pages && <span className="text-[11px] text-muted-foreground">• {pages}</span>}
         </header>
       )}

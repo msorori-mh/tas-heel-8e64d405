@@ -6,15 +6,15 @@ const SQL = readFileSync(
   "supabase/migrations-pending/20260824000000_content_factory_11_publication.sql",
   "utf8",
 );
-const ASSERTS = readFileSync(
-  "scripts/content-factory/pg17/content-factory-11-assert.sql",
-  "utf8",
-);
+const ASSERTS = readFileSync("scripts/content-factory/pg17/content-factory-11-assert.sql", "utf8");
 
 test("replay re-derives answer-leak from the LIVE delivered text", () => {
   const replay = SQL.slice(SQL.indexOf("FUNCTION public.cf11_assert_replay_state"));
   assert.match(replay, /CF11_REPLAY_LIVE_STATE_CONFLICT: answerLeak/);
-  assert.match(replay, /cf10_assert_no_answer_leak\('officialBookContent',\s*\n?\s*\(SELECT content FROM public\.lesson_book_contents/);
+  assert.match(
+    replay,
+    /cf10_assert_no_answer_leak\('officialBookContent',\s*\n?\s*\(SELECT content FROM public\.lesson_book_contents/,
+  );
   assert.match(replay, /cf10_assert_no_answer_leak\('mindMapHtml'/);
   assert.match(replay, /cf10_assert_no_answer_leak\('labExperimentHtml'/);
 });
@@ -22,8 +22,14 @@ test("replay re-derives answer-leak from the LIVE delivered text", () => {
 test("replay revalidates student gating and the exact 5 + 40 question corpus", () => {
   const replay = SQL.slice(SQL.indexOf("FUNCTION public.cf11_assert_replay_state"));
   assert.match(replay, /CF11_REPLAY_LIVE_STATE_CONFLICT: lessonGating/);
-  assert.match(replay, /l\.is_free IS NOT DISTINCT FROM \(_plan->'lessonGating'->>'isFree'\)::boolean/);
-  assert.match(replay, /l\.visibility IS NOT DISTINCT FROM \(_plan->'lessonGating'->>'visibility'\)::boolean/);
+  assert.match(
+    replay,
+    /l\.is_free IS NOT DISTINCT FROM \(_plan->'lessonGating'->>'isFree'\)::boolean/,
+  );
+  assert.match(
+    replay,
+    /l\.visibility IS NOT DISTINCT FROM \(_plan->'lessonGating'->>'visibility'\)::boolean/,
+  );
   assert.match(replay, /CF11_REPLAY_LIVE_STATE_CONFLICT: questionCounts/);
   assert.match(replay, /'officialCount'\)::integer IS DISTINCT FROM 5/);
   assert.match(replay, /'selfTestCount'\)::integer IS DISTINCT FROM 40/);
@@ -66,7 +72,10 @@ test("PG17 section P mutates every newly covered category and proves refusal", (
 });
 
 test("PG17 section P proves the READY replay refuses too and appends no ledger row", () => {
-  assert.match(ASSERTS, /golden_lesson_attest_cf11_ready\('51000000-0000-0000-0000-000000000001',\s*\n?\s*attester,/);
+  assert.match(
+    ASSERTS,
+    /golden_lesson_attest_cf11_ready\('51000000-0000-0000-0000-000000000001',\s*\n?\s*attester,/,
+  );
   assert.match(ASSERTS, /CF11_EXPECTED_AUDIT_REPLAY_ZERO_WRITES/);
   assert.match(ASSERTS, /CF11_EXPECTED_AUDIT_REPLAY_FULL_SET/);
 });

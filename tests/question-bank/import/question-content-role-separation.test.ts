@@ -45,12 +45,11 @@ test("official MCQ remains an official-book question; options never reclassify i
     row("SINGLE_CHOICE", "AUTO_SINGLE"),
     "OFFICIAL_BOOK_QUESTION",
   );
-  const selfTest = assignQuestionContentRole(
-    row("SINGLE_CHOICE", "AUTO_SINGLE"),
-    "SELF_TEST",
-  );
+  const selfTest = assignQuestionContentRole(row("SINGLE_CHOICE", "AUTO_SINGLE"), "SELF_TEST");
 
-  assert.deepEqual(questionsForRole([officialMcq, selfTest], "OFFICIAL_BOOK_QUESTION"), [officialMcq]);
+  assert.deepEqual(questionsForRole([officialMcq, selfTest], "OFFICIAL_BOOK_QUESTION"), [
+    officialMcq,
+  ]);
   assert.deepEqual(questionsForRole([officialMcq, selfTest], "SELF_TEST"), [selfTest]);
 });
 
@@ -66,7 +65,9 @@ test("official book question requires a model answer after the student attempt",
     "OFFICIAL_BOOK_QUESTION",
   );
   const issues = validateQuestionContentRole(invalid, { requireRole: true });
-  assert.ok(issues.some((entry) => entry.code === "MISSING_VALUE" && entry.column === "model_answer"));
+  assert.ok(
+    issues.some((entry) => entry.code === "MISSING_VALUE" && entry.column === "model_answer"),
+  );
 });
 
 test("self-test requires an explanation/correction payload", () => {
@@ -75,7 +76,9 @@ test("self-test requires an explanation/correction payload", () => {
     "SELF_TEST",
   );
   const issues = validateQuestionContentRole(invalid, { requireRole: true });
-  assert.ok(issues.some((entry) => entry.code === "MISSING_VALUE" && entry.column === "explanation"));
+  assert.ok(
+    issues.some((entry) => entry.code === "MISSING_VALUE" && entry.column === "explanation"),
+  );
 });
 
 test("role-aware template validation fails closed when the semantic role is absent", () => {

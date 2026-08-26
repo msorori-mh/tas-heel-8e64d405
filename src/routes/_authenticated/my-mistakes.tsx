@@ -136,7 +136,11 @@ function MyMistakesPage() {
     <div className="space-y-5 pb-4" dir="rtl">
       {header}
 
-      <div role="tablist" aria-label="تصفية حسب الحالة" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      <div
+        role="tablist"
+        aria-label="تصفية حسب الحالة"
+        className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+      >
         {STATUS_TABS.map((t) => (
           <ChipButton
             key={t.key}
@@ -148,7 +152,11 @@ function MyMistakesPage() {
         ))}
       </div>
 
-      <div role="tablist" aria-label="تصفية حسب نوع المحاولة" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      <div
+        role="tablist"
+        aria-label="تصفية حسب نوع المحاولة"
+        className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+      >
         {SCOPE_TABS.map((t) => (
           <ChipButton
             key={t.key}
@@ -161,7 +169,11 @@ function MyMistakesPage() {
       </div>
 
       {(data?.subjects.length ?? 0) > 0 && (
-        <div role="tablist" aria-label="تصفية حسب المادة" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        <div
+          role="tablist"
+          aria-label="تصفية حسب المادة"
+          className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+        >
           <ChipButton
             active={subjectId === null}
             label="كل المواد"
@@ -232,9 +244,7 @@ function MyMistakesPage() {
               >
                 السابق
               </Button>
-              <span className="text-xs tabular-nums text-muted-foreground">
-                صفحة {page + 1}
-              </span>
+              <span className="text-xs tabular-nums text-muted-foreground">صفحة {page + 1}</span>
               <Button
                 size="sm"
                 variant="outline"

@@ -1,10 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  FREE_ACCESS_SUBSCRIPTION_PAGE,
-  STUDENT_FREE_ACCESS,
-} from "@/lib/student-free-access";
+import { FREE_ACCESS_SUBSCRIPTION_PAGE, STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 
 export const Route = createFileRoute("/_authenticated/subscription")({
   component: SubscriptionPage,
@@ -23,9 +20,7 @@ function SubscriptionPage() {
 
       <header>
         <h1 className="text-lg font-bold text-foreground">الوصول إلى المحتوى</h1>
-        <p className="text-xs text-muted-foreground">
-          معلومات حول إتاحة التطبيق للطلاب.
-        </p>
+        <p className="text-xs text-muted-foreground">معلومات حول إتاحة التطبيق للطلاب.</p>
       </header>
 
       {STUDENT_FREE_ACCESS ? (
@@ -34,12 +29,9 @@ function SubscriptionPage() {
             <Gift className="h-5 w-5 shrink-0" aria-hidden />
             <h2 className="text-sm font-semibold">متاح مجاناً للطلاب</h2>
           </div>
-          <p className="text-sm leading-relaxed text-foreground">
-            {FREE_ACCESS_SUBSCRIPTION_PAGE}
-          </p>
+          <p className="text-sm leading-relaxed text-foreground">{FREE_ACCESS_SUBSCRIPTION_PAGE}</p>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            التطبيق متاح حالياً مجاناً لجميع الطلاب. خدمات الدفع والاشتراكات غير
-            مفعّلة حالياً.
+            التطبيق متاح حالياً مجاناً لجميع الطلاب. خدمات الدفع والاشتراكات غير مفعّلة حالياً.
           </p>
           <Button asChild className="w-full sm:w-auto">
             <Link to="/app">العودة إلى موادي</Link>
