@@ -261,7 +261,7 @@ test("CF11 READY separation of duties has no admin bypass", () => {
 test("CF11-R6/6 — the operator panel gates READY on the exact set, not a count", () => {
   assert.match(panel, /import \{ V3_LIFECYCLE_CAPABILITIES \} from "@\/lib\/lessons\/capability-mapping"/);
   assert.doesNotMatch(panel, /CF11_EXPECTED_CAPABILITY_COUNT/);
-  assert.match(panel, /setDiff\.exact && setDiff\.notInReview\.length === 0/);
+  assert.match(panel, /setDiff\.exact\s*&&\s*setDiff\.notInReview\.length === 0/);
   for (const marker of ["missing", "extra", "duplicated", "notInReview"]) {
     assert.match(panel, new RegExp(`setDiff\\.${marker}`));
   }
