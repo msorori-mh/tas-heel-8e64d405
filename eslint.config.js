@@ -6,7 +6,17 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+  {
+    ignores: [
+      "dist",
+      ".output",
+      ".vinxi",
+      // Supabase CLI output; formatting it would be overwritten on the next schema generation.
+      "src/integrations/supabase/types.ts",
+      // Generated operational corpus used as immutable question-bank import input.
+      "tests/fixtures/question-bank/import/qb02-operational-fixtures.ts",
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
