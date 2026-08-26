@@ -9,33 +9,26 @@ import {
   mapMinisterialError,
   modelTitle,
 } from "@/lib/ministerial/ministerial-student-api";
-import {
-  AlertTriangle,
-  BookOpen,
-  CheckCircle2,
-  CircleDashed,
-  Timer,
-  XCircle,
-} from "lucide-react";
+import { AlertTriangle, BookOpen, CheckCircle2, CircleDashed, Timer, XCircle } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/ministerial-exams/sessions/$sessionId/result")(
-  {
-    head: () => ({
-      meta: [
-        { title: "نتيجة النموذج الوزاري — تمكين" },
-        {
-          name: "description",
-          content: "نتيجتك في النموذج الوزاري مع مراجعة تفصيلية لكل سؤال والحل الصحيح.",
-        },
-        { property: "og:title", content: "نتيجة النموذج الوزاري — تمكين" },
-        { property: "og:description", content: "راجع إجاباتك وتعرّف على الحلول الصحيحة." },
-        { property: "og:type", content: "website" },
-        { name: "twitter:card", content: "summary" },
-      ],
-    }),
-    component: MinisterialResultPage,
-  },
-);
+export const Route = createFileRoute(
+  "/_authenticated/ministerial-exams/sessions/$sessionId/result",
+)({
+  head: () => ({
+    meta: [
+      { title: "نتيجة النموذج الوزاري — تمكين" },
+      {
+        name: "description",
+        content: "نتيجتك في النموذج الوزاري مع مراجعة تفصيلية لكل سؤال والحل الصحيح.",
+      },
+      { property: "og:title", content: "نتيجة النموذج الوزاري — تمكين" },
+      { property: "og:description", content: "راجع إجاباتك وتعرّف على الحلول الصحيحة." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
+  component: MinisterialResultPage,
+});
 
 const STATUS_STYLES: Record<string, { label: string; className: string }> = {
   correct: { label: "صحيحة", className: "text-emerald-600" },
@@ -117,7 +110,9 @@ function MinisterialResultPage() {
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-muted-foreground">السؤال {q.question_order}</p>
-                <span className={`inline-flex items-center gap-1 text-xs font-semibold ${style.className}`}>
+                <span
+                  className={`inline-flex items-center gap-1 text-xs font-semibold ${style.className}`}
+                >
                   {q.status === "correct" ? (
                     <CheckCircle2 className="h-4 w-4" aria-hidden />
                   ) : q.status === "wrong" ? (
@@ -191,10 +186,7 @@ function MinisterialResultPage() {
       <div className="flex flex-wrap gap-2">
         {data.model && (
           <Button asChild variant="outline">
-            <Link
-              to="/ministerial-exams/models/$modelId"
-              params={{ modelId: data.model.model_id }}
-            >
+            <Link to="/ministerial-exams/models/$modelId" params={{ modelId: data.model.model_id }}>
               العودة إلى النموذج
             </Link>
           </Button>

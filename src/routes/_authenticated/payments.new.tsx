@@ -12,10 +12,7 @@ import { Loader2, Upload, X, FileText, ArrowRight, Sparkles, Info } from "lucide
 import { toast } from "sonner";
 import { z } from "zod";
 import { extractReceiptData, type ReceiptExtraction } from "@/lib/payments-ocr.functions";
-import {
-  FREE_ACCESS_SHORT,
-  STUDENT_FREE_ACCESS,
-} from "@/lib/student-free-access";
+import { FREE_ACCESS_SHORT, STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 
 export const Route = createFileRoute("/_authenticated/payments/new")({
   component: NewPaymentRequestPage,
@@ -204,11 +201,7 @@ function NewPaymentRequestPage() {
   const MIN_CONF = 0.5;
 
   const applyExtractionToForm = (r: ReceiptExtraction) => {
-    if (
-      r.sender_name &&
-      r.confidence.sender_name >= MIN_CONF &&
-      senderName.trim().length === 0
-    ) {
+    if (r.sender_name && r.confidence.sender_name >= MIN_CONF && senderName.trim().length === 0) {
       setSenderName(r.sender_name);
     }
     if (
@@ -225,11 +218,7 @@ function NewPaymentRequestPage() {
     ) {
       setAmount(String(r.amount));
     }
-    if (
-      r.transfer_date &&
-      r.confidence.transfer_date >= MIN_CONF &&
-      payDate.trim().length === 0
-    ) {
+    if (r.transfer_date && r.confidence.transfer_date >= MIN_CONF && payDate.trim().length === 0) {
       setPayDate(r.transfer_date);
     }
   };
@@ -273,15 +262,10 @@ function NewPaymentRequestPage() {
       return;
     }
 
-    const gradeKey =
-      profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
+    const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
 
     setSubmitting(true);
-    const subscriptionId = await ensurePendingSubscription(
-      user.id,
-      parsed.data.plan_id,
-      gradeKey,
-    );
+    const subscriptionId = await ensurePendingSubscription(user.id, parsed.data.plan_id, gradeKey);
     if (!subscriptionId) {
       setSubmitting(false);
       toast.error("تعذر إنشاء طلب الدفع لأن الخطة أو الاشتراك غير محدد.");
@@ -354,9 +338,13 @@ function NewPaymentRequestPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
       <nav className="text-xs text-muted-foreground">
-        <Link to="/app" className="hover:text-primary">موادي</Link>
+        <Link to="/app" className="hover:text-primary">
+          موادي
+        </Link>
         <span className="mx-1">/</span>
-        <Link to="/payments" className="hover:text-primary">طلباتي</Link>
+        <Link to="/payments" className="hover:text-primary">
+          طلباتي
+        </Link>
         <span className="mx-1">/</span>
         <span className="text-foreground">رفع إيصال جديد</span>
       </nav>
@@ -465,7 +453,9 @@ function NewPaymentRequestPage() {
           <Label className="text-sm font-semibold">بيانات الحوالة</Label>
           <div className="space-y-3">
             <div>
-              <Label htmlFor="sender_name" className="text-xs">اسم المرسل</Label>
+              <Label htmlFor="sender_name" className="text-xs">
+                اسم المرسل
+              </Label>
               <Input
                 id="sender_name"
                 value={senderName}
@@ -476,7 +466,9 @@ function NewPaymentRequestPage() {
               />
             </div>
             <div>
-              <Label htmlFor="tx_ref" className="text-xs">رقم العملية</Label>
+              <Label htmlFor="tx_ref" className="text-xs">
+                رقم العملية
+              </Label>
               <Input
                 id="tx_ref"
                 value={txRef}
@@ -489,7 +481,9 @@ function NewPaymentRequestPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="pay_date" className="text-xs">تاريخ التحويل</Label>
+                <Label htmlFor="pay_date" className="text-xs">
+                  تاريخ التحويل
+                </Label>
                 <Input
                   id="pay_date"
                   type="date"
@@ -499,7 +493,9 @@ function NewPaymentRequestPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="amount" className="text-xs">المبلغ</Label>
+                <Label htmlFor="amount" className="text-xs">
+                  المبلغ
+                </Label>
                 <Input
                   id="amount"
                   type="number"
@@ -524,7 +520,13 @@ function NewPaymentRequestPage() {
               <span className="flex-1 truncate text-xs text-muted-foreground" dir="ltr">
                 {receiptPath.split("/").pop()}
               </span>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={clearReceipt}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={clearReceipt}
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -555,7 +557,8 @@ function NewPaymentRequestPage() {
           <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 p-3">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              قد يتم تحليل صورة السند آليًا لاستخراج بيانات الحوالة وتعبئتها تلقائيًا. يرجى مراجعة البيانات والتأكد من صحتها قبل إرسال الطلب.
+              قد يتم تحليل صورة السند آليًا لاستخراج بيانات الحوالة وتعبئتها تلقائيًا. يرجى مراجعة
+              البيانات والتأكد من صحتها قبل إرسال الطلب.
             </p>
           </div>
 
@@ -581,10 +584,7 @@ function NewPaymentRequestPage() {
               </div>
               <ul className="space-y-1 text-xs text-foreground">
                 <li>
-                  اسم المرسل:{" "}
-                  <span className="font-medium">
-                    {ocrResult.sender_name ?? "—"}
-                  </span>
+                  اسم المرسل: <span className="font-medium">{ocrResult.sender_name ?? "—"}</span>
                 </li>
                 <li>
                   رقم العملية:{" "}
@@ -601,10 +601,7 @@ function NewPaymentRequestPage() {
                   </span>
                 </li>
                 <li>
-                  التاريخ:{" "}
-                  <span className="font-medium">
-                    {ocrResult.transfer_date ?? "—"}
-                  </span>
+                  التاريخ: <span className="font-medium">{ocrResult.transfer_date ?? "—"}</span>
                 </li>
               </ul>
               <p className="rounded-md bg-background/60 p-2 text-[11px] leading-relaxed text-muted-foreground">
@@ -613,7 +610,7 @@ function NewPaymentRequestPage() {
                   ocrResult.confidence.transaction_number < MIN_CONF ||
                   ocrResult.confidence.amount < MIN_CONF ||
                   ocrResult.confidence.transfer_date < MIN_CONF) && (
-                  <> {" "}لم نتمكن من قراءة كل البيانات بدقة، يرجى إكمالها يدويًا.</>
+                  <> لم نتمكن من قراءة كل البيانات بدقة، يرجى إكمالها يدويًا.</>
                 )}
               </p>
             </div>

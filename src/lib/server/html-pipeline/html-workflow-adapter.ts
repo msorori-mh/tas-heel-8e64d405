@@ -10,7 +10,10 @@ type UntypedSupabase = {
   ): Promise<{ data: unknown; error: { message: string } | null }>;
   from(table: string): {
     select(columns?: string): {
-      eq(column: string, value: unknown): {
+      eq(
+        column: string,
+        value: unknown,
+      ): {
         single(): Promise<{ data: unknown; error: { message: string } | null }>;
         then<TResult>(
           onfulfilled: (value: { data: unknown; error: { message: string } | null }) => TResult,
@@ -26,7 +29,10 @@ type UntypedSupabase = {
       };
     };
     update(values: unknown): {
-      eq(column: string, value: unknown): Promise<{
+      eq(
+        column: string,
+        value: unknown,
+      ): Promise<{
         error: { message: string } | null;
         data: unknown;
       }>;
@@ -93,10 +99,7 @@ export interface HtmlWorkflowAdapter {
     manifest: Record<string, unknown>;
     created_by: string;
   }): Promise<string>;
-  createImportBatch(params: {
-    actor_id: string;
-    idempotency_key: string;
-  }): Promise<string>;
+  createImportBatch(params: { actor_id: string; idempotency_key: string }): Promise<string>;
   createUploadSession(params: {
     batch_id: string;
     actor_id: string;
@@ -111,11 +114,19 @@ export interface HtmlWorkflowAdapter {
   setResourceDraftVersion(resourceId: string, versionId: string): Promise<void>;
   submitResourceForReview(resourceId: string, lockVersion?: number): Promise<void>;
   approveResource(resourceId: string, versionId: string, lockVersion?: number): Promise<void>;
-  rejectResource(resourceId: string, versionId: string, reviewerId: string, reason: string | null, lockVersion?: number): Promise<void>;
+  rejectResource(
+    resourceId: string,
+    versionId: string,
+    reviewerId: string,
+    reason: string | null,
+    lockVersion?: number,
+  ): Promise<void>;
   unpublishResource(resourceId: string, lockVersion?: number): Promise<void>;
   rollbackResource(resourceId: string, targetVersionId: string, lockVersion: number): Promise<void>;
   getReviewQueue(): Promise<ReviewQueueRow[]>;
-  getResourceEvents(resourceId: string): Promise<Array<{ event_type: string; created_at: string; payload: unknown }>>;
+  getResourceEvents(
+    resourceId: string,
+  ): Promise<Array<{ event_type: string; created_at: string; payload: unknown }>>;
   checkFeatureFlag(flagKey: string): Promise<boolean>;
 }
 
@@ -136,7 +147,10 @@ export function createHtmlWorkflowAdapter(
       const supabaseLoose = adminClient as unknown as {
         from(table: string): {
           select(columns: string): {
-            in(column: string, values: unknown[]): Promise<{
+            in(
+              column: string,
+              values: unknown[],
+            ): Promise<{
               data: unknown;
               error: { message: string } | null;
             }>;
@@ -188,7 +202,10 @@ export function createHtmlWorkflowAdapter(
         .eq("lesson_id", params.lesson_id);
 
       const eqChain = query as {
-        eq(column: string, value: unknown): Promise<{ data: unknown; error: { message: string } | null }>;
+        eq(
+          column: string,
+          value: unknown,
+        ): Promise<{ data: unknown; error: { message: string } | null }>;
       };
 
       const { data: existing, error: findErr } = await eqChain.eq("title", params.title);
@@ -325,8 +342,14 @@ export function createHtmlWorkflowAdapter(
       });
 
       const updateEqChain = updateQuery as unknown as {
-        eq(column: string, value: unknown): {
-          eq(column: string, value: unknown): Promise<{
+        eq(
+          column: string,
+          value: unknown,
+        ): {
+          eq(
+            column: string,
+            value: unknown,
+          ): Promise<{
             error: { message: string } | null;
             data: unknown;
           }>;
@@ -344,8 +367,16 @@ export function createHtmlWorkflowAdapter(
       await lifecycleDb.submitResourceForReview({ resourceId, expectedLockVersion: lockVersion });
     },
 
-    async approveResource(resourceId: string, versionId: string, lockVersion?: number): Promise<void> {
-      await lifecycleDb.approveResource({ resourceId, versionId, expectedLockVersion: lockVersion });
+    async approveResource(
+      resourceId: string,
+      versionId: string,
+      lockVersion?: number,
+    ): Promise<void> {
+      await lifecycleDb.approveResource({
+        resourceId,
+        versionId,
+        expectedLockVersion: lockVersion,
+      });
     },
 
     async rejectResource(
@@ -370,7 +401,11 @@ export function createHtmlWorkflowAdapter(
       await lifecycleDb.unpublishResource({ resourceId, expectedLockVersion: lockVersion });
     },
 
-    async rollbackResource(resourceId: string, targetVersionId: string, lockVersion: number): Promise<void> {
+    async rollbackResource(
+      resourceId: string,
+      targetVersionId: string,
+      lockVersion: number,
+    ): Promise<void> {
       await lifecycleDb.rollbackResource({
         resourceId,
         targetVersionId,
@@ -382,11 +417,17 @@ export function createHtmlWorkflowAdapter(
       const supabaseLoose = adminClient as unknown as {
         from(table: string): {
           select(columns: string): {
-            in(column: string, values: unknown[]): Promise<{
+            in(
+              column: string,
+              values: unknown[],
+            ): Promise<{
               data: unknown;
               error: { message: string } | null;
             }>;
-            eq(column: string, value: unknown): Promise<{
+            eq(
+              column: string,
+              value: unknown,
+            ): Promise<{
               data: unknown;
               error: { message: string } | null;
             }>;
@@ -447,8 +488,8 @@ export function createHtmlWorkflowAdapter(
         }
 
         let lessonTitle = "";
-        let subjectName = "";
-        let gradeName = "";
+        const subjectName = "";
+        const gradeName = "";
 
         const lessonId = row.lesson_id as string;
         const { data: lessonData } = await db
@@ -505,8 +546,7 @@ export function createHtmlWorkflowAdapter(
     },
 
     async checkFeatureFlag(flagKey: string): Promise<boolean> {
-      const { data, error } = await db
-        .rpc("is_content_feature_enabled", { p_key: flagKey });
+      const { data, error } = await db.rpc("is_content_feature_enabled", { p_key: flagKey });
 
       if (error) return false;
 

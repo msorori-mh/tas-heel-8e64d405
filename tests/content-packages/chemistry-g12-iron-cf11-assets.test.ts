@@ -76,7 +76,10 @@ describe("CF11 — Iron furnace asset is real, declared and byte-pinned", () => 
     assert.equal(files.has(FURNACE_LEAF), true);
     const { bytes } = await packGoldenLessonBundle(manifest, files);
     const verified = await verifyGoldenLessonBundle(bytes);
-    assert.deepEqual(verified.assets.map((a) => a.path), [FURNACE_LEAF]);
+    assert.deepEqual(
+      verified.assets.map((a) => a.path),
+      [FURNACE_LEAF],
+    );
   });
 
   it("is referenced from official HTML as a bare leaf, never base64 or a URL", () => {
@@ -84,7 +87,10 @@ describe("CF11 — Iron furnace asset is real, declared and byte-pinned", () => 
     assert.ok(html.includes(`src="${FURNACE_LEAF}"`));
     assert.doesNotMatch(html, /data:image/i);
     assert.doesNotMatch(html, /https?:\/\//i);
-    assert.deepEqual(scanHtmlAssetReferences("official-content.html", html, new Set([FURNACE_LEAF])), []);
+    assert.deepEqual(
+      scanHtmlAssetReferences("official-content.html", html, new Set([FURNACE_LEAF])),
+      [],
+    );
   });
 });
 
@@ -101,19 +107,29 @@ describe("CF11 — asset declaration negatives (all fail closed)", () => {
   });
 
   it("rejects folders, traversal, absolute paths and uppercase leaves", () => {
-    for (const bad of ["a/b.jpg", "../secret.jpg", "/etc/passwd", "..", ".", "Figure.JPG", "x\\y.jpg"]) {
+    for (const bad of [
+      "a/b.jpg",
+      "../secret.jpg",
+      "/etc/passwd",
+      "..",
+      ".",
+      "Figure.JPG",
+      "x\\y.jpg",
+    ]) {
       assert.equal(isSafeAssetLeaf(bad), false, bad);
     }
     assert.ok(
-      codesOf(validateGoldenLessonAssets([{ ...baseAsset(), path: "figures/a.jpg" }], always))
-        .includes("ASSET_PATH_UNSAFE"),
+      codesOf(
+        validateGoldenLessonAssets([{ ...baseAsset(), path: "figures/a.jpg" }], always),
+      ).includes("ASSET_PATH_UNSAFE"),
     );
   });
 
   it("rejects an extension that disagrees with the declared MIME", () => {
     assert.ok(
-      codesOf(validateGoldenLessonAssets([{ ...baseAsset(), path: "figure.png" }], always))
-        .includes("ASSET_EXTENSION_MISMATCH"),
+      codesOf(
+        validateGoldenLessonAssets([{ ...baseAsset(), path: "figure.png" }], always),
+      ).includes("ASSET_EXTENSION_MISMATCH"),
     );
   });
 
@@ -124,7 +140,11 @@ describe("CF11 — asset declaration negatives (all fail closed)", () => {
         always,
       ),
     );
-    for (const code of ["ASSET_HASH_INVALID", "ASSET_SIZE_OUT_OF_RANGE", "ASSET_ALT_TEXT_MISSING"]) {
+    for (const code of [
+      "ASSET_HASH_INVALID",
+      "ASSET_SIZE_OUT_OF_RANGE",
+      "ASSET_ALT_TEXT_MISSING",
+    ]) {
       assert.ok(codes.includes(code), code);
     }
   });
@@ -157,16 +177,18 @@ describe("CF11 — HTML reference negatives (undeclared bytes never load)", () =
       [],
     );
     assert.ok(
-      codesOf(scanHtmlAssetReferences("x.html", '<iframe src="data:text/html;base64,AAAA">', declared))
-        .includes("HTML_REFERENCE_DATA_URI_FORBIDDEN"),
+      codesOf(
+        scanHtmlAssetReferences("x.html", '<iframe src="data:text/html;base64,AAAA">', declared),
+      ).includes("HTML_REFERENCE_DATA_URI_FORBIDDEN"),
     );
   });
 
   it("rejects every network reference form", () => {
     for (const url of ["https://evil.test/a.jpg", "http://evil.test/a.jpg", "//evil.test/a.jpg"]) {
       assert.ok(
-        codesOf(scanHtmlAssetReferences("x.html", `<img src="${url}">`, declared))
-          .includes("HTML_REFERENCE_EXTERNAL_FORBIDDEN"),
+        codesOf(scanHtmlAssetReferences("x.html", `<img src="${url}">`, declared)).includes(
+          "HTML_REFERENCE_EXTERNAL_FORBIDDEN",
+        ),
         url,
       );
     }
@@ -174,23 +196,34 @@ describe("CF11 — HTML reference negatives (undeclared bytes never load)", () =
 
   it("rejects nested paths and traversal inside HTML", () => {
     assert.ok(
-      codesOf(scanHtmlAssetReferences("x.html", '<img src="img/a.jpg">', declared))
-        .includes("HTML_REFERENCE_PATH_FORBIDDEN"),
+      codesOf(scanHtmlAssetReferences("x.html", '<img src="img/a.jpg">', declared)).includes(
+        "HTML_REFERENCE_PATH_FORBIDDEN",
+      ),
     );
     assert.ok(scanHtmlAssetReferences("x.html", '<img src="../a.jpg">', declared).length > 0);
   });
 
   it("rejects an empty reference and CSS url() escapes", () => {
     assert.ok(
-      codesOf(scanHtmlAssetReferences("x.html", '<img src="">', declared)).includes("HTML_REFERENCE_EMPTY"),
+      codesOf(scanHtmlAssetReferences("x.html", '<img src="">', declared)).includes(
+        "HTML_REFERENCE_EMPTY",
+      ),
     );
     assert.ok(
-      codesOf(scanHtmlAssetReferences("x.html", '<i style="background:url(https://e.test/a.png)">', declared))
-        .includes("HTML_REFERENCE_EXTERNAL_FORBIDDEN"),
+      codesOf(
+        scanHtmlAssetReferences(
+          "x.html",
+          '<i style="background:url(https://e.test/a.png)">',
+          declared,
+        ),
+      ).includes("HTML_REFERENCE_EXTERNAL_FORBIDDEN"),
     );
   });
 
   it("accepts the declared leaf and nothing else", () => {
-    assert.deepEqual(scanHtmlAssetReferences("x.html", `<img src="${FURNACE_LEAF}" alt="a">`, declared), []);
+    assert.deepEqual(
+      scanHtmlAssetReferences("x.html", `<img src="${FURNACE_LEAF}" alt="a">`, declared),
+      [],
+    );
   });
 });

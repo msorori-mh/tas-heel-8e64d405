@@ -3,11 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import {
-  adminCreateUser,
-  adminListUsers,
-  adminUpdateUserRoles,
-} from "@/lib/admin-users.functions";
+import { adminCreateUser, adminListUsers, adminUpdateUserRoles } from "@/lib/admin-users.functions";
 import {
   ASSIGNABLE_ROLE_LABELS,
   formatAdminUserRoles,
@@ -108,8 +104,7 @@ function AdminUsersPage() {
       setRolesTarget(null);
       await loadUsers();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "تعذر تحديث الصلاحيات.";
+      const message = err instanceof Error ? err.message : "تعذر تحديث الصلاحيات.";
       toast.error(message);
     } finally {
       setRolesSaving(false);
@@ -123,8 +118,7 @@ function AdminUsersPage() {
       const response = await fetchUsers();
       setUsers(response.users);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "تعذر تحميل المستخدمين.";
+      const message = err instanceof Error ? err.message : "تعذر تحميل المستخدمين.";
       setListError(message);
     } finally {
       setListLoading(false);
@@ -167,8 +161,7 @@ function AdminUsersPage() {
       resetForm();
       await loadUsers();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "تعذر إنشاء المستخدم.";
+      const message = err instanceof Error ? err.message : "تعذر إنشاء المستخدم.";
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -251,9 +244,7 @@ function AdminUsersPage() {
                   {users.map((u) => (
                     <tr key={u.user_id} className="border-t border-border">
                       <td className="px-4 py-3 text-foreground">{u.email || "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {u.full_name || "—"}
-                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{u.full_name || "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {formatAdminUserRoles(u.roles)}
                       </td>
@@ -264,9 +255,7 @@ function AdminUsersPage() {
                         {formatDate(u.last_sign_in_at)}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge
-                          variant={u.status === "active" ? "secondary" : "destructive"}
-                        >
+                        <Badge variant={u.status === "active" ? "secondary" : "destructive"}>
                           {statusLabel(u.status)}
                         </Badge>
                       </td>
@@ -386,13 +375,11 @@ function AdminUsersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(ASSIGNABLE_ROLE_LABELS) as AssignableAdminRole[]).map(
-                    (key) => (
-                      <SelectItem key={key} value={key}>
-                        {ASSIGNABLE_ROLE_LABELS[key]}
-                      </SelectItem>
-                    ),
-                  )}
+                  {(Object.keys(ASSIGNABLE_ROLE_LABELS) as AssignableAdminRole[]).map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {ASSIGNABLE_ROLE_LABELS[key]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -404,9 +391,7 @@ function AdminUsersPage() {
                   <label className="flex items-start gap-2 cursor-pointer">
                     <Checkbox
                       checked={confirmGrantAdmin}
-                      onCheckedChange={(checked) =>
-                        setConfirmGrantAdmin(checked === true)
-                      }
+                      onCheckedChange={(checked) => setConfirmGrantAdmin(checked === true)}
                     />
                     <span className="text-sm leading-relaxed">
                       أؤكد منح صلاحيات المدير الكامل لهذا الحساب.
@@ -427,9 +412,7 @@ function AdminUsersPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={
-                  submitting || (role === "admin" && !confirmGrantAdmin)
-                }
+                disabled={submitting || (role === "admin" && !confirmGrantAdmin)}
               >
                 {submitting ? (
                   <>
@@ -453,9 +436,7 @@ function AdminUsersPage() {
         <DialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle>تعديل الصلاحيات</DialogTitle>
-            <DialogDescription className="break-all">
-              {rolesTarget?.email}
-            </DialogDescription>
+            <DialogDescription className="break-all">{rolesTarget?.email}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -468,17 +449,13 @@ function AdminUsersPage() {
                   if (!next) setRolesConfirm(false);
                 }}
               />
-              <span className="text-sm leading-relaxed">
-                مدير كامل — صلاحيات كاملة على النظام.
-              </span>
+              <span className="text-sm leading-relaxed">مدير كامل — صلاحيات كاملة على النظام.</span>
             </label>
 
             <label className="flex items-start gap-2 cursor-pointer">
               <Checkbox
                 checked={rolesContentManager}
-                onCheckedChange={(checked) =>
-                  setRolesContentManager(checked === true)
-                }
+                onCheckedChange={(checked) => setRolesContentManager(checked === true)}
               />
               <span className="text-sm leading-relaxed">
                 مدير محتوى — إدارة المناهج والدروس والأسئلة.
@@ -500,9 +477,7 @@ function AdminUsersPage() {
                   <label className="flex items-start gap-2 cursor-pointer">
                     <Checkbox
                       checked={rolesConfirm}
-                      onCheckedChange={(checked) =>
-                        setRolesConfirm(checked === true)
-                      }
+                      onCheckedChange={(checked) => setRolesConfirm(checked === true)}
                     />
                     <span className="text-sm leading-relaxed">
                       أؤكد منح صلاحيات المدير الكامل لهذا الحساب.

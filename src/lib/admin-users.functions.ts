@@ -16,9 +16,7 @@ const CreateUserInput = z
   .object({
     email: z.string().trim().email("البريد الإلكتروني غير صالح"),
     full_name: z.string().trim().min(1, "الاسم الكامل مطلوب"),
-    temporary_password: z
-      .string()
-      .min(12, "كلمة المرور يجب أن تكون 12 حرفاً على الأقل"),
+    temporary_password: z.string().min(12, "كلمة المرور يجب أن تكون 12 حرفاً على الأقل"),
     role: AssignableRoleSchema,
     confirmGrantAdmin: z.boolean().optional(),
   })
@@ -35,18 +33,14 @@ const CreateUserInput = z
 const LIST_PAGE_SIZE = 200;
 const MAX_LIST_PAGES = 10;
 
-function userStatus(
-  bannedUntil: string | undefined | null,
-): AdminUserListItem["status"] {
+function userStatus(bannedUntil: string | undefined | null): AdminUserListItem["status"] {
   if (!bannedUntil) return "active";
   const until = Date.parse(bannedUntil);
   if (Number.isNaN(until)) return "active";
   return until > Date.now() ? "disabled" : "active";
 }
 
-async function loadAllAuthUsers(
-  supabaseAdmin: SupabaseClient<Database>,
-): Promise<User[]> {
+async function loadAllAuthUsers(supabaseAdmin: SupabaseClient<Database>): Promise<User[]> {
   const all: User[] = [];
   for (let page = 1; page <= MAX_LIST_PAGES; page += 1) {
     const { data, error } = await supabaseAdmin.auth.admin.listUsers({
@@ -77,10 +71,7 @@ export const adminListUsers = createServerFn({ method: "GET" })
 
     const [{ data: profiles, error: profilesError }, { data: roles, error: rolesError }] =
       await Promise.all([
-        supabaseAdmin
-          .from("profiles")
-          .select("user_id, full_name")
-          .in("user_id", userIds),
+        supabaseAdmin.from("profiles").select("user_id, full_name").in("user_id", userIds),
         supabaseAdmin.from("user_roles").select("user_id, role").in("user_id", userIds),
       ]);
 
@@ -91,9 +82,7 @@ export const adminListUsers = createServerFn({ method: "GET" })
       throw new Error(`تعذر تحميل الأدوار: ${rolesError.message}`);
     }
 
-    const profileByUser = new Map(
-      (profiles ?? []).map((p) => [p.user_id, p.full_name] as const),
-    );
+    const profileByUser = new Map((profiles ?? []).map((p) => [p.user_id, p.full_name] as const));
     const rolesByUser = new Map<string, Database["public"]["Enums"]["app_role"][]>();
     for (const row of roles ?? []) {
       const list = rolesByUser.get(row.user_id) ?? [];
@@ -104,16 +93,15 @@ export const adminListUsers = createServerFn({ method: "GET" })
     const users: AdminUserListItem[] = authUsers.map((u) => ({
       user_id: u.id,
       email: u.email ?? "",
-      full_name: profileByUser.get(u.id) ?? (u.user_metadata?.full_name as string | undefined) ?? null,
+      full_name:
+        profileByUser.get(u.id) ?? (u.user_metadata?.full_name as string | undefined) ?? null,
       created_at: u.created_at,
       last_sign_in_at: u.last_sign_in_at ?? null,
       roles: rolesByUser.get(u.id) ?? [],
       status: userStatus(u.banned_until),
     }));
 
-    users.sort(
-      (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
-    );
+    users.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
 
     return { users, count: users.length };
   });
@@ -126,18 +114,15 @@ export const adminCreateUser = createServerFn({ method: "POST" })
     const { userId: actorId } = context as { userId: string };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: created, error: createError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email: data.email.trim().toLowerCase(),
-        password: data.temporary_password,
-        email_confirm: true,
-        user_metadata: { full_name: data.full_name.trim() },
-      });
+    const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: data.email.trim().toLowerCase(),
+      password: data.temporary_password,
+      email_confirm: true,
+      user_metadata: { full_name: data.full_name.trim() },
+    });
 
     if (createError || !created.user) {
-      throw new Error(
-        createError?.message ?? "تعذر إنشاء المستخدم.",
-      );
+      throw new Error(createError?.message ?? "تعذر إنشاء المستخدم.");
     }
 
     const newUserId = created.user.id;
@@ -167,8 +152,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       });
     } catch (err) {
       await supabaseAdmin.auth.admin.deleteUser(newUserId);
-      const message =
-        err instanceof Error ? err.message : "تعذر إكمال إعداد المستخدم.";
+      const message = err instanceof Error ? err.message : "تعذر إكمال إعداد المستخدم.";
       throw new Error(message);
     }
 
@@ -218,8 +202,9 @@ export const adminUpdateUserRoles = createServerFn({ method: "POST" })
 
     const currentStaff = (existing ?? [])
       .map((r) => r.role)
-      .filter((r): r is Exclude<AssignableAdminRole, "user"> =>
-        r === "admin" || r === "content_manager");
+      .filter(
+        (r): r is Exclude<AssignableAdminRole, "user"> => r === "admin" || r === "content_manager",
+      );
 
     const toRemove = currentStaff.filter((r) => !nextRoles.includes(r));
     const toAdd = nextRoles.filter((r) => !currentStaff.includes(r));
