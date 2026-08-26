@@ -73,11 +73,6 @@ const SHEET_NAME: Record<QuestionCapability, string> = {
   officialBookQuestions: "أسئلة الكتاب الأصلية",
 };
 
-const CAPABILITY_LABEL: Record<QuestionCapability, string> = {
-  selfTest: "اختبر فهمك",
-  officialBookQuestions: "أنشطة وأسئلة الدرس",
-};
-
 const PUBLIC_FILE_NAME: Record<QuestionCapability, string> = {
   selfTest: "self-test.json",
   officialBookQuestions: "lesson-activities.json",
