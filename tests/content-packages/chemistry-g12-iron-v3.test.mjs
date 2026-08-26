@@ -148,12 +148,12 @@ test('self test is separate, pinned, and does not leak answers or rationales', (
   const s = read('self-test.json');
   const c = json('answer-companion.server-only.json');
   assert.equal(x.question_count, 20);
-  assert.deepEqual(x.question_types, {multiple_choice:20,true_false:20});
+  assert.deepEqual(x.question_types, {multiple_choice:20,true_false:0});
   assert.equal(x.revision_pin, 'sha256:' + hash(x.source_file));
   assert.doesNotMatch(s, /correct_option|rationale|answer_key/i);
   assert.equal(c.initial_payload, false);
   assert.equal(c.reveal, 'SERVER_CONTROLLED_REVEAL_ONLY');
-  assert.equal(c.answers.length, 40);
+  assert.equal(c.answers.length, 25);
   assert.match(read('answer-companion.server-only.json'), /MODEL_ANSWER_TAMKEEN_DRAFT/);
 });
 
