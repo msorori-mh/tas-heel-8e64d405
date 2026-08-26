@@ -185,6 +185,18 @@ function validateRow(
     errors.push(`الصف ${rowNumber}: حقول إلزامية فارغة: ${emptyRequired.join("، ")}`);
   }
   const list = options(row);
+  const populatedOptionPositions = Array.from(
+    { length: MAX_OPTIONS },
+    (_, index) => index + 1,
+  ).filter((position) => Boolean(row[`option_${position}`]));
+  const lastOptionPosition = populatedOptionPositions.at(-1) ?? 0;
+  for (let position = 1; position <= lastOptionPosition; position += 1) {
+    if (!row[`option_${position}`]) {
+      errors.push(
+        `الصف ${rowNumber}: لا يجوز ترك option_${position} فارغًا بين الخيارات؛ أدخل الخيارات بترتيب متصل.`,
+      );
+    }
+  }
 
   if (capability === "selfTest") {
     if (list.length < 2) {
@@ -197,6 +209,26 @@ function validateRow(
       );
     }
     return errors;
+  }
+
+  const interaction = row.interaction_type?.toUpperCase();
+  const grading = row.grading_mode?.toUpperCase();
+  const allowedInteractions = new Set(["LONG_TEXT", "SHORT_TEXT", "SINGLE_CHOICE"]);
+  const allowedGradings = new Set(["MANUAL", "AUTO_TEXT", "AUTO_SINGLE"]);
+  if (!allowedInteractions.has(interaction)) {
+    errors.push(`الصف ${rowNumber}: interaction_type غير معتمد.`);
+  }
+  if (!allowedGradings.has(grading)) {
+    errors.push(`الصف ${rowNumber}: grading_mode غير معتمد.`);
+  }
+  if (interaction === "SINGLE_CHOICE" && grading !== "AUTO_SINGLE") {
+    errors.push(`الصف ${rowNumber}: SINGLE_CHOICE يتطلب grading_mode=AUTO_SINGLE.`);
+  }
+  if (interaction === "SHORT_TEXT" && grading !== "AUTO_TEXT") {
+    errors.push(`الصف ${rowNumber}: SHORT_TEXT يتطلب grading_mode=AUTO_TEXT.`);
+  }
+  if (interaction === "LONG_TEXT" && grading !== "MANUAL") {
+    errors.push(`الصف ${rowNumber}: LONG_TEXT يتطلب grading_mode=MANUAL.`);
   }
 
   const choice = isChoiceInteraction(row);
