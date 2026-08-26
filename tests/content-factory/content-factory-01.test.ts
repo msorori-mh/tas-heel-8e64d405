@@ -12,7 +12,9 @@ import {
 } from "../../src/lib/content-factory/golden-lesson-profiles.ts";
 import { validateGoldenLessonPackage } from "../../src/lib/content-factory/golden-lesson-validator.ts";
 
-function packageFor(profile: typeof GOLDEN_QURAN_V1 | typeof GOLDEN_CHEMISTRY_V1): GoldenLessonPackage {
+function packageFor(
+  profile: typeof GOLDEN_QURAN_V1 | typeof GOLDEN_CHEMISTRY_V1,
+): GoldenLessonPackage {
   return {
     schema: GOLDEN_LESSON_SCHEMA,
     profileId: profile.id,
@@ -30,12 +32,20 @@ function packageFor(profile: typeof GOLDEN_QURAN_V1 | typeof GOLDEN_CHEMISTRY_V1
     capabilityOrder: [...GOLDEN_CAPABILITIES],
     artifacts: GOLDEN_CAPABILITIES.map((capability) => {
       const applicability = profile.applicability[capability];
-      const official = capability === "officialBookContent" || capability === "officialBookQuestions";
-      const sourcePath = applicability === "REQUIRED"
-        ? ["officialBookContent", "tamkeenExplanationHtml", "lessonSummaryHtml", "mindMapHtml", "labExperimentHtml"].includes(capability)
-          ? `${capability}.html`
-          : `${capability}.json`
-        : null;
+      const official =
+        capability === "officialBookContent" || capability === "officialBookQuestions";
+      const sourcePath =
+        applicability === "REQUIRED"
+          ? [
+              "officialBookContent",
+              "tamkeenExplanationHtml",
+              "lessonSummaryHtml",
+              "mindMapHtml",
+              "labExperimentHtml",
+            ].includes(capability)
+            ? `${capability}.html`
+            : `${capability}.json`
+          : null;
       return {
         capability,
         applicability,
@@ -105,8 +115,16 @@ test("answers, direct READY, production apply and HTML network access are reject
   (pkg.security as { publicPayloadContainsAnswers: boolean }).publicPayloadContainsAnswers = true;
   (pkg.security as { htmlNetworkAccess: string }).htmlNetworkAccess = "OPEN";
   const result = validateGoldenLessonPackage(pkg);
-  for (const code of ["LIFECYCLE_UNSAFE", "PRODUCTION_APPLY_FORBIDDEN", "ANSWER_LEAK", "HTML_NETWORK_FORBIDDEN"]) {
-    assert.ok(result.findings.some((finding) => finding.code === code), code);
+  for (const code of [
+    "LIFECYCLE_UNSAFE",
+    "PRODUCTION_APPLY_FORBIDDEN",
+    "ANSWER_LEAK",
+    "HTML_NETWORK_FORBIDDEN",
+  ]) {
+    assert.ok(
+      result.findings.some((finding) => finding.code === code),
+      code,
+    );
   }
   assert.equal(result.writesPerformed, 0);
 });

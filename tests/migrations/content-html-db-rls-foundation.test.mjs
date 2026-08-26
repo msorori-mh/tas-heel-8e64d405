@@ -18,8 +18,16 @@ const migrationSql = readFileSync(join(MIGRATIONS_DIR, MIGRATION_FILE), "utf8");
 
 test("migration file exists and is non-destructive", () => {
   assert.ok(migrationSql.length > 0, "Migration file must not be empty");
-  assert.doesNotMatch(migrationSql, /DROP\s+TABLE\s+lesson_resources/i, "Must not drop table lesson_resources");
-  assert.doesNotMatch(migrationSql, /DROP\s+TABLE\s+IF\s+EXISTS\s+lesson_resources/i, "Must not drop table lesson_resources");
+  assert.doesNotMatch(
+    migrationSql,
+    /DROP\s+TABLE\s+lesson_resources/i,
+    "Must not drop table lesson_resources",
+  );
+  assert.doesNotMatch(
+    migrationSql,
+    /DROP\s+TABLE\s+IF\s+EXISTS\s+lesson_resources/i,
+    "Must not drop table lesson_resources",
+  );
   assert.doesNotMatch(migrationSql, /\bCASCADE\b/i, "Must not use CASCADE in migration");
 });
 
@@ -47,7 +55,10 @@ test("explicit REVOKE ALL ON FUNCTION FROM PUBLIC for security definer functions
   ];
 
   for (const fn of functionsToRevoke) {
-    const pattern = new RegExp(`REVOKE\\s+ALL\\s+ON\\s+FUNCTION\\s+public\\.${fn}[\\s\\S]*?FROM\\s+PUBLIC`, "i");
+    const pattern = new RegExp(
+      `REVOKE\\s+ALL\\s+ON\\s+FUNCTION\\s+public\\.${fn}[\\s\\S]*?FROM\\s+PUBLIC`,
+      "i",
+    );
     assert.match(migrationSql, pattern, `Function ${fn} must explicitly REVOKE FROM PUBLIC`);
   }
 });
@@ -102,7 +113,9 @@ test("server-only validation function grants and binding checks", () => {
 });
 
 test("no latest or COALESCE empty fallback in resolve_promotion_binding", () => {
-  const fnMatch = migrationSql.match(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.resolve_promotion_binding[\s\S]*?\$\$;/i);
+  const fnMatch = migrationSql.match(
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.resolve_promotion_binding[\s\S]*?\$\$;/i,
+  );
   assert.ok(fnMatch, "resolve_promotion_binding function definition must exist");
   const fnBody = fnMatch[0];
 
@@ -129,7 +142,9 @@ test("no latest or COALESCE empty fallback in resolve_promotion_binding", () => 
 });
 
 test("student fetch explicitly checks html_content_student_read feature flag", () => {
-  const fetchFnMatch = migrationSql.match(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.fetch_published_lesson_resources[\s\S]*?\$\$;/i);
+  const fetchFnMatch = migrationSql.match(
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.fetch_published_lesson_resources[\s\S]*?\$\$;/i,
+  );
   assert.ok(fetchFnMatch, "fetch_published_lesson_resources function definition must exist");
   const fetchFnBody = fetchFnMatch[0];
 
@@ -146,8 +161,13 @@ test("storage operations transition rules and retry parent failed contract", () 
   assert.match(migrationSql, /DELETE on storage_operations is strictly prohibited/i);
   assert.match(migrationSql, /parent must be failed/i);
 
-  const retryFnMatch = migrationSql.match(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.enforce_storage_operation_retry_contract[\s\S]*?\$\$;/i);
-  assert.ok(retryFnMatch, "enforce_storage_operation_retry_contract function definition must exist");
+  const retryFnMatch = migrationSql.match(
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.enforce_storage_operation_retry_contract[\s\S]*?\$\$;/i,
+  );
+  assert.ok(
+    retryFnMatch,
+    "enforce_storage_operation_retry_contract function definition must exist",
+  );
   assert.match(
     retryFnMatch[0],
     /NEW\.actor_id\s+IS\s+DISTINCT\s+FROM\s+v_parent\.actor_id/i,
@@ -156,12 +176,17 @@ test("storage operations transition rules and retry parent failed contract", () 
 });
 
 test("idempotency ledger uses atomic INSERT with RETURNING", () => {
-  const claimFnMatch = migrationSql.match(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.claim_idempotency_key[\s\S]*?\$\$;/i);
+  const claimFnMatch = migrationSql.match(
+    /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.claim_idempotency_key[\s\S]*?\$\$;/i,
+  );
   assert.ok(claimFnMatch, "claim_idempotency_key function definition must exist");
   const claimFnBody = claimFnMatch[0];
 
   assert.match(claimFnBody, /INSERT\s+INTO\s+public\.idempotency_ledger/i);
-  assert.match(claimFnBody, /ON\s+CONFLICT\s*\(\s*actor_id\s*,\s*operation\s*,\s*idempotency_key\s*\)\s*DO\s+NOTHING/i);
+  assert.match(
+    claimFnBody,
+    /ON\s+CONFLICT\s*\(\s*actor_id\s*,\s*operation\s*,\s*idempotency_key\s*\)\s*DO\s+NOTHING/i,
+  );
   assert.match(claimFnBody, /RETURNING\s+id\s+INTO/i);
 });
 

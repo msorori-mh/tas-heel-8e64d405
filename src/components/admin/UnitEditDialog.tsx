@@ -36,7 +36,14 @@ interface Props {
   grades?: { id: string; name: string | null }[];
 }
 
-export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjects = [], grades = [] }: Props) {
+export function UnitEditDialog({
+  open,
+  onOpenChange,
+  unit,
+  mode = "edit",
+  subjects = [],
+  grades = [],
+}: Props) {
   const queryClient = useQueryClient();
   const createUnitFn = useServerFn(createCurriculumUnitAdmin);
   const isCreate = mode === "create";
@@ -76,7 +83,8 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
   }, [open, unit, isCreate]);
 
   const filteredSubjects = useMemo(
-    () => selectedGradeId ? subjects.filter((subject) => subject.grade_id === selectedGradeId) : [],
+    () =>
+      selectedGradeId ? subjects.filter((subject) => subject.grade_id === selectedGradeId) : [],
     [subjects, selectedGradeId],
   );
 
@@ -158,10 +166,7 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
 
     setSaving(true);
     try {
-      const { error: updateError } = await supabase
-        .from("units")
-        .update(payload)
-        .eq("id", unit.id);
+      const { error: updateError } = await supabase.from("units").update(payload).eq("id", unit.id);
 
       if (updateError) throw updateError;
 
@@ -247,12 +252,7 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
                   ))}
                 </select>
               ) : (
-                <Input
-                  id="unit-grade"
-                  value="يُحدد من المادة"
-                  disabled
-                  dir="rtl"
-                />
+                <Input id="unit-grade" value="يُحدد من المادة" disabled dir="rtl" />
               )}
             </div>
           </div>
@@ -269,7 +269,9 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
               >
                 <option value="">{selectedGradeId ? "اختر المادة…" : "اختر الصف أولاً"}</option>
                 {filteredSubjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>{subject.name || "—"}</option>
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name || "—"}
+                  </option>
                 ))}
               </select>
             ) : (
@@ -320,11 +322,7 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             إلغاء
           </Button>
           <Button onClick={handleSave} disabled={saving}>
@@ -346,4 +344,3 @@ export function UnitEditDialog({ open, onOpenChange, unit, mode = "edit", subjec
 }
 
 export default UnitEditDialog;
-

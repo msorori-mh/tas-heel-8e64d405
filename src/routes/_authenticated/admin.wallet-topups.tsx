@@ -80,13 +80,7 @@ function StatusBadge({ status }: { status: TopupStatus }) {
   );
 }
 
-function ReceiptViewer({
-  requestId,
-  fileHint,
-}: {
-  requestId: string;
-  fileHint: string | null;
-}) {
+function ReceiptViewer({ requestId, fileHint }: { requestId: string; fileHint: string | null }) {
   const getSignedUrl = useServerFn(getWalletTopupReceiptSignedUrl);
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -110,9 +104,7 @@ function ReceiptViewer({
   }, [requestId, getSignedUrl]);
 
   if (failed) {
-    return (
-      <p className="text-xs text-destructive">تعذّر إنشاء رابط آمن لعرض الإيصال.</p>
-    );
+    return <p className="text-xs text-destructive">تعذّر إنشاء رابط آمن لعرض الإيصال.</p>;
   }
   if (!url)
     return (
@@ -120,8 +112,7 @@ function ReceiptViewer({
         <Loader2 className="h-3.5 w-3.5 animate-spin" /> جارٍ تحميل الإيصال…
       </div>
     );
-  const isPdf =
-    /\.pdf($|\?)/i.test(url) || (fileHint?.toLowerCase().endsWith(".pdf") ?? false);
+  const isPdf = /\.pdf($|\?)/i.test(url) || (fileHint?.toLowerCase().endsWith(".pdf") ?? false);
   return (
     <div className="space-y-2">
       {isPdf ? (
@@ -158,9 +149,7 @@ function AdminWalletTopupsPage() {
   const { loading, enabled } = useRequireAdminSection("full");
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<StatusFilter>("submitted");
-  const [actionFor, setActionFor] = useState<{ row: Row; kind: "approve" | "reject" } | null>(
-    null,
-  );
+  const [actionFor, setActionFor] = useState<{ row: Row; kind: "approve" | "reject" } | null>(null);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [receiptFor, setReceiptFor] = useState<Row | null>(null);
@@ -171,12 +160,14 @@ function AdminWalletTopupsPage() {
     queryFn: async () => {
       let req = supabase
         .from("wallet_topup_requests")
-        .select(`
+        .select(
+          `
           id, user_id, amount, currency, status, created_at, reviewed_at,
           sender_name, sender_account, transaction_reference, payment_date,
           receipt_path, admin_notes, rejection_reason,
           method:payment_methods!wallet_topup_requests_payment_method_id_fkey(name)
-        `)
+        `,
+        )
         .order("created_at", { ascending: false })
         .limit(200);
       if (filter !== "all") req = req.eq("status", filter);
@@ -191,10 +182,7 @@ function AdminWalletTopupsPage() {
           .select("user_id, full_name, phone")
           .in("user_id", userIds);
         profileMap = new Map(
-          (profiles ?? []).map((p) => [
-            p.user_id,
-            { full_name: p.full_name, phone: p.phone },
-          ]),
+          (profiles ?? []).map((p) => [p.user_id, { full_name: p.full_name, phone: p.phone }]),
         );
       }
       return rows.map((r) => ({
@@ -328,9 +316,7 @@ function AdminWalletTopupsPage() {
                 {rows.map((r) => (
                   <tr key={r.id} className="border-b border-border/70 align-top">
                     <td className="px-3 py-3">
-                      <p className="font-medium text-foreground">
-                        {r.user?.full_name ?? "—"}
-                      </p>
+                      <p className="font-medium text-foreground">{r.user?.full_name ?? "—"}</p>
                       {r.user?.phone && (
                         <p className="text-[11px] text-muted-foreground" dir="ltr">
                           {r.user.phone}
@@ -356,9 +342,7 @@ function AdminWalletTopupsPage() {
                       {r.transaction_reference ?? "—"}
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      {r.payment_date
-                        ? new Date(r.payment_date).toLocaleDateString("ar-EG")
-                        : "—"}
+                      {r.payment_date ? new Date(r.payment_date).toLocaleDateString("ar-EG") : "—"}
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
                       {new Date(r.created_at).toLocaleString("ar-EG", {

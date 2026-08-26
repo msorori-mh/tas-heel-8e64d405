@@ -5,19 +5,26 @@ import test from "node:test";
 
 const root = new URL("../../", import.meta.url);
 const read = (relative) => fs.readFileSync(new URL(relative, root), "utf8");
-const migration = read("supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql");
+const migration = read(
+  "supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql",
+);
 const canonical = [
   "supabase/migrations/20260606003842_a271db04-ff59-4b13-8785-56e938afc1cc.sql",
   "supabase/migrations/20260606004917_18901270-9c14-4c37-bea7-1b33e3e26812.sql",
   "supabase/migrations/20260801120000_qb01_question_bank_schema_foundation.sql",
   "supabase/migrations/20260812234007_72545986-dc43-4ccb-bcde-18d11c1bd95c.sql",
   "supabase/migrations/20260813002624_0b9b5ed3-ed54-4c33-9987-a38d718234d4.sql",
-].map(read).join("\n");
+]
+  .map(read)
+  .join("\n");
 const fixture = read("scripts/content-v3/pg17-21h-canonical-fixture.sql");
 const contract = read("scripts/content-v3/runtime-contract-21h-r3.sql");
 const runner = read("scripts/content-v3/pg17-runner.ps1");
 function tableBody(sql, table) {
-  const match = new RegExp(`CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+public\\.${table}\\s*\\(([\\s\\S]*?)\\n\\);`, "i").exec(sql);
+  const match = new RegExp(
+    `CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+public\\.${table}\\s*\\(([\\s\\S]*?)\\n\\);`,
+    "i",
+  ).exec(sql);
   assert.ok(match, `table body missing: ${table}`);
   return match[1];
 }
@@ -32,7 +39,10 @@ test("canonical schema proves the R2 lesson_id contradiction", () => {
 
 test("R3 reveal derives lesson through assessment and enforces snapshot membership", () => {
   assert.match(migration, /SELECT la\.lesson_id, paq\.question_revision_id/i);
-  assert.match(migration, /JOIN public\.lesson_assessments la\s+ON la\.id = pa\.lesson_assessment_id/i);
+  assert.match(
+    migration,
+    /JOIN public\.lesson_assessments la\s+ON la\.id = pa\.lesson_assessment_id/i,
+  );
   assert.match(migration, /JOIN public\.assessment_questions aq\s+ON aq\.assessment_id = la\.id/i);
   assert.match(migration, /JOIN public\.questions q\s+ON q\.id = paq\.logical_question_id/i);
   assert.match(migration, /q\.lesson_id = la\.lesson_id/i);
@@ -57,9 +67,19 @@ test("R3 runner has a fail-closed fixture schema gate and local-only runtime pat
 
 test("R3 runtime contract covers the required reveal matrix", () => {
   for (const marker of [
-    "authorized reveal", "wrong user denied", "wrong lesson denied", "wrong question membership denied",
-    "DRAFT denied", "REVIEW denied", "READY allowed", "N/A denied", "unsubmitted attempt denied",
-    "historical revision remains pinned", "new draft revision is not substituted", "duplicate reveal is deterministic",
+    "authorized reveal",
+    "wrong user denied",
+    "wrong lesson denied",
+    "wrong question membership denied",
+    "DRAFT denied",
+    "REVIEW denied",
+    "READY allowed",
+    "N/A denied",
+    "unsubmitted attempt denied",
+    "historical revision remains pinned",
+    "new draft revision is not substituted",
+    "duplicate reveal is deterministic",
     "no answer or rationale before reveal",
-  ]) assert.match(contract, new RegExp(marker));
+  ])
+    assert.match(contract, new RegExp(marker));
 });

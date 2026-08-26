@@ -6,7 +6,11 @@ import { translateAuthError } from "@/lib/auth-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { fetchTracksForGovernorate, translateTrackError, type CurriculumTrack } from "@/lib/curriculum-tracks";
+import {
+  fetchTracksForGovernorate,
+  translateTrackError,
+  type CurriculumTrack,
+} from "@/lib/curriculum-tracks";
 
 export const Route = createFileRoute("/complete-profile")({
   component: CompleteProfile,
@@ -101,7 +105,9 @@ function CompleteProfile() {
         if (!cancelled) setAllowedTracks([]);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [govId, profile?.curriculum_track_id]);
 
   const submit = async (e: React.FormEvent) => {
@@ -172,7 +178,12 @@ function CompleteProfile() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <Label htmlFor="fn">الاسم الأول</Label>
-              <Input id="fn" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+              <Input
+                id="fn"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+              />
             </div>
             <div>
               <Label htmlFor="sn">الاسم الثاني</Label>
@@ -180,7 +191,12 @@ function CompleteProfile() {
             </div>
             <div>
               <Label htmlFor="ln">اللقب</Label>
-              <Input id="ln" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+              <Input
+                id="ln"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+              />
             </div>
           </div>
 
@@ -195,7 +211,9 @@ function CompleteProfile() {
             >
               <option value="">-- اختر المحافظة --</option>
               {govs.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
               ))}
             </select>
           </div>
@@ -212,7 +230,9 @@ function CompleteProfile() {
               >
                 <option value="">-- اختر المنهج --</option>
                 {allowedTracks.map((t) => (
-                  <option key={t.id} value={t.id}>{t.track_name}</option>
+                  <option key={t.id} value={t.id}>
+                    {t.track_name}
+                  </option>
                 ))}
               </select>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -220,7 +240,6 @@ function CompleteProfile() {
               </p>
             </div>
           )}
-
 
           <div>
             <Label htmlFor="sc">المدرسة</Label>
@@ -238,7 +257,9 @@ function CompleteProfile() {
             >
               <option value="">-- اختر الصف --</option>
               {grades.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
               ))}
             </select>
           </div>
@@ -252,7 +273,10 @@ function CompleteProfile() {
           <button
             type="button"
             className="w-full text-sm text-muted-foreground"
-            onClick={async () => { await signOut(); navigate({ to: "/auth", search: { mode: "login" } }); }}
+            onClick={async () => {
+              await signOut();
+              navigate({ to: "/auth", search: { mode: "login" } });
+            }}
           >
             تسجيل الخروج
           </button>

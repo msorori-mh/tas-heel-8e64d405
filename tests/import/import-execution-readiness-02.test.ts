@@ -39,13 +39,30 @@ test("schema-change resolutions are either an unapplied draft or a verified appl
   for (const id of IMPORT_GAP_IDS) {
     const r = IMPORT_GAP_RESOLUTIONS[id];
     if (r.kind === "schema_change" && r.status === "closed_design") {
-      assert.ok(r.migrationDraftRef?.includes("NOT_APPLIED"), `${id}: schema change needs a NOT_APPLIED draft`);
-      assert.ok(r.migrationDraftRef?.startsWith("docs/"), `${id}: drafts must stay outside supabase/migrations`);
+      assert.ok(
+        r.migrationDraftRef?.includes("NOT_APPLIED"),
+        `${id}: schema change needs a NOT_APPLIED draft`,
+      );
+      assert.ok(
+        r.migrationDraftRef?.startsWith("docs/"),
+        `${id}: drafts must stay outside supabase/migrations`,
+      );
     } else if (r.status === "applied") {
-      assert.equal(r.migrationDraftRef, undefined, `${id}: an applied gap must not point at a draft`);
-      assert.ok((r.appliedObjects?.length ?? 0) > 0, `${id}: an applied gap must name the DB objects it created`);
+      assert.equal(
+        r.migrationDraftRef,
+        undefined,
+        `${id}: an applied gap must not point at a draft`,
+      );
+      assert.ok(
+        (r.appliedObjects?.length ?? 0) > 0,
+        `${id}: an applied gap must name the DB objects it created`,
+      );
     } else {
-      assert.equal(r.migrationDraftRef, undefined, `${id}: non-schema change must not reference a migration`);
+      assert.equal(
+        r.migrationDraftRef,
+        undefined,
+        `${id}: non-schema change must not reference a migration`,
+      );
     }
   }
 });
@@ -116,10 +133,26 @@ test("GAP-07: subject slug derivation is deterministic and collision-detected", 
 
   // Injectivity over a broad sample.
   const samples = [
-    "a", "A", "a-", "-a", "a--b", "a_b", "a.b", "a b", "١٠", "علوم", "علوم-2", "Sci/10", "Sci-10",
+    "a",
+    "A",
+    "a-",
+    "-a",
+    "a--b",
+    "a_b",
+    "a.b",
+    "a b",
+    "١٠",
+    "علوم",
+    "علوم-2",
+    "Sci/10",
+    "Sci-10",
   ];
   const slugs = samples.map(deriveSubjectSlug);
-  assert.equal(new Set(slugs).size, samples.length, "distinct subject codes must not derive the same slug");
+  assert.equal(
+    new Set(slugs).size,
+    samples.length,
+    "distinct subject codes must not derive the same slug",
+  );
 
   assert.throws(() => deriveSubjectSlug("   "));
 });
@@ -195,7 +228,10 @@ test("staging tables are content-staff scoped and job-keyed", () => {
   assert.ok(staging!.indexes.some((i) => i.includes("UNIQUE (job_id, template_key, natural_key)")));
   for (const t of STAGING_TABLES) {
     assert.ok(/staff|admin/i.test(t.access), `${t.table}: access rule must be staff-scoped`);
-    assert.ok(!/anon/i.test(t.access.replace(/no anon/i, "")), `${t.table}: anon must not be granted`);
+    assert.ok(
+      !/anon/i.test(t.access.replace(/no anon/i, "")),
+      `${t.table}: anon must not be granted`,
+    );
   }
 });
 

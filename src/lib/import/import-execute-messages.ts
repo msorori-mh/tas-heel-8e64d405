@@ -7,15 +7,13 @@ export const IMPORT_EXECUTE_MESSAGES_AR: Record<string, string> = {
   NOT_AUTHORIZED: "غير مصرح — هذه العملية متاحة لطاقم المحتوى المخوّل فقط.",
   NOT_JOB_OWNER: "غير مصرح — هذه العملية أنشأها مستخدم آخر.",
   IMPORT_JOB_NOT_FOUND: "لم يتم العثور على عملية الاستيراد.",
-  INVALID_STATE_TRANSITION:
-    "حالة العملية لا تسمح بهذه الخطوة — أعد التجهيز من جديد.",
+  INVALID_STATE_TRANSITION: "حالة العملية لا تسمح بهذه الخطوة — أعد التجهيز من جديد.",
   INVALID_STAGING_PAYLOAD: "بيانات التجهيز غير صالحة.",
   INVALID_STAGED_ROW: "أحد الصفوف المجهّزة غير صالح — أعد فحص الملف.",
   DUPLICATE_NATURAL_KEY: "يوجد مفتاح مكرر داخل الملف نفسه.",
   QUESTION_BANK_WORKFLOW_REQUIRED:
     "قالب الأسئلة (09) لا يمر عبر مسار التحديث العام — يمر عبر مسار بنك الأسئلة المعتمد.",
-  QUESTION_BANK_CAPABILITY_REQUIRED:
-    "غير مصرح — استيراد الأسئلة يتطلب صلاحية تحرير بنك الأسئلة.",
+  QUESTION_BANK_CAPABILITY_REQUIRED: "غير مصرح — استيراد الأسئلة يتطلب صلاحية تحرير بنك الأسئلة.",
   HASH_MISMATCH:
     "بصمة أحد الصفوف المجهّزة لا تطابق محتواه — أُلغيت العملية بالكامل. أعد التجهيز من الملف.",
   STAGING_ROW_NOT_FOUND: "لم يتم العثور على أحد الصفوف المجهّزة.",
@@ -26,26 +24,19 @@ export const IMPORT_EXECUTE_MESSAGES_AR: Record<string, string> = {
   INVALID_CORRECT_INDEX:
     "رقم الإجابة الصحيحة خارج نطاق الخيارات في أحد الصفوف (الترقيم يبدأ من 1).",
 
-  IMPORT_SCOPE_REQUIRED:
-    "أكمل سياق الاستيراد: الصف ← المسار ← الفصل ← المادة.",
-  IMPORT_SCOPE_SUBJECT_NOT_FOUND:
-    "المادة المختارة غير موجودة داخل الصف المحدد.",
-  IMPORT_SCOPE_TRACK_MISMATCH:
-    "المادة المختارة غير متاحة في أحد المسارات المحددة.",
-  IMPORT_SCOPE_SEMESTER_INVALID:
-    "الفصل الدراسي في سياق الاستيراد غير صالح.",
-  IMPORT_SCOPE_CHANGED_AFTER_PREPARE:
-    "تغيّر سياق الاستيراد بعد التجهيز — أعد الفحص والتجهيز.",
+  IMPORT_SCOPE_REQUIRED: "أكمل سياق الاستيراد: الصف ← المسار ← الفصل ← المادة.",
+  IMPORT_SCOPE_SUBJECT_NOT_FOUND: "المادة المختارة غير موجودة داخل الصف المحدد.",
+  IMPORT_SCOPE_TRACK_MISMATCH: "المادة المختارة غير متاحة في أحد المسارات المحددة.",
+  IMPORT_SCOPE_SEMESTER_INVALID: "الفصل الدراسي في سياق الاستيراد غير صالح.",
+  IMPORT_SCOPE_CHANGED_AFTER_PREPARE: "تغيّر سياق الاستيراد بعد التجهيز — أعد الفحص والتجهيز.",
   SUBJECT_NOT_FOUND:
     "تعذّر حل المادة الرسمية من سياق الاستيراد — أعد اختيار الصف والمسار والفصل والمادة.",
   UNIT_NOT_FOUND_IN_SCOPE:
     "إحدى الوحدات المشار إليها غير موجودة داخل المادة المختارة — استورد ملف الوحدات في السياق نفسه أولاً.",
-  IMPORT_SCOPE_UNITS_LOOKUP_FAILED:
-    "تعذر التحقق من وحدات المادة المختارة — لم يُنفذ أي استيراد.",
+  IMPORT_SCOPE_UNITS_LOOKUP_FAILED: "تعذر التحقق من وحدات المادة المختارة — لم يُنفذ أي استيراد.",
   LESSON_NOT_FOUND: "كود الدرس غير موجود — استورد قالب الدروس أولاً.",
   MISSING_RESOURCE_URL: "رابط المورد مفقود في أحد الصفوف.",
-  ASSESSMENT_QUESTION_LINK_UNRESOLVED:
-    "تعذّر ربط سؤال بتقييم — تحقق من كود التقييم وكود السؤال.",
+  ASSESSMENT_QUESTION_LINK_UNRESOLVED: "تعذّر ربط سؤال بتقييم — تحقق من كود التقييم وكود السؤال.",
   UNSUPPORTED_TEMPLATE: "هذا القالب غير مدعوم في مسار التنفيذ العام.",
   REVIEW_STATE_NOT_FOUND: "لا توجد حالة مراجعة لهذا المحتوى.",
   PUBLISH_REQUIRES_APPROVAL: "لا يمكن النشر قبل اعتماد المراجعة.",

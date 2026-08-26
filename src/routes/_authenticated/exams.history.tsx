@@ -37,7 +37,9 @@ const MODE_BADGE: Record<ExamMode, string> = {
   ministry: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
 };
 
-function percentageOf(row: Pick<HistoryRow, "score" | "total_points" | "correct_answers" | "total_questions">) {
+function percentageOf(
+  row: Pick<HistoryRow, "score" | "total_points" | "correct_answers" | "total_questions">,
+) {
   if (row.total_points && row.total_points > 0) {
     return (Number(row.score) / Number(row.total_points)) * 100;
   }
@@ -91,8 +93,7 @@ function ExamHistoryPage() {
   const rows = query.data ?? [];
 
   const stats = useMemo(() => {
-    if (rows.length === 0)
-      return { count: 0, best: 0, last: 0, avg: 0 };
+    if (rows.length === 0) return { count: 0, best: 0, last: 0, avg: 0 };
     const percentages = rows.map((r) => percentageOf(r));
     const last = percentages[0] ?? 0;
     const best = percentages.reduce((m, v) => Math.max(m, v), 0);
@@ -120,10 +121,8 @@ function ExamHistoryPage() {
     </nav>
   );
 
-  if (query.isLoading)
-    return <StateMessage variant="loading">جارٍ تحميل السجل…</StateMessage>;
-  if (query.error)
-    return <StateMessage variant="error">تعذّر تحميل السجل.</StateMessage>;
+  if (query.isLoading) return <StateMessage variant="loading">جارٍ تحميل السجل…</StateMessage>;
+  if (query.error) return <StateMessage variant="error">تعذّر تحميل السجل.</StateMessage>;
 
   return (
     <div className="space-y-4">
@@ -140,10 +139,7 @@ function ExamHistoryPage() {
       </header>
 
       {/* Stats */}
-      <section
-        className="grid grid-cols-2 gap-3"
-        aria-label="ملخص النتائج"
-      >
+      <section className="grid grid-cols-2 gap-3" aria-label="ملخص النتائج">
         <StatCard
           icon={<Activity className="h-4 w-4" />}
           label="عدد المحاولات"
@@ -167,15 +163,10 @@ function ExamHistoryPage() {
       </section>
 
       {/* Filters */}
-      <div
-        role="tablist"
-        aria-label="تصفية حسب النوع"
-        className="flex flex-wrap gap-2"
-      >
+      <div role="tablist" aria-label="تصفية حسب النوع" className="flex flex-wrap gap-2">
         {(["all", "training", "strict", "ministry"] as const).map((f) => {
           const active = filter === f;
-          const label =
-            f === "all" ? "الكل" : MODE_LABEL[f];
+          const label = f === "all" ? "الكل" : MODE_LABEL[f];
           return (
             <button
               key={f}
@@ -236,9 +227,7 @@ function ExamHistoryPage() {
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-xl font-bold text-foreground">
-                        {pct}%
-                      </span>
+                      <span className="text-xl font-bold text-foreground">{pct}%</span>
                       <ChevronLeft className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
@@ -258,15 +247,7 @@ function ExamHistoryPage() {
   );
 }
 
-function StatCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
+function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-3 shadow-card">
       <div className="flex items-center gap-2 text-muted-foreground">

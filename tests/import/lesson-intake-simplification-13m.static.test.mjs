@@ -8,8 +8,7 @@ const files = {
   reviewPage: "src/routes/_authenticated/admin.content-review.tsx",
   adminLayout: "src/components/admin/AdminLayout.tsx",
   examTemplateDialog: "src/components/admin/ExamTemplateEditDialog.tsx",
-  migration:
-    "supabase/migrations/20260828010000_lesson_intake_simplification_13m.sql",
+  migration: "supabase/migrations/20260828010000_lesson_intake_simplification_13m.sql",
 };
 
 const read = (key) => readFileSync(files[key], "utf8");
@@ -27,13 +26,13 @@ describe("LESSON_INTAKE_SIMPLIFICATION_13M", () => {
 
   it("shows all seven canonical lesson capabilities and derives legacy metadata", () => {
     const builder = read("builder");
-    assert.ok(builder.includes('officialBookContent: 1'));
-    assert.ok(builder.includes('tamkeenExplanationHtml: 2'));
-    assert.ok(builder.includes('lessonSummaryHtml: 3'));
-    assert.ok(builder.includes('mindMapHtml: 4'));
-    assert.ok(builder.includes('labExperimentHtml: 5'));
-    assert.ok(builder.includes('officialBookQuestions: 6'));
-    assert.ok(builder.includes('selfTest: 7'));
+    assert.ok(builder.includes("officialBookContent: 1"));
+    assert.ok(builder.includes("tamkeenExplanationHtml: 2"));
+    assert.ok(builder.includes("lessonSummaryHtml: 3"));
+    assert.ok(builder.includes("mindMapHtml: 4"));
+    assert.ok(builder.includes("labExperimentHtml: 5"));
+    assert.ok(builder.includes("officialBookQuestions: 6"));
+    assert.ok(builder.includes("selfTest: 7"));
     assert.ok(builder.includes("selectedLesson?.semester ?? 1"));
     assert.ok(builder.includes("existingSortOrder > 0"));
     assert.ok(builder.includes("فتح مراجعة هذا الدرس"));
@@ -59,7 +58,9 @@ describe("LESSON_INTAKE_SIMPLIFICATION_13M", () => {
 
   it("allows custom templates to target direct-to-subject lessons", () => {
     const dialog = read("examTemplateDialog");
-    assert.ok(dialog.includes('queryKey: ["admin-templates-lessons", subjectId, unitId || "direct"]'));
+    assert.ok(
+      dialog.includes('queryKey: ["admin-templates-lessons", subjectId, unitId || "direct"]'),
+    );
     assert.ok(dialog.includes('query.is("unit_id", null)'));
     assert.ok(dialog.includes("الوحدة (اختياري)"));
     assert.ok(dialog.includes("disabled={saving || !subjectId}"));

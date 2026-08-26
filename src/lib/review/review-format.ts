@@ -25,16 +25,14 @@ export function chunkSummary(raw: string): string[] {
 
   // 3) Group sentences greedily to ~TARGET_CHUNK chars.
   //    Arabic terminators included; no lookbehind (older WebView safe).
-  const sentences = text
-    .split(/([.!?؟])\s+/)
-    .reduce<string[]>((acc, part, index, arr) => {
-      if (index % 2 === 0) {
-        const terminator = arr[index + 1] ?? "";
-        const sentence = (part + terminator).trim();
-        if (sentence) acc.push(sentence);
-      }
-      return acc;
-    }, []);
+  const sentences = text.split(/([.!?؟])\s+/).reduce<string[]>((acc, part, index, arr) => {
+    if (index % 2 === 0) {
+      const terminator = arr[index + 1] ?? "";
+      const sentence = (part + terminator).trim();
+      if (sentence) acc.push(sentence);
+    }
+    return acc;
+  }, []);
 
   if (sentences.length === 0) return [text];
 
