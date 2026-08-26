@@ -8,10 +8,7 @@ import { QB_IMPORT_CODES } from "./validation-codes.ts";
  * Interaction shape (for example, whether options exist) must never decide the
  * student section: an official book question may itself be multiple choice.
  */
-export const QUESTION_CONTENT_ROLES = [
-  "OFFICIAL_BOOK_QUESTION",
-  "SELF_TEST",
-] as const;
+export const QUESTION_CONTENT_ROLES = ["OFFICIAL_BOOK_QUESTION", "SELF_TEST"] as const;
 
 export type QuestionContentRole = (typeof QUESTION_CONTENT_ROLES)[number];
 
@@ -55,21 +52,25 @@ export function validateQuestionContentRole(
 
   if (!role) {
     if (ctx.requireRole || rawRole) {
-      issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, {
-        ...base,
-        column: "content_role",
-        suggested_fix: "استخدم OFFICIAL_BOOK_QUESTION أو SELF_TEST فقط.",
-      }));
+      issues.push(
+        issue(QB_IMPORT_CODES.INVALID_CONTRACT, {
+          ...base,
+          column: "content_role",
+          suggested_fix: "استخدم OFFICIAL_BOOK_QUESTION أو SELF_TEST فقط.",
+        }),
+      );
     }
     return issues;
   }
 
   if (ctx.expectedRole && role !== ctx.expectedRole) {
-    issues.push(issue(QB_IMPORT_CODES.INVALID_CONTRACT, {
-      ...base,
-      column: "content_role",
-      suggested_fix: `هذا القالب مخصص للدور ${ctx.expectedRole}.`,
-    }));
+    issues.push(
+      issue(QB_IMPORT_CODES.INVALID_CONTRACT, {
+        ...base,
+        column: "content_role",
+        suggested_fix: `هذا القالب مخصص للدور ${ctx.expectedRole}.`,
+      }),
+    );
   }
 
   const answerText =
@@ -80,14 +81,16 @@ export function validateQuestionContentRole(
     (answerText ?? "").trim().length > 0 ||
     row.solutions.some((solution) => solution.body.trim().length > 0);
   if (!hasRequiredAnswerLayer) {
-    issues.push(issue(QB_IMPORT_CODES.MISSING_VALUE, {
-      ...base,
-      column: role === "OFFICIAL_BOOK_QUESTION" ? "model_answer" : "explanation",
-      suggested_fix:
-        role === "OFFICIAL_BOOK_QUESTION"
-          ? "أضف الإجابة النموذجية التي ستظهر بعد محاولة الطالب."
-          : "أضف شرح الإجابة أو تصويبها الذي سيظهر بعد اختيار الطالب.",
-    }));
+    issues.push(
+      issue(QB_IMPORT_CODES.MISSING_VALUE, {
+        ...base,
+        column: role === "OFFICIAL_BOOK_QUESTION" ? "model_answer" : "explanation",
+        suggested_fix:
+          role === "OFFICIAL_BOOK_QUESTION"
+            ? "أضف الإجابة النموذجية التي ستظهر بعد محاولة الطالب."
+            : "أضف شرح الإجابة أو تصويبها الذي سيظهر بعد اختيار الطالب.",
+      }),
+    );
   }
 
   if (
@@ -95,11 +98,13 @@ export function validateQuestionContentRole(
     (row.revision.interaction_type !== "SINGLE_CHOICE" ||
       row.revision.grading_mode !== "AUTO_SINGLE")
   ) {
-    issues.push(issue(QB_IMPORT_CODES.INCOMPATIBLE_TYPE_MODE, {
-      ...base,
-      column: "interaction_type",
-      suggested_fix: "أسئلة «اختبر فهمك» يجب أن تكون SINGLE_CHOICE مع AUTO_SINGLE.",
-    }));
+    issues.push(
+      issue(QB_IMPORT_CODES.INCOMPATIBLE_TYPE_MODE, {
+        ...base,
+        column: "interaction_type",
+        suggested_fix: "أسئلة «اختبر فهمك» يجب أن تكون SINGLE_CHOICE مع AUTO_SINGLE.",
+      }),
+    );
   }
 
   return issues;

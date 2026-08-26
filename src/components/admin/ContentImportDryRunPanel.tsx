@@ -2,13 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
   Table,
@@ -78,7 +72,6 @@ async function sha256Hex(file: File): Promise<string> {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
-
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -155,7 +148,8 @@ export function ContentImportDryRunPanel({
   const [preparedHash, setPreparedHash] = useState<string | null>(null);
   const [stagedRows, setStagedRows] = useState<number | null>(null);
   const [executeResult, setExecuteResult] = useState<ExecuteImportResult | null>(null);
-  const scopeRequired = templateKey === "subjects" || templateKey === "units" || templateKey === "lessons";
+  const scopeRequired =
+    templateKey === "subjects" || templateKey === "units" || templateKey === "lessons";
   const scopeComplete =
     !scopeRequired ||
     (templateKey === "subjects"
@@ -221,9 +215,7 @@ export function ContentImportDryRunPanel({
       downloadBase64Workbook(generated.fileBase64, generated.filename);
     } catch (reason) {
       setError(
-        reason instanceof Error
-          ? reason.message
-          : "تعذر إنشاء نموذج الاستيراد. أعد المحاولة.",
+        reason instanceof Error ? reason.message : "تعذر إنشاء نموذج الاستيراد. أعد المحاولة.",
       );
     } finally {
       setDownloadingTemplate(false);
@@ -300,10 +292,7 @@ export function ContentImportDryRunPanel({
     setStagedRows(null);
 
     try {
-      const [fileBase64, fileHash] = await Promise.all([
-        fileToBase64(file),
-        sha256Hex(file),
-      ]);
+      const [fileBase64, fileHash] = await Promise.all([fileToBase64(file), sha256Hex(file)]);
 
       const { jobId: newJobId } = await createJob({
         data: {
@@ -343,9 +332,7 @@ export function ContentImportDryRunPanel({
       setStagedRows(staged.stagedRows);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? toArabicImportExecuteMessage(err.message)
-          : "تعذّر تجهيز الملف.",
+        err instanceof Error ? toArabicImportExecuteMessage(err.message) : "تعذّر تجهيز الملف.",
       );
     } finally {
       setPreparing(false);
@@ -386,23 +373,28 @@ export function ContentImportDryRunPanel({
       setPreparedHash(null);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? toArabicImportExecuteMessage(err.message)
-          : "تعذّر تنفيذ الاستيراد.",
+        err instanceof Error ? toArabicImportExecuteMessage(err.message) : "تعذّر تنفيذ الاستيراد.",
       );
     } finally {
       setExecuting(false);
     }
-  }, [curriculumScope, jobId, onExecuted, pickFile, preparedHash, runExecute, scopeRequired, templateKey]);
+  }, [
+    curriculumScope,
+    jobId,
+    onExecuted,
+    pickFile,
+    preparedHash,
+    runExecute,
+    scopeRequired,
+    templateKey,
+  ]);
 
   const dryRunPassed = report != null && report.status !== "fail" && report.errorCount === 0;
-  const isQuestionsTemplate =
-    templateKey === "questions" || templateKey === "self_test_questions";
+  const isQuestionsTemplate = templateKey === "questions" || templateKey === "self_test_questions";
 
-  const previewColumns =
-    report?.previewRows.length
-      ? Object.keys(report.previewRows[0] ?? {})
-      : report?.detectedColumns ?? [];
+  const previewColumns = report?.previewRows.length
+    ? Object.keys(report.previewRows[0] ?? {})
+    : (report?.detectedColumns ?? []);
 
   return (
     <Card className="border-primary/20 bg-primary/5">
@@ -415,7 +407,8 @@ export function ContentImportDryRunPanel({
           <p>{description}</p>
           <p className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
             <ShieldCheck className="h-4 w-4 shrink-0" />
-            الفحص لا يكتب شيئاً، والتجهيز يكتب صفوفاً مؤقتة فقط، والتنفيذ يتم داخل معاملة واحدة لكل قالب.
+            الفحص لا يكتب شيئاً، والتجهيز يكتب صفوفاً مؤقتة فقط، والتنفيذ يتم داخل معاملة واحدة لكل
+            قالب.
           </p>
         </CardDescription>
       </CardHeader>
@@ -431,7 +424,8 @@ export function ContentImportDryRunPanel({
                     : "نموذج استيراد الدروس — 03"}
               </p>
               <p className="text-xs text-muted-foreground">
-                يُولّد النظام ملف XLSX بأكواد المادة والفصل والترتيب وفق السياق المختار، دون تغيير أسماء الأعمدة.
+                يُولّد النظام ملف XLSX بأكواد المادة والفصل والترتيب وفق السياق المختار، دون تغيير
+                أسماء الأعمدة.
               </p>
             </div>
             <Button
@@ -532,9 +526,7 @@ export function ContentImportDryRunPanel({
             type="button"
             className="min-h-[44px] gap-2"
             onClick={handleExecute}
-            disabled={
-              !jobId || !preparedHash || checking || preparing || executing
-            }
+            disabled={!jobId || !preparedHash || checking || preparing || executing}
           >
             {executing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -546,8 +538,8 @@ export function ContentImportDryRunPanel({
         </div>
         {isQuestionsTemplate ? (
           <p className="text-xs text-amber-700 dark:text-amber-400">
-            قالبا أسئلة الكتاب (09) و«اختبر فهمك» (10) يُستوردان عبر مسار بنك الأسئلة:
-            تُنشأ نسخ «مسودة» فقط، ولا يُنشر أي سؤال تلقائياً، ولا تُكتب الإجابات في الجداول القديمة.
+            قالبا أسئلة الكتاب (09) و«اختبر فهمك» (10) يُستوردان عبر مسار بنك الأسئلة: تُنشأ نسخ
+            «مسودة» فقط، ولا يُنشر أي سؤال تلقائياً، ولا تُكتب الإجابات في الجداول القديمة.
           </p>
         ) : (
           <p className="text-xs text-muted-foreground">
@@ -557,12 +549,8 @@ export function ContentImportDryRunPanel({
 
         {stagedRows != null && jobId && (
           <div className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm">
-            <p className="font-medium text-foreground">
-              تم التجهيز — {stagedRows} صف جاهز للتنفيذ
-            </p>
-            <p className="font-mono text-[11px] text-muted-foreground break-all">
-              job: {jobId}
-            </p>
+            <p className="font-medium text-foreground">تم التجهيز — {stagedRows} صف جاهز للتنفيذ</p>
+            <p className="font-mono text-[11px] text-muted-foreground break-all">job: {jobId}</p>
           </div>
         )}
 
@@ -600,7 +588,6 @@ export function ContentImportDryRunPanel({
           </div>
         )}
 
-
         {error && (
           <p className="text-sm text-destructive flex items-start gap-2">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -615,9 +602,7 @@ export function ContentImportDryRunPanel({
                 {statusLabel(report.status)}
               </Badge>
               {fileName && (
-                <span className="text-xs text-muted-foreground truncate font-mono">
-                  {fileName}
-                </span>
+                <span className="text-xs text-muted-foreground truncate font-mono">{fileName}</span>
               )}
             </div>
 
@@ -653,11 +638,11 @@ export function ContentImportDryRunPanel({
                       className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2"
                     >
                       {issue.rowNumber != null && (
-                        <span className="text-xs text-muted-foreground">صف {issue.rowNumber} — </span>
+                        <span className="text-xs text-muted-foreground">
+                          صف {issue.rowNumber} —{" "}
+                        </span>
                       )}
-                      {issue.column && (
-                        <span className="font-mono text-xs">{issue.column}: </span>
-                      )}
+                      {issue.column && <span className="font-mono text-xs">{issue.column}: </span>}
                       {issue.message}
                     </li>
                   ))}
@@ -675,11 +660,11 @@ export function ContentImportDryRunPanel({
                       className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2"
                     >
                       {issue.rowNumber != null && (
-                        <span className="text-xs text-muted-foreground">صف {issue.rowNumber} — </span>
+                        <span className="text-xs text-muted-foreground">
+                          صف {issue.rowNumber} —{" "}
+                        </span>
                       )}
-                      {issue.column && (
-                        <span className="font-mono text-xs">{issue.column}: </span>
-                      )}
+                      {issue.column && <span className="font-mono text-xs">{issue.column}: </span>}
                       {issue.message}
                     </li>
                   ))}
@@ -696,7 +681,9 @@ export function ContentImportDryRunPanel({
 
             {report.previewRows.length > 0 && (
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold mb-2">معاينة أول {report.previewRows.length} صفوف</h3>
+                <h3 className="text-sm font-semibold mb-2">
+                  معاينة أول {report.previewRows.length} صفوف
+                </h3>
                 <div className="overflow-x-auto -mx-1 px-1 max-w-full">
                   <Table>
                     <TableHeader>

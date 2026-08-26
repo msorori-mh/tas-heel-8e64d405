@@ -49,13 +49,7 @@ const withLabAttachment = (
   return next;
 };
 
-
-type ResourceTypeValue =
-  | "pdf"
-  | "video"
-  | "link"
-  | "mindmap"
-  | "experiment";
+type ResourceTypeValue = "pdf" | "video" | "link" | "mindmap" | "experiment";
 
 const RESOURCE_TYPES: ReadonlyArray<{ value: ResourceTypeValue; label: string }> = [
   { value: "pdf", label: "PDF" },
@@ -77,16 +71,9 @@ interface Props {
 
 let _tmpCounter = 0;
 const makeTempId = () => `__tmp_${Date.now()}_${++_tmpCounter}`;
-const isLocal = (r: LessonResourceItem) =>
-  r.__local === true || r.id.startsWith("__tmp_");
+const isLocal = (r: LessonResourceItem) => r.__local === true || r.id.startsWith("__tmp_");
 
-export function LessonResourcesDialog({
-  open,
-  onOpenChange,
-  lessonId,
-  lessonTitle,
-  items,
-}: Props) {
+export function LessonResourcesDialog({ open, onOpenChange, lessonId, lessonTitle, items }: Props) {
   const qc = useQueryClient();
   const [rows, setRows] = useState<LessonResourceItem[]>([]);
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
@@ -99,9 +86,7 @@ export function LessonResourcesDialog({
       setSaving(false);
       setDeletedIds([]);
       setRows(
-        [...items]
-          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-          .map((x) => ({ ...x })),
+        [...items].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((x) => ({ ...x })),
       );
     }
   }, [open, items]);
@@ -111,10 +96,7 @@ export function LessonResourcesDialog({
   };
 
   const addLocal = () => {
-    const nextSort =
-      rows.length === 0
-        ? 0
-        : Math.max(...rows.map((r) => r.sort_order ?? 0)) + 1;
+    const nextSort = rows.length === 0 ? 0 : Math.max(...rows.map((r) => r.sort_order ?? 0)) + 1;
     setRows((rs) => [
       ...rs,
       {
@@ -127,7 +109,6 @@ export function LessonResourcesDialog({
         is_primary: false,
         metadata: null,
         __local: true,
-
       },
     ]);
   };
@@ -135,7 +116,10 @@ export function LessonResourcesDialog({
   // LESSON_EXTERNAL_PDF_DELIVERY_13F — a lesson has at most one primary resource.
   const setPrimary = (id: string, value: boolean) => {
     setRows((rs) =>
-      rs.map((r) => ({ ...r, is_primary: value ? r.id === id : r.id === id ? false : r.is_primary })),
+      rs.map((r) => ({
+        ...r,
+        is_primary: value ? r.id === id : r.id === id ? false : r.is_primary,
+      })),
     );
   };
 
@@ -201,7 +185,6 @@ export function LessonResourcesDialog({
       let primaryResourceId: string | null = null;
       let hasPrimarySelection = false;
 
-
       for (const r of rows) {
         const title = r.title.trim();
         const url = r.url.trim();
@@ -251,10 +234,14 @@ export function LessonResourcesDialog({
       }
 
       // Delivery mode is derived server-side from the primary resource.
-      const { error: primaryError } = await (supabase.rpc as any)(
-        "admin_set_primary_lesson_resource",
-        { _lesson_id: lessonId, _resource_id: hasPrimarySelection ? primaryResourceId : null },
-      );
+      const callRpc = supabase.rpc.bind(supabase) as unknown as (
+        name: string,
+        params: Record<string, unknown>,
+      ) => Promise<{ error: Error | null }>;
+      const { error: primaryError } = await callRpc("admin_set_primary_lesson_resource", {
+        _lesson_id: lessonId,
+        _resource_id: hasPrimarySelection ? primaryResourceId : null,
+      });
       if (primaryError) {
         toast.warning("تم حفظ الموارد، لكن تعذر تحديث مورد الدرس الأساسي.");
       }
@@ -264,25 +251,17 @@ export function LessonResourcesDialog({
         queryKey: ["admin-lesson-detail", "resources", lessonId],
       });
       onOpenChange(false);
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast.error("تعذر حفظ موارد الدرس.");
-      setErrMsg(
-        e?.message ? `تعذر الحفظ: ${e.message}` : "تعذر حفظ موارد الدرس.",
-      );
+      setErrMsg(e instanceof Error ? `تعذر الحفظ: ${e.message}` : "تعذر حفظ موارد الدرس.");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => (!saving ? onOpenChange(o) : null)}
-    >
-      <DialogContent
-        dir="rtl"
-        className="max-w-2xl text-right max-h-[90vh] overflow-y-auto"
-      >
+    <Dialog open={open} onOpenChange={(o) => (!saving ? onOpenChange(o) : null)}>
+      <DialogContent dir="rtl" className="max-w-2xl text-right max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-right">
             إدارة موارد الدرس
@@ -297,9 +276,8 @@ export function LessonResourcesDialog({
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
-            يمكنك تعديل الموارد الموجودة وإضافة موارد جديدة، وحذف الموارد
-            المحفوظة. الحذف يُنفَّذ نهائيًا عند الضغط على «حفظ»، ولا يمكن التراجع
-            عنه.
+            يمكنك تعديل الموارد الموجودة وإضافة موارد جديدة، وحذف الموارد المحفوظة. الحذف يُنفَّذ
+            نهائيًا عند الضغط على «حفظ»، ولا يمكن التراجع عنه.
           </span>
         </div>
 
@@ -324,10 +302,7 @@ export function LessonResourcesDialog({
             rows.map((r, idx) => {
               const local = isLocal(r);
               return (
-                <div
-                  key={r.id}
-                  className="rounded-lg border border-border bg-card p-3 space-y-2"
-                >
+                <div key={r.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs text-muted-foreground">
                       مورد #{idx + 1}
@@ -352,28 +327,20 @@ export function LessonResourcesDialog({
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="sm:col-span-2">
-                      <label className="text-[11px] text-muted-foreground">
-                        العنوان
-                      </label>
+                      <label className="text-[11px] text-muted-foreground">العنوان</label>
                       <Input
                         value={r.title ?? ""}
-                        onChange={(e) =>
-                          updateRow(r.id, { title: e.target.value })
-                        }
+                        onChange={(e) => updateRow(r.id, { title: e.target.value })}
                         placeholder="عنوان المورد"
                         className="text-right"
                         disabled={saving}
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-muted-foreground">
-                        النوع
-                      </label>
+                      <label className="text-[11px] text-muted-foreground">النوع</label>
                       <Select
                         value={r.resource_type}
-                        onValueChange={(v) =>
-                          updateRow(r.id, { resource_type: v })
-                        }
+                        onValueChange={(v) => updateRow(r.id, { resource_type: v })}
                         dir="rtl"
                         disabled={saving}
                       >
@@ -417,8 +384,6 @@ export function LessonResourcesDialog({
                     مرفق للتجربة المعملية (يظهر ضمن ملفات التجربة القابلة للتحميل)
                   </label>
 
-
-
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="sm:col-span-2">
                       <label className="text-[11px] text-muted-foreground">
@@ -426,9 +391,7 @@ export function LessonResourcesDialog({
                       </label>
                       <Input
                         value={r.url ?? ""}
-                        onChange={(e) =>
-                          updateRow(r.id, { url: e.target.value })
-                        }
+                        onChange={(e) => updateRow(r.id, { url: e.target.value })}
                         placeholder="https://…"
                         className="text-right font-mono text-xs"
                         dir="ltr"
@@ -436,9 +399,7 @@ export function LessonResourcesDialog({
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-muted-foreground">
-                        الترتيب
-                      </label>
+                      <label className="text-[11px] text-muted-foreground">الترتيب</label>
                       <Input
                         type="number"
                         min={0}
@@ -455,9 +416,7 @@ export function LessonResourcesDialog({
                   </div>
 
                   <div>
-                    <label className="text-[11px] text-muted-foreground">
-                      الوصف (اختياري)
-                    </label>
+                    <label className="text-[11px] text-muted-foreground">الوصف (اختياري)</label>
                     <Textarea
                       value={r.description ?? ""}
                       onChange={(e) =>
@@ -489,11 +448,7 @@ export function LessonResourcesDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             إغلاق
           </Button>
           <Button onClick={handleSave} disabled={saving}>

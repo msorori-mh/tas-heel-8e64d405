@@ -11,7 +11,12 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..", "..", "..");
-const migrationPath = join(root, "supabase", "migrations", "20260806050000_content_html_db_rls_foundation.sql");
+const migrationPath = join(
+  root,
+  "supabase",
+  "migrations",
+  "20260806050000_content_html_db_rls_foundation.sql",
+);
 
 function projectRefLinked() {
   return existsSync(join(root, "supabase", ".temp", "project-ref"));
@@ -36,8 +41,16 @@ try {
   // 1. Launch fresh PostgreSQL 17 container
   const launchRun = spawnSync(
     "docker",
-    ["run", "-d", "--name", containerName, "-e", "POSTGRES_PASSWORD=postgres", "postgres:17-alpine"],
-    { encoding: "utf8", shell: true }
+    [
+      "run",
+      "-d",
+      "--name",
+      containerName,
+      "-e",
+      "POSTGRES_PASSWORD=postgres",
+      "postgres:17-alpine",
+    ],
+    { encoding: "utf8", shell: true },
   );
 
   if (launchRun.status !== 0) {
@@ -59,7 +72,7 @@ try {
       execSync('node -e "setTimeout(() => {}, 1000)"');
       break;
     }
-    execSync("node -e \"setTimeout(() => {}, 500)\"");
+    execSync('node -e "setTimeout(() => {}, 500)"');
   }
 
   if (!ready) {
@@ -137,12 +150,16 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
 `;
 
   console.log("Applying baseline prerequisite SQL...");
-  const baseRun = spawnSync("docker", ["exec", "-i", containerName, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"], {
-    input: baselineSql,
-    encoding: "utf8",
-    shell: true,
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  const baseRun = spawnSync(
+    "docker",
+    ["exec", "-i", containerName, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"],
+    {
+      input: baselineSql,
+      encoding: "utf8",
+      shell: true,
+      maxBuffer: 10 * 1024 * 1024,
+    },
+  );
   if (baseRun.status !== 0) {
     console.error("Baseline SQL apply failed:", baseRun.stderr || baseRun.stdout);
     process.exit(baseRun.status ?? 1);
@@ -150,12 +167,16 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
 
   console.log("Applying migration 20260806050000_content_html_db_rls_foundation.sql...");
   const migrationSql = readFileSync(migrationPath, "utf8");
-  const migrationRun = spawnSync("docker", ["exec", "-i", containerName, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"], {
-    input: migrationSql,
-    encoding: "utf8",
-    shell: true,
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  const migrationRun = spawnSync(
+    "docker",
+    ["exec", "-i", containerName, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"],
+    {
+      input: migrationSql,
+      encoding: "utf8",
+      shell: true,
+      maxBuffer: 10 * 1024 * 1024,
+    },
+  );
 
   if (migrationRun.status !== 0) {
     console.error("Migration apply failed:", migrationRun.stderr || migrationRun.stdout);
@@ -605,12 +626,16 @@ COMMIT;
 `;
 
   console.log("Executing PG17 Runtime Test Assertions...");
-  const testRun = spawnSync("docker", ["exec", "-i", containerName, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"], {
-    input: testSql,
-    encoding: "utf8",
-    shell: true,
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  const testRun = spawnSync(
+    "docker",
+    ["exec", "-i", containerName, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"],
+    {
+      input: testSql,
+      encoding: "utf8",
+      shell: true,
+      maxBuffer: 10 * 1024 * 1024,
+    },
+  );
 
   process.stdout.write(testRun.stdout || "");
   process.stderr.write(testRun.stderr || "");
@@ -634,9 +659,13 @@ COMMIT;
   // Run 2 parallel psql invocations concurrently against containerName using stdin
   const runAsyncPsql = () =>
     new Promise((resolve) => {
-      const child = spawn("docker", ["exec", "-i", containerName, "psql", "-U", "postgres", "-t", "-A"], {
-        shell: false,
-      });
+      const child = spawn(
+        "docker",
+        ["exec", "-i", containerName, "psql", "-U", "postgres", "-t", "-A"],
+        {
+          shell: false,
+        },
+      );
       let stdout = "";
       let stderr = "";
       child.stdout.on("data", (data) => {
@@ -663,10 +692,14 @@ COMMIT;
   const hasClaimedFalse = res1.includes("|f|") || res2.includes("|f|");
 
   if (!hasClaimedTrue || !hasClaimedFalse) {
-    console.error("FAILED: Concurrency test failed. One connection must claim=t and the other claim=f.");
+    console.error(
+      "FAILED: Concurrency test failed. One connection must claim=t and the other claim=f.",
+    );
     process.exit(1);
   }
-  console.log("PASS: Real 2-connection PG17 idempotency claim concurrency verified (exactly 1 claim winner).");
+  console.log(
+    "PASS: Real 2-connection PG17 idempotency claim concurrency verified (exactly 1 claim winner).",
+  );
 
   console.log("SUCCESS: PG17 Runtime Test Runner completed with 0 errors.");
 } finally {
@@ -675,7 +708,10 @@ COMMIT;
     spawnSync("docker", ["rm", "-f", containerName], { shell: true });
 
     // Verify container is removed
-    const checkPs = spawnSync("docker", ["ps", "-a", "-q", "-f", `name=${containerName}`], { encoding: "utf8", shell: true });
+    const checkPs = spawnSync("docker", ["ps", "-a", "-q", "-f", `name=${containerName}`], {
+      encoding: "utf8",
+      shell: true,
+    });
     const remaining = (checkPs.stdout || "").trim();
     if (remaining) {
       console.error(`WARNING: Container ${containerName} still exists after cleanup!`);

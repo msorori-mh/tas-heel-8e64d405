@@ -158,30 +158,30 @@ function SubjectTile({
   const [booksOpen, setBooksOpen] = useState(false);
   return (
     <div className="relative">
-    <Link
-      to="/subjects/$subjectId"
-      params={{ subjectId: to }}
-      search={{ semester }}
-      className="group flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md"
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
-          style={color ? { backgroundColor: `${color}1a`, color } : undefined}
-          aria-hidden
-        >
-          <Icon className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-bold text-foreground">{title}</div>
-          <div className="text-[11px] text-muted-foreground">
-            {meta && meta.lessons > 0 ? `${meta.completed}/${meta.lessons} درس` : "ابدأ المذاكرة"}
+      <Link
+        to="/subjects/$subjectId"
+        params={{ subjectId: to }}
+        search={{ semester }}
+        className="group flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md"
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+            style={color ? { backgroundColor: `${color}1a`, color } : undefined}
+            aria-hidden
+          >
+            <Icon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-bold text-foreground">{title}</div>
+            <div className="text-[11px] text-muted-foreground">
+              {meta && meta.lessons > 0 ? `${meta.completed}/${meta.lessons} درس` : "ابدأ المذاكرة"}
+            </div>
+            {meta && meta.lessons > 0 && <MiniBar value={value} />}
           </div>
-          {meta && meta.lessons > 0 && <MiniBar value={value} />}
         </div>
-      </div>
-      <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
-    </Link>
+        <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
+      </Link>
 
       {/* 21B — compact, secondary entry point to the curriculum textbooks. */}
       <button

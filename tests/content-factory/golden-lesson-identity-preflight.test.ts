@@ -44,32 +44,37 @@ test("unreviewed DRAFT can correct routing metadata when stable lesson key match
     sortOrder: 5,
   };
   assert.equal(stableGoldenLessonIdentityMatches(base, incoming), true);
-  assert.equal(canRebindGoldenLessonDraft({
-    current: base,
-    incoming,
-    profileMatches: true,
-    reviewStatus: "DRAFT",
-    reviewCount: 0,
-    domainBatchCount: 0,
-  }), true);
-  assert.deepEqual(diffGoldenLessonIdentity(base, incoming).map((item) => item.field), [
-    "unitCode",
-    "semester",
-    "sortOrder",
-  ]);
+  assert.equal(
+    canRebindGoldenLessonDraft({
+      current: base,
+      incoming,
+      profileMatches: true,
+      reviewStatus: "DRAFT",
+      reviewCount: 0,
+      domainBatchCount: 0,
+    }),
+    true,
+  );
+  assert.deepEqual(
+    diffGoldenLessonIdentity(base, incoming).map((item) => item.field),
+    ["unitCode", "semester", "sortOrder"],
+  );
 });
 
 test("stable lesson key changes are never rebindable", () => {
   const incoming = { ...base, lessonCode: "COPPER", lessonSlug: "copper" };
   assert.equal(stableGoldenLessonIdentityMatches(base, incoming), false);
-  assert.equal(canRebindGoldenLessonDraft({
-    current: base,
-    incoming,
-    profileMatches: true,
-    reviewStatus: "DRAFT",
-    reviewCount: 0,
-    domainBatchCount: 0,
-  }), false);
+  assert.equal(
+    canRebindGoldenLessonDraft({
+      current: base,
+      incoming,
+      profileMatches: true,
+      reviewStatus: "DRAFT",
+      reviewCount: 0,
+      domainBatchCount: 0,
+    }),
+    false,
+  );
 });
 
 test("reviewed, non-DRAFT or domain-staged packages remain immutable", () => {
@@ -79,21 +84,26 @@ test("reviewed, non-DRAFT or domain-staged packages remain immutable", () => {
     { reviewStatus: "DRAFT", reviewCount: 1, domainBatchCount: 0 },
     { reviewStatus: "DRAFT", reviewCount: 0, domainBatchCount: 1 },
   ]) {
-    assert.equal(canRebindGoldenLessonDraft({
-      current: base,
-      incoming,
-      profileMatches: true,
-      ...blocked,
-    }), false);
+    assert.equal(
+      canRebindGoldenLessonDraft({
+        current: base,
+        incoming,
+        profileMatches: true,
+        ...blocked,
+      }),
+      false,
+    );
   }
 });
 
 test("Arabic conflict description names the exact changed fields", () => {
-  const text = describeGoldenIdentityConflictAr(diffGoldenLessonIdentity(base, {
-    ...base,
-    unitCode: "unit-1",
-    sortOrder: 6,
-  }));
+  const text = describeGoldenIdentityConflictAr(
+    diffGoldenLessonIdentity(base, {
+      ...base,
+      unitCode: "unit-1",
+      sortOrder: 6,
+    }),
+  );
   assert.match(text, /الوحدة/);
   assert.match(text, /ترتيب الدرس/);
   assert.match(text, /unit-1/);

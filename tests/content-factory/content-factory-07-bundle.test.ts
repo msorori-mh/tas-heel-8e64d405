@@ -44,33 +44,118 @@ const files = {
 
 function manifest(bundleFiles = files) {
   return {
-    schema: "tamkeen.golden-lesson-package.v1", profileId: "GOLDEN_QURAN_V1", packageCode: "QURAN-G10-L01-PKG",
-    identity: { gradeCode: "GRADE-10", curriculumTrackCodes: ["sanaa"], subjectCode: "QURAN-G10", lessonCode: "QURAN-G10-L01", lessonSlug: "quran-lesson", unitCode: null, semester: 1, sortOrder: 1 },
-    capabilityOrder: ["officialBookContent","tamkeenExplanationHtml","lessonSummaryHtml","mindMapHtml","labExperimentHtml","officialBookQuestions","selfTest"],
+    schema: "tamkeen.golden-lesson-package.v1",
+    profileId: "GOLDEN_QURAN_V1",
+    packageCode: "QURAN-G10-L01-PKG",
+    identity: {
+      gradeCode: "GRADE-10",
+      curriculumTrackCodes: ["sanaa"],
+      subjectCode: "QURAN-G10",
+      lessonCode: "QURAN-G10-L01",
+      lessonSlug: "quran-lesson",
+      unitCode: null,
+      semester: 1,
+      sortOrder: 1,
+    },
+    capabilityOrder: [
+      "officialBookContent",
+      "tamkeenExplanationHtml",
+      "lessonSummaryHtml",
+      "mindMapHtml",
+      "labExperimentHtml",
+      "officialBookQuestions",
+      "selfTest",
+    ],
     artifacts: [
-      { capability: "officialBookContent", applicability: "REQUIRED", authority: "OFFICIAL", sourcePath: "official.html", sha256: h(bundleFiles["official.html"]), provenancePath: "official.provenance.json", provenanceSha256: h(bundleFiles["official.provenance.json"]) },
-      { capability: "tamkeenExplanationHtml", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "explanation.html", sha256: h(bundleFiles["explanation.html"]), provenancePath: null, provenanceSha256: null },
-      { capability: "lessonSummaryHtml", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "summary.html", sha256: h(bundleFiles["summary.html"]), provenancePath: null, provenanceSha256: null },
-      { capability: "mindMapHtml", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "mindmap.html", sha256: h(bundleFiles["mindmap.html"]), provenancePath: null, provenanceSha256: null },
-      { capability: "labExperimentHtml", applicability: "OPTIONAL", authority: "TAMKEEN", sourcePath: null, sha256: null, provenancePath: null, provenanceSha256: null },
-      { capability: "officialBookQuestions", applicability: "REQUIRED", authority: "OFFICIAL", sourcePath: "questions.json", sha256: h(bundleFiles["questions.json"]), provenancePath: "questions.provenance.json", provenanceSha256: h(bundleFiles["questions.provenance.json"]) },
-      { capability: "selfTest", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "self-test.json", sha256: h(bundleFiles["self-test.json"]), provenancePath: null, provenanceSha256: null },
+      {
+        capability: "officialBookContent",
+        applicability: "REQUIRED",
+        authority: "OFFICIAL",
+        sourcePath: "official.html",
+        sha256: h(bundleFiles["official.html"]),
+        provenancePath: "official.provenance.json",
+        provenanceSha256: h(bundleFiles["official.provenance.json"]),
+      },
+      {
+        capability: "tamkeenExplanationHtml",
+        applicability: "REQUIRED",
+        authority: "TAMKEEN",
+        sourcePath: "explanation.html",
+        sha256: h(bundleFiles["explanation.html"]),
+        provenancePath: null,
+        provenanceSha256: null,
+      },
+      {
+        capability: "lessonSummaryHtml",
+        applicability: "REQUIRED",
+        authority: "TAMKEEN",
+        sourcePath: "summary.html",
+        sha256: h(bundleFiles["summary.html"]),
+        provenancePath: null,
+        provenanceSha256: null,
+      },
+      {
+        capability: "mindMapHtml",
+        applicability: "REQUIRED",
+        authority: "TAMKEEN",
+        sourcePath: "mindmap.html",
+        sha256: h(bundleFiles["mindmap.html"]),
+        provenancePath: null,
+        provenanceSha256: null,
+      },
+      {
+        capability: "labExperimentHtml",
+        applicability: "OPTIONAL",
+        authority: "TAMKEEN",
+        sourcePath: null,
+        sha256: null,
+        provenancePath: null,
+        provenanceSha256: null,
+      },
+      {
+        capability: "officialBookQuestions",
+        applicability: "REQUIRED",
+        authority: "OFFICIAL",
+        sourcePath: "questions.json",
+        sha256: h(bundleFiles["questions.json"]),
+        provenancePath: "questions.provenance.json",
+        provenanceSha256: h(bundleFiles["questions.provenance.json"]),
+      },
+      {
+        capability: "selfTest",
+        applicability: "REQUIRED",
+        authority: "TAMKEEN",
+        sourcePath: "self-test.json",
+        sha256: h(bundleFiles["self-test.json"]),
+        provenancePath: null,
+        provenanceSha256: null,
+      },
     ],
     lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },
-    security: { productionApply: false, publicPayloadContainsAnswers: false, answersCompanionPath: "answers.server-only.json", answersCompanionSha256: h(bundleFiles["answers.server-only.json"]), htmlNetworkAccess: "NONE" },
+    security: {
+      productionApply: false,
+      publicPayloadContainsAnswers: false,
+      answersCompanionPath: "answers.server-only.json",
+      answersCompanionSha256: h(bundleFiles["answers.server-only.json"]),
+      htmlNetworkAccess: "NONE",
+    },
   };
 }
 
-async function bundle(options: { extra?: boolean; corruptHash?: boolean; invalidQuestions?: boolean } = {}) {
+async function bundle(
+  options: { extra?: boolean; corruptHash?: boolean; invalidQuestions?: boolean } = {},
+) {
   const zip = new JSZip();
   const bundleFiles = {
     ...files,
-    ...(options.invalidQuestions ? {
-      "questions.json": JSON.stringify({
-        capability: "officialBookQuestions",
-        questions: [{ question_number: "8", official_text: "سؤال بلا إجابة خادمية" }],
-      }),
-    } : {}),
+    ...(options.invalidQuestions
+      ? {
+          "questions.json": JSON.stringify({
+            capability: "officialBookQuestions",
+            questions: [{ question_number: "8", official_text: "سؤال بلا إجابة خادمية" }],
+          }),
+        }
+      : {}),
   };
   const value = manifest(bundleFiles);
   if (options.corruptHash) value.artifacts[0]!.sha256 = "0".repeat(64);
@@ -88,11 +173,17 @@ test("exact stored ZIP verifies every declared byte", async () => {
 });
 
 test("extra files fail closed", async () => {
-  await assert.rejects(async () => verifyGoldenLessonBundle(await bundle({ extra: true })), /ZIP_FILE_SET_MISMATCH/);
+  await assert.rejects(
+    async () => verifyGoldenLessonBundle(await bundle({ extra: true })),
+    /ZIP_FILE_SET_MISMATCH/,
+  );
 });
 
 test("a declared hash mismatch fails closed", async () => {
-  await assert.rejects(async () => verifyGoldenLessonBundle(await bundle({ corruptHash: true })), /ZIP_FILE_HASH_MISMATCH/);
+  await assert.rejects(
+    async () => verifyGoldenLessonBundle(await bundle({ corruptHash: true })),
+    /ZIP_FILE_HASH_MISMATCH/,
+  );
 });
 
 test("valid hashes cannot hide incomplete server-only answer coverage", async () => {
@@ -109,6 +200,9 @@ test("verified bytes map deterministically to seven domain staging targets", asy
   assert.equal(envelope.entries[0]?.targetPlan, "lesson_book_contents");
   assert.equal(envelope.entries[2]?.lifecycleCapability, "quickReview");
   assert.equal(envelope.entries[4]?.targetPlan, "lesson_resources:experiment");
-  assert.equal(envelope.entries[0]?.sourceBase64, Buffer.from(files["official.html"]).toString("base64"));
+  assert.equal(
+    envelope.entries[0]?.sourceBase64,
+    Buffer.from(files["official.html"]).toString("base64"),
+  );
   assert.equal(envelope.answersCompanion?.path, "answers.server-only.json");
 });
