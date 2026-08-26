@@ -24,7 +24,10 @@ type RpcName =
 
 async function callRpc<T>(name: RpcName, args?: Record<string, unknown>): Promise<T> {
   const client = supabase as unknown as {
-    rpc: (fn: string, params?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+    rpc: (
+      fn: string,
+      params?: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>;
   };
   const { data, error } = await client.rpc(name, args ?? {});
   if (error) throw new Error(error.message);

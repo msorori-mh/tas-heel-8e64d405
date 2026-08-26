@@ -88,8 +88,7 @@ export async function ensureReaderReady(): Promise<boolean> {
     try {
       // Both web paths keep the entry point + its shared deps resident.
       await import("@/components/lessons/InAppPdfDelivery");
-      const marker =
-        renderer === "BROWSER_NATIVE" ? await warmBrowserNative() : await warmPdfJs();
+      const marker = renderer === "BROWSER_NATIVE" ? await warmBrowserNative() : await warmPdfJs();
       writeStamp(marker);
       return true;
     } catch {

@@ -132,7 +132,9 @@ function MinisterialModelDetails() {
         </div>
 
         {data.last_session_status === "in_progress" && (
-          <p className="mt-3 text-xs text-primary">لديك محاولة جارية على هذا النموذج وسيتم متابعتها.</p>
+          <p className="mt-3 text-xs text-primary">
+            لديك محاولة جارية على هذا النموذج وسيتم متابعتها.
+          </p>
         )}
 
         {startError && (

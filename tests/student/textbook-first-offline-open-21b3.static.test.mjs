@@ -48,5 +48,4 @@ describe("21B3 offline-ready gate in the textbooks sheet", () => {
     expect(retry).toContain("prepareReader");
     expect(retry).not.toContain("onClick={start}");
   });
-
 });

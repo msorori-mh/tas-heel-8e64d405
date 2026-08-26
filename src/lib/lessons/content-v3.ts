@@ -152,8 +152,7 @@ export function buildV3CapabilityView(
     const legacyKey = V3_TO_LEGACY_KEY[key];
     const state = contract[legacyKey];
     const app = resolveApplicability(applicability, key);
-    const ready =
-      app !== "NA" && state.present && state.status === "READY" && state.studentVisible;
+    const ready = app !== "NA" && state.present && state.status === "READY" && state.studentVisible;
     return {
       key,
       legacyKey,

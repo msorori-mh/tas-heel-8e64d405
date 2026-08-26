@@ -20,7 +20,11 @@ const alignmentSql = readFileSync(join(MIGRATIONS_DIR, ALIGNMENT_FILE), "utf8");
 
 test("hardening migration file exists and is additive", () => {
   assert.ok(hardeningSql.length > 0, "Hardening migration file must not be empty");
-  assert.doesNotMatch(hardeningSql, /DROP\s+TABLE\s+lesson_resources/i, "Must not drop lesson_resources");
+  assert.doesNotMatch(
+    hardeningSql,
+    /DROP\s+TABLE\s+lesson_resources/i,
+    "Must not drop lesson_resources",
+  );
   assert.doesNotMatch(hardeningSql, /\bCASCADE\b/i, "Must not use CASCADE");
 });
 

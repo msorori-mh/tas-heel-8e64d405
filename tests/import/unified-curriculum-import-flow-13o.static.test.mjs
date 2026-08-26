@@ -20,9 +20,7 @@ describe("UNIFIED_CURRICULUM_IMPORT_FLOW_13O", () => {
   });
 
   it("guards every lesson insert, including Excel imports, at the database boundary", () => {
-    const migration = read(
-      "supabase/migrations/20260826020000_lesson_sort_order_guard_13o.sql",
-    );
+    const migration = read("supabase/migrations/20260826020000_lesson_sort_order_guard_13o.sql");
 
     assert.ok(migration.includes("ALTER COLUMN sort_order SET DEFAULT 1"));
     assert.ok(migration.includes("NEW.sort_order IS NULL OR NEW.sort_order <= 0"));

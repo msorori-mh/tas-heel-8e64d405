@@ -51,7 +51,10 @@ test("self-test INSERTs carry SELF_TEST and revisions are coerced to SINGLE_CHOI
   assert.match(sql, /false, 'SELF_TEST',\r?\n\s+'canonical_payload_v1', payloads->'selfTest'/);
   assert.match(sql, /expected_interaction := 'SINGLE_CHOICE';/);
   assert.match(sql, /expected_grading := 'AUTO_SINGLE';/);
-  assert.doesNotMatch(sql, /expected_interaction := expected_type;\r?\n\s+expected_grading := 'AUTO_SINGLE';(?![\s\S]*'SINGLE_CHOICE')/);
+  assert.doesNotMatch(
+    sql,
+    /expected_interaction := expected_type;\r?\n\s+expected_grading := 'AUTO_SINGLE';(?![\s\S]*'SINGLE_CHOICE')/,
+  );
 });
 
 test("replay normalization is idempotent and strictly DRAFT-scoped", () => {

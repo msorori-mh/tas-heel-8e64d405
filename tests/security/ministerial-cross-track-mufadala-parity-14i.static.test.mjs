@@ -3,8 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const files = {
-  migration:
-    "supabase/migrations/20260825010000_ministerial_cross_track_mufadala_parity_14i.sql",
+  migration: "supabase/migrations/20260825010000_ministerial_cross_track_mufadala_parity_14i.sql",
   api: "src/lib/ministerial/ministerial-student-api.ts",
   index: "src/routes/_authenticated/ministerial-exams.index.tsx",
   subject: "src/routes/_authenticated/ministerial-exams.$subjectId.tsx",

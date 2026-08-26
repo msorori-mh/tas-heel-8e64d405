@@ -15,7 +15,8 @@ export const Route = createFileRoute("/_authenticated/semesters/")({
       { title: "موادي — تمكين الطالب" },
       {
         name: "description",
-        content: "تصفح مواد الفصل الأول والثاني حسب صفك ومنهجك، وحمّل كتب المنهج للاستخدام دون إنترنت.",
+        content:
+          "تصفح مواد الفصل الأول والثاني حسب صفك ومنهجك، وحمّل كتب المنهج للاستخدام دون إنترنت.",
       },
       { property: "og:title", content: "موادي — تمكين الطالب" },
       {

@@ -8,7 +8,10 @@ const route = readFileSync("src/routes/_authenticated/admin.import.tsx", "utf8")
 test("direct import is the active UI and retired review/release panels are not wired", () => {
   assert.match(route, /<GoldenLessonPackageBuilder \/>/);
   assert.doesNotMatch(route, /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel/);
-  assert.doesNotMatch(route, /view=release|getHtmlReviewQueueFn|lesson_resources\.lifecycle_status/);
+  assert.doesNotMatch(
+    route,
+    /view=release|getHtmlReviewQueueFn|lesson_resources\.lifecycle_status/,
+  );
 });
 
 test("review panel uses typed staging functions and exposes no direct RPC or execute path", () => {

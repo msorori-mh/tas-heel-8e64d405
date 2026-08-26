@@ -62,7 +62,9 @@ describe("14F/14G — SQL guards", () => {
 
   it("requires an authenticated caller and never accepts a user_id argument", () => {
     expect((sql.match(/v_uid uuid := auth\.uid\(\)/g) ?? []).length).toBeGreaterThanOrEqual(3);
-    expect((sql.match(/IF v_uid IS NULL THEN\s*\n\s*RAISE EXCEPTION 'unauthorized';/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect(
+      (sql.match(/IF v_uid IS NULL THEN\s*\n\s*RAISE EXCEPTION 'unauthorized';/g) ?? []).length,
+    ).toBeGreaterThanOrEqual(3);
     expect(sql).not.toMatch(/_user_id\s+uuid/);
   });
 

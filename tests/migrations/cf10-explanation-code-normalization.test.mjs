@@ -44,4 +44,3 @@ test("fix migration performs no content deletion or overwrite", () => {
 test("EXPERIMENT resource code is not rewritten", () => {
   assert.doesNotMatch(sql, /normalize_content_code\(external_lesson_code \|\| ''-EXPERIMENT''\)/);
 });
-

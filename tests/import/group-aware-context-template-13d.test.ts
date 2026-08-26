@@ -38,9 +38,7 @@ describe("13D — group mode (operational example)", () => {
     expect(groupCodes.size).toBe(1);
     expect(plan.groupCode).toBe("grp-g10-01");
     expect([...groupCodes][0]).toBe(plan.groupCode);
-    expect(new Set(plan.rows.map((r) => r.group_name))).toEqual(
-      new Set(["التربية الإسلامية"]),
-    );
+    expect(new Set(plan.rows.map((r) => r.group_name))).toEqual(new Set(["التربية الإسلامية"]));
   });
 
   it("allocates a unique, independent subject_code per branch", () => {

@@ -15,10 +15,7 @@ export function buildSemesterMap(
   return map;
 }
 
-function childContentMatchesSemester(
-  semesters: (number | null)[],
-  semester: Semester,
-): boolean {
+function childContentMatchesSemester(semesters: (number | null)[], semester: Semester): boolean {
   if (semesters.length === 0) return true;
   return semesters.some((s) => s === null || s === semester);
 }

@@ -153,7 +153,9 @@ describe("computeLessonProgress", () => {
     });
     const progress = computeLessonProgress(capabilities);
     expect(progress.denominator).toBeGreaterThan(0);
-    expect(progress.denominator).toBeLessThanOrEqual(capabilities.filter((c) => c.available).length);
+    expect(progress.denominator).toBeLessThanOrEqual(
+      capabilities.filter((c) => c.available).length,
+    );
     expect(progress.percent).toBeGreaterThan(0);
     expect(progress.percent).toBeLessThanOrEqual(100);
   });

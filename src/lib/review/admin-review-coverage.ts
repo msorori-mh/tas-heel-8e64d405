@@ -96,7 +96,14 @@ function bucketize(
     for (const entry of key(row)) {
       const current =
         map.get(entry.id) ??
-        ({ id: entry.id, name: entry.name, total: 0, ready: 0, notReady: 0, coverage: 0 } as CoverageBucket);
+        ({
+          id: entry.id,
+          name: entry.name,
+          total: 0,
+          ready: 0,
+          notReady: 0,
+          coverage: 0,
+        } as CoverageBucket);
       current.total += 1;
       if (row.readiness === "READY") current.ready += 1;
       else current.notReady += 1;

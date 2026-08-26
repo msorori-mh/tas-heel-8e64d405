@@ -112,12 +112,7 @@ describe("15C single source of truth", () => {
   });
 
   it("both surfaces share the same attempt-type vocabulary", () => {
-    for (const t of [
-      "ORDINARY",
-      "MINISTERIAL",
-      "MINISTERIAL_TRAINING",
-      "MINISTERIAL_STRICT",
-    ]) {
+    for (const t of ["ORDINARY", "MINISTERIAL", "MINISTERIAL_TRAINING", "MINISTERIAL_STRICT"]) {
       expect(API).toContain(t);
       expect(MIGRATION).toContain(t);
     }

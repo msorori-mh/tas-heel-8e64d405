@@ -10,10 +10,7 @@ const dryRun = fs.readFileSync(
   "utf8",
 );
 const staging = fs.readFileSync("src/lib/import/import-staging.functions.ts", "utf8");
-const resolver = fs.readFileSync(
-  "src/lib/import/curriculum-import-scope.server.ts",
-  "utf8",
-);
+const resolver = fs.readFileSync("src/lib/import/curriculum-import-scope.server.ts", "utf8");
 
 test("units and lessons share one mandatory fixed curriculum scope", () => {
   assert.match(route, /CurriculumImportScopeForm/);

@@ -5,7 +5,10 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 
 test("operator template metadata exposes official questions and self-test separately", async () => {
-  const source = await readFile(new URL("src/lib/content-import/content-import-templates.ts", root), "utf8");
+  const source = await readFile(
+    new URL("src/lib/content-import/content-import-templates.ts", root),
+    "utf8",
+  );
   assert.match(source, /09_official_book_questions_template\.xlsx/);
   assert.match(source, /10_self_test_questions_template\.xlsx/);
   assert.match(source, /titleAr: "أسئلة الكتاب الأصلية"/);
@@ -39,7 +42,10 @@ test("import contract derives semantic roles from template identity", async () =
 });
 
 test("both templates bypass the generic upsert executor", async () => {
-  const execution = await readFile(new URL("src/lib/import/import-execution-state.ts", root), "utf8");
+  const execution = await readFile(
+    new URL("src/lib/import/import-execution-state.ts", root),
+    "utf8",
+  );
   const server = await readFile(new URL("src/lib/import/import-staging.server.ts", root), "utf8");
   assert.match(execution, /templateKeys: \["questions", "self_test_questions"\]/);
   assert.match(execution, /import_execute_lesson_question_template/);
@@ -56,5 +62,5 @@ test("pending import SQL derives roles from template identity and writes draft Q
   assert.match(sql, /WHEN 'questions' THEN 'OFFICIAL_BOOK_QUESTION'/);
   assert.match(sql, /WHEN 'self_test_questions' THEN 'SELF_TEST'/);
   assert.match(sql, /'DRAFT'/);
-  assert.equal((sql.match(/extensions\\.digest\\(/g) ?? []).length, 2);
+  assert.equal((sql.match(/extensions\.digest\(/g) ?? []).length, 2);
 });
