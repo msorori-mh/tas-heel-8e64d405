@@ -3,14 +3,7 @@ import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import {
-  BookOpen,
-  GraduationCap,
-  Layers,
-  FolderOpen,
-  Loader2,
-  AlertCircle,
-} from "lucide-react";
+import { BookOpen, GraduationCap, Layers, FolderOpen, Loader2, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/academic")({
   component: AdminAcademicPage,
@@ -84,9 +77,7 @@ function AdminAcademicPage() {
     enabled,
     queryKey: ["admin-academic", "subjects-by-grade"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("subjects")
-        .select("grade_id");
+      const { data, error } = await supabase.from("subjects").select("grade_id");
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const row of data ?? []) {
@@ -207,9 +198,7 @@ function AdminAcademicPage() {
 
         {/* Grades overview */}
         <div className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
-            ملخص حسب الصف
-          </h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">ملخص حسب الصف</h2>
 
           {gradesListQ.isLoading || subjectsByGradeQ.isLoading ? (
             <div className="flex min-h-[20vh] items-center justify-center">
@@ -236,16 +225,12 @@ function AdminAcademicPage() {
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <GraduationCap className="h-4 w-4" />
                       </div>
-                      <span className="text-sm font-medium text-foreground">
-                        {grade.name}
-                      </span>
+                      <span className="text-sm font-medium text-foreground">{grade.name}</span>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-left">
                         <span className="text-xs text-muted-foreground">المواد</span>
-                        <p className="text-lg font-bold text-foreground">
-                          {subjectCount}
-                        </p>
+                        <p className="text-lg font-bold text-foreground">{subjectCount}</p>
                       </div>
                     </div>
                   </div>

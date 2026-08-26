@@ -9,9 +9,17 @@ export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
       { title: "تواصل معنا — تمكين" },
-      { name: "description", content: "تواصل مع فريق تمكين عبر البريد أو نموذج التواصل للحصول على الدعم والإجابة على استفساراتك." },
+      {
+        name: "description",
+        content:
+          "تواصل مع فريق تمكين عبر البريد أو نموذج التواصل للحصول على الدعم والإجابة على استفساراتك.",
+      },
       { property: "og:title", content: "تواصل معنا — تمكين" },
-      { property: "og:description", content: "تواصل مع فريق تمكين عبر البريد أو نموذج التواصل للحصول على الدعم والإجابة على استفساراتك." },
+      {
+        property: "og:description",
+        content:
+          "تواصل مع فريق تمكين عبر البريد أو نموذج التواصل للحصول على الدعم والإجابة على استفساراتك.",
+      },
       { property: "og:url", content: "https://tas-heel.lovable.app/contact" },
     ],
     links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/contact" }],
@@ -50,11 +58,15 @@ function ContactPage() {
   return (
     <div className="min-h-screen bg-background px-4 py-10">
       <div className="mx-auto max-w-2xl">
-        <Link to="/" className="text-sm text-muted-foreground">→ الرئيسية</Link>
+        <Link to="/" className="text-sm text-muted-foreground">
+          → الرئيسية
+        </Link>
         <h1 className="mt-3 text-3xl font-bold">تواصل معنا</h1>
         <p className="mt-2 text-muted-foreground">
           راسلنا مباشرة على{" "}
-          <a href="mailto:support@studentamkeen.com" className="text-primary">support@studentamkeen.com</a>{" "}
+          <a href="mailto:support@studentamkeen.com" className="text-primary">
+            support@studentamkeen.com
+          </a>{" "}
           أو استخدم النموذج التالي:
         </p>
 
@@ -69,7 +81,14 @@ function ContactPage() {
               </div>
               <div>
                 <Label htmlFor="e">البريد الإلكتروني</Label>
-                <Input id="e" type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <Input
+                  id="e"
+                  type="email"
+                  dir="ltr"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
               <div>
                 <Label htmlFor="m">الرسالة</Label>

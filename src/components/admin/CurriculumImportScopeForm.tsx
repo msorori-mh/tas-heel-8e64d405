@@ -13,10 +13,7 @@ interface CurriculumImportScopeFormProps {
   onChange: (scope: CurriculumImportScope | null) => void;
 }
 
-export function CurriculumImportScopeForm({
-  value,
-  onChange,
-}: CurriculumImportScopeFormProps) {
+export function CurriculumImportScopeForm({ value, onChange }: CurriculumImportScopeFormProps) {
   const [registry, setRegistry] = useState<ContentCodeRegistry | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,10 +57,7 @@ export function CurriculumImportScopeForm({
 
   const update = (patch: Partial<CurriculumImportScope>) => {
     const next = { ...scope, ...patch };
-    if (
-      patch.gradeSlug !== undefined ||
-      patch.trackCodes !== undefined
-    ) {
+    if (patch.gradeSlug !== undefined || patch.trackCodes !== undefined) {
       const stillAvailable = (registry?.subjects ?? []).some(
         (subject) =>
           subject.subjectCode === next.subjectCode &&
@@ -78,7 +72,10 @@ export function CurriculumImportScopeForm({
   return (
     <Card className="border-primary/30 bg-card" aria-labelledby="curriculum-import-scope-heading">
       <CardHeader className="pb-3">
-        <CardTitle id="curriculum-import-scope-heading" className="flex items-center gap-2 text-base">
+        <CardTitle
+          id="curriculum-import-scope-heading"
+          className="flex items-center gap-2 text-base"
+        >
           <Link2 className="h-4 w-4 text-primary" />
           سياق استيراد الوحدات والدروس
           <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
@@ -123,7 +120,10 @@ export function CurriculumImportScopeForm({
               {(registry?.tracks ?? []).map((track) => {
                 const checked = scope.trackCodes.includes(track.trackCode);
                 return (
-                  <label key={track.trackCode} className="flex cursor-pointer items-center gap-2 text-sm">
+                  <label
+                    key={track.trackCode}
+                    className="flex cursor-pointer items-center gap-2 text-sm"
+                  >
                     <input
                       type="checkbox"
                       checked={checked}
@@ -183,10 +183,14 @@ export function CurriculumImportScopeForm({
         >
           {isCompleteCurriculumImportScope(value) && selectedSubject ? (
             <p>
-              الربط المعتمد: {registry?.grades.find((grade) => grade.gradeSlug === scope.gradeSlug)?.nameAr}
+              الربط المعتمد:{" "}
+              {registry?.grades.find((grade) => grade.gradeSlug === scope.gradeSlug)?.nameAr}
               {" ← "}
               {scope.trackCodes
-                .map((code) => registry?.tracks.find((track) => track.trackCode === code)?.nameAr ?? code)
+                .map(
+                  (code) =>
+                    registry?.tracks.find((track) => track.trackCode === code)?.nameAr ?? code,
+                )
                 .join(" + ")}
               {" ← "}
               الفصل {scope.semester}

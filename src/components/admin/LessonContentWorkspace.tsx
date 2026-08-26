@@ -29,7 +29,6 @@ import {
   type V3CapabilityKey,
 } from "@/lib/lessons/content-v3";
 
-
 const STATUS_AR: Record<LessonCapabilityState["status"], string> = {
   READY: "جاهز",
   DRAFT: "مسودة",
@@ -141,7 +140,6 @@ export function LessonContentWorkspace({
         </Link>
       </header>
 
-
       {/* 21G — readiness dashboard with an explicit "what is missing" answer. */}
       <div className="mt-3 grid grid-cols-2 gap-2 text-center text-[11px] sm:grid-cols-4">
         {[
@@ -219,9 +217,7 @@ export function LessonContentWorkspace({
                     سبب عدم الجاهزية: {REASON_AR[cap.readinessReason]}
                   </p>
                 )}
-                {cap.note && (
-                  <p className="mt-1 text-[11px] text-amber-600">{cap.note}</p>
-                )}
+                {cap.note && <p className="mt-1 text-[11px] text-amber-600">{cap.note}</p>}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -263,9 +259,8 @@ export function LessonContentWorkspace({
       <section className="mt-5 rounded-xl border border-dashed border-border bg-muted/40 p-3">
         <h3 className="text-xs font-bold text-foreground">مرجع قديم (Legacy)</h3>
         <p className="mt-1 text-[11px] text-muted-foreground">
-          كتب المنهج الرسمية أصبحت على مستوى المادة (المادة × المسار × الفصل) ويصل إليها
-          الطالب من "كتب المنهج" داخل المادة — لم تعد خطوة داخل الدرس. البيانات القديمة
-          محفوظة ولم تُحذف.
+          كتب المنهج الرسمية أصبحت على مستوى المادة (المادة × المسار × الفصل) ويصل إليها الطالب من
+          "كتب المنهج" داخل المادة — لم تعد خطوة داخل الدرس. البيانات القديمة محفوظة ولم تُحذف.
         </p>
         <ul className="mt-2 space-y-1">
           {[...LEGACY_REFERENCE_CAPABILITIES, "supportingResources" as const].map((key) => {

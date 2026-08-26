@@ -6,7 +6,31 @@ import { OFFICIAL_FLAT_V0 } from "../../../../src/lib/question-bank/import/adapt
 
 export async function buildMinimalValidXlsx(
   headers: string[] = [...CONTRACT_HEADERS[OFFICIAL_FLAT_V0]],
-  dataRows: string[][] = [["Q1", "Compute 1+1", "SINGLE_CHOICE", "AUTO_SINGLE", "1", "2", "", "", "", "", "1", "", "", "", "1", "FALSE", "MATH-G10", "", "", "", ""]],
+  dataRows: string[][] = [
+    [
+      "Q1",
+      "Compute 1+1",
+      "SINGLE_CHOICE",
+      "AUTO_SINGLE",
+      "1",
+      "2",
+      "",
+      "",
+      "",
+      "",
+      "1",
+      "",
+      "",
+      "",
+      "1",
+      "FALSE",
+      "MATH-G10",
+      "",
+      "",
+      "",
+      "",
+    ],
+  ],
 ): Promise<Uint8Array> {
   const zip = new JSZip();
   zip.file(
@@ -110,7 +134,9 @@ export async function buildFormulaXlsx(): Promise<Uint8Array> {
   );
 
   const headers = [...CONTRACT_HEADERS[OFFICIAL_FLAT_V0]];
-  const row1Cols = headers.map((h, i) => `<c r="${String.fromCharCode(65 + i)}1" t="inlineStr"><is><t>${h}</t></is></c>`).join("");
+  const row1Cols = headers
+    .map((h, i) => `<c r="${String.fromCharCode(65 + i)}1" t="inlineStr"><is><t>${h}</t></is></c>`)
+    .join("");
 
   const row2Cols = [
     `<c r="A2" t="inlineStr"><is><t>Q1</t></is></c>`,
@@ -138,7 +164,11 @@ export async function buildFormulaXlsx(): Promise<Uint8Array> {
   return zip.generateAsync({ type: "uint8array" });
 }
 
-export async function buildOoxmlExternalRelXlsx(targetUri: string, targetMode = "External", quoteChar = '"'): Promise<Uint8Array> {
+export async function buildOoxmlExternalRelXlsx(
+  targetUri: string,
+  targetMode = "External",
+  quoteChar = '"',
+): Promise<Uint8Array> {
   const zip = new JSZip();
   zip.file(
     "[Content_Types].xml",
@@ -179,7 +209,29 @@ export async function buildOoxmlExternalRelXlsx(targetUri: string, targetMode = 
   );
 
   const headers = [...CONTRACT_HEADERS.official_flat_v0];
-  const row = ["Q1", "Compute 1+1", "SINGLE_CHOICE", "AUTO_SINGLE", "1", "2", "", "", "", "", "1", "", "", "", "1", "FALSE", "MATH-G10", "", "", "", ""];
+  const row = [
+    "Q1",
+    "Compute 1+1",
+    "SINGLE_CHOICE",
+    "AUTO_SINGLE",
+    "1",
+    "2",
+    "",
+    "",
+    "",
+    "",
+    "1",
+    "",
+    "",
+    "",
+    "1",
+    "FALSE",
+    "MATH-G10",
+    "",
+    "",
+    "",
+    "",
+  ];
   const sheetXmlData = `<row r="1">${headers.map((h, i) => `<c r="${String.fromCharCode(65 + i)}1" t="inlineStr"><is><t>${h}</t></is></c>`).join("")}</row><row r="2">${row.map((c, i) => `<c r="${String.fromCharCode(65 + i)}2" t="inlineStr"><is><t>${c}</t></is></c>`).join("")}</row>`;
 
   zip.file(
@@ -214,7 +266,12 @@ export async function buildZipWithDuplicateEntry(): Promise<Uint8Array> {
 
   let eocd = -1;
   for (let i = bytes.length - 22; i >= 0; i--) {
-    if (bytes[i] === 0x50 && bytes[i + 1] === 0x4b && bytes[i + 2] === 0x05 && bytes[i + 3] === 0x06) {
+    if (
+      bytes[i] === 0x50 &&
+      bytes[i + 1] === 0x4b &&
+      bytes[i + 2] === 0x05 &&
+      bytes[i + 3] === 0x06
+    ) {
       eocd = i;
       break;
     }
@@ -650,7 +707,31 @@ export async function buildCorruptedWorkbookZip(): Promise<Uint8Array> {
 export async function buildFormulaInjectionWorkbook(): Promise<Uint8Array> {
   return buildMinimalValidXlsx(
     [...CONTRACT_HEADERS[OFFICIAL_FLAT_V0]],
-    [["Q1", "=SUM(1,2)", "SINGLE_CHOICE", "AUTO_SINGLE", "1", "2", "", "", "", "", "1", "", "", "", "1", "FALSE", "MATH-G10", "", "", "", ""]],
+    [
+      [
+        "Q1",
+        "=SUM(1,2)",
+        "SINGLE_CHOICE",
+        "AUTO_SINGLE",
+        "1",
+        "2",
+        "",
+        "",
+        "",
+        "",
+        "1",
+        "",
+        "",
+        "",
+        "1",
+        "FALSE",
+        "MATH-G10",
+        "",
+        "",
+        "",
+        "",
+      ],
+    ],
   );
 }
 

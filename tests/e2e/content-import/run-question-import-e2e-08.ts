@@ -115,7 +115,10 @@ async function prepare(
   staff: SupabaseClient<Database>,
   templateKey: ContentImportTemplateKey,
   file: string,
-): Promise<{ jobId: string; validateOk: boolean; validateErrors: number } | { jobId: null; validateOk: false; validateErrors: number }> {
+): Promise<
+  | { jobId: string; validateOk: boolean; validateErrors: number }
+  | { jobId: null; validateOk: false; validateErrors: number }
+> {
   const buffer = await readFile(join(FIXTURES, file));
   const hash = createHash("sha256").update(buffer).digest("hex");
   const parsed = await parseContentImportBuffer(buffer, file, templateKey);
@@ -286,7 +289,10 @@ async function main() {
   const revsAfterReplay = await revisionsOf(qa.id);
   check(
     "T09 replay → idempotent (all skipped, no new revision)",
-    replay.error === null && replay.skipped === 2 && replay.inserted === 0 && revsAfterReplay.length === 1,
+    replay.error === null &&
+      replay.skipped === 2 &&
+      replay.inserted === 0 &&
+      revsAfterReplay.length === 1,
     `skip=${replay.skipped} ins=${replay.inserted} revs=${revsAfterReplay.length}`,
   );
 
@@ -296,7 +302,10 @@ async function main() {
   const targets2 = await targetsOf(qa.id);
   check(
     "T09 retarget → TARGET_ADDED without a new revision",
-    retarget.error === null && retarget.updated === 1 && revsAfterRetarget.length === 1 && targets2.length === 2,
+    retarget.error === null &&
+      retarget.updated === 1 &&
+      revsAfterRetarget.length === 1 &&
+      targets2.length === 2,
     `upd=${retarget.updated} revs=${revsAfterRetarget.length} targets=${targets2.length}`,
   );
 
@@ -370,7 +379,10 @@ async function main() {
       .limit(1)
       .maybeSingle();
     if (stagedRow) {
-      const payload = { ...(stagedRow.payload as Record<string, unknown>), question_text: "نص مزوّر" };
+      const payload = {
+        ...(stagedRow.payload as Record<string, unknown>),
+        question_text: "نص مزوّر",
+      };
       await admin.from("import_staging_rows").update({ payload }).eq("id", stagedRow.id);
     }
     const exec = await executeContentImport(staff, tamper.jobId, ["questions"]);
@@ -433,9 +445,12 @@ async function main() {
   }
 
   // 10 — internal RPC is not client-callable ------------------------------
-  const direct = await staff.rpc("qb_import_ingest_revision" as never, {
-    _staging_row_id: randomUUID(),
-  } as never);
+  const direct = await staff.rpc(
+    "qb_import_ingest_revision" as never,
+    {
+      _staging_row_id: randomUUID(),
+    } as never,
+  );
   check(
     "T09 internal ingest RPC → not callable by a staff client",
     direct.error !== null,

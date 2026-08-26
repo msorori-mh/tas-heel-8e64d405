@@ -2,20 +2,44 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-const api = readFileSync("src/lib/content-factory/golden-lesson-identity-binding.functions.ts", "utf8");
-const sql = readFileSync("supabase/migrations-pending/20260819220000_content_factory_09_authoritative_identity_binding.sql", "utf8");
+const api = readFileSync(
+  "src/lib/content-factory/golden-lesson-identity-binding.functions.ts",
+  "utf8",
+);
+const sql = readFileSync(
+  "supabase/migrations-pending/20260819220000_content_factory_09_authoritative_identity_binding.sql",
+  "utf8",
+);
 
 test("CF09 binds authoritative existing rows and never creates curriculum", () => {
-  for (const table of ["grades","curriculum_tracks","subjects","subject_curriculum_tracks","units","lessons"]) {
+  for (const table of [
+    "grades",
+    "curriculum_tracks",
+    "subjects",
+    "subject_curriculum_tracks",
+    "units",
+    "lessons",
+  ]) {
     assert.match(sql, new RegExp(`public\\.${table}`));
   }
-  assert.doesNotMatch(sql, /INSERT INTO public\.(grades|curriculum_tracks|subjects|subject_curriculum_tracks|units|lessons)\b/);
+  assert.doesNotMatch(
+    sql,
+    /INSERT INTO public\.(grades|curriculum_tracks|subjects|subject_curriculum_tracks|units|lessons)\b/,
+  );
   assert.match(api, /curriculumCreationPerformed: false/);
   assert.match(api, /domainWritesPerformed: 0/);
 });
 
 test("CF09 is exact, immutable, admin-only and idempotent", () => {
-  for (const guard of ["IDENTITY_GRADE_NOT_EXACTLY_ONE","IDENTITY_TRACK_NOT_EXACTLY_ONE_ACTIVE","IDENTITY_SUBJECT_GRADE_MISMATCH","IDENTITY_SUBJECT_TRACK_BINDING_MISSING","IDENTITY_UNIT_NOT_EXACTLY_ONE","IDENTITY_LESSON_NOT_EXACTLY_ONE","IDENTITY_LESSON_UNIT_MISMATCH"]) {
+  for (const guard of [
+    "IDENTITY_GRADE_NOT_EXACTLY_ONE",
+    "IDENTITY_TRACK_NOT_EXACTLY_ONE_ACTIVE",
+    "IDENTITY_SUBJECT_GRADE_MISMATCH",
+    "IDENTITY_SUBJECT_TRACK_BINDING_MISSING",
+    "IDENTITY_UNIT_NOT_EXACTLY_ONE",
+    "IDENTITY_LESSON_NOT_EXACTLY_ONE",
+    "IDENTITY_LESSON_UNIT_MISMATCH",
+  ]) {
     assert.match(sql, new RegExp(guard));
   }
   assert.match(sql, /golden_identity_binding_immutable/);

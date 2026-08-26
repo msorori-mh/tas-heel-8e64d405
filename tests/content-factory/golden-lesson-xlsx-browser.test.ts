@@ -55,8 +55,30 @@ const OFFICIAL_HEADER = [
 
 test("selfTest: converts a real in-memory XLSX ArrayBuffer", async () => {
   const buffer = await buildWorkbook("اختبر فهمك", SELF_TEST_HEADER, [
-    ["CHEM-IRON-ST-01", "CHEM", "CHEM-12-IRON", "ما الرمز الكيميائي للحديد؟", "Fe", "Cu", "Ag", "Au", 1, "الحديد رمزه Fe"],
-    ["CHEM-IRON-ST-02", "CHEM", "CHEM-12-IRON", "في أي مجموعة يقع الحديد؟", "8", "1", "", "", 1, "شرح"],
+    [
+      "CHEM-IRON-ST-01",
+      "CHEM",
+      "CHEM-12-IRON",
+      "ما الرمز الكيميائي للحديد؟",
+      "Fe",
+      "Cu",
+      "Ag",
+      "Au",
+      1,
+      "الحديد رمزه Fe",
+    ],
+    [
+      "CHEM-IRON-ST-02",
+      "CHEM",
+      "CHEM-12-IRON",
+      "في أي مجموعة يقع الحديد؟",
+      "8",
+      "1",
+      "",
+      "",
+      1,
+      "شرح",
+    ],
   ]);
   const result = await convertQuestionWorkbook("selfTest", toFile(buffer, "self-test.xlsx"));
   assert.equal(result.rowCount, 2);
@@ -74,8 +96,34 @@ test("selfTest: converts a real in-memory XLSX ArrayBuffer", async () => {
 
 test("officialBookQuestions: converts a real in-memory XLSX ArrayBuffer", async () => {
   const buffer = await buildWorkbook("أسئلة الكتاب الأصلية", OFFICIAL_HEADER, [
-    ["CHEM-IRON-OB-01", "CHEM", "CHEM-12-IRON", "ACTIVITY", "عرّف الحديد", "LONG_TEXT", "MANUAL", "الحديد عنصر فلزي", "", "", "", ""],
-    ["CHEM-IRON-OB-02", "CHEM", "CHEM-12-IRON", "ACTIVITY", "اختر رمز الحديد", "SINGLE_CHOICE", "AUTO_SINGLE", "Fe", "Fe", "Cu", 1, "شرح"],
+    [
+      "CHEM-IRON-OB-01",
+      "CHEM",
+      "CHEM-12-IRON",
+      "ACTIVITY",
+      "عرّف الحديد",
+      "LONG_TEXT",
+      "MANUAL",
+      "الحديد عنصر فلزي",
+      "",
+      "",
+      "",
+      "",
+    ],
+    [
+      "CHEM-IRON-OB-02",
+      "CHEM",
+      "CHEM-12-IRON",
+      "ACTIVITY",
+      "اختر رمز الحديد",
+      "SINGLE_CHOICE",
+      "AUTO_SINGLE",
+      "Fe",
+      "Fe",
+      "Cu",
+      1,
+      "شرح",
+    ],
   ]);
   const result = await convertQuestionWorkbook(
     "officialBookQuestions",
@@ -86,17 +134,22 @@ test("officialBookQuestions: converts a real in-memory XLSX ArrayBuffer", async 
   const payload = JSON.parse(await result.publicFile.text());
   assert.equal(payload.capability, "officialBookQuestions");
   assert.equal(payload.questions.length, 2);
-  const essay = payload.questions.find((q: { question_code: string }) => q.question_code === "CHEM-IRON-OB-01");
+  const essay = payload.questions.find(
+    (q: { question_code: string }) => q.question_code === "CHEM-IRON-OB-01",
+  );
   assert.equal(essay.interaction_type, "LONG_TEXT");
   assert.equal(essay.question_type, "EXTENDED_RESPONSE");
-  const choice = payload.questions.find((q: { question_code: string }) => q.question_code === "CHEM-IRON-OB-02");
+  const choice = payload.questions.find(
+    (q: { question_code: string }) => q.question_code === "CHEM-IRON-OB-02",
+  );
   assert.equal(choice.interaction_type, "SINGLE_CHOICE");
   assert.equal(choice.question_type, "MULTIPLE_CHOICE");
   assert.deepEqual(choice.options, ["Fe", "Cu"]);
   assert.equal(result.answers.length, 2);
-  const essayAnswer = result.answers.find(
-    (a) => a.question_id === "CHEM-IRON-OB-01",
-  ) as Record<string, unknown>;
+  const essayAnswer = result.answers.find((a) => a.question_id === "CHEM-IRON-OB-01") as Record<
+    string,
+    unknown
+  >;
   assert.equal(essayAnswer.model_answer, "الحديد عنصر فلزي");
 });
 

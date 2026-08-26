@@ -22,10 +22,30 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..", "..", "..");
-const foundationPath = join(root, "supabase", "migrations", "20260806050000_content_html_db_rls_foundation.sql");
-const lifecyclePath = join(root, "supabase", "migrations", "20260807050000_content_html_lifecycle_contracts.sql");
-const alignmentPath = join(root, "supabase", "migrations", "20260808060000_content_html_resource_contract_alignment.sql");
-const hardeningPath = join(root, "supabase", "migrations", "20260809010000_content_html_resource_code_boundary_hardening.sql");
+const foundationPath = join(
+  root,
+  "supabase",
+  "migrations",
+  "20260806050000_content_html_db_rls_foundation.sql",
+);
+const lifecyclePath = join(
+  root,
+  "supabase",
+  "migrations",
+  "20260807050000_content_html_lifecycle_contracts.sql",
+);
+const alignmentPath = join(
+  root,
+  "supabase",
+  "migrations",
+  "20260808060000_content_html_resource_contract_alignment.sql",
+);
+const hardeningPath = join(
+  root,
+  "supabase",
+  "migrations",
+  "20260809010000_content_html_resource_code_boundary_hardening.sql",
+);
 
 function projectRefLinked() {
   return existsSync(join(root, "supabase", ".temp", "project-ref"));
@@ -91,7 +111,15 @@ function waitForPostgres() {
 try {
   const launchRun = spawnSync(
     "docker",
-    ["run", "-d", "--name", containerName, "-e", "POSTGRES_PASSWORD=postgres", "postgres:17-alpine"],
+    [
+      "run",
+      "-d",
+      "--name",
+      containerName,
+      "-e",
+      "POSTGRES_PASSWORD=postgres",
+      "postgres:17-alpine",
+    ],
     { encoding: "utf8", shell: true },
   );
 
@@ -1106,7 +1134,9 @@ COMMIT;
     process.exit(testRun.status ?? 1);
   }
 
-  console.log("SUCCESS: PG17 Admin→Student Publication/Rollback Proof Test Runner completed with 0 errors.");
+  console.log(
+    "SUCCESS: PG17 Admin→Student Publication/Rollback Proof Test Runner completed with 0 errors.",
+  );
 } finally {
   if (containerStarted) {
     console.log(`Cleaning up container ${containerName}...`);

@@ -49,7 +49,6 @@ export type LessonReadinessIssue =
   /** 21B4E — legacy lesson whose only content is the original textbook PDF. */
   | "LEGACY_ORIGINAL_PDF_ONLY";
 
-
 export interface LessonCapability {
   type: LessonCapabilityType;
   /** Real, valid content exists for this capability. */
@@ -188,14 +187,11 @@ export function resolvePrimaryResource(
 function primaryContentCapability(input: LessonCapabilityInput): LessonCapability {
   const isExternalMode = input.deliveryMode === "external_resource";
   const bookRaw = hasText(input.bookContent) ? input.bookContent : input.inlineContent;
-  const placeholderBook =
-    hasText(bookRaw) && isPlaceholderBookContent(bookRaw, input.lessonTitle);
+  const placeholderBook = hasText(bookRaw) && isPlaceholderBookContent(bookRaw, input.lessonTitle);
   const bookText = placeholderBook ? null : bookRaw;
   const hasBook = hasText(bookText);
   const primary = resolvePrimaryResource(input);
   const primaryValid = !!primary && isValidResourceUrl(primary.url);
-
-
 
   const base = {
     type: "PRIMARY_CONTENT" as const,
@@ -279,7 +275,6 @@ function primaryContentCapability(input: LessonCapabilityInput): LessonCapabilit
       : placeholderBook
         ? "BOOK_CONTENT_PLACEHOLDER"
         : "PRIMARY_CONTENT_MISSING",
-
   };
 }
 
@@ -329,7 +324,6 @@ export function computeLessonCapabilities(input: LessonCapabilityInput): LessonC
   const extrasCount =
     validResources(input.resources, "pdf").filter(isExtra).length +
     validResources(input.resources, "link").filter(isExtra).length;
-
 
   return [
     primaryContentCapability(input),
@@ -475,7 +469,6 @@ export const LESSON_READINESS_REASON_AR: Record<LessonReadinessReason, string> =
   CONTENT_NOT_STUDENT_VISIBLE: "المحتوى الأساسي غير ظاهر للطالب",
   LEGACY_ORIGINAL_PDF_ONLY:
     "درس قديم: محتواه الوحيد نسخة الكتاب الأصلية (PDF) — يحتاج محتوى الكتاب الرسمي المنسّق",
-
 };
 
 export const LESSON_CAPABILITY_LABEL_AR: Record<LessonCapabilityType, string> = {

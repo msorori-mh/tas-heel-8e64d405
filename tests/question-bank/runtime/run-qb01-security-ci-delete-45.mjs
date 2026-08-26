@@ -79,12 +79,16 @@ if (!existsSync(sqlPath)) {
 }
 
 const sql = readFileSync(sqlPath, "utf8");
-const run = spawnSync("docker", ["exec", "-i", container, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"], {
-  input: sql,
-  encoding: "utf8",
-  shell: true,
-  maxBuffer: 10 * 1024 * 1024,
-});
+const run = spawnSync(
+  "docker",
+  ["exec", "-i", container, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1"],
+  {
+    input: sql,
+    encoding: "utf8",
+    shell: true,
+    maxBuffer: 10 * 1024 * 1024,
+  },
+);
 
 process.stdout.write(run.stdout || "");
 process.stderr.write(run.stderr || "");

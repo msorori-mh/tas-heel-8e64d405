@@ -4,14 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
 import { Home } from "lucide-react";
-import {
-  ExamResultView,
-  type ExamSessionState,
-} from "@/components/exams/ExamResultView";
+import { ExamResultView, type ExamSessionState } from "@/components/exams/ExamResultView";
 
-export const Route = createFileRoute(
-  "/_authenticated/exams/history/$sessionId",
-)({
+export const Route = createFileRoute("/_authenticated/exams/history/$sessionId")({
   component: ExamHistoryDetailPage,
 });
 
@@ -43,16 +38,13 @@ function ExamHistoryDetailPage() {
     </nav>
   );
 
-  if (query.isLoading)
-    return <StateMessage variant="loading">جارٍ تحميل التفاصيل…</StateMessage>;
+  if (query.isLoading) return <StateMessage variant="loading">جارٍ تحميل التفاصيل…</StateMessage>;
 
   if (query.error || !query.data)
     return (
       <div className="space-y-4">
         {Breadcrumb}
-        <StateMessage variant="error">
-          تعذّر تحميل تفاصيل المحاولة.
-        </StateMessage>
+        <StateMessage variant="error">تعذّر تحميل تفاصيل المحاولة.</StateMessage>
         <Button asChild variant="outline" className="gap-1">
           <Link to="/exams/history">
             <Home className="h-4 w-4" /> العودة للسجل
@@ -67,9 +59,7 @@ function ExamHistoryDetailPage() {
     return (
       <div className="space-y-4">
         {Breadcrumb}
-        <StateMessage>
-          هذه الجلسة لا تزال قيد التنفيذ، لا تتوفر تفاصيلها هنا.
-        </StateMessage>
+        <StateMessage>هذه الجلسة لا تزال قيد التنفيذ، لا تتوفر تفاصيلها هنا.</StateMessage>
         <Button asChild variant="outline" size="sm">
           <Link to="/exams/history">العودة للسجل</Link>
         </Button>
@@ -86,9 +76,7 @@ function ExamHistoryDetailPage() {
           {state.template?.title ?? "تفاصيل المحاولة"}
         </h1>
         {state.session.status === "expired" && (
-          <p className="mt-1 text-xs text-destructive">
-            تم إنهاء هذه الجلسة بانتهاء الوقت
-          </p>
+          <p className="mt-1 text-xs text-destructive">تم إنهاء هذه الجلسة بانتهاء الوقت</p>
         )}
       </header>
 

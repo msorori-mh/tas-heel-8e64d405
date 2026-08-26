@@ -4,9 +4,35 @@ import { ValidationCodes } from "./validation-codes.ts";
 import { normalizeUrlString } from "./url-normalizer.ts";
 
 const FORBIDDEN_EXTENSIONS = new Set([
-  "exe", "dll", "bat", "cmd", "ps1", "sh", "bash", "vbs", "msi", "com",
-  "scr", "pif", "application", "gadget", "wsf", "wsh", "jar", "py", "php",
-  "pl", "rb", "asp", "aspx", "jsp", "zip", "tar", "gz", "7z", "rar",
+  "exe",
+  "dll",
+  "bat",
+  "cmd",
+  "ps1",
+  "sh",
+  "bash",
+  "vbs",
+  "msi",
+  "com",
+  "scr",
+  "pif",
+  "application",
+  "gadget",
+  "wsf",
+  "wsh",
+  "jar",
+  "py",
+  "php",
+  "pl",
+  "rb",
+  "asp",
+  "aspx",
+  "jsp",
+  "zip",
+  "tar",
+  "gz",
+  "7z",
+  "rar",
 ]);
 
 /**
@@ -14,7 +40,7 @@ const FORBIDDEN_EXTENSIONS = new Set([
  */
 export function validatePackagePreflight(
   files: PackageFileItem[],
-  totalCompressedSizeBytes?: number
+  totalCompressedSizeBytes?: number,
 ): {
   isValid: boolean;
   findings: SecurityFinding[];
@@ -149,7 +175,8 @@ export function validatePackagePreflight(
         code: ValidationCodes.FORBIDDEN_EMBEDDED_VIDEO,
         severity: "error",
         file: rawPath,
-        message: "تضمين ملفات الفيديو مباشرة داخل حزمة HTML غير مسموح؛ استخدم نوع المورد video المستقل.",
+        message:
+          "تضمين ملفات الفيديو مباشرة داخل حزمة HTML غير مسموح؛ استخدم نوع المورد video المستقل.",
       });
     }
   }

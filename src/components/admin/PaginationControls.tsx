@@ -11,7 +11,13 @@ interface PaginationControlsProps {
   pageSize?: number;
 }
 
-const PaginationControls = ({ page, totalPages, onPageChange, totalCount, pageSize = 20 }: PaginationControlsProps) => {
+const PaginationControls = ({
+  page,
+  totalPages,
+  onPageChange,
+  totalCount,
+  pageSize = 20,
+}: PaginationControlsProps) => {
   if (totalPages <= 1) return null;
 
   const from = (page - 1) * pageSize + 1;
@@ -46,15 +52,35 @@ const PaginationControls = ({ page, totalPages, onPageChange, totalCount, pageSi
         ) : (
           <>
             {[1, 2].map((p) => (
-              <Button key={p} variant={p === page ? "default" : "outline"} size="icon" onClick={() => onPageChange(p)} className="hidden sm:inline-flex">{p}</Button>
+              <Button
+                key={p}
+                variant={p === page ? "default" : "outline"}
+                size="icon"
+                onClick={() => onPageChange(p)}
+                className="hidden sm:inline-flex"
+              >
+                {p}
+              </Button>
             ))}
             {page > 3 && <span className="px-1 text-muted-foreground hidden sm:inline">…</span>}
             {page > 2 && page < totalPages - 1 && (
-              <Button variant="default" size="icon" className="hidden sm:inline-flex">{page}</Button>
+              <Button variant="default" size="icon" className="hidden sm:inline-flex">
+                {page}
+              </Button>
             )}
-            {page < totalPages - 2 && <span className="px-1 text-muted-foreground hidden sm:inline">…</span>}
+            {page < totalPages - 2 && (
+              <span className="px-1 text-muted-foreground hidden sm:inline">…</span>
+            )}
             {[totalPages - 1, totalPages].map((p) => (
-              <Button key={p} variant={p === page ? "default" : "outline"} size="icon" onClick={() => onPageChange(p)} className="hidden sm:inline-flex">{p}</Button>
+              <Button
+                key={p}
+                variant={p === page ? "default" : "outline"}
+                size="icon"
+                onClick={() => onPageChange(p)}
+                className="hidden sm:inline-flex"
+              >
+                {p}
+              </Button>
             ))}
           </>
         )}
