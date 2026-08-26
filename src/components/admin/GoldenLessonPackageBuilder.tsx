@@ -714,7 +714,27 @@ export function GoldenLessonPackageBuilder() {
       }
       if (capability === "officialBookQuestions" || capability === "selfTest") {
         try {
-          const converted = await convertQuestionWorkbook(capability, file);
+          const converted = await convertQuestionWorkbook(capability, file, {
+            expectedSubjectCode: subjectCode,
+            expectedLessonCode: lessonCode,
+            requireApproved: true,
+            requireFourChoices: capability === "selfTest",
+          });
+          const otherQuestionCodes = new Set(
+            Object.entries(answerSets)
+              .filter(([key]) => key !== capability)
+              .flatMap(([, answers]) => answers ?? [])
+              .map((answer) => String(answer.question_id ?? "").trim().toUpperCase())
+              .filter(Boolean),
+          );
+          const crossTemplateDuplicates = converted.answers
+            .map((answer) => String(answer.question_id ?? "").trim())
+            .filter((code) => code && otherQuestionCodes.has(code.toUpperCase()));
+          if (crossTemplateDuplicates.length) {
+            throw new Error(
+              `أكواد أسئلة مستخدمة في القالب الآخر: ${Array.from(new Set(crossTemplateDuplicates)).join("، ")}. يجب أن يكون question_code فريدًا بين القالبين 09 و10.`,
+            );
+          }
           artifactFile = converted.publicFile;
           displayName = file.name;
           rowCount = converted.rowCount;
