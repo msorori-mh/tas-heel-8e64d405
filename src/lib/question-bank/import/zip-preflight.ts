@@ -24,7 +24,11 @@ export function preflightZipBytes(
   const issues: QbImportIssue[] = [];
 
   const addIssue = (code: keyof typeof QB_IMPORT_CODES) => {
-    return issue(code, { file: fileName, stage: "PREFLIGHT_ZIP", source_subsystem: "zip-preflight" });
+    return issue(code, {
+      file: fileName,
+      stage: "PREFLIGHT_ZIP",
+      source_subsystem: "zip-preflight",
+    });
   };
 
   // 1. Raw File Size Guard
@@ -33,16 +37,16 @@ export function preflightZipBytes(
   }
 
   // 2. ZIP Structural Signature Verification (0x50, 0x4b)
-  if (
-    bytes.byteLength < 22 ||
-    bytes[0] !== 0x50 ||
-    bytes[1] !== 0x4b
-  ) {
+  if (bytes.byteLength < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
     return {
       ok: false,
       issues: [
         ...(issues.length > 0 ? issues : []),
-        issue(QB_IMPORT_CODES.FILE_TYPE_UNSUPPORTED, { file: fileName, stage: "PREFLIGHT_RAW", source_subsystem: "zip-preflight" }),
+        issue(QB_IMPORT_CODES.FILE_TYPE_UNSUPPORTED, {
+          file: fileName,
+          stage: "PREFLIGHT_RAW",
+          source_subsystem: "zip-preflight",
+        }),
       ],
       entryNames: [],
       totalUncompressedBytes: 0,
@@ -69,10 +73,7 @@ export function preflightZipBytes(
   if (eocdOffset === -1) {
     return {
       ok: false,
-      issues: [
-        ...(issues.length > 0 ? issues : []),
-        addIssue(QB_IMPORT_CODES.ZIP_MISSING_EOCD),
-      ],
+      issues: [...(issues.length > 0 ? issues : []), addIssue(QB_IMPORT_CODES.ZIP_MISSING_EOCD)],
       entryNames: [],
       totalUncompressedBytes: 0,
       totalEntries: 0,
@@ -225,8 +226,14 @@ export function preflightZipBytes(
         isZip: true,
       };
     }
-    const localNameBytes = bytes.subarray(localHeaderOffset + 30, localHeaderOffset + 30 + localNameLen);
-    if (nameLen !== localNameLen || !centralNameBytes.every((b, idx) => b === localNameBytes[idx])) {
+    const localNameBytes = bytes.subarray(
+      localHeaderOffset + 30,
+      localHeaderOffset + 30 + localNameLen,
+    );
+    if (
+      nameLen !== localNameLen ||
+      !centralNameBytes.every((b, idx) => b === localNameBytes[idx])
+    ) {
       issues.push(addIssue(QB_IMPORT_CODES.ZIP_MALFORMED_CENTRAL_DIRECTORY));
     }
 
@@ -241,7 +248,13 @@ export function preflightZipBytes(
 
     // Bit 0 set = encrypted entry (in central or local header)
     if ((flag & 1) !== 0 || (localFlag & 1) !== 0) {
-      issues.push(issue(QB_IMPORT_CODES.WORKBOOK_ENCRYPTED, { file: fileName, stage: "PREFLIGHT_ZIP", source_subsystem: "workbook-parser" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.WORKBOOK_ENCRYPTED, {
+          file: fileName,
+          stage: "PREFLIGHT_ZIP",
+          source_subsystem: "workbook-parser",
+        }),
+      );
     }
 
     // Check single entry declared size limit
@@ -276,9 +289,21 @@ export function preflightZipBytes(
     }
 
     // NUL or control chars -> MALFORMED_UNICODE
-    const hasControlChar = /[\0\x01-\x1f\x7f]/.test(rawName) || /[\0\x01-\x1f\x7f]/.test(decodedName);
+    const containsControlCharacter = (value: string) =>
+      Array.from(value).some((character) => {
+        const codePoint = character.codePointAt(0) ?? 0;
+        return codePoint <= 0x1f || codePoint === 0x7f;
+      });
+    const hasControlChar =
+      containsControlCharacter(rawName) || containsControlCharacter(decodedName);
     if (hasControlChar) {
-      issues.push(issue(QB_IMPORT_CODES.MALFORMED_UNICODE, { file: fileName, stage: "PREFLIGHT_OOXML", source_subsystem: "unicode" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.MALFORMED_UNICODE, {
+          file: fileName,
+          stage: "PREFLIGHT_OOXML",
+          source_subsystem: "unicode",
+        }),
+      );
     }
 
     // Absolute path check

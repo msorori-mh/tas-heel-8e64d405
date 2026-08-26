@@ -46,5 +46,43 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    // Legacy admin adapters and executable fixture harnesses cross dynamic
+    // Supabase/ExcelJS boundaries that are not represented in generated types.
+    // Keep the exception path-scoped while issue #122 tracks their typed migration.
+    files: [
+      "scripts/generate-import-templates.ts",
+      "src/components/admin/CurriculumPrelaunchPurgeControl.tsx",
+      "src/components/admin/ExamTemplateQuestionsDialog.tsx",
+      "src/components/admin/Grade12SubjectCatalogInitializer.tsx",
+      "src/components/admin/LessonCreateDialog.tsx",
+      "src/components/admin/LessonSummaryDialog.tsx",
+      "src/components/exams/ExamTemplatesSection.tsx",
+      "src/components/lessons/InteractiveResourceViewer.tsx",
+      "src/lib/content-codes/content-codes.functions.ts",
+      "src/lib/content-import-html-package.test.ts",
+      "src/lib/content-import/html-package/zip-ingestion.ts",
+      "src/lib/interactive-resource-viewer-integration.test.ts",
+      "src/lib/lessons/content-v3.test.ts",
+      "src/lib/lessons/lesson-lifecycle.test.ts",
+      "src/lib/lessons/lesson-lifecycle.ts",
+      "src/lib/offline/offline-pack.ts",
+      "src/lib/question-bank/import/canonical-json.ts",
+      "src/lib/question-bank/import/workbook-parser.ts",
+      "src/routes/_authenticated/admin.exam-templates.tsx",
+      "src/routes/_authenticated/admin.lesson-content.$lessonId.tsx",
+      "src/routes/_authenticated/admin.lessons.index.tsx",
+      "src/routes/_authenticated/admin.questions.tsx",
+      "src/routes/_authenticated/admin.units.tsx",
+      "tests/content-factory/content-factory-11-r6-dry-run-zero-write.test.ts",
+      "tests/e2e/import-center-pr86/stubs/golden-lesson-direct.functions.ts",
+      "tests/fixtures/question-bank/import/oracle-harness.ts",
+      "tests/support/test-engine.ts",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unsafe-function-type": "off",
+    },
+  },
   eslintPluginPrettier,
 );

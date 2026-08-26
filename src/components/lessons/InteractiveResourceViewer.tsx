@@ -2,7 +2,20 @@ import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Maximize2, Minimize2, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Play, CheckCircle2, AlertTriangle, DownloadCloud, Lock, FileText } from "lucide-react";
+import {
+  Maximize2,
+  Minimize2,
+  RefreshCw,
+  RotateCcw,
+  ShieldCheck,
+  Sparkles,
+  Play,
+  CheckCircle2,
+  AlertTriangle,
+  DownloadCloud,
+  Lock,
+  FileText,
+} from "lucide-react";
 import {
   AppInteractiveResourceBridge,
   buildPackageCsp,
@@ -74,7 +87,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
       const newBridge = new AppInteractiveResourceBridge(
         resource.resource_code,
         resource.version,
-        newNonce
+        newNonce,
       );
       // Fail-closed: unbind expected window, clear completion and logs, reset loading
       setActiveWindow(null);
@@ -131,7 +144,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
           csp,
           resource.resource_code,
           resource.version,
-          session.nonce
+          session.nonce,
         );
         setSrcDoc(bundle);
       })
@@ -163,7 +176,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
       const validation = session.bridge!.validateEventPayload(
         event.data,
         event.source as WindowProxy | null,
-        activeWindow
+        activeWindow,
       );
 
       if (validation.isValid && validation.payload) {
@@ -196,7 +209,11 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
   const isSummary = resource.resource_type === "summary_html";
 
   return (
-    <Card className="border-primary/20 shadow-md overflow-hidden bg-card" dir="rtl" ref={containerRef}>
+    <Card
+      className="border-primary/20 shadow-md overflow-hidden bg-card"
+      dir="rtl"
+      ref={containerRef}
+    >
       <CardHeader className="bg-muted/30 border-b border-border/40 pb-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
@@ -219,7 +236,10 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
                     : "تجربة عملية تفاعلية"}
               </Badge>
               {resource.offline_enabled && (
-                <Badge variant="secondary" className="gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                <Badge
+                  variant="secondary"
+                  className="gap-1 text-[10px] text-emerald-600 dark:text-emerald-400"
+                >
                   <DownloadCloud className="h-3 w-3" />
                   متاح دون اتصال
                 </Badge>
@@ -253,7 +273,11 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
               title={isFullscreen ? "إنهاء العرض الكامل" : "عرض ملء الشاشة"}
               disabled={!capability.allowed}
             >
-              {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+              {isFullscreen ? (
+                <Minimize2 className="h-3.5 w-3.5" />
+              ) : (
+                <Maximize2 className="h-3.5 w-3.5" />
+              )}
             </Button>
           </div>
         </div>
@@ -266,7 +290,8 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
             <Lock className="mx-auto h-10 w-10 text-amber-500" />
             <p className="font-semibold text-sm text-foreground">{capability.userMessage}</p>
             <p className="text-xs text-muted-foreground">
-              تم إيقاف تشغيل المحتوى التفاعلي احترازياً في البيئات غير المتوافقة لحماية الجلسة والبيانات.
+              تم إيقاف تشغيل المحتوى التفاعلي احترازياً في البيئات غير المتوافقة لحماية الجلسة
+              والبيانات.
             </p>
           </div>
         )}
@@ -293,7 +318,9 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
 
         {/* Sandboxed Iframe Container */}
         {capability.allowed && !errorMsg && srcDoc && (
-          <div className={`w-full transition-all ${isFullscreen ? "fixed inset-0 z-50 bg-background" : "h-[450px]"}`}>
+          <div
+            className={`w-full transition-all ${isFullscreen ? "fixed inset-0 z-50 bg-background" : "h-[450px]"}`}
+          >
             {isFullscreen && (
               <div className="absolute top-3 left-3 z-50">
                 <Button size="sm" variant="secondary" onClick={() => setIsFullscreen(false)}>

@@ -31,10 +31,22 @@ const templates: Template[] = [
     upsertKey: "track_code",
     description: "مسارات المناهج (صنعاء/عدن/...)",
     columns: [
-      { key: "track_code", label: "track_code", required: true, example: "sanaa", note: "snake_case، فريد" },
+      {
+        key: "track_code",
+        label: "track_code",
+        required: true,
+        example: "sanaa",
+        note: "snake_case، فريد",
+      },
       { key: "track_name", label: "track_name", required: true, example: "منهج صنعاء" },
       { key: "description", label: "description", required: false, example: "" },
-      { key: "is_active", label: "is_active", required: false, example: "TRUE", note: "TRUE/FALSE — افتراضي TRUE" },
+      {
+        key: "is_active",
+        label: "is_active",
+        required: false,
+        example: "TRUE",
+        note: "TRUE/FALSE — افتراضي TRUE",
+      },
     ],
     examples: [["aden", "منهج عدن", "", "TRUE"]],
     notes: ["لا تستخدم UUIDs", "track_code يجب أن يكون فريداً"],
@@ -47,7 +59,13 @@ const templates: Template[] = [
     description: "المحافظات",
     columns: [
       { key: "name", label: "name", required: true, example: "صنعاء" },
-      { key: "default_track_code", label: "default_track_code", required: false, example: "sanaa", note: "FK إلى curriculum_tracks.track_code" },
+      {
+        key: "default_track_code",
+        label: "default_track_code",
+        required: false,
+        example: "sanaa",
+        note: "FK إلى curriculum_tracks.track_code",
+      },
       { key: "sort_order", label: "sort_order", required: false, example: 1 },
     ],
     examples: [["عدن", "aden", 2]],
@@ -89,7 +107,13 @@ const templates: Template[] = [
     upsertKey: "subject_code",
     description: "المواد الدراسية",
     columns: [
-      { key: "subject_code", label: "subject_code", required: true, example: "math-g10-sanaa", note: "يُحفظ في عمود code الجديد — فريد عالمياً" },
+      {
+        key: "subject_code",
+        label: "subject_code",
+        required: true,
+        example: "math-g10-sanaa",
+        note: "يُحفظ في عمود code الجديد — فريد عالمياً",
+      },
       { key: "slug", label: "slug", required: true, example: "math" },
       { key: "name", label: "name", required: true, example: "الرياضيات" },
       { key: "grade_slug", label: "grade_slug", required: true, example: "grade-10" },
@@ -99,7 +123,9 @@ const templates: Template[] = [
       { key: "color", label: "color", required: false, example: "#2563eb" },
       { key: "sort_order", label: "sort_order", required: false, example: 1 },
     ],
-    examples: [["phys-g10-sanaa", "physics", "الفيزياء", "grade-10", "sanaa", 1, "⚛️", "#dc2626", 2]],
+    examples: [
+      ["phys-g10-sanaa", "physics", "الفيزياء", "grade-10", "sanaa", 1, "⚛️", "#dc2626", 2],
+    ],
     notes: ["subject_code فريد عالمياً", "يتطلب 04_grades + 01_curriculum_tracks"],
   },
   {
@@ -109,7 +135,13 @@ const templates: Template[] = [
     upsertKey: "(subject_code, unit_code)",
     description: "الوحدات داخل المواد",
     columns: [
-      { key: "unit_code", label: "unit_code", required: true, example: "math-g10-sanaa-u01", note: "فريد ضمن المادة" },
+      {
+        key: "unit_code",
+        label: "unit_code",
+        required: true,
+        example: "math-g10-sanaa-u01",
+        note: "فريد ضمن المادة",
+      },
       { key: "subject_code", label: "subject_code", required: true, example: "math-g10-sanaa" },
       { key: "title", label: "title", required: true, example: "الوحدة الأولى: الأعداد الحقيقية" },
       { key: "description", label: "description", required: false, example: "" },
@@ -117,7 +149,9 @@ const templates: Template[] = [
       { key: "semester", label: "semester", required: false, example: 1, note: "1 أو 2" },
       { key: "is_free", label: "is_free", required: false, example: "FALSE", note: "TRUE/FALSE" },
     ],
-    examples: [["math-g10-sanaa-u02", "math-g10-sanaa", "الوحدة الثانية: المعادلات", "", 2, 1, "FALSE"]],
+    examples: [
+      ["math-g10-sanaa-u02", "math-g10-sanaa", "الوحدة الثانية: المعادلات", "", 2, 1, "FALSE"],
+    ],
     notes: ["يتطلب 05_subjects"],
   },
   {
@@ -127,9 +161,21 @@ const templates: Template[] = [
     upsertKey: "lesson_slug",
     description: "الدروس",
     columns: [
-      { key: "lesson_slug", label: "lesson_slug", required: true, example: "math-g10-u1-l1", note: "فريد عالمياً" },
+      {
+        key: "lesson_slug",
+        label: "lesson_slug",
+        required: true,
+        example: "math-g10-u1-l1",
+        note: "فريد عالمياً",
+      },
       { key: "subject_code", label: "subject_code", required: true, example: "math-g10-sanaa" },
-      { key: "unit_code", label: "unit_code", required: false, example: "math-g10-sanaa-u01", note: "يجب أن يخص نفس المادة" },
+      {
+        key: "unit_code",
+        label: "unit_code",
+        required: false,
+        example: "math-g10-sanaa-u01",
+        note: "يجب أن يخص نفس المادة",
+      },
       { key: "title", label: "title", required: true, example: "الدرس الأول: الأعداد النسبية" },
       { key: "duration", label: "duration", required: false, example: "25 دقيقة" },
       { key: "video_url", label: "video_url", required: false, example: "" },
@@ -138,7 +184,20 @@ const templates: Template[] = [
       { key: "is_free", label: "is_free", required: false, example: "FALSE" },
       { key: "sort_order", label: "sort_order", required: false, example: 1 },
     ],
-    examples: [["math-g10-u1-l2", "math-g10-sanaa", "math-g10-sanaa-u01", "الدرس الثاني: الأعداد غير النسبية", "30 دقيقة", "", "", 1, "FALSE", 2]],
+    examples: [
+      [
+        "math-g10-u1-l2",
+        "math-g10-sanaa",
+        "math-g10-sanaa-u01",
+        "الدرس الثاني: الأعداد غير النسبية",
+        "30 دقيقة",
+        "",
+        "",
+        1,
+        "FALSE",
+        2,
+      ],
+    ],
     notes: ["يتطلب 05 + 06"],
   },
   {
@@ -159,7 +218,13 @@ const templates: Template[] = [
         columns: [
           { key: "lesson_slug", label: "lesson_slug", required: true, example: "math-g10-u1-l1" },
           { key: "summary", label: "summary", required: true, example: "ملخص قصير للدرس" },
-          { key: "key_points", label: "key_points", required: false, example: "نقطة 1|نقطة 2|نقطة 3", note: "افصل بـ |" },
+          {
+            key: "key_points",
+            label: "key_points",
+            required: false,
+            example: "نقطة 1|نقطة 2|نقطة 3",
+            note: "افصل بـ |",
+          },
           { key: "study_tip", label: "study_tip", required: false, example: "ركز على الأمثلة" },
         ],
         examples: [],
@@ -178,7 +243,13 @@ const templates: Template[] = [
         name: "resources",
         columns: [
           { key: "lesson_slug", label: "lesson_slug", required: true, example: "math-g10-u1-l1" },
-          { key: "resource_type", label: "resource_type", required: true, example: "video", note: "video|pdf|link|mindmap|experiment" },
+          {
+            key: "resource_type",
+            label: "resource_type",
+            required: true,
+            example: "video",
+            note: "video|pdf|link|mindmap|experiment",
+          },
           { key: "title", label: "title", required: true, example: "فيديو شرح" },
           { key: "url", label: "url", required: true, example: "https://..." },
           { key: "description", label: "description", required: false, example: "" },
@@ -196,25 +267,72 @@ const templates: Template[] = [
     upsertKey: "question_code (أو hash لو فارغ)",
     description: "بنك الأسئلة — الأهم",
     columns: [
-      { key: "question_code", label: "question_code", required: false, example: "Q-MATH-G10-001", note: "يُولّد تلقائياً إن لم يوجد" },
-      { key: "lesson_slug", label: "lesson_slug", required: false, example: "math-g10-u1-l1", note: "هذا أو subject_code إلزامي" },
+      {
+        key: "question_code",
+        label: "question_code",
+        required: false,
+        example: "Q-MATH-G10-001",
+        note: "يُولّد تلقائياً إن لم يوجد",
+      },
+      {
+        key: "lesson_slug",
+        label: "lesson_slug",
+        required: false,
+        example: "math-g10-u1-l1",
+        note: "هذا أو subject_code إلزامي",
+      },
       { key: "subject_code", label: "subject_code", required: false, example: "math-g10-sanaa" },
-      { key: "question_text", label: "question_text", required: true, example: "كم يساوي 2+2؟", note: "≤ 2000 حرف" },
+      {
+        key: "question_text",
+        label: "question_text",
+        required: true,
+        example: "كم يساوي 2+2؟",
+        note: "≤ 2000 حرف",
+      },
       { key: "option_1", label: "option_1", required: true, example: "3" },
       { key: "option_2", label: "option_2", required: true, example: "4" },
       { key: "option_3", label: "option_3", required: false, example: "5" },
       { key: "option_4", label: "option_4", required: false, example: "6" },
       { key: "option_5", label: "option_5", required: false, example: "" },
       { key: "option_6", label: "option_6", required: false, example: "" },
-      { key: "correct_index", label: "correct_index", required: true, example: 2, note: "1-based (يطابق option_X)" },
+      {
+        key: "correct_index",
+        label: "correct_index",
+        required: true,
+        example: 2,
+        note: "1-based (يطابق option_X)",
+      },
       { key: "explanation", label: "explanation", required: false, example: "لأن 2+2=4" },
-      { key: "question_type", label: "question_type", required: false, example: "mcq", note: "افتراضي mcq" },
+      {
+        key: "question_type",
+        label: "question_type",
+        required: false,
+        example: "mcq",
+        note: "افتراضي mcq",
+      },
       { key: "year", label: "year", required: false, example: 2023 },
       { key: "semester", label: "semester", required: false, example: 1 },
       { key: "sort_order", label: "sort_order", required: false, example: 1 },
     ],
     examples: [
-      ["Q-MATH-G10-002", "math-g10-u1-l1", "math-g10-sanaa", "ما ناتج 5×3؟", "8", "15", "12", "10", "", "", 2, "5×3 = 15", "mcq", 2024, 1, 2],
+      [
+        "Q-MATH-G10-002",
+        "math-g10-u1-l1",
+        "math-g10-sanaa",
+        "ما ناتج 5×3؟",
+        "8",
+        "15",
+        "12",
+        "10",
+        "",
+        "",
+        2,
+        "5×3 = 15",
+        "mcq",
+        2024,
+        1,
+        2,
+      ],
     ],
     notes: [
       "اجعل عمود option_* بصيغة Text لتفادي تحويل Excel للأرقام",
@@ -229,10 +347,21 @@ const templates: Template[] = [
     upsertKey: "template_code",
     description: "نماذج الاختبارات + ربط الأسئلة (شيتان)",
     columns: [
-      { key: "template_code", label: "template_code", required: true, example: "EXAM-MATH-G10-001" },
+      {
+        key: "template_code",
+        label: "template_code",
+        required: true,
+        example: "EXAM-MATH-G10-001",
+      },
       { key: "title", label: "title", required: true, example: "اختبار الوحدة الأولى" },
       { key: "description", label: "description", required: false, example: "" },
-      { key: "mode", label: "mode", required: true, example: "training", note: "training|strict|ministry" },
+      {
+        key: "mode",
+        label: "mode",
+        required: true,
+        example: "training",
+        note: "training|strict|ministry",
+      },
       { key: "subject_code", label: "subject_code", required: false, example: "math-g10-sanaa" },
       { key: "unit_code", label: "unit_code", required: false, example: "math-g10-sanaa-u01" },
       { key: "lesson_slug", label: "lesson_slug", required: false, example: "" },
@@ -244,8 +373,18 @@ const templates: Template[] = [
       {
         name: "template_questions",
         columns: [
-          { key: "template_code", label: "template_code", required: true, example: "EXAM-MATH-G10-001" },
-          { key: "question_code", label: "question_code", required: true, example: "Q-MATH-G10-001" },
+          {
+            key: "template_code",
+            label: "template_code",
+            required: true,
+            example: "EXAM-MATH-G10-001",
+          },
+          {
+            key: "question_code",
+            label: "question_code",
+            required: true,
+            example: "Q-MATH-G10-001",
+          },
           { key: "sort_order", label: "sort_order", required: false, example: 1 },
           { key: "points", label: "points", required: false, example: 1 },
         ],
@@ -262,7 +401,13 @@ const templates: Template[] = [
     description: "خطط الاشتراك",
     columns: [
       { key: "name", label: "name", required: true, example: "اشتراك شهري" },
-      { key: "duration_type", label: "duration_type", required: false, example: "monthly", note: "monthly|semester|year" },
+      {
+        key: "duration_type",
+        label: "duration_type",
+        required: false,
+        example: "monthly",
+        note: "monthly|semester|year",
+      },
       { key: "duration_months", label: "duration_months", required: true, example: 1 },
       { key: "price", label: "price", required: true, example: 2500 },
       { key: "currency", label: "currency", required: false, example: "YER", note: "افتراضي YER" },
@@ -279,10 +424,22 @@ const templates: Template[] = [
     upsertKey: "(type, name)",
     description: "وسائل الدفع",
     columns: [
-      { key: "type", label: "type", required: true, example: "bank", note: "bank|exchange|ewallet|..." },
+      {
+        key: "type",
+        label: "type",
+        required: true,
+        example: "bank",
+        note: "bank|exchange|ewallet|...",
+      },
       { key: "name", label: "name", required: true, example: "بنك الكريمي" },
       { key: "account_name", label: "account_name", required: false, example: "تمكين" },
-      { key: "account_number", label: "account_number", required: false, example: "1234567890", note: "اجعله Text لتفادي notation" },
+      {
+        key: "account_number",
+        label: "account_number",
+        required: false,
+        example: "1234567890",
+        note: "اجعله Text لتفادي notation",
+      },
       { key: "details", label: "details", required: false, example: "" },
       { key: "logo_url", label: "logo_url", required: false, example: "" },
       { key: "barcode_url", label: "barcode_url", required: false, example: "" },
@@ -294,9 +451,18 @@ const templates: Template[] = [
   },
 ];
 
-function fillSheet(ws: ExcelJS.Worksheet, columns: Col[], firstExample: any[], extraExamples: any[][]) {
+function fillSheet(
+  ws: ExcelJS.Worksheet,
+  columns: Col[],
+  firstExample: any[],
+  extraExamples: any[][],
+) {
   ws.views = [{ rightToLeft: true }];
-  ws.columns = columns.map((c) => ({ header: c.label, key: c.key, width: Math.max(14, c.label.length + 4) }));
+  ws.columns = columns.map((c) => ({
+    header: c.label,
+    key: c.key,
+    width: Math.max(14, c.label.length + 4),
+  }));
   const headerRow = ws.getRow(1);
   headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
   headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } };
@@ -371,7 +537,12 @@ async function generate(t: Template) {
   if (t.extraSheets) {
     for (const s of t.extraSheets) {
       const ws = wb.addWorksheet(s.name);
-      fillSheet(ws, s.columns, s.columns.map((c) => c.example), s.examples);
+      fillSheet(
+        ws,
+        s.columns,
+        s.columns.map((c) => c.example),
+        s.examples,
+      );
     }
   }
 

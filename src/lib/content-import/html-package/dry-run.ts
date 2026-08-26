@@ -8,6 +8,7 @@ import { validateManifest } from "./manifest-validator.ts";
 import { validatePackagePreflight } from "./package-preflight.ts";
 import type {
   ImportDryRunReport,
+  InteractiveResourceManifest,
   InteractiveLessonResourceImportRow,
   PackageFileItem,
   PackageValidationResult,
@@ -132,7 +133,7 @@ export async function validateSingleHtmlPackage(
     });
   }
 
-  let parsedManifest: { offline_enabled?: boolean } | undefined;
+  let parsedManifest: InteractiveResourceManifest | undefined;
   if (!manifestFile) {
     allFindings.push({
       code: ValidationCodes.MISSING_MANIFEST_JSON,
@@ -146,7 +147,7 @@ export async function validateSingleHtmlPackage(
       const json = JSON.parse(text);
       const manifestRes = validateManifest(json, resourceCode, excelRow);
       allFindings.push(...manifestRes.findings);
-      parsedManifest = manifestRes.manifest as { offline_enabled?: boolean };
+      parsedManifest = manifestRes.manifest;
     } catch {
       allFindings.push({
         code: ValidationCodes.INVALID_MANIFEST_JSON,

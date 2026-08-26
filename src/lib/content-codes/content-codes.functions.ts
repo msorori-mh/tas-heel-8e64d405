@@ -38,7 +38,12 @@ const SaveCurriculumSubjectInput = z.object({
   trackIds: z.array(z.string().uuid()).min(1).max(2),
   sortOrder: z.number().int().min(0).max(100000),
   icon: z.string().trim().max(80).nullable().optional(),
-  color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+  color: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
   groupCode: z
     .string()
     .trim()
@@ -59,7 +64,6 @@ const ContextTemplateInput = z.object({
   subjectMode: z.enum(["single", "group"]).default("single"),
   groupName: z.string().trim().max(120).optional(),
   branchNames: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
-
 });
 
 /** Master data + already-allocated codes, for the admin code-registry UI. */
@@ -75,9 +79,8 @@ export const downloadContextualTemplate = createServerFn({ method: "POST" })
   .middleware([requireContentStaffAuth])
   .inputValidator((input) => ContextTemplateInput.parse(input))
   .handler(async ({ data, context }): Promise<ContextTemplateResponse> => {
-    const { loadContentCodeRegistry, loadQuestionCodes, loadLessonChildCodes } = await import(
-      "./content-code-registry.server"
-    );
+    const { loadContentCodeRegistry, loadQuestionCodes, loadLessonChildCodes } =
+      await import("./content-code-registry.server");
     const { buildContextualTemplate } = await import("./contextual-template.server");
 
     const registry = await loadContentCodeRegistry(context.supabase);
@@ -120,7 +123,9 @@ export const saveCurriculumSubjectAdmin = createServerFn({ method: "POST" })
     );
     if (error) {
       if (error.message?.includes("SUBJECT_TRACK_DETACH_REQUIRES_IMPACT_REVIEW")) {
-        throw new Error("إزالة مسار قائم تتطلب مراجعة أثر مستقلة؛ يمكنك إضافة المسار الآخر فقط من هنا.");
+        throw new Error(
+          "إزالة مسار قائم تتطلب مراجعة أثر مستقلة؛ يمكنك إضافة المسار الآخر فقط من هنا.",
+        );
       }
       throw new Error(`تعذر حفظ المادة: ${error.message}`);
     }

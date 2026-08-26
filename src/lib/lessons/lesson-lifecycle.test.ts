@@ -68,7 +68,10 @@ describe("student capability gate", () => {
       managed: true,
       readyKeys: new Set(["officialBookContent"]),
     });
-    assert.deepEqual(out.map((c) => c.type), ["PRIMARY_CONTENT"]);
+    assert.deepEqual(
+      out.map((c) => c.type),
+      ["PRIMARY_CONTENT"],
+    );
   });
 });
 

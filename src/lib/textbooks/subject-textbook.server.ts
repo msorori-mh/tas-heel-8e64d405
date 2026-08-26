@@ -17,7 +17,7 @@ const UPLOAD_URL_TTL = 900;
 type Caller = SupabaseClient<Database>;
 /** `subject_textbooks` is created by the 21B migration; typed access lands after apply. */
 type Loose = {
-  from: (table: string) => any;
+  from: Caller["from"];
   storage: Caller["storage"];
 };
 
@@ -132,7 +132,6 @@ export async function listSubjectTextbooks(
   if (error) throw new Error("textbook_lookup_failed");
   return sortTextbooks(((data ?? []) as Record<string, unknown>[]).map(mapTextbook));
 }
-
 
 export function validateUploadInput(fileName: string, fileSize: number) {
   if (!/\.pdf$/i.test(fileName)) throw new Error("invalid_extension");
@@ -279,7 +278,6 @@ export async function bindSubjectTextbook(
 
   return { textbookId: String(data.id), replaced: false, version };
 }
-
 
 /** Reuse the very same bytes for another track (NO duplicated storage object). */
 export async function cloneTextbookForTrack(

@@ -18,10 +18,7 @@ type TemplateRow = {
   questions_count: number;
 };
 
-const MODE_META: Record<
-  string,
-  { label: string; icon: React.ReactNode; cls: string }
-> = {
+const MODE_META: Record<string, { label: string; icon: React.ReactNode; cls: string }> = {
   training: {
     label: "تدريب",
     icon: <Sparkles className="h-3 w-3" />,
@@ -151,9 +148,7 @@ export function ExamTemplatesSection({
 function TemplateCard({ tpl, disabled }: { tpl: TemplateRow; disabled?: boolean }) {
   const meta = MODE_META[tpl.mode] ?? MODE_META.strict;
   const minutes =
-    tpl.duration_seconds && tpl.duration_seconds > 0
-      ? Math.round(tpl.duration_seconds / 60)
-      : null;
+    tpl.duration_seconds && tpl.duration_seconds > 0 ? Math.round(tpl.duration_seconds / 60) : null;
 
   const startButton = disabled ? (
     <Button size="sm" variant="outline" disabled className="gap-1">

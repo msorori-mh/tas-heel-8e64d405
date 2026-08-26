@@ -1,6 +1,13 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Loader2, RefreshCw, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  RefreshCw,
+  ShieldCheck,
+  Sparkles,
+  TriangleAlert,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -46,9 +53,7 @@ const GROUP_ORDER = [
 ] as const;
 
 async function loadStatus(): Promise<CatalogStatus> {
-  const { data, error } = await (supabase as any).rpc(
-    "admin_grade12_subject_catalog_status",
-  );
+  const { data, error } = await (supabase as any).rpc("admin_grade12_subject_catalog_status");
   if (error) throw error;
   return data as CatalogStatus;
 }
@@ -110,7 +115,10 @@ export function Grade12SubjectCatalogInitializer() {
   };
 
   return (
-    <section className="space-y-4 rounded-2xl border border-primary/25 bg-primary/5 p-5" aria-labelledby="grade12-catalog-heading">
+    <section
+      className="space-y-4 rounded-2xl border border-primary/25 bg-primary/5 p-5"
+      aria-labelledby="grade12-catalog-heading"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h2 id="grade12-catalog-heading" className="flex items-center gap-2 text-lg font-bold">
@@ -118,8 +126,8 @@ export function Grade12SubjectCatalogInitializer() {
             تهيئة مواد الصف الثالث الثانوي
           </h2>
           <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            ينشئ النظام 14 مادة فعلية تحت 8 مجموعات رئيسية، ثم يربط كل مادة بمساري
-            صنعاء وعدن. الأكواد آلية، وكتب الطالب والتمارين تضاف لاحقًا إلى المادة نفسها.
+            ينشئ النظام 14 مادة فعلية تحت 8 مجموعات رئيسية، ثم يربط كل مادة بمساري صنعاء وعدن.
+            الأكواد آلية، وكتب الطالب والتمارين تضاف لاحقًا إلى المادة نفسها.
           </p>
         </div>
         <Button
@@ -130,7 +138,11 @@ export function Grade12SubjectCatalogInitializer() {
           disabled={statusQ.isFetching || submitting}
           className="gap-1.5"
         >
-          {statusQ.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          {statusQ.isFetching ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
           تحديث المعاينة
         </Button>
       </div>
@@ -157,11 +169,15 @@ export function Grade12SubjectCatalogInitializer() {
             </div>
             <div className="rounded-xl border bg-background p-3">
               <p className="text-xs text-muted-foreground">المواد الفعلية</p>
-              <p className="mt-1 text-xl font-bold">{status.matched_subjects}/{status.expected_subjects}</p>
+              <p className="mt-1 text-xl font-bold">
+                {status.matched_subjects}/{status.expected_subjects}
+              </p>
             </div>
             <div className="rounded-xl border bg-background p-3">
               <p className="text-xs text-muted-foreground">روابط صنعاء وعدن</p>
-              <p className="mt-1 text-xl font-bold">{status.matched_track_links}/{status.expected_track_links}</p>
+              <p className="mt-1 text-xl font-bold">
+                {status.matched_track_links}/{status.expected_track_links}
+              </p>
             </div>
           </div>
 
@@ -181,14 +197,16 @@ export function Grade12SubjectCatalogInitializer() {
           {status.status === "CONFLICT" && (
             <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
               <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-              وُجد {status.conflict_count} تعارضًا في كود أو اسم قائم. التهيئة مقفلة ولم تُجرِ أي تعديل.
+              وُجد {status.conflict_count} تعارضًا في كود أو اسم قائم. التهيئة مقفلة ولم تُجرِ أي
+              تعديل.
             </div>
           )}
 
           {status.status === "COMPLETE" && (
             <div className="flex items-start gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-              الكتالوج مكتمل: 14 مادة و28 رابط مسار. انتقل الآن إلى رفع كتب المواد ثم الوحدات والدروس.
+              الكتالوج مكتمل: 14 مادة و28 رابط مسار. انتقل الآن إلى رفع كتب المواد ثم الوحدات
+              والدروس.
             </div>
           )}
 
@@ -203,8 +221,16 @@ export function Grade12SubjectCatalogInitializer() {
               disabled={status.status !== "READY" || submitting || statusQ.isFetching}
               className="gap-1.5"
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-              {submitting ? "جارٍ إنشاء المواد…" : status.status === "COMPLETE" ? "تمت التهيئة" : "تهيئة المواد وربط المسارين"}
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4" />
+              )}
+              {submitting
+                ? "جارٍ إنشاء المواد…"
+                : status.status === "COMPLETE"
+                  ? "تمت التهيئة"
+                  : "تهيئة المواد وربط المسارين"}
             </Button>
           </div>
         </>

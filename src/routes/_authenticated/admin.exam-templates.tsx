@@ -35,9 +35,7 @@ function AdminExamTemplatesPage() {
   const queryClient = useQueryClient();
 
   const [dialogState, setDialogState] = useState<
-    | { kind: "closed" }
-    | { kind: "create" }
-    | { kind: "edit"; tpl: ExamTemplateValue }
+    { kind: "closed" } | { kind: "create" } | { kind: "edit"; tpl: ExamTemplateValue }
   >({ kind: "closed" });
   const [questionsFor, setQuestionsFor] = useState<{ id: string; title: string } | null>(null);
 
@@ -47,14 +45,16 @@ function AdminExamTemplatesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("exam_templates")
-        .select(`
+        .select(
+          `
           id, title, description, mode, subject_id, unit_id, lesson_id,
           duration_seconds, is_active, created_at,
           subject:subjects!exam_templates_subject_id_fkey(name),
           unit:units!exam_templates_unit_id_fkey(title),
           lesson:lessons!exam_templates_lesson_id_fkey(title),
           questions:exam_template_questions(count)
-        `)
+        `,
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       const rows: TemplateRow[] = ((data ?? []) as any[]).map((r) => ({
@@ -118,7 +118,8 @@ function AdminExamTemplatesPage() {
           <div>
             <h1 className="text-xl font-bold text-foreground">قوالب اختبارات مخصصة</h1>
             <p className="text-xs text-muted-foreground mt-1">
-              أداة متقدمة واختيارية لبناء اختبار مخصص من بنك الأسئلة؛ ليست من محتويات الدرس السبعة ولا من أرشيف النماذج الوزارية.
+              أداة متقدمة واختيارية لبناء اختبار مخصص من بنك الأسئلة؛ ليست من محتويات الدرس السبعة
+              ولا من أرشيف النماذج الوزارية.
             </p>
           </div>
           <Button onClick={() => setDialogState({ kind: "create" })} className="gap-1">
@@ -129,13 +130,20 @@ function AdminExamTemplatesPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs text-muted-foreground">
           <span>
-            اختبار الدرس الرسمي وأسئلة «اختبر نفسك» تُرفعان من استيراد محتويات الدرس. استخدم هذه الصفحة فقط عند الحاجة إلى قالب إضافي مخصص.
+            اختبار الدرس الرسمي وأسئلة «اختبر نفسك» تُرفعان من استيراد محتويات الدرس. استخدم هذه
+            الصفحة فقط عند الحاجة إلى قالب إضافي مخصص.
           </span>
           <div className="flex gap-2">
-            <Link to="/admin/import" className="rounded-lg border border-border bg-card px-3 py-1.5 hover:bg-muted">
+            <Link
+              to="/admin/import"
+              className="rounded-lg border border-border bg-card px-3 py-1.5 hover:bg-muted"
+            >
               استيراد محتوى درس
             </Link>
-            <Link to="/admin/ministerial-exams" className="rounded-lg border border-border bg-card px-3 py-1.5 hover:bg-muted">
+            <Link
+              to="/admin/ministerial-exams"
+              className="rounded-lg border border-border bg-card px-3 py-1.5 hover:bg-muted"
+            >
               النماذج الوزارية
             </Link>
           </div>
@@ -151,7 +159,8 @@ function AdminExamTemplatesPage() {
           </div>
         ) : rows.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-            لا توجد قوالب مخصصة، وهذا طبيعي. أنشئ قالبًا فقط عندما تحتاج اختبارًا إضافيًا خارج محتويات الدرس الأساسية.
+            لا توجد قوالب مخصصة، وهذا طبيعي. أنشئ قالبًا فقط عندما تحتاج اختبارًا إضافيًا خارج
+            محتويات الدرس الأساسية.
           </div>
         ) : (
           <ul className="space-y-2">
@@ -179,7 +188,9 @@ function AdminExamTemplatesPage() {
                       </span>
                     </div>
                     {tpl.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2">{tpl.description}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {tpl.description}
+                      </p>
                     )}
                     <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
                       {tpl.subject_name && <span>المادة: {tpl.subject_name}</span>}
@@ -248,4 +259,3 @@ function AdminExamTemplatesPage() {
     </AdminLayout>
   );
 }
-

@@ -33,12 +33,13 @@ test("1. Route registration: /admin/import exists in routeTree.gen.ts", () => {
 
   assert.ok(
     !routeTreeContent.includes("admin/content-review"),
-    "The separate review route is retired; publishing happens in /admin/import"
+    "The separate review route is retired; publishing happens in /admin/import",
   );
 
   assert.ok(
-    routeTreeContent.includes("admin/import") || routeTreeContent.includes("AuthenticatedAdminImportRoute"),
-    "Route tree manifest must contain /admin/import"
+    routeTreeContent.includes("admin/import") ||
+      routeTreeContent.includes("AuthenticatedAdminImportRoute"),
+    "Route tree manifest must contain /admin/import",
   );
 });
 
@@ -84,7 +85,7 @@ test("7. Structural Parser: Mixed-case event handler rejected (ONERROR= / OnErRo
   assert.ok(scan.findings.some((f) => f.code === ValidationCodes.INLINE_EVENT_HANDLER_DETECTED));
 });
 
-test("8. Structural Parser: Meta refresh tag rejected (<meta http-equiv=\"refresh\">)", async () => {
+test('8. Structural Parser: Meta refresh tag rejected (<meta http-equiv="refresh">)', async () => {
   const html = `<html><head><meta http-equiv="refresh" content="0;url=http://evil.com"></head></html>`;
   const scan = await parseHtmlContent(html, "index.html");
   assert.ok(scan.findings.some((f) => f.code === ValidationCodes.FORBIDDEN_META_REFRESH));
@@ -109,7 +110,8 @@ test("11. JS Scanner: navigator.sendBeacon rejected", () => {
 });
 
 test("12. JS Scanner: Worker / SharedWorker / ServiceWorker rejected", () => {
-  const code = "const w = new Worker('w.js'); const sw = navigator.serviceWorker.register('/sw.js');";
+  const code =
+    "const w = new Worker('w.js'); const sw = navigator.serviceWorker.register('/sw.js');";
   const findings = scanJavaScriptContent(code, "test.js");
   assert.ok(findings.some((f) => f.code === ValidationCodes.SERVICE_WORKER_NOT_ALLOWED));
 });
@@ -170,7 +172,13 @@ test("21. CSS Scanner: External url(...) rejected", () => {
 
 test("22. Preflight: Canonical path traversal (%2e%2e/) rejected", () => {
   const files = [
-    { path: "%2e%2e/secret.txt", size: 10, isDir: false, contentSha256: "a", mimeType: "text/plain" },
+    {
+      path: "%2e%2e/secret.txt",
+      size: 10,
+      isDir: false,
+      contentSha256: "a",
+      mimeType: "text/plain",
+    },
   ];
   const res = validatePackagePreflight(files);
   assert.equal(res.isValid, false);
@@ -306,7 +314,7 @@ test("31. CSP Bridge exact bytes: srcDoc extracted script SHA-256 matches CSP li
     csp,
     "RES-TEST",
     1,
-    nonce
+    nonce,
   );
 
   const match = srcDoc.match(/<script>([\s\S]*?)<\/script>/);
@@ -316,7 +324,7 @@ test("31. CSP Bridge exact bytes: srcDoc extracted script SHA-256 matches CSP li
   const computedHash = await computeSha256Base64(extractedScript);
   assert.ok(
     csp.includes(computedHash),
-    `CSP header (${csp}) must literally include extracted bridge script hash (${computedHash})`
+    `CSP header (${csp}) must literally include extracted bridge script hash (${computedHash})`,
   );
 
   const alteredScript = extractedScript + " ";
@@ -324,7 +332,7 @@ test("31. CSP Bridge exact bytes: srcDoc extracted script SHA-256 matches CSP li
   assert.equal(
     csp.includes(alteredHash),
     false,
-    "Changing 1 byte in bridge script must alter SHA-256 hash so it no longer matches CSP"
+    "Changing 1 byte in bridge script must alter SHA-256 hash so it no longer matches CSP",
   );
 });
 

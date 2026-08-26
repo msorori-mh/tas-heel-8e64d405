@@ -67,7 +67,8 @@ const sampleResource: InteractiveResourceItem = {
   description_ar: "وصف تجربة تفاعلية لاختبار المكون الحقيقي",
   version: 1,
   entry_file: "index.html",
-  html_content: "<!DOCTYPE html><html><head><title>Test</title></head><body><h1>Interactive Content</h1></body></html>",
+  html_content:
+    "<!DOCTYPE html><html><head><title>Test</title></head><body><h1>Interactive Content</h1></body></html>",
   offline_enabled: true,
 };
 
@@ -84,7 +85,7 @@ test("proves explicit session nonce renewal, generation increment, and bridge re
     root.render(
       React.createElement(InteractiveResourceViewer, {
         resource: sampleResource,
-      })
+      }),
     );
   });
   await act(async () => {
@@ -109,7 +110,9 @@ test("proves explicit session nonce renewal, generation increment, and bridge re
   assert.equal(generation1, 1, "Initial generation must be 1");
 
   // Trigger Reload
-  const reloadButton = container.querySelector('button[title="إعادة تحميل المحتوى"]') as HTMLButtonElement;
+  const reloadButton = container.querySelector(
+    'button[title="إعادة تحميل المحتوى"]',
+  ) as HTMLButtonElement;
   assert.ok(reloadButton, "Reload button must exist");
   await act(async () => {
     reloadButton.click();
@@ -144,9 +147,21 @@ test("proves explicit session nonce renewal, generation increment, and bridge re
   assert.notEqual(generation2, generation1, "generation2 MUST NOT equal generation1");
 
   // EXPLICIT PROOF 3: Bridge Renewal
-  const bridge1 = new AppInteractiveResourceBridge(sampleResource.resource_code, sampleResource.version, nonce1);
-  const bridge2 = new AppInteractiveResourceBridge(sampleResource.resource_code, sampleResource.version, nonce2);
-  assert.notEqual(bridge2.getSessionNonce(), bridge1.getSessionNonce(), "Bridge2 session nonce must differ from Bridge1");
+  const bridge1 = new AppInteractiveResourceBridge(
+    sampleResource.resource_code,
+    sampleResource.version,
+    nonce1,
+  );
+  const bridge2 = new AppInteractiveResourceBridge(
+    sampleResource.resource_code,
+    sampleResource.version,
+    nonce2,
+  );
+  assert.notEqual(
+    bridge2.getSessionNonce(),
+    bridge1.getSessionNonce(),
+    "Bridge2 session nonce must differ from Bridge1",
+  );
 
   // Sequence on Bridge2 starts at 1
   const testEventSeq1 = {
@@ -181,7 +196,7 @@ test("old window isolation: rejects event from old iframe window even with corre
       React.createElement(InteractiveResourceViewer, {
         resource: sampleResource,
         onEventTriggered: (p) => receivedEvents.push(p),
-      })
+      }),
     );
   });
   await act(async () => {
@@ -193,7 +208,9 @@ test("old window isolation: rejects event from old iframe window even with corre
   const srcdoc1 = iframe1.getAttribute("srcdoc") || "";
   const nonce1 = srcdoc1.match(/var nonce="([^"]+)"/)![1];
 
-  const reloadButton = container.querySelector('button[title="إعادة تحميل المحتوى"]') as HTMLButtonElement;
+  const reloadButton = container.querySelector(
+    'button[title="إعادة تحميل المحتوى"]',
+  ) as HTMLButtonElement;
   await act(async () => {
     reloadButton.click();
   });
@@ -226,18 +243,24 @@ test("old window isolation: rejects event from old iframe window even with corre
   };
 
   // 2. Direct Bridge Rejection Code Proof
-  const bridge2 = new AppInteractiveResourceBridge(sampleResource.resource_code, sampleResource.version, nonce2);
+  const bridge2 = new AppInteractiveResourceBridge(
+    sampleResource.resource_code,
+    sampleResource.version,
+    nonce2,
+  );
   const validation = bridge2.validateEventPayload(oldWindowEvent, win1, win2);
   assert.equal(validation.isValid, false, "Event from old window must be invalid");
   assert.equal(
     validation.finding?.code,
     ValidationCodes.INVALID_EVENT_SOURCE,
-    "Isolated rejection code for old window MUST be INVALID_EVENT_SOURCE"
+    "Isolated rejection code for old window MUST be INVALID_EVENT_SOURCE",
   );
 
   // 3. Component DOM Event Processing Rejection Proof
   await act(async () => {
-    dom.window.dispatchEvent(new dom.window.MessageEvent("message", { data: oldWindowEvent, source: win1 }));
+    dom.window.dispatchEvent(
+      new dom.window.MessageEvent("message", { data: oldWindowEvent, source: win1 }),
+    );
   });
 
   assert.equal(receivedEvents.length, 0, "Event from old window must NOT be delivered");
@@ -262,7 +285,7 @@ test("old nonce isolation: rejects event with old session nonce even from active
       React.createElement(InteractiveResourceViewer, {
         resource: sampleResource,
         onEventTriggered: (p) => receivedEvents.push(p),
-      })
+      }),
     );
   });
   await act(async () => {
@@ -273,7 +296,9 @@ test("old nonce isolation: rejects event with old session nonce even from active
   const srcdoc1 = iframe1.getAttribute("srcdoc") || "";
   const nonce1 = srcdoc1.match(/var nonce="([^"]+)"/)![1];
 
-  const reloadButton = container.querySelector('button[title="إعادة تحميل المحتوى"]') as HTMLButtonElement;
+  const reloadButton = container.querySelector(
+    'button[title="إعادة تحميل المحتوى"]',
+  ) as HTMLButtonElement;
   await act(async () => {
     reloadButton.click();
   });
@@ -306,18 +331,24 @@ test("old nonce isolation: rejects event with old session nonce even from active
   };
 
   // 2. Direct Bridge Rejection Code Proof
-  const bridge2 = new AppInteractiveResourceBridge(sampleResource.resource_code, sampleResource.version, nonce2);
+  const bridge2 = new AppInteractiveResourceBridge(
+    sampleResource.resource_code,
+    sampleResource.version,
+    nonce2,
+  );
   const validation = bridge2.validateEventPayload(oldNonceEvent, win2, win2);
   assert.equal(validation.isValid, false, "Event with old nonce must be invalid");
   assert.equal(
     validation.finding?.code,
     ValidationCodes.NONCE_MISMATCH,
-    "Isolated rejection code for old nonce MUST be NONCE_MISMATCH"
+    "Isolated rejection code for old nonce MUST be NONCE_MISMATCH",
   );
 
   // 3. Component DOM Event Processing Rejection Proof
   await act(async () => {
-    dom.window.dispatchEvent(new dom.window.MessageEvent("message", { data: oldNonceEvent, source: win2 }));
+    dom.window.dispatchEvent(
+      new dom.window.MessageEvent("message", { data: oldNonceEvent, source: win2 }),
+    );
   });
 
   assert.equal(receivedEvents.length, 0, "Event with old nonce must NOT be delivered");
@@ -358,13 +389,13 @@ function ProductionLessonIntegrationHost({
     React.createElement(
       "div",
       { "data-testid": "lesson-completed-status" },
-      lessonCompleted ? "LESSON_COMPLETED_TRUE" : "LESSON_COMPLETED_FALSE"
+      lessonCompleted ? "LESSON_COMPLETED_TRUE" : "LESSON_COMPLETED_FALSE",
     ),
     React.createElement(InteractiveResourceViewer, {
       resource,
       onEventTriggered: handleResourceEvent,
     }),
-    React.createElement("div", { "data-testid": "events-count" }, String(receivedEvents.length))
+    React.createElement("div", { "data-testid": "events-count" }, String(receivedEvents.length)),
   );
 }
 
@@ -382,7 +413,7 @@ test("experiment completion and lesson integration: resource badge shown, lesson
         onLessonCompletedMutation: () => {
           mutationCallCount++;
         },
-      })
+      }),
     );
   });
   await act(async () => {
@@ -391,7 +422,11 @@ test("experiment completion and lesson integration: resource badge shown, lesson
 
   // Verify initial state
   const statusEl = container.querySelector('[data-testid="lesson-completed-status"]');
-  assert.equal(statusEl?.textContent, "LESSON_COMPLETED_FALSE", "Initial lessonCompleted state must be false");
+  assert.equal(
+    statusEl?.textContent,
+    "LESSON_COMPLETED_FALSE",
+    "Initial lessonCompleted state must be false",
+  );
 
   const iframe = container.querySelector("iframe") as HTMLIFrameElement;
   assert.ok(iframe, "Iframe must be present");
@@ -415,12 +450,22 @@ test("experiment completion and lesson integration: resource badge shown, lesson
   };
 
   await act(async () => {
-    dom.window.dispatchEvent(new dom.window.MessageEvent("message", { data: untrustedPayloadEvent, source: win }));
+    dom.window.dispatchEvent(
+      new dom.window.MessageEvent("message", { data: untrustedPayloadEvent, source: win }),
+    );
   });
 
   const countEl1 = container.querySelector('[data-testid="events-count"]');
-  assert.equal(countEl1?.textContent, "0", "Untrusted payload keys (score/points/trusted_result) must be REJECTED");
-  assert.equal(statusEl?.textContent, "LESSON_COMPLETED_FALSE", "lessonCompleted remains false after untrusted payload");
+  assert.equal(
+    countEl1?.textContent,
+    "0",
+    "Untrusted payload keys (score/points/trusted_result) must be REJECTED",
+  );
+  assert.equal(
+    statusEl?.textContent,
+    "LESSON_COMPLETED_FALSE",
+    "lessonCompleted remains false after untrusted payload",
+  );
   assert.equal(mutationCallCount, 0, "No completion mutation/callback must be invoked");
 
   // 2. Valid experiment_completed event
@@ -435,7 +480,9 @@ test("experiment completion and lesson integration: resource badge shown, lesson
   };
 
   await act(async () => {
-    dom.window.dispatchEvent(new dom.window.MessageEvent("message", { data: validCompletedEvent, source: win }));
+    dom.window.dispatchEvent(
+      new dom.window.MessageEvent("message", { data: validCompletedEvent, source: win }),
+    );
   });
 
   const countEl2 = container.querySelector('[data-testid="events-count"]');
@@ -444,11 +491,15 @@ test("experiment completion and lesson integration: resource badge shown, lesson
   // 3. Prove resource badge is displayed
   assert.ok(
     container.textContent?.includes("سجل المورد التفاعلي إكمال النشاط"),
-    "Resource displays activity completion badge on experiment_completed"
+    "Resource displays activity completion badge on experiment_completed",
   );
 
   // 4. Prove lessonCompleted remains FALSE
-  assert.equal(statusEl?.textContent, "LESSON_COMPLETED_FALSE", "lessonCompleted MUST remain false");
+  assert.equal(
+    statusEl?.textContent,
+    "LESSON_COMPLETED_FALSE",
+    "lessonCompleted MUST remain false",
+  );
 
   // 5. Prove NO completion mutation or callback was invoked
   assert.equal(mutationCallCount, 0, "Zero completion mutations or callbacks must be invoked");
@@ -481,14 +532,16 @@ test("pre-load rejection and post-load acceptance: win2+nonce2 before onLoad ret
       React.createElement(InteractiveResourceViewer, {
         resource: sampleResource,
         onEventTriggered: (p) => receivedEvents.push(p),
-      })
+      }),
     );
   });
   await act(async () => {
     await new Promise((r) => setTimeout(r, 50));
   });
 
-  const reloadButton = container.querySelector('button[title="إعادة تحميل المحتوى"]') as HTMLButtonElement;
+  const reloadButton = container.querySelector(
+    'button[title="إعادة تحميل المحتوى"]',
+  ) as HTMLButtonElement;
 
   blockLoad = true;
   await act(async () => {
@@ -515,17 +568,23 @@ test("pre-load rejection and post-load acceptance: win2+nonce2 before onLoad ret
   };
 
   // Direct bridge verification when expectedWindow is null
-  const bridge2 = new AppInteractiveResourceBridge(sampleResource.resource_code, sampleResource.version, nonce2);
+  const bridge2 = new AppInteractiveResourceBridge(
+    sampleResource.resource_code,
+    sampleResource.version,
+    nonce2,
+  );
   const preLoadVal = bridge2.validateEventPayload(preLoadEvent, win2, null);
   assert.equal(preLoadVal.isValid, false, "Pre-load validation must fail");
   assert.equal(
     preLoadVal.finding?.code,
     ValidationCodes.INVALID_EVENT_SOURCE,
-    "Pre-load rejection code MUST be INVALID_EVENT_SOURCE"
+    "Pre-load rejection code MUST be INVALID_EVENT_SOURCE",
   );
 
   await act(async () => {
-    dom.window.dispatchEvent(new dom.window.MessageEvent("message", { data: preLoadEvent, source: win2 }));
+    dom.window.dispatchEvent(
+      new dom.window.MessageEvent("message", { data: preLoadEvent, source: win2 }),
+    );
   });
 
   assert.equal(receivedEvents.length, 0, "Event before iframe onLoad MUST be rejected");
@@ -539,7 +598,9 @@ test("pre-load rejection and post-load acceptance: win2+nonce2 before onLoad ret
   });
 
   await act(async () => {
-    dom.window.dispatchEvent(new dom.window.MessageEvent("message", { data: preLoadEvent, source: win2 }));
+    dom.window.dispatchEvent(
+      new dom.window.MessageEvent("message", { data: preLoadEvent, source: win2 }),
+    );
   });
 
   assert.equal(receivedEvents.length, 1, "Event after iframe onLoad MUST be accepted exactly once");
@@ -585,17 +646,23 @@ test("listener lifecycle: old listener removed, new handler distinct, exactly 1 
       React.createElement(InteractiveResourceViewer, {
         resource: sampleResource,
         onEventTriggered: (p) => receivedEvents.push(p),
-      })
+      }),
     );
   });
   await act(async () => {
     await new Promise((r) => setTimeout(r, 50));
   });
 
-  assert.equal(attachedListeners.length - detachedListeners.length, 1, "Exactly 1 active message listener on mount");
+  assert.equal(
+    attachedListeners.length - detachedListeners.length,
+    1,
+    "Exactly 1 active message listener on mount",
+  );
   const handler1 = attachedListeners[0];
 
-  const reloadButton = container.querySelector('button[title="إعادة تحميل المحتوى"]') as HTMLButtonElement;
+  const reloadButton = container.querySelector(
+    'button[title="إعادة تحميل المحتوى"]',
+  ) as HTMLButtonElement;
   await act(async () => {
     reloadButton.click();
   });
@@ -604,14 +671,25 @@ test("listener lifecycle: old listener removed, new handler distinct, exactly 1 
   });
 
   // Prove old listener was removed
-  assert.ok(detachedListeners.includes(handler1), "Old message listener handler1 MUST be detached on reload");
+  assert.ok(
+    detachedListeners.includes(handler1),
+    "Old message listener handler1 MUST be detached on reload",
+  );
 
   // Prove new listener identity is distinct
   const handler2 = attachedListeners[attachedListeners.length - 1];
-  assert.notEqual(handler2, handler1, "New message listener handler2 MUST be distinct from handler1");
+  assert.notEqual(
+    handler2,
+    handler1,
+    "New message listener handler2 MUST be distinct from handler1",
+  );
 
   // Prove exactly 1 active listener remains
-  assert.equal(attachedListeners.length - detachedListeners.length, 1, "Exactly 1 active message listener after reload");
+  assert.equal(
+    attachedListeners.length - detachedListeners.length,
+    1,
+    "Exactly 1 active message listener after reload",
+  );
 
   const iframe2 = container.querySelector("iframe") as HTMLIFrameElement;
   const win2 = iframe2.contentWindow!;
@@ -633,7 +711,9 @@ test("listener lifecycle: old listener removed, new handler distinct, exactly 1 
   };
 
   await act(async () => {
-    dom.window.dispatchEvent(new dom.window.MessageEvent("message", { data: validEvent, source: win2 }));
+    dom.window.dispatchEvent(
+      new dom.window.MessageEvent("message", { data: validEvent, source: win2 }),
+    );
   });
 
   assert.equal(receivedEvents.length, 1, "Event MUST be processed exactly once by active listener");
@@ -645,7 +725,11 @@ test("listener lifecycle: old listener removed, new handler distinct, exactly 1 
 
   // Prove handler2 detached and 0 active listeners remain
   assert.ok(detachedListeners.includes(handler2), "handler2 MUST be detached on unmount");
-  assert.equal(attachedListeners.length - detachedListeners.length, 0, "Zero active message listeners MUST remain after unmount");
+  assert.equal(
+    attachedListeners.length - detachedListeners.length,
+    0,
+    "Zero active message listeners MUST remain after unmount",
+  );
 
   // Post unmount event must have no effect
   const postUnmountEvent = {
@@ -659,8 +743,14 @@ test("listener lifecycle: old listener removed, new handler distinct, exactly 1 
   };
 
   await act(async () => {
-    dom.window.dispatchEvent(new dom.window.MessageEvent("message", { data: postUnmountEvent, source: win2 }));
+    dom.window.dispatchEvent(
+      new dom.window.MessageEvent("message", { data: postUnmountEvent, source: win2 }),
+    );
   });
 
-  assert.equal(receivedEvents.length, 1, "Events after unmount MUST NOT be processed or alter state");
+  assert.equal(
+    receivedEvents.length,
+    1,
+    "Events after unmount MUST NOT be processed or alter state",
+  );
 });

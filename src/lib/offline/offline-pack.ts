@@ -77,7 +77,6 @@ export async function listPackResources(lessonIds: string[]): Promise<PackResour
   return out;
 }
 
-
 export async function getPackStatus(lessonIds: string[]): Promise<PackStatus> {
   const resources = await listPackResources(lessonIds);
   const cachedIds = new Set<string>();
@@ -92,7 +91,11 @@ export async function getPackStatus(lessonIds: string[]): Promise<PackStatus> {
   };
 }
 
-async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
   const results: R[] = [];
   let index = 0;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {

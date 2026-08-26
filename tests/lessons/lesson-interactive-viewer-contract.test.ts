@@ -17,12 +17,13 @@ test("interactive lesson HTML keeps scripts sandboxed and blocks network", () =>
 });
 
 test("complete HTML documents are preserved and receive the resize bridge once", () => {
-  const source = "<!doctype html><html dir=\"rtl\"><head><style>.x{color:red}</style></head><body><button onclick=\"go()\">Fe</button><script>function go(){}</script></body></html>";
+  const source =
+    '<!doctype html><html dir="rtl"><head><style>.x{color:red}</style></head><body><button onclick="go()">Fe</button><script>function go(){}</script></body></html>';
   const result = buildInlineHtmlDocument(source, "SANDBOXED_NO_NETWORK");
   assert.equal((result.match(/<html/gi) ?? []).length, 1);
   assert.match(result, /Content-Security-Policy/);
   assert.match(result, /tamkeen:inline-height/);
-  assert.match(result, /onclick=\"go\(\)\"/);
+  assert.match(result, /onclick="go\(\)"/);
   assert.match(result, /connect-src 'none'/);
 });
 

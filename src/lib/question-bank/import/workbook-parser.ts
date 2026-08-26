@@ -74,7 +74,8 @@ function rowsToModel(rows: string[][], fileBytes: number): TrustedWorkbookModel 
     csvInjectionCells: rows.flat().some((cell) => /^[\s]*[=+\-@\t\r]/.test(cell)),
     maxCellBytes: Math.max(0, ...rows.flat().map((cell) => Buffer.byteLength(cell, "utf8"))),
   };
-  const security_preflight_status = fileBytes > DEFAULT_IMPORT_LIMITS.maxFileBytes ? "BLOCKED" : "READY";
+  const security_preflight_status =
+    fileBytes > DEFAULT_IMPORT_LIMITS.maxFileBytes ? "BLOCKED" : "READY";
   return {
     trusted_parser_version: TRUSTED_PARSER_VERSION,
     parser_result_hash: hash({ headers, data, metadata }),
@@ -264,7 +265,12 @@ export async function parseQuestionBankWorkbook(
     };
     return {
       trusted_parser_version: TRUSTED_PARSER_VERSION,
-      parser_result_hash: hash({ fileName, bytes: bytes.byteLength, metadata, issues: zipPreflight.issues }),
+      parser_result_hash: hash({
+        fileName,
+        bytes: bytes.byteLength,
+        metadata,
+        issues: zipPreflight.issues,
+      }),
       security_preflight_status: "BLOCKED",
       headers: [],
       rows: [],
@@ -299,15 +305,30 @@ export async function parseQuestionBankWorkbook(
   const relScan = await scanOoxmlRelationships(zip);
   if (relScan.hasExternalLinks || relScan.invalidStructure) {
     metadata.hasExternalLinks = true;
-    const isStructureInvalid = relScan.invalidStructure || relScan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID");
+    const isStructureInvalid =
+      relScan.invalidStructure ||
+      relScan.externalTargets.includes("OOXML_RELATIONSHIP_STRUCTURE_INVALID");
     const preflight_issues = [
       isStructureInvalid
-        ? issue(QB_IMPORT_CODES.OOXML_RELATIONSHIP_STRUCTURE_INVALID, { file: fileName, stage: "PREFLIGHT_OOXML", source_subsystem: "workbook-parser" })
-        : issue(QB_IMPORT_CODES.EXTERNAL_LINK, { file: fileName, stage: "PREFLIGHT_OOXML", source_subsystem: "workbook-parser" }),
+        ? issue(QB_IMPORT_CODES.OOXML_RELATIONSHIP_STRUCTURE_INVALID, {
+            file: fileName,
+            stage: "PREFLIGHT_OOXML",
+            source_subsystem: "workbook-parser",
+          })
+        : issue(QB_IMPORT_CODES.EXTERNAL_LINK, {
+            file: fileName,
+            stage: "PREFLIGHT_OOXML",
+            source_subsystem: "workbook-parser",
+          }),
     ];
     return {
       trusted_parser_version: TRUSTED_PARSER_VERSION,
-      parser_result_hash: hash({ fileName, bytes: bytes.byteLength, metadata, externalTargets: relScan.externalTargets }),
+      parser_result_hash: hash({
+        fileName,
+        bytes: bytes.byteLength,
+        metadata,
+        externalTargets: relScan.externalTargets,
+      }),
       security_preflight_status: "BLOCKED",
       headers: [],
       rows: [],
@@ -337,7 +358,11 @@ export async function parseQuestionBankWorkbook(
   if (!worksheet) {
     return {
       trusted_parser_version: TRUSTED_PARSER_VERSION,
-      parser_result_hash: hash({ fileName, bytes: bytes.byteLength, metadata: { ...metadata, visibleSheetCount: 0 } }),
+      parser_result_hash: hash({
+        fileName,
+        bytes: bytes.byteLength,
+        metadata: { ...metadata, visibleSheetCount: 0 },
+      }),
       security_preflight_status: "BLOCKED",
       headers: [],
       rows: [],
@@ -349,7 +374,12 @@ export async function parseQuestionBankWorkbook(
   worksheet.eachRow({ includeEmpty: true }, (row) => {
     const values: string[] = [];
     row.eachCell({ includeEmpty: true }, (cell) => {
-      if (cell.type === 4 || (typeof cell.value === "object" && cell.value !== null && ("formula" in (cell.value as any) || "sharedFormula" in (cell.value as any)))) {
+      if (
+        cell.type === 4 ||
+        (typeof cell.value === "object" &&
+          cell.value !== null &&
+          ("formula" in (cell.value as any) || "sharedFormula" in (cell.value as any)))
+      ) {
         metadata.hasFormulaCells = true;
       }
       const text = cell.text ?? String(cell.value ?? "");
@@ -360,14 +390,9 @@ export async function parseQuestionBankWorkbook(
 
   const headers = rawRows[0] ?? [];
   const dataRows = rawRows.slice(1);
-  const rows = dataRows.map((r) =>
-    Object.fromEntries(headers.map((h, i) => [h, r[i] ?? ""])),
-  );
+  const rows = dataRows.map((r) => Object.fromEntries(headers.map((h, i) => [h, r[i] ?? ""])));
 
-  metadata.maxCellBytes = Math.max(
-    0,
-    ...rawRows.flat().map((c) => Buffer.byteLength(c, "utf8")),
-  );
+  metadata.maxCellBytes = Math.max(0, ...rawRows.flat().map((c) => Buffer.byteLength(c, "utf8")));
   metadata.csvInjectionCells = rawRows.flat().some((cell) => /^[\s]*[=+\-@\t\r]/.test(cell));
 
   return {

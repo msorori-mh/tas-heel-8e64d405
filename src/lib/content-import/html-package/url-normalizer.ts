@@ -42,7 +42,18 @@ export function decodeHtmlEntities(str: string): string {
 // Strip control characters & zero-width chars
 export function stripControlCharacters(str: string): string {
   // Removes \u0000-\u001F, \u007F-\u009F, \u200B (zero-width space), \u00AD (soft hyphen), \uFEFF (BOM)
-  return str.replace(/[\u0000-\u001F\u007F-\u009F\u200B\u00AD\uFEFF]/g, "");
+  return Array.from(str)
+    .filter((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return !(
+        codePoint <= 0x1f ||
+        (codePoint >= 0x7f && codePoint <= 0x9f) ||
+        codePoint === 0x200b ||
+        codePoint === 0x00ad ||
+        codePoint === 0xfeff
+      );
+    })
+    .join("");
 }
 
 // Safely decode percent-encoding up to 8 passes, fail-closed if malformed
@@ -178,7 +189,7 @@ export function normalizeUrlString(rawUrl: string): {
  */
 export function isUrlSafe(
   rawUrl: string,
-  options: { allowDataImage?: boolean } = {}
+  options: { allowDataImage?: boolean } = {},
 ): { safe: boolean; reason?: string; normalized: string } {
   const norm = normalizeUrlString(rawUrl);
 
@@ -216,7 +227,10 @@ export function isUrlSafe(
     }
 
     if (scheme === "data") {
-      if (options.allowDataImage && /^data:image\/(png|jpeg|webp|gif|svg\+xml);/i.test(normalized)) {
+      if (
+        options.allowDataImage &&
+        /^data:image\/(png|jpeg|webp|gif|svg\+xml);/i.test(normalized)
+      ) {
         return { safe: true, normalized };
       }
       return { safe: false, reason: `Forbidden data: URL type`, normalized };

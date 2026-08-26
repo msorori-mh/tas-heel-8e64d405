@@ -1,4 +1,7 @@
-import { CONTRACT_HEADERS, type ImportSchemaId } from "../../../../src/lib/question-bank/import/adapters/detect.ts";
+import {
+  CONTRACT_HEADERS,
+  type ImportSchemaId,
+} from "../../../../src/lib/question-bank/import/adapters/detect.ts";
 import {
   runQuestionBankImportDryRun,
   runOperationalQuestionBankImportDryRun,
@@ -95,7 +98,14 @@ export type ActualResult = {
   file_blocking: boolean;
   summary: Record<string, unknown>;
   preview: unknown[];
-  issues: Array<{ code: string; severity: string; row_blocking: boolean; file_blocking: boolean; stage: string; source_subsystem: string }>;
+  issues: Array<{
+    code: string;
+    severity: string;
+    row_blocking: boolean;
+    file_blocking: boolean;
+    stage: string;
+    source_subsystem: string;
+  }>;
 };
 
 export const DEFAULT_TEST_AUTH = {
@@ -114,7 +124,9 @@ function defaultCatalogFromState(state?: OperationalFixture["catalog_state"]): C
       ? state.authorized_subjects
       : ["MATH-G10", "PHYS-G10", "CHEM-G10", "MATH", "PHYS", "CHEM"],
   );
-  const lessons = new Set(state?.lessons?.length ? state.lessons : ["MATH-L1", "PHYS-L1", "CHEM-L1", "MATH-1"]);
+  const lessons = new Set(
+    state?.lessons?.length ? state.lessons : ["MATH-L1", "PHYS-L1", "CHEM-L1", "MATH-1"],
+  );
   const lessonSubjects = new Map([
     ["MATH-L1", "MATH-G10"],
     ["PHYS-L1", "PHYS-G10"],
@@ -122,7 +134,9 @@ function defaultCatalogFromState(state?: OperationalFixture["catalog_state"]): C
     ["MATH-1", "MATH"],
     ...(state?.lesson_subjects ? Object.entries(state.lesson_subjects) : []),
   ]);
-  const existing = new Map<string, string>(state?.existing_codes ? Object.entries(state.existing_codes) : []);
+  const existing = new Map<string, string>(
+    state?.existing_codes ? Object.entries(state.existing_codes) : [],
+  );
   return {
     subjects,
     lessons,
@@ -132,30 +146,33 @@ function defaultCatalogFromState(state?: OperationalFixture["catalog_state"]): C
   };
 }
 
-function fillDefaultRowFields(inputFormat: string, inputObj: Record<string, unknown>): Record<string, unknown> {
+function fillDefaultRowFields(
+  inputFormat: string,
+  inputObj: Record<string, unknown>,
+): Record<string, unknown> {
   if (inputFormat === "teacher_flat_ar_v0") {
     const qType = String(inputObj["نوع_السؤال"] ?? "اختيار_واحد");
     const isMcq = qType === "اختيار_واحد";
     const defaults = {
-      "رمز_السؤال": "Q-DEFAULT",
-      "نص_السؤال": "سؤال افتراضي تجريبي",
-      "نوع_السؤال": "اختيار_واحد",
-      "الخيار_١": isMcq ? "الخيار 1" : "",
-      "الخيار_٢": isMcq ? "الخيار 2" : "",
-      "الخيار_٣": "",
-      "الخيار_٤": "",
-      "الخيار_٥": "",
-      "الخيار_٦": "",
-      "رقم_الإجابة_الصحيحة": isMcq ? "١" : "",
-      "الإجابات_المقبولة": "",
-      "الشرح": "",
-      "الدرجة": "1",
-      "السماح_بالجزئي": "لا",
-      "رمز_المادة": "MATH-G10",
-      "رمز_الدرس": "MATH-L1",
-      "رابط_الوسائط": "",
-      "نوع_الوسائط": "",
-      "نص_بديل": "",
+      رمز_السؤال: "Q-DEFAULT",
+      نص_السؤال: "سؤال افتراضي تجريبي",
+      نوع_السؤال: "اختيار_واحد",
+      الخيار_١: isMcq ? "الخيار 1" : "",
+      الخيار_٢: isMcq ? "الخيار 2" : "",
+      الخيار_٣: "",
+      الخيار_٤: "",
+      الخيار_٥: "",
+      الخيار_٦: "",
+      رقم_الإجابة_الصحيحة: isMcq ? "١" : "",
+      الإجابات_المقبولة: "",
+      الشرح: "",
+      الدرجة: "1",
+      السماح_بالجزئي: "لا",
+      رمز_المادة: "MATH-G10",
+      رمز_الدرس: "MATH-L1",
+      رابط_الوسائط: "",
+      نوع_الوسائط: "",
+      نص_بديل: "",
     };
     return { ...defaults, ...inputObj };
   }
@@ -248,7 +265,9 @@ export function classifyVector(vector: OracleVector): ExecutionKind {
 }
 
 /** Layer B: Fixture Builder constructs Operational Input ONLY from OperationalFixture type. DOES NOT ACCESS EXPECTED FIELDS. */
-export async function buildOperationalInput(fixture: OperationalFixture): Promise<OperationalInput> {
+export async function buildOperationalInput(
+  fixture: OperationalFixture,
+): Promise<OperationalInput> {
   const fileName = fixture.file_name ?? "workbook.xlsx";
   const catalog = defaultCatalogFromState(fixture.catalog_state);
 
@@ -299,7 +318,8 @@ export async function buildOperationalInput(fixture: OperationalFixture): Promis
     else if (fix === "zip_absolute_path") bytes = await buildZipWithAbsolutePath();
     else if (fix === "zip_control_char") bytes = await buildZipWithControlCharEntry();
     else if (fix === "zip_normalized_duplicates") bytes = await buildZipWithNormalizedDuplicates();
-    else if (fix === "ooxml_external_rel") bytes = await buildOoxmlExternalRelXlsx("http://attacker.com");
+    else if (fix === "ooxml_external_rel")
+      bytes = await buildOoxmlExternalRelXlsx("http://attacker.com");
     else if (fix === "ooxml_dtd_xxe") bytes = await buildOoxmlDtdXxeXlsx();
     else if (fix === "ooxml_oversized_rels") bytes = await buildOoxmlOversizedRelsXlsx();
     else if (fix === "ooxml_malformed_xml") bytes = await buildOoxmlMalformedXmlXlsx();
@@ -316,7 +336,9 @@ export async function buildOperationalInput(fixture: OperationalFixture): Promis
   }
 
   const format = fixture.input_format ?? "official_flat_v0";
-  const defaultHeaders = CONTRACT_HEADERS[format] ? [...CONTRACT_HEADERS[format]] : [...CONTRACT_HEADERS.official_flat_v0];
+  const defaultHeaders = CONTRACT_HEADERS[format]
+    ? [...CONTRACT_HEADERS[format]]
+    : [...CONTRACT_HEADERS.official_flat_v0];
   const headers = fixture.headers ?? defaultHeaders;
   const rows = fixture.rows ?? [fillDefaultRowFields(format, {})];
 
@@ -354,9 +376,15 @@ export async function executeOperationalInput(input: OperationalInput): Promise<
         replayStore: new InMemoryPreviewTokenReplayStore(),
       });
     } else if (scen === "stale-validation") {
-      val = validateStaleValidation(state?.expected_validation_hash ?? null, state?.current_validation_hash ?? null);
+      val = validateStaleValidation(
+        state?.expected_validation_hash ?? null,
+        state?.current_validation_hash ?? null,
+      );
     } else if (scen === "content-hash") {
-      val = validateContentHash(state?.current_content_hash ?? null, state?.expected_content_hash ?? null);
+      val = validateContentHash(
+        state?.current_content_hash ?? null,
+        state?.expected_content_hash ?? null,
+      );
     } else if (scen === "toctou") {
       val = validateTOCTOUSnapshot(state?.expected_snapshot, state?.current_snapshot);
     } else if (scen === "atomic-plan") {
@@ -420,7 +448,8 @@ export async function executeOperationalInput(input: OperationalInput): Promise<
   const isRowBlocking = res.issues.some((i) => i.row_blocking);
   return {
     actual_codes: res.issues.map((i) => i.code),
-    normalized: isRowBlocking || res.summary.file_blocking ? null : (res.preview[0]?.normalized ?? null),
+    normalized:
+      isRowBlocking || res.summary.file_blocking ? null : (res.preview[0]?.normalized ?? null),
     row_blocking: isRowBlocking,
     file_blocking: res.summary.file_blocking,
     summary: res.summary as unknown as Record<string, unknown>,
@@ -441,7 +470,14 @@ export function compareNormalized(actual: unknown, expected: unknown): boolean {
   if (!actual || !expected) return false;
   const a = actual as Record<string, any>;
   const e = expected as Record<string, any>;
-  if (e.accepted_boundary || e.fixture || e.replayed_result_id || e.applied_result_id || e.preview_token || e.status === "DRAFT") {
+  if (
+    e.accepted_boundary ||
+    e.fixture ||
+    e.replayed_result_id ||
+    e.applied_result_id ||
+    e.preview_token ||
+    e.status === "DRAFT"
+  ) {
     return true;
   }
   if (a.question_code || a.contract === "official_normalized_v1") return true;

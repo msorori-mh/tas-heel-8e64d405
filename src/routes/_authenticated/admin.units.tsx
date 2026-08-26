@@ -35,7 +35,11 @@ function AdminUnitsPage() {
   const [freeFilter, setFreeFilter] = useState<string>("all");
   const [editing, setEditing] = useState<UnitEditValue | null>(null);
   const [creating, setCreating] = useState(false);
-  const [deletingUnit, setDeletingUnit] = useState<{ id: string; title: string; subject_name: string | null } | null>(null);
+  const [deletingUnit, setDeletingUnit] = useState<{
+    id: string;
+    title: string;
+    subject_name: string | null;
+  } | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -101,7 +105,7 @@ function AdminUnitsPage() {
         .from("units")
         .select(
           "id, title, description, sort_order, is_free, subject_id, subject:subjects!units_subject_id_fkey(id, name, grade_id)",
-          { count: "exact" }
+          { count: "exact" },
         )
         .order("sort_order", { ascending: true })
         .range(from, to);
@@ -193,7 +197,8 @@ function AdminUnitsPage() {
               الوحدات الدراسية
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              أضف الوحدات واربط كل وحدة بمادتها، أو اترك الدرس مرتبطًا بالمادة مباشرة عندما لا توجد وحدة في الكتاب.
+              أضف الوحدات واربط كل وحدة بمادتها، أو اترك الدرس مرتبطًا بالمادة مباشرة عندما لا توجد
+              وحدة في الكتاب.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -250,7 +255,10 @@ function AdminUnitsPage() {
             <option value="all">كل المواد</option>
             {subjectOptions.map((subject) => (
               <option key={subject.id} value={subject.id}>
-                {subject.name}{gradeFilter === "all" && subject.grade_id ? ` — ${gradeNameMap[subject.grade_id] ?? ""}` : ""}
+                {subject.name}
+                {gradeFilter === "all" && subject.grade_id
+                  ? ` — ${gradeNameMap[subject.grade_id] ?? ""}`
+                  : ""}
               </option>
             ))}
           </select>
@@ -284,7 +292,7 @@ function AdminUnitsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
-                  <th className="px-4 py-3 text-right font-medium">الترتيب</th>
+                    <th className="px-4 py-3 text-right font-medium">الترتيب</th>
                     <th className="px-4 py-3 text-right font-medium">الوحدة</th>
                     <th className="px-4 py-3 text-right font-medium">المادة</th>
                     <th className="px-4 py-3 text-right font-medium">الصف</th>
@@ -314,7 +322,7 @@ function AdminUnitsPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {lessonsCountQ.isLoading ? "…" : lessonsMap[r.id] ?? 0}
+                        {lessonsCountQ.isLoading ? "…" : (lessonsMap[r.id] ?? 0)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
@@ -369,8 +377,7 @@ function AdminUnitsPage() {
                   <div className="mt-2 grid grid-cols-2 gap-y-1 text-xs text-muted-foreground">
                     <span>المادة: {r.subject?.name || "—"}</span>
                     <span>
-                      الصف:{" "}
-                      {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
+                      الصف: {r.subject?.grade_id ? gradeNameMap[r.subject.grade_id] || "—" : "—"}
                     </span>
                     <span>
                       الحالة:{" "}
@@ -380,10 +387,7 @@ function AdminUnitsPage() {
                         <span className="text-amber-600">ضمن الاشتراك</span>
                       )}
                     </span>
-                    <span>
-                      الدروس:{" "}
-                      {lessonsCountQ.isLoading ? "…" : lessonsMap[r.id] ?? 0}
-                    </span>
+                    <span>الدروس: {lessonsCountQ.isLoading ? "…" : (lessonsMap[r.id] ?? 0)}</span>
                   </div>
                   <div className="mt-3 flex justify-end gap-1.5">
                     <button
@@ -473,13 +477,10 @@ function AdminUnitsPage() {
             if (!o) setDeletingUnit(null);
           }}
           target={
-            deletingUnit
-              ? { type: "unit", id: deletingUnit.id, label: deletingUnit.title }
-              : null
+            deletingUnit ? { type: "unit", id: deletingUnit.id, label: deletingUnit.title } : null
           }
         />
       </div>
     </AdminLayout>
   );
 }
-
