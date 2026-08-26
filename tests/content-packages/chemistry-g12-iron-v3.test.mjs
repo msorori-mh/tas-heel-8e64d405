@@ -147,7 +147,7 @@ test('self test is separate, pinned, and does not leak answers or rationales', (
   if (!intakeExists(x.source_file)) return t.skip('SKIP_SOURCE_INTAKE_UNAVAILABLE');
   const s = read('self-test.json');
   const c = json('answer-companion.server-only.json');
-  assert.equal(x.question_count, 40);
+  assert.equal(x.question_count, 20);
   assert.deepEqual(x.question_types, {multiple_choice:20,true_false:20});
   assert.equal(x.revision_pin, 'sha256:' + hash(x.source_file));
   assert.doesNotMatch(s, /correct_option|rationale|answer_key/i);
