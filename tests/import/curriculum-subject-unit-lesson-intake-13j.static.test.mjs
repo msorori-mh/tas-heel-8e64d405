@@ -29,7 +29,7 @@ describe("CURRICULUM_SUBJECT_UNIT_LESSON_INTAKE_FIX_13J", () => {
     assert.match(contract, /f\("unit_code", "units", "code", true\)/);
     assert.match(
       contract,
-      /f\("unit_code", "units", null, false,[\s\S]*empty = lesson attached directly to subject/,
+      /f\(\s*"unit_code",\s*"units",\s*null,\s*false,\s*"[^"]*empty = lesson attached directly to subject"/,
     );
   });
 
