@@ -34,11 +34,9 @@ function createMockSupabaseClient(): SupabaseClient<Database> & {
                 data: { lifecycle_status: "draft" },
                 error: null,
               }),
-            in: (_column: string, _values: unknown[]) =>
-              Promise.resolve({ data: [], error: null }),
+            in: (_column: string, _values: unknown[]) => Promise.resolve({ data: [], error: null }),
           }),
-          in: (_column: string, _values: unknown[]) =>
-            Promise.resolve({ data: [], error: null }),
+          in: (_column: string, _values: unknown[]) => Promise.resolve({ data: [], error: null }),
         }),
         insert: (_values: unknown) => ({
           select: (_columns?: string) => ({

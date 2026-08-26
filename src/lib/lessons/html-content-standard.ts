@@ -16,10 +16,7 @@
 
 import type { V3CapabilityKey } from "./content-v3";
 
-export const HTML_PROFILES = [
-  "STATIC_EDUCATIONAL_HTML",
-  "INTERACTIVE_EDUCATIONAL_HTML",
-] as const;
+export const HTML_PROFILES = ["STATIC_EDUCATIONAL_HTML", "INTERACTIVE_EDUCATIONAL_HTML"] as const;
 
 export type HtmlProfile = (typeof HTML_PROFILES)[number];
 
@@ -81,8 +78,7 @@ export const ANSWER_LEAK_PATTERNS: readonly RegExp[] = [
 ];
 
 /** Any absolute remote reference — external CDNs are forbidden by contract. */
-const EXTERNAL_REF_PATTERN =
-  /(?:src|href)\s*=\s*["'](?:https?:)?\/\/(?!localhost)[^"']+["']/gi;
+const EXTERNAL_REF_PATTERN = /(?:src|href)\s*=\s*["'](?:https?:)?\/\/(?!localhost)[^"']+["']/gi;
 
 const SCRIPT_PATTERN = /<script\b[^>]*>/i;
 const INLINE_HANDLER_PATTERN = /\son[a-z]+\s*=\s*["']/i;
@@ -116,7 +112,7 @@ const AR: Record<HtmlStandardCode, string> = {
   EXTERNAL_RESOURCE_FORBIDDEN: "المحتوى يعتمد على مصدر خارجي (CDN) — غير مسموح.",
   JS_NOT_ALLOWED_IN_STATIC_PROFILE: "JavaScript غير مسموح في المحتوى التعليمي الثابت.",
   INLINE_EVENT_HANDLER_FORBIDDEN: "معالجات أحداث مضمّنة (onclick…) غير مسموحة.",
-  RTL_DIRECTION_MISSING: "المحتوى يجب أن يكون RTL (dir=\"rtl\").",
+  RTL_DIRECTION_MISSING: 'المحتوى يجب أن يكون RTL (dir="rtl").',
   RESPONSIVE_VIEWPORT_MISSING: "وسم viewport مفقود — المحتوى يجب أن يكون mobile-first.",
   ANSWER_LEAKAGE_DETECTED: "تسريب إجابات/تبريرات داخل HTML.",
   RESOURCE_CODE_NOT_LESSON_SCOPED: "معرّف المورد لا يتبع تسمية lesson_code.",

@@ -73,8 +73,19 @@ const BLOCK_TYPES = new Set<string>(OFFICIAL_BLOCK_TYPES);
 
 /** Generic HTML void tags — used only for source-position slicing below. */
 const GENERIC_VOID_TAGS = new Set([
-  "area", "base", "br", "col", "embed", "hr", "img", "input",
-  "link", "meta", "source", "track", "wbr",
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "source",
+  "track",
+  "wbr",
 ]);
 
 function normalize(text: string): string {
@@ -305,7 +316,8 @@ export function parseOfficialContent(html: string): OfficialParseResult {
     root = { kind: "element", tag: "section", attrs: {}, children: rootChildren };
     warnings.push({
       code: "OFFICIAL_ROOT_WRAPPER_SYNTHESIZED",
-      message: "لا يوجد عنصر جذر واحد <section data-layer=\"A_OFFICIAL_TEXTBOOK\"> — تم تغليف المحتوى.",
+      message:
+        'لا يوجد عنصر جذر واحد <section data-layer="A_OFFICIAL_TEXTBOOK"> — تم تغليف المحتوى.',
     });
   } else {
     errors.push({

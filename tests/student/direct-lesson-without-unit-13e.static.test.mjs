@@ -25,7 +25,10 @@ test("both shapes are branched on a real units count, no synthesized units", () 
 });
 
 test("unit numbering is only rendered for real units", () => {
-  assert.match(src, /\{index \? <span className="text-muted-foreground">الوحدة \{index\}: <\/span> : null\}/);
+  assert.match(
+    src,
+    /\{index \? <span className="text-muted-foreground">الوحدة \{index\}: <\/span> : null\}/,
+  );
 });
 
 test("empty-unit messaging never shows for direct lessons", () => {
@@ -43,12 +46,18 @@ test("unit practice entry only renders when a real unit id exists", () => {
 });
 
 test("counters: unit chip is conditional, lesson chip is always shown", () => {
-  assert.match(src, /\{hasUnits && \(\s*<span className="inline-flex items-center gap-1">\s*<Layers/);
+  assert.match(
+    src,
+    /\{hasUnits && \(\s*<span className="inline-flex items-center gap-1">\s*<Layers/,
+  );
   assert.match(src, /\{lessons\.length\} درس/);
 });
 
 test("progress is computed from lessons only, independent of unit_id", () => {
-  assert.match(src, /const completedCount = lessons\.filter\(\(l\) => done\.has\(l\.id\)\)\.length;/);
+  assert.match(
+    src,
+    /const completedCount = lessons\.filter\(\(l\) => done\.has\(l\.id\)\)\.length;/,
+  );
   assert.match(
     src,
     /const percent = lessons\.length > 0 \? Math\.round\(\(completedCount \/ lessons\.length\) \* 100\) : 0;/,

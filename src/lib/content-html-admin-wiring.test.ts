@@ -289,8 +289,14 @@ describe("Content HTML Admin Wiring — Import/Review Workflow Tests", () => {
   test("18. InteractiveHtmlImportPanel has no demoRows", () => {
     const filePath = path.resolve("src/components/admin/InteractiveHtmlImportPanel.tsx");
     const content = fs.readFileSync(filePath, "utf-8");
-    assert.ok(!content.includes("demoRows"), "InteractiveHtmlImportPanel must not contain demoRows");
-    assert.ok(!content.includes("demoHtmlBody"), "InteractiveHtmlImportPanel must not contain demoHtmlBody");
+    assert.ok(
+      !content.includes("demoRows"),
+      "InteractiveHtmlImportPanel must not contain demoRows",
+    );
+    assert.ok(
+      !content.includes("demoHtmlBody"),
+      "InteractiveHtmlImportPanel must not contain demoHtmlBody",
+    );
   });
 
   test("19. the separate content-review page is retired", () => {
@@ -307,7 +313,9 @@ describe("Content HTML Admin Wiring — Import/Review Workflow Tests", () => {
   });
 
   test("21. direct publish orchestrator has no 'as any' casts", () => {
-    const filePath = path.resolve("src/lib/content-factory/golden-lesson-direct-publish.functions.ts");
+    const filePath = path.resolve(
+      "src/lib/content-factory/golden-lesson-direct-publish.functions.ts",
+    );
     const content = fs.readFileSync(filePath, "utf-8");
     assert.ok(!content.includes("as any"), "direct publish must not contain 'as any'");
   });

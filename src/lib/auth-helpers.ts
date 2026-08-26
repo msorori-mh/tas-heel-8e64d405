@@ -14,12 +14,11 @@ export function translateAuthError(error: unknown): string {
     return wait
       ? `لأسباب أمنية، يمكنك المحاولة مرة أخرى بعد ${wait[1]} ثانية`
       : "لأسباب أمنية، حاول مرة أخرى بعد قليل";
-  if (m.includes("rate limit") || m.includes("too many"))
-    return "محاولات كثيرة، حاول بعد قليل";
+  if (m.includes("rate limit") || m.includes("too many")) return "محاولات كثيرة، حاول بعد قليل";
   if (m.includes("network") || m.includes("fetch"))
     return "تعذّر الاتصال بالخادم، تحقّق من الإنترنت";
   if (m.includes("invalid email")) return "صيغة البريد غير صحيحة";
-  if (m.includes("otp") || m.includes("token") && m.includes("expired"))
+  if (m.includes("otp") || (m.includes("token") && m.includes("expired")))
     return "انتهت صلاحية الرابط، اطلب رابطاً جديداً";
   return msg;
 }

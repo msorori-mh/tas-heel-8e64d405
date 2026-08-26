@@ -67,7 +67,6 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   return <StatCard label={label} value={value} hint={hint} />;
 }
 
-
 function StudentPerformancePage() {
   const [attemptType, setAttemptType] = useState<AttemptType>("ALL");
 
@@ -113,7 +112,6 @@ function StudentPerformancePage() {
         </Select>
       </div>
 
-
       {query.isLoading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
@@ -154,7 +152,8 @@ function StudentPerformancePage() {
 
           {data.summary.pending_manual_count > 0 ? (
             <p className="rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground">
-              {data.summary.pending_manual_count} محاولة بانتظار التصحيح اليدوي — غير محتسبة في المتوسط.
+              {data.summary.pending_manual_count} محاولة بانتظار التصحيح اليدوي — غير محتسبة في
+              المتوسط.
             </p>
           ) : null}
 

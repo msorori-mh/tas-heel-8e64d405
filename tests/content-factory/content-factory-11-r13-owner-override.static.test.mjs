@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migration = readFileSync(
-  new URL("../../supabase/migrations/20260821023000_rapid_owner_launch_review_override.sql", import.meta.url),
+  new URL(
+    "../../supabase/migrations/20260821023000_rapid_owner_launch_review_override.sql",
+    import.meta.url,
+  ),
   "utf8",
 );
 const server = readFileSync(
@@ -30,7 +33,8 @@ test("R13 owner override requires complete evidence and an audit reason", () => 
     "officialProvenanceChecked",
     "answerSeparationChecked",
     "responsivePreviewChecked",
-  ]) assert.match(migration, new RegExp(key));
+  ])
+    assert.match(migration, new RegExp(key));
   assert.match(migration, /length\(btrim\(COALESCE\(_reason, ''\)\)\) < 20/);
   assert.match(migration, /RAPID_LAUNCH_OWNER_APPROVAL/);
   assert.match(migration, /'ownerOverride', true/);
@@ -38,7 +42,10 @@ test("R13 owner override requires complete evidence and an audit reason", () => 
 
 test("R13 approval performs no lesson-domain writes and keeps normal review intact", () => {
   assert.match(migration, /'domain_writes_performed', 0/);
-  assert.doesNotMatch(migration, /INSERT INTO public\.(lessons|lesson_book_contents|lesson_explanations|lesson_summaries|lesson_resources|lesson_assessments|questions)/);
+  assert.doesNotMatch(
+    migration,
+    /INSERT INTO public\.(lessons|lesson_book_contents|lesson_explanations|lesson_summaries|lesson_resources|lesson_assessments|questions)/,
+  );
   assert.match(server, /ownerApproveGoldenLessonForStaging/);
   assert.match(server, /golden_lesson_owner_approve_for_staging/);
   assert.match(panel, /اعتماد مالك المنصة للتجهيز/);

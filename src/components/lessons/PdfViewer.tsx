@@ -42,7 +42,6 @@ type PdfPage = {
   };
 };
 
-
 let pdfjsPromise: Promise<typeof import("pdfjs-dist")> | null = null;
 
 async function loadPdfJs() {
@@ -187,7 +186,6 @@ export function PdfViewer({
     } catch {
       /* superseded render */
     }
-
   }, [page, scale, status]);
 
   useEffect(() => {

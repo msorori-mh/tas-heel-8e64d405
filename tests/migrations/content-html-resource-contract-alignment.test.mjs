@@ -22,7 +22,11 @@ const lifecycleSql = readFileSync(join(MIGRATIONS_DIR, LIFECYCLE_FILE), "utf8");
 
 test("alignment migration file exists and is additive", () => {
   assert.ok(alignmentSql.length > 0, "Alignment migration file must not be empty");
-  assert.doesNotMatch(alignmentSql, /DROP\s+TABLE\s+lesson_resources/i, "Must not drop lesson_resources");
+  assert.doesNotMatch(
+    alignmentSql,
+    /DROP\s+TABLE\s+lesson_resources/i,
+    "Must not drop lesson_resources",
+  );
   assert.doesNotMatch(alignmentSql, /\bCASCADE\b/i, "Must not use CASCADE");
 });
 
@@ -116,13 +120,21 @@ test("list_published_html_resources_for_lesson uses real DB columns", () => {
   );
   assert.ok(fnMatch, "list_published_html_resources_for_lesson must be defined");
   const fnBody = fnMatch[0];
-  assert.match(fnBody, /lr\.resource_type\s*=\s*['"]html['"]/i, "Must filter by resource_type = html");
+  assert.match(
+    fnBody,
+    /lr\.resource_type\s*=\s*['"]html['"]/i,
+    "Must filter by resource_type = html",
+  );
   assert.match(
     fnBody,
     /lr\.html_resource_type\s+IN\s*\(\s*['"]mind_map_html['"]\s*,\s*['"]practical_experiment_html['"]\s*,\s*['"]summary_html['"]\s*\)/i,
     "Must filter by html_resource_type IN canonical subtypes",
   );
-  assert.match(fnBody, /lr\.lifecycle_status\s*=\s*['"]published['"]/i, "Must require published lifecycle_status");
+  assert.match(
+    fnBody,
+    /lr\.lifecycle_status\s*=\s*['"]published['"]/i,
+    "Must require published lifecycle_status",
+  );
   assert.match(
     fnBody,
     /lr\.published_version_id\s+IS\s+NOT\s+NULL/i,

@@ -3,13 +3,7 @@ import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import {
-  Users,
-  BookOpen,
-  FileText,
-  MessageSquare,
-  Shield,
-} from "lucide-react";
+import { Users, BookOpen, FileText, MessageSquare, Shield } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   component: AdminIndexPage,
@@ -66,8 +60,7 @@ function AdminIndexPage() {
     },
   });
 
-  const anyError =
-    studentsQ.isError || subjectsQ.isError || lessonsQ.isError || contactsQ.isError;
+  const anyError = studentsQ.isError || subjectsQ.isError || lessonsQ.isError || contactsQ.isError;
 
   if (loading) {
     return (
@@ -98,9 +91,7 @@ function AdminIndexPage() {
               <Shield className="h-6 w-6 text-primary" />
               لوحة الإدارة
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              مرحبًا بك في لوحة إدارة تمكين.
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">مرحبًا بك في لوحة إدارة تمكين.</p>
           </div>
         </div>
 

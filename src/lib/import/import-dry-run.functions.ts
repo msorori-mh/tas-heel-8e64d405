@@ -17,11 +17,7 @@ const MAX_BASE64_LENGTH = Math.ceil(GOVERNORATES_MAX_FILE_BYTES * 1.37) + 64;
 const DryRunInput = z.object({
   fileName: z.string().min(1).max(255),
   fileBase64: z.string().min(1).max(MAX_BASE64_LENGTH),
-  fileSize: z
-    .number()
-    .int()
-    .positive()
-    .max(GOVERNORATES_MAX_FILE_BYTES),
+  fileSize: z.number().int().positive().max(GOVERNORATES_MAX_FILE_BYTES),
 });
 
 type ContentStaffAuthContextLocal = ContentStaffAuthContext;
@@ -34,8 +30,7 @@ export const dryRunGovernoratesImport = createServerFn({ method: "POST" })
   .middleware([requireContentStaffAuth])
   .inputValidator((input) => DryRunInput.parse(input))
   .handler(async ({ data, context }): Promise<GovernoratesDryRunApiResponse> => {
-    const { supabase, userId, isFullAdmin } =
-      context as ContentStaffAuthContextLocal;
+    const { supabase, userId, isFullAdmin } = context as ContentStaffAuthContextLocal;
 
     assertImportJobAllowed(IMPORT_TYPE_STRUCTURE, isFullAdmin);
 

@@ -16,10 +16,7 @@ import {
   parseTcs2Code,
 } from "@/lib/content-codes/tcs2";
 import { validateContentImportSheet } from "@/lib/content-import/content-import-validators";
-import {
-  templateColumnsForEntity,
-  ROW_HASH_FIELDS,
-} from "@/lib/import/import-contract";
+import { templateColumnsForEntity, ROW_HASH_FIELDS } from "@/lib/import/import-contract";
 
 const SUBJECT_COLUMNS = templateColumnsForEntity("subjects");
 
@@ -71,12 +68,16 @@ describe("TCS-2 scheme", () => {
     expect(parsed?.trackCode).toBeUndefined();
   });
 
-
   it("allocates the next free number and never reuses one", () => {
     const existing = ["sub-g10-001", "sub-g10-003"];
     expect(nextAllocatedNumber(existing, "subject", { gradeSlug: "grade-10" })).toBe(4);
     expect(
-      allocateTcs2Codes({ existingCodes: existing, kind: "subject", scope: { gradeSlug: "grade-10" }, count: 2 }),
+      allocateTcs2Codes({
+        existingCodes: existing,
+        kind: "subject",
+        scope: { gradeSlug: "grade-10" },
+        count: 2,
+      }),
     ).toEqual(["sub-g10-004", "sub-g10-005"]);
   });
 

@@ -48,16 +48,14 @@ export const PRIMARY_CONTENT_TRANSITION_STATES = [
   "MISSING_PRIMARY_CONTENT",
 ] as const;
 
-export type PrimaryContentTransitionState =
-  (typeof PRIMARY_CONTENT_TRANSITION_STATES)[number];
+export type PrimaryContentTransitionState = (typeof PRIMARY_CONTENT_TRANSITION_STATES)[number];
 
 export function resolveTransitionState(input: {
   hasOfficialStructuredContent: boolean;
   officialContentApproved: boolean;
   hasPrimaryPdf: boolean;
 }): PrimaryContentTransitionState {
-  const structuredUsable =
-    input.hasOfficialStructuredContent && input.officialContentApproved;
+  const structuredUsable = input.hasOfficialStructuredContent && input.officialContentApproved;
   if (structuredUsable) {
     return input.hasPrimaryPdf
       ? "STRUCTURED_PRIMARY_WITH_PDF_REFERENCE"
@@ -210,10 +208,7 @@ export const FORBIDDEN_TAGS = new Set<string>([
 /* ------------------------------------------------------------------ */
 
 /** Official images live in managed storage; base64/data URIs are rejected. */
-export const ALLOWED_IMAGE_SRC_PREFIXES = [
-  "supabase-storage://",
-  "lesson-internal://",
-] as const;
+export const ALLOWED_IMAGE_SRC_PREFIXES = ["supabase-storage://", "lesson-internal://"] as const;
 
 export function isAllowedOfficialImageSrc(src: string | null | undefined): boolean {
   const value = (src ?? "").trim();

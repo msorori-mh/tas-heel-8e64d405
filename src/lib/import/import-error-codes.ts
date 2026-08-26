@@ -9,7 +9,10 @@
  * Pure data — client and server safe. No DB access, no writes.
  */
 
-import { QB_IMPORT_CODES, VALIDATION_CODE_DEFAULTS } from "../question-bank/import/validation-codes.ts";
+import {
+  QB_IMPORT_CODES,
+  VALIDATION_CODE_DEFAULTS,
+} from "../question-bank/import/validation-codes.ts";
 
 export type ImportIssueSeverity = "error" | "warning" | "info";
 
@@ -132,7 +135,7 @@ export const CONTENT_IMPORT_CODES = {
     severity: "warning",
     rowBlocking: false,
     fileBlocking: false,
-    ar: "الفاصل في اسم المادة غير موحد؛ المعتمد \" - \".",
+    ar: 'الفاصل في اسم المادة غير موحد؛ المعتمد " - ".',
   },
   NONSTANDARD_PARENT_SPELLING: {
     severity: "warning",
@@ -201,7 +204,6 @@ export const CONTENT_IMPORT_CODES = {
     ar: "ملاحظة إرشادية لا تمنع الاستيراد.",
   },
 } as const satisfies Record<string, ImportCodeDefinition>;
-
 
 export type ContentImportCode = keyof typeof CONTENT_IMPORT_CODES;
 export type QuestionBankImportCode = keyof typeof QB_IMPORT_CODES;

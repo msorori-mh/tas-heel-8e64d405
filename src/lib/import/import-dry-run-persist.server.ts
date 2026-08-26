@@ -29,9 +29,7 @@ export async function persistGovernoratesDryRun(
 ): Promise<{ jobId: string; jobStatus: ImportJobStatus }> {
   const counts = computeGovernorateDryRunCounts(parsed, parsed.issues);
   const jobStatus: ImportJobStatus =
-    parsed.issues.length === 0
-      ? IMPORT_JOB_STATUS_VALIDATED
-      : IMPORT_JOB_STATUS_VALIDATION_FAILED;
+    parsed.issues.length === 0 ? IMPORT_JOB_STATUS_VALIDATED : IMPORT_JOB_STATUS_VALIDATION_FAILED;
   const now = new Date().toISOString();
   const errorCount = parsed.issues.filter((i) => i.code !== "EMPTY_FILE").length;
 
@@ -74,9 +72,7 @@ export async function persistGovernoratesDryRun(
     .single();
 
   if (jobError || !job) {
-    throw new Error(
-      `تعذر حفظ سجل المعاينة الجافة: ${jobError?.message ?? "خطأ غير معروف"}`,
-    );
+    throw new Error(`تعذر حفظ سجل المعاينة الجافة: ${jobError?.message ?? "خطأ غير معروف"}`);
   }
 
   if (parsed.issues.length > 0) {
@@ -99,9 +95,7 @@ export async function persistGovernoratesDryRun(
     const { error: errorsError } = await supabase.from("import_errors").insert(errorRows);
 
     if (errorsError) {
-      throw new Error(
-        `تعذر حفظ أخطاء المعاينة: ${errorsError.message}`,
-      );
+      throw new Error(`تعذر حفظ أخطاء المعاينة: ${errorsError.message}`);
     }
   }
 

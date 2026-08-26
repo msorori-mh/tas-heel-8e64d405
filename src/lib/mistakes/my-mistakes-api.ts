@@ -122,8 +122,8 @@ export async function listMyMistakes(args: ListMyMistakesArgs = {}): Promise<Mis
   return {
     items: page.items ?? [],
     total: page.total ?? 0,
-    limit: page.limit ?? (args.limit ?? 20),
-    offset: page.offset ?? (args.offset ?? 0),
+    limit: page.limit ?? args.limit ?? 20,
+    offset: page.offset ?? args.offset ?? 0,
     has_more: page.has_more ?? false,
     subjects: page.subjects ?? [],
   };
@@ -166,5 +166,7 @@ export function formatMistakeDate(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat("ar", { day: "numeric", month: "short", year: "numeric" }).format(d);
+  return new Intl.DateTimeFormat("ar", { day: "numeric", month: "short", year: "numeric" }).format(
+    d,
+  );
 }

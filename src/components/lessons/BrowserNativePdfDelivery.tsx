@@ -55,7 +55,9 @@ export function BrowserNativePdfDelivery({
         dir="rtl"
         className="space-y-3 rounded-2xl border border-border bg-card p-4 text-sm shadow-card"
       >
-        <p className="text-muted-foreground">تعذّر فتح ملف الدرس. تحقق من الاتصال ثم أعد المحاولة.</p>
+        <p className="text-muted-foreground">
+          تعذّر فتح ملف الدرس. تحقق من الاتصال ثم أعد المحاولة.
+        </p>
         <Button size="sm" onClick={() => setReloadKey((k) => k + 1)}>
           <RefreshCw className="ms-2 h-4 w-4" />
           إعادة المحاولة
@@ -73,7 +75,9 @@ export function BrowserNativePdfDelivery({
       )}
     >
       <header className="border-b border-border px-3 py-2">
-        <h2 className="truncate text-sm font-bold text-foreground">{title?.trim() || "ملف الدرس"}</h2>
+        <h2 className="truncate text-sm font-bold text-foreground">
+          {title?.trim() || "ملف الدرس"}
+        </h2>
       </header>
       {status === "loading" || !url ? (
         <p className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">

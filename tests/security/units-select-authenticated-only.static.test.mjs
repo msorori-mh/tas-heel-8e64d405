@@ -12,8 +12,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const MIGRATIONS_DIR = new URL("../../supabase/migrations/", import.meta.url);
-const CANONICAL =
-  "20260731033950_a583b6d4-0360-414e-95f8-83b01f470a02.sql";
+const CANONICAL = "20260731033950_a583b6d4-0360-414e-95f8-83b01f470a02.sql";
 const RESTRICT_NAME = "20260731180000_restrict_units_select_to_authenticated.sql";
 
 const migrationFiles = readdirSync(MIGRATIONS_DIR)
@@ -29,10 +28,7 @@ const canonical = read(CANONICAL);
 const restrict = read(RESTRICT_NAME);
 
 test("public units SELECT policy is dropped by the canonical creator", () => {
-  assert.match(
-    canonical,
-    /DROP POLICY IF EXISTS "Units viewable by everyone" ON public\.units;/,
-  );
+  assert.match(canonical, /DROP POLICY IF EXISTS "Units viewable by everyone" ON public\.units;/);
 });
 
 test("replacement policy is authenticated-only and access-scoped", () => {
@@ -80,7 +76,10 @@ test("content staff management of units is preserved", () => {
 
 test("canonical migration contains no DML, destructive, financial, or auth/storage changes", () => {
   const code = stripSqlComments(canonical);
-  assert.doesNotMatch(code, /\b(INSERT INTO|UPDATE public\.|DELETE FROM|DROP TABLE|TRUNCATE|ALTER TABLE)\b/i);
+  assert.doesNotMatch(
+    code,
+    /\b(INSERT INTO|UPDATE public\.|DELETE FROM|DROP TABLE|TRUNCATE|ALTER TABLE)\b/i,
+  );
   assert.doesNotMatch(code, /wallet|payment|subscription|storage\.|auth\./i);
 });
 

@@ -112,7 +112,9 @@ const FileUpload = ({
       {value ? (
         <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 p-2">
           <Icon className="h-4 w-4 shrink-0 text-primary" />
-          <span className="flex-1 truncate text-xs text-muted-foreground" dir="ltr">{value.split("/").pop()}</span>
+          <span className="flex-1 truncate text-xs text-muted-foreground" dir="ltr">
+            {value.split("/").pop()}
+          </span>
           <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={clear}>
             <X className="h-3.5 w-3.5" />
           </Button>
@@ -132,7 +134,13 @@ const FileUpload = ({
           </span>
         </div>
       )}
-      <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={handleUpload} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={handleUpload}
+      />
     </div>
   );
 };

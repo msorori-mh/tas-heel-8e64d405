@@ -41,7 +41,9 @@ export function buildNaturalKey(
   row: Record<string, string>,
 ): string {
   const fields = IMPORT_ENTITY_CONTRACTS[templateKey].naturalKey;
-  return fields.map((f) => normalizeContentCode(normalizeCell(row[f]))).join(CANONICAL_FIELD_SEPARATOR);
+  return fields
+    .map((f) => normalizeContentCode(normalizeCell(row[f])))
+    .join(CANONICAL_FIELD_SEPARATOR);
 }
 
 /**
@@ -66,10 +68,7 @@ export function buildStagingPayload(
   row: Record<string, string>,
 ): Record<string, string> {
   const contract = IMPORT_ENTITY_CONTRACTS[templateKey];
-  const fields = new Set<string>([
-    ...ROW_HASH_FIELDS[templateKey],
-    ...contract.naturalKey,
-  ]);
+  const fields = new Set<string>([...ROW_HASH_FIELDS[templateKey], ...contract.naturalKey]);
   const payload: Record<string, string> = {};
   for (const field of fields) {
     const value = normalizeCell(row[field]);

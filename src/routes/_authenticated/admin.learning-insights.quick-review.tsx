@@ -150,8 +150,7 @@ function AdminQuickReviewReadinessPage() {
 
   const trackOptions = useMemo(() => {
     const map = new Map<string, string>();
-    for (const l of allLessons)
-      l.trackIds.forEach((id, i) => map.set(id, l.trackNames[i] ?? "—"));
+    for (const l of allLessons) l.trackIds.forEach((id, i) => map.set(id, l.trackNames[i] ?? "—"));
     return Array.from(map, ([id, name]) => ({ id, name }));
   }, [allLessons]);
 
@@ -173,8 +172,8 @@ function AdminQuickReviewReadinessPage() {
         <div>
           <h1 className="text-2xl font-bold">جاهزية المراجعة السريعة</h1>
           <p className="text-sm text-muted-foreground">
-            الدرس جاهز للمراجعة السريعة عندما يملك ملخصاً نصياً. دروس ملفات PDF تتبع القاعدة
-            نفسها — لا يتم توليد أي ملخص تلقائياً.
+            الدرس جاهز للمراجعة السريعة عندما يملك ملخصاً نصياً. دروس ملفات PDF تتبع القاعدة نفسها —
+            لا يتم توليد أي ملخص تلقائياً.
           </p>
         </div>
 

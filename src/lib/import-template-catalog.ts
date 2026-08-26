@@ -119,9 +119,7 @@ export function getImportTemplatesForStaff(isFullAdmin: boolean): ImportTemplate
   if (isFullAdmin) return IMPORT_TEMPLATE_CATALOG;
   return IMPORT_TEMPLATE_CATALOG.filter(
     (template) =>
-      !FINANCIAL_IMPORT_ORDERS.includes(
-        template.order as (typeof FINANCIAL_IMPORT_ORDERS)[number],
-      ),
+      !FINANCIAL_IMPORT_ORDERS.includes(template.order as (typeof FINANCIAL_IMPORT_ORDERS)[number]),
   );
 }
 
@@ -136,4 +134,3 @@ export function getImportOrderGroupsForStaff(
 // The official package is `/content-import-templates` (see
 // `src/lib/content-import/content-import-templates.ts`). This catalog is kept
 // for labelling historical import jobs only — no download URL is exposed.
-

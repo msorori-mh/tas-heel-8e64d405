@@ -17,12 +17,7 @@
  * Pure functions — no DB access, no writes. Client, server and test safe.
  */
 
-import {
-  Tcs2Error,
-  allocateTcs2Codes,
-  buildGroupCode,
-  nextAllocatedNumber,
-} from "./tcs2";
+import { Tcs2Error, allocateTcs2Codes, buildGroupCode, nextAllocatedNumber } from "./tcs2";
 import { TCS1_TRACKS } from "./tcs1-master-data";
 
 export type SubjectTemplateMode = "single" | "group";
@@ -53,7 +48,9 @@ export const MAX_GROUP_BRANCHES = 50;
 function normalizeTracks(trackCodes: readonly string[]): string[] {
   const out: string[] = [];
   for (const raw of trackCodes) {
-    const code = String(raw ?? "").trim().toLowerCase();
+    const code = String(raw ?? "")
+      .trim()
+      .toLowerCase();
     if (!code) continue;
     if (!TCS1_TRACKS.some((t) => t.trackCode === code)) {
       throw new Tcs2Error(
@@ -108,7 +105,10 @@ export function planSubjectTemplateRows(input: SubjectTemplatePlanInput): Subjec
   if (input.mode === "group") {
     const groupName = String(input.groupName ?? "").trim();
     if (!groupName) {
-      throw new Tcs2Error("TCS2_GROUP_NAME_REQUIRED", "أدخل اسم مجموعة المواد (مثال: التربية الإسلامية).");
+      throw new Tcs2Error(
+        "TCS2_GROUP_NAME_REQUIRED",
+        "أدخل اسم مجموعة المواد (مثال: التربية الإسلامية).",
+      );
     }
     const branches = normalizeBranchNames(input.branchNames ?? []);
     const groupCode = allocateGroupCode(input.existingGroupCodes, input.gradeSlug);

@@ -25,8 +25,11 @@ export async function getNetworkState(): Promise<NetworkState> {
   }
 
   const online = typeof navigator === "undefined" ? true : navigator.onLine;
-  const conn = (navigator as unknown as { connection?: { type?: string; effectiveType?: string; saveData?: boolean } })
-    ?.connection;
+  const conn = (
+    navigator as unknown as {
+      connection?: { type?: string; effectiveType?: string; saveData?: boolean };
+    }
+  )?.connection;
   const type = conn?.type ?? conn?.effectiveType ?? "unknown";
   const wifi = type === "wifi" || type === "ethernet";
   if (conn?.saveData) return { online, wifi: false, type };

@@ -206,9 +206,24 @@ export type AdminUnifiedPerformance = {
   by_track: AdminGroupRow[];
   by_subject: AdminSubjectRow[];
   by_lesson: AdminLessonRow[];
-  weakest_subjects: { subject_id: string; subject_name: string | null; avg_percentage: number | null; wrong_rate: number | null }[];
-  weakest_lessons: { lesson_id: string; lesson_title: string | null; accuracy: number | null; students_count: number }[];
-  highest_blank_rate: { lesson_id: string; lesson_title: string | null; blank_rate: number | null; students_count: number }[];
+  weakest_subjects: {
+    subject_id: string;
+    subject_name: string | null;
+    avg_percentage: number | null;
+    wrong_rate: number | null;
+  }[];
+  weakest_lessons: {
+    lesson_id: string;
+    lesson_title: string | null;
+    accuracy: number | null;
+    students_count: number;
+  }[];
+  highest_blank_rate: {
+    lesson_id: string;
+    lesson_title: string | null;
+    blank_rate: number | null;
+    students_count: number;
+  }[];
   highest_repeated_mistake_rate: {
     lesson_id: string;
     lesson_title: string | null;

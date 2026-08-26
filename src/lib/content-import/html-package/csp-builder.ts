@@ -8,7 +8,7 @@ export async function buildPackageCsp(
   scriptHashes: string[] = [],
   resourceCode?: string,
   version?: number,
-  nonce?: string
+  nonce?: string,
 ): Promise<string> {
   const scriptSrcParts: string[] = ["'self'"];
 
@@ -17,7 +17,7 @@ export async function buildPackageCsp(
     const bridgeScriptText = AppInteractiveResourceBridge.getClientRuntimeBridgeScript(
       resourceCode,
       version,
-      nonce
+      nonce,
     );
     const bridgeHash = await computeSha256Base64(bridgeScriptText);
     scriptSrcParts.push(bridgeHash);

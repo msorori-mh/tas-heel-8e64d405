@@ -2,8 +2,18 @@ import type { SecurityFinding } from "./types.ts";
 import { ValidationCodes } from "./validation-codes.ts";
 
 const ALLOWED_EXTENSIONS = new Set([
-  "html", "htm", "css", "js", "mjs", "json",
-  "png", "jpg", "jpeg", "webp", "pdf", "svg",
+  "html",
+  "htm",
+  "css",
+  "js",
+  "mjs",
+  "json",
+  "png",
+  "jpg",
+  "jpeg",
+  "webp",
+  "pdf",
+  "svg",
 ]);
 
 /**
@@ -12,7 +22,7 @@ const ALLOWED_EXTENSIONS = new Set([
 export function validateFileMimeAndBytes(
   filePath: string,
   buffer: Uint8Array,
-  declaredMime?: string
+  declaredMime?: string,
 ): { isValid: boolean; finding?: SecurityFinding } {
   const extMatch = filePath.match(/\.([a-z0-9]+)$/i);
   const ext = extMatch ? extMatch[1].toLowerCase() : "";
