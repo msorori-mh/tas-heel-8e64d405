@@ -124,6 +124,14 @@ jobs:
           TAMKEEN_PG17_LOCAL_URL: postgresql://postgres:tamkeen_ci_only@localhost:5432/tamkeen
         run: ./scripts/content-v3/pg17-runner.ps1
 
+      - name: Verify independent component publication guard on PG17
+        env:
+          TAMKEEN_PG17_LOCAL_URL: postgresql://postgres:tamkeen_ci_only@localhost:5432/tamkeen
+        run: |
+          psql "$TAMKEEN_PG17_LOCAL_URL" --set=ON_ERROR_STOP=1 \
+            --file supabase/migrations/20260826040000_independent_lesson_component_publishing.sql \
+            --file scripts/content-v3/independent-component-publishing-pg17.sql
+
       - name: Stop isolated PostgreSQL 17
         if: always()
         run: docker stop tamkeen-content-v3-pg17 || true
