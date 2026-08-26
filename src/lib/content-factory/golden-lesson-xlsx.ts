@@ -84,10 +84,17 @@ const MAX_REPORTED_ROW_ERRORS = 12;
 function cellText(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "object") {
-    const rich = value as { text?: unknown; richText?: Array<{ text?: unknown }>; result?: unknown };
+    const rich = value as {
+      text?: unknown;
+      richText?: Array<{ text?: unknown }>;
+      result?: unknown;
+    };
     if (typeof rich.text === "string") return rich.text.trim();
     if (Array.isArray(rich.richText)) {
-      return rich.richText.map((part) => String(part.text ?? "")).join("").trim();
+      return rich.richText
+        .map((part) => String(part.text ?? ""))
+        .join("")
+        .trim();
     }
     if (rich.result !== undefined) return String(rich.result).trim();
   }
@@ -147,7 +154,7 @@ function toAnswer(capability: QuestionCapability, row: Record<string, string>) {
       capability,
       question_id: row.question_code,
       grading_mode: row.grading_mode || undefined,
-      model_answer: row.model_answer || (index ? list[index - 1] ?? "" : ""),
+      model_answer: row.model_answer || (index ? (list[index - 1] ?? "") : ""),
     };
     if (row.explanation) answer.explanation = row.explanation;
     if (row.accepted_answers) answer.accepted_answers = splitAcceptedAnswers(row.accepted_answers);
@@ -164,7 +171,8 @@ function toAnswer(capability: QuestionCapability, row: Record<string, string>) {
     rationale: row.explanation,
   };
   for (let position = 1; position <= MAX_OPTIONS; position += 1) {
-    if (row[`why_wrong_${position}`]) answer[`why_wrong_${position}`] = row[`why_wrong_${position}`];
+    if (row[`why_wrong_${position}`])
+      answer[`why_wrong_${position}`] = row[`why_wrong_${position}`];
   }
   return answer;
 }
@@ -233,7 +241,9 @@ function validateRow(
     }
     const index = Number(row.correct_index);
     if (!Number.isInteger(index) || index < 1 || index > list.length) {
-      errors.push(`الصف ${rowNumber}: correct_index مطلوب لسؤال الاختيار من متعدد ويجب أن يطابق عدد الخيارات.`);
+      errors.push(
+        `الصف ${rowNumber}: correct_index مطلوب لسؤال الاختيار من متعدد ويجب أن يطابق عدد الخيارات.`,
+      );
     }
   } else if (!row.model_answer) {
     errors.push(`الصف ${rowNumber}: model_answer إلزامي للأسئلة المقالية أو ذات التصحيح اليدوي.`);
@@ -253,15 +263,20 @@ export async function convertQuestionWorkbook(
   await workbook.xlsx.load(workbookBytes as unknown as Parameters<typeof workbook.xlsx.load>[0]);
 
   const normalizeHeader = (value: string) =>
-    value.replace(/\*/g, "").replace(/\u00a0/g, " ").trim().toLowerCase();
+    value
+      .replace(/\*/g, "")
+      .replace(/\u00a0/g, " ")
+      .trim()
+      .toLowerCase();
   const readRows = (sheetName: string): unknown[][] => {
     const worksheet = workbook.worksheets.find(
       (candidate) => candidate.name.trim() === sheetName.trim(),
     );
     if (!worksheet) return [];
     return Array.from({ length: worksheet.rowCount }, (_, rowIndex) =>
-      Array.from({ length: worksheet.columnCount }, (_, columnIndex) =>
-        worksheet.getRow(rowIndex + 1).getCell(columnIndex + 1).value,
+      Array.from(
+        { length: worksheet.columnCount },
+        (_, columnIndex) => worksheet.getRow(rowIndex + 1).getCell(columnIndex + 1).value,
       ),
     );
   };
@@ -310,23 +325,37 @@ export async function convertQuestionWorkbook(
     rowErrors.push(...validateRow(capability, row, rowNumber));
     const normalizedSubject = row.subject_code?.trim().toUpperCase();
     const normalizedLesson = row.lesson_code?.trim().toUpperCase();
-    if (guard.expectedSubjectCode && normalizedSubject !== guard.expectedSubjectCode.trim().toUpperCase()) {
-      rowErrors.push(`الصف ${rowNumber}: subject_code لا يطابق المادة المختارة (${guard.expectedSubjectCode}).`);
+    if (
+      guard.expectedSubjectCode &&
+      normalizedSubject !== guard.expectedSubjectCode.trim().toUpperCase()
+    ) {
+      rowErrors.push(
+        `الصف ${rowNumber}: subject_code لا يطابق المادة المختارة (${guard.expectedSubjectCode}).`,
+      );
     }
-    if (guard.expectedLessonCode && normalizedLesson !== guard.expectedLessonCode.trim().toUpperCase()) {
-      rowErrors.push(`الصف ${rowNumber}: lesson_code لا يطابق الدرس المختار (${guard.expectedLessonCode}).`);
+    if (
+      guard.expectedLessonCode &&
+      normalizedLesson !== guard.expectedLessonCode.trim().toUpperCase()
+    ) {
+      rowErrors.push(
+        `الصف ${rowNumber}: lesson_code لا يطابق الدرس المختار (${guard.expectedLessonCode}).`,
+      );
     }
     if (guard.requireApproved && row.review_status?.trim() !== "معتمد") {
       rowErrors.push(`الصف ${rowNumber}: review_status يجب أن يكون «معتمد» قبل النشر المباشر.`);
     }
     if (capability === "selfTest" && guard.requireFourChoices && options(row).length !== 4) {
-      rowErrors.push(`الصف ${rowNumber}: اختبر فهمك في الدرس الذهبي يتطلب أربعة خيارات مكتملة بالضبط.`);
+      rowErrors.push(
+        `الصف ${rowNumber}: اختبر فهمك في الدرس الذهبي يتطلب أربعة خيارات مكتملة بالضبط.`,
+      );
     }
     const code = row.question_code;
     const normalizedCode = code?.trim().toUpperCase();
     if (normalizedCode) {
       if (seenCodes.has(normalizedCode)) {
-        rowErrors.push(`الصف ${rowNumber}: كود السؤال ${code} مكرر داخل الملف (المقارنة غير حساسة لحالة الأحرف).`);
+        rowErrors.push(
+          `الصف ${rowNumber}: كود السؤال ${code} مكرر داخل الملف (المقارنة غير حساسة لحالة الأحرف).`,
+        );
       }
       seenCodes.add(normalizedCode);
     }
@@ -347,7 +376,9 @@ export async function convertQuestionWorkbook(
     questions: rows.map((row) => toPublicQuestion(capability, row)),
   };
   return {
-    publicFile: new File([JSON.stringify(payload)], PUBLIC_FILE_NAME[capability], { type: "application/json" }),
+    publicFile: new File([JSON.stringify(payload)], PUBLIC_FILE_NAME[capability], {
+      type: "application/json",
+    }),
     answers: rows.map((row) => toAnswer(capability, row)),
     rowCount: rows.length,
   };

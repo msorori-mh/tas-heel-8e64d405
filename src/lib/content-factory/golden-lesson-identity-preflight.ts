@@ -44,11 +44,15 @@ function normalizePositiveInteger(value: unknown) {
 }
 
 /** Canonical form used for comparisons only; the source manifest remains versioned verbatim. */
-export function canonicalGoldenLessonIdentity(identity: GoldenLessonIdentity): GoldenLessonIdentity {
+export function canonicalGoldenLessonIdentity(
+  identity: GoldenLessonIdentity,
+): GoldenLessonIdentity {
   const tracks = Array.from(
-    new Set((Array.isArray(identity.curriculumTrackCodes) ? identity.curriculumTrackCodes : [])
-      .map((code) => normalizeCode(code, "lower"))
-      .filter(Boolean)),
+    new Set(
+      (Array.isArray(identity.curriculumTrackCodes) ? identity.curriculumTrackCodes : [])
+        .map((code) => normalizeCode(code, "lower"))
+        .filter(Boolean),
+    ),
   ).sort();
 
   return {
@@ -88,9 +92,9 @@ export function stableGoldenLessonIdentityMatches(
   incoming: GoldenLessonIdentity,
 ) {
   const differences = diffGoldenLessonIdentity(current, incoming);
-  return differences.every((difference) => !STABLE_FIELDS.includes(
-    difference.field as (typeof STABLE_FIELDS)[number],
-  ));
+  return differences.every(
+    (difference) => !STABLE_FIELDS.includes(difference.field as (typeof STABLE_FIELDS)[number]),
+  );
 }
 
 export function canRebindGoldenLessonDraft(input: {
@@ -101,11 +105,13 @@ export function canRebindGoldenLessonDraft(input: {
   reviewCount: number;
   domainBatchCount: number;
 }) {
-  return input.profileMatches &&
+  return (
+    input.profileMatches &&
     input.reviewStatus === "DRAFT" &&
     input.reviewCount === 0 &&
     input.domainBatchCount === 0 &&
-    stableGoldenLessonIdentityMatches(input.current, input.incoming);
+    stableGoldenLessonIdentityMatches(input.current, input.incoming)
+  );
 }
 
 function displayValue(value: GoldenIdentityDifference["currentValue"]) {
@@ -117,6 +123,9 @@ function displayValue(value: GoldenIdentityDifference["currentValue"]) {
 export function describeGoldenIdentityConflictAr(differences: GoldenIdentityDifference[]) {
   if (differences.length === 0) return "لا يوجد اختلاف في هوية الحزمة.";
   return differences
-    .map((difference) => `${difference.labelAr}: ${displayValue(difference.currentValue)} ← ${displayValue(difference.incomingValue)}`)
+    .map(
+      (difference) =>
+        `${difference.labelAr}: ${displayValue(difference.currentValue)} ← ${displayValue(difference.incomingValue)}`,
+    )
     .join("؛ ");
 }

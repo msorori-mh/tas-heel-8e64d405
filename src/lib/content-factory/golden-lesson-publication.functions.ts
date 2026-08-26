@@ -7,7 +7,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { requireContentStaffAuth, type ContentStaffAuthContext } from "@/integrations/supabase/auth-middleware";
+import {
+  requireContentStaffAuth,
+  type ContentStaffAuthContext,
+} from "@/integrations/supabase/auth-middleware";
 import type {
   Cf11AssetAttestation,
   Cf11AssetDeclaration,
@@ -38,7 +41,6 @@ const RevokeInput = BatchInput.extend({
   reason: z.string().trim().min(12).max(500),
 });
 
-
 /** Reads the operator dashboard state for every staged batch. Read-only; zero writes. */
 export const getGoldenLessonCf11Batches = createServerFn({ method: "GET" })
   .middleware([requireContentStaffAuth])
@@ -59,7 +61,11 @@ export const materializeGoldenLessonBatch = createServerFn({ method: "POST" })
       await import("./golden-lesson-publication.server");
     const { supabase, userId, isFullAdmin } = context as ContentStaffAuthContext;
     if (!isFullAdmin) throw new Error("CF10_MATERIALIZE_ADMIN_REQUIRED");
-    const expected = requirePlan(data.mode, data.expectedPlanSha256, "CF10_WRITE_PLAN_HASH_REQUIRED");
+    const expected = requirePlan(
+      data.mode,
+      data.expectedPlanSha256,
+      "CF10_WRITE_PLAN_HASH_REQUIRED",
+    );
     const result = await rpc(supabase)("golden_lesson_materialize_domain_batch_operator", {
       _batch_id: data.batchId,
       _actor_id: userId,
@@ -87,7 +93,11 @@ export const verifyGoldenLessonCf11AssetsV2 = createServerFn({ method: "POST" })
     const { declarations, uploadedPaths, bundleSha256 } = await ensureVerifiedAssets(data.batchId);
     // Machine attestation: the server re-measures the stored bytes and signs for them itself.
     const attestations = await attestStoredAssets(
-      userId, data.batchId, declarations, uploadedPaths, "EXECUTE",
+      userId,
+      data.batchId,
+      declarations,
+      uploadedPaths,
+      "EXECUTE",
     );
     return {
       declarations,
@@ -114,11 +124,20 @@ export const publishGoldenLessonCf11 = createServerFn({ method: "POST" })
   .inputValidator((input) => ModeInput.parse(input))
   .handler(async ({ data, context }) => {
     const {
-      asRpcResult, assertAssetsVerified, idempotencyKey, planSha, requirePlan,
-      resolveVerifiedAssets, rpc,
+      asRpcResult,
+      assertAssetsVerified,
+      idempotencyKey,
+      planSha,
+      requirePlan,
+      resolveVerifiedAssets,
+      rpc,
     } = await import("./golden-lesson-publication.server");
     const { supabase, userId } = context as ContentStaffAuthContext;
-    const expected = requirePlan(data.mode, data.expectedPlanSha256, "CF11_WRITE_PLAN_HASH_REQUIRED");
+    const expected = requirePlan(
+      data.mode,
+      data.expectedPlanSha256,
+      "CF11_WRITE_PLAN_HASH_REQUIRED",
+    );
     const execute = data.mode === "EXECUTE";
     // Read-only in both modes: download + re-verify the bundle, derive content-addressed paths.
     const { lessonId, declarations } = await resolveVerifiedAssets(data.batchId);
@@ -143,7 +162,6 @@ export const publishGoldenLessonCf11 = createServerFn({ method: "POST" })
       actorId: userId,
     };
   });
-
 
 /** CF11 READY attestation: REVIEW → READY only, by a human, separate from publication. */
 export const attestGoldenLessonCf11Ready = createServerFn({ method: "POST" })
@@ -187,4 +205,3 @@ export const revokeGoldenLessonCf11Ready = createServerFn({ method: "POST" })
     if (!result.data) throw new Error("CF11_REVOKE_EMPTY_RESPONSE");
     return { ...asRpcResult(result.data), actorId: userId };
   });
-

@@ -7,10 +7,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 import type { GoldenLessonPackage } from "./golden-lesson-contract";
-import {
-  directIntakeStoragePath,
-  GOLDEN_DIRECT_BUCKET,
-} from "./golden-lesson-direct-storage";
+import { directIntakeStoragePath, GOLDEN_DIRECT_BUCKET } from "./golden-lesson-direct-storage";
 import {
   GOLDEN_DIRECT_LIMITS,
   planGoldenLessonDirectFiles,
@@ -20,8 +17,8 @@ import {
 } from "./golden-lesson-direct-verifier";
 
 function serviceClient() {
-  const url = process.env['SUPABASE_URL'];
-  const key = process.env['SUPABASE_SERVICE_ROLE_KEY'];
+  const url = process.env["SUPABASE_URL"];
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
   if (!url || !key) throw new Error("CONTENT_FACTORY_DIRECT_SOURCE_NOT_CONFIGURED");
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
@@ -33,7 +30,9 @@ export async function loadVerifiedDirectIntake(
   const admin = serviceClient();
   const result = await admin
     .from("golden_lesson_package_versions")
-    .select("manifest,created_by,verified_intake_id,verified_intake_sha256,verified_manifest_sha256")
+    .select(
+      "manifest,created_by,verified_intake_id,verified_intake_sha256,verified_manifest_sha256",
+    )
     .eq("package_id", packageId)
     .eq("version", version)
     .single();
@@ -41,10 +40,10 @@ export async function loadVerifiedDirectIntake(
     throw new Error(result.error?.message ?? "PACKAGE_VERSION_NOT_FOUND");
   }
   const row = result.data as unknown as Record<string, unknown>;
-  const intakeId = row['verified_intake_id'] as string | null;
-  const ownerId = row['created_by'] as string | null;
+  const intakeId = row["verified_intake_id"] as string | null;
+  const ownerId = row["created_by"] as string | null;
   if (!intakeId || !ownerId) throw new Error("DIRECT_INTAKE_NOT_ATTESTED");
-  const manifest = row['manifest'] as GoldenLessonPackage;
+  const manifest = row["manifest"] as GoldenLessonPackage;
   const declarations = planGoldenLessonDirectFiles(manifest);
 
   const files = [];
@@ -61,8 +60,8 @@ export async function loadVerifiedDirectIntake(
     files.push({ path: declaration.path, sha256: declaration.sha256, bytes });
   }
   const verified = verifyGoldenLessonDirectIntake(manifest, files);
-  const expected = row['verified_intake_sha256'] as string | null;
-  const attestedManifestSha = row['verified_manifest_sha256'] as string | null;
+  const expected = row["verified_intake_sha256"] as string | null;
+  const attestedManifestSha = row["verified_manifest_sha256"] as string | null;
   if (expected) {
     // Anchor on the attested manifest digest: the manifest read back from jsonb may
     // serialize with a different key order, so only the file set can be re-derived.
@@ -79,4 +78,3 @@ export async function loadVerifiedDirectIntake(
   }
   return verified;
 }
-

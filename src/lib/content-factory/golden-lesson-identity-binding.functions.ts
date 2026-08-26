@@ -1,7 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { requireContentStaffAuth, type ContentStaffAuthContext } from "@/integrations/supabase/auth-middleware";
+import {
+  requireContentStaffAuth,
+  type ContentStaffAuthContext,
+} from "@/integrations/supabase/auth-middleware";
 
 const Input = z.object({ batchId: z.string().uuid() });
 
@@ -10,7 +13,12 @@ const Input = z.object({ batchId: z.string().uuid() });
  * admin's own token through the SECURITY DEFINER operator wrapper. The raw RPC is revoked from
  * `service_role`, which means no machine key can bind an identity on a reviewer's behalf.
  */
-type OperatorClient = { rpc(name: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }> };
+type OperatorClient = {
+  rpc(
+    name: string,
+    args: Record<string, unknown>,
+  ): PromiseLike<{ data: unknown; error: { message: string } | null }>;
+};
 
 export const bindApprovedGoldenLessonIdentity = createServerFn({ method: "POST" })
   .middleware([requireContentStaffAuth])
@@ -23,7 +31,8 @@ export const bindApprovedGoldenLessonIdentity = createServerFn({ method: "POST" 
       _batch_id: data.batchId,
       _actor_id: userId,
     });
-    if (result.error || !result.data) throw new Error(result.error?.message ?? "IDENTITY_BIND_EMPTY_RESPONSE");
+    if (result.error || !result.data)
+      throw new Error(result.error?.message ?? "IDENTITY_BIND_EMPTY_RESPONSE");
     const value = result.data as unknown as Record<string, unknown>;
     return {
       bindingId: String(value.binding_id),

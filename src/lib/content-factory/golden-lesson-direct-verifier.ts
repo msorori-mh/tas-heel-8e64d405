@@ -54,8 +54,20 @@ export function computeGoldenLessonManifestSha256(manifest: GoldenLessonPackage)
 }
 
 function safeLeafName(name: string): boolean {
-  return name.length > 0 && name.length <= 255 && name !== "." && name !== ".." &&
-    !/[\\/\u0000-\u001f]/u.test(name) && name.normalize("NFC") === name;
+  const hasUnsafeCharacter = Array.from(name).some((character) => {
+    const codePoint = character.codePointAt(0);
+    return (
+      character === "/" || character === "\\" || (codePoint !== undefined && codePoint <= 0x1f)
+    );
+  });
+  return (
+    name.length > 0 &&
+    name.length <= 255 &&
+    name !== "." &&
+    name !== ".." &&
+    !hasUnsafeCharacter &&
+    name.normalize("NFC") === name
+  );
 }
 
 export function planGoldenLessonDirectFiles(
@@ -65,7 +77,8 @@ export function planGoldenLessonDirectFiles(
 
   const declarations: GoldenLessonDirectFileDeclaration[] = [];
   for (const artifact of manifest.artifacts) {
-    if (artifact.sourcePath && artifact.sha256) declarations.push({ path: artifact.sourcePath, sha256: artifact.sha256 });
+    if (artifact.sourcePath && artifact.sha256)
+      declarations.push({ path: artifact.sourcePath, sha256: artifact.sha256 });
     if (artifact.provenancePath && artifact.provenanceSha256) {
       declarations.push({ path: artifact.provenancePath, sha256: artifact.provenanceSha256 });
     }
@@ -111,7 +124,8 @@ export function verifyGoldenLessonDirectIntake(
     totalBytes += file.bytes.byteLength;
     if (totalBytes > GOLDEN_DIRECT_LIMITS.maxTotalBytes) fail("DIRECT_TOTAL_SIZE_LIMIT");
     const expected = declared.get(file.path)!;
-    if (file.sha256 !== expected || sha256(file.bytes) !== expected) fail("DIRECT_FILE_HASH_MISMATCH");
+    if (file.sha256 !== expected || sha256(file.bytes) !== expected)
+      fail("DIRECT_FILE_HASH_MISMATCH");
     files.set(file.path, file);
   }
   if (files.size !== declared.size) fail("DIRECT_FILE_SET_MISMATCH");
@@ -120,15 +134,21 @@ export function verifyGoldenLessonDirectIntake(
     if (!artifact.sourcePath) continue;
     const file = files.get(artifact.sourcePath);
     if (!file) fail("DIRECT_EXPECTED_FILE_MISSING");
-    const validation = validateGoldenLessonArtifactBytes(artifact.capability, artifact.sourcePath, file.bytes);
+    const validation = validateGoldenLessonArtifactBytes(
+      artifact.capability,
+      artifact.sourcePath,
+      file.bytes,
+    );
     if (!validation.valid) fail(validation.findings[0]?.code ?? "ARTIFACT_CONTENT_INVALID");
   }
 
-  const artifactInputs: Partial<Record<GoldenCapability, { fileName: string; bytes: Uint8Array }>> = {};
+  const artifactInputs: Partial<Record<GoldenCapability, { fileName: string; bytes: Uint8Array }>> =
+    {};
   for (const artifact of manifest.artifacts) {
     if (!artifact.sourcePath) continue;
     const file = files.get(artifact.sourcePath);
-    if (file) artifactInputs[artifact.capability] = { fileName: artifact.sourcePath, bytes: file.bytes };
+    if (file)
+      artifactInputs[artifact.capability] = { fileName: artifact.sourcePath, bytes: file.bytes };
   }
   const companionPath = manifest.security.answersCompanionPath;
   const companion = companionPath ? files.get(companionPath) : undefined;
@@ -143,7 +163,10 @@ export function verifyGoldenLessonDirectIntake(
     const file = files.get(asset.path);
     if (!file) fail("ASSET_BYTES_MISSING");
     if (file.bytes.byteLength !== asset.bytes) fail("ASSET_SIZE_MISMATCH");
-    if (file.bytes.byteLength < GOLDEN_ASSET_MIN_BYTES || file.bytes.byteLength > GOLDEN_ASSET_MAX_BYTES) {
+    if (
+      file.bytes.byteLength < GOLDEN_ASSET_MIN_BYTES ||
+      file.bytes.byteLength > GOLDEN_ASSET_MAX_BYTES
+    ) {
       fail("ASSET_SIZE_OUT_OF_RANGE");
     }
     if (!isAllowedAssetMime(asset.mimeType)) fail("ASSET_MIME_FORBIDDEN");
@@ -157,8 +180,11 @@ export function verifyGoldenLessonDirectIntake(
     const file = files.get(artifact.sourcePath);
     if (!file) fail("DIRECT_EXPECTED_FILE_MISSING");
     let html: string;
-    try { html = decoder.decode(file.bytes); }
-    catch { fail("HTML_UTF8_INVALID"); }
+    try {
+      html = decoder.decode(file.bytes);
+    } catch {
+      fail("HTML_UTF8_INVALID");
+    }
     const findings = scanHtmlAssetReferences(artifact.sourcePath, html, declaredLeaves);
     if (findings.length > 0) fail(findings[0]!.code);
   }
@@ -186,9 +212,10 @@ export function computeGoldenLessonIntakeSha256(
   inputFiles: GoldenLessonDirectFileDeclaration[],
 ): string {
   const intakeHash = createHash("sha256").update(manifestSha256);
-  for (const file of [...inputFiles].sort((left, right) => left.path.localeCompare(right.path, "en"))) {
+  for (const file of [...inputFiles].sort((left, right) =>
+    left.path.localeCompare(right.path, "en"),
+  )) {
     intakeHash.update("\0").update(file.path).update("\0").update(file.sha256);
   }
   return intakeHash.digest("hex");
 }
-

@@ -52,18 +52,39 @@ export function parseGoldenLessonManifest(raw: string): unknown {
 }
 
 export function previewGoldenLessonStaging(value: unknown): GoldenLessonStagingPreview {
-  if (!value || typeof value !== "object" ||
-      !("identity" in value) || !value.identity || typeof value.identity !== "object" ||
-      !("security" in value) || !value.security || typeof value.security !== "object" ||
-      !("lifecycle" in value) || !value.lifecycle || typeof value.lifecycle !== "object" ||
-      !("artifacts" in value) || !Array.isArray(value.artifacts) ||
-      !("capabilityOrder" in value) || !Array.isArray(value.capabilityOrder)) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("identity" in value) ||
+    !value.identity ||
+    typeof value.identity !== "object" ||
+    !("security" in value) ||
+    !value.security ||
+    typeof value.security !== "object" ||
+    !("lifecycle" in value) ||
+    !value.lifecycle ||
+    typeof value.lifecycle !== "object" ||
+    !("artifacts" in value) ||
+    !Array.isArray(value.artifacts) ||
+    !("capabilityOrder" in value) ||
+    !Array.isArray(value.capabilityOrder)
+  ) {
     return {
       valid: false,
       packageCode: null,
-      findings: [{ code: "MANIFEST_SHAPE_INVALID", severity: "ERROR", field: "manifest", messageAr: "بنية Manifest غير صالحة." }],
-      actions: [], stagedDraftsPlanned: 0, domainWritesPerformed: 0,
-      productionWritesPerformed: 0, executable: false,
+      findings: [
+        {
+          code: "MANIFEST_SHAPE_INVALID",
+          severity: "ERROR",
+          field: "manifest",
+          messageAr: "بنية Manifest غير صالحة.",
+        },
+      ],
+      actions: [],
+      stagedDraftsPlanned: 0,
+      domainWritesPerformed: 0,
+      productionWritesPerformed: 0,
+      executable: false,
     };
   }
 
@@ -73,11 +94,12 @@ export function previewGoldenLessonStaging(value: unknown): GoldenLessonStagingP
   const actions = GOLDEN_CAPABILITIES.map((capability, index): GoldenLessonStagingAction => {
     const artifact = artifacts.find((item) => item?.capability === capability);
     const applicability = artifact?.applicability;
-    const action = applicability === "NA"
-      ? "SKIP_NA"
-      : artifact?.sourcePath
-        ? "STAGE_DRAFT"
-        : "SKIP_OPTIONAL_EMPTY";
+    const action =
+      applicability === "NA"
+        ? "SKIP_NA"
+        : artifact?.sourcePath
+          ? "STAGE_DRAFT"
+          : "SKIP_OPTIONAL_EMPTY";
     return {
       order: index + 1,
       capability,

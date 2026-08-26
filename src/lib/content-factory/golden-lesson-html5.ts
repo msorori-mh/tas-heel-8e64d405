@@ -34,7 +34,7 @@ async function replaceAsync(
   let cursor = 0;
   for (const match of source.matchAll(pattern)) {
     const index = match.index ?? 0;
-    output += source.slice(cursor, index) + await replacer(match);
+    output += source.slice(cursor, index) + (await replacer(match));
     cursor = index + match[0].length;
   }
   return output + source.slice(cursor);
@@ -54,7 +54,9 @@ export async function convertHtml5ActivityZip(file: File): Promise<ConvertedHtml
   if (!/\.zip$/i.test(file.name)) throw new Error("ملف النشاط يجب أن يكون HTML أو ZIP.");
   const JSZip = (await import("jszip")).default;
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
-  const paths = Object.keys(zip.files).filter((path) => !zip.files[path]?.dir && !path.startsWith("__MACOSX/"));
+  const paths = Object.keys(zip.files).filter(
+    (path) => !zip.files[path]?.dir && !path.startsWith("__MACOSX/"),
+  );
   const indexPath = paths.find((path) => /(^|\/)index\.html?$/i.test(path));
   if (!indexPath) throw new Error("حزمة النشاط لا تحتوي index.html.");
   const base = indexPath.includes("/") ? indexPath.slice(0, indexPath.lastIndexOf("/")) : "";

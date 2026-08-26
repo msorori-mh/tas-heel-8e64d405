@@ -1,7 +1,4 @@
-import {
-  GOLDEN_CAPABILITIES,
-  type GoldenLessonProfile,
-} from "./golden-lesson-contract.ts";
+import { GOLDEN_CAPABILITIES, type GoldenLessonProfile } from "./golden-lesson-contract.ts";
 
 export const GOLDEN_QURAN_V1: GoldenLessonProfile = {
   id: "GOLDEN_QURAN_V1",
