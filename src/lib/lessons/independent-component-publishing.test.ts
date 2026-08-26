@@ -78,3 +78,5 @@ describe("independent lesson component publishing", () => {
     assert.ok(migration.includes("REVOKE ALL ON FUNCTION"));
   });
 });
+
+// CI event marker: independent component publication contract.
