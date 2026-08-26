@@ -1038,17 +1038,25 @@ function LessonCapabilityTabs({
   const [visitedTypes, setVisitedTypes] = useState<Set<LessonCapabilityType>>(
     () => new Set(firstType ? [firstType] : []),
   );
+  const [hasManualSelection, setHasManualSelection] = useState(false);
 
   useEffect(() => {
-    if (activeType && actions.some((capability) => capability.type === activeType)) return;
-    const nextType = actions[0]?.type ?? null;
+    const preferredType =
+      actions.find((capability) => capability.type === "PRIMARY_CONTENT")?.type ??
+      actions[0]?.type ??
+      null;
+    const activeStillAvailable =
+      activeType && actions.some((capability) => capability.type === activeType);
+    if (activeStillAvailable && (hasManualSelection || activeType === preferredType)) return;
+    const nextType = preferredType;
     setActiveType(nextType);
     if (nextType) {
       setVisitedTypes((current) => new Set(current).add(nextType));
     }
-  }, [actions, activeType]);
+  }, [actions, activeType, hasManualSelection]);
 
   const selectTab = (type: LessonCapabilityType) => {
+    setHasManualSelection(true);
     setActiveType(type);
     setVisitedTypes((current) => new Set(current).add(type));
   };
