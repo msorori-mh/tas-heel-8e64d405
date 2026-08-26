@@ -45,7 +45,7 @@ test("CF11-R4/2 — publication requires server-side upload attestation of the r
   assert.match(server, /subarray\(0, 16\)\)\.toString\("hex"\)/);
   assert.match(server, /golden_lesson_attest_cf11_asset/);
   // Publication runs attestation first, so an unattested asset can never be published.
-  assert.match(fns, /attestStoredAssets\(\s*\n?\s*userId, data\.batchId, declarations, uploadedPaths, "EXECUTE",/);
+  assert.match(fns, /attestStoredAssets\(\s*userId,\s*data\.batchId,\s*declarations,\s*uploadedPaths,\s*"EXECUTE",/);
   // CF11-R5: attestation is MACHINE-only — the server signs for bytes it re-read itself and the
   // human is recorded as the requester, never as the attester.
   assert.match(server, /const admin = serviceClient\(\);[\s\S]{0,4000}rpc\(admin\)\("golden_lesson_attest_cf11_asset"/);
