@@ -51,6 +51,13 @@ test("student route exposes the seven-step rendering contracts", () => {
   assert.match(route, /Math\.max\([\s\S]*officialQuestionsReady \? 1 : 0/);
   assert.match(route, /Math\.max\([\s\S]*selfTestReady \? 1 : 0/);
   assert.match(route, /QuestionLoadFailure/);
+  assert.match(route, /role="tablist"/);
+  assert.match(route, /role="tab"/);
+  assert.match(route, /role="tabpanel"/);
+  assert.match(route, /aria-selected=\{active\}/);
+  assert.match(route, /overflow-x-auto/);
+  assert.match(route, /visitedTypes/);
+  assert.doesNotMatch(route, /function JourneyCard/);
 });
 
 test("legacy mind maps and labs are interactive by resource type", () => {
