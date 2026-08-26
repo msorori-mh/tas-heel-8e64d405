@@ -122,7 +122,10 @@ def xlsx(path):
  qs=[]; companion=[]
  for n,row in enumerate(rows[1:],1):
   if row.get('A','').strip():
-   qid=f'iron-self-{n:03d}';qs.append({'id':qid,'question':row['A'].strip(),'type':row.get('I','').strip() or 'multiple_choice','options':[row.get(x,'') for x in 'BCDE' if row.get(x,'')],'source_row':n+1,'subject':row.get('H',''),'content_status':'DRAFT'})
+   opts=[row.get(x,'').strip() for x in 'BCDE' if row.get(x,'').strip()]
+   if len(opts) != 4:
+    continue
+   qid=f'iron-self-{len(qs)+1:03d}';qs.append({'id':qid,'question':row['A'].strip(),'type':'multiple_choice','options':opts,'source_row':n+1,'subject':row.get('H',''),'content_status':'DRAFT'})
    companion.append({'question_id':qid,'correct_option':row.get('F',''),'rationale':row.get('G','')})
  return qs,companion
 
