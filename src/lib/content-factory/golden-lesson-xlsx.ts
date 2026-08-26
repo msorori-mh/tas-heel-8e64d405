@@ -8,6 +8,16 @@ export interface ConvertedQuestionWorkbook {
   rowCount: number;
 }
 
+export interface QuestionWorkbookGuard {
+  /** Selected package identity; every workbook row must match it exactly. */
+  expectedSubjectCode?: string;
+  expectedLessonCode?: string;
+  /** Direct publication accepts reviewed content only. */
+  requireApproved?: boolean;
+  /** The student self-test contract used by the golden lesson is exactly four choices. */
+  requireFourChoices?: boolean;
+}
+
 /**
  * Columns that must exist in the header row of the workbook sheet.
  * Kept in sync with public/content-import-templates/09_* and 10_*.
@@ -207,6 +217,7 @@ function validateRow(
 export async function convertQuestionWorkbook(
   capability: QuestionCapability,
   file: File,
+  guard: QuestionWorkbookGuard = {},
 ): Promise<ConvertedQuestionWorkbook> {
   if (!/\.xlsx$/i.test(file.name)) throw new Error("يُقبل قالب XLSX المعتمد فقط.");
   const XLSX = await import("xlsx");
@@ -240,31 +251,19 @@ export async function convertQuestionWorkbook(
   };
 
   const required = REQUIRED_COLUMNS[capability];
-  const otherCapability: QuestionCapability =
-    capability === "selfTest" ? "officialBookQuestions" : "selfTest";
-  const named = workbook.SheetNames.find((sheetName) => sheetName.trim() === SHEET_NAME[capability]);
-  const matching = named
-    ? (required.every((column) => Array.from(readHeaders(readRows(named)).values()).includes(column))
-        ? named
-        : undefined)
-    : workbook.SheetNames.find((sheetName) => {
-        if (sheetName.trim() === SHEET_NAME[otherCapability]) return false;
-        const values = Array.from(readHeaders(readRows(sheetName)).values());
-        return required.every((column) => values.includes(column));
-      });
-
-
+  const matching = workbook.SheetNames.find(
+    (sheetName) => sheetName.trim() === SHEET_NAME[capability],
+  );
   if (!matching) {
-    if (named) {
-      const values = Array.from(readHeaders(readRows(named)).values());
-      const missing = required.filter((column) => !values.includes(column));
-      throw new Error(
-        `ورقة «${SHEET_NAME[capability]}» ينقصها أعمدة إلزامية: ${missing.join("، ")} — نزّل القالب المعتمد ولا تغيّر أسماء الأعمدة.`,
-      );
-    }
-
     throw new Error(
-      `لم يُعثر على ورقة «${SHEET_NAME[capability]}» بأعمدة ${CAPABILITY_LABEL[capability]} المعتمدة — تأكد أنك رفعت القالب الصحيح لهذا المكوّن.`,
+      `لم يُعثر على ورقة «${SHEET_NAME[capability]}» — نزّل القالب المعتمد ولا تغيّر اسم ورقة البيانات.`,
+    );
+  }
+  const namedHeaders = Array.from(readHeaders(readRows(matching)).values());
+  const missing = required.filter((column) => !namedHeaders.includes(column));
+  if (missing.length) {
+    throw new Error(
+      `ورقة «${SHEET_NAME[capability]}» ينقصها أعمدة إلزامية: ${missing.join("، ")} — نزّل القالب المعتمد ولا تغيّر أسماء الأعمدة.`,
     );
   }
 
@@ -285,12 +284,27 @@ export async function convertQuestionWorkbook(
     if (!meaningful) continue;
 
     rowErrors.push(...validateRow(capability, row, rowNumber));
+    const normalizedSubject = row.subject_code?.trim().toUpperCase();
+    const normalizedLesson = row.lesson_code?.trim().toUpperCase();
+    if (guard.expectedSubjectCode && normalizedSubject !== guard.expectedSubjectCode.trim().toUpperCase()) {
+      rowErrors.push(`الصف ${rowNumber}: subject_code لا يطابق المادة المختارة (${guard.expectedSubjectCode}).`);
+    }
+    if (guard.expectedLessonCode && normalizedLesson !== guard.expectedLessonCode.trim().toUpperCase()) {
+      rowErrors.push(`الصف ${rowNumber}: lesson_code لا يطابق الدرس المختار (${guard.expectedLessonCode}).`);
+    }
+    if (guard.requireApproved && row.review_status?.trim() !== "معتمد") {
+      rowErrors.push(`الصف ${rowNumber}: review_status يجب أن يكون «معتمد» قبل النشر المباشر.`);
+    }
+    if (capability === "selfTest" && guard.requireFourChoices && options(row).length !== 4) {
+      rowErrors.push(`الصف ${rowNumber}: اختبر فهمك في الدرس الذهبي يتطلب أربعة خيارات مكتملة بالضبط.`);
+    }
     const code = row.question_code;
-    if (code) {
-      if (seenCodes.has(code)) {
-        rowErrors.push(`الصف ${rowNumber}: كود السؤال ${code} مكرر داخل الملف.`);
+    const normalizedCode = code?.trim().toUpperCase();
+    if (normalizedCode) {
+      if (seenCodes.has(normalizedCode)) {
+        rowErrors.push(`الصف ${rowNumber}: كود السؤال ${code} مكرر داخل الملف (المقارنة غير حساسة لحالة الأحرف).`);
       }
-      seenCodes.add(code);
+      seenCodes.add(normalizedCode);
     }
     rows.push(row);
   }
