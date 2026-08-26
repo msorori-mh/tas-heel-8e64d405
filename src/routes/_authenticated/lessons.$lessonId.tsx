@@ -31,7 +31,6 @@ import {
   computeLessonProgress,
   isPlaceholderBookContent,
   parseLessonTitle,
-
   visibleLessonCapabilities,
   type LessonCapability,
   type LessonCapabilityType,
@@ -73,9 +72,7 @@ import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
 export const Route = createFileRoute("/_authenticated/lessons/$lessonId")({
   // 20C-B — `?preview=1` is an operator preview; it only has an effect for
   // content staff (see `previewMode` below), students never bypass the gate.
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { preview?: number; semester?: 1 | 2 } => ({
+  validateSearch: (search: Record<string, unknown>): { preview?: number; semester?: 1 | 2 } => ({
     preview: search.preview === 1 || search.preview === "1" ? 1 : undefined,
     semester:
       search.semester === 1 || search.semester === "1"
@@ -132,8 +129,6 @@ function isLabAttachment(resource: ResourceRow): boolean {
   return typeof target === "string" && target.toLowerCase() === "lab";
 }
 
-
-
 type SimulationRow = {
   id: string;
   title: string;
@@ -156,26 +151,42 @@ type LessonQuestionRow = {
   revision_id: string;
 };
 
+type LessonQuestionRpcRow = {
+  id: string;
+  question_text: string;
+  options: unknown;
+  question_type: string | null;
+  sort_order: number | null;
+  revision_id: string;
+};
+
+type LessonExtraRpcRow = {
+  id: string;
+  title: string | null;
+  has_video: boolean | null;
+  has_content_pdf: boolean | null;
+  external_video_url: string | null;
+};
+
 function parseStudentOptions(value: unknown): StudentQuestionOption[] {
   if (!Array.isArray(value)) return [];
-  return value.flatMap((option, index) => {
-    if (typeof option === "string") {
-      return [{ id: String(index + 1), text: option, sortOrder: index + 1 }];
-    }
-    if (!option || typeof option !== "object") return [];
-    const candidate = option as Record<string, unknown>;
-    const id = String(candidate.id ?? candidate.option_code ?? index + 1);
-    const text = String(candidate.text ?? candidate.body ?? "").trim();
-    if (!text) return [];
-    const sortOrder = Number(candidate.sortOrder ?? candidate.sort_order ?? index + 1);
-    return [{ id, text, sortOrder: Number.isFinite(sortOrder) ? sortOrder : index + 1 }];
-  }).sort((a, b) => a.sortOrder - b.sortOrder);
+  return value
+    .flatMap((option, index) => {
+      if (typeof option === "string") {
+        return [{ id: String(index + 1), text: option, sortOrder: index + 1 }];
+      }
+      if (!option || typeof option !== "object") return [];
+      const candidate = option as Record<string, unknown>;
+      const id = String(candidate.id ?? candidate.option_code ?? index + 1);
+      const text = String(candidate.text ?? candidate.body ?? "").trim();
+      if (!text) return [];
+      const sortOrder = Number(candidate.sortOrder ?? candidate.sort_order ?? index + 1);
+      return [{ id, text, sortOrder: Number.isFinite(sortOrder) ? sortOrder : index + 1 }];
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-async function callLessonQuestionRpc<T>(
-  name: string,
-  args: Record<string, unknown>,
-): Promise<T> {
+async function callLessonQuestionRpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
   const rpc = supabase.rpc.bind(supabase) as unknown as (
     functionName: string,
     parameters: Record<string, unknown>,
@@ -204,7 +215,6 @@ function LessonPage() {
     queryKey: ["lesson-lifecycle-gate", lessonId],
     queryFn: () => fetchStudentLifecycleGate(lessonId),
   });
-
 
   const {
     data: lesson,
@@ -307,10 +317,13 @@ function LessonPage() {
     queryKey: ["lesson-official-book-questions", lessonId],
     queryFn: async () => {
       // Role-filtered initial payload: no answer, correct option, explanation, or rationale.
-      const data = await callLessonQuestionRpc<any[]>("get_lesson_official_questions", {
-        _lesson_id: lessonId,
-      });
-      return ((data ?? []) as any[]).map((r) => ({
+      const data = await callLessonQuestionRpc<LessonQuestionRpcRow[]>(
+        "get_lesson_official_questions",
+        {
+          _lesson_id: lessonId,
+        },
+      );
+      return (data ?? []).map((r) => ({
         id: r.id,
         question_text: r.question_text,
         options: parseStudentOptions(r.options),
@@ -330,10 +343,13 @@ function LessonPage() {
     enabled: !!lesson && accessible === true,
     queryKey: ["lesson-self-test-questions", lessonId],
     queryFn: async () => {
-      const data = await callLessonQuestionRpc<any[]>("get_lesson_self_test_questions", {
-        _lesson_id: lessonId,
-      });
-      return ((data ?? []) as any[]).map((r) => ({
+      const data = await callLessonQuestionRpc<LessonQuestionRpcRow[]>(
+        "get_lesson_self_test_questions",
+        {
+          _lesson_id: lessonId,
+        },
+      );
+      return (data ?? []).map((r) => ({
         id: r.id,
         question_text: r.question_text,
         options: parseStudentOptions(r.options),
@@ -346,8 +362,6 @@ function LessonPage() {
 
   // Student-owned notebook for official book questions (free-text answers).
   const questionNotes = useLessonQuestionNotes(lessonId, profile?.user_id ?? null);
-
-
 
   // ── Phase N2D: unit-level access gate for enhancements ──
   // Free-access pivot: skip subscription RPC for UI gating.
@@ -390,7 +404,7 @@ function LessonPage() {
         { _lesson_id: lessonId } as never,
       );
       if (error) throw error;
-      const row = Array.isArray(data) ? (data[0] as any) : (data as any);
+      const row = (Array.isArray(data) ? data[0] : data) as LessonExtraRpcRow | null;
       if (!row) return null;
       return {
         id: row.id,
@@ -412,7 +426,9 @@ function LessonPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lesson_resources")
-        .select("id,resource_type,title,url,description,sort_order,is_primary,html_resource_type,metadata")
+        .select(
+          "id,resource_type,title,url,description,sort_order,is_primary,html_resource_type,metadata",
+        )
         .eq("lesson_id", lessonId)
         .order("sort_order");
       if (error) throw error;
@@ -427,7 +443,8 @@ function LessonPage() {
     queryKey: ["lesson-primary-resource", lessonId],
     retry: false,
     queryFn: async (): Promise<PrimaryLessonResource | null> => {
-      const { data, error } = await (supabase.from("lesson_resources") as any)
+      const { data, error } = await supabase
+        .from("lesson_resources")
         .select("id,resource_type,title,url,description,lesson_id")
         .eq("lesson_id", lessonId)
         .eq("is_primary", true)
@@ -556,8 +573,6 @@ function LessonPage() {
       r.id !== primaryResource?.id,
   );
 
-
-
   if (loadingLesson) return <StateMessage variant="loading">جارٍ تحميل الدرس…</StateMessage>;
   if (lessonErr || !lesson) {
     return (
@@ -588,7 +603,6 @@ function LessonPage() {
       </div>
     );
   }
-
 
   const titleParts = parseLessonTitle(lesson.title);
 
@@ -624,10 +638,7 @@ function LessonPage() {
       officialQuestions?.length ?? 0,
       officialQuestionsReady ? 1 : 0,
     ),
-    selfTestQuestionsCount: Math.max(
-      selfTestQuestions?.length ?? 0,
-      selfTestReady ? 1 : 0,
-    ),
+    selfTestQuestionsCount: Math.max(selfTestQuestions?.length ?? 0, selfTestReady ? 1 : 0),
     hasLessonVideoFlag: lessonExtra?.has_video === true,
     enhancementsAccessible: canAccessEnhancements,
     progress: progressRow
@@ -661,7 +672,6 @@ function LessonPage() {
     ((resources ?? []).find((r) => r.is_primary === true) as unknown as PrimaryLessonResource) ??
     null;
 
-
   const renderCapabilityBody = (capability: LessonCapability) => {
     switch (capability.type) {
       case "PRIMARY_CONTENT":
@@ -677,7 +687,6 @@ function LessonPage() {
         }
         return <OfficialTextbookContent content={bookContent} />;
 
-
       case "SUMMARY":
         return (
           <>
@@ -692,7 +701,9 @@ function LessonPage() {
                 ))}
               </div>
             )}
-            {summary?.summary && summary.summary.trim().length > 0 && /<html[\s>]|<!doctype/i.test(summary.summary) ? (
+            {summary?.summary &&
+            summary.summary.trim().length > 0 &&
+            /<html[\s>]|<!doctype/i.test(summary.summary) ? (
               <InlineHtmlResourceViewer
                 title="ملخص الدرس"
                 html={summary.summary}
@@ -815,7 +826,6 @@ function LessonPage() {
               </section>
             )}
           </div>
-
         );
 
       case "VIDEO":
@@ -854,9 +864,11 @@ function LessonPage() {
             {officialQuestionsError && (
               <QuestionLoadFailure onRetry={() => void refetchOfficialQuestions()} />
             )}
-            {!loadingOfficialQuestions && !officialQuestionsError && officialQuestions?.length === 0 && (
-              <QuestionLoadFailure onRetry={() => void refetchOfficialQuestions()} />
-            )}
+            {!loadingOfficialQuestions &&
+              !officialQuestionsError &&
+              officialQuestions?.length === 0 && (
+                <QuestionLoadFailure onRetry={() => void refetchOfficialQuestions()} />
+              )}
             <ol className="space-y-4">
               {(officialQuestions ?? []).map((q, idx) => (
                 <li key={q.id}>
@@ -871,13 +883,9 @@ function LessonPage() {
                 </li>
               ))}
             </ol>
-            <MyAnswersLog
-              questions={officialQuestions ?? []}
-              notes={questionNotes.notes}
-            />
+            <MyAnswersLog questions={officialQuestions ?? []} notes={questionNotes.notes} />
           </div>
         );
-
 
       case "SELF_TEST":
         return (
@@ -886,9 +894,11 @@ function LessonPage() {
             {selfTestQuestionsError && (
               <QuestionLoadFailure onRetry={() => void refetchSelfTestQuestions()} />
             )}
-            {!loadingSelfTestQuestions && !selfTestQuestionsError && selfTestQuestions?.length === 0 && (
-              <QuestionLoadFailure onRetry={() => void refetchSelfTestQuestions()} />
-            )}
+            {!loadingSelfTestQuestions &&
+              !selfTestQuestionsError &&
+              selfTestQuestions?.length === 0 && (
+                <QuestionLoadFailure onRetry={() => void refetchSelfTestQuestions()} />
+              )}
             <ol className="space-y-4">
               {(selfTestQuestions ?? []).map((q, idx) => (
                 <li key={q.id}>
@@ -927,7 +937,6 @@ function LessonPage() {
         subjectId={subject?.id ?? null}
         lessonName={titleParts.main}
       />
-
 
       {/* Lesson header */}
       <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
@@ -1061,10 +1070,7 @@ function LessonCapabilityTabs({
     setVisitedTypes((current) => new Set(current).add(type));
   };
 
-  const handleTabKeyDown = (
-    event: React.KeyboardEvent<HTMLButtonElement>,
-    index: number,
-  ) => {
+  const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
     const rtlStep = event.key === "ArrowRight" ? -1 : 1;
@@ -1215,7 +1221,6 @@ function MyAnswersLog({
 }
 
 function OfficialBookQuestionCard({
-
   lessonId,
   index,
   q,
@@ -1264,7 +1269,6 @@ function OfficialBookQuestionCard({
     setHydratedFromServer(true);
     onAnswerChange(q.id, value);
   };
-
 
   const revealModelAnswer = async () => {
     if (!attemptedAnswer) return;
@@ -1346,7 +1350,6 @@ function OfficialBookQuestionCard({
         </div>
       )}
 
-
       {!revealed && (
         <Button
           className="mt-3"
@@ -1361,7 +1364,9 @@ function OfficialBookQuestionCard({
       {revealed && (
         <div className="mt-3 space-y-2 rounded-lg bg-secondary/40 p-3 text-sm">
           <p className="font-semibold">الإجابة النموذجية</p>
-          <p className="whitespace-pre-line">{revealed.modelAnswer ?? "لا توجد إجابة نموذجية منشورة."}</p>
+          <p className="whitespace-pre-line">
+            {revealed.modelAnswer ?? "لا توجد إجابة نموذجية منشورة."}
+          </p>
           {revealed.explanation && (
             <p className="whitespace-pre-line text-muted-foreground">{revealed.explanation}</p>
           )}
@@ -1670,42 +1675,16 @@ function ResourceTypeBadge({ type }: { type: string }) {
 
 function ResourceCard({ resource, lessonId }: { resource: ResourceRow; lessonId: string }) {
   const getUrl = useServerFn(getLessonFileUrl);
-
-  // CF10-R4b — inline HTML resources (mind map / lab experiment) render in-app through the
-  // sandboxed viewer, reading the exact body the V3 snapshot hashes.
-  if (isInlineHtmlResourceUrl(resource.url)) {
-    return (
-      <InlineHtmlResourceViewer
-        title={resource.title}
-        html={resource.description}
-        htmlResourceType={resource.html_resource_type ?? null}
-        resourceType={resource.resource_type}
-      />
-    );
-  }
-
+  const inlineResource = isInlineHtmlResourceUrl(resource.url);
   const isStorageRef = resource.url.trim().startsWith("supabase-storage://");
   const safeHttp = !isStorageRef && isSafeHttpUrl(resource.url);
-
-  // 18C closure — PDF resources open inside تمكين (with an offline copy),
-  // whether or not they are flagged as the lesson's primary resource.
-  if (resource.resource_type === "pdf" && (isStorageRef || safeHttp)) {
-    return (
-      <InAppPdfDelivery
-        resourceId={resource.id}
-        lessonId={lessonId}
-        title={resource.title}
-        fallbackUrl={safeHttp ? resource.url : null}
-      />
-    );
-  }
-
+  const inAppPdf = resource.resource_type === "pdf" && (isStorageRef || safeHttp);
   const [resolved, setResolved] = useState<string | null>(safeHttp ? resource.url : null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isStorageRef) return;
+    if (!isStorageRef || inlineResource || inAppPdf) return;
     let cancelled = false;
     setLoading(true);
     setErr(null);
@@ -1722,7 +1701,33 @@ function ResourceCard({ resource, lessonId }: { resource: ResourceRow; lessonId:
     return () => {
       cancelled = true;
     };
-  }, [isStorageRef, resource.url, lessonId, getUrl]);
+  }, [isStorageRef, inlineResource, inAppPdf, resource.url, lessonId, getUrl]);
+
+  // CF10-R4b — inline HTML resources (mind map / lab experiment) render in-app through the
+  // sandboxed viewer, reading the exact body the V3 snapshot hashes.
+  if (inlineResource) {
+    return (
+      <InlineHtmlResourceViewer
+        title={resource.title}
+        html={resource.description}
+        htmlResourceType={resource.html_resource_type ?? null}
+        resourceType={resource.resource_type}
+      />
+    );
+  }
+
+  // 18C closure — PDF resources open inside تمكين (with an offline copy),
+  // whether or not they are flagged as the lesson's primary resource.
+  if (inAppPdf) {
+    return (
+      <InAppPdfDelivery
+        resourceId={resource.id}
+        lessonId={lessonId}
+        title={resource.title}
+        fallbackUrl={safeHttp ? resource.url : null}
+      />
+    );
+  }
 
   const buttonLabel = isStorageRef ? "فتح PDF" : "فتح المورد";
   const showOpen = resolved && !loading && !err;
