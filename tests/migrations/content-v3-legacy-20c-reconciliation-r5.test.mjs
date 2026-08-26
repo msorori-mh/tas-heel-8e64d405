@@ -6,11 +6,15 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 const read = (relative) => fs.readFileSync(new URL(relative, root), "utf8");
 
-const r5 = read("supabase/migrations-pending/20260819130000_content_v3_legacy_20c_reconciliation_r5.sql");
+const r5 = read(
+  "supabase/migrations-pending/20260819130000_content_v3_legacy_20c_reconciliation_r5.sql",
+);
 const preflight = read("scripts/content-v3/production-preflight-readonly.sql");
 const postverify = read("scripts/content-v3/postverify-21h.sql");
 const mapping = read("src/lib/lessons/capability-mapping.ts");
-const h21 = read("supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql");
+const h21 = read(
+  "supabase/migrations-pending/20260818210000_content_v3_21h_hardened_preflight.sql",
+);
 
 test("approved 21H migration is untouched", () => {
   const bytes = Buffer.from(h21.replace(/\r\n/g, "\n"), "utf8");
@@ -25,7 +29,10 @@ test("R5 runs before 21H, is transactional, and never fabricates an approver", (
   assert.match(r5, /R5_MUST_RUN_BEFORE_21H/);
   assert.doesNotMatch(r5, /\bapplicability\b\s*=/i);
   // ready_by may only come from audit_logs evidence.
-  assert.match(r5, /ready_by = CASE WHEN ev\.audited THEN COALESCE\(x\.ready_by, ev\.actor_id\) ELSE x\.ready_by END/);
+  assert.match(
+    r5,
+    /ready_by = CASE WHEN ev\.audited THEN COALESCE\(x\.ready_by, ev\.actor_id\) ELSE x\.ready_by END/,
+  );
   assert.match(r5, /LEGACY_20C_VISIBLE_BASELINE/);
   assert.doesNotMatch(r5, /system_actor|SYSTEM_ACTOR|00000000-0000-0000-0000-000000000000/);
   assert.match(r5, /lesson_capability_lifecycle_legacy_baseline_no_approver_chk/);
@@ -66,7 +73,10 @@ test("every retired capability is handled, not just originalBookPdf", () => {
 test("empty snapshots fail closed before the first UPDATE", () => {
   const firstUpdate = r5.indexOf("UPDATE public.lesson_capability_lifecycle x\n   SET ready_by");
   const precondition = r5.indexOf("R5_EMPTY_READY_SNAPSHOT=%");
-  assert.ok(precondition > 0 && precondition < firstUpdate, "precondition must precede the first UPDATE");
+  assert.ok(
+    precondition > 0 && precondition < firstUpdate,
+    "precondition must precede the first UPDATE",
+  );
   assert.match(r5, /tamkeen\.r5_manual_review_allowlist/);
   assert.match(r5, /R5_EMPTY_READY_SNAPSHOT_POST/);
 });
@@ -126,12 +136,15 @@ test("unreconcilable rows are flagged, never pinned", () => {
 
 test("PG17 rehearsal is executable and covers the R5-R2 negative scenarios", () => {
   const fixture = read("scripts/content-v3/pg17/fixture-legacy-20c.sql");
-  assert.match(fixture, /sort_order <= 21/);          // officialBookContent = 21
+  assert.match(fixture, /sort_order <= 21/); // officialBookContent = 21
   assert.match(fixture, /'originalBookPdf', 'READY'/); // 40 lessons
   assert.match(fixture, /'supportingResources','READY'/);
   assert.match(fixture, /"from_status":"REVIEW","to_status":"READY"/);
   assert.match(fixture, /"from_status":"DRAFT","to_status":"READY"/);
-  assert.match(fixture, /'77777777-0000-0000-0000-000000000005','66666666-0000-0000-0000-000000000005','DRAFT'/);
+  assert.match(
+    fixture,
+    /'77777777-0000-0000-0000-000000000005','66666666-0000-0000-0000-000000000005','DRAFT'/,
+  );
 
   const runner = read("scripts/content-v3/pg17/rehearse-r5.sh");
   assert.match(runner, /EMPTY_SNAPSHOT_FAIL_CLOSED=PASS/);
@@ -179,15 +192,27 @@ test("R5-R3: snapshot/hash atomic consistency is fail-closed", () => {
   assert.ok(r5.indexOf("R5_READY_SNAPSHOT_HASH_MISMATCH=%") < firstUpdate);
   // The hash is always derived from the effective (stored-first) snapshot.
   assert.match(r5, /ready_snapshot = ev\.snapshot/);
-  assert.match(r5, /ready_hash = COALESCE\(x\.ready_hash, public\.v3_capability_snapshot_hash\(ev\.snapshot\)\)/);
-  assert.match(r5, /COALESCE\(l\.ready_snapshot,\s*\n\s*public\.v3_capability_snapshot\(l\.lesson_id, l\.capability\)\) AS snapshot/);
+  assert.match(
+    r5,
+    /ready_hash = COALESCE\(x\.ready_hash, public\.v3_capability_snapshot_hash\(ev\.snapshot\)\)/,
+  );
+  assert.match(
+    r5,
+    /COALESCE\(l\.ready_snapshot,\s*\n\s*public\.v3_capability_snapshot\(l\.lesson_id, l\.capability\)\) AS snapshot/,
+  );
 });
 
 test("R5-R3: AUDITED_APPROVAL requires actor and time identity", () => {
-  assert.match(r5, /\(ap\.actor_id IS NOT NULL\s*\n\s*AND \(l\.ready_by IS NULL OR l\.ready_by = ap\.actor_id\)\s*\n\s*AND \(l\.ready_at IS NULL OR l\.ready_at = ap\.approved_at\)\) AS audited/);
+  assert.match(
+    r5,
+    /\(ap\.actor_id IS NOT NULL\s*\n\s*AND \(l\.ready_by IS NULL OR l\.ready_by = ap\.actor_id\)\s*\n\s*AND \(l\.ready_at IS NULL OR l\.ready_at = ap\.approved_at\)\) AS audited/,
+  );
   assert.match(r5, /WHEN ev\.audited\s+THEN 'AUDITED_APPROVAL'/);
   assert.match(r5, /WHEN x\.ready_by IS NOT NULL THEN 'LEGACY_20C_ROW_APPROVER'/);
-  assert.match(r5, /ready_by = CASE WHEN ev\.audited THEN COALESCE\(x\.ready_by, ev\.actor_id\) ELSE x\.ready_by END/);
+  assert.match(
+    r5,
+    /ready_by = CASE WHEN ev\.audited THEN COALESCE\(x\.ready_by, ev\.actor_id\) ELSE x\.ready_by END/,
+  );
   assert.match(r5, /R5_AUDITED_APPROVAL_ACTOR_MISMATCH=%/);
 });
 

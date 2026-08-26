@@ -148,19 +148,11 @@ export function buildGroupCode(scope: Tcs1Scope, groupNo: number): string {
   return `grp-${scopePart(scope)}-${pad(groupNo, TCS1_WIDTH.groupNo)}`;
 }
 
-export function buildUnitCode(
-  scope: Tcs1Scope,
-  subjectNo: number,
-  unitNo: number,
-): string {
+export function buildUnitCode(scope: Tcs1Scope, subjectNo: number, unitNo: number): string {
   return `unit-${scopePart(scope)}-${pad(subjectNo, TCS1_WIDTH.subjectNo)}-${pad(unitNo, TCS1_WIDTH.unitNo)}`;
 }
 
-export function buildLessonCode(
-  scope: Tcs1Scope,
-  subjectNo: number,
-  lessonNo: number,
-): string {
+export function buildLessonCode(scope: Tcs1Scope, subjectNo: number, lessonNo: number): string {
   return `lesson-${scopePart(scope)}-${pad(subjectNo, TCS1_WIDTH.subjectNo)}-${pad(lessonNo, TCS1_WIDTH.lessonNo)}`;
 }
 
@@ -201,11 +193,7 @@ export function buildAssessmentCode(
   return buildLessonChildCode("asm", scope, subjectNo, lessonNo, seq);
 }
 
-export function buildQuestionCode(
-  scope: Tcs1Scope,
-  subjectNo: number,
-  questionNo: number,
-): string {
+export function buildQuestionCode(scope: Tcs1Scope, subjectNo: number, questionNo: number): string {
   return `q-${scopePart(scope)}-${pad(subjectNo, TCS1_WIDTH.subjectNo)}-${pad(questionNo, TCS1_WIDTH.questionNo)}`;
 }
 
@@ -388,12 +376,52 @@ export const TCS1_FORMAT_TABLE: ReadonlyArray<{
   format: string;
   example: string;
 }> = [
-  { kind: "subject", labelAr: "مادة", format: "sub-{gradeShort}-{trackCode}-{subjectNo:003}", example: "sub-g10-aden-003" },
-  { kind: "group", labelAr: "مجموعة مواد", format: "grp-{gradeShort}-{trackCode}-{groupNo:02}", example: "grp-g10-aden-01" },
-  { kind: "unit", labelAr: "وحدة", format: "unit-{gradeShort}-{trackCode}-{subjectNo:003}-{unitNo:02}", example: "unit-g10-aden-003-02" },
-  { kind: "lesson", labelAr: "درس", format: "lesson-{gradeShort}-{trackCode}-{subjectNo:003}-{lessonNo:003}", example: "lesson-g10-aden-003-004" },
-  { kind: "explanation", labelAr: "شرح", format: "exp-{gradeShort}-{trackCode}-{subjectNo:003}-{lessonNo:003}-{seq:02}", example: "exp-g10-aden-003-004-01" },
-  { kind: "resource", labelAr: "مورد", format: "res-{gradeShort}-{trackCode}-{subjectNo:003}-{lessonNo:003}-{seq:02}", example: "res-g10-aden-003-004-01" },
-  { kind: "assessment", labelAr: "تقييم", format: "asm-{gradeShort}-{trackCode}-{subjectNo:003}-{lessonNo:003}-{seq:02}", example: "asm-g10-aden-003-004-01" },
-  { kind: "question", labelAr: "سؤال", format: "q-{gradeShort}-{trackCode}-{subjectNo:003}-{questionNo:05}", example: "q-g10-aden-003-00007" },
+  {
+    kind: "subject",
+    labelAr: "مادة",
+    format: "sub-{gradeShort}-{trackCode}-{subjectNo:003}",
+    example: "sub-g10-aden-003",
+  },
+  {
+    kind: "group",
+    labelAr: "مجموعة مواد",
+    format: "grp-{gradeShort}-{trackCode}-{groupNo:02}",
+    example: "grp-g10-aden-01",
+  },
+  {
+    kind: "unit",
+    labelAr: "وحدة",
+    format: "unit-{gradeShort}-{trackCode}-{subjectNo:003}-{unitNo:02}",
+    example: "unit-g10-aden-003-02",
+  },
+  {
+    kind: "lesson",
+    labelAr: "درس",
+    format: "lesson-{gradeShort}-{trackCode}-{subjectNo:003}-{lessonNo:003}",
+    example: "lesson-g10-aden-003-004",
+  },
+  {
+    kind: "explanation",
+    labelAr: "شرح",
+    format: "exp-{gradeShort}-{trackCode}-{subjectNo:003}-{lessonNo:003}-{seq:02}",
+    example: "exp-g10-aden-003-004-01",
+  },
+  {
+    kind: "resource",
+    labelAr: "مورد",
+    format: "res-{gradeShort}-{trackCode}-{subjectNo:003}-{lessonNo:003}-{seq:02}",
+    example: "res-g10-aden-003-004-01",
+  },
+  {
+    kind: "assessment",
+    labelAr: "تقييم",
+    format: "asm-{gradeShort}-{trackCode}-{subjectNo:003}-{lessonNo:003}-{seq:02}",
+    example: "asm-g10-aden-003-004-01",
+  },
+  {
+    kind: "question",
+    labelAr: "سؤال",
+    format: "q-{gradeShort}-{trackCode}-{subjectNo:003}-{questionNo:05}",
+    example: "q-g10-aden-003-00007",
+  },
 ];

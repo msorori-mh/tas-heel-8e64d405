@@ -41,9 +41,14 @@ function AuthPage() {
     navigate({ to: "/auth", search: { mode: m }, replace: true });
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10" dir="rtl">
+    <div
+      className="min-h-screen flex items-center justify-center bg-background px-4 py-10"
+      dir="rtl"
+    >
       <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-card">
-        <Link to="/" className="text-sm text-muted-foreground">→ العودة للرئيسية</Link>
+        <Link to="/" className="text-sm text-muted-foreground">
+          → العودة للرئيسية
+        </Link>
 
         <div className="mt-4 inline-flex w-full rounded-xl border-2 border-border bg-muted p-1.5 text-sm">
           <button
@@ -72,7 +77,11 @@ function AuthPage() {
           </button>
         </div>
 
-        {mode === "signup" ? <SignupPanel onSwitch={() => setMode("login")} /> : <LoginPanel onSwitch={() => setMode("signup")} />}
+        {mode === "signup" ? (
+          <SignupPanel onSwitch={() => setMode("login")} />
+        ) : (
+          <LoginPanel onSwitch={() => setMode("signup")} />
+        )}
       </div>
     </div>
   );
@@ -182,7 +191,8 @@ function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
       </Button>
 
       <div className="my-2 flex items-center gap-3 text-xs text-muted-foreground">
-        <div className="h-px flex-1 bg-border" /> أو عبر البريد <div className="h-px flex-1 bg-border" />
+        <div className="h-px flex-1 bg-border" /> أو عبر البريد{" "}
+        <div className="h-px flex-1 bg-border" />
       </div>
 
       <form onSubmit={handlePasswordSignup} className="space-y-3">
@@ -229,11 +239,16 @@ function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
         </Button>
       </form>
 
-
       <ul className="space-y-1.5 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
-        <li className="flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-accent" /> مجاني للبدء — بدون بطاقة</li>
-        <li className="flex items-center gap-2"><BookOpen className="h-3.5 w-3.5 text-primary" /> محتوى مصمم حسب المنهج والمحافظة</li>
-        <li className="flex items-center gap-2"><Sparkles className="h-3.5 w-3.5 text-secondary" /> تدرّب على نماذج اختبارات حقيقية</li>
+        <li className="flex items-center gap-2">
+          <Zap className="h-3.5 w-3.5 text-accent" /> مجاني للبدء — بدون بطاقة
+        </li>
+        <li className="flex items-center gap-2">
+          <BookOpen className="h-3.5 w-3.5 text-primary" /> محتوى مصمم حسب المنهج والمحافظة
+        </li>
+        <li className="flex items-center gap-2">
+          <Sparkles className="h-3.5 w-3.5 text-secondary" /> تدرّب على نماذج اختبارات حقيقية
+        </li>
       </ul>
 
       <p className="text-center text-xs text-muted-foreground">
@@ -272,7 +287,6 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
       setBusy(false);
     }
   };
-
 
   const isEmail = (v: string) => /\S+@\S+\.\S+/.test(v.trim());
   const isPhoneLike = (v: string) => /^\+?\d[\d\s-]{6,}$/.test(v.trim());
@@ -346,7 +360,8 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
       </Button>
 
       <div className="my-2 flex items-center gap-3 text-xs text-muted-foreground">
-        <div className="h-px flex-1 bg-border" /> أو بالبريد وكلمة المرور <div className="h-px flex-1 bg-border" />
+        <div className="h-px flex-1 bg-border" /> أو بالبريد وكلمة المرور{" "}
+        <div className="h-px flex-1 bg-border" />
       </div>
 
       <form onSubmit={handlePasswordLogin} className="space-y-3">
@@ -371,7 +386,11 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
             type="password"
             dir="ltr"
             value={password}
-            onChange={(e) => { setPassword(e.target.value); setErr(null); setMsg(null); }}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setErr(null);
+              setMsg(null);
+            }}
             autoComplete="current-password"
             required
           />
@@ -401,7 +420,9 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
         </Button>
 
         <p className="text-center text-xs text-muted-foreground">
-          <Link to="/forgot-password" className="hover:underline">نسيت كلمة المرور؟</Link>
+          <Link to="/forgot-password" className="hover:underline">
+            نسيت كلمة المرور؟
+          </Link>
         </p>
         {!PHONE_OTP_ENABLED && (
           <p className="text-center text-xs text-muted-foreground">
@@ -409,7 +430,6 @@ function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
           </p>
         )}
       </form>
-
 
       <p className="text-center text-xs text-muted-foreground">
         جديد على تمكين؟{" "}

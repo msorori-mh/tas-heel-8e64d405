@@ -10,10 +10,11 @@ import type { LessonHtmlResourceItem } from "./api/html-pipeline.functions";
 // ─── JSDOM bootstrap ───────────────────────────────────────────────────────
 
 function setupJSDOM() {
-  const dom = new JSDOM(
-    "<!DOCTYPE html><html><body><div id='root'></div></body></html>",
-    { url: "http://localhost/", runScripts: "dangerously", resources: "usable" },
-  );
+  const dom = new JSDOM("<!DOCTYPE html><html><body><div id='root'></div></body></html>", {
+    url: "http://localhost/",
+    runScripts: "dangerously",
+    resources: "usable",
+  });
   const win = dom.window;
 
   (globalThis as Record<string, unknown>).window = win;
@@ -47,10 +48,7 @@ function setupJSDOM() {
 async function buildZipBuffer(htmlBody: string): Promise<ArrayBuffer> {
   const zip = new JSZip();
   zip.file("package/index.html", `<html><body>${htmlBody}</body></html>`);
-  zip.file(
-    "package/manifest.json",
-    JSON.stringify({ entry_file: "index.html" }),
-  );
+  zip.file("package/manifest.json", JSON.stringify({ entry_file: "index.html" }));
   return zip.generateAsync({ type: "arraybuffer" });
 }
 
@@ -173,11 +171,7 @@ function tick(ms = 50): Promise<void> {
  * Necessary because async state updates from fetch/await chains may span
  * multiple microtask boundaries that a single act() doesn't capture.
  */
-async function waitFor(
-  condition: () => boolean,
-  timeoutMs = 3000,
-  intervalMs = 20,
-): Promise<void> {
+async function waitFor(condition: () => boolean, timeoutMs = 3000, intervalMs = 20): Promise<void> {
   const start = Date.now();
   while (!condition()) {
     if (Date.now() - start > timeoutMs) {
@@ -237,10 +231,7 @@ test("A — Reload: URL1 → error → reload → URL2, URL1 never reused", asyn
   assert.equal(fm.calls[0], URL1, "First fetch must use URL1");
 
   const retryBtn = container.querySelector("button")!;
-  assert.ok(
-    container.textContent?.includes("فشل تحميل المورد"),
-    "Error message must be shown",
-  );
+  assert.ok(container.textContent?.includes("فشل تحميل المورد"), "Error message must be shown");
 
   // Click reload → onReloadSignedUrl returns URL2 → second fetch
   await act(async () => {
@@ -348,9 +339,15 @@ function createControllableSigner() {
 
   return {
     fn,
-    get callCount() { return callCount; },
-    resolve(url: string | null) { resolveFn?.(url); },
-    reject(err: Error) { rejectFn?.(err); },
+    get callCount() {
+      return callCount;
+    },
+    resolve(url: string | null) {
+      resolveFn?.(url);
+    },
+    reject(err: Error) {
+      rejectFn?.(err);
+    },
   };
 }
 
@@ -540,10 +537,7 @@ test("7 — Rerender success race: stale signer resolve for A does not affect B"
   const iframe = container.querySelector("iframe");
   assert.ok(iframe, "iframe for B must still exist");
   const iframeSrcdoc = iframe.getAttribute("srcdoc") ?? "";
-  assert.ok(
-    iframeSrcdoc.includes("Content B"),
-    "B's content must still be displayed",
-  );
+  assert.ok(iframeSrcdoc.includes("Content B"), "B's content must still be displayed");
 
   // No error from A should be visible
   assert.ok(
@@ -631,10 +625,7 @@ test("8 — Rerender rejection race: stale signer reject for A does not affect B
   const iframe = container.querySelector("iframe");
   assert.ok(iframe, "iframe for B must still exist after stale signer rejection");
   const iframeSrcdoc = iframe.getAttribute("srcdoc") ?? "";
-  assert.ok(
-    iframeSrcdoc.includes("Content B"),
-    "B's content must still be displayed",
-  );
+  assert.ok(iframeSrcdoc.includes("Content B"), "B's content must still be displayed");
 
   // A's error must NOT appear
   assert.ok(

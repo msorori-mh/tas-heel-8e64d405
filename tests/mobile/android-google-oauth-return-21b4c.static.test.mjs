@@ -64,27 +64,58 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
   });
 
   it("4. a wrong scheme or host is rejected", () => {
-    expect(parseNativeAuthCallback("http://studentamkeen.com/auth/mobile-callback?code=abc12345").kind).toBe("ignored");
+    expect(
+      parseNativeAuthCallback("http://studentamkeen.com/auth/mobile-callback?code=abc12345").kind,
+    ).toBe("ignored");
     expect(parseNativeAuthCallback("evil.app://auth/callback?code=abc12345").kind).toBe("ignored");
-    expect(parseNativeAuthCallback("https://evil.com/auth/mobile-callback?code=abc12345").kind).toBe("ignored");
-    expect(parseNativeAuthCallback("https://studentamkeen.com.evil.com/auth/mobile-callback?code=abc12345").kind).toBe("ignored");
-    expect(parseNativeAuthCallback("https://www.studentamkeen.com/auth/mobile-callback?code=abc12345").kind).toBe("ignored");
+    expect(
+      parseNativeAuthCallback("https://evil.com/auth/mobile-callback?code=abc12345").kind,
+    ).toBe("ignored");
+    expect(
+      parseNativeAuthCallback(
+        "https://studentamkeen.com.evil.com/auth/mobile-callback?code=abc12345",
+      ).kind,
+    ).toBe("ignored");
+    expect(
+      parseNativeAuthCallback("https://www.studentamkeen.com/auth/mobile-callback?code=abc12345")
+        .kind,
+    ).toBe("ignored");
   });
 
   it("5. a wrong path is rejected", () => {
-    expect(parseNativeAuthCallback("https://studentamkeen.com/auth/callback?code=abc12345").kind).toBe("ignored");
-    expect(parseNativeAuthCallback("https://studentamkeen.com/auth/mobile-callback/extra?code=abc12345").kind).toBe("ignored");
-    expect(parseNativeAuthCallback("app.studentamkeen.tamkeen://evil/callback?code=abc12345").kind).toBe("ignored");
-    expect(parseNativeAuthCallback("app.studentamkeen.tamkeen://auth/other?code=abc12345").kind).toBe("ignored");
-    expect(parseNativeAuthCallback("app.studentamkeen.tamkeen://auth/callback/extra?code=abc12345").kind).toBe("ignored");
+    expect(
+      parseNativeAuthCallback("https://studentamkeen.com/auth/callback?code=abc12345").kind,
+    ).toBe("ignored");
+    expect(
+      parseNativeAuthCallback("https://studentamkeen.com/auth/mobile-callback/extra?code=abc12345")
+        .kind,
+    ).toBe("ignored");
+    expect(
+      parseNativeAuthCallback("app.studentamkeen.tamkeen://evil/callback?code=abc12345").kind,
+    ).toBe("ignored");
+    expect(
+      parseNativeAuthCallback("app.studentamkeen.tamkeen://auth/other?code=abc12345").kind,
+    ).toBe("ignored");
+    expect(
+      parseNativeAuthCallback("app.studentamkeen.tamkeen://auth/callback/extra?code=abc12345").kind,
+    ).toBe("ignored");
   });
 
   it("6. malformed input is rejected", () => {
-    for (const bad of ["", "not a url", null, undefined, 42, "https://studentamkeen.com/auth/mobile-callback"]) {
+    for (const bad of [
+      "",
+      "not a url",
+      null,
+      undefined,
+      42,
+      "https://studentamkeen.com/auth/mobile-callback",
+    ]) {
       expect(parseNativeAuthCallback(bad).kind).toBe("ignored");
     }
     // code shape is validated too
-    expect(parseNativeAuthCallback("https://studentamkeen.com/auth/mobile-callback?code=%20%20").kind).toBe("ignored");
+    expect(
+      parseNativeAuthCallback("https://studentamkeen.com/auth/mobile-callback?code=%20%20").kind,
+    ).toBe("ignored");
   });
 
   it("7. tokens and secrets are never logged, and implicit tokens are refused", () => {

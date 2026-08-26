@@ -2,22 +2,28 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const source = readFileSync(new URL(
-  "../../src/lib/content-factory/golden-lesson-direct.functions.ts",
-  import.meta.url,
-), "utf8");
-const builder = readFileSync(new URL(
-  "../../src/components/admin/GoldenLessonPackageBuilder.tsx",
-  import.meta.url,
-), "utf8");
-const directPublish = readFileSync(new URL(
-  "../../src/lib/content-factory/golden-lesson-direct-publish.functions.ts",
-  import.meta.url,
-), "utf8");
+const source = readFileSync(
+  new URL("../../src/lib/content-factory/golden-lesson-direct.functions.ts", import.meta.url),
+  "utf8",
+);
+const builder = readFileSync(
+  new URL("../../src/components/admin/GoldenLessonPackageBuilder.tsx", import.meta.url),
+  "utf8",
+);
+const directPublish = readFileSync(
+  new URL(
+    "../../src/lib/content-factory/golden-lesson-direct-publish.functions.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("preflight runs before signed upload URLs are issued", () => {
   const createStart = source.indexOf("export const createGoldenLessonDirectUpload");
-  const preflightCall = source.indexOf("readDirectIntakePreflight(authContext, manifest)", createStart);
+  const preflightCall = source.indexOf(
+    "readDirectIntakePreflight(authContext, manifest)",
+    createStart,
+  );
   const signedUpload = source.indexOf("createSignedUploadUrl", createStart);
   assert.ok(createStart >= 0 && preflightCall > createStart && signedUpload > preflightCall);
 });
@@ -47,11 +53,13 @@ test("publish UI preflights, resumes and presents identity differences", () => {
 test("an existing exact identity under another code is reused before upload", () => {
   assert.match(source, /resolveExistingIdentityPackage/);
   assert.match(source, /\.eq\("profile_id", manifest\.profileId\)/);
-  assert.match(source, /diffGoldenLessonIdentity\(candidate\.identity, manifest\.identity\)\.length === 0/);
+  assert.match(
+    source,
+    /diffGoldenLessonIdentity\(candidate\.identity, manifest\.identity\)\.length === 0/,
+  );
   assert.match(source, /PACKAGE_IDENTITY_AMBIGUOUS/);
   assert.ok((source.match(/await resolveExistingIdentityPackage\(/g) ?? []).length >= 3);
 });
-
 
 test("CF11 replay resumes with the immutable persisted publication plan hash", () => {
   const dryRunPlan = directPublish.indexOf('planSha(dryPublish, "plan_sha256")');
@@ -65,5 +73,8 @@ test("CF11 replay resumes with the immutable persisted publication plan hash", (
   assert.ok(dryRunPlan >= 0 && ledgerRead > dryRunPlan && ledgerPlan > ledgerRead);
   assert.ok(execute > ledgerPlan, "the durable replay hash must be recovered before EXECUTE");
   assert.match(directPublish, /CF11_PUBLICATION_PLAN_READ_FAILED/);
-  assert.match(directPublish, /if \(!publishPlan\) throw new Error\("CF11_WRITE_PLAN_HASH_REQUIRED"\)/);
+  assert.match(
+    directPublish,
+    /if \(!publishPlan\) throw new Error\("CF11_WRITE_PLAN_HASH_REQUIRED"\)/,
+  );
 });

@@ -6,8 +6,14 @@ const sql = readFileSync(
   "supabase/migrations-pending/20260819230000_content_factory_10_domain_materialization.sql",
   "utf8",
 );
-const assertSql = readFileSync("scripts/content-factory/pg17/content-factory-10-assert.sql", "utf8");
-const rehearse = readFileSync("scripts/content-factory/pg17/rehearse-content-factory-04.sh", "utf8");
+const assertSql = readFileSync(
+  "scripts/content-factory/pg17/content-factory-10-assert.sql",
+  "utf8",
+);
+const rehearse = readFileSync(
+  "scripts/content-factory/pg17/rehearse-content-factory-04.sh",
+  "utf8",
+);
 
 test("CF10 materializes the core capabilities into domain tables (HTML deferred to CF11)", () => {
   for (const table of [
@@ -30,7 +36,10 @@ test("CF10 materializes the core capabilities into domain tables (HTML deferred 
   // CF10-R4: lifecycle rows are always DRAFT; applicability is copied verbatim from the staged
   // entry (REQUIRED / OPTIONAL / NA) and never hard-coded.
   assert.match(sql, /'DRAFT', expected_applicability::public\.capability_applicability/);
-  assert.match(sql, /SELECT capability, lifecycle_capability, applicability\s*\n\s*FROM public\.golden_lesson_domain_stage_entries/);
+  assert.match(
+    sql,
+    /SELECT capability, lifecycle_capability, applicability\s*\n\s*FROM public\.golden_lesson_domain_stage_entries/,
+  );
   assert.doesNotMatch(sql, /applicability'\s*,\s*'REQUIRED'/);
   assert.match(sql, /CF10_LIFECYCLE_STAGED_SET_INVALID/);
 });
@@ -76,9 +85,14 @@ test("CF10-R2 keeps the question bank DRAFT-only (production schema contract)", 
   assert.match(sql, /assessment_membership_deferred/);
 });
 
-
 test("CF10 never creates curriculum, publishes, or deletes", () => {
-  for (const table of ["grades", "curriculum_tracks", "subjects", "subject_curriculum_tracks", "units"]) {
+  for (const table of [
+    "grades",
+    "curriculum_tracks",
+    "subjects",
+    "subject_curriculum_tracks",
+    "units",
+  ]) {
     assert.doesNotMatch(sql, new RegExp(`INSERT INTO public\\.${table}\\b`));
   }
   assert.doesNotMatch(sql, /DELETE FROM public\./);
@@ -138,7 +152,10 @@ test("CF10-R3 ships the server-side student visibility gate", () => {
   }
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.can_access_lesson\b/);
   assert.match(sql, /is_content_staff\(auth\.uid\(\)\) OR public\.lesson_student_visible/);
-  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.lesson_student_content_gate\(uuid\) TO authenticated/);
+  assert.match(
+    sql,
+    /GRANT EXECUTE ON FUNCTION public\.lesson_student_content_gate\(uuid\) TO authenticated/,
+  );
 });
 
 test("CF10-R3 adds identity, lifecycle and counter hardening", () => {
@@ -150,8 +167,13 @@ test("CF10-R3 adds identity, lifecycle and counter hardening", () => {
 
 test("CF10-R10 trusts the authoritative binding over mutable lesson metadata", () => {
   assert.match(sql, /ELSIF binding_count = 0 THEN/);
-  assert.match(sql, /existing lesson shell and must never overwrite or reject its operational metadata/);
-  assert.ok(assertSql.includes("bound lesson mutable metadata does not cause an identity conflict"));
+  assert.match(
+    sql,
+    /existing lesson shell and must never overwrite or reject its operational metadata/,
+  );
+  assert.ok(
+    assertSql.includes("bound lesson mutable metadata does not cause an identity conflict"),
+  );
   assert.doesNotMatch(assertSql, /CF10_EXPECTED_LESSON_IDENTITY_CONFLICT/);
 });
 
@@ -206,9 +228,18 @@ test("CF10-R9 ships a forward dependency-namespace migration for CF04/CF08/CF09"
   assert.equal((fwd.match(/SECURITY DEFINER/g) ?? []).length, 3);
   assert.equal((fwd.match(/SET search_path = public, pg_temp AS \$\$/g) ?? []).length, 3);
   // grants/revokes preserved verbatim
-  assert.match(fwd, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_stage_manifest\(jsonb,text\) TO authenticated;/);
-  assert.match(fwd, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_stage_domain_bundle\(uuid,integer,uuid,text,jsonb,jsonb\) TO service_role;/);
-  assert.match(fwd, /GRANT EXECUTE ON FUNCTION public\.golden_lesson_bind_authoritative_identity\(uuid,uuid\) TO service_role;/);
+  assert.match(
+    fwd,
+    /GRANT EXECUTE ON FUNCTION public\.golden_lesson_stage_manifest\(jsonb,text\) TO authenticated;/,
+  );
+  assert.match(
+    fwd,
+    /GRANT EXECUTE ON FUNCTION public\.golden_lesson_stage_domain_bundle\(uuid,integer,uuid,text,jsonb,jsonb\) TO service_role;/,
+  );
+  assert.match(
+    fwd,
+    /GRANT EXECUTE ON FUNCTION public\.golden_lesson_bind_authoritative_identity\(uuid,uuid\) TO service_role;/,
+  );
   // zero stale unqualified digest calls in the forward definitions (comments excluded)
   const fwdCode = fwd.replace(/^\s*--.*$/gm, "");
   assert.equal((fwdCode.match(/(?<!extensions\.)\bdigest\s*\(/g) ?? []).length, 0);
@@ -226,14 +257,23 @@ test("CF10-R9 ships a forward dependency-namespace migration for CF04/CF08/CF09"
   // rehearsal applies the forward migration before any runtime assert and before CF10
   const order = (needle) => rehearse.indexOf(needle);
   assert.ok(order("20260819225000_content_factory_dependency_pgcrypto_namespace_r9.sql") > 0);
-  for (const a of ["content-factory-04-assert.sql", "content-factory-08-assert.sql", "content-factory-09-assert.sql"]) {
+  for (const a of [
+    "content-factory-04-assert.sql",
+    "content-factory-08-assert.sql",
+    "content-factory-09-assert.sql",
+  ]) {
     assert.ok(order("_r9.sql") < order(a), a);
   }
-  assert.ok(order("_r9.sql") < order("20260819230000_content_factory_10_domain_materialization.sql"));
+  assert.ok(
+    order("_r9.sql") < order("20260819230000_content_factory_10_domain_materialization.sql"),
+  );
 });
 
 test("CF10-R8 pins pgcrypto to the extensions schema (production search path)", () => {
-  const fixture = readFileSync("scripts/content-factory/pg17/content-factory-04-fixture.sql", "utf8");
+  const fixture = readFileSync(
+    "scripts/content-factory/pg17/content-factory-04-fixture.sql",
+    "utf8",
+  );
   const searchPath = readFileSync(
     "scripts/content-factory/pg17/content-factory-10-r8-production-search-path.sql",
     "utf8",

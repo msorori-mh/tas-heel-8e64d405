@@ -68,9 +68,16 @@ test("اختبر فهمك يقبل خيارين ويرفض correct_index خار�
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("اختبر فهمك");
     sheet.addRow([
-      "question_code *", "subject_code *", "lesson_code *", "question_text *",
-      "option_1 *", "option_2 *", "option_3", "option_4",
-      "correct_index *", "explanation *",
+      "question_code *",
+      "subject_code *",
+      "lesson_code *",
+      "question_text *",
+      "option_1 *",
+      "option_2 *",
+      "option_3",
+      "option_4",
+      "correct_index *",
+      "explanation *",
     ]);
     rows.forEach((row) => sheet.addRow(row));
     const buffer = await workbook.xlsx.writeBuffer();
@@ -103,19 +110,35 @@ test("رسالة الخطأ تسمي الورقة المطلوبة عند رفع
   );
 });
 
-
 test("النشر المباشر يرفض هوية درس مختلفة وحالة غير معتمدة", async () => {
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("اختبر فهمك");
   sheet.addRow([
-    "question_code *", "subject_code *", "lesson_code *", "question_text *",
-    "option_1 *", "option_2 *", "option_3", "option_4",
-    "correct_index *", "explanation *", "review_status",
+    "question_code *",
+    "subject_code *",
+    "lesson_code *",
+    "question_text *",
+    "option_1 *",
+    "option_2 *",
+    "option_3",
+    "option_4",
+    "correct_index *",
+    "explanation *",
+    "review_status",
   ]);
   sheet.addRow([
-    "st-1", "SUB-OTHER", "LESSON-OTHER", "سؤال؟",
-    "أ", "ب", "ج", "د", 1, "شرح", "مسودة",
+    "st-1",
+    "SUB-OTHER",
+    "LESSON-OTHER",
+    "سؤال؟",
+    "أ",
+    "ب",
+    "ج",
+    "د",
+    1,
+    "شرح",
+    "مسودة",
   ]);
   const buffer = await workbook.xlsx.writeBuffer();
   const file = new File([buffer], "wrong-identity.xlsx");
@@ -137,9 +160,17 @@ test("عقد الطالب الصارم يتطلب أربعة خيارات متص
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("اختبر فهمك");
     sheet.addRow([
-      "question_code *", "subject_code *", "lesson_code *", "question_text *",
-      "option_1 *", "option_2 *", "option_3", "option_4",
-      "correct_index *", "explanation *", "review_status",
+      "question_code *",
+      "subject_code *",
+      "lesson_code *",
+      "question_text *",
+      "option_1 *",
+      "option_2 *",
+      "option_3",
+      "option_4",
+      "correct_index *",
+      "explanation *",
+      "review_status",
     ]);
     sheet.addRow(values);
     return new File([await workbook.xlsx.writeBuffer()], "strict.xlsx");

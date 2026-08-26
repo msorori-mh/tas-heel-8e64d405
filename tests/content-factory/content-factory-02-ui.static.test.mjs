@@ -110,7 +110,7 @@ test("curriculum prerequisites are explicit and use only the two operational tra
   assert.doesNotMatch(component, /href="\/admin\/units"/);
   assert.doesNotMatch(component, /href="\/admin\/textbooks"/);
   assert.match(component, /لا توجد وحدة — الدرس مرتبط بالمادة مباشرة/);
-  assert.match(textbookManager, /لا يشترط وجود كتاب مسبقًا/);
+  assert.match(textbookManager, /لا\s+يشترط وجود كتاب مسبقًا/);
   assert.match(textbookManager, /id="subject-textbook-pdf"/);
   assert.match(textbookManager, /منهج صنعاء وعدن معًا/);
   assert.match(adminLayout, /استيراد المحتوى/);

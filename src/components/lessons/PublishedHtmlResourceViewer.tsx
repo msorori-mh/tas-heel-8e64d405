@@ -2,10 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import JSZip from "jszip";
 import { AlertTriangle, Lock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  InteractiveResourceViewer,
-  InteractiveResourceItem,
-} from "./InteractiveResourceViewer";
+import { InteractiveResourceViewer, InteractiveResourceItem } from "./InteractiveResourceViewer";
 import { evaluateRuntimeCapability } from "@/lib/content-import/html-package/capacitor-gate";
 import type { BridgeEventPayload } from "@/lib/content-import/html-package/types";
 import type { LessonHtmlResourceItem } from "@/lib/api/html-pipeline.functions";
@@ -64,9 +61,7 @@ export function PublishedHtmlResourceViewer({
         });
         if (generation !== generationRef.current) return;
         if (!response.ok) {
-          throw new Error(
-            `فشل تحميل المورد (HTTP ${response.status})`,
-          );
+          throw new Error(`فشل تحميل المورد (HTTP ${response.status})`);
         }
 
         const buffer = await response.arrayBuffer();
@@ -75,8 +70,7 @@ export function PublishedHtmlResourceViewer({
         if (generation !== generationRef.current) return;
 
         let entryFileName = "index.html";
-        const manifestFile =
-          zip.file("package/manifest.json") || zip.file("manifest.json");
+        const manifestFile = zip.file("package/manifest.json") || zip.file("manifest.json");
         if (manifestFile) {
           try {
             const manifestText = await manifestFile.async("text");
@@ -90,8 +84,7 @@ export function PublishedHtmlResourceViewer({
         }
         if (generation !== generationRef.current) return;
 
-        const entryFile =
-          zip.file(`package/${entryFileName}`) || zip.file(entryFileName);
+        const entryFile = zip.file(`package/${entryFileName}`) || zip.file(entryFileName);
         if (!entryFile) {
           const htmlFiles = zip.file(/package\/.*\.html$/);
           if (htmlFiles.length > 0) {
@@ -130,9 +123,7 @@ export function PublishedHtmlResourceViewer({
   // Sync signed URL when the resource identity changes (new resource prop).
   // The fetch effect handles cancellation via fetchAndExtract's cancelInflight call.
   useEffect(() => {
-    setCurrentSignedUrl((prev) =>
-      prev !== resource.signedUrl ? resource.signedUrl : prev,
-    );
+    setCurrentSignedUrl((prev) => (prev !== resource.signedUrl ? resource.signedUrl : prev));
   }, [resource.resourceId, resource.signedUrl]);
 
   // Track mount lifecycle and resource identity for async guards
@@ -186,12 +177,11 @@ export function PublishedHtmlResourceViewer({
       >
         <Lock className="mx-auto h-10 w-10 text-amber-500" />
         <p className="mt-2 font-semibold text-sm text-foreground">
-          {capability.userMessage ||
-            "المحتوى التفاعلي متاح حالياً في نسخة الويب فقط."}
+          {capability.userMessage || "المحتوى التفاعلي متاح حالياً في نسخة الويب فقط."}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          تم إيقاف تشغيل المحتوى التفاعلي احترازياً في البيئات غير المتوافقة
-          لحماية الجلسة والبيانات.
+          تم إيقاف تشغيل المحتوى التفاعلي احترازياً في البيئات غير المتوافقة لحماية الجلسة
+          والبيانات.
         </p>
       </div>
     );
@@ -204,9 +194,7 @@ export function PublishedHtmlResourceViewer({
         dir="rtl"
       >
         <RefreshCw className="h-6 w-6 animate-spin text-primary" />
-        <span className="text-sm text-muted-foreground">
-          جارٍ تحميل المورد التفاعلي…
-        </span>
+        <span className="text-sm text-muted-foreground">جارٍ تحميل المورد التفاعلي…</span>
       </div>
     );
   }
@@ -221,12 +209,7 @@ export function PublishedHtmlResourceViewer({
         <p className="mt-2 font-semibold text-sm text-destructive">
           {error || "تعذّر تحميل المورد التفاعلي"}
         </p>
-        <Button
-          size="sm"
-          variant="outline"
-          className="mt-3"
-          onClick={handleReload}
-        >
+        <Button size="sm" variant="outline" className="mt-3" onClick={handleReload}>
           <RefreshCw className="ml-2 h-4 w-4" />
           إعادة المحاولة
         </Button>
@@ -236,13 +219,8 @@ export function PublishedHtmlResourceViewer({
 
   if (state === "unavailable") {
     return (
-      <div
-        className="rounded-xl border border-border bg-muted/20 p-6 text-center"
-        dir="rtl"
-      >
-        <p className="text-sm text-muted-foreground">
-          هذا المورد غير متاح حالياً.
-        </p>
+      <div className="rounded-xl border border-border bg-muted/20 p-6 text-center" dir="rtl">
+        <p className="text-sm text-muted-foreground">هذا المورد غير متاح حالياً.</p>
       </div>
     );
   }
@@ -262,10 +240,5 @@ export function PublishedHtmlResourceViewer({
     offline_enabled: false,
   };
 
-  return (
-    <InteractiveResourceViewer
-      resource={viewerItem}
-      onEventTriggered={onEventTriggered}
-    />
-  );
+  return <InteractiveResourceViewer resource={viewerItem} onEventTriggered={onEventTriggered} />;
 }

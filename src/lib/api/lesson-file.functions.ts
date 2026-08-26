@@ -23,7 +23,7 @@ function parseStorageRef(input: string): { bucket: string; path: string } | null
     //   /storage/v1/object/sign/<bucket>/<path>
     //   /storage/v1/object/<bucket>/<path>
     const m = u.pathname.match(
-      /\/storage\/v1\/object\/(?:public\/|sign\/|authenticated\/)?([^/]+)\/(.+)$/
+      /\/storage\/v1\/object\/(?:public\/|sign\/|authenticated\/)?([^/]+)\/(.+)$/,
     );
     if (!m) return null;
     return { bucket: m[1], path: decodeURIComponent(m[2]) };
@@ -35,22 +35,23 @@ function parseStorageRef(input: string): { bucket: string; path: string } | null
 export const getLessonFileUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    z.object({
-      lessonId: z.string().uuid(),
-      url: z.string().min(1).max(2048).optional(),
-      kind: z.enum(["video", "pdf"]).optional(),
-    }).refine((v) => !!v.url || !!v.kind, {
-      message: "url_or_kind_required",
-    }),
+    z
+      .object({
+        lessonId: z.string().uuid(),
+        url: z.string().min(1).max(2048).optional(),
+        kind: z.enum(["video", "pdf"]).optional(),
+      })
+      .refine((v) => !!v.url || !!v.kind, {
+        message: "url_or_kind_required",
+      }),
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 
     // 1) RLS-aware access check via SECURITY DEFINER RPC
-    const { data: allowed, error: rpcErr } = await supabase.rpc(
-      "can_access_lesson",
-      { _lesson_id: data.lessonId },
-    );
+    const { data: allowed, error: rpcErr } = await supabase.rpc("can_access_lesson", {
+      _lesson_id: data.lessonId,
+    });
     if (rpcErr) throw new Error("access_check_failed");
     if (!allowed) throw new Error("forbidden");
 

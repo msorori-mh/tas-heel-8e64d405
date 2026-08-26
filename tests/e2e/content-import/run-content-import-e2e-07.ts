@@ -79,7 +79,8 @@ async function mintStaffClient(): Promise<SupabaseClient<Database>> {
     },
     body: JSON.stringify({ type: "magiclink", email: user.email }),
   });
-  if (!linkRes.ok) throw new Error(`generate_link failed: ${linkRes.status} ${await linkRes.text()}`);
+  if (!linkRes.ok)
+    throw new Error(`generate_link failed: ${linkRes.status} ${await linkRes.text()}`);
   const link = (await linkRes.json()) as { hashed_token?: string };
   if (!link.hashed_token) throw new Error("generate_link returned no hashed_token");
 
@@ -238,14 +239,10 @@ async function teardown() {
     .maybeSingle();
 
   if (subject) {
-    const { data: lessons } = await admin
-      .from("lessons")
-      .select("id")
-      .eq("subject_id", subject.id);
+    const { data: lessons } = await admin.from("lessons").select("id").eq("subject_id", subject.id);
     const lessonIds = (lessons ?? []).map((l) => l.id);
 
     if (lessonIds.length) {
-
       const { data: assessments } = await admin
         .from("lesson_assessments")
         .select("id")
@@ -315,7 +312,6 @@ async function main() {
     );
   }
 
-
   // ---------------------------------------------------------------- review state
   const { data: subjectRow } = await admin
     .from("subjects")
@@ -325,7 +321,13 @@ async function main() {
   const { data: reviewRows } = await admin
     .from("content_review_state")
     .select("entity_type, review_status, publication_status")
-    .in("entity_type", ["subjects", "units", "lessons", "lesson_explanations", "lesson_assessments"]);
+    .in("entity_type", [
+      "subjects",
+      "units",
+      "lessons",
+      "lesson_explanations",
+      "lesson_assessments",
+    ]);
   const e2eReview = (reviewRows ?? []).filter(() => true);
   check(
     "review state — imported entities are pending/draft",
@@ -377,7 +379,10 @@ async function main() {
 
   // ---------------------------------------------------------------- published mutation
   const rpc = staff as unknown as {
-    rpc: (n: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+    rpc: (
+      n: string,
+      a: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>;
   };
   const approve = await rpc.rpc("content_review_set_state", {
     _entity_type: "subjects",
@@ -443,7 +448,6 @@ async function main() {
       ),
   );
 
-
   // ---------------------------------------------------------------- student exposure
   const anon = createClient<Database>(SUPABASE_URL, PUBLISHABLE, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -463,19 +467,26 @@ async function main() {
     (anonById.data ?? []).length === 0,
     anonById.error ? `blocked: ${anonById.error.message}` : "empty",
   );
-  const anonRpc = await (anon as unknown as {
-    rpc: (n: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
-  }).rpc("get_lesson_full_content", { _lesson_id: draftLessonId });
-  const leaked =
-    anonRpc.data != null &&
-    JSON.stringify(anonRpc.data).includes("e2e-lesson");
+  const anonRpc = await (
+    anon as unknown as {
+      rpc: (
+        n: string,
+        a: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>;
+    }
+  ).rpc("get_lesson_full_content", { _lesson_id: draftLessonId });
+  const leaked = anonRpc.data != null && JSON.stringify(anonRpc.data).includes("e2e-lesson");
   check("student exposure — content RPC does not leak the draft lesson", !leaked);
 
   // ---------------------------------------------------------------- teardown
   const leftover = await teardown();
   check("cleanup — no e2e-* rows remain", leftover === 0, `leftover=${leftover}`);
   const after = await domainCounts();
-  check("cleanup — domain counts back to the pre-run baseline", before === after, `${before} → ${after}`);
+  check(
+    "cleanup — domain counts back to the pre-run baseline",
+    before === after,
+    `${before} → ${after}`,
+  );
 
   const failed = results.filter(([, s]) => s === "FAIL");
   console.log(
