@@ -32,7 +32,7 @@ test("valid manifest produces a deterministic seven-capability plan with zero wr
   const preview = previewGoldenLessonStaging(parsed);
   assert.equal(preview.valid, true, JSON.stringify(preview.findings));
   assert.equal(preview.actions.length, 7);
-  assert.equal(preview.stagedDraftsPlanned, 5);
+  assert.equal(preview.stagedDraftsPlanned, 6);
   assert.equal(preview.domainWritesPerformed, 0);
   assert.equal(preview.productionWritesPerformed, 0);
   assert.equal(preview.executable, false);
