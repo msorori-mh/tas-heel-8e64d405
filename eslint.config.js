@@ -69,6 +69,7 @@ export default tseslint.config(
       "src/lib/offline/offline-pack.ts",
       "src/lib/question-bank/import/canonical-json.ts",
       "src/lib/question-bank/import/workbook-parser.ts",
+      "src/lib/textbooks/subject-textbook.server.ts",
       "src/routes/_authenticated/admin.exam-templates.tsx",
       "src/routes/_authenticated/admin.lesson-content.$lessonId.tsx",
       "src/routes/_authenticated/admin.lessons.index.tsx",

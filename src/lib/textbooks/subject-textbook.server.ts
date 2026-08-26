@@ -17,7 +17,7 @@ const UPLOAD_URL_TTL = 900;
 type Caller = SupabaseClient<Database>;
 /** `subject_textbooks` is created by the 21B migration; typed access lands after apply. */
 type Loose = {
-  from: Caller["from"];
+  from: (table: string) => any;
   storage: Caller["storage"];
 };
 
