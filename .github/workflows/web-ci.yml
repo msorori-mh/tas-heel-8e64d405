@@ -1,4 +1,5 @@
 name: Web CI
+# Temporary isolated formatting generator; removed before merge.
 
 on:
   pull_request:
