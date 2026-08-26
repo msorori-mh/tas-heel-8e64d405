@@ -102,3 +102,67 @@ test("رسالة الخطأ تسمي الورقة المطلوبة عند رفع
     /اختبر فهمك/,
   );
 });
+
+
+test("النشر المباشر يرفض هوية درس مختلفة وحالة غير معتمدة", async () => {
+  const ExcelJS = (await import("exceljs")).default;
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("اختبر فهمك");
+  sheet.addRow([
+    "question_code *", "subject_code *", "lesson_code *", "question_text *",
+    "option_1 *", "option_2 *", "option_3", "option_4",
+    "correct_index *", "explanation *", "review_status",
+  ]);
+  sheet.addRow([
+    "st-1", "SUB-OTHER", "LESSON-OTHER", "سؤال؟",
+    "أ", "ب", "ج", "د", 1, "شرح", "مسودة",
+  ]);
+  const buffer = await workbook.xlsx.writeBuffer();
+  const file = new File([buffer], "wrong-identity.xlsx");
+
+  await assert.rejects(
+    convertQuestionWorkbook("selfTest", file, {
+      expectedSubjectCode: "SUB-EXPECTED",
+      expectedLessonCode: "LESSON-EXPECTED",
+      requireApproved: true,
+      requireFourChoices: true,
+    }),
+    /subject_code لا يطابق المادة المختارة.*lesson_code لا يطابق الدرس المختار.*review_status يجب أن يكون «معتمد»/,
+  );
+});
+
+test("عقد الطالب الصارم يتطلب أربعة خيارات متصلة بالضبط", async () => {
+  const ExcelJS = (await import("exceljs")).default;
+  const build = async (values: Array<string | number>): Promise<File> => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("اختبر فهمك");
+    sheet.addRow([
+      "question_code *", "subject_code *", "lesson_code *", "question_text *",
+      "option_1 *", "option_2 *", "option_3", "option_4",
+      "correct_index *", "explanation *", "review_status",
+    ]);
+    sheet.addRow(values);
+    return new File([await workbook.xlsx.writeBuffer()], "strict.xlsx");
+  };
+
+  await assert.rejects(
+    convertQuestionWorkbook(
+      "selfTest",
+      await build(["st-1", "SUB-1", "LESSON-1", "سؤال؟", "أ", "ب", "", "د", 1, "شرح", "معتمد"]),
+      { requireApproved: true, requireFourChoices: true },
+    ),
+    /لا يجوز ترك option_3 فارغًا.*يتطلب أربعة خيارات/,
+  );
+
+  const accepted = await convertQuestionWorkbook(
+    "selfTest",
+    await build(["st-1", "SUB-1", "LESSON-1", "سؤال؟", "أ", "ب", "ج", "د", 4, "شرح", "معتمد"]),
+    {
+      expectedSubjectCode: "sub-1",
+      expectedLessonCode: "lesson-1",
+      requireApproved: true,
+      requireFourChoices: true,
+    },
+  );
+  assert.equal(accepted.rowCount, 1);
+});
