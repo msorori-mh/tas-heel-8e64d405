@@ -73,4 +73,4 @@ describe("independent lesson component publishing", () => {
   });
 });
 
-// CI event marker: independent component publication contract.
+// CI event marker: independent component publication contract. Recheck.
