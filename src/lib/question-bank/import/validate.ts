@@ -34,16 +34,15 @@ export function validateNormalizedRow(
   };
   const { interaction_type: type, grading_mode: grading } = row.revision;
 
-  issues.push(...validateQuestionContentRole(row, {
-    file: ctx.file,
-    sheet: ctx.sheet,
-    rowNumber: ctx.rowNumber,
-  }));
+  issues.push(
+    ...validateQuestionContentRole(row, {
+      file: ctx.file,
+      sheet: ctx.sheet,
+      rowNumber: ctx.rowNumber,
+    }),
+  );
 
-  if (
-    type === "MULTIPLE_CHOICE" ||
-    !["SINGLE_CHOICE", "SHORT_TEXT", "LONG_TEXT"].includes(type)
-  ) {
+  if (type === "MULTIPLE_CHOICE" || !["SINGLE_CHOICE", "SHORT_TEXT", "LONG_TEXT"].includes(type)) {
     issues.push(issue(QB_IMPORT_CODES.INVALID_INTERACTION_TYPE, base));
   }
   if (!["AUTO_SINGLE", "AUTO_TEXT", "MANUAL"].includes(grading)) {
@@ -65,16 +64,25 @@ export function validateNormalizedRow(
       row.options.length > 6 ||
       row.options.filter((o) => o.is_correct).length !== 1)
   ) {
-    issues.push(issue(QB_IMPORT_CODES.OPTION_COUNT, { ...base, source_subsystem: "correct-answer" }));
+    issues.push(
+      issue(QB_IMPORT_CODES.OPTION_COUNT, { ...base, source_subsystem: "correct-answer" }),
+    );
   }
   if (
     new Set(row.options.map((o) => o.option_code)).size !== row.options.length ||
     new Set(row.options.map((o) => o.body.normalize("NFC"))).size !== row.options.length
   ) {
-    issues.push(issue(QB_IMPORT_CODES.DUPLICATE_OPTION, { ...base, source_subsystem: "correct-answer" }));
+    issues.push(
+      issue(QB_IMPORT_CODES.DUPLICATE_OPTION, { ...base, source_subsystem: "correct-answer" }),
+    );
   }
   if (type === "SHORT_TEXT" && !row.accepted_answers.length) {
-    issues.push(issue(QB_IMPORT_CODES.ACCEPTED_ANSWER_REQUIRED, { ...base, source_subsystem: "correct-answer" }));
+    issues.push(
+      issue(QB_IMPORT_CODES.ACCEPTED_ANSWER_REQUIRED, {
+        ...base,
+        source_subsystem: "correct-answer",
+      }),
+    );
   }
   if (type === "LONG_TEXT" && (row.options.length || row.accepted_answers.length)) {
     issues.push(issue(QB_IMPORT_CODES.ANSWER_NOT_ALLOWED, base));
@@ -92,12 +100,18 @@ export function validateNormalizedRow(
 
   for (const value of stringValues) {
     if (hasUnsafeUnicode(value)) {
-      issues.push(issue(QB_IMPORT_CODES.MALFORMED_UNICODE, { ...base, source_subsystem: "unicode" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.MALFORMED_UNICODE, { ...base, source_subsystem: "unicode" }),
+      );
     } else if (isFormulaLike(value)) {
-      issues.push(issue(QB_IMPORT_CODES.FORMULA_INJECTION, { ...base, source_subsystem: "preflight" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.FORMULA_INJECTION, { ...base, source_subsystem: "preflight" }),
+      );
     }
     if (value && value.normalize("NFD") !== value.normalize("NFC")) {
-      issues.push(issue(QB_IMPORT_CODES.NORMALIZATION_CHANGED, { ...base, source_subsystem: "unicode" }));
+      issues.push(
+        issue(QB_IMPORT_CODES.NORMALIZATION_CHANGED, { ...base, source_subsystem: "unicode" }),
+      );
     }
   }
 
@@ -171,13 +185,21 @@ export function validateNormalizedRow(
   }
 
   if (mixedNumeralScripts(row.question_code) || mixedNumeralScripts(row.revision.question_text)) {
-    issues.push(issue(QB_IMPORT_CODES.MIXED_NUMERAL_SCRIPTS, { ...base, source_subsystem: "unicode" }));
+    issues.push(
+      issue(QB_IMPORT_CODES.MIXED_NUMERAL_SCRIPTS, { ...base, source_subsystem: "unicode" }),
+    );
   }
   if (/^\d+(\.\d+)?[eE][+-]?\d+$/.test(row.question_code)) {
-    issues.push(issue(QB_IMPORT_CODES.SCIENTIFIC_NOTATION_LOSS, { ...base, source_subsystem: "unicode" }));
+    issues.push(
+      issue(QB_IMPORT_CODES.SCIENTIFIC_NOTATION_LOSS, { ...base, source_subsystem: "unicode" }),
+    );
   }
 
-  if (!/^[A-Za-z0-9\u0660-\u0669\u06f0-\u06f9][A-Za-z0-9\u0660-\u0669\u06f0-\u06f9._-]{0,63}$/.test(row.question_code)) {
+  if (
+    !/^[A-Za-z0-9\u0660-\u0669\u06f0-\u06f9][A-Za-z0-9\u0660-\u0669\u06f0-\u06f9._-]{0,63}$/.test(
+      row.question_code,
+    )
+  ) {
     issues.push(
       issue(QB_IMPORT_CODES.QUESTION_CODE_INVALID, {
         ...base,

@@ -2,13 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -119,9 +113,7 @@ export function ImportDryRunGovernorates() {
         });
         setResult(response);
       } catch (err) {
-        setParseError(
-          err instanceof Error ? err.message : "تعذّر قراءة الملف. جرّب ملفاً آخر.",
-        );
+        setParseError(err instanceof Error ? err.message : "تعذّر قراءة الملف. جرّب ملفاً آخر.");
       } finally {
         setParsing(false);
       }
@@ -140,8 +132,8 @@ export function ImportDryRunGovernorates() {
         </h2>
         <p className="text-sm text-muted-foreground max-w-3xl leading-relaxed">
           المرحلة الحالية مخصصة للتجربة على قالب المحافظات فقط ({GOVERNORATES_TEMPLATE_FILE}).
-          المعالجة تتم على السيرفر كمعاينة جافة، ويتم حفظ نتيجة المعاينة في سجل الاستيراد دون
-          تعديل بيانات المحافظات.
+          المعالجة تتم على السيرفر كمعاينة جافة، ويتم حفظ نتيجة المعاينة في سجل الاستيراد دون تعديل
+          بيانات المحافظات.
         </p>
       </div>
 
@@ -149,7 +141,9 @@ export function ImportDryRunGovernorates() {
         <CardHeader className="space-y-3 pb-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <CardTitle className="text-base">POC — المحافظات</CardTitle>
-            <Badge variant="secondary" className="shrink-0">مؤهل لتجربة المعاينة</Badge>
+            <Badge variant="secondary" className="shrink-0">
+              مؤهل لتجربة المعاينة
+            </Badge>
           </div>
           <CardDescription className="space-y-1 text-sm">
             <p>
@@ -157,8 +151,8 @@ export function ImportDryRunGovernorates() {
               {GOVERNORATES_TEMPLATE_FILE})
             </p>
             <p>
-              <span className="font-medium text-foreground">سبب الاختيار:</span> منخفض الخطورة
-              ولا يحتوي بيانات حساسة.
+              <span className="font-medium text-foreground">سبب الاختيار:</span> منخفض الخطورة ولا
+              يحتوي بيانات حساسة.
             </p>
             <p className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
               <ShieldCheck className="h-4 w-4 shrink-0" />
@@ -192,7 +186,9 @@ export function ImportDryRunGovernorates() {
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 ms-auto" />
               )}
               {status === "disabled" && (
-                <Badge variant="secondary" className="text-[10px] shrink-0 ms-auto">قريباً</Badge>
+                <Badge variant="secondary" className="text-[10px] shrink-0 ms-auto">
+                  قريباً
+                </Badge>
               )}
             </li>
           );
@@ -202,8 +198,7 @@ export function ImportDryRunGovernorates() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <FileUp className="h-4 w-4" />
-            1 — اختيار ملف المحافظات
+            <FileUp className="h-4 w-4" />1 — اختيار ملف المحافظات
           </CardTitle>
           <CardDescription>
             اختر ملف Excel مملوء من قالب المحافظات. يُقبل .xlsx فقط (حد 5 MB، حتى 500 صف).
@@ -249,8 +244,7 @@ export function ImportDryRunGovernorates() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <TableProperties className="h-4 w-4" />
-              2 — قراءة الأعمدة
+              <TableProperties className="h-4 w-4" />2 — قراءة الأعمدة
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -319,9 +313,7 @@ export function ImportDryRunGovernorates() {
               <CardTitle className="text-base">
                 3 — معاينة أول {GOVERNORATES_PREVIEW_ROWS} صفوف
               </CardTitle>
-              <CardDescription>
-                إجمالي الصفوف غير الفارغة: {result.totalRowCount}
-              </CardDescription>
+              <CardDescription>إجمالي الصفوف غير الفارغة: {result.totalRowCount}</CardDescription>
             </CardHeader>
             <CardContent className="min-w-0">
               {result.previewRows.length === 0 ? (
@@ -362,8 +354,7 @@ export function ImportDryRunGovernorates() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                4 — أخطاء التحقق
+                <AlertCircle className="h-4 w-4" />4 — أخطاء التحقق
                 {errorCount > 0 && (
                   <Badge variant="destructive" className="text-[10px]">
                     {errorCount}
@@ -386,9 +377,7 @@ export function ImportDryRunGovernorates() {
                     >
                       <span className="font-mono text-xs text-destructive">{issue.code}</span>
                       {issue.row != null && (
-                        <span className="text-muted-foreground text-xs ms-2">
-                          صف {issue.row}
-                        </span>
+                        <span className="text-muted-foreground text-xs ms-2">صف {issue.row}</span>
                       )}
                       <p className="mt-1 text-foreground">{issue.message}</p>
                     </li>
@@ -403,7 +392,9 @@ export function ImportDryRunGovernorates() {
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
         <Button variant="outline" disabled className="min-h-[44px] opacity-70" aria-disabled>
           التنفيذ لاحقاً
-          <Badge variant="secondary" className="text-[10px] ms-2">قريباً</Badge>
+          <Badge variant="secondary" className="text-[10px] ms-2">
+            قريباً
+          </Badge>
         </Button>
         <p className="text-xs text-muted-foreground">
           لن يُفعَّل التنفيذ في قاعدة البيانات حتى مرحلة لاحقة (01D).

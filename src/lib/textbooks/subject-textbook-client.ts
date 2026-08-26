@@ -78,21 +78,24 @@ export async function listStudentTextbooks(params: {
   if (error) throw error;
 
   return (data ?? [])
-    .map((r) => ({
-      id: String(r["id"]),
-      subjectId: String(r["subject_id"]),
-      bookType: (r["book_type"] === "EXERCISE_BOOK" || r["book_type"] === "OTHER"
-        ? r["book_type"]
-        : "MAIN_TEXTBOOK") as StudentBookType,
-      coverageType:
-        r["coverage_type"] === "SEMESTER_SPECIFIC" ? "SEMESTER_SPECIFIC" : "FULL_ACADEMIC_YEAR",
-      semester: (r["semester"] as 1 | 2 | null) ?? null,
-      title: String(r["title"] ?? "كتاب المنهج"),
-      fileName: (r["file_name"] as string | null) ?? null,
-      fileSize: (r["file_size"] as number | null) ?? null,
-      version: String(r["version"] ?? "0"),
-      sortOrder: Number(r["sort_order"] ?? 0),
-    }) as StudentTextbook)
+    .map(
+      (r) =>
+        ({
+          id: String(r["id"]),
+          subjectId: String(r["subject_id"]),
+          bookType: (r["book_type"] === "EXERCISE_BOOK" || r["book_type"] === "OTHER"
+            ? r["book_type"]
+            : "MAIN_TEXTBOOK") as StudentBookType,
+          coverageType:
+            r["coverage_type"] === "SEMESTER_SPECIFIC" ? "SEMESTER_SPECIFIC" : "FULL_ACADEMIC_YEAR",
+          semester: (r["semester"] as 1 | 2 | null) ?? null,
+          title: String(r["title"] ?? "كتاب المنهج"),
+          fileName: (r["file_name"] as string | null) ?? null,
+          fileSize: (r["file_size"] as number | null) ?? null,
+          version: String(r["version"] ?? "0"),
+          sortOrder: Number(r["sort_order"] ?? 0),
+        }) as StudentTextbook,
+    )
     .sort(
       (a, b) =>
         BOOK_TYPE_RANK[a.bookType] - BOOK_TYPE_RANK[b.bookType] || a.sortOrder - b.sortOrder,

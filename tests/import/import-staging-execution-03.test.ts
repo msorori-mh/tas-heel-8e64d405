@@ -41,9 +41,15 @@ const SQL = readFileSync(PHASE_03_MIGRATION_PATH, "utf8");
 
 test("phase 03 runtime status is applied while historical source bytes stay pending-only", () => {
   assert.equal(PHASE_03_APPLY_STATUS, "applied_shared_lovable_db");
-  assert.equal(PHASE_03_APPLY_EVIDENCE, "docs/import/PRODUCTION-CONTENT-IMPORT-READINESS-REVIEW-10.md");
+  assert.equal(
+    PHASE_03_APPLY_EVIDENCE,
+    "docs/import/PRODUCTION-CONTENT-IMPORT-READINESS-REVIEW-10.md",
+  );
   assert.ok(PHASE_03_MIGRATION_PATH.startsWith("supabase/migrations-pending/"));
-  assert.ok(SQL.includes("NOT APPLIED"), "historical source marker must not be rewritten after apply");
+  assert.ok(
+    SQL.includes("NOT APPLIED"),
+    "historical source marker must not be rewritten after apply",
+  );
 });
 
 test("no security trigger is left commented out", () => {
@@ -78,8 +84,12 @@ test("no GRANT to anon anywhere", () => {
 });
 
 test("PUBLIC and anon EXECUTE are revoked for every new function", () => {
-  const created = [...SQL.matchAll(/CREATE OR REPLACE FUNCTION public\.([a-z_]+)\(/g)].map((m) => m[1]!);
-  const revoked = [...SQL.matchAll(/REVOKE EXECUTE ON FUNCTION public\.([a-z_]+)\(/g)].map((m) => m[1]!);
+  const created = [...SQL.matchAll(/CREATE OR REPLACE FUNCTION public\.([a-z_]+)\(/g)].map(
+    (m) => m[1]!,
+  );
+  const revoked = [...SQL.matchAll(/REVOKE EXECUTE ON FUNCTION public\.([a-z_]+)\(/g)].map(
+    (m) => m[1]!,
+  );
   const callable = created.filter((n) => !SQL.includes(`RETURNS trigger`) || !isTriggerFn(n));
   for (const fn of callable) {
     if (isTriggerFn(fn)) continue;
@@ -111,7 +121,9 @@ test("authenticated gets SELECT only on the RPC-only tables", () => {
   for (const table of RPC_ONLY_TABLES) {
     assert.ok(SQL.includes(`GRANT SELECT ON public.${table} TO authenticated;`));
     assert.ok(
-      !new RegExp(`GRANT[^\\n]*(INSERT|UPDATE|DELETE)[^\\n]*public\\.${table} TO authenticated`).test(SQL),
+      !new RegExp(
+        `GRANT[^\\n]*(INSERT|UPDATE|DELETE)[^\\n]*public\\.${table} TO authenticated`,
+      ).test(SQL),
       `${table}: authenticated must never get write grants`,
     );
     assert.ok(SQL.includes(`GRANT ALL ON public.${table} TO service_role;`));
@@ -119,7 +131,9 @@ test("authenticated gets SELECT only on the RPC-only tables", () => {
 });
 
 test("no write policy exists on the RPC-only tables", () => {
-  const policies = [...SQL.matchAll(/CREATE POLICY "([^"]+)"\s*\n\s*ON public\.([a-z_]+) FOR (\w+)/g)];
+  const policies = [
+    ...SQL.matchAll(/CREATE POLICY "([^"]+)"\s*\n\s*ON public\.([a-z_]+) FOR (\w+)/g),
+  ];
   for (const [, name, table, command] of policies) {
     if ((RPC_ONLY_TABLES as readonly string[]).includes(table!)) {
       assert.equal(command, "SELECT", `${table}: policy "${name}" must be read-only`);
@@ -153,9 +167,16 @@ test("required identity columns and indexes exist", () => {
   assert.ok(SQL.includes("ADD COLUMN IF NOT EXISTS explanation_code text"));
   assert.ok(SQL.includes("CREATE UNIQUE INDEX lesson_assessments_code_uniq"));
   assert.ok(SQL.includes("CREATE UNIQUE INDEX lesson_explanations_code_lesson_uniq"));
-  assert.ok(SQL.includes("CONSTRAINT import_staging_rows_key_uniq UNIQUE (job_id, template_key, natural_key)"));
+  assert.ok(
+    SQL.includes(
+      "CONSTRAINT import_staging_rows_key_uniq UNIQUE (job_id, template_key, natural_key)",
+    ),
+  );
   assert.ok(SQL.includes("row_hash text NOT NULL"));
-  assert.ok(!/lesson_explanations_code_lesson_uniq[\s\S]{0,120}sort_order/.test(SQL), "sort_order is not identity");
+  assert.ok(
+    !/lesson_explanations_code_lesson_uniq[\s\S]{0,120}sort_order/.test(SQL),
+    "sort_order is not identity",
+  );
 });
 
 test("resource metadata allowlist in SQL matches the contract allowlist", () => {
@@ -195,7 +216,10 @@ test("counters are only updated after the row loop", () => {
   const exec = SQL.slice(SQL.indexOf("FUNCTION public.import_execute_template"));
   const loopEnd = exec.indexOf("END LOOP;");
   const counters = exec.indexOf("inserted_count = inserted_count + inserted");
-  assert.ok(counters > loopEnd, "counters must be written after the loop, inside the same transaction");
+  assert.ok(
+    counters > loopEnd,
+    "counters must be written after the loop, inside the same transaction",
+  );
 });
 
 test("templates 09 and 10 never reach a generic questions upsert", () => {
@@ -204,14 +228,14 @@ test("templates 09 and 10 never reach a generic questions upsert", () => {
   assert.ok(!/UPDATE public\.questions\b/.test(SQL), "no generic update of questions");
   assert.equal(QUESTION_BANK_BOUNDARY.sharedTransactionWithContentTemplates, false);
   assert.throws(() => assertGenericUpsertAllowed("questions"), /QUESTION_BANK_WORKFLOW_REQUIRED/);
-  assert.throws(() => assertGenericUpsertAllowed("self_test_questions"), /QUESTION_BANK_WORKFLOW_REQUIRED/);
+  assert.throws(
+    () => assertGenericUpsertAllowed("self_test_questions"),
+    /QUESTION_BANK_WORKFLOW_REQUIRED/,
+  );
 });
 
 test("dry-run stays a zero-write path", () => {
-  const dryRun = readFileSync(
-    "src/lib/content-import/content-import-dry-run.functions.ts",
-    "utf8",
-  );
+  const dryRun = readFileSync("src/lib/content-import/content-import-dry-run.functions.ts", "utf8");
   assert.ok(!/\.rpc\(|\.insert\(|\.upsert\(|\.update\(|\.delete\(/.test(dryRun));
 });
 
@@ -227,13 +251,10 @@ test("prepare writes staging only — no domain table writes", () => {
 /* ------------------------------------------------------------------ */
 
 test("state machine matches validated → planned → applying → applied|failed", () => {
-  assert.deepEqual([...JOB_EXECUTION_STATES], [
-    "validated",
-    "planned",
-    "applying",
-    "applied",
-    "failed",
-  ]);
+  assert.deepEqual(
+    [...JOB_EXECUTION_STATES],
+    ["validated", "planned", "applying", "applied", "failed"],
+  );
   assert.ok(canTransitionJob("validated", "planned"));
   assert.ok(canTransitionJob("planned", "applying"));
   assert.ok(canTransitionJob("applying", "applied"));
@@ -259,7 +280,10 @@ test("row hash ignores operator-only columns and sort order changes only when ha
   const base = { subject_code: "PHY", name: "فيزياء", grade_slug: "g10", sort_order: "1" };
   const withNotes = { ...base, editor_notes: "مراجعة", review_status: "approved" };
   assert.equal(computeRowHash("subjects", base), computeRowHash("subjects", withNotes));
-  assert.notEqual(computeRowHash("subjects", base), computeRowHash("subjects", { ...base, name: "كيمياء" }));
+  assert.notEqual(
+    computeRowHash("subjects", base),
+    computeRowHash("subjects", { ...base, name: "كيمياء" }),
+  );
 });
 
 test("row hash is stable and deterministic across equivalent formatting", () => {
@@ -271,10 +295,7 @@ test("row hash is stable and deterministic across equivalent formatting", () => 
 
 test("natural keys follow the contract fields", () => {
   assert.equal(buildNaturalKey("subjects", { subject_code: " PHY " }), "phy");
-  assert.equal(
-    buildNaturalKey("units", { subject_code: "PHY", unit_code: "U1" }),
-    "phy\u001fu1",
-  );
+  assert.equal(buildNaturalKey("units", { subject_code: "PHY", unit_code: "U1" }), "phy\u001fu1");
 });
 
 test("staging payload carries only contract fields", () => {

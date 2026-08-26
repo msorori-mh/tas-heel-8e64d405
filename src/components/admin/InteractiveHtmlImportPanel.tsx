@@ -3,7 +3,16 @@ import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AlertCircle, CheckCircle2, FileArchive, FileSpreadsheet, ShieldAlert, Sparkles, Upload, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  FileArchive,
+  FileSpreadsheet,
+  ShieldAlert,
+  Sparkles,
+  Upload,
+  Loader2,
+} from "lucide-react";
 import {
   parseMasterZipBuffer,
   computePackageDeterministicHash,
@@ -19,7 +28,10 @@ import {
   submitHtmlForReviewFn,
   checkHtmlBackendEnabledFn,
 } from "@/lib/api/html-workflow.functions";
-import type { InitializeImportResult, ImportResourceSession } from "@/lib/server/html-pipeline/html-workflow.types";
+import type {
+  InitializeImportResult,
+  ImportResourceSession,
+} from "@/lib/server/html-pipeline/html-workflow.types";
 
 type ImportStage =
   | "idle"
@@ -35,7 +47,15 @@ type ImportStage =
 interface ResourceUploadStatus {
   resource_code: string;
   title_ar: string;
-  status: "pending" | "uploading" | "uploaded" | "validating" | "validated" | "validation_failed" | "submitted" | "error";
+  status:
+    | "pending"
+    | "uploading"
+    | "uploaded"
+    | "validating"
+    | "validated"
+    | "validation_failed"
+    | "submitted"
+    | "error";
   error?: string;
   findings?: SecurityFinding[];
 }
@@ -147,7 +167,9 @@ export function InteractiveHtmlImportPanel() {
 
       const packageEntries: InteractiveLessonResourceImportRow[] = [];
       for (const [path, files] of Object.entries(parseRes.packageMap)) {
-        const manifestFile = files.find((f) => f.path === "manifest.json" || f.path.endsWith("/manifest.json"));
+        const manifestFile = files.find(
+          (f) => f.path === "manifest.json" || f.path.endsWith("/manifest.json"),
+        );
         if (manifestFile?.buffer) {
           try {
             const text = new TextDecoder().decode(manifestFile.buffer);
@@ -157,7 +179,9 @@ export function InteractiveHtmlImportPanel() {
               grade_code: "",
               subject_code: "",
               lesson_code: "",
-              resource_type: String(manifest.resource_type ?? "mind_map_html") as InteractiveLessonResourceImportRow["resource_type"],
+              resource_type: String(
+                manifest.resource_type ?? "mind_map_html",
+              ) as InteractiveLessonResourceImportRow["resource_type"],
               title_ar: "",
               package_path: path,
               entry_file: String(manifest.entry_file ?? "index.html"),
@@ -268,7 +292,9 @@ export function InteractiveHtmlImportPanel() {
               "Content-Type": "application/octet-stream",
               "x-ms-blob-type": "BlockBlob",
             },
-            body: new Blob([new Uint8Array(perResourceZip) as unknown as BlobPart], { type: "application/octet-stream" }),
+            body: new Blob([new Uint8Array(perResourceZip) as unknown as BlobPart], {
+              type: "application/octet-stream",
+            }),
           });
 
           if (!uploadResponse.ok) {
@@ -320,8 +346,8 @@ export function InteractiveHtmlImportPanel() {
         }
       }
 
-      const validatedResources = result.resources.filter((r, i) =>
-        updatedStatuses[i]?.status === "validated"
+      const validatedResources = result.resources.filter(
+        (r, i) => updatedStatuses[i]?.status === "validated",
       );
 
       if (validatedResources.length > 0) {
@@ -335,9 +361,7 @@ export function InteractiveHtmlImportPanel() {
 
         for (let i = 0; i < updatedStatuses.length; i++) {
           if (updatedStatuses[i].status === "validated") {
-            const wasSubmitted = submitResult.submitted.includes(
-              result.resources[i].resource_id,
-            );
+            const wasSubmitted = submitResult.submitted.includes(result.resources[i].resource_id);
             updatedStatuses[i] = {
               ...updatedStatuses[i],
               status: wasSubmitted ? "submitted" : "error",
@@ -361,9 +385,7 @@ export function InteractiveHtmlImportPanel() {
     }
   };
 
-  const hasBlockingFindings = localReport?.globalFindings.some(
-    (f) => f.severity === "error",
-  );
+  const hasBlockingFindings = localReport?.globalFindings.some((f) => f.severity === "error");
   const canProceed = excelFile && zipFile && !hasBlockingFindings && !loading;
   const isBackendDisabled = backendEnabled === false;
 
@@ -480,11 +502,7 @@ export function InteractiveHtmlImportPanel() {
             className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2"
             disabled={!canProceed || isBackendDisabled}
             onClick={handleFullImport}
-            title={
-              isBackendDisabled
-                ? "Backend غير مفعّل — لا يمكن التنفيذ"
-                : undefined
-            }
+            title={isBackendDisabled ? "Backend غير مفعّل — لا يمكن التنفيذ" : undefined}
           >
             {loading && stage !== "idle" && stage !== "review_findings" && stage !== "error" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -516,7 +534,8 @@ export function InteractiveHtmlImportPanel() {
               </h3>
               <div className="flex gap-2">
                 <Badge variant="outline" className="border-emerald-500/40 text-emerald-300">
-                  الحزم: {localReport.summary.validPackages} / {localReport.summary.totalResourcesInZip}
+                  الحزم: {localReport.summary.validPackages} /{" "}
+                  {localReport.summary.totalResourcesInZip}
                 </Badge>
               </div>
             </div>
@@ -555,9 +574,7 @@ export function InteractiveHtmlImportPanel() {
                   </div>
                   <div className="flex items-center gap-2">
                     <ResourceStatusBadge status={rs.status} />
-                    {rs.error && (
-                      <span className="text-destructive text-[10px]">{rs.error}</span>
-                    )}
+                    {rs.error && <span className="text-destructive text-[10px]">{rs.error}</span>}
                   </div>
                 </div>
               ))}
@@ -575,7 +592,10 @@ export function InteractiveHtmlImportPanel() {
             <ul className="list-disc list-inside space-y-1">
               {initResult.errors.map((e, idx) => (
                 <li key={idx}>
-                  <strong>صف {e.row_number} ({e.resource_code}):</strong> {e.message}
+                  <strong>
+                    صف {e.row_number} ({e.resource_code}):
+                  </strong>{" "}
+                  {e.message}
                 </li>
               ))}
             </ul>
@@ -587,8 +607,8 @@ export function InteractiveHtmlImportPanel() {
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200/90 flex items-start gap-2">
             <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <strong>Backend غير مفعّل:</strong> يمكنك إجراء فحص محلي (Dry-Run) فقط.
-              لاستفعال الاستيراد الفعلي، يجب تفعيل feature flags: html_content_backend و html_content_upload.
+              <strong>Backend غير مفعّل:</strong> يمكنك إجراء فحص محلي (Dry-Run) فقط. لاستفعال
+              الاستيراد الفعلي، يجب تفعيل feature flags: html_content_backend و html_content_upload.
             </div>
           </div>
         )}

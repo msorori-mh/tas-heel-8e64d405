@@ -151,7 +151,7 @@ export function SubjectTextbooksManager() {
     tracks.length > 0 &&
     selectedTrackIds.length === tracks.length &&
     tracks.every((track) => selectedTrackIds.includes(track.id));
-  const curriculumTrackId = coversAllTracks ? null : selectedTrackIds[0] ?? null;
+  const curriculumTrackId = coversAllTracks ? null : (selectedTrackIds[0] ?? null);
 
   const trackName = (id: string | null) =>
     id ? (tracks.find((track) => track.id === id)?.name ?? "مسار") : "منهج صنعاء وعدن معًا";
@@ -174,7 +174,9 @@ export function SubjectTextbooksManager() {
   const beginReplace = (book: (typeof textbooks)[number]) => {
     setReplaceId(book.id);
     setTitle(book.title);
-    setSelectedTrackIds(book.curriculumTrackId ? [book.curriculumTrackId] : tracks.map((track) => track.id));
+    setSelectedTrackIds(
+      book.curriculumTrackId ? [book.curriculumTrackId] : tracks.map((track) => track.id),
+    );
     setBookType(book.bookType);
     setCoverageType(book.coverageType);
     if (book.semester === 1 || book.semester === 2) setSemester(book.semester);
@@ -197,10 +199,12 @@ export function SubjectTextbooksManager() {
   const upload = async () => {
     if (!gradeId || !selectedGrade) return toast.error("اختر الصف الدراسي.");
     if (selectedTrackIds.length === 0) return toast.error("اختر مسارًا واحدًا على الأقل.");
-    if (selectedTrackIds.length > 2) return toast.error("المسارات الرسمية المتاحة هي صنعاء وعدن فقط.");
+    if (selectedTrackIds.length > 2)
+      return toast.error("المسارات الرسمية المتاحة هي صنعاء وعدن فقط.");
     if (!subjectId || !selectedSubject) return toast.error("اختر المادة بعد تحديد الصف والمسار.");
     if (!selectedFile) return toast.error("اختر ملف الكتاب PDF.");
-    if (existingScopeBook) return toast.error("يوجد كتاب في النطاق نفسه؛ استخدم استبدال الكتاب الموجود.");
+    if (existingScopeBook)
+      return toast.error("يوجد كتاب في النطاق نفسه؛ استخدم استبدال الكتاب الموجود.");
 
     setBusy(true);
     try {
@@ -257,13 +261,16 @@ export function SubjectTextbooksManager() {
         <div>
           <h2 className="text-sm font-bold text-foreground">1. تحديد الكتاب وربطه بالمنهج</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            حدد الصف أولًا، ثم اختر صنعاء وعدن معًا أو أحدهما، وبعدها ستظهر مواد هذا الصف فقط.
-            لا يشترط وجود كتاب مسبقًا؛ يمكنك رفع أول نسخة مباشرة بعد إكمال الربط.
+            حدد الصف أولًا، ثم اختر صنعاء وعدن معًا أو أحدهما، وبعدها ستظهر مواد هذا الصف فقط. لا
+            يشترط وجود كتاب مسبقًا؛ يمكنك رفع أول نسخة مباشرة بعد إكمال الربط.
           </p>
         </div>
 
         {catalogQuery.isError && (
-          <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          <p
+            role="alert"
+            className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+          >
             تعذر تحميل الصفوف والمواد. أعد فتح الصفحة أو تحقق من صلاحية إدارة المحتوى.
           </p>
         )}
@@ -361,7 +368,10 @@ export function SubjectTextbooksManager() {
         )}
 
         {gradeId && selectedTrackIds.length > 0 && subjects.length === 0 && (
-          <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <p
+            role="status"
+            className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
+          >
             لا توجد مادة مرتبطة بهذا الصف والمسار. أضفها من «المواد والمسارات» أولًا.
           </p>
         )}
@@ -417,8 +427,8 @@ export function SubjectTextbooksManager() {
 
         {selectedGrade && selectedSubject && selectedTrackNames.length > 0 && (
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-foreground">
-            <span className="font-bold">سيُربط الكتاب بـ:</span>{" "}
-            {selectedGrade.name} · {selectedSubject.name} · {selectedTrackNames.join(" + ")} ·{" "}
+            <span className="font-bold">سيُربط الكتاب بـ:</span> {selectedGrade.name} ·{" "}
+            {selectedSubject.name} · {selectedTrackNames.join(" + ")} ·{" "}
             {coverageType === "FULL_ACADEMIC_YEAR"
               ? "الفصلين"
               : semester === 2
@@ -438,7 +448,8 @@ export function SubjectTextbooksManager() {
             ملف الكتاب الرسمي PDF *
           </Label>
           <p className="text-xs text-muted-foreground">
-            الحد الأقصى 200 ميجابايت. اختيار الملف لا يرفعه؛ يبدأ الرفع فقط عند الضغط على الزر أدناه.
+            الحد الأقصى 200 ميجابايت. اختيار الملف لا يرفعه؛ يبدأ الرفع فقط عند الضغط على الزر
+            أدناه.
           </p>
           <input
             id="subject-textbook-pdf"
@@ -469,7 +480,11 @@ export function SubjectTextbooksManager() {
 
         <div className="flex flex-wrap items-center gap-2">
           <Button onClick={() => void upload()} disabled={!formReady}>
-            {busy ? <Loader2 className="ms-2 h-4 w-4 animate-spin" /> : <Upload className="ms-2 h-4 w-4" />}
+            {busy ? (
+              <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="ms-2 h-4 w-4" />
+            )}
             {replaceId ? "استبدال الكتاب" : "رفع كتاب المادة"}
           </Button>
           {replaceId && (
@@ -487,7 +502,9 @@ export function SubjectTextbooksManager() {
             </Button>
           )}
           {!selectedSubject && (
-            <span className="text-xs text-muted-foreground">أكمل الصف والمسار والمادة لتفعيل اختيار الملف.</span>
+            <span className="text-xs text-muted-foreground">
+              أكمل الصف والمسار والمادة لتفعيل اختيار الملف.
+            </span>
           )}
         </div>
       </section>
@@ -527,7 +544,8 @@ export function SubjectTextbooksManager() {
                     {book.isActive ? "مفعّل" : "معطّل"}
                   </p>
                   <p className="text-muted-foreground">
-                    آخر تحديث: {book.updatedAt ? new Date(book.updatedAt).toLocaleDateString("ar") : "—"}
+                    آخر تحديث:{" "}
+                    {book.updatedAt ? new Date(book.updatedAt).toLocaleDateString("ar") : "—"}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -569,7 +587,9 @@ export function SubjectTextbooksManager() {
           <DialogHeader>
             <DialogTitle className="text-sm">معاينة الكتاب</DialogTitle>
           </DialogHeader>
-          {previewId && <InAppPdfDelivery resourceId={previewId} kind="textbook" title="كتاب المنهج" />}
+          {previewId && (
+            <InAppPdfDelivery resourceId={previewId} kind="textbook" title="كتاب المنهج" />
+          )}
           <DialogFooter>
             <Button size="sm" variant="ghost" onClick={() => setPreviewId(null)}>
               إغلاق

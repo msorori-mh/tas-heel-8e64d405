@@ -14,21 +14,56 @@ const COLUMNS = [
   { key: "subject_code", header: "subject_code", width: 20, note: "كود المادة" },
   { key: "unit_code", header: "unit_code", width: 20, note: "كود الوحدة (اختياري)" },
   { key: "lesson_code", header: "lesson_code", width: 22, note: "كود الدرس (إلزامي)" },
-  { key: "resource_type", header: "resource_type", width: 26, note: "mind_map_html | practical_experiment_html" },
+  {
+    key: "resource_type",
+    header: "resource_type",
+    width: 26,
+    note: "mind_map_html | practical_experiment_html",
+  },
   { key: "title_ar", header: "title_ar", width: 30, note: "العنوان العربي للمورد" },
   { key: "description_ar", header: "description_ar", width: 35, note: "الوصف العربي للمورد" },
-  { key: "alt_text_ar", header: "alt_text_ar", width: 35, note: "النص البديل للوصولية (إلزامي للخرائط)" },
+  {
+    key: "alt_text_ar",
+    header: "alt_text_ar",
+    width: 35,
+    note: "النص البديل للوصولية (إلزامي للخرائط)",
+  },
   { key: "package_path", header: "package_path", width: 25, note: "مسار المجلد داخل ZIP" },
-  { key: "entry_file", header: "entry_file", width: 18, note: "الملف الرئيسي (افتراضي index.html)" },
+  {
+    key: "entry_file",
+    header: "entry_file",
+    width: 18,
+    note: "الملف الرئيسي (افتراضي index.html)",
+  },
   { key: "sort_order", header: "sort_order", width: 14, note: "الترتيب" },
   { key: "version", header: "version", width: 12, note: "الإصدار (عدد صحيح موجب)" },
   { key: "status", header: "status", width: 14, note: "الحالة عند الاستيراد: draft" },
-  { key: "offline_enabled", header: "offline_enabled", width: 18, note: "يعمل دون اتصال: true | false" },
+  {
+    key: "offline_enabled",
+    header: "offline_enabled",
+    width: 18,
+    note: "يعمل دون اتصال: true | false",
+  },
   { key: "orientation", header: "orientation", width: 16, note: "auto | portrait | landscape" },
   { key: "height_mode", header: "height_mode", width: 16, note: "fixed | viewport | content" },
-  { key: "completion_mode", header: "completion_mode", width: 22, note: "view | interaction_event | manual_review" },
-  { key: "completion_event", header: "completion_event", width: 24, note: "experiment_started | step_completed | experiment_completed" },
-  { key: "minimum_interaction_seconds", header: "minimum_interaction_seconds", width: 28, note: "الحد الأدنى للتفاعل بالثواني" },
+  {
+    key: "completion_mode",
+    header: "completion_mode",
+    width: 22,
+    note: "view | interaction_event | manual_review",
+  },
+  {
+    key: "completion_event",
+    header: "completion_event",
+    width: 24,
+    note: "experiment_started | step_completed | experiment_completed",
+  },
+  {
+    key: "minimum_interaction_seconds",
+    header: "minimum_interaction_seconds",
+    width: 28,
+    note: "الحد الأدنى للتفاعل بالثواني",
+  },
 ];
 
 const EXAMPLE_ROWS = [
@@ -52,7 +87,7 @@ const EXAMPLE_ROWS = [
     "viewport",
     "view",
     "",
-    15
+    15,
   ],
   [
     "EXP-G12-PHY-L004",
@@ -74,7 +109,7 @@ const EXAMPLE_ROWS = [
     "viewport",
     "interaction_event",
     "experiment_completed",
-    60
+    60,
   ],
   [
     "EXP-G12-CHEM-L002",
@@ -96,7 +131,7 @@ const EXAMPLE_ROWS = [
     "content",
     "interaction_event",
     "step_completed",
-    45
+    45,
   ],
   [
     "MM-G12-MATH-L003",
@@ -118,7 +153,7 @@ const EXAMPLE_ROWS = [
     "fixed",
     "view",
     "",
-    10
+    10,
   ],
   [
     "EXP-G12-BIO-L005",
@@ -140,8 +175,8 @@ const EXAMPLE_ROWS = [
     "viewport",
     "interaction_event",
     "experiment_completed",
-    90
-  ]
+    90,
+  ],
 ];
 
 async function generateTemplates() {
@@ -153,7 +188,9 @@ async function generateTemplates() {
   sReadme.views = [{ rtl: true }];
   sReadme.addRow(["دليل الاستخدام - قالب استيراد الموارد التفاعلية HTML"]);
   sReadme.addRow(["• هذا القالب مخصص لرفع واستيراد الخرائط الذهنية والتجارب العملية بصيغة HTML."]);
-  sReadme.addRow(["• يجب ربط كل مورد بـ grade_code و subject_code و lesson_code موجودة مسبقاً في النظام."]);
+  sReadme.addRow([
+    "• يجب ربط كل مورد بـ grade_code و subject_code و lesson_code موجودة مسبقاً في النظام.",
+  ]);
   sReadme.addRow(["• حقل unit_code اختياري."]);
   sReadme.addRow(["• حقل package_path يجب أن يطابق اسم المجلد داخل ملف ZIP وحقل resource_code."]);
   sReadme.addRow(["• حقل alt_text_ar إلزامي للخرائط الذهنية mind_map_html."]);

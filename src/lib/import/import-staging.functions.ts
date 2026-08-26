@@ -107,7 +107,6 @@ export const createContentImportJob = createServerFn({ method: "POST" })
     });
   });
 
-
 export interface PrepareStagingResult {
   jobId: string;
   templateKey: string;
@@ -139,14 +138,12 @@ export const prepareContentImportStaging = createServerFn({ method: "POST" })
       throw new Error("حجم الملف المرفوع لا يطابق المحتوى الفعلي.");
     }
 
-    const { parseContentImportBuffer } = await import(
-      "../content-import/content-import-dry-run.server"
-    );
+    const { parseContentImportBuffer } =
+      await import("../content-import/content-import-dry-run.server");
     const parsed = await parseContentImportBuffer(buffer, data.fileName, templateKey);
 
-    const { validateContentImportSheet } = await import(
-      "../content-import/content-import-validators"
-    );
+    const { validateContentImportSheet } =
+      await import("../content-import/content-import-validators");
     const report = validateContentImportSheet(templateKey, parsed);
 
     if (!report.ok) {
@@ -164,10 +161,8 @@ export const prepareContentImportStaging = createServerFn({ method: "POST" })
       if (!data.curriculumScope || "subjectCode" in data.curriculumScope) {
         throw new Error("IMPORT_SUBJECT_SCOPE_REQUIRED: اختر الصف ومسارًا واحدًا على الأقل.");
       }
-      const {
-        applySubjectImportScopeToRows,
-        resolveSubjectImportScope,
-      } = await import("./curriculum-import-scope.server");
+      const { applySubjectImportScopeToRows, resolveSubjectImportScope } =
+        await import("./curriculum-import-scope.server");
       const resolvedScope = await resolveSubjectImportScope(
         supabase,
         data.curriculumScope as SubjectImportScope,
@@ -180,10 +175,8 @@ export const prepareContentImportStaging = createServerFn({ method: "POST" })
       if (!data.curriculumScope) {
         throw new Error("IMPORT_SCOPE_REQUIRED: اختر الصف والمسار والفصل والمادة قبل رفع الملف.");
       }
-      const {
-        applyCurriculumImportScopeToRows,
-        resolveCurriculumImportScope,
-      } = await import("./curriculum-import-scope.server");
+      const { applyCurriculumImportScopeToRows, resolveCurriculumImportScope } =
+        await import("./curriculum-import-scope.server");
       const resolvedScope = await resolveCurriculumImportScope(
         supabase,
         data.curriculumScope as CurriculumImportScope,
@@ -216,11 +209,12 @@ export const prepareContentImportStaging = createServerFn({ method: "POST" })
               templateKey,
               stagedRows: 0,
               ok: false,
-              errors: [{
-                rowNumber: null,
-                message:
-                  `UNIT_NOT_FOUND_IN_SCOPE: ${missingCodes.join(", ")} — استورد ملف الوحدات في السياق نفسه أولاً.`,
-              }],
+              errors: [
+                {
+                  rowNumber: null,
+                  message: `UNIT_NOT_FOUND_IN_SCOPE: ${missingCodes.join(", ")} — استورد ملف الوحدات في السياق نفسه أولاً.`,
+                },
+              ],
             };
           }
         }
@@ -274,13 +268,14 @@ export const runContentImportExecute = createServerFn({ method: "POST" })
       if (templateKeys.includes("subjects") && "subjectCode" in data.curriculumScope) {
         throw new Error("IMPORT_SUBJECT_SCOPE_INVALID");
       }
-      const {
-        resolveCurriculumImportScope,
-        resolveSubjectImportScope,
-      } = await import("./curriculum-import-scope.server");
+      const { resolveCurriculumImportScope, resolveSubjectImportScope } =
+        await import("./curriculum-import-scope.server");
       const resolvedScope = templateKeys.includes("subjects")
         ? await resolveSubjectImportScope(supabase, data.curriculumScope as SubjectImportScope)
-        : await resolveCurriculumImportScope(supabase, data.curriculumScope as CurriculumImportScope);
+        : await resolveCurriculumImportScope(
+            supabase,
+            data.curriculumScope as CurriculumImportScope,
+          );
       const { data: job, error: jobError } = await supabase
         .from("import_jobs")
         .select("metadata")
