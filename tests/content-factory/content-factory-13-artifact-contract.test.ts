@@ -81,14 +81,14 @@ test("self-test public content requires options and keeps answers server-only", 
   }));
   const missingResult = validateGoldenLessonArtifactBytes("selfTest", "self-test.json", missing);
   assert.equal(missingResult.valid, false);
-  assert.ok(missingResult.findings.some((finding) => finding.code === "SELF_TEST_OPTIONS_MISSING"));
+  assert.ok(missingResult.findings.some((finding) => finding.code === "SELF_TEST_OPTIONS_INVALID"));
 
   const valid = bytes(JSON.stringify({
     capability: "selfTest",
     questions: [{
       id: "self-1",
       question: "ما رمز الحديد؟",
-      options: ["Fe", "Cu"],
+      options: ["Fe", "Cu", "Zn", "Al"],
     }],
   }));
   assert.equal(validateGoldenLessonArtifactBytes("selfTest", "self-test.json", valid).valid, true);
@@ -98,7 +98,7 @@ test("self-test public content requires options and keeps answers server-only", 
     questions: [{
       id: "self-1",
       question: "ما رمز الحديد؟",
-      options: ["Fe", "Cu"],
+      options: ["Fe", "Cu", "Zn", "Al"],
       correct_index: 1,
       explanation: "Fe هو الرمز الكيميائي للحديد.",
     }],
@@ -115,7 +115,7 @@ test("a file cannot claim a different capability", () => {
       questions: [{
         id: "self-1",
         question: "سؤال",
-        options: ["أ", "ب"],
+        options: ["أ", "ب", "ج", "د"],
       }],
     })),
   );
@@ -136,7 +136,7 @@ test("server-only companion must cover both question capabilities", () => {
       fileName: "self-test.json",
       bytes: bytes(JSON.stringify({
         capability: "selfTest",
-        questions: [{ id: "self-1", question: "اختبر فهمك", options: ["أ", "ب"] }],
+        questions: [{ id: "self-1", question: "اختبر فهمك", options: ["أ", "ب", "ج", "د"] }],
       })),
     },
   };

@@ -48,15 +48,15 @@ test("operators upload seven declared items and never upload a lesson ZIP or pro
   assert.match(component, /CAPABILITY_NUMBER/);
 });
 
-test("exactly five capabilities are required and lab plus official questions are optional", () => {
+test("exactly six capabilities are required and only the lab is optional", () => {
   for (const id of ["GOLDEN_QURAN_V1", "GOLDEN_CHEMISTRY_V1"]) assert.match(profiles, new RegExp(id));
   const required = profiles.match(/: "REQUIRED"/g) ?? [];
   const optional = profiles.match(/: "OPTIONAL"/g) ?? [];
-  assert.equal(required.length, 10);
-  assert.equal(optional.length, 4);
+  assert.equal(required.length, 12);
+  assert.equal(optional.length, 2);
   assert.equal((profiles.match(/labExperimentHtml: "OPTIONAL"/g) ?? []).length, 2);
-  assert.equal((profiles.match(/officialBookQuestions: "OPTIONAL"/g) ?? []).length, 2);
-  assert.doesNotMatch(profiles, /mindMapHtml: "OPTIONAL"|selfTest: "OPTIONAL"|labExperimentHtml: "NA"/);
+  assert.equal((profiles.match(/officialBookQuestions: "REQUIRED"/g) ?? []).length, 2);
+  assert.doesNotMatch(profiles, /mindMapHtml: "OPTIONAL"|officialBookQuestions: "OPTIONAL"|selfTest: "OPTIONAL"|labExperimentHtml: "NA"/);
 });
 
 test("question XLSX files are split automatically into public and server-only layers", () => {

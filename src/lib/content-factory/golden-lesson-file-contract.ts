@@ -79,7 +79,7 @@ export const GOLDEN_ARTIFACT_FILE_CONTRACTS: Record<GoldenCapability, GoldenArti
     expectedAr: "JSON لاختبر فهمك مع الإجابة الصحيحة والشرح",
     sourceAccept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     sourceExpectedAr:
-      "قالب Excel رقم 10 «اختبر فهمك» — من خيارين إلى ستة خيارات مع correct_index وتعليل إلزامي",
+      "قالب Excel رقم 10 «اختبر فهمك» — أربعة خيارات مكتملة مع correct_index وتعليل إلزامي",
   },
 };
 
@@ -165,8 +165,15 @@ function validateJsonCapability(
     }
 
     const options = entry.options;
-    if (!Array.isArray(options) || options.filter(nonEmptyString).length < 2) {
-      findings.push({ code: "SELF_TEST_OPTIONS_MISSING", messageAr: `السؤال رقم ${index + 1} يحتاج خيارين على الأقل.` });
+    if (
+      !Array.isArray(options) ||
+      options.length !== 4 ||
+      options.some((option) => !nonEmptyString(option))
+    ) {
+      findings.push({
+        code: "SELF_TEST_OPTIONS_INVALID",
+        messageAr: `السؤال رقم ${index + 1} يجب أن يحتوي أربعة خيارات مكتملة بالضبط.`,
+      });
     }
     if (correctAnswer(entry) !== undefined || entry.explanation !== undefined || entry.rationale !== undefined) {
       findings.push({

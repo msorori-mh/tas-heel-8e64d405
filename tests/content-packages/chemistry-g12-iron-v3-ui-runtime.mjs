@@ -31,7 +31,7 @@ try{
   check(await page.locator("#official-list .card").count()===5,viewport.name+": five official question groups");
   await page.getByRole("button",{name:"الاختبار الذاتي"}).click();
   await page.locator("#self-list .card").first().waitFor();
-  check(await page.locator("#self-list .card").count()===40,viewport.name+": 40 self-test questions");
+  check(await page.locator("#self-list .card").count()===20,viewport.name+": 20 self-test questions");
   check(await page.locator("#selfTest").getByText(/correct_option|rationale|answer_key/i).count()===0,viewport.name+": no answer leak");
   await page.screenshot({path:`${artifacts}/preview-${viewport.name}.png`,fullPage:true});
   check(consoleErrors.length===0,viewport.name+": console errors: "+consoleErrors.join(" | "));
@@ -83,4 +83,4 @@ try{
  await lab.close();
 }finally{await browser.close()}
 
-if(failures.length){console.error("IRON_UI_RUNTIME_FAIL");for(const failure of failures)console.error("- "+failure);process.exitCode=1}else{console.log("IRON_UI_RUNTIME_PASS viewports=4 capabilities=7 self_test=40 csp=PASS network=0")}
+if(failures.length){console.error("IRON_UI_RUNTIME_FAIL");for(const failure of failures)console.error("- "+failure);process.exitCode=1}else{console.log("IRON_UI_RUNTIME_PASS viewports=4 capabilities=7 self_test=20 csp=PASS network=0")}

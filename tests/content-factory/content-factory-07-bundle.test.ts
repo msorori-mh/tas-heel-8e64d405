@@ -23,7 +23,7 @@ const files = {
   "questions.provenance.json": "questions-source",
   "self-test.json": JSON.stringify({
     capability: "selfTest",
-    questions: [{ id: "self-1", question: "ما رمز الحديد؟", options: ["Fe", "Cu"] }],
+    questions: [{ id: "self-1", question: "ما رمز الحديد؟", options: ["Fe", "Cu", "Zn", "Al"] }],
   }),
   "answers.server-only.json": JSON.stringify({
     answers: [
@@ -53,7 +53,7 @@ function manifest(bundleFiles = files) {
       { capability: "lessonSummaryHtml", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "summary.html", sha256: h(bundleFiles["summary.html"]), provenancePath: null, provenanceSha256: null },
       { capability: "mindMapHtml", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "mindmap.html", sha256: h(bundleFiles["mindmap.html"]), provenancePath: null, provenanceSha256: null },
       { capability: "labExperimentHtml", applicability: "OPTIONAL", authority: "TAMKEEN", sourcePath: null, sha256: null, provenancePath: null, provenanceSha256: null },
-      { capability: "officialBookQuestions", applicability: "OPTIONAL", authority: "OFFICIAL", sourcePath: "questions.json", sha256: h(bundleFiles["questions.json"]), provenancePath: "questions.provenance.json", provenanceSha256: h(bundleFiles["questions.provenance.json"]) },
+      { capability: "officialBookQuestions", applicability: "REQUIRED", authority: "OFFICIAL", sourcePath: "questions.json", sha256: h(bundleFiles["questions.json"]), provenancePath: "questions.provenance.json", provenanceSha256: h(bundleFiles["questions.provenance.json"]) },
       { capability: "selfTest", applicability: "REQUIRED", authority: "TAMKEEN", sourcePath: "self-test.json", sha256: h(bundleFiles["self-test.json"]), provenancePath: null, provenanceSha256: null },
     ],
     lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },
