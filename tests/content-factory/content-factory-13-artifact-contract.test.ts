@@ -22,7 +22,10 @@ test("every capability has an explicit, ZIP-free file contract", () => {
 });
 
 test("a complete package ZIP cannot be uploaded into a summary field", () => {
-  assert.equal(validateGoldenLessonArtifactPath("lessonSummaryHtml", "lesson-package.zip").valid, false);
+  assert.equal(
+    validateGoldenLessonArtifactPath("lessonSummaryHtml", "lesson-package.zip").valid,
+    false,
+  );
   const result = validateGoldenLessonArtifactBytes(
     "lessonSummaryHtml",
     "summary.html",
@@ -34,7 +37,11 @@ test("a complete package ZIP cannot be uploaded into a summary field", () => {
 
 test("static HTML must be RTL, responsive and script-free", () => {
   assert.equal(
-    validateGoldenLessonArtifactBytes("tamkeenExplanationHtml", "explanation.html", bytes(staticHtml())).valid,
+    validateGoldenLessonArtifactBytes(
+      "tamkeenExplanationHtml",
+      "explanation.html",
+      bytes(staticHtml()),
+    ).valid,
     true,
   );
   const invalid = validateGoldenLessonArtifactBytes(
@@ -43,19 +50,28 @@ test("static HTML must be RTL, responsive and script-free", () => {
     bytes("<html><body><script>alert(1)</script></body></html>"),
   );
   assert.equal(invalid.valid, false);
-  assert.ok(invalid.findings.some((finding) => finding.code === "JS_NOT_ALLOWED_IN_STATIC_PROFILE"));
+  assert.ok(
+    invalid.findings.some((finding) => finding.code === "JS_NOT_ALLOWED_IN_STATIC_PROFILE"),
+  );
 });
 
 test("the lab accepts restricted interactive HTML", () => {
-  const lab = staticHtml('<button id="run">ابدأ</button><script>document.querySelector("#run")</script>');
-  assert.equal(validateGoldenLessonArtifactBytes("labExperimentHtml", "lab.html", bytes(lab)).valid, true);
+  const lab = staticHtml(
+    '<button id="run">ابدأ</button><script>document.querySelector("#run")</script>',
+  );
+  assert.equal(
+    validateGoldenLessonArtifactBytes("labExperimentHtml", "lab.html", bytes(lab)).valid,
+    true,
+  );
 });
 
 test("official questions require original text and a stable identifier", () => {
-  const missing = bytes(JSON.stringify({
-    capability: "officialBookQuestions",
-    questions: [{ official_text: "علل استخدام الحجر الجيري." }],
-  }));
+  const missing = bytes(
+    JSON.stringify({
+      capability: "officialBookQuestions",
+      questions: [{ official_text: "علل استخدام الحجر الجيري." }],
+    }),
+  );
   const missingResult = validateGoldenLessonArtifactBytes(
     "officialBookQuestions",
     "official-questions.json",
@@ -64,60 +80,80 @@ test("official questions require original text and a stable identifier", () => {
   assert.equal(missingResult.valid, false);
   assert.ok(missingResult.findings.some((finding) => finding.code === "QUESTION_ID_MISSING"));
 
-  const valid = bytes(JSON.stringify({
-    capability: "officialBookQuestions",
-    questions: [{ question_number: "7", official_text: "علل استخدام الحجر الجيري." }],
-  }));
+  const valid = bytes(
+    JSON.stringify({
+      capability: "officialBookQuestions",
+      questions: [{ question_number: "7", official_text: "علل استخدام الحجر الجيري." }],
+    }),
+  );
   assert.equal(
-    validateGoldenLessonArtifactBytes("officialBookQuestions", "official-questions.json", valid).valid,
+    validateGoldenLessonArtifactBytes("officialBookQuestions", "official-questions.json", valid)
+      .valid,
     true,
   );
 });
 
 test("self-test public content requires options and keeps answers server-only", () => {
-  const missing = bytes(JSON.stringify({
-    capability: "selfTest",
-    questions: [{ id: "self-1", question: "ما رمز الحديد؟" }],
-  }));
+  const missing = bytes(
+    JSON.stringify({
+      capability: "selfTest",
+      questions: [{ id: "self-1", question: "ما رمز الحديد؟" }],
+    }),
+  );
   const missingResult = validateGoldenLessonArtifactBytes("selfTest", "self-test.json", missing);
   assert.equal(missingResult.valid, false);
   assert.ok(missingResult.findings.some((finding) => finding.code === "SELF_TEST_OPTIONS_INVALID"));
 
-  const valid = bytes(JSON.stringify({
-    capability: "selfTest",
-    questions: [{
-      id: "self-1",
-      question: "ما رمز الحديد؟",
-      options: ["Fe", "Cu", "Zn", "Al"],
-    }],
-  }));
+  const valid = bytes(
+    JSON.stringify({
+      capability: "selfTest",
+      questions: [
+        {
+          id: "self-1",
+          question: "ما رمز الحديد؟",
+          options: ["Fe", "Cu", "Zn", "Al"],
+        },
+      ],
+    }),
+  );
   assert.equal(validateGoldenLessonArtifactBytes("selfTest", "self-test.json", valid).valid, true);
 
-  const leaked = bytes(JSON.stringify({
-    capability: "selfTest",
-    questions: [{
-      id: "self-1",
-      question: "ما رمز الحديد؟",
-      options: ["Fe", "Cu", "Zn", "Al"],
-      correct_index: 1,
-      explanation: "Fe هو الرمز الكيميائي للحديد.",
-    }],
-  }));
-  assert.equal(validateGoldenLessonArtifactBytes("selfTest", "self-test.json", leaked).valid, false);
+  const leaked = bytes(
+    JSON.stringify({
+      capability: "selfTest",
+      questions: [
+        {
+          id: "self-1",
+          question: "ما رمز الحديد؟",
+          options: ["Fe", "Cu", "Zn", "Al"],
+          correct_index: 1,
+          explanation: "Fe هو الرمز الكيميائي للحديد.",
+        },
+      ],
+    }),
+  );
+  assert.equal(
+    validateGoldenLessonArtifactBytes("selfTest", "self-test.json", leaked).valid,
+    false,
+  );
 });
 
 test("a file cannot claim a different capability", () => {
   const result = validateGoldenLessonArtifactBytes(
     "selfTest",
     "self-test.json",
-    bytes(JSON.stringify({
-      capability: "officialBookQuestions",
-      questions: [{
-        id: "self-1",
-        question: "سؤال",
-        options: ["أ", "ب", "ج", "د"],
-      }],
-    })),
+    bytes(
+      JSON.stringify({
+        capability: "officialBookQuestions",
+        questions: [
+          {
+            id: "self-1",
+            question: "سؤال",
+            options: ["أ", "ب", "ج", "د"],
+          },
+        ],
+      }),
+    ),
   );
   assert.equal(result.valid, false);
   assert.ok(result.findings.some((finding) => finding.code === "ARTIFACT_CAPABILITY_MISMATCH"));
@@ -127,37 +163,51 @@ test("server-only companion must cover both question capabilities", () => {
   const artifacts = {
     officialBookQuestions: {
       fileName: "official-questions.json",
-      bytes: bytes(JSON.stringify({
-        capability: "officialBookQuestions",
-        questions: [{ question_number: "7", official_text: "سؤال الكتاب" }],
-      })),
+      bytes: bytes(
+        JSON.stringify({
+          capability: "officialBookQuestions",
+          questions: [{ question_number: "7", official_text: "سؤال الكتاب" }],
+        }),
+      ),
     },
     selfTest: {
       fileName: "self-test.json",
-      bytes: bytes(JSON.stringify({
-        capability: "selfTest",
-        questions: [{ id: "self-1", question: "اختبر فهمك", options: ["أ", "ب", "ج", "د"] }],
-      })),
+      bytes: bytes(
+        JSON.stringify({
+          capability: "selfTest",
+          questions: [{ id: "self-1", question: "اختبر فهمك", options: ["أ", "ب", "ج", "د"] }],
+        }),
+      ),
     },
   };
   const incomplete = validateGoldenLessonAnswerCoverage(artifacts, {
     fileName: "answers.server-only.json",
-    bytes: bytes(JSON.stringify({
-      capability: "selfTest",
-      answers: [{ question_id: "self-1", correct_option: "أ", rationale: "شرح" }],
-    })),
+    bytes: bytes(
+      JSON.stringify({
+        capability: "selfTest",
+        answers: [{ question_id: "self-1", correct_option: "أ", rationale: "شرح" }],
+      }),
+    ),
   });
   assert.equal(incomplete.valid, false);
-  assert.ok(incomplete.findings.some((finding) => finding.code === "ANSWER_COMPANION_COVERAGE_MISSING"));
+  assert.ok(
+    incomplete.findings.some((finding) => finding.code === "ANSWER_COMPANION_COVERAGE_MISSING"),
+  );
 
   const complete = validateGoldenLessonAnswerCoverage(artifacts, {
     fileName: "answers.server-only.json",
-    bytes: bytes(JSON.stringify({
-      answers: [
-        { capability: "officialBookQuestions", question_id: "7", model_answer: "الإجابة النموذجية" },
-        { capability: "selfTest", question_id: "self-1", correct_option: "أ", rationale: "شرح" },
-      ],
-    })),
+    bytes: bytes(
+      JSON.stringify({
+        answers: [
+          {
+            capability: "officialBookQuestions",
+            question_id: "7",
+            model_answer: "الإجابة النموذجية",
+          },
+          { capability: "selfTest", question_id: "self-1", correct_option: "أ", rationale: "شرح" },
+        ],
+      }),
+    ),
   });
   assert.equal(complete.valid, true);
 });

@@ -1,6 +1,9 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import type { DatabaseClientAdapter, PublishedHtmlResourceRow } from "./server/html-pipeline/db-adapter";
+import type {
+  DatabaseClientAdapter,
+  PublishedHtmlResourceRow,
+} from "./server/html-pipeline/db-adapter";
 import type {
   ResolvedUploadSession,
   RecordServerValidationParams,
@@ -31,36 +34,48 @@ import type { HtmlResourceType } from "./content-import/html-package/types";
 
 function createMockDbAdapter(): {
   adapter: DatabaseClientAdapter;
-  resources: Map<string, {
-    id: string;
-    lesson_id: string;
-    resource_type: string;
-    title: string;
-    resource_code: string | null;
-    lifecycle_status: string;
-    published_version_id: string | null;
-  }>;
-  versions: Map<string, {
-    id: string;
-    resource_id: string;
-    version_number: number;
-  }>;
+  resources: Map<
+    string,
+    {
+      id: string;
+      lesson_id: string;
+      resource_type: string;
+      title: string;
+      resource_code: string | null;
+      lifecycle_status: string;
+      published_version_id: string | null;
+    }
+  >;
+  versions: Map<
+    string,
+    {
+      id: string;
+      resource_id: string;
+      version_number: number;
+    }
+  >;
   studentCanAccessLesson: boolean;
 } {
-  const resources = new Map<string, {
-    id: string;
-    lesson_id: string;
-    resource_type: string;
-    title: string;
-    resource_code: string | null;
-    lifecycle_status: string;
-    published_version_id: string | null;
-  }>();
-  const versions = new Map<string, {
-    id: string;
-    resource_id: string;
-    version_number: number;
-  }>();
+  const resources = new Map<
+    string,
+    {
+      id: string;
+      lesson_id: string;
+      resource_type: string;
+      title: string;
+      resource_code: string | null;
+      lifecycle_status: string;
+      published_version_id: string | null;
+    }
+  >();
+  const versions = new Map<
+    string,
+    {
+      id: string;
+      resource_id: string;
+      version_number: number;
+    }
+  >();
 
   const state = { studentCanAccessLesson: true };
 
@@ -78,7 +93,9 @@ function createMockDbAdapter(): {
       throw new Error("Not implemented for student journey tests");
     },
 
-    async resolveStudentResourceBinding(resourceId: string): Promise<ResolvedStudentResourceBinding> {
+    async resolveStudentResourceBinding(
+      resourceId: string,
+    ): Promise<ResolvedStudentResourceBinding> {
       const res = resources.get(resourceId);
       if (!res) throw new Error(`Resource ${resourceId} not found`);
       if (res.lifecycle_status !== "published" || !res.published_version_id) {
@@ -105,7 +122,9 @@ function createMockDbAdapter(): {
       for (const res of resources.values()) {
         if (
           res.lesson_id === lessonId &&
-          ["mind_map_html", "practical_experiment_html", "summary_html"].includes(res.resource_type) &&
+          ["mind_map_html", "practical_experiment_html", "summary_html"].includes(
+            res.resource_type,
+          ) &&
           res.lifecycle_status === "published"
         ) {
           rows.push({
@@ -154,8 +173,12 @@ function createMockDbAdapter(): {
     adapter,
     resources,
     versions,
-    get studentCanAccessLesson() { return state.studentCanAccessLesson; },
-    set studentCanAccessLesson(val: boolean) { state.studentCanAccessLesson = val; },
+    get studentCanAccessLesson() {
+      return state.studentCanAccessLesson;
+    },
+    set studentCanAccessLesson(val: boolean) {
+      state.studentCanAccessLesson = val;
+    },
   };
 }
 
@@ -196,8 +219,12 @@ function createMockStorageAdapter(): {
 
   return {
     adapter,
-    get shouldFailSignedUrl() { return state.shouldFailSignedUrl; },
-    set shouldFailSignedUrl(val: boolean) { state.shouldFailSignedUrl = val; },
+    get shouldFailSignedUrl() {
+      return state.shouldFailSignedUrl;
+    },
+    set shouldFailSignedUrl(val: boolean) {
+      state.shouldFailSignedUrl = val;
+    },
   };
 }
 
@@ -242,7 +269,6 @@ async function simulateGetLessonPublishedHtmlResources(
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
 describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () => {
-
   test("1. Published HTML resources are returned with signed URLs", async () => {
     const mockDb = createMockDbAdapter();
     const mockStorage = createMockStorageAdapter();
@@ -266,7 +292,11 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () =
       version_number: 1,
     });
 
-    const result = await simulateGetLessonPublishedHtmlResources(lessonId, mockDb.adapter, mockStorage.adapter);
+    const result = await simulateGetLessonPublishedHtmlResources(
+      lessonId,
+      mockDb.adapter,
+      mockStorage.adapter,
+    );
 
     assert.equal(result.resources.length, 1);
     assert.equal(result.resources[0].resourceId, resId);
@@ -306,7 +336,11 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () =
       published_version_id: null,
     });
 
-    const result = await simulateGetLessonPublishedHtmlResources(lessonId, mockDb.adapter, mockStorage.adapter);
+    const result = await simulateGetLessonPublishedHtmlResources(
+      lessonId,
+      mockDb.adapter,
+      mockStorage.adapter,
+    );
 
     assert.equal(result.resources.length, 0, "No draft/approved resources should be returned");
   });
@@ -333,7 +367,11 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () =
     mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 1 });
 
     // Query for lesson A — should return nothing
-    const result = await simulateGetLessonPublishedHtmlResources(lessonA, mockDb.adapter, mockStorage.adapter);
+    const result = await simulateGetLessonPublishedHtmlResources(
+      lessonA,
+      mockDb.adapter,
+      mockStorage.adapter,
+    );
     assert.equal(result.resources.length, 0, "Resources from other lessons must not appear");
   });
 
@@ -359,7 +397,11 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () =
     // Force signing failure
     mockStorage.shouldFailSignedUrl = true;
 
-    const result = await simulateGetLessonPublishedHtmlResources(lessonId, mockDb.adapter, mockStorage.adapter);
+    const result = await simulateGetLessonPublishedHtmlResources(
+      lessonId,
+      mockDb.adapter,
+      mockStorage.adapter,
+    );
     assert.equal(result.resources.length, 0, "Resource with signing failure must be excluded");
   });
 
@@ -385,7 +427,11 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () =
     // Deny student access
     mockDb.studentCanAccessLesson = false;
 
-    const result = await simulateGetLessonPublishedHtmlResources(lessonId, mockDb.adapter, mockStorage.adapter);
+    const result = await simulateGetLessonPublishedHtmlResources(
+      lessonId,
+      mockDb.adapter,
+      mockStorage.adapter,
+    );
     assert.equal(result.resources.length, 0, "Student without lesson access must get no resources");
   });
 
@@ -395,9 +441,24 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () =
     const lessonId = "00000000-0000-0000-0000-000000000601";
 
     const resources = [
-      { id: "00000000-0000-0000-0000-000000000610", type: "mind_map_html", title: "خريطة", code: "MAP-1" },
-      { id: "00000000-0000-0000-0000-000000000620", type: "practical_experiment_html", title: "تجربة", code: "EXP-1" },
-      { id: "00000000-0000-0000-0000-000000000630", type: "summary_html", title: "ملخص", code: "SUM-1" },
+      {
+        id: "00000000-0000-0000-0000-000000000610",
+        type: "mind_map_html",
+        title: "خريطة",
+        code: "MAP-1",
+      },
+      {
+        id: "00000000-0000-0000-0000-000000000620",
+        type: "practical_experiment_html",
+        title: "تجربة",
+        code: "EXP-1",
+      },
+      {
+        id: "00000000-0000-0000-0000-000000000630",
+        type: "summary_html",
+        title: "ملخص",
+        code: "SUM-1",
+      },
     ];
 
     for (const r of resources) {
@@ -414,10 +475,14 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () =
       mockDb.versions.set(verId, { id: verId, resource_id: r.id, version_number: 1 });
     }
 
-    const result = await simulateGetLessonPublishedHtmlResources(lessonId, mockDb.adapter, mockStorage.adapter);
+    const result = await simulateGetLessonPublishedHtmlResources(
+      lessonId,
+      mockDb.adapter,
+      mockStorage.adapter,
+    );
 
     assert.equal(result.resources.length, 3);
-    const types = result.resources.map(r => r.resourceType).sort();
+    const types = result.resources.map((r) => r.resourceType).sort();
     assert.deepEqual(types, ["mind_map_html", "practical_experiment_html", "summary_html"]);
   });
 
@@ -446,8 +511,16 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () =
       published_version_id: null,
     });
 
-    const result = await simulateGetLessonPublishedHtmlResources(lessonId, mockDb.adapter, mockStorage.adapter);
-    assert.equal(result.resources.length, 0, "Non-HTML resources must not appear in HTML resource query");
+    const result = await simulateGetLessonPublishedHtmlResources(
+      lessonId,
+      mockDb.adapter,
+      mockStorage.adapter,
+    );
+    assert.equal(
+      result.resources.length,
+      0,
+      "Non-HTML resources must not appear in HTML resource query",
+    );
   });
 
   test("8. Signed URL contains published path, no raw storage path leaked", async () => {
@@ -469,7 +542,11 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () =
     });
     mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 3 });
 
-    const result = await simulateGetLessonPublishedHtmlResources(lessonId, mockDb.adapter, mockStorage.adapter);
+    const result = await simulateGetLessonPublishedHtmlResources(
+      lessonId,
+      mockDb.adapter,
+      mockStorage.adapter,
+    );
 
     assert.equal(result.resources.length, 1);
     const url = result.resources[0].signedUrl;
@@ -501,10 +578,18 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () =
     });
     mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 1 });
 
-    const result = await simulateGetLessonPublishedHtmlResources(lessonId, mockDb.adapter, mockStorage.adapter);
+    const result = await simulateGetLessonPublishedHtmlResources(
+      lessonId,
+      mockDb.adapter,
+      mockStorage.adapter,
+    );
 
     assert.equal(result.resources.length, 1);
-    assert.equal(result.resources[0].resourceCode, resId, "Must fall back to resource_id when resource_code is null");
+    assert.equal(
+      result.resources[0].resourceCode,
+      resId,
+      "Must fall back to resource_id when resource_code is null",
+    );
   });
 
   test("10. Empty lesson returns empty resources array", async () => {
@@ -527,7 +612,6 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Published HTML Resource Wiring", () =
 // No synthetic implementation duplicates production logic.
 
 describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
-
   test("11. createSignedStudentAccessUrlFn is a defined server function with POST method", () => {
     assert.ok(
       createSignedStudentAccessUrlFn,
@@ -553,7 +637,9 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
   });
 
   test("13. Production input schema accepts only resourceId UUID", () => {
-    const validResult = signedStudentAccessInputSchema.safeParse({ resourceId: "00000000-0000-0000-0000-000000000001" });
+    const validResult = signedStudentAccessInputSchema.safeParse({
+      resourceId: "00000000-0000-0000-0000-000000000001",
+    });
     assert.equal(validResult.success, true, "Valid UUID resourceId must be accepted");
 
     const missingResult = signedStudentAccessInputSchema.safeParse({});
@@ -620,8 +706,16 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
     });
     mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 1 });
 
-    const first = await createSignedStudentAccessUrl({ resourceId: resId }, mockDb.adapter, mockStorage);
-    const second = await createSignedStudentAccessUrl({ resourceId: resId }, mockDb.adapter, mockStorage);
+    const first = await createSignedStudentAccessUrl(
+      { resourceId: resId },
+      mockDb.adapter,
+      mockStorage,
+    );
+    const second = await createSignedStudentAccessUrl(
+      { resourceId: resId },
+      mockDb.adapter,
+      mockStorage,
+    );
 
     assert.equal(first.granted, true, "First signing must be granted");
     assert.equal(second.granted, true, "Second signing must be granted");
@@ -656,7 +750,11 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
 
     mockStorage.shouldFailSignedUrl = true;
 
-    const result = await createSignedStudentAccessUrl({ resourceId: resId }, mockDb.adapter, mockStorage.adapter);
+    const result = await createSignedStudentAccessUrl(
+      { resourceId: resId },
+      mockDb.adapter,
+      mockStorage.adapter,
+    );
 
     assert.equal(result.granted, false, "Server failure must return granted=false");
     assert.equal(result.signedUrl, undefined, "No signed URL must be leaked on failure");
@@ -693,8 +791,16 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
 
     await createSignedStudentAccessUrl({ resourceId: resId }, trackingAdapter, mockStorage.adapter);
 
-    assert.equal(resolvedResourceIds.length, 1, "resolveStudentResourceBinding must be called exactly once");
-    assert.equal(resolvedResourceIds[0], resId, "Only the client-provided resourceId is used for binding resolution");
+    assert.equal(
+      resolvedResourceIds.length,
+      1,
+      "resolveStudentResourceBinding must be called exactly once",
+    );
+    assert.equal(
+      resolvedResourceIds[0],
+      resId,
+      "Only the client-provided resourceId is used for binding resolution",
+    );
   });
 
   test("17. Reload via production helper triggers fresh signing with distinct URLs", async () => {
@@ -784,7 +890,11 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
 
     await assert.rejects(
       async () => {
-        await createSignedStudentAccessUrl({ resourceId: resId }, mockDb.adapter, mockStorage.adapter);
+        await createSignedStudentAccessUrl(
+          { resourceId: resId },
+          mockDb.adapter,
+          mockStorage.adapter,
+        );
       },
       (err: Error) => {
         assert.match(err.message, /not published/);
@@ -799,10 +909,18 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
 
     let signCallCount = 0;
     const mockStorage: StorageClientAdapter = {
-      async createSignedUploadUrl() { throw new Error("Not implemented"); },
-      async download() { return { data: null, error: new Error("Not implemented") }; },
-      async upload() { return { error: new Error("Not implemented") }; },
-      async copy() { return { error: new Error("Not implemented") }; },
+      async createSignedUploadUrl() {
+        throw new Error("Not implemented");
+      },
+      async download() {
+        return { data: null, error: new Error("Not implemented") };
+      },
+      async upload() {
+        return { error: new Error("Not implemented") };
+      },
+      async copy() {
+        return { error: new Error("Not implemented") };
+      },
       async createSignedUrl(_bucket: string, path: string, _expiresIn: number) {
         signCallCount++;
         return {
@@ -810,7 +928,9 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
           error: null,
         };
       },
-      async remove() { return { error: null }; },
+      async remove() {
+        return { error: null };
+      },
     };
 
     const resId = "00000000-0000-0000-0000-000000001901";
@@ -818,15 +938,21 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
     const lessonId = "00000000-0000-0000-0000-000000001903";
 
     mockDb.resources.set(resId, {
-      id: resId, lesson_id: lessonId, resource_type: "mind_map_html",
-      title: "خريطة", resource_code: "MAP-INT", lifecycle_status: "published",
+      id: resId,
+      lesson_id: lessonId,
+      resource_type: "mind_map_html",
+      title: "خريطة",
+      resource_code: "MAP-INT",
+      lifecycle_status: "published",
       published_version_id: verId,
     });
     mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 1 });
 
     const mockServerFn = async ({ data }: { data: { resourceId: string } }) => {
       const access = await createSignedStudentAccessUrl(
-        { resourceId: data.resourceId }, mockDb.adapter, mockStorage,
+        { resourceId: data.resourceId },
+        mockDb.adapter,
+        mockStorage,
       );
       return access.granted ? { signedUrl: access.signedUrl } : null;
     };
@@ -864,15 +990,21 @@ describe("CONTENT_HTML_STUDENT_JOURNEY — Server Function Wiring", () => {
     const lessonId = "00000000-0000-0000-0000-000000002003";
 
     mockDb.resources.set(resId, {
-      id: resId, lesson_id: lessonId, resource_type: "summary_html",
-      title: "ملخص", resource_code: "SUM-FAIL", lifecycle_status: "published",
+      id: resId,
+      lesson_id: lessonId,
+      resource_type: "summary_html",
+      title: "ملخص",
+      resource_code: "SUM-FAIL",
+      lifecycle_status: "published",
       published_version_id: verId,
     });
     mockDb.versions.set(verId, { id: verId, resource_id: resId, version_number: 1 });
 
     const mockServerFn = async ({ data }: { data: { resourceId: string } }) => {
       const access = await createSignedStudentAccessUrl(
-        { resourceId: data.resourceId }, mockDb.adapter, mockStorage.adapter,
+        { resourceId: data.resourceId },
+        mockDb.adapter,
+        mockStorage.adapter,
       );
       return access.granted ? { signedUrl: access.signedUrl } : null;
     };
