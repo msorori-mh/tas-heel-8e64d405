@@ -41,7 +41,6 @@ export type UniquenessEnforcement =
   | { kind: "planned_unique"; constraint: string; scope: string; draftRef: string }
   | { kind: "not_enforced"; gap: string };
 
-
 export interface ImportFieldMapping {
   /** Column header in the Excel template. */
   field: string;
@@ -83,7 +82,6 @@ export interface ImportEntityContract {
   gapIds?: readonly ImportGapId[];
 }
 
-
 const f = (
   field: string,
   table: string,
@@ -123,8 +121,20 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
     fields: [
       f("subject_code", "subjects", "code", true),
       f("name", "subjects", "name", true),
-      f("group_code", "subjects", "group_code", false, "SUBJECT_AS_BRANCH: كود المجموعة (عرض فقط) — immutable بعد التعيين"),
-      f("group_name", "subjects", "group_name", false, "اسم المجموعة المعروض — يجب أن يتطابق داخل نفس group_code/grade/track"),
+      f(
+        "group_code",
+        "subjects",
+        "group_code",
+        false,
+        "SUBJECT_AS_BRANCH: كود المجموعة (عرض فقط) — immutable بعد التعيين",
+      ),
+      f(
+        "group_name",
+        "subjects",
+        "group_name",
+        false,
+        "اسم المجموعة المعروض — يجب أن يتطابق داخل نفس group_code/grade/track",
+      ),
       f("grade_slug", "grades", null, true, "lookup grades.slug → subjects.grade_id"),
       f(
         "track_codes",
@@ -138,7 +148,13 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("color", "subjects", "color", false),
       f("sort_order", "subjects", "sort_order", false),
       f("editor_notes", "subjects", null, false, "not persisted — operator note only"),
-      f("review_status", "subjects", null, false, "GAP-03: routed to content_review_state, not a subjects column"),
+      f(
+        "review_status",
+        "subjects",
+        null,
+        false,
+        "GAP-03: routed to content_review_state, not a subjects column",
+      ),
     ],
     gaps: [
       "subjects has no review/publication status column → GAP-03 (content_review_state).",
@@ -179,9 +195,21 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
     dependsOn: ["subjects", "units"],
     foreignKeys: ["lessons.subject_id → subjects.id", "lessons.unit_id → units.id (nullable)"],
     fields: [
-      f("lesson_code", "lessons", "slug", true, "lesson_code IS lessons.slug — there is no lessons.code column"),
+      f(
+        "lesson_code",
+        "lessons",
+        "slug",
+        true,
+        "lesson_code IS lessons.slug — there is no lessons.code column",
+      ),
       f("subject_code", "subjects", null, true, "lookup subjects.code → lessons.subject_id"),
-      f("unit_code", "units", null, false, "lookup (subject_id, units.code) → lessons.unit_id; empty = lesson attached directly to subject"),
+      f(
+        "unit_code",
+        "units",
+        null,
+        false,
+        "lookup (subject_id, units.code) → lessons.unit_id; empty = lesson attached directly to subject",
+      ),
       f("title", "lessons", "title", true),
       f("duration", "lessons", "duration", false),
       f("semester", "lessons", "semester", false),
@@ -205,8 +233,20 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
     dependsOn: ["lessons"],
     foreignKeys: ["lesson_book_contents.lesson_id → lessons.id"],
     fields: [
-      f("subject_code", "subjects", null, true, "GAP-06: scopes lesson_code resolution to one subject"),
-      f("lesson_code", "lessons", null, true, "lookup (subject_id, slug) → lesson_book_contents.lesson_id"),
+      f(
+        "subject_code",
+        "subjects",
+        null,
+        true,
+        "GAP-06: scopes lesson_code resolution to one subject",
+      ),
+      f(
+        "lesson_code",
+        "lessons",
+        null,
+        true,
+        "lookup (subject_id, slug) → lesson_book_contents.lesson_id",
+      ),
       f("content", "lesson_book_contents", "content", true),
       f("pdf_url", "lesson_book_contents", "pdf_url", false),
       f("editor_notes", "lesson_book_contents", null, false, "not persisted"),
@@ -226,15 +266,31 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
     fields: [
       f("subject_code", "subjects", null, true, "GAP-06: scopes lesson_code resolution"),
       f("lesson_code", "lessons", null, true, "FK lookup"),
-      f("explanation_code", "lesson_explanations", "explanation_code", true, "GAP-02: stable import identity — never sort_order"),
+      f(
+        "explanation_code",
+        "lesson_explanations",
+        "explanation_code",
+        true,
+        "GAP-02: stable import identity — never sort_order",
+      ),
       f("title", "lesson_explanations", "title", true),
       f("content", "lesson_explanations", "content", true),
-      f("sort_order", "lesson_explanations", "sort_order", false, "mutable presentation attribute — NOT part of the identity"),
-      f("review_status", "lesson_explanations", null, false, "GAP-03: routed to content_review_state"),
+      f(
+        "sort_order",
+        "lesson_explanations",
+        "sort_order",
+        false,
+        "mutable presentation attribute — NOT part of the identity",
+      ),
+      f(
+        "review_status",
+        "lesson_explanations",
+        null,
+        false,
+        "GAP-03: routed to content_review_state",
+      ),
     ],
-    gaps: [
-      "No review/publication column → GAP-03 (content_review_state).",
-    ],
+    gaps: ["No review/publication column → GAP-03 (content_review_state)."],
 
     gapIds: ["GAP-02-STABLE-CHILD-IDENTITY", "GAP-03-REVIEW-STATE", "GAP-06-SUBJECT-SCOPE"],
   },
@@ -251,18 +307,66 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
     fields: [
       f("subject_code", "subjects", null, true, "GAP-06: scopes lesson_code resolution"),
       f("lesson_code", "lessons", null, true, "FK lookup"),
-      f("resource_code", "lesson_resources", "resource_code", true, "GAP-02: stable import identity — never sort_order"),
-      f("resource_type", "lesson_resources", "resource_type", true, "enum lesson_resource_type: video|mindmap|experiment|pdf|link"),
+      f(
+        "resource_code",
+        "lesson_resources",
+        "resource_code",
+        true,
+        "GAP-02: stable import identity — never sort_order",
+      ),
+      f(
+        "resource_type",
+        "lesson_resources",
+        "resource_type",
+        true,
+        "enum lesson_resource_type: video|mindmap|experiment|pdf|link",
+      ),
       f("title", "lesson_resources", "title", true),
       f("description", "lesson_resources", "description", false),
-      f("resource_url", "lesson_resources", "url", true, "GAP-04: required — lesson_resources.url is NOT NULL"),
-      f("sort_order", "lesson_resources", "sort_order", false, "mutable presentation attribute — NOT part of the identity"),
-      f("resource_format", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
-      f("local_asset_path", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
+      f(
+        "resource_url",
+        "lesson_resources",
+        "url",
+        true,
+        "GAP-04: required — lesson_resources.url is NOT NULL",
+      ),
+      f(
+        "sort_order",
+        "lesson_resources",
+        "sort_order",
+        false,
+        "mutable presentation attribute — NOT part of the identity",
+      ),
+      f(
+        "resource_format",
+        "lesson_resources",
+        "metadata",
+        false,
+        "GAP-05: metadata jsonb allowlist",
+      ),
+      f(
+        "local_asset_path",
+        "lesson_resources",
+        "metadata",
+        false,
+        "GAP-05: metadata jsonb allowlist",
+      ),
       f("thumbnail_url", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
-      f("is_interactive", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
+      f(
+        "is_interactive",
+        "lesson_resources",
+        "metadata",
+        false,
+        "GAP-05: metadata jsonb allowlist",
+      ),
       f("attribution", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
-      f("is_primary", "lesson_resources", "metadata", false, "13F: metadata jsonb allowlist — projected into lesson_resources.is_primary"),
+      f(
+        "is_primary",
+        "lesson_resources",
+        "metadata",
+        false,
+        "13F: metadata jsonb allowlist — projected into lesson_resources.is_primary",
+      ),
       f("license_note", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
       f("notes", "lesson_resources", "metadata", false, "GAP-05: metadata jsonb allowlist"),
     ],
@@ -300,19 +404,67 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       ),
       f("subject_code", "subjects", null, true, "FK lookup"),
       f("lesson_code", "lessons", null, true, "FK lookup"),
-      f("prompt_kind", "question_revisions", null, true, "تعريف|تعليل|سؤال_قصير|شرح|اختيار_واحد|أخرى — operator metadata; role remains OFFICIAL_BOOK_QUESTION"),
-      f("question_text", "question_revisions", "question_text", true, "النص الأصلي كما ورد في الكتاب دون إعادة صياغة"),
-      f("interaction_type", "question_revisions", "interaction_type", true, "LONG_TEXT | SHORT_TEXT | SINGLE_CHOICE"),
-      f("grading_mode", "question_revisions", "grading_mode", true, "MANUAL | AUTO_TEXT | AUTO_SINGLE"),
-      f("option_1", "question_options", "body", false, "مسموح لسؤال كتاب أصلي من نوع اختيار واحد؛ لا يغير دوره"),
+      f(
+        "prompt_kind",
+        "question_revisions",
+        null,
+        true,
+        "تعريف|تعليل|سؤال_قصير|شرح|اختيار_واحد|أخرى — operator metadata; role remains OFFICIAL_BOOK_QUESTION",
+      ),
+      f(
+        "question_text",
+        "question_revisions",
+        "question_text",
+        true,
+        "النص الأصلي كما ورد في الكتاب دون إعادة صياغة",
+      ),
+      f(
+        "interaction_type",
+        "question_revisions",
+        "interaction_type",
+        true,
+        "LONG_TEXT | SHORT_TEXT | SINGLE_CHOICE",
+      ),
+      f(
+        "grading_mode",
+        "question_revisions",
+        "grading_mode",
+        true,
+        "MANUAL | AUTO_TEXT | AUTO_SINGLE",
+      ),
+      f(
+        "option_1",
+        "question_options",
+        "body",
+        false,
+        "مسموح لسؤال كتاب أصلي من نوع اختيار واحد؛ لا يغير دوره",
+      ),
       f("option_2", "question_options", "body", false),
       f("option_3", "question_options", "body", false),
       f("option_4", "question_options", "body", false),
       f("option_5", "question_options", "body", false),
       f("option_6", "question_options", "body", false),
-      f("correct_index", "question_options", "is_correct", false, "required only for SINGLE_CHOICE; 1-based in Excel"),
-      f("accepted_answers", "question_accepted_answers", "answer_text", false, "required only for SHORT_TEXT; separate values with |"),
-      f("model_answer", "official_question_answers", "model_answer", true, "يظهر بعد محاولة الطالب"),
+      f(
+        "correct_index",
+        "question_options",
+        "is_correct",
+        false,
+        "required only for SINGLE_CHOICE; 1-based in Excel",
+      ),
+      f(
+        "accepted_answers",
+        "question_accepted_answers",
+        "answer_text",
+        false,
+        "required only for SHORT_TEXT; separate values with |",
+      ),
+      f(
+        "model_answer",
+        "official_question_answers",
+        "model_answer",
+        true,
+        "يظهر بعد محاولة الطالب",
+      ),
       f("explanation", "official_question_answers", "explanation", false),
       f("sort_order", "questions", "sort_order", false),
       f("review_status", "questions", null, false, "GAP-03: routed to content_review_state"),
@@ -383,23 +535,34 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
      * column), so the code must resolve globally. This mirrors subjects_code_uniq and
      * questions_code_uniq — the only two audited code columns with global scope.
      */
-    uniquenessScope: "global (assessment_code IS NOT NULL) — required by template 08's lesson-less reference",
+    uniquenessScope:
+      "global (assessment_code IS NOT NULL) — required by template 08's lesson-less reference",
     uniqueness: { kind: "db_unique", constraint: "lesson_assessments_code_uniq" },
     dependsOn: ["lessons"],
     foreignKeys: ["lesson_assessments.lesson_id → lessons.id"],
     fields: [
-      f("assessment_code", "lesson_assessments", "assessment_code", true, "GAP-01: new column, global partial unique"),
+      f(
+        "assessment_code",
+        "lesson_assessments",
+        "assessment_code",
+        true,
+        "GAP-01: new column, global partial unique",
+      ),
 
       f("subject_code", "subjects", null, true, "GAP-06: scopes lesson_code resolution"),
       f("lesson_code", "lessons", null, true, "FK lookup"),
       f("title", "lesson_assessments", "title", true),
       f("instructions", "lesson_assessments", "instructions", false),
       f("sort_order", "lesson_assessments", "sort_order", false),
-      f("review_status", "lesson_assessments", null, false, "GAP-03: routed to content_review_state"),
+      f(
+        "review_status",
+        "lesson_assessments",
+        null,
+        false,
+        "GAP-03: routed to content_review_state",
+      ),
     ],
-    gaps: [
-      "No review/publication column → GAP-03 (content_review_state).",
-    ],
+    gaps: ["No review/publication column → GAP-03 (content_review_state)."],
     gapIds: ["GAP-01-ASSESSMENT-CODE", "GAP-03-REVIEW-STATE", "GAP-06-SUBJECT-SCOPE"],
   },
   assessment_questions: {
@@ -415,7 +578,13 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       "assessment_questions.question_id → questions.id",
     ],
     fields: [
-      f("assessment_code", "lesson_assessments", null, true, "resolves via the GAP-01 lesson_assessments.assessment_code column"),
+      f(
+        "assessment_code",
+        "lesson_assessments",
+        null,
+        true,
+        "resolves via the GAP-01 lesson_assessments.assessment_code column",
+      ),
       f("question_code", "questions", null, true, "lookup questions.code → question_id"),
       f("sort_order", "assessment_questions", "sort_order", false),
       f("points", "assessment_questions", "points", false),
@@ -424,7 +593,6 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
     gaps: [],
     gapIds: ["GAP-01-ASSESSMENT-CODE"],
   },
-
 };
 
 /** Dependency-correct execution order derived from IMPORT_ENTITY_CONTRACTS. */
@@ -500,10 +668,13 @@ export type ReviewState = (typeof REVIEW_STATES)[number];
 export type PublicationState = (typeof PUBLICATION_STATES)[number];
 
 /** Entities whose contract currently blocks execute until an approved migration lands. */
-export function listBlockingContractGaps(): Array<{ templateKey: ContentImportTemplateKey; gaps: readonly string[] }> {
-  return CONTENT_IMPORT_TEMPLATE_KEYS.filter((k) => (IMPORT_ENTITY_CONTRACTS[k].gaps?.length ?? 0) > 0).map(
-    (templateKey) => ({ templateKey, gaps: IMPORT_ENTITY_CONTRACTS[templateKey].gaps ?? [] }),
-  );
+export function listBlockingContractGaps(): Array<{
+  templateKey: ContentImportTemplateKey;
+  gaps: readonly string[];
+}> {
+  return CONTENT_IMPORT_TEMPLATE_KEYS.filter(
+    (k) => (IMPORT_ENTITY_CONTRACTS[k].gaps?.length ?? 0) > 0,
+  ).map((templateKey) => ({ templateKey, gaps: IMPORT_ENTITY_CONTRACTS[templateKey].gaps ?? [] }));
 }
 
 /* ------------------------------------------------------------------ */
@@ -562,7 +733,12 @@ export const IMPORT_GAP_RESOLUTIONS: Record<ImportGapId, ImportGapResolution> = 
 
     entities: ["explanations", "resources"],
     status: "applied",
-    appliedObjects: ["lesson_explanations.explanation_code", "lesson_explanations_code_lesson_uniq", "lesson_resources.resource_code", "idx_lesson_resources_code_per_lesson"],
+    appliedObjects: [
+      "lesson_explanations.explanation_code",
+      "lesson_explanations_code_lesson_uniq",
+      "lesson_resources.resource_code",
+      "idx_lesson_resources_code_per_lesson",
+    ],
   },
   "GAP-03-REVIEW-STATE": {
     gapId: "GAP-03-REVIEW-STATE",
@@ -647,16 +823,12 @@ export function isTemplateField(field: ImportFieldMapping): boolean {
 }
 
 /** All Excel columns of a template, in contract order. */
-export function templateColumnsForEntity(
-  key: ContentImportTemplateKey,
-): readonly string[] {
+export function templateColumnsForEntity(key: ContentImportTemplateKey): readonly string[] {
   return IMPORT_ENTITY_CONTRACTS[key].fields.filter(isTemplateField).map((f) => f.field);
 }
 
 /** Excel columns that must be present and non-empty for every row. */
-export function requiredTemplateColumnsForEntity(
-  key: ContentImportTemplateKey,
-): readonly string[] {
+export function requiredTemplateColumnsForEntity(key: ContentImportTemplateKey): readonly string[] {
   return IMPORT_ENTITY_CONTRACTS[key].fields
     .filter((f) => isTemplateField(f) && f.required)
     .map((f) => f.field);
@@ -705,7 +877,6 @@ export {
   subjectCodeDigestBytes,
 } from "./subject-slug.ts";
 
-
 /* ------------------------------------------------------------------ */
 /* Canonical row hash inputs (idempotency + review binding)            */
 /* ------------------------------------------------------------------ */
@@ -718,11 +889,36 @@ export {
  * (trim, whitespace collapse, Arabic-Indic digit folding) — never over raw JSON.
  */
 export const ROW_HASH_FIELDS: Record<ContentImportTemplateKey, readonly string[]> = {
-  subjects: ["subject_code", "name", "grade_slug", "track_codes", "semester", "icon", "color", "sort_order"],
+  subjects: [
+    "subject_code",
+    "name",
+    "grade_slug",
+    "track_codes",
+    "semester",
+    "icon",
+    "color",
+    "sort_order",
+  ],
   units: ["subject_code", "unit_code", "title", "description", "semester", "is_free", "sort_order"],
-  lessons: ["subject_code", "lesson_code", "unit_code", "title", "duration", "semester", "is_free", "sort_order"],
+  lessons: [
+    "subject_code",
+    "lesson_code",
+    "unit_code",
+    "title",
+    "duration",
+    "semester",
+    "is_free",
+    "sort_order",
+  ],
   book_contents: ["subject_code", "lesson_code", "content", "pdf_url"],
-  explanations: ["subject_code", "lesson_code", "explanation_code", "title", "content", "sort_order"],
+  explanations: [
+    "subject_code",
+    "lesson_code",
+    "explanation_code",
+    "title",
+    "content",
+    "sort_order",
+  ],
   resources: [
     "subject_code",
     "lesson_code",
@@ -734,7 +930,14 @@ export const ROW_HASH_FIELDS: Record<ContentImportTemplateKey, readonly string[]
     "sort_order",
     ...RESOURCE_METADATA_ALLOWLIST,
   ],
-  assessments: ["assessment_code", "subject_code", "lesson_code", "title", "instructions", "sort_order"],
+  assessments: [
+    "assessment_code",
+    "subject_code",
+    "lesson_code",
+    "title",
+    "instructions",
+    "sort_order",
+  ],
   assessment_questions: ["assessment_code", "question_code", "sort_order", "points"],
   questions: [
     "question_code",

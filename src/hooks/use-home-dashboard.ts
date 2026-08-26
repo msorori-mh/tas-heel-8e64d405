@@ -35,8 +35,7 @@ export type HomeStats = {
 
 export function useHomeDashboard() {
   const { user, profile } = useAuth();
-  const gradeKey =
-    profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
+  const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
   const trackId = profile?.curriculum_track_id ?? null;
 
   const statsQ = useQuery({
@@ -45,30 +44,26 @@ export function useHomeDashboard() {
     queryFn: async (): Promise<HomeStats> => {
       const uid = user!.id;
 
-      const [pointsRes, examsRes, progressRes, practiceRes, lessonsRes] =
-        await Promise.all([
-          supabase.rpc("get_user_total_points", { _user_id: uid }),
-          supabase
-            .from("exam_sessions")
-            .select("id, status, started_at")
-            .eq("user_id", uid),
-          supabase
-            .from("user_progress")
-            .select("lesson_id, completed, updated_at, created_at")
-            .eq("user_id", uid),
-          supabase
-            .from("unit_practice_attempts")
-            .select("created_at")
-            .eq("user_id", uid)
-            .order("created_at", { ascending: false })
-            .limit(90),
-          gradeKey
-            ? supabase
-                .from("lessons")
-                .select("id, subject_id, subjects!inner(grade_id, curriculum_track_id)")
-                .eq("subjects.grade_id", gradeKey)
-            : Promise.resolve({ data: [], error: null }),
-        ]);
+      const [pointsRes, examsRes, progressRes, practiceRes, lessonsRes] = await Promise.all([
+        supabase.rpc("get_user_total_points", { _user_id: uid }),
+        supabase.from("exam_sessions").select("id, status, started_at").eq("user_id", uid),
+        supabase
+          .from("user_progress")
+          .select("lesson_id, completed, updated_at, created_at")
+          .eq("user_id", uid),
+        supabase
+          .from("unit_practice_attempts")
+          .select("created_at")
+          .eq("user_id", uid)
+          .order("created_at", { ascending: false })
+          .limit(90),
+        gradeKey
+          ? supabase
+              .from("lessons")
+              .select("id, subject_id, subjects!inner(grade_id, curriculum_track_id)")
+              .eq("subjects.grade_id", gradeKey)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
 
       const activityDates: string[] = [];
       for (const p of progressRes.data ?? []) {
@@ -84,29 +79,27 @@ export function useHomeDashboard() {
 
       const streakDays = computeStudyStreak(activityDates);
       const totalPoints = Number(pointsRes.data ?? 0);
-      const examsCompleted =
-        (examsRes.data ?? []).filter((e) => e.status === "submitted").length;
+      const examsCompleted = (examsRes.data ?? []).filter((e) => e.status === "submitted").length;
 
       const progressRows = progressRes.data ?? [];
       const completedLessons = progressRows.filter((p) => p.completed).length;
 
       let totalLessons = 0;
       if (lessonsRes.data) {
-        totalLessons = (lessonsRes.data as Array<{
-          id: string;
-          subject_id: string;
-          subjects: { grade_id: string; curriculum_track_id: string | null };
-        }>).filter(
+        totalLessons = (
+          lessonsRes.data as Array<{
+            id: string;
+            subject_id: string;
+            subjects: { grade_id: string; curriculum_track_id: string | null };
+          }>
+        ).filter(
           (l) =>
-            l.subjects.curriculum_track_id === null ||
-            l.subjects.curriculum_track_id === trackId,
+            l.subjects.curriculum_track_id === null || l.subjects.curriculum_track_id === trackId,
         ).length;
       }
 
       const progressPercent =
-        totalLessons > 0
-          ? Math.min(100, Math.round((completedLessons / totalLessons) * 100))
-          : 0;
+        totalLessons > 0 ? Math.min(100, Math.round((completedLessons / totalLessons) * 100)) : 0;
 
       return {
         streakDays,
@@ -134,19 +127,21 @@ export function useHomeDashboard() {
 
       if (error) throw error;
 
-      return ((data ?? []) as Array<{
-        lesson_id: string;
-        completed: boolean | null;
-        quiz_score: number | null;
-        updated_at: string;
-        lesson: {
-          id: string;
-          title: string | null;
-          subject_id: string;
-          semester: number | null;
-          subject: { id: string; name: string; color: string | null } | null;
-        } | null;
-      }>)
+      return (
+        (data ?? []) as Array<{
+          lesson_id: string;
+          completed: boolean | null;
+          quiz_score: number | null;
+          updated_at: string;
+          lesson: {
+            id: string;
+            title: string | null;
+            subject_id: string;
+            semester: number | null;
+            subject: { id: string; name: string; color: string | null } | null;
+          } | null;
+        }>
+      )
         .filter((r) => r.lesson)
         .map((r) => ({
           lessonId: r.lesson!.id,
@@ -175,22 +170,28 @@ export function useHomeDashboard() {
           .eq("user_id", user!.id)
           .order("earned_at", { ascending: false })
           .limit(6),
-        supabase.from("badges").select("id, name, description, icon, color, sort_order").order("sort_order").limit(6),
+        supabase
+          .from("badges")
+          .select("id, name, description, icon, color, sort_order")
+          .order("sort_order")
+          .limit(6),
       ]);
 
       if (earnedRes.error) throw earnedRes.error;
       if (allRes.error) throw allRes.error;
 
-      const earned: EarnedBadge[] = ((earnedRes.data ?? []) as Array<{
-        earned_at: string;
-        badge: {
-          id: string;
-          name: string;
-          description: string;
-          icon: string;
-          color: string;
-        } | null;
-      }>)
+      const earned: EarnedBadge[] = (
+        (earnedRes.data ?? []) as Array<{
+          earned_at: string;
+          badge: {
+            id: string;
+            name: string;
+            description: string;
+            icon: string;
+            color: string;
+          } | null;
+        }>
+      )
         .filter((r) => r.badge)
         .map((r) => ({
           id: r.badge!.id,
