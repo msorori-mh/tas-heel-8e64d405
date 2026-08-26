@@ -62,6 +62,10 @@ test("Quran and chemistry profiles preserve the canonical seven-capability order
   assert.deepEqual(GOLDEN_CHEMISTRY_V1.capabilityOrder, GOLDEN_CAPABILITIES);
   assert.equal(GOLDEN_QURAN_V1.applicability.labExperimentHtml, "OPTIONAL");
   assert.equal(GOLDEN_CHEMISTRY_V1.applicability.labExperimentHtml, "OPTIONAL");
+  assert.equal(GOLDEN_QURAN_V1.applicability.officialBookQuestions, "REQUIRED");
+  assert.equal(GOLDEN_CHEMISTRY_V1.applicability.officialBookQuestions, "REQUIRED");
+  assert.equal(GOLDEN_QURAN_V1.applicability.selfTest, "REQUIRED");
+  assert.equal(GOLDEN_CHEMISTRY_V1.applicability.selfTest, "REQUIRED");
 });
 
 test("package identity and the server-only answers companion fail closed", () => {
