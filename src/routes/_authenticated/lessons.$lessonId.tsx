@@ -468,7 +468,13 @@ function LessonPage() {
     },
   });
 
+  // خط أنابيب HTML القديم (lesson_resource_versions / published_version_id)
+  // لم يُطبَّق على قاعدة الإنتاج، فكان هذا الاستعلام يفشل في كل فتح درس.
+  // موارد HTML المنشورة عبر CF11 تُقرأ أصلًا من استعلام lesson_resources أعلاه.
+  const LEGACY_HTML_PIPELINE_ENABLED = false;
+
   // Published HTML interactive resources (mind_map_html, practical_experiment_html, summary_html)
+
   const getLessonHtmlResources = useServerFn(getLessonPublishedHtmlResourcesFn);
   const refreshSignedUrl = useServerFn(createSignedStudentAccessUrlFn);
   const handleReloadSignedUrl = useCallback(
@@ -480,7 +486,8 @@ function LessonPage() {
     isLoading: htmlResourcesLoading,
     error: htmlResourcesError,
   } = useQuery({
-    enabled: !!lesson && accessible === true && canAccessEnhancements,
+    enabled: LEGACY_HTML_PIPELINE_ENABLED && !!lesson && accessible === true && canAccessEnhancements,
+
     queryKey: ["lesson-published-html-resources", lessonId],
     queryFn: async () => {
       const result = await getLessonHtmlResources({ data: { lessonId } });

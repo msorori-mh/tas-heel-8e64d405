@@ -18,7 +18,7 @@ function AdminAcademicPage() {
     queryFn: async () => {
       const { count, error } = await supabase
         .from("grades")
-        .select("*", { count: "exact", head: true });
+        .select("id", { count: "exact", head: true });
       if (error) throw error;
       return count ?? 0;
     },
@@ -30,7 +30,7 @@ function AdminAcademicPage() {
     queryFn: async () => {
       const { count, error } = await supabase
         .from("subjects")
-        .select("*", { count: "exact", head: true });
+        .select("id", { count: "exact", head: true });
       if (error) throw error;
       return count ?? 0;
     },
@@ -42,7 +42,7 @@ function AdminAcademicPage() {
     queryFn: async () => {
       const { count, error } = await supabase
         .from("units")
-        .select("*", { count: "exact", head: true });
+        .select("id", { count: "exact", head: true });
       if (error) throw error;
       return count ?? 0;
     },
@@ -54,7 +54,7 @@ function AdminAcademicPage() {
     queryFn: async () => {
       const { count, error } = await supabase
         .from("lessons")
-        .select("*", { count: "exact", head: true });
+        .select("id", { count: "exact", head: true });
       if (error) throw error;
       return count ?? 0;
     },
