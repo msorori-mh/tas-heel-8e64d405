@@ -30,6 +30,7 @@ describe("independent lesson component publishing", () => {
       {
         capability: "officialBookContent",
         status: "READY",
+        applicability: "REQUIRED",
         ready_at: "2026-08-26T00:00:00Z",
         ready_snapshot: null,
         draft_updated_at: null,
@@ -38,6 +39,7 @@ describe("independent lesson component publishing", () => {
       {
         capability: "quickReview",
         status: "DRAFT",
+        applicability: "REQUIRED",
         ready_at: null,
         ready_snapshot: null,
         draft_updated_at: "2026-08-26T00:00:00Z",

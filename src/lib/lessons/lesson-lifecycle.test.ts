@@ -7,6 +7,7 @@ import {
   allowedTransitions,
   filterStudentCapabilitiesByLifecycle,
   lifecycleVisibleForStudent,
+  rowsToApplicabilityMap,
   rowsToLifecycleMap,
   type LessonLifecycleRow,
 } from "./lesson-lifecycle";
@@ -15,6 +16,7 @@ import { applyLifecycleOverlay } from "./lesson-content-contract";
 const row = (over: Partial<LessonLifecycleRow>): LessonLifecycleRow => ({
   capability: "tamkeenExplanation",
   status: "READY",
+  applicability: "REQUIRED",
   ready_at: null,
   ready_snapshot: null,
   draft_updated_at: null,
@@ -50,6 +52,15 @@ describe("student visibility", () => {
     assert.deepEqual(map.tamkeenExplanation, { status: "DRAFT", hasReady: true });
     assert.deepEqual(map.mindMap, { status: "DRAFT", hasReady: false });
     assert.equal(Object.keys(map).length, 2);
+  });
+
+  test("maps stored applicability into the Content V3 keys", () => {
+    const map = rowsToApplicabilityMap([
+      row({ capability: "checkUnderstanding", applicability: "REQUIRED" }),
+      row({ capability: "simulation", applicability: "NA" }),
+      row({ capability: "not_a_capability", applicability: "OPTIONAL" }),
+    ]);
+    assert.deepEqual(map, { officialBookQuestions: "REQUIRED", labExperimentHtml: "NA" });
   });
 });
 
@@ -103,5 +114,22 @@ describe("admin overlay", () => {
     const out = applyLifecycleOverlay(base, { tamkeenExplanation: { status: "DRAFT" } });
     assert.equal(out.tamkeenExplanation.studentVisible, false);
     assert.equal(out.tamkeenExplanation.readinessReason, "DRAFT_NOT_PUBLISHED");
+  });
+
+  test("does not turn an absent source into a draft capability", () => {
+    const absent = {
+      ...base,
+      tamkeenExplanation: {
+        ...base.tamkeenExplanation,
+        present: false,
+        status: "ABSENT",
+        studentVisible: false,
+        count: 0,
+        readinessReason: "NOT_ENTERED",
+      },
+    } as any;
+    const out = applyLifecycleOverlay(absent, { tamkeenExplanation: { status: "REVIEW" } });
+    assert.equal(out.tamkeenExplanation.status, "ABSENT");
+    assert.equal(out.tamkeenExplanation.readinessReason, "NOT_ENTERED");
   });
 });

@@ -86,13 +86,13 @@ export const STUDENT_CAPABILITY_ORDER: readonly LessonContentCapabilityKey[] = [
 ];
 
 export const CAPABILITY_LABEL_AR: Record<LessonContentCapabilityKey, string> = {
-  officialBookContent: "محتوى الكتاب الرسمي",
+  officialBookContent: "محتوى الكتاب",
   tamkeenExplanation: "شرح تمكين",
   mindMap: "الخريطة الذهنية",
-  simulation: "التجارب / النشاط التفاعلي",
+  simulation: "التجربة المعملية",
   supportingResources: "الموارد المساعدة",
   quickReview: "ملخص الدرس",
-  checkUnderstanding: "أسئلة الدرس",
+  checkUnderstanding: "أسئلة الكتاب",
   lessonAssessment: "اختبر فهمك",
   studentPerformance: "مستواك وأخطاؤك",
   originalBookPdf: "نسخة الكتاب الأصلية (PDF)",
@@ -256,8 +256,9 @@ export const LIFECYCLE_CAPABILITIES: readonly LessonContentCapabilityKey[] =
  * Rules:
  *  - no lifecycle row  → unchanged (legacy grandfathering, no silent hiding)
  *  - READY             → unchanged (presence rules still apply)
- *  - DRAFT / REVIEW    → status DRAFT and hidden from students. A snapshot is
- *                        operator metadata, not a student visibility grant.
+ *  - DRAFT / REVIEW    → existing usable content becomes DRAFT and is hidden.
+ *                        ABSENT/INVALID source truth is preserved; a lifecycle
+ *                        row must never invent backing content.
  */
 export function applyLifecycleOverlay(
   contract: LessonCapabilityContract,
@@ -267,8 +268,13 @@ export function applyLifecycleOverlay(
   for (const key of LIFECYCLE_CAPABILITIES) {
     const entry = normalizeLifecycleEntry(lifecycle[key]);
     if (!entry || entry.status === "READY") continue;
+    const source = next[key];
+    if (!source.present || source.status === "ABSENT" || source.status === "INVALID") {
+      next[key] = { ...source, studentVisible: false };
+      continue;
+    }
     next[key] = {
-      ...next[key],
+      ...source,
       status: "DRAFT",
       studentVisible: false,
       readinessReason: "DRAFT_NOT_PUBLISHED",
@@ -362,10 +368,14 @@ export function buildLessonCapabilityContract(
   });
 
   /* 3 — mind map — MIND_MAP_SOURCE=HTML (existing html pipeline, no new model) */
+  const usableHtmlResource = (r: (typeof input.resources)[number]) =>
+    has(r.resource_code) || isValidResourceUrl(r.url);
   const mindMapRows = [
     ...validOfType(input.resources, "mindmap"),
     ...input.resources.filter(
-      (r) => r.html_resource_type === "mindmap" && isValidResourceUrl(r.url),
+      (r) =>
+        (r.html_resource_type === "mindmap" || r.html_resource_type === "mind_map_html") &&
+        usableHtmlResource(r),
     ),
   ].filter((r, i, arr) => arr.findIndex((x) => x.id === r.id) === i);
   const mindMapCount = mindMapRows.length;
@@ -390,20 +400,29 @@ export function buildLessonCapabilityContract(
   const experimentRows = [
     ...validOfType(input.resources, "experiment"),
     ...input.resources.filter(
-      (r) => r.html_resource_type === "experiment" && isValidResourceUrl(r.url),
+      (r) =>
+        (r.html_resource_type === "experiment" ||
+          r.html_resource_type === "practical_experiment_html") &&
+        usableHtmlResource(r),
     ),
   ];
   const simCount = new Set(experimentRows.map((r) => r.id)).size + input.simulations.length;
+  const publishedExperimentCount =
+    experimentRows.filter((r) => !r.lifecycle_status || r.lifecycle_status === "published").length +
+    input.simulations.length;
   const simulation = state("simulation", {
     present: simCount > 0,
-    status: simCount > 0 ? "READY" : "ABSENT",
-    studentVisible: simCount > 0 && gateOpen,
+    status: simCount === 0 ? "ABSENT" : publishedExperimentCount > 0 ? "READY" : "DRAFT",
+    studentVisible: publishedExperimentCount > 0 && gateOpen,
     sourceRef: "lesson_simulations + lesson_resources(experiment)",
     count: simCount,
     updatedAt: latest(
       ...experimentRows.map((r) => r.created_at),
       ...input.simulations.map((r) => r.created_at),
     ),
+    ...(simCount > 0 && publishedExperimentCount === 0
+      ? { note: "تجربة معملية HTML بحالة مسودة/مراجعة — غير مرئية للطالب حتى النشر" }
+      : {}),
   });
 
   /* 5 — supporting resources (video / link / extra pdf, never the primary) */

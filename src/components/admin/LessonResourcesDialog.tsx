@@ -250,6 +250,7 @@ export function LessonResourcesDialog({ open, onOpenChange, lessonId, lessonTitl
       await qc.invalidateQueries({
         queryKey: ["admin-lesson-detail", "resources", lessonId],
       });
+      await qc.invalidateQueries({ queryKey: ["admin-lesson-lifecycle", lessonId] });
       onOpenChange(false);
     } catch (e: unknown) {
       toast.error("تعذر حفظ موارد الدرس.");

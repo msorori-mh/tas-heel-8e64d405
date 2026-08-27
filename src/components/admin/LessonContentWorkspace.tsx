@@ -5,7 +5,7 @@
  * every present/status decision comes from `buildLessonCapabilityContract`.
  */
 import { Link } from "@tanstack/react-router";
-import { Eye, Loader2, Pencil } from "lucide-react";
+import { Eye, Pencil, ShieldCheck } from "lucide-react";
 import {
   LEGACY_REFERENCE_CAPABILITIES,
   LIFECYCLE_CAPABILITIES,
@@ -14,15 +14,12 @@ import {
   type LessonCapabilityState,
 } from "@/lib/lessons/lesson-content-contract";
 import {
-  allowedTransitions,
   STATUS_LABEL_AR,
-  TRANSITION_LABEL_AR,
   type LessonCapabilityLifecycleStatus,
 } from "@/lib/lessons/lesson-lifecycle";
 import {
   buildV3CapabilityView,
   computeV3Readiness,
-  explainMissing,
   resolveApplicability,
   type ApplicabilityMap,
   type CapabilityApplicability,
@@ -77,6 +74,31 @@ function fmtDate(value: string | null): string {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("ar", { dateStyle: "medium" });
 }
 
+function blockerText(
+  missing: readonly V3CapabilityKey[],
+  view: ReturnType<typeof buildV3CapabilityView>,
+  lifecycle: Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>>,
+): string {
+  return missing
+    .map((key) => {
+      const item = view.find((candidate) => candidate.key === key);
+      if (!item) return key;
+      const stage = lifecycle[item.legacyKey];
+      const reason =
+        item.state.status === "INVALID"
+          ? "بيانات غير صالحة"
+          : item.state.status === "ABSENT"
+            ? "غير مُدخل"
+            : stage === "REVIEW"
+              ? "قيد المراجعة"
+              : stage === "DRAFT" || item.state.status === "DRAFT"
+                ? "مسودة"
+                : "غير جاهز";
+      return `${item.label} (${reason})`;
+    })
+    .join("، ");
+}
+
 export interface LessonWorkspaceHeader {
   subjectName: string;
   gradeName: string;
@@ -91,8 +113,6 @@ export function LessonContentWorkspace({
   onEdit,
   lessonId,
   lifecycle = {},
-  onTransition,
-  pendingCapability = null,
   applicability,
 }: {
   header: LessonWorkspaceHeader;
@@ -102,11 +122,6 @@ export function LessonContentWorkspace({
   lessonId: string;
   /** 20C-B — current lifecycle status per capability (staff view). */
   lifecycle?: Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>>;
-  onTransition?: (
-    capability: LessonContentCapabilityKey,
-    to: LessonCapabilityLifecycleStatus,
-  ) => void;
-  pendingCapability?: LessonContentCapabilityKey | null;
   /** 21F — per-lesson REQUIRED / OPTIONAL / N-A overrides (defaults applied). */
   applicability?: ApplicabilityMap;
 }) {
@@ -136,14 +151,18 @@ export function LessonContentWorkspace({
           className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
         >
           <Eye className="h-3.5 w-3.5" />
-          معاينة كطالب (تشمل المسودات)
+          معاينة العرض الحالي كطالب
         </Link>
       </header>
 
       {/* 21G — readiness dashboard with an explicit "what is missing" answer. */}
       <div className="mt-3 grid grid-cols-2 gap-2 text-center text-[11px] sm:grid-cols-4">
         {[
-          ["جاهزية الكتاب", readiness.bookReady, [] as V3CapabilityKey[]],
+          [
+            "جاهزية الكتاب",
+            readiness.bookReady,
+            readiness.bookReady ? ([] as V3CapabilityKey[]) : ["officialBookContent"],
+          ],
           ["جاهزية التعلم", readiness.learningReady, readiness.missingForLearning],
           ["جاهزية التقييم", readiness.assessmentReady, readiness.missingForAssessment],
           ["جاهزية كاملة", readiness.fullyReady, readiness.missing],
@@ -158,7 +177,7 @@ export function LessonContentWorkspace({
             <div className="mt-0.5">{on ? "نعم" : "لا"}</div>
             {!on && (missing as V3CapabilityKey[]).length > 0 && (
               <div className="mt-1 text-[10px] leading-relaxed">
-                ينقص: {explainMissing(missing as V3CapabilityKey[])}
+                العوائق: {blockerText(missing as V3CapabilityKey[], v3View, lifecycle)}
               </div>
             )}
           </div>
@@ -171,10 +190,8 @@ export function LessonContentWorkspace({
           const cap = { ...contract[key], label: v3.label, icon: v3.icon };
           const edit = onEdit[key];
 
-          const hasLifecycle = LIFECYCLE_CAPABILITIES.includes(key) && cap.present;
           const stage = lifecycle[key] ?? null;
-          const nextStates = hasLifecycle ? allowedTransitions(stage) : [];
-          const busy = pendingCapability === key;
+          const hasLifecycle = LIFECYCLE_CAPABILITIES.includes(key) && stage !== null;
           return (
             <li
               key={key}
@@ -182,7 +199,7 @@ export function LessonContentWorkspace({
             >
               <span className="text-base">{cap.icon}</span>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[11px] text-muted-foreground">{index + 1}.</span>
                   <span className="text-sm font-medium text-foreground">{cap.label}</span>
                   <span
@@ -207,10 +224,6 @@ export function LessonContentWorkspace({
                 </div>
                 <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
                   <span>آخر تحديث: {fmtDate(cap.updatedAt)}</span>
-                  <span className="font-mono">{cap.sourceRef}</span>
-                  {cap.htmlRef && (
-                    <span className="font-mono text-primary">HTML: {cap.htmlRef}</span>
-                  )}
                 </div>
                 {cap.readinessReason && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
@@ -218,6 +231,13 @@ export function LessonContentWorkspace({
                   </p>
                 )}
                 {cap.note && <p className="mt-1 text-[11px] text-amber-600">{cap.note}</p>}
+                <details className="mt-1 text-[10px] text-muted-foreground">
+                  <summary className="cursor-pointer select-none">تفاصيل تقنية</summary>
+                  <div className="mt-1 flex flex-wrap gap-x-3 font-mono">
+                    <span>{cap.sourceRef}</span>
+                    {cap.htmlRef && <span>HTML: {cap.htmlRef}</span>}
+                  </div>
+                </details>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -230,25 +250,23 @@ export function LessonContentWorkspace({
                     تحرير
                   </button>
                 ) : (
-                  <span className="text-[11px] text-muted-foreground">عبر الاستيراد</span>
+                  <Link
+                    to="/admin/import"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-muted"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    إدارة عبر الاستيراد
+                  </Link>
                 )}
-                {hasLifecycle && onTransition
-                  ? nextStates.map((to) => (
-                      <button
-                        key={to}
-                        disabled={busy}
-                        onClick={() => onTransition(key, to)}
-                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs disabled:opacity-50 ${
-                          to === "READY"
-                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/15"
-                            : "border-border bg-card text-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                        {TRANSITION_LABEL_AR[to]}
-                      </button>
-                    ))
-                  : null}
+                {hasLifecycle && (
+                  <Link
+                    to="/admin/import"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-500/15"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    {stage === "REVIEW" ? "المراجعة والاعتماد الموثق" : "إدارة المسار التحريري"}
+                  </Link>
+                )}
               </div>
             </li>
           );
@@ -275,7 +293,10 @@ export function LessonContentWorkspace({
                 <span className={`rounded-full border px-2 py-0.5 ${STATUS_CLASS[cap.status]}`}>
                   {cap.status === "READY" ? "بيانات موجودة" : "لا توجد بيانات"}
                 </span>
-                <span className="font-mono">{cap.sourceRef}</span>
+                <details>
+                  <summary className="cursor-pointer select-none">تفاصيل تقنية</summary>
+                  <span className="mt-1 block font-mono">{cap.sourceRef}</span>
+                </details>
                 {onEdit[key] && (
                   <button
                     onClick={onEdit[key]}

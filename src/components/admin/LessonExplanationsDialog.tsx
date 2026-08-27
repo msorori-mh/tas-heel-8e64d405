@@ -143,6 +143,7 @@ export function LessonExplanationsDialog({
       await qc.invalidateQueries({
         queryKey: ["admin-lesson-detail", "explanations", lessonId],
       });
+      await qc.invalidateQueries({ queryKey: ["admin-lesson-lifecycle", lessonId] });
       onOpenChange(false);
     } catch (e: unknown) {
       toast.error("تعذر حفظ شروحات الدرس.");

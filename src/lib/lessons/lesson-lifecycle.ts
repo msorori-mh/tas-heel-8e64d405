@@ -24,12 +24,15 @@ import {
   type LessonContentCapabilityKey,
   type LessonLifecycleMap,
 } from "./lesson-content-contract";
+import { V3_LIFECYCLE_TO_PACKAGE, type V3LifecycleCapability } from "./capability-mapping";
+import type { ApplicabilityMap, CapabilityApplicability } from "./content-v3";
 
 export type { LessonCapabilityLifecycleStatus };
 
 export interface LessonLifecycleRow {
   capability: string;
   status: LessonCapabilityLifecycleStatus;
+  applicability: CapabilityApplicability;
   ready_at: string | null;
   ready_snapshot: unknown | null;
   draft_updated_at: string | null;
@@ -53,6 +56,23 @@ export function rowsToLifecycleMap(rows: readonly LessonLifecycleRow[]): LessonL
   return map;
 }
 
+/** Stored per-lesson applicability, translated into the public Content V3 vocabulary. */
+export function rowsToApplicabilityMap(rows: readonly LessonLifecycleRow[]): ApplicabilityMap {
+  const map: ApplicabilityMap = {};
+  for (const row of rows) {
+    const packageKey = V3_LIFECYCLE_TO_PACKAGE[row.capability as V3LifecycleCapability];
+    if (!packageKey) continue;
+    if (
+      row.applicability === "REQUIRED" ||
+      row.applicability === "OPTIONAL" ||
+      row.applicability === "NA"
+    ) {
+      map[packageKey] = row.applicability;
+    }
+  }
+  return map;
+}
+
 /** Legal next states for the workflow buttons. */
 export function allowedTransitions(
   status: LessonCapabilityLifecycleStatus | null,
@@ -68,12 +88,6 @@ export function allowedTransitions(
       return ["DRAFT"];
   }
 }
-
-export const TRANSITION_LABEL_AR: Record<LessonCapabilityLifecycleStatus, string> = {
-  DRAFT: "إنشاء نسخة تعديل (مسودة)",
-  REVIEW: "إرسال للمراجعة",
-  READY: "اعتماد ونشر للطالب",
-};
 
 export const STATUS_LABEL_AR: Record<LessonCapabilityLifecycleStatus, string> = {
   DRAFT: "مسودة",
@@ -113,7 +127,7 @@ export function lifecycleVisibleForStudent(
 export async function fetchLessonLifecycleRows(lessonId: string): Promise<LessonLifecycleRow[]> {
   const { data, error } = await supabase
     .from("lesson_capability_lifecycle")
-    .select("capability,status,ready_at,ready_snapshot,draft_updated_at,reviewed_at")
+    .select("capability,status,applicability,ready_at,ready_snapshot,draft_updated_at,reviewed_at")
     .eq("lesson_id", lessonId);
   if (error) throw error;
   return (data ?? []) as unknown as LessonLifecycleRow[];
@@ -169,21 +183,4 @@ export async function fetchStudentLessonVisibility(
   }
   for (const id of lessonIds) if (!map.has(id)) map.set(id, true);
   return map;
-}
-
-export async function transitionCapability(input: {
-  lessonId: string;
-  capability: LessonContentCapabilityKey;
-  to: LessonCapabilityLifecycleStatus;
-  snapshot?: unknown;
-  hash?: string | null;
-}): Promise<void> {
-  const { error } = await (supabase.rpc as any)("lesson_capability_transition", {
-    _lesson_id: input.lessonId,
-    _capability: input.capability,
-    _to_status: input.to,
-    _snapshot: input.snapshot ?? null,
-    _hash: input.hash ?? null,
-  });
-  if (error) throw error;
 }

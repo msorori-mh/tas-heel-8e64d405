@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import {
@@ -11,6 +12,11 @@ import {
   GOLDEN_QURAN_V1,
 } from "../../src/lib/content-factory/golden-lesson-profiles.ts";
 import { validateGoldenLessonPackage } from "../../src/lib/content-factory/golden-lesson-validator.ts";
+
+const REQUIRED_OFFICIAL_QUESTIONS_MIGRATION = readFileSync(
+  "supabase/migrations/20260827030000_golden_lesson_required_official_questions.sql",
+  "utf8",
+);
 
 function packageFor(
   profile: typeof GOLDEN_QURAN_V1 | typeof GOLDEN_CHEMISTRY_V1,
@@ -72,8 +78,8 @@ test("Quran and chemistry profiles preserve the canonical seven-capability order
   assert.deepEqual(GOLDEN_CHEMISTRY_V1.capabilityOrder, GOLDEN_CAPABILITIES);
   assert.equal(GOLDEN_QURAN_V1.applicability.labExperimentHtml, "OPTIONAL");
   assert.equal(GOLDEN_CHEMISTRY_V1.applicability.labExperimentHtml, "OPTIONAL");
-  assert.equal(GOLDEN_QURAN_V1.applicability.officialBookQuestions, "OPTIONAL");
-  assert.equal(GOLDEN_CHEMISTRY_V1.applicability.officialBookQuestions, "OPTIONAL");
+  assert.equal(GOLDEN_QURAN_V1.applicability.officialBookQuestions, "REQUIRED");
+  assert.equal(GOLDEN_CHEMISTRY_V1.applicability.officialBookQuestions, "REQUIRED");
   assert.equal(GOLDEN_QURAN_V1.applicability.selfTest, "REQUIRED");
   assert.equal(GOLDEN_CHEMISTRY_V1.applicability.selfTest, "REQUIRED");
 });
@@ -138,4 +144,19 @@ test("optional lab may be absent, while partial artifacts and duplicate capabili
   const result = validateGoldenLessonPackage(pkg);
   assert.ok(result.findings.some((finding) => finding.code === "ARTIFACT_HASH_INVALID"));
   assert.ok(result.findings.some((finding) => finding.code === "CAPABILITY_DUPLICATE"));
+});
+
+test("database validation requires book questions without blindly rewriting lesson evidence", () => {
+  assert.match(
+    REQUIRED_OFFICIAL_QUESTIONS_MIGRATION,
+    /WHEN capability = 'labExperimentHtml' THEN 'OPTIONAL'/,
+  );
+  assert.doesNotMatch(
+    REQUIRED_OFFICIAL_QUESTIONS_MIGRATION,
+    /labExperimentHtml','officialBookQuestions'\) THEN 'OPTIONAL'/,
+  );
+  assert.doesNotMatch(
+    REQUIRED_OFFICIAL_QUESTIONS_MIGRATION,
+    /UPDATE\s+public\.lesson_capability_lifecycle/i,
+  );
 });

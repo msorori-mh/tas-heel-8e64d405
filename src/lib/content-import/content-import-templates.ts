@@ -116,7 +116,7 @@ const TEMPLATE_META: Omit<ContentImportTemplateMeta, "requiredBaseColumns">[] = 
     titleAr: "أسئلة الكتاب الأصلية",
     filename: "09_official_book_questions_template.xlsx",
     dataSheetName: "أسئلة الكتاب الأصلية",
-    descriptionAr: "أسئلة الدرس بصيغتها الأصلية في الكتاب مع الإجابة النموذجية.",
+    descriptionAr: "أسئلة الكتاب بصيغتها الأصلية مع الإجابة النموذجية.",
     editorOnly: true,
   },
   {
