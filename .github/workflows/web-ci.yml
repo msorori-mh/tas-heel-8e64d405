@@ -68,6 +68,7 @@ jobs:
           node --test tests/content-factory/content-factory-08.static.test.mjs
           node --test tests/content-factory/content-factory-09.static.test.mjs
           node --test tests/content-factory/content-factory-10.static.test.mjs
+          node --test tests/migrations/cf10-managed-content-revision.test.mjs
           node --test tests/content-factory/content-factory-11-r8.static.test.mjs
           node --test tests/content-factory/content-factory-11-r10-intake.static.test.mjs
           node --test tests/content-factory/content-factory-11-r11-storage-policy.static.test.mjs
@@ -136,7 +137,6 @@ jobs:
         if: always()
         run: docker stop tamkeen-content-v3-pg17 || true
 
-
   iron-ui-runtime:
     name: Iron seven-capability Chromium runtime
     runs-on: ubuntu-latest
@@ -181,7 +181,6 @@ jobs:
           name: iron-ui-runtime-evidence
           path: artifacts/iron-ui-runtime
           if-no-files-found: error
-
 
   content-factory-pg17:
     name: Content Factory persistent staging PG17

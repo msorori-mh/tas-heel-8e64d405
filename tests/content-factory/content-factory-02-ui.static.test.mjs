@@ -48,7 +48,7 @@ test("operators upload seven declared items and never upload a lesson ZIP or pro
   assert.match(component, /CAPABILITY_NUMBER/);
 });
 
-test("exactly six capabilities are required and only the lab is optional", () => {
+test("five capabilities are required and the lab and book questions are optional", () => {
   for (const id of ["GOLDEN_QURAN_V1", "GOLDEN_CHEMISTRY_V1"])
     assert.match(profiles, new RegExp(id));
   const required = profiles.match(/: "REQUIRED"/g) ?? [];

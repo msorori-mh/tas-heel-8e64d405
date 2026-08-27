@@ -486,7 +486,8 @@ function LessonPage() {
     isLoading: htmlResourcesLoading,
     error: htmlResourcesError,
   } = useQuery({
-    enabled: LEGACY_HTML_PIPELINE_ENABLED && !!lesson && accessible === true && canAccessEnhancements,
+    enabled:
+      LEGACY_HTML_PIPELINE_ENABLED && !!lesson && accessible === true && canAccessEnhancements,
 
     queryKey: ["lesson-published-html-resources", lessonId],
     queryFn: async () => {

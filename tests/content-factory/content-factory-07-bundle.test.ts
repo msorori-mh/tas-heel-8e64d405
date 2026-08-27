@@ -114,7 +114,7 @@ function manifest(bundleFiles = files) {
       },
       {
         capability: "officialBookQuestions",
-        applicability: "REQUIRED",
+        applicability: "OPTIONAL",
         authority: "OFFICIAL",
         sourcePath: "questions.json",
         sha256: h(bundleFiles["questions.json"]),

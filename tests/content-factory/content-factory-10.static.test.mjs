@@ -197,7 +197,8 @@ test("CF10-R4 PG17 rehearsal asserts collisions and all-or-nothing student blind
     "a REQUIRED REVIEW capability closes the gate again",
     "idempotent replay performs zero writes",
     "CF10_EXPECTED_IDENTITY_CONFLICT",
-    "CF10_EXPECTED_LIFECYCLE_CONFLICT",
+    "CF10_EXPECTED_LIFECYCLE_PLAN_DRIFT",
+    "CF10_WRITE_PLAN_HASH_MISMATCH",
     "CF10_EXPECTED_SELFTEST_TEXT_CONFLICT",
     "CF10_EXPECTED_ASSESSMENT_CONFLICT",
   ]) {
