@@ -35,10 +35,12 @@ interface Props {
   template?: ExamTemplateValue | null;
 }
 
-const MODES: { value: ExamTemplateValue["mode"]; label: string }[] = [
+const CUSTOM_TEMPLATE_MODES: {
+  value: Exclude<ExamTemplateValue["mode"], "ministry">;
+  label: string;
+}[] = [
   { value: "training", label: "تدريب" },
   { value: "strict", label: "اختبار جاد" },
-  { value: "ministry", label: "محاكي وزاري" },
 ];
 
 export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: Props) {
@@ -134,6 +136,11 @@ export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: P
       return;
     }
 
+    if (examMode === "ministry") {
+      setError("القوالب الوزارية تُنشأ وتُدار من صفحة النماذج الوزارية فقط.");
+      return;
+    }
+
     let durationVal: number | null = null;
     if (duration.trim() !== "") {
       const n = Number(duration);
@@ -197,7 +204,7 @@ export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: P
             {isCreate ? "إنشاء قالب اختبار" : "تعديل قالب الاختبار"}
           </DialogTitle>
           <DialogDescription className="text-right">
-            أدخل بيانات القالب. يمكنك إدارة الأسئلة لاحقًا.
+            أدخل بيانات قالب مخصص للتدريب أو الاختبار الجاد. النماذج الوزارية لها مسار مستقل.
           </DialogDescription>
         </DialogHeader>
 
@@ -235,7 +242,12 @@ export function ExamTemplateEditDialog({ open, onOpenChange, mode, template }: P
                 disabled={saving}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
               >
-                {MODES.map((m) => (
+                {examMode === "ministry" && (
+                  <option value="ministry" disabled>
+                    محاكي وزاري قديم — يُدار من صفحة النماذج الوزارية
+                  </option>
+                )}
+                {CUSTOM_TEMPLATE_MODES.map((m) => (
                   <option key={m.value} value={m.value}>
                     {m.label}
                   </option>

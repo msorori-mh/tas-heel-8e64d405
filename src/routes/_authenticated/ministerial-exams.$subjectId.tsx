@@ -51,6 +51,19 @@ function SubjectMinisterialModels() {
   const filteredModels = (data ?? []).filter(
     (model) => trackFilter === "all" || model.track_code === trackFilter,
   );
+  const filterOptions: Array<{ value: TrackFilter; label: string; count: number }> = [
+    { value: "all", label: "الكل", count: data?.length ?? 0 },
+    {
+      value: "sanaa",
+      label: "صنعاء",
+      count: (data ?? []).filter((model) => model.track_code === "sanaa").length,
+    },
+    {
+      value: "aden",
+      label: "عدن",
+      count: (data ?? []).filter((model) => model.track_code === "aden").length,
+    },
+  ];
 
   return (
     <div className="space-y-4 pb-6" dir="rtl">
@@ -69,13 +82,7 @@ function SubjectMinisterialModels() {
       </p>
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="تصفية النماذج حسب المسار">
-        {(
-          [
-            ["all", "الكل"],
-            ["sanaa", "صنعاء"],
-            ["aden", "عدن"],
-          ] as const
-        ).map(([value, label]) => (
+        {filterOptions.map(({ value, label, count }) => (
           <button
             key={value}
             type="button"
@@ -87,10 +94,16 @@ function SubjectMinisterialModels() {
                 : "rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:border-primary/40"
             }
           >
-            {label}
+            {label} ({count})
           </button>
         ))}
       </div>
+
+      {!isLoading && !error && (data?.length ?? 0) > 0 && (
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          يعرض {filteredModels.length} من أصل {data?.length ?? 0} نموذج.
+        </p>
+      )}
 
       {isLoading && <StateMessage variant="loading">جارٍ تحميل النماذج…</StateMessage>}
       {error && <StateMessage variant="error">تعذّر تحميل النماذج.</StateMessage>}
