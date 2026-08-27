@@ -20,9 +20,14 @@ import {
   computeLessonCapabilities,
   computeLessonReadiness,
   LESSON_READINESS_REASON_AR,
-  type LessonCapabilityType,
   type LessonReadiness,
 } from "@/lib/lessons/lesson-capabilities";
+import type { LessonCapabilityLifecycleStatus } from "@/lib/lessons/lesson-content-contract";
+import {
+  ADMIN_LESSON_CAPABILITY_COLUMNS,
+  resolveAdminLessonCapabilityIndicator,
+  type AdminLessonCapabilityIndicator,
+} from "@/lib/lessons/admin-lesson-capability-table";
 
 import { LessonBasicEditDialog } from "@/components/admin/LessonBasicEditDialog";
 import { LessonCreateDialog } from "@/components/admin/LessonCreateDialog";
@@ -48,22 +53,42 @@ type LessonRow = {
   subject?: { id: string; name: string | null; grade_id: string | null } | null;
 };
 
-/** Capability chips shown per lesson row, in student-journey order. */
-const ROW_CAPABILITIES: { type: LessonCapabilityType; label: string }[] = [
-  { type: "PRIMARY_CONTENT", label: "محتوى" },
-  { type: "SUMMARY", label: "ملخص" },
-  { type: "OFFICIAL_QUESTIONS", label: "أسئلة الكتاب" },
-  { type: "SELF_TEST", label: "اختبر فهمك" },
-  { type: "EXTRA_RESOURCES", label: "موارد" },
-  { type: "VIDEO", label: "فيديو" },
-  { type: "PRACTICAL", label: "عملي" },
-];
-
-function Indicator({ on }: { on: boolean }) {
-  return on ? (
-    <Check className="inline h-4 w-4 text-emerald-600" />
-  ) : (
-    <Minus className="inline h-4 w-4 text-muted-foreground/50" />
+function Indicator({ state }: { state: AdminLessonCapabilityIndicator }) {
+  if (state === "AVAILABLE") {
+    return (
+      <span title="موجود" className="inline-flex">
+        <Check aria-label="موجود" className="h-4 w-4 text-emerald-600" />
+      </span>
+    );
+  }
+  if (state === "DRAFT") {
+    return (
+      <span title="مسودة غير منشورة" className="inline-flex">
+        <Pencil aria-label="مسودة غير منشورة" className="h-4 w-4 text-amber-600" />
+      </span>
+    );
+  }
+  if (state === "REVIEW") {
+    return (
+      <span title="قيد المراجعة" className="inline-flex">
+        <Loader2 aria-label="قيد المراجعة" className="h-4 w-4 text-sky-600" />
+      </span>
+    );
+  }
+  if (state === "CONFLICT") {
+    return (
+      <span title="تعارض: الحالة معتمدة لكن مصدر المحتوى غير موجود" className="inline-flex">
+        <AlertTriangle
+          aria-label="تعارض: الحالة معتمدة لكن مصدر المحتوى غير موجود"
+          className="h-4 w-4 text-destructive"
+        />
+      </span>
+    );
+  }
+  return (
+    <span title="غير موجود" className="inline-flex">
+      <Minus aria-label="غير موجود" className="h-4 w-4 text-muted-foreground/50" />
+    </span>
   );
 }
 
@@ -253,28 +278,51 @@ function AdminLessonsList() {
     enabled: enabled && lessonIds.length > 0,
     queryKey: ["admin-lessons", "readiness", lessonIds],
     queryFn: async () => {
-      const [lessonsRes, bookRes, summaryRes, questionsRes, resourcesRes, simsRes, explRes] =
-        await Promise.all([
-          supabase
-            .from("lessons")
-            .select("id, delivery_mode, content_text, has_video")
-            .in("id", lessonIds),
-          supabase
-            .from("lesson_book_contents")
-            .select("lesson_id, content")
-            .in("lesson_id", lessonIds),
-          supabase.from("lesson_summaries").select("lesson_id, summary").in("lesson_id", lessonIds),
-          supabase.from("questions").select("lesson_id").in("lesson_id", lessonIds),
-          supabase
-            .from("lesson_resources")
-            .select("id, lesson_id, resource_type, html_resource_type, title, url, is_primary")
-            .in("lesson_id", lessonIds),
-          supabase.from("lesson_simulations").select("lesson_id").in("lesson_id", lessonIds),
-          supabase
-            .from("lesson_explanations")
-            .select("lesson_id, content")
-            .in("lesson_id", lessonIds),
-        ]);
+      const [
+        lessonsRes,
+        bookRes,
+        summaryRes,
+        questionsRes,
+        resourcesRes,
+        simsRes,
+        explRes,
+        assessmentsRes,
+        examsRes,
+        lifecycleRes,
+      ] = await Promise.all([
+        supabase
+          .from("lessons")
+          .select("id, title, delivery_mode, content_text, has_video")
+          .in("id", lessonIds),
+        supabase
+          .from("lesson_book_contents")
+          .select("lesson_id, content")
+          .in("lesson_id", lessonIds),
+        supabase.from("lesson_summaries").select("lesson_id, summary").in("lesson_id", lessonIds),
+        supabase
+          .from("questions")
+          .select(
+            "lesson_id, current_published_revision_id, published_revision:question_revisions!questions_current_published_revision_fk(educational_label)",
+          )
+          .in("lesson_id", lessonIds)
+          .not("current_published_revision_id", "is", null)
+          .is("archived_at", null),
+        supabase
+          .from("lesson_resources")
+          .select("id, lesson_id, resource_type, html_resource_type, title, url, is_primary")
+          .in("lesson_id", lessonIds),
+        supabase.from("lesson_simulations").select("lesson_id").in("lesson_id", lessonIds),
+        supabase
+          .from("lesson_explanations")
+          .select("lesson_id, content")
+          .in("lesson_id", lessonIds),
+        supabase.from("lesson_assessments").select("lesson_id").in("lesson_id", lessonIds),
+        supabase.from("exam_templates").select("lesson_id").in("lesson_id", lessonIds),
+        supabase
+          .from("lesson_capability_lifecycle")
+          .select("lesson_id, capability, status")
+          .in("lesson_id", lessonIds),
+      ]);
 
       const firstError =
         lessonsRes.error ??
@@ -283,7 +331,10 @@ function AdminLessonsList() {
         questionsRes.error ??
         resourcesRes.error ??
         simsRes.error ??
-        explRes.error;
+        explRes.error ??
+        assessmentsRes.error ??
+        examsRes.error ??
+        lifecycleRes.error;
       if (firstError) throw firstError;
 
       const byLesson = <T extends { lesson_id?: string | null }>(rows: T[] | null) => {
@@ -302,14 +353,29 @@ function AdminLessonsList() {
       const resources = byLesson(resourcesRes.data as any[]);
       const sims = byLesson(simsRes.data as any[]);
       const explanations = byLesson(explRes.data as any[]);
+      const assessments = byLesson(assessmentsRes.data as any[]);
+      const exams = byLesson(examsRes.data as any[]);
+      const lifecycle = byLesson(lifecycleRes.data as any[]);
       const lessonMeta: Record<string, any> = {};
       for (const row of (lessonsRes.data ?? []) as any[]) lessonMeta[row.id] = row;
 
-      const map: Record<string, LessonReadiness> = {};
+      const map: Record<
+        string,
+        {
+          readiness: LessonReadiness;
+          capabilityIndicators: Partial<
+            Record<
+              (typeof ADMIN_LESSON_CAPABILITY_COLUMNS)[number]["type"],
+              AdminLessonCapabilityIndicator
+            >
+          >;
+        }
+      > = {};
       for (const id of lessonIds) {
         const meta = lessonMeta[id] ?? {};
         const rows = resources[id] ?? [];
-        const html = (t: string) => rows.filter((r: any) => r.html_resource_type === t).length;
+        const html = (...types: string[]) =>
+          rows.filter((r: any) => types.includes(r.html_resource_type as string)).length;
         const plain = rows
           .filter((r: any) => !r.html_resource_type)
           .map((r: any) => ({
@@ -319,9 +385,28 @@ function AdminLessonsList() {
             url: (r.url as string) ?? "",
           }));
         const primary = rows.find((r: any) => r.is_primary === true);
+        let officialQuestionsCount = 0;
+        let selfTestQuestionsCount = 0;
+        for (const question of questions[id] ?? []) {
+          const relation = Array.isArray((question as any).published_revision)
+            ? (question as any).published_revision[0]
+            : (question as any).published_revision;
+          const role = (relation?.educational_label as string | null | undefined)?.toUpperCase();
+          if (role === "SELF_TEST") selfTestQuestionsCount += 1;
+          else officialQuestionsCount += 1;
+        }
+
+        const lifecycleByKey: Partial<Record<string, LessonCapabilityLifecycleStatus>> = {};
+        for (const row of lifecycle[id] ?? []) {
+          const status = (row as any).status;
+          if (status === "DRAFT" || status === "REVIEW" || status === "READY") {
+            lifecycleByKey[(row as any).capability as string] = status;
+          }
+        }
 
         const capabilities = computeLessonCapabilities({
           deliveryMode: meta.delivery_mode ?? null,
+          lessonTitle: meta.title ?? null,
           bookContent: (books[id] ?? [])[0]?.content ?? null,
           inlineContent: meta.content_text ?? null,
           primaryResource: primary
@@ -334,20 +419,55 @@ function AdminLessonsList() {
             : null,
           resources: plain,
           simulationsCount: (sims[id] ?? []).length,
-          htmlMindMapsCount: html("mind_map_html"),
-          htmlExperimentsCount: html("practical_experiment_html"),
+          htmlMindMapsCount: html("mind_map_html", "mindmap"),
+          htmlExperimentsCount: html("practical_experiment_html", "experiment"),
           htmlSummariesCount: html("summary_html"),
           summaryText: (summaries[id] ?? [])[0]?.summary ?? null,
           explanationsCount: (explanations[id] ?? []).filter(
             (e: any) => ((e.content as string | null) ?? "").trim().length > 0,
           ).length,
-          questionsCount: (questions[id] ?? []).length,
-          lessonExamCount: 0,
+          officialQuestionsCount,
+          selfTestQuestionsCount:
+            selfTestQuestionsCount + (assessments[id] ?? []).length + (exams[id] ?? []).length,
           hasLessonVideoFlag: meta.has_video === true,
           enhancementsAccessible: true,
         });
 
-        map[id] = computeLessonReadiness(capabilities);
+        const capabilityIndicators = Object.fromEntries(
+          ADMIN_LESSON_CAPABILITY_COLUMNS.map((column) => {
+            const capability = capabilities.find((item) => item.type === column.type);
+            return [
+              column.type,
+              resolveAdminLessonCapabilityIndicator({
+                available: capability?.available === true,
+                lifecycleStatus: lifecycleByKey[column.lifecycleKey],
+              }),
+            ];
+          }),
+        ) as Record<
+          (typeof ADMIN_LESSON_CAPABILITY_COLUMNS)[number]["type"],
+          AdminLessonCapabilityIndicator
+        >;
+
+        const readinessCapabilities = capabilities.map((capability) => {
+          const column = ADMIN_LESSON_CAPABILITY_COLUMNS.find(
+            (candidate) => candidate.type === capability.type,
+          );
+          const lifecycleStatus = column ? lifecycleByKey[column.lifecycleKey] : undefined;
+          if (lifecycleStatus !== "DRAFT" && lifecycleStatus !== "REVIEW") return capability;
+          return {
+            ...capability,
+            studentVisible: false,
+            ...(capability.type === "PRIMARY_CONTENT"
+              ? { readinessIssue: "CONTENT_NOT_STUDENT_VISIBLE" as const }
+              : {}),
+          };
+        });
+
+        map[id] = {
+          readiness: computeLessonReadiness(readinessCapabilities),
+          capabilityIndicators,
+        };
       }
       return map;
     },
@@ -501,6 +621,24 @@ function AdminLessonsList() {
           </div>
         ) : (
           <>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <Indicator state="AVAILABLE" /> موجود
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Indicator state="DRAFT" /> مسودة غير منشورة
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Indicator state="REVIEW" /> قيد المراجعة
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Indicator state="ABSENT" /> غير موجود
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Indicator state="CONFLICT" /> تعارض بيانات
+              </span>
+            </div>
+
             {/* Desktop */}
             <div className="hidden md:block overflow-x-auto rounded-xl border border-border bg-card">
               <table className="w-full text-sm">
@@ -513,7 +651,7 @@ function AdminLessonsList() {
                     <th className="px-3 py-3 text-right font-medium">الصف</th>
                     <th className="px-3 py-3 text-right font-medium">المدة</th>
                     <th className="px-3 py-3 text-right font-medium">الجاهزية</th>
-                    {ROW_CAPABILITIES.map((c) => (
+                    {ADMIN_LESSON_CAPABILITY_COLUMNS.map((c) => (
                       <th
                         key={c.type}
                         className="px-3 py-3 text-center font-medium"
@@ -527,8 +665,7 @@ function AdminLessonsList() {
                 </thead>
                 <tbody>
                   {rows.map((r) => {
-                    const readiness = ind[r.id];
-                    const available = new Set(readiness?.availableCapabilities ?? []);
+                    const indicators = ind[r.id];
                     return (
                       <tr key={r.id} className="border-t border-border">
                         <td className="px-3 py-3 text-muted-foreground">{r.sort_order}</td>
@@ -550,11 +687,13 @@ function AdminLessonsList() {
                         </td>
                         <td className="px-3 py-3 text-muted-foreground">{r.duration || "—"}</td>
                         <td className="px-3 py-3">
-                          <ReadinessBadge readiness={readiness} />
+                          <ReadinessBadge readiness={indicators?.readiness} />
                         </td>
-                        {ROW_CAPABILITIES.map((c) => (
+                        {ADMIN_LESSON_CAPABILITY_COLUMNS.map((c) => (
                           <td key={c.type} className="px-3 py-3 text-center">
-                            <Indicator on={available.has(c.type)} />
+                            <Indicator
+                              state={indicators?.capabilityIndicators[c.type] ?? "ABSENT"}
+                            />
                           </td>
                         ))}
 
@@ -622,8 +761,7 @@ function AdminLessonsList() {
             {/* Mobile */}
             <div className="md:hidden space-y-3">
               {rows.map((r) => {
-                const readiness = ind[r.id];
-                const available = new Set(readiness?.availableCapabilities ?? []);
+                const indicators = ind[r.id];
                 return (
                   <div key={r.id} className="rounded-xl border border-border bg-card p-4">
                     <div className="flex items-center justify-between gap-2">
@@ -637,7 +775,7 @@ function AdminLessonsList() {
                       <span className="text-[11px] text-muted-foreground">#{r.sort_order}</span>
                     </div>
                     <div className="mt-2">
-                      <ReadinessBadge readiness={readiness} />
+                      <ReadinessBadge readiness={indicators?.readiness} />
                     </div>
                     <div className="mt-2 grid grid-cols-2 gap-y-1 text-xs text-muted-foreground">
                       <span>الوحدة: {r.unit?.title || "—"}</span>
@@ -648,9 +786,10 @@ function AdminLessonsList() {
                       <span>المدة: {r.duration || "—"}</span>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                      {ROW_CAPABILITIES.map((c) => (
+                      {ADMIN_LESSON_CAPABILITY_COLUMNS.map((c) => (
                         <span key={c.type}>
-                          {c.label} <Indicator on={available.has(c.type)} />
+                          {c.label}{" "}
+                          <Indicator state={indicators?.capabilityIndicators[c.type] ?? "ABSENT"} />
                         </span>
                       ))}
                     </div>

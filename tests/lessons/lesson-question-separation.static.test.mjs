@@ -7,6 +7,10 @@ const adminLessonsPath = new URL(
   "../../src/routes/_authenticated/admin.lessons.index.tsx",
   import.meta.url,
 );
+const adminCapabilityTablePath = new URL(
+  "../../src/lib/lessons/admin-lesson-capability-table.ts",
+  import.meta.url,
+);
 const migrationPath = new URL(
   "../../supabase/migrations-pending/20260821010000_lesson_question_role_separation.sql",
   import.meta.url,
@@ -37,11 +41,31 @@ test("lesson route uses distinct role-filtered RPCs and no generic mixed quiz RP
   assert.doesNotMatch(source, /check_lesson_question/);
 });
 
-test("admin lesson indicators expose both question roles without the removed assessment type", async () => {
-  const source = await readFile(adminLessonsPath, "utf8");
-  assert.match(source, /type: "OFFICIAL_QUESTIONS", label: "أسئلة الكتاب"/);
-  assert.match(source, /type: "SELF_TEST", label: "اختبر فهمك"/);
-  assert.doesNotMatch(source, /type: "ASSESSMENT"/);
+test("admin lesson indicators expose the exact seven V3 components and distinct question roles", async () => {
+  const [route, columns] = await Promise.all([
+    readFile(adminLessonsPath, "utf8"),
+    readFile(adminCapabilityTablePath, "utf8"),
+  ]);
+  const orderedLabels = [
+    "محتوى الكتاب",
+    "شرح تمكين",
+    "ملخص الدرس",
+    "الخريطة الذهنية",
+    "التجربة المعملية",
+    "أسئلة الكتاب",
+    "اختبر فهمك",
+  ];
+  let cursor = -1;
+  for (const label of orderedLabels) {
+    const next = columns.indexOf(`label: "${label}"`);
+    assert.ok(next > cursor, `${label} must appear once in the approved journey order`);
+    cursor = next;
+  }
+  assert.match(columns, /type: "OFFICIAL_QUESTIONS"/);
+  assert.match(columns, /type: "SELF_TEST"/);
+  assert.doesNotMatch(columns, /type: "(?:EXTRA_RESOURCES|VIDEO|ASSESSMENT)"/);
+  assert.match(route, /published_revision:question_revisions/);
+  assert.match(route, /role === "SELF_TEST"/);
 });
 
 test("pending SQL filters by semantic role and omits answers from initial payloads", async () => {
