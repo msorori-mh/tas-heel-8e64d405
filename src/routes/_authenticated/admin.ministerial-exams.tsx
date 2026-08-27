@@ -27,17 +27,20 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  DEFAULT_MINISTERIAL_ROUND_CODE,
+  DEFAULT_MINISTERIAL_VARIANT_CODE,
   M01_COLUMNS,
-  M01_REQUIRED_COLUMNS,
+  M01_OPERATOR_COLUMNS,
+  M01_OPERATOR_REQUIRED_COLUMNS,
   M02_COLUMNS,
   M02_REQUIRED_COLUMNS,
   MINISTERIAL_IMPORT_ORDER,
-  MINISTERIAL_ROUND_CODES,
   MINISTERIAL_TEMPLATE_KEYS,
   assertNoForbiddenM02Columns,
   assertRequiredColumns,
   buildMinisterialModelCode,
   describeBlockReason,
+  normalizeM01OperatorRow,
   PREVIEW_ACTION_LABEL_AR,
 } from "@/lib/ministerial/ministerial-import-contract";
 import {
@@ -50,18 +53,21 @@ import {
   setMinisterialModelStatus,
   type MinisterialPrepareResult,
 } from "@/lib/ministerial/ministerial-admin-api";
-import { Loader2, ScrollText, ShieldCheck, Download, PlayCircle, FileSearch } from "lucide-react";
+import {
+  Download,
+  FilePlus2,
+  FileSearch,
+  Files,
+  Loader2,
+  PlayCircle,
+  ScrollText,
+  ShieldCheck,
+  Upload,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/ministerial-exams")({
   component: AdminMinisterialExamsPage,
 });
-
-const ROUND_LABEL_AR: Record<string, string> = {
-  r1: "الدور الأول",
-  r2: "الدور الثاني",
-  r3: "الدور الثالث",
-  makeup: "دورة استدراكية",
-};
 
 type SubjectRow = {
   id: string;
@@ -69,6 +75,23 @@ type SubjectRow = {
   name: string;
   grade_id: string | null;
 };
+
+type GradeRow = { id: string; name: string; slug: string };
+
+function isGrade12Reference(grade: Pick<GradeRow, "name" | "slug">): boolean {
+  const slug = grade.slug.trim().toLowerCase();
+  return (
+    slug === "grade-12" ||
+    slug === "g12" ||
+    /(^|-)12($|-)/.test(slug) ||
+    /الثالث\s+الثانوي|الثاني\s+عشر/.test(grade.name)
+  );
+}
+
+function isGrade12Model(model: { grade_slug: string | null; model_code: string }): boolean {
+  const slug = (model.grade_slug ?? "").trim().toLowerCase();
+  return slug === "grade-12" || slug === "g12" || model.model_code.startsWith("mex-g12-");
+}
 
 function toCsv(headers: readonly string[], rows: string[][]): string {
   const escape = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
@@ -171,26 +194,25 @@ function AdminMinisterialExamsPage() {
           curriculum_track_id: string;
           is_active: boolean;
         }[],
-        grades: (grades.data ?? []) as { id: string; name: string; slug: string }[],
+        grades: (grades.data ?? []) as GradeRow[],
       };
     },
   });
 
   // ---------------------------------------------------------- context generator
-  const [gradeId, setGradeId] = useState("");
+  const [workspaceMode, setWorkspaceMode] = useState<"single" | "bulk">("single");
   const [subjectId, setSubjectId] = useState("");
   const [trackId, setTrackId] = useState("");
   const [year, setYear] = useState("2025");
-  const [round, setRound] = useState("r1");
-  const [variant, setVariant] = useState("main");
   const [label, setLabel] = useState("");
 
   const ref = refQuery.data;
+  const grade12 = useMemo(() => (ref?.grades ?? []).find(isGrade12Reference) ?? null, [ref]);
   const subjectsForGrade = useMemo(
-    () => (ref?.subjects ?? []).filter((s) => !gradeId || s.grade_id === gradeId),
-    [ref, gradeId],
+    () => (ref?.subjects ?? []).filter((s) => grade12 !== null && s.grade_id === grade12.id),
+    [ref, grade12],
   );
-  const subject = ref?.subjects.find((s) => s.id === subjectId) ?? null;
+  const subject = subjectsForGrade.find((s) => s.id === subjectId) ?? null;
 
   /** Only tracks actively assigned to the subject are selectable. */
   const tracksForSubject = useMemo(() => {
@@ -212,13 +234,13 @@ function AdminMinisterialExamsPage() {
         subjectCode: subject.code,
         trackCode: track.track_code,
         academicYear: Number(year),
-        roundCode: round,
-        variantCode: variant,
+        roundCode: DEFAULT_MINISTERIAL_ROUND_CODE,
+        variantCode: DEFAULT_MINISTERIAL_VARIANT_CODE,
       });
     } catch {
       return "";
     }
-  }, [subject, track, year, round, variant]);
+  }, [subject, track, year]);
 
   // -------------------------------------------------------------- import state
   const [m01Text, setM01Text] = useState("");
@@ -227,21 +249,18 @@ function AdminMinisterialExamsPage() {
   const [m02Prepare, setM02Prepare] = useState<MinisterialPrepareResult | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const [filterGrade, setFilterGrade] = useState("all");
   const [filterSubject, setFilterSubject] = useState("all");
   const [filterTrack, setFilterTrack] = useState("all");
   const [filterYear, setFilterYear] = useState("all");
-  const [filterRound, setFilterRound] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
   const models = modelsQuery.data ?? [];
-  const filteredModels = models.filter(
+  const modelsForGrade12 = models.filter(isGrade12Model);
+  const filteredModels = modelsForGrade12.filter(
     (m) =>
-      (filterGrade === "all" || m.grade_slug === filterGrade) &&
       (filterSubject === "all" || m.subject_code === filterSubject) &&
       (filterTrack === "all" || m.track_code === filterTrack) &&
       (filterYear === "all" || String(m.academic_year) === filterYear) &&
-      (filterRound === "all" || m.round_code === filterRound) &&
       (filterStatus === "all" || m.status === filterStatus),
   );
 
@@ -262,8 +281,14 @@ function AdminMinisterialExamsPage() {
       const parsed = parseCsv(text);
       if (parsed.rows.length === 0) throw new Error("لا توجد صفوف في الملف.");
       if (kind === "M01") {
-        assertRequiredColumns(parsed.headers, M01_REQUIRED_COLUMNS, MINISTERIAL_TEMPLATE_KEYS.m01);
-        const result = await prepareM01(parsed.rows.map((r) => compact(r, M01_COLUMNS)));
+        assertRequiredColumns(
+          parsed.headers,
+          M01_OPERATOR_REQUIRED_COLUMNS,
+          MINISTERIAL_TEMPLATE_KEYS.m01,
+        );
+        const result = await prepareM01(
+          parsed.rows.map((row) => compact(normalizeM01OperatorRow(row), M01_COLUMNS)),
+        );
         setM01Prepare(result);
       } else {
         assertNoForbiddenM02Columns(parsed.headers);
@@ -272,6 +297,44 @@ function AdminMinisterialExamsPage() {
         setM02Prepare(result);
       }
       toast.success("تم التجهيز — راجع المعاينة قبل التنفيذ.");
+    });
+  }
+
+  function handlePrepareSingleModel() {
+    void run("prepare-single-model", async () => {
+      if (!grade12) throw new Error("تعذر العثور على الصف الثالث الثانوي في البيانات المرجعية.");
+      if (!subject?.code || !track || !generatedCode) {
+        throw new Error("اختر المادة والمسار وأدخل سنة صحيحة أولاً.");
+      }
+      const result = await prepareM01([
+        compact(
+          normalizeM01OperatorRow({
+            subject_code: subject.code,
+            track_code: track.track_code,
+            academic_year: year,
+            model_label: label,
+          }),
+          M01_COLUMNS,
+        ),
+      ]);
+      setM01Prepare(result);
+      toast.success("تم تجهيز النموذج الجديد — راجع المعاينة قبل إنشاء المسودة.");
+    });
+  }
+
+  function handleCsvFile(kind: "M01" | "M02", file: File | null) {
+    if (!file) return;
+    void run(`read-${kind}`, async () => {
+      const text = await file.text();
+      if (!text.trim()) throw new Error("الملف فارغ.");
+      if (kind === "M01") {
+        setM01Text(text);
+        setM01Prepare(null);
+      } else {
+        setM02Text(text);
+        setM02Prepare(null);
+      }
+      toast.success(`تم تحميل ملف ${kind}. افحصه قبل التنفيذ.`);
     });
   }
 
@@ -318,281 +381,286 @@ function AdminMinisterialExamsPage() {
           </p>
         </header>
 
-        {/* ------------------------------------------------ context generator */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">المولّد السياقي</CardTitle>
-            <CardDescription>
-              اختر السياق، والنظام يولّد كود النموذج (TCS-2) تلقائياً — لا يُكتب يدوياً.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label>الصف</Label>
-                <Select
-                  value={gradeId}
-                  onValueChange={(v) => {
-                    setGradeId(v);
-                    setSubjectId("");
-                    setTrackId("");
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر الصف" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(ref?.grades ?? []).map((g) => (
-                      <SelectItem key={g.id} value={g.id}>
-                        {g.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>المادة</Label>
-                <Select
-                  value={subjectId}
-                  onValueChange={(v) => {
-                    setSubjectId(v);
-                    setTrackId("");
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر المادة" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjectsForGrade.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name} — {s.code}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>المسار</Label>
-                <Select value={trackId} onValueChange={setTrackId} disabled={!subjectId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="المسارات المرتبطة بالمادة" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tracksForSubject.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.track_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>السنة</Label>
-                <Input value={year} onChange={(e) => setYear(e.target.value)} inputMode="numeric" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>الدور</Label>
-                <Select value={round} onValueChange={setRound}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MINISTERIAL_ROUND_CODES.map((r) => (
-                      <SelectItem key={r} value={r}>
-                        {ROUND_LABEL_AR[r]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>رمز النموذج (variant)</Label>
-                <Input
-                  value={variant}
-                  onChange={(e) => setVariant(e.target.value)}
-                  placeholder="main"
-                />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>اسم العرض (اختياري)</Label>
-                <Input
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  placeholder="النموذج أ"
-                />
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-primary/25 bg-primary/5 p-3">
-              <p className="text-xs text-muted-foreground">كود النموذج المولَّد</p>
-              <p className="font-mono text-sm text-foreground break-all">
-                {generatedCode || "— اختر المادة والمسار أولاً —"}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                disabled={!generatedCode || !subject?.code || !track}
-                onClick={() =>
-                  downloadCsv(
-                    "M01_ministerial_models.csv",
-                    toCsv(M01_COLUMNS, [
-                      [subject?.code ?? "", track?.track_code ?? "", year, round, variant, label],
-                    ]),
-                  )
-                }
-              >
-                <Download className="ms-1 h-4 w-4" />
-                تحميل M01 مُهيّأ
-              </Button>
-              <Button
-                variant="outline"
-                disabled={!generatedCode}
-                onClick={() =>
-                  downloadCsv(
-                    "M02_ministerial_model_questions.csv",
-                    toCsv(M02_COLUMNS, [[generatedCode, "", "1", "", "1", "", "", "1"]]),
-                  )
-                }
-              >
-                <Download className="ms-1 h-4 w-4" />
-                تحميل M02 مُهيّأ
-              </Button>
-            </div>
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row">
+            <Button
+              type="button"
+              variant={workspaceMode === "single" ? "default" : "outline"}
+              className="h-auto flex-1 justify-start gap-3 py-3 text-right"
+              aria-pressed={workspaceMode === "single"}
+              onClick={() => {
+                setWorkspaceMode("single");
+                setM01Prepare(null);
+              }}
+            >
+              <FilePlus2 className="h-5 w-5 shrink-0" aria-hidden />
+              <span>
+                <span className="block font-semibold">إضافة نموذج جديد</span>
+                <span className="mt-0.5 block text-xs font-normal opacity-80">
+                  نموذج واحد مع توليد الكود تلقائيًا
+                </span>
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant={workspaceMode === "bulk" ? "default" : "outline"}
+              className="h-auto flex-1 justify-start gap-3 py-3 text-right"
+              aria-pressed={workspaceMode === "bulk"}
+              onClick={() => {
+                setWorkspaceMode("bulk");
+                setM01Prepare(null);
+              }}
+            >
+              <Files className="h-5 w-5 shrink-0" aria-hidden />
+              <span>
+                <span className="block font-semibold">الاستيراد المتعدد</span>
+                <span className="mt-0.5 block text-xs font-normal opacity-80">
+                  ارفع ملفات CSV تحتوي عدة نماذج أو أسئلة
+                </span>
+              </span>
+            </Button>
           </CardContent>
         </Card>
 
-        {/* ----------------------------------------------------- M01 / M02 import */}
-        {(["M01", "M02"] as const).map((kind) => {
-          const prepare = kind === "M01" ? m01Prepare : m02Prepare;
-          const text = kind === "M01" ? m01Text : m02Text;
-          const setText = kind === "M01" ? setM01Text : setM02Text;
-          return (
-            <Card key={kind}>
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  {kind === "M01" ? "استيراد M01 — النماذج" : "استيراد M02 — أسئلة النموذج"}
-                </CardTitle>
-                <CardDescription>
-                  {kind === "M01"
-                    ? "ينشئ مسودة فقط. لا نشر تلقائي، ولا تغيير لهوية نموذج منشور."
-                    : "يربط أسئلة منشورة بالنموذج (إضافي فقط). غياب سؤال من الملف لا يحذفه."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Textarea
-                  dir="ltr"
-                  rows={5}
-                  className="font-mono text-xs"
-                  placeholder={`${(kind === "M01" ? M01_COLUMNS : M02_COLUMNS).join(",")}`}
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={() => handlePrepare(kind)}
-                    disabled={busy !== null || !text.trim()}
+        {/* ------------------------------------------------ context generator */}
+        {workspaceMode === "single" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">إضافة نموذج جديد</CardTitle>
+              <CardDescription>
+                هذه النماذج للصف الثالث الثانوي فقط. اختر المادة والمسار والسنة، وسيولّد النظام
+                الكود تلقائيًا دون دور أو رمز نموذج يدوي.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label>الصف</Label>
+                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/40 px-3 text-sm font-medium text-foreground">
+                    {grade12?.name ?? "الثالث الثانوي فقط"}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>المادة</Label>
+                  <Select
+                    value={subjectId}
+                    onValueChange={(v) => {
+                      setSubjectId(v);
+                      setTrackId("");
+                    }}
                   >
-                    {busy === `prepare-${kind}` ? (
-                      <Loader2 className="ms-1 h-4 w-4 animate-spin" />
-                    ) : (
-                      <FileSearch className="ms-1 h-4 w-4" />
-                    )}
-                    فحص وتجهيز
-                  </Button>
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر المادة" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subjectsForGrade.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name} — {s.code}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>المسار</Label>
+                  <Select value={trackId} onValueChange={setTrackId} disabled={!subjectId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="المسارات المرتبطة بالمادة" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tracksForSubject.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.track_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>السنة</Label>
+                  <Input
+                    value={year}
+                    onChange={(e) => setYear(e.target.value)}
+                    inputMode="numeric"
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>اسم العرض (اختياري)</Label>
+                  <Input
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                    placeholder="النموذج أ"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-primary/25 bg-primary/5 p-3">
+                <p className="text-xs text-muted-foreground">كود النموذج المولَّد</p>
+                <p className="font-mono text-sm text-foreground break-all">
+                  {generatedCode || "— اختر المادة والمسار أولاً —"}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={!generatedCode || !subject?.code || !track || busy !== null}
+                  onClick={handlePrepareSingleModel}
+                >
+                  {busy === "prepare-single-model" ? (
+                    <Loader2 className="ms-1 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileSearch className="ms-1 h-4 w-4" />
+                  )}
+                  فحص النموذج الجديد
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!generatedCode}
+                  onClick={() =>
+                    downloadCsv(
+                      "M02_ministerial_model_questions.csv",
+                      toCsv(M02_COLUMNS, [[generatedCode, "", "1", "", "1", "", "", "1"]]),
+                    )
+                  }
+                >
+                  <Download className="ms-1 h-4 w-4" />
+                  تحميل M02 مُهيّأ
+                </Button>
+              </div>
+
+              {m01Prepare && (
+                <div className="space-y-3 border-t border-border pt-4">
+                  <PreparePreview kind="M01" prepare={m01Prepare} />
                   <Button
                     variant="secondary"
-                    onClick={() => handleExecute(kind)}
-                    disabled={busy !== null || !prepare}
+                    onClick={() => handleExecute("M01")}
+                    disabled={busy !== null}
                   >
-                    {busy === `execute-${kind}` ? (
+                    {busy === "execute-M01" ? (
                       <Loader2 className="ms-1 h-4 w-4 animate-spin" />
                     ) : (
                       <PlayCircle className="ms-1 h-4 w-4" />
                     )}
-                    تنفيذ
+                    إنشاء المسودة
                   </Button>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-                {prepare && (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <Badge variant="secondary">صفوف: {prepare.summary.rows}</Badge>
-                      <Badge>إضافة: {prepare.summary.insert}</Badge>
-                      <Badge variant="outline">تحديث: {prepare.summary.update}</Badge>
-                      <Badge variant="outline">تخطي: {prepare.summary.skip}</Badge>
-                      <Badge variant="destructive">محجوب: {prepare.summary.blocked}</Badge>
-                    </div>
-                    <div className="overflow-x-auto rounded-lg border border-border/60">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>#</TableHead>
-                            {kind === "M01" ? (
-                              <>
-                                <TableHead>المادة</TableHead>
-                                <TableHead>المسار</TableHead>
-                                <TableHead>السنة/الدور</TableHead>
-                                <TableHead>كود النموذج</TableHead>
-                              </>
-                            ) : (
-                              <>
-                                <TableHead>كود السؤال</TableHead>
-                                <TableHead>النسخة المثبَّتة</TableHead>
-                                <TableHead>الترتيب</TableHead>
-                                <TableHead>الدرجة</TableHead>
-                              </>
-                            )}
-                            <TableHead>الإجراء</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {prepare.preview.map((row) => (
-                            <TableRow key={row.row_number}>
-                              <TableCell>{row.row_number}</TableCell>
-                              {kind === "M01" ? (
-                                <>
-                                  <TableCell>{row.subject_code}</TableCell>
-                                  <TableCell>{row.track_code}</TableCell>
-                                  <TableCell>
-                                    {row.academic_year} / {row.round_code}
-                                  </TableCell>
-                                  <TableCell className="font-mono text-xs">
-                                    {row.model_code}
-                                  </TableCell>
-                                </>
-                              ) : (
-                                <>
-                                  <TableCell className="font-mono text-xs">
-                                    {row.question_code}
-                                  </TableCell>
-                                  <TableCell className="font-mono text-[10px]">
-                                    {row.pinned_revision_id ?? "—"}
-                                  </TableCell>
-                                  <TableCell>{row.display_order}</TableCell>
-                                  <TableCell>{row.marks}</TableCell>
-                                </>
-                              )}
-                              <TableCell>
-                                <span className="text-xs">
-                                  {PREVIEW_ACTION_LABEL_AR[row.action]}
-                                  {row.blocked_reason
-                                    ? ` — ${describeBlockReason(row.blocked_reason)}`
-                                    : ""}
-                                </span>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                )}
+        {/* ----------------------------------------------------- M01 / M02 import */}
+        {workspaceMode === "bulk" && (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">الاستيراد المتعدد</CardTitle>
+                <CardDescription>
+                  حمّل القوالب المبسطة ثم ارفع CSV واحدًا أو الصق محتواه. الدور ورمز النموذج
+                  يُولّدان تلقائيًا لكل صف.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    downloadCsv("M01_ministerial_models.csv", toCsv(M01_OPERATOR_COLUMNS, []))
+                  }
+                >
+                  <Download className="ms-1 h-4 w-4" />
+                  تحميل قالب النماذج
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    downloadCsv("M02_ministerial_model_questions.csv", toCsv(M02_COLUMNS, []))
+                  }
+                >
+                  <Download className="ms-1 h-4 w-4" />
+                  تحميل قالب الأسئلة
+                </Button>
               </CardContent>
             </Card>
-          );
-        })}
+            {(["M01", "M02"] as const).map((kind) => {
+              const prepare = kind === "M01" ? m01Prepare : m02Prepare;
+              const text = kind === "M01" ? m01Text : m02Text;
+              const setText = kind === "M01" ? setM01Text : setM02Text;
+              return (
+                <Card key={kind}>
+                  <CardHeader>
+                    <CardTitle className="text-lg">
+                      {kind === "M01" ? "استيراد نماذج متعددة" : "استيراد أسئلة متعددة"}
+                    </CardTitle>
+                    <CardDescription>
+                      {kind === "M01"
+                        ? "ينشئ مسودة فقط. لا نشر تلقائي، ولا تغيير لهوية نموذج منشور."
+                        : "يربط أسئلة منشورة بالنموذج (إضافي فقط). غياب سؤال من الملف لا يحذفه."}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor={`ministerial-${kind}-file`}
+                        className="flex items-center gap-1.5"
+                      >
+                        <Upload className="h-4 w-4" aria-hidden />
+                        ملف CSV
+                      </Label>
+                      <Input
+                        id={`ministerial-${kind}-file`}
+                        type="file"
+                        accept=".csv,text/csv"
+                        disabled={busy !== null}
+                        onChange={(event) => handleCsvFile(kind, event.target.files?.[0] ?? null)}
+                      />
+                    </div>
+                    <Textarea
+                      dir="ltr"
+                      rows={5}
+                      className="font-mono text-xs"
+                      placeholder={`${(kind === "M01" ? M01_OPERATOR_COLUMNS : M02_COLUMNS).join(",")}`}
+                      value={text}
+                      onChange={(e) => {
+                        setText(e.target.value);
+                        if (kind === "M01") setM01Prepare(null);
+                        else setM02Prepare(null);
+                      }}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        onClick={() => handlePrepare(kind)}
+                        disabled={busy !== null || !text.trim()}
+                      >
+                        {busy === `prepare-${kind}` ? (
+                          <Loader2 className="ms-1 h-4 w-4 animate-spin" />
+                        ) : (
+                          <FileSearch className="ms-1 h-4 w-4" />
+                        )}
+                        فحص وتجهيز
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => handleExecute(kind)}
+                        disabled={busy !== null || !prepare}
+                      >
+                        {busy === `execute-${kind}` ? (
+                          <Loader2 className="ms-1 h-4 w-4 animate-spin" />
+                        ) : (
+                          <PlayCircle className="ms-1 h-4 w-4" />
+                        )}
+                        تنفيذ
+                      </Button>
+                    </div>
+
+                    {prepare && <PreparePreview kind={kind} prepare={prepare} />}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </>
+        )}
 
         {/* --------------------------------------------------------- models list */}
         <Card>
@@ -603,36 +671,24 @@ function AdminMinisterialExamsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              <FilterSelect
-                label="الصف"
-                value={filterGrade}
-                onChange={setFilterGrade}
-                options={[...new Set(models.map((m) => m.grade_slug).filter(Boolean))] as string[]}
-              />
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <FilterSelect
                 label="المادة"
                 value={filterSubject}
                 onChange={setFilterSubject}
-                options={[...new Set(models.map((m) => m.subject_code))]}
+                options={[...new Set(modelsForGrade12.map((m) => m.subject_code))]}
               />
               <FilterSelect
                 label="المسار"
                 value={filterTrack}
                 onChange={setFilterTrack}
-                options={[...new Set(models.map((m) => m.track_code))]}
+                options={[...new Set(modelsForGrade12.map((m) => m.track_code))]}
               />
               <FilterSelect
                 label="السنة"
                 value={filterYear}
                 onChange={setFilterYear}
-                options={[...new Set(models.map((m) => String(m.academic_year)))]}
-              />
-              <FilterSelect
-                label="الدور"
-                value={filterRound}
-                onChange={setFilterRound}
-                options={[...MINISTERIAL_ROUND_CODES]}
+                options={[...new Set(modelsForGrade12.map((m) => String(m.academic_year)))]}
               />
               <FilterSelect
                 label="الحالة"
@@ -649,7 +705,7 @@ function AdminMinisterialExamsPage() {
                     <TableHead>الكود</TableHead>
                     <TableHead>المادة</TableHead>
                     <TableHead>المسار</TableHead>
-                    <TableHead>السنة/الدور</TableHead>
+                    <TableHead>السنة</TableHead>
                     <TableHead>الأسئلة</TableHead>
                     <TableHead>الحالة</TableHead>
                     <TableHead>إجراءات</TableHead>
@@ -668,9 +724,7 @@ function AdminMinisterialExamsPage() {
                       <TableCell className="font-mono text-xs">{m.model_code}</TableCell>
                       <TableCell>{m.subject_name}</TableCell>
                       <TableCell>{m.track_name}</TableCell>
-                      <TableCell>
-                        {m.academic_year} / {ROUND_LABEL_AR[m.round_code] ?? m.round_code}
-                      </TableCell>
+                      <TableCell>{m.academic_year}</TableCell>
                       <TableCell>{m.question_count}</TableCell>
                       <TableCell>
                         <Badge variant={m.status === "published" ? "default" : "secondary"}>
@@ -734,6 +788,81 @@ function AdminMinisterialExamsPage() {
         </Card>
       </div>
     </AdminLayout>
+  );
+}
+
+function PreparePreview({
+  kind,
+  prepare,
+}: {
+  kind: "M01" | "M02";
+  prepare: MinisterialPrepareResult;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 text-xs">
+        <Badge variant="secondary">صفوف: {prepare.summary.rows}</Badge>
+        <Badge>إضافة: {prepare.summary.insert}</Badge>
+        <Badge variant="outline">تحديث: {prepare.summary.update}</Badge>
+        <Badge variant="outline">تخطي: {prepare.summary.skip}</Badge>
+        <Badge variant="destructive">محجوب: {prepare.summary.blocked}</Badge>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border/60">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>#</TableHead>
+              {kind === "M01" ? (
+                <>
+                  <TableHead>المادة</TableHead>
+                  <TableHead>المسار</TableHead>
+                  <TableHead>السنة</TableHead>
+                  <TableHead>كود النموذج التلقائي</TableHead>
+                </>
+              ) : (
+                <>
+                  <TableHead>كود السؤال</TableHead>
+                  <TableHead>النسخة المثبَّتة</TableHead>
+                  <TableHead>الترتيب</TableHead>
+                  <TableHead>الدرجة</TableHead>
+                </>
+              )}
+              <TableHead>الإجراء</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {prepare.preview.map((row) => (
+              <TableRow key={row.row_number}>
+                <TableCell>{row.row_number}</TableCell>
+                {kind === "M01" ? (
+                  <>
+                    <TableCell>{row.subject_code}</TableCell>
+                    <TableCell>{row.track_code}</TableCell>
+                    <TableCell>{row.academic_year}</TableCell>
+                    <TableCell className="font-mono text-xs">{row.model_code}</TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell className="font-mono text-xs">{row.question_code}</TableCell>
+                    <TableCell className="font-mono text-[10px]">
+                      {row.pinned_revision_id ?? "—"}
+                    </TableCell>
+                    <TableCell>{row.display_order}</TableCell>
+                    <TableCell>{row.marks}</TableCell>
+                  </>
+                )}
+                <TableCell>
+                  <span className="text-xs">
+                    {PREVIEW_ACTION_LABEL_AR[row.action]}
+                    {row.blocked_reason ? ` — ${describeBlockReason(row.blocked_reason)}` : ""}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
 }
 
