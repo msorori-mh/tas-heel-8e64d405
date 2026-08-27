@@ -48,18 +48,18 @@ test("operators upload seven declared items and never upload a lesson ZIP or pro
   assert.match(component, /CAPABILITY_NUMBER/);
 });
 
-test("five capabilities are required and the lab and book questions are optional", () => {
+test("six capabilities are required and only the lab is optional", () => {
   for (const id of ["GOLDEN_QURAN_V1", "GOLDEN_CHEMISTRY_V1"])
     assert.match(profiles, new RegExp(id));
   const required = profiles.match(/: "REQUIRED"/g) ?? [];
   const optional = profiles.match(/: "OPTIONAL"/g) ?? [];
-  assert.equal(required.length, 10);
-  assert.equal(optional.length, 4);
+  assert.equal(required.length, 12);
+  assert.equal(optional.length, 2);
   assert.equal((profiles.match(/labExperimentHtml: "OPTIONAL"/g) ?? []).length, 2);
-  assert.equal((profiles.match(/officialBookQuestions: "OPTIONAL"/g) ?? []).length, 2);
+  assert.equal((profiles.match(/officialBookQuestions: "REQUIRED"/g) ?? []).length, 2);
   assert.doesNotMatch(
     profiles,
-    /mindMapHtml: "OPTIONAL"|selfTest: "OPTIONAL"|labExperimentHtml: "NA"/,
+    /mindMapHtml: "OPTIONAL"|officialBookQuestions: "OPTIONAL"|selfTest: "OPTIONAL"|labExperimentHtml: "NA"/,
   );
 });
 

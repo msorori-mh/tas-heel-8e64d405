@@ -1,5 +1,12 @@
--- Align DB applicability expectations with app profiles:
--- the lab experiment alone is OPTIONAL; official book questions are REQUIRED.
+-- ADMIN_LESSON_WORKSPACE_TRUTH_AND_PUBLISHING_FIX_01
+--
+-- Golden profiles require official book questions. The historical validator
+-- treated them as OPTIONAL, contradicting the application profile and its own
+-- Arabic policy note. This migration corrects validation for future staging.
+-- Existing per-lesson lifecycle applicability is intentionally preserved: it
+-- is lesson evidence and must be reconciled only by a reviewed package, never
+-- by an unscoped metadata rewrite.
+
 CREATE OR REPLACE FUNCTION public.assert_golden_lesson_manifest(_manifest jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp AS $$

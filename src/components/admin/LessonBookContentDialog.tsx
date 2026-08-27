@@ -93,6 +93,7 @@ export function LessonBookContentDialog({
       await qc.invalidateQueries({
         queryKey: ["admin-lesson-detail", "book", lessonId],
       });
+      await qc.invalidateQueries({ queryKey: ["admin-lesson-lifecycle", lessonId] });
       onOpenChange(false);
     } catch (e: unknown) {
       toast.error("تعذر حفظ محتوى الكتاب.");

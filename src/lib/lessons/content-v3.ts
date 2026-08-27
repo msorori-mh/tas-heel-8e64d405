@@ -52,12 +52,12 @@ export const V3_CONTENT_OWNER: Record<V3CapabilityKey, "OFFICIAL" | "TAMKEEN"> =
 };
 
 export const V3_LABEL_AR: Record<V3CapabilityKey, string> = {
-  officialBookContent: "محتوى الكتاب الرسمي",
+  officialBookContent: "محتوى الكتاب",
   tamkeenExplanationHtml: "شرح تمكين",
   lessonSummaryHtml: "ملخص الدرس",
   mindMapHtml: "الخريطة الذهنية",
-  labExperimentHtml: "التجارب / النشاط التفاعلي",
-  officialBookQuestions: "أسئلة الدرس",
+  labExperimentHtml: "التجربة المعملية",
+  officialBookQuestions: "أسئلة الكتاب",
   selfTest: "اختبر فهمك",
 };
 

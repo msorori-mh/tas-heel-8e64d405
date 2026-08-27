@@ -8,10 +8,7 @@ import { LessonBookContentDialog } from "@/components/admin/LessonBookContentDia
 import { LessonSummaryDialog } from "@/components/admin/LessonSummaryDialog";
 import { LessonExplanationsDialog } from "@/components/admin/LessonExplanationsDialog";
 import { LessonResourcesDialog } from "@/components/admin/LessonResourcesDialog";
-import { LessonPrimaryPdfCard } from "@/components/admin/LessonPrimaryPdfCard";
 import { LessonContentWorkspace } from "@/components/admin/LessonContentWorkspace";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import {
   buildLessonCapabilityContract,
   applyLifecycleOverlay,
@@ -19,20 +16,16 @@ import {
 } from "@/lib/lessons/lesson-content-contract";
 import {
   fetchLessonLifecycleRows,
+  rowsToApplicabilityMap,
   rowsToLifecycleMap,
-  transitionCapability,
   type LessonCapabilityLifecycleStatus,
 } from "@/lib/lessons/lesson-lifecycle";
 import {
-  Loader2,
-  ArrowRight,
-  Check,
-  Minus,
-  BookOpen,
-  Pencil,
-  FileText,
-  FolderOpen,
-} from "lucide-react";
+  htmlPreviewText,
+  questionTypeLabelAr,
+  summarizeAdminLessonQuestions,
+} from "@/lib/lessons/admin-lesson-workspace";
+import { Loader2, ArrowRight, Check, Minus, BookOpen } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/lesson-content/$lessonId")({
   component: AdminLessonDetailPage,
@@ -59,6 +52,19 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+function resourceCategoryLabel(resource: {
+  resource_type?: string | null;
+  html_resource_type?: string | null;
+}): string {
+  const type = resource.html_resource_type ?? resource.resource_type ?? "";
+  if (type === "mindmap" || type === "mind_map_html") return "الخريطة الذهنية";
+  if (type === "experiment" || type === "practical_experiment_html") {
+    return "التجربة المعملية";
+  }
+  if (type === "video") return "مورد فيديو قديم";
+  return "مورد مساعد قديم";
+}
+
 function AdminLessonDetailPage() {
   const { loading, enabled } = useRequireAdminSection("content");
   const { lessonId } = Route.useParams();
@@ -67,9 +73,6 @@ function AdminLessonDetailPage() {
   const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
   const [openExplanationsDialog, setOpenExplanationsDialog] = useState(false);
   const [openResourcesDialog, setOpenResourcesDialog] = useState(false);
-  const [pendingCapability, setPendingCapability] = useState<LessonContentCapabilityKey | null>(
-    null,
-  );
 
   // 20C-B — editorial lifecycle rows (staff read every status).
   const lifecycleQ = useQuery({
@@ -78,28 +81,6 @@ function AdminLessonDetailPage() {
     queryFn: () => fetchLessonLifecycleRows(lessonId),
   });
 
-  const runTransition = async (
-    capability: LessonContentCapabilityKey,
-    to: LessonCapabilityLifecycleStatus,
-  ) => {
-    setPendingCapability(capability);
-    try {
-      await transitionCapability({ lessonId, capability, to });
-      await lifecycleQ.refetch();
-      toast.success(
-        to === "READY"
-          ? "تم اعتماد القدرة ونشرها للطالب."
-          : to === "REVIEW"
-            ? "تم إرسال القدرة للمراجعة."
-            : "تم فتح نسخة تعديل جديدة (مسودة).",
-      );
-    } catch (err) {
-      toast.error((err as Error).message || "تعذّر تنفيذ الانتقال.");
-    } finally {
-      setPendingCapability(null);
-    }
-  };
-
   const lessonQ = useQuery({
     enabled,
     queryKey: ["admin-lesson-detail", lessonId],
@@ -107,7 +88,7 @@ function AdminLessonDetailPage() {
       const { data, error } = await supabase
         .from("lessons")
         .select(
-          "id, title, sort_order, duration, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id)",
+          "id, title, slug, sort_order, duration, delivery_mode, content_text, unit_id, subject_id, unit:units!lessons_unit_id_fkey(id, title), subject:subjects!lessons_subject_id_fkey(id, name, grade_id, curriculum_track_id)",
         )
         .eq("id", lessonId)
         .maybeSingle();
@@ -135,7 +116,7 @@ function AdminLessonDetailPage() {
         display: rows.map((r) => ({
           id: r.id,
           hasPdf: !!r.pdf_url,
-          preview: r.content ? r.content.slice(0, 200) : "",
+          preview: htmlPreviewText(r.content),
         })),
       };
     },
@@ -153,6 +134,7 @@ function AdminLessonDetailPage() {
       const rows = data ?? [];
       const first = rows[0];
       const kp = first && Array.isArray(first.key_points) ? first.key_points : [];
+      const usableCount = rows.filter((row) => (row.summary ?? "").trim().length > 0).length;
       return {
         items: rows.map((r) => ({
           id: r.id,
@@ -162,8 +144,10 @@ function AdminLessonDetailPage() {
         })),
         raw: rows,
         count: rows.length,
+        usableCount,
+        invalidCount: rows.length - usableCount,
         keyPointsCount: kp.length,
-        preview: first?.summary ? first.summary.slice(0, 200) : "",
+        preview: htmlPreviewText(first?.summary),
       };
     },
   });
@@ -178,7 +162,14 @@ function AdminLessonDetailPage() {
         .eq("lesson_id", lessonId)
         .order("sort_order", { ascending: true });
       if (error) throw error;
-      return { items: data ?? [], count: (data ?? []).length };
+      const items = data ?? [];
+      const usableItems = items.filter((item) => (item.content ?? "").trim().length > 0);
+      return {
+        items,
+        usableItems,
+        count: usableItems.length,
+        invalidCount: items.length - usableItems.length,
+      };
     },
   });
 
@@ -186,18 +177,24 @@ function AdminLessonDetailPage() {
     enabled: enabled && !!lessonQ.data,
     queryKey: ["admin-lesson-detail", "questions", lessonId],
     queryFn: async () => {
-      // Explicitly DO NOT select correct_index, options, explanation, question_text.
-      const { data, error, count } = await supabase
+      // Intentionally excludes prompt, options, correct answer and explanation.
+      const { data: questions, error } = await supabase
         .from("questions")
-        .select("id, question_type", { count: "exact" })
-        .eq("lesson_id", lessonId);
+        .select("id, question_type, current_published_revision_id")
+        .eq("lesson_id", lessonId)
+        .is("archived_at", null);
       if (error) throw error;
-      const types: Record<string, number> = {};
-      for (const r of data ?? []) {
-        const t = (r.question_type as string | null) ?? "—";
-        types[t] = (types[t] ?? 0) + 1;
-      }
-      return { count: count ?? 0, types };
+      const questionIds = (questions ?? []).map((question) => question.id);
+      if (questionIds.length === 0) return summarizeAdminLessonQuestions([], []);
+
+      const { data: revisions, error: revisionsError } = await supabase
+        .from("question_revisions")
+        .select(
+          "id, question_id, educational_label, status, revision_number, interaction_type, grading_mode",
+        )
+        .in("question_id", questionIds);
+      if (revisionsError) throw revisionsError;
+      return summarizeAdminLessonQuestions(questions ?? [], revisions ?? []);
     },
   });
 
@@ -216,8 +213,13 @@ function AdminLessonDetailPage() {
 
       const base = "id, lesson_id, resource_type, title, url, description, sort_order, created_at";
       let { data, error, count } = (await run(
-        `${base}, is_primary, html_resource_type, resource_code, metadata`,
+        `${base}, is_primary, html_resource_type, resource_code, metadata, lifecycle_status`,
       )) as any;
+      if (error) {
+        ({ data, error, count } = (await run(
+          `${base}, is_primary, html_resource_type, resource_code, metadata`,
+        )) as any);
+      }
       if (error) {
         ({ data, error, count } = (await run(`${base}, is_primary`)) as any);
       }
@@ -225,12 +227,7 @@ function AdminLessonDetailPage() {
         ({ data, error, count } = (await run(base)) as any);
       }
       if (error) throw error;
-      const types: Record<string, number> = {};
-      for (const r of data ?? []) {
-        const t = (r.resource_type as string | null) ?? "—";
-        types[t] = (types[t] ?? 0) + 1;
-      }
-      return { count: count ?? 0, types, items: data ?? [] };
+      return { count: count ?? 0, items: data ?? [] };
     },
   });
 
@@ -248,26 +245,8 @@ function AdminLessonDetailPage() {
     },
   });
 
-  const assessmentsQ = useQuery({
-    enabled: enabled && !!lessonQ.data,
-    queryKey: ["admin-lesson-detail", "assessments", lessonId],
-    queryFn: async () => {
-      const assess = await supabase
-        .from("lesson_assessments")
-        .select("id", { count: "exact", head: true })
-        .eq("lesson_id", lessonId);
-      const exams = await supabase
-        .from("exam_templates")
-        .select("id", { count: "exact", head: true })
-        .eq("lesson_id", lessonId);
-      return {
-        assessmentsCount: assess.error ? 0 : (assess.count ?? 0),
-        lessonExamCount: exams.error ? 0 : (exams.count ?? 0),
-      };
-    },
-  });
-
   const gradeId = (lessonQ.data as any)?.subject?.grade_id ?? null;
+  const trackId = (lessonQ.data as any)?.subject?.curriculum_track_id ?? null;
   const gradeQ = useQuery({
     enabled: enabled && !!gradeId,
     queryKey: ["admin-lesson-detail", "grade", gradeId],
@@ -282,6 +261,27 @@ function AdminLessonDetailPage() {
       return data?.name ?? null;
     },
   });
+
+  const trackQ = useQuery({
+    enabled: enabled && !!trackId,
+    queryKey: ["admin-lesson-detail", "track", trackId],
+    queryFn: async () => {
+      if (!trackId) return null;
+      const { data, error } = await supabase
+        .from("curriculum_tracks")
+        .select("track_name")
+        .eq("id", trackId)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.track_name ?? null;
+    },
+  });
+
+  const sourcesLoading =
+    !!lessonQ.data &&
+    [bookQ, summaryQ, explanationsQ, questionsQ, resourcesQ, simulationsQ].some(
+      (query) => query.isLoading,
+    );
 
   if (loading) {
     return (
@@ -303,7 +303,7 @@ function AdminLessonDetailPage() {
     );
   }
 
-  if (lessonQ.isLoading) {
+  if (lessonQ.isLoading || lifecycleQ.isLoading || sourcesLoading) {
     return (
       <AdminLayout>
         <div className="flex min-h-[50vh] items-center justify-center">
@@ -313,11 +313,11 @@ function AdminLessonDetailPage() {
     );
   }
 
-  if (lessonQ.isError) {
+  if (lessonQ.isError || lifecycleQ.isError) {
     return (
       <AdminLayout>
         <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-6 text-center text-sm text-destructive">
-          تعذر تحميل الدرس.
+          تعذر تحميل بيانات الدرس أو مساره التحريري؛ لم تُعرض حالة جاهزية غير موثوقة.
         </div>
       </AdminLayout>
     );
@@ -343,8 +343,6 @@ function AdminLessonDetailPage() {
     );
   }
 
-  const hasVideo = !!(lesson as any).has_video;
-  const hasLessonPdf = !!(lesson as any).has_content_pdf;
   const subjectName = (lesson as any).subject?.name ?? "—";
   const unitTitle = (lesson as any).unit?.title ?? "—";
 
@@ -353,6 +351,7 @@ function AdminLessonDetailPage() {
   const lifecycleStatuses = Object.fromEntries(
     Object.entries(lifecycleMap).map(([k, v]) => [k, typeof v === "string" ? v : v!.status]),
   ) as Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>>;
+  const applicability = rowsToApplicabilityMap(lifecycleQ.data ?? []);
 
   const capabilityContract = applyLifecycleOverlay(
     buildLessonCapabilityContract({
@@ -360,18 +359,27 @@ function AdminLessonDetailPage() {
       deliveryMode: (lesson as any)?.delivery_mode ?? null,
       bookContents: (bookQ.data?.raw ?? []) as any,
       inlineContent: (lesson as any)?.content_text ?? null,
-      explanations: (explanationsQ.data?.items ?? []) as any,
+      explanations: (explanationsQ.data?.usableItems ?? []) as any,
       resources: (resourcesQ.data?.items ?? []) as any,
       simulations: (simulationsQ.data?.items ?? []) as any,
       summaries: (summaryQ.data?.raw ?? []) as any,
-      questionsCount: questionsQ.data?.count ?? 0,
-      assessmentsCount: assessmentsQ.data?.assessmentsCount ?? 0,
-      lessonExamCount: assessmentsQ.data?.lessonExamCount ?? 0,
+      officialQuestionsCount: questionsQ.data?.officialBook.count ?? 0,
+      selfTestQuestionsCount: questionsQ.data?.selfTest.count ?? 0,
+      assessmentsCount: 0,
+      lessonExamCount: 0,
       performanceTrackable: true,
       enhancementsAccessible: true,
     }),
     lifecycleMap,
   );
+  const hasSourceLoadError = [
+    bookQ,
+    summaryQ,
+    explanationsQ,
+    questionsQ,
+    resourcesQ,
+    simulationsQ,
+  ].some((query) => query.isError);
 
   return (
     <AdminLayout>
@@ -395,37 +403,15 @@ function AdminLessonDetailPage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-12 justify-start gap-2"
-            onClick={() => setOpenExplanationsDialog(true)}
-          >
-            <FileText className="h-4 w-4 text-primary" />
-            إدارة الشروحات وحذفها
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-12 justify-start gap-2"
-            onClick={() => setOpenResourcesDialog(true)}
-          >
-            <FolderOpen className="h-4 w-4 text-primary" />
-            إدارة الموارد وحذفها
-          </Button>
-        </div>
-
         <LessonContentWorkspace
           lessonId={lessonId}
           contract={capabilityContract}
           lifecycle={lifecycleStatuses}
-          onTransition={(cap, to) => void runTransition(cap, to)}
-          pendingCapability={pendingCapability}
+          applicability={applicability}
           header={{
             subjectName,
             gradeName: gradeQ.data ?? "—",
-            trackNames: unitTitle,
+            trackNames: trackQ.data ?? "—",
             lessonTitle: (lesson as any).title,
             lessonCode: (lesson as any).slug ?? (lesson as any).id.slice(0, 8),
           }}
@@ -436,9 +422,15 @@ function AdminLessonDetailPage() {
             mindMap: () => setOpenResourcesDialog(true),
             simulation: () => setOpenResourcesDialog(true),
             supportingResources: () => setOpenResourcesDialog(true),
-            originalBookPdf: () => setOpenResourcesDialog(true),
           }}
         />
+
+        {hasSourceLoadError && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            تعذر تحميل بعض مصادر المحتوى. القيم غير المحمّلة عوملت كغير جاهزة، ولا ينبغي اتخاذ قرار
+            اعتماد قبل إعادة تحميل الصفحة بنجاح.
+          </div>
+        )}
 
         {/* Basic info */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -446,36 +438,31 @@ function AdminLessonDetailPage() {
           <Stat label="الوحدة" value={unitTitle} />
           <Stat label="الصف" value={gradeQ.data ?? "—"} />
           <Stat label="الترتيب" value={(lesson as any).sort_order ?? 0} />
-          <Stat label="المدة" value={(lesson as any).duration || "—"} />
-          <Stat label="الفيديو" value={<YesNo on={hasVideo} />} />
-          <Stat label="ملف الدرس (PDF)" value={<YesNo on={hasLessonPdf} />} />
           <Stat
-            label="معرّف الدرس"
-            value={<span className="font-mono text-[11px]">{(lesson as any).id.slice(0, 8)}…</span>}
+            label="المدة"
+            value={(lesson as any).duration ? `${(lesson as any).duration} دقيقة` : "—"}
+          />
+          <Stat
+            label="رمز الدرس"
+            value={
+              <span className="font-mono text-[11px]">
+                {(lesson as any).slug || `${(lesson as any).id.slice(0, 8)}…`}
+              </span>
+            }
           />
         </div>
 
-        {/* Book contents */}
-        <Section title="محتوى الكتاب">
+        <Section title="تفاصيل محتوى الكتاب">
           {bookQ.isLoading ? (
             <Loading />
           ) : (
             <>
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  عدد السجلات:{" "}
-                  <span className="text-foreground font-medium">
-                    {bookQ.data?.display?.length ?? 0}
-                  </span>
-                </p>
-                <button
-                  onClick={() => setOpenBookDialog(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-muted"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  تحرير محتوى الكتاب
-                </button>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                عدد السجلات:{" "}
+                <span className="text-foreground font-medium">
+                  {bookQ.data?.display?.length ?? 0}
+                </span>
+              </p>
               {(bookQ.data?.display ?? []).map((b: any, idx: number) => (
                 <div
                   key={b.id}
@@ -484,13 +471,12 @@ function AdminLessonDetailPage() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-muted-foreground">سجل #{idx + 1}</span>
                     <span>
-                      PDF: <YesNo on={b.hasPdf} />
+                      مرفق PDF قديم: <YesNo on={b.hasPdf} />
                     </span>
                   </div>
                   {b.preview && (
                     <p className="mt-2 line-clamp-3 text-foreground/80 whitespace-pre-wrap">
                       {b.preview}
-                      {b.preview.length >= 200 ? "…" : ""}
                     </p>
                   )}
                 </div>
@@ -499,66 +485,55 @@ function AdminLessonDetailPage() {
           )}
         </Section>
 
-        {/* Summary */}
-        <Section title="الملخص">
+        <Section title="تفاصيل ملخص الدرس">
           {summaryQ.isLoading ? (
             <Loading />
           ) : (
             <>
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  عدد السجلات:{" "}
-                  <span className="text-foreground font-medium">{summaryQ.data?.count ?? 0}</span>
-                </p>
-                <button
-                  onClick={() => setOpenSummaryDialog(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-muted"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  تحرير ملخص الدرس
-                </button>
-              </div>
-              {summaryQ.data && summaryQ.data.count > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                عدد السجلات:{" "}
+                <span className="text-foreground font-medium">{summaryQ.data?.count ?? 0}</span>
+              </p>
+              {summaryQ.data && summaryQ.data.usableCount > 0 ? (
                 <>
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    <Stat label="الحالة" value={<YesNo on={true} />} />
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Stat label="السجلات الصالحة" value={summaryQ.data.usableCount} />
                     <Stat label="النقاط الرئيسية" value={summaryQ.data.keyPointsCount} />
                   </div>
                   {summaryQ.data.preview && (
                     <p className="mt-3 line-clamp-3 rounded-lg border border-border bg-muted/30 p-3 text-xs text-foreground/80 whitespace-pre-wrap">
                       {summaryQ.data.preview}
-                      {summaryQ.data.preview.length >= 200 ? "…" : ""}
                     </p>
                   )}
                 </>
               ) : (
                 <p className="mt-3 text-sm text-muted-foreground">لا يوجد ملخص.</p>
               )}
+              {(summaryQ.data?.invalidCount ?? 0) > 0 && (
+                <p className="mt-2 text-[11px] text-destructive">
+                  توجد {summaryQ.data?.invalidCount} سجلات فارغة لا تُحتسب في الجاهزية.
+                </p>
+              )}
             </>
           )}
         </Section>
 
-        {/* Explanations */}
-        <Section title="الشروحات">
+        <Section title="تفاصيل شرح تمكين">
           {explanationsQ.isLoading ? (
             <Loading />
           ) : (
             <>
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  عدد الشروحات:{" "}
-                  <span className="text-foreground font-medium">
-                    {explanationsQ.data?.count ?? 0}
-                  </span>
+              <p className="text-sm text-muted-foreground">
+                عدد الشروحات الصالحة:{" "}
+                <span className="text-foreground font-medium">
+                  {explanationsQ.data?.count ?? 0}
+                </span>
+              </p>
+              {(explanationsQ.data?.invalidCount ?? 0) > 0 && (
+                <p className="mt-1 text-[11px] text-destructive">
+                  توجد {explanationsQ.data?.invalidCount} سجلات فارغة لا تُحتسب في الجاهزية.
                 </p>
-                <button
-                  onClick={() => setOpenExplanationsDialog(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-muted"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  إدارة شروحات الدرس
-                </button>
-              </div>
+              )}
               {(explanationsQ.data?.items ?? []).length > 0 && (
                 <ul className="mt-3 space-y-1 text-xs text-foreground/80">
                   {explanationsQ.data!.items.map((e: any, idx: number) => (
@@ -575,26 +550,54 @@ function AdminLessonDetailPage() {
           )}
         </Section>
 
-        {/* Questions */}
-        <Section title="الأسئلة">
+        <Section title="تفاصيل أسئلة الكتاب واختبر فهمك">
           {questionsQ.isLoading ? (
             <Loading />
           ) : (
             <>
-              <p className="text-sm text-muted-foreground">
-                عدد الأسئلة:{" "}
-                <span className="text-foreground font-medium">{questionsQ.data?.count ?? 0}</span>
-              </p>
-              {Object.keys(questionsQ.data?.types ?? {}).length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {Object.entries(questionsQ.data!.types).map(([t, n]) => (
-                    <span
-                      key={t}
-                      className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs text-foreground"
-                    >
-                      {t} <span className="text-muted-foreground">×{n}</span>
-                    </span>
-                  ))}
+              <div className="grid gap-3 md:grid-cols-2">
+                {[
+                  ["أسئلة الكتاب", questionsQ.data?.officialBook],
+                  ["اختبر فهمك", questionsQ.data?.selfTest],
+                ].map(([label, value]) => {
+                  const summary = value as NonNullable<typeof questionsQ.data>["officialBook"];
+                  return (
+                    <div key={label as string} className="rounded-lg border border-border p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-medium text-foreground">{label as string}</h3>
+                        <span className="text-xs text-muted-foreground">
+                          {summary?.count ?? 0} سؤالًا
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        المنشور حاليًا: {summary?.publishedCount ?? 0}
+                      </p>
+                      {Object.keys(summary?.types ?? {}).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {Object.entries(summary.types).map(([type, count]) => (
+                            <span
+                              key={type}
+                              className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-foreground"
+                            >
+                              {questionTypeLabelAr(type)}{" "}
+                              <span className="text-muted-foreground">×{count}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {((questionsQ.data?.unclassifiedCount ?? 0) > 0 ||
+                (questionsQ.data?.invalidSelfTestCount ?? 0) > 0) && (
+                <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                  {(questionsQ.data?.unclassifiedCount ?? 0) > 0 && (
+                    <p>غير مصنفة تعليميًا: {questionsQ.data?.unclassifiedCount}</p>
+                  )}
+                  {(questionsQ.data?.invalidSelfTestCount ?? 0) > 0 && (
+                    <p>اختبر فهمك ببنية غير صالحة: {questionsQ.data?.invalidSelfTestCount}</p>
+                  )}
                 </div>
               )}
               <p className="mt-2 text-[11px] text-muted-foreground">
@@ -604,56 +607,32 @@ function AdminLessonDetailPage() {
           )}
         </Section>
 
-        {/* Resources */}
-        <Section title="الموارد">
+        <Section title="تفاصيل الخريطة الذهنية والتجربة المعملية">
           {resourcesQ.isLoading ? (
             <Loading />
           ) : (
             <>
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  عدد الموارد:{" "}
-                  <span className="text-foreground font-medium">{resourcesQ.data?.count ?? 0}</span>
-                </p>
-                <button
-                  onClick={() => setOpenResourcesDialog(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-muted"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  إدارة موارد الدرس
-                </button>
+              <div className="grid grid-cols-2 gap-3">
+                <Stat label="الخريطة الذهنية" value={capabilityContract.mindMap.count} />
+                <Stat label="التجربة المعملية" value={capabilityContract.simulation.count} />
               </div>
-              {Object.keys(resourcesQ.data?.types ?? {}).length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {Object.entries(resourcesQ.data!.types).map(([t, n]) => (
-                    <span
-                      key={t}
-                      className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs text-foreground"
-                    >
-                      {t} <span className="text-muted-foreground">×{n}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
               {(resourcesQ.data?.items ?? []).length > 0 && (
                 <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
                   {resourcesQ.data!.items.map((r: any) => (
                     <li key={r.id} className="flex items-center gap-2">
                       <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">
-                        {r.resource_type}
+                        {resourceCategoryLabel(r)}
                       </span>
                       <span className="text-foreground/80">{r.title}</span>
                     </li>
                   ))}
                 </ul>
               )}
-              <p className="mt-2 text-[11px] text-muted-foreground">لا تُعرض روابط الموارد.</p>
             </>
           )}
         </Section>
 
-        {/* Simulations */}
-        <Section title="التجارب والمحاكاة">
+        <Section title="تفاصيل المحاكاة القديمة">
           {simulationsQ.isLoading ? (
             <Loading />
           ) : (
@@ -669,13 +648,11 @@ function AdminLessonDetailPage() {
                   ))}
                 </ul>
               )}
-              <p className="mt-2 text-[11px] text-muted-foreground">لا تُعرض روابط المحاكاة.</p>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                هذه سجلات قديمة تُحتسب ضمن «التجربة المعملية» عند وجودها.
+              </p>
             </>
           )}
-        </Section>
-
-        <Section title="ملف الدرس الأساسي (PDF)">
-          <LessonPrimaryPdfCard lessonId={lessonId} enabled={enabled} />
         </Section>
 
         <LessonBookContentDialog

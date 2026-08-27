@@ -12,7 +12,7 @@ export const GOLDEN_QURAN_V1: GoldenLessonProfile = {
     lessonSummaryHtml: "REQUIRED",
     mindMapHtml: "REQUIRED",
     labExperimentHtml: "OPTIONAL",
-    officialBookQuestions: "OPTIONAL",
+    officialBookQuestions: "REQUIRED",
     selfTest: "REQUIRED",
   },
   notesAr: [
@@ -34,7 +34,7 @@ export const GOLDEN_CHEMISTRY_V1: GoldenLessonProfile = {
     lessonSummaryHtml: "REQUIRED",
     mindMapHtml: "REQUIRED",
     labExperimentHtml: "OPTIONAL",
-    officialBookQuestions: "OPTIONAL",
+    officialBookQuestions: "REQUIRED",
     selfTest: "REQUIRED",
   },
   notesAr: [

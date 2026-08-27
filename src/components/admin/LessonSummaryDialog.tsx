@@ -124,6 +124,7 @@ export function LessonSummaryDialog({ open, onOpenChange, lessonId, lessonTitle,
       await qc.invalidateQueries({
         queryKey: ["admin-lesson-detail", "summary", lessonId],
       });
+      await qc.invalidateQueries({ queryKey: ["admin-lesson-lifecycle", lessonId] });
       onOpenChange(false);
     } catch (e: any) {
       toast.error("تعذر حفظ ملخص الدرس.");

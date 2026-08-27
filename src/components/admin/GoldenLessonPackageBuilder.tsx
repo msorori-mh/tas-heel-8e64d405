@@ -75,12 +75,12 @@ import { contentImportTemplateDownloadUrl } from "@/lib/content-import/content-i
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 const CAPABILITY_LABEL: Record<GoldenCapability, string> = {
-  officialBookContent: "محتوى الكتاب المدرسي",
+  officialBookContent: "محتوى الكتاب",
   tamkeenExplanationHtml: "شرح تمكين",
   lessonSummaryHtml: "ملخص الدرس",
   mindMapHtml: "الخريطة الذهنية",
-  labExperimentHtml: "التجارب المعملية والتطبيقية",
-  officialBookQuestions: "أنشطة وأسئلة الدرس",
+  labExperimentHtml: "التجربة المعملية",
+  officialBookQuestions: "أسئلة الكتاب",
   selfTest: "اختبر فهمك",
 };
 
