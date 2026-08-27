@@ -5624,6 +5624,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      lesson_capability_ready: {
+        Args: { _capability: string; _lesson_id: string }
+        Returns: boolean
+      }
       lesson_capability_transition: {
         Args: {
           _capability: string
@@ -5637,6 +5641,14 @@ export type Database = {
       lesson_is_editorially_managed: {
         Args: { _lesson_id: string }
         Returns: boolean
+      }
+      lesson_resource_capability: {
+        Args: {
+          _html_resource_type: string
+          _is_primary: boolean
+          _resource_type: string
+        }
+        Returns: string
       }
       lesson_student_content_gate: {
         Args: { _lesson_id: string }
