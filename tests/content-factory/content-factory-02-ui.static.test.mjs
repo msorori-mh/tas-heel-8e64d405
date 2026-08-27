@@ -53,13 +53,13 @@ test("exactly six capabilities are required and only the lab is optional", () =>
     assert.match(profiles, new RegExp(id));
   const required = profiles.match(/: "REQUIRED"/g) ?? [];
   const optional = profiles.match(/: "OPTIONAL"/g) ?? [];
-  assert.equal(required.length, 12);
-  assert.equal(optional.length, 2);
+  assert.equal(required.length, 10);
+  assert.equal(optional.length, 4);
   assert.equal((profiles.match(/labExperimentHtml: "OPTIONAL"/g) ?? []).length, 2);
-  assert.equal((profiles.match(/officialBookQuestions: "REQUIRED"/g) ?? []).length, 2);
+  assert.equal((profiles.match(/officialBookQuestions: "OPTIONAL"/g) ?? []).length, 2);
   assert.doesNotMatch(
     profiles,
-    /mindMapHtml: "OPTIONAL"|officialBookQuestions: "OPTIONAL"|selfTest: "OPTIONAL"|labExperimentHtml: "NA"/,
+    /mindMapHtml: "OPTIONAL"|selfTest: "OPTIONAL"|labExperimentHtml: "NA"/,
   );
 });
 
