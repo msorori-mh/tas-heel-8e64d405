@@ -3,6 +3,11 @@ CREATE OR REPLACE FUNCTION public.cf10_batch(code text) RETURNS uuid LANGUAGE sq
   SELECT b.id FROM public.golden_lesson_domain_stage_batches b
     JOIN public.golden_lesson_packages p ON p.id=b.package_id WHERE p.package_code=code $$;
 
+-- Simulate the production failure: this bound lesson already has legacy authored
+-- content, while the verified package contains a different official-book payload.
+INSERT INTO public.lesson_book_contents(lesson_id, content)
+VALUES ('43000000-0000-0000-0000-000000000001', 'CF10_LEGACY_BOOK_CONTENT');
+
 SET ROLE service_role;
 
 -- 1) DRY_RUN performs no writes and returns a deterministic plan hash.
@@ -12,7 +17,11 @@ SELECT set_config('cf10.plan',
      '10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256'), false);
 RESET ROLE;
 
-SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_book_contents),'dry run wrote no book content');
+SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_book_contents),
+  'dry run preserves the pre-existing book row');
+SELECT public.cf04_assert((SELECT content='CF10_LEGACY_BOOK_CONTENT'
+  FROM public.lesson_book_contents WHERE lesson_id='43000000-0000-0000-0000-000000000001'),
+  'dry run leaves the pre-existing book bytes unchanged');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.questions),'dry run wrote no questions');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.lesson_capability_lifecycle),'dry run wrote no lifecycle');
 SELECT public.cf04_assert((SELECT count(*)=0 FROM public.golden_lesson_domain_materializations),'dry run wrote no ledger row');
@@ -67,6 +76,18 @@ RESET ROLE;
 
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.golden_lesson_domain_materializations),'exactly one ledger row');
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_book_contents),'official book content written once');
+SELECT public.cf04_assert((SELECT public.cf10_text_sha256(b.content) = e.source_sha256
+  FROM public.lesson_book_contents b
+  JOIN public.golden_lesson_domain_stage_entries e
+    ON e.batch_id=public.cf10_batch('QURAN-G10-L03-PKG')
+   AND e.capability='officialBookContent'
+ WHERE b.lesson_id='43000000-0000-0000-0000-000000000001'),
+  'managed revision replaces legacy book content with the verified staged bytes');
+SELECT public.cf04_assert((SELECT write_plan->'managedRevision'->>'policy' =
+  'HASH_PINNED_COMPARE_AND_SWAP'
+  FROM public.golden_lesson_domain_materializations
+  WHERE batch_id=public.cf10_batch('QURAN-G10-L03-PKG')),
+  'ledger records the reviewed managed-revision policy');
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_explanations),'tamkeen explanation written once');
 SELECT public.cf04_assert((SELECT count(*)=1 FROM public.lesson_summaries),'lesson summary written once');
 SELECT public.cf04_assert((SELECT count(*)=7 FROM public.lesson_capability_lifecycle),'seven lifecycle rows');
@@ -291,7 +312,7 @@ BEGIN
 END $$;
 ROLLBACK;
 
--- 9e) A diverging lifecycle row (hash / status / applicability) is a conflict.
+-- 9e) Lifecycle drift after DRY_RUN invalidates the reviewed plan before writes.
 BEGIN;
 ALTER TABLE public.golden_lesson_domain_materializations DISABLE TRIGGER golden_materialization_immutable;
 DO $$
@@ -300,16 +321,16 @@ BEGIN
   b := public.cf10_batch('QURAN-G10-L04-PKG');
   SELECT lesson_id INTO l4 FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
   DELETE FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
-  UPDATE public.lesson_capability_lifecycle SET draft_hash = repeat('e',64)
-   WHERE lesson_id = l4 AND capability = 'mindMap';
   sha := public.golden_lesson_materialize_domain_batch(
            b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
+  UPDATE public.lesson_capability_lifecycle SET draft_hash = repeat('e',64)
+   WHERE lesson_id = l4 AND capability = 'mindMap';
   BEGIN
     PERFORM public.golden_lesson_materialize_domain_batch(
       b,'10000000-0000-0000-0000-000000000003','EXECUTE',sha,'cf10-key-r3-e');
-    RAISE EXCEPTION 'CF10_EXPECTED_LIFECYCLE_CONFLICT';
+    RAISE EXCEPTION 'CF10_EXPECTED_LIFECYCLE_PLAN_DRIFT';
   EXCEPTION WHEN check_violation THEN
-    IF SQLERRM NOT LIKE '%CF10_LIFECYCLE_CONFLICT%' THEN RAISE; END IF;
+    IF SQLERRM NOT LIKE '%CF10_WRITE_PLAN_HASH_MISMATCH%' THEN RAISE; END IF;
   END;
 END $$;
 ROLLBACK;
@@ -1097,4 +1118,3 @@ END $$;
 RESET ROLE;
 
 SELECT 'PASS_CONTENT_FACTORY_10_PG17' AS verdict;
-

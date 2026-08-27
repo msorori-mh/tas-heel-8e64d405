@@ -31,4 +31,5 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-10-r8-production-search-path.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-10-fixture.sql" \
   -f "$root_dir/supabase/migrations-pending/20260819230000_content_factory_10_domain_materialization.sql" \
+  -f "$root_dir/supabase/migrations/20260827010000_cf10_managed_content_revision.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-10-assert.sql"
