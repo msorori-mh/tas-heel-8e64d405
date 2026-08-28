@@ -40,7 +40,9 @@ import {
   assertRequiredColumns,
   buildMinisterialModelCode,
   describeBlockReason,
+  describeM01OperatorIssues,
   normalizeM01OperatorRow,
+  normalizeM01OperatorRows,
   PREVIEW_ACTION_LABEL_AR,
 } from "@/lib/ministerial/ministerial-import-contract";
 import {
@@ -286,9 +288,16 @@ function AdminMinisterialExamsPage() {
           M01_OPERATOR_REQUIRED_COLUMNS,
           MINISTERIAL_TEMPLATE_KEYS.m01,
         );
-        const result = await prepareM01(
-          parsed.rows.map((row) => compact(normalizeM01OperatorRow(row), M01_COLUMNS)),
-        );
+        const batch = normalizeM01OperatorRows(parsed.rows, parsed.headers);
+        if (batch.issues.length > 0) {
+          throw new Error(describeM01OperatorIssues(batch.issues));
+        }
+        if (batch.overriddenColumns.length > 0) {
+          toast.warning(
+            `تم تجاهل أعمدة يولّدها النظام: ${batch.overriddenColumns.join("، ")}. كل النماذج ستُنشأ بالدور ${DEFAULT_MINISTERIAL_ROUND_CODE} والرمز ${DEFAULT_MINISTERIAL_VARIANT_CODE}، فالصفوف التي كانت تختلف بالدور فقط ستظهر محجوبة كصفوف مكررة.`,
+          );
+        }
+        const result = await prepareM01(batch.rows.map((row) => compact(row, M01_COLUMNS)));
         setM01Prepare(result);
       } else {
         assertNoForbiddenM02Columns(parsed.headers);
