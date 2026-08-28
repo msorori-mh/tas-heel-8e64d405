@@ -166,6 +166,83 @@ BEGIN
 END $$;
 
 -- =====================================================================================
+-- 3b) LCIP-03: publishing a SECOND component must not demote the first.
+--
+--     The first partial publish worked; the second failed, because publish moved every
+--     capability to REVIEW including the one already READY, and cf11_assert_demotion_allowed
+--     refuses READY -> REVIEW. That is the defect that kept staff uploading all seven.
+-- =====================================================================================
+DO $$
+DECLARE
+  d text;
+BEGIN
+  SELECT pg_get_functiondef(p.oid) INTO d
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'golden_lesson_publish_cf11';
+  IF d IS NULL THEN
+    RAISE EXCEPTION 'LCIP03_PUBLISH_FUNCTION_MISSING';
+  END IF;
+
+  -- The transition loop must no longer demote an already published component.
+  IF position('IS DISTINCT FROM ''READY'' THEN' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP03_PUBLISH_STILL_DEMOTES_READY';
+  END IF;
+  -- And the staged-set assertion must count READY as staged.
+  IF position('status IN (''REVIEW'', ''READY'')' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP03_PUBLISH_REVIEW_SET_STILL_EXCLUDES_READY';
+  END IF;
+
+  SELECT pg_get_functiondef(p.oid) INTO d
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'golden_lesson_attest_cf11_ready';
+  IF position('status IN (''REVIEW'', ''READY'')' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP03_ATTEST_REVIEW_SET_STILL_EXCLUDES_READY';
+  END IF;
+
+  -- The demotion guard itself must survive: un-publishing still needs a revocation.
+  IF NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                  WHERE n.nspname='public' AND p.proname='cf11_assert_demotion_allowed') THEN
+    RAISE EXCEPTION 'LCIP03_DEMOTION_GUARD_LOST';
+  END IF;
+
+  RAISE NOTICE 'LCIP03 second-component publish proof passed.';
+END $$;
+
+-- The demotion guard must still refuse a real un-publish. Relaxing the publish path
+-- must not have opened a way to pull a live component without a revocation ticket.
+DO $$
+DECLARE
+  v_subject uuid := '42000000-0000-0000-0000-000000000012';
+  v_lesson  uuid := '43000000-0000-0000-0000-0000000000a3';
+  v_refused boolean := false;
+BEGIN
+  INSERT INTO public.lessons(id, slug, subject_id, unit_id, title, is_free, semester, sort_order)
+  VALUES (v_lesson, 'lcip03-demotion', v_subject, NULL, 'LCIP-03 demotion', true, 1, 92)
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO public.lesson_capability_lifecycle (lesson_id, capability, status, applicability)
+  SELECT v_lesson, c, 'READY', 'REQUIRED'
+    FROM unnest(public.cf11_lifecycle_capabilities()) AS t(c)
+  ON CONFLICT (lesson_id, capability) DO UPDATE SET status = 'READY';
+
+  BEGIN
+    PERFORM public.cf11_assert_demotion_allowed(
+      v_lesson, 'officialBookContent', 'READY', 'REVIEW', 'REQUIRED', 'lcip03-proof');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE '%CF11_DIRECT_TRANSITION_FORBIDDEN%' THEN
+      RAISE EXCEPTION 'LCIP03_DEMOTION_GUARD_WRONG_ERROR: %', SQLERRM;
+    END IF;
+    v_refused := true;
+  END;
+
+  IF NOT v_refused THEN
+    RAISE EXCEPTION 'LCIP03_DEMOTION_GUARD_NO_LONGER_REFUSES_UNPUBLISH';
+  END IF;
+
+  RAISE NOTICE 'LCIP03 demotion guard still refuses un-publish.';
+END $$;
+
+-- =====================================================================================
 -- 4) Staging: a package describing the seven records but carrying ONE file is accepted,
 --    and one carrying none is refused.
 -- =====================================================================================
