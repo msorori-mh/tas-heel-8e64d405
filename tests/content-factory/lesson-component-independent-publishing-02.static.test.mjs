@@ -66,40 +66,30 @@ test("the student surface still renders strictly from the READY set", () => {
  * migration and its proof script must be named in the workflow.
  */
 /**
- * The two migrations need different databases. The Content V3 container never builds
- * CF11, so the CF11 half must ride the CF04–CF11 rehearsal instead; putting it in the
- * wrong job fails on a missing pgcrypto prerequisite rather than on the change itself.
+ * Both migrations need the CF10/CF11 chain: lesson_student_visible references
+ * lesson_is_editorially_managed, and the authored-subset helper needs
+ * cf11_lifecycle_capabilities and v3_capability_snapshot. Only the CF04–CF11 rehearsal
+ * builds that, so the whole proof rides there — the Content V3 container cannot even
+ * apply the migrations, let alone prove them.
  */
-test("each migration is exercised by a PG17 gate that can actually run it", () => {
+test("both migrations are exercised by a PG17 gate that can actually run them", () => {
   const workflow = readFileSync(".github/workflows/web-ci.yml", "utf8");
   const rehearsal = readFileSync(
     "scripts/content-factory/pg17/rehearse-content-factory-11.sh",
     "utf8",
   );
 
-  // Content V3 job: manifest rule + visibility gate only.
-  assert.match(
-    workflow,
-    /supabase\/migrations\/20260831010000_lesson_component_independent_publishing_02\.sql/,
-  );
-  assert.match(
-    workflow,
-    /scripts\/content-v3\/lesson-component-independent-publishing-02-pg17\.sql/,
-  );
-  assert.doesNotMatch(
-    workflow,
-    /supabase\/migrations\/20260831020000_cf11_ready_scoped_to_authored_components\.sql/,
-  );
+  for (const path of [
+    "supabase/migrations/20260831010000_lesson_component_independent_publishing_02.sql",
+    "supabase/migrations/20260831020000_cf11_ready_scoped_to_authored_components.sql",
+    "scripts/content-factory/pg17/lesson-component-independent-publishing-02-cf11-pg17.sql",
+  ]) {
+    assert.ok(rehearsal.includes(path), `CF11 rehearsal does not run ${path}`);
+  }
 
-  // CF11 rehearsal: the authored-subset helper and the attestation change.
-  assert.match(
-    rehearsal,
-    /supabase\/migrations\/20260831020000_cf11_ready_scoped_to_authored_components\.sql/,
-  );
-  assert.match(
-    rehearsal,
-    /scripts\/content-factory\/pg17\/lesson-component-independent-publishing-02-cf11-pg17\.sql/,
-  );
+  // The migrations must NOT be applied in the Content V3 job, which has no CF10/CF11.
+  assert.doesNotMatch(workflow, /20260831010000_lesson_component_independent_publishing_02\.sql/);
+  assert.doesNotMatch(workflow, /20260831020000_cf11_ready_scoped_to_authored_components\.sql/);
 
   assert.match(
     workflow,
@@ -178,7 +168,7 @@ test("the migration records the visibility rule production already runs", () => 
 
 test("the PG17 proof covers publish, isolation and demotion, not just the happy path", () => {
   const proof = readFileSync(
-    "scripts/content-v3/lesson-component-independent-publishing-02-pg17.sql",
+    "scripts/content-factory/pg17/lesson-component-independent-publishing-02-cf11-pg17.sql",
     "utf8",
   );
   assert.match(proof, /LCIP02_DRAFT_ONLY_LESSON_IS_VISIBLE/);

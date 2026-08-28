@@ -134,15 +134,6 @@ jobs:
             --file supabase/migrations/20260826040000_independent_lesson_component_publishing.sql \
             --file scripts/content-v3/independent-component-publishing-pg17.sql
 
-      - name: Verify independent component publishing 02 on PG17
-        env:
-          TAMKEEN_PG17_LOCAL_URL: postgresql://postgres:tamkeen_ci_only@localhost:5432/tamkeen
-        run: |
-          psql "$TAMKEEN_PG17_LOCAL_URL" --set=ON_ERROR_STOP=1 \
-            --file supabase/migrations/20260827030000_golden_lesson_required_official_questions.sql \
-            --file supabase/migrations/20260831010000_lesson_component_independent_publishing_02.sql \
-            --file scripts/content-v3/lesson-component-independent-publishing-02-pg17.sql
-
       - name: Stop isolated PostgreSQL 17
         if: always()
         run: docker stop tamkeen-content-v3-pg17 || true

@@ -1,53 +1,137 @@
--- LESSON_COMPONENT_INDEPENDENT_PUBLISHING_02 — CF11 half of the PG17 proof.
+-- LESSON_COMPONENT_INDEPENDENT_PUBLISHING_02 — PG17 proof.
 --
--- Runs at the end of the CF04–CF11 rehearsal, where the whole publication chain
--- exists. The other half (visibility gate + staged manifest) runs in the Content V3
--- job, which does not build CF11 and therefore cannot exercise this.
+-- Runs at the end of the CF04–CF11 rehearsal, after both LCIP-02 migrations. The
+-- whole proof lives here rather than in the Content V3 job because it needs the CF10
+-- and CF11 chain: lesson_is_editorially_managed, lesson_student_content_gate,
+-- cf11_lifecycle_capabilities and v3_capability_snapshot all come from it.
 --
--- Proves the authored-subset helper and that the relaxation did not widen any guard.
+-- Everything below builds on rows the rehearsal already created — the CHEM-G12
+-- subject and the fully published Iron lesson — so no table shape is assumed.
 
--- LCIP-02: the authored-subset helper is the whole basis of the CF11 relaxation, so it
--- is proved directly: it must name exactly the capabilities that carry content.
+-- =====================================================================================
+-- 1) Visibility: a lesson opens on ONE published component and never leaks the rest.
+-- =====================================================================================
 DO $$
 DECLARE
-  v_lesson uuid := '33000000-0000-0000-0000-000000000003';
-  v_subject uuid := '22000000-0000-0000-0000-000000000003';
+  v_subject uuid := '42000000-0000-0000-0000-000000000012';  -- CHEM-G12, from the fixture
+  v_lesson  uuid := '43000000-0000-0000-0000-0000000000a1';
+  v_visible boolean;
+  v_ready   text[];
+BEGIN
+  INSERT INTO public.lessons(id, slug, subject_id, unit_id, title, is_free, semester, sort_order)
+  VALUES (v_lesson, 'lcip02-visibility', v_subject, NULL, 'LCIP-02 visibility', true, 1, 90)
+  ON CONFLICT (id) DO NOTHING;
+
+  -- A lesson whose only authored component is still DRAFT stays hidden.
+  INSERT INTO public.lesson_capability_lifecycle (lesson_id, capability, status, applicability)
+  VALUES (v_lesson, 'officialBookContent', 'DRAFT', 'REQUIRED')
+  ON CONFLICT (lesson_id, capability) DO UPDATE SET status = 'DRAFT';
+
+  IF public.lesson_student_visible(v_lesson) THEN
+    RAISE EXCEPTION 'LCIP02_DRAFT_ONLY_LESSON_IS_VISIBLE';
+  END IF;
+
+  -- A single READY component publishes the lesson on its own. This is the whole point:
+  -- the other six are absent, and the lesson is still reachable.
+  UPDATE public.lesson_capability_lifecycle
+     SET status = 'READY', ready_at = now()
+   WHERE lesson_id = v_lesson AND capability = 'officialBookContent';
+
+  IF NOT public.lesson_student_visible(v_lesson) THEN
+    RAISE EXCEPTION 'LCIP02_SINGLE_READY_COMPONENT_STILL_HIDDEN';
+  END IF;
+
+  -- A sibling in DRAFT and a sibling in REVIEW must not leak into the readable set
+  -- just because the lesson opened.
+  INSERT INTO public.lesson_capability_lifecycle (lesson_id, capability, status, applicability)
+  VALUES (v_lesson, 'quickReview', 'DRAFT', 'REQUIRED'),
+         (v_lesson, 'mindMap', 'REVIEW', 'REQUIRED')
+  ON CONFLICT (lesson_id, capability) DO UPDATE SET status = EXCLUDED.status;
+
+  SELECT ready_capabilities INTO v_ready FROM public.lesson_student_content_gate(v_lesson);
+  IF v_ready IS DISTINCT FROM ARRAY['officialBookContent']::text[] THEN
+    RAISE EXCEPTION 'LCIP02_GATE_LEAKED_UNREADY_COMPONENTS: [%]', array_to_string(v_ready, ',');
+  END IF;
+
+  -- Publishing a second component adds it without disturbing the first.
+  UPDATE public.lesson_capability_lifecycle
+     SET status = 'READY', ready_at = now()
+   WHERE lesson_id = v_lesson AND capability = 'mindMap';
+
+  SELECT ready_capabilities INTO v_ready FROM public.lesson_student_content_gate(v_lesson);
+  IF v_ready IS DISTINCT FROM ARRAY['mindMap','officialBookContent']::text[] THEN
+    RAISE EXCEPTION 'LCIP02_SECOND_COMPONENT_NOT_INDEPENDENT: [%]', array_to_string(v_ready, ',');
+  END IF;
+
+  -- Demoting one published component must not unpublish the other.
+  UPDATE public.lesson_capability_lifecycle
+     SET status = 'DRAFT', ready_at = NULL
+   WHERE lesson_id = v_lesson AND capability = 'officialBookContent';
+
+  IF NOT public.lesson_student_visible(v_lesson) THEN
+    RAISE EXCEPTION 'LCIP02_SIBLING_DEMOTION_HID_THE_LESSON';
+  END IF;
+  SELECT ready_capabilities INTO v_ready FROM public.lesson_student_content_gate(v_lesson);
+  IF v_ready IS DISTINCT FROM ARRAY['mindMap']::text[] THEN
+    RAISE EXCEPTION 'LCIP02_DEMOTED_COMPONENT_STILL_READABLE: [%]', array_to_string(v_ready, ',');
+  END IF;
+
+  -- When every component falls back to DRAFT the lesson closes again.
+  UPDATE public.lesson_capability_lifecycle
+     SET status = 'DRAFT', ready_at = NULL WHERE lesson_id = v_lesson;
+  IF public.lesson_student_visible(v_lesson) THEN
+    RAISE EXCEPTION 'LCIP02_LESSON_STAYED_VISIBLE_WITH_NOTHING_READY';
+  END IF;
+
+  RAISE NOTICE 'LCIP02 visibility proof passed.';
+END $$;
+
+-- =====================================================================================
+-- 2) The authored-subset helper is the whole basis of the CF11 relaxation, so it is
+--    proved against real rows: nothing authored versus the fixture's published lesson.
+-- =====================================================================================
+DO $$
+DECLARE
+  v_subject uuid := '42000000-0000-0000-0000-000000000012';
+  v_bare    uuid := '43000000-0000-0000-0000-0000000000a2';
+  v_iron    uuid := '43000000-0000-0000-0000-000000000012';  -- published by the rehearsal
   v_authored text[];
 BEGIN
-  INSERT INTO public.subjects (id, code, name)
-  VALUES (v_subject, 'LCIP02B', 'Authored subset fixture') ON CONFLICT DO NOTHING;
-  INSERT INTO public.lessons (id, subject_id, slug, title, is_free)
-  VALUES (v_lesson, v_subject, 'lcip02-authored-subset', 'Authored subset', true)
-  ON CONFLICT DO NOTHING;
+  INSERT INTO public.lessons(id, slug, subject_id, unit_id, title, is_free, semester, sort_order)
+  VALUES (v_bare, 'lcip02-bare', v_subject, NULL, 'LCIP-02 bare', true, 1, 91)
+  ON CONFLICT (id) DO NOTHING;
 
   -- Nothing authored at all: the helper must be empty, which is what makes
   -- CF11_NO_AUTHORED_CAPABILITY reachable instead of a silent empty publication.
-  v_authored := public.cf11_authored_capabilities(v_lesson);
+  v_authored := public.cf11_authored_capabilities(v_bare);
   IF array_length(v_authored, 1) IS NOT NULL THEN
-    RAISE EXCEPTION 'LCIP02_EMPTY_LESSON_REPORTED_AUTHORED: [%]',
+    RAISE EXCEPTION 'LCIP02_EMPTY_LESSON_REPORTED_AUTHORED: [%]', array_to_string(v_authored, ',');
+  END IF;
+
+  -- The lesson the rehearsal actually published carries content, so the helper must
+  -- name capabilities for it. An always-empty helper would silently disable CF11.
+  v_authored := public.cf11_authored_capabilities(v_iron);
+  IF array_length(v_authored, 1) IS NULL THEN
+    RAISE EXCEPTION 'LCIP02_PUBLISHED_LESSON_REPORTED_NOTHING_AUTHORED';
+  END IF;
+  IF NOT ('officialBookContent' = ANY (v_authored)) THEN
+    RAISE EXCEPTION 'LCIP02_AUTHORED_SUBSET_MISSING_BOOK_CONTENT: [%]',
       array_to_string(v_authored, ',');
   END IF;
 
-  -- One real body: the helper must name exactly that one capability.
-  INSERT INTO public.lesson_summaries (lesson_id, summary)
-  VALUES (v_lesson, '<p>ملخص منشور</p>')
-  ON CONFLICT (lesson_id) DO UPDATE SET summary = EXCLUDED.summary;
-
-  v_authored := public.cf11_authored_capabilities(v_lesson);
-  IF NOT ('quickReview' = ANY (v_authored)) THEN
-    RAISE EXCEPTION 'LCIP02_AUTHORED_COMPONENT_NOT_DETECTED: [%]',
-      array_to_string(v_authored, ',');
-  END IF;
-  IF 'mindMap' = ANY (v_authored) OR 'simulation' = ANY (v_authored) THEN
-    RAISE EXCEPTION 'LCIP02_UNAUTHORED_COMPONENT_REPORTED_AUTHORED: [%]',
-      array_to_string(v_authored, ',');
+  -- Whatever it names must be a subset of the canonical seven, never a foreign name.
+  IF EXISTS (SELECT 1 FROM unnest(v_authored) AS t(c)
+              WHERE NOT (t.c = ANY (public.cf11_lifecycle_capabilities()))) THEN
+    RAISE EXCEPTION 'LCIP02_AUTHORED_SUBSET_NOT_CANONICAL: [%]', array_to_string(v_authored, ',');
   END IF;
 
   RAISE NOTICE 'LCIP02 authored-subset proof passed.';
 END $$;
 
--- The CF11 READY path must still refuse everything it refused before. These are the
--- guards the relaxation must not have widened; each is asserted on the deployed body.
+-- =====================================================================================
+-- 3) The CF11 READY path must still refuse everything it refused before. These are the
+--    guards the relaxation must not have widened, asserted on the DEPLOYED body.
+-- =====================================================================================
 DO $$
 DECLARE
   d text;
@@ -55,7 +139,6 @@ BEGIN
   SELECT pg_get_functiondef(p.oid) INTO d
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname = 'public' AND p.proname = 'golden_lesson_attest_cf11_ready';
-
   IF d IS NULL THEN
     RAISE EXCEPTION 'LCIP02_ATTEST_FUNCTION_MISSING';
   END IF;
@@ -82,3 +165,69 @@ BEGIN
   RAISE NOTICE 'LCIP02 CF11 guard-retention proof passed.';
 END $$;
 
+-- =====================================================================================
+-- 4) Staging: a package describing the seven records but carrying ONE file is accepted,
+--    and one carrying none is refused.
+-- =====================================================================================
+DO $$
+DECLARE
+  v_manifest jsonb;
+  v_rejected boolean := false;
+BEGIN
+  SELECT jsonb_build_object(
+    'schema', 'tamkeen.golden-lesson-package.v1',
+    'profileId', 'GOLDEN_CHEMISTRY_V1',
+    'packageCode', 'LCIP02-PROOF',
+    'identity', jsonb_build_object(
+      'gradeCode', 'GRADE-12',
+      'curriculumTrackCodes', jsonb_build_array('sanaa'),
+      'subjectCode', 'CHEM-G12',
+      'lessonCode', 'CHEM-G12-L01',
+      'lessonSlug', 'lcip02-proof',
+      'unitCode', NULL, 'semester', 1, 'sortOrder', 1),
+    'capabilityOrder', jsonb_build_array(
+      'officialBookContent','tamkeenExplanationHtml','lessonSummaryHtml','mindMapHtml',
+      'labExperimentHtml','officialBookQuestions','selfTest'),
+    'artifacts', (
+      SELECT jsonb_agg(jsonb_build_object(
+        'capability', c,
+        'applicability', CASE WHEN c = 'labExperimentHtml' THEN 'OPTIONAL' ELSE 'REQUIRED' END,
+        'authority', CASE WHEN c IN ('officialBookContent','officialBookQuestions')
+                          THEN 'OFFICIAL' ELSE 'TAMKEEN' END,
+        -- Only the summary carries a file. Six of seven are still unauthored.
+        'sourcePath', CASE WHEN c = 'lessonSummaryHtml' THEN 'lessonSummaryHtml.html' END,
+        'sha256', CASE WHEN c = 'lessonSummaryHtml' THEN repeat('a', 64) END,
+        'provenancePath', NULL,
+        'provenanceSha256', NULL) ORDER BY o)
+      FROM unnest(ARRAY[
+        'officialBookContent','tamkeenExplanationHtml','lessonSummaryHtml','mindMapHtml',
+        'labExperimentHtml','officialBookQuestions','selfTest']) WITH ORDINALITY AS t(c, o)),
+    'lifecycle', jsonb_build_object('initialStatus', 'DRAFT', 'allowDirectReady', false),
+    'security', jsonb_build_object(
+      'productionApply', false, 'publicPayloadContainsAnswers', false,
+      'answersCompanionPath', NULL, 'answersCompanionSha256', NULL,
+      'htmlNetworkAccess', 'NONE')
+  ) INTO v_manifest;
+
+  -- One authored component is a complete, stageable package.
+  PERFORM public.assert_golden_lesson_manifest(v_manifest);
+
+  -- A package with no file at all still has nothing to publish.
+  BEGIN
+    PERFORM public.assert_golden_lesson_manifest(jsonb_set(
+      v_manifest, '{artifacts}',
+      (SELECT jsonb_agg(a || jsonb_build_object('sourcePath', NULL, 'sha256', NULL))
+         FROM jsonb_array_elements(v_manifest->'artifacts') a)));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE '%PACKAGE_HAS_NO_CONTENT%' THEN
+      RAISE EXCEPTION 'LCIP02_EMPTY_PACKAGE_WRONG_ERROR: %', SQLERRM;
+    END IF;
+    v_rejected := true;
+  END;
+
+  IF NOT v_rejected THEN
+    RAISE EXCEPTION 'LCIP02_EMPTY_PACKAGE_WAS_ACCEPTED';
+  END IF;
+
+  RAISE NOTICE 'LCIP02 manifest proof passed.';
+END $$;
