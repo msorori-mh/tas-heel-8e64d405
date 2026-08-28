@@ -72,6 +72,83 @@ export function normalizeM01OperatorRow(row: Record<string, string>): Record<str
   };
 }
 
+/**
+ * Columns the operator template no longer exposes: the round and the variant
+ * are generated, so any value an uploaded file carries for them is discarded.
+ */
+export const M01_OPERATOR_GENERATED_COLUMNS = ["exam_round_code", "model_variant_code"] as const;
+
+export type M01OperatorRowIssue = {
+  /** 1-based CSV line number with the header row counted — what the operator sees. */
+  lineNumber: number;
+  code: string;
+  messageAr: string;
+  /** The rejected cell as written in the file, so the operator can find it. */
+  value: string;
+};
+
+export type M01OperatorBatch = {
+  rows: Record<string, string>[];
+  issues: M01OperatorRowIssue[];
+  /** Generated columns the uploaded file tried to set; their values were dropped. */
+  overriddenColumns: string[];
+};
+
+/**
+ * Batch form of {@link normalizeM01OperatorRow}. It never aborts on row
+ * content: every offending row is reported with its CSV line number, so the
+ * operator fixes the whole file in one pass instead of one upload per bad row.
+ */
+export function normalizeM01OperatorRows(
+  rows: readonly Record<string, string>[],
+  headers: readonly string[] = [],
+): M01OperatorBatch {
+  const normalizedHeaders = headers.map((h) => h.trim().toLowerCase());
+  const overriddenColumns = M01_OPERATOR_GENERATED_COLUMNS.filter((column) =>
+    normalizedHeaders.includes(column),
+  );
+  const normalized: Record<string, string>[] = [];
+  const issues: M01OperatorRowIssue[] = [];
+  rows.forEach((row, index) => {
+    try {
+      normalized.push(normalizeM01OperatorRow(row));
+    } catch (error) {
+      if (!(error instanceof MinisterialContractError)) throw error;
+      issues.push({
+        lineNumber: index + 2,
+        code: error.code,
+        messageAr: error.message,
+        value: (row.subject_code ?? "").trim() || "فارغ",
+      });
+    }
+  });
+  return { rows: normalized, issues, overriddenColumns: [...overriddenColumns] };
+}
+
+/**
+ * Operator-facing summary of every rejected row. Rows are grouped by reason and
+ * listed by line number, capped so the text still fits a toast.
+ */
+export function describeM01OperatorIssues(
+  issues: readonly M01OperatorRowIssue[],
+  limit = 8,
+): string {
+  if (issues.length === 0) return "";
+  const byReason = new Map<string, M01OperatorRowIssue[]>();
+  for (const issue of issues) {
+    const bucket = byReason.get(issue.messageAr);
+    if (bucket) bucket.push(issue);
+    else byReason.set(issue.messageAr, [issue]);
+  }
+  const parts = [...byReason].map(([reason, group]) => {
+    const shown = group.slice(0, limit).map((i) => `${i.lineNumber} («${i.value}»)`);
+    const remaining = group.length - shown.length;
+    const tail = remaining > 0 ? ` و${remaining} سطراً آخر` : "";
+    return `${reason} الأسطر: ${shown.join("، ")}${tail}.`;
+  });
+  return `رُفض الملف بالكامل — ${issues.length} صف مخالف. ${parts.join(" ")} صحّح الأسطر وأعد الرفع.`;
+}
+
 export const M02_COLUMNS = [
   "ministerial_model_code",
   "question_code",
