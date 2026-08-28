@@ -139,13 +139,8 @@ export function validateGoldenLessonPackage(
       }
       continue;
     }
-    if (artifact.applicability === "REQUIRED" && !artifact.sourcePath) {
-      error(
-        "REQUIRED_ARTIFACT_MISSING",
-        `artifacts.${artifact.capability}.sourcePath`,
-        "ملف القدرة الإلزامية مفقود.",
-      );
-    }
+    // Every capability publishes on its own schedule: an artifact with no file is a
+    // capability the team has not uploaded yet, never a reason to reject the package.
     if (artifact.sourcePath && (!artifact.sha256 || !SHA256.test(artifact.sha256))) {
       error(
         "ARTIFACT_HASH_INVALID",
@@ -186,6 +181,12 @@ export function validateGoldenLessonPackage(
         `artifacts.${capability}`,
         "سجل القدرة مفقود، حتى إن كانت NA.",
       );
+  }
+
+  // No capability is mandatory on its own, but a package that carries nothing has
+  // nothing to publish — the one floor that replaces the old "all REQUIRED" rule.
+  if (!pkg.artifacts.some((artifact) => artifact.sourcePath)) {
+    error("PACKAGE_HAS_NO_CONTENT", "artifacts", "ارفع مكوّناً واحداً على الأقل قبل الفحص.");
   }
 
   if (pkg.lifecycle.initialStatus !== "DRAFT" || pkg.lifecycle.allowDirectReady !== false) {

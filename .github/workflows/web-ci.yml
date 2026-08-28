@@ -74,6 +74,7 @@ jobs:
           node --test tests/content-factory/content-factory-11-r11-storage-policy.static.test.mjs
           node --test tests/content-factory/content-factory-11-r12-assets.static.test.mjs
           node --test tests/content-factory/content-factory-11-r13-owner-override.static.test.mjs
+          node --test tests/content-factory/lesson-component-independent-publishing-02.static.test.mjs
           node --import tsx --test tests/content-packages/chemistry-g12-iron-cf11-assets.test.ts
 
           if [ -f tests/content-packages/chemistry-g12-iron-v3.test.mjs ]; then

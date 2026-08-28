@@ -28,7 +28,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -737,13 +736,7 @@ export function GoldenLessonPackageBuilder() {
     setIntakeError(null);
   }, [packageDraft]);
 
-  const requiredCapabilities = profile
-    ? GOLDEN_CAPABILITIES.filter((capability) => profile.applicability[capability] === "REQUIRED")
-    : [];
-  const completedRequired = requiredCapabilities.filter((capability) => uploads[capability]).length;
-  const completion = requiredCapabilities.length
-    ? Math.round((completedRequired / requiredCapabilities.length) * 100)
-    : 0;
+  const uploadedCount = GOLDEN_CAPABILITIES.filter((capability) => uploads[capability]).length;
   const setCapabilityError = (capability: GoldenCapability, messages: string[] | null) => {
     setCapabilityErrors((current) => {
       const next = { ...current };
@@ -1476,15 +1469,12 @@ export function GoldenLessonPackageBuilder() {
       {canonicalIdentityComplete && (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span>اكتمال الملفات الإلزامية</span>
-            <span className="font-semibold">
-              {completedRequired}/{requiredCapabilities.length} — {completion}%
-            </span>
+            <span>المكوّنات المرفوعة في هذه الدفعة</span>
+            <span className="font-semibold">{uploadedCount} من 7</span>
           </div>
-          <Progress value={completion} />
           <p className="text-xs text-muted-foreground">
-            المكوّن الاختياري الوحيد هو التجربة المعملية أو النشاط التفاعلي؛ المكونات الستة الأخرى
-            إلزامية للنشر.
+            لا يوجد مكوّن إلزامي. ارفع ما جهز الآن وانشره؛ يظهر للطالب وحده دون انتظار بقية
+            المكوّنات، وتستطيع العودة لاحقًا لرفع الباقي.
           </p>
         </div>
       )}
@@ -1513,11 +1503,9 @@ export function GoldenLessonPackageBuilder() {
                       {authority === "OFFICIAL" ? "رسمي" : "تمكين"}
                     </Badge>
                     <Badge variant="outline">
-                      {applicability === "REQUIRED"
-                        ? "إلزامي"
-                        : applicability === "OPTIONAL"
-                          ? "اختياري"
-                          : "غير منطبق"}
+                      {/* Each component publishes on its own; the only state worth showing
+                          here is whether this one is part of the batch being prepared. */}
+                      {uploads[capability] ? "جاهز للنشر" : "لم يُرفع بعد"}
                     </Badge>
                   </div>
                 </div>

@@ -1,0 +1,181 @@
+-- LESSON_COMPONENT_INDEPENDENT_PUBLISHING_02
+--
+-- Content staff publish each of the seven lesson components on its own schedule.
+-- Three rules still forced the whole lesson to move as one batch:
+--
+--   1. assert_golden_lesson_manifest() rejected a staged manifest whose REQUIRED
+--      capability carried no file, so a package could never describe "this one
+--      component, now".
+--   2. lesson_student_visible() hid the entire lesson until every REQUIRED
+--      capability reached READY.
+--   3. golden_lesson_attest_cf11_ready() verified and promoted the canonical seven
+--      as one unit: an unauthored component raised CF11_SNAPSHOT_NOT_RECONCILABLE,
+--      so a partial lesson reached REVIEW and then failed, and nothing ever became
+--      READY. This was the real reason a single uploaded component never appeared.
+--
+-- WHAT DOES NOT CHANGE — these are the guarantees that make the relaxation safe:
+--   * A component is student-reachable only at status READY. Unauthored components
+--     stay in REVIEW, and both lesson_student_visible and lesson_student_content_gate
+--     read READY only, so no draft or in-review body becomes reachable.
+--   * The lifecycle ROW set is still exactly the canonical seven
+--     (cf11_assert_exact_required_lifecycle_set). Only their CONTENT is independent.
+--   * Publishing still requires all seven rows in REVIEW
+--     (CF11_READY_REQUIRES_REVIEW_FOR_ALL), so an out-of-band transition is still
+--     refused.
+--   * Every other CF11 guard is untouched: separation of duties, revocation,
+--     replay-state revalidation, asset object identity and attestation drift,
+--     answer-leak scanning, and human evidence.
+--   * applicability stays editorial evidence. Existing manifests and existing
+--     lifecycle rows remain valid and are NOT rewritten.
+--
+-- PROVENANCE: golden_lesson_attest_cf11_ready below is the LIVE production body
+-- (md5 of body f26c321c12e1b79c168057dfb86bad03, 14285 bytes) with only the four
+-- READY-scope changes marked `LCIP-02`. It is not the repository's CF11 text, which
+-- has drifted from production — see the PR description.
+--
+-- No content rows are written. Functions only.
+
+BEGIN;
+
+-- ---------------------------------------------------------------------------
+-- 1) Staging accepts a partial package: a capability with no file is simply a
+--    capability the team has not uploaded yet. A package with no file at all is
+--    still rejected — there would be nothing to publish.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.assert_golden_lesson_manifest(_manifest jsonb)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp AS $$
+DECLARE
+  expected_order constant text[] := ARRAY[
+    'officialBookContent','tamkeenExplanationHtml','lessonSummaryHtml','mindMapHtml',
+    'labExperimentHtml','officialBookQuestions','selfTest'
+  ];
+  actual_order text[];
+  artifact jsonb;
+  capability text;
+  expected_applicability text;
+  present_artifacts integer;
+BEGIN
+  IF jsonb_typeof(_manifest) <> 'object' THEN
+    RAISE EXCEPTION 'MANIFEST_SHAPE_INVALID' USING ERRCODE = '22023';
+  END IF;
+  IF _manifest->>'schema' <> 'tamkeen.golden-lesson-package.v1' THEN
+    RAISE EXCEPTION 'SCHEMA_UNSUPPORTED' USING ERRCODE = '22023';
+  END IF;
+  IF _manifest->>'profileId' NOT IN ('GOLDEN_QURAN_V1','GOLDEN_CHEMISTRY_V1') THEN
+    RAISE EXCEPTION 'PROFILE_UNKNOWN' USING ERRCODE = '22023';
+  END IF;
+  IF COALESCE(_manifest->>'packageCode','') !~ '^[A-Z0-9][A-Z0-9-]{2,63}$' THEN
+    RAISE EXCEPTION 'PACKAGE_CODE_INVALID' USING ERRCODE = '22023';
+  END IF;
+  IF jsonb_typeof(_manifest->'identity') <> 'object'
+     OR COALESCE(_manifest#>>'{identity,gradeCode}','') !~ '^[A-Z0-9][A-Z0-9-]{2,63}$'
+     OR COALESCE(_manifest#>>'{identity,subjectCode}','') !~ '^[A-Z0-9][A-Z0-9-]{2,63}$'
+     OR COALESCE(_manifest#>>'{identity,lessonCode}','') !~ '^[A-Z0-9][A-Z0-9-]{2,63}$'
+     OR jsonb_typeof(_manifest#>'{identity,curriculumTrackCodes}') <> 'array'
+     OR jsonb_array_length(_manifest#>'{identity,curriculumTrackCodes}') = 0 THEN
+    RAISE EXCEPTION 'IDENTITY_INVALID' USING ERRCODE = '22023';
+  END IF;
+  IF _manifest#>>'{lifecycle,initialStatus}' <> 'DRAFT'
+     OR COALESCE((_manifest#>>'{lifecycle,allowDirectReady}')::boolean, true) THEN
+    RAISE EXCEPTION 'LIFECYCLE_UNSAFE' USING ERRCODE = '22023';
+  END IF;
+  IF COALESCE((_manifest#>>'{security,productionApply}')::boolean, true)
+     OR COALESCE((_manifest#>>'{security,publicPayloadContainsAnswers}')::boolean, true)
+     OR _manifest#>>'{security,htmlNetworkAccess}' <> 'NONE' THEN
+    RAISE EXCEPTION 'SECURITY_CONTRACT_INVALID' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT array_agg(value ORDER BY ordinality) INTO actual_order
+  FROM jsonb_array_elements_text(_manifest->'capabilityOrder') WITH ORDINALITY;
+  IF actual_order IS DISTINCT FROM expected_order THEN
+    RAISE EXCEPTION 'CAPABILITY_ORDER_INVALID' USING ERRCODE = '22023';
+  END IF;
+  IF jsonb_typeof(_manifest->'artifacts') <> 'array'
+     OR jsonb_array_length(_manifest->'artifacts') <> 7
+     OR (SELECT count(DISTINCT a->>'capability') FROM jsonb_array_elements(_manifest->'artifacts') a) <> 7 THEN
+    RAISE EXCEPTION 'ARTIFACT_SET_INVALID' USING ERRCODE = '22023';
+  END IF;
+
+  -- LCIP-02: the seven records still have to be described; only their content is
+  -- now independent. At least one of them must actually carry a file.
+  SELECT count(*) INTO present_artifacts
+    FROM jsonb_array_elements(_manifest->'artifacts') a
+   WHERE COALESCE(a->>'sourcePath','') <> '';
+  IF present_artifacts = 0 THEN
+    RAISE EXCEPTION 'PACKAGE_HAS_NO_CONTENT' USING ERRCODE = '22023';
+  END IF;
+
+  FOR artifact IN SELECT value FROM jsonb_array_elements(_manifest->'artifacts') LOOP
+    capability := artifact->>'capability';
+    IF NOT capability = ANY(expected_order) THEN
+      RAISE EXCEPTION 'CAPABILITY_UNKNOWN: %', capability USING ERRCODE = '22023';
+    END IF;
+    expected_applicability := CASE
+      WHEN capability = 'labExperimentHtml' THEN 'OPTIONAL'
+      ELSE 'REQUIRED' END;
+    IF artifact->>'applicability' IS DISTINCT FROM expected_applicability THEN
+      RAISE EXCEPTION 'APPLICABILITY_MISMATCH: %', capability USING ERRCODE = '22023';
+    END IF;
+    IF artifact->>'authority' IS DISTINCT FROM
+       (CASE WHEN capability IN ('officialBookContent','officialBookQuestions') THEN 'OFFICIAL' ELSE 'TAMKEEN' END) THEN
+      RAISE EXCEPTION 'AUTHORITY_MISMATCH: %', capability USING ERRCODE = '22023';
+    END IF;
+    IF expected_applicability = 'NA' AND (artifact->'sourcePath' <> 'null'::jsonb OR artifact->'sha256' <> 'null'::jsonb OR artifact->'provenancePath' <> 'null'::jsonb OR artifact->'provenanceSha256' <> 'null'::jsonb) THEN
+      RAISE EXCEPTION 'NA_ARTIFACT_HAS_CONTENT: %', capability USING ERRCODE = '22023';
+    END IF;
+    -- LCIP-02: REQUIRED_ARTIFACT_MISSING is deliberately gone. A capability with
+    -- no file yet is not an invalid package; it is an unfinished lesson.
+    IF artifact->>'sourcePath' IS NOT NULL AND COALESCE(artifact->>'sha256','') !~ '^[a-f0-9]{64}$' THEN
+      RAISE EXCEPTION 'ARTIFACT_HASH_INVALID: %', capability USING ERRCODE = '22023';
+    END IF;
+    IF capability IN ('officialBookContent','officialBookQuestions')
+       AND artifact->>'sourcePath' IS NOT NULL THEN
+      IF COALESCE(artifact->>'provenancePath','') = '' THEN
+        RAISE EXCEPTION 'OFFICIAL_PROVENANCE_MISSING: %', capability USING ERRCODE = '22023';
+      END IF;
+      IF COALESCE(artifact->>'provenanceSha256','') !~ '^[a-f0-9]{64}$' THEN
+        RAISE EXCEPTION 'OFFICIAL_PROVENANCE_HASH_INVALID: %', capability USING ERRCODE = '22023';
+      END IF;
+    END IF;
+  END LOOP;
+
+  IF (_manifest#>>'{security,answersCompanionPath}' IS NULL) <> (_manifest#>>'{security,answersCompanionSha256}' IS NULL) THEN
+    RAISE EXCEPTION 'ANSWER_COMPANION_PAIR_INVALID' USING ERRCODE = '22023';
+  END IF;
+  IF _manifest#>>'{security,answersCompanionPath}' IS NOT NULL AND
+     (_manifest#>>'{security,answersCompanionPath}' !~ '[.]server-only[.]json$'
+      OR _manifest#>>'{security,answersCompanionSha256}' !~ '^[a-f0-9]{64}$') THEN
+    RAISE EXCEPTION 'ANSWER_COMPANION_INVALID' USING ERRCODE = '22023';
+  END IF;
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 2) A managed lesson is visible as soon as ONE component is READY.
+--
+--    This body is IDENTICAL to what production already runs. It was applied there
+--    outside the migration system, so it exists in no migration file and any replay
+--    of 20260820023919 would silently revert it. Recording it here ends that risk.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.lesson_student_visible(_lesson_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  -- النشر المستقل: الدرس يظهر بمجرد نشر مكوّن واحد على الأقل.
+  -- محتوى المكوّنات غير المنشورة يظل محجوبًا بسياسات RLS على مستوى المكوّن،
+  -- فلا يتحقق تسريب المسودات الذي كانت البوابة الشاملة تحمي منه.
+  SELECT CASE
+    WHEN NOT public.lesson_is_editorially_managed(_lesson_id) THEN true
+    ELSE EXISTS (
+      SELECT 1 FROM public.lesson_capability_lifecycle l
+       WHERE l.lesson_id = _lesson_id AND l.status = 'READY')
+  END;
+$$;
+
+COMMIT;
+
+-- Rollback:
+--   Re-run 20260827030000_golden_lesson_required_official_questions.sql to restore
+--   assert_golden_lesson_manifest, restore lesson_student_visible from
+--   20260820023919 (NOTE: that reverts a fix production is already running), drop
+--   cf11_authored_capabilities(uuid), and restore golden_lesson_attest_cf11_ready
+--   from 20260824000000_content_factory_11_publication.sql. No data changes to undo.
