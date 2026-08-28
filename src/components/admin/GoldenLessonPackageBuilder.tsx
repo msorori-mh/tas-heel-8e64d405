@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Download,
   Eye,
-  FileCheck2,
   Loader2,
   Trash2,
   UploadCloud,
@@ -231,49 +230,6 @@ function ArabicFilePicker({ id, accept, disabled, fileName, onFile }: ArabicFile
       </Label>
       <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
         {fileName || "لم يتم اختيار ملف"}
-      </span>
-    </div>
-  );
-}
-
-function ArabicMultiFilePicker({
-  id,
-  accept,
-  disabled,
-  selectedCount,
-  onFiles,
-}: {
-  id: string;
-  accept: string;
-  disabled: boolean;
-  selectedCount: number;
-  onFiles: (files: File[]) => void | Promise<void>;
-}) {
-  return (
-    <div className="flex min-h-[44px] items-center gap-2 rounded-md border bg-background px-2 py-1.5">
-      <Input
-        id={id}
-        type="file"
-        accept={accept}
-        multiple
-        disabled={disabled}
-        className="sr-only"
-        onChange={(event) => {
-          // FileList is live: clearing the input would otherwise empty it before
-          // the async asset validator reads the selected files.
-          const files = Array.from(event.currentTarget.files ?? []);
-          event.currentTarget.value = "";
-          void onFiles(files);
-        }}
-      />
-      <Label
-        htmlFor={id}
-        className="inline-flex min-h-[36px] cursor-pointer items-center rounded-md border px-3 text-sm font-medium hover:bg-accent"
-      >
-        اختيار ملفات
-      </Label>
-      <span className="text-xs text-muted-foreground">
-        {selectedCount > 0 ? `تم اختيار ${selectedCount} ملف` : "لم يتم اختيار ملفات"}
       </span>
     </div>
   );
@@ -1076,34 +1032,6 @@ export function GoldenLessonPackageBuilder() {
     supplementalAssets,
   ]);
 
-  const handleSupplementalAssets = async (files: File[]) => {
-    if (!files?.length) return;
-    setFileError(null);
-    setValidation(null);
-    try {
-      const htmlSources = await Promise.all(
-        GOLDEN_CAPABILITIES.map(async (capability) => {
-          const upload = uploads[capability];
-          return upload?.fileName.endsWith(".html")
-            ? { capability, html: await upload.file.text() }
-            : null;
-        }),
-      );
-      const next = await buildSupplementalAssetDeclarations(
-        files,
-        htmlSources.filter((source): source is { capability: GoldenCapability; html: string } =>
-          Boolean(source),
-        ),
-      );
-      setSupplementalAssets((current) => {
-        const replacing = new Set(next.map((asset) => asset.path));
-        return [...current.filter((asset) => !replacing.has(asset.path)), ...next];
-      });
-    } catch (error) {
-      setFileError(error instanceof Error ? error.message : "ASSET_UPLOAD_FAILED");
-    }
-  };
-
   const runValidation = async () => {
     if (!profile) {
       setFileError("اختر الدرس من هيكل المنهج أولًا.");
@@ -1655,34 +1583,9 @@ export function GoldenLessonPackageBuilder() {
           })}
       </div>
 
-      {canonicalIdentityComplete &&
-        Object.values(uploads).some((upload) => upload?.fileName.endsWith(".html")) && (
-          <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 space-y-2">
-            <Label>الصور والرسومات المشار إليها داخل ملفات HTML</Label>
-            <ArabicMultiFilePicker
-              id="golden-supplemental-assets"
-              accept="image/png,image/jpeg,image/webp"
-              disabled={hashing !== null || !canonicalIdentityComplete}
-              selectedCount={supplementalAssets.length}
-              onFiles={handleSupplementalAssets}
-            />
-            <p className="text-xs text-muted-foreground">
-              يربط النظام الصور تلقائيًا بالملفات التي تشير إليها، ويرفض الصورة المفقودة أو غير
-              المستخدمة.
-            </p>
-            {supplementalAssets.map((asset) => (
-              <p
-                key={asset.path}
-                className="text-xs break-all text-emerald-700 dark:text-emerald-400"
-              >
-                <CheckCircle2 className="inline h-4 w-4 ms-1" />
-                {asset.path} — {asset.assetCode}
-                <br />
-                <span className="font-mono text-[10px]">{asset.sha256}</span>
-              </p>
-            ))}
-          </div>
-        )}
+      {/* The separate image picker is gone. A lesson has seven components, not eight, and
+          this looked like a mandatory eighth one. Images belong inside the HTML file that
+          references them — embed them there and the component travels as one unit. */}
 
       {answersCompanion && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs">
@@ -1778,16 +1681,10 @@ export function GoldenLessonPackageBuilder() {
         </div>
       )}
 
+      {/* No manual "check files" button: runValidation() already runs on every change to
+          the uploads, so pressing it recomputed the same result and looked broken. The
+          check still gates publishing — its outcome is the card below. */}
       <div className="sticky bottom-3 z-10 flex flex-wrap gap-2 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
-        <Button
-          type="button"
-          onClick={() => void runValidation()}
-          disabled={hashing !== null || !canonicalIdentityComplete}
-          className="min-h-[44px] gap-2"
-        >
-          <FileCheck2 className="h-4 w-4" />
-          فحص ومعاينة الملفات
-        </Button>
         <Button
           type="button"
           disabled={!validation?.valid || intakeBusy || publishBusy}
@@ -1870,10 +1767,21 @@ export function GoldenLessonPackageBuilder() {
 
       {validation && (
         <div
-          className={`rounded-xl border p-4 space-y-3 ${validation.valid ? "border-emerald-500/30 bg-emerald-500/10" : "border-destructive/30 bg-destructive/5"}`}
+          className={`rounded-xl border p-4 space-y-3 ${
+            validation.valid && !publishError
+              ? "border-emerald-500/30 bg-emerald-500/10"
+              : "border-destructive/30 bg-destructive/5"
+          }`}
         >
+          {/* This card reports the LOCAL file check only. Saying "ready to import" while the
+              server has just refused the publish reads as a contradiction, so a server
+              failure takes precedence over a passing local check. */}
           <p className="font-medium">
-            {validation.valid ? "الملفات مكتملة وجاهزة للاستيراد" : "الملفات تحتاج تصحيحًا"}
+            {!validation.valid
+              ? "الملفات تحتاج تصحيحًا"
+              : publishError
+                ? "الملفات سليمة محليًا، لكن الخادم رفض النشر — راجع الرسالة أعلاه"
+                : "فحص الملفات المحلي ناجح"}
           </p>
           {validation.findings.length > 0 &&
             (() => {

@@ -22,7 +22,9 @@ test("the import center exposes the unified curriculum and lesson-content workfl
   assert.match(route, /<GoldenLessonPackageBuilder\s*\/>/);
   assert.match(component, /GOLDEN_CAPABILITIES/);
   assert.match(component, /1\. اختيار الدرس/);
-  assert.match(component, /فحص ومعاينة الملفات/);
+  // The manual "check files" button is gone: runValidation() already runs on every
+  // change to the uploads, so the button recomputed the same result and read as broken.
+  assert.doesNotMatch(component, /فحص ومعاينة الملفات/);
   assert.match(component, /نشر الدرس الآن/);
   assert.doesNotMatch(
     route,
@@ -96,9 +98,18 @@ test("mobile-first controls meet the 44px target", () => {
   assert.match(component, /dir="rtl"/);
 });
 
-test("supplemental picker snapshots the live FileList before clearing", () => {
-  assert.match(component, /const files = Array\.from\(event\.currentTarget\.files \?\? \[\]\)/);
-  assert.match(component, /event\.currentTarget\.value = "";\s*void onFiles\(files\)/);
+/**
+ * A lesson has seven components, not eight. The separate image picker read as a
+ * mandatory eighth one, so it is gone: images belong inside the HTML file that
+ * references them, and the component then travels as a single unit.
+ */
+test("there is no separate eighth component for images", () => {
+  assert.doesNotMatch(component, /الصور والرسومات المشار إليها/);
+  assert.doesNotMatch(component, /ArabicMultiFilePicker/);
+  assert.doesNotMatch(component, /golden-supplemental-assets/);
+  // Assets extracted from an HTML5/ZIP activity are still declared — that path is
+  // internal to one component and never asked the operator for a separate upload.
+  assert.match(component, /buildSupplementalAssetDeclarations/);
 });
 
 test("partial lesson drafts are autosaved and restored without server publication", () => {
