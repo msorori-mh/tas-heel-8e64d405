@@ -149,12 +149,17 @@ BEGIN
          WHERE TG_OP IN ('INSERT', 'UPDATE')
       ) changed
   LOOP
+    -- lesson_resources.resource_type is the enum public.lesson_resource_type in
+    -- production, and neither lower() nor coalesce(..., '') accepts an enum. The
+    -- explicit ::text is required, not cosmetic: without it this function cannot be
+    -- created at all against the real schema. The other three casts are no-ops today
+    -- and are kept so the body matches what production runs, byte for byte.
     _capability := CASE
-      WHEN lower(coalesce(_row.resource_type, '')) = 'mindmap'
-        OR lower(coalesce(_row.html_resource_type, '')) IN ('mindmap', 'mind_map_html')
+      WHEN lower(coalesce(_row.resource_type::text, '')) = 'mindmap'
+        OR lower(coalesce(_row.html_resource_type::text, '')) IN ('mindmap', 'mind_map_html')
         THEN 'mindMap'
-      WHEN lower(coalesce(_row.resource_type, '')) = 'experiment'
-        OR lower(coalesce(_row.html_resource_type, '')) IN (
+      WHEN lower(coalesce(_row.resource_type::text, '')) = 'experiment'
+        OR lower(coalesce(_row.html_resource_type::text, '')) IN (
           'experiment',
           'practical_experiment_html'
         )
@@ -204,7 +209,7 @@ BEGIN
     FROM public.questions
    WHERE id = _question_id;
 
-  _capability := CASE upper(coalesce(_label, ''))
+  _capability := CASE upper(coalesce(_label::text, ''))
     WHEN 'OFFICIAL_BOOK_QUESTION' THEN 'checkUnderstanding'
     WHEN 'SELF_TEST' THEN 'lessonAssessment'
     ELSE NULL
