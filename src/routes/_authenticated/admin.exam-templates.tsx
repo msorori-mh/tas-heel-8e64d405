@@ -10,7 +10,7 @@ import {
   type ExamTemplateValue,
 } from "@/components/admin/ExamTemplateEditDialog";
 import { ExamTemplateQuestionsDialog } from "@/components/admin/ExamTemplateQuestionsDialog";
-import { Loader2, Plus, Pencil, ListChecks, Power } from "lucide-react";
+import { FilePlus2, Loader2, Plus, Pencil, ListChecks, Power, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/exam-templates")({
@@ -20,7 +20,6 @@ export const Route = createFileRoute("/_authenticated/admin/exam-templates")({
 const MODE_LABEL: Record<string, string> = {
   training: "تدريب",
   strict: "اختبار جاد",
-  ministry: "محاكي وزاري",
 };
 
 type TemplateRow = ExamTemplateValue & {
@@ -55,6 +54,7 @@ function AdminExamTemplatesPage() {
           questions:exam_template_questions(count)
         `,
         )
+        .in("mode", ["training", "strict"])
         .order("created_at", { ascending: false });
       if (error) throw error;
       const rows: TemplateRow[] = ((data ?? []) as any[]).map((r) => ({
@@ -113,14 +113,19 @@ function AdminExamTemplatesPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <h1 className="text-xl font-bold text-foreground">قوالب اختبارات مخصصة</h1>
-            <p className="text-xs text-muted-foreground mt-1">
-              أداة متقدمة واختيارية لبناء اختبار مخصص من بنك الأسئلة؛ ليست من محتويات الدرس السبعة
-              ولا من أرشيف النماذج الوزارية.
-            </p>
+      <div className="space-y-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FilePlus2 className="h-5 w-5" aria-hidden />
+            </span>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">قوالب اختبارات مخصصة</h1>
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
+                أنشئ اختبارًا إضافيًا من بنك الأسئلة عند الحاجة فقط.{" "}
+                {"هذه القوالب ليست من محتويات الدرس السبعة، ولا من أرشيف النماذج الوزارية."}
+              </p>
+            </div>
           </div>
           <Button onClick={() => setDialogState({ kind: "create" })} className="gap-1">
             <Plus className="h-4 w-4" />
@@ -128,23 +133,30 @@ function AdminExamTemplatesPage() {
           </Button>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs text-muted-foreground">
-          <span>
-            اختبار الدرس الرسمي وأسئلة «اختبر نفسك» تُرفعان من استيراد محتويات الدرس. استخدم هذه
-            الصفحة فقط عند الحاجة إلى قالب إضافي مخصص.
-          </span>
-          <div className="flex gap-2">
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <div className="flex items-start gap-2">
+            <ScrollText className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">ثلاثة مسارات منفصلة</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                أسئلة الكتاب و«اختبر نفسك» تُرفعان من استيراد محتويات الدرس. أما النماذج الوزارية
+                فلها صفحة استيراد ونشر مستقلة. لا تظهر القوالب الوزارية في هذه القائمة، ولا يمكن
+                إنشاء قالب وزاري من هنا.
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
             <Link
               to="/admin/import"
-              className="rounded-lg border border-border bg-card px-3 py-1.5 hover:bg-muted"
+              className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
             >
-              استيراد محتوى درس
+              استيراد مكونات الدرس
             </Link>
             <Link
               to="/admin/ministerial-exams"
-              className="rounded-lg border border-border bg-card px-3 py-1.5 hover:bg-muted"
+              className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
             >
-              النماذج الوزارية
+              إدارة النماذج الوزارية
             </Link>
           </div>
         </div>

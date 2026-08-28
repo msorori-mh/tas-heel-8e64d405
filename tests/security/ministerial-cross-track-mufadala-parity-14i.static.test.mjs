@@ -47,7 +47,13 @@ describe("PAST_MINISTERIAL_EXAMS_CROSS_TRACK_MUFADALA_PARITY_14I", () => {
     assert.ok(api.includes("track_name: string"));
     assert.ok(index.includes("s.sanaa_models_count"));
     assert.ok(index.includes("s.aden_models_count"));
+    assert.ok(index.includes("إجمالي النماذج"));
+    assert.ok(index.includes("اختر المادة"));
+    assert.ok(index.includes("محاولاتك ونتائجك"));
+    assert.ok(index.includes("إعادة المحاولة"));
     assert.ok(subject.includes('type TrackFilter = "all" | "sanaa" | "aden"'));
+    assert.ok(subject.includes("filterOptions"));
+    assert.ok(subject.includes("يعرض {filteredModels.length} من أصل"));
     assert.ok(subject.includes("m.track_name"));
   });
 

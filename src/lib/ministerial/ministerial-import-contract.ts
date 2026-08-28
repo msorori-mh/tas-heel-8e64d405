@@ -35,6 +35,43 @@ export const M01_REQUIRED_COLUMNS = [
   "model_variant_code",
 ] as const;
 
+/**
+ * MVP operator surface: the ministry models are Grade 12 only and no longer
+ * ask content staff to choose a round or type a variant. The protected RPC
+ * contract still receives both fields so existing DB guarantees stay intact.
+ */
+export const DEFAULT_MINISTERIAL_ROUND_CODE = "r1" as const;
+export const DEFAULT_MINISTERIAL_VARIANT_CODE = "main" as const;
+
+export const M01_OPERATOR_COLUMNS = [
+  "subject_code",
+  "track_code",
+  "academic_year",
+  "model_label",
+] as const;
+
+export const M01_OPERATOR_REQUIRED_COLUMNS = [
+  "subject_code",
+  "track_code",
+  "academic_year",
+] as const;
+
+export function normalizeM01OperatorRow(row: Record<string, string>): Record<string, string> {
+  const subjectCode = (row.subject_code ?? "").trim().toLowerCase();
+  if (!/^sub-g12-\d{3}$/.test(subjectCode)) {
+    throw new MinisterialContractError(
+      "MINISTERIAL_GRADE_SCOPE_INVALID",
+      "النماذج الوزارية السابقة متاحة للصف الثالث الثانوي فقط.",
+    );
+  }
+  return {
+    ...row,
+    subject_code: subjectCode,
+    exam_round_code: DEFAULT_MINISTERIAL_ROUND_CODE,
+    model_variant_code: DEFAULT_MINISTERIAL_VARIANT_CODE,
+  };
+}
+
 export const M02_COLUMNS = [
   "ministerial_model_code",
   "question_code",

@@ -10,6 +10,7 @@ const dialog = read("src/components/admin/SubjectEditDialog.tsx");
 const functions = read("src/lib/content-codes/content-codes.functions.ts");
 const questions = read("src/routes/_authenticated/admin.questions.tsx");
 const templates = read("src/routes/_authenticated/admin.exam-templates.tsx");
+const examTemplateDialog = read("src/components/admin/ExamTemplateEditDialog.tsx");
 const migration = read(
   "supabase/migrations/20260829010000_curriculum_readiness_subject_tracks_13n.sql",
 );
@@ -53,4 +54,8 @@ test("questions and custom templates have explicit, separated purposes", () => {
   assert.match(templates, /قوالب اختبارات مخصصة/);
   assert.match(templates, /ليست من محتويات الدرس السبعة/);
   assert.match(templates, /النماذج الوزارية/);
+  assert.match(templates, /\.in\("mode", \["training", "strict"\]\)/);
+  assert.match(templates, /لا تظهر القوالب الوزارية في هذه القائمة/);
+  assert.doesNotMatch(examTemplateDialog, /\{ value: "ministry", label:/);
+  assert.match(examTemplateDialog, /القوالب الوزارية تُنشأ وتُدار من صفحة النماذج الوزارية فقط/);
 });
