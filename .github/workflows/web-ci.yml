@@ -140,9 +140,7 @@ jobs:
         run: |
           psql "$TAMKEEN_PG17_LOCAL_URL" --set=ON_ERROR_STOP=1 \
             --file supabase/migrations/20260827030000_golden_lesson_required_official_questions.sql \
-            --file supabase/migrations-pending/20260824000000_content_factory_11_publication.sql \
             --file supabase/migrations/20260831010000_lesson_component_independent_publishing_02.sql \
-            --file supabase/migrations/20260831020000_cf11_ready_scoped_to_authored_components.sql \
             --file scripts/content-v3/lesson-component-independent-publishing-02-pg17.sql
 
       - name: Stop isolated PostgreSQL 17

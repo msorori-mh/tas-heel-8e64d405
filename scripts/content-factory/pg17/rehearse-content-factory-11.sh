@@ -44,4 +44,7 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/supabase/migrations-pending/20260824000000_content_factory_11_publication.sql" \
   -f "$root_dir/supabase/migrations/20260826020000_cf11_assessment_replay_identity_normalization.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-11-assert.sql" \
-  -f "$root_dir/scripts/content-factory/pg17/content-factory-11-postverify.sql"
+  -f "$root_dir/scripts/content-factory/pg17/content-factory-11-postverify.sql" \
+  -f "$root_dir/supabase/migrations/20260831010000_lesson_component_independent_publishing_02.sql" \
+  -f "$root_dir/supabase/migrations/20260831020000_cf11_ready_scoped_to_authored_components.sql" \
+  -f "$root_dir/scripts/content-factory/pg17/lesson-component-independent-publishing-02-cf11-pg17.sql"

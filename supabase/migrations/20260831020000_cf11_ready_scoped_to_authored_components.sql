@@ -29,9 +29,37 @@
 -- lesson_student_content_gate read status = 'READY' only, so REVIEW content is never
 -- student-reachable — the relaxation widens what can be PUBLISHED, never what can be READ.
 --
--- Depends on cf11_authored_capabilities(uuid) from 20260831010000.
-
 BEGIN;
+
+-- ---------------------------------------------------------------------------
+-- LCIP-02: the authored subset of a lesson.
+--
+-- v3_capability_snapshot_is_reconcilable() is already exactly the predicate
+-- "this capability carries content" — it returns true only for a non-empty
+-- payload. Naming that subset once keeps every READY-scope decision below
+-- derived from the canonical seven, never from a live lifecycle row.
+--
+-- Deliberately plpgsql, not sql: a LANGUAGE sql body is resolved at CREATE time,
+-- which would make this migration depend on the order CF10/CF11 happen to have
+-- been applied in. A plpgsql body resolves at call time, so the migration is
+-- order-independent and the reference is still checked — just when it is used.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.cf11_authored_capabilities(_lesson_id uuid)
+RETURNS text[] LANGUAGE plpgsql STABLE SET search_path = public, pg_temp AS $fn$
+DECLARE
+  result text[];
+BEGIN
+  SELECT coalesce(array_agg(c ORDER BY c), ARRAY[]::text[])
+    INTO result
+    FROM unnest(public.cf11_lifecycle_capabilities()) AS t(c)
+   WHERE public.v3_capability_snapshot_is_reconcilable(
+           public.v3_capability_snapshot(_lesson_id, t.c));
+  RETURN result;
+END
+$fn$;
+
+COMMENT ON FUNCTION public.cf11_authored_capabilities(uuid) IS
+  'LCIP-02: the canonical capabilities of a lesson that actually carry content. Unauthored components are excluded from READY verification and promotion; they stay in REVIEW and are never student-reachable.';
 
 CREATE OR REPLACE FUNCTION public.golden_lesson_attest_cf11_ready(
   _batch_id uuid, _actor_id uuid, _evidence jsonb DEFAULT '{}'::jsonb, _mode text DEFAULT 'DRY_RUN'::text)

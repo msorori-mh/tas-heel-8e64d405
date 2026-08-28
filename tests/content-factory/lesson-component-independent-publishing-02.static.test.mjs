@@ -65,23 +65,60 @@ test("the student surface still renders strictly from the READY set", () => {
  * so a migration can be merged without a single database ever running it. Both the
  * migration and its proof script must be named in the workflow.
  */
-test("both migrations are actually exercised by the PG17 gate", () => {
+/**
+ * The two migrations need different databases. The Content V3 container never builds
+ * CF11, so the CF11 half must ride the CF04–CF11 rehearsal instead; putting it in the
+ * wrong job fails on a missing pgcrypto prerequisite rather than on the change itself.
+ */
+test("each migration is exercised by a PG17 gate that can actually run it", () => {
   const workflow = readFileSync(".github/workflows/web-ci.yml", "utf8");
+  const rehearsal = readFileSync(
+    "scripts/content-factory/pg17/rehearse-content-factory-11.sh",
+    "utf8",
+  );
+
+  // Content V3 job: manifest rule + visibility gate only.
   assert.match(
     workflow,
     /supabase\/migrations\/20260831010000_lesson_component_independent_publishing_02\.sql/,
   );
   assert.match(
     workflow,
+    /scripts\/content-v3\/lesson-component-independent-publishing-02-pg17\.sql/,
+  );
+  assert.doesNotMatch(
+    workflow,
+    /supabase\/migrations\/20260831020000_cf11_ready_scoped_to_authored_components\.sql/,
+  );
+
+  // CF11 rehearsal: the authored-subset helper and the attestation change.
+  assert.match(
+    rehearsal,
     /supabase\/migrations\/20260831020000_cf11_ready_scoped_to_authored_components\.sql/,
   );
   assert.match(
-    workflow,
-    /scripts\/content-v3\/lesson-component-independent-publishing-02-pg17\.sql/,
+    rehearsal,
+    /scripts\/content-factory\/pg17\/lesson-component-independent-publishing-02-cf11-pg17\.sql/,
   );
+
   assert.match(
     workflow,
     /tests\/content-factory\/lesson-component-independent-publishing-02\.static\.test\.mjs/,
+  );
+});
+
+/**
+ * A LANGUAGE sql body is resolved at CREATE time, which would tie this migration to the
+ * order CF10/CF11 happened to be applied in. plpgsql resolves at call time.
+ */
+test("the authored-subset helper does not depend on migration order", () => {
+  const cf11 = readFileSync(
+    "supabase/migrations/20260831020000_cf11_ready_scoped_to_authored_components.sql",
+    "utf8",
+  );
+  assert.match(
+    cf11,
+    /FUNCTION public\.cf11_authored_capabilities\(_lesson_id uuid\)\s*\nRETURNS text\[\] LANGUAGE plpgsql/,
   );
 });
 

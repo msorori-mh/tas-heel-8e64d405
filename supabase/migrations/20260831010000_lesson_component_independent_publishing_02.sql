@@ -171,25 +171,6 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, p
   END;
 $$;
 
--- ---------------------------------------------------------------------------
--- 3) LCIP-02: the authored subset of a lesson.
---
---    v3_capability_snapshot_is_reconcilable() is already exactly the predicate
---    "this capability carries content" — it returns true only for a non-empty
---    payload. Naming that subset once keeps every READY-scope decision below
---    derived from the canonical seven, never from a live lifecycle row.
--- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.cf11_authored_capabilities(_lesson_id uuid)
-RETURNS text[] LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
-  SELECT coalesce(array_agg(c ORDER BY c), ARRAY[]::text[])
-    FROM unnest(public.cf11_lifecycle_capabilities()) AS t(c)
-   WHERE public.v3_capability_snapshot_is_reconcilable(
-           public.v3_capability_snapshot(_lesson_id, t.c));
-$$;
-
-COMMENT ON FUNCTION public.cf11_authored_capabilities(uuid) IS
-  'LCIP-02: the canonical capabilities of a lesson that actually carry content. Unauthored components are excluded from READY verification and promotion; they stay in REVIEW and are never student-reachable.';
-
 COMMIT;
 
 -- Rollback:
