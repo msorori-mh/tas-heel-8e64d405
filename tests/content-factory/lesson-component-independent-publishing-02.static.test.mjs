@@ -128,6 +128,39 @@ test("the CF11 READY relaxation is scoped to authored components", () => {
   assert.match(cf11, /FOREACH lifecycle_cap IN ARRAY attested_caps LOOP/);
 });
 
+/**
+ * LCIP-02 made the FIRST partial publish work and stopped there. Publishing a SECOND
+ * component still failed: publish moved every capability to REVIEW including the one
+ * already READY, and cf11_assert_demotion_allowed refuses READY -> REVIEW. Staff were
+ * therefore still forced to upload all seven at once.
+ */
+test("publishing a second component does not demote the first", () => {
+  const lcip03 = readFileSync(
+    "supabase/migrations/20260901010000_publish_second_component_without_demoting_first.sql",
+    "utf8",
+  );
+  const rehearsal = readFileSync(
+    "scripts/content-factory/pg17/rehearse-content-factory-11.sh",
+    "utf8",
+  );
+
+  // Anchored patch, not a wholesale replacement: the deployed publish function is 38KB
+  // and has drifted from this repository, so replacing it would discard that drift.
+  assert.match(lcip03, /LCIP03_ANCHOR_NOT_UNIQUE/);
+  assert.match(lcip03, /IS DISTINCT FROM ''READY'' THEN/);
+  assert.match(lcip03, /status IN \(''REVIEW'', ''READY''\)/);
+
+  // The guard that makes the relaxation safe must not be touched.
+  assert.doesNotMatch(lcip03, /DROP FUNCTION[^\n]*cf11_assert_demotion_allowed/);
+
+  assert.ok(
+    rehearsal.includes(
+      "supabase/migrations/20260901010000_publish_second_component_without_demoting_first.sql",
+    ),
+    "LCIP-03 is not exercised by the CF11 rehearsal",
+  );
+});
+
 test("every CF11 guard survives the relaxation", () => {
   const cf11 = readFileSync(
     "supabase/migrations/20260831020000_cf11_ready_scoped_to_authored_components.sql",
