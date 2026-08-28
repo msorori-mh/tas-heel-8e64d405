@@ -224,10 +224,24 @@ CREATE TABLE IF NOT EXISTS public.lesson_simulations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   lesson_id uuid NOT NULL
 );
+-- resource_type is an ENUM in production, not text. A fixture that declares it as text
+-- lets a migration pass CI that cannot be created against the real schema at all —
+-- exactly how 20260826040000 reached production needing a hand-added ::text cast.
+-- Keep this in step with the production type and with content-factory-10-fixture.sql.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+     WHERE n.nspname = 'public' AND t.typname = 'lesson_resource_type'
+  ) THEN
+    CREATE TYPE public.lesson_resource_type AS ENUM ('video','mindmap','experiment','pdf','link');
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS public.lesson_resources (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   lesson_id uuid NOT NULL,
-  resource_type text NOT NULL,
+  resource_type public.lesson_resource_type NOT NULL,
   html_resource_type text,
   title text NOT NULL DEFAULT 'fixture',
   url text NOT NULL DEFAULT 'https://example.test/fixture',
