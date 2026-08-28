@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -5115,6 +5115,10 @@ export type Database = {
           _version: string
         }
         Returns: string
+      }
+      cf11_authored_capabilities: {
+        Args: { _lesson_id: string }
+        Returns: string[]
       }
       cf11_close_revocation_ticket: {
         Args: { _lesson_id: string }
