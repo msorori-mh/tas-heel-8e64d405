@@ -5769,6 +5769,10 @@ export type Database = {
           version: string
         }[]
       }
+      mark_lesson_component_draft: {
+        Args: { _capability: string; _lesson_id: string }
+        Returns: undefined
+      }
       ministerial_build_model_code: {
         Args: {
           _academic_year: number
