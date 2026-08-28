@@ -102,16 +102,62 @@ test("valid Quran and chemistry packages pass with zero writes", () => {
   }
 });
 
-test("missing required content and official provenance fail closed", () => {
+test("a capability with no file yet does not hold back the rest of the package", () => {
   const pkg = packageFor(GOLDEN_CHEMISTRY_V1);
   const official = pkg.artifacts.find((item) => item.capability === "officialBookContent")!;
   official.sourcePath = null;
   official.sha256 = null;
   official.provenancePath = null;
+  official.provenanceSha256 = null;
+  const result = validateGoldenLessonPackage(pkg);
+  assert.equal(result.valid, true, JSON.stringify(result.findings));
+  assert.equal(
+    result.findings.some((finding) => finding.code === "REQUIRED_ARTIFACT_MISSING"),
+    false,
+  );
+  assert.equal(result.writesPerformed, 0);
+});
+
+test("official provenance is still mandatory for an official capability that has a file", () => {
+  const pkg = packageFor(GOLDEN_CHEMISTRY_V1);
+  const official = pkg.artifacts.find((item) => item.capability === "officialBookContent")!;
+  official.provenancePath = null;
+  official.provenanceSha256 = null;
   const result = validateGoldenLessonPackage(pkg);
   assert.equal(result.valid, false);
-  assert.ok(result.findings.some((finding) => finding.code === "REQUIRED_ARTIFACT_MISSING"));
+  assert.ok(result.findings.some((finding) => finding.code === "OFFICIAL_PROVENANCE_MISSING"));
   assert.equal(result.writesPerformed, 0);
+});
+
+test("a package carrying no file at all has nothing to publish", () => {
+  const pkg = packageFor(GOLDEN_CHEMISTRY_V1);
+  for (const artifact of pkg.artifacts) {
+    artifact.sourcePath = null;
+    artifact.sha256 = null;
+    artifact.provenancePath = null;
+    artifact.provenanceSha256 = null;
+  }
+  const result = validateGoldenLessonPackage(pkg);
+  assert.equal(result.valid, false);
+  assert.ok(result.findings.some((finding) => finding.code === "PACKAGE_HAS_NO_CONTENT"));
+  assert.equal(result.writesPerformed, 0);
+});
+
+test("any single capability on its own is a publishable package", () => {
+  for (const only of GOLDEN_CAPABILITIES) {
+    const pkg = packageFor(GOLDEN_CHEMISTRY_V1);
+    for (const artifact of pkg.artifacts) {
+      if (artifact.capability === only) continue;
+      artifact.sourcePath = null;
+      artifact.sha256 = null;
+      artifact.provenancePath = null;
+      artifact.provenanceSha256 = null;
+    }
+    const kept = pkg.artifacts.find((item) => item.capability === only)!;
+    if (!kept.sourcePath) continue; // labExperimentHtml carries no file in this fixture
+    const result = validateGoldenLessonPackage(pkg);
+    assert.equal(result.valid, true, `${only}: ${JSON.stringify(result.findings)}`);
+  }
 });
 
 test("answers, direct READY, production apply and HTML network access are rejected", () => {

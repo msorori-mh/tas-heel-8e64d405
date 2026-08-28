@@ -6,6 +6,11 @@ export const GOLDEN_QURAN_V1: GoldenLessonProfile = {
   labelAr: "الدرس الذهبي — القرآن الكريم",
   subjectFamily: "QURAN",
   capabilityOrder: GOLDEN_CAPABILITIES,
+  /**
+   * The profile still records which capabilities a complete lesson is expected to
+   * carry. It is an editorial expectation, not an upload gate: every capability is
+   * uploaded, reviewed and published on its own, and nothing waits for the rest.
+   */
   applicability: {
     officialBookContent: "REQUIRED",
     tamkeenExplanationHtml: "REQUIRED",
@@ -17,7 +22,7 @@ export const GOLDEN_QURAN_V1: GoldenLessonProfile = {
   },
   notesAr: [
     "النص الرسمي وأسئلته لا يعادان صياغتهما.",
-    "التجربة أو النشاط التفاعلي وحده اختياري؛ أسئلة الكتاب واختبر فهمك مكونان إلزاميان.",
+    "كل مكوّن يُرفع ويُنشر وحده؛ لا ينتظر أي مكوّن اكتمال البقية.",
     "الوحدة اختيارية؛ لا تُخترع إذا كان الدرس مرتبطًا بالمادة مباشرة.",
   ],
 };
@@ -28,6 +33,11 @@ export const GOLDEN_CHEMISTRY_V1: GoldenLessonProfile = {
   labelAr: "الدرس الذهبي — الكيمياء",
   subjectFamily: "SCIENCE",
   capabilityOrder: GOLDEN_CAPABILITIES,
+  /**
+   * The profile still records which capabilities a complete lesson is expected to
+   * carry. It is an editorial expectation, not an upload gate: every capability is
+   * uploaded, reviewed and published on its own, and nothing waits for the rest.
+   */
   applicability: {
     officialBookContent: "REQUIRED",
     tamkeenExplanationHtml: "REQUIRED",
@@ -39,7 +49,7 @@ export const GOLDEN_CHEMISTRY_V1: GoldenLessonProfile = {
   },
   notesAr: [
     "المعادلات والجداول والأشكال الرسمية تحفظ كما وردت في الكتاب مع بصمة سلامة داخلية.",
-    "المختبر اختياري حسب الدرس، وعند وجوده يعمل داخل CSP بلا شبكة.",
+    "كل مكوّن يُرفع ويُنشر وحده؛ المختبر وغيره يعمل داخل CSP بلا شبكة عند وجوده.",
     "إجابات اختبر فهمك وتعليلاته تُفصل آليًا من XLSX وتحفظ خادميًا؛ لا يرفع الفريق ملفًا منفصلًا.",
   ],
 };

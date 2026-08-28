@@ -1,0 +1,152 @@
+/**
+ * LESSON_COMPONENT_INDEPENDENT_PUBLISHING_02 — the all-or-nothing rule was enforced in
+ * four places at once. Removing it from one and leaving it in another produces a screen
+ * that accepts a partial upload and a student who still sees nothing, so each layer is
+ * pinned here.
+ */
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+
+const migration = readFileSync(
+  "supabase/migrations/20260831010000_lesson_component_independent_publishing_02.sql",
+  "utf8",
+);
+const validator = readFileSync("src/lib/content-factory/golden-lesson-validator.ts", "utf8");
+const builder = readFileSync("src/components/admin/GoldenLessonPackageBuilder.tsx", "utf8");
+const studentRoute = readFileSync("src/routes/_authenticated/lessons.$lessonId.tsx", "utf8");
+
+test("the database no longer rejects a package whose capability has no file", () => {
+  assert.doesNotMatch(migration, /RAISE EXCEPTION 'REQUIRED_ARTIFACT_MISSING/);
+  assert.match(migration, /PACKAGE_HAS_NO_CONTENT/);
+  // The seven records are still described, and the other artifact rules stay intact.
+  assert.match(migration, /jsonb_array_length\(_manifest->'artifacts'\) <> 7/);
+  assert.match(migration, /OFFICIAL_PROVENANCE_MISSING/);
+  assert.match(migration, /APPLICABILITY_MISMATCH/);
+});
+
+test("a managed lesson becomes visible on one READY capability, not on all of them", () => {
+  const body = migration.slice(migration.indexOf("FUNCTION public.lesson_student_visible"));
+  assert.match(body, /l\.status = 'READY'/);
+  // The old lesson-level gate required every REQUIRED row to be READY and treated any
+  // row carrying a draft_hash as a blocker for the whole lesson.
+  assert.doesNotMatch(body, /applicability = 'REQUIRED'/);
+  assert.doesNotMatch(body, /status IS DISTINCT FROM 'READY'/);
+  assert.doesNotMatch(body, /draft_hash/);
+});
+
+test("DRAFT and REVIEW stay hidden — the migration never promotes anything", () => {
+  assert.doesNotMatch(migration, /SET status = 'READY'/);
+  assert.doesNotMatch(migration, /UPDATE public\.lesson_capability_lifecycle/);
+  assert.doesNotMatch(migration, /INSERT INTO public\.lesson_capability_lifecycle/);
+});
+
+test("the package validator drops the mandatory-file rule but keeps a content floor", () => {
+  assert.doesNotMatch(validator, /"REQUIRED_ARTIFACT_MISSING"/);
+  assert.match(validator, /PACKAGE_HAS_NO_CONTENT/);
+  assert.match(validator, /"OFFICIAL_PROVENANCE_MISSING"/);
+});
+
+test("the import screen no longer presents any component as mandatory", () => {
+  assert.doesNotMatch(builder, /اكتمال الملفات الإلزامية/);
+  assert.doesNotMatch(builder, /"إلزامي"/);
+  assert.doesNotMatch(builder, /إلزامية للنشر/);
+  assert.match(builder, /لا يوجد مكوّن إلزامي/);
+  assert.match(builder, /uploadedCount/);
+});
+
+test("the student surface still renders strictly from the READY set", () => {
+  assert.match(studentRoute, /filterStudentCapabilitiesByLifecycle/);
+  assert.match(studentRoute, /readyKeys/);
+});
+
+/**
+ * The PG17 jobs apply migrations by explicit filename, not by scanning the folder,
+ * so a migration can be merged without a single database ever running it. Both the
+ * migration and its proof script must be named in the workflow.
+ */
+test("both migrations are actually exercised by the PG17 gate", () => {
+  const workflow = readFileSync(".github/workflows/web-ci.yml", "utf8");
+  assert.match(
+    workflow,
+    /supabase\/migrations\/20260831010000_lesson_component_independent_publishing_02\.sql/,
+  );
+  assert.match(
+    workflow,
+    /supabase\/migrations\/20260831020000_cf11_ready_scoped_to_authored_components\.sql/,
+  );
+  assert.match(
+    workflow,
+    /scripts\/content-v3\/lesson-component-independent-publishing-02-pg17\.sql/,
+  );
+  assert.match(
+    workflow,
+    /tests\/content-factory\/lesson-component-independent-publishing-02\.static\.test\.mjs/,
+  );
+});
+
+/**
+ * The CF11 READY path is the gate that actually kept a single published component
+ * invisible. Relaxing it must widen only WHICH capabilities are attested — never any
+ * of the guards that decide WHETHER the lesson may be attested at all.
+ */
+test("the CF11 READY relaxation is scoped to authored components", () => {
+  const cf11 = readFileSync(
+    "supabase/migrations/20260831020000_cf11_ready_scoped_to_authored_components.sql",
+    "utf8",
+  );
+  assert.match(cf11, /cf11_authored_capabilities\(lesson_row\.id\)/);
+  assert.match(cf11, /CF11_NO_AUTHORED_CAPABILITY/);
+  assert.match(cf11, /IF live_caps IS DISTINCT FROM authored_caps THEN/);
+  assert.match(cf11, /FOREACH lifecycle_cap IN ARRAY attested_caps LOOP/);
+});
+
+test("every CF11 guard survives the relaxation", () => {
+  const cf11 = readFileSync(
+    "supabase/migrations/20260831020000_cf11_ready_scoped_to_authored_components.sql",
+    "utf8",
+  );
+  for (const guard of [
+    "CF11_ACTOR_IDENTITY_MISMATCH",
+    "CF11_NOT_AUTHORIZED",
+    "CF11_SEPARATION_OF_DUTIES",
+    "CF11_PUBLICATION_REVOKED",
+    "CF11_READY_EVIDENCE_REQUIRED",
+    "CF11_LESSON_NOT_FREE",
+    "CF11_READY_REQUIRES_REVIEW_FOR_ALL",
+    "CF11_HTML_NOT_PUBLISHED",
+    "CF11_ASSET_OBJECT_VANISHED",
+    "CF11_ASSET_ATTESTATION_DRIFT_AT_READY",
+    "CF11_ASSET_OBJECT_IDENTITY_DRIFT_AT_READY",
+    "CF11_ASSET_ATTESTATION_SET_DRIFT_AT_READY",
+    "CF11_ANSWER_LEAK_DETECTED",
+    "CF11_SNAPSHOT_NOT_RECONCILABLE",
+    "CF11_READY_SET_NOT_EXACT",
+    "cf11_assert_replay_state",
+    "cf11_assert_exact_required_lifecycle_set",
+  ]) {
+    assert.ok(cf11.includes(guard), `CF11 guard lost: ${guard}`);
+  }
+});
+
+/**
+ * The production database is running a lesson_student_visible body that exists in no
+ * migration file. Replaying 20260820023919 would silently revert it, so this migration
+ * must carry that exact body forward.
+ */
+test("the migration records the visibility rule production already runs", () => {
+  assert.match(migration, /النشر المستقل: الدرس يظهر بمجرد نشر مكوّن واحد على الأقل/);
+  assert.match(migration, /l\.status = 'READY'\)/);
+});
+
+test("the PG17 proof covers publish, isolation and demotion, not just the happy path", () => {
+  const proof = readFileSync(
+    "scripts/content-v3/lesson-component-independent-publishing-02-pg17.sql",
+    "utf8",
+  );
+  assert.match(proof, /LCIP02_DRAFT_ONLY_LESSON_IS_VISIBLE/);
+  assert.match(proof, /LCIP02_SINGLE_READY_COMPONENT_STILL_HIDDEN/);
+  assert.match(proof, /LCIP02_GATE_LEAKED_UNREADY_COMPONENTS/);
+  assert.match(proof, /LCIP02_SIBLING_DEMOTION_HID_THE_LESSON/);
+  assert.match(proof, /LCIP02_EMPTY_PACKAGE_WAS_ACCEPTED/);
+});

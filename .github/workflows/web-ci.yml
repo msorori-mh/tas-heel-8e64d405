@@ -74,6 +74,7 @@ jobs:
           node --test tests/content-factory/content-factory-11-r11-storage-policy.static.test.mjs
           node --test tests/content-factory/content-factory-11-r12-assets.static.test.mjs
           node --test tests/content-factory/content-factory-11-r13-owner-override.static.test.mjs
+          node --test tests/content-factory/lesson-component-independent-publishing-02.static.test.mjs
           node --import tsx --test tests/content-packages/chemistry-g12-iron-cf11-assets.test.ts
 
           if [ -f tests/content-packages/chemistry-g12-iron-v3.test.mjs ]; then
@@ -132,6 +133,17 @@ jobs:
           psql "$TAMKEEN_PG17_LOCAL_URL" --set=ON_ERROR_STOP=1 \
             --file supabase/migrations/20260826040000_independent_lesson_component_publishing.sql \
             --file scripts/content-v3/independent-component-publishing-pg17.sql
+
+      - name: Verify independent component publishing 02 on PG17
+        env:
+          TAMKEEN_PG17_LOCAL_URL: postgresql://postgres:tamkeen_ci_only@localhost:5432/tamkeen
+        run: |
+          psql "$TAMKEEN_PG17_LOCAL_URL" --set=ON_ERROR_STOP=1 \
+            --file supabase/migrations/20260827030000_golden_lesson_required_official_questions.sql \
+            --file supabase/migrations-pending/20260824000000_content_factory_11_publication.sql \
+            --file supabase/migrations/20260831010000_lesson_component_independent_publishing_02.sql \
+            --file supabase/migrations/20260831020000_cf11_ready_scoped_to_authored_components.sql \
+            --file scripts/content-v3/lesson-component-independent-publishing-02-pg17.sql
 
       - name: Stop isolated PostgreSQL 17
         if: always()
