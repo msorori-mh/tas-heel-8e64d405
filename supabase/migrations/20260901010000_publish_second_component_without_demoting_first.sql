@@ -64,19 +64,19 @@ BEGIN
 
   -- (1) do not demote a component that is already published.
   anchor :=
-    E'  FOREACH cap IN ARRAY lifecycle_caps LOOP\n'
-    E'    PERFORM public.lesson_capability_transition(lesson_row.id, cap, ''REVIEW'', NULL, NULL);\n'
+    E'  FOREACH cap IN ARRAY lifecycle_caps LOOP\n' ||
+    E'    PERFORM public.lesson_capability_transition(lesson_row.id, cap, ''REVIEW'', NULL, NULL);\n' ||
     E'  END LOOP;';
   replacement :=
-    E'  FOREACH cap IN ARRAY lifecycle_caps LOOP\n'
-    E'    -- LCIP-03: a component that is already READY stays published. Asking for\n'
-    E'    -- READY -> REVIEW here is a demotion, which cf11_assert_demotion_allowed\n'
-    E'    -- refuses, and that is why publishing a second component used to fail.\n'
-    E'    IF (SELECT status FROM public.lesson_capability_lifecycle\n'
-    E'         WHERE lesson_id = lesson_row.id AND capability = cap)\n'
-    E'       IS DISTINCT FROM ''READY'' THEN\n'
-    E'      PERFORM public.lesson_capability_transition(lesson_row.id, cap, ''REVIEW'', NULL, NULL);\n'
-    E'    END IF;\n'
+    E'  FOREACH cap IN ARRAY lifecycle_caps LOOP\n' ||
+    E'    -- LCIP-03: a component that is already READY stays published. Asking for\n' ||
+    E'    -- READY -> REVIEW here is a demotion, which cf11_assert_demotion_allowed\n' ||
+    E'    -- refuses, and that is why publishing a second component used to fail.\n' ||
+    E'    IF (SELECT status FROM public.lesson_capability_lifecycle\n' ||
+    E'         WHERE lesson_id = lesson_row.id AND capability = cap)\n' ||
+    E'       IS DISTINCT FROM ''READY'' THEN\n' ||
+    E'      PERFORM public.lesson_capability_transition(lesson_row.id, cap, ''REVIEW'', NULL, NULL);\n' ||
+    E'    END IF;\n' ||
     E'  END LOOP;';
   hits := (length(patched) - length(replace(patched, anchor, ''))) / length(anchor);
   IF hits <> 1 THEN
@@ -87,13 +87,13 @@ BEGIN
 
   -- (2) the staged set is complete when every capability is REVIEW *or* already READY.
   anchor :=
-    E'   WHERE lesson_id = lesson_row.id AND status = ''REVIEW'';\n'
-    E'  IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN\n'
+    E'   WHERE lesson_id = lesson_row.id AND status = ''REVIEW'';\n' ||
+    E'  IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN\n' ||
     E'    RAISE EXCEPTION ''CF11_LIFECYCLE_REVIEW_NOT_EXACTLY_SEVEN: %'', array_to_string(live_caps, '','')';
   replacement :=
-    E'   WHERE lesson_id = lesson_row.id AND status IN (''REVIEW'', ''READY'');\n'
-    E'  -- LCIP-03: READY counts as staged. A component published earlier is not missing.\n'
-    E'  IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN\n'
+    E'   WHERE lesson_id = lesson_row.id AND status IN (''REVIEW'', ''READY'');\n' ||
+    E'  -- LCIP-03: READY counts as staged. A component published earlier is not missing.\n' ||
+    E'  IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN\n' ||
     E'    RAISE EXCEPTION ''CF11_LIFECYCLE_REVIEW_NOT_EXACTLY_SEVEN: %'', array_to_string(live_caps, '','')';
   hits := (length(patched) - length(replace(patched, anchor, ''))) / length(anchor);
   IF hits <> 1 THEN
@@ -116,14 +116,14 @@ BEGIN
   patched := src;
 
   anchor :=
-    E'   WHERE lesson_id = lesson_row.id AND status = ''REVIEW'';\n'
-    E'  IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN\n'
+    E'   WHERE lesson_id = lesson_row.id AND status = ''REVIEW'';\n' ||
+    E'  IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN\n' ||
     E'    RAISE EXCEPTION ''CF11_READY_REQUIRES_REVIEW_FOR_ALL: review=[%]'',';
   replacement :=
-    E'   WHERE lesson_id = lesson_row.id AND status IN (''REVIEW'', ''READY'');\n'
-    E'  -- LCIP-03: a mixed REVIEW/READY lesson is now the normal shape of a lesson whose\n'
-    E'  -- components were published one at a time, not evidence of an out-of-band change.\n'
-    E'  IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN\n'
+    E'   WHERE lesson_id = lesson_row.id AND status IN (''REVIEW'', ''READY'');\n' ||
+    E'  -- LCIP-03: a mixed REVIEW/READY lesson is now the normal shape of a lesson whose\n' ||
+    E'  -- components were published one at a time, not evidence of an out-of-band change.\n' ||
+    E'  IF live_caps IS DISTINCT FROM public.cf11_lifecycle_capabilities() THEN\n' ||
     E'    RAISE EXCEPTION ''CF11_READY_REQUIRES_REVIEW_FOR_ALL: review=[%]'',';
   hits := (length(patched) - length(replace(patched, anchor, ''))) / length(anchor);
   IF hits <> 1 THEN
