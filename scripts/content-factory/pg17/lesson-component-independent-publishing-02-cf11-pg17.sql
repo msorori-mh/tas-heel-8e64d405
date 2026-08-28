@@ -219,13 +219,22 @@ DO $$
 DECLARE
   v_lesson uuid;
   v_refused boolean := false;
+  v_purge_active boolean := false;
 BEGIN
   SELECT lesson_id INTO v_lesson FROM public.golden_lesson_publications LIMIT 1;
   IF v_lesson IS NULL THEN
     RAISE EXCEPTION 'LCIP03_NO_MANAGED_LESSON: the rehearsal published nothing, so the demotion guard cannot be exercised';
   END IF;
-  IF public.curriculum_prelaunch_purge_ticket_active() THEN
-    RAISE EXCEPTION 'LCIP03_PURGE_TICKET_ACTIVE: the guard is globally disabled, the proof would be vacuous';
+  -- The purge escape hatch exists in production but not in this rehearsal, which never
+  -- applies the prelaunch purge migrations. Probe for it dynamically so the assertion is
+  -- real where the branch exists and silent where it cannot.
+  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              WHERE n.nspname = 'public'
+                AND p.proname = 'curriculum_prelaunch_purge_ticket_active') THEN
+    EXECUTE 'SELECT public.curriculum_prelaunch_purge_ticket_active()' INTO v_purge_active;
+    IF v_purge_active THEN
+      RAISE EXCEPTION 'LCIP03_PURGE_TICKET_ACTIVE: the guard is globally disabled, the proof would be vacuous';
+    END IF;
   END IF;
   IF public.cf11_has_revocation_ticket(v_lesson) THEN
     RAISE EXCEPTION 'LCIP03_REVOCATION_TICKET_OPEN: the guard is disabled for this lesson';
