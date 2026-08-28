@@ -28,7 +28,7 @@
 
 DO $mig$
 DECLARE
-  src text; patched text; a text; r text; hits integer; tbl text;
+  src text; patched text; a text; b text; r text; hits integer; hits2 integer; tbl text;
 BEGIN
   SELECT pg_get_functiondef(p.oid) INTO src
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -51,16 +51,34 @@ BEGIN
   patched := replace(patched, a, r);
 
   -- 2..4) لا تعارض بصمة على حمولة فارغة
+  --
+  -- لفرع التعارض صيغتان قائمتان فعلًا، وكلتاهما تبدأ بنفس السطر:
+  --   * الصيغة الأصلية: الرفض مباشرةً بعد ELSIF.
+  --   * صيغة 20260827010000 (المراجعة المُدارة): الرفض داخل IF binding_count.
+  -- الإنتاج على الأولى، وسلسلة المستودع على الثانية. التعديل المطلوب واحد في
+  -- الحالتين: إضافة شرط payload_text IS NOT NULL إلى سطر ELSIF نفسه. فنقبل أيّ
+  -- الصيغتين، ونشترط أن تُطابق واحدة منهما مرة واحدة بالضبط — لا صفرًا ولا اثنتين.
   FOREACH tbl IN ARRAY ARRAY['lesson_book_contents','lesson_explanations','lesson_summaries'] LOOP
     a := E'  ELSIF existing_hash IS DISTINCT FROM new_hash THEN\n' ||
          E'    RAISE EXCEPTION ''CF10_CONTENT_HASH_CONFLICT: ' || tbl || E''' USING ERRCODE = ''23514'';';
-    r := E'  ELSIF payload_text IS NOT NULL AND existing_hash IS DISTINCT FROM new_hash THEN\n' ||
-         E'    RAISE EXCEPTION ''CF10_CONTENT_HASH_CONFLICT: ' || tbl || E''' USING ERRCODE = ''23514'';';
-    hits := (length(patched) - length(replace(patched, a, ''))) / length(a);
-    IF hits <> 1 THEN
-      RAISE EXCEPTION 'LCIP04_ANCHOR_CONFLICT % : % hits', tbl, hits USING ERRCODE = '22023';
+    b := E'  ELSIF existing_hash IS DISTINCT FROM new_hash THEN\n' ||
+         E'    IF binding_count IS DISTINCT FROM 1 THEN\n' ||
+         E'      RAISE EXCEPTION ''CF10_CONTENT_HASH_CONFLICT: ' || tbl || E''' USING ERRCODE = ''23514'';';
+    hits  := (length(patched) - length(replace(patched, a, ''))) / length(a);
+    hits2 := (length(patched) - length(replace(patched, b, ''))) / length(b);
+    IF hits + hits2 <> 1 THEN
+      RAISE EXCEPTION 'LCIP04_ANCHOR_CONFLICT % : % plain / % managed', tbl, hits, hits2
+        USING ERRCODE = '22023';
     END IF;
-    patched := replace(patched, a, r);
+    IF hits = 1 THEN
+      r := replace(a, E'  ELSIF existing_hash',
+                      E'  ELSIF payload_text IS NOT NULL AND existing_hash');
+      patched := replace(patched, a, r);
+    ELSE
+      r := replace(b, E'  ELSIF existing_hash',
+                      E'  ELSIF payload_text IS NOT NULL AND existing_hash');
+      patched := replace(patched, b, r);
+    END IF;
   END LOOP;
 
   -- 5) محتوى الكتاب: لا إدراج على حمولة فارغة

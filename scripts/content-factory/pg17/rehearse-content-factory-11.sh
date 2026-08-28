@@ -50,4 +50,5 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/supabase/migrations/20260831020000_cf11_ready_scoped_to_authored_components.sql" \
   -f "$root_dir/supabase/migrations/20260901010000_publish_second_component_without_demoting_first.sql" \
   -f "$root_dir/supabase/migrations/20260902010000_cf10_allow_partial_batch.sql" \
+  -f "$root_dir/supabase/migrations/20260903010000_cf10_answer_companion_only_with_questions.sql" \
   -f "$root_dir/scripts/content-factory/pg17/lesson-component-independent-publishing-02-cf11-pg17.sql"
