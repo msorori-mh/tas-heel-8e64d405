@@ -210,20 +210,26 @@ END $$;
 
 -- The demotion guard must still refuse a real un-publish. Relaxing the publish path
 -- must not have opened a way to pull a live component without a revocation ticket.
+--
+-- This must run against a lesson the guard actually governs. cf11_is_managed_lesson is
+-- EXISTS(golden_lesson_publications), so a synthetic lesson with lifecycle rows but no
+-- publication makes the guard return early — and a proof that passes with the guard
+-- deleted proves nothing. Every early-exit branch is therefore asserted away first.
 DO $$
 DECLARE
-  v_subject uuid := '42000000-0000-0000-0000-000000000012';
-  v_lesson  uuid := '43000000-0000-0000-0000-0000000000a3';
+  v_lesson uuid;
   v_refused boolean := false;
 BEGIN
-  INSERT INTO public.lessons(id, slug, subject_id, unit_id, title, is_free, semester, sort_order)
-  VALUES (v_lesson, 'lcip03-demotion', v_subject, NULL, 'LCIP-03 demotion', true, 1, 92)
-  ON CONFLICT (id) DO NOTHING;
-
-  INSERT INTO public.lesson_capability_lifecycle (lesson_id, capability, status, applicability)
-  SELECT v_lesson, c, 'READY', 'REQUIRED'
-    FROM unnest(public.cf11_lifecycle_capabilities()) AS t(c)
-  ON CONFLICT (lesson_id, capability) DO UPDATE SET status = 'READY';
+  SELECT lesson_id INTO v_lesson FROM public.golden_lesson_publications LIMIT 1;
+  IF v_lesson IS NULL THEN
+    RAISE EXCEPTION 'LCIP03_NO_MANAGED_LESSON: the rehearsal published nothing, so the demotion guard cannot be exercised';
+  END IF;
+  IF public.curriculum_prelaunch_purge_ticket_active() THEN
+    RAISE EXCEPTION 'LCIP03_PURGE_TICKET_ACTIVE: the guard is globally disabled, the proof would be vacuous';
+  END IF;
+  IF public.cf11_has_revocation_ticket(v_lesson) THEN
+    RAISE EXCEPTION 'LCIP03_REVOCATION_TICKET_OPEN: the guard is disabled for this lesson';
+  END IF;
 
   BEGIN
     PERFORM public.cf11_assert_demotion_allowed(
