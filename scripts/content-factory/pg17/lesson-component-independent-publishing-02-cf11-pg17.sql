@@ -258,6 +258,54 @@ BEGIN
 END $$;
 
 -- =====================================================================================
+-- 3c) LCIP-04: a batch carrying ONE component must materialise, and must write NOTHING
+--     for the other six.
+--
+--     CF10 rejected any staged capability whose payload was NULL:
+--       IF entry.applicability = 'REQUIRED' AND payload_text IS NULL THEN
+--         RAISE EXCEPTION 'CF10_EMPTY_PAYLOAD: %', entry.capability;
+--     Staging always stages all seven, so uploading one component failed on the first
+--     empty one. Removing that check alone was not enough: the book/explanation/summary
+--     blocks had no NULL guard and would have inserted empty rows — an unauthored
+--     component reaching the student as blank content.
+-- =====================================================================================
+DO $$
+DECLARE
+  d text;
+BEGIN
+  SELECT pg_get_functiondef(p.oid) INTO d
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'golden_lesson_materialize_domain_batch';
+  IF d IS NULL THEN
+    RAISE EXCEPTION 'LCIP04_MATERIALIZE_FUNCTION_MISSING';
+  END IF;
+
+  IF position('CF10_EMPTY_PAYLOAD' in d) > 0 THEN
+    RAISE EXCEPTION 'LCIP04_STILL_REJECTS_PARTIAL_BATCH';
+  END IF;
+
+  -- The three blocks that previously had no NULL guard must all have one now, on both
+  -- the insert and the hash-conflict branch. Anything less writes empty content.
+  IF (SELECT count(*) FROM regexp_matches(d,
+        'IF existing_hash IS NULL AND payload_text IS NOT NULL THEN', 'g')) <> 3 THEN
+    RAISE EXCEPTION 'LCIP04_INSERT_NOT_GUARDED_ON_ALL_THREE';
+  END IF;
+  IF (SELECT count(*) FROM regexp_matches(d,
+        'ELSIF payload_text IS NOT NULL AND existing_hash IS DISTINCT FROM', 'g')) <> 3 THEN
+    RAISE EXCEPTION 'LCIP04_CONFLICT_NOT_GUARDED_ON_ALL_THREE';
+  END IF;
+
+  -- Everything that made CF10 safe must survive.
+  IF position('cf10_assert_no_answer_leak' in d) = 0
+     OR position('CF10_PAYLOAD_HASH_MISMATCH' in d) = 0
+     OR position('CF10_IDENTITY_CONFLICT' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP04_CF10_GUARD_LOST';
+  END IF;
+
+  RAISE NOTICE 'LCIP04 partial-batch proof passed.';
+END $$;
+
+-- =====================================================================================
 -- 4) Staging: a package describing the seven records but carrying ONE file is accepted,
 --    and one carrying none is refused.
 -- =====================================================================================
