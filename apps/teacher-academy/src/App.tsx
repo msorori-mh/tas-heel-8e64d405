@@ -1,0 +1,1160 @@
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import type { User } from "@supabase/supabase-js";
+import {
+  Award,
+  BookOpen,
+  CheckCircle2,
+  ExternalLink,
+  GraduationCap,
+  LoaderCircle,
+  LogOut,
+  Menu,
+  School,
+  ShieldCheck,
+  UserRound,
+  X,
+} from "lucide-react";
+import { AdminHome } from "./AdminHome";
+import {
+  loadCapabilities,
+  loadProfileOptions,
+  loadTeacherProfile,
+  loadVisiblePrograms,
+  saveTeacherProfile,
+  selfEnroll,
+  completeLearningLesson,
+  getAssessment,
+  getLearningLessons,
+  listMyCertificates,
+  listMyLearning,
+  submitAssessment,
+  verifyCertificate,
+} from "./lib/academy-api";
+import {
+  academyBackendConfigured,
+  academyFeatureEnabled,
+  academySupabase,
+  requireAcademyBackend,
+} from "./lib/supabase";
+import type {
+  AcademyCapability,
+  AcademySubject,
+  AssessmentQuestion,
+  AssessmentResult,
+  CatalogProgram,
+  Certificate,
+  Governorate,
+  LearningLesson,
+  LearningProgram,
+  TeacherProfile,
+  VerifiedCertificate,
+} from "./types";
+
+type WorkspaceView = "catalog" | "learning" | "certificates" | "profile" | "admin";
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error && "message" in error) {
+    return String(error.message);
+  }
+  return "حدث خطأ غير متوقع. حاول مرة أخرى.";
+}
+
+function LoadingScreen() {
+  return (
+    <main className="centered-page">
+      <div className="loading-card" role="status">
+        <LoaderCircle className="spin" aria-hidden="true" />
+        <p>جارٍ تجهيز أكاديمية تمكين…</p>
+      </div>
+    </main>
+  );
+}
+
+function ConfigurationRequired() {
+  return (
+    <main className="centered-page">
+      <section className="auth-card setup-card">
+        <div className="brand-mark" aria-hidden="true">
+          <GraduationCap />
+        </div>
+        <p className="eyebrow">إعداد الإطلاق</p>
+        <h1>الاتصال الخلفي غير مهيأ</h1>
+        <p className="muted">
+          لم تُضف متغيرات بيئة Supabase الخاصة بتطبيق الأكاديمية. أُغلقت الواجهة منعًا لعرض بيانات
+          تجريبية أو إرسال طلبات إلى وجهة غير صحيحة.
+        </p>
+        <div className="notice code-notice" dir="ltr">
+          VITE_SUPABASE_URL
+          <br />
+          VITE_SUPABASE_PUBLISHABLE_KEY
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function AcademyUnavailable() {
+  return (
+    <main className="centered-page">
+      <section className="auth-card setup-card">
+        <ShieldCheck className="large-icon" />
+        <p className="eyebrow">أكاديمية تمكين</p>
+        <h1>الخدمة غير متاحة حاليًا</h1>
+        <p className="muted">نعمل على تجهيز تجربة التدريب. حاول مرة أخرى لاحقًا.</p>
+      </section>
+    </main>
+  );
+}
+
+function VerifyCertificatePage() {
+  const [code, setCode] = useState(
+    () => new URLSearchParams(window.location.search).get("code") ?? "",
+  );
+  const [result, setResult] = useState<VerifiedCertificate | null>(null);
+  const [searched, setSearched] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function verify(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    setBusy(true);
+    setError(null);
+    setSearched(true);
+    try {
+      setResult(await verifyCertificate(code.trim()));
+    } catch (verifyError) {
+      setError(getErrorMessage(verifyError));
+      setResult(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    const initialCode = new URLSearchParams(window.location.search).get("code")?.trim();
+    if (!initialCode) return;
+    let active = true;
+    setBusy(true);
+    setSearched(true);
+    verifyCertificate(initialCode)
+      .then((certificate) => active && setResult(certificate))
+      .catch((verifyError) => active && setError(getErrorMessage(verifyError)))
+      .finally(() => active && setBusy(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <main className="centered-page">
+      <section className="auth-card verify-card">
+        <span className="brand-mark">
+          <Award />
+        </span>
+        <p className="eyebrow">أكاديمية تمكين</p>
+        <h1>التحقق من الشهادة</h1>
+        <p className="muted">أدخل رمز الشهادة كما يظهر في نسخة المعلم.</p>
+        <form onSubmit={verify}>
+          <label>
+            رمز الشهادة
+            <input
+              dir="ltr"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              required
+            />
+          </label>
+          <button className="primary-button" type="submit" disabled={busy}>
+            {busy ? <LoaderCircle className="spin" /> : <ShieldCheck />} تحقق
+          </button>
+        </form>
+        {error ? <div className="notice error-notice">{error}</div> : null}
+        {result ? (
+          <div
+            className={result.valid ? "verification-result valid" : "verification-result invalid"}
+          >
+            <strong>{result.valid ? "شهادة صحيحة وسارية" : "شهادة ملغاة"}</strong>
+            <span>المعلم: {result.teacher_name}</span>
+            <span>البرنامج: {result.program_title}</span>
+            <span>تاريخ الإصدار: {new Date(result.issued_at).toLocaleDateString("ar-YE")}</span>
+            <bdi>{result.certificate_code}</bdi>
+          </div>
+        ) : searched && !busy && !error ? (
+          <div className="notice error-notice">لم يُعثر على شهادة بهذا الرمز.</div>
+        ) : null}
+        <a className="text-button link-button" href="/">
+          العودة إلى الأكاديمية
+        </a>
+      </section>
+    </main>
+  );
+}
+
+function AuthPage() {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      requireAcademyBackend();
+      if (mode === "signin") {
+        const result = await academySupabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (result.error) throw result.error;
+      } else {
+        const result = await academySupabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            emailRedirectTo: window.location.origin,
+          },
+        });
+        if (result.error) throw result.error;
+        if (!result.data.session) {
+          setMessage("أُنشئ الحساب. افتح رسالة التحقق في بريدك لإكمال الدخول.");
+        }
+      }
+    } catch (submitError) {
+      setError(getErrorMessage(submitError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="auth-layout">
+      <section className="auth-intro">
+        <div className="brand-line">
+          <span className="brand-mark">
+            <GraduationCap />
+          </span>
+          <strong>أكاديمية تمكين</strong>
+        </div>
+        <div>
+          <p className="eyebrow">للمعلمين</p>
+          <h1>تدريب مهني يصل إليك بحسب تخصصك</h1>
+          <p>
+            أكمل ملفك المهني مرة واحدة، ثم ابدأ مباشرة بالبرامج المناسبة لمادتك دون دعوات أو إجراءات
+            اعتماد.
+          </p>
+        </div>
+        <ul className="feature-list">
+          <li>
+            <CheckCircle2 /> برامج مرتبطة بمادتك الأساسية
+          </li>
+          <li>
+            <CheckCircle2 /> تعلم تدريجي وقياس واضح للتقدم
+          </li>
+          <li>
+            <CheckCircle2 /> شهادات رقمية بعد استيفاء المتطلبات
+          </li>
+        </ul>
+      </section>
+
+      <section className="auth-panel">
+        <form className="auth-card" onSubmit={submit}>
+          <p className="eyebrow">{mode === "signin" ? "مرحبًا بعودتك" : "ابدأ الآن"}</p>
+          <h2>{mode === "signin" ? "تسجيل الدخول" : "إنشاء حساب معلم"}</h2>
+          <p className="muted">
+            {mode === "signin"
+              ? "استخدم بريدك وكلمة المرور للوصول إلى برامجك."
+              : "لا تحتاج إلى دعوة أو موافقة مسبقة."}
+          </p>
+
+          <label>
+            البريد الإلكتروني
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            كلمة المرور
+            <input
+              type="password"
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              minLength={8}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+          </label>
+
+          {error ? <div className="notice error-notice">{error}</div> : null}
+          {message ? <div className="notice success-notice">{message}</div> : null}
+
+          <button className="primary-button" type="submit" disabled={busy}>
+            {busy ? <LoaderCircle className="spin" /> : null}
+            {mode === "signin" ? "دخول" : "إنشاء الحساب"}
+          </button>
+          <button
+            className="text-button"
+            type="button"
+            onClick={() => {
+              setMode(mode === "signin" ? "signup" : "signin");
+              setError(null);
+              setMessage(null);
+            }}
+          >
+            {mode === "signin" ? "ليس لديك حساب؟ أنشئ حسابًا" : "لديك حساب؟ سجّل الدخول"}
+          </button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
+function ProfileForm({
+  user,
+  existing,
+  onSaved,
+}: {
+  user: User;
+  existing: TeacherProfile | null;
+  onSaved: (profile: TeacherProfile) => void;
+}) {
+  const [subjects, setSubjects] = useState<AcademySubject[]>([]);
+  const [governorates, setGovernorates] = useState<Governorate[]>([]);
+  const [fullName, setFullName] = useState(existing?.full_name ?? "");
+  const [subjectId, setSubjectId] = useState(existing?.primary_subject_id ?? "");
+  const [governorateId, setGovernorateId] = useState(existing?.governorate_id ?? "");
+  const [schoolName, setSchoolName] = useState(existing?.school_name ?? "");
+  const [phone, setPhone] = useState(existing?.phone ?? "");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    loadProfileOptions()
+      .then((options) => {
+        if (!active) return;
+        setSubjects(options.subjects);
+        setGovernorates(options.governorates);
+      })
+      .catch((optionsError) => {
+        if (active) setError(getErrorMessage(optionsError));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const saved = await saveTeacherProfile(user, {
+        full_name: fullName.trim(),
+        primary_subject_id: subjectId,
+        governorate_id: governorateId,
+        school_name: schoolName.trim(),
+        phone: phone.trim(),
+      });
+      onSaved(saved);
+    } catch (submitError) {
+      setError(getErrorMessage(submitError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="profile-page">
+      <section className="profile-heading">
+        <div className="brand-line">
+          <span className="brand-mark">
+            <GraduationCap />
+          </span>
+          <strong>أكاديمية تمكين</strong>
+        </div>
+        <p className="eyebrow">خطوة واحدة فقط</p>
+        <h1>{existing ? "تحديث الملف المهني" : "أكمل ملفك المهني"}</h1>
+        <p className="muted">
+          نستخدم المادة الأساسية لعرض البرامج المناسبة لك. جميع الحقول التالية إلزامية.
+        </p>
+      </section>
+
+      <form className="profile-form" onSubmit={submit}>
+        {loading ? (
+          <div className="loading-inline">
+            <LoaderCircle className="spin" /> جارٍ تحميل القوائم…
+          </div>
+        ) : null}
+        <div className="form-grid">
+          <label>
+            الاسم الكامل
+            <input
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            المادة الأساسية
+            <select
+              value={subjectId}
+              onChange={(event) => setSubjectId(event.target.value)}
+              required
+            >
+              <option value="">اختر المادة</option>
+              {subjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name_ar}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            المحافظة
+            <select
+              value={governorateId}
+              onChange={(event) => setGovernorateId(event.target.value)}
+              required
+            >
+              <option value="">اختر المحافظة</option>
+              {governorates.map((governorate) => (
+                <option key={governorate.id} value={governorate.id}>
+                  {governorate.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            المدرسة
+            <input
+              value={schoolName}
+              onChange={(event) => setSchoolName(event.target.value)}
+              required
+            />
+          </label>
+          <label className="full-field">
+            رقم الهاتف
+            <input
+              type="tel"
+              dir="ltr"
+              inputMode="tel"
+              placeholder="مثال: 777123456"
+              pattern="[+0-9][0-9 +()-]{6,19}"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              required
+            />
+          </label>
+        </div>
+        {error ? <div className="notice error-notice">{error}</div> : null}
+        <button className="primary-button" type="submit" disabled={busy || loading}>
+          {busy ? <LoaderCircle className="spin" /> : null}
+          حفظ والانتقال إلى البرامج
+        </button>
+      </form>
+    </main>
+  );
+}
+
+function Catalog({ onChanged }: { onChanged: () => void }) {
+  const [programs, setPrograms] = useState<CatalogProgram[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    loadVisiblePrograms()
+      .then((items) => {
+        if (active) setPrograms(items);
+      })
+      .catch((loadError) => {
+        if (active) setError(getErrorMessage(loadError));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function enroll(program: CatalogProgram) {
+    setBusyId(program.program_version_id);
+    setError(null);
+    try {
+      await selfEnroll(program.program_version_id);
+      setPrograms((current) =>
+        current.map((item) =>
+          item.program_version_id === program.program_version_id
+            ? { ...item, enrolled: true }
+            : item,
+        ),
+      );
+      onChanged();
+    } catch (enrollError) {
+      setError(getErrorMessage(enrollError));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <section>
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">كتالوجك المهني</p>
+          <h1>البرامج المناسبة لتخصصك</h1>
+          <p className="muted">تظهر هنا البرامج العامة وبرامج مادتك الأساسية فقط.</p>
+        </div>
+      </div>
+      {error ? <div className="notice error-notice">{error}</div> : null}
+      {loading ? (
+        <div className="loading-inline">
+          <LoaderCircle className="spin" /> جارٍ تحميل البرامج…
+        </div>
+      ) : null}
+      {!loading && programs.length === 0 ? (
+        <div className="empty-state">
+          <BookOpen />
+          <h2>لا توجد برامج منشورة الآن</h2>
+          <p>ستظهر البرامج العامة أو المرتبطة بمادتك هنا فور نشرها.</p>
+        </div>
+      ) : (
+        <div className="program-grid">
+          {programs.map((program) => (
+            <article className="program-card" key={program.program_version_id}>
+              <div className="program-cover">
+                <BookOpen />
+                <span>{program.subject_name ?? "برنامج عام"}</span>
+              </div>
+              <div className="program-body">
+                <h2>{program.title}</h2>
+                <p>{program.summary}</p>
+                <div className="program-meta">
+                  <span>
+                    {Math.max(1, Math.round(program.estimated_minutes / 60))} ساعة تقريبًا
+                  </span>
+                </div>
+                <button
+                  className={program.enrolled ? "secondary-button" : "primary-button"}
+                  type="button"
+                  disabled={program.enrolled || busyId === program.program_version_id}
+                  onClick={() => enroll(program)}
+                >
+                  {busyId === program.program_version_id ? (
+                    <LoaderCircle className="spin" />
+                  ) : program.enrolled ? (
+                    <CheckCircle2 />
+                  ) : null}
+                  {program.enrolled ? "مسجل في البرنامج" : "ابدأ التدريب"}
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Learning() {
+  const [programs, setPrograms] = useState<LearningProgram[]>([]);
+  const [selected, setSelected] = useState<LearningProgram | null>(null);
+  const [lessons, setLessons] = useState<LearningLesson[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function reloadPrograms() {
+    const items = await listMyLearning();
+    setPrograms(items);
+    if (selected) {
+      setSelected(
+        items.find((item) => item.program_version_id === selected.program_version_id) ?? null,
+      );
+    }
+  }
+
+  useEffect(() => {
+    let active = true;
+    listMyLearning()
+      .then((items) => active && setPrograms(items))
+      .catch((loadError) => active && setError(getErrorMessage(loadError)))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function openProgram(program: LearningProgram) {
+    setSelected(program);
+    setLoading(true);
+    setError(null);
+    try {
+      setLessons(await getLearningLessons(program.program_version_id));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function complete(lesson: LearningLesson) {
+    setBusyId(lesson.lesson_id);
+    setError(null);
+    try {
+      await completeLearningLesson(lesson.lesson_id);
+      setLessons((current) =>
+        current.map((item) =>
+          item.lesson_id === lesson.lesson_id ? { ...item, completed: true } : item,
+        ),
+      );
+      await reloadPrograms();
+    } catch (completeError) {
+      setError(getErrorMessage(completeError));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function refreshSelectedProgram() {
+    if (!selected) return;
+    const [programItems, lessonItems] = await Promise.all([
+      listMyLearning(),
+      getLearningLessons(selected.program_version_id),
+    ]);
+    setPrograms(programItems);
+    setLessons(lessonItems);
+    setSelected(
+      programItems.find((item) => item.program_version_id === selected.program_version_id) ?? null,
+    );
+  }
+
+  if (selected) {
+    return (
+      <section>
+        <button className="text-button inline-text-button" onClick={() => setSelected(null)}>
+          العودة إلى برامجي
+        </button>
+        <div className="page-heading">
+          <div>
+            <p className="eyebrow">محتوى البرنامج</p>
+            <h1>{selected.title}</h1>
+            <p className="muted">
+              {selected.completed_lessons} من {selected.total_lessons} دروس مكتملة
+            </p>
+          </div>
+        </div>
+        {error ? <div className="notice error-notice">{error}</div> : null}
+        {loading ? (
+          <div className="loading-inline">
+            <LoaderCircle className="spin" /> جارٍ التحميل…
+          </div>
+        ) : null}
+        <div className="lesson-list">
+          {lessons.map((lesson, index) => (
+            <article
+              className={lesson.completed ? "lesson-card completed" : "lesson-card"}
+              key={lesson.lesson_id}
+            >
+              <div className="lesson-number">{index + 1}</div>
+              <div className="lesson-main">
+                <div className="data-title-line">
+                  <h2>{lesson.title}</h2>
+                  {lesson.completed ? <span className="status live">مكتمل</span> : null}
+                </div>
+                <small>{lesson.duration_minutes} دقيقة</small>
+                {lesson.lesson_type === "TEXT" ? (
+                  <p className="lesson-content">{lesson.content}</p>
+                ) : null}
+                {lesson.resource_url ? (
+                  <a
+                    className="resource-link"
+                    href={lesson.resource_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <ExternalLink /> فتح المورد التدريبي
+                  </a>
+                ) : null}
+              </div>
+              <button
+                className={lesson.completed ? "secondary-button" : "primary-button"}
+                disabled={lesson.completed || busyId === lesson.lesson_id}
+                onClick={() => complete(lesson)}
+              >
+                {busyId === lesson.lesson_id ? <LoaderCircle className="spin" /> : <CheckCircle2 />}
+                {lesson.completed ? "تم" : "إكمال الدرس"}
+              </button>
+            </article>
+          ))}
+        </div>
+        <AssessmentPanel
+          programVersionId={selected.program_version_id}
+          ready={lessons.length > 0 && lessons.every((lesson) => lesson.completed)}
+          onPassed={refreshSelectedProgram}
+        />
+      </section>
+    );
+  }
+
+  return (
+    <section>
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">مساري</p>
+          <h1>برامجي التدريبية</h1>
+          <p className="muted">ستظهر هنا البرامج المسجل بها ونسبة تقدمك.</p>
+        </div>
+      </div>
+      {error ? <div className="notice error-notice">{error}</div> : null}
+      {loading ? (
+        <div className="loading-inline">
+          <LoaderCircle className="spin" /> جارٍ التحميل…
+        </div>
+      ) : null}
+      {!loading && programs.length === 0 ? (
+        <div className="empty-state">
+          <Award />
+          <h2>ابدأ من الكتالوج</h2>
+          <p>اختر برنامجًا مناسبًا ثم تابع التعلم من هذه الصفحة.</p>
+        </div>
+      ) : (
+        <div className="learning-grid">
+          {programs.map((program) => {
+            const progress = program.total_lessons
+              ? Math.round((program.completed_lessons / program.total_lessons) * 100)
+              : 0;
+            return (
+              <article className="learning-card" key={program.enrollment_id}>
+                <div className="data-title-line">
+                  <h2>{program.title}</h2>
+                  {program.status === "COMPLETED" ? (
+                    <span className="status live">مكتمل</span>
+                  ) : null}
+                </div>
+                <div className="progress-track" aria-label={`نسبة الإنجاز ${progress}%`}>
+                  <span style={{ width: `${progress}%` }} />
+                </div>
+                <p>
+                  {program.completed_lessons} من {program.total_lessons} · {progress}%
+                </p>
+                <button className="primary-button" onClick={() => openProgram(program)}>
+                  متابعة التعلم
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AssessmentPanel({
+  programVersionId,
+  ready,
+  onPassed,
+}: {
+  programVersionId: string;
+  ready: boolean;
+  onPassed: () => Promise<void>;
+}) {
+  const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
+  const [answers, setAnswers] = useState<Record<string, "a" | "b" | "c" | "d">>({});
+  const [result, setResult] = useState<AssessmentResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!ready) return;
+    let active = true;
+    setLoading(true);
+    getAssessment(programVersionId)
+      .then((items) => active && setQuestions(items))
+      .catch((loadError) => active && setError(getErrorMessage(loadError)))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [programVersionId, ready]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const assessmentResult = await submitAssessment(programVersionId, answers);
+      setResult(assessmentResult);
+      if (assessmentResult.passed) await onPassed();
+    } catch (submitError) {
+      setError(getErrorMessage(submitError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!ready) {
+    return (
+      <section className="assessment-panel locked-panel">
+        <Award />
+        <div>
+          <h2>التقييم النهائي</h2>
+          <p>أكمل جميع الدروس أولًا لفتح التقييم.</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (loading)
+    return (
+      <div className="loading-inline">
+        <LoaderCircle className="spin" /> جارٍ تحميل التقييم…
+      </div>
+    );
+  if (questions.length === 0) return null;
+
+  const title = questions[0].title;
+  const passPercentage = questions[0].pass_percentage;
+  const allAnswered = questions.every((question) => answers[question.question_id]);
+
+  return (
+    <section className="assessment-panel">
+      <div className="page-heading compact-heading">
+        <div>
+          <p className="eyebrow">الخطوة الأخيرة</p>
+          <h2>{title}</h2>
+          <p className="muted">نسبة النجاح المطلوبة {passPercentage}%.</p>
+        </div>
+      </div>
+      {result ? (
+        <div className={result.passed ? "notice success-notice" : "notice error-notice"}>
+          <strong>{result.passed ? "تم اجتياز التقييم" : "لم تحقق نسبة النجاح بعد"}</strong>
+          <span>
+            النتيجة: {result.score} من {result.total}
+          </span>
+          {result.certificate_code ? <bdi>رمز الشهادة: {result.certificate_code}</bdi> : null}
+        </div>
+      ) : null}
+      <form className="assessment-form" onSubmit={submit}>
+        {questions.map((question, index) => (
+          <fieldset className="assessment-question" key={question.question_id}>
+            <legend>
+              {index + 1}. {question.question_text}
+            </legend>
+            {(["a", "b", "c", "d"] as const).map((option) => (
+              <label key={option}>
+                <input
+                  type="radio"
+                  name={question.question_id}
+                  value={option}
+                  checked={answers[question.question_id] === option}
+                  onChange={() =>
+                    setAnswers((current) => ({ ...current, [question.question_id]: option }))
+                  }
+                />
+                {question[`option_${option}`]}
+              </label>
+            ))}
+          </fieldset>
+        ))}
+        {error ? <div className="notice error-notice">{error}</div> : null}
+        <button className="primary-button" type="submit" disabled={busy || !allAnswered}>
+          {busy ? <LoaderCircle className="spin" /> : <CheckCircle2 />} إرسال التقييم
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function Certificates() {
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    listMyCertificates()
+      .then((items) => active && setCertificates(items))
+      .catch((loadError) => active && setError(getErrorMessage(loadError)))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <section>
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">إنجازاتي</p>
+          <h1>الشهادات</h1>
+          <p className="muted">تصدر الشهادة تلقائيًا بعد اجتياز التقييم النهائي.</p>
+        </div>
+      </div>
+      {error ? <div className="notice error-notice">{error}</div> : null}
+      {loading ? (
+        <div className="loading-inline">
+          <LoaderCircle className="spin" /> جارٍ التحميل…
+        </div>
+      ) : null}
+      {!loading && certificates.length === 0 ? (
+        <div className="empty-state">
+          <Award />
+          <h2>لا توجد شهادات بعد</h2>
+          <p>أكمل برنامجًا واجتز تقييمه لتصدر شهادتك.</p>
+        </div>
+      ) : (
+        <div className="certificate-grid">
+          {certificates.map((certificate) => (
+            <article className="certificate-card" key={certificate.certificate_id}>
+              <Award />
+              <div>
+                <span className={certificate.valid ? "status live" : "status stopped"}>
+                  {certificate.valid ? "سارية" : "ملغاة"}
+                </span>
+                <h2>{certificate.program_title}</h2>
+                <p>تاريخ الإصدار: {new Date(certificate.issued_at).toLocaleDateString("ar-YE")}</p>
+                <bdi>{certificate.certificate_code}</bdi>
+                <a
+                  className="resource-link"
+                  href={`/verify?code=${encodeURIComponent(certificate.certificate_code)}`}
+                >
+                  <ShieldCheck /> التحقق من الشهادة
+                </a>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Workspace({
+  user,
+  profile,
+  capabilities,
+  onProfileChanged,
+}: {
+  user: User;
+  profile: TeacherProfile | null;
+  capabilities: Set<AcademyCapability>;
+  onProfileChanged: (profile: TeacherProfile) => void;
+}) {
+  const hasAdminAccess = capabilities.size > 0;
+  const hasTeacherAccess = profile?.status === "ACTIVE";
+  const [view, setView] = useState<WorkspaceView>(() => (hasTeacherAccess ? "catalog" : "admin"));
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const navigation = useMemo(
+    () => [
+      ...(hasTeacherAccess
+        ? [
+            { id: "catalog" as const, label: "البرامج", icon: BookOpen },
+            { id: "learning" as const, label: "مساري", icon: Award },
+            { id: "certificates" as const, label: "الشهادات", icon: GraduationCap },
+            { id: "profile" as const, label: "ملفي المهني", icon: UserRound },
+          ]
+        : []),
+      ...(hasAdminAccess
+        ? [{ id: "admin" as const, label: "إدارة الأكاديمية", icon: ShieldCheck }]
+        : []),
+    ],
+    [hasAdminAccess, hasTeacherAccess],
+  );
+
+  const displayName = profile?.full_name ?? user.email ?? "مسؤول الأكاديمية";
+
+  function selectView(nextView: WorkspaceView) {
+    setView(nextView);
+    setMenuOpen(false);
+  }
+
+  return (
+    <div className="workspace-shell">
+      <header className="mobile-header">
+        <div className="brand-line">
+          <span className="brand-mark compact">
+            <GraduationCap />
+          </span>
+          <strong>أكاديمية تمكين</strong>
+        </div>
+        <button className="icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="القائمة">
+          {menuOpen ? <X /> : <Menu />}
+        </button>
+      </header>
+
+      <aside className={menuOpen ? "sidebar open" : "sidebar"}>
+        <div className="brand-line sidebar-brand">
+          <span className="brand-mark">
+            <GraduationCap />
+          </span>
+          <div>
+            <strong>أكاديمية تمكين</strong>
+            <small>للتدريب والتأهيل</small>
+          </div>
+        </div>
+        <nav>
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                className={view === item.id ? "nav-item active" : "nav-item"}
+                key={item.id}
+                onClick={() => selectView(item.id)}
+              >
+                <Icon /> {item.label}
+              </button>
+            );
+          })}
+        </nav>
+        <div className="sidebar-footer">
+          <div className="user-chip">
+            <span>{displayName.slice(0, 1)}</span>
+            <div>
+              <strong>{displayName}</strong>
+              <small>{user.email}</small>
+            </div>
+          </div>
+          <button className="nav-item" onClick={() => academySupabase.auth.signOut()}>
+            <LogOut /> تسجيل الخروج
+          </button>
+        </div>
+      </aside>
+
+      {menuOpen ? <button className="menu-backdrop" onClick={() => setMenuOpen(false)} /> : null}
+
+      <main className="workspace-content">
+        {view === "catalog" && hasTeacherAccess ? <Catalog onChanged={() => undefined} /> : null}
+        {view === "learning" && hasTeacherAccess ? <Learning /> : null}
+        {view === "certificates" && hasTeacherAccess ? <Certificates /> : null}
+        {view === "profile" && profile && hasTeacherAccess ? (
+          <ProfileForm user={user} existing={profile} onSaved={onProfileChanged} />
+        ) : null}
+        {view === "admin" && hasAdminAccess ? <AdminHome capabilities={capabilities} /> : null}
+      </main>
+    </div>
+  );
+}
+
+export function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<TeacherProfile | null>(null);
+  const [capabilities, setCapabilities] = useState<Set<AcademyCapability>>(new Set());
+  const [loadingSession, setLoadingSession] = useState(true);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!academyFeatureEnabled || !academyBackendConfigured) {
+      setLoadingSession(false);
+      return;
+    }
+
+    academySupabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null);
+      setLoadingSession(false);
+    });
+
+    const { data } = academySupabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (!session) {
+        setProfile(null);
+        setCapabilities(new Set());
+      }
+    });
+
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    setLoadingProfile(true);
+    setProfileError(null);
+
+    Promise.all([loadTeacherProfile(user.id), loadCapabilities()])
+      .then(([loadedProfile, loadedCapabilities]) => {
+        if (!active) return;
+        setProfile(loadedProfile);
+        setCapabilities(loadedCapabilities);
+      })
+      .catch((error) => {
+        if (active) setProfileError(getErrorMessage(error));
+      })
+      .finally(() => {
+        if (active) setLoadingProfile(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  if (!academyFeatureEnabled) return <AcademyUnavailable />;
+  if (!academyBackendConfigured) return <ConfigurationRequired />;
+  if (window.location.pathname === "/verify") return <VerifyCertificatePage />;
+  if (loadingSession || loadingProfile) return <LoadingScreen />;
+  if (!user) return <AuthPage />;
+  if (profileError) {
+    return (
+      <main className="centered-page">
+        <section className="auth-card setup-card">
+          <ShieldCheck className="large-icon" />
+          <h1>تعذر فتح مساحة الأكاديمية</h1>
+          <p className="muted">
+            أُغلقت الواجهة لأن مخطط الأكاديمية أو صلاحياته غير جاهزة. لا يؤثر ذلك على تطبيق الطلاب.
+          </p>
+          <div className="notice error-notice">{profileError}</div>
+          <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
+            <LogOut /> تسجيل الخروج
+          </button>
+        </section>
+      </main>
+    );
+  }
+  if (!profile && capabilities.size === 0) {
+    return <ProfileForm user={user} existing={null} onSaved={setProfile} />;
+  }
+  if (profile?.status === "SUSPENDED" && capabilities.size === 0) {
+    return (
+      <main className="centered-page">
+        <section className="auth-card setup-card">
+          <School className="large-icon" />
+          <h1>الحساب موقوف مؤقتًا</h1>
+          <p className="muted">تواصل مع إدارة أكاديمية تمكين لمعرفة التفاصيل.</p>
+          <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
+            <LogOut /> تسجيل الخروج
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <Workspace
+      user={user}
+      profile={profile?.status === "ACTIVE" ? profile : null}
+      capabilities={capabilities}
+      onProfileChanged={setProfile}
+    />
+  );
+}

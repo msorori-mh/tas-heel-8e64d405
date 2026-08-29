@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "academy:dev": "vite --config apps/teacher-academy/vite.config.ts",
+    "academy:build": "vite build --config apps/teacher-academy/vite.config.ts",
+    "academy:typecheck": "tsc -p apps/teacher-academy/tsconfig.json --noEmit",
+    "academy:test": "node --test tests/teacher-academy/*.test.mjs",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "test": "node --import tsx --test src/lib/*.test.ts src/lib/lessons/*.test.ts tests/lessons/lesson-interactive-viewer-contract.test.ts tests/content-factory/golden-lesson-identity-preflight.test.ts tests/content-factory/golden-lesson-identity-rebind-migration.test.mjs tests/content-factory/golden-lesson-direct-preflight.static.test.mjs tests/import/ministerial-admin-workspace-mvp.static.test.mjs tests/import/ministerial-admin-workspace-mvp.test.ts",
