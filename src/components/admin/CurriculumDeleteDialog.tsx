@@ -253,14 +253,30 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
         <DialogFooter className="gap-2 sm:justify-start">
           <Button
             variant="destructive"
-            disabled={!isAdmin || !preview?.deletable || deleting}
+            disabled={!isAdmin || !preview?.deletable || deleting || forcing}
             onClick={handleDelete}
           >
             {deleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
             تأكيد الحذف
           </Button>
 
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={deleting}>
+          {isAdmin && blocked && target && FORCE_DELETABLE.includes(target.type) && (
+            <Button
+              variant="destructive"
+              disabled={forcing || deleting}
+              onClick={runForceDelete}
+              className="border border-destructive-foreground/30"
+            >
+              {forcing ? (
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldAlert className="ml-2 h-4 w-4" />
+              )}
+              حذف قسري (مرحلة تجريبية)
+            </Button>
+          )}
+
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={deleting || forcing}>
             إلغاء
           </Button>
         </DialogFooter>
