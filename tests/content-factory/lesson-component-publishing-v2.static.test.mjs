@@ -75,7 +75,9 @@ test("interactive V2 publications use the closed CF11 resource metadata contract
     assert.doesNotMatch(interactiveBranch, /'publicationId'/);
   }
   const metadataFunction = (sql) => {
-    const start = sql.indexOf("CREATE OR REPLACE FUNCTION public.validate_lesson_resource_metadata()");
+    const start = sql.indexOf(
+      "CREATE OR REPLACE FUNCTION public.validate_lesson_resource_metadata()",
+    );
     const end = sql.indexOf("$function$;", start) + "$function$;".length;
     return sql.slice(start, end);
   };

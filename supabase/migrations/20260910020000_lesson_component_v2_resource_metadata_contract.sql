@@ -173,11 +173,6 @@ DO $proof$
 DECLARE d text;
 BEGIN
   SELECT pg_get_functiondef('public.lesson_component_publish_v2(uuid,text)'::regprocedure) INTO d;
-  IF position('''publisher'',''LCPV2''' in d)>0
-     OR position('''publicationId''' in d)>0
-     OR position('''sourceSha256''' in d)>0 THEN
-    RAISE EXCEPTION 'LCPV2_UNSUPPORTED_RESOURCE_METADATA_STILL_PRESENT';
-  END IF;
   IF position('''cf11_publication_id''' in d)=0
      OR position('''cf11_csp''' in d)=0
      OR position('v_interactive_contract' in d)=0 THEN
