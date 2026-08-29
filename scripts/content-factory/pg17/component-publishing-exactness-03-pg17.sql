@@ -15,23 +15,51 @@ DECLARE
   r2 jsonb;
   r3 jsonb;
 BEGIN
-  SELECT manifest INTO base_manifest
-    FROM public.golden_lesson_package_versions
-   WHERE manifest->'artifacts' IS NOT NULL
-   ORDER BY created_at, version
-   LIMIT 1;
-  IF base_manifest IS NULL THEN
-    RAISE EXCEPTION 'LCP_EXACTNESS_FIXTURE_MANIFEST_MISSING';
-  END IF;
+  -- Build the proof from the current seven-OPTIONAL contract. Reusing the oldest
+  -- fixture manifest would make this test depend on obsolete applicability rules
+  -- (the historical fixtures correctly preserve their original REQUIRED values).
+  SELECT jsonb_build_object(
+    'schema', 'tamkeen.golden-lesson-package.v1',
+    'profileId', 'GOLDEN_CHEMISTRY_V1',
+    'packageCode', 'LCP-EXACTNESS-ABA',
+    'identity', jsonb_build_object(
+      'gradeCode', 'GRADE-12',
+      'curriculumTrackCodes', jsonb_build_array('sanaa'),
+      'subjectCode', 'CHEM-G12',
+      'lessonCode', 'CHEM-G12-L01',
+      'lessonSlug', 'lcp-exactness-aba',
+      'unitCode', NULL, 'semester', 1, 'sortOrder', 1),
+    'capabilityOrder', jsonb_build_array(
+      'officialBookContent','tamkeenExplanationHtml','lessonSummaryHtml','mindMapHtml',
+      'labExperimentHtml','officialBookQuestions','selfTest'),
+    'artifacts', (
+      SELECT jsonb_agg(jsonb_build_object(
+        'capability', c,
+        'applicability', 'OPTIONAL',
+        'authority', CASE WHEN c IN ('officialBookContent','officialBookQuestions')
+                          THEN 'OFFICIAL' ELSE 'TAMKEEN' END,
+        'sourcePath', CASE WHEN c = 'mindMapHtml' THEN 'mindMapHtml.html' END,
+        'sha256', CASE WHEN c = 'mindMapHtml' THEN repeat('a', 64) END,
+        'provenancePath', NULL,
+        'provenanceSha256', NULL) ORDER BY o)
+      FROM unnest(ARRAY[
+        'officialBookContent','tamkeenExplanationHtml','lessonSummaryHtml','mindMapHtml',
+        'labExperimentHtml','officialBookQuestions','selfTest']) WITH ORDINALITY AS t(c, o)),
+    'lifecycle', jsonb_build_object('initialStatus', 'DRAFT', 'allowDirectReady', false),
+    'security', jsonb_build_object(
+      'productionApply', false, 'publicPayloadContainsAnswers', false,
+      'answersCompanionPath', NULL, 'answersCompanionSha256', NULL,
+      'htmlNetworkAccess', 'NONE')
+  ) INTO base_manifest;
 
   SELECT jsonb_agg(
-           CASE WHEN item->>'capability' = 'officialBookContent'
+           CASE WHEN item->>'capability' = 'mindMapHtml'
                 THEN item || jsonb_build_object('sha256', repeat('a', 64))
                 ELSE item END ORDER BY ord)
     INTO artifacts_a
     FROM jsonb_array_elements(base_manifest->'artifacts') WITH ORDINALITY AS x(item, ord);
   SELECT jsonb_agg(
-           CASE WHEN item->>'capability' = 'officialBookContent'
+           CASE WHEN item->>'capability' = 'mindMapHtml'
                 THEN item || jsonb_build_object('sha256', repeat('b', 64))
                 ELSE item END ORDER BY ord)
     INTO artifacts_b

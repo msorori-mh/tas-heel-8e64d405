@@ -270,6 +270,8 @@ test("the exactness migration and A-B-A/idempotency proof run in PostgreSQL 17",
   );
   assert.match(rehearsal, /20260909010000_component_publish_exactness_idempotency\.sql/);
   assert.match(rehearsal, /component-publishing-exactness-03-pg17\.sql/);
+  assert.match(proof, /'applicability', 'OPTIONAL'/);
+  assert.doesNotMatch(proof, /SELECT manifest INTO base_manifest/);
   assert.match(proof, /LCP_EXACTNESS_ABA_NOT_VERSIONED/);
   assert.match(proof, /LCP_EXACTNESS_REPLAY_WROTE_TWICE/);
   assert.match(proof, /LCP_EXACTNESS_DIFFERENT_REPLAY_KEY_WAS_ACCEPTED/);
