@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-academy
 dist-ssr
 .output
 .vinxi
