@@ -10,6 +10,14 @@ const metadataRepair = readFileSync(
   "supabase/migrations/20260910020000_lesson_component_v2_resource_metadata_contract.sql",
   "utf8",
 );
+const archivalRepair = readFileSync(
+  "supabase/migrations/20260910030000_lesson_component_v2_superseded_intake_archival.sql",
+  "utf8",
+);
+const errorMessages = readFileSync(
+  "src/lib/content-factory/lesson-component-publishing-v2-errors.ts",
+  "utf8",
+);
 const server = readFileSync(
   "src/lib/content-factory/lesson-component-publishing-v2.functions.ts",
   "utf8",
@@ -127,4 +135,24 @@ test("server verification pins uploaded bytes and uses private intake RPCs", () 
   assert.match(server, /lesson_component_verify_intake_v2/);
   assert.match(server, /lcpv2:\$\{data\.intakeId\}:publish/);
   assert.match(rehearsal, /lesson-component-publishing-v2-pg17\.sql/);
+});
+
+test("superseded verified attempts are archived without hiding newer replacements", () => {
+  assert.match(archivalRepair, /'ARCHIVED'/);
+  assert.match(archivalRepair, /created_at<v_published_intake_created_at/);
+  assert.match(archivalRepair, /SUPERSEDED_BY_PUBLICATION/);
+  assert.match(archivalRepair, /lesson_component_archive_superseded_v2/);
+  assert.match(archivalRepair, /INSERT INTO public\.audit_logs/);
+  assert.doesNotMatch(archivalRepair, /DELETE FROM public\.lesson_component_intakes_v2/);
+  assert.match(rehearsal, /20260910030000_lesson_component_v2_superseded_intake_archival\.sql/);
+});
+
+test("publish failures are Arabic-first with technical details collapsed", () => {
+  assert.match(errorMessages, /unsupported lesson_resources\\\.metadata key/);
+  assert.match(errorMessages, /الملف محفوظ ولم يفشل فحصه/);
+  assert.match(errorMessages, /technicalDetail/);
+  assert.match(ui, /lessonComponentPublishErrorMessage/);
+  assert.match(ui, /<details/);
+  assert.match(ui, /تفاصيل تقنية/);
+  assert.doesNotMatch(ui, /تعذّر نشر هذا المكوّن: \{capabilityPublishError/);
 });

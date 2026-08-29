@@ -17,6 +17,10 @@ import {
   verifyLessonComponentV2Upload,
   type LessonComponentV2Publication,
 } from "@/lib/content-factory/lesson-component-publishing-v2.functions";
+import {
+  lessonComponentPublishErrorMessage,
+  type LessonComponentPublishErrorMessage,
+} from "@/lib/content-factory/lesson-component-publishing-v2-errors";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -367,7 +371,7 @@ export function GoldenLessonPackageBuilder() {
     Partial<Record<GoldenCapability, string>>
   >({});
   const [capabilityPublishError, setCapabilityPublishError] = useState<
-    Partial<Record<GoldenCapability, string>>
+    Partial<Record<GoldenCapability, LessonComponentPublishErrorMessage>>
   >({});
   const [capabilityPublication, setCapabilityPublication] = useState<
     Partial<Record<GoldenCapability, LessonComponentV2Publication>>
@@ -905,8 +909,7 @@ export function GoldenLessonPackageBuilder() {
     } catch (error) {
       setCapabilityPublishError((current) => ({
         ...current,
-        [capability]:
-          error instanceof Error ? error.message : "تعذّر نشر هذا المكوّن — راجع الرسالة أعلاه.",
+        [capability]: lessonComponentPublishErrorMessage(error),
       }));
     } finally {
       setCapabilityPublishBusy(null);
@@ -1320,9 +1323,21 @@ export function GoldenLessonPackageBuilder() {
                           </div>
                         )}
                         {capabilityPublishError[capability] && (
-                          <p className="mt-2 break-all text-[11px] text-destructive">
-                            تعذّر نشر هذا المكوّن: {capabilityPublishError[capability]}
-                          </p>
+                          <div
+                            role="alert"
+                            className="mt-2 space-y-1 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-[11px] text-destructive"
+                          >
+                            <p className="font-medium">
+                              {capabilityPublishError[capability]!.message}
+                            </p>
+                            <p>{capabilityPublishError[capability]!.action}</p>
+                            <details className="text-muted-foreground">
+                              <summary className="cursor-pointer">تفاصيل تقنية</summary>
+                              <code className="mt-1 block break-all" dir="ltr">
+                                {capabilityPublishError[capability]!.technicalDetail}
+                              </code>
+                            </details>
+                          </div>
                         )}
                       </div>
                     )}

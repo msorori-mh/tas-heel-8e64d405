@@ -76,4 +76,5 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/scripts/content-factory/pg17/lesson-resource-metadata-production-guard.sql" \
   -f "$root_dir/supabase/migrations/20260910010000_lesson_component_publishing_v2.sql" \
   -f "$root_dir/supabase/migrations/20260910020000_lesson_component_v2_resource_metadata_contract.sql" \
+  -f "$root_dir/supabase/migrations/20260910030000_lesson_component_v2_superseded_intake_archival.sql" \
   -f "$root_dir/scripts/content-factory/pg17/lesson-component-publishing-v2-pg17.sql"

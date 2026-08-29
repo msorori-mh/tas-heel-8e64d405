@@ -65,6 +65,10 @@ SELECT pg_temp.lcpv2_verified_intake(
   'self-test','selfTest',
   '{"questions":[{"id":"S1","question_code":"S1","question":"Self test","question_text":"Self test","type":"multiple_choice","options":["one","two","three","four"]}]}',
   '{"reveal":"SERVER_CONTROLLED_REVEAL_ONLY","answers":[{"capability":"selfTest","question_id":"S1","correct_index":2,"correct_option":"(b)","explanation":"Because two","rationale":"Because two"}]}'::jsonb);
+SELECT pg_temp.lcpv2_verified_intake(
+  'book-stale','officialBookContent','<html dir="rtl"><body>BOOK-STALE</body></html>');
+SELECT pg_temp.lcpv2_verified_intake(
+  'book-fresh','officialBookContent','<html dir="rtl"><body>BOOK-FRESH</body></html>');
 
 -- An UPLOADING intake must fail without writing or hiding the already-live content.
 DO $setup_unverified$
@@ -126,8 +130,11 @@ BEGIN
     RAISE EXCEPTION 'LCPV2_ABA_VERSIONING_FAILED: % / % / %',first_result,result_b,result_a2;
   END IF;
 
+  SELECT intake_id INTO intake FROM lcpv2_proof_intakes WHERE label='book-fresh';
+  PERFORM public.lesson_component_publish_v2(intake,'lcpv2:book-fresh:publish');
+
   IF (SELECT lbc.content FROM public.lesson_book_contents lbc WHERE lbc.lesson_id=v_lesson_id)
-       <> '<html dir="rtl"><body>BOOK-A</body></html>' THEN
+       <> '<html dir="rtl"><body>BOOK-FRESH</body></html>' THEN
     RAISE EXCEPTION 'LCPV2_ABA_LIVE_BODY_WRONG';
   END IF;
   IF (SELECT count(*) FROM public.lesson_capability_lifecycle
@@ -182,11 +189,24 @@ RESET ROLE;
 
 DO $security_assert$
 BEGIN
+  IF (SELECT status FROM public.lesson_component_intakes_v2
+       WHERE id=(SELECT intake_id FROM lcpv2_proof_intakes WHERE label='book-stale')) <> 'ARCHIVED' THEN
+    RAISE EXCEPTION 'LCPV2_SUPERSEDED_INTAKE_NOT_ARCHIVED';
+  END IF;
+  IF (SELECT archived_at IS NULL OR archived_by IS NULL
+       FROM public.lesson_component_intakes_v2
+       WHERE id=(SELECT intake_id FROM lcpv2_proof_intakes WHERE label='book-stale')) THEN
+    RAISE EXCEPTION 'LCPV2_SUPERSEDED_ARCHIVE_EVIDENCE_MISSING';
+  END IF;
+  IF (SELECT status FROM public.lesson_component_intakes_v2
+       WHERE id=(SELECT intake_id FROM lcpv2_proof_intakes WHERE label='book-fresh')) <> 'PUBLISHED' THEN
+    RAISE EXCEPTION 'LCPV2_FRESH_INTAKE_NOT_PUBLISHED';
+  END IF;
   -- The ledger is deliberately invisible to authenticated. Assert its history only
   -- after returning to the database owner role.
   IF (SELECT count(*) FROM public.lesson_component_publications_v2 p
        WHERE p.lesson_id='43000000-0000-0000-0000-0000000000b2'
-         AND p.capability='officialBookContent') <> 3 THEN
+         AND p.capability='officialBookContent') <> 4 THEN
     RAISE EXCEPTION 'LCPV2_ABA_LEDGER_COUNT_WRONG';
   END IF;
   IF has_table_privilege('authenticated','public.lesson_component_intakes_v2','SELECT')
