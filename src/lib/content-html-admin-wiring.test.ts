@@ -509,7 +509,7 @@ describe("Content HTML Admin Wiring — Import/Review Workflow Tests", () => {
       "utf-8",
     );
     assert.ok(
-      builder.includes("publishGoldenLessonDirect"),
+      builder.includes("publishLessonComponentV2"),
       "the import center must publish through the server orchestrator",
     );
     assert.ok(

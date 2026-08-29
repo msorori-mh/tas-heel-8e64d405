@@ -80,6 +80,7 @@ jobs:
           node --test tests/content-factory/content-factory-11-r12-assets.static.test.mjs
           node --test tests/content-factory/content-factory-11-r13-owner-override.static.test.mjs
           node --test tests/content-factory/lesson-component-independent-publishing-02.static.test.mjs
+          node --test tests/content-factory/lesson-component-publishing-v2.static.test.mjs
           node --test tests/migrations/unapplied-report.test.mjs
           node --test tests/migrations/pg17-fixture-type-fidelity.test.mjs
           node --test tests/migrations/cf10-managed-revision-backfill.test.mjs
@@ -118,8 +119,10 @@ jobs:
             --env POSTGRES_PASSWORD=tamkeen_academy_ci_only \
             --env POSTGRES_DB=tamkeen_academy \
             postgres:17
-          for attempt in {1..30}; do
-            if docker exec tamkeen-academy-pg17 pg_isready --username postgres --dbname tamkeen_academy; then
+          for attempt in {1..60}; do
+            if PGPASSWORD=tamkeen_academy_ci_only psql \
+              --host 127.0.0.1 --port 5432 --username postgres --dbname tamkeen_academy \
+              --tuples-only --no-align --command 'SELECT 1' 2>/dev/null | grep --quiet '^1$'; then
               exit 0
             fi
             sleep 1
@@ -163,8 +166,10 @@ jobs:
             --env POSTGRES_PASSWORD=tamkeen_ci_only \
             --env POSTGRES_DB=tamkeen \
             postgres:17
-          for attempt in {1..30}; do
-            if docker exec tamkeen-content-v3-pg17 pg_isready --username postgres --dbname tamkeen; then
+          for attempt in {1..60}; do
+            if PGPASSWORD=tamkeen_ci_only psql \
+              --host 127.0.0.1 --port 5432 --username postgres --dbname tamkeen \
+              --tuples-only --no-align --command 'SELECT 1' 2>/dev/null | grep --quiet '^1$'; then
               exit 0
             fi
             sleep 1
@@ -249,8 +254,15 @@ jobs:
       - name: Start isolated PostgreSQL 17
         run: |
           docker run --detach --rm --name tamkeen-content-factory-pg17 --publish 127.0.0.1:5432:5432 --env POSTGRES_PASSWORD=tamkeen_cf_ci_only --env POSTGRES_DB=tamkeen_cf postgres:17
-          for attempt in {1..30}; do
-            if docker exec tamkeen-content-factory-pg17 pg_isready --username postgres --dbname tamkeen_cf; then exit 0; fi
+          # The image briefly starts an init server on its internal socket, then restarts it.
+          # Probe the exact TCP path used by the tests so that transient init readiness cannot
+          # release this gate while the final server is still restarting.
+          for attempt in {1..60}; do
+            if PGPASSWORD=tamkeen_cf_ci_only psql \
+              --host 127.0.0.1 --port 5432 --username postgres --dbname tamkeen_cf \
+              --tuples-only --no-align --command 'SELECT 1' 2>/dev/null | grep --quiet '^1$'; then
+              exit 0
+            fi
             sleep 1
           done
           docker logs tamkeen-content-factory-pg17

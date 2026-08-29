@@ -70,8 +70,13 @@ test("legacy mind maps and labs are interactive by resource type", () => {
   assert.match(viewer, /Math\.min\(1600/);
 });
 
-test("lesson packages use the subject's complete official track identity", () => {
+test("component publishing resolves a canonical lesson from the selected official tracks", () => {
   const builder = readFileSync("src/components/admin/GoldenLessonPackageBuilder.tsx", "utf8");
-  assert.match(builder, /selectedSubject\.trackCodes\.filter/);
-  assert.match(builder, /code === "sanaa" \|\| code === "aden"/);
+  assert.match(
+    builder,
+    /selectedTrackCodes\.every\(\(code\) => subject\.trackCodes\.includes\(code\)\)/,
+  );
+  assert.match(builder, /track\.trackCode === "sanaa" \|\| track\.trackCode === "aden"/);
+  assert.match(builder, /lessonCode: selectedLessonCode/);
+  assert.doesNotMatch(builder, /canonicalManifest|packageVersion/);
 });
