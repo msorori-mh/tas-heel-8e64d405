@@ -502,14 +502,16 @@ BEGIN
 
   -- A manifest declaring all seven OPTIONAL, with one file, is accepted.
   SELECT jsonb_build_object(
-    'schema', 'GOLDEN_LESSON_V1',
+    'schema', 'tamkeen.golden-lesson-package.v1',
     'profileId', 'GOLDEN_CHEMISTRY_V1',
-    'packageCode', 'CHEM-G12-IRON-FE-PKG',
+    'packageCode', 'LCIP09-PROOF',
     'identity', jsonb_build_object(
-      'gradeCode','G12','curriculumTrackCodes', jsonb_build_array('sanaa'),
-      'subjectCode','CHEM-G12','lessonCode','CHEM-G12-IRON-FE',
-      'lessonSlug','iron-and-its-extraction','unitCode', NULL,
-      'semester', 1, 'sortOrder', 3),
+      'gradeCode', 'GRADE-12',
+      'curriculumTrackCodes', jsonb_build_array('sanaa'),
+      'subjectCode', 'CHEM-G12',
+      'lessonCode', 'CHEM-G12-L01',
+      'lessonSlug', 'lcip09-proof',
+      'unitCode', NULL, 'semester', 1, 'sortOrder', 1),
     'capabilityOrder', jsonb_build_array(
       'officialBookContent','tamkeenExplanationHtml','lessonSummaryHtml','mindMapHtml',
       'labExperimentHtml','officialBookQuestions','selfTest'),
