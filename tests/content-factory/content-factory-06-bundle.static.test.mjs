@@ -9,34 +9,43 @@ const directFunctions = readFileSync(
   "src/lib/content-factory/golden-lesson-direct.functions.ts",
   "utf8",
 );
+const componentV2 = readFileSync(
+  "src/lib/content-factory/lesson-component-publishing-v2.functions.ts",
+  "utf8",
+);
 const migration = readFileSync(
   "supabase/migrations-pending/20260819190000_content_factory_04_package_staging.sql",
   "utf8",
 );
 
-test("official provenance remains internally hash-pinned without an operator upload field", () => {
+test("V2 pins the lesson and exact source hash without an extra provenance upload", () => {
   assert.match(contract, /provenanceSha256: string \\| null/);
   assert.match(validator, /OFFICIAL_PROVENANCE_HASH_INVALID/);
   assert.match(migration, /OFFICIAL_PROVENANCE_HASH_INVALID/);
-  assert.match(builder, /internalProvenance/);
+  assert.match(componentV2, /source_sha256/);
+  assert.match(componentV2, /lesson_component_create_intake_v2/);
+  assert.doesNotMatch(builder, /internalProvenance/);
   assert.doesNotMatch(builder, /handleProvenanceFile/);
   assert.doesNotMatch(builder, /golden-provenance-/);
 });
 
 test("builder uploads declared files directly and never creates a lesson ZIP", () => {
-  assert.match(builder, /createGoldenLessonDirectUpload/);
+  assert.match(builder, /createLessonComponentV2Upload/);
   assert.match(builder, /uploadToSignedUrl/);
-  assert.match(builder, /verifyAndStageGoldenLessonDirect/);
+  assert.match(builder, /verifyLessonComponentV2Upload/);
+  assert.match(builder, /publishLessonComponentV2/);
   assert.doesNotMatch(builder, /import JSZip from "jszip"/);
   assert.doesNotMatch(builder, /buildPackageZipBlob/);
   assert.doesNotMatch(builder, /تنزيل حزمة ZIP/);
   assert.match(directFunctions, /createSignedUploadUrl/);
   assert.match(directFunctions, /verifyGoldenLessonDirectIntake/);
+  assert.match(componentV2, /createSignedUploadUrl/);
+  assert.match(componentV2, /validateGoldenLessonArtifactBytes/);
 });
 
 test("an optional HTML5 activity ZIP is converted locally, not uploaded as the lesson package", () => {
   assert.match(builder, /convertHtml5ActivityZip/);
-  assert.match(builder, /DIRECT_FILE_TYPE_UNSUPPORTED/);
+  assert.match(builder, /LCPV2_FILE_TYPE_UNSUPPORTED/);
 });
 
 test("duplicate and unsafe package paths fail closed", () => {

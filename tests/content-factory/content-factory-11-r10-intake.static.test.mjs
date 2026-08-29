@@ -4,27 +4,30 @@ import test from "node:test";
 
 const builder = readFileSync("src/components/admin/GoldenLessonPackageBuilder.tsx", "utf8");
 const directFns = readFileSync("src/lib/content-factory/golden-lesson-direct.functions.ts", "utf8");
+const componentV2 = readFileSync(
+  "src/lib/content-factory/lesson-component-publishing-v2.functions.ts",
+  "utf8",
+);
 const publication = readFileSync(
   "src/lib/content-factory/golden-lesson-publication.server.ts",
   "utf8",
 );
 
 test("R10/1 — the factory UI reaches the server-side direct-file intake path", () => {
-  assert.match(builder, /createGoldenLessonDirectUpload\(\{ data: \{ manifest \} \}\)/);
+  assert.match(builder, /createLessonComponentV2Upload/);
   assert.match(builder, /uploadToSignedUrl\(upload\.storagePath, upload\.token, file/);
-  assert.match(
-    builder,
-    /verifyAndStageGoldenLessonDirect\(\{[\s\S]*intakeId: slot\.intakeId, manifest \}/,
-  );
+  assert.match(builder, /verifyLessonComponentV2Upload/);
+  assert.match(builder, /publishLessonComponentV2/);
   assert.doesNotMatch(builder, /createGoldenLessonBundleUpload|uploadAndVerifyBundle/);
 });
 
 test("R10/2 — the client never supplies authoritative intake totals to the server", () => {
   const call = builder.slice(
-    builder.indexOf("uploadAndVerifyDirectIntake"),
+    builder.indexOf("createLessonComponentV2Upload"),
     builder.indexOf("return ("),
   );
   assert.doesNotMatch(call, /verifiedFileCount|intakeSha256|totalBytes|compressedBytes/);
+  assert.match(componentV2, /source_sha256/);
 });
 
 test("R10/3 — direct intake stays fail-closed and server-authoritative", () => {

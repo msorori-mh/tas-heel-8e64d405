@@ -42,12 +42,12 @@ test("raw immutable RPC error is no longer the primary conflict path", () => {
   assert.match(source, /تعذر النشر لأن كود الحزمة مستخدم بهوية مختلفة/);
 });
 
-test("publish UI preflights, resumes and presents identity differences", () => {
-  assert.match(builder, /preflightGoldenLessonDirect/);
-  assert.match(builder, /preflight\.status === "RESUMABLE"/);
-  assert.match(builder, /جاهزية النشر على الخادم/);
-  assert.match(builder, /difference\.currentValue/);
-  assert.match(builder, /discardGoldenLessonDirectUpload/);
+test("the active component UI no longer depends on package identity preflight", () => {
+  assert.match(builder, /createLessonComponentV2Upload/);
+  assert.match(builder, /verifyLessonComponentV2Upload/);
+  assert.match(builder, /publishLessonComponentV2/);
+  assert.doesNotMatch(builder, /preflightGoldenLessonDirect/);
+  assert.doesNotMatch(builder, /جاهزية النشر على الخادم|difference\.currentValue/);
 });
 
 test("an existing exact identity under another code is reused before upload", () => {

@@ -6,15 +6,23 @@ const builder = readFileSync(
   new URL("../../src/components/admin/GoldenLessonPackageBuilder.tsx", import.meta.url),
   "utf8",
 );
+const html5 = readFileSync(
+  new URL("../../src/lib/content-factory/golden-lesson-html5.ts", import.meta.url),
+  "utf8",
+);
+const componentV2 = readFileSync(
+  new URL(
+    "../../src/lib/content-factory/lesson-component-publishing-v2.functions.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
-test("CF11 R12 declares supplemental assets and uploads their exact files directly", () => {
-  // Assets are declared for the components going out in this batch, so a single-component
-  // publish never carries another component's images.
-  assert.match(builder, /assets: supplementalAssets\n\s*\.filter\(/);
-  assert.match(builder, /asset\.referencedBy\.some\(carries\)/);
-  assert.match(builder, /for \(const asset of supplementalAssets\) \{/);
-  assert.match(builder, /files\.set\(asset\.path, asset\.file\)/);
-  assert.match(builder, /files\.get\(upload\.logicalPath\)/);
+test("V2 inlines ZIP images inside the one component file", () => {
+  assert.match(html5, /data:\$\{mime\};base64/);
+  assert.match(html5, /bytesToBase64/);
+  assert.match(html5, /assets: \[\]/);
+  assert.doesNotMatch(componentV2, /supplementalAssets|golden_lesson_assets/);
   assert.doesNotMatch(builder, /buildPackageZipBlob|zip\.file\(asset\.path/);
 });
 
@@ -24,28 +32,22 @@ test("CF11 R12 declares supplemental assets and uploads their exact files direct
  * activity, so the type, magic-number and size checks still have to hold on that path.
  */
 test("CF11 R12 accepts only allowlisted raster assets and checks magic and bounds", () => {
-  assert.match(builder, /isAllowedAssetMime\(file\.type\)/);
-  assert.match(builder, /assetMagicMatches\(file\.type, bytes\)/);
-  assert.match(builder, /GOLDEN_ASSET_MIN_BYTES/);
-  assert.match(builder, /GOLDEN_ASSET_MAX_BYTES/);
+  assert.match(html5, /assetMagicMatches\(mime, bytes\)/);
+  assert.match(html5, /GOLDEN_ASSET_MIN_BYTES/);
+  assert.match(html5, /GOLDEN_ASSET_MAX_BYTES/);
+  assert.match(html5, /isSafeAssetLeaf\(assetLeaf\)/);
   assert.doesNotMatch(builder, /accept="image\/png,image\/jpeg,image\/webp"/);
 });
 
-test("CF11 R12 derives asset ownership and Arabic alt text from uploaded HTML", () => {
-  assert.match(builder, /referencedBy: GoldenCapability\[\]/);
-  assert.match(builder, /new DOMParser\(\)\.parseFromString/);
-  assert.match(builder, /matchingImage\?\.getAttribute\("alt"\)/);
-  assert.match(builder, /الأصل غير مشار إليه من أي ملف HTML/);
-  assert.match(builder, /النص البديل العربي مفقود في HTML/);
+test("V2 has no separate asset ownership or eighth-component contract", () => {
+  assert.doesNotMatch(builder, /referencedBy: GoldenCapability\[\]|supplementalAssets/);
+  assert.doesNotMatch(componentV2, /golden_lesson_assets|asset_attestations/);
+  assert.match(html5, /one verified HTML file is the whole component/);
 });
 
 test("CF11 R12 keeps direct attestation server-authoritative and fail-closed", () => {
-  assert.match(
-    builder,
-    /verifyAndStageGoldenLessonDirect\(\{[\s\S]*intakeId: slot\.intakeId, manifest \}/,
-  );
-  assert.doesNotMatch(
-    builder,
-    /verifyAndStageGoldenLessonDirect\([^)]*(fileCount|totalBytes|intakeSha256)/s,
-  );
+  assert.match(builder, /verifyLessonComponentV2Upload/);
+  assert.match(componentV2, /requireExactBytes/);
+  assert.match(componentV2, /validateGoldenLessonArtifactBytes/);
+  assert.doesNotMatch(componentV2, /fileCount|verifiedFileCount|canonical_manifest/);
 });

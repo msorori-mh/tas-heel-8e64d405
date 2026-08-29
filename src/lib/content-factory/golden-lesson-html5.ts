@@ -1,3 +1,10 @@
+import {
+  GOLDEN_ASSET_MAX_BYTES,
+  GOLDEN_ASSET_MIN_BYTES,
+  assetMagicMatches,
+  isSafeAssetLeaf,
+} from "./golden-lesson-assets";
+
 const RASTER_MIME: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -45,10 +52,19 @@ export interface ConvertedHtml5Activity {
   assets: File[];
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 32_768;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
 /**
- * Normalizes a common self-contained HTML5 ZIP into one reviewed HTML body plus raster assets.
- * CSS and JavaScript files are inlined; network URLs and unsupported binary files remain blocked
- * by the regular HTML/security validator.
+ * Normalizes a common self-contained HTML5 ZIP into one reviewed, self-contained HTML body.
+ * CSS, JavaScript and raster images are inlined. There is deliberately no separate image
+ * component or asset publication step: the one verified HTML file is the whole component.
  */
 export async function convertHtml5ActivityZip(file: File): Promise<ConvertedHtml5Activity> {
   if (!/\.zip$/i.test(file.name)) throw new Error("ملف النشاط يجب أن يكون HTML أو ZIP.");
@@ -89,26 +105,32 @@ export async function convertHtml5ActivityZip(file: File): Promise<ConvertedHtml
     },
   );
 
-  const assets: File[] = [];
   const usedLeaves = new Set<string>();
   for (const path of paths) {
     const mime = RASTER_MIME[extension(path)];
     if (!mime) continue;
     const assetLeaf = leaf(path);
-    if (!assetLeaf || usedLeaves.has(assetLeaf)) {
+    if (!assetLeaf || !isSafeAssetLeaf(assetLeaf) || usedLeaves.has(assetLeaf)) {
       throw new Error(`أسماء صور مكررة أو غير صالحة داخل ZIP: ${assetLeaf || path}`);
     }
     usedLeaves.add(assetLeaf);
-    const relativeCandidates = [path, path.slice(base.length + (base ? 1 : 0))].filter(Boolean);
-    for (const candidate of relativeCandidates) html = html.split(candidate).join(assetLeaf);
     const bytes = await zip.files[path]!.async("uint8array");
-    const assetBuffer = new ArrayBuffer(bytes.byteLength);
-    new Uint8Array(assetBuffer).set(bytes);
-    assets.push(new File([assetBuffer], assetLeaf, { type: mime }));
+    if (bytes.byteLength < GOLDEN_ASSET_MIN_BYTES || bytes.byteLength > GOLDEN_ASSET_MAX_BYTES) {
+      throw new Error(`حجم الصورة خارج النطاق المسموح داخل ZIP: ${assetLeaf}`);
+    }
+    if (!assetMagicMatches(mime, bytes)) {
+      throw new Error(`امتداد الصورة لا يطابق محتواها داخل ZIP: ${assetLeaf}`);
+    }
+    const dataUri = `data:${mime};base64,${bytesToBase64(bytes)}`;
+    const relativePath = path.slice(base.length + (base ? 1 : 0));
+    const relativeCandidates = [path, relativePath, `./${relativePath}`]
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length);
+    for (const candidate of relativeCandidates) html = html.split(candidate).join(dataUri);
   }
 
   return {
     htmlFile: new File([html], "lab-activity.html", { type: "text/html" }),
-    assets,
+    assets: [],
   };
 }

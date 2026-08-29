@@ -16,6 +16,15 @@ const publishFn = readFileSync(
   "src/lib/content-factory/golden-lesson-direct-publish.functions.ts",
   "utf8",
 );
+const componentV2 = readFileSync(
+  "src/lib/content-factory/lesson-component-publishing-v2.functions.ts",
+  "utf8",
+);
+const migrationV2 = readFileSync(
+  "supabase/migrations/20260910010000_lesson_component_publishing_v2.sql",
+  "utf8",
+);
+const html5 = readFileSync("src/lib/content-factory/golden-lesson-html5.ts", "utf8");
 
 test("the import center exposes the unified curriculum and lesson-content workflow", () => {
   assert.match(route, /الاستيراد والفحص والنشر/);
@@ -49,7 +58,7 @@ test("operators upload seven declared items and never upload a lesson ZIP or pro
   assert.doesNotMatch(component, /تنزيل حزمة ZIP|رفع الحزمة والتحقق|ملف توثيق المصدر الرسمي/);
   assert.doesNotMatch(component, /handleProvenanceFile|handleAnswersFile/);
   assert.doesNotMatch(component, /JSZip|buildInternalIntakeBlob|createGoldenLessonBundleUpload/);
-  assert.match(component, /createGoldenLessonDirectUpload/);
+  assert.match(component, /createLessonComponentV2Upload/);
   assert.match(component, /uploadToSignedUrl\(upload\.storagePath/);
   assert.match(component, /CAPABILITY_NUMBER/);
 });
@@ -72,7 +81,8 @@ test("no capability is mandatory in either profile", () => {
 test("question XLSX files are split automatically into public and server-only layers", () => {
   assert.match(component, /convertQuestionWorkbook/);
   assert.match(component, /SERVER_CONTROLLED_REVEAL_ONLY/);
-  assert.match(component, /publicPayloadContainsAnswers: false/);
+  assert.match(componentV2, /validateGoldenLessonAnswerCoverage/);
+  assert.match(migrationV2, /answers_payload jsonb/);
   assert.match(xlsx, /model_answer/);
   assert.match(xlsx, /why_wrong_/);
   assert.match(xlsx, /correct_option/);
@@ -86,10 +96,10 @@ test("the optional activity has its own HTML or HTML5 ZIP picker", () => {
 });
 
 test("student visibility remains fail-closed", () => {
-  assert.match(component, /initialStatus: "DRAFT"/);
-  assert.match(component, /allowDirectReady: false/);
-  assert.match(component, /productionApply: false/);
-  assert.match(component, /htmlNetworkAccess: "NONE"/);
+  assert.match(migrationV2, /status<>'VERIFIED'/);
+  assert.match(migrationV2, /lesson_capability_ready/);
+  assert.match(migrationV2, /student_can_see_this_component',true/);
+  assert.match(componentV2, /LCPV2_COMPONENT_NOT_VISIBLE/);
 });
 
 test("mobile-first controls meet the 44px target", () => {
@@ -111,9 +121,9 @@ test("there is no separate eighth component for images", () => {
   assert.doesNotMatch(component, /الصور والرسومات المشار إليها/);
   assert.doesNotMatch(component, /ArabicMultiFilePicker/);
   assert.doesNotMatch(component, /golden-supplemental-assets/);
-  // Assets extracted from an HTML5/ZIP activity are still declared — that path is
-  // internal to one component and never asked the operator for a separate upload.
-  assert.match(component, /buildSupplementalAssetDeclarations/);
+  assert.doesNotMatch(component, /buildSupplementalAssetDeclarations|supplementalAssets/);
+  assert.match(html5, /assets: \[\]/);
+  assert.match(html5, /data:\$\{mime\};base64/);
 });
 
 /**
@@ -130,7 +140,7 @@ test("publishing happens per component and there is no page-level publish button
   assert.match(component, /نشر هذا المكوّن/);
   assert.match(component, /publishCapabilityNow\(capability\)/);
   assert.match(component, /const publishCapabilityNow = async \(capability: GoldenCapability\)/);
-  assert.match(component, /publishSubset\(\[capability\]\)/);
+  assert.match(component, /publishLessonComponentV2/);
   assert.doesNotMatch(component, /نشر الدرس الآن/);
   assert.doesNotMatch(component, /importAndPublishNow/);
   assert.doesNotMatch(component, /publishSubset\(null\)/);
@@ -155,43 +165,30 @@ test("only the current exact manifest is resumable", () => {
  * Every publish traverses the freshly verified current version. Historical materialisation
  * cannot prove what is in the student domain after a later component changed it.
  */
-test("a component publishes only through the current verified full chain", () => {
-  assert.match(publishFn, /capabilitySha256: z/);
-  assert.match(component, /capabilitySha256: uploads\[only\]!\.sha256/);
-  assert.doesNotMatch(publishFn, /golden_lesson_publish_component_by_file/);
-  assert.doesNotMatch(publishFn, /LCP_NO_PREPARED_BATCH|PREPARED_BATCH_LOOKUP_FAILED/);
-  assert.match(publishFn, /selectedEntry\.sourceSha256 !== data\.capabilitySha256/);
-  assert.match(publishFn, /COMPONENT_SOURCE_HASH_MISMATCH/);
-  assert.match(publishFn, /ensureVerifiedAssets\(batchId\)/);
-  assert.match(publishFn, /attestStoredAssets/);
-  assert.ok(
-    publishFn.indexOf("ensureVerifiedAssets(batchId)") <
-      publishFn.indexOf('rpc("golden_lesson_publish_component"'),
-    "asset verification must finish before component publication",
-  );
+test("a component publishes only after its exact uploaded bytes pass server verification", () => {
+  assert.match(componentV2, /requireExactBytes/);
+  assert.match(componentV2, /validateGoldenLessonArtifactBytes/);
+  assert.match(componentV2, /validateGoldenLessonAnswerCoverage/);
+  assert.match(componentV2, /lesson_component_verify_intake_v2/);
+  assert.match(componentV2, /lesson_component_publish_v2/);
+  assert.doesNotMatch(componentV2, /golden_lesson_publish_cf11|canonical_manifest/);
 });
 
 /** "Published" means the student can see it; nothing weaker may be reported as done. */
 test("a publish is only reported as done when the student can see the component", () => {
-  assert.equal(
-    (publishFn.match(/COMPONENT_PUBLISHED_BUT_NOT_VISIBLE/g) ?? []).length,
-    1,
-    "the single current-version package chain must assert visibility",
-  );
-  assert.doesNotMatch(publishFn, /student_can_see_this_component"\]\) === "true"/);
+  assert.match(componentV2, /LCPV2_COMPONENT_NOT_VISIBLE/);
+  assert.match(componentV2, /published\["student_can_see_this_component"\] !== true/);
 });
 
 /** The removed uniqueness failure is not treated as a normal operator outcome. */
 test("the historical-manifest uniqueness workaround is gone from the UI", () => {
   assert.doesNotMatch(component, /golden_lesson_package_version_package_id_canonical_manifest/);
   assert.doesNotMatch(component, /مرفوع ومتحقق منه مسبقًا لهذا المكوّن/);
-  assert.match(component, /intakeErrorRef\.current \?\? "DIRECT_INTAKE_FAILED"/);
+  assert.doesNotMatch(componentV2, /canonical_manifest|package_version/);
 });
 
 test("a refused publish fails the component that asked for it", () => {
-  assert.match(component, /if \(!\(await publishDirectNow\(verified, single\)\)\) \{/);
-  assert.match(component, /if \(!\(await publishDirectNow\(resumed, single\)\)\) \{/);
-  assert.match(component, /publishErrorRef\.current/);
+  assert.match(component, /await publishLessonComponentV2/);
   assert.match(component, /catch \(error\) \{[\s\S]{0,400}setCapabilityPublishError/);
 });
 
@@ -201,10 +198,10 @@ test("a refused publish fails the component that asked for it", () => {
  * operator happened to have loaded -- and ship another component's answers with it.
  */
 test("a single-component publish carries only that component", () => {
-  assert.match(component, /subset === null \|\| subset\.includes\(capability\)/);
-  assert.match(component, /buildAnswersCompanion\(answerSets, subset\)/);
-  assert.match(component, /asset\.referencedBy\.some\(carries\)/);
-  assert.match(component, /buildManifest\(subset, companion\)/);
+  assert.match(component, /buildAnswersCompanion\(answerSets, \[capability\]\)/);
+  assert.match(component, /lessonCode: selectedLessonCode/);
+  assert.match(component, /capability,/);
+  assert.doesNotMatch(component, /publishSubset|buildManifest\(\[capability\]/);
 });
 
 /**
@@ -213,10 +210,10 @@ test("a single-component publish carries only that component", () => {
  * every batch, which is what made a one-file publish impossible.
  */
 test("a single-component publish takes the single-component server path", () => {
-  assert.match(component, /const single = subset && subset\.length === 1 \? subset\[0\] : null/);
-  assert.match(component, /publishDirectNow\(verified, single\)/);
-  assert.match(component, /publishDirectNow\(resumed, single\)/);
-  assert.match(component, /\.\.\.\(only\s*\n?\s*\? \{\s*\n?\s*capability: only,/);
+  assert.match(component, /createLessonComponentV2Upload/);
+  assert.match(component, /verifyLessonComponentV2Upload/);
+  assert.match(component, /publishLessonComponentV2/);
+  assert.doesNotMatch(component, /publishDirectNow|golden_lesson_publish_cf11/);
 });
 
 test("the server publishes one component without CF11 when a capability is named", () => {
@@ -237,8 +234,8 @@ test("the server publishes one component without CF11 when a capability is named
 test("publish state is tracked per component", () => {
   assert.match(component, /capabilityPublishBusy/);
   assert.match(component, /capabilityPublishError/);
-  assert.match(component, /capabilityPublished/);
-  assert.match(component, /نُشر هذا المكوّن في/);
+  assert.match(component, /capabilityPublication/);
+  assert.match(component, /publicationVersion/);
 });
 
 test("partial lesson drafts are autosaved and restored without server publication", () => {
@@ -246,7 +243,7 @@ test("partial lesson drafts are autosaved and restored without server publicatio
   assert.match(component, /writeLocalLessonDraft/);
   assert.match(component, /readLocalLessonDraft/);
   assert.match(component, /تم حفظ المسودة تلقائيًا/);
-  assert.match(component, /removeLocalLessonDraft/);
+  assert.doesNotMatch(component, /removeLocalLessonDraft/);
 });
 
 test("curriculum prerequisites are explicit and use only the two operational tracks", () => {

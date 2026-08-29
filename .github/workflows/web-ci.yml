@@ -80,6 +80,7 @@ jobs:
           node --test tests/content-factory/content-factory-11-r12-assets.static.test.mjs
           node --test tests/content-factory/content-factory-11-r13-owner-override.static.test.mjs
           node --test tests/content-factory/lesson-component-independent-publishing-02.static.test.mjs
+          node --test tests/content-factory/lesson-component-publishing-v2.static.test.mjs
           node --test tests/migrations/unapplied-report.test.mjs
           node --test tests/migrations/pg17-fixture-type-fidelity.test.mjs
           node --test tests/migrations/cf10-managed-revision-backfill.test.mjs

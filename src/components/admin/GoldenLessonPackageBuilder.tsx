@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   BookOpen,
@@ -12,16 +12,11 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 import {
-  publishGoldenLessonDirect,
-  type DirectPublishStep,
-} from "@/lib/content-factory/golden-lesson-direct-publish.functions";
-import {
-  createGoldenLessonDirectUpload,
-  discardGoldenLessonDirectUpload,
-  preflightGoldenLessonDirect,
-  verifyAndStageGoldenLessonDirect,
-  type DirectIntakePreflightResult,
-} from "@/lib/content-factory/golden-lesson-direct.functions";
+  createLessonComponentV2Upload,
+  publishLessonComponentV2,
+  verifyLessonComponentV2Upload,
+  type LessonComponentV2Publication,
+} from "@/lib/content-factory/lesson-component-publishing-v2.functions";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,28 +32,14 @@ import {
 import {
   GOLDEN_CAPABILITIES,
   GOLDEN_CAPABILITY_AUTHORITY,
-  GOLDEN_LESSON_SCHEMA,
   type GoldenCapability,
-  type GoldenLessonArtifact,
-  type GoldenLessonPackage,
 } from "@/lib/content-factory/golden-lesson-contract";
-import {
-  GOLDEN_ASSET_MAX_BYTES,
-  GOLDEN_ASSET_MIN_BYTES,
-  assetMagicMatches,
-  isAllowedAssetMime,
-  isSafeAssetLeaf,
-  type GoldenLessonAsset,
-} from "@/lib/content-factory/golden-lesson-assets";
 import {
   GOLDEN_CHEMISTRY_V1,
   GOLDEN_QURAN_V1,
   getGoldenLessonProfile,
 } from "@/lib/content-factory/golden-lesson-profiles";
-import {
-  validateGoldenLessonPackage,
-  type GoldenLessonValidationResult,
-} from "@/lib/content-factory/golden-lesson-validator";
+import type { GoldenLessonValidationResult } from "@/lib/content-factory/golden-lesson-validator";
 import {
   GOLDEN_ARTIFACT_FILE_CONTRACTS,
   validateGoldenLessonAnswerCoverage,
@@ -173,29 +154,12 @@ function scrollToCapability(capability: GoldenCapability) {
   window.setTimeout(() => node.classList.remove("ring-2", "ring-destructive"), 2000);
 }
 
-type DirectIntakeResult = Awaited<ReturnType<typeof verifyAndStageGoldenLessonDirect>>;
-
-function friendlyDirectIntakeError(error: unknown) {
-  const message = error instanceof Error ? error.message : "DIRECT_INTAKE_FAILED";
-  if (message.includes("PACKAGE_IDENTITY_IMMUTABLE")) {
-    return "تعذر النشر لأن كود الحزمة مرتبط مسبقًا بهوية درس مختلفة. أعد الفحص لعرض الحقول المتعارضة.";
-  }
-  if (message.includes("DIRECT_INTAKE_ALREADY_VERIFIED")) {
-    return "هذه النسخة متحقق منها مسبقًا؛ أعد الضغط على النشر لاستئناف العملية دون رفع جديد.";
-  }
-  return message;
-}
-
 interface UploadedArtifact {
   fileName: string;
   displayName: string;
   sha256: string;
   file: File;
   rowCount?: number;
-}
-
-interface UploadedSupplementalAsset extends GoldenLessonAsset {
-  file: File;
 }
 
 interface ArabicFilePickerProps {
@@ -249,7 +213,7 @@ const ARTIFACT_FIX_HINTS: Record<string, string> = {
   INLINE_EVENT_HANDLER_FORBIDDEN:
     "الملف يحتوي معالجات أحداث مضمّنة مثل onclick — احذفها من الوسوم.",
   EXTERNAL_RESOURCE_FORBIDDEN:
-    "الملف يشير إلى مصدر خارجي على الإنترنت (خط أو مكتبة أو صورة برابط https) — ضمِّن الأنماط داخل الملف وارفع الصور كمرفقات.",
+    "الملف يشير إلى مصدر خارجي على الإنترنت (خط أو مكتبة أو صورة برابط https) — ضمِّن الأنماط والصور داخل ملف HTML نفسه.",
   ANSWER_LEAKAGE_DETECTED:
     "الملف يحتوي إجابات أو تبريرات — يجب ألا تُكتب داخل HTML؛ الإجابات تُرفع عبر قالب الأسئلة فقط.",
   EMPTY_HTML: "الملف فارغ.",
@@ -282,62 +246,6 @@ async function downloadTemplateFile(url: string, filename: string): Promise<void
 async function sha256Hex(file: File): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-async function buildSupplementalAssetDeclarations(
-  files: File[],
-  htmlSources: Array<{ capability: GoldenCapability; html: string }>,
-): Promise<UploadedSupplementalAsset[]> {
-  const next: UploadedSupplementalAsset[] = [];
-  for (const file of files) {
-    if (!isSafeAssetLeaf(file.name)) throw new Error(`اسم الأصل غير آمن: ${file.name}`);
-    if (!isAllowedAssetMime(file.type)) throw new Error(`نوع الأصل غير مسموح: ${file.name}`);
-    if (file.size < GOLDEN_ASSET_MIN_BYTES || file.size > GOLDEN_ASSET_MAX_BYTES) {
-      throw new Error(`حجم الأصل خارج النطاق المسموح: ${file.name}`);
-    }
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    if (!assetMagicMatches(file.type, bytes))
-      throw new Error(`توقيع الملف لا يطابق نوعه: ${file.name}`);
-
-    const referencedBy: GoldenCapability[] = [];
-    let altTextAr = "";
-    for (const source of htmlSources) {
-      const document = new DOMParser().parseFromString(source.html, "text/html");
-      const matchingImage = Array.from(document.querySelectorAll("img")).find(
-        (image) => image.getAttribute("src") === file.name,
-      );
-      const matchingLink = Array.from(document.querySelectorAll("[href], [src]")).some(
-        (element) =>
-          element.getAttribute("href") === file.name || element.getAttribute("src") === file.name,
-      );
-      if (matchingImage || matchingLink) {
-        referencedBy.push(source.capability);
-        altTextAr ||= matchingImage?.getAttribute("alt")?.trim() ?? "";
-      }
-    }
-    if (referencedBy.length === 0)
-      throw new Error(`الأصل غير مشار إليه من أي ملف HTML: ${file.name}`);
-    if (altTextAr.length < 3)
-      throw new Error(`النص البديل العربي مفقود في HTML للأصل: ${file.name}`);
-
-    const stem = file.name
-      .replace(/\.[^.]+$/, "")
-      .toUpperCase()
-      .replace(/[^A-Z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    const assetCode = (stem.length >= 3 ? stem : `ASSET-${stem || "FILE"}`).slice(0, 64);
-    next.push({
-      assetCode,
-      path: file.name,
-      mimeType: file.type,
-      sha256: await sha256Hex(file),
-      bytes: file.size,
-      referencedBy,
-      altTextAr,
-      file,
-    });
-  }
-  return next;
 }
 
 type AnswerSets = Partial<
@@ -373,35 +281,10 @@ async function buildAnswersCompanion(
   };
 }
 
-function buildDirectIntakeFiles(
-  uploads: Partial<Record<GoldenCapability, UploadedArtifact>>,
-  internalProvenance: Partial<Record<GoldenCapability, UploadedArtifact>>,
-  answersCompanion: UploadedArtifact | null,
-  supplementalAssets: UploadedSupplementalAsset[],
-  subset: GoldenCapability[] | null = null,
-): Map<string, File> {
-  const carries = (capability: GoldenCapability) => subset === null || subset.includes(capability);
-  const files = new Map<string, File>();
-  for (const [capability, item] of [
-    ...Object.entries(uploads),
-    ...Object.entries(internalProvenance),
-  ] as Array<[GoldenCapability, UploadedArtifact | undefined]>) {
-    if (item && carries(capability)) files.set(item.fileName, item.file);
-  }
-  if (answersCompanion) files.set(answersCompanion.fileName, answersCompanion.file);
-  for (const asset of supplementalAssets) {
-    if (subset === null || asset.referencedBy.some(carries)) files.set(asset.path, asset.file);
-  }
-  return files;
-}
-
-function directUploadContentType(file: File): string {
+function componentUploadContentType(file: File): string {
   if (/\.html$/i.test(file.name)) return "text/html";
   if (/\.json$/i.test(file.name)) return "application/json";
-  if (/\.png$/i.test(file.name)) return "image/png";
-  if (/\.jpe?g$/i.test(file.name)) return "image/jpeg";
-  if (/\.webp$/i.test(file.name)) return "image/webp";
-  throw new Error(`DIRECT_FILE_TYPE_UNSUPPORTED:${file.name}`);
+  throw new Error(`LCPV2_FILE_TYPE_UNSUPPORTED:${file.name}`);
 }
 
 const LOCAL_DRAFT_DB = "tamkeen-lesson-import-drafts-v1";
@@ -411,10 +294,8 @@ const LAST_CONTEXT_KEY = "tamkeen:last-lesson-import-context";
 interface LocalLessonDraft {
   lessonCode: string;
   uploads: Partial<Record<GoldenCapability, UploadedArtifact>>;
-  internalProvenance: Partial<Record<GoldenCapability, UploadedArtifact>>;
   answerSets: Partial<Record<"selfTest" | "officialBookQuestions", Array<Record<string, unknown>>>>;
   answersCompanion: UploadedArtifact | null;
-  supplementalAssets: UploadedSupplementalAsset[];
   savedAt: string;
 }
 
@@ -458,22 +339,6 @@ async function writeLocalLessonDraft(draft: LocalLessonDraft): Promise<void> {
   });
 }
 
-async function removeLocalLessonDraft(lessonCode: string): Promise<void> {
-  const db = await openLocalDraftDatabase();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(LOCAL_DRAFT_STORE, "readwrite");
-    transaction.objectStore(LOCAL_DRAFT_STORE).delete(lessonCode);
-    transaction.oncomplete = () => {
-      db.close();
-      resolve();
-    };
-    transaction.onerror = () => {
-      db.close();
-      reject(transaction.error ?? new Error("LOCAL_DRAFT_DELETE_FAILED"));
-    };
-  });
-}
-
 export function GoldenLessonPackageBuilder() {
   const [registry, setRegistry] = useState<ContentCodeRegistry | null>(null);
   const [registryLoading, setRegistryLoading] = useState(true);
@@ -484,14 +349,10 @@ export function GoldenLessonPackageBuilder() {
   const [selectedUnitCode, setSelectedUnitCode] = useState("");
   const [selectedLessonCode, setSelectedLessonCode] = useState("");
   const [uploads, setUploads] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
-  const [internalProvenance, setInternalProvenance] = useState<
-    Partial<Record<GoldenCapability, UploadedArtifact>>
-  >({});
   const [answerSets, setAnswerSets] = useState<
     Partial<Record<"selfTest" | "officialBookQuestions", Array<Record<string, unknown>>>>
   >({});
   const [answersCompanion, setAnswersCompanion] = useState<UploadedArtifact | null>(null);
-  const [supplementalAssets, setSupplementalAssets] = useState<UploadedSupplementalAsset[]>([]);
   const [hashing, setHashing] = useState<GoldenCapability | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [capabilityErrors, setCapabilityErrors] = useState<
@@ -499,27 +360,17 @@ export function GoldenLessonPackageBuilder() {
   >({});
   const [templateBusy, setTemplateBusy] = useState<GoldenCapability | null>(null);
   const [validation, setValidation] = useState<GoldenLessonValidationResult | null>(null);
-  const [intake, setIntake] = useState<DirectIntakeResult | null>(null);
-  const [serverPreflight, setServerPreflight] = useState<DirectIntakePreflightResult | null>(null);
-  const [intakeError, setIntakeError] = useState<string | null>(null);
-  const [intakeBusy, setIntakeBusy] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const [draftMessage, setDraftMessage] = useState<string | null>(null);
-  const [publishBusy, setPublishBusy] = useState(false);
-  const [publishError, setPublishError] = useState<string | null>(null);
-  // setState does not settle before the next await, so the message thrown to the calling
-  // component has to be read from a ref rather than from publishError.
-  const publishErrorRef = useRef<string | null>(null);
-  const intakeErrorRef = useRef<string | null>(null);
-  const [publishSteps, setPublishSteps] = useState<DirectPublishStep[]>([]);
-  // Publishing is per component now, so the busy flag, the failure and the receipt all
-  // belong to a component rather than to the page.
   const [capabilityPublishBusy, setCapabilityPublishBusy] = useState<GoldenCapability | null>(null);
+  const [capabilityPublishStage, setCapabilityPublishStage] = useState<
+    Partial<Record<GoldenCapability, string>>
+  >({});
   const [capabilityPublishError, setCapabilityPublishError] = useState<
     Partial<Record<GoldenCapability, string>>
   >({});
-  const [capabilityPublished, setCapabilityPublished] = useState<
-    Partial<Record<GoldenCapability, string>>
+  const [capabilityPublication, setCapabilityPublication] = useState<
+    Partial<Record<GoldenCapability, LessonComponentV2Publication>>
   >({});
 
   useEffect(() => {
@@ -621,19 +472,8 @@ export function GoldenLessonPackageBuilder() {
       .replace(/[^A-Z0-9-]+/g, "-")
       .replace(/^-+|-+$/g, "");
   const rawLessonCode = selectedLesson?.lessonCode ?? "";
-  const packageCode = rawLessonCode ? `${toContractCode(rawLessonCode)}-PKG` : "";
-  const gradeCode = toContractCode(gradeSlug);
-  const trackCodes = useMemo(
-    () =>
-      selectedSubject
-        ? selectedSubject.trackCodes.filter((code) => code === "sanaa" || code === "aden")
-        : selectedTrackCodes,
-    [selectedSubject, selectedTrackCodes],
-  );
   const subjectCode = toContractCode(selectedSubjectCode);
   const lessonCode = toContractCode(rawLessonCode);
-  const lessonSlug = rawLessonCode.toLowerCase();
-  const unitCode = selectedLesson?.unitCode ?? "";
   // Legacy lesson rows may not have these operational fields yet. Derive stable
   // intake values locally so the operator is never sent to another page mid-flow.
   const semester = String(selectedLesson?.semester ?? 1);
@@ -648,7 +488,7 @@ export function GoldenLessonPackageBuilder() {
     profile &&
     selectedSubject &&
     selectedLesson &&
-    gradeCode &&
+    gradeSlug &&
     selectedTrackCodes.length > 0 &&
     semester &&
     sortOrder,
@@ -666,10 +506,8 @@ export function GoldenLessonPackageBuilder() {
       .then((draft) => {
         if (!active || !draft) return;
         setUploads(draft.uploads);
-        setInternalProvenance(draft.internalProvenance);
         setAnswerSets(draft.answerSets);
         setAnswersCompanion(draft.answersCompanion);
-        setSupplementalAssets(draft.supplementalAssets);
         setDraftMessage(
           `تمت استعادة المسودة المحفوظة تلقائيًا في ${new Date(draft.savedAt).toLocaleString("ar-YE")}.`,
         );
@@ -685,92 +523,6 @@ export function GoldenLessonPackageBuilder() {
       active = false;
     };
   }, [selectedLessonCode]);
-
-  /**
-   * One manifest builder for every publish, parameterised by which components are going
-   * out. `null` means "everything currently uploaded"; a list means exactly those.
-   *
-   * The seven records are always described -- the contract is that a manifest names the
-   * whole lesson -- but only the components in the subset carry a file. That is the same
-   * shape a partly-authored lesson already has, so a single-component publish needs no
-   * special case anywhere downstream.
-   */
-  const buildManifest = useCallback(
-    (
-      subset: GoldenCapability[] | null,
-      companion: UploadedArtifact | null,
-    ): GoldenLessonPackage => {
-      const carries = (capability: GoldenCapability) =>
-        Boolean(uploads[capability]) && (subset === null || subset.includes(capability));
-      const artifacts: GoldenLessonArtifact[] = GOLDEN_CAPABILITIES.map((capability) => ({
-        capability,
-        applicability: profile?.applicability[capability] ?? "NA",
-        authority: GOLDEN_CAPABILITY_AUTHORITY[capability],
-        sourcePath: carries(capability) ? (uploads[capability]?.fileName ?? null) : null,
-        sha256: carries(capability) ? (uploads[capability]?.sha256 ?? null) : null,
-        provenancePath: carries(capability)
-          ? (internalProvenance[capability]?.fileName ?? null)
-          : null,
-        provenanceSha256: carries(capability)
-          ? (internalProvenance[capability]?.sha256 ?? null)
-          : null,
-      }));
-      return {
-        schema: GOLDEN_LESSON_SCHEMA,
-        profileId: profile?.id ?? "",
-        packageCode: packageCode.trim(),
-        identity: {
-          gradeCode: gradeCode.trim().toUpperCase(),
-          curriculumTrackCodes: trackCodes.map((code) => code.trim().toLowerCase()).filter(Boolean),
-          subjectCode: subjectCode.trim().toUpperCase(),
-          lessonCode: lessonCode.trim().toUpperCase(),
-          lessonSlug: lessonSlug.trim(),
-          unitCode: unitCode.trim() || null,
-          semester: semester ? Number(semester) : null,
-          sortOrder: sortOrder ? Number(sortOrder) : null,
-        },
-        capabilityOrder: [...GOLDEN_CAPABILITIES],
-        artifacts,
-        assets: supplementalAssets
-          .filter((asset) => subset === null || asset.referencedBy.some(carries))
-          .map(({ file: _file, ...asset }) => asset),
-        lifecycle: { initialStatus: "DRAFT", allowDirectReady: false },
-        security: {
-          productionApply: false,
-          publicPayloadContainsAnswers: false,
-          answersCompanionPath: companion?.fileName ?? null,
-          answersCompanionSha256: companion?.sha256 ?? null,
-          htmlNetworkAccess: "NONE",
-        },
-      };
-    },
-    [
-      profile,
-      packageCode,
-      gradeCode,
-      trackCodes,
-      subjectCode,
-      lessonCode,
-      lessonSlug,
-      unitCode,
-      semester,
-      sortOrder,
-      uploads,
-      internalProvenance,
-      supplementalAssets,
-    ],
-  );
-
-  /** What the local checks and the summary card describe: everything uploaded so far. */
-  const packageDraft = useMemo<GoldenLessonPackage>(
-    () => buildManifest(null, answersCompanion),
-    [buildManifest, answersCompanion],
-  );
-
-  useEffect(() => {
-    setServerPreflight(null);
-    setIntakeError(null);
-  }, [packageDraft]);
 
   const uploadedCount = GOLDEN_CAPABILITIES.filter((capability) => uploads[capability]).length;
   const setCapabilityError = (capability: GoldenCapability, messages: string[] | null) => {
@@ -792,9 +544,7 @@ export function GoldenLessonPackageBuilder() {
     const duplicate =
       Object.entries(uploads).some(
         ([key, item]) => key !== capability && item?.fileName === file.name,
-      ) ||
-      answersCompanion?.fileName === file.name ||
-      supplementalAssets.some((item) => item.path === file.name);
+      ) || answersCompanion?.fileName === file.name;
     if (duplicate) {
       setCapabilityError(capability, [
         `اسم الملف ${file.name} مستخدم مسبقًا في مكوّن آخر؛ أعد تسميته باسم فريد ثم أعد الرفع.`,
@@ -810,7 +560,6 @@ export function GoldenLessonPackageBuilder() {
       let displayName = file.name;
       let rowCount: number | undefined;
       let convertedAnswers: Array<Record<string, unknown>> | null = null;
-      let convertedActivityAssets: File[] = [];
       if (
         (capability === "labExperimentHtml" || capability === "mindMapHtml") &&
         /\.zip$/i.test(file.name)
@@ -819,7 +568,6 @@ export function GoldenLessonPackageBuilder() {
           const converted = await convertHtml5ActivityZip(file);
           artifactFile = converted.htmlFile;
           displayName = `${file.name} (HTML5)`;
-          convertedActivityAssets = converted.assets;
         } catch (zipError) {
           throw new Error(
             `تعذّر استخراج حزمة ZIP: ${zipError instanceof Error ? zipError.message : "ملف غير صالح"} — يجب أن تحتوي الحزمة ملف index.html في جذرها.`,
@@ -870,6 +618,10 @@ export function GoldenLessonPackageBuilder() {
         }
       }
 
+      if (artifactFile.size > MAX_FILE_BYTES) {
+        throw new Error("حجم الملف بعد التحويل والتضمين أكبر من 5 ميجابايت.");
+      }
+
       const bytes = new Uint8Array(await artifactFile.arrayBuffer());
       const artifactValidation = validateGoldenLessonArtifactBytes(
         capability,
@@ -889,40 +641,6 @@ export function GoldenLessonPackageBuilder() {
         return;
       }
       const sha256 = await sha256Hex(artifactFile);
-      if (GOLDEN_CAPABILITY_AUTHORITY[capability] === "OFFICIAL") {
-        const provenanceFile = new File(
-          [
-            JSON.stringify({
-              source: "REGISTERED_SUBJECT_TEXTBOOK",
-              gradeCode: gradeCode.trim().toUpperCase(),
-              subjectCode: subjectCode.trim().toUpperCase(),
-              lessonCode: lessonCode.trim().toUpperCase(),
-              artifactSha256: sha256,
-            }),
-          ],
-          `${capability}.system-source.json`,
-          { type: "application/json" },
-        );
-        const provenanceSha256 = await sha256Hex(provenanceFile);
-        setInternalProvenance((current) => ({
-          ...current,
-          [capability]: {
-            fileName: provenanceFile.name,
-            displayName: "مرجع نظامي آلي",
-            sha256: provenanceSha256,
-            file: provenanceFile,
-          },
-        }));
-      }
-      if (convertedActivityAssets.length) {
-        const declarations = await buildSupplementalAssetDeclarations(convertedActivityAssets, [
-          { capability, html: await artifactFile.text() },
-        ]);
-        setSupplementalAssets((current) => {
-          const replacing = new Set(declarations.map((asset) => asset.path));
-          return [...current.filter((asset) => !replacing.has(asset.path)), ...declarations];
-        });
-      }
       if (convertedAnswers) {
         const nextAnswerSets = { ...answerSets, [capability]: convertedAnswers };
         setAnswerSets(nextAnswerSets);
@@ -951,11 +669,6 @@ export function GoldenLessonPackageBuilder() {
       delete next[capability];
       return next;
     });
-    setInternalProvenance((current) => {
-      const next = { ...current };
-      delete next[capability];
-      return next;
-    });
     if (capability === "selfTest" || capability === "officialBookQuestions") {
       const nextAnswerSets = { ...answerSets };
       delete nextAnswerSets[capability];
@@ -967,23 +680,18 @@ export function GoldenLessonPackageBuilder() {
     setCapabilityError(capability, null);
   };
 
-  const hasSelectedFiles =
-    Object.keys(uploads).length > 0 || supplementalAssets.length > 0 || Boolean(answersCompanion);
+  const hasSelectedFiles = Object.keys(uploads).length > 0 || Boolean(answersCompanion);
 
   const clearSelectedFiles = () => {
     setUploads({});
-    setInternalProvenance({});
     setAnswerSets({});
     setAnswersCompanion(null);
-    setSupplementalAssets([]);
     setValidation(null);
     setFileError(null);
     setCapabilityErrors({});
-    setIntake(null);
-    setServerPreflight(null);
-    setIntakeError(null);
-    setPublishError(null);
-    setPublishSteps([]);
+    setCapabilityPublication({});
+    setCapabilityPublishError({});
+    setCapabilityPublishStage({});
     setDraftMessage(null);
   };
 
@@ -1062,25 +770,15 @@ export function GoldenLessonPackageBuilder() {
       void writeLocalLessonDraft({
         lessonCode: selectedLessonCode,
         uploads,
-        internalProvenance,
         answerSets,
         answersCompanion,
-        supplementalAssets,
         savedAt: new Date().toISOString(),
       })
         .then(() => setDraftMessage("تم حفظ المسودة تلقائيًا على هذا الجهاز."))
         .catch(() => setDraftMessage("تعذر الحفظ التلقائي؛ لا تغادر الصفحة قبل الاستيراد."));
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [
-    draftReady,
-    selectedLessonCode,
-    uploads,
-    internalProvenance,
-    answerSets,
-    answersCompanion,
-    supplementalAssets,
-  ]);
+  }, [draftReady, selectedLessonCode, uploads, answerSets, answersCompanion]);
 
   const runValidation = async () => {
     if (!profile) {
@@ -1088,16 +786,31 @@ export function GoldenLessonPackageBuilder() {
       return;
     }
     setFileError(null);
-    const manifestValidation = validateGoldenLessonPackage(packageDraft);
+    const findings: GoldenLessonValidationResult["findings"] = [];
     const artifactInputs: Partial<
       Record<GoldenCapability, { fileName: string; bytes: Uint8Array }>
     > = {};
-    for (const capability of ["officialBookQuestions", "selfTest"] as const) {
+    for (const capability of GOLDEN_CAPABILITIES) {
       const upload = uploads[capability];
-      if (upload) {
+      if (!upload) continue;
+      const bytes = new Uint8Array(await upload.file.arrayBuffer());
+      const artifactValidation = validateGoldenLessonArtifactBytes(
+        capability,
+        upload.fileName,
+        bytes,
+      );
+      for (const finding of artifactValidation.findings) {
+        findings.push({
+          code: finding.code,
+          severity: "ERROR",
+          field: `artifacts.${capability}`,
+          messageAr: finding.messageAr,
+        });
+      }
+      if (capability === "officialBookQuestions" || capability === "selfTest") {
         artifactInputs[capability] = {
           fileName: upload.fileName,
-          bytes: new Uint8Array(await upload.file.arrayBuffer()),
+          bytes,
         };
       }
     }
@@ -1110,16 +823,18 @@ export function GoldenLessonPackageBuilder() {
           }
         : null,
     );
-    const coverageFindings = coverage.findings.map((finding) => ({
-      code: finding.code,
-      severity: "ERROR" as const,
-      field: "security.answersCompanionPath",
-      messageAr: finding.messageAr,
-    }));
+    for (const finding of coverage.findings) {
+      findings.push({
+        code: finding.code,
+        severity: "ERROR",
+        field: "answers",
+        messageAr: finding.messageAr,
+      });
+    }
     setValidation({
-      ...manifestValidation,
-      valid: manifestValidation.valid && coverage.valid,
-      findings: [...manifestValidation.findings, ...coverageFindings],
+      valid: findings.length === 0,
+      writesPerformed: 0,
+      findings,
     });
   };
 
@@ -1132,188 +847,60 @@ export function GoldenLessonPackageBuilder() {
       void runValidation();
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [
-    canonicalIdentityComplete,
-    uploads,
-    internalProvenance,
-    answersCompanion,
-    supplementalAssets,
-    selectedLessonCode,
-  ]);
+  }, [canonicalIdentityComplete, uploads, answersCompanion, selectedLessonCode]);
 
-  /** Each declared file is uploaded directly; no lesson archive is created or uploaded. */
-  const uploadAndVerifyDirectIntake = async (
-    manifest: GoldenLessonPackage,
-    subset: GoldenCapability[] | null,
-    companion: UploadedArtifact | null,
-  ): Promise<DirectIntakeResult | null> => {
-    setIntakeBusy(true);
-    setIntakeError(null);
-    setIntake(null);
-    let activeIntakeId: string | null = null;
-    try {
-      const files = buildDirectIntakeFiles(
-        uploads,
-        internalProvenance,
-        companion,
-        supplementalAssets,
-        subset,
-      );
-      const slot = await createGoldenLessonDirectUpload({ data: { manifest } });
-      activeIntakeId = slot.intakeId;
-      setServerPreflight(slot.preflight);
-      for (const upload of slot.uploads) {
-        const file = files.get(upload.logicalPath);
-        if (!file) throw new Error(`DIRECT_DECLARED_FILE_MISSING:${upload.logicalPath}`);
-        const uploaded = await supabase.storage
-          .from(slot.bucket)
-          .uploadToSignedUrl(upload.storagePath, upload.token, file, {
-            contentType: directUploadContentType(file),
-          });
-        if (uploaded.error) throw new Error(uploaded.error.message);
-      }
-      const verified = await verifyAndStageGoldenLessonDirect({
-        data: { intakeId: slot.intakeId, manifest },
-      });
-      setIntake(verified);
-      // The local draft is only safe to drop once every uploaded component has gone out.
-      if (selectedLessonCode && subset === null) {
-        await removeLocalLessonDraft(selectedLessonCode).catch(() => undefined);
-        setDraftMessage("اكتمل رفع الملفات إلى الخادم وحُذفت النسخة المحلية المؤقتة.");
-      }
-      return verified;
-    } catch (error) {
-      if (activeIntakeId) {
-        await discardGoldenLessonDirectUpload({
-          data: { intakeId: activeIntakeId, manifest },
-        }).catch(() => undefined);
-      }
-      const message = friendlyDirectIntakeError(error);
-      intakeErrorRef.current = message;
-      setIntakeError(message);
-      return null;
-    } finally {
-      setIntakeBusy(false);
-    }
-  };
-
-  /**
-   * Approve + publish in one audited server round-trip; no separate review page.
-   * Reports whether the server accepted, so a per-component publish can say which
-   * component failed instead of only painting the shared error card.
-   */
-  const publishDirectNow = async (
-    target: DirectIntakeResult | null = intake,
-    only: GoldenCapability | null = null,
-  ): Promise<boolean> => {
-    if (!target) return false;
-    setPublishBusy(true);
-    setPublishError(null);
-    publishErrorRef.current = null;
-    try {
-      const result = await publishGoldenLessonDirect({
-        data: {
-          packageId: target.packageId,
-          version: target.version,
-          // The hash pins the selected file to the freshly verified current-version entry.
-          ...(only
-            ? {
-                capability: only,
-                ...(uploads[only]?.sha256 ? { capabilitySha256: uploads[only]!.sha256 } : {}),
-              }
-            : {}),
-        },
-      });
-      setPublishSteps(result.steps);
-      return true;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "DIRECT_PUBLISH_FAILED";
-      publishErrorRef.current = message;
-      setPublishError(message);
-      return false;
-    } finally {
-      setPublishBusy(false);
-    }
-  };
-
-  /**
-   * Upload, verify, approve and publish one subset of components in a single audited
-   * round-trip. `null` publishes everything uploaded; `[capability]` publishes exactly
-   * that one, whether or not any of the other six exist yet.
-   */
-  const publishSubset = async (subset: GoldenCapability[] | null) => {
-    setPublishSteps([]);
-    setPublishError(null);
-    publishErrorRef.current = null;
-    setIntakeError(null);
-    intakeErrorRef.current = null;
-    setIntakeBusy(true);
-
-    // A subset of exactly one takes the single-component publish path on the server.
-    const single = subset && subset.length === 1 ? subset[0] : null;
-    const companion = await buildAnswersCompanion(answerSets, subset);
-    const manifest = buildManifest(subset, companion);
-
-    let preflight: DirectIntakePreflightResult;
-    try {
-      preflight = await preflightGoldenLessonDirect({ data: { manifest } });
-      setServerPreflight(preflight);
-    } catch (error) {
-      const message = friendlyDirectIntakeError(error);
-      intakeErrorRef.current = message;
-      setIntakeError(message);
-      throw new Error(message);
-    } finally {
-      setIntakeBusy(false);
-    }
-
-    if (preflight.status === "IDENTITY_CONFLICT") {
-      setIntakeError(preflight.messageAr);
-      throw new Error(preflight.messageAr);
-    }
-    if (preflight.status === "RESUMABLE" && preflight.packageId && preflight.version) {
-      const resumed: DirectIntakeResult = {
-        packageId: preflight.packageId,
-        version: preflight.version,
-        status: preflight.reviewStatus ?? "DRAFT",
-        idempotent: true,
-        verifiedIntakeSha256: preflight.verifiedIntakeSha256 ?? "",
-        verifiedFileCount: preflight.verifiedFileCount ?? 0,
-        domainWritesPerformed: 0,
-      };
-      setIntake(resumed);
-      // The result decides. Ignoring it is what let a component report success at the top
-      // of the page while the server's refusal sat at the bottom.
-      if (!(await publishDirectNow(resumed, single))) {
-        throw new Error(publishErrorRef.current ?? "DIRECT_PUBLISH_FAILED");
-      }
-      return;
-    }
-
-    const verified = await uploadAndVerifyDirectIntake(manifest, subset, companion);
-    if (!verified) throw new Error(intakeErrorRef.current ?? "DIRECT_INTAKE_FAILED");
-    if (!(await publishDirectNow(verified, single))) {
-      throw new Error(publishErrorRef.current ?? "DIRECT_PUBLISH_FAILED");
-    }
-  };
-
-  /**
-   * Publish exactly one component. Nothing about the other six is read, written or
-   * asserted, so a lesson with one file is as publishable as a lesson with seven.
-   */
+  /** Upload, verify and atomically publish exactly one component. */
   const publishCapabilityNow = async (capability: GoldenCapability) => {
-    if (!uploads[capability]) return;
+    const source = uploads[capability];
+    if (!source || !selectedLessonCode) return;
     setCapabilityPublishBusy(capability);
+    setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ رفع الملف…" }));
     setCapabilityPublishError((current) => {
       const next = { ...current };
       delete next[capability];
       return next;
     });
     try {
-      await publishSubset([capability]);
-      setCapabilityPublished((current) => ({
+      const answers = await buildAnswersCompanion(answerSets, [capability]);
+      const slot = await createLessonComponentV2Upload({
+        data: {
+          lessonCode: selectedLessonCode,
+          capability,
+          source: {
+            fileName: source.fileName,
+            sha256: source.sha256,
+            bytes: source.file.size,
+            mimeType: componentUploadContentType(source.file),
+          },
+          ...(answers
+            ? {
+                answers: {
+                  fileName: answers.fileName,
+                  sha256: answers.sha256,
+                  bytes: answers.file.size,
+                  mimeType: "application/json",
+                },
+              }
+            : {}),
+        },
+      });
+      for (const upload of slot.uploads) {
+        const file = upload.kind === "source" ? source.file : answers?.file;
+        if (!file) throw new Error("LCPV2_DECLARED_FILE_MISSING");
+        const result = await supabase.storage
+          .from(slot.bucket)
+          .uploadToSignedUrl(upload.storagePath, upload.token, file, {
+            contentType: componentUploadContentType(file),
+          });
+        if (result.error) throw new Error(`LCPV2_UPLOAD_FAILED: ${result.error.message}`);
+      }
+      setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ فحص الملف…" }));
+      await verifyLessonComponentV2Upload({ data: { intakeId: slot.intakeId } });
+      setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ نشر المكوّن…" }));
+      const publication = await publishLessonComponentV2({ data: { intakeId: slot.intakeId } });
+      setCapabilityPublication((current) => ({
         ...current,
-        [capability]: new Date().toLocaleString("ar-YE"),
+        [capability]: publication,
       }));
     } catch (error) {
       setCapabilityPublishError((current) => ({
@@ -1323,6 +910,11 @@ export function GoldenLessonPackageBuilder() {
       }));
     } finally {
       setCapabilityPublishBusy(null);
+      setCapabilityPublishStage((current) => {
+        const next = { ...current };
+        delete next[capability];
+        return next;
+      });
     }
   };
 
@@ -1685,17 +1277,12 @@ export function GoldenLessonPackageBuilder() {
                             type="button"
                             size="sm"
                             className="h-9 min-h-[44px] gap-1 sm:min-h-0"
-                            disabled={
-                              !canonicalIdentityComplete ||
-                              intakeBusy ||
-                              publishBusy ||
-                              capabilityPublishBusy !== null
-                            }
+                            disabled={!canonicalIdentityComplete || capabilityPublishBusy !== null}
                             onClick={() => void publishCapabilityNow(capability)}
                           >
                             <UploadCloud className="h-3.5 w-3.5" />
                             {capabilityPublishBusy === capability
-                              ? "جارٍ نشر هذا المكوّن…"
+                              ? capabilityPublishStage[capability]
                               : "نشر هذا المكوّن"}
                           </Button>
                           {upload.fileName.endsWith(".html") && (
@@ -1714,10 +1301,23 @@ export function GoldenLessonPackageBuilder() {
                             {Math.max(1, Math.round(upload.file.size / 1024))} كيلوبايت
                           </span>
                         </div>
-                        {capabilityPublished[capability] && (
-                          <p className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-400">
-                            نُشر هذا المكوّن في {capabilityPublished[capability]}.
-                          </p>
+                        {capabilityPublication[capability] && (
+                          <div
+                            role="status"
+                            className="mt-2 rounded-md border border-emerald-500/30 bg-background/60 p-2 text-[11px] text-emerald-700 dark:text-emerald-400"
+                          >
+                            {capabilityPublication[capability]!.steps.map((step) => (
+                              <p key={step.key}>
+                                ✓ {step.label}: {step.detail}
+                              </p>
+                            ))}
+                            <p>
+                              الإصدار {capabilityPublication[capability]!.publicationVersion}
+                              {capabilityPublication[capability]!.idempotent
+                                ? " — دون تكرار الكتابة"
+                                : ""}
+                            </p>
+                          </div>
                         )}
                         {capabilityPublishError[capability] && (
                           <p className="mt-2 break-all text-[11px] text-destructive">
@@ -1778,107 +1378,6 @@ export function GoldenLessonPackageBuilder() {
               </p>
             );
           })}
-        </div>
-      )}
-
-      {serverPreflight && (
-        <div
-          className={`rounded-xl border p-4 space-y-2 text-sm ${
-            serverPreflight.status === "IDENTITY_CONFLICT"
-              ? "border-destructive/40 bg-destructive/5"
-              : serverPreflight.status === "DRAFT_REBINDABLE"
-                ? "border-amber-500/40 bg-amber-500/10"
-                : "border-emerald-500/30 bg-emerald-500/10"
-          }`}
-          role={serverPreflight.status === "IDENTITY_CONFLICT" ? "alert" : "status"}
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium">جاهزية النشر على الخادم</p>
-            <Badge
-              variant={serverPreflight.status === "IDENTITY_CONFLICT" ? "destructive" : "outline"}
-            >
-              {serverPreflight.status === "NEW_PACKAGE" && "حزمة جديدة"}
-              {serverPreflight.status === "UPLOAD_REQUIRED" && "استكمال رفع"}
-              {serverPreflight.status === "NEW_VERSION" && "نسخة جديدة"}
-              {serverPreflight.status === "RESUMABLE" && "استئناف دون رفع"}
-              {serverPreflight.status === "DRAFT_REBINDABLE" && "تصحيح مسودة آمن"}
-              {serverPreflight.status === "IDENTITY_CONFLICT" && "تعارض هوية"}
-            </Badge>
-          </div>
-          <p className="text-xs leading-relaxed">{serverPreflight.messageAr}</p>
-          {serverPreflight.differences.length > 0 && (
-            <div className="overflow-x-auto rounded-lg border bg-background/70">
-              <table className="w-full min-w-[520px] text-xs">
-                <thead>
-                  <tr className="border-b text-muted-foreground">
-                    <th className="p-2 text-start">الحقل</th>
-                    <th className="p-2 text-start">المحفوظ</th>
-                    <th className="p-2 text-start">القادم</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {serverPreflight.differences.map((difference) => {
-                    const renderValue = (value: typeof difference.currentValue) =>
-                      Array.isArray(value)
-                        ? value.join("، ")
-                        : value === null
-                          ? "غير محدد"
-                          : String(value);
-                    return (
-                      <tr key={difference.field} className="border-b last:border-0">
-                        <td className="p-2 font-medium">{difference.labelAr}</td>
-                        <td className="p-2">{renderValue(difference.currentValue)}</td>
-                        <td className="p-2">{renderValue(difference.incomingValue)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* There is no page-level publish button. Every component is published from its own
-          row, so a button that publishes "the lesson" contradicted the whole page: it made
-          one shared success or failure out of seven independent ones, and its refusal sat
-          at the bottom of the page insisting nothing had been published while the rows
-          above correctly reported that components had.
-
-          There is also no manual "check files" button: runValidation() runs on every change
-          to the uploads, and its outcome is the card below. */}
-
-      {intakeError && (
-        <p role="alert" className="text-sm text-destructive flex gap-2">
-          <AlertCircle className="h-4 w-4 mt-0.5" />
-          {intakeError}
-        </p>
-      )}
-
-      {/* A receipt for the last server round-trip, not a verdict on the lesson. Each
-          component's own outcome — published, or refused and why — belongs on its row, and
-          repeating a refusal down here is what made the page contradict itself. */}
-      {intake && publishSteps.length > 0 && !publishError && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2 text-sm">
-          <p className="font-medium flex gap-2">
-            <CheckCircle2 className="h-4 w-4 mt-0.5" />
-            آخر عملية نشر تمّت
-          </p>
-          <p className="text-xs">
-            الإصدار {intake.version}
-            {intake.idempotent ? " (دون تكرار الكتابة)" : ""} — عدد الملفات المتحقق منها:{" "}
-            {intake.verifiedFileCount}.
-          </p>
-          <ul className="mt-2 space-y-1 text-xs">
-            <li className="text-emerald-700 dark:text-emerald-400">
-              ✓ رفع الملفات والتحقق من البصمات
-            </li>
-            {publishSteps.map((step) => (
-              <li key={step.key} className="text-emerald-700 dark:text-emerald-400">
-                ✓ {step.label} — {step.detail}
-              </li>
-            ))}
-          </ul>
         </div>
       )}
 
