@@ -258,6 +258,54 @@ BEGIN
 END $$;
 
 -- =====================================================================================
+-- 3c) LCIP-04: a batch carrying ONE component must materialise, and must write NOTHING
+--     for the other six.
+--
+--     CF10 rejected any staged capability whose payload was NULL:
+--       IF entry.applicability = 'REQUIRED' AND payload_text IS NULL THEN
+--         RAISE EXCEPTION 'CF10_EMPTY_PAYLOAD: %', entry.capability;
+--     Staging always stages all seven, so uploading one component failed on the first
+--     empty one. Removing that check alone was not enough: the book/explanation/summary
+--     blocks had no NULL guard and would have inserted empty rows — an unauthored
+--     component reaching the student as blank content.
+-- =====================================================================================
+DO $$
+DECLARE
+  d text;
+BEGIN
+  SELECT pg_get_functiondef(p.oid) INTO d
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'golden_lesson_materialize_domain_batch';
+  IF d IS NULL THEN
+    RAISE EXCEPTION 'LCIP04_MATERIALIZE_FUNCTION_MISSING';
+  END IF;
+
+  IF position('CF10_EMPTY_PAYLOAD' in d) > 0 THEN
+    RAISE EXCEPTION 'LCIP04_STILL_REJECTS_PARTIAL_BATCH';
+  END IF;
+
+  -- The three blocks that previously had no NULL guard must all have one now, on both
+  -- the insert and the hash-conflict branch. Anything less writes empty content.
+  IF (SELECT count(*) FROM regexp_matches(d,
+        'IF existing_hash IS NULL AND payload_text IS NOT NULL THEN', 'g')) <> 3 THEN
+    RAISE EXCEPTION 'LCIP04_INSERT_NOT_GUARDED_ON_ALL_THREE';
+  END IF;
+  IF (SELECT count(*) FROM regexp_matches(d,
+        'ELSIF payload_text IS NOT NULL AND existing_hash IS DISTINCT FROM', 'g')) <> 3 THEN
+    RAISE EXCEPTION 'LCIP04_CONFLICT_NOT_GUARDED_ON_ALL_THREE';
+  END IF;
+
+  -- Everything that made CF10 safe must survive.
+  IF position('cf10_assert_no_answer_leak' in d) = 0
+     OR position('CF10_PAYLOAD_HASH_MISMATCH' in d) = 0
+     OR position('CF10_IDENTITY_CONFLICT' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP04_CF10_GUARD_LOST';
+  END IF;
+
+  RAISE NOTICE 'LCIP04 partial-batch proof passed.';
+END $$;
+
+-- =====================================================================================
 -- 4) Staging: a package describing the seven records but carrying ONE file is accepted,
 --    and one carrying none is refused.
 -- =====================================================================================
@@ -323,3 +371,82 @@ BEGIN
 
   RAISE NOTICE 'LCIP02 manifest proof passed.';
 END $$;
+
+
+-- ============================================================================
+-- LCIP-07: the three CF10 changes have to hold at the same time
+--
+-- Each one alone is a regression the others hide:
+--   * replacement without the NULL guard writes an unauthored component as NULL;
+--   * the NULL guard without replacement is the CF10_CONTENT_HASH_CONFLICT wall;
+--   * either one without CF09 binding lets an unbound batch overwrite live content.
+--
+-- Production reached this state by a different route than this chain does -- it got
+-- 20260902010000 before 20260827010000, and scripts/content-factory/production/
+-- cf10-managed-revision-backfill.sql reconciles the order. Both routes must end at
+-- the function this block describes, so assert the destination, not the path.
+-- ============================================================================
+DO $lcip07$
+DECLARE d text; n integer; tbl text;
+BEGIN
+  SELECT pg_get_functiondef(p.oid) INTO d
+    FROM pg_proc p JOIN pg_namespace ns ON ns.oid = p.pronamespace
+   WHERE ns.nspname = 'public'
+     AND p.proname = 'golden_lesson_materialize_domain_batch'
+     AND p.oid::regprocedure::text =
+       'golden_lesson_materialize_domain_batch(uuid,uuid,text,text,text)';
+  IF d IS NULL THEN
+    RAISE EXCEPTION 'LCIP07_FUNCTION_MISSING';
+  END IF;
+
+  -- 1. A component that was never uploaded is skipped, not rejected.
+  IF position('CF10_EMPTY_PAYLOAD' in d) > 0 THEN
+    RAISE EXCEPTION 'LCIP07_EMPTY_PAYLOAD_STILL_REJECTS';
+  END IF;
+
+  -- 2. ...and it is skipped at every conflict branch, so nothing is written as NULL.
+  n := (length(d) - length(replace(d,
+         'ELSIF payload_text IS NOT NULL AND existing_hash IS DISTINCT FROM new_hash', ''))) /
+       length('ELSIF payload_text IS NOT NULL AND existing_hash IS DISTINCT FROM new_hash');
+  IF n <> 3 THEN
+    RAISE EXCEPTION 'LCIP07_NULL_GUARD_MISSING: % of 3 branches guarded', n;
+  END IF;
+
+  -- 3. A component that was uploaded before can be replaced, under compare-and-swap.
+  FOREACH tbl IN ARRAY ARRAY['lesson_book_contents','lesson_explanations','lesson_summaries'] LOOP
+    IF position('CF10_MANAGED_REVISION_TARGET_DRIFT: ' || tbl in d) = 0 THEN
+      RAISE EXCEPTION 'LCIP07_REPLACEMENT_NOT_AVAILABLE: %', tbl;
+    END IF;
+  END LOOP;
+  IF position('HASH_PINNED_COMPARE_AND_SWAP' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP07_REPLACEMENT_NOT_PINNED';
+  END IF;
+
+  -- 4. Only a CF09-bound batch may replace, and the refusal is still reachable.
+  n := (length(d) - length(replace(d, 'IF binding_count IS DISTINCT FROM 1 THEN', ''))) /
+       length('IF binding_count IS DISTINCT FROM 1 THEN');
+  IF n < 3 THEN
+    RAISE EXCEPTION 'LCIP07_REPLACEMENT_UNBOUND: % of 3 branches check the CF09 binding', n;
+  END IF;
+  IF position('CF10_CONTENT_HASH_CONFLICT' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP07_CONFLICT_REFUSAL_DELETED';
+  END IF;
+
+  -- 5. Questions and the answer layer stay versioned and closed.
+  IF position('CF10_CONTENT_HASH_CONFLICT: questions' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP07_QUESTION_VERSIONING_LOST';
+  END IF;
+  IF position('cf10_assert_no_answer_leak' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP07_ANSWER_LEAK_GUARD_LOST';
+  END IF;
+
+  -- 6. The answers companion is required exactly when questions are in the batch.
+  IF position('CF10_ANSWER_COMPANION_MISSING' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP07_COMPANION_GUARD_DELETED';
+  END IF;
+  IF position('OR (payloads->''selfTest''->>''text'') IS NOT NULL) THEN' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP07_COMPANION_GUARD_STILL_UNCONDITIONAL';
+  END IF;
+
+  RAISE NOTICE 'LCIP07 passed: upload one component, and replace one, on the same function.';
+END $lcip07$;
