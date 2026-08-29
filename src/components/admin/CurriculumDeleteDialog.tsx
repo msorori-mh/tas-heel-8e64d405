@@ -114,6 +114,10 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
   const [blocked, setBlocked] = useState(false);
   const [forcing, setForcing] = useState(false);
 
+  useEffect(() => {
+    setBlocked(false);
+  }, [target?.id, open]);
+
   const newReqId = () =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
