@@ -7,15 +7,34 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "..", "..", "supabase", "migrations");
 const repoRoot = join(here, "..", "..");
-const candidates = readdirSync(migrationsDir).filter((name) => {
-  if (!name.endsWith(".sql")) return false;
-  return readFileSync(join(migrationsDir, name), "utf8").includes(
-    "CF10_MANAGED_REVISION_TARGET_DRIFT",
-  );
-});
+/**
+ * Owning the mechanism means installing the drift refusal. Later migrations legitimately
+ * *mention* the marker -- to require the mechanism as a precondition, or to prove they did
+ * not delete it -- and those must not count as a second owner.
+ */
+const OWNS = "RAISE EXCEPTION 'CF10_MANAGED_REVISION_TARGET_DRIFT";
+const sqlFiles = readdirSync(migrationsDir).filter((name) => name.endsWith(".sql"));
+const candidates = sqlFiles.filter((name) =>
+  readFileSync(join(migrationsDir, name), "utf8").includes(OWNS),
+);
 
 test("exactly one forward migration owns managed CF10 revisions", () => {
-  assert.equal(candidates.length, 1);
+  assert.equal(candidates.length, 1, `owners: ${candidates.join(", ") || "none"}`);
+});
+
+test("migrations that merely reference the mechanism do not redefine it", () => {
+  const referencing = sqlFiles.filter((name) => {
+    const body = readFileSync(join(migrationsDir, name), "utf8");
+    return body.includes("CF10_MANAGED_REVISION_TARGET_DRIFT") && !body.includes(OWNS);
+  });
+  for (const name of referencing) {
+    const body = readFileSync(join(migrationsDir, name), "utf8");
+    assert.doesNotMatch(
+      body,
+      /UPDATE public\.lesson_(book_contents|explanations|summaries)\s+SET/,
+      `${name} references the managed-revision guard and also rewrites a managed target`,
+    );
+  }
 });
 
 const sql = readFileSync(join(migrationsDir, candidates[0]), "utf8");

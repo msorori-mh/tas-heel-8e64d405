@@ -20,7 +20,15 @@ set -euo pipefail
 db_url="${CONTENT_FACTORY_PG17_URL:?CONTENT_FACTORY_PG17_URL is required}"
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
+# The CF10 chain below applies the CF10 baseline production actually ran (20260820023919,
+# not migrations-pending/20260819230000 -- the two are different) and then the six forward
+# patches 20260823061508 .. 20260825183514 that follow it. The rehearsal used to build from
+# the pending file and skip all six, so the function it built had silently diverged from
+# the deployed one -- which is why anchored patches kept matching production and finding
+# 0 hits here, and vice versa.
 psql "$db_url" -v ON_ERROR_STOP=1 \
+  -c "CREATE SCHEMA IF NOT EXISTS supabase_migrations" \
+  -c "CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations(version text PRIMARY KEY, name text, statements text[], created_by text)" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-04-fixture.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-07-storage-fixture.sql" \
   -f "$root_dir/supabase/migrations-pending/20260819190000_content_factory_04_package_staging.sql" \
@@ -35,7 +43,14 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-09-assert.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-10-r8-production-search-path.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-10-fixture.sql" \
-  -f "$root_dir/supabase/migrations-pending/20260819230000_content_factory_10_domain_materialization.sql" \
+  -f "$root_dir/supabase/migrations/20260820023919_f305ee05-3181-4bab-92eb-4fe35054e734.sql" \
+  -f "$root_dir/tests/import/fixtures/pg17-prereq-content-code.sql" \
+  -f "$root_dir/supabase/migrations/20260823061508_ae36dc27-db7c-4f1e-a098-57b55cc498c8.sql" \
+  -f "$root_dir/supabase/migrations/20260823062003_3e28ed73-2062-429e-87aa-ad6c4e49a2d3.sql" \
+  -f "$root_dir/supabase/migrations/20260825013053_93ba2705-1aaf-45b3-8d2f-5076778a4d44.sql" \
+  -f "$root_dir/supabase/migrations/20260825021156_8d49d977-b78a-43c8-bcde-a6412a36db5d.sql" \
+  -f "$root_dir/supabase/migrations/20260825023955_bfc67498-83ee-49d4-a9fc-04d1c2b42671.sql" \
+  -f "$root_dir/supabase/migrations/20260825183514_c55de725-2cff-491d-b293-a287556a5796.sql" \
   -f "$root_dir/supabase/migrations/20260827010000_cf10_managed_content_revision.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-10-assert.sql" \
   -f "$root_dir/tests/import/fixtures/pg17-prereq-resource-code.sql" \
@@ -51,4 +66,5 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/supabase/migrations/20260901010000_publish_second_component_without_demoting_first.sql" \
   -f "$root_dir/supabase/migrations/20260902010000_cf10_allow_partial_batch.sql" \
   -f "$root_dir/supabase/migrations/20260903010000_cf10_answer_companion_only_with_questions.sql" \
+  -f "$root_dir/supabase/migrations/20260905010000_cf10_batch_owns_only_what_it_carries.sql" \
   -f "$root_dir/scripts/content-factory/pg17/lesson-component-independent-publishing-02-cf11-pg17.sql"
