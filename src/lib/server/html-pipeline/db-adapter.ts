@@ -244,6 +244,7 @@ export function createSupabaseDbAdapter({
           /published_version_id|lifecycle_status|lesson_resource_versions/i.test(message) &&
           /does not exist|schema cache/i.test(message)
         ) {
+          console.warn("[html-pipeline] legacy query skipped:", diagDbError("lesson_resources.select(published_html)", message).message);
           return [];
         }
         throw diagDbError("lesson_resources.select(published_html)", `فشل جلب موارد HTML المنشورة للدرس: ${message}`);
