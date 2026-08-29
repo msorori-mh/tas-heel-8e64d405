@@ -15,6 +15,14 @@ const migration = readFileSync(
 const validator = readFileSync("src/lib/content-factory/golden-lesson-validator.ts", "utf8");
 const builder = readFileSync("src/components/admin/GoldenLessonPackageBuilder.tsx", "utf8");
 const studentRoute = readFileSync("src/routes/_authenticated/lessons.$lessonId.tsx", "utf8");
+const exactnessMigration = readFileSync(
+  "supabase/migrations/20260909010000_component_publish_exactness_idempotency.sql",
+  "utf8",
+);
+const directPublish = readFileSync(
+  "src/lib/content-factory/golden-lesson-direct-publish.functions.ts",
+  "utf8",
+);
 
 test("the database no longer rejects a package whose capability has no file", () => {
   assert.doesNotMatch(migration, /RAISE EXCEPTION 'REQUIRED_ARTIFACT_MISSING/);
@@ -209,4 +217,60 @@ test("the PG17 proof covers publish, isolation and demotion, not just the happy 
   assert.match(proof, /LCIP02_GATE_LEAKED_UNREADY_COMPONENTS/);
   assert.match(proof, /LCIP02_SIBLING_DEMOTION_HID_THE_LESSON/);
   assert.match(proof, /LCIP02_EMPTY_PACKAGE_WAS_ACCEPTED/);
+});
+
+test("manifest history is auditable but no longer globally unique", () => {
+  assert.match(
+    exactnessMigration,
+    /DROP CONSTRAINT IF EXISTS golden_lesson_package_version_package_id_canonical_manifest_key/,
+  );
+  assert.match(exactnessMigration, /golden_lesson_package_versions_manifest_history_idx/);
+  assert.doesNotMatch(
+    exactnessMigration,
+    /ADD CONSTRAINT[^;]+UNIQUE\s*\(package_id,\s*canonical_manifest_sha256\)/s,
+  );
+});
+
+test("historical prepared batches are not callable publication sources", () => {
+  assert.match(
+    exactnessMigration,
+    /DROP FUNCTION IF EXISTS public\.golden_lesson_publish_component_by_file/,
+  );
+  assert.doesNotMatch(directPublish, /golden_lesson_publish_component_by_file/);
+  assert.match(directPublish, /COMPONENT_SOURCE_HASH_MISMATCH/);
+  assert.match(directPublish, /ensureVerifiedAssets\(batchId\)/);
+});
+
+test("component publish has an immutable idempotency receipt and a live replay guard", () => {
+  for (const contract of [
+    "golden_lesson_component_publications",
+    "golden_lesson_component_publications_batch_capability_key",
+    "golden_lesson_component_publications_idempotency_key",
+    "golden_lesson_component_publications_immutable_row",
+    "pg_advisory_xact_lock",
+    "LCP_REPLAY_IDEMPOTENCY_KEY_CONFLICT",
+    "LCP_REPLAY_LIVE_STATE_CONFLICT",
+    "idempotent_replay",
+  ]) {
+    assert.ok(
+      exactnessMigration.includes(contract),
+      `component publish contract lost: ${contract}`,
+    );
+  }
+});
+
+test("the exactness migration and A-B-A/idempotency proof run in PostgreSQL 17", () => {
+  const rehearsal = readFileSync(
+    "scripts/content-factory/pg17/rehearse-content-factory-11.sh",
+    "utf8",
+  );
+  const proof = readFileSync(
+    "scripts/content-factory/pg17/component-publishing-exactness-03-pg17.sql",
+    "utf8",
+  );
+  assert.match(rehearsal, /20260909010000_component_publish_exactness_idempotency\.sql/);
+  assert.match(rehearsal, /component-publishing-exactness-03-pg17\.sql/);
+  assert.match(proof, /LCP_EXACTNESS_ABA_NOT_VERSIONED/);
+  assert.match(proof, /LCP_EXACTNESS_REPLAY_WROTE_TWICE/);
+  assert.match(proof, /LCP_EXACTNESS_DIFFERENT_REPLAY_KEY_WAS_ACCEPTED/);
 });

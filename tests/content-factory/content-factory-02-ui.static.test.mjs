@@ -142,44 +142,32 @@ test("publishing happens per component and there is no page-level publish button
  * outcome and it was being discarded, so a component recorded itself as published while
  * the refusal was rendered further down the page.
  */
-/**
- * A component republished unchanged rebuilds the manifest its first publish already stored,
- * and versions are unique per (package, manifest) across every version -- not just the
- * current one. Comparing only against the current version called that a new version and
- * the insert then hit the constraint.
- */
-test("a component already uploaded under this exact manifest resumes its own version", () => {
-  assert.match(directFns, /\.eq\("canonical_manifest_sha256", manifestSha256\)/);
-  assert.match(directFns, /const twin = sameManifestQuery\.data as SameManifestVersionRow \| null/);
-  assert.match(directFns, /version: twin\.version/);
-  assert.doesNotMatch(
-    directFns,
-    /const alreadyVerified =\s*\n?\s*current\.current_manifest_sha256 === manifestSha256/,
-  );
+/** A retry resumes only the byte-attested current version; history is never a publish source. */
+test("only the current exact manifest is resumable", () => {
+  assert.match(directFns, /current\.current_manifest_sha256 === manifestSha256/);
+  assert.match(directFns, /currentVersion\?\.verified_manifest_sha256 === manifestSha256/);
+  assert.match(directFns, /version: current\.current_version/);
+  assert.doesNotMatch(directFns, /sameManifestQuery|SameManifestVersionRow|twin\.version/);
+  assert.doesNotMatch(directFns, /\.eq\("canonical_manifest_sha256", manifestSha256\)/);
 });
 
 /**
- * A component whose batch is already staged, bound and materialised is published where it
- * stands. Sending it through the package chain cannot work: that chain refuses any version
- * other than the package's current one, and a component's batch stops being current as soon
- * as a different component is uploaded after it.
+ * Every publish traverses the freshly verified current version. Historical materialisation
+ * cannot prove what is in the student domain after a later component changed it.
  */
-test("an already-prepared component publishes from its own batch", () => {
+test("a component publishes only through the current verified full chain", () => {
   assert.match(publishFn, /capabilitySha256: z/);
   assert.match(component, /capabilitySha256: uploads\[only\]!\.sha256/);
-  // The batch is resolved in the database. Matching it from the client meant joining two
-  // tables with no foreign key between them, which failed before the lookup began.
-  assert.match(publishFn, /golden_lesson_publish_component_by_file/);
-  assert.match(publishFn, /_source_sha256: data\.capabilitySha256/);
-  assert.doesNotMatch(publishFn, /golden_lesson_identity_bindings!inner/);
-  assert.doesNotMatch(publishFn, /PREPARED_BATCH_LOOKUP_FAILED/);
-  // A lesson with no prepared batch yet still goes through the package chain.
-  assert.match(publishFn, /LCP_NO_PREPARED_BATCH/);
-  // and it returns before the version check that would refuse it
+  assert.doesNotMatch(publishFn, /golden_lesson_publish_component_by_file/);
+  assert.doesNotMatch(publishFn, /LCP_NO_PREPARED_BATCH|PREPARED_BATCH_LOOKUP_FAILED/);
+  assert.match(publishFn, /selectedEntry\.sourceSha256 !== data\.capabilitySha256/);
+  assert.match(publishFn, /COMPONENT_SOURCE_HASH_MISMATCH/);
+  assert.match(publishFn, /ensureVerifiedAssets\(batchId\)/);
+  assert.match(publishFn, /attestStoredAssets/);
   assert.ok(
-    publishFn.indexOf("golden_lesson_publish_component_by_file") <
-      publishFn.indexOf("STALE_PACKAGE_VERSION"),
-    "the prepared-batch path must run before the current-version check",
+    publishFn.indexOf("ensureVerifiedAssets(batchId)") <
+      publishFn.indexOf('rpc("golden_lesson_publish_component"'),
+    "asset verification must finish before component publication",
   );
 });
 
@@ -187,16 +175,16 @@ test("an already-prepared component publishes from its own batch", () => {
 test("a publish is only reported as done when the student can see the component", () => {
   assert.equal(
     (publishFn.match(/COMPONENT_PUBLISHED_BUT_NOT_VISIBLE/g) ?? []).length,
-    2,
-    "both the prepared-batch path and the package chain must assert visibility",
+    1,
+    "the single current-version package chain must assert visibility",
   );
   assert.doesNotMatch(publishFn, /student_can_see_this_component"\]\) === "true"/);
 });
 
-/** The operator reads the reason, not the plumbing that produced it. */
-test("the version-uniqueness collision is explained rather than shown raw", () => {
-  assert.match(component, /golden_lesson_package_version_package_id_canonical_manifest/);
-  assert.match(component, /مرفوع ومتحقق منه مسبقًا لهذا المكوّن/);
+/** The removed uniqueness failure is not treated as a normal operator outcome. */
+test("the historical-manifest uniqueness workaround is gone from the UI", () => {
+  assert.doesNotMatch(component, /golden_lesson_package_version_package_id_canonical_manifest/);
+  assert.doesNotMatch(component, /مرفوع ومتحقق منه مسبقًا لهذا المكوّن/);
   assert.match(component, /intakeErrorRef\.current \?\? "DIRECT_INTAKE_FAILED"/);
 });
 

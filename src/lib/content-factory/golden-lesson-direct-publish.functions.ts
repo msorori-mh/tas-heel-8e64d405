@@ -80,43 +80,6 @@ export const publishGoldenLessonDirect = createServerFn({ method: "POST" })
       const push = (key: string, label: string, detail: string) =>
         steps.push({ key, label, detail });
 
-      /**
-       * A component whose exact file is already staged, bound to its lesson and written
-       * into the content tables needs nothing from the package pipeline: only the publish
-       * call is missing. Going through the chain for it cannot even succeed, because that
-       * chain refuses any version but the package's current one, and a component's batch
-       * stops being current as soon as another component is uploaded after it.
-       *
-       * The batch is found in the database rather than here. Matching it from the client
-       * meant asking PostgREST to join two tables that have no foreign key between them,
-       * which failed before the lookup began. It also has to pick the newest batch that is
-       * bound AND materialised -- the same file sits in many older batches that were never
-       * materialised, and publishing from one of those fails.
-       */
-      if (data.capability && data.capabilitySha256) {
-        const found = await rpc("golden_lesson_publish_component_by_file", {
-          _package_id: data.packageId,
-          _capability: data.capability,
-          _source_sha256: data.capabilitySha256,
-        });
-        // No prepared batch yet: fall through and build one through the package chain.
-        if (!found.error) {
-          const componentResult = record(found, "COMPONENT_PUBLISH_FAILED");
-          if (componentResult["student_can_see_this_component"] !== true) {
-            throw new Error("COMPONENT_PUBLISHED_BUT_NOT_VISIBLE");
-          }
-          push("publish-component", "نشر المكوّن", "تم — المكوّن ظاهر للطلاب الآن");
-          return {
-            steps,
-            lessonId: String(componentResult["lesson_id"]),
-            batchId: String(componentResult["batch_id"] ?? ""),
-          };
-        }
-        if (!found.error.message.includes("LCP_NO_PREPARED_BATCH")) {
-          throw new Error(`COMPONENT_PUBLISH_FAILED: ${found.error.message}`);
-        }
-      }
-
       const pkgResult = await (
         supabase as unknown as {
           from(table: string): {
@@ -183,6 +146,15 @@ export const publishGoldenLessonDirect = createServerFn({ method: "POST" })
         data.packageId,
         data.version,
       );
+      if (data.capability) {
+        if (!data.capabilitySha256) throw new Error("COMPONENT_SOURCE_HASH_REQUIRED");
+        const selectedEntry = envelope.entries.find(
+          (entry) => entry.capability === data.capability,
+        );
+        if (!selectedEntry?.sourcePath || selectedEntry.sourceSha256 !== data.capabilitySha256) {
+          throw new Error("COMPONENT_SOURCE_HASH_MISMATCH");
+        }
+      }
       const { createClient } = await import("@supabase/supabase-js");
       const admin = createClient(
         process.env["SUPABASE_URL"]!,

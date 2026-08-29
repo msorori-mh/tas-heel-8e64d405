@@ -70,4 +70,6 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/supabase/migrations/20260906010000_no_lesson_component_is_mandatory.sql" \
   -f "$root_dir/supabase/migrations/20260907010000_publish_one_component_in_one_step.sql" \
   -f "$root_dir/supabase/migrations/20260908010000_publish_component_by_file.sql" \
-  -f "$root_dir/scripts/content-factory/pg17/lesson-component-independent-publishing-02-cf11-pg17.sql"
+  -f "$root_dir/supabase/migrations/20260909010000_component_publish_exactness_idempotency.sql" \
+  -f "$root_dir/scripts/content-factory/pg17/lesson-component-independent-publishing-02-cf11-pg17.sql" \
+  -f "$root_dir/scripts/content-factory/pg17/component-publishing-exactness-03-pg17.sql"

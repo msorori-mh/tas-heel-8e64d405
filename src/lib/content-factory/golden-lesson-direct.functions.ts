@@ -64,11 +64,6 @@ interface CurrentVersionRow {
   direct_intake_verified_at: string | null;
 }
 
-/** A version of the same package that already stores this exact canonical manifest. */
-interface SameManifestVersionRow extends CurrentVersionRow {
-  version: number;
-}
-
 function assertDb<T>(result: DbResult<T>): T {
   if (result.error) throw new Error(result.error.message);
   if (result.data === null) throw new Error("EMPTY_DATABASE_RESPONSE");
@@ -141,7 +136,7 @@ async function readDirectIntakePreflight(
     };
   }
 
-  const [versionQuery, reviewQuery, domainBatchQuery, sameManifestQuery] = await Promise.all([
+  const [versionQuery, reviewQuery, domainBatchQuery] = await Promise.all([
     client
       .from("golden_lesson_package_versions")
       .select(
@@ -158,29 +153,10 @@ async function readDirectIntakePreflight(
       .from("golden_lesson_domain_stage_batches")
       .select("id", { count: "exact", head: true })
       .eq("package_id", current.id),
-    /**
-     * Versions are unique per (package, canonical manifest) across ALL versions, not just
-     * the current one. Publishing components one at a time makes each component's manifest
-     * a stable, recurring value: publish the book, then the summary, then the book again,
-     * and the third publish rebuilds the manifest the first one already stored. Comparing
-     * only against the current version calls that a new version and the insert then hits
-     * the uniqueness constraint.
-     */
-    client
-      .from("golden_lesson_package_versions")
-      .select(
-        "version,verified_intake_sha256,verified_manifest_sha256,verified_direct_file_count,direct_intake_verified_at",
-      )
-      .eq("package_id", current.id)
-      .eq("canonical_manifest_sha256", manifestSha256)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
   ]);
   if (versionQuery.error) throw new Error(versionQuery.error.message);
   if (reviewQuery.error) throw new Error(reviewQuery.error.message);
   if (domainBatchQuery.error) throw new Error(domainBatchQuery.error.message);
-  if (sameManifestQuery.error) throw new Error(sameManifestQuery.error.message);
 
   const currentVersion = versionQuery.data as CurrentVersionRow | null;
   const differences = diffGoldenLessonIdentity(current.identity, manifest.identity);
@@ -190,30 +166,28 @@ async function readDirectIntakePreflight(
   const domainBatchCount = Number(domainBatchQuery.count ?? 0);
 
   if (profileMatches && identityMatchesExactly) {
-    // Any version carrying this exact manifest is the one to resume — usually the current
-    // one, but after per-component publishing it is often an earlier version, because a
-    // component republished on its own reproduces the manifest it stored the first time.
-    const twin = sameManifestQuery.data as SameManifestVersionRow | null;
+    // A retry may resume only the package's CURRENT byte-attested version. Reusing a
+    // historical batch after another component was published can make READY point at old
+    // bytes while the student domain still contains newer bytes. A historical recurrence
+    // therefore becomes a normal new version and passes the complete pipeline again.
     const resumable =
-      twin &&
-      twin.verified_manifest_sha256 === manifestSha256 &&
-      Boolean(twin.direct_intake_verified_at) &&
-      Boolean(twin.verified_intake_sha256);
+      current.current_manifest_sha256 === manifestSha256 &&
+      currentVersion?.verified_manifest_sha256 === manifestSha256 &&
+      Boolean(currentVersion.direct_intake_verified_at) &&
+      Boolean(currentVersion.verified_intake_sha256);
     if (resumable) {
       return {
         status: "RESUMABLE",
         packageId: current.id,
-        version: twin.version,
+        version: current.current_version,
         reviewStatus: current.review_status,
         manifestSha256,
         differences,
         canRebind: false,
         messageAr:
-          twin.version === current.current_version
-            ? "هذه النسخة مرفوعة ومتحقق منها مسبقًا؛ سيُستأنف النشر دون إعادة رفع الملفات."
-            : `هذا المكوّن سبق رفعه والتحقق منه في الإصدار ${twin.version}؛ سيُستأنف النشر منه دون إعادة الرفع.`,
-        verifiedIntakeSha256: twin.verified_intake_sha256,
-        verifiedFileCount: twin.verified_direct_file_count,
+          "هذه النسخة الحالية مرفوعة ومتحقق منها مسبقًا؛ سيُستأنف النشر دون إعادة رفع الملفات.",
+        verifiedIntakeSha256: currentVersion.verified_intake_sha256,
+        verifiedFileCount: currentVersion.verified_direct_file_count,
       };
     }
 
