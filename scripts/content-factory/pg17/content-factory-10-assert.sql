@@ -299,7 +299,7 @@ BEGIN
   SELECT lesson_id INTO l4 FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
   SELECT id INTO other FROM public.lessons WHERE id <> l4 LIMIT 1;
   DELETE FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
-  UPDATE public.lesson_assessments SET lesson_id = other WHERE assessment_code LIKE '%-SELFTEST';
+  UPDATE public.lesson_assessments SET lesson_id = other WHERE upper(assessment_code) LIKE '%-SELFTEST';
   sha := public.golden_lesson_materialize_domain_batch(
            b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
   BEGIN
@@ -491,7 +491,7 @@ DECLARE b uuid; sha text;
 BEGIN
   b := public.cf10_batch('QURAN-G10-L04-PKG');
   DELETE FROM public.golden_lesson_domain_materializations WHERE batch_id = b;
-  UPDATE public.lesson_assessments SET sort_order = 5 WHERE assessment_code LIKE '%-SELFTEST';
+  UPDATE public.lesson_assessments SET sort_order = 5 WHERE upper(assessment_code) LIKE '%-SELFTEST';
   sha := public.golden_lesson_materialize_domain_batch(
            b,'10000000-0000-0000-0000-000000000003','DRY_RUN')->>'write_plan_sha256';
   BEGIN
