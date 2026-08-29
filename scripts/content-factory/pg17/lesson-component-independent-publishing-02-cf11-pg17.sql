@@ -24,7 +24,7 @@ BEGIN
 
   -- A lesson whose only authored component is still DRAFT stays hidden.
   INSERT INTO public.lesson_capability_lifecycle (lesson_id, capability, status, applicability)
-  VALUES (v_lesson, 'officialBookContent', 'DRAFT', 'REQUIRED')
+  VALUES (v_lesson, 'officialBookContent', 'DRAFT', 'OPTIONAL')
   ON CONFLICT (lesson_id, capability) DO UPDATE SET status = 'DRAFT';
 
   IF public.lesson_student_visible(v_lesson) THEN
@@ -44,8 +44,8 @@ BEGIN
   -- A sibling in DRAFT and a sibling in REVIEW must not leak into the readable set
   -- just because the lesson opened.
   INSERT INTO public.lesson_capability_lifecycle (lesson_id, capability, status, applicability)
-  VALUES (v_lesson, 'quickReview', 'DRAFT', 'REQUIRED'),
-         (v_lesson, 'mindMap', 'REVIEW', 'REQUIRED')
+  VALUES (v_lesson, 'quickReview', 'DRAFT', 'OPTIONAL'),
+         (v_lesson, 'mindMap', 'REVIEW', 'OPTIONAL')
   ON CONFLICT (lesson_id, capability) DO UPDATE SET status = EXCLUDED.status;
 
   SELECT ready_capabilities INTO v_ready FROM public.lesson_student_content_gate(v_lesson);
@@ -242,7 +242,7 @@ BEGIN
 
   BEGIN
     PERFORM public.cf11_assert_demotion_allowed(
-      v_lesson, 'officialBookContent', 'READY', 'REVIEW', 'REQUIRED', 'lcip03-proof');
+      v_lesson, 'officialBookContent', 'READY', 'REVIEW', 'OPTIONAL', 'lcip03-proof');
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM NOT LIKE '%CF11_DIRECT_TRANSITION_FORBIDDEN%' THEN
       RAISE EXCEPTION 'LCIP03_DEMOTION_GUARD_WRONG_ERROR: %', SQLERRM;
@@ -331,7 +331,8 @@ BEGIN
     'artifacts', (
       SELECT jsonb_agg(jsonb_build_object(
         'capability', c,
-        'applicability', CASE WHEN c = 'labExperimentHtml' THEN 'OPTIONAL' ELSE 'REQUIRED' END,
+        -- LCIP-09: nothing is mandatory any more.
+        'applicability', 'OPTIONAL',
         'authority', CASE WHEN c IN ('officialBookContent','officialBookQuestions')
                           THEN 'OFFICIAL' ELSE 'TAMKEEN' END,
         -- Only the summary carries a file. Six of seven are still unauthored.
