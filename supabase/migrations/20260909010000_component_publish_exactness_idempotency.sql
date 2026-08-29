@@ -19,6 +19,34 @@ ALTER TABLE public.golden_lesson_package_versions
 CREATE INDEX IF NOT EXISTS golden_lesson_package_versions_manifest_history_idx
   ON public.golden_lesson_package_versions(package_id, canonical_manifest_sha256, version DESC);
 
+-- هذا هو العقد الموجود فعلًا في الإنتاج وتستخدمه سياسات الطالب، لكنه كان قد
+-- وصل إلى الإنتاج خارج سجل migrations. تسجيله هنا يجعل إعادة البناء النظيفة
+-- مطابقة للإنتاج بدل اعتماد دالة النشر على كائن غير قابل لإعادة الإنشاء.
+CREATE OR REPLACE FUNCTION public.lesson_capability_ready(
+  _lesson_id uuid,
+  _capability text
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+  SELECT CASE
+    WHEN _lesson_id IS NULL OR _capability IS NULL THEN false
+    WHEN NOT public.lesson_is_editorially_managed(_lesson_id) THEN true
+    ELSE EXISTS (
+      SELECT 1 FROM public.lesson_capability_lifecycle l
+       WHERE l.lesson_id = _lesson_id
+         AND l.capability = _capability
+         AND l.status = 'READY')
+  END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.lesson_capability_ready(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.lesson_capability_ready(uuid, text)
+  TO authenticated, service_role;
+
 -- احتفظ بجسم النشر المثبت كما هو خلف غلاف idempotency صغير وقابل للمراجعة.
 ALTER FUNCTION public.golden_lesson_publish_component(uuid, text, text)
   RENAME TO golden_lesson_publish_component_unledgered;
@@ -196,6 +224,9 @@ BEGIN
      WHERE schemaname = 'public'
        AND indexname = 'golden_lesson_package_versions_manifest_history_idx') THEN
     RAISE EXCEPTION 'LCP_EXACTNESS_MANIFEST_HISTORY_INDEX_MISSING';
+  END IF;
+  IF to_regprocedure('public.lesson_capability_ready(uuid,text)') IS NULL THEN
+    RAISE EXCEPTION 'LCP_EXACTNESS_COMPONENT_VISIBILITY_GATE_MISSING';
   END IF;
   IF to_regprocedure('public.golden_lesson_publish_component_by_file(uuid,text,text)') IS NOT NULL THEN
     RAISE EXCEPTION 'LCP_EXACTNESS_HISTORICAL_ENTRYPOINT_STILL_PRESENT';

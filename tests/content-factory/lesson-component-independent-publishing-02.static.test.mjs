@@ -247,6 +247,8 @@ test("component publish has an immutable idempotency receipt and a live replay g
     "golden_lesson_component_publications_batch_capability_key",
     "golden_lesson_component_publications_idempotency_key",
     "golden_lesson_component_publications_immutable_row",
+    "lesson_capability_ready",
+    "lesson_is_editorially_managed",
     "pg_advisory_xact_lock",
     "LCP_REPLAY_IDEMPOTENCY_KEY_CONFLICT",
     "LCP_REPLAY_LIVE_STATE_CONFLICT",
