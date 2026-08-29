@@ -6,6 +6,10 @@ const migration = readFileSync(
   "supabase/migrations/20260910010000_lesson_component_publishing_v2.sql",
   "utf8",
 );
+const metadataRepair = readFileSync(
+  "supabase/migrations/20260910020000_lesson_component_v2_resource_metadata_contract.sql",
+  "utf8",
+);
 const server = readFileSync(
   "src/lib/content-factory/lesson-component-publishing-v2.functions.ts",
   "utf8",
@@ -43,6 +47,27 @@ test("the database contract has upload, verified, published and immutable receip
     migration,
     /REVOKE EXECUTE ON FUNCTION public\.golden_lesson_publish_component\(uuid,text,text\)/,
   );
+});
+
+test("interactive V2 publications use the closed CF11 resource metadata contract", () => {
+  const repairPublishBody = metadataRepair.slice(0, metadataRepair.indexOf("DO $proof$"));
+  for (const sql of [repairPublishBody]) {
+    const interactiveBranch = sql.slice(
+      sql.indexOf("ELSIF v_intake.capability IN ('mindMapHtml','labExperimentHtml')"),
+      sql.indexOf("  ELSE\n    v_writes:=v_writes+public.lesson_component_publish_questions_v2"),
+    );
+    assert.match(interactiveBranch, /'cf11_publication_id'/);
+    assert.match(interactiveBranch, /'cf11_published_at'/);
+    assert.match(interactiveBranch, /'cf11_published_by'/);
+    assert.match(interactiveBranch, /'cf11_body_sha256'/);
+    assert.match(interactiveBranch, /'cf11_render_mode','INTERACTIVE'/);
+    assert.match(interactiveBranch, /'cf11_verified_bundle_sha256'/);
+    assert.match(interactiveBranch, /'cf11_csp'/);
+    assert.doesNotMatch(interactiveBranch, /'publisher','LCPV2'/);
+    assert.doesNotMatch(interactiveBranch, /'publicationId'/);
+  }
+  assert.match(rehearsal, /20260824010000_cf11_rapid_launch_contract_alignment\.sql/);
+  assert.match(rehearsal, /20260910020000_lesson_component_v2_resource_metadata_contract\.sql/);
 });
 
 test("all and only the seven canonical components are mapped", () => {
