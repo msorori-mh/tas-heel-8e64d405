@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -103,16 +103,33 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
   const impact = preview ? Object.entries(preview.counts).filter(([, n]) => Number(n) > 0) : [];
 
   /**
-   * There is no force branch. The old prelaunch force-delete RPC still exists in the
-   * database but EXECUTE was revoked from `authenticated`, so the button could only ever
-   * produce a permission error -- while advertising to an admin that student activity can
-   * be deleted around the blockers. Deleting past a blocker goes through the ticketed
-   * prelaunch purge, which requires a typed confirmation, a reason and a pinned preview
-   * hash. See tests/security/curriculum-prelaunch-purge.static.test.mjs.
+   * مساران للحذف:
+   *  - عادي (admin_curriculum_delete): يُرفض عند وجود نشاط طلابي/محتوى منشور.
+   *  - قسري (admin_curriculum_force_delete): للوحدات والدروس فقط، ويظهر فقط بعد
+   *    رفض الحذف العادي. يعطّل حرّاس الدرس الذهبي مؤقتاً داخل الخادم ويُسجَّل في
+   *    سجل التدقيق. الصلاحية تُفرض داخل الدالة نفسها (مدير كامل فقط).
+   * كل رسالة خطأ تحمل حقول تتبع [rpc=…][req=…] لتسهيل مطابقتها مع سجلات الإنتاج.
    */
+  const FORCE_DELETABLE: readonly CurriculumEntityType[] = ["unit", "lesson"];
+  const [blocked, setBlocked] = useState(false);
+  const [forcing, setForcing] = useState(false);
+
+  useEffect(() => {
+    setBlocked(false);
+  }, [target?.id, open]);
+
+  const newReqId = () =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `t-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+  const trackedError = (rpcName: string, message: string) =>
+    `${message} [rpc=${rpcName}][req=${newReqId()}]`;
+
   const runDelete = async () => {
     if (!target) return;
     setDeleting(true);
+    setBlocked(false);
     const { error } = await supabase.rpc("admin_curriculum_delete", {
       _entity_type: target.type,
       _entity_id: target.id,
@@ -121,17 +138,48 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
     setDeleting(false);
 
     if (error) {
-      toast.error(
-        error.message.includes("DELETE_BLOCKED")
-          ? "الحذف ممنوع — يوجد نشاط طلابي أو محتوى منشور. استخدم أداة التنظيف التجريبي الجماعي أو الأرشفة."
-          : error.message.includes("FORBIDDEN")
-            ? "هذه العملية متاحة لمدير كامل الصلاحيات فقط."
-            : `تعذر الحذف: ${error.message}`,
-      );
+      if (error.message.includes("DELETE_BLOCKED")) {
+        setBlocked(true);
+        toast.error(
+          trackedError(
+            "admin_curriculum_delete",
+            "الحذف العادي ممنوع — يوجد نشاط طلابي أو محتوى منشور. يمكنك استخدام «حذف قسري» أدناه (للوحدات والدروس فقط).",
+          ),
+        );
+      } else if (error.message.includes("FORBIDDEN")) {
+        toast.error(trackedError("admin_curriculum_delete", "هذه العملية متاحة لمدير كامل الصلاحيات فقط."));
+      } else {
+        toast.error(trackedError("admin_curriculum_delete", `تعذر الحذف: ${error.message}`));
+      }
       return;
     }
 
     toast.success("تم الحذف وتسجيله في سجل التدقيق");
+    await queryClient.invalidateQueries();
+    onOpenChange(false);
+    onDeleted?.();
+  };
+
+  const runForceDelete = async () => {
+    if (!target || !FORCE_DELETABLE.includes(target.type)) return;
+    setForcing(true);
+    const { error } = await supabase.rpc("admin_curriculum_force_delete", {
+      _entity_type: target.type,
+      _entity_id: target.id,
+      _reason: "admin force delete (prelaunch phase)",
+    });
+    setForcing(false);
+
+    if (error) {
+      toast.error(
+        error.message.includes("FORBIDDEN")
+          ? trackedError("admin_curriculum_force_delete", "الحذف القسري متاح لمدير كامل الصلاحيات فقط.")
+          : trackedError("admin_curriculum_force_delete", `تعذر الحذف القسري: ${error.message}`),
+      );
+      return;
+    }
+
+    toast.success("تم الحذف القسري وتسجيله في سجل التدقيق");
     await queryClient.invalidateQueries();
     onOpenChange(false);
     onDeleted?.();
@@ -159,7 +207,7 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
 
         {previewQ.isError && (
           <p className="py-4 text-sm text-destructive">
-            تعذر حساب أثر الحذف: {(previewQ.error as Error).message}
+            تعذر حساب أثر الحذف: {(previewQ.error as Error).message} [rpc=admin_curriculum_delete_preview]
           </p>
         )}
 
@@ -209,14 +257,30 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
         <DialogFooter className="gap-2 sm:justify-start">
           <Button
             variant="destructive"
-            disabled={!isAdmin || !preview?.deletable || deleting}
+            disabled={!isAdmin || !preview?.deletable || deleting || forcing}
             onClick={handleDelete}
           >
             {deleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
             تأكيد الحذف
           </Button>
 
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={deleting}>
+          {isAdmin && blocked && target && FORCE_DELETABLE.includes(target.type) && (
+            <Button
+              variant="destructive"
+              disabled={forcing || deleting}
+              onClick={runForceDelete}
+              className="border border-destructive-foreground/30"
+            >
+              {forcing ? (
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldAlert className="ml-2 h-4 w-4" />
+              )}
+              حذف قسري (مرحلة تجريبية)
+            </Button>
+          )}
+
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={deleting || forcing}>
             إلغاء
           </Button>
         </DialogFooter>
