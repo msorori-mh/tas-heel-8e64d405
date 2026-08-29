@@ -44,6 +44,7 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-10-r8-production-search-path.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-10-fixture.sql" \
   -f "$root_dir/supabase/migrations/20260820023919_f305ee05-3181-4bab-92eb-4fe35054e734.sql" \
+  -f "$root_dir/tests/import/fixtures/pg17-prereq-content-code.sql" \
   -f "$root_dir/supabase/migrations/20260823061508_ae36dc27-db7c-4f1e-a098-57b55cc498c8.sql" \
   -f "$root_dir/supabase/migrations/20260823062003_3e28ed73-2062-429e-87aa-ad6c4e49a2d3.sql" \
   -f "$root_dir/supabase/migrations/20260825013053_93ba2705-1aaf-45b3-8d2f-5076778a4d44.sql" \
