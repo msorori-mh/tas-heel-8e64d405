@@ -10,6 +10,7 @@ VALUES ('43000000-0000-0000-0000-0000000000b2','lcpv2-quran-lesson',
 ON CONFLICT (id) DO NOTHING;
 
 CREATE TEMP TABLE lcpv2_proof_intakes(label text PRIMARY KEY, intake_id uuid NOT NULL);
+GRANT SELECT ON lcpv2_proof_intakes TO authenticated;
 
 CREATE OR REPLACE FUNCTION pg_temp.lcpv2_verified_intake(
   _label text, _capability text, _payload text, _answers jsonb DEFAULT NULL)
