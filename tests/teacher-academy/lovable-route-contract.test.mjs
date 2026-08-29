@@ -4,11 +4,12 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
-const [layout, indexRoute, verifyRoute, app, academySupabase, rootVite, standaloneEnv] =
+const [layout, indexRoute, verifyRoute, rootRoute, app, academySupabase, rootVite, standaloneEnv] =
   await Promise.all([
     read("src/routes/academy.tsx"),
     read("src/routes/academy.index.tsx"),
     read("src/routes/academy.verify.tsx"),
+    read("src/routes/__root.tsx"),
     read("apps/teacher-academy/src/App.tsx"),
     read("apps/teacher-academy/src/lib/supabase.ts"),
     read("vite.config.ts"),
@@ -24,6 +25,16 @@ test("Lovable root build exposes the academy below an isolated client-only layou
   assert.match(indexRoute, /TeacherAcademyApp/);
   assert.match(verifyRoute, /createFileRoute\("\/academy\/verify"\)/);
   assert.match(verifyRoute, /TeacherAcademyApp/);
+});
+
+test("academy routes do not mount student auth, PWA, or mobile providers", () => {
+  assert.match(rootRoute, /pathname\.startsWith\("\/academy"\)/);
+  assert.match(rootRoute, /if \(academyRouteActive\) return <Outlet \/>/);
+  assert.match(rootRoute, /if \(!academyRouteActive\) registerServiceWorker\(\)/);
+  assert.ok(
+    rootRoute.indexOf("if (academyRouteActive) return <Outlet />") <
+      rootRoute.indexOf("<AuthProvider>"),
+  );
 });
 
 test("academy navigation, auth callback, and certificate verification honor the base path", () => {
