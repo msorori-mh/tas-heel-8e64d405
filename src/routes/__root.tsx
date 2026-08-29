@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -178,10 +179,15 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const academyRouteActive = useRouterState({
+    select: (state) => state.location.pathname.startsWith("/academy"),
+  });
 
   useEffect(() => {
-    registerServiceWorker();
-  }, []);
+    if (!academyRouteActive) registerServiceWorker();
+  }, [academyRouteActive]);
+
+  if (academyRouteActive) return <Outlet />;
 
   return (
     <QueryClientProvider client={queryClient}>
