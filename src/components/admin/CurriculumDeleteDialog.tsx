@@ -203,7 +203,7 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
 
         {previewQ.isError && (
           <p className="py-4 text-sm text-destructive">
-            تعذر حساب أثر الحذف: {(previewQ.error as Error).message}
+            تعذر حساب أثر الحذف: {(previewQ.error as Error).message} [rpc=admin_curriculum_delete_preview]
           </p>
         )}
 
