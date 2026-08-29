@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   BookOpen,
@@ -140,10 +140,9 @@ function toFriendlyFindings(
     if (capability) {
       const label = `(${CAPABILITY_NUMBER[capability]}) ${CAPABILITY_LABEL[capability]}`;
       const hint = CAPABILITY_FORMAT_HINT[capability];
-      const text =
-        finding.code === "REQUIRED_ARTIFACT_MISSING"
-          ? `${label} — الملف الإلزامي مفقود${hint ? ` (${hint})` : " (HTML)"}.`
-          : `${label} — ${finding.messageAr}`;
+      // REQUIRED_ARTIFACT_MISSING no longer exists: no component is mandatory, so a missing
+      // file is simply a component not uploaded yet and never a finding.
+      const text = `${label} — ${finding.messageAr}${hint ? ` (${hint})` : ""}`;
       mapped.push({
         key: `${finding.code}-${index}`,
         severity,
@@ -209,8 +208,13 @@ interface ArabicFilePickerProps {
 
 function ArabicFilePicker({ id, accept, disabled, fileName, onFile }: ArabicFilePickerProps) {
   return (
-    <div className="flex min-h-[44px] items-center gap-2 rounded-md border bg-background px-2 py-1.5">
-      <Input
+    <div className="flex min-h-[44px] min-w-0 items-center gap-2 rounded-md border bg-background px-2 py-1.5">
+      {/* A plain input, not the shared <Input>. That component composes its classes through
+          cn(), which does not treat `sr-only` as conflicting with its own `w-full h-9 px-3`,
+          and Tailwind emits `sr-only` before the sizing utilities -- so the "hidden" field
+          kept position:absolute but rendered at full width and pushed the page sideways.
+          It stays focusable and labelled, so the keyboard and screen-reader path is intact. */}
+      <input
         id={id}
         type="file"
         accept={accept}
@@ -503,6 +507,9 @@ export function GoldenLessonPackageBuilder() {
   const [draftMessage, setDraftMessage] = useState<string | null>(null);
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  // setState does not settle before the next await, so the message thrown to the calling
+  // component has to be read from a ref rather than from publishError.
+  const publishErrorRef = useRef<string | null>(null);
   const [publishSteps, setPublishSteps] = useState<DirectPublishStep[]>([]);
   // Publishing is per component now, so the busy flag, the failure and the receipt all
   // belong to a component rather than to the page.
@@ -1199,6 +1206,7 @@ export function GoldenLessonPackageBuilder() {
     if (!target) return false;
     setPublishBusy(true);
     setPublishError(null);
+    publishErrorRef.current = null;
     try {
       const result = await publishGoldenLessonDirect({
         data: {
@@ -1210,7 +1218,9 @@ export function GoldenLessonPackageBuilder() {
       setPublishSteps(result.steps);
       return true;
     } catch (error) {
-      setPublishError(error instanceof Error ? error.message : "DIRECT_PUBLISH_FAILED");
+      const message = error instanceof Error ? error.message : "DIRECT_PUBLISH_FAILED";
+      publishErrorRef.current = message;
+      setPublishError(message);
       return false;
     } finally {
       setPublishBusy(false);
@@ -1259,18 +1269,19 @@ export function GoldenLessonPackageBuilder() {
         domainWritesPerformed: 0,
       };
       setIntake(resumed);
-      await publishDirectNow(resumed, single);
+      // The result decides. Ignoring it is what let a component report success at the top
+      // of the page while the server's refusal sat at the bottom.
+      if (!(await publishDirectNow(resumed, single))) {
+        throw new Error(publishErrorRef.current ?? "DIRECT_PUBLISH_FAILED");
+      }
       return;
     }
 
     const verified = await uploadAndVerifyDirectIntake(manifest, subset, companion);
     if (!verified) throw new Error(intakeError ?? "DIRECT_INTAKE_FAILED");
-    await publishDirectNow(verified, single);
-  };
-
-  /** One click: publish every component uploaded so far, in one batch. */
-  const importAndPublishNow = async () => {
-    await publishSubset(null).catch(() => undefined);
+    if (!(await publishDirectNow(verified, single))) {
+      throw new Error(publishErrorRef.current ?? "DIRECT_PUBLISH_FAILED");
+    }
   };
 
   /**
@@ -1348,7 +1359,7 @@ export function GoldenLessonPackageBuilder() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="lesson-import-grade">الصف</Label>
-              <Select value={gradeSlug || undefined} onValueChange={chooseGrade}>
+              <Select value={gradeSlug ?? ""} onValueChange={chooseGrade}>
                 <SelectTrigger id="lesson-import-grade" className="min-h-[44px]">
                   <SelectValue placeholder="اختر الصف" />
                 </SelectTrigger>
@@ -1394,7 +1405,7 @@ export function GoldenLessonPackageBuilder() {
             <div className="space-y-1.5">
               <Label htmlFor="lesson-import-subject">المادة</Label>
               <Select
-                value={selectedSubjectCode || undefined}
+                value={selectedSubjectCode ?? ""}
                 onValueChange={chooseSubject}
                 disabled={selectedTrackCodes.length === 0}
               >
@@ -1443,7 +1454,7 @@ export function GoldenLessonPackageBuilder() {
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="lesson-import-lesson">الدرس</Label>
               <Select
-                value={selectedLessonCode || undefined}
+                value={selectedLessonCode ?? ""}
                 onValueChange={chooseLesson}
                 disabled={!selectedSubjectCode}
               >
@@ -1815,28 +1826,14 @@ export function GoldenLessonPackageBuilder() {
         </div>
       )}
 
-      {/* No manual "check files" button: runValidation() already runs on every change to
-          the uploads, so pressing it recomputed the same result and looked broken. The
-          check still gates publishing — its outcome is the card below. */}
-      <div className="sticky bottom-3 z-10 flex flex-wrap gap-2 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
-        <Button
-          type="button"
-          disabled={!validation?.valid || intakeBusy || publishBusy}
-          onClick={() => void importAndPublishNow()}
-          className="min-h-[44px] gap-2"
-        >
-          {intakeBusy || publishBusy ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <UploadCloud className="h-4 w-4" />
-          )}
-          {intakeBusy
-            ? "جاري رفع الملفات والتحقق…"
-            : publishBusy
-              ? "جاري النشر…"
-              : "نشر الدرس الآن"}
-        </Button>
-      </div>
+      {/* There is no page-level publish button. Every component is published from its own
+          row, so a button that publishes "the lesson" contradicted the whole page: it made
+          one shared success or failure out of seven independent ones, and its refusal sat
+          at the bottom of the page insisting nothing had been published while the rows
+          above correctly reported that components had.
+
+          There is also no manual "check files" button: runValidation() runs on every change
+          to the uploads, and its outcome is the card below. */}
 
       {intakeError && (
         <p role="alert" className="text-sm text-destructive flex gap-2">
@@ -1845,13 +1842,14 @@ export function GoldenLessonPackageBuilder() {
         </p>
       )}
 
-      {intake && (
+      {/* A receipt for the last server round-trip, not a verdict on the lesson. Each
+          component's own outcome — published, or refused and why — belongs on its row, and
+          repeating a refusal down here is what made the page contradict itself. */}
+      {intake && publishSteps.length > 0 && !publishError && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2 text-sm">
           <p className="font-medium flex gap-2">
             <CheckCircle2 className="h-4 w-4 mt-0.5" />
-            {publishSteps.length > 0
-              ? "تم نشر الدرس وإتاحته للطلاب"
-              : "تم رفع ملفات الدرس والتحقق منها"}
+            آخر عملية نشر تمّت
           </p>
           <p className="text-xs">
             الإصدار {intake.version}
@@ -1867,55 +1865,22 @@ export function GoldenLessonPackageBuilder() {
                 ✓ {step.label} — {step.detail}
               </li>
             ))}
-            {publishBusy && (
-              <li className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                جاري تنفيذ خطوات النشر…
-              </li>
-            )}
           </ul>
-          {publishError && (
-            <>
-              <p role="alert" className="text-sm text-destructive flex gap-2">
-                <AlertCircle className="h-4 w-4 mt-0.5" />
-                تعذّر النشر: {publishError}
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                className="mt-1 min-h-[44px] gap-2"
-                disabled={publishBusy}
-                onClick={() => void publishDirectNow()}
-              >
-                {publishBusy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-                إعادة محاولة النشر
-              </Button>
-            </>
-          )}
         </div>
       )}
 
       {validation && (
         <div
           className={`rounded-xl border p-4 space-y-3 ${
-            validation.valid && !publishError
+            validation.valid
               ? "border-emerald-500/30 bg-emerald-500/10"
               : "border-destructive/30 bg-destructive/5"
           }`}
         >
-          {/* This card reports the LOCAL file check only. Saying "ready to import" while the
-              server has just refused the publish reads as a contradiction, so a server
-              failure takes precedence over a passing local check. */}
+          {/* The local file check, and nothing else. A server refusal now belongs to the
+              component that was being published and is shown on its row. */}
           <p className="font-medium">
-            {!validation.valid
-              ? "الملفات تحتاج تصحيحًا"
-              : publishError
-                ? "الملفات سليمة محليًا، لكن الخادم رفض النشر — راجع الرسالة أعلاه"
-                : "فحص الملفات المحلي ناجح"}
+            {validation.valid ? "فحص الملفات المحلي ناجح" : "الملفات تحتاج تصحيحًا"}
           </p>
           {validation.findings.length > 0 &&
             (() => {

@@ -29,7 +29,6 @@ test("the import center exposes the unified curriculum and lesson-content workfl
   // The manual "check files" button is gone: runValidation() already runs on every
   // change to the uploads, so the button recomputed the same result and read as broken.
   assert.doesNotMatch(component, /فحص ومعاينة الملفات/);
-  assert.match(component, /نشر الدرس الآن/);
   assert.doesNotMatch(
     route,
     /GoldenLessonManifestReviewPanel|GoldenLessonCf11OperatorPanel|BulkLessonPdfUploadPanel/,
@@ -120,14 +119,33 @@ test("there is no separate eighth component for images", () => {
  * Every component has its own publish button. One shared button made publishing an
  * all-or-nothing act in the operator's hands even after the server stopped requiring it.
  */
-test("each component has its own publish button", () => {
+/**
+ * Publishing happens on the component's own row and nowhere else. A page-level "publish
+ * the lesson" button turned seven independent outcomes into one shared verdict, so it
+ * could sit at the bottom of the page insisting nothing had been published while the rows
+ * above correctly reported that components had.
+ */
+test("publishing happens per component and there is no page-level publish button", () => {
   assert.match(component, /نشر هذا المكوّن/);
   assert.match(component, /publishCapabilityNow\(capability\)/);
   assert.match(component, /const publishCapabilityNow = async \(capability: GoldenCapability\)/);
-  // The whole-lesson button stays as a convenience, not as the only way out.
-  assert.match(component, /نشر الدرس الآن/);
-  assert.match(component, /publishSubset\(null\)/);
   assert.match(component, /publishSubset\(\[capability\]\)/);
+  assert.doesNotMatch(component, /نشر الدرس الآن/);
+  assert.doesNotMatch(component, /importAndPublishNow/);
+  assert.doesNotMatch(component, /publishSubset\(null\)/);
+  assert.doesNotMatch(component, /إعادة محاولة النشر/);
+});
+
+/**
+ * A publish that the server refused must fail the call. publishDirectNow reports its
+ * outcome and it was being discarded, so a component recorded itself as published while
+ * the refusal was rendered further down the page.
+ */
+test("a refused publish fails the component that asked for it", () => {
+  assert.match(component, /if \(!\(await publishDirectNow\(verified, single\)\)\) \{/);
+  assert.match(component, /if \(!\(await publishDirectNow\(resumed, single\)\)\) \{/);
+  assert.match(component, /publishErrorRef\.current/);
+  assert.match(component, /catch \(error\) \{[\s\S]{0,400}setCapabilityPublishError/);
 });
 
 /**
