@@ -82,6 +82,23 @@ export interface CreateSupabaseDbAdapterOptions {
   adminClient: SupabaseClient<Database>;
 }
 
+/**
+ * حقول تتبع لتشخيص أعطال الإنتاج من السجلات:
+ * rpc   — اسم الـ RPC/الاستعلام الذي فشل
+ * req   — معرّف طلب فريد لكل محاولة (يطابق ما يُطبع في toast/السجل)
+ * schema— إصدار مخطط خط الأنابيب: القناة القديمة معطلة (LEGACY_HTML_PIPELINE_ENABLED=false)
+ */
+const HTML_PIPELINE_SCHEMA_MARK = "legacy-html-pipeline@disabled";
+export function diagDbError(rpcName: string, cause: string): Error {
+  const req =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `t-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return new Error(
+    `${cause} [rpc=${rpcName}][req=${req}][schema=${HTML_PIPELINE_SCHEMA_MARK}]`,
+  );
+}
+
 export function createSupabaseDbAdapter({
   userClient,
   adminClient,
