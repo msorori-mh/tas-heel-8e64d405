@@ -450,3 +450,108 @@ BEGIN
 
   RAISE NOTICE 'LCIP07 passed: upload one component, and replace one, on the same function.';
 END $lcip07$;
+
+-- ============================================================================
+-- LCIP-09: no component is mandatory
+--
+-- The manifest gate is the last place that could still make one component owe another.
+-- It computed the expectation itself, so a front end declaring all seven OPTIONAL would
+-- have been refused with APPLICABILITY_MISMATCH on every upload.
+--
+-- What must remain true: the classification is still checked, NA still means "not part of
+-- this subject" and still refuses a payload, and a package carrying nothing is still not
+-- publishable. Optional means "not uploaded yet", never "anything goes".
+-- ============================================================================
+DO $lcip09$
+DECLARE d text; cf10 text; v_rejected boolean := false; v_manifest jsonb;
+BEGIN
+  SELECT pg_get_functiondef(p.oid) INTO d
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'assert_golden_lesson_manifest';
+  IF d IS NULL THEN
+    RAISE EXCEPTION 'LCIP09_FUNCTION_MISSING';
+  END IF;
+
+  IF position(E'ELSE ''REQUIRED'' END' in d) > 0 THEN
+    RAISE EXCEPTION 'LCIP09_STILL_EXPECTS_A_MANDATORY_CAPABILITY';
+  END IF;
+  IF position('APPLICABILITY_MISMATCH' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP09_CLASSIFICATION_NO_LONGER_CHECKED';
+  END IF;
+
+  -- NA is untouched in both directions.
+  IF position('NA_ARTIFACT_HAS_CONTENT' in d) = 0 THEN
+    RAISE EXCEPTION 'LCIP09_NA_MANIFEST_GUARD_LOST';
+  END IF;
+  SELECT pg_get_functiondef(p.oid) INTO cf10
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public'
+     AND p.proname = 'golden_lesson_materialize_domain_batch'
+     AND p.oid::regprocedure::text =
+       'golden_lesson_materialize_domain_batch(uuid,uuid,text,text,text)';
+  IF cf10 IS NULL OR position('NA capability % carries a payload' in cf10) = 0 THEN
+    RAISE EXCEPTION 'LCIP09_NA_DOMAIN_GUARD_LOST';
+  END IF;
+
+  -- No lifecycle row anywhere is mandatory any more.
+  IF EXISTS (SELECT 1 FROM public.lesson_capability_lifecycle
+              WHERE applicability = 'REQUIRED'::public.capability_applicability) THEN
+    RAISE EXCEPTION 'LCIP09_LIFECYCLE_ROWS_STILL_MANDATORY';
+  END IF;
+
+  -- A manifest declaring all seven OPTIONAL, with one file, is accepted.
+  SELECT jsonb_build_object(
+    'schema', 'GOLDEN_LESSON_V1',
+    'profileId', 'GOLDEN_CHEMISTRY_V1',
+    'packageCode', 'CHEM-G12-IRON-FE-PKG',
+    'identity', jsonb_build_object(
+      'gradeCode','G12','curriculumTrackCodes', jsonb_build_array('sanaa'),
+      'subjectCode','CHEM-G12','lessonCode','CHEM-G12-IRON-FE',
+      'lessonSlug','iron-and-its-extraction','unitCode', NULL,
+      'semester', 1, 'sortOrder', 3),
+    'capabilityOrder', jsonb_build_array(
+      'officialBookContent','tamkeenExplanationHtml','lessonSummaryHtml','mindMapHtml',
+      'labExperimentHtml','officialBookQuestions','selfTest'),
+    'artifacts', (
+      SELECT jsonb_agg(jsonb_build_object(
+        'capability', c,
+        'applicability', 'OPTIONAL',
+        'authority', CASE WHEN c IN ('officialBookContent','officialBookQuestions')
+                          THEN 'OFFICIAL' ELSE 'TAMKEEN' END,
+        'sourcePath', CASE WHEN c = 'mindMapHtml' THEN 'mindMapHtml.html' END,
+        'sha256', CASE WHEN c = 'mindMapHtml' THEN repeat('a', 64) END,
+        'provenancePath', NULL,
+        'provenanceSha256', NULL) ORDER BY o)
+      FROM unnest(ARRAY[
+        'officialBookContent','tamkeenExplanationHtml','lessonSummaryHtml','mindMapHtml',
+        'labExperimentHtml','officialBookQuestions','selfTest']) WITH ORDINALITY AS t(c, o)),
+    'lifecycle', jsonb_build_object('initialStatus', 'DRAFT', 'allowDirectReady', false),
+    'security', jsonb_build_object(
+      'productionApply', false, 'publicPayloadContainsAnswers', false,
+      'answersCompanionPath', NULL, 'answersCompanionSha256', NULL,
+      'htmlNetworkAccess', 'NONE')
+  ) INTO v_manifest;
+
+  PERFORM public.assert_golden_lesson_manifest(v_manifest);
+
+  -- ...and one that still claims a capability is REQUIRED is refused, because the
+  -- classification check is narrowed, not switched off.
+  BEGIN
+    PERFORM public.assert_golden_lesson_manifest(jsonb_set(
+      v_manifest, '{artifacts}',
+      (SELECT jsonb_agg(CASE WHEN a->>'capability' = 'mindMapHtml'
+                             THEN a || jsonb_build_object('applicability','REQUIRED')
+                             ELSE a END)
+         FROM jsonb_array_elements(v_manifest->'artifacts') a)));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE '%APPLICABILITY_MISMATCH%' THEN
+      RAISE EXCEPTION 'LCIP09_WRONG_ERROR_FOR_STALE_APPLICABILITY: %', SQLERRM;
+    END IF;
+    v_rejected := true;
+  END;
+  IF NOT v_rejected THEN
+    RAISE EXCEPTION 'LCIP09_STALE_APPLICABILITY_WAS_ACCEPTED';
+  END IF;
+
+  RAISE NOTICE 'LCIP09 passed: seven optional components, one file, accepted.';
+END $lcip09$;

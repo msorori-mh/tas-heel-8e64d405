@@ -7,18 +7,23 @@ export const GOLDEN_QURAN_V1: GoldenLessonProfile = {
   subjectFamily: "QURAN",
   capabilityOrder: GOLDEN_CAPABILITIES,
   /**
-   * The profile still records which capabilities a complete lesson is expected to
-   * carry. It is an editorial expectation, not an upload gate: every capability is
-   * uploaded, reviewed and published on its own, and nothing waits for the rest.
+   * No capability is mandatory. Each of the seven is uploaded, reviewed and published
+   * entirely on its own, so there is no state in which one of them is owed before
+   * another may go out. A lesson with only a mind map published is a complete, correct
+   * lesson that happens to have one component so far.
+   *
+   * The field is kept because the manifest, the lifecycle rows and CF10 all carry it,
+   * and because NA still means something different from OPTIONAL: not applicable to
+   * this subject at all, rather than simply not uploaded yet.
    */
   applicability: {
-    officialBookContent: "REQUIRED",
-    tamkeenExplanationHtml: "REQUIRED",
-    lessonSummaryHtml: "REQUIRED",
-    mindMapHtml: "REQUIRED",
+    officialBookContent: "OPTIONAL",
+    tamkeenExplanationHtml: "OPTIONAL",
+    lessonSummaryHtml: "OPTIONAL",
+    mindMapHtml: "OPTIONAL",
     labExperimentHtml: "OPTIONAL",
-    officialBookQuestions: "REQUIRED",
-    selfTest: "REQUIRED",
+    officialBookQuestions: "OPTIONAL",
+    selfTest: "OPTIONAL",
   },
   notesAr: [
     "النص الرسمي وأسئلته لا يعادان صياغتهما.",
@@ -34,18 +39,23 @@ export const GOLDEN_CHEMISTRY_V1: GoldenLessonProfile = {
   subjectFamily: "SCIENCE",
   capabilityOrder: GOLDEN_CAPABILITIES,
   /**
-   * The profile still records which capabilities a complete lesson is expected to
-   * carry. It is an editorial expectation, not an upload gate: every capability is
-   * uploaded, reviewed and published on its own, and nothing waits for the rest.
+   * No capability is mandatory. Each of the seven is uploaded, reviewed and published
+   * entirely on its own, so there is no state in which one of them is owed before
+   * another may go out. A lesson with only a mind map published is a complete, correct
+   * lesson that happens to have one component so far.
+   *
+   * The field is kept because the manifest, the lifecycle rows and CF10 all carry it,
+   * and because NA still means something different from OPTIONAL: not applicable to
+   * this subject at all, rather than simply not uploaded yet.
    */
   applicability: {
-    officialBookContent: "REQUIRED",
-    tamkeenExplanationHtml: "REQUIRED",
-    lessonSummaryHtml: "REQUIRED",
-    mindMapHtml: "REQUIRED",
+    officialBookContent: "OPTIONAL",
+    tamkeenExplanationHtml: "OPTIONAL",
+    lessonSummaryHtml: "OPTIONAL",
+    mindMapHtml: "OPTIONAL",
     labExperimentHtml: "OPTIONAL",
-    officialBookQuestions: "REQUIRED",
-    selfTest: "REQUIRED",
+    officialBookQuestions: "OPTIONAL",
+    selfTest: "OPTIONAL",
   },
   notesAr: [
     "المعادلات والجداول والأشكال الرسمية تحفظ كما وردت في الكتاب مع بصمة سلامة داخلية.",

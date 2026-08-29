@@ -69,7 +69,7 @@ function manifest(bundleFiles = files) {
     artifacts: [
       {
         capability: "officialBookContent",
-        applicability: "REQUIRED",
+        applicability: "OPTIONAL",
         authority: "OFFICIAL",
         sourcePath: "official.html",
         sha256: h(bundleFiles["official.html"]),
@@ -78,7 +78,7 @@ function manifest(bundleFiles = files) {
       },
       {
         capability: "tamkeenExplanationHtml",
-        applicability: "REQUIRED",
+        applicability: "OPTIONAL",
         authority: "TAMKEEN",
         sourcePath: "explanation.html",
         sha256: h(bundleFiles["explanation.html"]),
@@ -87,7 +87,7 @@ function manifest(bundleFiles = files) {
       },
       {
         capability: "lessonSummaryHtml",
-        applicability: "REQUIRED",
+        applicability: "OPTIONAL",
         authority: "TAMKEEN",
         sourcePath: "summary.html",
         sha256: h(bundleFiles["summary.html"]),
@@ -96,7 +96,7 @@ function manifest(bundleFiles = files) {
       },
       {
         capability: "mindMapHtml",
-        applicability: "REQUIRED",
+        applicability: "OPTIONAL",
         authority: "TAMKEEN",
         sourcePath: "mindmap.html",
         sha256: h(bundleFiles["mindmap.html"]),
@@ -114,7 +114,7 @@ function manifest(bundleFiles = files) {
       },
       {
         capability: "officialBookQuestions",
-        applicability: "REQUIRED",
+        applicability: "OPTIONAL",
         authority: "OFFICIAL",
         sourcePath: "questions.json",
         sha256: h(bundleFiles["questions.json"]),
@@ -123,7 +123,7 @@ function manifest(bundleFiles = files) {
       },
       {
         capability: "selfTest",
-        applicability: "REQUIRED",
+        applicability: "OPTIONAL",
         authority: "TAMKEEN",
         sourcePath: "self-test.json",
         sha256: h(bundleFiles["self-test.json"]),

@@ -39,24 +39,26 @@ const AUTHORITY = {
   selfTest: "TAMKEEN",
 };
 
+// Mirrors src/lib/content-factory/golden-lesson-profiles.ts. No capability is mandatory:
+// each of the seven is published on its own, so none can be owed before another goes out.
 const PROFILE_APPLICABILITY = {
   GOLDEN_CHEMISTRY_V1: {
-    officialBookContent: "REQUIRED",
-    tamkeenExplanationHtml: "REQUIRED",
-    lessonSummaryHtml: "REQUIRED",
-    mindMapHtml: "REQUIRED",
+    officialBookContent: "OPTIONAL",
+    tamkeenExplanationHtml: "OPTIONAL",
+    lessonSummaryHtml: "OPTIONAL",
+    mindMapHtml: "OPTIONAL",
     labExperimentHtml: "OPTIONAL",
-    officialBookQuestions: "REQUIRED",
-    selfTest: "REQUIRED",
+    officialBookQuestions: "OPTIONAL",
+    selfTest: "OPTIONAL",
   },
   GOLDEN_QURAN_V1: {
-    officialBookContent: "REQUIRED",
-    tamkeenExplanationHtml: "REQUIRED",
-    lessonSummaryHtml: "REQUIRED",
-    mindMapHtml: "REQUIRED",
+    officialBookContent: "OPTIONAL",
+    tamkeenExplanationHtml: "OPTIONAL",
+    lessonSummaryHtml: "OPTIONAL",
+    mindMapHtml: "OPTIONAL",
     labExperimentHtml: "OPTIONAL",
-    officialBookQuestions: "REQUIRED",
-    selfTest: "REQUIRED",
+    officialBookQuestions: "OPTIONAL",
+    selfTest: "OPTIONAL",
   },
 };
 
