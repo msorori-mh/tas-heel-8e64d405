@@ -4,14 +4,16 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
-const [layout, indexRoute, verifyRoute, app, rootVite, standaloneEnv] = await Promise.all([
-  read("src/routes/academy.tsx"),
-  read("src/routes/academy.index.tsx"),
-  read("src/routes/academy.verify.tsx"),
-  read("apps/teacher-academy/src/App.tsx"),
-  read("vite.config.ts"),
-  read("apps/teacher-academy/.env.example"),
-]);
+const [layout, indexRoute, verifyRoute, app, academySupabase, rootVite, standaloneEnv] =
+  await Promise.all([
+    read("src/routes/academy.tsx"),
+    read("src/routes/academy.index.tsx"),
+    read("src/routes/academy.verify.tsx"),
+    read("apps/teacher-academy/src/App.tsx"),
+    read("apps/teacher-academy/src/lib/supabase.ts"),
+    read("vite.config.ts"),
+    read("apps/teacher-academy/.env.example"),
+  ]);
 
 test("Lovable root build exposes the academy below an isolated client-only layout", () => {
   assert.match(layout, /createFileRoute\("\/academy"\)/);
@@ -41,4 +43,11 @@ test("only the verified Lovable root build opens the feature; standalone stays f
   );
   assert.match(standaloneEnv, /^VITE_ACADEMY_ENABLED=false$/m);
   assert.match(standaloneEnv, /^VITE_ACADEMY_BASE_PATH=$/m);
+});
+
+test("Lovable root build reuses the existing public Supabase client configuration", () => {
+  assert.match(academySupabase, /src\/integrations\/supabase\/public-config/);
+  assert.match(academySupabase, /\|\| PUBLIC_SUPABASE_URL/);
+  assert.match(academySupabase, /\|\| PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
+  assert.doesNotMatch(academySupabase, /service.role|service_role/i);
 });
