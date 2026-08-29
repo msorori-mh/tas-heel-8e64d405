@@ -94,9 +94,7 @@ export function diagDbError(rpcName: string, cause: string): Error {
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `t-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  return new Error(
-    `${cause} [rpc=${rpcName}][req=${req}][schema=${HTML_PIPELINE_SCHEMA_MARK}]`,
-  );
+  return new Error(`${cause} [rpc=${rpcName}][req=${req}][schema=${HTML_PIPELINE_SCHEMA_MARK}]`);
 }
 
 export function createSupabaseDbAdapter({
@@ -118,7 +116,10 @@ export function createSupabaseDbAdapter({
       });
 
       if (error) {
-        throw diagDbError("resolve_upload_session", `فشل التحقق من جلسة الرفع من قاعدة البيانات: ${error.message}`);
+        throw diagDbError(
+          "resolve_upload_session",
+          `فشل التحقق من جلسة الرفع من قاعدة البيانات: ${error.message}`,
+        );
       }
 
       const rows = data as unknown as ResolvedUploadSession[];
@@ -144,7 +145,10 @@ export function createSupabaseDbAdapter({
       });
 
       if (error) {
-        throw diagDbError("record_server_validation", `فشل تسجيل نتيجة الفحص الخادمي: ${error.message}`);
+        throw diagDbError(
+          "record_server_validation",
+          `فشل تسجيل نتيجة الفحص الخادمي: ${error.message}`,
+        );
       }
 
       return data as string;
@@ -177,7 +181,10 @@ export function createSupabaseDbAdapter({
       });
 
       if (error) {
-        throw diagDbError("resolve_promotion_binding", `فشل التحقق من رابط الترقية (Promotion Binding): ${error.message}`);
+        throw diagDbError(
+          "resolve_promotion_binding",
+          `فشل التحقق من رابط الترقية (Promotion Binding): ${error.message}`,
+        );
       }
 
       const rows = data as unknown as ResolvedPromotionBinding[];
@@ -197,7 +204,10 @@ export function createSupabaseDbAdapter({
       });
 
       if (error) {
-        throw diagDbError("resolve_student_resource_binding", `فشل التحقق من وصول الطالب للمورد: ${error.message}`);
+        throw diagDbError(
+          "resolve_student_resource_binding",
+          `فشل التحقق من وصول الطالب للمورد: ${error.message}`,
+        );
       }
 
       const rows = data as unknown as ResolvedStudentResourceBinding[];
@@ -244,10 +254,16 @@ export function createSupabaseDbAdapter({
           /published_version_id|lifecycle_status|lesson_resource_versions/i.test(message) &&
           /does not exist|schema cache/i.test(message)
         ) {
-          console.warn("[html-pipeline] legacy query skipped:", diagDbError("lesson_resources.select(published_html)", message).message);
+          console.warn(
+            "[html-pipeline] legacy query skipped:",
+            diagDbError("lesson_resources.select(published_html)", message).message,
+          );
           return [];
         }
-        throw diagDbError("lesson_resources.select(published_html)", `فشل جلب موارد HTML المنشورة للدرس: ${message}`);
+        throw diagDbError(
+          "lesson_resources.select(published_html)",
+          `فشل جلب موارد HTML المنشورة للدرس: ${message}`,
+        );
       }
 
       const rows = (data ?? []) as Array<{
@@ -278,7 +294,10 @@ export function createSupabaseDbAdapter({
       });
 
       if (error) {
-        throw diagDbError("record_successful_resource_publication", `فشل تسجيل النشر الذري في قاعدة البيانات: ${error.message}`);
+        throw diagDbError(
+          "record_successful_resource_publication",
+          `فشل تسجيل النشر الذري في قاعدة البيانات: ${error.message}`,
+        );
       }
     },
 
@@ -305,7 +324,10 @@ export function createSupabaseDbAdapter({
         .single();
 
       if (error) {
-        throw diagDbError("storage_operations.insert", `فشل إنشاء سجل عملية التخزين: ${error.message}`);
+        throw diagDbError(
+          "storage_operations.insert",
+          `فشل إنشاء سجل عملية التخزين: ${error.message}`,
+        );
       }
 
       return (data as { id: string }).id;
@@ -331,7 +353,10 @@ export function createSupabaseDbAdapter({
         .eq("id", operationId);
 
       if (error) {
-        throw diagDbError("storage_operations.update", `فشل تحديث حالة عملية التخزين: ${error.message}`);
+        throw diagDbError(
+          "storage_operations.update",
+          `فشل تحديث حالة عملية التخزين: ${error.message}`,
+        );
       }
     },
 
@@ -376,7 +401,10 @@ export function createSupabaseDbAdapter({
       });
 
       if (error) {
-        throw diagDbError("submit_resource_for_review", `فشل إرسال المورد للمراجعة: ${error.message}`);
+        throw diagDbError(
+          "submit_resource_for_review",
+          `فشل إرسال المورد للمراجعة: ${error.message}`,
+        );
       }
     },
 

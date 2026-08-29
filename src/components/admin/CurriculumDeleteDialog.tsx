@@ -147,7 +147,9 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
           ),
         );
       } else if (error.message.includes("FORBIDDEN")) {
-        toast.error(trackedError("admin_curriculum_delete", "هذه العملية متاحة لمدير كامل الصلاحيات فقط."));
+        toast.error(
+          trackedError("admin_curriculum_delete", "هذه العملية متاحة لمدير كامل الصلاحيات فقط."),
+        );
       } else {
         toast.error(trackedError("admin_curriculum_delete", `تعذر الحذف: ${error.message}`));
       }
@@ -173,7 +175,10 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
     if (error) {
       toast.error(
         error.message.includes("FORBIDDEN")
-          ? trackedError("admin_curriculum_force_delete", "الحذف القسري متاح لمدير كامل الصلاحيات فقط.")
+          ? trackedError(
+              "admin_curriculum_force_delete",
+              "الحذف القسري متاح لمدير كامل الصلاحيات فقط.",
+            )
           : trackedError("admin_curriculum_force_delete", `تعذر الحذف القسري: ${error.message}`),
       );
       return;
@@ -207,7 +212,8 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
 
         {previewQ.isError && (
           <p className="py-4 text-sm text-destructive">
-            تعذر حساب أثر الحذف: {(previewQ.error as Error).message} [rpc=admin_curriculum_delete_preview]
+            تعذر حساب أثر الحذف: {(previewQ.error as Error).message}{" "}
+            [rpc=admin_curriculum_delete_preview]
           </p>
         )}
 
@@ -280,7 +286,11 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
             </Button>
           )}
 
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={deleting || forcing}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={deleting || forcing}
+          >
             إلغاء
           </Button>
         </DialogFooter>
