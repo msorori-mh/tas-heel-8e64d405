@@ -14,6 +14,8 @@ import type {
   Governorate,
   LearningLesson,
   LearningProgram,
+  LessonSection,
+  LiveSession,
   AssessmentQuestion,
   AssessmentResult,
   TeacherProfile,
@@ -23,9 +25,13 @@ import type {
 export type ProgramDraftInput = {
   title: string;
   summary: string;
+  detailedDescription: string;
+  objectives: string[];
+  prerequisites: string[];
+  instructions: string[];
   audienceType: "ALL_TEACHERS" | "SUBJECT_SPECIFIC";
   estimatedMinutes: number;
-  subjectIds: string[];
+  subjectId: string | null;
 };
 
 export async function loadTeacherProfile(userId: string): Promise<TeacherProfile | null> {
@@ -130,12 +136,16 @@ export async function adminListPrograms(): Promise<AdminProgram[]> {
 
 export async function adminCreateProgram(input: ProgramDraftInput): Promise<string> {
   requireAcademyBackend();
-  const { data, error } = await academySupabase.rpc("admin_create_program", {
+  const { data, error } = await academySupabase.rpc("admin_create_program_v2", {
     p_title: input.title,
     p_summary: input.summary,
+    p_detailed_description: input.detailedDescription,
+    p_objectives: input.objectives,
+    p_prerequisites: input.prerequisites,
+    p_instructions: input.instructions,
     p_audience_type: input.audienceType,
     p_estimated_minutes: input.estimatedMinutes,
-    p_subject_ids: input.subjectIds,
+    p_subject_id: input.subjectId,
   });
   if (error) throw error;
   return data as string;
@@ -154,13 +164,17 @@ export async function adminUpdateDraftProgram(
   input: ProgramDraftInput,
 ): Promise<void> {
   requireAcademyBackend();
-  const { error } = await academySupabase.rpc("admin_update_draft_program", {
+  const { error } = await academySupabase.rpc("admin_update_draft_program_v2", {
     p_program_version_id: programVersionId,
     p_title: input.title,
     p_summary: input.summary,
+    p_detailed_description: input.detailedDescription,
+    p_objectives: input.objectives,
+    p_prerequisites: input.prerequisites,
+    p_instructions: input.instructions,
     p_audience_type: input.audienceType,
     p_estimated_minutes: input.estimatedMinutes,
-    p_subject_ids: input.subjectIds,
+    p_subject_id: input.subjectId,
   });
   if (error) throw error;
 }
@@ -269,6 +283,75 @@ export async function adminUpdateLesson(input: {
   if (error) throw error;
 }
 
+export async function adminSaveStructuredLesson(input: {
+  lessonId: string | null;
+  programVersionId: string;
+  title: string;
+  lessonType: "TEXT" | "VIDEO" | "LINK";
+  resourceUrl: string | null;
+  durationMinutes: number;
+  sections: Array<Omit<LessonSection, "section_id" | "display_order">>;
+}): Promise<string> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("admin_save_structured_lesson", {
+    p_lesson_id: input.lessonId,
+    p_program_version_id: input.programVersionId,
+    p_title: input.title,
+    p_lesson_type: input.lessonType,
+    p_resource_url: input.resourceUrl,
+    p_duration_minutes: input.durationMinutes,
+    p_sections: input.sections,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function adminListLiveSessions(programVersionId: string): Promise<LiveSession[]> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("admin_list_live_sessions", {
+    p_program_version_id: programVersionId,
+  });
+  if (error) throw error;
+  return (data ?? []) as LiveSession[];
+}
+
+export async function adminSaveLiveSession(input: {
+  liveSessionId: string | null;
+  programVersionId: string;
+  title: string;
+  providerLabel: string;
+  speakerName: string | null;
+  startsAt: string;
+  durationMinutes: number;
+  meetingUrl: string;
+  instructions: string;
+  status: "SCHEDULED" | "CANCELLED";
+}): Promise<string> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("admin_save_live_session", {
+    p_live_session_id: input.liveSessionId,
+    p_program_version_id: input.programVersionId,
+    p_title: input.title,
+    p_provider_label: input.providerLabel,
+    p_speaker_name: input.speakerName,
+    p_starts_at: input.startsAt,
+    p_duration_minutes: input.durationMinutes,
+    p_meeting_url: input.meetingUrl,
+    p_instructions: input.instructions,
+    p_status: input.status,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function adminDeleteLiveSession(liveSessionId: string): Promise<void> {
+  requireAcademyBackend();
+  const { error } = await academySupabase.rpc("admin_delete_live_session", {
+    p_live_session_id: liveSessionId,
+  });
+  if (error) throw error;
+}
+
 export async function listMyLearning(): Promise<LearningProgram[]> {
   requireAcademyBackend();
   const { data, error } = await academySupabase.rpc("list_my_learning");
@@ -283,6 +366,15 @@ export async function getLearningLessons(programVersionId: string): Promise<Lear
   });
   if (error) throw error;
   return (data ?? []) as LearningLesson[];
+}
+
+export async function listProgramLiveSessions(programVersionId: string): Promise<LiveSession[]> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("list_program_live_sessions", {
+    p_program_version_id: programVersionId,
+  });
+  if (error) throw error;
+  return (data ?? []) as LiveSession[];
 }
 
 export async function completeLearningLesson(lessonId: string): Promise<void> {

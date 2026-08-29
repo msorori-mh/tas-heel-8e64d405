@@ -1589,3 +1589,239 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 }
+
+.single-subject-field {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 32rem;
+  margin-block: 1rem;
+}
+
+.field-hint {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+  margin-block-start: 0.25rem;
+}
+
+.program-details-panel {
+  display: grid;
+  gap: 1rem;
+  margin-block: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: #f8fbfd;
+}
+
+.program-details-panel h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
+}
+
+.program-details-panel h3 svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--teal);
+}
+
+.program-details-panel p,
+.program-details-panel li {
+  line-height: 1.8;
+}
+
+.program-details-panel ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.program-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.program-details-grid > section {
+  padding: 0.85rem;
+  border-radius: 0.85rem;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.live-sessions-teacher {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.live-session-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: #fff;
+}
+
+.live-session-card.cancelled {
+  opacity: 0.72;
+}
+
+.live-session-card p {
+  margin: 0.25rem 0;
+}
+
+.section-editor-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.section-editor-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: #fff;
+}
+
+.section-editor-card label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.section-editor-heading,
+.add-section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.section-editor-heading > span {
+  font-weight: 800;
+  color: var(--teal);
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #132238;
+  cursor: pointer;
+}
+
+.icon-button svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.icon-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.danger-icon {
+  color: #b42318;
+}
+
+.add-section-row select {
+  min-width: 12rem;
+}
+
+.lesson-section-preview-list,
+.learning-sections {
+  display: grid;
+  gap: 0.75rem;
+  margin-block-start: 0.75rem;
+}
+
+.lesson-section-preview,
+.learning-section {
+  padding: 0.85rem 1rem;
+  border-inline-start: 4px solid var(--line);
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.lesson-section-preview.objective,
+.learning-section.objective {
+  border-inline-start-color: #0f766e;
+  background: #f0fdfa;
+}
+
+.lesson-section-preview.example,
+.learning-section.example {
+  border-inline-start-color: #2563eb;
+  background: #eff6ff;
+}
+
+.lesson-section-preview.activity,
+.learning-section.activity {
+  border-inline-start-color: #d97706;
+  background: #fffbeb;
+}
+
+.lesson-section-preview.summary,
+.learning-section.summary {
+  border-inline-start-color: #7c3aed;
+  background: #f5f3ff;
+}
+
+.lesson-section-preview.resource,
+.learning-section.resource {
+  border-inline-start-color: #0891b2;
+  background: #ecfeff;
+}
+
+.lesson-section-preview p,
+.learning-section p {
+  white-space: pre-wrap;
+  line-height: 1.9;
+  margin: 0.35rem 0 0;
+}
+
+.learning-section h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.live-session-admin {
+  display: grid;
+  gap: 1rem;
+  margin-block: 1.25rem;
+  padding-block: 1.25rem;
+  border-block: 1px solid var(--line);
+}
+
+.live-session-row > svg {
+  color: var(--teal);
+  flex: 0 0 auto;
+}
+
+@media (max-width: 620px) {
+  .program-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .live-session-card,
+  .section-editor-heading,
+  .add-section-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .add-section-row select {
+    width: 100%;
+  }
+}

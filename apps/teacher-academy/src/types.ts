@@ -25,8 +25,14 @@ export type CatalogProgram = {
   slug: string;
   title: string;
   summary: string;
+  detailed_description: string;
+  objectives: string[];
+  prerequisites: string[];
+  instructions: string[];
   subject_name: string | null;
   estimated_minutes: number;
+  lesson_count: number;
+  pass_percentage: number | null;
   enrolled: boolean;
 };
 
@@ -41,6 +47,10 @@ export type AdminProgram = {
   version_number: number;
   title: string;
   summary: string;
+  detailed_description: string;
+  objectives: string[];
+  prerequisites: string[];
+  instructions: string[];
   audience_type: "ALL_TEACHERS" | "SUBJECT_SPECIFIC";
   subject_ids: string[];
   subject_names: string | null;
@@ -54,10 +64,28 @@ export type AdminProgram = {
 };
 
 export type AdminProgramCheck = {
-  check_key: "DRAFT_VERSION" | "AUDIENCE" | "LESSONS" | "ASSESSMENT";
+  check_key: "DRAFT_VERSION" | "DETAILS" | "AUDIENCE" | "LESSONS" | "STRUCTURE" | "ASSESSMENT";
   label: string;
   passed: boolean;
   details: string;
+};
+
+export type LessonSectionType =
+  | "OBJECTIVE"
+  | "INTRODUCTION"
+  | "CONTENT"
+  | "EXAMPLE"
+  | "ACTIVITY"
+  | "SUMMARY"
+  | "RESOURCE";
+
+export type LessonSection = {
+  section_id: string;
+  section_type: LessonSectionType;
+  title: string | null;
+  content: string;
+  resource_url: string | null;
+  display_order: number;
 };
 
 export type AdminTeacher = {
@@ -79,15 +107,22 @@ export type AdminLesson = {
   resource_url: string | null;
   duration_minutes: number;
   display_order: number;
+  sections: LessonSection[];
 };
 
 export type LearningProgram = {
   enrollment_id: string;
   program_version_id: string;
   title: string;
+  summary: string;
+  detailed_description: string;
+  objectives: string[];
+  prerequisites: string[];
+  instructions: string[];
   status: "ACTIVE" | "COMPLETED";
   completed_lessons: number;
   total_lessons: number;
+  pass_percentage: number | null;
 };
 
 export type LearningLesson = {
@@ -98,6 +133,20 @@ export type LearningLesson = {
   resource_url: string | null;
   duration_minutes: number;
   completed: boolean;
+  sections: LessonSection[];
+};
+
+export type LiveSession = {
+  live_session_id: string;
+  program_version_id?: string;
+  title: string;
+  provider_label: string;
+  speaker_name: string | null;
+  starts_at: string;
+  duration_minutes: number;
+  meeting_url: string;
+  instructions: string;
+  status: "SCHEDULED" | "CANCELLED";
 };
 
 export type AssessmentQuestion = {

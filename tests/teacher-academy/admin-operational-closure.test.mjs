@@ -93,7 +93,7 @@ test("admin UI closes draft, validation, publish, versioning, and preview paths"
   assert.match(admin, /نشر الإصدار/);
   assert.match(admin, /معاينة المحتوى/);
   assert.match(admin, /adminSetProgramArchived/);
-  assert.match(admin, /adminUpdateLesson/);
+  assert.match(admin, /adminSaveStructuredLesson/);
   assert.match(assessment, /adminUpdateAssessmentQuestion/);
   assert.match(assessment, /readOnly/);
 });

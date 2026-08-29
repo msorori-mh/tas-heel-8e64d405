@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   Archive,
+  ArrowDown,
+  ArrowUp,
   BarChart3,
   BookOpen,
+  CalendarDays,
   CheckCircle2,
   CircleAlert,
   ClipboardCheck,
   Download,
   Eye,
+  ExternalLink,
   FilePenLine,
   GraduationCap,
   LayoutDashboard,
@@ -19,24 +23,27 @@ import {
   Trash2,
   UserRound,
   UsersRound,
+  Video,
   XCircle,
 } from "lucide-react";
 import { AssessmentEditor } from "./AssessmentEditor";
 import {
-  adminAddLesson,
   adminCreateDraftVersion,
   adminCreateProgram,
+  adminDeleteLiveSession,
   adminDeleteLesson,
+  adminListLiveSessions,
   adminListLessons,
   adminListProgress,
   adminListPrograms,
   adminListTeachers,
   adminPublishProgram,
   adminRevokeCertificate,
+  adminSaveLiveSession,
+  adminSaveStructuredLesson,
   adminSetProgramArchived,
   adminSetTeacherStatus,
   adminUpdateDraftProgram,
-  adminUpdateLesson,
   adminValidateProgram,
   loadProfileOptions,
   type ProgramDraftInput,
@@ -49,6 +56,8 @@ import type {
   AdminProgramCheck,
   AdminProgress,
   AdminTeacher,
+  LessonSectionType,
+  LiveSession,
 } from "./types";
 
 type AdminTab = "overview" | "programs" | "teachers" | "progress";
@@ -56,6 +65,10 @@ type AdminTab = "overview" | "programs" | "teachers" | "progress";
 const ERROR_MESSAGES: Record<string, string> = {
   PROGRAM_LESSON_REQUIRED: "أضف درسًا واحدًا على الأقل قبل النشر.",
   PROGRAM_ASSESSMENT_QUESTION_REQUIRED: "أضف سؤالًا واحدًا على الأقل إلى التقييم قبل النشر.",
+  PROGRAM_DETAILS_REQUIRED: "أكمل الوصف التفصيلي والأهداف والتعليمات قبل النشر.",
+  STRUCTURED_LESSON_SECTIONS_REQUIRED: "يجب أن يتضمن كل درس هدفًا وشرحًا وخلاصة.",
+  EXACTLY_ONE_SUBJECT_REQUIRED: "اختر مادة واحدة فقط للبرنامج التخصصي.",
+  INVALID_LIVE_SESSION_INPUT: "راجع بيانات المحاضرة وموعدها ورابط HTTPS.",
   DRAFT_PROGRAM_VERSION_NOT_FOUND: "لم تعد هذه المسودة متاحة للتعديل.",
   PUBLISHED_ACADEMY_CONTENT_IS_IMMUTABLE: "المحتوى المنشور محمي. أنشئ إصدارًا جديدًا لتعديله.",
   ACADEMY_CATALOG_MANAGE_REQUIRED: "لا تملك صلاحية إدارة البرامج.",
@@ -85,6 +98,13 @@ function formatDate(value: string | null): string {
 
 function completionPercentage(item: AdminProgress): number {
   return item.total_lessons ? Math.round((item.completed_lessons / item.total_lessons) * 100) : 0;
+}
+
+function splitLines(value: string): string[] {
+  return value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function downloadCsv(fileName: string, rows: Array<Array<string | number>>) {
@@ -299,28 +319,30 @@ function ProgramForm({
 }) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [summary, setSummary] = useState(initial?.summary ?? "");
+  const [detailedDescription, setDetailedDescription] = useState(
+    initial?.detailed_description ?? "",
+  );
+  const [objectives, setObjectives] = useState((initial?.objectives ?? []).join("\n"));
+  const [prerequisites, setPrerequisites] = useState((initial?.prerequisites ?? []).join("\n"));
+  const [instructions, setInstructions] = useState((initial?.instructions ?? []).join("\n"));
   const [audience, setAudience] = useState<"ALL_TEACHERS" | "SUBJECT_SPECIFIC">(
     initial?.audience_type ?? "ALL_TEACHERS",
   );
-  const [subjectIds, setSubjectIds] = useState<string[]>(initial?.subject_ids ?? []);
+  const [subjectId, setSubjectId] = useState<string>(initial?.subject_ids[0] ?? "");
   const [minutes, setMinutes] = useState(initial?.estimated_minutes ?? 60);
-
-  function toggleSubject(subjectId: string) {
-    setSubjectIds((current) =>
-      current.includes(subjectId)
-        ? current.filter((item) => item !== subjectId)
-        : [...current, subjectId],
-    );
-  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await onSubmit({
       title: title.trim(),
       summary: summary.trim(),
+      detailedDescription: detailedDescription.trim(),
+      objectives: splitLines(objectives),
+      prerequisites: splitLines(prerequisites),
+      instructions: splitLines(instructions),
       audienceType: audience,
       estimatedMinutes: minutes,
-      subjectIds: audience === "SUBJECT_SPECIFIC" ? subjectIds : [],
+      subjectId: audience === "SUBJECT_SPECIFIC" ? subjectId : null,
     });
   }
 
@@ -362,6 +384,40 @@ function ProgramForm({
             required
           />
         </label>
+        <label className="full-field">
+          الوصف التفصيلي الذي سيظهر للمعلم
+          <textarea
+            value={detailedDescription}
+            onChange={(event) => setDetailedDescription(event.target.value)}
+            minLength={50}
+            maxLength={5000}
+            required
+          />
+        </label>
+        <label className="full-field">
+          أهداف البرنامج (هدف واحد في كل سطر)
+          <textarea
+            value={objectives}
+            onChange={(event) => setObjectives(event.target.value)}
+            placeholder="بنهاية البرنامج سيكون المعلم قادرًا على…"
+            required
+          />
+        </label>
+        <label className="full-field">
+          المتطلبات السابقة (متطلب واحد في كل سطر، اختيارية)
+          <textarea
+            value={prerequisites}
+            onChange={(event) => setPrerequisites(event.target.value)}
+          />
+        </label>
+        <label className="full-field">
+          تعليمات البرنامج (تعليمة واحدة في كل سطر)
+          <textarea
+            value={instructions}
+            onChange={(event) => setInstructions(event.target.value)}
+            required
+          />
+        </label>
         <label>
           جمهور البرنامج
           <select
@@ -369,33 +425,36 @@ function ProgramForm({
             onChange={(event) => {
               const value = event.target.value as typeof audience;
               setAudience(value);
-              if (value === "ALL_TEACHERS") setSubjectIds([]);
+              if (value === "ALL_TEACHERS") setSubjectId("");
             }}
           >
             <option value="ALL_TEACHERS">جميع المعلمين</option>
-            <option value="SUBJECT_SPECIFIC">مواد محددة</option>
+            <option value="SUBJECT_SPECIFIC">مادة واحدة</option>
           </select>
         </label>
       </div>
       {audience === "SUBJECT_SPECIFIC" ? (
-        <fieldset className="subject-picker">
-          <legend>المواد المستهدفة</legend>
-          {subjects.map((subject) => (
-            <label key={subject.id}>
-              <input
-                type="checkbox"
-                checked={subjectIds.includes(subject.id)}
-                onChange={() => toggleSubject(subject.id)}
-              />
-              {subject.name_ar}
-            </label>
-          ))}
-        </fieldset>
+        <label className="single-subject-field">
+          المادة المستهدفة
+          <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} required>
+            <option value="">اختر مادة واحدة</option>
+            {subjects.map((subject) => (
+              <option value={subject.id} key={subject.id}>
+                {subject.name_ar}
+              </option>
+            ))}
+          </select>
+        </label>
       ) : null}
       <button
         className="primary-button"
         type="submit"
-        disabled={busy || (audience === "SUBJECT_SPECIFIC" && subjectIds.length === 0)}
+        disabled={
+          busy ||
+          splitLines(objectives).length === 0 ||
+          splitLines(instructions).length === 0 ||
+          (audience === "SUBJECT_SPECIFIC" && !subjectId)
+        }
       >
         {busy ? <LoaderCircle className="spin" /> : <CheckCircle2 />} {submitLabel}
       </button>
@@ -787,9 +846,10 @@ function LessonsEditor({
   const [editingLesson, setEditingLesson] = useState<AdminLesson | null>(null);
   const [title, setTitle] = useState("");
   const [lessonType, setLessonType] = useState<"TEXT" | "VIDEO" | "LINK">("TEXT");
-  const [content, setContent] = useState("");
   const [resourceUrl, setResourceUrl] = useState("");
   const [minutes, setMinutes] = useState(10);
+  const [newSectionType, setNewSectionType] = useState<LessonSectionType>("EXAMPLE");
+  const [sections, setSections] = useState(() => defaultLessonSections());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -813,18 +873,26 @@ function LessonsEditor({
     setEditingLesson(null);
     setTitle("");
     setLessonType("TEXT");
-    setContent("");
     setResourceUrl("");
     setMinutes(10);
+    setSections(defaultLessonSections());
   }
 
   function edit(lesson: AdminLesson) {
     setEditingLesson(lesson);
     setTitle(lesson.title);
     setLessonType(lesson.lesson_type);
-    setContent(lesson.content);
     setResourceUrl(lesson.resource_url ?? "");
     setMinutes(lesson.duration_minutes);
+    setSections(
+      lesson.sections.map((section) => ({
+        key: section.section_id,
+        section_type: section.section_type,
+        title: section.title ?? "",
+        content: section.content,
+        resource_url: section.resource_url ?? "",
+      })),
+    );
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -832,18 +900,20 @@ function LessonsEditor({
     setBusy(true);
     setError(null);
     try {
-      const input = {
+      await adminSaveStructuredLesson({
+        lessonId: editingLesson?.lesson_id ?? null,
+        programVersionId: program.program_version_id,
         title: title.trim(),
         lessonType,
-        content: content.trim(),
-        resourceUrl: lessonType === "TEXT" ? null : resourceUrl.trim(),
+        resourceUrl: lessonType === "TEXT" ? null : resourceUrl.trim() || null,
         durationMinutes: minutes,
-      };
-      if (editingLesson) {
-        await adminUpdateLesson({ lessonId: editingLesson.lesson_id, ...input });
-      } else {
-        await adminAddLesson({ programVersionId: program.program_version_id, ...input });
-      }
+        sections: sections.map((section) => ({
+          section_type: section.section_type,
+          title: section.title.trim() || null,
+          content: section.content.trim(),
+          resource_url: section.resource_url.trim() || null,
+        })),
+      });
       await reload();
       await onChanged();
       resetForm();
@@ -852,6 +922,39 @@ function LessonsEditor({
     } finally {
       setBusy(false);
     }
+  }
+
+  function updateSection(key: string, field: "title" | "content" | "resource_url", value: string) {
+    setSections((current) =>
+      current.map((section) => (section.key === key ? { ...section, [field]: value } : section)),
+    );
+  }
+
+  function addSection() {
+    setSections((current) => [
+      ...current,
+      {
+        key: crypto.randomUUID(),
+        section_type: newSectionType,
+        title: SECTION_LABELS[newSectionType],
+        content: "",
+        resource_url: "",
+      },
+    ]);
+  }
+
+  function removeSection(key: string) {
+    setSections((current) => current.filter((section) => section.key !== key));
+  }
+
+  function moveSection(index: number, direction: -1 | 1) {
+    setSections((current) => {
+      const destination = index + direction;
+      if (destination < 0 || destination >= current.length) return current;
+      const next = [...current];
+      [next[index], next[destination]] = [next[destination], next[index]];
+      return next;
+    });
   }
 
   async function remove(lesson: AdminLesson) {
@@ -909,8 +1012,23 @@ function LessonsEditor({
                       : "رابط"}{" "}
                   · {lesson.duration_minutes} دقيقة
                 </small>
-                {readOnly && lesson.lesson_type === "TEXT" ? (
-                  <p className="lesson-preview">{lesson.content}</p>
+                {readOnly ? (
+                  <div className="lesson-section-preview-list">
+                    {lesson.sections.map((section) => (
+                      <div
+                        className={`lesson-section-preview ${section.section_type.toLowerCase()}`}
+                        key={section.section_id}
+                      >
+                        <strong>{section.title ?? SECTION_LABELS[section.section_type]}</strong>
+                        <p>{section.content}</p>
+                        {section.resource_url ? (
+                          <a href={section.resource_url} target="_blank" rel="noreferrer">
+                            <ExternalLink /> فتح المورد
+                          </a>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
                 ) : null}
                 {readOnly && lesson.resource_url ? (
                   <a
@@ -1000,13 +1118,103 @@ function LessonsEditor({
                 </label>
               ) : null}
               <label className="full-field">
-                {lessonType === "TEXT" ? "محتوى الدرس" : "وصف اختياري"}
-                <textarea
-                  value={content}
-                  onChange={(event) => setContent(event.target.value)}
-                  required={lessonType === "TEXT"}
-                />
+                أقسام الدرس
+                <span className="field-hint">يجب أن يتضمن هدفًا وشرحًا وخلاصة على الأقل.</span>
               </label>
+            </div>
+            <div className="section-editor-list">
+              {sections.map((section, index) => {
+                const requiredType = ["OBJECTIVE", "CONTENT", "SUMMARY"].includes(
+                  section.section_type,
+                );
+                const sameTypeCount = sections.filter(
+                  (item) => item.section_type === section.section_type,
+                ).length;
+                return (
+                  <article className="section-editor-card" key={section.key}>
+                    <div className="section-editor-heading">
+                      <span>{SECTION_LABELS[section.section_type]}</span>
+                      <div className="row-actions">
+                        <button
+                          type="button"
+                          className="icon-button"
+                          disabled={index === 0}
+                          onClick={() => moveSection(index, -1)}
+                          aria-label="تحريك القسم لأعلى"
+                        >
+                          <ArrowUp />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          disabled={index === sections.length - 1}
+                          onClick={() => moveSection(index, 1)}
+                          aria-label="تحريك القسم لأسفل"
+                        >
+                          <ArrowDown />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button danger-icon"
+                          disabled={requiredType && sameTypeCount === 1}
+                          onClick={() => removeSection(section.key)}
+                          aria-label="حذف القسم"
+                        >
+                          <Trash2 />
+                        </button>
+                      </div>
+                    </div>
+                    <label>
+                      عنوان القسم (اختياري)
+                      <input
+                        value={section.title}
+                        onChange={(event) =>
+                          updateSection(section.key, "title", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label>
+                      المحتوى
+                      <textarea
+                        value={section.content}
+                        onChange={(event) =>
+                          updateSection(section.key, "content", event.target.value)
+                        }
+                        required
+                      />
+                    </label>
+                    {section.section_type === "RESOURCE" ? (
+                      <label>
+                        رابط المورد HTTPS
+                        <input
+                          type="url"
+                          pattern="https://.*"
+                          value={section.resource_url}
+                          onChange={(event) =>
+                            updateSection(section.key, "resource_url", event.target.value)
+                          }
+                          required
+                        />
+                      </label>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+            <div className="add-section-row">
+              <select
+                value={newSectionType}
+                onChange={(event) => setNewSectionType(event.target.value as LessonSectionType)}
+              >
+                {Object.entries(SECTION_LABELS).map(([value, label]) => (
+                  <option value={value} key={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <button className="secondary-button" type="button" onClick={addSection}>
+                <Plus /> إضافة قسم
+              </button>
             </div>
             {error ? <div className="notice error-notice">{error}</div> : null}
             <button className="primary-button" type="submit" disabled={busy}>
@@ -1023,9 +1231,284 @@ function LessonsEditor({
         ) : error ? (
           <div className="notice error-notice">{error}</div>
         ) : null}
+        <LiveSessionsEditor program={program} />
         <AssessmentEditor programVersionId={program.program_version_id} readOnly={readOnly} />
       </section>
     </div>
+  );
+}
+
+const SECTION_LABELS: Record<LessonSectionType, string> = {
+  OBJECTIVE: "هدف الدرس",
+  INTRODUCTION: "تمهيد",
+  CONTENT: "الشرح",
+  EXAMPLE: "مثال تطبيقي",
+  ACTIVITY: "نشاط أو تطبيق",
+  SUMMARY: "الخلاصة",
+  RESOURCE: "مورد إضافي",
+};
+
+type EditableLessonSection = {
+  key: string;
+  section_type: LessonSectionType;
+  title: string;
+  content: string;
+  resource_url: string;
+};
+
+function defaultLessonSections(): EditableLessonSection[] {
+  return (["OBJECTIVE", "CONTENT", "EXAMPLE", "ACTIVITY", "SUMMARY"] as LessonSectionType[]).map(
+    (sectionType) => ({
+      key: crypto.randomUUID(),
+      section_type: sectionType,
+      title: SECTION_LABELS[sectionType],
+      content: "",
+      resource_url: "",
+    }),
+  );
+}
+
+function toDateTimeInput(value: string): string {
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
+function LiveSessionsEditor({ program }: { program: AdminProgram }) {
+  const [sessions, setSessions] = useState<LiveSession[]>([]);
+  const [editing, setEditing] = useState<LiveSession | null>(null);
+  const [title, setTitle] = useState("");
+  const [provider, setProvider] = useState("Zoom");
+  const [speaker, setSpeaker] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [duration, setDuration] = useState(60);
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [status, setStatus] = useState<"SCHEDULED" | "CANCELLED">("SCHEDULED");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function reload() {
+    setSessions(await adminListLiveSessions(program.program_version_id));
+  }
+
+  useEffect(() => {
+    let active = true;
+    adminListLiveSessions(program.program_version_id)
+      .then((items) => active && setSessions(items))
+      .catch((loadError) => active && setError(messageOf(loadError)));
+    return () => {
+      active = false;
+    };
+  }, [program.program_version_id]);
+
+  function reset() {
+    setEditing(null);
+    setTitle("");
+    setProvider("Zoom");
+    setSpeaker("");
+    setStartsAt("");
+    setDuration(60);
+    setMeetingUrl("");
+    setInstructions("");
+    setStatus("SCHEDULED");
+  }
+
+  function edit(session: LiveSession) {
+    setEditing(session);
+    setTitle(session.title);
+    setProvider(session.provider_label);
+    setSpeaker(session.speaker_name ?? "");
+    setStartsAt(toDateTimeInput(session.starts_at));
+    setDuration(session.duration_minutes);
+    setMeetingUrl(session.meeting_url);
+    setInstructions(session.instructions);
+    setStatus(session.status);
+  }
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await adminSaveLiveSession({
+        liveSessionId: editing?.live_session_id ?? null,
+        programVersionId: program.program_version_id,
+        title: title.trim(),
+        providerLabel: provider.trim(),
+        speakerName: speaker.trim() || null,
+        startsAt: new Date(startsAt).toISOString(),
+        durationMinutes: duration,
+        meetingUrl: meetingUrl.trim(),
+        instructions: instructions.trim(),
+        status,
+      });
+      await reload();
+      reset();
+    } catch (saveError) {
+      setError(messageOf(saveError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(session: LiveSession) {
+    if (!window.confirm(`حذف المحاضرة «${session.title}»؟`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await adminDeleteLiveSession(session.live_session_id);
+      await reload();
+      if (editing?.live_session_id === session.live_session_id) reset();
+    } catch (deleteError) {
+      setError(messageOf(deleteError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="live-session-admin">
+      <div className="section-toolbar compact-toolbar">
+        <div>
+          <p className="eyebrow">لقاء مباشر اختياري</p>
+          <h3>المحاضرات المباشرة</h3>
+          <p className="muted">أضف رابط Zoom أو Google Meet أو أي خدمة HTTPS متاحة وقت التنفيذ.</p>
+        </div>
+        <Video />
+      </div>
+      <div className="data-list compact-list">
+        {sessions.length === 0 ? (
+          <div className="compact-empty">لا توجد محاضرات مجدولة.</div>
+        ) : null}
+        {sessions.map((session) => (
+          <article className="data-row live-session-row" key={session.live_session_id}>
+            <CalendarDays />
+            <div className="data-main">
+              <strong>{session.title}</strong>
+              <small>
+                {new Date(session.starts_at).toLocaleString("ar-YE", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+                {" · "}
+                {session.provider_label}
+                {" · "}
+                {session.duration_minutes} دقيقة
+                {session.speaker_name ? ` · ${session.speaker_name}` : ""}
+              </small>
+            </div>
+            <span className={session.status === "SCHEDULED" ? "status live" : "status stopped"}>
+              {session.status === "SCHEDULED" ? "مجدولة" : "ملغاة"}
+            </span>
+            <div className="row-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => edit(session)}
+                disabled={busy}
+              >
+                <Pencil /> تعديل
+              </button>
+              <button
+                className="danger-button"
+                type="button"
+                onClick={() => remove(session)}
+                disabled={busy}
+              >
+                <Trash2 /> حذف
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+      <form className="admin-form nested-form" onSubmit={save}>
+        <div className="section-toolbar compact-toolbar">
+          <h3>{editing ? "تعديل المحاضرة" : "جدولة محاضرة"}</h3>
+          {editing ? (
+            <button className="text-button inline-text-button" type="button" onClick={reset}>
+              إلغاء التعديل
+            </button>
+          ) : null}
+        </div>
+        <div className="form-grid">
+          <label>
+            عنوان المحاضرة
+            <input value={title} onChange={(event) => setTitle(event.target.value)} required />
+          </label>
+          <label>
+            المنصة
+            <input
+              list="live-session-providers"
+              value={provider}
+              onChange={(event) => setProvider(event.target.value)}
+              required
+            />
+            <datalist id="live-session-providers">
+              <option value="Zoom" />
+              <option value="Google Meet" />
+              <option value="Microsoft Teams" />
+            </datalist>
+          </label>
+          <label>
+            اسم المتخصص (اختياري)
+            <input value={speaker} onChange={(event) => setSpeaker(event.target.value)} />
+          </label>
+          <label>
+            الموعد
+            <input
+              type="datetime-local"
+              value={startsAt}
+              onChange={(event) => setStartsAt(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            المدة بالدقائق
+            <input
+              type="number"
+              min={15}
+              max={480}
+              value={duration}
+              onChange={(event) => setDuration(Number(event.target.value))}
+              required
+            />
+          </label>
+          <label>
+            الحالة
+            <select
+              value={status}
+              onChange={(event) => setStatus(event.target.value as typeof status)}
+            >
+              <option value="SCHEDULED">مجدولة</option>
+              <option value="CANCELLED">ملغاة</option>
+            </select>
+          </label>
+          <label className="full-field">
+            رابط الانضمام HTTPS
+            <input
+              type="url"
+              pattern="https://.*"
+              value={meetingUrl}
+              onChange={(event) => setMeetingUrl(event.target.value)}
+              required
+            />
+          </label>
+          <label className="full-field">
+            تعليمات الحضور
+            <textarea
+              value={instructions}
+              onChange={(event) => setInstructions(event.target.value)}
+              maxLength={2000}
+            />
+          </label>
+        </div>
+        {error ? <div className="notice error-notice">{error}</div> : null}
+        <button className="primary-button" type="submit" disabled={busy}>
+          {busy ? <LoaderCircle className="spin" /> : <CheckCircle2 />}
+          {editing ? "حفظ التعديل" : "حفظ المحاضرة"}
+        </button>
+      </form>
+    </section>
   );
 }
 

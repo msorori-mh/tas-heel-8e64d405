@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import {
   Award,
   BookOpen,
+  CalendarDays,
   CheckCircle2,
   ExternalLink,
   GraduationCap,
@@ -11,6 +12,7 @@ import {
   Menu,
   School,
   ShieldCheck,
+  Target,
   UserRound,
   X,
 } from "lucide-react";
@@ -27,6 +29,7 @@ import {
   getLearningLessons,
   listMyCertificates,
   listMyLearning,
+  listProgramLiveSessions,
   submitAssessment,
   verifyCertificate,
 } from "./lib/academy-api";
@@ -46,6 +49,8 @@ import type {
   Governorate,
   LearningLesson,
   LearningProgram,
+  LessonSectionType,
+  LiveSession,
   TeacherProfile,
   VerifiedCertificate,
 } from "./types";
@@ -71,6 +76,143 @@ function getErrorMessage(error: unknown): string {
     return String(error.message);
   }
   return "حدث خطأ غير متوقع. حاول مرة أخرى.";
+}
+
+const LEARNING_SECTION_LABELS: Record<LessonSectionType, string> = {
+  OBJECTIVE: "هدف الدرس",
+  INTRODUCTION: "تمهيد",
+  CONTENT: "الشرح",
+  EXAMPLE: "مثال تطبيقي",
+  ACTIVITY: "نشاط أو تطبيق",
+  SUMMARY: "الخلاصة",
+  RESOURCE: "مورد إضافي",
+};
+
+type ProgramInformation = {
+  summary: string;
+  detailed_description: string;
+  objectives: string[];
+  prerequisites: string[];
+  instructions: string[];
+  pass_percentage: number | null;
+};
+
+function ProgramDetails({
+  programVersionId,
+  information,
+}: {
+  programVersionId: string;
+  information: ProgramInformation;
+}) {
+  const [sessions, setSessions] = useState<LiveSession[]>([]);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    listProgramLiveSessions(programVersionId)
+      .then((items) => active && setSessions(items))
+      .catch((error) => active && setSessionsError(getErrorMessage(error)));
+    return () => {
+      active = false;
+    };
+  }, [programVersionId]);
+
+  return (
+    <div className="program-details-panel">
+      <section>
+        <h3>عن البرنامج</h3>
+        <p>{information.detailed_description}</p>
+      </section>
+      <div className="program-details-grid">
+        <section>
+          <h3>
+            <Target /> أهداف البرنامج
+          </h3>
+          <ul>
+            {information.objectives.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+        {information.prerequisites.length > 0 ? (
+          <section>
+            <h3>
+              <BookOpen /> المتطلبات
+            </h3>
+            <ul>
+              {information.prerequisites.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+        <section>
+          <h3>
+            <CheckCircle2 /> تعليمات الدراسة
+          </h3>
+          <ul>
+            {information.instructions.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+        <section>
+          <h3>
+            <Award /> الشهادة
+          </h3>
+          <p>
+            أكمل جميع الدروس ثم اجتز التقييم
+            {information.pass_percentage ? ` بنسبة ${information.pass_percentage}% على الأقل` : ""}.
+          </p>
+        </section>
+      </div>
+      <section className="live-sessions-teacher">
+        <h3>
+          <CalendarDays /> المحاضرات المباشرة
+        </h3>
+        {sessionsError ? <div className="notice error-notice">{sessionsError}</div> : null}
+        {sessions.length === 0 ? (
+          <p className="muted">لا توجد محاضرة مباشرة مجدولة حاليًا.</p>
+        ) : null}
+        {sessions.map((session) => (
+          <article
+            className={
+              session.status === "CANCELLED" ? "live-session-card cancelled" : "live-session-card"
+            }
+            key={session.live_session_id}
+          >
+            <div>
+              <strong>{session.title}</strong>
+              <p>
+                {new Date(session.starts_at).toLocaleString("ar-YE", {
+                  dateStyle: "long",
+                  timeStyle: "short",
+                })}
+                {" · "}
+                {session.provider_label}
+                {" · "}
+                {session.duration_minutes} دقيقة
+              </p>
+              {session.speaker_name ? <small>المتخصص: {session.speaker_name}</small> : null}
+              {session.instructions ? <p>{session.instructions}</p> : null}
+            </div>
+            {session.status === "SCHEDULED" ? (
+              <a
+                className="primary-button"
+                href={session.meeting_url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ExternalLink /> الانضمام للمحاضرة
+              </a>
+            ) : (
+              <span className="status stopped">ملغاة</span>
+            )}
+          </article>
+        ))}
+      </section>
+    </div>
+  );
 }
 
 function LoadingScreen() {
@@ -488,6 +630,7 @@ function Catalog({ onChanged }: { onChanged: () => void }) {
   const [programs, setPrograms] = useState<CatalogProgram[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -563,20 +706,47 @@ function Catalog({ onChanged }: { onChanged: () => void }) {
                   <span>
                     {Math.max(1, Math.round(program.estimated_minutes / 60))} ساعة تقريبًا
                   </span>
-                </div>
-                <button
-                  className={program.enrolled ? "secondary-button" : "primary-button"}
-                  type="button"
-                  disabled={program.enrolled || busyId === program.program_version_id}
-                  onClick={() => enroll(program)}
-                >
-                  {busyId === program.program_version_id ? (
-                    <LoaderCircle className="spin" />
-                  ) : program.enrolled ? (
-                    <CheckCircle2 />
+                  <span>{program.lesson_count} درس</span>
+                  {program.pass_percentage ? (
+                    <span>الاجتياز {program.pass_percentage}%</span>
                   ) : null}
-                  {program.enrolled ? "مسجل في البرنامج" : "ابدأ التدريب"}
-                </button>
+                </div>
+                <div className="card-actions">
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    aria-expanded={expandedId === program.program_version_id}
+                    onClick={() =>
+                      setExpandedId((current) =>
+                        current === program.program_version_id ? null : program.program_version_id,
+                      )
+                    }
+                  >
+                    <BookOpen />{" "}
+                    {expandedId === program.program_version_id
+                      ? "إخفاء التفاصيل"
+                      : "تفاصيل البرنامج"}
+                  </button>
+                  <button
+                    className={program.enrolled ? "secondary-button" : "primary-button"}
+                    type="button"
+                    disabled={program.enrolled || busyId === program.program_version_id}
+                    onClick={() => enroll(program)}
+                  >
+                    {busyId === program.program_version_id ? (
+                      <LoaderCircle className="spin" />
+                    ) : program.enrolled ? (
+                      <CheckCircle2 />
+                    ) : null}
+                    {program.enrolled ? "مسجل في البرنامج" : "ابدأ التدريب"}
+                  </button>
+                </div>
+                {expandedId === program.program_version_id ? (
+                  <ProgramDetails
+                    programVersionId={program.program_version_id}
+                    information={program}
+                  />
+                ) : null}
               </div>
             </article>
           ))}
@@ -680,6 +850,7 @@ function Learning() {
             <LoaderCircle className="spin" /> جارٍ التحميل…
           </div>
         ) : null}
+        <ProgramDetails programVersionId={selected.program_version_id} information={selected} />
         <div className="lesson-list">
           {lessons.map((lesson, index) => (
             <article
@@ -693,9 +864,27 @@ function Learning() {
                   {lesson.completed ? <span className="status live">مكتمل</span> : null}
                 </div>
                 <small>{lesson.duration_minutes} دقيقة</small>
-                {lesson.lesson_type === "TEXT" ? (
-                  <p className="lesson-content">{lesson.content}</p>
-                ) : null}
+                <div className="learning-sections">
+                  {lesson.sections.map((section) => (
+                    <section
+                      className={`learning-section ${section.section_type.toLowerCase()}`}
+                      key={section.section_id}
+                    >
+                      <h3>{section.title ?? LEARNING_SECTION_LABELS[section.section_type]}</h3>
+                      <p>{section.content}</p>
+                      {section.resource_url ? (
+                        <a
+                          className="resource-link"
+                          href={section.resource_url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <ExternalLink /> فتح المورد الإضافي
+                        </a>
+                      ) : null}
+                    </section>
+                  ))}
+                </div>
                 {lesson.resource_url ? (
                   <a
                     className="resource-link"
