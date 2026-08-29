@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { LessonBookContentDialog } from "@/components/admin/LessonBookContentDialog";
@@ -26,6 +26,8 @@ import {
   summarizeAdminLessonQuestions,
 } from "@/lib/lessons/admin-lesson-workspace";
 import { Loader2, ArrowRight, Check, Minus, BookOpen } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/lesson-content/$lessonId")({
   component: AdminLessonDetailPage,
@@ -67,6 +69,8 @@ function resourceCategoryLabel(resource: {
 
 function AdminLessonDetailPage() {
   const { loading, enabled } = useRequireAdminSection("content");
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const { lessonId } = Route.useParams();
 
   const [openBookDialog, setOpenBookDialog] = useState(false);
@@ -353,6 +357,33 @@ function AdminLessonDetailPage() {
   ) as Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>>;
   const applicability = rowsToApplicabilityMap(lifecycleQ.data ?? []);
 
+  const deleteComponent = async (packageCapability: string, label: string) => {
+    if (!isAdmin) return;
+    if (!window.confirm(`سيُحذف «${label}» من هذا الدرس ولن يظهر للطلاب. هل تريد المتابعة؟`)) {
+      return;
+    }
+    const rpc = supabase.rpc.bind(supabase) as unknown as (
+      name: string,
+      params: Record<string, unknown>,
+    ) => Promise<{ error: { message: string } | null }>;
+    const { error } = await rpc("admin_delete_lesson_component", {
+      _lesson_id: lessonId,
+      _capability: packageCapability,
+      _reason: `حذف إداري للمكوّن: ${label}`,
+    });
+    if (error) {
+      toast.error(
+        error.message.includes("FORBIDDEN")
+          ? "الحذف متاح لمدير كامل الصلاحيات فقط."
+          : `تعذر حذف المكوّن: ${error.message}`,
+      );
+      return;
+    }
+    toast.success(`تم حذف «${label}» وإخفاؤه عن الطلاب.`);
+    await queryClient.invalidateQueries({ queryKey: ["admin-lesson-detail"] });
+    await queryClient.invalidateQueries({ queryKey: ["admin-lesson-lifecycle", lessonId] });
+  };
+
   const capabilityContract = applyLifecycleOverlay(
     buildLessonCapabilityContract({
       lessonTitle: (lesson as any)?.title ?? null,
@@ -423,6 +454,22 @@ function AdminLessonDetailPage() {
             simulation: () => setOpenResourcesDialog(true),
             supportingResources: () => setOpenResourcesDialog(true),
           }}
+          onDelete={
+            isAdmin
+              ? {
+                  officialBookContent: () =>
+                    void deleteComponent("officialBookContent", "محتوى الكتاب"),
+                  tamkeenExplanation: () =>
+                    void deleteComponent("tamkeenExplanationHtml", "شرح تمكين"),
+                  quickReview: () => void deleteComponent("lessonSummaryHtml", "ملخص الدرس"),
+                  mindMap: () => void deleteComponent("mindMapHtml", "الخريطة الذهنية"),
+                  simulation: () => void deleteComponent("labExperimentHtml", "التجربة المعملية"),
+                  checkUnderstanding: () =>
+                    void deleteComponent("officialBookQuestions", "أسئلة الكتاب"),
+                  lessonAssessment: () => void deleteComponent("selfTest", "اختبر فهمك"),
+                }
+              : undefined
+          }
         />
 
         {hasSourceLoadError && (

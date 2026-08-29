@@ -4860,6 +4860,10 @@ export type Database = {
         Args: { _entity_id: string; _entity_type: string; _reason?: string }
         Returns: Json
       }
+      admin_delete_lesson_component: {
+        Args: { _capability: string; _lesson_id: string; _reason?: string }
+        Returns: Json
+      }
       admin_curriculum_prelaunch_purge: {
         Args: {
           _confirmation: string

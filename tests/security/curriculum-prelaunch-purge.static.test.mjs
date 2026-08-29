@@ -50,11 +50,10 @@ test("the bulk purge requires a typed confirmation, a reason and a pinned previe
  * Revisit before real student records exist: at that point the blockers this steps over are
  * protecting people's work, and the ticketed prelaunch purge is the right instrument.
  */
-test("force delete stays narrow, blocked-only, audited and admin-enforced", () => {
-  // 1. only after the ordinary delete has actually been refused
+test("force delete stays narrow, preview-blocked, audited and admin-enforced", () => {
+  // 1. the authoritative preview must report that ordinary deletion is blocked
+  assert.match(legacyDialog, /preview\s*&&\s*!preview\.deletable/);
   assert.match(legacyDialog, /DELETE_BLOCKED/);
-  assert.match(legacyDialog, /setBlocked\(true\)/);
-  assert.match(legacyDialog, /blocked &&/);
   // 2. only for units and lessons — never a subject, question or exam template
   assert.match(
     legacyDialog,

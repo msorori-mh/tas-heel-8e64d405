@@ -5,7 +5,7 @@
  * every present/status decision comes from `buildLessonCapabilityContract`.
  */
 import { Link } from "@tanstack/react-router";
-import { Eye, Pencil, ShieldCheck } from "lucide-react";
+import { Eye, Pencil, ShieldCheck, Trash2 } from "lucide-react";
 import {
   LEGACY_REFERENCE_CAPABILITIES,
   LIFECYCLE_CAPABILITIES,
@@ -111,6 +111,7 @@ export function LessonContentWorkspace({
   header,
   contract,
   onEdit,
+  onDelete,
   lessonId,
   lifecycle = {},
   applicability,
@@ -119,6 +120,8 @@ export function LessonContentWorkspace({
   contract: LessonCapabilityContract;
   /** Opens the existing editor dialog for a capability, when one exists. */
   onEdit: Partial<Record<LessonContentCapabilityKey, () => void>>;
+  /** Full-admin-only removal of the active component materialisation. */
+  onDelete?: Partial<Record<LessonContentCapabilityKey, () => void>>;
   lessonId: string;
   /** 20C-B — current lifecycle status per capability (staff view). */
   lifecycle?: Partial<Record<LessonContentCapabilityKey, LessonCapabilityLifecycleStatus>>;
@@ -266,6 +269,15 @@ export function LessonContentWorkspace({
                     <ShieldCheck className="h-3.5 w-3.5" />
                     {stage === "REVIEW" ? "المراجعة والاعتماد الموثق" : "إدارة المسار التحريري"}
                   </Link>
+                )}
+                {cap.status !== "ABSENT" && onDelete?.[key] && (
+                  <button
+                    onClick={onDelete[key]}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/15"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    حذف المكوّن
+                  </button>
                 )}
               </div>
             </li>
