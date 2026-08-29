@@ -17,12 +17,17 @@ test("CF11 R12 declares supplemental assets and uploads their exact files direct
   assert.doesNotMatch(builder, /buildPackageZipBlob|zip\.file\(asset\.path/);
 });
 
+/**
+ * The operator-facing image picker is gone — it read as a mandatory eighth component of
+ * a seven-component lesson. Assets now reach the package only from inside an HTML5/ZIP
+ * activity, so the type, magic-number and size checks still have to hold on that path.
+ */
 test("CF11 R12 accepts only allowlisted raster assets and checks magic and bounds", () => {
   assert.match(builder, /isAllowedAssetMime\(file\.type\)/);
   assert.match(builder, /assetMagicMatches\(file\.type, bytes\)/);
   assert.match(builder, /GOLDEN_ASSET_MIN_BYTES/);
   assert.match(builder, /GOLDEN_ASSET_MAX_BYTES/);
-  assert.match(builder, /accept="image\/png,image\/jpeg,image\/webp"/);
+  assert.doesNotMatch(builder, /accept="image\/png,image\/jpeg,image\/webp"/);
 });
 
 test("CF11 R12 derives asset ownership and Arabic alt text from uploaded HTML", () => {
