@@ -307,7 +307,14 @@ export async function convertQuestionWorkbook(
   guard: QuestionWorkbookGuard = {},
 ): Promise<ConvertedQuestionWorkbook> {
   if (!/\.xlsx$/i.test(file.name)) throw new Error("يُقبل قالب XLSX المعتمد فقط.");
-  const ExcelJS = await import("exceljs");
+  // exceljs is CommonJS. A bundler gives the namespace the interop shape, plain Node ESM
+  // puts everything on .default -- so reach through it when it is there. Without this the
+  // module cannot be exercised outside a browser build, which is why its behaviour on real
+  // uploaded files went unverified for so long.
+  const ExcelJSModule = await import("exceljs");
+  const ExcelJS = (
+    "Workbook" in ExcelJSModule ? ExcelJSModule : (ExcelJSModule as { default: unknown }).default
+  ) as typeof ExcelJSModule;
   const workbook = new ExcelJS.Workbook();
   const workbookBytes = await normalizeSpreadsheetNamespaces(
     new Uint8Array(await file.arrayBuffer()),
