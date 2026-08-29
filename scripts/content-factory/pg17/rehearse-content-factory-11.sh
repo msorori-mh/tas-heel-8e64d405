@@ -27,6 +27,8 @@ root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 # the deployed one -- which is why anchored patches kept matching production and finding
 # 0 hits here, and vice versa.
 psql "$db_url" -v ON_ERROR_STOP=1 \
+  -c "CREATE SCHEMA IF NOT EXISTS supabase_migrations" \
+  -c "CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations(version text PRIMARY KEY, name text, statements text[], created_by text)" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-04-fixture.sql" \
   -f "$root_dir/scripts/content-factory/pg17/content-factory-07-storage-fixture.sql" \
   -f "$root_dir/supabase/migrations-pending/20260819190000_content_factory_04_package_staging.sql" \
