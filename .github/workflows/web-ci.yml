@@ -79,6 +79,7 @@ jobs:
           node --test tests/migrations/pg17-fixture-type-fidelity.test.mjs
           node --test tests/migrations/cf10-managed-revision-backfill.test.mjs
           node --test tests/content/official-textbook-full-document.static.test.mjs
+          node --test tests/content-factory/prefixed-namespace-workbook.test.mjs
           node --import tsx --test tests/content-packages/chemistry-g12-iron-cf11-assets.test.ts
 
           if [ -f tests/content-packages/chemistry-g12-iron-v3.test.mjs ]; then

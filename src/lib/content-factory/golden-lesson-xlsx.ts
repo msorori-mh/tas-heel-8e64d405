@@ -251,6 +251,56 @@ function validateRow(
   return errors;
 }
 
+const SPREADSHEETML_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+
+/**
+ * Accept a workbook written with prefixed SpreadsheetML elements.
+ *
+ * OOXML lets a writer put the spreadsheet namespace on a prefix -- `<x:workbook>`,
+ * `<x:sheet>` -- instead of declaring it as the default namespace. Excel itself opens
+ * both forms, and several common writers (the OpenXML SDK, ClosedXML, and the exporters
+ * built on them) emit the prefixed one. Our reader matched only unprefixed element names,
+ * so it built a workbook with no sheets and then failed on it, and the operator was told
+ * their perfectly valid Excel file could not be read.
+ *
+ * The prefix is rewritten to a default namespace before parsing. An already-unprefixed
+ * workbook is returned untouched, so nothing changes for files that worked before.
+ */
+async function normalizeSpreadsheetNamespaces(bytes: Uint8Array): Promise<Uint8Array> {
+  // Not a zip at all: leave it for ExcelJS to reject with its own message.
+  if (bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) return bytes;
+
+  const { default: JSZip } = await import("jszip");
+  const zip = await JSZip.loadAsync(bytes);
+  const workbookPart = zip.file("xl/workbook.xml");
+  if (!workbookPart) return bytes;
+
+  const workbookXml = await workbookPart.async("string");
+  const prefixMatch = /<([A-Za-z_][\w.-]*):workbook[\s>]/.exec(workbookXml);
+  if (!prefixMatch) return bytes;
+  const prefix = prefixMatch[1];
+
+  const openTag = new RegExp(`<${prefix}:`, "g");
+  const closeTag = new RegExp(`</${prefix}:`, "g");
+  const declaration = new RegExp(`xmlns:${prefix}\\s*=\\s*"${SPREADSHEETML_NS}"`, "g");
+
+  const parts = Object.keys(zip.files).filter(
+    (name) => !zip.files[name]!.dir && /\.(xml|rels)$/i.test(name),
+  );
+  for (const name of parts) {
+    const original = await zip.file(name)!.async("string");
+    if (!original.includes(`<${prefix}:`)) continue;
+    zip.file(
+      name,
+      original
+        .replace(declaration, `xmlns="${SPREADSHEETML_NS}"`)
+        .replace(openTag, "<")
+        .replace(closeTag, "</"),
+    );
+  }
+  return await zip.generateAsync({ type: "uint8array" });
+}
+
 export async function convertQuestionWorkbook(
   capability: QuestionCapability,
   file: File,
@@ -259,8 +309,18 @@ export async function convertQuestionWorkbook(
   if (!/\.xlsx$/i.test(file.name)) throw new Error("يُقبل قالب XLSX المعتمد فقط.");
   const ExcelJS = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
-  const workbookBytes = new Uint8Array(await file.arrayBuffer());
-  await workbook.xlsx.load(workbookBytes as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+  const workbookBytes = await normalizeSpreadsheetNamespaces(
+    new Uint8Array(await file.arrayBuffer()),
+  );
+  try {
+    await workbook.xlsx.load(workbookBytes as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+  } catch (error) {
+    throw new Error(
+      `تعذّرت قراءة ملف Excel — تأكد أنه ملف ‎.xlsx‎ سليم وليس ‎.xls‎ قديمًا أو ملفًا تالفًا. (${
+        error instanceof Error ? error.message : "سبب غير معروف"
+      })`,
+    );
+  }
 
   const normalizeHeader = (value: string) =>
     value
