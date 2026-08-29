@@ -82,7 +82,7 @@ SET ROLE authenticated;
 
 DO $publish_and_assert$
 DECLARE
-  lesson_id constant uuid := '43000000-0000-0000-0000-0000000000b2';
+  v_lesson_id constant uuid := '43000000-0000-0000-0000-0000000000b2';
   intake uuid;
   first_result jsonb;
   replay_result jsonb;
@@ -126,34 +126,35 @@ BEGIN
     RAISE EXCEPTION 'LCPV2_ABA_VERSIONING_FAILED: % / % / %',first_result,result_b,result_a2;
   END IF;
 
-  IF (SELECT content FROM public.lesson_book_contents WHERE lesson_id=lesson_id)
+  IF (SELECT lbc.content FROM public.lesson_book_contents lbc WHERE lbc.lesson_id=v_lesson_id)
        <> '<html dir="rtl"><body>BOOK-A</body></html>' THEN
     RAISE EXCEPTION 'LCPV2_ABA_LIVE_BODY_WRONG';
   END IF;
   IF (SELECT count(*) FROM public.lesson_component_publications_v2
-       WHERE lesson_id=lesson_id AND capability='officialBookContent') <> 3 THEN
+       WHERE lesson_id=v_lesson_id AND capability='officialBookContent') <> 3 THEN
     RAISE EXCEPTION 'LCPV2_ABA_LEDGER_COUNT_WRONG';
   END IF;
   IF (SELECT count(*) FROM public.lesson_capability_lifecycle
-       WHERE lesson_id=lesson_id AND status='READY' AND applicability='OPTIONAL') <> 7 THEN
+       WHERE lesson_id=v_lesson_id AND status='READY' AND applicability='OPTIONAL') <> 7 THEN
     RAISE EXCEPTION 'LCPV2_SEVEN_READY_OPTIONAL_ROWS_MISSING';
   END IF;
   IF (SELECT count(*) FROM public.lesson_capability_lifecycle
-       WHERE lesson_id=lesson_id AND applicability='REQUIRED') <> 0 THEN
+       WHERE lesson_id=v_lesson_id AND applicability='REQUIRED') <> 0 THEN
     RAISE EXCEPTION 'LCPV2_REQUIRED_ROW_MANUFACTURED';
   END IF;
-  SELECT ready_capabilities INTO ready_caps FROM public.lesson_student_content_gate(lesson_id);
+  SELECT ready_capabilities INTO ready_caps
+    FROM public.lesson_student_content_gate(v_lesson_id);
   IF cardinality(ready_caps) <> 7 THEN
     RAISE EXCEPTION 'LCPV2_STUDENT_GATE_NOT_SEVEN: %',ready_caps;
   END IF;
   IF (SELECT count(*) FROM public.questions q JOIN public.question_revisions r
         ON r.id=q.current_published_revision_id
-       WHERE q.lesson_id=lesson_id AND r.status='PUBLISHED') <> 2 THEN
+       WHERE q.lesson_id=v_lesson_id AND r.status='PUBLISHED') <> 2 THEN
     RAISE EXCEPTION 'LCPV2_QUESTION_COMPONENTS_NOT_PUBLISHED';
   END IF;
   IF (SELECT count(*) FROM public.assessment_questions aq
        JOIN public.lesson_assessments a ON a.id=aq.assessment_id
-       WHERE a.lesson_id=lesson_id) <> 1 THEN
+       WHERE a.lesson_id=v_lesson_id) <> 1 THEN
     RAISE EXCEPTION 'LCPV2_SELF_TEST_MEMBERSHIP_WRONG';
   END IF;
 END
