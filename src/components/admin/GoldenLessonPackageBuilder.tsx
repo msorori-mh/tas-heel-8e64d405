@@ -181,7 +181,7 @@ function friendlyDirectIntakeError(error: unknown) {
     return "تعذر النشر لأن كود الحزمة مرتبط مسبقًا بهوية درس مختلفة. أعد الفحص لعرض الحقول المتعارضة.";
   }
   if (message.includes("golden_lesson_package_version_package_id_canonical_manifest")) {
-    return "هذا المكوّن بملفه الحالي منشور بالفعل بنفس المحتوى؛ لا حاجة لإعادة نشره. غيّر الملف إن أردت تحديثه.";
+    return "هذا الملف بعينه مرفوع ومتحقق منه مسبقًا لهذا المكوّن؛ سيُستأنف نشره من نسخته المحفوظة دون إعادة رفع.";
   }
   if (message.includes("DIRECT_INTAKE_ALREADY_VERIFIED")) {
     return "هذه النسخة متحقق منها مسبقًا؛ أعد الضغط على النشر لاستئناف العملية دون رفع جديد.";
@@ -1218,7 +1218,14 @@ export function GoldenLessonPackageBuilder() {
         data: {
           packageId: target.packageId,
           version: target.version,
-          ...(only ? { capability: only } : {}),
+          // The hash lets the server publish an already-prepared batch where it stands,
+          // matched by the exact bytes rather than by capability.
+          ...(only
+            ? {
+                capability: only,
+                ...(uploads[only]?.sha256 ? { capabilitySha256: uploads[only]!.sha256 } : {}),
+              }
+            : {}),
         },
       });
       setPublishSteps(result.steps);
