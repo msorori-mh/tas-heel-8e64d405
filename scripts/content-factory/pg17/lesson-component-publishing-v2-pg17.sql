@@ -132,19 +132,6 @@ BEGIN
 
   SELECT intake_id INTO intake FROM lcpv2_proof_intakes WHERE label='book-fresh';
   PERFORM public.lesson_component_publish_v2(intake,'lcpv2:book-fresh:publish');
-  IF (SELECT status FROM public.lesson_component_intakes_v2
-       WHERE id=(SELECT intake_id FROM lcpv2_proof_intakes WHERE label='book-stale')) <> 'ARCHIVED' THEN
-    RAISE EXCEPTION 'LCPV2_SUPERSEDED_INTAKE_NOT_ARCHIVED';
-  END IF;
-  IF (SELECT archived_at IS NULL OR archived_by IS NULL
-       FROM public.lesson_component_intakes_v2
-       WHERE id=(SELECT intake_id FROM lcpv2_proof_intakes WHERE label='book-stale')) THEN
-    RAISE EXCEPTION 'LCPV2_SUPERSEDED_ARCHIVE_EVIDENCE_MISSING';
-  END IF;
-  IF (SELECT status FROM public.lesson_component_intakes_v2
-       WHERE id=(SELECT intake_id FROM lcpv2_proof_intakes WHERE label='book-fresh')) <> 'PUBLISHED' THEN
-    RAISE EXCEPTION 'LCPV2_FRESH_INTAKE_NOT_PUBLISHED';
-  END IF;
 
   IF (SELECT lbc.content FROM public.lesson_book_contents lbc WHERE lbc.lesson_id=v_lesson_id)
        <> '<html dir="rtl"><body>BOOK-FRESH</body></html>' THEN
@@ -202,6 +189,19 @@ RESET ROLE;
 
 DO $security_assert$
 BEGIN
+  IF (SELECT status FROM public.lesson_component_intakes_v2
+       WHERE id=(SELECT intake_id FROM lcpv2_proof_intakes WHERE label='book-stale')) <> 'ARCHIVED' THEN
+    RAISE EXCEPTION 'LCPV2_SUPERSEDED_INTAKE_NOT_ARCHIVED';
+  END IF;
+  IF (SELECT archived_at IS NULL OR archived_by IS NULL
+       FROM public.lesson_component_intakes_v2
+       WHERE id=(SELECT intake_id FROM lcpv2_proof_intakes WHERE label='book-stale')) THEN
+    RAISE EXCEPTION 'LCPV2_SUPERSEDED_ARCHIVE_EVIDENCE_MISSING';
+  END IF;
+  IF (SELECT status FROM public.lesson_component_intakes_v2
+       WHERE id=(SELECT intake_id FROM lcpv2_proof_intakes WHERE label='book-fresh')) <> 'PUBLISHED' THEN
+    RAISE EXCEPTION 'LCPV2_FRESH_INTAKE_NOT_PUBLISHED';
+  END IF;
   -- The ledger is deliberately invisible to authenticated. Assert its history only
   -- after returning to the database owner role.
   IF (SELECT count(*) FROM public.lesson_component_publications_v2 p
