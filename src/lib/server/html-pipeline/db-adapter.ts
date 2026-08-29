@@ -220,8 +220,18 @@ export function createSupabaseDbAdapter({
         .order("sort_order", { ascending: true });
 
       if (error) {
-        throw new Error(`فشل جلب موارد HTML المنشورة للدرس: ${error.message}`);
+        // خط أنابيب HTML القديم غير موجود في القاعدة الحالية (أعمدة/جداول محذوفة):
+        // لا نُفشل عرض الدرس للطالب — نعيد قائمة فارغة بدل رمي استثناء.
+        const message = error.message ?? "";
+        if (
+          /published_version_id|lifecycle_status|lesson_resource_versions/i.test(message) &&
+          /does not exist|schema cache/i.test(message)
+        ) {
+          return [];
+        }
+        throw new Error(`فشل جلب موارد HTML المنشورة للدرس: ${message}`);
       }
+
 
       const rows = (data ?? []) as Array<{
         id: string;
