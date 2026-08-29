@@ -61,10 +61,23 @@ describe("21B4E capability contract", () => {
     expect(page).not.toContain("originalPdfGateOpen");
   });
 
-  it("9./10. officialBookContent first, assessment last among content steps", () => {
+  it("9./10. officialBookContent first, self-test last in the canonical seven steps", () => {
     expect(STUDENT_CAPABILITY_ORDER[0]).toBe("officialBookContent");
-    const content = STUDENT_CAPABILITY_ORDER.filter((k) => k !== "studentPerformance");
-    expect(content[content.length - 1]).toBe("lessonAssessment");
+    const canonicalSeven = STUDENT_CAPABILITY_ORDER.filter(
+      (k) => k !== "supportingResources" && k !== "studentPerformance",
+    );
+    expect(canonicalSeven[canonicalSeven.length - 1]).toBe("lessonAssessment");
+    expect(STUDENT_CAPABILITY_ORDER).toEqual([
+      "officialBookContent",
+      "tamkeenExplanation",
+      "quickReview",
+      "mindMap",
+      "simulation",
+      "checkUnderstanding",
+      "lessonAssessment",
+      "supportingResources",
+      "studentPerformance",
+    ]);
   });
 
   it("11. only capabilities backed by real content are student visible", () => {

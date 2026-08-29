@@ -8,9 +8,64 @@ const TARGET_CHUNK = 200;
 const CHARS_PER_WORD = 5;
 const WORDS_PER_MINUTE = 180;
 
+const HTML_ENTITIES: Record<string, string> = {
+  amp: "&",
+  apos: "'",
+  gt: ">",
+  hellip: "…",
+  laquo: "«",
+  lt: "<",
+  mdash: "—",
+  nbsp: " ",
+  ndash: "–",
+  quot: '"',
+  raquo: "»",
+};
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&#(x[0-9a-f]+|\d+);/gi, (_entity, code: string) => {
+      const point = code.toLowerCase().startsWith("x")
+        ? Number.parseInt(code.slice(1), 16)
+        : Number.parseInt(code, 10);
+      return Number.isFinite(point) ? String.fromCodePoint(point) : " ";
+    })
+    .replace(/&([a-z]+);/gi, (_entity, name: string) => HTML_ENTITIES[name.toLowerCase()] ?? " ");
+}
+
+/**
+ * Converts an authored HTML summary to visible review text without ever rendering
+ * the operator HTML. Plain-text summaries keep their paragraph boundaries.
+ */
+export function toReviewText(raw: string | null | undefined): string {
+  const source = (raw ?? "").trim();
+  if (!source) return "";
+
+  const looksLikeHtml =
+    /<!doctype\s+html|<\/?(?:html|head|body|main|article|section|div|p|h[1-6]|ul|ol|li|br)\b/i.test(
+      source,
+    );
+  const visible = looksLikeHtml
+    ? source
+        .replace(/<(script|style|template|head)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+        .replace(/<!--([\s\S]*?)-->/g, " ")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<li\b[^>]*>/gi, "\n• ")
+        .replace(/<\/(?:p|div|li|section|article|main|h[1-6]|ul|ol|tr)>/gi, "\n")
+        .replace(/<!doctype[^>]*>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+    : source;
+
+  return decodeHtmlEntities(visible)
+    .replace(/[\t\f\v ]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 /** Splits a summary into readable chunks, preserving the original text verbatim. */
 export function chunkSummary(raw: string): string[] {
-  const text = (raw ?? "").trim();
+  const text = toReviewText(raw);
   if (!text) return [];
 
   // 1) Honour author paragraphs first.
@@ -56,7 +111,7 @@ export function chunkSummary(raw: string): string[] {
 
 /** Arabic-tuned reading time estimate, floored at 1 minute for non-empty text. */
 export function estimateReadMinutes(text: string): number {
-  const clean = (text ?? "").trim();
+  const clean = toReviewText(text);
   if (!clean) return 0;
   const words = clean.length / CHARS_PER_WORD;
   return Math.max(1, Math.round(words / WORDS_PER_MINUTE));

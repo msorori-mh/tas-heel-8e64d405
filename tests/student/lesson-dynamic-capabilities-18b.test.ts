@@ -121,7 +121,7 @@ describe("computeLessonCapabilities", () => {
     // Free by design (same rule as the safe-extras RPC).
     expect(types).toContain("PRIMARY_CONTENT");
     expect(types).toContain("SUMMARY");
-    expect(types).toContain("ASSESSMENT");
+    expect(types).toContain("OFFICIAL_QUESTIONS");
     // Subscription-gated.
     expect(types).not.toContain("MINDMAP");
     expect(types).not.toContain("VIDEO");

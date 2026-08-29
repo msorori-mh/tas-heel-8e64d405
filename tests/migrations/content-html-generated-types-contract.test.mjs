@@ -1,6 +1,6 @@
 /**
- * Contract test that generated Supabase TypeScript types include the
- * lesson_resource_type enum values required by the migrated schema.
+ * Contract test for the current production schema: lesson_resource_type keeps
+ * the legacy storage categories, while HTML subtypes use html_resource_type.
  */
 
 import assert from "node:assert/strict";
@@ -22,23 +22,24 @@ test("generated types file exists and is non-empty", () => {
 test("generated types include lesson_resource_type enum", () => {
   assert.match(
     typesSource,
-    /lesson_resource_type:\s*\n\s*\|\s*["']video["']/,
+    /lesson_resource_type:\s*["']video["']/,
     "lesson_resource_type enum must include video",
   );
 });
 
-test("generated types include html in lesson_resource_type", () => {
+test("generated types keep HTML out of the legacy lesson_resource_type enum", () => {
   assert.match(
     typesSource,
-    /lesson_resource_type:[\s\S]{0,400}\|\s*["']html["']/,
-    "lesson_resource_type enum must include html",
+    /lesson_resource_type:\s*["']video["']\s*\|\s*["']mindmap["']\s*\|\s*["']experiment["']\s*\|\s*["']pdf["']\s*\|\s*["']link["']/,
+    "lesson_resource_type must match the current production enum",
   );
+  assert.doesNotMatch(typesSource, /lesson_resource_type:[^\n]*["']html["']/);
 });
 
-test("generated types include interactive_html in lesson_resource_type", () => {
+test("generated types expose html_resource_type as the canonical subtype column", () => {
   assert.match(
     typesSource,
-    /lesson_resource_type:[\s\S]{0,500}\|\s*["']interactive_html["']/,
-    "lesson_resource_type enum must include interactive_html",
+    /html_resource_type:\s*string\s*\|\s*null/,
+    "lesson_resources must expose html_resource_type",
   );
 });

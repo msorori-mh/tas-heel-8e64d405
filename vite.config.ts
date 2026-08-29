@@ -5,6 +5,26 @@
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { execFileSync } from "node:child_process";
+
+function resolveBuildSha(): string {
+  const provided = process.env.GITHUB_SHA ?? process.env.VITE_GIT_SHA;
+  if (provided?.trim()) return provided.trim();
+
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "unknown";
+  }
+}
+
+const release = Object.freeze({
+  sha: resolveBuildSha(),
+  builtAt: new Date().toISOString(),
+});
 
 export default defineConfig({
   vite: {
@@ -15,6 +35,7 @@ export default defineConfig({
     define: {
       "import.meta.env.VITE_ACADEMY_ENABLED": JSON.stringify("true"),
       "import.meta.env.VITE_ACADEMY_BASE_PATH": JSON.stringify("/academy"),
+      __TAMKEEN_RELEASE__: JSON.stringify(release),
     },
   },
   tanstackStart: {

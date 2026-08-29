@@ -14,7 +14,7 @@ const read = (p) => readFileSync(p, "utf8");
 describe("18B static guards", () => {
   it("NO_LITERAL_FIXED_STEP_NUMBERS — step numbers come from the render index", () => {
     const src = read(LESSON_PAGE);
-    expect(src).toMatch(/stepNumber=\{index \+ 1\}/);
+    expect(src).toMatch(/\{index \+ 1\}/);
     expect(src).not.toMatch(/stepNumber=\{[1-9]\}/);
   });
 

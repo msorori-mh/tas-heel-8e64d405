@@ -8,6 +8,7 @@ import {
   chunkSummary,
   estimateReadMinutes,
   reviewPercent,
+  toReviewText,
 } from "../../src/lib/review/review-format.ts";
 import {
   buildReviewIndex,
@@ -42,6 +43,32 @@ test("chunkSummary keeps short text as one chunk and preserves text", () => {
   assert.deepEqual(chunkSummary("  "), []);
   const paragraphs = chunkSummary("فقرة أولى.\n\nفقرة ثانية.");
   assert.deepEqual(paragraphs, ["فقرة أولى.", "فقرة ثانية."]);
+});
+
+test("authored HTML becomes visible Arabic review text without markup or CSS", () => {
+  const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><title>عنوان تقني</title>
+    <style>body { color: red }</style><script>alert(1)</script></head><body>
+    <main><h1>سورة السجدة</h1><p>الآيات الكريمة&nbsp;والدلالات.</p>
+    <ul><li>الدلالة الأولى</li><li>الدلالة الثانية &amp; الثالثة</li></ul></main></body></html>`;
+  const text = toReviewText(html);
+
+  assert.match(text, /سورة السجدة/);
+  assert.match(text, /الآيات الكريمة والدلالات/);
+  assert.match(text, /• الدلالة الأولى/);
+  assert.match(text, /الدلالة الثانية & الثالثة/);
+  assert.doesNotMatch(text, /<!DOCTYPE|<html|<style|color: red|alert|عنوان تقني/i);
+  assert.ok(chunkSummary(html).every((chunk) => !chunk.includes("<")));
+});
+
+test("plain-text summaries preserve authored paragraphs", () => {
+  assert.equal(toReviewText("فقرة أولى.\n\nفقرة ثانية."), "فقرة أولى.\n\nفقرة ثانية.");
+});
+
+test("HTML without visible body text produces no review card body", () => {
+  assert.equal(
+    toReviewText("<html><head><style>.x{color:red}</style></head><body></body></html>"),
+    "",
+  );
 });
 
 test("chunkSummary splits long text on Arabic/latin terminators", () => {

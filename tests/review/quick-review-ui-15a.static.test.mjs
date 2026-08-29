@@ -12,6 +12,7 @@ const page = read("src/routes/_authenticated/quick-review.tsx");
 const card = read("src/components/review/ReviewCard.tsx");
 const data = read("src/lib/review/review-data.ts");
 const paging = read("src/lib/review/review-paging.ts");
+const format = read("src/lib/review/review-format.ts");
 
 test("Focus Mode is data-agnostic and reusable (no supabase import)", () => {
   assert.doesNotMatch(focus, /integrations\/supabase/);
@@ -63,6 +64,13 @@ test("Quick Review is read-only: no writes anywhere in the feature", () => {
   for (const src of [page, card, focus, data]) {
     assert.doesNotMatch(src, /\.insert\(|\.update\(|\.upsert\(|\.delete\(/);
   }
+});
+
+test("authored HTML is converted to text and never rendered as operator markup", () => {
+  assert.match(data, /toReviewText\(summaryRow\.summary\)/);
+  assert.match(format, /replace\(\/<\(script\|style\|template\|head\)/);
+  assert.doesNotMatch(card, /dangerouslySetInnerHTML|srcDoc/);
+  assert.doesNotMatch(focus, /dangerouslySetInnerHTML|srcDoc/);
 });
 
 test("no answer/question payload is read by the review feature", () => {
