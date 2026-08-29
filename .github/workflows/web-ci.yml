@@ -250,8 +250,15 @@ jobs:
       - name: Start isolated PostgreSQL 17
         run: |
           docker run --detach --rm --name tamkeen-content-factory-pg17 --publish 127.0.0.1:5432:5432 --env POSTGRES_PASSWORD=tamkeen_cf_ci_only --env POSTGRES_DB=tamkeen_cf postgres:17
-          for attempt in {1..30}; do
-            if docker exec tamkeen-content-factory-pg17 pg_isready --username postgres --dbname tamkeen_cf; then exit 0; fi
+          # The image briefly starts an init server on its internal socket, then restarts it.
+          # Probe the exact TCP path used by the tests so that transient init readiness cannot
+          # release this gate while the final server is still restarting.
+          for attempt in {1..60}; do
+            if PGPASSWORD=tamkeen_cf_ci_only psql \
+              --host 127.0.0.1 --port 5432 --username postgres --dbname tamkeen_cf \
+              --tuples-only --no-align --command 'SELECT 1' 2>/dev/null | grep --quiet '^1$'; then
+              exit 0
+            fi
             sleep 1
           done
           docker logs tamkeen-content-factory-pg17
