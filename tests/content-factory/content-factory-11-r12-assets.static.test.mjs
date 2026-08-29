@@ -8,11 +8,12 @@ const builder = readFileSync(
 );
 
 test("CF11 R12 declares supplemental assets and uploads their exact files directly", () => {
-  assert.match(builder, /assets: supplementalAssets\.map/);
-  assert.match(
-    builder,
-    /for \(const asset of supplementalAssets\) files\.set\(asset\.path, asset\.file\)/,
-  );
+  // Assets are declared for the components going out in this batch, so a single-component
+  // publish never carries another component's images.
+  assert.match(builder, /assets: supplementalAssets\n\s*\.filter\(/);
+  assert.match(builder, /asset\.referencedBy\.some\(carries\)/);
+  assert.match(builder, /for \(const asset of supplementalAssets\) \{/);
+  assert.match(builder, /files\.set\(asset\.path, asset\.file\)/);
   assert.match(builder, /files\.get\(upload\.logicalPath\)/);
   assert.doesNotMatch(builder, /buildPackageZipBlob|zip\.file\(asset\.path/);
 });
@@ -41,7 +42,7 @@ test("CF11 R12 derives asset ownership and Arabic alt text from uploaded HTML", 
 test("CF11 R12 keeps direct attestation server-authoritative and fail-closed", () => {
   assert.match(
     builder,
-    /verifyAndStageGoldenLessonDirect\(\{[\s\S]*intakeId: slot\.intakeId, manifest: packageDraft/,
+    /verifyAndStageGoldenLessonDirect\(\{[\s\S]*intakeId: slot\.intakeId, manifest \}/,
   );
   assert.doesNotMatch(
     builder,

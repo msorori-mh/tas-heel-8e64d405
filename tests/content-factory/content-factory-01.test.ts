@@ -40,18 +40,21 @@ function packageFor(
       const applicability = profile.applicability[capability];
       const official =
         capability === "officialBookContent" || capability === "officialBookQuestions";
+      // No capability is mandatory, so a "complete" fixture is one that carries a file for
+      // every capability the profile applies at all -- not one that carries the required
+      // ones. NA still means the capability does not exist for this subject.
       const sourcePath =
-        applicability === "REQUIRED"
-          ? [
-              "officialBookContent",
-              "tamkeenExplanationHtml",
-              "lessonSummaryHtml",
-              "mindMapHtml",
-              "labExperimentHtml",
-            ].includes(capability)
+        applicability === "NA"
+          ? null
+          : [
+                "officialBookContent",
+                "tamkeenExplanationHtml",
+                "lessonSummaryHtml",
+                "mindMapHtml",
+                "labExperimentHtml",
+              ].includes(capability)
             ? `${capability}.html`
-            : `${capability}.json`
-          : null;
+            : `${capability}.json`;
       return {
         capability,
         applicability,
@@ -78,10 +81,13 @@ test("Quran and chemistry profiles preserve the canonical seven-capability order
   assert.deepEqual(GOLDEN_CHEMISTRY_V1.capabilityOrder, GOLDEN_CAPABILITIES);
   assert.equal(GOLDEN_QURAN_V1.applicability.labExperimentHtml, "OPTIONAL");
   assert.equal(GOLDEN_CHEMISTRY_V1.applicability.labExperimentHtml, "OPTIONAL");
-  assert.equal(GOLDEN_QURAN_V1.applicability.officialBookQuestions, "REQUIRED");
-  assert.equal(GOLDEN_CHEMISTRY_V1.applicability.officialBookQuestions, "REQUIRED");
-  assert.equal(GOLDEN_QURAN_V1.applicability.selfTest, "REQUIRED");
-  assert.equal(GOLDEN_CHEMISTRY_V1.applicability.selfTest, "REQUIRED");
+  // Nothing is mandatory: each of the seven publishes on its own, so no capability can be
+  // owed before another may go out.
+  for (const profile of [GOLDEN_QURAN_V1, GOLDEN_CHEMISTRY_V1]) {
+    for (const capability of GOLDEN_CAPABILITIES) {
+      assert.equal(profile.applicability[capability], "OPTIONAL", capability);
+    }
+  }
 });
 
 test("package identity and the server-only answers companion fail closed", () => {

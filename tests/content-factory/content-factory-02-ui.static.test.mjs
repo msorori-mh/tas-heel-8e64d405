@@ -50,19 +50,19 @@ test("operators upload seven declared items and never upload a lesson ZIP or pro
   assert.match(component, /CAPABILITY_NUMBER/);
 });
 
-test("six capabilities are required and only the lab is optional", () => {
+/**
+ * No component is mandatory. Requiring one would mean it is owed before another may go
+ * out, which is exactly what per-component publishing removed: a lesson with only a mind
+ * map published is a complete lesson that happens to have one component so far.
+ */
+test("no capability is mandatory in either profile", () => {
   for (const id of ["GOLDEN_QURAN_V1", "GOLDEN_CHEMISTRY_V1"])
     assert.match(profiles, new RegExp(id));
   const required = profiles.match(/: "REQUIRED"/g) ?? [];
   const optional = profiles.match(/: "OPTIONAL"/g) ?? [];
-  assert.equal(required.length, 12);
-  assert.equal(optional.length, 2);
-  assert.equal((profiles.match(/labExperimentHtml: "OPTIONAL"/g) ?? []).length, 2);
-  assert.equal((profiles.match(/officialBookQuestions: "REQUIRED"/g) ?? []).length, 2);
-  assert.doesNotMatch(
-    profiles,
-    /mindMapHtml: "OPTIONAL"|officialBookQuestions: "OPTIONAL"|selfTest: "OPTIONAL"|labExperimentHtml: "NA"/,
-  );
+  assert.equal(required.length, 0);
+  assert.equal(optional.length, 14, "seven capabilities in each of the two profiles");
+  assert.doesNotMatch(profiles, /: "NA"/);
 });
 
 test("question XLSX files are split automatically into public and server-only layers", () => {
@@ -110,6 +110,40 @@ test("there is no separate eighth component for images", () => {
   // Assets extracted from an HTML5/ZIP activity are still declared — that path is
   // internal to one component and never asked the operator for a separate upload.
   assert.match(component, /buildSupplementalAssetDeclarations/);
+});
+
+/**
+ * Every component has its own publish button. One shared button made publishing an
+ * all-or-nothing act in the operator's hands even after the server stopped requiring it.
+ */
+test("each component has its own publish button", () => {
+  assert.match(component, /نشر هذا المكوّن/);
+  assert.match(component, /publishCapabilityNow\(capability\)/);
+  assert.match(component, /const publishCapabilityNow = async \(capability: GoldenCapability\)/);
+  // The whole-lesson button stays as a convenience, not as the only way out.
+  assert.match(component, /نشر الدرس الآن/);
+  assert.match(component, /publishSubset\(null\)/);
+  assert.match(component, /publishSubset\(\[capability\]\)/);
+});
+
+/**
+ * A single-component publish must describe only that component. If the manifest still
+ * carried the other six files, publishing the mind map would re-publish everything the
+ * operator happened to have loaded -- and ship another component's answers with it.
+ */
+test("a single-component publish carries only that component", () => {
+  assert.match(component, /subset === null \|\| subset\.includes\(capability\)/);
+  assert.match(component, /buildAnswersCompanion\(answerSets, subset\)/);
+  assert.match(component, /asset\.referencedBy\.some\(carries\)/);
+  assert.match(component, /buildManifest\(subset, companion\)/);
+});
+
+/** Per-component publishing needs per-component feedback, not one shared banner. */
+test("publish state is tracked per component", () => {
+  assert.match(component, /capabilityPublishBusy/);
+  assert.match(component, /capabilityPublishError/);
+  assert.match(component, /capabilityPublished/);
+  assert.match(component, /نُشر هذا المكوّن في/);
 });
 
 test("partial lesson drafts are autosaved and restored without server publication", () => {

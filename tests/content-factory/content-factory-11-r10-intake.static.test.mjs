@@ -10,14 +10,11 @@ const publication = readFileSync(
 );
 
 test("R10/1 — the factory UI reaches the server-side direct-file intake path", () => {
-  assert.match(
-    builder,
-    /createGoldenLessonDirectUpload\(\{ data: \{ manifest: packageDraft \} \}\)/,
-  );
+  assert.match(builder, /createGoldenLessonDirectUpload\(\{ data: \{ manifest \} \}\)/);
   assert.match(builder, /uploadToSignedUrl\(upload\.storagePath, upload\.token, file/);
   assert.match(
     builder,
-    /verifyAndStageGoldenLessonDirect\(\{[\s\S]*intakeId: slot\.intakeId, manifest: packageDraft/,
+    /verifyAndStageGoldenLessonDirect\(\{[\s\S]*intakeId: slot\.intakeId, manifest \}/,
   );
   assert.doesNotMatch(builder, /createGoldenLessonBundleUpload|uploadAndVerifyBundle/);
 });

@@ -42,10 +42,14 @@ function validPackage(): GoldenLessonPackage {
         capability === "officialBookContent" ||
         capability === "tamkeenExplanationHtml" ||
         capability === "lessonSummaryHtml" ||
-        capability === "mindMapHtml"
+        capability === "mindMapHtml" ||
+        capability === "labExperimentHtml"
           ? "html"
           : "json";
-      const sourcePath = applicability === "REQUIRED" ? `${capability}.${sourceExtension}` : null;
+      // Every capability is optional now, so a complete fixture carries a file for each one
+      // the subject applies at all -- including the lab, which used to be left empty here
+      // purely because it was the only capability that was not mandatory.
+      const sourcePath = applicability === "NA" ? null : `${capability}.${sourceExtension}`;
       return {
         capability,
         applicability,
@@ -73,7 +77,9 @@ test("valid manifest produces a deterministic seven-capability plan with zero wr
   const preview = previewGoldenLessonStaging(parsed);
   assert.equal(preview.valid, true, JSON.stringify(preview.findings));
   assert.equal(preview.actions.length, 7);
-  assert.equal(preview.stagedDraftsPlanned, 6);
+  // One draft per capability that carries a file. The fixture now gives the lab one too,
+  // because no capability is mandatory and none is left out on that basis any more.
+  assert.equal(preview.stagedDraftsPlanned, 7);
   assert.equal(preview.domainWritesPerformed, 0);
   assert.equal(preview.productionWritesPerformed, 0);
   assert.equal(preview.executable, false);

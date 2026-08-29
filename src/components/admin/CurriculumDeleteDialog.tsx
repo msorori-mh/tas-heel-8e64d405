@@ -102,26 +102,28 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
   const preview = previewQ.data;
   const impact = preview ? Object.entries(preview.counts).filter(([, n]) => Number(n) > 0) : [];
 
-  const runDelete = async (force = false) => {
+  /**
+   * There is no force branch. The old prelaunch force-delete RPC still exists in the
+   * database but EXECUTE was revoked from `authenticated`, so the button could only ever
+   * produce a permission error -- while advertising to an admin that student activity can
+   * be deleted around the blockers. Deleting past a blocker goes through the ticketed
+   * prelaunch purge, which requires a typed confirmation, a reason and a pinned preview
+   * hash. See tests/security/curriculum-prelaunch-purge.static.test.mjs.
+   */
+  const runDelete = async () => {
     if (!target) return;
     setDeleting(true);
-    const { error } = force
-      ? await supabase.rpc("admin_curriculum_force_delete", {
-          _entity_type: target.type,
-          _entity_id: target.id,
-          _reason: "admin prelaunch force delete",
-        })
-      : await supabase.rpc("admin_curriculum_delete", {
-          _entity_type: target.type,
-          _entity_id: target.id,
-          _reason: "admin curriculum management",
-        });
+    const { error } = await supabase.rpc("admin_curriculum_delete", {
+      _entity_type: target.type,
+      _entity_id: target.id,
+      _reason: "admin curriculum management",
+    });
     setDeleting(false);
 
     if (error) {
       toast.error(
         error.message.includes("DELETE_BLOCKED")
-          ? "الحذف ممنوع — يوجد نشاط طلابي أو محتوى منشور. استخدم الحذف القسري أو الأرشفة."
+          ? "الحذف ممنوع — يوجد نشاط طلابي أو محتوى منشور. استخدم أداة التنظيف التجريبي الجماعي أو الأرشفة."
           : error.message.includes("FORBIDDEN")
             ? "هذه العملية متاحة لمدير كامل الصلاحيات فقط."
             : `تعذر الحذف: ${error.message}`,
@@ -135,10 +137,7 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
     onDeleted?.();
   };
 
-  const handleDelete = () => runDelete(false);
-  const canForceDelete =
-    isAdmin && !!target && (target.type === "unit" || target.type === "lesson");
-
+  const handleDelete = () => runDelete();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -185,9 +184,7 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
               <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4">
                 <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-destructive">
                   <ShieldAlert className="h-4 w-4" />
-                  {canForceDelete
-                    ? "الحذف العادي ممنوع — يمكن استخدام الحذف القسري (مرحلة ما قبل الإطلاق)"
-                    : "الحذف ممنوع — استخدم أداة التنظيف التجريبي الجماعي أو الأرشفة"}
+                  الحذف ممنوع — استخدم أداة التنظيف التجريبي الجماعي أو الأرشفة
                 </p>
                 <ul className="space-y-1 text-sm text-destructive/90">
                   {preview.blockers.map((b) => (
@@ -218,14 +215,6 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
             {deleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
             تأكيد الحذف
           </Button>
-
-          {canForceDelete && preview && !preview.deletable && (
-            <Button variant="destructive" disabled={deleting} onClick={() => runDelete(true)}>
-              {deleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-              حذف قسري (يشمل نشاط الطلاب)
-            </Button>
-          )}
-
 
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={deleting}>
             إلغاء
