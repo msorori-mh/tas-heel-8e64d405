@@ -18,15 +18,18 @@ import { Route as DataDeletionRouteImport } from './routes/data-deletion'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CompleteProfileRouteImport } from './routes/complete-profile'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AcademyRouteImport } from './routes/academy'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AcademyIndexRouteImport } from './routes/academy.index'
 import { Route as Prototype19cRouteImport } from './routes/prototype.19c'
 import { Route as Prototype19aRouteImport } from './routes/prototype.19a'
 import { Route as PreviewStructuredTextbook20a1bRouteImport } from './routes/preview.structured-textbook-20a1b'
 import { Route as AuthMobileCallbackRouteImport } from './routes/auth.mobile-callback'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
+import { Route as AcademyVerifyRouteImport } from './routes/academy.verify'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
 import { Route as AuthenticatedSubscriptionRouteImport } from './routes/_authenticated/subscription'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
@@ -131,6 +134,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcademyRoute = AcademyRouteImport.update({
+  id: '/academy',
+  path: '/academy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -144,6 +152,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AcademyIndexRoute = AcademyIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AcademyRoute,
 } as any)
 const Prototype19cRoute = Prototype19cRouteImport.update({
   id: '/prototype/19c',
@@ -175,6 +188,11 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/admin/login',
   path: '/admin/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AcademyVerifyRoute = AcademyVerifyRouteImport.update({
+  id: '/verify',
+  path: '/verify',
+  getParentRoute: () => AcademyRoute,
 } as any)
 const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
   id: '/wallet',
@@ -512,6 +530,7 @@ const AuthenticatedMinisterialExamsSessionsSessionIdResultRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/academy': typeof AcademyRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
   '/complete-profile': typeof CompleteProfileRoute
   '/contact': typeof ContactRoute
@@ -532,12 +551,14 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
   '/wallet': typeof AuthenticatedWalletRoute
+  '/academy/verify': typeof AcademyVerifyRoute
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/mobile-callback': typeof AuthMobileCallbackRoute
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
   '/prototype/19a': typeof Prototype19aRouteWithChildren
   '/prototype/19c': typeof Prototype19cRoute
+  '/academy/': typeof AcademyIndexRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
   '/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
@@ -607,11 +628,13 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/subscription': typeof AuthenticatedSubscriptionRoute
   '/wallet': typeof AuthenticatedWalletRoute
+  '/academy/verify': typeof AcademyVerifyRoute
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/mobile-callback': typeof AuthMobileCallbackRoute
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
   '/prototype/19c': typeof Prototype19cRoute
+  '/academy': typeof AcademyIndexRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
   '/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
@@ -664,6 +687,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/about': typeof AboutRoute
+  '/academy': typeof AcademyRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
   '/complete-profile': typeof CompleteProfileRoute
   '/contact': typeof ContactRoute
@@ -684,12 +708,14 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/subscription': typeof AuthenticatedSubscriptionRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
+  '/academy/verify': typeof AcademyVerifyRoute
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/mobile-callback': typeof AuthMobileCallbackRoute
   '/preview/structured-textbook-20a1b': typeof PreviewStructuredTextbook20a1bRoute
   '/prototype/19a': typeof Prototype19aRouteWithChildren
   '/prototype/19c': typeof Prototype19cRoute
+  '/academy/': typeof AcademyIndexRoute
   '/_authenticated/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/_authenticated/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
   '/_authenticated/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
@@ -743,6 +769,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/academy'
     | '/auth'
     | '/complete-profile'
     | '/contact'
@@ -763,12 +790,14 @@ export interface FileRouteTypes {
     | '/settings'
     | '/subscription'
     | '/wallet'
+    | '/academy/verify'
     | '/admin/login'
     | '/auth/callback'
     | '/auth/mobile-callback'
     | '/preview/structured-textbook-20a1b'
     | '/prototype/19a'
     | '/prototype/19c'
+    | '/academy/'
     | '/admin/academic'
     | '/admin/curriculum'
     | '/admin/exam-templates'
@@ -838,11 +867,13 @@ export interface FileRouteTypes {
     | '/settings'
     | '/subscription'
     | '/wallet'
+    | '/academy/verify'
     | '/admin/login'
     | '/auth/callback'
     | '/auth/mobile-callback'
     | '/preview/structured-textbook-20a1b'
     | '/prototype/19c'
+    | '/academy'
     | '/admin/academic'
     | '/admin/curriculum'
     | '/admin/exam-templates'
@@ -894,6 +925,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/about'
+    | '/academy'
     | '/auth'
     | '/complete-profile'
     | '/contact'
@@ -914,12 +946,14 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/subscription'
     | '/_authenticated/wallet'
+    | '/academy/verify'
     | '/admin/login'
     | '/auth/callback'
     | '/auth/mobile-callback'
     | '/preview/structured-textbook-20a1b'
     | '/prototype/19a'
     | '/prototype/19c'
+    | '/academy/'
     | '/_authenticated/admin/academic'
     | '/_authenticated/admin/curriculum'
     | '/_authenticated/admin/exam-templates'
@@ -973,6 +1007,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
+  AcademyRoute: typeof AcademyRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
   CompleteProfileRoute: typeof CompleteProfileRoute
   ContactRoute: typeof ContactRoute
@@ -1055,6 +1090,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/academy': {
+      id: '/academy'
+      path: '/academy'
+      fullPath: '/academy'
+      preLoaderRoute: typeof AcademyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -1075,6 +1117,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/academy/': {
+      id: '/academy/'
+      path: '/'
+      fullPath: '/academy/'
+      preLoaderRoute: typeof AcademyIndexRouteImport
+      parentRoute: typeof AcademyRoute
     }
     '/prototype/19c': {
       id: '/prototype/19c'
@@ -1117,6 +1166,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/login'
       preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/academy/verify': {
+      id: '/academy/verify'
+      path: '/verify'
+      fullPath: '/academy/verify'
+      preLoaderRoute: typeof AcademyVerifyRouteImport
+      parentRoute: typeof AcademyRoute
     }
     '/_authenticated/wallet': {
       id: '/_authenticated/wallet'
@@ -1723,6 +1779,19 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface AcademyRouteChildren {
+  AcademyVerifyRoute: typeof AcademyVerifyRoute
+  AcademyIndexRoute: typeof AcademyIndexRoute
+}
+
+const AcademyRouteChildren: AcademyRouteChildren = {
+  AcademyVerifyRoute: AcademyVerifyRoute,
+  AcademyIndexRoute: AcademyIndexRoute,
+}
+
+const AcademyRouteWithChildren =
+  AcademyRoute._addFileChildren(AcademyRouteChildren)
+
 interface AuthRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthMobileCallbackRoute: typeof AuthMobileCallbackRoute
@@ -1757,6 +1826,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AboutRoute: AboutRoute,
+  AcademyRoute: AcademyRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
   CompleteProfileRoute: CompleteProfileRoute,
   ContactRoute: ContactRoute,

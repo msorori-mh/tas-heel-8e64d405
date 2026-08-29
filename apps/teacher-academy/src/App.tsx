@@ -50,6 +50,19 @@ import type {
   VerifiedCertificate,
 } from "./types";
 
+const academyBasePath = (() => {
+  const configured = import.meta.env.VITE_ACADEMY_BASE_PATH?.trim();
+  if (!configured || configured === "/") return "";
+  return `/${configured.replace(/^\/+|\/+$/g, "")}`;
+})();
+
+function academyUrl(path = "") {
+  if (path && !path.startsWith("/")) {
+    throw new Error("Academy paths must start with a slash");
+  }
+  return `${academyBasePath}${path}` || "/";
+}
+
 type WorkspaceView = "catalog" | "learning" | "certificates" | "profile" | "admin";
 
 function getErrorMessage(error: unknown): string {
@@ -183,7 +196,7 @@ function VerifyCertificatePage() {
         ) : searched && !busy && !error ? (
           <div className="notice error-notice">لم يُعثر على شهادة بهذا الرمز.</div>
         ) : null}
-        <a className="text-button link-button" href="/">
+        <a className="text-button link-button" href={academyUrl()}>
           العودة إلى الأكاديمية
         </a>
       </section>
@@ -218,7 +231,7 @@ function AuthPage() {
           email: email.trim(),
           password,
           options: {
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: new URL(academyUrl(), window.location.origin).toString(),
           },
         });
         if (result.error) throw result.error;
@@ -935,7 +948,9 @@ function Certificates() {
                 <bdi>{certificate.certificate_code}</bdi>
                 <a
                   className="resource-link"
-                  href={`/verify?code=${encodeURIComponent(certificate.certificate_code)}`}
+                  href={academyUrl(
+                    `/verify?code=${encodeURIComponent(certificate.certificate_code)}`,
+                  )}
                 >
                   <ShieldCheck /> التحقق من الشهادة
                 </a>
@@ -1111,7 +1126,7 @@ export function App() {
 
   if (!academyFeatureEnabled) return <AcademyUnavailable />;
   if (!academyBackendConfigured) return <ConfigurationRequired />;
-  if (window.location.pathname === "/verify") return <VerifyCertificatePage />;
+  if (window.location.pathname === academyUrl("/verify")) return <VerifyCertificatePage />;
   if (loadingSession || loadingProfile) return <LoadingScreen />;
   if (!user) return <AuthPage />;
   if (profileError) {
