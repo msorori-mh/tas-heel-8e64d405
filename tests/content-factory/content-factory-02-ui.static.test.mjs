@@ -11,6 +11,10 @@ const unitFunctions = readFileSync("src/lib/content-codes/content-codes.function
 const textbookManager = readFileSync("src/components/admin/SubjectTextbooksManager.tsx", "utf8");
 const adminLayout = readFileSync("src/components/admin/AdminLayout.tsx", "utf8");
 const contentCenterNav = readFileSync("src/components/admin/ContentImportCenterNav.tsx", "utf8");
+const publishFn = readFileSync(
+  "src/lib/content-factory/golden-lesson-direct-publish.functions.ts",
+  "utf8",
+);
 
 test("the import center exposes the unified curriculum and lesson-content workflow", () => {
   assert.match(route, /الاستيراد والفحص والنشر/);
@@ -136,6 +140,32 @@ test("a single-component publish carries only that component", () => {
   assert.match(component, /buildAnswersCompanion\(answerSets, subset\)/);
   assert.match(component, /asset\.referencedBy\.some\(carries\)/);
   assert.match(component, /buildManifest\(subset, companion\)/);
+});
+
+/**
+ * Publishing one component must take the single-component server path, not the CF11
+ * whole-lesson chain -- that chain demands the mind map, the lab and the book content in
+ * every batch, which is what made a one-file publish impossible.
+ */
+test("a single-component publish takes the single-component server path", () => {
+  assert.match(component, /const single = subset && subset\.length === 1 \? subset\[0\] : null/);
+  assert.match(component, /publishDirectNow\(verified, single\)/);
+  assert.match(component, /publishDirectNow\(resumed, single\)/);
+  assert.match(component, /only \? \{ capability: only \} : \{\}/);
+});
+
+test("the server publishes one component without CF11 when a capability is named", () => {
+  assert.match(publishFn, /capability: z\n?\s*\.enum\(/);
+  assert.match(publishFn, /if \(data\.capability\) \{/);
+  assert.match(publishFn, /golden_lesson_publish_component/);
+  assert.match(publishFn, /_capability: data\.capability/);
+  // The whole-lesson chain stays available for a full publish.
+  assert.match(publishFn, /golden_lesson_publish_cf11/);
+  assert.ok(
+    publishFn.indexOf("golden_lesson_publish_component") <
+      publishFn.indexOf('rpc("golden_lesson_publish_cf11"'),
+    "the single-component branch must return before the CF11 chain runs",
+  );
 });
 
 /** Per-component publishing needs per-component feedback, not one shared banner. */

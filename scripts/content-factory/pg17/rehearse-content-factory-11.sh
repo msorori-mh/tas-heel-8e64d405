@@ -68,4 +68,5 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/supabase/migrations/20260903010000_cf10_answer_companion_only_with_questions.sql" \
   -f "$root_dir/supabase/migrations/20260905010000_cf10_batch_owns_only_what_it_carries.sql" \
   -f "$root_dir/supabase/migrations/20260906010000_no_lesson_component_is_mandatory.sql" \
+  -f "$root_dir/supabase/migrations/20260907010000_publish_one_component_in_one_step.sql" \
   -f "$root_dir/scripts/content-factory/pg17/lesson-component-independent-publishing-02-cf11-pg17.sql"

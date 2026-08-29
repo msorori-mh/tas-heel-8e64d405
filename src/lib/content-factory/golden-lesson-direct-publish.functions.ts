@@ -18,6 +18,22 @@ import {
 const Input = z.object({
   packageId: z.string().uuid(),
   version: z.number().int().positive(),
+  /**
+   * Publish exactly one component. Everything up to the domain write is identical -- the
+   * package is still staged, bound to its lesson and materialised. Only the last step
+   * differs: one component goes live on its own instead of the lesson going out as a unit.
+   */
+  capability: z
+    .enum([
+      "officialBookContent",
+      "tamkeenExplanationHtml",
+      "lessonSummaryHtml",
+      "mindMapHtml",
+      "labExperimentHtml",
+      "officialBookQuestions",
+      "selfTest",
+    ])
+    .optional(),
 });
 
 export interface DirectPublishStep {
@@ -188,6 +204,28 @@ export const publishGoldenLessonDirect = createServerFn({ method: "POST" })
         "EXECUTE",
       );
       push("assets", "التحقق من المرفقات", `${ensured.declarations.length} ملف`);
+
+      // One component, one step. It goes live on its own: nothing here reads, writes or
+      // asserts anything about the other six, so a lesson that has only a mind map is
+      // published exactly as readily as a lesson that has all seven.
+      if (data.capability) {
+        const componentResult = record(
+          await rpc("golden_lesson_publish_component", {
+            _batch_id: batchId,
+            _capability: data.capability,
+            _idempotency_key: idempotencyKey("component", batchId, data.capability),
+          }),
+          "COMPONENT_PUBLISH_FAILED",
+        );
+        push(
+          "publish-component",
+          "نشر المكوّن",
+          String(componentResult["student_can_see_this_component"]) === "true"
+            ? "تم — المكوّن ظاهر للطلاب الآن"
+            : "تم",
+        );
+        return { steps, lessonId: ensured.lessonId, batchId };
+      }
 
       const dryPublish = record(
         await rpc("golden_lesson_publish_cf11", {

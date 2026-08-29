@@ -34,12 +34,38 @@ test("prelaunch purge is full-admin, preview-bound, idempotent, audited, and cen
   assert.match(migration, /REVOKE EXECUTE ON FUNCTION public\.admin_curriculum_force_delete/);
 });
 
-test("admin UI requires typed confirmation and reason and does not expose old force delete", () => {
+test("the bulk purge requires a typed confirmation, a reason and a pinned preview", () => {
   assert.match(ui, /confirmation === status\.confirmation_phrase/);
   assert.match(ui, /reason\.trim\(\)\.length >= 12/);
   assert.match(ui, /_expected_preview_sha256: status\.preview_sha256/);
   assert.match(ui, /useAuth\(\)/);
-  assert.doesNotMatch(legacyDialog, /admin_curriculum_force_delete|حذف نهائي قسري/);
+});
+
+/**
+ * Force delete is a deliberate prelaunch tool, not the blanket escape hatch it used to be.
+ * It is kept because deleting test curriculum has to stay cheap while no real student data
+ * exists — so what this asserts is the shape that makes it defensible, and it fails if any
+ * one of those four constraints is dropped.
+ *
+ * Revisit before real student records exist: at that point the blockers this steps over are
+ * protecting people's work, and the ticketed prelaunch purge is the right instrument.
+ */
+test("force delete stays narrow, blocked-only, audited and admin-enforced", () => {
+  // 1. only after the ordinary delete has actually been refused
+  assert.match(legacyDialog, /DELETE_BLOCKED/);
+  assert.match(legacyDialog, /setBlocked\(true\)/);
+  assert.match(legacyDialog, /blocked &&/);
+  // 2. only for units and lessons — never a subject, question or exam template
+  assert.match(
+    legacyDialog,
+    /FORCE_DELETABLE: readonly CurriculumEntityType\[\] = \["unit", "lesson"\]/,
+  );
+  assert.match(legacyDialog, /FORCE_DELETABLE\.includes\(target\.type\)/);
+  // 3. every failure carries a traceable rpc/request marker
+  assert.match(legacyDialog, /trackedError\("admin_curriculum_force_delete"/);
+  // 4. the refusal for a non-admin is surfaced, and enforced server-side regardless
+  assert.match(legacyDialog, /الحذف القسري متاح لمدير كامل الصلاحيات فقط/);
+  assert.match(legacyDialog, /سجل التدقيق/);
 });
 
 test("prelaunch purge resolves pgcrypto from the production extensions schema", () => {
