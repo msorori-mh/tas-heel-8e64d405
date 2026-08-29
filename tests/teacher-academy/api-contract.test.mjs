@@ -7,6 +7,7 @@ const migrationPaths = [
   "../../supabase/migrations/20260830020000_teacher_academy_mvp_foundation.sql",
   "../../supabase/migrations/20260830030000_teacher_academy_mvp_learning.sql",
   "../../supabase/migrations/20260830040000_teacher_academy_mvp_assessment_certificates.sql",
+  "../../supabase/migrations/20260830100000_teacher_academy_admin_operational_closure.sql",
 ].map((path) => new URL(path, import.meta.url));
 
 const [api, ...migrations] = await Promise.all([

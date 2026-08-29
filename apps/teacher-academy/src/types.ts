@@ -38,13 +38,26 @@ export type AcademyCapability =
 export type AdminProgram = {
   program_id: string;
   program_version_id: string;
+  version_number: number;
   title: string;
   summary: string;
   audience_type: "ALL_TEACHERS" | "SUBJECT_SPECIFIC";
+  subject_ids: string[];
   subject_names: string | null;
   estimated_minutes: number;
   status: "DRAFT" | "PUBLISHED";
   published_at: string | null;
+  archived_at: string | null;
+  is_current_published: boolean;
+  lesson_count: number;
+  question_count: number;
+};
+
+export type AdminProgramCheck = {
+  check_key: "DRAFT_VERSION" | "AUDIENCE" | "LESSONS" | "ASSESSMENT";
+  label: string;
+  passed: boolean;
+  details: string;
 };
 
 export type AdminTeacher = {
