@@ -106,6 +106,28 @@ interface Props {
 export function OfficialTextbookContent({ content, showLayerHeader = true, className }: Props) {
   const raw = (content ?? "").trim();
 
+  /**
+   * A self-contained document is rendered as one, before anything else.
+   *
+   * The team authors the official textbook layer as a complete RTL HTML file with its own
+   * embedded styling. That is a different shape from the structured Layer-A tree, and it
+   * carries no data-layer marker, so the structured check below rejected it and the file
+   * fell through to the legacy plain-text branch -- which printed the markup on screen as
+   * text. It renders in the static, network-free iframe: scripts are disabled and the CSP
+   * blocks every external request, and the upload gate already refused script tags,
+   * inline handlers and external links before the file was ever stored.
+   */
+  if (/<html[\s>]|<!doctype/i.test(raw)) {
+    return (
+      <InlineHtmlResourceViewer
+        title="محتوى الكتاب الرسمي"
+        html={raw}
+        htmlResourceType="STATIC"
+        resourceType="official"
+      />
+    );
+  }
+
   // Legacy plain-text lessons keep working untouched.
   if (!isOfficialStructuredContent(raw)) {
     return (
@@ -121,21 +143,6 @@ export function OfficialTextbookContent({ content, showLayerHeader = true, class
   }
 
   const parsed = parseOfficialContent(raw);
-
-  // Full official documents are authored as self-contained, RTL HTML with
-  // embedded textbook styling. Render them verbatim in the static, network-free
-  // iframe after the official marker check. Scripts remain disabled and the
-  // CSP prevents every external request.
-  if (/<html[\s>]|<!doctype/i.test(raw)) {
-    return (
-      <InlineHtmlResourceViewer
-        title="محتوى الكتاب الرسمي"
-        html={raw}
-        htmlResourceType="STATIC"
-        resourceType="official"
-      />
-    );
-  }
 
   if (!parsed.ok || !parsed.root) {
     return (

@@ -166,12 +166,19 @@ test("a component already uploaded under this exact manifest resumes its own ver
  */
 test("an already-prepared component publishes from its own batch", () => {
   assert.match(publishFn, /capabilitySha256: z/);
-  assert.match(publishFn, /\.eq\("source_sha256", data\.capabilitySha256\)/);
-  assert.match(publishFn, /golden_lesson_domain_materializations/);
   assert.match(component, /capabilitySha256: uploads\[only\]!\.sha256/);
+  // The batch is resolved in the database. Matching it from the client meant joining two
+  // tables with no foreign key between them, which failed before the lookup began.
+  assert.match(publishFn, /golden_lesson_publish_component_by_file/);
+  assert.match(publishFn, /_source_sha256: data\.capabilitySha256/);
+  assert.doesNotMatch(publishFn, /golden_lesson_identity_bindings!inner/);
+  assert.doesNotMatch(publishFn, /PREPARED_BATCH_LOOKUP_FAILED/);
+  // A lesson with no prepared batch yet still goes through the package chain.
+  assert.match(publishFn, /LCP_NO_PREPARED_BATCH/);
   // and it returns before the version check that would refuse it
   assert.ok(
-    publishFn.indexOf("PREPARED_BATCH_LOOKUP_FAILED") < publishFn.indexOf("STALE_PACKAGE_VERSION"),
+    publishFn.indexOf("golden_lesson_publish_component_by_file") <
+      publishFn.indexOf("STALE_PACKAGE_VERSION"),
     "the prepared-batch path must run before the current-version check",
   );
 });

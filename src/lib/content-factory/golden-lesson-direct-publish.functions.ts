@@ -81,70 +81,39 @@ export const publishGoldenLessonDirect = createServerFn({ method: "POST" })
         steps.push({ key, label, detail });
 
       /**
-       * A component that has already been uploaded, verified, bound to its lesson and
-       * written into the content tables needs nothing from the package pipeline: its batch
-       * is prepared and only the publish call is missing.
+       * A component whose exact file is already staged, bound to its lesson and written
+       * into the content tables needs nothing from the package pipeline: only the publish
+       * call is missing. Going through the chain for it cannot even succeed, because that
+       * chain refuses any version but the package's current one, and a component's batch
+       * stops being current as soon as another component is uploaded after it.
        *
-       * Going through the package chain for it is not merely wasteful, it cannot succeed.
-       * That chain refuses any version other than the package's current one, and a
-       * component's batch stops being current the moment a different component is uploaded
-       * after it -- which is the normal rhythm of publishing seven components one at a time.
-       * So the batch is published where it stands.
+       * The batch is found in the database rather than here. Matching it from the client
+       * meant asking PostgREST to join two tables that have no foreign key between them,
+       * which failed before the lookup began. It also has to pick the newest batch that is
+       * bound AND materialised -- the same file sits in many older batches that were never
+       * materialised, and publishing from one of those fails.
        */
       if (data.capability && data.capabilitySha256) {
-        const { createClient: createAdminClient } = await import("@supabase/supabase-js");
-        const admin = createAdminClient(
-          process.env["SUPABASE_URL"]!,
-          process.env["SUPABASE_SERVICE_ROLE_KEY"]!,
-          { auth: { persistSession: false, autoRefreshToken: false } },
-        );
-        const prepared = await admin
-          .from("golden_lesson_domain_stage_entries")
-          .select(
-            "batch_id,golden_lesson_domain_stage_batches!inner(package_id),golden_lesson_identity_bindings!inner(lesson_id)",
-          )
-          .eq("capability", data.capability)
-          .eq("source_sha256", data.capabilitySha256)
-          .eq("golden_lesson_domain_stage_batches.package_id", data.packageId)
-          .limit(1)
-          .maybeSingle();
-        if (prepared.error)
-          throw new Error(`PREPARED_BATCH_LOOKUP_FAILED: ${prepared.error.message}`);
-
-        const preparedRow = prepared.data as {
-          batch_id: string;
-          golden_lesson_identity_bindings: { lesson_id: string } | { lesson_id: string }[];
-        } | null;
-
-        if (preparedRow) {
-          const binding = Array.isArray(preparedRow.golden_lesson_identity_bindings)
-            ? preparedRow.golden_lesson_identity_bindings[0]
-            : preparedRow.golden_lesson_identity_bindings;
-          const materialized = await admin
-            .from("golden_lesson_domain_materializations")
-            .select("id", { count: "exact", head: true })
-            .eq("batch_id", preparedRow.batch_id);
-          if (materialized.error) {
-            throw new Error(`PREPARED_BATCH_CHECK_FAILED: ${materialized.error.message}`);
+        const found = await rpc("golden_lesson_publish_component_by_file", {
+          _package_id: data.packageId,
+          _capability: data.capability,
+          _source_sha256: data.capabilitySha256,
+        });
+        // No prepared batch yet: fall through and build one through the package chain.
+        if (!found.error) {
+          const componentResult = record(found, "COMPONENT_PUBLISH_FAILED");
+          if (componentResult["student_can_see_this_component"] !== true) {
+            throw new Error("COMPONENT_PUBLISHED_BUT_NOT_VISIBLE");
           }
-          if (Number(materialized.count ?? 0) > 0 && binding?.lesson_id) {
-            const componentResult = record(
-              await rpc("golden_lesson_publish_component", {
-                _batch_id: preparedRow.batch_id,
-                _capability: data.capability,
-                _idempotency_key: `component:${preparedRow.batch_id}:${data.capability}`,
-              }),
-              "COMPONENT_PUBLISH_FAILED",
-            );
-            const visible = componentResult["student_can_see_this_component"] === true;
-            if (!visible) throw new Error("COMPONENT_PUBLISHED_BUT_NOT_VISIBLE");
-            push("publish-component", "نشر المكوّن", "تم — المكوّن ظاهر للطلاب الآن");
-            return {
-              steps,
-              lessonId: String(binding.lesson_id),
-              batchId: preparedRow.batch_id,
-            };
-          }
+          push("publish-component", "نشر المكوّن", "تم — المكوّن ظاهر للطلاب الآن");
+          return {
+            steps,
+            lessonId: String(componentResult["lesson_id"]),
+            batchId: String(componentResult["batch_id"] ?? ""),
+          };
+        }
+        if (!found.error.message.includes("LCP_NO_PREPARED_BATCH")) {
+          throw new Error(`COMPONENT_PUBLISH_FAILED: ${found.error.message}`);
         }
       }
 
