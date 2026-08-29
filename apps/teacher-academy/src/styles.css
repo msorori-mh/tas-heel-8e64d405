@@ -1079,6 +1079,372 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.55);
 }
 
+.admin-heading {
+  align-items: center;
+}
+
+.security-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #bfe6d7;
+  border-radius: 999px;
+  color: var(--success);
+  background: var(--success-soft);
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.security-chip svg,
+.metric-icon svg,
+.operations-list svg,
+.program-admin-meta svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.admin-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.admin-metric-card {
+  gap: 0.3rem;
+  padding: 1.1rem;
+}
+
+.admin-metric-card .metric-icon {
+  display: grid;
+  width: 2.3rem;
+  height: 2.3rem;
+  margin-bottom: 0.35rem;
+  place-items: center;
+  border-radius: 0.7rem;
+  color: var(--teal);
+  background: var(--mint);
+}
+
+.admin-metric-card .metric-icon svg {
+  margin: 0;
+}
+
+.admin-metric-card > strong {
+  color: var(--navy);
+  font-size: 1.55rem;
+}
+
+.admin-metric-card > small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.compact-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.overview-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.overview-panel {
+  padding: 0 1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.operations-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.operations-list > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.8rem;
+  border-radius: 0.75rem;
+  color: #684b10;
+  background: #fff7e5;
+}
+
+.operations-list > div.operation-ok {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.operations-list span {
+  display: grid;
+  gap: 0.15rem;
+  line-height: 1.55;
+}
+
+.compact-row {
+  min-height: 4rem;
+  padding: 0.75rem;
+}
+
+.compact-row small {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.compact-toolbar {
+  padding-top: 0;
+}
+
+.compact-toolbar > h3 {
+  margin: 0;
+}
+
+.toolbar-actions,
+.card-actions,
+.segmented-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.segmented-control {
+  gap: 0.2rem;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.segmented-control button {
+  min-height: 2.5rem;
+  padding: 0.55rem 0.8rem;
+  border: 0;
+  border-radius: 0.55rem;
+  color: var(--muted);
+  background: transparent;
+  font-weight: 800;
+}
+
+.segmented-control button.active {
+  color: var(--navy);
+  background: #eaf1f5;
+}
+
+.program-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.program-admin-card {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 7px 24px rgba(24, 49, 74, 0.05);
+}
+
+.program-admin-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.program-admin-header h3 {
+  margin: 0.2rem 0 0;
+  line-height: 1.45;
+}
+
+.version-label {
+  color: var(--teal);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.program-admin-card > p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.program-admin-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.program-admin-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 999px;
+  color: #4d5f74;
+  background: #f1f5f7;
+  font-size: 0.77rem;
+  font-weight: 700;
+}
+
+.card-actions {
+  align-self: end;
+  padding-top: 0.25rem;
+  border-top: 1px solid #edf1f4;
+}
+
+.card-actions .primary-button,
+.card-actions .secondary-button {
+  min-height: 2.65rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.validation-panel {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem;
+  border: 1px solid;
+  border-radius: 0.75rem;
+}
+
+.validation-panel.ready {
+  border-color: #bfe6d7;
+  background: var(--success-soft);
+}
+
+.validation-panel.blocked {
+  border-color: #f1c8c8;
+  background: var(--danger-soft);
+}
+
+.validation-panel > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.validation-panel svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+  margin-top: 0.15rem;
+}
+
+.validation-panel span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.validation-panel small {
+  color: var(--muted);
+}
+
+.full-span {
+  grid-column: 1 / -1;
+}
+
+.status.neutral {
+  color: #52657a;
+  background: #edf2f5;
+}
+
+.large-dialog {
+  width: min(100%, 1040px);
+}
+
+.dialog-toolbar {
+  position: sticky;
+  z-index: 2;
+  top: -1.2rem;
+  margin: -1.2rem -1.2rem 1rem;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(247, 249, 251, 0.96);
+  backdrop-filter: blur(10px);
+}
+
+.dialog-toolbar h2,
+.dialog-toolbar p {
+  margin-bottom: 0.2rem;
+}
+
+.lesson-admin-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.lesson-preview {
+  max-height: 9rem;
+  overflow: auto;
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  border-radius: 0.65rem;
+  color: #34485f;
+  background: #f7f9fb;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: #fff;
+}
+
+.preview-heading h3,
+.preview-heading p {
+  margin-bottom: 0.2rem;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(150px, 1fr));
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: #fff;
+}
+
+.filter-grid label {
+  display: grid;
+  gap: 0.35rem;
+  color: #405064;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.filter-grid input,
+.filter-grid select {
+  min-height: 2.7rem;
+}
+
+.data-main {
+  min-width: 0;
+}
+
+.data-main small {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.row-actions svg,
+.card-actions svg,
+.toolbar-actions svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 .mobile-header,
 .menu-backdrop {
   display: none;
@@ -1101,6 +1467,12 @@ textarea:focus {
   .program-grid,
   .admin-grid,
   .learning-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-metrics-grid,
+  .compact-metrics,
+  .filter-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1163,7 +1535,12 @@ textarea:focus {
   .form-grid,
   .program-grid,
   .admin-grid,
-  .certificate-grid {
+  .certificate-grid,
+  .admin-metrics-grid,
+  .compact-metrics,
+  .overview-columns,
+  .program-admin-grid,
+  .filter-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1180,6 +1557,28 @@ textarea:focus {
   .lesson-card {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .admin-heading,
+  .program-admin-header,
+  .preview-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar-actions,
+  .card-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar-actions > *,
+  .card-actions > * {
+    width: 100%;
+  }
+
+  .lesson-admin-row {
+    grid-template-columns: 1fr;
   }
 
   .search-input {

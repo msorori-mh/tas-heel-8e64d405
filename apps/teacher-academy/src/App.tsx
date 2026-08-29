@@ -997,6 +997,7 @@ function Workspace({
   );
 
   const displayName = profile?.full_name ?? user.email ?? "مسؤول الأكاديمية";
+  const displayMeta = profile ? user.email : "مسؤول الأكاديمية";
 
   function selectView(nextView: WorkspaceView) {
     setView(nextView);
@@ -1046,7 +1047,7 @@ function Workspace({
             <span>{displayName.slice(0, 1)}</span>
             <div>
               <strong>{displayName}</strong>
-              <small>{user.email}</small>
+              <small>{displayMeta}</small>
             </div>
           </div>
           <button className="nav-item" onClick={() => academySupabase.auth.signOut()}>

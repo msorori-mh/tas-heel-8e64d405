@@ -4,6 +4,7 @@ import type {
   AcademyCapability,
   AcademySubject,
   AdminAssessmentQuestion,
+  AdminProgramCheck,
   AdminProgress,
   AdminProgram,
   AdminLesson,
@@ -122,7 +123,7 @@ export async function loadCapabilities(): Promise<Set<AcademyCapability>> {
 
 export async function adminListPrograms(): Promise<AdminProgram[]> {
   requireAcademyBackend();
-  const { data, error } = await academySupabase.rpc("admin_list_programs");
+  const { data, error } = await academySupabase.rpc("admin_list_programs_v2");
   if (error) throw error;
   return (data ?? []) as AdminProgram[];
 }
@@ -144,6 +145,49 @@ export async function adminPublishProgram(programVersionId: string): Promise<voi
   requireAcademyBackend();
   const { error } = await academySupabase.rpc("admin_publish_program", {
     p_program_version_id: programVersionId,
+  });
+  if (error) throw error;
+}
+
+export async function adminUpdateDraftProgram(
+  programVersionId: string,
+  input: ProgramDraftInput,
+): Promise<void> {
+  requireAcademyBackend();
+  const { error } = await academySupabase.rpc("admin_update_draft_program", {
+    p_program_version_id: programVersionId,
+    p_title: input.title,
+    p_summary: input.summary,
+    p_audience_type: input.audienceType,
+    p_estimated_minutes: input.estimatedMinutes,
+    p_subject_ids: input.subjectIds,
+  });
+  if (error) throw error;
+}
+
+export async function adminCreateDraftVersion(sourceVersionId: string): Promise<string> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("admin_create_draft_version", {
+    p_source_version_id: sourceVersionId,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function adminValidateProgram(programVersionId: string): Promise<AdminProgramCheck[]> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("admin_validate_program", {
+    p_program_version_id: programVersionId,
+  });
+  if (error) throw error;
+  return (data ?? []) as AdminProgramCheck[];
+}
+
+export async function adminSetProgramArchived(programId: string, archived: boolean): Promise<void> {
+  requireAcademyBackend();
+  const { error } = await academySupabase.rpc("admin_set_program_archived", {
+    p_program_id: programId,
+    p_archived: archived,
   });
   if (error) throw error;
 }
@@ -201,6 +245,26 @@ export async function adminDeleteLesson(lessonId: string): Promise<void> {
   requireAcademyBackend();
   const { error } = await academySupabase.rpc("admin_delete_lesson", {
     p_lesson_id: lessonId,
+  });
+  if (error) throw error;
+}
+
+export async function adminUpdateLesson(input: {
+  lessonId: string;
+  title: string;
+  lessonType: "TEXT" | "VIDEO" | "LINK";
+  content: string;
+  resourceUrl: string | null;
+  durationMinutes: number;
+}): Promise<void> {
+  requireAcademyBackend();
+  const { error } = await academySupabase.rpc("admin_update_lesson", {
+    p_lesson_id: input.lessonId,
+    p_title: input.title,
+    p_lesson_type: input.lessonType,
+    p_content: input.content,
+    p_resource_url: input.resourceUrl,
+    p_duration_minutes: input.durationMinutes,
   });
   if (error) throw error;
 }
@@ -338,6 +402,28 @@ export async function adminDeleteAssessmentQuestion(questionId: string): Promise
   requireAcademyBackend();
   const { error } = await academySupabase.rpc("admin_delete_assessment_question", {
     p_question_id: questionId,
+  });
+  if (error) throw error;
+}
+
+export async function adminUpdateAssessmentQuestion(input: {
+  questionId: string;
+  questionText: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  correctOption: "a" | "b" | "c" | "d";
+}): Promise<void> {
+  requireAcademyBackend();
+  const { error } = await academySupabase.rpc("admin_update_assessment_question", {
+    p_question_id: input.questionId,
+    p_question_text: input.questionText,
+    p_option_a: input.optionA,
+    p_option_b: input.optionB,
+    p_option_c: input.optionC,
+    p_option_d: input.optionD,
+    p_correct_option: input.correctOption,
   });
   if (error) throw error;
 }
