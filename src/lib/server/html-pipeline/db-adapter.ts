@@ -232,7 +232,6 @@ export function createSupabaseDbAdapter({
         throw new Error(`فشل جلب موارد HTML المنشورة للدرس: ${message}`);
       }
 
-
       const rows = (data ?? []) as Array<{
         id: string;
         html_resource_type: string | null;
