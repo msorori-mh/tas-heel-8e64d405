@@ -158,10 +158,38 @@ test("a component already uploaded under this exact manifest resumes its own ver
   );
 });
 
+/**
+ * A component whose batch is already staged, bound and materialised is published where it
+ * stands. Sending it through the package chain cannot work: that chain refuses any version
+ * other than the package's current one, and a component's batch stops being current as soon
+ * as a different component is uploaded after it.
+ */
+test("an already-prepared component publishes from its own batch", () => {
+  assert.match(publishFn, /capabilitySha256: z/);
+  assert.match(publishFn, /\.eq\("source_sha256", data\.capabilitySha256\)/);
+  assert.match(publishFn, /golden_lesson_domain_materializations/);
+  assert.match(component, /capabilitySha256: uploads\[only\]!\.sha256/);
+  // and it returns before the version check that would refuse it
+  assert.ok(
+    publishFn.indexOf("PREPARED_BATCH_LOOKUP_FAILED") < publishFn.indexOf("STALE_PACKAGE_VERSION"),
+    "the prepared-batch path must run before the current-version check",
+  );
+});
+
+/** "Published" means the student can see it; nothing weaker may be reported as done. */
+test("a publish is only reported as done when the student can see the component", () => {
+  assert.equal(
+    (publishFn.match(/COMPONENT_PUBLISHED_BUT_NOT_VISIBLE/g) ?? []).length,
+    2,
+    "both the prepared-batch path and the package chain must assert visibility",
+  );
+  assert.doesNotMatch(publishFn, /student_can_see_this_component"\]\) === "true"/);
+});
+
 /** The operator reads the reason, not the plumbing that produced it. */
 test("the version-uniqueness collision is explained rather than shown raw", () => {
   assert.match(component, /golden_lesson_package_version_package_id_canonical_manifest/);
-  assert.match(component, /منشور بالفعل بنفس المحتوى/);
+  assert.match(component, /مرفوع ومتحقق منه مسبقًا لهذا المكوّن/);
   assert.match(component, /intakeErrorRef\.current \?\? "DIRECT_INTAKE_FAILED"/);
 });
 
@@ -193,7 +221,7 @@ test("a single-component publish takes the single-component server path", () => 
   assert.match(component, /const single = subset && subset\.length === 1 \? subset\[0\] : null/);
   assert.match(component, /publishDirectNow\(verified, single\)/);
   assert.match(component, /publishDirectNow\(resumed, single\)/);
-  assert.match(component, /only \? \{ capability: only \} : \{\}/);
+  assert.match(component, /\.\.\.\(only\s*\n?\s*\? \{\s*\n?\s*capability: only,/);
 });
 
 test("the server publishes one component without CF11 when a capability is named", () => {
