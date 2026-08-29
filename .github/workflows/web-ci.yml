@@ -44,10 +44,15 @@ jobs:
         if: always()
         run: npx tsc --noEmit
 
+      - name: Typecheck Teacher Academy
+        if: always()
+        run: npm run academy:typecheck
+
       - name: Run unit tests
         if: always()
         run: |
           npm test
+          npm run academy:test
           node --test tests/import/curriculum-subject-unit-lesson-intake-13j.static.test.mjs
           node --test tests/import/subject-textbook-grade-upload-13k.static.test.mjs
           node --test tests/security/student-textbook-governorate-track-13l.static.test.mjs
@@ -91,7 +96,49 @@ jobs:
 
       - name: Build client and server bundles
         if: always()
-        run: npm run build
+        run: |
+          npm run build
+          npm run academy:build
+
+  teacher-academy-pg17:
+    name: Teacher Academy MVP PG17 contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Start isolated PostgreSQL 17
+        run: |
+          docker run --detach --rm \
+            --name tamkeen-academy-pg17 \
+            --publish 127.0.0.1:5432:5432 \
+            --env POSTGRES_PASSWORD=tamkeen_academy_ci_only \
+            --env POSTGRES_DB=tamkeen_academy \
+            postgres:17
+          for attempt in {1..30}; do
+            if docker exec tamkeen-academy-pg17 pg_isready --username postgres --dbname tamkeen_academy; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs tamkeen-academy-pg17
+          exit 1
+
+      - name: Apply academy migrations and run runtime contract
+        env:
+          ACADEMY_PG17_URL: postgresql://postgres:tamkeen_academy_ci_only@localhost:5432/tamkeen_academy
+        run: |
+          psql "$ACADEMY_PG17_URL" --set=ON_ERROR_STOP=1 \
+            --file scripts/teacher-academy/pg17-fixture.sql \
+            --file supabase/migrations/20260830020000_teacher_academy_mvp_foundation.sql \
+            --file supabase/migrations/20260830030000_teacher_academy_mvp_learning.sql \
+            --file supabase/migrations/20260830040000_teacher_academy_mvp_assessment_certificates.sql \
+            --file scripts/teacher-academy/pg17-contract.sql
+
+      - name: Stop isolated PostgreSQL 17
+        if: always()
+        run: docker stop tamkeen-academy-pg17 || true
 
   content-v3-pg17:
     name: Content V3 disposable PG17 runtime

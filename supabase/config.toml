@@ -1,1 +1,5 @@
 project_id = "zbdhxyuulyovihjgeqbn"
+
+[api]
+schemas = ["public", "graphql_public", "academy"]
+extra_search_path = ["public", "extensions"]
