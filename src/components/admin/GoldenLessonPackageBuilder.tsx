@@ -180,6 +180,9 @@ function friendlyDirectIntakeError(error: unknown) {
   if (message.includes("PACKAGE_IDENTITY_IMMUTABLE")) {
     return "تعذر النشر لأن كود الحزمة مرتبط مسبقًا بهوية درس مختلفة. أعد الفحص لعرض الحقول المتعارضة.";
   }
+  if (message.includes("golden_lesson_package_version_package_id_canonical_manifest")) {
+    return "هذا المكوّن بملفه الحالي منشور بالفعل بنفس المحتوى؛ لا حاجة لإعادة نشره. غيّر الملف إن أردت تحديثه.";
+  }
   if (message.includes("DIRECT_INTAKE_ALREADY_VERIFIED")) {
     return "هذه النسخة متحقق منها مسبقًا؛ أعد الضغط على النشر لاستئناف العملية دون رفع جديد.";
   }
@@ -510,6 +513,7 @@ export function GoldenLessonPackageBuilder() {
   // setState does not settle before the next await, so the message thrown to the calling
   // component has to be read from a ref rather than from publishError.
   const publishErrorRef = useRef<string | null>(null);
+  const intakeErrorRef = useRef<string | null>(null);
   const [publishSteps, setPublishSteps] = useState<DirectPublishStep[]>([]);
   // Publishing is per component now, so the busy flag, the failure and the receipt all
   // belong to a component rather than to the page.
@@ -1187,7 +1191,9 @@ export function GoldenLessonPackageBuilder() {
           data: { intakeId: activeIntakeId, manifest },
         }).catch(() => undefined);
       }
-      setIntakeError(friendlyDirectIntakeError(error));
+      const message = friendlyDirectIntakeError(error);
+      intakeErrorRef.current = message;
+      setIntakeError(message);
       return null;
     } finally {
       setIntakeBusy(false);
@@ -1235,7 +1241,9 @@ export function GoldenLessonPackageBuilder() {
   const publishSubset = async (subset: GoldenCapability[] | null) => {
     setPublishSteps([]);
     setPublishError(null);
+    publishErrorRef.current = null;
     setIntakeError(null);
+    intakeErrorRef.current = null;
     setIntakeBusy(true);
 
     // A subset of exactly one takes the single-component publish path on the server.
@@ -1248,8 +1256,10 @@ export function GoldenLessonPackageBuilder() {
       preflight = await preflightGoldenLessonDirect({ data: { manifest } });
       setServerPreflight(preflight);
     } catch (error) {
-      setIntakeError(friendlyDirectIntakeError(error));
-      throw error;
+      const message = friendlyDirectIntakeError(error);
+      intakeErrorRef.current = message;
+      setIntakeError(message);
+      throw new Error(message);
     } finally {
       setIntakeBusy(false);
     }
@@ -1278,7 +1288,7 @@ export function GoldenLessonPackageBuilder() {
     }
 
     const verified = await uploadAndVerifyDirectIntake(manifest, subset, companion);
-    if (!verified) throw new Error(intakeError ?? "DIRECT_INTAKE_FAILED");
+    if (!verified) throw new Error(intakeErrorRef.current ?? "DIRECT_INTAKE_FAILED");
     if (!(await publishDirectNow(verified, single))) {
       throw new Error(publishErrorRef.current ?? "DIRECT_PUBLISH_FAILED");
     }

@@ -11,6 +11,7 @@ const unitFunctions = readFileSync("src/lib/content-codes/content-codes.function
 const textbookManager = readFileSync("src/components/admin/SubjectTextbooksManager.tsx", "utf8");
 const adminLayout = readFileSync("src/components/admin/AdminLayout.tsx", "utf8");
 const contentCenterNav = readFileSync("src/components/admin/ContentImportCenterNav.tsx", "utf8");
+const directFns = readFileSync("src/lib/content-factory/golden-lesson-direct.functions.ts", "utf8");
 const publishFn = readFileSync(
   "src/lib/content-factory/golden-lesson-direct-publish.functions.ts",
   "utf8",
@@ -141,6 +142,29 @@ test("publishing happens per component and there is no page-level publish button
  * outcome and it was being discarded, so a component recorded itself as published while
  * the refusal was rendered further down the page.
  */
+/**
+ * A component republished unchanged rebuilds the manifest its first publish already stored,
+ * and versions are unique per (package, manifest) across every version -- not just the
+ * current one. Comparing only against the current version called that a new version and
+ * the insert then hit the constraint.
+ */
+test("a component already uploaded under this exact manifest resumes its own version", () => {
+  assert.match(directFns, /\.eq\("canonical_manifest_sha256", manifestSha256\)/);
+  assert.match(directFns, /const twin = sameManifestQuery\.data as SameManifestVersionRow \| null/);
+  assert.match(directFns, /version: twin\.version/);
+  assert.doesNotMatch(
+    directFns,
+    /const alreadyVerified =\s*\n?\s*current\.current_manifest_sha256 === manifestSha256/,
+  );
+});
+
+/** The operator reads the reason, not the plumbing that produced it. */
+test("the version-uniqueness collision is explained rather than shown raw", () => {
+  assert.match(component, /golden_lesson_package_version_package_id_canonical_manifest/);
+  assert.match(component, /منشور بالفعل بنفس المحتوى/);
+  assert.match(component, /intakeErrorRef\.current \?\? "DIRECT_INTAKE_FAILED"/);
+});
+
 test("a refused publish fails the component that asked for it", () => {
   assert.match(component, /if \(!\(await publishDirectNow\(verified, single\)\)\) \{/);
   assert.match(component, /if \(!\(await publishDirectNow\(resumed, single\)\)\) \{/);
