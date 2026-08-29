@@ -130,10 +130,6 @@ BEGIN
        <> '<html dir="rtl"><body>BOOK-A</body></html>' THEN
     RAISE EXCEPTION 'LCPV2_ABA_LIVE_BODY_WRONG';
   END IF;
-  IF (SELECT count(*) FROM public.lesson_component_publications_v2
-       WHERE lesson_id=v_lesson_id AND capability='officialBookContent') <> 3 THEN
-    RAISE EXCEPTION 'LCPV2_ABA_LEDGER_COUNT_WRONG';
-  END IF;
   IF (SELECT count(*) FROM public.lesson_capability_lifecycle
        WHERE lesson_id=v_lesson_id AND status='READY' AND applicability='OPTIONAL') <> 7 THEN
     RAISE EXCEPTION 'LCPV2_SEVEN_READY_OPTIONAL_ROWS_MISSING';
@@ -164,6 +160,13 @@ RESET ROLE;
 
 DO $security_assert$
 BEGIN
+  -- The ledger is deliberately invisible to authenticated. Assert its history only
+  -- after returning to the database owner role.
+  IF (SELECT count(*) FROM public.lesson_component_publications_v2 p
+       WHERE p.lesson_id='43000000-0000-0000-0000-0000000000b2'
+         AND p.capability='officialBookContent') <> 3 THEN
+    RAISE EXCEPTION 'LCPV2_ABA_LEDGER_COUNT_WRONG';
+  END IF;
   IF has_table_privilege('authenticated','public.lesson_component_intakes_v2','SELECT')
      OR has_table_privilege('authenticated','public.lesson_component_publications_v2','INSERT') THEN
     RAISE EXCEPTION 'LCPV2_PRIVATE_TABLE_EXPOSED';

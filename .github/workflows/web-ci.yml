@@ -119,8 +119,10 @@ jobs:
             --env POSTGRES_PASSWORD=tamkeen_academy_ci_only \
             --env POSTGRES_DB=tamkeen_academy \
             postgres:17
-          for attempt in {1..30}; do
-            if docker exec tamkeen-academy-pg17 pg_isready --username postgres --dbname tamkeen_academy; then
+          for attempt in {1..60}; do
+            if PGPASSWORD=tamkeen_academy_ci_only psql \
+              --host 127.0.0.1 --port 5432 --username postgres --dbname tamkeen_academy \
+              --tuples-only --no-align --command 'SELECT 1' 2>/dev/null | grep --quiet '^1$'; then
               exit 0
             fi
             sleep 1
@@ -164,8 +166,10 @@ jobs:
             --env POSTGRES_PASSWORD=tamkeen_ci_only \
             --env POSTGRES_DB=tamkeen \
             postgres:17
-          for attempt in {1..30}; do
-            if docker exec tamkeen-content-v3-pg17 pg_isready --username postgres --dbname tamkeen; then
+          for attempt in {1..60}; do
+            if PGPASSWORD=tamkeen_ci_only psql \
+              --host 127.0.0.1 --port 5432 --username postgres --dbname tamkeen \
+              --tuples-only --no-align --command 'SELECT 1' 2>/dev/null | grep --quiet '^1$'; then
               exit 0
             fi
             sleep 1
