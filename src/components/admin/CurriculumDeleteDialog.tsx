@@ -185,7 +185,9 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
               <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4">
                 <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-destructive">
                   <ShieldAlert className="h-4 w-4" />
-                  الحذف ممنوع — استخدم أداة التنظيف التجريبي الجماعي أو الأرشفة
+                  {canForceDelete
+                    ? "الحذف العادي ممنوع — يمكن استخدام الحذف القسري (مرحلة ما قبل الإطلاق)"
+                    : "الحذف ممنوع — استخدم أداة التنظيف التجريبي الجماعي أو الأرشفة"}
                 </p>
                 <ul className="space-y-1 text-sm text-destructive/90">
                   {preview.blockers.map((b) => (
@@ -216,6 +218,14 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
             {deleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
             تأكيد الحذف
           </Button>
+
+          {canForceDelete && preview && !preview.deletable && (
+            <Button variant="destructive" disabled={deleting} onClick={() => runDelete(true)}>
+              {deleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+              حذف قسري (يشمل نشاط الطلاب)
+            </Button>
+          )}
+
 
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={deleting}>
             إلغاء
