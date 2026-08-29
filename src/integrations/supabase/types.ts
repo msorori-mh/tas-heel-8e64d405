@@ -5517,6 +5517,14 @@ export type Database = {
         }
         Returns: Json
       }
+      golden_lesson_publish_component: {
+        Args: {
+          _batch_id: string
+          _capability: string
+          _idempotency_key?: string
+        }
+        Returns: Json
+      }
       golden_lesson_rebind_draft_identity: {
         Args: {
           _client_manifest_sha256: string
