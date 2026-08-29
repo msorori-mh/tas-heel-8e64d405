@@ -20,6 +20,14 @@ const rehearsal = readFileSync(
   "scripts/content-factory/pg17/rehearse-content-factory-11.sh",
   "utf8",
 );
+const productionMetadataContract = readFileSync(
+  "supabase/migrations/20260824010000_cf11_rapid_launch_contract_alignment.sql",
+  "utf8",
+);
+const pg17MetadataGuard = readFileSync(
+  "scripts/content-factory/pg17/lesson-resource-metadata-production-guard.sql",
+  "utf8",
+);
 
 test("V2 is one-component publishing, not the package/materialisation pipeline", () => {
   const publishBody = migration.slice(
@@ -66,7 +74,13 @@ test("interactive V2 publications use the closed CF11 resource metadata contract
     assert.doesNotMatch(interactiveBranch, /'publisher','LCPV2'/);
     assert.doesNotMatch(interactiveBranch, /'publicationId'/);
   }
-  assert.match(rehearsal, /20260824010000_cf11_rapid_launch_contract_alignment\.sql/);
+  const metadataFunction = (sql) => {
+    const start = sql.indexOf("CREATE OR REPLACE FUNCTION public.validate_lesson_resource_metadata()");
+    const end = sql.indexOf("$function$;", start) + "$function$;".length;
+    return sql.slice(start, end);
+  };
+  assert.equal(metadataFunction(pg17MetadataGuard), metadataFunction(productionMetadataContract));
+  assert.match(rehearsal, /lesson-resource-metadata-production-guard\.sql/);
   assert.match(rehearsal, /20260910020000_lesson_component_v2_resource_metadata_contract\.sql/);
 });
 
