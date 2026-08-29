@@ -1192,13 +1192,20 @@ export function GoldenLessonPackageBuilder() {
    * Reports whether the server accepted, so a per-component publish can say which
    * component failed instead of only painting the shared error card.
    */
-  const publishDirectNow = async (target: DirectIntakeResult | null = intake): Promise<boolean> => {
+  const publishDirectNow = async (
+    target: DirectIntakeResult | null = intake,
+    only: GoldenCapability | null = null,
+  ): Promise<boolean> => {
     if (!target) return false;
     setPublishBusy(true);
     setPublishError(null);
     try {
       const result = await publishGoldenLessonDirect({
-        data: { packageId: target.packageId, version: target.version },
+        data: {
+          packageId: target.packageId,
+          version: target.version,
+          ...(only ? { capability: only } : {}),
+        },
       });
       setPublishSteps(result.steps);
       return true;
@@ -1221,6 +1228,8 @@ export function GoldenLessonPackageBuilder() {
     setIntakeError(null);
     setIntakeBusy(true);
 
+    // A subset of exactly one takes the single-component publish path on the server.
+    const single = subset && subset.length === 1 ? subset[0] : null;
     const companion = await buildAnswersCompanion(answerSets, subset);
     const manifest = buildManifest(subset, companion);
 
@@ -1250,13 +1259,13 @@ export function GoldenLessonPackageBuilder() {
         domainWritesPerformed: 0,
       };
       setIntake(resumed);
-      await publishDirectNow(resumed);
+      await publishDirectNow(resumed, single);
       return;
     }
 
     const verified = await uploadAndVerifyDirectIntake(manifest, subset, companion);
     if (!verified) throw new Error(intakeError ?? "DIRECT_INTAKE_FAILED");
-    await publishDirectNow(verified);
+    await publishDirectNow(verified, single);
   };
 
   /** One click: publish every component uploaded so far, in one batch. */
