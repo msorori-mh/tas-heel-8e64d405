@@ -169,16 +169,36 @@ export function LessonResourcesDialog({ open, onOpenChange, lessonId, lessonTitl
     try {
       // Delete removed saved resources first (clears primary flag side effects).
       if (deletedIds.length > 0) {
-        const { error: delError } = await supabase
-          .from("lesson_resources")
-          .delete()
-          .in("id", deletedIds);
-        if (delError) {
-          throw new Error(
-            /violates foreign key|RESTRICT/i.test(delError.message)
-              ? "تعذر حذف مورد لأنه مرتبط بمحتوى منشور أو ملفات مرفوعة."
-              : delError.message,
-          );
+        const removed = items.filter((item) => deletedIds.includes(item.id));
+        const interactive = removed.filter(
+          (item) => item.resource_type === "mindmap" || item.resource_type === "experiment",
+        );
+        const directIds = deletedIds.filter((id) => !interactive.some((item) => item.id === id));
+        const callAdminRpc = supabase.rpc.bind(supabase) as unknown as (
+          name: string,
+          params: Record<string, unknown>,
+        ) => Promise<{ error: Error | null }>;
+        for (const item of interactive) {
+          const capability = item.resource_type === "mindmap" ? "mindMapHtml" : "labExperimentHtml";
+          const { error } = await callAdminRpc("admin_delete_lesson_component", {
+            _lesson_id: lessonId,
+            _capability: capability,
+            _reason: `حذف إداري من نافذة موارد الدرس: ${item.title}`,
+          });
+          if (error) throw error;
+        }
+        if (directIds.length > 0) {
+          const { error: delError } = await supabase
+            .from("lesson_resources")
+            .delete()
+            .in("id", directIds);
+          if (delError) {
+            throw new Error(
+              /violates foreign key|RESTRICT/i.test(delError.message)
+                ? "تعذر حذف مورد لأنه مرتبط بمحتوى منشور أو ملفات مرفوعة."
+                : delError.message,
+            );
+          }
         }
       }
 

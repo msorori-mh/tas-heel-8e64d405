@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -105,18 +105,13 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
   /**
    * مساران للحذف:
    *  - عادي (admin_curriculum_delete): يُرفض عند وجود نشاط طلابي/محتوى منشور.
-   *  - قسري (admin_curriculum_force_delete): للوحدات والدروس فقط، ويظهر فقط بعد
-   *    رفض الحذف العادي. يعطّل حرّاس الدرس الذهبي مؤقتاً داخل الخادم ويُسجَّل في
+   *  - نهائي (admin_curriculum_force_delete): للوحدات والدروس فقط، ويظهر عندما
+   *    تثبت المعاينة أن الحذف العادي محظور. يعطّل الحرّاس المحددين مؤقتاً داخل الخادم ويُسجَّل في
    *    سجل التدقيق. الصلاحية تُفرض داخل الدالة نفسها (مدير كامل فقط).
    * كل رسالة خطأ تحمل حقول تتبع [rpc=…][req=…] لتسهيل مطابقتها مع سجلات الإنتاج.
    */
   const FORCE_DELETABLE: readonly CurriculumEntityType[] = ["unit", "lesson"];
-  const [blocked, setBlocked] = useState(false);
   const [forcing, setForcing] = useState(false);
-
-  useEffect(() => {
-    setBlocked(false);
-  }, [target?.id, open]);
 
   const newReqId = () =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -129,7 +124,6 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
   const runDelete = async () => {
     if (!target) return;
     setDeleting(true);
-    setBlocked(false);
     const { error } = await supabase.rpc("admin_curriculum_delete", {
       _entity_type: target.type,
       _entity_id: target.id,
@@ -139,11 +133,10 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
 
     if (error) {
       if (error.message.includes("DELETE_BLOCKED")) {
-        setBlocked(true);
         toast.error(
           trackedError(
             "admin_curriculum_delete",
-            "الحذف العادي ممنوع — يوجد نشاط طلابي أو محتوى منشور. يمكنك استخدام «حذف قسري» أدناه (للوحدات والدروس فقط).",
+            "الحذف العادي ممنوع لوجود محتوى مرتبط. استخدم زر «حذف نهائي» الظاهر في النافذة.",
           ),
         );
       } else if (error.message.includes("FORBIDDEN")) {
@@ -270,21 +263,25 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
             تأكيد الحذف
           </Button>
 
-          {isAdmin && blocked && target && FORCE_DELETABLE.includes(target.type) && (
-            <Button
-              variant="destructive"
-              disabled={forcing || deleting}
-              onClick={runForceDelete}
-              className="border border-destructive-foreground/30"
-            >
-              {forcing ? (
-                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-              ) : (
-                <ShieldAlert className="ml-2 h-4 w-4" />
-              )}
-              حذف قسري (مرحلة تجريبية)
-            </Button>
-          )}
+          {isAdmin &&
+            preview &&
+            !preview.deletable &&
+            target &&
+            FORCE_DELETABLE.includes(target.type) && (
+              <Button
+                variant="destructive"
+                disabled={forcing || deleting}
+                onClick={runForceDelete}
+                className="border border-destructive-foreground/30"
+              >
+                {forcing ? (
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <ShieldAlert className="ml-2 h-4 w-4" />
+                )}
+                حذف نهائي
+              </Button>
+            )}
 
           <Button
             variant="outline"
