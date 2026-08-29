@@ -73,5 +73,7 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/supabase/migrations/20260909010000_component_publish_exactness_idempotency.sql" \
   -f "$root_dir/scripts/content-factory/pg17/lesson-component-independent-publishing-02-cf11-pg17.sql" \
   -f "$root_dir/scripts/content-factory/pg17/component-publishing-exactness-03-pg17.sql" \
+  -f "$root_dir/scripts/content-factory/pg17/lesson-resource-metadata-production-guard.sql" \
   -f "$root_dir/supabase/migrations/20260910010000_lesson_component_publishing_v2.sql" \
+  -f "$root_dir/supabase/migrations/20260910020000_lesson_component_v2_resource_metadata_contract.sql" \
   -f "$root_dir/scripts/content-factory/pg17/lesson-component-publishing-v2-pg17.sql"

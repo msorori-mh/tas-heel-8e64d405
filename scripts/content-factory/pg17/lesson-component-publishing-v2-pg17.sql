@@ -153,6 +153,28 @@ BEGIN
        WHERE a.lesson_id=v_lesson_id) <> 1 THEN
     RAISE EXCEPTION 'LCPV2_SELF_TEST_MEMBERSHIP_WRONG';
   END IF;
+  IF (SELECT count(*) FROM public.lesson_resources r
+       WHERE r.lesson_id=v_lesson_id
+         AND r.resource_type IN ('mindmap','experiment')
+         AND r.metadata ?& ARRAY[
+           'cf11_publication_id','cf11_published_at','cf11_published_by',
+           'cf11_body_sha256','cf11_render_mode','cf11_verified_bundle_sha256','cf11_csp'
+         ]) <> 2 THEN
+    RAISE EXCEPTION 'LCPV2_INTERACTIVE_CF11_METADATA_MISSING';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+      FROM public.lesson_resources r
+      CROSS JOIN LATERAL jsonb_object_keys(r.metadata) AS key_name
+     WHERE r.lesson_id=v_lesson_id
+       AND r.resource_type IN ('mindmap','experiment')
+       AND key_name NOT IN (
+         'cf11_publication_id','cf11_published_at','cf11_published_by',
+         'cf11_body_sha256','cf11_render_mode','cf11_verified_bundle_sha256','cf11_csp'
+       )
+  ) THEN
+    RAISE EXCEPTION 'LCPV2_INTERACTIVE_UNSUPPORTED_METADATA_PRESENT';
+  END IF;
 END
 $publish_and_assert$;
 
