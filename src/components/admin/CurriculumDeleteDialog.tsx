@@ -102,20 +102,26 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
   const preview = previewQ.data;
   const impact = preview ? Object.entries(preview.counts).filter(([, n]) => Number(n) > 0) : [];
 
-  const runDelete = async () => {
+  const runDelete = async (force = false) => {
     if (!target) return;
     setDeleting(true);
-    const { error } = await supabase.rpc("admin_curriculum_delete", {
-      _entity_type: target.type,
-      _entity_id: target.id,
-      _reason: "admin curriculum management",
-    });
+    const { error } = force
+      ? await supabase.rpc("admin_curriculum_force_delete", {
+          _entity_type: target.type,
+          _entity_id: target.id,
+          _reason: "admin prelaunch force delete",
+        })
+      : await supabase.rpc("admin_curriculum_delete", {
+          _entity_type: target.type,
+          _entity_id: target.id,
+          _reason: "admin curriculum management",
+        });
     setDeleting(false);
 
     if (error) {
       toast.error(
         error.message.includes("DELETE_BLOCKED")
-          ? "الحذف ممنوع — يوجد نشاط طلابي أو محتوى منشور. استخدم الأرشفة."
+          ? "الحذف ممنوع — يوجد نشاط طلابي أو محتوى منشور. استخدم الحذف القسري أو الأرشفة."
           : error.message.includes("FORBIDDEN")
             ? "هذه العملية متاحة لمدير كامل الصلاحيات فقط."
             : `تعذر الحذف: ${error.message}`,
@@ -129,7 +135,10 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
     onDeleted?.();
   };
 
-  const handleDelete = () => runDelete();
+  const handleDelete = () => runDelete(false);
+  const canForceDelete =
+    isAdmin && !!target && (target.type === "unit" || target.type === "lesson");
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
