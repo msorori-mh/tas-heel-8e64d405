@@ -3,7 +3,15 @@ import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { Users, BookOpen, FileText, MessageSquare, Shield } from "lucide-react";
+import {
+  Users,
+  BookOpen,
+  FileText,
+  MessageSquare,
+  Shield,
+  GitCommitHorizontal,
+} from "lucide-react";
+import { getReleaseInfo } from "@/lib/release-info";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   component: AdminIndexPage,
@@ -11,6 +19,7 @@ export const Route = createFileRoute("/_authenticated/admin/")({
 
 function AdminIndexPage() {
   const { loading, enabled } = useRequireAdminSection("full");
+  const release = getReleaseInfo();
 
   const studentsQ = useQuery({
     enabled,
@@ -173,10 +182,33 @@ function AdminIndexPage() {
           />
         </div>
 
-        <div className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            سيتم إضافة المزيد من أدوات الإدارة قريبًا.
-          </p>
+        <div
+          className="rounded-xl border border-border bg-card p-5"
+          data-testid="release-diagnostics"
+        >
+          <div className="flex items-center gap-2">
+            <GitCommitHorizontal className="h-5 w-5 text-primary" />
+            <h2 className="text-sm font-bold text-foreground">تشخيص الإصدار المنشور</h2>
+          </div>
+          <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-muted-foreground">التزام الإصدار</dt>
+              <dd className="mt-1 font-mono text-foreground" title={release.sha} dir="ltr">
+                {release.shortSha}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">وقت بناء النسخة</dt>
+              <dd className="mt-1 font-mono text-foreground" dir="ltr">
+                {release.builtAt === "unknown" ? "غير معروف" : release.builtAt}
+              </dd>
+            </div>
+          </dl>
+          {!release.verifiable && (
+            <p className="mt-3 text-xs text-destructive">
+              تعذر إثبات بصمة هذا الإصدار؛ لا تعتمد النسخة للنشر قبل إعادة بناء موثقة.
+            </p>
+          )}
         </div>
       </div>
     </AdminLayout>

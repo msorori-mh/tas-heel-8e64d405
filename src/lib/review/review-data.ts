@@ -11,6 +11,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { hasUsableSummary, normalizeKeyPoints, type ReviewItem } from "./review-types";
+import { toReviewText } from "./review-format";
 import { fetchAllPaged } from "./review-paging";
 
 export { REVIEW_PAGE_SIZE, REVIEW_MAX_PAGES, fetchAllPaged } from "./review-paging";
@@ -136,6 +137,8 @@ export async function fetchReviewItems(input: {
   lessons.forEach((lesson, index) => {
     const summaryRow = summaryByLesson.get(lesson.id);
     if (!summaryRow || !hasUsableSummary(summaryRow.summary)) return;
+    const reviewText = toReviewText(summaryRow.summary);
+    if (!reviewText) return;
     items.push({
       lessonId: lesson.id,
       lessonTitle: lesson.title,
@@ -143,7 +146,7 @@ export async function fetchReviewItems(input: {
       subjectName: subjectName.get(lesson.subject_id) ?? "",
       unitId: lesson.unit_id,
       unitTitle: lesson.unit_id ? (unitTitle.get(lesson.unit_id) ?? null) : null,
-      summary: (summaryRow.summary ?? "").trim(),
+      summary: reviewText,
       keyPoints: normalizeKeyPoints(summaryRow.key_points),
       studyTip: summaryRow.study_tip,
       isCompleted: completed.has(lesson.id),

@@ -52,6 +52,7 @@ jobs:
         if: always()
         run: |
           npm test
+          npm run test:core-reliability
           npm run academy:test
           node --test tests/import/curriculum-subject-unit-lesson-intake-13j.static.test.mjs
           node --test tests/import/subject-textbook-grade-upload-13k.static.test.mjs

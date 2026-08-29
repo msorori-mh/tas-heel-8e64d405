@@ -125,6 +125,17 @@ test("the UI calls exactly create, verify and publish for one selected component
   assert.match(server, /label: "نشر المكوّن"/);
 });
 
+test("the import center separates server publication truth from the local batch", () => {
+  assert.match(server, /getLessonComponentServerPublicationStatus/);
+  assert.match(server, /lesson_component_publications_v2/);
+  assert.match(server, /lesson_capability_lifecycle/);
+  assert.match(server, /lifecycle\?\.status !== "READY"/);
+  assert.match(ui, /المنشور حاليًا للطالب/);
+  assert.match(ui, /ملفات الدفعة الحالية على هذا الجهاز/);
+  assert.match(ui, /منشور للطالب/);
+  assert.match(ui, /لا يوجد ملف في الدفعة الحالية/);
+});
+
 test("server verification pins uploaded bytes and uses private intake RPCs", () => {
   assert.match(server, /"LCPV2_SOURCE"/);
   assert.match(server, /_HASH_MISMATCH/);

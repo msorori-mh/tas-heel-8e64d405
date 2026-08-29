@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   BookOpen,
@@ -13,9 +13,11 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import {
   createLessonComponentV2Upload,
+  getLessonComponentServerPublicationStatus,
   publishLessonComponentV2,
   verifyLessonComponentV2Upload,
   type LessonComponentV2Publication,
+  type LessonComponentServerPublicationStatus,
 } from "@/lib/content-factory/lesson-component-publishing-v2.functions";
 import {
   lessonComponentPublishErrorMessage,
@@ -529,6 +531,45 @@ export function GoldenLessonPackageBuilder() {
   }, [selectedLessonCode]);
 
   const uploadedCount = GOLDEN_CAPABILITIES.filter((capability) => uploads[capability]).length;
+  const [serverPublications, setServerPublications] = useState<
+    Partial<Record<GoldenCapability, LessonComponentServerPublicationStatus>>
+  >({});
+  const [serverPublicationsLoading, setServerPublicationsLoading] = useState(false);
+  const [serverPublicationsError, setServerPublicationsError] = useState<string | null>(null);
+  const publishedCount = GOLDEN_CAPABILITIES.filter(
+    (capability) => serverPublications[capability]?.visibleToStudent,
+  ).length;
+
+  useEffect(() => {
+    if (!selectedLessonCode) {
+      setServerPublications({});
+      setServerPublicationsError(null);
+      return;
+    }
+    let active = true;
+    setServerPublicationsLoading(true);
+    setServerPublicationsError(null);
+    void getLessonComponentServerPublicationStatus({ data: { lessonCode: selectedLessonCode } })
+      .then((rows) => {
+        if (!active) return;
+        setServerPublications(
+          Object.fromEntries(rows.map((row) => [row.capability, row])) as Partial<
+            Record<GoldenCapability, LessonComponentServerPublicationStatus>
+          >,
+        );
+      })
+      .catch(() => {
+        if (!active) return;
+        setServerPublications({});
+        setServerPublicationsError("تعذر قراءة حالة النشر الحالية من الخادم. أعد تحميل الصفحة.");
+      })
+      .finally(() => {
+        if (active) setServerPublicationsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedLessonCode]);
   const setCapabilityError = (capability: GoldenCapability, messages: string[] | null) => {
     setCapabilityErrors((current) => {
       const next = { ...current };
@@ -784,7 +825,7 @@ export function GoldenLessonPackageBuilder() {
     return () => window.clearTimeout(timer);
   }, [draftReady, selectedLessonCode, uploads, answerSets, answersCompanion]);
 
-  const runValidation = async () => {
+  const runValidation = useCallback(async () => {
     if (!profile) {
       setFileError("اختر الدرس من هيكل المنهج أولًا.");
       return;
@@ -840,7 +881,7 @@ export function GoldenLessonPackageBuilder() {
       writesPerformed: 0,
       findings,
     });
-  };
+  }, [profile, uploads, answersCompanion]);
 
   useEffect(() => {
     if (!canonicalIdentityComplete) {
@@ -851,7 +892,7 @@ export function GoldenLessonPackageBuilder() {
       void runValidation();
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [canonicalIdentityComplete, uploads, answersCompanion, selectedLessonCode]);
+  }, [canonicalIdentityComplete, selectedLessonCode, runValidation]);
 
   /** Upload, verify and atomically publish exactly one component. */
   const publishCapabilityNow = async (capability: GoldenCapability) => {
@@ -905,6 +946,18 @@ export function GoldenLessonPackageBuilder() {
       setCapabilityPublication((current) => ({
         ...current,
         [capability]: publication,
+      }));
+      setServerPublications((current) => ({
+        ...current,
+        [capability]: {
+          lessonId: publication.lessonId,
+          capability,
+          lifecycleCapability: publication.lifecycleCapability,
+          publicationVersion: publication.publicationVersion,
+          sourceSha256: publication.sourceSha256,
+          publishedAt: new Date().toISOString(),
+          visibleToStudent: true,
+        },
       }));
     } catch (error) {
       setCapabilityPublishError((current) => ({
@@ -1119,11 +1172,24 @@ export function GoldenLessonPackageBuilder() {
       )}
 
       {canonicalIdentityComplete && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span>المكوّنات المرفوعة في هذه الدفعة</span>
-            <span className="font-semibold">{uploadedCount} من 7</span>
+        <div className="space-y-2 rounded-xl border bg-muted/20 p-3">
+          <div className="grid gap-2 text-sm sm:grid-cols-2">
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-background px-3 py-2">
+              <span>المنشور حاليًا للطالب</span>
+              <span className="font-semibold">
+                {serverPublicationsLoading ? "جارٍ القراءة…" : `${publishedCount} من 7`}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-background px-3 py-2">
+              <span>ملفات الدفعة الحالية على هذا الجهاز</span>
+              <span className="font-semibold">{uploadedCount} من 7</span>
+            </div>
           </div>
+          {serverPublicationsError && (
+            <p role="alert" className="text-xs text-destructive">
+              {serverPublicationsError}
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             لا يوجد مكوّن إلزامي. ارفع ما جهز الآن وانشره؛ يظهر للطالب وحده دون انتظار بقية
             المكوّنات، وتستطيع العودة لاحقًا لرفع الباقي.
@@ -1137,6 +1203,7 @@ export function GoldenLessonPackageBuilder() {
             const applicability = profile?.applicability[capability] ?? "NA";
             const authority = GOLDEN_CAPABILITY_AUTHORITY[capability];
             const upload = uploads[capability];
+            const serverPublication = serverPublications[capability];
             const fileContract = GOLDEN_ARTIFACT_FILE_CONTRACTS[capability];
             return (
               <div
@@ -1154,10 +1221,18 @@ export function GoldenLessonPackageBuilder() {
                     <Badge variant={authority === "OFFICIAL" ? "default" : "secondary"}>
                       {authority === "OFFICIAL" ? "رسمي" : "تمكين"}
                     </Badge>
+                    {serverPublication ? (
+                      <Badge variant="default">
+                        منشور للطالب
+                        {serverPublication.publicationVersion
+                          ? ` · الإصدار ${serverPublication.publicationVersion}`
+                          : ""}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">غير منشور للطالب</Badge>
+                    )}
                     <Badge variant="outline">
-                      {/* Each component publishes on its own; the only state worth showing
-                          here is whether this one is part of the batch being prepared. */}
-                      {uploads[capability] ? "جاهز للنشر" : "لم يُرفع بعد"}
+                      {upload ? "ملف الدفعة جاهز" : "لا يوجد ملف في الدفعة الحالية"}
                     </Badge>
                   </div>
                 </div>

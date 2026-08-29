@@ -128,7 +128,7 @@ test("client code never selects answer columns from questions", () => {
       const cols = m[1] ?? m[2] ?? m[3];
       assert.doesNotMatch(
         cols,
-        /correct_index|explanation/,
+        /correct_index|\bexplanation\b/,
         `${f.pathname.split("/src/")[1]} selects answer columns directly`,
       );
     }

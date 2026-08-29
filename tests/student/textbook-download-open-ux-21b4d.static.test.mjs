@@ -65,16 +65,16 @@ describe("21B4D delete semantics", () => {
 
 describe("21B4D multi-book, semester isolation", () => {
   it("8. full-year books keep one logical identity across semesters", () => {
-    expect(client).toContain("coverage_type.eq.FULL_ACADEMIC_YEAR");
+    expect(client).toContain('name: "list_student_subject_textbooks"');
+    expect(client).toContain("_semester: params.semester === 1 || params.semester === 2");
     // cache + registry are keyed by the textbook id only
     expect(sheet).toContain("markLocalTextbookOfflineReady(book.id");
     expect(client).toContain("resourceId: params.textbook.id");
   });
 
   it("9. semester-specific books stay scoped to their own semester", () => {
-    expect(client).toContain(
-      "and(coverage_type.eq.SEMESTER_SPECIFIC,semester.eq.${params.semester})",
-    );
+    expect(client).toContain('rpc(\n    "list_student_subject_textbooks"');
+    expect(client).toContain("The server additionally enforces grade + profile track");
   });
 
   it("renders coverage + book type labels per book", () => {

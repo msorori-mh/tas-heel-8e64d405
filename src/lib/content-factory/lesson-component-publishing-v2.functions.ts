@@ -9,6 +9,8 @@ import {
   type ContentStaffAuthContext,
 } from "@/integrations/supabase/auth-middleware";
 import type { GoldenCapability } from "./golden-lesson-contract";
+import { GOLDEN_CAPABILITIES } from "./golden-lesson-contract";
+import { GOLDEN_LIFECYCLE_TARGETS } from "./golden-lesson-domain-staging";
 import { GOLDEN_DIRECT_BUCKET } from "./golden-lesson-direct-storage";
 import {
   validateGoldenLessonAnswerCoverage,
@@ -45,6 +47,7 @@ const CreateInput = z.object({
 
 const VerifyInput = z.object({ intakeId: z.string().uuid() });
 const PublishInput = z.object({ intakeId: z.string().uuid() });
+const PublicationStatusInput = z.object({ lessonCode: z.string().min(1).max(160) });
 
 type RpcResult = { data: unknown; error: { message: string } | null };
 type Rpc = (name: string, args: Record<string, unknown>) => PromiseLike<RpcResult>;
@@ -96,6 +99,16 @@ export interface LessonComponentV2Publication {
   idempotent: boolean;
   writesPerformed: number;
   steps: Array<{ key: "upload" | "verify" | "publish"; label: string; detail: string }>;
+}
+
+export interface LessonComponentServerPublicationStatus {
+  lessonId: string;
+  capability: GoldenCapability;
+  lifecycleCapability: string;
+  publicationVersion: number | null;
+  sourceSha256: string | null;
+  publishedAt: string | null;
+  visibleToStudent: true;
 }
 
 function adminClient() {
@@ -383,4 +396,67 @@ export const publishLessonComponentV2 = createServerFn({ method: "POST" })
         { key: "publish", label: "نشر المكوّن", detail: "تم — ظاهر للطلاب الآن" },
       ],
     };
+  });
+
+/** Read-only server truth for the seven components currently visible to students. */
+export const getLessonComponentServerPublicationStatus = createServerFn({ method: "GET" })
+  .middleware([requireContentStaffAuth])
+  .inputValidator((input) => PublicationStatusInput.parse(input))
+  .handler(async ({ data, context }): Promise<LessonComponentServerPublicationStatus[]> => {
+    const { isFullAdmin } = context as ContentStaffAuthContext;
+    if (!isFullAdmin) throw new Error("LCPV2_FULL_ADMIN_REQUIRED");
+    const admin = adminClient();
+    const lesson = await admin
+      .from("lessons")
+      .select("id")
+      .eq("slug", data.lessonCode)
+      .maybeSingle();
+    if (lesson.error) throw new Error(`LCPV2_STATUS_LESSON_READ_FAILED: ${lesson.error.message}`);
+    if (!lesson.data) throw new Error("LCPV2_STATUS_LESSON_NOT_FOUND");
+    const lessonId = lesson.data.id;
+
+    const [lifecycleResult, publicationResult] = await Promise.all([
+      admin
+        .from("lesson_capability_lifecycle")
+        .select("capability,status,ready_hash,ready_at")
+        .eq("lesson_id", lessonId),
+      admin
+        .from("lesson_component_publications_v2")
+        .select("capability,lifecycle_capability,publication_version,source_sha256,published_at")
+        .eq("lesson_id", lessonId)
+        .order("publication_version", { ascending: false }),
+    ]);
+    if (lifecycleResult.error) {
+      throw new Error(`LCPV2_STATUS_LIFECYCLE_READ_FAILED: ${lifecycleResult.error.message}`);
+    }
+    if (publicationResult.error) {
+      throw new Error(`LCPV2_STATUS_PUBLICATION_READ_FAILED: ${publicationResult.error.message}`);
+    }
+
+    const lifecycleByCapability = new Map(
+      (lifecycleResult.data ?? []).map((row) => [String(row.capability), row]),
+    );
+    const latestPublication = new Map<GoldenCapability, (typeof publicationResult.data)[number]>();
+    for (const row of publicationResult.data ?? []) {
+      const capability = String(row.capability) as GoldenCapability;
+      if (!latestPublication.has(capability)) latestPublication.set(capability, row);
+    }
+
+    return GOLDEN_CAPABILITIES.flatMap((capability) => {
+      const lifecycleCapability = GOLDEN_LIFECYCLE_TARGETS[capability];
+      const lifecycle = lifecycleByCapability.get(lifecycleCapability);
+      if (lifecycle?.status !== "READY") return [];
+      const publication = latestPublication.get(capability);
+      return [
+        {
+          lessonId: String(lessonId),
+          capability,
+          lifecycleCapability,
+          publicationVersion: publication ? Number(publication.publication_version) : null,
+          sourceSha256: publication?.source_sha256 ?? lifecycle.ready_hash ?? null,
+          publishedAt: publication?.published_at ?? lifecycle.ready_at ?? null,
+          visibleToStudent: true as const,
+        },
+      ];
+    });
   });
