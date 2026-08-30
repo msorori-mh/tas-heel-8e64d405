@@ -30,6 +30,14 @@ const mathematicsProgramPath = new URL(
   "../../scripts/teacher-academy/program-content/mathematics-problem-solving-v1.json",
   import.meta.url,
 );
+const arabicProgramPath = new URL(
+  "../../scripts/teacher-academy/program-content/arabic-effective-teaching-v1.json",
+  import.meta.url,
+);
+const englishProgramPath = new URL(
+  "../../scripts/teacher-academy/program-content/english-communicative-teaching-v1.json",
+  import.meta.url,
+);
 const subjectProgramSqlPath = new URL(
   "../../scripts/teacher-academy/program-content/render-new-subject-program-sql.mjs",
   import.meta.url,
@@ -43,6 +51,8 @@ const [
   chemistryProgramSource,
   islamicProgramSource,
   mathematicsProgramSource,
+  arabicProgramSource,
+  englishProgramSource,
   subjectProgramSql,
 ] = await Promise.all([
   readFile(catalogPath, "utf8"),
@@ -52,6 +62,8 @@ const [
   readFile(chemistryProgramPath, "utf8"),
   readFile(islamicProgramPath, "utf8"),
   readFile(mathematicsProgramPath, "utf8"),
+  readFile(arabicProgramPath, "utf8"),
+  readFile(englishProgramPath, "utf8"),
   readFile(subjectProgramSqlPath, "utf8"),
 ]);
 const catalog = JSON.parse(catalogSource);
@@ -59,6 +71,8 @@ const generalUpgrade = JSON.parse(generalUpgradeSource);
 const chemistryProgram = JSON.parse(chemistryProgramSource);
 const islamicProgram = JSON.parse(islamicProgramSource);
 const mathematicsProgram = JSON.parse(mathematicsProgramSource);
+const arabicProgram = JSON.parse(arabicProgramSource);
+const englishProgram = JSON.parse(englishProgramSource);
 
 const expectedSubjects = [
   "ARABIC",
@@ -256,6 +270,26 @@ test("the mathematics program covers diagnosis, representations, errors, and rea
   assert.ok(lessonTitles.some((title) => title.includes("أخطاء")));
   assert.ok(lessonTitles.some((title) => title.includes("حل المشكلات")));
   assert.doesNotMatch(JSON.stringify(mathematicsProgram), /https?:\/\//);
+});
+
+test("the Arabic program integrates text, grammar, rhetoric, writing, and assessment", () => {
+  assertCompleteSubjectProgram(arabicProgram, "ARABIC", 12);
+  const lessonTitles = arabicProgram.lessons.map((lesson) => lesson.title).join(" ");
+  assert.match(lessonTitles, /الأدب والنصوص/);
+  assert.match(lessonTitles, /النحو والصرف/);
+  assert.match(lessonTitles, /البلاغة/);
+  assert.match(lessonTitles, /الكتابة/);
+  assert.doesNotMatch(JSON.stringify(arabicProgram), /https?:\/\//);
+});
+
+test("the English program is communicative, integrated, and performance-assessed", () => {
+  assertCompleteSubjectProgram(englishProgram, "ENGLISH", 12);
+  const source = JSON.stringify(englishProgram);
+  assert.match(source, /form وmeaning وuse/);
+  assert.match(source, /القراءة والاستماع/);
+  assert.match(source, /التحدث والكتابة/);
+  assert.match(source, /غرض أو فجوة معلومات/);
+  assert.doesNotMatch(source, /https?:\/\//);
 });
 
 test("the reusable subject-program renderer publishes only after exact validation", () => {
