@@ -21,6 +21,7 @@ import {
   ExternalLink,
   FilePenLine,
   FileUp,
+  FileChartColumn,
   GraduationCap,
   LayoutDashboard,
   LoaderCircle,
@@ -29,6 +30,7 @@ import {
   RefreshCcw,
   RotateCcw,
   Search,
+  Settings2,
   Trash2,
   UserRound,
   UsersRound,
@@ -36,6 +38,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { AssessmentEditor } from "./AssessmentEditor";
+import { AdminReports } from "./AdminReports";
+import { AdminSettings } from "./AdminSettings";
 import {
   adminCreateDraftVersion,
   adminCreateProgram,
@@ -48,6 +52,7 @@ import {
   adminListProgress,
   adminListPrograms,
   adminListTeachers,
+  adminGetSettings,
   adminPublishProgram,
   adminReorderLessons,
   adminRevokeCertificate,
@@ -63,6 +68,7 @@ import {
 import { validateProgramImportBundle, type ProgramImportBundle } from "./lib/program-bundle";
 import type {
   AcademyCapability,
+  AcademySettings,
   AcademySubject,
   AdminLesson,
   AdminProgram,
@@ -73,7 +79,20 @@ import type {
   LiveSession,
 } from "./types";
 
-type AdminTab = "overview" | "programs" | "teachers" | "progress";
+type AdminTab = "overview" | "programs" | "teachers" | "progress" | "reports" | "settings";
+
+const DEFAULT_OPERATION_SETTINGS: Pick<
+  AcademySettings,
+  | "default_program_minutes"
+  | "default_pass_percentage"
+  | "default_live_provider"
+  | "default_live_instructions"
+> = {
+  default_program_minutes: 60,
+  default_pass_percentage: 75,
+  default_live_provider: "Zoom",
+  default_live_instructions: "",
+};
 
 const ERROR_MESSAGES: Record<string, string> = {
   PROGRAM_LESSON_REQUIRED: "أضف درسًا واحدًا على الأقل قبل النشر.",
@@ -325,6 +344,7 @@ function AdminOverview({ capabilities }: { capabilities: Set<AcademyCapability> 
 function ProgramForm({
   subjects,
   initial,
+  defaultMinutes,
   busy,
   submitLabel,
   onSubmit,
@@ -332,6 +352,7 @@ function ProgramForm({
 }: {
   subjects: AcademySubject[];
   initial?: AdminProgram;
+  defaultMinutes: number;
   busy: boolean;
   submitLabel: string;
   onSubmit: (input: ProgramDraftInput) => Promise<void>;
@@ -349,7 +370,7 @@ function ProgramForm({
     initial?.audience_type ?? "ALL_TEACHERS",
   );
   const [subjectId, setSubjectId] = useState<string>(initial?.subject_ids[0] ?? "");
-  const [minutes, setMinutes] = useState(initial?.estimated_minutes ?? 60);
+  const [minutes, setMinutes] = useState(initial?.estimated_minutes ?? defaultMinutes);
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   const basicsComplete =
@@ -669,6 +690,7 @@ function ProgramImportPanel({
 function ProgramsAdmin() {
   const [programs, setPrograms] = useState<AdminProgram[]>([]);
   const [subjects, setSubjects] = useState<AcademySubject[]>([]);
+  const [operationSettings, setOperationSettings] = useState(DEFAULT_OPERATION_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -695,11 +717,17 @@ function ProgramsAdmin() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([adminListPrograms(), loadProfileOptions()])
-      .then(([programItems, options]) => {
+    Promise.all([adminListPrograms(), loadProfileOptions(), adminGetSettings()])
+      .then(([programItems, options, settings]) => {
         if (!active) return;
         setPrograms(programItems);
         setSubjects(options.subjects);
+        setOperationSettings({
+          default_program_minutes: settings.default_program_minutes,
+          default_pass_percentage: settings.default_pass_percentage,
+          default_live_provider: settings.default_live_provider,
+          default_live_instructions: settings.default_live_instructions,
+        });
         setShowCreate(programItems.length === 0);
       })
       .catch((loadError) => active && setError(messageOf(loadError)))
@@ -923,6 +951,7 @@ function ProgramsAdmin() {
         <ProgramForm
           key="new-program"
           subjects={subjects}
+          defaultMinutes={operationSettings.default_program_minutes}
           busy={busyId === "create"}
           submitLabel="حفظ المسودة"
           onSubmit={create}
@@ -942,6 +971,7 @@ function ProgramsAdmin() {
           key={editingMetadata.program_version_id}
           subjects={subjects}
           initial={editingMetadata}
+          defaultMinutes={operationSettings.default_program_minutes}
           busy={busyId === editingMetadata.program_version_id}
           submitLabel="حفظ التعديلات"
           onSubmit={update}
@@ -1145,6 +1175,7 @@ function ProgramsAdmin() {
         <LessonsEditor
           program={editingContent.program}
           readOnly={editingContent.readOnly}
+          operationSettings={operationSettings}
           onClose={() => setEditingContent(null)}
           onChanged={async () => {
             setChecks((current) => ({
@@ -1175,11 +1206,13 @@ function ProgramStatus({ program }: { program: AdminProgram }) {
 function LessonsEditor({
   program,
   readOnly,
+  operationSettings,
   onClose,
   onChanged,
 }: {
   program: AdminProgram;
   readOnly: boolean;
+  operationSettings: typeof DEFAULT_OPERATION_SETTINGS;
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
@@ -1644,10 +1677,19 @@ function LessonsEditor({
           </>
         ) : null}
         {contentStep === "ASSESSMENT" ? (
-          <AssessmentEditor programVersionId={program.program_version_id} readOnly={readOnly} />
+          <AssessmentEditor
+            programVersionId={program.program_version_id}
+            readOnly={readOnly}
+            defaultPassPercentage={operationSettings.default_pass_percentage}
+          />
         ) : null}
         {contentStep === "LIVE" ? (
-          <LiveSessionsEditor program={program} readOnly={readOnly} />
+          <LiveSessionsEditor
+            program={program}
+            readOnly={readOnly}
+            defaultProvider={operationSettings.default_live_provider}
+            defaultInstructions={operationSettings.default_live_instructions}
+          />
         ) : null}
         {contentStep === "READINESS" ? (
           <section className="workspace-readiness">
@@ -1714,19 +1756,23 @@ function toDateTimeInput(value: string): string {
 function LiveSessionsEditor({
   program,
   readOnly = false,
+  defaultProvider,
+  defaultInstructions,
 }: {
   program: AdminProgram;
   readOnly?: boolean;
+  defaultProvider: string;
+  defaultInstructions: string;
 }) {
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [editing, setEditing] = useState<LiveSession | null>(null);
   const [title, setTitle] = useState("");
-  const [provider, setProvider] = useState("Zoom");
+  const [provider, setProvider] = useState(defaultProvider);
   const [speaker, setSpeaker] = useState("");
   const [startsAt, setStartsAt] = useState("");
   const [duration, setDuration] = useState(60);
   const [meetingUrl, setMeetingUrl] = useState("");
-  const [instructions, setInstructions] = useState("");
+  const [instructions, setInstructions] = useState(defaultInstructions);
   const [status, setStatus] = useState<"SCHEDULED" | "CANCELLED">("SCHEDULED");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1748,12 +1794,12 @@ function LiveSessionsEditor({
   function reset() {
     setEditing(null);
     setTitle("");
-    setProvider("Zoom");
+    setProvider(defaultProvider);
     setSpeaker("");
     setStartsAt("");
     setDuration(60);
     setMeetingUrl("");
-    setInstructions("");
+    setInstructions(defaultInstructions);
     setStatus("SCHEDULED");
   }
 
@@ -2426,6 +2472,18 @@ export function AdminHome({ capabilities }: { capabilities: Set<AcademyCapabilit
       icon: <BarChart3 />,
       visible: capabilities.has("ACADEMY_PROGRESS_VIEW"),
     },
+    {
+      id: "reports",
+      label: "التقارير",
+      icon: <FileChartColumn />,
+      visible: capabilities.has("ACADEMY_PROGRESS_VIEW"),
+    },
+    {
+      id: "settings",
+      label: "الإعدادات",
+      icon: <Settings2 />,
+      visible: capabilities.has("ACADEMY_CATALOG_MANAGE"),
+    },
   ];
 
   return (
@@ -2435,7 +2493,7 @@ export function AdminHome({ capabilities }: { capabilities: Set<AcademyCapabilit
           <p className="eyebrow">إدارة الأكاديمية</p>
           <h1>لوحة التشغيل</h1>
           <p className="muted">
-            إدارة البرامج والمعلمين والتقدم والشهادات من مساحة مستقلة ومحكومة بالصلاحيات.
+            إدارة البرامج والمعلمين والتقدم والتقارير والإعدادات من مساحة مستقلة ومحكومة بالصلاحيات.
           </p>
         </div>
         <span className="security-chip">
@@ -2465,6 +2523,8 @@ export function AdminHome({ capabilities }: { capabilities: Set<AcademyCapabilit
       {tab === "programs" && capabilities.has("ACADEMY_CATALOG_MANAGE") ? <ProgramsAdmin /> : null}
       {tab === "teachers" && capabilities.has("ACADEMY_TEACHERS_VIEW") ? <TeachersAdmin /> : null}
       {tab === "progress" && capabilities.has("ACADEMY_PROGRESS_VIEW") ? <ProgressAdmin /> : null}
+      {tab === "reports" && capabilities.has("ACADEMY_PROGRESS_VIEW") ? <AdminReports /> : null}
+      {tab === "settings" && capabilities.has("ACADEMY_CATALOG_MANAGE") ? <AdminSettings /> : null}
     </section>
   );
 }

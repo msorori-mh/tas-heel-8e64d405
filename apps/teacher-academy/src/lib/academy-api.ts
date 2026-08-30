@@ -2,10 +2,15 @@ import type { User } from "@supabase/supabase-js";
 import { academySupabase, requireAcademyBackend } from "./supabase";
 import type {
   AcademyCapability,
+  AcademyAdminAccount,
+  AcademySettings,
   AcademySubject,
   AdminAssessmentQuestion,
   AdminProgramCheck,
   AdminProgress,
+  AdminProgramReport,
+  AdminLessonEngagement,
+  AdminAuditEvent,
   AdminProgram,
   AdminLesson,
   AdminTeacher,
@@ -493,6 +498,89 @@ export async function adminRevokeCertificate(certificateId: string, reason: stri
     p_reason: reason,
   });
   if (error) throw error;
+}
+
+export async function adminGetSettings(): Promise<AcademySettings> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("admin_get_settings");
+  if (error) throw error;
+  const settings = (data ?? [])[0] as AcademySettings | undefined;
+  if (!settings) throw new Error("لم يُرجع الخادم إعدادات الأكاديمية.");
+  return settings;
+}
+
+export async function adminUpdateSettings(settings: AcademySettings): Promise<void> {
+  requireAcademyBackend();
+  const { error } = await academySupabase.rpc("admin_update_settings", {
+    p_academy_name: settings.academy_name,
+    p_support_email: settings.support_email,
+    p_support_phone: settings.support_phone,
+    p_default_program_minutes: settings.default_program_minutes,
+    p_default_pass_percentage: settings.default_pass_percentage,
+    p_certificate_issuer_name: settings.certificate_issuer_name,
+    p_certificate_signatory_name: settings.certificate_signatory_name,
+    p_certificate_signatory_title: settings.certificate_signatory_title,
+    p_default_live_provider: settings.default_live_provider,
+    p_default_live_instructions: settings.default_live_instructions,
+  });
+  if (error) throw error;
+}
+
+export async function adminListAcademyAdmins(): Promise<AcademyAdminAccount[]> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("admin_list_academy_admins");
+  if (error) throw error;
+  return (data ?? []) as AcademyAdminAccount[];
+}
+
+export async function adminSetUserCapabilities(
+  email: string,
+  capabilities: AcademyCapability[],
+): Promise<string> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("admin_set_user_capabilities", {
+    p_email: email,
+    p_capabilities: capabilities,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function adminListAuditLog(limit = 50): Promise<AdminAuditEvent[]> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("admin_list_audit_log", {
+    p_limit: limit,
+  });
+  if (error) throw error;
+  return (data ?? []) as AdminAuditEvent[];
+}
+
+export async function adminReportPrograms(
+  from: string | null,
+  to: string | null,
+): Promise<AdminProgramReport[]> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("admin_report_programs", {
+    p_from: from,
+    p_to: to,
+  });
+  if (error) throw error;
+  return (data ?? []) as AdminProgramReport[];
+}
+
+export async function adminReportLessonEngagement(
+  programVersionId: string | null,
+  from: string | null,
+  to: string | null,
+): Promise<AdminLessonEngagement[]> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("admin_report_lesson_engagement", {
+    p_program_version_id: programVersionId,
+    p_from: from,
+    p_to: to,
+  });
+  if (error) throw error;
+  return (data ?? []) as AdminLessonEngagement[];
 }
 
 export async function adminGetAssessment(
