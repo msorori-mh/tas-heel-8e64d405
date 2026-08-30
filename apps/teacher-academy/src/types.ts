@@ -61,6 +61,10 @@ export type AdminProgram = {
   is_current_published: boolean;
   lesson_count: number;
   question_count: number;
+  structured_lesson_count: number;
+  lesson_minutes: number;
+  assessment_pass_percentage: number | null;
+  live_session_count: number;
 };
 
 export type AdminProgramCheck = {

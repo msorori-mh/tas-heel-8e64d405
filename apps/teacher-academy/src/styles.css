@@ -1429,6 +1429,216 @@ textarea:focus {
   min-height: 2.7rem;
 }
 
+.program-wizard,
+.import-panel {
+  margin-block-end: 1rem;
+}
+
+.wizard-steps,
+.content-workspace-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-block-end: 1rem;
+}
+
+.wizard-steps button,
+.content-workspace-steps button {
+  min-height: 3rem;
+  padding: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  color: var(--muted);
+  background: #fff;
+  font-weight: 800;
+}
+
+.wizard-steps button.active,
+.content-workspace-steps button.active {
+  border-color: #9ec7cf;
+  color: var(--navy);
+  background: #eaf4f5;
+}
+
+.wizard-steps button span {
+  display: inline-grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  margin-inline-end: 0.3rem;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--teal);
+}
+
+.wizard-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-block-start: 1rem;
+}
+
+.wizard-review {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1px solid #cfe2e6;
+  border-radius: 0.8rem;
+  color: #405064;
+  background: #f4f9fa;
+}
+
+.wizard-review strong {
+  color: var(--navy);
+  font-size: 1.05rem;
+}
+
+.file-drop-field {
+  display: grid;
+  place-items: center;
+  gap: 0.6rem;
+  min-height: 9rem;
+  padding: 1rem;
+  border: 2px dashed #b8ced5;
+  border-radius: 0.9rem;
+  color: var(--navy);
+  background: #f7fafb;
+  cursor: pointer;
+  text-align: center;
+}
+
+.file-drop-field svg {
+  width: 2rem;
+  height: 2rem;
+  color: var(--teal);
+}
+
+.file-drop-field input {
+  width: min(100%, 25rem);
+}
+
+.import-preview {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid #bfe6d7;
+  border-radius: 0.85rem;
+  background: var(--success-soft);
+}
+
+.import-preview > div:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.program-filter-grid {
+  grid-template-columns: minmax(260px, 1.5fr) repeat(2, minmax(170px, 1fr));
+  margin-block-end: 1rem;
+}
+
+.search-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.search-input-wrap svg {
+  position: absolute;
+  top: 50%;
+  right: 0.8rem;
+  width: 1rem;
+  height: 1rem;
+  color: var(--muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.search-input-wrap input {
+  width: 100%;
+  padding-inline-start: 0.8rem;
+  padding-inline-end: 2.35rem;
+}
+
+.readiness-summary {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: #f7f9fb;
+}
+
+.readiness-summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--navy);
+  font-size: 0.82rem;
+}
+
+.readiness-summary progress {
+  width: 100%;
+  height: 0.55rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  accent-color: var(--teal);
+}
+
+.readiness-summary small {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.content-workspace-steps {
+  position: sticky;
+  z-index: 1;
+  top: 5.5rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: rgba(247, 249, 251, 0.96);
+}
+
+.workspace-readiness {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: #fff;
+}
+
+.readiness-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.readiness-checklist > div {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 0.7rem;
+  font-weight: 800;
+}
+
+.readiness-checklist > div svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.readiness-checklist .passed {
+  color: #176b55;
+  background: var(--success-soft);
+}
+
+.readiness-checklist .blocked {
+  color: #9d3131;
+  background: var(--danger-soft);
+}
+
 .data-main {
   min-width: 0;
 }
@@ -1473,6 +1683,11 @@ textarea:focus {
   .admin-metrics-grid,
   .compact-metrics,
   .filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .content-workspace-steps {
+    position: static;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1587,6 +1802,16 @@ textarea:focus {
 
   .lesson-card {
     grid-template-columns: 1fr;
+  }
+
+  .wizard-steps,
+  .content-workspace-steps,
+  .readiness-checklist {
+    grid-template-columns: 1fr;
+  }
+
+  .wizard-actions > * {
+    flex: 1;
   }
 }
 

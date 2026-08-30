@@ -21,6 +21,7 @@ import type {
   TeacherProfile,
   VerifiedCertificate,
 } from "../types";
+import type { ProgramImportBundle } from "./program-bundle";
 
 export type ProgramDraftInput = {
   title: string;
@@ -129,9 +130,62 @@ export async function loadCapabilities(): Promise<Set<AcademyCapability>> {
 
 export async function adminListPrograms(): Promise<AdminProgram[]> {
   requireAcademyBackend();
-  const { data, error } = await academySupabase.rpc("admin_list_programs_v2");
+  const current = await academySupabase.rpc("admin_list_programs_v3");
+  if (!current.error) return (current.data ?? []) as AdminProgram[];
+
+  const missingV3 =
+    current.error.code === "PGRST202" || current.error.message.includes("admin_list_programs_v3");
+  if (!missingV3) throw current.error;
+
+  // Deployment-safe fallback while the additive migration is rolling out.
+  const legacy = await academySupabase.rpc("admin_list_programs_v2");
+  if (legacy.error) throw legacy.error;
+  return (
+    (legacy.data ?? []) as Array<
+      Omit<
+        AdminProgram,
+        | "structured_lesson_count"
+        | "lesson_minutes"
+        | "assessment_pass_percentage"
+        | "live_session_count"
+      >
+    >
+  ).map((program) => ({
+    ...program,
+    structured_lesson_count: program.lesson_count,
+    lesson_minutes: 0,
+    assessment_pass_percentage: null,
+    live_session_count: 0,
+  }));
+}
+
+export async function adminImportProgramBundle(bundle: ProgramImportBundle): Promise<string> {
+  requireAcademyBackend();
+  const { data, error } = await academySupabase.rpc("admin_import_program_bundle", {
+    p_bundle: bundle,
+  });
   if (error) throw error;
-  return (data ?? []) as AdminProgram[];
+  return data as string;
+}
+
+export async function adminReorderLessons(
+  programVersionId: string,
+  lessonIds: string[],
+): Promise<void> {
+  requireAcademyBackend();
+  const { error } = await academySupabase.rpc("admin_reorder_lessons", {
+    p_program_version_id: programVersionId,
+    p_lesson_ids: lessonIds,
+  });
+  if (error) throw error;
+}
+
+export async function adminDeleteDraftVersion(programVersionId: string): Promise<void> {
+  requireAcademyBackend();
+  const { error } = await academySupabase.rpc("admin_delete_draft_version", {
+    p_program_version_id: programVersionId,
+  });
+  if (error) throw error;
 }
 
 export async function adminCreateProgram(input: ProgramDraftInput): Promise<string> {
