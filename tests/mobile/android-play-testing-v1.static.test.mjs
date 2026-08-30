@@ -27,6 +27,11 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
     expect(capacitor).toContain("cleartext: false");
     expect(capacitor).toContain("allowMixedContent: false");
     expect(manifest).toContain("android.permission.INTERNET");
+    expect(manifest).toContain('android:usesCleartextTraffic="false"');
+  });
+
+  it("keeps restorable server state and authentication data out of Android backup", () => {
+    expect(manifest).toContain('android:allowBackup="false"');
   });
 
   it("keeps release signing fail-closed and out of source control", () => {
