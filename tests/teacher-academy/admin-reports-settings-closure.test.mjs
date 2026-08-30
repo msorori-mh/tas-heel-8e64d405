@@ -101,7 +101,10 @@ test("the generic audit trigger branches by table before reading dynamic OLD or 
   assert.match(body, /if tg_table_name = 'settings' then/);
   assert.match(body, /elsif tg_table_name = 'capability_grants' then/);
   assert.match(body, /elsif tg_table_name = 'program_versions' then/);
-  assert.doesNotMatch(body, /tg_table_name = 'capability_grants'\s+and[\s\S]{0,120}old\.revoked_at/);
+  assert.doesNotMatch(
+    body,
+    /tg_table_name = 'capability_grants'\s+and[\s\S]{0,120}old\.revoked_at/,
+  );
   assert.doesNotMatch(body, /tg_table_name = 'program_versions'\s+and[\s\S]{0,120}old\.status/);
 });
 
