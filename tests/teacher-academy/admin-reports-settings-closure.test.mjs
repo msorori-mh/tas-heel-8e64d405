@@ -93,6 +93,18 @@ test("important future admin mutations are captured by append-only audit trigger
   assert.match(settings, /لا يمكن تعديلها أو حذفها/);
 });
 
+test("the generic audit trigger branches by table before reading dynamic OLD or NEW fields", () => {
+  const body = migration.match(
+    /create or replace function academy\.capture_admin_audit_event[\s\S]*?create trigger academy_settings_admin_audit/,
+  )?.[0];
+  assert.ok(body);
+  assert.match(body, /if tg_table_name = 'settings' then/);
+  assert.match(body, /elsif tg_table_name = 'capability_grants' then/);
+  assert.match(body, /elsif tg_table_name = 'program_versions' then/);
+  assert.doesNotMatch(body, /tg_table_name = 'capability_grants'\s+and[\s\S]{0,120}old\.revoked_at/);
+  assert.doesNotMatch(body, /tg_table_name = 'program_versions'\s+and[\s\S]{0,120}old\.status/);
+});
+
 test("admin navigation exposes reports and settings only through matching capabilities", () => {
   assert.match(adminHome, /id: "reports"[\s\S]*ACADEMY_PROGRESS_VIEW/);
   assert.match(adminHome, /id: "settings"[\s\S]*ACADEMY_CATALOG_MANAGE/);

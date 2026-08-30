@@ -99,61 +99,69 @@ begin
     return case when tg_op = 'DELETE' then old else new end;
   end if;
 
-  if tg_table_name = 'settings' and tg_op = 'UPDATE' then
-    v_action := 'SETTINGS_UPDATED';
-    v_details := jsonb_build_object('settings_id', new.id);
-  elsif tg_table_name = 'capability_grants' and tg_op = 'INSERT' then
-    v_action := 'CAPABILITY_GRANTED';
-    v_target_user_id := new.user_id;
-    v_details := jsonb_build_object('capability', new.capability);
-  elsif tg_table_name = 'capability_grants'
-        and tg_op = 'UPDATE'
-        and old.revoked_at is null
-        and new.revoked_at is not null then
-    v_action := 'CAPABILITY_REVOKED';
-    v_target_user_id := new.user_id;
-    v_details := jsonb_build_object('capability', new.capability);
-  elsif tg_table_name = 'program_versions'
-        and tg_op = 'UPDATE'
-        and old.status = 'DRAFT'
-        and new.status = 'PUBLISHED' then
-    v_action := 'PROGRAM_PUBLISHED';
-    v_details := jsonb_build_object(
-      'program_id', new.program_id,
-      'program_version_id', new.id,
-      'title', new.title
-    );
-  elsif tg_table_name = 'program_versions' and tg_op = 'DELETE' and old.status = 'DRAFT' then
-    v_action := 'PROGRAM_DRAFT_DELETED';
-    v_details := jsonb_build_object(
-      'program_id', old.program_id,
-      'program_version_id', old.id,
-      'title', old.title
-    );
-  elsif tg_table_name = 'programs'
-        and tg_op = 'UPDATE'
-        and old.archived_at is distinct from new.archived_at then
-    v_action := case when new.archived_at is null then 'PROGRAM_RESTORED' else 'PROGRAM_ARCHIVED' end;
-    v_details := jsonb_build_object('program_id', new.id);
-  elsif tg_table_name = 'teacher_profiles'
-        and tg_op = 'UPDATE'
-        and old.status is distinct from new.status then
-    v_action := 'TEACHER_STATUS_UPDATED';
-    v_target_user_id := new.user_id;
-    v_details := jsonb_build_object('from', old.status, 'to', new.status);
-  elsif tg_table_name = 'certificates'
-        and tg_op = 'UPDATE'
-        and old.revoked_at is null
-        and new.revoked_at is not null then
-    v_action := 'CERTIFICATE_REVOKED';
-    select enrollments.user_id into v_target_user_id
-    from academy.enrollments enrollments
-    where enrollments.id = new.enrollment_id;
-    v_details := jsonb_build_object(
-      'certificate_id', new.id,
-      'certificate_code', new.certificate_code,
-      'reason', new.revocation_reason
-    );
+  -- Branch on the table before touching OLD/NEW fields. A trigger RECORD has
+  -- the row shape of its current table, so cross-table field references are
+  -- invalid even when a compound boolean condition appears to guard them.
+  if tg_table_name = 'settings' then
+    if tg_op = 'UPDATE' then
+      v_action := 'SETTINGS_UPDATED';
+      v_details := jsonb_build_object('settings_id', new.id);
+    end if;
+  elsif tg_table_name = 'capability_grants' then
+    if tg_op = 'INSERT' then
+      v_action := 'CAPABILITY_GRANTED';
+      v_target_user_id := new.user_id;
+      v_details := jsonb_build_object('capability', new.capability);
+    elsif tg_op = 'UPDATE' then
+      if old.revoked_at is null and new.revoked_at is not null then
+        v_action := 'CAPABILITY_REVOKED';
+        v_target_user_id := new.user_id;
+        v_details := jsonb_build_object('capability', new.capability);
+      end if;
+    end if;
+  elsif tg_table_name = 'program_versions' then
+    if tg_op = 'UPDATE' then
+      if old.status = 'DRAFT' and new.status = 'PUBLISHED' then
+        v_action := 'PROGRAM_PUBLISHED';
+        v_details := jsonb_build_object(
+          'program_id', new.program_id,
+          'program_version_id', new.id,
+          'title', new.title
+        );
+      end if;
+    elsif tg_op = 'DELETE' then
+      if old.status = 'DRAFT' then
+        v_action := 'PROGRAM_DRAFT_DELETED';
+        v_details := jsonb_build_object(
+          'program_id', old.program_id,
+          'program_version_id', old.id,
+          'title', old.title
+        );
+      end if;
+    end if;
+  elsif tg_table_name = 'programs' then
+    if tg_op = 'UPDATE' and old.archived_at is distinct from new.archived_at then
+      v_action := case when new.archived_at is null then 'PROGRAM_RESTORED' else 'PROGRAM_ARCHIVED' end;
+      v_details := jsonb_build_object('program_id', new.id);
+    end if;
+  elsif tg_table_name = 'teacher_profiles' then
+    if tg_op = 'UPDATE' and old.status is distinct from new.status then
+      v_action := 'TEACHER_STATUS_UPDATED';
+      v_target_user_id := new.user_id;
+      v_details := jsonb_build_object('from', old.status, 'to', new.status);
+    end if;
+  elsif tg_table_name = 'certificates' then
+    if tg_op = 'UPDATE' and old.revoked_at is null and new.revoked_at is not null then
+      v_action := 'CERTIFICATE_REVOKED';
+      select enrollments.user_id into v_target_user_id
+      from academy.enrollments enrollments
+      where enrollments.id = new.enrollment_id;
+      v_details := jsonb_build_object(
+        'certificate_id', new.id,
+        'certificate_code', new.certificate_code,
+        'reason', new.revocation_reason
+      );
+    end if;
   elsif tg_table_name = 'live_sessions' then
     v_action := case tg_op
       when 'INSERT' then 'LIVE_SESSION_CREATED'
@@ -165,7 +173,9 @@ begin
       'program_version_id', case when tg_op = 'DELETE' then old.program_version_id else new.program_version_id end,
       'title', case when tg_op = 'DELETE' then old.title else new.title end
     );
-  else
+  end if;
+
+  if v_action is null then
     return case when tg_op = 'DELETE' then old else new end;
   end if;
 
