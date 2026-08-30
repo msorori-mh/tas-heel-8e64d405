@@ -7,6 +7,7 @@ const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8
 const [
   layout,
   indexRoute,
+  callbackRoute,
   adminRoute,
   verifyRoute,
   rootRoute,
@@ -18,6 +19,7 @@ const [
 ] = await Promise.all([
   read("src/routes/academy.tsx"),
   read("src/routes/academy.index.tsx"),
+  read("src/routes/academy.callback.tsx"),
   read("src/routes/academy.admin.tsx"),
   read("src/routes/academy.verify.tsx"),
   read("src/routes/__root.tsx"),
@@ -35,6 +37,8 @@ test("Lovable root build exposes the academy below an isolated client-only layou
   assert.match(layout, /component:\s*Outlet/);
   assert.match(indexRoute, /createFileRoute\("\/academy\/"\)/);
   assert.match(indexRoute, /portal="teacher"/);
+  assert.match(callbackRoute, /createFileRoute\("\/academy\/callback"\)/);
+  assert.match(callbackRoute, /TeacherOAuthCallback/);
   assert.match(adminRoute, /createFileRoute\("\/academy\/admin"\)/);
   assert.match(adminRoute, /portal="admin"/);
   assert.match(adminRoute, /noindex,nofollow/);
@@ -52,14 +56,14 @@ test("academy routes do not mount student auth, PWA, or mobile providers", () =>
   );
 });
 
-test("academy navigation, Google callback, and certificate verification honor the base path", () => {
+test("academy navigation, dedicated Google callback, and certificate verification honor the base path", () => {
   assert.match(app, /VITE_ACADEMY_BASE_PATH/);
   assert.match(app, /href=\{academyUrl\(\)\}/);
   assert.match(app, /provider:\s*"google"/);
-  assert.match(app, /usesRootCallback \? "\/auth\/callback" : academyUrl\(\)/);
-  assert.match(app, /ACADEMY_OAUTH_RETURN_KEY/);
-  assert.match(authCallback, /consumeAcademyOAuthReturn/);
-  assert.match(authCallback, /window\.location\.replace\(academyReturn\)/);
+  assert.match(app, /academyUrl\("\/callback"\)/);
+  assert.match(app, /window\.location\.replace\(academyUrl\(\)\)/);
+  assert.doesNotMatch(app, /ACADEMY_OAUTH_RETURN_KEY|\/auth\/callback/);
+  assert.doesNotMatch(authCallback, /ACADEMY_OAUTH_RETURN_KEY|academyReturn/);
   assert.match(app, /academyUrl\(\s*`\/verify\?code=/);
   assert.match(app, /activePortal === "verify"/);
   assert.doesNotMatch(app, /href=\{`\/verify\?code=/);

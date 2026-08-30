@@ -30,6 +30,7 @@ import { Route as AuthMobileCallbackRouteImport } from './routes/auth.mobile-cal
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AcademyVerifyRouteImport } from './routes/academy.verify'
+import { Route as AcademyCallbackRouteImport } from './routes/academy.callback'
 import { Route as AcademyAdminRouteImport } from './routes/academy.admin'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
 import { Route as AuthenticatedSubscriptionRouteImport } from './routes/_authenticated/subscription'
@@ -194,6 +195,11 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
 const AcademyVerifyRoute = AcademyVerifyRouteImport.update({
   id: '/verify',
   path: '/verify',
+  getParentRoute: () => AcademyRoute,
+} as any)
+const AcademyCallbackRoute = AcademyCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
   getParentRoute: () => AcademyRoute,
 } as any)
 const AcademyAdminRoute = AcademyAdminRouteImport.update({
@@ -564,6 +570,7 @@ export interface FileRoutesByFullPath {
   '/subscription': typeof AuthenticatedSubscriptionRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/academy/admin': typeof AcademyAdminRoute
+  '/academy/callback': typeof AcademyCallbackRoute
   '/academy/verify': typeof AcademyVerifyRoute
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -643,6 +650,7 @@ export interface FileRoutesByTo {
   '/subscription': typeof AuthenticatedSubscriptionRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/academy/admin': typeof AcademyAdminRoute
+  '/academy/callback': typeof AcademyCallbackRoute
   '/academy/verify': typeof AcademyVerifyRoute
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -725,6 +733,7 @@ export interface FileRoutesById {
   '/_authenticated/subscription': typeof AuthenticatedSubscriptionRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/academy/admin': typeof AcademyAdminRoute
+  '/academy/callback': typeof AcademyCallbackRoute
   '/academy/verify': typeof AcademyVerifyRoute
   '/admin/login': typeof AdminLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -809,6 +818,7 @@ export interface FileRouteTypes {
     | '/subscription'
     | '/wallet'
     | '/academy/admin'
+    | '/academy/callback'
     | '/academy/verify'
     | '/admin/login'
     | '/auth/callback'
@@ -888,6 +898,7 @@ export interface FileRouteTypes {
     | '/subscription'
     | '/wallet'
     | '/academy/admin'
+    | '/academy/callback'
     | '/academy/verify'
     | '/admin/login'
     | '/auth/callback'
@@ -969,6 +980,7 @@ export interface FileRouteTypes {
     | '/_authenticated/subscription'
     | '/_authenticated/wallet'
     | '/academy/admin'
+    | '/academy/callback'
     | '/academy/verify'
     | '/admin/login'
     | '/auth/callback'
@@ -1196,6 +1208,13 @@ declare module '@tanstack/react-router' {
       path: '/verify'
       fullPath: '/academy/verify'
       preLoaderRoute: typeof AcademyVerifyRouteImport
+      parentRoute: typeof AcademyRoute
+    }
+    '/academy/callback': {
+      id: '/academy/callback'
+      path: '/callback'
+      fullPath: '/academy/callback'
+      preLoaderRoute: typeof AcademyCallbackRouteImport
       parentRoute: typeof AcademyRoute
     }
     '/academy/admin': {
@@ -1821,12 +1840,14 @@ const AuthenticatedRouteRouteWithChildren =
 
 interface AcademyRouteChildren {
   AcademyAdminRoute: typeof AcademyAdminRoute
+  AcademyCallbackRoute: typeof AcademyCallbackRoute
   AcademyVerifyRoute: typeof AcademyVerifyRoute
   AcademyIndexRoute: typeof AcademyIndexRoute
 }
 
 const AcademyRouteChildren: AcademyRouteChildren = {
   AcademyAdminRoute: AcademyAdminRoute,
+  AcademyCallbackRoute: AcademyCallbackRoute,
   AcademyVerifyRoute: AcademyVerifyRoute,
   AcademyIndexRoute: AcademyIndexRoute,
 }
