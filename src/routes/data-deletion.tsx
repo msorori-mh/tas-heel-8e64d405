@@ -15,10 +15,10 @@ export const Route = createFileRoute("/data-deletion")({
       },
       {
         property: "og:url",
-        content: "https://tas-heel.lovable.app/data-deletion",
+        content: "https://studentamkeen.com/data-deletion",
       },
     ],
-    links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/data-deletion" }],
+    links: [{ rel: "canonical", href: "https://studentamkeen.com/data-deletion" }],
   }),
   component: DataDeletionPage,
 });

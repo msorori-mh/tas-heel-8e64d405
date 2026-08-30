@@ -15,9 +15,9 @@ export const Route = createFileRoute("/about")({
         content:
           "تمكين منصة رقمية تعليمية متخصّصة لطلاب الثانوية في اليمن — دروس وملخصات وبنوك أسئلة حسب المنهج والمحافظة.",
       },
-      { property: "og:url", content: "https://tas-heel.lovable.app/about" },
+      { property: "og:url", content: "https://studentamkeen.com/about" },
     ],
-    links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/about" }],
+    links: [{ rel: "canonical", href: "https://studentamkeen.com/about" }],
   }),
   component: () => (
     <article className="min-h-screen bg-background px-4 py-10">

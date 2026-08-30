@@ -15,6 +15,7 @@ import {
   buildSemesterMap,
   isSubjectVisibleForSemester,
 } from "@/lib/subject-semester";
+import { fetchStudentLessonVisibility } from "@/lib/lessons/lesson-lifecycle";
 
 type Subject = {
   id: string;
@@ -27,7 +28,7 @@ type Subject = {
 };
 
 export function SemesterSubjectsView({ semester }: { semester: Semester }) {
-  const { profile, user } = useAuth();
+  const { profile, user, isContentStaff } = useAuth();
   const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -38,7 +39,9 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
       profile?.curriculum_track_id ?? null,
       semester,
       user?.id ?? null,
+      isContentStaff === true,
     ],
+    staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data: rows, error: subjectsError } = await supabase
         .from("subjects")
@@ -63,11 +66,19 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
       if (unitsRes.error) throw unitsRes.error;
       if (lessonsRes.error) throw lessonsRes.error;
 
-      const lessonRows = (lessonsRes.data ?? []) as {
+      const allLessonRows = (lessonsRes.data ?? []) as {
         id: string;
         subject_id: string;
         semester: number | null;
       }[];
+
+      const visibility =
+        isContentStaff === true
+          ? null
+          : await fetchStudentLessonVisibility(allLessonRows.map((lesson) => lesson.id));
+      const lessonRows = visibility
+        ? allLessonRows.filter((lesson) => visibility.get(lesson.id) !== false)
+        : allLessonRows;
 
       const unitSemesters = buildSemesterMap(
         (unitsRes.data ?? []) as { subject_id: string; semester: number | null }[],

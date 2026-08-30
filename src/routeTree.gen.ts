@@ -45,6 +45,7 @@ import { Route as Prototype19aIndexRouteImport } from './routes/prototype.19a.in
 import { Route as AuthenticatedSemestersIndexRouteImport } from './routes/_authenticated/semesters.index'
 import { Route as AuthenticatedPaymentsIndexRouteImport } from './routes/_authenticated/payments.index'
 import { Route as AuthenticatedMinisterialExamsIndexRouteImport } from './routes/_authenticated/ministerial-exams.index'
+import { Route as AuthenticatedExamsIndexRouteImport } from './routes/_authenticated/exams.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as Prototype19aLessonRouteImport } from './routes/prototype.19a.lesson'
 import { Route as Prototype19aLandingRouteImport } from './routes/prototype.19a.landing'
@@ -275,6 +276,11 @@ const AuthenticatedMinisterialExamsIndexRoute =
     path: '/ministerial-exams/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedExamsIndexRoute = AuthenticatedExamsIndexRouteImport.update({
+  id: '/exams/',
+  path: '/exams/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -587,6 +593,7 @@ export interface FileRoutesByFullPath {
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
   '/prototype/19a/lesson': typeof Prototype19aLessonRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/exams/': typeof AuthenticatedExamsIndexRoute
   '/ministerial-exams/': typeof AuthenticatedMinisterialExamsIndexRoute
   '/payments/': typeof AuthenticatedPaymentsIndexRoute
   '/semesters/': typeof AuthenticatedSemestersIndexRoute
@@ -662,6 +669,7 @@ export interface FileRoutesByTo {
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
   '/prototype/19a/lesson': typeof Prototype19aLessonRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/exams': typeof AuthenticatedExamsIndexRoute
   '/ministerial-exams': typeof AuthenticatedMinisterialExamsIndexRoute
   '/payments': typeof AuthenticatedPaymentsIndexRoute
   '/semesters': typeof AuthenticatedSemestersIndexRoute
@@ -744,6 +752,7 @@ export interface FileRoutesById {
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
   '/prototype/19a/lesson': typeof Prototype19aLessonRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/exams/': typeof AuthenticatedExamsIndexRoute
   '/_authenticated/ministerial-exams/': typeof AuthenticatedMinisterialExamsIndexRoute
   '/_authenticated/payments/': typeof AuthenticatedPaymentsIndexRoute
   '/_authenticated/semesters/': typeof AuthenticatedSemestersIndexRoute
@@ -826,6 +835,7 @@ export interface FileRouteTypes {
     | '/prototype/19a/landing'
     | '/prototype/19a/lesson'
     | '/admin/'
+    | '/exams/'
     | '/ministerial-exams/'
     | '/payments/'
     | '/semesters/'
@@ -901,6 +911,7 @@ export interface FileRouteTypes {
     | '/prototype/19a/landing'
     | '/prototype/19a/lesson'
     | '/admin'
+    | '/exams'
     | '/ministerial-exams'
     | '/payments'
     | '/semesters'
@@ -982,6 +993,7 @@ export interface FileRouteTypes {
     | '/prototype/19a/landing'
     | '/prototype/19a/lesson'
     | '/_authenticated/admin/'
+    | '/_authenticated/exams/'
     | '/_authenticated/ministerial-exams/'
     | '/_authenticated/payments/'
     | '/_authenticated/semesters/'
@@ -1277,6 +1289,13 @@ declare module '@tanstack/react-router' {
       path: '/ministerial-exams'
       fullPath: '/ministerial-exams/'
       preLoaderRoute: typeof AuthenticatedMinisterialExamsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/exams/': {
+      id: '/_authenticated/exams/'
+      path: '/exams'
+      fullPath: '/exams/'
+      preLoaderRoute: typeof AuthenticatedExamsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/': {
@@ -1727,6 +1746,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMinisterialExamsPerformanceRoute: typeof AuthenticatedMinisterialExamsPerformanceRoute
   AuthenticatedSemestersSemesterRoute: typeof AuthenticatedSemestersSemesterRoute
   AuthenticatedSubjectsSubjectIdRoute: typeof AuthenticatedSubjectsSubjectIdRoute
+  AuthenticatedExamsIndexRoute: typeof AuthenticatedExamsIndexRoute
   AuthenticatedMinisterialExamsIndexRoute: typeof AuthenticatedMinisterialExamsIndexRoute
   AuthenticatedSemestersIndexRoute: typeof AuthenticatedSemestersIndexRoute
   AuthenticatedExamsStrictTemplateIdRoute: typeof AuthenticatedExamsStrictTemplateIdRoute
@@ -1758,6 +1778,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedMinisterialExamsPerformanceRoute,
   AuthenticatedSemestersSemesterRoute: AuthenticatedSemestersSemesterRoute,
   AuthenticatedSubjectsSubjectIdRoute: AuthenticatedSubjectsSubjectIdRoute,
+  AuthenticatedExamsIndexRoute: AuthenticatedExamsIndexRoute,
   AuthenticatedMinisterialExamsIndexRoute:
     AuthenticatedMinisterialExamsIndexRoute,
   AuthenticatedSemestersIndexRoute: AuthenticatedSemestersIndexRoute,
