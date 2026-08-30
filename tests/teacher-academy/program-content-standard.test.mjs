@@ -22,6 +22,14 @@ const chemistryProgramPath = new URL(
   "../../scripts/teacher-academy/program-content/chemistry-safe-practical-teaching-v1.json",
   import.meta.url,
 );
+const islamicProgramPath = new URL(
+  "../../scripts/teacher-academy/program-content/islamic-effective-teaching-v1.json",
+  import.meta.url,
+);
+const mathematicsProgramPath = new URL(
+  "../../scripts/teacher-academy/program-content/mathematics-problem-solving-v1.json",
+  import.meta.url,
+);
 const subjectProgramSqlPath = new URL(
   "../../scripts/teacher-academy/program-content/render-new-subject-program-sql.mjs",
   import.meta.url,
@@ -33,6 +41,8 @@ const [
   generalUpgradeSource,
   generalUpgradeSql,
   chemistryProgramSource,
+  islamicProgramSource,
+  mathematicsProgramSource,
   subjectProgramSql,
 ] = await Promise.all([
   readFile(catalogPath, "utf8"),
@@ -40,11 +50,15 @@ const [
   readFile(generalUpgradePath, "utf8"),
   readFile(generalUpgradeSqlPath, "utf8"),
   readFile(chemistryProgramPath, "utf8"),
+  readFile(islamicProgramPath, "utf8"),
+  readFile(mathematicsProgramPath, "utf8"),
   readFile(subjectProgramSqlPath, "utf8"),
 ]);
 const catalog = JSON.parse(catalogSource);
 const generalUpgrade = JSON.parse(generalUpgradeSource);
 const chemistryProgram = JSON.parse(chemistryProgramSource);
+const islamicProgram = JSON.parse(islamicProgramSource);
+const mathematicsProgram = JSON.parse(mathematicsProgramSource);
 
 const expectedSubjects = [
   "ARABIC",
@@ -57,6 +71,48 @@ const expectedSubjects = [
   "SOCIAL_STUDIES",
   "COMPUTER",
 ];
+
+const assertCompleteSubjectProgram = (program, subjectCode, questionCount) => {
+  assert.equal(program.bundleType, "NEW_SUBJECT_PROGRAM");
+  assert.equal(program.metadata.audienceType, "SUBJECT_SPECIFIC");
+  assert.equal(program.metadata.subjectCode, subjectCode);
+  assert.equal(program.metadata.estimatedMinutes, 210);
+  assert.ok(program.metadata.detailedDescription.length >= 500);
+  assert.ok(program.metadata.objectives.length >= 4);
+  assert.ok(program.metadata.prerequisites.length >= 3);
+  assert.ok(program.metadata.instructions.length >= 5);
+  assert.equal(program.lessons.length, 6);
+  assert.equal(
+    program.lessons.reduce((total, lesson) => total + lesson.durationMinutes, 0),
+    program.metadata.estimatedMinutes,
+  );
+  for (const lesson of program.lessons) {
+    assert.ok(lesson.durationMinutes >= 25 && lesson.durationMinutes <= 40);
+    assert.ok(lesson.sections.objective.length >= 60);
+    assert.ok(lesson.sections.introduction.length >= 120);
+    assert.ok(lesson.sections.content.length >= 800);
+    assert.ok(lesson.sections.example.length >= 200);
+    assert.ok(lesson.sections.activity.length >= 180);
+    assert.ok(lesson.sections.summary.length >= 100);
+  }
+  assert.equal(program.assessment.passPercentage, 75);
+  assert.equal(program.assessment.questions.length, questionCount);
+  assert.deepEqual(
+    program.assessment.questions.map((question) => question.correctOption),
+    Array.from({ length: questionCount }, (_, index) => "abcd"[index % 4]),
+  );
+  for (const question of program.assessment.questions) {
+    assert.equal(question.options.length, 4);
+    assert.equal(new Set(question.options).size, 4);
+  }
+  assert.equal(program.liveSessionPlan.durationMinutes, 75);
+  assert.equal(program.liveSessionPlan.requiredForCertificate, false);
+  assert.equal(
+    program.liveSessionPlan.schedulingStatus,
+    "AWAITING_CONFIRMED_SPEAKER_DATE_AND_HTTPS_LINK",
+  );
+  assert.equal("meetingUrl" in program.liveSessionPlan, false);
+};
 
 test("the specialty catalog covers the nine active academy subjects exactly once", () => {
   assert.equal(catalog.programType, "SUBJECT_SPECIFIC");
@@ -181,6 +237,25 @@ test("the chemistry pilot is a complete one-subject program with safe practical 
     "AWAITING_CONFIRMED_SPEAKER_DATE_AND_HTTPS_LINK",
   );
   assert.equal("meetingUrl" in chemistryProgram.liveSessionPlan, false);
+});
+
+test("the Islamic education program is complete, source-bound, and privacy-safe", () => {
+  assertCompleteSubjectProgram(islamicProgram, "ISLAMIC", 12);
+  const source = JSON.stringify(islamicProgram);
+  assert.match(source, /المصادر المعتمدة/);
+  assert.match(source, /خصوصية/);
+  assert.match(source, /فتوى شخصية/);
+  assert.doesNotMatch(source, /https?:\/\//);
+});
+
+test("the mathematics program covers diagnosis, representations, errors, and reasoning", () => {
+  assertCompleteSubjectProgram(mathematicsProgram, "MATHEMATICS", 12);
+  const lessonTitles = mathematicsProgram.lessons.map((lesson) => lesson.title);
+  assert.ok(lessonTitles.some((title) => title.includes("الفجوات")));
+  assert.ok(lessonTitles.some((title) => title.includes("التمثيل")));
+  assert.ok(lessonTitles.some((title) => title.includes("أخطاء")));
+  assert.ok(lessonTitles.some((title) => title.includes("حل المشكلات")));
+  assert.doesNotMatch(JSON.stringify(mathematicsProgram), /https?:\/\//);
 });
 
 test("the reusable subject-program renderer publishes only after exact validation", () => {
