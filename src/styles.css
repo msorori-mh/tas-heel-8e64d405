@@ -190,6 +190,77 @@
   --elevated-shadow: 0 8px 28px -10px oklch(0 0 0 / 0.4);
 }
 
+/*
+ * STUDENT_BRAND_THEME_01
+ *
+ * The student journey owns this scoped brand surface. Admin and Teacher
+ * Academy continue to use their existing themes, so a student-brand rollout
+ * cannot silently recolour operational screens.
+ */
+.student-theme {
+  --background: #FBFAF7;
+  --foreground: #131A33;
+  --card: #FFFFFF;
+  --card-foreground: #131A33;
+  --popover: #FFFFFF;
+  --popover-foreground: #131A33;
+  --primary: #1E2A63;
+  --primary-foreground: #FFFFFF;
+  --secondary: #0EA5E9;
+  --secondary-foreground: #FFFFFF;
+  --muted: #F1F0EC;
+  --muted-foreground: #56607F;
+  --accent: #06B6D4;
+  --accent-foreground: #06263A;
+  --success: #10B981;
+  --success-foreground: #FFFFFF;
+  --destructive: #F87171;
+  --destructive-foreground: #301010;
+  --border: #E6E4DC;
+  --input: #E6E4DC;
+  --ring: #0EA5E9;
+  --chart-1: #1E2A63;
+  --chart-2: #0EA5E9;
+  --chart-3: #06B6D4;
+  --chart-4: #F59E0B;
+  --chart-5: #10B981;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #131A33;
+  --sidebar-primary: #1E2A63;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F1F0EC;
+  --sidebar-accent-foreground: #131A33;
+  --sidebar-border: #E6E4DC;
+  --sidebar-ring: #0EA5E9;
+
+  --hero-gradient: linear-gradient(135deg, #1E2A63 0%, #4C4BC9 55%, #06B6D4 100%);
+  --exam-gradient: linear-gradient(135deg, #1E2A63, #4C4BC9);
+  --progress-gradient: linear-gradient(90deg, #06B6D4, #4C4BC9);
+  --achievement-gradient: linear-gradient(135deg, #F59E0B, #FBBF24);
+  --subscription-gradient: linear-gradient(135deg, #06B6D4, #1E2A63);
+  --surface-soft-gradient: linear-gradient(180deg, #FBFAF7 0%, #F1F0EC 100%);
+  --student-app-bg: radial-gradient(
+      ellipse 90% 55% at 100% -10%,
+      rgb(76 75 201 / 0.10),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 45% at 0% 100%,
+      rgb(6 182 212 / 0.08),
+      transparent 50%
+    ),
+    #FBFAF7;
+  --surface-featured-gradient: linear-gradient(
+    145deg,
+    rgb(251 250 247 / 0.96) 0%,
+    #FFFFFF 42%,
+    rgb(6 182 212 / 0.10) 100%
+  );
+  --card-shadow: 0 4px 24px -8px rgb(30 42 99 / 0.14);
+  --card-shadow-hover: 0 16px 40px -12px rgb(30 42 99 / 0.22);
+  --elevated-shadow: 0 8px 28px -10px rgb(30 42 99 / 0.18);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -500,5 +571,4 @@ html[dir="rtl"] body {
     font-size: 17px;
   }
 }
-
 

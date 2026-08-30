@@ -1,0 +1,157 @@
+name: Android CI and Play bundle
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "mobile/**"
+      - "capacitor.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "public/manifest.webmanifest"
+      - "src/components/student/**"
+      - "src/styles.css"
+      - "tests/mobile/**"
+      - "tests/student/student-brand-theme-01.static.test.mjs"
+      - ".github/workflows/android-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "mobile/**"
+      - "capacitor.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "public/manifest.webmanifest"
+      - "src/components/student/**"
+      - "src/styles.css"
+      - "tests/mobile/**"
+      - "tests/student/student-brand-theme-01.static.test.mjs"
+      - ".github/workflows/android-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  debug-bundle:
+    name: Android API 36 debug bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install API 36 SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install dependencies and verify release contracts
+        run: |
+          npm ci
+          npm run test:mobile-release
+
+      - name: Synchronize Capacitor Android project
+        run: node node_modules/@capacitor/cli/bin/capacitor sync android
+
+      - name: Build debug app bundle
+        working-directory: android
+        run: ./gradlew bundleDebug --stacktrace
+
+      - name: Upload debug AAB evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamkeen-android-debug-aab
+          path: android/app/build/outputs/bundle/debug/app-debug.aab
+          if-no-files-found: error
+          retention-days: 14
+
+  signed-play-bundle:
+    name: Signed Play testing AAB
+    if: github.event_name == 'workflow_dispatch'
+    needs: debug-bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install API 36 SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Require the four upload-key secrets
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+
+      - name: Materialize the ephemeral upload key
+        run: |
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/tamkeen-upload.jks"
+          {
+            printf 'storeFile=%s\n' "$RUNNER_TEMP/tamkeen-upload.jks"
+            printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+          } > android/keystore.properties
+          chmod 600 "$RUNNER_TEMP/tamkeen-upload.jks" android/keystore.properties
+
+      - name: Install, verify and synchronize
+        run: |
+          npm ci
+          npm run test:mobile-release
+          node node_modules/@capacitor/cli/bin/capacitor sync android
+
+      - name: Build and verify the signed Play bundle
+        working-directory: android
+        run: |
+          ./gradlew bundleRelease --stacktrace
+          jarsigner -verify -strict app/build/outputs/bundle/release/app-release.aab
+
+      - name: Upload signed AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamkeen-play-testing-v1-signed-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove ephemeral signing material
+        if: always()
+        run: |
+          rm -f android/keystore.properties
+          rm -f "$RUNNER_TEMP/tamkeen-upload.jks"

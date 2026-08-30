@@ -62,8 +62,8 @@ test("manifest is installable and brand-consistent", () => {
   assert.equal(manifest.lang, "ar");
   assert.equal(manifest.dir, "rtl");
   assert.equal(manifest.display, "standalone");
-  assert.equal(manifest.theme_color, "#1E2A78");
-  assert.equal(manifest.background_color, "#F8FAFC");
+  assert.equal(manifest.theme_color, "#1E2A63");
+  assert.equal(manifest.background_color, "#FBFAF7");
   assert.ok(manifest.start_url);
   for (const size of ["192x192", "512x512"]) {
     assert.ok(
