@@ -3,38 +3,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { translateAuthError } from "@/lib/auth-helpers";
 
-const ACADEMY_OAUTH_RETURN_KEY = "tamkeen:academy-google-return";
-const ACADEMY_OAUTH_RETURN_MAX_AGE_MS = 10 * 60 * 1000;
-
-function clearAcademyOAuthReturn(): void {
-  try {
-    window.localStorage.removeItem(ACADEMY_OAUTH_RETURN_KEY);
-  } catch {
-    // Storage is optional; the callback remains fail-closed without a valid marker.
-  }
-}
-
-function consumeAcademyOAuthReturn(): "/academy" | null {
-  try {
-    const stored = window.localStorage.getItem(ACADEMY_OAUTH_RETURN_KEY);
-    clearAcademyOAuthReturn();
-    if (!stored) return null;
-    const parsed = JSON.parse(stored) as { path?: unknown; createdAt?: unknown };
-    if (
-      parsed.path !== "/academy" ||
-      typeof parsed.createdAt !== "number" ||
-      Date.now() - parsed.createdAt > ACADEMY_OAUTH_RETURN_MAX_AGE_MS ||
-      parsed.createdAt > Date.now() + 60_000
-    ) {
-      return null;
-    }
-    return "/academy";
-  } catch {
-    clearAcademyOAuthReturn();
-    return null;
-  }
-}
-
 export const Route = createFileRoute("/auth/callback")({
   component: AuthCallback,
 });
@@ -76,12 +44,6 @@ function AuthCallback() {
         } = await supabase.auth.getUser();
         if (!user) throw new Error("لم يتم العثور على جلسة");
 
-        const academyReturn = consumeAcademyOAuthReturn();
-        if (academyReturn) {
-          window.location.replace(academyReturn);
-          return;
-        }
-
         const { data: profile } = await supabase
           .from("profiles")
           .select("full_name,grade_id,grade_uuid,governorate_id,curriculum_track_id")
@@ -98,7 +60,6 @@ function AuthCallback() {
         if (cancelled) return;
         navigate({ to: complete ? "/app" : "/complete-profile", replace: true });
       } catch (e) {
-        clearAcademyOAuthReturn();
         if (!cancelled) setError(translateAuthError(e));
       }
     }

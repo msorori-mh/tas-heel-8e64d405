@@ -68,8 +68,6 @@ function academyUrl(path = "") {
   return `${academyBasePath}${path}` || "/";
 }
 
-const ACADEMY_OAUTH_RETURN_KEY = "tamkeen:academy-google-return";
-
 type AcademyPortal = "teacher" | "admin" | "verify";
 type WorkspaceView = "catalog" | "learning" | "certificates" | "profile" | "admin";
 
@@ -82,19 +80,10 @@ function isGoogleAccount(user: User): boolean {
   );
 }
 
-function clearAcademyOAuthReturn(): void {
-  try {
-    window.localStorage.removeItem(ACADEMY_OAUTH_RETURN_KEY);
-  } catch {
-    // A blocked storage surface cannot retain a stale academy return intent.
-  }
-}
-
 async function startTeacherGoogleSignIn(): Promise<void> {
   requireAcademyBackend();
-  const usesRootCallback = academyBasePath.length > 0;
   const redirectTo = new URL(
-    usesRootCallback ? "/auth/callback" : academyUrl(),
+    academyBasePath.length > 0 ? academyUrl("/callback") : academyUrl(),
     window.location.origin,
   ).toString();
   const { data, error } = await academySupabase.auth.signInWithOAuth({
@@ -107,13 +96,6 @@ async function startTeacherGoogleSignIn(): Promise<void> {
   });
   if (error) throw error;
   if (!data.url) throw new Error("تعذّر بدء تسجيل الدخول عبر Google.");
-
-  if (usesRootCallback) {
-    window.localStorage.setItem(
-      ACADEMY_OAUTH_RETURN_KEY,
-      JSON.stringify({ path: academyUrl(), createdAt: Date.now() }),
-    );
-  }
 
   const isEmbedded = window.top !== window.self;
   if (isEmbedded) {
@@ -280,6 +262,60 @@ function LoadingScreen() {
   );
 }
 
+export function TeacherOAuthCallback() {
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function finishTeacherSignIn() {
+      try {
+        requireAcademyBackend();
+        const url = new URL(window.location.href);
+        const authError =
+          url.searchParams.get("error_description") ||
+          url.searchParams.get("error") ||
+          new URLSearchParams(window.location.hash.replace(/^#/, "")).get("error_description");
+        if (authError) throw new Error(authError);
+
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          const { data, error: sessionError } = await academySupabase.auth.getSession();
+          if (sessionError) throw sessionError;
+          if (data.session) {
+            window.location.replace(academyUrl());
+            return;
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 150));
+        }
+
+        throw new Error("لم تكتمل جلسة Google. أعد المحاولة من بوابة المعلمين.");
+      } catch (callbackError) {
+        if (active) setError(getErrorMessage(callbackError));
+      }
+    }
+
+    void finishTeacherSignIn();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!error) return <LoadingScreen />;
+
+  return (
+    <main className="centered-page">
+      <section className="auth-card setup-card">
+        <ShieldCheck className="large-icon" />
+        <h1>تعذر إكمال دخول المعلم</h1>
+        <div className="notice error-notice">{error}</div>
+        <a className="primary-button link-button" href={academyUrl()}>
+          العودة إلى بوابة المعلمين
+        </a>
+      </section>
+    </main>
+  );
+}
+
 function ConfigurationRequired() {
   return (
     <main className="centered-page">
@@ -433,7 +469,6 @@ function TeacherAuthPage() {
     try {
       await startTeacherGoogleSignIn();
     } catch (submitError) {
-      clearAcademyOAuthReturn();
       setError(getErrorMessage(submitError));
       setBusy(false);
     }
@@ -509,7 +544,6 @@ function AdminAuthPage() {
 
     try {
       requireAcademyBackend();
-      clearAcademyOAuthReturn();
       const result = await academySupabase.auth.signInWithPassword({
         email: email.trim(),
         password,

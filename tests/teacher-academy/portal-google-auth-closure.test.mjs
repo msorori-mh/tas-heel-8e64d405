@@ -4,19 +4,29 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
-const [app, callback, studentGoogle, migration, indexRoute, adminRoute, verifyRoute] =
-  await Promise.all([
-    read("apps/teacher-academy/src/App.tsx"),
-    read("src/routes/auth.callback.tsx"),
-    read("src/lib/auth/google-sign-in.ts"),
-    read("supabase/migrations/20260911040000_academy_google_only_teacher_portal.sql"),
-    read("src/routes/academy.index.tsx"),
-    read("src/routes/academy.admin.tsx"),
-    read("src/routes/academy.verify.tsx"),
-  ]);
+const [
+  app,
+  callbackRoute,
+  studentCallback,
+  studentGoogle,
+  migration,
+  indexRoute,
+  adminRoute,
+  verifyRoute,
+] = await Promise.all([
+  read("apps/teacher-academy/src/App.tsx"),
+  read("src/routes/academy.callback.tsx"),
+  read("src/routes/auth.callback.tsx"),
+  read("src/lib/auth/google-sign-in.ts"),
+  read("supabase/migrations/20260911040000_academy_google_only_teacher_portal.sql"),
+  read("src/routes/academy.index.tsx"),
+  read("src/routes/academy.admin.tsx"),
+  read("src/routes/academy.verify.tsx"),
+]);
 
 test("teacher, admin, and certificate routes select explicit isolated portals", () => {
   assert.match(indexRoute, /portal="teacher"/);
+  assert.match(callbackRoute, /TeacherOAuthCallback/);
   assert.match(adminRoute, /portal="admin"/);
   assert.match(verifyRoute, /portal="verify"/);
   assert.match(adminRoute, /noindex,nofollow/);
@@ -31,15 +41,17 @@ test("the teacher entry point offers Google only", () => {
   assert.doesNotMatch(teacherAuth, /signInWithPassword|signUp|type="password"|type="email"/);
 });
 
-test("Google OAuth returns through the existing callback without an open redirect", () => {
+test("Google OAuth returns through a teacher-only callback without student routing", () => {
   assert.match(app, /signInWithOAuth\(\{\s*provider: "google"/);
   assert.match(app, /skipBrowserRedirect: true/);
   assert.match(app, /queryParams: \{ prompt: "select_account" \}/);
-  assert.match(app, /usesRootCallback \? "\/auth\/callback" : academyUrl\(\)/);
-  assert.match(callback, /parsed\.path !== "\/academy"/);
-  assert.match(callback, /ACADEMY_OAUTH_RETURN_MAX_AGE_MS/);
-  assert.match(callback, /window\.location\.replace\(academyReturn\)/);
-  assert.match(studentGoogle, /removeItem\(ACADEMY_OAUTH_RETURN_KEY\)/);
+  assert.match(app, /academyUrl\("\/callback"\)/);
+  assert.match(app, /export function TeacherOAuthCallback/);
+  assert.match(app, /window\.location\.replace\(academyUrl\(\)\)/);
+  assert.doesNotMatch(app, /ACADEMY_OAUTH_RETURN_KEY|\/auth\/callback/);
+  assert.doesNotMatch(callbackRoute, /AuthProvider|complete-profile|["']\/app["']/);
+  assert.doesNotMatch(studentCallback, /ACADEMY_OAUTH_RETURN_KEY|academyReturn/);
+  assert.doesNotMatch(studentGoogle, /ACADEMY_OAUTH_RETURN_KEY|academy-google-return/);
 });
 
 test("the admin entry point keeps existing administrator credentials and cannot create accounts", () => {

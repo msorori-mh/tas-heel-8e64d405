@@ -6,8 +6,6 @@ import {
   openNativeAuthBrowser,
 } from "@/lib/auth/native-oauth";
 
-const ACADEMY_OAUTH_RETURN_KEY = "tamkeen:academy-google-return";
-
 /**
  * 21B4-C — single entry point for "المتابعة باستخدام Google".
  *
@@ -17,12 +15,6 @@ const ACADEMY_OAUTH_RETURN_KEY = "tamkeen:academy-google-return";
  */
 export async function startGoogleSignIn(): Promise<void> {
   const native = await isNativeShell();
-
-  try {
-    window.localStorage.removeItem(ACADEMY_OAUTH_RETURN_KEY);
-  } catch {
-    // A student sign-in must not reuse a stale academy return marker.
-  }
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
