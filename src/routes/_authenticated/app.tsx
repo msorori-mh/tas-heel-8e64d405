@@ -76,7 +76,7 @@ function StudentHome() {
       )}
 
       {/* Secondary — always after Continue Learning */}
-      <div id="ai-assistant" className="scroll-mt-20">
+      <div id="study-suggestions" className="scroll-mt-20">
         <AiAssistantCard />
       </div>
     </div>

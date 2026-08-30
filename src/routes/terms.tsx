@@ -15,9 +15,9 @@ export const Route = createFileRoute("/terms")({
         content:
           "شروط استخدام منصة تمكين: الاشتراكات، الحسابات، مسؤولية بيانات الدفع، وسياسة المحتوى.",
       },
-      { property: "og:url", content: "https://tas-heel.lovable.app/terms" },
+      { property: "og:url", content: "https://studentamkeen.com/terms" },
     ],
-    links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/terms" }],
+    links: [{ rel: "canonical", href: "https://studentamkeen.com/terms" }],
   }),
   component: TermsPage,
 });

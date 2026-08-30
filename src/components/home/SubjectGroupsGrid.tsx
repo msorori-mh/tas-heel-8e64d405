@@ -175,7 +175,9 @@ function SubjectTile({
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-bold text-foreground">{title}</div>
             <div className="text-[11px] text-muted-foreground">
-              {meta && meta.lessons > 0 ? `${meta.completed}/${meta.lessons} درس` : "ابدأ المذاكرة"}
+              {meta && meta.lessons > 0
+                ? `${meta.completed}/${meta.lessons} درس`
+                : "المحتوى قيد التجهيز"}
             </div>
             {meta && meta.lessons > 0 && <MiniBar value={value} />}
           </div>

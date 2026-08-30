@@ -15,9 +15,9 @@ export const Route = createFileRoute("/privacy")({
         content:
           "كيف تجمع منصة تمكين بيانات طلاب الثانوية في اليمن وتحميها، ومزودو الخدمات، وحقوق الوصول والحذف.",
       },
-      { property: "og:url", content: "https://tas-heel.lovable.app/privacy" },
+      { property: "og:url", content: "https://studentamkeen.com/privacy" },
     ],
-    links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/privacy" }],
+    links: [{ rel: "canonical", href: "https://studentamkeen.com/privacy" }],
   }),
   component: PrivacyPage,
 });

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { computeStudyStreak } from "@/lib/home/streak";
+import { fetchStudentUnifiedPerformance } from "@/lib/performance/unified-performance-api";
 
 export type ContinueItem = {
   lessonId: string;
@@ -44,7 +45,7 @@ export function useHomeDashboard() {
     queryFn: async (): Promise<HomeStats> => {
       const uid = user!.id;
 
-      const [pointsRes, examsRes, progressRes, practiceRes, lessonsRes] = await Promise.all([
+      const [pointsRes, examsRes, progressRes, practiceRes, performance] = await Promise.all([
         supabase.rpc("get_user_total_points", { _user_id: uid }),
         supabase.from("exam_sessions").select("id, status, started_at").eq("user_id", uid),
         supabase
@@ -57,12 +58,7 @@ export function useHomeDashboard() {
           .eq("user_id", uid)
           .order("created_at", { ascending: false })
           .limit(90),
-        gradeKey
-          ? supabase
-              .from("lessons")
-              .select("id, subject_id, subjects!inner(grade_id, curriculum_track_id)")
-              .eq("subjects.grade_id", gradeKey)
-          : Promise.resolve({ data: [], error: null }),
+        fetchStudentUnifiedPerformance("ALL"),
       ]);
 
       const activityDates: string[] = [];
@@ -81,25 +77,15 @@ export function useHomeDashboard() {
       const totalPoints = Number(pointsRes.data ?? 0);
       const examsCompleted = (examsRes.data ?? []).filter((e) => e.status === "submitted").length;
 
-      const progressRows = progressRes.data ?? [];
-      const completedLessons = progressRows.filter((p) => p.completed).length;
-
-      let totalLessons = 0;
-      if (lessonsRes.data) {
-        totalLessons = (
-          lessonsRes.data as Array<{
-            id: string;
-            subject_id: string;
-            subjects: { grade_id: string; curriculum_track_id: string | null };
-          }>
-        ).filter(
-          (l) =>
-            l.subjects.curriculum_track_id === null || l.subjects.curriculum_track_id === trackId,
-        ).length;
-      }
-
-      const progressPercent =
-        totalLessons > 0 ? Math.min(100, Math.round((completedLessons / totalLessons) * 100)) : 0;
+      // One authoritative source for /app, /progress, and /performance. The RPC
+      // already applies the student's grade/track and student-visible lesson
+      // policy, avoiding the former 0-of-0 vs 0-of-21 contradiction.
+      const completedLessons = performance.progress.completed_lessons;
+      const totalLessons = performance.progress.total_lessons;
+      const progressPercent = Math.min(
+        100,
+        Math.round(performance.progress.completion_percentage ?? 0),
+      );
 
       return {
         streakDays,

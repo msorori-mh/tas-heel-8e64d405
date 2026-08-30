@@ -20,9 +20,9 @@ export const Route = createFileRoute("/contact")({
         content:
           "تواصل مع فريق تمكين عبر البريد أو نموذج التواصل للحصول على الدعم والإجابة على استفساراتك.",
       },
-      { property: "og:url", content: "https://tas-heel.lovable.app/contact" },
+      { property: "og:url", content: "https://studentamkeen.com/contact" },
     ],
-    links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/contact" }],
+    links: [{ rel: "canonical", href: "https://studentamkeen.com/contact" }],
   }),
   component: ContactPage,
 });

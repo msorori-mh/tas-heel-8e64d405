@@ -31,9 +31,9 @@ export const Route = createFileRoute("/")({
         content:
           "منصتك الذكية للاستعداد للثانوية والاختبارات الوزارية — محتوى منظم، تدريب، ومتابعة تقدم.",
       },
-      { property: "og:url", content: "https://tas-heel.lovable.app/" },
+      { property: "og:url", content: "https://studentamkeen.com/" },
     ],
-    links: [{ rel: "canonical", href: "https://tas-heel.lovable.app/" }],
+    links: [{ rel: "canonical", href: "https://studentamkeen.com/" }],
   }),
   component: LandingPage,
 });
@@ -262,6 +262,15 @@ function CTAFooter() {
             </Link>
             <Link to="/about" className="hover:text-primary">
               عن المنصة
+            </Link>
+            <Link to="/privacy" className="hover:text-primary">
+              الخصوصية
+            </Link>
+            <Link to="/terms" className="hover:text-primary">
+              الشروط
+            </Link>
+            <Link to="/data-deletion" className="hover:text-primary">
+              حذف البيانات
             </Link>
           </nav>
         </div>

@@ -2,10 +2,10 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   BarChart3,
   BookOpen,
-  Bot,
   ClipboardList,
   GraduationCap,
   Home,
+  Lightbulb,
   LogOut,
   Settings,
   Shield,
@@ -32,7 +32,7 @@ const PRIMARY_NAV: NavItem[] = [
   },
   {
     label: "الاختبارات",
-    to: "/exams/history",
+    to: "/exams",
     icon: ClipboardList,
     match: (p) => p.startsWith("/exams") || p.startsWith("/units"),
   },
@@ -78,13 +78,13 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           ))}
           <SidebarLink
             item={{
-              label: "المساعد الذكي",
+              label: "اقتراحات سريعة",
               to: "/app",
-              icon: Bot,
+              icon: Lightbulb,
               match: () => false,
             }}
             active={false}
-            hash="ai-assistant"
+            hash="study-suggestions"
           />
         </nav>
 

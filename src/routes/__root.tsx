@@ -101,7 +101,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "ar_YE" },
-      { property: "og:url", content: "https://tas-heel.lovable.app/" },
+      { property: "og:url", content: "https://studentamkeen.com/" },
       { name: "twitter:card", content: "summary_large_image" },
       {
         name: "twitter:title",
@@ -138,19 +138,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@graph": [
             {
               "@type": "Organization",
-              "@id": "https://tas-heel.lovable.app/#organization",
+              "@id": "https://studentamkeen.com/#organization",
               name: "تمكين الطالب",
-              url: "https://tas-heel.lovable.app/",
+              url: "https://studentamkeen.com/",
             },
             {
               "@type": "WebSite",
-              "@id": "https://tas-heel.lovable.app/#website",
-              url: "https://tas-heel.lovable.app/",
+              "@id": "https://studentamkeen.com/#website",
+              url: "https://studentamkeen.com/",
               name: "تمكين الطالب",
               description:
                 "منصة تعليمية لطلاب الثانوية تساعدهم على المراجعة والتدرب على الاختبارات، مع اهتمام خاص بالصف الثالث الثانوي والاختبارات الوزارية السابقة.",
               inLanguage: "ar-YE",
-              publisher: { "@id": "https://tas-heel.lovable.app/#organization" },
+              publisher: { "@id": "https://studentamkeen.com/#organization" },
             },
           ],
         }),
