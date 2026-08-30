@@ -203,6 +203,79 @@ export type AdminProgress = {
   certificate_valid: boolean | null;
 };
 
+export type AcademySettings = {
+  academy_name: string;
+  support_email: string | null;
+  support_phone: string | null;
+  default_program_minutes: number;
+  default_pass_percentage: number;
+  certificate_issuer_name: string;
+  certificate_signatory_name: string | null;
+  certificate_signatory_title: string | null;
+  default_live_provider: string;
+  default_live_instructions: string;
+  updated_at: string;
+};
+
+export type AcademyAdminAccount = {
+  user_id: string;
+  email: string;
+  capabilities: AcademyCapability[];
+  last_granted_at: string;
+};
+
+export type AdminAuditEvent = {
+  audit_id: number;
+  actor_email: string | null;
+  action:
+    | "SETTINGS_UPDATED"
+    | "CAPABILITY_GRANTED"
+    | "CAPABILITY_REVOKED"
+    | "PROGRAM_PUBLISHED"
+    | "PROGRAM_DRAFT_DELETED"
+    | "PROGRAM_ARCHIVED"
+    | "PROGRAM_RESTORED"
+    | "TEACHER_STATUS_UPDATED"
+    | "CERTIFICATE_REVOKED"
+    | "LIVE_SESSION_CREATED"
+    | "LIVE_SESSION_UPDATED"
+    | "LIVE_SESSION_DELETED";
+  target_email: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AdminProgramReport = {
+  program_version_id: string;
+  program_title: string;
+  audience_type: "ALL_TEACHERS" | "SUBJECT_SPECIFIC";
+  subject_name: string | null;
+  enrolled_count: number;
+  active_count: number;
+  completed_count: number;
+  completion_rate: number;
+  attempt_count: number;
+  passed_attempt_count: number;
+  pass_rate: number;
+  average_score_percentage: number;
+  certificate_count: number;
+  valid_certificate_count: number;
+  revoked_certificate_count: number;
+  last_activity_at: string | null;
+};
+
+export type AdminLessonEngagement = {
+  program_version_id: string;
+  program_title: string;
+  lesson_id: string;
+  lesson_title: string;
+  display_order: number;
+  enrolled_count: number;
+  completed_count: number;
+  completion_rate: number;
+  not_completed_count: number;
+};
+
 export type AdminAssessmentQuestion = {
   assessment_id: string;
   assessment_title: string;

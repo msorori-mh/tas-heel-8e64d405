@@ -28,13 +28,15 @@ function correctAnswerOf(question: AdminAssessmentQuestion): string {
 export function AssessmentEditor({
   programVersionId,
   readOnly = false,
+  defaultPassPercentage = 75,
 }: {
   programVersionId: string;
   readOnly?: boolean;
+  defaultPassPercentage?: number;
 }) {
   const [questions, setQuestions] = useState<AdminAssessmentQuestion[]>([]);
   const [title, setTitle] = useState("التقييم النهائي");
-  const [passPercentage, setPassPercentage] = useState(70);
+  const [passPercentage, setPassPercentage] = useState(defaultPassPercentage);
   const [questionText, setQuestionText] = useState("");
   const [options, setOptions] = useState({ a: "", b: "", c: "", d: "" });
   const [correctOption, setCorrectOption] = useState<"a" | "b" | "c" | "d">("a");
