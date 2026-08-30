@@ -250,8 +250,15 @@ select pg_temp.assert_true(
 );
 
 select pg_temp.assert_true(
-  (select count(*) >= 5 from academy.admin_list_audit_log(75)),
-  'audit log must record publishing, settings and capability changes'
+  (
+    select count(*) = 4
+      and count(*) filter (where action = 'PROGRAM_PUBLISHED') = 1
+      and count(*) filter (where action = 'SETTINGS_UPDATED') = 1
+      and count(*) filter (where action = 'CAPABILITY_GRANTED') = 1
+      and count(*) filter (where action = 'CAPABILITY_REVOKED') = 1
+    from academy.admin_list_audit_log(75)
+  ),
+  'audit log must record the exact publish, settings, grant and revoke events'
 );
 
 select pg_temp.assert_true(
