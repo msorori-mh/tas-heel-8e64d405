@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   Archive,
   ArrowDown,
@@ -13,6 +20,7 @@ import {
   Eye,
   ExternalLink,
   FilePenLine,
+  FileUp,
   GraduationCap,
   LayoutDashboard,
   LoaderCircle,
@@ -20,6 +28,7 @@ import {
   Plus,
   RefreshCcw,
   RotateCcw,
+  Search,
   Trash2,
   UserRound,
   UsersRound,
@@ -30,14 +39,17 @@ import { AssessmentEditor } from "./AssessmentEditor";
 import {
   adminCreateDraftVersion,
   adminCreateProgram,
+  adminDeleteDraftVersion,
   adminDeleteLiveSession,
   adminDeleteLesson,
+  adminImportProgramBundle,
   adminListLiveSessions,
   adminListLessons,
   adminListProgress,
   adminListPrograms,
   adminListTeachers,
   adminPublishProgram,
+  adminReorderLessons,
   adminRevokeCertificate,
   adminSaveLiveSession,
   adminSaveStructuredLesson,
@@ -48,6 +60,7 @@ import {
   loadProfileOptions,
   type ProgramDraftInput,
 } from "./lib/academy-api";
+import { validateProgramImportBundle, type ProgramImportBundle } from "./lib/program-bundle";
 import type {
   AcademyCapability,
   AcademySubject,
@@ -74,6 +87,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   ACADEMY_CATALOG_MANAGE_REQUIRED: "لا تملك صلاحية إدارة البرامج.",
   ACADEMY_TEACHERS_VIEW_REQUIRED: "لا تملك صلاحية إدارة المعلمين.",
   ACADEMY_PROGRESS_VIEW_REQUIRED: "لا تملك صلاحية إدارة التقدم.",
+  ACADEMY_IMPORT_PROGRAM_ALREADY_EXISTS: "يوجد برنامج حالي أو مسودة بالاسم نفسه.",
+  INVALID_PROGRAM_BUNDLE: "ملف البرنامج غير صالح أو ناقص.",
+  INVALID_PROGRAM_BUNDLE_LESSON: "أحد الدروس في ملف البرنامج غير صالح.",
+  INVALID_PROGRAM_BUNDLE_QUESTION: "أحد أسئلة التقييم في ملف البرنامج غير صالح.",
+  ACADEMY_IMPORT_SERVER_VALIDATION_FAILED: "فشل فحص المسودة المستوردة ولم تُحفظ.",
+  LESSON_ORDER_MUST_BE_EXACT: "تعذر حفظ ترتيب الدروس؛ أعد تحميل المحتوى وحاول مرة أخرى.",
+  DRAFT_PROGRAM_HAS_LEARNING_RECORDS: "لا يمكن حذف مسودة مرتبطة ببيانات تعلم.",
 };
 
 function messageOf(error: unknown): string {
@@ -330,6 +350,15 @@ function ProgramForm({
   );
   const [subjectId, setSubjectId] = useState<string>(initial?.subject_ids[0] ?? "");
   const [minutes, setMinutes] = useState(initial?.estimated_minutes ?? 60);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  const basicsComplete =
+    title.trim().length >= 3 && summary.trim().length >= 10 && minutes >= 1 && minutes <= 100_000;
+  const detailsComplete =
+    detailedDescription.trim().length >= 50 &&
+    splitLines(objectives).length > 0 &&
+    splitLines(instructions).length > 0;
+  const audienceComplete = audience === "ALL_TEACHERS" || Boolean(subjectId);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -347,11 +376,11 @@ function ProgramForm({
   }
 
   return (
-    <form className="admin-form" onSubmit={submit}>
+    <form className="admin-form program-wizard" onSubmit={submit}>
       <div className="section-toolbar compact-toolbar">
         <div>
           <h2>{initial ? "تعديل بيانات المسودة" : "إضافة برنامج تدريبي"}</h2>
-          <p className="muted">احفظ البيانات، ثم أضف الدروس والتقييم وافحص الجاهزية.</p>
+          <p className="muted">ثلاث خطوات واضحة، ثم ينتقل البرنامج إلى مساحة بناء المحتوى.</p>
         </div>
         {onCancel ? (
           <button className="text-button inline-text-button" type="button" onClick={onCancel}>
@@ -359,106 +388,281 @@ function ProgramForm({
           </button>
         ) : null}
       </div>
-      <div className="form-grid">
-        <label>
-          اسم البرنامج
-          <input value={title} onChange={(event) => setTitle(event.target.value)} required />
-        </label>
-        <label>
-          المدة التقديرية بالدقائق
-          <input
-            type="number"
-            min={1}
-            value={minutes}
-            onChange={(event) => setMinutes(Number(event.target.value))}
-            required
-          />
-        </label>
-        <label className="full-field">
-          الوصف المختصر
-          <textarea
-            value={summary}
-            onChange={(event) => setSummary(event.target.value)}
-            minLength={10}
-            maxLength={600}
-            required
-          />
-        </label>
-        <label className="full-field">
-          الوصف التفصيلي الذي سيظهر للمعلم
-          <textarea
-            value={detailedDescription}
-            onChange={(event) => setDetailedDescription(event.target.value)}
-            minLength={50}
-            maxLength={5000}
-            required
-          />
-        </label>
-        <label className="full-field">
-          أهداف البرنامج (هدف واحد في كل سطر)
-          <textarea
-            value={objectives}
-            onChange={(event) => setObjectives(event.target.value)}
-            placeholder="بنهاية البرنامج سيكون المعلم قادرًا على…"
-            required
-          />
-        </label>
-        <label className="full-field">
-          المتطلبات السابقة (متطلب واحد في كل سطر، اختيارية)
-          <textarea
-            value={prerequisites}
-            onChange={(event) => setPrerequisites(event.target.value)}
-          />
-        </label>
-        <label className="full-field">
-          تعليمات البرنامج (تعليمة واحدة في كل سطر)
-          <textarea
-            value={instructions}
-            onChange={(event) => setInstructions(event.target.value)}
-            required
-          />
-        </label>
-        <label>
-          جمهور البرنامج
-          <select
-            value={audience}
-            onChange={(event) => {
-              const value = event.target.value as typeof audience;
-              setAudience(value);
-              if (value === "ALL_TEACHERS") setSubjectId("");
-            }}
+      <div className="wizard-steps" aria-label="خطوات إنشاء البرنامج">
+        {[
+          [1, "البيانات الأساسية"],
+          [2, "التفاصيل والأهداف"],
+          [3, "الجمهور والمراجعة"],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={step === value ? "active" : ""}
+            onClick={() => setStep(value as 1 | 2 | 3)}
+            aria-current={step === value ? "step" : undefined}
           >
-            <option value="ALL_TEACHERS">جميع المعلمين</option>
-            <option value="SUBJECT_SPECIFIC">مادة واحدة</option>
-          </select>
-        </label>
+            <span>{value}</span> {label}
+          </button>
+        ))}
       </div>
-      {audience === "SUBJECT_SPECIFIC" ? (
-        <label className="single-subject-field">
-          المادة المستهدفة
-          <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} required>
-            <option value="">اختر مادة واحدة</option>
-            {subjects.map((subject) => (
-              <option value={subject.id} key={subject.id}>
-                {subject.name_ar}
-              </option>
-            ))}
-          </select>
-        </label>
+      {step === 1 ? (
+        <div className="form-grid" data-program-step="basics">
+          <label>
+            اسم البرنامج
+            <input value={title} onChange={(event) => setTitle(event.target.value)} required />
+          </label>
+          <label>
+            المدة التقديرية بالدقائق
+            <input
+              type="number"
+              min={1}
+              value={minutes}
+              onChange={(event) => setMinutes(Number(event.target.value))}
+              required
+            />
+          </label>
+          <label className="full-field">
+            الوصف المختصر
+            <textarea
+              value={summary}
+              onChange={(event) => setSummary(event.target.value)}
+              minLength={10}
+              maxLength={600}
+              required
+            />
+          </label>
+        </div>
       ) : null}
-      <button
-        className="primary-button"
-        type="submit"
-        disabled={
-          busy ||
-          splitLines(objectives).length === 0 ||
-          splitLines(instructions).length === 0 ||
-          (audience === "SUBJECT_SPECIFIC" && !subjectId)
-        }
-      >
-        {busy ? <LoaderCircle className="spin" /> : <CheckCircle2 />} {submitLabel}
-      </button>
+      {step === 2 ? (
+        <div className="form-grid" data-program-step="details">
+          <label className="full-field">
+            الوصف التفصيلي الذي سيظهر للمعلم
+            <textarea
+              value={detailedDescription}
+              onChange={(event) => setDetailedDescription(event.target.value)}
+              minLength={50}
+              maxLength={5000}
+              required
+            />
+          </label>
+          <label className="full-field">
+            أهداف البرنامج (هدف واحد في كل سطر)
+            <textarea
+              value={objectives}
+              onChange={(event) => setObjectives(event.target.value)}
+              placeholder="بنهاية البرنامج سيكون المعلم قادرًا على…"
+              required
+            />
+          </label>
+          <label className="full-field">
+            المتطلبات السابقة (متطلب واحد في كل سطر، اختيارية)
+            <textarea
+              value={prerequisites}
+              onChange={(event) => setPrerequisites(event.target.value)}
+            />
+          </label>
+          <label className="full-field">
+            تعليمات البرنامج (تعليمة واحدة في كل سطر)
+            <textarea
+              value={instructions}
+              onChange={(event) => setInstructions(event.target.value)}
+              required
+            />
+          </label>
+        </div>
+      ) : null}
+      {step === 3 ? (
+        <div className="form-grid" data-program-step="audience">
+          <label>
+            جمهور البرنامج
+            <select
+              value={audience}
+              onChange={(event) => {
+                const value = event.target.value as typeof audience;
+                setAudience(value);
+                if (value === "ALL_TEACHERS") setSubjectId("");
+              }}
+            >
+              <option value="ALL_TEACHERS">جميع المعلمين</option>
+              <option value="SUBJECT_SPECIFIC">مادة واحدة</option>
+            </select>
+          </label>
+          {audience === "SUBJECT_SPECIFIC" ? (
+            <label>
+              المادة المستهدفة
+              <select
+                value={subjectId}
+                onChange={(event) => setSubjectId(event.target.value)}
+                required
+              >
+                <option value="">اختر مادة واحدة</option>
+                {subjects.map((subject) => (
+                  <option value={subject.id} key={subject.id}>
+                    {subject.name_ar}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <div className="wizard-review full-field">
+            <strong>{title || "اسم البرنامج غير مكتمل"}</strong>
+            <span>
+              {audience === "ALL_TEACHERS" ? "برنامج عام لجميع المعلمين" : "برنامج لمادة واحدة"}
+            </span>
+            <span>
+              {minutes} دقيقة · {splitLines(objectives).length} أهداف ·{" "}
+              {splitLines(instructions).length} تعليمات
+            </span>
+          </div>
+        </div>
+      ) : null}
+      <div className="wizard-actions">
+        {step > 1 ? (
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => setStep((step - 1) as 1 | 2)}
+          >
+            السابق
+          </button>
+        ) : (
+          <span />
+        )}
+        {step < 3 ? (
+          <button
+            className="primary-button"
+            type="button"
+            disabled={step === 1 ? !basicsComplete : !detailsComplete}
+            onClick={() => setStep((step + 1) as 2 | 3)}
+          >
+            التالي
+          </button>
+        ) : (
+          <button
+            className="primary-button"
+            type="submit"
+            disabled={busy || !basicsComplete || !detailsComplete || !audienceComplete}
+          >
+            {busy ? <LoaderCircle className="spin" /> : <CheckCircle2 />} {submitLabel}
+          </button>
+        )}
+      </div>
     </form>
+  );
+}
+
+function programReadiness(program: AdminProgram) {
+  const items = [
+    {
+      label: "التفاصيل والأهداف",
+      passed:
+        program.detailed_description?.trim().length >= 50 &&
+        program.objectives.length > 0 &&
+        program.instructions.length > 0,
+    },
+    {
+      label: "الجمهور",
+      passed:
+        program.audience_type === "ALL_TEACHERS" ||
+        (program.audience_type === "SUBJECT_SPECIFIC" && program.subject_ids.length === 1),
+    },
+    { label: "الدروس", passed: program.lesson_count > 0 },
+    {
+      label: "هيكلة الدروس",
+      passed: program.lesson_count > 0 && program.structured_lesson_count === program.lesson_count,
+    },
+    { label: "التقييم", passed: program.question_count > 0 },
+  ];
+  return {
+    items,
+    percentage: Math.round((items.filter((item) => item.passed).length / items.length) * 100),
+  };
+}
+
+function ProgramImportPanel({
+  subjects,
+  busy,
+  onImport,
+  onCancel,
+}: {
+  subjects: AcademySubject[];
+  busy: boolean;
+  onImport: (bundle: ProgramImportBundle) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [bundle, setBundle] = useState<ProgramImportBundle | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function selectFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    setBundle(null);
+    setError(null);
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setError("حجم ملف JSON يجب ألا يتجاوز 2 ميجابايت.");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(await file.text()) as unknown;
+      setBundle(
+        validateProgramImportBundle(parsed, new Set(subjects.map((subject) => subject.code))),
+      );
+    } catch (parseError) {
+      setError(messageOf(parseError));
+    }
+  }
+
+  return (
+    <section className="admin-form import-panel" aria-labelledby="program-import-title">
+      <div className="section-toolbar compact-toolbar">
+        <div>
+          <h2 id="program-import-title">استيراد برنامج من JSON</h2>
+          <p className="muted">
+            يُفحص الملف قبل الإرسال، ثم تُنشأ مسودة واحدة ذريًا. الاستيراد لا ينشر البرنامج.
+          </p>
+        </div>
+        <button className="text-button inline-text-button" type="button" onClick={onCancel}>
+          إلغاء
+        </button>
+      </div>
+      <label className="file-drop-field">
+        <FileUp />
+        <span>اختر ملف البرنامج بصيغة JSON</span>
+        <input type="file" accept="application/json,.json" onChange={selectFile} />
+      </label>
+      {error ? <div className="notice error-notice">{error}</div> : null}
+      {bundle ? (
+        <div className="import-preview">
+          <div>
+            <span className="eyebrow">معاينة قبل الإنشاء</span>
+            <strong>{bundle.metadata.title}</strong>
+            <small>
+              {bundle.metadata.audienceType === "ALL_TEACHERS"
+                ? "جميع المعلمين"
+                : `مادة ${bundle.metadata.subjectCode}`}
+            </small>
+          </div>
+          <div className="program-admin-meta">
+            <span>{bundle.lessons.length} دروس</span>
+            <span>{bundle.assessment.questions.length} أسئلة</span>
+            <span>{bundle.metadata.estimatedMinutes} دقيقة</span>
+          </div>
+          {bundle.liveSessionPlan !== undefined ? (
+            <p className="muted">
+              خطة المحاضرة المرفقة إرشادية فقط؛ يُضاف الرابط الحقيقي لاحقًا من مساحة المحتوى.
+            </p>
+          ) : null}
+          <button
+            className="primary-button"
+            type="button"
+            disabled={busy}
+            onClick={() => onImport(bundle)}
+          >
+            {busy ? <LoaderCircle className="spin" /> : <FileUp />} إنشاء المسودة
+          </button>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -469,6 +673,7 @@ function ProgramsAdmin() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingMetadata, setEditingMetadata] = useState<AdminProgram | null>(null);
   const [editingContent, setEditingContent] = useState<{
     program: AdminProgram;
@@ -476,6 +681,11 @@ function ProgramsAdmin() {
   } | null>(null);
   const [checks, setChecks] = useState<Record<string, AdminProgramCheck[]>>({});
   const [scope, setScope] = useState<"ACTIVE" | "ARCHIVED">("ACTIVE");
+  const [query, setQuery] = useState("");
+  const [audienceFilter, setAudienceFilter] = useState<"ALL" | "ALL_TEACHERS" | "SUBJECT_SPECIFIC">(
+    "ALL",
+  );
+  const [subjectFilter, setSubjectFilter] = useState("ALL");
 
   async function reload() {
     const items = await adminListPrograms();
@@ -508,6 +718,22 @@ function ProgramsAdmin() {
       setShowCreate(false);
     } catch (createError) {
       setError(messageOf(createError));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function importProgram(bundle: ProgramImportBundle) {
+    setBusyId("import");
+    setError(null);
+    try {
+      const draftId = await adminImportProgramBundle(bundle);
+      const items = await reload();
+      const draft = items.find((item) => item.program_version_id === draftId);
+      setShowImport(false);
+      if (draft) setEditingContent({ program: draft, readOnly: false });
+    } catch (importError) {
+      setError(messageOf(importError));
     } finally {
       setBusyId(null);
     }
@@ -601,11 +827,45 @@ function ProgramsAdmin() {
     }
   }
 
+  async function deleteDraft(program: AdminProgram) {
+    if (
+      !window.confirm(
+        `حذف المسودة «${program.title}» نهائيًا؟ سيُحذف محتواها فقط إذا لم ترتبط بأي بيانات تعلم.`,
+      )
+    ) {
+      return;
+    }
+    setBusyId(program.program_version_id);
+    setError(null);
+    try {
+      await adminDeleteDraftVersion(program.program_version_id);
+      await reload();
+      setChecks((current) => {
+        const next = { ...current };
+        delete next[program.program_version_id];
+        return next;
+      });
+    } catch (deleteError) {
+      setError(messageOf(deleteError));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   if (loading) return <Loading label="جارٍ تحميل البرامج…" />;
 
-  const visiblePrograms = programs.filter((item) =>
-    scope === "ACTIVE" ? !item.archived_at : Boolean(item.archived_at),
-  );
+  const normalizedQuery = query.trim().toLocaleLowerCase("ar");
+  const visiblePrograms = programs.filter((item) => {
+    const inScope = scope === "ACTIVE" ? !item.archived_at : Boolean(item.archived_at);
+    const matchesAudience = audienceFilter === "ALL" || item.audience_type === audienceFilter;
+    const matchesSubject = subjectFilter === "ALL" || item.subject_ids.includes(subjectFilter);
+    const matchesQuery =
+      !normalizedQuery ||
+      [item.title, item.summary, item.subject_names ?? ""].some((value) =>
+        value.toLocaleLowerCase("ar").includes(normalizedQuery),
+      );
+    return inScope && matchesAudience && matchesSubject && matchesQuery;
+  });
 
   return (
     <div
@@ -637,9 +897,22 @@ function ProgramsAdmin() {
             </button>
           </div>
           <button
+            className="secondary-button"
+            type="button"
+            onClick={() => {
+              setShowImport((value) => !value);
+              setShowCreate(false);
+            }}
+          >
+            <FileUp /> استيراد JSON
+          </button>
+          <button
             className="primary-button"
             type="button"
-            onClick={() => setShowCreate((value) => !value)}
+            onClick={() => {
+              setShowCreate((value) => !value);
+              setShowImport(false);
+            }}
           >
             <Plus /> برنامج جديد
           </button>
@@ -656,6 +929,14 @@ function ProgramsAdmin() {
           onCancel={() => setShowCreate(false)}
         />
       ) : null}
+      {showImport ? (
+        <ProgramImportPanel
+          subjects={subjects}
+          busy={busyId === "import"}
+          onImport={importProgram}
+          onCancel={() => setShowImport(false)}
+        />
+      ) : null}
       {editingMetadata ? (
         <ProgramForm
           key={editingMetadata.program_version_id}
@@ -669,15 +950,49 @@ function ProgramsAdmin() {
       ) : null}
 
       {error ? <div className="notice error-notice">{error}</div> : null}
+      <div className="filter-grid program-filter-grid" aria-label="البحث وتصفية البرامج">
+        <label>
+          البحث
+          <span className="search-input-wrap">
+            <Search />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="اسم البرنامج أو الوصف أو المادة"
+            />
+          </span>
+        </label>
+        <label>
+          الجمهور
+          <select
+            value={audienceFilter}
+            onChange={(event) => setAudienceFilter(event.target.value as typeof audienceFilter)}
+          >
+            <option value="ALL">الكل</option>
+            <option value="ALL_TEACHERS">جميع المعلمين</option>
+            <option value="SUBJECT_SPECIFIC">مادة واحدة</option>
+          </select>
+        </label>
+        <label>
+          المادة
+          <select value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)}>
+            <option value="ALL">كل المواد</option>
+            {subjects.map((subject) => (
+              <option value={subject.id} key={subject.id}>
+                {subject.name_ar}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <div className="program-admin-grid">
         {visiblePrograms.length === 0 ? (
-          <div className="compact-empty full-span">
-            {scope === "ACTIVE" ? "لا توجد برامج حالية." : "لا توجد برامج مؤرشفة."}
-          </div>
+          <div className="compact-empty full-span">لا توجد برامج تطابق البحث والفلاتر الحالية.</div>
         ) : null}
         {visiblePrograms.map((program) => {
           const programChecks = checks[program.program_version_id] ?? [];
           const ready = programChecks.length > 0 && programChecks.every((item) => item.passed);
+          const readiness = programReadiness(program);
           return (
             <article className="program-admin-card" key={program.program_version_id}>
               <div className="program-admin-header">
@@ -702,6 +1017,24 @@ function ProgramsAdmin() {
                   <ClipboardCheck /> {program.question_count} سؤال
                 </span>
                 <span>{program.estimated_minutes} دقيقة</span>
+              </div>
+
+              <div
+                className="readiness-summary"
+                aria-label={`اكتمال البرنامج ${readiness.percentage}%`}
+              >
+                <div>
+                  <strong>اكتمال الإعداد</strong>
+                  <span>{readiness.percentage}%</span>
+                </div>
+                <progress max={100} value={readiness.percentage}>
+                  {readiness.percentage}%
+                </progress>
+                <small>
+                  {program.structured_lesson_count}/{program.lesson_count} دروس مهيكلة ·{" "}
+                  {program.lesson_minutes || "—"} دقيقة فعلية · نسبة الاجتياز{" "}
+                  {program.assessment_pass_percentage ?? "—"}%
+                </small>
               </div>
 
               {programChecks.length > 0 ? (
@@ -755,6 +1088,14 @@ function ProgramsAdmin() {
                       onClick={() => publish(program)}
                     >
                       <CheckCircle2 /> نشر الإصدار
+                    </button>
+                    <button
+                      className="danger-button"
+                      type="button"
+                      disabled={busyId === program.program_version_id}
+                      onClick={() => deleteDraft(program)}
+                    >
+                      <Trash2 /> حذف المسودة
                     </button>
                   </>
                 ) : (
@@ -853,6 +1194,9 @@ function LessonsEditor({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contentStep, setContentStep] = useState<"LESSONS" | "ASSESSMENT" | "LIVE" | "READINESS">(
+    "LESSONS",
+  );
 
   async function reload() {
     setLessons(await adminListLessons(program.program_version_id));
@@ -973,6 +1317,30 @@ function LessonsEditor({
     }
   }
 
+  async function moveLesson(index: number, direction: -1 | 1) {
+    const destination = index + direction;
+    if (destination < 0 || destination >= lessons.length) return;
+    const reordered = [...lessons];
+    [reordered[index], reordered[destination]] = [reordered[destination], reordered[index]];
+    setBusy(true);
+    setError(null);
+    try {
+      await adminReorderLessons(
+        program.program_version_id,
+        reordered.map((lesson) => lesson.lesson_id),
+      );
+      setLessons(
+        reordered.map((lesson, displayOrder) => ({ ...lesson, display_order: displayOrder })),
+      );
+      await onChanged();
+    } catch (moveError) {
+      setError(messageOf(moveError));
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="dialog-backdrop" role="presentation">
       <section
@@ -994,245 +1362,315 @@ function LessonsEditor({
             إغلاق
           </button>
         </div>
-        {loading ? <Loading label="جارٍ تحميل الدروس…" /> : null}
-        <div className="data-list compact-list">
-          {!loading && lessons.length === 0 ? (
-            <div className="compact-empty">لا توجد دروس بعد.</div>
-          ) : null}
-          {lessons.map((lesson, index) => (
-            <article className="data-row lesson-admin-row" key={lesson.lesson_id}>
-              <span className="lesson-number">{index + 1}</span>
-              <div className="data-main">
-                <strong>{lesson.title}</strong>
-                <small>
-                  {lesson.lesson_type === "TEXT"
-                    ? "نص"
-                    : lesson.lesson_type === "VIDEO"
-                      ? "فيديو"
-                      : "رابط"}{" "}
-                  · {lesson.duration_minutes} دقيقة
-                </small>
-                {readOnly ? (
-                  <div className="lesson-section-preview-list">
-                    {lesson.sections.map((section) => (
-                      <div
-                        className={`lesson-section-preview ${section.section_type.toLowerCase()}`}
-                        key={section.section_id}
-                      >
-                        <strong>{section.title ?? SECTION_LABELS[section.section_type]}</strong>
-                        <p>{section.content}</p>
-                        {section.resource_url ? (
-                          <a href={section.resource_url} target="_blank" rel="noreferrer">
-                            <ExternalLink /> فتح المورد
-                          </a>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                {readOnly && lesson.resource_url ? (
-                  <a
-                    className="resource-link"
-                    href={lesson.resource_url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    فتح المورد
-                  </a>
-                ) : null}
-              </div>
-              {!readOnly ? (
-                <div className="row-actions">
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => edit(lesson)}
-                  >
-                    <Pencil /> تعديل
-                  </button>
-                  <button
-                    className="danger-button"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => remove(lesson)}
-                  >
-                    <Trash2 /> حذف
-                  </button>
-                </div>
-              ) : null}
-            </article>
+        <nav className="content-workspace-steps" aria-label="مراحل إعداد محتوى البرنامج">
+          {[
+            ["LESSONS", "1. الدروس"],
+            ["ASSESSMENT", "2. التقييم"],
+            ["LIVE", "3. المحاضرة"],
+            ["READINESS", "4. الجاهزية"],
+          ].map(([value, label]) => (
+            <button
+              type="button"
+              key={value}
+              className={contentStep === value ? "active" : ""}
+              onClick={() => setContentStep(value as typeof contentStep)}
+              aria-current={contentStep === value ? "step" : undefined}
+            >
+              {label}
+            </button>
           ))}
-        </div>
-
-        {!readOnly ? (
-          <form className="admin-form nested-form" onSubmit={save}>
-            <div className="section-toolbar compact-toolbar">
-              <h3>{editingLesson ? "تعديل الدرس" : "إضافة درس"}</h3>
-              {editingLesson ? (
-                <button
-                  className="text-button inline-text-button"
-                  type="button"
-                  onClick={resetForm}
-                >
-                  إلغاء التعديل
-                </button>
+        </nav>
+        {contentStep === "LESSONS" ? (
+          <>
+            {loading ? <Loading label="جارٍ تحميل الدروس…" /> : null}
+            <div className="data-list compact-list">
+              {!loading && lessons.length === 0 ? (
+                <div className="compact-empty">لا توجد دروس بعد.</div>
               ) : null}
-            </div>
-            <div className="form-grid">
-              <label>
-                عنوان الدرس
-                <input value={title} onChange={(event) => setTitle(event.target.value)} required />
-              </label>
-              <label>
-                النوع
-                <select
-                  value={lessonType}
-                  onChange={(event) => setLessonType(event.target.value as typeof lessonType)}
-                >
-                  <option value="TEXT">نص</option>
-                  <option value="VIDEO">فيديو</option>
-                  <option value="LINK">رابط</option>
-                </select>
-              </label>
-              <label>
-                المدة بالدقائق
-                <input
-                  type="number"
-                  min={1}
-                  value={minutes}
-                  onChange={(event) => setMinutes(Number(event.target.value))}
-                  required
-                />
-              </label>
-              {lessonType !== "TEXT" ? (
-                <label>
-                  رابط HTTPS
-                  <input
-                    type="url"
-                    pattern="https://.*"
-                    value={resourceUrl}
-                    onChange={(event) => setResourceUrl(event.target.value)}
-                    required
-                  />
-                </label>
-              ) : null}
-              <label className="full-field">
-                أقسام الدرس
-                <span className="field-hint">يجب أن يتضمن هدفًا وشرحًا وخلاصة على الأقل.</span>
-              </label>
-            </div>
-            <div className="section-editor-list">
-              {sections.map((section, index) => {
-                const requiredType = ["OBJECTIVE", "CONTENT", "SUMMARY"].includes(
-                  section.section_type,
-                );
-                const sameTypeCount = sections.filter(
-                  (item) => item.section_type === section.section_type,
-                ).length;
-                return (
-                  <article className="section-editor-card" key={section.key}>
-                    <div className="section-editor-heading">
-                      <span>{SECTION_LABELS[section.section_type]}</span>
-                      <div className="row-actions">
-                        <button
-                          type="button"
-                          className="icon-button"
-                          disabled={index === 0}
-                          onClick={() => moveSection(index, -1)}
-                          aria-label="تحريك القسم لأعلى"
-                        >
-                          <ArrowUp />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          disabled={index === sections.length - 1}
-                          onClick={() => moveSection(index, 1)}
-                          aria-label="تحريك القسم لأسفل"
-                        >
-                          <ArrowDown />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button danger-icon"
-                          disabled={requiredType && sameTypeCount === 1}
-                          onClick={() => removeSection(section.key)}
-                          aria-label="حذف القسم"
-                        >
-                          <Trash2 />
-                        </button>
+              {lessons.map((lesson, index) => (
+                <article className="data-row lesson-admin-row" key={lesson.lesson_id}>
+                  <span className="lesson-number">{index + 1}</span>
+                  <div className="data-main">
+                    <strong>{lesson.title}</strong>
+                    <small>
+                      {lesson.lesson_type === "TEXT"
+                        ? "نص"
+                        : lesson.lesson_type === "VIDEO"
+                          ? "فيديو"
+                          : "رابط"}{" "}
+                      · {lesson.duration_minutes} دقيقة
+                    </small>
+                    {readOnly ? (
+                      <div className="lesson-section-preview-list">
+                        {lesson.sections.map((section) => (
+                          <div
+                            className={`lesson-section-preview ${section.section_type.toLowerCase()}`}
+                            key={section.section_id}
+                          >
+                            <strong>{section.title ?? SECTION_LABELS[section.section_type]}</strong>
+                            <p>{section.content}</p>
+                            {section.resource_url ? (
+                              <a href={section.resource_url} target="_blank" rel="noreferrer">
+                                <ExternalLink /> فتح المورد
+                              </a>
+                            ) : null}
+                          </div>
+                        ))}
                       </div>
+                    ) : null}
+                    {readOnly && lesson.resource_url ? (
+                      <a
+                        className="resource-link"
+                        href={lesson.resource_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        فتح المورد
+                      </a>
+                    ) : null}
+                  </div>
+                  {!readOnly ? (
+                    <div className="row-actions">
+                      <button
+                        className="icon-button"
+                        type="button"
+                        disabled={busy || index === 0}
+                        onClick={() => moveLesson(index, -1)}
+                        aria-label={`تحريك درس ${lesson.title} لأعلى`}
+                      >
+                        <ArrowUp />
+                      </button>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        disabled={busy || index === lessons.length - 1}
+                        onClick={() => moveLesson(index, 1)}
+                        aria-label={`تحريك درس ${lesson.title} لأسفل`}
+                      >
+                        <ArrowDown />
+                      </button>
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => edit(lesson)}
+                      >
+                        <Pencil /> تعديل
+                      </button>
+                      <button
+                        className="danger-button"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => remove(lesson)}
+                      >
+                        <Trash2 /> حذف
+                      </button>
                     </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+
+            {!readOnly ? (
+              <form className="admin-form nested-form" onSubmit={save}>
+                <div className="section-toolbar compact-toolbar">
+                  <h3>{editingLesson ? "تعديل الدرس" : "إضافة درس"}</h3>
+                  {editingLesson ? (
+                    <button
+                      className="text-button inline-text-button"
+                      type="button"
+                      onClick={resetForm}
+                    >
+                      إلغاء التعديل
+                    </button>
+                  ) : null}
+                </div>
+                <div className="form-grid">
+                  <label>
+                    عنوان الدرس
+                    <input
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    النوع
+                    <select
+                      value={lessonType}
+                      onChange={(event) => setLessonType(event.target.value as typeof lessonType)}
+                    >
+                      <option value="TEXT">نص</option>
+                      <option value="VIDEO">فيديو</option>
+                      <option value="LINK">رابط</option>
+                    </select>
+                  </label>
+                  <label>
+                    المدة بالدقائق
+                    <input
+                      type="number"
+                      min={1}
+                      value={minutes}
+                      onChange={(event) => setMinutes(Number(event.target.value))}
+                      required
+                    />
+                  </label>
+                  {lessonType !== "TEXT" ? (
                     <label>
-                      عنوان القسم (اختياري)
+                      رابط HTTPS
                       <input
-                        value={section.title}
-                        onChange={(event) =>
-                          updateSection(section.key, "title", event.target.value)
-                        }
-                      />
-                    </label>
-                    <label>
-                      المحتوى
-                      <textarea
-                        value={section.content}
-                        onChange={(event) =>
-                          updateSection(section.key, "content", event.target.value)
-                        }
+                        type="url"
+                        pattern="https://.*"
+                        value={resourceUrl}
+                        onChange={(event) => setResourceUrl(event.target.value)}
                         required
                       />
                     </label>
-                    {section.section_type === "RESOURCE" ? (
-                      <label>
-                        رابط المورد HTTPS
-                        <input
-                          type="url"
-                          pattern="https://.*"
-                          value={section.resource_url}
-                          onChange={(event) =>
-                            updateSection(section.key, "resource_url", event.target.value)
-                          }
-                          required
-                        />
-                      </label>
-                    ) : null}
-                  </article>
-                );
-              })}
-            </div>
-            <div className="add-section-row">
-              <select
-                value={newSectionType}
-                onChange={(event) => setNewSectionType(event.target.value as LessonSectionType)}
-              >
-                {Object.entries(SECTION_LABELS).map(([value, label]) => (
-                  <option value={value} key={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <button className="secondary-button" type="button" onClick={addSection}>
-                <Plus /> إضافة قسم
-              </button>
-            </div>
-            {error ? <div className="notice error-notice">{error}</div> : null}
-            <button className="primary-button" type="submit" disabled={busy}>
-              {busy ? (
-                <LoaderCircle className="spin" />
-              ) : editingLesson ? (
-                <CheckCircle2 />
-              ) : (
-                <Plus />
-              )}
-              {editingLesson ? "حفظ التعديل" : "إضافة الدرس"}
-            </button>
-          </form>
-        ) : error ? (
-          <div className="notice error-notice">{error}</div>
+                  ) : null}
+                  <label className="full-field">
+                    أقسام الدرس
+                    <span className="field-hint">يجب أن يتضمن هدفًا وشرحًا وخلاصة على الأقل.</span>
+                  </label>
+                </div>
+                <div className="section-editor-list">
+                  {sections.map((section, index) => {
+                    const requiredType = ["OBJECTIVE", "CONTENT", "SUMMARY"].includes(
+                      section.section_type,
+                    );
+                    const sameTypeCount = sections.filter(
+                      (item) => item.section_type === section.section_type,
+                    ).length;
+                    return (
+                      <article className="section-editor-card" key={section.key}>
+                        <div className="section-editor-heading">
+                          <span>{SECTION_LABELS[section.section_type]}</span>
+                          <div className="row-actions">
+                            <button
+                              type="button"
+                              className="icon-button"
+                              disabled={index === 0}
+                              onClick={() => moveSection(index, -1)}
+                              aria-label="تحريك القسم لأعلى"
+                            >
+                              <ArrowUp />
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-button"
+                              disabled={index === sections.length - 1}
+                              onClick={() => moveSection(index, 1)}
+                              aria-label="تحريك القسم لأسفل"
+                            >
+                              <ArrowDown />
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-button danger-icon"
+                              disabled={requiredType && sameTypeCount === 1}
+                              onClick={() => removeSection(section.key)}
+                              aria-label="حذف القسم"
+                            >
+                              <Trash2 />
+                            </button>
+                          </div>
+                        </div>
+                        <label>
+                          عنوان القسم (اختياري)
+                          <input
+                            value={section.title}
+                            onChange={(event) =>
+                              updateSection(section.key, "title", event.target.value)
+                            }
+                          />
+                        </label>
+                        <label>
+                          المحتوى
+                          <textarea
+                            value={section.content}
+                            onChange={(event) =>
+                              updateSection(section.key, "content", event.target.value)
+                            }
+                            required
+                          />
+                        </label>
+                        {section.section_type === "RESOURCE" ? (
+                          <label>
+                            رابط المورد HTTPS
+                            <input
+                              type="url"
+                              pattern="https://.*"
+                              value={section.resource_url}
+                              onChange={(event) =>
+                                updateSection(section.key, "resource_url", event.target.value)
+                              }
+                              required
+                            />
+                          </label>
+                        ) : null}
+                      </article>
+                    );
+                  })}
+                </div>
+                <div className="add-section-row">
+                  <select
+                    value={newSectionType}
+                    onChange={(event) => setNewSectionType(event.target.value as LessonSectionType)}
+                  >
+                    {Object.entries(SECTION_LABELS).map(([value, label]) => (
+                      <option value={value} key={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="secondary-button" type="button" onClick={addSection}>
+                    <Plus /> إضافة قسم
+                  </button>
+                </div>
+                {error ? <div className="notice error-notice">{error}</div> : null}
+                <button className="primary-button" type="submit" disabled={busy}>
+                  {busy ? (
+                    <LoaderCircle className="spin" />
+                  ) : editingLesson ? (
+                    <CheckCircle2 />
+                  ) : (
+                    <Plus />
+                  )}
+                  {editingLesson ? "حفظ التعديل" : "إضافة الدرس"}
+                </button>
+              </form>
+            ) : error ? (
+              <div className="notice error-notice">{error}</div>
+            ) : null}
+          </>
         ) : null}
-        <LiveSessionsEditor program={program} />
-        <AssessmentEditor programVersionId={program.program_version_id} readOnly={readOnly} />
+        {contentStep === "ASSESSMENT" ? (
+          <AssessmentEditor programVersionId={program.program_version_id} readOnly={readOnly} />
+        ) : null}
+        {contentStep === "LIVE" ? (
+          <LiveSessionsEditor program={program} readOnly={readOnly} />
+        ) : null}
+        {contentStep === "READINESS" ? (
+          <section className="workspace-readiness">
+            <div className="section-toolbar compact-toolbar">
+              <div>
+                <p className="eyebrow">ملخص الإصدار</p>
+                <h3>الجاهزية قبل النشر</h3>
+              </div>
+              <ClipboardCheck />
+            </div>
+            <div className="readiness-checklist">
+              {programReadiness(program).items.map((item) => (
+                <div className={item.passed ? "passed" : "blocked"} key={item.label}>
+                  {item.passed ? <CheckCircle2 /> : <XCircle />}
+                  <span>{item.label}</span>
+                </div>
+              ))}
+            </div>
+            <p className="muted">
+              المحاضرة المباشرة اختيارية. عد إلى بطاقة البرنامج ونفّذ فحص الخادم قبل النشر النهائي.
+            </p>
+          </section>
+        ) : null}
       </section>
     </div>
   );
@@ -1273,7 +1711,13 @@ function toDateTimeInput(value: string): string {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 }
 
-function LiveSessionsEditor({ program }: { program: AdminProgram }) {
+function LiveSessionsEditor({
+  program,
+  readOnly = false,
+}: {
+  program: AdminProgram;
+  readOnly?: boolean;
+}) {
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [editing, setEditing] = useState<LiveSession | null>(null);
   const [title, setTitle] = useState("");
@@ -1400,114 +1844,120 @@ function LiveSessionsEditor({ program }: { program: AdminProgram }) {
             <span className={session.status === "SCHEDULED" ? "status live" : "status stopped"}>
               {session.status === "SCHEDULED" ? "مجدولة" : "ملغاة"}
             </span>
-            <div className="row-actions">
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => edit(session)}
-                disabled={busy}
-              >
-                <Pencil /> تعديل
-              </button>
-              <button
-                className="danger-button"
-                type="button"
-                onClick={() => remove(session)}
-                disabled={busy}
-              >
-                <Trash2 /> حذف
-              </button>
-            </div>
+            {!readOnly ? (
+              <div className="row-actions">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => edit(session)}
+                  disabled={busy}
+                >
+                  <Pencil /> تعديل
+                </button>
+                <button
+                  className="danger-button"
+                  type="button"
+                  onClick={() => remove(session)}
+                  disabled={busy}
+                >
+                  <Trash2 /> حذف
+                </button>
+              </div>
+            ) : null}
           </article>
         ))}
       </div>
-      <form className="admin-form nested-form" onSubmit={save}>
-        <div className="section-toolbar compact-toolbar">
-          <h3>{editing ? "تعديل المحاضرة" : "جدولة محاضرة"}</h3>
-          {editing ? (
-            <button className="text-button inline-text-button" type="button" onClick={reset}>
-              إلغاء التعديل
-            </button>
-          ) : null}
-        </div>
-        <div className="form-grid">
-          <label>
-            عنوان المحاضرة
-            <input value={title} onChange={(event) => setTitle(event.target.value)} required />
-          </label>
-          <label>
-            المنصة
-            <input
-              list="live-session-providers"
-              value={provider}
-              onChange={(event) => setProvider(event.target.value)}
-              required
-            />
-            <datalist id="live-session-providers">
-              <option value="Zoom" />
-              <option value="Google Meet" />
-              <option value="Microsoft Teams" />
-            </datalist>
-          </label>
-          <label>
-            اسم المتخصص (اختياري)
-            <input value={speaker} onChange={(event) => setSpeaker(event.target.value)} />
-          </label>
-          <label>
-            الموعد
-            <input
-              type="datetime-local"
-              value={startsAt}
-              onChange={(event) => setStartsAt(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            المدة بالدقائق
-            <input
-              type="number"
-              min={15}
-              max={480}
-              value={duration}
-              onChange={(event) => setDuration(Number(event.target.value))}
-              required
-            />
-          </label>
-          <label>
-            الحالة
-            <select
-              value={status}
-              onChange={(event) => setStatus(event.target.value as typeof status)}
-            >
-              <option value="SCHEDULED">مجدولة</option>
-              <option value="CANCELLED">ملغاة</option>
-            </select>
-          </label>
-          <label className="full-field">
-            رابط الانضمام HTTPS
-            <input
-              type="url"
-              pattern="https://.*"
-              value={meetingUrl}
-              onChange={(event) => setMeetingUrl(event.target.value)}
-              required
-            />
-          </label>
-          <label className="full-field">
-            تعليمات الحضور
-            <textarea
-              value={instructions}
-              onChange={(event) => setInstructions(event.target.value)}
-              maxLength={2000}
-            />
-          </label>
-        </div>
-        {error ? <div className="notice error-notice">{error}</div> : null}
-        <button className="primary-button" type="submit" disabled={busy}>
-          {busy ? <LoaderCircle className="spin" /> : <CheckCircle2 />}
-          {editing ? "حفظ التعديل" : "حفظ المحاضرة"}
-        </button>
-      </form>
+      {!readOnly ? (
+        <form className="admin-form nested-form" onSubmit={save}>
+          <div className="section-toolbar compact-toolbar">
+            <h3>{editing ? "تعديل المحاضرة" : "جدولة محاضرة"}</h3>
+            {editing ? (
+              <button className="text-button inline-text-button" type="button" onClick={reset}>
+                إلغاء التعديل
+              </button>
+            ) : null}
+          </div>
+          <div className="form-grid">
+            <label>
+              عنوان المحاضرة
+              <input value={title} onChange={(event) => setTitle(event.target.value)} required />
+            </label>
+            <label>
+              المنصة
+              <input
+                list="live-session-providers"
+                value={provider}
+                onChange={(event) => setProvider(event.target.value)}
+                required
+              />
+              <datalist id="live-session-providers">
+                <option value="Zoom" />
+                <option value="Google Meet" />
+                <option value="Microsoft Teams" />
+              </datalist>
+            </label>
+            <label>
+              اسم المتخصص (اختياري)
+              <input value={speaker} onChange={(event) => setSpeaker(event.target.value)} />
+            </label>
+            <label>
+              الموعد
+              <input
+                type="datetime-local"
+                value={startsAt}
+                onChange={(event) => setStartsAt(event.target.value)}
+                required
+              />
+            </label>
+            <label>
+              المدة بالدقائق
+              <input
+                type="number"
+                min={15}
+                max={480}
+                value={duration}
+                onChange={(event) => setDuration(Number(event.target.value))}
+                required
+              />
+            </label>
+            <label>
+              الحالة
+              <select
+                value={status}
+                onChange={(event) => setStatus(event.target.value as typeof status)}
+              >
+                <option value="SCHEDULED">مجدولة</option>
+                <option value="CANCELLED">ملغاة</option>
+              </select>
+            </label>
+            <label className="full-field">
+              رابط الانضمام HTTPS
+              <input
+                type="url"
+                pattern="https://.*"
+                value={meetingUrl}
+                onChange={(event) => setMeetingUrl(event.target.value)}
+                required
+              />
+            </label>
+            <label className="full-field">
+              تعليمات الحضور
+              <textarea
+                value={instructions}
+                onChange={(event) => setInstructions(event.target.value)}
+                maxLength={2000}
+              />
+            </label>
+          </div>
+          {error ? <div className="notice error-notice">{error}</div> : null}
+          <button className="primary-button" type="submit" disabled={busy}>
+            {busy ? <LoaderCircle className="spin" /> : <CheckCircle2 />}
+            {editing ? "حفظ التعديل" : "حفظ المحاضرة"}
+          </button>
+        </form>
+      ) : error ? (
+        <div className="notice error-notice">{error}</div>
+      ) : null}
     </section>
   );
 }
