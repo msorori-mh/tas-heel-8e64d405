@@ -68,7 +68,61 @@ function academyUrl(path = "") {
   return `${academyBasePath}${path}` || "/";
 }
 
+const ACADEMY_OAUTH_RETURN_KEY = "tamkeen:academy-google-return";
+
+type AcademyPortal = "teacher" | "admin" | "verify";
 type WorkspaceView = "catalog" | "learning" | "certificates" | "profile" | "admin";
+
+function isGoogleAccount(user: User): boolean {
+  const providers = Array.isArray(user.app_metadata.providers) ? user.app_metadata.providers : [];
+  return (
+    user.app_metadata.provider === "google" ||
+    providers.includes("google") ||
+    user.identities?.some((identity) => identity.provider === "google") === true
+  );
+}
+
+function clearAcademyOAuthReturn(): void {
+  try {
+    window.localStorage.removeItem(ACADEMY_OAUTH_RETURN_KEY);
+  } catch {
+    // A blocked storage surface cannot retain a stale academy return intent.
+  }
+}
+
+async function startTeacherGoogleSignIn(): Promise<void> {
+  requireAcademyBackend();
+  const usesRootCallback = academyBasePath.length > 0;
+  const redirectTo = new URL(
+    usesRootCallback ? "/auth/callback" : academyUrl(),
+    window.location.origin,
+  ).toString();
+  const { data, error } = await academySupabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo,
+      skipBrowserRedirect: true,
+      queryParams: { prompt: "select_account" },
+    },
+  });
+  if (error) throw error;
+  if (!data.url) throw new Error("تعذّر بدء تسجيل الدخول عبر Google.");
+
+  if (usesRootCallback) {
+    window.localStorage.setItem(
+      ACADEMY_OAUTH_RETURN_KEY,
+      JSON.stringify({ path: academyUrl(), createdAt: Date.now() }),
+    );
+  }
+
+  const isEmbedded = window.top !== window.self;
+  if (isEmbedded) {
+    const opened = window.open(data.url, "_blank", "noopener,noreferrer");
+    if (!opened) throw new Error("اسمح بفتح نافذة Google ثم حاول مرة أخرى.");
+    return;
+  }
+  window.location.href = data.url;
+}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -346,41 +400,121 @@ function VerifyCertificatePage() {
   );
 }
 
-function AuthPage() {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path
+        fill="#4285f4"
+        d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.41Z"
+      />
+      <path
+        fill="#34a853"
+        d="M12 22c2.7 0 4.98-.9 6.63-2.36l-3.24-2.54c-.9.6-2.05.96-3.39.96-2.61 0-4.82-1.76-5.61-4.13H3.05v2.62A10 10 0 0 0 12 22Z"
+      />
+      <path
+        fill="#fbbc05"
+        d="M6.39 13.93A6 6 0 0 1 6.08 12c0-.67.11-1.32.31-1.93V7.45H3.05A10 10 0 0 0 2 12c0 1.64.39 3.2 1.05 4.55l3.34-2.62Z"
+      />
+      <path
+        fill="#ea4335"
+        d="M12 5.94c1.47 0 2.79.5 3.82 1.5l2.88-2.88A9.67 9.67 0 0 0 12 2a10 10 0 0 0-8.95 5.45l3.34 2.62C7.18 7.7 9.39 5.94 12 5.94Z"
+      />
+    </svg>
+  );
+}
+
+function TeacherAuthPage() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function continueWithGoogle() {
+    setBusy(true);
+    setError(null);
+    try {
+      await startTeacherGoogleSignIn();
+    } catch (submitError) {
+      clearAcademyOAuthReturn();
+      setError(getErrorMessage(submitError));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="auth-layout">
+      <section className="auth-intro">
+        <div className="brand-line">
+          <span className="brand-mark">
+            <GraduationCap />
+          </span>
+          <strong>أكاديمية تمكين</strong>
+        </div>
+        <div>
+          <p className="eyebrow">بوابة المعلمين</p>
+          <h1>تدريب مهني يصل إليك بحسب تخصصك</h1>
+          <p>
+            استخدم حساب Google لإنشاء حساب المعلم أو العودة إلى برامجك، ثم أكمل ملفك المهني مرة
+            واحدة.
+          </p>
+        </div>
+        <ul className="feature-list">
+          <li>
+            <CheckCircle2 /> برامج عامة وتخصصية بحسب مادتك
+          </li>
+          <li>
+            <CheckCircle2 /> تعلم تدريجي وقياس واضح للتقدم
+          </li>
+          <li>
+            <CheckCircle2 /> شهادات رقمية بعد استيفاء المتطلبات
+          </li>
+        </ul>
+      </section>
+
+      <section className="auth-panel">
+        <div className="auth-card">
+          <p className="eyebrow">دخول المعلمين</p>
+          <h2>الدخول أو إنشاء حساب</h2>
+          <p className="muted">
+            حساب Google هو الطريقة الوحيدة المعتمدة لدخول المعلمين وإنشاء حساباتهم.
+          </p>
+          {error ? <div className="notice error-notice">{error}</div> : null}
+          <button
+            className="google-button"
+            type="button"
+            disabled={busy}
+            onClick={continueWithGoogle}
+          >
+            {busy ? <LoaderCircle className="spin" /> : <GoogleMark />}
+            المتابعة باستخدام Google
+          </button>
+          <p className="auth-footnote">لا تحتاج إلى دعوة أو موافقة مسبقة.</p>
+          <a className="text-button link-button" href={academyUrl("/admin")}>
+            دخول إدارة الأكاديمية
+          </a>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function AdminAuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    setMessage(null);
 
     try {
       requireAcademyBackend();
-      if (mode === "signin") {
-        const result = await academySupabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-        if (result.error) throw result.error;
-      } else {
-        const result = await academySupabase.auth.signUp({
-          email: email.trim(),
-          password,
-          options: {
-            emailRedirectTo: new URL(academyUrl(), window.location.origin).toString(),
-          },
-        });
-        if (result.error) throw result.error;
-        if (!result.data.session) {
-          setMessage("أُنشئ الحساب. افتح رسالة التحقق في بريدك لإكمال الدخول.");
-        }
-      }
+      clearAcademyOAuthReturn();
+      const result = await academySupabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (result.error) throw result.error;
     } catch (submitError) {
       setError(getErrorMessage(submitError));
     } finally {
@@ -398,35 +532,28 @@ function AuthPage() {
           <strong>أكاديمية تمكين</strong>
         </div>
         <div>
-          <p className="eyebrow">للمعلمين</p>
-          <h1>تدريب مهني يصل إليك بحسب تخصصك</h1>
-          <p>
-            أكمل ملفك المهني مرة واحدة، ثم ابدأ مباشرة بالبرامج المناسبة لمادتك دون دعوات أو إجراءات
-            اعتماد.
-          </p>
+          <p className="eyebrow">بوابة الإدارة</p>
+          <h1>إدارة مستقلة للأكاديمية</h1>
+          <p>هذه المساحة مخصصة للحسابات التي منحت صلاحيات إدارة الأكاديمية فقط.</p>
         </div>
         <ul className="feature-list">
           <li>
-            <CheckCircle2 /> برامج مرتبطة بمادتك الأساسية
+            <CheckCircle2 /> إدارة البرامج والمحتوى التدريبي
           </li>
           <li>
-            <CheckCircle2 /> تعلم تدريجي وقياس واضح للتقدم
+            <CheckCircle2 /> متابعة المعلمين والتقدم والتقارير
           </li>
           <li>
-            <CheckCircle2 /> شهادات رقمية بعد استيفاء المتطلبات
+            <CheckCircle2 /> إعدادات وصلاحيات وسجل تدقيق
           </li>
         </ul>
       </section>
 
       <section className="auth-panel">
         <form className="auth-card" onSubmit={submit}>
-          <p className="eyebrow">{mode === "signin" ? "مرحبًا بعودتك" : "ابدأ الآن"}</p>
-          <h2>{mode === "signin" ? "تسجيل الدخول" : "إنشاء حساب معلم"}</h2>
-          <p className="muted">
-            {mode === "signin"
-              ? "استخدم بريدك وكلمة المرور للوصول إلى برامجك."
-              : "لا تحتاج إلى دعوة أو موافقة مسبقة."}
-          </p>
+          <p className="eyebrow">دخول الإدارة</p>
+          <h2>تسجيل دخول المسؤول</h2>
+          <p className="muted">استخدم بيانات حساب الإدارة المصرح له.</p>
 
           <label>
             البريد الإلكتروني
@@ -442,7 +569,7 @@ function AuthPage() {
             كلمة المرور
             <input
               type="password"
-              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              autoComplete="current-password"
               minLength={8}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -451,23 +578,14 @@ function AuthPage() {
           </label>
 
           {error ? <div className="notice error-notice">{error}</div> : null}
-          {message ? <div className="notice success-notice">{message}</div> : null}
 
           <button className="primary-button" type="submit" disabled={busy}>
             {busy ? <LoaderCircle className="spin" /> : null}
-            {mode === "signin" ? "دخول" : "إنشاء الحساب"}
+            دخول الإدارة
           </button>
-          <button
-            className="text-button"
-            type="button"
-            onClick={() => {
-              setMode(mode === "signin" ? "signup" : "signin");
-              setError(null);
-              setMessage(null);
-            }}
-          >
-            {mode === "signin" ? "ليس لديك حساب؟ أنشئ حسابًا" : "لديك حساب؟ سجّل الدخول"}
-          </button>
+          <a className="text-button link-button" href={academyUrl()}>
+            العودة إلى بوابة المعلمين
+          </a>
         </form>
       </section>
     </main>
@@ -1153,19 +1271,21 @@ function Certificates() {
 }
 
 function Workspace({
+  portal,
   user,
   profile,
   capabilities,
   onProfileChanged,
 }: {
+  portal: "teacher" | "admin";
   user: User;
   profile: TeacherProfile | null;
   capabilities: Set<AcademyCapability>;
   onProfileChanged: (profile: TeacherProfile) => void;
 }) {
-  const hasAdminAccess = capabilities.size > 0;
-  const hasTeacherAccess = profile?.status === "ACTIVE";
-  const [view, setView] = useState<WorkspaceView>(() => (hasTeacherAccess ? "catalog" : "admin"));
+  const hasAdminAccess = portal === "admin" && capabilities.size > 0;
+  const hasTeacherAccess = portal === "teacher" && profile?.status === "ACTIVE";
+  const [view, setView] = useState<WorkspaceView>(() => (portal === "admin" ? "admin" : "catalog"));
   const [menuOpen, setMenuOpen] = useState(false);
 
   const navigation = useMemo(
@@ -1185,8 +1305,11 @@ function Workspace({
     [hasAdminAccess, hasTeacherAccess],
   );
 
-  const displayName = profile?.full_name ?? user.email ?? "مسؤول الأكاديمية";
-  const displayMeta = profile ? user.email : "مسؤول الأكاديمية";
+  const displayName =
+    portal === "teacher"
+      ? (profile?.full_name ?? user.email ?? "معلم")
+      : (user.email ?? "مسؤول الأكاديمية");
+  const displayMeta = portal === "teacher" ? user.email : "مسؤول الأكاديمية";
 
   function selectView(nextView: WorkspaceView) {
     setView(nextView);
@@ -1260,13 +1383,48 @@ function Workspace({
   );
 }
 
-export function App() {
+function PortalMismatch({
+  title,
+  description,
+  destination,
+  destinationLabel,
+}: {
+  title: string;
+  description: string;
+  destination: string;
+  destinationLabel: string;
+}) {
+  return (
+    <main className="centered-page">
+      <section className="auth-card setup-card">
+        <ShieldCheck className="large-icon" />
+        <h1>{title}</h1>
+        <p className="muted">{description}</p>
+        <a className="text-button link-button" href={destination}>
+          {destinationLabel}
+        </a>
+        <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
+          <LogOut /> تسجيل الخروج وتبديل الحساب
+        </button>
+      </section>
+    </main>
+  );
+}
+
+export function App({ portal }: { portal?: AcademyPortal }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [capabilities, setCapabilities] = useState<Set<AcademyCapability>>(new Set());
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const activePortal: AcademyPortal =
+    portal ??
+    (window.location.pathname === academyUrl("/verify")
+      ? "verify"
+      : window.location.pathname === academyUrl("/admin")
+        ? "admin"
+        : "teacher");
 
   useEffect(() => {
     if (!academyFeatureEnabled || !academyBackendConfigured) {
@@ -1316,9 +1474,9 @@ export function App() {
 
   if (!academyFeatureEnabled) return <AcademyUnavailable />;
   if (!academyBackendConfigured) return <ConfigurationRequired />;
-  if (window.location.pathname === academyUrl("/verify")) return <VerifyCertificatePage />;
+  if (activePortal === "verify") return <VerifyCertificatePage />;
   if (loadingSession || loadingProfile) return <LoadingScreen />;
-  if (!user) return <AuthPage />;
+  if (!user) return activePortal === "admin" ? <AdminAuthPage /> : <TeacherAuthPage />;
   if (profileError) {
     return (
       <main className="centered-page">
@@ -1336,10 +1494,53 @@ export function App() {
       </main>
     );
   }
-  if (!profile && capabilities.size === 0) {
+
+  if (activePortal === "admin") {
+    if (capabilities.size === 0) {
+      return (
+        <PortalMismatch
+          title="لا يملك هذا الحساب صلاحية الإدارة"
+          description="هذه الصفحة مخصصة لمسؤولي الأكاديمية. يمكنك العودة إلى بوابة المعلمين أو تبديل الحساب."
+          destination={academyUrl()}
+          destinationLabel="العودة إلى بوابة المعلمين"
+        />
+      );
+    }
+    return (
+      <Workspace
+        portal="admin"
+        user={user}
+        profile={null}
+        capabilities={capabilities}
+        onProfileChanged={setProfile}
+      />
+    );
+  }
+
+  if (!isGoogleAccount(user)) {
+    return (
+      <PortalMismatch
+        title="بوابة المعلمين تتطلب حساب Google"
+        description="سجّل الخروج ثم استخدم زر «المتابعة باستخدام Google» للدخول أو إنشاء حساب معلم."
+        destination={academyUrl("/admin")}
+        destinationLabel="الانتقال إلى دخول الإدارة"
+      />
+    );
+  }
+  if (!profile && capabilities.size > 0) {
+    return (
+      <PortalMismatch
+        title="هذا حساب إدارة الأكاديمية"
+        description="لم يُنشأ لهذا الحساب ملف معلم. استخدم بوابة الإدارة المنفصلة للوصول إلى صلاحياتك."
+        destination={academyUrl("/admin")}
+        destinationLabel="فتح بوابة الإدارة"
+      />
+    );
+  }
+  if (!profile) {
     return <ProfileForm user={user} existing={null} onSaved={setProfile} />;
   }
-  if (profile?.status === "SUSPENDED" && capabilities.size === 0) {
+  if (profile.status === "SUSPENDED") {
     return (
       <main className="centered-page">
         <section className="auth-card setup-card">
@@ -1356,9 +1557,10 @@ export function App() {
 
   return (
     <Workspace
+      portal="teacher"
       user={user}
-      profile={profile?.status === "ACTIVE" ? profile : null}
-      capabilities={capabilities}
+      profile={profile.status === "ACTIVE" ? profile : null}
+      capabilities={new Set<AcademyCapability>()}
       onProfileChanged={setProfile}
     />
   );

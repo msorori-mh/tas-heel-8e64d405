@@ -115,6 +115,34 @@ select pg_temp.assert_true(
   'an English teacher must not see the mathematics-only program'
 );
 
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000004', false);
+select pg_temp.assert_true(
+  not academy.i_have_google_identity(),
+  'the email-only fixture must not satisfy the Google identity guard'
+);
+
+do $$
+begin
+  insert into academy.teacher_profiles (
+    user_id, full_name, primary_subject_id, governorate_id, school_name, phone
+  ) values (
+    auth.uid(), 'معلم بريد فقط', (select id from academy.subjects where code = 'ENGLISH'),
+    '00000000-0000-0000-0000-000000000100'::uuid, 'مدرسة الاختبار', '+967700000004'
+  );
+  raise exception 'an email-only account unexpectedly created a teacher profile';
+exception
+  when insufficient_privilege then
+    if sqlerrm not like '%row-level security%' then
+      raise;
+    end if;
+end;
+$$;
+
+select pg_temp.assert_true(
+  (select count(*) = 0 from academy.teacher_profiles where user_id = auth.uid()),
+  'the rejected email-only profile must leave no row behind'
+);
+
 reset role;
 set role anon;
 select pg_temp.assert_true(

@@ -143,8 +143,10 @@ test("academy admin operations require independent academy capabilities", () => 
 });
 
 test("academy administrators do not need a teacher profile to open administration", () => {
-  assert.match(app, /if \(!profile && capabilities\.size === 0\)/);
-  assert.match(app, /hasTeacherAccess \? "catalog" : "admin"/);
+  assert.match(app, /if \(activePortal === "admin"\)/);
+  assert.match(app, /if \(capabilities\.size === 0\)/);
+  assert.match(app, /portal="admin"/);
+  assert.match(app, /profile=\{null\}/);
   assert.match(app, /profile: TeacherProfile \| null/);
   assert.doesNotMatch(app, /if \(!profile\) return <ProfileForm/);
 });

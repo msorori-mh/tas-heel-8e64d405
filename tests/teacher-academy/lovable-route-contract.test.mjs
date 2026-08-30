@@ -4,17 +4,29 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
-const [layout, indexRoute, verifyRoute, rootRoute, app, academySupabase, rootVite, standaloneEnv] =
-  await Promise.all([
-    read("src/routes/academy.tsx"),
-    read("src/routes/academy.index.tsx"),
-    read("src/routes/academy.verify.tsx"),
-    read("src/routes/__root.tsx"),
-    read("apps/teacher-academy/src/App.tsx"),
-    read("apps/teacher-academy/src/lib/supabase.ts"),
-    read("vite.config.ts"),
-    read("apps/teacher-academy/.env.example"),
-  ]);
+const [
+  layout,
+  indexRoute,
+  adminRoute,
+  verifyRoute,
+  rootRoute,
+  authCallback,
+  app,
+  academySupabase,
+  rootVite,
+  standaloneEnv,
+] = await Promise.all([
+  read("src/routes/academy.tsx"),
+  read("src/routes/academy.index.tsx"),
+  read("src/routes/academy.admin.tsx"),
+  read("src/routes/academy.verify.tsx"),
+  read("src/routes/__root.tsx"),
+  read("src/routes/auth.callback.tsx"),
+  read("apps/teacher-academy/src/App.tsx"),
+  read("apps/teacher-academy/src/lib/supabase.ts"),
+  read("vite.config.ts"),
+  read("apps/teacher-academy/.env.example"),
+]);
 
 test("Lovable root build exposes the academy below an isolated client-only layout", () => {
   assert.match(layout, /createFileRoute\("\/academy"\)/);
@@ -22,9 +34,12 @@ test("Lovable root build exposes the academy below an isolated client-only layou
   assert.match(layout, /styles\.css\?url/);
   assert.match(layout, /component:\s*Outlet/);
   assert.match(indexRoute, /createFileRoute\("\/academy\/"\)/);
-  assert.match(indexRoute, /TeacherAcademyApp/);
+  assert.match(indexRoute, /portal="teacher"/);
+  assert.match(adminRoute, /createFileRoute\("\/academy\/admin"\)/);
+  assert.match(adminRoute, /portal="admin"/);
+  assert.match(adminRoute, /noindex,nofollow/);
   assert.match(verifyRoute, /createFileRoute\("\/academy\/verify"\)/);
-  assert.match(verifyRoute, /TeacherAcademyApp/);
+  assert.match(verifyRoute, /portal="verify"/);
 });
 
 test("academy routes do not mount student auth, PWA, or mobile providers", () => {
@@ -37,12 +52,16 @@ test("academy routes do not mount student auth, PWA, or mobile providers", () =>
   );
 });
 
-test("academy navigation, auth callback, and certificate verification honor the base path", () => {
+test("academy navigation, Google callback, and certificate verification honor the base path", () => {
   assert.match(app, /VITE_ACADEMY_BASE_PATH/);
   assert.match(app, /href=\{academyUrl\(\)\}/);
-  assert.match(app, /emailRedirectTo:\s*new URL\(academyUrl\(\)/);
+  assert.match(app, /provider:\s*"google"/);
+  assert.match(app, /usesRootCallback \? "\/auth\/callback" : academyUrl\(\)/);
+  assert.match(app, /ACADEMY_OAUTH_RETURN_KEY/);
+  assert.match(authCallback, /consumeAcademyOAuthReturn/);
+  assert.match(authCallback, /window\.location\.replace\(academyReturn\)/);
   assert.match(app, /academyUrl\(\s*`\/verify\?code=/);
-  assert.match(app, /window\.location\.pathname === academyUrl\("\/verify"\)/);
+  assert.match(app, /activePortal === "verify"/);
   assert.doesNotMatch(app, /href=\{`\/verify\?code=/);
 });
 
