@@ -16,6 +16,7 @@ import {
   isSubjectVisibleForSemester,
 } from "@/lib/subject-semester";
 import { fetchStudentLessonVisibility } from "@/lib/lessons/lesson-lifecycle";
+import { groupSubjectsByMainCategory } from "@/lib/subjects/subject-grouping";
 
 type Subject = {
   id: string;
@@ -25,6 +26,8 @@ type Subject = {
   sort_order: number;
   semester: number | null;
   curriculum_track_id: string | null;
+  group_code: string | null;
+  group_name: string | null;
 };
 
 export function SemesterSubjectsView({ semester }: { semester: Semester }) {
@@ -45,7 +48,7 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
     queryFn: async () => {
       const { data: rows, error: subjectsError } = await supabase
         .from("subjects")
-        .select("id,name,icon,color,sort_order,semester,curriculum_track_id")
+        .select("id,name,icon,color,sort_order,semester,curriculum_track_id,group_code,group_name")
         .eq("grade_id", gradeKey!)
         .order("sort_order");
       if (subjectsError) throw subjectsError;
@@ -117,6 +120,16 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
   });
 
   const subjects = data?.subjects;
+  const subjectMeta = data?.meta ?? {};
+  const subjectGroups = subjects ? groupSubjectsByMainCategory(subjects) : [];
+  const totalLessons =
+    subjects?.reduce((sum, subject) => sum + (subjectMeta[subject.id]?.lessons ?? 0), 0) ?? 0;
+  const completedLessons =
+    subjects?.reduce((sum, subject) => sum + (subjectMeta[subject.id]?.completed ?? 0), 0) ?? 0;
+  const readySubjects = subjectGroups.filter((group) =>
+    group.subjects.some((subject) => (subjectMeta[subject.id]?.lessons ?? 0) > 0),
+  ).length;
+  const preparingSubjects = subjectGroups.length - readySubjects;
 
   return (
     <div className="space-y-3">
@@ -144,8 +157,41 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
       )}
 
       {subjects && subjects.length > 0 && (
-        <SubjectGroupsGrid subjects={subjects} semester={semester as 1 | 2} meta={data?.meta} />
+        <>
+          <section
+            aria-label="ملخص مواد الفصل"
+            className="rounded-2xl border border-border/70 bg-card/85 p-3.5 shadow-sm sm:p-4"
+          >
+            <dl className="grid grid-cols-3 gap-2 text-center">
+              <SummaryMetric label="المواد الأساسية" value={subjectGroups.length} />
+              <SummaryMetric label="مواد جاهزة" value={readySubjects} />
+              <SummaryMetric
+                label="دروس مكتملة"
+                value={totalLessons > 0 ? `${completedLessons}/${totalLessons}` : "—"}
+              />
+            </dl>
+            {preparingSubjects > 0 ? (
+              <p className="mt-3 border-t border-border/60 pt-2.5 text-xs leading-relaxed text-muted-foreground">
+                {preparingSubjects === 1
+                  ? "مادة واحدة ما زالت في مرحلة تجهيز المحتوى."
+                  : `${preparingSubjects} مواد ما زالت في مرحلة تجهيز المحتوى.`}{" "}
+                سيظهر زر البدء فور نشر أول درس، وتبقى كتب المنهج متاحة من البطاقة.
+              </p>
+            ) : null}
+          </section>
+
+          <SubjectGroupsGrid subjects={subjects} semester={semester as 1 | 2} meta={subjectMeta} />
+        </>
       )}
+    </div>
+  );
+}
+
+function SummaryMetric({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-xl bg-muted/55 px-2 py-2.5">
+      <dt className="text-[11px] font-semibold text-muted-foreground sm:text-xs">{label}</dt>
+      <dd className="mt-0.5 text-base font-black text-foreground sm:text-lg">{value}</dd>
     </div>
   );
 }

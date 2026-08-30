@@ -9,6 +9,7 @@ const authenticated = read("src/routes/_authenticated/route.tsx");
 const capacitor = read("capacitor.config.ts");
 const manifest = JSON.parse(read("public/manifest.webmanifest"));
 const launcherBackground = read("android/app/src/main/res/values/ic_launcher_background.xml");
+const brand = read("src/components/brand/StudentTamkeenBrand.tsx");
 
 describe("STUDENT_BRAND_THEME_01", () => {
   it("activates the brand only on the student shell", () => {
@@ -42,8 +43,9 @@ describe("STUDENT_BRAND_THEME_01", () => {
   it("aligns the PWA and Android launch surfaces with the student brand", () => {
     expect(manifest.theme_color).toBe("#1E2A63");
     expect(manifest.background_color).toBe("#FBFAF7");
-    expect(capacitor).toContain('backgroundColor: "#1E2A63"');
-    expect(launcherBackground).toContain("#1E2A63");
+    expect(capacitor).toContain('backgroundColor: "#FBFAF7"');
+    expect(launcherBackground).toContain("#FBFAF7");
+    expect(brand).toContain('STUDENT_TAMKEEN_MARK_SRC = "/brand/student-tamkeen-mark.png"');
   });
 
   it("preserves RTL and the responsive mobile/desktop shell contract", () => {

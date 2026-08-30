@@ -73,7 +73,7 @@ describe("21B4G — Android app identity and release readiness", () => {
   it("9. the assetlinks template matches applicationId and carries no fake fingerprint", () => {
     const parsed = JSON.parse(assetlinks);
     expect(parsed[0].target.package_name).toBe(PKG);
-    expect(parsed[0].target.sha256_cert_fingerprints).toEqual(["<RELEASE_SHA256>"]);
+    expect(parsed[0].target.sha256_cert_fingerprints).toEqual(["<PLAY_APP_SIGNING_SHA256>"]);
     expect(existsSync(new URL("../../public/.well-known/assetlinks.json", import.meta.url))).toBe(
       false,
     );

@@ -3,7 +3,6 @@ import {
   BarChart3,
   BookOpen,
   ClipboardList,
-  GraduationCap,
   Home,
   Lightbulb,
   LogOut,
@@ -13,6 +12,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
+import { StudentTamkeenMark } from "@/components/brand/StudentTamkeenBrand";
 
 type NavItem = {
   label: string;
@@ -52,6 +53,8 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   const { signOut, isAdmin, isContentStaff } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const usesWideLearningCanvas =
+    pathname === "/app" || pathname === "/semesters" || /^\/semesters\/[12]$/.test(pathname);
 
   const handleSignOut = async () => {
     await signOut();
@@ -66,10 +69,8 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           to="/app"
           className="flex items-center gap-2.5 px-4 py-6 font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-hero-gradient">
-            <GraduationCap className="h-6 w-6 text-primary-foreground" />
-          </span>
-          <span className="text-lg">تمكين</span>
+          <StudentTamkeenMark className="h-10 w-10 rounded-xl bg-[#FBFAF7] p-1 shadow-sm ring-1 ring-border/60" />
+          <span className="text-lg">تمكين الطالب</span>
         </Link>
 
         <nav aria-label="التنقل الرئيسي" className="flex-1 space-y-1.5 px-3">
@@ -127,10 +128,8 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
             to="/app"
             className="flex min-w-0 items-center gap-2 font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-hero-gradient">
-              <GraduationCap className="h-4 w-4 text-primary-foreground" />
-            </span>
-            <span className="truncate text-sm">تمكين</span>
+            <StudentTamkeenMark className="h-8 w-8 rounded-lg bg-[#FBFAF7] p-1 ring-1 ring-border/60" />
+            <span className="truncate text-sm">تمكين الطالب</span>
           </Link>
           <div className="flex shrink-0 items-center gap-1">
             {isContentStaff && (
@@ -156,7 +155,15 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="min-w-0 w-full flex-1 pb-24 pt-4 lg:pr-60 lg:pb-12 lg:pt-8">
-        <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8">{children}</div>
+        <div
+          data-student-canvas={usesWideLearningCanvas ? "wide" : "standard"}
+          className={cn(
+            "mx-auto w-full px-4 sm:px-6 lg:px-8",
+            usesWideLearningCanvas ? "max-w-[1360px]" : "max-w-[1200px]",
+          )}
+        >
+          {children}
+        </div>
       </main>
 
       {/* Mobile bottom navigation */}

@@ -2,9 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { accountDeletionRequiresPassword } from "@/lib/account-deletion";
 
 const DeleteInput = z.object({
-  password: z.string().min(1, "كلمة المرور مطلوبة"),
+  password: z.string().max(1024, "كلمة المرور غير صالحة").optional(),
   confirmation: z.literal("DELETE"),
 });
 
@@ -13,7 +14,9 @@ const DeleteInput = z.object({
  *
  * Flow:
  * 1. Verify the caller via requireSupabaseAuth (bearer token).
- * 2. Re-authenticate with their password (defense against stolen/hijacked sessions).
+ * 2. Re-authenticate password accounts. OAuth-only accounts have no local
+ *    password, so the already-validated bearer session and explicit DELETE
+ *    confirmation are used instead.
  * 3. Record an audit_logs entry (actor_id has ON DELETE SET NULL, so the row survives).
  * 4. Best-effort delete receipt files in storage (auth.users CASCADE doesn't reach storage objects).
  * 5. Call supabaseAdmin.auth.admin.deleteUser → cascades through every public.* table
@@ -30,18 +33,24 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
       throw new Error("تعذر التحقق من البريد الإلكتروني للحساب.");
     }
 
-    // 2. Re-authenticate with password using an isolated client (no session persistence).
-    const SUPABASE_URL = process.env.SUPABASE_URL!;
-    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY!;
-    const verifier = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error: pwError } = await verifier.auth.signInWithPassword({
-      email,
-      password: data.password,
-    });
-    if (pwError) {
-      throw new Error("كلمة المرور غير صحيحة.");
+    // 2. Password accounts re-authenticate using an isolated client. The
+    // middleware has already validated the bearer session for OAuth-only users.
+    if (accountDeletionRequiresPassword(claims)) {
+      if (!data.password) {
+        throw new Error("كلمة المرور مطلوبة.");
+      }
+      const SUPABASE_URL = process.env.SUPABASE_URL!;
+      const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY!;
+      const verifier = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { error: pwError } = await verifier.auth.signInWithPassword({
+        email,
+        password: data.password,
+      });
+      if (pwError) {
+        throw new Error("كلمة المرور غير صحيحة.");
+      }
     }
 
     // 3. Audit log (best-effort; do not block deletion on failure).

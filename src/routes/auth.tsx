@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { UserPlus, LogIn, Mail, Sparkles, BookOpen, Zap } from "lucide-react";
+import { StudentTamkeenMark } from "@/components/brand/StudentTamkeenBrand";
 
 const searchSchema = z.object({
   mode: z.enum(["signup", "login"]).catch("login"),
@@ -46,8 +47,14 @@ function AuthPage() {
       dir="rtl"
     >
       <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-card">
-        <Link to="/" className="text-sm text-muted-foreground">
-          → العودة للرئيسية
+        <Link
+          to="/"
+          aria-label="تمكين الطالب — العودة للرئيسية"
+          className="flex items-center gap-2 text-sm font-bold text-foreground"
+        >
+          <StudentTamkeenMark className="h-9 w-9 rounded-xl bg-[#FBFAF7] p-1 ring-1 ring-border/60" />
+          <span>تمكين الطالب</span>
+          <span className="mr-auto font-normal text-muted-foreground">→ الرئيسية</span>
         </Link>
 
         <div className="mt-4 inline-flex w-full rounded-xl border-2 border-border bg-muted p-1.5 text-sm">

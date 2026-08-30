@@ -33,9 +33,14 @@ export function LearningToolsSection() {
   const isThirdSecondary = grade?.slug === THIRD_SECONDARY_SLUG;
 
   return (
-    <section aria-label="أدوات التعلم" className="space-y-2.5">
-      <h2 className="text-sm font-black text-foreground">أدوات التعلم</h2>
-      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+    <section aria-label="أدوات التعلم" className="space-y-3">
+      <div>
+        <h2 className="text-base font-black text-foreground">أدوات التعلم</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          مراجعة أسرع، أخطاء أوضح، وتقدم يمكنك متابعته.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
         <NavTile
           to="/quick-review"
           icon={Sparkles}

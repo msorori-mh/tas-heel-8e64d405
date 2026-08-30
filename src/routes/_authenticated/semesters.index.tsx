@@ -36,12 +36,12 @@ function SemestersPage() {
   if (loading) return <StateMessage variant="loading">جارٍ التحميل…</StateMessage>;
 
   return (
-    <div className="space-y-4" dir="rtl">
+    <div className="space-y-5" dir="rtl">
       <Breadcrumbs items={[{ label: "الرئيسية", to: "/app" }, { label: "موادي" }]} />
 
       <header>
-        <h1 className="text-headline text-foreground">موادي</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <h1 className="text-xl font-black text-foreground sm:text-2xl">موادي</h1>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
           اختر الفصل الدراسي، ثم افتح المادة أو حمّل كتب المنهج.
         </p>
       </header>
@@ -49,7 +49,7 @@ function SemestersPage() {
       <div
         role="tablist"
         aria-label="الفصل الدراسي"
-        className="grid grid-cols-2 gap-1 rounded-xl bg-muted/60 p-1"
+        className="grid grid-cols-2 gap-1.5 rounded-2xl border border-border/60 bg-muted/60 p-1.5"
       >
         {([1, 2] as Semester[]).map((value) => (
           <button
@@ -59,9 +59,9 @@ function SemestersPage() {
             aria-selected={semester === value}
             onClick={() => setSemester(value)}
             className={cn(
-              "rounded-lg px-3 py-2 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "min-h-11 rounded-xl px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               semester === value
-                ? "bg-card text-foreground shadow-sm"
+                ? "bg-card text-primary shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >

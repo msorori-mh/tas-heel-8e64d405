@@ -42,6 +42,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { deleteMyAccount } from "@/lib/account.functions";
+import { accountDeletionRequiresPassword } from "@/lib/account-deletion";
 import { ChangeCurriculumTrackButton } from "@/components/student/ChangeCurriculumTrackButton";
 import { EditProfileDialog } from "@/components/student/EditProfileDialog";
 import { OfflineContentSettings } from "@/components/offline/OfflineContentSettings";
@@ -90,7 +91,9 @@ function SettingsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  const canSubmit = !submitting && password.length > 0 && confirmText === "DELETE";
+  const passwordRequired = accountDeletionRequiresPassword(user);
+  const canSubmit =
+    !submitting && !!user && (!passwordRequired || password.length > 0) && confirmText === "DELETE";
 
   const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
 
@@ -206,7 +209,12 @@ function SettingsPage() {
     if (!canSubmit) return;
     setSubmitting(true);
     try {
-      await callDelete({ data: { password, confirmation: "DELETE" } });
+      await callDelete({
+        data: {
+          confirmation: "DELETE",
+          ...(passwordRequired ? { password } : {}),
+        },
+      });
       toast.success("تم حذف حسابك بنجاح.");
       await queryClient.cancelQueries();
       queryClient.clear();
@@ -488,25 +496,33 @@ function SettingsPage() {
                       <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3">
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                         <p className="text-xs leading-relaxed text-destructive">
-                          هذا الإجراء لا يمكن التراجع عنه. أكّد كلمة المرور واكتب{" "}
-                          <span className="font-mono font-bold">DELETE</span> للمتابعة.
+                          هذا الإجراء لا يمكن التراجع عنه.{" "}
+                          {passwordRequired ? "أكّد كلمة المرور ثم " : "اعتمد جلستك الحالية ثم "}
+                          اكتب <span className="font-mono font-bold">DELETE</span> للمتابعة.
                         </p>
                       </div>
 
-                      <div className="space-y-1.5">
-                        <Label htmlFor="pw" className="text-xs">
-                          كلمة المرور الحالية
-                        </Label>
-                        <Input
-                          id="pw"
-                          type="password"
-                          autoComplete="current-password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          disabled={submitting}
-                          required
-                        />
-                      </div>
+                      {passwordRequired ? (
+                        <div className="space-y-1.5">
+                          <Label htmlFor="pw" className="text-xs">
+                            كلمة المرور الحالية
+                          </Label>
+                          <Input
+                            id="pw"
+                            type="password"
+                            autoComplete="current-password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            disabled={submitting}
+                            required
+                          />
+                        </div>
+                      ) : (
+                        <p className="rounded-lg border border-border bg-background p-3 text-xs leading-relaxed text-muted-foreground">
+                          حسابك مرتبط بمزوّد تسجيل دخول خارجي؛ لا توجد كلمة مرور محلية مطلوبة للحذف.
+                          يجب أن تبقى مسجّل الدخول لإكمال العملية.
+                        </p>
+                      )}
 
                       <div className="space-y-1.5">
                         <Label htmlFor="confirm" className="text-xs">

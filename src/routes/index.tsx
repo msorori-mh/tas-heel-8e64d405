@@ -6,12 +6,12 @@ import {
   LineChart,
   MapPin,
   Smartphone,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 import heroStudent from "@/assets/hero-tamkeen.png";
 import { PwaInstallHint } from "@/components/pwa/PwaInstallHint";
+import { StudentTamkeenMark } from "@/components/brand/StudentTamkeenBrand";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -106,7 +106,7 @@ function HeroSection() {
         <div className="grid items-center gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-8">
           <div className="order-2 text-center lg:order-1 lg:text-right">
             <div className="mb-3 inline-flex items-center gap-1.5 rounded-[var(--ds-radius-pill)] bg-primary/15 px-4 py-1.5 text-[14px] font-bold text-primary shadow-sm border border-primary/20">
-              <Sparkles className="h-4 w-4" aria-hidden />
+              <StudentTamkeenMark className="h-5 w-5" />
               تمكين الطالب
             </div>
 
@@ -247,9 +247,7 @@ function CTAFooter() {
       <div className="container mx-auto max-w-5xl">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-hero-gradient">
-              <BookOpen className="h-4 w-4 text-primary-foreground" />
-            </div>
+            <StudentTamkeenMark className="h-8 w-8 rounded-lg bg-[#FBFAF7] p-1 ring-1 ring-border/60" />
             <span className="text-sm font-bold text-foreground">تمكين الطالب</span>
           </div>
 

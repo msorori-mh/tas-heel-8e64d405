@@ -32,7 +32,7 @@ function DataDeletionPage() {
         </Link>
         <header>
           <h1 className="text-3xl font-bold">حذف البيانات</h1>
-          <p className="mt-2 text-xs text-muted-foreground">آخر تحديث: يونيو 2026</p>
+          <p className="mt-2 text-xs text-muted-foreground">آخر تحديث: أغسطس 2026</p>
         </header>
 
         <section>
@@ -49,8 +49,9 @@ function DataDeletionPage() {
               </Link>{" "}
               → منطقة الخطر → "حذف الحساب".
             </li>
+            <li>لحساب البريد: أكّد كلمة المرور. ولحساب Google: أبقِ جلسة تسجيل الدخول الحالية.</li>
             <li>
-              أكّد كلمة المرور واكتب <span className="font-mono">DELETE</span>.
+              اكتب <span className="font-mono">DELETE</span> لتأكيد الإجراء النهائي.
             </li>
             <li>سيُحذف حسابك فورًا.</li>
           </ol>
@@ -90,6 +91,9 @@ function DataDeletionPage() {
           <h2 className="text-xl font-semibold">4. حذف عبر البريد (بديل)</h2>
           <p className="mt-2 text-muted-foreground">
             إذا تعذّر عليك الوصول إلى حسابك، أرسل بريدًا من بريدك المسجّل إلى:
+          </p>
+          <p className="mt-2 text-muted-foreground">
+            لا تحتاج إلى تثبيت تطبيق تمكين الطالب من جديد لتقديم الطلب عبر البريد.
           </p>
           <p className="mt-2">
             <a href="mailto:support@studentamkeen.com" className="text-primary text-lg">

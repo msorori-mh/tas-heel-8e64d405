@@ -36,6 +36,8 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
 
   it("keeps release signing fail-closed and out of source control", () => {
     expect(gradle).toContain('rootProject.file("keystore.properties")');
+    expect(gradle).toContain("releaseArtifactRequested");
+    expect(gradle).toContain("Release signing is required");
     expect(gradle).not.toMatch(/storePassword\s+["'][^"']+["']/);
     expect(gradle).not.toMatch(/keyPassword\s+["'][^"']+["']/);
   });

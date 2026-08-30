@@ -14,7 +14,7 @@
  *   including an in-progress exam — is never interrupted.
  */
 
-const SW_VERSION = "v2";
+const SW_VERSION = "v3";
 const SHELL_CACHE = `tasheel-shell-${SW_VERSION}`;
 const STATIC_CACHE = `tasheel-static-${SW_VERSION}`;
 const ACTIVE_CACHES = [SHELL_CACHE, STATIC_CACHE];
@@ -22,7 +22,8 @@ const ACTIVE_CACHES = [SHELL_CACHE, STATIC_CACHE];
 const SHELL_ASSETS = [
   "/offline.html",
   "/manifest.webmanifest",
-  "/favicon.svg",
+  "/icons/favicon-64.png",
+  "/brand/student-tamkeen-mark.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/icon-maskable-512.png",

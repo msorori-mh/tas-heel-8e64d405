@@ -41,20 +41,15 @@
         padding: 2rem 1.5rem;
         box-shadow: 0 8px 24px rgba(30, 42, 120, 0.08);
       }
-      .badge {
+      .brand-mark {
         width: 3.5rem;
         height: 3.5rem;
         margin: 0 auto 1rem;
         border-radius: 1rem;
-        background: var(--primary);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .badge svg {
-        width: 1.75rem;
-        height: 1.75rem;
-        stroke: #ffffff;
+        background: #fbfaf7;
+        object-fit: contain;
+        padding: 0.35rem;
+        border: 1px solid var(--border);
       }
       h1 {
         font-size: 1.2rem;
@@ -103,19 +98,7 @@
   </head>
   <body>
     <main>
-      <div class="badge" aria-hidden="true">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M2 9.5 12 4l10 5.5-10 5.5L2 9.5Z" />
-          <path d="M6 12v4c0 1.5 2.7 3 6 3s6-1.5 6-3v-4" />
-        </svg>
-      </div>
+      <img class="brand-mark" src="/brand/student-tamkeen-mark.png" alt="شعار تمكين الطالب" />
       <h1>غير متصل بالإنترنت</h1>
       <p>أنت غير متصل حالياً. أعد الاتصال بالإنترنت لمتابعة الدروس والتدريب والاختبارات.</p>
       <p class="note">
