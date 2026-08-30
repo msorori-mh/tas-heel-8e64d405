@@ -14,6 +14,7 @@
     "preview": "vite preview",
     "test": "node --import tsx --test src/lib/*.test.ts src/lib/lessons/*.test.ts tests/lessons/lesson-interactive-viewer-contract.test.ts tests/content-factory/golden-lesson-identity-preflight.test.ts tests/content-factory/golden-lesson-identity-rebind-migration.test.mjs tests/content-factory/golden-lesson-direct-preflight.static.test.mjs tests/import/ministerial-admin-workspace-mvp.static.test.mjs tests/import/ministerial-admin-workspace-mvp.test.ts",
     "test:vitest": "node scripts/testing/run-vitest-suite.mjs",
+    "test:mobile-release": "node node_modules/vitest/vitest.mjs run tests/mobile tests/student/student-brand-theme-01.static.test.mjs",
     "test:core-reliability": "npm run test:vitest && node --test tests/review/quick-review-ui-15a.static.test.mjs tests/content-factory/lesson-component-publishing-v2.static.test.mjs tests/security/exam-answers-postgrest-leak-hardening.static.test.mjs tests/migrations/content-html-generated-types-contract.test.mjs tests/release/release-fingerprint.static.test.mjs && node --import tsx --test tests/review/quick-review-15a.test.ts",
     "test:import-contract": "node --experimental-strip-types --test tests/import/import-contract-final-01.test.ts tests/import/import-execution-readiness-02.test.ts tests/import/import-slug-security-02b.test.ts tests/import/import-staging-execution-03.test.ts",
     "test:import-staging-03": "node --experimental-strip-types --test tests/import/import-staging-execution-03.test.ts",

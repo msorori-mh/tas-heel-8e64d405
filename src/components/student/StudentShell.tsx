@@ -59,7 +59,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="student-app-bg min-h-screen text-foreground" dir="rtl">
+    <div className="student-theme student-app-bg min-h-screen text-foreground" dir="rtl">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 right-0 z-40 hidden w-60 flex-col border-l border-border/60 bg-card/80 backdrop-blur-md lg:flex">
         <Link
