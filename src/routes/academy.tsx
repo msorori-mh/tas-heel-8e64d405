@@ -14,7 +14,7 @@ export const Route = createFileRoute("/academy")({
     ],
     links: [
       { rel: "stylesheet", href: academyCss },
-      { rel: "canonical", href: "https://studentamkeen.lovable.app/academy" },
+      { rel: "canonical", href: "https://studentamkeen.com/academy" },
     ],
   }),
   component: Outlet,

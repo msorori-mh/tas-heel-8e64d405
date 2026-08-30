@@ -23,6 +23,13 @@ create table auth.users (
   email text not null unique
 );
 
+create table auth.identities (
+  provider_id text not null,
+  user_id uuid not null references auth.users(id),
+  provider text not null,
+  primary key (provider, provider_id)
+);
+
 create or replace function auth.uid()
 returns uuid
 language sql
@@ -47,4 +54,12 @@ insert into auth.users (id, email)
 values
   ('00000000-0000-0000-0000-000000000001', 'academy-admin@example.test'),
   ('00000000-0000-0000-0000-000000000002', 'math-teacher@example.test'),
-  ('00000000-0000-0000-0000-000000000003', 'english-teacher@example.test');
+  ('00000000-0000-0000-0000-000000000003', 'english-teacher@example.test'),
+  ('00000000-0000-0000-0000-000000000004', 'email-only-teacher@example.test');
+
+insert into auth.identities (provider_id, user_id, provider)
+values
+  ('academy-admin@example.test', '00000000-0000-0000-0000-000000000001', 'email'),
+  ('math-google', '00000000-0000-0000-0000-000000000002', 'google'),
+  ('english-google', '00000000-0000-0000-0000-000000000003', 'google'),
+  ('email-only-teacher@example.test', '00000000-0000-0000-0000-000000000004', 'email');

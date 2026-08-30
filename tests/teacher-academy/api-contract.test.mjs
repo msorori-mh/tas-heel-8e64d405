@@ -11,6 +11,7 @@ const migrationPaths = [
   "../../supabase/migrations/20260830110000_academy_program_details_structured_learning_live_sessions.sql",
   "../../supabase/migrations/20260911020000_academy_admin_program_management_closure.sql",
   "../../supabase/migrations/20260911030000_academy_admin_reports_settings_closure.sql",
+  "../../supabase/migrations/20260911040000_academy_google_only_teacher_portal.sql",
 ].map((path) => new URL(path, import.meta.url));
 
 const [api, ...migrations] = await Promise.all([
