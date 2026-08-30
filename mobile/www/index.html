@@ -3,7 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: gap:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' data: gap:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+    />
     <title>تمكين — دون اتصال</title>
     <!--
       21B4-B — Tamkeen Offline Entry.
@@ -16,30 +19,63 @@
       No filesystem path is ever produced or accepted by this page.
     -->
     <style>
-      :root { color-scheme: light; }
-      * { box-sizing: border-box; }
+      :root {
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
       body {
         margin: 0;
         min-height: 100vh;
         font-family: system-ui, "Segoe UI", sans-serif;
-        background: #FAFAFF;
-        color: #0F0B2E;
+        background: #fafaff;
+        color: #0f0b2e;
         padding: 24px 18px 40px;
       }
-      header { text-align: center; margin-bottom: 22px; }
-      h1 { font-size: 22px; margin: 0 0 10px; }
-      .lead { font-size: 14px; color: #605B8A; margin: 0 auto; max-width: 340px; line-height: 1.8; }
-      h2 { font-size: 15px; margin: 26px 0 10px; }
+      header {
+        text-align: center;
+        margin-bottom: 22px;
+      }
+      .brand-mark {
+        width: 76px;
+        height: 76px;
+        object-fit: contain;
+        margin: 0 auto 10px;
+      }
+      h1 {
+        font-size: 22px;
+        margin: 0 0 10px;
+      }
+      .lead {
+        font-size: 14px;
+        color: #605b8a;
+        margin: 0 auto;
+        max-width: 340px;
+        line-height: 1.8;
+      }
+      h2 {
+        font-size: 15px;
+        margin: 26px 0 10px;
+      }
       .card {
         background: #fff;
-        border: 1px solid #E7E4F5;
+        border: 1px solid #e7e4f5;
         border-radius: 16px;
         padding: 14px;
         margin-bottom: 12px;
-        box-shadow: 0 1px 2px rgba(15, 11, 46, .05);
+        box-shadow: 0 1px 2px rgba(15, 11, 46, 0.05);
       }
-      .title { font-size: 15px; font-weight: 700; margin: 0 0 4px; }
-      .meta { font-size: 12px; color: #605B8A; margin: 0 0 12px; }
+      .title {
+        font-size: 15px;
+        font-weight: 700;
+        margin: 0 0 4px;
+      }
+      .meta {
+        font-size: 12px;
+        color: #605b8a;
+        margin: 0 0 12px;
+      }
       button {
         font: inherit;
         border: 0;
@@ -48,17 +84,39 @@
         width: 100%;
         cursor: pointer;
       }
-      .primary { background: #5B4BFF; color: #fff; font-weight: 700; }
-      .ghost { background: transparent; color: #5B4BFF; border: 1px solid #CFC9F7; }
-      .empty { font-size: 13px; color: #605B8A; line-height: 1.9; }
-      .error { color: #B3261E; font-size: 13px; margin-top: 10px; min-height: 18px; }
-      footer { margin-top: 26px; }
+      .primary {
+        background: #5b4bff;
+        color: #fff;
+        font-weight: 700;
+      }
+      .ghost {
+        background: transparent;
+        color: #5b4bff;
+        border: 1px solid #cfc9f7;
+      }
+      .empty {
+        font-size: 13px;
+        color: #605b8a;
+        line-height: 1.9;
+      }
+      .error {
+        color: #b3261e;
+        font-size: 13px;
+        margin-top: 10px;
+        min-height: 18px;
+      }
+      footer {
+        margin-top: 26px;
+      }
     </style>
   </head>
   <body>
     <header>
-      <h1>تمكين</h1>
-      <p class="lead">أنت غير متصل بالإنترنت. يمكنك متابعة قراءة الكتب التي حفظتها على هذا الجهاز.</p>
+      <img class="brand-mark" src="student-tamkeen-mark.png" alt="شعار تمكين الطالب" />
+      <h1>تمكين الطالب</h1>
+      <p class="lead">
+        أنت غير متصل بالإنترنت. يمكنك متابعة قراءة الكتب التي حفظتها على هذا الجهاز.
+      </p>
     </header>
 
     <main>
@@ -150,8 +208,7 @@
           plugin
             .openTextbook({ textbookId: textbookId })
             .catch(function () {
-              errorEl.textContent =
-                "تعذر فتح النسخة المحفوظة. اتصل بالإنترنت وأعد تنزيل الكتاب.";
+              errorEl.textContent = "تعذر فتح النسخة المحفوظة. اتصل بالإنترنت وأعد تنزيل الكتاب.";
             })
             .then(function () {
               btn.disabled = false;

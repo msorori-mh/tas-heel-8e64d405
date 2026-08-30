@@ -27,19 +27,21 @@ export function NavTile({
       // Home tiles point at static routes; params are not needed.
       to={to as never}
       className={cn(
-        "flex h-full items-center gap-3 rounded-2xl border border-border/60 bg-card p-3.5 shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "flex min-h-20 h-full items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className,
       )}
     >
       <span
-        className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tone)}
+        className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", tone)}
         aria-hidden
       >
-        <Icon className="h-4.5 w-4.5" />
+        <Icon className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold text-foreground">{title}</span>
-        <span className="block truncate text-xs text-muted-foreground">{description}</span>
+        <span className="block truncate text-[15px] font-bold text-foreground">{title}</span>
+        <span className="mt-0.5 block text-[13px] leading-relaxed text-muted-foreground">
+          {description}
+        </span>
       </span>
       <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
     </Link>

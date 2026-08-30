@@ -1,5 +1,28 @@
 apply plugin: 'com.android.application'
 
+def releaseSigningPropertiesFile = rootProject.file("keystore.properties")
+def releaseArtifactRequested = gradle.startParameter.taskNames.any { taskName ->
+    def normalized = taskName.toLowerCase()
+    (normalized.contains("bundle") || normalized.contains("assemble")) && normalized.contains("release")
+}
+def releaseSigningProperties = new Properties()
+
+if (releaseSigningPropertiesFile.exists()) {
+    releaseSigningProperties.load(new FileInputStream(releaseSigningPropertiesFile))
+    def requiredSigningKeys = ["storeFile", "storePassword", "keyAlias", "keyPassword"]
+    def missingSigningKeys = requiredSigningKeys.findAll { key ->
+        !releaseSigningProperties.getProperty(key)?.trim()
+    }
+    if (!missingSigningKeys.isEmpty()) {
+        throw new GradleException("Incomplete Android release signing properties: ${missingSigningKeys.join(', ')}")
+    }
+    if (!file(releaseSigningProperties.getProperty("storeFile")).isFile()) {
+        throw new GradleException("Android release keystore file does not exist")
+    }
+} else if (releaseArtifactRequested) {
+    throw new GradleException("Release signing is required: create untracked android/keystore.properties")
+}
+
 android {
     namespace = "app.studentamkeen.tamkeen"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -20,14 +43,11 @@ android {
     // SIGNING_REQUIRED — no credentials are invented or committed here.
     signingConfigs {
         release {
-            def propsFile = rootProject.file("keystore.properties")
-            if (propsFile.exists()) {
-                def props = new Properties()
-                props.load(new FileInputStream(propsFile))
-                storeFile file(props['storeFile'])
-                storePassword props['storePassword']
-                keyAlias props['keyAlias']
-                keyPassword props['keyPassword']
+            if (releaseSigningPropertiesFile.exists()) {
+                storeFile file(releaseSigningProperties['storeFile'])
+                storePassword releaseSigningProperties['storePassword']
+                keyAlias releaseSigningProperties['keyAlias']
+                keyPassword releaseSigningProperties['keyPassword']
             }
         }
     }
@@ -35,7 +55,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            if (rootProject.file("keystore.properties").exists()) {
+            if (releaseSigningPropertiesFile.exists()) {
                 signingConfig signingConfigs.release
             }
         }

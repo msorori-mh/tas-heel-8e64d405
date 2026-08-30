@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { z } from "zod";
+import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Breadcrumbs } from "@/components/student/Breadcrumbs";
 import {
@@ -11,7 +12,12 @@ import {
 } from "@/lib/ministerial/ministerial-student-api";
 import { ChevronLeft, Clock, ListChecks } from "lucide-react";
 
+const searchSchema = z.object({
+  track: fallback(z.enum(["sanaa", "aden"]).optional(), undefined),
+});
+
 export const Route = createFileRoute("/_authenticated/ministerial-exams/$subjectId")({
+  validateSearch: zodValidator(searchSchema),
   head: () => ({
     meta: [
       { title: "نماذج المادة الوزارية — تمكين" },
@@ -32,7 +38,9 @@ type TrackFilter = "all" | "sanaa" | "aden";
 
 function SubjectMinisterialModels() {
   const { subjectId } = Route.useParams();
-  const [trackFilter, setTrackFilter] = useState<TrackFilter>("all");
+  const { track } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const trackFilter: TrackFilter = track ?? "all";
 
   const { data: subject } = useQuery({
     queryKey: ["ministerial-subject-name", subjectId],
@@ -52,15 +60,15 @@ function SubjectMinisterialModels() {
     (model) => trackFilter === "all" || model.track_code === trackFilter,
   );
   const filterOptions: Array<{ value: TrackFilter; label: string; count: number }> = [
-    { value: "all", label: "الكل", count: data?.length ?? 0 },
+    { value: "all", label: "كل النماذج", count: data?.length ?? 0 },
     {
       value: "sanaa",
-      label: "صنعاء",
+      label: "منهج صنعاء",
       count: (data ?? []).filter((model) => model.track_code === "sanaa").length,
     },
     {
       value: "aden",
-      label: "عدن",
+      label: "منهج عدن",
       count: (data ?? []).filter((model) => model.track_code === "aden").length,
     },
   ];
@@ -81,23 +89,34 @@ function SubjectMinisterialModels() {
         جميع نماذج صنعاء وعدن متاحة لك؛ استخدم المرشح لعرض أحد المسارين أو كليهما.
       </p>
 
-      <div className="flex flex-wrap gap-2" role="group" aria-label="تصفية النماذج حسب المسار">
-        {filterOptions.map(({ value, label, count }) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setTrackFilter(value)}
-            aria-pressed={trackFilter === value}
-            className={
-              trackFilter === value
-                ? "rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                : "rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:border-primary/40"
-            }
-          >
-            {label} ({count})
-          </button>
-        ))}
-      </div>
+      <fieldset className="rounded-2xl border border-primary/15 bg-card p-3.5 shadow-sm sm:p-4">
+        <legend className="px-1 text-sm font-bold text-foreground">اختر منهج الاختبار</legend>
+        <p className="mb-3 text-xs text-muted-foreground">
+          يمكنك التبديل في أي وقت؛ نماذج المسارين متاحة لك ومصنفة بوضوح.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {filterOptions.map(({ value, label, count }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() =>
+                void navigate({
+                  search: { track: value === "all" ? undefined : value },
+                  replace: true,
+                })
+              }
+              aria-pressed={trackFilter === value}
+              className={
+                trackFilter === value
+                  ? "min-h-11 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                  : "min-h-11 rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:border-primary/40"
+              }
+            >
+              {label} ({count})
+            </button>
+          ))}
+        </div>
+      </fieldset>
 
       {!isLoading && !error && (data?.length ?? 0) > 0 && (
         <p className="text-xs text-muted-foreground" aria-live="polite">
@@ -128,8 +147,14 @@ function SubjectMinisterialModels() {
                       {m.academic_year} — {roundLabel(m.round_code)}
                       {m.model_label ? ` — ${m.model_label}` : ""}
                     </span>
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
-                      {m.track_name}
+                    <span
+                      className={
+                        m.track_code === "sanaa"
+                          ? "rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary"
+                          : "rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-secondary-foreground"
+                      }
+                    >
+                      {m.track_code === "sanaa" ? "منهج صنعاء" : "منهج عدن"}
                     </span>
                   </span>
                   <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">

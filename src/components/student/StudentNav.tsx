@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BookOpen, LogOut, Shield, Settings } from "lucide-react";
+import { LogOut, Shield, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { StudentTamkeenMark } from "@/components/brand/StudentTamkeenBrand";
 
 export function StudentNav() {
   const { signOut, isAdmin, isContentStaff } = useAuth();
@@ -13,10 +14,8 @@ export function StudentNav() {
           aria-label="تمكين — الصفحة الرئيسية"
           className="flex shrink-0 items-center gap-2 font-bold text-foreground focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-hero-gradient">
-            <BookOpen className="h-4 w-4 text-primary-foreground" />
-          </span>
-          <span className="hidden min-[360px]:inline">تمكين</span>
+          <StudentTamkeenMark className="h-8 w-8 rounded-lg bg-[#FBFAF7] p-1 ring-1 ring-border/60" />
+          <span className="hidden min-[360px]:inline">تمكين الطالب</span>
         </Link>
         <nav
           aria-label="التنقل الرئيسي"

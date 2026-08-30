@@ -48,7 +48,7 @@ Google Play App Signing هو المسار المعتمد. مفتاح الرفع 
 - اختيار أيقونة الهوية النهائية واستبدال أصول Android/PWA المؤقتة.
 - نجاح Android CI على API 36.
 - نجاح `jarsigner -verify -strict`.
-- استخراج SHA-256 لشهادة App Signing من Play Console.
+- استخراج SHA-256 لشهادة **App signing key certificate** من Play Console، وليس شهادة Upload key.
 - نشر `/.well-known/assetlinks.json` بالبصمة الحقيقية فقط.
 - تحويل HTTPS callback إلى `autoVerify=true` بعد نجاح التحقق من النطاق.
 - فحص OAuth على جهاز فعلي وعدم فتح Chrome بعد العودة للتطبيق.

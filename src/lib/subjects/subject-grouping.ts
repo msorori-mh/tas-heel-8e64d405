@@ -1,5 +1,5 @@
 /**
- * Subject grouping for the first-grade Yemen curriculum.
+ * Subject grouping for the Yemen curriculum.
  *
  * Naming convention (set by the content team, see
  * docs/SUBJECT-GROUPING-GRADE-10-YEMEN-CONTENT-GUIDE.md):
@@ -10,8 +10,9 @@
  * - The part after it is the sub-section.
  * - Names without a separator are ordinary subjects and open directly.
  *
- * Grouping is display-only: every section keeps its original subject.id and
- * navigates to the real subject page. No schema or data changes.
+ * Explicit grouping metadata (`group_code` / `group_name`) is authoritative.
+ * The name convention remains as a compatibility fallback for older content.
+ * Every branch keeps its original subject.id and navigates to its real page.
  */
 
 /** Minimal shape the grouping logic needs. */
@@ -21,10 +22,14 @@ export type GroupableSubject = {
   icon: string | null;
   color: string | null;
   sort_order: number;
+  group_code?: string | null;
+  group_name?: string | null;
 };
 
 export type SubjectGroup<T extends GroupableSubject = GroupableSubject> = {
-  /** Main category name (part before the separator, or the full name). */
+  /** Stable UI identity: explicit group code when present, otherwise the normalized name. */
+  id: string;
+  /** Main subject display name. */
   key: string;
   /** Display color/icon inherited from the lowest-sort_order member. */
   color: string | null;
@@ -33,7 +38,7 @@ export type SubjectGroup<T extends GroupableSubject = GroupableSubject> = {
   sortOrder: number;
   /** Members sorted by sort_order. Each keeps its original subject.id. */
   subjects: T[];
-  /** True when the group has more than one section (render as one card). */
+  /** True for an explicit group, or when the name fallback finds multiple branches. */
   isGroup: boolean;
 };
 
@@ -74,6 +79,8 @@ export function getSubjectSubCategory(subjectName: string): string {
 
 const bySortOrder = <T extends GroupableSubject>(a: T, b: T) => a.sort_order - b.sort_order;
 
+const clean = (value: string | null | undefined): string => value?.trim() ?? "";
+
 /**
  * Groups subjects by their main category.
  * - One card per main category, no duplicates.
@@ -84,25 +91,29 @@ const bySortOrder = <T extends GroupableSubject>(a: T, b: T) => a.sort_order - b
 export function groupSubjectsByMainCategory<T extends GroupableSubject>(
   subjects: readonly T[],
 ): SubjectGroup<T>[] {
-  const map = new Map<string, T[]>();
+  const map = new Map<string, { label: string; members: T[]; explicitlyGrouped: boolean }>();
   for (const subject of subjects) {
-    const key = getSubjectMainCategory(subject.name);
-    const list = map.get(key);
-    if (list) list.push(subject);
-    else map.set(key, [subject]);
+    const groupCode = clean(subject.group_code);
+    const fallbackLabel = getSubjectMainCategory(subject.name);
+    const label = clean(subject.group_name) || fallbackLabel;
+    const id = groupCode ? `group:${groupCode.toLocaleLowerCase("en")}` : `name:${fallbackLabel}`;
+    const entry = map.get(id);
+    if (entry) entry.members.push(subject);
+    else map.set(id, { label, members: [subject], explicitlyGrouped: groupCode.length > 0 });
   }
 
   const groups: SubjectGroup<T>[] = [];
-  for (const [key, members] of map) {
+  for (const [id, { label, members, explicitlyGrouped }] of map) {
     const sorted = [...members].sort(bySortOrder);
     const first = sorted[0];
     groups.push({
-      key,
+      id,
+      key: label,
       color: first.color,
       icon: first.icon,
       sortOrder: first.sort_order,
       subjects: sorted,
-      isGroup: sorted.length > 1,
+      isGroup: explicitlyGrouped || sorted.length > 1,
     });
   }
   return groups.sort((a, b) => a.sortOrder - b.sortOrder);

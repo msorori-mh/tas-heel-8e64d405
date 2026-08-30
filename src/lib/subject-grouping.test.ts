@@ -14,7 +14,9 @@ const subj = (
   sort_order: number,
   color: string | null = null,
   icon: string | null = null,
-): GroupableSubject => ({ id, name, sort_order, color, icon });
+  group_code: string | null = null,
+  group_name: string | null = null,
+): GroupableSubject => ({ id, name, sort_order, color, icon, group_code, group_name });
 
 test("ordinary subject without a separator stays intact", () => {
   assert.equal(getSubjectMainCategory("الرياضيات"), "الرياضيات");
@@ -123,4 +125,43 @@ test("inconsistent parent spellings do not merge (content guide warning)", () =>
     subj("b", "التربية الإسلامية - السيرة النبوية", 2),
   ]);
   assert.equal(groups.length, 2);
+});
+
+test("explicit group metadata combines branches whose names have no separator", () => {
+  const [group] = groupSubjectsByMainCategory([
+    subj("quran", "القرآن الكريم", 1, null, null, "islamic", "التربية الإسلامية"),
+    subj("hadith", "الفقه والحديث", 2, null, null, "islamic", "التربية الإسلامية"),
+    subj("tawhid", "التوحيد والسيرة", 3, null, null, "ISLAMIC", "التربية الإسلامية"),
+  ]);
+
+  assert.equal(group.id, "group:islamic");
+  assert.equal(group.key, "التربية الإسلامية");
+  assert.equal(group.isGroup, true);
+  assert.deepEqual(
+    group.subjects.map((subject) => subject.name),
+    ["القرآن الكريم", "الفقه والحديث", "التوحيد والسيرة"],
+  );
+});
+
+test("an explicitly grouped single visible branch still opens through its main subject", () => {
+  const [group] = groupSubjectsByMainCategory([
+    subj("grammar", "النحو والصرف", 4, null, null, "arabic", "اللغة العربية"),
+  ]);
+
+  assert.equal(group.key, "اللغة العربية");
+  assert.equal(group.isGroup, true);
+  assert.equal(group.subjects[0].id, "grammar");
+});
+
+test("different explicit group codes never collapse because their labels happen to match", () => {
+  const groups = groupSubjectsByMainCategory([
+    subj("a", "فرع أول", 1, null, null, "group-a", "مادة مشتركة"),
+    subj("b", "فرع ثان", 2, null, null, "group-b", "مادة مشتركة"),
+  ]);
+
+  assert.equal(groups.length, 2);
+  assert.deepEqual(
+    groups.map((group) => group.id),
+    ["group:group-a", "group:group-b"],
+  );
 });

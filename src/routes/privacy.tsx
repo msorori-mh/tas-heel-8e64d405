@@ -31,7 +31,7 @@ function PrivacyPage() {
         </Link>
         <header>
           <h1 className="text-3xl font-bold">سياسة الخصوصية</h1>
-          <p className="mt-2 text-xs text-muted-foreground">آخر تحديث: يونيو 2026</p>
+          <p className="mt-2 text-xs text-muted-foreground">آخر تحديث: أغسطس 2026</p>
         </header>
 
         <p className="text-muted-foreground">
@@ -52,12 +52,14 @@ function PrivacyPage() {
             </li>
             <li>
               <strong className="text-foreground">بيانات الدفع:</strong> طلبات الاشتراك، رصيد
-              المحفظة، سجل المعاملات الداخلية. لا نخزّن أرقام بطاقات بنكية.
+              المحفظة، سجل المعاملات الداخلية عند تفعيل خدمات الدفع. الإصدار الحالي مجاني ولا يقبل
+              مدفوعات أو اشتراكات داخل التطبيق. لا نخزّن أرقام بطاقات بنكية.
             </li>
             <li>
               <strong className="text-foreground">صور سندات الحوالة:</strong> صور التحويلات البنكية
-              التي ترفعها لتأكيد الاشتراك، تُحفظ في تخزين خاص مرتبط بحسابك ولا يصل إليه غيرك سوى
-              فريق الإدارة لمراجعة الدفع.
+              لا يجمعها الإصدار المجاني الحالي. وإذا فُعّلت هذه الخدمة في إصدار لاحق بعد استيفاء
+              سياسات المتجر، فستُحفظ في تخزين خاص مرتبط بحسابك ولا يصل إليها غيرك سوى فريق الإدارة
+              لمراجعة الدفع.
             </li>
             <li>
               <strong className="text-foreground">سجلات تقنية محدودة:</strong> معلومات أمنية أساسية
@@ -95,8 +97,9 @@ function PrivacyPage() {
               وتخزين صور السندات.
             </li>
             <li>
-              <strong className="text-foreground">Lovable AI Gateway (Gemini)</strong> — تحليل صور
-              سندات الدفع تلقائيًا.
+              <strong className="text-foreground">Lovable AI Gateway (Gemini)</strong> — مكوّن تحليل
+              سندات غير مستخدم في الإصدار المجاني الحالي، ولا تُرسل إليه صور دفع ما دامت الخدمة غير
+              مفعّلة.
             </li>
             <li>
               <strong className="text-foreground">Cloudflare</strong> — استضافة التطبيق وتسريع
@@ -155,6 +158,13 @@ function PrivacyPage() {
                 حذف الحساب
               </Link>
               .
+            </li>
+            <li>
+              <strong className="text-foreground">حذف الحساب من خارج التطبيق:</strong> راجع{" "}
+              <Link to="/data-deletion" className="text-primary">
+                صفحة حذف الحساب والبيانات
+              </Link>{" "}
+              لتقديم الطلب دون الحاجة إلى إعادة تثبيت التطبيق.
             </li>
             <li>
               <strong className="text-foreground">طلب نسخة من بياناتك</strong> أو الاستفسار: عبر{" "}

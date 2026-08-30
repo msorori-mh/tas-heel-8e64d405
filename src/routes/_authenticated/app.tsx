@@ -47,17 +47,17 @@ function StudentHome() {
 
   return (
     // 19D — route-level Design System V2 opt-in (presentation only).
-    <div className="ds-v2 space-y-3 pb-4 lg:space-y-4" dir="rtl">
+    <div className="ds-v2 space-y-4 pb-4 lg:space-y-5" dir="rtl">
       {/* 1. Greeting */}
       <HomeGreeting hint="خطوة واحدة اليوم تصنع الفرق." />
 
       <HomeSubscriptionBanner />
 
-      {/* 2. Continue learning — primary CTA of the page */}
-      <ContinueLearningCard items={continueItems} loading={continueLoading} />
-
-      {/* 3. Daily goal */}
-      <DailyGoalCard items={continueItems} />
+      {/* 2–3. One focused momentum row: next action first, daily target second. */}
+      <div className="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.75fr)]">
+        <ContinueLearningCard items={continueItems} loading={continueLoading} />
+        <DailyGoalCard items={continueItems} />
+      </div>
 
       {/* 4. Needs attention — hidden when there is no real signal */}
       <NeedsAttentionSection items={continueItems} />
@@ -65,11 +65,11 @@ function StudentHome() {
       {/* 5. Quick actions */}
       <LearningToolsSection />
 
-      {/* 6. Subjects */}
-      <SemesterPicker />
-
-      {/* 7. Compact progress */}
-      <CompactProgress stats={stats} />
+      {/* 6–7. Subjects remain primary; progress is a compact supporting panel. */}
+      <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)] xl:[&>:only-child]:col-span-2">
+        <SemesterPicker />
+        <CompactProgress stats={stats} />
+      </div>
 
       {earnedBadges.length > 0 && (
         <AchievementsSection badges={earnedBadges.slice(0, 3)} loading={false} />

@@ -39,7 +39,7 @@ describe("PAST_MINISTERIAL_EXAMS_CROSS_TRACK_MUFADALA_PARITY_14I", () => {
     assert.ok(!api.includes('from("question_options")'));
   });
 
-  it("preserves model track identity and exposes an all/Sanaa/Aden filter", () => {
+  it("preserves model track identity and exposes a durable all/Sanaa/Aden choice", () => {
     const api = read("api");
     const index = read("index");
     const subject = read("subject");
@@ -52,9 +52,16 @@ describe("PAST_MINISTERIAL_EXAMS_CROSS_TRACK_MUFADALA_PARITY_14I", () => {
     assert.ok(index.includes("محاولاتك ونتائجك"));
     assert.ok(index.includes("إعادة المحاولة"));
     assert.ok(subject.includes('type TrackFilter = "all" | "sanaa" | "aden"'));
+    assert.ok(subject.includes("validateSearch: zodValidator(searchSchema)"));
+    assert.ok(subject.includes('z.enum(["sanaa", "aden"])'));
     assert.ok(subject.includes("filterOptions"));
+    assert.ok(subject.includes("اختر منهج الاختبار"));
+    assert.ok(subject.includes("منهج صنعاء"));
+    assert.ok(subject.includes("منهج عدن"));
+    assert.ok(subject.includes('search: { track: value === "all" ? undefined : value }'));
     assert.ok(subject.includes("يعرض {filteredModels.length} من أصل"));
-    assert.ok(subject.includes("m.track_name"));
+    assert.ok(subject.includes('m.track_code === "sanaa"'));
+    assert.ok(subject.includes('? "منهج صنعاء" : "منهج عدن"'));
   });
 
   it("keeps strict simulation server-timed when an imported duration is absent", () => {

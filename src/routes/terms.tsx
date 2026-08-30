@@ -31,7 +31,7 @@ function TermsPage() {
         </Link>
         <header>
           <h1 className="text-3xl font-bold">شروط الاستخدام</h1>
-          <p className="mt-2 text-xs text-muted-foreground">آخر تحديث: يونيو 2026</p>
+          <p className="mt-2 text-xs text-muted-foreground">آخر تحديث: أغسطس 2026</p>
         </header>
 
         <p className="text-muted-foreground">
@@ -59,6 +59,11 @@ function TermsPage() {
 
         <section>
           <h2 className="text-xl font-semibold">2. الاشتراكات والمدفوعات</h2>
+          <p className="mt-2 text-muted-foreground">
+            الإصدار الحالي من تمكين الطالب مجاني، ولا يطلب أو يقبل مدفوعات أو اشتراكات داخل التطبيق.
+            البنود التالية لا تنطبق إلا إذا أُعيد تفعيل الخدمة مستقبلًا بعد تحديث هذه الشروط
+            واستيفاء متطلبات متجر التوزيع المعمول بها.
+          </p>
           <ul className="mt-2 list-disc space-y-1 pr-6 text-muted-foreground">
             <li>تُفعَّل الاشتراكات بعد مراجعة طلب الدفع وسند الحوالة من فريق الإدارة.</li>
             <li>
