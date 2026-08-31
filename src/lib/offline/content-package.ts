@@ -1,6 +1,14 @@
 export type CurriculumTrack = "sanaa" | "aden";
 export type SemesterScope = "s1" | "s2" | "full_year";
 
+export type OfflinePackageJson =
+  | string
+  | number
+  | boolean
+  | null
+  | OfflinePackageJson[]
+  | { [key: string]: OfflinePackageJson };
+
 export type OfflinePackageScope = {
   gradeId: string;
   curriculumTrack?: CurriculumTrack | null;
@@ -24,7 +32,7 @@ export type OfflinePackageEntry = {
   kind: OfflineContentKind;
   version: string;
   checksum?: string | null;
-  payload: Record<string, string | number | boolean | null | unknown[]>;
+  payload: Record<string, OfflinePackageJson>;
 };
 
 export type OfflineFileAsset = {
