@@ -941,6 +941,60 @@ export type Database = {
           },
         ]
       }
+      golden_lesson_component_publications: {
+        Row: {
+          batch_id: string
+          capability: string
+          id: string
+          idempotency_key: string
+          lesson_id: string
+          lifecycle_capability: string
+          published_at: string
+          published_by: string
+          result: Json
+          source_sha256: string
+        }
+        Insert: {
+          batch_id: string
+          capability: string
+          id?: string
+          idempotency_key: string
+          lesson_id: string
+          lifecycle_capability: string
+          published_at?: string
+          published_by: string
+          result: Json
+          source_sha256: string
+        }
+        Update: {
+          batch_id?: string
+          capability?: string
+          id?: string
+          idempotency_key?: string
+          lesson_id?: string
+          lifecycle_capability?: string
+          published_at?: string
+          published_by?: string
+          result?: Json
+          source_sha256?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_lesson_component_publications_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "golden_lesson_domain_stage_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_lesson_component_publications_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       golden_lesson_domain_materializations: {
         Row: {
           batch_id: string
@@ -2219,6 +2273,161 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "lesson_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_component_intakes_v2: {
+        Row: {
+          answer_bytes: number | null
+          answer_file_name: string | null
+          answer_sha256: string | null
+          answer_storage_path: string | null
+          answers_payload: Json | null
+          archived_at: string | null
+          archived_by: string | null
+          capability: string
+          created_at: string
+          created_by: string
+          id: string
+          lesson_code: string
+          lesson_id: string
+          lifecycle_capability: string
+          mime_type: string
+          original_file_name: string
+          payload_text: string | null
+          published_at: string | null
+          rejected_at: string | null
+          rejection_code: string | null
+          source_bytes: number
+          source_sha256: string
+          status: string
+          storage_path: string
+          validation_summary: Json
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          answer_bytes?: number | null
+          answer_file_name?: string | null
+          answer_sha256?: string | null
+          answer_storage_path?: string | null
+          answers_payload?: Json | null
+          archived_at?: string | null
+          archived_by?: string | null
+          capability: string
+          created_at?: string
+          created_by: string
+          id?: string
+          lesson_code: string
+          lesson_id: string
+          lifecycle_capability: string
+          mime_type: string
+          original_file_name: string
+          payload_text?: string | null
+          published_at?: string | null
+          rejected_at?: string | null
+          rejection_code?: string | null
+          source_bytes: number
+          source_sha256: string
+          status?: string
+          storage_path: string
+          validation_summary?: Json
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          answer_bytes?: number | null
+          answer_file_name?: string | null
+          answer_sha256?: string | null
+          answer_storage_path?: string | null
+          answers_payload?: Json | null
+          archived_at?: string | null
+          archived_by?: string | null
+          capability?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          lesson_code?: string
+          lesson_id?: string
+          lifecycle_capability?: string
+          mime_type?: string
+          original_file_name?: string
+          payload_text?: string | null
+          published_at?: string | null
+          rejected_at?: string | null
+          rejection_code?: string | null
+          source_bytes?: number
+          source_sha256?: string
+          status?: string
+          storage_path?: string
+          validation_summary?: Json
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_component_intakes_v2_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_component_publications_v2: {
+        Row: {
+          capability: string
+          id: string
+          idempotency_key: string
+          intake_id: string
+          lesson_id: string
+          lifecycle_capability: string
+          publication_version: number
+          published_at: string
+          published_by: string
+          result: Json
+          source_sha256: string
+        }
+        Insert: {
+          capability: string
+          id?: string
+          idempotency_key: string
+          intake_id: string
+          lesson_id: string
+          lifecycle_capability: string
+          publication_version: number
+          published_at?: string
+          published_by: string
+          result: Json
+          source_sha256: string
+        }
+        Update: {
+          capability?: string
+          id?: string
+          idempotency_key?: string
+          intake_id?: string
+          lesson_id?: string
+          lifecycle_capability?: string
+          publication_version?: number
+          published_at?: string
+          published_by?: string
+          result?: Json
+          source_sha256?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_component_publications_v2_intake_id_fkey"
+            columns: ["intake_id"]
+            isOneToOne: true
+            referencedRelation: "lesson_component_intakes_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_component_publications_v2_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
             referencedColumns: ["id"]
           },
         ]
@@ -4860,10 +5069,6 @@ export type Database = {
         Args: { _entity_id: string; _entity_type: string; _reason?: string }
         Returns: Json
       }
-      admin_delete_lesson_component: {
-        Args: { _capability: string; _lesson_id: string; _reason?: string }
-        Returns: Json
-      }
       admin_curriculum_prelaunch_purge: {
         Args: {
           _confirmation: string
@@ -4874,6 +5079,10 @@ export type Database = {
         Returns: Json
       }
       admin_curriculum_prelaunch_purge_status: { Args: never; Returns: Json }
+      admin_delete_lesson_component: {
+        Args: { _capability: string; _lesson_id: string; _reason?: string }
+        Returns: Json
+      }
       admin_get_lesson_media_urls: {
         Args: { _lesson_id: string }
         Returns: {
@@ -5529,6 +5738,14 @@ export type Database = {
         }
         Returns: Json
       }
+      golden_lesson_publish_component_unledgered: {
+        Args: {
+          _batch_id: string
+          _capability: string
+          _idempotency_key?: string
+        }
+        Returns: Json
+      }
       golden_lesson_rebind_draft_identity: {
         Args: {
           _client_manifest_sha256: string
@@ -5651,6 +5868,54 @@ export type Database = {
           _lesson_id: string
           _snapshot?: Json
           _to_status: string
+        }
+        Returns: Json
+      }
+      lesson_component_create_intake_v2: {
+        Args: {
+          _actor_id?: string
+          _answer_bytes?: number
+          _answer_file_name?: string
+          _answer_sha256?: string
+          _answer_storage_path?: string
+          _capability: string
+          _lesson_code: string
+          _mime_type: string
+          _original_file_name: string
+          _source_bytes: number
+          _source_sha256: string
+          _storage_path: string
+        }
+        Returns: Json
+      }
+      lesson_component_publish_questions_v2: {
+        Args: {
+          _actor_id: string
+          _answers: Json
+          _capability: string
+          _lesson_code: string
+          _lesson_id: string
+          _payload: Json
+          _source_sha256: string
+          _subject_id: string
+        }
+        Returns: number
+      }
+      lesson_component_publish_v2: {
+        Args: { _idempotency_key: string; _intake_id: string }
+        Returns: Json
+      }
+      lesson_component_v2_lifecycle: {
+        Args: { _capability: string }
+        Returns: string
+      }
+      lesson_component_verify_intake_v2: {
+        Args: {
+          _actor_id: string
+          _answers_payload: Json
+          _intake_id: string
+          _payload_text: string
+          _validation_summary: Json
         }
         Returns: Json
       }
