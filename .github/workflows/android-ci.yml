@@ -171,7 +171,11 @@ jobs:
         working-directory: android
         run: |
           ./gradlew bundleRelease --stacktrace
-          jarsigner -verify -strict app/build/outputs/bundle/release/app-release.aab
+          # Upload keys are intentionally self-signed. Non-strict verification
+          # validates the JAR signature without treating the absent public PKIX
+          # trust chain as a fatal error; Play App Signing establishes the final
+          # distribution signing chain after upload.
+          jarsigner -verify app/build/outputs/bundle/release/app-release.aab
 
       - name: Verify signed bundle structure and 16 KB native-library gate
         run: bash scripts/mobile/verify-play-aab.sh android/app/build/outputs/bundle/release/app-release.aab
