@@ -47,7 +47,11 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
     expect(workflow).toContain("github.event_name == 'workflow_dispatch'");
     expect(workflow).toContain("ANDROID_UPLOAD_KEYSTORE_BASE64");
     expect(workflow).toContain("ANDROID_UPLOAD_KEYSTORE_PASSWORD");
-    expect(workflow).toContain("jarsigner -verify -strict");
+    expect(workflow).toContain(
+      "jarsigner -verify app/build/outputs/bundle/release/app-release.aab",
+    );
+    expect(workflow).not.toContain("jarsigner -verify -strict");
+    expect(workflow).toContain("keytool -list");
     expect(workflow).toContain("rm -f android/keystore.properties");
     expect(workflow).not.toContain("CHANGE_ME");
   });
