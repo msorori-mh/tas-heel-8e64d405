@@ -144,7 +144,12 @@ jobs:
           test -n "$KEY_ALIAS"
           test -n "$KEY_PASSWORD"
 
-      - name: Materialize the ephemeral upload key
+      - name: Install dependencies and verify clean-source release contracts
+        run: |
+          npm ci
+          npm run test:mobile-release
+
+      - name: Materialize and validate the ephemeral upload key
         run: |
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/tamkeen-upload.jks"
           {
@@ -154,12 +159,13 @@ jobs:
             printf 'keyPassword=%s\n' "$KEY_PASSWORD"
           } > android/keystore.properties
           chmod 600 "$RUNNER_TEMP/tamkeen-upload.jks" android/keystore.properties
+          keytool -list \
+            -keystore "$RUNNER_TEMP/tamkeen-upload.jks" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" >/dev/null
 
-      - name: Install, verify and synchronize
-        run: |
-          npm ci
-          npm run test:mobile-release
-          node node_modules/@capacitor/cli/bin/capacitor sync android
+      - name: Synchronize Capacitor Android project
+        run: node node_modules/@capacitor/cli/bin/capacitor sync android
 
       - name: Build and verify the signed Play bundle
         working-directory: android
