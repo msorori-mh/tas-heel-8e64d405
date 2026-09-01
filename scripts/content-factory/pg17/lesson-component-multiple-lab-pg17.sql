@@ -43,14 +43,33 @@ BEGIN
 END
 $proof$;
 
+CREATE TEMP TABLE lcpv2_multi_lab_intakes(label text PRIMARY KEY, intake_id uuid NOT NULL);
+GRANT SELECT ON lcpv2_multi_lab_intakes TO authenticated;
+
+INSERT INTO lcpv2_multi_lab_intakes(label,intake_id) VALUES
+  ('legacy-add-second',pg_temp.lcpv2_multi_lab_intake(
+    'lcpv2-quran-lesson','legacy-add-second',
+    '<html dir="rtl"><body><script>window.two=true</script>LAB-TWO</body></html>',1,2,NULL)),
+  ('fresh-lab-one',pg_temp.lcpv2_multi_lab_intake(
+    'lcpv2-multi-lab','fresh-lab-one',
+    '<html dir="rtl"><body><script>window.one=true</script>LAB-ONE</body></html>',
+    0,2,'تجربة الحديد')),
+  ('fresh-lab-two',pg_temp.lcpv2_multi_lab_intake(
+    'lcpv2-multi-lab','fresh-lab-two',
+    '<html dir="rtl"><body><script>window.two=true</script>LAB-TWO</body></html>',1,2,NULL)),
+  ('fresh-lab-two-retry',pg_temp.lcpv2_multi_lab_intake(
+    'lcpv2-multi-lab','fresh-lab-two-retry',
+    '<html dir="rtl"><body><script>window.two=true</script>LAB-TWO</body></html>',1,2,NULL)),
+  ('fresh-lab-two-conflict',pg_temp.lcpv2_multi_lab_intake(
+    'lcpv2-multi-lab','fresh-lab-two-conflict',
+    '<html dir="rtl"><body>DIFFERENT</body></html>',1,2,NULL));
+
 SET ROLE authenticated;
 
 DO $multi_lab_assert$
 DECLARE
   existing_lesson constant uuid := '43000000-0000-0000-0000-0000000000b2';
   fresh_lesson constant uuid := '43000000-0000-0000-0000-0000000000b3';
-  lab_one constant text := '<html dir="rtl"><body><script>window.one=true</script>LAB-ONE</body></html>';
-  lab_two constant text := '<html dir="rtl"><body><script>window.two=true</script>LAB-TWO</body></html>';
   intake uuid;
   first_result jsonb;
   second_result jsonb;
@@ -59,8 +78,7 @@ DECLARE
   conflict_failed boolean:=false;
 BEGIN
   -- Backwards compatibility: keep the already-published unsuffixed V1 row and append LAB-02.
-  intake:=pg_temp.lcpv2_multi_lab_intake(
-    'lcpv2-quran-lesson','legacy-add-second',lab_two,1,2,NULL);
+  SELECT intake_id INTO intake FROM lcpv2_multi_lab_intakes WHERE label='legacy-add-second';
   second_result:=public.lesson_component_publish_v2(intake,'lcpv2:legacy-add-second:publish');
   replay_result:=public.lesson_component_publish_v2(intake,'lcpv2:legacy-add-second:publish');
   IF second_result->>'resource_code'<>'LCPV2-QURAN-LESSON-LAB-02'
@@ -75,11 +93,9 @@ BEGIN
   END IF;
 
   -- A fresh two-file intake materializes LAB-01 and LAB-02 with independent hashes/order.
-  intake:=pg_temp.lcpv2_multi_lab_intake(
-    'lcpv2-multi-lab','fresh-lab-one',lab_one,0,2,'تجربة الحديد');
+  SELECT intake_id INTO intake FROM lcpv2_multi_lab_intakes WHERE label='fresh-lab-one';
   first_result:=public.lesson_component_publish_v2(intake,'lcpv2:fresh-lab-one:publish');
-  intake:=pg_temp.lcpv2_multi_lab_intake(
-    'lcpv2-multi-lab','fresh-lab-two',lab_two,1,2,NULL);
+  SELECT intake_id INTO intake FROM lcpv2_multi_lab_intakes WHERE label='fresh-lab-two';
   second_result:=public.lesson_component_publish_v2(intake,'lcpv2:fresh-lab-two:publish');
   IF first_result->>'resource_code'<>'LCPV2-MULTI-LAB-LAB-01'
      OR second_result->>'resource_code'<>'LCPV2-MULTI-LAB-LAB-02'
@@ -95,8 +111,7 @@ BEGIN
   END IF;
 
   -- A new intake with the same code+hash reuses the row; it never duplicates or updates it.
-  intake:=pg_temp.lcpv2_multi_lab_intake(
-    'lcpv2-multi-lab','fresh-lab-two-retry',lab_two,1,2,NULL);
+  SELECT intake_id INTO intake FROM lcpv2_multi_lab_intakes WHERE label='fresh-lab-two-retry';
   retry_result:=public.lesson_component_publish_v2(intake,'lcpv2:fresh-lab-two-retry:publish');
   IF coalesce((retry_result->>'resource_reused')::boolean,false) IS NOT TRUE
      OR (SELECT count(*) FROM public.lesson_resources
@@ -105,9 +120,8 @@ BEGIN
   END IF;
 
   -- The same code with different bytes is an immutable conflict and leaves both rows intact.
-  intake:=pg_temp.lcpv2_multi_lab_intake(
-    'lcpv2-multi-lab','fresh-lab-two-conflict',
-    '<html dir="rtl"><body>DIFFERENT</body></html>',1,2,NULL);
+  SELECT intake_id INTO intake FROM lcpv2_multi_lab_intakes
+   WHERE label='fresh-lab-two-conflict';
   BEGIN
     PERFORM public.lesson_component_publish_v2(intake,'lcpv2:fresh-lab-two-conflict:publish');
   EXCEPTION WHEN unique_violation THEN
