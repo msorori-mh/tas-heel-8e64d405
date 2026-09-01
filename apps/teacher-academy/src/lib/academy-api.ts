@@ -78,17 +78,16 @@ export async function loadProfileOptions(): Promise<{
 export async function saveTeacherProfile(
   user: User,
   input: Omit<TeacherProfile, "user_id" | "status">,
+  profileExists: boolean,
 ): Promise<TeacherProfile> {
   requireAcademyBackend();
-  const { data, error } = await academySupabase
-    .from("teacher_profiles")
-    .upsert(
-      {
+  const request = profileExists
+    ? academySupabase.from("teacher_profiles").update(input).eq("user_id", user.id)
+    : academySupabase.from("teacher_profiles").insert({
         user_id: user.id,
         ...input,
-      },
-      { onConflict: "user_id" },
-    )
+      });
+  const { data, error } = await request
     .select("user_id,full_name,primary_subject_id,governorate_id,school_name,phone,status")
     .single();
 
