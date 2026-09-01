@@ -54,7 +54,6 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
-
 :root {
   --radius: 0.875rem;
   /* Core palette — Electric Youth (Gen-Z high school) */
@@ -214,6 +213,8 @@
   --accent-foreground: #06263A;
   --success: #10B981;
   --success-foreground: #FFFFFF;
+  --fm-goal: #F59E0B;
+  --fm-goal-soft: #FEF3C7;
   --destructive: #F87171;
   --destructive-foreground: #301010;
   --border: #E6E4DC;
@@ -437,8 +438,22 @@
     right: 0;
     left: 0;
     height: 3px;
-    background: var(--progress-gradient);
+    background: var(--subject-accent, var(--progress-gradient));
     border-radius: 9999px 9999px 0 0;
+  }
+  .subject-card-tone {
+    background-image: linear-gradient(
+      145deg,
+      var(--subject-wash, rgb(6 182 212 / 0.04)) 0%,
+      transparent 46%
+    );
+  }
+  .subject-icon-tone {
+    color: var(--subject-accent, var(--primary));
+    background: var(--subject-soft, rgb(30 42 99 / 0.08));
+  }
+  .subject-progress-tone {
+    background: var(--subject-accent, var(--primary));
   }
 
   /* Educational semantics (optional chips / badges) */
@@ -571,4 +586,3 @@ html[dir="rtl"] body {
     font-size: 17px;
   }
 }
-

@@ -56,7 +56,7 @@ function StudentHome() {
       {/* 2–3. One focused momentum row: next action first, daily target second. */}
       <div className="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.75fr)]">
         <ContinueLearningCard items={continueItems} loading={continueLoading} />
-        <DailyGoalCard items={continueItems} />
+        <DailyGoalCard items={continueItems} streakDays={stats?.streakDays ?? 0} />
       </div>
 
       {/* 4. Needs attention — hidden when there is no real signal */}
@@ -77,7 +77,7 @@ function StudentHome() {
 
       {/* Secondary — always after Continue Learning */}
       <div id="study-suggestions" className="scroll-mt-20">
-        <AiAssistantCard />
+        <AiAssistantCard items={continueItems} stats={stats} />
       </div>
     </div>
   );
