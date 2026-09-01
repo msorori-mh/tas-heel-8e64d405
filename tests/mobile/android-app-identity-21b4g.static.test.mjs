@@ -79,8 +79,8 @@ describe("21B4G — Android app identity and release readiness", () => {
     );
   });
 
-  it("10. versioning source of truth stays in android/app/build.gradle", () => {
-    expect(gradle).toMatch(/versionCode\s+\d+/);
-    expect(gradle).toMatch(/versionName\s+"\d+\.\d+(\.\d+)?"/);
+  it("10. uses the Play-safe 1.0.1 / code 2 release identity", () => {
+    expect(gradle).toMatch(/versionCode\s+2\b/);
+    expect(gradle).toContain('versionName "1.0.1"');
   });
 });

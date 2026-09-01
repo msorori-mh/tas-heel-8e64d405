@@ -15,11 +15,11 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
     expect(variables).toContain("targetSdkVersion = 36");
   });
 
-  it("freezes the first Play identity and semantic version", () => {
+  it("keeps the Play identity and uses the next upload-safe release version", () => {
     expect(capacitor).toContain('appId: "app.studentamkeen.tamkeen"');
     expect(gradle).toContain('applicationId "app.studentamkeen.tamkeen"');
-    expect(gradle).toContain("versionCode 1");
-    expect(gradle).toContain('versionName "1.0.0"');
+    expect(gradle).toMatch(/versionCode\s+2\b/);
+    expect(gradle).toContain('versionName "1.0.1"');
   });
 
   it("loads only the production HTTPS origin and refuses cleartext", () => {

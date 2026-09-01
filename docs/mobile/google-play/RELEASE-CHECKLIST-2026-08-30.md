@@ -1,6 +1,6 @@
 # تمكين الطالب — بوابة جاهزية Google Play
 
-تاريخ التدقيق: 2026-08-30. النطاق: Android 1.0.0، الحزمة `app.studentamkeen.tamkeen`، دون رفع إلى Play أو نشر إنتاج.
+تاريخ التدقيق: 2026-08-31. النطاق: Android 1.0.1، الحزمة `app.studentamkeen.tamkeen`، دون رفع إلى Play أو نشر إنتاج.
 
 ## مصفوفة القرار
 
@@ -8,7 +8,7 @@
 | ------------------------ | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | AAB وPlay App Signing    | HOLD_EXTERNAL                   | مسار AAB موجود؛ يجب إنشاء Upload key آمن وتفعيل Play App Signing وإدخال أسرار CI الأربعة                                                 |
 | Package name             | PASS_SOURCE                     | `app.studentamkeen.tamkeen` متطابق في Capacitor وGradle وJava                                                                            |
-| Version                  | PASS_SOURCE                     | `versionCode 1` و`versionName 1.0.0`؛ لا يُعاد استخدام versionCode بعد أي رفع                                                            |
+| Version                  | PASS_SOURCE                     | `versionCode 2` و`versionName 1.0.1`؛ رُفع الرقم لأن Google Play سجّل `versionCode 1` سابقًا                                             |
 | Target API               | PASS_SOURCE                     | compile/target 36، وهو خط الأساس المطلوب للتطبيقات الجديدة والتحديثات بدءًا من 2026-08-31                                                |
 | 64-bit / 16 KB page size | PASS_CURRENT_AAB_IF_NO_SO       | قارئ PDF يستخدم API المنصة؛ CI يفشل إذا دخلت مكتبة `.so` غير مدققة. يجب تشغيل الحارس على AAB النهائي قبل مهلة تحديثات Play في 2027-02-01 |
 | الصلاحيات الحساسة        | PASS_SOURCE                     | الصلاحية الوحيدة INTERNET؛ لا موقع/كاميرا/رسائل/جهات اتصال/Advertising ID                                                                |
