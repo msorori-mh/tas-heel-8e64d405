@@ -31,8 +31,8 @@ function AuthCallback() {
           if (error) throw error;
         }
 
-        // hash tokens / setSession by detectSessionInUrl is default-on;
-        // wait for session.
+        // Web callbacks and recovery links may be completed by the client's
+        // URL detector; wait briefly for the persisted session.
         for (let i = 0; i < 20; i++) {
           const { data } = await supabase.auth.getSession();
           if (data.session) break;

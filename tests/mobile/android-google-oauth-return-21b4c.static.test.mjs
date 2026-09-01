@@ -7,8 +7,10 @@ import {
   parseNativeAuthCallback,
   isCallbackConsumed,
   markCallbackConsumed,
+  unmarkCallbackConsumed,
   resetConsumedCallbacks,
 } from "../../src/lib/auth/native-oauth.ts";
+import { shouldDetectSessionInUrl } from "../../src/integrations/supabase/client.ts";
 
 const read = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), "utf8");
 
@@ -18,21 +20,22 @@ const nativeOauth = read("src/lib/auth/native-oauth.ts");
 const handler = read("src/components/mobile/NativeAuthDeepLinkHandler.tsx");
 const root = read("src/routes/__root.tsx");
 const authRoute = read("src/routes/auth.tsx");
+const supabaseClient = read("src/integrations/supabase/client.ts");
 
 describe("21B4-C — Android Google OAuth return-to-app", () => {
   beforeEach(() => resetConsumedCallbacks());
 
-  it("1. Android OAuth uses the HTTPS App Link callback", () => {
-    expect(NATIVE_OAUTH_REDIRECT_URL).toBe("https://studentamkeen.com/auth/mobile-callback");
+  it("1. Android OAuth returns directly to the app-owned scheme", () => {
     expect(NATIVE_BRIDGE_URL).toBe("app.studentamkeen.tamkeen://auth/callback");
+    expect(NATIVE_OAUTH_REDIRECT_URL).toBe(NATIVE_BRIDGE_URL);
     expect(googleSignIn).toMatch(/native \? NATIVE_OAUTH_REDIRECT_URL/);
-    expect(manifest).toMatch(/android:scheme="https"/);
-    expect(manifest).toMatch(/android:host="studentamkeen\.com"/);
-    expect(manifest).toMatch(/android:pathPrefix="\/auth\/mobile-callback"/);
+    expect(manifest).toMatch(/android:scheme="app\.studentamkeen\.tamkeen"/);
+    expect(manifest).toMatch(/android:host="auth"/);
+    expect(manifest).toMatch(/android:path="\/callback"/);
     expect(manifest).toMatch(/android\.intent\.category\.BROWSABLE/);
   });
 
-  it("1b. the HTTPS callback page forwards the code without exposing it", () => {
+  it("1b. the legacy HTTPS callback remains a safe compatibility bridge", () => {
     const page = read("src/routes/auth.mobile-callback.tsx");
     expect(page).toMatch(/createFileRoute\("\/auth\/mobile-callback"\)/);
     expect(page).toMatch(/NATIVE_BRIDGE_URL/);
@@ -41,6 +44,22 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
     expect(page).not.toMatch(/console\.(log|warn|info|debug|error)/);
     // never renders the raw code/state/session
     expect(page).not.toMatch(/\{code\}|\{state\}|access_token/);
+  });
+
+  it("1c. OAuth is explicitly PKCE and Chrome cannot consume the mobile callback", () => {
+    expect(supabaseClient).toMatch(/flowType: "pkce"/);
+    expect(supabaseClient).toMatch(/detectSessionInUrl: shouldDetectSessionInUrl/);
+    expect(
+      shouldDetectSessionInUrl(
+        new URL("https://studentamkeen.com/auth/mobile-callback?code=abc12345"),
+      ),
+    ).toBe(false);
+    expect(
+      shouldDetectSessionInUrl(new URL("https://studentamkeen.com/auth/callback?code=abc12345")),
+    ).toBe(true);
+    expect(
+      shouldDetectSessionInUrl(new URL("https://studentamkeen.com/reset-password?code=abc12345")),
+    ).toBe(true);
   });
 
   it("2. Web OAuth keeps the https web callback", () => {
@@ -137,6 +156,15 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
     markCallbackConsumed(first.code);
     expect(isCallbackConsumed(parseNativeAuthCallback(url).code)).toBe(true);
     expect(handler).toMatch(/isCallbackConsumed\(parsed\.code\)/);
+  });
+
+  it("8b. a failed code exchange can be retried", () => {
+    const code = "retry12345";
+    markCallbackConsumed(code);
+    expect(isCallbackConsumed(code)).toBe(true);
+    unmarkCallbackConsumed(code);
+    expect(isCallbackConsumed(code)).toBe(false);
+    expect(handler).toMatch(/unmarkCallbackConsumed\(parsed\.code\)/);
   });
 
   it("9. session restoration runs in the WebView that owns the PKCE verifier", () => {

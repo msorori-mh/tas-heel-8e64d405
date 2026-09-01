@@ -18,19 +18,16 @@
 
 export const HTTPS_CALLBACK_ORIGIN = "https://studentamkeen.com";
 export const HTTPS_CALLBACK_PATH = "/auth/mobile-callback";
-/** Android OAuth redirect target — an HTTPS App Link on the production domain. */
-export const NATIVE_OAUTH_REDIRECT_URL = `${HTTPS_CALLBACK_ORIGIN}${HTTPS_CALLBACK_PATH}`;
-
-/**
- * Bridge deep link. The HTTPS App Link is only handed to the app directly once
- * Digital Asset Links verification is live; until then the HTTPS callback page
- * forwards the authorization code to this app-private scheme. It is an
- * app-internal hop only and is never sent to the auth provider.
- */
 export const NATIVE_APP_SCHEME = "app.studentamkeen.tamkeen";
 export const NATIVE_BRIDGE_HOST = "auth";
 export const NATIVE_BRIDGE_PATH = "/callback";
 export const NATIVE_BRIDGE_URL = `${NATIVE_APP_SCHEME}://${NATIVE_BRIDGE_HOST}${NATIVE_BRIDGE_PATH}`;
+/**
+ * Android OAuth returns directly to the app-owned scheme. This avoids creating
+ * a session inside the Custom Tab and does not depend on an unverified HTTPS
+ * App Link. Supabase Auth must allow this exact URL (no wildcard required).
+ */
+export const NATIVE_OAUTH_REDIRECT_URL = NATIVE_BRIDGE_URL;
 
 export type NativeAuthCallback =
   | { kind: "ignored"; reason: string }
@@ -104,6 +101,11 @@ export function markCallbackConsumed(code: string): void {
   if (consumedCodes.size > 20) {
     consumedCodes.delete(consumedCodes.values().next().value as string);
   }
+}
+
+/** Release a failed exchange so the student can retry without restarting. */
+export function unmarkCallbackConsumed(code: string): void {
+  consumedCodes.delete(code);
 }
 
 /** Test seam. */
