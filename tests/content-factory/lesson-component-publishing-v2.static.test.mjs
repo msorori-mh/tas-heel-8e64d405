@@ -14,6 +14,10 @@ const archivalRepair = readFileSync(
   "supabase/migrations/20260910030000_lesson_component_v2_superseded_intake_archival.sql",
   "utf8",
 );
+const multipleLabUpgrade = readFileSync(
+  "supabase/migrations/20260912010000_multiple_lab_experiment_instances.sql",
+  "utf8",
+);
 const errorMessages = readFileSync(
   "src/lib/content-factory/lesson-component-publishing-v2-errors.ts",
   "utf8",
@@ -34,6 +38,10 @@ const productionMetadataContract = readFileSync(
 );
 const pg17MetadataGuard = readFileSync(
   "scripts/content-factory/pg17/lesson-resource-metadata-production-guard.sql",
+  "utf8",
+);
+const multipleLabPg17 = readFileSync(
+  "scripts/content-factory/pg17/lesson-component-multiple-lab-pg17.sql",
   "utf8",
 );
 
@@ -156,6 +164,42 @@ test("superseded verified attempts are archived without hiding newer replacement
   assert.match(archivalRepair, /INSERT INTO public\.audit_logs/);
   assert.doesNotMatch(archivalRepair, /DELETE FROM public\.lesson_component_intakes_v2/);
   assert.match(rehearsal, /20260910030000_lesson_component_v2_superseded_intake_archival\.sql/);
+  assert.match(rehearsal, /20260912010000_multiple_lab_experiment_instances\.sql/);
+  assert.match(rehearsal, /lesson-component-multiple-lab-pg17\.sql/);
+});
+
+test("multiple labs use independent immutable resource codes without schema or data rewrites", () => {
+  assert.doesNotMatch(multipleLabUpgrade, /ALTER TABLE/i);
+  assert.match(multipleLabUpgrade, /'-LAB-'\|\|lpad\(\(v_instance_index\+1\)::text,2,'0'\)/);
+  assert.match(
+    multipleLabUpgrade,
+    /WHEN v_instance_count=1 AND v_instance_index=0 THEN '-EXPERIMENT'/,
+  );
+  assert.match(multipleLabUpgrade, /LCPV2_LAB_PUBLISHED_RESOURCE_IMMUTABLE_CONFLICT/);
+  assert.match(multipleLabUpgrade, /cf11_assert_interactive_contract/);
+  assert.match(multipleLabUpgrade, /cf10_assert_no_answer_leak/);
+  assert.match(multipleLabUpgrade, /cf11_body_sha256/);
+  assert.match(multipleLabUpgrade, /resource_reused/);
+  assert.doesNotMatch(multipleLabUpgrade, /'lab_instance_index'|'lab_instance_count'/);
+  const labBranch = multipleLabUpgrade.slice(
+    multipleLabUpgrade.indexOf("ELSIF v_intake.capability='labExperimentHtml'"),
+    multipleLabUpgrade.indexOf(
+      "  ELSE\n    v_writes:=v_writes+public.lesson_component_publish_questions_v2",
+    ),
+  );
+  assert.doesNotMatch(labBranch, /UPDATE public\.lesson_resources/);
+  assert.match(labBranch, /INSERT INTO public\.lesson_resources/);
+  assert.match(server, /labExperiment: LabExperimentInstance/);
+  assert.match(server, /validation_summary/);
+  assert.match(ui, /multiple=\{fileContract\.multiple === true\}/);
+  assert.match(ui, /SHA-256: \{item\.sha256\}/);
+  assert.match(ui, /إضافة تجربة أخرى/);
+  assert.match(multipleLabPg17, /LCPV2-QURAN-LESSON-EXPERIMENT/);
+  assert.match(multipleLabPg17, /LCPV2-QURAN-LESSON-LAB-02/);
+  assert.match(multipleLabPg17, /LCPV2-MULTI-LAB-LAB-01/);
+  assert.match(multipleLabPg17, /resource_reused/);
+  assert.match(multipleLabPg17, /LCPV2_LAB_PUBLISHED_RESOURCE_IMMUTABLE_CONFLICT/);
+  assert.match(multipleLabPg17, /PASS_LESSON_COMPONENT_MULTIPLE_LAB_PG17/);
 });
 
 test("publish failures are Arabic-first with technical details collapsed", () => {

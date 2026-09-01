@@ -41,6 +41,13 @@ export interface GoldenLessonIdentity {
 
 export interface GoldenLessonArtifact {
   capability: GoldenCapability;
+  /**
+   * Zero-based occurrence inside a repeatable capability. V1 manifests may omit it
+   * for their single lab experiment; every artifact in a multi-lab manifest pins it.
+   */
+  instanceIndex?: number;
+  /** Optional student-facing lab title. Omitted titles become «تجربة N». */
+  instanceTitle?: string | null;
   applicability: CapabilityApplicability;
   authority: ContentAuthority;
   sourcePath: string | null;

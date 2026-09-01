@@ -4,6 +4,16 @@ import { describe, it } from "node:test";
 import { lessonComponentPublishErrorMessage } from "../../src/lib/content-factory/lesson-component-publishing-v2-errors";
 
 describe("lessonComponentPublishErrorMessage", () => {
+  it("keeps an immutable published lab untouched and gives a safe recovery action", () => {
+    const result = lessonComponentPublishErrorMessage(
+      new Error(
+        "LCPV2_PUBLISH_FAILED: LCPV2_LAB_PUBLISHED_RESOURCE_IMMUTABLE_CONFLICT: CHEM-LAB-02",
+      ),
+    );
+    assert.match(result.message, /مورد تجربة منشور/);
+    assert.match(result.action, /لم يُعدّل النظام المورد المنشور/);
+  });
+
   it("translates the production metadata contract failure without exposing it as the headline", () => {
     const result = lessonComponentPublishErrorMessage(
       new Error("LCPV2_PUBLISH_FAILED: unsupported lesson_resources.metadata key: publisher"),

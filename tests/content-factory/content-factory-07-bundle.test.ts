@@ -5,7 +5,10 @@ import { test } from "node:test";
 import JSZip from "jszip";
 
 import { verifyGoldenLessonBundle } from "../../src/lib/content-factory/golden-lesson-bundle-verifier.ts";
-import { buildGoldenDomainStageEnvelope } from "../../src/lib/content-factory/golden-lesson-domain-staging.ts";
+import {
+  assertLegacyGoldenDomainStageCompatible,
+  buildGoldenDomainStageEnvelope,
+} from "../../src/lib/content-factory/golden-lesson-domain-staging.ts";
 
 const h = (value: string) => createHash("sha256").update(value).digest("hex");
 const staticHtml = (title: string) =>
@@ -205,4 +208,67 @@ test("verified bytes map deterministically to seven domain staging targets", asy
     Buffer.from(files["official.html"]).toString("base64"),
   );
   assert.equal(envelope.answersCompanion?.path, "answers.server-only.json");
+  assert.doesNotThrow(() => assertLegacyGoldenDomainStageCompatible(envelope));
+});
+
+test("two lab artifacts keep independent hashes and ordered staging entries", async () => {
+  const labFiles = {
+    ...files,
+    "lab-01.html": staticHtml("تجربة 1"),
+    "lab-02.html": staticHtml("تجربة 2"),
+  };
+  const value = manifest(labFiles) as ReturnType<typeof manifest> & {
+    artifacts: Array<Record<string, unknown>>;
+  };
+  const labPosition = value.artifacts.findIndex(
+    (artifact) => artifact.capability === "labExperimentHtml",
+  );
+  value.artifacts.splice(
+    labPosition,
+    1,
+    {
+      capability: "labExperimentHtml",
+      applicability: "OPTIONAL",
+      authority: "TAMKEEN",
+      sourcePath: "lab-01.html",
+      sha256: h(labFiles["lab-01.html"]),
+      provenancePath: null,
+      provenanceSha256: null,
+      instanceIndex: 0,
+      instanceTitle: "التجربة الأولى",
+    },
+    {
+      capability: "labExperimentHtml",
+      applicability: "OPTIONAL",
+      authority: "TAMKEEN",
+      sourcePath: "lab-02.html",
+      sha256: h(labFiles["lab-02.html"]),
+      provenancePath: null,
+      provenanceSha256: null,
+      instanceIndex: 1,
+      instanceTitle: null,
+    },
+  );
+  const zip = new JSZip();
+  zip.file("manifest.json", JSON.stringify(value));
+  for (const [name, content] of Object.entries(labFiles)) zip.file(name, content);
+  const verified = await verifyGoldenLessonBundle(
+    new Uint8Array(await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" })),
+  );
+  const envelope = buildGoldenDomainStageEnvelope(verified);
+  const labs = envelope.entries.filter((entry) => entry.capability === "labExperimentHtml");
+  assert.equal(envelope.entries.length, 8);
+  assert.deepEqual(
+    labs.map((entry) => entry.instanceIndex),
+    [0, 1],
+  );
+  assert.deepEqual(
+    labs.map((entry) => entry.sourceSha256),
+    [h(labFiles["lab-01.html"]), h(labFiles["lab-02.html"])],
+  );
+  assert.notEqual(labs[0]?.sourceSha256, labs[1]?.sourceSha256);
+  assert.throws(
+    () => assertLegacyGoldenDomainStageCompatible(envelope),
+    /DOMAIN_STAGE_MULTI_LAB_REQUIRES_COMPONENT_V2/,
+  );
 });

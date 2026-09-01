@@ -61,6 +61,10 @@ test("student route exposes the seven-step rendering contracts", () => {
   assert.match(route, /hasManualSelection/);
   assert.match(route, /capability\.type === "PRIMARY_CONTENT"/);
   assert.doesNotMatch(route, /function JourneyCard/);
+  assert.match(route, /\.from\("lesson_resources"\)[\s\S]*\.order\("sort_order"\)/);
+  assert.match(route, /const experiments = \(resources \?\? \[\]\)\.filter/);
+  assert.match(route, /\{experiments\.map\(\(r\) => \(/);
+  assert.doesNotMatch(route, /experiments\[0\]/);
 });
 
 test("legacy mind maps and labs are interactive by resource type", () => {

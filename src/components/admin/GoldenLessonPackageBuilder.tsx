@@ -47,6 +47,7 @@ import {
 } from "@/lib/content-factory/golden-lesson-profiles";
 import type { GoldenLessonValidationResult } from "@/lib/content-factory/golden-lesson-validator";
 import {
+  GOLDEN_ARTIFACT_MAX_BYTES,
   GOLDEN_ARTIFACT_FILE_CONTRACTS,
   validateGoldenLessonAnswerCoverage,
   validateGoldenLessonArtifactBytes,
@@ -56,8 +57,6 @@ import { convertHtml5ActivityZip } from "@/lib/content-factory/golden-lesson-htm
 import { getContentCodeRegistry } from "@/lib/content-codes/content-codes.functions";
 import type { ContentCodeRegistry } from "@/lib/content-codes/content-codes.types";
 import { contentImportTemplateDownloadUrl } from "@/lib/content-import/content-import-templates";
-
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 const CAPABILITY_LABEL: Record<GoldenCapability, string> = {
   officialBookContent: "محتوى الكتاب",
@@ -166,6 +165,8 @@ interface UploadedArtifact {
   sha256: string;
   file: File;
   rowCount?: number;
+  instanceIndex?: number;
+  instanceTitle?: string;
 }
 
 interface ArabicFilePickerProps {
@@ -173,10 +174,18 @@ interface ArabicFilePickerProps {
   accept: string;
   disabled: boolean;
   fileName?: string | null;
-  onFile: (file?: File) => void | Promise<void>;
+  multiple?: boolean;
+  onFiles: (files: File[]) => void | Promise<void>;
 }
 
-function ArabicFilePicker({ id, accept, disabled, fileName, onFile }: ArabicFilePickerProps) {
+function ArabicFilePicker({
+  id,
+  accept,
+  disabled,
+  fileName,
+  multiple = false,
+  onFiles,
+}: ArabicFilePickerProps) {
   return (
     <div className="flex min-h-[44px] min-w-0 items-center gap-2 rounded-md border bg-background px-2 py-1.5">
       {/* A plain input, not the shared <Input>. That component composes its classes through
@@ -188,19 +197,26 @@ function ArabicFilePicker({ id, accept, disabled, fileName, onFile }: ArabicFile
         id={id}
         type="file"
         accept={accept}
+        multiple={multiple}
         disabled={disabled}
         className="sr-only"
         onChange={(event) => {
-          const file = event.currentTarget.files?.[0];
+          const files = Array.from(event.currentTarget.files ?? []);
           event.currentTarget.value = "";
-          void onFile(file);
+          void onFiles(files);
         }}
       />
       <Label
         htmlFor={id}
         className="inline-flex min-h-[36px] cursor-pointer items-center rounded-md border px-3 text-sm font-medium hover:bg-accent"
       >
-        {fileName ? "استبدال الملف" : "اختيار الملف"}
+        {multiple
+          ? fileName
+            ? "إضافة تجربة أخرى"
+            : "اختيار التجارب"
+          : fileName
+            ? "استبدال الملف"
+            : "اختيار الملف"}
       </Label>
       <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
         {fileName || "لم يتم اختيار ملف"}
@@ -300,6 +316,7 @@ const LAST_CONTEXT_KEY = "tamkeen:last-lesson-import-context";
 interface LocalLessonDraft {
   lessonCode: string;
   uploads: Partial<Record<GoldenCapability, UploadedArtifact>>;
+  labExperiments?: UploadedArtifact[];
   answerSets: Partial<Record<"selfTest" | "officialBookQuestions", Array<Record<string, unknown>>>>;
   answersCompanion: UploadedArtifact | null;
   savedAt: string;
@@ -355,6 +372,7 @@ export function GoldenLessonPackageBuilder() {
   const [selectedUnitCode, setSelectedUnitCode] = useState("");
   const [selectedLessonCode, setSelectedLessonCode] = useState("");
   const [uploads, setUploads] = useState<Partial<Record<GoldenCapability, UploadedArtifact>>>({});
+  const [labExperiments, setLabExperiments] = useState<UploadedArtifact[]>([]);
   const [answerSets, setAnswerSets] = useState<
     Partial<Record<"selfTest" | "officialBookQuestions", Array<Record<string, unknown>>>>
   >({});
@@ -511,7 +529,14 @@ export function GoldenLessonPackageBuilder() {
     void readLocalLessonDraft(selectedLessonCode)
       .then((draft) => {
         if (!active || !draft) return;
-        setUploads(draft.uploads);
+        const restoredUploads = { ...draft.uploads };
+        const legacyLab = restoredUploads.labExperimentHtml;
+        delete restoredUploads.labExperimentHtml;
+        setUploads(restoredUploads);
+        setLabExperiments(
+          draft.labExperiments ??
+            (legacyLab ? [{ ...legacyLab, instanceTitle: legacyLab.instanceTitle ?? "" }] : []),
+        );
         setAnswerSets(draft.answerSets);
         setAnswersCompanion(draft.answersCompanion);
         setDraftMessage(
@@ -530,11 +555,16 @@ export function GoldenLessonPackageBuilder() {
     };
   }, [selectedLessonCode]);
 
-  const uploadedCount = GOLDEN_CAPABILITIES.filter((capability) => uploads[capability]).length;
+  const uploadedCount = GOLDEN_CAPABILITIES.filter((capability) =>
+    capability === "labExperimentHtml" ? labExperiments.length > 0 : Boolean(uploads[capability]),
+  ).length;
   const [serverPublications, setServerPublications] = useState<
     Partial<Record<GoldenCapability, LessonComponentServerPublicationStatus>>
   >({});
   const [serverPublicationsLoading, setServerPublicationsLoading] = useState(false);
+  const [serverLabPublications, setServerLabPublications] = useState<
+    LessonComponentServerPublicationStatus[]
+  >([]);
   const [serverPublicationsError, setServerPublicationsError] = useState<string | null>(null);
   const publishedCount = GOLDEN_CAPABILITIES.filter(
     (capability) => serverPublications[capability]?.visibleToStudent,
@@ -543,6 +573,7 @@ export function GoldenLessonPackageBuilder() {
   useEffect(() => {
     if (!selectedLessonCode) {
       setServerPublications({});
+      setServerLabPublications([]);
       setServerPublicationsError(null);
       return;
     }
@@ -552,6 +583,10 @@ export function GoldenLessonPackageBuilder() {
     void getLessonComponentServerPublicationStatus({ data: { lessonCode: selectedLessonCode } })
       .then((rows) => {
         if (!active) return;
+        const labRows = rows
+          .filter((row) => row.capability === "labExperimentHtml")
+          .sort((left, right) => (left.instanceIndex ?? 0) - (right.instanceIndex ?? 0));
+        setServerLabPublications(labRows);
         setServerPublications(
           Object.fromEntries(rows.map((row) => [row.capability, row])) as Partial<
             Record<GoldenCapability, LessonComponentServerPublicationStatus>
@@ -561,6 +596,7 @@ export function GoldenLessonPackageBuilder() {
       .catch(() => {
         if (!active) return;
         setServerPublications({});
+        setServerLabPublications([]);
         setServerPublicationsError("تعذر قراءة حالة النشر الحالية من الخادم. أعد تحميل الصفحة.");
       })
       .finally(() => {
@@ -582,14 +618,16 @@ export function GoldenLessonPackageBuilder() {
 
   const handleCapabilityFile = async (capability: GoldenCapability, file?: File) => {
     if (!file) return;
-    if (file.size > MAX_FILE_BYTES) {
+    if (file.size > GOLDEN_ARTIFACT_MAX_BYTES) {
       setCapabilityError(capability, [`الملف ${file.name} أكبر من 5 ميجابايت.`]);
       return;
     }
     const duplicate =
       Object.entries(uploads).some(
         ([key, item]) => key !== capability && item?.fileName === file.name,
-      ) || answersCompanion?.fileName === file.name;
+      ) ||
+      labExperiments.some((item) => item.fileName === file.name) ||
+      answersCompanion?.fileName === file.name;
     if (duplicate) {
       setCapabilityError(capability, [
         `اسم الملف ${file.name} مستخدم مسبقًا في مكوّن آخر؛ أعد تسميته باسم فريد ثم أعد الرفع.`,
@@ -663,7 +701,7 @@ export function GoldenLessonPackageBuilder() {
         }
       }
 
-      if (artifactFile.size > MAX_FILE_BYTES) {
+      if (artifactFile.size > GOLDEN_ARTIFACT_MAX_BYTES) {
         throw new Error("حجم الملف بعد التحويل والتضمين أكبر من 5 ميجابايت.");
       }
 
@@ -674,11 +712,13 @@ export function GoldenLessonPackageBuilder() {
         bytes,
       );
       if (!artifactValidation.valid) {
-        setUploads((current) => {
-          const next = { ...current };
-          delete next[capability];
-          return next;
-        });
+        if (capability !== "labExperimentHtml") {
+          setUploads((current) => {
+            const next = { ...current };
+            delete next[capability];
+            return next;
+          });
+        }
         setCapabilityError(
           capability,
           Array.from(new Set(artifactValidation.findings.map(friendlyArtifactMessage))),
@@ -691,16 +731,29 @@ export function GoldenLessonPackageBuilder() {
         setAnswerSets(nextAnswerSets);
         setAnswersCompanion(await buildAnswersCompanion(nextAnswerSets, null));
       }
-      setUploads((current) => ({
-        ...current,
-        [capability]: {
-          fileName: artifactFile.name,
-          displayName,
-          sha256,
-          file: artifactFile,
-          rowCount,
-        },
-      }));
+      const verifiedUpload: UploadedArtifact = {
+        fileName: artifactFile.name,
+        displayName,
+        sha256,
+        file: artifactFile,
+        rowCount,
+      };
+      if (capability === "labExperimentHtml") {
+        setLabExperiments((current) => {
+          const nextIndex =
+            Math.max(
+              -1,
+              ...serverLabPublications.map((item) => item.instanceIndex ?? 0),
+              ...current.map((item) => item.instanceIndex ?? 0),
+            ) + 1;
+          return [...current, { ...verifiedUpload, instanceIndex: nextIndex, instanceTitle: "" }];
+        });
+      } else {
+        setUploads((current) => ({
+          ...current,
+          [capability]: verifiedUpload,
+        }));
+      }
     } catch (error) {
       setCapabilityError(capability, [error instanceof Error ? error.message : "تعذر فحص الملف."]);
     } finally {
@@ -708,7 +761,22 @@ export function GoldenLessonPackageBuilder() {
     }
   };
 
+  const handleCapabilityFiles = async (capability: GoldenCapability, files: File[]) => {
+    const selected = capability === "labExperimentHtml" ? files : files.slice(0, 1);
+    const duplicateNames = selected.filter(
+      (file, index) => selected.findIndex((candidate) => candidate.name === file.name) !== index,
+    );
+    if (duplicateNames.length > 0) {
+      setCapabilityError(capability, ["يجب أن يكون لكل تجربة اسم ملف فريد."]);
+      return;
+    }
+    for (const file of selected) await handleCapabilityFile(capability, file);
+  };
+
   const removeCapabilityFile = async (capability: GoldenCapability) => {
+    if (capability === "labExperimentHtml") {
+      setLabExperiments([]);
+    }
     setUploads((current) => {
       const next = { ...current };
       delete next[capability];
@@ -725,10 +793,33 @@ export function GoldenLessonPackageBuilder() {
     setCapabilityError(capability, null);
   };
 
-  const hasSelectedFiles = Object.keys(uploads).length > 0 || Boolean(answersCompanion);
+  const removeLabExperiment = (index: number) => {
+    const baseIndex =
+      Math.max(-1, ...serverLabPublications.map((item) => item.instanceIndex ?? 0)) + 1;
+    setLabExperiments((current) =>
+      current
+        .filter((_, position) => position !== index)
+        .map((item, position) => ({ ...item, instanceIndex: baseIndex + position })),
+    );
+    setValidation(null);
+    setFileError(null);
+    setCapabilityError("labExperimentHtml", null);
+  };
+
+  const updateLabExperimentTitle = (index: number, value: string) => {
+    setLabExperiments((current) =>
+      current.map((item, position) =>
+        position === index ? { ...item, instanceTitle: value.slice(0, 120) } : item,
+      ),
+    );
+  };
+
+  const hasSelectedFiles =
+    Object.keys(uploads).length > 0 || labExperiments.length > 0 || Boolean(answersCompanion);
 
   const clearSelectedFiles = () => {
     setUploads({});
+    setLabExperiments([]);
     setAnswerSets({});
     setAnswersCompanion(null);
     setValidation(null);
@@ -815,6 +906,7 @@ export function GoldenLessonPackageBuilder() {
       void writeLocalLessonDraft({
         lessonCode: selectedLessonCode,
         uploads,
+        labExperiments,
         answerSets,
         answersCompanion,
         savedAt: new Date().toISOString(),
@@ -823,7 +915,7 @@ export function GoldenLessonPackageBuilder() {
         .catch(() => setDraftMessage("تعذر الحفظ التلقائي؛ لا تغادر الصفحة قبل الاستيراد."));
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [draftReady, selectedLessonCode, uploads, answerSets, answersCompanion]);
+  }, [draftReady, selectedLessonCode, uploads, labExperiments, answerSets, answersCompanion]);
 
   const runValidation = useCallback(async () => {
     if (!profile) {
@@ -836,27 +928,33 @@ export function GoldenLessonPackageBuilder() {
       Record<GoldenCapability, { fileName: string; bytes: Uint8Array }>
     > = {};
     for (const capability of GOLDEN_CAPABILITIES) {
-      const upload = uploads[capability];
-      if (!upload) continue;
-      const bytes = new Uint8Array(await upload.file.arrayBuffer());
-      const artifactValidation = validateGoldenLessonArtifactBytes(
-        capability,
-        upload.fileName,
-        bytes,
-      );
-      for (const finding of artifactValidation.findings) {
-        findings.push({
-          code: finding.code,
-          severity: "ERROR",
-          field: `artifacts.${capability}`,
-          messageAr: finding.messageAr,
-        });
-      }
-      if (capability === "officialBookQuestions" || capability === "selfTest") {
-        artifactInputs[capability] = {
-          fileName: upload.fileName,
+      const capabilityUploads =
+        capability === "labExperimentHtml"
+          ? labExperiments
+          : uploads[capability]
+            ? [uploads[capability]!]
+            : [];
+      for (const upload of capabilityUploads) {
+        const bytes = new Uint8Array(await upload.file.arrayBuffer());
+        const artifactValidation = validateGoldenLessonArtifactBytes(
+          capability,
+          upload.fileName,
           bytes,
-        };
+        );
+        for (const finding of artifactValidation.findings) {
+          findings.push({
+            code: finding.code,
+            severity: "ERROR",
+            field: `artifacts.${capability}`,
+            messageAr: finding.messageAr,
+          });
+        }
+        if (capability === "officialBookQuestions" || capability === "selfTest") {
+          artifactInputs[capability] = {
+            fileName: upload.fileName,
+            bytes,
+          };
+        }
       }
     }
     const coverage = validateGoldenLessonAnswerCoverage(
@@ -881,7 +979,7 @@ export function GoldenLessonPackageBuilder() {
       writesPerformed: 0,
       findings,
     });
-  }, [profile, uploads, answersCompanion]);
+  }, [profile, uploads, labExperiments, answersCompanion]);
 
   useEffect(() => {
     if (!canonicalIdentityComplete) {
@@ -894,10 +992,61 @@ export function GoldenLessonPackageBuilder() {
     return () => window.clearTimeout(timer);
   }, [canonicalIdentityComplete, selectedLessonCode, runValidation]);
 
-  /** Upload, verify and atomically publish exactly one component. */
+  /** Upload, verify and atomically publish one byte-pinned source. */
+  const publishSource = async (
+    capability: GoldenCapability,
+    source: UploadedArtifact,
+    labExperiment?: { instanceIndex: number; instanceCount: number; instanceTitle: string | null },
+  ) => {
+    const answers = await buildAnswersCompanion(answerSets, [capability]);
+    const slot = await createLessonComponentV2Upload({
+      data: {
+        lessonCode: selectedLessonCode,
+        capability,
+        source: {
+          fileName: source.fileName,
+          sha256: source.sha256,
+          bytes: source.file.size,
+          mimeType: componentUploadContentType(source.file),
+        },
+        ...(labExperiment ? { labExperiment } : {}),
+        ...(answers
+          ? {
+              answers: {
+                fileName: answers.fileName,
+                sha256: answers.sha256,
+                bytes: answers.file.size,
+                mimeType: "application/json",
+              },
+            }
+          : {}),
+      },
+    });
+    for (const upload of slot.uploads) {
+      const file = upload.kind === "source" ? source.file : answers?.file;
+      if (!file) throw new Error("LCPV2_DECLARED_FILE_MISSING");
+      const result = await supabase.storage
+        .from(slot.bucket)
+        .uploadToSignedUrl(upload.storagePath, upload.token, file, {
+          contentType: componentUploadContentType(file),
+        });
+      if (result.error) throw new Error(`LCPV2_UPLOAD_FAILED: ${result.error.message}`);
+    }
+    setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ فحص الملف…" }));
+    await verifyLessonComponentV2Upload({ data: { intakeId: slot.intakeId } });
+    setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ نشر المكوّن…" }));
+    return await publishLessonComponentV2({ data: { intakeId: slot.intakeId } });
+  };
+
+  /** Publish the selected component; lab files remain individually attested instances. */
   const publishCapabilityNow = async (capability: GoldenCapability) => {
-    const source = uploads[capability];
-    if (!source || !selectedLessonCode) return;
+    const sources =
+      capability === "labExperimentHtml"
+        ? labExperiments
+        : uploads[capability]
+          ? [uploads[capability]!]
+          : [];
+    if (sources.length === 0 || !selectedLessonCode) return;
     setCapabilityPublishBusy(capability);
     setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ رفع الملف…" }));
     setCapabilityPublishError((current) => {
@@ -906,50 +1055,34 @@ export function GoldenLessonPackageBuilder() {
       return next;
     });
     try {
-      const answers = await buildAnswersCompanion(answerSets, [capability]);
-      const slot = await createLessonComponentV2Upload({
-        data: {
-          lessonCode: selectedLessonCode,
+      const highestIndex = Math.max(
+        0,
+        ...serverLabPublications.map((item) => item.instanceIndex ?? 0),
+        ...labExperiments.map((item) => item.instanceIndex ?? 0),
+      );
+      const instanceCount = highestIndex + 1;
+      for (const source of sources) {
+        const instanceIndex = source.instanceIndex ?? 0;
+        setCapabilityPublishStage((current) => ({
+          ...current,
+          [capability]:
+            capability === "labExperimentHtml"
+              ? `جارٍ نشر التجربة ${instanceIndex + 1}…`
+              : "جارٍ رفع الملف…",
+        }));
+        const publication = await publishSource(
           capability,
-          source: {
-            fileName: source.fileName,
-            sha256: source.sha256,
-            bytes: source.file.size,
-            mimeType: componentUploadContentType(source.file),
-          },
-          ...(answers
+          source,
+          capability === "labExperimentHtml"
             ? {
-                answers: {
-                  fileName: answers.fileName,
-                  sha256: answers.sha256,
-                  bytes: answers.file.size,
-                  mimeType: "application/json",
-                },
+                instanceIndex,
+                instanceCount,
+                instanceTitle: source.instanceTitle?.trim() || null,
               }
-            : {}),
-        },
-      });
-      for (const upload of slot.uploads) {
-        const file = upload.kind === "source" ? source.file : answers?.file;
-        if (!file) throw new Error("LCPV2_DECLARED_FILE_MISSING");
-        const result = await supabase.storage
-          .from(slot.bucket)
-          .uploadToSignedUrl(upload.storagePath, upload.token, file, {
-            contentType: componentUploadContentType(file),
-          });
-        if (result.error) throw new Error(`LCPV2_UPLOAD_FAILED: ${result.error.message}`);
-      }
-      setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ فحص الملف…" }));
-      await verifyLessonComponentV2Upload({ data: { intakeId: slot.intakeId } });
-      setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ نشر المكوّن…" }));
-      const publication = await publishLessonComponentV2({ data: { intakeId: slot.intakeId } });
-      setCapabilityPublication((current) => ({
-        ...current,
-        [capability]: publication,
-      }));
-      setServerPublications((current) => ({
-        ...current,
-        [capability]: {
+            : undefined,
+        );
+        setCapabilityPublication((current) => ({ ...current, [capability]: publication }));
+        const status: LessonComponentServerPublicationStatus = {
           lessonId: publication.lessonId,
           capability,
           lifecycleCapability: publication.lifecycleCapability,
@@ -957,8 +1090,29 @@ export function GoldenLessonPackageBuilder() {
           sourceSha256: publication.sourceSha256,
           publishedAt: new Date().toISOString(),
           visibleToStudent: true,
-        },
-      }));
+          ...(publication.resourceCode ? { resourceCode: publication.resourceCode } : {}),
+          ...(publication.instanceIndex !== undefined
+            ? { instanceIndex: publication.instanceIndex }
+            : {}),
+          ...(publication.instanceTitle !== undefined
+            ? { instanceTitle: publication.instanceTitle }
+            : {}),
+        };
+        setServerPublications((current) => ({ ...current, [capability]: status }));
+        if (capability === "labExperimentHtml") {
+          setServerLabPublications((current) =>
+            [...current.filter((item) => item.resourceCode !== status.resourceCode), status].sort(
+              (left, right) => (left.instanceIndex ?? 0) - (right.instanceIndex ?? 0),
+            ),
+          );
+          setLabExperiments((current) =>
+            current.filter(
+              (item) =>
+                item.sha256 !== source.sha256 || item.instanceIndex !== source.instanceIndex,
+            ),
+          );
+        }
+      }
     } catch (error) {
       setCapabilityPublishError((current) => ({
         ...current,
@@ -1203,6 +1357,8 @@ export function GoldenLessonPackageBuilder() {
             const applicability = profile?.applicability[capability] ?? "NA";
             const authority = GOLDEN_CAPABILITY_AUTHORITY[capability];
             const upload = uploads[capability];
+            const capabilityUploads =
+              capability === "labExperimentHtml" ? labExperiments : upload ? [upload] : [];
             const serverPublication = serverPublications[capability];
             const fileContract = GOLDEN_ARTIFACT_FILE_CONTRACTS[capability];
             return (
@@ -1223,7 +1379,9 @@ export function GoldenLessonPackageBuilder() {
                     </Badge>
                     {serverPublication ? (
                       <Badge variant="default">
-                        منشور للطالب
+                        {capability === "labExperimentHtml"
+                          ? `${serverLabPublications.length} تجارب منشورة`
+                          : "منشور للطالب"}
                         {serverPublication.publicationVersion
                           ? ` · الإصدار ${serverPublication.publicationVersion}`
                           : ""}
@@ -1232,7 +1390,11 @@ export function GoldenLessonPackageBuilder() {
                       <Badge variant="outline">غير منشور للطالب</Badge>
                     )}
                     <Badge variant="outline">
-                      {upload ? "ملف الدفعة جاهز" : "لا يوجد ملف في الدفعة الحالية"}
+                      {capabilityUploads.length > 0
+                        ? capability === "labExperimentHtml"
+                          ? `${capabilityUploads.length} تجارب جاهزة`
+                          : "ملف الدفعة جاهز"
+                        : "لا يوجد ملف في الدفعة الحالية"}
                     </Badge>
                   </div>
                 </div>
@@ -1304,8 +1466,15 @@ export function GoldenLessonPackageBuilder() {
                           : ".html,text/html")
                       }
                       disabled={hashing !== null}
-                      fileName={upload?.displayName}
-                      onFile={(file) => handleCapabilityFile(capability, file)}
+                      multiple={fileContract.multiple === true}
+                      fileName={
+                        capability === "labExperimentHtml"
+                          ? labExperiments.length > 0
+                            ? `${labExperiments.length} تجارب مختارة`
+                            : null
+                          : upload?.displayName
+                      }
+                      onFiles={(files) => handleCapabilityFiles(capability, files)}
                     />
                     {hashing === capability && (
                       <p className="text-xs text-muted-foreground flex items-center gap-2">
@@ -1329,24 +1498,79 @@ export function GoldenLessonPackageBuilder() {
                         </ul>
                       </div>
                     ) : null}
-                    {upload && (
+                    {capabilityUploads.length > 0 && (
                       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="min-w-0 break-all text-emerald-700 dark:text-emerald-400">
-                            <CheckCircle2 className="inline h-4 w-4 ms-1" />
-                            تم التحقق من الملف: {upload.displayName}
-                            {upload.rowCount ? ` — ${upload.rowCount} سؤال` : ""}
-                          </p>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 shrink-0 gap-1 text-destructive"
-                            onClick={() => void removeCapabilityFile(capability)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            إزالة
-                          </Button>
+                        <div className="space-y-2">
+                          {capabilityUploads.map((item, itemIndex) => (
+                            <div
+                              key={`${item.sha256}-${item.instanceIndex ?? 0}`}
+                              className="rounded-md border border-emerald-500/20 bg-background/70 p-2"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 space-y-1">
+                                  <p className="break-all text-emerald-700 dark:text-emerald-400">
+                                    <CheckCircle2 className="inline h-4 w-4 ms-1" />
+                                    {capability === "labExperimentHtml"
+                                      ? `تجربة ${(item.instanceIndex ?? itemIndex) + 1}: `
+                                      : "تم التحقق من الملف: "}
+                                    {item.displayName}
+                                    {item.rowCount ? ` — ${item.rowCount} سؤال` : ""}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {Math.max(1, Math.round(item.file.size / 1024))} كيلوبايت
+                                  </p>
+                                  <code
+                                    className="block break-all text-[10px] text-muted-foreground"
+                                    dir="ltr"
+                                  >
+                                    SHA-256: {item.sha256}
+                                  </code>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 shrink-0 gap-1 text-destructive"
+                                  onClick={() =>
+                                    capability === "labExperimentHtml"
+                                      ? removeLabExperiment(itemIndex)
+                                      : void removeCapabilityFile(capability)
+                                  }
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  إزالة
+                                </Button>
+                              </div>
+                              {capability === "labExperimentHtml" && (
+                                <div className="mt-2 space-y-1">
+                                  <Label htmlFor={`lab-title-${item.instanceIndex ?? itemIndex}`}>
+                                    عنوان التجربة (اختياري)
+                                  </Label>
+                                  <Input
+                                    id={`lab-title-${item.instanceIndex ?? itemIndex}`}
+                                    value={item.instanceTitle ?? ""}
+                                    maxLength={120}
+                                    placeholder={`تجربة ${(item.instanceIndex ?? itemIndex) + 1}`}
+                                    onChange={(event) =>
+                                      updateLabExperimentTitle(itemIndex, event.currentTarget.value)
+                                    }
+                                  />
+                                </div>
+                              )}
+                              {item.fileName.endsWith(".html") && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-2 h-8 gap-1"
+                                  onClick={() => previewArtifact(item)}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                  معاينة
+                                </Button>
+                              )}
+                            </div>
+                          ))}
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           {/* Each component has its own publish button. Nothing here reads
@@ -1361,23 +1585,10 @@ export function GoldenLessonPackageBuilder() {
                             <UploadCloud className="h-3.5 w-3.5" />
                             {capabilityPublishBusy === capability
                               ? capabilityPublishStage[capability]
-                              : "نشر هذا المكوّن"}
+                              : capability === "labExperimentHtml"
+                                ? "نشر التجارب"
+                                : "نشر هذا المكوّن"}
                           </Button>
-                          {upload.fileName.endsWith(".html") && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-8 gap-1"
-                              onClick={() => previewArtifact(upload)}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              معاينة
-                            </Button>
-                          )}
-                          <span className="text-[11px] text-muted-foreground">
-                            {Math.max(1, Math.round(upload.file.size / 1024))} كيلوبايت
-                          </span>
                         </div>
                         {capabilityPublication[capability] && (
                           <div
@@ -1454,7 +1665,13 @@ export function GoldenLessonPackageBuilder() {
           {GOLDEN_CAPABILITIES.filter(
             (capability) => (profile?.applicability[capability] ?? "NA") !== "NA",
           ).map((capability) => {
-            const done = Boolean(uploads[capability]);
+            const selectedCount =
+              capability === "labExperimentHtml"
+                ? labExperiments.length
+                : uploads[capability]
+                  ? 1
+                  : 0;
+            const done = selectedCount > 0;
             return (
               <p
                 key={capability}
@@ -1464,7 +1681,11 @@ export function GoldenLessonPackageBuilder() {
               >
                 {done ? "✓" : "•"} ({CAPABILITY_NUMBER[capability]}) {CAPABILITY_LABEL[capability]}{" "}
                 — {CAPABILITY_FORMAT_HINT[capability] ?? "HTML"}
-                {done ? " — مرفوع" : " — بانتظار الملف"}
+                {done
+                  ? capability === "labExperimentHtml"
+                    ? ` — ${selectedCount} تجارب مرفوعة`
+                    : " — مرفوع"
+                  : " — بانتظار الملف"}
               </p>
             );
           })}

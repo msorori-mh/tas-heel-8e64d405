@@ -13,6 +13,7 @@ import { GOLDEN_CAPABILITIES } from "./golden-lesson-contract";
 import { GOLDEN_LIFECYCLE_TARGETS } from "./golden-lesson-domain-staging";
 import { GOLDEN_DIRECT_BUCKET } from "./golden-lesson-direct-storage";
 import {
+  GOLDEN_ARTIFACT_MAX_BYTES,
   validateGoldenLessonAnswerCoverage,
   validateGoldenLessonArtifactBytes,
 } from "./golden-lesson-file-contract";
@@ -30,20 +31,43 @@ const Capability = z.enum([
 const FileDeclaration = z.object({
   fileName: z.string().min(1).max(255),
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
-  bytes: z
-    .number()
-    .int()
-    .min(1)
-    .max(5 * 1024 * 1024),
+  bytes: z.number().int().min(1).max(GOLDEN_ARTIFACT_MAX_BYTES),
   mimeType: z.string().min(1).max(120),
 });
 
-const CreateInput = z.object({
-  lessonCode: z.string().min(1).max(160),
-  capability: Capability,
-  source: FileDeclaration,
-  answers: FileDeclaration.optional(),
+const LabExperimentInstance = z.object({
+  instanceIndex: z.number().int().min(0).max(98),
+  instanceCount: z.number().int().min(1).max(99),
+  instanceTitle: z.string().trim().min(1).max(120).nullable().optional(),
 });
+
+const CreateInput = z
+  .object({
+    lessonCode: z.string().min(1).max(160),
+    capability: Capability,
+    source: FileDeclaration,
+    answers: FileDeclaration.optional(),
+    labExperiment: LabExperimentInstance.optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.capability !== "labExperimentHtml" && value.labExperiment) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["labExperiment"],
+        message: "LCPV2_LAB_INSTANCE_FORBIDDEN",
+      });
+    }
+    if (
+      value.labExperiment &&
+      value.labExperiment.instanceIndex >= value.labExperiment.instanceCount
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["labExperiment", "instanceIndex"],
+        message: "LCPV2_LAB_INSTANCE_RANGE_INVALID",
+      });
+    }
+  });
 
 const VerifyInput = z.object({ intakeId: z.string().uuid() });
 const PublishInput = z.object({ intakeId: z.string().uuid() });
@@ -66,6 +90,7 @@ interface IntakeRow {
   answer_bytes: number | null;
   status: string;
   created_by: string;
+  validation_summary: unknown;
 }
 
 export interface LessonComponentV2UploadSlot {
@@ -98,6 +123,10 @@ export interface LessonComponentV2Publication {
   studentCanSeeThisComponent: true;
   idempotent: boolean;
   writesPerformed: number;
+  resourceCode?: string;
+  instanceIndex?: number;
+  instanceCount?: number;
+  instanceTitle?: string | null;
   steps: Array<{ key: "upload" | "verify" | "publish"; label: string; detail: string }>;
 }
 
@@ -109,6 +138,10 @@ export interface LessonComponentServerPublicationStatus {
   sourceSha256: string | null;
   publishedAt: string | null;
   visibleToStudent: true;
+  resourceCode?: string;
+  instanceIndex?: number;
+  instanceTitle?: string | null;
+  sortOrder?: number;
 }
 
 function adminClient() {
@@ -239,9 +272,29 @@ export const createLessonComponentV2Upload = createServerFn({ method: "POST" })
       }),
       "LCPV2_CREATE_FAILED",
     );
+    const intakeId = String(created["intake_id"]);
+    if (data.capability === "labExperimentHtml") {
+      const labExperiment = data.labExperiment ?? {
+        instanceIndex: 0,
+        instanceCount: 1,
+        instanceTitle: null,
+      };
+      const metadataUpdate = await admin
+        .from("lesson_component_intakes_v2")
+        .update({ validation_summary: { labExperiment } })
+        .eq("id", intakeId)
+        .eq("status", "UPLOADING")
+        .select("id")
+        .single();
+      if (metadataUpdate.error || !metadataUpdate.data) {
+        throw new Error(
+          `LCPV2_LAB_INSTANCE_PERSIST_FAILED: ${metadataUpdate.error?.message ?? "INTAKE_NOT_UPLOADING"}`,
+        );
+      }
+    }
 
     return {
-      intakeId: String(created["intake_id"]),
+      intakeId,
       bucket: GOLDEN_DIRECT_BUCKET,
       uploads: [
         { kind: "source", storagePath: sourcePath, token: sourceSigned.data.token },
@@ -262,7 +315,7 @@ export const verifyLessonComponentV2Upload = createServerFn({ method: "POST" })
     const query = await admin
       .from("lesson_component_intakes_v2")
       .select(
-        "id,lesson_id,capability,original_file_name,storage_path,source_sha256,source_bytes,answer_file_name,answer_storage_path,answer_sha256,answer_bytes,status,created_by",
+        "id,lesson_id,capability,original_file_name,storage_path,source_sha256,source_bytes,answer_file_name,answer_storage_path,answer_sha256,answer_bytes,status,created_by,validation_summary",
       )
       .eq("id", data.intakeId)
       .single();
@@ -274,6 +327,20 @@ export const verifyLessonComponentV2Upload = createServerFn({ method: "POST" })
     if (intake.status === "PUBLISHED") throw new Error("LCPV2_INTAKE_ALREADY_PUBLISHED");
 
     try {
+      const rawValidationSummary =
+        intake.validation_summary && typeof intake.validation_summary === "object"
+          ? (intake.validation_summary as Record<string, unknown>)
+          : {};
+      const labExperiment =
+        intake.capability === "labExperimentHtml"
+          ? LabExperimentInstance.parse(
+              rawValidationSummary["labExperiment"] ?? {
+                instanceIndex: 0,
+                instanceCount: 1,
+                instanceTitle: null,
+              },
+            )
+          : null;
       const sourceBytes = await download(intake.storage_path);
       requireExactBytes(
         sourceBytes,
@@ -335,6 +402,7 @@ export const verifyLessonComponentV2Upload = createServerFn({ method: "POST" })
             sourceBytes: sourceBytes.byteLength,
             answerSha256: intake.answer_sha256,
             answerBytes: answerBytes?.byteLength ?? null,
+            ...(labExperiment ? { labExperiment } : {}),
           },
           _actor_id: userId,
         }),
@@ -390,6 +458,19 @@ export const publishLessonComponentV2 = createServerFn({ method: "POST" })
       studentCanSeeThisComponent: true,
       idempotent: Boolean(published["idempotent"]),
       writesPerformed: Number(published["writes_performed"]),
+      ...(published["resource_code"] ? { resourceCode: String(published["resource_code"]) } : {}),
+      ...(published["instance_index"] !== undefined
+        ? { instanceIndex: Number(published["instance_index"]) }
+        : {}),
+      ...(published["instance_count"] !== undefined
+        ? { instanceCount: Number(published["instance_count"]) }
+        : {}),
+      ...(published["instance_title"] !== undefined
+        ? {
+            instanceTitle:
+              published["instance_title"] === null ? null : String(published["instance_title"]),
+          }
+        : {}),
       steps: [
         { key: "upload", label: "رفع الملف", detail: "تم" },
         { key: "verify", label: "فحص الملف", detail: "تم" },
@@ -408,29 +489,40 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
     const admin = adminClient();
     const lesson = await admin
       .from("lessons")
-      .select("id")
+      .select("id,slug")
       .eq("slug", data.lessonCode)
       .maybeSingle();
     if (lesson.error) throw new Error(`LCPV2_STATUS_LESSON_READ_FAILED: ${lesson.error.message}`);
     if (!lesson.data) throw new Error("LCPV2_STATUS_LESSON_NOT_FOUND");
     const lessonId = lesson.data.id;
 
-    const [lifecycleResult, publicationResult] = await Promise.all([
+    const [lifecycleResult, publicationResult, experimentResult] = await Promise.all([
       admin
         .from("lesson_capability_lifecycle")
         .select("capability,status,ready_hash,ready_at")
         .eq("lesson_id", lessonId),
       admin
         .from("lesson_component_publications_v2")
-        .select("capability,lifecycle_capability,publication_version,source_sha256,published_at")
+        .select(
+          "capability,lifecycle_capability,publication_version,source_sha256,published_at,result",
+        )
         .eq("lesson_id", lessonId)
         .order("publication_version", { ascending: false }),
+      admin
+        .from("lesson_resources")
+        .select("resource_code,title,sort_order,metadata")
+        .eq("lesson_id", lessonId)
+        .eq("resource_type", "experiment")
+        .order("sort_order", { ascending: true }),
     ]);
     if (lifecycleResult.error) {
       throw new Error(`LCPV2_STATUS_LIFECYCLE_READ_FAILED: ${lifecycleResult.error.message}`);
     }
     if (publicationResult.error) {
       throw new Error(`LCPV2_STATUS_PUBLICATION_READ_FAILED: ${publicationResult.error.message}`);
+    }
+    if (experimentResult.error) {
+      throw new Error(`LCPV2_STATUS_EXPERIMENT_READ_FAILED: ${experimentResult.error.message}`);
     }
 
     const lifecycleByCapability = new Map(
@@ -442,11 +534,54 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
       if (!latestPublication.has(capability)) latestPublication.set(capability, row);
     }
 
+    const lessonCode = String(lesson.data.slug).toUpperCase();
+    const managedExperiments = (experimentResult.data ?? []).flatMap((row) => {
+      const resourceCode = String(row.resource_code ?? "").toUpperCase();
+      const legacy = resourceCode === `${lessonCode}-EXPERIMENT`;
+      const numbered = new RegExp(
+        `^${lessonCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-LAB-(\\d{2})$`,
+      ).exec(resourceCode);
+      if (!legacy && !numbered) return [];
+      const instanceIndex = legacy ? 0 : Number(numbered![1]) - 1;
+      if (!Number.isInteger(instanceIndex) || instanceIndex < 0 || instanceIndex > 98) return [];
+      const metadata =
+        row.metadata && typeof row.metadata === "object"
+          ? (row.metadata as Record<string, unknown>)
+          : {};
+      return [
+        {
+          resourceCode,
+          instanceIndex,
+          instanceTitle: row.title ? String(row.title) : null,
+          sortOrder: Number(row.sort_order ?? 5 + instanceIndex),
+          sourceSha256:
+            typeof metadata["cf11_verified_bundle_sha256"] === "string"
+              ? String(metadata["cf11_verified_bundle_sha256"])
+              : null,
+        },
+      ];
+    });
+
     return GOLDEN_CAPABILITIES.flatMap((capability) => {
       const lifecycleCapability = GOLDEN_LIFECYCLE_TARGETS[capability];
       const lifecycle = lifecycleByCapability.get(lifecycleCapability);
       if (lifecycle?.status !== "READY") return [];
       const publication = latestPublication.get(capability);
+      if (capability === "labExperimentHtml" && managedExperiments.length > 0) {
+        return managedExperiments.map((experiment) => ({
+          lessonId: String(lessonId),
+          capability,
+          lifecycleCapability,
+          publicationVersion: publication ? Number(publication.publication_version) : null,
+          sourceSha256: experiment.sourceSha256,
+          publishedAt: publication?.published_at ?? lifecycle.ready_at ?? null,
+          visibleToStudent: true as const,
+          resourceCode: experiment.resourceCode,
+          instanceIndex: experiment.instanceIndex,
+          instanceTitle: experiment.instanceTitle,
+          sortOrder: experiment.sortOrder,
+        }));
+      }
       return [
         {
           lessonId: String(lessonId),

@@ -2,12 +2,15 @@ import type { GoldenCapability } from "./golden-lesson-contract.ts";
 import { validateHtmlAgainstProfile, type HtmlProfile } from "../lessons/html-content-standard.ts";
 
 export type GoldenArtifactFormat = "HTML" | "JSON";
+export const GOLDEN_ARTIFACT_MAX_BYTES = 5 * 1024 * 1024;
 
 export interface GoldenArtifactFileContract {
   /** Format of the artifact stored inside the package. */
   formats: readonly GoldenArtifactFormat[];
   extensions: readonly string[];
   accept: string;
+  /** Only repeatable capabilities opt in. File pickers stay single-select otherwise. */
+  multiple?: boolean;
   expectedAr: string;
   /**
    * What the content team actually uploads in the admin UI. For the two question
@@ -58,6 +61,7 @@ export const GOLDEN_ARTIFACT_FILE_CONTRACTS: Record<GoldenCapability, GoldenArti
       formats: ["HTML"],
       extensions: [".html"],
       accept: ".html,text/html",
+      multiple: true,
       expectedAr: "ملف HTML تفاعلي للتجربة أو النشاط",
     },
     officialBookQuestions: {
@@ -378,6 +382,12 @@ export function validateGoldenLessonArtifactBytes(
   bytes: Uint8Array,
 ): GoldenArtifactFileValidation {
   const findings = [...validateGoldenLessonArtifactPath(capability, fileName).findings];
+  if (bytes.byteLength > GOLDEN_ARTIFACT_MAX_BYTES) {
+    findings.push({
+      code: "ARTIFACT_SIZE_LIMIT",
+      messageAr: "حجم الملف يتجاوز الحد الأقصى المسموح وهو 5 ميجابايت.",
+    });
+  }
   if (
     bytes.length >= 4 &&
     bytes[0] === 0x50 &&
