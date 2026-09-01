@@ -75,12 +75,19 @@ DECLARE
   second_result jsonb;
   replay_result jsonb;
   retry_result jsonb;
+  existing_resource_rows jsonb;
   conflict_failed boolean:=false;
 BEGIN
   -- Backwards compatibility: keep the already-published unsuffixed V1 row and append LAB-02.
   SELECT intake_id INTO intake FROM lcpv2_multi_lab_intakes WHERE label='legacy-add-second';
   second_result:=public.lesson_component_publish_v2(intake,'lcpv2:legacy-add-second:publish');
   replay_result:=public.lesson_component_publish_v2(intake,'lcpv2:legacy-add-second:publish');
+  SELECT coalesce(jsonb_agg(jsonb_build_object(
+           'resourceCode',resource_code,'resourceType',resource_type,'sortOrder',sort_order)
+           ORDER BY sort_order),'[]'::jsonb)
+    INTO existing_resource_rows
+    FROM public.lesson_resources
+   WHERE lesson_id=existing_lesson;
   IF second_result->>'resource_code'<>'LCPV2-QURAN-LESSON-LAB-02'
      OR coalesce((replay_result->>'idempotent')::boolean,false) IS NOT TRUE
      OR (replay_result->>'writes_performed')::integer<>0
@@ -88,8 +95,8 @@ BEGIN
           WHERE lesson_id=existing_lesson AND resource_type='experiment')<>2
      OR NOT EXISTS (SELECT 1 FROM public.lesson_resources
           WHERE lesson_id=existing_lesson AND resource_code='LCPV2-QURAN-LESSON-EXPERIMENT') THEN
-    RAISE EXCEPTION 'LCPV2_MULTI_LAB_LEGACY_APPEND_OR_REPLAY_FAILED: % / %',
-      second_result,replay_result;
+    RAISE EXCEPTION 'LCPV2_MULTI_LAB_LEGACY_APPEND_OR_REPLAY_FAILED: % / % / resources=%',
+      second_result,replay_result,existing_resource_rows;
   END IF;
 
   -- A fresh two-file intake materializes LAB-01 and LAB-02 with independent hashes/order.
