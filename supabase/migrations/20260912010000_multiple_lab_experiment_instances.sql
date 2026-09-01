@@ -21,6 +21,7 @@ DECLARE
   v_publication_id uuid:=gen_random_uuid();
   v_version integer;
   v_code text;
+  v_legacy_code text;
   v_interactive_contract jsonb;
   v_lab_instance jsonb;
   v_instance_index integer:=0;
@@ -131,9 +132,10 @@ BEGIN
   ELSIF v_intake.capability='labExperimentHtml' THEN
     v_interactive_contract:=public.cf11_assert_interactive_contract(
       v_intake.capability,v_intake.payload_text);
-    v_code:=upper(v_lesson.slug)||CASE
+    v_legacy_code:=public.normalize_resource_code(upper(v_lesson.slug)||'-EXPERIMENT');
+    v_code:=public.normalize_resource_code(upper(v_lesson.slug)||CASE
       WHEN v_instance_count=1 AND v_instance_index=0 THEN '-EXPERIMENT'
-      ELSE '-LAB-'||lpad((v_instance_index+1)::text,2,'0') END;
+      ELSE '-LAB-'||lpad((v_instance_index+1)::text,2,'0') END);
     v_instance_title:=coalesce(v_instance_title,CASE
       WHEN v_instance_count=1 THEN 'التجربة المعملية'
       ELSE 'تجربة '||(v_instance_index+1)::text END);
@@ -142,9 +144,9 @@ BEGIN
      WHERE lesson_id=v_lesson.id AND resource_code=v_code FOR UPDATE;
     IF v_existing_resource.id IS NULL AND v_instance_count>1 AND v_instance_index=0 THEN
       SELECT * INTO v_existing_resource FROM public.lesson_resources
-       WHERE lesson_id=v_lesson.id AND resource_code=upper(v_lesson.slug)||'-EXPERIMENT' FOR UPDATE;
+       WHERE lesson_id=v_lesson.id AND resource_code=v_legacy_code FOR UPDATE;
       IF v_existing_resource.id IS NOT NULL THEN
-        v_code:=upper(v_lesson.slug)||'-EXPERIMENT';
+        v_code:=v_legacy_code;
       END IF;
     END IF;
 
@@ -160,11 +162,11 @@ BEGIN
          OR v_existing_resource.html_resource_type IS DISTINCT FROM 'INTERACTIVE'
          OR v_existing_resource.is_primary IS DISTINCT FROM false
          OR (v_existing_resource.title IS DISTINCT FROM v_instance_title
-             AND (v_instance_title_requested OR v_code<>upper(v_lesson.slug)||'-EXPERIMENT')) THEN
+             AND (v_instance_title_requested OR v_code<>v_legacy_code)) THEN
         RAISE EXCEPTION 'LCPV2_LAB_PUBLISHED_RESOURCE_IMMUTABLE_CONFLICT: %',v_code
           USING ERRCODE='23505';
       END IF;
-      IF NOT v_instance_title_requested AND v_code=upper(v_lesson.slug)||'-EXPERIMENT' THEN
+      IF NOT v_instance_title_requested AND v_code=v_legacy_code THEN
         v_instance_title:=v_existing_resource.title;
       END IF;
       v_resource_reused:=true;

@@ -88,13 +88,13 @@ BEGIN
     INTO existing_resource_rows
     FROM public.lesson_resources
    WHERE lesson_id=existing_lesson;
-  IF second_result->>'resource_code'<>'LCPV2-QURAN-LESSON-LAB-02'
+  IF second_result->>'resource_code'<>'lcpv2-quran-lesson-lab-02'
      OR coalesce((replay_result->>'idempotent')::boolean,false) IS NOT TRUE
      OR (replay_result->>'writes_performed')::integer<>0
      OR (SELECT count(*) FROM public.lesson_resources
           WHERE lesson_id=existing_lesson AND resource_type='experiment')<>2
      OR NOT EXISTS (SELECT 1 FROM public.lesson_resources
-          WHERE lesson_id=existing_lesson AND resource_code='LCPV2-QURAN-LESSON-EXPERIMENT') THEN
+          WHERE lesson_id=existing_lesson AND resource_code='lcpv2-quran-lesson-experiment') THEN
     RAISE EXCEPTION 'LCPV2_MULTI_LAB_LEGACY_APPEND_OR_REPLAY_FAILED: % / % / resources=%',
       second_result,replay_result,existing_resource_rows;
   END IF;
@@ -104,13 +104,13 @@ BEGIN
   first_result:=public.lesson_component_publish_v2(intake,'lcpv2:fresh-lab-one:publish');
   SELECT intake_id INTO intake FROM lcpv2_multi_lab_intakes WHERE label='fresh-lab-two';
   second_result:=public.lesson_component_publish_v2(intake,'lcpv2:fresh-lab-two:publish');
-  IF first_result->>'resource_code'<>'LCPV2-MULTI-LAB-LAB-01'
-     OR second_result->>'resource_code'<>'LCPV2-MULTI-LAB-LAB-02'
+  IF first_result->>'resource_code'<>'lcpv2-multi-lab-lab-01'
+     OR second_result->>'resource_code'<>'lcpv2-multi-lab-lab-02'
      OR (SELECT count(*) FROM public.lesson_resources
           WHERE lesson_id=fresh_lesson AND resource_type='experiment')<>2
      OR (SELECT array_agg(resource_code ORDER BY sort_order) FROM public.lesson_resources
           WHERE lesson_id=fresh_lesson AND resource_type='experiment')
-        IS DISTINCT FROM ARRAY['LCPV2-MULTI-LAB-LAB-01','LCPV2-MULTI-LAB-LAB-02']::text[]
+        IS DISTINCT FROM ARRAY['lcpv2-multi-lab-lab-01','lcpv2-multi-lab-lab-02']::text[]
      OR (SELECT count(DISTINCT metadata->>'cf11_body_sha256') FROM public.lesson_resources
           WHERE lesson_id=fresh_lesson AND resource_type='experiment')<>2 THEN
     RAISE EXCEPTION 'LCPV2_MULTI_LAB_FRESH_MATERIALIZATION_FAILED: % / %',

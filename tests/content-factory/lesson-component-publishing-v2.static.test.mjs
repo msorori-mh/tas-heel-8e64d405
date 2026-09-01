@@ -175,6 +175,7 @@ test("multiple labs use independent immutable resource codes without schema or d
     multipleLabUpgrade,
     /WHEN v_instance_count=1 AND v_instance_index=0 THEN '-EXPERIMENT'/,
   );
+  assert.match(multipleLabUpgrade, /v_code:=public\.normalize_resource_code/);
   assert.match(multipleLabUpgrade, /LCPV2_LAB_PUBLISHED_RESOURCE_IMMUTABLE_CONFLICT/);
   assert.match(multipleLabUpgrade, /cf11_assert_interactive_contract/);
   assert.match(multipleLabUpgrade, /cf10_assert_no_answer_leak/);
@@ -194,9 +195,9 @@ test("multiple labs use independent immutable resource codes without schema or d
   assert.match(ui, /multiple=\{fileContract\.multiple === true\}/);
   assert.match(ui, /SHA-256: \{item\.sha256\}/);
   assert.match(ui, /إضافة تجربة أخرى/);
-  assert.match(multipleLabPg17, /LCPV2-QURAN-LESSON-EXPERIMENT/);
-  assert.match(multipleLabPg17, /LCPV2-QURAN-LESSON-LAB-02/);
-  assert.match(multipleLabPg17, /LCPV2-MULTI-LAB-LAB-01/);
+  assert.match(multipleLabPg17, /lcpv2-quran-lesson-experiment/);
+  assert.match(multipleLabPg17, /lcpv2-quran-lesson-lab-02/);
+  assert.match(multipleLabPg17, /lcpv2-multi-lab-lab-01/);
   assert.match(multipleLabPg17, /resource_reused/);
   assert.match(multipleLabPg17, /LCPV2_LAB_PUBLISHED_RESOURCE_IMMUTABLE_CONFLICT/);
   assert.match(multipleLabPg17, /PASS_LESSON_COMPONENT_MULTIPLE_LAB_PG17/);
