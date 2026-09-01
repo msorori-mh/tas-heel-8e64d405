@@ -47,3 +47,14 @@ test("the client uses direct table access only for safe profile setup reads and 
   ]);
   assert.doesNotMatch(api, /\.from\("(?:assessment_questions|certificates|enrollments|lessons)"\)/);
 });
+
+test("teacher profile creation and updates preserve the immutable user ownership column", () => {
+  const saveProfile = api.match(
+    /export async function saveTeacherProfile[\s\S]*?export async function loadVisiblePrograms/,
+  )?.[0];
+
+  assert.ok(saveProfile);
+  assert.doesNotMatch(saveProfile, /\.upsert\(/);
+  assert.match(saveProfile, /profileExists[\s\S]*\.update\(input\)\.eq\("user_id", user\.id\)/);
+  assert.match(saveProfile, /\.insert\(\{[\s\S]*user_id: user\.id,[\s\S]*\.\.\.input/);
+});
