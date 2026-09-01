@@ -5,6 +5,7 @@ import {
   isCallbackConsumed,
   markCallbackConsumed,
   parseNativeAuthCallback,
+  unmarkCallbackConsumed,
 } from "@/lib/auth/native-oauth";
 
 /**
@@ -53,6 +54,10 @@ export function NativeAuthDeepLinkHandler() {
           navigate({ to: "/auth/callback", replace: true });
           setStatus("idle");
         } catch {
+          // The early claim prevents duplicate appUrlOpen deliveries from
+          // exchanging the same one-time code concurrently. A failed exchange
+          // is released so an explicit retry can succeed.
+          unmarkCallbackConsumed(parsed.code);
           if (cancelled) return;
           setStatus("error");
           setMessage("تعذّر إكمال تسجيل الدخول. حاول مرة أخرى.");

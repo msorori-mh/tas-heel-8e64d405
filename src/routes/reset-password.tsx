@@ -18,7 +18,7 @@ function ResetPassword() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // detectSessionInUrl will handle the recovery hash automatically
+    // The Supabase URL detector completes the web recovery flow.
     supabase.auth.getSession().then(({ data }) => {
       setReady(Boolean(data.session));
     });

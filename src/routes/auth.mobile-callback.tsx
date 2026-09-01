@@ -3,11 +3,11 @@ import { useEffect, useState } from "react";
 import { NATIVE_BRIDGE_URL } from "@/lib/auth/native-oauth";
 
 /**
- * 21B4-C-R1 — Android OAuth HTTPS callback (App Link target).
+ * Android OAuth HTTPS compatibility callback.
  *
- * This page is NOT part of the student web UI. It exists only so the Android
- * app can receive the OAuth authorization code on an https URL that the auth
- * provider already allows (`https://studentamkeen.com/**`).
+ * New Android sign-ins return directly to the app-owned scheme. This page is
+ * retained for callbacks already started by older app/web deployments and for
+ * a future verified App Link rollout.
  *
  * Behaviour:
  * - Verified App Link: Android opens Tamkeen directly and this page never renders.
