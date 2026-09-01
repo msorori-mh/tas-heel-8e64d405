@@ -29,12 +29,14 @@ describe("STUDENT_HOME_SERVICES_CLOSURE_01", () => {
     expect(exams).toContain("النماذج الوزارية");
   });
 
-  it("describes fixed shortcuts honestly instead of calling them AI", () => {
-    expect(suggestions).toContain("اقتراحات سريعة");
+  it("derives one honest daily suggestion without calling it AI", () => {
+    expect(suggestions).toContain("buildDailySuggestion");
+    expect(suggestions).toContain("اقتراح اليوم");
     expect(suggestions).not.toContain("مساعدك الذكي");
     expect(shell).not.toContain("المساعد الذكي");
     expect(suggestions).toContain('to: "/semesters"');
     expect(suggestions).toContain('to: "/my-mistakes"');
+    expect(suggestions).not.toContain("SUGGESTIONS.map");
   });
 
   it("counts student-visible lessons and labels empty subjects as preparing", () => {

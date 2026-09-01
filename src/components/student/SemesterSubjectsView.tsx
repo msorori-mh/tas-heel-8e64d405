@@ -163,11 +163,12 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
             className="rounded-2xl border border-border/70 bg-card/85 p-3.5 shadow-sm sm:p-4"
           >
             <dl className="grid grid-cols-3 gap-2 text-center">
-              <SummaryMetric label="المواد الأساسية" value={subjectGroups.length} />
-              <SummaryMetric label="مواد جاهزة" value={readySubjects} />
+              <SummaryMetric label="المواد الأساسية" value={subjectGroups.length} tone="primary" />
+              <SummaryMetric label="مواد جاهزة" value={readySubjects} tone="success" />
               <SummaryMetric
                 label="دروس مكتملة"
                 value={totalLessons > 0 ? `${completedLessons}/${totalLessons}` : "—"}
+                tone="accent"
               />
             </dl>
             {preparingSubjects > 0 ? (
@@ -187,11 +188,25 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
   );
 }
 
-function SummaryMetric({ label, value }: { label: string; value: number | string }) {
+function SummaryMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  tone: "primary" | "success" | "accent";
+}) {
+  const toneClass = {
+    primary: "bg-primary/6 text-primary",
+    success: "bg-success/8 text-success",
+    accent: "bg-accent/8 text-accent-foreground",
+  }[tone];
+
   return (
-    <div className="rounded-xl bg-muted/55 px-2 py-2.5">
+    <div className={`rounded-xl px-2 py-2.5 ${toneClass}`}>
       <dt className="text-[11px] font-semibold text-muted-foreground sm:text-xs">{label}</dt>
-      <dd className="mt-0.5 text-base font-black text-foreground sm:text-lg">{value}</dd>
+      <dd className="mt-0.5 text-base font-black sm:text-lg">{value}</dd>
     </div>
   );
 }

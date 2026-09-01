@@ -36,7 +36,8 @@ describe("STUDENT_HOME_SUBJECT_CARD_UX_V2", () => {
     expect(continueCard).toContain("خطوتك التالية");
     expect(continueCard).toContain("التقدم في الدرس");
     expect(continueCard).toContain("subject-card-accent");
-    expect(dailyGoal).toContain("h-2");
+    expect(dailyGoal).toContain('role="progressbar"');
+    expect(dailyGoal).toContain("استمرارية");
   });
 
   it("fills the learning-tools row without leaving an empty fourth column", () => {
