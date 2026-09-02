@@ -9,6 +9,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type { PreviewAction } from "./ministerial-import-contract";
+import type { MinisterialTrackPackage } from "./ministerial-package-xlsx";
 
 /** RPCs shipped by the pending 14C.2 migration (not yet in generated types). */
 type RpcName =
@@ -17,6 +18,8 @@ type RpcName =
   | "ministerial_m01_execute"
   | "ministerial_m02_prepare"
   | "ministerial_m02_execute"
+  | "ministerial_track_package_prepare"
+  | "ministerial_track_package_execute"
   | "ministerial_membership_remove_preview"
   | "ministerial_membership_remove_execute"
   | "ministerial_model_set_status"
@@ -84,6 +87,39 @@ export type MinisterialExecuteResult = {
   blocked: number;
 };
 
+export type MinisterialPackagePreviewRow = {
+  model_code: string;
+  model_label: string;
+  academic_year: number;
+  track_code: "sanaa" | "aden";
+  question_count: number;
+  fingerprint: string;
+  action: "INSERT" | "SKIP" | "BLOCKED";
+  blocked_reason: string | null;
+};
+
+export type MinisterialPackagePrepareResult = {
+  prepare_id: string;
+  prepare_fingerprint: string;
+  summary: {
+    models: number;
+    questions: number;
+    insert: number;
+    skip: number;
+    blocked: number;
+  };
+  preview: MinisterialPackagePreviewRow[];
+  expires_in_minutes: number;
+};
+
+export type MinisterialPackageExecuteResult = {
+  inserted_models: number;
+  inserted_questions: number;
+  skipped_models: number;
+  published_models: 0;
+  status: "draft";
+};
+
 export function listMinisterialModels(): Promise<MinisterialModelRow[]> {
   return callRpc<MinisterialModelRow[]>("ministerial_models_admin_list");
 }
@@ -102,6 +138,24 @@ export function prepareM02(rows: Record<string, unknown>[]): Promise<Ministerial
 
 export function executeM02(prepareId: string): Promise<MinisterialExecuteResult> {
   return callRpc<MinisterialExecuteResult>("ministerial_m02_execute", { _prepare_id: prepareId });
+}
+
+export function prepareMinisterialTrackPackage(
+  packagePayload: MinisterialTrackPackage,
+): Promise<MinisterialPackagePrepareResult> {
+  return callRpc<MinisterialPackagePrepareResult>("ministerial_track_package_prepare", {
+    _package: packagePayload,
+  });
+}
+
+export function executeMinisterialTrackPackage(
+  prepareId: string,
+  expectedFingerprint: string,
+): Promise<MinisterialPackageExecuteResult> {
+  return callRpc<MinisterialPackageExecuteResult>("ministerial_track_package_execute", {
+    _prepare_id: prepareId,
+    _expected_fingerprint: expectedFingerprint,
+  });
 }
 
 /** Publish never re-implements gates client-side; it just calls the protected RPC. */

@@ -76,6 +76,7 @@ function MinisterialModelDetails() {
     return <StateMessage variant="error">{mapMinisterialError(error)}</StateMessage>;
 
   const duration = formatDuration(data.duration_seconds);
+  const isAden = data.track_code === "aden";
 
   return (
     <div className="space-y-4 pb-6" dir="rtl">
@@ -125,9 +126,19 @@ function MinisterialModelDetails() {
         <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3 text-xs leading-6 text-muted-foreground">
           <p className="font-semibold text-foreground">تعليمات الاختبار</p>
           <ul className="mt-1 list-disc pr-4">
-            <li>وضع التدريب: بدون مؤقت، يمكنك التنقل بين الأسئلة بحرية.</li>
-            <li>وضع المحاكاة: مؤقت زمني وشاشة أسئلة كاملة كما في الاختبار الحقيقي.</li>
-            <li>تُحفظ إجاباتك على الخادم فور اختيارها؛ تأكد من استقرار الاتصال.</li>
+            {isAden ? (
+              <>
+                <li>اكتب إجابتك في الحقل النصي ثم احفظها.</li>
+                <li>يمكنك إظهار الإجابة النموذجية بعد المحاولة للمقارنة والتأكد.</li>
+                <li>المراجعة ذاتية؛ لا يصدر النظام حكماً آلياً على الإجابة النصية.</li>
+              </>
+            ) : (
+              <>
+                <li>وضع التدريب: بدون مؤقت، يمكنك التنقل بين الأسئلة بحرية.</li>
+                <li>وضع المحاكاة: مؤقت زمني وشاشة أسئلة كاملة كما في الاختبار الحقيقي.</li>
+                <li>تُحفظ إجاباتك على الخادم فور اختيارها؛ تأكد من استقرار الاتصال.</li>
+              </>
+            )}
           </ul>
         </div>
 
@@ -143,19 +154,25 @@ function MinisterialModelDetails() {
           </p>
         )}
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <div className={`mt-4 grid gap-2 ${isAden ? "" : "sm:grid-cols-2"}`}>
           <Button onClick={() => start("training")} disabled={starting !== null}>
-            {starting === "training" ? "جارٍ التحضير…" : "التدريب على النموذج"}
+            {starting === "training"
+              ? "جارٍ التحضير…"
+              : isAden
+                ? "ابدأ الحل والمراجعة الذاتية"
+                : "التدريب على النموذج"}
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => start("strict")}
-            disabled={starting !== null}
-            className="gap-1"
-          >
-            <Timer className="h-4 w-4" aria-hidden />
-            {starting === "strict" ? "جارٍ التحضير…" : "محاكاة الاختبار الحقيقي"}
-          </Button>
+          {!isAden && (
+            <Button
+              variant="outline"
+              onClick={() => start("strict")}
+              disabled={starting !== null}
+              className="gap-1"
+            >
+              <Timer className="h-4 w-4" aria-hidden />
+              {starting === "strict" ? "جارٍ التحضير…" : "محاكاة الاختبار الحقيقي"}
+            </Button>
+          )}
         </div>
       </section>
 
@@ -170,15 +187,17 @@ function MinisterialModelDetails() {
               >
                 <div className="min-w-0">
                   <p className="font-semibold text-foreground">
-                    {a.attempt_mode === "strict" ? "محاكاة" : "تدريب"}
+                    {isAden ? "مراجعة ذاتية" : a.attempt_mode === "strict" ? "محاكاة" : "تدريب"}
                     {" • "}
                     {a.status === "in_progress"
                       ? "قيد الحل"
-                      : a.grading_status === "PARTIALLY_GRADED"
-                        ? "قيد التصحيح اليدوي"
-                        : a.percentage !== null
-                          ? `${a.percentage}%`
-                          : "منتهية"}
+                      : isAden
+                        ? "مكتملة"
+                        : a.grading_status === "PARTIALLY_GRADED"
+                          ? "قيد التصحيح اليدوي"
+                          : a.percentage !== null
+                            ? `${a.percentage}%`
+                            : "منتهية"}
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {a.completed_at

@@ -51,6 +51,7 @@ function MinisterialResultPage() {
 
   const s = data.summary;
   const pct = s.percentage;
+  const isAden = data.model?.track_code === "aden";
 
   return (
     <div className="space-y-4 pb-8" dir="rtl">
@@ -59,10 +60,19 @@ function MinisterialResultPage() {
           {data.model ? `${data.model.subject_name} — ${modelTitle(data.model)}` : "نتيجة النموذج"}
         </h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          {s.attempt_mode === "strict" ? "محاكاة الاختبار الحقيقي" : "وضع التدريب"}
+          {isAden
+            ? "مراجعة ذاتية للإجابات النصية"
+            : s.attempt_mode === "strict"
+              ? "محاكاة الاختبار الحقيقي"
+              : "وضع التدريب"}
         </p>
 
-        {s.manual_review_required ? (
+        {isAden ? (
+          <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-foreground">
+            اكتملت المحاولة. راجع إجابتك بجانب الإجابة النموذجية لكل سؤال؛ لا يمنح النظام درجة آلية
+            للإجابة النصية.
+          </div>
+        ) : s.manual_review_required ? (
           <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
             <span>
@@ -84,8 +94,14 @@ function MinisterialResultPage() {
         )}
 
         <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-          <Stat label="صحيحة" value={s.correct_count ?? "—"} />
-          <Stat label="خاطئة" value={s.wrong_count ?? "—"} />
+          <Stat
+            label={isAden ? "تمت الإجابة" : "صحيحة"}
+            value={isAden ? s.answered : (s.correct_count ?? "—")}
+          />
+          <Stat
+            label={isAden ? "إجمالي الأسئلة" : "خاطئة"}
+            value={isAden ? (s.total_questions ?? data.questions.length) : (s.wrong_count ?? "—")}
+          />
           <Stat label="بدون إجابة" value={s.blank_count} />
           <Stat
             label="الزمن"
@@ -102,7 +118,11 @@ function MinisterialResultPage() {
       <section className="space-y-3">
         <h2 className="text-base font-bold text-foreground">مراجعة الأسئلة</h2>
         {data.questions.map((q) => {
-          const style = STATUS_STYLES[q.status] ?? STATUS_STYLES.blank;
+          const style = isAden
+            ? q.response_text?.trim()
+              ? { label: "تمت المراجعة", className: "text-primary" }
+              : STATUS_STYLES.blank
+            : (STATUS_STYLES[q.status] ?? STATUS_STYLES.blank);
           return (
             <article
               key={q.session_question_id}
@@ -133,34 +153,51 @@ function MinisterialResultPage() {
                 {q.question_text}
               </h3>
 
-              <ul className="mt-3 space-y-2">
-                {(q.options ?? []).map((opt) => {
-                  const picked = q.selected_option_code === opt.option_code;
-                  const isCorrect = q.correct_option_code === opt.option_code;
-                  return (
-                    <li
-                      key={`${q.session_question_id}-${opt.option_code}`}
-                      className={`flex items-start gap-2 rounded-xl border p-3 text-sm ${
-                        isCorrect
-                          ? "border-emerald-500 bg-emerald-500/10"
-                          : picked
-                            ? "border-destructive bg-destructive/10"
-                            : "border-border bg-background"
-                      }`}
-                    >
-                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px]">
-                        {opt.option_code}
-                      </span>
-                      <span className="whitespace-pre-wrap">{opt.body}</span>
-                      {picked && (
-                        <span className="mr-auto shrink-0 text-[11px] text-muted-foreground">
-                          إجابتك
+              {isAden ? (
+                <div className="mt-3 space-y-3">
+                  <div className="rounded-xl border border-border bg-background p-3 text-sm">
+                    <p className="mb-1 text-xs font-semibold text-muted-foreground">إجابتك</p>
+                    <p className="whitespace-pre-wrap text-foreground">
+                      {q.response_text?.trim() || "لم تُدخل إجابة."}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm">
+                    <p className="mb-1 text-xs font-semibold text-primary">الإجابة النموذجية</p>
+                    <p className="whitespace-pre-wrap text-foreground">
+                      {q.model_answer?.trim() || "لا توجد إجابة نموذجية متاحة."}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {(q.options ?? []).map((opt) => {
+                    const picked = q.selected_option_code === opt.option_code;
+                    const isCorrect = q.correct_option_code === opt.option_code;
+                    return (
+                      <li
+                        key={`${q.session_question_id}-${opt.option_code}`}
+                        className={`flex items-start gap-2 rounded-xl border p-3 text-sm ${
+                          isCorrect
+                            ? "border-emerald-500 bg-emerald-500/10"
+                            : picked
+                              ? "border-destructive bg-destructive/10"
+                              : "border-border bg-background"
+                        }`}
+                      >
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px]">
+                          {opt.option_code}
                         </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+                        <span className="whitespace-pre-wrap">{opt.body}</span>
+                        {picked && (
+                          <span className="mr-auto shrink-0 text-[11px] text-muted-foreground">
+                            إجابتك
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
 
               {q.explanation && (
                 <p className="mt-3 whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">

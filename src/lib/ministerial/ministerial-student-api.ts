@@ -56,6 +56,7 @@ export type MinisterialSessionAnswer = {
   question_id: string;
   session_question_id: string;
   selected_option_code: string | null;
+  response_text: string | null;
   answered_at: string | null;
   revealed_at: string | null;
 };
@@ -81,6 +82,8 @@ export type MinisterialSessionState = {
     round_code: string;
     subject_id: string;
     subject_name: string;
+    track_code: "sanaa" | "aden";
+    track_name: string;
   } | null;
   questions: MinisterialSessionQuestion[];
   answers: MinisterialSessionAnswer[];
@@ -112,6 +115,7 @@ export type MinisterialResultSummary = {
   percentage: number | null;
   elapsed_seconds: number;
   manual_review_required: boolean;
+  self_review?: boolean;
   is_final: boolean;
 };
 
@@ -123,8 +127,10 @@ export type MinisterialResultQuestion = {
   options: Array<{ option_code: string; body: string }> | null;
   max_score: number | null;
   selected_option_code: string | null;
+  response_text: string | null;
   status: "correct" | "wrong" | "blank" | "manual_review";
   correct_option_code: string | null;
+  model_answer: string | null;
   explanation: string | null;
   lesson_id: string | null;
 };
@@ -147,6 +153,8 @@ export type MinisterialSessionResult = {
     round_code: string;
     subject_id: string;
     subject_name: string;
+    track_code: "sanaa" | "aden";
+    track_name: string;
   } | null;
   summary: MinisterialResultSummary;
   questions: MinisterialResultQuestion[];
@@ -263,6 +271,26 @@ export async function answerMinisterialQuestion(input: {
   if (error) throw error;
 }
 
+/** Aden only: saves the student's own text without returning the model answer. */
+export async function answerMinisterialTextQuestion(input: {
+  sessionId: string;
+  sessionQuestionId: string;
+  responseText: string;
+}): Promise<void> {
+  const client = supabase as unknown as {
+    rpc: (
+      fn: string,
+      params: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  };
+  const { error } = await client.rpc("answer_ministerial_text_question", {
+    _session_id: input.sessionId,
+    _session_question_id: input.sessionQuestionId,
+    _response_text: input.responseText,
+  });
+  if (error) throw new Error(error.message);
+}
+
 /** Training only: server decides, and the answer is locked afterwards. */
 export async function revealMinisterialAnswer(input: {
   sessionId: string;
@@ -327,7 +355,12 @@ export function mapMinisterialError(err: unknown): string {
     return "هذا النموذج غير متاح لصفك الدراسي أو لم يعد منشوراً.";
   }
   if (msg.includes("ANSWER_ALREADY_REVEALED_LOCKED")) return "تم كشف الإجابة، ولا يمكن تغييرها.";
-  if (msg.includes("ANSWER_REQUIRED_BEFORE_REVEAL")) return "اختر إجابة أولاً قبل كشف الحل.";
+  if (msg.includes("ANSWER_REQUIRED_BEFORE_REVEAL")) return "أدخل إجابتك أولاً قبل كشف الحل.";
+  if (msg.includes("TEXT_ANSWER_REQUIRED")) return "اكتب إجابة قبل الحفظ.";
+  if (msg.includes("TEXT_ANSWER_TOO_LONG")) return "الإجابة النصية أطول من الحد المسموح.";
+  if (msg.includes("TEXT_ANSWER_ADEN_ONLY")) return "الإجابة النصية متاحة لنماذج عدن فقط.";
+  if (msg.includes("MINISTERIAL_ANSWER_LAYER_NOT_READY"))
+    return "الإجابة النموذجية غير جاهزة لهذا السؤال.";
   if (msg.includes("REVEAL_NOT_ALLOWED_IN_STRICT")) return "كشف الحل غير متاح في وضع المحاكاة.";
   if (msg.includes("SESSION_NOT_COMPLETED")) return "لم تُسلَّم هذه المحاولة بعد.";
   if (msg.includes("SESSION_EXPIRED") || msg.includes("session_not_in_progress")) {

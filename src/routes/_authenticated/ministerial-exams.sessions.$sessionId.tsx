@@ -5,9 +5,12 @@ import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 import {
   answerMinisterialQuestion,
+  answerMinisterialTextQuestion,
   fetchMinisterialSessionState,
   mapMinisterialError,
   modelTitle,
@@ -24,6 +27,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Save,
   Send,
   Timer,
   XCircle,
@@ -65,6 +69,7 @@ function MinisterialSessionPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [reveals, setReveals] = useState<Record<string, MinisterialRevealResult>>({});
+  const [textAnswers, setTextAnswers] = useState<Record<string, string>>({});
   const [tick, setTick] = useState(0);
 
   const { data, isLoading, error } = useQuery({
@@ -96,15 +101,32 @@ function MinisterialSessionPage() {
   void tick;
 
   const answersByQuestion = useMemo(() => {
-    const map = new Map<string, { code: string | null; revealedAt: string | null }>();
+    const map = new Map<
+      string,
+      { code: string | null; text: string | null; revealedAt: string | null }
+    >();
     (data?.answers ?? []).forEach((a) =>
       map.set(a.session_question_id, {
         code: a.selected_option_code,
+        text: a.response_text,
         revealedAt: a.revealed_at,
       }),
     );
     return map;
   }, [data]);
+
+  useEffect(() => {
+    if (!data?.answers) return;
+    setTextAnswers((previous) => {
+      const next = { ...previous };
+      for (const answer of data.answers) {
+        if (!(answer.session_question_id in next) && answer.response_text) {
+          next[answer.session_question_id] = answer.response_text;
+        }
+      }
+      return next;
+    });
+  }, [data?.answers]);
 
   const submitMutation = useMutation({
     mutationFn: () => submitMinisterialSession(sessionId),
@@ -143,6 +165,15 @@ function MinisterialSessionPage() {
       queryClient.invalidateQueries({ queryKey: ["ministerial-session", sessionId] }),
   });
 
+  const textAnswerMutation = useMutation({
+    mutationFn: (input: { sessionQuestionId: string; responseText: string }) =>
+      answerMinisterialTextQuestion({ sessionId, ...input }),
+    onMutate: () => setActionError(null),
+    onError: (err) => setActionError(mapMinisterialError(err)),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["ministerial-session", sessionId] }),
+  });
+
   const revealMutation = useMutation({
     mutationFn: (sessionQuestionId: string) =>
       revealMinisterialAnswer({ sessionId, sessionQuestionId }),
@@ -174,10 +205,12 @@ function MinisterialSessionPage() {
   }
 
   const questions = data.questions;
+  const isAden = data.model?.track_code === "aden";
   const total = questions.length;
-  const answeredCount = questions.filter(
-    (q) => (answersByQuestion.get(q.session_question_id)?.code ?? null) !== null,
-  ).length;
+  const answeredCount = questions.filter((q) => {
+    const answer = answersByQuestion.get(q.session_question_id);
+    return (answer?.code ?? null) !== null || Boolean(answer?.text?.trim());
+  }).length;
   const current = questions[Math.min(currentIdx, Math.max(total - 1, 0))];
   const locked = timeUp || submitMutation.isPending;
 
@@ -189,7 +222,12 @@ function MinisterialSessionPage() {
             {data.model ? `${data.model.subject_name} — ${modelTitle(data.model)}` : "نموذج وزاري"}
           </h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {isStrict ? "محاكاة الاختبار الحقيقي" : "وضع التدريب"} • {answeredCount}/{total} مُجاب
+            {isAden
+              ? "إجابة نصية ومراجعة ذاتية"
+              : isStrict
+                ? "محاكاة الاختبار الحقيقي"
+                : "وضع التدريب"}{" "}
+            • {answeredCount}/{total} مُجاب
           </p>
         </div>
         {timed && (
@@ -220,6 +258,30 @@ function MinisterialSessionPage() {
   const currentReveal = reveals[current.session_question_id];
   const revealedOnServer = Boolean(currentAnswer?.revealedAt);
   const questionLocked = locked || revealedOnServer;
+  const isTextQuestion = isAden || optionsOf(current).length === 0;
+  const currentText = textAnswers[current.session_question_id] ?? currentAnswer?.text ?? "";
+
+  async function saveTextAnswer(): Promise<boolean> {
+    const responseText = currentText.trim();
+    if (!responseText) {
+      setActionError("اكتب إجابتك أولاً.");
+      return false;
+    }
+    try {
+      await textAnswerMutation.mutateAsync({
+        sessionQuestionId: current.session_question_id,
+        responseText,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function saveAndRevealTextAnswer() {
+    if (!(await saveTextAnswer())) return;
+    revealMutation.mutate(current.session_question_id);
+  }
 
   return (
     <div className="space-y-4 pb-8" dir="rtl">
@@ -230,7 +292,8 @@ function MinisterialSessionPage() {
           <ul className="flex flex-wrap gap-1.5">
             {questions.map((q, idx) => {
               const answered =
-                (answersByQuestion.get(q.session_question_id)?.code ?? null) !== null;
+                (answersByQuestion.get(q.session_question_id)?.code ?? null) !== null ||
+                Boolean(answersByQuestion.get(q.session_question_id)?.text?.trim());
               const active = idx === currentIdx;
               return (
                 <li key={q.session_question_id}>
@@ -268,52 +331,92 @@ function MinisterialSessionPage() {
           {current.question_text}
         </h2>
 
-        <ul className="mt-4 space-y-2">
-          {optionsOf(current).map((opt) => {
-            const selected = currentAnswer?.code === opt.option_code;
-            const isCorrectOption =
-              currentReveal && currentReveal.correct_option_code === opt.option_code;
-            const isWrongPick = currentReveal && selected && currentReveal.verdict === "wrong";
-            return (
-              <li key={`${current.session_question_id}-${opt.option_code}`}>
-                <button
-                  type="button"
-                  disabled={questionLocked || answerMutation.isPending}
-                  onClick={() =>
-                    answerMutation.mutate({
-                      sessionQuestionId: current.session_question_id,
-                      optionCode: opt.option_code,
-                    })
-                  }
-                  className={`flex w-full items-start gap-2 rounded-xl border p-3 text-right text-sm transition disabled:opacity-70 ${
-                    isCorrectOption
-                      ? "border-emerald-500 bg-emerald-500/10 text-foreground"
-                      : isWrongPick
-                        ? "border-destructive bg-destructive/10 text-foreground"
-                        : selected
-                          ? "border-primary bg-primary/10 text-foreground"
-                          : "border-border bg-background hover:border-primary/40"
-                  }`}
-                >
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px]">
-                    {opt.option_code}
-                  </span>
-                  <span className="whitespace-pre-wrap">{opt.body}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        {isTextQuestion ? (
+          <div className="mt-4 space-y-2">
+            <Label htmlFor={`ministerial-text-${current.session_question_id}`}>اكتب إجابتك</Label>
+            <Textarea
+              id={`ministerial-text-${current.session_question_id}`}
+              value={currentText}
+              rows={6}
+              maxLength={8000}
+              disabled={questionLocked || textAnswerMutation.isPending}
+              placeholder="اكتب إجابتك هنا، ثم احفظها أو اعرض الإجابة النموذجية للتأكد."
+              onChange={(event) =>
+                setTextAnswers((previous) => ({
+                  ...previous,
+                  [current.session_question_id]: event.target.value,
+                }))
+              }
+            />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">{currentText.length}/8000</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                disabled={!currentText.trim() || questionLocked || textAnswerMutation.isPending}
+                onClick={() => void saveTextAnswer()}
+              >
+                <Save className="h-4 w-4" aria-hidden />
+                {textAnswerMutation.isPending ? "جارٍ الحفظ…" : "حفظ الإجابة"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <ul className="mt-4 space-y-2">
+            {optionsOf(current).map((opt) => {
+              const selected = currentAnswer?.code === opt.option_code;
+              const isCorrectOption =
+                currentReveal && currentReveal.correct_option_code === opt.option_code;
+              const isWrongPick = currentReveal && selected && currentReveal.verdict === "wrong";
+              return (
+                <li key={`${current.session_question_id}-${opt.option_code}`}>
+                  <button
+                    type="button"
+                    disabled={questionLocked || answerMutation.isPending}
+                    onClick={() =>
+                      answerMutation.mutate({
+                        sessionQuestionId: current.session_question_id,
+                        optionCode: opt.option_code,
+                      })
+                    }
+                    className={`flex w-full items-start gap-2 rounded-xl border p-3 text-right text-sm transition disabled:opacity-70 ${
+                      isCorrectOption
+                        ? "border-emerald-500 bg-emerald-500/10 text-foreground"
+                        : isWrongPick
+                          ? "border-destructive bg-destructive/10 text-foreground"
+                          : selected
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border bg-background hover:border-primary/40"
+                    }`}
+                  >
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px]">
+                      {opt.option_code}
+                    </span>
+                    <span className="whitespace-pre-wrap">{opt.body}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
         {!isStrict && (
           <div className="mt-4">
             {currentReveal ? (
               <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3 text-sm">
                 {currentReveal.verdict === "manual_review" ? (
-                  <p className="flex items-center gap-2 font-semibold text-amber-600">
-                    <AlertTriangle className="h-4 w-4" aria-hidden />
-                    هذا السؤال يحتاج تصحيحاً يدوياً.
-                  </p>
+                  <div className="space-y-2">
+                    <p className="font-semibold text-foreground">الإجابة النموذجية</p>
+                    <p className="whitespace-pre-wrap rounded-lg border border-primary/20 bg-primary/5 p-3 text-foreground">
+                      {currentReveal.model_answer ?? "لا توجد إجابة نموذجية متاحة."}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      قارن إجابتك بالإجابة النموذجية؛ هذه مراجعة ذاتية ولا يرسل النظام حكماً آلياً
+                      على إجابتك النصية.
+                    </p>
+                  </div>
                 ) : currentReveal.verdict === "correct" ? (
                   <p className="flex items-center gap-2 font-semibold text-emerald-600">
                     <CheckCircle2 className="h-4 w-4" aria-hidden />
@@ -346,17 +449,31 @@ function MinisterialSessionPage() {
                 variant="outline"
                 className="w-full gap-1"
                 disabled={
-                  !currentAnswer?.code || revealMutation.isPending || revealedOnServer || locked
+                  (isTextQuestion ? !currentText.trim() : !currentAnswer?.code) ||
+                  revealMutation.isPending ||
+                  textAnswerMutation.isPending ||
+                  locked
                 }
-                onClick={() => revealMutation.mutate(current.session_question_id)}
+                onClick={() =>
+                  isTextQuestion && !revealedOnServer
+                    ? void saveAndRevealTextAnswer()
+                    : revealMutation.mutate(current.session_question_id)
+                }
               >
                 <Eye className="h-4 w-4" aria-hidden />
-                {revealedOnServer ? "تم كشف الحل مسبقاً" : "كشف الحل"}
+                {revealedOnServer
+                  ? isTextQuestion
+                    ? "عرض الإجابة النموذجية مجددًا"
+                    : "عرض الحل مجددًا"
+                  : isTextQuestion
+                    ? "إظهار الإجابة النموذجية"
+                    : "كشف الحل"}
               </Button>
             )}
-            {!currentReveal && !currentAnswer?.code && (
+            {!currentReveal && (isTextQuestion ? !currentText.trim() : !currentAnswer?.code) && (
               <p className="mt-2 text-xs text-muted-foreground">
-                اختر إجابة أولاً. بعد كشف الحل لا يمكن تغيير إجابتك.
+                {isTextQuestion ? "اكتب إجابتك أولاً." : "اختر إجابة أولاً."} بعد كشف الحل لا يمكن
+                تغيير إجابتك.
               </p>
             )}
           </div>
