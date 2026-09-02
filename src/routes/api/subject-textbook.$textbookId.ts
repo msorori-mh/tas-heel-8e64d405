@@ -34,6 +34,7 @@ type TextbookRow = {
   storage_path: string;
   version: string;
   is_active: boolean;
+  sha256: string | null;
 };
 
 async function handle(request: Request, textbookId: string, method: "GET" | "HEAD") {
@@ -75,7 +76,7 @@ async function handle(request: Request, textbookId: string, method: "GET" | "HEA
     }
   )
     .from("subject_textbooks")
-    .select("id, storage_bucket, storage_path, version, is_active")
+    .select("id, storage_bucket, storage_path, version, is_active, sha256")
     .eq("id", textbookId)
     .maybeSingle();
 
@@ -110,6 +111,9 @@ async function handle(request: Request, textbookId: string, method: "GET" | "HEA
   headers.set("accept-ranges", "bytes");
   headers.set("etag", `"${version}"`);
   headers.set("x-file-version", version);
+  if (data.sha256 && /^[a-f0-9]{64}$/.test(data.sha256)) {
+    headers.set("x-file-sha256", data.sha256);
+  }
   headers.set("cache-control", "private, max-age=0, must-revalidate");
   headers.set("content-disposition", "inline");
   headers.set("x-content-type-options", "nosniff");

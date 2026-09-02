@@ -78,6 +78,8 @@ import { Route as AuthenticatedAdminCurriculumRouteImport } from './routes/_auth
 import { Route as AuthenticatedAdminAcademicRouteImport } from './routes/_authenticated/admin.academic'
 import { Route as AuthenticatedMinisterialExamsRepeatedIndexRouteImport } from './routes/_authenticated/ministerial-exams.repeated.index'
 import { Route as AuthenticatedAdminLessonsIndexRouteImport } from './routes/_authenticated/admin.lessons.index'
+import { Route as ApiOfflinePackManifestSubjectIdRouteImport } from './routes/api/offline-pack.manifest.$subjectId'
+import { Route as ApiOfflinePackArtifactResourceIdRouteImport } from './routes/api/offline-pack.artifact.$resourceId'
 import { Route as AuthenticatedUnitsUnitIdPracticeRouteImport } from './routes/_authenticated/units.$unitId.practice'
 import { Route as AuthenticatedMinisterialExamsSessionsSessionIdRouteImport } from './routes/_authenticated/ministerial-exams.sessions.$sessionId'
 import { Route as AuthenticatedMinisterialExamsRepeatedSubjectIdRouteImport } from './routes/_authenticated/ministerial-exams.repeated.$subjectId'
@@ -466,6 +468,18 @@ const AuthenticatedAdminLessonsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAdminLessonsRoute,
   } as any)
+const ApiOfflinePackManifestSubjectIdRoute =
+  ApiOfflinePackManifestSubjectIdRouteImport.update({
+    id: '/api/offline-pack/manifest/$subjectId',
+    path: '/api/offline-pack/manifest/$subjectId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiOfflinePackArtifactResourceIdRoute =
+  ApiOfflinePackArtifactResourceIdRouteImport.update({
+    id: '/api/offline-pack/artifact/$resourceId',
+    path: '/api/offline-pack/artifact/$resourceId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedUnitsUnitIdPracticeRoute =
   AuthenticatedUnitsUnitIdPracticeRouteImport.update({
     id: '/units/$unitId/practice',
@@ -624,6 +638,8 @@ export interface FileRoutesByFullPath {
   '/ministerial-exams/repeated/$subjectId': typeof AuthenticatedMinisterialExamsRepeatedSubjectIdRoute
   '/ministerial-exams/sessions/$sessionId': typeof AuthenticatedMinisterialExamsSessionsSessionIdRouteWithChildren
   '/units/$unitId/practice': typeof AuthenticatedUnitsUnitIdPracticeRoute
+  '/api/offline-pack/artifact/$resourceId': typeof ApiOfflinePackArtifactResourceIdRoute
+  '/api/offline-pack/manifest/$subjectId': typeof ApiOfflinePackManifestSubjectIdRoute
   '/admin/lessons/': typeof AuthenticatedAdminLessonsIndexRoute
   '/ministerial-exams/repeated/': typeof AuthenticatedMinisterialExamsRepeatedIndexRoute
   '/ministerial-exams/sessions/$sessionId/result': typeof AuthenticatedMinisterialExamsSessionsSessionIdResultRoute
@@ -702,6 +718,8 @@ export interface FileRoutesByTo {
   '/ministerial-exams/repeated/$subjectId': typeof AuthenticatedMinisterialExamsRepeatedSubjectIdRoute
   '/ministerial-exams/sessions/$sessionId': typeof AuthenticatedMinisterialExamsSessionsSessionIdRouteWithChildren
   '/units/$unitId/practice': typeof AuthenticatedUnitsUnitIdPracticeRoute
+  '/api/offline-pack/artifact/$resourceId': typeof ApiOfflinePackArtifactResourceIdRoute
+  '/api/offline-pack/manifest/$subjectId': typeof ApiOfflinePackManifestSubjectIdRoute
   '/admin/lessons': typeof AuthenticatedAdminLessonsIndexRoute
   '/ministerial-exams/repeated': typeof AuthenticatedMinisterialExamsRepeatedIndexRoute
   '/ministerial-exams/sessions/$sessionId/result': typeof AuthenticatedMinisterialExamsSessionsSessionIdResultRoute
@@ -787,6 +805,8 @@ export interface FileRoutesById {
   '/_authenticated/ministerial-exams/repeated/$subjectId': typeof AuthenticatedMinisterialExamsRepeatedSubjectIdRoute
   '/_authenticated/ministerial-exams/sessions/$sessionId': typeof AuthenticatedMinisterialExamsSessionsSessionIdRouteWithChildren
   '/_authenticated/units/$unitId/practice': typeof AuthenticatedUnitsUnitIdPracticeRoute
+  '/api/offline-pack/artifact/$resourceId': typeof ApiOfflinePackArtifactResourceIdRoute
+  '/api/offline-pack/manifest/$subjectId': typeof ApiOfflinePackManifestSubjectIdRoute
   '/_authenticated/admin/lessons/': typeof AuthenticatedAdminLessonsIndexRoute
   '/_authenticated/ministerial-exams/repeated/': typeof AuthenticatedMinisterialExamsRepeatedIndexRoute
   '/_authenticated/ministerial-exams/sessions/$sessionId/result': typeof AuthenticatedMinisterialExamsSessionsSessionIdResultRoute
@@ -872,6 +892,8 @@ export interface FileRouteTypes {
     | '/ministerial-exams/repeated/$subjectId'
     | '/ministerial-exams/sessions/$sessionId'
     | '/units/$unitId/practice'
+    | '/api/offline-pack/artifact/$resourceId'
+    | '/api/offline-pack/manifest/$subjectId'
     | '/admin/lessons/'
     | '/ministerial-exams/repeated/'
     | '/ministerial-exams/sessions/$sessionId/result'
@@ -950,6 +972,8 @@ export interface FileRouteTypes {
     | '/ministerial-exams/repeated/$subjectId'
     | '/ministerial-exams/sessions/$sessionId'
     | '/units/$unitId/practice'
+    | '/api/offline-pack/artifact/$resourceId'
+    | '/api/offline-pack/manifest/$subjectId'
     | '/admin/lessons'
     | '/ministerial-exams/repeated'
     | '/ministerial-exams/sessions/$sessionId/result'
@@ -1034,6 +1058,8 @@ export interface FileRouteTypes {
     | '/_authenticated/ministerial-exams/repeated/$subjectId'
     | '/_authenticated/ministerial-exams/sessions/$sessionId'
     | '/_authenticated/units/$unitId/practice'
+    | '/api/offline-pack/artifact/$resourceId'
+    | '/api/offline-pack/manifest/$subjectId'
     | '/_authenticated/admin/lessons/'
     | '/_authenticated/ministerial-exams/repeated/'
     | '/_authenticated/ministerial-exams/sessions/$sessionId/result'
@@ -1059,6 +1085,8 @@ export interface RootRouteChildren {
   Prototype19cRoute: typeof Prototype19cRoute
   ApiLessonFileResourceIdRoute: typeof ApiLessonFileResourceIdRoute
   ApiSubjectTextbookTextbookIdRoute: typeof ApiSubjectTextbookTextbookIdRoute
+  ApiOfflinePackArtifactResourceIdRoute: typeof ApiOfflinePackArtifactResourceIdRoute
+  ApiOfflinePackManifestSubjectIdRoute: typeof ApiOfflinePackManifestSubjectIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1546,6 +1574,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLessonsIndexRouteImport
       parentRoute: typeof AuthenticatedAdminLessonsRoute
     }
+    '/api/offline-pack/manifest/$subjectId': {
+      id: '/api/offline-pack/manifest/$subjectId'
+      path: '/api/offline-pack/manifest/$subjectId'
+      fullPath: '/api/offline-pack/manifest/$subjectId'
+      preLoaderRoute: typeof ApiOfflinePackManifestSubjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/offline-pack/artifact/$resourceId': {
+      id: '/api/offline-pack/artifact/$resourceId'
+      path: '/api/offline-pack/artifact/$resourceId'
+      fullPath: '/api/offline-pack/artifact/$resourceId'
+      preLoaderRoute: typeof ApiOfflinePackArtifactResourceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/units/$unitId/practice': {
       id: '/_authenticated/units/$unitId/practice'
       path: '/units/$unitId/practice'
@@ -1905,6 +1947,8 @@ const rootRouteChildren: RootRouteChildren = {
   Prototype19cRoute: Prototype19cRoute,
   ApiLessonFileResourceIdRoute: ApiLessonFileResourceIdRoute,
   ApiSubjectTextbookTextbookIdRoute: ApiSubjectTextbookTextbookIdRoute,
+  ApiOfflinePackArtifactResourceIdRoute: ApiOfflinePackArtifactResourceIdRoute,
+  ApiOfflinePackManifestSubjectIdRoute: ApiOfflinePackManifestSubjectIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

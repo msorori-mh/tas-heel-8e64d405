@@ -8,6 +8,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
+import {
+  readOfflineOfficialQuestionNotes,
+  saveOfflineOfficialQuestionNote,
+} from "@/lib/offline/offline-learning-journal";
+import { syncOfflineOutboxForCurrentSession } from "@/lib/offline/offline-sync";
 
 export type LessonQuestionNoteMap = Record<string, string>;
 
@@ -24,59 +29,62 @@ export function useLessonQuestionNotes(lessonId: string, studentId: string | nul
     enabled: Boolean(lessonId && studentId),
     queryKey: lessonQuestionNotesKey(lessonId, studentId ?? null),
     queryFn: async (): Promise<LessonQuestionNoteMap> => {
-      const { data: rows, error } = await supabase
-        .from("lesson_question_notes")
-        .select("question_id,answer_text")
-        .eq("lesson_id", lessonId);
-      if (error) throw error;
-      const map: LessonQuestionNoteMap = {};
-      for (const row of rows ?? []) map[row.question_id] = row.answer_text ?? "";
-      return map;
+      const local = await readOfflineOfficialQuestionNotes(studentId!, lessonId);
+      try {
+        const { data: rows, error } = await supabase
+          .from("lesson_question_notes")
+          .select("question_id,answer_text")
+          .eq("lesson_id", lessonId);
+        if (error) throw error;
+        const remote: LessonQuestionNoteMap = {};
+        for (const row of rows ?? []) remote[row.question_id] = row.answer_text ?? "";
+        return { ...remote, ...local };
+      } catch {
+        return local;
+      }
     },
+    networkMode: "always",
   });
 
   const notes = data ?? {};
 
   const persist = useCallback(
-    async (questionId: string, answerText: string) => {
+    async (questionId: string) => {
       if (!studentId) return;
       setSavingIds((ids) => (ids.includes(questionId) ? ids : [...ids, questionId]));
       try {
-        const { error } = await supabase.from("lesson_question_notes").upsert(
-          {
-            student_id: studentId,
-            lesson_id: lessonId,
-            question_id: questionId,
-            answer_text: answerText,
-          },
-          { onConflict: "student_id,question_id" },
-        );
-        if (error) throw error;
-        queryClient.setQueryData<LessonQuestionNoteMap>(
-          lessonQuestionNotesKey(lessonId, studentId),
-          (prev) => ({ ...(prev ?? {}), [questionId]: answerText }),
-        );
+        await syncOfflineOutboxForCurrentSession();
       } catch {
-        /* silent: the student keeps their local text, retried on next edit */
+        /* The durable operation remains queued for reconnect/focus retry. */
       } finally {
         setSavingIds((ids) => ids.filter((id) => id !== questionId));
       }
     },
-    [lessonId, queryClient, studentId],
+    [studentId],
   );
 
   /** Debounced autosave (1s) so typing does not hammer the network. */
   const saveNote = useCallback(
     (questionId: string, answerText: string) => {
       if (!studentId) return;
+      queryClient.setQueryData<LessonQuestionNoteMap>(
+        lessonQuestionNotesKey(lessonId, studentId),
+        (prev) => ({ ...(prev ?? {}), [questionId]: answerText }),
+      );
+      void saveOfflineOfficialQuestionNote({
+        ownerId: studentId,
+        lessonId,
+        questionId,
+        answerText,
+      }).catch(() => undefined);
       const existing = timers.current[questionId];
       if (existing) clearTimeout(existing);
       timers.current[questionId] = setTimeout(() => {
         delete timers.current[questionId];
-        void persist(questionId, answerText);
+        void persist(questionId);
       }, 1000);
     },
-    [persist, studentId],
+    [lessonId, persist, queryClient, studentId],
   );
 
   useEffect(() => {
