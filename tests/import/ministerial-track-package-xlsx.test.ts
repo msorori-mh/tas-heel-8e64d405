@@ -76,6 +76,9 @@ test("Aden template and parser use text answer + model answer with no options", 
   assert.deepEqual(index.getRow(3).values.slice(1, MINISTERIAL_INDEX_HEADERS.length + 1), [
     ...MINISTERIAL_INDEX_HEADERS,
   ]);
+  assert.equal(index.getRow(1).height, 28);
+  assert.equal(index.getCell("A1").alignment.horizontal, "center");
+  assert.equal(index.views[0]?.rightToLeft, true);
   const questions = workbook.getWorksheet("نموذج_1")!;
   assert.deepEqual(questions.getRow(4).values.slice(1, 5), [...ADEN_QUESTION_HEADERS]);
 

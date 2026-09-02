@@ -441,8 +441,9 @@ export async function buildMinisterialPackageTemplate(input: {
   const index = workbook.addWorksheet(MINISTERIAL_INDEX_SHEET, { views: [{ rightToLeft: true }] });
   index.addRow([`قالب استيراد — اختبارات مسار ${input.trackCode === "sanaa" ? "صنعاء" : "عدن"}`]);
   index.mergeCells("A1:F1");
-  index.getCell("A1").font = { bold: true, size: 16, color: { argb: "FF17203B" } };
-  index.getCell("A1").alignment = { horizontal: "right", vertical: "middle" };
+  index.getRow(1).height = 28;
+  index.getCell("A1").font = { bold: true, size: 15, color: { argb: "FF17203B" } };
+  index.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
   index.addRow([]);
   const indexHeader = index.addRow([...MINISTERIAL_INDEX_HEADERS]);
   applyHeaderStyle(indexHeader);

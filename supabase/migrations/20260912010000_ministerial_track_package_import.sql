@@ -372,15 +372,22 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'MINISTERIAL_PREPARE_NOT_FOUND' USING ERRCODE = 'P0002';
   END IF;
-  IF v_prepare.status <> 'pending' THEN
-    RAISE EXCEPTION 'MINISTERIAL_PREPARE_ALREADY_CONSUMED' USING ERRCODE = '22023';
-  END IF;
-  IF v_prepare.expires_at < now() THEN
-    RAISE EXCEPTION 'MINISTERIAL_PREPARE_EXPIRED' USING ERRCODE = '22023';
-  END IF;
   IF btrim(coalesce(_expected_fingerprint, '')) IS DISTINCT FROM v_prepare.fingerprint
      OR public.cf10_text_sha256(v_prepare.staged_rows::text) IS DISTINCT FROM v_prepare.fingerprint THEN
     RAISE EXCEPTION 'MINISTERIAL_PACKAGE_FINGERPRINT_MISMATCH' USING ERRCODE = '40001';
+  END IF;
+  IF v_prepare.status = 'consumed' THEN
+    v_result := v_prepare.summary->'execution_result';
+    IF v_result IS NULL THEN
+      RAISE EXCEPTION 'MINISTERIAL_PREPARE_RESULT_MISSING' USING ERRCODE = '40001';
+    END IF;
+    RETURN v_result;
+  END IF;
+  IF v_prepare.status <> 'pending' THEN
+    RAISE EXCEPTION 'MINISTERIAL_PREPARE_STATE_INVALID' USING ERRCODE = '22023';
+  END IF;
+  IF v_prepare.expires_at < now() THEN
+    RAISE EXCEPTION 'MINISTERIAL_PREPARE_EXPIRED' USING ERRCODE = '22023';
   END IF;
   IF coalesce((v_prepare.summary->>'blocked')::integer, 0) <> 0 THEN
     RAISE EXCEPTION 'MINISTERIAL_PACKAGE_HAS_BLOCKED_MODELS' USING ERRCODE = '22023';
@@ -564,10 +571,6 @@ BEGIN
     v_inserted_models := v_inserted_models + 1;
   END LOOP;
 
-  UPDATE public.ministerial_import_prepares
-  SET status = 'consumed', consumed_at = now()
-  WHERE id = _prepare_id;
-
   v_result := jsonb_build_object(
     'inserted_models', v_inserted_models,
     'inserted_questions', v_inserted_questions,
@@ -575,6 +578,12 @@ BEGIN
     'published_models', 0,
     'status', 'draft'
   );
+  UPDATE public.ministerial_import_prepares
+  SET status = 'consumed',
+      consumed_at = now(),
+      summary = summary || jsonb_build_object('execution_result', v_result)
+  WHERE id = _prepare_id;
+
   INSERT INTO public.audit_logs(actor_id, action, target_type, target_id, metadata)
   VALUES (
     v_actor, 'ministerial_track_package_execute', 'ministerial_import_prepare', _prepare_id,

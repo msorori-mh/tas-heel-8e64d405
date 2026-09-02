@@ -16,6 +16,11 @@ const sessionRoute = readFileSync(
   "src/routes/_authenticated/ministerial-exams.sessions.$sessionId.tsx",
   "utf8",
 );
+const workflow = readFileSync(".github/workflows/web-ci.yml", "utf8");
+const pgRunner = readFileSync(
+  "tests/import/run-pg17-ministerial-track-package-rehearsal.sh",
+  "utf8",
+);
 
 test("package writes stay RPC-only, authorized, draft-only, pinned and fingerprinted", () => {
   assert.match(adminApi, /ministerial_track_package_prepare/);
@@ -27,6 +32,11 @@ test("package writes stay RPC-only, authorized, draft-only, pinned and fingerpri
   assert.match(importSql, /is_content_staff\(v_actor\)/);
   assert.match(importSql, /source_fingerprint/);
   assert.match(importSql, /_expected_fingerprint/);
+  assert.match(importSql, /v_prepare\.summary->'execution_result'/);
+  assert.match(
+    importSql,
+    /summary = summary \|\| jsonb_build_object\('execution_result', v_result\)/,
+  );
   assert.match(importSql, /published_revision_id/);
   assert.match(importSql, /_qb_compute_revision_payload_hash/);
   assert.match(importSql, /can_publish_ministerial_model/);
@@ -68,4 +78,13 @@ test("Aden answer key remains server-only until an attempted reveal", () => {
 test("audit metadata excludes raw questions and answers", () => {
   const auditSection = importSql.slice(importSql.indexOf("INSERT INTO public.audit_logs"));
   assert.doesNotMatch(auditSection, /question_text|model_answer|response_text/);
+});
+
+test("the real package and answer path is rehearsed on disposable PostgreSQL 17", () => {
+  assert.match(workflow, /ministerial-import-pg17:/);
+  assert.match(workflow, /run-pg17-ministerial-track-package-rehearsal\.sh/);
+  assert.match(pgRunner, /MINISTERIAL_PG17_URL must target localhost/);
+  assert.match(pgRunner, /20260912010000_ministerial_track_package_import\.sql/);
+  assert.match(pgRunner, /20260912020000_ministerial_aden_text_answers\.sql/);
+  assert.match(pgRunner, /pg17-ministerial-track-package-smoke\.sql/);
 });
