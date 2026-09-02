@@ -60,9 +60,15 @@ for file in "${CHAIN[@]}"; do
   psql "$MINISTERIAL_PG17_URL" --set=ON_ERROR_STOP=1 --quiet --file "$file"
 done
 
+set +e
 output="$(psql "$MINISTERIAL_PG17_URL" --set=ON_ERROR_STOP=1 --file \
   tests/import/fixtures/pg17-ministerial-track-package-smoke.sql 2>&1)"
-echo "$output" | grep 'PASS' || true
+psql_rc=$?
+set -e
+echo "$output"
+if [ "$psql_rc" -ne 0 ]; then
+  exit "$psql_rc"
+fi
 pass_count="$(echo "$output" | grep -c 'PASS' || true)"
 if [ "$pass_count" -lt 24 ]; then
   echo "Ministerial package rehearsal produced $pass_count PASS assertions; expected at least 24." >&2
