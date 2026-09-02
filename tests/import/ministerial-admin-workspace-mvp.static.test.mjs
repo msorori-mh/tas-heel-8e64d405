@@ -5,6 +5,7 @@ import { test } from "node:test";
 const route = readFileSync("src/routes/_authenticated/admin.ministerial-exams.tsx", "utf8");
 const importer = readFileSync("src/components/admin/MinisterialTrackPackageImporter.tsx", "utf8");
 const workbook = readFileSync("src/lib/ministerial/ministerial-package-xlsx.ts", "utf8");
+const adminAccess = readFileSync("src/lib/admin-route-access.ts", "utf8");
 
 test("ministerial package workspace remains Grade 12 only", () => {
   assert.match(route, /isGrade12Reference/);
@@ -27,4 +28,10 @@ test("round and variant are generated and publishing stays separate", () => {
   assert.match(importer, /ينشئ التنفيذ مسودات فقط/);
   assert.match(route, /publishMinisterialModel/);
   assert.doesNotMatch(importer, /<Label>الدور<\/Label>|variant.*Input/);
+});
+
+test("content managers can reach the ministerial workspace without full-admin access", () => {
+  assert.match(route, /useRequireAdminSection\("content"\)/);
+  assert.match(adminAccess, /CONTENT_MANAGER_ADMIN_PATHS[\s\S]*"\/admin\/ministerial-exams"/);
+  assert.match(adminAccess, /if \(!flags\.isContentStaff\) return false/);
 });
