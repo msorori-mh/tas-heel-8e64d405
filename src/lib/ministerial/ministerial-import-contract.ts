@@ -221,6 +221,7 @@ export const MINISTERIAL_BLOCK_REASON_AR: Record<string, string> = {
   SUBJECT_TRACK_NOT_ASSIGNED: "المادة غير مرتبطة بهذا المسار",
   TCS1_CODE_REJECTED: "كود بمخطط TCS-1 مرفوض",
   MODEL_IDENTITY_IMMUTABLE: "لا يمكن تعديل هوية نموذج منشور",
+  MODEL_CONTENT_CONFLICT: "يوجد نموذج مسودة بالكود نفسه لكن بمحتوى أو بصمة مختلفة",
   DUPLICATE_ROW_IN_FILE: "صف مكرر داخل الملف",
   MODEL_NOT_FOUND: "النموذج غير موجود",
   MODEL_NOT_DRAFT: "النموذج ليس مسودة",

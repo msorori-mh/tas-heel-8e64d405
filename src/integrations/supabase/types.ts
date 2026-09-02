@@ -2734,11 +2734,13 @@ export type Database = {
           created_by: string | null
           curriculum_track_id: string
           id: string
+          import_contract: string | null
           model_code: string
           model_label: string | null
           published_at: string | null
           published_by: string | null
           round_code: Database["public"]["Enums"]["ministerial_exam_round_code"]
+          source_fingerprint: string | null
           status: string
           subject_id: string
           template_id: string
@@ -2753,11 +2755,13 @@ export type Database = {
           created_by?: string | null
           curriculum_track_id: string
           id?: string
+          import_contract?: string | null
           model_code: string
           model_label?: string | null
           published_at?: string | null
           published_by?: string | null
           round_code: Database["public"]["Enums"]["ministerial_exam_round_code"]
+          source_fingerprint?: string | null
           status?: string
           subject_id: string
           template_id: string
@@ -2772,11 +2776,13 @@ export type Database = {
           created_by?: string | null
           curriculum_track_id?: string
           id?: string
+          import_contract?: string | null
           model_code?: string
           model_label?: string | null
           published_at?: string | null
           published_by?: string | null
           round_code?: Database["public"]["Enums"]["ministerial_exam_round_code"]
+          source_fingerprint?: string | null
           status?: string
           subject_id?: string
           template_id?: string
@@ -5155,6 +5161,14 @@ export type Database = {
         }
         Returns: Json
       }
+      answer_ministerial_text_question: {
+        Args: {
+          _response_text: string
+          _session_id: string
+          _session_question_id: string
+        }
+        Returns: Json
+      }
       approve_payment_request: {
         Args: { _admin_notes?: string; _request_id: string }
         Returns: Json
@@ -6077,6 +6091,11 @@ export type Database = {
         Returns: undefined
       }
       ministerial_models_admin_list: { Args: never; Returns: Json }
+      ministerial_track_package_execute: {
+        Args: { _expected_fingerprint: string; _prepare_id: string }
+        Returns: Json
+      }
+      ministerial_track_package_prepare: { Args: { _package: Json }; Returns: Json }
       move_to_dlq: {
         Args: {
           dlq_name: string
