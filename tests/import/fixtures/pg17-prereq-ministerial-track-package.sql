@@ -12,3 +12,10 @@ $$;
 
 REVOKE ALL ON FUNCTION public.cf10_text_sha256(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cf10_text_sha256(text) TO authenticated, service_role;
+
+-- The shared QB fixture starts from a reduced legacy answer table. Production
+-- already has these two original exam-engine columns, and ministerial 14E/this
+-- feature update them while preserving the pinned revision fields.
+ALTER TABLE public.exam_session_answers
+  ADD COLUMN IF NOT EXISTS answered_at timestamptz,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();

@@ -21,6 +21,10 @@ const pgRunner = readFileSync(
   "tests/import/run-pg17-ministerial-track-package-rehearsal.sh",
   "utf8",
 );
+const pgPrerequisite = readFileSync(
+  "tests/import/fixtures/pg17-prereq-ministerial-track-package.sql",
+  "utf8",
+);
 
 test("package writes stay RPC-only, authorized, draft-only, pinned and fingerprinted", () => {
   assert.match(adminApi, /ministerial_track_package_prepare/);
@@ -88,4 +92,7 @@ test("the real package and answer path is rehearsed on disposable PostgreSQL 17"
   assert.match(pgRunner, /20260912010000_ministerial_track_package_import\.sql/);
   assert.match(pgRunner, /20260912020000_ministerial_aden_text_answers\.sql/);
   assert.match(pgRunner, /pg17-ministerial-track-package-smoke\.sql/);
+  assert.match(pgPrerequisite, /cf10_text_sha256/);
+  assert.match(pgPrerequisite, /ADD COLUMN IF NOT EXISTS answered_at timestamptz/);
+  assert.match(pgPrerequisite, /ADD COLUMN IF NOT EXISTS updated_at timestamptz/);
 });
