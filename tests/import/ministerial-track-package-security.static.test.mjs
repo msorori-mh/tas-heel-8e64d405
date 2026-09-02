@@ -84,6 +84,7 @@ test("the real package and answer path is rehearsed on disposable PostgreSQL 17"
   assert.match(workflow, /ministerial-import-pg17:/);
   assert.match(workflow, /run-pg17-ministerial-track-package-rehearsal\.sh/);
   assert.match(pgRunner, /MINISTERIAL_PG17_URL must target localhost/);
+  assert.match(pgRunner, /pg17-prereq-ministerial-track-package\.sql/);
   assert.match(pgRunner, /20260912010000_ministerial_track_package_import\.sql/);
   assert.match(pgRunner, /20260912020000_ministerial_aden_text_answers\.sql/);
   assert.match(pgRunner, /pg17-ministerial-track-package-smoke\.sql/);

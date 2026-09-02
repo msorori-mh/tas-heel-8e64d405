@@ -28,6 +28,7 @@ CHAIN=(
   tests/import/fixtures/pg17-prereq-13c-14b-dependencies.sql
   tests/import/fixtures/pg17-prereq-resource-code.sql
   tests/import/fixtures/pg17-prereq-qb-runtime.sql
+  tests/import/fixtures/pg17-prereq-ministerial-track-package.sql
   supabase/migrations/20260801120000_qb01_question_bank_schema_foundation.sql
   supabase/migrations-pending/20260813010000_import_staging_and_execution_03.sql
   supabase/migrations/20260813004255_4686d20e-c114-446a-b037-153d06eb2b80.sql
