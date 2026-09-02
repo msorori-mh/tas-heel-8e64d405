@@ -183,7 +183,7 @@ jobs:
       - name: Upload signed AAB
         uses: actions/upload-artifact@v4
         with:
-          name: tamkeen-play-testing-v1-signed-aab
+          name: tamkeen-play-testing-1.0.2-code-3-signed-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
