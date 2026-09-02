@@ -2949,6 +2949,42 @@ export type Database = {
         }
         Relationships: []
       }
+      offline_learning_mutations: {
+        Row: {
+          applied: boolean
+          created_at: string
+          entity_id: string
+          id: string
+          idempotency_key: string
+          mutation_kind: string
+          occurred_at: string
+          payload_sha256: string
+          user_id: string
+        }
+        Insert: {
+          applied: boolean
+          created_at?: string
+          entity_id: string
+          id?: string
+          idempotency_key: string
+          mutation_kind: string
+          occurred_at: string
+          payload_sha256: string
+          user_id: string
+        }
+        Update: {
+          applied?: boolean
+          created_at?: string
+          entity_id?: string
+          id?: string
+          idempotency_key?: string
+          mutation_kind?: string
+          occurred_at?: string
+          payload_sha256?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       official_question_answers: {
         Row: {
           created_at: string
@@ -4625,6 +4661,7 @@ export type Database = {
           created_at: string
           id: string
           lesson_id: string
+          progress_percent: number | null
           quiz_score: number | null
           updated_at: string
           user_id: string
@@ -4635,6 +4672,7 @@ export type Database = {
           created_at?: string
           id?: string
           lesson_id: string
+          progress_percent?: number | null
           quiz_score?: number | null
           updated_at?: string
           user_id: string
@@ -4645,6 +4683,7 @@ export type Database = {
           created_at?: string
           id?: string
           lesson_id?: string
+          progress_percent?: number | null
           quiz_score?: number | null
           updated_at?: string
           user_id?: string
@@ -5081,6 +5120,27 @@ export type Database = {
           _expected_preview_sha256: string
           _idempotency_key: string
           _reason: string
+        }
+        Returns: Json
+      }
+      apply_offline_learning_mutation: {
+        Args: {
+          _answer_text: string | null
+          _entity_id: string
+          _idempotency_key: string
+          _kind: string
+          _lesson_id: string | null
+          _occurred_at: string
+          _payload_sha256: string
+          _progress_percent: number | null
+        }
+        Returns: Json
+      }
+      get_offline_assessment_answer_layer: {
+        Args: {
+          _kind: string
+          _lesson_id: string
+          _revision_ids: string[]
         }
         Returns: Json
       }

@@ -2,6 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { prefetchNextLessons } from "@/lib/offline/offline-pack";
+import { readOfflineLessonContent } from "@/lib/offline/offline-lesson-content";
+import { readOfflineLessonAssessment } from "@/lib/offline/offline-assessment-engine";
+import { recordOfflineSelfTestAttempt } from "@/lib/offline/offline-learning-journal";
 import { InAppPdfDelivery } from "@/components/lessons/InAppPdfDelivery";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -149,6 +152,8 @@ type LessonQuestionRow = {
   question_type: string | null;
   sort_order: number;
   revision_id: string;
+  offline_source?: boolean;
+  offline_selected_option_id?: string | null;
 };
 
 type LessonQuestionRpcRow = {
@@ -207,6 +212,18 @@ function LessonPage() {
   const { lessonId } = Route.useParams();
   const { preview } = Route.useSearch();
   const { profile, isContentStaff } = useAuth();
+  const { data: offlineContent } = useQuery({
+    enabled: !!profile?.user_id,
+    queryKey: ["offline-lesson-content", profile?.user_id, lessonId],
+    queryFn: () => readOfflineLessonContent(profile!.user_id, lessonId),
+    networkMode: "always",
+  });
+  const { data: offlineAssessment } = useQuery({
+    enabled: !!profile?.user_id,
+    queryKey: ["offline-lesson-assessment", profile?.user_id, lessonId],
+    queryFn: () => readOfflineLessonAssessment(profile!.user_id, lessonId),
+    networkMode: "always",
+  });
   // 20C-B §4 — real "preview as student" for content staff only.
   const previewMode = preview === 1 && isContentStaff === true;
 
@@ -216,11 +233,7 @@ function LessonPage() {
     queryFn: () => fetchStudentLifecycleGate(lessonId),
   });
 
-  const {
-    data: lesson,
-    isLoading: loadingLesson,
-    error: lessonErr,
-  } = useQuery({
+  const { data: remoteLesson, isLoading: loadingLesson } = useQuery({
     queryKey: ["lesson-meta", lessonId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -233,7 +246,20 @@ function LessonPage() {
     },
   });
 
-  const { data: subject } = useQuery({
+  const lesson: Lesson | null =
+    remoteLesson ??
+    (offlineContent?.lessonTitle && offlineContent.subjectId
+      ? {
+          id: lessonId,
+          title: offlineContent.lessonTitle,
+          subject_id: offlineContent.subjectId,
+          unit_id: null,
+          sort_order: 0,
+          content_text: null,
+        }
+      : null);
+
+  const { data: remoteSubject } = useQuery({
     enabled: !!lesson?.subject_id,
     queryKey: ["lesson-subject", lesson?.subject_id],
     queryFn: async () => {
@@ -246,6 +272,26 @@ function LessonPage() {
       return (data as Subject | null) ?? null;
     },
   });
+
+  const subject = useMemo<Subject | null>(
+    () =>
+      remoteSubject ??
+      (offlineContent?.subjectId && offlineContent.subjectTitle && offlineContent.gradeId
+        ? {
+            id: offlineContent.subjectId,
+            name: offlineContent.subjectTitle,
+            grade_id: offlineContent.gradeId,
+            curriculum_track_id: offlineContent.curriculumTrackId,
+          }
+        : null),
+    [
+      offlineContent?.curriculumTrackId,
+      offlineContent?.gradeId,
+      offlineContent?.subjectId,
+      offlineContent?.subjectTitle,
+      remoteSubject,
+    ],
+  );
 
   const { data: unit } = useQuery({
     enabled: !!lesson?.unit_id,
@@ -563,17 +609,86 @@ function LessonPage() {
     void prefetchNextLessons({ lessonIds: scope, subjectId: lesson?.subject_id ?? null });
   }, [accessible, siblings, siblingIndex, lesson?.subject_id]);
 
-  const mindmaps = (resources ?? []).filter((r) => r.resource_type === "mindmap");
-  const videos = (resources ?? []).filter((r) => r.resource_type === "video");
-  const experiments = (resources ?? []).filter(
+  const offlineResources: ResourceRow[] = [
+    ...(offlineContent?.mindMaps ?? []).map((item) => ({
+      id: item.sourceId,
+      resource_type: "mindmap" as const,
+      title: item.title,
+      url: `lesson-internal://html/${item.sourceId}`,
+      description: item.body,
+      sort_order: item.sortOrder,
+      is_primary: false,
+      html_resource_type: "INTERACTIVE",
+      metadata: { offline_verified: true },
+    })),
+    ...(offlineContent?.experiments ?? []).map((item) => ({
+      id: item.sourceId,
+      resource_type: "experiment" as const,
+      title: item.title,
+      url: `lesson-internal://html/${item.sourceId}`,
+      description: item.body,
+      sort_order: item.sortOrder,
+      is_primary: false,
+      html_resource_type: "INTERACTIVE",
+      metadata: { offline_verified: true },
+    })),
+  ];
+  const effectiveResources = resources ?? offlineResources;
+  const effectiveBookBody = book?.content ?? offlineContent?.officialBook?.body ?? null;
+  const effectiveSummary =
+    summary ??
+    (offlineContent?.summaries[0]
+      ? {
+          summary: offlineContent.summaries[0].body,
+          key_points: [],
+          study_tip: null,
+        }
+      : null);
+  const effectiveExplanations: ExplanationRow[] =
+    explanations ??
+    (offlineContent?.explanations ?? []).map((item) => ({
+      id: item.sourceId,
+      title: item.title,
+      content: item.body,
+      sort_order: item.sortOrder,
+    }));
+  const localOfficialQuestions: LessonQuestionRow[] = (
+    offlineAssessment?.officialQuestions ?? []
+  ).map((question) => ({
+    id: question.id,
+    question_text: question.questionText,
+    options: question.options,
+    question_type: question.questionType,
+    sort_order: question.sortOrder,
+    revision_id: question.revisionId,
+    offline_source: true,
+  }));
+  const localSelfTestQuestions: LessonQuestionRow[] = (
+    offlineAssessment?.selfTestQuestions ?? []
+  ).map((question) => ({
+    id: question.id,
+    question_text: question.questionText,
+    options: question.options,
+    question_type: question.questionType,
+    sort_order: question.sortOrder,
+    revision_id: question.revisionId,
+    offline_source: true,
+    offline_selected_option_id: question.selectedOptionId,
+  }));
+  const effectiveOfficialQuestions = officialQuestions ?? localOfficialQuestions;
+  const effectiveSelfTestQuestions = selfTestQuestions ?? localSelfTestQuestions;
+
+  const mindmaps = effectiveResources.filter((r) => r.resource_type === "mindmap");
+  const videos = effectiveResources.filter((r) => r.resource_type === "video");
+  const experiments = effectiveResources.filter(
     (r) => r.resource_type === "experiment" && !isLabAttachment(r),
   );
   // Multi-file downloads that belong to the lab/practical experiment.
-  const labAttachments = (resources ?? []).filter(
+  const labAttachments = effectiveResources.filter(
     (r) => isLabAttachment(r) && r.is_primary !== true,
   );
   // 18C1 invariant: a primary resource never appears under "موارد إضافية".
-  const extras = (resources ?? []).filter(
+  const extras = effectiveResources.filter(
     (r) =>
       (r.resource_type === "pdf" || r.resource_type === "link") &&
       r.is_primary !== true &&
@@ -581,8 +696,10 @@ function LessonPage() {
       r.id !== primaryResource?.id,
   );
 
-  if (loadingLesson) return <StateMessage variant="loading">جارٍ تحميل الدرس…</StateMessage>;
-  if (lessonErr || !lesson) {
+  if (loadingLesson && !lesson) {
+    return <StateMessage variant="loading">جارٍ تحميل الدرس…</StateMessage>;
+  }
+  if (!lesson) {
     return (
       <div className="space-y-4">
         <Breadcrumbs subjectName={null} subjectId={null} lessonName={null} />
@@ -625,10 +742,10 @@ function LessonPage() {
   const capabilities = computeLessonCapabilities({
     deliveryMode: (lesson as { delivery_mode?: string }).delivery_mode ?? null,
     lessonTitle: lesson.title,
-    bookContent: book?.content ?? null,
+    bookContent: effectiveBookBody,
     inlineContent: lesson.content_text,
     primaryResource: primaryResource ?? null,
-    resources: (resources ?? []).map((r) => ({
+    resources: effectiveResources.map((r) => ({
       id: r.id,
       resource_type: r.resource_type,
       title: r.title,
@@ -640,13 +757,13 @@ function LessonPage() {
     htmlMindMapsCount: htmlMindMaps.length,
     htmlExperimentsCount: htmlExperiments.length,
     htmlSummariesCount: htmlSummaries.length,
-    summaryText: summary?.summary ?? null,
-    explanationsCount: explanations?.length ?? 0,
+    summaryText: effectiveSummary?.summary ?? null,
+    explanationsCount: effectiveExplanations.length,
     officialQuestionsCount: Math.max(
-      officialQuestions?.length ?? 0,
+      effectiveOfficialQuestions.length,
       officialQuestionsReady ? 1 : 0,
     ),
-    selfTestQuestionsCount: Math.max(selfTestQuestions?.length ?? 0, selfTestReady ? 1 : 0),
+    selfTestQuestionsCount: Math.max(effectiveSelfTestQuestions.length, selfTestReady ? 1 : 0),
     hasLessonVideoFlag: lessonExtra?.has_video === true,
     enhancementsAccessible: canAccessEnhancements,
     progress: progressRow
@@ -670,14 +787,14 @@ function LessonPage() {
   // 21B4E — the original textbook PDF is no longer part of the lesson journey.
   // Curriculum books live at subject level ("كتب المنهج" from موادي).
 
-  const rawBook = (book?.content ?? lesson.content_text ?? "").trim();
+  const rawBook = (effectiveBookBody ?? lesson.content_text ?? "").trim();
   const bookContent = isPlaceholderBookContent(rawBook, lesson.title) ? "" : rawBook;
 
   // 18C1 — the effective primary row, whether it came from the dedicated query
   // or from the `is_primary` flag on the resources list.
   const effectivePrimary: (PrimaryLessonResource & { resource_type?: string | null }) | null =
     primaryResource ??
-    ((resources ?? []).find((r) => r.is_primary === true) as unknown as PrimaryLessonResource) ??
+    (effectiveResources.find((r) => r.is_primary === true) as unknown as PrimaryLessonResource) ??
     null;
 
   const renderCapabilityBody = (capability: LessonCapability) => {
@@ -709,30 +826,32 @@ function LessonPage() {
                 ))}
               </div>
             )}
-            {summary?.summary &&
-            summary.summary.trim().length > 0 &&
-            /<html[\s>]|<!doctype/i.test(summary.summary) ? (
+            {effectiveSummary?.summary &&
+            effectiveSummary.summary.trim().length > 0 &&
+            /<html[\s>]|<!doctype/i.test(effectiveSummary.summary) ? (
               <InlineHtmlResourceViewer
                 title="ملخص الدرس"
-                html={summary.summary}
+                html={effectiveSummary.summary}
                 htmlResourceType="STATIC"
                 resourceType="summary"
               />
-            ) : summary?.summary && summary.summary.trim().length > 0 ? (
+            ) : effectiveSummary?.summary && effectiveSummary.summary.trim().length > 0 ? (
               <>
-                <p className="text-sm leading-relaxed text-card-foreground">{summary.summary}</p>
-                {Array.isArray(summary.key_points) &&
-                  (summary.key_points as unknown[]).length > 0 && (
+                <p className="text-sm leading-relaxed text-card-foreground">
+                  {effectiveSummary.summary}
+                </p>
+                {Array.isArray(effectiveSummary.key_points) &&
+                  (effectiveSummary.key_points as unknown[]).length > 0 && (
                     <ul className="mt-3 list-disc space-y-1 pr-5 text-sm text-card-foreground">
-                      {(summary.key_points as unknown[]).map((p, i) => (
+                      {(effectiveSummary.key_points as unknown[]).map((p, i) => (
                         <li key={i}>{String(p)}</li>
                       ))}
                     </ul>
                   )}
-                {summary.study_tip && (
+                {effectiveSummary.study_tip && (
                   <p className="mt-3 flex items-start gap-2 rounded-md bg-accent/10 p-2 text-xs">
                     <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
-                    {summary.study_tip}
+                    {effectiveSummary.study_tip}
                   </p>
                 )}
               </>
@@ -743,7 +862,7 @@ function LessonPage() {
       case "EXPLANATION":
         return (
           <div className="space-y-3">
-            {(explanations ?? []).map((e) => (
+            {effectiveExplanations.map((e) => (
               <article key={e.id} className="rounded-xl border border-border bg-background p-3">
                 {e.title && (
                   <h3 className="mb-1 text-sm font-semibold text-foreground">{e.title}</h3>
@@ -866,19 +985,19 @@ function LessonPage() {
       case "OFFICIAL_QUESTIONS":
         return (
           <div className="space-y-4">
-            {loadingOfficialQuestions && (
+            {loadingOfficialQuestions && effectiveOfficialQuestions.length === 0 && (
               <StateMessage>جارٍ تحميل أسئلة التقويم من الكتاب…</StateMessage>
             )}
-            {officialQuestionsError && (
+            {officialQuestionsError && effectiveOfficialQuestions.length === 0 && (
               <QuestionLoadFailure onRetry={() => void refetchOfficialQuestions()} />
             )}
             {!loadingOfficialQuestions &&
               !officialQuestionsError &&
-              officialQuestions?.length === 0 && (
+              effectiveOfficialQuestions.length === 0 && (
                 <QuestionLoadFailure onRetry={() => void refetchOfficialQuestions()} />
               )}
             <ol className="space-y-4">
-              {(officialQuestions ?? []).map((q, idx) => (
+              {effectiveOfficialQuestions.map((q, idx) => (
                 <li key={q.id}>
                   <OfficialBookQuestionCard
                     lessonId={lessonId}
@@ -887,30 +1006,72 @@ function LessonPage() {
                     savedAnswer={questionNotes.notes[q.id] ?? ""}
                     onAnswerChange={questionNotes.saveNote}
                     saving={questionNotes.savingIds.includes(q.id)}
+                    revealAnswer={
+                      q.offline_source && offlineAssessment
+                        ? (attempt) =>
+                            offlineAssessment.revealOfficialAnswer(q.id, q.revision_id, attempt)
+                        : undefined
+                    }
                   />
                 </li>
               ))}
             </ol>
-            <MyAnswersLog questions={officialQuestions ?? []} notes={questionNotes.notes} />
+            <MyAnswersLog questions={effectiveOfficialQuestions} notes={questionNotes.notes} />
           </div>
         );
 
       case "SELF_TEST":
         return (
           <div className="space-y-4">
-            {loadingSelfTestQuestions && <StateMessage>جارٍ تحميل أسئلة اختبر فهمك…</StateMessage>}
-            {selfTestQuestionsError && (
+            {loadingSelfTestQuestions && effectiveSelfTestQuestions.length === 0 && (
+              <StateMessage>جارٍ تحميل أسئلة اختبر فهمك…</StateMessage>
+            )}
+            {selfTestQuestionsError && effectiveSelfTestQuestions.length === 0 && (
               <QuestionLoadFailure onRetry={() => void refetchSelfTestQuestions()} />
             )}
             {!loadingSelfTestQuestions &&
               !selfTestQuestionsError &&
-              selfTestQuestions?.length === 0 && (
+              effectiveSelfTestQuestions.length === 0 && (
                 <QuestionLoadFailure onRetry={() => void refetchSelfTestQuestions()} />
               )}
             <ol className="space-y-4">
-              {(selfTestQuestions ?? []).map((q, idx) => (
+              {effectiveSelfTestQuestions.map((q, idx) => (
                 <li key={q.id}>
-                  <SelfTestQuestionCard lessonId={lessonId} index={idx + 1} q={q} />
+                  <SelfTestQuestionCard
+                    lessonId={lessonId}
+                    index={idx + 1}
+                    q={q}
+                    checkAnswer={
+                      q.offline_source && offlineAssessment
+                        ? (selectedOptionId) => {
+                            const result = offlineAssessment.checkSelfTestAnswer(
+                              q.id,
+                              q.revision_id,
+                              selectedOptionId,
+                            );
+                            return {
+                              is_correct: result.isCorrect,
+                              correct_option_id: result.correctOptionId,
+                              explanation: result.explanation,
+                              correction: result.correction,
+                            };
+                          }
+                        : undefined
+                    }
+                    onResult={
+                      q.offline_source && profile?.user_id
+                        ? (selectedOptionId, isCorrect) =>
+                            recordOfflineSelfTestAttempt({
+                              ownerId: profile.user_id,
+                              lessonId,
+                              questionId: q.id,
+                              revisionId: q.revision_id,
+                              selectedOptionId,
+                              isCorrect,
+                            }).then(() => undefined)
+                        : undefined
+                    }
+                  />
                 </li>
               ))}
             </ol>
@@ -1235,6 +1396,7 @@ function OfficialBookQuestionCard({
   savedAnswer,
   onAnswerChange,
   saving,
+  revealAnswer,
 }: {
   lessonId: string;
   index: number;
@@ -1242,10 +1404,23 @@ function OfficialBookQuestionCard({
   savedAnswer: string;
   onAnswerChange: (questionId: string, answerText: string) => void;
   saving: boolean;
+  revealAnswer?: (attempt: string) =>
+    | {
+        modelAnswer: string | null;
+        explanation: string | null;
+        correctOptionIds: string[];
+      }
+    | Promise<{
+        modelAnswer: string | null;
+        explanation: string | null;
+        correctOptionIds: string[];
+      }>;
 }) {
   const [answer, setAnswer] = useState(savedAnswer);
   const [hydratedFromServer, setHydratedFromServer] = useState(savedAnswer.length > 0);
-  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(() =>
+    q.options.some((option) => option.id === savedAnswer) ? savedAnswer : null,
+  );
   const [revealing, setRevealing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [revealed, setRevealed] = useState<{
@@ -1268,9 +1443,13 @@ function OfficialBookQuestionCard({
   // Restore the saved answer once it arrives, without clobbering fresh typing.
   useEffect(() => {
     if (hydratedFromServer || !savedAnswer) return;
-    setAnswer((current) => (current.length === 0 ? savedAnswer : current));
+    if (q.options.some((option) => option.id === savedAnswer)) {
+      setSelectedOptionId((current) => current ?? savedAnswer);
+    } else {
+      setAnswer((current) => (current.length === 0 ? savedAnswer : current));
+    }
     setHydratedFromServer(true);
-  }, [hydratedFromServer, savedAnswer]);
+  }, [hydratedFromServer, q.options, savedAnswer]);
 
   const handleAnswerInput = (value: string) => {
     setAnswer(value);
@@ -1280,21 +1459,24 @@ function OfficialBookQuestionCard({
 
   const revealModelAnswer = async () => {
     if (!attemptedAnswer) return;
+    onAnswerChange(q.id, String(attemptedAnswer));
     setRevealing(true);
     setErrorMessage(null);
     try {
-      const result = await callLessonQuestionRpc<{
-        modelAnswer?: string | null;
-        explanation?: string | null;
-        correctOptionIds?: string[];
-        error?: string;
-      }>("reveal_lesson_official_question_answer", {
-        _question_id: q.id,
-        _revision_id: q.revision_id,
-        _lesson_id: lessonId,
-        _student_answer: attemptedAnswer,
-      });
-      if (result.error) throw new Error(result.error);
+      const result = revealAnswer
+        ? await revealAnswer(String(attemptedAnswer))
+        : await callLessonQuestionRpc<{
+            modelAnswer?: string | null;
+            explanation?: string | null;
+            correctOptionIds?: string[];
+            error?: string;
+          }>("reveal_lesson_official_question_answer", {
+            _question_id: q.id,
+            _revision_id: q.revision_id,
+            _lesson_id: lessonId,
+            _student_answer: attemptedAnswer,
+          });
+      if ("error" in result && result.error) throw new Error(result.error);
       setRevealed({
         modelAnswer: result.modelAnswer ?? null,
         explanation: result.explanation ?? null,
@@ -1392,12 +1574,28 @@ function SelfTestQuestionCard({
   lessonId,
   index,
   q,
+  checkAnswer,
+  onResult,
 }: {
   lessonId: string;
   index: number;
   q: LessonQuestionRow;
+  checkAnswer?: (selectedOptionId: string) =>
+    | {
+        is_correct: boolean;
+        correct_option_id: string | null;
+        explanation: string | null;
+        correction: string | null;
+      }
+    | Promise<{
+        is_correct: boolean;
+        correct_option_id: string | null;
+        explanation: string | null;
+        correction: string | null;
+      }>;
+  onResult?: (selectedOptionId: string, isCorrect: boolean) => void | Promise<void>;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(q.offline_selected_option_id ?? null);
   const [checking, setChecking] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<{
@@ -1414,25 +1612,28 @@ function SelfTestQuestionCard({
     setChecking(true);
     setErrorMessage(null);
     try {
-      const response = await callLessonQuestionRpc<{
-        is_correct?: boolean;
-        correct_option_id?: string | null;
-        explanation?: string | null;
-        correction?: string | null;
-        error?: string;
-      }>("check_lesson_self_test_question", {
-        _question_id: q.id,
-        _revision_id: q.revision_id,
-        _lesson_id: lessonId,
-        _selected_option_id: selected,
-      });
-      if (response.error) throw new Error(response.error);
+      const response = checkAnswer
+        ? await checkAnswer(selected)
+        : await callLessonQuestionRpc<{
+            is_correct?: boolean;
+            correct_option_id?: string | null;
+            explanation?: string | null;
+            correction?: string | null;
+            error?: string;
+          }>("check_lesson_self_test_question", {
+            _question_id: q.id,
+            _revision_id: q.revision_id,
+            _lesson_id: lessonId,
+            _selected_option_id: selected,
+          });
+      if ("error" in response && response.error) throw new Error(response.error);
       setResult({
         is_correct: response.is_correct === true,
         correct_option_id: response.correct_option_id ?? null,
         explanation: response.explanation ?? null,
         correction: response.correction ?? null,
       });
+      await onResult?.(selected, response.is_correct === true);
     } catch {
       setErrorMessage("تعذر التحقق من الإجابة الآن. حاول مرة أخرى.");
     } finally {

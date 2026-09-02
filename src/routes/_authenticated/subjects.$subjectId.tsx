@@ -29,7 +29,7 @@ import {
 import { semesterLabel, type Semester } from "@/lib/subject-semester";
 import { getSubjectIcon } from "@/lib/subjects/subject-icon";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
-import { OfflinePackCard } from "@/components/offline/OfflinePackCard";
+import { OfflineSubjectPackCard } from "@/components/offline/OfflineSubjectPackCard";
 import { fetchStudentLessonVisibility } from "@/lib/lessons/lesson-lifecycle";
 
 const searchSchema = z.object({
@@ -298,11 +298,7 @@ function SubjectIndexPage() {
 
       {/* 18C — تحميل ملفات المادة للاستخدام دون إنترنت */}
       {lessons.length > 0 && (
-        <OfflinePackCard
-          title={`تحميل «${subject.name}» للاستخدام دون إنترنت`}
-          lessonIds={lessons.map((l) => l.id)}
-          subjectId={subjectId}
-        />
+        <OfflineSubjectPackCard subjectId={subjectId} subjectName={subject.name} />
       )}
 
       {hasAny &&

@@ -4,9 +4,9 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * 17B — Android release preparation for تمكين.
  *
  * Tamkeen's web app is a TanStack Start SSR application, so the Android shell
- * loads the deployed production origin instead of a static bundle. `webDir`
- * only carries an offline fallback page that is shown when the origin cannot
- * be reached. No business logic, RLS or RPC behaviour changes.
+ * loads the deployed production origin. `webDir` carries the fail-closed
+ * offline entry that reads only previously verified, account-isolated packs
+ * through narrow native plugins when the origin cannot be reached.
  */
 const config: CapacitorConfig = {
   appId: "app.studentamkeen.tamkeen",
@@ -21,8 +21,8 @@ const config: CapacitorConfig = {
     androidScheme: "https",
     cleartext: false,
     hostname: "studentamkeen.com",
-    // 21B4-B — when the remote origin cannot be reached, Android loads this
-    // bundled page (Tamkeen Offline Entry) instead of chrome-error://.
+    // OFFLINE-04 — when the remote origin cannot be reached, Android loads the
+    // bundled, hash-verifying lesson/book entry instead of chrome-error://.
     errorPath: "index.html",
   },
 

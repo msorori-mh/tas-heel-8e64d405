@@ -180,6 +180,15 @@ async function handle(request: Request, resourceId: string, method: "GET" | "HEA
   headers.set("accept-ranges", "bytes");
   headers.set("etag", `"${version}"`);
   headers.set("x-file-version", version);
+  const sourceSha256 =
+    typeof meta["sha256"] === "string"
+      ? meta["sha256"]
+      : typeof meta["source_sha256"] === "string"
+        ? meta["source_sha256"]
+        : null;
+  if (sourceSha256 && /^[a-f0-9]{64}$/.test(sourceSha256)) {
+    headers.set("x-file-sha256", sourceSha256);
+  }
   // Private, per-student payload: never cached by shared proxies.
   headers.set("cache-control", "private, max-age=0, must-revalidate");
   headers.set("content-disposition", "inline");

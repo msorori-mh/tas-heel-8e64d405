@@ -100,7 +100,7 @@ describe("offline entry surface", () => {
 
   it("triggerEvent root cause — the bridge is never assumed to exist", () => {
     expect(offlineHtml).toMatch(
-      /if \(!cap \|\| !cap\.Plugins \|\| !cap\.Plugins\.TamkeenPdfViewer\) return null;/,
+      /if \(!cap \|\| !cap\.Plugins \|\| !cap\.Plugins\[name\]\) return null;/,
     );
   });
 
@@ -118,8 +118,11 @@ describe("regression guards", () => {
     expect(registryTs).toMatch(/if \(!isNativeRegistry\(\)\) return emptyRegistry\(\);/);
   });
 
-  it("no second offline content system was introduced", () => {
-    expect(stripComments(offlineHtml)).not.toMatch(/lesson|درس|dashboard/i);
+  it("the bundled entry reads through narrow native bridges only", () => {
+    expect(offlineHtml).toContain('plugin("TamkeenOfflineContent")');
+    expect(stripComments(offlineHtml)).not.toMatch(
+      /indexedDB|Filesystem|localStorage|sessionStorage/,
+    );
     expect(registryTs).not.toMatch(/from "@\/integrations\/supabase/);
   });
 });

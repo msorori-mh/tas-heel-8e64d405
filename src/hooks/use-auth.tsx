@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { deriveAuthRoles } from "@/lib/auth-roles";
+import { setActiveOfflineOwner } from "@/lib/offline/offline-state-store";
 
 export type Profile = {
   id: string;
@@ -86,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((event, sess) => {
       if (!mounted) return;
       setSession(sess);
+      void setActiveOfflineOwner(sess?.user?.id ?? null).catch(() => undefined);
       if (event === "SIGNED_OUT" || !sess?.user) {
         setProfile(null);
         setIsAdmin(false);
@@ -101,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session);
+      void setActiveOfflineOwner(data.session?.user?.id ?? null).catch(() => undefined);
       if (data.session?.user) {
         loadProfile(data.session.user.id).finally(() => {
           if (mounted) setLoading(false);
@@ -117,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadProfile]);
 
   const signOut = useCallback(async () => {
+    await setActiveOfflineOwner(null).catch(() => undefined);
     await supabase.auth.signOut();
   }, []);
 

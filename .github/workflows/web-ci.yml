@@ -187,6 +187,47 @@ jobs:
         if: always()
         run: docker stop tamkeen-ministerial-pg17 || true
 
+  offline-assessment-pg17:
+    name: Offline assessment and replay PG17 contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Start isolated PostgreSQL 17
+        run: |
+          docker run --detach --rm \
+            --name tamkeen-offline-pg17 \
+            --publish 127.0.0.1:5432:5432 \
+            --env POSTGRES_PASSWORD=tamkeen_offline_ci_only \
+            --env POSTGRES_DB=tamkeen_offline \
+            postgres:17
+          for attempt in {1..60}; do
+            if PGPASSWORD=tamkeen_offline_ci_only psql \
+              --host 127.0.0.1 --port 5432 --username postgres --dbname tamkeen_offline \
+              --tuples-only --no-align --command 'SELECT 1' 2>/dev/null | grep --quiet '^1$'; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs tamkeen-offline-pg17
+          exit 1
+
+      - name: Rehearse answer secrecy, access, ordering, and replay
+        env:
+          OFFLINE_PG17_URL: postgresql://postgres:tamkeen_offline_ci_only@localhost:5432/tamkeen_offline
+        run: bash tests/offline/run-pg17-offline-assessment-rehearsal.sh
+
+      - name: Stop isolated PostgreSQL 17
+        if: always()
+        run: docker stop tamkeen-offline-pg17 || true
+
   content-v3-pg17:
     name: Content V3 disposable PG17 runtime
     runs-on: ubuntu-latest

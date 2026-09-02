@@ -12,6 +12,8 @@
 
 import { Capacitor } from "@capacitor/core";
 
+import { sha256Hex } from "./offline-pack-contract";
+
 export type CachedFileEntry = {
   resourceId: string;
   lessonId: string | null;
@@ -21,6 +23,8 @@ export type CachedFileEntry = {
   downloadedAt: number;
   fileSize: number;
   contentType: string;
+  /** Observed bytes digest. Legacy entries may not have one. */
+  contentSha256: string | null;
   lastOpenedPage: number;
   lastOpenedAt: number;
   pinnedOffline: boolean;
@@ -163,6 +167,7 @@ export async function saveFile(params: {
   blob: Blob;
   version: string;
   contentType?: string;
+  contentSha256?: string | null;
   pinnedOffline?: boolean;
 }): Promise<CachedFileEntry> {
   const contentType = params.contentType || params.blob.type || "application/pdf";
@@ -196,6 +201,7 @@ export async function saveFile(params: {
     downloadedAt: Date.now(),
     fileSize: params.blob.size,
     contentType,
+    contentSha256: params.contentSha256 ?? null,
     lastOpenedPage: previous?.lastOpenedPage ?? 1,
     lastOpenedAt: previous?.lastOpenedAt ?? Date.now(),
     pinnedOffline: params.pinnedOffline ?? previous?.pinnedOffline ?? false,
@@ -214,16 +220,35 @@ export async function readFile(resourceId: string): Promise<Blob | null> {
       const res = await Filesystem.readFile({ path: entry.localPath, directory: Directory.Data });
       const data = typeof res.data === "string" ? res.data : "";
       if (!data) return null;
-      return base64ToBlob(data, entry.contentType);
+      const blob = base64ToBlob(data, entry.contentType);
+      if (!(await matchesPersistedHash(blob, entry.contentSha256))) {
+        await removeFile(resourceId);
+        return null;
+      }
+      return blob;
     } catch {
       return null;
     }
   }
 
   try {
-    return (await idbGet<Blob>(BLOB_STORE, resourceId)) ?? null;
+    const blob = (await idbGet<Blob>(BLOB_STORE, resourceId)) ?? null;
+    if (blob && !(await matchesPersistedHash(blob, entry.contentSha256))) {
+      await removeFile(resourceId);
+      return null;
+    }
+    return blob;
   } catch {
     return null;
+  }
+}
+
+async function matchesPersistedHash(blob: Blob, expected: string | null | undefined) {
+  if (!expected) return true;
+  try {
+    return (await sha256Hex(new Uint8Array(await blob.arrayBuffer()))) === expected;
+  } catch {
+    return false;
   }
 }
 

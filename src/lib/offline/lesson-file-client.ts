@@ -15,11 +15,13 @@ import {
   touchEntry,
 } from "./pdf-cache";
 import { canOpenCachedResource } from "./entitlement";
+import { sha256Hex } from "./offline-pack-contract";
 
 export type FileMeta = {
   version: string;
   size: number | null;
   contentType: string;
+  sha256: string | null;
 };
 
 export type ResolvedFile = {
@@ -36,6 +38,11 @@ export type SecureFileKind = "lesson" | "textbook";
 function endpoint(resourceId: string, kind: SecureFileKind = "lesson"): string {
   const base = kind === "textbook" ? "/api/subject-textbook" : "/api/lesson-file";
   return `${base}/${encodeURIComponent(resourceId)}`;
+}
+
+function responseSha256(response: Response): string | null {
+  const value = response.headers.get("x-file-sha256")?.trim().toLowerCase() ?? "";
+  return /^[a-f0-9]{64}$/.test(value) ? value : null;
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -60,6 +67,7 @@ export async function fetchFileMeta(
     version: res.headers.get("x-file-version") ?? "0",
     size: length ? Number(length) : null,
     contentType: res.headers.get("content-type") ?? "application/pdf",
+    sha256: responseSha256(res),
   };
 }
 
@@ -71,7 +79,7 @@ export async function downloadAndCache(params: {
   kind?: SecureFileKind;
   signal?: AbortSignal;
   onProgress?: (loaded: number, total: number | null) => void;
-}): Promise<{ blob: Blob; version: string }> {
+}): Promise<{ blob: Blob; version: string; sha256: string }> {
   const res = await fetch(endpoint(params.resourceId, params.kind ?? "lesson"), {
     method: "GET",
     headers: await authHeaders(),
@@ -103,6 +111,12 @@ export async function downloadAndCache(params: {
     blob = await res.blob();
   }
 
+  const observedSha256 = await sha256Hex(new Uint8Array(await blob.arrayBuffer()));
+  const expectedSha256 = responseSha256(res);
+  if (expectedSha256 && observedSha256 !== expectedSha256) {
+    throw new Error("file_download_hash_mismatch");
+  }
+
   await saveFile({
     resourceId: params.resourceId,
     lessonId: params.lessonId ?? null,
@@ -110,11 +124,12 @@ export async function downloadAndCache(params: {
     blob,
     version,
     contentType,
+    contentSha256: observedSha256,
     pinnedOffline: params.pinnedOffline,
   });
   await enforceCacheLimit(DEFAULT_CACHE_LIMIT_BYTES);
 
-  return { blob, version };
+  return { blob, version, sha256: observedSha256 };
 }
 
 /**

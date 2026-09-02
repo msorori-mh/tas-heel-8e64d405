@@ -5,22 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' data: gap:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+      content="default-src 'self' data: gap:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; frame-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <title>تمكين — دون اتصال</title>
     <!--
-      21B4-B — Tamkeen Offline Entry.
+      OFFLINE-04 — APK-bundled cold-start entry.
 
-      Bundled inside the APK. Zero remote dependencies: no remote CSS/JS/fonts/
-      images, no Supabase, no fetch, no signed URL. It only talks to the native
-      TamkeenPdfViewer plugin over the Capacitor bridge:
-        listSavedTextbooks() → display metadata for OFFLINE_READY books
-        openTextbook({ textbookId }) → native viewer reads the app-private file
-      No filesystem path is ever produced or accepted by this page.
+      Zero remote dependencies. The page accepts no owner id or filesystem
+      path and reads no state directly. TamkeenOfflineContent exposes only
+      READY, active-owner, hash-verified lesson and assessment bytes. Authored
+      lesson HTML is displayed inside a script-disabled sandbox so it never
+      inherits access to the Capacitor bridge. Answer keys are never returned
+      by the initial question-list call.
     -->
     <style>
       :root {
         color-scheme: light;
+        --ink: #171334;
+        --muted: #686381;
+        --primary: #28347d;
+        --teal: #12a9b7;
+        --line: #e7e4f0;
+        --surface: #ffffff;
+        --wash: #f8f7fc;
       }
       * {
         box-sizing: border-box;
@@ -29,128 +36,352 @@
         margin: 0;
         min-height: 100vh;
         font-family: system-ui, "Segoe UI", sans-serif;
-        background: #fafaff;
-        color: #0f0b2e;
-        padding: 24px 18px 40px;
+        background:
+          radial-gradient(circle at 100% 0%, rgba(18, 169, 183, 0.1), transparent 34%), #fbfaf7;
+        color: var(--ink);
+        padding: max(22px, env(safe-area-inset-top)) 18px max(34px, env(safe-area-inset-bottom));
       }
       header {
-        text-align: center;
-        margin-bottom: 22px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
       }
       .brand-mark {
-        width: 76px;
-        height: 76px;
+        width: 54px;
+        height: 54px;
         object-fit: contain;
-        margin: 0 auto 10px;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
       }
       h1 {
-        font-size: 22px;
-        margin: 0 0 10px;
-      }
-      .lead {
-        font-size: 14px;
-        color: #605b8a;
-        margin: 0 auto;
-        max-width: 340px;
-        line-height: 1.8;
+        font-size: 21px;
+        margin-bottom: 4px;
       }
       h2 {
-        font-size: 15px;
-        margin: 26px 0 10px;
+        font-size: 16px;
+        margin: 24px 0 10px;
+      }
+      .lead,
+      .meta,
+      .hint,
+      .empty {
+        color: var(--muted);
+        line-height: 1.75;
+      }
+      .lead {
+        font-size: 13px;
+        margin-bottom: 0;
+      }
+      .offline-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border-radius: 999px;
+        background: #e8f7f3;
+        color: #087b6c;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 7px 11px;
+        margin-bottom: 4px;
+      }
+      .offline-badge::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #12a37f;
       }
       .card {
-        background: #fff;
-        border: 1px solid #e7e4f5;
-        border-radius: 16px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 17px;
         padding: 14px;
         margin-bottom: 12px;
-        box-shadow: 0 1px 2px rgba(15, 11, 46, 0.05);
+        box-shadow: 0 6px 20px rgba(23, 19, 52, 0.05);
+      }
+      .subject-card {
+        border-top: 3px solid var(--teal);
       }
       .title {
         font-size: 15px;
-        font-weight: 700;
-        margin: 0 0 4px;
+        font-weight: 800;
+        margin-bottom: 4px;
       }
       .meta {
         font-size: 12px;
-        color: #605b8a;
-        margin: 0 0 12px;
+        margin-bottom: 10px;
+      }
+      .lesson-list {
+        display: grid;
+        gap: 8px;
       }
       button {
         font: inherit;
         border: 0;
         border-radius: 12px;
-        padding: 11px 16px;
-        width: 100%;
+        padding: 11px 14px;
         cursor: pointer;
       }
+      button:disabled {
+        cursor: wait;
+        opacity: 0.65;
+      }
       .primary {
-        background: #5b4bff;
+        background: var(--primary);
         color: #fff;
         font-weight: 700;
       }
+      .lesson-button {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        background: var(--wash);
+        color: var(--ink);
+        text-align: right;
+        border: 1px solid var(--line);
+      }
+      .lesson-button small {
+        color: var(--muted);
+      }
       .ghost {
+        width: 100%;
         background: transparent;
-        color: #5b4bff;
-        border: 1px solid #cfc9f7;
+        color: var(--primary);
+        border: 1px solid #cfc9e4;
+      }
+      .back {
+        width: auto;
+        margin-bottom: 14px;
       }
       .empty {
         font-size: 13px;
-        color: #605b8a;
-        line-height: 1.9;
+      }
+      .hint {
+        border-radius: 14px;
+        background: #fff8e5;
+        color: #765a00;
+        font-size: 12px;
+        padding: 10px 12px;
+        margin-bottom: 14px;
       }
       .error {
         color: #b3261e;
         font-size: 13px;
-        margin-top: 10px;
+        margin: 10px 0;
         min-height: 18px;
       }
+      .component-card {
+        padding: 0;
+        overflow: hidden;
+      }
+      .component-heading {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      .component-heading span {
+        display: block;
+        color: var(--teal);
+        font-size: 11px;
+        font-weight: 700;
+        margin-bottom: 3px;
+      }
+      .component-heading h3 {
+        font-size: 14px;
+        margin-bottom: 0;
+      }
+      .lesson-frame {
+        display: block;
+        width: 100%;
+        height: min(62vh, 620px);
+        border: 0;
+        background: #fff;
+      }
+      .assessment-section {
+        margin-top: 22px;
+      }
+      .question-card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 17px;
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+      .question-text {
+        font-size: 14px;
+        font-weight: 800;
+        line-height: 1.8;
+        white-space: pre-wrap;
+      }
+      .answer-input {
+        width: 100%;
+        min-height: 92px;
+        resize: vertical;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 11px;
+        font: inherit;
+        color: var(--ink);
+        background: var(--wash);
+        margin: 10px 0;
+      }
+      .option-list {
+        display: grid;
+        gap: 8px;
+        margin: 10px 0;
+      }
+      .option-button {
+        width: 100%;
+        text-align: right;
+        color: var(--ink);
+        background: var(--wash);
+        border: 1px solid var(--line);
+      }
+      .option-button.selected {
+        border-color: var(--primary);
+        background: #eef0ff;
+      }
+      .option-button.correct {
+        border-color: #15946f;
+        background: #e8f7f3;
+      }
+      .option-button.wrong {
+        border-color: #c84b43;
+        background: #fff0ef;
+      }
+      .answer-result {
+        border-radius: 12px;
+        background: var(--wash);
+        padding: 11px;
+        font-size: 13px;
+        line-height: 1.8;
+        white-space: pre-wrap;
+        margin-top: 10px;
+      }
+      [hidden] {
+        display: none !important;
+      }
       footer {
-        margin-top: 26px;
+        margin-top: 24px;
       }
     </style>
   </head>
   <body>
     <header>
       <img class="brand-mark" src="student-tamkeen-mark.png" alt="شعار تمكين الطالب" />
-      <h1>تمكين الطالب</h1>
-      <p class="lead">
-        أنت غير متصل بالإنترنت. يمكنك متابعة قراءة الكتب التي حفظتها على هذا الجهاز.
-      </p>
+      <div>
+        <h1>تمكين الطالب</h1>
+        <p class="lead">تعلمك المحفوظ متاح الآن حتى دون اتصال بالإنترنت.</p>
+      </div>
     </header>
 
-    <main>
+    <main id="home-view">
+      <div class="offline-badge">أنت الآن في وضع عدم الاتصال</div>
+
+      <h2>دروسك المحفوظة</h2>
+      <div id="subjects" class="card empty">جارٍ التحقق من المواد المحفوظة…</div>
+
       <h2>كتبك المحفوظة</h2>
       <div id="books" class="card empty">جارٍ قراءة الكتب المحفوظة…</div>
-      <p id="error" class="error" role="alert"></p>
+      <p id="home-error" class="error" role="alert"></p>
+
+      <footer>
+        <button id="retry" class="ghost" type="button">إعادة المحاولة والاتصال</button>
+      </footer>
     </main>
 
-    <footer>
-      <button id="retry" class="ghost" type="button">إعادة المحاولة</button>
-    </footer>
+    <main id="lesson-view" hidden>
+      <button id="back" class="ghost back" type="button">العودة إلى المواد المحفوظة</button>
+      <h2 id="lesson-title">الدرس المحفوظ</h2>
+      <p class="hint">
+        تُعرض مكونات HTML في وضع قراءة آمن. أسئلة الكتاب و«اختبر فهمك» تعمل من النسخة الموثقة
+        المحفوظة على جهازك.
+      </p>
+      <div id="components"></div>
+      <div id="assessments" class="assessment-section"></div>
+      <p id="lesson-error" class="error" role="alert"></p>
+    </main>
 
     <script>
       (function () {
         var ORIGIN = "https://studentamkeen.com";
+        var subjectsEl = document.getElementById("subjects");
         var booksEl = document.getElementById("books");
-        var errorEl = document.getElementById("error");
+        var homeErrorEl = document.getElementById("home-error");
+        var lessonErrorEl = document.getElementById("lesson-error");
+        var homeView = document.getElementById("home-view");
+        var lessonView = document.getElementById("lesson-view");
+        var lessonTitleEl = document.getElementById("lesson-title");
+        var componentsEl = document.getElementById("components");
+        var assessmentsEl = document.getElementById("assessments");
 
-        function bridge() {
-          // Root cause of the old `triggerEvent` crash: calling into the
-          // Capacitor bridge on a page where it was never injected. Always
-          // resolve defensively and degrade to a readable message.
+        function plugin(name) {
           var cap = window.Capacitor;
-          if (!cap || !cap.Plugins || !cap.Plugins.TamkeenPdfViewer) return null;
-          return cap.Plugins.TamkeenPdfViewer;
+          if (!cap || !cap.Plugins || !cap.Plugins[name]) return null;
+          return cap.Plugins[name];
         }
 
-        function showEmpty() {
-          booksEl.className = "card empty";
-          booksEl.textContent =
-            "لا توجد كتب محفوظة على هذا الجهاز حتى الآن. اتصل بالإنترنت ونزّل كتاباً أولاً لاستخدامه دون اتصال.";
+        function empty(target, message) {
+          target.className = "card empty";
+          target.textContent = message;
         }
 
-        function label(book) {
+        function appendText(parent, tag, className, value) {
+          var element = document.createElement(tag);
+          if (className) element.className = className;
+          element.textContent = value;
+          parent.appendChild(element);
+          return element;
+        }
+
+        function renderSubjects(subjects) {
+          if (!subjects || !subjects.length) {
+            empty(
+              subjectsEl,
+              "لا توجد دروس محفوظة لهذا الحساب. اتصل بالإنترنت وافتح مادة ثم اختر تنزيل المادة.",
+            );
+            return;
+          }
+          var wrap = document.createElement("div");
+          wrap.id = "subjects";
+          subjects.forEach(function (subject) {
+            var card = document.createElement("section");
+            card.className = "card subject-card";
+            appendText(card, "h3", "title", subject.title || "مادة محفوظة");
+            var lessons = subject.lessons || [];
+            appendText(card, "p", "meta", lessons.length + " درس متاح على هذا الجهاز");
+
+            var list = document.createElement("div");
+            list.className = "lesson-list";
+            lessons.forEach(function (lesson) {
+              var button = document.createElement("button");
+              button.type = "button";
+              button.className = "lesson-button";
+              var name = document.createElement("strong");
+              name.textContent = lesson.title || "درس محفوظ";
+              var count = document.createElement("small");
+              count.textContent = (lesson.artifactCount || 0) + " مكوّن";
+              button.appendChild(name);
+              button.appendChild(count);
+              button.addEventListener("click", function () {
+                openLesson(lesson.lessonId, button);
+              });
+              list.appendChild(button);
+            });
+            card.appendChild(list);
+            wrap.appendChild(card);
+          });
+          subjectsEl.replaceWith(wrap);
+          subjectsEl = wrap;
+        }
+
+        function bookLabel(book) {
           var parts = [];
           if (book.subjectLabel) parts.push(book.subjectLabel);
           if (book.bookType === "EXERCISE_BOOK") parts.push("كتاب التمارين");
@@ -160,74 +391,334 @@
           return parts.join(" · ");
         }
 
-        function render(books) {
-          if (!books || !books.length) return showEmpty();
-          booksEl.replaceWith(buildList(books));
-        }
-
-        function buildList(books) {
+        function renderBooks(books) {
+          if (!books || !books.length) {
+            empty(
+              booksEl,
+              "لا توجد كتب محفوظة على هذا الجهاز حتى الآن. اتصل بالإنترنت ونزّل كتاباً أولاً لاستخدامه دون اتصال.",
+            );
+            return;
+          }
           var wrap = document.createElement("div");
           wrap.id = "books";
           books.forEach(function (book) {
             var card = document.createElement("section");
             card.className = "card";
-
-            var h3 = document.createElement("p");
-            h3.className = "title";
-            h3.textContent = book.title || "كتاب المنهج";
-
-            var meta = document.createElement("p");
-            meta.className = "meta";
-            meta.textContent = label(book);
-
-            var btn = document.createElement("button");
-            btn.className = "primary";
-            btn.type = "button";
-            btn.textContent = "فتح الكتاب";
-            btn.addEventListener("click", function () {
-              openBook(book.textbookId, btn);
+            appendText(card, "p", "title", book.title || "كتاب المنهج");
+            appendText(card, "p", "meta", bookLabel(book));
+            var button = document.createElement("button");
+            button.className = "primary";
+            button.type = "button";
+            button.textContent = "فتح الكتاب";
+            button.addEventListener("click", function () {
+              openBook(book.textbookId, button);
             });
-
-            card.appendChild(h3);
-            card.appendChild(meta);
-            card.appendChild(btn);
+            card.appendChild(button);
             wrap.appendChild(card);
           });
-          return wrap;
+          booksEl.replaceWith(wrap);
+          booksEl = wrap;
         }
 
-        function openBook(textbookId, btn) {
-          var plugin = bridge();
-          errorEl.textContent = "";
-          if (!plugin || !textbookId) {
-            errorEl.textContent = "تعذر فتح النسخة المحفوظة. اتصل بالإنترنت وأعد تنزيل الكتاب.";
+        function openBook(textbookId, button) {
+          var pdf = plugin("TamkeenPdfViewer");
+          homeErrorEl.textContent = "";
+          if (!pdf || !textbookId) {
+            homeErrorEl.textContent = "تعذر فتح النسخة المحفوظة. اتصل بالإنترنت وأعد تنزيل الكتاب.";
             return;
           }
-          btn.disabled = true;
-          // Only a trusted identifier crosses the bridge — never a path.
-          plugin
+          button.disabled = true;
+          pdf
             .openTextbook({ textbookId: textbookId })
             .catch(function () {
-              errorEl.textContent = "تعذر فتح النسخة المحفوظة. اتصل بالإنترنت وأعد تنزيل الكتاب.";
+              homeErrorEl.textContent =
+                "تعذر فتح النسخة المحفوظة. اتصل بالإنترنت وأعد تنزيل الكتاب.";
             })
             .then(function () {
-              btn.disabled = false;
+              button.disabled = false;
+            });
+        }
+
+        function plainTextDocument(value) {
+          return (
+            '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8">' +
+            '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+            "<style>body{font-family:system-ui,sans-serif;line-height:1.9;padding:16px;color:#171334;white-space:pre-wrap}</style><body>" +
+            String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") +
+            "</body></html>"
+          );
+        }
+
+        function componentLabel(type) {
+          if (type === "official-book") return "محتوى الكتاب الرسمي";
+          if (type === "tamkeen-explanation") return "شرح تمكين";
+          if (type === "quick-review") return "المراجعة السريعة";
+          if (type === "mind-map") return "الخريطة الذهنية";
+          if (type === "lab-experiment") return "التجربة المعملية";
+          return "مكوّن الدرس";
+        }
+
+        function renderComponents(components) {
+          componentsEl.replaceChildren();
+          components.forEach(function (component) {
+            var card = document.createElement("section");
+            card.className = "card component-card";
+            var heading = document.createElement("div");
+            heading.className = "component-heading";
+            appendText(heading, "span", "", componentLabel(component.sourceType));
+            appendText(heading, "h3", "", component.title || "مكوّن الدرس");
+
+            var frame = document.createElement("iframe");
+            frame.className = "lesson-frame";
+            frame.title = component.title || "محتوى الدرس المحفوظ";
+            frame.setAttribute("sandbox", "");
+            frame.referrerPolicy = "no-referrer";
+            var body = String(component.body || "");
+            frame.srcdoc = /<[a-z][\s\S]*>/i.test(body) ? body : plainTextDocument(body);
+
+            card.appendChild(heading);
+            card.appendChild(frame);
+            componentsEl.appendChild(card);
+          });
+        }
+
+        function optionPicker(question, initialSelected) {
+          var selected = initialSelected || null;
+          var buttons = {};
+          var list = document.createElement("div");
+          list.className = "option-list";
+          (question.options || []).forEach(function (option) {
+            var button = document.createElement("button");
+            button.type = "button";
+            button.className = "option-button";
+            button.textContent = option.id + " — " + option.text;
+            if (option.id === selected) button.classList.add("selected");
+            button.addEventListener("click", function () {
+              selected = option.id;
+              Object.keys(buttons).forEach(function (id) {
+                buttons[id].classList.toggle("selected", id === selected);
+              });
+            });
+            buttons[option.id] = button;
+            list.appendChild(button);
+          });
+          return {
+            element: list,
+            selected: function () {
+              return selected;
+            },
+            buttons: buttons,
+          };
+        }
+
+        function renderOfficialQuestion(content, lessonId, question, index) {
+          var card = document.createElement("section");
+          card.className = "question-card";
+          appendText(card, "p", "question-text", "س" + index + ": " + question.questionText);
+          var picker = null;
+          var input = null;
+          if ((question.options || []).length) {
+            picker = optionPicker(question, question.savedAnswer);
+            card.appendChild(picker.element);
+          } else {
+            input = document.createElement("textarea");
+            input.className = "answer-input";
+            input.placeholder = "اكتب إجابتك هنا…";
+            input.setAttribute("aria-label", "إجابة السؤال " + index);
+            input.value = question.savedAnswer || "";
+            card.appendChild(input);
+          }
+          var reveal = document.createElement("button");
+          reveal.type = "button";
+          reveal.className = "primary";
+          reveal.textContent = "عرض الإجابة النموذجية";
+          var result = document.createElement("div");
+          result.className = "answer-result";
+          result.hidden = true;
+          reveal.addEventListener("click", function () {
+            var attempt = picker ? picker.selected() : input.value.trim();
+            if (!attempt) {
+              result.hidden = false;
+              result.textContent = "أدخل محاولتك أولاً.";
+              return;
+            }
+            reveal.disabled = true;
+            content
+              .revealOfficialAnswer({
+                lessonId: lessonId,
+                questionId: question.questionId,
+                revisionId: question.revisionId,
+                attempt: attempt,
+              })
+              .then(function (answer) {
+                var lines = ["الإجابة النموذجية: " + answer.modelAnswer];
+                if (answer.explanation) lines.push(answer.explanation);
+                result.textContent = lines.join("\n\n");
+                result.hidden = false;
+              })
+              .catch(function () {
+                result.textContent =
+                  "تعذر التحقق من الإجابة المحفوظة. حدّث المادة عند توفر الإنترنت.";
+                result.hidden = false;
+                reveal.disabled = false;
+              });
+          });
+          card.appendChild(reveal);
+          card.appendChild(result);
+          return card;
+        }
+
+        function renderSelfTestQuestion(content, lessonId, question, index) {
+          var card = document.createElement("section");
+          card.className = "question-card";
+          appendText(card, "p", "question-text", "س" + index + ": " + question.questionText);
+          var picker = optionPicker(question, question.selectedOptionId);
+          card.appendChild(picker.element);
+          var check = document.createElement("button");
+          check.type = "button";
+          check.className = "primary";
+          check.textContent = "تحقق من الإجابة";
+          var result = document.createElement("div");
+          result.className = "answer-result";
+          result.hidden = true;
+          check.addEventListener("click", function () {
+            var selected = picker.selected();
+            if (!selected) {
+              result.hidden = false;
+              result.textContent = "اختر إجابة أولاً.";
+              return;
+            }
+            check.disabled = true;
+            content
+              .checkSelfTestAnswer({
+                lessonId: lessonId,
+                questionId: question.questionId,
+                revisionId: question.revisionId,
+                selectedOptionId: selected,
+              })
+              .then(function (answer) {
+                Object.keys(picker.buttons).forEach(function (id) {
+                  picker.buttons[id].disabled = true;
+                  if (id === answer.correctOptionId) picker.buttons[id].classList.add("correct");
+                  else if (id === selected) picker.buttons[id].classList.add("wrong");
+                });
+                var lines = [answer.isCorrect ? "إجابة صحيحة" : "إجابة غير صحيحة"];
+                if (answer.explanation) lines.push(answer.explanation);
+                if (answer.correction) lines.push(answer.correction);
+                result.textContent = lines.join("\n\n");
+                result.hidden = false;
+              })
+              .catch(function () {
+                result.textContent = "تعذر تصحيح الإجابة المحفوظة. حدّث المادة عند توفر الإنترنت.";
+                result.hidden = false;
+                check.disabled = false;
+              });
+          });
+          card.appendChild(check);
+          card.appendChild(result);
+          return card;
+        }
+
+        function renderAssessments(content, lessonId, assessments) {
+          assessmentsEl.replaceChildren();
+          var official = (assessments && assessments.officialQuestions) || [];
+          var selfTest = (assessments && assessments.selfTestQuestions) || [];
+          if (official.length) {
+            appendText(assessmentsEl, "h2", "", "أسئلة الكتاب");
+            official.forEach(function (question, index) {
+              assessmentsEl.appendChild(
+                renderOfficialQuestion(content, lessonId, question, index + 1),
+              );
+            });
+          }
+          if (selfTest.length) {
+            appendText(assessmentsEl, "h2", "", "اختبر فهمك");
+            selfTest.forEach(function (question, index) {
+              assessmentsEl.appendChild(
+                renderSelfTestQuestion(content, lessonId, question, index + 1),
+              );
+            });
+          }
+        }
+
+        function openLesson(lessonId, button) {
+          var content = plugin("TamkeenOfflineContent");
+          lessonErrorEl.textContent = "";
+          if (!content || !lessonId) {
+            homeErrorEl.textContent = "تعذر قراءة الدروس المحفوظة في هذه النسخة من التطبيق.";
+            return;
+          }
+          button.disabled = true;
+          Promise.all([
+            content.readLesson({ lessonId: lessonId }).catch(function () {
+              return null;
+            }),
+            content.readLessonAssessments({ lessonId: lessonId }).catch(function () {
+              return null;
+            }),
+          ])
+            .then(function (results) {
+              var lesson = results[0];
+              var assessments = results[1];
+              var questionCount =
+                ((assessments && assessments.officialQuestions) || []).length +
+                ((assessments && assessments.selfTestQuestions) || []).length;
+              if (!lesson && questionCount === 0) throw new Error("offline_lesson_not_available");
+              lessonTitleEl.textContent = (lesson && lesson.title) || "درس محفوظ";
+              renderComponents((lesson && lesson.components) || []);
+              renderAssessments(content, lessonId, assessments);
+              homeView.hidden = true;
+              lessonView.hidden = false;
+              window.scrollTo(0, 0);
+            })
+            .catch(function () {
+              homeErrorEl.textContent =
+                "تعذر التحقق من ملفات هذا الدرس. اتصل بالإنترنت وحدّث المادة.";
+            })
+            .then(function () {
+              button.disabled = false;
             });
         }
 
         function load() {
-          var plugin = bridge();
-          if (!plugin) return showEmpty();
-          plugin
-            .listSavedTextbooks()
-            .then(function (res) {
-              render((res && res.books) || []);
-            })
-            .catch(function () {
-              showEmpty();
-            });
+          var content = plugin("TamkeenOfflineContent");
+          var pdf = plugin("TamkeenPdfViewer");
+          homeErrorEl.textContent = "";
+
+          if (!content) {
+            empty(subjectsEl, "هذه النسخة لا تدعم تصفح الدروس المحفوظة بعد.");
+          } else {
+            content
+              .listSavedSubjects()
+              .then(function (result) {
+                renderSubjects((result && result.subjects) || []);
+              })
+              .catch(function () {
+                empty(subjectsEl, "تعذر التحقق من الدروس المحفوظة على هذا الجهاز.");
+              });
+          }
+
+          if (!pdf) {
+            empty(booksEl, "تعذر قراءة الكتب المحفوظة في هذه النسخة من التطبيق.");
+          } else {
+            pdf
+              .listSavedTextbooks()
+              .then(function (result) {
+                renderBooks((result && result.books) || []);
+              })
+              .catch(function () {
+                empty(booksEl, "تعذر التحقق من الكتب المحفوظة على هذا الجهاز.");
+              });
+          }
         }
 
+        document.getElementById("back").addEventListener("click", function () {
+          lessonView.hidden = true;
+          homeView.hidden = false;
+          componentsEl.replaceChildren();
+          assessmentsEl.replaceChildren();
+          window.scrollTo(0, 0);
+        });
         document.getElementById("retry").addEventListener("click", function () {
           window.location.href = ORIGIN;
         });
