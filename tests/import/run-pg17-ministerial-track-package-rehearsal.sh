@@ -6,8 +6,20 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 : "${MINISTERIAL_PG17_URL:?MINISTERIAL_PG17_URL is required}"
 
-case "$MINISTERIAL_PG17_URL" in
-  postgresql://localhost:*|postgresql://127.0.0.1:*|postgres://localhost:*|postgres://127.0.0.1:*) ;;
+if ! uri_host="$(node -e '
+  try {
+    const url = new URL(process.env.MINISTERIAL_PG17_URL);
+    if (url.protocol !== "postgresql:" && url.protocol !== "postgres:") process.exit(2);
+    process.stdout.write(url.hostname);
+  } catch {
+    process.exit(2);
+  }
+')"; then
+  echo "MINISTERIAL_PG17_URL must be a PostgreSQL URL" >&2
+  exit 2
+fi
+case "$uri_host" in
+  localhost|127.0.0.1|::1) ;;
   *) echo "MINISTERIAL_PG17_URL must target localhost" >&2; exit 2 ;;
 esac
 
