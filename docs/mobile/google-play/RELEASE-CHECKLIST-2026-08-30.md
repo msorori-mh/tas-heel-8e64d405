@@ -8,7 +8,7 @@
 | ------------------------ | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | AAB وPlay App Signing    | HOLD_EXTERNAL                   | مسار AAB موجود؛ يجب إنشاء Upload key آمن وتفعيل Play App Signing وإدخال أسرار CI الأربعة                                                 |
 | Package name             | PASS_SOURCE                     | `app.studentamkeen.tamkeen` متطابق في Capacitor وGradle وJava                                                                            |
-| Version                  | PASS_SOURCE                     | `versionCode 3` و`versionName 1.0.2`؛ الرقم 2 استُخدم في Play سابقًا ولا يُعاد استخدامه                                                  |
+| Version                  | PASS_SOURCE                     | `versionCode 4` و`versionName 1.0.3`؛ الأرقام 1–3 استُخدمت في Play/حزم الاختبار ولا يُعاد استخدامها                                      |
 | Target API               | PASS_SOURCE                     | compile/target 36، وهو خط الأساس المطلوب للتطبيقات الجديدة والتحديثات بدءًا من 2026-08-31                                                |
 | 64-bit / 16 KB page size | PASS_CURRENT_AAB_IF_NO_SO       | قارئ PDF يستخدم API المنصة؛ CI يفشل إذا دخلت مكتبة `.so` غير مدققة. يجب تشغيل الحارس على AAB النهائي قبل مهلة تحديثات Play في 2027-02-01 |
 | الصلاحيات الحساسة        | PASS_SOURCE                     | الصلاحية الوحيدة INTERNET؛ لا موقع/كاميرا/رسائل/جهات اتصال/Advertising ID                                                                |

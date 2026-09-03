@@ -20,8 +20,8 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
   it("freezes the Play identity and offline testing release version", () => {
     expect(capacitor).toContain('appId: "app.studentamkeen.tamkeen"');
     expect(gradle).toContain('applicationId "app.studentamkeen.tamkeen"');
-    expect(gradle).toContain("versionCode 3");
-    expect(gradle).toContain('versionName "1.0.2"');
+    expect(gradle).toContain("versionCode 4");
+    expect(gradle).toContain('versionName "1.0.3"');
   });
 
   it("loads only the production HTTPS origin and refuses cleartext", () => {
