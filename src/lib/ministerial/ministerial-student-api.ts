@@ -34,6 +34,12 @@ export type MinisterialModelRow = {
   track_name: string;
 };
 
+export type MinisterialTrackModelRow = MinisterialModelRow & {
+  subject_id: string;
+  subject_name: string;
+  subject_code: string | null;
+};
+
 export type MinisterialModelOverview = MinisterialModelRow & {
   subject_id: string;
   subject_name: string;
@@ -222,6 +228,16 @@ export async function fetchMinisterialModels(subjectId: string): Promise<Ministe
   const { data, error } = await supabase.rpc("list_ministerial_models", { _subject_id: subjectId });
   if (error) throw error;
   return (data ?? []) as MinisterialModelRow[];
+}
+
+export async function fetchMinisterialTrackModels(
+  trackCode: "sanaa" | "aden",
+): Promise<MinisterialTrackModelRow[]> {
+  const { data, error } = await supabase.rpc("list_ministerial_track_models", {
+    _track_code: trackCode,
+  });
+  if (error) throw error;
+  return (data ?? []) as MinisterialTrackModelRow[];
 }
 
 export async function fetchMinisterialModelOverview(

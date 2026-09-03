@@ -91,6 +91,7 @@ test("the real package and answer path is rehearsed on disposable PostgreSQL 17"
   assert.match(pgRunner, /pg17-prereq-ministerial-track-package\.sql/);
   assert.match(pgRunner, /20260912010000_ministerial_track_package_import\.sql/);
   assert.match(pgRunner, /20260912020000_ministerial_aden_text_answers\.sql/);
+  assert.match(pgRunner, /20260912040000_ministerial_track_first_student_listing\.sql/);
   assert.match(pgRunner, /pg17-ministerial-track-package-smoke\.sql/);
   assert.match(pgPrerequisite, /cf10_text_sha256/);
   assert.match(pgPrerequisite, /ADD COLUMN IF NOT EXISTS answered_at timestamptz/);

@@ -54,6 +54,7 @@ CHAIN=(
   supabase/migrations/20260825010000_ministerial_cross_track_mufadala_parity_14i.sql
   supabase/migrations/20260912010000_ministerial_track_package_import.sql
   supabase/migrations/20260912020000_ministerial_aden_text_answers.sql
+  supabase/migrations/20260912040000_ministerial_track_first_student_listing.sql
 )
 
 cd "$ROOT"
@@ -71,8 +72,8 @@ if [ "$psql_rc" -ne 0 ]; then
   exit "$psql_rc"
 fi
 pass_count="$(echo "$output" | grep -c 'PASS' || true)"
-if [ "$pass_count" -lt 24 ]; then
-  echo "Ministerial package rehearsal produced $pass_count PASS assertions; expected at least 24." >&2
+if [ "$pass_count" -lt 30 ]; then
+  echo "Ministerial package rehearsal produced $pass_count PASS assertions; expected at least 30." >&2
   exit 1
 fi
 echo "RESULT: ministerial track package PostgreSQL 17 rehearsal = PASS ($pass_count assertions)"

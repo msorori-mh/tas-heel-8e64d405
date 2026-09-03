@@ -229,7 +229,9 @@ function MinisterialResultPage() {
           </Button>
         )}
         <Button asChild variant="ghost">
-          <Link to="/ministerial-exams">كل النماذج الوزارية</Link>
+          <Link to="/ministerial-exams" search={data.model ? { track: data.model.track_code } : {}}>
+            العودة إلى نماذج {data.model?.track_name ?? "الاختبارات الوزارية"}
+          </Link>
         </Button>
       </div>
     </div>

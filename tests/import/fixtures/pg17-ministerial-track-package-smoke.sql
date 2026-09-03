@@ -251,9 +251,19 @@ BEGIN
   PERFORM pg_temp.actor(c_sanaa_student);
   SELECT count(*) INTO v_count FROM public.list_ministerial_models(c_subject);
   PERFORM pg_temp.chk('Sanaa student sees both classified tracks', '3', v_count::text);
+  SELECT count(*) INTO v_count FROM public.list_ministerial_track_models('sanaa');
+  PERFORM pg_temp.chk('Sanaa choice lists Sanaa models only', '2', v_count::text);
+  SELECT count(*) INTO v_count FROM public.list_ministerial_track_models('aden');
+  PERFORM pg_temp.chk('Sanaa student can explicitly choose Aden models', '1', v_count::text);
   PERFORM pg_temp.actor(c_aden_student);
   SELECT count(*) INTO v_count FROM public.list_ministerial_models(c_subject);
   PERFORM pg_temp.chk('Aden student sees both classified tracks', '3', v_count::text);
+  SELECT count(*) INTO v_count FROM public.list_ministerial_track_models('aden');
+  PERFORM pg_temp.chk('Aden choice lists Aden models only', '1', v_count::text);
+  SELECT count(*) INTO v_count FROM public.list_ministerial_track_models('sanaa');
+  PERFORM pg_temp.chk('Aden student can explicitly choose Sanaa models', '2', v_count::text);
+  SELECT count(*) INTO v_count FROM public.list_ministerial_track_models('other');
+  PERFORM pg_temp.chk('unsupported track choice lists nothing', '0', v_count::text);
 
   v_session := public.create_ministerial_exam_session(v_aden_model, 'training');
   SELECT id INTO v_session_question FROM public.exam_session_questions
@@ -305,5 +315,7 @@ BEGIN
     has_function_privilege('anon', 'public.ministerial_track_package_prepare(jsonb)', 'EXECUTE')::text);
   PERFORM pg_temp.chk('anonymous cannot save Aden answers', 'false',
     has_function_privilege('anon', 'public.answer_ministerial_text_question(uuid,uuid,text)', 'EXECUTE')::text);
+  PERFORM pg_temp.chk('anonymous cannot list a ministerial track', 'false',
+    has_function_privilege('anon', 'public.list_ministerial_track_models(text)', 'EXECUTE')::text);
 END;
 $test$;

@@ -555,9 +555,10 @@ function MinisterialSessionPage() {
 
       <Link
         to="/ministerial-exams"
+        search={data.model ? { track: data.model.track_code } : {}}
         className="inline-block text-sm text-muted-foreground underline underline-offset-4"
       >
-        العودة إلى النماذج الوزارية
+        العودة إلى نماذج {data.model?.track_name ?? "الاختبارات الوزارية"}
       </Link>
     </div>
   );
