@@ -8,6 +8,8 @@ const gradle = read("android/app/build.gradle");
 const capacitor = read("capacitor.config.ts");
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const workflow = read(".github/workflows/android-ci.yml");
+const supabaseClient = read("src/integrations/supabase/client.ts");
+const nativeAuthStorage = read("src/integrations/supabase/nativeAuthStorage.ts");
 
 describe("ANDROID_PLAY_TESTING_V1_01", () => {
   it("targets the Play requirement effective 31 August 2026", () => {
@@ -32,6 +34,14 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
 
   it("keeps restorable server state and authentication data out of Android backup", () => {
     expect(manifest).toContain('android:allowBackup="false"');
+  });
+
+  it("persists Supabase refresh sessions outside the disposable Android WebView", () => {
+    expect(supabaseClient).toContain("persistentAuthStorage() ?? brokeredPreviewStorage()");
+    expect(nativeAuthStorage).toContain("Capacitor.isNativePlatform()");
+    expect(nativeAuthStorage).toContain("Preferences");
+    expect(nativeAuthStorage).toContain("legacyValue");
+    expect(workflow).toContain('"src/integrations/supabase/**"');
   });
 
   it("keeps release signing fail-closed and out of source control", () => {
