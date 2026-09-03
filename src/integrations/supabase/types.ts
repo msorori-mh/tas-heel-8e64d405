@@ -6063,6 +6063,26 @@ export type Database = {
           variant_code: string
         }[]
       }
+      list_ministerial_track_models: {
+        Args: { _track_code: string }
+        Returns: {
+          academic_year: number
+          duration_seconds: number
+          last_session_id: string
+          last_session_status: string
+          model_code: string
+          model_id: string
+          model_label: string
+          question_count: number
+          round_code: string
+          subject_code: string
+          subject_id: string
+          subject_name: string
+          track_code: string
+          track_name: string
+          variant_code: string
+        }[]
+      }
       list_ministerial_subjects: {
         Args: never
         Returns: {

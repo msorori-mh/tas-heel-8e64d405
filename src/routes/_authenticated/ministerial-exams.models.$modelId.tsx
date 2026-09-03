@@ -82,12 +82,12 @@ function MinisterialModelDetails() {
     <div className="space-y-4 pb-6" dir="rtl">
       <Breadcrumbs
         items={[
-          { label: "النماذج الوزارية", to: "/ministerial-exams" },
           {
-            label: data.subject_name,
-            to: "/ministerial-exams/$subjectId",
-            params: { subjectId: data.subject_id },
+            label: `نماذج ${data.track_name}`,
+            to: "/ministerial-exams",
+            search: { track: data.track_code },
           },
+          { label: data.subject_name },
           { label: String(data.academic_year) },
         ]}
       />
@@ -237,11 +237,11 @@ function MinisterialModelDetails() {
       )}
 
       <Link
-        to="/ministerial-exams/$subjectId"
-        params={{ subjectId: data.subject_id }}
+        to="/ministerial-exams"
+        search={{ track: data.track_code }}
         className="inline-block text-sm text-muted-foreground underline underline-offset-4"
       >
-        العودة إلى نماذج المادة
+        العودة إلى نماذج {data.track_name}
       </Link>
     </div>
   );
