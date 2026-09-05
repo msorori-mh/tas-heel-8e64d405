@@ -7,7 +7,10 @@ import {
   type ContentStaffAuthContext,
 } from "@/integrations/supabase/auth-middleware";
 import { verifyGoldenLessonBundle } from "./golden-lesson-bundle-verifier";
-import { buildGoldenDomainStageEnvelope } from "./golden-lesson-domain-staging";
+import {
+  assertLegacyGoldenDomainStageCompatible,
+  buildGoldenDomainStageEnvelope,
+} from "./golden-lesson-domain-staging";
 
 const Input = z.object({ packageId: z.string().uuid(), version: z.number().int().positive() });
 const BUCKET = "golden-lesson-intake";
@@ -64,6 +67,7 @@ export const stageApprovedGoldenLessonDomainBundle = createServerFn({ method: "P
     if (verified.bundleSha256 !== versionResult.data.verified_bundle_sha256)
       throw new Error("VERIFIED_BUNDLE_IDENTITY_MISMATCH");
     const envelope = buildGoldenDomainStageEnvelope(verified);
+    assertLegacyGoldenDomainStageCompatible(envelope);
     const staged = await admin.rpc(
       "golden_lesson_stage_domain_bundle" as never,
       {

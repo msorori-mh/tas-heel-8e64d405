@@ -29,6 +29,8 @@ export const GOLDEN_LIFECYCLE_TARGETS: Record<GoldenCapability, string> = {
 
 export interface GoldenDomainStageEntry {
   capability: GoldenCapability;
+  instanceIndex?: number;
+  instanceTitle?: string | null;
   lifecycleCapability: string;
   targetPlan: string;
   applicability: GoldenLessonArtifact["applicability"];
@@ -46,6 +48,17 @@ export interface GoldenDomainStageEnvelope {
   answersCompanion: { path: string; sha256: string; base64: string } | null;
 }
 
+/**
+ * The legacy CF08 package RPC stores one row per capability and therefore cannot represent
+ * repeated lab artifacts without a schema change. The active Golden Lesson builder publishes
+ * through LCPV2; keep the legacy RPC fail-closed instead of allowing a partial stage.
+ */
+export function assertLegacyGoldenDomainStageCompatible(envelope: GoldenDomainStageEnvelope): void {
+  if (envelope.entries.filter((entry) => entry.capability === "labExperimentHtml").length > 1) {
+    throw new Error("DOMAIN_STAGE_MULTI_LAB_REQUIRES_COMPONENT_V2");
+  }
+}
+
 export function buildGoldenDomainStageEnvelope(
   bundle: VerifiedGoldenLessonBundle,
 ): GoldenDomainStageEnvelope {
@@ -57,12 +70,16 @@ export function buildGoldenDomainStageEnvelope(
     if (!file || file.sha256 !== expected) throw new Error("DOMAIN_STAGE_VERIFIED_FILE_MISSING");
     return Buffer.from(file.bytes).toString("base64");
   };
-  const byCapability = new Map(bundle.manifest.artifacts.map((item) => [item.capability, item]));
-  const entries = GOLDEN_CAPABILITIES.map((capability): GoldenDomainStageEntry => {
-    const artifact = byCapability.get(capability);
-    if (!artifact) throw new Error("DOMAIN_STAGE_CAPABILITY_MISSING");
-    return {
+  const entries = GOLDEN_CAPABILITIES.flatMap((capability): GoldenDomainStageEntry[] => {
+    const artifacts = bundle.manifest.artifacts
+      .filter((item) => item.capability === capability)
+      .sort((left, right) => (left.instanceIndex ?? 0) - (right.instanceIndex ?? 0));
+    if (artifacts.length === 0) throw new Error("DOMAIN_STAGE_CAPABILITY_MISSING");
+    return artifacts.map((artifact) => ({
       capability,
+      ...(capability === "labExperimentHtml"
+        ? { instanceIndex: artifact.instanceIndex, instanceTitle: artifact.instanceTitle }
+        : {}),
       lifecycleCapability: GOLDEN_LIFECYCLE_TARGETS[capability],
       targetPlan: GOLDEN_DOMAIN_TARGETS[capability],
       applicability: artifact.applicability,
@@ -73,7 +90,7 @@ export function buildGoldenDomainStageEnvelope(
       provenancePath: artifact.provenancePath,
       provenanceSha256: artifact.provenanceSha256,
       provenanceBase64: bytes(artifact.provenancePath, artifact.provenanceSha256),
-    };
+    }));
   });
   const answerPath = bundle.manifest.security.answersCompanionPath;
   const answerSha = bundle.manifest.security.answersCompanionSha256;
