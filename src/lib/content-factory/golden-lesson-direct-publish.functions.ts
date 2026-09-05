@@ -142,10 +142,13 @@ export const publishGoldenLessonDirect = createServerFn({ method: "POST" })
       // Domain staging from the verified direct intake (no ZIP bundle involved).
       const { buildDirectDomainStageEnvelope } =
         await import("./golden-lesson-direct-publish.server");
+      const { assertLegacyGoldenDomainStageCompatible } =
+        await import("./golden-lesson-domain-staging");
       const { envelope, bundleSha256 } = await buildDirectDomainStageEnvelope(
         data.packageId,
         data.version,
       );
+      assertLegacyGoldenDomainStageCompatible(envelope);
       if (data.capability) {
         if (!data.capabilitySha256) throw new Error("COMPONENT_SOURCE_HASH_REQUIRED");
         const selectedEntry = envelope.entries.find(

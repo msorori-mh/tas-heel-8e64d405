@@ -107,14 +107,41 @@ export function validateGoldenLessonPackage(
   }
 
   const seen = new Set<GoldenCapability>();
-  for (const artifact of pkg.artifacts) {
-    if (seen.has(artifact.capability))
+  const labArtifacts = pkg.artifacts.filter(
+    (artifact) => artifact.capability === "labExperimentHtml",
+  );
+  for (const [artifactPosition, artifact] of pkg.artifacts.entries()) {
+    if (seen.has(artifact.capability) && artifact.capability !== "labExperimentHtml")
       error(
         "CAPABILITY_DUPLICATE",
         `artifacts.${artifact.capability}`,
-        "القدرة مكررة داخل الحزمة.",
+        "هذه القدرة لا تقبل أكثر من ملف واحد داخل الحزمة.",
       );
     seen.add(artifact.capability);
+    const artifactField = `artifacts.${artifact.capability}.${artifactPosition}`;
+    if (
+      artifact.capability !== "labExperimentHtml" &&
+      (artifact.instanceIndex !== undefined || artifact.instanceTitle !== undefined)
+    ) {
+      error(
+        "ARTIFACT_INSTANCE_FORBIDDEN",
+        artifactField,
+        "خصائص تعدد النسخ مسموحة للتجربة المعملية فقط.",
+      );
+    }
+    if (
+      artifact.instanceTitle !== undefined &&
+      artifact.instanceTitle !== null &&
+      (typeof artifact.instanceTitle !== "string" ||
+        artifact.instanceTitle.trim().length === 0 ||
+        artifact.instanceTitle.trim().length > 120)
+    ) {
+      error(
+        "ARTIFACT_INSTANCE_TITLE_INVALID",
+        `${artifactField}.instanceTitle`,
+        "عنوان التجربة يجب أن يكون نصًا من 1 إلى 120 محرفًا.",
+      );
+    }
     if (artifact.authority !== GOLDEN_CAPABILITY_AUTHORITY[artifact.capability]) {
       error(
         "AUTHORITY_MISMATCH",
@@ -173,6 +200,37 @@ export function validateGoldenLessonPackage(
         );
       }
     }
+  }
+  if (labArtifacts.length > 1) {
+    const indices = labArtifacts.map((artifact) => artifact.instanceIndex);
+    if (
+      labArtifacts.length > 99 ||
+      indices.some((index) => !Number.isInteger(index) || Number(index) < 0) ||
+      new Set(indices).size !== indices.length ||
+      !indices
+        .map(Number)
+        .sort((left, right) => left - right)
+        .every((index, position) => index === position)
+    ) {
+      error(
+        "LAB_INSTANCE_INDEX_INVALID",
+        "artifacts.labExperimentHtml",
+        "عند رفع أكثر من تجربة يجب ترقيمها بفهارس فريدة ومتصلة تبدأ من 0.",
+      );
+    }
+    if (labArtifacts.some((artifact) => artifact.applicability === "NA" || !artifact.sourcePath)) {
+      error(
+        "LAB_INSTANCE_CONTENT_MISSING",
+        "artifacts.labExperimentHtml",
+        "كل سجل في حزمة متعددة التجارب يجب أن يحمل ملفًا مستقلًا.",
+      );
+    }
+  } else if (labArtifacts[0]?.instanceIndex !== undefined && labArtifacts[0].instanceIndex !== 0) {
+    error(
+      "LAB_INSTANCE_INDEX_INVALID",
+      "artifacts.labExperimentHtml.0.instanceIndex",
+      "فهرس التجربة الوحيدة، إن وُجد، يجب أن يساوي 0.",
+    );
   }
   for (const capability of GOLDEN_CAPABILITIES) {
     if (!seen.has(capability))

@@ -31,7 +31,6 @@ jobs:
       - name: Install repository and Chromium runtime
         run: |
           npm ci
-          npm install --no-save --package-lock=false playwright@1.55.0
           npx playwright install --with-deps chromium
 
       - name: Verify final import contract and production build

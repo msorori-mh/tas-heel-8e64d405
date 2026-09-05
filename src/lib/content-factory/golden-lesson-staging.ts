@@ -23,6 +23,8 @@ export const CAPABILITY_DRAFT_TARGET: Record<GoldenCapability, string> = {
 export interface GoldenLessonStagingAction {
   order: number;
   capability: GoldenCapability;
+  instanceIndex?: number;
+  instanceTitle?: string | null;
   target: string;
   action: "STAGE_DRAFT" | "SKIP_NA" | "SKIP_OPTIONAL_EMPTY";
   sourcePath: string | null;
@@ -91,23 +93,35 @@ export function previewGoldenLessonStaging(value: unknown): GoldenLessonStagingP
   const pkg = value as GoldenLessonPackage;
   const validation = validateGoldenLessonPackage(pkg);
   const artifacts = Array.isArray(pkg.artifacts) ? pkg.artifacts : [];
-  const actions = GOLDEN_CAPABILITIES.map((capability, index): GoldenLessonStagingAction => {
-    const artifact = artifacts.find((item) => item?.capability === capability);
-    const applicability = artifact?.applicability;
-    const action =
-      applicability === "NA"
-        ? "SKIP_NA"
-        : artifact?.sourcePath
-          ? "STAGE_DRAFT"
-          : "SKIP_OPTIONAL_EMPTY";
-    return {
-      order: index + 1,
-      capability,
-      target: CAPABILITY_DRAFT_TARGET[capability],
-      action,
-      sourcePath: artifact?.sourcePath ?? null,
-      sha256: artifact?.sha256 ?? null,
-    };
+  const actions = GOLDEN_CAPABILITIES.flatMap((capability): GoldenLessonStagingAction[] => {
+    const matches = artifacts
+      .filter((item) => item?.capability === capability)
+      .sort((left, right) => (left.instanceIndex ?? 0) - (right.instanceIndex ?? 0));
+    return matches.map((artifact) => {
+      const action =
+        artifact.applicability === "NA"
+          ? "SKIP_NA"
+          : artifact.sourcePath
+            ? "STAGE_DRAFT"
+            : "SKIP_OPTIONAL_EMPTY";
+      return {
+        order: 0,
+        capability,
+        ...(capability === "labExperimentHtml"
+          ? {
+              instanceIndex: artifact.instanceIndex,
+              instanceTitle: artifact.instanceTitle,
+            }
+          : {}),
+        target: CAPABILITY_DRAFT_TARGET[capability],
+        action,
+        sourcePath: artifact.sourcePath,
+        sha256: artifact.sha256,
+      };
+    });
+  });
+  actions.forEach((action, index) => {
+    action.order = index + 1;
   });
 
   return {

@@ -10,6 +10,17 @@ const ERROR_MESSAGES: Array<{
   action: string;
 }> = [
   {
+    pattern: /LCPV2_LAB_PUBLISHED_RESOURCE_IMMUTABLE_CONFLICT/i,
+    message: "يوجد في هذا الموضع مورد تجربة منشور ببصمة أو عنوان مختلف.",
+    action:
+      "لم يُعدّل النظام المورد المنشور. حدّث قائمة التجارب من الخادم، ثم أضف التجربة في الموضع التالي أو أرسل التفاصيل للدعم.",
+  },
+  {
+    pattern: /LCPV2_LAB_INSTANCE_(?:INVALID|RANGE_INVALID|FORBIDDEN)/i,
+    message: "ترتيب التجارب أو عنوان إحداها غير صالح.",
+    action: "احذف التجربة من الدفعة وأضفها مجددًا ليُعاد تثبيت ترتيبها.",
+  },
+  {
     pattern: /LCPV2_(?:FILE_TYPE_UNSUPPORTED|SOURCE_INVALID)|UNSUPPORTED_FILE/i,
     message: "نوع الملف أو بنيته غير مطابقين لمتطلبات هذا المكوّن.",
     action: "راجع نوع الملف والتعليمات الظاهرة، ثم اختر الملف الصحيح وأعد المحاولة.",

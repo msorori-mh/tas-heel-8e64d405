@@ -187,15 +187,55 @@ test("answers, direct READY, production apply and HTML network access are reject
   assert.equal(result.writesPerformed, 0);
 });
 
-test("optional lab may be absent, while partial artifacts and duplicate capabilities fail closed", () => {
+test("a V1 single lab without instanceIndex remains valid", () => {
+  const pkg = packageFor(GOLDEN_QURAN_V1);
+  const lab = pkg.artifacts.find((item) => item.capability === "labExperimentHtml")!;
+  assert.equal(lab.instanceIndex, undefined);
+  const result = validateGoldenLessonPackage(pkg);
+  assert.equal(result.valid, true, JSON.stringify(result.findings));
+});
+
+test("multiple labs require unique contiguous indexes while other capabilities remain singular", () => {
+  const valid = packageFor(GOLDEN_QURAN_V1);
+  const firstLab = valid.artifacts.find((item) => item.capability === "labExperimentHtml")!;
+  firstLab.sourcePath = "lab-01.html";
+  firstLab.sha256 = "1".repeat(64);
+  firstLab.instanceIndex = 0;
+  firstLab.instanceTitle = "تفاعل الحديد";
+  valid.artifacts.push({
+    ...firstLab,
+    sourcePath: "lab-02.html",
+    sha256: "2".repeat(64),
+    instanceIndex: 1,
+    instanceTitle: null,
+  });
+  const validResult = validateGoldenLessonPackage(valid);
+  assert.equal(validResult.valid, true, JSON.stringify(validResult.findings));
+
+  const invalidIndexes = structuredClone(valid);
+  invalidIndexes.artifacts.at(-1)!.instanceIndex = 2;
+  assert.ok(
+    validateGoldenLessonPackage(invalidIndexes).findings.some(
+      (finding) => finding.code === "LAB_INSTANCE_INDEX_INVALID",
+    ),
+  );
+
+  const duplicateNonLab = packageFor(GOLDEN_QURAN_V1);
+  duplicateNonLab.artifacts.push({ ...duplicateNonLab.artifacts[0]! });
+  assert.ok(
+    validateGoldenLessonPackage(duplicateNonLab).findings.some(
+      (finding) => finding.code === "CAPABILITY_DUPLICATE",
+    ),
+  );
+});
+
+test("partial artifact hashes still fail closed", () => {
   const pkg = packageFor(GOLDEN_QURAN_V1);
   const lab = pkg.artifacts.find((item) => item.capability === "labExperimentHtml")!;
   lab.sourcePath = "lab.html";
   lab.sha256 = null;
-  pkg.artifacts.push({ ...pkg.artifacts[0]! });
   const result = validateGoldenLessonPackage(pkg);
   assert.ok(result.findings.some((finding) => finding.code === "ARTIFACT_HASH_INVALID"));
-  assert.ok(result.findings.some((finding) => finding.code === "CAPABILITY_DUPLICATE"));
 });
 
 test("database validation requires book questions without blindly rewriting lesson evidence", () => {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  GOLDEN_ARTIFACT_MAX_BYTES,
   GOLDEN_ARTIFACT_FILE_CONTRACTS,
   validateGoldenLessonAnswerCoverage,
   validateGoldenLessonArtifactBytes,
@@ -19,6 +20,10 @@ test("every capability has an explicit, ZIP-free file contract", () => {
   }
   assert.deepEqual(GOLDEN_ARTIFACT_FILE_CONTRACTS.labExperimentHtml.extensions, [".html"]);
   assert.deepEqual(GOLDEN_ARTIFACT_FILE_CONTRACTS.officialBookQuestions.extensions, [".json"]);
+  assert.equal(GOLDEN_ARTIFACT_FILE_CONTRACTS.labExperimentHtml.multiple, true);
+  for (const [capability, contract] of Object.entries(GOLDEN_ARTIFACT_FILE_CONTRACTS)) {
+    if (capability !== "labExperimentHtml") assert.notEqual(contract.multiple, true);
+  }
 });
 
 test("a complete package ZIP cannot be uploaded into a summary field", () => {
@@ -62,6 +67,25 @@ test("the lab accepts restricted interactive HTML", () => {
   assert.equal(
     validateGoldenLessonArtifactBytes("labExperimentHtml", "lab.html", bytes(lab)).valid,
     true,
+  );
+});
+
+test("each lab file is validated independently against the same HTML contract", () => {
+  const valid = bytes(staticHtml("<button>ابدأ</button><script>void 0</script>"));
+  const networked = bytes(staticHtml('<script src="https://cdn.example.test/lab.js"></script>'));
+  assert.equal(
+    validateGoldenLessonArtifactBytes("labExperimentHtml", "lab-01.html", valid).valid,
+    true,
+  );
+  assert.equal(
+    validateGoldenLessonArtifactBytes("labExperimentHtml", "lab-02.html", networked).valid,
+    false,
+  );
+  const oversized = new Uint8Array(GOLDEN_ARTIFACT_MAX_BYTES + 1);
+  assert.ok(
+    validateGoldenLessonArtifactBytes("labExperimentHtml", "lab-03.html", oversized).findings.some(
+      (finding) => finding.code === "ARTIFACT_SIZE_LIMIT",
+    ),
   );
 });
 
