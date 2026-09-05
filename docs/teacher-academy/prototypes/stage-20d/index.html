@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>أكاديمية معلم الثانوية — نموذج غير إنتاجي</title>
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #fff;
+      --text: #18202a;
+      --muted: #667085;
+      --line: #d8dee8;
+      --accent: #155eef;
+      --ok: #027a48;
+      --warn: #b54708;
+      --danger: #b42318;
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); }
+    button, select { font: inherit; }
+    button:focus-visible, select:focus-visible { outline: 3px solid rgba(21,94,239,.35); outline-offset: 2px; }
+
+    .shell { max-width: 1180px; margin: 0 auto; padding: 20px; }
+    .topbar { display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 18px; }
+    .brand h1 { margin: 0 0 6px; font-size: clamp(1.35rem, 3vw, 2rem); }
+    .brand p { margin: 0; color: var(--muted); }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+    label { display: grid; gap: 6px; color: var(--muted); font-size: .9rem; }
+    select { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; background: var(--surface); color: var(--text); }
+
+    .notice { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 12px 14px; margin-bottom: 18px; }
+    .notice strong { color: var(--warn); }
+
+    .layout { display: grid; grid-template-columns: 220px minmax(0,1fr); gap: 18px; }
+    nav { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; align-self: start; position: sticky; top: 12px; }
+    nav button { width: 100%; min-height: 44px; border: 0; background: transparent; text-align: right; border-radius: 10px; padding: 10px 12px; cursor: pointer; color: var(--text); }
+    nav button[aria-current="page"] { background: #eef4ff; color: #1849a9; font-weight: 700; }
+    nav button + button { margin-top: 4px; }
+
+    main { min-width: 0; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
+    .panel h2, .panel h3 { margin-top: 0; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+    .card { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; }
+    .card h3 { margin: 0 0 8px; font-size: 1.05rem; }
+    .card p { margin: 6px 0; color: var(--muted); }
+    .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .pill { display: inline-flex; align-items: center; min-height: 28px; border-radius: 999px; padding: 4px 10px; background: #f2f4f7; font-size: .86rem; }
+    .pill.ok { color: var(--ok); background: #ecfdf3; }
+    .pill.warn { color: var(--warn); background: #fff6ed; }
+    .pill.danger { color: var(--danger); background: #fef3f2; }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .btn { min-height: 44px; border-radius: 10px; padding: 0 16px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+    .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn[disabled] { cursor: not-allowed; opacity: .55; }
+
+    .status { border-inline-start: 4px solid var(--line); padding: 10px 12px; background: #f8fafc; margin-top: 12px; border-radius: 8px; }
+    .status.ok { border-color: var(--ok); background: #ecfdf3; }
+    .status.warn { border-color: var(--warn); background: #fff6ed; }
+    .status.danger { border-color: var(--danger); background: #fef3f2; }
+
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .metric { border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+    .metric strong { display: block; font-size: 1.4rem; margin-top: 4px; }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    th, td { padding: 12px; border-bottom: 1px solid var(--line); text-align: right; }
+    th { background: #f8fafc; }
+
+    .denied { border: 1px solid #fecdca; background: #fef3f2; border-radius: 14px; padding: 18px; }
+    .denied h2 { color: var(--danger); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: static; display: flex; overflow-x: auto; gap: 6px; }
+      nav button { width: auto; white-space: nowrap; }
+      nav button + button { margin-top: 0; }
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      .shell { padding: 12px; }
+      .grid, .metrics { grid-template-columns: 1fr; }
+      .controls { width: 100%; }
+      .controls label { flex: 1 1 160px; }
+      select { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <h1>أكاديمية معلم الثانوية</h1>
+        <p>نموذج UX تجريبي — بيانات افتراضية فقط</p>
+      </div>
+      <div class="controls" aria-label="أدوات النموذج التجريبي">
+        <label>الدور التجريبي
+          <select id="roleSelect">
+            <option value="learner">معلم متعلم</option>
+            <option value="org">مدير مؤسسة</option>
+            <option value="trainer">مدرب</option>
+            <option value="certificate">مسؤول شهادات</option>
+            <option value="support">دعم</option>
+          </select>
+        </label>
+        <label>حالة الاستحقاق
+          <select id="entitlementSelect">
+            <option value="ACTIVE">متاح لك</option>
+            <option value="PENDING">قيد التفعيل</option>
+            <option value="SUSPENDED">موقوف مؤقتًا</option>
+            <option value="EXPIRED">انتهت الصلاحية</option>
+            <option value="REVOKED">تم سحب الوصول</option>
+            <option value="NONE">يتطلب اشتراكًا/شراءً</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <div class="notice" role="note">
+      <strong>غير إنتاجي:</strong> لا دفع، لا قاعدة بيانات، لا بنك أسئلة، ولا بيانات طلاب. كل الأسماء والأرقام أدناه افتراضية.
+    </div>
+
+    <div class="layout">
+      <nav aria-label="أقسام النموذج">
+        <button data-view="catalog" aria-current="page">الخطط والبرامج</button>
+        <button data-view="individual">استحقاقي</button>
+        <button data-view="contracts">العقود والمقاعد</button>
+        <button data-view="cohort">الدفعة التدريبية</button>
+        <button data-view="certificates">الشهادات</button>
+        <button data-view="support">الدعم والتدقيق</button>
+        <button data-view="boundary">حدود الصلاحيات</button>
+      </nav>
+
+      <main id="mainContent" tabindex="-1">
+        <section id="view-catalog" class="view active" aria-labelledby="catalogTitle">
+          <div class="panel">
+            <h2 id="catalogTitle">الخطط والبرامج</h2>
+            <p>الأسعار الفعلية قرار تجاري لاحق، لذلك لا يعرض هذا النموذج أي قيمة نقدية.</p>
+            <div class="grid">
+              <article class="card">
+                <h3>استكشاف عام</h3>
+                <p>تعرف على البرامج والعينات العامة قبل وجود استحقاق.</p>
+                <div class="meta"><span class="pill">السعر يحدد لاحقًا</span><span class="pill">لا ينشئ تسجيلًا</span></div>
+              </article>
+              <article class="card">
+                <h3>برنامج فردي</h3>
+                <p>استحقاق لمعلم واحد مرتبط بإصدار برنامج ثابت.</p>
+                <div class="meta"><span class="pill">السعر يحدد لاحقًا</span><span class="pill">إصدار ثابت</span></div>
+              </article>
+              <article class="card">
+                <h3>عقد مؤسسة</h3>
+                <p>مقاعد محددة لمؤسسة ضمن مدة ونطاق برامج متفق عليه.</p>
+                <div class="meta"><span class="pill">السعر يحدد لاحقًا</span><span class="pill">مقاعد محدودة</span></div>
+              </article>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>برنامج تجريبي</h3>
+            <p><strong>التقويم من أجل التعلم</strong> — الإصدار التدريبي V1 (مرجع افتراضي).</p>
+            <div id="catalogEntitlementStatus" class="status" aria-live="polite"></div>
+            <div class="actions"><button id="openProgramBtn" class="btn primary">فتح البرنامج</button></div>
+          </div>
+        </section>
+
+        <section id="view-individual" class="view" aria-labelledby="individualTitle">
+          <div class="panel">
+            <h2 id="individualTitle">استحقاق المعلم الفردي</h2>
+            <p>هذا العرض خاص بالمعلم المتعلم فقط ولا يستمد أي صلاحية من اشتراك الطالب.</p>
+            <div id="individualStatus" class="status" aria-live="polite"></div>
+            <div class="actions">
+              <button id="individualAccessBtn" class="btn primary">متابعة التعلم</button>
+              <button class="btn" disabled>تفاصيل الطلب — نموذج فقط</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-contracts" class="view" aria-labelledby="contractsTitle">
+          <div class="panel">
+            <h2 id="contractsTitle">العقد المؤسسي والمقاعد</h2>
+            <div class="metrics">
+              <div class="metric">المقاعد المشتراة<strong>30</strong></div>
+              <div class="metric">المقاعد المسندة<strong>24</strong></div>
+              <div class="metric">المقاعد المتاحة<strong>6</strong></div>
+            </div>
+            <div class="meta"><span class="pill ok">العقد نشط</span><span class="pill">01-09-2026 — 31-08-2027</span></div>
+          </div>
+          <div class="panel">
+            <h3>معاينة إسناد مقعد</h3>
+            <label>حالة التحقق
+              <select id="seatScenario">
+                <option value="VALID">عضو نشط + مقعد متاح</option>
+                <option value="NO_SEATS">لا توجد مقاعد</option>
+                <option value="EXPIRED">العقد منتهي</option>
+                <option value="SUSPENDED">العقد موقوف</option>
+                <option value="INACTIVE_MEMBER">العضوية غير نشطة</option>
+                <option value="WRONG_ORG">مؤسسة مختلفة</option>
+                <option value="OUTSIDE_SCOPE">البرنامج خارج نطاق العقد</option>
+              </select>
+            </label>
+            <div id="seatStatus" class="status" aria-live="polite"></div>
+            <div class="actions"><button id="seatPreviewBtn" class="btn primary">معاينة أثر الإسناد</button></div>
+          </div>
+        </section>
+
+        <section id="view-cohort" class="view" aria-labelledby="cohortTitle">
+          <div class="panel">
+            <h2 id="cohortTitle">الدفعة التدريبية</h2>
+            <p>دفعة افتراضية: «التقويم من أجل التعلم — سبتمبر».</p>
+            <div class="table-wrap" role="region" aria-label="ملخص الدفعة" tabindex="0">
+              <table>
+                <thead><tr><th>المؤشر</th><th>القيمة الافتراضية</th></tr></thead>
+                <tbody>
+                  <tr><td>المعلمون المسجلون</td><td>18</td></tr>
+                  <tr><td>موعد اللقاء القادم</td><td>يحدد لاحقًا</td></tr>
+                  <tr><td>التقدم الإجمالي</td><td>يعرض ضمن نطاق الدفعة فقط</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-certificates" class="view" aria-labelledby="certificatesTitle">
+          <div class="panel">
+            <h2 id="certificatesTitle">الشهادات والتحقق</h2>
+            <label>حالة الشهادة
+              <select id="certificateScenario">
+                <option value="ELIGIBLE">مؤهل للإصدار</option>
+                <option value="NOT_ELIGIBLE">غير مكتمل الشروط</option>
+                <option value="ISSUED">صادرة</option>
+                <option value="REVOKED">ملغاة</option>
+                <option value="UNKNOWN">رمز تحقق غير معروف</option>
+              </select>
+            </label>
+            <div id="certificateStatus" class="status" aria-live="polite"></div>
+            <div class="actions"><button id="certificateActionBtn" class="btn primary">معاينة الإجراء</button></div>
+          </div>
+          <div class="panel">
+            <h3>معاينة التحقق العام — أقل قدر من البيانات</h3>
+            <div class="card">
+              <p><strong>النتيجة:</strong> صالحة</p>
+              <p><strong>الشهادة:</strong> إتمام برنامج التقويم من أجل التعلم</p>
+              <p><strong>الاسم المعروض:</strong> معلم تجريبي</p>
+              <p><strong>تاريخ الإصدار:</strong> 2026-09-01</p>
+              <p><strong>المرجع:</strong> DEMO-CERT-001</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-support" class="view" aria-labelledby="supportTitle">
+          <div class="panel">
+            <h2 id="supportTitle">الدعم والتدقيق</h2>
+            <p>عرض محدود الغرض، لا يوفر تجاوز صلاحيات ولا وصولًا شاملاً للبيانات.</p>
+            <div class="table-wrap" role="region" aria-label="سجل تدقيق افتراضي" tabindex="0">
+              <table>
+                <thead><tr><th>المرجع</th><th>الحدث</th><th>الحالة</th></tr></thead>
+                <tbody>
+                  <tr><td>DEMO-AUD-101</td><td>إنشاء استحقاق افتراضي</td><td>موثق</td></tr>
+                  <tr><td>DEMO-AUD-102</td><td>معاينة إسناد مقعد</td><td>موثق</td></tr>
+                  <tr><td>DEMO-AUD-103</td><td>تحقق شهادة</td><td>موثق</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-boundary" class="view" aria-labelledby="boundaryTitle">
+          <div class="panel">
+            <h2 id="boundaryTitle">حدود الصلاحيات</h2>
+            <div class="grid">
+              <div class="card"><h3>هوية مشتركة فقط</h3><p>الهوية لا تمنح تلقائيًا دورًا أكاديميًا أو صلاحية طلاب.</p></div>
+              <div class="card"><h3>تجارة مستقلة</h3><p>العقود والاستحقاقات الأكاديمية مستقلة عن اشتراكات ومحفظة الطالب.</p></div>
+              <div class="card"><h3>شهادات مستقلة</h3><p>الشهادات الأكاديمية لا تستخدم سجلات شهادات الطلاب.</p></div>
+            </div>
+            <div class="status danger">لا توجد في هذا النموذج أي صلاحية لإدارة بيانات الطلاب أو تحرير/مراجعة/نشر بنك الأسئلة.</div>
+          </div>
+        </section>
+
+        <section id="denialView" class="view" aria-labelledby="denialTitle">
+          <div class="denied" role="alert">
+            <h2 id="denialTitle">غير مسموح لهذا الدور</h2>
+            <p id="denialText"></p>
+            <button id="backBtn" class="btn">العودة إلى أول شاشة مسموحة</button>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div id="liveRegion" class="sr-only" aria-live="polite"></div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const permissions = {
+        learner: ["catalog", "individual", "certificates", "boundary"],
+        org: ["catalog", "contracts", "boundary"],
+        trainer: ["catalog", "cohort", "boundary"],
+        certificate: ["catalog", "certificates", "boundary"],
+        support: ["catalog", "support", "boundary"]
+      };
+
+      const entitlementCopy = {
+        ACTIVE: { cls: "ok", text: "متاح لك — الاستحقاق نشط في هذا النموذج.", enabled: true },
+        PENDING: { cls: "warn", text: "قيد التفعيل — لا يفتح المحتوى المحمي قبل اكتمال التفعيل.", enabled: false },
+        SUSPENDED: { cls: "warn", text: "موقوف مؤقتًا — يحتفظ النموذج بسجل التعلم التاريخي دون منح وصول جديد.", enabled: false },
+        EXPIRED: { cls: "danger", text: "انتهت الصلاحية — يتوقف الوصول المحمي وفق سياسة الاستحقاق.", enabled: false },
+        REVOKED: { cls: "danger", text: "تم سحب الوصول — لا يحذف ذلك سجل التقدم أو الشهادات الصحيحة تلقائيًا.", enabled: false },
+        NONE: { cls: "warn", text: "يتطلب اشتراكًا/شراءً — لا يوجد استحقاق أكاديمي فعال.", enabled: false }
+      };
+
+      const seatCopy = {
+        VALID: { cls: "ok", text: "يمكن متابعة معاينة الإسناد: العضوية والعقد والنطاق والمقعد كلها صالحة.", enabled: true },
+        NO_SEATS: { cls: "danger", text: "مرفوض: لا توجد مقاعد متاحة في العقد.", enabled: false },
+        EXPIRED: { cls: "danger", text: "مرفوض: العقد منتهي.", enabled: false },
+        SUSPENDED: { cls: "danger", text: "مرفوض: العقد موقوف.", enabled: false },
+        INACTIVE_MEMBER: { cls: "danger", text: "مرفوض: المعلم ليس عضوًا نشطًا في المؤسسة.", enabled: false },
+        WRONG_ORG: { cls: "danger", text: "مرفوض: عملية عابرة لمؤسسة أخرى.", enabled: false },
+        OUTSIDE_SCOPE: { cls: "danger", text: "مرفوض: البرنامج خارج نطاق العقد.", enabled: false }
+      };
+
+      const certificateCopy = {
+        ELIGIBLE: { cls: "ok", text: "مؤهل: اكتملت شروط التعلم والتقييم والاستحقاق في السيناريو الافتراضي.", label: "معاينة الإصدار" },
+        NOT_ELIGIBLE: { cls: "warn", text: "غير مؤهل: توجد شروط إكمال أو تقييم غير مكتملة.", label: "عرض سبب عدم الأهلية" },
+        ISSUED: { cls: "ok", text: "الشهادة صادرة ومرتبطة بإصدار برنامج ثابت.", label: "معاينة التحقق" },
+        REVOKED: { cls: "danger", text: "الشهادة ملغاة مع بقاء دليل الإصدار وسجل سبب الإلغاء.", label: "عرض حالة الإلغاء" },
+        UNKNOWN: { cls: "warn", text: "رمز التحقق غير معروف — لا تُكشف بيانات إضافية.", label: "إعادة التحقق" }
+      };
+
+      const roleSelect = document.getElementById("roleSelect");
+      const entitlementSelect = document.getElementById("entitlementSelect");
+      const seatScenario = document.getElementById("seatScenario");
+      const certificateScenario = document.getElementById("certificateScenario");
+      const navButtons = [...document.querySelectorAll("nav button[data-view]")];
+      const views = [...document.querySelectorAll(".view")];
+      const denialView = document.getElementById("denialView");
+      const denialText = document.getElementById("denialText");
+      const liveRegion = document.getElementById("liveRegion");
+      const mainContent = document.getElementById("mainContent");
+      let currentView = "catalog";
+
+      function roleLabel(role) {
+        return roleSelect.querySelector(`option[value="${role}"]`).textContent;
+      }
+
+      function setStatus(element, state) {
+        element.className = `status ${state.cls}`;
+        element.textContent = state.text;
+      }
+
+      function renderEntitlement() {
+        const state = entitlementCopy[entitlementSelect.value];
+        setStatus(document.getElementById("catalogEntitlementStatus"), state);
+        setStatus(document.getElementById("individualStatus"), state);
+        document.getElementById("openProgramBtn").disabled = !state.enabled;
+        document.getElementById("individualAccessBtn").disabled = !state.enabled;
+        liveRegion.textContent = state.text;
+      }
+
+      function renderSeat() {
+        const state = seatCopy[seatScenario.value];
+        setStatus(document.getElementById("seatStatus"), state);
+        document.getElementById("seatPreviewBtn").disabled = !state.enabled;
+      }
+
+      function renderCertificate() {
+        const state = certificateCopy[certificateScenario.value];
+        setStatus(document.getElementById("certificateStatus"), state);
+        document.getElementById("certificateActionBtn").textContent = state.label;
+      }
+
+      function hideAllViews() {
+        views.forEach((view) => view.classList.remove("active"));
+      }
+
+      function showDenied(view) {
+        hideAllViews();
+        denialView.classList.add("active");
+        const role = roleLabel(roleSelect.value);
+        denialText.textContent = `الدور «${role}» لا يملك صلاحية فتح هذا القسم في نموذج الأكاديمية. الرفض مقصود لإثبات حدود الدور.`;
+        navButtons.forEach((button) => button.removeAttribute("aria-current"));
+        liveRegion.textContent = denialText.textContent;
+        mainContent.focus();
+      }
+
+      function showView(view) {
+        const role = roleSelect.value;
+        if (!permissions[role].includes(view)) {
+          showDenied(view);
+          return;
+        }
+
+        currentView = view;
+        hideAllViews();
+        document.getElementById(`view-${view}`).classList.add("active");
+        navButtons.forEach((button) => {
+          if (button.dataset.view === view) button.setAttribute("aria-current", "page");
+          else button.removeAttribute("aria-current");
+        });
+        mainContent.focus();
+      }
+
+      function firstAllowedView() {
+        return permissions[roleSelect.value][0];
+      }
+
+      navButtons.forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
+      roleSelect.addEventListener("change", () => {
+        if (permissions[roleSelect.value].includes(currentView)) showView(currentView);
+        else showView(firstAllowedView());
+        liveRegion.textContent = `تم تغيير الدور التجريبي إلى ${roleLabel(roleSelect.value)}.`;
+      });
+      entitlementSelect.addEventListener("change", renderEntitlement);
+      seatScenario.addEventListener("change", renderSeat);
+      certificateScenario.addEventListener("change", renderCertificate);
+      document.getElementById("backBtn").addEventListener("click", () => showView(firstAllowedView()));
+
+      document.getElementById("openProgramBtn").addEventListener("click", () => {
+        if (entitlementCopy[entitlementSelect.value].enabled) liveRegion.textContent = "معاينة فقط: سيتم فتح البرنامج عند وجود Backend معتمد مستقبلًا.";
+      });
+      document.getElementById("individualAccessBtn").addEventListener("click", () => {
+        if (entitlementCopy[entitlementSelect.value].enabled) liveRegion.textContent = "معاينة فقط: لا توجد جلسة تعلم حقيقية في Stage 20D.";
+      });
+      document.getElementById("seatPreviewBtn").addEventListener("click", () => {
+        if (seatCopy[seatScenario.value].enabled) liveRegion.textContent = "تمت معاينة أثر المقعد فقط؛ لم يتم إنشاء أي استحقاق حقيقي.";
+      });
+      document.getElementById("certificateActionBtn").addEventListener("click", () => {
+        liveRegion.textContent = "هذا إجراء معاينة فقط؛ لا يتم إصدار أو إلغاء شهادة حقيقية.";
+      });
+
+      renderEntitlement();
+      renderSeat();
+      renderCertificate();
+      showView("catalog");
+    })();
+  </script>
+</body>
+</html>
