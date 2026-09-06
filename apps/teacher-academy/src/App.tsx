@@ -679,7 +679,6 @@ function ProfileForm({
           school_name: schoolName.trim(),
           phone: phone.trim(),
         },
-        existing !== null,
       );
       onSaved(saved);
     } catch (submitError) {
