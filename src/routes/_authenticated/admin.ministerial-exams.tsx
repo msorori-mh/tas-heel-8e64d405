@@ -30,6 +30,7 @@ import {
   setMinisterialModelStatus,
 } from "@/lib/ministerial/ministerial-admin-api";
 import { MinisterialTrackPackageImporter } from "@/components/admin/MinisterialTrackPackageImporter";
+import { MinisterialQuestionsManager } from "@/components/admin/MinisterialQuestionsManager";
 import { ScrollText, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/ministerial-exams")({
@@ -241,6 +242,10 @@ function AdminMinisterialExamsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1.5">
+                          <MinisterialQuestionsManager
+                            model={m}
+                            onChanged={() => void queryClient.invalidateQueries({ queryKey: ["ministerial-models"] })}
+                          />
                           {m.status === "draft" && (
                             <Button
                               size="sm"
@@ -284,10 +289,7 @@ function AdminMinisterialExamsPage() {
                 </TableBody>
               </Table>
             </div>
-            <p className="text-xs text-muted-foreground">
-              لا يوجد حذف مباشر من الواجهة. النشر والأرشفة وإزالة العضوية تمر عبر إجراءات محمية في
-              الخادم، ولا تُعاد بناء قواعد الحماية هنا.
-            </p>
+            <p className="text-xs text-muted-foreground">تعديل الأسئلة وحذفها يمران عبر إجراءات خادمية محمية ومدققة، ويُمنعان بعد بدء أي محاولة طلابية على النموذج.</p>
           </CardContent>
         </Card>
       </div>
