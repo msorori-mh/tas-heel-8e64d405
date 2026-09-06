@@ -131,15 +131,15 @@ export function NextStepCard({
   );
 }
 
-export function Celebration({ show, message }: { show: boolean; message: string }) {
+export function Celebration({ trigger, message }: { trigger: number; message: string }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!show) return;
+    if (!trigger) return;
     setVisible(true);
     const timer = window.setTimeout(() => setVisible(false), 2600);
     return () => window.clearTimeout(timer);
-  }, [show]);
+  }, [trigger]);
 
   if (!visible) return null;
 

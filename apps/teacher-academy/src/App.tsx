@@ -15,7 +15,16 @@ import {
   Target,
   UserRound,
   X,
+  ChevronDown,
+  Copy,
 } from "lucide-react";
+import {
+  AchievementBadges,
+  Celebration,
+  NextStepCard,
+  ProgressBar,
+  ProgressRing,
+} from "./ui-kit";
 import { AdminHome } from "./AdminHome";
 import {
   loadCapabilities,
@@ -1006,7 +1015,7 @@ function Learning() {
 
     return (
       <section>
-        <Celebration show={celebration > 0} message={celebrationMessage} />
+        <Celebration trigger={celebration} message={celebrationMessage} />
         <button className="text-button inline-text-button" onClick={() => setSelected(null)}>
           العودة إلى برامجي
         </button>
@@ -1143,7 +1152,7 @@ function Learning() {
 
   return (
     <section>
-      <Celebration show={celebration > 0} message={celebrationMessage} />
+      <Celebration trigger={celebration} message={celebrationMessage} />
       <div className="page-heading">
         <div>
           <p className="eyebrow">مساري</p>
