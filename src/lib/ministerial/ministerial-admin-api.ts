@@ -233,7 +233,11 @@ export function updateMinisterialModelQuestion(
   );
 }
 
-export function deleteMinisterialModelQuestion(modelId: string, questionId: string, reason: string) {
+export function deleteMinisterialModelQuestion(
+  modelId: string,
+  questionId: string,
+  reason: string,
+) {
   return callRpc<{ removed: number; status: "draft" }>("ministerial_model_question_delete", {
     _model_id: modelId,
     _question_id: questionId,
