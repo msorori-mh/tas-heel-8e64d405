@@ -1302,14 +1302,43 @@ function AssessmentPanel({
         </div>
       </div>
       {result ? (
-        <div className={result.passed ? "notice success-notice" : "notice error-notice"}>
-          <strong>{result.passed ? "تم اجتياز التقييم" : "لم تحقق نسبة النجاح بعد"}</strong>
-          <span>
-            النتيجة: {result.score} من {result.total}
-          </span>
-          {result.certificate_code ? <bdi>رمز الشهادة: {result.certificate_code}</bdi> : null}
-        </div>
+        <>
+          <Celebration trigger={result.passed ? 1 : 0} message="مبروك! اجتزت التقييم" />
+          <div className={result.passed ? "tk-result-card passed" : "tk-result-card failed"}>
+            <ProgressRing
+              value={result.total ? (result.score / result.total) * 100 : 0}
+              size={86}
+              caption="نتيجتك"
+            />
+            <div>
+              <strong>{result.passed ? "تم اجتياز التقييم" : "لم تحقق نسبة النجاح بعد"}</strong>
+              <p>
+                {result.passed
+                  ? `أجبت بشكل صحيح على ${result.score} من ${result.total} — شهادتك جاهزة.`
+                  : `أجبت بشكل صحيح على ${result.score} من ${result.total}. راجع الدروس ثم أعد المحاولة.`}
+              </p>
+              {result.certificate_code ? <bdi>رمز الشهادة: {result.certificate_code}</bdi> : null}
+            </div>
+          </div>
+        </>
       ) : null}
+      <div className="tk-assessment-progress">
+        <ProgressBar
+          value={
+            questions.length
+              ? (questions.filter((question) => answers[question.question_id]).length /
+                  questions.length) *
+                100
+              : 0
+          }
+          label="تقدمك في التقييم"
+        />
+        <small>
+          {questions.filter((question) => answers[question.question_id]).length} / {questions.length}{" "}
+          سؤال
+        </small>
+      </div>
+
       <form className="assessment-form" onSubmit={submit}>
         {questions.map((question, index) => (
           <fieldset className="assessment-question" key={question.question_id}>
