@@ -143,7 +143,10 @@ async function handle(request: Request, mediaId: string, method: "GET" | "HEAD")
   }
   if (!upstream.ok) {
     await upstream.body?.cancel();
-    return deny(upstream.status === 404 ? 404 : 502, upstream.status === 404 ? "file_not_found" : "upstream_failed");
+    return deny(
+      upstream.status === 404 ? 404 : 502,
+      upstream.status === 404 ? "file_not_found" : "upstream_failed",
+    );
   }
 
   const length = upstream.headers.get("content-length");

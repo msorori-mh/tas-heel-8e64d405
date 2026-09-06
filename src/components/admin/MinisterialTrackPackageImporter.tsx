@@ -208,8 +208,8 @@ export function MinisterialTrackPackageImporter({
         <CardTitle className="text-lg">استيراد حزمة اختبارات وزارية</CardTitle>
         <CardDescription>
           اختر المسار أولًا؛ لكل مسار قالب وعقد مستقلان. ينشئ التنفيذ مسودات فقط، وتبقى خطوة النشر
-          منفصلة ومحكومة بفحوص النسخ والبصمات. الصور اختيارية: عند وجودها ارفع حزمة ZIP تحتوي
-          ملف XLSX ومجلد media/.
+          منفصلة ومحكومة بفحوص النسخ والبصمات. الصور اختيارية: عند وجودها ارفع حزمة ZIP تحتوي ملف
+          XLSX ومجلد media/.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -268,8 +268,8 @@ export function MinisterialTrackPackageImporter({
               : "ورقة فهرس + ورقة لكل نموذج: نص السؤال، الإجابة النموذجية، الشرح، والترتيب. أعمدة اختيارية لصورة السؤال وصورة الحل مع وصف لكل صورة. لا توجد خيارات اختيار متعدد."}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            الصور: PNG أو JPG أو WebP فقط (لا SVG)، حتى 8MB للصورة و50MB للحزمة، وبأسماء ملفات
-            فريدة داخل media/.
+            الصور: PNG أو JPG أو WebP فقط (لا SVG)، حتى 8MB للصورة و50MB للحزمة، وبأسماء ملفات فريدة
+            داخل media/.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
@@ -329,7 +329,8 @@ export function MinisterialTrackPackageImporter({
                 <Badge variant="secondary">
                   <ImageIcon className="ms-1 h-3.5 w-3.5" />
                   الصور: {parsed.media.length} ملف · {mediaSummary.media_refs} مرجع ·{" "}
-                  {mediaSummary.questions_with_media} سؤال · {formatMediaBytes(parsed.total_media_bytes)}
+                  {mediaSummary.questions_with_media} سؤال ·{" "}
+                  {formatMediaBytes(parsed.total_media_bytes)}
                 </Badge>
               ) : (
                 <Badge variant="outline">بدون صور</Badge>
@@ -368,12 +369,13 @@ export function MinisterialTrackPackageImporter({
               <Badge variant={prepared.summary.blocked ? "destructive" : "outline"}>
                 محجوب: {prepared.summary.blocked}
               </Badge>
-              {typeof prepared.summary.media_refs === "number" && prepared.summary.media_refs > 0 && (
-                <Badge variant="secondary">
-                  صور مقبولة على الخادم: {prepared.summary.media_files ?? 0} ملف ·{" "}
-                  {prepared.summary.media_refs} مرجع
-                </Badge>
-              )}
+              {typeof prepared.summary.media_refs === "number" &&
+                prepared.summary.media_refs > 0 && (
+                  <Badge variant="secondary">
+                    صور مقبولة على الخادم: {prepared.summary.media_files ?? 0} ملف ·{" "}
+                    {prepared.summary.media_refs} مرجع
+                  </Badge>
+                )}
             </div>
             <div className="overflow-x-auto rounded-lg border border-border/60">
               <Table>
@@ -417,8 +419,8 @@ export function MinisterialTrackPackageImporter({
             </p>
             {hasMedia && (
               <p className="text-xs text-muted-foreground">
-                عند التنفيذ تُرفع الصور أولًا إلى حاوية خاصة بمفاتيح مشتقة من بصمة المحتوى (لا تكرار)،
-                ثم يتحقق الخادم من وجود كل صورة قبل إنشاء الأسئلة في معاملة واحدة.
+                عند التنفيذ تُرفع الصور أولًا إلى حاوية خاصة بمفاتيح مشتقة من بصمة المحتوى (لا
+                تكرار)، ثم يتحقق الخادم من وجود كل صورة قبل إنشاء الأسئلة في معاملة واحدة.
               </p>
             )}
             {busy === "upload" && upload && (

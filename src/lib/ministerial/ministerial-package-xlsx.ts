@@ -264,9 +264,7 @@ function assertAllowedHeaders(
   if (unexpected.length > 0 || header.duplicates.length > 0) {
     const detail =
       unexpected.length > 0 ? unexpected.join("، ") : `تكرار: ${header.duplicates.join("، ")}`;
-    throw new Error(
-      `${context}: يجب استخدام أعمدة القالب فقط. الأعمدة غير المعتمدة: ${detail}.`,
-    );
+    throw new Error(`${context}: يجب استخدام أعمدة القالب فقط. الأعمدة غير المعتمدة: ${detail}.`);
   }
 }
 
@@ -292,9 +290,7 @@ async function zipModule() {
  */
 type ZipEntryLike = import("jszip").JSZipObject & {
   _data?: { uncompressedSize?: number; compressedSize?: number };
-  internalStream: (
-    type: "uint8array",
-  ) => import("jszip").JSZipStreamHelper<Uint8Array>;
+  internalStream: (type: "uint8array") => import("jszip").JSZipStreamHelper<Uint8Array>;
 };
 
 type MediaEntry = { name: string; bareName: string; entry: ZipEntryLike; declaredSize: number };
@@ -319,7 +315,11 @@ function declaredSizes(entry: ZipEntryLike): { uncompressed: number; compressed:
  * Inflate one entry while counting bytes; aborts as soon as the output exceeds
  * `maxBytes` so a lying central directory cannot turn into a memory bomb.
  */
-function readEntryBounded(entry: ZipEntryLike, maxBytes: number, label: string): Promise<Uint8Array> {
+function readEntryBounded(
+  entry: ZipEntryLike,
+  maxBytes: number,
+  label: string,
+): Promise<Uint8Array> {
   return new Promise<Uint8Array>((resolve, reject) => {
     const chunks: Uint8Array[] = [];
     let total = 0;
@@ -501,9 +501,7 @@ function readMediaRefs(
     const altText = rowValue(worksheet, rowNumber, columns, headers.alt);
     if (!rawName) {
       if (altText) {
-        throw new Error(
-          `${context}: «${headers.alt}» مذكور بدون «${headers.file}».`,
-        );
+        throw new Error(`${context}: «${headers.alt}» مذكور بدون «${headers.file}».`);
       }
       continue;
     }
@@ -526,7 +524,11 @@ function readMediaRefs(
 async function resolveMedia(
   entries: Map<string, MediaEntry>,
   refs: Iterable<MediaRef>,
-): Promise<{ byName: Map<string, MinisterialMediaFile>; files: MinisterialMediaFile[]; total: number }> {
+): Promise<{
+  byName: Map<string, MinisterialMediaFile>;
+  files: MinisterialMediaFile[];
+  total: number;
+}> {
   const byName = new Map<string, MinisterialMediaFile>();
   const bySha = new Map<string, MinisterialMediaFile>();
   const referenced = new Set<string>();
@@ -579,7 +581,9 @@ async function resolveMedia(
     byName.set(key, file);
   }
 
-  const unreferenced = [...entries.values()].filter((entry) => !referenced.has(entry.bareName.toLowerCase()));
+  const unreferenced = [...entries.values()].filter(
+    (entry) => !referenced.has(entry.bareName.toLowerCase()),
+  );
   if (unreferenced.length > 0) {
     throw new Error(
       `صور داخل media/ غير مستخدمة في أي سؤال: ${unreferenced
@@ -607,7 +611,9 @@ type PendingQuestion = { question: MinisterialPackageQuestion; refs: MediaRef[] 
 async function parseWorkbookBytes(
   bytes: Uint8Array,
   input: ParseInput,
-): Promise<{ models: Array<Omit<MinisterialPackageModel, "questions"> & { questions: PendingQuestion[] }> }> {
+): Promise<{
+  models: Array<Omit<MinisterialPackageModel, "questions"> & { questions: PendingQuestion[] }>;
+}> {
   if (bytes.byteLength === 0) throw new Error("ملف الاستيراد فارغ.");
   if (bytes.byteLength > MAX_FILE_BYTES) throw new Error("حجم ملف الاستيراد يتجاوز 25MB.");
 
@@ -707,7 +713,9 @@ async function parseWorkbookBytes(
     ? MINISTERIAL_MEDIA_PLACEMENTS
     : ADEN_MEDIA_PLACEMENTS;
   let totalQuestions = 0;
-  const models: Array<Omit<MinisterialPackageModel, "questions"> & { questions: PendingQuestion[] }> = [];
+  const models: Array<
+    Omit<MinisterialPackageModel, "questions"> & { questions: PendingQuestion[] }
+  > = [];
 
   for (const indexRow of indexRows) {
     const worksheet = workbook.worksheets.find(
@@ -878,7 +886,8 @@ export async function parseMinisterialPackageFile(
         })
         .sort(
           (left, right) =>
-            MEDIA_PLACEMENT_SORT_ORDER[left.placement] - MEDIA_PLACEMENT_SORT_ORDER[right.placement],
+            MEDIA_PLACEMENT_SORT_ORDER[left.placement] -
+            MEDIA_PLACEMENT_SORT_ORDER[right.placement],
         );
       return { ...question, media };
     }),
@@ -955,10 +964,13 @@ function applyHeaderStyle(row: {
   });
 }
 
-function applyMediaHeaderStyle(row: {
-  getCell: (column: number) => { font: unknown; fill: unknown };
-  cellCount: number;
-}, fromColumn: number) {
+function applyMediaHeaderStyle(
+  row: {
+    getCell: (column: number) => { font: unknown; fill: unknown };
+    cellCount: number;
+  },
+  fromColumn: number,
+) {
   for (let column = fromColumn; column <= row.cellCount; column += 1) {
     const cell = row.getCell(column);
     cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -1119,7 +1131,10 @@ export function buildMediaReadme(trackCode: MinisterialPackageTrack): string {
     "3) يجب أن يكون اسم كل ملف فريدًا، ويُكتب كما هو في عمود الصورة المناسب داخل ملف XLSX.",
     "4) أعمدة الوصف اختيارية وتُستخدم كنص بديل للطلاب ضعاف البصر (حتى 500 حرف).",
     "5) أعمدة الصور المتاحة لهذا المسار:",
-    ...placements.map((placement) => `   - ${MEDIA_HEADERS[placement].file} / ${MEDIA_HEADERS[placement].alt} (${MEDIA_PLACEMENT_LABEL_AR[placement]})`),
+    ...placements.map(
+      (placement) =>
+        `   - ${MEDIA_HEADERS[placement].file} / ${MEDIA_HEADERS[placement].alt} (${MEDIA_PLACEMENT_LABEL_AR[placement]})`,
+    ),
     "",
     "يمكنك ترك ملف README.txt هذا كما هو؛ يتم تجاهله عند الاستيراد.",
   ].join("\n");
@@ -1138,5 +1153,9 @@ export async function buildMinisterialPackageTemplateZip(input: {
   zip.file(xlsxName, xlsx, { date: new Date(0) });
   zip.folder("media");
   zip.file(MEDIA_README_NAME, buildMediaReadme(input.trackCode), { date: new Date(0) });
-  return zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 } });
+  return zip.generateAsync({
+    type: "uint8array",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+  });
 }

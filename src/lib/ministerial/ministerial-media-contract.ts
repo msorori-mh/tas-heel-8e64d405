@@ -21,7 +21,10 @@ export const MINISTERIAL_MEDIA_PLACEMENTS = [
 export type MinisterialMediaPlacement = (typeof MINISTERIAL_MEDIA_PLACEMENTS)[number];
 
 /** Aden questions are free-text: no option images. */
-export const ADEN_MEDIA_PLACEMENTS = ["QUESTION", "SOLUTION"] as const satisfies readonly MinisterialMediaPlacement[];
+export const ADEN_MEDIA_PLACEMENTS = [
+  "QUESTION",
+  "SOLUTION",
+] as const satisfies readonly MinisterialMediaPlacement[];
 
 export const MINISTERIAL_MEDIA_LIMITS = {
   maxImageBytes: 8 * 1024 * 1024,
@@ -55,7 +58,8 @@ const EXTENSION_MIME: Record<string, MinisterialImageMimeType> = {
 export const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
 
 /** Content-addressed object key inside the private `question-media` bucket. */
-export const MINISTERIAL_MEDIA_STORAGE_KEY_RE = /^ministerial\/[0-9a-f]{2}\/[0-9a-f]{64}\.(?:png|jpg|webp)$/;
+export const MINISTERIAL_MEDIA_STORAGE_KEY_RE =
+  /^ministerial\/[0-9a-f]{2}\/[0-9a-f]{64}\.(?:png|jpg|webp)$/;
 
 export type MinisterialPackageMedia = {
   placement: MinisterialMediaPlacement;
@@ -111,7 +115,9 @@ export function placementFromMediaCode(mediaCode: string): MinisterialMediaPlace
 export function optionCodeForPlacement(
   placement: MinisterialMediaPlacement,
 ): "A" | "B" | "C" | "D" | null {
-  return placement.startsWith("OPTION_") ? (placement.slice("OPTION_".length) as "A" | "B" | "C" | "D") : null;
+  return placement.startsWith("OPTION_")
+    ? (placement.slice("OPTION_".length) as "A" | "B" | "C" | "D")
+    : null;
 }
 
 export function isMinisterialImageMime(value: string): value is MinisterialImageMimeType {
@@ -200,10 +206,14 @@ export function isSafeZipEntryName(name: string): boolean {
 }
 
 /** Bare file name check for the media/ folder: no nested folders, safe charset. */
-export const MEDIA_FILE_NAME_RE = /^[A-Za-z0-9\u0600-\u06FF][A-Za-z0-9\u0600-\u06FF._ \-()]{0,199}\.(?:png|jpg|jpeg|webp)$/i;
+export const MEDIA_FILE_NAME_RE =
+  /^[A-Za-z0-9\u0600-\u06FF][A-Za-z0-9\u0600-\u06FF._ \-()]{0,199}\.(?:png|jpg|jpeg|webp)$/i;
 
 export function normalizeMediaFileName(raw: string): string {
-  return raw.trim().replace(/^\.?\/?media\//i, "").replace(/\\/g, "/");
+  return raw
+    .trim()
+    .replace(/^\.?\/?media\//i, "")
+    .replace(/\\/g, "/");
 }
 
 export function defaultAltText(placement: MinisterialMediaPlacement): string {
@@ -218,7 +228,10 @@ export function bytesToHex(bytes: ArrayBuffer | Uint8Array): string {
 }
 
 export async function sha256HexOf(bytes: Uint8Array): Promise<string> {
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const buffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
   const digest = await crypto.subtle.digest("SHA-256", buffer);
   return bytesToHex(digest);
 }

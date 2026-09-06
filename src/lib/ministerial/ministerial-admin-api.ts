@@ -185,9 +185,7 @@ export type MinisterialMediaUploadProgress = {
 
 function storageErrorLooksLikeExists(message: string): boolean {
   const lower = message.toLowerCase();
-  return (
-    lower.includes("already exists") || lower.includes("duplicate") || lower.includes("409")
-  );
+  return lower.includes("already exists") || lower.includes("duplicate") || lower.includes("409");
 }
 
 async function objectExists(storageKey: string): Promise<boolean> {
@@ -207,11 +205,13 @@ async function uploadOne(file: MinisterialMediaFile): Promise<"uploaded" | "reus
   }
   if (await objectExists(file.storage_key)) return "reused";
   const body = new Blob([file.bytes as BlobPart], { type: file.mime_type });
-  const { error } = await supabase.storage.from(QUESTION_MEDIA_BUCKET).upload(file.storage_key, body, {
-    contentType: file.mime_type,
-    cacheControl: "31536000",
-    upsert: false,
-  });
+  const { error } = await supabase.storage
+    .from(QUESTION_MEDIA_BUCKET)
+    .upload(file.storage_key, body, {
+      contentType: file.mime_type,
+      cacheControl: "31536000",
+      upsert: false,
+    });
   if (error) {
     // Content-addressed: an identical object under the same key is not a failure.
     if (storageErrorLooksLikeExists(error.message)) return "reused";

@@ -10,7 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 const MAX_CACHED = 64;
 
-type CacheEntry = { objectUrl: string; refs: number; promise?: never } | { promise: Promise<string>; refs: number; objectUrl?: never };
+type CacheEntry =
+  | { objectUrl: string; refs: number; promise?: never }
+  | { promise: Promise<string>; refs: number; objectUrl?: never };
 
 const cache = new Map<string, CacheEntry>();
 const order: string[] = [];

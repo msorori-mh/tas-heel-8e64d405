@@ -44,7 +44,10 @@ test("the shared media contract is strict: three raster types, hard limits, cont
   assert.doesNotMatch(contract, /image\/svg|image\/gif|image\/bmp|image\/tiff/);
   assert.match(contract, /maxImageBytes:\s*8 \* 1024 \* 1024/);
   assert.match(contract, /maxTotalBytes:\s*50 \* 1024 \* 1024/);
-  assert.match(contract, /MINISTERIAL_MEDIA_STORAGE_KEY_RE = \/\^ministerial\\\/\[0-9a-f\]\{2\}\\\/\[0-9a-f\]\{64\}/);
+  assert.match(
+    contract,
+    /MINISTERIAL_MEDIA_STORAGE_KEY_RE = \/\^ministerial\\\/\[0-9a-f\]\{2\}\\\/\[0-9a-f\]\{64\}/,
+  );
   assert.match(contract, /export function detectImageMime/);
   assert.match(contract, /export function isSafeZipEntryName/);
   assert.match(contract, /ADEN_MEDIA_PLACEMENTS = \["QUESTION", "SOLUTION"\]/);
@@ -68,7 +71,10 @@ test("uploads go to the private bucket under content-addressed keys and never up
   assert.match(adminApi, /QUESTION_MEDIA_BUCKET/);
   assert.match(adminApi, /ministerialMediaStorageKey\(/);
   assert.match(adminApi, /upsert:\s*false/);
-  assert.doesNotMatch(adminApi, /\.from\(["']question_media["']\)\.(?:insert|update|delete|upsert)/);
+  assert.doesNotMatch(
+    adminApi,
+    /\.from\(["']question_media["']\)\.(?:insert|update|delete|upsert)/,
+  );
   assert.doesNotMatch(adminApi, /getPublicUrl/);
   assert.match(adminApi, /ministerial_track_package_prepare/);
   assert.match(adminApi, /ministerial_track_package_execute/);
@@ -112,20 +118,44 @@ test("migration: prepare/execute stay atomic, v1-compatible and cap the total me
   assert.match(prepare, /is_content_staff\(v_actor\)/);
   const execute = fn("ministerial_track_package_execute");
   assert.match(execute, /_ministerial_validate_media_array\(v_question->'media'/);
-  assert.match(execute, /_ministerial_insert_revision_media\(v_revision_id, v_media, v_actor, true\)/);
+  assert.match(
+    execute,
+    /_ministerial_insert_revision_media\(v_revision_id, v_media, v_actor, true\)/,
+  );
   assert.match(execute, /_qb_compute_revision_payload_hash/);
   assert.match(execute, /'published_models', 0/);
   assert.doesNotMatch(execute, /EXCEPTION WHEN OTHERS/);
-  assert.match(sql, /REVOKE ALL ON FUNCTION public\.ministerial_track_package_prepare\(jsonb\) FROM PUBLIC, anon/);
-  assert.match(sql, /REVOKE ALL ON FUNCTION public\.ministerial_track_package_execute\(uuid, text\) FROM PUBLIC, anon/);
+  assert.match(
+    sql,
+    /REVOKE ALL ON FUNCTION public\.ministerial_track_package_prepare\(jsonb\) FROM PUBLIC, anon/,
+  );
+  assert.match(
+    sql,
+    /REVOKE ALL ON FUNCTION public\.ministerial_track_package_execute\(uuid, text\) FROM PUBLIC, anon/,
+  );
 });
 
 test("migration: storage policies are staff-only, bucket-scoped, key-shaped, and never anon", () => {
-  const policies = sql.slice(sql.indexOf('CREATE POLICY "question_media_staff_read"'), sql.indexOf("-- 5)"));
-  assert.match(policies, /"question_media_staff_read" ON storage\.objects[\s\S]*?FOR SELECT TO authenticated/);
-  assert.match(policies, /"question_media_staff_insert" ON storage\.objects[\s\S]*?FOR INSERT TO authenticated/);
-  assert.match(policies, /"question_media_staff_update" ON storage\.objects[\s\S]*?FOR UPDATE TO authenticated/);
-  assert.match(policies, /"question_media_admin_delete" ON storage\.objects[\s\S]*?FOR DELETE TO authenticated/);
+  const policies = sql.slice(
+    sql.indexOf('CREATE POLICY "question_media_staff_read"'),
+    sql.indexOf("-- 5)"),
+  );
+  assert.match(
+    policies,
+    /"question_media_staff_read" ON storage\.objects[\s\S]*?FOR SELECT TO authenticated/,
+  );
+  assert.match(
+    policies,
+    /"question_media_staff_insert" ON storage\.objects[\s\S]*?FOR INSERT TO authenticated/,
+  );
+  assert.match(
+    policies,
+    /"question_media_staff_update" ON storage\.objects[\s\S]*?FOR UPDATE TO authenticated/,
+  );
+  assert.match(
+    policies,
+    /"question_media_admin_delete" ON storage\.objects[\s\S]*?FOR DELETE TO authenticated/,
+  );
   assert.doesNotMatch(policies, /TO anon|TO public/i);
   assert.equal((policies.match(/bucket_id = 'question-media'/g) ?? []).length >= 4, true);
   assert.match(policies, /is_content_staff\(auth\.uid\(\)\)/);
@@ -165,7 +195,10 @@ test("migration: the media access gate requires ownership, hides solutions until
   assert.match(gate, /revealed_at IS NOT NULL/);
   assert.match(gate, /'SOLUTION'/);
   assert.match(gate, /RETURN false/);
-  assert.match(sql, /REVOKE ALL ON FUNCTION public\.ministerial_media_can_access\(uuid, uuid\) FROM PUBLIC, anon/);
+  assert.match(
+    sql,
+    /REVOKE ALL ON FUNCTION public\.ministerial_media_can_access\(uuid, uuid\) FROM PUBLIC, anon/,
+  );
 });
 
 test("migration: admin edits create a new revision, are blocked by sessions, and stay publishable", () => {
@@ -176,15 +209,26 @@ test("migration: admin edits create a new revision, are blocked by sessions, and
   assert.match(update, /SET status='SUPERSEDED'/);
   assert.match(update, /_ministerial_insert_revision_media\(v_new_revision/);
   // carry-over copies the old revision's media instead of mutating it
-  assert.match(update, /FROM public\.question_media qm WHERE qm\.question_revision_id=v_old_revision/);
+  assert.match(
+    update,
+    /FROM public\.question_media qm WHERE qm\.question_revision_id=v_old_revision/,
+  );
   assert.doesNotMatch(update, /UPDATE public\.question_media|DELETE FROM public\.question_media/);
   // targets are revision-scoped and must follow the new revision
-  assert.match(update, /INSERT INTO public\.question_targets[\s\S]*?WHERE t\.revision_id=v_old_revision/);
+  assert.match(
+    update,
+    /INSERT INTO public\.question_targets[\s\S]*?WHERE t\.revision_id=v_old_revision/,
+  );
   // demote before touching membership so the published-membership guard allows it
   const demote = update.indexOf("SET status='draft',published_at=NULL");
-  const membership = update.indexOf("UPDATE public.ministerial_exam_questions SET published_revision_id");
+  const membership = update.indexOf(
+    "UPDATE public.ministerial_exam_questions SET published_revision_id",
+  );
   assert.ok(demote > -1 && membership > -1 && demote < membership);
-  assert.match(sql, /DROP FUNCTION IF EXISTS public\.ministerial_model_question_update\(uuid,uuid,text,jsonb,text,text,text,integer,numeric,text\)/);
+  assert.match(
+    sql,
+    /DROP FUNCTION IF EXISTS public\.ministerial_model_question_update\(uuid,uuid,text,jsonb,text,text,text,integer,numeric,text\)/,
+  );
   const list = fn("ministerial_model_questions_admin_list");
   assert.match(list, /'has_sessions'/);
   assert.doesNotMatch(list, /'storage_path'/);
@@ -197,14 +241,20 @@ test("migration: internal helpers are service_role-only and the proof block guar
     "_ministerial_revision_rendered_media(uuid)",
   ]) {
     const escaped = helper.replace(/[()]/g, "\\$&");
-    assert.match(sql, new RegExp(`REVOKE ALL ON FUNCTION public\\.${escaped}\\s+FROM PUBLIC, anon, authenticated`));
+    assert.match(
+      sql,
+      new RegExp(`REVOKE ALL ON FUNCTION public\\.${escaped}\\s+FROM PUBLIC, anon, authenticated`),
+    );
     assert.match(sql, new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${escaped} TO service_role`));
   }
   assert.match(sql, /MINISTERIAL_MEDIA_STORAGE_PATH_LEAK/);
   assert.match(sql, /MINISTERIAL_MEDIA_PRIVILEGE_LEAK/);
   assert.match(sql, /MINISTERIAL_MEDIA_GUARD_MISSING/);
   // Scope: payments / wallet / roles are untouched.
-  assert.doesNotMatch(sql, /wallet_|payment_|subscriptions|user_roles|app_role|admin_adjust_wallet/);
+  assert.doesNotMatch(
+    sql,
+    /wallet_|payment_|subscriptions|user_roles|app_role|admin_adjust_wallet/,
+  );
 });
 
 test("the media endpoint authenticates, gates through the RPC, and serves short-lived private bytes", () => {

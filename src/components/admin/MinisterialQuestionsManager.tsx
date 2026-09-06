@@ -42,14 +42,19 @@ import { clearMinisterialMediaCache } from "@/lib/ministerial/ministerial-media-
  */
 type MediaDraft =
   | { kind: "keep"; existing: MinisterialAdminQuestionMedia }
-  | { kind: "replace"; existing: MinisterialAdminQuestionMedia | null; next: MinisterialPackageMedia }
+  | {
+      kind: "replace";
+      existing: MinisterialAdminQuestionMedia | null;
+      next: MinisterialPackageMedia;
+    }
   | { kind: "remove"; existing: MinisterialAdminQuestionMedia };
 
 type MediaDraftMap = Partial<Record<MinisterialMediaPlacement, MediaDraft>>;
 
 function initialDrafts(question: MinisterialAdminQuestion): MediaDraftMap {
   const drafts: MediaDraftMap = {};
-  for (const item of question.media ?? []) drafts[item.placement] = { kind: "keep", existing: item };
+  for (const item of question.media ?? [])
+    drafts[item.placement] = { kind: "keep", existing: item };
   return drafts;
 }
 
@@ -72,7 +77,9 @@ function draftsToMedia(
     }
     const existing = draft.existing;
     if (!existing.sha256) {
-      throw new Error(`تعذر الاحتفاظ بـ${MEDIA_PLACEMENT_LABEL_AR[placement]}: بصمة الصورة مفقودة.`);
+      throw new Error(
+        `تعذر الاحتفاظ بـ${MEDIA_PLACEMENT_LABEL_AR[placement]}: بصمة الصورة مفقودة.`,
+      );
     }
     out.push({
       placement,
@@ -84,7 +91,8 @@ function draftsToMedia(
     });
   }
   return out.sort(
-    (left, right) => MEDIA_PLACEMENT_SORT_ORDER[left.placement] - MEDIA_PLACEMENT_SORT_ORDER[right.placement],
+    (left, right) =>
+      MEDIA_PLACEMENT_SORT_ORDER[left.placement] - MEDIA_PLACEMENT_SORT_ORDER[right.placement],
   );
 }
 
@@ -99,12 +107,17 @@ export function MinisterialQuestionsManager({
   const [questions, setQuestions] = useState<MinisterialAdminQuestion[]>([]);
   const [editing, setEditing] = useState<MinisterialAdminQuestion | null>(null);
   const [mediaDrafts, setMediaDrafts] = useState<MediaDraftMap>({});
-  const [uploadingPlacement, setUploadingPlacement] = useState<MinisterialMediaPlacement | null>(null);
+  const [uploadingPlacement, setUploadingPlacement] = useState<MinisterialMediaPlacement | null>(
+    null,
+  );
   const [busy, setBusy] = useState(false);
 
   const placements: readonly MinisterialMediaPlacement[] =
     model.track_code === "sanaa" ? MINISTERIAL_MEDIA_PLACEMENTS : ADEN_MEDIA_PLACEMENTS;
-  const hasSessions = useMemo(() => questions.some((question) => question.has_sessions), [questions]);
+  const hasSessions = useMemo(
+    () => questions.some((question) => question.has_sessions),
+    [questions],
+  );
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -148,11 +161,14 @@ export function MinisterialQuestionsManager({
         ...drafts,
         [placement]: {
           kind: "replace",
-          existing: current && current.kind !== "replace" ? current.existing : (current?.existing ?? null),
+          existing:
+            current && current.kind !== "replace" ? current.existing : (current?.existing ?? null),
           next,
         },
       }));
-      toast.success(`رُفعت ${MEDIA_PLACEMENT_LABEL_AR[placement]} (${formatMediaBytes(next.file_size)}). احفظ التعديل لاعتمادها.`);
+      toast.success(
+        `رُفعت ${MEDIA_PLACEMENT_LABEL_AR[placement]} (${formatMediaBytes(next.file_size)}). احفظ التعديل لاعتمادها.`,
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "فشل رفع الصورة");
     } finally {
@@ -262,7 +278,11 @@ export function MinisterialQuestionsManager({
             >
               <label htmlFor={inputId} className="cursor-pointer">
                 <ImagePlus className="ms-1 h-3.5 w-3.5" aria-hidden />
-                {isUploading ? "جارٍ الرفع…" : draft && draft.kind !== "remove" ? "استبدال" : "إضافة صورة"}
+                {isUploading
+                  ? "جارٍ الرفع…"
+                  : draft && draft.kind !== "remove"
+                    ? "استبدال"
+                    : "إضافة صورة"}
               </label>
             </Button>
             {draft && draft.kind !== "remove" && (

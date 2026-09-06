@@ -115,9 +115,7 @@ export function MinisterialMediaImage({
             className="block h-auto max-h-48 w-full object-contain"
           />
         </span>
-        {caption && (
-          <span className="mt-1 block text-xs text-muted-foreground">{caption}</span>
-        )}
+        {caption && <span className="mt-1 block text-xs text-muted-foreground">{caption}</span>}
       </span>
     );
   }

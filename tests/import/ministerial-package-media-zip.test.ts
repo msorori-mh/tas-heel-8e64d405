@@ -38,10 +38,16 @@ const SANAA = { trackCode: "sanaa" as const, subjectCode: "sub-g12-013", subject
 const ADEN = { trackCode: "aden" as const, subjectCode: "sub-g12-013", subjectName: "الكيمياء" };
 
 // Minimal byte patterns: the parser sniffs magic bytes, it does not decode.
-const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 1, 2, 3]);
+const PNG = Uint8Array.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 1, 2, 3,
+]);
 const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 7, 8, 9]);
-const WEBP = Uint8Array.from([0x52, 0x49, 0x46, 0x46, 0x1a, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x20, 1]);
-const SVG = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+const WEBP = Uint8Array.from([
+  0x52, 0x49, 0x46, 0x46, 0x1a, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x20, 1,
+]);
+const SVG = new TextEncoder().encode(
+  '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+);
 
 type Row = Record<string, string | number>;
 
@@ -54,7 +60,15 @@ async function workbookBytes(input: {
   const index = workbook.addWorksheet(MINISTERIAL_INDEX_SHEET);
   index.addRow(["فهرس"]);
   index.addRow([]);
-  index.addRow(["اسم النموذج", "رقم النموذج", "السنة", "المادة", "عدد الأسئلة", "منشور", "اسم الورقة"]);
+  index.addRow([
+    "اسم النموذج",
+    "رقم النموذج",
+    "السنة",
+    "المادة",
+    "عدد الأسئلة",
+    "منشور",
+    "اسم الورقة",
+  ]);
   index.addRow(["نموذج أول", 1, 2025, "الكيمياء", input.rows.length, "لا", "نموذج_1"]);
   const sheet = workbook.addWorksheet("نموذج_1");
   sheet.addRow(["نموذج_1"]);
@@ -124,13 +138,20 @@ async function rejects(promise: Promise<unknown>, pattern: RegExp): Promise<void
 // ---------------------------------------------------------------------------
 
 test("plain XLSX without media columns still parses as the v1 contract", async () => {
-  const bytes = await workbookBytes({ track: "sanaa", rows: [sanaaRow()], withMediaHeaders: false });
+  const bytes = await workbookBytes({
+    track: "sanaa",
+    rows: [sanaaRow()],
+    withMediaHeaders: false,
+  });
   const parsed = await parseMinisterialPackageFile(asFile(bytes, "sanaa.xlsx"), SANAA);
   assert.equal(parsed.package.contract_version, MINISTERIAL_PACKAGE_CONTRACT_VERSION);
   assert.equal(parsed.media.length, 0);
   assert.equal(parsed.total_media_bytes, 0);
   assert.equal("media" in parsed.package.models[0]!.questions[0]!, false);
-  assert.deepEqual(summarizePackageMedia(parsed.package), { questions_with_media: 0, media_refs: 0 });
+  assert.deepEqual(summarizePackageMedia(parsed.package), {
+    questions_with_media: 0,
+    media_refs: 0,
+  });
   const legacy = await parseMinisterialPackageWorkbook(asFile(bytes, "sanaa.xlsx"), SANAA);
   assert.deepEqual(legacy, parsed.package);
 });
@@ -148,7 +169,10 @@ test("XLSX that references an image without a ZIP fails closed", async () => {
     rows: [sanaaRow({ [MEDIA_HEADERS.QUESTION.file]: "q1.png" })],
   });
   await rejects(parseMinisterialPackageFile(asFile(bytes, "sanaa.xlsx"), SANAA), /ارفع حزمة ZIP/);
-  await rejects(parseMinisterialPackageWorkbook(asFile(bytes, "sanaa.xlsx"), SANAA), /ارفع حزمة ZIP/);
+  await rejects(
+    parseMinisterialPackageWorkbook(asFile(bytes, "sanaa.xlsx"), SANAA),
+    /ارفع حزمة ZIP/,
+  );
 });
 
 test("legacy workbook entry point refuses ZIP files", async () => {
@@ -212,11 +236,18 @@ test("ZIP with XLSX + media/ yields v2 with SHA-256, content-addressed keys and 
     "media are sorted by placement",
   );
   assert.equal(first!.media![0]!.alt_text_ar, "شكل الرابطة");
-  assert.equal(first!.media![1]!.alt_text_ar, "صورة الخيار ب", "missing alt falls back to the Arabic label");
+  assert.equal(
+    first!.media![1]!.alt_text_ar,
+    "صورة الخيار ب",
+    "missing alt falls back to the Arabic label",
+  );
   assert.equal(first!.media![2]!.file_name, "solution.webp", "media/ prefix is normalised away");
   assert.equal(first!.media![2]!.mime_type, "image/webp");
   assert.equal(second!.media![0]!.sha256, first!.media![0]!.sha256);
-  assert.deepEqual(summarizePackageMedia(parsed.package), { questions_with_media: 2, media_refs: 4 });
+  assert.deepEqual(summarizePackageMedia(parsed.package), {
+    questions_with_media: 2,
+    media_refs: 4,
+  });
   // Question content never carries bytes or storage paths — only the manifest.
   assert.equal(JSON.stringify(parsed.package).includes("storage_path"), false);
 });
@@ -238,7 +269,9 @@ test("a single desktop wrapper folder is tolerated", async () => {
 test("Aden sheets only accept question and solution images", async () => {
   const xlsx = await workbookBytes({
     track: "aden",
-    rows: [adenRow({ [MEDIA_HEADERS.QUESTION.file]: "q.png", [MEDIA_HEADERS.SOLUTION.file]: "s.png" })],
+    rows: [
+      adenRow({ [MEDIA_HEADERS.QUESTION.file]: "q.png", [MEDIA_HEADERS.SOLUTION.file]: "s.png" }),
+    ],
   });
   const zip = await zipBytes([
     { name: "aden.xlsx", bytes: xlsx },
@@ -259,7 +292,11 @@ test("Aden sheets only accept question and solution images", async () => {
 // Fail-closed ZIP hardening
 // ---------------------------------------------------------------------------
 
-async function zipWithMedia(mediaEntries: ZipEntry[], rowExtra: Row = {}, track: "sanaa" | "aden" = "sanaa") {
+async function zipWithMedia(
+  mediaEntries: ZipEntry[],
+  rowExtra: Row = {},
+  track: "sanaa" | "aden" = "sanaa",
+) {
   const row = track === "sanaa" ? sanaaRow(rowExtra) : adenRow(rowExtra);
   const xlsx = await workbookBytes({ track, rows: [row] });
   return zipBytes([{ name: `${track}.xlsx`, bytes: xlsx }, ...mediaEntries]);
@@ -277,7 +314,10 @@ test("path traversal entries are rejected (by the name guard or as stray files)"
     ],
     { [MEDIA_HEADERS.QUESTION.file]: "q.png" },
   );
-  await rejects(parseMinisterialPackageFile(asFile(zip, "p.zip"), SANAA), /اسم ملف غير آمن|ملف غير متوقع/);
+  await rejects(
+    parseMinisterialPackageFile(asFile(zip, "p.zip"), SANAA),
+    /اسم ملف غير آمن|ملف غير متوقع/,
+  );
   assert.equal(isSafeZipEntryName("../evil.png"), false);
   assert.equal(isSafeZipEntryName("media/../../etc/passwd"), false);
   assert.equal(isSafeZipEntryName("./media/q.png"), false);
@@ -307,14 +347,21 @@ test("SVG (and any non-image) disguised as PNG is rejected by magic bytes", asyn
   assert.equal(detectImageMime(PNG), "image/png");
   assert.equal(detectImageMime(JPEG), "image/jpeg");
   assert.equal(detectImageMime(WEBP), "image/webp");
-  assert.equal(detectImageMime(new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61])), null, "GIF is not allowed");
+  assert.equal(
+    detectImageMime(new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61])),
+    null,
+    "GIF is not allowed",
+  );
 });
 
 test("an .svg file name is never accepted inside media/", async () => {
   const zip = await zipWithMedia([{ name: "media/q.svg", bytes: SVG }], {
     [MEDIA_HEADERS.QUESTION.file]: "q.svg",
   });
-  await rejects(parseMinisterialPackageFile(asFile(zip, "p.zip"), SANAA), /PNG\/JPG\/WebP|PNG أو JPG أو WebP/);
+  await rejects(
+    parseMinisterialPackageFile(asFile(zip, "p.zip"), SANAA),
+    /PNG\/JPG\/WebP|PNG أو JPG أو WebP/,
+  );
 });
 
 test("extension must match the sniffed content", async () => {
@@ -326,7 +373,10 @@ test("extension must match the sniffed content", async () => {
 
 test("duplicate image names are rejected case-insensitively", async () => {
   const zip = await zipWithMedia(
-    [{ name: "media/Q.PNG", bytes: PNG }, { name: "media/q.png", bytes: PNG }],
+    [
+      { name: "media/Q.PNG", bytes: PNG },
+      { name: "media/q.png", bytes: PNG },
+    ],
     { [MEDIA_HEADERS.QUESTION.file]: "q.png" },
   );
   await rejects(parseMinisterialPackageFile(asFile(zip, "p.zip"), SANAA), /مكرر داخل media/);
@@ -334,17 +384,26 @@ test("duplicate image names are rejected case-insensitively", async () => {
 
 test("images not referenced by any question are rejected", async () => {
   const zip = await zipWithMedia(
-    [{ name: "media/q.png", bytes: PNG }, { name: "media/orphan.png", bytes: PNG }],
+    [
+      { name: "media/q.png", bytes: PNG },
+      { name: "media/orphan.png", bytes: PNG },
+    ],
     { [MEDIA_HEADERS.QUESTION.file]: "q.png" },
   );
   await rejects(parseMinisterialPackageFile(asFile(zip, "p.zip"), SANAA), /غير مستخدمة/);
   const noRefs = await zipWithMedia([{ name: "media/orphan.png", bytes: PNG }]);
-  await rejects(parseMinisterialPackageFile(asFile(noRefs, "p.zip"), SANAA), /لا يوجد أي سؤال يشير إليها/);
+  await rejects(
+    parseMinisterialPackageFile(asFile(noRefs, "p.zip"), SANAA),
+    /لا يوجد أي سؤال يشير إليها/,
+  );
 });
 
 test("a referenced image missing from media/ is rejected", async () => {
   const zip = await zipWithMedia([], { [MEDIA_HEADERS.QUESTION.file]: "missing.png" });
-  await rejects(parseMinisterialPackageFile(asFile(zip, "p.zip"), SANAA), /غير موجودة داخل مجلد media/);
+  await rejects(
+    parseMinisterialPackageFile(asFile(zip, "p.zip"), SANAA),
+    /غير موجودة داخل مجلد media/,
+  );
 });
 
 test("alt text without a file, and over-long alt text, are rejected", async () => {
@@ -363,12 +422,18 @@ test("nested folders inside media/ and unexpected files are rejected", async () 
   });
   await rejects(parseMinisterialPackageFile(asFile(nested, "p.zip"), SANAA), /مجلدات فرعية/);
   const stray = await zipWithMedia(
-    [{ name: "media/q.png", bytes: PNG }, { name: "notes.txt", bytes: "x" }],
+    [
+      { name: "media/q.png", bytes: PNG },
+      { name: "notes.txt", bytes: "x" },
+    ],
     { [MEDIA_HEADERS.QUESTION.file]: "q.png" },
   );
   await rejects(parseMinisterialPackageFile(asFile(stray, "p.zip"), SANAA), /ملف غير متوقع/);
   const script = await zipWithMedia(
-    [{ name: "media/q.png", bytes: PNG }, { name: "media/run.js", bytes: "alert(1)" }],
+    [
+      { name: "media/q.png", bytes: PNG },
+      { name: "media/run.js", bytes: "alert(1)" },
+    ],
     { [MEDIA_HEADERS.QUESTION.file]: "q.png" },
   );
   await rejects(parseMinisterialPackageFile(asFile(script, "p.zip"), SANAA), /اسم صورة غير مقبول/);
@@ -408,11 +473,19 @@ test("total media budget of 50MB is enforced from declared sizes", async () => {
   const size = Math.floor(7.5 * 1024 * 1024);
   const entries: ZipEntry[] = [];
   const row: Row = {};
-  const placements = ["QUESTION", "OPTION_A", "OPTION_B", "OPTION_C", "OPTION_D", "SOLUTION"] as const;
+  const placements = [
+    "QUESTION",
+    "OPTION_A",
+    "OPTION_B",
+    "OPTION_C",
+    "OPTION_D",
+    "SOLUTION",
+  ] as const;
   for (let index = 0; index < 7; index += 1) {
     const bytes = new Uint8Array(size);
     bytes.set(PNG, 0);
-    for (let offset = PNG.length; offset < size; offset += 1) bytes[offset] = (offset * 31 + index) & 0xff;
+    for (let offset = PNG.length; offset < size; offset += 1)
+      bytes[offset] = (offset * 31 + index) & 0xff;
     entries.push({ name: `media/img${index}.png`, bytes, store: true });
   }
   for (const [index, placement] of placements.entries()) {
@@ -434,7 +507,10 @@ test("corrupted ZIP payloads fail closed (CRC is verified)", async () => {
   );
   assert.ok(index > 0);
   corrupted[index + marker.length + 2] ^= 0xff;
-  await rejects(parseMinisterialPackageFile(asFile(corrupted, "p.zip"), SANAA), /تعذرت قراءة ملف ZIP|تعذر فك ضغط|ليست PNG/);
+  await rejects(
+    parseMinisterialPackageFile(asFile(corrupted, "p.zip"), SANAA),
+    /تعذرت قراءة ملف ZIP|تعذر فك ضغط|ليست PNG/,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -455,7 +531,9 @@ test("ZIP template ships the XLSX, the media/ folder and an Arabic README", asyn
 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await zip.file(/\.xlsx$/)[0]!.async("uint8array"));
-  const sheet = workbook.worksheets.find((candidate) => candidate.name !== MINISTERIAL_INDEX_SHEET)!;
+  const sheet = workbook.worksheets.find(
+    (candidate) => candidate.name !== MINISTERIAL_INDEX_SHEET,
+  )!;
   const headerValues = (sheet.getRow(4).values as unknown[]).slice(1).map(String);
   for (const header of [...SANAA_QUESTION_HEADERS, ...SANAA_MEDIA_HEADERS]) {
     assert.ok(headerValues.includes(header), `template header ${header}`);
