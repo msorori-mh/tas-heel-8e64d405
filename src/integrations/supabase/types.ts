@@ -6162,6 +6162,29 @@ export type Database = {
         Args: { _model_id: string; _question_codes: string[] }
         Returns: Json
       }
+      ministerial_model_question_delete: {
+        Args: { _model_id: string; _question_id: string; _reason: string }
+        Returns: Json
+      }
+      ministerial_model_question_update: {
+        Args: {
+          _correct_option_code: string
+          _display_order: number
+          _explanation: string
+          _marks: number
+          _model_answer: string
+          _model_id: string
+          _options: Json
+          _question_id: string
+          _question_text: string
+          _reason: string
+        }
+        Returns: Json
+      }
+      ministerial_model_questions_admin_list: {
+        Args: { _model_id: string }
+        Returns: Json
+      }
       ministerial_model_set_status: {
         Args: { _model_id: string; _reason: string; _target_status: string }
         Returns: undefined
