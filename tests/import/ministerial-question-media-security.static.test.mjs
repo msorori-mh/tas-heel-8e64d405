@@ -46,11 +46,11 @@ test("the shared media contract is strict: three raster types, hard limits, cont
   assert.match(contract, /maxTotalBytes:\s*50 \* 1024 \* 1024/);
   assert.match(
     contract,
-    /MINISTERIAL_MEDIA_STORAGE_KEY_RE = \/\^ministerial\\\/\[0-9a-f\]\{2\}\\\/\[0-9a-f\]\{64\}/,
+    /MINISTERIAL_MEDIA_STORAGE_KEY_RE =\s*\/\^ministerial\\\/\[0-9a-f\]\{2\}\\\/\[0-9a-f\]\{64\}/,
   );
   assert.match(contract, /export function detectImageMime/);
   assert.match(contract, /export function isSafeZipEntryName/);
-  assert.match(contract, /ADEN_MEDIA_PLACEMENTS = \["QUESTION", "SOLUTION"\]/);
+  assert.match(contract, /ADEN_MEDIA_PLACEMENTS = \[\s*"QUESTION",\s*"SOLUTION",?\s*\]/);
 });
 
 test("the ZIP parser is hardened (traversal, bombs, magic bytes, unique names, no stray files)", () => {
