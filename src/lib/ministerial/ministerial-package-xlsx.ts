@@ -298,7 +298,9 @@ export async function parseMinisterialPackageWorkbook(
   for (const row of indexRows) {
     const key = `${row.year}:${row.variantNumber}`;
     if (seenVariants.has(key)) {
-      throw new Error(`الفهرس، الصف ${row.rowNumber}: رقم النموذج ${row.variantNumber} مكرر في سنة ${row.year}.`);
+      throw new Error(
+        `الفهرس، الصف ${row.rowNumber}: رقم النموذج ${row.variantNumber} مكرر في سنة ${row.year}.`,
+      );
     }
     seenVariants.add(key);
   }
