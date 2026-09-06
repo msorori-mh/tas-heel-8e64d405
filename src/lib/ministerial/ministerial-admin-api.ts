@@ -22,6 +22,9 @@ type RpcName =
   | "ministerial_track_package_execute"
   | "ministerial_membership_remove_preview"
   | "ministerial_membership_remove_execute"
+  | "ministerial_model_questions_admin_list"
+  | "ministerial_model_question_update"
+  | "ministerial_model_question_delete"
   | "ministerial_model_set_status"
   | "publish_ministerial_model";
 
@@ -53,6 +56,17 @@ export type MinisterialModelRow = {
   track_name: string;
   question_count: number;
   can_publish: boolean;
+};
+
+export type MinisterialAdminQuestion = {
+  question_id: string;
+  question_code: string;
+  question_text: string;
+  display_order: number;
+  marks: number;
+  options: Array<{ option_code: "A" | "B" | "C" | "D"; body: string; is_correct: boolean }>;
+  model_answer: string | null;
+  explanation: string | null;
 };
 
 export type MinisterialPreviewRow = {
@@ -186,6 +200,43 @@ export function executeMembershipRemoval(modelId: string, questionCodes: string[
   return callRpc<{ removed: number }>("ministerial_membership_remove_execute", {
     _model_id: modelId,
     _question_codes: questionCodes,
+    _reason: reason,
+  });
+}
+
+export function listMinisterialModelQuestions(modelId: string) {
+  return callRpc<MinisterialAdminQuestion[]>("ministerial_model_questions_admin_list", {
+    _model_id: modelId,
+  });
+}
+
+export function updateMinisterialModelQuestion(
+  modelId: string,
+  question: MinisterialAdminQuestion,
+  reason: string,
+) {
+  const correct = question.options.find((option) => option.is_correct)?.option_code ?? null;
+  return callRpc<{ question_id: string; published_revision_id: string; status: "draft" }>(
+    "ministerial_model_question_update",
+    {
+      _model_id: modelId,
+      _question_id: question.question_id,
+      _question_text: question.question_text,
+      _options: question.options,
+      _correct_option_code: correct,
+      _model_answer: question.model_answer,
+      _explanation: question.explanation,
+      _display_order: question.display_order,
+      _marks: question.marks,
+      _reason: reason,
+    },
+  );
+}
+
+export function deleteMinisterialModelQuestion(modelId: string, questionId: string, reason: string) {
+  return callRpc<{ removed: number; status: "draft" }>("ministerial_model_question_delete", {
+    _model_id: modelId,
+    _question_id: questionId,
     _reason: reason,
   });
 }
