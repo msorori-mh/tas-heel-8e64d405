@@ -2298,3 +2298,655 @@ textarea:focus {
     width: 100%;
   }
 }
+
+/* ============ Tamkeen Academy — vibrant experience layer ============ */
+
+.primary-button {
+  background: linear-gradient(135deg, var(--teal) 0%, var(--sea) 100%);
+  box-shadow: 0 10px 22px rgba(45, 138, 158, 0.28);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
+}
+
+.primary-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--teal-bright) 0%, var(--teal) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(45, 138, 158, 0.34);
+}
+
+.secondary-button {
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: var(--teal);
+  transform: translateY(-1px);
+}
+
+.program-cover {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(92, 189, 185, 0.5), transparent 42%),
+    linear-gradient(135deg, var(--teal) 0%, var(--navy) 100%);
+}
+
+.program-card,
+.learning-card,
+.lesson-card,
+.certificate-card {
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.program-card:hover,
+.learning-card:hover,
+.certificate-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(45, 138, 158, 0.4);
+  box-shadow: 0 18px 38px rgba(12, 35, 64, 0.12);
+}
+
+.program-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.program-meta span {
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  color: var(--sea);
+  background: var(--mint);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.progress-track span {
+  background: linear-gradient(90deg, var(--teal-bright), var(--teal));
+  transition: width 0.5s ease;
+}
+
+/* progress bar */
+.tk-progress {
+  overflow: hidden;
+  height: 0.62rem;
+  border-radius: 999px;
+  background: #dfeaef;
+}
+
+.tk-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--teal-bright), var(--teal));
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* progress ring */
+.tk-ring {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.tk-ring svg {
+  transform: rotate(-90deg);
+}
+
+.tk-ring circle {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.tk-ring-track {
+  stroke: rgba(45, 138, 158, 0.16);
+}
+
+.tk-ring-value {
+  stroke: var(--teal);
+  transition: stroke-dashoffset 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tk-ring-label {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  line-height: 1.1;
+}
+
+.tk-ring-label strong {
+  color: var(--navy);
+  font-size: 0.95rem;
+}
+
+.tk-ring-label small {
+  color: var(--muted);
+  font-size: 0.6rem;
+}
+
+/* badges */
+.tk-badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.7rem;
+  margin: 1.2rem 0;
+}
+
+.tk-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px dashed var(--line);
+  border-radius: 0.9rem;
+  background: #fff;
+  opacity: 0.65;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.tk-badge.earned {
+  border-style: solid;
+  border-color: rgba(92, 189, 185, 0.55);
+  background: linear-gradient(135deg, #fff, var(--mint));
+  opacity: 1;
+  box-shadow: var(--shadow-soft);
+}
+
+.tk-badge.earned:hover {
+  transform: translateY(-2px);
+}
+
+.tk-badge-icon {
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: 0 0 2.2rem;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--muted);
+  background: #eef3f6;
+}
+
+.tk-badge.earned .tk-badge-icon {
+  color: #fff;
+  background: linear-gradient(135deg, var(--teal-bright), var(--teal));
+}
+
+.tk-badge-icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.tk-badge-text {
+  display: grid;
+  min-width: 0;
+}
+
+.tk-badge-text strong {
+  color: var(--navy);
+  font-size: 0.87rem;
+}
+
+.tk-badge-text small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+/* next step card */
+.tk-next-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  margin-bottom: 1.6rem;
+  padding: 1.35rem 1.5rem;
+  border: 1px solid rgba(45, 138, 158, 0.25);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at 88% 12%, rgba(92, 189, 185, 0.22), transparent 45%),
+    linear-gradient(135deg, #ffffff, #eef7f8);
+  box-shadow: var(--shadow-soft);
+  animation: tk-rise 0.45s ease both;
+}
+
+.tk-next-step-main {
+  min-width: 0;
+}
+
+.tk-next-step h2 {
+  margin: 0 0 0.35rem;
+  color: var(--navy);
+  font-size: 1.2rem;
+}
+
+.tk-next-step-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.45rem;
+  color: var(--teal);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.tk-next-step-eyebrow svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.tk-next-step-desc {
+  margin: 0 0 0.9rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.tk-next-step-art {
+  width: 3.4rem;
+  height: 3.4rem;
+  flex: 0 0 auto;
+  color: rgba(45, 138, 158, 0.45);
+}
+
+/* program hero */
+.tk-program-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.4rem;
+  margin-bottom: 1.4rem;
+  padding: 1.5rem 1.6rem;
+  border-radius: var(--radius-lg);
+  color: #fff;
+  background:
+    radial-gradient(circle at 92% 10%, rgba(92, 189, 185, 0.45), transparent 46%),
+    linear-gradient(135deg, var(--navy) 0%, var(--sea) 70%);
+  box-shadow: var(--shadow);
+  animation: tk-rise 0.45s ease both;
+}
+
+.tk-program-hero h1 {
+  margin: 0.25rem 0 0.75rem;
+  color: #fff;
+  font-size: clamp(1.4rem, 2.6vw, 2rem);
+}
+
+.tk-program-hero .tk-hero-eyebrow {
+  margin: 0;
+  color: var(--teal-bright);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.tk-program-hero .tk-progress {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.tk-hero-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.tk-hero-caption {
+  margin: 0.6rem 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.85rem;
+}
+
+.tk-program-hero .tk-ring-track {
+  stroke: rgba(255, 255, 255, 0.22);
+}
+
+.tk-program-hero .tk-ring-value {
+  stroke: var(--teal-bright);
+}
+
+.tk-program-hero .tk-ring-label strong {
+  color: #fff;
+}
+
+.tk-program-hero .tk-ring-label small {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* lesson path */
+.lesson-card {
+  position: relative;
+  animation: tk-rise 0.4s ease both;
+}
+
+.lesson-card.completed {
+  border-color: rgba(92, 189, 185, 0.6);
+  background: linear-gradient(135deg, #ffffff, #f2fbfa);
+}
+
+.lesson-card.tk-current {
+  border-color: var(--teal);
+  box-shadow: 0 14px 34px rgba(45, 138, 158, 0.18);
+}
+
+.lesson-card.tk-locked-visual {
+  opacity: 0.82;
+}
+
+.lesson-number {
+  color: #fff;
+  background: linear-gradient(135deg, #9db4c2, #7d94a5);
+}
+
+.lesson-card.completed .lesson-number {
+  background: linear-gradient(135deg, var(--teal-bright), var(--success));
+}
+
+.lesson-card.tk-current .lesson-number {
+  background: linear-gradient(135deg, var(--gold), #ef8a3c);
+  box-shadow: 0 0 0 5px rgba(244, 166, 63, 0.16);
+}
+
+.tk-lesson-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+  padding: 0.42rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--sea);
+  background: #fff;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.tk-lesson-toggle:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+.tk-lesson-toggle svg {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 0.2s ease;
+}
+
+.tk-lesson-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.tk-lesson-body {
+  animation: tk-rise 0.3s ease both;
+}
+
+.tk-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.tk-chip {
+  padding: 0.24rem 0.6rem;
+  border-radius: 999px;
+  color: var(--sea);
+  background: var(--mint);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+/* details cards */
+.program-details-grid > section,
+.program-details-panel > section {
+  border-radius: 1rem;
+}
+
+.program-details-panel {
+  animation: tk-rise 0.35s ease both;
+}
+
+/* assessment */
+.tk-assessment-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.tk-assessment-progress .tk-progress {
+  flex: 1;
+}
+
+.tk-assessment-progress small {
+  color: var(--muted);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.tk-result-card {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  margin-bottom: 1.1rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+  animation: tk-rise 0.4s ease both;
+}
+
+.tk-result-card.passed {
+  border-color: rgba(92, 189, 185, 0.6);
+  background: linear-gradient(135deg, #fff, var(--success-soft));
+}
+
+.tk-result-card.failed {
+  border-color: #f0cccc;
+  background: linear-gradient(135deg, #fff, var(--danger-soft));
+}
+
+.tk-result-card strong {
+  display: block;
+  color: var(--navy);
+  font-size: 1.05rem;
+}
+
+.tk-result-card p {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.tk-result-card bdi {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.6rem;
+  background: var(--mint);
+  font-weight: 800;
+}
+
+.assessment-question {
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.assessment-question:hover {
+  border-color: rgba(45, 138, 158, 0.45);
+}
+
+/* certificates */
+.certificate-card {
+  position: relative;
+  border-color: rgba(244, 166, 63, 0.45);
+  background:
+    radial-gradient(circle at 92% 8%, rgba(244, 166, 63, 0.16), transparent 42%),
+    #fff;
+}
+
+.tk-copy-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--sea);
+  background: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.tk-copy-button svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+/* auth + feature list polish */
+.auth-intro {
+  background:
+    radial-gradient(circle at 85% 12%, rgba(92, 189, 185, 0.35), transparent 45%),
+    linear-gradient(150deg, var(--navy) 0%, var(--sea) 100%);
+}
+
+.feature-list li {
+  animation: tk-rise 0.45s ease both;
+}
+
+.feature-list li:nth-child(2) {
+  animation-delay: 0.08s;
+}
+
+.feature-list li:nth-child(3) {
+  animation-delay: 0.16s;
+}
+
+.feature-list li:nth-child(4) {
+  animation-delay: 0.24s;
+}
+
+.nav-item:hover,
+.nav-item.active {
+  background: linear-gradient(135deg, rgba(92, 189, 185, 0.22), rgba(45, 138, 158, 0.16));
+}
+
+/* celebration */
+.tk-celebration {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.tk-celebration-card {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.95rem 1.4rem;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--teal), var(--navy));
+  box-shadow: 0 20px 40px rgba(12, 35, 64, 0.28);
+  animation: tk-pop 0.4s cubic-bezier(0.22, 1.4, 0.4, 1) both;
+}
+
+.tk-celebration-card svg {
+  width: 1.4rem;
+  height: 1.4rem;
+  color: var(--gold);
+}
+
+.tk-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.tk-confetti i {
+  position: absolute;
+  top: -12vh;
+  left: calc(var(--i) * 5.4%);
+  width: 9px;
+  height: 15px;
+  border-radius: 2px;
+  background: var(--teal-bright);
+  animation: tk-fall 2.4s linear both;
+  animation-delay: calc(var(--i) * 0.06s);
+}
+
+.tk-confetti i:nth-child(3n) {
+  background: var(--gold);
+}
+
+.tk-confetti i:nth-child(3n + 1) {
+  background: var(--teal);
+}
+
+@keyframes tk-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(115vh) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+@keyframes tk-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tk-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 720px) {
+  .tk-next-step,
+  .tk-program-hero,
+  .tk-result-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tk-next-step .primary-button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .tk-confetti {
+    display: none;
+  }
+}
