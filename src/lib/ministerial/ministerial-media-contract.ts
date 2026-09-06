@@ -185,7 +185,11 @@ export function isSafeZipEntryName(name: string): boolean {
   if (name.startsWith("/") || name.startsWith("\\")) return false;
   if (/^[A-Za-z]:/.test(name)) return false;
   if (name.includes("\\")) return false;
-  if (/[\u0000-\u001f\u007f]/.test(name)) return false;
+  // Reject control characters (NUL, C0 range, DEL) without a control-char regex literal.
+  for (let index = 0; index < name.length; index += 1) {
+    const codePoint = name.charCodeAt(index);
+    if (codePoint <= 0x1f || codePoint === 0x7f) return false;
+  }
   const segments = name.split("/");
   return segments.every((segment, index) => {
     if (segment === "." || segment === "..") return false;
