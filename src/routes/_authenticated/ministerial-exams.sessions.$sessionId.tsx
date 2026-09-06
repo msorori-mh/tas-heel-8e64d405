@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { StateMessage } from "@/components/student/StudentNav";
+import { MinisterialMediaImage } from "@/components/ministerial/MinisterialMediaImage";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -14,6 +15,8 @@ import {
   fetchMinisterialSessionState,
   mapMinisterialError,
   modelTitle,
+  optionImage,
+  questionImage,
   revealMinisterialAnswer,
   submitMinisterialSession,
   type MinisterialRevealResult,
@@ -330,6 +333,20 @@ function MinisterialSessionPage() {
         <h2 className="mt-2 whitespace-pre-wrap text-base font-semibold leading-7 text-foreground">
           {current.question_text}
         </h2>
+        {(() => {
+          const image = questionImage(current);
+          return image ? (
+            <div className="mt-3">
+              <MinisterialMediaImage
+                key={image.media_id}
+                mediaId={image.media_id}
+                sessionId={sessionId}
+                alt={image.alt_text_ar}
+                caption={image.caption}
+              />
+            </div>
+          ) : null;
+        })()}
 
         {isTextQuestion ? (
           <div className="mt-4 space-y-2">
@@ -370,6 +387,7 @@ function MinisterialSessionPage() {
               const isCorrectOption =
                 currentReveal && currentReveal.correct_option_code === opt.option_code;
               const isWrongPick = currentReveal && selected && currentReveal.verdict === "wrong";
+              const image = optionImage(current, opt.option_code);
               return (
                 <li key={`${current.session_question_id}-${opt.option_code}`}>
                   <button
@@ -394,7 +412,19 @@ function MinisterialSessionPage() {
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px]">
                       {opt.option_code}
                     </span>
-                    <span className="whitespace-pre-wrap">{opt.body}</span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-2">
+                      {opt.body && <span className="whitespace-pre-wrap">{opt.body}</span>}
+                      {image && (
+                        <MinisterialMediaImage
+                          key={image.media_id}
+                          mediaId={image.media_id}
+                          sessionId={sessionId}
+                          alt={image.alt_text_ar}
+                          caption={image.caption}
+                          variant="option"
+                        />
+                      )}
+                    </span>
                   </button>
                 </li>
               );
@@ -433,6 +463,16 @@ function MinisterialSessionPage() {
                     {currentReveal.explanation}
                   </p>
                 )}
+                {(currentReveal.solution_media ?? []).map((image) => (
+                  <MinisterialMediaImage
+                    key={image.media_id}
+                    mediaId={image.media_id}
+                    sessionId={sessionId}
+                    alt={image.alt_text_ar}
+                    caption={image.caption ?? "صورة الحل"}
+                    className="mt-2"
+                  />
+                ))}
                 {currentReveal.lesson_id && (
                   <Link
                     to="/lessons/$lessonId"

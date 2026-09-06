@@ -183,6 +183,17 @@ jobs:
           MINISTERIAL_PG17_URL: postgresql://postgres:tamkeen_ministerial_ci_only@localhost:5432/tamkeen_ministerial
         run: bash tests/import/run-pg17-ministerial-track-package-rehearsal.sh
 
+      - name: Create a clean database for the media rehearsal
+        run: |
+          PGPASSWORD=tamkeen_ministerial_ci_only psql \
+            --host 127.0.0.1 --port 5432 --username postgres --dbname postgres \
+            --command 'CREATE DATABASE tamkeen_ministerial_media'
+
+      - name: Rehearse question media (ZIP packages, storage gate, session pinning, admin revisions)
+        env:
+          MINISTERIAL_PG17_URL: postgresql://postgres:tamkeen_ministerial_ci_only@localhost:5432/tamkeen_ministerial_media
+        run: bash tests/import/run-pg17-ministerial-media-rehearsal.sh
+
       - name: Stop isolated PostgreSQL 17
         if: always()
         run: docker stop tamkeen-ministerial-pg17 || true

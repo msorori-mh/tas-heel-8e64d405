@@ -17,7 +17,8 @@ test("ministerial package workspace remains Grade 12 only", () => {
 
 test("operator uses one track-specific XLSX package instead of exposed M01 and M02 forms", () => {
   assert.match(route, /MinisterialTrackPackageImporter/);
-  assert.match(importer, /accept="\.xlsx/);
+  // XLSX stays the default; ZIP (XLSX + media/) is accepted only for packages with images.
+  assert.match(importer, /accept=\{`\.xlsx,\.zip,/);
   assert.match(importer, /مسار صنعاء — اختيار متعدد مثل المفاضلة/);
   assert.match(importer, /مسار عدن — إجابة نصية ومراجعة نموذجية/);
   assert.doesNotMatch(route, /M01_OPERATOR_COLUMNS|M02_COLUMNS|handlePrepareSingleModel/);
