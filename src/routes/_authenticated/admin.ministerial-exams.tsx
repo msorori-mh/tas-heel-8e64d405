@@ -244,7 +244,11 @@ function AdminMinisterialExamsPage() {
                         <div className="flex flex-wrap gap-1.5">
                           <MinisterialQuestionsManager
                             model={m}
-                            onChanged={() => void queryClient.invalidateQueries({ queryKey: ["ministerial-models"] })}
+                            onChanged={() =>
+                              void queryClient.invalidateQueries({
+                                queryKey: ["ministerial-models"],
+                              })
+                            }
                           />
                           {m.status === "draft" && (
                             <Button
@@ -289,7 +293,10 @@ function AdminMinisterialExamsPage() {
                 </TableBody>
               </Table>
             </div>
-            <p className="text-xs text-muted-foreground">تعديل الأسئلة وحذفها يمران عبر إجراءات خادمية محمية ومدققة، ويُمنعان بعد بدء أي محاولة طلابية على النموذج.</p>
+            <p className="text-xs text-muted-foreground">
+              تعديل الأسئلة وحذفها يمران عبر إجراءات خادمية محمية ومدققة، ويُمنعان بعد بدء أي محاولة
+              طلابية على النموذج.
+            </p>
           </CardContent>
         </Card>
       </div>
