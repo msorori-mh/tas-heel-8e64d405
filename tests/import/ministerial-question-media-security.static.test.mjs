@@ -129,7 +129,7 @@ test("migration: storage policies are staff-only, bucket-scoped, key-shaped, and
   assert.doesNotMatch(policies, /TO anon|TO public/i);
   assert.equal((policies.match(/bucket_id = 'question-media'/g) ?? []).length >= 4, true);
   assert.match(policies, /is_content_staff\(auth\.uid\(\)\)/);
-  assert.match(policies, /has_role\(auth\.uid\(\), 'admin'/);
+  assert.match(policies, /is_full_admin\(auth\.uid\(\)\)/);
   assert.match(policies, /name ~ '\^ministerial\/\[0-9a-f\]\{2\}\/\[0-9a-f\]\{64\}/);
   assert.doesNotMatch(sql, /INSERT INTO storage\.buckets|UPDATE storage\.buckets/);
 });
@@ -161,7 +161,7 @@ test("migration: the media access gate requires ownership, hides solutions until
   const gate = fn("ministerial_media_can_access");
   assert.match(gate, /auth\.uid\(\)/);
   assert.match(gate, /is_content_staff\(/);
-  assert.match(gate, /student_id = v_actor|user_id = v_actor/);
+  assert.match(gate, /user_id = v_user/);
   assert.match(gate, /revealed_at IS NOT NULL/);
   assert.match(gate, /'SOLUTION'/);
   assert.match(gate, /RETURN false/);
