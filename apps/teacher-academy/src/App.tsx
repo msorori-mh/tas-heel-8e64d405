@@ -670,17 +670,13 @@ function ProfileForm({
     setBusy(true);
     setError(null);
     try {
-      const saved = await saveTeacherProfile(
-        user,
-        {
-          full_name: fullName.trim(),
-          primary_subject_id: subjectId,
-          governorate_id: governorateId,
-          school_name: schoolName.trim(),
-          phone: phone.trim(),
-        },
-        existing !== null,
-      );
+      const saved = await saveTeacherProfile(user, {
+        full_name: fullName.trim(),
+        primary_subject_id: subjectId,
+        governorate_id: governorateId,
+        school_name: schoolName.trim(),
+        phone: phone.trim(),
+      });
       onSaved(saved);
     } catch (submitError) {
       setError(getErrorMessage(submitError));

@@ -78,18 +78,21 @@ export async function loadProfileOptions(): Promise<{
 export async function saveTeacherProfile(
   user: User,
   input: Omit<TeacherProfile, "user_id" | "status">,
-  profileExists: boolean,
 ): Promise<TeacherProfile> {
   requireAcademyBackend();
-  const request = profileExists
-    ? academySupabase.from("teacher_profiles").update(input).eq("user_id", user.id)
-    : academySupabase.from("teacher_profiles").insert({
-        user_id: user.id,
-        ...input,
-      });
-  const { data, error } = await request
-    .select("user_id,full_name,primary_subject_id,governorate_id,school_name,phone,status")
-    .single();
+  const { data: sessionData, error: sessionError } = await academySupabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  if (!sessionData.session || sessionData.session.user.id !== user.id) {
+    throw new Error("انتهت جلسة Google. سجّل الدخول مرة أخرى.");
+  }
+
+  const { data, error } = await academySupabase.rpc("save_my_teacher_profile", {
+    p_full_name: input.full_name,
+    p_primary_subject_id: input.primary_subject_id,
+    p_governorate_id: input.governorate_id,
+    p_school_name: input.school_name,
+    p_phone: input.phone,
+  });
 
   if (error) throw error;
   return data as TeacherProfile;
