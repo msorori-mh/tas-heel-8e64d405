@@ -53,6 +53,7 @@ import { Route as Prototype19aLessonRouteImport } from './routes/prototype.19a.l
 import { Route as Prototype19aLandingRouteImport } from './routes/prototype.19a.landing'
 import { Route as Prototype19aHomeRouteImport } from './routes/prototype.19a.home'
 import { Route as ApiSubjectTextbookTextbookIdRouteImport } from './routes/api/subject-textbook.$textbookId'
+import { Route as ApiMinisterialMediaMediaIdRouteImport } from './routes/api/ministerial-media.$mediaId'
 import { Route as ApiLessonFileResourceIdRouteImport } from './routes/api/lesson-file.$resourceId'
 import { Route as AuthenticatedSubjectsSubjectIdRouteImport } from './routes/_authenticated/subjects.$subjectId'
 import { Route as AuthenticatedSemestersSemesterRouteImport } from './routes/_authenticated/semesters.$semester'
@@ -319,6 +320,12 @@ const ApiSubjectTextbookTextbookIdRoute =
   ApiSubjectTextbookTextbookIdRouteImport.update({
     id: '/api/subject-textbook/$textbookId',
     path: '/api/subject-textbook/$textbookId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiMinisterialMediaMediaIdRoute =
+  ApiMinisterialMediaMediaIdRouteImport.update({
+    id: '/api/ministerial-media/$mediaId',
+    path: '/api/ministerial-media/$mediaId',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiLessonFileResourceIdRoute = ApiLessonFileResourceIdRouteImport.update({
@@ -616,6 +623,7 @@ export interface FileRoutesByFullPath {
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/api/ministerial-media/$mediaId': typeof ApiMinisterialMediaMediaIdRoute
   '/api/subject-textbook/$textbookId': typeof ApiSubjectTextbookTextbookIdRoute
   '/prototype/19a/home': typeof Prototype19aHomeRoute
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
@@ -696,6 +704,7 @@ export interface FileRoutesByTo {
   '/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/api/ministerial-media/$mediaId': typeof ApiMinisterialMediaMediaIdRoute
   '/api/subject-textbook/$textbookId': typeof ApiSubjectTextbookTextbookIdRoute
   '/prototype/19a/home': typeof Prototype19aHomeRoute
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
@@ -783,6 +792,7 @@ export interface FileRoutesById {
   '/_authenticated/semesters/$semester': typeof AuthenticatedSemestersSemesterRoute
   '/_authenticated/subjects/$subjectId': typeof AuthenticatedSubjectsSubjectIdRoute
   '/api/lesson-file/$resourceId': typeof ApiLessonFileResourceIdRoute
+  '/api/ministerial-media/$mediaId': typeof ApiMinisterialMediaMediaIdRoute
   '/api/subject-textbook/$textbookId': typeof ApiSubjectTextbookTextbookIdRoute
   '/prototype/19a/home': typeof Prototype19aHomeRoute
   '/prototype/19a/landing': typeof Prototype19aLandingRoute
@@ -870,6 +880,7 @@ export interface FileRouteTypes {
     | '/semesters/$semester'
     | '/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/api/ministerial-media/$mediaId'
     | '/api/subject-textbook/$textbookId'
     | '/prototype/19a/home'
     | '/prototype/19a/landing'
@@ -950,6 +961,7 @@ export interface FileRouteTypes {
     | '/semesters/$semester'
     | '/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/api/ministerial-media/$mediaId'
     | '/api/subject-textbook/$textbookId'
     | '/prototype/19a/home'
     | '/prototype/19a/landing'
@@ -1036,6 +1048,7 @@ export interface FileRouteTypes {
     | '/_authenticated/semesters/$semester'
     | '/_authenticated/subjects/$subjectId'
     | '/api/lesson-file/$resourceId'
+    | '/api/ministerial-media/$mediaId'
     | '/api/subject-textbook/$textbookId'
     | '/prototype/19a/home'
     | '/prototype/19a/landing'
@@ -1084,6 +1097,7 @@ export interface RootRouteChildren {
   Prototype19aRoute: typeof Prototype19aRouteWithChildren
   Prototype19cRoute: typeof Prototype19cRoute
   ApiLessonFileResourceIdRoute: typeof ApiLessonFileResourceIdRoute
+  ApiMinisterialMediaMediaIdRoute: typeof ApiMinisterialMediaMediaIdRoute
   ApiSubjectTextbookTextbookIdRoute: typeof ApiSubjectTextbookTextbookIdRoute
   ApiOfflinePackArtifactResourceIdRoute: typeof ApiOfflinePackArtifactResourceIdRoute
   ApiOfflinePackManifestSubjectIdRoute: typeof ApiOfflinePackManifestSubjectIdRoute
@@ -1397,6 +1411,13 @@ declare module '@tanstack/react-router' {
       path: '/api/subject-textbook/$textbookId'
       fullPath: '/api/subject-textbook/$textbookId'
       preLoaderRoute: typeof ApiSubjectTextbookTextbookIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ministerial-media/$mediaId': {
+      id: '/api/ministerial-media/$mediaId'
+      path: '/api/ministerial-media/$mediaId'
+      fullPath: '/api/ministerial-media/$mediaId'
+      preLoaderRoute: typeof ApiMinisterialMediaMediaIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/lesson-file/$resourceId': {
@@ -1946,6 +1967,7 @@ const rootRouteChildren: RootRouteChildren = {
   Prototype19aRoute: Prototype19aRouteWithChildren,
   Prototype19cRoute: Prototype19cRoute,
   ApiLessonFileResourceIdRoute: ApiLessonFileResourceIdRoute,
+  ApiMinisterialMediaMediaIdRoute: ApiMinisterialMediaMediaIdRoute,
   ApiSubjectTextbookTextbookIdRoute: ApiSubjectTextbookTextbookIdRoute,
   ApiOfflinePackArtifactResourceIdRoute: ApiOfflinePackArtifactResourceIdRoute,
   ApiOfflinePackManifestSubjectIdRoute: ApiOfflinePackManifestSubjectIdRoute,

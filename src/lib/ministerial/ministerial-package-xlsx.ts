@@ -1,4 +1,30 @@
+import {
+  ADEN_MEDIA_PLACEMENTS,
+  MEDIA_FILE_NAME_RE,
+  MEDIA_FOLDER,
+  MEDIA_PLACEMENT_LABEL_AR,
+  MEDIA_PLACEMENT_SORT_ORDER,
+  MINISTERIAL_MEDIA_LIMITS,
+  MINISTERIAL_MEDIA_PLACEMENTS,
+  defaultAltText,
+  detectImageMime,
+  formatMediaBytes,
+  isSafeZipEntryName,
+  mimeForExtension,
+  ministerialMediaStorageKey,
+  normalizeMediaFileName,
+  sha256HexOf,
+  type MinisterialImageMimeType,
+  type MinisterialMediaPlacement,
+  type MinisterialPackageMedia,
+} from "./ministerial-media-contract";
+
 export const MINISTERIAL_PACKAGE_CONTRACT_VERSION = "ministerial_track_package_v1" as const;
+/** v2 = v1 + optional per-question `media` (images shipped inside a ZIP). */
+export const MINISTERIAL_PACKAGE_CONTRACT_VERSION_V2 = "ministerial_track_package_v2" as const;
+export type MinisterialPackageContractVersion =
+  | typeof MINISTERIAL_PACKAGE_CONTRACT_VERSION
+  | typeof MINISTERIAL_PACKAGE_CONTRACT_VERSION_V2;
 
 export type MinisterialPackageTrack = "sanaa" | "aden";
 
@@ -10,6 +36,11 @@ export type MinisterialPackageQuestion = {
   explanation: string;
   display_order: number;
   marks: number;
+  /**
+   * Present ONLY when the question carries images. Packages without media keep
+   * the exact v1 JSON shape so existing draft fingerprints still match (SKIP).
+   */
+  media?: MinisterialPackageMedia[];
 };
 
 export type MinisterialPackageModel = {
@@ -22,13 +53,29 @@ export type MinisterialPackageModel = {
 };
 
 export type MinisterialTrackPackage = {
-  contract_version: typeof MINISTERIAL_PACKAGE_CONTRACT_VERSION;
+  contract_version: MinisterialPackageContractVersion;
   track_code: MinisterialPackageTrack;
   subject_code: string;
   subject_name: string;
   source_filename: string;
   source_sha256: string;
   models: MinisterialPackageModel[];
+};
+
+/** One de-duplicated image extracted from the ZIP, ready for content-addressed upload. */
+export type MinisterialMediaFile = {
+  sha256: string;
+  mime_type: MinisterialImageMimeType;
+  file_size: number;
+  storage_key: string;
+  bytes: Uint8Array;
+  file_names: string[];
+};
+
+export type MinisterialParsedPackage = {
+  package: MinisterialTrackPackage;
+  media: MinisterialMediaFile[];
+  total_media_bytes: number;
 };
 
 export const MINISTERIAL_INDEX_SHEET = "📋 الفهرس";
@@ -60,11 +107,36 @@ export const ADEN_QUESTION_HEADERS = [
   "ترتيب العرض",
 ] as const;
 
+/** Optional media columns (file name under media/ + Arabic alt text). */
+export const MEDIA_HEADERS: Record<MinisterialMediaPlacement, { file: string; alt: string }> = {
+  QUESTION: { file: "صورة السؤال", alt: "وصف صورة السؤال" },
+  OPTION_A: { file: "صورة الخيار أ", alt: "وصف صورة الخيار أ" },
+  OPTION_B: { file: "صورة الخيار ب", alt: "وصف صورة الخيار ب" },
+  OPTION_C: { file: "صورة الخيار ج", alt: "وصف صورة الخيار ج" },
+  OPTION_D: { file: "صورة الخيار د", alt: "وصف صورة الخيار د" },
+  SOLUTION: { file: "صورة الحل", alt: "وصف صورة الحل" },
+};
+
+export const SANAA_MEDIA_HEADERS = MINISTERIAL_MEDIA_PLACEMENTS.flatMap((placement) => [
+  MEDIA_HEADERS[placement].file,
+  MEDIA_HEADERS[placement].alt,
+]);
+
+export const ADEN_MEDIA_HEADERS = ADEN_MEDIA_PLACEMENTS.flatMap((placement) => [
+  MEDIA_HEADERS[placement].file,
+  MEDIA_HEADERS[placement].alt,
+]);
+
 const MAX_MODELS = 50;
 const MAX_QUESTIONS_PER_MODEL = 500;
 const MAX_TOTAL_QUESTIONS = 5_000;
 const MAX_TEXT_LENGTH = 20_000;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
+/** ZIP container = XLSX (≤25MB) + media (≤50MB) + zip overhead. */
+const MAX_ZIP_BYTES = 60 * 1024 * 1024;
+
+const IGNORED_ZIP_ENTRY_RE =
+  /(?:(?:^|\/)(?:__MACOSX\/|\.DS_Store$|Thumbs\.db$|desktop\.ini$))|(?:^(?:[^/]+\/)?media\/README\.txt$)/i;
 
 function cellText(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -144,22 +216,29 @@ function assertText(value: string, label: string, context: string): string {
   return value;
 }
 
+type WorksheetLike = {
+  rowCount: number;
+  columnCount: number;
+  getRow: (row: number) => { getCell: (column: number) => { value: unknown } };
+};
+
 function findHeaderRow(
-  worksheet: {
-    rowCount: number;
-    columnCount: number;
-    getRow: (row: number) => { getCell: (column: number) => { value: unknown } };
-  },
+  worksheet: WorksheetLike,
   requiredHeaders: readonly string[],
-): { rowNumber: number; columns: Map<string, number> } {
+): { rowNumber: number; columns: Map<string, number>; duplicates: string[] } {
   const scanUntil = Math.min(worksheet.rowCount, 12);
   for (let rowNumber = 1; rowNumber <= scanUntil; rowNumber += 1) {
     const columns = new Map<string, number>();
+    const duplicates: string[] = [];
     for (let column = 1; column <= worksheet.columnCount; column += 1) {
       const header = normalizeHeader(worksheet.getRow(rowNumber).getCell(column).value);
-      if (header) columns.set(header, column);
+      if (!header) continue;
+      if (columns.has(header)) duplicates.push(header);
+      else columns.set(header, column);
     }
-    if (requiredHeaders.every((header) => columns.has(header))) return { rowNumber, columns };
+    if (requiredHeaders.every((header) => columns.has(header))) {
+      return { rowNumber, columns, duplicates };
+    }
   }
   throw new Error(`لم يُعثر على صف الأعمدة المعتمد: ${requiredHeaders.join("، ")}.`);
 }
@@ -174,25 +253,21 @@ function rowValue(
   return column ? cellText(worksheet.getRow(rowNumber).getCell(column).value) : "";
 }
 
-function assertExactHeaders(
-  columns: Map<string, number>,
-  expectedHeaders: readonly string[],
+function assertAllowedHeaders(
+  header: { columns: Map<string, number>; duplicates: string[] },
+  requiredHeaders: readonly string[],
+  optionalHeaders: readonly string[],
   context: string,
 ) {
-  const expected = new Set<string>(expectedHeaders);
-  const unexpected = [...columns.keys()].filter((header) => !expected.has(header));
-  if (unexpected.length > 0 || columns.size !== expected.size) {
+  const allowed = new Set<string>([...requiredHeaders, ...optionalHeaders]);
+  const unexpected = [...header.columns.keys()].filter((name) => !allowed.has(name));
+  if (unexpected.length > 0 || header.duplicates.length > 0) {
+    const detail =
+      unexpected.length > 0 ? unexpected.join("، ") : `تكرار: ${header.duplicates.join("، ")}`;
     throw new Error(
-      `${context}: يجب استخدام أعمدة القالب فقط. الأعمدة غير المعتمدة: ${unexpected.join("، ") || "تكرار أو عمود فارغ الاسم"}.`,
+      `${context}: يجب استخدام أعمدة القالب فقط. الأعمدة غير المعتمدة: ${detail}.`,
     );
   }
-}
-
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const stableBytes = new Uint8Array(bytes.byteLength);
-  stableBytes.set(bytes);
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", stableBytes.buffer);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 async function excelModule() {
@@ -202,16 +277,337 @@ async function excelModule() {
   ) as typeof module;
 }
 
-export async function parseMinisterialPackageWorkbook(
-  file: File,
-  input: {
-    trackCode: MinisterialPackageTrack;
-    subjectCode: string;
-    subjectName: string;
-  },
-): Promise<MinisterialTrackPackage> {
-  if (!/\.xlsx$/i.test(file.name)) throw new Error("يُقبل ملف XLSX فقط.");
-  const bytes = new Uint8Array(await file.arrayBuffer());
+async function zipModule() {
+  const module = await import("jszip");
+  return ("default" in module ? module.default : module) as typeof import("jszip");
+}
+
+// ---------------------------------------------------------------------------
+// ZIP container (XLSX + media/)
+// ---------------------------------------------------------------------------
+
+/**
+ * `internalStream` is a public runtime method of JSZipObject (documented in
+ * jszip's `ZipObject#internalStream`) that the bundled typings omit.
+ */
+type ZipEntryLike = import("jszip").JSZipObject & {
+  _data?: { uncompressedSize?: number; compressedSize?: number };
+  internalStream: (
+    type: "uint8array",
+  ) => import("jszip").JSZipStreamHelper<Uint8Array>;
+};
+
+type MediaEntry = { name: string; bareName: string; entry: ZipEntryLike; declaredSize: number };
+
+type OpenedPackage = {
+  xlsxBytes: Uint8Array;
+  xlsxName: string;
+  /** Lower-cased bare file name → entry. */
+  mediaEntries: Map<string, MediaEntry>;
+};
+
+function declaredSizes(entry: ZipEntryLike): { uncompressed: number; compressed: number } {
+  const uncompressed = Number(entry._data?.uncompressedSize ?? -1);
+  const compressed = Number(entry._data?.compressedSize ?? -1);
+  return {
+    uncompressed: Number.isFinite(uncompressed) ? uncompressed : -1,
+    compressed: Number.isFinite(compressed) ? compressed : -1,
+  };
+}
+
+/**
+ * Inflate one entry while counting bytes; aborts as soon as the output exceeds
+ * `maxBytes` so a lying central directory cannot turn into a memory bomb.
+ */
+function readEntryBounded(entry: ZipEntryLike, maxBytes: number, label: string): Promise<Uint8Array> {
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    let settled = false;
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+    const stream = entry.internalStream("uint8array");
+    stream
+      .on("data", (chunk: Uint8Array) => {
+        if (settled) return;
+        total += chunk.byteLength;
+        if (total > maxBytes) {
+          try {
+            stream.pause();
+          } catch {
+            /* stream already finished */
+          }
+          fail(
+            new Error(
+              `«${label}» يتجاوز الحد الأقصى المسموح (${formatMediaBytes(maxBytes)}) بعد فك الضغط.`,
+            ),
+          );
+          return;
+        }
+        chunks.push(chunk);
+      })
+      .on("error", (error: Error) => fail(new Error(`تعذر فك ضغط «${label}»: ${error.message}`)))
+      .on("end", () => {
+        if (settled) return;
+        settled = true;
+        const out = new Uint8Array(total);
+        let offset = 0;
+        for (const chunk of chunks) {
+          out.set(chunk, offset);
+          offset += chunk.byteLength;
+        }
+        resolve(out);
+      })
+      .resume();
+  });
+}
+
+async function openPackageZip(bytes: Uint8Array): Promise<OpenedPackage> {
+  const JSZip = await zipModule();
+  let zip: import("jszip");
+  try {
+    zip = await JSZip.loadAsync(bytes, { checkCRC32: true });
+  } catch (error) {
+    throw new Error(
+      `تعذرت قراءة ملف ZIP (${error instanceof Error ? error.message : "ملف غير صالح"}).`,
+    );
+  }
+
+  const rawEntries = Object.values(zip.files) as ZipEntryLike[];
+  if (rawEntries.length > MINISTERIAL_MEDIA_LIMITS.maxZipEntries) {
+    throw new Error(
+      `حزمة ZIP تحتوي عددًا كبيرًا من الملفات (الحد ${MINISTERIAL_MEDIA_LIMITS.maxZipEntries}).`,
+    );
+  }
+
+  const files = rawEntries.filter((entry) => !entry.dir);
+  for (const entry of files) {
+    if (!isSafeZipEntryName(entry.name)) {
+      throw new Error(`اسم ملف غير آمن داخل الحزمة: «${entry.name}».`);
+    }
+  }
+
+  // Tolerate a single wrapper folder (common when a folder is zipped on desktop).
+  const meaningful = files.filter((entry) => !IGNORED_ZIP_ENTRY_RE.test(entry.name));
+  let prefix = "";
+  const firstSlash = meaningful[0]?.name.indexOf("/") ?? -1;
+  if (firstSlash > 0) {
+    const candidate = meaningful[0]!.name.slice(0, firstSlash + 1);
+    if (
+      candidate.toLowerCase() !== MEDIA_FOLDER &&
+      meaningful.every((entry) => entry.name.startsWith(candidate))
+    ) {
+      prefix = candidate;
+    }
+  }
+
+  const xlsxCandidates: ZipEntryLike[] = [];
+  const mediaEntries = new Map<string, MediaEntry>();
+  let declaredMediaTotal = 0;
+
+  for (const entry of meaningful) {
+    const relative = entry.name.slice(prefix.length);
+    const sizes = declaredSizes(entry);
+    if (sizes.uncompressed < 0 || sizes.compressed < 0) {
+      throw new Error(`تعذر قراءة بيانات الحجم للملف «${relative}» داخل الحزمة.`);
+    }
+    if (
+      sizes.compressed > 0 &&
+      sizes.uncompressed / sizes.compressed > MINISTERIAL_MEDIA_LIMITS.maxCompressionRatio
+    ) {
+      throw new Error(`نسبة ضغط مريبة للملف «${relative}» — رُفضت الحزمة.`);
+    }
+
+    if (/\.xlsx$/i.test(relative) && !relative.includes("/")) {
+      if (sizes.uncompressed > MAX_FILE_BYTES) {
+        throw new Error("حجم ملف XLSX داخل الحزمة يتجاوز 25MB.");
+      }
+      xlsxCandidates.push(entry);
+      continue;
+    }
+
+    if (relative.toLowerCase().startsWith(MEDIA_FOLDER)) {
+      const bareName = relative.slice(MEDIA_FOLDER.length);
+      if (!bareName) continue;
+      if (bareName.includes("/")) {
+        throw new Error(`لا يُسمح بمجلدات فرعية داخل media/: «${relative}».`);
+      }
+      if (!MEDIA_FILE_NAME_RE.test(bareName)) {
+        throw new Error(
+          `اسم صورة غير مقبول «${bareName}». يُسمح بـ PNG أو JPG أو WebP فقط وبأسماء بسيطة.`,
+        );
+      }
+      if (sizes.uncompressed > MINISTERIAL_MEDIA_LIMITS.maxImageBytes) {
+        throw new Error(
+          `الصورة «${bareName}» تتجاوز الحد الأقصى (${formatMediaBytes(MINISTERIAL_MEDIA_LIMITS.maxImageBytes)}).`,
+        );
+      }
+      const key = bareName.toLowerCase();
+      if (mediaEntries.has(key)) {
+        throw new Error(`اسم الصورة «${bareName}» مكرر داخل media/ (الأسماء يجب أن تكون فريدة).`);
+      }
+      declaredMediaTotal += sizes.uncompressed;
+      if (declaredMediaTotal > MINISTERIAL_MEDIA_LIMITS.maxTotalBytes) {
+        throw new Error(
+          `إجمالي حجم الصور يتجاوز الحد الأقصى (${formatMediaBytes(MINISTERIAL_MEDIA_LIMITS.maxTotalBytes)}).`,
+        );
+      }
+      mediaEntries.set(key, { name: relative, bareName, entry, declaredSize: sizes.uncompressed });
+      continue;
+    }
+
+    throw new Error(
+      `ملف غير متوقع داخل الحزمة: «${relative}». يجب أن تحتوي الحزمة على ملف XLSX واحد ومجلد media/ فقط.`,
+    );
+  }
+
+  if (xlsxCandidates.length !== 1) {
+    throw new Error(
+      xlsxCandidates.length === 0
+        ? "حزمة ZIP لا تحتوي ملف XLSX في المستوى الأعلى."
+        : "حزمة ZIP يجب أن تحتوي ملف XLSX واحدًا فقط.",
+    );
+  }
+  const xlsxEntry = xlsxCandidates[0]!;
+  const xlsxBytes = await readEntryBounded(xlsxEntry, MAX_FILE_BYTES, xlsxEntry.name);
+  return { xlsxBytes, xlsxName: xlsxEntry.name.slice(prefix.length), mediaEntries };
+}
+
+// ---------------------------------------------------------------------------
+// Media reference resolution
+// ---------------------------------------------------------------------------
+
+type MediaRef = {
+  placement: MinisterialMediaPlacement;
+  fileName: string;
+  altText: string;
+  context: string;
+};
+
+function readMediaRefs(
+  worksheet: WorksheetLike,
+  rowNumber: number,
+  columns: Map<string, number>,
+  placements: readonly MinisterialMediaPlacement[],
+  context: string,
+): MediaRef[] {
+  const refs: MediaRef[] = [];
+  for (const placement of placements) {
+    const headers = MEDIA_HEADERS[placement];
+    const rawName = rowValue(worksheet, rowNumber, columns, headers.file);
+    const altText = rowValue(worksheet, rowNumber, columns, headers.alt);
+    if (!rawName) {
+      if (altText) {
+        throw new Error(
+          `${context}: «${headers.alt}» مذكور بدون «${headers.file}».`,
+        );
+      }
+      continue;
+    }
+    const fileName = normalizeMediaFileName(rawName);
+    if (fileName.includes("/") || !MEDIA_FILE_NAME_RE.test(fileName)) {
+      throw new Error(
+        `${context}: «${headers.file}» يجب أن يكون اسم ملف صورة (PNG/JPG/WebP) داخل مجلد media/ بدون مسارات.`,
+      );
+    }
+    if (altText.length > MINISTERIAL_MEDIA_LIMITS.maxAltTextChars) {
+      throw new Error(
+        `${context}: «${headers.alt}» يتجاوز ${MINISTERIAL_MEDIA_LIMITS.maxAltTextChars} حرفًا.`,
+      );
+    }
+    refs.push({ placement, fileName, altText: altText || defaultAltText(placement), context });
+  }
+  return refs;
+}
+
+async function resolveMedia(
+  entries: Map<string, MediaEntry>,
+  refs: Iterable<MediaRef>,
+): Promise<{ byName: Map<string, MinisterialMediaFile>; files: MinisterialMediaFile[]; total: number }> {
+  const byName = new Map<string, MinisterialMediaFile>();
+  const bySha = new Map<string, MinisterialMediaFile>();
+  const referenced = new Set<string>();
+  let total = 0;
+
+  for (const ref of refs) {
+    const key = ref.fileName.toLowerCase();
+    referenced.add(key);
+    if (byName.has(key)) continue;
+    const entry = entries.get(key);
+    if (!entry) {
+      throw new Error(`${ref.context}: الصورة «${ref.fileName}» غير موجودة داخل مجلد media/.`);
+    }
+    const bytes = await readEntryBounded(
+      entry.entry,
+      MINISTERIAL_MEDIA_LIMITS.maxImageBytes,
+      entry.bareName,
+    );
+    if (bytes.byteLength === 0) throw new Error(`الصورة «${entry.bareName}» فارغة.`);
+    const sniffed = detectImageMime(bytes);
+    if (!sniffed) {
+      throw new Error(
+        `الصورة «${entry.bareName}» ليست PNG أو JPEG أو WebP صالحة (فحص محتوى الملف). ملفات SVG غير مقبولة.`,
+      );
+    }
+    const byExtension = mimeForExtension(entry.bareName);
+    if (byExtension !== sniffed) {
+      throw new Error(`امتداد الصورة «${entry.bareName}» لا يطابق محتواها الفعلي (${sniffed}).`);
+    }
+    const sha256 = await sha256HexOf(bytes);
+    let file = bySha.get(sha256);
+    if (!file) {
+      file = {
+        sha256,
+        mime_type: sniffed,
+        file_size: bytes.byteLength,
+        storage_key: ministerialMediaStorageKey(sha256, sniffed),
+        bytes,
+        file_names: [],
+      };
+      bySha.set(sha256, file);
+      total += bytes.byteLength;
+      if (total > MINISTERIAL_MEDIA_LIMITS.maxTotalBytes) {
+        throw new Error(
+          `إجمالي حجم الصور يتجاوز الحد الأقصى (${formatMediaBytes(MINISTERIAL_MEDIA_LIMITS.maxTotalBytes)}).`,
+        );
+      }
+    }
+    file.file_names.push(entry.bareName);
+    byName.set(key, file);
+  }
+
+  const unreferenced = [...entries.values()].filter((entry) => !referenced.has(entry.bareName.toLowerCase()));
+  if (unreferenced.length > 0) {
+    throw new Error(
+      `صور داخل media/ غير مستخدمة في أي سؤال: ${unreferenced
+        .slice(0, 5)
+        .map((entry) => `«${entry.bareName}»`)
+        .join("، ")}${unreferenced.length > 5 ? " …" : ""}.`,
+    );
+  }
+
+  return { byName, files: [...bySha.values()], total };
+}
+
+// ---------------------------------------------------------------------------
+// Workbook parsing
+// ---------------------------------------------------------------------------
+
+type ParseInput = {
+  trackCode: MinisterialPackageTrack;
+  subjectCode: string;
+  subjectName: string;
+};
+
+type PendingQuestion = { question: MinisterialPackageQuestion; refs: MediaRef[] };
+
+async function parseWorkbookBytes(
+  bytes: Uint8Array,
+  input: ParseInput,
+): Promise<{ models: Array<Omit<MinisterialPackageModel, "questions"> & { questions: PendingQuestion[] }> }> {
   if (bytes.byteLength === 0) throw new Error("ملف الاستيراد فارغ.");
   if (bytes.byteLength > MAX_FILE_BYTES) throw new Error("حجم ملف الاستيراد يتجاوز 25MB.");
 
@@ -230,7 +626,7 @@ export async function parseMinisterialPackageWorkbook(
   );
   if (!indexSheet) throw new Error(`ورقة «${MINISTERIAL_INDEX_SHEET}» مفقودة.`);
   const indexHeader = findHeaderRow(indexSheet, MINISTERIAL_INDEX_HEADERS);
-  assertExactHeaders(indexHeader.columns, MINISTERIAL_INDEX_HEADERS, "ورقة الفهرس");
+  assertAllowedHeaders(indexHeader, MINISTERIAL_INDEX_HEADERS, [], "ورقة الفهرس");
   const indexRows: Array<{
     rowNumber: number;
     modelLabel: string;
@@ -304,10 +700,14 @@ export async function parseMinisterialPackageWorkbook(
     }
     seenVariants.add(key);
   }
-  const expectedQuestionHeaders =
-    input.trackCode === "sanaa" ? SANAA_QUESTION_HEADERS : ADEN_QUESTION_HEADERS;
+  const isSanaa = input.trackCode === "sanaa";
+  const expectedQuestionHeaders = isSanaa ? SANAA_QUESTION_HEADERS : ADEN_QUESTION_HEADERS;
+  const optionalMediaHeaders = isSanaa ? SANAA_MEDIA_HEADERS : ADEN_MEDIA_HEADERS;
+  const mediaPlacements: readonly MinisterialMediaPlacement[] = isSanaa
+    ? MINISTERIAL_MEDIA_PLACEMENTS
+    : ADEN_MEDIA_PLACEMENTS;
   let totalQuestions = 0;
-  const models: MinisterialPackageModel[] = [];
+  const models: Array<Omit<MinisterialPackageModel, "questions"> & { questions: PendingQuestion[] }> = [];
 
   for (const indexRow of indexRows) {
     const worksheet = workbook.worksheets.find(
@@ -319,17 +719,18 @@ export async function parseMinisterialPackageWorkbook(
     let header: ReturnType<typeof findHeaderRow>;
     try {
       header = findHeaderRow(worksheet, expectedQuestionHeaders);
-      assertExactHeaders(
-        header.columns,
+      assertAllowedHeaders(
+        header,
         expectedQuestionHeaders,
+        optionalMediaHeaders,
         `ورقة «${indexRow.worksheetName}»`,
       );
     } catch {
       throw new Error(
-        `ورقة «${indexRow.worksheetName}» لا تطابق قالب ${input.trackCode === "sanaa" ? "صنعاء (اختيار متعدد)" : "عدن (إجابة نصية)"}.`,
+        `ورقة «${indexRow.worksheetName}» لا تطابق قالب ${isSanaa ? "صنعاء (اختيار متعدد)" : "عدن (إجابة نصية)"}.`,
       );
     }
-    const questions: MinisterialPackageQuestion[] = [];
+    const questions: PendingQuestion[] = [];
     const seenOrders = new Set<number>();
     for (let rowNumber = header.rowNumber + 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
       const questionText = rowValue(worksheet, rowNumber, header.columns, "نص السؤال");
@@ -346,8 +747,9 @@ export async function parseMinisterialPackageWorkbook(
       seenOrders.add(displayOrder);
       const explanation = rowValue(worksheet, rowNumber, header.columns, "الشرح");
       if (explanation.length > MAX_TEXT_LENGTH) throw new Error(`${context}: الشرح طويل جدًا.`);
+      const refs = readMediaRefs(worksheet, rowNumber, header.columns, mediaPlacements, context);
 
-      if (input.trackCode === "sanaa") {
+      if (isSanaa) {
         const optionTexts = ["الخيار أ", "الخيار ب", "الخيار ج", "الخيار د"].map((label) =>
           assertText(rowValue(worksheet, rowNumber, header.columns, label), label, context),
         );
@@ -356,16 +758,19 @@ export async function parseMinisterialPackageWorkbook(
           context,
         );
         questions.push({
-          question_text: questionText,
-          options: optionTexts.map((body, index) => ({
-            option_code: (["A", "B", "C", "D"] as const)[index],
-            body,
-          })),
-          correct_option_code: correctOption,
-          model_answer: optionTexts[["A", "B", "C", "D"].indexOf(correctOption)],
-          explanation,
-          display_order: displayOrder,
-          marks: 1,
+          question: {
+            question_text: questionText,
+            options: optionTexts.map((body, index) => ({
+              option_code: (["A", "B", "C", "D"] as const)[index],
+              body,
+            })),
+            correct_option_code: correctOption,
+            model_answer: optionTexts[["A", "B", "C", "D"].indexOf(correctOption)],
+            explanation,
+            display_order: displayOrder,
+            marks: 1,
+          },
+          refs,
         });
       } else {
         const modelAnswer = assertText(
@@ -374,17 +779,20 @@ export async function parseMinisterialPackageWorkbook(
           context,
         );
         questions.push({
-          question_text: questionText,
-          options: [],
-          correct_option_code: null,
-          model_answer: modelAnswer,
-          explanation,
-          display_order: displayOrder,
-          marks: 1,
+          question: {
+            question_text: questionText,
+            options: [],
+            correct_option_code: null,
+            model_answer: modelAnswer,
+            explanation,
+            display_order: displayOrder,
+            marks: 1,
+          },
+          refs,
         });
       }
     }
-    questions.sort((left, right) => left.display_order - right.display_order);
+    questions.sort((left, right) => left.question.display_order - right.question.display_order);
     if (questions.length !== indexRow.declaredCount) {
       throw new Error(
         `ورقة «${indexRow.worksheetName}»: عدد الأسئلة الفعلي (${questions.length}) لا يطابق الفهرس (${indexRow.declaredCount}).`,
@@ -408,16 +816,126 @@ export async function parseMinisterialPackageWorkbook(
     });
   }
 
+  return { models };
+}
+
+/**
+ * Parse an XLSX (no images) or a ZIP (XLSX + media/) package.
+ *
+ * Backward compatible: a plain XLSX without media columns/values yields the
+ * exact v1 contract. A ZIP is required only when at least one image column is
+ * filled in.
+ */
+export async function parseMinisterialPackageFile(
+  file: File,
+  input: ParseInput,
+): Promise<MinisterialParsedPackage> {
+  const isZip = /\.zip$/i.test(file.name);
+  const isXlsx = /\.xlsx$/i.test(file.name);
+  if (!isZip && !isXlsx) throw new Error("يُقبل ملف XLSX أو حزمة ZIP (XLSX + media/) فقط.");
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (bytes.byteLength === 0) throw new Error("ملف الاستيراد فارغ.");
+  if (isZip && bytes.byteLength > MAX_ZIP_BYTES) {
+    throw new Error(`حجم حزمة ZIP يتجاوز ${formatMediaBytes(MAX_ZIP_BYTES)}.`);
+  }
+  if (isXlsx && bytes.byteLength > MAX_FILE_BYTES) {
+    throw new Error("حجم ملف الاستيراد يتجاوز 25MB.");
+  }
+
+  const opened = isZip ? await openPackageZip(bytes) : null;
+  const parsed = await parseWorkbookBytes(opened ? opened.xlsxBytes : bytes, input);
+
+  const allRefs = parsed.models.flatMap((model) => model.questions.flatMap((q) => q.refs));
+  if (allRefs.length > 0 && !opened) {
+    throw new Error(
+      `الملف يشير إلى صور (${allRefs[0]!.context}) — ارفع حزمة ZIP تحتوي ملف XLSX ومجلد media/ بالصور.`,
+    );
+  }
+  if (opened && allRefs.length === 0 && opened.mediaEntries.size > 0) {
+    throw new Error("مجلد media/ يحتوي صورًا لكن لا يوجد أي سؤال يشير إليها.");
+  }
+
+  const resolved = opened
+    ? await resolveMedia(opened.mediaEntries, allRefs)
+    : { byName: new Map<string, MinisterialMediaFile>(), files: [], total: 0 };
+
+  const models: MinisterialPackageModel[] = parsed.models.map((model) => ({
+    ...model,
+    questions: model.questions.map(({ question, refs }) => {
+      if (refs.length === 0) return question;
+      const media: MinisterialPackageMedia[] = refs
+        .map((ref) => {
+          const file = resolved.byName.get(ref.fileName.toLowerCase())!;
+          return {
+            placement: ref.placement,
+            file_name: ref.fileName,
+            sha256: file.sha256,
+            mime_type: file.mime_type,
+            file_size: file.file_size,
+            alt_text_ar: ref.altText,
+          };
+        })
+        .sort(
+          (left, right) =>
+            MEDIA_PLACEMENT_SORT_ORDER[left.placement] - MEDIA_PLACEMENT_SORT_ORDER[right.placement],
+        );
+      return { ...question, media };
+    }),
+  }));
+
+  const hasMedia = resolved.files.length > 0;
   return {
-    contract_version: MINISTERIAL_PACKAGE_CONTRACT_VERSION,
-    track_code: input.trackCode,
-    subject_code: input.subjectCode.trim().toLowerCase(),
-    subject_name: input.subjectName.trim(),
-    source_filename: file.name,
-    source_sha256: await sha256Hex(bytes),
-    models,
+    package: {
+      contract_version: hasMedia
+        ? MINISTERIAL_PACKAGE_CONTRACT_VERSION_V2
+        : MINISTERIAL_PACKAGE_CONTRACT_VERSION,
+      track_code: input.trackCode,
+      subject_code: input.subjectCode.trim().toLowerCase(),
+      subject_name: input.subjectName.trim(),
+      source_filename: file.name,
+      source_sha256: await sha256HexOf(bytes),
+      models,
+    },
+    media: resolved.files,
+    total_media_bytes: resolved.total,
   };
 }
+
+/**
+ * Legacy entry point (XLSX only, no images). Kept for callers and tests that
+ * predate the ZIP contract; fails closed when the sheet references images.
+ */
+export async function parseMinisterialPackageWorkbook(
+  file: File,
+  input: ParseInput,
+): Promise<MinisterialTrackPackage> {
+  if (!/\.xlsx$/i.test(file.name)) throw new Error("يُقبل ملف XLSX فقط.");
+  const parsed = await parseMinisterialPackageFile(file, input);
+  return parsed.package;
+}
+
+/** Summary counters used by the importer UI. */
+export function summarizePackageMedia(pkg: MinisterialTrackPackage): {
+  questions_with_media: number;
+  media_refs: number;
+} {
+  let questionsWithMedia = 0;
+  let mediaRefs = 0;
+  for (const model of pkg.models) {
+    for (const question of model.questions) {
+      if (question.media && question.media.length > 0) {
+        questionsWithMedia += 1;
+        mediaRefs += question.media.length;
+      }
+    }
+  }
+  return { questions_with_media: questionsWithMedia, media_refs: mediaRefs };
+}
+
+// ---------------------------------------------------------------------------
+// Templates
+// ---------------------------------------------------------------------------
 
 function applyHeaderStyle(row: {
   eachCell: (
@@ -437,6 +955,28 @@ function applyHeaderStyle(row: {
   });
 }
 
+function applyMediaHeaderStyle(row: {
+  getCell: (column: number) => { font: unknown; fill: unknown };
+  cellCount: number;
+}, fromColumn: number) {
+  for (let column = fromColumn; column <= row.cellCount; column += 1) {
+    const cell = row.getCell(column);
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF6B7A99" } };
+  }
+}
+
+function columnLetter(index: number): string {
+  let out = "";
+  let n = index;
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    out = String.fromCharCode(65 + rem) + out;
+    n = Math.floor((n - 1) / 26);
+  }
+  return out;
+}
+
 export async function buildMinisterialPackageTemplate(input: {
   trackCode: MinisterialPackageTrack;
   subjectCode: string;
@@ -449,8 +989,13 @@ export async function buildMinisterialPackageTemplate(input: {
   workbook.created = new Date(0);
   workbook.modified = new Date(0);
 
+  const isSanaa = input.trackCode === "sanaa";
+  const baseHeaders = isSanaa ? SANAA_QUESTION_HEADERS : ADEN_QUESTION_HEADERS;
+  const mediaHeaders = isSanaa ? SANAA_MEDIA_HEADERS : ADEN_MEDIA_HEADERS;
+  const lastColumn = columnLetter(baseHeaders.length + mediaHeaders.length);
+
   const index = workbook.addWorksheet(MINISTERIAL_INDEX_SHEET, { views: [{ rightToLeft: true }] });
-  index.addRow([`قالب استيراد — اختبارات مسار ${input.trackCode === "sanaa" ? "صنعاء" : "عدن"}`]);
+  index.addRow([`قالب استيراد — اختبارات مسار ${isSanaa ? "صنعاء" : "عدن"}`]);
   index.mergeCells("A1:G1");
   index.getRow(1).height = 28;
   index.getCell("A1").font = { bold: true, size: 15, color: { argb: "FF17203B" } };
@@ -473,16 +1018,28 @@ export async function buildMinisterialPackageTemplate(input: {
 
   const questions = workbook.addWorksheet("نموذج_1", { views: [{ rightToLeft: true }] });
   questions.addRow(["اسم النموذج: نموذج تجريبي"]);
-  questions.mergeCells(`A1:${input.trackCode === "sanaa" ? "H" : "D"}1`);
+  questions.mergeCells(`A1:${lastColumn}1`);
   questions.addRow([
-    `المسار: ${input.trackCode === "sanaa" ? "صنعاء" : "عدن"} | المادة: ${input.subjectName} (${input.subjectCode}) | الحالة: مسودة`,
+    `المسار: ${isSanaa ? "صنعاء" : "عدن"} | المادة: ${input.subjectName} (${input.subjectCode}) | الحالة: مسودة | أعمدة الصور اختيارية: اكتب اسم الملف كما هو داخل مجلد media/ (PNG/JPG/WebP، حتى 8MB للصورة)`,
   ]);
-  questions.mergeCells(`A2:${input.trackCode === "sanaa" ? "H" : "D"}2`);
+  questions.mergeCells(`A2:${lastColumn}2`);
   questions.addRow([]);
-  if (input.trackCode === "sanaa") {
-    const header = questions.addRow([...SANAA_QUESTION_HEADERS]);
+  const emptyMedia = mediaHeaders.map(() => "");
+  if (isSanaa) {
+    const header = questions.addRow([...SANAA_QUESTION_HEADERS, ...mediaHeaders]);
     applyHeaderStyle(header);
-    questions.addRow(["مثال: 2 + 2 = ؟", "3", "4", "5", "6", "ب", "الإجابة الصحيحة هي 4.", 1]);
+    applyMediaHeaderStyle(header, SANAA_QUESTION_HEADERS.length + 1);
+    questions.addRow([
+      "مثال: 2 + 2 = ؟",
+      "3",
+      "4",
+      "5",
+      "6",
+      "ب",
+      "الإجابة الصحيحة هي 4.",
+      1,
+      ...emptyMedia,
+    ]);
     questions.addRow([
       "اكتب السؤال الثاني هنا",
       "الخيار الأول",
@@ -492,6 +1049,7 @@ export async function buildMinisterialPackageTemplate(input: {
       "أ",
       "شرح اختياري",
       2,
+      ...emptyMedia,
     ]);
     questions.columns = [
       { width: 48 },
@@ -502,6 +1060,7 @@ export async function buildMinisterialPackageTemplate(input: {
       { width: 18 },
       { width: 44 },
       { width: 14 },
+      ...mediaHeaders.map((_, position) => ({ width: position % 2 === 0 ? 24 : 30 })),
     ];
     for (let rowNumber = 5; rowNumber <= 504; rowNumber += 1) {
       questions.getCell(rowNumber, 6).dataValidation = {
@@ -511,11 +1070,30 @@ export async function buildMinisterialPackageTemplate(input: {
       };
     }
   } else {
-    const header = questions.addRow([...ADEN_QUESTION_HEADERS]);
+    const header = questions.addRow([...ADEN_QUESTION_HEADERS, ...mediaHeaders]);
     applyHeaderStyle(header);
-    questions.addRow(["اكتب السؤال الأول هنا", "اكتب الإجابة النموذجية هنا", "شرح اختياري", 1]);
-    questions.addRow(["اكتب السؤال الثاني هنا", "اكتب الإجابة النموذجية هنا", "شرح اختياري", 2]);
-    questions.columns = [{ width: 58 }, { width: 58 }, { width: 44 }, { width: 14 }];
+    applyMediaHeaderStyle(header, ADEN_QUESTION_HEADERS.length + 1);
+    questions.addRow([
+      "اكتب السؤال الأول هنا",
+      "اكتب الإجابة النموذجية هنا",
+      "شرح اختياري",
+      1,
+      ...emptyMedia,
+    ]);
+    questions.addRow([
+      "اكتب السؤال الثاني هنا",
+      "اكتب الإجابة النموذجية هنا",
+      "شرح اختياري",
+      2,
+      ...emptyMedia,
+    ]);
+    questions.columns = [
+      { width: 58 },
+      { width: 58 },
+      { width: 44 },
+      { width: 14 },
+      ...mediaHeaders.map((_, position) => ({ width: position % 2 === 0 ? 24 : 30 })),
+    ];
   }
   questions.getRow(1).font = { bold: true, size: 14 };
   questions.getRow(2).font = { color: { argb: "FF5C647A" } };
@@ -526,4 +1104,39 @@ export async function buildMinisterialPackageTemplate(input: {
 
   const buffer = await workbook.xlsx.writeBuffer();
   return new Uint8Array(buffer as ArrayBuffer);
+}
+
+export const MEDIA_README_NAME = "media/README.txt" as const;
+
+export function buildMediaReadme(trackCode: MinisterialPackageTrack): string {
+  const placements: readonly MinisterialMediaPlacement[] =
+    trackCode === "sanaa" ? MINISTERIAL_MEDIA_PLACEMENTS : ADEN_MEDIA_PLACEMENTS;
+  return [
+    "مجلد الصور — حزمة استيراد النماذج الوزارية",
+    "",
+    "1) ضع صور الأسئلة داخل هذا المجلد (media/) مباشرة بدون مجلدات فرعية.",
+    "2) الصيغ المقبولة: PNG أو JPG أو WebP فقط (لا SVG). الحد الأقصى 8MB للصورة و50MB للحزمة.",
+    "3) يجب أن يكون اسم كل ملف فريدًا، ويُكتب كما هو في عمود الصورة المناسب داخل ملف XLSX.",
+    "4) أعمدة الوصف اختيارية وتُستخدم كنص بديل للطلاب ضعاف البصر (حتى 500 حرف).",
+    "5) أعمدة الصور المتاحة لهذا المسار:",
+    ...placements.map((placement) => `   - ${MEDIA_HEADERS[placement].file} / ${MEDIA_HEADERS[placement].alt} (${MEDIA_PLACEMENT_LABEL_AR[placement]})`),
+    "",
+    "يمكنك ترك ملف README.txt هذا كما هو؛ يتم تجاهله عند الاستيراد.",
+  ].join("\n");
+}
+
+/** ZIP template = XLSX at the root + media/README.txt describing the image contract. */
+export async function buildMinisterialPackageTemplateZip(input: {
+  trackCode: MinisterialPackageTrack;
+  subjectCode: string;
+  subjectName: string;
+}): Promise<Uint8Array> {
+  const xlsx = await buildMinisterialPackageTemplate(input);
+  const JSZip = await zipModule();
+  const zip = new JSZip();
+  const xlsxName = `ministerial-${input.trackCode}-${input.subjectCode}.xlsx`;
+  zip.file(xlsxName, xlsx, { date: new Date(0) });
+  zip.folder("media");
+  zip.file(MEDIA_README_NAME, buildMediaReadme(input.trackCode), { date: new Date(0) });
+  return zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 } });
 }

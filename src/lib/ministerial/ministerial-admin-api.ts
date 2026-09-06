@@ -5,11 +5,29 @@
  * insert/update/delete against ministerial_exam_models or
  * ministerial_exam_questions. Every write goes through a protected RPC that
  * performs authorization, validation, audit and an atomic transaction.
+ *
+ * MINISTERIAL_QUESTION_MEDIA_V1: the only direct storage write is the upload
+ * of image bytes to the PRIVATE `question-media` bucket under a
+ * content-addressed key (RLS: content staff only). Linking media to a question
+ * still happens exclusively inside the prepare/execute/update RPCs, which
+ * verify the object exists before committing.
  */
 
 import { supabase } from "@/integrations/supabase/client";
 import type { PreviewAction } from "./ministerial-import-contract";
-import type { MinisterialTrackPackage } from "./ministerial-package-xlsx";
+import {
+  MINISTERIAL_MEDIA_LIMITS,
+  MINISTERIAL_MEDIA_STORAGE_KEY_RE,
+  QUESTION_MEDIA_BUCKET,
+  detectImageMime,
+  mimeForExtension,
+  ministerialMediaStorageKey,
+  sha256HexOf,
+  type MinisterialImageMimeType,
+  type MinisterialMediaPlacement,
+  type MinisterialPackageMedia,
+} from "./ministerial-media-contract";
+import type { MinisterialMediaFile, MinisterialTrackPackage } from "./ministerial-package-xlsx";
 
 /** RPCs shipped by the pending 14C.2 migration (not yet in generated types). */
 type RpcName =
@@ -58,6 +76,16 @@ export type MinisterialModelRow = {
   can_publish: boolean;
 };
 
+/** Media attached to the currently published revision of a model question. */
+export type MinisterialAdminQuestionMedia = {
+  media_id: string;
+  placement: MinisterialMediaPlacement;
+  alt_text_ar: string;
+  mime_type: string;
+  file_size: number | null;
+  sha256: string | null;
+};
+
 export type MinisterialAdminQuestion = {
   question_id: string;
   question_code: string;
@@ -67,6 +95,9 @@ export type MinisterialAdminQuestion = {
   options: Array<{ option_code: "A" | "B" | "C" | "D"; body: string; is_correct: boolean }>;
   model_answer: string | null;
   explanation: string | null;
+  media: MinisterialAdminQuestionMedia[];
+  /** True once any student session exists for the model: edits are blocked server-side. */
+  has_sessions: boolean;
 };
 
 export type MinisterialPreviewRow = {
@@ -121,6 +152,10 @@ export type MinisterialPackagePrepareResult = {
     insert: number;
     skip: number;
     blocked: number;
+    /** v2 packages only (absent on the v1 RPC response). */
+    media_refs?: number;
+    media_files?: number;
+    media_bytes?: number;
   };
   preview: MinisterialPackagePreviewRow[];
   expires_in_minutes: number;
@@ -129,10 +164,134 @@ export type MinisterialPackagePrepareResult = {
 export type MinisterialPackageExecuteResult = {
   inserted_models: number;
   inserted_questions: number;
+  /** Absent on the pre-media RPC response. */
+  inserted_media?: number;
   skipped_models: number;
   published_models: 0;
   status: "draft";
 };
+
+// ---------------------------------------------------------------------------
+// Media upload (content staff → private bucket, content-addressed)
+// ---------------------------------------------------------------------------
+
+export type MinisterialMediaUploadProgress = {
+  done: number;
+  total: number;
+  uploaded: number;
+  reused: number;
+  currentName: string | null;
+};
+
+function storageErrorLooksLikeExists(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("already exists") || lower.includes("duplicate") || lower.includes("409")
+  );
+}
+
+async function objectExists(storageKey: string): Promise<boolean> {
+  const slash = storageKey.lastIndexOf("/");
+  const folder = storageKey.slice(0, slash);
+  const name = storageKey.slice(slash + 1);
+  const { data, error } = await supabase.storage
+    .from(QUESTION_MEDIA_BUCKET)
+    .list(folder, { limit: 1, search: name });
+  if (error) return false;
+  return (data ?? []).some((entry) => entry.name === name);
+}
+
+async function uploadOne(file: MinisterialMediaFile): Promise<"uploaded" | "reused"> {
+  if (!MINISTERIAL_MEDIA_STORAGE_KEY_RE.test(file.storage_key)) {
+    throw new Error(`مفتاح تخزين غير صالح للصورة (${file.file_names[0] ?? file.sha256}).`);
+  }
+  if (await objectExists(file.storage_key)) return "reused";
+  const body = new Blob([file.bytes as BlobPart], { type: file.mime_type });
+  const { error } = await supabase.storage.from(QUESTION_MEDIA_BUCKET).upload(file.storage_key, body, {
+    contentType: file.mime_type,
+    cacheControl: "31536000",
+    upsert: false,
+  });
+  if (error) {
+    // Content-addressed: an identical object under the same key is not a failure.
+    if (storageErrorLooksLikeExists(error.message)) return "reused";
+    throw new Error(
+      `فشل رفع الصورة «${file.file_names[0] ?? file.sha256}»: ${error.message}. تأكد من صلاحيات فريق المحتوى وأن الحاوية question-media موجودة.`,
+    );
+  }
+  return "uploaded";
+}
+
+/**
+ * Uploads every de-duplicated image of a parsed package. Keys are derived from
+ * the SHA-256 so re-running an import never creates duplicates. Runs BEFORE
+ * execute; the execute RPC then verifies each object exists with the declared
+ * size and mime type inside the same transaction.
+ */
+export async function uploadMinisterialPackageMedia(
+  files: readonly MinisterialMediaFile[],
+  onProgress?: (progress: MinisterialMediaUploadProgress) => void,
+): Promise<{ uploaded: number; reused: number }> {
+  let uploaded = 0;
+  let reused = 0;
+  const total = files.length;
+  for (const [index, file] of files.entries()) {
+    onProgress?.({ done: index, total, uploaded, reused, currentName: file.file_names[0] ?? null });
+    const outcome = await uploadOne(file);
+    if (outcome === "uploaded") uploaded += 1;
+    else reused += 1;
+  }
+  onProgress?.({ done: total, total, uploaded, reused, currentName: null });
+  return { uploaded, reused };
+}
+
+/**
+ * Reads, validates (magic bytes, size, extension) and uploads one image picked
+ * in the admin question editor. Returns the package-media descriptor the
+ * update RPC expects.
+ */
+export async function uploadMinisterialQuestionImage(input: {
+  file: File;
+  placement: MinisterialMediaPlacement;
+  altText: string;
+}): Promise<MinisterialPackageMedia> {
+  const { file, placement } = input;
+  if (file.size === 0) throw new Error("الصورة فارغة.");
+  if (file.size > MINISTERIAL_MEDIA_LIMITS.maxImageBytes) {
+    throw new Error("الصورة تتجاوز الحد الأقصى (8MB).");
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const sniffed = detectImageMime(bytes);
+  if (!sniffed) throw new Error("الملف ليس PNG أو JPEG أو WebP صالحًا (SVG غير مقبول).");
+  const byExtension = mimeForExtension(file.name);
+  if (byExtension && byExtension !== sniffed) {
+    throw new Error(`امتداد الملف لا يطابق محتواه الفعلي (${sniffed}).`);
+  }
+  const altText = input.altText.trim();
+  if (!altText) throw new Error("اكتب وصفًا للصورة (نص بديل).");
+  if (altText.length > MINISTERIAL_MEDIA_LIMITS.maxAltTextChars) {
+    throw new Error(`الوصف يتجاوز ${MINISTERIAL_MEDIA_LIMITS.maxAltTextChars} حرفًا.`);
+  }
+  const sha256 = await sha256HexOf(bytes);
+  const mime: MinisterialImageMimeType = sniffed;
+  const mediaFile: MinisterialMediaFile = {
+    sha256,
+    mime_type: mime,
+    file_size: bytes.byteLength,
+    storage_key: ministerialMediaStorageKey(sha256, mime),
+    bytes,
+    file_names: [file.name.slice(0, MINISTERIAL_MEDIA_LIMITS.maxFileNameChars)],
+  };
+  await uploadOne(mediaFile);
+  return {
+    placement,
+    file_name: mediaFile.file_names[0]!,
+    sha256,
+    mime_type: mime,
+    file_size: bytes.byteLength,
+    alt_text_ar: altText,
+  };
+}
 
 export function listMinisterialModels(): Promise<MinisterialModelRow[]> {
   return callRpc<MinisterialModelRow[]>("ministerial_models_admin_list");
@@ -210,27 +369,39 @@ export function listMinisterialModelQuestions(modelId: string) {
   });
 }
 
+/**
+ * Every edit creates a NEW published revision; the previous one is superseded,
+ * never mutated. `media` semantics:
+ *   - `undefined` → keep the current images unchanged (copied to the new revision)
+ *   - `[]`        → remove all images
+ *   - `[...]`     → exact new media set (objects must already be uploaded)
+ * The RPC refuses when any student session exists for the model.
+ */
 export function updateMinisterialModelQuestion(
   modelId: string,
   question: MinisterialAdminQuestion,
   reason: string,
+  media?: MinisterialPackageMedia[],
 ) {
   const correct = question.options.find((option) => option.is_correct)?.option_code ?? null;
-  return callRpc<{ question_id: string; published_revision_id: string; status: "draft" }>(
-    "ministerial_model_question_update",
-    {
-      _model_id: modelId,
-      _question_id: question.question_id,
-      _question_text: question.question_text,
-      _options: question.options,
-      _correct_option_code: correct,
-      _model_answer: question.model_answer,
-      _explanation: question.explanation,
-      _display_order: question.display_order,
-      _marks: question.marks,
-      _reason: reason,
-    },
-  );
+  return callRpc<{
+    question_id: string;
+    published_revision_id: string;
+    status: "draft";
+    media_count?: number;
+  }>("ministerial_model_question_update", {
+    _model_id: modelId,
+    _question_id: question.question_id,
+    _question_text: question.question_text,
+    _options: question.options,
+    _correct_option_code: correct,
+    _model_answer: question.model_answer,
+    _explanation: question.explanation,
+    _display_order: question.display_order,
+    _marks: question.marks,
+    _reason: reason,
+    ...(media === undefined ? {} : { _media: media }),
+  });
 }
 
 export function deleteMinisterialModelQuestion(

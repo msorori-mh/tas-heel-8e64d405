@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { StateMessage } from "@/components/student/StudentNav";
+import { MinisterialMediaImage } from "@/components/ministerial/MinisterialMediaImage";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -8,6 +9,8 @@ import {
   formatElapsed,
   mapMinisterialError,
   modelTitle,
+  optionImage,
+  questionImage,
 } from "@/lib/ministerial/ministerial-student-api";
 import { AlertTriangle, BookOpen, CheckCircle2, CircleDashed, Timer, XCircle } from "lucide-react";
 
@@ -152,6 +155,20 @@ function MinisterialResultPage() {
               <h3 className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-7 text-foreground">
                 {q.question_text}
               </h3>
+              {(() => {
+                const image = questionImage(q);
+                return image ? (
+                  <div className="mt-3">
+                    <MinisterialMediaImage
+                      key={image.media_id}
+                      mediaId={image.media_id}
+                      sessionId={sessionId}
+                      alt={image.alt_text_ar}
+                      caption={image.caption}
+                    />
+                  </div>
+                ) : null;
+              })()}
 
               {isAden ? (
                 <div className="mt-3 space-y-3">
@@ -173,6 +190,7 @@ function MinisterialResultPage() {
                   {(q.options ?? []).map((opt) => {
                     const picked = q.selected_option_code === opt.option_code;
                     const isCorrect = q.correct_option_code === opt.option_code;
+                    const image = optionImage(q, opt.option_code);
                     return (
                       <li
                         key={`${q.session_question_id}-${opt.option_code}`}
@@ -187,7 +205,19 @@ function MinisterialResultPage() {
                         <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px]">
                           {opt.option_code}
                         </span>
-                        <span className="whitespace-pre-wrap">{opt.body}</span>
+                        <span className="flex min-w-0 flex-1 flex-col gap-2">
+                          {opt.body && <span className="whitespace-pre-wrap">{opt.body}</span>}
+                          {image && (
+                            <MinisterialMediaImage
+                              key={image.media_id}
+                              mediaId={image.media_id}
+                              sessionId={sessionId}
+                              alt={image.alt_text_ar}
+                              caption={image.caption}
+                              variant="option"
+                            />
+                          )}
+                        </span>
                         {picked && (
                           <span className="mr-auto shrink-0 text-[11px] text-muted-foreground">
                             إجابتك
@@ -204,6 +234,16 @@ function MinisterialResultPage() {
                   {q.explanation}
                 </p>
               )}
+              {(q.solution_media ?? []).map((image) => (
+                <MinisterialMediaImage
+                  key={image.media_id}
+                  mediaId={image.media_id}
+                  sessionId={sessionId}
+                  alt={image.alt_text_ar}
+                  caption={image.caption ?? "صورة الحل"}
+                  className="mt-3"
+                />
+              ))}
 
               {q.lesson_id && (
                 <Link

@@ -2949,42 +2949,6 @@ export type Database = {
         }
         Relationships: []
       }
-      offline_learning_mutations: {
-        Row: {
-          applied: boolean
-          created_at: string
-          entity_id: string
-          id: string
-          idempotency_key: string
-          mutation_kind: string
-          occurred_at: string
-          payload_sha256: string
-          user_id: string
-        }
-        Insert: {
-          applied: boolean
-          created_at?: string
-          entity_id: string
-          id?: string
-          idempotency_key: string
-          mutation_kind: string
-          occurred_at: string
-          payload_sha256: string
-          user_id: string
-        }
-        Update: {
-          applied?: boolean
-          created_at?: string
-          entity_id?: string
-          id?: string
-          idempotency_key?: string
-          mutation_kind?: string
-          occurred_at?: string
-          payload_sha256?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       official_question_answers: {
         Row: {
           created_at: string
@@ -3022,6 +2986,42 @@ export type Database = {
             referencedColumns: ["question_id", "id"]
           },
         ]
+      }
+      offline_learning_mutations: {
+        Row: {
+          applied: boolean
+          created_at: string
+          entity_id: string
+          id: string
+          idempotency_key: string
+          mutation_kind: string
+          occurred_at: string
+          payload_sha256: string
+          user_id: string
+        }
+        Insert: {
+          applied: boolean
+          created_at?: string
+          entity_id: string
+          id?: string
+          idempotency_key: string
+          mutation_kind: string
+          occurred_at: string
+          payload_sha256: string
+          user_id: string
+        }
+        Update: {
+          applied?: boolean
+          created_at?: string
+          entity_id?: string
+          id?: string
+          idempotency_key?: string
+          mutation_kind?: string
+          occurred_at?: string
+          payload_sha256?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       payment_methods: {
         Row: {
@@ -5123,27 +5123,6 @@ export type Database = {
         }
         Returns: Json
       }
-      apply_offline_learning_mutation: {
-        Args: {
-          _answer_text: string | null
-          _entity_id: string
-          _idempotency_key: string
-          _kind: string
-          _lesson_id: string | null
-          _occurred_at: string
-          _payload_sha256: string
-          _progress_percent: number | null
-        }
-        Returns: Json
-      }
-      get_offline_assessment_answer_layer: {
-        Args: {
-          _kind: string
-          _lesson_id: string
-          _revision_ids: string[]
-        }
-        Returns: Json
-      }
       admin_curriculum_prelaunch_purge_status: { Args: never; Returns: Json }
       admin_delete_lesson_component: {
         Args: { _capability: string; _lesson_id: string; _reason?: string }
@@ -5226,6 +5205,19 @@ export type Database = {
           _response_text: string
           _session_id: string
           _session_question_id: string
+        }
+        Returns: Json
+      }
+      apply_offline_learning_mutation: {
+        Args: {
+          _answer_text: string
+          _entity_id: string
+          _idempotency_key: string
+          _kind: string
+          _lesson_id: string
+          _occurred_at: string
+          _payload_sha256: string
+          _progress_percent: number
         }
         Returns: Json
       }
@@ -5649,6 +5641,10 @@ export type Database = {
         Returns: Json
       }
       get_my_mistake_detail: { Args: { _question_id: string }; Returns: Json }
+      get_offline_assessment_answer_layer: {
+        Args: { _kind: string; _lesson_id: string; _revision_ids: string[] }
+        Returns: Json
+      }
       get_report_governorate_data: {
         Args: { _grade_id?: string; _months_back?: number }
         Returns: {
@@ -6063,6 +6059,18 @@ export type Database = {
           variant_code: string
         }[]
       }
+      list_ministerial_subjects: {
+        Args: never
+        Returns: {
+          aden_models_count: number
+          latest_year: number
+          models_count: number
+          sanaa_models_count: number
+          subject_code: string
+          subject_id: string
+          subject_name: string
+        }[]
+      }
       list_ministerial_track_models: {
         Args: { _track_code: string }
         Returns: {
@@ -6081,18 +6089,6 @@ export type Database = {
           track_code: string
           track_name: string
           variant_code: string
-        }[]
-      }
-      list_ministerial_subjects: {
-        Args: never
-        Returns: {
-          aden_models_count: number
-          latest_year: number
-          models_count: number
-          sanaa_models_count: number
-          subject_code: string
-          subject_id: string
-          subject_name: string
         }[]
       }
       list_my_mistakes: {
@@ -6166,6 +6162,29 @@ export type Database = {
         Args: { _model_id: string; _question_codes: string[] }
         Returns: Json
       }
+      ministerial_model_question_delete: {
+        Args: { _model_id: string; _question_id: string; _reason: string }
+        Returns: Json
+      }
+      ministerial_model_question_update: {
+        Args: {
+          _correct_option_code: string
+          _display_order: number
+          _explanation: string
+          _marks: number
+          _model_answer: string
+          _model_id: string
+          _options: Json
+          _question_id: string
+          _question_text: string
+          _reason: string
+        }
+        Returns: Json
+      }
+      ministerial_model_questions_admin_list: {
+        Args: { _model_id: string }
+        Returns: Json
+      }
       ministerial_model_set_status: {
         Args: { _model_id: string; _reason: string; _target_status: string }
         Returns: undefined
@@ -6175,7 +6194,10 @@ export type Database = {
         Args: { _expected_fingerprint: string; _prepare_id: string }
         Returns: Json
       }
-      ministerial_track_package_prepare: { Args: { _package: Json }; Returns: Json }
+      ministerial_track_package_prepare: {
+        Args: { _package: Json }
+        Returns: Json
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -6351,12 +6373,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -6380,11 +6402,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -6405,11 +6427,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -6430,11 +6452,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -6447,11 +6469,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

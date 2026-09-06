@@ -48,6 +48,23 @@ export type MinisterialModelOverview = MinisterialModelRow & {
 
 export type MinisterialAttemptMode = "training" | "strict";
 
+/**
+ * Image pinned to a session question at creation time. The browser only ever
+ * receives the `media_id`; bytes come through the authenticated media route.
+ * Solution images (`placement = SOLUTION`) never appear in an open session's
+ * `media` list — they arrive with the reveal/result payload as `solution_media`.
+ */
+export type MinisterialSessionMedia = {
+  media_id: string;
+  media_code: string;
+  placement: "QUESTION" | "OPTION_A" | "OPTION_B" | "OPTION_C" | "OPTION_D" | "SOLUTION";
+  option_code: "A" | "B" | "C" | "D" | null;
+  alt_text_ar: string;
+  caption: string | null;
+  mime_type: string;
+  sha256: string | null;
+};
+
 export type MinisterialSessionQuestion = {
   session_question_id: string;
   question_id: string;
@@ -56,7 +73,28 @@ export type MinisterialSessionQuestion = {
   stimulus_text: string | null;
   options: Array<{ option_code: string; body: string }> | null;
   max_score: number | null;
+  /** Absent on sessions created before the media migration. */
+  media?: MinisterialSessionMedia[] | null;
 };
+
+export function questionMedia(question: { media?: MinisterialSessionMedia[] | null }) {
+  return Array.isArray(question.media) ? question.media : [];
+}
+
+export function questionImage(question: { media?: MinisterialSessionMedia[] | null }) {
+  return questionMedia(question).find((item) => item.placement === "QUESTION") ?? null;
+}
+
+export function optionImage(
+  question: { media?: MinisterialSessionMedia[] | null },
+  optionCode: string,
+) {
+  return (
+    questionMedia(question).find(
+      (item) => item.placement.startsWith("OPTION_") && item.option_code === optionCode,
+    ) ?? null
+  );
+}
 
 export type MinisterialSessionAnswer = {
   question_id: string;
@@ -105,6 +143,8 @@ export type MinisterialRevealResult = {
   model_answer?: string | null;
   lesson_id?: string | null;
   lesson_title?: string | null;
+  /** Solution image(s) — only returned once the solution itself is revealed. */
+  solution_media?: MinisterialSessionMedia[] | null;
 };
 
 export type MinisterialResultSummary = {
@@ -139,6 +179,8 @@ export type MinisterialResultQuestion = {
   model_answer: string | null;
   explanation: string | null;
   lesson_id: string | null;
+  media?: MinisterialSessionMedia[] | null;
+  solution_media?: MinisterialSessionMedia[] | null;
 };
 
 export type MinisterialSessionResult = {
