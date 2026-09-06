@@ -43,7 +43,7 @@ test("the shared media contract is strict: three raster types, hard limits, cont
   assert.match(contract, /\["image\/png", "image\/jpeg", "image\/webp"\]/);
   assert.doesNotMatch(contract, /image\/svg|image\/gif|image\/bmp|image\/tiff/);
   assert.match(contract, /maxImageBytes:\s*8 \* 1024 \* 1024/);
-  assert.match(contract, /maxTotalMediaBytes:\s*50 \* 1024 \* 1024/);
+  assert.match(contract, /maxTotalBytes:\s*50 \* 1024 \* 1024/);
   assert.match(contract, /MINISTERIAL_MEDIA_STORAGE_KEY_RE = \/\^ministerial\\\/\[0-9a-f\]\{2\}\\\/\[0-9a-f\]\{64\}/);
   assert.match(contract, /export function detectImageMime/);
   assert.match(contract, /export function isSafeZipEntryName/);
