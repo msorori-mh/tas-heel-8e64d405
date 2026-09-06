@@ -21,9 +21,17 @@ function buildMufadalaReferenceWorkbook() {
   const index = workbook.addWorksheet(MINISTERIAL_INDEX_SHEET);
   index.addRow(["فهرس نماذج المفاضلة"]);
   index.addRow([]);
-  index.addRow(["اسم النموذج", "السنة", "الجامعة", "عدد الأسئلة", "منشور", "مدفوع", "اسم الورقة"]);
-  index.addRow(["نموذج أول", 2025, "جامعة أ", 1, "لا", "لا", "نموذج_1"]);
-  index.addRow(["نموذج ثان", 2025, "جامعة ب", 1, "لا", "لا", "نموذج_2"]);
+  index.addRow([
+    "اسم النموذج",
+    "رقم النموذج",
+    "السنة",
+    "المادة",
+    "عدد الأسئلة",
+    "منشور",
+    "اسم الورقة",
+  ]);
+  index.addRow(["نموذج أول", 1, 2025, "الكيمياء", 1, "لا", "نموذج_1"]);
+  index.addRow(["نموذج ثان", 2, 2025, "الكيمياء", 1, "لا", "نموذج_2"]);
   for (const sheetName of ["نموذج_1", "نموذج_2"]) {
     const sheet = workbook.addWorksheet(sheetName);
     sheet.addRow([sheetName]);
@@ -38,15 +46,6 @@ function buildMufadalaReferenceWorkbook() {
 test("Sanaa parser accepts the attached Mufadala sheet shape and creates two independent MCQ models", async () => {
   const workbook = buildMufadalaReferenceWorkbook();
   const index = workbook.getWorksheet(MINISTERIAL_INDEX_SHEET)!;
-  index.getCell("C3").value = "المادة";
-  index.getCell("C4").value = "الكيمياء";
-  index.getCell("C5").value = "الكيمياء";
-  index.getCell("F3").value = "اسم الورقة";
-  index.getCell("F4").value = "نموذج_1";
-  index.getCell("F5").value = "نموذج_2";
-  index.getCell("G3").value = null;
-  index.getCell("G4").value = null;
-  index.getCell("G5").value = null;
   const parsed = await parseMinisterialPackageWorkbook(
     xlsxFile(new Uint8Array(await workbook.xlsx.writeBuffer()), "sanaa.xlsx"),
     { trackCode: "sanaa", subjectCode: "sub-g12-013", subjectName: "الكيمياء" },
@@ -88,7 +87,7 @@ test("Aden template and parser use text answer + model answer with no options", 
     subjectName: "الكيمياء",
   });
   assert.equal(parsed.models.length, 1);
-  assert.equal(parsed.models[0]!.variant_code, "main");
+  assert.equal(parsed.models[0]!.variant_code, "m01");
   assert.equal(parsed.models[0]!.questions[0]!.options.length, 0);
   assert.equal(parsed.models[0]!.questions[0]!.correct_option_code, null);
   assert.equal(parsed.models[0]!.questions[0]!.model_answer, "اكتب الإجابة النموذجية هنا");
@@ -124,7 +123,7 @@ test("parser blocks auto-publish and index/question count drift", async () => {
   });
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(bytes);
-  workbook.getWorksheet(MINISTERIAL_INDEX_SHEET)!.getCell("E4").value = "نعم";
+  workbook.getWorksheet(MINISTERIAL_INDEX_SHEET)!.getCell("F4").value = "نعم";
   await assert.rejects(
     parseMinisterialPackageWorkbook(
       xlsxFile(new Uint8Array(await workbook.xlsx.writeBuffer()), "published.xlsx"),
@@ -133,8 +132,8 @@ test("parser blocks auto-publish and index/question count drift", async () => {
     /ينشئ مسودة فقط/,
   );
 
-  workbook.getWorksheet(MINISTERIAL_INDEX_SHEET)!.getCell("E4").value = "لا";
-  workbook.getWorksheet(MINISTERIAL_INDEX_SHEET)!.getCell("D4").value = 3;
+  workbook.getWorksheet(MINISTERIAL_INDEX_SHEET)!.getCell("F4").value = "لا";
+  workbook.getWorksheet(MINISTERIAL_INDEX_SHEET)!.getCell("E4").value = 3;
   await assert.rejects(
     parseMinisterialPackageWorkbook(
       xlsxFile(new Uint8Array(await workbook.xlsx.writeBuffer()), "count-drift.xlsx"),

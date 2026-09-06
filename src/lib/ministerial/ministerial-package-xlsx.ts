@@ -34,6 +34,7 @@ export type MinisterialTrackPackage = {
 export const MINISTERIAL_INDEX_SHEET = "📋 الفهرس";
 export const MINISTERIAL_INDEX_HEADERS = [
   "اسم النموذج",
+  "رقم النموذج",
   "السنة",
   "المادة",
   "عدد الأسئلة",
@@ -233,6 +234,7 @@ export async function parseMinisterialPackageWorkbook(
   const indexRows: Array<{
     rowNumber: number;
     modelLabel: string;
+    variantNumber: number;
     year: number;
     worksheetName: string;
     declaredCount: number;
@@ -250,6 +252,12 @@ export async function parseMinisterialPackageWorkbook(
     const context = `الفهرس، الصف ${rowNumber}`;
     assertText(modelLabel, "اسم النموذج", context);
     assertText(worksheetName, "اسم الورقة", context);
+    const variantNumber = parsePositiveInteger(
+      rowValue(indexSheet, rowNumber, indexHeader.columns, "رقم النموذج"),
+      "رقم النموذج",
+      context,
+    );
+    if (variantNumber > 99) throw new Error(`${context}: رقم النموذج يجب أن يكون بين 1 و99.`);
     const subjectName = rowValue(indexSheet, rowNumber, indexHeader.columns, "المادة");
     if (
       subjectName &&
@@ -279,15 +287,23 @@ export async function parseMinisterialPackageWorkbook(
     if (seenSheets.has(worksheetName))
       throw new Error(`${context}: اسم الورقة «${worksheetName}» مكرر.`);
     seenSheets.add(worksheetName);
-    indexRows.push({ rowNumber, modelLabel, year, worksheetName, declaredCount });
+    indexRows.push({ rowNumber, modelLabel, variantNumber, year, worksheetName, declaredCount });
   }
 
   if (indexRows.length === 0) throw new Error("الفهرس لا يحتوي أي نموذج.");
   if (indexRows.length > MAX_MODELS)
     throw new Error(`الملف يتجاوز الحد الأقصى (${MAX_MODELS} نموذجًا).`);
 
-  const groups = new Map<number, typeof indexRows>();
-  indexRows.forEach((row) => groups.set(row.year, [...(groups.get(row.year) ?? []), row]));
+  const seenVariants = new Set<string>();
+  for (const row of indexRows) {
+    const key = `${row.year}:${row.variantNumber}`;
+    if (seenVariants.has(key)) {
+      throw new Error(
+        `الفهرس، الصف ${row.rowNumber}: رقم النموذج ${row.variantNumber} مكرر في سنة ${row.year}.`,
+      );
+    }
+    seenVariants.add(key);
+  }
   const expectedQuestionHeaders =
     input.trackCode === "sanaa" ? SANAA_QUESTION_HEADERS : ADEN_QUESTION_HEADERS;
   let totalQuestions = 0;
@@ -381,12 +397,7 @@ export async function parseMinisterialPackageWorkbook(
     if (totalQuestions > MAX_TOTAL_QUESTIONS) {
       throw new Error(`الحزمة تتجاوز الحد الأقصى (${MAX_TOTAL_QUESTIONS} سؤال).`);
     }
-    const yearGroup = groups.get(indexRow.year) ?? [];
-    const position = yearGroup.findIndex(
-      (candidate) => candidate.worksheetName === indexRow.worksheetName,
-    );
-    const variantCode =
-      yearGroup.length === 1 ? "main" : `m${String(position + 1).padStart(2, "0")}`;
+    const variantCode = `m${String(indexRow.variantNumber).padStart(2, "0")}`;
     models.push({
       model_label: indexRow.modelLabel,
       academic_year: indexRow.year,
@@ -440,23 +451,24 @@ export async function buildMinisterialPackageTemplate(input: {
 
   const index = workbook.addWorksheet(MINISTERIAL_INDEX_SHEET, { views: [{ rightToLeft: true }] });
   index.addRow([`قالب استيراد — اختبارات مسار ${input.trackCode === "sanaa" ? "صنعاء" : "عدن"}`]);
-  index.mergeCells("A1:F1");
+  index.mergeCells("A1:G1");
   index.getRow(1).height = 28;
   index.getCell("A1").font = { bold: true, size: 15, color: { argb: "FF17203B" } };
   index.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
   index.addRow([]);
   const indexHeader = index.addRow([...MINISTERIAL_INDEX_HEADERS]);
   applyHeaderStyle(indexHeader);
-  index.addRow(["نموذج تجريبي", 2025, input.subjectName, 2, "لا", "نموذج_1"]);
+  index.addRow(["نموذج تجريبي 1", 1, 2025, input.subjectName, 2, "لا", "نموذج_1"]);
   index.columns = [
     { width: 32 },
+    { width: 14 },
     { width: 12 },
     { width: 24 },
     { width: 14 },
     { width: 12 },
     { width: 22 },
   ];
-  index.autoFilter = "A3:F3";
+  index.autoFilter = "A3:G3";
   index.views = [{ state: "frozen", ySplit: 3, rightToLeft: true }];
 
   const questions = workbook.addWorksheet("نموذج_1", { views: [{ rightToLeft: true }] });
