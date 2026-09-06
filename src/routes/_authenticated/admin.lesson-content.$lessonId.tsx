@@ -69,7 +69,7 @@ function resourceCategoryLabel(resource: {
 
 function AdminLessonDetailPage() {
   const { loading, enabled } = useRequireAdminSection("content");
-  const { isAdmin } = useAuth();
+  const { isContentStaff } = useAuth();
   const queryClient = useQueryClient();
   const { lessonId } = Route.useParams();
 
@@ -358,7 +358,7 @@ function AdminLessonDetailPage() {
   const applicability = rowsToApplicabilityMap(lifecycleQ.data ?? []);
 
   const deleteComponent = async (packageCapability: string, label: string) => {
-    if (!isAdmin) return;
+    if (!isContentStaff) return;
     if (!window.confirm(`سيُحذف «${label}» من هذا الدرس ولن يظهر للطلاب. هل تريد المتابعة؟`)) {
       return;
     }
@@ -374,7 +374,7 @@ function AdminLessonDetailPage() {
     if (error) {
       toast.error(
         error.message.includes("FORBIDDEN")
-          ? "الحذف متاح لمدير كامل الصلاحيات فقط."
+          ? "الحذف متاح لفريق إدارة المحتوى فقط."
           : `تعذر حذف المكوّن: ${error.message}`,
       );
       return;
@@ -455,7 +455,7 @@ function AdminLessonDetailPage() {
             supportingResources: () => setOpenResourcesDialog(true),
           }}
           onDelete={
-            isAdmin
+            isContentStaff
               ? {
                   officialBookContent: () =>
                     void deleteComponent("officialBookContent", "محتوى الكتاب"),
