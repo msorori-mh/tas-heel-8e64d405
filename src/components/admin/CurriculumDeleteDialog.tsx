@@ -71,6 +71,9 @@ const BLOCKER_LABEL: Record<string, string> = {
   EXAM_SESSION_SNAPSHOTS: "لقطات أسئلة داخل جلسات امتحان",
   PRACTICE_SNAPSHOTS: "لقطات أسئلة داخل محاولات تدريب",
   UNIT_PRACTICE_ATTEMPTS: "محاولات تدريب على الوحدة",
+  STUDENT_COMMENTS: "تعليقات طلاب مرتبطة بالدروس",
+  STUDENT_QUESTION_NOTES: "ملاحظات طلاب على الدروس أو الأسئلة",
+  PRACTICE_ATTEMPTS: "محاولات تدريب مرتبطة بالمحتوى",
   PUBLISHED_QUESTION_REVISIONS: "نسخ أسئلة منشورة",
   REFERENCED_BY_EXAM_TEMPLATES: "أسئلة مرتبطة بقوالب اختبارات",
 };
@@ -82,7 +85,7 @@ function describeBlocker(raw: string): string {
 
 export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }: Props) {
   const queryClient = useQueryClient();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isContentStaff } = useAuth();
   const [deleting, setDeleting] = useState(false);
   const enabled = open && !!target;
 
@@ -107,7 +110,7 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
    *  - عادي (admin_curriculum_delete): يُرفض عند وجود نشاط طلابي/محتوى منشور.
    *  - نهائي (admin_curriculum_force_delete): للوحدات والدروس فقط، ويظهر عندما
    *    تثبت المعاينة أن الحذف العادي محظور. يعطّل الحرّاس المحددين مؤقتاً داخل الخادم ويُسجَّل في
-   *    سجل التدقيق. الصلاحية تُفرض داخل الدالة نفسها (مدير كامل فقط).
+   *    سجل التدقيق. يبقى هذا المسار لمدير النظام لأنه قد يحذف نشاطاً طلابياً.
    * كل رسالة خطأ تحمل حقول تتبع [rpc=…][req=…] لتسهيل مطابقتها مع سجلات الإنتاج.
    */
   const FORCE_DELETABLE: readonly CurriculumEntityType[] = ["unit", "lesson"];
@@ -141,7 +144,7 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
         );
       } else if (error.message.includes("FORBIDDEN")) {
         toast.error(
-          trackedError("admin_curriculum_delete", "هذه العملية متاحة لمدير كامل الصلاحيات فقط."),
+          trackedError("admin_curriculum_delete", "هذه العملية متاحة لفريق إدارة المحتوى فقط."),
         );
       } else {
         toast.error(trackedError("admin_curriculum_delete", `تعذر الحذف: ${error.message}`));
@@ -241,9 +244,9 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
               </div>
             )}
 
-            {!isAdmin && (
+            {!isContentStaff && (
               <p className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-                معاينة فقط — تنفيذ الحذف متاح لمدير كامل الصلاحيات فقط (يُفرض داخل الخادم).
+                معاينة فقط — تنفيذ الحذف متاح لفريق إدارة المحتوى فقط (يُفرض داخل الخادم).
               </p>
             )}
 
@@ -256,7 +259,7 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
         <DialogFooter className="gap-2 sm:justify-start">
           <Button
             variant="destructive"
-            disabled={!isAdmin || !preview?.deletable || deleting || forcing}
+            disabled={!isContentStaff || !preview?.deletable || deleting || forcing}
             onClick={handleDelete}
           >
             {deleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
