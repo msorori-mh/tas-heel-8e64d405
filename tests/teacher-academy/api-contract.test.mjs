@@ -12,6 +12,7 @@ const migrationPaths = [
   "../../supabase/migrations/20260911020000_academy_admin_program_management_closure.sql",
   "../../supabase/migrations/20260911030000_academy_admin_reports_settings_closure.sql",
   "../../supabase/migrations/20260911040000_academy_google_only_teacher_portal.sql",
+  "../../supabase/migrations/20260916010000_academy_teacher_profile_save_rpc.sql",
 ].map((path) => new URL(path, import.meta.url));
 
 const [api, ...migrations] = await Promise.all([
@@ -48,13 +49,22 @@ test("the client uses direct table access only for safe profile setup reads and 
   assert.doesNotMatch(api, /\.from\("(?:assessment_questions|certificates|enrollments|lessons)"\)/);
 });
 
-test("teacher profile creation and updates preserve the immutable user ownership column", () => {
+test("teacher profile creation and updates use the guarded Google-only RPC", () => {
   const saveProfile = api.match(
     /export async function saveTeacherProfile[\s\S]*?export async function loadVisiblePrograms/,
   )?.[0];
 
   assert.ok(saveProfile);
-  assert.doesNotMatch(saveProfile, /\.upsert\(/);
-  assert.match(saveProfile, /profileExists[\s\S]*\.update\(input\)\.eq\("user_id", user\.id\)/);
-  assert.match(saveProfile, /\.insert\(\{[\s\S]*user_id: user\.id,[\s\S]*\.\.\.input/);
+  assert.match(saveProfile, /auth\.getSession\(\)/);
+  assert.match(saveProfile, /session\.user\.id !== user\.id/);
+  assert.match(saveProfile, /academySupabase\.rpc\("save_my_teacher_profile"/);
+  assert.doesNotMatch(saveProfile, /\.from\("teacher_profiles"\)\.(?:insert|update|upsert)/);
+  assert.match(database, /function academy\.save_my_teacher_profile/);
+  assert.match(database, /v_actor uuid := auth\.uid\(\)/);
+  assert.match(database, /not academy\.i_have_google_identity\(\)/);
+  assert.match(database, /on conflict \(user_id\) do update/);
+  assert.doesNotMatch(
+    database.match(/function academy\.save_my_teacher_profile[\s\S]*?commit;/)?.[0] ?? "",
+    /status\s*=\s*excluded\.status/,
+  );
 });
