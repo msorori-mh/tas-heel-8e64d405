@@ -1419,6 +1419,15 @@ function Certificates() {
                 <h2>{certificate.program_title}</h2>
                 <p>تاريخ الإصدار: {new Date(certificate.issued_at).toLocaleDateString("ar-YE")}</p>
                 <bdi>{certificate.certificate_code}</bdi>
+                <button
+                  className="tk-copy-button"
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(certificate.certificate_code);
+                  }}
+                >
+                  <Copy aria-hidden="true" /> نسخ رمز الشهادة
+                </button>
                 <a
                   className="resource-link"
                   href={academyUrl(
