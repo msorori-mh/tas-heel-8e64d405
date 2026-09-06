@@ -1115,8 +1115,18 @@ function Learning() {
     );
   }
 
+  const resumeProgram =
+    programs.find((program) => program.status !== "COMPLETED" && program.completed_lessons > 0) ??
+    programs.find((program) => program.status !== "COMPLETED") ??
+    null;
+  const resumeProgress =
+    resumeProgram && resumeProgram.total_lessons
+      ? Math.round((resumeProgram.completed_lessons / resumeProgram.total_lessons) * 100)
+      : 0;
+
   return (
     <section>
+      <Celebration show={celebration > 0} message={celebrationMessage} />
       <div className="page-heading">
         <div>
           <p className="eyebrow">مساري</p>
@@ -1124,6 +1134,16 @@ function Learning() {
           <p className="muted">ستظهر هنا البرامج المسجل بها ونسبة تقدمك.</p>
         </div>
       </div>
+      {resumeProgram ? (
+        <NextStepCard
+          eyebrow="خطوتك التالية"
+          title={resumeProgram.title}
+          description={`${resumeProgram.completed_lessons} من ${resumeProgram.total_lessons} دروس مكتملة — واصل من حيث توقفت.`}
+          actionLabel="تابع من حيث توقفت"
+          onAction={() => openProgram(resumeProgram)}
+          progress={resumeProgress}
+        />
+      ) : null}
       {error ? <div className="notice error-notice">{error}</div> : null}
       {loading ? (
         <div className="loading-inline">
@@ -1144,6 +1164,36 @@ function Learning() {
               : 0;
             return (
               <article className="learning-card" key={program.enrollment_id}>
+                <div className="data-title-line">
+                  <h2>{program.title}</h2>
+                  {program.status === "COMPLETED" ? (
+                    <span className="status live">مكتمل</span>
+                  ) : null}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                    marginTop: "0.9rem",
+                  }}
+                >
+                  <ProgressRing value={progress} size={64} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <ProgressBar value={progress} label={`نسبة الإنجاز ${progress}%`} />
+                    <p style={{ margin: "0.55rem 0 0" }}>
+                      {program.completed_lessons} من {program.total_lessons} درسًا
+                    </p>
+                  </div>
+                </div>
+                <button className="primary-button" onClick={() => openProgram(program)}>
+                  {program.completed_lessons > 0 ? "متابعة التعلم" : "ابدأ الآن"}
+                </button>
+              </article>
+            );
+          })}
+        </div>
+
                 <div className="data-title-line">
                   <h2>{program.title}</h2>
                   {program.status === "COMPLETED" ? (
