@@ -25,7 +25,10 @@ test("operator uses one track-specific XLSX package instead of exposed M01 and M
 
 test("round and variant are generated and publishing stays separate", () => {
   assert.match(workbook, /"رقم النموذج"/);
-  assert.match(workbook, /variantCode\s*=\s*`m\$\{String\(indexRow\.variantNumber\)\.padStart\(2, "0"\)\}`/);
+  assert.match(
+    workbook,
+    /variantCode\s*=\s*`m\$\{String\(indexRow\.variantNumber\)\.padStart\(2, "0"\)\}`/,
+  );
   assert.match(importer, /ينشئ التنفيذ مسودات فقط/);
   assert.match(route, /publishMinisterialModel/);
   assert.doesNotMatch(importer, /<Label>الدور<\/Label>|variant.*Input/);
