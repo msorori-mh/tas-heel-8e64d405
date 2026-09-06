@@ -915,6 +915,9 @@ function Learning() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [openLessonId, setOpenLessonId] = useState<string | null>(null);
+  const [celebration, setCelebration] = useState(0);
+  const [celebrationMessage, setCelebrationMessage] = useState("أحسنت! درس مكتمل");
 
   async function reloadPrograms() {
     const items = await listMyLearning();
