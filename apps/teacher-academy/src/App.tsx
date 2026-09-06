@@ -942,6 +942,7 @@ function Learning() {
 
   async function openProgram(program: LearningProgram) {
     setSelected(program);
+    setOpenLessonId(null);
     setLoading(true);
     setError(null);
     try {
@@ -958,11 +959,23 @@ function Learning() {
     setError(null);
     try {
       await completeLearningLesson(lesson.lesson_id);
-      setLessons((current) =>
-        current.map((item) =>
-          item.lesson_id === lesson.lesson_id ? { ...item, completed: true } : item,
-        ),
+      const updated = lessons.map((item) =>
+        item.lesson_id === lesson.lesson_id ? { ...item, completed: true } : item,
       );
+      setLessons(updated);
+      const nextLesson = updated.find((item) => !item.completed) ?? null;
+      setCelebrationMessage(
+        nextLesson ? "أحسنت! درس مكتمل" : "رائع! أنهيت كل دروس البرنامج",
+      );
+      setCelebration((value) => value + 1);
+      if (nextLesson) {
+        setOpenLessonId(nextLesson.lesson_id);
+        window.setTimeout(() => {
+          document
+            .getElementById(`lesson-${nextLesson.lesson_id}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 220);
+      }
       await reloadPrograms();
     } catch (completeError) {
       setError(getErrorMessage(completeError));
@@ -970,6 +983,7 @@ function Learning() {
       setBusyId(null);
     }
   }
+
 
   async function refreshSelectedProgram() {
     if (!selected) return;
