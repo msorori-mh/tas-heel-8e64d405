@@ -982,20 +982,34 @@ function Learning() {
   }
 
   if (selected) {
+    const total = selected.total_lessons || lessons.length;
+    const done = lessons.length > 0 ? lessons.filter((item) => item.completed).length : selected.completed_lessons;
+    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+    const nextLesson = lessons.find((item) => !item.completed) ?? null;
+
     return (
       <section>
+        <Celebration show={celebration > 0} message={celebrationMessage} />
         <button className="text-button inline-text-button" onClick={() => setSelected(null)}>
           العودة إلى برامجي
         </button>
-        <div className="page-heading">
-          <div>
-            <p className="eyebrow">محتوى البرنامج</p>
+        <div className="tk-program-hero">
+          <div className="tk-hero-main">
+            <p className="tk-hero-eyebrow">محتوى البرنامج</p>
             <h1>{selected.title}</h1>
-            <p className="muted">
-              {selected.completed_lessons} من {selected.total_lessons} دروس مكتملة
+            <ProgressBar value={progress} label="تقدمك في البرنامج" />
+            <p className="tk-hero-caption">
+              {done} من {total} دروس مكتملة
+              {nextLesson ? ` · التالي: ${nextLesson.title}` : " · أنهيت كل الدروس"}
             </p>
           </div>
+          <ProgressRing value={progress} size={92} caption="إنجازك" />
         </div>
+        <AchievementBadges
+          completedLessons={done}
+          totalLessons={total}
+          passedAssessment={selected.status === "COMPLETED"}
+        />
         {error ? <div className="notice error-notice">{error}</div> : null}
         {loading ? (
           <div className="loading-inline">
@@ -1004,61 +1018,94 @@ function Learning() {
         ) : null}
         <ProgramDetails programVersionId={selected.program_version_id} information={selected} />
         <div className="lesson-list">
-          {lessons.map((lesson, index) => (
-            <article
-              className={lesson.completed ? "lesson-card completed" : "lesson-card"}
-              key={lesson.lesson_id}
-            >
-              <div className="lesson-number">{index + 1}</div>
-              <div className="lesson-main">
-                <div className="data-title-line">
-                  <h2>{lesson.title}</h2>
-                  {lesson.completed ? <span className="status live">مكتمل</span> : null}
+          {lessons.map((lesson, index) => {
+            const isCurrent = nextLesson?.lesson_id === lesson.lesson_id;
+            const isOpen = openLessonId === lesson.lesson_id || (openLessonId === null && isCurrent);
+            const classes = ["lesson-card"];
+            if (lesson.completed) classes.push("completed");
+            if (isCurrent) classes.push("tk-current");
+            if (!lesson.completed && !isCurrent) classes.push("tk-locked-visual");
+            return (
+              <article
+                className={classes.join(" ")}
+                key={lesson.lesson_id}
+                id={`lesson-${lesson.lesson_id}`}
+              >
+                <div className="lesson-number">
+                  {lesson.completed ? <CheckCircle2 aria-hidden="true" /> : index + 1}
                 </div>
-                <small>{lesson.duration_minutes} دقيقة</small>
-                <div className="learning-sections">
-                  {lesson.sections.map((section) => (
-                    <section
-                      className={`learning-section ${section.section_type.toLowerCase()}`}
-                      key={section.section_id}
-                    >
-                      <h3>{section.title ?? LEARNING_SECTION_LABELS[section.section_type]}</h3>
-                      <p>{section.content}</p>
-                      {section.resource_url ? (
+                <div className="lesson-main">
+                  <div className="data-title-line">
+                    <h2>{lesson.title}</h2>
+                    {lesson.completed ? <span className="status live">مكتمل</span> : null}
+                    {isCurrent ? <span className="status draft">درسك الحالي</span> : null}
+                  </div>
+                  <div className="tk-chip-row">
+                    <span className="tk-chip">{lesson.duration_minutes} دقيقة</span>
+                    <span className="tk-chip">{lesson.sections.length} قسم</span>
+                  </div>
+                  <button
+                    className="tk-lesson-toggle"
+                    type="button"
+                    aria-expanded={isOpen}
+                    onClick={() => setOpenLessonId(isOpen ? "" : lesson.lesson_id)}
+                  >
+                    <ChevronDown aria-hidden="true" />
+                    {isOpen ? "إخفاء محتوى الدرس" : "عرض محتوى الدرس"}
+                  </button>
+                  {isOpen ? (
+                    <div className="tk-lesson-body">
+                      <div className="learning-sections">
+                        {lesson.sections.map((section) => (
+                          <section
+                            className={`learning-section ${section.section_type.toLowerCase()}`}
+                            key={section.section_id}
+                          >
+                            <h3>{section.title ?? LEARNING_SECTION_LABELS[section.section_type]}</h3>
+                            <p>{section.content}</p>
+                            {section.resource_url ? (
+                              <a
+                                className="resource-link"
+                                href={section.resource_url}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <ExternalLink /> فتح المورد الإضافي
+                              </a>
+                            ) : null}
+                          </section>
+                        ))}
+                      </div>
+                      {lesson.resource_url ? (
                         <a
                           className="resource-link"
-                          href={section.resource_url}
+                          href={lesson.resource_url}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          <ExternalLink /> فتح المورد الإضافي
+                          <ExternalLink /> فتح المورد التدريبي
                         </a>
                       ) : null}
-                    </section>
-                  ))}
+                    </div>
+                  ) : null}
                 </div>
-                {lesson.resource_url ? (
-                  <a
-                    className="resource-link"
-                    href={lesson.resource_url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <ExternalLink /> فتح المورد التدريبي
-                  </a>
-                ) : null}
-              </div>
-              <button
-                className={lesson.completed ? "secondary-button" : "primary-button"}
-                disabled={lesson.completed || busyId === lesson.lesson_id}
-                onClick={() => complete(lesson)}
-              >
-                {busyId === lesson.lesson_id ? <LoaderCircle className="spin" /> : <CheckCircle2 />}
-                {lesson.completed ? "تم" : "إكمال الدرس"}
-              </button>
-            </article>
-          ))}
+                <button
+                  className={lesson.completed ? "secondary-button" : "primary-button"}
+                  disabled={lesson.completed || busyId === lesson.lesson_id}
+                  onClick={() => complete(lesson)}
+                >
+                  {busyId === lesson.lesson_id ? (
+                    <LoaderCircle className="spin" />
+                  ) : (
+                    <CheckCircle2 />
+                  )}
+                  {lesson.completed ? "تم" : "إكمال الدرس"}
+                </button>
+              </article>
+            );
+          })}
         </div>
+
         <AssessmentPanel
           programVersionId={selected.program_version_id}
           ready={lessons.length > 0 && lessons.every((lesson) => lesson.completed)}
