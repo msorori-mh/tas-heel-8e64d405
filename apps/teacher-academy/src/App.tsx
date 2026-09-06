@@ -15,7 +15,16 @@ import {
   Target,
   UserRound,
   X,
+  ChevronDown,
+  Copy,
 } from "lucide-react";
+import {
+  AchievementBadges,
+  Celebration,
+  NextStepCard,
+  ProgressBar,
+  ProgressRing,
+} from "./ui-kit";
 import { AdminHome } from "./AdminHome";
 import {
   loadCapabilities,
@@ -915,6 +924,9 @@ function Learning() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [openLessonId, setOpenLessonId] = useState<string | null>(null);
+  const [celebration, setCelebration] = useState(0);
+  const [celebrationMessage, setCelebrationMessage] = useState("أحسنت! درس مكتمل");
 
   async function reloadPrograms() {
     const items = await listMyLearning();
@@ -939,6 +951,7 @@ function Learning() {
 
   async function openProgram(program: LearningProgram) {
     setSelected(program);
+    setOpenLessonId(null);
     setLoading(true);
     setError(null);
     try {
@@ -955,11 +968,23 @@ function Learning() {
     setError(null);
     try {
       await completeLearningLesson(lesson.lesson_id);
-      setLessons((current) =>
-        current.map((item) =>
-          item.lesson_id === lesson.lesson_id ? { ...item, completed: true } : item,
-        ),
+      const updated = lessons.map((item) =>
+        item.lesson_id === lesson.lesson_id ? { ...item, completed: true } : item,
       );
+      setLessons(updated);
+      const nextLesson = updated.find((item) => !item.completed) ?? null;
+      setCelebrationMessage(
+        nextLesson ? "أحسنت! درس مكتمل" : "رائع! أنهيت كل دروس البرنامج",
+      );
+      setCelebration((value) => value + 1);
+      if (nextLesson) {
+        setOpenLessonId(nextLesson.lesson_id);
+        window.setTimeout(() => {
+          document
+            .getElementById(`lesson-${nextLesson.lesson_id}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 220);
+      }
       await reloadPrograms();
     } catch (completeError) {
       setError(getErrorMessage(completeError));
@@ -967,6 +992,7 @@ function Learning() {
       setBusyId(null);
     }
   }
+
 
   async function refreshSelectedProgram() {
     if (!selected) return;
@@ -982,20 +1008,34 @@ function Learning() {
   }
 
   if (selected) {
+    const total = selected.total_lessons || lessons.length;
+    const done = lessons.length > 0 ? lessons.filter((item) => item.completed).length : selected.completed_lessons;
+    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+    const nextLesson = lessons.find((item) => !item.completed) ?? null;
+
     return (
       <section>
+        <Celebration trigger={celebration} message={celebrationMessage} />
         <button className="text-button inline-text-button" onClick={() => setSelected(null)}>
           العودة إلى برامجي
         </button>
-        <div className="page-heading">
-          <div>
-            <p className="eyebrow">محتوى البرنامج</p>
+        <div className="tk-program-hero">
+          <div className="tk-hero-main">
+            <p className="tk-hero-eyebrow">محتوى البرنامج</p>
             <h1>{selected.title}</h1>
-            <p className="muted">
-              {selected.completed_lessons} من {selected.total_lessons} دروس مكتملة
+            <ProgressBar value={progress} label="تقدمك في البرنامج" />
+            <p className="tk-hero-caption">
+              {done} من {total} دروس مكتملة
+              {nextLesson ? ` · التالي: ${nextLesson.title}` : " · أنهيت كل الدروس"}
             </p>
           </div>
+          <ProgressRing value={progress} size={92} caption="إنجازك" />
         </div>
+        <AchievementBadges
+          completedLessons={done}
+          totalLessons={total}
+          passedAssessment={selected.status === "COMPLETED"}
+        />
         {error ? <div className="notice error-notice">{error}</div> : null}
         {loading ? (
           <div className="loading-inline">
@@ -1004,61 +1044,94 @@ function Learning() {
         ) : null}
         <ProgramDetails programVersionId={selected.program_version_id} information={selected} />
         <div className="lesson-list">
-          {lessons.map((lesson, index) => (
-            <article
-              className={lesson.completed ? "lesson-card completed" : "lesson-card"}
-              key={lesson.lesson_id}
-            >
-              <div className="lesson-number">{index + 1}</div>
-              <div className="lesson-main">
-                <div className="data-title-line">
-                  <h2>{lesson.title}</h2>
-                  {lesson.completed ? <span className="status live">مكتمل</span> : null}
+          {lessons.map((lesson, index) => {
+            const isCurrent = nextLesson?.lesson_id === lesson.lesson_id;
+            const isOpen = openLessonId === lesson.lesson_id || (openLessonId === null && isCurrent);
+            const classes = ["lesson-card"];
+            if (lesson.completed) classes.push("completed");
+            if (isCurrent) classes.push("tk-current");
+            if (!lesson.completed && !isCurrent) classes.push("tk-locked-visual");
+            return (
+              <article
+                className={classes.join(" ")}
+                key={lesson.lesson_id}
+                id={`lesson-${lesson.lesson_id}`}
+              >
+                <div className="lesson-number">
+                  {lesson.completed ? <CheckCircle2 aria-hidden="true" /> : index + 1}
                 </div>
-                <small>{lesson.duration_minutes} دقيقة</small>
-                <div className="learning-sections">
-                  {lesson.sections.map((section) => (
-                    <section
-                      className={`learning-section ${section.section_type.toLowerCase()}`}
-                      key={section.section_id}
-                    >
-                      <h3>{section.title ?? LEARNING_SECTION_LABELS[section.section_type]}</h3>
-                      <p>{section.content}</p>
-                      {section.resource_url ? (
+                <div className="lesson-main">
+                  <div className="data-title-line">
+                    <h2>{lesson.title}</h2>
+                    {lesson.completed ? <span className="status live">مكتمل</span> : null}
+                    {isCurrent ? <span className="status draft">درسك الحالي</span> : null}
+                  </div>
+                  <div className="tk-chip-row">
+                    <span className="tk-chip">{lesson.duration_minutes} دقيقة</span>
+                    <span className="tk-chip">{lesson.sections.length} قسم</span>
+                  </div>
+                  <button
+                    className="tk-lesson-toggle"
+                    type="button"
+                    aria-expanded={isOpen}
+                    onClick={() => setOpenLessonId(isOpen ? "" : lesson.lesson_id)}
+                  >
+                    <ChevronDown aria-hidden="true" />
+                    {isOpen ? "إخفاء محتوى الدرس" : "عرض محتوى الدرس"}
+                  </button>
+                  {isOpen ? (
+                    <div className="tk-lesson-body">
+                      <div className="learning-sections">
+                        {lesson.sections.map((section) => (
+                          <section
+                            className={`learning-section ${section.section_type.toLowerCase()}`}
+                            key={section.section_id}
+                          >
+                            <h3>{section.title ?? LEARNING_SECTION_LABELS[section.section_type]}</h3>
+                            <p>{section.content}</p>
+                            {section.resource_url ? (
+                              <a
+                                className="resource-link"
+                                href={section.resource_url}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <ExternalLink /> فتح المورد الإضافي
+                              </a>
+                            ) : null}
+                          </section>
+                        ))}
+                      </div>
+                      {lesson.resource_url ? (
                         <a
                           className="resource-link"
-                          href={section.resource_url}
+                          href={lesson.resource_url}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          <ExternalLink /> فتح المورد الإضافي
+                          <ExternalLink /> فتح المورد التدريبي
                         </a>
                       ) : null}
-                    </section>
-                  ))}
+                    </div>
+                  ) : null}
                 </div>
-                {lesson.resource_url ? (
-                  <a
-                    className="resource-link"
-                    href={lesson.resource_url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <ExternalLink /> فتح المورد التدريبي
-                  </a>
-                ) : null}
-              </div>
-              <button
-                className={lesson.completed ? "secondary-button" : "primary-button"}
-                disabled={lesson.completed || busyId === lesson.lesson_id}
-                onClick={() => complete(lesson)}
-              >
-                {busyId === lesson.lesson_id ? <LoaderCircle className="spin" /> : <CheckCircle2 />}
-                {lesson.completed ? "تم" : "إكمال الدرس"}
-              </button>
-            </article>
-          ))}
+                <button
+                  className={lesson.completed ? "secondary-button" : "primary-button"}
+                  disabled={lesson.completed || busyId === lesson.lesson_id}
+                  onClick={() => complete(lesson)}
+                >
+                  {busyId === lesson.lesson_id ? (
+                    <LoaderCircle className="spin" />
+                  ) : (
+                    <CheckCircle2 />
+                  )}
+                  {lesson.completed ? "تم" : "إكمال الدرس"}
+                </button>
+              </article>
+            );
+          })}
         </div>
+
         <AssessmentPanel
           programVersionId={selected.program_version_id}
           ready={lessons.length > 0 && lessons.every((lesson) => lesson.completed)}
@@ -1068,8 +1141,18 @@ function Learning() {
     );
   }
 
+  const resumeProgram =
+    programs.find((program) => program.status !== "COMPLETED" && program.completed_lessons > 0) ??
+    programs.find((program) => program.status !== "COMPLETED") ??
+    null;
+  const resumeProgress =
+    resumeProgram && resumeProgram.total_lessons
+      ? Math.round((resumeProgram.completed_lessons / resumeProgram.total_lessons) * 100)
+      : 0;
+
   return (
     <section>
+      <Celebration trigger={celebration} message={celebrationMessage} />
       <div className="page-heading">
         <div>
           <p className="eyebrow">مساري</p>
@@ -1077,6 +1160,16 @@ function Learning() {
           <p className="muted">ستظهر هنا البرامج المسجل بها ونسبة تقدمك.</p>
         </div>
       </div>
+      {resumeProgram ? (
+        <NextStepCard
+          eyebrow="خطوتك التالية"
+          title={resumeProgram.title}
+          description={`${resumeProgram.completed_lessons} من ${resumeProgram.total_lessons} دروس مكتملة — واصل من حيث توقفت.`}
+          actionLabel="تابع من حيث توقفت"
+          onAction={() => openProgram(resumeProgram)}
+          progress={resumeProgress}
+        />
+      ) : null}
       {error ? <div className="notice error-notice">{error}</div> : null}
       {loading ? (
         <div className="loading-inline">
@@ -1103,14 +1196,24 @@ function Learning() {
                     <span className="status live">مكتمل</span>
                   ) : null}
                 </div>
-                <div className="progress-track" aria-label={`نسبة الإنجاز ${progress}%`}>
-                  <span style={{ width: `${progress}%` }} />
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                    marginTop: "0.9rem",
+                  }}
+                >
+                  <ProgressRing value={progress} size={64} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <ProgressBar value={progress} label={`نسبة الإنجاز ${progress}%`} />
+                    <p style={{ margin: "0.55rem 0 0" }}>
+                      {program.completed_lessons} من {program.total_lessons} درسًا
+                    </p>
+                  </div>
                 </div>
-                <p>
-                  {program.completed_lessons} من {program.total_lessons} · {progress}%
-                </p>
                 <button className="primary-button" onClick={() => openProgram(program)}>
-                  متابعة التعلم
+                  {program.completed_lessons > 0 ? "متابعة التعلم" : "ابدأ الآن"}
                 </button>
               </article>
             );
@@ -1199,14 +1302,43 @@ function AssessmentPanel({
         </div>
       </div>
       {result ? (
-        <div className={result.passed ? "notice success-notice" : "notice error-notice"}>
-          <strong>{result.passed ? "تم اجتياز التقييم" : "لم تحقق نسبة النجاح بعد"}</strong>
-          <span>
-            النتيجة: {result.score} من {result.total}
-          </span>
-          {result.certificate_code ? <bdi>رمز الشهادة: {result.certificate_code}</bdi> : null}
-        </div>
+        <>
+          <Celebration trigger={result.passed ? 1 : 0} message="مبروك! اجتزت التقييم" />
+          <div className={result.passed ? "tk-result-card passed" : "tk-result-card failed"}>
+            <ProgressRing
+              value={result.total ? (result.score / result.total) * 100 : 0}
+              size={86}
+              caption="نتيجتك"
+            />
+            <div>
+              <strong>{result.passed ? "تم اجتياز التقييم" : "لم تحقق نسبة النجاح بعد"}</strong>
+              <p>
+                {result.passed
+                  ? `أجبت بشكل صحيح على ${result.score} من ${result.total} — شهادتك جاهزة.`
+                  : `أجبت بشكل صحيح على ${result.score} من ${result.total}. راجع الدروس ثم أعد المحاولة.`}
+              </p>
+              {result.certificate_code ? <bdi>رمز الشهادة: {result.certificate_code}</bdi> : null}
+            </div>
+          </div>
+        </>
       ) : null}
+      <div className="tk-assessment-progress">
+        <ProgressBar
+          value={
+            questions.length
+              ? (questions.filter((question) => answers[question.question_id]).length /
+                  questions.length) *
+                100
+              : 0
+          }
+          label="تقدمك في التقييم"
+        />
+        <small>
+          {questions.filter((question) => answers[question.question_id]).length} / {questions.length}{" "}
+          سؤال
+        </small>
+      </div>
+
       <form className="assessment-form" onSubmit={submit}>
         {questions.map((question, index) => (
           <fieldset className="assessment-question" key={question.question_id}>
@@ -1287,6 +1419,15 @@ function Certificates() {
                 <h2>{certificate.program_title}</h2>
                 <p>تاريخ الإصدار: {new Date(certificate.issued_at).toLocaleDateString("ar-YE")}</p>
                 <bdi>{certificate.certificate_code}</bdi>
+                <button
+                  className="tk-copy-button"
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(certificate.certificate_code);
+                  }}
+                >
+                  <Copy aria-hidden="true" /> نسخ رمز الشهادة
+                </button>
                 <a
                   className="resource-link"
                   href={academyUrl(
