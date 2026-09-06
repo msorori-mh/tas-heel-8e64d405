@@ -21,7 +21,15 @@ function buildMufadalaReferenceWorkbook() {
   const index = workbook.addWorksheet(MINISTERIAL_INDEX_SHEET);
   index.addRow(["فهرس نماذج المفاضلة"]);
   index.addRow([]);
-  index.addRow(["اسم النموذج", "رقم النموذج", "السنة", "المادة", "عدد الأسئلة", "منشور", "اسم الورقة"]);
+  index.addRow([
+    "اسم النموذج",
+    "رقم النموذج",
+    "السنة",
+    "المادة",
+    "عدد الأسئلة",
+    "منشور",
+    "اسم الورقة",
+  ]);
   index.addRow(["نموذج أول", 1, 2025, "الكيمياء", 1, "لا", "نموذج_1"]);
   index.addRow(["نموذج ثان", 2, 2025, "الكيمياء", 1, "لا", "نموذج_2"]);
   for (const sheetName of ["نموذج_1", "نموذج_2"]) {
