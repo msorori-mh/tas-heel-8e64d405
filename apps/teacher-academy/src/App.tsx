@@ -1193,26 +1193,6 @@ function Learning() {
             );
           })}
         </div>
-
-                <div className="data-title-line">
-                  <h2>{program.title}</h2>
-                  {program.status === "COMPLETED" ? (
-                    <span className="status live">مكتمل</span>
-                  ) : null}
-                </div>
-                <div className="progress-track" aria-label={`نسبة الإنجاز ${progress}%`}>
-                  <span style={{ width: `${progress}%` }} />
-                </div>
-                <p>
-                  {program.completed_lessons} من {program.total_lessons} · {progress}%
-                </p>
-                <button className="primary-button" onClick={() => openProgram(program)}>
-                  متابعة التعلم
-                </button>
-              </article>
-            );
-          })}
-        </div>
       )}
     </section>
   );
