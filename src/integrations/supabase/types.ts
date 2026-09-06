@@ -601,6 +601,7 @@ export type Database = {
           pin_mode: string
           question_order: number
           question_revision_id: string
+          rendered_media: Json
           rendered_options: Json
           rendered_question_text: string
           rendered_stimulus_text: string | null
@@ -617,6 +618,7 @@ export type Database = {
           pin_mode: string
           question_order: number
           question_revision_id: string
+          rendered_media?: Json
           rendered_options?: Json
           rendered_question_text: string
           rendered_stimulus_text?: string | null
@@ -633,6 +635,7 @@ export type Database = {
           pin_mode?: string
           question_order?: number
           question_revision_id?: string
+          rendered_media?: Json
           rendered_options?: Json
           rendered_question_text?: string
           rendered_stimulus_text?: string | null
@@ -4968,12 +4971,29 @@ export type Database = {
         Args: { p: Json; p_template_key: string }
         Returns: string
       }
+      _ministerial_insert_revision_media: {
+        Args: {
+          _actor: string
+          _media: Json
+          _revision_id: string
+          _verify_storage?: boolean
+        }
+        Returns: number
+      }
       _ministerial_is_correct: {
         Args: {
           _exam_session_question_id: string
           _selected_option_code: string
         }
         Returns: boolean
+      }
+      _ministerial_media_object_verified: {
+        Args: { _file_size: number; _mime_type: string; _storage_key: string }
+        Returns: boolean
+      }
+      _ministerial_revision_rendered_media: {
+        Args: { _revision_id: string }
+        Returns: Json
       }
       _ministerial_session_guard: {
         Args: { _session_id: string }
@@ -5007,6 +5027,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      _ministerial_validate_media_array: {
+        Args: { _media: Json; _track_code: string }
+        Returns: Json
       }
       _my_mistakes_safe_options: { Args: { _rendered: Json }; Returns: Json }
       _qb_assert_revision_payload_hash: {
@@ -6154,6 +6178,18 @@ export type Database = {
       ministerial_m01_prepare: { Args: { _rows: Json }; Returns: Json }
       ministerial_m02_execute: { Args: { _prepare_id: string }; Returns: Json }
       ministerial_m02_prepare: { Args: { _rows: Json }; Returns: Json }
+      ministerial_media_can_access: {
+        Args: { _media_id: string; _session_id?: string }
+        Returns: boolean
+      }
+      ministerial_media_placement: {
+        Args: { _media_code: string }
+        Returns: string
+      }
+      ministerial_media_storage_key: {
+        Args: { _mime_type: string; _sha256: string }
+        Returns: string
+      }
       ministerial_membership_remove_execute: {
         Args: { _model_id: string; _question_codes: string[]; _reason: string }
         Returns: Json
@@ -6172,6 +6208,7 @@ export type Database = {
           _display_order: number
           _explanation: string
           _marks: number
+          _media?: Json
           _model_answer: string
           _model_id: string
           _options: Json
