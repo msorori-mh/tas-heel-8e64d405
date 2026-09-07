@@ -26,6 +26,10 @@ const islamicProgramPath = new URL(
   "../../scripts/teacher-academy/program-content/islamic-effective-teaching-v1.json",
   import.meta.url,
 );
+const quranProgramPath = new URL(
+  "../../scripts/teacher-academy/program-content/quran-effective-teaching-v1.json",
+  import.meta.url,
+);
 const mathematicsProgramPath = new URL(
   "../../scripts/teacher-academy/program-content/mathematics-problem-solving-v1.json",
   import.meta.url,
@@ -50,6 +54,7 @@ const [
   generalUpgradeSql,
   chemistryProgramSource,
   islamicProgramSource,
+  quranProgramSource,
   mathematicsProgramSource,
   arabicProgramSource,
   englishProgramSource,
@@ -61,6 +66,7 @@ const [
   readFile(generalUpgradeSqlPath, "utf8"),
   readFile(chemistryProgramPath, "utf8"),
   readFile(islamicProgramPath, "utf8"),
+  readFile(quranProgramPath, "utf8"),
   readFile(mathematicsProgramPath, "utf8"),
   readFile(arabicProgramPath, "utf8"),
   readFile(englishProgramPath, "utf8"),
@@ -70,11 +76,13 @@ const catalog = JSON.parse(catalogSource);
 const generalUpgrade = JSON.parse(generalUpgradeSource);
 const chemistryProgram = JSON.parse(chemistryProgramSource);
 const islamicProgram = JSON.parse(islamicProgramSource);
+const quranProgram = JSON.parse(quranProgramSource);
 const mathematicsProgram = JSON.parse(mathematicsProgramSource);
 const arabicProgram = JSON.parse(arabicProgramSource);
 const englishProgram = JSON.parse(englishProgramSource);
 
 const expectedSubjects = [
+  "QURAN",
   "ARABIC",
   "ISLAMIC",
   "MATHEMATICS",
@@ -82,8 +90,6 @@ const expectedSubjects = [
   "PHYSICS",
   "CHEMISTRY",
   "BIOLOGY",
-  "SOCIAL_STUDIES",
-  "COMPUTER",
 ];
 
 const assertCompleteSubjectProgram = (program, subjectCode, questionCount) => {
@@ -128,7 +134,7 @@ const assertCompleteSubjectProgram = (program, subjectCode, questionCount) => {
   assert.equal("meetingUrl" in program.liveSessionPlan, false);
 };
 
-test("the specialty catalog covers the nine active academy subjects exactly once", () => {
+test("the specialty catalog covers the eight active academy subjects exactly once", () => {
   assert.equal(catalog.programType, "SUBJECT_SPECIFIC");
   assert.equal(catalog.programs.length, expectedSubjects.length);
   assert.deepEqual(
@@ -259,6 +265,18 @@ test("the Islamic education program is complete, source-bound, and privacy-safe"
   assert.match(source, /المصادر المعتمدة/);
   assert.match(source, /خصوصية/);
   assert.match(source, /فتوى شخصية/);
+  assert.doesNotMatch(source, /https?:\/\//);
+});
+
+test("the Quran program integrates recitation, tajweed, memorisation, understanding, and privacy", () => {
+  assertCompleteSubjectProgram(quranProgram, "QURAN", 12);
+  const source = JSON.stringify(quranProgram);
+  assert.match(source, /التلاوة/);
+  assert.match(source, /التجويد/);
+  assert.match(source, /الحفظ/);
+  assert.match(source, /علوم القرآن/);
+  assert.match(source, /خصوصية/);
+  assert.match(source, /المصادر المعتمدة/);
   assert.doesNotMatch(source, /https?:\/\//);
 });
 
