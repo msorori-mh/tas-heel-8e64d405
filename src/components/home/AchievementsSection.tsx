@@ -33,7 +33,11 @@ type AchievementsSectionProps = {
   compact?: boolean;
 };
 
-export function AchievementsSection({ badges, loading, compact = false }: AchievementsSectionProps) {
+export function AchievementsSection({
+  badges,
+  loading,
+  compact = false,
+}: AchievementsSectionProps) {
   if (compact) {
     return (
       <section aria-label="الإنجازات">
