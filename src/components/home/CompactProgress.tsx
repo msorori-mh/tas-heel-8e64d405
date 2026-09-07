@@ -62,7 +62,8 @@ export function CompactProgress({ stats }: { stats?: HomeStats }) {
       <div className="min-w-0 flex-1">
         <h2 className="truncate text-[13px] font-black text-foreground">ملخص تقدمي</h2>
         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-          {stats.completedLessons} دروس · {stats.examsCompleted} اختبارات · {stats.streakDays} أيام متتالية
+          {stats.completedLessons} دروس · {stats.examsCompleted} اختبارات · {stats.streakDays} أيام
+          متتالية
         </p>
       </div>
 
