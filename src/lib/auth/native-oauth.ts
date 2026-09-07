@@ -29,6 +29,26 @@ export const NATIVE_BRIDGE_URL = `${NATIVE_APP_SCHEME}://${NATIVE_BRIDGE_HOST}${
  */
 export const NATIVE_OAUTH_REDIRECT_URL = NATIVE_BRIDGE_URL;
 
+export type NativeAuthDestination = "student" | "teacher";
+
+const AUTH_DESTINATION_KEY = "tamkeen.native-auth-destination.v1";
+
+/**
+ * Records only the intended in-app destination; no token or identity data is
+ * stored here. The value is consumed after the one-time PKCE code succeeds.
+ */
+export function setNativeAuthDestination(destination: NativeAuthDestination): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(AUTH_DESTINATION_KEY, destination);
+}
+
+export function consumeNativeAuthDestination(): NativeAuthDestination {
+  if (typeof window === "undefined") return "student";
+  const stored = window.localStorage.getItem(AUTH_DESTINATION_KEY);
+  window.localStorage.removeItem(AUTH_DESTINATION_KEY);
+  return stored === "teacher" ? "teacher" : "student";
+}
+
 export type NativeAuthCallback =
   | { kind: "ignored"; reason: string }
   | { kind: "error"; message: string }

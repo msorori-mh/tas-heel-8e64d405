@@ -4,6 +4,7 @@ import {
   NATIVE_OAUTH_REDIRECT_URL,
   isNativeShell,
   openNativeAuthBrowser,
+  setNativeAuthDestination,
 } from "@/lib/auth/native-oauth";
 
 /**
@@ -28,6 +29,7 @@ export async function startGoogleSignIn(): Promise<void> {
   if (!url) throw new Error("تعذّر بدء تسجيل الدخول عبر Google.");
 
   if (native) {
+    setNativeAuthDestination("student");
     // Custom Tab: Google refuses to render its consent screen inside a raw
     // WebView, and the Custom Tab hands control back through the deep link.
     await openNativeAuthBrowser(url);

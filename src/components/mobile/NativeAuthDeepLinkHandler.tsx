@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   closeNativeAuthBrowser,
+  consumeNativeAuthDestination,
   isCallbackConsumed,
   markCallbackConsumed,
   parseNativeAuthCallback,
@@ -50,8 +51,16 @@ export function NativeAuthDeepLinkHandler() {
           const { data } = await supabase.auth.getUser();
           if (!data.user) throw new Error("لم يتم العثور على جلسة");
           if (cancelled) return;
-          // /auth/callback resolves profile completeness and routes onwards.
-          navigate({ to: "/auth/callback", replace: true });
+          const destination = consumeNativeAuthDestination();
+          if (destination === "teacher") {
+            // Reload the academy route so its isolated Supabase client restores
+            // the just-persisted native session from the shared secure adapter.
+            window.location.replace("/academy");
+            return;
+          } else {
+            // /auth/callback resolves student profile completeness.
+            navigate({ to: "/auth/callback", replace: true });
+          }
           setStatus("idle");
         } catch {
           // The early claim prevents duplicate appUrlOpen deliveries from

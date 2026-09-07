@@ -25,10 +25,10 @@ describe("21B4G — Android app identity and release readiness", () => {
     expect(strings).toContain(`<string name="package_name">${PKG}</string>`);
   });
 
-  it("3. the visible Android app name is تمكين الطالب", () => {
-    expect(strings).toContain('<string name="app_name">تمكين الطالب</string>');
-    expect(strings).toContain('<string name="title_activity_main">تمكين الطالب</string>');
-    expect(capacitor).toContain('appName: "تمكين الطالب"');
+  it("3. the visible Android app name is the unified تمكين brand", () => {
+    expect(strings).toContain('<string name="app_name">تمكين</string>');
+    expect(strings).toContain('<string name="title_activity_main">تمكين</string>');
+    expect(capacitor).toContain('appName: "تمكين"');
     expect(manifest).toContain('android:label="@string/app_name"');
   });
 

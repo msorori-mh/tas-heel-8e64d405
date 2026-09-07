@@ -10,7 +10,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
  */
 const config: CapacitorConfig = {
   appId: "app.studentamkeen.tamkeen",
-  appName: "تمكين الطالب",
+  appName: "تمكين",
   webDir: "mobile/www",
   android: {
     allowMixedContent: false,
