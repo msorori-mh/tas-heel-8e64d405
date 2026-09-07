@@ -69,7 +69,7 @@ function StudentHome() {
       <LearningToolsSection />
 
       {earnedBadges.length > 0 && (
-        <AchievementsSection badges={earnedBadges.slice(0, 3)} loading={false} />
+        <AchievementsSection badges={earnedBadges.slice(0, 6)} loading={false} compact />
       )}
 
       {/* Secondary — always after Continue Learning */}
