@@ -252,7 +252,75 @@ function AdminUsersPage() {
           </div>
         ) : (
           <>
-            <div className="hidden md:block overflow-x-auto rounded-xl border border-border bg-card">
+            <div className="rounded-xl border border-border bg-card p-3 space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="ابحث بالبريد أو الاسم…"
+                    className="pr-9 min-h-[44px]"
+                    aria-label="بحث عن مستخدم"
+                  />
+                </div>
+                <Select
+                  value={roleFilter}
+                  onValueChange={(v) => setRoleFilter(v as typeof roleFilter)}
+                >
+                  <SelectTrigger className="sm:w-44 min-h-[44px]" aria-label="تصفية حسب الدور">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل الأدوار</SelectItem>
+                    <SelectItem value="admin">مدير كامل</SelectItem>
+                    <SelectItem value="content_manager">مدير محتوى</SelectItem>
+                    <SelectItem value="user">طالب</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={statusFilter}
+                  onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+                >
+                  <SelectTrigger className="sm:w-36 min-h-[44px]" aria-label="تصفية حسب الحالة">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل الحالات</SelectItem>
+                    <SelectItem value="active">نشط</SelectItem>
+                    <SelectItem value="disabled">معطّل</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  عرض {filteredUsers.length} من {users.length}
+                </p>
+                {filtersActive && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-xs"
+                    onClick={() => {
+                      setSearch("");
+                      setRoleFilter("all");
+                      setStatusFilter("all");
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    مسح الفلاتر
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {filteredUsers.length === 0 && (
+              <div className="rounded-xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
+                لا توجد نتائج مطابقة للفلاتر.
+              </div>
+            )}
+
+            <div className="hidden md:block overflow-x-auto rounded-xl border border-border bg-card data-[empty=true]:hidden" data-empty={filteredUsers.length === 0}>
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
