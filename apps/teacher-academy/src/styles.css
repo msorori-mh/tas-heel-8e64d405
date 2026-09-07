@@ -2211,6 +2211,13 @@ textarea:focus {
   background: #fff;
 }
 
+.live-session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
 .live-session-card.cancelled {
   opacity: 0.72;
 }

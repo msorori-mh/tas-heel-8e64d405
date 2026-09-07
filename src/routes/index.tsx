@@ -137,7 +137,20 @@ function HeroSection() {
                   تسجيل الدخول
                 </Button>
               </Link>
+              <Link to="/academy">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="fm-press rounded-xl border-secondary/40 bg-secondary/5 px-5 py-5 text-[15px] font-bold text-secondary hover:bg-secondary/10"
+                >
+                  <GraduationCap className="ml-2 h-4 w-4" />
+                  أكاديمية المعلمين
+                </Button>
+              </Link>
             </div>
+            <p className="mt-3 text-xs font-semibold text-muted-foreground">
+              تطبيق تمكين واحد بمساحتين منفصلتين للطلاب والمعلمين.
+            </p>
           </div>
 
           <div className="order-1 lg:order-2">

@@ -3,6 +3,8 @@ import {
   PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   PUBLIC_SUPABASE_URL,
 } from "../../../../src/integrations/supabase/public-config";
+import { persistentAuthStorage } from "../../../../src/integrations/supabase/nativeAuthStorage";
+import { brokeredPreviewStorage } from "../../../../src/integrations/supabase/previewAuthStorage";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || PUBLIC_SUPABASE_URL;
 const supabaseKey =
@@ -19,8 +21,10 @@ export const academySupabase = createClient(
   supabaseKey ?? "configuration-required",
   {
     auth: {
+      storage: persistentAuthStorage() ?? brokeredPreviewStorage(),
       persistSession: true,
       autoRefreshToken: true,
+      flowType: "pkce",
       detectSessionInUrl: true,
     },
     db: {

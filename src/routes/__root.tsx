@@ -18,6 +18,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { AndroidBackHandler } from "@/components/mobile/AndroidBackHandler";
 import { NativeAuthDeepLinkHandler } from "@/components/mobile/NativeAuthDeepLinkHandler";
+import { NativeNotificationHandler } from "@/components/mobile/NativeNotificationHandler";
 
 function NotFoundComponent() {
   return (
@@ -187,7 +188,15 @@ function RootComponent() {
     if (!academyRouteActive) registerServiceWorker();
   }, [academyRouteActive]);
 
-  if (academyRouteActive) return <Outlet />;
+  if (academyRouteActive) {
+    return (
+      <>
+        <Outlet />
+        <NativeAuthDeepLinkHandler />
+        <NativeNotificationHandler />
+      </>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -195,6 +204,7 @@ function RootComponent() {
         <Outlet />
         <AndroidBackHandler />
         <NativeAuthDeepLinkHandler />
+        <NativeNotificationHandler />
         <PwaUpdateNotice />
         <Toaster position="top-center" richColors />
       </AuthProvider>

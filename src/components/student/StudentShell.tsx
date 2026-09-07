@@ -4,6 +4,7 @@ import {
   BookOpen,
   ClipboardList,
   Home,
+  GraduationCap,
   Lightbulb,
   LogOut,
   Settings,
@@ -92,6 +93,13 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="space-y-1.5 border-t border-border/60 p-3">
+          <a
+            href="/academy"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] text-muted-foreground transition-colors hover:bg-secondary/10 hover:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <GraduationCap className="h-4 w-4 shrink-0" aria-hidden />
+            أكاديمية المعلمين
+          </a>
           {isContentStaff && (
             <SidebarLink
               item={{
@@ -134,6 +142,13 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
             <span className="truncate text-sm">تمكين الطالب</span>
           </Link>
           <div className="flex shrink-0 items-center gap-1">
+            <a
+              href="/academy"
+              aria-label="أكاديمية المعلمين"
+              className="rounded-lg p-2 text-muted-foreground hover:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <GraduationCap className="h-4 w-4" aria-hidden />
+            </a>
             {isContentStaff && (
               <Link
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any

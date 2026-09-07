@@ -169,6 +169,8 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
 
   it("9. session restoration runs in the WebView that owns the PKCE verifier", () => {
     expect(handler).toMatch(/exchangeCodeForSession\(parsed\.code\)/);
+    expect(handler).toMatch(/consumeNativeAuthDestination\(\)/);
+    expect(handler).toMatch(/window\.location\.replace\("\/academy"\)/);
     expect(handler).toMatch(/navigate\(\{ to: "\/auth\/callback", replace: true \}\)/);
     expect(root).toMatch(/<NativeAuthDeepLinkHandler \/>/);
   });

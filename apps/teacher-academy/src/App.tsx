@@ -4,6 +4,7 @@ import {
   Award,
   BookOpen,
   CalendarDays,
+  BellRing,
   CheckCircle2,
   ExternalLink,
   GraduationCap,
@@ -58,6 +59,13 @@ import type {
   VerifiedCertificate,
 } from "./types";
 import { AcademyPwaControls } from "./pwa/AcademyPwaControls";
+import {
+  NATIVE_OAUTH_REDIRECT_URL,
+  isNativeShell,
+  openNativeAuthBrowser,
+  setNativeAuthDestination,
+} from "../../../src/lib/auth/native-oauth";
+import { scheduleLiveSessionReminders } from "../../../src/lib/academy/live-session-reminders";
 
 const academyBasePath = (() => {
   const configured = import.meta.env.VITE_ACADEMY_BASE_PATH?.trim();
@@ -86,6 +94,7 @@ function isGoogleAccount(user: User): boolean {
 
 async function startTeacherGoogleSignIn(): Promise<void> {
   requireAcademyBackend();
+  const native = await isNativeShell();
   const redirectTo = new URL(
     academyBasePath.length > 0 ? academyUrl("/callback") : academyUrl(),
     window.location.origin,
@@ -93,13 +102,19 @@ async function startTeacherGoogleSignIn(): Promise<void> {
   const { data, error } = await academySupabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo,
+      redirectTo: native ? NATIVE_OAUTH_REDIRECT_URL : redirectTo,
       skipBrowserRedirect: true,
       queryParams: { prompt: "select_account" },
     },
   });
   if (error) throw error;
   if (!data.url) throw new Error("تعذّر بدء تسجيل الدخول عبر Google.");
+
+  if (native) {
+    setNativeAuthDestination("teacher");
+    await openNativeAuthBrowser(data.url);
+    return;
+  }
 
   const isEmbedded = window.top !== window.self;
   if (isEmbedded) {
@@ -146,6 +161,7 @@ function ProgramDetails({
 }) {
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [reminderMessage, setReminderMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -211,6 +227,7 @@ function ProgramDetails({
           <CalendarDays /> المحاضرات المباشرة
         </h3>
         {sessionsError ? <div className="notice error-notice">{sessionsError}</div> : null}
+        {reminderMessage ? <div className="notice">{reminderMessage}</div> : null}
         {sessions.length === 0 ? (
           <p className="muted">لا توجد محاضرة مباشرة مجدولة حاليًا.</p>
         ) : null}
@@ -237,14 +254,34 @@ function ProgramDetails({
               {session.instructions ? <p>{session.instructions}</p> : null}
             </div>
             {session.status === "SCHEDULED" ? (
-              <a
-                className="primary-button"
-                href={session.meeting_url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <ExternalLink /> الانضمام للمحاضرة
-              </a>
+              <div className="live-session-actions">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const count = await scheduleLiveSessionReminders(session);
+                      setReminderMessage(
+                        count > 0
+                          ? `تم تفعيل ${count} من تذكيرات المحاضرة على هذا الجهاز.`
+                          : "موعد المحاضرة قريب أو انتهى؛ لا توجد تذكيرات مستقبلية لإضافتها.",
+                      );
+                    } catch (error) {
+                      setReminderMessage(getErrorMessage(error));
+                    }
+                  }}
+                >
+                  <BellRing /> تفعيل التذكير
+                </button>
+                <a
+                  className="primary-button"
+                  href={session.meeting_url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <ExternalLink /> الانضمام للمحاضرة
+                </a>
+              </div>
             ) : (
               <span className="status stopped">ملغاة</span>
             )}
