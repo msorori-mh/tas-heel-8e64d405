@@ -52,7 +52,7 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
     expect(gradle).not.toMatch(/keyPassword\s+["'][^"']+["']/);
   });
 
-  it("builds the signed AAB only from a manual, secret-backed workflow", () => {
+  it("builds the signed AAB only through the secret-backed release job", () => {
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("github.event_name == 'workflow_dispatch'");
     expect(workflow).toContain("ANDROID_UPLOAD_KEYSTORE_BASE64");
@@ -64,5 +64,12 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
     expect(workflow).toContain("keytool -list");
     expect(workflow).toContain("rm -f android/keystore.properties");
     expect(workflow).not.toContain("CHANGE_ME");
+  });
+
+  it("builds the signed 1.1.0 bundle after an Android main release merge", () => {
+    expect(workflow).toContain(
+      "github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')",
+    );
+    expect(workflow).toContain("tamkeen-play-testing-1.1.0-code-5-signed-aab");
   });
 });
