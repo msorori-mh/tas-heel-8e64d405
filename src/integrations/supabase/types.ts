@@ -4963,6 +4963,18 @@ export type Database = {
       }
     }
     Functions: {
+      admin_list_students_filtered: {
+        Args: {
+          p_governorate_id?: string
+          p_grade_id?: string
+          p_page?: number
+          p_page_size?: number
+          p_school_name?: string
+          p_search?: string
+        }
+        Returns: Json
+      }
+      admin_student_filter_options: { Args: never; Returns: Json }
       _lesson_question_content_fingerprint: {
         Args: { p: Json; p_role: string }
         Returns: string
