@@ -63,6 +63,7 @@ import type {
   TeacherProfile,
   VerifiedCertificate,
 } from "./types";
+import { AcademyPwaControls } from "./pwa/AcademyPwaControls";
 
 const academyBasePath = (() => {
   const configured = import.meta.env.VITE_ACADEMY_BASE_PATH?.trim();
@@ -1586,7 +1587,7 @@ function PortalMismatch({
   );
 }
 
-export function App({ portal }: { portal?: AcademyPortal }) {
+function AcademyContent({ portal }: { portal?: AcademyPortal }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [capabilities, setCapabilities] = useState<Set<AcademyCapability>>(new Set());
@@ -1738,5 +1739,14 @@ export function App({ portal }: { portal?: AcademyPortal }) {
       capabilities={new Set<AcademyCapability>()}
       onProfileChanged={setProfile}
     />
+  );
+}
+
+export function App({ portal }: { portal?: AcademyPortal }) {
+  return (
+    <>
+      <AcademyPwaControls />
+      <AcademyContent portal={portal} />
+    </>
   );
 }
