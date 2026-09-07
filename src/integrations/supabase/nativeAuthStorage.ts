@@ -9,6 +9,13 @@ type NativePreferences = {
   remove(options: { key: string }): Promise<void>;
 };
 
+function isUnimplementedPluginError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const code = "code" in error ? String(error.code).toUpperCase() : "";
+  const message = "message" in error ? String(error.message) : "";
+  return code === "UNIMPLEMENTED" || /plugin is not implemented/i.test(message);
+}
+
 /**
  * Supabase auth storage for the native shell.
  *
@@ -38,16 +45,23 @@ export function createDurableNativeAuthStorage(
     },
 
     async setItem(key: string, value: string): Promise<void> {
-      // Native persistence is the source of truth. Do not report a successful
-      // sign-in if the durable write failed and the next launch would lose it.
-      await preferences.set({ key, value });
+      try {
+        await preferences.set({ key, value });
+      } catch (error) {
+        // Compatibility bridge for Play builds released before the Preferences
+        // plugin was registered. Keep failing closed for every other native
+        // storage error; the signed update restores durable Preferences.
+        if (!isUnimplementedPluginError(error)) throw error;
+      }
       fallback.setItem(key, value);
     },
 
     async removeItem(key: string): Promise<void> {
-      // Clear the durable copy first so a failed sign-out can never resurrect
-      // an older refresh token on the next app launch.
-      await preferences.remove({ key });
+      try {
+        await preferences.remove({ key });
+      } catch (error) {
+        if (!isUnimplementedPluginError(error)) throw error;
+      }
       fallback.removeItem(key);
     },
   };
