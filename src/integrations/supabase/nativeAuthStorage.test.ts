@@ -73,4 +73,28 @@ describe("durable native auth storage", () => {
     );
     expect(fallback.getItem("sb-auth-token")).toBeNull();
   });
+
+  it("falls back only when an older Android build does not implement Preferences", async () => {
+    const fallback = memoryStorage();
+    const unavailable = new Error('"Preferences" plugin is not implemented on android');
+    const storage = createDurableNativeAuthStorage(
+      {
+        get: async () => {
+          throw unavailable;
+        },
+        set: async () => {
+          throw unavailable;
+        },
+        remove: async () => {
+          throw unavailable;
+        },
+      },
+      fallback,
+    );
+
+    await storage.setItem("sb-auth-token", "compatible-session");
+    await expect(storage.getItem("sb-auth-token")).resolves.toBe("compatible-session");
+    await storage.removeItem("sb-auth-token");
+    expect(fallback.getItem("sb-auth-token")).toBeNull();
+  });
 });
