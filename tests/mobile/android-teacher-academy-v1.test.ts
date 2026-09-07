@@ -24,7 +24,10 @@ describe("Android teacher academy V1", () => {
     const landing = read("src/routes/index.tsx");
     const studentShell = read("src/components/student/StudentShell.tsx");
     expect(landing).toContain('to="/academy"');
-    expect(landing).toContain("أكاديمية المعلمين");
+    expect(landing).toContain("دخول الطالب");
+    expect(landing).toContain("دخول المعلم");
+    expect(landing).not.toContain("ابدأ الآن");
+    expect(landing).not.toContain(">\\n                  تسجيل الدخول\\n");
     expect(studentShell).toContain('href="/academy"');
     expect(studentShell).toContain("أكاديمية المعلمين");
     expect(read("capacitor.config.ts")).toContain('appName: "تمكين"');
