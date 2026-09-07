@@ -111,7 +111,7 @@ jobs:
 
   signed-play-bundle:
     name: Signed Play testing AAB
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: debug-bundle
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -185,7 +185,7 @@ jobs:
       - name: Upload signed AAB
         uses: actions/upload-artifact@v4
         with:
-          name: tamkeen-play-testing-1.0.2-code-3-signed-aab
+          name: tamkeen-play-testing-1.1.0-code-5-signed-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
