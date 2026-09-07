@@ -17,13 +17,22 @@ const page = readFileSync(
 test("student directory RPCs are admin-only and anon cannot execute them", () => {
   assert.match(migration, /not public\.has_role\(auth\.uid\(\), 'admin'/);
   assert.match(migration, /raise exception 'forbidden' using errcode = '42501'/);
-  assert.match(migration, /revoke all on function public\.admin_list_students_filtered[\s\S]*from public, anon/);
-  assert.match(migration, /revoke all on function public\.admin_student_filter_options\(\) from public, anon/);
+  assert.match(
+    migration,
+    /revoke all on function public\.admin_list_students_filtered[\s\S]*from public, anon/,
+  );
+  assert.match(
+    migration,
+    /revoke all on function public\.admin_student_filter_options\(\) from public, anon/,
+  );
 });
 
 test("student counts exclude teacher and privileged staff identities", () => {
   assert.match(migration, /academy\.teacher_profiles/);
-  assert.match(migration, /user_roles\.role in \('admin'[\s\S]*'content_manager'[\s\S]*'moderator'/);
+  assert.match(
+    migration,
+    /user_roles\.role in \('admin'[\s\S]*'content_manager'[\s\S]*'moderator'/,
+  );
 });
 
 test("filters and counts are evaluated on the server before pagination", () => {
@@ -41,4 +50,3 @@ test("admin page exposes cumulative governorate, grade, and school filters", () 
   assert.match(page, /عدد الطلاب المطابقين/);
   assert.match(page, /مسح الفلاتر/);
 });
-
