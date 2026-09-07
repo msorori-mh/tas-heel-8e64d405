@@ -28,9 +28,52 @@ const ICON_MAP: Record<string, LucideIcon> = {
 type AchievementsSectionProps = {
   badges: EarnedBadge[];
   loading: boolean;
+  /** De-clutter pass: home uses a light horizontal badge strip; /progress keeps the full grid. */
+  compact?: boolean;
 };
 
-export function AchievementsSection({ badges, loading }: AchievementsSectionProps) {
+export function AchievementsSection({ badges, loading, compact = false }: AchievementsSectionProps) {
+  if (compact) {
+    return (
+      <section aria-label="الإنجازات">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-black text-foreground">إنجازاتك</h2>
+          <Link to="/progress" className="text-xs font-bold text-primary">
+            الكل
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center rounded-xl border border-border bg-card py-4">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <ul className="flex snap-x gap-2 overflow-x-auto pb-1">
+            {badges.map((badge) => {
+              const Icon = ICON_MAP[badge.icon] ?? Award;
+              return (
+                <li
+                  key={badge.id}
+                  className="flex shrink-0 snap-start items-center gap-2 rounded-full border border-border/60 bg-card py-1.5 pl-3 pr-1.5"
+                >
+                  <span
+                    className="flex h-7 w-7 items-center justify-center rounded-full"
+                    style={{ backgroundColor: `${badge.color}20`, color: badge.color }}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="max-w-28 truncate text-xs font-bold text-foreground">
+                    {badge.name}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section aria-label="الإنجازات" className="flex h-full flex-col">
       <h2 className="mb-3 text-xl font-bold text-foreground lg:text-[22px]">إنجازاتك</h2>
