@@ -10,7 +10,6 @@ import { ContinueLearningCard } from "@/components/home/ContinueLearningCard";
 import { DailyGoalCard } from "@/components/home/DailyGoalCard";
 import { NeedsAttentionSection } from "@/components/home/NeedsAttentionSection";
 import { CompactProgress } from "@/components/home/CompactProgress";
-import { HomeSubscriptionBanner } from "@/components/home/HomeSubscriptionBanner";
 import { AchievementsSection } from "@/components/home/AchievementsSection";
 import { AiAssistantCard } from "@/components/home/AiAssistantCard";
 import { SemesterPicker } from "@/components/home/SemesterPicker";
@@ -50,8 +49,6 @@ function StudentHome() {
     <div className="ds-v2 space-y-4 pb-4 lg:space-y-5" dir="rtl">
       {/* 1. Greeting */}
       <HomeGreeting hint="خطوة واحدة اليوم تصنع الفرق." />
-
-      <HomeSubscriptionBanner />
 
       {/* 2–3. One focused momentum row: next action first, daily target second. */}
       <div className="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.75fr)]">
