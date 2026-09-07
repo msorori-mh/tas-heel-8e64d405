@@ -28,7 +28,10 @@ test("academy catalog includes the eight canonical Grade 12 subject groups", () 
 });
 
 test("legacy generic subjects are deactivated without destructive deletion", () => {
-  assert.match(migration, /set is_active = false\s+where code in \('SOCIAL_STUDIES', 'COMPUTER'\)/i);
+  assert.match(
+    migration,
+    /set is_active = false\s+where code in \('SOCIAL_STUDIES', 'COMPUTER'\)/i,
+  );
   assert.doesNotMatch(migration, /delete\s+from\s+academy\.subjects/i);
 });
 
