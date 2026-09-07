@@ -120,21 +120,13 @@ function HeroSection() {
             </p>
 
             <div className="mt-4 flex flex-wrap justify-center gap-2.5 lg:justify-start">
-              <Link to="/auth" search={{ mode: "signup" }}>
+              <Link to="/auth" search={{ mode: "login" }}>
                 <Button
                   size="lg"
                   className="fm-press fm-grad rounded-xl px-5 py-5 text-[15px] font-bold text-primary-foreground shadow-sm hover:opacity-95"
                 >
-                  ابدأ الآن
-                </Button>
-              </Link>
-              <Link to="/auth" search={{ mode: "login" }}>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="fm-press rounded-xl border-primary/25 bg-card px-5 py-5 text-[15px] font-bold text-primary"
-                >
-                  تسجيل الدخول
+                  <BookOpen className="ml-2 h-4 w-4" />
+                  دخول الطالب
                 </Button>
               </Link>
               <Link to="/academy">
@@ -144,7 +136,7 @@ function HeroSection() {
                   className="fm-press rounded-xl border-secondary/40 bg-secondary/5 px-5 py-5 text-[15px] font-bold text-secondary hover:bg-secondary/10"
                 >
                   <GraduationCap className="ml-2 h-4 w-4" />
-                  أكاديمية المعلمين
+                  دخول المعلم
                 </Button>
               </Link>
             </div>
