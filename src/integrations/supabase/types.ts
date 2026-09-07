@@ -4963,18 +4963,6 @@ export type Database = {
       }
     }
     Functions: {
-      admin_list_students_filtered: {
-        Args: {
-          p_governorate_id?: string
-          p_grade_id?: string
-          p_page?: number
-          p_page_size?: number
-          p_school_name?: string
-          p_search?: string
-        }
-        Returns: Json
-      }
-      admin_student_filter_options: { Args: never; Returns: Json }
       _lesson_question_content_fingerprint: {
         Args: { p: Json; p_role: string }
         Returns: string
@@ -5176,6 +5164,17 @@ export type Database = {
         Args: { _expected_preview_sha256: string }
         Returns: Json
       }
+      admin_list_students_filtered: {
+        Args: {
+          p_governorate_id?: string
+          p_grade_id?: string
+          p_page?: number
+          p_page_size?: number
+          p_school_name?: string
+          p_search?: string
+        }
+        Returns: Json
+      }
       admin_lock_curriculum_prelaunch_purge: {
         Args: { _confirmation: string; _reason: string }
         Returns: Json
@@ -5208,6 +5207,7 @@ export type Database = {
         Args: { _lesson_id: string; _resource_id: string }
         Returns: Json
       }
+      admin_student_filter_options: { Args: never; Returns: Json }
       admin_subject_track_detach: {
         Args: {
           _curriculum_track_id: string
