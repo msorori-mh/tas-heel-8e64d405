@@ -1,449 +1,130 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { supabase } from "@/integrations/supabase/client";
-import { translateAuthError, getAuthRedirectUrl } from "@/lib/auth-helpers";
-import { startGoogleSignIn } from "@/lib/auth/google-sign-in";
+import { BookOpen, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useAuth } from "@/hooks/use-auth";
-import { UserPlus, LogIn, Mail, Sparkles, BookOpen, Zap } from "lucide-react";
 import { StudentTamkeenMark } from "@/components/brand/StudentTamkeenBrand";
+import { useAuth } from "@/hooks/use-auth";
+import { translateAuthError } from "@/lib/auth-helpers";
+import { startGoogleSignIn } from "@/lib/auth/google-sign-in";
 
+// Keep old bookmarked links compatible while exposing one Google-only entry.
 const searchSchema = z.object({
-  mode: z.enum(["signup", "login"]).catch("login"),
+  mode: z.enum(["signup", "login"]).catch("login").optional(),
 });
 
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "الدخول إلى تمكين" },
-      { name: "description", content: "سجّل دخولك أو أنشئ حسابًا جديدًا في تمكين." },
+      { title: "دخول الطالب | تمكين" },
+      { name: "description", content: "سجّل بحساب Google وابدأ التعلّم في تمكين." },
     ],
   }),
-  component: AuthPage,
+  component: StudentAuthPage,
 });
 
-const PHONE_OTP_ENABLED = false;
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0">
+      <path
+        fill="#4285f4"
+        d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.41Z"
+      />
+      <path
+        fill="#34a853"
+        d="M12 22c2.7 0 4.98-.9 6.63-2.36l-3.24-2.54c-.9.6-2.05.96-3.39.96-2.61 0-4.82-1.76-5.61-4.13H3.05v2.62A10 10 0 0 0 12 22Z"
+      />
+      <path
+        fill="#fbbc05"
+        d="M6.39 13.93A6 6 0 0 1 6.08 12c0-.67.11-1.32.31-1.93V7.45H3.05A10 10 0 0 0 2 12c0 1.64.39 3.2 1.05 4.55l3.34-2.62Z"
+      />
+      <path
+        fill="#ea4335"
+        d="M12 5.94c1.47 0 2.79.5 3.82 1.5l2.88-2.88A9.67 9.67 0 0 0 12 2a10 10 0 0 0-8.95 5.45l3.34 2.62C7.18 7.7 9.39 5.94 12 5.94Z"
+      />
+    </svg>
+  );
+}
 
-function AuthPage() {
+function StudentAuthPage() {
   const navigate = useNavigate();
-  const { mode } = Route.useSearch();
   const { session, profileComplete, loading } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
     if (session) navigate({ to: profileComplete ? "/app" : "/complete-profile", replace: true });
   }, [session, loading, profileComplete, navigate]);
 
-  const setMode = (m: "signup" | "login") =>
-    navigate({ to: "/auth", search: { mode: m }, replace: true });
+  async function continueWithGoogle() {
+    setBusy(true);
+    setError(null);
+    try {
+      await startGoogleSignIn();
+    } catch (signInError) {
+      setError(translateAuthError(signInError));
+      setBusy(false);
+    }
+  }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center bg-background px-4 py-10"
+    <main
+      className="flex min-h-screen items-center justify-center bg-background px-4 py-10"
       dir="rtl"
     >
-      <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-card">
-        <Link
-          to="/"
-          aria-label="تمكين الطالب — العودة للرئيسية"
-          className="flex items-center gap-2 text-sm font-bold text-foreground"
-        >
-          <StudentTamkeenMark className="h-9 w-9 rounded-xl bg-[#FBFAF7] p-1 ring-1 ring-border/60" />
-          <span>تمكين الطالب</span>
-          <span className="mr-auto font-normal text-muted-foreground">→ الرئيسية</span>
-        </Link>
+      <section className="w-full max-w-md rounded-2xl border bg-card p-6 text-center shadow-card sm:p-8">
+        <StudentTamkeenMark className="mx-auto h-14 w-14 rounded-2xl bg-[#FBFAF7] p-2 ring-1 ring-border/60" />
 
-        <div className="mt-4 inline-flex w-full rounded-xl border-2 border-border bg-muted p-1.5 text-sm">
-          <button
-            type="button"
-            onClick={() => setMode("signup")}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 transition-all ${
-              mode === "signup"
-                ? "bg-accent text-accent-foreground font-bold shadow-md"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+        <div className="mt-5">
+          <p className="text-sm font-bold text-primary">مساحة الطلاب</p>
+          <h1 className="mt-2 text-2xl font-extrabold text-foreground">مرحبًا بك في تمكين</h1>
+          <p className="mt-2 text-sm leading-7 text-muted-foreground">
+            سجّل بحساب Google وابدأ التعلّم.
+          </p>
+        </div>
+
+        {error ? (
+          <p
+            role="alert"
+            className="mt-5 rounded-xl bg-destructive/10 p-3 text-sm text-destructive"
           >
-            <UserPlus className="h-4 w-4" />
-            إنشاء حساب
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("login")}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 transition-all ${
-              mode === "login"
-                ? "bg-primary text-primary-foreground font-bold shadow-md"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <LogIn className="h-4 w-4" />
-            تسجيل دخول
-          </button>
-        </div>
-
-        {mode === "signup" ? (
-          <SignupPanel onSwitch={() => setMode("login")} />
-        ) : (
-          <LoginPanel onSwitch={() => setMode("signup")} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SignupPanel({ onSwitch }: { onSwitch: () => void }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  const handlePasswordSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErr(null);
-    setMsg(null);
-    const v = email.trim();
-    if (!/\S+@\S+\.\S+/.test(v)) {
-      setErr("أدخل بريدًا إلكترونيًا صالحًا.");
-      return;
-    }
-    if (password.length < 6) {
-      setErr("كلمة المرور يجب أن تكون 6 أحرف على الأقل.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: v,
-        password,
-        options: { emailRedirectTo: getAuthRedirectUrl("/auth/callback") },
-      });
-      if (error) throw error;
-      if (data.session) {
-        setMsg("تم إنشاء الحساب وتسجيل الدخول.");
-      } else {
-        setMsg("أرسلنا رسالة تأكيد إلى بريدك. افتحها لتفعيل الحساب ثم سجّل الدخول.");
-      }
-    } catch (e2) {
-      setErr(translateAuthError(e2));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const isEmail = (v: string) => /\S+@\S+\.\S+/.test(v.trim());
-
-  const handleGoogle = async () => {
-    setErr(null);
-    setBusy(true);
-    try {
-      await startGoogleSignIn();
-    } catch (e) {
-      setErr(translateAuthError(e));
-      setBusy(false);
-    }
-  };
-
-  const handleEmailSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErr(null);
-    setMsg(null);
-    const v = email.trim();
-    if (!isEmail(v)) {
-      setErr("أدخل بريدًا إلكترونيًا صالحًا.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: v,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: getAuthRedirectUrl("/auth/callback"),
-        },
-      });
-      if (error) throw error;
-      setMsg("أرسلنا رابط تفعيل حسابك إلى بريدك. افتح الرسالة لإكمال إنشاء الحساب.");
-    } catch (e2) {
-      setErr(translateAuthError(e2));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="mt-6 space-y-4">
-      <div className="text-center">
-        <div className="inline-flex items-center gap-2 rounded-full bg-accent/10 px-3 py-1 text-xs font-bold text-accent">
-          <Sparkles className="h-3.5 w-3.5" />
-          حساب جديد
-        </div>
-        <h1 className="mt-3 text-2xl font-extrabold">أنشئ حسابك في تمكين</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          انضم إلى آلاف طلاب الثانوية وابدأ رحلتك للتفوّق.
-        </p>
-      </div>
-
-      <Button
-        type="button"
-        className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold"
-        onClick={handleGoogle}
-        disabled={busy}
-      >
-        <UserPlus className="ml-2 h-4 w-4" />
-        سجّل عبر Google
-      </Button>
-
-      <div className="my-2 flex items-center gap-3 text-xs text-muted-foreground">
-        <div className="h-px flex-1 bg-border" /> أو عبر البريد{" "}
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <form onSubmit={handlePasswordSignup} className="space-y-3">
-        <div>
-          <Label htmlFor="signup-email">البريد الإلكتروني</Label>
-          <Input
-            id="signup-email"
-            type="email"
-            dir="ltr"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@example.com"
-            autoComplete="email"
-            required
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="signup-password">كلمة المرور</Label>
-          <Input
-            id="signup-password"
-            type="password"
-            dir="ltr"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="6 أحرف على الأقل"
-            autoComplete="new-password"
-            minLength={6}
-            required
-          />
-        </div>
-
-        {err && <p className="text-sm text-destructive">{err}</p>}
-        {msg && <p className="text-sm text-primary">{msg}</p>}
-
-        <Button
-          type="submit"
-          variant="outline"
-          className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground"
-          disabled={busy}
-        >
-          <Mail className="ml-2 h-4 w-4" />
-          {busy ? "..." : "أنشئ حسابي بالبريد وكلمة المرور"}
-        </Button>
-      </form>
-
-      <ul className="space-y-1.5 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
-        <li className="flex items-center gap-2">
-          <Zap className="h-3.5 w-3.5 text-accent" /> مجاني للبدء — بدون بطاقة
-        </li>
-        <li className="flex items-center gap-2">
-          <BookOpen className="h-3.5 w-3.5 text-primary" /> محتوى مصمم حسب المنهج والمحافظة
-        </li>
-        <li className="flex items-center gap-2">
-          <Sparkles className="h-3.5 w-3.5 text-secondary" /> تدرّب على نماذج اختبارات حقيقية
-        </li>
-      </ul>
-
-      <p className="text-center text-xs text-muted-foreground">
-        لديك حساب بالفعل؟{" "}
-        <button type="button" onClick={onSwitch} className="font-bold text-primary hover:underline">
-          سجّل الدخول
-        </button>
-      </p>
-    </div>
-  );
-}
-
-function LoginPanel({ onSwitch }: { onSwitch: () => void }) {
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  const handlePasswordLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErr(null);
-    setMsg(null);
-    const v = identifier.trim();
-    if (!/\S+@\S+\.\S+/.test(v)) {
-      setErr("أدخل بريدًا إلكترونيًا صالحًا.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email: v, password });
-      if (error) throw error;
-    } catch (e2) {
-      setErr(translateAuthError(e2));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const isEmail = (v: string) => /\S+@\S+\.\S+/.test(v.trim());
-  const isPhoneLike = (v: string) => /^\+?\d[\d\s-]{6,}$/.test(v.trim());
-
-  const handleGoogle = async () => {
-    setErr(null);
-    setBusy(true);
-    try {
-      await startGoogleSignIn();
-    } catch (e) {
-      setErr(translateAuthError(e));
-      setBusy(false);
-    }
-  };
-
-  const handleSendCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErr(null);
-    setMsg(null);
-
-    const v = identifier.trim();
-    if (isEmail(v)) {
-      setBusy(true);
-      try {
-        const { error } = await supabase.auth.signInWithOtp({
-          email: v,
-          options: { emailRedirectTo: getAuthRedirectUrl("/auth/callback") },
-        });
-        if (error) throw error;
-        setMsg("أرسلنا رابط/كود تسجيل الدخول إلى بريدك. افتح الرسالة لإتمام الدخول.");
-      } catch (e2) {
-        setErr(translateAuthError(e2));
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
-
-    if (isPhoneLike(v)) {
-      if (!PHONE_OTP_ENABLED) {
-        setErr("تسجيل الدخول برقم الهاتف سيتوفر قريبًا. استخدم البريد الإلكتروني أو حساب Google.");
-        return;
-      }
-      return;
-    }
-
-    setErr("أدخل بريدًا إلكترونيًا صالحًا أو رقم هاتف.");
-  };
-
-  return (
-    <div className="mt-6 space-y-4">
-      <div className="text-center">
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-          <LogIn className="h-3.5 w-3.5" />
-          عودة إلى حسابك
-        </div>
-        <h1 className="mt-3 text-2xl font-extrabold">مرحبًا بعودتك</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          سجّل الدخول لمتابعة دروسك من حيث توقفت.
-        </p>
-      </div>
-
-      <Button
-        type="button"
-        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
-        onClick={handleGoogle}
-        disabled={busy}
-      >
-        <LogIn className="ml-2 h-4 w-4" />
-        ادخل بحساب Google
-      </Button>
-
-      <div className="my-2 flex items-center gap-3 text-xs text-muted-foreground">
-        <div className="h-px flex-1 bg-border" /> أو بالبريد وكلمة المرور{" "}
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <form onSubmit={handlePasswordLogin} className="space-y-3">
-        <div>
-          <Label htmlFor="id">البريد الإلكتروني</Label>
-          <Input
-            id="id"
-            type="email"
-            dir="ltr"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            placeholder="name@example.com"
-            autoComplete="email"
-            required
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="login-password">كلمة المرور</Label>
-          <Input
-            id="login-password"
-            type="password"
-            dir="ltr"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setErr(null);
-              setMsg(null);
-            }}
-            autoComplete="current-password"
-            required
-          />
-        </div>
-
-        {err && <p className="text-sm text-destructive">{err}</p>}
-        {msg && <p className="text-sm text-primary">{msg}</p>}
-
-        <Button
-          type="submit"
-          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
-          disabled={busy}
-        >
-          <LogIn className="ml-2 h-4 w-4" />
-          {busy ? "..." : "تسجيل الدخول"}
-        </Button>
+            {error}
+          </p>
+        ) : null}
 
         <Button
           type="button"
-          variant="outline"
-          className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+          size="lg"
+          className="mt-6 w-full rounded-xl py-6 text-base font-bold"
           disabled={busy}
-          onClick={(e) => handleSendCode(e as unknown as React.FormEvent)}
+          onClick={continueWithGoogle}
         >
-          <Mail className="ml-2 h-4 w-4" />
-          أرسل لي رابط الدخول بدل كلمة المرور
+          {busy ? <LoaderCircle className="ml-2 h-5 w-5 animate-spin" /> : <GoogleMark />}
+          <span className="mr-2">{busy ? "جارٍ فتح Google..." : "المتابعة باستخدام Google"}</span>
         </Button>
 
-        <p className="text-center text-xs text-muted-foreground">
-          <Link to="/forgot-password" className="hover:underline">
-            نسيت كلمة المرور؟
-          </Link>
-        </p>
-        {!PHONE_OTP_ENABLED && (
-          <p className="text-center text-xs text-muted-foreground">
-            تسجيل الدخول برقم الهاتف سيتوفر قريبًا.
-          </p>
-        )}
-      </form>
+        <Link
+          to="/"
+          className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline"
+        >
+          <BookOpen className="h-4 w-4" />
+          العودة لاختيار نوع الحساب
+        </Link>
 
-      <p className="text-center text-xs text-muted-foreground">
-        جديد على تمكين؟{" "}
-        <button type="button" onClick={onSwitch} className="font-bold text-accent hover:underline">
-          أنشئ حسابًا الآن
-        </button>
-      </p>
-    </div>
+        <p className="mt-6 text-xs leading-6 text-muted-foreground">
+          بالمتابعة، أنت توافق على{" "}
+          <Link to="/terms" className="underline hover:text-foreground">
+            شروط الاستخدام
+          </Link>{" "}
+          و
+          <Link to="/privacy" className="underline hover:text-foreground">
+            سياسة الخصوصية
+          </Link>
+          .
+        </p>
+      </section>
+    </main>
   );
 }

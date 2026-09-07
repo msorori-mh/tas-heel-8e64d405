@@ -34,6 +34,27 @@ describe("Android teacher academy V1", () => {
     expect(read("android/app/build.gradle")).toContain("versionCode 5");
   });
 
+  it("keeps public student and teacher entry Google-only while admin stays separate", () => {
+    const studentAuth = read("src/routes/auth.tsx");
+    const teacherPortal = read("apps/teacher-academy/src/App.tsx");
+    const teacherAuth = teacherPortal.slice(
+      teacherPortal.indexOf("function TeacherAuthPage"),
+      teacherPortal.indexOf("function AdminAuthPage"),
+    );
+    const adminAuth = teacherPortal.slice(teacherPortal.indexOf("function AdminAuthPage"));
+
+    expect(studentAuth).toContain("المتابعة باستخدام Google");
+    expect(studentAuth).toContain("العودة لاختيار نوع الحساب");
+    expect(studentAuth).not.toMatch(
+      /signInWithPassword|signInWithOtp|signUp\(|type="password"|type="email"/,
+    );
+    expect(teacherAuth).toContain("المتابعة باستخدام Google");
+    expect(teacherAuth).not.toMatch(
+      /signInWithPassword|signInWithOtp|signUp\(|type="password"|type="email"/,
+    );
+    expect(adminAuth).toContain("signInWithPassword");
+  });
+
   it("uses the native PKCE return flow and restores the teacher destination", () => {
     const academy = read("apps/teacher-academy/src/App.tsx");
     const handler = read("src/components/mobile/NativeAuthDeepLinkHandler.tsx");
