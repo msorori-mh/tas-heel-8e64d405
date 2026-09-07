@@ -30,7 +30,6 @@
   --radius-lg: 22px;
 }
 
-
 * {
   box-sizing: border-box;
 }
@@ -2856,9 +2855,7 @@ textarea:focus {
 .certificate-card {
   position: relative;
   border-color: rgba(244, 166, 63, 0.45);
-  background:
-    radial-gradient(circle at 92% 8%, rgba(244, 166, 63, 0.16), transparent 42%),
-    #fff;
+  background: radial-gradient(circle at 92% 8%, rgba(244, 166, 63, 0.16), transparent 42%), #fff;
 }
 
 .tk-copy-button {

@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const VERSION = "v1";
 const SHELL_CACHE = `tamkeen-academy-shell-${VERSION}`;
 const STATIC_CACHE = `tamkeen-academy-static-${VERSION}`;

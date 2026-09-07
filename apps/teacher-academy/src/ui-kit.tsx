@@ -4,7 +4,14 @@ import { Award, Flame, Medal, Sparkle, Star, Trophy } from "lucide-react";
 export function ProgressBar({ value, label }: { value: number; label?: string }) {
   const safe = Math.max(0, Math.min(100, Math.round(value)));
   return (
-    <div className="tk-progress" role="progressbar" aria-valuenow={safe} aria-label={label ?? "التقدم"} aria-valuemin={0} aria-valuemax={100}>
+    <div
+      className="tk-progress"
+      role="progressbar"
+      aria-valuenow={safe}
+      aria-label={label ?? "التقدم"}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
       <span style={{ width: `${safe}%` }} />
     </div>
   );
@@ -26,7 +33,13 @@ export function ProgressRing({
   return (
     <div className="tk-ring" style={{ width: size, height: size }}>
       <svg width={size} height={size} aria-hidden="true">
-        <circle cx={size / 2} cy={size / 2} r={radius} className="tk-ring-track" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          className="tk-ring-track"
+          strokeWidth={stroke}
+        />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -51,7 +64,11 @@ export type AchievementInput = {
   passedAssessment?: boolean;
 };
 
-export function AchievementBadges({ completedLessons, totalLessons, passedAssessment }: AchievementInput) {
+export function AchievementBadges({
+  completedLessons,
+  totalLessons,
+  passedAssessment,
+}: AchievementInput) {
   const ratio = totalLessons > 0 ? completedLessons / totalLessons : 0;
   const badges = [
     {
@@ -87,7 +104,11 @@ export function AchievementBadges({ completedLessons, totalLessons, passedAssess
   return (
     <div className="tk-badges" aria-label="الإنجازات">
       {badges.map((badge) => (
-        <div className={badge.earned ? "tk-badge earned" : "tk-badge"} key={badge.key} title={badge.hint}>
+        <div
+          className={badge.earned ? "tk-badge earned" : "tk-badge"}
+          key={badge.key}
+          title={badge.hint}
+        >
           <span className="tk-badge-icon">{badge.icon}</span>
           <span className="tk-badge-text">
             <strong>{badge.title}</strong>
@@ -126,7 +147,11 @@ export function NextStepCard({
           {actionLabel}
         </button>
       </div>
-      {typeof progress === "number" ? <ProgressRing value={progress} caption="إنجازك" /> : <Award className="tk-next-step-art" aria-hidden="true" />}
+      {typeof progress === "number" ? (
+        <ProgressRing value={progress} caption="إنجازك" />
+      ) : (
+        <Award className="tk-next-step-art" aria-hidden="true" />
+      )}
     </section>
   );
 }

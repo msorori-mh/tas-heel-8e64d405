@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const VERSION = "v1",
   SHELL = `tamkeen-academy-shell-${VERSION}`,
   STATIC = `tamkeen-academy-static-${VERSION}`;
