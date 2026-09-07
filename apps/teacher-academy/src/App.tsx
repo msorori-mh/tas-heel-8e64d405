@@ -526,9 +526,6 @@ function TeacherAuthPage() {
             المتابعة باستخدام Google
           </button>
           <p className="auth-footnote">لا تحتاج إلى دعوة أو موافقة مسبقة.</p>
-          <a className="text-button link-button" href={academyUrl("/admin")}>
-            دخول إدارة الأكاديمية
-          </a>
         </div>
       </section>
     </main>
@@ -1564,8 +1561,8 @@ function PortalMismatch({
 }: {
   title: string;
   description: string;
-  destination: string;
-  destinationLabel: string;
+  destination?: string;
+  destinationLabel?: string;
 }) {
   return (
     <main className="centered-page">
@@ -1573,9 +1570,11 @@ function PortalMismatch({
         <ShieldCheck className="large-icon" />
         <h1>{title}</h1>
         <p className="muted">{description}</p>
-        <a className="text-button link-button" href={destination}>
-          {destinationLabel}
-        </a>
+        {destination && destinationLabel ? (
+          <a className="text-button link-button" href={destination}>
+            {destinationLabel}
+          </a>
+        ) : null}
         <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
           <LogOut /> تسجيل الخروج وتبديل الحساب
         </button>
@@ -1695,8 +1694,6 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
       <PortalMismatch
         title="بوابة المعلمين تتطلب حساب Google"
         description="سجّل الخروج ثم استخدم زر «المتابعة باستخدام Google» للدخول أو إنشاء حساب معلم."
-        destination={academyUrl("/admin")}
-        destinationLabel="الانتقال إلى دخول الإدارة"
       />
     );
   }
@@ -1704,9 +1701,7 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
     return (
       <PortalMismatch
         title="هذا حساب إدارة الأكاديمية"
-        description="لم يُنشأ لهذا الحساب ملف معلم. استخدم بوابة الإدارة المنفصلة للوصول إلى صلاحياتك."
-        destination={academyUrl("/admin")}
-        destinationLabel="فتح بوابة الإدارة"
+        description="هذا الحساب غير مخصص لبوابة المعلمين. سجّل الخروج ثم استخدم حساب Google الخاص بالمعلم."
       />
     );
   }
