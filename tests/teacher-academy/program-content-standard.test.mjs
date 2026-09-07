@@ -38,6 +38,10 @@ const physicsProgramPath = new URL(
   "../../scripts/teacher-academy/program-content/physics-phenomenon-to-law-v1.json",
   import.meta.url,
 );
+const biologyProgramPath = new URL(
+  "../../scripts/teacher-academy/program-content/biology-inquiry-models-v1.json",
+  import.meta.url,
+);
 const arabicProgramPath = new URL(
   "../../scripts/teacher-academy/program-content/arabic-effective-teaching-v1.json",
   import.meta.url,
@@ -61,6 +65,7 @@ const [
   quranProgramSource,
   mathematicsProgramSource,
   physicsProgramSource,
+  biologyProgramSource,
   arabicProgramSource,
   englishProgramSource,
   subjectProgramSql,
@@ -74,6 +79,7 @@ const [
   readFile(quranProgramPath, "utf8"),
   readFile(mathematicsProgramPath, "utf8"),
   readFile(physicsProgramPath, "utf8"),
+  readFile(biologyProgramPath, "utf8"),
   readFile(arabicProgramPath, "utf8"),
   readFile(englishProgramPath, "utf8"),
   readFile(subjectProgramSqlPath, "utf8"),
@@ -85,6 +91,7 @@ const islamicProgram = JSON.parse(islamicProgramSource);
 const quranProgram = JSON.parse(quranProgramSource);
 const mathematicsProgram = JSON.parse(mathematicsProgramSource);
 const physicsProgram = JSON.parse(physicsProgramSource);
+const biologyProgram = JSON.parse(biologyProgramSource);
 const arabicProgram = JSON.parse(arabicProgramSource);
 const englishProgram = JSON.parse(englishProgramSource);
 
@@ -305,6 +312,18 @@ test("the physics program covers phenomena, models, experiments, safety, and dat
   assert.match(source, /التمثيلات/);
   assert.match(source, /حل المسائل/);
   assert.match(source, /تحليل المخاطر/);
+  assert.match(source, /عدم اليقين/);
+  assert.doesNotMatch(source, /https?:\/\//);
+});
+
+test("the biology program covers concepts, models, inquiry, ethics, and evidence", () => {
+  assertCompleteSubjectProgram(biologyProgram, "BIOLOGY", 12);
+  const source = JSON.stringify(biologyProgram);
+  assert.match(source, /خريطة مفهوم/);
+  assert.match(source, /الرسومات والنماذج/);
+  assert.match(source, /الاستقصاء/);
+  assert.match(source, /عينات بشرية/);
+  assert.match(source, /الارتباط والسببية/);
   assert.match(source, /عدم اليقين/);
   assert.doesNotMatch(source, /https?:\/\//);
 });
