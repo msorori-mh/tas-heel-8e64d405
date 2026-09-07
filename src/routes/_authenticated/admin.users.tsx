@@ -334,7 +334,7 @@ function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u) => (
+                  {filteredUsers.map((u) => (
                     <tr key={u.user_id} className="border-t border-border">
                       <td className="px-4 py-3 text-foreground">{u.email || "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{u.full_name || "—"}</td>
@@ -369,8 +369,8 @@ function AdminUsersPage() {
               </table>
             </div>
 
-            <div className="md:hidden space-y-3">
-              {users.map((u) => (
+            <div className="md:hidden space-y-3 empty:hidden">
+              {filteredUsers.map((u) => (
                 <div
                   key={u.user_id}
                   className="rounded-xl border border-border bg-card p-4 space-y-2"
