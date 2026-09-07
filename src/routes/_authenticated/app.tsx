@@ -50,23 +50,23 @@ function StudentHome() {
       {/* 1. Greeting */}
       <HomeGreeting hint="خطوة واحدة اليوم تصنع الفرق." />
 
-      {/* 2–3. One focused momentum row: next action first, daily target second. */}
+      {/* 2. Subjects first: Semester 1 & Semester 2 cards */}
+      <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)] xl:[&>:only-child]:col-span-2">
+        <SemesterPicker />
+        <CompactProgress stats={stats} />
+      </div>
+
+      {/* 3–4. Focused momentum row: next action first, daily target second. */}
       <div className="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.75fr)]">
         <ContinueLearningCard items={continueItems} loading={continueLoading} />
         <DailyGoalCard items={continueItems} streakDays={stats?.streakDays ?? 0} />
       </div>
 
-      {/* 4. Needs attention — hidden when there is no real signal */}
+      {/* 5. Needs attention — hidden when there is no real signal */}
       <NeedsAttentionSection items={continueItems} />
 
-      {/* 5. Quick actions */}
+      {/* 6. Quick actions */}
       <LearningToolsSection />
-
-      {/* 6–7. Subjects remain primary; progress is a compact supporting panel. */}
-      <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)] xl:[&>:only-child]:col-span-2">
-        <SemesterPicker />
-        <CompactProgress stats={stats} />
-      </div>
 
       {earnedBadges.length > 0 && (
         <AchievementsSection badges={earnedBadges.slice(0, 3)} loading={false} />

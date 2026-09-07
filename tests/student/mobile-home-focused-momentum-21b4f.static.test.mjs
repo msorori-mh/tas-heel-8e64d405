@@ -19,14 +19,14 @@ const progress = read("src/components/home/CompactProgress.tsx");
 const at = (needle) => home.indexOf(needle);
 
 describe("21B4F home order", () => {
-  it("1. Continue Learning appears before lower-priority sections", () => {
+  it("1. Subjects appear first, then focused momentum", () => {
     expect(at("<HomeGreeting")).toBeGreaterThan(-1);
-    expect(at("<ContinueLearningCard")).toBeGreaterThan(at("<HomeGreeting"));
+    expect(at("<SemesterPicker")).toBeGreaterThan(at("<HomeGreeting"));
+    expect(at("<CompactProgress")).toBeGreaterThan(at("<SemesterPicker"));
+    expect(at("<ContinueLearningCard")).toBeGreaterThan(at("<CompactProgress"));
     expect(at("<DailyGoalCard")).toBeGreaterThan(at("<ContinueLearningCard"));
     expect(at("<NeedsAttentionSection")).toBeGreaterThan(at("<DailyGoalCard"));
     expect(at("<LearningToolsSection")).toBeGreaterThan(at("<NeedsAttentionSection"));
-    expect(at("<SemesterPicker")).toBeGreaterThan(at("<LearningToolsSection"));
-    expect(at("<CompactProgress")).toBeGreaterThan(at("<SemesterPicker"));
   });
 
   it("2. new student gets a CTA, not a zero dashboard", () => {
