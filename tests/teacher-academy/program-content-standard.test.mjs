@@ -34,6 +34,10 @@ const mathematicsProgramPath = new URL(
   "../../scripts/teacher-academy/program-content/mathematics-problem-solving-v1.json",
   import.meta.url,
 );
+const physicsProgramPath = new URL(
+  "../../scripts/teacher-academy/program-content/physics-phenomenon-to-law-v1.json",
+  import.meta.url,
+);
 const arabicProgramPath = new URL(
   "../../scripts/teacher-academy/program-content/arabic-effective-teaching-v1.json",
   import.meta.url,
@@ -56,6 +60,7 @@ const [
   islamicProgramSource,
   quranProgramSource,
   mathematicsProgramSource,
+  physicsProgramSource,
   arabicProgramSource,
   englishProgramSource,
   subjectProgramSql,
@@ -68,6 +73,7 @@ const [
   readFile(islamicProgramPath, "utf8"),
   readFile(quranProgramPath, "utf8"),
   readFile(mathematicsProgramPath, "utf8"),
+  readFile(physicsProgramPath, "utf8"),
   readFile(arabicProgramPath, "utf8"),
   readFile(englishProgramPath, "utf8"),
   readFile(subjectProgramSqlPath, "utf8"),
@@ -78,6 +84,7 @@ const chemistryProgram = JSON.parse(chemistryProgramSource);
 const islamicProgram = JSON.parse(islamicProgramSource);
 const quranProgram = JSON.parse(quranProgramSource);
 const mathematicsProgram = JSON.parse(mathematicsProgramSource);
+const physicsProgram = JSON.parse(physicsProgramSource);
 const arabicProgram = JSON.parse(arabicProgramSource);
 const englishProgram = JSON.parse(englishProgramSource);
 
@@ -288,6 +295,18 @@ test("the mathematics program covers diagnosis, representations, errors, and rea
   assert.ok(lessonTitles.some((title) => title.includes("أخطاء")));
   assert.ok(lessonTitles.some((title) => title.includes("حل المشكلات")));
   assert.doesNotMatch(JSON.stringify(mathematicsProgram), /https?:\/\//);
+});
+
+test("the physics program covers phenomena, models, experiments, safety, and data", () => {
+  assertCompleteSubjectProgram(physicsProgram, "PHYSICS", 12);
+  const source = JSON.stringify(physicsProgram);
+  assert.match(source, /التصورات البديلة/);
+  assert.match(source, /الظاهرة/);
+  assert.match(source, /التمثيلات/);
+  assert.match(source, /حل المسائل/);
+  assert.match(source, /تحليل المخاطر/);
+  assert.match(source, /عدم اليقين/);
+  assert.doesNotMatch(source, /https?:\/\//);
 });
 
 test("the Arabic program integrates text, grammar, rhetoric, writing, and assessment", () => {
