@@ -19,6 +19,28 @@ let state: PwaState = {
 const listeners = new Set<Listener>();
 let initialized = false;
 
+function applyAcademyDocumentMetadata(): void {
+  const manifests = document.querySelectorAll<HTMLLinkElement>('link[rel="manifest"]');
+  if (manifests.length === 0) {
+    const manifest = document.createElement("link");
+    manifest.rel = "manifest";
+    manifest.href = "/academy-manifest.webmanifest";
+    document.head.append(manifest);
+  } else {
+    manifests.forEach((manifest) => {
+      manifest.href = "/academy-manifest.webmanifest";
+    });
+  }
+
+  let appleIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
+  if (!appleIcon) {
+    appleIcon = document.createElement("link");
+    appleIcon.rel = "apple-touch-icon";
+    document.head.append(appleIcon);
+  }
+  appleIcon.href = "/academy-apple-touch-icon.png";
+}
+
 function emit(next: Partial<PwaState>) {
   state = { ...state, ...next };
   listeners.forEach((listener) => listener(state));
@@ -64,6 +86,7 @@ export function activateAcademyUpdate(): void {
 export function initializeAcademyPwa(): void {
   if (initialized || typeof window === "undefined") return;
   initialized = true;
+  applyAcademyDocumentMetadata();
 
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();

@@ -39,6 +39,8 @@ test("academy worker is narrow and never caches API or account responses", async
 
 test("academy registers its worker only for the academy scope", async () => {
   const client = await read("apps/teacher-academy/src/pwa/academy-pwa.ts");
+  assert.match(client, /manifest\.href = "\/academy-manifest\.webmanifest"/);
+  assert.match(client, /academy-apple-touch-icon\.png/);
   assert.match(client, /register\("\/academy-sw\.js", \{ scope: "\/academy\/" \}\)/);
   assert.match(client, /window\.isSecureContext/);
   assert.match(client, /SKIP_WAITING/);
