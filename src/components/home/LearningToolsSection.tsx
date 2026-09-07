@@ -40,7 +40,10 @@ export function LearningToolsSection() {
           مراجعة أسرع، أخطاء أوضح، وتقدم يمكنك متابعته.
         </p>
       </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div
+        className="grid gap-3"
+        style={{ gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))" }}
+      >
         <NavTile
           compact
           to="/quick-review"
@@ -75,7 +78,6 @@ export function LearningToolsSection() {
           />
         ) : null}
       </div>
-
     </section>
   );
 }
