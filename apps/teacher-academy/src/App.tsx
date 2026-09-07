@@ -18,13 +18,7 @@ import {
   ChevronDown,
   Copy,
 } from "lucide-react";
-import {
-  AchievementBadges,
-  Celebration,
-  NextStepCard,
-  ProgressBar,
-  ProgressRing,
-} from "./ui-kit";
+import { AchievementBadges, Celebration, NextStepCard, ProgressBar, ProgressRing } from "./ui-kit";
 import { AdminHome } from "./AdminHome";
 import {
   loadCapabilities,
@@ -63,6 +57,7 @@ import type {
   TeacherProfile,
   VerifiedCertificate,
 } from "./types";
+import { AcademyPwaControls } from "./pwa/AcademyPwaControls";
 
 const academyBasePath = (() => {
   const configured = import.meta.env.VITE_ACADEMY_BASE_PATH?.trim();
@@ -973,9 +968,7 @@ function Learning() {
       );
       setLessons(updated);
       const nextLesson = updated.find((item) => !item.completed) ?? null;
-      setCelebrationMessage(
-        nextLesson ? "أحسنت! درس مكتمل" : "رائع! أنهيت كل دروس البرنامج",
-      );
+      setCelebrationMessage(nextLesson ? "أحسنت! درس مكتمل" : "رائع! أنهيت كل دروس البرنامج");
       setCelebration((value) => value + 1);
       if (nextLesson) {
         setOpenLessonId(nextLesson.lesson_id);
@@ -993,7 +986,6 @@ function Learning() {
     }
   }
 
-
   async function refreshSelectedProgram() {
     if (!selected) return;
     const [programItems, lessonItems] = await Promise.all([
@@ -1009,7 +1001,10 @@ function Learning() {
 
   if (selected) {
     const total = selected.total_lessons || lessons.length;
-    const done = lessons.length > 0 ? lessons.filter((item) => item.completed).length : selected.completed_lessons;
+    const done =
+      lessons.length > 0
+        ? lessons.filter((item) => item.completed).length
+        : selected.completed_lessons;
     const progress = total > 0 ? Math.round((done / total) * 100) : 0;
     const nextLesson = lessons.find((item) => !item.completed) ?? null;
 
@@ -1046,7 +1041,8 @@ function Learning() {
         <div className="lesson-list">
           {lessons.map((lesson, index) => {
             const isCurrent = nextLesson?.lesson_id === lesson.lesson_id;
-            const isOpen = openLessonId === lesson.lesson_id || (openLessonId === null && isCurrent);
+            const isOpen =
+              openLessonId === lesson.lesson_id || (openLessonId === null && isCurrent);
             const classes = ["lesson-card"];
             if (lesson.completed) classes.push("completed");
             if (isCurrent) classes.push("tk-current");
@@ -1087,7 +1083,9 @@ function Learning() {
                             className={`learning-section ${section.section_type.toLowerCase()}`}
                             key={section.section_id}
                           >
-                            <h3>{section.title ?? LEARNING_SECTION_LABELS[section.section_type]}</h3>
+                            <h3>
+                              {section.title ?? LEARNING_SECTION_LABELS[section.section_type]}
+                            </h3>
                             <p>{section.content}</p>
                             {section.resource_url ? (
                               <a
@@ -1334,8 +1332,8 @@ function AssessmentPanel({
           label="تقدمك في التقييم"
         />
         <small>
-          {questions.filter((question) => answers[question.question_id]).length} / {questions.length}{" "}
-          سؤال
+          {questions.filter((question) => answers[question.question_id]).length} /{" "}
+          {questions.length} سؤال
         </small>
       </div>
 
@@ -1586,7 +1584,7 @@ function PortalMismatch({
   );
 }
 
-export function App({ portal }: { portal?: AcademyPortal }) {
+function AcademyContent({ portal }: { portal?: AcademyPortal }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [capabilities, setCapabilities] = useState<Set<AcademyCapability>>(new Set());
@@ -1738,5 +1736,14 @@ export function App({ portal }: { portal?: AcademyPortal }) {
       capabilities={new Set<AcademyCapability>()}
       onProfileChanged={setProfile}
     />
+  );
+}
+
+export function App({ portal }: { portal?: AcademyPortal }) {
+  return (
+    <>
+      <AcademyPwaControls />
+      <AcademyContent portal={portal} />
+    </>
   );
 }
