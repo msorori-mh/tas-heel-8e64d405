@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Shield, UserCog, UserPlus } from "lucide-react";
+import { Loader2, Search, Shield, UserCog, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
@@ -58,6 +58,31 @@ function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUserListItem[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "content_manager" | "user">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "disabled">("all");
+
+  const filteredUsers = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return users.filter((u) => {
+      if (q) {
+        const haystack = `${u.email ?? ""} ${u.full_name ?? ""}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      if (roleFilter === "admin" && !u.roles.includes("admin")) return false;
+      if (roleFilter === "content_manager" && !u.roles.includes("content_manager")) return false;
+      if (
+        roleFilter === "user" &&
+        (u.roles.includes("admin") || u.roles.includes("content_manager"))
+      )
+        return false;
+      if (statusFilter !== "all" && u.status !== statusFilter) return false;
+      return true;
+    });
+  }, [users, search, roleFilter, statusFilter]);
+
+  const filtersActive = search.trim() !== "" || roleFilter !== "all" || statusFilter !== "all";
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -227,7 +252,75 @@ function AdminUsersPage() {
           </div>
         ) : (
           <>
-            <div className="hidden md:block overflow-x-auto rounded-xl border border-border bg-card">
+            <div className="rounded-xl border border-border bg-card p-3 space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="ابحث بالبريد أو الاسم…"
+                    className="pr-9 min-h-[44px]"
+                    aria-label="بحث عن مستخدم"
+                  />
+                </div>
+                <Select
+                  value={roleFilter}
+                  onValueChange={(v) => setRoleFilter(v as typeof roleFilter)}
+                >
+                  <SelectTrigger className="sm:w-44 min-h-[44px]" aria-label="تصفية حسب الدور">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل الأدوار</SelectItem>
+                    <SelectItem value="admin">مدير كامل</SelectItem>
+                    <SelectItem value="content_manager">مدير محتوى</SelectItem>
+                    <SelectItem value="user">طالب</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={statusFilter}
+                  onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+                >
+                  <SelectTrigger className="sm:w-36 min-h-[44px]" aria-label="تصفية حسب الحالة">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل الحالات</SelectItem>
+                    <SelectItem value="active">نشط</SelectItem>
+                    <SelectItem value="disabled">معطّل</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  عرض {filteredUsers.length} من {users.length}
+                </p>
+                {filtersActive && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-xs"
+                    onClick={() => {
+                      setSearch("");
+                      setRoleFilter("all");
+                      setStatusFilter("all");
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    مسح الفلاتر
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {filteredUsers.length === 0 && (
+              <div className="rounded-xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
+                لا توجد نتائج مطابقة للفلاتر.
+              </div>
+            )}
+
+            <div className="hidden md:block overflow-x-auto rounded-xl border border-border bg-card data-[empty=true]:hidden" data-empty={filteredUsers.length === 0}>
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
@@ -241,7 +334,7 @@ function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u) => (
+                  {filteredUsers.map((u) => (
                     <tr key={u.user_id} className="border-t border-border">
                       <td className="px-4 py-3 text-foreground">{u.email || "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{u.full_name || "—"}</td>
@@ -276,8 +369,8 @@ function AdminUsersPage() {
               </table>
             </div>
 
-            <div className="md:hidden space-y-3">
-              {users.map((u) => (
+            <div className="md:hidden space-y-3 empty:hidden">
+              {filteredUsers.map((u) => (
                 <div
                   key={u.user_id}
                   className="rounded-xl border border-border bg-card p-4 space-y-2"
