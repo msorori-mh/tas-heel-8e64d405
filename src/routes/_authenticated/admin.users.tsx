@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Shield, UserCog, UserPlus } from "lucide-react";
+import { Loader2, Search, Shield, UserCog, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
@@ -58,6 +58,31 @@ function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUserListItem[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "content_manager" | "user">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "disabled">("all");
+
+  const filteredUsers = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return users.filter((u) => {
+      if (q) {
+        const haystack = `${u.email ?? ""} ${u.full_name ?? ""}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      if (roleFilter === "admin" && !u.roles.includes("admin")) return false;
+      if (roleFilter === "content_manager" && !u.roles.includes("content_manager")) return false;
+      if (
+        roleFilter === "user" &&
+        (u.roles.includes("admin") || u.roles.includes("content_manager"))
+      )
+        return false;
+      if (statusFilter !== "all" && u.status !== statusFilter) return false;
+      return true;
+    });
+  }, [users, search, roleFilter, statusFilter]);
+
+  const filtersActive = search.trim() !== "" || roleFilter !== "all" || statusFilter !== "all";
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
