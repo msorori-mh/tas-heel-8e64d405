@@ -40,14 +40,16 @@ export function LearningToolsSection() {
           مراجعة أسرع، أخطاء أوضح، وتقدم يمكنك متابعته.
         </p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <NavTile
+          compact
           to="/quick-review"
           icon={Sparkles}
           title="المراجعة السريعة"
           description="ملخصات دروسك في بطاقات."
         />
         <NavTile
+          compact
           to="/my-mistakes"
           icon={NotebookPen}
           title="دفتر أخطائي"
@@ -55,6 +57,7 @@ export function LearningToolsSection() {
           tone="bg-accent/10 text-accent"
         />
         <NavTile
+          compact
           to="/performance"
           icon={BarChart3}
           title="تحليل أدائي"
@@ -63,6 +66,7 @@ export function LearningToolsSection() {
         />
         {isThirdSecondary ? (
           <NavTile
+            compact
             to="/ministerial-exams"
             icon={ScrollText}
             title="النماذج الوزارية"
@@ -71,6 +75,7 @@ export function LearningToolsSection() {
           />
         ) : null}
       </div>
+
     </section>
   );
 }

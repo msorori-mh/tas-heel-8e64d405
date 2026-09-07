@@ -14,6 +14,7 @@ export function NavTile({
   description,
   tone = "bg-primary/10 text-primary",
   className,
+  compact = false,
 }: {
   to: string;
   icon: LucideIcon;
@@ -21,13 +22,18 @@ export function NavTile({
   description: string;
   tone?: string;
   className?: string;
+  /** Two-per-row layout: icon on top, no chevron, tighter text. */
+  compact?: boolean;
 }) {
   return (
     <Link
       // Home tiles point at static routes; params are not needed.
       to={to as never}
       className={cn(
-        "flex min-h-20 h-full items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "h-full rounded-2xl border border-border/70 bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        compact
+          ? "flex min-h-28 flex-col items-start gap-2 p-3"
+          : "flex min-h-20 items-center gap-3 p-4",
         className,
       )}
     >
@@ -38,12 +44,27 @@ export function NavTile({
         <Icon className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-bold text-foreground">{title}</span>
-        <span className="mt-0.5 block text-[13px] leading-relaxed text-muted-foreground">
+        <span
+          className={cn(
+            "block text-[15px] font-bold text-foreground",
+            compact ? "leading-snug" : "truncate",
+          )}
+        >
+          {title}
+        </span>
+        <span
+          className={cn(
+            "mt-0.5 block leading-relaxed text-muted-foreground",
+            compact ? "text-[12px]" : "text-[13px]",
+          )}
+        >
           {description}
         </span>
       </span>
-      <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      {compact ? null : (
+        <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      )}
     </Link>
   );
 }
+
