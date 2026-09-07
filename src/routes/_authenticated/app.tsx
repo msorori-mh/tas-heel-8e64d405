@@ -10,7 +10,6 @@ import { ContinueLearningCard } from "@/components/home/ContinueLearningCard";
 import { DailyGoalCard } from "@/components/home/DailyGoalCard";
 import { NeedsAttentionSection } from "@/components/home/NeedsAttentionSection";
 import { CompactProgress } from "@/components/home/CompactProgress";
-import { HomeSubscriptionBanner } from "@/components/home/HomeSubscriptionBanner";
 import { AchievementsSection } from "@/components/home/AchievementsSection";
 import { AiAssistantCard } from "@/components/home/AiAssistantCard";
 import { SemesterPicker } from "@/components/home/SemesterPicker";
