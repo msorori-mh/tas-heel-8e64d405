@@ -22,6 +22,10 @@ const phetLabUpgrade = readFileSync(
   "supabase/migrations/20260913010000_allowlisted_phet_lab_embed.sql",
   "utf8",
 );
+const phetWrapperUpgrade = readFileSync(
+  "supabase/migrations/20260918030000_phet_wrapper_attribution_links.sql",
+  "utf8",
+);
 const errorMessages = readFileSync(
   "src/lib/content-factory/lesson-component-publishing-v2-errors.ts",
   "utf8",
@@ -163,12 +167,21 @@ test("server verification pins uploaded bytes and uses private intake RPCs", () 
 });
 
 test("PhET exception is lab-only, exact-host and online-only", () => {
+  assert.match(rehearsal, /20260913010000_allowlisted_phet_lab_embed\.sql/);
+  assert.match(rehearsal, /20260918030000_phet_wrapper_attribution_links\.sql/);
   assert.match(phetLabUpgrade, /_label = 'labExperimentHtml'/);
   assert.match(phetLabUpgrade, /https:\/\/phet\\\.colorado\\\.edu\/sims\/html\//);
   assert.match(phetLabUpgrade, /externalProvider', 'PHET'/);
   assert.match(phetLabUpgrade, /networkRequired', true/);
   assert.match(phetLabUpgrade, /frame-src https:\/\/phet\.colorado\.edu/);
   assert.match(phetLabUpgrade, /<\(script\|object\|embed\|form\|base\)/);
+  assert.match(phetWrapperUpgrade, /frame_count = 1/);
+  assert.match(phetWrapperUpgrade, /item\.tag_name = 'a'/);
+  assert.match(phetWrapperUpgrade, /item\.attribute_name = 'href'/);
+  assert.match(phetWrapperUpgrade, /PHET_EXTERNAL_RESOURCE_GATE_WIDENED/);
+  assert.match(phetWrapperUpgrade, /<img src=/);
+  assert.match(phetWrapperUpgrade, /<a href=\"https:\/\/example\.com\//);
+  assert.match(phetWrapperUpgrade, /REVOKE ALL .* FROM PUBLIC, anon, authenticated/s);
 });
 
 test("superseded verified attempts are archived without hiding newer replacements", () => {

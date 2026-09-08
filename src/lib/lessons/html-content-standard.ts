@@ -64,7 +64,13 @@ export function isAllowedPhetSimulationUrl(value: string): boolean {
   }
 }
 
-/** A network-backed lab must be a minimal wrapper around one PhET iframe. */
+/**
+ * A network-backed lab must contain exactly one PhET iframe. Authoring tools
+ * commonly add one or more attribution/fallback anchors beside the iframe;
+ * those links are safe when they stay on the exact HTTPS PhET host because the
+ * opaque sandbox cannot navigate or open popups. No second fetch-capable
+ * external resource is accepted.
+ */
 export function isAllowedPhetLabHtml(html: string): boolean {
   const references = Array.from(
     html.matchAll(
@@ -81,15 +87,36 @@ export function isAllowedPhetLabHtml(html: string): boolean {
     return values.filter(Boolean).map((value) => ({ tag, attribute, value }));
   });
   const remote = references.filter(({ value }) => /^(?:https?:)?\/\//i.test(value));
+  const phetFrames = remote.filter(
+    ({ tag, attribute, value }) =>
+      tag === "iframe" && attribute === "src" && isAllowedPhetSimulationUrl(value),
+  );
   return (
-    remote.length === 1 &&
-    remote[0]?.tag === "iframe" &&
-    remote[0]?.attribute === "src" &&
-    isAllowedPhetSimulationUrl(remote[0]?.value ?? "") &&
+    phetFrames.length === 1 &&
+    remote.every(
+      ({ tag, attribute, value }) =>
+        (tag === "iframe" && attribute === "src" && isAllowedPhetSimulationUrl(value)) ||
+        (tag === "a" && attribute === "href" && isAllowedPhetUrl(value)),
+    ) &&
     !/<(?:script|object|embed|form|base)\b/i.test(html) &&
     !/\son[a-z]+\s*=/i.test(html) &&
     !/url\(\s*["']?(?:https?:)?\/\//i.test(html)
   );
+}
+
+function isAllowedPhetUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "phet.colorado.edu" &&
+      url.port === "" &&
+      url.username === "" &&
+      url.password === ""
+    );
+  } catch {
+    return false;
+  }
 }
 
 export const HTML_PROFILE_RULES: Record<HtmlProfile, HtmlProfileRules> = {

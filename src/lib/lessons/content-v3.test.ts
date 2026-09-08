@@ -166,6 +166,35 @@ describe("21C — unified HTML content standard", () => {
     expect(rejected.isValid).toBe(false);
   });
 
+  it("allows PhET attribution links beside the iframe but no other remote resource", () => {
+    const wrapper = STATIC_HTML.replace(
+      "<h1>",
+      '<iframe src="https://phet.colorado.edu/sims/html/density/latest/density_all.html?locale=ar"></iframe><a href="https://phet.colorado.edu/ar/">مقدمة من PhET</a><h1>',
+    );
+    expect(
+      validateHtmlAgainstProfile(wrapper, {
+        profile: "INTERACTIVE_EDUCATIONAL_HTML",
+        capability: "labExperimentHtml",
+      }).isValid,
+    ).toBe(true);
+
+    for (const rejected of [
+      wrapper.replace("https://phet.colorado.edu/ar/", "https://example.com/"),
+      wrapper.replace("<h1>", '<img src="https://phet.colorado.edu/logo.png"><h1>'),
+      wrapper.replace(
+        "</iframe>",
+        '</iframe><iframe src="https://phet.colorado.edu/sims/html/build-an-atom/latest/build-an-atom_all.html"></iframe>',
+      ),
+    ]) {
+      expect(
+        validateHtmlAgainstProfile(rejected, {
+          profile: "INTERACTIVE_EDUCATIONAL_HTML",
+          capability: "labExperimentHtml",
+        }).isValid,
+      ).toBe(false);
+    }
+  });
+
   it("requires RTL and a responsive viewport", () => {
     const res = validateHtmlAgainstProfile("<html><body>نص</body></html>", {
       profile: "STATIC_EDUCATIONAL_HTML",

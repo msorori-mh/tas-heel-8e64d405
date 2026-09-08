@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ImagePlus, Lock, Pencil, Trash2, X } from "lucide-react";
+import { History, ImagePlus, Pencil, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,9 +98,11 @@ function draftsToMedia(
 
 export function MinisterialQuestionsManager({
   model,
+  canDelete,
   onChanged,
 }: {
   model: MinisterialModelRow;
+  canDelete: boolean;
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -218,11 +220,9 @@ export function MinisterialQuestionsManager({
     } catch (error) {
       const message = error instanceof Error ? error.message : "فشل التعديل";
       toast.error(
-        message.includes("MINISTERIAL_EDIT_BLOCKED_SESSIONS_EXIST")
-          ? "لا يمكن تعديل السؤال بعد وجود محاولات طلابية على هذا النموذج."
-          : message.includes("MINISTERIAL_MEDIA_OBJECT_MISSING")
-            ? "إحدى الصور لم تصل إلى التخزين. أعد رفعها ثم احفظ مرة أخرى."
-            : message,
+        message.includes("MINISTERIAL_MEDIA_OBJECT_MISSING")
+          ? "إحدى الصور لم تصل إلى التخزين. أعد رفعها ثم احفظ مرة أخرى."
+          : message,
       );
     } finally {
       setBusy(false);
@@ -262,7 +262,7 @@ export function MinisterialQuestionsManager({
               type="file"
               accept="image/png,image/jpeg,image/webp"
               className="hidden"
-              disabled={busy || hasSessions || isUploading}
+              disabled={busy || isUploading}
               onChange={(event) => {
                 void pickImage(placement, event.target.files?.[0] ?? null);
                 event.target.value = "";
@@ -274,7 +274,7 @@ export function MinisterialQuestionsManager({
               size="sm"
               variant="outline"
               className="h-7 px-2 text-xs"
-              disabled={busy || hasSessions || isUploading}
+              disabled={busy || isUploading}
             >
               <label htmlFor={inputId} className="cursor-pointer">
                 <ImagePlus className="ms-1 h-3.5 w-3.5" aria-hidden />
@@ -291,7 +291,7 @@ export function MinisterialQuestionsManager({
                 size="sm"
                 variant="ghost"
                 className="h-7 px-2 text-xs text-destructive"
-                disabled={busy || hasSessions}
+                disabled={busy}
                 onClick={() => removeImage(placement)}
               >
                 <X className="ms-1 h-3.5 w-3.5" aria-hidden />
@@ -354,13 +354,15 @@ export function MinisterialQuestionsManager({
           <DialogTitle>أسئلة {model.model_label ?? model.model_code}</DialogTitle>
         </DialogHeader>
         <p className="text-xs text-muted-foreground">
-          يمكن التعديل والحذف ما دام النموذج بلا محاولات طلابية. أي تعديل ينشئ نسخة جديدة للسؤال
-          ويعيد النموذج تلقائيًا إلى مسودة قبل إعادة النشر.
+          يمكن لمسؤولي النظام ومسؤولي المحتوى تصحيح السؤال في أي وقت. ينشئ التعديل نسخة جديدة ويعيد
+          النموذج تلقائيًا إلى مسودة قبل إعادة النشر، بينما تبقى المحاولات السابقة مرتبطة بنسختها
+          الأصلية.
         </p>
         {hasSessions && (
           <p className="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-foreground">
-            <Lock className="h-3.5 w-3.5" aria-hidden />
-            توجد محاولات طلابية على هذا النموذج؛ التعديل والحذف واستبدال الصور موقوفة.
+            <History className="h-3.5 w-3.5" aria-hidden />
+            توجد محاولات طلابية محفوظة على النسخة السابقة؛ التصحيح متاح، بينما يظل حذف السؤال
+            موقوفًا لحماية السجل التاريخي.
           </p>
         )}
         {busy && questions.length === 0 ? (
@@ -404,19 +406,22 @@ export function MinisterialQuestionsManager({
                 <Button
                   size="icon"
                   variant="outline"
-                  disabled={question.has_sessions}
                   onClick={() => startEditing(question)}
+                  aria-label={`تعديل السؤال ${question.question_code}`}
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button
-                  size="icon"
-                  variant="destructive"
-                  disabled={question.has_sessions}
-                  onClick={() => void remove(question)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {canDelete && (
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    disabled={question.has_sessions}
+                    onClick={() => void remove(question)}
+                    aria-label={`حذف السؤال ${question.question_code}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
           ))
