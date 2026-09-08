@@ -13,7 +13,6 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
@@ -40,10 +39,7 @@ import java.util.TimeZone;
 @CapacitorPlugin(name = "TamkeenOfflineContent")
 public class TamkeenOfflineContentPlugin extends Plugin {
 
-    private static final String STATE_PATH = "tamkeen/offline/foundation-v1.json";
-    private static final String STATE_BACKUP_PATH = "tamkeen/offline/foundation-v1.backup.json";
     private static final String ARTIFACT_ROOT = "tamkeen/offline-artifacts";
-    private static final long MAX_STATE_BYTES = 16L * 1024 * 1024;
     private static final long MAX_TEXT_ARTIFACT_BYTES = 5L * 1024 * 1024;
     private static final long MAX_LESSON_RESPONSE_BYTES = 20L * 1024 * 1024;
     private static final Object STATE_WRITE_LOCK = new Object();
@@ -64,22 +60,12 @@ public class TamkeenOfflineContentPlugin extends Plugin {
         return out.toByteArray();
     }
 
-    private JSONObject readStatePath(String relativePath) {
+    private JSONObject readState() {
         try {
-            byte[] bytes = readBytes(new File(getContext().getFilesDir(), relativePath), MAX_STATE_BYTES);
-            if (bytes == null) return null;
-            JSONObject state = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
-            if (state.optInt("schemaVersion", -1) != 1) return null;
-            if (state.optJSONArray("packs") == null) return null;
-            return state;
+            return TamkeenOfflineStateStore.read(getContext());
         } catch (Exception ignored) {
             return null;
         }
-    }
-
-    private JSONObject readState() {
-        JSONObject primary = readStatePath(STATE_PATH);
-        return primary != null ? primary : readStatePath(STATE_BACKUP_PATH);
     }
 
     private String activeOwner(JSONObject state) {
@@ -236,41 +222,8 @@ public class TamkeenOfflineContentPlugin extends Plugin {
         return created;
     }
 
-    private void writeUtf8(File file, String value) throws Exception {
-        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-        if (bytes.length <= 0 || bytes.length > MAX_STATE_BYTES) {
-            throw new IllegalStateException("offline_state_size_invalid");
-        }
-        try (FileOutputStream output = new FileOutputStream(file, false)) {
-            output.write(bytes);
-            output.flush();
-            output.getFD().sync();
-        }
-    }
-
-    private void replaceState(JSONObject next, String previous) throws Exception {
-        String encoded = next.toString();
-        File root = new File(getContext().getFilesDir(), "tamkeen/offline");
-        if (!root.exists() && !root.mkdirs()) {
-            throw new IllegalStateException("offline_state_directory_failed");
-        }
-        File primary = new File(getContext().getFilesDir(), STATE_PATH);
-        File backup = new File(getContext().getFilesDir(), STATE_BACKUP_PATH);
-        File temporary = new File(root, "foundation-v1.next.json");
-        boolean installed = false;
-        try {
-            writeUtf8(temporary, encoded);
-            writeUtf8(backup, previous);
-            if (primary.exists() && !primary.delete()) {
-                throw new IllegalStateException("offline_state_replace_failed");
-            }
-            if (!temporary.renameTo(primary)) {
-                throw new IllegalStateException("offline_state_replace_failed");
-            }
-            installed = true;
-        } finally {
-            if (!installed && temporary.exists()) temporary.delete();
-        }
+    private void replaceState(JSONObject next) throws Exception {
+        TamkeenOfflineStateStore.write(getContext(), next);
     }
 
     private JSONObject findLearning(JSONArray learning, String ownerId, String id) {
@@ -370,7 +323,6 @@ public class TamkeenOfflineContentPlugin extends Plugin {
             if (state == null || !ownerId.equals(activeOwner(state))) {
                 throw new IllegalStateException("offline_state_owner_changed");
             }
-            String previous = state.toString();
             JSONArray learning = mutableArray(state, "learning");
             JSONArray outbox = mutableArray(state, "outbox");
             String id = "learn-" + sha256(
@@ -409,7 +361,7 @@ public class TamkeenOfflineContentPlugin extends Plugin {
                 answerText
             );
             state.put("updatedAt", now);
-            replaceState(state, previous);
+            replaceState(state);
         }
     }
 
@@ -426,7 +378,6 @@ public class TamkeenOfflineContentPlugin extends Plugin {
             if (state == null || !ownerId.equals(activeOwner(state))) {
                 throw new IllegalStateException("offline_state_owner_changed");
             }
-            String previous = state.toString();
             JSONArray learning = mutableArray(state, "learning");
             JSONArray outbox = mutableArray(state, "outbox");
             String id = "learn-" + sha256(
@@ -491,7 +442,7 @@ public class TamkeenOfflineContentPlugin extends Plugin {
                 null
             );
             state.put("updatedAt", now);
-            replaceState(state, previous);
+            replaceState(state);
             return scorePercent;
         }
     }

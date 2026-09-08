@@ -12,12 +12,15 @@ const lessonRoute = read("src/routes/api/lesson-file.$resourceId.ts");
 const textbookRoute = read("src/routes/api/subject-textbook.$textbookId.ts");
 
 describe("OFFLINE-01 mobile foundation guards", () => {
-  it("persists native metadata in the app-private data directory", () => {
-    expect(store).toContain('OFFLINE_STATE_NATIVE_DIR = "tamkeen/offline"');
-    expect(store).toContain("directory: Directory.Data");
+  it("persists native metadata through the encrypted transactional bridge", () => {
+    expect(store).toContain(
+      'registerPlugin<TamkeenOfflineStateNativePlugin>("TamkeenOfflineState")',
+    );
+    expect(store).toContain("TamkeenOfflineState.read()");
+    expect(store).toContain("TamkeenOfflineState.write({ snapshot: value })");
     expect(store).toContain("Capacitor.isNativePlatform()");
-    expect(store).toContain("OFFLINE_STATE_NATIVE_BACKUP_PATH");
-    expect(store).toContain("OFFLINE_STATE_CORRUPT");
+    expect(store).not.toContain("Filesystem.writeFile");
+    expect(store).not.toContain("foundation-v1.backup.json");
   });
 
   it("stores stable identifiers and hashes, never temporary delivery URLs", () => {
