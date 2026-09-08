@@ -188,8 +188,7 @@ export function validateHtmlAgainstProfile(
     return { isValid: false, profile: options.profile, findings };
   }
 
-  const phetLab =
-    options.capability === "labExperimentHtml" && isAllowedPhetLabHtml(body);
+  const phetLab = options.capability === "labExperimentHtml" && isAllowedPhetLabHtml(body);
   if (!rules.allowExternalNetwork && EXTERNAL_REF_PATTERN.test(body) && !phetLab) {
     push("EXTERNAL_RESOURCE_FORBIDDEN");
   }

@@ -210,12 +210,7 @@ function assertSelfContainedHtml(
     for (const value of values) {
       const allowedPhetFrame =
         phetLab && tag === "iframe" && attribute === "src" && isAllowedPhetSimulationUrl(value);
-      if (
-        value &&
-        !value.startsWith("data:") &&
-        !value.startsWith("#") &&
-        !allowedPhetFrame
-      ) {
+      if (value && !value.startsWith("data:") && !value.startsWith("#") && !allowedPhetFrame) {
         throw new Error("LCPV2_HTML_DETACHED_RESOURCE:" + value.slice(0, 160));
       }
     }

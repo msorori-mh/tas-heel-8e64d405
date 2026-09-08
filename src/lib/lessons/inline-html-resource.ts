@@ -18,10 +18,7 @@ import { isAllowedPhetLabHtml } from "./html-content-standard.ts";
 
 export const INLINE_HTML_URL_PREFIX = "lesson-internal://html/";
 
-export type InlineHtmlRenderMode =
-  | "STATIC_NO_SCRIPT"
-  | "SANDBOXED_NO_NETWORK"
-  | "SANDBOXED_PHET";
+export type InlineHtmlRenderMode = "STATIC_NO_SCRIPT" | "SANDBOXED_NO_NETWORK" | "SANDBOXED_PHET";
 
 export function isInlineHtmlResourceUrl(url: string | null | undefined): boolean {
   const value = (url ?? "").trim();
@@ -113,7 +110,5 @@ export function inlineHtmlRenderModeForBody(
   body: string,
 ): InlineHtmlRenderMode {
   const base = inlineHtmlRenderMode(htmlResourceType);
-  return base === "SANDBOXED_NO_NETWORK" && isAllowedPhetLabHtml(body)
-    ? "SANDBOXED_PHET"
-    : base;
+  return base === "SANDBOXED_NO_NETWORK" && isAllowedPhetLabHtml(body) ? "SANDBOXED_PHET" : base;
 }

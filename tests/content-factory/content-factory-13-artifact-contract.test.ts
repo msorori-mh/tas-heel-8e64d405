@@ -96,11 +96,8 @@ test("each lab file is validated independently against the same HTML contract", 
     ),
   );
   assert.equal(
-    validateGoldenLessonArtifactBytes(
-      "labExperimentHtml",
-      "lab-phet-lookalike.html",
-      phetLookalike,
-    ).valid,
+    validateGoldenLessonArtifactBytes("labExperimentHtml", "lab-phet-lookalike.html", phetLookalike)
+      .valid,
     false,
   );
   const oversized = new Uint8Array(GOLDEN_ARTIFACT_MAX_BYTES + 1);
