@@ -187,10 +187,11 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
     expect(handler).toMatch(/if \(parsed\.kind === "ignored"\) return;/);
   });
 
-  it("12. 21B4-B offline behaviour is unchanged", () => {
+  it("12. release startup uses the bundled offline entry", () => {
     const cap = read("capacitor.config.ts");
     expect(cap).toMatch(/errorPath: "index\.html"/);
-    expect(cap).toMatch(/url: "https:\/\/studentamkeen\.com"/);
+    expect(cap).not.toMatch(/url: "https:\/\/studentamkeen\.com"/);
+    expect(cap).toMatch(/webDir: "mobile\/www"/);
     expect(read("mobile/www/index.html")).toMatch(/كتبك المحفوظة/);
     // native shell only guards; no offline module touched by this batch
     expect(handler).not.toMatch(/textbook|offline/i);
