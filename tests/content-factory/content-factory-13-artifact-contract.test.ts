@@ -90,6 +90,19 @@ test("each lab file is validated independently against the same HTML contract", 
     validateGoldenLessonArtifactBytes("labExperimentHtml", "lab-phet.html", phet).valid,
     true,
   );
+  const phetWithAttribution = bytes(
+    staticHtml(
+      '<iframe src="https://phet.colorado.edu/sims/html/build-an-atom/latest/build-an-atom_all.html"></iframe><a href="https://phet.colorado.edu/ar/">PhET</a>',
+    ),
+  );
+  assert.equal(
+    validateGoldenLessonArtifactBytes(
+      "labExperimentHtml",
+      "lab-phet-attribution.html",
+      phetWithAttribution,
+    ).valid,
+    true,
+  );
   const phetLookalike = bytes(
     staticHtml(
       '<iframe src="https://phet.colorado.edu.evil.test/sims/html/build-an-atom/latest/build-an-atom_all.html"></iframe>',

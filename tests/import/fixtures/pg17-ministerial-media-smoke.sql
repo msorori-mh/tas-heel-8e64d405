@@ -8,8 +8,8 @@
 --   * media rows land on the published revision and are frozen with it
 --   * sessions pin media; state hides SOLUTION; reveal/result expose it
 --   * ministerial_media_can_access() gates by session ownership + reveal
---   * admin editing is blocked while sessions exist, otherwise creates a NEW
---     revision (carry-over / replace / clear) and never mutates the old one
+--   * admin/content-manager corrections create a NEW revision even after a
+--     session exists; the old session stays pinned to its original revision
 --   * privileges: no anon path, internal helpers are service_role-only
 \set ON_ERROR_STOP on
 SET search_path = public, pg_temp;
@@ -359,16 +359,42 @@ BEGIN
     jsonb_array_length(v_result->'questions'->0->'solution_media')::text);
   PERFORM pg_temp.chk('result never leaks storage paths', 'false', (v_result::text ILIKE '%storage_path%')::text);
 
-  -- ------------------------------------------------------ admin management
+  -- -------------------------------------------- content-staff question correction
+  SELECT meq.question_id, meq.published_revision_id INTO v_question_id, v_revision
+  FROM public.ministerial_exam_questions meq
+  WHERE meq.model_id = v_model AND meq.sort_order = 1;
+
+  PERFORM pg_temp.actor(c_staff);
+  v_result := public.ministerial_model_questions_admin_list(v_model);
+  PERFORM pg_temp.chk('content manager can list model questions', '3',
+    jsonb_array_length(v_result->0->'media')::text);
+  PERFORM pg_temp.chk('question list flags existing sessions', 'true', v_result->0->>'has_sessions');
+  v_result := public.ministerial_model_question_update(
+    v_model, v_question_id, 'ما قيمة التيار في الدائرة المبينة؟ (تصحيح)',
+    v_question_1->'options', 'B', 'انظر الصورة', 'قانون أوم.', 1, 1,
+    'تصحيح علمي بعد اكتشاف خطأ', NULL
+  );
+  v_new_revision := (v_result->>'published_revision_id')::uuid;
+  PERFORM pg_temp.chk('content manager can correct a question', 'true',
+    (v_new_revision <> v_revision)::text);
+  SELECT rendered_question_text INTO v_text
+  FROM public.exam_session_questions
+  WHERE exam_session_id = v_session AND question_order = 1;
+  PERFORM pg_temp.chk('existing session keeps its pinned question after correction',
+    'ما قيمة التيار في الدائرة المبينة؟', v_text);
+  SELECT qr.question_text INTO v_text
+  FROM public.ministerial_exam_questions meq
+  JOIN public.question_revisions qr ON qr.id = meq.published_revision_id
+  WHERE meq.model_id = v_model AND meq.question_id = v_question_id;
+  PERFORM pg_temp.chk('model membership points to the corrected revision',
+    'ما قيمة التيار في الدائرة المبينة؟ (تصحيح)', v_text);
+  PERFORM pg_temp.chk('content manager still cannot publish the corrected model', 'forbidden',
+    pg_temp.raised(format('SELECT public.publish_ministerial_model(%L::uuid)', v_model)));
+
   PERFORM pg_temp.actor(c_admin);
   v_result := public.ministerial_model_questions_admin_list(v_model);
-  PERFORM pg_temp.chk('admin list returns media for the question', '3',
+  PERFORM pg_temp.chk('admin can list corrected model questions', '3',
     jsonb_array_length(v_result->0->'media')::text);
-  PERFORM pg_temp.chk('admin list flags sessions', 'true', v_result->0->>'has_sessions');
-  PERFORM pg_temp.chk('editing is blocked while sessions exist', 'MINISTERIAL_EDIT_BLOCKED_SESSIONS_EXIST',
-    pg_temp.raised(format(
-      'SELECT public.ministerial_model_question_update(%L::uuid, %L::uuid, %L, %L::jsonb, %L, %L, %L, 1, 1, %L, NULL)',
-      v_model, v_question_id, 'نص جديد', v_question_1->'options', 'B', 'انظر الصورة', 'شرح', 'سبب')));
 
   -- Model 2 (v1 import, no sessions): replace / carry-over / clear — each a NEW revision.
   SELECT meq.question_id, meq.published_revision_id INTO v_question_id, v_revision
@@ -436,10 +462,12 @@ BEGIN
   SELECT rendered_media::text INTO v_text FROM public.exam_session_questions WHERE exam_session_id = v_session;
   PERFORM pg_temp.chk('new session pins the current (cleared) media set', '[]', v_text);
   PERFORM pg_temp.actor(c_admin);
-  PERFORM pg_temp.chk('admin update is blocked once a session exists', 'MINISTERIAL_EDIT_BLOCKED_SESSIONS_EXIST',
-    pg_temp.raised(format(
-      'SELECT public.ministerial_model_question_update(%L::uuid, %L::uuid, %L, %L::jsonb, %L, %L, %L, 1, 1, %L, NULL)',
-      v_model_2, v_question_id, 'نص', v_question_2->'options', 'A', 'أوم', 'شرح', 'سبب')));
+  v_result := public.ministerial_model_question_update(
+    v_model_2, v_question_id, 'وحدة قياس المقاومة الكهربائية هي؟ (تصحيح بعد محاولة)',
+    v_question_2->'options', 'A', 'أوم', 'شرح', 1, 1, 'تصحيح إداري', NULL
+  );
+  PERFORM pg_temp.chk('admin can correct a question after a session exists', 'draft',
+    v_result->>'status');
 
   -- ------------------------------------------------------------ privileges
   PERFORM pg_temp.chk('anon cannot call the media gate', 'false',

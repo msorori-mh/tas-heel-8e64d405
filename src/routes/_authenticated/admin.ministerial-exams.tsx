@@ -62,7 +62,7 @@ function isGrade12Model(model: { grade_slug: string | null; model_code: string }
 }
 
 function AdminMinisterialExamsPage() {
-  const { loading, enabled } = useRequireAdminSection("content");
+  const { loading, enabled, isAdmin } = useRequireAdminSection("content");
   const queryClient = useQueryClient();
 
   const modelsQuery = useQuery({
@@ -244,6 +244,7 @@ function AdminMinisterialExamsPage() {
                         <div className="flex flex-wrap gap-1.5">
                           <MinisterialQuestionsManager
                             model={m}
+                            canDelete={isAdmin}
                             onChanged={() =>
                               void queryClient.invalidateQueries({
                                 queryKey: ["ministerial-models"],

@@ -17,6 +17,10 @@ const migrationPath = [
 assert.ok(migrationPath, `${MIGRATION_NAME} must exist (pending or applied)`);
 
 const sql = readFileSync(migrationPath, "utf8");
+const correctionSql = readFileSync(
+  "supabase/migrations/20260918020000_ministerial_content_staff_question_editing.sql",
+  "utf8",
+);
 const contract = readFileSync("src/lib/ministerial/ministerial-media-contract.ts", "utf8");
 const parser = readFileSync("src/lib/ministerial/ministerial-package-xlsx.ts", "utf8");
 const adminApi = readFileSync("src/lib/ministerial/ministerial-admin-api.ts", "utf8");
@@ -290,6 +294,27 @@ test("student and admin surfaces render media through the gated endpoint only", 
   assert.match(manager, /ministerial_model_question_update|updateMinisterialModelQuestion/);
 });
 
+test("question correction is available to content staff without widening delete or publish", () => {
+  assert.match(correctionSql, /ministerial_model_questions_admin_list\(uuid\)/);
+  assert.match(
+    correctionSql,
+    /ministerial_model_question_update\(uuid,uuid,text,jsonb,text,text,text,integer,numeric,text,jsonb\)/,
+  );
+  assert.match(correctionSql, /NOT public\.is_content_staff\(v_actor\)/);
+  assert.match(correctionSql, /MINISTERIAL_EDIT_BLOCKED_SESSIONS_EXIST/);
+  assert.match(correctionSql, /v_session_guard/);
+  assert.match(correctionSql, /MINISTERIAL_DELETE_BLOCKED_SESSIONS_EXIST/);
+  assert.match(correctionSql, /MINISTERIAL_DELETE_OR_PUBLISH_GATE_WIDENED/);
+  assert.match(correctionSql, /SET status=''SUPERSEDED''/);
+  assert.match(correctionSql, /SET status=''draft''/);
+  assert.match(correctionSql, /ministerial_question_update/);
+  assert.match(correctionSql, /REVOKE ALL .* FROM PUBLIC, anon/s);
+  assert.match(manager, /يمكن لمسؤولي النظام ومسؤولي المحتوى تصحيح السؤال في أي وقت/);
+  assert.match(manager, /المحاولات السابقة مرتبطة\s+بنسختها\s+الأصلية/);
+  assert.match(manager, /canDelete &&/);
+  assert.doesNotMatch(manager, /disabled=\{question\.has_sessions\}[\s\S]{0,120}startEditing/);
+});
+
 test("the media path is rehearsed on disposable PostgreSQL 17 (localhost only, never production)", () => {
   assert.match(workflow, /run-pg17-ministerial-media-rehearsal\.sh/);
   assert.match(workflow, /tamkeen_ministerial_media/);
@@ -297,6 +322,7 @@ test("the media path is rehearsed on disposable PostgreSQL 17 (localhost only, n
   assert.match(runner, /pg17-prereq-ministerial-media\.sql/);
   assert.match(runner, /20260913010000_ministerial_multi_variant_question_management\.sql/);
   assert.match(runner, /20260914010000_ministerial_question_media\.sql/);
+  assert.match(runner, /20260918020000_ministerial_content_staff_question_editing\.sql/);
   assert.match(runner, /pg17-ministerial-media-smoke\.sql/);
   assert.match(runner, /-lt 80/);
   assert.match(prereq, /VALUES \('question-media', 'question-media', false\)/);
@@ -310,7 +336,8 @@ test("the media path is rehearsed on disposable PostgreSQL 17 (localhost only, n
     "solution media is hidden before reveal",
     "another student cannot borrow the session",
     "anonymous never gets media",
-    "editing is blocked while sessions exist",
+    "content manager can correct a question",
+    "existing session keeps its pinned question after correction",
     "old revision is superseded, not mutated",
     "edited model passes the publish gate",
     "no bucket policy targets anon",

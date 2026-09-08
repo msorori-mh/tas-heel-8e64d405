@@ -68,6 +68,7 @@ CHAIN=(
   supabase/migrations/20260912040000_ministerial_track_first_student_listing.sql
   supabase/migrations/20260913010000_ministerial_multi_variant_question_management.sql
   "$MEDIA_MIGRATION"
+  supabase/migrations/20260918020000_ministerial_content_staff_question_editing.sql
 )
 
 cd "$ROOT"
