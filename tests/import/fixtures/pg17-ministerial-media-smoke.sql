@@ -388,7 +388,7 @@ BEGIN
   WHERE meq.model_id = v_model AND meq.question_id = v_question_id;
   PERFORM pg_temp.chk('model membership points to the corrected revision',
     'ما قيمة التيار في الدائرة المبينة؟ (تصحيح)', v_text);
-  PERFORM pg_temp.chk('content manager still cannot publish the corrected model', 'forbidden',
+  PERFORM pg_temp.chk('content manager still cannot publish the corrected model', 'MINISTERIAL_PUBLISH_FORBIDDEN',
     pg_temp.raised(format('SELECT public.publish_ministerial_model(%L::uuid)', v_model)));
 
   PERFORM pg_temp.actor(c_admin);
