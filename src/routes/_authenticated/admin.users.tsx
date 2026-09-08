@@ -320,7 +320,10 @@ function AdminUsersPage() {
               </div>
             )}
 
-            <div className="hidden md:block overflow-x-auto rounded-xl border border-border bg-card data-[empty=true]:hidden" data-empty={filteredUsers.length === 0}>
+            <div
+              className="hidden md:block overflow-x-auto rounded-xl border border-border bg-card data-[empty=true]:hidden"
+              data-empty={filteredUsers.length === 0}
+            >
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
