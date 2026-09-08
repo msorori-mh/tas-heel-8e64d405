@@ -11,11 +11,17 @@
  *  - STATIC (legacy resources only): sandbox with NO scripts at all, CSP `script-src 'none'`.
  *  - INTERACTIVE (mind map / experiment): sandbox `allow-scripts` only — no same-origin, no forms, no popups —
  *    and a CSP that forbids every network egress (`connect-src 'none'`, `default-src 'none'`).
+ *  - A minimal PhET lab wrapper may frame only `https://phet.colorado.edu/sims/html/`.
  */
+
+import { isAllowedPhetLabHtml } from "./html-content-standard.ts";
 
 export const INLINE_HTML_URL_PREFIX = "lesson-internal://html/";
 
-export type InlineHtmlRenderMode = "STATIC_NO_SCRIPT" | "SANDBOXED_NO_NETWORK";
+export type InlineHtmlRenderMode =
+  | "STATIC_NO_SCRIPT"
+  | "SANDBOXED_NO_NETWORK"
+  | "SANDBOXED_PHET";
 
 export function isInlineHtmlResourceUrl(url: string | null | undefined): boolean {
   const value = (url ?? "").trim();
@@ -38,11 +44,12 @@ export function inlineHtmlRenderMode(
 
 export function inlineHtmlSandbox(mode: InlineHtmlRenderMode): string {
   // No allow-same-origin in either mode: the frame stays in an opaque origin.
-  return mode === "SANDBOXED_NO_NETWORK" ? "allow-scripts" : "";
+  return mode === "STATIC_NO_SCRIPT" ? "" : "allow-scripts";
 }
 
 export function inlineHtmlCsp(mode: InlineHtmlRenderMode): string {
-  const script = mode === "SANDBOXED_NO_NETWORK" ? "'unsafe-inline'" : "'none'";
+  const script = mode === "STATIC_NO_SCRIPT" ? "'none'" : "'unsafe-inline'";
+  const frame = mode === "SANDBOXED_PHET" ? "https://phet.colorado.edu" : "'none'";
   return [
     "default-src 'none'",
     `script-src ${script}`,
@@ -51,7 +58,7 @@ export function inlineHtmlCsp(mode: InlineHtmlRenderMode): string {
     "font-src data:",
     "media-src 'none'",
     "connect-src 'none'",
-    "frame-src 'none'",
+    `frame-src ${frame}`,
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",
@@ -66,7 +73,7 @@ export function buildInlineHtmlDocument(body: string, mode: InlineHtmlRenderMode
     '<meta name="viewport" content="width=device-width, initial-scale=1" />',
   ].join("");
   const resizeBridge =
-    mode === "SANDBOXED_NO_NETWORK"
+    mode !== "STATIC_NO_SCRIPT"
       ? `<script>(function(){var send=function(){var d=document.documentElement,b=document.body,h=Math.max(d?d.scrollHeight:0,b?b.scrollHeight:0,320);parent.postMessage({type:'tamkeen:inline-height',height:h},'*')};addEventListener('load',send);addEventListener('resize',send);new MutationObserver(send).observe(document.documentElement,{subtree:true,childList:true,attributes:true});setTimeout(send,0);setTimeout(send,250)})();</script>`
       : "";
   const value = body ?? "";
@@ -99,4 +106,14 @@ export function buildInlineHtmlDocument(body: string, mode: InlineHtmlRenderMode
     resizeBridge,
     "</body></html>",
   ].join("");
+}
+
+export function inlineHtmlRenderModeForBody(
+  htmlResourceType: string | null | undefined,
+  body: string,
+): InlineHtmlRenderMode {
+  const base = inlineHtmlRenderMode(htmlResourceType);
+  return base === "SANDBOXED_NO_NETWORK" && isAllowedPhetLabHtml(body)
+    ? "SANDBOXED_PHET"
+    : base;
 }

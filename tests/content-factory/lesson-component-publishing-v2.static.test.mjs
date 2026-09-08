@@ -18,6 +18,10 @@ const multipleLabUpgrade = readFileSync(
   "supabase/migrations/20260912050000_multiple_lab_experiment_instances.sql",
   "utf8",
 );
+const phetLabUpgrade = readFileSync(
+  "supabase/migrations/20260913010000_allowlisted_phet_lab_embed.sql",
+  "utf8",
+);
 const errorMessages = readFileSync(
   "src/lib/content-factory/lesson-component-publishing-v2-errors.ts",
   "utf8",
@@ -150,10 +154,21 @@ test("server verification pins uploaded bytes and uses private intake RPCs", () 
   assert.match(server, /validateGoldenLessonArtifactBytes/);
   assert.match(server, /validateGoldenLessonAnswerCoverage/);
   assert.match(server, /assertSelfContainedHtml/);
+  assert.match(server, /isAllowedPhetLabHtml/);
+  assert.match(server, /isAllowedPhetSimulationUrl/);
   assert.match(server, /LCPV2_HTML_DETACHED_RESOURCE/);
   assert.match(server, /lesson_component_verify_intake_v2/);
   assert.match(server, /lcpv2:\$\{data\.intakeId\}:publish/);
   assert.match(rehearsal, /lesson-component-publishing-v2-pg17\.sql/);
+});
+
+test("PhET exception is lab-only, exact-host and online-only", () => {
+  assert.match(phetLabUpgrade, /_label = 'labExperimentHtml'/);
+  assert.match(phetLabUpgrade, /https:\/\/phet\\\.colorado\\\.edu\/sims\/html\//);
+  assert.match(phetLabUpgrade, /externalProvider', 'PHET'/);
+  assert.match(phetLabUpgrade, /networkRequired', true/);
+  assert.match(phetLabUpgrade, /frame-src https:\/\/phet\.colorado\.edu/);
+  assert.match(phetLabUpgrade, /<\(script\|object\|embed\|form\|base\)/);
 });
 
 test("superseded verified attempts are archived without hiding newer replacements", () => {

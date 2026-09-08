@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import {
   buildInlineHtmlDocument,
   inlineHtmlCsp,
+  inlineHtmlRenderModeForBody,
   inlineHtmlSandbox,
 } from "../../src/lib/lessons/inline-html-resource.ts";
 
@@ -14,6 +15,18 @@ test("interactive lesson HTML keeps scripts sandboxed and blocks network", () =>
   assert.match(csp, /connect-src 'none'/);
   assert.match(csp, /frame-src 'none'/);
   assert.match(csp, /form-action 'none'/);
+});
+
+test("PhET labs get an exact frame allowlist and stay in an opaque sandbox", () => {
+  const source =
+    '<html dir="rtl"><body><iframe src="https://phet.colorado.edu/sims/html/build-an-atom/latest/build-an-atom_all.html"></iframe></body></html>';
+  const mode = inlineHtmlRenderModeForBody("INTERACTIVE", source);
+  assert.equal(mode, "SANDBOXED_PHET");
+  assert.equal(inlineHtmlSandbox(mode), "allow-scripts");
+  const csp = inlineHtmlCsp(mode);
+  assert.match(csp, /frame-src https:\/\/phet\.colorado\.edu/);
+  assert.match(csp, /connect-src 'none'/);
+  assert.doesNotMatch(inlineHtmlSandbox(mode), /allow-same-origin|allow-popups|allow-forms/);
 });
 
 test("complete HTML documents are preserved and receive the resize bridge once", () => {

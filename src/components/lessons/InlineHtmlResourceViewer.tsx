@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, FileText, FlaskConical, Map as MapIcon, ShieldCheck } from "lucide-react";
 import {
   buildInlineHtmlDocument,
-  inlineHtmlRenderMode,
+  inlineHtmlRenderModeForBody,
   inlineHtmlSandbox,
 } from "@/lib/lessons/inline-html-resource";
 
@@ -23,11 +23,13 @@ export function InlineHtmlResourceViewer({ title, html, htmlResourceType, resour
   const [expanded, setExpanded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const interactive = resourceType === "experiment" || resourceType === "mindmap";
-  const mode = interactive ? "SANDBOXED_NO_NETWORK" : inlineHtmlRenderMode(htmlResourceType);
+  const body = (html ?? "").trim();
+  const mode = interactive
+    ? inlineHtmlRenderModeForBody("INTERACTIVE", body)
+    : inlineHtmlRenderModeForBody(htmlResourceType, body);
   const [contentHeight, setContentHeight] = useState(
     resourceType === "experiment" ? 900 : resourceType === "mindmap" ? 560 : 720,
   );
-  const body = (html ?? "").trim();
   const srcDoc = useMemo(() => (body ? buildInlineHtmlDocument(body, mode) : ""), [body, mode]);
 
   useEffect(() => {
@@ -60,7 +62,11 @@ export function InlineHtmlResourceViewer({ title, html, htmlResourceType, resour
         </div>
         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
           <ShieldCheck className="h-3 w-3" />
-          {mode === "STATIC_NO_SCRIPT" ? "عرض آمن بدون سكربت" : "بيئة معزولة بدون إنترنت"}
+          {mode === "STATIC_NO_SCRIPT"
+            ? "عرض آمن بدون سكربت"
+            : mode === "SANDBOXED_PHET"
+              ? "تجربة PhET — تتطلب الإنترنت"
+              : "بيئة معزولة بدون إنترنت"}
         </span>
       </div>
 

@@ -42,6 +42,56 @@ export interface HtmlProfileRules {
   offlineCacheable: boolean;
 }
 
+/**
+ * PhET is the only approved network-backed laboratory provider.  Keep this
+ * deliberately narrow: an exact HTTPS host and the published HTML simulation
+ * path.  Sibling/sub-domains, credentials, custom ports and non-simulation
+ * pages stay rejected.
+ */
+export function isAllowedPhetSimulationUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "phet.colorado.edu" &&
+      url.port === "" &&
+      url.username === "" &&
+      url.password === "" &&
+      url.pathname.startsWith("/sims/html/")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** A network-backed lab must be a minimal wrapper around one PhET iframe. */
+export function isAllowedPhetLabHtml(html: string): boolean {
+  const references = Array.from(
+    html.matchAll(
+      /<(\w+)\b[^>]*\b(src|href|poster|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    ),
+  ).flatMap((match) => {
+    const tag = (match[1] ?? "").toLowerCase();
+    const attribute = (match[2] ?? "").toLowerCase();
+    const raw = (match[3] ?? match[4] ?? match[5] ?? "").trim();
+    const values =
+      attribute === "srcset"
+        ? raw.split(",").map((candidate) => candidate.trim().split(/\s+/, 1)[0] ?? "")
+        : [raw];
+    return values.filter(Boolean).map((value) => ({ tag, attribute, value }));
+  });
+  const remote = references.filter(({ value }) => /^(?:https?:)?\/\//i.test(value));
+  return (
+    remote.length === 1 &&
+    remote[0]?.tag === "iframe" &&
+    remote[0]?.attribute === "src" &&
+    isAllowedPhetSimulationUrl(remote[0]?.value ?? "") &&
+    !/<(?:script|object|embed|form|base)\b/i.test(html) &&
+    !/\son[a-z]+\s*=/i.test(html) &&
+    !/url\(\s*["']?(?:https?:)?\/\//i.test(html)
+  );
+}
+
 export const HTML_PROFILE_RULES: Record<HtmlProfile, HtmlProfileRules> = {
   STATIC_EDUCATIONAL_HTML: {
     javascriptAllowed: false,
@@ -121,7 +171,11 @@ const AR: Record<HtmlStandardCode, string> = {
 
 export function validateHtmlAgainstProfile(
   html: string,
-  options: { profile: HtmlProfile; resourceCode?: string | null },
+  options: {
+    profile: HtmlProfile;
+    resourceCode?: string | null;
+    capability?: V3CapabilityKey | null;
+  },
 ): HtmlStandardResult {
   const rules = HTML_PROFILE_RULES[options.profile];
   const findings: HtmlStandardFinding[] = [];
@@ -134,7 +188,9 @@ export function validateHtmlAgainstProfile(
     return { isValid: false, profile: options.profile, findings };
   }
 
-  if (!rules.allowExternalNetwork && EXTERNAL_REF_PATTERN.test(body)) {
+  const phetLab =
+    options.capability === "labExperimentHtml" && isAllowedPhetLabHtml(body);
+  if (!rules.allowExternalNetwork && EXTERNAL_REF_PATTERN.test(body) && !phetLab) {
     push("EXTERNAL_RESOURCE_FORBIDDEN");
   }
   EXTERNAL_REF_PATTERN.lastIndex = 0;

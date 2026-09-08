@@ -81,6 +81,28 @@ test("each lab file is validated independently against the same HTML contract", 
     validateGoldenLessonArtifactBytes("labExperimentHtml", "lab-02.html", networked).valid,
     false,
   );
+  const phet = bytes(
+    staticHtml(
+      '<iframe src="https://phet.colorado.edu/sims/html/build-an-atom/latest/build-an-atom_all.html"></iframe>',
+    ),
+  );
+  assert.equal(
+    validateGoldenLessonArtifactBytes("labExperimentHtml", "lab-phet.html", phet).valid,
+    true,
+  );
+  const phetLookalike = bytes(
+    staticHtml(
+      '<iframe src="https://phet.colorado.edu.evil.test/sims/html/build-an-atom/latest/build-an-atom_all.html"></iframe>',
+    ),
+  );
+  assert.equal(
+    validateGoldenLessonArtifactBytes(
+      "labExperimentHtml",
+      "lab-phet-lookalike.html",
+      phetLookalike,
+    ).valid,
+    false,
+  );
   const oversized = new Uint8Array(GOLDEN_ARTIFACT_MAX_BYTES + 1);
   assert.ok(
     validateGoldenLessonArtifactBytes("labExperimentHtml", "lab-03.html", oversized).findings.some(
