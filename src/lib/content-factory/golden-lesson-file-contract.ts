@@ -421,7 +421,7 @@ export function validateGoldenLessonArtifactBytes(
       capability === "labExperimentHtml" || capability === "mindMapHtml"
         ? "INTERACTIVE_EDUCATIONAL_HTML"
         : "STATIC_EDUCATIONAL_HTML";
-    const result = validateHtmlAgainstProfile(textValue, { profile });
+    const result = validateHtmlAgainstProfile(textValue, { profile, capability });
     for (const finding of result.findings.filter((item) => item.severity === "error")) {
       findings.push({ code: finding.code, messageAr: finding.message });
     }

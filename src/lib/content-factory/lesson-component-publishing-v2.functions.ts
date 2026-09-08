@@ -17,6 +17,10 @@ import {
   validateGoldenLessonAnswerCoverage,
   validateGoldenLessonArtifactBytes,
 } from "./golden-lesson-file-contract";
+import {
+  isAllowedPhetLabHtml,
+  isAllowedPhetSimulationUrl,
+} from "@/lib/lessons/html-content-standard";
 
 const Capability = z.enum([
   "officialBookContent",
@@ -185,20 +189,28 @@ function requireExactBytes(
   if (sha256(bytes) !== expectedSha256) throw new Error(`${code}_HASH_MISMATCH`);
 }
 
-function assertSelfContainedHtml(fileName: string, textValue: string) {
+function assertSelfContainedHtml(
+  capability: GoldenCapability,
+  fileName: string,
+  textValue: string,
+) {
   if (!/\.html$/i.test(fileName)) return;
+  const phetLab = capability === "labExperimentHtml" && isAllowedPhetLabHtml(textValue);
   const attributeReferences = textValue.matchAll(
-    /<(?:img|script|link|source|video|audio|iframe|object|embed)\b[^>]*\b(src|href|poster|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    /<(img|script|link|source|video|audio|iframe|object|embed)\b[^>]*\b(src|href|poster|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
   );
   for (const match of attributeReferences) {
-    const attribute = (match[1] ?? "").toLowerCase();
-    const rawValue = (match[2] ?? match[3] ?? match[4] ?? "").trim();
+    const tag = (match[1] ?? "").toLowerCase();
+    const attribute = (match[2] ?? "").toLowerCase();
+    const rawValue = (match[3] ?? match[4] ?? match[5] ?? "").trim();
     const values =
       attribute === "srcset"
         ? rawValue.split(",").map((candidate) => candidate.trim().split(/\s+/, 1)[0] ?? "")
         : [rawValue];
     for (const value of values) {
-      if (value && !value.startsWith("data:") && !value.startsWith("#")) {
+      const allowedPhetFrame =
+        phetLab && tag === "iframe" && attribute === "src" && isAllowedPhetSimulationUrl(value);
+      if (value && !value.startsWith("data:") && !value.startsWith("#") && !allowedPhetFrame) {
         throw new Error("LCPV2_HTML_DETACHED_RESOURCE:" + value.slice(0, 160));
       }
     }
@@ -359,7 +371,7 @@ export const verifyLessonComponentV2Upload = createServerFn({ method: "POST" })
       const sourceText = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
         sourceBytes,
       );
-      assertSelfContainedHtml(intake.original_file_name, sourceText);
+      assertSelfContainedHtml(intake.capability, intake.original_file_name, sourceText);
 
       let answerBytes: Uint8Array | null = null;
       if (intake.answer_storage_path && intake.answer_sha256 && intake.answer_bytes) {

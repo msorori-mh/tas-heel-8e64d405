@@ -235,7 +235,7 @@ const ARTIFACT_FIX_HINTS: Record<string, string> = {
   INLINE_EVENT_HANDLER_FORBIDDEN:
     "الملف يحتوي معالجات أحداث مضمّنة مثل onclick — احذفها من الوسوم.",
   EXTERNAL_RESOURCE_FORBIDDEN:
-    "الملف يشير إلى مصدر خارجي على الإنترنت (خط أو مكتبة أو صورة برابط https) — ضمِّن الأنماط والصور داخل ملف HTML نفسه.",
+    "الملف يشير إلى مصدر خارجي غير مسموح. في التجارب يُسمح فقط بإطار PhET واحد من phet.colorado.edu/sims/html؛ أما بقية الموارد فضمِّنها داخل HTML.",
   ANSWER_LEAKAGE_DETECTED:
     "الملف يحتوي إجابات أو تبريرات — يجب ألا تُكتب داخل HTML؛ الإجابات تُرفع عبر قالب الأسئلة فقط.",
   EMPTY_HTML: "الملف فارغ.",

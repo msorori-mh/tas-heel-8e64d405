@@ -139,6 +139,33 @@ describe("21C — unified HTML content standard", () => {
     }
   });
 
+  it("allows exactly one PhET simulation iframe for a lab only", () => {
+    const phet = STATIC_HTML.replace(
+      "<h1>",
+      '<iframe src="https://phet.colorado.edu/sims/html/build-an-atom/latest/build-an-atom_all.html"></iframe><h1>',
+    );
+    const lab = validateHtmlAgainstProfile(phet, {
+      profile: "INTERACTIVE_EDUCATIONAL_HTML",
+      capability: "labExperimentHtml",
+    });
+    expect(lab.isValid).toBe(true);
+
+    const mindMap = validateHtmlAgainstProfile(phet, {
+      profile: "INTERACTIVE_EDUCATIONAL_HTML",
+      capability: "mindMapHtml",
+    });
+    expect(mindMap.findings.map((finding) => finding.code)).toContain(
+      "EXTERNAL_RESOURCE_FORBIDDEN",
+    );
+
+    const lookalike = phet.replace("phet.colorado.edu", "phet.colorado.edu.evil.test");
+    const rejected = validateHtmlAgainstProfile(lookalike, {
+      profile: "INTERACTIVE_EDUCATIONAL_HTML",
+      capability: "labExperimentHtml",
+    });
+    expect(rejected.isValid).toBe(false);
+  });
+
   it("requires RTL and a responsive viewport", () => {
     const res = validateHtmlAgainstProfile("<html><body>نص</body></html>", {
       profile: "STATIC_EDUCATIONAL_HTML",
