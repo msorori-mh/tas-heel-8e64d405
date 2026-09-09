@@ -68,7 +68,7 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
     expect(googleSignIn).toMatch(/window\.top\?\.location\.origin === window\.location\.origin/);
     expect(googleSignIn).toMatch(/window\.location\.href = url/);
     // the auth route no longer holds a second, divergent implementation
-    expect(authRoute).not.toMatch(/signInWithOAuth/);\n    expect(authRoute).toMatch(/<Outlet \\/>/);\n    expect(authCallbackRoute).toMatch(/exchangeCodeForSession\\(code\\)/);\n    expect(authCallbackRoute).not.toMatch(/exchangeCodeForSession\\(window\\.location\\.href\\)/);
+    expect(authRoute).not.toMatch(/signInWithOAuth/);\n    expect(authRoute).toMatch(/<Outlet \\/>/);\n    expect(authCallbackRoute).not.toMatch(/exchangeCodeForSession\\(/);
   });
 
   it("3. the allowed callback is accepted", () => {
