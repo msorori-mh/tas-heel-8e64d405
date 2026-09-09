@@ -20,12 +20,13 @@ import type {
 type AnyClient = SupabaseClient<Database>;
 
 async function loadAllRegistryLessons(supabase: AnyClient) {
-  const page = (from: number) => supabase
-    .from("lessons")
-    .select("id, slug, title, subject_id, unit_id, semester, sort_order", { count: "exact" })
-    .order("sort_order", { ascending: true })
-    .order("id", { ascending: true })
-    .range(from, from + 499);
+  const page = (from: number) =>
+    supabase
+      .from("lessons")
+      .select("id, slug, title, subject_id, unit_id, semester, sort_order", { count: "exact" })
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + 499);
   const rows: NonNullable<Awaited<ReturnType<typeof page>>["data"]> = [];
   for (;;) {
     const result = await page(rows.length);
