@@ -19,6 +19,26 @@ import type {
 
 type AnyClient = SupabaseClient<Database>;
 
+async function loadAllRegistryLessons(supabase: AnyClient) {
+  const page = (from: number) =>
+    supabase
+      .from("lessons")
+      .select("id, slug, title, subject_id, unit_id, semester, sort_order", { count: "exact" })
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + 499);
+  const rows: NonNullable<Awaited<ReturnType<typeof page>>["data"]> = [];
+  for (;;) {
+    const result = await page(rows.length);
+    if (result.error) return { data: null, error: result.error };
+    if (result.count === null) throw new Error("تعذر التحقق من اكتمال قائمة الدروس");
+    rows.push(...(result.data ?? []));
+    if (rows.length >= result.count) return { data: rows, error: null };
+    // Advance by actual rows: the server cap may be smaller than our page size.
+    if (!result.data?.length) throw new Error("تعذر تحميل قائمة الدروس كاملة");
+  }
+}
+
 export async function loadContentCodeRegistry(supabase: AnyClient): Promise<ContentCodeRegistry> {
   const [gradesRes, tracksRes, subjectsRes, unitsRes, lessonsRes, mappingRes] = await Promise.all([
     supabase.from("grades").select("id, slug, name").order("sort_order", { ascending: true }),
@@ -28,10 +48,7 @@ export async function loadContentCodeRegistry(supabase: AnyClient): Promise<Cont
       .select("id, code, name, group_code, group_name, grade_id")
       .order("code", { ascending: true }),
     supabase.from("units").select("id, code, title, subject_id").order("code", { ascending: true }),
-    supabase
-      .from("lessons")
-      .select("id, slug, title, subject_id, unit_id, semester, sort_order")
-      .order("sort_order", { ascending: true }),
+    loadAllRegistryLessons(supabase),
     supabase.from("subject_curriculum_tracks").select("subject_id, curriculum_track_id, is_active"),
   ]);
 
