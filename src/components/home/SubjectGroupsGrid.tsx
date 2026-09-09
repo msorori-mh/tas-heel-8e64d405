@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 
 export type SubjectMeta = { lessons: number; completed: number };
 const PREPARING_CONTENT_LABEL = "المحتوى قيد التجهيز";
+const MOBILE_INITIAL_SUBJECTS = 6;
 
 type SubjectGroupsGridProps = {
   subjects: GroupableSubject[];
@@ -80,8 +81,14 @@ function subjectState(meta?: SubjectMeta) {
  */
 export function SubjectGroupsGrid({ subjects, semester, meta }: SubjectGroupsGridProps) {
   const [openGroupKey, setOpenGroupKey] = useState<string | null>(null);
+  const [showAllMobile, setShowAllMobile] = useState(false);
   const groups = groupSubjectsByMainCategory(subjects);
   const openGroup = openGroupKey ? groups.find((g) => g.id === openGroupKey) : undefined;
+
+  useEffect(() => {
+    setOpenGroupKey(null);
+    setShowAllMobile(false);
+  }, [semester]);
 
   if (openGroup) {
     const GroupIcon = getSubjectIcon(openGroup.key, openGroup.icon);
@@ -115,7 +122,7 @@ export function SubjectGroupsGrid({ subjects, semester, meta }: SubjectGroupsGri
           </div>
         </div>
 
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-3">
           {openGroup.subjects.map((s) => (
             <li key={s.id}>
               <SubjectTile
@@ -135,62 +142,77 @@ export function SubjectGroupsGrid({ subjects, semester, meta }: SubjectGroupsGri
   }
 
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {groups.map((group) => {
-        if (!group.isGroup) {
-          const s = group.subjects[0];
+    <div className="space-y-3">
+      <ul className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-3">
+        {groups.map((group, index) => {
+          const mobileVisibility =
+            !showAllMobile && index >= MOBILE_INITIAL_SUBJECTS ? "hidden sm:list-item" : undefined;
+          if (!group.isGroup) {
+            const s = group.subjects[0];
+            return (
+              <li key={s.id} className={mobileVisibility}>
+                <SubjectTile
+                  to={s.id}
+                  semester={semester}
+                  title={s.name}
+                  name={s.name}
+                  iconKey={s.icon}
+                  color={s.color}
+                  meta={meta?.[s.id]}
+                />
+              </li>
+            );
+          }
+
+          const lessons = group.subjects.reduce((n, s) => n + (meta?.[s.id]?.lessons ?? 0), 0);
+          const completed = group.subjects.reduce((n, s) => n + (meta?.[s.id]?.completed ?? 0), 0);
+          const groupMeta: SubjectMeta = { lessons, completed };
+          const groupTone = subjectToneStyle(group.key, group.color);
+
           return (
-            <li key={s.id}>
-              <SubjectTile
-                to={s.id}
-                semester={semester}
-                title={s.name}
-                name={s.name}
-                iconKey={s.icon}
-                color={s.color}
-                meta={meta?.[s.id]}
-              />
+            <li key={group.id} className={mobileVisibility}>
+              <button
+                type="button"
+                onClick={() => setOpenGroupKey(group.id)}
+                aria-label={`فتح فروع مادة ${group.key}`}
+                style={groupTone}
+                className="subject-card-accent subject-card-tone group flex min-h-28 w-full flex-col items-start justify-between gap-2 overflow-hidden rounded-2xl border border-border/70 bg-card p-3 text-right shadow-sm transition-all motion-safe:hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-32 sm:flex-row sm:items-center sm:gap-3 sm:p-4 motion-reduce:transition-none"
+              >
+                <div className="flex min-w-0 flex-1 flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+                  <span
+                    className="subject-icon-tone flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                    aria-hidden
+                  >
+                    <Layers className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-bold text-foreground">{group.key}</div>
+                    <div className="hidden text-[11px] text-muted-foreground sm:block">
+                      مادة أساسية ·{" "}
+                      {group.subjects.length === 1 ? "فرع واحد" : `${group.subjects.length} فروع`}
+                      {lessons > 0 ? ` · ${lessons} درس` : ""}
+                    </div>
+                    {lessons > 0 && <MiniBar value={pct(groupMeta)} tone />}
+                  </div>
+                </div>
+                <ChevronLeft className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
+              </button>
             </li>
           );
-        }
+        })}
+      </ul>
 
-        const lessons = group.subjects.reduce((n, s) => n + (meta?.[s.id]?.lessons ?? 0), 0);
-        const completed = group.subjects.reduce((n, s) => n + (meta?.[s.id]?.completed ?? 0), 0);
-        const groupMeta: SubjectMeta = { lessons, completed };
-        const groupTone = subjectToneStyle(group.key, group.color);
-
-        return (
-          <li key={group.id}>
-            <button
-              type="button"
-              onClick={() => setOpenGroupKey(group.id)}
-              aria-label={`فتح فروع مادة ${group.key}`}
-              style={groupTone}
-              className="subject-card-accent subject-card-tone group flex min-h-32 w-full items-center justify-between gap-3 overflow-hidden rounded-2xl border border-border/70 bg-card p-4 text-right shadow-sm transition-all motion-safe:hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
-            >
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <span
-                  className="subject-icon-tone flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-                  aria-hidden
-                >
-                  <Layers className="h-5 w-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-bold text-foreground">{group.key}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    مادة أساسية ·{" "}
-                    {group.subjects.length === 1 ? "فرع واحد" : `${group.subjects.length} فروع`}
-                    {lessons > 0 ? ` · ${lessons} درس` : ""}
-                  </div>
-                  {lessons > 0 && <MiniBar value={pct(groupMeta)} tone />}
-                </div>
-              </div>
-              <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+      {groups.length > MOBILE_INITIAL_SUBJECTS ? (
+        <button
+          type="button"
+          aria-expanded={showAllMobile}
+          onClick={() => setShowAllMobile((current) => !current)}
+          className="mx-auto flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-5 text-sm font-bold text-primary shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
+        >
+          {showAllMobile ? "عرض أقل" : `عرض الكل (${groups.length})`}
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -220,28 +242,34 @@ function SubjectTile({
   const body = (
     <>
       <span
-        className="subject-icon-tone flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+        className="subject-icon-tone flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11"
         aria-hidden
       >
         <Icon className="h-5 w-5" />
       </span>
-      <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-1 self-stretch">
         <span className="flex items-start justify-between gap-2">
           <span className="min-w-0">
-            <span className="block truncate text-[15px] font-black text-foreground">{title}</span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">{state.detail}</span>
+            <span className="block line-clamp-2 text-sm font-black leading-snug text-foreground sm:truncate sm:text-[15px]">
+              {title}
+            </span>
+            <span className="mt-0.5 hidden text-xs text-muted-foreground sm:block">
+              {state.detail}
+            </span>
           </span>
           <span
             aria-label={available ? state.detail : PREPARING_CONTENT_LABEL}
-            className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-bold ${state.className}`}
+            className={`hidden shrink-0 rounded-full px-2 py-1 text-[11px] font-bold sm:inline-flex ${state.className}`}
           >
             {state.label}
           </span>
         </span>
         {available ? (
-          <span className="mt-3 block">
+          <span className="mt-2 block sm:mt-3">
             <span className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
-              <span className="font-semibold text-muted-foreground">التقدم</span>
+              <span className="sr-only sm:not-sr-only sm:font-semibold sm:text-muted-foreground">
+                التقدم
+              </span>
               <span className="font-black" style={{ color: "var(--subject-accent)" }}>
                 {value}%
               </span>
@@ -251,7 +279,7 @@ function SubjectTile({
         ) : null}
         <span
           className={cn(
-            "mt-3 inline-flex items-center gap-1 text-xs font-bold",
+            "mt-3 hidden items-center gap-1 text-xs font-bold sm:inline-flex",
             available ? "text-primary" : "text-muted-foreground",
           )}
         >
@@ -280,7 +308,7 @@ function SubjectTile({
     <div
       style={toneStyle}
       className={cn(
-        "subject-card-accent subject-card-tone flex h-full min-h-40 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition-all motion-reduce:transition-none",
+        "subject-card-accent subject-card-tone flex h-full min-h-36 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition-all sm:min-h-40 motion-reduce:transition-none",
         available &&
           "motion-safe:hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md active:scale-[0.995]",
       )}
@@ -290,13 +318,13 @@ function SubjectTile({
           to="/subjects/$subjectId"
           params={{ subjectId: to }}
           search={{ semester }}
-          className="group flex flex-1 items-start gap-3 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className="group flex min-h-24 flex-1 flex-col items-start gap-2 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:min-h-0 sm:flex-row sm:gap-3 sm:p-4"
         >
           {body}
         </Link>
       ) : (
         <div
-          className="flex flex-1 items-start gap-3 p-4"
+          className="flex min-h-24 flex-1 flex-col items-start gap-2 p-3 sm:min-h-0 sm:flex-row sm:gap-3 sm:p-4"
           aria-label={`${title}: ${PREPARING_CONTENT_LABEL}`}
         >
           {body}
@@ -304,15 +332,18 @@ function SubjectTile({
       )}
 
       {/* 21B — curriculum books remain independent, but now live inside the card surface. */}
-      <div className="border-t border-border/60 bg-muted/25 px-3 py-2">
+      <div className="border-t border-border/60 bg-muted/25 px-2 py-1 sm:px-3 sm:py-2">
         <button
           type="button"
           onClick={() => setBooksOpen(true)}
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold text-muted-foreground transition-colors hover:bg-card hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`كتب منهج ${title}: عرض أو تنزيل`}
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-card hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3"
         >
           <BookOpen className="h-4 w-4" aria-hidden />
-          كتب المنهج
-          <span className="font-normal text-muted-foreground/80">عرض أو تنزيل</span>
+          <span className="sr-only sm:not-sr-only">كتب المنهج</span>
+          <span className="hidden font-normal text-muted-foreground/80 sm:inline">
+            عرض أو تنزيل
+          </span>
         </button>
       </div>
 
