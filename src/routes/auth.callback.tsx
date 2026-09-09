@@ -25,14 +25,10 @@ function AuthCallback() {
           throw new Error(errDesc || errCode || "OAuth error");
         }
 
-        const code = url.searchParams.get("code");
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-        }
-
-        // Web callbacks and recovery links may be completed by the client's
-        // URL detector; wait briefly for the persisted session.
+        // The client has detectSessionInUrl enabled, so it owns the PKCE code
+        // exchange. Exchanging the same single-use Google code here as well
+        // races the automatic exchange and can invalidate the callback.
+        // Wait briefly for the automatically persisted session instead.
         for (let i = 0; i < 20; i++) {
           const { data } = await supabase.auth.getSession();
           if (data.session) break;
