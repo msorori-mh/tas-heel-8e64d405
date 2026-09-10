@@ -81,8 +81,21 @@ button:disabled {
   pointer-events: auto;
 }
 
-.academy-pwa-notice.offline {
-  background: #6b4a13;
+.academy-connection-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.45rem 1rem;
+  color: var(--navy);
+  background: var(--mint);
+  font-size: 0.8rem;
+}
+
+.academy-connection-status svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
 }
 
 .academy-pwa-notice svg {

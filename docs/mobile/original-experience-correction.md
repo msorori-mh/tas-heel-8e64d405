@@ -1,6 +1,6 @@
 # MOBILE-ORIGINAL-01 — original workspaces with offline support
 
-Decision: **HOLD**. The first full browser run found a PKCE callback classification bug; its correction passes focused SDK tests and is awaiting the full runtime rerun. Android and physical Google sign-in acceptance remain open. Do not ship another APK or label login fixed on the phone yet.
+Decision: **HOLD**. The second full browser run passed both logins and offline session restoration, then found a teacher offline-notice overlap and an incomplete student logout test interaction. Those corrections await the full runtime rerun. Physical Google sign-in acceptance remains open. Do not ship another APK or label login fixed on the phone yet.
 
 ## Baseline and scope
 
@@ -15,7 +15,7 @@ Decision: **HOLD**. The first full browser run found a PKCE callback classificat
 
 The prior APK shipped `apps/student-mobile`, a separate minimal client. Its teacher link explicitly called `Browser.open` on the academy website. Recreating the original hero did not restore the actual application.
 
-`student:build` now builds the original TanStack Start route tree in SPA mode and packages only `dist/client` as `dist-mobile`. The original student `/app` dashboard, StudentShell, home components and teacher stylesheet are unchanged from the prior source baseline (verified with `git diff --exit-code`). The original public landing page receives only one offline-support note. Cairo font files and license are bundled for offline rendering.
+`student:build` now builds the original TanStack Start route tree in SPA mode and packages only `dist/client` as `dist-mobile`. The original student `/app` dashboard, StudentShell and home components are unchanged from the prior source baseline (verified with `git diff --exit-code`). The original public landing page receives only one offline-support note. The only later teacher stylesheet correction moves its offline notice into document flow, preventing it from covering the mobile menu logout button. Cairo font files and license are bundled for offline rendering.
 
 Capacitor serves this full UI locally at the existing `https://studentamkeen.com` origin. Android delegates only that exact origin's `/api/` and `/_serverFn/` paths to WebView's ordinary HTTPS stack. UI paths including `/academy` stay bundled. No proxy rewrites security headers, bypasses TLS or disables CSRF. Old app-owned web service workers are retired on native startup, and native UI suppresses web-install prompts.
 
@@ -52,6 +52,10 @@ The user explicitly approved pushing this exact branch and opening its PR. [Draf
 Four focused tests execute the real SDK with synthetic HTTP responses: student callback, teacher callback, existing-session restoration, and refusing to exchange the native compatibility callback in the browser. All pass. The full browser E2E remains the acceptance gate, with its first failure preserved in Actions artifacts.
 
 The separate academy TypeScript gate also found a root-only import alias in the shared auth client. A relative import fixes that build boundary; academy typecheck and standalone build passed locally after the correction.
+
+[Second runtime run](https://github.com/msorori-mh/tas-heel-8e64d405/actions/runs/34541074442), source `814087e522c52e350ffb0e4b1ed7df88642b04ff`, reached both original workspaces, exchanged each PKCE code once, and restored both sessions online and offline. It failed at logout: the student test omitted opening the existing security accordion, while the teacher offline toast physically covered the menu logout button. The test now opens the accordion and the teacher connectivity indication stays in document flow. Screenshots disable finite CSS animations so they show the settled menu state.
+
+The second source passed Web CI, Golden Lesson PG17 and Android bundle gates, plus all 20 disposable-emulator tests. The browser gate is still HOLD until the full logout journeys pass.
 
 Next: resolve the browser/emulator gates, verify real Google student and teacher sessions using the supported secure authentication flow, and build a new phone candidate only after those gates. Do not merge or publish while runtime/phone acceptance is incomplete.
 

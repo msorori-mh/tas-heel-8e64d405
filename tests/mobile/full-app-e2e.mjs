@@ -178,6 +178,11 @@ try {
       } else {
         await page.locator(".workspace-shell").waitFor({ timeout: 20000 });
         assert.equal(new URL(page.url()).pathname.replace(/\/$/, ""), "/academy");
+        await page.screenshot({
+          path: resolve(evidence, "teacher-home.png"),
+          fullPage: true,
+          animations: "disabled",
+        });
         await page.getByRole("button", { name: "القائمة", exact: true }).click();
         await page.getByRole("button", { name: "ملفي المهني", exact: true }).click();
         await page.getByRole("textbox").first().waitFor();
@@ -185,7 +190,11 @@ try {
       assert.equal(exchanges, 1, "the callback exchanges the one-use code exactly once");
       assert.equal(authorizations, 1);
       assert.equal(external.length, 0);
-      await page.screenshot({ path: resolve(evidence, role + "-signed-in.png"), fullPage: true });
+      await page.screenshot({
+        path: resolve(evidence, role + "-signed-in.png"),
+        fullPage: true,
+        animations: "disabled",
+      });
       await page.reload();
       await page.locator(role === "student" ? ".student-theme" : ".workspace-shell").waitFor();
       assert.equal(exchanges, 1, "reload restores the existing session");
@@ -213,7 +222,11 @@ try {
         .locator(role === "student" ? ".student-theme" : ".workspace-shell")
         .waitFor({ timeout: 20000 });
       if (role === "student") await page.getByRole("heading", { name: "مرحباً، اختبار" }).waitFor();
-      await page.screenshot({ path: resolve(evidence, role + "-offline.png"), fullPage: true });
+      await page.screenshot({
+        path: resolve(evidence, role + "-offline.png"),
+        fullPage: true,
+        animations: "disabled",
+      });
       if (role === "teacher") {
         await page.getByRole("button", { name: "القائمة", exact: true }).click();
         await page.getByRole("button", { name: "تسجيل الخروج", exact: true }).click();
@@ -221,6 +234,7 @@ try {
       } else {
         // Sign out through the original settings UI.
         await page.getByRole("link", { name: "حسابي", exact: true }).last().click();
+        await page.getByRole("button", { name: "الأمان والحساب", exact: true }).click();
         await page
           .locator("main")
           .getByRole("button", { name: "تسجيل الخروج", exact: true })
