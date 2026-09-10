@@ -22,13 +22,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Verify the approved application source
         env:
           APPROVED_SOURCE: 03ced5ffd3d5022657ab8ee70a5c45db06e26b81
         run: |
-          test "$(git rev-parse HEAD^)" = "$APPROVED_SOURCE"
+          git merge-base --is-ancestor "$APPROVED_SOURCE" HEAD
           git diff --exit-code "$APPROVED_SOURCE" HEAD -- . ':!.github/workflows/android-device-apk.yml'
 
       - uses: actions/setup-java@v4
@@ -106,13 +106,22 @@ jobs:
           apk_digest = re.search(r'Signer #1 certificate SHA-256 digest:\s*([0-9a-f]+)', apk_cert).group(1)
           assert aab_digest == apk_digest, 'APK and AAB signing certificates differ'
           with zipfile.ZipFile('input/app-release.aab') as aab, zipfile.ZipFile(output / 'tamkeen-offline-1.2.0-code-6.apk') as apk:
-              assert {n[5:] for n in aab.namelist() if n.startswith('base/assets/') and not n.endswith('/')} == {n for n in apk.namelist() if n.startswith('assets/') and not n.endswith('/')}
+              # bundletool BinaryArtProfilesInjector copies these two profiles
+              # from AAB metadata into APK assets. Verify their bytes as well.
+              profiles = {
+                  f'BUNDLE-METADATA/com.android.tools.build.profiles/{name}': f'assets/dexopt/{name}'
+                  for name in ('baseline.prof', 'baseline.profm')
+                  if f'BUNDLE-METADATA/com.android.tools.build.profiles/{name}' in aab.namelist()
+              }
+              expected_assets = {n[5:] for n in aab.namelist() if n.startswith('base/assets/') and not n.endswith('/')} | set(profiles.values())
+              actual_assets = {n for n in apk.namelist() if n.startswith('assets/') and not n.endswith('/')}
+              assert expected_assets == actual_assets, f'Asset difference: {expected_assets ^ actual_assets}'
               assert {n[9:] for n in aab.namelist() if n.startswith('base/dex/') and n.endswith('.dex')} == {n for n in apk.namelist() if re.fullmatch(r'classes\d*\.dex', n)}
               matched = 0
               for name in aab.namelist():
                   if name.endswith('/'):
                       continue
-                  target = name[5:] if name.startswith('base/assets/') else name[9:] if name.startswith('base/dex/') else None
+                  target = name[5:] if name.startswith('base/assets/') else name[9:] if name.startswith('base/dex/') else profiles.get(name)
                   if target:
                       assert aab.read(name) == apk.read(target), f'Changed payload: {target}'
                       matched += 1
