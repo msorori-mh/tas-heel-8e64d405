@@ -11,6 +11,7 @@ body {
   margin: 0;
 }
 button,
+input,
 textarea,
 select {
   font: inherit;
@@ -28,9 +29,31 @@ button:disabled {
   cursor: default;
 }
 button:focus-visible,
+input:focus-visible,
+select:focus-visible,
 textarea:focus-visible {
   outline: 3px solid #12a9b7;
   outline-offset: 2px;
+}
+.profile-fields {
+  border: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.profile-fields label {
+  display: grid;
+  gap: 6px;
+}
+.profile-fields input,
+.profile-fields select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d9d5e8;
+  border-radius: 12px;
+  background: white;
+  color: inherit;
 }
 .primary {
   background: #28347d;

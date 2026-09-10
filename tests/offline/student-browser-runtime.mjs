@@ -17,11 +17,55 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
 const page = await context.newPage();
 page.on("pageerror", (error) => failures.push(error.message));
 const token = "TEST_ONLY_access_token";
+let profile = {
+  full_name: null,
+  grade_id: null,
+  grade_uuid: null,
+  governorate_id: null,
+  curriculum_track_id: null,
+  school_name: null,
+};
+let profileSaveCount = 0;
+let rejectProfileSave = true;
 await context.route("**/*", (route) => {
   const url = new URL(route.request().url());
   if (url.pathname === "/rest/v1/profiles") {
+    assert.equal(route.request().headers().authorization, "Bearer " + token);
+    if (route.request().method() === "POST") {
+      const body = route.request().postDataJSON();
+      assert.equal(body.user_id, "student-a");
+      assert.equal(body.governorate_id, "gov-one");
+      assert.equal(body.curriculum_track_id, "track-one");
+      assert.equal(body.grade_uuid, "12");
+      assert.equal(body.full_name, "طالب TEST_ONLY");
+      assert(!("role" in body));
+      profileSaveCount += 1;
+      if (rejectProfileSave)
+        return route.fulfill({
+          status: 403,
+          json: { message: "TEST_ONLY_write_denied", code: "42501" },
+        });
+      profile = body;
+      return route.fulfill({ json: profile });
+    }
+    return route.fulfill({ json: [profile] });
+  }
+  if (url.pathname === "/rest/v1/grades")
+    return route.fulfill({ json: [{ id: "12", name: "الثالث الثانوي" }] });
+  if (url.pathname === "/rest/v1/governorates")
+    return route.fulfill({ json: [{ id: "gov-one", name: "محافظة TEST_ONLY" }] });
+  if (url.pathname === "/rest/v1/governorate_curriculum_map") {
+    assert.equal(url.searchParams.get("governorate_id"), "eq.gov-one");
     return route.fulfill({
-      json: [{ grade_id: null, grade_uuid: "12", curriculum_track_id: "track-one" }],
+      json: [
+        {
+          curriculum_track: {
+            id: "track-one",
+            track_code: "TEST_ONLY",
+            track_name: "منهج TEST_ONLY",
+          },
+        },
+      ],
     });
   }
   if (url.pathname === "/rest/v1/subjects") {
@@ -161,6 +205,28 @@ try {
   }, token);
   await page.reload();
   await page.getByRole("button", { name: "عرض مواد صفي", exact: true }).click();
+  await page.getByRole("heading", { name: "بياناتك الدراسية" }).waitFor();
+  await page.getByLabel("الاسم الكامل").fill("طالب TEST_ONLY");
+  await page.getByLabel("الصف", { exact: true }).selectOption("12");
+  await page.getByLabel("المحافظة", { exact: true }).selectOption("gov-one");
+  await page.getByRole("option", { name: "منهج TEST_ONLY" }).waitFor({ state: "attached" });
+  await page.getByRole("button", { name: "حفظ البيانات وعرض المواد" }).click();
+  await page.getByRole("alert").filter({ hasText: "لم يتم تأكيد حفظ البيانات" }).waitFor();
+  assert.equal(await page.getByLabel("الاسم الكامل").inputValue(), "طالب TEST_ONLY");
+  await context.setOffline(true);
+  await page
+    .getByText("أنت دون اتصال. يمكنك العودة إلى المواد المحفوظة.", { exact: true })
+    .waitFor();
+  assert.equal(
+    await page.getByRole("button", { name: "حفظ البيانات وعرض المواد" }).isDisabled(),
+    true,
+  );
+  await context.setOffline(false);
+  assert.equal(await page.getByLabel("الاسم الكامل").inputValue(), "طالب TEST_ONLY");
+  rejectProfileSave = false;
+  await page.getByRole("button", { name: "حفظ البيانات وعرض المواد" }).click();
+  await page.getByText("حُفظت بياناتك الدراسية.", { exact: true }).waitFor();
+  assert.equal(profileSaveCount, 2);
   await page.getByRole("button", { name: "تنزيل المادة", exact: true }).click();
   await page.getByRole("heading", { name: "الكيمياء TEST_ONLY" }).waitFor();
   await context.setOffline(true);
@@ -210,6 +276,10 @@ try {
       {
         status: "PASS",
         checks: [
+          "profile completion to subject download",
+          "denied profile save preserves the form and permits retry",
+          "profile draft survives offline/reconnect and blocks offline submit",
+          "actual UI artifact download",
           "offline shell reload",
           "verified lesson read",
           "offline answer save",
@@ -225,7 +295,7 @@ try {
       2,
     ),
   );
-  console.log("PASS: 8 offline browser runtime checks; 0 page errors.");
+  console.log("PASS: 11 student onboarding/offline browser runtime checks; 0 page errors.");
 } finally {
   await browser.close();
 }

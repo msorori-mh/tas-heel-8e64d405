@@ -28,6 +28,17 @@ export async function assertOwner(ownerId: string) {
   if ((await repository.read()).activeOwnerId !== ownerId) throw new Error("OFFLINE_OWNER_CHANGED");
 }
 
+/** Existing connected services remain available in the system browser. No tokens in URLs. */
+export async function openConnectedServices() {
+  const url = "https://studentamkeen.com/app";
+  if (Capacitor.isNativePlatform()) {
+    const { Browser } = await import("@capacitor/browser");
+    await Browser.open({ url });
+  } else {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
 export async function signIn() {
   const native = Capacitor.isNativePlatform();
   const { data, error } = await supabase.auth.signInWithOAuth({

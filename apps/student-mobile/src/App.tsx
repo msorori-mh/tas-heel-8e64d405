@@ -34,9 +34,11 @@ import {
   signIn,
   openSavedPdf,
   removeSavedPack,
+  openConnectedServices,
 } from "./runtime";
 import "./styles.css";
 import logo from "../../../mobile/www/student-tamkeen-mark.png";
+import { ProfileEditor } from "./ProfileEditor";
 
 function Question({
   question,
@@ -227,6 +229,7 @@ export default function App() {
     assessment: OfflineLessonAssessment;
   } | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
   const ownerId = snapshot.activeOwnerId;
   const packs = readableOfflinePacks(snapshot).filter((pack) => pack.ownerId === ownerId);
   const pending = snapshot.outbox.filter(
@@ -289,6 +292,7 @@ export default function App() {
     setLesson(null);
     setCatalog([]);
     setPdfUrl(null);
+    setProfileOpen(false);
   }, [ownerId]);
   useEffect(
     () => () => {
@@ -304,9 +308,11 @@ export default function App() {
     try {
       await work();
     } catch (error) {
+      if (error instanceof Error && error.message === "OFFLINE_PROFILE_INCOMPLETE")
+        setProfileOpen(true);
       setMessage(
         error instanceof Error && error.message === "OFFLINE_PROFILE_INCOMPLETE"
-          ? "أكمل الصف والمسار في ملفك الشخصي على تمكين، ثم حدّث قائمة المواد."
+          ? "أكمل بياناتك الدراسية لعرض المواد المناسبة."
           : "تعذر إكمال العملية. المحتوى السابق وإجاباتك المحفوظة باقية؛ تحقق من الاتصال ومساحة الجهاز ثم أعد المحاولة.",
       );
     } finally {
@@ -391,10 +397,46 @@ export default function App() {
           </button>
         )}
       </div>
+      <details className="card">
+        <summary>خدمات تمكين عبر الإنترنت</summary>
+        <p>
+          الاختبارات الوزارية وسجل النتائج والإعدادات وخدمات المعلم والإدارة متاحة في موقع تمكين. قد
+          تحتاج إلى تسجيل الدخول في المتصفح.
+        </p>
+        <button disabled={!online || busy} onClick={() => void action(openConnectedServices)}>
+          فتح خدمات تمكين
+        </button>
+        {!online && (
+          <p className="muted">
+            تحتاج هذه الخدمات إلى اتصال بالإنترنت. موادك المنزلة وإجاباتك المحفوظة متاحة هنا.
+          </p>
+        )}
+      </details>
       {message && (
         <p className="notice" role="status">
           {message}
         </p>
+      )}
+      {ownerId && session?.user.id === ownerId && !profileOpen && (
+        <button disabled={!online || busy} onClick={() => setProfileOpen(true)}>
+          بياناتي الدراسية
+        </button>
+      )}
+      {profileOpen && ownerId && session?.user.id === ownerId && (
+        <ProfileEditor
+          key={ownerId}
+          ownerId={ownerId}
+          online={online}
+          onClose={() => setProfileOpen(false)}
+          onSaved={() => {
+            setProfileOpen(false);
+            setCatalog([]);
+            void action(async () => {
+              setCatalog(await subjectCatalog(ownerId));
+              setMessage("حُفظت بياناتك الدراسية.");
+            });
+          }}
+        />
       )}
       {!ownerId && (
         <section className="card">
