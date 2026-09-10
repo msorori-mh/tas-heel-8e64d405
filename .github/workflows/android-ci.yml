@@ -30,7 +30,7 @@ on:
       - "tests/student/student-brand-theme-01.static.test.mjs"
       - ".github/workflows/android-ci.yml"
   push:
-    branches: [main]
+    branches: [main, release/offline-first-1.2.0-code-6]
     paths:
       - "android/**"
       - "mobile/**"
@@ -73,6 +73,20 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # This release-only ref packages the source that passed all PR #223 gates.
+      # Keep this workflow change off the product PR; never sign changed app code
+      # through this candidate trigger.
+      - name: Verify the approved offline candidate source
+        if: github.ref == 'refs/heads/release/offline-first-1.2.0-code-6'
+        env:
+          APPROVED_SOURCE: 03ced5ffd3d5022657ab8ee70a5c45db06e26b81
+        run: |
+          test "$(git rev-parse HEAD^)" = "$APPROVED_SOURCE"
+          git diff --exit-code "$APPROVED_SOURCE" HEAD -- . ':!.github/workflows/android-ci.yml'
+          echo "APPROVED_OFFLINE_SOURCE=$APPROVED_SOURCE"
 
       - uses: actions/setup-node@v4
         with:
@@ -118,7 +132,7 @@ jobs:
 
   signed-play-bundle:
     name: Signed Play testing AAB
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'push' && github.ref == 'refs/heads/release/offline-first-1.2.0-code-6')
     needs: debug-bundle
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -188,6 +202,7 @@ jobs:
           # trust chain as a fatal error; Play App Signing establishes the final
           # distribution signing chain after upload.
           jarsigner -verify app/build/outputs/bundle/release/app-release.aab
+          sha256sum app/build/outputs/bundle/release/app-release.aab
 
       - name: Verify signed bundle structure and 16 KB native-library gate
         run: bash scripts/mobile/verify-play-aab.sh android/app/build/outputs/bundle/release/app-release.aab
