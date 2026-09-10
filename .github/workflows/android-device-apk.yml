@@ -1,0 +1,136 @@
+name: Offline candidate device APK
+
+on:
+  push:
+    branches: [release/offline-first-1.2.0-device-apk]
+    paths: [".github/workflows/android-device-apk.yml"]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: offline-device-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  device-apk:
+    if: github.repository == 'msorori-mh/tas-heel-8e64d405' && github.event_name == 'push' && github.ref == 'refs/heads/release/offline-first-1.2.0-device-apk'
+    name: Signed APK from the verified 1.2.0 AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Verify the approved application source
+        env:
+          APPROVED_SOURCE: 03ced5ffd3d5022657ab8ee70a5c45db06e26b81
+        run: |
+          test "$(git rev-parse HEAD^)" = "$APPROVED_SOURCE"
+          git diff --exit-code "$APPROVED_SOURCE" HEAD -- . ':!.github/workflows/android-device-apk.yml'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android verification tools
+        run: sdkmanager "build-tools;36.0.0"
+
+      - name: Download the already verified signed AAB
+        uses: actions/download-artifact@v4
+        with:
+          name: tamkeen-play-testing-1.2.0-code-6-signed-aab
+          run-id: 34522225433
+          github-token: ${{ github.token }}
+          path: input
+
+      - name: Verify input and pin the official bundletool binary
+        run: |
+          echo 'cf9d5026c42f08089a9f5ce42f7098f4eca283c5f2e2cae7027ae153671cfa7b  input/app-release.aab' | sha256sum --check --strict
+          jarsigner -verify input/app-release.aab
+          curl --fail --location --retry 2 --output "$RUNNER_TEMP/bundletool.jar" \
+            https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+          echo "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  $RUNNER_TEMP/bundletool.jar" | sha256sum --check --strict
+          java -jar "$RUNNER_TEMP/bundletool.jar" validate --bundle=input/app-release.aab
+
+      - name: Generate a universal APK with the existing upload key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+          umask 077
+          trap 'rm -f "$RUNNER_TEMP/device-upload.jks" "$RUNNER_TEMP/device-store.pwd" "$RUNNER_TEMP/device-key.pwd"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/device-upload.jks"
+          printf '%s' "$KEYSTORE_PASSWORD" > "$RUNNER_TEMP/device-store.pwd"
+          printf '%s' "$KEY_PASSWORD" > "$RUNNER_TEMP/device-key.pwd"
+          java -jar "$RUNNER_TEMP/bundletool.jar" build-apks \
+            --bundle=input/app-release.aab \
+            --output="$RUNNER_TEMP/device.apks" \
+            --mode=universal \
+            --ks="$RUNNER_TEMP/device-upload.jks" \
+            --ks-pass="file:$RUNNER_TEMP/device-store.pwd" \
+            --ks-key-alias="$KEY_ALIAS" \
+            --key-pass="file:$RUNNER_TEMP/device-key.pwd"
+          mkdir -p output
+          unzip -p "$RUNNER_TEMP/device.apks" universal.apk > output/tamkeen-offline-1.2.0-code-6.apk
+
+      - name: Verify APK signature, identity and unchanged code and assets
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs \
+            output/tamkeen-offline-1.2.0-code-6.apk | tee output/APK-SIGNATURE.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging \
+            output/tamkeen-offline-1.2.0-code-6.apk > output/APK-MANIFEST.txt
+          keytool -printcert -jarfile input/app-release.aab > "$RUNNER_TEMP/aab-certificate.txt"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, re, zipfile
+          output = Path('output')
+          badging = (output / 'APK-MANIFEST.txt').read_text()
+          assert "package: name='app.studentamkeen.tamkeen' versionCode='6' versionName='1.2.0'" in badging
+          assert 'application-debuggable' not in badging
+          import os
+          aab_cert = (Path(os.environ['RUNNER_TEMP']) / 'aab-certificate.txt').read_text()
+          aab_digest = re.search(r'SHA256:\s*([0-9A-Fa-f:]+)', aab_cert).group(1).replace(':', '').lower()
+          apk_cert = (output / 'APK-SIGNATURE.txt').read_text()
+          apk_digest = re.search(r'Signer #1 certificate SHA-256 digest:\s*([0-9a-f]+)', apk_cert).group(1)
+          assert aab_digest == apk_digest, 'APK and AAB signing certificates differ'
+          with zipfile.ZipFile('input/app-release.aab') as aab, zipfile.ZipFile(output / 'tamkeen-offline-1.2.0-code-6.apk') as apk:
+              assert {n[5:] for n in aab.namelist() if n.startswith('base/assets/') and not n.endswith('/')} == {n for n in apk.namelist() if n.startswith('assets/') and not n.endswith('/')}
+              assert {n[9:] for n in aab.namelist() if n.startswith('base/dex/') and n.endswith('.dex')} == {n for n in apk.namelist() if re.fullmatch(r'classes\d*\.dex', n)}
+              matched = 0
+              for name in aab.namelist():
+                  if name.endswith('/'):
+                      continue
+                  target = name[5:] if name.startswith('base/assets/') else name[9:] if name.startswith('base/dex/') else None
+                  if target:
+                      assert aab.read(name) == apk.read(target), f'Changed payload: {target}'
+                      matched += 1
+              assert matched > 0
+          digest = hashlib.sha256((output / 'tamkeen-offline-1.2.0-code-6.apk').read_bytes()).hexdigest()
+          (output / 'SHA256SUMS.txt').write_text(f'{digest}  tamkeen-offline-1.2.0-code-6.apk\n')
+          print(f'APK_SIGNATURE_IDENTITY_AND_PAYLOAD=PASS; matched files={matched}; SHA256={digest}')
+          PY
+
+      - name: Upload the installable APK and verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamkeen-offline-1.2.0-code-6-device-apk
+          path: output/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove temporary signing files
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/device-upload.jks" "$RUNNER_TEMP/device-store.pwd" "$RUNNER_TEMP/device-key.pwd"
