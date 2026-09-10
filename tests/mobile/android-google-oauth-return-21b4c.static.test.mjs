@@ -48,7 +48,7 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
 
   it("1c. OAuth is explicitly PKCE and Chrome cannot consume the mobile callback", () => {
     expect(supabaseClient).toMatch(/flowType: "pkce"/);
-    expect(supabaseClient).toMatch(/detectSessionInUrl: shouldDetectSessionInUrl/);
+    expect(supabaseClient).toMatch(/shouldDetectSessionInUrl\(new URL\(window.location.href\)\)/);
     expect(
       shouldDetectSessionInUrl(
         new URL("https://studentamkeen.com/auth/mobile-callback?code=abc12345"),

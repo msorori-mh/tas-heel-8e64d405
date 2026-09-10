@@ -1,6 +1,6 @@
 # MOBILE-ORIGINAL-01 — original workspaces with offline support
 
-Decision: **HOLD**. Corrective source and local gates are complete; the full browser/native runtime gates and physical Google sign-in have not run on this correction. Do not ship another APK or label login fixed on the phone yet.
+Decision: **HOLD**. The first full browser run found a PKCE callback classification bug; its correction passes focused SDK tests and is awaiting the full runtime rerun. Android and physical Google sign-in acceptance remain open. Do not ship another APK or label login fixed on the phone yet.
 
 ## Baseline and scope
 
@@ -35,7 +35,7 @@ Profile loads are bounded, prevent stale account responses, and hold the loading
 - `git diff --check`: PASS.
 - Live public production landing and teacher entry inspected through the supported browser; no authenticated account test was performed there.
 
-## Prepared runtime gates — NOT RUN
+## Runtime gates
 
 `tests/mobile/full-app-e2e.mjs` exercises the actual bundled route tree for both roles: original entry, internal portal, Google-provider boundary with real SDK PKCE exchange, exactly-once callback, original workspace, reload/session restoration, saved offline workspace, logout isolation. Its provider responses are explicitly TEST_ONLY fixtures, with all other remote access blocked. Its reports distinguish simulated provider coverage from real Google and physical-device acceptance.
 
@@ -43,11 +43,17 @@ Android instrumentation retains actual UI -> Capacitor -> encrypted-state accoun
 
 The workflow `.github/workflows/student-offline-ci.yml` now runs the full-app role suite. It still runs the underlying offline unit/integration tests and Android instrumentation. The obsolete `tests/offline/student-browser-runtime.mjs` targets the retired minimal UI and is not release evidence for this correction.
 
-## Current blocker and next action
+## Publication and runtime findings
 
-Automatic approval review rejected `git push origin HEAD:fix/mobile-original-experience` because the explicit GitHub permission in the visible conversation named `fix/phet-external-lab`, not this branch. Read-only connector checks confirmed the repository is public, the connected account has push permission and authored PR #223; a second attempt of the same push was still rejected because those checks cannot expand user authorization. No connector or different destination was used to bypass the rejection. The new branch was absent from `git ls-remote` afterward.
+The user explicitly approved pushing this exact branch and opening its PR. [Draft PR #224](https://github.com/msorori-mh/tas-heel-8e64d405/pull/224) was opened at `34c632738509ff00ffed25975f3e1b936b3e7875`. Git CLI had no push credential, so the authenticated GitHub connector published the source. Its full tree matched the local tree exactly (`bdc06954592935abee4a2df57465d35e2a21e81a`). The earlier approval blocker is resolved.
 
-Need explicit approval for pushing `fix/mobile-original-experience` to this repository and opening its PR/running CI. Then run and resolve the prepared browser/emulator gates, verify real Google student and teacher sessions using the supported secure authentication flow, and build a new phone candidate only after those gates. Do not merge or publish while runtime/phone acceptance is incomplete.
+[First runtime run](https://github.com/msorori-mh/tas-heel-8e64d405/actions/runs/34540592603) failed both role journeys: the authorize request occurred, but neither callback exchanged its code. The installed Auth SDK treats a function-valued `detectSessionInUrl` as its implicit-flow classifier. The previous predicate returned true for ordinary and PKCE pages, misclassifying them as implicit OAuth. The client now passes a page-specific boolean, retaining the SDK's PKCE detection and disabling URL exchange only on the HTTPS native compatibility callback.
+
+Four focused tests execute the real SDK with synthetic HTTP responses: student callback, teacher callback, existing-session restoration, and refusing to exchange the native compatibility callback in the browser. All pass. The full browser E2E remains the acceptance gate, with its first failure preserved in Actions artifacts.
+
+The separate academy TypeScript gate also found a root-only import alias in the shared auth client. A relative import fixes that build boundary; academy typecheck and standalone build passed locally after the correction.
+
+Next: resolve the browser/emulator gates, verify real Google student and teacher sessions using the supported secure authentication flow, and build a new phone candidate only after those gates. Do not merge or publish while runtime/phone acceptance is incomplete.
 
 The test package and existing Play package currently share `app.studentamkeen.tamkeen://auth/callback`; coexistence can still cause Android to select the wrong application. This has not been eliminated or proven to be the physical login error. Do not claim the new code alone proves S24 login. A distinct test callback would require a matching permitted Auth redirect configuration, or testing through an appropriate Play-signed test track. No Auth configuration was changed.
 
