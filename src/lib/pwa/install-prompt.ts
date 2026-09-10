@@ -8,6 +8,8 @@
  * installability heuristics are met.
  */
 
+import { Capacitor } from "@capacitor/core";
+
 export interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -49,6 +51,7 @@ export function onInstallPromptChange(listener: InstallPromptListener): () => vo
 
 /** True when the app already runs installed (standalone display mode). */
 export function isStandaloneDisplay(): boolean {
+  if (Capacitor.isNativePlatform()) return true;
   if (typeof window === "undefined") return false;
   if (window.matchMedia("(display-mode: standalone)").matches) return true;
   // iOS Safari legacy standalone flag.

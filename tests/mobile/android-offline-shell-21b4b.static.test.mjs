@@ -107,7 +107,7 @@ describe("offline entry surface", () => {
   it("Android loads the bundled page instead of chrome-error://", () => {
     expect(capConfig).toMatch(/errorPath: "index\.html"/);
     expect(capConfig).not.toMatch(/url: "https:\/\/studentamkeen\.com"/);
-    expect(capConfig).toMatch(/webDir: "dist-student-mobile"/);
+    expect(capConfig).toMatch(/webDir: "dist-mobile"/);
   });
 });
 

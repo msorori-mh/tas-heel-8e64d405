@@ -84,6 +84,20 @@ export const offlineStateSnapshotSchema = z
     packBackups: z.array(offlinePackRecordSchema).default([]),
     outbox: z.array(offlineOutboxRecordSchema),
     learning: z.array(offlineLearningRecordSchema).default([]),
+    // Optional, backward-readable display snapshots. Never an authorization source.
+    views: z
+      .array(
+        z
+          .object({
+            ownerId: z.string().min(1).max(160),
+            key: z.string().min(1).max(300),
+            json: z.string().max(1_000_000),
+            savedAt: isoDate,
+          })
+          .strict(),
+      )
+      .max(100)
+      .optional(),
   })
   .strict();
 

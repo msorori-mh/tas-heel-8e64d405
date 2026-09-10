@@ -62,14 +62,15 @@ describe("Android teacher academy V1", () => {
     expect(academy).toContain('setNativeAuthDestination("teacher")');
     expect(academy).toContain("NATIVE_OAUTH_REDIRECT_URL");
     expect(academy).toContain("openNativeAuthBrowser(data.url)");
-    expect(handler).toContain('window.location.replace("/academy")');
-    expect(root.match(/<NativeAuthDeepLinkHandler \/>/g)?.length).toBe(2);
+    expect(handler).toContain('navigate({ to: "/academy", replace: true })');
+    expect(root.match(/<NativeAuthDeepLinkHandler \/>/g)?.length).toBe(1);
   });
 
   it("shares the native session adapter with the academy client", () => {
     const academyClient = read("apps/teacher-academy/src/lib/supabase.ts");
-    expect(academyClient).toContain("persistentAuthStorage()");
-    expect(academyClient).toContain('flowType: "pkce"');
+    expect(academyClient).toContain("Reflect.get(supabase, property)");
+    expect(academyClient).not.toContain("createClient(");
+    expect(read("src/integrations/supabase/client.ts")).toContain('flowType: "pkce"');
     expect(academyClient).not.toMatch(/service_role|SERVICE_ROLE/);
   });
 

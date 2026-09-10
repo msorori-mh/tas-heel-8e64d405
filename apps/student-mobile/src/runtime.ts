@@ -28,7 +28,7 @@ export async function assertOwner(ownerId: string) {
   if ((await repository.read()).activeOwnerId !== ownerId) throw new Error("OFFLINE_OWNER_CHANGED");
 }
 
-/** Existing connected services remain available in the system browser. No tokens in URLs. */
+/** Legacy links stay inside the full application, including the teacher workspace. */
 export type ConnectedDestination =
   | "student"
   | "teacher"
@@ -47,13 +47,7 @@ const connectedPaths: Record<ConnectedDestination, string> = {
   terms: "/terms",
 };
 export async function openConnectedServices(destination: ConnectedDestination = "student") {
-  const url = "https://studentamkeen.com" + connectedPaths[destination];
-  if (Capacitor.isNativePlatform()) {
-    const { Browser } = await import("@capacitor/browser");
-    await Browser.open({ url });
-  } else {
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
+  window.location.assign(connectedPaths[destination]);
 }
 
 export async function signIn() {

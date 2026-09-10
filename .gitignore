@@ -11,6 +11,7 @@ node_modules
 dist-student-mobile
 artifacts/student-offline/
 dist
+dist-mobile
 dist-academy
 dist-ssr
 .output

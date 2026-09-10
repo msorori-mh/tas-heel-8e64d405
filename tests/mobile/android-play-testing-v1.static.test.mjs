@@ -26,7 +26,7 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
 
   it("loads bundled release assets and refuses cleartext", () => {
     expect(capacitor).not.toContain('url: "https://studentamkeen.com"');
-    expect(capacitor).toContain('webDir: "dist-student-mobile"');
+    expect(capacitor).toContain('webDir: "dist-mobile"');
     expect(capacitor).toContain("cleartext: false");
     expect(capacitor).toContain("allowMixedContent: false");
     expect(manifest).toContain("android.permission.INTERNET");

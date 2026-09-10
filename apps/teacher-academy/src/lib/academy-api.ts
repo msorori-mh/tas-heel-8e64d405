@@ -1,5 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 import { academySupabase, requireAcademyBackend } from "./supabase";
+import { readTeacherContent } from "./offline-cache";
 import type {
   AcademyCapability,
   AcademyAdminAccount,
@@ -41,15 +42,21 @@ export type ProgramDraftInput = {
 };
 
 export async function loadTeacherProfile(userId: string): Promise<TeacherProfile | null> {
-  requireAcademyBackend();
-  const { data, error } = await academySupabase
-    .from("teacher_profiles")
-    .select("user_id,full_name,primary_subject_id,governorate_id,school_name,phone,status")
-    .eq("user_id", userId)
-    .maybeSingle();
+  return readTeacherContent(
+    "profile",
+    async () => {
+      requireAcademyBackend();
+      const { data, error } = await academySupabase
+        .from("teacher_profiles")
+        .select("user_id,full_name,primary_subject_id,governorate_id,school_name,phone,status")
+        .eq("user_id", userId)
+        .maybeSingle();
 
-  if (error) throw error;
-  return data as TeacherProfile | null;
+      if (error) throw error;
+      return data as TeacherProfile | null;
+    },
+    userId,
+  );
 }
 
 export async function loadProfileOptions(): Promise<{
@@ -99,10 +106,12 @@ export async function saveTeacherProfile(
 }
 
 export async function loadVisiblePrograms(): Promise<CatalogProgram[]> {
-  requireAcademyBackend();
-  const { data, error } = await academySupabase.rpc("list_visible_programs");
-  if (error) throw error;
-  return (data ?? []) as CatalogProgram[];
+  return readTeacherContent("catalog", async () => {
+    requireAcademyBackend();
+    const { data, error } = await academySupabase.rpc("list_visible_programs");
+    if (error) throw error;
+    return (data ?? []) as CatalogProgram[];
+  });
 }
 
 export async function selfEnroll(programVersionId: string): Promise<string> {
@@ -115,6 +124,7 @@ export async function selfEnroll(programVersionId: string): Promise<string> {
 }
 
 export async function loadCapabilities(): Promise<Set<AcademyCapability>> {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return new Set();
   requireAcademyBackend();
   const capabilities: AcademyCapability[] = [
     "ACADEMY_CATALOG_MANAGE",
@@ -414,19 +424,23 @@ export async function adminDeleteLiveSession(liveSessionId: string): Promise<voi
 }
 
 export async function listMyLearning(): Promise<LearningProgram[]> {
-  requireAcademyBackend();
-  const { data, error } = await academySupabase.rpc("list_my_learning");
-  if (error) throw error;
-  return (data ?? []) as LearningProgram[];
+  return readTeacherContent("learning", async () => {
+    requireAcademyBackend();
+    const { data, error } = await academySupabase.rpc("list_my_learning");
+    if (error) throw error;
+    return (data ?? []) as LearningProgram[];
+  });
 }
 
 export async function getLearningLessons(programVersionId: string): Promise<LearningLesson[]> {
-  requireAcademyBackend();
-  const { data, error } = await academySupabase.rpc("get_learning_lessons", {
-    p_program_version_id: programVersionId,
+  return readTeacherContent("lessons:" + programVersionId, async () => {
+    requireAcademyBackend();
+    const { data, error } = await academySupabase.rpc("get_learning_lessons", {
+      p_program_version_id: programVersionId,
+    });
+    if (error) throw error;
+    return (data ?? []) as LearningLesson[];
   });
-  if (error) throw error;
-  return (data ?? []) as LearningLesson[];
 }
 
 export async function listProgramLiveSessions(programVersionId: string): Promise<LiveSession[]> {
@@ -471,10 +485,12 @@ export async function submitAssessment(
 }
 
 export async function listMyCertificates(): Promise<Certificate[]> {
-  requireAcademyBackend();
-  const { data, error } = await academySupabase.rpc("list_my_certificates");
-  if (error) throw error;
-  return (data ?? []) as Certificate[];
+  return readTeacherContent("certificates", async () => {
+    requireAcademyBackend();
+    const { data, error } = await academySupabase.rpc("list_my_certificates");
+    if (error) throw error;
+    return (data ?? []) as Certificate[];
+  });
 }
 
 export async function verifyCertificate(code: string): Promise<VerifiedCertificate | null> {

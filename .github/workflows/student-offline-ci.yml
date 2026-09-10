@@ -1,4 +1,4 @@
-name: Student offline runtime
+name: Student and teacher mobile runtime
 on:
   pull_request:
     branches: [main]
@@ -10,6 +10,16 @@ on:
       - "tests/offline/**"
       - ".github/workflows/student-offline-ci.yml"
       - "package*.json"
+      - "src/hooks/use-auth.tsx"
+      - "src/integrations/supabase/**"
+      - "src/routes/**"
+      - "src/components/mobile/**"
+      - "src/client.tsx"
+      - "apps/teacher-academy/**"
+      - "tests/mobile/**"
+      - "scripts/mobile/**"
+      - "vite.config.ts"
+      - "capacitor.config.ts"
 permissions:
   contents: read
 concurrency:
@@ -17,7 +27,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   chromium:
-    name: Student offline Chromium runtime
+    name: Original student and teacher E2E (provider fixtures)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -29,22 +39,13 @@ jobs:
       - run: npm ci
       - run: npm run student:typecheck && npm run student:test && npm run student:build
       - run: npx playwright install --with-deps chromium
-      - name: Start bundled client preview
-        run: |
-          node node_modules/vite/bin/vite.js preview --config apps/student-mobile/vite.config.ts --host 127.0.0.1 > /tmp/student-preview.log 2>&1 &
-          for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:4176/ > /dev/null; then exit 0; fi
-            sleep 1
-          done
-          cat /tmp/student-preview.log
-          exit 1
-      - name: Exercise reload, answers, grading and logout with the network offline
-        run: node tests/offline/student-browser-runtime.mjs
+      - name: Exercise original portals, PKCE, session restore and offline logout
+        run: node tests/mobile/full-app-e2e.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: student-offline-runtime-evidence
-          path: artifacts/student-offline
+          path: artifacts/full-app-e2e
           if-no-files-found: error
 
   android-state:
@@ -76,7 +77,10 @@ jobs:
           api-level: 35
           arch: x86_64
           disable-animations: true
-          script: cd android && ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.tamkeenDisposableEmulator=true --stacktrace
+          script: |
+            adb shell svc wifi disable
+            adb shell svc data disable
+            cd android && ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.tamkeenDisposableEmulator=true --stacktrace
       - uses: actions/upload-artifact@v4
         if: always()
         with:

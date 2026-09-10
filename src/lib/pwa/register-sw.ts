@@ -10,6 +10,8 @@
  *   followed by a one-shot reload on `controllerchange`.
  */
 
+import { Capacitor } from "@capacitor/core";
+
 export const PWA_UPDATE_EVENT = "pwa:update-available";
 
 function dispatchUpdateAvailable(registration: ServiceWorkerRegistration): void {
@@ -21,7 +23,7 @@ function dispatchUpdateAvailable(registration: ServiceWorkerRegistration): void 
 }
 
 export function registerServiceWorker(): void {
-  if (typeof window === "undefined" || !import.meta.env.PROD) {
+  if (typeof window === "undefined" || !import.meta.env.PROD || Capacitor.isNativePlatform()) {
     return;
   }
 

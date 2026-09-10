@@ -45,15 +45,23 @@ export function createDurableNativeAuthStorage(
     },
 
     async setItem(key: string, value: string): Promise<void> {
+      let durable = false;
       try {
         await preferences.set({ key, value });
+        durable = true;
       } catch (error) {
         // Compatibility bridge for Play builds released before the Preferences
         // plugin was registered. Keep failing closed for every other native
         // storage error; the signed update restores durable Preferences.
         if (!isUnimplementedPluginError(error)) throw error;
       }
-      fallback.setItem(key, value);
+      try {
+        fallback.setItem(key, value);
+      } catch (error) {
+        // Preferences already committed the session. A full WebView mirror
+        // must not turn successful Google authentication into a false failure.
+        if (!durable) throw error;
+      }
     },
 
     async removeItem(key: string): Promise<void> {

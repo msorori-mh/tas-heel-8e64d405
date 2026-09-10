@@ -21,9 +21,9 @@ describe("Capacitor local release shell", () => {
     delete process.env.TAMKEEN_CAPACITOR_LIVE_RELOAD;
     delete process.env.TAMKEEN_CAPACITOR_LIVE_RELOAD_URL;
     const config = await loadConfig();
-    expect(config.webDir).toBe("dist-student-mobile");
+    expect(config.webDir).toBe("dist-mobile");
     expect(config.server?.url).toBeUndefined();
-    expect(config.server?.hostname).toBe("localhost");
+    expect(config.server?.hostname).toBe("studentamkeen.com");
     expect(config.server?.cleartext).toBe(false);
     expect(config.server?.errorPath).toBe("index.html");
   });

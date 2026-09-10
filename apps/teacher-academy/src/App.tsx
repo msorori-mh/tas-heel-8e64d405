@@ -1,3 +1,5 @@
+import { readOfflineSession } from "../../../src/integrations/supabase/client";
+import { signOutAcademyOnDevice } from "./lib/offline-cache";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -511,6 +513,7 @@ function TeacherAuthPage() {
       await startTeacherGoogleSignIn();
     } catch (submitError) {
       setError(getErrorMessage(submitError));
+    } finally {
       setBusy(false);
     }
   }
@@ -1569,7 +1572,7 @@ function Workspace({
               <small>{displayMeta}</small>
             </div>
           </div>
-          <button className="nav-item" onClick={() => academySupabase.auth.signOut()}>
+          <button className="nav-item" onClick={() => signOutAcademyOnDevice()}>
             <LogOut /> تسجيل الخروج
           </button>
         </div>
@@ -1612,7 +1615,7 @@ function PortalMismatch({
             {destinationLabel}
           </a>
         ) : null}
-        <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
+        <button className="secondary-button" onClick={() => signOutAcademyOnDevice()}>
           <LogOut /> تسجيل الخروج وتبديل الحساب
         </button>
       </section>
@@ -1641,20 +1644,32 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
       return;
     }
 
-    academySupabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
-      setLoadingSession(false);
+    let active = true;
+    void (async () => {
+      const offline = await readOfflineSession();
+      const session = offline ?? (await academySupabase.auth.getSession()).data.session;
+      if (active) {
+        setUser(session?.user ?? null);
+        setLoadingSession(false);
+      }
+    })().catch(() => {
+      if (active) setLoadingSession(false);
     });
 
     const { data } = academySupabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === "INITIAL_SESSION") return;
       setUser(session?.user ?? null);
+      setLoadingSession(false);
       if (!session) {
         setProfile(null);
         setCapabilities(new Set());
       }
     });
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -1679,7 +1694,7 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [user?.id]);
 
   if (!academyFeatureEnabled) return <AcademyUnavailable />;
   if (!academyBackendConfigured) return <ConfigurationRequired />;
@@ -1696,7 +1711,7 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
             أُغلقت الواجهة لأن مخطط الأكاديمية أو صلاحياته غير جاهزة. لا يؤثر ذلك على تطبيق الطلاب.
           </p>
           <div className="notice error-notice">{profileError}</div>
-          <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
+          <button className="secondary-button" onClick={() => signOutAcademyOnDevice()}>
             <LogOut /> تسجيل الخروج
           </button>
         </section>
@@ -1752,7 +1767,7 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
           <School className="large-icon" />
           <h1>الحساب موقوف مؤقتًا</h1>
           <p className="muted">تواصل مع إدارة أكاديمية تمكين لمعرفة التفاصيل.</p>
-          <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
+          <button className="secondary-button" onClick={() => signOutAcademyOnDevice()}>
             <LogOut /> تسجيل الخروج
           </button>
         </section>

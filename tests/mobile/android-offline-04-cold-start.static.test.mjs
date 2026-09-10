@@ -26,7 +26,7 @@ const capacitor = read("capacitor.config.ts");
 describe("OFFLINE-04 Android cold-start lesson entry", () => {
   it("cold-starts from the bundled entry without a production remote URL", () => {
     expect(capacitor).not.toContain('url: "https://studentamkeen.com"');
-    expect(capacitor).toContain('webDir: "dist-student-mobile"');
+    expect(capacitor).toContain('webDir: "dist-mobile"');
     expect(capacitor).toContain('errorPath: "index.html"');
     expect(mainActivity).toContain("registerPlugin(TamkeenOfflineContentPlugin.class)");
   });
@@ -34,8 +34,8 @@ describe("OFFLINE-04 Android cold-start lesson entry", () => {
   it("pins the offline entry to the last authenticated owner and clears it on sign-out", () => {
     expect(state).toContain("activeOwnerId");
     expect(state).toContain("setActiveOfflineOwner");
-    expect(auth).toContain("setActiveOfflineOwner(sess?.user?.id ?? null)");
-    expect(auth).toContain("setActiveOfflineOwner(data.session?.user?.id ?? null)");
+    expect(auth).toContain("setActiveOfflineOwner(uid)");
+    expect(auth).toContain("activeUser.current = uid");
     expect(auth).toContain("await setActiveOfflineOwner(null)");
   });
 

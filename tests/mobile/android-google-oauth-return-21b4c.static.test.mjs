@@ -170,7 +170,7 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
   it("9. session restoration runs in the WebView that owns the PKCE verifier", () => {
     expect(handler).toMatch(/exchangeCodeForSession\(parsed\.code\)/);
     expect(handler).toMatch(/consumeNativeAuthDestination\(\)/);
-    expect(handler).toMatch(/window\.location\.replace\("\/academy"\)/);
+    expect(handler).toMatch(/navigate\(\{ to: "\/academy", replace: true \}\)/);
     expect(handler).toMatch(/navigate\(\{ to: "\/auth\/callback", replace: true \}\)/);
     expect(root).toMatch(/<NativeAuthDeepLinkHandler \/>/);
   });
@@ -191,7 +191,7 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
     const cap = read("capacitor.config.ts");
     expect(cap).toMatch(/errorPath: "index\.html"/);
     expect(cap).not.toMatch(/url: "https:\/\/studentamkeen\.com"/);
-    expect(cap).toMatch(/webDir: "dist-student-mobile"/);
+    expect(cap).toMatch(/webDir: "dist-mobile"/);
     expect(read("mobile/www/index.html")).toMatch(/كتبك المحفوظة/);
     // native shell only guards; no offline module touched by this batch
     expect(handler).not.toMatch(/textbook|offline/i);

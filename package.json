@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "student:dev": "vite --config apps/student-mobile/vite.config.ts",
-    "student:build": "vite build --config apps/student-mobile/vite.config.ts",
-    "student:typecheck": "tsc -p apps/student-mobile/tsconfig.json --noEmit",
+    "student:dev": "vite dev --port 4176",
+    "student:build": "node scripts/mobile/build-app.mjs",
+    "student:typecheck": "tsc --noEmit",
     "student:test": "vitest run tests/offline",
     "academy:dev": "vite --config apps/teacher-academy/vite.config.ts",
     "academy:build": "vite build --config apps/teacher-academy/vite.config.ts",

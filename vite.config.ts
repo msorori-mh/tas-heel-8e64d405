@@ -26,8 +26,15 @@ const release = Object.freeze({
   builtAt: new Date().toISOString(),
 });
 
+// Android packages the SAME route tree, components and CSS as the web release.
+// SPA mode only changes how the initial document is delivered; it does not
+// replace either the student workspace or the teacher academy.
+const mobileBuild = process.env.TAMKEEN_MOBILE_BUILD === "1";
+
 export default defineConfig({
+  ...(mobileBuild ? { nitro: false as const } : {}),
   vite: {
+    ...(mobileBuild ? { preview: { host: "127.0.0.1" } } : {}),
     // Lovable publishes the student app from the repository root. The academy
     // database passed production post-verify before this route was enabled, so
     // the root build deliberately exposes the isolated academy UI below /academy.
@@ -36,11 +43,18 @@ export default defineConfig({
       "import.meta.env.VITE_ACADEMY_ENABLED": JSON.stringify("true"),
       "import.meta.env.VITE_ACADEMY_BASE_PATH": JSON.stringify("/academy"),
       __TAMKEEN_RELEASE__: JSON.stringify(release),
+      "import.meta.env.VITE_MOBILE_BUNDLE": JSON.stringify(mobileBuild),
     },
   },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
+    ...(mobileBuild
+      ? {
+          spa: { enabled: true, prerender: { outputPath: "/index.html" } },
+          prerender: { concurrency: 1 },
+        }
+      : {}),
   },
 });

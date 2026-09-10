@@ -30,10 +30,54 @@ public class OfflineAccountBridgeTest {
     }
     private void awaitHome(ActivityScenario<MainActivity> scenario) throws Exception {
         for (int i = 0; i < 60; i++) {
-            if ("true".equals(evaluate(scenario, "document.body.innerText.includes('موادك الدراسية')"))) return;
+            if ("true".equals(evaluate(scenario, "document.body.innerText.includes('طريقك المنظم للتفوّق')"))) return;
             Thread.sleep(250);
         }
         fail("Bundled authenticated home did not load after saving the account through the native bridge");
+    }
+    private void awaitOwner(Context context) throws Exception {
+        for (int i = 0; i < 60; i++) {
+            JSONObject state = TamkeenOfflineStateStore.read(context);
+            if (state != null && OWNER.equals(state.optString("activeOwnerId"))) return;
+            Thread.sleep(250);
+        }
+        fail("Native offline owner did not commit");
+    }
+    @Test public void originalTeacherEntryStaysInsideTheInstalledApplication() throws Exception {
+        assertEquals("Run only on the dedicated disposable CI emulator", "true",
+            InstrumentationRegistry.getArguments().getString("tamkeenDisposableEmulator"));
+        Context target = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        assertNull("Never replace installed offline data", TamkeenOfflineStateStore.read(target));
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitHome(scenario);
+            evaluate(scenario, "document.querySelector('a[href=\"/academy\"]').click()");
+            boolean opened = false;
+            for (int i = 0; i < 60; i++) {
+                if ("true".equals(evaluate(scenario, "document.body.innerText.includes('بوابة المعلمين')"))) { opened = true; break; }
+                Thread.sleep(250);
+            }
+            assertTrue("Original teacher portal did not open inside the WebView", opened);
+            assertEquals("true", evaluate(scenario, "location.origin === 'https://studentamkeen.com' && location.pathname.startsWith('/academy')"));
+            assertEquals("false", evaluate(scenario, "document.body.innerText.includes('تثبيت التطبيق')"));
+            assertEquals("true", evaluate(scenario, "document.body.innerText.includes('المتابعة باستخدام Google')"));
+        } finally {
+            JSONObject state = TamkeenOfflineStateStore.read(target);
+            if (state != null) {
+                assertTrue(state.isNull("activeOwnerId"));
+                assertEquals(0, state.getJSONArray("packs").length());
+                assertEquals(0, state.getJSONArray("outbox").length());
+                assertTrue(target.deleteDatabase("tamkeen-offline.db"));
+            }
+        }
+    }
+    @Test public void backendRoutingKeepsBothPortalsBundledAndRestrictsNetworkEndpoints() {
+        assertTrue(TamkeenWebViewClient.isBackendRequest(android.net.Uri.parse("https://studentamkeen.com/api/subject-textbook/id")));
+        assertTrue(TamkeenWebViewClient.isBackendRequest(android.net.Uri.parse("https://studentamkeen.com/_serverFn/id")));
+        for (String url : new String[] { "https://studentamkeen.com/academy", "https://studentamkeen.com/app",
+            "https://studentamkeen.com/assets/app.js", "http://studentamkeen.com/api/x", "https://studentamkeen.com.evil.invalid/api/x",
+            "https://studentamkeen.com:8443/api/x", "https://user@studentamkeen.com/api/x" }) {
+            assertFalse(url, TamkeenWebViewClient.isBackendRequest(android.net.Uri.parse(url)));
+        }
     }
     @Test public void authenticatedUiSavesAccountAndRestoresItAfterActivityRecreation() throws Exception {
         assertEquals("Run only on the dedicated disposable CI emulator", "true",
@@ -54,10 +98,12 @@ public class OfflineAccountBridgeTest {
         assertTrue(preferences.edit().putString(AUTH_KEY, session.toString()).commit());
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             awaitHome(scenario);
+            awaitOwner(target);
             assertEquals(OWNER, TamkeenOfflineStateStore.read(target).getString("activeOwnerId"));
             assertEquals("false", evaluate(scenario, "document.body.innerText.includes('تعذر تجهيز الحساب')"));
             scenario.recreate();
             awaitHome(scenario);
+            awaitOwner(target);
             assertEquals(OWNER, TamkeenOfflineStateStore.read(target).getString("activeOwnerId"));
             evaluate(scenario, "localStorage.removeItem(" + JSONObject.quote(AUTH_KEY) + ")");
         } finally {

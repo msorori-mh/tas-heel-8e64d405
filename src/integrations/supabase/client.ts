@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 import type { Database } from "./types";
 import { brokeredPreviewStorage } from "./previewAuthStorage";
 import { persistentAuthStorage } from "./nativeAuthStorage";
@@ -6,6 +7,7 @@ import { PUBLIC_SUPABASE_PUBLISHABLE_KEY, PUBLIC_SUPABASE_URL } from "./public-c
 import { createLocalLogoutStorage } from "./localLogoutStorage";
 
 let localLogoutStorage: ReturnType<typeof createLocalLogoutStorage> | undefined;
+let authStorageKey = "";
 
 const ANDROID_BROWSER_CALLBACK_ORIGIN = "https://studentamkeen.com";
 const ANDROID_BROWSER_CALLBACK_PATH = "/auth/mobile-callback";
@@ -46,6 +48,7 @@ function createSupabaseClient() {
   }
 
   const storageKey = `sb-${new URL(SUPABASE_URL).hostname.split(".")[0]}-auth-token`;
+  authStorageKey = storageKey;
   const storage = persistentAuthStorage() ?? brokeredPreviewStorage();
   localLogoutStorage = storage ? createLocalLogoutStorage(storage, storageKey) : undefined;
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
@@ -75,6 +78,25 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
     return Reflect.get(_supabase, prop, receiver);
   },
 });
+
+/** Offline display only. Remote operations still require server-validated auth.
+ * Avoid SDK refresh retries on an expired token when the device is offline. */
+export async function readOfflineSession(): Promise<Session | null> {
+  if (typeof navigator === "undefined" || navigator.onLine) return null;
+  void supabase.auth;
+  const raw = await localLogoutStorage?.storage.getItem(authStorageKey);
+  if (!raw) return null;
+  try {
+    const session = JSON.parse(raw) as Session;
+    if (!session?.user?.id || typeof session.access_token !== "string") return null;
+    const { deviceOfflineStateRepository } = await import("@/lib/offline/offline-state-store");
+    return (await deviceOfflineStateRepository.read()).activeOwnerId === session.user.id
+      ? session
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Local removal must commit before an offline UI reports successful sign-out. */
 export async function signOutOnThisDevice(): Promise<void> {

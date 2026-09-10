@@ -46,20 +46,12 @@ test("Lovable root build exposes the academy below an isolated client-only layou
   assert.match(verifyRoute, /portal="verify"/);
 });
 
-test("academy routes stay isolated while mounting only the native OAuth return handler", () => {
+test("academy stays outside student providers while native handlers survive portal changes", () => {
   assert.match(rootRoute, /pathname\.startsWith\("\/academy"\)/);
-  assert.match(rootRoute, /if \(academyRouteActive\) \{/);
-  assert.match(
-    rootRoute,
-    /<Outlet \/>\s*<NativeAuthDeepLinkHandler \/>\s*<NativeNotificationHandler \/>/,
-  );
+  assert.match(rootRoute, /academyRouteActive \? \(\s*<Outlet \/>\s*\) : \(\s*<AuthProvider>/);
+  assert.equal((rootRoute.match(/<NativeAuthDeepLinkHandler \/>/g) ?? []).length, 1);
+  assert.match(rootRoute, /<AndroidBackHandler \/>/);
   assert.match(rootRoute, /if \(!academyRouteActive\) registerServiceWorker\(\)/);
-  assert.ok(rootRoute.indexOf("if (academyRouteActive) {") < rootRoute.indexOf("<AuthProvider>"));
-  const academyBranch = rootRoute.slice(
-    rootRoute.indexOf("if (academyRouteActive) {"),
-    rootRoute.indexOf("<QueryClientProvider"),
-  );
-  assert.doesNotMatch(academyBranch, /<AuthProvider>|<PwaUpdateNotice|<AndroidBackHandler/);
 });
 
 test("academy navigation, dedicated Google callback, and certificate verification honor the base path", () => {

@@ -42,14 +42,16 @@ const developmentServer =
 const config: CapacitorConfig = {
   appId: "app.studentamkeen.tamkeen",
   appName: "تمكين",
-  webDir: "dist-student-mobile",
+  webDir: "dist-mobile",
   android: {
     allowMixedContent: false,
   },
   server: {
     androidScheme: "https",
     cleartext: false,
-    hostname: "localhost",
+    // Preserve the original app origin. UI and assets are bundled; only the
+    // existing server routes use the network (see TamkeenWebViewClient).
+    hostname: "studentamkeen.com",
     // Local release entry; also the fail-closed page if an opted-in development
     // server becomes unavailable.
     errorPath: "index.html",
