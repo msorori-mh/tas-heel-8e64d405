@@ -3,7 +3,8 @@ apply plugin: 'com.android.application'
 def releaseSigningPropertiesFile = rootProject.file("keystore.properties")
 def releaseArtifactRequested = gradle.startParameter.taskNames.any { taskName ->
     def normalized = taskName.toLowerCase()
-    (normalized.contains("bundle") || normalized.contains("assemble")) && normalized.contains("release")
+    (normalized.contains("bundle") || normalized.contains("assemble")) &&
+        (normalized.contains("release") || normalized.contains("devicetest"))
 }
 def releaseSigningProperties = new Properties()
 
@@ -58,6 +59,14 @@ android {
             if (releaseSigningPropertiesFile.exists()) {
                 signingConfig signingConfigs.release
             }
+        }
+        // Private phone acceptance APK. A different UID/data directory lets it
+        // coexist with the Play-signed application without replacing that app.
+        deviceTest {
+            initWith release
+            applicationIdSuffix ".offlinetest"
+            versionNameSuffix "-test"
+            matchingFallbacks = ['release']
         }
     }
 }

@@ -1,0 +1,120 @@
+name: Offline phone test alongside Play
+on:
+  push:
+    branches: [release/offline-first-1.2.0-side-by-side]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: offline-side-by-side-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  phone-test:
+    if: github.repository == 'msorori-mh/tas-heel-8e64d405' && github.event_name == 'push' && github.ref == 'refs/heads/release/offline-first-1.2.0-side-by-side'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Keep application behavior pinned to the accepted offline source
+        run: |
+          git merge-base --is-ancestor 03ced5ffd3d5022657ab8ee70a5c45db06e26b81 HEAD
+          git diff --exit-code 03ced5ffd3d5022657ab8ee70a5c45db06e26b81 HEAD -- . \
+            ':!android/app/build.gradle' ':!android/app/src/deviceTest/res/values/strings.xml' \
+            ':!.github/workflows/android-side-by-side.yml' ':!scripts/mobile/verify-side-by-side.sh'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - name: Install Android build tools
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Verify the student application and build its bundled UI
+        run: |
+          npm ci
+          npm run test:mobile-release
+          npm run student:typecheck
+          npm run student:test
+          npm run student:build
+          node node_modules/@capacitor/cli/bin/capacitor sync android
+      - name: Build the separately installed test APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+          umask 077
+          trap 'rm -f android/keystore.properties "$RUNNER_TEMP/side-by-side-upload.jks"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/side-by-side-upload.jks"
+          {
+            printf 'storeFile=%s\n' "$RUNNER_TEMP/side-by-side-upload.jks"
+            printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+          } > android/keystore.properties
+          (cd android && ./gradlew :app:assembleDeviceTest --stacktrace)
+          mkdir -p output
+          cp android/app/build/outputs/apk/deviceTest/app-deviceTest.apk output/tamkeen-offline-1.2.0-side-by-side.apk
+      - name: Verify the signed test identity and private provider
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs output/tamkeen-offline-1.2.0-side-by-side.apk | tee output/signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging output/tamkeen-offline-1.2.0-side-by-side.apk > output/manifest.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree output/tamkeen-offline-1.2.0-side-by-side.apk --file AndroidManifest.xml > output/manifest-tree.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest = Path('output/manifest.txt').read_text()
+          tree = Path('output/manifest-tree.txt').read_text()
+          assert "package: name='app.studentamkeen.tamkeen.offlinetest' versionCode='6' versionName='1.2.0-test'" in manifest
+          assert "application-label:'تمكين — اختبار'" in manifest
+          assert 'application-debuggable' not in manifest
+          assert 'app.studentamkeen.tamkeen.offlinetest.fileprovider' in tree
+          assert 'app.studentamkeen.tamkeen.fileprovider' not in tree
+          print('SIDE_BY_SIDE_IDENTITY_AND_PROVIDER=PASS')
+          PY
+          sha256sum output/tamkeen-offline-1.2.0-side-by-side.apk | tee output/SHA256SUMS.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: tamkeen-offline-1.2.0-code-6-device-apk
+          run-id: 34524838822
+          github-token: ${{ github.token }}
+          path: input
+      - name: Verify the original APK used for the coexistence test
+        run: echo 'b79e8c3197998366b646dd8a937b4b340e1009635c8a5003fd758e557c395676  input/tamkeen-offline-1.2.0-code-6.apk' | sha256sum --check --strict
+      - name: Enable KVM for the disposable emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          disable-animations: true
+          script: bash scripts/mobile/verify-side-by-side.sh
+      - name: Upload APK only after successful installation and startup
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamkeen-offline-1.2.0-side-by-side-apk
+          path: output/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: side-by-side-phone-evidence
+          path: artifacts/side-by-side/
+          if-no-files-found: warn
+      - name: Remove temporary signing files
+        if: always()
+        run: rm -f android/keystore.properties "$RUNNER_TEMP/side-by-side-upload.jks"
