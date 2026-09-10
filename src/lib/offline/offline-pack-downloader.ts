@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { offlineApiGet } from "./offline-http";
 
 import {
+  hasEncryptedOfflineArtifacts,
   readOfflineArtifactBytes,
   removeOfflineArtifact,
   saveOfflineArtifactBytes,
@@ -78,6 +79,9 @@ function createDeviceIo(token: string, expectedOwnerId?: string): OfflinePackDow
     async read(ownerId, artifact) {
       const current = await readOfflineArtifactBytes(ownerId, artifact);
       if (current) return current;
+      // Native v2 handles verified legacy migration itself. Never create or
+      // recover a second plaintext copy after an encrypted-store failure.
+      if (hasEncryptedOfflineArtifacts()) return null;
       if (artifact.kind === "textbook-pdf" || artifact.kind === "lesson-pdf") {
         const entry = await getEntry(artifact.resourceId);
         if (
@@ -130,6 +134,7 @@ function createDeviceIo(token: string, expectedOwnerId?: string): OfflinePackDow
     },
     async save(ownerId, artifact, bytes) {
       await saveOfflineArtifactBytes(ownerId, artifact, bytes);
+      if (hasEncryptedOfflineArtifacts()) return;
       if (artifact.kind === "textbook-pdf" || artifact.kind === "lesson-pdf") {
         await saveFile({
           resourceId: artifact.resourceId,

@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth/native-oauth";
 import {
   nativePath,
+  hasEncryptedOfflineArtifacts,
   readOfflineArtifactBytes,
   removeOfflineArtifact,
   saveOfflineArtifactBytes,
@@ -21,7 +22,7 @@ import {
   readableOfflinePacks,
 } from "@/lib/offline/offline-state-store";
 import type { OfflinePackArtifact } from "@/lib/offline/offline-pack-contract";
-import { openNativePdf } from "@/lib/pdf/native-pdf-viewer";
+import { openNativePdf, TamkeenPdfViewer } from "@/lib/pdf/native-pdf-viewer";
 
 export async function assertOwner(ownerId: string) {
   if ((await repository.read()).activeOwnerId !== ownerId) throw new Error("OFFLINE_OWNER_CHANGED");
@@ -94,6 +95,10 @@ export async function subjectCatalog(ownerId: string) {
 
 export async function openSavedPdf(ownerId: string, artifact: OfflinePackArtifact) {
   await assertOwner(ownerId);
+  if (hasEncryptedOfflineArtifacts()) {
+    await TamkeenPdfViewer.openOfflineArtifact({ ownerId, artifact });
+    return null;
+  }
   const bytes = await readOfflineArtifactBytes(ownerId, artifact);
   if (!bytes) throw new Error("OFFLINE_PDF_MISSING");
   await assertOwner(ownerId);

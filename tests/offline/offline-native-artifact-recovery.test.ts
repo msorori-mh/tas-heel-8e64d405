@@ -1,6 +1,9 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const files = vi.hoisted(() => new Map<string, string>());
-vi.mock("@capacitor/core", () => ({ Capacitor: { isNativePlatform: () => true } }));
+vi.mock("@capacitor/core", () => ({
+  Capacitor: { isNativePlatform: () => true, isPluginAvailable: () => false },
+  registerPlugin: () => ({}),
+}));
 vi.mock("@capacitor/filesystem", () => ({
   Directory: { Data: "DATA" },
   Filesystem: {

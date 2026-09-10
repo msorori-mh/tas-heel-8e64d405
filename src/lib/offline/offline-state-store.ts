@@ -213,11 +213,88 @@ class NativeOfflineStateAdapter implements OfflineStateAdapter {
   }
 }
 
+/** Existing remote-shell APKs do not have the encrypted-state plugin yet. */
+class LegacyNativeOfflineStateAdapter implements OfflineStateAdapter {
+  private readonly primary = "tamkeen/offline/foundation-v1.json";
+  private readonly backup = "tamkeen/offline/foundation-v1.backup.json";
+
+  private async readPath(path: string): Promise<unknown | null> {
+    const { Filesystem, Directory, Encoding } = await import("@capacitor/filesystem");
+    try {
+      const result = await Filesystem.readFile({
+        path,
+        directory: Directory.Data,
+        encoding: Encoding.UTF8,
+      });
+      if (typeof result.data !== "string") throw new Error("OFFLINE_STATE_FILE_CORRUPT");
+      return JSON.parse(result.data) as unknown;
+    } catch (error) {
+      const native = error as { code?: string; message?: string };
+      if (
+        native.code === "OS-PLUG-FILE-0008" ||
+        /file (?:does not exist|not found)/i.test(native.message ?? "")
+      )
+        return null;
+      throw error;
+    }
+  }
+
+  async read(): Promise<unknown | null> {
+    let invalid = false;
+    for (const path of [this.primary, this.backup]) {
+      try {
+        const value = await this.readPath(path);
+        if (value === null) continue;
+        const parsed = offlineStateSnapshotSchema.safeParse(value);
+        if (parsed.success) return parsed.data;
+        invalid = true;
+      } catch {
+        invalid = true;
+      }
+    }
+    if (invalid) throw new Error("OFFLINE_STATE_CORRUPT");
+    return null;
+  }
+
+  async write(value: OfflineStateSnapshot): Promise<void> {
+    const { Filesystem, Directory, Encoding } = await import("@capacitor/filesystem");
+    const current = await this.read();
+    try {
+      await Filesystem.mkdir({
+        path: "tamkeen/offline",
+        directory: Directory.Data,
+        recursive: true,
+      });
+    } catch {
+      /* Existing directory; a failed write still propagates below. */
+    }
+    if (current)
+      await Filesystem.writeFile({
+        path: this.backup,
+        directory: Directory.Data,
+        encoding: Encoding.UTF8,
+        data: JSON.stringify(current),
+      });
+    await Filesystem.writeFile({
+      path: this.primary,
+      directory: Directory.Data,
+      encoding: Encoding.UTF8,
+      data: JSON.stringify(value),
+    });
+  }
+}
+
 export function createDeviceOfflineStateAdapter(): OfflineStateAdapter {
+  let native = false;
   try {
-    if (Capacitor.isNativePlatform()) return new NativeOfflineStateAdapter();
+    native = Capacitor.isNativePlatform();
   } catch {
     // Fall through to origin-private IndexedDB.
+  }
+  if (native) {
+    return Capacitor.isPluginAvailable("TamkeenOfflineState")
+      ? new NativeOfflineStateAdapter()
+      : new LegacyNativeOfflineStateAdapter();
   }
   return new IndexedDbOfflineStateAdapter();
 }

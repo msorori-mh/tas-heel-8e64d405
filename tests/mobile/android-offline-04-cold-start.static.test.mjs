@@ -12,6 +12,9 @@ const java = read(
   "android/app/src/main/java/app/studentamkeen/tamkeen/TamkeenOfflineContentPlugin.java",
 );
 const mainActivity = read("android/app/src/main/java/app/studentamkeen/tamkeen/MainActivity.java");
+const artifactStore = read(
+  "android/app/src/main/java/app/studentamkeen/tamkeen/TamkeenOfflineArtifactStore.java",
+);
 const shell = read("mobile/www/index.html");
 const state = read("src/lib/offline/offline-state-store.ts");
 const auth = read("src/hooks/use-auth.tsx");
@@ -54,9 +57,13 @@ describe("OFFLINE-04 Android cold-start lesson entry", () => {
     expect(java).toContain('record.optString("status", "")');
     expect(java).toContain('record.optString("ownerId", "")');
     expect(java).toContain('record.optJSONArray("verifiedArtifactIds")');
-    expect(java).toContain("candidate.length() != expectedSize");
-    expect(java).toContain('MessageDigest.getInstance("SHA-256")');
-    expect(java).toContain("canonicalCandidate.startsWith(canonicalRoot + File.separator)");
+    expect(java).toContain("TamkeenOfflineArtifactStore.authorizedArtifact");
+    expect(java).toContain("TamkeenOfflineArtifactStore.read");
+    expect(artifactStore).toContain('MessageDigest.getInstance("SHA-256")');
+    expect(artifactStore).toContain('bytes.length != artifact.getLong("byteSize")');
+    expect(artifactStore).toContain(
+      "file.getCanonicalPath().startsWith(base.getPath() + File.separator)",
+    );
   });
 
   it("keeps text rendering narrow and returns only safe assessment prompts initially", () => {

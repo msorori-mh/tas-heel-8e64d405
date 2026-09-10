@@ -48,7 +48,7 @@ jobs:
           if-no-files-found: error
 
   android-state:
-    name: Android encrypted-state recovery runtime
+    name: Android encrypted state and content runtime
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

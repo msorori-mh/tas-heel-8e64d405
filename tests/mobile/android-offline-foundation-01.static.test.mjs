@@ -19,8 +19,13 @@ describe("OFFLINE-01 mobile foundation guards", () => {
     expect(store).toContain("TamkeenOfflineState.read()");
     expect(store).toContain("TamkeenOfflineState.write({ snapshot: value })");
     expect(store).toContain("Capacitor.isNativePlatform()");
-    expect(store).not.toContain("Filesystem.writeFile");
-    expect(store).not.toContain("foundation-v1.backup.json");
+    const encryptedAdapter = store.slice(
+      store.indexOf("class NativeOfflineStateAdapter"),
+      store.indexOf("class LegacyNativeOfflineStateAdapter"),
+    );
+    expect(encryptedAdapter).not.toContain("Filesystem.writeFile");
+    expect(encryptedAdapter).not.toContain("foundation-v1.backup.json");
+    expect(store).toContain('Capacitor.isPluginAvailable("TamkeenOfflineState")');
   });
 
   it("stores stable identifiers and hashes, never temporary delivery URLs", () => {

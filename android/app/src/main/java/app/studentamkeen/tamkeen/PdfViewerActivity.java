@@ -39,6 +39,8 @@ public class PdfViewerActivity extends AppCompatActivity {
     public static final String EXTRA_TITLE = "title";
     public static final String EXTRA_INITIAL_PAGE = "initialPage";
     public static final String EXTRA_LAST_PAGE = "lastPage";
+    public static final String EXTRA_OFFLINE_OWNER = "offlineOwner";
+    public static final String EXTRA_OFFLINE_ARTIFACT = "offlineArtifact";
 
     private static final float MIN_SCALE = 1.0f;
     private static final float MAX_SCALE = 3.0f;
@@ -69,8 +71,14 @@ public class PdfViewerActivity extends AppCompatActivity {
         }
 
         try {
-            File file = new File(path);
-            descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
+            String artifact = getIntent().getStringExtra(EXTRA_OFFLINE_ARTIFACT);
+            if (artifact != null) {
+                descriptor = TamkeenOfflineArtifactStore.pdfDescriptor(this,
+                    getIntent().getStringExtra(EXTRA_OFFLINE_OWNER), new org.json.JSONObject(artifact));
+            } else {
+                File file = new File(path);
+                descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
+            }
             renderer = new PdfRenderer(descriptor);
         } catch (Exception e) {
             Toast.makeText(this, "تعذّر فتح الملف", Toast.LENGTH_LONG).show();
@@ -189,6 +197,18 @@ public class PdfViewerActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         finishWithResult();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        String owner = getIntent().getStringExtra(EXTRA_OFFLINE_OWNER);
+        if (owner != null) {
+            try {
+                org.json.JSONObject state = TamkeenOfflineStateStore.read(this);
+                if (state == null || !owner.equals(state.optString("activeOwnerId"))) finish();
+            } catch (Exception error) { finish(); }
+        }
     }
 
     @Override

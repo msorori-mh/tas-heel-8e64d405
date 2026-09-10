@@ -1,6 +1,6 @@
 /** OFFLINE-02 — account-isolated private storage for non-PDF pack artifacts. */
 
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 
 import {
   offlinePackArtifactSchema,
@@ -23,6 +23,20 @@ const BYTE_STORE = "artifact-bytes";
 const META_STORE = "artifact-meta";
 const NATIVE_ROOT = "tamkeen/offline-artifacts";
 let databasePromise: Promise<IDBDatabase> | null = null;
+
+const encryptedArtifacts = registerPlugin<{
+  read(options: {
+    ownerId: string;
+    artifact: OfflinePackArtifact;
+  }): Promise<{ data: string | null }>;
+  save(options: { ownerId: string; artifact: OfflinePackArtifact; data: string }): Promise<void>;
+  remove(options: { ownerId: string; artifact: OfflinePackArtifact }): Promise<void>;
+}>("TamkeenOfflineArtifacts");
+
+/** Capability detection only. Errors from an installed encrypted store never select plaintext. */
+export function hasEncryptedOfflineArtifacts(): boolean {
+  return isNative() && Capacitor.isPluginAvailable("TamkeenOfflineArtifacts");
+}
 
 function key(ownerId: string, artifactId: string, sha256?: string): string {
   return `${ownerId}\u0000${artifactId}${sha256 ? "\u0000" + sha256 : ""}`;
@@ -132,6 +146,11 @@ export async function saveOfflineArtifactBytes(
   };
 
   if (isNative()) {
+    ownerSegment(ownerId);
+    if (hasEncryptedOfflineArtifacts()) {
+      await encryptedArtifacts.save({ ownerId, artifact, data: bytesToBase64(bytes) });
+      return;
+    }
     const { Filesystem, Directory } = await nativeFilesystem();
     const path = nativePath(ownerId, artifact);
     const directory = path.slice(0, path.lastIndexOf("/"));
@@ -162,6 +181,10 @@ export async function removeOfflineArtifact(
 ): Promise<void> {
   const itemKey = key(ownerId, artifact.artifactId, artifact.sha256);
   if (isNative()) {
+    if (hasEncryptedOfflineArtifacts()) {
+      await encryptedArtifacts.remove({ ownerId, artifact });
+      return;
+    }
     try {
       const { Filesystem, Directory } = await nativeFilesystem();
       await Filesystem.deleteFile({
@@ -184,6 +207,14 @@ export async function readOfflineArtifactBytes(
   const itemKey = key(ownerId, artifact.artifactId, artifact.sha256);
   try {
     if (isNative()) {
+      ownerSegment(ownerId);
+      if (hasEncryptedOfflineArtifacts()) {
+        const result = await encryptedArtifacts.read({ ownerId, artifact });
+        if (result.data === null) return null;
+        const bytes = base64ToBytes(result.data);
+        await verifyOfflineArtifact(bytes, artifact);
+        return bytes;
+      }
       const { Filesystem, Directory } = await nativeFilesystem();
       // The encrypted manifest is authoritative; native content must survive
       // WebView IndexedDB eviction. Keep old bytes intact during pack updates.

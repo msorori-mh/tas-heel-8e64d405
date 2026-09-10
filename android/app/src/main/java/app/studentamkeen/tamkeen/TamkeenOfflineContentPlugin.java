@@ -470,20 +470,10 @@ public class TamkeenOfflineContentPlugin extends Plugin {
             String expectedSha = artifact.optString("sha256", "").toLowerCase(Locale.ROOT);
             if (!expectedSha.matches("^[a-f0-9]{64}$")) return null;
 
-            String segment = ownerSegment(ownerId);
-            if (segment == null) return null;
-            File root = new File(getContext().getFilesDir(), ARTIFACT_ROOT + File.separator + segment);
-            File candidate = new File(root, expectedSha + File.separator + relativePath);
-            if (!candidate.exists()) candidate = new File(root, relativePath);
-            String canonicalRoot = root.getCanonicalPath();
-            String canonicalCandidate = candidate.getCanonicalPath();
-            if (!canonicalCandidate.startsWith(canonicalRoot + File.separator)) return null;
-            if (!candidate.exists() || !candidate.isFile() || candidate.length() != expectedSize) return null;
-
-            byte[] bytes = readBytes(candidate, MAX_TEXT_ARTIFACT_BYTES);
-            if (bytes == null || bytes.length != expectedSize) return null;
-            if (!expectedSha.equals(sha256(bytes))) return null;
-            return bytes;
+            synchronized (STATE_WRITE_LOCK) {
+                TamkeenOfflineArtifactStore.authorizedArtifact(getContext(), ownerId, artifact, true);
+                return TamkeenOfflineArtifactStore.read(getContext(), ownerId, artifact);
+            }
         } catch (Exception ignored) {
             return null;
         }
