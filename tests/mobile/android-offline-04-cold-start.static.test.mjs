@@ -21,8 +21,9 @@ const manifestRoute = read("src/routes/api/offline-pack.manifest.$subjectId.ts")
 const capacitor = read("capacitor.config.ts");
 
 describe("OFFLINE-04 Android cold-start lesson entry", () => {
-  it("keeps the online app and OAuth origin unchanged while retaining the local error entry", () => {
-    expect(capacitor).toContain('url: "https://studentamkeen.com"');
+  it("cold-starts from the bundled entry without a production remote URL", () => {
+    expect(capacitor).not.toContain('url: "https://studentamkeen.com"');
+    expect(capacitor).toContain('webDir: "dist-student-mobile"');
     expect(capacitor).toContain('errorPath: "index.html"');
     expect(mainActivity).toContain("registerPlugin(TamkeenOfflineContentPlugin.class)");
   });

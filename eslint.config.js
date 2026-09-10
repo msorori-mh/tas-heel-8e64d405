@@ -9,6 +9,7 @@ export default tseslint.config(
   {
     ignores: [
       "dist",
+      "dist-student-mobile",
       ".output",
       ".vinxi",
       // Supabase CLI output; formatting it would be overwritten on the next schema generation.

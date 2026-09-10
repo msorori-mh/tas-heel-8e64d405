@@ -24,14 +24,13 @@ const META_STORE = "artifact-meta";
 const NATIVE_ROOT = "tamkeen/offline-artifacts";
 let databasePromise: Promise<IDBDatabase> | null = null;
 
-function key(ownerId: string, artifactId: string): string {
-  return `${ownerId}\u0000${artifactId}`;
+function key(ownerId: string, artifactId: string, sha256?: string): string {
+  return `${ownerId}\u0000${artifactId}${sha256 ? "\u0000" + sha256 : ""}`;
 }
 
 function ownerSegment(ownerId: string): string {
-  const safe = ownerId.replace(/[^a-zA-Z0-9_-]/g, "-");
-  if (!safe) throw new Error("OFFLINE_OWNER_ID_INVALID");
-  return safe;
+  if (!/^[a-zA-Z0-9_-]{1,160}$/.test(ownerId)) throw new Error("OFFLINE_OWNER_ID_INVALID");
+  return ownerId;
 }
 
 function isNative(): boolean {
@@ -112,8 +111,8 @@ async function nativeFilesystem() {
   return { Filesystem: module.Filesystem, Directory: module.Directory };
 }
 
-function nativePath(ownerId: string, artifact: OfflinePackArtifact): string {
-  return `${NATIVE_ROOT}/${ownerSegment(ownerId)}/${artifact.relativePath}`;
+export function nativePath(ownerId: string, artifact: OfflinePackArtifact): string {
+  return `${NATIVE_ROOT}/${ownerSegment(ownerId)}/${artifact.sha256}/${artifact.relativePath}`;
 }
 
 export async function saveOfflineArtifactBytes(
@@ -146,19 +145,22 @@ export async function saveOfflineArtifactBytes(
       directory: Directory.Data,
       data: bytesToBase64(bytes),
     });
-    await idbPut(META_STORE, key(ownerId, artifact.artifactId), metadata);
     return;
   }
 
-  await idbPut(BYTE_STORE, key(ownerId, artifact.artifactId), Uint8Array.from(bytes));
-  await idbPut(META_STORE, key(ownerId, artifact.artifactId), metadata);
+  await idbPut(
+    BYTE_STORE,
+    key(ownerId, artifact.artifactId, artifact.sha256),
+    Uint8Array.from(bytes),
+  );
+  await idbPut(META_STORE, key(ownerId, artifact.artifactId, artifact.sha256), metadata);
 }
 
 export async function removeOfflineArtifact(
   ownerId: string,
   artifact: OfflinePackArtifact,
 ): Promise<void> {
-  const itemKey = key(ownerId, artifact.artifactId);
+  const itemKey = key(ownerId, artifact.artifactId, artifact.sha256);
   if (isNative()) {
     try {
       const { Filesystem, Directory } = await nativeFilesystem();
@@ -169,6 +171,7 @@ export async function removeOfflineArtifact(
     } catch {
       // Already absent.
     }
+    return;
   }
   await Promise.allSettled([idbDelete(BYTE_STORE, itemKey), idbDelete(META_STORE, itemKey)]);
 }
@@ -178,8 +181,31 @@ export async function readOfflineArtifactBytes(
   artifactInput: OfflinePackArtifact,
 ): Promise<Uint8Array | null> {
   const artifact = offlinePackArtifactSchema.parse(artifactInput);
-  const itemKey = key(ownerId, artifact.artifactId);
+  const itemKey = key(ownerId, artifact.artifactId, artifact.sha256);
   try {
+    if (isNative()) {
+      const { Filesystem, Directory } = await nativeFilesystem();
+      // The encrypted manifest is authoritative; native content must survive
+      // WebView IndexedDB eviction. Keep old bytes intact during pack updates.
+      const paths = [
+        nativePath(ownerId, artifact),
+        `${NATIVE_ROOT}/${ownerSegment(ownerId)}/${artifact.relativePath}`,
+      ];
+      for (const path of paths) {
+        try {
+          const result = await Filesystem.readFile({ path, directory: Directory.Data });
+          const bytes =
+            typeof result.data === "string"
+              ? base64ToBytes(result.data)
+              : new Uint8Array(await result.data.arrayBuffer());
+          await verifyOfflineArtifact(bytes, artifact);
+          return bytes;
+        } catch {
+          // A legacy file is usable only if it matches this exact revision.
+        }
+      }
+      return null;
+    }
     const metadata = await idbGet<CachedArtifact>(META_STORE, itemKey);
     if (
       !metadata ||
@@ -188,27 +214,22 @@ export async function readOfflineArtifactBytes(
       metadata.byteSize !== artifact.byteSize ||
       metadata.relativePath !== artifact.relativePath
     ) {
-      await removeOfflineArtifact(ownerId, artifact);
-      return null;
+      const legacy = await idbGet<Uint8Array | ArrayBuffer>(
+        BYTE_STORE,
+        key(ownerId, artifact.artifactId),
+      );
+      if (!legacy) return null;
+      const bytes = legacy instanceof Uint8Array ? legacy : new Uint8Array(legacy);
+      await verifyOfflineArtifact(bytes, artifact);
+      return bytes;
     }
 
-    let bytes: Uint8Array | null;
-    if (isNative()) {
-      const { Filesystem, Directory } = await nativeFilesystem();
-      const result = await Filesystem.readFile({
-        path: nativePath(ownerId, artifact),
-        directory: Directory.Data,
-      });
-      bytes = typeof result.data === "string" ? base64ToBytes(result.data) : null;
-    } else {
-      const value = await idbGet<Uint8Array | ArrayBuffer>(BYTE_STORE, itemKey);
-      bytes = value ? (value instanceof Uint8Array ? value : new Uint8Array(value)) : null;
-    }
+    const value = await idbGet<Uint8Array | ArrayBuffer>(BYTE_STORE, itemKey);
+    const bytes = value ? (value instanceof Uint8Array ? value : new Uint8Array(value)) : null;
     if (!bytes) return null;
     await verifyOfflineArtifact(bytes, artifact);
     return bytes;
   } catch {
-    await removeOfflineArtifact(ownerId, artifact);
     return null;
   }
 }

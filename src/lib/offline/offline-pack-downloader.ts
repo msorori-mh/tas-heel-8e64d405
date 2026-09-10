@@ -1,6 +1,7 @@
 /** OFFLINE-02 — differential, file-resumable subject pack downloader. */
 
 import { supabase } from "@/integrations/supabase/client";
+import { offlineApiGet } from "./offline-http";
 
 import {
   readOfflineArtifactBytes,
@@ -72,9 +73,11 @@ function artifactEndpoint(artifact: OfflinePackArtifact): string {
   return `/api/offline-pack/artifact/${encodeURIComponent(artifact.resourceId)}`;
 }
 
-function createDeviceIo(token: string): OfflinePackDownloadIo {
+function createDeviceIo(token: string, expectedOwnerId?: string): OfflinePackDownloadIo {
   return {
     async read(ownerId, artifact) {
+      const current = await readOfflineArtifactBytes(ownerId, artifact);
+      if (current) return current;
       if (artifact.kind === "textbook-pdf" || artifact.kind === "lesson-pdf") {
         const entry = await getEntry(artifact.resourceId);
         if (
@@ -90,13 +93,15 @@ function createDeviceIo(token: string): OfflinePackDownloadIo {
       return readOfflineArtifactBytes(ownerId, artifact);
     },
     async fetch(artifact, signal, onProgress) {
-      const response = await fetch(artifactEndpoint(artifact), {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-        signal,
-      });
+      if (
+        expectedOwnerId &&
+        (await deviceOfflineStateRepository.read()).activeOwnerId !== expectedOwnerId
+      ) {
+        throw new Error("OFFLINE_OWNER_CHANGED");
+      }
+      const response = await offlineApiGet(artifactEndpoint(artifact), token, true, signal);
       if (!response.ok) throw new Error(`OFFLINE_ARTIFACT_DOWNLOAD_${response.status}`);
-      if (!response.body || !onProgress) {
+      if (!response.body) {
         return new Uint8Array(await response.arrayBuffer());
       }
       const reader = response.body.getReader();
@@ -108,7 +113,11 @@ function createDeviceIo(token: string): OfflinePackDownloadIo {
         if (value) {
           chunks.push(value);
           loaded += value.byteLength;
-          onProgress(loaded);
+          if (loaded > artifact.byteSize) {
+            await reader.cancel();
+            throw new Error("OFFLINE_ARTIFACT_SIZE_MISMATCH");
+          }
+          onProgress?.(loaded);
         }
       }
       const bytes = new Uint8Array(loaded);
@@ -120,6 +129,7 @@ function createDeviceIo(token: string): OfflinePackDownloadIo {
       return bytes;
     },
     async save(ownerId, artifact, bytes) {
+      await saveOfflineArtifactBytes(ownerId, artifact, bytes);
       if (artifact.kind === "textbook-pdf" || artifact.kind === "lesson-pdf") {
         await saveFile({
           resourceId: artifact.resourceId,
@@ -133,7 +143,6 @@ function createDeviceIo(token: string): OfflinePackDownloadIo {
         });
         return;
       }
-      await saveOfflineArtifactBytes(ownerId, artifact, bytes);
     },
   };
 }
@@ -142,9 +151,10 @@ async function fetchOfflineSubjectPackManifestWithIdentity(
   subjectId: string,
 ): Promise<{ ownerId: string; token: string; manifest: OfflinePackManifest }> {
   const identity = await sessionIdentity();
-  const response = await fetch(`/api/offline-pack/manifest/${encodeURIComponent(subjectId)}`, {
-    headers: { Authorization: `Bearer ${identity.token}` },
-  });
+  const response = await offlineApiGet(
+    `/api/offline-pack/manifest/${encodeURIComponent(subjectId)}`,
+    identity.token,
+  );
   if (!response.ok) throw new Error(`OFFLINE_MANIFEST_FETCH_${response.status}`);
   const payload = (await response.json()) as { manifest?: unknown };
   return {
@@ -243,6 +253,19 @@ export async function downloadOfflinePackManifest(params: {
         });
       });
       await verifyOfflineArtifact(bytes, artifact);
+      if (params.signal?.aborted) throw new Error("OFFLINE_DOWNLOAD_ABORTED");
+      const currentPack = (await repository.read()).packs.find(
+        (record) => record.ownerId === params.ownerId && record.manifest.packId === manifest.packId,
+      );
+      if (currentPack?.manifestSha256 !== registered.manifestSha256) {
+        throw new Error("OFFLINE_PACK_DIGEST_MISMATCH");
+      }
+      if (
+        repository === deviceOfflineStateRepository &&
+        (await repository.read()).activeOwnerId !== params.ownerId
+      ) {
+        throw new Error("OFFLINE_OWNER_CHANGED");
+      }
       await params.io.save(params.ownerId, artifact, bytes);
       const persisted = await params.io.read(params.ownerId, artifact);
       if (!persisted) throw new Error("OFFLINE_ARTIFACT_PERSISTENCE_FAILED");
@@ -267,7 +290,12 @@ export async function downloadOfflinePackManifest(params: {
     }
   } catch (error) {
     const code = error instanceof Error ? error.message : "OFFLINE_DOWNLOAD_FAILED";
-    await markOfflinePackFailed(repository, params.ownerId, manifest.packId, code);
+    const current = (await repository.read()).packs.find(
+      (record) => record.ownerId === params.ownerId && record.manifest.packId === manifest.packId,
+    );
+    if (current?.manifestSha256 === registered.manifestSha256) {
+      await markOfflinePackFailed(repository, params.ownerId, manifest.packId, code);
+    }
     throw error;
   }
 
@@ -282,6 +310,7 @@ export async function downloadOfflinePackManifest(params: {
 
 export async function downloadOfflineSubjectPack(params: {
   subjectId: string;
+  expectedOwnerId?: string;
   repository?: OfflineStateRepository;
   signal?: AbortSignal;
   onProgress?: (progress: OfflinePackDownloadProgress) => void;
@@ -289,11 +318,13 @@ export async function downloadOfflineSubjectPack(params: {
   const { ownerId, token, manifest } = await fetchOfflineSubjectPackManifestWithIdentity(
     params.subjectId,
   );
+  if (params.expectedOwnerId && params.expectedOwnerId !== ownerId)
+    throw new Error("OFFLINE_OWNER_CHANGED");
   return downloadOfflinePackManifest({
     ownerId,
     manifest,
     repository: params.repository,
-    io: createDeviceIo(token),
+    io: createDeviceIo(token, ownerId),
     signal: params.signal,
     onProgress: params.onProgress,
   });

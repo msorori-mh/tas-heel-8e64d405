@@ -24,8 +24,9 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
     expect(gradle).toContain('versionName "1.1.0"');
   });
 
-  it("loads only the production HTTPS origin and refuses cleartext", () => {
-    expect(capacitor).toContain('url: "https://studentamkeen.com"');
+  it("loads bundled release assets and refuses cleartext", () => {
+    expect(capacitor).not.toContain('url: "https://studentamkeen.com"');
+    expect(capacitor).toContain('webDir: "dist-student-mobile"');
     expect(capacitor).toContain("cleartext: false");
     expect(capacitor).toContain("allowMixedContent: false");
     expect(manifest).toContain("android.permission.INTERNET");
