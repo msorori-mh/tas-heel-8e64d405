@@ -29,8 +29,10 @@ describe("OFFLINE-01 mobile foundation guards", () => {
     expect(outbox).not.toContain("refreshToken:");
   });
 
-  it("keeps the current production shell until the final embedded-app gate", () => {
-    expect(capacitor).toContain('url: "https://studentamkeen.com"');
+  it("loads the bundled shell by default and gates development live reload", () => {
+    expect(capacitor).not.toContain('url: "https://studentamkeen.com"');
+    expect(capacitor).toContain("TAMKEEN_CAPACITOR_LIVE_RELOAD");
+    expect(capacitor).toContain("privateLiveReloadOrigin");
     expect(capacitor).toContain('errorPath: "index.html"');
   });
 
