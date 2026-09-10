@@ -166,10 +166,11 @@ public class OfflineArtifactEncryptionTest {
     }
     @Test public void rendersEncryptedPdfWithoutLeavingANamedPlaintextFile() throws Exception {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (PdfDocument document = new PdfDocument()) {
+        PdfDocument document = new PdfDocument();
+        try {
             PdfDocument.Page page = document.startPage(new PdfDocument.PageInfo.Builder(200, 200, 1).create());
             page.getCanvas().drawColor(android.graphics.Color.WHITE); document.finishPage(page); document.writeTo(bytes);
-        }
+        } finally { document.close(); }
         JSONObject artifact = artifact(bytes.toByteArray()).put("kind", "textbook-pdf").put("contentType", "application/pdf");
         register(artifact, owner); TamkeenOfflineArtifactStore.save(context, owner, artifact, bytes.toByteArray());
         try (ParcelFileDescriptor descriptor = TamkeenOfflineArtifactStore.pdfDescriptor(context, owner, artifact);
