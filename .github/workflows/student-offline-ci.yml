@@ -31,7 +31,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Start bundled client preview
         run: |
-          node node_modules/vite/bin/vite.js preview --config apps/student-mobile/vite.config.ts > /tmp/student-preview.log 2>&1 &
+          node node_modules/vite/bin/vite.js preview --config apps/student-mobile/vite.config.ts --host 127.0.0.1 > /tmp/student-preview.log 2>&1 &
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:4176/ > /dev/null; then exit 0; fi
             sleep 1

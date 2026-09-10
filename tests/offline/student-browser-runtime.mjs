@@ -16,8 +16,29 @@ const browser = await chromium.launch({
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
 const page = await context.newPage();
 page.on("pageerror", (error) => failures.push(error.message));
+const token = "TEST_ONLY_access_token";
 await context.route("**/*", (route) => {
-  if (new URL(route.request().url()).origin !== origin) return route.abort();
+  const url = new URL(route.request().url());
+  if (url.pathname === "/rest/v1/profiles") {
+    return route.fulfill({
+      json: [{ grade_id: null, grade_uuid: "12", curriculum_track_id: "track-one" }],
+    });
+  }
+  if (url.pathname === "/rest/v1/subjects") {
+    return route.fulfill({ json: [{ id: "one", name: "الكيمياء TEST_ONLY" }] });
+  }
+  if (url.origin === origin && url.pathname === "/api/offline-pack/manifest/one") {
+    assert.equal(route.request().headers().authorization, "Bearer " + token);
+    return route.fulfill({ json: { manifest } });
+  }
+  if (url.origin === origin && url.pathname.startsWith("/api/offline-pack/artifact/")) {
+    assert.equal(route.request().headers().authorization, "Bearer " + token);
+    const id = decodeURIComponent(url.pathname.split("/").at(-1));
+    const entry = raw.find((item) => item.id === id);
+    assert(entry, "only declared artifacts are requested");
+    return route.fulfill({ body: entry.body, contentType: entry.type });
+  }
+  if (url.origin !== origin) return route.abort();
   return route.continue();
 });
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -105,19 +126,6 @@ const manifest = {
     sortOrder: index,
   })),
 };
-const canonical = (value) => {
-  if (Array.isArray(value)) return "[" + value.map(canonical).join(",") + "]";
-  if (value && typeof value === "object")
-    return (
-      "{" +
-      Object.entries(value)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, child]) => JSON.stringify(key) + ":" + canonical(child))
-        .join(",") +
-      "}"
-    );
-  return JSON.stringify(value);
-};
 try {
   await page.goto(origin);
   await page.evaluate(async () => {
@@ -128,76 +136,33 @@ try {
       );
     }
   });
-  await page.evaluate(
-    async ({ manifest, raw, now, digest }) => {
-      const open = (name, stores) =>
-        new Promise((resolve, reject) => {
-          const request = indexedDB.open(name, 1);
-          request.onupgradeneeded = () =>
-            stores.forEach((store) => {
-              if (!request.result.objectStoreNames.contains(store))
-                request.result.createObjectStore(store);
-            });
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-        });
-      const state = await open("tamkeen-offline-foundation", ["snapshots"]);
-      await new Promise((resolve, reject) => {
-        const tx = state.transaction("snapshots", "readwrite");
-        tx.objectStore("snapshots").put(
-          {
-            schemaVersion: 1,
-            revision: 1,
-            activeOwnerId: "student-a",
-            updatedAt: now,
-            packs: [
-              {
-                ownerId: "student-a",
-                manifest,
-                manifestSha256: digest,
-                status: "ready",
-                verifiedArtifactIds: manifest.artifacts.map((item) => item.artifactId),
-                downloadedBytes: manifest.artifacts.reduce((sum, item) => sum + item.byteSize, 0),
-                lastErrorCode: null,
-                createdAt: now,
-                updatedAt: now,
-              },
-            ],
-            packBackups: [],
-            outbox: [],
-            learning: [],
-          },
-          1,
-        );
-        tx.oncomplete = resolve;
-        tx.onerror = () => reject(tx.error);
-      });
-      state.close();
-      const cache = await open("tamkeen-offline-artifacts", ["artifact-bytes", "artifact-meta"]);
-      await new Promise((resolve, reject) => {
-        const tx = cache.transaction(["artifact-bytes", "artifact-meta"], "readwrite");
-        manifest.artifacts.forEach((item, index) => {
-          const key = "student-a\u0000" + item.artifactId + "\u0000" + item.sha256;
-          tx.objectStore("artifact-bytes").put(new TextEncoder().encode(raw[index].body), key);
-          tx.objectStore("artifact-meta").put(
-            {
-              ownerId: "student-a",
-              artifactId: item.artifactId,
-              sha256: item.sha256,
-              byteSize: item.byteSize,
-              relativePath: item.relativePath,
-              contentType: item.contentType,
-            },
-            key,
-          );
-        });
-        tx.oncomplete = resolve;
-        tx.onerror = () => reject(tx.error);
-      });
-      cache.close();
-    },
-    { manifest, raw, now, digest: hash(canonical(manifest)) },
-  );
+  // Exercise the real UI downloader. Only the server boundary and Auth session
+  // are fixtures; no downloaded bytes or pack metadata are injected into IDB.
+  await page.evaluate((token) => {
+    localStorage.setItem(
+      "sb-zbdhxyuulyovihjgeqbn-auth-token",
+      JSON.stringify({
+        access_token: token,
+        refresh_token: "TEST_ONLY_refresh",
+        token_type: "bearer",
+        expires_in: 86400,
+        expires_at: Math.floor(Date.now() / 1000) + 86400,
+        user: {
+          id: "student-a",
+          aud: "authenticated",
+          role: "authenticated",
+          email: "test-only@example.invalid",
+          app_metadata: {},
+          user_metadata: {},
+          created_at: "2026-09-01T00:00:00.000Z",
+        },
+      }),
+    );
+  }, token);
+  await page.reload();
+  await page.getByRole("button", { name: "عرض مواد صفي", exact: true }).click();
+  await page.getByRole("button", { name: "تنزيل المادة", exact: true }).click();
+  await page.getByRole("heading", { name: "الكيمياء TEST_ONLY" }).waitFor();
   await context.setOffline(true);
   await page.reload();
   await page.getByRole("heading", { name: "الكيمياء TEST_ONLY" }).waitFor();
@@ -260,7 +225,7 @@ try {
       2,
     ),
   );
-  console.log("PASS: 7 offline browser runtime checks; 0 page errors.");
+  console.log("PASS: 8 offline browser runtime checks; 0 page errors.");
 } finally {
   await browser.close();
 }
