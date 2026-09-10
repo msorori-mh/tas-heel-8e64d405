@@ -52,9 +52,11 @@ adb logcat -c
 adb shell am start -W -n "$test_package/app.studentamkeen.tamkeen.MainActivity" > "$evidence/launch.txt"
 grep -q 'Status: ok' "$evidence/launch.txt"
 for attempt in {1..20}; do
-  adb shell uiautomator dump /sdcard/side-by-side-ui.xml >/dev/null
-  adb pull /sdcard/side-by-side-ui.xml "$evidence/ui.xml" >/dev/null
-  if python3 - <<'PY'
+  # UiAutomation can report a null root immediately after a cold start, even
+  # when am start returned success. Retry the complete capture, not just XML.
+  if adb shell uiautomator dump /sdcard/side-by-side-ui.xml >/dev/null &&
+     adb pull /sdcard/side-by-side-ui.xml "$evidence/ui.xml" >/dev/null &&
+     python3 - <<'PY'
 from pathlib import Path
 text = Path('artifacts/side-by-side/ui.xml').read_text()
 assert 'دخول الطالب' in text
@@ -62,7 +64,15 @@ assert 'دخول المعلم' in text
 assert 'تعذر حفظ الحساب' not in text
 PY
   then break; fi
-  if [[ "$attempt" == 20 ]]; then exit 1; fi
+  if [[ "$attempt" == 20 ]]; then
+    adb exec-out screencap -p > "$evidence/failed-launch.png"
+    adb logcat -d -b crash > "$evidence/crashes.txt"
+    exit 1
+  fi
+  # On small displays the second role may require normal page scrolling.
+  if [[ -f "$evidence/ui.xml" ]] && grep -q 'طريقك المنظم' "$evidence/ui.xml"; then
+    adb shell input swipe 160 540 160 380 300
+  fi
   sleep 1
 done
 adb exec-out screencap -p > "$evidence/phone-launch.png"
@@ -75,9 +85,10 @@ print((x1+x2)//2, (y1+y2)//2)
 PY
 )
 adb shell input tap "$tap_x" "$tap_y"
-adb shell uiautomator dump /sdcard/side-by-side-auth.xml >/dev/null
-adb pull /sdcard/side-by-side-auth.xml "$evidence/auth-ui.xml" >/dev/null
-python3 - <<'PY'
+for attempt in {1..10}; do
+  if adb shell uiautomator dump /sdcard/side-by-side-auth.xml >/dev/null &&
+     adb pull /sdcard/side-by-side-auth.xml "$evidence/auth-ui.xml" >/dev/null &&
+     python3 - <<'PY'
 from pathlib import Path
 text = Path('artifacts/side-by-side/auth-ui.xml').read_text()
 assert 'مساحة الطلاب' in text
@@ -85,6 +96,13 @@ assert 'المتابعة باستخدام Google' in text
 assert 'العودة لاختيار نوع الحساب' in text
 print('STUDENT_GOOGLE_ENTRY_AFTER_ROLE_CHOICE=PASS')
 PY
+  then break; fi
+  if [[ "$attempt" == 10 ]]; then
+    adb exec-out screencap -p > "$evidence/failed-auth.png"
+    exit 1
+  fi
+  sleep 1
+done
 adb exec-out screencap -p > "$evidence/student-sign-in.png"
 adb logcat -d -b crash > "$evidence/crashes.txt"
 if grep -Fq "Process: $test_package," "$evidence/crashes.txt"; then exit 1; fi
