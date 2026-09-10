@@ -76,7 +76,7 @@ jobs:
           api-level: 35
           arch: x86_64
           disable-animations: true
-          script: cd android && ./gradlew :app:connectedDebugAndroidTest --stacktrace
+          script: cd android && ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.tamkeenDisposableEmulator=true --stacktrace
       - uses: actions/upload-artifact@v4
         if: always()
         with:

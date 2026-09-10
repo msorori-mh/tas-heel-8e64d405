@@ -29,8 +29,25 @@ export async function assertOwner(ownerId: string) {
 }
 
 /** Existing connected services remain available in the system browser. No tokens in URLs. */
-export async function openConnectedServices() {
-  const url = "https://studentamkeen.com/app";
+export type ConnectedDestination =
+  | "student"
+  | "teacher"
+  | "semester1"
+  | "semester2"
+  | "exams"
+  | "privacy"
+  | "terms";
+const connectedPaths: Record<ConnectedDestination, string> = {
+  student: "/app",
+  teacher: "/academy",
+  semester1: "/semesters/1",
+  semester2: "/semesters/2",
+  exams: "/ministerial-exams",
+  privacy: "/privacy",
+  terms: "/terms",
+};
+export async function openConnectedServices(destination: ConnectedDestination = "student") {
+  const url = "https://studentamkeen.com" + connectedPaths[destination];
   if (Capacitor.isNativePlatform()) {
     const { Browser } = await import("@capacitor/browser");
     await Browser.open({ url });

@@ -5,6 +5,8 @@ import android.content.ContextWrapper;
 import android.database.DatabaseErrorHandler;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.PluginCall;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import org.json.JSONArray;
@@ -68,6 +70,53 @@ public class OfflineStateRecoveryTest {
             stream.write(value.getBytes(StandardCharsets.UTF_8));
             stream.getFD().sync();
         }
+    }
+    private static class CapturingCall extends PluginCall {
+        JSObject result;
+        String error;
+        CapturingCall(JSObject data) { super(null, "TamkeenOfflineState", "TEST_ONLY", "compareAndSwap", data); }
+        @Override public void resolve(JSObject data) { result = data; }
+        @Override public void reject(String message) { error = message; }
+    }
+    private CapturingCall invokeBridge(Object revision) throws Exception {
+        JSONObject data = new JSONObject().put("snapshot", snapshot()).put("expectedRevision", revision);
+        // Round-trip through the same Android JSON parser used by the WebView.
+        CapturingCall call = new CapturingCall(new JSObject(data.toString()));
+        TamkeenOfflineStatePlugin plugin = new TamkeenOfflineStatePlugin() {
+            @Override public Context getContext() { return context; }
+        };
+        plugin.compareAndSwap(call);
+        return call;
+    }
+    @Test public void bridgeSavesFirstAccountFromJsonIntegerAndRestoresIt() throws Exception {
+        CapturingCall originalDecoder = new CapturingCall(new JSObject("{\"expectedRevision\":0}"));
+        assertTrue(originalDecoder.getData().opt("expectedRevision") instanceof Integer);
+        assertNull("Regression: getLong rejects JSON's ordinary integer zero", originalDecoder.getLong("expectedRevision"));
+        CapturingCall first = invokeBridge(0);
+        assertNull(first.error);
+        assertTrue(first.result.getBoolean("committed"));
+        JSONObject persisted = TamkeenOfflineStateStore.read(context);
+        assertEquals("TEST_ONLY_student", persisted.getString("activeOwnerId"));
+        assertEquals(1L, persisted.getLong("revision"));
+        assertTrue(invokeBridge(1).result.getBoolean("committed"));
+        assertEquals(2L, TamkeenOfflineStateStore.read(context).getLong("revision"));
+        assertFalse("Stale writes must still be rejected", invokeBridge(1).result.getBoolean("committed"));
+    }
+    @Test public void bridgeRejectsInvalidNumbersWithoutErasingTheAccount() throws Exception {
+        assertTrue(invokeBridge(0).result.getBoolean("committed"));
+        for (Object value : new Object[] { -1, 0.5, "1", true, JSONObject.NULL, 9007199254740991L }) {
+            CapturingCall rejected = invokeBridge(value);
+            assertEquals("offline_state_snapshot_invalid", rejected.error);
+            assertNull(rejected.result);
+            assertEquals(1L, TamkeenOfflineStateStore.read(context).getLong("revision"));
+            assertEquals("TEST_ONLY_student", TamkeenOfflineStateStore.read(context).getString("activeOwnerId"));
+        }
+    }
+    @Test public void bridgeAcceptsSafeRevisionsAboveTheIntegerRange() throws Exception {
+        assertTrue(invokeBridge(0).result.getBoolean("committed"));
+        CapturingCall stale = invokeBridge(2147483648L);
+        assertNull(stale.error);
+        assertFalse(stale.result.getBoolean("committed"));
     }
     @Test public void migratesLegacyWithoutLearningAndVerifiesEncryptedPersistence() throws Exception {
         JSONObject legacy = snapshot();

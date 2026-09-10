@@ -35,9 +35,10 @@ import {
   openSavedPdf,
   removeSavedPack,
   openConnectedServices,
+  type ConnectedDestination,
 } from "./runtime";
 import "./styles.css";
-import logo from "../../../mobile/www/student-tamkeen-mark.png";
+import { Brand, Entry, StudentHome } from "./Entry";
 import { ProfileEditor } from "./ProfileEditor";
 
 function Question({
@@ -230,7 +231,12 @@ export default function App() {
   } | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
-  const ownerId = snapshot.activeOwnerId;
+  const [page, setPage] = useState<"home" | "saved">("home");
+  const [accountError, setAccountError] = useState(false);
+  // A newly authenticated account must never see another account's cached data
+  // while its native activation is pending or has failed.
+  const ownerId =
+    session && session.user.id !== snapshot.activeOwnerId ? null : snapshot.activeOwnerId;
   const packs = readableOfflinePacks(snapshot).filter((pack) => pack.ownerId === ownerId);
   const pending = snapshot.outbox.filter(
     (record) => record.ownerId === ownerId && record.status !== "delivered",
@@ -272,10 +278,17 @@ export default function App() {
       setTimeout(() => {
         if (disposed) return;
         if (next)
-          void setActiveOfflineOwner(next.user.id).catch(() =>
-            setMessage("تعذر حفظ الحساب على الجهاز."),
-          );
-        else if (event === "SIGNED_OUT") void setActiveOfflineOwner(null);
+          void setActiveOfflineOwner(next.user.id)
+            .then(() => {
+              if (!disposed) setAccountError(false);
+            })
+            .catch(() => {
+              if (!disposed) setAccountError(true);
+            });
+        else if (event === "SIGNED_OUT")
+          void setActiveOfflineOwner(null).catch(() => {
+            if (!disposed) setAccountError(true);
+          });
       }, 0);
     });
     const native = attachNativeAuth(() => setMessage("تعذر إكمال تسجيل الدخول. أعد المحاولة."));
@@ -293,6 +306,7 @@ export default function App() {
     setCatalog([]);
     setPdfUrl(null);
     setProfileOpen(false);
+    setPage("home");
   }, [ownerId]);
   useEffect(
     () => () => {
@@ -357,6 +371,21 @@ export default function App() {
     await signOutOnThisDevice();
     await setActiveOfflineOwner(null);
   }
+  function connected(destination: ConnectedDestination) {
+    void action(() => openConnectedServices(destination));
+  }
+  async function retryAccount() {
+    if (!session) return;
+    setBusy(true);
+    try {
+      await setActiveOfflineOwner(session.user.id);
+      setAccountError(false);
+    } catch {
+      setAccountError(true);
+    } finally {
+      setBusy(false);
+    }
+  }
   if (!loaded)
     return (
       <main>
@@ -364,18 +393,71 @@ export default function App() {
         <p role="status">جارٍ فتح المواد المحفوظة…</p>
       </main>
     );
+  if (!ownerId)
+    return (
+      <>
+        {session ? (
+          <main className="account-recovery" dir="rtl">
+            <Brand />
+            <section className="auth-card">
+              <h1>{accountError ? "تعذر تجهيز الحساب على الجهاز" : "جارٍ تجهيز حسابك…"}</h1>
+              <p role="status">
+                {accountError
+                  ? "تم تسجيل الدخول، لكن لم يكتمل حفظ الحساب محليًا. أعد المحاولة دون حذف بيانات التطبيق."
+                  : "لحظات ونفتح صفحتك الرئيسية."}
+              </p>
+              {accountError && (
+                <div className="row">
+                  <button className="primary" disabled={busy} onClick={() => void retryAccount()}>
+                    إعادة المحاولة
+                  </button>
+                  <button disabled={busy} onClick={() => void action(logout)}>
+                    تسجيل الخروج
+                  </button>
+                </div>
+              )}
+            </section>
+          </main>
+        ) : (
+          <Entry
+            online={online}
+            busy={busy}
+            onStudent={() => void action(signIn)}
+            onConnected={connected}
+          />
+        )}
+        {message && (
+          <p className="notice entry-message" role="status">
+            {message}
+          </p>
+        )}
+      </>
+    );
   const visibleLesson = lesson?.ownerId === ownerId ? lesson : null;
   return (
     <main>
       <OfflineSyncBridge />
       <header>
-        <img src={logo} alt="" width="54" height="54" />
-        <div>
-          <h1>تمكين</h1>
-          <small>تعلّم من موادك المحفوظة في أي وقت</small>
-        </div>
+        <Brand />
         <span className="status">{online ? "متصل" : "دون اتصال"}</span>
       </header>
+      <nav className="workspace-tabs" aria-label="مساحة الطالب">
+        <button
+          aria-current={page === "home" ? "page" : undefined}
+          onClick={() => {
+            setPage("home");
+            setLesson(null);
+          }}
+        >
+          الرئيسية
+        </button>
+        <button
+          aria-current={page === "saved" ? "page" : undefined}
+          onClick={() => setPage("saved")}
+        >
+          موادي المحفوظة
+        </button>
+      </nav>
       <div className="row">
         {ownerId && (
           <small role="status">
@@ -397,21 +479,6 @@ export default function App() {
           </button>
         )}
       </div>
-      <details className="card">
-        <summary>خدمات تمكين عبر الإنترنت</summary>
-        <p>
-          الاختبارات الوزارية وسجل النتائج والإعدادات وخدمات المعلم والإدارة متاحة في موقع تمكين. قد
-          تحتاج إلى تسجيل الدخول في المتصفح.
-        </p>
-        <button disabled={!online || busy} onClick={() => void action(openConnectedServices)}>
-          فتح خدمات تمكين
-        </button>
-        {!online && (
-          <p className="muted">
-            تحتاج هذه الخدمات إلى اتصال بالإنترنت. موادك المنزلة وإجاباتك المحفوظة متاحة هنا.
-          </p>
-        )}
-      </details>
       {message && (
         <p className="notice" role="status">
           {message}
@@ -438,13 +505,15 @@ export default function App() {
           }}
         />
       )}
-      {!ownerId && (
-        <section className="card">
-          <h2>مرحبًا بك</h2>
-          <p>سجّل الدخول أول مرة مع توفر الإنترنت، ثم نزّل المواد التي تريد دراستها دون اتصال.</p>
-        </section>
-      )}
-      {visibleLesson ? (
+      {page === "home" ? (
+        <StudentHome
+          online={online}
+          busy={busy}
+          savedCount={packs.length}
+          onSaved={() => setPage("saved")}
+          onConnected={connected}
+        />
+      ) : visibleLesson ? (
         <>
           <button onClick={() => setLesson(null)}>العودة إلى المواد</button>
           <h2>{visibleLesson.content.lessonTitle ?? "الدرس المحفوظ"}</h2>
