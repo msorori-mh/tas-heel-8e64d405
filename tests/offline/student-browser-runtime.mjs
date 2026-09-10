@@ -180,6 +180,43 @@ try {
       );
     }
   });
+  await page.getByRole("heading", { name: "طريقك المنظم للتفوّق" }).waitFor();
+  await page.getByRole("button", { name: "دخول الطالب", exact: true }).waitFor();
+  await page.getByRole("button", { name: "دخول المعلم", exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "موادي المحفوظة", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "المتابعة باستخدام Google" }).count(), 0);
+  assert.equal(
+    await page.locator(".hero-student").evaluate((img) => img.complete && img.naturalWidth > 0),
+    true,
+  );
+  await page.screenshot({ path: new URL("account-choice.png", evidence).pathname, fullPage: true });
+  await page.evaluate(() => {
+    window.open = (url) => {
+      window.__TEST_ONLY_destination = url;
+      return null;
+    };
+  });
+  await page.getByRole("button", { name: "دخول المعلم", exact: true }).click();
+  assert.equal(
+    await page.evaluate(() => window.__TEST_ONLY_destination),
+    "https://studentamkeen.com/academy",
+  );
+  await page.getByRole("button", { name: "دخول الطالب", exact: true }).click();
+  await page.getByText("مساحة الطلاب", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "المتابعة باستخدام Google" }).waitFor();
+  await page.screenshot({
+    path: new URL("student-sign-in.png", evidence).pathname,
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "العودة لاختيار نوع الحساب" }).click();
+  await context.setOffline(true);
+  await page.reload();
+  await page.getByRole("heading", { name: "طريقك المنظم للتفوّق" }).waitFor();
+  assert.equal(
+    await page.getByRole("button", { name: "دخول المعلم", exact: true }).isDisabled(),
+    true,
+  );
+  await context.setOffline(false);
   // Exercise the real UI downloader. Only the server boundary and Auth session
   // are fixtures; no downloaded bytes or pack metadata are injected into IDB.
   await page.evaluate((token) => {
@@ -204,6 +241,10 @@ try {
     );
   }, token);
   await page.reload();
+  await page.getByRole("heading", { name: "موادك الدراسية", exact: true }).waitFor();
+  assert.equal(await page.getByRole("heading", { name: "تنزيل المواد", exact: true }).count(), 0);
+  await page.screenshot({ path: new URL("student-home.png", evidence).pathname, fullPage: true });
+  await page.getByRole("button", { name: "موادي المحفوظة", exact: true }).click();
   await page.getByRole("button", { name: "عرض مواد صفي", exact: true }).click();
   await page.getByRole("heading", { name: "بياناتك الدراسية" }).waitFor();
   await page.getByLabel("الاسم الكامل").fill("طالب TEST_ONLY");
@@ -231,6 +272,7 @@ try {
   await page.getByRole("heading", { name: "الكيمياء TEST_ONLY" }).waitFor();
   await context.setOffline(true);
   await page.reload();
+  await page.getByRole("button", { name: "موادي المحفوظة", exact: true }).click();
   await page.getByRole("heading", { name: "الكيمياء TEST_ONLY" }).waitFor();
   await page.getByRole("button", { name: "الماء TEST_ONLY", exact: true }).click();
   await page.getByLabel("إجابتك").fill("H2O — إجابة محفوظة");
@@ -244,6 +286,7 @@ try {
     fullPage: true,
   });
   await page.reload();
+  await page.getByRole("button", { name: "موادي المحفوظة", exact: true }).click();
   await page.getByRole("button", { name: "الماء TEST_ONLY", exact: true }).click();
   assert.equal(await page.getByLabel("إجابتك").inputValue(), "H2O — إجابة محفوظة");
   assert.equal(
@@ -265,9 +308,9 @@ try {
   assert.equal(queued.length, 2);
   assert(queued.every((item) => item.status === "pending" && item.ownerId === "student-a"));
   await page.getByRole("button", { name: "تسجيل الخروج", exact: true }).click();
-  await page.getByRole("heading", { name: "مرحبًا بك" }).waitFor();
+  await page.getByRole("heading", { name: "طريقك المنظم للتفوّق" }).waitFor();
   await page.reload();
-  await page.getByRole("heading", { name: "مرحبًا بك" }).waitFor();
+  await page.getByRole("heading", { name: "طريقك المنظم للتفوّق" }).waitFor();
   assert.equal(await page.getByText("الماء TEST_ONLY", { exact: true }).count(), 0);
   assert.deepEqual(failures, []);
   await writeFile(
@@ -276,6 +319,11 @@ try {
       {
         status: "PASS",
         checks: [
+          "established landing assets and explicit student/teacher choices",
+          "teacher opens only the dedicated academy",
+          "Google-only student entry and return to account choice",
+          "landing reloads offline and connected teacher entry is disabled",
+          "downloads appear inside the authenticated workspace",
           "profile completion to subject download",
           "denied profile save preserves the form and permits retry",
           "profile draft survives offline/reconnect and blocks offline submit",
@@ -295,7 +343,7 @@ try {
       2,
     ),
   );
-  console.log("PASS: 11 student onboarding/offline browser runtime checks; 0 page errors.");
+  console.log("PASS: 16 student onboarding/offline browser runtime checks; 0 page errors.");
 } finally {
   await browser.close();
 }

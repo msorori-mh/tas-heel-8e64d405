@@ -17,10 +17,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Keep application behavior pinned to the accepted offline source
+      - name: Keep application behavior pinned to the reviewed offline source
         run: |
-          git merge-base --is-ancestor 03ced5ffd3d5022657ab8ee70a5c45db06e26b81 HEAD
-          git diff --exit-code 03ced5ffd3d5022657ab8ee70a5c45db06e26b81 HEAD -- . \
+          git merge-base --is-ancestor d0db2ea9949232cc01a354a7288ae57479bcff86 HEAD
+          git diff --exit-code d0db2ea9949232cc01a354a7288ae57479bcff86 HEAD -- . \
             ':!android/app/build.gradle' ':!android/app/src/deviceTest/res/values/strings.xml' \
             ':!.github/workflows/android-side-by-side.yml' ':!scripts/mobile/verify-side-by-side.sh'
       - uses: actions/setup-node@v4
@@ -65,24 +65,24 @@ jobs:
           } > android/keystore.properties
           (cd android && ./gradlew :app:assembleDeviceTest --stacktrace)
           mkdir -p output
-          cp android/app/build/outputs/apk/deviceTest/app-deviceTest.apk output/tamkeen-offline-1.2.0-side-by-side.apk
+          cp android/app/build/outputs/apk/deviceTest/app-deviceTest.apk output/tamkeen-offline-1.2.0-test2.apk
       - name: Verify the signed test identity and private provider
         run: |
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs output/tamkeen-offline-1.2.0-side-by-side.apk | tee output/signature.txt
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging output/tamkeen-offline-1.2.0-side-by-side.apk > output/manifest.txt
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree output/tamkeen-offline-1.2.0-side-by-side.apk --file AndroidManifest.xml > output/manifest-tree.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs output/tamkeen-offline-1.2.0-test2.apk | tee output/signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging output/tamkeen-offline-1.2.0-test2.apk > output/manifest.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree output/tamkeen-offline-1.2.0-test2.apk --file AndroidManifest.xml > output/manifest-tree.txt
           python3 - <<'PY'
           from pathlib import Path
           manifest = Path('output/manifest.txt').read_text()
           tree = Path('output/manifest-tree.txt').read_text()
-          assert "package: name='app.studentamkeen.tamkeen.offlinetest' versionCode='6' versionName='1.2.0-test'" in manifest
+          assert "package: name='app.studentamkeen.tamkeen.offlinetest' versionCode='6' versionName='1.2.0-test.2'" in manifest
           assert "application-label:'تمكين — اختبار'" in manifest
           assert 'application-debuggable' not in manifest
           assert 'app.studentamkeen.tamkeen.offlinetest.fileprovider' in tree
           assert 'app.studentamkeen.tamkeen.fileprovider' not in tree
           print('SIDE_BY_SIDE_IDENTITY_AND_PROVIDER=PASS')
           PY
-          sha256sum output/tamkeen-offline-1.2.0-side-by-side.apk | tee output/SHA256SUMS.txt
+          sha256sum output/tamkeen-offline-1.2.0-test2.apk | tee output/SHA256SUMS.txt
       - uses: actions/download-artifact@v4
         with:
           name: tamkeen-offline-1.2.0-code-6-device-apk
@@ -91,6 +91,14 @@ jobs:
           path: input
       - name: Verify the original APK used for the coexistence test
         run: echo 'b79e8c3197998366b646dd8a937b4b340e1009635c8a5003fd758e557c395676  input/tamkeen-offline-1.2.0-code-6.apk' | sha256sum --check --strict
+      - uses: actions/download-artifact@v4
+        with:
+          name: tamkeen-offline-1.2.0-side-by-side-apk
+          run-id: 34528423506
+          github-token: ${{ github.token }}
+          path: previous
+      - name: Verify the installed test APK being upgraded
+        run: echo '50abecd3988898d2c62dd22db729c132acd703e8d43f6691a63b4c6868486bcb  previous/tamkeen-offline-1.2.0-side-by-side.apk' | sha256sum --check --strict
       - name: Enable KVM for the disposable emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -105,7 +113,7 @@ jobs:
       - name: Upload APK only after successful installation and startup
         uses: actions/upload-artifact@v4
         with:
-          name: tamkeen-offline-1.2.0-side-by-side-apk
+          name: tamkeen-offline-1.2.0-test2-apk
           path: output/
           if-no-files-found: error
           retention-days: 30

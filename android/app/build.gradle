@@ -65,7 +65,7 @@ android {
         deviceTest {
             initWith release
             applicationIdSuffix ".offlinetest"
-            versionNameSuffix "-test"
+            versionNameSuffix "-test.2"
             matchingFallbacks = ['release']
         }
     }

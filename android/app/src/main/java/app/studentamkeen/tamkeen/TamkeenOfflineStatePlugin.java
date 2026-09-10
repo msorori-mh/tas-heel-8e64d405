@@ -15,11 +15,17 @@ public class TamkeenOfflineStatePlugin extends Plugin {
     @PluginMethod
     public void compareAndSwap(PluginCall call) {
         JSObject snapshot = call.getObject("snapshot");
-        Long expected = call.getLong("expectedRevision");
-        if (snapshot == null || expected == null || expected < 0) {
+        // JSON numbers such as 0 arrive as Integer, while PluginCall.getLong
+        // accepts only Long. Accept exact JS-safe integers without coercing
+        // strings, fractions or booleans into a revision.
+        Object rawExpected = call.getData().opt("expectedRevision");
+        double numeric = rawExpected instanceof Number ? ((Number) rawExpected).doubleValue() : -1;
+        if (snapshot == null || !Double.isFinite(numeric) || numeric < 0 ||
+                numeric >= 9007199254740991d || numeric != Math.floor(numeric)) {
             call.reject("offline_state_snapshot_invalid");
             return;
         }
+        long expected = ((Number) rawExpected).longValue();
         try {
             boolean committed = TamkeenOfflineStateStore.compareAndSwap(getContext(), snapshot, expected);
             JSObject result = new JSObject();
