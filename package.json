@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "node --input-type=module -e \"import { loadEnv } from 'vite'; const env=loadEnv('production',process.cwd(),'VITE_'); for (const k of ['VITE_SUPABASE_URL','VITE_SUPABASE_PUBLISHABLE_KEY']) { console.log('[build-env] '+k+': process='+(process.env[k]?.trim()?'PRESENT':'MISSING')+', vite='+(env[k]?.trim()?'PRESENT':'MISSING')); } if (['VITE_SUPABASE_URL','VITE_SUPABASE_PUBLISHABLE_KEY'].some(k=>!env[k]?.trim())) { console.error('[build-env] Missing public Supabase configuration; build stopped.'); process.exit(1); }\" && vite build",
     "academy:dev": "vite --config apps/teacher-academy/vite.config.ts",
     "academy:build": "vite build --config apps/teacher-academy/vite.config.ts",
     "academy:typecheck": "tsc -p apps/teacher-academy/tsconfig.json --noEmit",
