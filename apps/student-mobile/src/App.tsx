@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, signOutOnThisDevice } from "@/integrations/supabase/client";
 import {
   deviceOfflineStateRepository as repository,
   emptyOfflineState,
@@ -348,9 +348,8 @@ export default function App() {
     setLesson(null);
     setPdfUrl(null);
     setCatalog([]);
+    await signOutOnThisDevice();
     await setActiveOfflineOwner(null);
-    const { error } = await supabase.auth.signOut({ scope: "local" });
-    if (error) throw error;
   }
   if (!loaded)
     return (
