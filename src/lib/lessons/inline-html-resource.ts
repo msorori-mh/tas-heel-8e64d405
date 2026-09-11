@@ -20,6 +20,18 @@ export const INLINE_HTML_URL_PREFIX = "lesson-internal://html/";
 
 export type InlineHtmlRenderMode = "STATIC_NO_SCRIPT" | "SANDBOXED_NO_NETWORK" | "SANDBOXED_PHET";
 
+const MOBILE_ZOOM_VIEWPORT =
+  '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />';
+const MOBILE_ZOOM_STYLE =
+  "<style data-tamkeen-mobile-zoom>html,body{touch-action:pan-x pan-y pinch-zoom;-webkit-text-size-adjust:100%}img,svg,canvas{max-width:100%;height:auto}</style>";
+
+function removeAuthoredViewport(document: string): string {
+  return document.replace(
+    /<meta\b(?=[^>]*\bname\s*=\s*(?:["']viewport["']|viewport\b))[^>]*>/gi,
+    "",
+  );
+}
+
 export function isInlineHtmlResourceUrl(url: string | null | undefined): boolean {
   const value = (url ?? "").trim();
   return value.startsWith(INLINE_HTML_URL_PREFIX) && value.length > INLINE_HTML_URL_PREFIX.length;
@@ -67,7 +79,8 @@ export function buildInlineHtmlDocument(body: string, mode: InlineHtmlRenderMode
   const csp = inlineHtmlCsp(mode);
   const securityHead = [
     `<meta http-equiv="Content-Security-Policy" content="${csp}" />`,
-    '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+    MOBILE_ZOOM_VIEWPORT,
+    MOBILE_ZOOM_STYLE,
   ].join("");
   const resizeBridge =
     mode !== "STATIC_NO_SCRIPT"
@@ -80,7 +93,9 @@ export function buildInlineHtmlDocument(body: string, mode: InlineHtmlRenderMode
   // textbook, explanation, and summary layouts faithful instead of nesting a
   // second <html> document inside <body>.
   if (/<html[\s>]/i.test(value)) {
-    let document = value;
+    // A later author-provided `user-scalable=no` wins on some Android WebViews.
+    // Remove every authored viewport first, then inject one canonical zoomable viewport.
+    let document = removeAuthoredViewport(value);
     document = /<head[\s>]/i.test(document)
       ? document.replace(/<head([^>]*)>/i, `<head$1>${securityHead}`)
       : document.replace(/<html([^>]*)>/i, `<html$1><head>${securityHead}</head>`);

@@ -336,6 +336,24 @@ test("31. CSP Bridge exact bytes: srcDoc extracted script SHA-256 matches CSP li
   );
 });
 
+test("31b. Interactive preview overrides authored mobile zoom blockers", async () => {
+  const nonce = "mobile-zoom-nonce";
+  const csp = await buildPackageCsp([], "RES-ZOOM", 1, nonce);
+  const srcDoc = generatePreviewHtmlBundle(
+    '<html><head><meta name=viewport content="width=device-width,user-scalable=no"><meta name="viewport" content="maximum-scale=1"></head><body></body></html>',
+    [],
+    csp,
+    "RES-ZOOM",
+    1,
+    nonce,
+  );
+  assert.equal((srcDoc.match(/name=["']viewport["']/gi) ?? []).length, 1);
+  assert.match(srcDoc, /maximum-scale=5/);
+  assert.match(srcDoc, /user-scalable=yes/);
+  assert.match(srcDoc, /touch-action:pan-x pan-y pinch-zoom/);
+  assert.doesNotMatch(srcDoc, /user-scalable=no/);
+});
+
 test("32. Message Bridge: Stale timestamp rejected (< session start)", () => {
   const bridge = new AppInteractiveResourceBridge("RES-01", 1);
   const nonce = bridge.getSessionNonce();

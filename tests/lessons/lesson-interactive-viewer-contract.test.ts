@@ -40,6 +40,17 @@ test("complete HTML documents are preserved and receive the resize bridge once",
   assert.match(result, /connect-src 'none'/);
 });
 
+test("lesson HTML always receives one zoomable mobile viewport", () => {
+  const source =
+    '<!doctype html><html><head><meta name="viewport" content="width=device-width,user-scalable=no,maximum-scale=1"><META NAME="viewport" content="user-scalable=no"></head><body><img src="data:image/png;base64,AA=="></body></html>';
+  const result = buildInlineHtmlDocument(source, "STATIC_NO_SCRIPT");
+  assert.equal((result.match(/name=["']viewport["']/gi) ?? []).length, 1);
+  assert.match(result, /maximum-scale=5/);
+  assert.match(result, /user-scalable=yes/);
+  assert.match(result, /touch-action:pan-x pan-y pinch-zoom/);
+  assert.doesNotMatch(result, /user-scalable=no/);
+});
+
 test("static textbook HTML disables scripts and external network", () => {
   const result = buildInlineHtmlDocument(
     "<!doctype html><html><head></head><body><h1>الحديد</h1></body></html>",

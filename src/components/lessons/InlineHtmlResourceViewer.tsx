@@ -82,7 +82,7 @@ export function InlineHtmlResourceViewer({ title, html, htmlResourceType, resour
             referrerPolicy="no-referrer"
             loading="lazy"
             style={{ height: expanded ? "90vh" : `${contentHeight}px` }}
-            className="mt-2 w-full rounded-lg border border-border bg-white transition-[height]"
+            className="mt-2 w-full touch-auto rounded-lg border border-border bg-white transition-[height]"
           />
           <button
             type="button"
