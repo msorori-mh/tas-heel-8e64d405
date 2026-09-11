@@ -165,6 +165,27 @@ public class TamkeenPdfViewerPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void openOfflineArtifact(PluginCall call) {
+        try {
+            String owner = call.getString("ownerId");
+            JSONObject requested = call.getObject("artifact");
+            if (requested == null) throw new IllegalArgumentException("offline_artifact_required");
+            JSONObject artifact;
+            synchronized (TamkeenOfflineStateStore.LOCK) {
+                artifact = TamkeenOfflineArtifactStore.authorizedArtifact(getContext(), owner, requested, true);
+            }
+            Intent intent = new Intent(getContext(), PdfViewerActivity.class);
+            intent.putExtra(PdfViewerActivity.EXTRA_OFFLINE_OWNER, owner);
+            intent.putExtra(PdfViewerActivity.EXTRA_OFFLINE_ARTIFACT, artifact.toString());
+            intent.putExtra(PdfViewerActivity.EXTRA_TITLE, artifact.optString("title", ""));
+            intent.putExtra(PdfViewerActivity.EXTRA_INITIAL_PAGE, call.getInt("initialPage", 1));
+            startActivityForResult(call, intent, "onViewerClosed");
+        } catch (Exception error) {
+            call.reject("offline_pdf_not_available");
+        }
+    }
+
+    @PluginMethod
     public void open(PluginCall call) {
         String localPath = call.getString("localPath");
         if (!isPrivateRelativePath(localPath)) {

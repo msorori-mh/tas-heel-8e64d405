@@ -48,6 +48,13 @@ jobs:
         if: always()
         run: npm run academy:typecheck
 
+      - name: Verify bundled student client
+        if: always()
+        run: |
+          npm run student:typecheck
+          npm run student:test
+          npm run student:build
+
       - name: Run unit tests
         if: always()
         run: |

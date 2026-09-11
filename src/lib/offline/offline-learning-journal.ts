@@ -50,6 +50,9 @@ export async function saveOfflineOfficialQuestionNote(
     "official-question-note",
   ]);
   return repository.update(async (snapshot) => {
+    if (repository === deviceOfflineStateRepository && snapshot.activeOwnerId !== input.ownerId) {
+      throw new Error("OFFLINE_OWNER_CHANGED");
+    }
     const current = snapshot.learning.find(
       (record) => record.ownerId === input.ownerId && record.id === id,
     );
@@ -108,6 +111,9 @@ export async function recordOfflineSelfTestAttempt(
 ): Promise<{ record: OfflineLearningRecord; scorePercent: number }> {
   const id = await stableId([input.ownerId, input.lessonId, input.questionId, "self-test-attempt"]);
   const result = await repository.update(async (snapshot) => {
+    if (repository === deviceOfflineStateRepository && snapshot.activeOwnerId !== input.ownerId) {
+      throw new Error("OFFLINE_OWNER_CHANGED");
+    }
     const current = snapshot.learning.find(
       (record) => record.ownerId === input.ownerId && record.id === id,
     );

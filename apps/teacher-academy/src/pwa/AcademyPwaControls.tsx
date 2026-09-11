@@ -22,47 +22,48 @@ export function AcademyPwaControls() {
   }, []);
 
   return (
-    <aside className="academy-pwa-controls" aria-live="polite">
+    <>
       {!state.online ? (
-        <div className="academy-pwa-notice offline" role="status">
+        <div className="academy-connection-status" role="status">
           <WifiOff />
-          <span>أنت غير متصل. تتوفر واجهة الأكاديمية الأساسية فقط حتى عودة الإنترنت.</span>
+          <span>دون اتصال — يمكنك تصفّح المحتويات المحفوظة.</span>
         </div>
       ) : null}
-
-      {state.updateReady ? (
-        <div className="academy-pwa-notice update" role="status">
-          <RefreshCw />
-          <span>يتوفر تحديث جديد لأكاديمية تمكين.</span>
-          <button type="button" onClick={activateAcademyUpdate}>
-            تحديث الآن
-          </button>
-        </div>
-      ) : null}
-
-      {!standalone && !dismissed && (state.installPrompt || ios) ? (
-        <div className="academy-pwa-notice install" role="status">
-          {ios ? <Share2 /> : <Download />}
-          <span>
-            {ios
-              ? "لتثبيت الأكاديمية: اضغط مشاركة ثم «إضافة إلى الشاشة الرئيسية»."
-              : "ثبّت أكاديمية تمكين على جوالك للوصول إليها كتطبيق مستقل."}
-          </span>
-          {!ios ? (
-            <button type="button" onClick={() => void requestAcademyInstall()}>
-              تثبيت التطبيق
+      <aside className="academy-pwa-controls" aria-live="polite">
+        {state.updateReady ? (
+          <div className="academy-pwa-notice update" role="status">
+            <RefreshCw />
+            <span>يتوفر تحديث جديد لأكاديمية تمكين.</span>
+            <button type="button" onClick={activateAcademyUpdate}>
+              تحديث الآن
             </button>
-          ) : null}
-          <button
-            className="academy-pwa-dismiss"
-            type="button"
-            aria-label="إخفاء رسالة التثبيت"
-            onClick={() => setDismissed(true)}
-          >
-            <X />
-          </button>
-        </div>
-      ) : null}
-    </aside>
+          </div>
+        ) : null}
+
+        {!standalone && !dismissed && (state.installPrompt || ios) ? (
+          <div className="academy-pwa-notice install" role="status">
+            {ios ? <Share2 /> : <Download />}
+            <span>
+              {ios
+                ? "لتثبيت الأكاديمية: اضغط مشاركة ثم «إضافة إلى الشاشة الرئيسية»."
+                : "ثبّت أكاديمية تمكين على جوالك للوصول إليها كتطبيق مستقل."}
+            </span>
+            {!ios ? (
+              <button type="button" onClick={() => void requestAcademyInstall()}>
+                تثبيت التطبيق
+              </button>
+            ) : null}
+            <button
+              className="academy-pwa-dismiss"
+              type="button"
+              aria-label="إخفاء رسالة التثبيت"
+              onClick={() => setDismissed(true)}
+            >
+              <X />
+            </button>
+          </div>
+        ) : null}
+      </aside>
+    </>
   );
 }

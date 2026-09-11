@@ -1,6 +1,10 @@
 package app.studentamkeen.tamkeen;
 
 import android.os.Bundle;
+import android.webkit.ServiceWorkerClient;
+import android.webkit.ServiceWorkerController;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -10,7 +14,19 @@ public class MainActivity extends BridgeActivity {
         // 18C2 — app-local plugin: native PDF viewer (Arabic-correct rendering).
         registerPlugin(TamkeenPdfViewerPlugin.class);
         // OFFLINE-04 — hash-verified lesson content for the bundled cold-start entry.
+        registerPlugin(TamkeenOfflineStatePlugin.class);
+        registerPlugin(TamkeenOfflineArtifactsPlugin.class);
         registerPlugin(TamkeenOfflineContentPlugin.class);
         super.onCreate(savedInstanceState);
+        TamkeenWebViewClient client = new TamkeenWebViewClient(getBridge());
+        getBridge().setWebViewClient(client);
+        // An older Play build may have registered a web service worker. Its
+        // network requests must use exactly the same bundle/backend routing.
+        ServiceWorkerController.getInstance().setServiceWorkerClient(new ServiceWorkerClient() {
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
+                return client.shouldInterceptRequest(getBridge().getWebView(), request);
+            }
+        });
     }
 }

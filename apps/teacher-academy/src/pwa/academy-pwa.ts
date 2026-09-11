@@ -1,3 +1,5 @@
+import { Capacitor } from "@capacitor/core";
+
 export interface AcademyBeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -59,6 +61,7 @@ export function subscribeAcademyPwa(listener: Listener): () => void {
 }
 
 export function isAcademyStandalone(): boolean {
+  if (Capacitor.isNativePlatform()) return true;
   if (typeof window === "undefined") return false;
   if (window.matchMedia("(display-mode: standalone)").matches) return true;
   return (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
@@ -96,7 +99,8 @@ export function initializeAcademyPwa(): void {
   window.addEventListener("online", () => emit({ online: true }));
   window.addEventListener("offline", () => emit({ online: false }));
 
-  if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
+  if (Capacitor.isNativePlatform() || !("serviceWorker" in navigator) || !window.isSecureContext)
+    return;
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/academy-sw.js", { scope: "/academy/" })

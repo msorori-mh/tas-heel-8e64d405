@@ -39,8 +39,9 @@ describe("OFFLINE-03 truthful student UI", () => {
     expect(localContent).not.toContain("answer");
   });
 
-  it("does not claim restart-in-airplane-mode closure before the embedded-app gate", () => {
-    expect(capacitor).toContain('url: "https://studentamkeen.com"');
+  it("uses the embedded entry without over-claiming full offline closure", () => {
+    expect(capacitor).not.toContain('url: "https://studentamkeen.com"');
+    expect(capacitor).toContain('webDir: "dist-mobile"');
     expect(card).not.toContain("بعد إعادة تشغيل التطبيق");
   });
 });

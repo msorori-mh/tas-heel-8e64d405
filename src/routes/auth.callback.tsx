@@ -25,14 +25,10 @@ function AuthCallback() {
           throw new Error(errDesc || errCode || "OAuth error");
         }
 
-        const code = url.searchParams.get("code");
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
-          if (error) throw error;
-        }
-
-        // Web callbacks and recovery links may be completed by the client's
-        // URL detector; wait briefly for the persisted session.
+        // The shared client's PKCE URL detector owns web code exchange.
+        // NativeAuthDeepLinkHandler owns native exchange before navigating here.
+        // Exchanging again (or passing the entire URL as the code) races the
+        // detector and consumes the one-use verifier a second time.
         for (let i = 0; i < 20; i++) {
           const { data } = await supabase.auth.getSession();
           if (data.session) break;

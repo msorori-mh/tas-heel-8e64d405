@@ -1,10 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "../../../../src/integrations/supabase/client";
 import {
   PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   PUBLIC_SUPABASE_URL,
 } from "../../../../src/integrations/supabase/public-config";
-import { persistentAuthStorage } from "../../../../src/integrations/supabase/nativeAuthStorage";
-import { brokeredPreviewStorage } from "../../../../src/integrations/supabase/previewAuthStorage";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || PUBLIC_SUPABASE_URL;
 const supabaseKey =
@@ -16,22 +15,19 @@ export const academyFeatureEnabled = import.meta.env.PROD
   ? featureFlag === "true"
   : featureFlag !== "false";
 
-export const academySupabase = createClient(
-  supabaseUrl ?? "https://configuration-required.invalid",
-  supabaseKey ?? "configuration-required",
-  {
-    auth: {
-      storage: persistentAuthStorage() ?? brokeredPreviewStorage(),
-      persistSession: true,
-      autoRefreshToken: true,
-      flowType: "pkce",
-      detectSessionInUrl: true,
-    },
-    db: {
-      schema: "academy",
-    },
+// One auth client owns PKCE exchange, session persistence and refresh for BOTH
+// portals. Only the PostgREST schema differs. Two GoTrue clients sharing the
+// same storage key can exchange/refresh the same one-use credentials twice.
+export const academySupabase = new Proxy({} as SupabaseClient, {
+  get(_target, property) {
+    if (property === "from" || property === "rpc") {
+      const schema = (supabase as unknown as SupabaseClient).schema("academy");
+      return schema[property].bind(schema);
+    }
+    const value = Reflect.get(supabase, property);
+    return typeof value === "function" ? value.bind(supabase) : value;
   },
-);
+});
 
 export function requireAcademyBackend(): void {
   if (!academyBackendConfigured) {

@@ -112,6 +112,49 @@ export function parseNativeAuthCallback(rawUrl: unknown): NativeAuthCallback {
 /** Codes already exchanged in this WebView session — duplicate links are no-ops. */
 const consumedCodes = new Set<string>();
 
+const COMPLETED_CALLBACKS_KEY = "tamkeen.native-oauth-completed.v1";
+async function callbackDigest(code: string): Promise<string> {
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code));
+  return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/** Android can redeliver its launch Intent after Activity recreation. Retain
+ * only hashes of successful one-use codes, never the codes or credentials. */
+export async function wasNativeCallbackCompleted(code: string): Promise<boolean> {
+  const { Preferences } = await import("@capacitor/preferences");
+  const { value } = await Preferences.get({ key: COMPLETED_CALLBACKS_KEY });
+  if (!value) return false;
+  const entries: unknown = JSON.parse(value);
+  const digest = await callbackDigest(code);
+  return (
+    Array.isArray(entries) &&
+    entries.some(
+      (entry) =>
+        entry?.digest === digest && typeof entry.until === "number" && entry.until > Date.now(),
+    )
+  );
+}
+
+export async function rememberCompletedNativeCallback(code: string): Promise<void> {
+  const { Preferences } = await import("@capacitor/preferences");
+  const { value } = await Preferences.get({ key: COMPLETED_CALLBACKS_KEY });
+  let entries: Array<{ digest: string; until: number }> = [];
+  try {
+    const parsed = value ? JSON.parse(value) : [];
+    if (Array.isArray(parsed))
+      entries = parsed.filter(
+        (entry) => typeof entry?.digest === "string" && entry.until > Date.now(),
+      );
+  } catch {
+    /* replace only this app's malformed callback receipt list */
+  }
+  entries.push({ digest: await callbackDigest(code), until: Date.now() + 86_400_000 });
+  await Preferences.set({
+    key: COMPLETED_CALLBACKS_KEY,
+    value: JSON.stringify(entries.slice(-20)),
+  });
+}
+
 export function isCallbackConsumed(code: string): boolean {
   return consumedCodes.has(code);
 }

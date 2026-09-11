@@ -12,12 +12,20 @@ const lessonRoute = read("src/routes/api/lesson-file.$resourceId.ts");
 const textbookRoute = read("src/routes/api/subject-textbook.$textbookId.ts");
 
 describe("OFFLINE-01 mobile foundation guards", () => {
-  it("persists native metadata in the app-private data directory", () => {
-    expect(store).toContain('OFFLINE_STATE_NATIVE_DIR = "tamkeen/offline"');
-    expect(store).toContain("directory: Directory.Data");
+  it("persists native metadata through the encrypted transactional bridge", () => {
+    expect(store).toContain(
+      'registerPlugin<TamkeenOfflineStateNativePlugin>("TamkeenOfflineState")',
+    );
+    expect(store).toContain("TamkeenOfflineState.read()");
+    expect(store).toContain("TamkeenOfflineState.write({ snapshot: value })");
     expect(store).toContain("Capacitor.isNativePlatform()");
-    expect(store).toContain("OFFLINE_STATE_NATIVE_BACKUP_PATH");
-    expect(store).toContain("OFFLINE_STATE_CORRUPT");
+    const encryptedAdapter = store.slice(
+      store.indexOf("class NativeOfflineStateAdapter"),
+      store.indexOf("class LegacyNativeOfflineStateAdapter"),
+    );
+    expect(encryptedAdapter).not.toContain("Filesystem.writeFile");
+    expect(encryptedAdapter).not.toContain("foundation-v1.backup.json");
+    expect(store).toContain('Capacitor.isPluginAvailable("TamkeenOfflineState")');
   });
 
   it("stores stable identifiers and hashes, never temporary delivery URLs", () => {
@@ -29,8 +37,10 @@ describe("OFFLINE-01 mobile foundation guards", () => {
     expect(outbox).not.toContain("refreshToken:");
   });
 
-  it("keeps the current production shell until the final embedded-app gate", () => {
-    expect(capacitor).toContain('url: "https://studentamkeen.com"');
+  it("loads the bundled shell by default and gates development live reload", () => {
+    expect(capacitor).not.toContain('url: "https://studentamkeen.com"');
+    expect(capacitor).toContain("TAMKEEN_CAPACITOR_LIVE_RELOAD");
+    expect(capacitor).toContain("privateLiveReloadOrigin");
     expect(capacitor).toContain('errorPath: "index.html"');
   });
 

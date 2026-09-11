@@ -20,6 +20,17 @@ function memoryPreferences(initial: Record<string, string> = {}) {
 }
 
 describe("durable native auth storage", () => {
+  it("keeps a committed native session when the WebView mirror is full", async () => {
+    const preferences = memoryPreferences();
+    const storage = createDurableNativeAuthStorage(preferences, {
+      ...memoryStorage(),
+      setItem() {
+        throw new Error("QuotaExceededError");
+      },
+    });
+    await expect(storage.setItem("sb-auth-token", "TEST_ONLY_session")).resolves.toBeUndefined();
+    await expect(storage.getItem("sb-auth-token")).resolves.toBe("TEST_ONLY_session");
+  });
   it("restores a session from native preferences after WebView storage is empty", async () => {
     const storage = createDurableNativeAuthStorage(
       memoryPreferences({ "sb-auth-token": "persisted-session" }),

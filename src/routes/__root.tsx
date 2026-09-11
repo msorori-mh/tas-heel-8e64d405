@@ -19,6 +19,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AndroidBackHandler } from "@/components/mobile/AndroidBackHandler";
 import { NativeAuthDeepLinkHandler } from "@/components/mobile/NativeAuthDeepLinkHandler";
 import { NativeNotificationHandler } from "@/components/mobile/NativeNotificationHandler";
+import { OfflineQueryCache } from "@/components/offline/OfflineQueryCache";
 
 function NotFoundComponent() {
   return (
@@ -128,7 +129,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap",
+        href: import.meta.env.VITE_MOBILE_BUNDLE
+          ? "/fonts/cairo.css"
+          : "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap",
       },
     ],
     scripts: [
@@ -188,26 +191,23 @@ function RootComponent() {
     if (!academyRouteActive) registerServiceWorker();
   }, [academyRouteActive]);
 
-  if (academyRouteActive) {
-    return (
-      <>
-        <Outlet />
-        <NativeAuthDeepLinkHandler />
-        <NativeNotificationHandler />
-      </>
-    );
-  }
-
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+      {academyRouteActive ? (
         <Outlet />
-        <AndroidBackHandler />
-        <NativeAuthDeepLinkHandler />
-        <NativeNotificationHandler />
-        <PwaUpdateNotice />
-        <Toaster position="top-center" richColors />
-      </AuthProvider>
+      ) : (
+        <AuthProvider>
+          <OfflineQueryCache />
+          <Outlet />
+          <PwaUpdateNotice />
+          <Toaster position="top-center" richColors />
+        </AuthProvider>
+      )}
+      {/* Stable across portal changes: callback handling must not remount while
+          completing the one-use PKCE exchange. Both portals keep Android back. */}
+      <AndroidBackHandler />
+      <NativeAuthDeepLinkHandler />
+      <NativeNotificationHandler />
     </QueryClientProvider>
   );
 }

@@ -1,0 +1,89 @@
+name: Student and teacher mobile runtime
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/student-mobile/**"
+      - "android/**"
+      - "src/lib/offline/**"
+      - "src/components/offline/**"
+      - "tests/offline/**"
+      - ".github/workflows/student-offline-ci.yml"
+      - "package*.json"
+      - "src/hooks/use-auth.tsx"
+      - "src/integrations/supabase/**"
+      - "src/routes/**"
+      - "src/components/mobile/**"
+      - "src/client.tsx"
+      - "apps/teacher-academy/**"
+      - "tests/mobile/**"
+      - "scripts/mobile/**"
+      - "vite.config.ts"
+      - "capacitor.config.ts"
+permissions:
+  contents: read
+concurrency:
+  group: student-offline-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  chromium:
+    name: Original student and teacher E2E (provider fixtures)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run student:typecheck && npm run student:test && npm run student:build
+      - run: npx playwright install --with-deps chromium
+      - name: Exercise original portals, PKCE, session restore and offline logout
+        run: node tests/mobile/full-app-e2e.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-offline-runtime-evidence
+          path: artifacts/full-app-e2e
+          if-no-files-found: error
+
+  android-state:
+    name: Android encrypted state and content runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - run: npm ci && npm run student:build
+      - run: node node_modules/@capacitor/cli/bin/capacitor sync android
+      - name: Compile application and instrumentation before starting the emulator
+        run: cd android && ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+      - name: Enable KVM for the disposable emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb shell svc wifi disable
+            adb shell svc data disable
+            cd android && ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.tamkeenDisposableEmulator=true --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-android-state-evidence
+          path: android/app/build/reports/androidTests/connected
+          if-no-files-found: error

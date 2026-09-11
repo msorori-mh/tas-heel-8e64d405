@@ -7,6 +7,8 @@ import {
   markCallbackConsumed,
   parseNativeAuthCallback,
   unmarkCallbackConsumed,
+  wasNativeCallbackCompleted,
+  rememberCompletedNativeCallback,
 } from "@/lib/auth/native-oauth";
 
 /**
@@ -40,23 +42,24 @@ export function NativeAuthDeepLinkHandler() {
           return;
         }
         if (isCallbackConsumed(parsed.code)) return; // duplicate delivery
+        if (await wasNativeCallbackCompleted(parsed.code).catch(() => false)) return;
+        if (isCallbackConsumed(parsed.code)) return; // concurrent delivery during durable read
         markCallbackConsumed(parsed.code);
 
         setStatus("completing");
         setMessage(null);
         try {
           const { supabase } = await import("@/integrations/supabase/client");
-          const { error } = await supabase.auth.exchangeCodeForSession(parsed.code);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(parsed.code);
           if (error) throw error;
-          const { data } = await supabase.auth.getUser();
-          if (!data.user) throw new Error("لم يتم العثور على جلسة");
+          if (!data.session?.user) throw new Error("لم يتم العثور على جلسة");
+          await rememberCompletedNativeCallback(parsed.code).catch(() => undefined);
           if (cancelled) return;
           const destination = consumeNativeAuthDestination();
           if (destination === "teacher") {
-            // Reload the academy route so its isolated Supabase client restores
-            // the just-persisted native session from the shared secure adapter.
-            window.location.replace("/academy");
-            return;
+            // Both portals share the auth client. Stay in the app and keep the
+            // one-use callback claim alive; a reload can replay getLaunchUrl().
+            await navigate({ to: "/academy", replace: true });
           } else {
             // /auth/callback resolves student profile completeness.
             navigate({ to: "/auth/callback", replace: true });

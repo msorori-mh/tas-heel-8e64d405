@@ -42,8 +42,13 @@ export async function registerOfflinePack(
         }
         return current;
       }
-      current.status = "stale";
-      current.updatedAt = now;
+      if (current.status === "ready") {
+        snapshot.packBackups = snapshot.packBackups.filter(
+          (record) =>
+            packKey(record.ownerId, record.manifest.packId) !== packKey(ownerId, manifest.packId),
+        );
+        snapshot.packBackups.push(structuredClone(current));
+      }
     }
 
     const carriedArtifactIds = current
@@ -207,6 +212,10 @@ export async function removeOfflinePackRecord(
 ): Promise<OfflinePackRecord | null> {
   return repository.update((snapshot) => {
     const record = findPack(snapshot, ownerId, packId) ?? null;
+    snapshot.packBackups = snapshot.packBackups.filter(
+      (candidate) =>
+        packKey(candidate.ownerId, candidate.manifest.packId) !== packKey(ownerId, packId),
+    );
     snapshot.packs = snapshot.packs.filter(
       (candidate) =>
         packKey(candidate.ownerId, candidate.manifest.packId) !== packKey(ownerId, packId),

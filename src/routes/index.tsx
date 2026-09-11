@@ -292,6 +292,9 @@ function LandingPage() {
       <HeroSection />
       <div className="container mx-auto max-w-5xl px-4">
         <PwaInstallHint />
+        <p className="mb-4 text-center text-xs text-muted-foreground" role="note">
+          المواد المحمّلة متاحة دون إنترنت من داخل حسابك.
+        </p>
       </div>
       <FeaturesSection />
       <GradeTwelveSection />

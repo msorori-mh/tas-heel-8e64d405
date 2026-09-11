@@ -1,15 +1,23 @@
 /** OFFLINE-01 — durable, account-isolated metadata journal. */
 
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { z } from "zod";
 
 import { offlinePackManifestSchema } from "./offline-pack-contract";
 
 export const OFFLINE_STATE_SCHEMA_VERSION = 1 as const;
 export const OFFLINE_STATE_DB_NAME = "tamkeen-offline-foundation";
-export const OFFLINE_STATE_NATIVE_DIR = "tamkeen/offline";
-export const OFFLINE_STATE_NATIVE_PATH = `${OFFLINE_STATE_NATIVE_DIR}/foundation-v1.json`;
-export const OFFLINE_STATE_NATIVE_BACKUP_PATH = `${OFFLINE_STATE_NATIVE_DIR}/foundation-v1.backup.json`;
+
+interface TamkeenOfflineStateNativePlugin {
+  read(): Promise<{ snapshot: unknown | null }>;
+  write(options: { snapshot: OfflineStateSnapshot }): Promise<void>;
+  compareAndSwap(options: {
+    snapshot: OfflineStateSnapshot;
+    expectedRevision: number;
+  }): Promise<{ committed: boolean }>;
+}
+
+const TamkeenOfflineState = registerPlugin<TamkeenOfflineStateNativePlugin>("TamkeenOfflineState");
 
 const isoDate = z.string().datetime({ offset: true });
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
@@ -69,11 +77,27 @@ export const offlineLearningRecordSchema = z
 export const offlineStateSnapshotSchema = z
   .object({
     schemaVersion: z.literal(OFFLINE_STATE_SCHEMA_VERSION),
+    revision: z.number().int().nonnegative().default(0),
     updatedAt: isoDate,
     activeOwnerId: z.string().min(1).max(160).nullable().default(null),
     packs: z.array(offlinePackRecordSchema),
+    packBackups: z.array(offlinePackRecordSchema).default([]),
     outbox: z.array(offlineOutboxRecordSchema),
     learning: z.array(offlineLearningRecordSchema).default([]),
+    // Optional, backward-readable display snapshots. Never an authorization source.
+    views: z
+      .array(
+        z
+          .object({
+            ownerId: z.string().min(1).max(160),
+            key: z.string().min(1).max(300),
+            json: z.string().max(1_000_000),
+            savedAt: isoDate,
+          })
+          .strict(),
+      )
+      .max(100)
+      .optional(),
   })
   .strict();
 
@@ -85,14 +109,17 @@ export type OfflineStateSnapshot = z.infer<typeof offlineStateSnapshotSchema>;
 export interface OfflineStateAdapter {
   read(): Promise<unknown | null>;
   write(value: OfflineStateSnapshot): Promise<void>;
+  compareAndSwap?(value: OfflineStateSnapshot, expectedRevision: number): Promise<boolean>;
 }
 
 export function emptyOfflineState(now = new Date().toISOString()): OfflineStateSnapshot {
   return {
     schemaVersion: OFFLINE_STATE_SCHEMA_VERSION,
+    revision: 0,
     updatedAt: now,
     activeOwnerId: null,
     packs: [],
+    packBackups: [],
     outbox: [],
     learning: [],
   };
@@ -107,6 +134,12 @@ export class MemoryOfflineStateAdapter implements OfflineStateAdapter {
 
   async write(value: OfflineStateSnapshot): Promise<void> {
     this.value = structuredClone(value);
+  }
+
+  async compareAndSwap(value: OfflineStateSnapshot, expectedRevision: number): Promise<boolean> {
+    if ((this.value?.revision ?? 0) !== expectedRevision) return false;
+    this.value = structuredClone(value);
+    return true;
   }
 }
 
@@ -147,85 +180,117 @@ class IndexedDbOfflineStateAdapter implements OfflineStateAdapter {
       transaction.oncomplete = () => resolve();
       transaction.onerror = () =>
         reject(transaction.error ?? new Error("OFFLINE_IDB_WRITE_FAILED"));
+      transaction.onabort = () =>
+        reject(transaction.error ?? new Error("OFFLINE_IDB_WRITE_ABORTED"));
+    });
+  }
+
+  async compareAndSwap(value: OfflineStateSnapshot, expectedRevision: number): Promise<boolean> {
+    const database = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = database.transaction("snapshots", "readwrite");
+      const store = tx.objectStore("snapshots");
+      const request = store.get(1);
+      let committed = false;
+      request.onsuccess = () => {
+        if ((request.result?.revision ?? 0) !== expectedRevision) return;
+        store.put(value, 1);
+        committed = true;
+      };
+      tx.oncomplete = () => resolve(committed);
+      tx.onerror = tx.onabort = () => reject(tx.error ?? new Error("OFFLINE_IDB_WRITE_FAILED"));
     });
   }
 }
 
 class NativeOfflineStateAdapter implements OfflineStateAdapter {
-  private async filesystem() {
-    const module = await import("@capacitor/filesystem");
-    return {
-      Filesystem: module.Filesystem,
-      Directory: module.Directory,
-      Encoding: module.Encoding,
-    };
+  async compareAndSwap(value: OfflineStateSnapshot, expectedRevision: number): Promise<boolean> {
+    return (await TamkeenOfflineState.compareAndSwap({ snapshot: value, expectedRevision }))
+      .committed;
   }
 
-  private async readPath(path: string): Promise<unknown | null> {
-    let raw: string;
+  async read(): Promise<unknown | null> {
     try {
-      const { Filesystem, Directory, Encoding } = await this.filesystem();
+      const result = await TamkeenOfflineState.read();
+      return result.snapshot ?? null;
+    } catch (error) {
+      throw new Error("OFFLINE_STATE_NATIVE_READ_FAILED", { cause: error });
+    }
+  }
+
+  async write(value: OfflineStateSnapshot): Promise<void> {
+    try {
+      await TamkeenOfflineState.write({ snapshot: value });
+    } catch (error) {
+      throw new Error("OFFLINE_STATE_NATIVE_WRITE_FAILED", { cause: error });
+    }
+  }
+}
+
+/** Existing remote-shell APKs do not have the encrypted-state plugin yet. */
+class LegacyNativeOfflineStateAdapter implements OfflineStateAdapter {
+  private readonly primary = "tamkeen/offline/foundation-v1.json";
+  private readonly backup = "tamkeen/offline/foundation-v1.backup.json";
+
+  private async readPath(path: string): Promise<unknown | null> {
+    const { Filesystem, Directory, Encoding } = await import("@capacitor/filesystem");
+    try {
       const result = await Filesystem.readFile({
         path,
         directory: Directory.Data,
         encoding: Encoding.UTF8,
       });
-      if (typeof result.data !== "string") return null;
-      raw = result.data;
-    } catch {
-      return null;
-    }
-    try {
-      return JSON.parse(raw) as unknown;
-    } catch {
-      throw new Error("OFFLINE_STATE_FILE_CORRUPT");
+      if (typeof result.data !== "string") throw new Error("OFFLINE_STATE_FILE_CORRUPT");
+      return JSON.parse(result.data) as unknown;
+    } catch (error) {
+      const native = error as { code?: string; message?: string };
+      if (
+        native.code === "OS-PLUG-FILE-0008" ||
+        /file (?:does not exist|not found)/i.test(native.message ?? "")
+      )
+        return null;
+      throw error;
     }
   }
 
   async read(): Promise<unknown | null> {
-    let primary: unknown | null = null;
-    let backup: unknown | null = null;
     let invalid = false;
-    try {
-      primary = await this.readPath(OFFLINE_STATE_NATIVE_PATH);
-      if (offlineStateSnapshotSchema.safeParse(primary).success) return primary;
-      invalid = primary !== null;
-    } catch {
-      invalid = true;
+    for (const path of [this.primary, this.backup]) {
+      try {
+        const value = await this.readPath(path);
+        if (value === null) continue;
+        const parsed = offlineStateSnapshotSchema.safeParse(value);
+        if (parsed.success) return parsed.data;
+        invalid = true;
+      } catch {
+        invalid = true;
+      }
     }
-    try {
-      backup = await this.readPath(OFFLINE_STATE_NATIVE_BACKUP_PATH);
-      if (offlineStateSnapshotSchema.safeParse(backup).success) return backup;
-      invalid = invalid || backup !== null;
-    } catch {
-      invalid = true;
-    }
-    if (!invalid) return null;
-    throw new Error("OFFLINE_STATE_CORRUPT");
+    if (invalid) throw new Error("OFFLINE_STATE_CORRUPT");
+    return null;
   }
 
   async write(value: OfflineStateSnapshot): Promise<void> {
-    const { Filesystem, Directory, Encoding } = await this.filesystem();
+    const { Filesystem, Directory, Encoding } = await import("@capacitor/filesystem");
+    const current = await this.read();
     try {
       await Filesystem.mkdir({
-        path: OFFLINE_STATE_NATIVE_DIR,
+        path: "tamkeen/offline",
         directory: Directory.Data,
         recursive: true,
       });
     } catch {
-      // The private directory already exists.
+      /* Existing directory; a failed write still propagates below. */
     }
-    const current = await this.read();
-    if (current) {
+    if (current)
       await Filesystem.writeFile({
-        path: OFFLINE_STATE_NATIVE_BACKUP_PATH,
+        path: this.backup,
         directory: Directory.Data,
         encoding: Encoding.UTF8,
         data: JSON.stringify(current),
       });
-    }
     await Filesystem.writeFile({
-      path: OFFLINE_STATE_NATIVE_PATH,
+      path: this.primary,
       directory: Directory.Data,
       encoding: Encoding.UTF8,
       data: JSON.stringify(value),
@@ -234,10 +299,16 @@ class NativeOfflineStateAdapter implements OfflineStateAdapter {
 }
 
 export function createDeviceOfflineStateAdapter(): OfflineStateAdapter {
+  let native = false;
   try {
-    if (Capacitor.isNativePlatform()) return new NativeOfflineStateAdapter();
+    native = Capacitor.isNativePlatform();
   } catch {
     // Fall through to origin-private IndexedDB.
+  }
+  if (native) {
+    return Capacitor.isPluginAvailable("TamkeenOfflineState")
+      ? new NativeOfflineStateAdapter()
+      : new LegacyNativeOfflineStateAdapter();
   }
   return new IndexedDbOfflineStateAdapter();
 }
@@ -260,12 +331,22 @@ export class OfflineStateRepository {
     now = new Date().toISOString(),
   ): Promise<T> {
     const run = this.queue.then(async () => {
-      const snapshot = await this.read();
-      const result = await operation(snapshot);
-      snapshot.updatedAt = now;
-      const validated = offlineStateSnapshotSchema.parse(snapshot);
-      await this.adapter.write(validated);
-      return result;
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        const snapshot = await this.read();
+        const expectedRevision = snapshot.revision;
+        const result = await operation(snapshot);
+        snapshot.updatedAt = now;
+        snapshot.revision = expectedRevision + 1;
+        const validated = offlineStateSnapshotSchema.parse(snapshot);
+        if (this.adapter.compareAndSwap) {
+          if (!(await this.adapter.compareAndSwap(validated, expectedRevision))) continue;
+        } else {
+          await this.adapter.write(validated);
+        }
+        if (typeof window !== "undefined") window.dispatchEvent(new Event("tamkeen-offline-state"));
+        return result;
+      }
+      throw new Error("OFFLINE_STATE_WRITE_CONFLICT");
     });
     this.queue = run.then(
       () => undefined,
@@ -275,7 +356,20 @@ export class OfflineStateRepository {
   }
 }
 
-/** Shared runtime instance; prevents competing read-modify-write queues in one WebView. */
+/** Prefer the installed revision until every artifact of its replacement is verified. */
+export function readableOfflinePacks(snapshot: OfflineStateSnapshot): OfflinePackRecord[] {
+  const ready = snapshot.packs.filter((record) => record.status === "ready");
+  const keys = new Set(ready.map((record) => `${record.ownerId}\u0000${record.manifest.packId}`));
+  return [
+    ...ready,
+    ...snapshot.packBackups.filter(
+      (record) =>
+        record.status === "ready" && !keys.has(`${record.ownerId}\u0000${record.manifest.packId}`),
+    ),
+  ];
+}
+
+/** Shared runtime instance; prevents competing queues in one WebView. */
 export const deviceOfflineStateRepository = new OfflineStateRepository();
 
 /**

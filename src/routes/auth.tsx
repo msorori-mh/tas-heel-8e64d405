@@ -65,6 +65,7 @@ function StudentAuthPage() {
       await startGoogleSignIn();
     } catch (signInError) {
       setError(translateAuthError(signInError));
+    } finally {
       setBusy(false);
     }
   }

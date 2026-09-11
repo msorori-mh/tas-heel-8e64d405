@@ -6,13 +6,15 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, readOfflineSession } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StudentShell } from "@/components/student/StudentShell";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
+    const offline = await readOfflineSession();
+    if (offline) return { user: offline.user };
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth", search: { mode: "login" } });
     return { user: data.user };

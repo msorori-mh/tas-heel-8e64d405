@@ -3,7 +3,11 @@
 import { readOfflineArtifactBytes } from "./offline-artifact-cache";
 import { verifyOfflineArtifact, type OfflinePackArtifact } from "./offline-pack-contract";
 import { parseOfflineTextResourceId } from "./offline-pack-manifest";
-import { deviceOfflineStateRepository, type OfflineStateRepository } from "./offline-state-store";
+import {
+  deviceOfflineStateRepository,
+  readableOfflinePacks,
+  type OfflineStateRepository,
+} from "./offline-state-store";
 
 export type OfflineLessonTextItem = {
   artifactId: string;
@@ -51,7 +55,7 @@ export async function readOfflineLessonContent(
   ) => Promise<Uint8Array | null> = readOfflineArtifactBytes,
 ): Promise<OfflineLessonContent> {
   const snapshot = await repository.read();
-  const packs = snapshot.packs
+  const packs = readableOfflinePacks(snapshot)
     .filter((record) => record.ownerId === ownerId)
     .sort((left, right) => right.manifest.revision - left.manifest.revision);
   const result = emptyOfflineLessonContent();
