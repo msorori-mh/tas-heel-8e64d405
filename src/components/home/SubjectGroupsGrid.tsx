@@ -232,10 +232,10 @@ function SubjectTile({
       >
         <Icon className="h-5 w-5" />
       </span>
-      <span className="flex h-10 min-w-0 items-center sm:h-auto sm:flex-1 sm:self-stretch">
+      <span className="flex h-13 min-w-0 items-center sm:h-auto sm:flex-1 sm:self-stretch">
         <span className="flex w-full items-start justify-between gap-2">
           <span className="min-w-0">
-            <span className="line-clamp-2 text-sm font-black leading-5 text-foreground sm:text-[15px]">
+            <span className="line-clamp-2 text-sm font-black leading-[26px] text-foreground sm:text-[15px] sm:leading-7">
               {title}
             </span>
             <span className="mt-0.5 hidden text-xs text-muted-foreground sm:block">
@@ -288,7 +288,7 @@ function SubjectTile({
     </>
   );
   const bodyClassName =
-    "group grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)] content-start items-center gap-x-2 gap-y-2 p-3 pb-2 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-3 sm:p-4";
+    "group grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)] content-start items-center gap-x-2 gap-y-1.5 px-3 pt-2.5 pb-1.5 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-3 sm:gap-y-2 sm:p-4";
 
   return (
     <div

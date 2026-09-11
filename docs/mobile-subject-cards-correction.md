@@ -1,6 +1,7 @@
 # Subject cards correction — stage 2
 
-Decision: HOLD for visual acceptance. Implementation and local interaction checks pass.
+Release decision: HOLD for user visual acceptance; keep PR #220 draft.
+The PR description records the latest verified source SHA, CI result and screenshots.
 
 Baseline: PR #220, `feat/mobile-subject-cards-compact-grid`, commit
 `4f4beacb9ceae211fa17bb40a7706861a6793abf`.
@@ -37,16 +38,23 @@ are preserved. No merge or production publication is part of this checkpoint.
 - PDF.js emits its Node legacy-build notice during the jsdom sheet test; the
   PDF reader itself is not exercised by this presentation change.
 
-## Remaining gate
+## Browser gate and review
 
-Chromium layout and screenshot verification has NOT run. The committed CI job
-is prepared to measure 320/360/390/430/768/1280px layouts and verify text fit,
-card heights, touch targets, actual tab keyboard behavior, URL history and
-navigation. The font, dimensions and final appearance remain unverified until
-that job runs and its screenshots are inspected.
+The `Student subject cards UI` workflow runs Chromium against the actual route,
+tab, card and sheet components with synthetic account identity and cached query
+data. It measures 320/360/390/430/768/1280px layouts and checks title fit, card
+heights, touch targets, tab keyboard behavior, URL history and subject navigation.
+The test records geometry and screenshots as a GitHub Actions artifact. This
+isolated UI fixture does not authenticate a real student or modify production.
 
-The automatic approval review rejected the push to the existing feature branch,
-classifying implementation authorization as insufficient for external publication
-of the modified source and new test/workflow files. The changes remain committed
-locally. Explicit approval to push this correction to the named repository and
-branch is required to run that gate and update the non-production branch preview.
+The first Chromium run detected a text-fit failure at 320px. Geometry showed
+Cairo text extending 3px beyond the 20px line box. The follow-up uses 26px mobile
+line boxes and reallocates internal spacing while retaining 148px cards and
+44px books actions. A green build alone does not establish visual acceptance;
+the latest browser evidence is recorded in the PR description.
+
+The initial push was held by automatic approval review. The user then explicitly
+approved updating the existing feature branch and running screenshot verification,
+while keeping merge on hold. The approved local tree was published through the
+GitHub connector as `1234d378f72a0a81ae059ac28b33dedc2584e678`; its tree hash exactly
+matches the approved local `74abc3f` checkpoint.
