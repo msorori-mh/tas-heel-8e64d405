@@ -160,7 +160,7 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
         <>
           <section
             aria-label="ملخص مواد الفصل"
-            className="rounded-2xl border border-border/70 bg-card/85 p-3.5 shadow-sm sm:p-4"
+            className="rounded-2xl border border-border/70 bg-card/85 p-2 shadow-sm sm:p-4"
           >
             <dl className="grid grid-cols-3 gap-2 text-center">
               <SummaryMetric label="المواد الأساسية" value={subjectGroups.length} tone="primary" />
@@ -172,11 +172,16 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
               />
             </dl>
             {preparingSubjects > 0 ? (
-              <p className="mt-3 border-t border-border/60 pt-2.5 text-xs leading-relaxed text-muted-foreground">
-                {preparingSubjects === 1
-                  ? "مادة واحدة ما زالت في مرحلة تجهيز المحتوى."
-                  : `${preparingSubjects} مواد ما زالت في مرحلة تجهيز المحتوى.`}{" "}
-                سيظهر زر البدء فور نشر أول درس، وتبقى كتب المنهج متاحة من البطاقة.
+              <p className="mt-2 border-t border-border/60 pt-2 text-[11px] leading-relaxed text-muted-foreground sm:mt-3 sm:pt-2.5 sm:text-xs">
+                <span className="sm:hidden">
+                  {preparingSubjects} مواد قيد التجهيز · كتب المنهج متاحة.
+                </span>
+                <span className="hidden sm:inline">
+                  {preparingSubjects === 1
+                    ? "مادة واحدة ما زالت في مرحلة تجهيز المحتوى."
+                    : `${preparingSubjects} مواد ما زالت في مرحلة تجهيز المحتوى.`}{" "}
+                  سيظهر زر البدء فور نشر أول درس، وتبقى كتب المنهج متاحة من البطاقة.
+                </span>
               </p>
             ) : null}
           </section>
@@ -204,7 +209,7 @@ function SummaryMetric({
   }[tone];
 
   return (
-    <div className={`rounded-xl px-2 py-2.5 ${toneClass}`}>
+    <div className={`rounded-lg px-1 py-1 sm:rounded-xl sm:px-2 sm:py-2.5 ${toneClass}`}>
       <dt className="text-[11px] font-semibold text-muted-foreground sm:text-xs">{label}</dt>
       <dd className="mt-0.5 text-base font-black sm:text-lg">{value}</dd>
     </div>

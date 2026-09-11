@@ -1,0 +1,56 @@
+name: Student subject cards UI
+on:
+  push:
+    branches: [feat/mobile-subject-cards-compact-grid]
+  pull_request:
+    branches: [main]
+    paths:
+      - src/components/home/SubjectGroupsGrid.tsx
+      - src/components/student/SemesterSubjects*.tsx
+      - src/routes/_authenticated/semesters*.tsx
+      - src/lib/subjects/subject-icon.ts
+      - tests/e2e/subject-cards/**
+      - .github/workflows/student-subject-cards-ui.yml
+permissions:
+  contents: read
+concurrency:
+  group: subject-cards-ui-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck and scoped regressions
+        run: |
+          node node_modules/typescript/bin/tsc --noEmit
+          node node_modules/vitest/vitest.mjs run tests/student/student-home-subject-card-ux-v2.static.test.mjs tests/student/student-home-services-closure-01.static.test.mjs tests/student/student-vitality-color-system-01.test.ts tests/student/subject-cards.runtime.test.ts
+      - name: Production build with isolated public placeholders
+        env:
+          VITE_SUPABASE_URL: https://ui-test.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: ui-test-placeholder
+        run: npm run build
+      - run: node node_modules/playwright/cli.js install --with-deps chromium
+      - name: Test real UI with TEST_ONLY account and cached query fixtures
+        run: |
+          node node_modules/vite/bin/vite.js --config tests/e2e/subject-cards/vite.config.ts --host 127.0.0.1 --port 4173 > subject-cards-vite.log 2>&1 &
+          VITE_PID=$!
+          trap 'kill "$VITE_PID"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          node tests/e2e/subject-cards/subject-cards.e2e.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-subject-cards-ui-${{ github.sha }}
+          path: |
+            artifacts/subject-cards/
+            subject-cards-vite.log

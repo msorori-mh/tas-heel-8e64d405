@@ -17,6 +17,7 @@ const dailyGoal = read("src/components/home/DailyGoalCard.tsx");
 const tools = read("src/components/home/LearningToolsSection.tsx");
 const navTile = read("src/components/common/NavTile.tsx");
 const semesters = read("src/routes/_authenticated/semesters.index.tsx");
+const semesterTabs = read("src/components/student/SemesterSubjectsTabs.tsx");
 const subjectsView = read("src/components/student/SemesterSubjectsView.tsx");
 const subjectGrid = read("src/components/home/SubjectGroupsGrid.tsx");
 
@@ -68,12 +69,11 @@ describe("STUDENT_HOME_SUBJECT_CARD_UX_V2", () => {
   });
 
   it("shows only the essential subject information on small screens", () => {
-    expect(subjectGrid).toContain("min-h-36");
-    expect(subjectGrid).toContain("min-h-24");
+    expect(subjectGrid).toContain("h-[148px]");
     expect(subjectGrid).toContain("sm:min-h-40");
     expect(subjectGrid).toContain("line-clamp-2");
     expect(subjectGrid).toContain("hidden text-xs text-muted-foreground sm:block");
-    expect(subjectGrid).toContain("sr-only sm:not-sr-only");
+    expect(subjectGrid).toContain("<span>كتب المنهج</span>");
     expect(subjectGrid).toContain("كتب منهج ${title}: عرض أو تنزيل");
   });
 
@@ -101,10 +101,11 @@ describe("STUDENT_HOME_SUBJECT_CARD_UX_V2", () => {
   });
 
   it("keeps semester tabs keyboard-visible and touch-safe", () => {
-    expect(semesters).toContain("min-h-11");
-    expect(semesters).toContain("focus-visible:ring-2");
-    expect(semesters).toContain('role="tablist"');
-    expect(semesters).toContain("aria-selected={semester === value}");
+    expect(semesters).toContain("SemesterSubjectsTabs");
+    expect(semesterTabs).toContain("min-h-11");
+    expect(semesterTabs).toContain("focus-visible:ring-2");
+    expect(semesterTabs).toContain("<TabsList");
+    expect(semesterTabs).toContain("<TabsContent");
   });
 
   it("does not introduce fixed mobile widths or horizontal scrolling", () => {

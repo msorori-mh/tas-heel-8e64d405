@@ -24,6 +24,7 @@ import {
  * Replaces the old "first letter" avatar that rendered as a bare "ا".
  */
 const KEYWORD_ICONS: Array<[RegExp, LucideIcon]> = [
+  [/قرآن|قران/, BookOpen],
   [/رياضيات|جبر|هندسة رياض|حساب/, Calculator],
   [/إحصاء|احصاء|تفاضل|تكامل/, Sigma],
   [/فيزياء/, Atom],
@@ -58,10 +59,13 @@ const ICON_KEYS: Record<string, LucideIcon> = {
 };
 
 export function getSubjectIcon(name: string | null, iconKey?: string | null): LucideIcon {
-  if (iconKey && ICON_KEYS[iconKey]) return ICON_KEYS[iconKey];
-  const value = (name ?? "").trim();
+  // Known curriculum names take precedence over stale generic stored icons.
+  const value = (name ?? "")
+    .normalize("NFC")
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+    .trim();
   for (const [pattern, icon] of KEYWORD_ICONS) {
     if (pattern.test(value)) return icon;
   }
-  return BookOpen;
+  return (iconKey && ICON_KEYS[iconKey]) || BookOpen;
 }

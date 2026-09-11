@@ -1,14 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
-import {
-  ArrowRight,
-  BookOpen,
-  CheckCircle2,
-  ChevronLeft,
-  Clock3,
-  Layers,
-  PlayCircle,
-} from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, ChevronLeft, Clock3, PlayCircle } from "lucide-react";
 import { SubjectTextbooksSheet } from "@/components/textbooks/SubjectTextbooksSheet";
 import {
   getSubjectSubCategory,
@@ -82,6 +74,7 @@ function subjectState(meta?: SubjectMeta) {
 export function SubjectGroupsGrid({ subjects, semester, meta }: SubjectGroupsGridProps) {
   const [openGroupKey, setOpenGroupKey] = useState<string | null>(null);
   const [showAllMobile, setShowAllMobile] = useState(false);
+  const [groupIntent, setGroupIntent] = useState<"lessons" | "books">("lessons");
   const groups = groupSubjectsByMainCategory(subjects);
   const openGroup = openGroupKey ? groups.find((g) => g.id === openGroupKey) : undefined;
 
@@ -117,7 +110,9 @@ export function SubjectGroupsGrid({ subjects, semester, meta }: SubjectGroupsGri
           <div className="min-w-0">
             <div className="truncate text-sm font-bold text-foreground">{openGroup.key}</div>
             <div className="text-[11px] text-muted-foreground">
-              اختر فرع المادة الذي تريد مذاكرته
+              {groupIntent === "books"
+                ? "اختر فرع المادة، ثم افتح كتب المنهج"
+                : "اختر فرع المادة الذي تريد مذاكرته"}
             </div>
           </div>
         </div>
@@ -167,36 +162,22 @@ export function SubjectGroupsGrid({ subjects, semester, meta }: SubjectGroupsGri
           const lessons = group.subjects.reduce((n, s) => n + (meta?.[s.id]?.lessons ?? 0), 0);
           const completed = group.subjects.reduce((n, s) => n + (meta?.[s.id]?.completed ?? 0), 0);
           const groupMeta: SubjectMeta = { lessons, completed };
-          const groupTone = subjectToneStyle(group.key, group.color);
-
           return (
             <li key={group.id} className={mobileVisibility}>
-              <button
-                type="button"
-                onClick={() => setOpenGroupKey(group.id)}
-                aria-label={`فتح فروع مادة ${group.key}`}
-                style={groupTone}
-                className="subject-card-accent subject-card-tone group flex min-h-28 w-full flex-col items-start justify-between gap-2 overflow-hidden rounded-2xl border border-border/70 bg-card p-3 text-right shadow-sm transition-all motion-safe:hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-32 sm:flex-row sm:items-center sm:gap-3 sm:p-4 motion-reduce:transition-none"
-              >
-                <div className="flex min-w-0 flex-1 flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
-                  <span
-                    className="subject-icon-tone flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-                    aria-hidden
-                  >
-                    <Layers className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-bold text-foreground">{group.key}</div>
-                    <div className="hidden text-[11px] text-muted-foreground sm:block">
-                      مادة أساسية ·{" "}
-                      {group.subjects.length === 1 ? "فرع واحد" : `${group.subjects.length} فروع`}
-                      {lessons > 0 ? ` · ${lessons} درس` : ""}
-                    </div>
-                    {lessons > 0 && <MiniBar value={pct(groupMeta)} tone />}
-                  </div>
-                </div>
-                <ChevronLeft className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
-              </button>
+              <SubjectTile
+                to={group.id}
+                semester={semester}
+                title={group.key}
+                name={group.key}
+                iconKey={group.icon}
+                color={group.color}
+                meta={groupMeta}
+                sectionCount={group.subjects.length}
+                onOpenGroup={(intent) => {
+                  setGroupIntent(intent);
+                  setOpenGroupKey(group.id);
+                }}
+              />
             </li>
           );
         })}
@@ -224,6 +205,8 @@ function SubjectTile({
   iconKey,
   color,
   meta,
+  sectionCount,
+  onOpenGroup,
 }: {
   to: string;
   semester: 1 | 2;
@@ -232,6 +215,8 @@ function SubjectTile({
   iconKey: string | null;
   color: string | null;
   meta?: SubjectMeta;
+  sectionCount?: number;
+  onOpenGroup?: (intent: "lessons" | "books") => void;
 }) {
   const Icon = getSubjectIcon(name, iconKey);
   const value = pct(meta);
@@ -242,18 +227,19 @@ function SubjectTile({
   const body = (
     <>
       <span
-        className="subject-icon-tone flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11"
+        className="subject-icon-tone flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11"
         aria-hidden
       >
         <Icon className="h-5 w-5" />
       </span>
-      <span className="min-w-0 flex-1 self-stretch">
-        <span className="flex items-start justify-between gap-2">
+      <span className="flex h-10 min-w-0 items-center sm:h-auto sm:flex-1 sm:self-stretch">
+        <span className="flex w-full items-start justify-between gap-2">
           <span className="min-w-0">
-            <span className="block line-clamp-2 text-sm font-black leading-snug text-foreground sm:truncate sm:text-[15px]">
+            <span className="line-clamp-2 text-sm font-black leading-5 text-foreground sm:text-[15px]">
               {title}
             </span>
             <span className="mt-0.5 hidden text-xs text-muted-foreground sm:block">
+              {sectionCount ? `${sectionCount} فروع · ` : ""}
               {state.detail}
             </span>
           </span>
@@ -264,23 +250,21 @@ function SubjectTile({
             {state.label}
           </span>
         </span>
-        {available ? (
-          <span className="mt-2 block sm:mt-3">
-            <span className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
-              <span className="sr-only sm:not-sr-only sm:font-semibold sm:text-muted-foreground">
-                التقدم
-              </span>
-              <span className="font-black" style={{ color: "var(--subject-accent)" }}>
-                {value}%
-              </span>
-            </span>
-            <MiniBar value={value} label={`التقدم في ${title}`} tone />
+      </span>
+      <span className="col-span-2 block w-full sm:col-start-2">
+        <span className="mb-1 flex items-center justify-between gap-1 text-[11px] leading-4">
+          <span className="font-semibold text-muted-foreground">
+            {available ? "التقدم" : "قيد التجهيز"}
           </span>
-        ) : null}
+          <span className="font-black tabular-nums" style={{ color: "var(--subject-accent)" }}>
+            {value}%
+          </span>
+        </span>
+        <MiniBar value={value} label={`التقدم في ${title}`} tone />
         <span
           className={cn(
             "mt-3 hidden items-center gap-1 text-xs font-bold sm:inline-flex",
-            available ? "text-primary" : "text-muted-foreground",
+            available || onOpenGroup ? "text-primary" : "text-muted-foreground",
           )}
         >
           {available ? (
@@ -292,68 +276,77 @@ function SubjectTile({
           ) : (
             <Clock3 className="h-3.5 w-3.5" aria-hidden />
           )}
-          {available ? "فتح المادة" : PREPARING_CONTENT_LABEL}
+          {onOpenGroup ? "فتح فروع المادة" : available ? "فتح المادة" : PREPARING_CONTENT_LABEL}
         </span>
       </span>
-      {available ? (
+      {available || onOpenGroup ? (
         <ChevronLeft
-          className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-x-0.5 motion-reduce:transition-none"
+          className="col-start-3 row-span-2 row-start-1 hidden h-4 w-4 shrink-0 self-center text-muted-foreground transition-transform group-hover:-translate-x-0.5 sm:block motion-reduce:transition-none"
           aria-hidden
         />
       ) : null}
     </>
   );
+  const bodyClassName =
+    "group grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)] content-start items-center gap-x-2 gap-y-2 p-3 pb-2 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-3 sm:p-4";
 
   return (
     <div
       style={toneStyle}
       className={cn(
-        "subject-card-accent subject-card-tone flex h-full min-h-36 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition-all sm:min-h-40 motion-reduce:transition-none",
-        available &&
+        "subject-card-accent subject-card-tone flex h-[148px] flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition-all sm:h-full sm:min-h-40 motion-reduce:transition-none",
+        (available || onOpenGroup) &&
           "motion-safe:hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md active:scale-[0.995]",
       )}
     >
-      {available ? (
+      {onOpenGroup ? (
+        <button
+          type="button"
+          onClick={() => onOpenGroup("lessons")}
+          aria-label={`فتح فروع مادة ${title}`}
+          className={bodyClassName}
+        >
+          {body}
+        </button>
+      ) : available ? (
         <Link
           to="/subjects/$subjectId"
           params={{ subjectId: to }}
           search={{ semester }}
-          className="group flex min-h-24 flex-1 flex-col items-start gap-2 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:min-h-0 sm:flex-row sm:gap-3 sm:p-4"
+          className={bodyClassName}
         >
           {body}
         </Link>
       ) : (
-        <div
-          className="flex min-h-24 flex-1 flex-col items-start gap-2 p-3 sm:min-h-0 sm:flex-row sm:gap-3 sm:p-4"
-          aria-label={`${title}: ${PREPARING_CONTENT_LABEL}`}
-        >
+        <div className={bodyClassName} aria-label={`${title}: ${PREPARING_CONTENT_LABEL}`}>
           {body}
         </div>
       )}
 
-      {/* 21B — curriculum books remain independent, but now live inside the card surface. */}
-      <div className="border-t border-border/60 bg-muted/25 px-2 py-1 sm:px-3 sm:py-2">
+      <div className="shrink-0 border-t border-border/60 bg-muted/25 px-2 sm:px-3 sm:py-2">
         <button
           type="button"
-          onClick={() => setBooksOpen(true)}
+          onClick={() => (onOpenGroup ? onOpenGroup("books") : setBooksOpen(true))}
           aria-label={`كتب منهج ${title}: عرض أو تنزيل`}
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-card hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-card hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3"
         >
-          <BookOpen className="h-4 w-4" aria-hidden />
-          <span className="sr-only sm:not-sr-only">كتب المنهج</span>
+          <BookOpen className="h-4 w-4 shrink-0" aria-hidden />
+          <span>كتب المنهج</span>
           <span className="hidden font-normal text-muted-foreground/80 sm:inline">
             عرض أو تنزيل
           </span>
         </button>
       </div>
 
-      <SubjectTextbooksSheet
-        open={booksOpen}
-        onOpenChange={setBooksOpen}
-        subjectId={to}
-        subjectName={title}
-        semester={semester}
-      />
+      {!onOpenGroup && (
+        <SubjectTextbooksSheet
+          open={booksOpen}
+          onOpenChange={setBooksOpen}
+          subjectId={to}
+          subjectName={title}
+          semester={semester}
+        />
+      )}
     </div>
   );
 }
