@@ -14,7 +14,10 @@ test("anonymous capacity traffic contains public catalog endpoints only", () => 
     "/rest/v1/subjects?select=id,name,grade_id&limit=100",
     "/rest/v1/units?select=id,title,subject_id&limit=100",
   ]);
-  assert.equal(DEFAULT_ENDPOINTS.some((endpoint) => endpoint.includes("/lessons")), false);
+  assert.equal(
+    DEFAULT_ENDPOINTS.some((endpoint) => endpoint.includes("/lessons")),
+    false,
+  );
 });
 
 test("production targets are fail-closed", () => {
