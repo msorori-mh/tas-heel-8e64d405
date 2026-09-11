@@ -9,6 +9,7 @@ import { LessonSummaryDialog } from "@/components/admin/LessonSummaryDialog";
 import { LessonExplanationsDialog } from "@/components/admin/LessonExplanationsDialog";
 import { LessonResourcesDialog } from "@/components/admin/LessonResourcesDialog";
 import { LessonContentWorkspace } from "@/components/admin/LessonContentWorkspace";
+import { LessonSelfTestQuestionsDialog } from "@/components/admin/LessonSelfTestQuestionsDialog";
 import {
   buildLessonCapabilityContract,
   applyLifecycleOverlay,
@@ -77,6 +78,7 @@ function AdminLessonDetailPage() {
   const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
   const [openExplanationsDialog, setOpenExplanationsDialog] = useState(false);
   const [openResourcesDialog, setOpenResourcesDialog] = useState(false);
+  const [openSelfTestDialog, setOpenSelfTestDialog] = useState(false);
 
   // 20C-B — editorial lifecycle rows (staff read every status).
   const lifecycleQ = useQuery({
@@ -453,6 +455,7 @@ function AdminLessonDetailPage() {
             mindMap: () => setOpenResourcesDialog(true),
             simulation: () => setOpenResourcesDialog(true),
             supportingResources: () => setOpenResourcesDialog(true),
+            lessonAssessment: () => setOpenSelfTestDialog(true),
           }}
           onDelete={
             isContentStaff
@@ -470,6 +473,17 @@ function AdminLessonDetailPage() {
                 }
               : undefined
           }
+        />
+
+        <LessonSelfTestQuestionsDialog
+          lessonId={lessonId}
+          open={openSelfTestDialog}
+          onOpenChange={setOpenSelfTestDialog}
+          onChanged={async () => {
+            await queryClient.invalidateQueries({
+              queryKey: ["admin-lesson-detail", "questions", lessonId],
+            });
+          }}
         />
 
         {hasSourceLoadError && (
