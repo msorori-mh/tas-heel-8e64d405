@@ -2,10 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  DEFAULT_ENDPOINTS,
   assertSafeTarget,
   percentile,
   summarize,
 } from "../../scripts/load-test/tamkeen-capacity.mjs";
+
+test("anonymous capacity traffic contains public catalog endpoints only", () => {
+  assert.deepEqual(DEFAULT_ENDPOINTS, [
+    "/rest/v1/grades?select=id,name&order=sort_order.asc&limit=20",
+    "/rest/v1/subjects?select=id,name,grade_id&limit=100",
+    "/rest/v1/units?select=id,title,subject_id&limit=100",
+  ]);
+  assert.equal(DEFAULT_ENDPOINTS.some((endpoint) => endpoint.includes("/lessons")), false);
+});
 
 test("production targets are fail-closed", () => {
   assert.throws(() => assertSafeTarget("https://studentamkeen.com"), /Production/);

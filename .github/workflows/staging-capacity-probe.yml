@@ -30,6 +30,14 @@ jobs:
         run: |
           mkdir -p artifacts
           npm run test:load:staging
+      - name: Verify anonymous lesson access stays denied
+        env:
+          LOAD_PUBLISHABLE_KEY: sb_publishable_G1MUBWznr_NZ1DYYOnmOcQ_YZruG_vs
+        run: |
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            --header "apikey: ${LOAD_PUBLISHABLE_KEY}" \
+            'https://qwfvlppsffcmmbjpznkw.supabase.co/rest/v1/lessons?select=id&limit=1')"
+          test "$status" = "401"
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
