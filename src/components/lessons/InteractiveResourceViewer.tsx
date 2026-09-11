@@ -345,7 +345,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
               srcDoc={srcDoc}
               sandbox="allow-scripts"
               onLoad={handleIframeLoad}
-              className="w-full h-full border-0 bg-background"
+              className="h-full w-full touch-auto border-0 bg-background"
             />
           </div>
         )}
