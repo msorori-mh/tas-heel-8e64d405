@@ -8,11 +8,10 @@ const PRODUCTION_HOSTS = new Set([
   "zbdhxyuulyovihjgeqbn.supabase.co",
 ]);
 
-const DEFAULT_ENDPOINTS = [
+export const DEFAULT_ENDPOINTS = [
   "/rest/v1/grades?select=id,name&order=sort_order.asc&limit=20",
   "/rest/v1/subjects?select=id,name,grade_id&limit=100",
   "/rest/v1/units?select=id,title,subject_id&limit=100",
-  "/rest/v1/lessons?select=id,title,unit_id&limit=100",
 ];
 
 export function percentile(values, ratio) {
