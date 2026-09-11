@@ -13,6 +13,7 @@ const migrationPaths = [
   "../../supabase/migrations/20260911030000_academy_admin_reports_settings_closure.sql",
   "../../supabase/migrations/20260911040000_academy_google_only_teacher_portal.sql",
   "../../supabase/migrations/20260916010000_academy_teacher_profile_save_rpc.sql",
+  "../../supabase/migrations/20260911171430_school_directory_review.sql",
 ].map((path) => new URL(path, import.meta.url));
 
 const [api, ...migrations] = await Promise.all([
@@ -32,7 +33,7 @@ test("every academy RPC used by the client exists in the database contract", () 
   for (const rpcName of rpcNames) {
     assert.match(
       database,
-      new RegExp(`create or replace function academy\\.${rpcName}\\s*\\(`, "i"),
+      new RegExp(`create(?: or replace)? function academy\\.${rpcName}\\s*\\(`, "i"),
       `missing database function for client RPC ${rpcName}`,
     );
   }
@@ -57,7 +58,7 @@ test("teacher profile creation and updates use the guarded Google-only RPC", () 
   assert.ok(saveProfile);
   assert.match(saveProfile, /auth\.getSession\(\)/);
   assert.match(saveProfile, /session\.user\.id !== user\.id/);
-  assert.match(saveProfile, /academySupabase\.rpc\("save_my_teacher_profile"/);
+  assert.match(saveProfile, /academySupabase\.rpc\("save_my_teacher_profile_with_school"/);
   assert.doesNotMatch(saveProfile, /\.from\("teacher_profiles"\)\.(?:insert|update|upsert)/);
   assert.match(database, /function academy\.save_my_teacher_profile/);
   assert.match(database, /v_actor uuid := auth\.uid\(\)/);

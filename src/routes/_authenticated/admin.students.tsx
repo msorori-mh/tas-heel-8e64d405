@@ -1,8 +1,8 @@
+import { schoolDirectoryApi } from "@/lib/schools/student-school-api";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Users, Loader2, Search, FilterX } from "lucide-react";
 
@@ -16,19 +16,29 @@ type Row = {
   id: string;
   full_name: string | null;
   school_name: string | null;
+  school_id: string | null;
   governorate_name: string | null;
   grade_name: string | null;
   created_at: string;
 };
 
 type FilterOption = { id: string; name: string; count: number };
-type SchoolOption = { name: string; count: number };
+type SchoolOption = {
+  id: string;
+  name: string;
+  count: number;
+  governorate_id: string;
+  governorate_name: string;
+  district: string;
+  locality: string;
+};
 type FilterOptions = {
   total: number;
   incomplete: number;
   grades: FilterOption[];
   governorates: FilterOption[];
   schools: SchoolOption[];
+  pending_schools: number;
 };
 
 type StudentResult = { rows: Row[]; count: number };
@@ -40,7 +50,7 @@ function AdminStudentsPage() {
   const [debounced, setDebounced] = useState("");
   const [governorateId, setGovernorateId] = useState("");
   const [gradeId, setGradeId] = useState("");
-  const [schoolName, setSchoolName] = useState("");
+  const [schoolId, setSchoolId] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -53,18 +63,17 @@ function AdminStudentsPage() {
   const query = useQuery({
     enabled,
     placeholderData: keepPreviousData,
-    queryKey: ["admin-students", page, debounced, governorateId, gradeId, schoolName],
+    queryKey: ["admin-students", page, debounced, governorateId, gradeId, schoolId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("admin_list_students_filtered", {
+      return (await schoolDirectoryApi.students({
         p_page: page,
         p_page_size: PAGE_SIZE,
-        p_search: debounced || undefined,
-        p_governorate_id: governorateId || undefined,
-        p_grade_id: gradeId || undefined,
-        p_school_name: schoolName || undefined,
-      });
-      if (error) throw error;
-      return data as unknown as StudentResult;
+        p_search: debounced || null,
+        p_governorate_id: governorateId || null,
+        p_grade_id: gradeId || null,
+        p_school_id: schoolId && schoolId !== "pending" ? schoolId : null,
+        p_pending_school: schoolId === "pending",
+      })) as StudentResult;
     },
   });
 
@@ -72,9 +81,7 @@ function AdminStudentsPage() {
     enabled,
     queryKey: ["admin-student-filter-options"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("admin_student_filter_options");
-      if (error) throw error;
-      return data as unknown as FilterOptions;
+      return (await schoolDirectoryApi.studentOptions()) as FilterOptions;
     },
   });
 
@@ -83,11 +90,11 @@ function AdminStudentsPage() {
     setDebounced("");
     setGovernorateId("");
     setGradeId("");
-    setSchoolName("");
+    setSchoolId("");
     setPage(0);
   };
 
-  const hasFilters = Boolean(debounced || governorateId || gradeId || schoolName);
+  const hasFilters = Boolean(debounced || governorateId || gradeId || schoolId);
 
   if (loading) {
     return (
@@ -146,6 +153,7 @@ function AdminStudentsPage() {
               value={governorateId}
               onChange={(e) => {
                 setGovernorateId(e.target.value);
+                setSchoolId("");
                 setPage(0);
               }}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
@@ -179,19 +187,27 @@ function AdminStudentsPage() {
           <label className="space-y-1 text-xs font-medium text-muted-foreground">
             <span>المدرسة</span>
             <select
-              value={schoolName}
+              value={schoolId}
               onChange={(e) => {
-                setSchoolName(e.target.value);
+                setSchoolId(e.target.value);
                 setPage(0);
               }}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
             >
               <option value="">جميع المدارس</option>
-              {(optionsQuery.data?.schools ?? []).map((option) => (
-                <option key={option.name} value={option.name}>
-                  {option.name} ({option.count})
+              {!!optionsQuery.data?.pending_schools && (
+                <option value="pending">
+                  مدارس قيد المراجعة — {optionsQuery.data.pending_schools} طالبًا
                 </option>
-              ))}
+              )}
+              {(optionsQuery.data?.schools ?? [])
+                .filter((option) => !governorateId || option.governorate_id === governorateId)
+                .map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name} — {option.governorate_name} / {option.district} /{" "}
+                    {option.locality} — {option.count} طالبًا
+                  </option>
+                ))}
             </select>
           </label>
         </div>

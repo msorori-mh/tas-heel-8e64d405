@@ -14,6 +14,9 @@ export type Profile = {
   governorate_id: string | null;
   curriculum_track_id: string | null;
   school_name: string | null;
+  school_id?: string | null;
+  school_district?: string | null;
+  school_locality?: string | null;
   phone: string | null;
   avatar_url: string | null;
 };
@@ -54,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase
       .from("profiles")
       .select(
-        "id,user_id,full_name,grade_id,grade_uuid,governorate,governorate_id,curriculum_track_id,school_name,phone,avatar_url",
+        "id,user_id,full_name,grade_id,grade_uuid,governorate,governorate_id,curriculum_track_id,school_name,school_id,school_district,school_locality,phone,avatar_url",
       )
       .eq("user_id", userId)
       .maybeSingle();

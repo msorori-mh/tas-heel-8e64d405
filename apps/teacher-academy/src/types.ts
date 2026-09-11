@@ -10,6 +10,9 @@ export type Governorate = {
 };
 
 export type TeacherProfile = {
+  school_id?: string | null;
+  school_district?: string | null;
+  school_locality?: string | null;
   user_id: string;
   full_name: string;
   primary_subject_id: string;

@@ -1,3 +1,6 @@
+import { SchoolPicker } from "@/components/schools/SchoolPicker";
+import { schoolChoiceFromProfile, schoolProfilePatch } from "@/lib/schools/school-choice";
+import { schoolDirectoryApi } from "@/lib/schools/student-school-api";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,7 +44,7 @@ function CompleteProfile() {
   const [lastName, setLastName] = useState("");
   const [gradeId, setGradeId] = useState<string>("");
   const [govId, setGovId] = useState<string>("");
-  const [school, setSchool] = useState("");
+  const [school, setSchool] = useState(() => schoolChoiceFromProfile());
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [allowedTracks, setAllowedTracks] = useState<CurriculumTrack[]>([]);
@@ -64,7 +67,7 @@ function CompleteProfile() {
       if (profile.grade_uuid) setGradeId(profile.grade_uuid);
       else if (profile.grade_id) setGradeId(String(profile.grade_id));
       if (profile.governorate_id) setGovId(profile.governorate_id);
-      setSchool(profile.school_name ?? "");
+      setSchool(schoolChoiceFromProfile(profile));
     }
   }, [profile]);
 
@@ -139,7 +142,7 @@ function CompleteProfile() {
         grade_uuid: gradeId,
         governorate_id: govId,
         governorate: gov?.name ?? null,
-        school_name: school.trim() || null,
+        ...schoolProfilePatch(school, govId, profile),
         ...(effectiveTrackId ? { curriculum_track_id: effectiveTrackId } : {}),
       };
       const { error } = await supabase
@@ -155,7 +158,7 @@ function CompleteProfile() {
       if (msg.includes("curriculum_track")) {
         setErr(translateTrackError(e2));
       } else {
-        setErr(translateAuthError(e2));
+        setErr(e2 instanceof Error ? e2.message : translateAuthError(e2));
       }
     } finally {
       setBusy(false);
@@ -206,7 +209,10 @@ function CompleteProfile() {
               id="gv"
               className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={govId}
-              onChange={(e) => setGovId(e.target.value)}
+              onChange={(e) => {
+                setGovId(e.target.value);
+                setSchool(schoolChoiceFromProfile());
+              }}
               required
             >
               <option value="">-- اختر المحافظة --</option>
@@ -241,10 +247,13 @@ function CompleteProfile() {
             </div>
           )}
 
-          <div>
-            <Label htmlFor="sc">المدرسة</Label>
-            <Input id="sc" value={school} onChange={(e) => setSchool(e.target.value)} required />
-          </div>
+          <SchoolPicker
+            value={school}
+            onChange={setSchool}
+            governorateId={govId}
+            searchSchools={schoolDirectoryApi.search}
+            disabled={busy}
+          />
 
           <div>
             <Label htmlFor="gr">الصف الدراسي</Label>
@@ -264,7 +273,11 @@ function CompleteProfile() {
             </select>
           </div>
 
-          {err && <p className="text-sm text-destructive">{err}</p>}
+          {err && (
+            <p role="alert" className="text-sm text-destructive">
+              {err}
+            </p>
+          )}
 
           <Button type="submit" className="w-full" disabled={busy}>
             {busy ? "جارٍ الحفظ..." : "حفظ ومتابعة"}

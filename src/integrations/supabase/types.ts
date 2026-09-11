@@ -3393,6 +3393,9 @@ export type Database = {
           phone: string | null
           referral_code: string | null
           referred_by: string | null
+          school_id: string | null
+          school_district: string | null
+          school_locality: string | null
           school_name: string | null
           updated_at: string
           user_id: string
@@ -3412,6 +3415,9 @@ export type Database = {
           phone?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          school_id?: string | null
+          school_district?: string | null
+          school_locality?: string | null
           school_name?: string | null
           updated_at?: string
           user_id: string
@@ -3431,6 +3437,9 @@ export type Database = {
           phone?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          school_id?: string | null
+          school_district?: string | null
+          school_locality?: string | null
           school_name?: string | null
           updated_at?: string
           user_id?: string
