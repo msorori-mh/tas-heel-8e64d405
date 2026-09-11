@@ -1,3 +1,4 @@
+import { createSchoolDirectoryApi } from "../../../../src/lib/schools/directory-api";
 import type { User } from "@supabase/supabase-js";
 import { academySupabase, requireAcademyBackend } from "./supabase";
 import type {
@@ -28,6 +29,8 @@ import type {
 } from "../types";
 import type { ProgramImportBundle } from "./program-bundle";
 
+export const academySchoolDirectoryApi = createSchoolDirectoryApi(academySupabase.schema("public"));
+
 export type ProgramDraftInput = {
   title: string;
   summary: string;
@@ -44,7 +47,9 @@ export async function loadTeacherProfile(userId: string): Promise<TeacherProfile
   requireAcademyBackend();
   const { data, error } = await academySupabase
     .from("teacher_profiles")
-    .select("user_id,full_name,primary_subject_id,governorate_id,school_name,phone,status")
+    .select(
+      "user_id,full_name,primary_subject_id,governorate_id,school_name,school_id,school_district,school_locality,phone,status",
+    )
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -86,12 +91,15 @@ export async function saveTeacherProfile(
     throw new Error("انتهت جلسة Google. سجّل الدخول مرة أخرى.");
   }
 
-  const { data, error } = await academySupabase.rpc("save_my_teacher_profile", {
+  const { data, error } = await academySupabase.rpc("save_my_teacher_profile_with_school", {
     p_full_name: input.full_name,
     p_primary_subject_id: input.primary_subject_id,
     p_governorate_id: input.governorate_id,
     p_school_name: input.school_name,
     p_phone: input.phone,
+    p_school_id: input.school_id ?? null,
+    p_school_district: input.school_district ?? null,
+    p_school_locality: input.school_locality ?? null,
   });
 
   if (error) throw error;

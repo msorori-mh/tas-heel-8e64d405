@@ -1,3 +1,6 @@
+import { SchoolPicker } from "@/components/schools/SchoolPicker";
+import { schoolChoiceFromProfile, schoolProfilePatch } from "@/lib/schools/school-choice";
+import { schoolDirectoryApi } from "@/lib/schools/student-school-api";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -33,7 +36,7 @@ export function EditProfileDialog() {
   const [saving, setSaving] = useState(false);
 
   const [fullName, setFullName] = useState("");
-  const [school, setSchool] = useState("");
+  const [school, setSchool] = useState(() => schoolChoiceFromProfile());
   const [govId, setGovId] = useState<string>("");
   const [gradeId, setGradeId] = useState<string>("");
   const [trackId, setTrackId] = useState<string>("");
@@ -66,7 +69,7 @@ export function EditProfileDialog() {
   useEffect(() => {
     if (!open || !profile) return;
     setFullName(profile.full_name ?? "");
-    setSchool(profile.school_name ?? "");
+    setSchool(schoolChoiceFromProfile(profile));
     setGovId(profile.governorate_id ?? "");
     setGradeId(profile.grade_uuid ?? (profile.grade_id ? String(profile.grade_id) : ""));
     setTrackId(profile.curriculum_track_id ?? "");
@@ -113,7 +116,7 @@ export function EditProfileDialog() {
 
       const patch = {
         full_name: name,
-        school_name: school.trim() || null,
+        ...schoolProfilePatch(school, govId, profile),
         governorate_id: govId,
         governorate: govName,
         grade_uuid: gradeId,
@@ -142,7 +145,7 @@ export function EditProfileDialog() {
       if (msg.includes("curriculum_track")) {
         toast.error(translateTrackError(err));
       } else {
-        toast.error("تعذّر حفظ التغييرات. حاول مرة أخرى.");
+        toast.error(err instanceof Error ? err.message : "تعذّر حفظ التغييرات. حاول مرة أخرى.");
       }
     } finally {
       setSaving(false);
@@ -160,7 +163,7 @@ export function EditProfileDialog() {
           تعديل البيانات
         </Button>
       </DialogTrigger>
-      <DialogContent dir="rtl" className="sm:max-w-md">
+      <DialogContent dir="rtl" className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>تعديل البيانات الشخصية</DialogTitle>
           <DialogDescription>
@@ -180,15 +183,13 @@ export function EditProfileDialog() {
             />
           </div>
 
-          <div>
-            <Label htmlFor="ep-school">المدرسة</Label>
-            <Input
-              id="ep-school"
-              value={school}
-              onChange={(e) => setSchool(e.target.value)}
-              disabled={saving}
-            />
-          </div>
+          <SchoolPicker
+            value={school}
+            onChange={setSchool}
+            governorateId={govId}
+            searchSchools={schoolDirectoryApi.search}
+            disabled={saving}
+          />
 
           <div>
             <Label htmlFor="ep-gov">المحافظة</Label>
@@ -196,7 +197,10 @@ export function EditProfileDialog() {
               id="ep-gov"
               className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={govId}
-              onChange={(e) => setGovId(e.target.value)}
+              onChange={(e) => {
+                setGovId(e.target.value);
+                setSchool(schoolChoiceFromProfile());
+              }}
               disabled={saving || lookupsQ.isLoading}
               required
             >

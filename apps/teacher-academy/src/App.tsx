@@ -1,3 +1,9 @@
+import { SchoolPicker } from "../../../src/components/schools/SchoolPicker";
+import {
+  schoolChoiceFromProfile,
+  schoolProfilePatch,
+} from "../../../src/lib/schools/school-choice";
+import { academySchoolDirectoryApi } from "./lib/academy-api";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -678,7 +684,7 @@ function ProfileForm({
   const [fullName, setFullName] = useState(existing?.full_name ?? "");
   const [subjectId, setSubjectId] = useState(existing?.primary_subject_id ?? "");
   const [governorateId, setGovernorateId] = useState(existing?.governorate_id ?? "");
-  const [schoolName, setSchoolName] = useState(existing?.school_name ?? "");
+  const [schoolChoice, setSchoolChoice] = useState(() => schoolChoiceFromProfile(existing));
   const [phone, setPhone] = useState(existing?.phone ?? "");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -712,7 +718,7 @@ function ProfileForm({
         full_name: fullName.trim(),
         primary_subject_id: subjectId,
         governorate_id: governorateId,
-        school_name: schoolName.trim(),
+        ...schoolProfilePatch(schoolChoice, governorateId, existing),
         phone: phone.trim(),
       });
       onSaved(saved);
@@ -773,7 +779,10 @@ function ProfileForm({
             المحافظة
             <select
               value={governorateId}
-              onChange={(event) => setGovernorateId(event.target.value)}
+              onChange={(event) => {
+                setGovernorateId(event.target.value);
+                setSchoolChoice(schoolChoiceFromProfile());
+              }}
               required
             >
               <option value="">اختر المحافظة</option>
@@ -784,14 +793,13 @@ function ProfileForm({
               ))}
             </select>
           </label>
-          <label>
-            المدرسة
-            <input
-              value={schoolName}
-              onChange={(event) => setSchoolName(event.target.value)}
-              required
-            />
-          </label>
+          <SchoolPicker
+            value={schoolChoice}
+            onChange={setSchoolChoice}
+            governorateId={governorateId}
+            searchSchools={academySchoolDirectoryApi.search}
+            disabled={busy}
+          />
           <label className="full-field">
             رقم الهاتف
             <input
