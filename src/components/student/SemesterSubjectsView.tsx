@@ -174,7 +174,10 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
             {preparingSubjects > 0 ? (
               <p className="mt-2 border-t border-border/60 pt-2 text-[11px] leading-relaxed text-muted-foreground sm:mt-3 sm:pt-2.5 sm:text-xs">
                 <span className="sm:hidden">
-                  {preparingSubjects} مواد قيد التجهيز · كتب المنهج متاحة.
+                  {preparingSubjects === 1
+                    ? "مادة قيد التجهيز"
+                    : `${preparingSubjects} مواد قيد التجهيز`}{" "}
+                  · كتب المنهج متاحة.
                 </span>
                 <span className="hidden sm:inline">
                   {preparingSubjects === 1

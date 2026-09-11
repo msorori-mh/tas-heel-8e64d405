@@ -54,6 +54,9 @@ try {
           top: rect.y,
           title: title.textContent.trim(),
           titleOverflow: title.scrollHeight > title.clientHeight + 1,
+          titleScrollHeight: title.scrollHeight,
+          titleClientHeight: title.clientHeight,
+          titleLineHeight: getComputedStyle(title).lineHeight,
           buttonHeight: button.getBoundingClientRect().height,
           buttonText: button.innerText,
           titleInside: titleRect.left >= rect.left && titleRect.right <= rect.right,
@@ -61,6 +64,7 @@ try {
         };
       }),
     );
+    result.measurements.push({ width, geometry });
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       true,
@@ -89,7 +93,6 @@ try {
     assert.equal(geometry.find((g) => g.title === "اللغة الإنجليزية").progress, "25");
     assert.equal(geometry.find((g) => g.title === "الرياضيات").progress, "8");
     assert.equal(geometry.find((g) => g.title === "القرآن الكريم").progress, "100");
-    result.measurements.push({ width, geometry });
     await page.screenshot({ path: path.join(out, `subjects-${width}.png`), fullPage: true });
     record(`layout, text, progress and touch targets at ${width}px`);
   }
