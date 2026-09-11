@@ -51,6 +51,7 @@ try {
     const proposal = JSON.parse(await page.getByLabel("نتيجة الحفظ").textContent());
     assert.equal(proposal.school_id, null);
     assert.equal(proposal.school_name, "مدرسة الأمل ٢");
+    await page.getByText("جارٍ البحث عن المدارس…", { exact: true }).waitFor({ state: "hidden" });
     await page.screenshot({
       path: `${output}/teacher-proposal-${width}.png`,
       fullPage: true,
@@ -59,6 +60,10 @@ try {
     await page.getByRole("button", { name: "الإدارة", exact: true }).click();
     await page.getByRole("button", { name: "مراجعة المدرسة", exact: true }).click();
     await page.getByLabel("المدرسة المعتمدة", { exact: true }).selectOption("s1");
+    await page.getByLabel("تفاصيل المدرسة المختارة").waitFor();
+    assert.ok(
+      (await page.getByLabel("تفاصيل المدرسة المختارة").textContent()).includes("معين — السنينة"),
+    );
     const approve = page.getByRole("button", { name: "اعتماد وربط الملف", exact: true });
     assert.equal(await approve.isEnabled(), false);
     await page.getByRole("checkbox").check();

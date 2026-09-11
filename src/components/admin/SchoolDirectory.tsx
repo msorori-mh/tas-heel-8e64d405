@@ -391,16 +391,27 @@ function ReviewDialog({
               اعتماد مدرسة جديدة
             </label>
             {mode === "link" ? (
-              <SchoolTarget
-                governorateId={row.governorate_id!}
-                query={query}
-                setQuery={setQuery}
-                targetId={target}
-                setTargetId={(id) => {
-                  setTarget(id);
-                  setConfirmed(false);
-                }}
-              />
+              <>
+                <SchoolTarget
+                  governorateId={row.governorate_id!}
+                  query={query}
+                  setQuery={setQuery}
+                  targetId={target}
+                  setTargetId={(id) => {
+                    setTarget(id);
+                    setConfirmed(false);
+                  }}
+                />
+                {details.data && (
+                  <div className="rounded-lg border p-3" aria-label="تفاصيل المدرسة المختارة">
+                    <strong>{details.data.name}</strong>
+                    <p>
+                      {details.data.governorate_name} — {location(details.data)}
+                    </p>
+                  </div>
+                )}
+                {details.isError && <p role="alert">تعذّر تحميل تفاصيل المدرسة المختارة.</p>}
+              </>
             ) : (
               <>
                 <div>
