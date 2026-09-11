@@ -54,6 +54,7 @@ jobs:
           npm test
           npm run test:core-reliability
           npm run academy:test
+          npm run test:load:contract
           node --test tests/import/curriculum-subject-unit-lesson-intake-13j.static.test.mjs
           node --test tests/import/subject-textbook-grade-upload-13k.static.test.mjs
           node --test tests/security/student-textbook-governorate-track-13l.static.test.mjs
