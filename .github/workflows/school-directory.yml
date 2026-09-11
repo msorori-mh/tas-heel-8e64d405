@@ -5,16 +5,16 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/lib/schools/**'
-      - 'src/components/schools/**'
-      - 'src/components/admin/SchoolDirectory.tsx'
-      - 'src/routes/complete-profile.tsx'
-      - 'src/components/student/EditProfileDialog.tsx'
-      - 'apps/teacher-academy/src/**'
-      - 'supabase/migrations/*school_directory*'
-      - 'tests/schools/**'
-      - 'tests/e2e/school-directory/**'
-      - '.github/workflows/school-directory.yml'
+      - "src/lib/schools/**"
+      - "src/components/schools/**"
+      - "src/components/admin/SchoolDirectory.tsx"
+      - "src/routes/complete-profile.tsx"
+      - "src/components/student/EditProfileDialog.tsx"
+      - "apps/teacher-academy/src/**"
+      - "supabase/migrations/*school_directory*"
+      - "tests/schools/**"
+      - "tests/e2e/school-directory/**"
+      - ".github/workflows/school-directory.yml"
 permissions:
   contents: read
 concurrency:
@@ -30,7 +30,7 @@ jobs:
         env:
           POSTGRES_PASSWORD: school_ci_only
           POSTGRES_DB: school_directory_test
-        ports: ['5432:5432']
+        ports: ["5432:5432"]
         options: >-
           --health-cmd pg_isready
           --health-interval 5s
@@ -67,3 +67,16 @@ jobs:
         run: npx vitest run tests/schools
       - name: Preserve teacher authentication contract
         run: node --test tests/teacher-academy/api-contract.test.mjs tests/teacher-academy/portal-google-auth-closure.test.mjs
+      - name: Install browser for isolated UI tests
+        run: npx playwright install --with-deps chromium
+      - name: Build isolated UI fixtures
+        run: npx vite build --config tests/e2e/school-directory/vite.config.ts
+      - name: Verify mobile and desktop school workflows
+        run: node tests/e2e/school-directory/verify.mjs
+      - name: Upload screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: school-directory-${{ github.sha }}
+          path: artifacts/school-directory
+          if-no-files-found: error
