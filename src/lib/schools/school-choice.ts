@@ -47,7 +47,7 @@ export function schoolSearchKey(value: string): string {
   return value
     .normalize("NFC")
     .toLowerCase()
-    .replace(/[\u0640\u064b-\u065f\u0670\u06d6-\u06ed]/g, "")
+    .replace(/\u0640|[\u064b-\u065f]|\u0670|[\u06d6-\u06ed]/gu, "")
     .replace(/أ|إ|آ/g, "ا")
     .replace(/ى/g, "ي")
     .replace(/[٠-٩۰-۹]/g, (digit) => String(digit.charCodeAt(0) - (digit <= "٩" ? 0x660 : 0x6f0)))

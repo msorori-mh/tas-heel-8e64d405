@@ -33,7 +33,11 @@ try {
       .locator(".school-picker button,.school-picker input")
       .evaluateAll((nodes) => nodes.map((n) => n.getBoundingClientRect().height)))
       assert.ok(rect >= 44);
-    await page.screenshot({ path: `${output}/student-${width}.png`, fullPage: true });
+    await page.screenshot({
+      path: `${output}/student-${width}.png`,
+      fullPage: true,
+      animations: "disabled",
+    });
     await choices.first().click();
     await page.getByRole("button", { name: "حفظ ومتابعة" }).click();
     assert.equal(JSON.parse(await page.getByLabel("نتيجة الحفظ").textContent()).school_id, "s1");
@@ -47,14 +51,22 @@ try {
     const proposal = JSON.parse(await page.getByLabel("نتيجة الحفظ").textContent());
     assert.equal(proposal.school_id, null);
     assert.equal(proposal.school_name, "مدرسة الأمل ٢");
-    await page.screenshot({ path: `${output}/teacher-proposal-${width}.png`, fullPage: true });
+    await page.screenshot({
+      path: `${output}/teacher-proposal-${width}.png`,
+      fullPage: true,
+      animations: "disabled",
+    });
     await page.getByRole("button", { name: "الإدارة", exact: true }).click();
     await page.getByRole("button", { name: "مراجعة المدرسة", exact: true }).click();
     await page.getByLabel("المدرسة المعتمدة", { exact: true }).selectOption("s1");
     const approve = page.getByRole("button", { name: "اعتماد وربط الملف", exact: true });
     assert.equal(await approve.isEnabled(), false);
     await page.getByRole("checkbox").check();
-    await page.screenshot({ path: `${output}/admin-review-${width}.png`, fullPage: true });
+    await page.screenshot({
+      path: `${output}/admin-review-${width}.png`,
+      fullPage: true,
+      animations: "disabled",
+    });
     await approve.click();
     await page.getByRole("dialog").waitFor({ state: "hidden" });
     await page.getByRole("button", { name: "المدارس المعتمدة", exact: true }).click();
@@ -65,7 +77,11 @@ try {
       await page.getByRole("button", { name: "دمج ونقل الارتباطات", exact: true }).isEnabled(),
       false,
     );
-    await page.screenshot({ path: `${output}/admin-merge-${width}.png`, fullPage: true });
+    await page.screenshot({
+      path: `${output}/admin-merge-${width}.png`,
+      fullPage: true,
+      animations: "disabled",
+    });
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       true,
