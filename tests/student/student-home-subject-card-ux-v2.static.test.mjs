@@ -17,6 +17,7 @@ const dailyGoal = read("src/components/home/DailyGoalCard.tsx");
 const tools = read("src/components/home/LearningToolsSection.tsx");
 const navTile = read("src/components/common/NavTile.tsx");
 const semesters = read("src/routes/_authenticated/semesters.index.tsx");
+const semesterTabs = read("src/components/student/SemesterSubjectsTabs.tsx");
 const subjectsView = read("src/components/student/SemesterSubjectsView.tsx");
 const subjectGrid = read("src/components/home/SubjectGroupsGrid.tsx");
 
@@ -47,12 +48,33 @@ describe("STUDENT_HOME_SUBJECT_CARD_UX_V2", () => {
   });
 
   it("uses three subject columns on wide desktops and one integrated card surface", () => {
+    expect(subjectGrid).toContain("grid-cols-2");
     expect(subjectGrid).toContain("xl:grid-cols-3");
     expect(subjectGrid).toContain("min-h-40");
     expect(subjectGrid).toContain("كتب المنهج");
     expect(subjectGrid).toContain("عرض أو تنزيل");
     expect(subjectGrid).toContain("min-h-11 w-full");
     expect(subjectGrid).not.toContain('className="mt-1.5 inline-flex items-center');
+  });
+
+  it("keeps the mobile subject catalog compact and progressively reveals long lists", () => {
+    expect(subjectGrid).toContain("MOBILE_INITIAL_SUBJECTS = 6");
+    expect(subjectGrid).toContain('"hidden sm:list-item"');
+    expect(subjectGrid).toContain("showAllMobile");
+    expect(subjectGrid).toContain("عرض الكل");
+    expect(subjectGrid).toContain("عرض أقل");
+    expect(subjectGrid).toContain("sm:hidden");
+    expect(subjectGrid).toContain("aria-expanded={showAllMobile}");
+    expect(subjectGrid).toContain("setShowAllMobile(false)");
+  });
+
+  it("shows only the essential subject information on small screens", () => {
+    expect(subjectGrid).toContain("h-[148px]");
+    expect(subjectGrid).toContain("sm:min-h-40");
+    expect(subjectGrid).toContain("line-clamp-2");
+    expect(subjectGrid).toContain("hidden text-xs text-muted-foreground sm:block");
+    expect(subjectGrid).toContain("<span>كتب المنهج</span>");
+    expect(subjectGrid).toContain("كتب منهج ${title}: عرض أو تنزيل");
   });
 
   it("communicates subject readiness and progress without exposing one flat card state", () => {
@@ -79,10 +101,11 @@ describe("STUDENT_HOME_SUBJECT_CARD_UX_V2", () => {
   });
 
   it("keeps semester tabs keyboard-visible and touch-safe", () => {
-    expect(semesters).toContain("min-h-11");
-    expect(semesters).toContain("focus-visible:ring-2");
-    expect(semesters).toContain('role="tablist"');
-    expect(semesters).toContain("aria-selected={semester === value}");
+    expect(semesters).toContain("SemesterSubjectsTabs");
+    expect(semesterTabs).toContain("min-h-11");
+    expect(semesterTabs).toContain("focus-visible:ring-2");
+    expect(semesterTabs).toContain("<TabsList");
+    expect(semesterTabs).toContain("<TabsContent");
   });
 
   it("does not introduce fixed mobile widths or horizontal scrolling", () => {
