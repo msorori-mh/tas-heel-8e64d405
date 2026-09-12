@@ -85,9 +85,10 @@ test("only the verified Lovable root build opens the feature; standalone stays f
   assert.match(standaloneEnv, /^VITE_ACADEMY_BASE_PATH=$/m);
 });
 
-test("Lovable root build reuses the existing public Supabase client configuration", () => {
-  assert.match(academySupabase, /src\/integrations\/supabase\/public-config/);
-  assert.match(academySupabase, /\|\| PUBLIC_SUPABASE_URL/);
-  assert.match(academySupabase, /\|\| PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
+test("academy requires deployment-owned public Supabase configuration", () => {
+  assert.doesNotMatch(academySupabase, /public-config|PUBLIC_SUPABASE_/);
+  assert.match(academySupabase, /import\.meta\.env\.VITE_SUPABASE_URL/);
+  assert.match(academySupabase, /import\.meta\.env\.VITE_SUPABASE_PUBLISHABLE_KEY/);
+  assert.match(academySupabase, /configuration-required\.invalid/);
   assert.doesNotMatch(academySupabase, /service.role|service_role/i);
 });

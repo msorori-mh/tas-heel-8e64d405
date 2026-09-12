@@ -19,7 +19,7 @@ const googleSignIn = read("src/lib/auth/google-sign-in.ts");
 const nativeOauth = read("src/lib/auth/native-oauth.ts");
 const handler = read("src/components/mobile/NativeAuthDeepLinkHandler.tsx");
 const root = read("src/routes/__root.tsx");
-const authRoute = read("src/routes/auth.tsx");
+const authRoute = read("src/routes/auth.tsx");\nconst authCallbackRoute = read("src/routes/auth.callback.tsx");
 const supabaseClient = read("src/integrations/supabase/client.ts");
 
 describe("21B4-C — Android Google OAuth return-to-app", () => {
@@ -48,7 +48,7 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
 
   it("1c. OAuth is explicitly PKCE and Chrome cannot consume the mobile callback", () => {
     expect(supabaseClient).toMatch(/flowType: "pkce"/);
-    expect(supabaseClient).toMatch(/detectSessionInUrl: shouldDetectSessionInUrl/);
+    expect(supabaseClient).toMatch(/shouldDetectSessionInUrl\\(new URL\\(window\\.location\\.href\\)\\)/);
     expect(
       shouldDetectSessionInUrl(
         new URL("https://studentamkeen.com/auth/mobile-callback?code=abc12345"),
@@ -68,7 +68,7 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
     expect(googleSignIn).toMatch(/window\.top\?\.location\.origin === window\.location\.origin/);
     expect(googleSignIn).toMatch(/window\.location\.href = url/);
     // the auth route no longer holds a second, divergent implementation
-    expect(authRoute).not.toMatch(/signInWithOAuth/);
+    expect(authRoute).not.toMatch(/signInWithOAuth/);\n    expect(authRoute).toMatch(/<Outlet \\/>/);\n    expect(authCallbackRoute).toMatch(/exchangeCodeForSession\\(code\\)/);
   });
 
   it("3. the allowed callback is accepted", () => {
