@@ -6,6 +6,8 @@ on:
     paths:
       - "android/**"
       - "mobile/**"
+      - "apps/student-mobile/**"
+      - "src/lib/offline/**"
       - "scripts/mobile/**"
       - "docs/mobile/google-play/**"
       - "capacitor.config.ts"
@@ -32,6 +34,8 @@ on:
     paths:
       - "android/**"
       - "mobile/**"
+      - "apps/student-mobile/**"
+      - "src/lib/offline/**"
       - "scripts/mobile/**"
       - "docs/mobile/google-play/**"
       - "capacitor.config.ts"
@@ -90,6 +94,9 @@ jobs:
         run: |
           npm ci
           npm run test:mobile-release
+          npm run student:typecheck
+          npm run student:test
+          npm run student:build
 
       - name: Synchronize Capacitor Android project
         run: node node_modules/@capacitor/cli/bin/capacitor sync android
@@ -150,6 +157,9 @@ jobs:
         run: |
           npm ci
           npm run test:mobile-release
+          npm run student:typecheck
+          npm run student:test
+          npm run student:build
 
       - name: Materialize and validate the ephemeral upload key
         run: |
@@ -185,7 +195,7 @@ jobs:
       - name: Upload signed AAB
         uses: actions/upload-artifact@v4
         with:
-          name: tamkeen-play-testing-1.1.0-code-5-signed-aab
+          name: tamkeen-play-testing-1.2.0-code-6-signed-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14

@@ -1,0 +1,85 @@
+name: Student offline runtime
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/student-mobile/**"
+      - "android/**"
+      - "src/lib/offline/**"
+      - "src/components/offline/**"
+      - "tests/offline/**"
+      - ".github/workflows/student-offline-ci.yml"
+      - "package*.json"
+permissions:
+  contents: read
+concurrency:
+  group: student-offline-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  chromium:
+    name: Student offline Chromium runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run student:typecheck && npm run student:test && npm run student:build
+      - run: npx playwright install --with-deps chromium
+      - name: Start bundled client preview
+        run: |
+          node node_modules/vite/bin/vite.js preview --config apps/student-mobile/vite.config.ts --host 127.0.0.1 > /tmp/student-preview.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4176/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/student-preview.log
+          exit 1
+      - name: Exercise reload, answers, grading and logout with the network offline
+        run: node tests/offline/student-browser-runtime.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-offline-runtime-evidence
+          path: artifacts/student-offline
+          if-no-files-found: error
+
+  android-state:
+    name: Android encrypted state and content runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - run: npm ci && npm run student:build
+      - run: node node_modules/@capacitor/cli/bin/capacitor sync android
+      - name: Compile application and instrumentation before starting the emulator
+        run: cd android && ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+      - name: Enable KVM for the disposable emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          disable-animations: true
+          script: cd android && ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.tamkeenDisposableEmulator=true --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-android-state-evidence
+          path: android/app/build/reports/androidTests/connected
+          if-no-files-found: error

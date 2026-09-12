@@ -9,7 +9,11 @@ import {
   type OfflineSelfTestQuestion,
 } from "./offline-assessment-contract";
 import { verifyOfflineArtifact, type OfflinePackArtifact } from "./offline-pack-contract";
-import { deviceOfflineStateRepository, type OfflineStateRepository } from "./offline-state-store";
+import {
+  deviceOfflineStateRepository,
+  readableOfflinePacks,
+  type OfflineStateRepository,
+} from "./offline-state-store";
 
 export type OfflineStudentQuestion = {
   id: string;
@@ -89,7 +93,7 @@ async function readBundles(params: {
   }>;
 }> {
   const snapshot = await params.repository.read();
-  const packs = snapshot.packs
+  const packs = readableOfflinePacks(snapshot)
     .filter((record) => record.ownerId === params.ownerId && record.status === "ready")
     .sort((left, right) => right.manifest.revision - left.manifest.revision);
   const bundles: OfflineAssessmentBundle[] = [];
