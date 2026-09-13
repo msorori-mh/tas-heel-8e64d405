@@ -30,7 +30,11 @@ Offline bundles retain the same embedded bytes and validate them before display;
 - The focused UI workflow imports the updated template in Chromium and checks rendering/zoom/answer preservation at 320, 390, 768 and 1280 pixels.
 - Full build and TypeScript checks.
 
-Local verification: 14 new parser/security/offline image checks, 5 actual figure component interaction checks, 25 existing import/offline checks, 28 isolated database checks, TypeScript and build passed. Chromium could not run in this workspace. The push of commit d927238a was rejected by automatic approval review for lack of explicit authorization to publish the change to the repository. The browser workflow is prepared but has not run. No production change was applied.
+Local verification: 14 new parser/security/offline image checks, 5 actual figure component interaction checks, 25 existing import/offline checks, 28 isolated database checks, TypeScript and build passed. Chromium could not run in this workspace.
+
+Remote verification on 2026-09-13: after the user's approval, PR #234 was opened on the original application. Commit 4ff6cf977467d6add5ae4ef5798e60ec9c598852 has the exact tree of local commit 6e5f53c7. The Chromium workflow (run 34777016441) passed at all four widths; screenshots confirmed the figure, responsive dialog and zoom. The CF11 PostgreSQL 17 job (103776876633) passed all 28 new image checks. Android and the application builds also passed. The first Web CI run identified formatting in the template generator and explicit-any types in test fixtures; those are corrected in the follow-up commit. See PR checks for the final current-head results.
+
+Read-only production preflight found 502 questions and 639 revisions, no existing image column/schema, and all nine function patch anchors matched. Revision fingerprint before release: 31d8ecfc01329c4b59d77cf3f97a4232. Repeat the preflight immediately before any authorized release. No production change was applied.
 
 The SQL file was created with the CLI and ordered immediately after the repository's already-shipped future-dated self-test management migration.
 
@@ -39,4 +43,3 @@ The SQL file was created with the CLI and ordered immediately after the reposito
 Before applying, confirm original project zbdhxyuulyovihjgeqbn, the absence of the new column/schema, matching function anchors, and existing revision counts/canonical hashes. Apply only the exact new migration transactionally; do not run a broad pending migration push. Verify old row counts/hashes and privileges are unchanged before deploying the matching application.
 
 If frontend deployment fails, keep the additive schema and use the previous frontend: the original student RPC signatures remain intact. Never drop the image column after real imports. A failed migration transaction rolls back all schema/function changes. Production application and migration are a separate release gate.
-

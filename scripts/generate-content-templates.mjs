@@ -587,8 +587,18 @@ const templates = [
       },
       { key: "sort_order", header: "sort_order", example: 1 },
       { key: "review_status", header: "review_status", example: "مسودة" },
-      { key: "question_image", header: "question_image", example: "", note: "أدرج الصورة فوق هذه الخلية في صف السؤال، واترك قيمتها فارغة. PNG/JPG حتى 512 كيلوبايت." },
-      { key: "question_image_alt", header: "question_image_alt", example: "", note: "وصف الصورة إلزامي عند وجود صورة." },
+      {
+        key: "question_image",
+        header: "question_image",
+        example: "",
+        note: "أدرج الصورة فوق هذه الخلية في صف السؤال، واترك قيمتها فارغة. PNG/JPG حتى 512 كيلوبايت.",
+      },
+      {
+        key: "question_image_alt",
+        header: "question_image_alt",
+        example: "",
+        note: "وصف الصورة إلزامي عند وجود صورة.",
+      },
     ],
     exampleRows: [
       [
@@ -671,8 +681,18 @@ const templates = [
       { key: "why_wrong_6", header: "why_wrong_6", example: "" },
       { key: "sort_order", header: "sort_order", example: 1 },
       { key: "review_status", header: "review_status", example: "مسودة" },
-      { key: "question_image", header: "question_image", example: "", note: "أدرج الصورة فوق هذه الخلية في صف السؤال، واترك قيمتها فارغة. PNG/JPG حتى 512 كيلوبايت." },
-      { key: "question_image_alt", header: "question_image_alt", example: "", note: "وصف الصورة إلزامي عند وجود صورة." },
+      {
+        key: "question_image",
+        header: "question_image",
+        example: "",
+        note: "أدرج الصورة فوق هذه الخلية في صف السؤال، واترك قيمتها فارغة. PNG/JPG حتى 512 كيلوبايت.",
+      },
+      {
+        key: "question_image_alt",
+        header: "question_image_alt",
+        example: "",
+        note: "وصف الصورة إلزامي عند وجود صورة.",
+      },
     ],
     exampleRows: [
       [

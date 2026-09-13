@@ -3,8 +3,14 @@ import { createRoot } from "react-dom/client";
 import { QuestionFigure } from "@/components/lessons/QuestionFigure";
 import { convertQuestionWorkbook } from "@/lib/content-factory/golden-lesson-xlsx";
 import "../../../src/styles.css";
-function Fixture() {
-  const [rows, setRows] = useState<any[]>([]),
+type ImportedQuestion = {
+  id: string;
+  question_text: string;
+  question_image?: unknown;
+  options: string[];
+};
+export function Fixture() {
+  const [rows, setRows] = useState<ImportedQuestion[]>([]),
     [error, setError] = useState(""),
     [choice, setChoice] = useState("");
   return (

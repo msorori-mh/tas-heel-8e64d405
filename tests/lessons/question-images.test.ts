@@ -81,10 +81,10 @@ async function workbook(
     "",
     "",
   ]);
-  const id = w.addImage({ buffer: png as any, extension: "png" });
+  const id = w.addImage({ base64: png.toString("base64"), extension: "png" });
   s.addImage(id, { tl: { col: 14, row: 1 }, ext: { width: 120, height: 80 } });
   tweak?.(w, s);
-  return new File([new Uint8Array((await w.xlsx.writeBuffer()) as any)], "questions.xlsx");
+  return new File([new Uint8Array(await w.xlsx.writeBuffer())], "questions.xlsx");
 }
 for (const kind of ["selfTest", "officialBookQuestions"] as const) {
   test(kind + ": embedded figure belongs only to its row and never carries answers", async () => {
@@ -133,7 +133,7 @@ const failures: Array<[string, (w: ExcelJS.Workbook, s: ExcelJS.Worksheet) => vo
   [
     "duplicate images",
     (w, s) => {
-      s.addImage(w.addImage({ buffer: png as any, extension: "png" }), {
+      s.addImage(w.addImage({ base64: png.toString("base64"), extension: "png" }), {
         tl: { col: 14, row: 1 },
         ext: { width: 20, height: 20 },
       });
@@ -164,14 +164,14 @@ const failures: Array<[string, (w: ExcelJS.Workbook, s: ExcelJS.Worksheet) => vo
   [
     "forged raster",
     (w) => {
-      (w.getImage(0) as any).buffer = Buffer.from("<svg onload='alert(1)'/>");
+      w.getImage(0).base64 = Buffer.from("<svg onload='alert(1)'/>").toString("base64");
     },
     /لا يطابق/,
   ],
   [
     "oversized raster",
     (w) => {
-      (w.getImage(0) as any).buffer = Buffer.alloc(524289);
+      w.getImage(0).base64 = Buffer.alloc(524289).toString("base64");
     },
     /512/,
   ],
