@@ -15,7 +15,7 @@ Branch: `feat/student-low-data-mode`.
 
 Local focused suite: **82/82**, including **39 new runtime tests**. Tests cover a permanently stalled network with usable cached bytes, denied/corrupt local copies, bad download hashes, cancellation during transfer/auth, overlapping foreground requests, preference races, Wi-Fi/storage gates, cancelled prefetch, reader updates and the actual native/browser React delivery components.
 
-Full local suites before the final query-cancellation extension: `npm test` **308/308**, maintained Vitest **538/538**, remaining core-reliability checks **59/59**. Production client/server build, TypeScript and lint passed (two existing React refresh warnings). The final commit also runs Web/Android CI and the dedicated browser workflow; record their exact results in the PR.
+Full local suites before the final query-cancellation extension: `npm test` **308/308**, maintained Vitest **538/538**, remaining core-reliability checks **59/59**. Production client/server build, TypeScript and lint passed (React refresh warnings). The final commit also runs Web CI and the dedicated browser workflow; record their exact results in the PR. The path-filtered Android bundle workflow is not triggered by these web-source changes.
 
 `tests/e2e/low-data` builds the actual data-saver setting, browser reader, secure-file client and IndexedDB cache against an isolated TEST_ONLY session/PDF. Its Chromium checks cover 320, 390, 768 and 1280 px, saved opening with no file API requests, reopening with the browser offline, a stalled metadata request, a failed explicit update, and preference persistence. It has no production database connection. Screenshots/results are CI artifacts, not screenshots from an installed Android device.
 

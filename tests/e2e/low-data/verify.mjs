@@ -65,8 +65,12 @@ try {
       assert.deepEqual(requests, ["HEAD", "HEAD", "GET"]);
       await page.screenshot({ path: `${output}/failed-update-${width}.png`, fullPage: true });
       await page.getByRole("switch").click();
+      await page.waitForFunction(
+        () => localStorage.getItem("CapacitorStorage.tamkeen-data-saver-v1") === "off",
+      );
       await page.reload();
       await page.locator("object").waitFor();
+      await page.getByRole("switch", { checked: false }).waitFor({ timeout: 5000 });
       assert.equal(await page.getByRole("switch").getAttribute("aria-checked"), "false");
       await page.getByRole("switch").click();
     }
