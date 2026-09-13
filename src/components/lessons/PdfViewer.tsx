@@ -1,3 +1,4 @@
+import { CachedFileUpdateNotice } from "./CachedFileUpdateNotice";
 /**
  * 18C-2 — in-app PDF viewer.
  *
@@ -104,6 +105,7 @@ export function PdfViewer({
   /* Load bytes → pdf document */
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     setStatus("loading");
     setErrorCode(null);
     setProgress(null);
@@ -115,6 +117,7 @@ export function PdfViewer({
           lessonId,
           subjectId,
           kind,
+          signal: controller.signal,
           onProgress: (loaded, total) => {
             if (!cancelled) setProgress({ loaded, total });
           },
@@ -145,6 +148,7 @@ export function PdfViewer({
 
     return () => {
       cancelled = true;
+      controller.abort();
       const doc = docRef.current;
       docRef.current = null;
       if (doc) void doc.destroy();
@@ -341,6 +345,18 @@ export function PdfViewer({
           ) : null}
         </p>
       </footer>
+      {status === "ready" && (
+        <div className="px-3 py-2">
+          <CachedFileUpdateNotice
+            key={`${kind}:${resourceId}`}
+            resourceId={resourceId}
+            lessonId={lessonId}
+            subjectId={subjectId}
+            kind={kind}
+            onUpdated={() => setReloadKey((key) => key + 1)}
+          />
+        </div>
+      )}
     </section>
   );
 }

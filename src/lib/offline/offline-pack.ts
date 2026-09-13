@@ -6,6 +6,12 @@
  * scoped student choice, except the small Wi-Fi prefetch of the next lessons.
  */
 
+import { dataSaverSnapshot, getDataSaverEnabled, subscribeDataSaver } from "./data-saver";
+import {
+  beginBackgroundTransfer,
+  hasForegroundTransfers,
+  subscribeDownloadPriority,
+} from "./download-priority";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadAndCache, fetchFileMeta } from "./lesson-file-client";
 import { getEntry, touchEntry } from "./pdf-cache";
@@ -31,15 +37,21 @@ const PDF_LIKE = new Set(["pdf", "link"]);
  * `is_primary` is only a preference: when a lesson flags a primary file we take
  * it, otherwise every PDF-like resource of that lesson is part of the pack.
  */
-export async function listPackResources(lessonIds: string[]): Promise<PackResource[]> {
+export async function listPackResources(
+  lessonIds: string[],
+  signal?: AbortSignal,
+): Promise<PackResource[]> {
   if (lessonIds.length === 0) return [];
   const out: PackResource[] = [];
   const chunkSize = 100;
   for (let i = 0; i < lessonIds.length; i += chunkSize) {
     const chunk = lessonIds.slice(i, i + chunkSize);
-    const { data, error } = await (supabase.from("lesson_resources") as any)
+    signal?.throwIfAborted();
+    const query = (supabase.from("lesson_resources") as any)
       .select("id,lesson_id,title,resource_type,url,is_primary")
       .in("lesson_id", chunk);
+    const { data, error } = await (signal ? query.abortSignal(signal) : query);
+    signal?.throwIfAborted();
     if (error) throw error;
 
     const byLesson = new Map<string, PackResource[]>();
@@ -178,42 +190,89 @@ export async function downloadPack(params: {
   return progress;
 }
 
-/**
- * Smart prefetch: current lesson + the next two, Wi-Fi only, and only when the
- * device reports enough free space. Silent — never blocks the UI.
- */
+/** Optional next-lesson files; never compete with an opened lesson. */
 export async function prefetchNextLessons(params: {
   lessonIds: string[];
   subjectId?: string | null;
   maxLessons?: number;
+  signal?: AbortSignal;
 }): Promise<number> {
-  const network = await getNetworkState();
-  if (!network.online || !network.wifi) return 0;
-
-  const free = await getFreeStorageBytes();
-  if (free !== null && free < 200 * 1024 * 1024) return 0;
-
-  const scope = params.lessonIds.slice(0, params.maxLessons ?? 3);
-  if (scope.length === 0) return 0;
-
+  if (await getDataSaverEnabled()) return 0;
+  const lease = beginBackgroundTransfer(params.signal);
+  if (!lease) return 0;
   let fetched = 0;
   try {
-    const resources = await listPackResources(scope);
+    const network = await getNetworkState();
+    lease.signal.throwIfAborted();
+    if (!network.online || !network.wifi || dataSaverSnapshot()) return 0;
+    const free = await getFreeStorageBytes();
+    lease.signal.throwIfAborted();
+    if (free !== null && free < 200 * 1024 * 1024) return 0;
+    const scope = params.lessonIds.slice(0, params.maxLessons ?? 2);
+    const resources = await listPackResources(scope, lease.signal);
     for (const resource of resources) {
+      lease.signal.throwIfAborted();
+      if (dataSaverSnapshot()) break;
       if (await getEntry(resource.resourceId)) continue;
+      lease.signal.throwIfAborted();
       try {
         await downloadAndCache({
           resourceId: resource.resourceId,
           lessonId: resource.lessonId,
           subjectId: params.subjectId ?? null,
+          priority: "background",
+          signal: lease.signal,
         });
         fetched += 1;
       } catch {
-        /* prefetch is best-effort */
+        if (lease.signal.aborted) break;
+        // Other missing files may still be available.
       }
     }
   } catch {
-    /* ignore */
+    // Optional work must not interrupt reading.
+  } finally {
+    lease.release();
   }
   return fetched;
+}
+
+/** One scoped prefetch per visit, after three seconds without foreground work. */
+export function scheduleLessonPrefetch(params: {
+  lessonIds: string[];
+  subjectId?: string | null;
+}): () => void {
+  let disposed = false;
+  let finished = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let active: AbortController | null = null;
+  const allowed = () => !disposed && !finished && !dataSaverSnapshot() && !hasForegroundTransfers();
+  const schedule = () => {
+    clearTimeout(timer);
+    if (!allowed()) {
+      active?.abort();
+      return;
+    }
+    if (active || params.lessonIds.length === 0) return;
+    timer = setTimeout(() => {
+      if (!allowed()) return;
+      const controller = new AbortController();
+      active = controller;
+      void prefetchNextLessons({ ...params, signal: controller.signal }).finally(() => {
+        active = null;
+        if (!controller.signal.aborted) finished = true;
+        else if (allowed()) schedule();
+      });
+    }, 3000);
+  };
+  const offPreference = subscribeDataSaver(schedule);
+  const offPriority = subscribeDownloadPriority(schedule);
+  void getDataSaverEnabled().then(schedule);
+  return () => {
+    disposed = true;
+    clearTimeout(timer);
+    active?.abort();
+    offPreference();
+    offPriority();
+  };
 }

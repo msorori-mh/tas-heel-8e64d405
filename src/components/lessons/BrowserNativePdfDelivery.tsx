@@ -12,6 +12,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { resolveLessonFile } from "@/lib/offline/lesson-file-client";
+import { CachedFileUpdateNotice } from "./CachedFileUpdateNotice";
 import type { PdfViewerProps } from "./PdfViewer";
 
 export function BrowserNativePdfDelivery({
@@ -29,11 +30,18 @@ export function BrowserNativePdfDelivery({
   useEffect(() => {
     let objectUrl: string | null = null;
     let cancelled = false;
+    const controller = new AbortController();
     setStatus("loading");
 
     (async () => {
       try {
-        const resolved = await resolveLessonFile({ resourceId, lessonId, subjectId, kind });
+        const resolved = await resolveLessonFile({
+          resourceId,
+          lessonId,
+          subjectId,
+          kind,
+          signal: controller.signal,
+        });
         if (cancelled) return;
         objectUrl = URL.createObjectURL(resolved.blob);
         setUrl(objectUrl);
@@ -45,9 +53,10 @@ export function BrowserNativePdfDelivery({
 
     return () => {
       cancelled = true;
+      controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [resourceId, lessonId, subjectId, reloadKey]);
+  }, [resourceId, lessonId, subjectId, kind, reloadKey]);
 
   if (status === "error") {
     return (
@@ -91,6 +100,18 @@ export function BrowserNativePdfDelivery({
           className="h-[70vh] w-full"
           aria-label={title?.trim() || "ملف الدرس"}
         />
+      )}
+      {status === "ready" && (
+        <div className="px-3 py-2">
+          <CachedFileUpdateNotice
+            key={`${kind}:${resourceId}`}
+            resourceId={resourceId}
+            lessonId={lessonId}
+            subjectId={subjectId}
+            kind={kind}
+            onUpdated={() => setReloadKey((key) => key + 1)}
+          />
+        </div>
       )}
     </section>
   );

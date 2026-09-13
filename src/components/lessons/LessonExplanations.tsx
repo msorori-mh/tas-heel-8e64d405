@@ -1,3 +1,4 @@
+import { withForegroundTransfer } from "@/lib/offline/download-priority";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { InlineHtmlResourceViewer } from "./InlineHtmlResourceViewer";
@@ -46,18 +47,19 @@ export function LessonExplanations({
     queryKey: ["lesson-explanations", lessonId, userId],
     enabled: !!userId,
     staleTime: 60_000,
-    queryFn: async ({ signal }) => {
-      const { data, error } = await supabase
-        .from("lesson_explanations")
-        .select("id,title,content,sort_order")
-        .eq("lesson_id", lessonId)
-        .order("sort_order")
-        .abortSignal(signal);
-      if (error) throw error;
-      return ((data ?? []) as ExplanationRow[]).filter(
-        (row) => (row.content ?? "").trim().length > 0,
-      );
-    },
+    queryFn: ({ signal }) =>
+      withForegroundTransfer(async () => {
+        const { data, error } = await supabase
+          .from("lesson_explanations")
+          .select("id,title,content,sort_order")
+          .eq("lesson_id", lessonId)
+          .order("sort_order")
+          .abortSignal(signal);
+        if (error) throw error;
+        return ((data ?? []) as ExplanationRow[]).filter(
+          (row) => (row.content ?? "").trim().length > 0,
+        );
+      }),
   });
   const explanations = data ?? offlineExplanations;
   if (explanations.length === 0) {

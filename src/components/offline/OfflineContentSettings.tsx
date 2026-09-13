@@ -11,6 +11,7 @@ import {
   getRecordedOfflinePackBytes,
 } from "@/lib/offline/offline-pack-downloader";
 import { formatBytes } from "@/lib/offline/network";
+import { DataSaverSetting } from "./DataSaverSetting";
 
 export function OfflineContentSettings() {
   const [used, setUsed] = useState<number | null>(null);
@@ -36,6 +37,7 @@ export function OfflineContentSettings() {
 
   return (
     <div className="space-y-3" dir="rtl">
+      <DataSaverSetting />
       <div className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2 text-xs">
         <span className="inline-flex items-center gap-1.5 text-muted-foreground">
           <HardDrive className="h-4 w-4" />
