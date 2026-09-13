@@ -14,7 +14,7 @@
  *   including an in-progress exam — is never interrupted.
  */
 
-const SW_VERSION = "v3";
+const SW_VERSION = "v4";
 const SHELL_CACHE = `tasheel-shell-${SW_VERSION}`;
 const STATIC_CACHE = `tasheel-static-${SW_VERSION}`;
 const ACTIVE_CACHES = [SHELL_CACHE, STATIC_CACHE];
@@ -87,6 +87,7 @@ self.addEventListener("message", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
+  if (request.cache === "no-store" || request.headers.has("Authorization")) return;
 
   const url = new URL(request.url);
 
@@ -98,22 +99,28 @@ self.addEventListener("fetch", (event) => {
   // Sensitive and server routes: straight to network, never cached.
   if (isSensitivePath(path)) return;
 
-  // Hashed build assets: network-first with cache fallback.
+  // Content-hashed JS/CSS have a new URL on every build. A warm route must
+  // not wait for a slow network before it can execute its already saved code.
+  // Unversioned files still revalidate through the network.
   if (path.startsWith("/assets/")) {
+    const immutable = /-[A-Za-z0-9_-]{8}\.(?:js|css)$/.test(path);
     event.respondWith(
-      caches.open(STATIC_CACHE).then(async (cache) => {
+      (async () => {
+        const cache = await caches.open(STATIC_CACHE).catch(() => null);
+        const cached = await cache?.match(request).catch(() => undefined);
+        if (immutable && isCacheableResponse(cached)) return cached;
         try {
           const response = await fetch(request);
-          if (isCacheableResponse(response)) {
-            await cache.put(request, response.clone());
+          if (cache && isCacheableResponse(response)) {
+            // Quota/storage failures must not discard a successful download.
+            event.waitUntil(cache.put(request, response.clone()).catch(() => undefined));
           }
           return response;
         } catch {
-          const cached = await cache.match(request);
-          if (cached) return cached;
+          if (isCacheableResponse(cached)) return cached;
           return Response.error();
         }
-      }),
+      })(),
     );
     return;
   }

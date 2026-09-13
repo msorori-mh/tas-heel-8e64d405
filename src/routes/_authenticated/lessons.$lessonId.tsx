@@ -25,6 +25,11 @@ import {
 } from "@/lib/api/html-pipeline.functions";
 import { PublishedHtmlResourceViewer } from "@/components/lessons/PublishedHtmlResourceViewer";
 import { OfficialTextbookContent } from "@/components/lessons/OfficialTextbookContent";
+import {
+  LessonExplanations,
+  useLessonExplanationIndex,
+  type ExplanationRow,
+} from "@/components/lessons/LessonExplanations";
 import { StructuredTextbookReader } from "@/components/lessons/StructuredTextbookReader";
 import { resolveStructuredDocument } from "@/lib/content/official-textbook/structured-blocks";
 import {
@@ -205,13 +210,6 @@ async function callLessonQuestionRpc<T>(name: string, args: Record<string, unkno
   return data as T;
 }
 
-type ExplanationRow = {
-  id: string;
-  title: string | null;
-  content: string;
-  sort_order: number;
-};
-
 function LessonPage() {
   const { lessonId } = Route.useParams();
   const { preview } = Route.useSearch();
@@ -325,14 +323,16 @@ function LessonPage() {
     return true;
   }, [subject, profile]);
 
-  const { data: book } = useQuery({
+  const { data: book, isLoading: loadingBook } = useQuery({
     enabled: !!lesson && accessible === true,
-    queryKey: ["lesson-book", lessonId],
-    queryFn: async () => {
+    queryKey: ["lesson-book", lessonId, profile?.user_id],
+    staleTime: 60_000,
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from("lesson_book_contents")
         .select("content")
         .eq("lesson_id", lessonId)
+        .abortSignal(signal)
         .maybeSingle();
       if (error) throw error;
       return (data as { content: string | null } | null) ?? null;
@@ -556,20 +556,13 @@ function LessonPage() {
   );
   const htmlSummaries = (htmlResources ?? []).filter((r) => r.resourceType === "summary_html");
 
-  // Additional written explanations — a capability only when real text exists.
-  const { data: explanations } = useQuery({
-    enabled: !!lesson && accessible === true,
-    queryKey: ["lesson-explanations", lessonId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lesson_explanations")
-        .select("id,title,content,sort_order")
-        .eq("lesson_id", lessonId)
-        .order("sort_order");
-      if (error) throw error;
-      return ((data ?? []) as ExplanationRow[]).filter((e) => (e.content ?? "").trim().length > 0);
-    },
-  });
+  // Only discover availability here. Large explanation bodies load on opening
+  // the tab, so they do not compete with the primary textbook download.
+  const { data: explanationIndex } = useLessonExplanationIndex(
+    lessonId,
+    profile?.user_id,
+    !!lesson && accessible === true,
+  );
 
   // Own progress row — the only reliable completion signal we currently own.
   const { data: progressRow } = useQuery({
@@ -652,14 +645,14 @@ function LessonPage() {
           study_tip: null,
         }
       : null);
-  const effectiveExplanations: ExplanationRow[] =
-    explanations ??
-    (offlineContent?.explanations ?? []).map((item) => ({
+  const offlineExplanations: ExplanationRow[] = (offlineContent?.explanations ?? []).map(
+    (item) => ({
       id: item.sourceId,
       title: item.title,
       content: item.body,
       sort_order: item.sortOrder,
-    }));
+    }),
+  );
   const localOfficialQuestions: LessonQuestionRow[] = (
     offlineAssessment?.officialQuestions ?? []
   ).map((question) => ({
@@ -768,7 +761,7 @@ function LessonPage() {
     htmlExperimentsCount: htmlExperiments.length,
     htmlSummariesCount: htmlSummaries.length,
     summaryText: effectiveSummary?.summary ?? null,
-    explanationsCount: effectiveExplanations.length,
+    explanationsCount: explanationIndex?.length ?? offlineExplanations.length,
     officialQuestionsCount: Math.max(
       effectiveOfficialQuestions.length,
       officialQuestionsReady ? 1 : 0,
@@ -793,6 +786,7 @@ function LessonPage() {
   const lessonProgress = computeLessonProgress(capabilities);
   const primaryCapability = capabilities.find((c) => c.type === "PRIMARY_CONTENT");
   const primaryUnavailable = !primaryCapability?.available || !primaryCapability?.studentVisible;
+  const waitingForPrimary = accessible === null || loadingBook;
 
   // 21B4E — the original textbook PDF is no longer part of the lesson journey.
   // Curriculum books live at subject level ("كتب المنهج" from موادي).
@@ -871,27 +865,12 @@ function LessonPage() {
 
       case "EXPLANATION":
         return (
-          <div className="space-y-3">
-            {effectiveExplanations.map((e) => (
-              <article key={e.id} className="rounded-xl border border-border bg-background p-3">
-                {e.title && (
-                  <h3 className="mb-1 text-sm font-semibold text-foreground">{e.title}</h3>
-                )}
-                {/<html[\s>]|<!doctype/i.test(e.content) ? (
-                  <InlineHtmlResourceViewer
-                    title={e.title || "شرح تمكين"}
-                    html={e.content}
-                    htmlResourceType="STATIC"
-                    resourceType="explanation"
-                  />
-                ) : (
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
-                    {e.content}
-                  </p>
-                )}
-              </article>
-            ))}
-          </div>
+          <LessonExplanations
+            key={`${profile?.user_id}:${lessonId}`}
+            lessonId={lessonId}
+            userId={profile?.user_id}
+            offlineExplanations={offlineExplanations}
+          />
         );
 
       case "MINDMAP":
@@ -1153,13 +1132,18 @@ function LessonPage() {
           role="status"
           className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-card"
         >
-          محتوى الدرس لم يُضف بعد.
+          {waitingForPrimary ? "جارٍ تحميل محتوى الدرس…" : "محتوى الدرس لم يُضف بعد."}
         </section>
       )}
 
       {/* Content-driven learning actions — only what actually exists */}
       {actions.length > 0 && (
-        <LessonCapabilityTabs actions={actions} renderBody={renderCapabilityBody} />
+        <LessonCapabilityTabs
+          key={lessonId}
+          actions={actions}
+          waitingForPrimary={waitingForPrimary}
+          renderBody={renderCapabilityBody}
+        />
       )}
 
       <nav
@@ -1217,11 +1201,13 @@ function QuestionLoadFailure({ onRetry }: { onRetry: () => void }) {
 function LessonCapabilityTabs({
   actions,
   renderBody,
+  waitingForPrimary,
 }: {
   actions: LessonCapability[];
   renderBody: (capability: LessonCapability) => React.ReactNode;
+  waitingForPrimary: boolean;
 }) {
-  const firstType = actions[0]?.type ?? null;
+  const firstType = waitingForPrimary ? null : (actions[0]?.type ?? null);
   const [activeType, setActiveType] = useState<LessonCapabilityType | null>(firstType);
   const [visitedTypes, setVisitedTypes] = useState<Set<LessonCapabilityType>>(
     () => new Set(firstType ? [firstType] : []),
@@ -1231,7 +1217,7 @@ function LessonCapabilityTabs({
   useEffect(() => {
     const preferredType =
       actions.find((capability) => capability.type === "PRIMARY_CONTENT")?.type ??
-      actions[0]?.type ??
+      (waitingForPrimary ? null : actions[0]?.type) ??
       null;
     const activeStillAvailable =
       activeType && actions.some((capability) => capability.type === activeType);
@@ -1241,7 +1227,7 @@ function LessonCapabilityTabs({
     if (nextType) {
       setVisitedTypes((current) => new Set(current).add(nextType));
     }
-  }, [actions, activeType, hasManualSelection]);
+  }, [actions, activeType, hasManualSelection, waitingForPrimary]);
 
   const selectTab = (type: LessonCapabilityType) => {
     setHasManualSelection(true);

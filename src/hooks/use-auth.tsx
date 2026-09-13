@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  type ReactNode,
+} from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { deriveAuthRoles } from "@/lib/auth-roles";
@@ -52,72 +60,116 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isContentManager, setIsContentManager] = useState(false);
   const [isContentStaff, setIsContentStaff] = useState(false);
+  const owner = useRef<string | null>(null);
+  const generation = useRef(0);
+  const inFlight = useRef<{ generation: number; promise: Promise<void> } | null>(null);
 
-  const loadProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select(
-        "id,user_id,full_name,grade_id,grade_uuid,governorate,governorate_id,curriculum_track_id,school_name,school_id,school_district,school_locality,phone,avatar_url",
-      )
-      .eq("user_id", userId)
-      .maybeSingle();
-    setProfile((data as Profile | null) ?? null);
+  const loadProfile = useCallback((userId: string, force = false): Promise<void> => {
+    if (owner.current !== userId) return Promise.resolve();
+    // An explicit refresh after editing a profile must supersede older reads.
+    if (force) generation.current += 1;
+    const currentGeneration = generation.current;
+    if (inFlight.current?.generation === currentGeneration) return inFlight.current.promise;
 
-    const [{ data: adminCheck }, { data: contentManagerCheck }] = await Promise.all([
-      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
-      supabase.rpc("has_role", {
-        _user_id: userId,
-        _role: "content_manager",
-      }),
-    ]);
-    const roles = deriveAuthRoles({
-      hasAdmin: Boolean(adminCheck),
-      hasContentManager: Boolean(contentManagerCheck),
+    // Independent requests share one network round trip. Concurrent auth
+    // notifications reuse this promise, never a previous account's result.
+    const promise = (async () => {
+      const [profileResult, adminResult, managerResult] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select(
+            "id,user_id,full_name,grade_id,grade_uuid,governorate,governorate_id,curriculum_track_id,school_name,school_id,school_district,school_locality,phone,avatar_url",
+          )
+          .eq("user_id", userId)
+          .maybeSingle(),
+        supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+        supabase.rpc("has_role", { _user_id: userId, _role: "content_manager" }),
+      ]);
+      if (generation.current !== currentGeneration || owner.current !== userId) return;
+      setProfile(profileResult.error ? null : ((profileResult.data as Profile | null) ?? null));
+      const roles = deriveAuthRoles({
+        hasAdmin: !adminResult.error && adminResult.data === true,
+        hasContentManager: !managerResult.error && managerResult.data === true,
+      });
+      setIsAdmin(roles.isAdmin);
+      setIsContentManager(roles.isContentManager);
+      setIsContentStaff(roles.isContentStaff);
+    })().finally(() => {
+      if (generation.current === currentGeneration) {
+        inFlight.current = null;
+        setLoading(false);
+      }
     });
-    setIsAdmin(roles.isAdmin);
-    setIsContentManager(roles.isContentManager);
-    setIsContentStaff(roles.isContentStaff);
+    inFlight.current = { generation: currentGeneration, promise };
+    return promise;
   }, []);
 
   const refreshProfile = useCallback(async () => {
     const uid = session?.user?.id;
-    if (uid) await loadProfile(uid);
+    if (uid) await loadProfile(uid, true);
   }, [session?.user?.id, loadProfile]);
 
   useEffect(() => {
     let mounted = true;
+    let receivedAuthEvent = false;
+    let initialized = false;
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const queuedLoads = new Set<number>();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event, sess) => {
+    const acceptSession = (sess: Session | null, refresh = false) => {
       if (!mounted) return;
+      const uid = sess?.user?.id ?? null;
+      const changed = !initialized || owner.current !== uid;
+      initialized = true;
       setSession(sess);
-      void setActiveOfflineOwner(sess?.user?.id ?? null).catch(() => undefined);
-      if (event === "SIGNED_OUT" || !sess?.user) {
+      if (changed) {
+        owner.current = uid;
+        generation.current += 1;
+        inFlight.current = null;
+        void setActiveOfflineOwner(uid).catch(() => undefined);
         setProfile(null);
         setIsAdmin(false);
         setIsContentManager(false);
         setIsContentStaff(false);
-      } else {
-        setTimeout(() => {
-          loadProfile(sess.user.id).catch(console.error);
-        }, 0);
+        setLoading(!!uid);
       }
+      if (!uid || (!changed && !refresh)) return;
+      const currentGeneration = generation.current;
+      if (queuedLoads.has(currentGeneration)) return;
+      queuedLoads.add(currentGeneration);
+      // Keep Supabase calls outside the synchronous auth callback/lock.
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        queuedLoads.delete(currentGeneration);
+        if (mounted && generation.current === currentGeneration) {
+          void loadProfile(uid).catch(console.error);
+        }
+      }, 0);
+      timers.add(timer);
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, sess) => {
+      receivedAuthEvent = true;
+      acceptSession(sess, event === "SIGNED_IN" || event === "USER_UPDATED");
     });
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session);
-      void setActiveOfflineOwner(data.session?.user?.id ?? null).catch(() => undefined);
-      if (data.session?.user) {
-        loadProfile(data.session.user.id).finally(() => {
-          if (mounted) setLoading(false);
-        });
-      } else {
-        setLoading(false);
-      }
-    });
+    // INITIAL_SESSION normally handles bootstrap. The snapshot is a fallback;
+    // it must never duplicate it or overwrite a more recent sign-out/sign-in.
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!receivedAuthEvent) acceptSession(data.session);
+      })
+      .catch(() => {
+        if (!receivedAuthEvent) acceptSession(null);
+      });
 
     return () => {
       mounted = false;
+      owner.current = null;
+      generation.current += 1;
+      inFlight.current = null;
+      timers.forEach(clearTimeout);
       sub.subscription.unsubscribe();
     };
   }, [loadProfile]);
