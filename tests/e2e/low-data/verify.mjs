@@ -10,7 +10,8 @@ const server = await preview({
 });
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  // Full Chromium includes the built-in PDF engine; headless-shell cannot render this reader.
+  browser = await chromium.launch({ channel: "chromium", headless: true });
   const results = [];
   for (const width of [320, 390, 768, 1280]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } });
@@ -34,12 +35,15 @@ try {
     });
     await page.goto("http://127.0.0.1:4383");
     await page.locator("object").waitFor();
+    assert.equal(await page.evaluate(() => navigator.pdfViewerEnabled), true);
     assert.equal(await page.getByRole("switch").getAttribute("aria-checked"), "true");
     assert.deepEqual(requests, []);
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       true,
     );
+    // Let the built-in PDF compositor paint before capturing the visual evidence.
+    await page.waitForTimeout(500);
     await page.screenshot({ path: `${output}/saved-reader-${width}.png`, fullPage: true });
     await context.setOffline(true);
     await page.getByRole("button", { name: "إغلاق القارئ", exact: true }).click();
