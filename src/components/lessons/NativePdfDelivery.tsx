@@ -6,7 +6,7 @@
  * leaves app-private storage and no external browser is involved.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BookOpenText, Loader2, RefreshCw, WifiOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { openNativePdf } from "@/lib/pdf/native-pdf-viewer";
 import { getEntry } from "@/lib/offline/pdf-cache";
 import { rememberLastPage, resolveLessonFile } from "@/lib/offline/lesson-file-client";
 import { formatBytes } from "@/lib/offline/network";
+import { CachedFileUpdateNotice } from "./CachedFileUpdateNotice";
 import type { PdfViewerProps } from "./PdfViewer";
 
 export function NativePdfDelivery({
@@ -28,8 +29,14 @@ export function NativePdfDelivery({
   const [localPath, setLocalPath] = useState<string | null>(null);
   const [lastPage, setLastPage] = useState(1);
   const [stale, setStale] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [readerOpen, setReaderOpen] = useState(false);
 
+  const active = useRef<AbortController | null>(null);
   const prepare = useCallback(async () => {
+    active.current?.abort();
+    const controller = new AbortController();
+    active.current = controller;
     setStatus("preparing");
     setProgress(null);
     try {
@@ -38,25 +45,31 @@ export function NativePdfDelivery({
         lessonId,
         subjectId,
         kind,
-        onProgress: (loaded, total) => setProgress({ loaded, total }),
+        signal: controller.signal,
+        onProgress: (loaded, total) => {
+          if (!controller.signal.aborted) setProgress({ loaded, total });
+        },
       });
       const entry = await getEntry(resourceId);
+      if (controller.signal.aborted) return;
       if (!entry?.localPath) throw new Error("no_local_copy");
       setLocalPath(entry.localPath);
       setLastPage(Math.max(1, resolved.lastOpenedPage || 1));
       setStale(resolved.stale);
       setStatus("ready");
     } catch {
-      setStatus("error");
+      if (!controller.signal.aborted) setStatus("error");
     }
   }, [resourceId, lessonId, subjectId, kind]);
 
   useEffect(() => {
     void prepare();
+    return () => active.current?.abort();
   }, [prepare]);
 
   const open = async () => {
-    if (!localPath) return;
+    if (!localPath || updating) return;
+    setReaderOpen(true);
     try {
       const result = await openNativePdf({
         localPath,
@@ -69,6 +82,8 @@ export function NativePdfDelivery({
       await rememberLastPage(resourceId, page);
     } catch {
       setStatus("error");
+    } finally {
+      setReaderOpen(false);
     }
   };
 
@@ -104,7 +119,7 @@ export function NativePdfDelivery({
 
       {status === "ready" && (
         <div className="space-y-2">
-          <Button size="sm" onClick={() => void open()}>
+          <Button size="sm" disabled={updating || readerOpen} onClick={() => void open()}>
             <BookOpenText className="ms-2 h-4 w-4" />
             فتح الملف داخل التطبيق
           </Button>
@@ -117,6 +132,17 @@ export function NativePdfDelivery({
               `محفوظ للاستخدام دون إنترنت · آخر صفحة: ${lastPage}`
             )}
           </p>
+          {!readerOpen && (
+            <CachedFileUpdateNotice
+              key={`${kind}:${resourceId}`}
+              resourceId={resourceId}
+              lessonId={lessonId}
+              subjectId={subjectId}
+              kind={kind}
+              onUpdated={() => void prepare()}
+              onDownloadStateChange={setUpdating}
+            />
+          )}
         </div>
       )}
     </section>

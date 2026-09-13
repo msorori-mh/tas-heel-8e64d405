@@ -29,7 +29,7 @@ vi.mock("@/hooks/use-auth", () => ({
   }),
 }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: api }));
-vi.mock("@/lib/offline/offline-pack", () => ({ prefetchNextLessons: async () => 0 }));
+vi.mock("@/lib/offline/offline-pack", () => ({ scheduleLessonPrefetch: () => () => undefined }));
 vi.mock("@/lib/offline/offline-lesson-content", () => ({ readOfflineLessonContent: api.offline }));
 vi.mock("@/lib/offline/offline-assessment-engine", () => ({
   readOfflineLessonAssessment: async () => null,
@@ -109,7 +109,15 @@ beforeEach(() => {
   explanationExists = true;
   api.offline.mockResolvedValue(null);
   api.gate.mockResolvedValue({ managed: false, visible: true, readyKeys: new Set() });
-  api.rpc.mockResolvedValue({ data: [], error: null });
+  api.rpc.mockImplementation((name: string) => {
+    const result = Promise.resolve({ data: [], error: null });
+    return Object.assign(result, {
+      abortSignal: (signal: AbortSignal) => {
+        requests.push({ table: `rpc:${name}`, columns: "questions", lesson: api.lessonId, signal });
+        return result;
+      },
+    });
+  });
   api.from.mockImplementation((table: string) => {
     const query = {
       table,

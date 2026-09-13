@@ -3,7 +3,8 @@ import { parseQuestionImage, type QuestionImage } from "@/lib/lessons/question-i
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect, useCallback } from "react";
-import { prefetchNextLessons } from "@/lib/offline/offline-pack";
+import { withForegroundTransfer } from "@/lib/offline/download-priority";
+import { scheduleLessonPrefetch } from "@/lib/offline/offline-pack";
 import { readOfflineLessonContent } from "@/lib/offline/offline-lesson-content";
 import { readOfflineLessonAssessment } from "@/lib/offline/offline-assessment-engine";
 import { recordOfflineSelfTestAttempt } from "@/lib/offline/offline-learning-journal";
@@ -200,12 +201,20 @@ function parseStudentOptions(value: unknown): StudentQuestionOption[] {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-async function callLessonQuestionRpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
+async function callLessonQuestionRpc<T>(
+  name: string,
+  args: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<T> {
+  type RpcResponse = { data: unknown; error: Error | null };
   const rpc = supabase.rpc.bind(supabase) as unknown as (
     functionName: string,
     parameters: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: Error | null }>;
-  const { data, error } = await rpc(name, args);
+  ) => PromiseLike<RpcResponse> & {
+    abortSignal: (signal: AbortSignal) => PromiseLike<RpcResponse>;
+  };
+  const request = rpc(name, args);
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
   if (error) throw error;
   return data as T;
 }
@@ -327,34 +336,37 @@ function LessonPage() {
     enabled: !!lesson && accessible === true,
     queryKey: ["lesson-book", lessonId, profile?.user_id],
     staleTime: 60_000,
-    queryFn: async ({ signal }) => {
-      const { data, error } = await supabase
-        .from("lesson_book_contents")
-        .select("content")
-        .eq("lesson_id", lessonId)
-        .abortSignal(signal)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as { content: string | null } | null) ?? null;
-    },
+    queryFn: ({ signal }) =>
+      withForegroundTransfer(async () => {
+        const { data, error } = await supabase
+          .from("lesson_book_contents")
+          .select("content")
+          .eq("lesson_id", lessonId)
+          .abortSignal(signal)
+          .maybeSingle();
+        if (error) throw error;
+        return (data as { content: string | null } | null) ?? null;
+      }),
   });
 
   const { data: summary } = useQuery({
     enabled: !!lesson && accessible === true,
     queryKey: ["lesson-summary", lessonId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lesson_summaries")
-        .select("summary,key_points,study_tip")
-        .eq("lesson_id", lessonId)
-        .maybeSingle();
-      if (error) throw error;
-      return data as {
-        summary: string | null;
-        key_points: unknown;
-        study_tip: string | null;
-      } | null;
-    },
+    queryFn: ({ signal }) =>
+      withForegroundTransfer(async () => {
+        const { data, error } = await supabase
+          .from("lesson_summaries")
+          .select("summary,key_points,study_tip")
+          .eq("lesson_id", lessonId)
+          .abortSignal(signal)
+          .maybeSingle();
+        if (error) throw error;
+        return data as {
+          summary: string | null;
+          key_points: unknown;
+          study_tip: string | null;
+        } | null;
+      }),
   });
 
   const {
@@ -365,25 +377,27 @@ function LessonPage() {
   } = useQuery({
     enabled: !!lesson && accessible === true,
     queryKey: ["lesson-official-book-questions", lessonId],
-    queryFn: async () => {
-      // Role-filtered initial payload: no answer, correct option, explanation, or rationale.
-      const data = await callLessonQuestionRpc<LessonQuestionRpcRow[]>(
-        "get_lesson_questions_with_images",
-        {
-          _kind: "official",
-          _lesson_id: lessonId,
-        },
-      );
-      return (data ?? []).map((r) => ({
-        id: r.id,
-        question_text: r.question_text,
-        question_image: parseQuestionImage(r.question_image),
-        options: parseStudentOptions(r.options),
-        question_type: r.question_type ?? null,
-        sort_order: r.sort_order ?? 0,
-        revision_id: r.revision_id,
-      })) as LessonQuestionRow[];
-    },
+    queryFn: ({ signal }) =>
+      withForegroundTransfer(async () => {
+        // Role-filtered initial payload: no answer, correct option, explanation, or rationale.
+        const data = await callLessonQuestionRpc<LessonQuestionRpcRow[]>(
+          "get_lesson_questions_with_images",
+          {
+            _kind: "official",
+            _lesson_id: lessonId,
+          },
+          signal,
+        );
+        return (data ?? []).map((r) => ({
+          id: r.id,
+          question_text: r.question_text,
+          question_image: parseQuestionImage(r.question_image),
+          options: parseStudentOptions(r.options),
+          question_type: r.question_type ?? null,
+          sort_order: r.sort_order ?? 0,
+          revision_id: r.revision_id,
+        })) as LessonQuestionRow[];
+      }),
   });
 
   const {
@@ -394,24 +408,26 @@ function LessonPage() {
   } = useQuery({
     enabled: !!lesson && accessible === true,
     queryKey: ["lesson-self-test-questions", lessonId],
-    queryFn: async () => {
-      const data = await callLessonQuestionRpc<LessonQuestionRpcRow[]>(
-        "get_lesson_questions_with_images",
-        {
-          _kind: "self_test",
-          _lesson_id: lessonId,
-        },
-      );
-      return (data ?? []).map((r) => ({
-        id: r.id,
-        question_text: r.question_text,
-        question_image: parseQuestionImage(r.question_image),
-        options: parseStudentOptions(r.options),
-        question_type: r.question_type ?? "mcq",
-        sort_order: r.sort_order ?? 0,
-        revision_id: r.revision_id,
-      })) as LessonQuestionRow[];
-    },
+    queryFn: ({ signal }) =>
+      withForegroundTransfer(async () => {
+        const data = await callLessonQuestionRpc<LessonQuestionRpcRow[]>(
+          "get_lesson_questions_with_images",
+          {
+            _kind: "self_test",
+            _lesson_id: lessonId,
+          },
+          signal,
+        );
+        return (data ?? []).map((r) => ({
+          id: r.id,
+          question_text: r.question_text,
+          question_image: parseQuestionImage(r.question_image),
+          options: parseStudentOptions(r.options),
+          question_type: r.question_type ?? "mcq",
+          sort_order: r.sort_order ?? 0,
+          revision_id: r.revision_id,
+        })) as LessonQuestionRow[];
+      }),
   });
 
   // Student-owned notebook for official book questions (free-text answers).
@@ -477,17 +493,19 @@ function LessonPage() {
   } = useQuery({
     enabled: !!lesson && accessible === true && canAccessEnhancements,
     queryKey: ["lesson-resources", lessonId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lesson_resources")
-        .select(
-          "id,resource_type,title,url,description,sort_order,is_primary,html_resource_type,metadata",
-        )
-        .eq("lesson_id", lessonId)
-        .order("sort_order");
-      if (error) throw error;
-      return (data ?? []) as ResourceRow[];
-    },
+    queryFn: ({ signal }) =>
+      withForegroundTransfer(async () => {
+        const { data, error } = await supabase
+          .from("lesson_resources")
+          .select(
+            "id,resource_type,title,url,description,sort_order,is_primary,html_resource_type,metadata",
+          )
+          .eq("lesson_id", lessonId)
+          .abortSignal(signal)
+          .order("sort_order");
+        if (error) throw error;
+        return (data ?? []) as ResourceRow[];
+      }),
   });
 
   // LESSON_EXTERNAL_PDF_DELIVERY_13F — primary external resource (Drive PDF…).
@@ -603,11 +621,11 @@ function LessonPage() {
       ? siblings[siblingIndex + 1]
       : null;
 
-  // 18C — silent Wi-Fi-only prefetch of the current lesson + the next two.
+  // Optional Wi-Fi prefetch starts after foreground work, when data saver is off.
   useEffect(() => {
     if (accessible !== true || !siblings || siblingIndex < 0) return;
-    const scope = siblings.slice(siblingIndex, siblingIndex + 3).map((s) => s.id);
-    void prefetchNextLessons({ lessonIds: scope, subjectId: lesson?.subject_id ?? null });
+    const scope = siblings.slice(siblingIndex + 1, siblingIndex + 3).map((s) => s.id);
+    return scheduleLessonPrefetch({ lessonIds: scope, subjectId: lesson?.subject_id ?? null });
   }, [accessible, siblings, siblingIndex, lesson?.subject_id]);
 
   const offlineResources: ResourceRow[] = [

@@ -16,6 +16,7 @@ import {
 } from "./pdf-cache";
 import { canOpenCachedResource } from "./entitlement";
 import { sha256Hex } from "./offline-pack-contract";
+import { withForegroundTransfer } from "./download-priority";
 
 export type FileMeta = {
   version: string;
@@ -45,8 +46,25 @@ function responseSha256(response: Response): string | null {
   return /^[a-f0-9]{64}$/.test(value) ? value : null;
 }
 
-async function authHeaders(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession();
+async function authHeaders(signal?: AbortSignal): Promise<Record<string, string>> {
+  signal?.throwIfAborted();
+  const session = supabase.auth.getSession();
+  const { data } = signal
+    ? await new Promise<Awaited<typeof session>>((resolve, reject) => {
+        const abort = () => reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+        signal.addEventListener("abort", abort, { once: true });
+        session.then(
+          (value) => {
+            signal.removeEventListener("abort", abort);
+            resolve(value);
+          },
+          (error) => {
+            signal.removeEventListener("abort", abort);
+            reject(error);
+          },
+        );
+      })
+    : await session;
   const token = data.session?.access_token;
   if (!token) throw new Error("unauthenticated");
   return { Authorization: `Bearer ${token}` };
@@ -56,10 +74,14 @@ async function authHeaders(): Promise<Record<string, string>> {
 export async function fetchFileMeta(
   resourceId: string,
   kind: SecureFileKind = "lesson",
+  signal?: AbortSignal,
 ): Promise<FileMeta> {
+  const headers = await authHeaders(signal);
+  signal?.throwIfAborted();
   const res = await fetch(endpoint(resourceId, kind), {
     method: "HEAD",
-    headers: await authHeaders(),
+    headers,
+    signal,
   });
   if (!res.ok) throw new Error(`file_meta_failed_${res.status}`);
   const length = res.headers.get("content-length");
@@ -71,7 +93,7 @@ export async function fetchFileMeta(
   };
 }
 
-export async function downloadAndCache(params: {
+type DownloadFileParams = {
   resourceId: string;
   lessonId?: string | null;
   subjectId?: string | null;
@@ -79,10 +101,26 @@ export async function downloadAndCache(params: {
   kind?: SecureFileKind;
   signal?: AbortSignal;
   onProgress?: (loaded: number, total: number | null) => void;
-}): Promise<{ blob: Blob; version: string; sha256: string }> {
+  priority?: "foreground" | "background";
+};
+
+export function downloadAndCache(
+  params: DownloadFileParams,
+): Promise<{ blob: Blob; version: string; sha256: string }> {
+  return params.priority === "background"
+    ? fetchAndCache(params)
+    : withForegroundTransfer(() => fetchAndCache(params));
+}
+
+async function fetchAndCache(
+  params: DownloadFileParams,
+): Promise<{ blob: Blob; version: string; sha256: string }> {
+  params.signal?.throwIfAborted();
+  const headers = await authHeaders(params.signal);
+  params.signal?.throwIfAborted();
   const res = await fetch(endpoint(params.resourceId, params.kind ?? "lesson"), {
     method: "GET",
-    headers: await authHeaders(),
+    headers,
     signal: params.signal,
   });
   if (!res.ok) throw new Error(`file_download_failed_${res.status}`);
@@ -99,6 +137,7 @@ export async function downloadAndCache(params: {
     let loaded = 0;
     for (;;) {
       const { done, value } = await reader.read();
+      params.signal?.throwIfAborted();
       if (done) break;
       if (value) {
         chunks.push(value as unknown as BlobPart);
@@ -111,12 +150,14 @@ export async function downloadAndCache(params: {
     blob = await res.blob();
   }
 
+  params.signal?.throwIfAborted();
   const observedSha256 = await sha256Hex(new Uint8Array(await blob.arrayBuffer()));
   const expectedSha256 = responseSha256(res);
   if (expectedSha256 && observedSha256 !== expectedSha256) {
     throw new Error("file_download_hash_mismatch");
   }
 
+  params.signal?.throwIfAborted();
   await saveFile({
     resourceId: params.resourceId,
     lessonId: params.lessonId ?? null,
@@ -133,16 +174,18 @@ export async function downloadAndCache(params: {
 }
 
 /**
- * Offline-first read: local copy wins, network only fills gaps or replaces a
- * stale version. Never throws when a usable local copy exists.
+ * Read verified, entitled local bytes without waiting for any network request.
+ * The reader checks for updates separately and replaces bytes only on request.
  */
 export async function resolveLessonFile(params: {
   resourceId: string;
   lessonId?: string | null;
   subjectId?: string | null;
   kind?: SecureFileKind;
+  signal?: AbortSignal;
   onProgress?: (loaded: number, total: number | null) => void;
 }): Promise<ResolvedFile> {
+  params.signal?.throwIfAborted();
   const cached = await getEntry(params.resourceId);
   const entitlement = cached
     ? await canOpenCachedResource(params.resourceId)
@@ -151,44 +194,15 @@ export async function resolveLessonFile(params: {
   if (cached && entitlement.allowed) {
     const localBlob = await readFile(params.resourceId);
     if (localBlob) {
-      // Version check is best-effort: no network → keep reading offline.
-      let stale = false;
-      try {
-        const meta = await fetchFileMeta(params.resourceId, params.kind ?? "lesson");
-        stale = meta.version !== cached.downloadedVersion;
-      } catch {
-        stale = false;
-      }
-
-      if (!stale) {
-        await touchEntry(params.resourceId, {});
-        return {
-          blob: localBlob,
-          version: cached.downloadedVersion,
-          fromCache: true,
-          stale: false,
-          lastOpenedPage: cached.lastOpenedPage || 1,
-        };
-      }
-
-      try {
-        const fresh = await downloadAndCache(params);
-        return {
-          blob: fresh.blob,
-          version: fresh.version,
-          fromCache: false,
-          stale: false,
-          lastOpenedPage: cached.lastOpenedPage || 1,
-        };
-      } catch {
-        return {
-          blob: localBlob,
-          version: cached.downloadedVersion,
-          fromCache: true,
-          stale: true,
-          lastOpenedPage: cached.lastOpenedPage || 1,
-        };
-      }
+      params.signal?.throwIfAborted();
+      void touchEntry(params.resourceId, {}).catch(() => undefined);
+      return {
+        blob: localBlob,
+        version: cached.downloadedVersion,
+        fromCache: true,
+        stale: false,
+        lastOpenedPage: cached.lastOpenedPage || 1,
+      };
     }
   }
 
