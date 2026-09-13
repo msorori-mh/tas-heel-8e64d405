@@ -43,7 +43,7 @@ jobs:
           cp scripts/mobile/review/ReviewApkSmokeTest.java android/app/src/androidTest/java/app/studentamkeen/tamkeen/
       - name: Build installable debug APK and instrumentation
         working-directory: android
-        run: ./gradlew assembleDebug assembleDebugAndroidTest --stacktrace
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
       - name: Verify signature, identity, pinned UI and archive content
         run: |
           mkdir -p artifacts/offline-review-apk
