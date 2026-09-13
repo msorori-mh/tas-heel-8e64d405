@@ -69,7 +69,7 @@ jobs:
             adb install -r artifacts/offline-review-apk/Student-Tamkeen-Review-237.apk
             adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w -e class app.studentamkeen.tamkeen.ReviewApkSmokeTest app.studentamkeen.tamkeen.review.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/offline-review-apk/instrumentation.txt
-            rg 'OK \(1 test\)' artifacts/offline-review-apk/instrumentation.txt
+            grep -F 'OK (1 test)' artifacts/offline-review-apk/instrumentation.txt
             adb shell am force-stop app.studentamkeen.tamkeen.review
             adb shell am start -n app.studentamkeen.tamkeen.review/app.studentamkeen.tamkeen.ReviewActivity
             sleep 5
