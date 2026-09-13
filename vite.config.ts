@@ -27,7 +27,29 @@ const release = Object.freeze({
 });
 
 export default defineConfig({
+  ...(process.env.TAMKEEN_REVIEW_APK === "1"
+    ? {
+        plugins: [
+          {
+            name: "review-apk-pinned-assets",
+            enforce: "pre" as const,
+            transform(code: string, id: string) {
+              if (!id.endsWith("/src/lib/pwa/register-sw.ts")) return;
+              return {
+                code: code.replace(
+                  "export function registerServiceWorker(): void {",
+                  "export function registerServiceWorker(): void { return;",
+                ),
+                map: null,
+              };
+            },
+          },
+        ],
+      }
+    : {}),
+  ...(process.env.TAMKEEN_REVIEW_APK === "1" ? { nitro: false as const } : {}),
   vite: {
+    ...(process.env.TAMKEEN_REVIEW_APK === "1" ? { preview: { host: "127.0.0.1" } } : {}),
     // Lovable publishes the student app from the repository root. The academy
     // database passed production post-verify before this route was enabled, so
     // the root build deliberately exposes the isolated academy UI below /academy.
@@ -39,6 +61,13 @@ export default defineConfig({
     },
   },
   tanstackStart: {
+    // Explicit review-only packaging; the normal web/release build remains SSR.
+    ...(process.env.TAMKEEN_REVIEW_APK === "1"
+      ? {
+          prerender: { concurrency: 1 },
+          spa: { enabled: true, prerender: { outputPath: "/index" } },
+        }
+      : {}),
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
