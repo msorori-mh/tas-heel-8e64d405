@@ -88,7 +88,9 @@ describe("STUDENT_BRAND_LOGO_ASSETS_02", () => {
 
     expect(root).toContain("/icons/favicon-64.png");
     expect(serviceWorker).toContain("/brand/student-tamkeen-mark.png");
-    expect(serviceWorker).toContain('const SW_VERSION = "v3"');
+    // v3 introduced the approved mark; subsequent cache versions retain it.
+    const cacheVersion = serviceWorker.match(/const SW_VERSION = "v(\d+)"/)?.[1];
+    expect(Number(cacheVersion)).toBeGreaterThanOrEqual(3);
     expect(offline).toContain("/brand/student-tamkeen-mark.png");
     expect(mobileOffline).toContain('src="student-tamkeen-mark.png"');
     expect(generator).toContain(APPROVED_SOURCE.split("/").at(-1));

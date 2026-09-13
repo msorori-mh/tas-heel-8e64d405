@@ -11,6 +11,7 @@
  */
 
 export const PWA_UPDATE_EVENT = "pwa:update-available";
+let registrationScheduled = false;
 
 function dispatchUpdateAvailable(registration: ServiceWorkerRegistration): void {
   window.dispatchEvent(
@@ -29,7 +30,9 @@ export function registerServiceWorker(): void {
     return;
   }
 
-  window.addEventListener("load", () => {
+  if (registrationScheduled) return;
+  registrationScheduled = true;
+  const register = () => {
     navigator.serviceWorker
       .register("/sw.js")
       .then((registration) => {
@@ -51,8 +54,13 @@ export function registerServiceWorker(): void {
           });
         });
       })
-      .catch(() => undefined);
-  });
+      .catch(() => {
+        registrationScheduled = false;
+      });
+  };
+  // Hydration and lazy route effects can run after the load event has fired.
+  if (document.readyState === "complete") register();
+  else window.addEventListener("load", register, { once: true });
 }
 
 let reloadScheduled = false;

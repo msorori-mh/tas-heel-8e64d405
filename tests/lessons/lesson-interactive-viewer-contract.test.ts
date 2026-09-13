@@ -65,7 +65,10 @@ test("student route exposes the seven-step rendering contracts", () => {
   const route = readFileSync("src/routes/_authenticated/lessons.$lessonId.tsx", "utf8");
   assert.match(route, /case "OFFICIAL_QUESTIONS"/);
   assert.match(route, /case "SELF_TEST"/);
-  assert.match(route, /resourceType="explanation"/);
+  assert.match(route, /case "EXPLANATION":[\s\S]*<LessonExplanations/);
+  const explanations = readFileSync("src/components/lessons/LessonExplanations.tsx", "utf8");
+  assert.match(explanations, /<InlineHtmlResourceViewer[\s\S]*resourceType="explanation"/);
+  assert.match(explanations, /htmlResourceType="STATIC"/);
   assert.match(route, /resourceType="summary"/);
   assert.match(route, /min-h-40/);
   assert.match(route, /min-h-24/);

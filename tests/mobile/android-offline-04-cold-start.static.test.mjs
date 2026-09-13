@@ -30,8 +30,12 @@ describe("OFFLINE-04 Android cold-start lesson entry", () => {
   it("pins the offline entry to the last authenticated owner and clears it on sign-out", () => {
     expect(state).toContain("activeOwnerId");
     expect(state).toContain("setActiveOfflineOwner");
-    expect(auth).toContain("setActiveOfflineOwner(sess?.user?.id ?? null)");
-    expect(auth).toContain("setActiveOfflineOwner(data.session?.user?.id ?? null)");
+    // Both auth sources enter the same owner transition, avoiding duplicate
+    // disk/native writes. Runtime auth tests also check switching and sign-out.
+    expect(auth).toContain("const uid = sess?.user?.id ?? null");
+    expect(auth).toContain("setActiveOfflineOwner(uid)");
+    expect(auth).toContain("acceptSession(sess,");
+    expect(auth).toContain("acceptSession(data.session)");
     expect(auth).toContain("await setActiveOfflineOwner(null)");
   });
 
