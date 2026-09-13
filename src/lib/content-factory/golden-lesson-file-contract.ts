@@ -1,4 +1,5 @@
 import type { GoldenCapability } from "./golden-lesson-contract.ts";
+import { parseQuestionImage } from "../lessons/question-image.ts";
 import { validateHtmlAgainstProfile, type HtmlProfile } from "../lessons/html-content-standard.ts";
 
 export type GoldenArtifactFormat = "HTML" | "JSON";
@@ -189,6 +190,14 @@ function validateJsonCapability(
       findings.push({
         code: "QUESTION_TEXT_MISSING",
         messageAr: `نص السؤال رقم ${index + 1} مفقود.`,
+      });
+    }
+    try {
+      parseQuestionImage(entry.question_image);
+    } catch (error) {
+      findings.push({
+        code: "QUESTION_IMAGE_INVALID",
+        messageAr: `السؤال ${index + 1}: ${error instanceof Error ? error.message : "صورة غير صالحة"}`,
       });
     }
     if (!questionId(entry)) {

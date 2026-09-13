@@ -3820,6 +3820,7 @@ export type Database = {
           published_at: string | null
           published_by: string | null
           question_id: string
+          question_image: Json | null
           question_text: string
           rejected_at: string | null
           rejected_by: string | null
@@ -3849,6 +3850,7 @@ export type Database = {
           published_at?: string | null
           published_by?: string | null
           question_id: string
+          question_image?: Json | null
           question_text: string
           rejected_at?: string | null
           rejected_by?: string | null
@@ -3878,6 +3880,7 @@ export type Database = {
           published_at?: string | null
           published_by?: string | null
           question_id?: string
+          question_image?: Json | null
           question_text?: string
           rejected_at?: string | null
           rejected_by?: string | null
@@ -4972,6 +4975,8 @@ export type Database = {
       }
     }
     Functions: {
+      get_lesson_question_images: { Args: { _lesson_ids: string[] }; Returns: Json }
+      get_lesson_questions_with_images: { Args: { _lesson_id: string; _kind: string }; Returns: Json }
       _lesson_question_content_fingerprint: {
         Args: { p: Json; p_role: string }
         Returns: string

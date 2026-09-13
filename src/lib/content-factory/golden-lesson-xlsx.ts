@@ -1,4 +1,6 @@
 import type { GoldenCapability } from "./golden-lesson-contract.ts";
+import { questionImageFromBytes, type QuestionImage } from "../lessons/question-image.ts";
+import { GOLDEN_ARTIFACT_MAX_BYTES } from "./golden-lesson-file-contract.ts";
 
 type QuestionCapability = Extract<GoldenCapability, "selfTest" | "officialBookQuestions">;
 
@@ -6,6 +8,7 @@ export interface ConvertedQuestionWorkbook {
   publicFile: File;
   answers: Array<Record<string, unknown>>;
   rowCount: number;
+  imageCount: number;
 }
 
 export interface QuestionWorkbookGuard {
@@ -307,6 +310,7 @@ export async function convertQuestionWorkbook(
   guard: QuestionWorkbookGuard = {},
 ): Promise<ConvertedQuestionWorkbook> {
   if (!/\.xlsx$/i.test(file.name)) throw new Error("يُقبل قالب XLSX المعتمد فقط.");
+  if (file.size > 8 * 1024 * 1024) throw new Error("حجم ملف Excel يتجاوز 8 ميجابايت.");
   // exceljs is CommonJS. A bundler gives the namespace the interop shape, plain Node ESM
   // puts everything on .default -- so reach through it when it is there. Without this the
   // module cannot be exercised outside a browser build, which is why its behaviour on real
@@ -375,6 +379,46 @@ export async function convertQuestionWorkbook(
 
   const sheetRows = readRows(matching);
   const headers = readHeaders(sheetRows);
+  const worksheet = workbook.getWorksheet(matching)!;
+  const images = new Map<number, QuestionImage>();
+  const imageColumn = [...headers].find(([, name]) => name === "question_image")?.[0];
+  const altColumn = [...headers].find(([, name]) => name === "question_image_alt")?.[0];
+  for (const drawing of worksheet.getImages()) {
+    const rowNumber = drawing.range.tl.nativeRow + 1;
+    if (rowNumber > sheetRows.length) throw new Error(`الصف ${rowNumber}: صورة بلا سؤال.`);
+    if (imageColumn === undefined || drawing.range.tl.nativeCol !== imageColumn || rowNumber < 2) {
+      throw new Error(
+        "ضع بداية الصورة داخل خلية question_image في صف السؤال، باستخدام إدراج صورة فوق الخلايا.",
+      );
+    }
+    if (images.has(rowNumber))
+      throw new Error(`الصف ${rowNumber}: توجد صورتان للسؤال نفسه؛ اجمع الشكل في صورة واحدة.`);
+    const media = workbook.getImage(Number(drawing.imageId));
+    if (!media?.buffer) throw new Error(`الصف ${rowNumber}: الصورة غير مضمنة داخل ملف Excel.`);
+    const alt =
+      altColumn === undefined
+        ? ""
+        : cellText(worksheet.getRow(rowNumber).getCell(altColumn + 1).value);
+    try {
+      images.set(
+        rowNumber,
+        questionImageFromBytes(new Uint8Array(media.buffer as ArrayBuffer), media.extension, alt),
+      );
+    } catch (error) {
+      throw new Error(
+        `الصف ${rowNumber}: ${error instanceof Error ? error.message : "صورة غير صالحة"}`,
+      );
+    }
+  }
+  // Excel's IMAGE() / rich-value in-cell images are different from drawing anchors.
+  // Never silently discard an authored figure we cannot associate with a question.
+  const { default: JSZip } = await import("jszip");
+  const zip = await JSZip.loadAsync(workbookBytes);
+  if (Object.keys(zip.files).some((path) => /^xl\/richData\//i.test(path))) {
+    throw new Error(
+      "صور Excel داخل الخلية غير مدعومة في هذا القالب؛ حوّلها إلى صورة فوق الخلايا وضع بدايتها في question_image.",
+    );
+  }
 
   const rows: Array<Record<string, string>> = [];
   const rowErrors: string[] = [];
@@ -387,7 +431,18 @@ export async function convertQuestionWorkbook(
       row[header] = cellText(excelRow[column]);
     });
     const meaningful = REQUIRED_CELLS[capability].some((field) => row[field]);
-    if (!meaningful) continue;
+    if (!meaningful) {
+      if (images.has(rowNumber) || row.question_image || row.question_image_alt)
+        rowErrors.push(`الصف ${rowNumber}: صورة بلا سؤال.`);
+      continue;
+    }
+    if (row.question_image)
+      rowErrors.push(
+        `الصف ${rowNumber}: أدرج الصورة نفسها فوق خلية question_image واترك قيمة الخلية فارغة؛ الروابط وأسماء الملفات غير مدعومة.`,
+      );
+    if (row.question_image_alt && !images.has(rowNumber))
+      rowErrors.push(`الصف ${rowNumber}: وصف الصورة موجود لكن الصورة مفقودة.`);
+    row.__image_row = String(rowNumber);
 
     rowErrors.push(...validateRow(capability, row, rowNumber));
     const normalizedSubject = row.subject_code?.trim().toUpperCase();
@@ -440,13 +495,22 @@ export async function convertQuestionWorkbook(
     capability,
     status: "DRAFT",
     source_file: file.name,
-    questions: rows.map((row) => toPublicQuestion(capability, row)),
+    questions: rows.map((row) => ({
+      ...toPublicQuestion(capability, row),
+      ...(images.has(Number(row.__image_row))
+        ? { question_image: images.get(Number(row.__image_row)) }
+        : {}),
+    })),
   };
+  const publicFile = new File([JSON.stringify(payload)], PUBLIC_FILE_NAME[capability], {
+    type: "application/json",
+  });
+  if (publicFile.size > GOLDEN_ARTIFACT_MAX_BYTES)
+    throw new Error("حجم الأسئلة والصور بعد التضمين يتجاوز 5 ميجابايت؛ قلّل أحجام الصور.");
   return {
-    publicFile: new File([JSON.stringify(payload)], PUBLIC_FILE_NAME[capability], {
-      type: "application/json",
-    }),
+    publicFile,
     answers: rows.map((row) => toAnswer(capability, row)),
     rowCount: rows.length,
+    imageCount: images.size,
   };
 }

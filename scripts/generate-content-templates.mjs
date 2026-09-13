@@ -587,6 +587,8 @@ const templates = [
       },
       { key: "sort_order", header: "sort_order", example: 1 },
       { key: "review_status", header: "review_status", example: "مسودة" },
+      { key: "question_image", header: "question_image", example: "", note: "أدرج الصورة فوق هذه الخلية في صف السؤال، واترك قيمتها فارغة. PNG/JPG حتى 512 كيلوبايت." },
+      { key: "question_image_alt", header: "question_image_alt", example: "", note: "وصف الصورة إلزامي عند وجود صورة." },
     ],
     exampleRows: [
       [
@@ -614,6 +616,7 @@ const templates = [
     notes: [
       ...COMMON_NOTES,
       EDITOR_ONLY_WARNING,
+      "صورة السؤال اختيارية: أدرجها فوق الخلايا وضع بدايتها في question_image بصف السؤال. اكتب وصفها في question_image_alt. PNG/JPG حتى 512 كيلوبايت للصورة، وصورة واحدة لكل سؤال. لا تستخدم روابط أو صور داخل الخلية. تُرفع عبر استيراد محتويات الدرس.",
       "الدور OFFICIAL_BOOK_QUESTION يثبته النظام من اسم القالب ولا يكتبه المحرر.",
       "وجود خيارات في سؤال كتاب أصلي لا ينقله إلى «اختبر فهمك».",
       "model_answer إلزامي للأسئلة المقالية أو ذات التصحيح اليدوي، ويظهر فقط بعد محاولة الطالب.",
@@ -668,6 +671,8 @@ const templates = [
       { key: "why_wrong_6", header: "why_wrong_6", example: "" },
       { key: "sort_order", header: "sort_order", example: 1 },
       { key: "review_status", header: "review_status", example: "مسودة" },
+      { key: "question_image", header: "question_image", example: "", note: "أدرج الصورة فوق هذه الخلية في صف السؤال، واترك قيمتها فارغة. PNG/JPG حتى 512 كيلوبايت." },
+      { key: "question_image_alt", header: "question_image_alt", example: "", note: "وصف الصورة إلزامي عند وجود صورة." },
     ],
     exampleRows: [
       [
@@ -696,6 +701,7 @@ const templates = [
     notes: [
       ...COMMON_NOTES,
       EDITOR_ONLY_WARNING,
+      "صورة السؤال اختيارية: أدرجها فوق الخلايا وضع بدايتها في question_image بصف السؤال. اكتب وصفها في question_image_alt. PNG/JPG حتى 512 كيلوبايت للصورة، وصورة واحدة لكل سؤال. لا تستخدم روابط أو صور داخل الخلية. تُرفع عبر استيراد محتويات الدرس.",
       "الدور SELF_TEST ونوع SINGLE_CHOICE يثبتهما النظام من اسم القالب.",
       "explanation إلزامي ويظهر بعد اختيار الطالب.",
       "عدد الخيارات من 2 إلى 6؛ correct_index يجب أن يكون ضمن عدد الخيارات المدخلة فعليًا.",

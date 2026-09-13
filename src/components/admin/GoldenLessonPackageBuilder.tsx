@@ -685,7 +685,9 @@ export function GoldenLessonPackageBuilder() {
             );
           }
           artifactFile = converted.publicFile;
-          displayName = file.name;
+          displayName = converted.imageCount
+            ? `${file.name} (${converted.imageCount} صورة)`
+            : file.name;
           rowCount = converted.rowCount;
           convertedAnswers = converted.answers;
         } catch (excelError) {
@@ -1421,6 +1423,13 @@ export function GoldenLessonPackageBuilder() {
                             : "بدون وسم script أو معالجات onclick — المحتوى ثابت."}
                         </li>
                       </ul>
+                    )}
+                    {(capability === "selfTest" || capability === "officialBookQuestions") && (
+                      <p className="text-xs leading-6 text-muted-foreground">
+                        يمكن إضافة صورة للسؤال: أدرج صورة PNG أو JPG فوق الخلايا، وضع بدايتها في
+                        عمود question_image بصف السؤال، واكتب وصفها في question_image_alt. صورة
+                        واحدة لكل سؤال حتى 512 كيلوبايت؛ اترك العمودين فارغين للأسئلة النصية.
+                      </p>
                     )}
                     {(capability === "selfTest" || capability === "officialBookQuestions") && (
                       <Button

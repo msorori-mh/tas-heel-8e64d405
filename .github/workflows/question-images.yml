@@ -1,0 +1,39 @@
+name: Question image import and mobile display
+on:
+  push:
+    branches: [feat/lesson-question-images]
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/lib/lessons/question-image.ts"
+      - "src/components/lessons/QuestionFigure.tsx"
+      - "src/lib/content-factory/golden-lesson-xlsx.ts"
+      - "public/content-import-templates/09*"
+      - "public/content-import-templates/10*"
+      - "tests/lessons/question-images*"
+      - "tests/e2e/question-images/**"
+      - ".github/workflows/question-images.yml"
+permissions:
+  contents: read
+jobs:
+  interface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node --import tsx --test tests/lessons/question-images.test.ts tests/content-factory/golden-lesson-xlsx-browser.test.ts
+      - run: npx vitest run tests/lessons/question-figure.test.tsx tests/offline/offline-05-assessment-engine.test.ts tests/offline/offline-05-assessment-source.test.ts
+      - run: npx playwright install --with-deps chromium
+      - run: npx vite build --config tests/e2e/question-images/vite.config.ts
+      - run: node tests/e2e/question-images/verify.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: question-images-${{ github.sha }}
+          path: artifacts/question-images
+          if-no-files-found: error

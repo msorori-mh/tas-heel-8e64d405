@@ -1,3 +1,5 @@
+import { QuestionFigure } from "@/components/lessons/QuestionFigure";
+import { parseQuestionImage, type QuestionImage } from "@/lib/lessons/question-image";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
@@ -177,6 +179,7 @@ type QuestionRow = {
   id: string;
   lesson_id: string | null;
   question_text: string;
+  question_image?: QuestionImage | null;
   options: unknown;
   question_type: string | null;
   sort_order: number | null;
@@ -218,7 +221,11 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
     (lessons ?? []).map((l) => [l.id, l.sort_order ?? 9999]),
   );
 
-  const { data: questions, isLoading } = useQuery({
+  const {
+    data: questions,
+    isLoading,
+    isError: questionsFailed,
+  } = useQuery({
     enabled: lessonIds.length > 0,
     queryKey: ["practice-questions", unitId, lessonIds.join(",")],
     queryFn: async () => {
@@ -227,7 +234,17 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
         .select("id,lesson_id,question_text,options,question_type,sort_order")
         .in("lesson_id", lessonIds);
       if (error) throw error;
-      return (data as QuestionRow[]) ?? [];
+      if (!data?.length) return [];
+      const { data: imageData, error: imageError } = await supabase.rpc(
+        "get_lesson_question_images",
+        { _lesson_ids: lessonIds },
+      );
+      if (imageError) throw imageError;
+      const images = (imageData ?? {}) as Record<string, unknown>;
+      return (data as QuestionRow[]).map((question) => ({
+        ...question,
+        question_image: parseQuestionImage(images[question.id]),
+      }));
     },
   });
 
@@ -360,6 +377,11 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
         </span>
       </div>
 
+      {questionsFailed && (
+        <p role="alert" className="text-sm text-destructive">
+          تعذّر تحميل الأسئلة أو صورها. أعد تحميل الصفحة قبل بدء الاختبار.
+        </p>
+      )}
       {serverResult && (
         <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-card">
           <p className="text-2xl font-bold text-foreground">النتيجة: {serverResult.score}%</p>
@@ -382,6 +404,7 @@ function PracticeQuestionsList({ unitId, subjectId }: { unitId: string; subjectI
           const qResult = resultByQuestion.get(q.id);
           return (
             <li key={q.id} className="rounded-2xl border border-border bg-card p-4 shadow-card">
+              <QuestionFigure image={q.question_image} />
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2">
                   <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground">

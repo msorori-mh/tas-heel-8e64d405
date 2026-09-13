@@ -1,3 +1,4 @@
+import type { QuestionImage } from "../lessons/question-image";
 /** OFFLINE-05 — verified local question read, reveal and grading engine. */
 
 import { readOfflineArtifactBytes } from "./offline-artifact-cache";
@@ -15,6 +16,7 @@ export type OfflineStudentQuestion = {
   id: string;
   revisionId: string;
   questionText: string;
+  questionImage?: QuestionImage | null;
   questionType: string;
   sortOrder: number;
   options: OfflineQuestionOption[];
@@ -63,6 +65,7 @@ function studentQuestion(
     id: question.questionId,
     revisionId: question.revisionId,
     questionText: question.questionText,
+    ...(question.questionImage ? { questionImage: question.questionImage } : {}),
     questionType: question.questionType,
     sortOrder: question.sortOrder,
     options: question.options.map((option) => ({ ...option })),

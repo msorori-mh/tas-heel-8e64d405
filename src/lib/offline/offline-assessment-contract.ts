@@ -1,3 +1,4 @@
+import { parseQuestionImage } from "../lessons/question-image";
 /** OFFLINE-05 — deterministic private assessment payloads for a verified pack. */
 
 import { z } from "zod";
@@ -16,6 +17,17 @@ const baseQuestionShape = {
   questionId: id,
   revisionId: id,
   questionText: z.string().trim().min(1).max(32_000),
+  questionImage: z
+    .unknown()
+    .transform((value, ctx) => {
+      try {
+        return parseQuestionImage(value);
+      } catch {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid question image" });
+        return z.NEVER;
+      }
+    })
+    .optional(),
   questionType: z.string().trim().min(1).max(120),
   sortOrder: z.number().int().min(0).max(100_000),
   options: z.array(offlineQuestionOptionSchema).max(40),

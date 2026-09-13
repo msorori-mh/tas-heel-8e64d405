@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { QuestionFigure } from "@/components/lessons/QuestionFigure";
 import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +20,7 @@ type Question = {
   revision_id: string;
   question_code: string;
   question_text: string;
+  question_image?: unknown;
   display_order: number;
   options: Option[];
   explanation: string | null;
@@ -128,6 +130,7 @@ export function LessonSelfTestQuestionsDialog({
           <div className="space-y-3">
             {questions.map((question, index) => (
               <div key={question.question_id} className="rounded-xl border border-border p-3">
+                <QuestionFigure image={question.question_image} />
                 {editing?.question_id === question.question_id ? (
                   <div className="space-y-3">
                     <Textarea

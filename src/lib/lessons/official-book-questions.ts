@@ -1,3 +1,4 @@
+import { parseQuestionImage, type QuestionImage } from "./question-image";
 /**
  * PHASE 21D — OFFICIAL BOOK QUESTIONS  +  PHASE 21E — SELF TEST
  *
@@ -67,6 +68,7 @@ export interface PublicQuestion {
   id: string;
   type: OfficialQuestionType;
   text: string;
+  questionImage?: QuestionImage | null;
   sortOrder: number;
   options: PublicQuestionOption[];
   /** Pinned content revision the attempt is graded against (21E). */
@@ -140,6 +142,7 @@ export function toPublicQuestion(raw: Record<string, unknown>): PublicQuestion {
     id: String(raw["id"] ?? ""),
     type: OFFICIAL_QUESTION_TYPES.includes(type) ? type : "single_choice",
     text: String(raw["question_text"] ?? raw["text"] ?? ""),
+    ...(raw["question_image"] ? { questionImage: parseQuestionImage(raw["question_image"]) } : {}),
     sortOrder: Number(raw["sort_order"] ?? 0),
     options,
     revisionId: (raw["revision_id"] as string | null) ?? null,

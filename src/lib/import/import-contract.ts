@@ -468,6 +468,20 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("explanation", "official_question_answers", "explanation", false),
       f("sort_order", "questions", "sort_order", false),
       f("review_status", "questions", null, false, "GAP-03: routed to content_review_state"),
+      f(
+        "question_image",
+        "question_revisions",
+        null,
+        false,
+        "Drawing anchor; supported by lesson component XLSX import",
+      ),
+      f(
+        "question_image_alt",
+        "question_revisions",
+        null,
+        false,
+        "Alternative text for the embedded question image",
+      ),
     ],
     gaps: [
       "questions has no revision/publication columns → GAP-03 (content_review_state, hash-bound).",
@@ -518,6 +532,20 @@ export const IMPORT_ENTITY_CONTRACTS: Record<ContentImportTemplateKey, ImportEnt
       f("why_wrong_6", "question_option_rationales", "why_wrong", false),
       f("sort_order", "questions", "sort_order", false),
       f("review_status", "questions", null, false, "GAP-03: routed to content_review_state"),
+      f(
+        "question_image",
+        "question_revisions",
+        null,
+        false,
+        "Drawing anchor; supported by lesson component XLSX import",
+      ),
+      f(
+        "question_image_alt",
+        "question_revisions",
+        null,
+        false,
+        "Alternative text for the embedded question image",
+      ),
     ],
     gaps: [
       "Writes MUST route through the question-bank workflow and persist educational_label=SELF_TEST.",
